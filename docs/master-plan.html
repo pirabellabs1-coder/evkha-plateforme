@@ -376,10 +376,10 @@ fix(intake): handle Tally 2xx within 10s
       <ul class="dod"><li>Webhook répond 2xx en &lt;10s, génération déléguée à Celery.</li><li>Variables normalisées + validées (schéma).</li><li>Champs manquants → statut « incomplet » explicite, jamais de valeur inventée.</li></ul></div>
     <div class="card"><h3>documents + Rendering</h3><div class="meta">owner: Claude · review: Codex</div>
       <p>Assemble le dossier final dans Google Docs selon l'ordre EVKHA + applique la couche client.</p>
-      <ul class="dod"><li>Ordre respecté : page de garde → sommaire → fiche projet → chapitres → annexe brief → Sources.</li><li>Zéro balise interne / « Étape » / bloc QA dans le rendu (test automatisé de pureté).</li><li>Section Sources unique, regroupée par thème.</li><li>Encadrés mentor insérés aux chapitres décisifs.</li></ul></div>
+      <ul class="dod"><li>Ordre respecté : page de garde → sommaire → fiche projet → chapitres → annexe brief → Sources.</li><li>Zéro balise interne / « Étape » / bloc QA dans le rendu (test automatisé de pureté).</li><li>Section Sources unique, regroupée par thème.</li><li>Encadrés mentor insérés aux chapitres décisifs.</li><li>Deux sorties (D3) : PDF en pièce jointe + lien éditable/Gamma.</li><li>Purge auto des temporaires à J+7 (D5) : tâche Celery planifiée + journalisée.</li></ul></div>
     <div class="card"><h3>integrations</h3><div class="meta">owner: Codex · review: Claude</div>
-      <p>Clients API isolés derrière des interfaces (Claude, Google Docs/Drive, Gamma, email, Systeme.io, Tally).</p>
-      <ul class="dod"><li>Chaque client mockable (tests sans réseau).</li><li>Retries + timeouts + erreurs typées.</li><li>Aucune clé en dur ; tout via env.</li><li>Gamma : poll asynchrone + export testé avec le compte Evkha.</li></ul></div>
+      <p>Clients API isolés derrière des interfaces (Claude, Google Docs/Drive, Gamma, email Brevo, Systeme.io, Tally).</p>
+      <ul class="dod"><li>Chaque client mockable (tests sans réseau).</li><li>Retries + timeouts + erreurs typées.</li><li>Aucune clé en dur ; tout via env.</li><li>Gamma : poll asynchrone + export testé avec le compte Evkha ; sauté si <code>gamma_enabled=false</code> (D4).</li><li>Email via Brevo (D6) ; couche SMTP abstraite pour bascule future.</li></ul></div>
     <div class="card"><h3>n8n workflows (5)</h3><div class="meta">owner: Codex · review: Claude</div>
       <p>Commande Systeme.io · formulaire Tally · suivi génération · livraison · erreur critique.</p>
       <ul class="dod"><li>Workflows exportés en JSON <b>versionné</b> dans le repo.</li><li>Idempotence + vérif signature/secret quand dispo.</li><li>Notif Evangeline sur erreur (job ID, livrable, chapitre, message).</li></ul></div>
@@ -448,18 +448,21 @@ fix(intake): handle Tally 2xx within 10s
 
 <!-- 11 -->
 <section id="s11">
-  <div class="sec-head"><span class="num">11</span><h2>Décisions à valider (avant Phase 0)</h2></div>
-  <p class="sec-intro">Ces points bloquent ou orientent l'architecture. Tant qu'ils ne sont pas tranchés, on les marque <code>TODO(décision)</code> dans le code, sans improviser.</p>
-  <div class="grid2">
-    <div class="card"><h3>D1 · Repo privé</h3><div class="meta">bloquant — confidentialité</div><p>Passer <code>Systeme-EVKHA-</code> en <b>privé</b> avant tout push de code métier (actuellement public).</p></div>
-    <div class="card"><h3>D2 · Répartition Codex × Claude</h3><div class="meta">valide / ajuste §05</div><p>Valider ou réorganiser la matrice d'ownership des modules.</p></div>
-    <div class="card"><h3>D3 · Livraison client</h3><div class="meta">cahier Q2</div><p>Lien de téléchargement ou pièces jointes ?</p></div>
-    <div class="card"><h3>D4 · Gamma obligatoire ?</h3><div class="meta">cahier Q3–Q4</div><p>Pour tous les livrables ou optionnel ? Thèmes B2B avec IDs API existants ?</p></div>
-    <div class="card"><h3>D5 · Rétention fichiers</h3><div class="meta">cahier Q6</div><p>Durée de conservation des temporaires : 24 h / 48 h / autre ?</p></div>
-    <div class="card"><h3>D6 · Email evkha.fr</h3><div class="meta">cahier Q7</div><p>Google Workspace / SMTP / Brevo / Mailgun ?</p></div>
+  <div class="sec-head"><span class="num">11</span><h2>Décisions actées (gelées)</h2></div>
+  <p class="sec-intro">Décisions tranchées le 01/06/2026. Elles sont désormais des <b>contraintes du système</b>, plus des questions ouvertes. Tout changement passe par une nouvelle décision tracée.</p>
+  <div class="tbl gate">
+    <div class="row head"><div class="cell">Décision</div><div class="cell">Choix acté → implication</div></div>
+    <div class="row"><div class="cell"><b>D1</b> · Confidentialité repo</div><div class="cell"><span class="pill olive">repo PRIVÉ</span> Fait. Plus aucun push sur dépôt public. gitleaks en CI.</div></div>
+    <div class="row"><div class="cell"><b>D2</b> · Ownership Codex × Claude</div><div class="cell"><span class="pill olive">matrice §05 validée</span> par défaut, ajustable sans impact code.</div></div>
+    <div class="row"><div class="cell"><b>D3</b> · Livraison client</div><div class="cell"><span class="pill gold">les deux</span> PDF en pièce jointe <b>+</b> lien (Docs éditable / Gamma). Le module documents produit les deux sorties.</div></div>
+    <div class="row"><div class="cell"><b>D4</b> · Gamma</div><div class="cell"><span class="pill gold">optionnel selon l'offre</span> Flag <code>gamma_enabled</code> par commande/offre. Le pipeline saute proprement Gamma si désactivé.</div></div>
+    <div class="row"><div class="cell"><b>D5</b> · Rétention temporaires</div><div class="cell"><span class="pill gold">7 jours</span> Purge auto à J+7 (tâche Celery planifiée), horodatée et journalisée.</div></div>
+    <div class="row"><div class="cell"><b>D6</b> · Email evkha.fr</div><div class="cell"><span class="pill gold">Brevo</span> Connecteur email = Brevo (API), clés via env. Adapter SMTP abstrait pour bascule future.</div></div>
   </div>
   <div class="box good" style="margin-top:16px"><span class="lab">Déjà résolu</span>
-    Les méthodes <b>Business Plan</b> et <b>Stratégie</b> existent au Drive (dossier « DETAILS DES NOUVEAUX SYSTÈMES ») → la question « sources BP/STR disponibles ? » est levée. Elles seront ingérées en Phase 5.</div>
+    Les méthodes <b>Business Plan</b> et <b>Stratégie</b> existent au Drive (dossier « DETAILS DES NOUVEAUX SYSTÈMES ») → sources disponibles, ingérées en Phase 5.</div>
+  <div class="box note"><span class="lab">À surveiller (non bloquant)</span>
+    Thèmes Gamma B2B : vérifier l'existence d'IDs exploitables par API avec le compte Evkha au démarrage de la Phase 4 (sinon fallback PDF Google Docs).</div>
 </section>
 
 </main>
