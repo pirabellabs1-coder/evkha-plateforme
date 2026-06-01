@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Système EVKHA — Plan Maître d'Implémentation</title>
+<style>
+  :root{
+    --ivory:#FAF9F5; --slate:#141413; --clay:#D97757; --oat:#E3DACC;
+    --olive:#788C5D; --gold:#C9A227;
+    --gray-150:#F0EEE6; --gray-300:#D1CFC5; --gray-500:#87867F; --gray-700:#3D3D3A;
+    --white:#FFFFFF; --red:#8A3B1E; --redbg:#F3D9CC; --greenbg:#E4E9DC; --greentx:#4B5C39;
+    --serif:ui-serif,Georgia,'Times New Roman',serif;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Monaco,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ivory);color:var(--slate);font-family:var(--sans);line-height:1.55;font-size:15px}
+  .wrap{display:grid;grid-template-columns:260px 1fr;max-width:1280px;margin:0 auto}
+  /* ---- NAV ---- */
+  nav{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:28px 20px;border-right:1.5px solid var(--gray-300);background:var(--gray-150)}
+  nav .brand{font-family:var(--serif);font-size:18px;font-weight:600;margin-bottom:4px}
+  nav .brand small{display:block;font-family:var(--sans);font-size:11px;color:var(--gray-500);font-weight:400;letter-spacing:.06em;text-transform:uppercase;margin-top:6px}
+  nav ol{list-style:none;padding:0;margin:18px 0 0;counter-reset:n}
+  nav ol li{margin:2px 0}
+  nav ol li a{display:flex;gap:10px;align-items:baseline;text-decoration:none;color:var(--gray-700);font-size:13px;padding:5px 8px;border-radius:7px}
+  nav ol li a:hover{background:var(--oat);color:var(--slate)}
+  nav ol li a .nn{font-family:var(--mono);font-size:11px;color:var(--clay);min-width:20px}
+  nav .foot{margin-top:22px;padding-top:16px;border-top:1.5px solid var(--gray-300);font-size:11px;color:var(--gray-500)}
+  /* ---- MAIN ---- */
+  main{padding:40px 56px 120px;min-width:0}
+  header.top{margin-bottom:8px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--clay)}
+  h1{font-family:var(--serif);font-size:38px;line-height:1.1;margin:8px 0 14px;font-weight:600}
+  .promptbox{background:var(--white);border:1.5px solid var(--gray-300);border-radius:12px;padding:16px 18px;font-size:14px;color:var(--gray-700)}
+  .promptbox b{color:var(--slate)}
+  /* summary strip */
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0 10px}
+  .metric{background:var(--white);border:1.5px solid var(--gray-300);border-radius:12px;padding:14px 16px}
+  .metric .k{font-family:var(--mono);font-size:11px;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em}
+  .metric .v{font-family:var(--serif);font-size:22px;margin-top:6px}
+  .metric .v small{font-size:13px;color:var(--gray-500);font-family:var(--sans)}
+  /* sections */
+  section{padding:38px 0 4px;border-top:1.5px solid var(--gray-300);margin-top:34px;scroll-margin-top:14px}
+  section:first-of-type{border-top:none;margin-top:18px}
+  .sec-head{display:flex;align-items:center;gap:14px}
+  .sec-head .num{font-family:var(--mono);font-size:13px;background:var(--slate);color:var(--ivory);border-radius:8px;padding:5px 9px}
+  .sec-head h2{font-family:var(--serif);font-size:26px;margin:0;font-weight:600}
+  .sec-intro{color:var(--gray-700);max-width:78ch;margin:12px 0 18px}
+  h3{font-family:var(--serif);font-size:18px;margin:26px 0 8px}
+  h4{font-size:14px;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);font-family:var(--mono);font-weight:600}
+  p{max-width:80ch}
+  ul,ol.body{max-width:80ch}
+  li{margin:4px 0}
+  code{font-family:var(--mono);font-size:.86em;background:var(--gray-150);border:1px solid var(--gray-300);border-radius:5px;padding:1px 5px}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--gray-300);background:var(--white);margin:2px 3px 2px 0}
+  .pill.clay{background:#F7E4DA;border-color:#E6BFA9;color:var(--red)}
+  .pill.olive{background:var(--greenbg);border-color:#C2CDAE;color:var(--greentx)}
+  .pill.gold{background:#F6EFD6;border-color:#E2D08A;color:#7a6312}
+  /* callouts */
+  .box{border-radius:12px;padding:14px 16px;margin:14px 0;border:1.5px solid var(--gray-300);background:var(--white)}
+  .box.warn{background:var(--redbg);border-color:#E6BFA9}
+  .box.warn b{color:var(--red)}
+  .box.good{background:var(--greenbg);border-color:#C2CDAE}
+  .box.note{background:var(--gray-150)}
+  .box .lab{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:6px;color:var(--gray-500)}
+  /* cards grid */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .card{background:var(--white);border:1.5px solid var(--gray-300);border-radius:12px;padding:16px 18px}
+  .card h3{margin:0 0 4px;font-size:16px}
+  .card .meta{font-family:var(--mono);font-size:11px;color:var(--gray-500);margin-bottom:8px}
+  .card ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}
+  /* milestones */
+  .milestones{margin:10px 0}
+  .milestone{display:grid;grid-template-columns:130px 28px 1fr;gap:0 18px}
+  .milestone .when{font-family:var(--mono);font-size:12px;text-align:right;color:var(--gray-700);padding-top:1px}
+  .milestone .dot-col{display:flex;flex-direction:column;align-items:center}
+  .milestone .dot{width:14px;height:14px;border-radius:50%;border:3px solid var(--clay);background:var(--ivory);margin-top:3px}
+  .milestone .dot.done{border-color:var(--olive);background:var(--olive)}
+  .milestone .line{width:2px;flex:1;background:var(--gray-300);margin:4px 0}
+  .milestone:last-child .line{display:none}
+  .milestone .body{padding-bottom:22px}
+  .milestone .body h3{margin:0 0 4px;font-size:16px}
+  .milestone .body p{font-size:13.5px;color:var(--gray-700);margin:0}
+  .tags{margin-top:8px}
+  /* tables (grid based) */
+  .tbl{border:1.5px solid var(--gray-300);border-radius:12px;overflow:hidden;margin:14px 0}
+  .tbl .row{display:grid}
+  .tbl .row+.row{border-top:1.5px solid var(--gray-300)}
+  .tbl .cell{padding:10px 13px;font-size:13.5px}
+  .tbl .cell+.cell{border-left:1.5px solid var(--gray-300)}
+  .tbl .head .cell{background:var(--gray-150);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-700)}
+  .risks .row{grid-template-columns:1.5fr 80px 2fr}
+  .own .row{grid-template-columns:1.3fr 90px 90px 2fr}
+  .gate .row{grid-template-columns:1fr 2.2fr}
+  .sev{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:6px;font-weight:600}
+  .sev.high{background:var(--redbg);color:var(--red)}
+  .sev.med{background:var(--oat);color:var(--slate)}
+  .sev.low{background:var(--greenbg);color:var(--greentx)}
+  .who{font-family:var(--mono);font-size:11px;font-weight:600}
+  .who.claude{color:var(--clay)}
+  .who.codex{color:#2f6f8f}
+  .who.both{color:var(--gray-700)}
+  /* code */
+  .code{background:var(--slate);border-radius:12px;padding:16px 18px;overflow-x:auto;margin:12px 0}
+  .code .file{font-family:var(--mono);font-size:11px;color:var(--gray-500);margin-bottom:8px}
+  .code pre{font-family:var(--mono);font-size:12.5px;line-height:1.65;color:#E8E6DE;white-space:pre;margin:0}
+  .code .kw{color:var(--clay)} .code .str{color:#9DB17C} .code .cm{color:var(--gray-500)} .code .fn{color:#C9B98A}
+  /* DoD checklist */
+  .dod{list-style:none;padding:0;margin:8px 0}
+  .dod li{padding-left:26px;position:relative;font-size:13.5px;margin:5px 0}
+  .dod li::before{content:"☐";position:absolute;left:0;top:-1px;color:var(--olive);font-size:16px}
+  /* svg */
+  .diagram{background:var(--white);border:1.5px solid var(--gray-300);border-radius:12px;padding:18px;overflow-x:auto;margin:14px 0}
+  .diagram svg{min-width:820px;display:block;margin:0 auto}
+  @media(max-width:1000px){
+    .wrap{grid-template-columns:1fr} nav{position:static;height:auto;border-right:none;border-bottom:1.5px solid var(--gray-300)}
+    main{padding:28px 22px 80px} .strip{grid-template-columns:1fr 1fr} .grid2,.grid3{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="brand">Système EVKHA<small>Plan Maître · V1</small></div>
+  <ol>
+    <li><a href="#s0"><span class="nn">00</span> Comment utiliser ce doc</a></li>
+    <li><a href="#s1"><span class="nn">01</span> Mission &amp; règles d'or</a></li>
+    <li><a href="#s2"><span class="nn">02</span> Architecture cible</a></li>
+    <li><a href="#s3"><span class="nn">03</span> Carte des modules</a></li>
+    <li><a href="#s4"><span class="nn">04</span> Méthodo scaffolding</a></li>
+    <li><a href="#s5"><span class="nn">05</span> Branches Codex × Claude</a></li>
+    <li><a href="#s6"><span class="nn">06</span> Roadmap &amp; jalons</a></li>
+    <li><a href="#s7"><span class="nn">07</span> Fiches modules + DoD</a></li>
+    <li><a href="#s8"><span class="nn">08</span> Garde-fous &amp; portes qualité</a></li>
+    <li><a href="#s9"><span class="nn">09</span> Moteurs transverses</a></li>
+    <li><a href="#s10"><span class="nn">10</span> Risques</a></li>
+    <li><a href="#s11"><span class="nn">11</span> Décisions à valider</a></li>
+  </ol>
+  <div class="foot">Document interne — confidentiel.<br>Réf. : cahier des charges EVKHA + Note système Tobias + Consignes d'écriture (mai 2026).</div>
+</nav>
+
+<main>
+<header class="top">
+  <div class="eyebrow">Playbook d'ingénierie · piloté par agents IA</div>
+  <h1>Système EVKHA — Plan Maître d'Implémentation</h1>
+  <div class="promptbox">
+    Pipeline d'<b>industrialisation invisible</b> de 4 livrables premium (étude de marché, étude de concurrence, stratégie business, business plan).
+    Ce document est la <b>source de vérité unique</b> pour construire le système de A à Z, en <b>parallèle</b> entre <b>Claude</b> et <b>Codex</b> sur des branches séparées, via une méthode <b>scaffolding + modulaire</b> avec garde-fous explicites. Toute tâche commence par lire ce doc + la fiche module concernée.
+  </div>
+</header>
+
+<div class="strip">
+  <div class="metric"><div class="k">Livrables</div><div class="v">4 <small>EM·EC·STR·BP</small></div></div>
+  <div class="metric"><div class="k">Coût IA / dossier</div><div class="v">&lt; 2 € <small>plafond dur</small></div></div>
+  <div class="metric"><div class="k">Stack cœur</div><div class="v">Django <small>+ n8n + Celery</small></div></div>
+  <div class="metric"><div class="k">Modules</div><div class="v">9 <small>+ 4 moteurs</small></div></div>
+</div>
+
+<!-- 00 -->
+<section id="s0">
+  <div class="sec-head"><span class="num">00</span><h2>Comment utiliser ce document</h2></div>
+  <p class="sec-intro">Ce playbook sert autant aux humains qu'aux agents IA (Claude &amp; Codex). Il impose un protocole strict pour <b>éliminer les hallucinations et la perte de contexte</b> : chaque agent travaille sur une unité bornée, contractualisée et vérifiable.</p>
+
+  <h4>Protocole obligatoire avant toute tâche</h4>
+  <ol class="body">
+    <li><b>Lire</b> : ce plan (§01, §04, §08) + la <b>fiche du module</b> ciblé (§07) + la section du <b>cahier des charges</b> qu'elle référence.</li>
+    <li><b>Contrat d'abord</b> : produire/valider l'interface du module (modèles, schémas API, types, signatures) <em>avant</em> toute logique. Le contrat est la source de vérité ; aucun champ inventé.</li>
+    <li><b>Périmètre borné</b> : une branche = un module ou une tranche. Ne jamais déborder sur un module appartenant à l'autre agent (voir matrice §05).</li>
+    <li><b>Traçabilité</b> : chaque décision non triviale cite sa source (cahier, note Tobias, consignes d'écriture). Si l'info manque → marquer <code>// TODO(décision)</code> et lister dans §11, ne jamais inventer.</li>
+    <li><b>Vérifier avant de livrer</b> : passer la Definition of Done du module (§07) + les portes qualité globales (§08). Une tâche n'est « réussie » que si elle franchit ces portes.</li>
+  </ol>
+
+  <div class="box note"><span class="lab">Règle anti-dérive</span>
+    Si une tâche dépasse son périmètre ou nécessite de modifier un contrat partagé, <b>on s'arrête</b> : on ouvre une décision (§11) et on synchronise les deux agents avant de continuer. Mieux vaut une PR bloquée qu'un merge incohérent.</div>
+</section>
+
+<!-- 01 -->
+<section id="s1">
+  <div class="sec-head"><span class="num">01</span><h2>Mission &amp; règles d'or non négociables</h2></div>
+  <p class="sec-intro">Cinq contraintes structurent tout le système. Toute implémentation qui en viole une est <b>refusée en revue</b>, même si elle « marche ».</p>
+
+  <div class="grid2">
+    <div class="card"><h3>1 · Industrialisation invisible</h3><div class="meta">Note Tobias §9–13 · Consignes §1</div>
+      Le client final ne voit jamais le pipeline. Séparation stricte <b>couche interne</b> (prompts, QA, logs, balises) ↔ <b>couche client</b> (rendu propre). Bannir « Étape 1.1 », « Point de contrôle », « CONTEXTE À RÉINJECTER », phrases méta.</div>
+    <div class="card"><h3>2 · Plafond de coût IA &lt; 2 €</h3><div class="meta">Note Tobias §3–4 — inquiétude n°1</div>
+      Coût réel par dossier visé &lt; 1–2 €. Impose contexte glissant, anti-répétition, et un <b>moteur de suivi de coût</b> (tokens + € par chapitre / dossier / job). Un dépassement de budget = échec de la génération, pas un détail.</div>
+    <div class="card"><h3>3 · Cohérence analytique totale</h3><div class="meta">Note Tobias §5–6</div>
+      Aucun chiffre contradictoire entre chapitres : même taille de marché, même TCAC, mêmes hypothèses. Les données validées sont <b>stockées et réinjectées</b>. Pas d'extrapolation fantaisiste : vraies données ou mention explicite.</div>
+    <div class="card"><h3>4 · Charte rédactionnelle EVKHA</h3><div class="meta">Consignes d'écriture (6 blocs)</div>
+      Ton mentor, lexique simplifié, <b>encadrés mentor</b> (◆ → ! ✓), fiche projet en ouverture, annexe brief avant les sources, <b>section Sources unique</b>, charte graphique (or #C9A227 / noir #1A1A1A, Calibri). Limites : EM 80p · EC 45p · STR 45p · BP 80p.</div>
+  </div>
+  <div class="box warn" style="margin-top:16px"><span class="lab">5 · Confidentialité (NDA signé)</span>
+    <b>Aucun secret dans le repo</b> (clés, mots de passe, données client) — uniquement <code>.env</code> non commité + <code>.env.example</code>. Stockage client temporaire et purgé. Logs sans prompts ni données sensibles. <b>Le repo doit passer en privé</b> avant tout push de code métier (voir §11).</div>
+  <div class="box note"><span class="lab">Adaptation géographique auto</span>
+    La logique des chapitres s'adapte à la zone : projet en Côte d'Ivoire → « marché mondial + africain » puis « national + local », jamais « marché européen » par défaut. La zone est une variable de cadrage, pas un libellé figé.</div>
+</section>
+
+<!-- 02 -->
+<section id="s2">
+  <div class="sec-head"><span class="num">02</span><h2>Architecture cible</h2></div>
+  <p class="sec-intro">n8n <b>orchestre</b> (webhooks, emails, appels simples). Django <b>est le cœur métier</b> (jobs, prompts, chapitres, statuts). Celery exécute le long et le relançable. PostgreSQL est la source de vérité. Le rendu passe par Google Docs puis Gamma.</p>
+  <div class="diagram">
+    <svg viewBox="0 0 860 380" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,monospace" font-size="12">
+      <defs>
+        <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#87867F"/></marker>
+        <marker id="arc" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#D97757"/></marker>
+      </defs>
+      <!-- row 1 sources -->
+      <rect x="20" y="20" width="150" height="46" rx="10" fill="#F0EEE6" stroke="#D1CFC5"/><text x="95" y="40" text-anchor="middle">Systeme.io</text><text x="95" y="56" text-anchor="middle" fill="#87867F">commande / paiement</text>
+      <rect x="20" y="100" width="150" height="46" rx="10" fill="#F0EEE6" stroke="#D1CFC5"/><text x="95" y="120" text-anchor="middle">Tally / Typeform</text><text x="95" y="136" text-anchor="middle" fill="#87867F">réponses client</text>
+      <!-- n8n -->
+      <rect x="250" y="55" width="150" height="56" rx="10" fill="#F7E4DA" stroke="#E6BFA9"/><text x="325" y="80" text-anchor="middle" fill="#8A3B1E">n8n</text><text x="325" y="98" text-anchor="middle" fill="#87867F">orchestration</text>
+      <!-- django -->
+      <rect x="470" y="40" width="170" height="86" rx="10" fill="#141413"/><text x="555" y="66" text-anchor="middle" fill="#FAF9F5">Django (cœur)</text><text x="555" y="86" text-anchor="middle" fill="#D1CFC5">jobs · prompts</text><text x="555" y="104" text-anchor="middle" fill="#D1CFC5">chapitres · statuts</text>
+      <!-- celery + redis -->
+      <rect x="470" y="160" width="80" height="50" rx="10" fill="#E4E9DC" stroke="#C2CDAE"/><text x="510" y="182" text-anchor="middle" fill="#4B5C39">Celery</text><text x="510" y="198" text-anchor="middle" fill="#87867F">workers</text>
+      <rect x="560" y="160" width="80" height="50" rx="10" fill="#E4E9DC" stroke="#C2CDAE"/><text x="600" y="182" text-anchor="middle" fill="#4B5C39">Redis</text><text x="600" y="198" text-anchor="middle" fill="#87867F">file</text>
+      <!-- postgres -->
+      <rect x="470" y="240" width="170" height="50" rx="10" fill="#F0EEE6" stroke="#D1CFC5"/><text x="555" y="262" text-anchor="middle">PostgreSQL</text><text x="555" y="278" text-anchor="middle" fill="#87867F">source de vérité</text>
+      <!-- claude -->
+      <rect x="700" y="160" width="140" height="50" rx="10" fill="#F7E4DA" stroke="#E6BFA9"/><text x="770" y="182" text-anchor="middle" fill="#8A3B1E">Claude API</text><text x="770" y="198" text-anchor="middle" fill="#87867F">génération</text>
+      <!-- output -->
+      <rect x="700" y="40" width="140" height="46" rx="10" fill="#F0EEE6" stroke="#D1CFC5"/><text x="770" y="60" text-anchor="middle">Google Docs</text><text x="770" y="76" text-anchor="middle" fill="#87867F">assemblage</text>
+      <rect x="700" y="100" width="140" height="46" rx="10" fill="#F6EFD6" stroke="#E2D08A"/><text x="770" y="120" text-anchor="middle" fill="#7a6312">Gamma</text><text x="770" y="136" text-anchor="middle" fill="#87867F">présentation</text>
+      <!-- delivery -->
+      <rect x="250" y="240" width="150" height="50" rx="10" fill="#F0EEE6" stroke="#D1CFC5"/><text x="325" y="262" text-anchor="middle">Email evkha.fr</text><text x="325" y="278" text-anchor="middle" fill="#87867F">livraison + purge</text>
+      <!-- infra -->
+      <rect x="20" y="320" width="820" height="44" rx="10" fill="#FAF9F5" stroke="#D1CFC5" stroke-dasharray="5 4"/><text x="430" y="346" text-anchor="middle" fill="#87867F">VPS · Docker Compose · Coolify (déploiement) · Uptime Kuma (surveillance + alertes)</text>
+      <!-- arrows -->
+      <path d="M170,43 L248,70" stroke="#87867F" fill="none" marker-end="url(#ar)"/>
+      <path d="M170,123 L248,92" stroke="#87867F" fill="none" marker-end="url(#ar)"/>
+      <path d="M400,83 L468,83" stroke="#87867F" fill="none" marker-end="url(#ar)"/>
+      <path d="M555,126 L555,156" stroke="#87867F" fill="none" marker-end="url(#ar)"/>
+      <path d="M555,210 L555,238" stroke="#87867F" fill="none" marker-end="url(#ar)"/>
+      <path d="M550,185 L698,185" stroke="#D97757" fill="none" stroke-dasharray="5 4" marker-end="url(#arc)"/>
+      <path d="M640,70 L698,63" stroke="#87867F" fill="none" marker-end="url(#ar)"/>
+      <path d="M770,86 L770,98" stroke="#87867F" fill="none" marker-end="url(#ar)"/>
+      <path d="M470,278 L402,270" stroke="#87867F" fill="none" marker-end="url(#ar)"/>
+      <path d="M325,238 L325,114" stroke="#87867F" fill="none" stroke-dasharray="5 4" marker-end="url(#arc)"/>
+    </svg>
+  </div>
+  <p style="font-size:12.5px;color:var(--gray-500)">Flèches pleines = flux synchrone · flèches clay pointillées = appels génération / notifications. Dashboard : Django Admin en V1, puis <b>TanStack Start + Better Auth</b> (même PostgreSQL) juste après.</p>
+</section>
+
+<!-- 03 -->
+<section id="s3">
+  <div class="sec-head"><span class="num">03</span><h2>Carte des modules</h2></div>
+  <p class="sec-intro">Le système est découpé en <b>9 apps Django</b> (frontières nettes, contrats explicites) + <b>4 moteurs transverses</b> + <b>5 workflows n8n</b>. Cette granularité permet le travail parallèle sans collision (§05) et la reprise fine par chapitre (§09).</p>
+  <div class="grid3">
+    <div class="card"><h3>accounts</h3><div class="meta">utilisateurs internes</div><ul><li>rôles, accès admin</li><li>auth interne</li></ul></div>
+    <div class="card"><h3>clients</h3><div class="meta">clients Evkha</div><ul><li>B2C / B2B</li><li>thème Gamma associé</li></ul></div>
+    <div class="card"><h3>orders</h3><div class="meta">commandes</div><ul><li>webhooks Systeme.io</li><li>statut paiement</li></ul></div>
+    <div class="card"><h3>deliverables</h3><div class="meta">catalogue livrables</div><ul><li>chapitrage par type</li><li>versions de prompts</li></ul></div>
+    <div class="card"><h3>intake</h3><div class="meta">formulaires</div><ul><li>réponses Tally</li><li>extraction variables</li><li>fiche sectorielle</li></ul></div>
+    <div class="card"><h3>generation</h3><div class="meta">cœur génération</div><ul><li>jobs + chapitres</li><li>appels Claude</li><li>résumés + retries</li></ul></div>
+    <div class="card"><h3>documents</h3><div class="meta">assemblage</div><ul><li>Google Docs</li><li>export PDF/DOCX</li><li>stockage temporaire</li></ul></div>
+    <div class="card"><h3>integrations</h3><div class="meta">connecteurs</div><ul><li>Claude · Google · Gamma</li><li>n8n · Systeme.io · Tally · email</li></ul></div>
+    <div class="card"><h3>audit</h3><div class="meta">traçabilité</div><ul><li>logs métier</li><li>erreurs non sensibles</li></ul></div>
+  </div>
+  <h4>Moteurs transverses (services, pas des apps CRUD)</h4>
+  <div class="grid2">
+    <div class="card"><h3>⚙ Context Engine</h3>contexte glissant : fixe (rôle/règles) · projet (variables + fiche) · cumulatif (résumé opérationnel) · chapitre · qualité. <b>Jamais</b> les 22 chapitres bruts.</div>
+    <div class="card"><h3>⚙ Coherence Engine</h3>magasin de « faits validés » (taille marché, TCAC, hypothèses) réinjecté ; détection de contradictions ; adaptation géographique.</div>
+    <div class="card"><h3>⚙ Cost Engine</h3>comptage tokens + coût € par appel / chapitre / dossier ; budget guardrail ; tableau de suivi. Bloque si dépassement.</div>
+    <div class="card"><h3>⚙ Rendering Engine</h3>transforme couche interne → couche client : retire balises/QA/méta, applique la charte, insère encadrés mentor, fusionne les sources en une seule section.</div>
+  </div>
+</section>
+
+<!-- 04 -->
+<section id="s4">
+  <div class="sec-head"><span class="num">04</span><h2>Méthodologie scaffolding &amp; modulaire</h2></div>
+  <p class="sec-intro">On construit chaque module en <b>4 couches dans l'ordre</b>. On ne passe à la couche suivante que si la précédente est verte. C'est ce qui rend le travail parallèle sûr et coupe les hallucinations à la racine : le <b>contrat</b> précède toujours le <b>code</b>.</p>
+  <div class="milestones">
+    <div class="milestone"><div class="when">Couche 1</div><div class="dot-col"><span class="dot done"></span><span class="line"></span></div><div class="body"><h3>Contrat</h3><p>Modèles de données, schémas API (entrée/sortie), types, signatures de service. Aucune logique. Revue + merge <b>avant</b> tout développement parallèle.</p><div class="tags"><span class="pill">migrations</span><span class="pill">pydantic/serializers</span><span class="pill">OpenAPI</span></div></div></div>
+    <div class="milestone"><div class="when">Couche 2</div><div class="dot-col"><span class="dot done"></span><span class="line"></span></div><div class="body"><h3>Squelette + tests</h3><p>Stubs qui respectent le contrat (retours factices déterministes) + tests qui décrivent le comportement attendu (rouges au départ). Les fixtures évitent d'appeler les vraies APIs.</p><div class="tags"><span class="pill">pytest</span><span class="pill">fixtures</span><span class="pill">mocks Claude/Google/Gamma</span></div></div></div>
+    <div class="milestone"><div class="when">Couche 3</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Implémentation</h3><p>Remplir la logique jusqu'à faire passer les tests. Périmètre strictement borné au module. Tout besoin externe passe par un contrat déjà mergé.</p><div class="tags"><span class="pill">logique métier</span><span class="pill">intégrations réelles</span></div></div></div>
+    <div class="milestone"><div class="when">Couche 4</div><div class="dot-col"><span class="dot"></span></div><div class="body"><h3>Vérification</h3><p>Definition of Done module (§07) + portes qualité (§08). Démo reproductible. La tâche n'est « réussie » qu'ici.</p><div class="tags"><span class="pill olive">DoD</span><span class="pill olive">CI verte</span><span class="pill olive">démo</span></div></div></div>
+  </div>
+
+  <div class="grid2" style="margin-top:18px">
+    <div class="box good"><span class="lab">Anti-hallucination</span>
+      <ul style="margin:0;padding-left:18px">
+        <li>Le contrat est la seule vérité ; <b>aucun champ/endpoint inventé</b>.</li>
+        <li>Données marché : <b>jamais extrapolées</b>. Source réelle citée ou <code>FACT_MISSING</code> + flag.</li>
+        <li>Toute décision non sourcée → <code>TODO(décision)</code> dans §11, pas d'improvisation.</li>
+        <li>Tests = filet : un comportement non testé est considéré inexistant.</li>
+      </ul></div>
+    <div class="box good"><span class="lab">Anti-perte de contexte</span>
+      <ul style="margin:0;padding-left:18px">
+        <li>Tâches <b>auto-portées</b> : fiche module + contrat + section cahier suffisent.</li>
+        <li>Context Engine = résumé opérationnel, pas l'historique brut.</li>
+        <li>Coherence Engine = mémoire des faits validés réinjectée à chaque chapitre.</li>
+        <li>Un fichier <code>docs/decisions/ADR-*.md</code> trace chaque choix d'architecture.</li>
+      </ul></div>
+  </div>
+</section>
+
+<!-- 05 -->
+<section id="s5">
+  <div class="sec-head"><span class="num">05</span><h2>Stratégie de branches — Codex × Claude en parallèle</h2></div>
+  <p class="sec-intro">Trunk-based avec branches courtes (1 module ou 1 tranche = 1 branche = 1 PR). Les <b>contrats partagés sont mergés en premier</b> (fondation commune) ; ensuite les modules indépendants avancent en parallèle sans se marcher dessus. Revue croisée : chaque agent relit les PR de l'autre.</p>
+
+  <h4>Conventions</h4>
+  <div class="code"><div class="file">conventions de branches &amp; commits</div><pre><span class="cm"># branches</span>
+feat/&lt;module&gt;-&lt;tranche&gt;     <span class="cm"># feat/generation-context-engine</span>
+fix/&lt;module&gt;-&lt;sujet&gt;
+chore/&lt;sujet&gt;               <span class="cm"># infra, CI, deps</span>
+contract/&lt;module&gt;           <span class="cm"># couche 1 — mergée en priorité</span>
+
+<span class="cm"># commits — conventional commits</span>
+feat(generation): add sliding context builder
+fix(intake): handle Tally 2xx within 10s
+<span class="cm"># 1 PR = 1 module/tranche, &lt;= ~400 lignes diff visées</span></pre></div>
+
+  <h4>Matrice de répartition (proposition — à ajuster §11)</h4>
+  <div class="tbl own">
+    <div class="row head"><div class="cell">Module / tranche</div><div class="cell">Build</div><div class="cell">Review</div><div class="cell">Pourquoi ce découpage</div></div>
+    <div class="row"><div class="cell">Contrats &amp; data model (couche 1, tous modules)</div><div class="cell"><span class="who both">Claude</span></div><div class="cell"><span class="who codex">Codex</span></div><div class="cell">Fondation unique, faite d'abord, revue stricte avant parallélisation.</div></div>
+    <div class="row"><div class="cell">generation + moteurs (context/coherence/cost)</div><div class="cell"><span class="who claude">Claude</span></div><div class="cell"><span class="who codex">Codex</span></div><div class="cell">Cœur sensible (cohérence, coût) — raisonnement long.</div></div>
+    <div class="row"><div class="cell">integrations (Claude/Google/Gamma/email)</div><div class="cell"><span class="who codex">Codex</span></div><div class="cell"><span class="who claude">Claude</span></div><div class="cell">Code I/O bien spécifié par les SDK, idéal pour exécution rapide.</div></div>
+    <div class="row"><div class="cell">orders + intake + webhooks</div><div class="cell"><span class="who codex">Codex</span></div><div class="cell"><span class="who claude">Claude</span></div><div class="cell">CRUD + parsing contractualisé, peu de risque.</div></div>
+    <div class="row"><div class="cell">documents + Rendering Engine (couche client)</div><div class="cell"><span class="who claude">Claude</span></div><div class="cell"><span class="who codex">Codex</span></div><div class="cell">Charte rédactionnelle = jugement éditorial fin.</div></div>
+    <div class="row"><div class="cell">n8n workflows (5) + Coolify + Uptime Kuma</div><div class="cell"><span class="who codex">Codex</span></div><div class="cell"><span class="who claude">Claude</span></div><div class="cell">Orchestration/infra déclarative, exportée en JSON versionné.</div></div>
+  </div>
+
+  <h4>Protocole d'intégration</h4>
+  <ol class="body">
+    <li><b>main protégée</b> : pas de push direct ; PR obligatoire + 1 review de l'autre agent + CI verte.</li>
+    <li><b>Contrats d'abord</b> : aucune branche d'implémentation ne démarre tant que le <code>contract/&lt;module&gt;</code> dont elle dépend n'est pas mergé.</li>
+    <li><b>Rebase fréquent</b> sur main ; branches courtes (&lt; 2 jours de travail) pour limiter les conflits.</li>
+    <li><b>Frontières = pas de collision</b> : un module n'est modifié que par son owner ; un besoin transverse passe par une décision (§11), jamais par un patch sauvage.</li>
+    <li><b>Template de PR</b> imposé : objectif, périmètre, contrat respecté, DoD cochée, comment tester, captures/coût mesuré.</li>
+  </ol>
+</section>
+
+<!-- 06 -->
+<section id="s6">
+  <div class="sec-head"><span class="num">06</span><h2>Roadmap &amp; jalons</h2></div>
+  <p class="sec-intro">V1 = socle robuste + EM + EC. On valide <b>livrable par livrable</b> (exigence du brief). Chaque phase a une sortie démontrable.</p>
+  <div class="milestones">
+    <div class="milestone"><div class="when">Phase 0</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Fondations &amp; contrats</h3><p>Repo privé, scaffold monorepo, Docker Compose (Django/Postgres/Redis/Celery), CI, <code>.env.example</code>, data model complet + migrations, contrats API. <b>Aucune logique métier.</b></p><div class="tags"><span class="pill clay">bloquant pour tout le reste</span></div></div></div>
+    <div class="milestone"><div class="when">Phase 1</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Socle infra &amp; flux</h3><p>orders + intake + webhooks Systeme.io/Tally (réponse 2xx &lt;10s), Django Admin, déploiement VPS via Coolify, Uptime Kuma sur les endpoints critiques.</p></div></div>
+    <div class="milestone"><div class="when">Phase 2</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Moteur Étude de Marché</h3><p>Context + Coherence + Cost engines, génération chapitre par chapitre (≤ 80 p), fiche sectorielle, assemblage Google Docs, Rendering (couche client), 1er test complet bout-en-bout.</p><div class="tags"><span class="pill gold">livrable de référence</span></div></div></div>
+    <div class="milestone"><div class="when">Phase 3</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Étude de Concurrence</h3><p>Réutilise le socle EM ; logique concurrents (8 chap., ≤ 45 p), entrée liste client.</p></div></div>
+    <div class="milestone"><div class="when">Phase 4</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Gamma &amp; livraison</h3><p>Génération/poll Gamma + export, stockage temporaire, email evkha.fr, purge programmée, workflow erreur critique.</p></div></div>
+    <div class="milestone"><div class="when">Phase 5</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Business Plan &amp; Stratégie</h3><p>Import des 2 méthodes (déjà au Drive), variables spécifiques, ajout 2–3 images client (BP), branches dédiées.</p></div></div>
+    <div class="milestone"><div class="when">Phase 6</div><div class="dot-col"><span class="dot"></span></div><div class="body"><h3>Dashboard moderne</h3><p>TanStack Start + Better Auth sur le même PostgreSQL : suivi livrables, relance chapitre, coûts, alertes.</p></div></div>
+  </div>
+</section>
+
+<!-- 07 -->
+<section id="s7">
+  <div class="sec-head"><span class="num">07</span><h2>Fiches modules &amp; Definition of Done</h2></div>
+  <p class="sec-intro">Chaque fiche est le <b>brief d'une branche</b>. Un agent ne code que ce qui y est écrit. La DoD définit « réussi ». Exemples sur les modules critiques ; les autres suivent le même gabarit.</p>
+
+  <div class="card" style="margin-bottom:16px">
+    <h3>generation — cœur de génération</h3><div class="meta">owner: Claude · review: Codex · dépend de : contracts/deliverables, contracts/intake, moteurs</div>
+    <p>Orchestre la génération d'un dossier : pour chaque chapitre → charge template + injecte contexte (Context Engine) + appelle Claude + sauvegarde + extrait sources + crée résumé opérationnel + met à jour statut. Reprise unitaire par chapitre, idempotence par <code>job_id</code>.</p>
+    <h4>Definition of Done</h4>
+    <ul class="dod">
+      <li>Un chapitre échoué se relance <b>seul</b> sans rejouer les autres (testé).</li>
+      <li>Idempotence : un webhook/déclenchement dupliqué ne crée pas de doublon.</li>
+      <li>Coût mesuré et stocké par chapitre (Cost Engine) ; budget dossier respecté sur un échantillon réel.</li>
+      <li>Aucune incohérence chiffrée détectée par le Coherence Engine sur le dossier test.</li>
+      <li>Statuts complets (pending/running/done/failed) + erreurs lisibles.</li>
+      <li>Tests verts (unitaires + 1 e2e mické) ; couverture du chemin nominal + 3 chemins d'erreur (timeout, tokens, réponse incomplète).</li>
+    </ul>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h3>intake</h3><div class="meta">owner: Codex · review: Claude</div>
+      <p>Transforme les réponses Tally en variables propres (<code>SECTEUR, PAYS, PROJET, ZONE</code>, éléments à retenir, demandes spécifiques, concurrents) + déclenche la fiche sectorielle.</p>
+      <ul class="dod"><li>Webhook répond 2xx en &lt;10s, génération déléguée à Celery.</li><li>Variables normalisées + validées (schéma).</li><li>Champs manquants → statut « incomplet » explicite, jamais de valeur inventée.</li></ul></div>
+    <div class="card"><h3>documents + Rendering</h3><div class="meta">owner: Claude · review: Codex</div>
+      <p>Assemble le dossier final dans Google Docs selon l'ordre EVKHA + applique la couche client.</p>
+      <ul class="dod"><li>Ordre respecté : page de garde → sommaire → fiche projet → chapitres → annexe brief → Sources.</li><li>Zéro balise interne / « Étape » / bloc QA dans le rendu (test automatisé de pureté).</li><li>Section Sources unique, regroupée par thème.</li><li>Encadrés mentor insérés aux chapitres décisifs.</li></ul></div>
+    <div class="card"><h3>integrations</h3><div class="meta">owner: Codex · review: Claude</div>
+      <p>Clients API isolés derrière des interfaces (Claude, Google Docs/Drive, Gamma, email, Systeme.io, Tally).</p>
+      <ul class="dod"><li>Chaque client mockable (tests sans réseau).</li><li>Retries + timeouts + erreurs typées.</li><li>Aucune clé en dur ; tout via env.</li><li>Gamma : poll asynchrone + export testé avec le compte Evkha.</li></ul></div>
+    <div class="card"><h3>n8n workflows (5)</h3><div class="meta">owner: Codex · review: Claude</div>
+      <p>Commande Systeme.io · formulaire Tally · suivi génération · livraison · erreur critique.</p>
+      <ul class="dod"><li>Workflows exportés en JSON <b>versionné</b> dans le repo.</li><li>Idempotence + vérif signature/secret quand dispo.</li><li>Notif Evangeline sur erreur (job ID, livrable, chapitre, message).</li></ul></div>
+  </div>
+</section>
+
+<!-- 08 -->
+<section id="s8">
+  <div class="sec-head"><span class="num">08</span><h2>Garde-fous &amp; portes qualité (globales)</h2></div>
+  <p class="sec-intro">Ces portes s'appliquent à <b>chaque PR</b>, quel que soit l'agent. Une PR qui n'en franchit pas une seule n'est pas mergeable. La CI les automatise au maximum.</p>
+  <div class="tbl gate">
+    <div class="row head"><div class="cell">Porte</div><div class="cell">Critère « réussi »</div></div>
+    <div class="row"><div class="cell">Lint &amp; types</div><div class="cell"><code>ruff</code> + <code>mypy</code> (Python) / <code>eslint</code> + <code>tsc</code> (front) sans erreur.</div></div>
+    <div class="row"><div class="cell">Tests</div><div class="cell">Suite verte ; nouveau code couvert ; chemins d'erreur testés ; pas de test ignoré sans justification.</div></div>
+    <div class="row"><div class="cell">Migrations</div><div class="cell"><code>makemigrations --check</code> propre ; migration réversible ; pas de perte de données.</div></div>
+    <div class="row"><div class="cell">Secrets</div><div class="cell">Scan secret (ex. gitleaks) vert ; <code>.env</code> absent du diff ; <code>.env.example</code> à jour.</div></div>
+    <div class="row"><div class="cell">Contrat respecté</div><div class="cell">Aucune divergence vs le contrat mergé ; pas de champ/endpoint hors spec.</div></div>
+    <div class="row"><div class="cell">Traçabilité cahier</div><div class="cell">PR cite les sections de référence ; décisions non sourcées listées en §11.</div></div>
+    <div class="row"><div class="cell">Budget coût IA</div><div class="cell">Sur tâche de génération : coût mesuré ≤ plafond ; pas de régression de tokens.</div></div>
+    <div class="row"><div class="cell">Pureté couche client</div><div class="cell">Test automatisé : zéro fuite de balise interne / vocabulaire pipeline dans le rendu.</div></div>
+    <div class="row"><div class="cell">Revue croisée</div><div class="cell">1 approbation de l'autre agent ; template PR rempli ; démo reproductible décrite.</div></div>
+  </div>
+  <div class="box note"><span class="lab">Définition de « réussi » (résumé)</span>
+    Une implémentation est réussie = <b>contrat respecté + tests verts + DoD module cochée + 9 portes franchies + démontrable</b>. « Ça tourne sur ma machine » ne compte pas.</div>
+</section>
+
+<!-- 09 -->
+<section id="s9">
+  <div class="sec-head"><span class="num">09</span><h2>Moteurs transverses — spécifications clés</h2></div>
+  <div class="grid2">
+    <div class="card"><h3>Context Engine</h3>
+      <p>Construit le prompt par couches, sans jamais envoyer les chapitres bruts.</p>
+      <div class="code"><div class="file">generation/context.py — contrat</div><pre><span class="kw">def</span> <span class="fn">build_context</span>(job, chapter) -> <span class="kw">str</span>:
+  <span class="cm"># 1 fixe : rôle EVKHA + règles + style</span>
+  <span class="cm"># 2 projet : variables + fiche sectorielle</span>
+  <span class="cm"># 3 cumulatif : résumé opérationnel (pas l'historique)</span>
+  <span class="cm"># 4 chapitre : objectif + template du chapitre</span>
+  <span class="cm"># 5 qualité : points à vérifier</span></pre></div></div>
+    <div class="card"><h3>Coherence Engine</h3>
+      <p>Magasin de faits validés réinjectés ; refuse les contradictions.</p>
+      <ul style="font-size:13.5px"><li>Stocke : taille marché, TCAC observé/projeté, hypothèses centrales, devise.</li><li>À chaque chapitre : injecte les faits + vérifie qu'aucune nouvelle valeur ne contredit un fait figé.</li><li>Adaptation géo : dérive les zones d'analyse depuis <code>ZONE</code>/<code>PAYS</code>.</li></ul></div>
+    <div class="card"><h3>Cost Engine</h3>
+      <p>Comptabilité tokens → € à chaque appel.</p>
+      <ul style="font-size:13.5px"><li>Enregistre tokens in/out + coût par appel, chapitre, dossier.</li><li>Garde-fou : stoppe/alerte si le dossier dépasse le plafond.</li><li>Expose un récap (Admin V1, dashboard V6).</li></ul></div>
+    <div class="card"><h3>Rendering Engine</h3>
+      <p>Interne → client. Le seul module autorisé à produire du texte vu par le client.</p>
+      <ul style="font-size:13.5px"><li>Strip balises, « Étape », blocs QA, phrases méta.</li><li>Applique charte (titres, filets or, encadrés mentor ◆ → ! ✓).</li><li>Fusionne toutes les sources en une section finale unique.</li></ul></div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section id="s10">
+  <div class="sec-head"><span class="num">10</span><h2>Risques &amp; mitigations</h2></div>
+  <div class="tbl risks">
+    <div class="row head"><div class="cell">Risque</div><div class="cell">Sév.</div><div class="cell">Mitigation</div></div>
+    <div class="row"><div class="cell">Coût IA dérive au-dessus de 2 €/dossier</div><div class="cell"><span class="sev high">HIGH</span></div><div class="cell">Cost Engine + budget guardrail dur ; contexte glissant ; mesure dès la Phase 2 sur dossier réel ; alerte avant livraison.</div></div>
+    <div class="row"><div class="cell">Fuite de balises internes dans le rendu client</div><div class="cell"><span class="sev high">HIGH</span></div><div class="cell">Rendering Engine seul producteur du rendu + test de pureté automatisé bloquant en CI.</div></div>
+    <div class="row"><div class="cell">Incohérence chiffrée entre chapitres</div><div class="cell"><span class="sev high">HIGH</span></div><div class="cell">Coherence Engine (faits figés réinjectés + détection contradiction) ; échec génération si conflit.</div></div>
+    <div class="row"><div class="cell">Secret commité (repo public)</div><div class="cell"><span class="sev high">HIGH</span></div><div class="cell">Repo privé immédiat ; gitleaks en CI ; <code>.env</code> ignoré ; clés API dédiées au système.</div></div>
+    <div class="row"><div class="cell">Conflits de merge Codex × Claude</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">Contrats mergés d'abord ; 1 module = 1 owner ; branches courtes ; rebase fréquent.</div></div>
+    <div class="row"><div class="cell">Timeout webhook Tally (&gt;10s)</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">2xx immédiat + délégation Celery ; jamais de génération dans la réponse webhook.</div></div>
+    <div class="row"><div class="cell">Export Gamma dépend du plan/credits</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">Test réel tôt avec le compte Evkha ; fallback PDF Google Docs si export indispo.</div></div>
+    <div class="row"><div class="cell">Hallucination de données marché</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">Règle « source réelle ou FACT_MISSING » ; pas d'extrapolation ; chapitre Sources contrôlé.</div></div>
+  </div>
+</section>
+
+<!-- 11 -->
+<section id="s11">
+  <div class="sec-head"><span class="num">11</span><h2>Décisions à valider (avant Phase 0)</h2></div>
+  <p class="sec-intro">Ces points bloquent ou orientent l'architecture. Tant qu'ils ne sont pas tranchés, on les marque <code>TODO(décision)</code> dans le code, sans improviser.</p>
+  <div class="grid2">
+    <div class="card"><h3>D1 · Repo privé</h3><div class="meta">bloquant — confidentialité</div><p>Passer <code>Systeme-EVKHA-</code> en <b>privé</b> avant tout push de code métier (actuellement public).</p></div>
+    <div class="card"><h3>D2 · Répartition Codex × Claude</h3><div class="meta">valide / ajuste §05</div><p>Valider ou réorganiser la matrice d'ownership des modules.</p></div>
+    <div class="card"><h3>D3 · Livraison client</h3><div class="meta">cahier Q2</div><p>Lien de téléchargement ou pièces jointes ?</p></div>
+    <div class="card"><h3>D4 · Gamma obligatoire ?</h3><div class="meta">cahier Q3–Q4</div><p>Pour tous les livrables ou optionnel ? Thèmes B2B avec IDs API existants ?</p></div>
+    <div class="card"><h3>D5 · Rétention fichiers</h3><div class="meta">cahier Q6</div><p>Durée de conservation des temporaires : 24 h / 48 h / autre ?</p></div>
+    <div class="card"><h3>D6 · Email evkha.fr</h3><div class="meta">cahier Q7</div><p>Google Workspace / SMTP / Brevo / Mailgun ?</p></div>
+  </div>
+  <div class="box good" style="margin-top:16px"><span class="lab">Déjà résolu</span>
+    Les méthodes <b>Business Plan</b> et <b>Stratégie</b> existent au Drive (dossier « DETAILS DES NOUVEAUX SYSTÈMES ») → la question « sources BP/STR disponibles ? » est levée. Elles seront ingérées en Phase 5.</div>
+</section>
+
+</main>
+</div>
+</body>
+</html>
