@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "systeme-evkha"
+version = "0.1.0"
+description = "Fondation backend du Systeme EVKHA."
+requires-python = ">=3.12"
+dependencies = [
+  "celery>=5.4,<6",
+  "django>=5.2,<6",
+  "django-environ>=0.11,<1",
+  "psycopg[binary]>=3.2,<4",
+  "redis>=5,<6",
+]
+
+[project.optional-dependencies]
+dev = [
+  "django-stubs[compatible-mypy]>=5.2,<6",
+  "mypy>=1.10,<2",
+  "pytest>=8.2,<9",
+  "pytest-django>=4.8,<5",
+  "ruff>=0.11,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["**/migrations/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+ignore = ["DJ008"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+strict = true
+mypy_path = ["backend"]
+exclude = ["backend/.*/migrations/.*"]
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+module = ["celery", "environ"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["*.admin"]
+disallow_any_generics = false
+
+[tool.django-stubs]
+django_settings_module = "evkha.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "evkha.settings"
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+addopts = "-q"

@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+from decimal import Decimal
+
+from catalog.models import DeliveryMode, Offer
+from delivery.models import EmailProvider
+from django.apps import apps
+from generation.models import GenerationJob
+
+
+def test_phase0_scaffolds_the_nine_domain_apps() -> None:
+    expected_apps = {
+        "catalog",
+        "customers",
+        "orders",
+        "intake",
+        "generation",
+        "documents",
+        "integrations",
+        "delivery",
+        "monitoring",
+    }
+
+    installed_apps = {config.name for config in apps.get_app_configs()}
+
+    assert expected_apps.issubset(installed_apps)
+
+
+def test_offer_contract_freezes_gamma_delivery_and_retention_defaults() -> None:
+    offer = Offer(name="Etude de marche", slug="etude-marche", deliverable_type="market_study")
+
+    assert offer.gamma_enabled is False
+    assert offer.delivery_mode == DeliveryMode.LINK_AND_PDF
+    assert offer.retention_days == 7
+
+
+def test_generation_job_contract_freezes_cost_ceiling() -> None:
+    job = GenerationJob(deliverable_type="market_study")
+
+    assert job.budget_eur == Decimal("2.0000")
+    assert job.total_cost_eur == Decimal("0.0000")
+
+
+def test_delivery_contract_freezes_brevo_as_email_provider() -> None:
+    assert EmailProvider.BREVO.value == "brevo"
