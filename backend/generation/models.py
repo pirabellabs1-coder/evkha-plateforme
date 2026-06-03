@@ -24,6 +24,14 @@ class ChapterStatus(models.TextChoices):
     SKIPPED = "skipped", "Ignore"
 
 
+class FactKind(models.TextChoices):
+    MARKET_SIZE = "market_size", "Taille de marche"
+    GROWTH_RATE = "growth_rate", "Taux de croissance"
+    CURRENCY = "currency", "Devise"
+    ASSUMPTION = "assumption", "Hypothese"
+    SOURCE = "source", "Source"
+
+
 class GenerationJob(UUIDModel):
     order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="generation_job")
     deliverable_type = models.CharField(max_length=32, choices=DeliverableType.choices)
@@ -71,3 +79,24 @@ class ChapterGeneration(UUIDModel):
 
     def __str__(self) -> str:
         return f"Chapitre {self.chapter_number} - {self.chapter_title}"
+
+
+class CoherenceFact(UUIDModel):
+    job = models.ForeignKey(GenerationJob, on_delete=models.CASCADE, related_name="coherence_facts")
+    kind = models.CharField(max_length=32, choices=FactKind.choices)
+    key = models.CharField(max_length=120)
+    value = models.CharField(max_length=500)
+    source_chapter_number = models.PositiveSmallIntegerField(null=True, blank=True)
+    is_locked = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["job", "kind", "key"],
+                name="uniq_coherence_fact_per_job_kind_key",
+            )
+        ]
+        ordering = ["job", "kind", "key"]
+
+    def __str__(self) -> str:
+        return f"{self.kind}:{self.key}"

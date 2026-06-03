@@ -95,3 +95,6 @@ EVKHA_EMAIL_PROVIDER = env("EVKHA_EMAIL_PROVIDER", default="brevo")
 # `tally-signature`) restent a cabler une fois confirmes cote fournisseur.
 SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
 TALLY_WEBHOOK_SECRET = env("TALLY_WEBHOOK_SECRET", default="")
+
+# Modele Claude actif pour la tarification du Cost Engine (M4).
+EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")
