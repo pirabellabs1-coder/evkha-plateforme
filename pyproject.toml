@@ -16,6 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ai = [
+  "anthropic>=0.40,<1",
+]
 dev = [
   "django-stubs[compatible-mypy]>=5.2,<6",
   "mypy>=1.10,<2",
@@ -45,7 +48,7 @@ exclude = ["backend/.*/migrations/.*"]
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-module = ["celery", "environ"]
+module = ["celery", "environ", "anthropic"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

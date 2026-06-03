@@ -66,8 +66,44 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 )
 
 
+# Source de verite EC : "PROMPT FINAL VERSION 3 EM_EC" (sommaire p.54-55) +
+# "ETUDE DE LA CONCURRENCE VIVIEN". 8 chapitres canoniques + fiche projet en
+# ouverture. La "base consolidee des concurrents" est integree au chapitre 1.
+# Ne PAS inventer de chapitres.
+COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
+    ChapterBlueprint(0, "Fiche projet", "ec.00.fiche_projet", SectionKind.OPENING),
+    ChapterBlueprint(1, "Identification des concurrents", "ec.01.identification"),
+    ChapterBlueprint(2, "Classement et analyse qualitative", "ec.02.classement_qualitatif"),
+    ChapterBlueprint(3, "Approfondissement strategique", "ec.03.approfondissement"),
+    ChapterBlueprint(
+        4, "Positionnement recommande et annexes strategiques", "ec.04.positionnement_annexes"
+    ),
+    ChapterBlueprint(
+        5, "Matrice de positionnement concurrentiel et zones strategiques",
+        "ec.05.matrice_positionnement",
+    ),
+    ChapterBlueprint(
+        6, "Estimation des chiffres d'affaires et parts de marche", "ec.06.parts_de_marche"
+    ),
+    ChapterBlueprint(7, "Conclusion analytique et graphiques", "ec.07.conclusion_graphiques"),
+    ChapterBlueprint(
+        8,
+        "Annexe - Reponses aux demandes specifiques du client",
+        "ec.08.annexe_brief",
+        SectionKind.ANNEXE,
+    ),
+)
+
+
+_BLUEPRINTS: dict[str, tuple[ChapterBlueprint, ...]] = {
+    DeliverableType.MARKET_STUDY: MARKET_STUDY_CHAPTERS,
+    DeliverableType.COMPETITOR_STUDY: COMPETITOR_STUDY_CHAPTERS,
+}
+
+
 def chapters_for_deliverable(deliverable_type: str) -> tuple[ChapterBlueprint, ...]:
-    if deliverable_type == DeliverableType.MARKET_STUDY:
-        return MARKET_STUDY_CHAPTERS
-    msg = f"No chapter blueprint configured for deliverable type: {deliverable_type}"
-    raise ValueError(msg)
+    blueprint = _BLUEPRINTS.get(deliverable_type)
+    if blueprint is None:
+        msg = f"No chapter blueprint configured for deliverable type: {deliverable_type}"
+        raise ValueError(msg)
+    return blueprint

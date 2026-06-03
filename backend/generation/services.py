@@ -6,6 +6,14 @@ from intake.models import IntakeStatus, IntakeSubmission
 from .blueprints import chapters_for_deliverable
 from .models import ChapterGeneration, GenerationJob, JobStatus
 
+# Livrables couverts par le moteur de generation (EM = phase 2, EC = phase 3).
+_SUPPORTED_DELIVERABLES = frozenset(
+    {
+        DeliverableType.MARKET_STUDY,
+        DeliverableType.COMPETITOR_STUDY,
+    }
+)
+
 
 class GenerationBootstrapError(ValueError):
     pass
@@ -17,8 +25,8 @@ def bootstrap_generation_job(submission: IntakeSubmission) -> GenerationJob:
         raise GenerationBootstrapError(msg)
 
     deliverable_type = submission.order.offer.deliverable_type
-    if deliverable_type != DeliverableType.MARKET_STUDY:
-        msg = f"Phase 2 only supports market study, got: {deliverable_type}"
+    if deliverable_type not in _SUPPORTED_DELIVERABLES:
+        msg = f"Unsupported deliverable type for generation: {deliverable_type}"
         raise GenerationBootstrapError(msg)
 
     job, _created = GenerationJob.objects.get_or_create(

@@ -30,6 +30,7 @@ class FactKind(models.TextChoices):
     CURRENCY = "currency", "Devise"
     ASSUMPTION = "assumption", "Hypothese"
     SOURCE = "source", "Source"
+    COMPETITOR = "competitor", "Concurrent"
 
 
 class GenerationJob(UUIDModel):
