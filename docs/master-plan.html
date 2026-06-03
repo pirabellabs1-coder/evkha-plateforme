@@ -248,17 +248,17 @@
 <!-- 03 -->
 <section id="s3">
   <div class="sec-head"><span class="num">03</span><h2>Carte des modules</h2></div>
-  <p class="sec-intro">Le système est découpé en <b>9 apps Django</b> (frontières nettes, contrats explicites) + <b>4 moteurs transverses</b> + <b>5 workflows n8n</b>. Cette granularité permet le travail parallèle sans collision (§05) et la reprise fine par chapitre (§09).</p>
+  <p class="sec-intro">Le système est découpé en <b>9 apps Django</b> (frontières nettes, contrats explicites) + <b>core</b> (bases abstraites <code>TimeStampedModel</code>/<code>UUIDModel</code>) + <b>4 moteurs transverses</b> + <b>5 workflows n8n</b>. Cette granularité permet le travail parallèle sans collision (§05) et la reprise fine par chapitre (§09). <em>Noms alignés sur le code (commit Phase 0).</em></p>
   <div class="grid3">
-    <div class="card"><h3>accounts</h3><div class="meta">utilisateurs internes</div><ul><li>rôles, accès admin</li><li>auth interne</li></ul></div>
-    <div class="card"><h3>clients</h3><div class="meta">clients Evkha</div><ul><li>B2C / B2B</li><li>thème Gamma associé</li></ul></div>
-    <div class="card"><h3>orders</h3><div class="meta">commandes</div><ul><li>webhooks Systeme.io</li><li>statut paiement</li></ul></div>
-    <div class="card"><h3>deliverables</h3><div class="meta">catalogue livrables</div><ul><li>chapitrage par type</li><li>versions de prompts</li></ul></div>
-    <div class="card"><h3>intake</h3><div class="meta">formulaires</div><ul><li>réponses Tally</li><li>extraction variables</li><li>fiche sectorielle</li></ul></div>
+    <div class="card"><h3>catalog</h3><div class="meta">catalogue livrables</div><ul><li><code>Offer</code> : type, gamma_enabled, delivery_mode, retention</li><li>chapitrage par type</li></ul></div>
+    <div class="card"><h3>customers</h3><div class="meta">clients Evkha</div><ul><li>B2C / B2B</li><li>systeme_contact_id</li></ul></div>
+    <div class="card"><h3>orders</h3><div class="meta">commandes</div><ul><li>webhook commande (source-agnostique, M6)</li><li>statut paiement</li></ul></div>
+    <div class="card"><h3>intake</h3><div class="meta">formulaires</div><ul><li>réponses Tally → variables</li><li>validation par variable + missing_fields</li><li>fiche sectorielle</li></ul></div>
     <div class="card"><h3>generation</h3><div class="meta">cœur génération</div><ul><li>jobs + chapitres</li><li>appels Claude</li><li>résumés + retries</li></ul></div>
-    <div class="card"><h3>documents</h3><div class="meta">assemblage</div><ul><li>Google Docs</li><li>export PDF/DOCX</li><li>stockage temporaire</li></ul></div>
-    <div class="card"><h3>integrations</h3><div class="meta">connecteurs</div><ul><li>Claude · Google · Gamma</li><li>n8n · Systeme.io · Tally · email</li></ul></div>
-    <div class="card"><h3>audit</h3><div class="meta">traçabilité</div><ul><li>logs métier</li><li>erreurs non sensibles</li></ul></div>
+    <div class="card"><h3>documents</h3><div class="meta">assemblage</div><ul><li>Google Docs</li><li>export PDF/DOCX</li><li>artefacts + expiration</li></ul></div>
+    <div class="card"><h3>delivery</h3><div class="meta">livraison</div><ul><li>email Brevo (D6)</li><li>lien + PDF (D3)</li><li>batches + events</li></ul></div>
+    <div class="card"><h3>integrations</h3><div class="meta">connecteurs + webhooks</div><ul><li>Claude · Google · Gamma · Brevo</li><li><code>WebhookEvent</code> · <code>ExternalCredentialRef</code></li></ul></div>
+    <div class="card"><h3>monitoring</h3><div class="meta">traçabilité</div><ul><li><code>OperationalIncident</code></li><li>alertes, erreurs non sensibles</li></ul></div>
   </div>
   <h4>Moteurs transverses (services, pas des apps CRUD)</h4>
   <div class="grid2">
@@ -328,7 +328,7 @@ fix(intake): handle Tally 2xx within 10s
 
   <h4>Protocole d'intégration</h4>
   <ol class="body">
-    <li><b>main protégée</b> : pas de push direct ; PR obligatoire + 1 review de l'autre agent + CI verte.</li>
+    <li><b>main protégée</b> : PR obligatoire + 1 review de l'autre agent + CI verte. <em>Note (M5) : la protection de branche GitHub n'est pas disponible sur le repo privé en plan gratuit → protection « par process » (discipline + CI requise) tant qu'on ne passe pas en Pro.</em></li>
     <li><b>Contrats d'abord</b> : aucune branche d'implémentation ne démarre tant que le <code>contract/&lt;module&gt;</code> dont elle dépend n'est pas mergé.</li>
     <li><b>Rebase fréquent</b> sur main ; branches courtes (&lt; 2 jours de travail) pour limiter les conflits.</li>
     <li><b>Frontières = pas de collision</b> : un module n'est modifié que par son owner ; un besoin transverse passe par une décision (§11), jamais par un patch sauvage.</li>
