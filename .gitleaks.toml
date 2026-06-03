@@ -1,0 +1,17 @@
+title = "EVKHA gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Faux positifs EVKHA : cles de prompts internes et placeholders non sensibles"
+regexes = [
+  # Cles de prompts internes (ex. em.01.marche_mondial_europeen, ec.02.classement).
+  '''(em|ec|bp|str)\.\d{2}\.[a-z0-9_]+''',
+  # Placeholders de developpement/test, jamais de vrais secrets.
+  '''(change-me|dev-only-secret-key|topsecret|test-key)''',
+]
+paths = [
+  # Fichier d'exemple par definition (valeurs vides ou placeholders).
+  '''\.env\.example''',
+]

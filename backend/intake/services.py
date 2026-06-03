@@ -1,0 +1,133 @@
+from __future__ import annotations
+
+from typing import Any
+
+from orders.models import Order
+
+from .models import IntakeSource, IntakeStatus, IntakeSubmission
+
+# Variables de cadrage imposees par la methode EVKHA (cahier des charges).
+# Ce sont des constantes du domaine, jamais inventees a la volee.
+REQUIRED_VARIABLES: tuple[str, ...] = ("SECTEUR", "PAYS", "PROJET", "ZONE")
+OPTIONAL_VARIABLES: tuple[str, ...] = (
+    "ELEMENTS_A_RETENIR",
+    "DEMANDES_SPECIFIQUES",
+    "CONCURRENTS",
+)
+
+# Alias label/cle -> variable canonique. Les libelles reels du formulaire Tally
+# restent a confirmer ; cette table est volontairement permissive et extensible.
+_ALIASES: dict[str, str] = {
+    "secteur": "SECTEUR",
+    "sector": "SECTEUR",
+    "pays": "PAYS",
+    "country": "PAYS",
+    "projet": "PROJET",
+    "project": "PROJET",
+    "description du projet": "PROJET",
+    "zone": "ZONE",
+    "zone geographique": "ZONE",
+    "region": "ZONE",
+    "ville": "ZONE",
+    "elements a retenir": "ELEMENTS_A_RETENIR",
+    "elements importants a retenir": "ELEMENTS_A_RETENIR",
+    "elements": "ELEMENTS_A_RETENIR",
+    "demandes specifiques": "DEMANDES_SPECIFIQUES",
+    "demandes": "DEMANDES_SPECIFIQUES",
+    "concurrents": "CONCURRENTS",
+    "competitors": "CONCURRENTS",
+}
+
+_CANONICAL = set(REQUIRED_VARIABLES) | set(OPTIONAL_VARIABLES)
+
+
+class IntakeIngestionError(ValueError):
+    pass
+
+
+def _lookup(payload: dict[str, Any], *paths: str) -> str:
+    for path in paths:
+        current: Any = payload
+        for part in path.split("."):
+            if not isinstance(current, dict):
+                current = None
+                break
+            current = current.get(part)
+        if current not in (None, ""):
+            return str(current)
+    return ""
+
+
+def _canonical_key(raw_key: str) -> str | None:
+    cleaned = raw_key.strip()
+    upper = cleaned.upper().replace(" ", "_")
+    if upper in _CANONICAL:
+        return upper
+    return _ALIASES.get(cleaned.lower())
+
+
+def _collect_raw_pairs(payload: dict[str, Any]) -> dict[str, Any]:
+    """Flatten the various payload shapes into a {raw_key: value} dict."""
+    pairs: dict[str, Any] = {}
+
+    for container_key in ("normalized_variables", "variables", "answers"):
+        container = payload.get(container_key)
+        if isinstance(container, dict):
+            pairs.update(container)
+
+    # Tally native shape: data.fields = [{label/key, value}, ...]
+    field_lists: list[Any] = [payload.get("fields")]
+    data = payload.get("data")
+    if isinstance(data, dict):
+        field_lists.append(data.get("fields"))
+    for fields in field_lists:
+        if not isinstance(fields, list):
+            continue
+        for field in fields:
+            if not isinstance(field, dict):
+                continue
+            key = field.get("key") or field.get("label")
+            if key is not None and field.get("value") not in (None, ""):
+                pairs[str(key)] = field.get("value")
+
+    return pairs
+
+
+def normalize_intake_variables(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Return (normalized_variables, missing_required_fields)."""
+    normalized: dict[str, Any] = {}
+    for raw_key, value in _collect_raw_pairs(payload).items():
+        canonical = _canonical_key(raw_key)
+        if canonical and value not in (None, ""):
+            normalized[canonical] = value
+
+    missing = [var for var in REQUIRED_VARIABLES if not normalized.get(var)]
+    return normalized, missing
+
+
+def sync_intake_from_tally_payload(payload: dict[str, Any]) -> IntakeSubmission:
+    systeme_order_id = _lookup(payload, "order_id", "systeme_order_id", "metadata.order_id")
+    if not systeme_order_id:
+        msg = "Tally payload missing required field: order_id"
+        raise IntakeIngestionError(msg)
+
+    try:
+        order = Order.objects.get(systeme_order_id=systeme_order_id)
+    except Order.DoesNotExist as exc:
+        msg = f"Unknown order for intake payload: {systeme_order_id}"
+        raise IntakeIngestionError(msg) from exc
+
+    variables, missing = normalize_intake_variables(payload)
+    status = IntakeStatus.NORMALIZED if not missing else IntakeStatus.INCOMPLETE
+
+    submission, _created = IntakeSubmission.objects.update_or_create(
+        order=order,
+        defaults={
+            "source": IntakeSource.TALLY,
+            "status": status,
+            "raw_payload": payload,
+            "normalized_variables": variables,
+            "missing_fields": missing,
+        },
+    )
+    return submission

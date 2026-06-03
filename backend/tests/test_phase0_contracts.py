@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 
 from catalog.models import DeliveryMode, Offer
 from delivery.models import EmailProvider
@@ -43,3 +44,11 @@ def test_generation_job_contract_freezes_cost_ceiling() -> None:
 
 def test_delivery_contract_freezes_brevo_as_email_provider() -> None:
     assert EmailProvider.BREVO.value == "brevo"
+
+
+def test_n8n_uses_a_dedicated_postgres_database_contract() -> None:
+    compose = Path("docker-compose.yml").read_text(encoding="utf-8")
+    init_script = Path("infra/postgres/init/001-create-n8n-db.sql").read_text(encoding="utf-8")
+
+    assert "DB_POSTGRESDB_DATABASE: ${N8N_POSTGRES_DB:-n8n}" in compose
+    assert "CREATE DATABASE n8n" in init_script

@@ -76,7 +76,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "fr-fr"
-TIME_ZONE = "Africa/Porto-Novo"
+TIME_ZONE = env("DJANGO_TIME_ZONE", default="Europe/Paris")
 USE_I18N = True
 USE_TZ = True
 
@@ -88,3 +88,10 @@ CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:
 
 EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
 EVKHA_EMAIL_PROVIDER = env("EVKHA_EMAIL_PROVIDER", default="brevo")
+
+# Webhook shared secrets (M1).
+# Fail-closed when a secret is configured, dev-open when blank so local/test
+# environments keep working. Provider-specific HMAC schemes (e.g. Tally
+# `tally-signature`) restent a cabler une fois confirmes cote fournisseur.
+SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
+TALLY_WEBHOOK_SECRET = env("TALLY_WEBHOOK_SECRET", default="")
