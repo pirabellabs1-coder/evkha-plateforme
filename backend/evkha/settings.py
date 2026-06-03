@@ -12,6 +12,8 @@ env = environ.Env(
     EVKHA_DEFAULT_RETENTION_DAYS=(int, 7),
     EVKHA_USE_STUB_AI=(bool, True),
     EVKHA_USE_STUB_DOCS=(bool, True),
+    EVKHA_USE_STUB_GAMMA=(bool, True),
+    EVKHA_USE_STUB_EMAIL=(bool, True),
     EVKHA_DASHBOARD_AUTH_DISABLED=(bool, True),
 )
 environ.Env.read_env(BASE_DIR / ".env")
@@ -96,21 +98,19 @@ EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
 EVKHA_EMAIL_PROVIDER = env("EVKHA_EMAIL_PROVIDER", default="brevo")
 
 # Webhook shared secrets (M1).
-# Fail-closed when a secret is configured, dev-open when blank so local/test
-# environments keep working. Provider-specific HMAC schemes (e.g. Tally
-# `tally-signature`) restent a cabler une fois confirmes cote fournisseur.
 SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
 TALLY_WEBHOOK_SECRET = env("TALLY_WEBHOOK_SECRET", default="")
 
 # Modele Claude actif pour la tarification du Cost Engine (M4).
 EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")
-# Identifiant API Anthropic reel (surcharge l'alias EVKHA_CLAUDE_MODEL si fourni).
 EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="")
 
 # Adaptateurs externes : stubs deterministes par defaut (dev/CI, aucun reseau).
 # Passer a False en production une fois les credentials configures.
 EVKHA_USE_STUB_AI = env("EVKHA_USE_STUB_AI")
 EVKHA_USE_STUB_DOCS = env("EVKHA_USE_STUB_DOCS")
+EVKHA_USE_STUB_GAMMA = env("EVKHA_USE_STUB_GAMMA")
+EVKHA_USE_STUB_EMAIL = env("EVKHA_USE_STUB_EMAIL")
 
 # Dashboard auth (Phase 6).
 # EVKHA_DASHBOARD_AUTH_DISABLED=true en dev/CI (defaut).
