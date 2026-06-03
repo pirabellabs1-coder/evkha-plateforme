@@ -12,6 +12,7 @@ env = environ.Env(
     EVKHA_DEFAULT_RETENTION_DAYS=(int, 7),
     EVKHA_USE_STUB_AI=(bool, True),
     EVKHA_USE_STUB_DOCS=(bool, True),
+    EVKHA_DASHBOARD_AUTH_DISABLED=(bool, True),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     "integrations",
     "delivery",
     "monitoring",
+    "dashboard",
 ]
 
 MIDDLEWARE = [
@@ -45,6 +47,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Protege /api/dashboard/ par Bearer token (Better Auth).
+    "dashboard.middleware.DashboardAuthMiddleware",
 ]
 
 ROOT_URLCONF = "evkha.urls"
@@ -107,3 +111,11 @@ EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="")
 # Passer a False en production une fois les credentials configures.
 EVKHA_USE_STUB_AI = env("EVKHA_USE_STUB_AI")
 EVKHA_USE_STUB_DOCS = env("EVKHA_USE_STUB_DOCS")
+
+# Dashboard auth (Phase 6).
+# EVKHA_DASHBOARD_AUTH_DISABLED=true en dev/CI (defaut).
+# En production : EVKHA_DASHBOARD_AUTH_DISABLED=false
+#                  EVKHA_DASHBOARD_TOKEN=<openssl rand -hex 32>
+# TODO: remplacer par JWT Better Auth quand BETTER_AUTH_SECRET est configure.
+EVKHA_DASHBOARD_AUTH_DISABLED = env("EVKHA_DASHBOARD_AUTH_DISABLED")
+EVKHA_DASHBOARD_TOKEN = env("EVKHA_DASHBOARD_TOKEN", default="")

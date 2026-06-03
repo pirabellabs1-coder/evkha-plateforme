@@ -164,11 +164,162 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
 }
 
 
+# --- Business Plan (BP) --------------------------------------------------
+# Structure BP France/Afrique francophone. A valider avec les documents
+# specifiques EVKHA lorsque l'acces Drive sera configure.
+
+BUSINESS_PLAN_PROMPTS: dict[str, str] = {
+    "bp.00.fiche_projet": (
+        "Fiche projet d'ouverture du business plan : synthese du projet, du "
+        "porteur, du secteur, de la zone et du pays, de la forme juridique "
+        "envisagee et du capital initial prevu."
+    ),
+    "bp.01.resume_executif": (
+        "Resume executif percutant (1 page) : proposition de valeur, marche "
+        "cible, modele de revenus, besoin de financement, chiffres cles "
+        "projetes a 3 ans. Tout doit etre sourcable ou hypothese declaree."
+    ),
+    "bp.02.porteur_equipe": (
+        "Presentation du porteur de projet (parcours, competences cles, "
+        "motivations) et de l'equipe (roles, experience, complementarite). "
+        "Si l'equipe est a constituer, decris le profil recherche."
+    ),
+    "bp.03.description_offre": (
+        "Description precise du projet et de l'offre : produit/service, "
+        "proposition de valeur differenciante, stade de developpement, "
+        "propriete intellectuelle ou barriere a l'entree eventuelle."
+    ),
+    "bp.04.marche_cible": (
+        "Analyse du marche cible : taille et croissance, segmentation, "
+        "clientele prioritaire, personas, comportements d'achat. "
+        "Synthese actionnable depuis l'etude de marche si disponible."
+    ),
+    "bp.05.concurrentielle": (
+        "Analyse concurrentielle : principaux acteurs directs et indirects, "
+        "positionnement du projet par rapport a la concurrence, avantage "
+        "differenciant defendable."
+    ),
+    "bp.06.strategie_commerciale": (
+        "Strategie commerciale et marketing : canaux d'acquisition, "
+        "politique de prix, plan de communication, objectifs de vente "
+        "annee 1/2/3, indicateurs de suivi."
+    ),
+    "bp.07.modele_economique": (
+        "Modele economique et sources de revenus : description des flux de "
+        "revenus (vente directe, abonnement, commission...), structure de "
+        "couts principaux, marge brute estimee, point mort."
+    ),
+    "bp.08.plan_operationnel": (
+        "Plan operationnel et organisationnel : processus cles, ressources "
+        "humaines, locaux et equipements, fournisseurs strategiques, "
+        "calendrier de demarrage."
+    ),
+    "bp.09.previsions_financieres": (
+        "Previsions financieres sur 3 ans : compte de resultat previsionnel "
+        "(CA, charges, EBITDA, resultat net), bilan simplifie, tableau de "
+        "tresorerie, hypotheses clairement declarees et sensibilite."
+    ),
+    "bp.10.plan_financement": (
+        "Plan de financement et besoins en capital : besoins identifies, "
+        "sources envisagees (fonds propres, pret bancaire, subvention, "
+        "investisseur), structure cible du capital, calendrier des appels "
+        "de fonds."
+    ),
+    "bp.11.risques_contingence": (
+        "Analyse des risques et plan de contingence : identification des "
+        "risques majeurs (marche, financier, operationnel, juridique), "
+        "probabilite/impact, mesures de mitigation pour chacun."
+    ),
+    "bp.12.calendrier_jalons": (
+        "Calendrier de developpement et jalons : feuille de route sur 18 "
+        "mois avec jalons cles (lancement, premier client, seuil de "
+        "rentabilite, prochaine levee...), responsables et criteres de succes."
+    ),
+    "bp.13.annexes": (
+        "Annexes : documents justificatifs, simulations complementaires, "
+        "reponses aux demandes specifiques du client. "
+        "Indique si chaque demande est traitee ou a completer."
+    ),
+}
+
+# --- Strategie Business (STR) --------------------------------------------
+
+BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
+    "str.00.fiche_projet": (
+        "Fiche projet d'ouverture de la strategie business : rappel du "
+        "projet, du secteur, de la zone, du pays et de l'horizon de "
+        "planification strategique vise."
+    ),
+    "str.01.diagnostic_interne": (
+        "Diagnostic interne : forces et faiblesses de l'organisation ou du "
+        "projet (ressources, competences, structure, finances, culture). "
+        "Sources ou hypotheses declarees pour chaque element."
+    ),
+    "str.02.pestel": (
+        "Analyse PESTEL de l'environnement externe (Politique, Economique, "
+        "Socioculturel, Technologique, Environnemental, Legal) dans la zone "
+        "et le pays cibles. Impacts identifies pour le projet."
+    ),
+    "str.03.concurrentielle": (
+        "Analyse concurrentielle strategique : forces de Porter (5 forces), "
+        "intensite de la rivalite, pouvoir des fournisseurs et clients, "
+        "menace des substituts et entrants. Positionnement resultant."
+    ),
+    "str.04.vision_objectifs": (
+        "Vision et objectifs strategiques : definition de la vision a 3-5 "
+        "ans, mission, valeurs, objectifs SMART par horizon (1 an, 3 ans, "
+        "5 ans), indicateurs de mesure."
+    ),
+    "str.05.positionnement": (
+        "Choix de positionnement strategique : segmentation retenue, "
+        "cible prioritaire, proposition de valeur centrale, "
+        "positionnement vs concurrents (matrice perceptuelle)."
+    ),
+    "str.06.entree_marche": (
+        "Strategie d'entree sur le marche : mode d'entree (organique, "
+        "partenariat, acquisition...), zone geographique prioritaire, "
+        "plan de lancement, ressources requises, quick wins identifies."
+    ),
+    "str.07.croissance": (
+        "Strategie de croissance et developpement : options de croissance "
+        "(Ansoff : penetration, developpement marche/produit, "
+        "diversification), sequencement recommande, conditions de succes."
+    ),
+    "str.08.differentiation": (
+        "Strategie de differentiation et avantage concurrentiel durable : "
+        "source de l'avantage (cout, differenciation, focalisation), "
+        "caractere defensable, risques d'erosion, plan de renforcement."
+    ),
+    "str.09.plan_action": (
+        "Plan d'action operationnel : initiatives prioritaires (top 5-7), "
+        "responsable, ressources, budget estime, calendrier, risques "
+        "d'execution et dependances."
+    ),
+    "str.10.kpis": (
+        "Indicateurs de performance (KPIs) : tableau de bord strategique "
+        "(5-8 KPIs cles par axe : commercial, financier, operationnel, "
+        "client), valeurs cibles par annee, frequence de suivi."
+    ),
+    "str.11.risques_scenarios": (
+        "Risques strategiques et scenarios : top 5 risques avec matrice "
+        "probabilite/impact, scenario optimiste, central et pessimiste "
+        "avec impacts sur les KPIs, indicateurs avances d'alerte."
+    ),
+    "str.12.conclusion": (
+        "Conclusion et recommandations strategiques prioritaires : synthese "
+        "des 3 a 5 decisions strategiques cles, prochaines etapes "
+        "concretes dans les 90 prochains jours, message de clôture mentor."
+    ),
+}
+
+
 def prompt_instruction(prompt_key: str) -> str:
     """Renvoie l'instruction chapitre, ou une consigne generique de repli."""
     return (
         MARKET_STUDY_PROMPTS.get(prompt_key)
         or COMPETITOR_STUDY_PROMPTS.get(prompt_key)
+        or BUSINESS_PLAN_PROMPTS.get(prompt_key)
+        or BUSINESS_STRATEGY_PROMPTS.get(prompt_key)
         or (
             "Redige ce chapitre selon la methode EVKHA : donnees chiffrees, "
             "sourcees, concretes et exploitables, ton mentor."

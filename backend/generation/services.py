@@ -6,11 +6,13 @@ from intake.models import IntakeStatus, IntakeSubmission
 from .blueprints import chapters_for_deliverable
 from .models import ChapterGeneration, GenerationJob, JobStatus
 
-# Livrables couverts par le moteur de generation (EM = phase 2, EC = phase 3).
+# Livrables couverts par le moteur de generation (phases 2-5).
 _SUPPORTED_DELIVERABLES = frozenset(
     {
         DeliverableType.MARKET_STUDY,
         DeliverableType.COMPETITOR_STUDY,
+        DeliverableType.BUSINESS_PLAN,
+        DeliverableType.BUSINESS_STRATEGY,
     }
 )
 

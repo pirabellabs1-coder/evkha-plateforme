@@ -36,9 +36,25 @@ _EC_ROLE = (
     "Tu produis une etude concurrentielle professionnelle et actionnable."
 )
 
+_BP_ROLE = (
+    "Tu es un expert en creation d'entreprise et en financement de projets, "
+    "specialiste des marches africains et francophones. Tu rediges des business "
+    "plans professionnels, convaincants et realistes, destines a des "
+    "entrepreneurs, des investisseurs et des partenaires financiers."
+)
+
+_STR_ROLE = (
+    "Tu es un consultant senior en strategie d'entreprise, specialiste des "
+    "marches emergents africains et francophones. Tu produis des strategies "
+    "business actionnables, fondees sur des diagnostics rigoureux, des choix "
+    "clairs et des plans d'action concrets."
+)
+
 _ROLES: dict[str, str] = {
     DeliverableType.MARKET_STUDY: _EM_ROLE,
     DeliverableType.COMPETITOR_STUDY: _EC_ROLE,
+    DeliverableType.BUSINESS_PLAN: _BP_ROLE,
+    DeliverableType.BUSINESS_STRATEGY: _STR_ROLE,
 }
 
 

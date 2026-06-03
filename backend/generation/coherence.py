@@ -83,6 +83,18 @@ def seed_locked_facts_from_variables(
         if currency:
             upsert_locked_fact(job=job, kind=FactKind.CURRENCY, key="currency", value=currency)
 
+    # BP specifiques : forme juridique et capital verrouilles pour coherence
+    # des projections financieres (meme statut du chap. 2 au chap. 10).
+    forme = str(variables.get("FORME_JURIDIQUE", "")).strip()
+    if forme:
+        upsert_locked_fact(job=job, kind=FactKind.ASSUMPTION, key="forme_juridique", value=forme)
+
+    capital = str(variables.get("CAPITAL_INITIAL", "")).strip()
+    if capital:
+        upsert_locked_fact(
+            job=job, kind=FactKind.ASSUMPTION, key="capital_initial", value=capital
+        )
+
 
 def locked_facts_as_context(job: GenerationJob) -> str:
     facts = job.coherence_facts.filter(is_locked=True).order_by("kind", "key")

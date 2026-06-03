@@ -95,9 +95,80 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Business Plan (BP)
+# Structure pro francophone standard + consignes EVKHA (donnees chiffrees,
+# ton mentor). Le chapitrage exact de la methode EVKHA sera confirme avec
+# les documents du Drive (https://drive.google.com/…) — TODO: aligner
+# apres acces. En attendant on applique la structure canonique BP France.
+# ---------------------------------------------------------------------------
+BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
+    ChapterBlueprint(0, "Fiche projet", "bp.00.fiche_projet", SectionKind.OPENING),
+    ChapterBlueprint(1, "Resume executif", "bp.01.resume_executif"),
+    ChapterBlueprint(
+        2, "Presentation du porteur de projet et de l'equipe", "bp.02.porteur_equipe"
+    ),
+    ChapterBlueprint(3, "Description du projet et de l'offre", "bp.03.description_offre"),
+    ChapterBlueprint(4, "Analyse du marche cible", "bp.04.marche_cible"),
+    ChapterBlueprint(5, "Analyse concurrentielle", "bp.05.concurrentielle"),
+    ChapterBlueprint(6, "Strategie commerciale et marketing", "bp.06.strategie_commerciale"),
+    ChapterBlueprint(7, "Modele economique et sources de revenus", "bp.07.modele_economique"),
+    ChapterBlueprint(8, "Plan operationnel et organisationnel", "bp.08.plan_operationnel"),
+    ChapterBlueprint(9, "Previsions financieres sur 3 ans", "bp.09.previsions_financieres"),
+    ChapterBlueprint(
+        10, "Plan de financement et besoins en capital", "bp.10.plan_financement"
+    ),
+    ChapterBlueprint(
+        11, "Analyse des risques et plan de contingence", "bp.11.risques_contingence"
+    ),
+    ChapterBlueprint(
+        12, "Calendrier de developpement et jalons", "bp.12.calendrier_jalons"
+    ),
+    ChapterBlueprint(
+        13,
+        "Annexes et reponses aux demandes specifiques",
+        "bp.13.annexes",
+        SectionKind.ANNEXE,
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Strategie Business (STR)
+# Structure diagnostic-choix-action conforme aux standards du conseil
+# strategique. Meme note TODO Drive que BP.
+# ---------------------------------------------------------------------------
+BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
+    ChapterBlueprint(0, "Fiche projet", "str.00.fiche_projet", SectionKind.OPENING),
+    ChapterBlueprint(1, "Diagnostic interne", "str.01.diagnostic_interne"),
+    ChapterBlueprint(2, "Analyse de l'environnement externe (PESTEL)", "str.02.pestel"),
+    ChapterBlueprint(3, "Analyse concurrentielle strategique", "str.03.concurrentielle"),
+    ChapterBlueprint(4, "Vision et objectifs strategiques", "str.04.vision_objectifs"),
+    ChapterBlueprint(5, "Choix de positionnement strategique", "str.05.positionnement"),
+    ChapterBlueprint(6, "Strategie d'entree sur le marche", "str.06.entree_marche"),
+    ChapterBlueprint(7, "Strategie de croissance et developpement", "str.07.croissance"),
+    ChapterBlueprint(
+        8,
+        "Strategie de differentiation et avantage concurrentiel",
+        "str.08.differentiation",
+    ),
+    ChapterBlueprint(9, "Plan d'action operationnel", "str.09.plan_action"),
+    ChapterBlueprint(10, "Indicateurs de performance (KPIs)", "str.10.kpis"),
+    ChapterBlueprint(
+        11, "Risques strategiques et scenarios", "str.11.risques_scenarios"
+    ),
+    ChapterBlueprint(
+        12,
+        "Conclusion, recommandations et prochaines etapes",
+        "str.12.conclusion",
+        SectionKind.ANNEXE,
+    ),
+)
+
 _BLUEPRINTS: dict[str, tuple[ChapterBlueprint, ...]] = {
     DeliverableType.MARKET_STUDY: MARKET_STUDY_CHAPTERS,
     DeliverableType.COMPETITOR_STUDY: COMPETITOR_STUDY_CHAPTERS,
+    DeliverableType.BUSINESS_PLAN: BUSINESS_PLAN_CHAPTERS,
+    DeliverableType.BUSINESS_STRATEGY: BUSINESS_STRATEGY_CHAPTERS,
 }
 
 

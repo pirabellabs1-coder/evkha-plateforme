@@ -10,9 +10,18 @@ from .models import IntakeSource, IntakeStatus, IntakeSubmission
 # Ce sont des constantes du domaine, jamais inventees a la volee.
 REQUIRED_VARIABLES: tuple[str, ...] = ("SECTEUR", "PAYS", "PROJET", "ZONE")
 OPTIONAL_VARIABLES: tuple[str, ...] = (
+    # Transverses
     "ELEMENTS_A_RETENIR",
     "DEMANDES_SPECIFIQUES",
     "CONCURRENTS",
+    # Business Plan specifiques
+    "CAPITAL_INITIAL",
+    "FORME_JURIDIQUE",
+    "MODELE_REVENUS",
+    "EQUIPE",
+    # Strategie specifiques
+    "OBJECTIF_STRATEGIQUE",
+    "HORIZON_PLANIFICATION",
 )
 
 # Alias label/cle -> variable canonique. Les libelles reels du formulaire Tally
@@ -36,6 +45,25 @@ _ALIASES: dict[str, str] = {
     "demandes": "DEMANDES_SPECIFIQUES",
     "concurrents": "CONCURRENTS",
     "competitors": "CONCURRENTS",
+    # BP
+    "capital initial": "CAPITAL_INITIAL",
+    "capital": "CAPITAL_INITIAL",
+    "apport": "CAPITAL_INITIAL",
+    "forme juridique": "FORME_JURIDIQUE",
+    "statut juridique": "FORME_JURIDIQUE",
+    "statut": "FORME_JURIDIQUE",
+    "modele de revenus": "MODELE_REVENUS",
+    "sources de revenus": "MODELE_REVENUS",
+    "modele economique": "MODELE_REVENUS",
+    "equipe": "EQUIPE",
+    "team": "EQUIPE",
+    "associes": "EQUIPE",
+    # STR
+    "objectif strategique": "OBJECTIF_STRATEGIQUE",
+    "objectif": "OBJECTIF_STRATEGIQUE",
+    "horizon": "HORIZON_PLANIFICATION",
+    "horizon de planification": "HORIZON_PLANIFICATION",
+    "duree": "HORIZON_PLANIFICATION",
 }
 
 _CANONICAL = set(REQUIRED_VARIABLES) | set(OPTIONAL_VARIABLES)

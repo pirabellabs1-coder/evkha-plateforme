@@ -56,6 +56,19 @@ services:
     volumes:
       - redisdata:/data
 
+  dashboard:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_API_URL: ""          # vide = proxy Vite vers web:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - web
+
   n8n:
     image: n8nio/n8n:latest
     environment:
