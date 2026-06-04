@@ -201,7 +201,7 @@
 <!-- 02 -->
 <section id="s2">
   <div class="sec-head"><span class="num">02</span><h2>Architecture cible</h2></div>
-  <p class="sec-intro">n8n <b>orchestre</b> (webhooks, emails, appels simples). Django <b>est le cœur métier</b> (jobs, prompts, chapitres, statuts). Celery exécute le long et le relançable. PostgreSQL est la source de vérité. Le rendu passe par Google Docs puis Gamma.</p>
+  <p class="sec-intro">n8n <b>orchestre</b> (webhooks, emails, appels simples). Django <b>est le cœur métier</b> (jobs, prompts, chapitres, statuts). Celery exécute le long et le relançable. PostgreSQL est la source de vérité. Le rendu passe par le <b>Rendering Engine HTML → PDF brandé</b> (D7/D8 : Gamma abandonné, branding client intégré).</p>
   <div class="diagram">
     <svg viewBox="0 0 860 380" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,monospace" font-size="12">
       <defs>
@@ -223,8 +223,8 @@
       <!-- claude -->
       <rect x="700" y="160" width="140" height="50" rx="10" fill="#F7E4DA" stroke="#E6BFA9"/><text x="770" y="182" text-anchor="middle" fill="#8A3B1E">Claude API</text><text x="770" y="198" text-anchor="middle" fill="#87867F">génération</text>
       <!-- output -->
-      <rect x="700" y="40" width="140" height="46" rx="10" fill="#F0EEE6" stroke="#D1CFC5"/><text x="770" y="60" text-anchor="middle">Google Docs</text><text x="770" y="76" text-anchor="middle" fill="#87867F">assemblage</text>
-      <rect x="700" y="100" width="140" height="46" rx="10" fill="#F6EFD6" stroke="#E2D08A"/><text x="770" y="120" text-anchor="middle" fill="#7a6312">Gamma</text><text x="770" y="136" text-anchor="middle" fill="#87867F">présentation</text>
+      <rect x="700" y="40" width="140" height="46" rx="10" fill="#E4E9DC" stroke="#C2CDAE"/><text x="770" y="60" text-anchor="middle" fill="#4B5C39">HTML → PDF</text><text x="770" y="76" text-anchor="middle" fill="#87867F">branding client (D8)</text>
+      <rect x="700" y="100" width="140" height="46" rx="10" fill="#F0EEE6" stroke="#D1CFC5" stroke-dasharray="4 3" opacity="0.5"/><text x="770" y="120" text-anchor="middle" fill="#87867F" font-style="italic">Gamma</text><text x="770" y="136" text-anchor="middle" fill="#D1CFC5">abandonné (D7)</text>
       <!-- delivery -->
       <rect x="250" y="240" width="150" height="50" rx="10" fill="#F0EEE6" stroke="#D1CFC5"/><text x="325" y="262" text-anchor="middle">Email evkha.fr</text><text x="325" y="278" text-anchor="middle" fill="#87867F">livraison + purge</text>
       <!-- infra -->
@@ -256,8 +256,8 @@
     <div class="card"><h3>intake</h3><div class="meta">formulaires</div><ul><li>réponses Tally → variables</li><li>validation par variable + missing_fields</li><li>fiche sectorielle</li></ul></div>
     <div class="card"><h3>generation</h3><div class="meta">cœur génération</div><ul><li>jobs + chapitres</li><li>appels Claude</li><li>résumés + retries</li></ul></div>
     <div class="card"><h3>documents</h3><div class="meta">assemblage</div><ul><li>Google Docs</li><li>export PDF/DOCX</li><li>artefacts + expiration</li></ul></div>
-    <div class="card"><h3>delivery</h3><div class="meta">livraison</div><ul><li>email Brevo (D6)</li><li>lien + PDF (D3)</li><li>batches + events</li></ul></div>
-    <div class="card"><h3>integrations</h3><div class="meta">connecteurs + webhooks</div><ul><li>Claude · Google · Gamma · Brevo</li><li><code>WebhookEvent</code> · <code>ExternalCredentialRef</code></li></ul></div>
+    <div class="card"><h3>delivery</h3><div class="meta">livraison</div><ul><li>email Brevo (D6)</li><li>PDF brandé client (D8)</li><li>batches + events</li></ul></div>
+    <div class="card"><h3>integrations</h3><div class="meta">connecteurs + webhooks</div><ul><li>Claude · PDF (WeasyPrint) · Brevo</li><li><code>WebhookEvent</code> · <code>ExternalCredentialRef</code></li><li><span style="color:#87867F;text-decoration:line-through">Gamma · Google Docs</span> <span style="color:#4B5C39">(D7)</span></li></ul></div>
     <div class="card"><h3>monitoring</h3><div class="meta">traçabilité</div><ul><li><code>OperationalIncident</code></li><li>alertes, erreurs non sensibles</li></ul></div>
   </div>
   <h4>Moteurs transverses (services, pas des apps CRUD)</h4>
@@ -345,7 +345,8 @@ fix(intake): handle Tally 2xx within 10s
     <div class="milestone"><div class="when">Phase 1</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Socle infra &amp; flux</h3><p>orders + intake + webhooks Systeme.io/Tally (réponse 2xx &lt;10s), Django Admin, déploiement VPS via Coolify, Uptime Kuma sur les endpoints critiques.</p><div class="tags"><span class="pill" style="background:#2f6b3a;color:#fff">✓ livré &amp; mergé</span></div></div></div>
     <div class="milestone"><div class="when">Phase 2</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Moteur Étude de Marché</h3><p>Context + Coherence + Cost engines, génération chapitre par chapitre, fiche sectorielle, assemblage Google Docs, Rendering (couche client), test complet bout-en-bout. <b>Implémenté</b> avec adaptateurs Claude/Docs réels + stubs déterministes (CI-safe). Reste : credentials Google OAuth (infra).</p><div class="tags"><span class="pill" style="background:#2f6b3a;color:#fff">✓ implémenté</span><span class="pill gold">livrable de référence</span></div></div></div>
     <div class="milestone"><div class="when">Phase 3</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Étude de Concurrence</h3><p>Réutilise le socle EM ; logique concurrents (fiche projet + 8 chap. canoniques), base consolidée des concurrents, entrée liste client. <b>Implémenté.</b></p><div class="tags"><span class="pill" style="background:#2f6b3a;color:#fff">✓ implémenté</span></div></div></div>
-    <div class="milestone"><div class="when">Phase 4</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Gamma &amp; livraison</h3><p>Génération/poll Gamma + export, stockage temporaire, email evkha.fr, purge programmée, workflow erreur critique.</p></div></div>
+    <div class="milestone"><div class="when">Phase 4</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Livraison email</h3><p>Adaptateurs Gamma (stub, abandonné D7) + Brevo transactionnel. Assemblage lien + PDF. Purge J+7. Incidents sur échec. <b>Implémenté.</b></p><div class="tags"><span class="pill" style="background:#2f6b3a;color:#fff">✓ implémenté</span></div></div></div>
+    <div class="milestone"><div class="when">Phase 4b</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Rendu PDF brandé client</h3><p>Remplacement de Gamma + Google Docs par un pipeline HTML → PDF autonome avec branding client (D7/D8). Tally capte <code>LOGO_URL</code>, <code>COULEUR_PRINCIPALE</code>, <code>COULEUR_SECONDAIRE</code>, <code>NOM_ENTREPRISE</code>. WeasyPrint génère un PDF aux couleurs du client. Fallback automatique sur charte EVKHA. <b>À implémenter.</b></p><div class="tags"><span class="pill clay">prochaine priorité</span><span class="pill gold">valeur ajoutée B2B clé</span></div></div></div>
     <div class="milestone"><div class="when">Phase 5</div><div class="dot-col"><span class="dot"></span><span class="line"></span></div><div class="body"><h3>Business Plan &amp; Stratégie</h3><p>BP (14 sections) + STR (13 sections). Réutilise le moteur. Variables spécifiques (CAPITAL, FORME_JURIDIQUE, EQUIPE, OBJECTIF_STRATEGIQUE…). Cohérence verrouillée dès l'ouverture. <b>Implémenté.</b> TODO: aligner chapitres avec méthode Drive.</p><div class="tags"><span class="pill" style="background:#2f6b3a;color:#fff">✓ implémenté</span></div></div></div>
     <div class="milestone"><div class="when">Phase 6</div><div class="dot-col"><span class="dot"></span></div><div class="body"><h3>Dashboard moderne</h3><p>API JSON Django (<code>/api/dashboard/</code>) + frontend TanStack Router + React Query. Pages : vue d'ensemble, livrables (liste + détail chapitres + coûts), incidents. Proxy Vite en dev, Docker service inclus. <b>Implémenté.</b> Reste : Better Auth login en production.</p><div class="tags"><span class="pill" style="background:#2f6b3a;color:#fff">✓ implémenté</span></div></div></div>
   </div>
@@ -372,14 +373,14 @@ fix(intake): handle Tally 2xx within 10s
 
   <div class="grid2">
     <div class="card"><h3>intake</h3><div class="meta">owner: Codex · review: Claude</div>
-      <p>Transforme les réponses Tally en variables propres (<code>SECTEUR, PAYS, PROJET, ZONE</code>, éléments à retenir, demandes spécifiques, concurrents) + déclenche la fiche sectorielle.</p>
-      <ul class="dod"><li>Webhook répond 2xx en &lt;10s, génération déléguée à Celery.</li><li>Variables normalisées + validées (schéma).</li><li>Champs manquants → statut « incomplet » explicite, jamais de valeur inventée.</li></ul></div>
-    <div class="card"><h3>documents + Rendering</h3><div class="meta">owner: Claude · review: Codex</div>
-      <p>Assemble le dossier final dans Google Docs selon l'ordre EVKHA + applique la couche client.</p>
-      <ul class="dod"><li>Ordre respecté : page de garde → sommaire → fiche projet → chapitres → annexe brief → Sources.</li><li>Zéro balise interne / « Étape » / bloc QA dans le rendu (test automatisé de pureté).</li><li>Section Sources unique, regroupée par thème.</li><li>Encadrés mentor insérés aux chapitres décisifs.</li><li>Deux sorties (D3) : PDF en pièce jointe + lien éditable/Gamma.</li><li>Purge auto des temporaires à J+7 (D5) : tâche Celery planifiée + journalisée.</li></ul></div>
+      <p>Transforme les réponses Tally en variables propres (<code>SECTEUR, PAYS, PROJET, ZONE</code>, éléments à retenir, demandes spécifiques, concurrents) + variables branding client (D8).</p>
+      <ul class="dod"><li>Webhook répond 2xx en &lt;10s, génération déléguée à Celery.</li><li>Variables normalisées + validées (schéma).</li><li>Champs manquants → statut « incomplet » explicite, jamais de valeur inventée.</li><li><b>[D8]</b> Champs optionnels branding : <code>LOGO_URL</code>, <code>COULEUR_PRINCIPALE</code>, <code>COULEUR_SECONDAIRE</code>, <code>NOM_ENTREPRISE</code>.</li></ul></div>
+    <div class="card"><h3>documents + Rendering Engine</h3><div class="meta">owner: Claude · review: Codex</div>
+      <p>Assemble le dossier final selon l'ordre EVKHA. <b>[D7/D8]</b> Génère un PDF HTML brandé autonome (WeasyPrint) — plus de dépendance Google Docs ni Gamma.</p>
+      <ul class="dod"><li>Ordre respecté : page de garde → sommaire → fiche projet → chapitres → annexe brief → Sources.</li><li>Zéro balise interne / « Étape » / bloc QA dans le rendu (test automatisé de pureté).</li><li>Section Sources unique, regroupée par thème.</li><li><b>[D8]</b> Si <code>LOGO_URL</code> + <code>COULEUR_PRINCIPALE</code> fournis : branding client dans le PDF. Sinon : palette EVKHA par défaut.</li><li>PDF en pièce jointe email (D3 révisé). Purge auto J+7 (D5).</li></ul></div>
     <div class="card"><h3>integrations</h3><div class="meta">owner: Codex · review: Claude</div>
-      <p>Clients API isolés derrière des interfaces (Claude, Google Docs/Drive, Gamma, email Brevo, Systeme.io, Tally).</p>
-      <ul class="dod"><li>Chaque client mockable (tests sans réseau).</li><li>Retries + timeouts + erreurs typées.</li><li>Aucune clé en dur ; tout via env.</li><li>Gamma : poll asynchrone + export testé avec le compte Evkha ; sauté si <code>gamma_enabled=false</code> (D4).</li><li>Email via Brevo (D6) ; couche SMTP abstraite pour bascule future.</li></ul></div>
+      <p>Clients API isolés derrière des interfaces (Claude, WeasyPrint, Brevo, Systeme.io, Tally). <b>Gamma et Google Docs retirés (D7).</b></p>
+      <ul class="dod"><li>Chaque client mockable (tests sans réseau).</li><li>Retries + timeouts + erreurs typées.</li><li>Aucune clé en dur ; tout via env.</li><li>Email via Brevo (D6) ; couche SMTP abstraite pour bascule future.</li><li><b>[D7]</b> <code>GammaClient</code> conservé en stub inerte — jamais appelé en production.</li></ul></div>
     <div class="card"><h3>n8n workflows (5)</h3><div class="meta">owner: Codex · review: Claude</div>
       <p>Commande Systeme.io · formulaire Tally · suivi génération · livraison · erreur critique.</p>
       <ul class="dod"><li>Workflows exportés en JSON <b>versionné</b> dans le repo.</li><li>Idempotence + vérif signature/secret quand dispo.</li><li>Notif Evangeline sur erreur (job ID, livrable, chapitre, message).</li></ul></div>
@@ -441,7 +442,8 @@ fix(intake): handle Tally 2xx within 10s
     <div class="row"><div class="cell">Secret commité (repo public)</div><div class="cell"><span class="sev high">HIGH</span></div><div class="cell">Repo privé immédiat ; gitleaks en CI ; <code>.env</code> ignoré ; clés API dédiées au système.</div></div>
     <div class="row"><div class="cell">Conflits de merge Codex × Claude</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">Contrats mergés d'abord ; 1 module = 1 owner ; branches courtes ; rebase fréquent.</div></div>
     <div class="row"><div class="cell">Timeout webhook Tally (&gt;10s)</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">2xx immédiat + délégation Celery ; jamais de génération dans la réponse webhook.</div></div>
-    <div class="row"><div class="cell">Export Gamma dépend du plan/credits</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">Test réel tôt avec le compte Evkha ; fallback PDF Google Docs si export indispo.</div></div>
+    <div class="row"><div class="cell"><s>Export Gamma dépend du plan/credits</s></div><div class="cell"><span class="sev low">CLOS</span></div><div class="cell">Gamma abandonné (D7) → risque supprimé. Remplacement par pipeline HTML→PDF autonome (WeasyPrint), aucune dépendance externe.</div></div>
+    <div class="row"><div class="cell">Logo client invalide ou expiré (URL Tally temporaire)</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">Fallback automatique sur logo EVKHA si l'URL logo ne répond pas ou si le champ est vide (D8). Jamais d'erreur bloquante sur le branding.</div></div>
     <div class="row"><div class="cell">Hallucination de données marché</div><div class="cell"><span class="sev med">MED</span></div><div class="cell">Règle « source réelle ou FACT_MISSING » ; pas d'extrapolation ; chapitre Sources contrôlé.</div></div>
   </div>
 </section>
@@ -449,20 +451,22 @@ fix(intake): handle Tally 2xx within 10s
 <!-- 11 -->
 <section id="s11">
   <div class="sec-head"><span class="num">11</span><h2>Décisions actées (gelées)</h2></div>
-  <p class="sec-intro">Décisions tranchées le 01/06/2026. Elles sont désormais des <b>contraintes du système</b>, plus des questions ouvertes. Tout changement passe par une nouvelle décision tracée.</p>
+  <p class="sec-intro">Décisions tranchées le 01/06/2026 (D1–D6) et le 04/06/2026 (D7–D8). Elles sont des <b>contraintes du système</b>, plus des questions ouvertes. Tout changement passe par une nouvelle décision tracée.</p>
   <div class="tbl gate">
     <div class="row head"><div class="cell">Décision</div><div class="cell">Choix acté → implication</div></div>
     <div class="row"><div class="cell"><b>D1</b> · Confidentialité repo</div><div class="cell"><span class="pill olive">repo PRIVÉ</span> Fait. Plus aucun push sur dépôt public. gitleaks en CI.</div></div>
     <div class="row"><div class="cell"><b>D2</b> · Ownership Codex × Claude</div><div class="cell"><span class="pill olive">matrice §05 validée</span> par défaut, ajustable sans impact code.</div></div>
-    <div class="row"><div class="cell"><b>D3</b> · Livraison client</div><div class="cell"><span class="pill gold">les deux</span> PDF en pièce jointe <b>+</b> lien (Docs éditable / Gamma). Le module documents produit les deux sorties.</div></div>
-    <div class="row"><div class="cell"><b>D4</b> · Gamma</div><div class="cell"><span class="pill gold">optionnel selon l'offre</span> Flag <code>gamma_enabled</code> par commande/offre. Le pipeline saute proprement Gamma si désactivé.</div></div>
+    <div class="row"><div class="cell"><b>D3</b> · Livraison client <span style="font-size:10px;color:#87867F">(révisé D7)</span></div><div class="cell"><span class="pill gold">PDF brandé</span> PDF en pièce jointe généré par le pipeline HTML→PDF interne. Plus de double sortie Gamma/Google Docs. Le PDF <em>est</em> le livrable principal.</div></div>
+    <div class="row"><div class="cell"><b>D4</b> · Gamma <span style="font-size:10px;color:#87867F">(supplanté D7)</span></div><div class="cell"><span class="pill" style="background:var(--redbg);color:var(--red)">abandonné</span> Flag <code>gamma_enabled</code> conservé dans le modèle mais jamais activé en production. <code>GammaApiClient</code> reste un stub inerte.</div></div>
     <div class="row"><div class="cell"><b>D5</b> · Rétention temporaires</div><div class="cell"><span class="pill gold">7 jours</span> Purge auto à J+7 (tâche Celery planifiée), horodatée et journalisée.</div></div>
     <div class="row"><div class="cell"><b>D6</b> · Email evkha.fr</div><div class="cell"><span class="pill gold">Brevo</span> Connecteur email = Brevo (API), clés via env. Adapter SMTP abstrait pour bascule future.</div></div>
+    <div class="row"><div class="cell"><b>D7</b> · Abandon Gamma <span style="font-size:10px;color:#C9A227">04/06/2026</span></div><div class="cell"><span class="pill olive">Gamma supprimé</span> Confirmé par Evkha (bugs fréquents, dépendance externe). Google Docs OAuth également retiré du scope. Remplacement : pipeline HTML→PDF autonome (D8).</div></div>
+    <div class="row"><div class="cell"><b>D8</b> · Rendu PDF brandé client <span style="font-size:10px;color:#C9A227">04/06/2026</span></div><div class="cell"><span class="pill olive">HTML → WeasyPrint</span> Le Rendering Engine génère un PDF via WeasyPrint (Python, BSD). Variables Tally : <code>LOGO_URL</code> · <code>COULEUR_PRINCIPALE</code> · <code>COULEUR_SECONDAIRE</code> · <code>NOM_ENTREPRISE</code>. Fallback automatique sur palette EVKHA (ivory/slate/clay/olive) si branding absent. Valeur ajoutée B2B clé : chaque dossier livre aux couleurs du client.</div></div>
   </div>
   <div class="box good" style="margin-top:16px"><span class="lab">Déjà résolu</span>
-    Les méthodes <b>Business Plan</b> et <b>Stratégie</b> existent au Drive (dossier « DETAILS DES NOUVEAUX SYSTÈMES ») → sources disponibles, ingérées en Phase 5.</div>
-  <div class="box note"><span class="lab">À surveiller (non bloquant)</span>
-    Thèmes Gamma B2B : vérifier l'existence d'IDs exploitables par API avec le compte Evkha au démarrage de la Phase 4 (sinon fallback PDF Google Docs).</div>
+    Les méthodes <b>Business Plan</b> et <b>Stratégie</b> existent au Drive → sources disponibles, ingérées en Phase 5. <b>Phases 0–6 toutes implémentées et mergées.</b></div>
+  <div class="box note"><span class="lab">Prochaine étape — Phase 4b</span>
+    Implémenter le pipeline HTML→PDF brandé (D8) : <code>integrations/pdf.py</code> (PdfClient + WeasyPrintPdfClient + Stub), template HTML EVKHA avec CSS vars branding, <code>generation/rendering.py</code> → <code>render_branded_html()</code>, mise à jour <code>documents/services.py</code> et <code>delivery/services.py</code>. Ajouter les 4 variables intake. Dépendance : <code>weasyprint&gt;=62</code> dans <code>[pdf]</code> extra.</div>
 </section>
 
 </main>
