@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from html import escape
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from django.db import transaction
 from django.utils import timezone
 from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
-from documents.services import assemble_document
+from documents.services import DocumentAssembly, assemble_document
 from generation.models import GenerationJob, JobStatus
 from generation.rendering import render_client_document
 from integrations.brevo import (
@@ -16,6 +15,7 @@ from integrations.brevo import (
     get_transactional_email_client,
 )
 from integrations.gamma import GammaClient, GammaExportResult, get_gamma_client
+from integrations.pdf import PdfClient, get_pdf_client
 from monitoring.models import IncidentSeverity, OperationalIncident
 from orders.models import OrderStatus
 
@@ -32,15 +32,6 @@ def _retention_days(job: GenerationJob) -> int:
 
 def _expires_at(job: GenerationJob) -> datetime:
     return timezone.now() + timedelta(days=_retention_days(job))
-
-
-def _pdf_download_url(link_url: str) -> str:
-    """Ajoute ?format=pdf en respectant les query strings existants."""
-    parsed = urlparse(link_url)
-    existing = parse_qs(parsed.query)
-    existing["format"] = ["pdf"]
-    new_query = urlencode({k: v[0] for k, v in existing.items()})
-    return urlunparse(parsed._replace(query=new_query))
 
 
 def _theme_id_for(job: GenerationJob) -> str:
@@ -73,23 +64,6 @@ def _attachment_filename(artifact: DocumentArtifact, order_id: str) -> str:
     extension = "pptx" if artifact.kind == ArtifactKind.GAMMA_PPTX else "pdf"
     label = "gamma_pptx" if artifact.kind == ArtifactKind.GAMMA_PPTX else artifact.kind
     return f"EVKHA_{slug}_{label}.{extension}"
-
-
-def ensure_pdf_artifact(job: GenerationJob, *, link_artifact: DocumentArtifact) -> DocumentArtifact:
-    # Le PDF est un rendu derive du lien Google Docs : on ne lui attribue pas
-    # le checksum du markdown (qui ne correspond pas aux octets du PDF reel).
-    artifact, _created = DocumentArtifact.objects.update_or_create(
-        job=job,
-        kind=ArtifactKind.PDF,
-        defaults={
-            "status": ArtifactStatus.READY,
-            "storage_key": f"{link_artifact.storage_key}/pdf",
-            "download_url": _pdf_download_url(link_artifact.download_url),
-            "checksum_sha256": "",
-            "expires_at": _expires_at(job),
-        },
-    )
-    return artifact
 
 
 def _persist_gamma_artifacts(
@@ -163,13 +137,14 @@ def ensure_gamma_artifacts(
 def deliver_job(
     job: GenerationJob,
     *,
+    pdf_client: PdfClient | None = None,
     gamma_client: GammaClient | None = None,
     email_client: TransactionalEmailClient | None = None,
 ) -> DeliveryBatch:
     """Orchestre la livraison complete d'un job termine.
 
     Architecture d'atomicite :
-    1. Appels externes (Gamma, email) AVANT la transaction principale.
+    1. Appels externes (PDF WeasyPrint, Gamma, email) AVANT la transaction principale.
     2. Ecriture en base dans une transaction atomique.
     3. Sur echec, persistence des traces (batch FAILED + incident) dans une
        transaction SEPAREE pour survivre au rollback de la transaction principale.
@@ -178,18 +153,19 @@ def deliver_job(
         msg = f"Cannot deliver job in status {job.status}."
         raise DeliveryError(msg)
 
+    pdf_client = pdf_client or get_pdf_client()
     email_client = email_client or get_transactional_email_client()
     gamma_client = gamma_client or get_gamma_client()
 
     try:
         # --- I/O externe (pas de transaction ouverte) ---
         # assemble_document est idempotent via update_or_create.
-        link_artifact = assemble_document(job)
-        pdf_artifact = ensure_pdf_artifact(job, link_artifact=link_artifact)
+        # Retourne DocumentAssembly(link=HTML, pdf=WeasyPrint PDF brandé).
+        assembly: DocumentAssembly = assemble_document(job, pdf_client=pdf_client)
         gamma_artifacts = ensure_gamma_artifacts(job, gamma_client=gamma_client)
         all_artifacts: tuple[DocumentArtifact, ...] = (
-            link_artifact,
-            pdf_artifact,
+            assembly.link,
+            assembly.pdf,
             *gamma_artifacts,
         )
 
@@ -216,7 +192,7 @@ def deliver_job(
                     "status": DeliveryStatus.SENT,
                     "email_provider": "brevo",
                     "recipient_email": job.order.customer.email,
-                    "download_url": link_artifact.download_url,
+                    "download_url": assembly.link.download_url,
                     "error_message": "",
                     "sent_at": timezone.now(),
                 },

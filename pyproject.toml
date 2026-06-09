@@ -19,6 +19,11 @@ dependencies = [
 ai = [
   "anthropic>=0.40,<1",
 ]
+pdf = [
+  # WeasyPrint génère les PDFs brandés (Phase 4b, D8).
+  # Requiert des libs système (Pango, Cairo) — voir docs/deploy-coolify.md.
+  "weasyprint>=62,<63",
+]
 dev = [
   "django-stubs[compatible-mypy]>=5.2,<6",
   "mypy>=1.10,<2",
@@ -48,7 +53,7 @@ exclude = ["backend/.*/migrations/.*"]
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-module = ["celery", "environ", "anthropic"]
+module = ["celery", "environ", "anthropic", "weasyprint"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

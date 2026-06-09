@@ -1,0 +1,62 @@
+[
+  {
+    "model": "catalog.offer",
+    "pk": "11111111-0000-4000-8000-000000000001",
+    "fields": {
+      "created_at": "2026-06-01T00:00:00Z",
+      "updated_at": "2026-06-01T00:00:00Z",
+      "name": "Étude de marché",
+      "slug": "etude-marche",
+      "deliverable_type": "market_study",
+      "gamma_enabled": false,
+      "delivery_mode": "link_and_pdf",
+      "retention_days": 7,
+      "is_active": true
+    }
+  },
+  {
+    "model": "catalog.offer",
+    "pk": "11111111-0000-4000-8000-000000000002",
+    "fields": {
+      "created_at": "2026-06-01T00:00:00Z",
+      "updated_at": "2026-06-01T00:00:00Z",
+      "name": "Étude de la concurrence",
+      "slug": "etude-concurrence",
+      "deliverable_type": "competitor_study",
+      "gamma_enabled": false,
+      "delivery_mode": "link_and_pdf",
+      "retention_days": 7,
+      "is_active": true
+    }
+  },
+  {
+    "model": "catalog.offer",
+    "pk": "11111111-0000-4000-8000-000000000003",
+    "fields": {
+      "created_at": "2026-06-01T00:00:00Z",
+      "updated_at": "2026-06-01T00:00:00Z",
+      "name": "Business plan",
+      "slug": "business-plan",
+      "deliverable_type": "business_plan",
+      "gamma_enabled": false,
+      "delivery_mode": "link_and_pdf",
+      "retention_days": 7,
+      "is_active": true
+    }
+  },
+  {
+    "model": "catalog.offer",
+    "pk": "11111111-0000-4000-8000-000000000004",
+    "fields": {
+      "created_at": "2026-06-01T00:00:00Z",
+      "updated_at": "2026-06-01T00:00:00Z",
+      "name": "Stratégie business",
+      "slug": "strategie-business",
+      "deliverable_type": "business_strategy",
+      "gamma_enabled": false,
+      "delivery_mode": "link_and_pdf",
+      "retention_days": 7,
+      "is_active": true
+    }
+  }
+]

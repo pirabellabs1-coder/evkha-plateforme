@@ -13,7 +13,7 @@ from generation.runner import run_generation_job
 from generation.services import bootstrap_generation_job
 from intake.models import IntakeStatus, IntakeSubmission
 from integrations.claude import StubClaudeClient
-from integrations.google_docs import StubGoogleDocsClient
+from integrations.pdf import StubPdfClient
 from orders.models import Order
 
 
@@ -95,12 +95,17 @@ def test_assemble_document_creates_ready_artifact(market_submission: IntakeSubmi
     job = bootstrap_generation_job(market_submission)
     run_generation_job(job, client=StubClaudeClient())
 
-    artifact = assemble_document(job, docs_client=StubGoogleDocsClient())
+    assembly = assemble_document(job, pdf_client=StubPdfClient())
 
-    assert artifact.status == ArtifactStatus.READY
-    assert artifact.download_url
-    assert len(artifact.checksum_sha256) == 64
-    assert artifact.expires_at is not None
+    # LINK : HTML d'aperçu avec checksum SHA256 du HTML (64 chars).
+    assert assembly.link.status == ArtifactStatus.READY
+    assert assembly.link.download_url
+    assert len(assembly.link.checksum_sha256) == 64
+    assert assembly.link.expires_at is not None
+    # PDF : artefact prêt, pas de checksum binaire.
+    assert assembly.pdf.status == ArtifactStatus.READY
+    assert assembly.pdf.download_url
+    assert assembly.pdf.checksum_sha256 == ""
 
 
 @pytest.mark.django_db

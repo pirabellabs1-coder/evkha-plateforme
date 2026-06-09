@@ -14,6 +14,7 @@ from intake.models import IntakeStatus, IntakeSubmission
 from integrations.brevo import EmailAttachment, EmailSendResult, StubBrevoClient
 from integrations.claude import StubClaudeClient
 from integrations.gamma import StubGammaClient
+from integrations.pdf import StubPdfClient
 from monitoring.models import OperationalIncident
 from orders.models import Order, OrderStatus
 
@@ -80,6 +81,7 @@ def test_deliver_job_creates_link_pdf_and_sent_batch(
 
     batch = deliver_job(
         job,
+        pdf_client=StubPdfClient(),
         gamma_client=StubGammaClient(),
         email_client=StubBrevoClient(),
     )
@@ -91,10 +93,15 @@ def test_deliver_job_creates_link_pdf_and_sent_batch(
     assert batch.artifacts.filter(kind=ArtifactKind.LINK, status=ArtifactStatus.READY).exists()
     assert batch.artifacts.filter(kind=ArtifactKind.PDF, status=ArtifactStatus.READY).exists()
     assert not batch.artifacts.filter(kind=ArtifactKind.GAMMA_PDF).exists()
-    # Verification XSS fix : le checksum du PDF est vide (pas celui du link).
+    # Phase 4b (D8) : PDF généré par WeasyPrint — checksum binaire non géré.
     pdf = batch.artifacts.get(kind=ArtifactKind.PDF)
     assert pdf.checksum_sha256 == ""
-    assert "format=pdf" in pdf.download_url
+    assert pdf.download_url  # URL non vide (stub ou réelle)
+    assert pdf.status == ArtifactStatus.READY
+    # LINK = HTML d'aperçu avec checksum du HTML.
+    link = batch.artifacts.get(kind=ArtifactKind.LINK)
+    assert link.checksum_sha256  # SHA256 du HTML renseigné
+    assert link.download_url
 
 
 @pytest.mark.django_db
@@ -106,6 +113,7 @@ def test_deliver_job_creates_gamma_artifacts_when_enabled(
 
     batch = deliver_job(
         job,
+        pdf_client=StubPdfClient(),
         gamma_client=StubGammaClient(),
         email_client=StubBrevoClient(),
     )
@@ -121,7 +129,12 @@ def test_purge_expired_artifacts_marks_ready_links_expired(
 ) -> None:
     job = bootstrap_generation_job(market_submission_no_gamma)
     run_generation_job(job, client=StubClaudeClient())
-    batch = deliver_job(job, gamma_client=StubGammaClient(), email_client=StubBrevoClient())
+    batch = deliver_job(
+        job,
+        pdf_client=StubPdfClient(),
+        gamma_client=StubGammaClient(),
+        email_client=StubBrevoClient(),
+    )
     artifact = batch.artifacts.get(kind=ArtifactKind.LINK)
     assert artifact.expires_at is not None
     artifact.expires_at = artifact.expires_at - timedelta(days=8)
@@ -155,7 +168,12 @@ def test_delivery_failure_creates_incident(
             raise RuntimeError("brevo down")
 
     with pytest.raises(DeliveryError):
-        deliver_job(job, gamma_client=StubGammaClient(), email_client=FailingEmailClient())
+        deliver_job(
+            job,
+            pdf_client=StubPdfClient(),
+            gamma_client=StubGammaClient(),
+            email_client=FailingEmailClient(),
+        )
 
     assert OperationalIncident.objects.filter(
         title="Echec livraison livrable",

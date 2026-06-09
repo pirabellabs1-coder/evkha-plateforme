@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ title }}</title>
+  <style>
+    /* ── Variables de branding client ──────────────────────── */
+    :root {
+      --primary:   {{ branding.color_primary }};
+      --secondary: {{ branding.color_secondary }};
+    }
+
+    /* ── Mise en page A4 ────────────────────────────────────── */
+    @page {
+      size: A4;
+      margin: 22mm 20mm 20mm 25mm;
+      @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font-size: 8pt;
+        color: #aaa;
+        font-family: Helvetica, Arial, sans-serif;
+      }
+      @bottom-center {
+        content: "Document confidentiel — EVKHA";
+        font-size: 7pt;
+        color: #ccc;
+        font-family: Helvetica, Arial, sans-serif;
+      }
+    }
+    /* La page de garde n'a pas de pied de page ni de marges standard. */
+    @page cover {
+      margin: 0;
+      @bottom-right  { content: ""; }
+      @bottom-center { content: ""; }
+    }
+
+    /* ── Reset ──────────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 10.5pt;
+      line-height: 1.75;
+      color: #1c1c2e;
+    }
+
+    /* ── Page de garde ──────────────────────────────────────── */
+    .cover {
+      page: cover;
+      page-break-after: always;
+      background: var(--primary);
+      color: #ffffff;
+      min-height: 297mm;
+      padding: 32mm 28mm 28mm 28mm;
+    }
+
+    .cover__logo {
+      display: block;
+      max-width: 200px;
+      max-height: 90px;
+      object-fit: contain;
+      margin-bottom: 38mm;
+    }
+
+    .cover__type {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 9pt;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+      margin-bottom: 6mm;
+    }
+
+    .cover__title {
+      font-size: 28pt;
+      font-weight: bold;
+      line-height: 1.25;
+      border-bottom: 3px solid var(--secondary);
+      padding-bottom: 6mm;
+      margin-bottom: 8mm;
+    }
+
+    .cover__company {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 13pt;
+      color: rgba(255, 255, 255, 0.80);
+      margin-top: 4mm;
+    }
+
+    .cover__date {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 9pt;
+      color: rgba(255, 255, 255, 0.40);
+      margin-top: 30mm;
+    }
+
+    /* ── Chapitres ──────────────────────────────────────────── */
+    .chapter {
+      margin-bottom: 10mm;
+    }
+
+    .chapter__title {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 14pt;
+      font-weight: bold;
+      color: var(--primary);
+      border-left: 4px solid var(--secondary);
+      padding-left: 8px;
+      margin-top: 8mm;
+      margin-bottom: 5mm;
+      page-break-after: avoid;
+    }
+
+    .chapter__body p          { margin-bottom: 3.5mm; }
+    .chapter__body h2         { font-size: 12pt; font-weight: bold; color: var(--primary);
+                                 margin: 5mm 0 2mm; page-break-after: avoid; }
+    .chapter__body h3         { font-size: 10.5pt; font-weight: bold;
+                                 margin: 3.5mm 0 1.5mm; page-break-after: avoid; }
+    .chapter__body h4         { font-size: 10pt; font-weight: bold; font-style: italic;
+                                 margin: 2mm 0 1mm; }
+    .chapter__body ul,
+    .chapter__body ol         { padding-left: 5mm; margin-bottom: 3.5mm; }
+    .chapter__body li         { margin-bottom: 1.5mm; }
+    .chapter__body strong     { font-weight: bold; }
+    .chapter__body em         { font-style: italic; }
+    .chapter__body code       { font-family: 'Courier New', monospace; font-size: 9.5pt;
+                                 background: #f4f4f4; padding: 0 3px; border-radius: 2px; }
+    .chapter__body hr         { border: none; border-top: 1px solid #e0e0e0; margin: 4mm 0; }
+    .chapter__body blockquote { border-left: 3px solid var(--secondary); padding-left: 8px;
+                                 color: #555; font-style: italic; margin: 3mm 0 3mm 2mm; }
+
+    /* Évite les veuves et orphelines sur les paragraphes */
+    .chapter__body p {
+      orphans: 2;
+      widows: 2;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== PAGE DE GARDE ===== -->
+  <div class="cover">
+    {% if branding.logo_url %}
+    <img class="cover__logo" src="{{ branding.logo_url }}" alt="{{ branding.company_name }}">
+    {% endif %}
+    <p class="cover__type">Document stratégique</p>
+    <h1 class="cover__title">{{ title }}</h1>
+    {% if branding.company_name %}
+    <p class="cover__company">{{ branding.company_name }}</p>
+    {% endif %}
+    <p class="cover__date">{{ generated_on }}</p>
+  </div>
+
+  <!-- ===== CHAPITRES ===== -->
+  {% for section in sections %}
+  <div class="chapter">
+    <h2 class="chapter__title">{{ section.number }}. {{ section.title }}</h2>
+    <div class="chapter__body">{{ section.body_html|safe }}</div>
+  </div>
+  {% endfor %}
+
+</body>
+</html>

@@ -14,6 +14,7 @@ env = environ.Env(
     EVKHA_USE_STUB_DOCS=(bool, True),
     EVKHA_USE_STUB_GAMMA=(bool, True),
     EVKHA_USE_STUB_EMAIL=(bool, True),
+    EVKHA_USE_STUB_PDF=(bool, True),
     EVKHA_DASHBOARD_AUTH_DISABLED=(bool, True),
 )
 environ.Env.read_env(BASE_DIR / ".env")
@@ -89,6 +90,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+# Fichiers uploadés / générés (PDF WeasyPrint, HTML preview).
+# En production : monter un volume persistant sur MEDIA_ROOT et servir /media/ via nginx.
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
@@ -111,6 +116,12 @@ EVKHA_USE_STUB_AI = env("EVKHA_USE_STUB_AI")
 EVKHA_USE_STUB_DOCS = env("EVKHA_USE_STUB_DOCS")
 EVKHA_USE_STUB_GAMMA = env("EVKHA_USE_STUB_GAMMA")
 EVKHA_USE_STUB_EMAIL = env("EVKHA_USE_STUB_EMAIL")
+EVKHA_USE_STUB_PDF = env("EVKHA_USE_STUB_PDF")
+
+# URL de base publique du serveur (utilisée par WeasyPrint et Brevo pour
+# construire des URLs absolues valides pour les fichiers média).
+# Exemple production : https://evkha.com
+EVKHA_BASE_URL = env("EVKHA_BASE_URL", default="http://localhost:8000")
 
 # Dashboard auth (Phase 6).
 # EVKHA_DASHBOARD_AUTH_DISABLED=true en dev/CI (defaut).
