@@ -10,6 +10,7 @@ from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
+
 from generation.models import ChapterStatus, GenerationJob, JobStatus
 from monitoring.models import IncidentSeverity, IncidentStatus, OperationalIncident
 

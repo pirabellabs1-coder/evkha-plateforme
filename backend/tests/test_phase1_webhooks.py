@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 from django.test import Client, override_settings
+
 from integrations.models import IntegrationProvider, WebhookEvent, WebhookStatus
 from monitoring.models import OperationalIncident
 

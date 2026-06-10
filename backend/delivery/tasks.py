@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from celery import shared_task
+
 from generation.models import GenerationJob
 
 from .services import deliver_job, purge_expired_artifacts

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from celery import shared_task
+
+from customers.services import sync_subscription_from_systeme_payload
 from intake.services import sync_intake_from_tally_payload
 from orders.services import sync_order_from_systeme_payload
 
@@ -13,6 +15,8 @@ def process_webhook_event(event_id: str) -> str:
     try:
         if event.provider == IntegrationProvider.SYSTEME:
             sync_order_from_systeme_payload(event.raw_payload)
+        elif event.provider == IntegrationProvider.SYSTEME_SUB:
+            sync_subscription_from_systeme_payload(event.raw_payload)
         elif event.provider == IntegrationProvider.TALLY:
             sync_intake_from_tally_payload(event.raw_payload)
         else:

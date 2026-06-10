@@ -1,0 +1,76 @@
+# Compose PRODUCTION — VPS IONOS via Coolify.
+# Traefik (géré par Coolify) termine le TLS et route le domaine vers `api:8000` :
+# définir le FQDN (evkha.fr) sur le service `api` dans l'UI Coolify.
+# Dev local : utiliser docker-compose.yml (runserver + n8n + dashboard Vite).
+#
+# Points clés :
+# - `media` est PARTAGÉ entre api et worker : le worker Celery écrit les PDFs
+#   WeasyPrint dans /app/media, l'api les sert sur /media/.
+# - Aucun port Postgres/Redis exposé sur l'hôte (réseau Docker interne).
+# - migrate + collectstatic s'exécutent au démarrage de l'api (idempotents).
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: >
+      sh -c "python manage.py migrate --noinput
+      && python manage.py collectstatic --noinput
+      && gunicorn evkha.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"
+    env_file: .env
+    expose:
+      - "8000"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - media:/app/media
+      - staticfiles:/app/staticfiles
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A evkha worker --loglevel=INFO --concurrency=2
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - media:/app/media
+    restart: unless-stopped
+
+  beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A evkha beat --loglevel=INFO
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-evkha}
+      POSTGRES_USER: ${POSTGRES_USER:-evkha}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis en production}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  media:
+  staticfiles:

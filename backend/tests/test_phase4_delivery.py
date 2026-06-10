@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from delivery.models import DeliveryStatus

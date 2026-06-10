@@ -5,6 +5,7 @@ from html import escape
 
 from django.db import transaction
 from django.utils import timezone
+
 from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
 from documents.services import DocumentAssembly, assemble_document
 from generation.models import GenerationJob, JobStatus

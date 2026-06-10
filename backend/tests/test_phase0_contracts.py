@@ -3,9 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
+from django.apps import apps
+
 from catalog.models import DeliveryMode, Offer
 from delivery.models import EmailProvider
-from django.apps import apps
 from generation.models import GenerationJob
 
 

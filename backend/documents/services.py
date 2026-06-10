@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from django.utils import timezone
+
 from generation.models import GenerationJob, JobStatus
 from generation.rendering import render_branded_html, render_client_document
 from integrations.pdf import PdfClient, get_pdf_client

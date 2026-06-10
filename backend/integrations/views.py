@@ -5,6 +5,7 @@ from typing import Any
 
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .models import IntegrationProvider, WebhookEvent, WebhookStatus
@@ -97,7 +98,16 @@ def _handle_webhook(
 
 @csrf_exempt
 def systeme_order_webhook(request: HttpRequest) -> JsonResponse:
-    return _handle_webhook(request, provider=IntegrationProvider.SYSTEME, fallback_prefix="systeme")
+    return _handle_webhook(
+        request, provider=IntegrationProvider.SYSTEME, fallback_prefix="systeme-order"
+    )
+
+
+@csrf_exempt
+def systeme_subscription_webhook(request: HttpRequest) -> JsonResponse:
+    return _handle_webhook(
+        request, provider=IntegrationProvider.SYSTEME_SUB, fallback_prefix="systeme-sub"
+    )
 
 
 @csrf_exempt

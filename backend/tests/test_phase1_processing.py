@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from intake.models import IntakeStatus, IntakeSubmission

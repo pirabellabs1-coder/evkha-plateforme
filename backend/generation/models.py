@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from django.db import models
+
 from catalog.models import DeliverableType
 from core.models import UUIDModel
-from django.db import models
 from orders.models import Order
 
 

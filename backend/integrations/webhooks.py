@@ -14,6 +14,7 @@ from .models import IntegrationProvider, WebhookEvent, WebhookStatus
 # Maps each inbound provider to the setting holding its shared secret (M1).
 _SECRET_SETTING: dict[str, str] = {
     IntegrationProvider.SYSTEME.value: "SYSTEME_WEBHOOK_SECRET",
+    IntegrationProvider.SYSTEME_SUB.value: "SYSTEME_WEBHOOK_SECRET",
     IntegrationProvider.TALLY.value: "TALLY_WEBHOOK_SECRET",
 }
 

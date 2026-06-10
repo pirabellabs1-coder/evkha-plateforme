@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from django.db import models
+
 from catalog.models import Offer
 from core.models import UUIDModel
 from customers.models import Customer
-from django.db import models
 
 
 class OrderStatus(models.TextChoices):

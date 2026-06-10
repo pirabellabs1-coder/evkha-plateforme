@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from core.models import UUIDModel
 from django.db import models
+
+from core.models import UUIDModel
 
 
 class IntegrationProvider(models.TextChoices):
@@ -9,7 +10,8 @@ class IntegrationProvider(models.TextChoices):
     GOOGLE = "google", "Google Docs / Drive"
     GAMMA = "gamma", "Gamma"
     BREVO = "brevo", "Brevo"
-    SYSTEME = "systeme", "Systeme.io"
+    SYSTEME = "systeme", "Systeme.io (commandes)"
+    SYSTEME_SUB = "systeme_sub", "Systeme.io (abonnements)"
     TALLY = "tally", "Tally"
     N8N = "n8n", "n8n"
 

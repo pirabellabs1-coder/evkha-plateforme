@@ -2,7 +2,7 @@
 
 Pipeline d'**industrialisation invisible** de livrables stratégiques premium (étude de marché, étude de concurrence, stratégie business, business plan) pour Evkha.
 
-> **Confidentiel — sous NDA.** Aucun secret ne doit être commité. Voir `.gitignore` et `.env.example` (à venir).
+> **Confidentiel — sous NDA.** Aucun secret ne doit être commité. Voir `.gitignore` et `.env.example`.
 
 ## Démarrer ici
 
@@ -23,4 +23,6 @@ Avant toute tâche : lire le plan maître (§00, §01, §04, §08) + la fiche du
 
 ## Stack
 
-Django · PostgreSQL · Celery/Redis · n8n (orchestration) · Claude API · Google Docs/Drive · Gamma · Docker Compose · Coolify · Uptime Kuma. Dashboard moderne (post-V1) : TanStack Start + Better Auth.
+Django · PostgreSQL · Celery/Redis (orchestration) · Claude API · WeasyPrint (PDF brandé) · Brevo (email transactionnel) · Docker Compose · Coolify · Uptime Kuma. Dashboard moderne (post-V1) : TanStack Start + Better Auth.
+
+Déploiement : voir [`docs/deploy-coolify.md`](docs/deploy-coolify.md) (`docker-compose.prod.yml`).

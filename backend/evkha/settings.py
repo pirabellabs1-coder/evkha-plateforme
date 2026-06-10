@@ -16,12 +16,23 @@ env = environ.Env(
     EVKHA_USE_STUB_EMAIL=(bool, True),
     EVKHA_USE_STUB_PDF=(bool, True),
     EVKHA_DASHBOARD_AUTH_DISABLED=(bool, True),
+    EVKHA_BEHIND_PROXY=(bool, False),
+    CSRF_TRUSTED_ORIGINS=(list, []),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-only-secret-key")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
+
+# Production derriere Traefik/Coolify (TLS termine par le proxy) :
+#   EVKHA_BEHIND_PROXY=true
+#   CSRF_TRUSTED_ORIGINS=https://evkha.fr,https://www.evkha.fr
+# Sans ces deux reglages, le login /admin/ echoue au controle CSRF en HTTPS.
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+if env("EVKHA_BEHIND_PROXY"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -90,6 +101,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+# Cible de collectstatic (admin Django) — servi par la route /static/ de urls.py.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 # Fichiers uploadés / générés (PDF WeasyPrint, HTML preview).
 # En production : monter un volume persistant sur MEDIA_ROOT et servir /media/ via nginx.
 MEDIA_ROOT = BASE_DIR / "media"
@@ -99,12 +112,26 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/1")
 
+# Tâches périodiques (service beat du compose prod).
+# Purge horaire des artefacts expirés — rétention 7 jours (D5).
+CELERY_BEAT_SCHEDULE = {
+    "purge-expired-artifacts": {
+        "task": "delivery.purge_expired_artifacts",
+        "schedule": 3600.0,
+    },
+}
+
 EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
 EVKHA_EMAIL_PROVIDER = env("EVKHA_EMAIL_PROVIDER", default="brevo")
 
 # Webhook shared secrets (M1).
 SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
 TALLY_WEBHOOK_SECRET = env("TALLY_WEBHOOK_SECRET", default="")
+
+# Brevo — email transactionnel de livraison (utilise quand EVKHA_USE_STUB_EMAIL=false).
+BREVO_API_KEY = env("BREVO_API_KEY", default="")
+BREVO_SENDER_EMAIL = env("BREVO_SENDER_EMAIL", default="contact@evkha.fr")
+BREVO_SENDER_NAME = env("BREVO_SENDER_NAME", default="Evkha")
 
 # Modele Claude actif pour la tarification du Cost Engine (M4).
 EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")

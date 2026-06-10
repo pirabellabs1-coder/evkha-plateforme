@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from core.models import UUIDModel
 from django.db import models
+
+from core.models import UUIDModel
 from generation.models import GenerationJob
 from orders.models import Order
 

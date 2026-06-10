@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from documents.models import ArtifactStatus

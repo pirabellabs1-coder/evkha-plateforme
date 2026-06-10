@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.conf import settings
+
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .models import ChapterGeneration, GenerationJob

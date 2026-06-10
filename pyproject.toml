@@ -11,6 +11,7 @@ dependencies = [
   "celery>=5.4,<6",
   "django>=5.2,<6",
   "django-environ>=0.11,<1",
+  "gunicorn>=22,<24",
   "psycopg[binary]>=3.2,<4",
   "redis>=5,<6",
 ]
@@ -43,6 +44,13 @@ extend-exclude = ["**/migrations/*.py"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "DJ"]
 ignore = ["DJ008"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+  "catalog", "core", "customers", "dashboard",
+  "delivery", "documents", "evkha", "generation",
+  "intake", "integrations", "monitoring", "orders",
+]
 
 [tool.mypy]
 python_version = "3.12"
