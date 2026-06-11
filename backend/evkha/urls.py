@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
 from django.urls import include, path, re_path
+from django.views.generic import RedirectView
 from django.views.static import serve
 
 from integrations.views import (
@@ -18,6 +19,7 @@ def healthz(_request: HttpRequest) -> JsonResponse:
 
 
 urlpatterns = [
+    path("", RedirectView.as_view(url="/admin/", permanent=False)),
     path("admin/", admin.site.urls),
     path("healthz/", healthz, name="healthz"),
     path("webhooks/systeme/order/", systeme_order_webhook, name="systeme-order-webhook"),
