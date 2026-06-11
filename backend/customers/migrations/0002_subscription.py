@@ -12,13 +12,10 @@ class Migration(migrations.Migration):
         ("customers", "0001_initial"),
     ]
 
+    # NOTE: pas d'AddField company_name ici — la colonne est déjà créée par
+    # 0001_initial. Un AddField dupliqué passe silencieusement sur SQLite
+    # (remake de table) mais casse sur PostgreSQL (ALTER TABLE ADD COLUMN).
     operations = [
-        migrations.AddField(
-            model_name="customer",
-            name="company_name",
-            field=models.CharField(blank=True, max_length=160),
-            preserve_default=True,
-        ),
         migrations.CreateModel(
             name="Subscription",
             fields=[
