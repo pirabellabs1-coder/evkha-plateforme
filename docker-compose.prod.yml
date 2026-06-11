@@ -53,6 +53,16 @@ services:
       - redis
     restart: unless-stopped
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    expose:
+      - "80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     environment:

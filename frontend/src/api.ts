@@ -1,5 +1,7 @@
 /** Client d'API vers le backend Django (dashboard endpoints). */
 
+import { clearToken, getToken } from "./auth";
+
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
 async function get<T>(path: string, params?: Record<string, string>): Promise<T> {
@@ -7,10 +9,19 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
+  const token = getToken();
   const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     credentials: "include",
   });
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`API ${path} → ${res.status}: ${body}`);
