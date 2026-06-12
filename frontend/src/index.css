@@ -89,6 +89,78 @@ a { color: var(--clay); }
 a:hover { text-decoration: underline; }
 h2 { font-size: 17px; margin: 24px 0 10px; }
 
+/* ===== Page top bar ===== */
+.page-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.page-topbar h1 { margin-bottom: 0; }
+.health-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+.health-badge--ok  { background: var(--greenbg); color: var(--greentx); }
+.health-badge--down{ background: var(--redbg); color: var(--red); }
+.health-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ===== Recent jobs ===== */
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.section-header h2 { margin: 0; }
+.recent-jobs { background: white; border: 1.5px solid var(--gray-300); border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
+.recent-jobs__empty { padding: 16px; color: var(--gray-500); font-style: italic; font-size: 13px; }
+.recent-job-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--gray-300); font-size: 12.5px; }
+.recent-job-row:last-child { border-bottom: none; }
+.recent-job-type { flex: 1; font-weight: 500; }
+.recent-job-progress { color: var(--gray-500); font-size: 11px; font-family: var(--font-mono); }
+.recent-job-cost { color: var(--gray-500); font-size: 11px; font-family: var(--font-mono); }
+.recent-job-link { color: var(--clay); text-decoration: none; font-size: 13px; padding: 2px 4px; }
+.recent-job-link:hover { text-decoration: none; background: var(--gray-150); border-radius: 4px; }
+
+/* ===== Mini pipeline (recent jobs list) ===== */
+.mini-pipeline { display: flex; align-items: center; gap: 3px; }
+.mp-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--gray-300); }
+.mp-dot--done    { background: var(--olive); }
+.mp-dot--running { background: #378add; outline: 2px solid #b5d4f4; outline-offset: 1px; }
+.mp-dot--failed  { background: var(--red); }
+.mp-dot--pending { background: var(--gray-300); }
+.mp-arrow { font-size: 9px; color: var(--gray-500); line-height: 1; }
+
+/* ===== Visual pipeline (job detail) ===== */
+.pipeline { display: flex; align-items: flex-start; margin: 0 0 24px; background: white; border: 1.5px solid var(--gray-300); border-radius: 12px; padding: 20px 24px; }
+.pipeline-stage-wrapper { display: flex; align-items: center; flex: 1; }
+.pipeline-stage-wrapper:last-child { flex: 0 0 auto; }
+.pipeline-step { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 90px; }
+.pipeline-circle { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.pipeline-step--done    .pipeline-circle { background: var(--greenbg); color: var(--greentx); }
+.pipeline-step--running .pipeline-circle { background: #deeeff; color: #1a4f7a; }
+.pipeline-step--failed  .pipeline-circle { background: var(--redbg); color: var(--red); }
+.pipeline-step--pending .pipeline-circle { background: var(--gray-150); color: var(--gray-500); }
+.pipeline-name { font-size: 11.5px; font-weight: 600; color: var(--slate); }
+.pipeline-sub  { font-size: 10px; color: var(--gray-500); margin-top: 2px; font-family: var(--font-mono); }
+.pipeline-connector { flex: 1; height: 2px; margin: 0 6px; margin-bottom: 20px; }
+.pipeline-connector--done    { background: var(--olive); }
+.pipeline-connector--running { background: #b5d4f4; }
+.pipeline-connector--failed  { background: var(--redbg); }
+.pipeline-connector--pending { background: var(--gray-300); }
+
+/* ===== Dashboard bottom grid ===== */
+.dashboard-bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+/* ===== Config card ===== */
+.config-card { background: white; border: 1.5px solid var(--gray-300); border-radius: 12px; overflow: hidden; }
+.config-row { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--gray-150); font-size: 12.5px; }
+.config-row:last-child { border-bottom: none; }
+.config-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.config-dot--ok   { background: var(--olive); }
+.config-dot--warn { background: #d4941a; }
+.config-label { flex: 1; }
+.config-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; text-align: right; }
+.config-status--ok   { background: var(--greenbg); color: var(--greentx); }
+.config-status--warn { background: #fff4d6; color: #7a5a00; }
+
+/* ===== Guide card ===== */
+.guide-card { background: white; border: 1.5px solid var(--gray-300); border-radius: 12px; padding: 12px 14px; }
+.guide-step { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
+.guide-step:not(:last-child) { border-bottom: 1px solid var(--gray-150); }
+.guide-num { width: 20px; height: 20px; border-radius: 50%; background: var(--gray-300); color: var(--gray-700); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+.guide-num--done { background: var(--olive); color: white; }
+.guide-text { font-size: 12.5px; color: var(--slate); }
+.guide-text small { display: block; color: var(--gray-500); font-size: 10.5px; margin-top: 1px; }
+
 /* ===== Login page ===== */
 .login-page {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;

@@ -147,6 +147,21 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
 
 @require_GET
 @csrf_exempt
+def system_status(request: HttpRequest) -> JsonResponse:
+    """Etat de la configuration : stubs actifs, intégrations."""
+    from django.conf import settings  # noqa: PLC0415
+
+    return _json(
+        {
+            "api": "ok",
+            "email_stub": bool(getattr(settings, "EVKHA_USE_STUB_EMAIL", True)),
+            "ai_stub": bool(getattr(settings, "EVKHA_USE_STUB_AI", True)),
+        }
+    )
+
+
+@require_GET
+@csrf_exempt
 def incidents_list(request: HttpRequest) -> JsonResponse:
     """50 incidents les plus recents."""
     qs = OperationalIncident.objects.select_related("order", "job").order_by("-created_at")[:50]

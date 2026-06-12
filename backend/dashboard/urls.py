@@ -11,4 +11,5 @@ urlpatterns = [
     path("jobs/", views.jobs_list, name="jobs-list"),
     path("jobs/<str:job_id>/", views.job_detail, name="job-detail"),
     path("incidents/", views.incidents_list, name="incidents-list"),
+    path("system/", views.system_status, name="system-status"),
 ]

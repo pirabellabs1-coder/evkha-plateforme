@@ -89,6 +89,12 @@ export interface Incident {
   details: Record<string, unknown>;
 }
 
+export interface SystemStatus {
+  api: string;
+  email_stub: boolean;
+  ai_stub: boolean;
+}
+
 // --- API calls ---------------------------------------------------------------
 
 export const api = {
@@ -96,4 +102,5 @@ export const api = {
   jobs: (status?: string) => get<JobSummary[]>("/jobs/", status ? { status } : undefined),
   job: (id: string) => get<JobDetail>(`/jobs/${id}/`),
   incidents: () => get<Incident[]>("/incidents/"),
+  system: () => get<SystemStatus>("/system/"),
 };
