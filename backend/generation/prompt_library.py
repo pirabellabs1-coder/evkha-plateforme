@@ -104,6 +104,95 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
         "Liste structuree des sources et de la methodologie de l'etude (nom + "
         "URL), regroupee en fin de document."
     ),
+    # --- Sections de generation par chunks (chapitres denses) ---------------
+    # Chaque section est generee separement puis fusionnee en un seul chapitre.
+    # Les prompts sont volontairement cibles sur un sous-perimetre pour eviter
+    # la troncature et maximiser la densite informationnelle par appel.
+    "em.01.a.mondial": (
+        "Analyse UNIQUEMENT la dimension mondiale du marche : taille actuelle "
+        "en valeur (Md$, Md EUR), TCAC mondial sur 5 ans, top 5 regions par "
+        "part de marche, leaders mondiaux et leurs positionnements, segments "
+        "porteurs a l'echelle globale. Toutes les donnees chiffrees et sourcees. "
+        "Ne traite pas la dimension europeenne dans cette section."
+    ),
+    "em.01.b.europeen": (
+        "Analyse UNIQUEMENT la dimension europeenne du marche : taille du marche "
+        "UE et/ou Europe elargie, TCAC europeen, top 5 pays europeens par "
+        "volume ou valeur, specificites reglementaires et culturelles europeennes, "
+        "acteurs europeens dominants et parts de marche estimees. "
+        "Toutes les donnees chiffrees et sourcees. Ne repete pas les chiffres "
+        "mondiaux deja traites."
+    ),
+    "em.02.a.national": (
+        "Analyse UNIQUEMENT le marche national du pays cible (extrait de "
+        "VARIABLES_PROJET) : taille en valeur et/ou volume, TCAC national, "
+        "maturite du marche, structure (acteurs dominants, concentration, "
+        "distribution), specificites nationales (reglementation, habitudes "
+        "de consommation). Chiffres et sources."
+    ),
+    "em.02.b.local": (
+        "Analyse UNIQUEMENT la zone locale ou regionale cible (extraite de "
+        "VARIABLES_PROJET) : taille estimee (valeur ou volume), dynamiques "
+        "propres a cette zone (urbanisation, revenus locaux, demande latente), "
+        "specificites geographiques pertinentes, estimations argumentees si "
+        "donnees directes indisponibles. Ne repete pas les chiffres nationaux."
+    ),
+    "em.10.a.profil_besoins": (
+        "Decris UNIQUEMENT le profil demographique et socio-economique de la "
+        "clientele cible : tranche d'age dominante, genre, CSP, niveau de "
+        "revenu, zone de residence. Puis identifie les besoins primaires (non "
+        "couverts ou mal couverts) et secondaires, et les douleurs actuelles "
+        "que le projet peut resoudre. Donne la taille estimee du segment "
+        "cible en nombre ou en valeur."
+    ),
+    "em.10.b.comportements": (
+        "Decris UNIQUEMENT les comportements d'achat de la clientele cible : "
+        "canaux d'achat preferes (physique, digital, mixte), frequence d'achat, "
+        "panier moyen, moments d'achat (saisonnalite, evenements declencheurs), "
+        "parcours client type du besoin a l'acte d'achat, moments de verite cles."
+    ),
+    "em.10.c.criteres_decision": (
+        "Analyse UNIQUEMENT les criteres de decision d'achat de la clientele "
+        "cible, hierarchises : prix, qualite percue, confiance/marque, "
+        "commodite, service apres-vente. Sensibilite au prix (elasticite), "
+        "niveau d'exigence, fidelite habituelle au secteur ou au prestataire, "
+        "barrieres au changement et leviers pour les surmonter."
+    ),
+    "em.14.a.hypotheses": (
+        "Pose et justifie UNIQUEMENT les hypotheses economiques du projet : "
+        "prix de vente retenu (et positionnement vs concurrents), volume "
+        "cible annee 1/2/3, structure de couts (fixes et variables cles), "
+        "marge brute estimee. Chaque hypothese doit etre declaree et "
+        "argumentee (reference marche, benchmark, logique sectorielle)."
+    ),
+    "em.14.b.projections": (
+        "Produis UNIQUEMENT les projections financieres sur 3 ans sous forme "
+        "de tableau exploitable : chiffre d'affaires, charges d'exploitation, "
+        "EBITDA, resultat net, point mort en quantite et en date, tresorerie "
+        "previsionnelle. Scenario central + fourchette (optimiste/pessimiste). "
+        "Ne repete pas les hypotheses deja exposees."
+    ),
+    "em.14.c.viabilite": (
+        "Analyse UNIQUEMENT la viabilite et les leviers du projet : analyse de "
+        "sensibilite (quelles variables impactent le plus la rentabilite), "
+        "facteurs cles de succes economique, risques financiers principaux "
+        "(delai de paiement, sous-capitalisation, saisonnalite) et mesures "
+        "correctives concretes recommandees."
+    ),
+    "em.19.a.diagnostic": (
+        "Produis UNIQUEMENT le diagnostic strategique synthetique : 3 a 5 "
+        "enseignements majeurs de l'etude (chiffres cles qui changent la "
+        "vision), lecture de la position concurrentielle du projet (force "
+        "relative, gaps a combler), 3 tensions ou contradictions a resoudre "
+        "avant de se lancer. Sois critique et direct, sans complaisance."
+    ),
+    "em.19.b.plan_action": (
+        "Produis UNIQUEMENT les recommandations actionnables et priorisees : "
+        "top 5 actions immediates (0-6 mois) avec responsable suggere et "
+        "impact attendu, 3 orientations moyen terme (6-24 mois), 1 signal "
+        "d'alerte a surveiller absolument. Pour chaque recommandation : quoi "
+        "faire, pourquoi, et quel indicateur prouvera le succes."
+    ),
 }
 
 # --- Etude de la concurrence (EC) ----------------------------------------

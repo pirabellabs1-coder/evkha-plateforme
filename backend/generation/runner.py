@@ -8,10 +8,11 @@ from intake.models import IntakeSubmission
 from integrations.claude import ClaudeClient, get_claude_client
 from monitoring.models import IncidentSeverity, OperationalIncident
 
+from .blueprints import get_blueprint
 from .coherence import seed_locked_facts_from_variables
 from .cost import CostBudgetExceededError, record_chapter_cost
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
-from .prompts import build_chapter_prompt, build_system_prompt
+from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 
 _SUMMARY_MAX_CHARS = 320
 _SOURCES_SPLIT = re.compile(r"\n\s*sources\b", re.IGNORECASE)
@@ -87,6 +88,35 @@ def run_generation_job(
     return job
 
 
+def _generate_chunked(
+    chapter: ChapterGeneration,
+    sections: tuple[str, ...],
+    *,
+    client: ClaudeClient,
+    system_prompt: str,
+) -> tuple[str, int, int, str | None]:
+    """Genere un chapitre section par section et fusionne le contenu.
+
+    Retourne (content, total_input_tokens, total_output_tokens, model).
+    Les tokens sont accumules sur l'ensemble des sections pour que le
+    Cost Engine dispose du cout reel complet du chapitre.
+    """
+    parts: list[str] = []
+    total_input = 0
+    total_output = 0
+    last_model: str | None = None
+
+    for section_key in sections:
+        prompt = build_section_prompt(chapter, section_key)
+        result = client.complete(system=system_prompt, prompt=prompt)
+        parts.append(result.content)
+        total_input += result.input_tokens
+        total_output += result.output_tokens
+        last_model = result.model
+
+    return "\n\n".join(parts), total_input, total_output, last_model
+
+
 def _generate_chapter(
     job: GenerationJob,
     chapter: ChapterGeneration,
@@ -98,20 +128,30 @@ def _generate_chapter(
     chapter.error_message = ""
     chapter.save(update_fields=["status", "error_message", "updated_at"])
 
-    prompt = build_chapter_prompt(chapter)
-    result = client.complete(system=system_prompt, prompt=prompt)
+    blueprint = get_blueprint(job.deliverable_type, chapter.chapter_number)
+    sections = blueprint.sections if blueprint else ()
 
-    chapter.content = result.content
-    chapter.operational_summary = _operational_summary(result.content)
+    if sections:
+        content, total_input, total_output, model = _generate_chunked(
+            chapter, sections, client=client, system_prompt=system_prompt
+        )
+    else:
+        prompt = build_chapter_prompt(chapter)
+        result = client.complete(system=system_prompt, prompt=prompt)
+        content, total_input, total_output, model = (
+            result.content, result.input_tokens, result.output_tokens, result.model
+        )
+
+    chapter.content = content
+    chapter.operational_summary = _operational_summary(content)
     chapter.status = ChapterStatus.DONE
     chapter.save(update_fields=["content", "operational_summary", "status", "updated_at"])
 
-    # Le Cost Engine enregistre le cout, met a jour le total et applique le plafond.
     record_chapter_cost(
         chapter=chapter,
-        input_tokens=result.input_tokens,
-        output_tokens=result.output_tokens,
-        model=result.model,
+        input_tokens=total_input,
+        output_tokens=total_output,
+        model=model,
     )
 
 

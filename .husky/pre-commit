@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Verifie les types TypeScript avant chaque commit
+cd frontend && npm run typecheck

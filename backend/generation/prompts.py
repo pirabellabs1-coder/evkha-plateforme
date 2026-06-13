@@ -74,3 +74,22 @@ def build_chapter_prompt(chapter: ChapterGeneration) -> str:
         "Rends uniquement le contenu final destine au client, sans repeter ces "
         "consignes."
     )
+
+
+def build_section_prompt(chapter: ChapterGeneration, section_key: str) -> str:
+    """Prompt pour une section d'un chapitre en mode chunk generation.
+
+    Meme contexte que le chapitre complet, mais instruction ciblee sur
+    un sous-perimetre precis pour maximiser la densite par appel API.
+    """
+    context = build_context(chapter)
+    instruction = prompt_instruction(section_key)
+    return (
+        f"{context}\n\n"
+        f"CHAPITRE_PARENT: {chapter.chapter_number}. {chapter.chapter_title}\n\n"
+        "SECTION_A_GENERER :\n"
+        f"{instruction}\n\n"
+        "Rends uniquement le contenu de cette section, destine au client. "
+        "Ne repete pas les consignes ni les donnees deja traitees dans les "
+        "sections precedentes de ce chapitre."
+    )

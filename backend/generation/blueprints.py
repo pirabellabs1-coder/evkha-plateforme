@@ -26,15 +26,25 @@ class ChapterBlueprint:
     title: str
     prompt_key: str
     section_kind: str = SectionKind.CHAPTER
+    # Chunk generation : si non vide, chaque cle est generee separement puis
+    # fusionnee. Cela evite les troncatures sur les chapitres denses (>4096 tokens
+    # de sortie) et reduit le risque d'hallucination par manque de place.
+    sections: tuple[str, ...] = ()
 
 
 MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(0, "Fiche projet", "em.00.fiche_projet", SectionKind.OPENING),
     ChapterBlueprint(
-        1, "Analyse chiffree du marche mondial et europeen", "em.01.marche_mondial_europeen"
+        1,
+        "Analyse chiffree du marche mondial et europeen",
+        "em.01.marche_mondial_europeen",
+        sections=("em.01.a.mondial", "em.01.b.europeen"),
     ),
     ChapterBlueprint(
-        2, "Analyse chiffree du marche national et local / regional", "em.02.marche_national_local"
+        2,
+        "Analyse chiffree du marche national et local / regional",
+        "em.02.marche_national_local",
+        sections=("em.02.a.national", "em.02.b.local"),
     ),
     ChapterBlueprint(3, "Segmentation approfondie du marche", "em.03.segmentation"),
     ChapterBlueprint(4, "Avantages et inconvenients du secteur", "em.04.avantages_inconvenients"),
@@ -43,18 +53,39 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(7, "Tendances du marche a court terme", "em.07.tendances_court_terme"),
     ChapterBlueprint(8, "Perspectives d'evolution a long terme", "em.08.perspectives_long_terme"),
     ChapterBlueprint(9, "Les 12 chiffres cles du marche", "em.09.douze_chiffres_cles"),
-    ChapterBlueprint(10, "Analyse approfondie de la clientele cible", "em.10.clientele_cible"),
+    ChapterBlueprint(
+        10,
+        "Analyse approfondie de la clientele cible",
+        "em.10.clientele_cible",
+        sections=(
+            "em.10.a.profil_besoins",
+            "em.10.b.comportements",
+            "em.10.c.criteres_decision",
+        ),
+    ),
     ChapterBlueprint(11, "Personas", "em.11.personas"),
     ChapterBlueprint(12, "Analyse des risques et plan de gestion", "em.12.risques_plan_gestion"),
     ChapterBlueprint(13, "Cartographie des risques externes", "em.13.cartographie_risques"),
     ChapterBlueprint(
-        14, "Analyse de la rentabilite et de la viabilite", "em.14.rentabilite_viabilite"
+        14,
+        "Analyse de la rentabilite et de la viabilite",
+        "em.14.rentabilite_viabilite",
+        sections=(
+            "em.14.a.hypotheses",
+            "em.14.b.projections",
+            "em.14.c.viabilite",
+        ),
     ),
     ChapterBlueprint(15, "Graphiques et tableaux visuels", "em.15.graphiques_tableaux"),
     ChapterBlueprint(16, "Analyse de l'offre et de la demande", "em.16.offre_demande"),
     ChapterBlueprint(17, "Analyse geographique avancee", "em.17.geographique_avancee"),
     ChapterBlueprint(18, "Analyse SWOT complete", "em.18.swot"),
-    ChapterBlueprint(19, "Analyse strategique et recommandations finales", "em.19.recommandations"),
+    ChapterBlueprint(
+        19,
+        "Analyse strategique et recommandations finales",
+        "em.19.recommandations",
+        sections=("em.19.a.diagnostic", "em.19.b.plan_action"),
+    ),
     ChapterBlueprint(20, "Conclusion analytique et lecture synthetique", "em.20.conclusion"),
     ChapterBlueprint(
         21,
@@ -178,3 +209,8 @@ def chapters_for_deliverable(deliverable_type: str) -> tuple[ChapterBlueprint, .
         msg = f"No chapter blueprint configured for deliverable type: {deliverable_type}"
         raise ValueError(msg)
     return blueprint
+
+
+def get_blueprint(deliverable_type: str, chapter_number: int) -> ChapterBlueprint | None:
+    chapters = _BLUEPRINTS.get(deliverable_type, ())
+    return next((bp for bp in chapters if bp.number == chapter_number), None)
