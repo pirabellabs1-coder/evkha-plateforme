@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Card, Flex, Box, Text, Heading, TextField, Button } from "@radix-ui/themes";
 import { setToken } from "../auth";
 
 export function Login() {
@@ -17,37 +18,45 @@ export function Login() {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-brand">
-          <span className="logo">⬡</span>
-          <div>
-            <strong>EVKHA</strong>
-            <small>Dashboard · accès administrateur</small>
-          </div>
-        </div>
+    <Flex align="center" justify="center" style={{ minHeight: "100vh", background: "var(--gray-2)" }}>
+      <Card size="4" style={{ width: "100%", maxWidth: 400 }}>
+        <Flex align="center" gap="3" mb="5">
+          <Text style={{ fontSize: 28, color: "var(--accent-9)" }}>⬡</Text>
+          <Box>
+            <Heading size="4" as="h1">EVKHA</Heading>
+            <Text size="1" color="gray">Dashboard · accès administrateur</Text>
+          </Box>
+        </Flex>
+
         <form onSubmit={handleSubmit}>
-          <label htmlFor="token" className="login-label">
-            Token d'accès
-          </label>
-          <input
-            id="token"
-            type="password"
-            className="login-input"
-            placeholder="Coller le token ici…"
-            value={value}
-            onChange={(e) => { setValue(e.target.value); setError(""); }}
-            autoFocus
-          />
-          {error && <p className="login-error">{error}</p>}
-          <button type="submit" className="login-btn">
+          <Box mb="4">
+            <Text as="label" htmlFor="token" size="1" weight="bold"
+              style={{ display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+              Token d'accès
+            </Text>
+            <TextField.Root
+              id="token"
+              type="password"
+              placeholder="Coller le token ici…"
+              value={value}
+              onChange={(e) => { setValue(e.target.value); setError(""); }}
+              autoFocus
+              size="3"
+            />
+            {error && (
+              <Text size="1" color="red" as="p" mt="1">{error}</Text>
+            )}
+          </Box>
+
+          <Button type="submit" size="3" style={{ width: "100%" }} disabled={!value.trim()}>
             Accéder au dashboard
-          </button>
+          </Button>
         </form>
-        <p className="login-hint">
-          Le token se trouve dans <code>EVKHA_DASHBOARD_TOKEN</code> (Coolify env vars).
-        </p>
-      </div>
-    </div>
+
+        <Text size="1" color="gray" as="p" mt="4" align="center">
+          Le token se trouve dans <Text as="span" style={{ fontFamily: "var(--font-mono)", background: "var(--gray-3)", padding: "1px 5px", borderRadius: "var(--radius-1)" }}>EVKHA_DASHBOARD_TOKEN</Text> (Coolify env vars).
+        </Text>
+      </Card>
+    </Flex>
   );
 }

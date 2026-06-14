@@ -1,13 +1,68 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { Box, Flex, Heading, Badge, Table, Text, Callout, Spinner } from "@radix-ui/themes";
 import { api, type Incident } from "../api";
 
-const SEV_CLASS: Record<string, string> = {
-  critical: "badge--critical",
-  high: "badge--high",
-  medium: "badge--medium",
-  low: "badge--low",
-};
+type RadixColor = "red" | "amber" | "green" | "gray";
+
+function severityColor(severity: string): RadixColor {
+  const map: Record<string, RadixColor> = {
+    critical: "red", high: "red", medium: "amber", low: "green",
+  };
+  return map[severity] ?? "gray";
+}
+
+function IncidentTable({ incidents }: { incidents: Incident[] }) {
+  return (
+    <Table.Root variant="surface">
+      <Table.Header>
+        <Table.Row>
+          <Table.ColumnHeaderCell>Titre</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Sévérité</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Statut</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Créé le</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Job</Table.ColumnHeaderCell>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {incidents.map((inc) => (
+          <Table.Row key={inc.id}>
+            <Table.Cell>
+              <Text size="2">{inc.title}</Text>
+            </Table.Cell>
+            <Table.Cell>
+              <Badge
+                color={severityColor(inc.severity)}
+                variant={inc.severity === "critical" ? "solid" : "soft"}
+                size="1"
+              >
+                {inc.severity}
+              </Badge>
+            </Table.Cell>
+            <Table.Cell>
+              <Text size="2" color="gray">{inc.status}</Text>
+            </Table.Cell>
+            <Table.Cell>
+              <Text size="1" color="gray" className="mono">
+                {new Date(inc.created_at).toLocaleString("fr-FR")}
+              </Text>
+            </Table.Cell>
+            <Table.Cell>
+              {inc.job_id ? (
+                <Link to="/jobs/$jobId" params={{ jobId: inc.job_id }}
+                  style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}>
+                  Voir →
+                </Link>
+              ) : (
+                <Text size="2" color="gray">—</Text>
+              )}
+            </Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </Table.Root>
+  );
+}
 
 export function Incidents() {
   const { data, isLoading } = useQuery<Incident[]>({
@@ -20,69 +75,33 @@ export function Incidents() {
   const resolved = data?.filter((i) => i.status !== "open") ?? [];
 
   return (
-    <div className="page">
-      <h1>Incidents opérationnels</h1>
+    <Box>
+      <Flex justify="between" align="center" mb="5">
+        <Heading size="6">Incidents opérationnels</Heading>
+        {isLoading && <Spinner size="2" />}
+      </Flex>
 
-      {isLoading && <p className="loading">Chargement…</p>}
-
-      {open.length > 0 && (
-        <>
-          <h2 className="text-error">Ouverts ({open.length})</h2>
-          <IncidentTable incidents={open} />
-        </>
+      {!isLoading && open.length === 0 && (
+        <Callout.Root color="green" mb="5">
+          <Callout.Text>Aucun incident ouvert ✓</Callout.Text>
+        </Callout.Root>
       )}
 
-      {open.length === 0 && !isLoading && (
-        <div className="alert alert--success">Aucun incident ouvert ✓</div>
+      {open.length > 0 && (
+        <Box mb="6">
+          <Heading size="4" color="red" mb="3">
+            Ouverts ({open.length})
+          </Heading>
+          <IncidentTable incidents={open} />
+        </Box>
       )}
 
       {resolved.length > 0 && (
-        <>
-          <h2>Résolus récemment</h2>
+        <Box>
+          <Heading size="4" mb="3">Résolus récemment</Heading>
           <IncidentTable incidents={resolved} />
-        </>
+        </Box>
       )}
-    </div>
-  );
-}
-
-function IncidentTable({ incidents }: { incidents: Incident[] }) {
-  return (
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>Titre</th>
-          <th>Sévérité</th>
-          <th>Statut</th>
-          <th>Créé le</th>
-          <th>Job</th>
-        </tr>
-      </thead>
-      <tbody>
-        {incidents.map((inc) => (
-          <tr key={inc.id}>
-            <td>{inc.title}</td>
-            <td>
-              <span className={`badge ${SEV_CLASS[inc.severity] ?? ""}`}>
-                {inc.severity}
-              </span>
-            </td>
-            <td>{inc.status}</td>
-            <td className="mono text-sm">
-              {new Date(inc.created_at).toLocaleString("fr-FR")}
-            </td>
-            <td>
-              {inc.job_id ? (
-                <Link to="/jobs/$jobId" params={{ jobId: inc.job_id }}>
-                  Voir →
-                </Link>
-              ) : (
-                "—"
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    </Box>
   );
 }

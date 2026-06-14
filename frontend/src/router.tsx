@@ -6,6 +6,7 @@ import {
   Link,
   redirect,
 } from "@tanstack/react-router";
+import { Text, Heading } from "@radix-ui/themes";
 import { Dashboard } from "./pages/Dashboard";
 import { Jobs } from "./pages/Jobs";
 import { JobDetail } from "./pages/JobDetail";
@@ -19,32 +20,32 @@ const rootRoute = createRootRoute({
   component: () => (
     <div className="layout">
       <nav className="sidebar">
-        <div className="brand">
-          <span className="logo">⬡</span>
+        <div className="sidebar-brand">
+          <span className="sidebar-logo">⬡</span>
           <div>
-            <strong>EVKHA</strong>
-            <small>Dashboard</small>
+            <Heading size="2">EVKHA</Heading>
+            <Text size="1" color="gray">Dashboard</Text>
           </div>
         </div>
-        <ul>
+        <ul className="sidebar-nav">
           <li>
-            <Link to="/" activeProps={{ className: "active" }}>
+            <Link to="/" className="sidebar-link" activeProps={{ className: "active" }} activeOptions={{ exact: true }}>
               Vue d'ensemble
             </Link>
           </li>
           <li>
-            <Link to="/jobs" activeProps={{ className: "active" }}>
+            <Link to="/jobs" className="sidebar-link" activeProps={{ className: "active" }}>
               Livrables
             </Link>
           </li>
           <li>
-            <Link to="/incidents" activeProps={{ className: "active" }}>
+            <Link to="/incidents" className="sidebar-link" activeProps={{ className: "active" }}>
               Incidents
             </Link>
           </li>
         </ul>
       </nav>
-      <main>
+      <main className="app-main">
         <Outlet />
       </main>
     </div>

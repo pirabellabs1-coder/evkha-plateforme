@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import {
+  Box, Flex, Heading, Badge, Table, Progress, Text, Select, Spinner,
+} from "@radix-ui/themes";
 import { api, type JobSummary } from "../api";
 
 const DELIVERABLE_LABELS: Record<string, string> = {
@@ -18,96 +21,110 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Annulé",
 };
 
-function ProgressBar({ done, total }: { done: number; total: number }) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  return (
-    <div className="progress-bar" title={`${done}/${total} chapitres`}>
-      <div className="progress-fill" style={{ width: `${pct}%` }} />
-      <span className="progress-label">
-        {done}/{total}
-      </span>
-    </div>
-  );
+type RadixColor = "gray" | "blue" | "green" | "red";
+
+function statusColor(status: string): RadixColor {
+  const map: Record<string, RadixColor> = {
+    pending: "gray", running: "blue", done: "green", failed: "red", cancelled: "gray",
+  };
+  return map[status] ?? "gray";
 }
 
 export function Jobs() {
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const { data, isLoading } = useQuery<JobSummary[]>({
     queryKey: ["jobs", statusFilter],
-    queryFn: () => api.jobs(statusFilter || undefined),
+    queryFn: () => api.jobs(statusFilter === "all" ? undefined : statusFilter),
     refetchInterval: 15_000,
   });
 
   return (
-    <div className="page">
-      <h1>Livrables</h1>
-      <div className="toolbar">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="">Tous les statuts</option>
-          {Object.entries(STATUS_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </div>
+    <Box>
+      <Heading size="6" mb="5">Livrables</Heading>
 
-      {isLoading && <p className="loading">Chargement…</p>}
+      <Flex align="center" gap="3" mb="4">
+        <Select.Root value={statusFilter} onValueChange={setStatusFilter} size="2">
+          <Select.Trigger placeholder="Tous les statuts" />
+          <Select.Content>
+            <Select.Item value="all">Tous les statuts</Select.Item>
+            {Object.entries(STATUS_LABELS).map(([k, v]) => (
+              <Select.Item key={k} value={k}>{v}</Select.Item>
+            ))}
+          </Select.Content>
+        </Select.Root>
+        {isLoading && <Spinner size="2" />}
+      </Flex>
 
       {data && (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Livrable</th>
-              <th>Statut</th>
-              <th>Progression</th>
-              <th>Coût</th>
-              <th>Terminé le</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table.Root variant="surface">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeaderCell>Livrable</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Statut</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Progression</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Coût</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Terminé le</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell />
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
             {data.map((job) => (
-              <tr
+              <Table.Row
                 key={job.id}
-                className={job.status === "failed" ? "row--error" : ""}
+                style={job.status === "failed" ? { background: "var(--red-2)" } : undefined}
               >
-                <td>
-                  {DELIVERABLE_LABELS[job.deliverable_type] ??
-                    job.deliverable_type}
-                </td>
-                <td>
-                  <span className={`badge badge--${job.status}`}>
+                <Table.Cell>
+                  <Text size="2">{DELIVERABLE_LABELS[job.deliverable_type] ?? job.deliverable_type}</Text>
+                </Table.Cell>
+                <Table.Cell>
+                  <Badge color={statusColor(job.status)} variant="soft">
                     {STATUS_LABELS[job.status] ?? job.status}
-                  </span>
-                </td>
-                <td>
-                  <ProgressBar
-                    done={job.chapters_done}
-                    total={job.chapters_total}
-                  />
-                </td>
-                <td className="mono">
-                  {parseFloat(job.total_cost_eur).toFixed(4)} €
-                </td>
-                <td className="mono text-sm">
-                  {job.completed_at
-                    ? new Date(job.completed_at).toLocaleDateString("fr-FR")
-                    : "—"}
-                </td>
-                <td>
-                  <Link to="/jobs/$jobId" params={{ jobId: job.id }}>
+                  </Badge>
+                </Table.Cell>
+                <Table.Cell>
+                  <Flex align="center" gap="2">
+                    <Progress
+                      value={job.chapters_total > 0
+                        ? Math.round((job.chapters_done / job.chapters_total) * 100)
+                        : 0}
+                      size="1"
+                      style={{ width: 80 }}
+                    />
+                    <Text size="1" color="gray" className="mono">
+                      {job.chapters_done}/{job.chapters_total}
+                    </Text>
+                  </Flex>
+                </Table.Cell>
+                <Table.Cell>
+                  <Text size="2" className="mono">
+                    {parseFloat(job.total_cost_eur).toFixed(4)} €
+                  </Text>
+                </Table.Cell>
+                <Table.Cell>
+                  <Text size="1" color="gray" className="mono">
+                    {job.completed_at
+                      ? new Date(job.completed_at).toLocaleDateString("fr-FR")
+                      : "—"}
+                  </Text>
+                </Table.Cell>
+                <Table.Cell>
+                  <Link to="/jobs/$jobId" params={{ jobId: job.id }}
+                    style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}>
                     Détail →
                   </Link>
-                </td>
-              </tr>
+                </Table.Cell>
+              </Table.Row>
             ))}
-          </tbody>
-        </table>
+          </Table.Body>
+        </Table.Root>
       )}
-    </div>
+
+      {data?.length === 0 && (
+        <Text color="gray" size="2" style={{ fontStyle: "italic" }}>
+          Aucun livrable{statusFilter !== "all" ? " pour ce statut" : ""}.
+        </Text>
+      )}
+    </Box>
   );
 }
