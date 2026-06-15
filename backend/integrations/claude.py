@@ -10,11 +10,12 @@ from django.conf import settings
 # L'identifiant exact peut etre surcharge via EVKHA_ANTHROPIC_MODEL_ID sans
 # toucher au code (les references produit evoluent souvent).
 _ANTHROPIC_MODEL_IDS: dict[str, str] = {
-    "claude-sonnet": "claude-sonnet-4-20250514",
-    "claude-opus": "claude-opus-4-20250514",
-    "claude-haiku": "claude-3-5-haiku-20241022",
+    "claude-sonnet": "claude-sonnet-4-6",
+    "claude-opus": "claude-opus-4-8",
+    "claude-haiku": "claude-haiku-4-5-20251001",
 }
-_DEFAULT_MAX_TOKENS = 4096
+# 1500 tokens ≈ 1100 mots par chapitre — cible coût < 1 € / rapport.
+_DEFAULT_MAX_TOKENS = 1500
 
 
 @dataclass(frozen=True)
