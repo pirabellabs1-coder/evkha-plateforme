@@ -160,7 +160,17 @@ def normalize_intake_variables(payload: dict[str, Any]) -> tuple[dict[str, Any],
 
 
 def sync_intake_from_tally_payload(payload: dict[str, Any]) -> IntakeSubmission:
-    systeme_order_id = _lookup(payload, "order_id", "systeme_order_id", "metadata.order_id")
+    # order_id peut être à la racine (tests/Systeme) ou dans data.fields / data.hiddenFields (Tally natif)
+    systeme_order_id = _lookup(
+        payload,
+        "order_id",
+        "systeme_order_id",
+        "metadata.order_id",
+        "data.hiddenFields.order_id",
+    )
+    if not systeme_order_id:
+        raw_pairs = _collect_raw_pairs(payload)
+        systeme_order_id = str(raw_pairs.get("order_id") or raw_pairs.get("systeme_order_id") or "")
     if not systeme_order_id:
         msg = "Tally payload missing required field: order_id"
         raise IntakeIngestionError(msg)
