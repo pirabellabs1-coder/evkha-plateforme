@@ -27,7 +27,7 @@ ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
 # Production derriere Traefik/Coolify (TLS termine par le proxy) :
 #   EVKHA_BEHIND_PROXY=true
-#   CSRF_TRUSTED_ORIGINS=https://evkha.fr,https://www.evkha.fr
+#   CSRF_TRUSTED_ORIGINS=https://app.evkha.fr,https://dashboard.evkha.fr
 # Sans ces deux reglages, le login /admin/ echoue au controle CSRF en HTTPS.
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 if env("EVKHA_BEHIND_PROXY"):
@@ -149,7 +149,7 @@ EVKHA_USE_STUB_PDF = env("EVKHA_USE_STUB_PDF")
 
 # URL de base publique du serveur (utilisée par WeasyPrint et Brevo pour
 # construire des URLs absolues valides pour les fichiers média).
-# Exemple production : https://evkha.com
+# Exemple production : https://app.evkha.fr
 EVKHA_BASE_URL = env("EVKHA_BASE_URL", default="http://localhost:8000")
 
 # Dashboard auth (Phase 6).

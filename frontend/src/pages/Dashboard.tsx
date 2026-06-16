@@ -136,7 +136,7 @@ function ConfigStatus({ system }: { system: SystemStatus }) {
 
 function SetupGuide() {
   const steps = [
-    { done: true,  text: "API déployée",                         sub: "evkha.fr" },
+    { done: true,  text: "API déployée",                         sub: "app.evkha.fr" },
     { done: true,  text: "Dashboard opérationnel",               sub: "dashboard.evkha.fr" },
     { done: true,  text: "Email Brevo activé",                   sub: "contact@evkha.fr" },
     { done: true,  text: "IA Anthropic activée",                 sub: "claude-sonnet-4-6" },
