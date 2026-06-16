@@ -21,6 +21,17 @@ services:
     env_file: .env
     expose:
       - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.evkha-api-http.rule=Host(`evkha.fr`) || Host(`www.evkha.fr`)"
+      - "traefik.http.routers.evkha-api-http.entrypoints=http"
+      - "traefik.http.routers.evkha-api-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.evkha-api-https.rule=Host(`evkha.fr`) || Host(`www.evkha.fr`)"
+      - "traefik.http.routers.evkha-api-https.entrypoints=https"
+      - "traefik.http.routers.evkha-api-https.tls=true"
+      - "traefik.http.routers.evkha-api-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.evkha-api-https.middlewares=gzip"
+      - "traefik.http.services.evkha-api-svc.loadbalancer.server.port=8000"
     depends_on:
       - postgres
       - redis
