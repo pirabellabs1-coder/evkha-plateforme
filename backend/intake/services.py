@@ -73,14 +73,23 @@ _ALIASES: dict[str, str] = {
     "logo url": "LOGO_URL",
     "url logo": "LOGO_URL",
     "logo": "LOGO_URL",
+    "logo de votre entreprise": "LOGO_URL",
+    "logo de votre entreprise (optionnel)": "LOGO_URL",
+    "votre logo": "LOGO_URL",
     "couleur principale": "COULEUR_PRINCIPALE",
+    "couleur principale de votre charte graphique": "COULEUR_PRINCIPALE",
+    "couleur principale de votre charte graphique (optionnel)": "COULEUR_PRINCIPALE",
     "couleur primaire": "COULEUR_PRINCIPALE",
     "couleur secondaire": "COULEUR_SECONDAIRE",
+    "couleur secondaire (optionnel)": "COULEUR_SECONDAIRE",
+    "couleur d'accent": "COULEUR_SECONDAIRE",
     "couleur": "COULEUR_PRINCIPALE",
     "nom entreprise": "NOM_ENTREPRISE",
     "nom de l'entreprise": "NOM_ENTREPRISE",
+    "nom de votre entreprise": "NOM_ENTREPRISE",
     "raison sociale": "NOM_ENTREPRISE",
     "entreprise": "NOM_ENTREPRISE",
+    "société": "NOM_ENTREPRISE",
 }
 
 _CANONICAL = set(REQUIRED_VARIABLES) | set(OPTIONAL_VARIABLES)

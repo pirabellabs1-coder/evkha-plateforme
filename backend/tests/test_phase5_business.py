@@ -66,24 +66,29 @@ def str_submission() -> IntakeSubmission:
 
 
 def test_business_plan_blueprint_structure() -> None:
-    assert len(BUSINESS_PLAN_CHAPTERS) == 14
+    # Structure officielle EVKHA V1 : 21 chapitres (fiche projet + ch1-19 + annexes).
+    assert len(BUSINESS_PLAN_CHAPTERS) == 21
     assert BUSINESS_PLAN_CHAPTERS[0].prompt_key == "bp.00.fiche_projet"
     assert BUSINESS_PLAN_CHAPTERS[0].section_kind == SectionKind.OPENING
     assert BUSINESS_PLAN_CHAPTERS[-1].section_kind == SectionKind.ANNEXE
-    # Verifier que les chapitres financiers cles sont presents.
     keys = [c.prompt_key for c in BUSINESS_PLAN_CHAPTERS]
-    assert "bp.09.previsions_financieres" in keys
-    assert "bp.10.plan_financement" in keys
+    # Chapitres financiers cles de la methode EVKHA.
+    assert "bp.16.previsionnel_financier" in keys
+    assert "bp.15.plan_financement" in keys
+    assert "bp.17.budget_tresorerie" in keys
+    assert "bp.09.modele_bmc" in keys
 
 
 def test_business_strategy_blueprint_structure() -> None:
-    assert len(BUSINESS_STRATEGY_CHAPTERS) == 13
+    # Structure officielle EVKHA V1 : 19 chapitres (fiche projet + ch1-17 + sources).
+    assert len(BUSINESS_STRATEGY_CHAPTERS) == 19
     assert BUSINESS_STRATEGY_CHAPTERS[0].prompt_key == "str.00.fiche_projet"
     assert BUSINESS_STRATEGY_CHAPTERS[0].section_kind == SectionKind.OPENING
     keys = [c.prompt_key for c in BUSINESS_STRATEGY_CHAPTERS]
-    assert "str.02.pestel" in keys
-    assert "str.10.kpis" in keys
-    assert "str.12.conclusion" in keys
+    assert "str.07.verticales_strategiques" in keys
+    assert "str.14.rentabilite_modele" in keys
+    assert "str.17.feuille_route" in keys
+    assert "str.18.sources" in keys
 
 
 # --- Bootstrap tests -------------------------------------------------------
@@ -94,8 +99,8 @@ def test_bootstrap_bp_job_creates_all_sections(bp_submission: IntakeSubmission) 
     job = bootstrap_generation_job(bp_submission)
 
     assert job.deliverable_type == DeliverableType.BUSINESS_PLAN
-    assert job.chapters.count() == 14
-    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 14))
+    assert job.chapters.count() == 21
+    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 21))
 
 
 @pytest.mark.django_db
@@ -103,8 +108,8 @@ def test_bootstrap_str_job_creates_all_sections(str_submission: IntakeSubmission
     job = bootstrap_generation_job(str_submission)
 
     assert job.deliverable_type == DeliverableType.BUSINESS_STRATEGY
-    assert job.chapters.count() == 13
-    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 13))
+    assert job.chapters.count() == 19
+    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 19))
 
 
 # --- Generation tests -------------------------------------------------------
@@ -118,7 +123,7 @@ def test_run_bp_job_completes_and_renders(bp_submission: IntakeSubmission) -> No
     job.refresh_from_db()
 
     assert job.status == JobStatus.DONE
-    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 14
+    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 21
     assert job.total_cost_eur <= job.budget_eur
 
     document = render_client_document(job)
@@ -136,7 +141,7 @@ def test_run_str_job_completes_and_renders(str_submission: IntakeSubmission) -> 
     job.refresh_from_db()
 
     assert job.status == JobStatus.DONE
-    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 13
+    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 19
     assert job.total_cost_eur <= job.budget_eur
 
     document = render_client_document(job)

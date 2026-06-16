@@ -62,11 +62,11 @@ services:
     labels:
       - "traefik.enable=true"
       # HTTP → redirect HTTPS
-      - "traefik.http.routers.evkha-dashboard-http.rule=Host(`dashboard.82-165-31-105.nip.io`)"
+      - "traefik.http.routers.evkha-dashboard-http.rule=Host(`dashboard.evkha.fr`)"
       - "traefik.http.routers.evkha-dashboard-http.entrypoints=http"
       - "traefik.http.routers.evkha-dashboard-http.middlewares=redirect-to-https"
       # HTTPS + Let's Encrypt
-      - "traefik.http.routers.evkha-dashboard-https.rule=Host(`dashboard.82-165-31-105.nip.io`)"
+      - "traefik.http.routers.evkha-dashboard-https.rule=Host(`dashboard.evkha.fr`)"
       - "traefik.http.routers.evkha-dashboard-https.entrypoints=https"
       - "traefik.http.routers.evkha-dashboard-https.tls=true"
       - "traefik.http.routers.evkha-dashboard-https.tls.certresolver=letsencrypt"

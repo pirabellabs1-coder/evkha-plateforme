@@ -128,71 +128,107 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 
 # ---------------------------------------------------------------------------
 # Business Plan (BP)
-# Structure pro francophone standard + consignes EVKHA (donnees chiffrees,
-# ton mentor). Le chapitrage exact de la methode EVKHA sera confirme avec
-# les documents du Drive (https://drive.google.com/…) — TODO: aligner
-# apres acces. En attendant on applique la structure canonique BP France.
+# Chapitrage officiel EVKHA V1 (spec "Systeme EVKHA Business Plans V1 FINALE
+# OK TOBIAS.pdf" + squelette FIRE EVENT). Chapitres 2-11 documentes dans la
+# spec V1 partielle ; chapitres 12-19 issus du squelette de reference FIRE
+# EVENT (structure validee Evangeline, jan 2026). Ne PAS modifier sans
+# validation d'Evangeline.
 # ---------------------------------------------------------------------------
 BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(0, "Fiche projet", "bp.00.fiche_projet", SectionKind.OPENING),
     ChapterBlueprint(1, "Resume executif", "bp.01.resume_executif"),
+    ChapterBlueprint(2, "Presentation du porteur de projet", "bp.02.porteur_projet"),
+    ChapterBlueprint(3, "Genese du projet", "bp.03.genese_projet"),
+    ChapterBlueprint(4, "Presentation de l'activite", "bp.04.activite"),
+    ChapterBlueprint(5, "Positionnement et concept", "bp.05.positionnement_concept"),
+    ChapterBlueprint(6, "Analyse de marche (synthese)", "bp.06.marche_synthese"),
+    ChapterBlueprint(7, "Analyse concurrentielle", "bp.07.concurrentielle"),
+    ChapterBlueprint(8, "Offre commerciale", "bp.08.offre_commerciale"),
     ChapterBlueprint(
-        2, "Presentation du porteur de projet et de l'equipe", "bp.02.porteur_equipe"
+        9, "Modele economique et Business Model Canvas", "bp.09.modele_bmc"
     ),
-    ChapterBlueprint(3, "Description du projet et de l'offre", "bp.03.description_offre"),
-    ChapterBlueprint(4, "Analyse du marche cible", "bp.04.marche_cible"),
-    ChapterBlueprint(5, "Analyse concurrentielle", "bp.05.concurrentielle"),
-    ChapterBlueprint(6, "Strategie commerciale et marketing", "bp.06.strategie_commerciale"),
-    ChapterBlueprint(7, "Modele economique et sources de revenus", "bp.07.modele_economique"),
-    ChapterBlueprint(8, "Plan operationnel et organisationnel", "bp.08.plan_operationnel"),
-    ChapterBlueprint(9, "Previsions financieres sur 3 ans", "bp.09.previsions_financieres"),
+    ChapterBlueprint(10, "Strategie commerciale et marketing", "bp.10.strategie_commerciale"),
+    ChapterBlueprint(11, "Strategie de developpement", "bp.11.strategie_developpement"),
+    ChapterBlueprint(12, "Organisation et moyens", "bp.12.organisation_moyens"),
     ChapterBlueprint(
-        10, "Plan de financement et besoins en capital", "bp.10.plan_financement"
-    ),
-    ChapterBlueprint(
-        11, "Analyse des risques et plan de contingence", "bp.11.risques_contingence"
-    ),
-    ChapterBlueprint(
-        12, "Calendrier de developpement et jalons", "bp.12.calendrier_jalons"
+        13, "Structure juridique et reglementaire", "bp.13.structure_juridique"
     ),
     ChapterBlueprint(
-        13,
-        "Annexes et reponses aux demandes specifiques",
-        "bp.13.annexes",
-        SectionKind.ANNEXE,
+        14, "Investissements et besoins au demarrage", "bp.14.investissements"
     ),
+    ChapterBlueprint(15, "Plan de financement initial", "bp.15.plan_financement"),
+    ChapterBlueprint(
+        16, "Previsionnel financier (synthese)", "bp.16.previsionnel_financier"
+    ),
+    ChapterBlueprint(17, "Budget de tresorerie", "bp.17.budget_tresorerie"),
+    ChapterBlueprint(
+        18, "Risques et facteurs de securisation", "bp.18.risques_securisation"
+    ),
+    ChapterBlueprint(19, "Conclusion", "bp.19.conclusion"),
+    ChapterBlueprint(20, "Annexes", "bp.20.annexes", SectionKind.ANNEXE),
 )
 
 # ---------------------------------------------------------------------------
 # Strategie Business (STR)
-# Structure diagnostic-choix-action conforme aux standards du conseil
-# strategique. Meme note TODO Drive que BP.
+# Chapitrage officiel EVKHA V1 (spec "SYSTEME EVKHA STRATEGIES BUSINESS
+# AUTOMATISEES V1"). 17 chapitres analytiques (0-16 dans la spec, renumerotes
+# 1-17 ici pour laisser 0 a la fiche projet EVKHA) + sources.
+# Ne PAS modifier sans validation d'Evangeline.
 # ---------------------------------------------------------------------------
 BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(0, "Fiche projet", "str.00.fiche_projet", SectionKind.OPENING),
-    ChapterBlueprint(1, "Diagnostic interne", "str.01.diagnostic_interne"),
-    ChapterBlueprint(2, "Analyse de l'environnement externe (PESTEL)", "str.02.pestel"),
-    ChapterBlueprint(3, "Analyse concurrentielle strategique", "str.03.concurrentielle"),
-    ChapterBlueprint(4, "Vision et objectifs strategiques", "str.04.vision_objectifs"),
-    ChapterBlueprint(5, "Choix de positionnement strategique", "str.05.positionnement"),
-    ChapterBlueprint(6, "Strategie d'entree sur le marche", "str.06.entree_marche"),
-    ChapterBlueprint(7, "Strategie de croissance et developpement", "str.07.croissance"),
+    ChapterBlueprint(1, "Introduction strategique generale", "str.01.introduction"),
+    ChapterBlueprint(2, "Lecture strategique du projet", "str.02.lecture_strategique"),
+    ChapterBlueprint(3, "Analyse du positionnement actuel", "str.03.positionnement_actuel"),
     ChapterBlueprint(
-        8,
-        "Strategie de differentiation et avantage concurrentiel",
-        "str.08.differentiation",
-    ),
-    ChapterBlueprint(9, "Plan d'action operationnel", "str.09.plan_action"),
-    ChapterBlueprint(10, "Indicateurs de performance (KPIs)", "str.10.kpis"),
-    ChapterBlueprint(
-        11, "Risques strategiques et scenarios", "str.11.risques_scenarios"
+        4, "Analyse des forces structurelles du business", "str.04.forces_structurelles"
     ),
     ChapterBlueprint(
-        12,
-        "Conclusion, recommandations et prochaines etapes",
-        "str.12.conclusion",
-        SectionKind.ANNEXE,
+        5,
+        "Analyse des contraintes et fragilites structurelles",
+        "str.05.contraintes_fragilites",
     ),
+    ChapterBlueprint(
+        6, "Enjeux strategiques du positionnement", "str.06.enjeux_positionnement"
+    ),
+    ChapterBlueprint(
+        7, "Definition des verticales strategiques", "str.07.verticales_strategiques"
+    ),
+    ChapterBlueprint(
+        8, "Proposition de valeur et differenciation", "str.08.valeur_differenciation"
+    ),
+    ChapterBlueprint(
+        9, "Lecture strategique des offres actuelles", "str.09.offres_actuelles"
+    ),
+    ChapterBlueprint(10, "Architecture d'offre cible", "str.10.architecture_offre"),
+    ChapterBlueprint(
+        11, "Logique de montee en gamme et valeur percue", "str.11.montee_gamme"
+    ),
+    ChapterBlueprint(
+        12, "Analyse des canaux et acquisition actuelle", "str.12.canaux_acquisition"
+    ),
+    ChapterBlueprint(
+        13,
+        "Strategie de visibilite et acquisition coherente",
+        "str.13.strategie_visibilite",
+    ),
+    ChapterBlueprint(
+        14, "Lecture economique et rentabilite du modele", "str.14.rentabilite_modele"
+    ),
+    ChapterBlueprint(
+        15,
+        "Arbitrages strategiques et allocation des ressources",
+        "str.15.arbitrages_ressources",
+    ),
+    ChapterBlueprint(
+        16,
+        "Pilotage strategique et soutenabilite du business",
+        "str.16.pilotage_soutenabilite",
+    ),
+    ChapterBlueprint(
+        17, "Feuille de route strategique et priorisation", "str.17.feuille_route"
+    ),
+    ChapterBlueprint(18, "Sources et methodologie", "str.18.sources", SectionKind.SOURCES),
 )
 
 _BLUEPRINTS: dict[str, tuple[ChapterBlueprint, ...]] = {

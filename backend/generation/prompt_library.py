@@ -254,150 +254,260 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
 
 
 # --- Business Plan (BP) --------------------------------------------------
-# Structure BP France/Afrique francophone. A valider avec les documents
-# specifiques EVKHA lorsque l'acces Drive sera configure.
+# Prompts alignes avec la spec officielle EVKHA V1 (mai 2026).
+# Chapitres 2-11 bases sur les objectifs de la spec ; chapitres 12-19
+# bases sur le squelette FIRE EVENT valide. Ton : narratif, ecrit comme
+# si le porteur s'exprimait lui-meme, credible pour un banquier/investisseur.
+# Ne jamais ecrire "Etape", "Validation", "Pipeline" ni tout marqueur interne.
 
 BUSINESS_PLAN_PROMPTS: dict[str, str] = {
     "bp.00.fiche_projet": (
-        "Fiche projet d'ouverture du business plan : synthese du projet, du "
-        "porteur, du secteur, de la zone et du pays, de la forme juridique "
-        "envisagee et du capital initial prevu."
+        "Fiche projet d'ouverture du business plan : rappel synthetique du "
+        "projet, du porteur, du secteur, de la zone et du pays cibles, de "
+        "la forme juridique envisagee et du capital prevu. Ton concis et "
+        "professionnel."
     ),
     "bp.01.resume_executif": (
-        "Resume executif percutant (1 page) : proposition de valeur, marche "
-        "cible, modele de revenus, besoin de financement, chiffres cles "
-        "projetes a 3 ans. Tout doit etre sourcable ou hypothese declaree."
+        "Resume executif (1 page maximum) : presentation synthetique du "
+        "projet et de son activite, historique et contexte du demarrage, "
+        "objectifs de creation ou de structuration, chiffres cles "
+        "previsionnels sur 3 ans, vision globale et message central. "
+        "Percutant et clair, ecrit comme si le porteur s'exprimait."
     ),
-    "bp.02.porteur_equipe": (
-        "Presentation du porteur de projet (parcours, competences cles, "
-        "motivations) et de l'equipe (roles, experience, complementarite). "
-        "Si l'equipe est a constituer, decris le profil recherche."
+    "bp.02.porteur_projet": (
+        "Presente le porteur de projet de maniere a construire sa "
+        "legitimite entrepreneuriale, professionnelle et humaine : parcours, "
+        "experience metier dans le secteur, competences techniques et "
+        "operationnelles, vision entrepreneuriale, implication personnelle. "
+        "Redigez comme un dirigeant en construction, pas comme un CV."
     ),
-    "bp.03.description_offre": (
-        "Description precise du projet et de l'offre : produit/service, "
-        "proposition de valeur differenciante, stade de developpement, "
-        "propriete intellectuelle ou barriere a l'entree eventuelle."
+    "bp.03.genese_projet": (
+        "Raconte l'histoire du projet depuis son origine : pourquoi ce "
+        "projet existe, comment il s'est construit dans le temps, quelles "
+        "etapes ont valide la demarche, pourquoi ce moment est le bon pour "
+        "franchir l'etape actuelle. Cree une trajectoire credible et assumee."
     ),
-    "bp.04.marche_cible": (
-        "Analyse du marche cible : taille et croissance, segmentation, "
-        "clientele prioritaire, personas, comportements d'achat. "
-        "Synthese actionnable depuis l'etude de marche si disponible."
+    "bp.04.activite": (
+        "Presente l'activite de maniere claire et structuree : ce que vend "
+        "reellement l'entreprise, comment fonctionne l'activite, a quels "
+        "besoins elle repond, a qui elle s'adresse, comment elle genere ses "
+        "revenus. Le lecteur doit comprendre sans connaissance prealable du secteur."
     ),
-    "bp.05.concurrentielle": (
-        "Analyse concurrentielle : principaux acteurs directs et indirects, "
-        "positionnement du projet par rapport a la concurrence, avantage "
-        "differenciant defendable."
+    "bp.05.positionnement_concept": (
+        "Definit clairement le positionnement strategique : quelle place le "
+        "projet occupe sur son marche, a quels besoins precis il repond, "
+        "pourquoi des clients choisiraient cette offre plutot qu'une autre, "
+        "comment le projet se distingue concretement de la concurrence."
     ),
-    "bp.06.strategie_commerciale": (
-        "Strategie commerciale et marketing : canaux d'acquisition, "
-        "politique de prix, plan de communication, objectifs de vente "
-        "annee 1/2/3, indicateurs de suivi."
+    "bp.06.marche_synthese": (
+        "Synthese strategique du marche cible : taille et dynamique, "
+        "segments prioritaires, tendances favorables au projet, clientele "
+        "cible et ses besoins. Produit une lecture business claire, pas une "
+        "etude exhaustive. Relie systematiquement les donnees au projet concret."
     ),
-    "bp.07.modele_economique": (
-        "Modele economique et sources de revenus : description des flux de "
-        "revenus (vente directe, abonnement, commission...), structure de "
-        "couts principaux, marge brute estimee, point mort."
+    "bp.07.concurrentielle": (
+        "Lecture strategique du paysage concurrentiel : acteurs directs et "
+        "indirects identifies et analyses, positionnement du projet par "
+        "rapport a la concurrence, espaces strategiques disponibles, "
+        "avantage differenciant defendable du projet. Nombre limite de "
+        "concurrents (8 directs + 3 indirects maximum), traites avec rigueur."
     ),
-    "bp.08.plan_operationnel": (
-        "Plan operationnel et organisationnel : processus cles, ressources "
-        "humaines, locaux et equipements, fournisseurs strategiques, "
-        "calendrier de demarrage."
+    "bp.08.offre_commerciale": (
+        "Presente concretement l'offre : ce qui est vendu, comment l'offre "
+        "est structuree (niveaux, gammes, options), politique tarifaire et "
+        "logique de prix moyen, coherence entre l'offre et le positionnement. "
+        "Demontre que l'offre a ete pensee et economiquement reflechie."
     ),
-    "bp.09.previsions_financieres": (
-        "Previsions financieres sur 3 ans : compte de resultat previsionnel "
-        "(CA, charges, EBITDA, resultat net), bilan simplifie, tableau de "
-        "tresorerie, hypotheses clairement declarees et sensibilite."
+    "bp.09.modele_bmc": (
+        "Presente la logique economique globale : comment l'entreprise cree "
+        "de la valeur, comment elle genere du chiffre d'affaires, structure "
+        "des couts principaux, marge brute estimee, point mort. Fournis "
+        "egalement les 9 blocs du Business Model Canvas sous forme de "
+        "tableau structure pret a visualiser."
     ),
-    "bp.10.plan_financement": (
-        "Plan de financement et besoins en capital : besoins identifies, "
-        "sources envisagees (fonds propres, pret bancaire, subvention, "
-        "investisseur), structure cible du capital, calendrier des appels "
-        "de fonds."
+    "bp.10.strategie_commerciale": (
+        "Strategie d'acquisition et de developpement commercial : canaux "
+        "d'acquisition actuels et envisages, politique de prix assumee, "
+        "plan de visibilite (reseaux, partenariats, bouche-a-oreille), "
+        "objectifs commerciaux par annee, logique de fidelisation."
     ),
-    "bp.11.risques_contingence": (
-        "Analyse des risques et plan de contingence : identification des "
-        "risques majeurs (marche, financier, operationnel, juridique), "
-        "probabilite/impact, mesures de mitigation pour chacun."
+    "bp.11.strategie_developpement": (
+        "Trajectoire de developpement du projet : phasage strategique sur "
+        "3 ans (structuration / croissance maitrisee / consolidation), "
+        "jalons cles par phase, logique de montee en charge progressive. "
+        "La strategie doit etre financable et operationnellement realiste."
     ),
-    "bp.12.calendrier_jalons": (
-        "Calendrier de developpement et jalons : feuille de route sur 18 "
-        "mois avec jalons cles (lancement, premier client, seuil de "
-        "rentabilite, prochaine levee...), responsables et criteres de succes."
+    "bp.12.organisation_moyens": (
+        "Organisation humaine et moyens materiels : role du dirigeant, "
+        "equipe actuelle et recrutements envisages, moyens materiels "
+        "existants et a acquerir, locaux et equipements, fournisseurs "
+        "strategiques. Coherent avec le stade de developpement du projet."
     ),
-    "bp.13.annexes": (
-        "Annexes : documents justificatifs, simulations complementaires, "
-        "reponses aux demandes specifiques du client. "
-        "Indique si chaque demande est traitee ou a completer."
+    "bp.13.structure_juridique": (
+        "Structure juridique et reglementaire : forme juridique retenue et "
+        "justification, regime fiscal, statut social du dirigeant, "
+        "contraintes reglementaires specifiques au secteur et a la zone, "
+        "protection de la marque ou propriete intellectuelle si applicable."
+    ),
+    "bp.14.investissements": (
+        "Investissements et besoins au demarrage : nature et montant des "
+        "investissements initiaux, apports en nature eventuels, besoin en "
+        "fonds de roulement, tresorerie de securite minimale requise. "
+        "Chiffres argumentes et coherents avec l'activite."
+    ),
+    "bp.15.plan_financement": (
+        "Plan de financement initial : synthese des besoins de demarrage, "
+        "ressources mobilisees (apports propres, emprunt bancaire, "
+        "subventions, investisseurs), equilibre du plan. "
+        "Logique financiere transparente et defensable."
+    ),
+    "bp.16.previsionnel_financier": (
+        "Previsionnel financier sur 3 ans : compte de resultat previsionnel "
+        "(CA, charges fixes et variables, EBITDA, resultat net), hypotheses "
+        "clairement declarees et argumentees, seuil de rentabilite, "
+        "capacite d'autofinancement. Scenario central + sensibilite."
+    ),
+    "bp.17.budget_tresorerie": (
+        "Budget de tresorerie mensuel : logique de tresorerie sur 12-24 "
+        "mois, integration de la saisonnalite, evolution du solde, "
+        "securisation financiere. Fournis un tableau exploitable mois par mois."
+    ),
+    "bp.18.risques_securisation": (
+        "Risques identifies et facteurs de securisation : principaux risques "
+        "(saisonnalite, dependance, concurrence, reglementation), leur "
+        "probabilite et impact, leviers de securisation concrets pour chacun. "
+        "Lecture lucide sans dramatisation."
+    ),
+    "bp.19.conclusion": (
+        "Conclusion strategique : synthese des points forts du projet, "
+        "coherence economique et viabilite, adequation avec les objectifs "
+        "du porteur, message final donnant confiance au lecteur. "
+        "Ton positif et credible, pas commercial."
+    ),
+    "bp.20.annexes": (
+        "Annexes : reponses explicites a chaque demande specifique du client "
+        "(traitee / partiellement / non traitee + explication). "
+        "Documents justificatifs et simulations complementaires si demandes."
     ),
 }
 
 # --- Strategie Business (STR) --------------------------------------------
+# Prompts alignes avec la spec officielle EVKHA V1 (mai 2026).
+# 17 chapitres analytiques + sources. Logique : diagnostic -> choix ->
+# action. Objectif : aider un dirigeant a piloter avec une vision claire.
 
 BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
     "str.00.fiche_projet": (
-        "Fiche projet d'ouverture de la strategie business : rappel du "
-        "projet, du secteur, de la zone, du pays et de l'horizon de "
-        "planification strategique vise."
+        "Fiche projet d'ouverture : rappel du projet, du dirigeant, du "
+        "secteur, de la zone et du pays, et de l'horizon strategique vise. "
+        "Ton concis et professionnel."
     ),
-    "str.01.diagnostic_interne": (
-        "Diagnostic interne : forces et faiblesses de l'organisation ou du "
-        "projet (ressources, competences, structure, finances, culture). "
-        "Sources ou hypotheses declarees pour chaque element."
+    "str.01.introduction": (
+        "Introduction strategique generale : pose le cadre du document, "
+        "explique pourquoi il existe et ce qu'il apportera concretement au "
+        "dirigeant, distingue pilotage strategique et execution operationnelle. "
+        "Transforme immediatement le livrable d'un rapport en outil de pilotage."
     ),
-    "str.02.pestel": (
-        "Analyse PESTEL de l'environnement externe (Politique, Economique, "
-        "Socioculturel, Technologique, Environnemental, Legal) dans la zone "
-        "et le pays cibles. Impacts identifies pour le projet."
+    "str.02.lecture_strategique": (
+        "Lecture strategique du projet : analyse la situation reelle du "
+        "business, son niveau de maturite, sa logique economique actuelle, "
+        "ses enjeux de developpement. Produit un diagnostic de depart "
+        "lucide qui sert de socle a tout le raisonnement strategique."
     ),
-    "str.03.concurrentielle": (
-        "Analyse concurrentielle strategique : forces de Porter (5 forces), "
-        "intensite de la rivalite, pouvoir des fournisseurs et clients, "
-        "menace des substituts et entrants. Positionnement resultant."
+    "str.03.positionnement_actuel": (
+        "Analyse du positionnement actuel : quelle place occupe reellement "
+        "l'entreprise sur son marche, comment est-elle percue, coherence "
+        "entre image / offre / cible / prix / ambition. Identifie les "
+        "risques de dilution ou de confusion de positionnement."
     ),
-    "str.04.vision_objectifs": (
-        "Vision et objectifs strategiques : definition de la vision a 3-5 "
-        "ans, mission, valeurs, objectifs SMART par horizon (1 an, 3 ans, "
-        "5 ans), indicateurs de mesure."
+    "str.04.forces_structurelles": (
+        "Analyse des forces structurelles du business : identifie les "
+        "veritables atouts internes (pas seulement des avantages de confort), "
+        "evalue les ressources et avantages concurrentiels reels sur lesquels "
+        "le developpement futur peut s'appuyer solidement."
     ),
-    "str.05.positionnement": (
-        "Choix de positionnement strategique : segmentation retenue, "
-        "cible prioritaire, proposition de valeur centrale, "
-        "positionnement vs concurrents (matrice perceptuelle)."
+    "str.05.contraintes_fragilites": (
+        "Analyse des contraintes et fragilites structurelles : identifie "
+        "les vulnerabilites reelles du business, les risques structurels, "
+        "les dependances critiques, les limites du modele actuel. "
+        "Lecture lucide sans dramatisation ni complaisance."
     ),
-    "str.06.entree_marche": (
-        "Strategie d'entree sur le marche : mode d'entree (organique, "
-        "partenariat, acquisition...), zone geographique prioritaire, "
-        "plan de lancement, ressources requises, quick wins identifies."
+    "str.06.enjeux_positionnement": (
+        "Enjeux strategiques du positionnement : demontre pourquoi la "
+        "clarification du positionnement est un levier central, risques "
+        "d'un positionnement flou, prepare la logique de specialisation "
+        "et de differenciation structuree."
     ),
-    "str.07.croissance": (
-        "Strategie de croissance et developpement : options de croissance "
-        "(Ansoff : penetration, developpement marche/produit, "
-        "diversification), sequencement recommande, conditions de succes."
+    "str.07.verticales_strategiques": (
+        "Definition et priorisation des verticales strategiques : quelles "
+        "activites doivent devenir centrales, lesquelles restent secondaires, "
+        "lesquelles risquent de nuire a la coherence. Transforme un ensemble "
+        "d'activites multiples en architecture strategique structuree."
     ),
-    "str.08.differentiation": (
-        "Strategie de differentiation et avantage concurrentiel durable : "
-        "source de l'avantage (cout, differenciation, focalisation), "
-        "caractere defensable, risques d'erosion, plan de renforcement."
+    "str.08.valeur_differenciation": (
+        "Proposition de valeur et differenciation : formalise la proposition "
+        "de valeur du business, identifie les elements differenciants reels, "
+        "clarifie pourquoi les clients doivent choisir cette entreprise. "
+        "Transforme des qualites implicites en differenciation strategique assumee."
     ),
-    "str.09.plan_action": (
-        "Plan d'action operationnel : initiatives prioritaires (top 5-7), "
-        "responsable, ressources, budget estime, calendrier, risques "
-        "d'execution et dependances."
+    "str.09.offres_actuelles": (
+        "Lecture strategique des offres actuelles : analyse les offres "
+        "existantes, evalue leur coherence avec le positionnement et la "
+        "rentabilite, identifie les problemes de structuration commerciale "
+        "ou de lisibilite pour les clients."
     ),
-    "str.10.kpis": (
-        "Indicateurs de performance (KPIs) : tableau de bord strategique "
-        "(5-8 KPIs cles par axe : commercial, financier, operationnel, "
-        "client), valeurs cibles par annee, frequence de suivi."
+    "str.10.architecture_offre": (
+        "Architecture d'offre cible : construit une structure d'offres "
+        "coherente (niveaux de gamme, roles de chaque offre, parcours de "
+        "valeur client), transforme une offre dispersee en architecture "
+        "lisible et hierarchisee."
     ),
-    "str.11.risques_scenarios": (
-        "Risques strategiques et scenarios : top 5 risques avec matrice "
-        "probabilite/impact, scenario optimiste, central et pessimiste "
-        "avec impacts sur les KPIs, indicateurs avances d'alerte."
+    "str.11.montee_gamme": (
+        "Logique de montee en gamme et valeur percue : analyse comment "
+        "mieux valoriser le business, structurer la montee en gamme, "
+        "ameliorer la rentabilite sans necessairement trouver plus de clients. "
+        "Propose des leviers concrets et actionnables."
     ),
-    "str.12.conclusion": (
-        "Conclusion et recommandations strategiques prioritaires : synthese "
-        "des 3 a 5 decisions strategiques cles, prochaines etapes "
-        "concretes dans les 90 prochains jours, message de clôture mentor."
+    "str.12.canaux_acquisition": (
+        "Analyse des canaux et acquisition actuelle : quels canaux "
+        "l'entreprise utilise pour attirer des clients, leur coherence "
+        "strategique, leur efficacite reelle, les desequilibres eventuels "
+        "entre les differentes sources d'opportunites."
+    ),
+    "str.13.strategie_visibilite": (
+        "Strategie de visibilite et acquisition coherente : construit une "
+        "strategie d'acquisition alignee avec le positionnement, les offres "
+        "et les verticales. Tous les canaux proposes sont justifies et "
+        "connectes a la logique strategique globale."
+    ),
+    "str.14.rentabilite_modele": (
+        "Lecture economique et rentabilite du modele : analyse la logique "
+        "economique reelle, identifie les activites reellement rentables, "
+        "evalue la soutenabilite financiere, comprend comment l'entreprise "
+        "cree vraiment de la valeur. Va au-dela du simple chiffre d'affaires."
+    ),
+    "str.15.arbitrages_ressources": (
+        "Arbitrages strategiques et allocation des ressources : quelles "
+        "priorites retenir, quelles opportunites ecarter meme si elles "
+        "generent du CA a court terme, comment allouer les ressources "
+        "limitees de maniere coherente avec la vision."
+    ),
+    "str.16.pilotage_soutenabilite": (
+        "Pilotage strategique et soutenabilite du business : comment "
+        "l'entreprise peut se developper sans se fragiliser, sortir d'une "
+        "logique purement reactive, indicateurs de pilotage a mettre en "
+        "place, conditions de la soutenabilite humaine et financiere."
+    ),
+    "str.17.feuille_route": (
+        "Feuille de route strategique et priorisation : actions prioritaires "
+        "a court terme (0-3 mois), orientations a moyen terme (3-12 mois), "
+        "cap a long terme (1-3 ans). Pour chaque action : quoi faire, "
+        "pourquoi, quel indicateur prouvera le succes."
+    ),
+    "str.18.sources": (
+        "Liste structuree des sources utilisees (nom + URL), regroupee en "
+        "fin de document par thematique. Uniquement les sources reellement "
+        "exploitees dans l'analyse."
     ),
 }
 
