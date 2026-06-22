@@ -95,7 +95,62 @@ export interface SystemStatus {
   ai_stub: boolean;
 }
 
+export interface GenerateRequest {
+  deliverable_type: string;
+  customer_email: string;
+  first_name?: string;
+  last_name?: string;
+  company_name?: string;
+  SECTEUR: string;
+  PAYS: string;
+  PROJET: string;
+  ZONE: string;
+  ELEMENTS_A_RETENIR?: string;
+  DEMANDES_SPECIFIQUES?: string;
+  CONCURRENTS?: string;
+  CAPITAL_INITIAL?: string;
+  FORME_JURIDIQUE?: string;
+  MODELE_REVENUS?: string;
+  EQUIPE?: string;
+  OBJECTIF_STRATEGIQUE?: string;
+  HORIZON_PLANIFICATION?: string;
+  NOM_ENTREPRISE?: string;
+  LOGO_URL?: string;
+  COULEUR_PRINCIPALE?: string;
+  COULEUR_SECONDAIRE?: string;
+}
+
+export interface GenerateResponse {
+  job_id: string;
+  status: string;
+}
+
 // --- API calls ---------------------------------------------------------------
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const url = new URL(`${BASE}/api/dashboard${path}`, window.location.origin);
+  const token = getToken();
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as { error?: string }).error ?? `Erreur ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
 
 export const api = {
   overview: () => get<OverviewData>("/overview/"),
@@ -103,4 +158,5 @@ export const api = {
   job: (id: string) => get<JobDetail>(`/jobs/${id}/`),
   incidents: () => get<Incident[]>("/incidents/"),
   system: () => get<SystemStatus>("/system/"),
+  generate: (req: GenerateRequest) => post<GenerateResponse>("/generate/", req),
 };

@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { Text, Heading } from "@radix-ui/themes";
 import { Dashboard } from "./pages/Dashboard";
+import { GenerateManual } from "./pages/GenerateManual";
 import { Jobs } from "./pages/Jobs";
 import { JobDetail } from "./pages/JobDetail";
 import { Incidents } from "./pages/Incidents";
@@ -36,6 +37,11 @@ const rootRoute = createRootRoute({
           <li>
             <Link to="/jobs" className="sidebar-link" activeProps={{ className: "active" }}>
               Livrables
+            </Link>
+          </li>
+          <li>
+            <Link to="/generate" className="sidebar-link" activeProps={{ className: "active" }}>
+              Générer
             </Link>
           </li>
           <li>
@@ -96,12 +102,20 @@ const incidentsRoute = createRoute({
   component: Incidents,
 });
 
+const generateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/generate",
+  beforeLoad: requireAuth,
+  component: GenerateManual,
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   indexRoute,
   jobsRoute,
   jobDetailRoute,
   incidentsRoute,
+  generateRoute,
 ]);
 
 export const router = createRouter({ routeTree });

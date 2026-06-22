@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid as _uuid
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any
@@ -9,10 +10,31 @@ from uuid import UUID
 from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
+from catalog.models import DeliverableType, Offer
+from customers.models import Customer, CustomerType
 from generation.models import ChapterStatus, GenerationJob, JobStatus
+from generation.services import bootstrap_generation_job
+from generation.tasks import run_generation_job_task
+from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
 from monitoring.models import IncidentSeverity, IncidentStatus, OperationalIncident
+from orders.models import Order, OrderStatus
+
+_MANUAL_OFFER_NAMES: dict[str, str] = {
+    DeliverableType.MARKET_STUDY:      "Manuel — Étude de marché",
+    DeliverableType.COMPETITOR_STUDY:  "Manuel — Étude de concurrence",
+    DeliverableType.BUSINESS_PLAN:     "Manuel — Business Plan",
+    DeliverableType.BUSINESS_STRATEGY: "Manuel — Stratégie Business",
+}
+
+_REQUIRED_VARS = ("SECTEUR", "PAYS", "PROJET", "ZONE")
+_OPTIONAL_VARS = (
+    "ELEMENTS_A_RETENIR", "DEMANDES_SPECIFIQUES", "CONCURRENTS",
+    "CAPITAL_INITIAL", "FORME_JURIDIQUE", "MODELE_REVENUS", "EQUIPE",
+    "OBJECTIF_STRATEGIQUE", "HORIZON_PLANIFICATION",
+    "LOGO_URL", "COULEUR_PRINCIPALE", "COULEUR_SECONDAIRE", "NOM_ENTREPRISE",
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -158,6 +180,81 @@ def system_status(request: HttpRequest) -> JsonResponse:
             "ai_stub": bool(getattr(settings, "EVKHA_USE_STUB_AI", True)),
         }
     )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_generation(request: HttpRequest) -> JsonResponse:
+    """Génération manuelle depuis le dashboard (ComeUp, tests, etc.)."""
+    try:
+        body: dict[str, Any] = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, ValueError):
+        return _json({"error": "JSON invalide."}, status=400)
+
+    deliverable_type = (body.get("deliverable_type") or "").strip()
+    if deliverable_type not in DeliverableType.values:
+        return _json(
+            {"error": f"Type invalide. Valeurs : {', '.join(DeliverableType.values)}"},
+            status=400,
+        )
+
+    customer_email = (body.get("customer_email") or "").strip().lower()
+    if not customer_email:
+        return _json({"error": "customer_email requis."}, status=400)
+
+    variables: dict[str, str] = {}
+    for key in _REQUIRED_VARS + _OPTIONAL_VARS:
+        val = (body.get(key) or body.get(key.lower()) or "").strip()
+        if val:
+            variables[key] = val
+
+    missing = [k for k in _REQUIRED_VARS if not variables.get(k)]
+    if missing:
+        return _json({"error": f"Champs requis manquants : {', '.join(missing)}"}, status=400)
+
+    offer, _ = Offer.objects.get_or_create(
+        slug=f"manuel-{deliverable_type.replace('_', '-')}",
+        defaults={
+            "name": _MANUAL_OFFER_NAMES[deliverable_type],
+            "deliverable_type": deliverable_type,
+            "is_active": True,
+        },
+    )
+
+    customer, _ = Customer.objects.update_or_create(
+        email=customer_email,
+        defaults={
+            "first_name":    (body.get("first_name") or "").strip(),
+            "last_name":     (body.get("last_name") or "").strip(),
+            "company_name":  (body.get("company_name") or "").strip(),
+            "customer_type": CustomerType.B2B,
+        },
+    )
+
+    order = Order.objects.create(
+        customer=customer,
+        offer=offer,
+        systeme_order_id=f"manuel-{_uuid.uuid4().hex[:12]}",
+        status=OrderStatus.WAITING_INTAKE,
+        raw_payload=body,
+    )
+
+    submission = IntakeSubmission.objects.create(
+        order=order,
+        source=IntakeSource.MANUAL,
+        status=IntakeStatus.NORMALIZED,
+        raw_payload=body,
+        normalized_variables=variables,
+        missing_fields=[],
+    )
+
+    try:
+        job = bootstrap_generation_job(submission)
+        run_generation_job_task.delay(str(job.id))
+    except Exception as exc:
+        return _json({"error": str(exc)}, status=500)
+
+    return _json({"job_id": str(job.id), "status": job.status}, status=202)
 
 
 @require_GET
