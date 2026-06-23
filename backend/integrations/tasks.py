@@ -3,6 +3,9 @@ from __future__ import annotations
 from celery import shared_task
 
 from customers.services import sync_subscription_from_systeme_payload
+from generation.services import GenerationBootstrapError, bootstrap_generation_job
+from generation.tasks import run_generation_job_task
+from intake.models import IntakeStatus
 from intake.services import sync_intake_from_tally_payload
 from orders.services import sync_order_from_systeme_payload
 
@@ -18,7 +21,14 @@ def process_webhook_event(event_id: str) -> str:
         elif event.provider == IntegrationProvider.SYSTEME_SUB:
             sync_subscription_from_systeme_payload(event.raw_payload)
         elif event.provider == IntegrationProvider.TALLY:
-            sync_intake_from_tally_payload(event.raw_payload)
+            submission = sync_intake_from_tally_payload(event.raw_payload)
+            # Déclenche la génération si les variables sont complètes.
+            if submission.status == IntakeStatus.NORMALIZED:
+                try:
+                    job = bootstrap_generation_job(submission)
+                    run_generation_job_task.delay(str(job.id))
+                except GenerationBootstrapError:
+                    pass  # Type de livrable inconnu ou non supporté — loggé par Celery.
         else:
             msg = f"Unsupported webhook provider: {event.provider}"
             raise ValueError(msg)

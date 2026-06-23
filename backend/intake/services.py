@@ -10,6 +10,8 @@ from .models import IntakeSource, IntakeStatus, IntakeSubmission
 # Ce sont des constantes du domaine, jamais inventees a la volee.
 REQUIRED_VARIABLES: tuple[str, ...] = ("SECTEUR", "PAYS", "PROJET", "ZONE")
 OPTIONAL_VARIABLES: tuple[str, ...] = (
+    # Type de livrable — champ caché Tally, essentiel pour les offres B2B génériques.
+    "DELIVERABLE_TYPE",
     # Transverses
     "ELEMENTS_A_RETENIR",
     "DEMANDES_SPECIFIQUES",
@@ -32,6 +34,10 @@ OPTIONAL_VARIABLES: tuple[str, ...] = (
 # Alias label/cle -> variable canonique. Les libelles reels du formulaire Tally
 # restent a confirmer ; cette table est volontairement permissive et extensible.
 _ALIASES: dict[str, str] = {
+    # Tally hidden field : type de livrable (pour offres B2B sans deliverable_type fixe).
+    "deliverable_type": "DELIVERABLE_TYPE",
+    "type_livrable": "DELIVERABLE_TYPE",
+    "livrable": "DELIVERABLE_TYPE",
     "secteur": "SECTEUR",
     "sector": "SECTEUR",
     "pays": "PAYS",

@@ -68,4 +68,20 @@ def sync_order_from_systeme_payload(payload: dict[str, Any]) -> Order:
             "raw_payload": payload,
         },
     )
+
+    # Abonnements : auto-créer N tickets de crédit (un par crédit mensuel).
+    # Crédits suppl. : auto-créer 1 ticket.
+    credits = offer.credits_per_month if offer.is_subscription else (1 if offer.is_extra_credit else 0)
+    for n in range(1, credits + 1):
+        Order.objects.get_or_create(
+            systeme_order_id=f"{systeme_order_id}-t{n}",
+            defaults={
+                "customer": customer,
+                "offer": offer,
+                "parent_order": order,
+                "status": OrderStatus.WAITING_INTAKE,
+                "raw_payload": {},
+            },
+        )
+
     return order
