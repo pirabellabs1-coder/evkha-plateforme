@@ -21,8 +21,8 @@ class Migration(migrations.Migration):
                     ("business_plan", "Business plan"),
                     ("business_strategy", "Strategie business"),
                 ],
+                default="",
                 max_length=32,
-                null=True,
             ),
         ),
         migrations.AddField(

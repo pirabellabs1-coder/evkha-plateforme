@@ -90,7 +90,6 @@ _ALIASES: dict[str, str] = {
     "statut": "FORME_JURIDIQUE",
     "modele de revenus": "MODELE_REVENUS",
     "sources de revenus": "MODELE_REVENUS",
-    "modele economique": "MODELE_REVENUS",
     "equipe": "EQUIPE",
     "team": "EQUIPE",
     "associes": "EQUIPE",
@@ -227,7 +226,8 @@ def normalize_intake_variables(payload: dict[str, Any]) -> tuple[dict[str, Any],
 
 
 def sync_intake_from_tally_payload(payload: dict[str, Any]) -> IntakeSubmission:
-    # order_id peut être à la racine (tests/Systeme) ou dans data.fields / data.hiddenFields (Tally natif)
+    # order_id peut être à la racine (tests/Systeme) ou dans
+    # data.fields / data.hiddenFields (Tally natif)
     systeme_order_id = _lookup(
         payload,
         "order_id",

@@ -11,9 +11,8 @@ from django.core.management.base import BaseCommand
 
 from catalog.models import DeliverableType, Offer
 
-
 # (slug, name, deliverable_type, credits_per_month, is_subscription, is_extra_credit)
-_OFFERS: list[tuple[str, str, str | None, int, bool, bool]] = [
+_OFFERS: list[tuple[str, str, str, int, bool, bool]] = [
     # ── B2C — achats à l'unité ──────────────────────────────────────────────
     (
         "etude-de-marche",
@@ -43,50 +42,50 @@ _OFFERS: list[tuple[str, str, str | None, int, bool, bool]] = [
     (
         "abonnement-solo",
         "Abonnement Solo",
-        None,   # deliverable_type défini par Tally (champ caché)
+        "",   # deliverable_type défini par Tally (champ caché)
         2, True, False,
     ),
     (
         "abonnement-pro",
         "Abonnement Pro",
-        None,
+        "",
         3, True, False,
     ),
     (
         "abonnement-pro-plus",
         "Abonnement Pro Plus",
-        None,
+        "",
         5, True, False,
     ),
     (
         "abonnement-structure",
         "Abonnement Structure",
-        None,
+        "",
         10, True, False,
     ),
     # ── B2B — crédits supplémentaires ────────────────────────────────────────
     (
         "solo-credit-supplementaire",
         "Solo Crédit Supplémentaire",
-        None,
+        "",
         0, False, True,
     ),
     (
         "pro-credit-supplementaire",
         "Pro Crédit Supplémentaire",
-        None,
+        "",
         0, False, True,
     ),
     (
         "pro-plus-credit-supplementaire",
         "Pro Plus Crédit Supplémentaire",
-        None,
+        "",
         0, False, True,
     ),
     (
         "structure-credit-supplementaire",
         "Structure Crédit Supplémentaire",
-        None,
+        "",
         0, False, True,
     ),
 ]
@@ -99,7 +98,9 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
 
-        for slug, name, deliverable_type, credits_per_month, is_subscription, is_extra_credit in _OFFERS:
+        for (
+            slug, name, deliverable_type, credits_per_month, is_subscription, is_extra_credit
+        ) in _OFFERS:
             offer, created = Offer.objects.update_or_create(
                 slug=slug,
                 defaults={
@@ -120,6 +121,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"\n{created_count} créées, {updated_count} mises à jour. Total : {len(_OFFERS)} offres."
+                f"\n{created_count} créées, {updated_count} mises à jour. "
+                f"Total : {len(_OFFERS)} offres."
             )
         )

@@ -5,7 +5,6 @@ Tally personnalises, et garantit l'idempotence par mois.
 """
 from __future__ import annotations
 
-from datetime import datetime
 from html import escape
 
 from django.conf import settings

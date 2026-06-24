@@ -19,8 +19,14 @@ class DeliveryMode(models.TextChoices):
 class Offer(UUIDModel):
     name = models.CharField(max_length=140)
     slug = models.SlugField(unique=True)
-    # Null pour les offres B2B (abonnements, crédits suppl.) dont le type est choisi via Tally.
-    deliverable_type = models.CharField(max_length=32, choices=DeliverableType.choices, null=True, blank=True)
+    # Vide pour les offres B2B (abonnements, crédits suppl.) dont le type
+    # de livrable est choisi via Tally (cf. DELIVERABLE_TYPE hidden field).
+    deliverable_type = models.CharField(
+        max_length=32,
+        choices=DeliverableType.choices,
+        blank=True,
+        default="",
+    )
     credits_per_month = models.PositiveSmallIntegerField(default=0)
     is_subscription = models.BooleanField(default=False)
     is_extra_credit = models.BooleanField(default=False)

@@ -62,13 +62,19 @@ _LEXICAL_SUBSTITUTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bdynamique porteuse\b", re.IGNORECASE), "tendance favorable"),
     (re.compile(r"\btendance structurelle\b", re.IGNORECASE), "tendance de fond"),
     (re.compile(r"\bpolarisations?\b", re.IGNORECASE), "séparation"),
-    (re.compile(r"\bconsolidation concurrentielle\b", re.IGNORECASE), "concentration des concurrents"),
+    (
+        re.compile(r"\bconsolidation concurrentielle\b", re.IGNORECASE),
+        "concentration des concurrents",
+    ),
     (re.compile(r"\bconsolidation du marché\b", re.IGNORECASE), "concentration du marché"),
     (re.compile(r"\bnon[- ]discrétionnaires?\b", re.IGNORECASE), "obligatoire"),
     (re.compile(r"\bnon[- ]discretionnaires?\b", re.IGNORECASE), "obligatoire"),
     (re.compile(r"\bancrage éditorial\b", re.IGNORECASE), "appui éditorial"),
     (re.compile(r"\bancrage editorial\b", re.IGNORECASE), "appui éditorial"),
-    (re.compile(r"\bincarner le positionnement\b", re.IGNORECASE), "rendre le positionnement concret"),
+    (
+        re.compile(r"\bincarner le positionnement\b", re.IGNORECASE),
+        "rendre le positionnement concret",
+    ),
     (re.compile(r"\bactionnables?\b", re.IGNORECASE), "applicable"),
     (re.compile(r"\bvitesse de captation\b", re.IGNORECASE), "vitesse de conquête"),
     # Tournures evitees (debut de phrase)

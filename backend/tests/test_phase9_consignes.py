@@ -37,7 +37,6 @@ from generation.services import bootstrap_generation_job
 from intake.models import IntakeStatus, IntakeSubmission
 from orders.models import Order
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

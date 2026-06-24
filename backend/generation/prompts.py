@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from catalog.models import DeliverableType
-
 from intake.models import IntakeSubmission
 
 from .context import build_context

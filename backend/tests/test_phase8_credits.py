@@ -33,7 +33,6 @@ from monitoring.models import OperationalIncident
 from orders.models import Order, OrderStatus
 from orders.services import sync_order_from_systeme_payload
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -44,7 +43,7 @@ def solo_offer() -> Offer:
     return Offer.objects.create(
         name="Abonnement Solo",
         slug="abonnement-solo",
-        deliverable_type=None,
+        deliverable_type="",
         credits_per_month=2,
         is_subscription=True,
     )
@@ -55,7 +54,7 @@ def extra_credit_offer() -> Offer:
     return Offer.objects.create(
         name="Solo Credit Supplementaire",
         slug="solo-credit-supplementaire",
-        deliverable_type=None,
+        deliverable_type="",
         credits_per_month=0,
         is_extra_credit=True,
     )
@@ -155,7 +154,9 @@ def test_issue_and_email_credits_opens_incident_if_no_tally_url(
     )
     incidents = OperationalIncident.objects.filter(order=parent)
     assert incidents.count() == 1
-    assert "Tally" in incidents.first().title
+    incident = incidents.first()
+    assert incident is not None
+    assert "Tally" in incident.title
 
 
 @pytest.mark.django_db

@@ -10,7 +10,10 @@ from .models import CoherenceFact, FactKind, GenerationJob
 # differente -> CoherenceConflictError -> incident.
 _TCAC_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"TCAC\s*(?:de\s+|d['e]?\s+|:\s*)?(\d+(?:[.,]\d+)?)\s*%", re.IGNORECASE),
-    re.compile(r"taux de croissance annuel moyen\s*(?:de\s+|:\s*)?(\d+(?:[.,]\d+)?)\s*%", re.IGNORECASE),
+    re.compile(
+        r"taux de croissance annuel moyen\s*(?:de\s+|:\s*)?(\d+(?:[.,]\d+)?)\s*%",
+        re.IGNORECASE,
+    ),
 )
 _MARKET_SIZE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(

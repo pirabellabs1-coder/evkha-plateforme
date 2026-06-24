@@ -26,9 +26,11 @@ def bootstrap_generation_job(submission: IntakeSubmission) -> GenerationJob:
         msg = "Generation requires a normalized intake submission."
         raise GenerationBootstrapError(msg)
 
-    # Offres B2B génériques (abonnements, crédits suppl.) : deliverable_type est dans le payload Tally.
-    deliverable_type = submission.order.offer.deliverable_type or submission.normalized_variables.get(
-        "DELIVERABLE_TYPE"
+    # Offres B2B génériques (abonnements, crédits suppl.) :
+    # deliverable_type est dans le payload Tally.
+    deliverable_type = (
+        submission.order.offer.deliverable_type
+        or submission.normalized_variables.get("DELIVERABLE_TYPE")
     )
     if deliverable_type not in _SUPPORTED_DELIVERABLES:
         msg = f"Unsupported deliverable type for generation: {deliverable_type}"
