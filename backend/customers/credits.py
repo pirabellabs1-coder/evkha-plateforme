@@ -76,7 +76,9 @@ def _build_tally_url(deliverable_type: str, order_id: str, base_url: str) -> str
     if not template:
         return ""
     sep = "&" if "?" in template else "?"
-    return f"{template}{sep}order_id={order_id}"
+    # On passe deliverable_type dans l'URL pour que Tally remplisse automatiquement
+    # le champ cache de ce nom (aucune valeur par defaut a configurer cote Tally).
+    return f"{template}{sep}order_id={order_id}&deliverable_type={deliverable_type}"
 
 
 @transaction.atomic

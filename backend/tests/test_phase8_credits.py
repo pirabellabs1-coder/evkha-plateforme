@@ -201,6 +201,7 @@ def test_tally_links_for_subscription_lists_4_types_per_ticket(
     # 2 tickets x 4 types = 8 liens (le client choisit le type via le formulaire)
     assert len(links) == 8
     assert all("order_id=" in url for _label, url in links)
+    assert all("deliverable_type=" in url for _label, url in links)
 
 
 @pytest.mark.django_db
