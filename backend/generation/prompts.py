@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from catalog.models import DeliverableType
 
+from intake.models import IntakeSubmission
+
 from .context import build_context
+from .geography import geographic_consigne_for
 from .models import ChapterGeneration
 from .prompt_library import prompt_instruction
 
@@ -88,9 +91,20 @@ _ROLES: dict[str, str] = {
 }
 
 
-def build_system_prompt(deliverable_type: str) -> str:
+def build_system_prompt(deliverable_type: str, country: str = "") -> str:
     role = _ROLES.get(deliverable_type, _EM_ROLE)
-    return f"{role}\n\n{_CHARTER}"
+    geo = geographic_consigne_for(country) if country else ""
+    parts = [role, _CHARTER]
+    if geo:
+        parts.append(geo)
+    return "\n\n".join(parts)
+
+
+def _country_for(chapter: ChapterGeneration) -> str:
+    submission = IntakeSubmission.objects.filter(order=chapter.job.order).first()
+    if submission is None:
+        return ""
+    return str(submission.normalized_variables.get("PAYS", "")).strip()
 
 
 def build_chapter_prompt(chapter: ChapterGeneration) -> str:

@@ -12,6 +12,10 @@ REQUIRED_VARIABLES: tuple[str, ...] = ("SECTEUR", "PAYS", "PROJET", "ZONE")
 OPTIONAL_VARIABLES: tuple[str, ...] = (
     # Type de livrable — champ caché Tally, essentiel pour les offres B2B génériques.
     "DELIVERABLE_TYPE",
+    # Fiche projet EVKHA (exemple SPEDIM mai 2026) — alimentent le chapitre 0
+    "POSITIONNEMENT",
+    "CLIENTELE_CIBLE",
+    "MODELE_ECONOMIQUE",
     # Transverses
     "ELEMENTS_A_RETENIR",
     "DEMANDES_SPECIFIQUES",
@@ -29,6 +33,10 @@ OPTIONAL_VARIABLES: tuple[str, ...] = (
     "COULEUR_PRINCIPALE",
     "COULEUR_SECONDAIRE",
     "NOM_ENTREPRISE",
+    # Photos client Business Plan (§14 cadrage : 2-3 photos local/produit/équipe)
+    "PHOTO_1",
+    "PHOTO_2",
+    "PHOTO_3",
 )
 
 # Alias label/cle -> variable canonique. Les libelles reels du formulaire Tally
@@ -38,6 +46,23 @@ _ALIASES: dict[str, str] = {
     "deliverable_type": "DELIVERABLE_TYPE",
     "type_livrable": "DELIVERABLE_TYPE",
     "livrable": "DELIVERABLE_TYPE",
+    # Fiche projet (alias des libelles humains Tally)
+    "positionnement":      "POSITIONNEMENT",
+    "positionnement marketing": "POSITIONNEMENT",
+    "clientele cible":     "CLIENTELE_CIBLE",
+    "cible":               "CLIENTELE_CIBLE",
+    "clients cibles":      "CLIENTELE_CIBLE",
+    "modele economique":   "MODELE_ECONOMIQUE",
+    "modele d'affaires":   "MODELE_ECONOMIQUE",
+    "modele":              "MODELE_ECONOMIQUE",
+    # Photos BP
+    "photo 1":             "PHOTO_1",
+    "photo principale":    "PHOTO_1",
+    "photo du local":      "PHOTO_1",
+    "photo 2":             "PHOTO_2",
+    "photo produit":       "PHOTO_2",
+    "photo 3":             "PHOTO_3",
+    "photo equipe":        "PHOTO_3",
     "secteur": "SECTEUR",
     "sector": "SECTEUR",
     "pays": "PAYS",

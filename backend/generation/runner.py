@@ -9,7 +9,11 @@ from integrations.claude import ClaudeClient, get_claude_client
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .blueprints import get_blueprint
-from .coherence import seed_locked_facts_from_variables
+from .coherence import (
+    CoherenceConflictError,
+    extract_and_lock_chiffres_cles,
+    seed_locked_facts_from_variables,
+)
 from .cost import CostBudgetExceededError, record_chapter_cost
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
@@ -62,8 +66,10 @@ def run_generation_job(
     job.error_message = ""
     job.save(update_fields=["status", "started_at", "error_message", "updated_at"])
 
-    seed_locked_facts_from_variables(job, _variables_for(job))
-    system_prompt = build_system_prompt(job.deliverable_type)
+    variables = _variables_for(job)
+    seed_locked_facts_from_variables(job, variables)
+    country = str(variables.get("PAYS", "")).strip()
+    system_prompt = build_system_prompt(job.deliverable_type, country=country)
 
     chapters = job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")
     for chapter in chapters:
@@ -146,6 +152,13 @@ def _generate_chapter(
     chapter.operational_summary = _operational_summary(content)
     chapter.status = ChapterStatus.DONE
     chapter.save(update_fields=["content", "operational_summary", "status", "updated_at"])
+
+    # §5 cadrage : verrouille TCAC + taille de marche au passage. Conflit -> exception
+    # remontee au runner -> incident HIGH (meme chemin que les autres echecs).
+    try:
+        extract_and_lock_chiffres_cles(job, chapter.chapter_number, content)
+    except CoherenceConflictError:
+        raise
 
     record_chapter_cost(
         chapter=chapter,

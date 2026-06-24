@@ -1,8 +1,25 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .models import CoherenceFact, FactKind, GenerationJob
+
+# Detection des chiffres cles dans le contenu genere (§5 cadrage : aucun chiffre
+# contradictoire entre chapitres). Premiere mention -> verrou ; mention ulterieure
+# differente -> CoherenceConflictError -> incident.
+_TCAC_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"TCAC\s*(?:de\s+|d['e]?\s+|:\s*)?(\d+(?:[.,]\d+)?)\s*%", re.IGNORECASE),
+    re.compile(r"taux de croissance annuel moyen\s*(?:de\s+|:\s*)?(\d+(?:[.,]\d+)?)\s*%", re.IGNORECASE),
+)
+_MARKET_SIZE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"march[ée]\s+(?:mondial|global|national|local|regional|europe|europ[ée]en|africain)?\s*"
+        r"(?:de\s+|estim[ée]\s+a\s+|atteint\s+|p[èe]se\s+|repr[ée]sente\s+)"
+        r"(\d+(?:[.,]\d+)?)\s*(milliards?|mds?|millions?|m€|md€|mds?€|mfcfa)",
+        re.IGNORECASE,
+    ),
+)
 
 # Devise officielle par pays (cle de coherence transverse a tous les chapitres).
 # Table volontairement minimale et extensible ; defaut prudent sinon.
@@ -101,3 +118,45 @@ def locked_facts_as_context(job: GenerationJob) -> str:
     if not facts:
         return "Aucun fait verrouille pour le moment."
     return "\n".join(f"- {fact.kind}:{fact.key} = {fact.value}" for fact in facts)
+
+
+def extract_and_lock_chiffres_cles(job: GenerationJob, chapter_number: int, content: str) -> None:
+    """Detecte TCAC et taille de marche dans le contenu d'un chapitre et les verrouille.
+
+    Si une valeur differente est detectee plus tard, upsert_locked_fact leve
+    CoherenceConflictError -> le runner ouvre un incident. Premiere mention
+    suffit a fixer la valeur de reference pour le reste du livrable.
+    """
+    text = content or ""
+    for pattern in _TCAC_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            value = match.group(1).replace(",", ".") + "%"
+            try:
+                upsert_locked_fact(
+                    job=job,
+                    kind=FactKind.GROWTH_RATE,
+                    key="tcac",
+                    value=value,
+                    source_chapter_number=chapter_number,
+                )
+            except CoherenceConflictError:
+                # Le runner attrape cette exception et ouvre un incident HIGH.
+                raise
+            break
+
+    for pattern in _MARKET_SIZE_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            value = f"{match.group(1)} {match.group(2)}".strip()
+            try:
+                upsert_locked_fact(
+                    job=job,
+                    kind=FactKind.MARKET_SIZE,
+                    key="taille_marche",
+                    value=value,
+                    source_chapter_number=chapter_number,
+                )
+            except CoherenceConflictError:
+                raise
+            break

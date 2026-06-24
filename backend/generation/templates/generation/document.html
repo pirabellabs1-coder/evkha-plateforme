@@ -4,160 +4,273 @@
   <meta charset="UTF-8">
   <title>{{ title }}</title>
   <style>
-    /* ── Variables de branding client ──────────────────────── */
+    /* ─────────────────────────────────────────────────────────────
+       CHARTE GRAPHIQUE EVKHA — Bloc 6 Consignes (mai 2026)
+       Couleurs OFFICIELLES, ne pas modifier sans accord ecrit
+       ───────────────────────────────────────────────────────────── */
     :root {
-      --primary:   {{ branding.color_primary }};
-      --secondary: {{ branding.color_secondary }};
+      --primary:       {{ branding.color_primary }};   /* defaut #1A1A1A */
+      --secondary:     {{ branding.color_secondary }}; /* defaut #C9A227 (or) */
+      --secondary-alt: {{ evkha_secondary_alt }};      /* #E4C65B or clair */
+      --gray:          {{ evkha_gray }};               /* #5A5A5A legendes */
+      --cream:         {{ evkha_cream }};              /* #FBF8EF fonds */
+      --cream-dark:    {{ evkha_cream_dark }};         /* #EFEAD8 lignes alt */
     }
 
-    /* ── Mise en page A4 ────────────────────────────────────── */
+    /* ── Mise en page A4 ──────────────────────────────────────── */
     @page {
       size: A4;
-      margin: 22mm 20mm 20mm 25mm;
-      @bottom-right {
-        content: counter(page) " / " counter(pages);
-        font-size: 8pt;
-        color: #aaa;
-        font-family: Helvetica, Arial, sans-serif;
+      margin: 28mm 22mm 22mm 22mm;
+      @top-right {
+        content: "EVKHA · {{ title }}{% if branding.company_name %} — {{ branding.company_name }}{% endif %}";
+        font-family: Calibri, 'Trebuchet MS', Helvetica, Arial, sans-serif;
+        font-size: 8.5pt;
+        color: var(--gray);
+        border-bottom: 0.5pt solid var(--cream-dark);
+        padding-bottom: 2mm;
       }
       @bottom-center {
-        content: "Document confidentiel — EVKHA";
-        font-size: 7pt;
-        color: #ccc;
-        font-family: Helvetica, Arial, sans-serif;
+        content: "Document stratégique confidentiel — " counter(page);
+        font-family: Calibri, 'Trebuchet MS', Helvetica, Arial, sans-serif;
+        font-size: 8pt;
+        color: var(--gray);
+        border-top: 0.5pt solid var(--cream-dark);
+        padding-top: 2mm;
       }
     }
-    /* La page de garde n'a pas de pied de page ni de marges standard. */
+    /* Page de garde : ni header, ni footer (Bloc 1 Consignes) */
     @page cover {
       margin: 0;
-      @bottom-right  { content: ""; }
-      @bottom-center { content: ""; }
+      @top-right     { content: ""; border: none; }
+      @bottom-center { content: ""; border: none; }
+    }
+    @page closing {
+      margin: 28mm 22mm 22mm 22mm;
+      @top-right     { content: ""; border: none; }
+      @bottom-center { content: ""; border: none; }
     }
 
-    /* ── Reset ──────────────────────────────────────────────── */
+    /* ── Reset ────────────────────────────────────────────────── */
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: Georgia, 'Times New Roman', serif;
+      font-family: Calibri, 'Trebuchet MS', Helvetica, Arial, sans-serif;
       font-size: 10.5pt;
-      line-height: 1.75;
-      color: #1c1c2e;
+      line-height: 1.2;
+      color: var(--primary);
+      text-align: justify;
     }
 
-    /* ── Page de garde ──────────────────────────────────────── */
+    /* ── Page de garde (Bloc 1 + Bloc 6 Consignes) ────────────── */
     .cover {
       page: cover;
       page-break-after: always;
-      background: var(--primary);
-      color: #ffffff;
+      background: #ffffff;
+      color: var(--primary);
       min-height: 297mm;
-      padding: 32mm 28mm 28mm 28mm;
+      padding: 60mm 28mm 28mm 28mm;
+      text-align: center;
     }
-
     .cover__logo {
       display: block;
-      max-width: 200px;
+      max-width: 180px;
       max-height: 90px;
       object-fit: contain;
-      margin-bottom: 38mm;
+      margin: 0 auto 30mm;
     }
-
     .cover__type {
-      font-family: Helvetica, Arial, sans-serif;
       font-size: 9pt;
-      letter-spacing: 3px;
+      letter-spacing: 4px;
       text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.55);
-      margin-bottom: 6mm;
-    }
-
-    .cover__title {
-      font-size: 28pt;
-      font-weight: bold;
-      line-height: 1.25;
-      border-bottom: 3px solid var(--secondary);
-      padding-bottom: 6mm;
-      margin-bottom: 8mm;
-    }
-
-    .cover__company {
-      font-family: Helvetica, Arial, sans-serif;
-      font-size: 13pt;
-      color: rgba(255, 255, 255, 0.80);
-      margin-top: 4mm;
-    }
-
-    .cover__date {
-      font-family: Helvetica, Arial, sans-serif;
-      font-size: 9pt;
-      color: rgba(255, 255, 255, 0.40);
-      margin-top: 30mm;
-    }
-
-    /* ── Chapitres ──────────────────────────────────────────── */
-    .chapter {
+      color: var(--gray);
       margin-bottom: 10mm;
     }
+    .cover__title {
+      font-size: 34pt;
+      font-weight: bold;
+      line-height: 1.2;
+      color: var(--primary);
+      padding-bottom: 8mm;
+      margin-bottom: 4mm;
+    }
+    .cover__filet {
+      width: 80mm;
+      height: 2pt;
+      background: var(--secondary);
+      margin: 0 auto 8mm;
+    }
+    .cover__company {
+      font-size: 16pt;
+      color: var(--primary);
+      margin-top: 4mm;
+    }
+    .cover__country {
+      font-size: 12pt;
+      color: var(--gray);
+      margin-top: 4mm;
+    }
+    .cover__date {
+      font-size: 10pt;
+      color: var(--gray);
+      margin-top: 30mm;
+    }
+    .cover__confidential {
+      font-size: 9pt;
+      color: var(--gray);
+      font-style: italic;
+      margin-top: 50mm;
+      letter-spacing: 1px;
+    }
 
+    /* ── Chapitres ────────────────────────────────────────────── */
+    .chapter {
+      margin-bottom: 12mm;
+      page-break-inside: auto;
+    }
+    .chapter__surtitle {
+      font-size: 10pt;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 2mm;
+      page-break-after: avoid;
+    }
     .chapter__title {
-      font-family: Helvetica, Arial, sans-serif;
-      font-size: 14pt;
+      font-size: 25pt;
       font-weight: bold;
       color: var(--primary);
-      border-left: 4px solid var(--secondary);
-      padding-left: 8px;
-      margin-top: 8mm;
-      margin-bottom: 5mm;
+      margin-bottom: 2mm;
+      page-break-after: avoid;
+      line-height: 1.15;
+    }
+    /* Filet or sous chaque titre de chapitre (Bloc 6 Consignes) */
+    .chapter__filet {
+      width: 30mm;
+      height: 1.5pt;
+      background: var(--secondary);
+      margin: 0 0 6mm 0;
       page-break-after: avoid;
     }
 
-    .chapter__body p          { margin-bottom: 3.5mm; }
-    .chapter__body h2         { font-size: 12pt; font-weight: bold; color: var(--primary);
-                                 margin: 5mm 0 2mm; page-break-after: avoid; }
-    .chapter__body h3         { font-size: 10.5pt; font-weight: bold;
-                                 margin: 3.5mm 0 1.5mm; page-break-after: avoid; }
-    .chapter__body h4         { font-size: 10pt; font-weight: bold; font-style: italic;
-                                 margin: 2mm 0 1mm; }
+    .chapter__body p          { margin-bottom: 3mm; }
+    .chapter__body h2         { font-size: 22pt; font-weight: bold; color: var(--primary);
+                                 margin: 6mm 0 2mm; page-break-after: avoid; }
+    .chapter__body h3         { font-size: 14pt; font-weight: bold; color: var(--primary);
+                                 margin: 4mm 0 2mm; page-break-after: avoid; }
+    .chapter__body h4         { font-size: 11.5pt; font-weight: bold;
+                                 margin: 3mm 0 1.5mm; }
     .chapter__body ul,
-    .chapter__body ol         { padding-left: 5mm; margin-bottom: 3.5mm; }
-    .chapter__body li         { margin-bottom: 1.5mm; }
+    .chapter__body ol         { padding-left: 6mm; margin-bottom: 3mm; }
+    .chapter__body li         { margin-bottom: 1mm; }
     .chapter__body strong     { font-weight: bold; }
     .chapter__body em         { font-style: italic; }
-    .chapter__body code       { font-family: 'Courier New', monospace; font-size: 9.5pt;
-                                 background: #f4f4f4; padding: 0 3px; border-radius: 2px; }
-    .chapter__body hr         { border: none; border-top: 1px solid #e0e0e0; margin: 4mm 0; }
-    .chapter__body blockquote { border-left: 3px solid var(--secondary); padding-left: 8px;
-                                 color: #555; font-style: italic; margin: 3mm 0 3mm 2mm; }
+    .chapter__body code       { font-family: 'Consolas', monospace; font-size: 9.5pt;
+                                 background: var(--cream); padding: 0 3px; border-radius: 2px; }
+    .chapter__body hr         { border: none; border-top: 1pt solid var(--cream-dark); margin: 4mm 0; }
+    .chapter__body blockquote { border-left: 3pt solid var(--secondary); padding-left: 8px;
+                                 color: var(--gray); font-style: italic; margin: 3mm 0 3mm 2mm;
+                                 background: var(--cream); padding: 3mm 5mm; }
 
-    /* Évite les veuves et orphelines sur les paragraphes */
-    .chapter__body p {
-      orphans: 2;
-      widows: 2;
+    .chapter__body p { orphans: 2; widows: 2; }
+
+    /* ── Tableaux (lignes alternees creme — Bloc 6) ───────────── */
+    .chapter__body table {
+      border-collapse: collapse; width: 100%; margin: 4mm 0;
+      font-size: 10pt;
+    }
+    .chapter__body th, .chapter__body td {
+      border: 0.5pt solid var(--cream-dark); padding: 2mm 3mm; text-align: left;
+    }
+    .chapter__body th { background: var(--primary); color: #fff; font-weight: bold; }
+    .chapter__body tr:nth-child(even) td { background: var(--cream); }
+
+    /* ── Photos client BP (§14 cadrage) ───────────────────────── */
+    .photos {
+      page-break-before: always;
+      margin-top: 5mm;
+    }
+    .photos__title {
+      font-size: 16pt; font-weight: bold; color: var(--primary);
+      border-bottom: 1pt solid var(--secondary); padding-bottom: 2mm;
+      margin-bottom: 5mm;
+    }
+    .photos__grid img {
+      max-width: 100%; max-height: 80mm; object-fit: cover;
+      display: block; margin: 0 auto 8mm; border: 0.5pt solid var(--cream-dark);
+    }
+
+    /* ── Cloture "Fin de l'etude" (Bloc 5 Consignes) ──────────── */
+    .closing {
+      page: closing;
+      page-break-before: always;
+      text-align: center;
+      padding-top: 110mm;
+    }
+    .closing__filet {
+      width: 40mm; height: 1.5pt; background: var(--secondary);
+      margin: 0 auto 8mm;
+    }
+    .closing__text {
+      font-size: 14pt; letter-spacing: 4px; text-transform: uppercase;
+      color: var(--primary); font-weight: bold;
     }
   </style>
 </head>
 <body>
 
-  <!-- ===== PAGE DE GARDE ===== -->
+  <!-- ===== PAGE DE GARDE (Bloc 1 Consignes : sobre, premium) ===== -->
   <div class="cover">
     {% if branding.logo_url %}
     <img class="cover__logo" src="{{ branding.logo_url }}" alt="{{ branding.company_name }}">
     {% endif %}
     <p class="cover__type">Document stratégique</p>
     <h1 class="cover__title">{{ title }}</h1>
+    <div class="cover__filet"></div>
     {% if branding.company_name %}
     <p class="cover__company">{{ branding.company_name }}</p>
     {% endif %}
     <p class="cover__date">{{ generated_on }}</p>
+    <p class="cover__confidential">Document confidentiel</p>
   </div>
 
   <!-- ===== CHAPITRES ===== -->
   {% for section in sections %}
   <div class="chapter">
-    <h2 class="chapter__title">{{ section.number }}. {{ section.title }}</h2>
+    {% if section.kind == "opening" %}
+      <p class="chapter__surtitle">Fiche projet</p>
+      <h2 class="chapter__title">{{ section.title }}</h2>
+    {% elif section.kind == "annexe" %}
+      <p class="chapter__surtitle">Annexe</p>
+      <h2 class="chapter__title">{{ section.title }}</h2>
+    {% elif section.kind == "sources" %}
+      <p class="chapter__surtitle">Références</p>
+      <h2 class="chapter__title">{{ section.title }}</h2>
+    {% else %}
+      <p class="chapter__surtitle">Chapitre {{ section.number }}</p>
+      <h2 class="chapter__title">{{ section.title }}</h2>
+    {% endif %}
+    <div class="chapter__filet"></div>
     <div class="chapter__body">{{ section.body_html|safe }}</div>
   </div>
   {% endfor %}
+
+  {# Photos client (Business Plan uniquement, §14 cadrage) #}
+  {% if photos %}
+  <div class="photos">
+    <h2 class="photos__title">Illustrations du projet</h2>
+    <div class="photos__grid">
+      {% for url in photos %}
+      <img src="{{ url }}" alt="Photo {{ forloop.counter }}">
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ===== "Fin de l'étude" (cloture absolue, Bloc 5 Consignes) ===== -->
+  <div class="closing">
+    <div class="closing__filet"></div>
+    <p class="closing__text">{{ closing_mention }}</p>
+  </div>
 
 </body>
 </html>
