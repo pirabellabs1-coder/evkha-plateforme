@@ -121,6 +121,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "delivery.purge_expired_artifacts",
         "schedule": 3600.0,
     },
+    # Garde-fou : recree les tickets de credits B2B le 1er de chaque mois a 02:00 UTC.
+    # Idempotent : ne fait rien si les tickets du mois existent deja.
+    "refresh-monthly-subscription-credits": {
+        "task": "customers.refresh_monthly_credits",
+        "schedule": 3600.0,  # check horaire ; le service decide s'il y a quelque chose a faire
+    },
 }
 
 EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
@@ -129,6 +135,13 @@ EVKHA_EMAIL_PROVIDER = env("EVKHA_EMAIL_PROVIDER", default="brevo")
 # Webhook shared secrets (M1).
 SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
 TALLY_WEBHOOK_SECRET = env("TALLY_WEBHOOK_SECRET", default="")
+
+# URLs Tally par type de livrable (envoyees dans les emails de tickets de credit).
+# Configurees en prod via env. Chaque URL recoit ?order_id=<ticket_id> en query.
+EVKHA_TALLY_URL_MARKET_STUDY = env("EVKHA_TALLY_URL_MARKET_STUDY", default="")
+EVKHA_TALLY_URL_COMPETITOR_STUDY = env("EVKHA_TALLY_URL_COMPETITOR_STUDY", default="")
+EVKHA_TALLY_URL_BUSINESS_PLAN = env("EVKHA_TALLY_URL_BUSINESS_PLAN", default="")
+EVKHA_TALLY_URL_BUSINESS_STRATEGY = env("EVKHA_TALLY_URL_BUSINESS_STRATEGY", default="")
 
 # Brevo — email transactionnel de livraison (utilise quand EVKHA_USE_STUB_EMAIL=false).
 BREVO_API_KEY = env("BREVO_API_KEY", default="")

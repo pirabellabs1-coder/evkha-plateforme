@@ -23,13 +23,19 @@ def _lookup(payload: dict[str, Any], *paths: str) -> str:
 
 
 # Mapping slugs Systeme.io → SubscriptionTier.
-# Les slugs sont ceux configurés dans les produits Systeme.io d'Evangeline.
+# Couvre les variantes de slug que Systeme.io peut envoyer.
 _TIER_SLUGS: dict[str, str] = {
+    # slugs courts
     "solo": SubscriptionTier.SOLO,
     "pro": SubscriptionTier.PRO,
     "pro-plus": SubscriptionTier.PRO_PLUS,
     "pro_plus": SubscriptionTier.PRO_PLUS,
     "structure": SubscriptionTier.STRUCTURE,
+    # slugs Systeme.io complets (alignes sur catalog/management/seed_offers.py)
+    "abonnement-solo": SubscriptionTier.SOLO,
+    "abonnement-pro": SubscriptionTier.PRO,
+    "abonnement-pro-plus": SubscriptionTier.PRO_PLUS,
+    "abonnement-structure": SubscriptionTier.STRUCTURE,
 }
 
 # Événements Systeme.io qui activent un abonnement.
@@ -130,4 +136,11 @@ def sync_subscription_from_systeme_payload(payload: dict[str, Any]) -> Subscript
             "raw_payload": payload,
         },
     )
+
+    # Sur activation OU renouvellement : creer/renvoyer les tickets du mois courant.
+    # Idempotent : si les tickets du mois existent deja, no-op (pas de double email).
+    if new_status == SubscriptionStatus.ACTIVE:
+        from .credits import refresh_monthly_credits_for_subscription  # noqa: PLC0415
+        refresh_monthly_credits_for_subscription(subscription)
+
     return subscription

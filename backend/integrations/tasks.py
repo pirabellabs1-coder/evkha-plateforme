@@ -7,6 +7,7 @@ from generation.services import GenerationBootstrapError, bootstrap_generation_j
 from generation.tasks import run_generation_job_task
 from intake.models import IntakeStatus
 from intake.services import sync_intake_from_tally_payload
+from monitoring.models import IncidentSeverity, OperationalIncident
 from orders.services import sync_order_from_systeme_payload
 
 from .models import IntegrationProvider, WebhookEvent, WebhookStatus
@@ -27,8 +28,27 @@ def process_webhook_event(event_id: str) -> str:
                 try:
                     job = bootstrap_generation_job(submission)
                     run_generation_job_task.delay(str(job.id))
-                except GenerationBootstrapError:
-                    pass  # Type de livrable inconnu ou non supporté — loggé par Celery.
+                except GenerationBootstrapError as exc:
+                    # Client a paye et soumis Tally, mais le type de livrable est
+                    # invalide/manquant. Sans incident, la commande resterait orpheline.
+                    OperationalIncident.objects.create(
+                        title="Generation impossible apres soumission Tally",
+                        severity=IncidentSeverity.HIGH,
+                        order=submission.order,
+                        details={
+                            "error": str(exc),
+                            "submission_id": str(submission.id),
+                            "offer_slug": submission.order.offer.slug,
+                            "deliverable_type_from_payload": submission.normalized_variables.get(
+                                "DELIVERABLE_TYPE"
+                            ),
+                            "hint": (
+                                "Verifier que le champ cache 'deliverable_type' du "
+                                "formulaire Tally vaut bien market_study, competitor_study, "
+                                "business_plan ou business_strategy."
+                            ),
+                        },
+                    )
         else:
             msg = f"Unsupported webhook provider: {event.provider}"
             raise ValueError(msg)

@@ -28,6 +28,9 @@ class Order(UUIDModel):
         blank=True,
         related_name="credit_tickets",
     )
+    # Format "YYYY-MM" — sert d'idempotency key par mois d'abonnement.
+    # Vide pour les Orders one-shot (B2C) et les Orders parents (abonnements).
+    period_year_month = models.CharField(max_length=7, blank=True, db_index=True)
     status = models.CharField(
         max_length=32,
         choices=OrderStatus.choices,

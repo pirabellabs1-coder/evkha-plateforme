@@ -100,6 +100,37 @@ _ALIASES: dict[str, str] = {
 
 _CANONICAL = set(REQUIRED_VARIABLES) | set(OPTIONAL_VARIABLES)
 
+# Normalisation des libelles humains de "deliverable_type" envoyes par Tally
+# vers les codes attendus par DeliverableType. Insensible casse + accents.
+_DELIVERABLE_TYPE_VALUES: dict[str, str] = {
+    "market_study":              "market_study",
+    "etude de marche":           "market_study",
+    "etude_marche":              "market_study",
+    "competitor_study":          "competitor_study",
+    "etude de concurrence":      "competitor_study",
+    "etude de la concurrence":   "competitor_study",
+    "etude_concurrence":         "competitor_study",
+    "business_plan":             "business_plan",
+    "business plan":             "business_plan",
+    "bp":                        "business_plan",
+    "business_strategy":         "business_strategy",
+    "strategie business":        "business_strategy",
+    "strategie_business":        "business_strategy",
+}
+
+
+def _strip_accents(s: str) -> str:
+    import unicodedata  # noqa: PLC0415
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn"
+    )
+
+
+def _normalize_deliverable_type(raw: str) -> str:
+    """Renvoie le code DeliverableType ou la valeur brute si non reconnue."""
+    key = _strip_accents(str(raw or "").strip().lower())
+    return _DELIVERABLE_TYPE_VALUES.get(key, str(raw or ""))
+
 
 class IntakeIngestionError(ValueError):
     pass
@@ -160,6 +191,11 @@ def normalize_intake_variables(payload: dict[str, Any]) -> tuple[dict[str, Any],
         canonical = _canonical_key(raw_key)
         if canonical and value not in (None, ""):
             normalized[canonical] = value
+
+    if "DELIVERABLE_TYPE" in normalized:
+        normalized["DELIVERABLE_TYPE"] = _normalize_deliverable_type(
+            str(normalized["DELIVERABLE_TYPE"])
+        )
 
     missing = [var for var in REQUIRED_VARIABLES if not normalized.get(var)]
     return normalized, missing
