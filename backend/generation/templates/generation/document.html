@@ -44,6 +44,11 @@
       @top-right     { content: ""; border: none; }
       @bottom-center { content: ""; border: none; }
     }
+    /* Sommaire : header allege, footer present (page 2, Bloc 5 Consignes) */
+    @page toc {
+      margin: 28mm 22mm 22mm 22mm;
+      @top-right     { content: ""; border: none; }
+    }
     @page closing {
       margin: 28mm 22mm 22mm 22mm;
       @top-right     { content: ""; border: none; }
@@ -120,6 +125,34 @@
       font-style: italic;
       margin-top: 50mm;
       letter-spacing: 1px;
+    }
+
+    /* ── Sommaire pagine (Bloc 5 Consignes : "Sommaire (pagine)") ─ */
+    .toc {
+      page: toc;
+      page-break-after: always;
+      padding-top: 8mm;
+    }
+    .toc__title {
+      font-size: 22pt; font-weight: bold; color: var(--primary);
+      margin-bottom: 6mm; padding-bottom: 3mm;
+      border-bottom: 1.5pt solid var(--secondary);
+    }
+    .toc__list { list-style: none; padding: 0; margin: 0; }
+    .toc__item {
+      padding: 2mm 0;
+      border-bottom: 0.4pt dotted var(--cream-dark);
+    }
+    .toc__item--opening,
+    .toc__item--annexe,
+    .toc__item--sources { font-style: italic; color: var(--gray); }
+    .toc a {
+      display: block; text-decoration: none; color: var(--primary);
+    }
+    /* WeasyPrint : leader pointille + target-counter pour numero de page */
+    .toc a::after {
+      content: leader(".") " " target-counter(attr(href), page);
+      color: var(--gray); font-size: 9pt;
     }
 
     /* ── Chapitres ────────────────────────────────────────────── */
@@ -253,9 +286,21 @@
     <p class="cover__confidential">Document confidentiel</p>
   </div>
 
+  <!-- ===== SOMMAIRE (Bloc 5 Consignes) - chapitres principaux uniquement ===== -->
+  <nav class="toc">
+    <h2 class="toc__title">Sommaire</h2>
+    <ul class="toc__list">
+      {% for section in sections %}
+      <li class="toc__item toc__item--{{ section.kind }}">
+        <a href="#section-{{ section.number }}">{% if section.kind == "chapter" %}{{ section.number }}. {% endif %}{{ section.title }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </nav>
+
   <!-- ===== CHAPITRES ===== -->
   {% for section in sections %}
-  <div class="chapter">
+  <div class="chapter" id="section-{{ section.number }}">
     {% if section.kind == "opening" %}
       <p class="chapter__surtitle">Fiche projet</p>
       <h2 class="chapter__title">{{ section.title }}</h2>

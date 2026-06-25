@@ -11,9 +11,23 @@ from __future__ import annotations
 
 MARKET_STUDY_PROMPTS: dict[str, str] = {
     "em.00.fiche_projet": (
-        "Redige la fiche projet d'ouverture : rappel synthetique du projet, du "
-        "secteur, de la zone et du pays cibles, et de l'intention strategique. "
-        "Ton mentor, concis, professionnel."
+        "FORMAT STRICT (Bloc 5 Consignes EVKHA) : produis EXACTEMENT un tableau "
+        "Markdown a 2 colonnes (Label | Valeur), AUCUN texte autour, AUCUNE "
+        "introduction, AUCUN commentaire. Les 8 lignes obligatoires dans cet "
+        "ordre exact :\n"
+        "| Secteur | [valeur] |\n"
+        "| Pays | [valeur] |\n"
+        "| Projet | [description en 1-2 phrases] |\n"
+        "| Zone | [valeur] |\n"
+        "| Positionnement | [synthese 1 phrase] |\n"
+        "| Clientele cible | [synthese 1 phrase] |\n"
+        "| Modele economique | [synthese 1 phrase] |\n"
+        "| Elements a retenir | [3 a 5 points cles separes par ' / '] |\n"
+        "Apres le tableau, saute une ligne et ajoute UNE SEULE section "
+        "intitulee '## Questions auxquelles cette etude repond' avec une liste "
+        "a puces de 4 a 5 questions implicites du porteur (formulations "
+        "directes, type 'Quel est le potentiel reel du marche cible ?'). "
+        "Rien d'autre. Aucune phrase meta du type 'Voici la fiche projet'."
     ),
     "em.01.marche_mondial_europeen": (
         "Analyse chiffree du marche mondial et europeen : taille, croissance "
@@ -101,8 +115,15 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
         "(traite / partiellement / non traite + justification)."
     ),
     "em.22.sources": (
-        "Liste structuree des sources et de la methodologie de l'etude (nom + "
-        "URL), regroupee en fin de document."
+        "Liste les sources reellement utilisees pour cette etude, regroupees "
+        "par thematique (Marche, Demographie, Reglementation, Concurrence, "
+        "Documents client). Format simple et lisible :\n"
+        "## Marche\n- Nom de la source - URL si disponible\n"
+        "## Demographie\n- ...\n"
+        "Pas plus de 4-6 sources par thematique. Ajoute un tres court "
+        "paragraphe (3-4 lignes) en fin de chapitre intitule '## Methodologie' "
+        "expliquant la demarche (croisement de sources, periode des donnees). "
+        "Rester concis et structure."
     ),
     # --- Sections de generation par chunks (chapitres denses) ---------------
     # Chaque section est generee separement puis fusionnee en un seul chapitre.
@@ -199,8 +220,23 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
 
 COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
     "ec.00.fiche_projet": (
-        "Fiche projet d'ouverture de l'etude concurrentielle : rappel du projet, "
-        "du secteur, de la zone et du pays, et de l'objectif de benchmark."
+        "FORMAT STRICT (Bloc 5 Consignes EVKHA) : produis EXACTEMENT un tableau "
+        "Markdown a 2 colonnes (Label | Valeur), AUCUN texte autour, AUCUNE "
+        "introduction, AUCUN commentaire. Les 8 lignes obligatoires dans cet "
+        "ordre exact :\n"
+        "| Secteur | [valeur] |\n"
+        "| Pays | [valeur] |\n"
+        "| Projet | [description en 1-2 phrases] |\n"
+        "| Zone | [valeur] |\n"
+        "| Positionnement | [synthese 1 phrase] |\n"
+        "| Clientele cible | [synthese 1 phrase] |\n"
+        "| Modele economique | [synthese 1 phrase] |\n"
+        "| Elements a retenir | [3 a 5 points cles separes par ' / '] |\n"
+        "Apres le tableau, saute une ligne et ajoute UNE SEULE section "
+        "intitulee '## Questions auxquelles cette etude repond' avec une liste "
+        "a puces de 4 a 5 questions implicites du porteur orientees benchmark "
+        "concurrentiel (type 'Qui sont les concurrents directs les plus serieux ?'). "
+        "Rien d'autre."
     ),
     "ec.01.identification": (
         "Identification rigoureuse des concurrents directs (meme offre, meme "
@@ -250,6 +286,17 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
         "elle est traitee, partiellement traitee ou non traitee, avec une phrase "
         "explicative le cas echeant."
     ),
+    "ec.09.sources": (
+        "Liste les sources reellement utilisees pour cette etude concurrentielle, "
+        "regroupees par thematique (Concurrents identifies, Donnees de marche, "
+        "Avis clients, Publications sectorielles). Format simple :\n"
+        "## Concurrents identifies\n- Nom - URL si disponible\n"
+        "## Donnees de marche\n- ...\n"
+        "Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe "
+        "'## Methodologie' (3-4 lignes) expliquant la demarche de benchmark "
+        "(perimetre, critere de selection des concurrents, periode des avis). "
+        "Rester concis et structure."
+    ),
 }
 
 
@@ -262,10 +309,23 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
 
 BUSINESS_PLAN_PROMPTS: dict[str, str] = {
     "bp.00.fiche_projet": (
-        "Fiche projet d'ouverture du business plan : rappel synthetique du "
-        "projet, du porteur, du secteur, de la zone et du pays cibles, de "
-        "la forme juridique envisagee et du capital prevu. Ton concis et "
-        "professionnel."
+        "FORMAT STRICT (Bloc 5 Consignes EVKHA) : produis EXACTEMENT un tableau "
+        "Markdown a 2 colonnes (Label | Valeur), AUCUN texte autour, AUCUNE "
+        "introduction, AUCUN commentaire. Les 8 lignes obligatoires dans cet "
+        "ordre exact :\n"
+        "| Secteur | [valeur] |\n"
+        "| Pays | [valeur] |\n"
+        "| Projet | [description en 1-2 phrases] |\n"
+        "| Zone | [valeur] |\n"
+        "| Positionnement | [synthese 1 phrase] |\n"
+        "| Clientele cible | [synthese 1 phrase] |\n"
+        "| Modele economique | [synthese 1 phrase] |\n"
+        "| Elements a retenir | [3 a 5 points cles separes par ' / '] |\n"
+        "Apres le tableau, saute une ligne et ajoute UNE SEULE section "
+        "intitulee '## Questions auxquelles ce business plan repond' avec une "
+        "liste a puces de 4 a 5 questions implicites du porteur orientees "
+        "viabilite et financement (type 'Le projet est-il rentable des l'annee 1 ?'). "
+        "Rien d'autre."
     ),
     "bp.01.resume_executif": (
         "Resume executif (1 page maximum) : presentation synthetique du "
@@ -389,6 +449,17 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "(traitee / partiellement / non traitee + explication). "
         "Documents justificatifs et simulations complementaires si demandes."
     ),
+    "bp.21.sources": (
+        "Liste les sources utilisees pour construire ce business plan, "
+        "regroupees par thematique (Donnees sectorielles, Reglementation, "
+        "Financements et aides, Concurrence, Documents fournis par le porteur). "
+        "Format simple :\n"
+        "## Donnees sectorielles\n- Nom - URL si disponible\n"
+        "## Reglementation\n- ...\n"
+        "Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe "
+        "'## Methodologie' (3-4 lignes) precisant la demarche (periode des "
+        "donnees, hypotheses financieres assumees). Rester concis et structure."
+    ),
 }
 
 # --- Strategie Business (STR) --------------------------------------------
@@ -398,9 +469,23 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
 
 BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
     "str.00.fiche_projet": (
-        "Fiche projet d'ouverture : rappel du projet, du dirigeant, du "
-        "secteur, de la zone et du pays, et de l'horizon strategique vise. "
-        "Ton concis et professionnel."
+        "FORMAT STRICT (Bloc 5 Consignes EVKHA) : produis EXACTEMENT un tableau "
+        "Markdown a 2 colonnes (Label | Valeur), AUCUN texte autour, AUCUNE "
+        "introduction, AUCUN commentaire. Les 8 lignes obligatoires dans cet "
+        "ordre exact :\n"
+        "| Secteur | [valeur] |\n"
+        "| Pays | [valeur] |\n"
+        "| Projet | [description en 1-2 phrases] |\n"
+        "| Zone | [valeur] |\n"
+        "| Positionnement | [synthese 1 phrase] |\n"
+        "| Clientele cible | [synthese 1 phrase] |\n"
+        "| Modele economique | [synthese 1 phrase] |\n"
+        "| Elements a retenir | [3 a 5 points cles separes par ' / '] |\n"
+        "Apres le tableau, saute une ligne et ajoute UNE SEULE section "
+        "intitulee '## Questions auxquelles cette strategie repond' avec une "
+        "liste a puces de 4 a 5 questions implicites du dirigeant orientees "
+        "pilotage (type 'Quelles activites doivent devenir centrales et "
+        "lesquelles abandonner ?'). Rien d'autre."
     ),
     "str.01.introduction": (
         "Introduction strategique generale : pose le cadre du document, "
@@ -504,10 +589,23 @@ BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
         "cap a long terme (1-3 ans). Pour chaque action : quoi faire, "
         "pourquoi, quel indicateur prouvera le succes."
     ),
-    "str.18.sources": (
-        "Liste structuree des sources utilisees (nom + URL), regroupee en "
-        "fin de document par thematique. Uniquement les sources reellement "
-        "exploitees dans l'analyse."
+    "str.18.annexe_brief": (
+        "Annexe finale (format identique aux annexes EM) : pour chaque demande "
+        "specifique du brief client, fournis une reponse synthetique de 1-2 "
+        "paragraphes suivie d'un encadre intitule 'Strategie bonus' contenant "
+        "2-3 pistes operationnelles concretes. Numerotation A.1, A.2, A.3... "
+        "Ton plus direct que les chapitres : conversation finale avec le "
+        "dirigeant."
+    ),
+    "str.19.sources": (
+        "Liste les sources utilisees pour construire cette strategie, "
+        "regroupees par thematique (Donnees marche, Benchmarks sectoriels, "
+        "Reglementation, Documents client). Format simple :\n"
+        "## Donnees marche\n- Nom - URL si disponible\n"
+        "## Benchmarks sectoriels\n- ...\n"
+        "Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe "
+        "'## Methodologie' (3-4 lignes) precisant la demarche (croisement "
+        "diagnostic / arbitrages / feuille de route). Rester concis et structure."
     ),
 }
 

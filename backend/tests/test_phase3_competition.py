@@ -37,13 +37,13 @@ def competitor_submission() -> IntakeSubmission:
 
 
 def test_competitor_blueprint_matches_evkha_method() -> None:
-    # Fiche projet en ouverture + 8 chapitres canoniques (sommaire EC) = 9 unites.
-    assert len(COMPETITOR_STUDY_CHAPTERS) == 9
+    # Fiche projet + 8 chapitres canoniques + sources (Bloc 5 Consignes) = 10 unites.
+    assert len(COMPETITOR_STUDY_CHAPTERS) == 10
     assert COMPETITOR_STUDY_CHAPTERS[0].prompt_key == "ec.00.fiche_projet"
     assert COMPETITOR_STUDY_CHAPTERS[0].section_kind == SectionKind.OPENING
     assert COMPETITOR_STUDY_CHAPTERS[1].title == "Identification des concurrents"
-    assert COMPETITOR_STUDY_CHAPTERS[-1].prompt_key == "ec.08.annexe_brief"
-    assert COMPETITOR_STUDY_CHAPTERS[-1].section_kind == SectionKind.ANNEXE
+    assert COMPETITOR_STUDY_CHAPTERS[-1].prompt_key == "ec.09.sources"
+    assert COMPETITOR_STUDY_CHAPTERS[-1].section_kind == SectionKind.SOURCES
 
 
 @pytest.mark.django_db
@@ -53,8 +53,8 @@ def test_bootstrap_competitor_job_creates_all_sections(
     job = bootstrap_generation_job(competitor_submission)
 
     assert job.deliverable_type == DeliverableType.COMPETITOR_STUDY
-    assert job.chapters.count() == 9
-    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 9))
+    assert job.chapters.count() == 10
+    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 10))
 
 
 @pytest.mark.django_db
@@ -67,10 +67,13 @@ def test_run_competitor_job_completes_and_renders(
     job.refresh_from_db()
 
     assert job.status == JobStatus.DONE
-    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 9
+    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 10
     assert job.total_cost_eur <= job.budget_eur
 
     document = render_client_document(job)
     assert document.title == "Etude de la concurrence"
     assert document.sections[0].number == 0
-    assert document.sections[-1].number == 8  # annexe en fin
+    # Ordre final : opening -> chapters -> annexe -> sources (Bloc 5 Consignes)
+    assert document.sections[-1].number == 9
+    assert document.sections[-1].kind == "sources"
+    assert document.sections[-2].kind == "annexe"

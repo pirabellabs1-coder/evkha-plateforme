@@ -123,6 +123,7 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "ec.08.annexe_brief",
         SectionKind.ANNEXE,
     ),
+    ChapterBlueprint(9, "Sources et methodologie", "ec.09.sources", SectionKind.SOURCES),
 )
 
 
@@ -166,6 +167,7 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ),
     ChapterBlueprint(19, "Conclusion", "bp.19.conclusion"),
     ChapterBlueprint(20, "Annexes", "bp.20.annexes", SectionKind.ANNEXE),
+    ChapterBlueprint(21, "Sources et methodologie", "bp.21.sources", SectionKind.SOURCES),
 )
 
 # ---------------------------------------------------------------------------
@@ -228,7 +230,13 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
         17, "Feuille de route strategique et priorisation", "str.17.feuille_route"
     ),
-    ChapterBlueprint(18, "Sources et methodologie", "str.18.sources", SectionKind.SOURCES),
+    ChapterBlueprint(
+        18,
+        "Annexe - Reponses aux demandes specifiques du client",
+        "str.18.annexe_brief",
+        SectionKind.ANNEXE,
+    ),
+    ChapterBlueprint(19, "Sources et methodologie", "str.19.sources", SectionKind.SOURCES),
 )
 
 _BLUEPRINTS: dict[str, tuple[ChapterBlueprint, ...]] = {
