@@ -47,7 +47,14 @@ _LEXICAL_SUBSTITUTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bpain[- ]points?\b", re.IGNORECASE), "vraies difficultés"),
     (re.compile(r"\bpackager?\b", re.IGNORECASE), "préparer une offre claire"),
     (re.compile(r"\bpackagée?s?\b", re.IGNORECASE), "claire et structurée"),
-    (re.compile(r"\bpitch\b", re.IGNORECASE), "présentation"),
+    # Pitch : variantes specifiques + cas general (eviter "presentation de presentation")
+    (re.compile(r"\belevator pitch\b", re.IGNORECASE), "présentation courte"),
+    (re.compile(r"\bsales pitch\b", re.IGNORECASE), "argumentaire commercial"),
+    (re.compile(r"\bpitch deck\b", re.IGNORECASE), "support de présentation"),
+    (
+        re.compile(r"\bpitch(?!\w)(?!\s+(?:de\s+)?présentation)\b", re.IGNORECASE),
+        "présentation",
+    ),
     (re.compile(r"\bticket moyen\b", re.IGNORECASE), "prix moyen par client"),
     (re.compile(r"\bonboarding\b", re.IGNORECASE), "accueil des nouveaux"),
     (re.compile(r"\bcœur de cible\b", re.IGNORECASE), "clients prioritaires"),
@@ -380,6 +387,7 @@ def render_branded_html(job: GenerationJob, *, branding: BrandingContext | None 
         {
             "title": document.title,
             "branding": branding,
+            "country": _country_for_job(job),  # Mention pays sur page de garde (Bloc 1 Consignes)
             "sections": sections_ctx,
             "photos": photos,
             "generated_on": _fr_date(timezone.now()),

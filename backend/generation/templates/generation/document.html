@@ -135,8 +135,9 @@
       margin-bottom: 2mm;
       page-break-after: avoid;
     }
+    /* Titre de chapitre : 34pt (Bloc 6 Consignes) */
     .chapter__title {
-      font-size: 25pt;
+      font-size: 34pt;
       font-weight: bold;
       color: var(--primary);
       margin-bottom: 2mm;
@@ -152,12 +153,13 @@
       page-break-after: avoid;
     }
 
+    /* Hierarchie typographique (Bloc 6 Consignes : 34pt titre / 25pt sous-titres / 22pt sous-sous) */
     .chapter__body p          { margin-bottom: 3mm; }
-    .chapter__body h2         { font-size: 22pt; font-weight: bold; color: var(--primary);
+    .chapter__body h2         { font-size: 25pt; font-weight: bold; color: var(--primary);
                                  margin: 6mm 0 2mm; page-break-after: avoid; }
-    .chapter__body h3         { font-size: 14pt; font-weight: bold; color: var(--primary);
+    .chapter__body h3         { font-size: 22pt; font-weight: bold; color: var(--primary);
                                  margin: 4mm 0 2mm; page-break-after: avoid; }
-    .chapter__body h4         { font-size: 11.5pt; font-weight: bold;
+    .chapter__body h4         { font-size: 13pt; font-weight: bold;
                                  margin: 3mm 0 1.5mm; }
     .chapter__body ul,
     .chapter__body ol         { padding-left: 6mm; margin-bottom: 3mm; }
@@ -172,6 +174,21 @@
                                  background: var(--cream); padding: 3mm 5mm; }
 
     .chapter__body p { orphans: 2; widows: 2; }
+
+    /* ── Encadres mentor (Bloc 4 Consignes : 4 styles obligatoires) ─ */
+    /* Le Markdown genere par Claude utilise blockquote pour les encadres ;
+       le pictogramme en debut de ligne (◆ → ! ✓) determine la couleur. */
+    .chapter__body blockquote          { /* base blockquote — neutre */ }
+    .chapter__body blockquote.mentor-understand,
+    .chapter__body blockquote:has(> p:first-child:first-letter)  { /* ◆ noir */
+      border-left: 3pt solid var(--primary); background: var(--cream);
+      color: var(--primary);
+    }
+    /* Variantes par classe injectee si Markdown utilise une classe :::mentor-X ::: */
+    .mentor-warning  { border-left: 3pt solid #B73E3E !important; background: #FBEAEA !important; color: #6E1313 !important; padding: 3mm 5mm; margin: 3mm 0; }
+    .mentor-action   { border-left: 3pt solid #2E7D4F !important; background: #EAF6EE !important; color: #1B4D2F !important; padding: 3mm 5mm; margin: 3mm 0; }
+    .mentor-strategy { border-left: 3pt solid var(--secondary) !important; background: var(--cream) !important; color: var(--primary) !important; padding: 3mm 5mm; margin: 3mm 0; }
+    .mentor-understand { border-left: 3pt solid var(--primary) !important; background: var(--cream-dark) !important; color: var(--primary) !important; padding: 3mm 5mm; margin: 3mm 0; }
 
     /* ── Tableaux (lignes alternees creme — Bloc 6) ───────────── */
     .chapter__body table {
@@ -228,6 +245,9 @@
     <div class="cover__filet"></div>
     {% if branding.company_name %}
     <p class="cover__company">{{ branding.company_name }}</p>
+    {% endif %}
+    {% if country %}
+    <p class="cover__country">{{ country }}</p>
     {% endif %}
     <p class="cover__date">{{ generated_on }}</p>
     <p class="cover__confidential">Document confidentiel</p>

@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from django.db.models import Sum
 from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -114,10 +115,11 @@ def overview(request: HttpRequest) -> JsonResponse:
     jobs_running = GenerationJob.objects.filter(status=JobStatus.RUNNING).count()
     jobs_failed = GenerationJob.objects.filter(status=JobStatus.FAILED).count()
 
-    cost_30d: Decimal = sum(
-        (j.total_cost_eur for j in GenerationJob.objects.filter(created_at__gte=last_30)),
-        Decimal("0"),
+    # Aggregation SQL native — evite de tirer N rows en memoire pour faire la somme.
+    cost_agg = GenerationJob.objects.filter(created_at__gte=last_30).aggregate(
+        total=Sum("total_cost_eur")
     )
+    cost_30d: Decimal = cost_agg["total"] or Decimal("0")
 
     incidents_open = OperationalIncident.objects.filter(status=IncidentStatus.OPEN).count()
     incidents_critical = OperationalIncident.objects.filter(
@@ -235,9 +237,10 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
     job.save(update_fields=["status", "error_message", "started_at", "completed_at"])
 
     # Réinitialise les chapitres échoués
-    job.chapters.filter(status__in=["failed", "skipped"]).update(
-        status="pending", error_message=""
-    )
+    from generation.models import ChapterStatus  # noqa: PLC0415
+    job.chapters.filter(
+        status__in=[ChapterStatus.FAILED, ChapterStatus.SKIPPED]
+    ).update(status=ChapterStatus.PENDING, error_message="")
 
     run_generation_job_task.delay(str(job.id))
     return _json({"job_id": str(job.id), "status": job.status}, status=202)
