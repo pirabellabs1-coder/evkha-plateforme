@@ -13,7 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 
 from catalog.models import DeliverableType, Offer
-from customers.models import Customer, CustomerType
+from customers.models import Customer, CustomerType, Subscription, SubscriptionStatus
 from generation.models import ChapterStatus, GenerationJob, JobStatus
 from generation.services import bootstrap_generation_job
 from generation.tasks import run_generation_job_task
@@ -77,8 +77,27 @@ def _job_summary(job: GenerationJob) -> dict[str, Any]:
     }
 
 
+def _order_summary(order: Order) -> dict[str, Any]:
+    return {
+        "id": str(order.id),
+        "systeme_order_id": order.systeme_order_id,
+        "status": order.status,
+        "offer_name": order.offer.name,
+        "offer_slug": order.offer.slug,
+        "deliverable_type": order.offer.deliverable_type,
+        "is_subscription": order.offer.is_subscription,
+        "is_extra_credit": order.offer.is_extra_credit,
+        "parent_order_id": str(order.parent_order_id) if order.parent_order_id else None,
+        "period_year_month": order.period_year_month,
+        "customer_email": order.customer.email,
+        "customer_id": str(order.customer_id),
+        "purchased_at": order.purchased_at.isoformat() if order.purchased_at else None,
+        "created_at": order.created_at.isoformat(),
+    }
+
+
 # ---------------------------------------------------------------------------
-# Endpoints
+# Overview
 # ---------------------------------------------------------------------------
 
 
@@ -106,6 +125,10 @@ def overview(request: HttpRequest) -> JsonResponse:
         severity__in=[IncidentSeverity.HIGH, IncidentSeverity.CRITICAL],
     ).count()
 
+    customers_total = Customer.objects.count()
+    subscriptions_active = Subscription.objects.filter(status=SubscriptionStatus.ACTIVE).count()
+    orders_waiting = Order.objects.filter(status=OrderStatus.WAITING_INTAKE).count()
+
     return _json(
         {
             "jobs": {
@@ -116,8 +139,16 @@ def overview(request: HttpRequest) -> JsonResponse:
             },
             "cost_30d_eur": str(cost_30d),
             "incidents": {"open": incidents_open, "critical_or_high": incidents_critical},
+            "customers": {"total": customers_total},
+            "subscriptions": {"active": subscriptions_active},
+            "orders": {"waiting_intake": orders_waiting},
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Jobs
+# ---------------------------------------------------------------------------
 
 
 @require_GET
@@ -137,7 +168,7 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
 @require_GET
 @csrf_exempt
 def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
-    """Detail d'un job : infos + chapitres."""
+    """Detail d'un job : infos + chapitres + document."""
     try:
         job = GenerationJob.objects.select_related("order__offer", "order__customer").get(
             id=job_id
@@ -162,11 +193,224 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
         for c in job.chapters.order_by("chapter_number")
     ]
 
+    # Artéfacts (PDF, DOCX…)
+    artifacts = [
+        {
+            "id": str(a.id),
+            "kind": a.kind,
+            "status": a.status,
+            "download_url": a.download_url,
+        }
+        for a in job.artifacts.all()
+    ]
+
     data = _job_summary(job)
     data["chapters"] = chapters
+    data["artifacts"] = artifacts
     data["customer_email"] = job.order.customer.email
+    data["customer_id"] = str(job.order.customer_id)
     data["offer_name"] = job.order.offer.name
     return _json(data)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Relance un job échoué depuis le dashboard."""
+    try:
+        job = GenerationJob.objects.get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    if job.status not in (JobStatus.FAILED, JobStatus.CANCELLED):
+        msg = f"Seuls les jobs échoués ou annulés peuvent être relancés (statut : {job.status})."
+        return _json({"error": msg}, status=400)
+
+    job.status = JobStatus.PENDING
+    job.error_message = ""
+    job.started_at = None
+    job.completed_at = None
+    job.save(update_fields=["status", "error_message", "started_at", "completed_at"])
+
+    # Réinitialise les chapitres échoués
+    job.chapters.filter(status__in=["failed", "skipped"]).update(
+        status="pending", error_message=""
+    )
+
+    run_generation_job_task.delay(str(job.id))
+    return _json({"job_id": str(job.id), "status": job.status}, status=202)
+
+
+# ---------------------------------------------------------------------------
+# Incidents
+# ---------------------------------------------------------------------------
+
+
+@require_GET
+@csrf_exempt
+def incidents_list(request: HttpRequest) -> JsonResponse:
+    """50 incidents les plus recents."""
+    qs = OperationalIncident.objects.select_related("order", "job").order_by("-created_at")[:50]
+    items = [
+        {
+            "id": str(inc.id),
+            "title": inc.title,
+            "severity": inc.severity,
+            "status": inc.status,
+            "created_at": inc.created_at.isoformat(),
+            "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
+            "job_id": str(inc.job_id) if inc.job_id else None,
+            "order_id": str(inc.order_id) if inc.order_id else None,
+            "details": inc.details,
+        }
+        for inc in qs
+    ]
+    return _json(items)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def incident_resolve(request: HttpRequest, incident_id: str) -> JsonResponse:
+    """Marque un incident comme résolu."""
+    try:
+        incident = OperationalIncident.objects.get(id=incident_id)
+    except OperationalIncident.DoesNotExist:
+        return _json({"error": "Incident not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid incident id."}, status=400)
+
+    if incident.status == IncidentStatus.RESOLVED:
+        return _json({"error": "Incident déjà résolu."}, status=400)
+
+    incident.status = IncidentStatus.RESOLVED
+    incident.resolved_at = timezone.now()
+    incident.save(update_fields=["status", "resolved_at"])
+    return _json({"id": str(incident.id), "status": incident.status})
+
+
+# ---------------------------------------------------------------------------
+# Clients (Customers)
+# ---------------------------------------------------------------------------
+
+
+@require_GET
+@csrf_exempt
+def customers_list(request: HttpRequest) -> JsonResponse:
+    """Liste des clients (100 max), filtrable par ?type=b2c|b2b."""
+    type_filter = request.GET.get("type")
+    qs = Customer.objects.prefetch_related("subscriptions").order_by("-created_at")
+    if type_filter in ("b2c", "b2b"):
+        qs = qs.filter(customer_type=type_filter)
+
+    items = []
+    for c in qs[:100]:
+        active_sub = next(
+            (s for s in c.subscriptions.all() if s.status == SubscriptionStatus.ACTIVE),
+            None,
+        )
+        items.append({
+            "id": str(c.id),
+            "email": c.email,
+            "first_name": c.first_name,
+            "last_name": c.last_name,
+            "company_name": c.company_name,
+            "customer_type": c.customer_type,
+            "created_at": c.created_at.isoformat(),
+            "active_subscription": {
+                "tier": active_sub.tier,
+                "status": active_sub.status,
+                "systeme_subscription_id": active_sub.systeme_subscription_id,
+            } if active_sub else None,
+        })
+    return _json(items)
+
+
+@require_GET
+@csrf_exempt
+def customer_detail(request: HttpRequest, customer_id: str) -> JsonResponse:
+    """Détail d'un client : abonnements + commandes + tickets de crédit."""
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return _json({"error": "Client not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid customer id."}, status=400)
+
+    subscriptions = [
+        {
+            "id": str(s.id),
+            "tier": s.tier,
+            "status": s.status,
+            "systeme_subscription_id": s.systeme_subscription_id,
+            "starts_at": s.starts_at.isoformat() if s.starts_at else None,
+            "ends_at": s.ends_at.isoformat() if s.ends_at else None,
+            "created_at": s.created_at.isoformat(),
+        }
+        for s in customer.subscriptions.order_by("-created_at")
+    ]
+
+    orders_qs = Order.objects.filter(customer=customer).select_related(
+        "offer", "parent_order__offer"
+    ).order_by("-created_at")[:50]
+
+    orders = [_order_summary(o) for o in orders_qs]
+
+    # Crédits disponibles (tickets en attente de formulaire)
+    credits_available = Order.objects.filter(
+        customer=customer,
+        parent_order__isnull=False,
+        status=OrderStatus.WAITING_INTAKE,
+    ).count()
+
+    return _json({
+        "id": str(customer.id),
+        "email": customer.email,
+        "first_name": customer.first_name,
+        "last_name": customer.last_name,
+        "company_name": customer.company_name,
+        "customer_type": customer.customer_type,
+        "created_at": customer.created_at.isoformat(),
+        "subscriptions": subscriptions,
+        "orders": orders,
+        "credits_available": credits_available,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Commandes (Orders)
+# ---------------------------------------------------------------------------
+
+
+@require_GET
+@csrf_exempt
+def orders_list(request: HttpRequest) -> JsonResponse:
+    """Liste des commandes (100 max), filtrable par ?status= ou ?kind=parent|ticket|b2c."""
+    status_filter = request.GET.get("status")
+    kind_filter = request.GET.get("kind")  # parent | ticket | b2c
+
+    qs = Order.objects.select_related("offer", "customer", "parent_order").order_by("-created_at")
+
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    if kind_filter == "parent":
+        qs = qs.filter(offer__is_subscription=True, parent_order__isnull=True)
+    elif kind_filter == "ticket":
+        qs = qs.filter(parent_order__isnull=False)
+    elif kind_filter == "b2c":
+        qs = qs.filter(
+            offer__is_subscription=False, offer__is_extra_credit=False, parent_order__isnull=True
+        )
+
+    items = [_order_summary(o) for o in qs[:100]]
+    return _json(items)
+
+
+# ---------------------------------------------------------------------------
+# System
+# ---------------------------------------------------------------------------
 
 
 @require_GET
@@ -182,6 +426,11 @@ def system_status(request: HttpRequest) -> JsonResponse:
             "ai_stub": bool(getattr(settings, "EVKHA_USE_STUB_AI", True)),
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Génération manuelle
+# ---------------------------------------------------------------------------
 
 
 @csrf_exempt
@@ -257,25 +506,3 @@ def create_generation(request: HttpRequest) -> JsonResponse:
         return _json({"error": str(exc)}, status=500)
 
     return _json({"job_id": str(job.id), "status": job.status}, status=202)
-
-
-@require_GET
-@csrf_exempt
-def incidents_list(request: HttpRequest) -> JsonResponse:
-    """50 incidents les plus recents."""
-    qs = OperationalIncident.objects.select_related("order", "job").order_by("-created_at")[:50]
-    items = [
-        {
-            "id": str(inc.id),
-            "title": inc.title,
-            "severity": inc.severity,
-            "status": inc.status,
-            "created_at": inc.created_at.isoformat(),
-            "resolved_at": inc.resolved_at.isoformat() if inc.resolved_at else None,
-            "job_id": str(inc.job_id) if inc.job_id else None,
-            "order_id": str(inc.order_id) if inc.order_id else None,
-            "details": inc.details,
-        }
-        for inc in qs
-    ]
-    return _json(items)

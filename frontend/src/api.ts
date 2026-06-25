@@ -29,6 +29,31 @@ async function get<T>(path: string, params?: Record<string, string>): Promise<T>
   return res.json() as Promise<T>;
 }
 
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const url = new URL(`${BASE}/api/dashboard${path}`, window.location.origin);
+  const token = getToken();
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as { error?: string }).error ?? `Erreur ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 // --- Types -------------------------------------------------------------------
 
 export interface OverviewData {
@@ -43,6 +68,9 @@ export interface OverviewData {
     open: number;
     critical_or_high: number;
   };
+  customers: { total: number };
+  subscriptions: { active: number };
+  orders: { waiting_intake: number };
 }
 
 export interface JobSummary {
@@ -71,9 +99,18 @@ export interface Chapter {
   error_message: string | null;
 }
 
+export interface Artifact {
+  id: string;
+  kind: string;
+  status: string;
+  download_url: string;
+}
+
 export interface JobDetail extends JobSummary {
   chapters: Chapter[];
+  artifacts: Artifact[];
   customer_email: string;
+  customer_id: string;
   offer_name: string;
 }
 
@@ -125,38 +162,64 @@ export interface GenerateResponse {
   status: string;
 }
 
-// --- API calls ---------------------------------------------------------------
-
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const url = new URL(`${BASE}/api/dashboard${path}`, window.location.origin);
-  const token = getToken();
-  const res = await fetch(url.toString(), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
-  if (res.status === 401) {
-    clearToken();
-    window.location.href = "/login";
-    throw new Error("Unauthorized");
-  }
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error((data as { error?: string }).error ?? `Erreur ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+export interface CustomerSummary {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  company_name: string;
+  customer_type: string;
+  created_at: string;
+  active_subscription: {
+    tier: string;
+    status: string;
+    systeme_subscription_id: string;
+  } | null;
 }
 
+export interface CustomerDetail extends CustomerSummary {
+  subscriptions: {
+    id: string;
+    tier: string;
+    status: string;
+    systeme_subscription_id: string;
+    starts_at: string | null;
+    ends_at: string | null;
+    created_at: string;
+  }[];
+  orders: OrderSummary[];
+  credits_available: number;
+}
+
+export interface OrderSummary {
+  id: string;
+  systeme_order_id: string;
+  status: string;
+  offer_name: string;
+  offer_slug: string;
+  deliverable_type: string;
+  is_subscription: boolean;
+  is_extra_credit: boolean;
+  parent_order_id: string | null;
+  period_year_month: string;
+  customer_email: string;
+  customer_id: string;
+  purchased_at: string | null;
+  created_at: string;
+}
+
+// --- API calls ---------------------------------------------------------------
+
 export const api = {
-  overview: () => get<OverviewData>("/overview/"),
-  jobs: (status?: string) => get<JobSummary[]>("/jobs/", status ? { status } : undefined),
-  job: (id: string) => get<JobDetail>(`/jobs/${id}/`),
-  incidents: () => get<Incident[]>("/incidents/"),
-  system: () => get<SystemStatus>("/system/"),
-  generate: (req: GenerateRequest) => post<GenerateResponse>("/generate/", req),
+  overview:           () => get<OverviewData>("/overview/"),
+  jobs:               (status?: string) => get<JobSummary[]>("/jobs/", status ? { status } : undefined),
+  job:                (id: string) => get<JobDetail>(`/jobs/${id}/`),
+  jobRelaunch:        (id: string) => post<GenerateResponse>(`/jobs/${id}/relaunch/`, {}),
+  incidents:          () => get<Incident[]>("/incidents/"),
+  incidentResolve:    (id: string) => post<{ id: string; status: string }>(`/incidents/${id}/resolve/`, {}),
+  system:             () => get<SystemStatus>("/system/"),
+  generate:           (req: GenerateRequest) => post<GenerateResponse>("/generate/", req),
+  customers:          (type?: string) => get<CustomerSummary[]>("/customers/", type ? { type } : undefined),
+  customer:           (id: string) => get<CustomerDetail>(`/customers/${id}/`),
+  orders:             (params?: Record<string, string>) => get<OrderSummary[]>("/orders/", params),
 };

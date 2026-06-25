@@ -45,19 +45,37 @@ function relativeDate(iso: string | null): string {
 
 // ─── Stat card ───────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, description, alert }: {
-  label: string; value: string | number; description?: string; alert?: boolean;
+function StatCard({ label, value, description, alert, link }: {
+  label: string; value: string | number; description?: string; alert?: boolean; link?: string;
 }) {
-  return (
-    <Card size="2" style={alert ? { borderColor: "var(--orange-7)" } : undefined}>
-      <Text size="1" color="gray" weight="medium"
-        style={{ display: "block", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+  const card = (
+    <Card
+      size="2"
+      style={{
+        borderColor: alert ? "var(--orange-7)" : undefined,
+        cursor: link ? "pointer" : undefined,
+      }}
+    >
+      <Text
+        size="1"
+        color="gray"
+        weight="medium"
+        style={{ display: "block", textTransform: "uppercase", letterSpacing: "0.05em" }}
+      >
         {label}
       </Text>
       <Heading size="6" mt="1" color={alert ? "orange" : undefined}>{value}</Heading>
       {description && <Text size="1" color="gray" as="p" mt="1">{description}</Text>}
     </Card>
   );
+  if (link) {
+    return (
+      <Link to={link as never} style={{ textDecoration: "none", color: "inherit" }}>
+        {card}
+      </Link>
+    );
+  }
+  return card;
 }
 
 // ─── Bannière système ─────────────────────────────────────────────────────────
@@ -222,7 +240,7 @@ export function Dashboard() {
         <Box>
           <Heading size="6">Tableau de bord EVKHA</Heading>
           <Text size="2" color="gray" as="p" mt="1">
-            Suivi en temps réel des livrables générés pour tes clients
+            Pilotage complet de votre activité
           </Text>
         </Box>
         {systemQ.data && (
@@ -236,37 +254,98 @@ export function Dashboard() {
       {/* Bannière d'état global */}
       {systemQ.data && <SystemBanner system={systemQ.data} />}
 
-      {/* Chiffres clés */}
+      {/* Chiffres clés — Activité */}
       {overviewQ.isLoading && (
         <Flex align="center" gap="2" mb="5">
           <Spinner size="2" /><Text color="gray">Chargement…</Text>
         </Flex>
       )}
       {data && (
-        <Grid columns={{ initial: "2", sm: "4" }} gap="3" mb="6">
-          <StatCard
-            label="Total livrables"
-            value={data.jobs.total}
-            description="Depuis le lancement"
-          />
-          <StatCard
-            label="Aujourd'hui"
-            value={data.jobs.today}
-            description="Générés ce jour"
-          />
-          <StatCard
-            label="En cours"
-            value={data.jobs.running}
-            description={data.jobs.running > 0 ? "L'IA travaille en ce moment" : "Aucun en cours"}
-            alert={data.jobs.running > 0}
-          />
-          <StatCard
-            label="Échecs"
-            value={data.jobs.failed}
-            description={data.jobs.failed > 0 ? "Voir les détails ci-dessous" : "Aucun problème"}
-            alert={data.jobs.failed > 0}
-          />
-        </Grid>
+        <>
+          <Text size="1" color="gray" weight="medium" mb="2"
+            style={{ display: "block", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Livrables
+          </Text>
+          <Grid columns={{ initial: "2", sm: "4" }} gap="3" mb="4">
+            <StatCard
+              label="Total"
+              value={data.jobs.total}
+              description="Depuis le lancement"
+              link="/jobs"
+            />
+            <StatCard
+              label="Aujourd'hui"
+              value={data.jobs.today}
+              description="Générés ce jour"
+              link="/jobs"
+            />
+            <StatCard
+              label="En cours"
+              value={data.jobs.running}
+              description={data.jobs.running > 0 ? "L'IA travaille en ce moment" : "Aucun en cours"}
+              alert={data.jobs.running > 0}
+              link="/jobs"
+            />
+            <StatCard
+              label="Échecs"
+              value={data.jobs.failed}
+              description={data.jobs.failed > 0 ? "À relancer" : "Aucun problème"}
+              alert={data.jobs.failed > 0}
+              link="/jobs"
+            />
+          </Grid>
+
+          <Text size="1" color="gray" weight="medium" mb="2"
+            style={{ display: "block", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Clients & commandes
+          </Text>
+          <Grid columns={{ initial: "2", sm: "4" }} gap="3" mb="6">
+            <StatCard
+              label="Clients"
+              value={data.customers.total}
+              description="Inscrits au total"
+              link="/clients"
+            />
+            <StatCard
+              label="Abonnements actifs"
+              value={data.subscriptions.active}
+              description="B2B en cours"
+              link="/clients"
+            />
+            <StatCard
+              label="Crédits en attente"
+              value={data.orders.waiting_intake}
+              description="Formulaires non remplis"
+              alert={data.orders.waiting_intake > 0}
+              link="/orders"
+            />
+            <StatCard
+              label="Incidents ouverts"
+              value={data.incidents.open}
+              description={data.incidents.critical_or_high > 0 ? `${data.incidents.critical_or_high} critique(s)/haute(s)` : "Aucun critique"}
+              alert={data.incidents.critical_or_high > 0}
+              link="/incidents"
+            />
+          </Grid>
+        </>
+      )}
+
+      {/* Coûts 30 jours */}
+      {data && (
+        <Card mb="6">
+          <Flex align="center" justify="between">
+            <Box>
+              <Text size="1" color="gray" weight="medium"
+                style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Coût IA — 30 derniers jours
+              </Text>
+              <Heading size="5" mt="1">
+                {parseFloat(data.cost_30d_eur).toFixed(4)} €
+              </Heading>
+            </Box>
+            <Text size="1" color="gray">via Anthropic Claude</Text>
+          </Flex>
+        </Card>
       )}
 
       {/* Livrables récents */}
@@ -275,7 +354,7 @@ export function Dashboard() {
           <Box>
             <Heading size="4">Livrables récents</Heading>
             <Text size="1" color="gray" as="p" mt="1">
-              Les derniers documents générés pour tes clients
+              Les derniers documents générés pour vos clients
             </Text>
           </Box>
           <Link to="/jobs" style={{ color: "var(--accent-9)", fontSize: 13 }}>

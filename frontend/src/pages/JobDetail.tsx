@@ -1,9 +1,11 @@
-import { useParams } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useParams, useNavigate } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner,
+  Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner, Button,
 } from "@radix-ui/themes";
-import { api, type Chapter, type JobDetail as JobDetailType } from "../api";
+import { api, type Chapter, type JobDetail as JobDetailType, type Artifact } from "../api";
 
 const STATUS_ICON: Record<string, string> = {
   done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—",
@@ -11,6 +13,13 @@ const STATUS_ICON: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   done: "Terminé", running: "En cours", failed: "Échec", pending: "En attente", skipped: "Ignoré",
+};
+
+const DELIVERABLE_LABELS: Record<string, string> = {
+  market_study: "Étude de marché",
+  competitor_study: "Étude de concurrence",
+  business_plan: "Business Plan",
+  business_strategy: "Stratégie Business",
 };
 
 type RadixColor = "gray" | "blue" | "green" | "red";
@@ -115,6 +124,77 @@ function duration(start: string | null, end: string | null): string {
   return `${m}min ${s % 60}s`;
 }
 
+function ArtifactSection({ artifacts }: { artifacts: Artifact[] }) {
+  const ready = artifacts.filter((a) => a.status === "ready" && a.download_url);
+  if (ready.length === 0) return null;
+
+  const KIND_LABELS: Record<string, string> = {
+    pdf: "PDF",
+    docx: "Word (DOCX)",
+    gamma_pdf: "Gamma PDF",
+    gamma_pptx: "Gamma PPTX",
+    link: "Lien",
+  };
+
+  return (
+    <Card mb="4" style={{ borderColor: "var(--green-7)", background: "var(--green-1)" }}>
+      <Flex align="center" justify="between" wrap="wrap" gap="3">
+        <Text size="2" weight="medium" style={{ color: "var(--green-11)" }}>
+          Document prêt — télécharger le livrable
+        </Text>
+        <Flex gap="2" wrap="wrap">
+          {ready.map((a) => (
+            <a
+              key={a.id}
+              href={a.download_url}
+              target="_blank"
+              rel="noreferrer"
+              style={{ textDecoration: "none" }}
+            >
+              <Button size="2" variant="soft" color="green">
+                Télécharger {KIND_LABELS[a.kind] ?? a.kind}
+              </Button>
+            </a>
+          ))}
+        </Flex>
+      </Flex>
+    </Card>
+  );
+}
+
+function RelaunchButton({ jobId }: { jobId: string }) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => api.jobRelaunch(jobId),
+    onSuccess: () => {
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
+  return (
+    <Flex direction="column" align="end" gap="1">
+      <Button
+        size="2"
+        variant="soft"
+        color="orange"
+        loading={mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
+        Relancer la génération
+      </Button>
+      {error && <Text size="1" color="red">{error}</Text>}
+    </Flex>
+  );
+}
+
 export function JobDetail() {
   const { jobId } = useParams({ from: "/jobs/$jobId" });
   const { data, isLoading, error } = useQuery<JobDetailType>({
@@ -135,22 +215,53 @@ export function JobDetail() {
     (acc, c) => acc + c.input_tokens + c.output_tokens, 0,
   );
   const overBudget = parseFloat(data.total_cost_eur) > parseFloat(data.budget_eur);
+  const canRelaunch = data.status === "failed" || data.status === "cancelled";
 
   return (
     <Box>
-      <Flex align="center" gap="3" mb="5">
-        <Heading size="6">{data.offer_name}</Heading>
-        <Badge color={statusColor(data.status)} variant="soft" size="2">
-          {STATUS_ICON[data.status] ?? data.status}{" "}
-          {STATUS_LABELS[data.status] ?? data.status}
-        </Badge>
+      <Flex align="center" gap="2" mb="3">
+        <Link
+          to="/jobs"
+          style={{ color: "var(--gray-9)", textDecoration: "none", fontSize: 13 }}
+        >
+          ← Livrables
+        </Link>
+      </Flex>
+
+      <Flex align="center" justify="between" gap="3" mb="5" wrap="wrap">
+        <Flex align="center" gap="3">
+          <Heading size="6">{data.offer_name}</Heading>
+          <Badge color={statusColor(data.status)} variant="soft" size="2">
+            {STATUS_ICON[data.status] ?? data.status}{" "}
+            {STATUS_LABELS[data.status] ?? data.status}
+          </Badge>
+        </Flex>
+        {canRelaunch && <RelaunchButton jobId={jobId} />}
       </Flex>
 
       <Pipeline job={data} />
 
+      {/* Artéfacts téléchargeables */}
+      {data.artifacts && <ArtifactSection artifacts={data.artifacts} />}
+
       <Card mb="4">
         <Flex wrap="wrap" gap="4">
-          <Text size="2" color="gray">Client : <Text as="span" weight="medium" color="gray" style={{ color: "var(--gray-12)" }}>{data.customer_email}</Text></Text>
+          <Text size="2" color="gray">
+            Client :{" "}
+            <Link
+              to="/clients/$clientId"
+              params={{ clientId: data.customer_id }}
+              style={{ color: "var(--accent-9)", textDecoration: "none" }}
+            >
+              {data.customer_email}
+            </Link>
+          </Text>
+          <Text size="2" color="gray">
+            Livrable :{" "}
+            <Text as="span" style={{ color: "var(--gray-12)" }}>
+              {DELIVERABLE_LABELS[data.deliverable_type] ?? data.deliverable_type}
+            </Text>
+          </Text>
           <Text size="2" color="gray">Durée : <Text as="span" style={{ color: "var(--gray-12)" }}>{duration(data.started_at, data.completed_at)}</Text></Text>
           <Text size="2" color="gray">
             Coût : <Text as="span" style={{ color: overBudget ? "var(--red-11)" : "var(--gray-12)" }}>

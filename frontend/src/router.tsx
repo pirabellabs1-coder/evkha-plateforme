@@ -12,6 +12,9 @@ import { GenerateManual } from "./pages/GenerateManual";
 import { Jobs } from "./pages/Jobs";
 import { JobDetail } from "./pages/JobDetail";
 import { Incidents } from "./pages/Incidents";
+import { Clients } from "./pages/Clients";
+import { ClientDetail } from "./pages/ClientDetail";
+import { Orders } from "./pages/Orders";
 import { Login } from "./pages/Login";
 import { isAuthenticated } from "./auth";
 
@@ -32,6 +35,16 @@ const rootRoute = createRootRoute({
           <li>
             <Link to="/" className="sidebar-link" activeProps={{ className: "active" }} activeOptions={{ exact: true }}>
               Vue d'ensemble
+            </Link>
+          </li>
+          <li>
+            <Link to="/clients" className="sidebar-link" activeProps={{ className: "active" }}>
+              Clients
+            </Link>
+          </li>
+          <li>
+            <Link to="/orders" className="sidebar-link" activeProps={{ className: "active" }}>
+              Commandes
             </Link>
           </li>
           <li>
@@ -81,6 +94,27 @@ const indexRoute = createRoute({
   component: Dashboard,
 });
 
+const clientsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/clients",
+  beforeLoad: requireAuth,
+  component: Clients,
+});
+
+const clientDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/clients/$clientId",
+  beforeLoad: requireAuth,
+  component: ClientDetail,
+});
+
+const ordersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/orders",
+  beforeLoad: requireAuth,
+  component: Orders,
+});
+
 const jobsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/jobs",
@@ -112,6 +146,9 @@ const generateRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   indexRoute,
+  clientsRoute,
+  clientDetailRoute,
+  ordersRoute,
   jobsRoute,
   jobDetailRoute,
   incidentsRoute,
