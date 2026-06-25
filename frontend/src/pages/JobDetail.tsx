@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
@@ -164,7 +164,6 @@ function ArtifactSection({ artifacts }: { artifacts: Artifact[] }) {
 
 function RelaunchButton({ jobId }: { jobId: string }) {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({

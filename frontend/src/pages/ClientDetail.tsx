@@ -2,7 +2,7 @@ import { useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner, Separator,
+  Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner,
 } from "@radix-ui/themes";
 import { api, type CustomerDetail, type OrderSummary } from "../api";
 
