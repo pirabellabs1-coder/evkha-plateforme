@@ -144,7 +144,10 @@ function IncidentTable({ incidents, canResolve }: { incidents: Incident[]; canRe
               <Table.Cell>
                 <ResolveButton
                   incident={inc}
-                  onResolved={() => queryClient.invalidateQueries({ queryKey: ["incidents"] })}
+                  onResolved={() => {
+                    queryClient.invalidateQueries({ queryKey: ["incidents"] });
+                    queryClient.invalidateQueries({ queryKey: ["overview"] });
+                  }}
                 />
               </Table.Cell>
             )}

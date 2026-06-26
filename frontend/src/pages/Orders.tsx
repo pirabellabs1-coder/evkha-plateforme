@@ -5,15 +5,7 @@ import {
   Box, Flex, Heading, Badge, Table, Text, Select, Spinner, Callout,
 } from "@radix-ui/themes";
 import { api, type OrderSummary } from "../api";
-
-const STATUS_LABELS: Record<string, string> = {
-  received: "Reçue",
-  waiting_intake: "En attente formulaire",
-  processing: "En traitement",
-  delivered: "Livrée",
-  failed: "Échec",
-  cancelled: "Annulée",
-};
+import { ORDER_STATUS_LABELS as STATUS_LABELS, orderStatusColor as statusColor } from "../constants/orders";
 
 const KIND_LABELS: Record<string, string> = {
   all: "Toutes",
@@ -28,20 +20,6 @@ const DELIVERABLE_LABELS: Record<string, string> = {
   business_plan: "BP",
   business_strategy: "STR",
 };
-
-type RadixColor = "gray" | "blue" | "green" | "amber" | "red";
-
-function statusColor(status: string): RadixColor {
-  const map: Record<string, RadixColor> = {
-    received: "gray",
-    waiting_intake: "amber",
-    processing: "blue",
-    delivered: "green",
-    failed: "red",
-    cancelled: "gray",
-  };
-  return map[status] ?? "gray";
-}
 
 export function Orders() {
   const [statusFilter, setStatusFilter] = useState("all");

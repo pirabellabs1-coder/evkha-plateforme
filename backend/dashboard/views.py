@@ -16,7 +16,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer, CustomerType, Subscription, SubscriptionStatus
 from generation.models import ChapterStatus, GenerationJob, JobStatus
-from generation.services import bootstrap_generation_job
+from generation.services import bootstrap_generation_job, relaunch_generation_job
 from generation.tasks import run_generation_job_task
 from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
 from monitoring.models import IncidentSeverity, IncidentStatus, OperationalIncident
@@ -158,12 +158,12 @@ def overview(request: HttpRequest) -> JsonResponse:
 def jobs_list(request: HttpRequest) -> JsonResponse:
     """Liste des jobs recents (50 max), filtrable par ?status=."""
     status_filter = request.GET.get("status")
-    qs = list(
-        GenerationJob.objects.select_related("order__offer", "order__customer").order_by(
-            "-created_at"
-        )[:50]
+    qs = GenerationJob.objects.select_related("order__offer", "order__customer").order_by(
+        "-created_at"
     )
-    jobs = [_job_summary(j) for j in qs if not status_filter or j.status == status_filter]
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    jobs = [_job_summary(j) for j in qs[:50]]
     return _json(jobs)
 
 
@@ -230,18 +230,7 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
         msg = f"Seuls les jobs échoués ou annulés peuvent être relancés (statut : {job.status})."
         return _json({"error": msg}, status=400)
 
-    job.status = JobStatus.PENDING
-    job.error_message = ""
-    job.started_at = None
-    job.completed_at = None
-    job.save(update_fields=["status", "error_message", "started_at", "completed_at"])
-
-    # Réinitialise les chapitres échoués
-    from generation.models import ChapterStatus  # noqa: PLC0415
-    job.chapters.filter(
-        status__in=[ChapterStatus.FAILED, ChapterStatus.SKIPPED]
-    ).update(status=ChapterStatus.PENDING, error_message="")
-
+    relaunch_generation_job(job)
     run_generation_job_task.delay(str(job.id))
     return _json({"job_id": str(job.id), "status": job.status}, status=202)
 
@@ -307,8 +296,9 @@ def customers_list(request: HttpRequest) -> JsonResponse:
     if type_filter in ("b2c", "b2b"):
         qs = qs.filter(customer_type=type_filter)
 
+    customers = list(qs[:100])  # évaluation + prefetch subscriptions en 2 requêtes SQL
     items = []
-    for c in qs[:100]:
+    for c in customers:
         active_sub = next(
             (s for s in c.subscriptions.all() if s.status == SubscriptionStatus.ACTIVE),
             None,
@@ -355,17 +345,16 @@ def customer_detail(request: HttpRequest, customer_id: str) -> JsonResponse:
     ]
 
     orders_qs = Order.objects.filter(customer=customer).select_related(
-        "offer", "parent_order__offer"
+        "offer", "parent_order__offer", "customer"
     ).order_by("-created_at")[:50]
 
     orders = [_order_summary(o) for o in orders_qs]
 
-    # Crédits disponibles (tickets en attente de formulaire)
-    credits_available = Order.objects.filter(
-        customer=customer,
-        parent_order__isnull=False,
-        status=OrderStatus.WAITING_INTAKE,
-    ).count()
+    # Crédits disponibles calculés depuis les orders déjà chargés (cohérent avec l'affichage)
+    credits_available = sum(
+        1 for o in orders
+        if o["parent_order_id"] and o["status"] == OrderStatus.WAITING_INTAKE
+    )
 
     return _json({
         "id": str(customer.id),
@@ -505,7 +494,9 @@ def create_generation(request: HttpRequest) -> JsonResponse:
     try:
         job = bootstrap_generation_job(submission)
         run_generation_job_task.delay(str(job.id))
-    except Exception as exc:
-        return _json({"error": str(exc)}, status=500)
+    except Exception:
+        import logging  # noqa: PLC0415
+        logging.getLogger(__name__).exception("create_generation failed")
+        return _json({"error": "Erreur interne lors du bootstrap de la génération."}, status=500)
 
     return _json({"job_id": str(job.id), "status": job.status}, status=202)

@@ -44,7 +44,7 @@ class DashboardAuthMiddleware:
     @staticmethod
     def _is_authorized(request: HttpRequest) -> bool:
         # Bypass explicite pour dev/CI (jamais en production).
-        if getattr(settings, "EVKHA_DASHBOARD_AUTH_DISABLED", True):
+        if getattr(settings, "EVKHA_DASHBOARD_AUTH_DISABLED", False):
             return True
 
         token = getattr(settings, "EVKHA_DASHBOARD_TOKEN", "")

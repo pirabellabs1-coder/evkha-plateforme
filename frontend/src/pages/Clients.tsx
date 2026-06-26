@@ -5,22 +5,7 @@ import {
   Box, Flex, Heading, Badge, Table, Text, Select, Spinner, Callout,
 } from "@radix-ui/themes";
 import { api, type CustomerSummary } from "../api";
-
-const TIER_LABELS: Record<string, string> = {
-  solo: "Solo",
-  pro: "Pro",
-  pro_plus: "Pro Plus",
-  structure: "Structure",
-};
-
-type RadixColor = "gray" | "green" | "blue" | "amber";
-
-function tierColor(tier: string): RadixColor {
-  const map: Record<string, RadixColor> = {
-    solo: "gray", pro: "blue", pro_plus: "green", structure: "amber",
-  };
-  return map[tier] ?? "gray";
-}
+import { TIER_LABELS_SHORT, tierColor } from "../constants/tiers";
 
 export function Clients() {
   const [typeFilter, setTypeFilter] = useState("all");
@@ -91,7 +76,7 @@ export function Clients() {
                 <Table.Cell>
                   {c.active_subscription ? (
                     <Badge color={tierColor(c.active_subscription.tier)} variant="soft" size="1">
-                      {TIER_LABELS[c.active_subscription.tier] ?? c.active_subscription.tier} — Actif
+                      {TIER_LABELS_SHORT[c.active_subscription.tier] ?? c.active_subscription.tier} — Actif
                     </Badge>
                   ) : (
                     <Text size="1" color="gray">—</Text>

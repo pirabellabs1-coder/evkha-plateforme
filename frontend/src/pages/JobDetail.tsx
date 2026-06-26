@@ -199,7 +199,7 @@ export function JobDetail() {
   const { data, isLoading, error } = useQuery<JobDetailType>({
     queryKey: ["job", jobId],
     queryFn: () => api.job(jobId),
-    refetchInterval: (q) => q.state.data?.status === "running" ? 5_000 : false,
+    refetchInterval: (q) => (q.state.data === undefined || q.state.data.status === "running") ? 5_000 : false,
   });
 
   if (isLoading) return (

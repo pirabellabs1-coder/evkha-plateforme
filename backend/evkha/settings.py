@@ -15,7 +15,7 @@ env = environ.Env(
     EVKHA_USE_STUB_GAMMA=(bool, True),
     EVKHA_USE_STUB_EMAIL=(bool, True),
     EVKHA_USE_STUB_PDF=(bool, True),
-    EVKHA_DASHBOARD_AUTH_DISABLED=(bool, True),
+    EVKHA_DASHBOARD_AUTH_DISABLED=(bool, False),
     EVKHA_BEHIND_PROXY=(bool, False),
     CSRF_TRUSTED_ORIGINS=(list, []),
 )

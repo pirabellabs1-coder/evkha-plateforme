@@ -5,36 +5,8 @@ import {
   Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner,
 } from "@radix-ui/themes";
 import { api, type CustomerDetail, type OrderSummary } from "../api";
-
-const TIER_LABELS: Record<string, string> = {
-  solo: "Solo (2 crédits/mois)",
-  pro: "Pro (3 crédits/mois)",
-  pro_plus: "Pro Plus (5 crédits/mois)",
-  structure: "Structure (10 crédits/mois)",
-};
-
-const ORDER_STATUS_LABELS: Record<string, string> = {
-  received: "Reçue",
-  waiting_intake: "En attente formulaire",
-  processing: "En traitement",
-  delivered: "Livrée",
-  failed: "Échec",
-  cancelled: "Annulée",
-};
-
-type RadixColor = "gray" | "blue" | "green" | "amber" | "red";
-
-function orderStatusColor(status: string): RadixColor {
-  const map: Record<string, RadixColor> = {
-    received: "gray",
-    waiting_intake: "amber",
-    processing: "blue",
-    delivered: "green",
-    failed: "red",
-    cancelled: "gray",
-  };
-  return map[status] ?? "gray";
-}
+import { TIER_LABELS } from "../constants/tiers";
+import { ORDER_STATUS_LABELS, orderStatusColor } from "../constants/orders";
 
 function OrderRow({ order }: { order: OrderSummary }) {
   const label = order.parent_order_id

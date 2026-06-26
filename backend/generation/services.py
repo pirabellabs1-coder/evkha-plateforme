@@ -4,7 +4,7 @@ from catalog.models import DeliverableType
 from intake.models import IntakeStatus, IntakeSubmission
 
 from .blueprints import chapters_for_deliverable
-from .models import ChapterGeneration, GenerationJob, JobStatus
+from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 
 # Livrables couverts par le moteur de generation (phases 2-5).
 _SUPPORTED_DELIVERABLES = frozenset(
@@ -55,3 +55,20 @@ def bootstrap_generation_job(submission: IntakeSubmission) -> GenerationJob:
         )
 
     return job
+
+
+def relaunch_generation_job(job: GenerationJob) -> None:
+    """Réinitialise les statuts d'un job échoué/annulé pour permettre sa relance.
+
+    Appelé par la vue dashboard job_relaunch ; séparé pour testabilité et réutilisation
+    depuis d'autres points d'entrée (webhooks, management commands).
+    """
+    job.status = JobStatus.PENDING
+    job.error_message = ""
+    job.started_at = None
+    job.completed_at = None
+    job.save(update_fields=["status", "error_message", "started_at", "completed_at"])
+
+    job.chapters.filter(
+        status__in=[ChapterStatus.FAILED, ChapterStatus.SKIPPED]
+    ).update(status=ChapterStatus.PENDING, error_message="")
