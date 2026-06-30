@@ -6,16 +6,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # ── Dépendances système WeasyPrint (Phase 4b — D8 : PDF brandé) ──────────────
-# WeasyPrint >= 60 utilise pydyf comme backend PDF : Pango/Cairo ne sont plus
-# nécessaires. Il suffit d'avoir fontconfig + des polices système pour que
-# les textes soient rendus correctement.
-# fonts-liberation : Times, Arial, Courier (équivalents Liberations, suffisant pour le français)
+# WeasyPrint 62 utilise pydyf comme backend PDF mais conserve Pango pour le
+# rendu de texte. libglib2.0-0 fournit libgobject-2.0-0 requis par GObject
+# introspection. libpangocairo-1.0-0 est nécessaire pour les fontes FreeType.
+# fonts-liberation : Times, Arial, Courier (équivalents Linux)
 # fonts-dejavu-core : fallback Unicode compact
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         fontconfig \
         fonts-liberation \
         fonts-dejavu-core \
+        libglib2.0-0 \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libpangocairo-1.0-0 \
+        libharfbuzz0b \
+        libcairo2 \
     && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
