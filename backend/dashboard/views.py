@@ -227,10 +227,7 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
 @csrf_exempt
 @require_http_methods(["POST"])
 def job_redeliver(request: HttpRequest, job_id: str) -> JsonResponse:
-    """Relance la livraison (PDF + email) d'un job terminé depuis le dashboard.
-
-    Utile quand la livraison initiale a échoué ou n'a pas eu lieu.
-    """
+    """Relance la livraison complète (PDF + email) depuis le dashboard."""
     try:
         job = GenerationJob.objects.get(id=job_id)
     except GenerationJob.DoesNotExist:
@@ -247,6 +244,28 @@ def job_redeliver(request: HttpRequest, job_id: str) -> JsonResponse:
     from delivery.tasks import deliver_job_task  # noqa: PLC0415
     deliver_job_task.delay(str(job.id))
     return _json({"job_id": str(job.id), "status": "delivery_queued"}, status=202)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def job_send_email(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Envoie l'email de livraison avec les artefacts existants (sans regenerer le PDF)."""
+    try:
+        job = GenerationJob.objects.get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    if job.status != JobStatus.DONE:
+        return _json(
+            {"error": f"Job pas termine (statut : {job.status})."},
+            status=400,
+        )
+
+    from delivery.tasks import send_email_for_job_task  # noqa: PLC0415
+    send_email_for_job_task.delay(str(job.id))
+    return _json({"job_id": str(job.id), "status": "email_queued"}, status=202)
 
 
 @csrf_exempt

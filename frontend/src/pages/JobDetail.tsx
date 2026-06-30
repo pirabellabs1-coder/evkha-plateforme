@@ -201,13 +201,13 @@ function RelaunchButton({ jobId }: { jobId: string }) {
   );
 }
 
-function RedeliverButton({ jobId }: { jobId: string }) {
+function SendEmailButton({ jobId }: { jobId: string }) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [queued, setQueued] = useState(false);
 
   const mutation = useMutation({
-    mutationFn: () => api.jobRedeliver(jobId),
+    mutationFn: () => api.jobSendEmail(jobId),
     onSuccess: () => {
       setError(null);
       setQueued(true);
@@ -228,7 +228,7 @@ function RedeliverButton({ jobId }: { jobId: string }) {
         disabled={queued}
         onClick={() => mutation.mutate()}
       >
-        {queued ? "Livraison en cours…" : "Générer PDF et envoyer par email"}
+        {queued ? "Email en cours…" : "Envoyer par email"}
       </Button>
       {error && <Text size="1" color="red">{error}</Text>}
     </Flex>
@@ -256,7 +256,7 @@ export function JobDetail() {
   );
   const overBudget = parseFloat(data.total_cost_eur) > parseFloat(data.budget_eur);
   const canRelaunch  = data.status === "failed" || data.status === "cancelled";
-  const canRedeliver = data.status === "done" && data.delivery?.status !== "sent";
+  const canSendEmail = data.status === "done";
 
   return (
     <Box>
@@ -277,8 +277,8 @@ export function JobDetail() {
             {STATUS_LABELS[data.status] ?? data.status}
           </Badge>
         </Flex>
-        {canRelaunch  && <RelaunchButton  jobId={jobId} />}
-        {canRedeliver && <RedeliverButton jobId={jobId} />}
+        {canRelaunch  && <RelaunchButton jobId={jobId} />}
+        {canSendEmail && <SendEmailButton jobId={jobId} />}
       </Flex>
 
       <Pipeline job={data} />

@@ -347,6 +347,92 @@ def deliver_job(
         raise DeliveryError(str(exc)) from exc
 
 
+def send_email_for_job(
+    job: GenerationJob,
+    *,
+    email_client: TransactionalEmailClient | None = None,
+) -> DeliveryBatch:
+    """Envoie l'email de livraison avec les artefacts existants en base.
+
+    N'effectue aucune generation PDF. Utile pour renvoyer un email depuis le dashboard.
+    """
+    if job.status != JobStatus.DONE:
+        msg = f"Cannot send email for job in status {job.status}."
+        raise DeliveryError(msg)
+
+    email_client = email_client or get_transactional_email_client()
+
+    artifacts = tuple(
+        DocumentArtifact.objects.filter(
+            job=job,
+            status=ArtifactStatus.READY,
+        ).exclude(download_url="")
+    )
+
+    attachments = tuple(
+        EmailAttachment(
+            filename=_attachment_filename(artifact, job.order.systeme_order_id),
+            url=artifact.download_url,
+        )
+        for artifact in artifacts
+        if artifact.kind in {ArtifactKind.PDF, ArtifactKind.GAMMA_PDF, ArtifactKind.GAMMA_PPTX}
+        and artifact.download_url
+    )
+
+    try:
+        result = email_client.send_delivery_email(
+            recipient_email=job.order.customer.email,
+            subject=f"Livrables EVKHA - {job.order.systeme_order_id}",
+            html_body=_html_body(job, artifacts),
+            attachments=attachments,
+        )
+
+        link_artifact = next(
+            (a for a in artifacts if a.kind == ArtifactKind.LINK and a.download_url),
+            None,
+        )
+
+        with transaction.atomic():
+            batch, _ = DeliveryBatch.objects.update_or_create(
+                order=job.order,
+                defaults={
+                    "status": DeliveryStatus.SENT,
+                    "email_provider": "brevo",
+                    "recipient_email": job.order.customer.email,
+                    "download_url": link_artifact.download_url if link_artifact else "",
+                    "error_message": "",
+                    "sent_at": timezone.now(),
+                },
+            )
+            if artifacts:
+                batch.artifacts.set(artifacts)
+            DeliveryEvent.objects.create(
+                batch=batch,
+                status=DeliveryStatus.SENT,
+                message="Email envoye depuis le dashboard",
+                provider_message_id=result.provider_message_id,
+            )
+            job.order.status = OrderStatus.DELIVERED
+            job.order.save(update_fields=["status", "updated_at"])
+            return batch
+
+    except Exception as exc:
+        try:
+            with transaction.atomic():
+                DeliveryBatch.objects.update_or_create(
+                    order=job.order,
+                    defaults={
+                        "status": DeliveryStatus.FAILED,
+                        "email_provider": "brevo",
+                        "recipient_email": job.order.customer.email,
+                        "error_message": str(exc),
+                    },
+                )
+        except Exception:  # noqa: BLE001
+            pass
+        raise DeliveryError(str(exc)) from exc
+
+
 def purge_expired_artifacts(*, now: datetime | None = None) -> int:
     now = now or timezone.now()
     expired = DocumentArtifact.objects.filter(

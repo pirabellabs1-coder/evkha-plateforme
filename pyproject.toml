@@ -23,6 +23,8 @@ ai = [
 pdf = [
   # WeasyPrint génère les PDFs brandés (Phase 4b, D8).
   # Requiert des libs système (Pango, Cairo) — voir docs/deploy-coolify.md.
+  # pydyf 0.12.x casse l'API transform() utilisée par weasyprint 62.x.
+  "pydyf<0.12.0",
   "weasyprint>=62,<63",
 ]
 dev = [
