@@ -7,6 +7,8 @@ import {
 import { api, type OrderSummary } from "../api";
 import { ORDER_STATUS_LABELS as STATUS_LABELS, orderStatusColor as statusColor } from "../constants/orders";
 
+type RadixColor = "gray" | "blue" | "green" | "amber" | "red";
+
 const KIND_LABELS: Record<string, string> = {
   all: "Toutes",
   b2c: "B2C — achat unitaire",
