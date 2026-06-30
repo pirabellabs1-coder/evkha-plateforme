@@ -85,6 +85,8 @@ export interface JobSummary {
   completed_at: string | null;
   order_id: string;
   error_message: string | null;
+  pdf_download_url: string | null;
+  delivery_status: string | null;
 }
 
 export interface Chapter {

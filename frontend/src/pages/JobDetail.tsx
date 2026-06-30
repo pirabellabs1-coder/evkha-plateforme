@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router";
 import {
   Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner, Button,
 } from "@radix-ui/themes";
-import { api, type Chapter, type JobDetail as JobDetailType, type Artifact } from "../api";
+import { api, type Chapter, type JobDetail as JobDetailType } from "../api";
 
 const STATUS_ICON: Record<string, string> = {
   done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—",
@@ -139,41 +139,85 @@ function duration(start: string | null, end: string | null): string {
   return `${m}min ${s % 60}s`;
 }
 
-function ArtifactSection({ artifacts }: { artifacts: Artifact[] }) {
-  const ready = artifacts.filter((a) => a.status === "ready" && a.download_url);
-  if (ready.length === 0) return null;
+function JobActions({ job, jobId }: { job: JobDetailType; jobId: string }) {
+  const queryClient = useQueryClient();
+  const [emailQueued, setEmailQueued] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [redeliverQueued, setRedeliverQueued] = useState(false);
+  const [redeliverError, setRedeliverError] = useState<string | null>(null);
 
-  const KIND_LABELS: Record<string, string> = {
-    pdf: "PDF",
-    docx: "Word (DOCX)",
-    gamma_pdf: "Gamma PDF",
-    gamma_pptx: "Gamma PPTX",
-    link: "Lien",
-  };
+  const readyPdf = job.artifacts?.find(
+    (a) => (a.kind === "pdf" || a.kind === "gamma_pdf") && a.status === "ready" && a.download_url,
+  );
+  const hasPdf = !!readyPdf;
+
+  const redeliverMutation = useMutation({
+    mutationFn: () => api.jobRedeliver(jobId),
+    onSuccess: () => {
+      setRedeliverError(null);
+      setRedeliverQueued(true);
+      const timer = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      }, 5_000);
+      setTimeout(() => clearInterval(timer), 120_000);
+    },
+    onError: (err: Error) => setRedeliverError(err.message),
+  });
+
+  const emailMutation = useMutation({
+    mutationFn: () => api.jobSendEmail(jobId),
+    onSuccess: () => {
+      setEmailError(null);
+      setEmailQueued(true);
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      }, 8_000);
+    },
+    onError: (err: Error) => setEmailError(err.message),
+  });
 
   return (
-    <Card mb="4" style={{ borderColor: "var(--green-7)", background: "var(--green-1)" }}>
-      <Flex align="center" justify="between" wrap="wrap" gap="3">
-        <Text size="2" weight="medium" style={{ color: "var(--green-11)" }}>
-          Document prêt — télécharger le livrable
-        </Text>
-        <Flex gap="2" wrap="wrap">
-          {ready.map((a) => (
-            <a
-              key={a.id}
-              href={a.download_url}
-              target="_blank"
-              rel="noreferrer"
-              style={{ textDecoration: "none" }}
-            >
-              <Button size="2" variant="soft" color="green">
-                Télécharger {KIND_LABELS[a.kind] ?? a.kind}
-              </Button>
+    <Flex direction="column" align="end" gap="2">
+      <Flex gap="2" wrap="wrap" justify="end">
+        {!hasPdf && (
+          <Button
+            size="2"
+            variant="soft"
+            color="orange"
+            loading={redeliverMutation.isPending || redeliverQueued}
+            disabled={redeliverMutation.isPending || redeliverQueued}
+            onClick={() => redeliverMutation.mutate()}
+          >
+            {redeliverQueued ? "Génération en cours…" : "Générer le PDF"}
+          </Button>
+        )}
+        {hasPdf ? (
+          <Button asChild size="2" variant="soft" color="green">
+            <a href={readyPdf.download_url} target="_blank" rel="noreferrer">
+              Télécharger le PDF
             </a>
-          ))}
-        </Flex>
+          </Button>
+        ) : (
+          <Button size="2" variant="soft" color="green" disabled>
+            Télécharger le PDF
+          </Button>
+        )}
+        <Button
+          size="2"
+          variant="soft"
+          color="blue"
+          loading={emailMutation.isPending}
+          disabled={!hasPdf || emailMutation.isPending || emailQueued}
+          onClick={() => emailMutation.mutate()}
+        >
+          {emailQueued ? "Email en cours…" : "Envoyer par email"}
+        </Button>
       </Flex>
-    </Card>
+      {redeliverError && <Text size="1" color="red">{redeliverError}</Text>}
+      {emailError && <Text size="1" color="red">{emailError}</Text>}
+    </Flex>
   );
 }
 
@@ -201,39 +245,6 @@ function RelaunchButton({ jobId }: { jobId: string }) {
   );
 }
 
-function SendEmailButton({ jobId }: { jobId: string }) {
-  const queryClient = useQueryClient();
-  const [error, setError] = useState<string | null>(null);
-  const [queued, setQueued] = useState(false);
-
-  const mutation = useMutation({
-    mutationFn: () => api.jobSendEmail(jobId),
-    onSuccess: () => {
-      setError(null);
-      setQueued(true);
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["job", jobId] });
-      }, 8_000);
-    },
-    onError: (err: Error) => setError(err.message),
-  });
-
-  return (
-    <Flex direction="column" align="end" gap="1">
-      <Button
-        size="2"
-        variant="soft"
-        color="blue"
-        loading={mutation.isPending}
-        disabled={queued}
-        onClick={() => mutation.mutate()}
-      >
-        {queued ? "Email en cours…" : "Envoyer par email"}
-      </Button>
-      {error && <Text size="1" color="red">{error}</Text>}
-    </Flex>
-  );
-}
 
 export function JobDetail() {
   const { jobId } = useParams({ from: "/jobs/$jobId" });
@@ -255,8 +266,7 @@ export function JobDetail() {
     (acc, c) => acc + c.input_tokens + c.output_tokens, 0,
   );
   const overBudget = parseFloat(data.total_cost_eur) > parseFloat(data.budget_eur);
-  const canRelaunch  = data.status === "failed" || data.status === "cancelled";
-  const canSendEmail = data.status === "done";
+  const canRelaunch = data.status === "failed" || data.status === "cancelled";
 
   return (
     <Box>
@@ -277,14 +287,11 @@ export function JobDetail() {
             {STATUS_LABELS[data.status] ?? data.status}
           </Badge>
         </Flex>
-        {canRelaunch  && <RelaunchButton jobId={jobId} />}
-        {canSendEmail && <SendEmailButton jobId={jobId} />}
+        {canRelaunch && <RelaunchButton jobId={jobId} />}
+        {data.status === "done" && <JobActions job={data} jobId={jobId} />}
       </Flex>
 
       <Pipeline job={data} />
-
-      {/* Artéfacts téléchargeables */}
-      {data.artifacts && <ArtifactSection artifacts={data.artifacts} />}
 
       <Card mb="4">
         <Flex wrap="wrap" gap="4">

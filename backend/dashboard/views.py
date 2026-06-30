@@ -60,7 +60,12 @@ def _json(data: Any, status: int = 200) -> JsonResponse:
     )
 
 
-def _job_summary(job: GenerationJob) -> dict[str, Any]:
+def _job_summary(
+    job: GenerationJob,
+    *,
+    pdf_download_url: str | None = None,
+    delivery_status: str | None = None,
+) -> dict[str, Any]:
     chapters_qs = list(job.chapters.all())
     done = sum(1 for c in chapters_qs if c.status == ChapterStatus.DONE)
     return {
@@ -75,6 +80,8 @@ def _job_summary(job: GenerationJob) -> dict[str, Any]:
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
         "order_id": str(job.order_id),
         "error_message": job.error_message or None,
+        "pdf_download_url": pdf_download_url,
+        "delivery_status": delivery_status,
     }
 
 
@@ -157,14 +164,44 @@ def overview(request: HttpRequest) -> JsonResponse:
 @csrf_exempt
 def jobs_list(request: HttpRequest) -> JsonResponse:
     """Liste des jobs recents (50 max), filtrable par ?status=."""
+    from delivery.models import DeliveryBatch  # noqa: PLC0415
+    from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact  # noqa: PLC0415
+
     status_filter = request.GET.get("status")
     qs = GenerationJob.objects.select_related("order__offer", "order__customer").order_by(
         "-created_at"
     )
     if status_filter:
         qs = qs.filter(status=status_filter)
-    jobs = [_job_summary(j) for j in qs[:50]]
-    return _json(jobs)
+    jobs = list(qs[:50])
+
+    job_ids = [j.id for j in jobs]
+    order_ids = [j.order_id for j in jobs]
+
+    # Un seul SELECT pour tous les PDFs prêts (order asc → la dernière URL par job_id gagne)
+    pdf_urls: dict = {
+        a.job_id: a.download_url
+        for a in DocumentArtifact.objects.filter(
+            job_id__in=job_ids,
+            kind__in=(ArtifactKind.PDF, ArtifactKind.GAMMA_PDF),
+            status=ArtifactStatus.READY,
+        ).exclude(download_url="").order_by("created_at")
+    }
+    # Un seul SELECT pour le dernier batch de livraison par commande
+    delivery_statuses: dict = {
+        b.order_id: b.status
+        for b in DeliveryBatch.objects.filter(order_id__in=order_ids).order_by("created_at")
+    }
+
+    items = [
+        _job_summary(
+            j,
+            pdf_download_url=pdf_urls.get(j.id),
+            delivery_status=delivery_statuses.get(j.order_id),
+        )
+        for j in jobs
+    ]
+    return _json(items)
 
 
 @require_GET
@@ -214,7 +251,20 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
         "sent_at": delivery_batch.sent_at.isoformat() if delivery_batch.sent_at else None,
     } if delivery_batch else None
 
-    data = _job_summary(job)
+    pdf_artifact_url: str | None = next(
+        (
+            a["download_url"]
+            for a in artifacts
+            if a["kind"] in ("pdf", "gamma_pdf") and a["status"] == "ready" and a["download_url"]
+        ),
+        None,
+    )
+
+    data = _job_summary(
+        job,
+        pdf_download_url=pdf_artifact_url,
+        delivery_status=delivery_batch.status if delivery_batch else None,
+    )
     data["chapters"] = chapters
     data["artifacts"] = artifacts
     data["customer_email"] = job.order.customer.email
@@ -260,6 +310,19 @@ def job_send_email(request: HttpRequest, job_id: str) -> JsonResponse:
     if job.status != JobStatus.DONE:
         return _json(
             {"error": f"Job pas termine (statut : {job.status})."},
+            status=400,
+        )
+
+    from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact  # noqa: PLC0415
+
+    has_pdf = DocumentArtifact.objects.filter(
+        job=job,
+        kind__in=(ArtifactKind.PDF, ArtifactKind.GAMMA_PDF),
+        status=ArtifactStatus.READY,
+    ).exclude(download_url="").exists()
+    if not has_pdf:
+        return _json(
+            {"error": "Aucun PDF prêt. Générez d'abord le document."},
             status=400,
         )
 

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Table, Progress, Text, Select, Spinner,
+  Box, Flex, Heading, Badge, Table, Progress, Text, Select, Spinner, Button,
 } from "@radix-ui/themes";
 import { api, type JobSummary } from "../api";
 
@@ -28,6 +28,50 @@ function statusColor(status: string): RadixColor {
     pending: "gray", running: "blue", done: "green", failed: "red", cancelled: "gray",
   };
   return map[status] ?? "gray";
+}
+
+function JobRowActions({ job }: { job: JobSummary }) {
+  const queryClient = useQueryClient();
+  const [emailQueued, setEmailQueued] = useState(false);
+
+  const emailMutation = useMutation({
+    mutationFn: () => api.jobSendEmail(job.id),
+    onSuccess: () => {
+      setEmailQueued(true);
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      }, 8_000);
+    },
+  });
+
+  const hasPdf = !!job.pdf_download_url;
+
+  return (
+    <Flex gap="1" align="center">
+      {hasPdf ? (
+        <Button asChild size="1" variant="ghost" color="green">
+          <a href={job.pdf_download_url!} target="_blank" rel="noreferrer">
+            ↓ PDF
+          </a>
+        </Button>
+      ) : (
+        <Button size="1" variant="ghost" color="green" disabled>
+          ↓ PDF
+        </Button>
+      )}
+      <Button
+        size="1"
+        variant="ghost"
+        color="blue"
+        disabled={!hasPdf || emailMutation.isPending || emailQueued}
+        loading={emailMutation.isPending}
+        onClick={() => emailMutation.mutate()}
+        title="Envoyer par email"
+      >
+        {emailQueued ? "✓" : "✉"}
+      </Button>
+    </Flex>
+  );
 }
 
 export function Jobs() {
@@ -65,6 +109,7 @@ export function Jobs() {
               <Table.ColumnHeaderCell>Progression</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Coût</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Terminé le</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell />
             </Table.Row>
           </Table.Header>
@@ -107,6 +152,9 @@ export function Jobs() {
                       ? new Date(job.completed_at).toLocaleDateString("fr-FR")
                       : "—"}
                   </Text>
+                </Table.Cell>
+                <Table.Cell>
+                  {job.status === "done" && <JobRowActions job={job} />}
                 </Table.Cell>
                 <Table.Cell>
                   <Link to="/jobs/$jobId" params={{ jobId: job.id }}
