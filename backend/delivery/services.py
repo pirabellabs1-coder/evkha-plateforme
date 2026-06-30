@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from html import escape
 
@@ -21,6 +22,15 @@ from monitoring.models import IncidentSeverity, OperationalIncident
 from orders.models import OrderStatus
 
 from .models import DeliveryBatch, DeliveryEvent, DeliveryStatus
+
+_log = logging.getLogger(__name__)
+
+_DELIVERABLE_LABELS: dict[str, str] = {
+    "market_study":      "Etude de marche",
+    "competitor_study":  "Etude de la concurrence",
+    "business_plan":     "Business Plan",
+    "business_strategy": "Strategie business",
+}
 
 
 class DeliveryError(RuntimeError):
@@ -45,18 +55,119 @@ def _theme_id_for(job: GenerationJob) -> str:
 
 
 def _html_body(job: GenerationJob, artifacts: tuple[DocumentArtifact, ...]) -> str:
-    # escape() protege contre l'injection HTML depuis des valeurs externes (XSS).
     order_id_safe = escape(job.order.systeme_order_id)
-    links = [
-        f'<li><a href="{escape(artifact.download_url)}">'
-        f"{escape(artifact.kind)}</a></li>"
-        for artifact in artifacts
-        if artifact.download_url
-    ]
-    return (
-        f"<p>Bonjour,</p><p>Vos livrables EVKHA sont prets pour la commande "
-        f"<strong>{order_id_safe}</strong>.</p><ul>{''.join(links)}</ul>"
+    deliverable_label = escape(
+        _DELIVERABLE_LABELS.get(str(job.deliverable_type), str(job.deliverable_type))
     )
+    retention = _retention_days(job)
+
+    # Bouton principal : PDF (prioritaire) ou LINK si pas de PDF
+    pdf_artifact = next(
+        (a for a in artifacts if a.kind == ArtifactKind.PDF and a.download_url), None
+    )
+    link_artifact = next(
+        (a for a in artifacts if a.kind == ArtifactKind.LINK and a.download_url), None
+    )
+    primary = pdf_artifact or link_artifact
+    button_html = ""
+    if primary:
+        btn_label = (
+            "Telecharger votre document (PDF)"
+            if primary.kind == ArtifactKind.PDF
+            else "Visualiser votre document"
+        )
+        button_html = (
+            f'<p style="margin:28px 0;">'
+            f'<a href="{escape(primary.download_url)}" '
+            f'style="background:#1a1a2e;color:#ffffff;padding:13px 26px;'
+            f'text-decoration:none;border-radius:4px;font-size:14px;font-weight:600;">'
+            f'{btn_label}'
+            f'</a></p>'
+        )
+
+    # Lien HTML de visualisation en complement du PDF
+    preview_html = ""
+    if link_artifact and primary is not link_artifact:
+        preview_html = (
+            f'<p style="margin:12px 0;font-size:13px;">'
+            f'Vous pouvez egalement '
+            f'<a href="{escape(link_artifact.download_url)}" style="color:#1a1a2e;">'
+            f'visualiser votre document dans votre navigateur</a>.'
+            f'</p>'
+        )
+
+    # Pieces jointes listees si presentes
+    attached = [
+        a for a in artifacts
+        if a.kind in {ArtifactKind.PDF, ArtifactKind.GAMMA_PDF, ArtifactKind.GAMMA_PPTX}
+        and a.download_url
+    ]
+    attachment_note = (
+        "<p>Votre document est egalement disponible en piece jointe a cet e-mail.</p>"
+        if attached else ""
+    )
+
+    return (
+        "<p>Madame, Monsieur,</p>"
+        "<p>Nous avons le plaisir de vous informer que votre document est pret.</p>"
+        "<table style='border-collapse:collapse;margin:16px 0'>"
+        f"<tr><td style='padding:4px 16px 4px 0;color:#666;'>Type de document</td>"
+        f"<td style='padding:4px 0;font-weight:600;'>{deliverable_label}</td></tr>"
+        f"<tr><td style='padding:4px 16px 4px 0;color:#666;'>Reference commande</td>"
+        f"<td style='padding:4px 0;'>{order_id_safe}</td></tr>"
+        "</table>"
+        f"{button_html}"
+        f"{preview_html}"
+        f"{attachment_note}"
+        f"<p style='color:#888;font-size:12px;'>"
+        f"Ce lien de telechargement est valable {retention} jours.</p>"
+        "<p style='margin-top:32px;'>Cordialement,<br>"
+        "L'equipe EVKHA<br>"
+        "<a href='mailto:contact@evkha.fr' style='color:#1a1a2e;'>contact@evkha.fr</a></p>"
+    )
+
+
+def notify_generation_started(
+    job: GenerationJob,
+    *,
+    email_client: TransactionalEmailClient | None = None,
+) -> None:
+    """Envoie un email de confirmation au client des le lancement de la generation.
+
+    Non bloquant : l'echec est logue mais ne fait pas echouer la generation.
+    """
+    if not job.order.customer.email:
+        return
+    email_client = email_client or get_transactional_email_client()
+    deliverable_label = escape(
+        _DELIVERABLE_LABELS.get(str(job.deliverable_type), str(job.deliverable_type))
+    )
+    order_id_safe = escape(job.order.systeme_order_id)
+    html = (
+        "<p>Madame, Monsieur,</p>"
+        "<p>Nous vous confirmons la bonne reception de votre demande. "
+        "La generation de votre document est en cours.</p>"
+        "<table style='border-collapse:collapse;margin:16px 0'>"
+        f"<tr><td style='padding:4px 16px 4px 0;color:#666;'>Type de document</td>"
+        f"<td style='padding:4px 0;font-weight:600;'>{deliverable_label}</td></tr>"
+        f"<tr><td style='padding:4px 16px 4px 0;color:#666;'>Reference commande</td>"
+        f"<td style='padding:4px 0;'>{order_id_safe}</td></tr>"
+        "</table>"
+        "<p>Vous recevrez votre document par e-mail des que la generation sera terminee. "
+        "Ce processus prend generalement entre 10 et 20 minutes.</p>"
+        "<p style='margin-top:32px;'>Cordialement,<br>"
+        "L'equipe EVKHA<br>"
+        "<a href='mailto:contact@evkha.fr' style='color:#1a1a2e;'>contact@evkha.fr</a></p>"
+    )
+    try:
+        email_client.send_delivery_email(
+            recipient_email=job.order.customer.email,
+            subject="Votre livrable est en cours de generation - EVKHA",
+            html_body=html,
+            attachments=(),
+        )
+    except Exception:  # noqa: BLE001
+        _log.warning("notify_generation_started: echec envoi email pour job %s", job.id)
 
 
 def _attachment_filename(artifact: DocumentArtifact, order_id: str) -> str:

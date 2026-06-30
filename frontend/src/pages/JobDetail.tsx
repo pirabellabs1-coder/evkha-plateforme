@@ -38,6 +38,21 @@ function Pipeline({ job }: { job: JobDetailType }) {
     : job.status === "running" ? "running"
     : "pending";
 
+  const deliverySent   = job.delivery?.status === "sent";
+  const deliveryFailed = job.delivery?.status === "failed";
+  const genDone        = job.status === "done";
+
+  // Assemblage PDF : en cours si gen terminée mais livraison pas encore envoyée
+  const pdfStatus = deliverySent ? "done"
+    : deliveryFailed ? "failed"
+    : genDone ? "running"
+    : "pending";
+  const pdfIcon = deliverySent ? "✓" : deliveryFailed ? "✗" : genDone ? "⚡" : "○";
+
+  // Email envoyé : uniquement quand le batch est confirmé SENT
+  const emailStatus = deliverySent ? "done" : deliveryFailed ? "failed" : "pending";
+  const emailIcon   = deliverySent ? "✓" : deliveryFailed ? "✗" : "○";
+
   const stages = [
     {
       key: "order", label: "Commande reçue",
@@ -52,14 +67,14 @@ function Pipeline({ job }: { job: JobDetailType }) {
     },
     {
       key: "pdf", label: "Assemblage PDF", sub: null,
-      status: (job.status === "done" ? "done" : "pending") as "done" | "pending",
-      icon: job.status === "done" ? "✓" : "○",
+      status: pdfStatus as "done" | "running" | "failed" | "pending",
+      icon: pdfIcon,
     },
     {
       key: "email", label: "Email envoyé",
-      sub: job.customer_email ?? null,
-      status: (job.status === "done" ? "done" : "pending") as "done" | "pending",
-      icon: job.status === "done" ? "✓" : "○",
+      sub: deliverySent ? (job.customer_email ?? null) : null,
+      status: emailStatus as "done" | "failed" | "pending",
+      icon: emailIcon,
     },
   ];
 

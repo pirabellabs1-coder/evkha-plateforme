@@ -206,12 +206,21 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
         for a in job.artifacts.all()
     ]
 
+    # Statut de livraison (DeliveryBatch)
+    from delivery.models import DeliveryBatch  # noqa: PLC0415
+    delivery_batch = DeliveryBatch.objects.filter(order=job.order).order_by("-created_at").first()
+    delivery_data = {
+        "status": delivery_batch.status,
+        "sent_at": delivery_batch.sent_at.isoformat() if delivery_batch.sent_at else None,
+    } if delivery_batch else None
+
     data = _job_summary(job)
     data["chapters"] = chapters
     data["artifacts"] = artifacts
     data["customer_email"] = job.order.customer.email
     data["customer_id"] = str(job.order.customer_id)
     data["offer_name"] = job.order.offer.name
+    data["delivery"] = delivery_data
     return _json(data)
 
 
@@ -498,5 +507,13 @@ def create_generation(request: HttpRequest) -> JsonResponse:
         import logging  # noqa: PLC0415
         logging.getLogger(__name__).exception("create_generation failed")
         return _json({"error": "Erreur interne lors du bootstrap de la génération."}, status=500)
+
+    # Email de confirmation de lancement (non bloquant)
+    try:
+        from delivery.services import notify_generation_started  # noqa: PLC0415
+        notify_generation_started(job)
+    except Exception:  # noqa: BLE001
+        import logging  # noqa: PLC0415
+        logging.getLogger(__name__).warning("notify_generation_started failed for job %s", job.id)
 
     return _json({"job_id": str(job.id), "status": job.status}, status=202)

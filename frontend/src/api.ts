@@ -112,6 +112,10 @@ export interface JobDetail extends JobSummary {
   customer_email: string;
   customer_id: string;
   offer_name: string;
+  delivery: {
+    status: string;
+    sent_at: string | null;
+  } | null;
 }
 
 export interface Incident {
