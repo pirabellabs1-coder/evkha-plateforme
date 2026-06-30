@@ -219,6 +219,7 @@ export const api = {
   jobs:               (status?: string) => get<JobSummary[]>("/jobs/", status ? { status } : undefined),
   job:                (id: string) => get<JobDetail>(`/jobs/${id}/`),
   jobRelaunch:        (id: string) => post<GenerateResponse>(`/jobs/${id}/relaunch/`, {}),
+  jobRedeliver:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/redeliver/`, {}),
   incidents:          () => get<Incident[]>("/incidents/"),
   incidentResolve:    (id: string) => post<{ id: string; status: string }>(`/incidents/${id}/resolve/`, {}),
   system:             () => get<SystemStatus>("/system/"),

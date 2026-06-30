@@ -226,6 +226,31 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def job_redeliver(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Relance la livraison (PDF + email) d'un job terminé depuis le dashboard.
+
+    Utile quand la livraison initiale a échoué ou n'a pas eu lieu.
+    """
+    try:
+        job = GenerationJob.objects.get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    if job.status != JobStatus.DONE:
+        return _json(
+            {"error": f"Seuls les jobs terminés peuvent être relivrés (statut : {job.status})."},
+            status=400,
+        )
+
+    from delivery.tasks import deliver_job_task  # noqa: PLC0415
+    deliver_job_task.delay(str(job.id))
+    return _json({"job_id": str(job.id), "status": "delivery_queued"}, status=202)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
     """Relance un job échoué depuis le dashboard."""
     try:

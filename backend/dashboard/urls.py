@@ -12,6 +12,7 @@ urlpatterns = [
     path("jobs/", views.jobs_list, name="jobs-list"),
     path("jobs/<str:job_id>/", views.job_detail, name="job-detail"),
     path("jobs/<str:job_id>/relaunch/", views.job_relaunch, name="job-relaunch"),
+    path("jobs/<str:job_id>/redeliver/", views.job_redeliver, name="job-redeliver"),
     # Incidents
     path("incidents/", views.incidents_list, name="incidents-list"),
     path("incidents/<str:incident_id>/resolve/", views.incident_resolve, name="incident-resolve"),

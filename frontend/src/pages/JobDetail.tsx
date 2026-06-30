@@ -188,9 +188,34 @@ function RelaunchButton({ jobId }: { jobId: string }) {
       queryClient.invalidateQueries({ queryKey: ["job", jobId] });
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
     },
-    onError: (err: Error) => {
-      setError(err.message);
+    onError: (err: Error) => setError(err.message),
+  });
+
+  return (
+    <Flex direction="column" align="end" gap="1">
+      <Button size="2" variant="soft" color="orange" loading={mutation.isPending} onClick={() => mutation.mutate()}>
+        Relancer la génération
+      </Button>
+      {error && <Text size="1" color="red">{error}</Text>}
+    </Flex>
+  );
+}
+
+function RedeliverButton({ jobId }: { jobId: string }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const [queued, setQueued] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: () => api.jobRedeliver(jobId),
+    onSuccess: () => {
+      setError(null);
+      setQueued(true);
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+      }, 8_000);
     },
+    onError: (err: Error) => setError(err.message),
   });
 
   return (
@@ -198,11 +223,12 @@ function RelaunchButton({ jobId }: { jobId: string }) {
       <Button
         size="2"
         variant="soft"
-        color="orange"
+        color="blue"
         loading={mutation.isPending}
+        disabled={queued}
         onClick={() => mutation.mutate()}
       >
-        Relancer la génération
+        {queued ? "Livraison en cours…" : "Générer PDF et envoyer par email"}
       </Button>
       {error && <Text size="1" color="red">{error}</Text>}
     </Flex>
@@ -229,7 +255,8 @@ export function JobDetail() {
     (acc, c) => acc + c.input_tokens + c.output_tokens, 0,
   );
   const overBudget = parseFloat(data.total_cost_eur) > parseFloat(data.budget_eur);
-  const canRelaunch = data.status === "failed" || data.status === "cancelled";
+  const canRelaunch  = data.status === "failed" || data.status === "cancelled";
+  const canRedeliver = data.status === "done" && data.delivery?.status !== "sent";
 
   return (
     <Box>
@@ -250,7 +277,8 @@ export function JobDetail() {
             {STATUS_LABELS[data.status] ?? data.status}
           </Badge>
         </Flex>
-        {canRelaunch && <RelaunchButton jobId={jobId} />}
+        {canRelaunch  && <RelaunchButton  jobId={jobId} />}
+        {canRedeliver && <RedeliverButton jobId={jobId} />}
       </Flex>
 
       <Pipeline job={data} />
