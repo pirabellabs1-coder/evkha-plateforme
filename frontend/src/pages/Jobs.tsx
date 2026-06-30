@@ -38,13 +38,16 @@ function JobRowActions({ job }: { job: JobSummary }) {
     mutationFn: () => api.jobSendEmail(job.id),
     onSuccess: () => {
       setEmailQueued(true);
-      setTimeout(() => {
+      const timer = setInterval(() => {
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      }, 8_000);
+      }, 3_000);
+      setTimeout(() => clearInterval(timer), 60_000);
     },
   });
 
   const hasPdf = !!job.pdf_download_url;
+  const deliverySent = job.delivery_status === "sent";
+  const pendingConfirmation = emailQueued && !deliverySent;
 
   return (
     <Flex gap="1" align="center">
@@ -62,13 +65,13 @@ function JobRowActions({ job }: { job: JobSummary }) {
       <Button
         size="1"
         variant="ghost"
-        color="blue"
-        disabled={!hasPdf || emailMutation.isPending || emailQueued}
+        color={deliverySent && !pendingConfirmation ? "green" : "blue"}
+        disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
         loading={emailMutation.isPending}
         onClick={() => emailMutation.mutate()}
-        title="Envoyer par email"
+        title={deliverySent ? "Email envoyé — renvoyer ?" : "Envoyer par email"}
       >
-        {emailQueued ? "✓" : "✉"}
+        {pendingConfirmation ? "…" : deliverySent ? "✓" : "✉"}
       </Button>
     </Flex>
   );

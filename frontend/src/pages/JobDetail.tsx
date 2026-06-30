@@ -170,13 +170,26 @@ function JobActions({ job, jobId }: { job: JobDetailType; jobId: string }) {
     onSuccess: () => {
       setEmailError(null);
       setEmailQueued(true);
-      setTimeout(() => {
+      // Rafraîchit toutes les 3s jusqu'à confirmation delivery "sent"
+      const timer = setInterval(() => {
         queryClient.invalidateQueries({ queryKey: ["job", jobId] });
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      }, 8_000);
+      }, 3_000);
+      setTimeout(() => clearInterval(timer), 60_000);
     },
     onError: (err: Error) => setEmailError(err.message),
   });
+
+  const emailSent = job.delivery?.status === "sent";
+  const pendingConfirmation = emailQueued && !emailSent;
+
+  const emailLabel = emailMutation.isPending
+    ? "Envoi…"
+    : pendingConfirmation
+    ? "Email en cours…"
+    : emailSent
+    ? "✓ Email envoyé"
+    : "Envoyer par email";
 
   return (
     <Flex direction="column" align="end" gap="2">
@@ -207,12 +220,12 @@ function JobActions({ job, jobId }: { job: JobDetailType; jobId: string }) {
         <Button
           size="2"
           variant="soft"
-          color="blue"
+          color={emailSent && !pendingConfirmation ? "green" : "blue"}
           loading={emailMutation.isPending}
-          disabled={!hasPdf || emailMutation.isPending || emailQueued}
+          disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
           onClick={() => emailMutation.mutate()}
         >
-          {emailQueued ? "Email en cours…" : "Envoyer par email"}
+          {emailLabel}
         </Button>
       </Flex>
       {redeliverError && <Text size="1" color="red">{redeliverError}</Text>}
