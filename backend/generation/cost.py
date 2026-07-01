@@ -60,20 +60,32 @@ def record_chapter_cost(
 
 
 def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) -> None:
-    """Stop and alert when the job exceeds its EUR budget (H2)."""
+    """Alert on budget overrun; hard stop only at 3× budget (circuit breaker).
+
+    Un depassement modere (< 3x) ouvre un incident de monitoring mais laisse
+    la generation continuer : mieux vaut un livrable complet legerement au-dessus
+    du budget qu'un livrable tronque. L'arret dur a 3x protege contre un emballement.
+    """
     total = current_total if current_total is not None else job.total_cost_eur
     if total <= job.budget_eur:
         return
 
-    OperationalIncident.objects.create(
-        title=f"Budget IA depasse pour le job {job.id}",
-        severity=IncidentSeverity.HIGH,
+    if not OperationalIncident.objects.filter(
+        title__startswith="Budget IA depasse",
         job=job,
-        order=job.order,
-        details={
-            "total_cost_eur": str(total),
-            "budget_eur": str(job.budget_eur),
-        },
-    )
-    msg = f"Cost budget exceeded: {total} EUR > {job.budget_eur} EUR (job {job.id})"
-    raise CostBudgetExceededError(msg)
+    ).exists():
+        OperationalIncident.objects.create(
+            title=f"Budget IA depasse pour le job {job.id}",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={
+                "total_cost_eur": str(total),
+                "budget_eur": str(job.budget_eur),
+            },
+        )
+
+    # Circuit breaker : arret dur uniquement a 3x le budget
+    if total > job.budget_eur * Decimal("3"):
+        msg = f"Cost budget exceeded (circuit breaker): {total} EUR > {job.budget_eur} EUR x3 (job {job.id})"  # noqa: E501
+        raise CostBudgetExceededError(msg)
