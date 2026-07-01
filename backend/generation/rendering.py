@@ -284,10 +284,19 @@ def _md_inline(text: str) -> str:
 
     text = _escape(text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    # __text__ → bold ; __isolé__ (séparateur décoratif) → retiré silencieusement
     text = re.sub(r"__(.+?)__", r"<strong>\1</strong>", text)
+    text = re.sub(r"(?<!\w)__(?!\w)", "", text)
     text = re.sub(r"\*(\S.*?\S|\S)\*", r"<em>\1</em>", text)
     text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
     return text
+
+
+_HTML_BLOCK_TAGS = re.compile(
+    r"^\s*<(?:/?(?:table|thead|tbody|tr|th|td|div|section|figure|caption|ul|ol|li|"
+    r"h[1-6]|blockquote|pre|p|hr|br)\b|!--)",
+    re.IGNORECASE,
+)
 
 
 def _md_to_html(text: str) -> str:
@@ -295,6 +304,10 @@ def _md_to_html(text: str) -> str:
 
     Implémentation légère sans dépendance externe, suffisante pour le contenu
     structuré généré par Claude.
+    Supporte :
+    - Titres, listes ul/ol, blockquote, hr, paragraphes
+    - Tables pipe Markdown (| col | val | …)
+    - Blocs HTML bruts émis par les prompts visuels (SWOT, cartographie, charts)
     """
     lines = text.split("\n")
     out: list[str] = []
@@ -303,13 +316,25 @@ def _md_to_html(text: str) -> str:
     while i < len(lines):
         line = lines[i]
 
-        # Séparateur horizontal
+        # ── Blocs HTML bruts (SWOT, risk matrix, graphiques en HTML) ─────────
+        # Passthrough : aucun escape, aucun wrapping <p>.
+        if _HTML_BLOCK_TAGS.match(line):
+            html_block: list[str] = []
+            while i < len(lines) and (
+                _HTML_BLOCK_TAGS.match(lines[i]) or (html_block and lines[i].strip())
+            ):
+                html_block.append(lines[i])
+                i += 1
+            out.append("\n".join(html_block))
+            continue
+
+        # ── Séparateur horizontal ─────────────────────────────────────────────
         if re.match(r"^[-*_]{3,}\s*$", line):
             out.append("<hr>")
             i += 1
             continue
 
-        # Titres
+        # ── Titres ───────────────────────────────────────────────────────────
         m = re.match(r"^(#{1,4})\s+(.*)", line)
         if m:
             level = min(len(m.group(1)) + 1, 4)  # # → h2, ## → h3, ### → h4
@@ -317,7 +342,7 @@ def _md_to_html(text: str) -> str:
             i += 1
             continue
 
-        # Blockquote
+        # ── Blockquote ───────────────────────────────────────────────────────
         if line.startswith("> "):
             items: list[str] = []
             while i < len(lines) and lines[i].startswith("> "):
@@ -326,7 +351,32 @@ def _md_to_html(text: str) -> str:
             out.append("<blockquote><p>" + "</p><p>".join(items) + "</p></blockquote>")
             continue
 
-        # Liste non ordonnée
+        # ── Table pipe Markdown ───────────────────────────────────────────────
+        # Détecte : ligne commençant et finissant par | (ou contenant au moins 2 |)
+        if re.match(r"^\s*\|", line) and line.count("|") >= 2:
+            rows: list[str] = []
+            is_header = True
+            while i < len(lines) and re.match(r"^\s*\|", lines[i]):
+                row = lines[i].strip().strip("|")
+                # Ligne séparateur (|---|---|) → marque fin du header
+                if re.match(r"^[\s|:\-]+$", row):
+                    is_header = False
+                    i += 1
+                    continue
+                cells = [c.strip() for c in row.split("|")]
+                if is_header:
+                    cell_html = "".join(f"<th>{_md_inline(c)}</th>" for c in cells)
+                    rows.append(f"<tr>{cell_html}</tr>")
+                    is_header = False  # première vraie ligne = header
+                else:
+                    cell_html = "".join(f"<td>{_md_inline(c)}</td>" for c in cells)
+                    rows.append(f"<tr>{cell_html}</tr>")
+                i += 1
+            if rows:
+                out.append("<table>" + "".join(rows) + "</table>")
+            continue
+
+        # ── Liste non ordonnée ───────────────────────────────────────────────
         if re.match(r"^[-*]\s", line):
             list_items: list[str] = []
             while i < len(lines) and re.match(r"^[-*]\s", lines[i]):
@@ -335,7 +385,7 @@ def _md_to_html(text: str) -> str:
             out.append("<ul>" + "".join(list_items) + "</ul>")
             continue
 
-        # Liste ordonnée
+        # ── Liste ordonnée ───────────────────────────────────────────────────
         if re.match(r"^\d+[.)]\s", line):
             ol_items: list[str] = []
             while i < len(lines) and re.match(r"^\d+[.)]\s", lines[i]):
@@ -345,13 +395,13 @@ def _md_to_html(text: str) -> str:
             out.append("<ol>" + "".join(ol_items) + "</ol>")
             continue
 
-        # Ligne vide
+        # ── Ligne vide ───────────────────────────────────────────────────────
         if not line.strip():
             out.append("")
             i += 1
             continue
 
-        # Paragraphe
+        # ── Paragraphe ───────────────────────────────────────────────────────
         out.append(f"<p>{_md_inline(line)}</p>")
         i += 1
 

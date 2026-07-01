@@ -14,8 +14,8 @@ _ANTHROPIC_MODEL_IDS: dict[str, str] = {
     "claude-opus": "claude-opus-4-8",
     "claude-haiku": "claude-haiku-4-5-20251001",
 }
-# 1500 tokens ≈ 1100 mots par chapitre — cible coût < 1 € / rapport.
-_DEFAULT_MAX_TOKENS = 1500
+# 8000 tokens ≈ 6000 mots par section — cible 80 pages par livrable.
+_DEFAULT_MAX_TOKENS = 8000
 
 
 @dataclass(frozen=True)
