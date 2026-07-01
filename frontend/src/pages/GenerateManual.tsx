@@ -182,6 +182,28 @@ export function GenerateManual() {
             placeholder="Angles particuliers, ton souhaité, sections à prioriser, etc." />
         </Card>
 
+        <Card mb="4">
+          <Heading size="3" mb="1">Branding PDF (optionnel)</Heading>
+          <Text size="2" color="gray" as="p" mb="3">
+            Ces champs personnalisent la page de garde et les couleurs du document généré.
+          </Text>
+          <Field id="LOGO_URL" label="URL du logo" value={form.LOGO_URL ?? ""}
+            onChange={set("LOGO_URL")}
+            placeholder="https://example.com/logo.png (PNG ou SVG, fond transparent)" />
+          <Field id="NOM_ENTREPRISE" label="Nom de l'entreprise" value={form.NOM_ENTREPRISE ?? ""}
+            onChange={set("NOM_ENTREPRISE")} placeholder="Ex : EVKHA, Synapses Conseil…" />
+          <Flex gap="3">
+            <Box style={{ flex: 1 }}>
+              <Field id="COULEUR_PRINCIPALE" label="Couleur principale" value={form.COULEUR_PRINCIPALE ?? ""}
+                onChange={set("COULEUR_PRINCIPALE")} placeholder="#1A1A1A" />
+            </Box>
+            <Box style={{ flex: 1 }}>
+              <Field id="COULEUR_SECONDAIRE" label="Couleur secondaire (accent)" value={form.COULEUR_SECONDAIRE ?? ""}
+                onChange={set("COULEUR_SECONDAIRE")} placeholder="#C9A227" />
+            </Box>
+          </Flex>
+        </Card>
+
         {error && (
           <Card mb="4" style={{ borderColor: "var(--red-7)", background: "var(--red-2)" }}>
             <Text color="red" size="2">{error}</Text>
