@@ -18,14 +18,14 @@ _SUPPORTED_DELIVERABLES = frozenset(
     }
 )
 
-# Budget IA par type de livrable = coût estimé × marge de 1.5 à 1.8.
-# Basé sur coût observé EM : 30 appels Claude × ~0.082 EUR = 2.46 EUR.
-# EC 10 appels, BP 22 appels, STR 20 appels (aucune section chunked dans ces types).
+# Budget IA = 2.00 EUR pour tous les types (contrainte métier stricte).
+# Garanti par max_tokens = 3500 dans integrations/claude.py :
+#   pire cas MARKET_STUDY (30 appels) × cout max/appel ≈ 1.74 EUR < 2.00 EUR.
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY: Decimal("4.0000"),      # 30 appels × 0.082 ≈ 2.46 EUR × 1.6
-    DeliverableType.BUSINESS_PLAN: Decimal("3.0000"),     # 22 appels × 0.082 ≈ 1.80 EUR × 1.7
-    DeliverableType.BUSINESS_STRATEGY: Decimal("3.0000"), # 20 appels × 0.082 ≈ 1.64 EUR × 1.8
-    DeliverableType.COMPETITOR_STUDY: Decimal("1.5000"),  # 10 appels × 0.082 ≈ 0.82 EUR × 1.8
+    DeliverableType.MARKET_STUDY: Decimal("2.0000"),
+    DeliverableType.BUSINESS_PLAN: Decimal("2.0000"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("2.0000"),
+    DeliverableType.COMPETITOR_STUDY: Decimal("2.0000"),
 }
 
 

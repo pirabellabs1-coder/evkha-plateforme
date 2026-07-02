@@ -14,8 +14,10 @@ _ANTHROPIC_MODEL_IDS: dict[str, str] = {
     "claude-opus": "claude-opus-4-8",
     "claude-haiku": "claude-haiku-4-5-20251001",
 }
-# 8000 tokens ≈ 6000 mots par section — cible 80 pages par livrable.
-_DEFAULT_MAX_TOKENS = 8000
+# 3500 tokens ≈ 2600 mots par section. Borne de cout : pire cas MARKET_STUDY
+# (30 appels) × max input+output ≈ 1.74 EUR < budget 2.00 EUR.
+# Au-dela de 1500 (cause des coupures initiales), en dessous de 8000 (trop cher).
+_DEFAULT_MAX_TOKENS = 3500
 
 
 @dataclass(frozen=True)
