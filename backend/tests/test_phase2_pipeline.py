@@ -116,12 +116,12 @@ def test_render_client_document_orders_sections(market_submission: IntakeSubmiss
 
     document = render_client_document(job)
 
-    assert document.title == "Etude de marche"
+    assert document.title == "Étude de marché"
     assert document.sections[0].number == 0  # fiche projet en ouverture
     # Annexe puis sources en fin de document.
     assert document.sections[-1].number == 22
     markdown = document.to_markdown()
-    assert markdown.startswith("# Etude de marche")
+    assert markdown.startswith("# Étude de marché")
 
 
 def test_strip_internal_markers_removes_pipeline_jargon() -> None:

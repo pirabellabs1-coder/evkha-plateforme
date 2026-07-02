@@ -47,7 +47,7 @@ def test_market_study_blueprint_matches_evkha_method() -> None:
     assert len(MARKET_STUDY_CHAPTERS) == 23
     assert MARKET_STUDY_CHAPTERS[0].prompt_key == "em.00.fiche_projet"
     assert MARKET_STUDY_CHAPTERS[0].section_kind == SectionKind.OPENING
-    assert MARKET_STUDY_CHAPTERS[1].title.startswith("Analyse chiffree du marche mondial")
+    assert MARKET_STUDY_CHAPTERS[1].title.startswith("Analyse chiffrée du marché mondial")
     assert MARKET_STUDY_CHAPTERS[-2].section_kind == SectionKind.ANNEXE
     assert MARKET_STUDY_CHAPTERS[-1].prompt_key == "em.22.sources"
     assert MARKET_STUDY_CHAPTERS[-1].section_kind == SectionKind.SOURCES
@@ -98,7 +98,7 @@ def test_context_builder_includes_variables_summaries_and_locked_facts(
     assert "beaute" in context
     assert "clientes urbaines actives" in context
     assert "currency = XOF" in context
-    assert "CHAPITRE_CIBLE: 2. Analyse chiffree du marche national et local" in context
+    assert "CHAPITRE_CIBLE: 2. Analyse chiffrée du marché national et local" in context
 
 
 @pytest.mark.django_db

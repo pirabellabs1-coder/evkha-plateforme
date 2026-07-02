@@ -169,7 +169,7 @@ def test_render_branded_html_contains_title_and_colors(
 
     html = render_branded_html(job)
 
-    assert "Etude de marche" in html
+    assert "Étude de marché" in html
     assert "#1A1A2E" in html
     assert "#E94560" in html
     assert "TechVision SAS" in html

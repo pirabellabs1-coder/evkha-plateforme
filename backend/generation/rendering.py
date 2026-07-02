@@ -188,10 +188,10 @@ def _document_title(job: GenerationJob) -> str:
     from catalog.models import DeliverableType
 
     labels: dict[str, str] = {
-        DeliverableType.MARKET_STUDY: "Etude de marche",
-        DeliverableType.COMPETITOR_STUDY: "Etude de la concurrence",
+        DeliverableType.MARKET_STUDY: "Étude de marché",
+        DeliverableType.COMPETITOR_STUDY: "Étude de la concurrence",
         DeliverableType.BUSINESS_PLAN: "Business plan",
-        DeliverableType.BUSINESS_STRATEGY: "Strategie business",
+        DeliverableType.BUSINESS_STRATEGY: "Stratégie business",
     }
     return labels.get(job.deliverable_type, "Livrable EVKHA")
 

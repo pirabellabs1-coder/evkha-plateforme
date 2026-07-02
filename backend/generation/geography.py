@@ -51,11 +51,11 @@ _CONTINENT_BY_COUNTRY: dict[str, str] = {
 
 _CONTINENT_LABELS: dict[str, str] = {
     "africain":         "africain",
-    "europeen":         "europeen",
-    "maghrebin":        "maghrebin",
-    "nord-americain":   "nord-americain",
-    "caribeen":         "caribeen et antillais",
-    "ocean indien":     "de l'ocean indien",
+    "europeen":         "européen",
+    "maghrebin":        "maghrébin",
+    "nord-americain":   "nord-américain",
+    "caribeen":         "caribéen et antillais",
+    "ocean indien":     "de l'océan Indien",
 }
 
 
@@ -105,5 +105,5 @@ def chapter_title_em_01(country: str) -> str:
     """Titre du chapitre 1 EM adapte au pays (substitue le titre statique)."""
     zone = macro_zone_for(country)
     if zone == "international":
-        return "Analyse chiffree du marche mondial"
-    return f"Analyse chiffree du marche mondial et {zone}"
+        return "Analyse chiffrée du marché mondial"
+    return f"Analyse chiffrée du marché mondial et {zone}"

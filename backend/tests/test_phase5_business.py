@@ -150,9 +150,9 @@ def test_run_str_job_completes_and_renders(str_submission: IntakeSubmission) -> 
     assert job.total_cost_eur <= job.budget_eur
 
     document = render_client_document(job)
-    assert document.title == "Strategie business"
+    assert document.title == "Stratégie business"
     markdown = document.to_markdown()
-    assert "# Strategie business" in markdown
+    assert "# Stratégie business" in markdown
 
 
 @pytest.mark.django_db

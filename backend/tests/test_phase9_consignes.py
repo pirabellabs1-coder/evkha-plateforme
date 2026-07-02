@@ -283,10 +283,10 @@ def test_extract_and_lock_chiffres_cles_locks_market_size(
         ("Côte d'Ivoire", "africain"),
         ("Cote d'Ivoire", "africain"),
         ("Sénégal", "africain"),
-        ("France", "europeen"),
-        ("Belgique", "europeen"),
-        ("Maroc", "maghrebin"),
-        ("Canada", "nord-americain"),
+        ("France", "européen"),
+        ("Belgique", "européen"),
+        ("Maroc", "maghrébin"),
+        ("Canada", "nord-américain"),
         ("Pays Inconnu", "international"),
     ],
 )
@@ -297,8 +297,8 @@ def test_macro_zone_for_country(country: str, expected_zone: str) -> None:
 
 def test_chapter_title_em_01_adapts_to_country() -> None:
     assert "africain" in chapter_title_em_01("Côte d'Ivoire")
-    assert "europeen" in chapter_title_em_01("France")
-    assert "maghrebin" in chapter_title_em_01("Maroc")
+    assert "européen" in chapter_title_em_01("France")
+    assert "maghrébin" in chapter_title_em_01("Maroc")
 
 
 def test_geographic_consigne_blocks_irrelevant_zones() -> None:

@@ -71,8 +71,9 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
         "capacite d'achat, criteres de decision."
     ),
     "em.11.personas": (
-        "Personas detailles (2 a 4) representatifs de la clientele cible : "
-        "profil, motivations, freins, parcours d'achat."
+        "Exactement 2 personas detailles, representatifs de la clientele cible : "
+        "profil, motivations, freins, parcours d'achat. Ne pas en generer plus "
+        "ni moins de 2."
     ),
     "em.12.risques_plan_gestion": (
         "Analyse des risques et plan de gestion : risques identifies, "

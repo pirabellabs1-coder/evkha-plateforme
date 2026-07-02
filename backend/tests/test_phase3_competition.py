@@ -71,7 +71,7 @@ def test_run_competitor_job_completes_and_renders(
     assert job.total_cost_eur <= job.budget_eur
 
     document = render_client_document(job)
-    assert document.title == "Etude de la concurrence"
+    assert document.title == "Étude de la concurrence"
     assert document.sections[0].number == 0
     # Ordre final : opening -> chapters -> annexe -> sources (Bloc 5 Consignes)
     assert document.sections[-1].number == 9
