@@ -80,7 +80,11 @@ def relaunch_generation_job(job: GenerationJob) -> None:
     job.error_message = ""
     job.started_at = None
     job.completed_at = None
-    job.budget_eur = _BUDGET_EUR_BY_TYPE.get(job.deliverable_type, job.budget_eur)
+    # Recale le budget uniquement si aucun chapitre n'est déjà DONE (job vierge).
+    # Pour un job partiellement généré, le coût cumulé est déjà fixé — on ne touche
+    # pas au budget afin d'éviter un faux incident dès le redémarrage.
+    if not job.chapters.filter(status=ChapterStatus.DONE).exists():
+        job.budget_eur = _BUDGET_EUR_BY_TYPE.get(job.deliverable_type, job.budget_eur)
     job.save(update_fields=["status", "error_message", "started_at", "completed_at", "budget_eur"])
 
     job.chapters.filter(
