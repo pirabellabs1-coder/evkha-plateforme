@@ -486,6 +486,28 @@ _HTML_TAG_RE = re.compile(
 )
 
 
+_TRAILING_INCOMPLETE_TAG_RE = re.compile(r"<\s*/?\s*[a-zA-Z][^<>]*\Z")
+
+
+def strip_incomplete_trailing_tag(html: str) -> str:
+    """Retire un tag HTML tronque en toute fin de contenu (troncature max_tokens).
+
+    Une troncature qui coupe en plein milieu d'un attribut (ex: un `style="..."`
+    coupe a `background:#`) laisse un guillemet jamais referme. Ce cas est pire
+    qu'une balise simplement non fermee (gere par close_dangling_html_tags) :
+    le tag est incomplet (pas de `>` final), donc invisible pour son parseur
+    stack-based. Sans ce nettoyage, le guillemet ouvert fait que le parseur
+    HTML5 de WeasyPrint reste en etat "valeur d'attribut" et avale tout le
+    contenu suivant, y compris les chapitres suivants, comme du texte
+    d'attribut invisible — d'ou des documents qui semblent s'arreter en cours
+    de generation alors que tous les chapitres sont bien presents en base.
+    """
+    match = _TRAILING_INCOMPLETE_TAG_RE.search(html)
+    if not match:
+        return html
+    return html[: match.start()].rstrip()
+
+
 def close_dangling_html_tags(html: str) -> str:
     """Ferme les balises HTML restees ouvertes en fin de contenu.
 
@@ -518,13 +540,17 @@ def _clean_chapter_body(content: str, kind: str) -> str:
     1. Strip jargon pipeline interne (Étape, Point de controle, etc.)
     2. Strip blocs Sources intermediaires (sauf si la section EST Sources)
     3. Substitutions anglicismes + jargon (Bloc 3 Consignes)
-    4. Ferme les balises HTML orphelines (protection contre les troncatures
-       max_tokens qui font disparaitre les chapitres suivants au rendu PDF)
+    4. Retire un tag HTML tronque en toute fin de contenu (guillemet d'attribut
+       jamais referme par une troncature max_tokens)
+    5. Ferme les balises HTML orphelines restantes (protection contre les
+       troncatures max_tokens qui font disparaitre les chapitres suivants au
+       rendu PDF)
     """
     body = strip_internal_markers(content)
     if kind != SectionKind.SOURCES:
         body = strip_intermediate_sources(body)
     body = apply_lexical_substitutions(body)
+    body = strip_incomplete_trailing_tag(body)
     body = close_dangling_html_tags(body)
     return body
 

@@ -20,8 +20,10 @@ from generation.rendering import (
     _EVKHA_SECONDARY,
     BrandingContext,
     _md_to_html,
+    close_dangling_html_tags,
     extract_branding,
     render_branded_html,
+    strip_incomplete_trailing_tag,
 )
 from generation.runner import run_generation_job
 from generation.services import bootstrap_generation_job
@@ -126,6 +128,45 @@ def test_md_to_html_escapes_html_injection() -> None:
 def test_md_to_html_horizontal_rule() -> None:
     html = _md_to_html("Avant\n---\nAprès")
     assert "<hr>" in html
+
+
+# ── strip_incomplete_trailing_tag / close_dangling_html_tags ───────────────────
+
+
+def test_strip_incomplete_trailing_tag_removes_unterminated_attribute() -> None:
+    # Cas reel observe : troncature max_tokens en plein milieu d'un style="..."
+    truncated = (
+        '<div style="background:#fff;">'
+        '<div style="position:absolute; bottom:30%; right:22%; background:#'
+    )
+    cleaned = strip_incomplete_trailing_tag(truncated)
+    assert cleaned == '<div style="background:#fff;">'
+    assert cleaned.count('"') % 2 == 0
+
+
+def test_strip_incomplete_trailing_tag_noop_on_complete_html() -> None:
+    html = "<div><p>Texte complet</p></div>"
+    assert strip_incomplete_trailing_tag(html) == html
+
+
+def test_strip_incomplete_trailing_tag_ignores_stray_angle_bracket_in_prose() -> None:
+    text = "Le chiffre d'affaires est < 100 000"
+    assert strip_incomplete_trailing_tag(text) == text
+
+
+def test_close_dangling_html_tags_recovers_full_truncated_diagram() -> None:
+    # Pipeline complet : la troncature est d'abord nettoyee, puis les
+    # balises restees ouvertes sont fermees — plus de guillemet qui
+    # "aspire" les chapitres suivants au rendu PDF.
+    truncated = (
+        '<div style="background:#fff;">'
+        "<div><span>Babilou</span>"
+        '<div style="position:absolute; background:#'
+    )
+    cleaned = close_dangling_html_tags(strip_incomplete_trailing_tag(truncated))
+    assert cleaned.count('"') % 2 == 0
+    assert cleaned.endswith("</div></div>")
+    assert "background:#" not in cleaned.split("<span>")[1]
 
 
 # ── extract_branding ──────────────────────────────────────────────────────────

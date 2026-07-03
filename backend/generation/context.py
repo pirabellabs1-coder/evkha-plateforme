@@ -18,9 +18,16 @@ ROLE_LINE = (
     "recopier tel quel. "
     "Quand une instruction de chapitre fournit un pattern HTML/CSS (tableau, "
     "grille, graphique en barres), tu DOIS produire ce bloc HTML rempli avec "
-    "les donnees reelles du projet : ne le remplace jamais par une simple "
-    "description textuelle equivalente, meme si cela demande de rester concis "
-    "dans le texte qui l'entoure."
+    "les donnees reelles du projet, en respectant EXACTEMENT la structure "
+    "fournie en exemple (memes balises, memes proprietes CSS) : ne le "
+    "remplace jamais par une simple description textuelle equivalente, meme "
+    "si cela demande de rester concis dans le texte qui l'entoure. "
+    "N'utilise JAMAIS display:grid, display:flex ni position:absolute : "
+    "seuls les <table> et les <div> de largeur variable (barres) sont "
+    "correctement rendus par WeasyPrint, le moteur PDF utilise en production. "
+    "Si une instruction de chapitre NE fournit AUCUN pattern HTML/CSS, "
+    "redige uniquement en texte/Markdown (titres, paragraphes, listes) : "
+    "n'invente jamais de bloc HTML/CSS de ta propre initiative."
 )
 
 
