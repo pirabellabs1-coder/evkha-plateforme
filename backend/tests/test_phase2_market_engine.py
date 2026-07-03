@@ -11,7 +11,9 @@ from generation.coherence import CoherenceConflictError, locked_facts_as_context
 from generation.context import build_context
 from generation.cost import (
     CostBudgetExceededError,
+    current_job_cost_eur,
     estimate_call_cost_eur,
+    max_tokens_for_job,
     record_chapter_cost,
 )
 from generation.models import FactKind
@@ -146,3 +148,89 @@ def test_cost_engine_enforces_budget_and_raises(
     job.refresh_from_db()
     assert job.total_cost_eur > job.budget_eur
     assert OperationalIncident.objects.filter(job=job, severity="high").exists()
+
+
+# ── Regle d'or #1 durcie : seuil 1.70 EUR + plafond dur 2.00 EUR ───────────────
+
+
+@pytest.mark.django_db
+def test_current_job_cost_eur_sums_all_chapters(
+    normalized_market_submission: IntakeSubmission,
+) -> None:
+    job = bootstrap_generation_job(normalized_market_submission)
+    first = job.chapters.get(chapter_number=1)
+    second = job.chapters.get(chapter_number=2)
+    first.cost_eur = Decimal("0.5000")
+    first.save(update_fields=["cost_eur", "updated_at"])
+    second.cost_eur = Decimal("0.3000")
+    second.save(update_fields=["cost_eur", "updated_at"])
+
+    assert current_job_cost_eur(job) == Decimal("0.8000")
+
+
+@pytest.mark.django_db
+def test_max_tokens_for_job_unthrottled_below_threshold(
+    normalized_market_submission: IntakeSubmission,
+) -> None:
+    job = bootstrap_generation_job(normalized_market_submission)
+    chapter = job.chapters.get(chapter_number=1)
+    chapter.cost_eur = Decimal("1.5000")
+    chapter.save(update_fields=["cost_eur", "updated_at"])
+
+    assert max_tokens_for_job(job, default_max_tokens=3500) == 3500
+
+
+@pytest.mark.django_db
+def test_max_tokens_for_job_throttles_above_threshold(
+    normalized_market_submission: IntakeSubmission,
+) -> None:
+    job = bootstrap_generation_job(normalized_market_submission)
+    chapter = job.chapters.get(chapter_number=1)
+    chapter.cost_eur = Decimal("1.9500")
+    chapter.save(update_fields=["cost_eur", "updated_at"])
+
+    result = max_tokens_for_job(job, default_max_tokens=3500)
+
+    assert 400 <= result < 3500
+
+
+@pytest.mark.django_db
+def test_max_tokens_for_job_worst_case_never_reaches_budget(
+    normalized_market_submission: IntakeSubmission,
+) -> None:
+    job = bootstrap_generation_job(normalized_market_submission)
+    chapter = job.chapters.get(chapter_number=1)
+    chapter.cost_eur = Decimal("1.7500")
+    chapter.save(update_fields=["cost_eur", "updated_at"])
+
+    result = max_tokens_for_job(job, default_max_tokens=3500)
+    worst_case_cost = estimate_call_cost_eur(0, result)
+
+    assert current_job_cost_eur(job) + worst_case_cost < job.budget_eur
+
+
+@pytest.mark.django_db
+def test_max_tokens_for_job_floors_at_minimum_when_budget_nearly_exhausted(
+    normalized_market_submission: IntakeSubmission,
+) -> None:
+    job = bootstrap_generation_job(normalized_market_submission)
+    chapter = job.chapters.get(chapter_number=1)
+    chapter.cost_eur = Decimal("1.9990")
+    chapter.save(update_fields=["cost_eur", "updated_at"])
+
+    assert max_tokens_for_job(job, default_max_tokens=3500) == 400
+
+
+@pytest.mark.django_db
+def test_max_tokens_for_job_splits_remaining_budget_across_call_count(
+    normalized_market_submission: IntakeSubmission,
+) -> None:
+    job = bootstrap_generation_job(normalized_market_submission)
+    chapter = job.chapters.get(chapter_number=1)
+    chapter.cost_eur = Decimal("1.9500")
+    chapter.save(update_fields=["cost_eur", "updated_at"])
+
+    single_call = max_tokens_for_job(job, default_max_tokens=3500, call_count=1)
+    split_call = max_tokens_for_job(job, default_max_tokens=3500, call_count=2)
+
+    assert split_call < single_call

@@ -5,7 +5,7 @@ import re
 from django.utils import timezone
 
 from intake.models import IntakeSubmission
-from integrations.claude import ClaudeClient, get_claude_client
+from integrations.claude import _DEFAULT_MAX_TOKENS, ClaudeClient, get_claude_client
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .blueprints import get_blueprint
@@ -14,7 +14,7 @@ from .coherence import (
     extract_and_lock_chiffres_cles,
     seed_locked_facts_from_variables,
 )
-from .cost import CostBudgetExceededError, record_chapter_cost
+from .cost import CostBudgetExceededError, max_tokens_for_job, record_chapter_cost
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 
@@ -95,6 +95,7 @@ def run_generation_job(
 
 
 def _generate_chunked(
+    job: GenerationJob,
     chapter: ChapterGeneration,
     sections: tuple[str, ...],
     *,
@@ -105,16 +106,20 @@ def _generate_chunked(
 
     Retourne (content, total_input_tokens, total_output_tokens, model).
     Les tokens sont accumules sur l'ensemble des sections pour que le
-    Cost Engine dispose du cout reel complet du chapitre.
+    Cost Engine dispose du cout reel complet du chapitre. Le budget restant
+    (regle d'or #1 durcie) est reparti sur les sections de CE chapitre.
     """
     parts: list[str] = []
     total_input = 0
     total_output = 0
     last_model: str | None = None
+    max_tokens = max_tokens_for_job(
+        job, default_max_tokens=_DEFAULT_MAX_TOKENS, call_count=len(sections)
+    )
 
     for section_key in sections:
         prompt = build_section_prompt(chapter, section_key)
-        result = client.complete(system=system_prompt, prompt=prompt)
+        result = client.complete(system=system_prompt, prompt=prompt, max_tokens=max_tokens)
         parts.append(result.content)
         total_input += result.input_tokens
         total_output += result.output_tokens
@@ -139,11 +144,12 @@ def _generate_chapter(
 
     if sections:
         content, total_input, total_output, model = _generate_chunked(
-            chapter, sections, client=client, system_prompt=system_prompt
+            job, chapter, sections, client=client, system_prompt=system_prompt
         )
     else:
         prompt = build_chapter_prompt(chapter)
-        result = client.complete(system=system_prompt, prompt=prompt)
+        max_tokens = max_tokens_for_job(job, default_max_tokens=_DEFAULT_MAX_TOKENS)
+        result = client.complete(system=system_prompt, prompt=prompt, max_tokens=max_tokens)
         content, total_input, total_output, model = (
             result.content, result.input_tokens, result.output_tokens, result.model
         )
