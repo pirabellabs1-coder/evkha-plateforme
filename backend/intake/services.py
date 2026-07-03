@@ -37,6 +37,9 @@ OPTIONAL_VARIABLES: tuple[str, ...] = (
     "PHOTO_1",
     "PHOTO_2",
     "PHOTO_3",
+    # Resume d'une etude precedente (EC/STR/BP) fourni par le client en texte
+    # libre, pour reutiliser le contexte d'un livrable deja realise.
+    "CONTEXTE_ETUDE_PRECEDENTE",
 )
 
 # Alias label/cle -> variable canonique. Les libelles reels du formulaire Tally
@@ -63,6 +66,13 @@ _ALIASES: dict[str, str] = {
     "photo produit":       "PHOTO_2",
     "photo 3":             "PHOTO_3",
     "photo equipe":        "PHOTO_3",
+    # Resume etude precedente (encadre texte libre Tally, EC/STR/BP)
+    "resume de votre etude de marche": "CONTEXTE_ETUDE_PRECEDENTE",
+    "resume etude de marche":          "CONTEXTE_ETUDE_PRECEDENTE",
+    "resume d'une etude precedente":   "CONTEXTE_ETUDE_PRECEDENTE",
+    "resume etude precedente":         "CONTEXTE_ETUDE_PRECEDENTE",
+    "contexte etude precedente":       "CONTEXTE_ETUDE_PRECEDENTE",
+    "document precedent":              "CONTEXTE_ETUDE_PRECEDENTE",
     "secteur": "SECTEUR",
     "sector": "SECTEUR",
     "pays": "PAYS",

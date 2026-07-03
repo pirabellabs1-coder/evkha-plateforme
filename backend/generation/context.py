@@ -9,7 +9,11 @@ from .models import ChapterGeneration
 
 ROLE_LINE = (
     "ROLE: Methode EVKHA, ton mentor, rendu client sans balises internes "
-    "(jamais 'Etape', 'Point de controle' ni vocabulaire pipeline)."
+    "(jamais 'Etape', 'Point de controle' ni vocabulaire pipeline). "
+    "Si VARIABLES_PROJET contient CONTEXTE_ETUDE_PRECEDENTE, appuie-toi sur "
+    "ce resume d'une etude ou d'un document deja produit pour ce client pour "
+    "rester coherent avec son contenu et eviter les repetitions, sans le "
+    "recopier tel quel."
 )
 
 
