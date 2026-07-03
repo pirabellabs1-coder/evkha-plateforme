@@ -21,33 +21,6 @@ from .prompts import build_chapter_prompt, build_section_prompt, build_system_pr
 _SUMMARY_MAX_CHARS = 320
 _SOURCES_SPLIT = re.compile(r"\n\s*sources\b", re.IGNORECASE)
 
-# Chapitres non-chunkes dont le prompt demande a la fois une redaction complete
-# ET un ou plusieurs blocs HTML/CSS lourds (matrice, graphiques en barres,
-# BMC...). Le budget par defaut (3500 tokens, voir integrations/claude.py) les
-# fait tronquer avant la fin du bloc HTML — d'ou des tableaux coupes en plein
-# milieu ou abandonnes au profit d'une simple description textuelle. Ecart de
-# cout negligeable face au budget de 2 EUR/job (~0.03-0.05 EUR de plus par
-# chapitre concerne).
-_HEAVY_VISUAL_MAX_TOKENS = 6000
-_HEAVY_VISUAL_PROMPT_KEYS: frozenset[str] = frozenset(
-    {
-        "ec.05.matrice_positionnement",
-        "ec.07.conclusion_graphiques",
-        "bp.09.modele_bmc",
-        "bp.15.plan_financement",
-        "bp.16.previsionnel_financier",
-        "bp.17.budget_tresorerie",
-        "str.04.forces_structurelles",
-        "str.05.contraintes_fragilites",
-        "str.14.rentabilite_modele",
-        "str.17.feuille_route",
-    }
-)
-
-
-def _max_tokens_for(prompt_key: str) -> int | None:
-    return _HEAVY_VISUAL_MAX_TOKENS if prompt_key in _HEAVY_VISUAL_PROMPT_KEYS else None
-
 
 class GenerationRunError(RuntimeError):
     """Echec irrecuperable d'un cycle de generation (au moins un chapitre KO)."""
@@ -170,11 +143,7 @@ def _generate_chapter(
         )
     else:
         prompt = build_chapter_prompt(chapter)
-        max_tokens = _max_tokens_for(chapter.prompt_key)
-        if max_tokens is not None:
-            result = client.complete(system=system_prompt, prompt=prompt, max_tokens=max_tokens)
-        else:
-            result = client.complete(system=system_prompt, prompt=prompt)
+        result = client.complete(system=system_prompt, prompt=prompt)
         content, total_input, total_output, model = (
             result.content, result.input_tokens, result.output_tokens, result.model
         )

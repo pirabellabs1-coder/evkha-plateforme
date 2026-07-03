@@ -17,6 +17,10 @@ _ANTHROPIC_MODEL_IDS: dict[str, str] = {
 # 3500 tokens ≈ 2600 mots par section. Borne de cout : pire cas MARKET_STUDY
 # (30 appels) × max input+output ≈ 1.74 EUR < budget 2.00 EUR.
 # Au-dela de 1500 (cause des coupures initiales), en dessous de 8000 (trop cher).
+# Toute troncature residuelle (chapitre a HTML dense) est neutralisee par le
+# sanitizer close_dangling_html_tags() de rendering.py, qui ferme les balises
+# orphelines pour eviter qu'un <table> ou <style> tronque "aspire" les
+# chapitres suivants dans le PDF final.
 _DEFAULT_MAX_TOKENS = 3500
 
 

@@ -473,17 +473,59 @@ def _title_override(prompt_key: str, country: str, default: str) -> str:
     return default
 
 
+_HTML_CONTAINER_TAGS: tuple[str, ...] = (
+    "style", "script", "table", "thead", "tbody", "tfoot", "tr", "td", "th",
+    "div", "section", "figure", "figcaption", "ul", "ol", "li", "blockquote",
+    "pre", "span",
+)
+_HTML_TAG_RE = re.compile(
+    r"<\s*(/?)\s*("
+    + "|".join(_HTML_CONTAINER_TAGS)
+    + r")\b[^>]*?>",
+    re.IGNORECASE,
+)
+
+
+def close_dangling_html_tags(html: str) -> str:
+    """Ferme les balises HTML restees ouvertes en fin de contenu.
+
+    Une reponse Claude tronquee sur max_tokens peut se terminer au milieu d'un
+    <table> ou d'un <style> — si on n'ajoute pas les fermetures, le bloc
+    "aspire" tous les chapitres suivants au rendu PDF (WeasyPrint reste dans
+    la table structurellement, l'utilisateur voit ses chapitres disparaitre).
+    Sanitizer stack-based, tolerant : ignore les mismatches, ne touche jamais
+    au contenu textuel.
+    """
+    stack: list[str] = []
+    for match in _HTML_TAG_RE.finditer(html):
+        is_closing = match.group(1) == "/"
+        tag = match.group(2).lower()
+        if is_closing:
+            for idx in range(len(stack) - 1, -1, -1):
+                if stack[idx] == tag:
+                    del stack[idx:]
+                    break
+        else:
+            stack.append(tag)
+    if not stack:
+        return html
+    return html + "".join(f"</{t}>" for t in reversed(stack))
+
+
 def _clean_chapter_body(content: str, kind: str) -> str:
     """Pipeline de nettoyage applique a chaque chapitre client.
 
     1. Strip jargon pipeline interne (Étape, Point de controle, etc.)
     2. Strip blocs Sources intermediaires (sauf si la section EST Sources)
     3. Substitutions anglicismes + jargon (Bloc 3 Consignes)
+    4. Ferme les balises HTML orphelines (protection contre les troncatures
+       max_tokens qui font disparaitre les chapitres suivants au rendu PDF)
     """
     body = strip_internal_markers(content)
     if kind != SectionKind.SOURCES:
         body = strip_intermediate_sources(body)
     body = apply_lexical_substitutions(body)
+    body = close_dangling_html_tags(body)
     return body
 
 
