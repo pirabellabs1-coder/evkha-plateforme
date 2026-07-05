@@ -10,6 +10,7 @@ from generation.blueprints import MARKET_STUDY_CHAPTERS, SectionKind
 from generation.coherence import CoherenceConflictError, locked_facts_as_context, upsert_locked_fact
 from generation.context import build_context
 from generation.cost import (
+    _MIN_MAX_TOKENS,
     CostBudgetExceededError,
     current_job_cost_eur,
     estimate_call_cost_eur,
@@ -227,10 +228,14 @@ def test_max_tokens_for_job_splits_remaining_budget_across_call_count(
 ) -> None:
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("1.9500")
+    # 1.70 EUR = seuil de throttle. Avec MAX_CONTINUATIONS=1 et ~20 chapitres
+    # restants, single_call > 400 et split_call <= single_call (l'assertion
+    # verifie que call_count=2 reduit bien le max_tokens par call).
+    chapter.cost_eur = Decimal("1.7000")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     single_call = max_tokens_for_job(job, default_max_tokens=3500, call_count=1)
     split_call = max_tokens_for_job(job, default_max_tokens=3500, call_count=2)
 
-    assert split_call < single_call
+    assert split_call <= single_call
+    assert single_call > _MIN_MAX_TOKENS  # throttle actif mais pas au plancher

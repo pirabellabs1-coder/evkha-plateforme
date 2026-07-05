@@ -33,7 +33,7 @@ _DEFAULT_MAX_TOKENS = 3500
 # reecrire depuis le debut. Plafond de securite : _MAX_CONTINUATIONS appels
 # supplementaires max, pour borner le cout meme en cas de contenu anormalement
 # long (le Cost Engine tient compte de ce plafond, cf. generation/cost.py).
-_MAX_CONTINUATIONS = 3
+_MAX_CONTINUATIONS = 1
 
 
 @dataclass(frozen=True)

@@ -7,7 +7,7 @@ from django.conf import settings
 from integrations.claude import _MAX_CONTINUATIONS
 from monitoring.models import IncidentSeverity, OperationalIncident
 
-from .models import ChapterGeneration, GenerationJob
+from .models import ChapterGeneration, ChapterStatus, GenerationJob
 
 # Tarifs indicatifs EUR par token (input, output), configurables par modele (M4).
 # A verifier/ajuster avec la grille Anthropic en vigueur. Le modele actif est
@@ -110,14 +110,32 @@ def max_tokens_for_job(
     if total < _SOFT_THROTTLE_THRESHOLD_EUR:
         return default_max_tokens
 
-    _, output_eur = _pricing(model)
+    input_eur, output_eur = _pricing(model)
     remaining = job.budget_eur - total - _HARD_CAP_SAFETY_MARGIN_EUR
     if remaining <= 0:
         return _MIN_MAX_TOKENS
 
-    worst_case_calls_per_prompt = _MAX_CONTINUATIONS + 1
-    per_call_budget = remaining / (max(call_count, 1) * worst_case_calls_per_prompt)
-    allowed = int(per_call_budget / output_eur)
+    # Nombre de chapitres encore a generer : inclus dans le denominateur pour
+    # repartir equitablement le budget restant, pas seulement le chapitre courant.
+    pending_chapters = max(
+        1,
+        job.chapters.filter(
+            status__in=[ChapterStatus.PENDING, ChapterStatus.RUNNING]
+        ).count(),
+    )
+
+    # Avec multi-tour (claude.py), chaque call de continuation envoie les tokens
+    # de sortie accumules comme tokens d'entree du call suivant. Pour k continuations
+    # et T max_tokens par call, l'extra input total = T×k(k+1)/2, soit T×k/2 par
+    # slot de budget. Taux effectif reel par token = output_eur + k/2 × input_eur.
+    k = _MAX_CONTINUATIONS
+    worst_case_calls_per_prompt = k + 1
+    effective_rate = output_eur + Decimal(k) * input_eur / 2
+
+    per_call_budget = remaining / (
+        pending_chapters * max(call_count, 1) * worst_case_calls_per_prompt
+    )
+    allowed = int(per_call_budget / effective_rate)
     return max(_MIN_MAX_TOKENS, min(default_max_tokens, allowed))
 
 
