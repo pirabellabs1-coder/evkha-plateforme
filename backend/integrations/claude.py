@@ -123,11 +123,22 @@ class AnthropicClaudeClient:
             if stop_reason != "max_tokens":
                 break
 
-            # Prefill : le tour assistant deja genere devient le debut de la
-            # reponse suivante, Claude poursuit sans le repeter.
+            # Continuation multi-tour (pas de prefill : claude-sonnet-4-6 et
+            # les modeles recents rejettent les conversations terminant sur un
+            # tour assistant). On conserve le tour assistant tronque puis on
+            # ajoute un tour user qui demande de poursuivre : Claude reprend
+            # exactement apres le dernier mot sans repeter le debut.
             messages = [
                 {"role": "user", "content": prompt},
                 {"role": "assistant", "content": "".join(content_parts)},
+                {
+                    "role": "user",
+                    "content": (
+                        "Continue ta réponse depuis le point exact où tu t'es arrêté. "
+                        "Ne répète rien de ce qui a déjà été écrit. "
+                        "Reprends immédiatement après le dernier mot ou caractère."
+                    ),
+                },
             ]
 
         return ClaudeResult(
