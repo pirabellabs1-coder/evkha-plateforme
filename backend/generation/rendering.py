@@ -420,13 +420,17 @@ def render_branded_html(job: GenerationJob, *, branding: BrandingContext | None 
     if branding is None:
         branding = extract_branding(job)
 
+    from .visuals import visual_breaks_html_for
+
     document = render_client_document(job)
+    visual_breaks = visual_breaks_html_for(job.deliverable_type)
     sections_ctx = [
         {
             "number": s.number,
             "title": s.title,
             "kind": s.kind,
             "body_html": _md_to_html(s.body),
+            "visual_after_html": visual_breaks.get(s.number, ""),
         }
         for s in document.sections
     ]

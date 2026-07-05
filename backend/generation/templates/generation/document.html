@@ -249,6 +249,183 @@
       display: block; margin: 0 auto 8mm; border: 0.5pt solid var(--cream-dark);
     }
 
+    /* ── Visuels de respiration entre chapitres ─────────────── */
+    /* Injectes cote template (visuals.py) : aucun token Claude,
+       aucun risque de troncature. Palette : filets or, fond creme,
+       icones SVG en couleur secondaire. */
+    .evkha-visual {
+      margin: 6mm 0 8mm;
+      padding: 6mm 6mm 5mm;
+      background: var(--cream);
+      border-top: 1.5pt solid var(--secondary);
+      border-bottom: 0.5pt solid var(--cream-dark);
+      page-break-inside: avoid;
+    }
+    .evkha-visual__title {
+      font-size: 15pt;
+      font-weight: bold;
+      color: var(--primary);
+      text-align: center;
+      margin-bottom: 1mm;
+    }
+    .evkha-visual__subtitle {
+      font-size: 9.5pt;
+      color: var(--gray);
+      text-align: center;
+      font-style: italic;
+      margin-bottom: 5mm;
+    }
+    .evkha-visual svg {
+      width: 16pt;
+      height: 16pt;
+      color: var(--secondary);
+      fill: currentColor;
+      vertical-align: middle;
+    }
+
+    /* Variante 1 : grille de cartes a icones (2x2 ou 1x4) */
+    .evkha-visual__grid {
+      display: table;
+      width: 100%;
+      border-spacing: 3mm 0;
+    }
+    .evkha-visual__card {
+      display: table-cell;
+      width: 25%;
+      vertical-align: top;
+      padding: 4mm 3mm;
+      background: #ffffff;
+      border: 0.5pt solid var(--cream-dark);
+      border-top: 2pt solid var(--secondary);
+      text-align: center;
+    }
+    .evkha-visual__icon {
+      background: var(--secondary);
+      color: #ffffff;
+      width: 28pt;
+      height: 28pt;
+      border-radius: 50%;
+      margin: 0 auto 2.5mm;
+      text-align: center;
+      line-height: 28pt;
+    }
+    .evkha-visual__icon svg {
+      color: #ffffff;
+      width: 15pt;
+      height: 15pt;
+    }
+    .evkha-visual__card-title {
+      font-size: 10.5pt;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 1.5mm;
+    }
+    .evkha-visual__card-desc {
+      font-size: 9pt;
+      color: var(--gray);
+      line-height: 1.35;
+      text-align: center;
+    }
+
+    /* Variante 2 : podium 3 blocs (gauche bas, centre haut, droite mid) */
+    .evkha-visual__podium {
+      display: table;
+      width: 100%;
+      border-spacing: 3mm 0;
+    }
+    .evkha-visual__pillar {
+      display: table-cell;
+      width: 33.33%;
+      vertical-align: bottom;
+      padding: 5mm 3mm 4mm;
+      background: #ffffff;
+      border: 0.5pt solid var(--cream-dark);
+      text-align: center;
+    }
+    .evkha-visual__pillar--left   { background: var(--cream-dark); }
+    .evkha-visual__pillar--center { background: var(--secondary); color: #ffffff;
+                                    padding: 8mm 3mm 6mm; }
+    .evkha-visual__pillar--center .evkha-visual__pillar-title,
+    .evkha-visual__pillar--center .evkha-visual__pillar-desc { color: #ffffff; }
+    .evkha-visual__pillar--right  { background: var(--cream); }
+    .evkha-visual__pillar-icon {
+      background: #ffffff;
+      color: var(--secondary);
+      width: 32pt;
+      height: 32pt;
+      border-radius: 50%;
+      margin: 0 auto 2.5mm;
+      text-align: center;
+      line-height: 32pt;
+      border: 1pt solid var(--secondary);
+    }
+    .evkha-visual__pillar--center .evkha-visual__pillar-icon {
+      color: var(--secondary);
+      background: #ffffff;
+      border-color: #ffffff;
+    }
+    .evkha-visual__pillar-icon svg {
+      width: 16pt;
+      height: 16pt;
+      color: currentColor;
+    }
+    .evkha-visual__pillar-title {
+      font-size: 11pt;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 1.5mm;
+    }
+    .evkha-visual__pillar-desc {
+      font-size: 9pt;
+      color: var(--gray);
+      line-height: 1.35;
+      text-align: center;
+    }
+
+    /* Variante 3 : mini chronologie horizontale 3 etapes */
+    .evkha-visual__chrono {
+      display: table;
+      width: 100%;
+      border-spacing: 0;
+      position: relative;
+    }
+    .evkha-visual__step {
+      display: table-cell;
+      width: 33.33%;
+      vertical-align: top;
+      padding: 3mm 4mm 0;
+      text-align: center;
+      border-top: 2pt solid var(--secondary);
+    }
+    .evkha-visual__step-marker {
+      background: var(--secondary);
+      color: #ffffff;
+      width: 32pt;
+      height: 32pt;
+      border-radius: 50%;
+      margin: -14pt auto 3mm;
+      text-align: center;
+      line-height: 32pt;
+      border: 2pt solid var(--cream);
+    }
+    .evkha-visual__step-marker svg {
+      color: #ffffff;
+      width: 16pt;
+      height: 16pt;
+    }
+    .evkha-visual__step-title {
+      font-size: 10.5pt;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 1.5mm;
+    }
+    .evkha-visual__step-desc {
+      font-size: 9pt;
+      color: var(--gray);
+      line-height: 1.35;
+      text-align: center;
+    }
+
     /* ── Cloture "Fin de l'etude" (Bloc 5 Consignes) ──────────── */
     .closing {
       page: closing;
@@ -317,6 +494,7 @@
     <div class="chapter__filet"></div>
     <div class="chapter__body">{{ section.body_html|safe }}</div>
   </div>
+  {% if section.visual_after_html %}{{ section.visual_after_html|safe }}{% endif %}
   {% endfor %}
 
   {# Photos client (Business Plan uniquement, §14 cadrage) #}
