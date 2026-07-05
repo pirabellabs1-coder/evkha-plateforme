@@ -121,8 +121,23 @@ _ICONS: dict[str, str] = {
 }
 
 
-def _icon(name: str) -> str:
-    return _ICONS.get(name, _ICONS["spark"])
+_ICON_GOLD = "#C9A227"
+_ICON_WHITE = "#ffffff"
+
+
+def _icon(name: str, *, color: str = _ICON_GOLD) -> str:
+    """Retourne le SVG inline de l'icone avec fill hardcode.
+
+    WeasyPrint (au moins 62.x) ne resout pas `currentColor` ni `fill: currentColor`
+    en CSS via la propriete color du parent HTML : les paths SVG restent noirs.
+    Contournement fiable : injecter le hex de la couleur directement dans le SVG
+    via un <g fill="HEX"> englobant. Les enfants avec fill explicite (blanc,
+    none...) conservent leur override.
+    """
+    body = _ICONS.get(name, _ICONS["spark"])
+    open_tag_end = body.find(">") + 1
+    inner = body[open_tag_end : -len("</svg>")]
+    return f'{body[:open_tag_end]}<g fill="{color}">{inner}</g></svg>'
 
 
 # ── Modele de donnees ────────────────────────────────────────────────────────
@@ -148,10 +163,11 @@ class VisualBreak:
 
 
 def _render_icon_cards(vb: VisualBreak) -> str:
+    # Badges en cercle dore -> icones blanches.
     cards = "".join(
         (
             '<div class="evkha-visual__card">'
-            f'<div class="evkha-visual__icon">{_icon(item.icon)}</div>'
+            f'<div class="evkha-visual__icon">{_icon(item.icon, color=_ICON_WHITE)}</div>'
             f'<div class="evkha-visual__card-title">{escape(item.title)}</div>'
             f'<div class="evkha-visual__card-desc">{escape(item.description)}</div>'
             "</div>"
@@ -172,10 +188,11 @@ def _render_podium(vb: VisualBreak) -> str:
     items = list(vb.items)[:3]
     while len(items) < 3:
         items.append(VisualItem("spark", "", ""))
+    # Podium : cercles blancs avec bord or -> icones dorees dans tous les cas.
     blocks = "".join(
         (
             f'<div class="evkha-visual__pillar evkha-visual__pillar--{position}">'
-            f'<div class="evkha-visual__pillar-icon">{_icon(item.icon)}</div>'
+            f'<div class="evkha-visual__pillar-icon">{_icon(item.icon, color=_ICON_GOLD)}</div>'
             f'<div class="evkha-visual__pillar-title">{escape(item.title)}</div>'
             f'<div class="evkha-visual__pillar-desc">{escape(item.description)}</div>'
             "</div>"
@@ -192,10 +209,11 @@ def _render_podium(vb: VisualBreak) -> str:
 
 
 def _render_chronology(vb: VisualBreak) -> str:
+    # Marqueurs en cercle dore -> icones blanches.
     steps = "".join(
         (
             '<div class="evkha-visual__step">'
-            f'<div class="evkha-visual__step-marker">{_icon(item.icon)}</div>'
+            f'<div class="evkha-visual__step-marker">{_icon(item.icon, color=_ICON_WHITE)}</div>'
             f'<div class="evkha-visual__step-title">{escape(item.title)}</div>'
             f'<div class="evkha-visual__step-desc">{escape(item.description)}</div>'
             "</div>"
@@ -211,10 +229,99 @@ def _render_chronology(vb: VisualBreak) -> str:
     )
 
 
+def _render_icon_cards_left(vb: VisualBreak) -> str:
+    """Grille 2 colonnes : icone a gauche, titre + description a droite.
+
+    Style inspire de la charte des livrables strategiques haut de gamme (voir
+    modele "Typologie clients"). Chaque item occupe une cellule de tableau,
+    2 par ligne.
+    """
+    cells = "".join(
+        (
+            '<div class="evkha-visual__row">'
+            f'<div class="evkha-visual__row-icon">{_icon(item.icon, color=_ICON_GOLD)}</div>'
+            '<div class="evkha-visual__row-body">'
+            f'<div class="evkha-visual__row-title">{escape(item.title)}</div>'
+            f'<div class="evkha-visual__row-desc">{escape(item.description)}</div>'
+            "</div>"
+            "</div>"
+        )
+        for item in vb.items
+    )
+    return (
+        '<div class="evkha-visual evkha-visual--cards-left">'
+        f'<div class="evkha-visual__title">{escape(vb.title)}</div>'
+        f'<div class="evkha-visual__subtitle">{escape(vb.subtitle)}</div>'
+        f'<div class="evkha-visual__rows">{cells}</div>'
+        "</div>"
+    )
+
+
+def _render_chevron_flow(vb: VisualBreak) -> str:
+    """Flow de chevrons numerotes horizontaux (style Kenya4U "Frequence d'achat").
+
+    Chaque chevron = 1 case avec numero en gros, titre + description dessous.
+    Aspect fleche via clip-path CSS (supporte par WeasyPrint) sur le bloc SVG.
+    Rendu robuste : polygones SVG en fond, pas de clip-path (fallback CSS).
+    """
+    items = list(vb.items)[:5]
+    steps = "".join(
+        (
+            f'<div class="evkha-visual__chevron evkha-visual__chevron--{idx}">'
+            '<div class="evkha-visual__chevron-shape">'
+            '<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg" '
+            'preserveAspectRatio="none">'
+            f'<polygon points="0,0 85,0 100,30 85,60 0,60 15,30" fill="{_ICON_GOLD}"/>'
+            "</svg>"
+            f'<div class="evkha-visual__chevron-number">{idx + 1}</div>'
+            "</div>"
+            f'<div class="evkha-visual__chevron-title">{escape(item.title)}</div>'
+            f'<div class="evkha-visual__chevron-desc">{escape(item.description)}</div>'
+            "</div>"
+        )
+        for idx, item in enumerate(items)
+    )
+    return (
+        '<div class="evkha-visual evkha-visual--chevrons">'
+        f'<div class="evkha-visual__title">{escape(vb.title)}</div>'
+        f'<div class="evkha-visual__subtitle">{escape(vb.subtitle)}</div>'
+        f'<div class="evkha-visual__chevrons">{steps}</div>'
+        "</div>"
+    )
+
+
+def _render_process_circles(vb: VisualBreak) -> str:
+    """Cercles connectes horizontaux (style Kenya4U "Processus de vente").
+
+    Chaque etape = 1 cercle avec icone + label dessous. Les cercles sont
+    relies visuellement par un filet horizontal or (via ::before absolu).
+    """
+    steps = "".join(
+        (
+            '<div class="evkha-visual__circle">'
+            f'<div class="evkha-visual__circle-shape">{_icon(item.icon, color=_ICON_GOLD)}</div>'
+            f'<div class="evkha-visual__circle-label">{escape(item.title)}</div>'
+            f'<div class="evkha-visual__circle-desc">{escape(item.description)}</div>'
+            "</div>"
+        )
+        for item in vb.items
+    )
+    return (
+        '<div class="evkha-visual evkha-visual--circles">'
+        f'<div class="evkha-visual__title">{escape(vb.title)}</div>'
+        f'<div class="evkha-visual__subtitle">{escape(vb.subtitle)}</div>'
+        f'<div class="evkha-visual__circles">{steps}</div>'
+        "</div>"
+    )
+
+
 _RENDERERS = {
     "icon_cards": _render_icon_cards,
+    "icon_cards_left": _render_icon_cards_left,
     "podium": _render_podium,
     "chronology": _render_chronology,
+    "chevron_flow": _render_chevron_flow,
+    "process_circles": _render_process_circles,
 }
 
 
@@ -246,6 +353,41 @@ _MARKET_STUDY_BREAKS: tuple[VisualBreak, ...] = (
         ),
     ),
     VisualBreak(
+        after_chapter_number=5,
+        variant="chevron_flow",
+        title="Le rythme d'analyse d'un marché",
+        subtitle="Trois temps pour construire une lecture opérationnelle",
+        items=(
+            VisualItem("compass", "Cadrer", "Définir périmètre, cible et zone géographique"),
+            VisualItem("graph", "Quantifier", "Chiffrer volumes, dynamiques et segments"),
+            VisualItem("lightbulb", "Décider", "Traduire l'analyse en priorités concrètes"),
+        ),
+    ),
+    VisualBreak(
+        after_chapter_number=9,
+        variant="icon_cards_left",
+        title="Trois familles de clientèle à distinguer",
+        subtitle="Les registres d'achat que l'on retrouve dans presque tous les marchés",
+        items=(
+            VisualItem(
+                "people", "Le cœur de marché",
+                "Volume principal, standards attendus, sensibilité au rapport qualité/prix",
+            ),
+            VisualItem(
+                "spark", "Les early adopters",
+                "Curiosité forte, tolérance à l'imperfection, prescription précieuse",
+            ),
+            VisualItem(
+                "shield", "La clientèle premium",
+                "Attentes fortes en expérience et personnalisation, moins sensible au prix",
+            ),
+            VisualItem(
+                "location", "Les segments périphériques",
+                "Usages ponctuels ou de niche, potentiel réel mais moins prioritaire",
+            ),
+        ),
+    ),
+    VisualBreak(
         after_chapter_number=11,
         variant="podium",
         title="Trois leviers d'opportunité à activer",
@@ -263,6 +405,18 @@ _MARKET_STUDY_BREAKS: tuple[VisualBreak, ...] = (
                 "clock", "Timing",
                 "Un lancement calé sur les signaux favorables identifiés",
             ),
+        ),
+    ),
+    VisualBreak(
+        after_chapter_number=15,
+        variant="process_circles",
+        title="La séquence d'achat observée sur ce marché",
+        subtitle="Quatre étapes typiques du parcours client",
+        items=(
+            VisualItem("target", "Prise de conscience", "Le besoin devient explicite"),
+            VisualItem("compass", "Recherche", "Comparaison, avis, prescription"),
+            VisualItem("handshake", "Décision", "Choix d'un acteur ou d'une offre"),
+            VisualItem("spark", "Fidélisation", "Renouvellement et recommandation"),
         ),
     ),
     VisualBreak(
@@ -313,6 +467,17 @@ _COMPETITOR_STUDY_BREAKS: tuple[VisualBreak, ...] = (
         ),
     ),
     VisualBreak(
+        after_chapter_number=2,
+        variant="chevron_flow",
+        title="La lecture qualitative en trois temps",
+        subtitle="La méthode utilisée pour évaluer chaque concurrent identifié",
+        items=(
+            VisualItem("target", "Identifier", "Repérer les acteurs pertinents pour le projet"),
+            VisualItem("compass", "Analyser", "Décrypter positionnement, offre et clientèle"),
+            VisualItem("lightbulb", "Positionner", "En déduire un territoire à occuper"),
+        ),
+    ),
+    VisualBreak(
         after_chapter_number=5,
         variant="podium",
         title="Trois axes de positionnement défendables",
@@ -329,6 +494,30 @@ _COMPETITOR_STUDY_BREAKS: tuple[VisualBreak, ...] = (
             VisualItem(
                 "compass", "Spécialisation",
                 "S'imposer sur un segment précis mal servi par les leaders",
+            ),
+        ),
+    ),
+    VisualBreak(
+        after_chapter_number=6,
+        variant="icon_cards_left",
+        title="Comment lire les parts de marché estimées",
+        subtitle="Les quatre angles qui rendent la lecture opérationnelle",
+        items=(
+            VisualItem(
+                "graph", "La taille du gâteau",
+                "Ordre de grandeur du chiffre d'affaires total accessible",
+            ),
+            VisualItem(
+                "handshake", "La concentration",
+                "Nombre d'acteurs qui captent l'essentiel du marché",
+            ),
+            VisualItem(
+                "spark", "Les zones de vitalité",
+                "Segments et acteurs qui tirent la croissance",
+            ),
+            VisualItem(
+                "target", "Les fenêtres d'entrée",
+                "Écarts entre offre existante et demande réelle",
             ),
         ),
     ),
@@ -354,6 +543,29 @@ _BUSINESS_PLAN_BREAKS: tuple[VisualBreak, ...] = (
         ),
     ),
     VisualBreak(
+        after_chapter_number=5,
+        variant="chevron_flow",
+        title="La logique de construction d'un business plan",
+        subtitle="Trois étages qui doivent tenir chacun à part et ensemble",
+        items=(
+            VisualItem("target", "Le projet", "Ce que l'on veut faire, pour qui, pourquoi"),
+            VisualItem("lightbulb", "Le modèle", "Comment ça marche concrètement au quotidien"),
+            VisualItem("finance", "Les chiffres", "Ce que ça coûte, ce que ça rapporte, quand"),
+        ),
+    ),
+    VisualBreak(
+        after_chapter_number=8,
+        variant="process_circles",
+        title="Le parcours d'un client type",
+        subtitle="Quatre moments décisifs entre la découverte et la fidélisation",
+        items=(
+            VisualItem("spark", "Découverte", "Premier contact avec l'offre"),
+            VisualItem("compass", "Considération", "Comparaison et intention d'achat"),
+            VisualItem("handshake", "Achat", "Décision et transaction"),
+            VisualItem("shield", "Fidélisation", "Renouvellement et prescription"),
+        ),
+    ),
+    VisualBreak(
         after_chapter_number=11,
         variant="podium",
         title="Trois fondations pour bien démarrer",
@@ -370,6 +582,30 @@ _BUSINESS_PLAN_BREAKS: tuple[VisualBreak, ...] = (
             VisualItem(
                 "shield", "La sécurisation",
                 "Cadre juridique, financier et opérationnel maîtrisé",
+            ),
+        ),
+    ),
+    VisualBreak(
+        after_chapter_number=15,
+        variant="icon_cards_left",
+        title="Les quatre postes qui structurent le budget",
+        subtitle="Là où l'essentiel du besoin de financement se joue",
+        items=(
+            VisualItem(
+                "location", "Investissements",
+                "Matériel, aménagements, outils digitaux, dépôts de garantie",
+            ),
+            VisualItem(
+                "people", "Ressources humaines",
+                "Salaires, charges, recrutement, formation initiale",
+            ),
+            VisualItem(
+                "planning", "Fonctionnement",
+                "Loyer, énergie, communication, prestataires récurrents",
+            ),
+            VisualItem(
+                "finance", "Trésorerie de sécurité",
+                "Marge de manœuvre pour absorber le démarrage commercial",
             ),
         ),
     ),
@@ -421,6 +657,17 @@ _BUSINESS_STRATEGY_BREAKS: tuple[VisualBreak, ...] = (
         ),
     ),
     VisualBreak(
+        after_chapter_number=5,
+        variant="chevron_flow",
+        title="La séquence stratégique EVKHA",
+        subtitle="Trois temps pour bâtir une stratégie qui tient",
+        items=(
+            VisualItem("compass", "Lire", "Comprendre la position réelle et ses tensions"),
+            VisualItem("lightbulb", "Choisir", "Trancher un cap et des priorités claires"),
+            VisualItem("planning", "Exécuter", "Traduire en offres, canaux et pilotage"),
+        ),
+    ),
+    VisualBreak(
         after_chapter_number=7,
         variant="podium",
         title="Trois axes de différenciation à ancrer",
@@ -437,6 +684,42 @@ _BUSINESS_STRATEGY_BREAKS: tuple[VisualBreak, ...] = (
             VisualItem(
                 "planning", "Méthode",
                 "Une démarche structurée qui sécurise le résultat pour le client",
+            ),
+        ),
+    ),
+    VisualBreak(
+        after_chapter_number=10,
+        variant="process_circles",
+        title="La logique d'une architecture d'offre",
+        subtitle="Quatre étages qui se répondent pour couvrir tous les besoins",
+        items=(
+            VisualItem("spark", "Appel", "Une offre d'entrée qui fait découvrir"),
+            VisualItem("target", "Cœur", "L'offre principale, celle qui génère le CA"),
+            VisualItem("shield", "Fidélité", "Des offres de suivi qui retiennent"),
+            VisualItem("growth", "Premium", "Un haut de gamme qui tire la valeur perçue"),
+        ),
+    ),
+    VisualBreak(
+        after_chapter_number=13,
+        variant="icon_cards_left",
+        title="Les quatre leviers d'acquisition à combiner",
+        subtitle="Ne jamais dépendre d'une seule source de clients",
+        items=(
+            VisualItem(
+                "compass", "Réseau et prescription",
+                "Recommandations, partenariats, présence dans les cercles pertinents",
+            ),
+            VisualItem(
+                "network", "Contenu et référencement",
+                "Présence organique construite dans le temps sur les bons sujets",
+            ),
+            VisualItem(
+                "spark", "Communication payante",
+                "Accélérateur ciblé sur des campagnes calibrées et suivies",
+            ),
+            VisualItem(
+                "handshake", "Prospection directe",
+                "Approche ciblée des comptes ou décideurs à fort potentiel",
             ),
         ),
     ),

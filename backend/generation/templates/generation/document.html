@@ -426,6 +426,136 @@
       text-align: center;
     }
 
+    /* Variante 4 : grille 2 colonnes icone-gauche + texte (Kenya4U style) */
+    .evkha-visual__rows {
+      display: table;
+      width: 100%;
+      border-spacing: 4mm 3mm;
+    }
+    .evkha-visual__row {
+      display: table-row;
+    }
+    .evkha-visual__row-icon,
+    .evkha-visual__row-body {
+      display: table-cell;
+      vertical-align: top;
+      padding: 3mm 2mm;
+      background: #ffffff;
+      border-left: 2pt solid var(--secondary);
+    }
+    .evkha-visual__row-icon {
+      width: 12mm;
+      color: var(--secondary);
+      text-align: center;
+      padding-top: 4mm;
+    }
+    .evkha-visual__row-icon svg { width: 20pt; height: 20pt; }
+    .evkha-visual__row-title {
+      font-size: 11pt;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 1.5mm;
+    }
+    .evkha-visual__row-desc {
+      font-size: 9.5pt;
+      color: var(--gray);
+      line-height: 1.35;
+      text-align: left;
+    }
+
+    /* Variante 5 : chevrons numerotes horizontaux (Kenya4U "Frequence d'achat") */
+    .evkha-visual__chevrons {
+      display: table;
+      width: 100%;
+      border-spacing: 2mm 0;
+    }
+    .evkha-visual__chevron {
+      display: table-cell;
+      width: 20%;
+      vertical-align: top;
+      text-align: center;
+      padding: 0 1mm;
+    }
+    .evkha-visual__chevron-shape {
+      position: relative;
+      height: 18mm;
+      color: var(--secondary);
+      margin-bottom: 3mm;
+    }
+    .evkha-visual__chevron-shape svg {
+      width: 100%;
+      height: 100%;
+      color: currentColor;
+    }
+    .evkha-visual__chevron-number {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 18mm;
+      line-height: 18mm;
+      text-align: center;
+      color: #ffffff;
+      font-size: 18pt;
+      font-weight: bold;
+    }
+    .evkha-visual__chevron-title {
+      font-size: 10.5pt;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 1.5mm;
+    }
+    .evkha-visual__chevron-desc {
+      font-size: 9pt;
+      color: var(--gray);
+      line-height: 1.35;
+    }
+
+    /* Variante 6 : cercles connectes (Kenya4U "Processus de vente") */
+    .evkha-visual__circles {
+      display: table;
+      width: 100%;
+      border-spacing: 3mm 0;
+      border-top: 2pt solid var(--secondary);
+      padding-top: 6mm;
+      margin-top: 4mm;
+    }
+    .evkha-visual__circle {
+      display: table-cell;
+      width: 25%;
+      vertical-align: top;
+      text-align: center;
+      padding: 0 1mm;
+    }
+    .evkha-visual__circle-shape {
+      background: #ffffff;
+      color: var(--secondary);
+      width: 44pt;
+      height: 44pt;
+      border-radius: 50%;
+      border: 3pt solid var(--secondary);
+      margin: -22pt auto 3mm;
+      text-align: center;
+      line-height: 44pt;
+    }
+    .evkha-visual__circle-shape svg {
+      color: currentColor;
+      width: 22pt;
+      height: 22pt;
+      vertical-align: middle;
+    }
+    .evkha-visual__circle-label {
+      font-size: 10.5pt;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 1.5mm;
+    }
+    .evkha-visual__circle-desc {
+      font-size: 9pt;
+      color: var(--gray);
+      line-height: 1.35;
+    }
+
     /* ── Cloture "Fin de l'etude" (Bloc 5 Consignes) ──────────── */
     .closing {
       page: closing;
