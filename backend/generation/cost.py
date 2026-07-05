@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 
+from integrations.claude import _MAX_CONTINUATIONS
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .models import ChapterGeneration, GenerationJob
@@ -97,6 +98,13 @@ def max_tokens_for_job(
     en bas et default_max_tokens en haut : le job continue jusqu'au bout,
     avec des chapitres plus courts en fin de generation si necessaire, mais
     ne peut jamais atteindre ni depasser budget_eur.
+
+    ClaudeClient.complete() peut relancer jusqu'a _MAX_CONTINUATIONS appels
+    supplementaires en interne quand Claude est coupe (stop_reason ==
+    "max_tokens"), chacun pouvant lui aussi consommer tout son max_tokens en
+    sortie. Le pire cas par appel logique est donc _MAX_CONTINUATIONS + 1
+    appels : on divise le budget restant par ce facteur pour que la garantie
+    "ne jamais atteindre budget_eur" reste vraie meme avec des relances.
     """
     total = current_job_cost_eur(job)
     if total < _SOFT_THROTTLE_THRESHOLD_EUR:
@@ -107,7 +115,8 @@ def max_tokens_for_job(
     if remaining <= 0:
         return _MIN_MAX_TOKENS
 
-    per_call_budget = remaining / max(call_count, 1)
+    worst_case_calls_per_prompt = _MAX_CONTINUATIONS + 1
+    per_call_budget = remaining / (max(call_count, 1) * worst_case_calls_per_prompt)
     allowed = int(per_call_budget / output_eur)
     return max(_MIN_MAX_TOKENS, min(default_max_tokens, allowed))
 

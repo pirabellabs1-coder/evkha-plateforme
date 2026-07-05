@@ -23,6 +23,18 @@ _ANTHROPIC_MODEL_IDS: dict[str, str] = {
 # chapitres suivants dans le PDF final.
 _DEFAULT_MAX_TOKENS = 3500
 
+# Anthropic Messages API : message.stop_reason vaut "max_tokens" quand la
+# reponse est coupee par la limite de sortie (cf. doc API Anthropic, champ
+# stop_reason). Sans verification de ce champ, un contenu tronque (chapitre,
+# liste de concurrents...) est livre tel quel sans que rien ne le detecte.
+# Correctif : quand stop_reason == "max_tokens", on relance un appel en
+# ajoutant le contenu deja genere comme tour "assistant" (prefill) : l'API
+# poursuit alors la reponse exactement la ou elle s'est arretee, sans la
+# reecrire depuis le debut. Plafond de securite : _MAX_CONTINUATIONS appels
+# supplementaires max, pour borner le cout meme en cas de contenu anormalement
+# long (le Cost Engine tient compte de ce plafond, cf. generation/cost.py).
+_MAX_CONTINUATIONS = 3
+
 
 @dataclass(frozen=True)
 class ClaudeResult:
@@ -32,6 +44,7 @@ class ClaudeResult:
     input_tokens: int
     output_tokens: int
     model: str
+    stop_reason: str = "end_turn"
 
 
 @runtime_checkable
@@ -83,22 +96,46 @@ class AnthropicClaudeClient:
 
         model_id = _resolve_anthropic_model_id(self._model_alias)
         client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model=model_id,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        content = "".join(
-            str(getattr(block, "text", ""))
-            for block in message.content
-            if getattr(block, "type", "") == "text"
-        )
+
+        content_parts: list[str] = []
+        total_input = 0
+        total_output = 0
+        stop_reason = "end_turn"
+        messages: list[dict[str, str]] = [{"role": "user", "content": prompt}]
+
+        for _ in range(_MAX_CONTINUATIONS + 1):
+            message = client.messages.create(
+                model=model_id,
+                max_tokens=max_tokens,
+                system=system,
+                messages=messages,  # type: ignore[arg-type]
+            )
+            chunk = "".join(
+                str(getattr(block, "text", ""))
+                for block in message.content
+                if getattr(block, "type", "") == "text"
+            )
+            content_parts.append(chunk)
+            total_input += int(message.usage.input_tokens)
+            total_output += int(message.usage.output_tokens)
+            stop_reason = str(message.stop_reason)
+
+            if stop_reason != "max_tokens":
+                break
+
+            # Prefill : le tour assistant deja genere devient le debut de la
+            # reponse suivante, Claude poursuit sans le repeter.
+            messages = [
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": "".join(content_parts)},
+            ]
+
         return ClaudeResult(
-            content=content,
-            input_tokens=int(message.usage.input_tokens),
-            output_tokens=int(message.usage.output_tokens),
+            content="".join(content_parts),
+            input_tokens=total_input,
+            output_tokens=total_output,
             model=self._model_alias,
+            stop_reason=stop_reason,
         )
 
 

@@ -380,10 +380,20 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
     ),
     "ec.01.identification": (
         "Identification rigoureuse des concurrents directs (meme offre, meme "
-        "cible) et indirects (substituts). Selectionne les 8 directs les plus "
-        "influents et les 3 indirects les plus strategiques. Pour chacun : nom, "
-        "emplacement precis, site web. Termine par une base consolidee (type, "
-        "structure, positionnement, CA connu ou estime + fiabilite)."
+        "cible) et indirects (substituts). Le nombre final DOIT toujours etre "
+        "EXACTEMENT 8 concurrents directs et 3 indirects, ni plus, ni moins. "
+        "Si VARIABLES_PROJET.CONCURRENTS propose des noms, ne les traite jamais "
+        "tous integralement : selectionne parmi eux les 8 directs et les 3 "
+        "indirects les plus pertinents pour ce projet (proximite d'offre, de "
+        "cible, d'implantation), meme si la liste en propose davantage (10, 15, "
+        "20...). Si cette liste est vide, trop vague ou insuffisante pour "
+        "atteindre 8 directs + 3 indirects, complete-la toi-meme avec des "
+        "acteurs reels et plausibles du secteur et de la zone du projet pour "
+        "atteindre exactement ce nombre, et poursuis l'etude normalement : ne "
+        "t'arrete jamais et ne reduis jamais le nombre de concurrents traites "
+        "faute d'indication du client. Pour chacun : nom, emplacement precis, "
+        "site web. Termine par une base consolidee (type, structure, "
+        "positionnement, CA connu ou estime + fiabilite)."
     ),
     "ec.02.classement_qualitatif": (
         "Classement et analyse qualitative : presence geographique, structure, "
