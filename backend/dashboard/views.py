@@ -351,6 +351,38 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
     return _json({"job_id": str(job.id), "status": job.status}, status=202)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def job_cancel(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Annule un job en cours ou en attente depuis le dashboard.
+
+    Le statut passe à CANCELLED immédiatement. Si un worker Celery traite
+    encore le job, il s'arrêtera proprement après le chapitre en cours
+    (le runner vérifie le statut avant chaque nouveau chapitre).
+    Les chapitres non commencés (PENDING) sont marqués FAILED.
+    """
+    try:
+        job = GenerationJob.objects.get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    cancellable = (JobStatus.PENDING, JobStatus.RUNNING)
+    if job.status not in cancellable:
+        return _json(
+            {"error": f"Ce job ne peut pas être annulé (statut : {job.status})."},
+            status=400,
+        )
+
+    GenerationJob.objects.filter(pk=job.pk).update(status=JobStatus.CANCELLED)
+    job.chapters.filter(status=ChapterStatus.PENDING).update(
+        status=ChapterStatus.FAILED,
+        error_message="Job annulé manuellement.",
+    )
+    return _json({"job_id": str(job.id), "status": "cancelled"})
+
+
 # ---------------------------------------------------------------------------
 # Incidents
 # ---------------------------------------------------------------------------

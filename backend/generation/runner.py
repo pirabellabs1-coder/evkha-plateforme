@@ -73,6 +73,11 @@ def run_generation_job(
 
     chapters = job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")
     for chapter in chapters:
+        # Vérification annulation entre chaque chapitre (check DB allégé)
+        job.refresh_from_db(fields=["status"])
+        if job.status == JobStatus.CANCELLED:
+            return job
+
         try:
             _generate_chapter(job, chapter, client=client, system_prompt=system_prompt)
         except CostBudgetExceededError as exc:
@@ -87,6 +92,11 @@ def run_generation_job(
             _fail(job, chapter, exc, title=f"Echec generation chapitre {chapter.chapter_number}")
             msg = f"Generation failed on chapter {chapter.chapter_number}: {exc}"
             raise GenerationRunError(msg) from exc
+
+    # Ne pas écraser une annulation demandée pendant la dernière génération
+    job.refresh_from_db(fields=["status"])
+    if job.status == JobStatus.CANCELLED:
+        return job
 
     job.status = JobStatus.DONE
     job.completed_at = timezone.now()

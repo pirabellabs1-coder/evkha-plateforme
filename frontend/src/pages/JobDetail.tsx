@@ -234,6 +234,35 @@ function JobActions({ job, jobId }: { job: JobDetailType; jobId: string }) {
   );
 }
 
+function CancelButton({ jobId }: { jobId: string }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => api.jobCancel(jobId),
+    onSuccess: () => {
+      setError(null);
+      queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const handleClick = () => {
+    if (!window.confirm("Annuler ce job ? Le chapitre en cours finira, puis la génération s'arrêtera.")) return;
+    mutation.mutate();
+  };
+
+  return (
+    <Flex direction="column" align="end" gap="1">
+      <Button size="2" variant="soft" color="red" loading={mutation.isPending} onClick={handleClick}>
+        Annuler le job
+      </Button>
+      {error && <Text size="1" color="red">{error}</Text>}
+    </Flex>
+  );
+}
+
 function RelaunchButton({ jobId }: { jobId: string }) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -280,6 +309,7 @@ export function JobDetail() {
   );
   const overBudget = parseFloat(data.total_cost_eur) > parseFloat(data.budget_eur);
   const canRelaunch = data.status === "failed" || data.status === "cancelled";
+  const canCancel = data.status === "running" || data.status === "pending";
 
   return (
     <Box>
@@ -300,6 +330,7 @@ export function JobDetail() {
             {STATUS_LABELS[data.status] ?? data.status}
           </Badge>
         </Flex>
+        {canCancel && <CancelButton jobId={jobId} />}
         {canRelaunch && <RelaunchButton jobId={jobId} />}
         {data.status === "done" && <JobActions job={data} jobId={jobId} />}
       </Flex>

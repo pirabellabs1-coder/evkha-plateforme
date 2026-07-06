@@ -220,6 +220,7 @@ export const api = {
   overview:           () => get<OverviewData>("/overview/"),
   jobs:               (status?: string) => get<JobSummary[]>("/jobs/", status ? { status } : undefined),
   job:                (id: string) => get<JobDetail>(`/jobs/${id}/`),
+  jobCancel:          (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/cancel/`, {}),
   jobRelaunch:        (id: string) => post<GenerateResponse>(`/jobs/${id}/relaunch/`, {}),
   jobRedeliver:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/redeliver/`, {}),
   jobSendEmail:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/send-email/`, {}),
