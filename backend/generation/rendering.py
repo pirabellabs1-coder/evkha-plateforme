@@ -395,6 +395,26 @@ def _md_to_html(text: str) -> str:
             out.append("<ol>" + "".join(ol_items) + "</ol>")
             continue
 
+        # ── Code fence (```lang ... ```) ─────────────────────────────────────
+        # Claude peut envelopper du HTML dans ```html ... ```. On dépouille
+        # les marqueurs de fence : les blocs ```html sont passés tels quels
+        # (HTML brut déjà structuré), les autres langages sont supprimés
+        # silencieusement (JSON, Python, etc. n'ont pas leur place en livrable).
+        m_fence = re.match(r"^```(\w*)\s*$", line)
+        if m_fence:
+            lang = m_fence.group(1).lower()
+            i += 1
+            fence_lines: list[str] = []
+            while i < len(lines) and not re.match(r"^```\s*$", lines[i]):
+                fence_lines.append(lines[i])
+                i += 1
+            if i < len(lines):
+                i += 1  # saute la fence fermante
+            if lang in ("html", ""):
+                out.append("\n".join(fence_lines))
+            # autres langages (python, json…) → supprimés
+            continue
+
         # ── Ligne vide ───────────────────────────────────────────────────────
         if not line.strip():
             out.append("")
@@ -429,8 +449,14 @@ def render_branded_html(job: GenerationJob, *, branding: BrandingContext | None 
             "number": s.number,
             "title": s.title,
             "kind": s.kind,
-            "body_html": _md_to_html(s.body),
-            "visual_after_html": visual_breaks.get(s.number, ""),
+            # close_dangling_html_tags appliqué une seconde fois sur le HTML
+            # final (après _md_to_html) pour rattraper les tags ouverts que
+            # la conversion Markdown → HTML aurait introduits (ex: passthrough
+            # d'un bloc HTML tronqué).
+            "body_html": close_dangling_html_tags(_md_to_html(s.body)),
+            # Idem sur les visual breaks : un <table> non fermé dans un break
+            # absorberait tous les chapitres suivants dans WeasyPrint.
+            "visual_after_html": close_dangling_html_tags(visual_breaks.get(s.number, "")),
         }
         for s in document.sections
     ]
