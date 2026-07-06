@@ -20,13 +20,12 @@ MODEL_PRICING_EUR: dict[str, tuple[Decimal, Decimal]] = {
 _FALLBACK_MODEL = "claude-sonnet"
 
 # Regle d'or #1 — BUDGET STRICT 2 EUR MAX, PAS UN CENTIME DE PLUS :
-#   - Sous 1.00 EUR : generation libre (max_tokens par defaut).
-#   - Entre 1.00 EUR et budget_eur : bridage progressif des max_tokens
-#     pour ne jamais atteindre budget_eur meme dans le pire cas.
+#   - Throttle actif des le premier chapitre (seuil = 0 EUR) : chaque appel
+#     Claude ne peut consommer qu'une fraction equitable du budget restant.
 #   - Des que total_cost > budget_eur : arret immediat, CostBudgetExceededError.
 #     Le chapitre en cours est sauvegarde tel quel (le cout a deja ete engage
 #     cote Anthropic), mais aucun chapitre suivant ne demarre.
-_SOFT_THROTTLE_THRESHOLD_EUR = Decimal("1.0")
+_SOFT_THROTTLE_THRESHOLD_EUR = Decimal("0")  # throttle actif des le 1er chapitre
 _HARD_CAP_SAFETY_MARGIN_EUR = Decimal("0.02")
 _MIN_MAX_TOKENS = 400
 
@@ -90,21 +89,24 @@ def max_tokens_for_job(
 ) -> int:
     """Max_tokens a utiliser pour le(s) prochain(s) appel(s) Claude du job.
 
-    Sous le seuil de 1.70 EUR : aucune limitation, max_tokens par defaut.
-    Au-dela : le budget restant jusqu'a budget_eur (moins une marge de
-    securite) est reparti sur `call_count` appels a venir (ex: les sections
-    d'un meme chapitre decoupe), en pire cas (chaque appel consomme tout son
+    Le budget restant (budget_eur - cout_cumule - marge) est reparti sur la
+    totalite des appels restants en pire cas (chaque appel consomme tout son
     max_tokens en sortie). Le resultat est toujours borne par _MIN_MAX_TOKENS
-    en bas et default_max_tokens en haut : le job continue jusqu'au bout,
-    avec des chapitres plus courts en fin de generation si necessaire, mais
-    ne peut jamais atteindre ni depasser budget_eur.
+    en bas et default_max_tokens en haut.
+
+    Calcul du nombre total de slots restants :
+      - Ce chapitre : call_count sections × worst_case_calls_per_prompt
+      - Autres chapitres en attente : (pending - 1) × 1 × worst_case_calls_per_prompt
+        (on suppose conservativement qu'ils n'ont qu'une seule section chacun)
+
+    Cette formule — vs l'ancienne (pending × call_count × worst_case) — evite
+    de surpenaliser les chapitres decoupe en sections : seul LE chapitre courant
+    voit son call_count reel ; les autres sont comptes a 1 section.
 
     ClaudeClient.complete() peut relancer jusqu'a _MAX_CONTINUATIONS appels
-    supplementaires en interne quand Claude est coupe (stop_reason ==
-    "max_tokens"), chacun pouvant lui aussi consommer tout son max_tokens en
-    sortie. Le pire cas par appel logique est donc _MAX_CONTINUATIONS + 1
-    appels : on divise le budget restant par ce facteur pour que la garantie
-    "ne jamais atteindre budget_eur" reste vraie meme avec des relances.
+    supplementaires (worst_case_calls_per_prompt = k+1).
+    Taux effectif reel par token = output_eur + k/2 × input_eur
+    (la continuation renvoie l'output precedent en input).
     """
     total = current_job_cost_eur(job)
     if total < _SOFT_THROTTLE_THRESHOLD_EUR:
@@ -115,8 +117,6 @@ def max_tokens_for_job(
     if remaining <= 0:
         return _MIN_MAX_TOKENS
 
-    # Nombre de chapitres encore a generer : inclus dans le denominateur pour
-    # repartir equitablement le budget restant, pas seulement le chapitre courant.
     pending_chapters = max(
         1,
         job.chapters.filter(
@@ -124,17 +124,16 @@ def max_tokens_for_job(
         ).count(),
     )
 
-    # Avec multi-tour (claude.py), chaque call de continuation envoie les tokens
-    # de sortie accumules comme tokens d'entree du call suivant. Pour k continuations
-    # et T max_tokens par call, l'extra input total = T×k(k+1)/2, soit T×k/2 par
-    # slot de budget. Taux effectif reel par token = output_eur + k/2 × input_eur.
     k = _MAX_CONTINUATIONS
     worst_case_calls_per_prompt = k + 1
     effective_rate = output_eur + Decimal(k) * input_eur / 2
 
-    per_call_budget = remaining / (
-        pending_chapters * max(call_count, 1) * worst_case_calls_per_prompt
-    )
+    # Slots : sections du chapitre courant + 1 slot par chapitre restant
+    this_chapter_slots = max(call_count, 1) * worst_case_calls_per_prompt
+    other_chapters_slots = (pending_chapters - 1) * worst_case_calls_per_prompt
+    total_slots = this_chapter_slots + other_chapters_slots
+
+    per_call_budget = remaining / max(total_slots, 1)
     allowed = int(per_call_budget / effective_rate)
     return max(_MIN_MAX_TOKENS, min(default_max_tokens, allowed))
 

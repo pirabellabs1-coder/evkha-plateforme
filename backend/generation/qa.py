@@ -31,6 +31,12 @@ _CODE_FENCE_RE = re.compile(r"```")
 _TABLE_OPEN_RE = re.compile(r"<table\b", re.IGNORECASE)
 _TABLE_CLOSE_RE = re.compile(r"</table>", re.IGNORECASE)
 
+# Détecte les sous-titres numérotés style "### 3.1" ou "## 3.1" ou "**3.1"
+_SUBSECTION_HEADING_RE = re.compile(
+    r"^(?:#{1,4}\s+|(?:\*\*)?)\d+\.(\d+)(?:\s|\*|\.|:)",
+    re.MULTILINE,
+)
+
 # Balises de bloc ouvertes sans fermeture → absorbent le contenu suivant
 _DANGLING_BLOCK_RE = re.compile(
     r"<(?:td|th|tr|li|p|div|ul|ol|section|thead|tbody|tfoot)\b[^>]*>[^<]*$",
@@ -200,6 +206,18 @@ def detect_violations(
             "conversational_ai", "quality",
             "Tournure IA bannie détectée (il apparaît que / dynamique porteuse…)",
         ))
+
+    # 11. Gaps dans la numérotation des sous-sections (ex : 3.1 → 3.6 puis stop)
+    sub_numbers = [int(m.group(1)) for m in _SUBSECTION_HEADING_RE.finditer(content)]
+    if len(sub_numbers) >= 2:
+        expected = set(range(1, max(sub_numbers) + 1))
+        missing = sorted(expected - set(sub_numbers))
+        if missing:
+            violations.append(ConditionViolation(
+                "missing_subsections", "critical",
+                f"Sous-sections manquantes : numéros {missing} "
+                f"(trouvés jusqu'à {max(sub_numbers)})",
+            ))
 
     return violations
 

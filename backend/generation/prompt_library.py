@@ -400,11 +400,37 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
         "positionnement. Pour les 8 directs, 3 forces et 3 faiblesses + une "
         "valeur ajoutee differenciante pour le projet. Idem pour les 3 indirects."
     ),
+    # ec.03 est decoupe en 2 sections pour garantir la couverture complete
+    # des 8 directs + 3 indirects sans troncature.
     "ec.03.approfondissement": (
-        "Approfondissement strategique par concurrent : positionnement global, "
-        "synthese des avis clients (positifs/negatifs + enseignements), "
-        "innovations, technologies (e-commerce, CRM, IA...), tendances suivies, "
-        "initiatives RSE."
+        "Ce chapitre est genere en deux sections distinctes. "
+        "Ne pas utiliser ce prompt directement."
+    ),
+    "ec.03.a.directs": (
+        "Approfondissement strategique des 8 CONCURRENTS DIRECTS identifies au chapitre 1. "
+        "Traite IMPERATIVEMENT chacun des 8, dans leur ordre d'apparition au chapitre 1, "
+        "sans en sauter ni en fusionner. "
+        "Pour chaque concurrent direct (numeroter les sous-titres : ### 3.1, ### 3.2... ### 3.8) : "
+        "— Positionnement global (proposition de valeur, cible, prix, geographie) "
+        "— Synthese des avis clients reels : points forts recurrents, points negatifs recurrents, "
+        "   enseignements actionnables pour le projet "
+        "— Innovations et technologies deployees (e-commerce, CRM, IA, outils digitaux) "
+        "— Tendances et orientations strategiques recentes "
+        "— Initiatives RSE et engagement societaux "
+        "Si tu n'as pas encore traite le concurrent 8, continue — ne t'arrete pas avant."
+    ),
+    "ec.03.b.indirects": (
+        "Approfondissement strategique des 3 CONCURRENTS INDIRECTS identifies au chapitre 1. "
+        "Traite IMPERATIVEMENT les 3, dans leur ordre d'apparition au chapitre 1. "
+        "Pour chaque concurrent indirect (sous-titres : ### 3.9, ### 3.10, ### 3.11) : "
+        "— Nature de la concurrence indirecte "
+        "(en quoi ils captent une partie de la clientele cible) "
+        "— Positionnement global et proposition de valeur "
+        "— Synthese des avis clients et enseignements pour le projet "
+        "— Innovations ou avantages comparatifs notables "
+        "— Ce que leur modele implique strategiquement pour le projet "
+        "Termine la section par un paragraphe de synthese comparant concurrents directs "
+        "et indirects : zones de friction, d'opportunite et lecons strategiques globales."
     ),
     "ec.04.positionnement_annexes": (
         "Positionnement differenciant recommande pour le projet face aux "

@@ -105,7 +105,12 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(0, "Fiche projet", "ec.00.fiche_projet", SectionKind.OPENING),
     ChapterBlueprint(1, "Identification des concurrents", "ec.01.identification"),
     ChapterBlueprint(2, "Classement et analyse qualitative", "ec.02.classement_qualitatif"),
-    ChapterBlueprint(3, "Approfondissement stratégique", "ec.03.approfondissement"),
+    ChapterBlueprint(
+        3,
+        "Approfondissement stratégique",
+        "ec.03.approfondissement",
+        sections=("ec.03.a.directs", "ec.03.b.indirects"),
+    ),
     ChapterBlueprint(
         4, "Positionnement recommandé et annexes stratégiques", "ec.04.positionnement_annexes"
     ),
