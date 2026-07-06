@@ -19,18 +19,16 @@ MODEL_PRICING_EUR: dict[str, tuple[Decimal, Decimal]] = {
 }
 _FALLBACK_MODEL = "claude-sonnet"
 
-# Regle d'or #1 durcie :
+# Regle d'or #1 — BUDGET STRICT 2 EUR MAX, PAS UN CENTIME DE PLUS :
 #   - Sous 1.00 EUR : generation libre (max_tokens par defaut).
-#   - Entre 1.00 EUR et budget_eur : bridage progressif des max_tokens pour
-#     ne jamais depasser budget_eur meme dans le pire cas (chaque appel
-#     restant consomme entierement son max_tokens). Marge de securite incluse.
-#   - Au-dela de 1.20 × budget_eur : arret dur (circuit breaker). Un depassement
-#     de 20% est la limite acceptable ; au-dela le livrable est de toute facon
-#     compromis et continuer ne fait qu'aggraver la depense.
+#   - Entre 1.00 EUR et budget_eur : bridage progressif des max_tokens
+#     pour ne jamais atteindre budget_eur meme dans le pire cas.
+#   - Des que total_cost > budget_eur : arret immediat, CostBudgetExceededError.
+#     Le chapitre en cours est sauvegarde tel quel (le cout a deja ete engage
+#     cote Anthropic), mais aucun chapitre suivant ne demarre.
 _SOFT_THROTTLE_THRESHOLD_EUR = Decimal("1.0")
 _HARD_CAP_SAFETY_MARGIN_EUR = Decimal("0.02")
 _MIN_MAX_TOKENS = 400
-_CIRCUIT_BREAKER_MULTIPLIER = Decimal("1.20")
 
 
 class CostBudgetExceededError(RuntimeError):
@@ -142,16 +140,18 @@ def max_tokens_for_job(
 
 
 def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) -> None:
-    """Alert on budget overrun; hard stop only at 3× budget (circuit breaker).
+    """Arret immediat si total > budget_eur. Budget MAX = 2 EUR, STRICT, SANS TOLERANCE.
 
-    Un depassement modere (< 3x) ouvre un incident de monitoring mais laisse
-    la generation continuer : mieux vaut un livrable complet legerement au-dessus
-    du budget qu'un livrable tronque. L'arret dur a 3x protege contre un emballement.
+    Des que le cumul des chapitres depasse budget_eur, CostBudgetExceededError est
+    leve et la generation s'arrete. Le chapitre qui a declenche le depassement est
+    deja sauvegarde (le cout a ete engage cote Anthropic) mais aucun chapitre
+    suivant ne demarre.
     """
     total = current_total if current_total is not None else job.total_cost_eur
     if total <= job.budget_eur:
         return
 
+    # Un seul incident par job — pas de spam.
     if not OperationalIncident.objects.filter(
         title__startswith="Budget IA depasse",
         job=job,
@@ -167,11 +167,8 @@ def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) 
             },
         )
 
-    # Circuit breaker : arret dur a 1.20× le budget (20% de depassement max).
-    # Au-dela, continuer ne fait qu'aggraver la depense sans ameliorer le livrable.
-    if total > job.budget_eur * _CIRCUIT_BREAKER_MULTIPLIER:
-        msg = (
-            f"Cost budget exceeded (circuit breaker): {total} EUR "
-            f"> {job.budget_eur} EUR × {_CIRCUIT_BREAKER_MULTIPLIER} (job {job.id})"
-        )
-        raise CostBudgetExceededError(msg)
+    msg = (
+        f"Budget strict depasse : {total} EUR > {job.budget_eur} EUR (job {job.id}). "
+        "Generation stoppee immediatement."
+    )
+    raise CostBudgetExceededError(msg)
