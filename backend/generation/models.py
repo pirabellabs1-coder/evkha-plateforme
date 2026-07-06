@@ -34,10 +34,23 @@ class FactKind(models.TextChoices):
     COMPETITOR = "competitor", "Concurrent"
 
 
+class QAStatus(models.TextChoices):
+    PENDING = "pending", "En attente"
+    RUNNING = "running", "En cours"
+    PASSED = "passed", "Validé"
+    FAILED = "failed", "Echec partiel"
+
+
 class GenerationJob(UUIDModel):
     order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="generation_job")
     deliverable_type = models.CharField(max_length=32, choices=DeliverableType.choices)
     status = models.CharField(max_length=16, choices=JobStatus.choices, default=JobStatus.PENDING)
+    qa_status = models.CharField(
+        max_length=16,
+        choices=QAStatus.choices,
+        default=QAStatus.PENDING,
+        help_text="Statut de la passe QA post-génération (correction automatique des chapitres).",
+    )
     budget_eur = models.DecimalField(max_digits=8, decimal_places=4, default=Decimal("2.0000"))
     total_cost_eur = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal("0.0000"))
     context_summary = models.TextField(blank=True)
