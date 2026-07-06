@@ -277,7 +277,12 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
 @csrf_exempt
 @require_http_methods(["POST"])
 def job_redeliver(request: HttpRequest, job_id: str) -> JsonResponse:
-    """Relance la livraison complète (PDF + email) depuis le dashboard."""
+    """Relance la livraison depuis le dashboard.
+
+    - Job DONE  → PDF + email client (livraison complète).
+    - Job FAILED → PDF uniquement (admin), sans email au client.
+      Cas typique : budget dépassé en fin de génération, document complet ou quasi-complet.
+    """
     try:
         job = GenerationJob.objects.get(id=job_id)
     except GenerationJob.DoesNotExist:
@@ -285,15 +290,26 @@ def job_redeliver(request: HttpRequest, job_id: str) -> JsonResponse:
     except Exception:
         return _json({"error": "Invalid job id."}, status=400)
 
-    if job.status != JobStatus.DONE:
-        return _json(
-            {"error": f"Seuls les jobs terminés peuvent être relivrés (statut : {job.status})."},
-            status=400,
-        )
+    if job.status == JobStatus.DONE:
+        from delivery.tasks import deliver_job_task  # noqa: PLC0415
+        deliver_job_task.delay(str(job.id))
+        return _json({"job_id": str(job.id), "status": "delivery_queued"}, status=202)
 
-    from delivery.tasks import deliver_job_task  # noqa: PLC0415
-    deliver_job_task.delay(str(job.id))
-    return _json({"job_id": str(job.id), "status": "delivery_queued"}, status=202)
+    if job.status == JobStatus.FAILED:
+        has_chapters = job.chapters.filter(status=ChapterStatus.DONE).exists()
+        if not has_chapters:
+            return _json(
+                {"error": "Aucun chapitre généré, impossible de produire le PDF."},
+                status=400,
+            )
+        from delivery.tasks import generate_pdf_for_failed_job_task  # noqa: PLC0415
+        generate_pdf_for_failed_job_task.delay(str(job.id))
+        return _json({"job_id": str(job.id), "status": "pdf_queued"}, status=202)
+
+    return _json(
+        {"error": f"Statut non supporté pour cette action : {job.status}."},
+        status=400,
+    )
 
 
 @csrf_exempt

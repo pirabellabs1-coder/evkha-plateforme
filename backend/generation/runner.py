@@ -17,6 +17,7 @@ from .coherence import (
 from .cost import CostBudgetExceededError, max_tokens_for_job, record_chapter_cost
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
+from .qa import detect_violations, repair_rule_based
 
 _SUMMARY_MAX_CHARS = 320
 _SOURCES_SPLIT = re.compile(r"\n\s*sources\b", re.IGNORECASE)
@@ -80,6 +81,9 @@ def run_generation_job(
 
         try:
             _generate_chapter(job, chapter, client=client, system_prompt=system_prompt)
+            # QA rule-based immédiate : corrections automatiques sans appel IA.
+            # Les violations critiques restantes sont traitées par le QA final (IA).
+            _inline_qa_repair(chapter)
         except CostBudgetExceededError as exc:
             # L'incident budget est deja ouvert par le Cost Engine ; le chapitre
             # courant a un contenu valide. On stoppe juste le job proprement.
@@ -102,6 +106,32 @@ def run_generation_job(
     job.completed_at = timezone.now()
     job.save(update_fields=["status", "completed_at", "updated_at"])
     return job
+
+
+def _inline_qa_repair(chapter: ChapterGeneration) -> bool:
+    """QA rule-based immediate apres generation d'un chapitre.
+
+    Applique les corrections automatiques (code fences, balises orphelines,
+    marqueurs pipeline...) directement apres la generation, sans appel IA.
+    Retourne True si des violations critiques persistent apres correction
+    (signal pour le QA final qui pourra tenter une reparation IA).
+    """
+    content = chapter.content
+    if not content or not content.strip():
+        return True
+
+    violations = detect_violations(content, chapter.prompt_key, chapter.chapter_number)
+    if not violations:
+        return False
+
+    repaired, _fixes = repair_rule_based(content, chapter.prompt_key, chapter.chapter_number)
+    if repaired != content:
+        chapter.content = repaired
+        chapter.save(update_fields=["content", "updated_at"])
+        # Re-détection sur le contenu réparé pour savoir si des critiques subsistent
+        violations = detect_violations(repaired, chapter.prompt_key, chapter.chapter_number)
+
+    return any(v.severity == "critical" for v in violations)
 
 
 def _generate_chunked(

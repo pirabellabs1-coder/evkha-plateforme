@@ -246,6 +246,37 @@ def ensure_gamma_artifacts(
     )
 
 
+def generate_pdf_for_failed_job(
+    job: GenerationJob,
+    *,
+    pdf_client: PdfClient | None = None,
+) -> DocumentArtifact:
+    """Genere le PDF admin d'un job FAILED (budget depasse) sans envoyer d'email.
+
+    Permet a l'admin de telecharger le livrable partiel ou complet meme quand
+    la generation a ete interrompue par le circuit breaker budget.
+    N'envoie PAS d'email au client. Ne marque pas la commande DELIVERED.
+    """
+    if job.status != JobStatus.FAILED:
+        msg = f"generate_pdf_for_failed_job attend un job FAILED, recu {job.status}."
+        raise DeliveryError(msg)
+
+    from documents.services import assemble_document  # noqa: PLC0415
+    pdf_client = pdf_client or get_pdf_client()
+    try:
+        assembly = assemble_document(job, pdf_client=pdf_client)
+        return assembly.pdf
+    except Exception as exc:
+        OperationalIncident.objects.create(
+            title=f"Erreur generation PDF (job failed) {job.id}",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={"error": str(exc)},
+        )
+        raise DeliveryError(str(exc)) from exc
+
+
 def deliver_job(
     job: GenerationJob,
     *,

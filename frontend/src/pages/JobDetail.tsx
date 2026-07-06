@@ -139,7 +139,7 @@ function duration(start: string | null, end: string | null): string {
   return `${m}min ${s % 60}s`;
 }
 
-function JobActions({ job, jobId }: { job: JobDetailType; jobId: string }) {
+function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId: string; pdfOnly?: boolean }) {
   const queryClient = useQueryClient();
   const [emailQueued, setEmailQueued] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -170,7 +170,6 @@ function JobActions({ job, jobId }: { job: JobDetailType; jobId: string }) {
     onSuccess: () => {
       setEmailError(null);
       setEmailQueued(true);
-      // Rafraîchit toutes les 3s jusqu'à confirmation delivery "sent"
       const timer = setInterval(() => {
         queryClient.invalidateQueries({ queryKey: ["job", jobId] });
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
@@ -193,6 +192,9 @@ function JobActions({ job, jobId }: { job: JobDetailType; jobId: string }) {
 
   return (
     <Flex direction="column" align="end" gap="2">
+      {pdfOnly && (
+        <Text size="1" color="orange">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</Text>
+      )}
       <Flex gap="2" wrap="wrap" justify="end">
         {!hasPdf && (
           <Button
@@ -217,16 +219,18 @@ function JobActions({ job, jobId }: { job: JobDetailType; jobId: string }) {
             Télécharger le PDF
           </Button>
         )}
-        <Button
-          size="2"
-          variant="soft"
-          color={emailSent && !pendingConfirmation ? "green" : "blue"}
-          loading={emailMutation.isPending}
-          disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
-          onClick={() => emailMutation.mutate()}
-        >
-          {emailLabel}
-        </Button>
+        {!pdfOnly && (
+          <Button
+            size="2"
+            variant="soft"
+            color={emailSent && !pendingConfirmation ? "green" : "blue"}
+            loading={emailMutation.isPending}
+            disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
+            onClick={() => emailMutation.mutate()}
+          >
+            {emailLabel}
+          </Button>
+        )}
       </Flex>
       {redeliverError && <Text size="1" color="red">{redeliverError}</Text>}
       {emailError && <Text size="1" color="red">{emailError}</Text>}
@@ -310,6 +314,9 @@ export function JobDetail() {
   const overBudget = parseFloat(data.total_cost_eur) > parseFloat(data.budget_eur);
   const canRelaunch = data.status === "failed" || data.status === "cancelled";
   const canCancel = data.status === "running" || data.status === "pending";
+  // Job FAILED avec au moins un chapitre terminé : PDF admin téléchargeable, sans email
+  const hasAnyDoneChapter = data.chapters.some((c) => c.status === "done");
+  const showPdfOnly = data.status === "failed" && hasAnyDoneChapter;
 
   return (
     <Box>
@@ -333,6 +340,7 @@ export function JobDetail() {
         {canCancel && <CancelButton jobId={jobId} />}
         {canRelaunch && <RelaunchButton jobId={jobId} />}
         {data.status === "done" && <JobActions job={data} jobId={jobId} />}
+        {showPdfOnly && <JobActions job={data} jobId={jobId} pdfOnly />}
       </Flex>
 
       <Pipeline job={data} />

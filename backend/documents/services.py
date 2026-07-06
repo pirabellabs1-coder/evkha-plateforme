@@ -47,7 +47,8 @@ def assemble_document(
     2. pdf_client.generate()  → HTML + PDF écrits dans MEDIA_ROOT (ou stub)
     3. update_or_create LINK (HTML) + PDF dans DocumentArtifact
     """
-    if job.status != JobStatus.DONE:
+    allowed_statuses = (JobStatus.DONE, JobStatus.FAILED)
+    if job.status not in allowed_statuses:
         msg = f"Cannot assemble document for job in status {job.status}."
         raise DocumentAssemblyError(msg)
 
