@@ -468,8 +468,11 @@ def run_qa_pass(
     Non bloquante : une erreur sur un chapitre ne stoppe pas les autres.
     Retourne un rapport QA par chapitre (pour monitoring / admin django).
     """
+    from decimal import Decimal
+
     from integrations.claude import get_claude_client
 
+    from .cost import current_job_cost_eur
     from .models import ChapterStatus, GenerationJob
     from .rendering import close_dangling_html_tags
 
@@ -477,6 +480,13 @@ def run_qa_pass(
 
     if client is None:
         client = get_claude_client()
+
+    # Désactiver la réparation IA si le job a déjà atteint ou dépassé 85% du budget
+    # (les appels Claude du QA ne sont pas comptabilisés dans le budget généré,
+    # mais ils contribuent au coût réel Anthropic — on les évite si le budget est tendu).
+    current_cost = current_job_cost_eur(job)
+    if current_cost >= job.budget_eur * Decimal("0.85"):
+        ai_repair = False
 
     GenerationJob.objects.filter(pk=job.pk).update(qa_status="running")
 

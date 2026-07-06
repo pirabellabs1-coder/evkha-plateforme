@@ -226,13 +226,31 @@
     /* ── Tableaux (lignes alternees creme — Bloc 6) ───────────── */
     .chapter__body table {
       border-collapse: collapse; width: 100%; margin: 4mm 0;
-      font-size: 10pt;
+      font-size: 9.5pt;
+      /* Permettre les coupures à la limite des lignes (pas au milieu d'une cellule) */
+      page-break-inside: auto;
+    }
+    /* Le header se répète automatiquement sur chaque nouvelle page (WeasyPrint) */
+    .chapter__body thead { display: table-header-group; }
+    .chapter__body tbody { display: table-row-group; }
+    /* Éviter de couper une ligne au milieu */
+    .chapter__body tr {
+      page-break-inside: avoid;
     }
     .chapter__body th, .chapter__body td {
-      border: 0.5pt solid var(--cream-dark); padding: 2mm 3mm; text-align: left;
+      border: 0.5pt solid var(--cream-dark); padding: 1.5mm 2.5mm; text-align: left;
+      /* Retour à la ligne si le contenu déborde — évite les cellules tronquées */
+      word-wrap: break-word; overflow-wrap: break-word;
     }
     .chapter__body th { background: var(--primary); color: #fff; font-weight: bold; }
     .chapter__body tr:nth-child(even) td { background: var(--cream); }
+
+    /* Tableaux très larges : version réduite pour tenir en largeur */
+    .chapter__body table.wide {
+      font-size: 8.5pt;
+    }
+    .chapter__body table.wide th,
+    .chapter__body table.wide td { padding: 1mm 2mm; }
 
     /* ── Photos client BP (§14 cadrage) ───────────────────────── */
     .photos {
@@ -387,15 +405,16 @@
       display: table;
       width: 100%;
       border-spacing: 0;
-      position: relative;
     }
     .evkha-visual__step {
       display: table-cell;
       width: 33.33%;
       vertical-align: top;
-      padding: 3mm 4mm 0;
+      /* padding-top remplace la marge négative du marker — WeasyPrint ne gère
+         pas les marges négatives sur les table-cell */
+      padding: 5mm 4mm 3mm;
       text-align: center;
-      border-top: 2pt solid var(--secondary);
+      border-top: 3pt solid var(--secondary);
     }
     .evkha-visual__step-marker {
       background: var(--secondary);
@@ -403,10 +422,9 @@
       width: 32pt;
       height: 32pt;
       border-radius: 50%;
-      margin: -14pt auto 3mm;
+      margin: 0 auto 3mm;
       text-align: center;
       line-height: 32pt;
-      border: 2pt solid var(--cream);
     }
     .evkha-visual__step-marker svg {
       color: #ffffff;
@@ -516,16 +534,15 @@
       display: table;
       width: 100%;
       border-spacing: 3mm 0;
-      border-top: 2pt solid var(--secondary);
-      padding-top: 6mm;
-      margin-top: 4mm;
     }
     .evkha-visual__circle {
       display: table-cell;
       width: 25%;
       vertical-align: top;
       text-align: center;
-      padding: 0 1mm;
+      /* La bordure et le padding-top remplacent la marge négative du cercle */
+      padding: 5mm 1mm 3mm;
+      border-top: 3pt solid var(--secondary);
     }
     .evkha-visual__circle-shape {
       background: #ffffff;
@@ -534,7 +551,7 @@
       height: 44pt;
       border-radius: 50%;
       border: 3pt solid var(--secondary);
-      margin: -22pt auto 3mm;
+      margin: 0 auto 3mm;
       text-align: center;
       line-height: 44pt;
     }

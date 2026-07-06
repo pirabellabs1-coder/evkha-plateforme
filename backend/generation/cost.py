@@ -19,16 +19,18 @@ MODEL_PRICING_EUR: dict[str, tuple[Decimal, Decimal]] = {
 }
 _FALLBACK_MODEL = "claude-sonnet"
 
-# Regle d'or #1 durcie : sous 1.70 EUR, generation libre (max_tokens par
-# defaut). Au-dela, on reduit strictement le max_tokens des appels Claude
-# restants pour que le cout cumule du job ne puisse JAMAIS atteindre ni
-# depasser budget_eur (2.00 EUR par defaut), meme dans le pire cas ou
-# chaque appel restant consomme entierement son max_tokens. La marge de
-# securite absorbe l'arrondi et le cout (petit mais non nul) des tokens
-# d'entree du dernier appel.
-_SOFT_THROTTLE_THRESHOLD_EUR = Decimal("1.7")
-_HARD_CAP_SAFETY_MARGIN_EUR = Decimal("0.01")
+# Regle d'or #1 durcie :
+#   - Sous 1.00 EUR : generation libre (max_tokens par defaut).
+#   - Entre 1.00 EUR et budget_eur : bridage progressif des max_tokens pour
+#     ne jamais depasser budget_eur meme dans le pire cas (chaque appel
+#     restant consomme entierement son max_tokens). Marge de securite incluse.
+#   - Au-dela de 1.20 × budget_eur : arret dur (circuit breaker). Un depassement
+#     de 20% est la limite acceptable ; au-dela le livrable est de toute facon
+#     compromis et continuer ne fait qu'aggraver la depense.
+_SOFT_THROTTLE_THRESHOLD_EUR = Decimal("1.0")
+_HARD_CAP_SAFETY_MARGIN_EUR = Decimal("0.02")
 _MIN_MAX_TOKENS = 400
+_CIRCUIT_BREAKER_MULTIPLIER = Decimal("1.20")
 
 
 class CostBudgetExceededError(RuntimeError):
@@ -165,7 +167,11 @@ def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) 
             },
         )
 
-    # Circuit breaker : arret dur uniquement a 3x le budget
-    if total > job.budget_eur * Decimal("3"):
-        msg = f"Cost budget exceeded (circuit breaker): {total} EUR > {job.budget_eur} EUR x3 (job {job.id})"  # noqa: E501
+    # Circuit breaker : arret dur a 1.20× le budget (20% de depassement max).
+    # Au-dela, continuer ne fait qu'aggraver la depense sans ameliorer le livrable.
+    if total > job.budget_eur * _CIRCUIT_BREAKER_MULTIPLIER:
+        msg = (
+            f"Cost budget exceeded (circuit breaker): {total} EUR "
+            f"> {job.budget_eur} EUR × {_CIRCUIT_BREAKER_MULTIPLIER} (job {job.id})"
+        )
         raise CostBudgetExceededError(msg)
