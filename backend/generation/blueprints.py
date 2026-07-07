@@ -169,7 +169,10 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ),
     ChapterBlueprint(15, "Plan de financement initial", "bp.15.plan_financement"),
     ChapterBlueprint(
-        16, "Prévisionnel financier (synthèse)", "bp.16.previsionnel_financier"
+        16,
+        "Prévisionnel financier (synthèse)",
+        "bp.16.previsionnel_financier",
+        sections=("bp.16.a.comptes_resultats", "bp.16.b.bilan_projection"),
     ),
     ChapterBlueprint(17, "Budget de trésorerie", "bp.17.budget_tresorerie"),
     ChapterBlueprint(

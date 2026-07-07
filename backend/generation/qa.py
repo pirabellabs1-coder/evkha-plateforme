@@ -69,26 +69,57 @@ _HANGING_WORDS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Seuils de longueur minimale (mots) par type de section
-# Conservateurs : en-dessous, la troncature est quasi-certaine
+# Seuils de longueur minimale (mots) par type de section.
+# 400 mots pour "chapter" : en-dessous, la troncature est quasi-certaine
+# même pour des chapitres analytiques courts.
 _MIN_WORDS: dict[str, int] = {
     "opening": 100,
-    "chapter": 200,
-    "annexe":  100,
+    "chapter": 400,
+    "annexe":  200,
     "sources":  30,
 }
 
 # Seuils spécifiques par prompt_key (remplacent le seuil générique "chapter").
-# Basés sur le contenu attendu : nb_concurrents × mots_par_concurrent_minimum.
+# Valeurs basées sur le volume de contenu attendu par chapitre.
 _MIN_WORDS_BY_KEY: dict[str, int] = {
-    # EC chapitre 1 : 11 concurrents × ~120 mots = 1320
-    "ec.01.identification": 1000,
-    # EC chapitre 2 en sections
-    "ec.02.a.directs": 1200,    # 8 × (3F + 3F + VA) ≈ 8 × 180 = 1440
-    "ec.02.b.indirects": 450,   # 3 × 180 = 540
-    # EC chapitre 3 en sections
-    "ec.03.a.directs": 1600,    # 8 × 250 = 2000
-    "ec.03.b.indirects": 600,   # 3 × 250 = 750
+    # ── EC ──────────────────────────────────────────────────────────────────
+    "ec.01.identification": 1000,   # 11 concurrents × ~120 mots
+    "ec.02.a.directs":      1200,   # 8 × (3F + 3F + VA) ≈ 1440 mots
+    "ec.02.b.indirects":     450,   # 3 × 180 = 540 mots
+    "ec.03.a.directs":      1600,   # 8 × 250 = 2000 mots
+    "ec.03.b.indirects":     600,   # 3 × 250 = 750 mots
+    # ── EM ──────────────────────────────────────────────────────────────────
+    "em.01.a.mondial":       500,
+    "em.01.b.europeen":      500,
+    "em.02.a.national":      500,
+    "em.02.b.local":         500,
+    "em.09.douze_chiffres_cles": 600,   # 12 métriques sourcées
+    "em.10.a.profil_besoins":    500,
+    "em.10.b.comportements":     500,
+    "em.10.c.criteres_decision": 500,
+    "em.12.risques_plan_gestion": 600,  # risques + plan de mitigation
+    "em.14.a.hypotheses":    500,
+    "em.14.b.projections":   600,
+    "em.14.c.viabilite":     400,
+    "em.15.graphiques_tableaux": 300,   # beaucoup de HTML, mots sous-comptés
+    "em.18.swot":            400,
+    "em.19.a.diagnostic":    500,
+    "em.19.b.plan_action":   500,
+    # ── BP ──────────────────────────────────────────────────────────────────
+    "bp.08.offre_commerciale":    500,
+    "bp.10.strategie_commerciale": 500,
+    "bp.12.organisation_moyens":   500,
+    "bp.14.investissements":       400,
+    "bp.16.a.comptes_resultats":   500,
+    "bp.16.b.bilan_projection":    500,
+    "bp.17.budget_tresorerie":     500,
+    # ── STR ──────────────────────────────────────────────────────────────────
+    "str.04.forces_structurelles":      500,
+    "str.05.contraintes_fragilites":    500,
+    "str.07.verticales_strategiques":   500,
+    "str.10.architecture_offre":        500,
+    "str.13.strategie_visibilite":      500,
+    "str.17.feuille_route":             500,
 }
 
 _QA_COMPLETION_TOKENS = 1800

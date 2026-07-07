@@ -761,16 +761,28 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "Une ligne par source de financement reelle du projet, legende courte "
         "en italique sous le tableau."
     ),
+    # bp.16 decoupe en 2 sections pour eviter la troncature sur les tables
+    # financieres + graphiques HTML (contenu > 3500 tokens en un seul appel).
     "bp.16.previsionnel_financier": (
-        "Previsionnel financier sur 3 ans : compte de resultat previsionnel "
-        "(CA, charges fixes et variables, EBITDA, resultat net), hypotheses "
-        "clairement declarees et argumentees, seuil de rentabilite, "
-        "capacite d'autofinancement. Scenario central + sensibilite. "
-        "Puis genere en HTML inline (sans <html>/<body>) un graphique barres "
-        "de l'evolution du CA et de l'EBITDA sur les 3 annees, meme pattern "
-        "que les graphiques barres EVKHA (titre H3, tableau, barre "
-        "#C9A227 pour le CA, barre #1A1A1A pour l'EBITDA, valeurs reelles "
-        "en euros, legende courte en italique)."
+        "Ce chapitre est genere en deux sections distinctes. "
+        "Ne pas utiliser ce prompt directement."
+    ),
+    "bp.16.a.comptes_resultats": (
+        "Compte de resultat previsionnel sur 3 ans (annee 1, 2, 3). "
+        "Declare d'abord les hypotheses cles (prix moyen, volume, charges fixes/variables). "
+        "Puis un tableau HTML detaille par annee : "
+        "CA, Charges variables, Marge brute, Charges fixes, EBITDA, Amortissements, "
+        "Resultat avant IS, IS estime, Resultat net. "
+        "Calcule le seuil de rentabilite (point mort) et la capacite d'autofinancement. "
+        "Scenario central obligatoire + analyse de sensibilite (+/-10% CA)."
+    ),
+    "bp.16.b.bilan_projection": (
+        "Genere en HTML inline (sans <html>/<body>) : "
+        "1) Un graphique barres de l'evolution du CA et de l'EBITDA sur 3 ans "
+        "(barre #C9A227 pour CA, barre #1A1A1A pour EBITDA, valeurs reelles). "
+        "2) Un bilan previsionnel simplifie annee 3 (actif / passif). "
+        "3) Un tableau de financement du projet : apports propres, emprunts, aides. "
+        "Conclure par une synthese 1 paragraphe sur la viabilite financiere globale."
     ),
     "bp.17.budget_tresorerie": (
         "Budget de tresorerie mensuel : logique de tresorerie sur 12-24 "
