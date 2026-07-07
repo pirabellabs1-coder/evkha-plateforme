@@ -395,10 +395,33 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
         "site web. Termine par une base consolidee (type, structure, "
         "positionnement, CA connu ou estime + fiabilite)."
     ),
+    # ec.02 decoupe en 2 sections : 8 directs d'abord, puis 3 indirects.
+    # Evite la troncature (11 concurrents x (3F + 3F + VA) depasse 3500 tokens).
     "ec.02.classement_qualitatif": (
-        "Classement et analyse qualitative : presence geographique, structure, "
-        "positionnement. Pour les 8 directs, 3 forces et 3 faiblesses + une "
-        "valeur ajoutee differenciante pour le projet. Idem pour les 3 indirects."
+        "Ce chapitre est genere en deux sections distinctes. "
+        "Ne pas utiliser ce prompt directement."
+    ),
+    "ec.02.a.directs": (
+        "Classement et analyse qualitative des 8 CONCURRENTS DIRECTS "
+        "identifies au chapitre 1. "
+        "Traite IMPERATIVEMENT chacun des 8, dans l'ordre du chapitre 1. "
+        "Pour chaque direct (sous-titre ### 2.1 a ### 2.8) : "
+        "— Presence geographique et structure d'implantation "
+        "— Positionnement tarifaire et segment cible "
+        "— 3 FORCES principales (concretes, documentees) "
+        "— 3 FAIBLESSES principales (concretes, actionnables) "
+        "— 1 Valeur ajoutee differenciante exploitable pour le projet. "
+        "Ne t'arrete pas avant d'avoir couvert le concurrent 8."
+    ),
+    "ec.02.b.indirects": (
+        "Classement et analyse qualitative des 3 CONCURRENTS INDIRECTS "
+        "identifies au chapitre 1. "
+        "Traite IMPERATIVEMENT les 3, dans l'ordre du chapitre 1. "
+        "Pour chaque indirect (sous-titre ### 2.9, ### 2.10, ### 2.11) : "
+        "— Nature de la concurrence indirecte "
+        "— Presence geographique et positionnement "
+        "— 3 FORCES, 3 FAIBLESSES "
+        "— 1 Valeur ajoutee differenciante pour le projet."
     ),
     # ec.03 est decoupe en 2 sections pour garantir la couverture complete
     # des 8 directs + 3 indirects sans troncature.

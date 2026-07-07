@@ -57,6 +57,18 @@ _CONVERSATIONAL_AI_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Fin de contenu abrupte : le dernier paragraphe est trop court ET ne se termine
+# pas par une ponctuation de fin de phrase → troncature Claude probable.
+_SENTENCE_END_RE = re.compile(r"[.!?»’]\s*$")
+
+# Mots qui suggèrent une phrase inachevée quand ils sont en toute fin de contenu
+_HANGING_WORDS_RE = re.compile(
+    r"\b(?:notamment|particulier|tels?\s+que|comme|soit|entre|pour|dont"
+    r"|avec|par|sur|ainsi|et|ou|mais|car|donc|or|ni|de|du|la|le|les|une|un"
+    r"|des|en|au|aux|qui|que|quand|si|bien|peu|très|plus|moins)\s*$",
+    re.IGNORECASE,
+)
+
 # Seuils de longueur minimale (mots) par type de section
 # Conservateurs : en-dessous, la troncature est quasi-certaine
 _MIN_WORDS: dict[str, int] = {
@@ -64,6 +76,19 @@ _MIN_WORDS: dict[str, int] = {
     "chapter": 200,
     "annexe":  100,
     "sources":  30,
+}
+
+# Seuils spécifiques par prompt_key (remplacent le seuil générique "chapter").
+# Basés sur le contenu attendu : nb_concurrents × mots_par_concurrent_minimum.
+_MIN_WORDS_BY_KEY: dict[str, int] = {
+    # EC chapitre 1 : 11 concurrents × ~120 mots = 1320
+    "ec.01.identification": 1000,
+    # EC chapitre 2 en sections
+    "ec.02.a.directs": 1200,    # 8 × (3F + 3F + VA) ≈ 8 × 180 = 1440
+    "ec.02.b.indirects": 450,   # 3 × 180 = 540
+    # EC chapitre 3 en sections
+    "ec.03.a.directs": 1600,    # 8 × 250 = 2000
+    "ec.03.b.indirects": 600,   # 3 × 250 = 750
 }
 
 _QA_COMPLETION_TOKENS = 1800
@@ -164,12 +189,12 @@ def detect_violations(
 
     # 6. Longueur insuffisante
     sk = _infer_section_kind(prompt_key, chapter_number)
-    min_w = _MIN_WORDS.get(sk, 200)
+    min_w = _MIN_WORDS_BY_KEY.get(prompt_key) or _MIN_WORDS.get(sk, 200)
     wc = _word_count(stripped)
     if wc < min_w:
         violations.append(ConditionViolation(
             "below_min_length", "critical",
-            f"{wc} mots < minimum {min_w} attendus (section de type {sk!r})",
+            f"{wc} mots < minimum {min_w} attendus ({prompt_key!r})",
         ))
 
     # 7. Marqueurs pipeline internes
@@ -217,6 +242,28 @@ def detect_violations(
                 "missing_subsections", "critical",
                 f"Sous-sections manquantes : numéros {missing} "
                 f"(trouvés jusqu'à {max(sub_numbers)})",
+            ))
+
+    # 12. Fin abrupte : dernier paragraphe trop court sans ponctuation finale
+    # Détecte les coupures mid-phrase (Claude atteint max_tokens silencieusement)
+    text_lines = [ln for ln in stripped.splitlines() if ln.strip()]
+    if text_lines:
+        last_line = text_lines[-1].strip()
+        # Reconstruire le dernier paragraphe (lignes consécutives non vides)
+        para_lines: list[str] = []
+        for line in reversed(text_lines):
+            if not line.strip():
+                break
+            para_lines.insert(0, line)
+        last_para_words = len(" ".join(para_lines).split())
+        ends_properly = bool(_SENTENCE_END_RE.search(last_line))
+        hangs_on_preposition = bool(_HANGING_WORDS_RE.search(last_line))
+
+        if (last_para_words < 15 and not ends_properly) or hangs_on_preposition:
+            violations.append(ConditionViolation(
+                "abrupt_ending", "critical",
+                f"Fin abrupte probable : {last_para_words} mots, "
+                f"dernière ligne : {last_line[-80:]!r}",
             ))
 
     return violations
@@ -341,7 +388,7 @@ _QA_SYSTEM_PROMPT = (
 
 
 def _needs_ai_completion(violations: list[ConditionViolation]) -> bool:
-    structural = {"cut_html_table", "truncated_in_tag", "incomplete_pipe_table"}
+    structural = {"cut_html_table", "truncated_in_tag", "incomplete_pipe_table", "abrupt_ending"}
     return any(v.name in structural for v in violations)
 
 

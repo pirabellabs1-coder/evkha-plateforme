@@ -16,7 +16,6 @@ import pytest
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from generation.coherence import (
-    CoherenceConflictError,
     extract_and_lock_chiffres_cles,
 )
 from generation.geography import (
@@ -252,12 +251,15 @@ def test_extract_and_lock_chiffres_cles_locks_tcac(
 
 
 @pytest.mark.django_db
-def test_extract_and_lock_chiffres_cles_raises_on_conflict(
+def test_extract_and_lock_chiffres_cles_non_fatal_on_conflict(
     em_job_ci: GenerationJob,
 ) -> None:
+    # Conflict reel (5% vs 8% = 37% d'ecart > 20% tolerance) : incident MEDIUM cree
+    # mais aucune exception levee — la valeur initiale 5% est conservee.
     extract_and_lock_chiffres_cles(em_job_ci, 1, "TCAC de 5%")
-    with pytest.raises(CoherenceConflictError):
-        extract_and_lock_chiffres_cles(em_job_ci, 2, "TCAC de 8%")
+    extract_and_lock_chiffres_cles(em_job_ci, 2, "TCAC de 8%")  # ne doit pas lever
+    fact = em_job_ci.coherence_facts.get(kind=FactKind.GROWTH_RATE, key="tcac")
+    assert fact.value == "5%"  # valeur initiale preservee (format d'origine)
 
 
 @pytest.mark.django_db

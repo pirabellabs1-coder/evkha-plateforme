@@ -54,6 +54,28 @@ class CoherenceConflictError(ValueError):
     pass
 
 
+# Seuil de tolerance relative pour les valeurs numeriques : en-deca,
+# on considere que les deux valeurs sont dans le meme ordre de grandeur
+# (ex: 8.4% vs 9.0% = 7% d'ecart -> ignore). Au-dela, conflict reel
+# (ex: 8.4% vs 13% = 35% d'ecart -> incident MEDIUM, pas d'arret).
+_NUMERIC_CONFLICT_TOLERANCE = 0.20
+
+
+def _numeric_gap(a: str, b: str) -> float | None:
+    """Retourne l'ecart relatif entre deux valeurs numeriques (apres strip %).
+    Retourne None si l'une des valeurs n'est pas numerique.
+    """
+    try:
+        va = float(a.rstrip("% ").replace(",", "."))
+        vb = float(b.rstrip("% ").replace(",", "."))
+        denom = max(abs(va), abs(vb))
+        if denom == 0:
+            return 0.0
+        return abs(va - vb) / denom
+    except (ValueError, AttributeError):
+        return None
+
+
 def upsert_locked_fact(
     *,
     job: GenerationJob,
@@ -62,10 +84,38 @@ def upsert_locked_fact(
     value: str,
     source_chapter_number: int | None = None,
 ) -> CoherenceFact:
+    """Verrouille un fait. En cas de conflit :
+    - Ecart numerique < 20% : ignore silencieusement (meme ordre de grandeur).
+    - Ecart >= 20% ou valeurs non numeriques : incident MEDIUM, generation continue.
+    N'arrete JAMAIS la generation — un conflit de chiffre est une imperfection
+    de contenu, pas une erreur systeme.
+    """
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
     existing = CoherenceFact.objects.filter(job=job, kind=kind, key=key).first()
     if existing and existing.is_locked and existing.value != value:
-        msg = f"Coherence conflict for {kind}:{key} ({existing.value} != {value})"
-        raise CoherenceConflictError(msg)
+        gap = _numeric_gap(existing.value, value)
+        if gap is not None and gap < _NUMERIC_CONFLICT_TOLERANCE:
+            # Meme ordre de grandeur — pas de conflit significatif.
+            return existing
+
+        # Conflit reel : alerter l'admin mais NE PAS stopper la generation.
+        OperationalIncident.objects.get_or_create(
+            title=f"Incoh. donnee {kind}:{key} job {job.id}",
+            defaults={
+                "severity": IncidentSeverity.MEDIUM,
+                "job": job,
+                "order": job.order,
+                "details": {
+                    "valeur_verrouillee": existing.value,
+                    "valeur_conflictuelle": value,
+                    "chapitre": source_chapter_number,
+                    "ecart_relatif": f"{gap:.0%}" if gap is not None else "non-numerique",
+                },
+            },
+        )
+        # Garde la valeur verrouilee — la premiere mention fait foi.
+        return existing
 
     fact, _created = CoherenceFact.objects.update_or_create(
         job=job,
@@ -126,40 +176,32 @@ def locked_facts_as_context(job: GenerationJob) -> str:
 def extract_and_lock_chiffres_cles(job: GenerationJob, chapter_number: int, content: str) -> None:
     """Detecte TCAC et taille de marche dans le contenu d'un chapitre et les verrouille.
 
-    Si une valeur differente est detectee plus tard, upsert_locked_fact leve
-    CoherenceConflictError -> le runner ouvre un incident. Premiere mention
-    suffit a fixer la valeur de reference pour le reste du livrable.
+    Premiere mention fixe la valeur de reference ; les mentions ulterieures
+    differentes creent un incident MEDIUM mais ne stoppent pas la generation.
     """
     text = content or ""
     for pattern in _TCAC_PATTERNS:
         match = pattern.search(text)
         if match:
             value = match.group(1).replace(",", ".") + "%"
-            try:
-                upsert_locked_fact(
-                    job=job,
-                    kind=FactKind.GROWTH_RATE,
-                    key="tcac",
-                    value=value,
-                    source_chapter_number=chapter_number,
-                )
-            except CoherenceConflictError:
-                # Le runner attrape cette exception et ouvre un incident HIGH.
-                raise
+            upsert_locked_fact(
+                job=job,
+                kind=FactKind.GROWTH_RATE,
+                key="tcac",
+                value=value,
+                source_chapter_number=chapter_number,
+            )
             break
 
     for pattern in _MARKET_SIZE_PATTERNS:
         match = pattern.search(text)
         if match:
             value = f"{match.group(1)} {match.group(2)}".strip()
-            try:
-                upsert_locked_fact(
-                    job=job,
-                    kind=FactKind.MARKET_SIZE,
-                    key="taille_marche",
-                    value=value,
-                    source_chapter_number=chapter_number,
-                )
-            except CoherenceConflictError:
-                raise
+            upsert_locked_fact(
+                job=job,
+                kind=FactKind.MARKET_SIZE,
+                key="taille_marche",
+                value=value,
+                source_chapter_number=chapter_number,
+            )
             break

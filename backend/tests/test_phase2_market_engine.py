@@ -7,7 +7,7 @@ import pytest
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from generation.blueprints import MARKET_STUDY_CHAPTERS, SectionKind
-from generation.coherence import CoherenceConflictError, locked_facts_as_context, upsert_locked_fact
+from generation.coherence import locked_facts_as_context, upsert_locked_fact
 from generation.context import build_context
 from generation.cost import (
     _MIN_MAX_TOKENS,
@@ -108,12 +108,13 @@ def test_context_builder_includes_variables_summaries_and_locked_facts(
 def test_coherence_facts_refuse_locked_contradictions(
     normalized_market_submission: IntakeSubmission,
 ) -> None:
+    # Un conflit non-numerique (XOF != EUR) crée un incident MEDIUM mais ne lève pas
+    # d'exception — la valeur verrouillée (XOF) est conservée.
     job = bootstrap_generation_job(normalized_market_submission)
     upsert_locked_fact(job=job, kind=FactKind.CURRENCY, key="currency", value="XOF")
-
-    with pytest.raises(CoherenceConflictError):
-        upsert_locked_fact(job=job, kind=FactKind.CURRENCY, key="currency", value="EUR")
-
+    result = upsert_locked_fact(job=job, kind=FactKind.CURRENCY, key="currency", value="EUR")
+    # La valeur initiale est preservee
+    assert result.value == "XOF"
     assert "currency = XOF" in locked_facts_as_context(job)
 
 
@@ -170,15 +171,18 @@ def test_current_job_cost_eur_sums_all_chapters(
 
 
 @pytest.mark.django_db
-def test_max_tokens_for_job_unthrottled_below_threshold(
+def test_max_tokens_for_job_throttles_from_first_chapter(
     normalized_market_submission: IntakeSubmission,
 ) -> None:
+    # Le throttle est actif dès le premier euro (seuil = 0€).
+    # À 1.50€ dépensé sur 2€ de budget, max_tokens doit être < 3500.
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
     chapter.cost_eur = Decimal("1.5000")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
-    assert max_tokens_for_job(job, default_max_tokens=3500) == 3500
+    result = max_tokens_for_job(job, default_max_tokens=3500)
+    assert 400 <= result < 3500
 
 
 @pytest.mark.django_db
