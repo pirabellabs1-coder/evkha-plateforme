@@ -6,7 +6,13 @@ la livraison du document.
 
 Conditions vérifiées (par ordre de priorité) :
   Critiques (bloquent la qualité visuelle) :
-    1. empty_content         — chapitre vide ou quasi-vide
+    0. empty_content         — chapitre vide ou quasi-vide (retour anticipé)
+    1. sentence_cut          — RÈGLE PRIORITAIRE : dernière phrase de prose
+                               sans ponctuation terminale. Réparée par ajout
+                               déterministe d'un point (sans appel IA).
+                               Quels que soient le quota et les tokens
+                               alloués, toute phrase commencée doit se
+                               terminer par un point.
     2. code_fence            — marqueurs ``` visibles dans le rendu
     3. cut_html_table        — balise <table> non fermée
     4. truncated_in_tag      — contenu se termine dans une balise ouverte
@@ -18,6 +24,9 @@ Conditions vérifiées (par ordre de priorité) :
     8. intermediate_sources  — section Sources dans un chapitre intermédiaire
     9. raw_html_entities     — balises HTML encodées visibles (&lt;table&gt;)
    10. conversational_ai     — tournures IA à bannir (il apparaît que…)
+   11. missing_subsections   — numérotation sous-sections non consécutive
+   12. abrupt_ending         — dernier paragraphe trop court / préposition
+                               pendante → réparation IA (continuation)
 """
 from __future__ import annotations
 
@@ -59,7 +68,11 @@ _CONVERSATIONAL_AI_RE = re.compile(
 
 # Fin de contenu abrupte : le dernier paragraphe est trop court ET ne se termine
 # pas par une ponctuation de fin de phrase → troncature Claude probable.
-_SENTENCE_END_RE = re.compile(r"[.!?»’]\s*$")
+_SENTENCE_END_RE = re.compile(r"[.!?»’…]\s*$")
+
+# Phrase de prose se terminant par une lettre (non un chiffre/paren/…) sans
+# ponctuation terminale → règle 1 « sentence_cut ».
+_TERMINAL_LETTER_RE = re.compile(r"[a-zA-ZÀ-ÿ]\s*$")
 
 # Mots qui suggèrent une phrase inachevée quand ils sont en toute fin de contenu
 _HANGING_WORDS_RE = re.compile(
@@ -147,6 +160,44 @@ class QAResult(NamedTuple):
 # ── Utilitaires ───────────────────────────────────────────────────────────────
 
 
+def _last_prose_line(text: str) -> str:
+    """Retourne la dernière ligne de prose lisible (≥4 mots, non-titre/tableau/HTML).
+
+    Utilisée par la règle 1 (sentence_cut) pour détecter si la dernière phrase
+    de prose se termine sans ponctuation.
+    """
+    plain = re.sub(r"<[^>]+>", " ", text)
+    lines = [ln.strip() for ln in plain.splitlines() if ln.strip()]
+    for line in reversed(lines):
+        # Ignorer les titres Markdown, les lignes de tableau, les balises nues,
+        # les listes, les délimiteurs de code
+        if re.match(r"^(?:#|[|<`*]|\d+[.)]\s|-\s)", line):
+            continue
+        if len(line.split()) < 4:
+            continue
+        return line
+    return ""
+
+
+def _add_terminal_period(content: str) -> str:
+    """Insère un point après le dernier mot de prose, avant les balises de fermeture.
+
+    Stratégie : séparer le « corps » (texte) des balises HTML fermantes
+    éventuelles en queue, ajouter le point sur le corps, réassembler.
+    """
+    s = content.rstrip()
+    m = re.search(r"((?:\s*</\w+>)+\s*)$", s)
+    if m:
+        tail = m.group(0)
+        core = s[: m.start()].rstrip()
+    else:
+        tail = ""
+        core = s
+    if core and not _SENTENCE_END_RE.search(core):
+        core += "."
+    return core + tail
+
+
 def _infer_section_kind(prompt_key: str, chapter_number: int) -> str:
     if chapter_number == 0:
         return "opening"
@@ -181,12 +232,28 @@ def detect_violations(
     violations: list[ConditionViolation] = []
     stripped = content.strip()
 
-    # 1. Contenu vide
+    # 0. Contenu vide
     if not stripped or len(stripped) < 10:
         violations.append(ConditionViolation(
             "empty_content", "critical", "Chapitre vide ou quasi-vide",
         ))
         return violations  # inutile de continuer
+
+    # 1. RÈGLE PRIORITAIRE — phrase sans ponctuation terminale
+    # Quels que soient le quota et les tokens alloués, toute phrase commencée
+    # doit se terminer par un point. Réparée de façon déterministe (ajout d'un
+    # point) sans appel IA.
+    last_prose = _last_prose_line(stripped)
+    if (
+        last_prose
+        and not _SENTENCE_END_RE.search(last_prose)
+        and _TERMINAL_LETTER_RE.search(last_prose)
+    ):
+        violations.append(ConditionViolation(
+            "sentence_cut",
+            "critical",
+            f"Dernière phrase sans ponctuation finale : …{last_prose[-80:]!r}",
+        ))
 
     # 2. Code fences
     if _CODE_FENCE_RE.search(content):
@@ -311,6 +378,7 @@ def repair_rule_based(
     """Applique toutes les corrections automatiques (sans IA).
 
     Ordre d'application :
+    0. Phrase sans ponctuation finale → ajouter un point (sentence_cut)
     1. Marqueurs pipeline → suppression (rendering.strip_internal_markers)
     2. Section Sources intermédiaire → suppression
     3. Substitutions lexicales (anglicismes, tournures IA)
@@ -333,6 +401,18 @@ def repair_rule_based(
 
     fixes: list[str] = []
     original = content
+
+    # 0. Phrase sans ponctuation finale → point déterministe (sans IA)
+    last_prose = _last_prose_line(content)
+    if (
+        last_prose
+        and not _SENTENCE_END_RE.search(last_prose)
+        and _TERMINAL_LETTER_RE.search(last_prose)
+    ):
+        before = content
+        content = _add_terminal_period(content)
+        if content != before:
+            fixes.append("closed_unfinished_sentence")
 
     # 1. Marqueurs pipeline
     before = content
