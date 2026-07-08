@@ -66,6 +66,17 @@
       text-align: justify;
     }
 
+    /* WeasyPrint : flexbox et grid sont mal supportés sur plusieurs pages
+       (les sauts de page ignorent les contextes flex/grid). Forcer display:block
+       sur tous les conteneurs structurants pour que les règles page-break-*
+       et orphans/widows s'appliquent correctement. */
+    body, main, article, section,
+    .document, .chapter, .chapter__body,
+    .toc, .cover {
+      display: block !important;
+      position: static;
+    }
+
     /* ── Page de garde (Bloc 1 + Bloc 6 Consignes) ────────────── */
     .cover {
       page: cover;

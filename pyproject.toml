@@ -26,6 +26,9 @@ pdf = [
   # pydyf 0.12.x casse l'API transform() utilisée par weasyprint 62.x.
   "pydyf<0.12.0",
   "weasyprint>=62,<63",
+  # BeautifulSoup4 : post-traitement DOM pour le chunking déterministe des
+  # tableaux longs avant rendu WeasyPrint (chunk_long_tables).
+  "beautifulsoup4>=4.12,<5",
 ]
 dev = [
   "django-stubs[compatible-mypy]>=5.2,<6",

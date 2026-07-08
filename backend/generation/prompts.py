@@ -3,6 +3,7 @@ from __future__ import annotations
 from catalog.models import DeliverableType
 from intake.models import IntakeSubmission
 
+from .blueprints import get_blueprint
 from .context import build_context
 from .geography import geographic_consigne_for
 from .models import ChapterGeneration
@@ -114,14 +115,41 @@ def _country_for(chapter: ChapterGeneration) -> str:
     return str(submission.normalized_variables.get("PAYS", "")).strip()
 
 
+def _word_limit_footer(max_words: int) -> str:
+    """Contrainte de densité injectée en fin de prompt (CONSIGNE IMPÉRATIVE).
+
+    Formulation calibrée pour deux objectifs :
+    1. Empêcher Claude de déborder de la fenêtre token (cause principale des
+       coupures nettes en milieu de balise HTML ou de phrase).
+    2. Forcer une clôture propre si la limite approche, plutôt qu'un abandon
+       brutal laissant des structures ouvertes.
+    """
+    if not max_words:
+        return ""
+    return (
+        f"\n\n[CONSIGNE IMPÉRATIVE DE DENSITÉ]\n"
+        f"Ce chapitre est calibré pour un rendu strict. "
+        f"Tu as un budget maximal de {max_words} mots "
+        "pour traiter l'ensemble des points demandés.\n"
+        "- Priorise l'esprit de synthèse percutant à la verbosité.\n"
+        "- Si tu approches de cette limite, conclus proprement ton analyse "
+        "en fermant toutes tes balises HTML/Markdown.\n"
+        "- Il est strictement interdit de couper au milieu d'un développement "
+        "ou de laisser une structure ouverte."
+    )
+
+
 def build_chapter_prompt(chapter: ChapterGeneration) -> str:
     """Compose le prompt utilisateur : contexte (Context Engine) + consigne chapitre."""
     context = build_context(chapter)
     instruction = prompt_instruction(chapter.prompt_key)
+    bp = get_blueprint(chapter.job.deliverable_type, chapter.chapter_number)
+    word_limit = _word_limit_footer(bp.max_words if bp else 0)
     return (
         f"{context}\n\n"
         "CONSIGNE_DU_CHAPITRE :\n"
-        f"{instruction}\n\n"
+        f"{instruction}"
+        f"{word_limit}\n\n"
         "Rends uniquement le contenu final destine au client, sans repeter ces "
         "consignes."
     )
@@ -135,11 +163,14 @@ def build_section_prompt(chapter: ChapterGeneration, section_key: str) -> str:
     """
     context = build_context(chapter)
     instruction = prompt_instruction(section_key)
+    bp = get_blueprint(chapter.job.deliverable_type, chapter.chapter_number)
+    word_limit = _word_limit_footer(bp.max_words if bp else 0)
     return (
         f"{context}\n\n"
         f"CHAPITRE_PARENT: {chapter.chapter_number}. {chapter.chapter_title}\n\n"
         "SECTION_A_GENERER :\n"
-        f"{instruction}\n\n"
+        f"{instruction}"
+        f"{word_limit}\n\n"
         "Rends uniquement le contenu de cette section, destine au client. "
         "Ne repete pas les consignes ni les donnees deja traitees dans les "
         "sections precedentes de ce chapitre."

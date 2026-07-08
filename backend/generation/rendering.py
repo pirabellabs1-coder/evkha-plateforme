@@ -299,6 +299,27 @@ _HTML_BLOCK_TAGS = re.compile(
 )
 
 
+def _sanitize_markdown(text: str) -> str:
+    """Pré-traitement avant conversion Markdown → HTML.
+
+    Corrige deux cas pathologiques dans les réponses Claude tronquées :
+    1. Table pipe précédée par du texte sans ligne vide → le parser ligne-à-ligne
+       traite la ligne précédente comme paragraphe et la table comme table,
+       mais des librairies markdown externes rateraient la table. On garantit
+       \n\n avant chaque première ligne de table pour la robustesse.
+    2. Fence ``` orpheline ouverte en fin de texte sans fermeture → le parser
+       produirait un bloc de code infini. On ajoute une fermeture implicite.
+    """
+    # Garantit \n\n avant chaque ligne de table pipe (sécurité parser)
+    text = re.sub(r"([^\n])\n(\|)", r"\1\n\n\2", text)
+    # Ferme les fences ``` ouvertes sans fermeture (troncature Claude)
+    fence_opens = len(re.findall(r"^```", text, re.MULTILINE))
+    fence_closes = len(re.findall(r"^```\s*$", text, re.MULTILINE))
+    if fence_opens > fence_closes:
+        text = text.rstrip() + "\n```"
+    return text
+
+
 def _md_to_html(text: str) -> str:
     """Convertit le Markdown EVKHA en HTML propre (headings, listes, bold, italic).
 
@@ -309,6 +330,7 @@ def _md_to_html(text: str) -> str:
     - Tables pipe Markdown (| col | val | …)
     - Blocs HTML bruts émis par les prompts visuels (SWOT, cartographie, charts)
     """
+    text = _sanitize_markdown(text)
     lines = text.split("\n")
     out: list[str] = []
     i = 0
@@ -354,7 +376,8 @@ def _md_to_html(text: str) -> str:
         # ── Table pipe Markdown ───────────────────────────────────────────────
         # Détecte : ligne commençant et finissant par | (ou contenant au moins 2 |)
         if re.match(r"^\s*\|", line) and line.count("|") >= 2:
-            rows: list[str] = []
+            header_rows: list[str] = []
+            body_rows: list[str] = []
             is_header = True
             while i < len(lines) and re.match(r"^\s*\|", lines[i]):
                 row = lines[i].strip().strip("|")
@@ -366,14 +389,27 @@ def _md_to_html(text: str) -> str:
                 cells = [c.strip() for c in row.split("|")]
                 if is_header:
                     cell_html = "".join(f"<th>{_md_inline(c)}</th>" for c in cells)
-                    rows.append(f"<tr>{cell_html}</tr>")
+                    header_rows.append(f"<tr>{cell_html}</tr>")
                     is_header = False  # première vraie ligne = header
                 else:
                     cell_html = "".join(f"<td>{_md_inline(c)}</td>" for c in cells)
-                    rows.append(f"<tr>{cell_html}</tr>")
+                    body_rows.append(f"<tr>{cell_html}</tr>")
                 i += 1
-            if rows:
-                out.append("<table>" + "".join(rows) + "</table>")
+            if header_rows or body_rows:
+                # Génère <table><thead>…</thead><tbody>…</tbody></table>.
+                # Le chunking sur tableaux longs est délégué à chunk_long_tables()
+                # (post-processeur BeautifulSoup) qui couvre aussi les <table>
+                # HTML directement émis par Claude dans les prompts visuels.
+                header_html = (
+                    "<thead>" + "".join(header_rows) + "</thead>" if header_rows else ""
+                )
+                out.append(
+                    "<table>"
+                    + header_html
+                    + "<tbody>"
+                    + "".join(body_rows)
+                    + "</tbody></table>"
+                )
             continue
 
         # ── Liste non ordonnée ───────────────────────────────────────────────
@@ -449,14 +485,18 @@ def render_branded_html(job: GenerationJob, *, branding: BrandingContext | None 
             "number": s.number,
             "title": s.title,
             "kind": s.kind,
-            # close_dangling_html_tags appliqué une seconde fois sur le HTML
-            # final (après _md_to_html) pour rattraper les tags ouverts que
-            # la conversion Markdown → HTML aurait introduits (ex: passthrough
-            # d'un bloc HTML tronqué).
-            "body_html": close_dangling_html_tags(_md_to_html(s.body)),
+            # Pipeline HTML : md→html → fermeture balises orphelines → chunking
+            # tableaux longs (BeautifulSoup). L'ordre est critique : chunk_long_tables
+            # doit opérer sur du HTML valide (post close_dangling_html_tags) pour que
+            # le parser DOM ne rencontre pas de balises ouvertes.
+            "body_html": chunk_long_tables(
+                close_dangling_html_tags(_md_to_html(s.body))
+            ),
             # Idem sur les visual breaks : un <table> non fermé dans un break
             # absorberait tous les chapitres suivants dans WeasyPrint.
-            "visual_after_html": close_dangling_html_tags(visual_breaks.get(s.number, "")),
+            "visual_after_html": chunk_long_tables(
+                close_dangling_html_tags(visual_breaks.get(s.number, ""))
+            ),
         }
         for s in document.sections
     ]
@@ -562,6 +602,71 @@ def close_dangling_html_tags(html: str) -> str:
     if not stack:
         return html
     return html + "".join(f"</{t}>" for t in reversed(stack))
+
+
+_MAX_ROWS_PER_TABLE = 15  # Au-delà : découpage avec saut de page A4
+
+
+def chunk_long_tables(html_content: str, max_rows: int = _MAX_ROWS_PER_TABLE) -> str:
+    """Post-processeur BeautifulSoup : découpe les tableaux longs en sous-blocs A4.
+
+    Opère sur le HTML *après* conversion Markdown → HTML, ce qui garantit que
+    toutes les tables sont traitées : tables pipe Markdown ET tables HTML
+    directement émises par Claude dans les prompts visuels (financier, SWOT…).
+
+    Principe : si un <tbody> contient plus de `max_rows` lignes, on éclate le
+    tableau en N sous-tableaux de max_rows lignes chacun, séparés par un
+    <div style="page-break-before:always"> afin que WeasyPrint insère un saut
+    de page A4 propre entre chaque morceau. Le <thead> est dupliqué dans chaque
+    sous-tableau pour la lisibilité sur la nouvelle page.
+    """
+    from bs4 import BeautifulSoup  # import paresseux — dépendance optionnelle pdf
+
+    soup = BeautifulSoup(html_content, "html.parser")
+    for table in soup.find_all("table"):
+        tbody = table.find("tbody")
+        if not tbody:
+            continue
+        rows = tbody.find_all("tr", recursive=False)
+        if len(rows) <= max_rows:
+            continue
+
+        thead = table.find("thead")
+        table_attrs = dict(table.attrs)
+
+        # Vide le <tbody> original
+        tbody.decompose()
+        new_tbody = soup.new_tag("tbody")
+        table.append(new_tbody)
+        current_table = table
+        current_tbody = new_tbody
+        row_count = 0
+
+        for row in rows:
+            if row_count >= max_rows:
+                # Saut de page WeasyPrint
+                break_div = soup.new_tag(
+                    "div", style="page-break-before:always; height:0;"
+                )
+                current_table.insert_after(break_div)
+                # Nouveau tableau identique (mêmes attributs CSS)
+                new_table = soup.new_tag("table", **table_attrs)
+                if thead:
+                    from bs4 import BeautifulSoup as _BS
+
+                    cloned_thead = _BS(str(thead), "html.parser").find("thead")
+                    if cloned_thead:
+                        new_table.append(cloned_thead)
+                current_tbody = soup.new_tag("tbody")
+                new_table.append(current_tbody)
+                break_div.insert_after(new_table)
+                current_table = new_table
+                row_count = 0
+
+            current_tbody.append(row)
+            row_count += 1
+
+    return str(soup)
 
 
 def _clean_chapter_body(content: str, kind: str) -> str:

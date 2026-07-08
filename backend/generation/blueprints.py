@@ -30,6 +30,10 @@ class ChapterBlueprint:
     # fusionnee. Cela evite les troncatures sur les chapitres denses (>4096 tokens
     # de sortie) et reduit le risque d'hallucination par manque de place.
     sections: tuple[str, ...] = ()
+    # Cible editoriale indicative en mots pour ce chapitre (ou par section si
+    # chunked). Injectee dans le prompt utilisateur comme borne haute afin que
+    # Claude planifie sa sortie dans la fenetre token allouee. 0 = pas de borne.
+    max_words: int = 0
 
 
 MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
@@ -39,20 +43,34 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "Analyse chiffrée du marché mondial et européen",
         "em.01.marche_mondial_europeen",
         sections=("em.01.a.mondial", "em.01.b.europeen"),
+        max_words=900,
     ),
     ChapterBlueprint(
         2,
         "Analyse chiffrée du marché national et local / régional",
         "em.02.marche_national_local",
         sections=("em.02.a.national", "em.02.b.local"),
+        max_words=900,
     ),
-    ChapterBlueprint(3, "Segmentation approfondie du marché", "em.03.segmentation"),
-    ChapterBlueprint(4, "Avantages et inconvénients du secteur", "em.04.avantages_inconvenients"),
-    ChapterBlueprint(5, "Défis et opportunités du marché", "em.05.defis_opportunites"),
-    ChapterBlueprint(6, "Analyse approfondie de la réglementation", "em.06.reglementation"),
-    ChapterBlueprint(7, "Tendances du marché à court terme", "em.07.tendances_court_terme"),
-    ChapterBlueprint(8, "Perspectives d'évolution à long terme", "em.08.perspectives_long_terme"),
-    ChapterBlueprint(9, "Les 12 chiffres clés du marché", "em.09.douze_chiffres_cles"),
+    ChapterBlueprint(3, "Segmentation approfondie du marché", "em.03.segmentation", max_words=1800),
+    ChapterBlueprint(
+        4, "Avantages et inconvénients du secteur", "em.04.avantages_inconvenients", max_words=1600
+    ),
+    ChapterBlueprint(
+        5, "Défis et opportunités du marché", "em.05.defis_opportunites", max_words=1600
+    ),
+    ChapterBlueprint(
+        6, "Analyse approfondie de la réglementation", "em.06.reglementation", max_words=1800
+    ),
+    ChapterBlueprint(
+        7, "Tendances du marché à court terme", "em.07.tendances_court_terme", max_words=1600
+    ),
+    ChapterBlueprint(
+        8, "Perspectives d'évolution à long terme", "em.08.perspectives_long_terme", max_words=1600
+    ),
+    ChapterBlueprint(
+        9, "Les 12 chiffres clés du marché", "em.09.douze_chiffres_cles", max_words=1200
+    ),
     ChapterBlueprint(
         10,
         "Analyse approfondie de la clientèle cible",
@@ -62,10 +80,15 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
             "em.10.b.comportements",
             "em.10.c.criteres_decision",
         ),
+        max_words=800,
     ),
-    ChapterBlueprint(11, "Personas", "em.11.personas"),
-    ChapterBlueprint(12, "Analyse des risques et plan de gestion", "em.12.risques_plan_gestion"),
-    ChapterBlueprint(13, "Cartographie des risques externes", "em.13.cartographie_risques"),
+    ChapterBlueprint(11, "Personas", "em.11.personas", max_words=1400),
+    ChapterBlueprint(
+        12, "Analyse des risques et plan de gestion", "em.12.risques_plan_gestion", max_words=1600
+    ),
+    ChapterBlueprint(
+        13, "Cartographie des risques externes", "em.13.cartographie_risques", max_words=1400
+    ),
     ChapterBlueprint(
         14,
         "Analyse de la rentabilité et de la viabilité",
@@ -75,18 +98,26 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
             "em.14.b.projections",
             "em.14.c.viabilite",
         ),
+        max_words=800,
     ),
     ChapterBlueprint(15, "Graphiques et tableaux visuels", "em.15.graphiques_tableaux"),
-    ChapterBlueprint(16, "Analyse de l'offre et de la demande", "em.16.offre_demande"),
-    ChapterBlueprint(17, "Analyse géographique avancée", "em.17.geographique_avancee"),
-    ChapterBlueprint(18, "Analyse SWOT complète", "em.18.swot"),
+    ChapterBlueprint(
+        16, "Analyse de l'offre et de la demande", "em.16.offre_demande", max_words=1800
+    ),
+    ChapterBlueprint(
+        17, "Analyse géographique avancée", "em.17.geographique_avancee", max_words=1800
+    ),
+    ChapterBlueprint(18, "Analyse SWOT complète", "em.18.swot", max_words=1800),
     ChapterBlueprint(
         19,
         "Analyse stratégique et recommandations finales",
         "em.19.recommandations",
         sections=("em.19.a.diagnostic", "em.19.b.plan_action"),
+        max_words=1000,
     ),
-    ChapterBlueprint(20, "Conclusion analytique et lecture synthétique", "em.20.conclusion"),
+    ChapterBlueprint(
+        20, "Conclusion analytique et lecture synthétique", "em.20.conclusion", max_words=1400
+    ),
     ChapterBlueprint(
         21,
         "Annexe - Réponses aux questions du brief",
@@ -103,30 +134,42 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # Ne PAS inventer de chapitres.
 COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(0, "Fiche projet", "ec.00.fiche_projet", SectionKind.OPENING),
-    ChapterBlueprint(1, "Identification des concurrents", "ec.01.identification"),
+    ChapterBlueprint(1, "Identification des concurrents", "ec.01.identification", max_words=2000),
     ChapterBlueprint(
         2,
         "Classement et analyse qualitative",
         "ec.02.classement_qualitatif",
         sections=("ec.02.a.directs", "ec.02.b.indirects"),
+        max_words=1200,
     ),
     ChapterBlueprint(
         3,
         "Approfondissement stratégique",
         "ec.03.approfondissement",
         sections=("ec.03.a.directs", "ec.03.b.indirects"),
+        max_words=1600,
     ),
     ChapterBlueprint(
-        4, "Positionnement recommandé et annexes stratégiques", "ec.04.positionnement_annexes"
+        4,
+        "Positionnement recommandé et annexes stratégiques",
+        "ec.04.positionnement_annexes",
+        max_words=1800,
     ),
     ChapterBlueprint(
-        5, "Matrice de positionnement concurrentiel et zones stratégiques",
+        5,
+        "Matrice de positionnement concurrentiel et zones stratégiques",
         "ec.05.matrice_positionnement",
+        max_words=1600,
     ),
     ChapterBlueprint(
-        6, "Estimation des chiffres d'affaires et parts de marché", "ec.06.parts_de_marche"
+        6,
+        "Estimation des chiffres d'affaires et parts de marché",
+        "ec.06.parts_de_marche",
+        max_words=1400,
     ),
-    ChapterBlueprint(7, "Conclusion analytique et graphiques", "ec.07.conclusion_graphiques"),
+    ChapterBlueprint(
+        7, "Conclusion analytique et graphiques", "ec.07.conclusion_graphiques", max_words=1400
+    ),
     ChapterBlueprint(
         8,
         "Annexe - Réponses aux demandes spécifiques du client",
@@ -147,38 +190,47 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # ---------------------------------------------------------------------------
 BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(0, "Fiche projet", "bp.00.fiche_projet", SectionKind.OPENING),
-    ChapterBlueprint(1, "Résumé exécutif", "bp.01.resume_executif"),
-    ChapterBlueprint(2, "Présentation du porteur de projet", "bp.02.porteur_projet"),
-    ChapterBlueprint(3, "Genèse du projet", "bp.03.genese_projet"),
-    ChapterBlueprint(4, "Présentation de l'activité", "bp.04.activite"),
-    ChapterBlueprint(5, "Positionnement et concept", "bp.05.positionnement_concept"),
-    ChapterBlueprint(6, "Analyse de marché (synthèse)", "bp.06.marche_synthese"),
-    ChapterBlueprint(7, "Analyse concurrentielle", "bp.07.concurrentielle"),
-    ChapterBlueprint(8, "Offre commerciale", "bp.08.offre_commerciale"),
+    ChapterBlueprint(1, "Résumé exécutif", "bp.01.resume_executif", max_words=1200),
     ChapterBlueprint(
-        9, "Modèle économique et Business Model Canvas", "bp.09.modele_bmc"
+        2, "Présentation du porteur de projet", "bp.02.porteur_projet", max_words=1200
     ),
-    ChapterBlueprint(10, "Stratégie commerciale et marketing", "bp.10.strategie_commerciale"),
-    ChapterBlueprint(11, "Stratégie de développement", "bp.11.strategie_developpement"),
-    ChapterBlueprint(12, "Organisation et moyens", "bp.12.organisation_moyens"),
+    ChapterBlueprint(3, "Genèse du projet", "bp.03.genese_projet", max_words=1000),
+    ChapterBlueprint(4, "Présentation de l'activité", "bp.04.activite", max_words=1400),
     ChapterBlueprint(
-        13, "Structure juridique et réglementaire", "bp.13.structure_juridique"
+        5, "Positionnement et concept", "bp.05.positionnement_concept", max_words=1400
+    ),
+    ChapterBlueprint(6, "Analyse de marché (synthèse)", "bp.06.marche_synthese", max_words=1600),
+    ChapterBlueprint(7, "Analyse concurrentielle", "bp.07.concurrentielle", max_words=1600),
+    ChapterBlueprint(8, "Offre commerciale", "bp.08.offre_commerciale", max_words=1600),
+    ChapterBlueprint(
+        9, "Modèle économique et Business Model Canvas", "bp.09.modele_bmc", max_words=1600
     ),
     ChapterBlueprint(
-        14, "Investissements et besoins au démarrage", "bp.14.investissements"
+        10, "Stratégie commerciale et marketing", "bp.10.strategie_commerciale", max_words=1600
     ),
-    ChapterBlueprint(15, "Plan de financement initial", "bp.15.plan_financement"),
+    ChapterBlueprint(
+        11, "Stratégie de développement", "bp.11.strategie_developpement", max_words=1400
+    ),
+    ChapterBlueprint(12, "Organisation et moyens", "bp.12.organisation_moyens", max_words=1400),
+    ChapterBlueprint(
+        13, "Structure juridique et réglementaire", "bp.13.structure_juridique", max_words=1200
+    ),
+    ChapterBlueprint(
+        14, "Investissements et besoins au démarrage", "bp.14.investissements", max_words=1400
+    ),
+    ChapterBlueprint(15, "Plan de financement initial", "bp.15.plan_financement", max_words=1200),
     ChapterBlueprint(
         16,
         "Prévisionnel financier (synthèse)",
         "bp.16.previsionnel_financier",
         sections=("bp.16.a.comptes_resultats", "bp.16.b.bilan_projection"),
+        max_words=900,
     ),
-    ChapterBlueprint(17, "Budget de trésorerie", "bp.17.budget_tresorerie"),
+    ChapterBlueprint(17, "Budget de trésorerie", "bp.17.budget_tresorerie", max_words=1200),
     ChapterBlueprint(
-        18, "Risques et facteurs de sécurisation", "bp.18.risques_securisation"
+        18, "Risques et facteurs de sécurisation", "bp.18.risques_securisation", max_words=1400
     ),
-    ChapterBlueprint(19, "Conclusion", "bp.19.conclusion"),
+    ChapterBlueprint(19, "Conclusion", "bp.19.conclusion", max_words=1000),
     ChapterBlueprint(20, "Annexes", "bp.20.annexes", SectionKind.ANNEXE),
     ChapterBlueprint(21, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES),
 )
@@ -192,56 +244,91 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # ---------------------------------------------------------------------------
 BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(0, "Fiche projet", "str.00.fiche_projet", SectionKind.OPENING),
-    ChapterBlueprint(1, "Introduction stratégique générale", "str.01.introduction"),
-    ChapterBlueprint(2, "Lecture stratégique du projet", "str.02.lecture_strategique"),
-    ChapterBlueprint(3, "Analyse du positionnement actuel", "str.03.positionnement_actuel"),
+    ChapterBlueprint(1, "Introduction stratégique générale", "str.01.introduction", max_words=1200),
     ChapterBlueprint(
-        4, "Analyse des forces structurelles du business", "str.04.forces_structurelles"
+        2, "Lecture stratégique du projet", "str.02.lecture_strategique", max_words=1400
+    ),
+    ChapterBlueprint(
+        3, "Analyse du positionnement actuel", "str.03.positionnement_actuel", max_words=1600
+    ),
+    ChapterBlueprint(
+        4,
+        "Analyse des forces structurelles du business",
+        "str.04.forces_structurelles",
+        max_words=1800,
     ),
     ChapterBlueprint(
         5,
         "Analyse des contraintes et fragilités structurelles",
         "str.05.contraintes_fragilites",
+        max_words=1600,
     ),
     ChapterBlueprint(
-        6, "Enjeux stratégiques du positionnement", "str.06.enjeux_positionnement"
+        6,
+        "Enjeux stratégiques du positionnement",
+        "str.06.enjeux_positionnement",
+        max_words=1600,
     ),
     ChapterBlueprint(
-        7, "Définition des verticales stratégiques", "str.07.verticales_strategiques"
+        7,
+        "Définition des verticales stratégiques",
+        "str.07.verticales_strategiques",
+        max_words=1800,
     ),
     ChapterBlueprint(
-        8, "Proposition de valeur et différenciation", "str.08.valeur_differenciation"
+        8,
+        "Proposition de valeur et différenciation",
+        "str.08.valeur_differenciation",
+        max_words=1600,
     ),
     ChapterBlueprint(
-        9, "Lecture stratégique des offres actuelles", "str.09.offres_actuelles"
+        9,
+        "Lecture stratégique des offres actuelles",
+        "str.09.offres_actuelles",
+        max_words=1600,
     ),
-    ChapterBlueprint(10, "Architecture d'offre cible", "str.10.architecture_offre"),
+    ChapterBlueprint(10, "Architecture d'offre cible", "str.10.architecture_offre", max_words=1600),
     ChapterBlueprint(
-        11, "Logique de montée en gamme et valeur perçue", "str.11.montee_gamme"
+        11,
+        "Logique de montée en gamme et valeur perçue",
+        "str.11.montee_gamme",
+        max_words=1400,
     ),
     ChapterBlueprint(
-        12, "Analyse des canaux et acquisition actuelle", "str.12.canaux_acquisition"
+        12,
+        "Analyse des canaux et acquisition actuelle",
+        "str.12.canaux_acquisition",
+        max_words=1400,
     ),
     ChapterBlueprint(
         13,
         "Stratégie de visibilité et acquisition cohérente",
         "str.13.strategie_visibilite",
+        max_words=1600,
     ),
     ChapterBlueprint(
-        14, "Lecture économique et rentabilité du modèle", "str.14.rentabilite_modele"
+        14,
+        "Lecture économique et rentabilité du modèle",
+        "str.14.rentabilite_modele",
+        max_words=1600,
     ),
     ChapterBlueprint(
         15,
         "Arbitrages stratégiques et allocation des ressources",
         "str.15.arbitrages_ressources",
+        max_words=1600,
     ),
     ChapterBlueprint(
         16,
         "Pilotage stratégique et soutenabilité du business",
         "str.16.pilotage_soutenabilite",
+        max_words=1400,
     ),
     ChapterBlueprint(
-        17, "Feuille de route stratégique et priorisation", "str.17.feuille_route"
+        17,
+        "Feuille de route stratégique et priorisation",
+        "str.17.feuille_route",
+        max_words=1600,
     ),
     ChapterBlueprint(
         18,
