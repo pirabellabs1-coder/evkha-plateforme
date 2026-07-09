@@ -95,8 +95,14 @@ _MIN_WORDS: dict[str, int] = {
 # Seuils spécifiques par prompt_key (remplacent le seuil générique "chapter").
 # Valeurs basées sur le volume de contenu attendu par chapitre.
 _MIN_WORDS_BY_KEY: dict[str, int] = {
-    # ── EC ──────────────────────────────────────────────────────────────────
-    "ec.01.identification": 1000,   # 11 concurrents × ~120 mots
+    # ── EC — clés de CHAPITRE (prompt_key de ChapterGeneration) ─────────────
+    # La QA recoit chapter.prompt_key qui est la cle CHAPITRE (ex.
+    # "ec.02.classement_qualitatif"), pas les cles de section. Ces entrees
+    # couvrent le chapitre fusionne (sections a + b concatenees).
+    "ec.01.identification":          1000,  # 11 concurrents × ~120 mots
+    "ec.02.classement_qualitatif":   1700,  # 8 directs (~1200) + 3 indirects (~500)
+    "ec.03.approfondissement":       2200,  # 8 directs (~1600) + 3 indirects (~600)
+    # ── EC — clés de SECTION (pour reference ; non matchees par la QA) ──────
     "ec.02.a.directs":      1200,   # 8 × (3F + 3F + VA) ≈ 1440 mots
     "ec.02.b.indirects":     450,   # 3 × 180 = 540 mots
     "ec.03.a.directs":      1600,   # 8 × 250 = 2000 mots
@@ -136,6 +142,9 @@ _MIN_WORDS_BY_KEY: dict[str, int] = {
 }
 
 _QA_COMPLETION_TOKENS = 1800
+# Tokens alloues a la generation des sous-sections manquantes (chaque section
+# EC represente ~475 mots / ~640 tokens : 2 sections = ~1280 tokens, marge incluse).
+_QA_SUBSECTION_TOKENS = 3000
 
 
 # ── Types de données ──────────────────────────────────────────────────────────
@@ -507,6 +516,79 @@ def _needs_ai_expansion(violations: list[ConditionViolation]) -> bool:
     return any(v.name == "below_min_length" for v in violations)
 
 
+def _needs_subsection_repair(violations: list[ConditionViolation]) -> bool:
+    return any(v.name == "missing_subsections" for v in violations)
+
+
+def _extract_missing_numbers(detail: str) -> list[int]:
+    """Extrait les numéros de sous-sections manquantes depuis le detail d'une violation."""
+    m = re.search(r"numéros\s+\[([^\]]+)\]", detail)
+    if not m:
+        return []
+    try:
+        return sorted(int(x.strip()) for x in m.group(1).split(","))
+    except ValueError:
+        return []
+
+
+def _ai_insert_missing_subsections(
+    content: str,
+    chapter_title: str,
+    missing_nums: list[int],
+    *,
+    client: object,
+) -> str:
+    """Génère les sous-sections manquantes et les insère à la bonne position.
+
+    Stratégie d'insertion : cherche la première section APRÈS le gap
+    (numéro secondaire = missing_nums[-1] + 1) et insère le contenu juste avant.
+    Si aucune section après le gap n'est trouvée, le contenu est ajouté à la fin.
+    """
+    from integrations.claude import ClaudeClient  # éviter import circulaire
+
+    if not isinstance(client, ClaudeClient) or not missing_nums:
+        return content
+
+    sample = content[:2000].strip()
+    missing_str = ", ".join(str(n) for n in missing_nums)
+
+    prompt = (
+        f"Le chapitre « {chapter_title} » est incomplet : "
+        f"les sous-sections {missing_str} sont absentes.\n"
+        "Génère UNIQUEMENT ces sous-sections manquantes, "
+        "dans le même format, style et niveau de détail que les exemples ci-dessous.\n"
+        "Ne reproduis pas les sous-sections déjà présentes dans le contenu.\n"
+        "Commence directement par la première sous-section manquante "
+        "(ex. ### N.X Nom du concurrent) sans aucune introduction.\n\n"
+        f"Extrait du chapitre existant (format de référence) :\n{sample}"
+    )
+
+    try:
+        result = client.complete(
+            system=_QA_SYSTEM_PROMPT,
+            prompt=prompt,
+            max_tokens=_QA_SUBSECTION_TOKENS,
+        )
+    except Exception:  # noqa: BLE001
+        return content
+
+    new_sections = result.content.strip()
+    if not new_sections:
+        return content
+
+    # Insérer avant la première section qui suit le gap
+    first_after_gap = missing_nums[-1] + 1
+    after_gap_re = re.compile(
+        r"(?m)^(#{1,4}\s+\d+\." + str(first_after_gap) + r"(?:\s|\*|\.|:))"
+    )
+    m = after_gap_re.search(content)
+    if m:
+        insert_pos = m.start()
+        return content[:insert_pos] + new_sections + "\n\n" + content[insert_pos:]
+
+    return content.rstrip() + "\n\n" + new_sections
+
+
 def ai_repair_chapter(
     content: str,
     chapter_title: str,
@@ -528,6 +610,19 @@ def ai_repair_chapter(
 
     if not isinstance(client, ClaudeClient):
         return content
+
+    # Réparation prioritaire : sous-sections manquantes (gap dans la numérotation)
+    # Traité AVANT completion/expansion car l'insertion change la longueur du chapitre.
+    if _needs_subsection_repair(violations):
+        for v in violations:
+            if v.name == "missing_subsections":
+                missing = _extract_missing_numbers(v.detail)
+                if missing:
+                    patched = _ai_insert_missing_subsections(
+                        content, chapter_title, missing, client=client
+                    )
+                    if patched != content:
+                        content = patched
 
     needs_completion = _needs_ai_completion(violations)
     needs_expansion = _needs_ai_expansion(violations)

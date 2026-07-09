@@ -347,6 +347,25 @@ _BLUEPRINTS: dict[str, tuple[ChapterBlueprint, ...]] = {
 }
 
 
+# Cible editoriale PAR SECTION pour les chapitres chunkes a haute densite.
+# Ces valeurs REMPLACENT ChapterBlueprint.max_words dans build_section_prompt
+# quand la section apparait ici. Calibrees sur : N_concurrents × mots_moyen.
+#
+# Pourquoi les surcharger ?  Le max_words du blueprint est concu pour des chapitres
+# monolithiques. Pour ec.02.a (8 directs × 325 mots = 2600 mots) et ec.03.a
+# (8 directs × 475 mots = 3800 mots), le budget chapitre est trop bas : Claude
+# s'arrete au 6e concurrent avec stop_reason=end_turn (la boucle de continuation
+# ne se declenche PAS car elle ne s'active que sur stop_reason=max_tokens).
+SECTION_MAX_WORDS: dict[str, int] = {
+    # EC chapitre 2 — classement qualitatif
+    "ec.02.a.directs":   2600,  # 8 directs  × ~325 mots (3F + 3F + VA)
+    "ec.02.b.indirects":  900,  # 3 indirects × ~300 mots
+    # EC chapitre 3 — approfondissement strategique
+    "ec.03.a.directs":   3800,  # 8 directs  × ~475 mots (5 dimensions)
+    "ec.03.b.indirects": 1100,  # 3 indirects × ~335 mots + synthese comparative
+}
+
+
 def chapters_for_deliverable(deliverable_type: str) -> tuple[ChapterBlueprint, ...]:
     blueprint = _BLUEPRINTS.get(deliverable_type)
     if blueprint is None:

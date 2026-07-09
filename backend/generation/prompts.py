@@ -3,7 +3,7 @@ from __future__ import annotations
 from catalog.models import DeliverableType
 from intake.models import IntakeSubmission
 
-from .blueprints import get_blueprint
+from .blueprints import SECTION_MAX_WORDS, get_blueprint
 from .context import build_context
 from .geography import geographic_consigne_for
 from .models import ChapterGeneration
@@ -160,11 +160,18 @@ def build_section_prompt(chapter: ChapterGeneration, section_key: str) -> str:
 
     Meme contexte que le chapitre complet, mais instruction ciblee sur
     un sous-perimetre precis pour maximiser la densite par appel API.
+
+    Le budget max_words est d'abord cherche dans SECTION_MAX_WORDS (table
+    de surcharge par cle de section) avant de fallback sur bp.max_words.
+    Certaines sections (ec.02.a.directs, ec.03.a.directs) couvrent 8
+    concurrents et necessitent un budget bien superieur au chapitre-parent.
     """
     context = build_context(chapter)
     instruction = prompt_instruction(section_key)
     bp = get_blueprint(chapter.job.deliverable_type, chapter.chapter_number)
-    word_limit = _word_limit_footer(bp.max_words if bp else 0)
+    # Priorite : surcharge par section → budget chapitre → 0 (pas de contrainte)
+    section_mw = SECTION_MAX_WORDS.get(section_key) or (bp.max_words if bp else 0)
+    word_limit = _word_limit_footer(section_mw)
     return (
         f"{context}\n\n"
         f"CHAPITRE_PARENT: {chapter.chapter_number}. {chapter.chapter_title}\n\n"
