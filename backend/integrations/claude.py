@@ -14,18 +14,17 @@ _ANTHROPIC_MODEL_IDS: dict[str, str] = {
     "claude-opus": "claude-opus-4-8",
     "claude-haiku": "claude-haiku-4-5-20251001",
 }
-# 5000 tokens ≈ 3750 mots par section. Hausse de 3500 → 5000 justifiee par :
-# 1. Sections denses (ec.03.a 3800 mots ≈ 5067 tokens) passent en 1 seul appel
-#    au lieu de 2 avec l'ancienne limite, limitant les continuations et les ruptures.
-# 2. Budgets adaptatifs (EM=4€, BP=3€) absorbent le surcout Sonnet :
-#    pire cas EM (30 appels sans continuation) ≈ 2.27 EUR < budget 4.00 EUR.
-# 3. La boucle de continuation reste active (stop_reason=max_tokens) si une section
-#    depasse 5000 tokens — cas rare apres les corrections SECTION_MAX_WORDS.
-# Toute troncature residuelle (chapitre a HTML dense) est neutralisee par le
-# sanitizer close_dangling_html_tags() de rendering.py, qui ferme les balises
-# orphelines pour eviter qu'un <table> ou <style> tronque "aspire" les
-# chapitres suivants dans le PDF final.
-_DEFAULT_MAX_TOKENS = 5000
+# 8192 tokens ≈ 6144 mots par section. Hausse de 5000 → 8192 justifiee par :
+# 1. Section la plus dense (ec.03.a 3800 mots ≈ 5067 tokens) passe en 1 seul
+#    appel sans aucune continuation, eliminant les artefacts de reprise.
+# 2. L'economie Haiku sur 12 chapitres structures (~0.15 EUR/livrable) finance
+#    la hausse de tokens sur les chapitres analytiques Sonnet.
+# 3. Le Cost Engine throttle dynamiquement max_tokens si le budget se resserre :
+#    pire cas EM (30 appels, budget 2.3 EUR) → throttle a ~5111 tokens des
+#    le 1er appel, ce qui reste superieur a l'ancienne limite de 5000.
+# 4. _MAX_CONTINUATIONS sert desormais de filet de securite pour les rarissimes
+#    cas hors-normes (contenu anormalement long), non plus de cas standard.
+_DEFAULT_MAX_TOKENS = 8192
 
 # Anthropic Messages API : message.stop_reason vaut "max_tokens" quand la
 # reponse est coupee par la limite de sortie (cf. doc API Anthropic, champ
@@ -37,7 +36,7 @@ _DEFAULT_MAX_TOKENS = 5000
 # reecrire depuis le debut. Plafond de securite : _MAX_CONTINUATIONS appels
 # supplementaires max, pour borner le cout meme en cas de contenu anormalement
 # long (le Cost Engine tient compte de ce plafond, cf. generation/cost.py).
-_MAX_CONTINUATIONS = 1
+_MAX_CONTINUATIONS = 2
 
 
 @dataclass(frozen=True)

@@ -26,6 +26,13 @@ _CHARTER = (
     "la periode 2021-2026. Inclure systematiquement des chiffres 2025 et 2026 "
     "(estimations et projections argumentees acceptees). Ne jamais s'arreter a "
     "2024 : les etudes livrees en 2026 doivent refleter la realite actuelle.\n"
+    "COMPLETUDE ABSOLUE (regle prioritaire) : tu dois toujours traiter la "
+    "TOTALITE des elements demandes dans une section — tous les concurrents, "
+    "toutes les rubriques, toutes les parties d'une liste. Ne jamais interrompre "
+    "une liste a mi-parcours ni passer a la suite avant d'avoir couvert le "
+    "dernier element. Si la densite depasse la cible indicative, condense le "
+    "style mais ne coupe jamais un developpement en cours. L'ordre de priorite "
+    "est : completude > densite > limite de mots.\n"
     "DENSITE ET LONGUEUR : chaque chapitre doit etre substantiel (minimum 4 a 6 "
     "paragraphes ou equivalent). L'etude complete cible 80 pages. Ne jamais "
     "tronquer un developpement : si un point merite 3 paragraphes, les ecrire "
@@ -116,26 +123,26 @@ def _country_for(chapter: ChapterGeneration) -> str:
 
 
 def _word_limit_footer(max_words: int) -> str:
-    """Contrainte de densité injectée en fin de prompt (CONSIGNE IMPÉRATIVE).
+    """Contrainte de complétude + densité injectée en fin de prompt.
 
-    Formulation calibrée pour deux objectifs :
-    1. Empêcher Claude de déborder de la fenêtre token (cause principale des
-       coupures nettes en milieu de balise HTML ou de phrase).
-    2. Forcer une clôture propre si la limite approche, plutôt qu'un abandon
-       brutal laissant des structures ouvertes.
+    Formulation avec ordre de priorité explicite : complétude AVANT densité.
+    Évite que Claude s'arrête après le 6e concurrent parce qu'il approche
+    de la limite de mots — la vraie erreur à éviter.
     """
     if not max_words:
         return ""
     return (
-        f"\n\n[CONSIGNE IMPÉRATIVE DE DENSITÉ]\n"
-        f"Ce chapitre est calibré pour un rendu strict. "
-        f"Tu as un budget maximal de {max_words} mots "
-        "pour traiter l'ensemble des points demandés.\n"
-        "- Priorise l'esprit de synthèse percutant à la verbosité.\n"
-        "- Si tu approches de cette limite, conclus proprement ton analyse "
-        "en fermant toutes tes balises HTML/Markdown.\n"
-        "- Il est strictement interdit de couper au milieu d'un développement "
-        "ou de laisser une structure ouverte."
+        f"\n\n[CONSIGNE IMPÉRATIVE DE COMPLÉTUDE ET DENSITÉ]\n"
+        f"PRIORITÉ 1 — COMPLÉTUDE : traite TOUS les éléments demandés dans "
+        f"cette section (tous les concurrents, toutes les rubriques, toutes "
+        f"les parties de la liste). Ne jamais interrompre une liste avant "
+        f"le dernier élément. La complétude prime sur toute autre contrainte.\n"
+        f"PRIORITÉ 2 — DENSITÉ : budget indicatif de {max_words} mots. "
+        "Si la complétude nécessite légèrement plus, c'est acceptable. "
+        "Si tu approches de la limite, condense ton style (phrases plus "
+        "courtes, moins de transitions) mais ne saute aucun élément.\n"
+        "PRIORITÉ 3 — CLÔTURE : ferme toujours toutes tes balises HTML "
+        "avant de terminer. Ne laisse jamais une structure ouverte."
     )
 
 
