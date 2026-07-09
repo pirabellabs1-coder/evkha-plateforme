@@ -179,7 +179,7 @@ def test_max_tokens_for_job_throttles_from_first_chapter(
     # A 2.00€ depense sur 2.3€ de budget EM (87%), max_tokens doit etre < 3500.
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("2.0000")
+    chapter.cost_eur = Decimal("2.2000")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     result = max_tokens_for_job(job, default_max_tokens=3500)
@@ -192,7 +192,7 @@ def test_max_tokens_for_job_throttles_above_threshold(
 ) -> None:
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("2.2000")
+    chapter.cost_eur = Decimal("2.4000")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     result = max_tokens_for_job(job, default_max_tokens=3500)
@@ -206,7 +206,7 @@ def test_max_tokens_for_job_worst_case_never_reaches_budget(
 ) -> None:
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("1.0000")
+    chapter.cost_eur = Decimal("1.2000")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     result = max_tokens_for_job(job, default_max_tokens=3500)
@@ -221,7 +221,7 @@ def test_max_tokens_for_job_floors_at_minimum_when_budget_nearly_exhausted(
 ) -> None:
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("2.2990")
+    chapter.cost_eur = Decimal("2.4990")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     assert max_tokens_for_job(job, default_max_tokens=3500) == 400

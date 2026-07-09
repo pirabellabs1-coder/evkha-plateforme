@@ -22,7 +22,7 @@ _SUPPORTED_DELIVERABLES = frozenset(
 # Pire cas reel mesure (aucun depassement constate sur EC/BP/STR a 2 EUR).
 # EM : 30 appels dont plusieurs chunked → marge a 2.3 EUR. Les autres a 2 EUR.
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("2.3000"),  # 30 appels (le plus dense)
+    DeliverableType.MARKET_STUDY:      Decimal("2.5000"),  # 30 appels — chap14 seul = 0.26€
     DeliverableType.BUSINESS_PLAN:     Decimal("2.0000"),  # 23 appels
     DeliverableType.BUSINESS_STRATEGY: Decimal("2.0000"),  # 20 appels
     DeliverableType.COMPETITOR_STUDY:  Decimal("2.0000"),  # 12 appels
