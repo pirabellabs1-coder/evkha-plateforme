@@ -15,10 +15,11 @@ from .coherence import (
 )
 from .cost import CostBudgetExceededError, max_tokens_for_job, record_chapter_cost
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
+from .prompt_library import PHASE0_PROMPTS
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 from .qa import detect_violations, repair_rule_based
 
-_SUMMARY_MAX_CHARS = 320
+_SUMMARY_MAX_CHARS = 150
 _SOURCES_SPLIT = re.compile(r"\n\s*sources\b", re.IGNORECASE)
 
 
@@ -47,6 +48,66 @@ def _variables_for(job: GenerationJob) -> dict[str, object]:
     return submission.normalized_variables if submission else {}
 
 
+def _build_brief(variables: dict[str, object]) -> str:
+    """Extrait les champs client du brief sous forme de bloc texte.
+
+    Renvoie une chaîne vide si aucun champ pertinent n'est renseigné.
+    """
+    lines: list[str] = []
+    if demandes := str(variables.get("DEMANDES_SPECIFIQUES", "")).strip():
+        lines.append(f"DEMANDES_SPECIFIQUES : {demandes}")
+    if elements := str(variables.get("ELEMENTS_A_RETENIR", "")).strip():
+        lines.append(f"ELEMENTS_A_RETENIR : {elements}")
+    if concurrents := str(variables.get("CONCURRENTS", "")).strip():
+        lines.append(f"CONCURRENTS : {concurrents}")
+    return "\n".join(lines)
+
+
+def _generate_phase0_plan(
+    job: GenerationJob,
+    variables: dict[str, object],
+    *,
+    client: ClaudeClient,
+) -> str:
+    """Appel Haiku pré-génération : plan structuré verrouillé (concurrents, chiffres, brief).
+
+    Résultat stocké dans job.phase0_plan et retourné pour injection dans
+    le system prompt de chaque chapitre.
+    Coût indicatif : ~€0.005 (Haiku, prompt court).
+    """
+    plan_prompt = PHASE0_PROMPTS.get(job.deliverable_type)
+    if not plan_prompt:
+        return ""
+
+    secteur = str(variables.get("SECTEUR", "")).strip()
+    pays = str(variables.get("PAYS", "")).strip()
+    projet = str(variables.get("PROJET", "")).strip()
+    brief = _build_brief(variables)
+
+    context_lines = []
+    if secteur:
+        context_lines.append(f"SECTEUR : {secteur}")
+    if pays:
+        context_lines.append(f"PAYS : {pays}")
+    if projet:
+        context_lines.append(f"PROJET : {projet}")
+    if brief:
+        context_lines.append(brief)
+    context_block = "\n".join(context_lines)
+
+    prompt = f"{context_block}\n\n{plan_prompt}"
+    system = (
+        "Tu es un planificateur structuré. Produis uniquement le plan demandé, "
+        "sans introduction ni commentaire. Sois précis, factuel, exploitable."
+    )
+    result = client.complete(system=system, prompt=prompt, max_tokens=1024, model="claude-haiku")
+    plan = result.content.strip()
+
+    job.phase0_plan = plan
+    job.save(update_fields=["phase0_plan", "updated_at"])
+    return plan
+
+
 def run_generation_job(
     job: GenerationJob,
     *,
@@ -69,7 +130,19 @@ def run_generation_job(
     variables = _variables_for(job)
     seed_locked_facts_from_variables(job, variables)
     country = str(variables.get("PAYS", "")).strip()
-    system_prompt = build_system_prompt(job.deliverable_type, country=country)
+    brief = _build_brief(variables)
+
+    # Phase 0 : plan verrouillé (concurrents, chiffres, brief) — appel Haiku unique.
+    # Ignoré si le job a déjà un plan (reprise) ou si le type n'a pas de prompt Phase 0.
+    if not job.phase0_plan:
+        try:
+            _generate_phase0_plan(job, variables, client=client)
+        except Exception:  # noqa: BLE001 - Phase 0 non-fatale : la génération continue sans plan
+            pass
+
+    system_prompt = build_system_prompt(
+        job.deliverable_type, country=country, brief=brief, plan=job.phase0_plan
+    )
 
     chapters = job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")
     for chapter in chapters:
@@ -158,7 +231,10 @@ def _generate_chunked(
     )
 
     for section_key in sections:
-        prompt = build_section_prompt(chapter, section_key)
+        # Contexte accumulé des sections déjà générées dans ce chapitre.
+        # Aide Claude à ne pas répéter et à rester cohérent entre sections.
+        previous_context = "\n\n".join(parts) if parts else ""
+        prompt = build_section_prompt(chapter, section_key, previous_context=previous_context)
         result = client.complete(
             system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
         )

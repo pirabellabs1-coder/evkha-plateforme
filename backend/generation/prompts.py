@@ -106,12 +106,26 @@ _ROLES: dict[str, str] = {
 }
 
 
-def build_system_prompt(deliverable_type: str, country: str = "") -> str:
+def build_system_prompt(
+    deliverable_type: str,
+    country: str = "",
+    brief: str = "",
+    plan: str = "",
+) -> str:
     role = _ROLES.get(deliverable_type, _EM_ROLE)
     geo = geographic_consigne_for(country) if country else ""
     parts = [role, _CHARTER]
     if geo:
         parts.append(geo)
+    if brief:
+        parts.append(
+            "BRIEF CLIENT (à honorer dans CHAQUE chapitre sans exception) :\n" + brief
+        )
+    if plan:
+        parts.append(
+            "PLAN VERROUILLÉ (concurrents, chiffres et points client à réutiliser tels quels) :\n"
+            + plan
+        )
     return "\n\n".join(parts)
 
 
@@ -162,7 +176,9 @@ def build_chapter_prompt(chapter: ChapterGeneration) -> str:
     )
 
 
-def build_section_prompt(chapter: ChapterGeneration, section_key: str) -> str:
+def build_section_prompt(
+    chapter: ChapterGeneration, section_key: str, previous_context: str = ""
+) -> str:
     """Prompt pour une section d'un chapitre en mode chunk generation.
 
     Meme contexte que le chapitre complet, mais instruction ciblee sur
@@ -179,9 +195,18 @@ def build_section_prompt(chapter: ChapterGeneration, section_key: str) -> str:
     # Priorite : surcharge par section → budget chapitre → 0 (pas de contrainte)
     section_mw = SECTION_MAX_WORDS.get(section_key) or (bp.max_words if bp else 0)
     word_limit = _word_limit_footer(section_mw)
+    previous_block = ""
+    if previous_context:
+        previous_block = (
+            "\n\nSECTIONS_PRECEDENTES (déjà rédigées — ne pas répéter, "
+            "assurer la continuité) :\n"
+            + previous_context[:2000]
+            + "\n"
+        )
     return (
         f"{context}\n\n"
-        f"CHAPITRE_PARENT: {chapter.chapter_number}. {chapter.chapter_title}\n\n"
+        f"CHAPITRE_PARENT: {chapter.chapter_number}. {chapter.chapter_title}"
+        f"{previous_block}\n\n"
         "SECTION_A_GENERER :\n"
         f"{instruction}"
         f"{word_limit}\n\n"

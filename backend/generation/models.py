@@ -54,6 +54,7 @@ class GenerationJob(UUIDModel):
     budget_eur = models.DecimalField(max_digits=8, decimal_places=4, default=Decimal("2.0000"))
     total_cost_eur = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal("0.0000"))
     context_summary = models.TextField(blank=True)
+    phase0_plan = models.TextField(blank=True)
     error_message = models.TextField(blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)

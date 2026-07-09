@@ -19,10 +19,10 @@ _SUPPORTED_DELIVERABLES = frozenset(
 )
 
 # Budget IA par type de livrable (modele Sonnet + 12 chapitres legers en Haiku).
-# Pire cas reel mesure (aucun depassement constate sur EC/BP/STR a 2 EUR).
-# EM : 30 appels dont plusieurs chunked → marge a 2.3 EUR. Les autres a 2 EUR.
+# Pire cas reel observe EM : 2.3025 EUR (chap14 rentabilite = 42885 tokens input).
+# Reduit sous 2.30 par : _SUMMARY_MAX_CHARS 320→150 (-0.04 EUR / job EM).
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("2.5000"),  # 30 appels — chap14 seul = 0.26€
+    DeliverableType.MARKET_STUDY:      Decimal("2.3000"),  # 30 appels — chap14 seul = 0.26€
     DeliverableType.BUSINESS_PLAN:     Decimal("2.0000"),  # 23 appels
     DeliverableType.BUSINESS_STRATEGY: Decimal("2.0000"),  # 20 appels
     DeliverableType.COMPETITOR_STUDY:  Decimal("2.0000"),  # 12 appels

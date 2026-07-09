@@ -1031,6 +1031,83 @@ BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
 }
 
 
+# --- Phase 0 : plan verrouillé pré-génération -----------------------------------
+# Un seul appel Haiku avant tous les chapitres. Produit la liste définitive des
+# concurrents, les chiffres clés à réutiliser, et les exigences client à honorer.
+# Ce plan est injecté dans le system prompt de CHAQUE appel Claude du job.
+
+PHASE0_PROMPTS: dict[str, str] = {
+    "market_study": (
+        "Produis un plan structuré en 3 sections pour guider la rédaction d'une "
+        "étude de marché sur le projet ci-dessus.\n\n"
+        "SECTION 1 — CONCURRENTS DIRECTS ET INDIRECTS\n"
+        "Liste les 6 à 10 principaux concurrents (nom, catégorie : direct/indirect, "
+        "positionnement en 1 phrase). Ordre : les plus menaçants d'abord. "
+        "Si des concurrents sont fournis dans le brief, les inclure impérativement "
+        "et compléter avec d'autres pertinents.\n\n"
+        "SECTION 2 — CHIFFRES CLÉS À RÉUTILISER\n"
+        "Liste 5 à 8 données chiffrées fiables pour ce marché et ce secteur : "
+        "taille du marché, taux de croissance, part de marché, chiffres 2024-2026. "
+        "Format : Indicateur | Valeur | Période | Source estimée\n\n"
+        "SECTION 3 — EXIGENCES CLIENT À HONORER\n"
+        "Résume les demandes spécifiques, points à retenir et angles prioritaires "
+        "du brief client. Si le brief est vide, écris : 'Aucune exigence spécifique — "
+        "suivre la méthode EVKHA standard.'\n\n"
+        "Sois factuel, concis, sans introduction. Ce plan est destiné à un moteur "
+        "de génération automatique, pas à un humain."
+    ),
+    "competitor_study": (
+        "Produis un plan structuré en 3 sections pour guider la rédaction d'une "
+        "étude concurrentielle sur le projet ci-dessus.\n\n"
+        "SECTION 1 — LISTE DÉFINITIVE DES CONCURRENTS\n"
+        "Liste exactement les concurrents à analyser dans l'étude. "
+        "Si des noms sont fournis dans le brief client, les utiliser impérativement "
+        "et dans l'ordre donné. Complète jusqu'à 8 concurrents max si nécessaire. "
+        "Format : Rang | Nom | Type (direct/indirect) | Positionnement 1 phrase\n\n"
+        "SECTION 2 — CHIFFRES CLÉS DU MARCHÉ\n"
+        "Liste 4 à 6 données chiffrées sur le marché global : taille, croissance, "
+        "pénétration digitale, concentration. "
+        "Format : Indicateur | Valeur | Période | Source estimée\n\n"
+        "SECTION 3 — EXIGENCES CLIENT\n"
+        "Résume les angles prioritaires et demandes spécifiques du brief. "
+        "Si le brief est vide : 'Analyse concurrentielle standard EVKHA.'\n\n"
+        "Sois factuel, concis, sans introduction."
+    ),
+    "business_plan": (
+        "Produis un plan structuré en 3 sections pour guider la rédaction d'un "
+        "business plan sur le projet ci-dessus.\n\n"
+        "SECTION 1 — POSITIONNEMENT ET CONCURRENTS\n"
+        "Liste les 4 à 6 concurrents ou alternatives directes les plus pertinentes "
+        "pour ce projet. Format : Nom | Type | Avantage concurrent clé\n\n"
+        "SECTION 2 — HYPOTHÈSES FINANCIÈRES CLÉS\n"
+        "Pose 5 à 7 hypothèses chiffrées pour le prévisionnel : "
+        "ticket moyen, volume clients année 1, coûts fixes principaux, "
+        "taux de marge brute, BFR estimé. "
+        "Format : Hypothèse | Valeur indicative | Justification courte\n\n"
+        "SECTION 3 — EXIGENCES CLIENT\n"
+        "Résume les demandes spécifiques, points forts à valoriser et angles "
+        "prioritaires du brief. Si vide : 'Business plan standard EVKHA.'\n\n"
+        "Sois factuel, concis, sans introduction."
+    ),
+    "business_strategy": (
+        "Produis un plan structuré en 3 sections pour guider la rédaction d'une "
+        "stratégie d'entreprise sur le projet ci-dessus.\n\n"
+        "SECTION 1 — ACTEURS ET CONCURRENTS CLÉS\n"
+        "Liste les 4 à 6 acteurs du marché les plus importants à prendre en compte "
+        "dans la stratégie. Format : Nom | Rôle (concurrent/partenaire/distributeur) | "
+        "Impact stratégique\n\n"
+        "SECTION 2 — CHIFFRES ET DONNÉES DE CADRAGE\n"
+        "Liste 4 à 6 données factuelles structurantes pour la stratégie : "
+        "taille du marché, tendances de fond, données sectorielles, benchmarks. "
+        "Format : Indicateur | Valeur | Source estimée\n\n"
+        "SECTION 3 — PRIORITÉS STRATÉGIQUES CLIENT\n"
+        "Résume les enjeux prioritaires, axes de développement et contraintes "
+        "mentionnés dans le brief. Si vide : 'Stratégie standard EVKHA.'\n\n"
+        "Sois factuel, concis, sans introduction."
+    ),
+}
+
+
 def prompt_instruction(prompt_key: str) -> str:
     """Renvoie l'instruction chapitre, ou une consigne generique de repli."""
     return (
