@@ -18,17 +18,14 @@ _SUPPORTED_DELIVERABLES = frozenset(
     }
 )
 
-# Budget IA par type de livrable. Modele actif : claude-haiku (EVKHA_CLAUDE_MODEL).
-# Avec Haiku (output €0.0000036/tok), le cout reel est ~5-10× inferieur a Sonnet.
-# Pire cas EM (30 appels × 2 continuations × max_tokens=5000) ≈ €1.25 < €2.00.
-# Les budgets eleves ci-dessous (jusqu'a €4) servent de marge de securite et
-# garantissent que le throttle budget ne reduit jamais max_tokens avant la fin
-# du job — meme sur les jobs les plus denses (EM = 30 appels).
+# Budget IA par type de livrable (modele Sonnet + 12 chapitres legers en Haiku).
+# Pire cas reel mesure (aucun depassement constate sur EC/BP/STR a 2 EUR).
+# EM : 30 appels dont plusieurs chunked → marge a 2.3 EUR. Les autres a 2 EUR.
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("4.0000"),  # 30 appels, risque continuation
-    DeliverableType.BUSINESS_PLAN:     Decimal("3.0000"),  # 23 appels
-    DeliverableType.BUSINESS_STRATEGY: Decimal("2.5000"),  # 20 appels, no chunked
-    DeliverableType.COMPETITOR_STUDY:  Decimal("2.5000"),  # 12 appels, fix deploye
+    DeliverableType.MARKET_STUDY:      Decimal("2.3000"),  # 30 appels (le plus dense)
+    DeliverableType.BUSINESS_PLAN:     Decimal("2.0000"),  # 23 appels
+    DeliverableType.BUSINESS_STRATEGY: Decimal("2.0000"),  # 20 appels
+    DeliverableType.COMPETITOR_STUDY:  Decimal("2.0000"),  # 12 appels
 }
 
 
