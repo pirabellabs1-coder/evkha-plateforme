@@ -8,14 +8,13 @@ from intake.models import IntakeSubmission
 from integrations.claude import _DEFAULT_MAX_TOKENS, ClaudeClient, get_claude_client
 from monitoring.models import IncidentSeverity, OperationalIncident
 
-from .blueprints import get_blueprint
+from .blueprints import chapters_for_deliverable, get_blueprint
 from .coherence import (
     extract_and_lock_chiffres_cles,
     seed_locked_facts_from_variables,
 )
 from .cost import CostBudgetExceededError, max_tokens_for_job, record_chapter_cost
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
-from .prompt_library import PHASE0_PROMPTS
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 from .qa import detect_violations, repair_rule_based
 
@@ -63,49 +62,74 @@ def _build_brief(variables: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
-def _generate_phase0_plan(
-    job: GenerationJob,
-    variables: dict[str, object],
-    *,
-    client: ClaudeClient,
-) -> str:
-    """Appel Haiku pré-génération : plan structuré verrouillé (concurrents, chiffres, brief).
+def _build_phase0_plan(job: GenerationJob, variables: dict[str, object]) -> str:
+    """Plan verrouillé pré-génération — 100% déterministe, aucun appel LLM.
 
-    Résultat stocké dans job.phase0_plan et retourné pour injection dans
-    le system prompt de chaque chapitre.
-    Coût indicatif : ~€0.005 (Haiku, prompt court).
+    Sources exclusives :
+      - brief client (CONCURRENTS, DEMANDES_SPECIFIQUES, ELEMENTS_A_RETENIR)
+      - structure blueprint (sections obligatoires par chapitre chunked)
+
+    Aucune donnée inventée. Aucune source externe. Uniquement ce que le
+    client a fourni et ce que les blueprints imposent structurellement.
     """
-    plan_prompt = PHASE0_PROMPTS.get(job.deliverable_type)
-    if not plan_prompt:
+    lines: list[str] = []
+
+    # 1. Concurrents fournis par le client
+    raw = str(variables.get("CONCURRENTS", "")).strip()
+    if raw:
+        items = [c.strip() for c in re.split(r"[,;\n]+", raw) if c.strip()]
+        if items:
+            lines.append(
+                f"CONCURRENTS CLIENTS VERROUILLÉS ({len(items)} au total — liste définitive) :"
+            )
+            for i, item in enumerate(items, 1):
+                lines.append(f"  {i}. {item}")
+            lines.append(
+                f"  → RÈGLE ABSOLUE : traiter les {len(items)} concurrents ci-dessus "
+                "dans cet ordre exact. Aucun oubli, aucune omission, aucun remplacement "
+                "par un autre concurrent non listé."
+            )
+
+    # 2. Exigences client verbatim
+    demandes = str(variables.get("DEMANDES_SPECIFIQUES", "")).strip()
+    elements = str(variables.get("ELEMENTS_A_RETENIR", "")).strip()
+    if demandes or elements:
+        lines.append("\nEXIGENCES CLIENT (à honorer explicitement dans les chapitres concernés) :")
+        if demandes:
+            lines.append(f"  Demandes spécifiques : {demandes}")
+        if elements:
+            lines.append(f"  Éléments à retenir : {elements}")
+        lines.append(
+            "  → RÈGLE ABSOLUE : chaque exigence ci-dessus doit être traitée "
+            "explicitement dans le livrable. Aucune ne peut être ignorée ou survolée."
+        )
+
+    # 3. Structure verrouillée des chapitres à sections multiples (chunked)
+    chunked = [bp for bp in chapters_for_deliverable(job.deliverable_type) if bp.sections]
+    if chunked:
+        lines.append(
+            "\nSTRUCTURE VERROUILLÉE — CHAPITRES À SOUS-SECTIONS OBLIGATOIRES :"
+        )
+        for bp in chunked:
+            n = len(bp.sections)
+            labels = " | ".join(bp.sections)
+            lines.append(f"  Chapitre {bp.number} — {bp.title} : {n} sous-sections")
+            lines.append(f"    {labels}")
+            lines.append(
+                f"    → RÈGLE ABSOLUE : compléter les {n} sous-sections en entier, "
+                "sans coupure ni omission. Chaque sous-section doit être terminée "
+                "avant de passer à la suivante."
+            )
+
+    if not lines:
         return ""
 
-    secteur = str(variables.get("SECTEUR", "")).strip()
-    pays = str(variables.get("PAYS", "")).strip()
-    projet = str(variables.get("PROJET", "")).strip()
-    brief = _build_brief(variables)
-
-    context_lines = []
-    if secteur:
-        context_lines.append(f"SECTEUR : {secteur}")
-    if pays:
-        context_lines.append(f"PAYS : {pays}")
-    if projet:
-        context_lines.append(f"PROJET : {projet}")
-    if brief:
-        context_lines.append(brief)
-    context_block = "\n".join(context_lines)
-
-    prompt = f"{context_block}\n\n{plan_prompt}"
-    system = (
-        "Tu es un planificateur structuré. Produis uniquement le plan demandé, "
-        "sans introduction ni commentaire. Sois précis, factuel, exploitable."
+    header = (
+        "PLAN VERROUILLÉ — CONTRAINTES ABSOLUES DE GÉNÉRATION\n"
+        "(établi depuis le brief client et la structure du livrable — "
+        "ces règles priment sur toute autre consigne)\n"
     )
-    result = client.complete(system=system, prompt=prompt, max_tokens=1024, model="claude-haiku")
-    plan = result.content.strip()
-
-    job.phase0_plan = plan
-    job.save(update_fields=["phase0_plan", "updated_at"])
-    return plan
+    return header + "\n".join(lines)
 
 
 def run_generation_job(
@@ -132,16 +156,15 @@ def run_generation_job(
     country = str(variables.get("PAYS", "")).strip()
     brief = _build_brief(variables)
 
-    # Phase 0 : plan verrouillé (concurrents, chiffres, brief) — appel Haiku unique.
-    # Ignoré si le job a déjà un plan (reprise) ou si le type n'a pas de prompt Phase 0.
-    if not job.phase0_plan:
-        try:
-            _generate_phase0_plan(job, variables, client=client)
-        except Exception:  # noqa: BLE001 - Phase 0 non-fatale : la génération continue sans plan
-            pass
+    # Phase 0 : plan verrouillé depuis le brief client + blueprints — sans appel LLM.
+    # Recalculé à chaque run pour refléter le brief actuel (pas de mise en cache stale).
+    phase0_plan = _build_phase0_plan(job, variables)
+    if phase0_plan != job.phase0_plan:
+        job.phase0_plan = phase0_plan
+        job.save(update_fields=["phase0_plan", "updated_at"])
 
     system_prompt = build_system_prompt(
-        job.deliverable_type, country=country, brief=brief, plan=job.phase0_plan
+        job.deliverable_type, country=country, brief=brief, plan=phase0_plan
     )
 
     chapters = job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")
