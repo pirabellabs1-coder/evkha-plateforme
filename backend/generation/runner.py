@@ -47,21 +47,6 @@ def _variables_for(job: GenerationJob) -> dict[str, object]:
     return submission.normalized_variables if submission else {}
 
 
-def _build_brief(variables: dict[str, object]) -> str:
-    """Extrait les champs client du brief sous forme de bloc texte.
-
-    Renvoie une chaîne vide si aucun champ pertinent n'est renseigné.
-    """
-    lines: list[str] = []
-    if demandes := str(variables.get("DEMANDES_SPECIFIQUES", "")).strip():
-        lines.append(f"DEMANDES_SPECIFIQUES : {demandes}")
-    if elements := str(variables.get("ELEMENTS_A_RETENIR", "")).strip():
-        lines.append(f"ELEMENTS_A_RETENIR : {elements}")
-    if concurrents := str(variables.get("CONCURRENTS", "")).strip():
-        lines.append(f"CONCURRENTS : {concurrents}")
-    return "\n".join(lines)
-
-
 def _build_phase0_plan(job: GenerationJob, variables: dict[str, object]) -> str:
     """Plan verrouillé pré-génération — 100% déterministe, aucun appel LLM.
 
@@ -154,17 +139,17 @@ def run_generation_job(
     variables = _variables_for(job)
     seed_locked_facts_from_variables(job, variables)
     country = str(variables.get("PAYS", "")).strip()
-    brief = _build_brief(variables)
 
     # Phase 0 : plan verrouillé depuis le brief client + blueprints — sans appel LLM.
-    # Recalculé à chaque run pour refléter le brief actuel (pas de mise en cache stale).
+    # Contient déjà CONCURRENTS + DEMANDES_SPECIFIQUES + ELEMENTS_A_RETENIR avec
+    # "RÈGLE ABSOLUE". Recalculé à chaque run (pas de mise en cache stale).
     phase0_plan = _build_phase0_plan(job, variables)
     if phase0_plan != job.phase0_plan:
         job.phase0_plan = phase0_plan
         job.save(update_fields=["phase0_plan", "updated_at"])
 
     system_prompt = build_system_prompt(
-        job.deliverable_type, country=country, brief=brief, plan=phase0_plan
+        job.deliverable_type, country=country, plan=phase0_plan
     )
 
     chapters = job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")

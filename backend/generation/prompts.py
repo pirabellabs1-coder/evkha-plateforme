@@ -109,7 +109,6 @@ _ROLES: dict[str, str] = {
 def build_system_prompt(
     deliverable_type: str,
     country: str = "",
-    brief: str = "",
     plan: str = "",
 ) -> str:
     role = _ROLES.get(deliverable_type, _EM_ROLE)
@@ -117,15 +116,10 @@ def build_system_prompt(
     parts = [role, _CHARTER]
     if geo:
         parts.append(geo)
-    if brief:
-        parts.append(
-            "BRIEF CLIENT (à honorer dans CHAQUE chapitre sans exception) :\n" + brief
-        )
     if plan:
-        parts.append(
-            "PLAN VERROUILLÉ (concurrents, chiffres et points client à réutiliser tels quels) :\n"
-            + plan
-        )
+        # plan contient : concurrents client (liste verrouillée), exigences verbatim,
+        # structure des sous-sections obligatoires — tout avec "RÈGLE ABSOLUE".
+        parts.append(plan)
     return "\n\n".join(parts)
 
 
