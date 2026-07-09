@@ -140,6 +140,7 @@ def _generate_chunked(
     *,
     client: ClaudeClient,
     system_prompt: str,
+    chapter_model: str | None = None,
 ) -> tuple[str, int, int, str | None]:
     """Genere un chapitre section par section et fusionne le contenu.
 
@@ -158,7 +159,9 @@ def _generate_chunked(
 
     for section_key in sections:
         prompt = build_section_prompt(chapter, section_key)
-        result = client.complete(system=system_prompt, prompt=prompt, max_tokens=max_tokens)
+        result = client.complete(
+            system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
+        )
         parts.append(result.content)
         total_input += result.input_tokens
         total_output += result.output_tokens
@@ -180,15 +183,21 @@ def _generate_chapter(
 
     blueprint = get_blueprint(job.deliverable_type, chapter.chapter_number)
     sections = blueprint.sections if blueprint else ()
+    # Modele specifique au chapitre (None = herite de EVKHA_CLAUDE_MODEL).
+    # Exemples : fiche_projet, annexe, sources → "claude-haiku" (structure pure).
+    chapter_model = blueprint.model if blueprint else None
 
     if sections:
         content, total_input, total_output, model = _generate_chunked(
-            job, chapter, sections, client=client, system_prompt=system_prompt
+            job, chapter, sections, client=client, system_prompt=system_prompt,
+            chapter_model=chapter_model,
         )
     else:
         prompt = build_chapter_prompt(chapter)
         max_tokens = max_tokens_for_job(job, default_max_tokens=_DEFAULT_MAX_TOKENS)
-        result = client.complete(system=system_prompt, prompt=prompt, max_tokens=max_tokens)
+        result = client.complete(
+            system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
+        )
         content, total_input, total_output, model = (
             result.content, result.input_tokens, result.output_tokens, result.model
         )

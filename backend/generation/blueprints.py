@@ -34,10 +34,17 @@ class ChapterBlueprint:
     # chunked). Injectee dans le prompt utilisateur comme borne haute afin que
     # Claude planifie sa sortie dans la fenetre token allouee. 0 = pas de borne.
     max_words: int = 0
+    # Modele Claude a utiliser pour ce chapitre (alias EVKHA : "claude-haiku",
+    # "claude-sonnet"...). None = herite de EVKHA_CLAUDE_MODEL (defaut global).
+    # Haiku est utilise sur les chapitres purement structures (fiche projet,
+    # annexe Q&A, sources) pour reduire le cout sans perte qualitative.
+    model: str | None = None
 
 
 MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
-    ChapterBlueprint(0, "Fiche projet", "em.00.fiche_projet", SectionKind.OPENING),
+    ChapterBlueprint(
+        0, "Fiche projet", "em.00.fiche_projet", SectionKind.OPENING, model="claude-haiku"
+    ),
     ChapterBlueprint(
         1,
         "Analyse chiffrée du marché mondial et européen",
@@ -123,8 +130,11 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "Annexe - Réponses aux questions du brief",
         "em.21.annexe_brief",
         SectionKind.ANNEXE,
+        model="claude-haiku",
     ),
-    ChapterBlueprint(22, "Sources et méthodologie", "em.22.sources", SectionKind.SOURCES),
+    ChapterBlueprint(
+        22, "Sources et méthodologie", "em.22.sources", SectionKind.SOURCES, model="claude-haiku"
+    ),
 )
 
 
@@ -133,7 +143,9 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # ouverture. La "base consolidee des concurrents" est integree au chapitre 1.
 # Ne PAS inventer de chapitres.
 COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
-    ChapterBlueprint(0, "Fiche projet", "ec.00.fiche_projet", SectionKind.OPENING),
+    ChapterBlueprint(
+        0, "Fiche projet", "ec.00.fiche_projet", SectionKind.OPENING, model="claude-haiku"
+    ),
     ChapterBlueprint(1, "Identification des concurrents", "ec.01.identification", max_words=2000),
     ChapterBlueprint(
         2,
@@ -175,8 +187,11 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "Annexe - Réponses aux demandes spécifiques du client",
         "ec.08.annexe_brief",
         SectionKind.ANNEXE,
+        model="claude-haiku",
     ),
-    ChapterBlueprint(9, "Sources et méthodologie", "ec.09.sources", SectionKind.SOURCES),
+    ChapterBlueprint(
+        9, "Sources et méthodologie", "ec.09.sources", SectionKind.SOURCES, model="claude-haiku"
+    ),
 )
 
 
@@ -189,7 +204,9 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # validation d'Evangeline.
 # ---------------------------------------------------------------------------
 BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
-    ChapterBlueprint(0, "Fiche projet", "bp.00.fiche_projet", SectionKind.OPENING),
+    ChapterBlueprint(
+        0, "Fiche projet", "bp.00.fiche_projet", SectionKind.OPENING, model="claude-haiku"
+    ),
     ChapterBlueprint(1, "Résumé exécutif", "bp.01.resume_executif", max_words=1200),
     ChapterBlueprint(
         2, "Présentation du porteur de projet", "bp.02.porteur_projet", max_words=1200
@@ -231,8 +248,10 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         18, "Risques et facteurs de sécurisation", "bp.18.risques_securisation", max_words=1400
     ),
     ChapterBlueprint(19, "Conclusion", "bp.19.conclusion", max_words=1000),
-    ChapterBlueprint(20, "Annexes", "bp.20.annexes", SectionKind.ANNEXE),
-    ChapterBlueprint(21, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES),
+    ChapterBlueprint(20, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model="claude-haiku"),
+    ChapterBlueprint(
+        21, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model="claude-haiku"
+    ),
 )
 
 # ---------------------------------------------------------------------------
@@ -243,7 +262,9 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # Ne PAS modifier sans validation d'Evangeline.
 # ---------------------------------------------------------------------------
 BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
-    ChapterBlueprint(0, "Fiche projet", "str.00.fiche_projet", SectionKind.OPENING),
+    ChapterBlueprint(
+        0, "Fiche projet", "str.00.fiche_projet", SectionKind.OPENING, model="claude-haiku"
+    ),
     ChapterBlueprint(1, "Introduction stratégique générale", "str.01.introduction", max_words=1200),
     ChapterBlueprint(
         2, "Lecture stratégique du projet", "str.02.lecture_strategique", max_words=1400
@@ -335,8 +356,11 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "Annexe - Réponses aux demandes spécifiques du client",
         "str.18.annexe_brief",
         SectionKind.ANNEXE,
+        model="claude-haiku",
     ),
-    ChapterBlueprint(19, "Sources et méthodologie", "str.19.sources", SectionKind.SOURCES),
+    ChapterBlueprint(
+        19, "Sources et méthodologie", "str.19.sources", SectionKind.SOURCES, model="claude-haiku"
+    ),
 )
 
 _BLUEPRINTS: dict[str, tuple[ChapterBlueprint, ...]] = {

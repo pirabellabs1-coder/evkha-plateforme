@@ -61,6 +61,7 @@ class ClaudeClient(Protocol):
         system: str,
         prompt: str,
         max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
     ) -> ClaudeResult: ...
 
 
@@ -88,6 +89,7 @@ class AnthropicClaudeClient:
         system: str,
         prompt: str,
         max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
     ) -> ClaudeResult:
         import os
 
@@ -98,7 +100,9 @@ class AnthropicClaudeClient:
             msg = "ANTHROPIC_API_KEY manquante pour AnthropicClaudeClient."
             raise RuntimeError(msg)
 
-        model_id = _resolve_anthropic_model_id(self._model_alias)
+        # Priorite : surcharge par appel (chapitre leger → haiku) → defaut instance
+        effective_alias = model or self._model_alias
+        model_id = _resolve_anthropic_model_id(effective_alias)
         client = anthropic.Anthropic(api_key=api_key)
 
         content_parts: list[str] = []
@@ -149,7 +153,7 @@ class AnthropicClaudeClient:
             content="".join(content_parts),
             input_tokens=total_input,
             output_tokens=total_output,
-            model=self._model_alias,
+            model=effective_alias,  # modele reel utilise (peut etre surcharge)
             stop_reason=stop_reason,
         )
 
@@ -170,6 +174,7 @@ class StubClaudeClient:
         system: str,
         prompt: str,
         max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
     ) -> ClaudeResult:
         digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
         content = (
@@ -183,11 +188,12 @@ class StubClaudeClient:
         # Estimation grossiere (~4 caracteres par token) pour alimenter le Cost Engine.
         input_tokens = max(1, len(system) + len(prompt)) // 4
         output_tokens = max(1, len(content)) // 4
+        effective_alias = model or self._model_alias
         return ClaudeResult(
             content=content,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            model=self._model_alias,
+            model=effective_alias,
         )
 
 
