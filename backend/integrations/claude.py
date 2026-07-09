@@ -14,14 +14,16 @@ _ANTHROPIC_MODEL_IDS: dict[str, str] = {
     "claude-opus": "claude-opus-4-8",
     "claude-haiku": "claude-haiku-4-5-20251001",
 }
-# 3500 tokens ≈ 2600 mots par section. Borne de cout : pire cas MARKET_STUDY
-# (30 appels) × max input+output ≈ 1.74 EUR < budget 2.00 EUR.
-# Au-dela de 1500 (cause des coupures initiales), en dessous de 8000 (trop cher).
+# 5000 tokens ≈ 3750 mots par section. Calibre pour claude-haiku (3.75x moins
+# cher que Sonnet) : pire cas MARKET_STUDY (30 appels × 2 continuations) ≈ 1.25 EUR
+# < budget 2.00 EUR. La hausse de 3500 → 5000 elimine la plupart des continuations
+# sur les sections denses (ec.02.a 2600 mots, ec.03.a 3800 mots) et reduit le
+# risque de coupure en cours de section sans impacter le budget.
 # Toute troncature residuelle (chapitre a HTML dense) est neutralisee par le
 # sanitizer close_dangling_html_tags() de rendering.py, qui ferme les balises
 # orphelines pour eviter qu'un <table> ou <style> tronque "aspire" les
 # chapitres suivants dans le PDF final.
-_DEFAULT_MAX_TOKENS = 3500
+_DEFAULT_MAX_TOKENS = 5000
 
 # Anthropic Messages API : message.stop_reason vaut "max_tokens" quand la
 # reponse est coupee par la limite de sortie (cf. doc API Anthropic, champ

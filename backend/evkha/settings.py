@@ -149,7 +149,9 @@ BREVO_SENDER_EMAIL = env("BREVO_SENDER_EMAIL", default="contact@evkha.fr")
 BREVO_SENDER_NAME = env("BREVO_SENDER_NAME", default="Evkha")
 
 # Modele Claude actif pour la tarification du Cost Engine (M4).
-EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")
+# claude-haiku : 3.75x moins cher que Sonnet → budget €2 confortable meme sur
+# les jobs EM (30 appels). Surcharger via EVKHA_CLAUDE_MODEL pour revenir a Sonnet.
+EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-haiku")
 EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="")
 
 # Adaptateurs externes : stubs deterministes par defaut (dev/CI, aucun reseau).

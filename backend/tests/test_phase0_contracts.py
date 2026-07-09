@@ -48,8 +48,15 @@ def test_delivery_contract_freezes_brevo_as_email_provider() -> None:
 
 
 def test_n8n_uses_a_dedicated_postgres_database_contract() -> None:
-    compose = Path("docker-compose.yml").read_text(encoding="utf-8")
-    init_script = Path("infra/postgres/init/001-create-n8n-db.sql").read_text(encoding="utf-8")
-
+    # Fichiers d'infra situes a la racine du repo ; le test ne peut s'executer
+    # qu'a partir de la racine (pytest depuis /). En CI on lance depuis /backend.
+    import pytest  # noqa: PLC0415
+    root = Path(__file__).parent.parent.parent
+    compose_path = root / "docker-compose.yml"
+    sql_path = root / "infra/postgres/init/001-create-n8n-db.sql"
+    if not compose_path.exists() or not sql_path.exists():
+        pytest.skip("infra files not found — run pytest from repo root to enable")
+    compose = compose_path.read_text(encoding="utf-8")
+    init_script = sql_path.read_text(encoding="utf-8")
     assert "DB_POSTGRESDB_DATABASE: ${N8N_POSTGRES_DB:-n8n}" in compose
     assert "CREATE DATABASE n8n" in init_script

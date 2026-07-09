@@ -363,6 +363,26 @@ SECTION_MAX_WORDS: dict[str, int] = {
     # EC chapitre 3 — approfondissement strategique
     "ec.03.a.directs":   3800,  # 8 directs  × ~475 mots (5 dimensions)
     "ec.03.b.indirects": 1100,  # 3 indirects × ~335 mots + synthese comparative
+    # EM chapitre 1 — analyse marche mondial/europeen
+    "em.01.a.mondial":   1200,  # analyse mondiale chiffree
+    "em.01.b.europeen":   900,  # analyse europeenne chiffree
+    # EM chapitre 2 — marche national/local
+    "em.02.a.national":  1100,  # marche national chiffre
+    "em.02.b.local":      800,  # marche local/regional chiffre
+    # EM chapitre 10 — clientele cible (3 sections)
+    "em.10.a.profil_besoins":     800,  # profil et besoins
+    "em.10.b.comportements":      700,  # comportements d'achat
+    "em.10.c.criteres_decision":  600,  # criteres de decision
+    # EM chapitre 14 — rentabilite/viabilite (3 sections)
+    "em.14.a.hypotheses":  800,  # hypotheses financieres
+    "em.14.b.projections": 800,  # projections chiffrees
+    "em.14.c.viabilite":   600,  # viabilite et seuil
+    # EM chapitre 19 — recommandations strategiques
+    "em.19.a.diagnostic":  900,  # diagnostic strategique
+    "em.19.b.plan_action": 800,  # plan d'action concret
+    # BP chapitre 16 — previsionnel financier
+    "bp.16.a.comptes_resultats": 1000,  # comptes de resultats projetes
+    "bp.16.b.bilan_projection":   800,  # bilan et projections
 }
 
 

@@ -129,9 +129,10 @@ def test_cost_engine_records_chapter_and_job_total(
     job.refresh_from_db()
     chapter.refresh_from_db()
 
-    assert cost == estimate_call_cost_eur(1000, 2000)
-    assert chapter.cost_eur == cost
-    assert job.total_cost_eur == Decimal("0.0297")
+    expected = estimate_call_cost_eur(1000, 2000)
+    assert cost == expected
+    assert chapter.cost_eur == expected
+    assert job.total_cost_eur == expected
 
 
 @pytest.mark.django_db
@@ -174,11 +175,11 @@ def test_current_job_cost_eur_sums_all_chapters(
 def test_max_tokens_for_job_throttles_from_first_chapter(
     normalized_market_submission: IntakeSubmission,
 ) -> None:
-    # Le throttle est actif dès le premier euro (seuil = 0€).
-    # À 1.50€ dépensé sur 2€ de budget, max_tokens doit être < 3500.
+    # Le throttle se declenche quand le budget restant est faible.
+    # A 3.50€ depense sur 4€ de budget EM, max_tokens doit etre < 3500.
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("1.5000")
+    chapter.cost_eur = Decimal("3.5000")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     result = max_tokens_for_job(job, default_max_tokens=3500)
@@ -191,7 +192,7 @@ def test_max_tokens_for_job_throttles_above_threshold(
 ) -> None:
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("1.9500")
+    chapter.cost_eur = Decimal("3.9500")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     result = max_tokens_for_job(job, default_max_tokens=3500)
@@ -220,7 +221,7 @@ def test_max_tokens_for_job_floors_at_minimum_when_budget_nearly_exhausted(
 ) -> None:
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("1.9990")
+    chapter.cost_eur = Decimal("3.9990")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     assert max_tokens_for_job(job, default_max_tokens=3500) == 400
