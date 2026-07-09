@@ -1,9 +1,51 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from celery import shared_task
+from django.utils import timezone
+
+from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .models import GenerationJob, JobStatus
 from .runner import run_generation_job
+
+# Un job RUNNING depuis plus de 2h est considere bloque (crash worker, timeout reseau).
+_STUCK_JOB_TIMEOUT_HOURS = 2
+
+
+@shared_task(name="generation.reset_stuck_generation_jobs")  # type: ignore[untyped-decorator]
+def reset_stuck_generation_jobs() -> int:
+    """Risque 6 — detecte et reset les jobs bloques en RUNNING depuis trop longtemps.
+
+    Cree un incident HIGH pour chaque job concerne afin que l'admin puisse
+    relancer manuellement depuis le dashboard.
+    """
+    cutoff = timezone.now() - timedelta(hours=_STUCK_JOB_TIMEOUT_HOURS)
+    stuck_jobs = list(
+        GenerationJob.objects.filter(status=JobStatus.RUNNING, updated_at__lt=cutoff)
+        .select_related("order")
+    )
+    for job in stuck_jobs:
+        GenerationJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.FAILED,
+            error_message=(
+                f"Job bloque detecte par le gardien automatique "
+                f"(aucune activite depuis >{_STUCK_JOB_TIMEOUT_HOURS}h)."
+            ),
+        )
+        OperationalIncident.objects.create(
+            title=f"Job IA bloque — reset automatique (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={
+                "stuck_since": str(job.updated_at),
+                "deliverable_type": job.deliverable_type,
+                "hint": "Relancer manuellement depuis le dashboard admin.",
+            },
+        )
+    return len(stuck_jobs)
 
 
 @shared_task(name="generation.run_generation_job")  # type: ignore[untyped-decorator]

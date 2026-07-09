@@ -221,6 +221,9 @@ def ensure_gamma_artifacts(
     Appels reseau (create_presentation, wait_until_ready, export) effectues
     EN DEHORS de toute transaction atomique pour eviter de bloquer la connexion
     DB pendant les 5-30 s de polling Gamma.
+
+    Risque 5 — si l'API Gamma n'est pas configuree (NotImplementedError),
+    on logue un warning et on retourne [] au lieu de bloquer la livraison.
     """
     if not job.order.offer.gamma_enabled:
         return []
@@ -229,14 +232,22 @@ def ensure_gamma_artifacts(
     document = render_client_document(job)
     markdown = document.to_markdown()
 
-    # I/O reseau -- pas de transaction ouverte ici.
-    presentation = gamma_client.create_presentation(
-        title=document.title,
-        markdown=markdown,
-        theme_id=_theme_id_for(job),
-    )
-    gamma_client.wait_until_ready(presentation_id=presentation.presentation_id)
-    export = gamma_client.export(presentation=presentation)
+    try:
+        # I/O reseau -- pas de transaction ouverte ici.
+        presentation = gamma_client.create_presentation(
+            title=document.title,
+            markdown=markdown,
+            theme_id=_theme_id_for(job),
+        )
+        gamma_client.wait_until_ready(presentation_id=presentation.presentation_id)
+        export = gamma_client.export(presentation=presentation)
+    except NotImplementedError:
+        _log.warning(
+            "ensure_gamma_artifacts: API Gamma non configuree pour job %s — "
+            "artefacts Gamma ignores, livraison PDF/email maintenue.",
+            job.id,
+        )
+        return []
 
     # Uniquement des ecritures DB a partir d'ici.
     return _persist_gamma_artifacts(

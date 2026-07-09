@@ -127,6 +127,13 @@ CELERY_BEAT_SCHEDULE = {
         "task": "customers.refresh_monthly_credits",
         "schedule": 3600.0,  # check horaire ; le service decide s'il y a quelque chose a faire
     },
+    # Risque 6 — jobs bloques : reset automatique toutes les heures.
+    # Un job RUNNING depuis plus de 2h est forcement bloque (crash worker, timeout reseau).
+    # L'incident HIGH cree permet a l'admin de relancer manuellement depuis le dashboard.
+    "reset-stuck-generation-jobs": {
+        "task": "generation.reset_stuck_generation_jobs",
+        "schedule": 3600.0,
+    },
 }
 
 EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
@@ -149,9 +156,9 @@ BREVO_SENDER_EMAIL = env("BREVO_SENDER_EMAIL", default="contact@evkha.fr")
 BREVO_SENDER_NAME = env("BREVO_SENDER_NAME", default="Evkha")
 
 # Modele Claude actif pour la tarification du Cost Engine (M4).
-# claude-haiku : 3.75x moins cher que Sonnet → budget €2 confortable meme sur
-# les jobs EM (30 appels). Surcharger via EVKHA_CLAUDE_MODEL pour revenir a Sonnet.
-EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-haiku")
+# claude-sonnet : qualite optimale pour les analyses longues (80 pages). Les budgets
+# adaptatifs (EM=4€, BP=3€) absorbent le cout Sonnet meme sur 30 appels.
+EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")
 EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="")
 
 # Adaptateurs externes : stubs deterministes par defaut (dev/CI, aucun reseau).

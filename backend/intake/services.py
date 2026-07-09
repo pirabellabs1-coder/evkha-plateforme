@@ -170,6 +170,15 @@ class IntakeIngestionError(ValueError):
     pass
 
 
+class OrderNotYetAvailableError(RuntimeError):
+    """La commande Systeme.io n'existe pas encore — race condition webhook.
+
+    Le webhook Tally peut arriver avant que le webhook Systeme.io ait cree
+    la commande en base. Celery retente automatiquement cette tache (max 5
+    fois, intervalle 60 s) pour absorber le delai de propagation.
+    """
+
+
 def _lookup(payload: dict[str, Any], *paths: str) -> str:
     for path in paths:
         current: Any = payload
@@ -255,8 +264,8 @@ def sync_intake_from_tally_payload(payload: dict[str, Any]) -> IntakeSubmission:
     try:
         order = Order.objects.get(systeme_order_id=systeme_order_id)
     except Order.DoesNotExist as exc:
-        msg = f"Unknown order for intake payload: {systeme_order_id}"
-        raise IntakeIngestionError(msg) from exc
+        msg = f"Order not yet created for intake payload: {systeme_order_id}"
+        raise OrderNotYetAvailableError(msg) from exc
 
     variables, missing = normalize_intake_variables(payload)
     status = IntakeStatus.NORMALIZED if not missing else IntakeStatus.INCOMPLETE
