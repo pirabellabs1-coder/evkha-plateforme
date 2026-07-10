@@ -101,4 +101,6 @@ def test_market_study_budget_keeps_phase0_margin() -> None:
 
     job = bootstrap_generation_job(submission)
 
-    assert job.budget_eur == Decimal("2.4000")
+    # Budget releve a 3.20 EUR pour supporter le nouveau plancher
+    # _MIN_MAX_TOKENS=2500 (evite les chapitres etrangles a 1200 tok).
+    assert job.budget_eur == Decimal("3.2000")

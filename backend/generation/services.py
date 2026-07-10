@@ -18,13 +18,20 @@ _SUPPORTED_DELIVERABLES = frozenset(
     }
 )
 
-# Budget IA par type de livrable (modele Sonnet + chapitres legers en Haiku).
-# EM garde une marge explicite pour le plan systeme et le contexte inter-sections.
+# Budget IA par type de livrable, aligne sur le cout reel d'une generation
+# COMPLETE (pas etranglee). Historique : budget EM 2.30-2.40 EUR + throttle
+# _MIN_MAX_TOKENS=400 produisait des chapitres tardifs a 1200 tokens output
+# (SWOT/risques/conclusion tronques). Correctif complet :
+#   - _MIN_MAX_TOKENS releve a 2500 (cf. cost.py) : plus de contenu etrangle
+#   - Budget EM releve a 3.20 EUR pour absorber le plancher garanti
+#   - Prompt caching Anthropic (integrations/claude.py) reduit ~0.30 EUR/job
+# Cible reelle apres tous les fixes : EM ~2.40-2.90 EUR / job avec contenu
+# structurellement complet. 3.20 EUR = plafond de securite.
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("2.4000"),  # 30 appels — chap14 seul = 0.26€
-    DeliverableType.BUSINESS_PLAN:     Decimal("2.0000"),  # 23 appels
-    DeliverableType.BUSINESS_STRATEGY: Decimal("2.0000"),  # 20 appels
-    DeliverableType.COMPETITOR_STUDY:  Decimal("2.0000"),  # 12 appels
+    DeliverableType.MARKET_STUDY:      Decimal("3.2000"),  # 30 appels — SWOT/risques complets
+    DeliverableType.BUSINESS_PLAN:     Decimal("2.6000"),  # 24 appels
+    DeliverableType.BUSINESS_STRATEGY: Decimal("2.4000"),  # 20 appels
+    DeliverableType.COMPETITOR_STUDY:  Decimal("2.0000"),  # 12 appels (sans SWOT)
 }
 
 

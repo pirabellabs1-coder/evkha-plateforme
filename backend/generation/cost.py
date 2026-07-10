@@ -19,7 +19,7 @@ MODEL_PRICING_EUR: dict[str, tuple[Decimal, Decimal]] = {
 }
 _FALLBACK_MODEL = "claude-sonnet"
 
-# Regle d'or #1 — BUDGET STRICT 2 EUR MAX, PAS UN CENTIME DE PLUS :
+# Regle d'or #1 — BUDGET STRICT, FAIL-FAST :
 #   - Throttle actif des le premier chapitre (seuil = 0 EUR) : chaque appel
 #     Claude ne peut consommer qu'une fraction equitable du budget restant.
 #   - Des que total_cost > budget_eur : arret immediat, CostBudgetExceededError.
@@ -27,7 +27,16 @@ _FALLBACK_MODEL = "claude-sonnet"
 #     cote Anthropic), mais aucun chapitre suivant ne demarre.
 _SOFT_THROTTLE_THRESHOLD_EUR = Decimal("0")  # throttle actif des le 1er chapitre
 _HARD_CAP_SAFETY_MARGIN_EUR = Decimal("0.02")
-_MIN_MAX_TOKENS = 400
+# _MIN_MAX_TOKENS : plancher garanti pour chaque appel Claude, meme sous
+# pression budgetaire. Historique : 400 tokens → provoquait des chapitres
+# etrangles (SWOT/risques/conclusion a 1200 tokens output = min × 3 rounds
+# de continuation). Ces chapitres sortaient "termines" mais structurellement
+# incomplets — le client voyait un SWOT avec 2 quadrants sur 4.
+# Correctif : plancher a 2500 tokens = ~1875 mots = un chapitre substantiel
+# minimum. Si le budget ne peut pas absorber ce plancher, `enforce_budget`
+# leve CostBudgetExceededError et le job passe FAILED proprement (fail-fast)
+# plutot que de generer du contenu mutile.
+_MIN_MAX_TOKENS = 2500
 
 
 class CostBudgetExceededError(RuntimeError):

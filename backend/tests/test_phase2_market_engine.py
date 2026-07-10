@@ -219,28 +219,49 @@ def test_max_tokens_for_job_worst_case_never_reaches_budget(
 def test_max_tokens_for_job_floors_at_minimum_when_budget_nearly_exhausted(
     normalized_market_submission: IntakeSubmission,
 ) -> None:
+    # Nouveau comportement : _MIN_MAX_TOKENS=2500 (etait 400). Meme sous
+    # pression budgetaire, on ne genere plus de chapitres etrangles.
+    # Si le budget ne peut pas absorber ce plancher, enforce_budget levera
+    # CostBudgetExceededError (fail-fast) — jamais de contenu mutile livre.
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("2.3810")
+    chapter.cost_eur = Decimal("3.1810")  # 99% du budget EM 3.20
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
-    assert max_tokens_for_job(job, default_max_tokens=3500) == 400
+    assert max_tokens_for_job(job, default_max_tokens=3500) == _MIN_MAX_TOKENS
+
+
+@pytest.mark.django_db
+def test_min_max_tokens_is_high_enough_for_substantial_content(
+    normalized_market_submission: IntakeSubmission,
+) -> None:
+    # Verrou anti-regression : le plancher DOIT rester >= 2000 tokens
+    # (~1500 mots). En dessous, les chapitres tardifs (SWOT, risques,
+    # conclusion) sortent structurellement incomplets — c'etait le bug
+    # historique corrige (cf. commit du fix throttle). Toute reduction
+    # future doit passer par une re-lecture explicite de ce test.
+    assert _MIN_MAX_TOKENS >= 2000, (
+        f"_MIN_MAX_TOKENS={_MIN_MAX_TOKENS} trop bas — risque contenu "
+        "etrangle sur les chapitres tardifs sous pression budgetaire."
+    )
 
 
 @pytest.mark.django_db
 def test_max_tokens_for_job_splits_remaining_budget_across_call_count(
     normalized_market_submission: IntakeSubmission,
 ) -> None:
+    # Debut de generation (0.10 EUR consommes sur 3.20 EUR EM). Le throttle
+    # s'active des le 1er appel (SOFT_THROTTLE_THRESHOLD=0) mais avec 3.08 EUR
+    # restants sur ~66 slots, per_call_budget > plancher. La verification cle :
+    # split_call (2 sections) <= single_call — la repartition reduit bien le
+    # max_tokens par appel meme si les deux valeurs restent > plancher.
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    # 1.70 EUR = seuil de throttle. Avec MAX_CONTINUATIONS=1 et ~20 chapitres
-    # restants, single_call > 400 et split_call <= single_call (l'assertion
-    # verifie que call_count=2 reduit bien le max_tokens par call).
-    chapter.cost_eur = Decimal("1.7000")
+    chapter.cost_eur = Decimal("0.1000")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
-    single_call = max_tokens_for_job(job, default_max_tokens=3500, call_count=1)
-    split_call = max_tokens_for_job(job, default_max_tokens=3500, call_count=2)
+    single_call = max_tokens_for_job(job, default_max_tokens=8000, call_count=1)
+    split_call = max_tokens_for_job(job, default_max_tokens=8000, call_count=2)
 
     assert split_call <= single_call
     assert single_call > _MIN_MAX_TOKENS  # throttle actif mais pas au plancher
