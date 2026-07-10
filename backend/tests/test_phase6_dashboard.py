@@ -3,6 +3,11 @@ from __future__ import annotations
 import pytest
 from django.test import Client, override_settings
 
+from catalog.models import DeliverableType, Offer
+from customers.models import Customer
+from generation.models import GenerationJob, JobStatus
+from orders.models import Order
+
 # ---------------------------------------------------------------------------
 # Auth middleware
 # ---------------------------------------------------------------------------
@@ -107,6 +112,45 @@ def test_job_detail_returns_404_for_unknown_id() -> None:
     with override_settings(EVKHA_DASHBOARD_AUTH_DISABLED=True):
         response = client.get(f"/api/dashboard/jobs/{uuid.uuid4()}/")
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_dashboard_surfaces_phase0_plan_observability() -> None:
+    offer = Offer.objects.create(
+        name="Etude de marche",
+        slug="etude-marche-dashboard",
+        deliverable_type=DeliverableType.MARKET_STUDY,
+    )
+    customer = Customer.objects.create(email="client@example.com")
+    order = Order.objects.create(
+        systeme_order_id="order_dashboard_phase0",
+        customer=customer,
+        offer=offer,
+    )
+    job = GenerationJob.objects.create(
+        order=order,
+        deliverable_type=DeliverableType.MARKET_STUDY,
+        status=JobStatus.PENDING,
+        phase0_plan="PLAN VERROUILLE\n- Contrainte observable",
+    )
+
+    client = Client()
+    with override_settings(EVKHA_DASHBOARD_AUTH_DISABLED=True):
+        list_response = client.get("/api/dashboard/jobs/")
+        detail_response = client.get(f"/api/dashboard/jobs/{job.id}/")
+
+    assert list_response.status_code == 200
+    list_item = list_response.json()[0]
+    assert list_item["phase0_plan"] == {
+        "exists": True,
+        "chars": 39,
+        "preview": "PLAN VERROUILLE\n- Contrainte observable",
+    }
+
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["phase0_plan"]["exists"] is True
+    assert detail["phase0_plan"]["content"] == "PLAN VERROUILLE\n- Contrainte observable"
 
 
 @pytest.mark.django_db

@@ -194,7 +194,7 @@ def build_section_prompt(
         previous_block = (
             "\n\nSECTIONS_PRECEDENTES (déjà rédigées — ne pas répéter, "
             "assurer la continuité) :\n"
-            + previous_context[:4000]
+            + previous_context[-4000:]
             + "\n"
         )
     return (

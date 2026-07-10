@@ -18,7 +18,7 @@ from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 from .qa import detect_violations, repair_rule_based
 
-_SUMMARY_MAX_CHARS = 150
+_SUMMARY_MAX_CHARS = 320
 _SOURCES_SPLIT = re.compile(r"\n\s*sources\b", re.IGNORECASE)
 
 
@@ -48,73 +48,23 @@ def _variables_for(job: GenerationJob) -> dict[str, object]:
 
 
 def _build_phase0_plan(job: GenerationJob, variables: dict[str, object]) -> str:
-    """Plan verrouillé pré-génération — 100% déterministe, aucun appel LLM.
+    """Plan pré-génération déterministe, sans recopier le brief client.
 
-    Sources exclusives :
-      - brief client (CONCURRENTS, DEMANDES_SPECIFIQUES, ELEMENTS_A_RETENIR)
-      - structure blueprint (sections obligatoires par chapitre chunked)
-
-    Aucune donnée inventée. Aucune source externe. Uniquement ce que le
-    client a fourni et ce que les blueprints imposent structurellement.
+    Le brief complet est déjà injecté par Context Engine via VARIABLES_PROJET.
+    Ce plan ne doit donc ni répéter CONCURRENTS/DEMANDES/ELEMENTS, ni lister
+    toute la structure chunked dans chaque appel Claude.
     """
-    lines: list[str] = []
-
-    # 1. Concurrents fournis par le client
-    raw = str(variables.get("CONCURRENTS", "")).strip()
-    if raw:
-        items = [c.strip() for c in re.split(r"[,;\n]+", raw) if c.strip()]
-        if items:
-            lines.append(
-                f"CONCURRENTS CLIENTS VERROUILLÉS ({len(items)} au total — liste définitive) :"
-            )
-            for i, item in enumerate(items, 1):
-                lines.append(f"  {i}. {item}")
-            lines.append(
-                f"  → RÈGLE ABSOLUE : traiter les {len(items)} concurrents ci-dessus "
-                "dans cet ordre exact. Aucun oubli, aucune omission, aucun remplacement "
-                "par un autre concurrent non listé."
-            )
-
-    # 2. Exigences client verbatim
-    demandes = str(variables.get("DEMANDES_SPECIFIQUES", "")).strip()
-    elements = str(variables.get("ELEMENTS_A_RETENIR", "")).strip()
-    if demandes or elements:
-        lines.append("\nEXIGENCES CLIENT (à honorer explicitement dans les chapitres concernés) :")
-        if demandes:
-            lines.append(f"  Demandes spécifiques : {demandes}")
-        if elements:
-            lines.append(f"  Éléments à retenir : {elements}")
-        lines.append(
-            "  → RÈGLE ABSOLUE : chaque exigence ci-dessus doit être traitée "
-            "explicitement dans le livrable. Aucune ne peut être ignorée ou survolée."
-        )
-
-    # 3. Structure verrouillée des chapitres à sections multiples (chunked)
-    chunked = [bp for bp in chapters_for_deliverable(job.deliverable_type) if bp.sections]
-    if chunked:
-        lines.append(
-            "\nSTRUCTURE VERROUILLÉE — CHAPITRES À SOUS-SECTIONS OBLIGATOIRES :"
-        )
-        for bp in chunked:
-            n = len(bp.sections)
-            labels = " | ".join(bp.sections)
-            lines.append(f"  Chapitre {bp.number} — {bp.title} : {n} sous-sections")
-            lines.append(f"    {labels}")
-            lines.append(
-                f"    → RÈGLE ABSOLUE : compléter les {n} sous-sections en entier, "
-                "sans coupure ni omission. Chaque sous-section doit être terminée "
-                "avant de passer à la suivante."
-            )
-
-    if not lines:
+    if not chapters_for_deliverable(job.deliverable_type):
         return ""
 
-    header = (
-        "PLAN VERROUILLÉ — CONTRAINTES ABSOLUES DE GÉNÉRATION\n"
-        "(établi depuis le brief client et la structure du livrable — "
-        "ces règles priment sur toute autre consigne)\n"
+    return (
+        "PLAN VERROUILLÉ — CONTRAINTES DE GÉNÉRATION\n"
+        "- Le brief client est transmis une seule fois via VARIABLES_PROJET.\n"
+        "- Pour les concurrents, appliquer la consigne du chapitre cible : "
+        "sélectionner, compléter ou ordonner selon ce que demande ce chapitre.\n"
+        "- Pour les chapitres découpés, traiter intégralement la SECTION_A_GENERER "
+        "courante ; les autres sections sont pilotées par leurs appels dédiés."
     )
-    return header + "\n".join(lines)
 
 
 def run_generation_job(
@@ -140,13 +90,14 @@ def run_generation_job(
     seed_locked_facts_from_variables(job, variables)
     country = str(variables.get("PAYS", "")).strip()
 
-    # Phase 0 : plan verrouillé depuis le brief client + blueprints — sans appel LLM.
-    # Contient déjà CONCURRENTS + DEMANDES_SPECIFIQUES + ELEMENTS_A_RETENIR avec
-    # "RÈGLE ABSOLUE". Recalculé à chaque run (pas de mise en cache stale).
-    phase0_plan = _build_phase0_plan(job, variables)
-    if phase0_plan != job.phase0_plan:
+    # Phase 0 : plan verrouillé sans appel LLM. Une fois fixé, il n'est plus
+    # écrasé sur relance afin d'éviter deux plans différents dans un même job.
+    if not job.phase0_plan:
+        phase0_plan = _build_phase0_plan(job, variables)
         job.phase0_plan = phase0_plan
         job.save(update_fields=["phase0_plan", "updated_at"])
+    else:
+        phase0_plan = job.phase0_plan
 
     system_prompt = build_system_prompt(
         job.deliverable_type, country=country, plan=phase0_plan

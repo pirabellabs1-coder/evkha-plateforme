@@ -84,6 +84,14 @@ def test_complete_returns_immediately_when_not_truncated(monkeypatch: pytest.Mon
     assert result.input_tokens == 100
     assert result.output_tokens == 200
     assert len(holder["client"].messages.calls) == 1
+    system = holder["client"].messages.calls[0]["system"]
+    assert system == [
+        {
+            "type": "text",
+            "text": "sys",
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
 
 
 def test_complete_continues_on_max_tokens_and_merges_content(

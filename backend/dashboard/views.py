@@ -60,6 +60,15 @@ def _json(data: Any, status: int = 200) -> JsonResponse:
     )
 
 
+def _phase0_plan_observability(job: GenerationJob) -> dict[str, Any]:
+    plan = job.phase0_plan or ""
+    return {
+        "exists": bool(plan.strip()),
+        "chars": len(plan),
+        "preview": plan[:500] if plan else "",
+    }
+
+
 def _job_summary(
     job: GenerationJob,
     *,
@@ -80,6 +89,7 @@ def _job_summary(
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
         "order_id": str(job.order_id),
         "error_message": job.error_message or None,
+        "phase0_plan": _phase0_plan_observability(job),
         "pdf_download_url": pdf_download_url,
         "delivery_status": delivery_status,
     }
@@ -271,6 +281,7 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
     data["customer_id"] = str(job.order.customer_id)
     data["offer_name"] = job.order.offer.name
     data["delivery"] = delivery_data
+    data["phase0_plan"]["content"] = job.phase0_plan or ""
     return _json(data)
 
 

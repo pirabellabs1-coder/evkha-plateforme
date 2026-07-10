@@ -103,6 +103,7 @@ class AnthropicClaudeClient:
         effective_alias = model or self._model_alias
         model_id = _resolve_anthropic_model_id(effective_alias)
         client = anthropic.Anthropic(api_key=api_key)
+        system_param = _cacheable_system(system)
 
         content_parts: list[str] = []
         total_input = 0
@@ -114,7 +115,7 @@ class AnthropicClaudeClient:
             message = client.messages.create(
                 model=model_id,
                 max_tokens=max_tokens,
-                system=system,
+                system=system_param,
                 messages=messages,  # type: ignore[arg-type]
             )
             chunk = "".join(
@@ -155,6 +156,18 @@ class AnthropicClaudeClient:
             model=effective_alias,  # modele reel utilise (peut etre surcharge)
             stop_reason=stop_reason,
         )
+
+
+def _cacheable_system(system: str) -> str | list[dict[str, object]]:
+    if not system:
+        return ""
+    return [
+        {
+            "type": "text",
+            "text": system,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
 
 
 class StubClaudeClient:
