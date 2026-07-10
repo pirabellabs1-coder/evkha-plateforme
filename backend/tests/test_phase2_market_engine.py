@@ -119,6 +119,24 @@ def test_coherence_facts_refuse_locked_contradictions(
 
 
 @pytest.mark.django_db
+def test_upsert_locked_fact_truncates_oversized_client_value(
+    normalized_market_submission: IntakeSubmission,
+) -> None:
+    # Regression : un champ Tally en texte libre (SECTEUR, ZONE...) sans limite
+    # de longueur cote formulaire faisait planter tout le job avec un DataError
+    # Postgres ("value too long for type character varying(500)") des le seed
+    # des locked facts, avant meme le premier appel Claude — BP/STR restaient
+    # bloques a 0/N chapitres. La valeur doit etre tronquee, jamais rejetee.
+    job = bootstrap_generation_job(normalized_market_submission)
+    oversized = "x" * 600
+
+    fact = upsert_locked_fact(job=job, kind=FactKind.ASSUMPTION, key="secteur", value=oversized)
+
+    assert len(fact.value) == 500
+    assert fact.value == "x" * 500
+
+
+@pytest.mark.django_db
 def test_cost_engine_records_chapter_and_job_total(
     normalized_market_submission: IntakeSubmission,
 ) -> None:

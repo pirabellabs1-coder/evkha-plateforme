@@ -89,8 +89,17 @@ def upsert_locked_fact(
     - Ecart >= 20% ou valeurs non numeriques : incident MEDIUM, generation continue.
     N'arrete JAMAIS la generation — un conflit de chiffre est une imperfection
     de contenu, pas une erreur systeme.
+
+    Les valeurs client (SECTEUR, ZONE, FORME_JURIDIQUE...) sont du texte libre
+    sans limite cote formulaire Tally. Tronquees a la longueur du champ pour
+    ne jamais faire planter le job sur un DataError Postgres — un fait de
+    coherence legerement tronque vaut mieux qu'un job qui ne demarre jamais.
     """
     from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    max_len = CoherenceFact._meta.get_field("value").max_length
+    if max_len is not None and len(value) > max_len:
+        value = value[:max_len]
 
     existing = CoherenceFact.objects.filter(job=job, kind=kind, key=key).first()
     if existing and existing.is_locked and existing.value != value:
