@@ -50,21 +50,54 @@ def _variables_for(job: GenerationJob) -> dict[str, object]:
 def _build_phase0_plan(job: GenerationJob, variables: dict[str, object]) -> str:
     """Plan pré-génération déterministe, sans recopier le brief client.
 
-    Le brief complet est déjà injecté par Context Engine via VARIABLES_PROJET.
-    Ce plan ne doit donc ni répéter CONCURRENTS/DEMANDES/ELEMENTS, ni lister
-    toute la structure chunked dans chaque appel Claude.
+    Historique : ce plan listait auparavant tous les concurrents, exigences et
+    sous-sections avec des "RÈGLE ABSOLUE". Deux problèmes majeurs identifiés :
+    1. Duplication : VARIABLES_PROJET (context.py) sérialise déjà tout le brief
+       dans le user prompt. Ré-émettre dans le system prompt coûte ~1500 tok/appel
+       × 30 appels = ~45k tok/job = ~€0.12/job pour zéro info nouvelle.
+    2. Contradiction : "traiter les N concurrents dans l'ordre exact" écrasait
+       `ec.01.identification` qui dit "sélectionne les 8 plus pertinents". Prompts
+       contradictoires → Claude sur-focalise sur les concurrents et zappe
+       d'autres sous-parties (ex. chap 6.2 EC absent).
+
+    Fix : bloc court (~350 chars, cachable) qui rappelle l'importance du brief
+    SANS lister ni contraindre l'ordre. La sélection/priorisation reste
+    gouvernée par les prompts individuels du prompt_library.
     """
     if not chapters_for_deliverable(job.deliverable_type):
         return ""
 
+    has_brief = any(
+        _var(variables, k) for k in ("CONCURRENTS", "DEMANDES_SPECIFIQUES", "ELEMENTS_A_RETENIR")
+    )
+    if not has_brief:
+        return ""
+
     return (
         "PLAN VERROUILLÉ — CONTRAINTES DE GÉNÉRATION\n"
-        "- Le brief client est transmis une seule fois via VARIABLES_PROJET.\n"
-        "- Pour les concurrents, appliquer la consigne du chapitre cible : "
-        "sélectionner, compléter ou ordonner selon ce que demande ce chapitre.\n"
-        "- Pour les chapitres découpés, traiter intégralement la SECTION_A_GENERER "
-        "courante ; les autres sections sont pilotées par leurs appels dédiés."
+        "- Le brief client (CONCURRENTS, DEMANDES_SPECIFIQUES, ELEMENTS_A_RETENIR) "
+        "est transmis une seule fois via VARIABLES_PROJET dans le user prompt.\n"
+        "- Pour les concurrents, applique la consigne du chapitre cible : "
+        "sélectionner, compléter ou ordonner selon ce que demande CE chapitre.\n"
+        "- Pour les chapitres découpés, traite intégralement la SECTION_A_GENERER "
+        "courante ; les autres sections sont pilotées par leurs appels dédiés.\n"
+        "- Ne survole aucune demande spécifique du brief."
     )
+
+
+def _var(v: dict[str, object], k: str) -> str:
+    """Lit une variable normalisée en gérant les valeurs list-valued de Tally.
+
+    Tally peut envoyer un champ multi-select comme list ; intake/services.py
+    stocke la valeur brute sans coercion. str([...]) produit du charabia
+    (crochets + quotes) — on rejoint proprement avec ', ' à la place.
+    """
+    raw = v.get(k)
+    if raw is None:
+        return ""
+    if isinstance(raw, list):
+        return ", ".join(str(x).strip() for x in raw if str(x).strip())
+    return str(raw).strip()
 
 
 def run_generation_job(
@@ -90,12 +123,15 @@ def run_generation_job(
     seed_locked_facts_from_variables(job, variables)
     country = str(variables.get("PAYS", "")).strip()
 
-    # Phase 0 : plan verrouillé sans appel LLM. Une fois fixé, il n'est plus
-    # écrasé sur relance afin d'éviter deux plans différents dans un même job.
+    # Phase 0 : rappel court des exigences client. Garde `if not job.phase0_plan` :
+    # sur une relance avec chapitres partiellement DONE, on préserve le plan
+    # initial pour ne pas générer les chapitres restants avec un plan divergent
+    # (ex. brief édité entre deux runs).
     if not job.phase0_plan:
         phase0_plan = _build_phase0_plan(job, variables)
-        job.phase0_plan = phase0_plan
-        job.save(update_fields=["phase0_plan", "updated_at"])
+        if phase0_plan:
+            job.phase0_plan = phase0_plan
+            job.save(update_fields=["phase0_plan", "updated_at"])
     else:
         phase0_plan = job.phase0_plan
 

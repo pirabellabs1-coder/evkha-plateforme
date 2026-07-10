@@ -191,6 +191,9 @@ def build_section_prompt(
     word_limit = _word_limit_footer(section_mw)
     previous_block = ""
     if previous_context:
+        # Tail-slice : on garde la FIN (section précédente adjacente) qui est
+        # celle que Claude risque le plus de répéter. `[:4000]` gardait le
+        # début (section 1), invisible pour section 3 qui suit section 2.
         previous_block = (
             "\n\nSECTIONS_PRECEDENTES (déjà rédigées — ne pas répéter, "
             "assurer la continuité) :\n"

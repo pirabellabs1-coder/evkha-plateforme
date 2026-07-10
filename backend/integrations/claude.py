@@ -111,11 +111,18 @@ class AnthropicClaudeClient:
         stop_reason = "end_turn"
         messages: list[dict[str, str]] = [{"role": "user", "content": prompt}]
 
+        # Prompt caching Anthropic : le system prompt est identique pour tous les
+        # appels d'un job (charte + role + plan Phase 0). En le marquant
+        # cache_control ephemeral, on paye le prix plein 1x (cache-write ~125%)
+        # puis 10% pour chaque appel suivant. Sur un job EM (30 appels,
+        # system ~5000 tokens) : économie ~€0.30/job.
+        # TTL par défaut : 5 min — largement suffisant pour tous les appels
+        # d'un même job (générés en séquence en <5 min).
         for _ in range(_MAX_CONTINUATIONS + 1):
             message = client.messages.create(
                 model=model_id,
                 max_tokens=max_tokens,
-                system=system_param,
+                system=system_param,  # type: ignore[arg-type]
                 messages=messages,  # type: ignore[arg-type]
             )
             chunk = "".join(
