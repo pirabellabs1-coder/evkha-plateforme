@@ -16,6 +16,7 @@ services:
       dockerfile: backend/Dockerfile
     command: >
       sh -c "python manage.py migrate --noinput
+      && python manage.py seed_offers
       && python manage.py collectstatic --noinput
       && gunicorn evkha.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"
     env_file: .env

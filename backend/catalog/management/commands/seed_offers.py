@@ -14,14 +14,16 @@ from catalog.models import DeliverableType, Offer
 # (slug, name, deliverable_type, credits_per_month, is_subscription, is_extra_credit)
 _OFFERS: list[tuple[str, str, str, int, bool, bool]] = [
     # ── B2C — achats à l'unité ──────────────────────────────────────────────
+    # Slugs courts (correspondant aux fixtures initial_offers.json et aux
+    # URLs webhook configurées dans Systeme.io — ne pas changer).
     (
-        "etude-de-marche",
+        "etude-marche",
         "Étude de marché",
         DeliverableType.MARKET_STUDY,
         0, False, False,
     ),
     (
-        "etude-de-la-concurrence",
+        "etude-concurrence",
         "Étude de la concurrence",
         DeliverableType.COMPETITOR_STUDY,
         0, False, False,
