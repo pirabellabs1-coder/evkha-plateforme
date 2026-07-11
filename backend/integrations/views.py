@@ -78,6 +78,13 @@ def _handle_webhook(
     except (json.JSONDecodeError, ValueError) as exc:
         return JsonResponse({"accepted": False, "error": str(exc)}, status=400)
 
+    # Systeme.io automations "Appeler un webhook" envoient un payload fixe
+    # sans champs custom. On accepte offer_slug / order_id / email en query
+    # params pour router correctement depuis l'URL de l'automatisation.
+    for _qkey in ("offer_slug", "order_id", "email"):
+        if _qkey not in payload and _qkey in request.GET:
+            payload = {**payload, _qkey: request.GET[_qkey]}
+
     recorded = record_webhook_event(
         provider=provider,
         event_id=_event_id(payload, fallback_prefix),
