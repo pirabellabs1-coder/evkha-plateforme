@@ -24,6 +24,51 @@ _MARKET_SIZE_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 
+# Chiffres financiers projet — verrouilles pour eviter les glissements
+# silencieux d'un chapitre a l'autre (CA cible qui passe de 285 000 a
+# 287 500 EUR, seuil qui varie de 3 %, panier moyen qui s'ajuste sans
+# annonce...). Retour client juillet 2026 : "certains chiffres ne sont
+# pas les memes ou sont un peu modifies d'un chapitre a l'autre".
+_CA_CIBLE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"(?:chiffre\s+d['e]?affaires?|CA)\s+(?:cible|projet[ée]|previsionnel|"
+        r"objectif|attendu|d['e]?annee\s*1|annee\s*1)\s*(?:de\s+|estim[ée]\s+a\s+|"
+        r"a\s+|:\s*)?(\d[\d\s]*)\s*(?:€|euros?|EUR|k\s*€|k\s*EUR)",
+        re.IGNORECASE,
+    ),
+)
+_SEUIL_RENTABILITE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"seuil\s+de\s+rentabilit[ée]\s*(?:se\s+situe\s+a\s+|est\s+de\s+|:\s*|de\s+)?"
+        r"(\d[\d\s]*)\s*(?:€|euros?|EUR)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"point\s+mort\s*(?:a\s+|est\s+de\s+|:\s*|de\s+)?"
+        r"(\d[\d\s]*)\s*(?:€|euros?|EUR)",
+        re.IGNORECASE,
+    ),
+)
+_PANIER_MOYEN_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"(?:panier|ticket)\s+moyen\s*(?:de\s+|estim[ée]\s+a\s+|:\s*|est\s+de\s+)?"
+        r"(\d+(?:[.,]\d+)?)\s*(?:€|euros?|EUR)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"prix\s+moyen(?:\s+par\s+client)?\s*(?:de\s+|estim[ée]\s+a\s+|:\s*|est\s+de\s+)?"
+        r"(\d+(?:[.,]\d+)?)\s*(?:€|euros?|EUR)",
+        re.IGNORECASE,
+    ),
+)
+_MARGE_BRUTE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"(?:taux\s+de\s+)?marge\s+brute\s*(?:est\s+de\s+|se\s+situe\s+a\s+|:\s*|de\s+)?"
+        r"(\d+(?:[.,]\d+)?)\s*%",
+        re.IGNORECASE,
+    ),
+)
+
 # Devise officielle par pays (cle de coherence transverse a tous les chapitres).
 # Table volontairement minimale et extensible ; defaut prudent sinon.
 _COUNTRY_CURRENCY: dict[str, str] = {
@@ -61,13 +106,23 @@ class CoherenceConflictError(ValueError):
 _NUMERIC_CONFLICT_TOLERANCE = 0.20
 
 
+_NUMERIC_PREFIX_RE = re.compile(r"^\s*([\d\s\xa0]+(?:[.,]\d+)?)")
+
+
 def _numeric_gap(a: str, b: str) -> float | None:
     """Retourne l'ecart relatif entre deux valeurs numeriques (apres strip %).
-    Retourne None si l'une des valeurs n'est pas numerique.
+
+    Tolerant aux suffixes d'unite (" EUR", " Mds EUR", " %", "..."). Extrait
+    le prefixe numerique de chaque cote et compare. Retourne None si l'un
+    des deux ne commence pas par un nombre.
     """
     try:
-        va = float(a.rstrip("% ").replace(",", "."))
-        vb = float(b.rstrip("% ").replace(",", "."))
+        ma = _NUMERIC_PREFIX_RE.match(a)
+        mb = _NUMERIC_PREFIX_RE.match(b)
+        if not ma or not mb:
+            return None
+        va = float(ma.group(1).replace(" ", "").replace("\xa0", "").replace(",", "."))
+        vb = float(mb.group(1).replace(" ", "").replace("\xa0", "").replace(",", "."))
         denom = max(abs(va), abs(vb))
         if denom == 0:
             return 0.0
@@ -212,5 +267,46 @@ def extract_and_lock_chiffres_cles(job: GenerationJob, chapter_number: int, cont
                 key="taille_marche",
                 value=value,
                 source_chapter_number=chapter_number,
+            )
+            break
+
+    # Chiffres financiers projet : CA cible, seuil de rentabilite, panier
+    # moyen, marge brute. Verrouilles a la 1ere mention, les mentions
+    # ulterieures divergentes creent un incident MEDIUM (non-bloquant) qui
+    # remonte au dashboard admin sans arreter la generation.
+    for pattern in _CA_CIBLE_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            raw = match.group(1).replace(" ", "").replace("\xa0", "")
+            upsert_locked_fact(
+                job=job, kind=FactKind.ASSUMPTION, key="ca_cible_eur",
+                value=f"{raw} EUR", source_chapter_number=chapter_number,
+            )
+            break
+    for pattern in _SEUIL_RENTABILITE_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            raw = match.group(1).replace(" ", "").replace("\xa0", "")
+            upsert_locked_fact(
+                job=job, kind=FactKind.ASSUMPTION, key="seuil_rentabilite_eur",
+                value=f"{raw} EUR", source_chapter_number=chapter_number,
+            )
+            break
+    for pattern in _PANIER_MOYEN_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            value = match.group(1).replace(",", ".")
+            upsert_locked_fact(
+                job=job, kind=FactKind.ASSUMPTION, key="panier_moyen_eur",
+                value=f"{value} EUR", source_chapter_number=chapter_number,
+            )
+            break
+    for pattern in _MARGE_BRUTE_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            value = match.group(1).replace(",", ".") + "%"
+            upsert_locked_fact(
+                job=job, kind=FactKind.ASSUMPTION, key="marge_brute",
+                value=value, source_chapter_number=chapter_number,
             )
             break

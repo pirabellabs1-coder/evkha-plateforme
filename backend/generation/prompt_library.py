@@ -417,6 +417,11 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
     "ec.02.a.directs": (
         "Classement et analyse qualitative des 8 CONCURRENTS DIRECTS "
         "identifies au chapitre 1. "
+        "REGLE DE COHERENCE ABSOLUE : reprends EXACTEMENT les 8 memes noms "
+        "de concurrents que ceux listes au chapitre 1 (RESUME_OPERATIONNEL_"
+        "PRECEDENT), dans le meme ordre, avec la meme orthographe. Aucun "
+        "ajout, aucun retrait, aucune substitution. Si tu doutes du nom "
+        "exact, va le relire dans le resume operationnel avant de rediger. "
         "Traite IMPERATIVEMENT chacun des 8, dans l'ordre du chapitre 1. "
         "Pour chaque direct (sous-titre ### 2.1 a ### 2.8) : "
         "— Presence geographique et structure d'implantation "
@@ -429,6 +434,9 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
     "ec.02.b.indirects": (
         "Classement et analyse qualitative des 3 CONCURRENTS INDIRECTS "
         "identifies au chapitre 1. "
+        "REGLE DE COHERENCE ABSOLUE : reprends EXACTEMENT les 3 memes noms "
+        "que ceux listes au chapitre 1 (RESUME_OPERATIONNEL_PRECEDENT), "
+        "dans le meme ordre, meme orthographe. Aucun ajout ni retrait. "
         "Traite IMPERATIVEMENT les 3, dans l'ordre du chapitre 1. "
         "Pour chaque indirect (sous-titre ### 2.9, ### 2.10, ### 2.11) : "
         "— Nature de la concurrence indirecte "
@@ -444,6 +452,10 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
     ),
     "ec.03.a.directs": (
         "Approfondissement strategique des 8 CONCURRENTS DIRECTS identifies au chapitre 1. "
+        "REGLE DE COHERENCE ABSOLUE : les 8 noms doivent etre les MEMES qu'au "
+        "chapitre 1 et au chapitre 2, meme orthographe, meme ordre. Verifie "
+        "dans RESUME_OPERATIONNEL_PRECEDENT avant de rediger — toute variation "
+        "de nom ou d'ordre cree une incoherence editoriale majeure. "
         "Traite IMPERATIVEMENT chacun des 8, dans leur ordre d'apparition au chapitre 1, "
         "sans en sauter ni en fusionner. "
         "Pour chaque concurrent direct (numeroter les sous-titres : ### 3.1, ### 3.2... ### 3.8) : "
