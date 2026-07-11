@@ -7,6 +7,7 @@ from datetime import datetime
 from django.utils import timezone
 
 from .blueprints import SectionKind, chapters_for_deliverable
+from .charts import replace_chart_fences
 from .models import ChapterStatus, GenerationJob
 
 # Marqueurs de pipeline interne a retirer du livrable client (Rendering Engine).
@@ -685,6 +686,11 @@ def _clean_chapter_body(content: str, kind: str) -> str:
     if kind != SectionKind.SOURCES:
         body = strip_intermediate_sources(body)
     body = apply_lexical_substitutions(body)
+    # Remplace les blocs ```chart {...JSON...}``` par du SVG inline avant que
+    # le pipeline markdown ne les traite comme du code. Fait ici pour que la
+    # section Sources ne soit pas graphifiee et que le nettoyage editorial
+    # s'applique aussi au SVG (aucun em-dash n'est produit par le renderer).
+    body = replace_chart_fences(body)
     body = strip_incomplete_trailing_tag(body)
     body = close_dangling_html_tags(body)
     return body

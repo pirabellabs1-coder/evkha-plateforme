@@ -64,7 +64,14 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
     ),
     "em.09.douze_chiffres_cles": (
         "Les 12 chiffres cles du marche, presentes de facon synthetique et "
-        "memorisable, chacun source."
+        "memorisable, chacun source. "
+        "GRAPHIQUE OBLIGATOIRE : apres ta redaction, insere un bloc ```chart "
+        "de type 'bar' qui visualise 5 a 7 des 12 chiffres cles homogenes en "
+        "unite (ex : croissances annuelles en %, ou tailles de segments en "
+        "milliards d'EUR). Les labels sont des libelles courts (max 3 mots), "
+        "les values sont les nombres purs sans unite dans le nombre, unit "
+        "porte le suffixe (' %', ' Mds EUR'...). Une seule serie 'name' = "
+        "\"Marche\" ou libelle equivalent."
     ),
     "em.10.clientele_cible": (
         "Analyse approfondie de la clientele cible : besoins, comportements, "
@@ -446,7 +453,15 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
         "— Innovations et technologies deployees (e-commerce, CRM, IA, outils digitaux) "
         "— Tendances et orientations strategiques recentes "
         "— Initiatives RSE et engagement societaux "
-        "Si tu n'as pas encore traite le concurrent 8, continue — ne t'arrete pas avant."
+        "Si tu n'as pas encore traite le concurrent 8, continue — ne t'arrete pas avant. "
+        "GRAPHIQUE OBLIGATOIRE : apres avoir traite les 8 concurrents directs, "
+        "insere un bloc ```chart de type 'radar' comparant les 3 concurrents "
+        "les plus significatifs (ceux avec le plus fort impact sur le projet) "
+        "sur 5 criteres : Notoriete, Positionnement prix, Digital, Innovation, "
+        "Engagement RSE. Valeurs de 0 a 5 (echelle qualitative). labels sont "
+        "les 5 criteres, series contient une entree par concurrent avec ses "
+        "5 values. Ce radar sert de synthese visuelle avant le chapitre "
+        "suivant."
     ),
     "ec.03.b.indirects": (
         "Approfondissement strategique des 3 CONCURRENTS INDIRECTS identifies au chapitre 1. "
@@ -783,10 +798,12 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "Scenario central obligatoire + analyse de sensibilite (+/-10% CA)."
     ),
     "bp.16.b.bilan_projection": (
-        "Genere en HTML inline (sans <html>/<body>) : "
-        "1) Un graphique barres de l'evolution du CA et de l'EBITDA sur 3 ans "
-        "(barre #C9A227 pour CA, barre #1A1A1A pour EBITDA, valeurs reelles). "
-        "2) Un bilan previsionnel simplifie annee 3 (actif / passif). "
+        "1) GRAPHIQUE OBLIGATOIRE : bloc ```chart de type 'bar' avec title "
+        "\"Evolution CA et EBITDA sur 3 ans\", labels [\"Annee 1\", \"Annee 2\", "
+        "\"Annee 3\"], DEUX series (\"CA\" et \"EBITDA\") avec les valeurs "
+        "reelles issues du compte de resultat previsionnel, unit \" k EUR\". "
+        "2) Genere ensuite en HTML inline (sans <html>/<body>) : "
+        "un bilan previsionnel simplifie annee 3 (actif / passif). "
         "3) Un tableau de financement du projet : apports propres, emprunts, aides. "
         "Conclure par une synthese 1 paragraphe sur la viabilite financiere globale."
     ),
@@ -871,7 +888,16 @@ BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
         "Analyse du positionnement actuel : quelle place occupe reellement "
         "l'entreprise sur son marche, comment est-elle percue, coherence "
         "entre image / offre / cible / prix / ambition. Identifie les "
-        "risques de dilution ou de confusion de positionnement."
+        "risques de dilution ou de confusion de positionnement. "
+        "GRAPHIQUE OBLIGATOIRE : apres l'analyse redigee, insere un bloc "
+        "```chart de type 'radar' avec title \"Positionnement du projet\", "
+        "labels [\"Clarte de l'offre\", \"Notoriete\", \"Prix pergu\", "
+        "\"Differenciation\", \"Coherence marque\", \"Digital\"], et une "
+        "serie {\"name\": \"Aujourd'hui\", \"values\":[...]} avec des scores "
+        "de 0 a 5 refletant l'etat REEL du business (pas ideal, pas projete). "
+        "Si tu identifies un positionnement cible clair, ajoute une deuxieme "
+        "serie {\"name\": \"Cible\", \"values\":[...]}. Le radar donne au "
+        "dirigeant une lecture immediate des ecarts a combler."
     ),
     "str.04.forces_structurelles": (
         "Analyse des forces structurelles du business : identifie les "
