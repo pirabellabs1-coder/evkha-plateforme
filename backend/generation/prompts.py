@@ -53,7 +53,13 @@ _CHARTER = (
     "'Verification finale', 'Prompt a utiliser', 'CONTEXTE A REINJECTER', "
     "'Cas 1', 'Livrable automatise', 'Pipeline'). Ne jamais ecrire 'nous "
     "n\\'avons pas trouve de donnees' ou 'les donnees sont indisponibles' : "
-    "produire une estimation argumentee."
+    "produire une estimation argumentee.\n"
+    "TYPOGRAPHIE (regle stricte) : JAMAIS d'em-dash (—) ni d'en-dash (–) "
+    "dans le texte redige. Ce sont des signatures IA immediatement reperees "
+    "par les lecteurs professionnels. Utilise a la place : une virgule pour "
+    "les incises courtes, un point-virgule pour les propositions liees, deux "
+    "points pour introduire une precision, ou une nouvelle phrase. Le tiret "
+    "simple (-) reste autorise pour les mots composes uniquement."
 )
 
 _EM_ROLE = (

@@ -147,3 +147,28 @@ def test_build_section_prompt_tail_slices_previous_context() -> None:
     assert marker_start not in prompt, (
         "tail-slice cassé : DEBUT présent (slice [:] au lieu de [-:])"
     )
+
+
+def test_strip_ai_tell_dashes_removes_em_and_en_dashes() -> None:
+    # Regression : Claude glisse regulierement des em-dash (—) et en-dash (–)
+    # dans le corps du texte malgre la consigne INTERDICTIONS ABSOLUES.
+    # Les lecteurs professionnels les reperent instantanement comme signatures
+    # IA. Le sanitiseur post-processing doit les eliminer sans exception.
+    from generation.runner import _strip_ai_tell_dashes
+
+    # Cas classique : parenthetique avec espaces autour
+    assert (
+        _strip_ai_tell_dashes("un pari fort — et un pari qui repose sur X")
+        == "un pari fort, et un pari qui repose sur X"
+    )
+    # En-dash aussi
+    assert _strip_ai_tell_dashes("un texte – suite") == "un texte, suite"
+    # Sans espace autour (rare mais possible)
+    assert _strip_ai_tell_dashes("mot—autre mot") == "mot, autre mot"
+    # Tiret court preserve (mots composes)
+    assert _strip_ai_tell_dashes("self-stockage et ordre-du-jour") == (
+        "self-stockage et ordre-du-jour"
+    )
+    # Idempotent
+    already_clean = "texte sans tiret long, propre."
+    assert _strip_ai_tell_dashes(already_clean) == already_clean

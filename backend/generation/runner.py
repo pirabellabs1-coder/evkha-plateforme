@@ -21,6 +21,24 @@ from .qa import detect_violations, repair_rule_based
 _SUMMARY_MAX_CHARS = 320
 _SOURCES_SPLIT = re.compile(r"\n\s*sources\b", re.IGNORECASE)
 
+# Em-dash et en-dash sont des signatures IA immediatement reperees par les
+# lecteurs professionnels. La consigne prompt (INTERDICTIONS ABSOLUES) demande
+# a Claude de les eviter, mais il en glisse regulierement. Ce regex les
+# elimine systematiquement en post-processing : remplace " — " et " – " par
+# ", " ; les usages isoles ("- word") sont aussi convertis. Le tiret court "-"
+# reste intact pour les mots composes (self-stockage, ordre-du-jour...).
+_AI_TELL_DASHES = re.compile(r"\s*[—–]\s*")
+
+
+def _strip_ai_tell_dashes(content: str) -> str:
+    """Retire les em-dashes / en-dashes generes par Claude.
+
+    Ceinture-bretelles avec la regle typographique injectee dans le system
+    prompt : garantit 100% de couverture meme si Claude ignore la consigne
+    (comportement observe en pratique sur les modeles Sonnet/Opus).
+    """
+    return _AI_TELL_DASHES.sub(", ", content)
+
 
 class GenerationRunError(RuntimeError):
     """Echec irrecuperable d'un cycle de generation (au moins un chapitre KO)."""
@@ -273,6 +291,7 @@ def _generate_chapter(
             result.content, result.input_tokens, result.output_tokens, result.model
         )
 
+    content = _strip_ai_tell_dashes(content)
     chapter.content = content
     chapter.operational_summary = _operational_summary(content)
     chapter.status = ChapterStatus.DONE

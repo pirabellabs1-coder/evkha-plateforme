@@ -816,6 +816,10 @@ def run_qa_pass(
                     ai_repaired = True
 
             # Étape 5 : sauvegarde si modifié
+            # Sanitise em-dashes / en-dashes injectes par une reparation IA
+            # eventuelle (Claude en glisse regulierement malgre la consigne).
+            from .runner import _strip_ai_tell_dashes  # noqa: PLC0415
+            repaired = _strip_ai_tell_dashes(repaired)
             if repaired != content:
                 chapter.content = repaired
                 chapter.save(update_fields=["content", "updated_at"])
