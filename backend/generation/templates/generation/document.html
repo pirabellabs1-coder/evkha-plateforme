@@ -171,40 +171,45 @@
       margin-bottom: 12mm;
       page-break-inside: auto;
     }
+    /* Surtitre "Chapitre N" : discret, sans letter-spacing agressif
+       (retour client juillet 2026 : les grandes lettres espacees en tete
+       de chapitre "font tres IA"). Reduit et desserre. */
     .chapter__surtitle {
-      font-size: 10pt;
-      letter-spacing: 3px;
+      font-size: 9pt;
+      letter-spacing: 1px;
       text-transform: uppercase;
       color: var(--gray);
-      margin-bottom: 2mm;
+      margin-bottom: 1.5mm;
       page-break-after: avoid;
     }
-    /* Titre de chapitre : 34pt (Bloc 6 Consignes) */
+    /* Titre de chapitre : reduit de 34pt a 22pt pour un rendu plus cabinet
+       (retour client juillet 2026 : les titres 34pt "font tres IA"). */
     .chapter__title {
-      font-size: 34pt;
+      font-size: 22pt;
       font-weight: bold;
       color: var(--primary);
-      margin-bottom: 2mm;
+      margin-bottom: 1.5mm;
       page-break-after: avoid;
       line-height: 1.15;
     }
-    /* Filet or sous chaque titre de chapitre (Bloc 6 Consignes) */
+    /* Filet or sous chaque titre : reduit de 6mm a 4mm pour resserrer le bloc titre. */
     .chapter__filet {
-      width: 30mm;
-      height: 1.5pt;
+      width: 24mm;
+      height: 1pt;
       background: var(--secondary);
-      margin: 0 0 6mm 0;
+      margin: 0 0 4mm 0;
       page-break-after: avoid;
     }
 
-    /* Hierarchie typographique (Bloc 6 Consignes : 34pt titre / 25pt sous-titres / 22pt sous-sous) */
+    /* Hierarchie typographique resserree (retour client juillet 2026 :
+       titre 22pt / h2 15pt / h3 12.5pt / h4 11pt — echelle plus sobre). */
     .chapter__body p          { margin-bottom: 3mm; }
-    .chapter__body h2         { font-size: 25pt; font-weight: bold; color: var(--secondary);
-                                 margin: 6mm 0 2mm; page-break-after: avoid; }
-    .chapter__body h3         { font-size: 22pt; font-weight: bold; color: var(--secondary);
-                                 margin: 4mm 0 2mm; page-break-after: avoid; }
-    .chapter__body h4         { font-size: 13pt; font-weight: bold;
-                                 margin: 3mm 0 1.5mm; }
+    .chapter__body h2         { font-size: 15pt; font-weight: bold; color: var(--secondary);
+                                 margin: 5mm 0 2mm; page-break-after: avoid; }
+    .chapter__body h3         { font-size: 12.5pt; font-weight: bold; color: var(--secondary);
+                                 margin: 3mm 0 1.5mm; page-break-after: avoid; }
+    .chapter__body h4         { font-size: 11pt; font-weight: bold;
+                                 margin: 2.5mm 0 1mm; }
     .chapter__body ul,
     .chapter__body ol         { padding-left: 6mm; margin-bottom: 3mm; }
     .chapter__body li         { margin-bottom: 1mm; }
@@ -235,29 +240,25 @@
     .mentor-understand { border-left: 3pt solid var(--primary) !important; background: var(--cream-dark) !important; color: var(--primary) !important; padding: 3mm 5mm; margin: 3mm 0; }
 
     /* ── Tableaux (lignes alternees creme — Bloc 6) ───────────── */
+    /* Retour client juillet 2026 : "tu peux diminuer la taille de police des
+       tableaux, ca ne me gene pas si c'est plus petit". Passe de 9.5pt a
+       8.5pt pour absorber les tableaux financiers denses (comptes de
+       resultat 4 colonnes, budgets de tresorerie 13 colonnes) sans
+       debordement horizontal. Hyphens auto pour couper les mots longs. */
     .chapter__body table {
-      border-collapse: collapse; width: 100%; margin: 4mm 0;
-      font-size: 9.5pt;
-      /* Permettre les coupures à la limite des lignes (pas au milieu d'une cellule) */
+      border-collapse: collapse; width: 100%; margin: 3mm 0;
+      font-size: 8.5pt;
       page-break-inside: auto;
-      /* table-layout: fixed — répartit la largeur équitablement et empêche le
-         débordement horizontal quand une cellule contient un texte long sans
-         espaces. Sans ce fixed, WeasyPrint utilise 'auto' et peut produire une
-         table plus large que la page si le contenu est dense (ex. EC chap 2
-         avec 8 concurrents et cellules verbeuses). */
       table-layout: fixed;
     }
-    /* Le header se répète automatiquement sur chaque nouvelle page (WeasyPrint) */
     .chapter__body thead { display: table-header-group; }
     .chapter__body tbody { display: table-row-group; }
-    /* Éviter de couper une ligne au milieu */
     .chapter__body tr {
       page-break-inside: avoid;
     }
     .chapter__body th, .chapter__body td {
-      border: 0.5pt solid var(--cream-dark); padding: 1.5mm 2.5mm; text-align: left;
-      /* Retour à la ligne si le contenu déborde — évite les cellules tronquées */
-      word-wrap: break-word; overflow-wrap: break-word;
+      border: 0.5pt solid var(--cream-dark); padding: 1mm 2mm; text-align: left;
+      word-wrap: break-word; overflow-wrap: break-word; hyphens: auto;
     }
     .chapter__body th { background: var(--primary); color: #fff; font-weight: bold; }
     .chapter__body tr:nth-child(even) td { background: var(--cream); }

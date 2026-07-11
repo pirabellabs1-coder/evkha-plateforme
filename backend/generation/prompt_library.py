@@ -753,6 +753,19 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "contraintes reglementaires specifiques au secteur et a la zone, "
         "protection de la marque ou propriete intellectuelle si applicable."
     ),
+    # Fusion chapitre 14 (14+15 avant juillet 2026) : dispatcher decoratif,
+    # generation reelle via les sous-sections bp.14.investissements et
+    # bp.15.plan_financement.
+    "bp.14.besoin_financement": (
+        "Ce chapitre est genere en deux sections distinctes. "
+        "Ne pas utiliser ce prompt directement."
+    ),
+    # Fusion chapitre 15 (16+17 avant juillet 2026) : dispatcher decoratif,
+    # generation reelle via les sous-sections bp.16.a, bp.16.b, bp.17.
+    "bp.15.previsionnel_tresorerie": (
+        "Ce chapitre est genere en trois sections distinctes. "
+        "Ne pas utiliser ce prompt directement."
+    ),
     "bp.14.investissements": (
         "Investissements et besoins au demarrage : nature et montant des "
         "investissements initiaux, apports en nature eventuels, besoin en "

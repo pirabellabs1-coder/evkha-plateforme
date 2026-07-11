@@ -29,7 +29,7 @@ _SUPPORTED_DELIVERABLES = frozenset(
 # structurellement complet. 3.20 EUR = plafond de securite.
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
     DeliverableType.MARKET_STUDY:      Decimal("3.2000"),  # 30 appels — SWOT/risques complets
-    DeliverableType.BUSINESS_PLAN:     Decimal("2.6000"),  # 24 appels
+    DeliverableType.BUSINESS_PLAN:     Decimal("2.8000"),  # 20 chapitres, ~24 appels chunked
     DeliverableType.BUSINESS_STRATEGY: Decimal("2.4000"),  # 20 appels
     DeliverableType.COMPETITOR_STUDY:  Decimal("2.0000"),  # 12 appels (sans SWOT)
 }

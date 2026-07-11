@@ -232,25 +232,39 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
         13, "Structure juridique et réglementaire", "bp.13.structure_juridique", max_words=1200
     ),
+    # Fusion chapitres 14+15 (demande client, juillet 2026) : reduit la
+    # duplication des sections financieres liees et compresse le budget IA.
+    # Chunked en 2 sections qui reutilisent les prompts existants bp.14 et
+    # bp.15 : aucun contenu editorial n'est perdu.
     ChapterBlueprint(
-        14, "Investissements et besoins au démarrage", "bp.14.investissements", max_words=1400
+        14,
+        "Besoin au démarrage et plan de financement initial",
+        "bp.14.besoin_financement",
+        sections=("bp.14.investissements", "bp.15.plan_financement"),
+        max_words=1250,
     ),
-    ChapterBlueprint(15, "Plan de financement initial", "bp.15.plan_financement", max_words=1200),
+    # Fusion chapitres 16+17 (demande client, juillet 2026) : previsionnel
+    # + tresorerie forment un tout financier, plus lisible d'un bloc.
+    # Chunked en 3 sections (comptes resultats, bilan/graph, tresorerie)
+    # pour eviter les troncatures sur le contenu dense (tables + graphes).
     ChapterBlueprint(
-        16,
-        "Prévisionnel financier (synthèse)",
-        "bp.16.previsionnel_financier",
-        sections=("bp.16.a.comptes_resultats", "bp.16.b.bilan_projection"),
+        15,
+        "Prévisionnel financier et trésorerie",
+        "bp.15.previsionnel_tresorerie",
+        sections=(
+            "bp.16.a.comptes_resultats",
+            "bp.16.b.bilan_projection",
+            "bp.17.budget_tresorerie",
+        ),
         max_words=900,
     ),
-    ChapterBlueprint(17, "Budget de trésorerie", "bp.17.budget_tresorerie", max_words=1200),
     ChapterBlueprint(
-        18, "Risques et facteurs de sécurisation", "bp.18.risques_securisation", max_words=1400
+        16, "Risques et facteurs de sécurisation", "bp.18.risques_securisation", max_words=1400
     ),
-    ChapterBlueprint(19, "Conclusion", "bp.19.conclusion", max_words=1000),
-    ChapterBlueprint(20, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model="claude-haiku"),
+    ChapterBlueprint(17, "Conclusion", "bp.19.conclusion", max_words=1000),
+    ChapterBlueprint(18, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model="claude-haiku"),
     ChapterBlueprint(
-        21, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model="claude-haiku"
+        19, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model="claude-haiku"
     ),
 )
 
@@ -404,9 +418,13 @@ SECTION_MAX_WORDS: dict[str, int] = {
     # EM chapitre 19 — recommandations strategiques
     "em.19.a.diagnostic":  900,  # diagnostic strategique
     "em.19.b.plan_action": 800,  # plan d'action concret
-    # BP chapitre 16 — previsionnel financier
-    "bp.16.a.comptes_resultats": 1000,  # comptes de resultats projetes
-    "bp.16.b.bilan_projection":   800,  # bilan et projections
+    # BP chapitre 14 — besoin au demarrage et plan de financement (fusion 14+15)
+    "bp.14.investissements":      1400,  # investissements initiaux + BFR
+    "bp.15.plan_financement":     1100,  # plan de financement + graphique
+    # BP chapitre 15 — previsionnel financier et tresorerie (fusion 16+17)
+    "bp.16.a.comptes_resultats":  1000,  # comptes de resultats projetes
+    "bp.16.b.bilan_projection":    800,  # bilan + graphique CA/EBITDA
+    "bp.17.budget_tresorerie":    1000,  # budget de tresorerie mensuel
 }
 
 
