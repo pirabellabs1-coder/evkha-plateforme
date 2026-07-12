@@ -23,6 +23,7 @@ class WebhookStatus(models.TextChoices):
     DUPLICATE = "duplicate", "Doublon"
     REJECTED = "rejected", "Rejetee"
     FAILED = "failed", "Echec"
+    SKIPPED = "skipped", "Ignoree (produit non-EVKHA)"
 
 
 class ExternalCredentialRef(UUIDModel):

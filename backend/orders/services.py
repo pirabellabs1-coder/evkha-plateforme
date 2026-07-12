@@ -12,6 +12,15 @@ class OrderIngestionError(ValueError):
     pass
 
 
+class UnknownOfferSlugError(OrderIngestionError):
+    """Slug produit absent du catalogue EVKHA.
+
+    Leve quand le webhook global Systeme.io transmet une vente d'un
+    produit non-EVKHA (formation, etude prete, etc.). L'event est marque
+    SKIPPED — pas d'incident, pas de retry. Comportement normal.
+    """
+
+
 def _lookup(payload: dict[str, Any], *paths: str) -> str:
     for path in paths:
         current: Any = payload
@@ -47,7 +56,7 @@ def sync_order_from_systeme_payload(payload: dict[str, Any]) -> Order:
         offer = Offer.objects.get(slug=offer_slug, is_active=True)
     except Offer.DoesNotExist as exc:
         msg = f"Unknown active offer slug: {offer_slug}"
-        raise OrderIngestionError(msg) from exc
+        raise UnknownOfferSlugError(msg) from exc
 
     customer, _created = Customer.objects.update_or_create(
         email=email,

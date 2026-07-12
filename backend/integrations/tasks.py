@@ -8,7 +8,7 @@ from generation.tasks import run_generation_job_task
 from intake.models import IntakeStatus
 from intake.services import OrderNotYetAvailableError, sync_intake_from_tally_payload
 from monitoring.models import IncidentSeverity, OperationalIncident
-from orders.services import sync_order_from_systeme_payload
+from orders.services import UnknownOfferSlugError, sync_order_from_systeme_payload
 
 from .models import IntegrationProvider, WebhookEvent, WebhookStatus
 
@@ -29,7 +29,15 @@ def process_webhook_event(event_id: str) -> str:
     event = WebhookEvent.objects.get(id=event_id)
     try:
         if event.provider == IntegrationProvider.SYSTEME:
-            sync_order_from_systeme_payload(event.raw_payload)
+            try:
+                sync_order_from_systeme_payload(event.raw_payload)
+            except UnknownOfferSlugError:
+                # Vente d'un produit non-EVKHA (formation, etude prete...).
+                # Comportement normal si le webhook global Systeme.io est active.
+                event.status = WebhookStatus.SKIPPED
+                event.error_message = ""
+                event.save(update_fields=["status", "error_message", "updated_at"])
+                return event_id
         elif event.provider == IntegrationProvider.SYSTEME_SUB:
             sync_subscription_from_systeme_payload(event.raw_payload)
         elif event.provider == IntegrationProvider.TALLY:
