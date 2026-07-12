@@ -18,33 +18,36 @@ from catalog.models import DeliverableType, Offer
 # apres avoir observe un premier achat dans les WebhookEvents SKIPPED.
 _OFFERS: list[tuple[str, str, str, int, bool, bool, str]] = [
     # ── B2C — achats à l'unité ──────────────────────────────────────────────
+    # systeme_product_name = valeur exacte du nom de produit/page dans Systeme.io
+    # (physicalProduct.name OU funnelStep.name dans le payload SALE_NEW).
+    # Si le premier achat test reste SKIPPED, voir error_message pour le nom exact.
     (
         "etude-marche",
         "Étude de marché",
         DeliverableType.MARKET_STUDY,
         0, False, False,
-        "",  # TODO: renseigner apres premier achat test (voir WebhookEvents SKIPPED)
+        "PAGE DE PAIEMENT EM PERSONNALISÉE 149",
     ),
     (
         "etude-concurrence",
         "Étude de la concurrence",
         DeliverableType.COMPETITOR_STUDY,
         0, False, False,
-        "",
+        "PAGE DE PAIEMENT EC",
     ),
     (
         "business-plan",
         "Business plan",
         DeliverableType.BUSINESS_PLAN,
         0, False, False,
-        "",
+        "PAGE DE PAIEMENT BP",
     ),
     (
         "strategie-business",
         "Stratégie business",
         DeliverableType.BUSINESS_STRATEGY,
         0, False, False,
-        "",
+        "PAGE DE PAIEMENT STR",
     ),
     # ── B2B — abonnements mensuels ───────────────────────────────────────────
     (
@@ -52,7 +55,7 @@ _OFFERS: list[tuple[str, str, str, int, bool, bool, str]] = [
         "Abonnement Solo",
         "",
         2, True, False,
-        "",
+        "",  # TODO apres que tu partages les noms des produits abonnements
     ),
     (
         "abonnement-pro",
@@ -81,28 +84,28 @@ _OFFERS: list[tuple[str, str, str, int, bool, bool, str]] = [
         "Solo Crédit Supplémentaire",
         "",
         0, False, True,
-        "",
+        "PAGE DE PAIEMENT CREDIT SOLO SUPP",
     ),
     (
         "pro-credit-supplementaire",
         "Pro Crédit Supplémentaire",
         "",
         0, False, True,
-        "",
+        "PAGE DE PAIEMENT CREDIT PRO SUPP",
     ),
     (
         "pro-plus-credit-supplementaire",
         "Pro Plus Crédit Supplémentaire",
         "",
         0, False, True,
-        "",
+        "PAGE DE PAIEMENT CREDIT PRO PLUS SUPP",
     ),
     (
         "structure-credit-supplementaire",
         "Structure Crédit Supplémentaire",
         "",
         0, False, True,
-        "",
+        "PAGE DE PAIEMENT CREDIT STRUCTURE SUPP",
     ),
 ]
 

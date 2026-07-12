@@ -34,33 +34,42 @@ def _lookup(payload: dict[str, Any], *paths: str) -> str:
     return ""
 
 
-def _physical_product_name(payload: dict[str, Any]) -> str:
-    """Extrait physicalProduct.name depuis le payload global SALE_NEW de Systeme.io.
+def _candidate_names_from_payload(payload: dict[str, Any]) -> list[str]:
+    """Retourne les noms candidats pour identifier l'offre depuis le payload SALE_NEW.
 
-    Systeme.io webhook global : orderItem.resources est un tableau d'objets.
-    On prend le premier resource non-null avec un physicalProduct.name.
+    Par ordre de priorite :
+    1. physicalProduct.name (nom du produit numerique dans Systeme.io)
+    2. funnelStep.name (nom de la page de paiement)
+    3. funnelStep.funnel.name (nom du tunnel)
+    4. pricePlan.innerName (nom interne du plan tarifaire)
+
+    Chacun est stocke dans Offer.systeme_product_name. Le premier match gagne.
     """
-    resources = (
-        (payload.get("orderItem") or {}).get("resources") or []
-    )
+    names: list[str] = []
+    resources = ((payload.get("orderItem") or {}).get("resources") or [])
     for resource in resources:
         if isinstance(resource, dict):
-            product = resource.get("physicalProduct") or {}
-            name = product.get("name") or ""
-            if name:
-                return str(name)
-    return ""
+            name = ((resource.get("physicalProduct") or {}).get("name") or "").strip()
+            if name and name not in names:
+                names.append(name)
+    for path in ("funnelStep.name", "funnelStep.funnel.name", "pricePlan.innerName"):
+        val = _lookup(payload, path).strip()
+        if val and val not in names:
+            names.append(val)
+    return names
 
 
-def _offer_from_product_name(product_name: str) -> Offer | None:
+def _offer_from_candidate_names(names: list[str]) -> Offer | None:
     """Recherche une offre active par correspondance exacte (insensible a la casse)
-    sur le champ systeme_product_name.
+    sur Offer.systeme_product_name, en testant chaque nom candidat dans l'ordre.
     """
-    if not product_name:
-        return None
-    return Offer.objects.filter(
-        systeme_product_name__iexact=product_name, is_active=True
-    ).first()
+    for name in names:
+        offer = Offer.objects.filter(
+            systeme_product_name__iexact=name, is_active=True
+        ).first()
+        if offer:
+            return offer
+    return None
 
 
 def sync_order_from_systeme_payload(payload: dict[str, Any]) -> Order:
@@ -89,12 +98,13 @@ def sync_order_from_systeme_payload(payload: dict[str, Any]) -> Order:
         except Offer.DoesNotExist as exc:
             raise UnknownOfferSlugError(f"Unknown active offer slug: {offer_slug}") from exc
     else:
-        product_name = _physical_product_name(payload)
-        offer = _offer_from_product_name(product_name)
+        candidates = _candidate_names_from_payload(payload)
+        offer = _offer_from_candidate_names(candidates)
         if offer is None:
             raise UnknownOfferSlugError(
-                f"No active offer mapped to physicalProduct.name={product_name!r}. "
-                "Renseigner Offer.systeme_product_name dans Django admin."
+                f"No active offer matched. Candidate names from payload: {candidates}. "
+                "Renseigner Offer.systeme_product_name dans Django admin "
+                "(copier l'un des noms candidats ci-dessus)."
             )
 
     customer, _created = Customer.objects.update_or_create(
