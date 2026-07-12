@@ -70,16 +70,16 @@ def sync_order_from_systeme_payload(payload: dict[str, Any]) -> Order:
     )
 
     # Import paresseux pour eviter cycle orders <-> customers.
+    from customers.credits import issue_and_email_credits  # noqa: PLC0415
     if offer.is_subscription and offer.credits_per_month > 0:
-        from customers.credits import issue_and_email_credits  # noqa: PLC0415
         issue_and_email_credits(
             customer=customer,
             offer=offer,
             parent_order=order,
             count=offer.credits_per_month,
         )
-    elif offer.is_extra_credit:
-        from customers.credits import issue_and_email_credits  # noqa: PLC0415
+    else:
+        # B2C achat unique ET credits supplementaires : 1 ticket + email Tally.
         issue_and_email_credits(
             customer=customer,
             offer=offer,

@@ -164,28 +164,36 @@ def send_credit_email(
         for label, url in links
     )
     is_subscription = parent_order.offer.is_subscription
-    intro = (
-        f"<p>Bonjour {nom},</p>"
-        f"<p>Voici vos liens pour utiliser vos credits de l'abonnement "
-        f"<strong>{offre}</strong> ({len(tickets)} credit{'s' if len(tickets) > 1 else ''} "
-        f"disponible{'s' if len(tickets) > 1 else ''} ce mois-ci).</p>"
-        if is_subscription
-        else f"<p>Bonjour {nom},</p>"
-        f"<p>Voici votre lien pour utiliser votre credit supplementaire "
-        f"<strong>{offre}</strong>.</p>"
-    )
+    is_extra_credit = parent_order.offer.is_extra_credit
+    if is_subscription:
+        intro = (
+            f"<p>Bonjour {nom},</p>"
+            f"<p>Voici vos liens pour utiliser vos credits de l'abonnement "
+            f"<strong>{offre}</strong> ({len(tickets)} credit{'s' if len(tickets) > 1 else ''} "
+            f"disponible{'s' if len(tickets) > 1 else ''} ce mois-ci).</p>"
+        )
+        subject = f"Vos credits EVKHA — {parent_order.offer.name}"
+    elif is_extra_credit:
+        intro = (
+            f"<p>Bonjour {nom},</p>"
+            f"<p>Voici votre lien pour utiliser votre credit supplementaire "
+            f"<strong>{offre}</strong>.</p>"
+        )
+        subject = f"Votre credit supplementaire EVKHA — {parent_order.offer.name}"
+    else:
+        intro = (
+            f"<p>Bonjour {nom},</p>"
+            f"<p>Merci pour votre commande <strong>{offre}</strong>.</p>"
+            f"<p>Cliquez sur le lien ci-dessous pour remplir votre questionnaire "
+            f"et lancer la generation de votre livrable :</p>"
+        )
+        subject = f"Votre questionnaire EVKHA — {parent_order.offer.name}"
     html = (
         f"{intro}"
         f"<ul>{items}</ul>"
-        f"<p>Chaque lien correspond a un credit utilisable une seule fois. "
-        f"Une fois le formulaire envoye, la generation de votre livrable commence "
+        f"<p>Une fois le formulaire envoye, la generation de votre livrable commence "
         f"automatiquement.</p>"
         f"<p>L'equipe EVKHA</p>"
-    )
-    subject = (
-        f"Vos credits EVKHA — {parent_order.offer.name}"
-        if is_subscription
-        else f"Votre credit supplementaire EVKHA — {parent_order.offer.name}"
     )
 
     try:
