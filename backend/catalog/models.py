@@ -30,6 +30,11 @@ class Offer(UUIDModel):
     credits_per_month = models.PositiveSmallIntegerField(default=0)
     is_subscription = models.BooleanField(default=False)
     is_extra_credit = models.BooleanField(default=False)
+    # Nom exact du produit dans Systeme.io (physicalProduct.name dans le payload
+    # SALE_NEW du webhook global). Permet de router une vente vers la bonne offre
+    # sans passer par un parametre offer_slug dans l'URL de l'automatisation.
+    # Renseigner via Django admin ou seed_offers.
+    systeme_product_name = models.CharField(max_length=255, blank=True, default="")
     gamma_enabled = models.BooleanField(default=False)
     delivery_mode = models.CharField(
         max_length=32,

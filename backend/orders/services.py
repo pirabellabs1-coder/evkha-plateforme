@@ -34,6 +34,35 @@ def _lookup(payload: dict[str, Any], *paths: str) -> str:
     return ""
 
 
+def _physical_product_name(payload: dict[str, Any]) -> str:
+    """Extrait physicalProduct.name depuis le payload global SALE_NEW de Systeme.io.
+
+    Systeme.io webhook global : orderItem.resources est un tableau d'objets.
+    On prend le premier resource non-null avec un physicalProduct.name.
+    """
+    resources = (
+        (payload.get("orderItem") or {}).get("resources") or []
+    )
+    for resource in resources:
+        if isinstance(resource, dict):
+            product = resource.get("physicalProduct") or {}
+            name = product.get("name") or ""
+            if name:
+                return str(name)
+    return ""
+
+
+def _offer_from_product_name(product_name: str) -> Offer | None:
+    """Recherche une offre active par correspondance exacte (insensible a la casse)
+    sur le champ systeme_product_name.
+    """
+    if not product_name:
+        return None
+    return Offer.objects.filter(
+        systeme_product_name__iexact=product_name, is_active=True
+    ).first()
+
+
 def sync_order_from_systeme_payload(payload: dict[str, Any]) -> Order:
     systeme_order_id = _lookup(payload, "order_id", "id", "sale.id", "order.id")
     email = _lookup(payload, "customer_email", "email", "customer.email", "contact.email")
@@ -44,7 +73,6 @@ def sync_order_from_systeme_payload(payload: dict[str, Any]) -> Order:
         for field, value in (
             ("order_id", systeme_order_id),
             ("customer_email", email),
-            ("offer_slug", offer_slug),
         )
         if not value
     ]
@@ -52,19 +80,44 @@ def sync_order_from_systeme_payload(payload: dict[str, Any]) -> Order:
         msg = f"Systeme.io payload missing required fields: {', '.join(missing)}"
         raise OrderIngestionError(msg)
 
-    try:
-        offer = Offer.objects.get(slug=offer_slug, is_active=True)
-    except Offer.DoesNotExist as exc:
-        msg = f"Unknown active offer slug: {offer_slug}"
-        raise UnknownOfferSlugError(msg) from exc
+    # Résolution de l'offre : priorité au slug URL (automations par produit),
+    # fallback sur physicalProduct.name du webhook global SALE_NEW.
+    offer: Offer | None = None
+    if offer_slug:
+        try:
+            offer = Offer.objects.get(slug=offer_slug, is_active=True)
+        except Offer.DoesNotExist as exc:
+            raise UnknownOfferSlugError(f"Unknown active offer slug: {offer_slug}") from exc
+    else:
+        product_name = _physical_product_name(payload)
+        offer = _offer_from_product_name(product_name)
+        if offer is None:
+            raise UnknownOfferSlugError(
+                f"No active offer mapped to physicalProduct.name={product_name!r}. "
+                "Renseigner Offer.systeme_product_name dans Django admin."
+            )
 
     customer, _created = Customer.objects.update_or_create(
         email=email,
         defaults={
-            "first_name": _lookup(payload, "customer.first_name", "contact.first_name"),
-            "last_name": _lookup(payload, "customer.last_name", "contact.last_name"),
-            "company_name": _lookup(payload, "customer.company_name", "contact.company_name"),
-            "systeme_contact_id": _lookup(payload, "customer.id", "contact.id"),
+            "first_name": _lookup(
+                payload,
+                "customer.first_name", "contact.first_name",
+                "customer.fields.first_name",
+            ),
+            "last_name": _lookup(
+                payload,
+                "customer.last_name", "contact.last_name",
+                "customer.fields.surname",
+            ),
+            "company_name": _lookup(
+                payload,
+                "customer.company_name", "contact.company_name",
+                "customer.fields.company_name",
+            ),
+            "systeme_contact_id": _lookup(
+                payload, "customer.id", "contact.id", "customer.contactId",
+            ),
         },
     )
 
