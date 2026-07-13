@@ -260,7 +260,7 @@ def test_sync_order_creates_one_ticket_for_extra_credit(
 
 
 @pytest.mark.django_db
-def test_sync_order_no_tickets_for_b2c(b2c_offer: Offer) -> None:
+def test_sync_order_creates_one_ticket_for_b2c(b2c_offer: Offer) -> None:
     sync_order_from_systeme_payload(
         {
             "order_id": "order-b2c-001",
@@ -269,7 +269,7 @@ def test_sync_order_no_tickets_for_b2c(b2c_offer: Offer) -> None:
         }
     )
     parent = Order.objects.get(systeme_order_id="order-b2c-001")
-    assert Order.objects.filter(parent_order=parent).count() == 0
+    assert Order.objects.filter(parent_order=parent).count() == 1
 
 
 # ---------------------------------------------------------------------------

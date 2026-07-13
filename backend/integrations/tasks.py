@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from celery import shared_task
 
-from customers.services import sync_subscription_from_systeme_payload
+from customers.services import NotASubscriptionError, sync_subscription_from_systeme_payload
 from generation.services import GenerationBootstrapError, bootstrap_generation_job
 from generation.tasks import run_generation_job_task
 from intake.models import IntakeStatus
@@ -39,7 +39,14 @@ def process_webhook_event(event_id: str) -> str:
                 event.save(update_fields=["status", "error_message", "updated_at"])
                 return event_id
         elif event.provider == IntegrationProvider.SYSTEME_SUB:
-            sync_subscription_from_systeme_payload(event.raw_payload)
+            try:
+                sync_subscription_from_systeme_payload(event.raw_payload)
+            except NotASubscriptionError:
+                # Achat unique B2C reçu sur le webhook global ABONNEMENT → ignore.
+                event.status = WebhookStatus.SKIPPED
+                event.error_message = ""
+                event.save(update_fields=["status", "error_message", "updated_at"])
+                return event_id
         elif event.provider == IntegrationProvider.TALLY:
             # OrderNotYetAvailableError est relancee telle quelle pour que
             # autoretry_for la catche et relance la tache sans marquer FAILED.
