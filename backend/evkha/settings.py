@@ -113,6 +113,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:6379/1")
+# Permet de tester le pipeline webhook en local sans worker Celery/Redis
+# (execution synchrone). False par defaut : aucun impact en production.
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
 
 # Tâches périodiques (service beat du compose prod).
 # Purge horaire des artefacts expirés — rétention 7 jours (D5).
