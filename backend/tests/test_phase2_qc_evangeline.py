@@ -24,7 +24,6 @@ from generation.validation import (
     validate_chapter_content,
 )
 
-
 # --- Fix #1 : mémoire cross-chapitres --------------------------------------
 
 
@@ -61,12 +60,17 @@ def test_extract_and_lock_numeric_facts_verrouille_les_chiffres() -> None:
     from generation.models import ChapterGeneration, FactKind, GenerationJob
     from orders.models import Order
 
-    offer = Offer.objects.create(name="EM", slug="em", deliverable_type=DeliverableType.MARKET_STUDY)
+    offer = Offer.objects.create(
+        name="EM", slug="em", deliverable_type=DeliverableType.MARKET_STUDY
+    )
     customer = Customer.objects.create(email="c@x.com")
     order = Order.objects.create(systeme_order_id="qc_lock_1", customer=customer, offer=offer)
     job = GenerationJob.objects.create(order=order, deliverable_type=DeliverableType.MARKET_STUDY)
     chapter = ChapterGeneration.objects.create(
-        job=job, chapter_number=1, chapter_title="Marche", prompt_key="em.01.marche_mondial_europeen",
+        job=job,
+        chapter_number=1,
+        chapter_title="Marche",
+        prompt_key="em.01.marche_mondial_europeen",
         content=(
             "Le nombre de micro-entrepreneurs actifs est de 1,8 M en 2025. "
             "Le taux de croissance est de 8,5 % par an. "
@@ -91,7 +95,9 @@ def test_extract_ne_reecrase_pas_un_chiffre_deja_verrouille() -> None:
     from generation.models import ChapterGeneration, GenerationJob
     from orders.models import Order
 
-    offer = Offer.objects.create(name="EM", slug="em", deliverable_type=DeliverableType.MARKET_STUDY)
+    offer = Offer.objects.create(
+        name="EM", slug="em", deliverable_type=DeliverableType.MARKET_STUDY
+    )
     customer = Customer.objects.create(email="c2@x.com")
     order = Order.objects.create(systeme_order_id="qc_lock_2", customer=customer, offer=offer)
     job = GenerationJob.objects.create(order=order, deliverable_type=DeliverableType.MARKET_STUDY)
@@ -227,7 +233,9 @@ def test_build_chapter_prompt_injecte_cadre_editorial() -> None:
     from generation.prompts import build_chapter_prompt
     from orders.models import Order
 
-    offer = Offer.objects.create(name="EM", slug="em3", deliverable_type=DeliverableType.MARKET_STUDY)
+    offer = Offer.objects.create(
+        name="EM", slug="em3", deliverable_type=DeliverableType.MARKET_STUDY
+    )
     customer = Customer.objects.create(email="c3@x.com")
     order = Order.objects.create(systeme_order_id="qc_len_1", customer=customer, offer=offer)
     job = GenerationJob.objects.create(order=order, deliverable_type=DeliverableType.MARKET_STUDY)
@@ -251,7 +259,9 @@ def test_build_chapter_prompt_injecte_date_courante() -> None:
     from generation.models import ChapterGeneration, GenerationJob
     from orders.models import Order
 
-    offer = Offer.objects.create(name="EM", slug="em4", deliverable_type=DeliverableType.MARKET_STUDY)
+    offer = Offer.objects.create(
+        name="EM", slug="em4", deliverable_type=DeliverableType.MARKET_STUDY
+    )
     customer = Customer.objects.create(email="c4@x.com")
     order = Order.objects.create(systeme_order_id="qc_date_1", customer=customer, offer=offer)
     job = GenerationJob.objects.create(order=order, deliverable_type=DeliverableType.MARKET_STUDY)

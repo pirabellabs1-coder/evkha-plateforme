@@ -323,7 +323,8 @@ def extract_and_lock_chiffres_cles(job: GenerationJob, chapter_number: int, cont
 _LABELED_NUMERIC_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "nombre de X : 1,8 M" / "X actifs : 4,4 millions"
     re.compile(
-        r"(?P<label>(?:nombre de|nb de|total de|effectif de|part de|volume de)\s+[A-Za-zÀ-ÿ' -]{3,60})"
+        r"(?P<label>(?:nombre de|nb de|total de|effectif de|part de|volume de)"
+        r"\s+[A-Za-zÀ-ÿ' -]{3,60})"
         r"\s*[:\-]?\s*"
         r"(?P<value>[0-9][0-9\s.,]{0,20})\s*"
         r"(?P<unit>(?:M€|Md€|Mds€|M|Md|Mds|milliards?|millions?|millier[s]?|%|k€|k))",

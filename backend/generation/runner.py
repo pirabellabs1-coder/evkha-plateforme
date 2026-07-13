@@ -331,7 +331,10 @@ def _generate_chapter(
             corrective = format_issues_for_retry(issues)
             retry_prompt = f"{prompt}\n\n{corrective}"
             result = client.complete(
-                system=system_prompt, prompt=retry_prompt, max_tokens=max_tokens, model=chapter_model
+                system=system_prompt,
+                prompt=retry_prompt,
+                max_tokens=max_tokens,
+                model=chapter_model,
             )
             issues = validate_chapter_content(result.content)
         content, total_input, total_output, model = (

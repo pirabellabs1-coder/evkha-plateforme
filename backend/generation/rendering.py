@@ -474,7 +474,12 @@ def _md_to_html(text: str) -> str:
                 "attention": "Attention",
             }[kind]
             # Cas "◆ Ce qu'il faut comprendre : contenu" → sépare label et contenu
-            body_after = re.sub(r"^(?:Ce qu['’]il faut comprendre|Ce qu['’]il faut envisager|Attention)\s*[:\-]\s*", "", rest, flags=re.IGNORECASE)
+            body_after = re.sub(
+                r"^(?:Ce qu['’]il faut comprendre|Ce qu['’]il faut envisager|Attention)\s*[:\-]\s*",
+                "",
+                rest,
+                flags=re.IGNORECASE,
+            )
             out.append(
                 f'<div class="callout callout--{kind}">'
                 f'<div class="callout__label">{label}</div>'
