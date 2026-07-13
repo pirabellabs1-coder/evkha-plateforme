@@ -209,7 +209,10 @@ def _collect_raw_pairs(payload: dict[str, Any]) -> dict[str, Any]:
         if isinstance(container, dict):
             pairs.update(container)
 
-    # Tally native shape: data.fields = [{label/key, value}, ...]
+    # Tally native shape: data.fields = [{key, label, value}, ...]
+    # Register BOTH the machine key (question_xxx) AND the human label
+    # so that alias resolution and order_id lookup work regardless of
+    # which identifier the downstream code uses.
     field_lists: list[Any] = [payload.get("fields")]
     data = payload.get("data")
     if isinstance(data, dict):
@@ -220,9 +223,15 @@ def _collect_raw_pairs(payload: dict[str, Any]) -> dict[str, Any]:
         for field in fields:
             if not isinstance(field, dict):
                 continue
-            key = field.get("key") or field.get("label")
-            if key is not None and field.get("value") not in (None, ""):
-                pairs[str(key)] = field.get("value")
+            value = field.get("value")
+            if value in (None, ""):
+                continue
+            key = field.get("key")
+            label = field.get("label")
+            if key:
+                pairs[str(key)] = value
+            if label and label != key:
+                pairs[str(label)] = value
 
     return pairs
 
@@ -230,7 +239,8 @@ def _collect_raw_pairs(payload: dict[str, Any]) -> dict[str, Any]:
 def normalize_intake_variables(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (normalized_variables, missing_required_fields)."""
     normalized: dict[str, Any] = {}
-    for raw_key, value in _collect_raw_pairs(payload).items():
+    raw_pairs = _collect_raw_pairs(payload)
+    for raw_key, value in raw_pairs.items():
         canonical = _canonical_key(raw_key)
         if canonical and value not in (None, ""):
             normalized[canonical] = value
@@ -240,8 +250,44 @@ def normalize_intake_variables(payload: dict[str, Any]) -> tuple[dict[str, Any],
             str(normalized["DELIVERABLE_TYPE"])
         )
 
+    # Questionnaire simplifié : quand le formulaire Tally n'a pas de champs
+    # explicites SECTEUR/PAYS/PROJET/ZONE, on infère à partir des champs texte
+    # libres (TEXTAREA) et de defaults raisonnables pour les offres B2C France.
+    _infer_missing_from_textareas(payload, normalized)
+
     missing = [var for var in REQUIRED_VARIABLES if not normalized.get(var)]
     return normalized, missing
+
+
+def _infer_missing_from_textareas(payload: dict[str, Any], normalized: dict[str, Any]) -> None:
+    """Fallback : infer PROJET/SECTEUR/PAYS/ZONE from unlabeled TEXTAREA fields."""
+    if all(normalized.get(v) for v in REQUIRED_VARIABLES):
+        return
+
+    textareas: list[str] = []
+    data = payload.get("data")
+    fields = (data.get("fields") if isinstance(data, dict) else None) or payload.get("fields") or []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        if field.get("type") == "TEXTAREA" and field.get("value"):
+            label = (field.get("label") or "").strip()
+            if not label:
+                textareas.append(str(field["value"]))
+
+    if not normalized.get("PROJET") and textareas:
+        longest = max(textareas, key=len)
+        normalized["PROJET"] = longest
+    if not normalized.get("SECTEUR") and textareas:
+        shortest = min(textareas, key=len)
+        if shortest != normalized.get("PROJET"):
+            normalized["SECTEUR"] = shortest
+        elif len(textareas) > 1:
+            normalized["SECTEUR"] = textareas[0]
+    if not normalized.get("PAYS"):
+        normalized["PAYS"] = "France"
+    if not normalized.get("ZONE"):
+        normalized["ZONE"] = "France"
 
 
 def sync_intake_from_tally_payload(payload: dict[str, Any]) -> IntakeSubmission:
