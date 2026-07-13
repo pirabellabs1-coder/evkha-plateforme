@@ -311,8 +311,10 @@ def _sanitize_markdown(text: str) -> str:
     2. Fence ``` orpheline ouverte en fin de texte sans fermeture → le parser
        produirait un bloc de code infini. On ajoute une fermeture implicite.
     """
-    # Garantit \n\n avant chaque ligne de table pipe (sécurité parser)
-    text = re.sub(r"([^\n])\n(\|)", r"\1\n\n\2", text)
+    # Garantit \n\n avant la PREMIERE ligne de table pipe (sécurité parser).
+    # Exclut "|" du caractère précédent pour ne pas scinder les lignes d'une
+    # meme table (qui se terminent aussi par "|") en tableaux séparés.
+    text = re.sub(r"([^\n|])\n(\|)", r"\1\n\n\2", text)
     # Ferme les fences ``` ouvertes sans fermeture (troncature Claude)
     fence_opens = len(re.findall(r"^```", text, re.MULTILINE))
     fence_closes = len(re.findall(r"^```\s*$", text, re.MULTILINE))
@@ -358,6 +360,8 @@ def _md_to_html(text: str) -> str:
             continue
 
         # ── Titres ───────────────────────────────────────────────────────────
+        # (Le tableau markdown pipe est traité plus bas par le parseur complet
+        # avec ligne séparateur — cf. "── Table pipe Markdown ──")
         m = re.match(r"^(#{1,4})\s+(.*)", line)
         if m:
             level = min(len(m.group(1)) + 1, 4)  # # → h2, ## → h3, ### → h4
@@ -423,10 +427,14 @@ def _md_to_html(text: str) -> str:
             continue
 
         # ── Liste ordonnée ───────────────────────────────────────────────────
+        # QC Evangeline #4 : renumérotation séquentielle. Claude produisait
+        # parfois "1. Coach\n1. Web\n1. Livraison...". Le HTML <ol> renumerote
+        # automatiquement, mais on nettoie le numero source du contenu du <li>
+        # pour ne pas afficher "1. 1. Coach".
         if re.match(r"^\d+[.)]\s", line):
             ol_items: list[str] = []
             while i < len(lines) and re.match(r"^\d+[.)]\s", lines[i]):
-                content = re.sub(r"^\d+[.)]\s", "", lines[i])
+                content = re.sub(r"^\d+[.)]\s+", "", lines[i])
                 ol_items.append(f"<li>{_md_inline(content)}</li>")
                 i += 1
             out.append("<ol>" + "".join(ol_items) + "</ol>")
@@ -450,6 +458,62 @@ def _md_to_html(text: str) -> str:
             if lang in ("html", ""):
                 out.append("\n".join(fence_lines))
             # autres langages (python, json…) → supprimés
+            continue
+
+        # QC Evangeline #7a : blocs graphiques inline sur une ligne
+        # ◆ Ce qu'il faut comprendre : ...  → callout stylé
+        # → Ce qu'il faut envisager : ...   → callout action
+        # ! Attention : ...                  → callout warning
+        callout_match = re.match(r"^\s*([◆→!])\s*(.+)$", line)
+        if callout_match:
+            marker, rest = callout_match.groups()
+            kind = {"◆": "understand", "→": "consider", "!": "attention"}[marker]
+            label = {
+                "understand": "Ce qu'il faut comprendre",
+                "consider": "Ce qu'il faut envisager",
+                "attention": "Attention",
+            }[kind]
+            # Cas "◆ Ce qu'il faut comprendre : contenu" → sépare label et contenu
+            body_after = re.sub(
+                r"^(?:Ce qu['’]il faut comprendre|Ce qu['’]il faut envisager|Attention)\s*[:\-]\s*",
+                "",
+                rest,
+                flags=re.IGNORECASE,
+            )
+            out.append(
+                f'<div class="callout callout--{kind}">'
+                f'<div class="callout__label">{label}</div>'
+                f'<div class="callout__body">{_md_inline(body_after)}</div>'
+                f'</div>'
+            )
+            i += 1
+            continue
+
+        # Marqueurs parseables [[UNDERSTAND]] ... [[/UNDERSTAND]] (Fix #7b)
+        block_open = re.match(r"^\s*\[\[(UNDERSTAND|CONSIDER|ATTENTION)\]\]\s*$", line)
+        if block_open:
+            kind_upper = block_open.group(1)
+            kind = kind_upper.lower()
+            label = {
+                "understand": "Ce qu'il faut comprendre",
+                "consider": "Ce qu'il faut envisager",
+                "attention": "Attention",
+            }[kind]
+            i += 1
+            block_lines: list[str] = []
+            close_re = re.compile(rf"^\s*\[\[/{kind_upper}\]\]\s*$")
+            while i < len(lines) and not close_re.match(lines[i]):
+                block_lines.append(lines[i])
+                i += 1
+            if i < len(lines):
+                i += 1  # skip closing marker
+            inner_html = _md_to_html("\n".join(block_lines))
+            out.append(
+                f'<div class="callout callout--{kind}">'
+                f'<div class="callout__label">{label}</div>'
+                f'<div class="callout__body">{inner_html}</div>'
+                f'</div>'
+            )
             continue
 
         # ── Ligne vide ───────────────────────────────────────────────────────
