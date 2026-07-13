@@ -10,7 +10,9 @@ from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .blueprints import chapters_for_deliverable, get_blueprint
 from .coherence import (
+    CoherenceConflictError,
     extract_and_lock_chiffres_cles,
+    extract_and_lock_numeric_facts,
     seed_locked_facts_from_variables,
 )
 from .cost import CostBudgetExceededError, max_tokens_for_job, record_chapter_cost
@@ -18,8 +20,13 @@ from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 from .qa import detect_violations, repair_rule_based
 
-_SUMMARY_MAX_CHARS = 320
+# QC Evangeline #1 : porte le resume operationnel a 1200 chars et priorise les
+# phrases chiffrees/sourcees. En dessous, tous les chiffres cles fuyaient d'un
+# chapitre a l'autre => 6 valeurs differentes pour un meme indicateur.
+_SUMMARY_MAX_CHARS = 1200
 _SOURCES_SPLIT = re.compile(r"\n\s*sources\b", re.IGNORECASE)
+_NUMERIC_HINT = re.compile(r"\d|%|€|\$|CFA|EUR|USD|M€|Md€|Mds|millions?|milliards?", re.IGNORECASE)
+_MAX_VALIDATION_RETRIES = 1
 
 # Em-dash et en-dash sont des signatures IA immediatement reperees par les
 # lecteurs professionnels. La consigne prompt (INTERDICTIONS ABSOLUES) demande
@@ -44,20 +51,42 @@ class GenerationRunError(RuntimeError):
     """Echec irrecuperable d'un cycle de generation (au moins un chapitre KO)."""
 
 
-def _operational_summary(content: str) -> str:
-    """Resume operationnel court (Context Engine : jamais le chapitre brut).
+def _split_sentences(text: str) -> list[str]:
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    return [p.strip() for p in parts if p.strip()]
 
-    On retire le bloc Sources puis on tronque proprement sur une fin de phrase.
+
+def _operational_summary(content: str) -> str:
+    """Resume operationnel : phrases chiffrees/sourcees priorisees, cap 900 chars.
+
+    On retire le bloc Sources puis on selectionne d'abord toutes les phrases
+    contenant un chiffre ou une unite monetaire (celles qui doivent absolument
+    fuir vers les chapitres suivants pour eviter les incoherences chiffrees).
+    Les autres phrases completent jusqu'a la cap.
     """
     body = _SOURCES_SPLIT.split(content, maxsplit=1)[0].strip()
+    if not body:
+        return ""
     body = " ".join(body.split())
     if len(body) <= _SUMMARY_MAX_CHARS:
         return body
-    truncated = body[:_SUMMARY_MAX_CHARS]
-    cut = truncated.rfind(". ")
-    if cut > 80:
-        return truncated[: cut + 1]
-    return truncated.rstrip() + "..."
+
+    sentences = _split_sentences(body)
+    numeric = [s for s in sentences if _NUMERIC_HINT.search(s)]
+    others = [s for s in sentences if not _NUMERIC_HINT.search(s)]
+
+    kept: list[str] = []
+    used = 0
+    for group in (numeric, others):
+        for sentence in group:
+            if used + len(sentence) + 1 > _SUMMARY_MAX_CHARS:
+                continue
+            kept.append(sentence)
+            used += len(sentence) + 1
+
+    if not kept:
+        return body[:_SUMMARY_MAX_CHARS].rstrip() + "..."
+    return " ".join(kept)
 
 
 def _variables_for(job: GenerationJob) -> dict[str, object]:
@@ -266,6 +295,12 @@ def _generate_chapter(
     client: ClaudeClient,
     system_prompt: str,
 ) -> None:
+    from .validation import (
+        format_issues_for_retry,
+        has_blocking_issues,
+        validate_chapter_content,
+    )
+
     chapter.status = ChapterStatus.RUNNING
     chapter.error_message = ""
     chapter.save(update_fields=["status", "error_message", "updated_at"])
@@ -276,6 +311,8 @@ def _generate_chapter(
     # Exemples : fiche_projet, annexe, sources → "claude-haiku" (structure pure).
     chapter_model = blueprint.model if blueprint else None
 
+    issues: list = []
+    attempts = 0
     if sections:
         content, total_input, total_output, model = _generate_chunked(
             job, chapter, sections, client=client, system_prompt=system_prompt,
@@ -287,6 +324,16 @@ def _generate_chapter(
         result = client.complete(
             system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
         )
+        # QC Evangeline #3 : validation post-gen + retry 1x si defauts bloquants.
+        issues = validate_chapter_content(result.content)
+        while has_blocking_issues(issues) and attempts < _MAX_VALIDATION_RETRIES:
+            attempts += 1
+            corrective = format_issues_for_retry(issues)
+            retry_prompt = f"{prompt}\n\n{corrective}"
+            result = client.complete(
+                system=system_prompt, prompt=retry_prompt, max_tokens=max_tokens, model=chapter_model
+            )
+            issues = validate_chapter_content(result.content)
         content, total_input, total_output, model = (
             result.content, result.input_tokens, result.output_tokens, result.model
         )
@@ -294,8 +341,30 @@ def _generate_chapter(
     content = _strip_ai_tell_dashes(content)
     chapter.content = content
     chapter.operational_summary = _operational_summary(content)
+    chapter.retry_count = attempts
+    if issues:
+        # On garde le contenu (mieux que rien) mais on trace les defauts pour QC.
+        chapter.error_message = "; ".join(
+            f"[{issue.severity}] {issue.code}: {issue.message}" for issue in issues
+        )[:2000]
     chapter.status = ChapterStatus.DONE
-    chapter.save(update_fields=["content", "operational_summary", "status", "updated_at"])
+    chapter.save(
+        update_fields=[
+            "content", "operational_summary", "retry_count",
+            "error_message", "status", "updated_at",
+        ]
+    )
+
+    # QC Evangeline #2 : verrouille les chiffres cles pour les chapitres suivants.
+    try:
+        extract_and_lock_numeric_facts(chapter)
+    except CoherenceConflictError:
+        # Un conflit numerique est un warning non bloquant : on l'ecrit dans
+        # error_message sans FAILED (le contenu reste utilisable, mais on veut
+        # etre au courant pour investiguer les prompts).
+        ChapterGeneration.objects.filter(pk=chapter.pk).update(
+            error_message=(chapter.error_message + " [numeric_conflict]")[:2000],
+        )
 
     # §5 cadrage : verrouille TCAC + taille de marche au passage. Les conflits
     # sont traites comme incidents MEDIUM (non-fatals) par upsert_locked_fact.

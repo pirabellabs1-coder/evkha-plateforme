@@ -33,6 +33,8 @@ class ChapterBlueprint:
     # Cible editoriale indicative en mots pour ce chapitre (ou par section si
     # chunked). Injectee dans le prompt utilisateur comme borne haute afin que
     # Claude planifie sa sortie dans la fenetre token allouee. 0 = pas de borne.
+    # QC Evangeline #5 : c'est ce plafond qui evite la dilution en 126 pages
+    # d'un sujet qui tient en 46 pages en chat direct.
     max_words: int = 0
     # Modele Claude a utiliser pour ce chapitre (alias EVKHA : "claude-haiku",
     # "claude-sonnet"...). None = herite de EVKHA_CLAUDE_MODEL (defaut global).

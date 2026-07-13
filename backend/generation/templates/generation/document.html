@@ -606,6 +606,63 @@
       font-size: 14pt; letter-spacing: 4px; text-transform: uppercase;
       color: var(--primary); font-weight: bold;
     }
+
+    /* ── QC Evangeline #7a : blocs graphiques (callouts) ─────────────
+       Fond, bordure, icône. Pas de prose ordinaire noyée dans le texte.
+       ────────────────────────────────────────────────────────────── */
+    .callout {
+      border-left: 4px solid var(--secondary);
+      background: #faf7f2;
+      padding: 3mm 4mm 3mm 5mm;
+      margin: 3mm 0;
+      border-radius: 2px;
+      page-break-inside: avoid;
+    }
+    .callout__label {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 8.5pt;
+      font-weight: bold;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 1.5mm;
+    }
+    .callout__label::before {
+      display: inline-block;
+      margin-right: 5px;
+      font-size: 10pt;
+    }
+    .callout--understand              { background: #f4f6f6; border-left-color: var(--primary); }
+    .callout--understand .callout__label::before { content: "◆"; }
+    .callout--consider                { background: #faf5ee; border-left-color: var(--secondary); }
+    .callout--consider .callout__label::before   { content: "→"; }
+    .callout--attention               { background: #fdf3f0; border-left-color: #b2543d; }
+    .callout--attention .callout__label::before  { content: "!"; color: #b2543d; }
+    .callout__body p { margin: 0 0 1.5mm; }
+    .callout__body p:last-child { margin-bottom: 0; }
+
+    /* Tableaux propres (l'utilisatrice a remarque des tableaux "fondus dans la prose") */
+    .chapter__body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 3mm 0 4mm;
+      font-size: 9.5pt;
+      page-break-inside: avoid;
+    }
+    .chapter__body th, .chapter__body td {
+      border: 1px solid #d8d3ca;
+      padding: 2mm 3mm;
+      vertical-align: top;
+      text-align: left;
+    }
+    .chapter__body th {
+      background: var(--primary);
+      color: #ffffff;
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 9pt;
+      letter-spacing: 0.4px;
+    }
+    .chapter__body tr:nth-child(even) td { background: #fafafa; }
   </style>
 </head>
 <body>

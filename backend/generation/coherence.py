@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .models import CoherenceFact, FactKind, GenerationJob
+from .models import ChapterGeneration, CoherenceFact, FactKind, GenerationJob
 
 # Detection des chiffres cles dans le contenu genere (§5 cadrage : aucun chiffre
 # contradictoire entre chapitres). Premiere mention -> verrou ; mention ulterieure
@@ -310,3 +310,92 @@ def extract_and_lock_chiffres_cles(job: GenerationJob, chapter_number: int, cont
                 value=value, source_chapter_number=chapter_number,
             )
             break
+# QC Evangeline #2 : extraction des chiffres cles labellises verrouilles apres
+# chaque chapitre, en complement de extract_and_lock_chiffres_cles ci-dessus.
+# Sans ca, chaque chapitre reinventait ses propres valeurs (6 chiffres
+# differents pour "micro-entrepreneurs actifs" sur une meme etude) — un cas
+# que _MARKET_SIZE_PATTERNS (cle fixe "taille_marche") ne couvre pas car
+# chaque entite labellisee a besoin de sa propre cle.
+
+# Motifs syntaxiques : capture le libelle qui precede un chiffre et l'unite.
+# Volontairement conservateur : on ne verrouille QUE ce qui est explicitement
+# libelle + chiffre + unite, pour ne pas capturer du bruit.
+_LABELED_NUMERIC_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # "nombre de X : 1,8 M" / "X actifs : 4,4 millions"
+    re.compile(
+        r"(?P<label>(?:nombre de|nb de|total de|effectif de|part de|volume de)\s+[A-Za-zÀ-ÿ' -]{3,60})"
+        r"\s*[:\-]?\s*"
+        r"(?P<value>[0-9][0-9\s.,]{0,20})\s*"
+        r"(?P<unit>(?:M€|Md€|Mds€|M|Md|Mds|milliards?|millions?|millier[s]?|%|k€|k))",
+        re.IGNORECASE,
+    ),
+    # "CA X : 300 M€" / "chiffre d'affaires de Y = 400 millions d'euros"
+    re.compile(
+        r"(?P<label>(?:CA|chiffre d['’]affaires|revenus?)\s+(?:de\s+|d['’])?[A-Za-zÀ-ÿ'’ -]{2,40})"
+        r"\s*[:\-=]?\s*"
+        r"(?P<value>[0-9][0-9\s.,]{0,20})\s*"
+        r"(?P<unit>(?:M€|Md€|Mds€|millions?|milliards?)(?:\s+d['’]euros?)?)",
+        re.IGNORECASE,
+    ),
+    # "taux de X : 22 %" / "TCAC de 8,5%"
+    re.compile(
+        r"(?P<label>(?:taux de|TCAC|taux d['’]|part de|penetration de)\s+[A-Za-zÀ-ÿ'’ -]{2,60})"
+        r"\s*[:\-=]?\s*"
+        r"(?P<value>[0-9][0-9.,]{0,10})\s*"
+        r"(?P<unit>%)",
+        re.IGNORECASE,
+    ),
+)
+
+
+def _normalize_key(label: str) -> str:
+    key = label.strip().lower()
+    key = re.sub(r"['’]", " ", key)
+    key = re.sub(r"\s+", "_", key)
+    key = re.sub(r"[^a-z0-9_àáâäéèêëîïôöùûüç-]", "", key)
+    return key[:120]
+
+
+def _normalize_value(value: str, unit: str) -> str:
+    v = re.sub(r"\s+", "", value.strip())
+    u = unit.strip()
+    return f"{v} {u}".strip()
+
+
+def extract_and_lock_numeric_facts(chapter: ChapterGeneration) -> list[CoherenceFact]:
+    """Extrait les chiffres cles explicitement libelles et les verrouille.
+
+    Regle : premier chapitre a mentionner un libelle => valeur figee pour tous
+    les chapitres suivants. Un conflit ulterieur (autre chapitre, meme cle,
+    autre valeur) leve CoherenceConflictError si is_locked, sinon MAJ.
+
+    Comportement conservateur : on ne verrouille qu'un pattern strict
+    (libelle + chiffre + unite). Le but n'est pas d'exhaustivite mais de
+    verrouiller les 10-15 chiffres structurants qui plombent la coherence.
+    """
+    locked: list[CoherenceFact] = []
+    content = chapter.content or ""
+    seen_keys: set[str] = set()
+    for pattern in _LABELED_NUMERIC_PATTERNS:
+        for match in pattern.finditer(content):
+            key = _normalize_key(match.group("label"))
+            if not key or key in seen_keys:
+                continue
+            seen_keys.add(key)
+            existing = CoherenceFact.objects.filter(
+                job=chapter.job, kind=FactKind.MARKET_SIZE, key=key
+            ).first()
+            if existing and existing.is_locked:
+                # Deja verrouille par un chapitre precedent : on ne touche pas.
+                # La divergence eventuelle sera detectee par la validation.
+                continue
+            value = _normalize_value(match.group("value"), match.group("unit"))
+            fact = upsert_locked_fact(
+                job=chapter.job,
+                kind=FactKind.MARKET_SIZE,
+                key=key,
+                value=value,
+                source_chapter_number=chapter.chapter_number,
+            )
+            locked.append(fact)
+    return locked
