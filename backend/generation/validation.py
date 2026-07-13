@@ -154,7 +154,7 @@ _PLACEHOLDER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 def detect_placeholder_leaks(content: str) -> list[ChapterValidationIssue]:
     issues: list[ChapterValidationIssue] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     for code, pattern in _PLACEHOLDER_PATTERNS:
         match = pattern.search(content)
         if match and (code, match.group(0)) not in seen:

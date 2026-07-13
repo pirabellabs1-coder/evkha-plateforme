@@ -296,6 +296,7 @@ def _generate_chapter(
     system_prompt: str,
 ) -> None:
     from .validation import (
+        ChapterValidationIssue,
         format_issues_for_retry,
         has_blocking_issues,
         validate_chapter_content,
@@ -311,7 +312,7 @@ def _generate_chapter(
     # Exemples : fiche_projet, annexe, sources → "claude-haiku" (structure pure).
     chapter_model = blueprint.model if blueprint else None
 
-    issues: list = []
+    issues: list[ChapterValidationIssue] = []
     attempts = 0
     if sections:
         content, total_input, total_output, model = _generate_chunked(
