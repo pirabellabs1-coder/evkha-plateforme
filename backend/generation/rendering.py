@@ -69,7 +69,10 @@ _LEXICAL_SUBSTITUTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bla recurrence\b", re.IGNORECASE), "le caractère récurrent"),
     (re.compile(r"\bdynamique porteuse\b", re.IGNORECASE), "tendance favorable"),
     (re.compile(r"\btendance structurelle\b", re.IGNORECASE), "tendance de fond"),
-    (re.compile(r"\bpolarisations?\b", re.IGNORECASE), "séparation"),
+    # Accords preserves : pluriel -> pluriel (les regex a remplacement unique
+    # produisaient des fautes d'accord dans le livrable).
+    (re.compile(r"\bpolarisations\b", re.IGNORECASE), "séparations"),
+    (re.compile(r"\bpolarisation\b", re.IGNORECASE), "séparation"),
     (
         re.compile(r"\bconsolidation concurrentielle\b", re.IGNORECASE),
         "concentration des concurrents",
@@ -83,7 +86,8 @@ _LEXICAL_SUBSTITUTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"\bincarner le positionnement\b", re.IGNORECASE),
         "rendre le positionnement concret",
     ),
-    (re.compile(r"\bactionnables?\b", re.IGNORECASE), "applicable"),
+    (re.compile(r"\bactionnables\b", re.IGNORECASE), "applicables"),
+    (re.compile(r"\bactionnable\b", re.IGNORECASE), "applicable"),
     (re.compile(r"\bvitesse de captation\b", re.IGNORECASE), "vitesse de conquête"),
     # Tournures evitees (debut de phrase)
     (re.compile(r"\bIl apparaît que\b"), "On constate que"),
@@ -130,18 +134,73 @@ class ClientDocument:
         return "\n".join(lines).strip() + "\n"
 
 
-_CALLOUT_MARKER_RE = re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION)\]\]")
+_CALLOUT_MARKER_RE = re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]")
+
+# Intitules techniques du contexte de generation. Ne doivent JAMAIS fuiter
+# dans le livrable (brief client juillet 2026 : "en parfaite coherence avec
+# les FAITS_VERROUILLES" est apparu tel quel dans un PDF livre).
+_INTERNAL_LABEL_NAMES = (
+    "FAITS_VERROUILLES", "VARIABLES_PROJET", "DONNEES_CLIENT",
+    "REPERES_DEJA_ENONCES", "RESUME_OPERATIONNEL_PRECEDENT",
+    "RESUME_OPERATIONNEL", "FICHE_SECTORIELLE", "CHAPITRE_CIBLE",
+    "CHAPITRE_PARENT", "SECTIONS_PRECEDENTES", "PROMPT_KEY",
+    "SECTION_A_GENERER", "CONSIGNE_DU_CHAPITRE", "DATE_DU_JOUR",
+    "CONTEXTE_ETUDE_PRECEDENTE",
+)
+# 1) Occurrence parenthesee : "(FAITS_VERROUILLES)" -> supprimee entierement.
+_INTERNAL_LABEL_PAREN_RE = re.compile(
+    r"\s*\(\s*(?:" + "|".join(_INTERNAL_LABEL_NAMES) + r")\s*\)"
+)
+# 2) Occurrence nue dans la prose -> remplacee par une designation naturelle.
+# L'article precedent eventuel (les/le/la/aux/des/du...) est absorbe pour ne
+# pas produire "les les donnees de reference" apres substitution.
+_INTERNAL_LABEL_BARE_RE = re.compile(
+    r"(?:\b(?:les|le|la|l'|aux|au|des|de|du)\s+)?"
+    r"\b(?:" + "|".join(_INTERNAL_LABEL_NAMES) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def strip_internal_label_tokens(text: str) -> str:
+    """Retire les intitules techniques du contexte fuites dans la redaction.
+
+    Deterministe, sans invention : la forme parenthesee est supprimee (elle
+    n'apporte rien au lecteur), la forme nue est remplacee par 'les donnees
+    de reference du dossier' (designation fidele de ce que le label contient).
+    Le gate de livraison re-verifie ensuite qu'aucun label ne subsiste.
+    """
+    text = _INTERNAL_LABEL_PAREN_RE.sub("", text)
+    return _INTERNAL_LABEL_BARE_RE.sub("les données de référence du dossier", text)
 
 
 def strip_callout_markers(text: str) -> str:
     """Retire les marqueurs [[UNDERSTAND]] etc. colles au texte ou enchaines.
 
-    Le parser _md_to_html gere les marqueurs sur leur propre ligne, mais Claude
-    les colle parfois au texte (ex: ``satisfaisant.[[/UNDERSTAND]]``) ou les
-    enchaine (``[[/CONSIDER]][[ATTENTION]]``). Ce nettoyage en amont garantit
-    qu'aucun marqueur brut ne fuit dans le livrable client.
+    Utilise en DERNIER recours (apres conversion Markdown -> HTML) pour
+    garantir qu'aucun marqueur brut ne fuit dans le livrable client. Ne doit
+    PAS etre applique avant _md_to_html : il detruirait les paires bien
+    formees que le parser transforme en encadres mentor stylises (regression
+    observee : les encadres etaient rendus en simples paragraphes).
     """
     return _CALLOUT_MARKER_RE.sub("", text)
+
+
+_CALLOUT_MARKER_INLINE_RE = re.compile(
+    r"[ \t]*(\[\[/?(?:UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\])[ \t]*"
+)
+
+
+def normalize_callout_markers(text: str) -> str:
+    """Replace chaque marqueur [[...]] sur sa propre ligne.
+
+    Claude colle parfois les marqueurs au texte (``satisfaisant.[[/UNDERSTAND]]``)
+    ou les enchaine (``[[/CONSIDER]][[ATTENTION]]``). En les isolant sur leur
+    ligne, le parser _md_to_html reconnait les paires bien formees et les rend
+    en encadres mentor ; les orphelins residuels sont scrubes apres conversion
+    par strip_callout_markers (aucune fuite possible).
+    """
+    normalized = _CALLOUT_MARKER_INLINE_RE.sub(r"\n\1\n", text)
+    return re.sub(r"\n{3,}", "\n\n", normalized)
 
 
 _DIAMOND_ARTIFACT_RE = re.compile(r"(?:<>){2,}")
@@ -486,18 +545,20 @@ def _md_to_html(text: str) -> str:
         # ◆ Ce qu'il faut comprendre : ...  → callout stylé
         # → Ce qu'il faut envisager : ...   → callout action
         # ! Attention : ...                  → callout warning
-        callout_match = re.match(r"^\s*([◆→!])\s*(.+)$", line)
+        callout_match = re.match(r"^\s*([◆→!✓])\s*(.+)$", line)
         if callout_match:
             marker, rest = callout_match.groups()
-            kind = {"◆": "understand", "→": "consider", "!": "attention"}[marker]
+            kind = {"◆": "understand", "→": "consider", "!": "attention", "✓": "action"}[marker]
             label = {
                 "understand": "Ce qu'il faut comprendre",
                 "consider": "Ce qu'il faut envisager",
                 "attention": "Attention",
+                "action": "Action concrète",
             }[kind]
             # Cas "◆ Ce qu'il faut comprendre : contenu" → sépare label et contenu
             body_after = re.sub(
-                r"^(?:Ce qu['’]il faut comprendre|Ce qu['’]il faut envisager|Attention)\s*[:\-]\s*",
+                r"^(?:Ce qu['’]il faut comprendre|Ce qu['’]il faut envisager"
+                r"|Attention|Action concr[èe]te)\s*[:\-]\s*",
                 "",
                 rest,
                 flags=re.IGNORECASE,
@@ -512,7 +573,7 @@ def _md_to_html(text: str) -> str:
             continue
 
         # Marqueurs parseables [[UNDERSTAND]] ... [[/UNDERSTAND]] (Fix #7b)
-        block_open = re.match(r"^\s*\[\[(UNDERSTAND|CONSIDER|ATTENTION)\]\]\s*$", line)
+        block_open = re.match(r"^\s*\[\[(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]\s*$", line)
         if block_open:
             kind_upper = block_open.group(1)
             kind = kind_upper.lower()
@@ -520,6 +581,7 @@ def _md_to_html(text: str) -> str:
                 "understand": "Ce qu'il faut comprendre",
                 "consider": "Ce qu'il faut envisager",
                 "attention": "Attention",
+                "action": "Action concrète",
             }[kind]
             i += 1
             block_lines: list[str] = []
@@ -572,12 +634,14 @@ def render_branded_html(job: GenerationJob, *, branding: BrandingContext | None 
             "number": s.number,
             "title": s.title,
             "kind": s.kind,
-            # Pipeline HTML : md→html → fermeture balises orphelines → chunking
-            # tableaux longs (BeautifulSoup). L'ordre est critique : chunk_long_tables
-            # doit opérer sur du HTML valide (post close_dangling_html_tags) pour que
-            # le parser DOM ne rencontre pas de balises ouvertes.
+            # Pipeline HTML : md→html → scrub des marqueurs [[...]] orphelins
+            # (les paires bien formées sont déjà rendues en encadrés mentor)
+            # → fermeture balises orphelines → chunking tableaux longs
+            # (BeautifulSoup). L'ordre est critique : chunk_long_tables doit
+            # opérer sur du HTML valide (post close_dangling_html_tags) pour
+            # que le parser DOM ne rencontre pas de balises ouvertes.
             "body_html": chunk_long_tables(
-                close_dangling_html_tags(_md_to_html(s.body))
+                close_dangling_html_tags(strip_callout_markers(_md_to_html(s.body)))
             ),
             # Idem sur les visual breaks : un <table> non fermé dans un break
             # absorberait tous les chapitres suivants dans WeasyPrint.
@@ -769,7 +833,8 @@ def _clean_chapter_body(content: str, kind: str) -> str:
        rendu PDF)
     """
     body = strip_internal_markers(content)
-    body = strip_callout_markers(body)
+    body = strip_internal_label_tokens(body)
+    body = normalize_callout_markers(body)
     body = strip_diamond_artifacts(body)
     if kind != SectionKind.SOURCES:
         body = strip_intermediate_sources(body)

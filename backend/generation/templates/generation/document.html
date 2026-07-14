@@ -23,7 +23,7 @@
       margin: 28mm 22mm 22mm 22mm;
       @top-right {
         content: "EVKHA · {{ title }}{% if branding.company_name %} — {{ branding.company_name }}{% endif %}";
-        font-family: Calibri, 'Trebuchet MS', Helvetica, Arial, sans-serif;
+        font-family: Calibri, Carlito, 'Trebuchet MS', Helvetica, Arial, sans-serif;
         font-size: 8.5pt;
         color: var(--gray);
         border-bottom: 0.5pt solid var(--cream-dark);
@@ -31,7 +31,7 @@
       }
       @bottom-center {
         content: "Document stratégique confidentiel — " counter(page);
-        font-family: Calibri, 'Trebuchet MS', Helvetica, Arial, sans-serif;
+        font-family: Calibri, Carlito, 'Trebuchet MS', Helvetica, Arial, sans-serif;
         font-size: 8pt;
         color: var(--gray);
         border-top: 0.5pt solid var(--cream-dark);
@@ -59,7 +59,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: Calibri, 'Trebuchet MS', Helvetica, Arial, sans-serif;
+      font-family: Calibri, Carlito, 'Trebuchet MS', Helvetica, Arial, sans-serif;
       font-size: 10.5pt;
       line-height: 1.2;
       color: var(--primary);
@@ -638,31 +638,16 @@
     .callout--consider .callout__label::before   { content: "→"; }
     .callout--attention               { background: #fdf3f0; border-left-color: #b2543d; }
     .callout--attention .callout__label::before  { content: "!"; color: #b2543d; }
+    /* 4e style obligatoire (Bloc 4 Consignes) : ✓ Action concrete (vert) */
+    .callout--action                  { background: #eaf6ee; border-left-color: #2E7D4F; }
+    .callout--action .callout__label::before      { content: "\2713"; color: #2E7D4F; }
     .callout__body p { margin: 0 0 1.5mm; }
     .callout__body p:last-child { margin-bottom: 0; }
 
-    /* Tableaux propres (l'utilisatrice a remarque des tableaux "fondus dans la prose") */
-    .chapter__body table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 3mm 0 4mm;
-      font-size: 9.5pt;
-      page-break-inside: avoid;
-    }
-    .chapter__body th, .chapter__body td {
-      border: 1px solid #d8d3ca;
-      padding: 2mm 3mm;
-      vertical-align: top;
-      text-align: left;
-    }
-    .chapter__body th {
-      background: var(--primary);
-      color: #ffffff;
-      font-family: Helvetica, Arial, sans-serif;
-      font-size: 9pt;
-      letter-spacing: 0.4px;
-    }
-    .chapter__body tr:nth-child(even) td { background: #fafafa; }
+    /* NOTE : ne PAS redéfinir .chapter__body table ici. Un second bloc CSS
+       identique en fin de feuille écrasait silencieusement le correctif
+       tableaux du retour client juillet 2026 (8.5pt, page-break auto,
+       table-layout fixed) — cf. le bloc unique plus haut. */
   </style>
 </head>
 <body>

@@ -29,22 +29,32 @@ _NUMERIC_HINT = re.compile(r"\d|%|€|\$|CFA|EUR|USD|M€|Md€|Mds|millions?|mi
 _MAX_VALIDATION_RETRIES = 1
 
 # Em-dash et en-dash sont des signatures IA immediatement reperees par les
-# lecteurs professionnels. La consigne prompt (INTERDICTIONS ABSOLUES) demande
-# a Claude de les eviter, mais il en glisse regulierement. Ce regex les
-# elimine systematiquement en post-processing : remplace " — " et " – " par
-# ", " ; les usages isoles ("- word") sont aussi convertis. Le tiret court "-"
-# reste intact pour les mots composes (self-stockage, ordre-du-jour...).
+# lecteurs professionnels. La consigne prompt (TYPOGRAPHIE) demande a Claude
+# de les eviter dans la prose, mais il en glisse regulierement. Ce regex les
+# elimine en post-processing : remplace " — " et " – " par ", ". Le tiret
+# court "-" reste intact pour les mots composes (self-stockage...).
+# EXCEPTION (Bloc 1 Consignes) : les titres/sous-titres au format
+# « X.Y — Titre » conservent leur tiret cadratin — c'est le format IMPOSE
+# par les consignes d'ecriture. Le strip est donc applique ligne par ligne
+# en sautant les lignes de titre.
 _AI_TELL_DASHES = re.compile(r"\s*[—–]\s*")
+_HEADING_LINE = re.compile(r"^\s*(?:#{1,6}\s|\*\*?\d+\.\d+\s*[—–]|\d+\.\d+\s*[—–])")
 
 
 def _strip_ai_tell_dashes(content: str) -> str:
-    """Retire les em-dashes / en-dashes generes par Claude.
+    """Retire les em-dashes / en-dashes de la prose, en preservant les titres.
 
     Ceinture-bretelles avec la regle typographique injectee dans le system
-    prompt : garantit 100% de couverture meme si Claude ignore la consigne
-    (comportement observe en pratique sur les modeles Sonnet/Opus).
+    prompt : garantit la couverture meme si Claude ignore la consigne.
+    Les lignes de titre (markdown '#', ou sous-titre numerote 'X.Y — Titre')
+    gardent leur tiret cadratin, exige par le Bloc 1 des Consignes EVKHA.
     """
-    return _AI_TELL_DASHES.sub(", ", content)
+    lines = content.split("\n")
+    out = [
+        line if _HEADING_LINE.match(line) else _AI_TELL_DASHES.sub(", ", line)
+        for line in lines
+    ]
+    return "\n".join(out)
 
 
 class GenerationRunError(RuntimeError):
@@ -57,7 +67,7 @@ def _split_sentences(text: str) -> list[str]:
 
 
 def _operational_summary(content: str) -> str:
-    """Resume operationnel : phrases chiffrees/sourcees priorisees, cap 900 chars.
+    """Resume operationnel : phrases chiffrees/sourcees priorisees, cap 1200 chars.
 
     On retire le bloc Sources puis on selectionne d'abord toutes les phrases
     contenant un chiffre ou une unite monetaire (celles qui doivent absolument
@@ -319,12 +329,23 @@ def _generate_chapter(
             job, chapter, sections, client=client, system_prompt=system_prompt,
             chapter_model=chapter_model,
         )
+        # Les chapitres chunkes passent aussi la validation post-gen : les
+        # defauts sont traces (error_message) et repris par la QA finale et
+        # le gate de livraison. Pas de retry global (le contenu fusionne
+        # provient de plusieurs appels ; la reparation ciblee est du ressort
+        # de la QA), mais aucun defaut ne passe silencieusement.
+        issues = validate_chapter_content(content)
     else:
         prompt = build_chapter_prompt(chapter)
         max_tokens = max_tokens_for_job(job, default_max_tokens=_DEFAULT_MAX_TOKENS)
         result = client.complete(
             system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
         )
+        # Suivi des couts (§4 cadrage) : TOUS les appels comptent, y compris
+        # les tentatives invalidees. total_* accumule chaque appel ; ne jamais
+        # repartir du dernier result seul (sous-comptage constate a l'audit).
+        total_input = result.input_tokens
+        total_output = result.output_tokens
         # QC Evangeline #3 : validation post-gen + retry 1x si defauts bloquants.
         issues = validate_chapter_content(result.content)
         while has_blocking_issues(issues) and attempts < _MAX_VALIDATION_RETRIES:
@@ -337,10 +358,10 @@ def _generate_chapter(
                 max_tokens=max_tokens,
                 model=chapter_model,
             )
+            total_input += result.input_tokens
+            total_output += result.output_tokens
             issues = validate_chapter_content(result.content)
-        content, total_input, total_output, model = (
-            result.content, result.input_tokens, result.output_tokens, result.model
-        )
+        content, model = result.content, result.model
 
     content = _strip_ai_tell_dashes(content)
     chapter.content = content

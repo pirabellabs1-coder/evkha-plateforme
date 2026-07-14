@@ -37,6 +37,10 @@ _OPTIONAL_VARS = (
     "OBJECTIF_STRATEGIQUE", "HORIZON_PLANIFICATION",
     "LOGO_URL", "COULEUR_PRINCIPALE", "COULEUR_SECONDAIRE", "NOM_ENTREPRISE",
     "PHOTO_1", "PHOTO_2", "PHOTO_3",
+    # Etat chiffre client (Brique 1) + verticales (check completude du gate)
+    "INVESTISSEMENT_TOTAL", "APPORT", "EMPRUNT", "SUBVENTIONS",
+    "CA_PREVISIONNEL", "EBE_PREVISIONNEL", "RESULTAT_NET_PREVISIONNEL",
+    "TAUX_OCCUPATION", "SEUIL_RENTABILITE", "VERTICALES",
 )
 
 # ---------------------------------------------------------------------------
@@ -81,6 +85,9 @@ def _job_summary(
         "id": str(job.id),
         "deliverable_type": job.deliverable_type,
         "status": job.status,
+        # "blocked" = gate qualite KO : le document n'est PAS parti chez le
+        # client ; livraison manuelle possible via redeliver (decision admin).
+        "qa_status": job.qa_status,
         "total_cost_eur": str(job.total_cost_eur),
         "budget_eur": str(job.budget_eur),
         "chapters_done": done,
@@ -290,7 +297,9 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
 def job_redeliver(request: HttpRequest, job_id: str) -> JsonResponse:
     """Relance la livraison depuis le dashboard.
 
-    - Job DONE  → PDF + email client (livraison complète).
+    - Job DONE  → PDF + email client (livraison complète). C'est aussi le
+      chemin de FORÇAGE manuel quand le gate qualité a bloqué la livraison
+      (qa_status="blocked") : l'admin assume la décision après relecture.
     - Job FAILED → PDF uniquement (admin), sans email au client.
       Cas typique : budget dépassé en fin de génération, document complet ou quasi-complet.
     """

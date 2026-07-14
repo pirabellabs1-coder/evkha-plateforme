@@ -151,11 +151,24 @@ _PLACEHOLDER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
     (
         "leaked_callout_marker",
-        re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION)\]\]"),
+        re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]"),
     ),
     (
         "diamond_artifact",
         re.compile(r"(?:<>){2,}"),
+    ),
+    # Fuite des intitules techniques du contexte de generation (brief client
+    # juillet 2026 : "FAITS_VERROUILLES" apparaissait litteralement dans le
+    # PDF livre). Tout label interne dans le contenu = violation bloquante.
+    (
+        "leaked_internal_label",
+        re.compile(
+            r"\b(?:FAITS_VERROUILLES|VARIABLES_PROJET|DONNEES_CLIENT"
+            r"|REPERES_DEJA_ENONCES|RESUME_OPERATIONNEL(?:_PRECEDENT)?"
+            r"|FICHE_SECTORIELLE|CHAPITRE_CIBLE|CHAPITRE_PARENT"
+            r"|SECTIONS_PRECEDENTES|PROMPT_KEY|SECTION_A_GENERER"
+            r"|CONSIGNE_DU_CHAPITRE|DATE_DU_JOUR|CONTEXTE_ETUDE_PRECEDENTE)\b"
+        ),
     ),
 )
 

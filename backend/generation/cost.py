@@ -89,6 +89,36 @@ def record_chapter_cost(
     return cost
 
 
+def record_additional_cost(
+    *,
+    chapter: ChapterGeneration,
+    input_tokens: int,
+    output_tokens: int,
+    model: str | None = None,
+) -> Decimal:
+    """Ajoute au chapitre le cout d'appels IA supplementaires (reparation QA).
+
+    §4 cadrage (suivi des couts) : TOUS les appels Claude doivent etre
+    comptabilises, y compris ceux de la passe QA post-generation qui
+    n'etaient pas traces (audit juillet 2026 : cout dashboard sous-estime).
+    N'applique PAS enforce_budget : la QA intervient sur un job deja DONE,
+    la borne budgetaire de la QA est geree en amont (desactivation IA a 85%).
+    """
+    if input_tokens <= 0 and output_tokens <= 0:
+        return Decimal("0")
+    extra = estimate_call_cost_eur(input_tokens, output_tokens, model)
+    chapter.input_tokens += input_tokens
+    chapter.output_tokens += output_tokens
+    chapter.cost_eur += extra
+    chapter.save(update_fields=["input_tokens", "output_tokens", "cost_eur", "updated_at"])
+
+    job = chapter.job
+    GenerationJob.objects.filter(pk=job.pk).update(
+        total_cost_eur=current_job_cost_eur(job)
+    )
+    return extra
+
+
 def max_tokens_for_job(
     job: GenerationJob,
     *,

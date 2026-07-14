@@ -22,6 +22,9 @@ class PdfGenerationResult:
     pdf_bytes: bytes
     pdf_storage_key: str
     pdf_download_url: str
+    # Nombre de pages du PDF rendu (§2 cadrage : limites 80/45 pages).
+    # 0 = inconnu (stub, ou moteur sans pagination).
+    page_count: int = 0
 
 
 @runtime_checkable
@@ -83,7 +86,12 @@ class WeasyPrintPdfClient:
         pdf_dest.parent.mkdir(parents=True, exist_ok=True)
 
         html_dest.write_text(html, encoding="utf-8")
-        pdf_bytes: bytes = WeasyHTML(string=html).write_pdf()
+        # render() puis write_pdf() (equivalent au raccourci write_pdf(),
+        # cf. doc WeasyPrint api_reference) : document.pages donne le nombre
+        # de pages reel pour le controle des limites §2 (80/45 pages max).
+        document = WeasyHTML(string=html).render()
+        page_count = len(document.pages)
+        pdf_bytes: bytes = document.write_pdf()
         pdf_dest.write_bytes(pdf_bytes)
 
         return PdfGenerationResult(
@@ -92,6 +100,7 @@ class WeasyPrintPdfClient:
             pdf_bytes=pdf_bytes,
             pdf_storage_key=pdf_key,
             pdf_download_url=pdf_url,
+            page_count=page_count,
         )
 
 

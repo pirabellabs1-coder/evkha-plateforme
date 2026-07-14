@@ -11,11 +11,15 @@ WORKDIR /app
 # introspection. libpangocairo-1.0-0 est nécessaire pour les fontes FreeType.
 # fonts-liberation : Times, Arial, Courier (équivalents Linux)
 # fonts-dejavu-core : fallback Unicode compact
+# fonts-crosextra-carlito : clone libre métriquement compatible de Calibri —
+# la police EXIGÉE par le Bloc 6 des Consignes EVKHA. Sans lui, WeasyPrint
+# retombait sur Liberation Sans et la charte typographique n'était pas tenue.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         fontconfig \
         fonts-liberation \
         fonts-dejavu-core \
+        fonts-crosextra-carlito \
         libglib2.0-0 \
         libpango-1.0-0 \
         libpangoft2-1.0-0 \

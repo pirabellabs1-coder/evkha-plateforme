@@ -6,12 +6,20 @@ from django.utils import timezone
 
 from intake.models import IntakeSubmission
 
-from .coherence import locked_facts_as_context
+from .coherence import client_facts_as_context, generated_facts_as_context
 from .models import ChapterGeneration
 
 ROLE_LINE = (
     "ROLE: Methode EVKHA, ton mentor, rendu client sans balises internes "
     "(jamais 'Etape', 'Point de controle' ni vocabulaire pipeline). "
+    "Les intitules techniques de ce contexte (VARIABLES_PROJET, "
+    "DONNEES_CLIENT, REPERES_DEJA_ENONCES, FICHE_SECTORIELLE, "
+    "RESUME_OPERATIONNEL_PRECEDENT, CHAPITRE_CIBLE, PROMPT_KEY, "
+    "SECTION_A_GENERER, FAITS_VERROUILLES) sont des reperes internes : "
+    "ils ne doivent JAMAIS apparaitre dans ta redaction, ni entre "
+    "parentheses, ni cites, ni reformules en 'faits verrouilles du dossier'. "
+    "Si tu dois designer l'origine d'un chiffre client, ecris 'le "
+    "previsionnel fourni par le porteur' ou equivalent naturel. "
     "Si VARIABLES_PROJET contient CONTEXTE_ETUDE_PRECEDENTE, appuie-toi sur "
     "ce resume d'une etude ou d'un document deja produit pour ce client pour "
     "rester coherent avec son contenu et eviter les repetitions, sans le "
@@ -29,10 +37,16 @@ ROLE_LINE = (
     "redige uniquement en texte/Markdown (titres, paragraphes, listes) : "
     "n'invente jamais de bloc HTML/CSS de ta propre initiative. "
     "COHERENCE ABSOLUE (regle prioritaire, non negociable) : "
-    "1) La liste FAITS_VERROUILLES et le bloc RESUME_OPERATIONNEL_PRECEDENT "
-    "sont la VERITE de reference du dossier. Si tu evoques un chiffre ou un "
-    "nom deja mentionne dans un chapitre precedent, tu DOIS le reprendre a "
-    "l'IDENTIQUE : meme valeur exacte, meme unite, meme orthographe. "
+    "0) HIERARCHIE DES SOURCES : les chiffres du bloc DONNEES_CLIENT "
+    "(previsionnel, investissement, emprunt, taux d'occupation, verticales "
+    "d'activite...) priment sur TOUTE moyenne sectorielle, benchmark ou "
+    "estimation. Tu ne substitues JAMAIS un cas generique aux hypotheses "
+    "reelles du client. Chaque verticale d'activite listee par le client "
+    "doit etre traitee — aucune ne disparait au profit d'un modele type. "
+    "1) Les blocs DONNEES_CLIENT, REPERES_DEJA_ENONCES et "
+    "RESUME_OPERATIONNEL_PRECEDENT sont la VERITE de reference du dossier. "
+    "Si tu evoques un chiffre ou un nom deja mentionne, tu DOIS le reprendre "
+    "a l'IDENTIQUE : meme valeur exacte, meme unite, meme orthographe. "
     "2) Une variation d'un chiffre entre deux chapitres (ex : TCAC 8,4 % au "
     "chapitre 2 puis 8,5 % au chapitre 7, ou CA cible 285 000 EUR puis "
     "287 000 EUR) est une incoherence percue instantanement par un lecteur "
@@ -85,7 +99,11 @@ def build_context(chapter: ChapterGeneration) -> str:
             _date_line(),
             f"VARIABLES_PROJET: {json.dumps(variables, ensure_ascii=False, sort_keys=True)}",
             f"FICHE_SECTORIELLE:\n{fiche_sectorielle}",
-            f"FAITS_VERROUILLES:\n{locked_facts_as_context(job)}",
+            "DONNEES_CLIENT (brief client, intangibles, priorite absolue):\n"
+            + client_facts_as_context(job),
+            "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
+            "precedents, a reprendre a l'identique, jamais presentes comme "
+            "'faits verrouilles'):\n" + generated_facts_as_context(job),
             "RESUME_OPERATIONNEL_PRECEDENT:\n" + ("\n".join(summary_lines) or "Aucun."),
             f"CHAPITRE_CIBLE: {chapter.chapter_number}. {chapter.chapter_title}",
             f"PROMPT_KEY: {chapter.prompt_key}",

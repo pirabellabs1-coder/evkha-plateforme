@@ -39,6 +39,22 @@ class QAStatus(models.TextChoices):
     RUNNING = "running", "En cours"
     PASSED = "passed", "Validé"
     FAILED = "failed", "Echec partiel"
+    # Gate de livraison (brief client juillet 2026) : au moins un check
+    # bloquant a echoue apres QA -> le document NE PART PAS chez le client.
+    # Livraison possible uniquement par action manuelle admin (redeliver).
+    BLOCKED = "blocked", "Bloqué par le gate qualité"
+
+
+class FactProvenance(models.TextChoices):
+    # Fait fourni par le client dans le brief (intake Tally / saisie manuelle).
+    # Intangible : ne peut JAMAIS etre ecrase par une valeur generee, et tout
+    # ecart detecte dans le contenu genere est bloquant (tolerance zero).
+    CLIENT = "client", "Brief client"
+    # Fait extrait du contenu genere par le modele. Sert uniquement de repere
+    # de coherence inter-chapitres ; ne doit jamais etre presente au client
+    # comme "fait verrouille du dossier" (brief juillet 2026 : le pipeline
+    # consolidait des chiffres hallucines en dogme).
+    GENERATED = "generated", "Extrait de la génération"
 
 
 class GenerationJob(UUIDModel):
@@ -104,6 +120,15 @@ class CoherenceFact(UUIDModel):
     value = models.CharField(max_length=500)
     source_chapter_number = models.PositiveSmallIntegerField(null=True, blank=True)
     is_locked = models.BooleanField(default=True)
+    provenance = models.CharField(
+        max_length=16,
+        choices=FactProvenance.choices,
+        default=FactProvenance.GENERATED,
+        help_text=(
+            "Origine du fait : brief client (intangible, priorite absolue) "
+            "ou extraction du contenu genere (repere de coherence)."
+        ),
+    )
 
     class Meta:
         constraints = [

@@ -537,26 +537,32 @@ def _ai_insert_missing_subsections(
     missing_nums: list[int],
     *,
     client: object,
-) -> str:
+    project_context: str = "",
+) -> tuple[str, int, int]:
     """Génère les sous-sections manquantes et les insère à la bonne position.
 
     Stratégie d'insertion : cherche la première section APRÈS le gap
     (numéro secondaire = missing_nums[-1] + 1) et insère le contenu juste avant.
     Si aucune section après le gap n'est trouvée, le contenu est ajouté à la fin.
+    Retourne (contenu, input_tokens, output_tokens) pour le suivi des coûts §4.
     """
     from integrations.claude import ClaudeClient  # éviter import circulaire
 
     if not isinstance(client, ClaudeClient) or not missing_nums:
-        return content
+        return content, 0, 0
 
     sample = content[:2000].strip()
     missing_str = ", ".join(str(n) for n in missing_nums)
 
+    context_block = f"{project_context}\n\n" if project_context else ""
     prompt = (
+        f"{context_block}"
         f"Le chapitre « {chapter_title} » est incomplet : "
         f"les sous-sections {missing_str} sont absentes.\n"
         "Génère UNIQUEMENT ces sous-sections manquantes, "
         "dans le même format, style et niveau de détail que les exemples ci-dessous.\n"
+        "Appuie-toi STRICTEMENT sur les données du projet fournies en contexte : "
+        "aucun contenu générique interchangeable avec un autre projet.\n"
         "Ne reproduis pas les sous-sections déjà présentes dans le contenu.\n"
         "Commence directement par la première sous-section manquante "
         "(ex. ### N.X Nom du concurrent) sans aucune introduction.\n\n"
@@ -570,11 +576,11 @@ def _ai_insert_missing_subsections(
             max_tokens=_QA_SUBSECTION_TOKENS,
         )
     except Exception:  # noqa: BLE001
-        return content
+        return content, 0, 0
 
     new_sections = result.content.strip()
     if not new_sections:
-        return content
+        return content, result.input_tokens, result.output_tokens
 
     # Insérer avant la première section qui suit le gap
     first_after_gap = missing_nums[-1] + 1
@@ -584,9 +590,14 @@ def _ai_insert_missing_subsections(
     m = after_gap_re.search(content)
     if m:
         insert_pos = m.start()
-        return content[:insert_pos] + new_sections + "\n\n" + content[insert_pos:]
+        patched = content[:insert_pos] + new_sections + "\n\n" + content[insert_pos:]
+        return patched, result.input_tokens, result.output_tokens
 
-    return content.rstrip() + "\n\n" + new_sections
+    return (
+        content.rstrip() + "\n\n" + new_sections,
+        result.input_tokens,
+        result.output_tokens,
+    )
 
 
 def ai_repair_chapter(
@@ -596,7 +607,8 @@ def ai_repair_chapter(
     violations: list[ConditionViolation],
     *,
     client: object,
-) -> str:
+    project_context: str = "",
+) -> tuple[str, int, int]:
     """Appelle Claude pour compléter ou développer un chapitre problématique.
 
     - Si troncature structurelle (table coupée, balise ouverte) : génère uniquement
@@ -604,12 +616,22 @@ def ai_repair_chapter(
     - Si chapitre trop court : développe substantiellement le contenu existant.
     - Si les deux : commence par la complétion, puis l'expansion.
 
+    `project_context` (variables projet + données client) est injecté dans
+    chaque prompt de réparation : sans lui, la régénération produisait du
+    contenu générique déconnecté du dossier (audit juillet 2026).
+    Retourne (contenu, input_tokens, output_tokens) — les tokens des appels
+    de réparation sont comptabilisés dans le Cost Engine (§4 cadrage).
     Retourne le contenu d'origine si Claude ne produit rien d'utile.
     """
     from integrations.claude import ClaudeClient  # éviter import circulaire
 
+    total_in = 0
+    total_out = 0
+
     if not isinstance(client, ClaudeClient):
-        return content
+        return content, 0, 0
+
+    context_block = f"{project_context}\n\n" if project_context else ""
 
     # Réparation prioritaire : sous-sections manquantes (gap dans la numérotation)
     # Traité AVANT completion/expansion car l'insertion change la longueur du chapitre.
@@ -618,9 +640,12 @@ def ai_repair_chapter(
             if v.name == "missing_subsections":
                 missing = _extract_missing_numbers(v.detail)
                 if missing:
-                    patched = _ai_insert_missing_subsections(
-                        content, chapter_title, missing, client=client
+                    patched, sub_in, sub_out = _ai_insert_missing_subsections(
+                        content, chapter_title, missing,
+                        client=client, project_context=project_context,
                     )
+                    total_in += sub_in
+                    total_out += sub_out
                     if patched != content:
                         content = patched
 
@@ -628,7 +653,7 @@ def ai_repair_chapter(
     needs_expansion = _needs_ai_expansion(violations)
 
     if not (needs_completion or needs_expansion):
-        return content
+        return content, total_in, total_out
 
     min_w = _MIN_WORDS.get(section_kind, 200)
     current_wc = _word_count(content)
@@ -636,11 +661,14 @@ def ai_repair_chapter(
     if needs_completion:
         # Complétion structurelle : fermer les balises et terminer les phrases
         prompt = (
+            f"{context_block}"
             f"Le chapitre « {chapter_title} » a été tronqué. "
             "Génère UNIQUEMENT la suite manquante pour :\n"
             "— fermer toutes les balises HTML ouvertes (<table>, <tr>, <td>, <ul>, <li>, etc.)\n"
             "— terminer la phrase ou la liste en cours si interrompue\n"
             "— compléter les tableaux avec les données manquantes si un tableau était en cours\n"
+            "Utilise UNIQUEMENT les données du projet fournies en contexte, "
+            "sans inventer de nouveaux chiffres.\n"
             "Ne répète pas ce qui précède. Commence directement par la continuation.\n\n"
             f"{content.strip()}"
         )
@@ -651,11 +679,13 @@ def ai_repair_chapter(
                 max_tokens=_QA_COMPLETION_TOKENS,
             )
         except Exception:  # noqa: BLE001
-            return content
+            return content, total_in, total_out
 
+        total_in += result.input_tokens
+        total_out += result.output_tokens
         completion = result.content.strip()
         if not completion:
-            return content
+            return content, total_in, total_out
 
         repaired = content.rstrip() + "\n" + completion
 
@@ -664,17 +694,22 @@ def ai_repair_chapter(
             content = repaired
             needs_expansion = True
         else:
-            return repaired
+            return repaired, total_in, total_out
 
     if needs_expansion:
         is_severely_short = current_wc < min_w * 0.3
 
         if is_severely_short:
-            # Trop peu de contenu pour développer : demande un chapitre complet
+            # Trop peu de contenu pour développer : demande un chapitre complet,
+            # ancré dans les données réelles du projet (jamais générique).
             prompt = (
+                f"{context_block}"
                 f"Génère le contenu complet du chapitre « {chapter_title} » "
                 f"pour un document professionnel EVKHA (type : {section_kind}). "
                 f"Minimum requis : {min_w} mots. "
+                "Appuie-toi STRICTEMENT sur les données du projet fournies en "
+                "contexte (secteur, pays, chiffres client) : aucun paragraphe "
+                "interchangeable avec un autre projet, aucun chiffre inventé. "
                 "Données chiffrées, sourcées, concrètes et exploitables. "
                 "Ton professionnel et chaleureux. "
                 "Structure avec sous-titres et tableaux si pertinent. "
@@ -683,10 +718,13 @@ def ai_repair_chapter(
         else:
             # Développer le contenu existant
             prompt = (
+                f"{context_block}"
                 f"Ce chapitre « {chapter_title} » est trop court ({current_wc} mots, "
                 f"minimum requis : {min_w} mots). "
                 "Développe-le substantiellement en conservant le style, "
                 "le ton et la structure existants. "
+                "Appuie-toi sur les données du projet fournies en contexte ; "
+                "n'invente aucun chiffre nouveau. "
                 "Ajoute des données chiffrées, des analyses concrètes, des exemples applicables. "
                 "Retourne directement le contenu complet et développé :\n\n"
                 f"{content.strip()}"
@@ -699,21 +737,23 @@ def ai_repair_chapter(
                 max_tokens=_QA_COMPLETION_TOKENS,
             )
         except Exception:  # noqa: BLE001
-            return content
+            return content, total_in, total_out
 
+        total_in += result.input_tokens
+        total_out += result.output_tokens
         expanded = result.content.strip()
         if not expanded:
-            return content
+            return content, total_in, total_out
 
         if is_severely_short:
-            return expanded
+            return expanded, total_in, total_out
         else:
             # Vérifier que la réponse est plus longue que le contenu actuel
             if len(expanded) > len(content) * 0.7:
-                return expanded
-            return content.rstrip() + "\n\n" + expanded
+                return expanded, total_in, total_out
+            return content.rstrip() + "\n\n" + expanded, total_in, total_out
 
-    return content
+    return content, total_in, total_out
 
 
 # ── Point d'entrée principal ───────────────────────────────────────────────────
@@ -739,11 +779,14 @@ def run_qa_pass(
     Non bloquante : une erreur sur un chapitre ne stoppe pas les autres.
     Retourne un rapport QA par chapitre (pour monitoring / admin django).
     """
+    import json
     from decimal import Decimal
 
+    from intake.models import IntakeSubmission
     from integrations.claude import get_claude_client
 
-    from .cost import current_job_cost_eur
+    from .coherence import client_facts_as_context
+    from .cost import current_job_cost_eur, record_additional_cost
     from .models import ChapterStatus, GenerationJob
     from .rendering import close_dangling_html_tags
 
@@ -751,6 +794,19 @@ def run_qa_pass(
 
     if client is None:
         client = get_claude_client()
+
+    # Contexte projet injecte dans chaque prompt de reparation IA : variables
+    # du brief + donnees client intangibles. Sans lui, la regeneration d'un
+    # chapitre trop court produisait du contenu generique hors-sujet
+    # (audit juillet 2026).
+    submission = IntakeSubmission.objects.filter(order=job.order).first()
+    variables = submission.normalized_variables if submission else {}
+    project_context = (
+        "CONTEXTE PROJET (a respecter strictement, ne jamais recopier ces "
+        "intitules techniques dans la redaction) :\n"
+        f"Variables du brief : {json.dumps(variables, ensure_ascii=False, sort_keys=True)}\n"
+        f"Donnees client intangibles :\n{client_facts_as_context(job)}"
+    )
 
     # Désactiver la réparation IA si le job a déjà atteint ou dépassé 85% du budget
     # (les appels Claude du QA ne sont pas comptabilisés dans le budget généré,
@@ -798,13 +854,22 @@ def run_qa_pass(
 
             # Étape 4 : réparation IA pour les violations critiques persistantes
             if ai_repair and critical_remaining:
-                completed = ai_repair_chapter(
+                completed, repair_in, repair_out = ai_repair_chapter(
                     repaired,
                     chapter_title,
                     sk,
                     critical_remaining,
                     client=client,
+                    project_context=project_context,
                 )
+                # §4 cadrage : les appels IA de la QA sont comptabilises dans
+                # le Cost Engine (ils etaient invisibles au dashboard).
+                if repair_in or repair_out:
+                    record_additional_cost(
+                        chapter=chapter,
+                        input_tokens=repair_in,
+                        output_tokens=repair_out,
+                    )
                 if completed != repaired:
                     # Passe règle-métier supplémentaire sur le résultat IA
                     repaired, extra = repair_rule_based(

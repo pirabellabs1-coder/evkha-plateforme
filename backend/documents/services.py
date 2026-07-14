@@ -29,6 +29,42 @@ class DocumentAssemblyError(RuntimeError):
     pass
 
 
+# Limites de pages par type de livrable (§2 du cadrage EVKHA : "80 pages
+# maximum" EM/BP, "45 pages maximum" EC/Strategie). Verifiees apres rendu
+# WeasyPrint ; un depassement ouvre un incident MEDIUM (le document reste
+# livrable, mais l'admin doit resserrer les max_words des blueprints).
+_MAX_PAGES_BY_TYPE: dict[str, int] = {
+    "market_study":      80,
+    "business_plan":     80,
+    "competitor_study":  45,
+    "business_strategy": 45,
+}
+
+
+def _check_page_limit(job: GenerationJob, page_count: int) -> None:
+    if page_count <= 0:
+        return  # stub PDF ou moteur sans pagination : rien a verifier
+    limit = _MAX_PAGES_BY_TYPE.get(str(job.deliverable_type))
+    if limit is None or page_count <= limit:
+        return
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    OperationalIncident.objects.get_or_create(
+        title=f"Limite de pages depassee (job {job.id})",
+        defaults={
+            "severity": IncidentSeverity.MEDIUM,
+            "job": job,
+            "order": job.order,
+            "details": {
+                "pages": page_count,
+                "limite": limit,
+                "deliverable_type": str(job.deliverable_type),
+                "hint": "Resserrer max_words dans generation/blueprints.py.",
+            },
+        },
+    )
+
+
 def _retention_days(job: GenerationJob) -> int:
     return int(getattr(job.order.offer, "retention_days", 7) or 7)
 
@@ -62,6 +98,7 @@ def assemble_document(
     html = render_branded_html(job)
     html_checksum = hashlib.sha256(html.encode("utf-8")).hexdigest()
     result = pdf_client.generate(title=document.title, html=html)
+    _check_page_limit(job, getattr(result, "page_count", 0))
     expires_at = timezone.now() + timedelta(days=_retention_days(job))
 
     link_artifact, _ = DocumentArtifact.objects.update_or_create(

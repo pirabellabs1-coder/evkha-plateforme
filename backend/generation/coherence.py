@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .models import ChapterGeneration, CoherenceFact, FactKind, GenerationJob
+from .models import ChapterGeneration, CoherenceFact, FactKind, FactProvenance, GenerationJob
 
 # Detection des chiffres cles dans le contenu genere (§5 cadrage : aucun chiffre
 # contradictoire entre chapitres). Premiere mention -> verrou ; mention ulterieure
@@ -82,6 +82,23 @@ _COUNTRY_CURRENCY: dict[str, str] = {
     "niger": "XOF",
     "cameroun": "XAF",
     "gabon": "XAF",
+    "tchad": "XAF",
+    "centrafrique": "XAF",
+    "republique centrafricaine": "XAF",
+    "congo": "XAF",
+    "congo-brazzaville": "XAF",
+    "republique democratique du congo": "CDF",
+    "rdc": "CDF",
+    "guinee": "GNF",
+    "madagascar": "MGA",
+    "mauritanie": "MRU",
+    "rwanda": "RWF",
+    "burundi": "BIF",
+    "kenya": "KES",
+    "afrique du sud": "ZAR",
+    "haiti": "HTG",
+    "djibouti": "DJF",
+    "comores": "KMF",
     "france": "EUR",
     "belgique": "EUR",
     "allemagne": "EUR",
@@ -138,12 +155,19 @@ def upsert_locked_fact(
     key: str,
     value: str,
     source_chapter_number: int | None = None,
+    provenance: str = FactProvenance.GENERATED,
 ) -> CoherenceFact:
-    """Verrouille un fait. En cas de conflit :
-    - Ecart numerique < 20% : ignore silencieusement (meme ordre de grandeur).
-    - Ecart >= 20% ou valeurs non numeriques : incident MEDIUM, generation continue.
+    """Verrouille un fait, avec hierarchie des sources (brief client juillet 2026).
+
+    Regles de priorite :
+    - Un fait CLIENT (brief) est intangible : une valeur GENERATED divergente
+      ne l'ecrase jamais. Tolerance ZERO : tout ecart avec un fait client cree
+      un incident HIGH (repris par le gate de livraison).
+    - Un fait CLIENT remplace toujours un fait GENERATED existant (le brief
+      prime sur toute extraction du modele).
+    - Entre deux faits GENERATED : ecart < 20% ignore, sinon incident MEDIUM.
     N'arrete JAMAIS la generation — un conflit de chiffre est une imperfection
-    de contenu, pas une erreur systeme.
+    de contenu, pas une erreur systeme ; le gate decide de bloquer la sortie.
 
     Les valeurs client (SECTEUR, ZONE, FORME_JURIDIQUE...) sont du texte libre
     sans limite cote formulaire Tally. Tronquees a la longueur du champ pour
@@ -157,28 +181,51 @@ def upsert_locked_fact(
         value = value[:max_len]
 
     existing = CoherenceFact.objects.filter(job=job, kind=kind, key=key).first()
+
+    # Le brief client prime : une valeur CLIENT remplace un fait GENERATED.
+    if (
+        existing
+        and provenance == FactProvenance.CLIENT
+        and existing.provenance == FactProvenance.GENERATED
+    ):
+        existing.value = value
+        existing.provenance = FactProvenance.CLIENT
+        existing.source_chapter_number = source_chapter_number
+        existing.is_locked = True
+        existing.save(
+            update_fields=["value", "provenance", "source_chapter_number", "is_locked"]
+        )
+        return existing
+
     if existing and existing.is_locked and existing.value != value:
         gap = _numeric_gap(existing.value, value)
-        if gap is not None and gap < _NUMERIC_CONFLICT_TOLERANCE:
+        client_fact = existing.provenance == FactProvenance.CLIENT
+        # Tolerance zero pour un fait client ; 20% entre faits generes.
+        if not client_fact and gap is not None and gap < _NUMERIC_CONFLICT_TOLERANCE:
             # Meme ordre de grandeur — pas de conflit significatif.
+            return existing
+        if client_fact and gap is not None and gap == 0.0:
+            # Meme valeur numerique, formatage different — pas un conflit.
             return existing
 
         # Conflit reel : alerter l'admin mais NE PAS stopper la generation.
+        # Un ecart avec un fait CLIENT est HIGH : le gate de livraison bloque.
         OperationalIncident.objects.get_or_create(
             title=f"Incoh. donnee {kind}:{key} job {job.id}",
             defaults={
-                "severity": IncidentSeverity.MEDIUM,
+                "severity": IncidentSeverity.HIGH if client_fact else IncidentSeverity.MEDIUM,
                 "job": job,
                 "order": job.order,
                 "details": {
                     "valeur_verrouillee": existing.value,
                     "valeur_conflictuelle": value,
+                    "provenance_verrouillee": existing.provenance,
                     "chapitre": source_chapter_number,
                     "ecart_relatif": f"{gap:.0%}" if gap is not None else "non-numerique",
                 },
             },
         )
-        # Garde la valeur verrouilee — la premiere mention fait foi.
+        # Garde la valeur verrouillee — le brief client (ou la 1ere mention) fait foi.
         return existing
 
     fact, _created = CoherenceFact.objects.update_or_create(
@@ -189,48 +236,123 @@ def upsert_locked_fact(
             "value": value,
             "source_chapter_number": source_chapter_number,
             "is_locked": True,
+            "provenance": provenance,
         },
     )
     return fact
+
+
+# Etat chiffre client (Brique 1, brief juillet 2026) : variables financieres
+# structurees du brief, verrouillees en provenance CLIENT avant toute
+# generation. Le modele recoit ces valeurs deja ecrites ; le gate de
+# livraison verifie tolerance zero sur ces cles.
+_CLIENT_FINANCIAL_VARS: dict[str, str] = {
+    "INVESTISSEMENT_TOTAL":       "investissement_total",
+    "APPORT":                     "apport",
+    "EMPRUNT":                    "emprunt",
+    "SUBVENTIONS":                "subventions",
+    "CA_PREVISIONNEL":            "ca_previsionnel",
+    "EBE_PREVISIONNEL":           "ebe_previsionnel",
+    "RESULTAT_NET_PREVISIONNEL":  "resultat_net_previsionnel",
+    "TAUX_OCCUPATION":            "taux_occupation",
+    "SEUIL_RENTABILITE":          "seuil_rentabilite",
+}
 
 
 def seed_locked_facts_from_variables(
     job: GenerationJob,
     variables: dict[str, Any],
 ) -> None:
-    """Verrouille les faits deduits des variables de cadrage (devise, secteur, zone).
+    """Verrouille les faits deduits des variables de cadrage, provenance CLIENT.
 
     Idempotent : meme valeur -> pas de conflit. Source = donnees client figees,
     donc base fiable du Coherence Engine pour tous les chapitres suivants.
+    Inclut l'etat chiffre client (Brique 1) : previsionnel financier et
+    verticales d'activite, intangibles pour toute la generation.
     """
+
+    def _seed(kind: FactKind, key: str, value: str) -> None:
+        upsert_locked_fact(
+            job=job, kind=kind, key=key, value=value,
+            provenance=FactProvenance.CLIENT,
+        )
+
     sector = str(variables.get("SECTEUR", "")).strip()
     if sector:
-        upsert_locked_fact(job=job, kind=FactKind.ASSUMPTION, key="secteur", value=sector)
+        _seed(FactKind.ASSUMPTION, "secteur", sector)
 
     zone = str(variables.get("ZONE", "")).strip()
     if zone:
-        upsert_locked_fact(job=job, kind=FactKind.ASSUMPTION, key="zone", value=zone)
+        _seed(FactKind.ASSUMPTION, "zone", zone)
 
     country = str(variables.get("PAYS", "")).strip()
     if country:
-        currency = _COUNTRY_CURRENCY.get(country.lower())
+        from .geography import _strip_accents  # noqa: PLC0415
+
+        # Accent-insensible : "Guinée" et "guinee" doivent matcher.
+        currency = _COUNTRY_CURRENCY.get(_strip_accents(country.lower()))
         if currency:
-            upsert_locked_fact(job=job, kind=FactKind.CURRENCY, key="currency", value=currency)
+            _seed(FactKind.CURRENCY, "currency", currency)
 
     # BP specifiques : forme juridique et capital verrouilles pour coherence
     # des projections financieres (meme statut du chap. 2 au chap. 10).
     forme = str(variables.get("FORME_JURIDIQUE", "")).strip()
     if forme:
-        upsert_locked_fact(job=job, kind=FactKind.ASSUMPTION, key="forme_juridique", value=forme)
+        _seed(FactKind.ASSUMPTION, "forme_juridique", forme)
 
     capital = str(variables.get("CAPITAL_INITIAL", "")).strip()
     if capital:
-        upsert_locked_fact(
-            job=job, kind=FactKind.ASSUMPTION, key="capital_initial", value=capital
-        )
+        _seed(FactKind.ASSUMPTION, "capital_initial", capital)
+
+    # Etat chiffre client (Brique 1) : chaque variable financiere du brief
+    # devient un fait CLIENT intangible.
+    for var_name, fact_key in _CLIENT_FINANCIAL_VARS.items():
+        raw = variables.get(var_name)
+        if isinstance(raw, list):
+            value = " / ".join(str(x).strip() for x in raw if str(x).strip())
+        else:
+            value = str(raw or "").strip()
+        if value:
+            _seed(FactKind.ASSUMPTION, fact_key, value)
+
+    # Verticales d'activite du brief : liste intangible ; le gate verifie que
+    # chacune apparait dans le livrable (check completude, Brique 3).
+    verticales = variables.get("VERTICALES")
+    if isinstance(verticales, list):
+        verticales_value = " / ".join(str(x).strip() for x in verticales if str(x).strip())
+    else:
+        verticales_value = str(verticales or "").strip()
+    if verticales_value:
+        _seed(FactKind.ASSUMPTION, "verticales", verticales_value)
+
+
+def client_facts_as_context(job: GenerationJob) -> str:
+    """Faits issus du brief client : intangibles, priorite absolue."""
+    facts = job.coherence_facts.filter(
+        is_locked=True, provenance=FactProvenance.CLIENT
+    ).order_by("kind", "key")
+    if not facts:
+        return "Aucune donnee client structuree fournie."
+    return "\n".join(f"- {fact.key} = {fact.value}" for fact in facts)
+
+
+def generated_facts_as_context(job: GenerationJob) -> str:
+    """Reperes extraits des chapitres deja generes (coherence inter-chapitres).
+
+    Presentes comme reperes a reprendre a l'identique — JAMAIS comme des
+    'faits verrouilles du dossier' (brief juillet 2026 : le pipeline
+    consolidait des chiffres hallucines en dogme).
+    """
+    facts = job.coherence_facts.filter(
+        is_locked=True, provenance=FactProvenance.GENERATED
+    ).order_by("kind", "key")
+    if not facts:
+        return "Aucun repere pour le moment."
+    return "\n".join(f"- {fact.key} = {fact.value}" for fact in facts)
 
 
 def locked_facts_as_context(job: GenerationJob) -> str:
+    """Compat : vue combinee (client puis generes). Prefere les deux vues separees."""
     facts = job.coherence_facts.filter(is_locked=True).order_by("kind", "key")
     if not facts:
         return "Aucun fait verrouille pour le moment."
