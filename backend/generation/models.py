@@ -71,6 +71,12 @@ class GenerationJob(UUIDModel):
     total_cost_eur = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal("0.0000"))
     context_summary = models.TextField(blank=True)
     phase0_plan = models.TextField(blank=True)
+    # Brief de recherche web collecté au démarrage du job (vraies sources
+    # datées, titres, URLs, extraits). Réinjecté dans le contexte de chaque
+    # chapitre pour ancrer les chiffres et alimenter la section Sources avec
+    # de VRAIES références (anti-hallucination §6 cadrage). Vide si la
+    # recherche web est désactivée (stub) ou n'a rien remonté.
+    research_brief = models.TextField(blank=True)
     error_message = models.TextField(blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)

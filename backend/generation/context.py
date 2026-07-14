@@ -13,7 +13,7 @@ ROLE_LINE = (
     "ROLE: Methode EVKHA, ton mentor, rendu client sans balises internes "
     "(jamais 'Etape', 'Point de controle' ni vocabulaire pipeline). "
     "Les intitules techniques de ce contexte (VARIABLES_PROJET, "
-    "DONNEES_CLIENT, REPERES_DEJA_ENONCES, FICHE_SECTORIELLE, "
+    "DONNEES_CLIENT, REPERES_DEJA_ENONCES, FICHE_SECTORIELLE, SOURCES_WEB, "
     "RESUME_OPERATIONNEL_PRECEDENT, CHAPITRE_CIBLE, PROMPT_KEY, "
     "SECTION_A_GENERER, FAITS_VERROUILLES) sont des reperes internes : "
     "ils ne doivent JAMAIS apparaitre dans ta redaction, ni entre "
@@ -93,12 +93,19 @@ def build_context(chapter: ChapterGeneration) -> str:
     # reinjectee comme contexte commun a tous les chapitres (consignes EVKHA).
     fiche_sectorielle = job.context_summary or "Non encore etablie."
 
+    # Brief de recherche web (vraies sources datees). Vide en mode stub.
+    research_block = job.research_brief or (
+        "Aucune source web collectee : n'invente aucune URL ni date de "
+        "publication ; presente toute donnee non etablie comme une estimation."
+    )
+
     return "\n\n".join(
         [
             ROLE_LINE,
             _date_line(),
             f"VARIABLES_PROJET: {json.dumps(variables, ensure_ascii=False, sort_keys=True)}",
             f"FICHE_SECTORIELLE:\n{fiche_sectorielle}",
+            f"SOURCES_WEB:\n{research_block}",
             "DONNEES_CLIENT (brief client, intangibles, priorite absolue):\n"
             + client_facts_as_context(job),
             "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "

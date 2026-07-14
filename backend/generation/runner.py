@@ -180,6 +180,21 @@ def run_generation_job(
     seed_locked_facts_from_variables(job, variables)
     country = str(variables.get("PAYS", "")).strip()
 
+    # Recherche web collectée UNE fois au démarrage (ancrage anti-hallucination
+    # §6). Idempotent sur relance : si le brief existe déjà, on ne relance pas
+    # les requêtes (coût + cohérence entre chapitres restants). Vide en mode
+    # stub — le pipeline continue sans ancrage, comme avant.
+    if not job.research_brief:
+        try:
+            from .research import collect_research_brief  # noqa: PLC0415
+
+            brief = collect_research_brief(job.deliverable_type, variables)
+        except Exception:  # noqa: BLE001 — la recherche ne doit jamais bloquer un job
+            brief = ""
+        if brief:
+            job.research_brief = brief
+            job.save(update_fields=["research_brief", "updated_at"])
+
     # Phase 0 : rappel court des exigences client. Garde `if not job.phase0_plan` :
     # sur une relance avec chapitres partiellement DONE, on préserve le plan
     # initial pour ne pas générer les chapitres restants avec un plan divergent

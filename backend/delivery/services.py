@@ -16,7 +16,7 @@ from integrations.brevo import (
     TransactionalEmailClient,
     get_transactional_email_client,
 )
-from integrations.gamma import GammaClient, GammaExportResult, get_gamma_client
+from integrations.gamma import GammaClient, GammaError, GammaExportResult, get_gamma_client
 from integrations.pdf import PdfClient, get_pdf_client
 from monitoring.models import IncidentSeverity, OperationalIncident
 from orders.models import OrderStatus
@@ -61,19 +61,23 @@ def _html_body(job: GenerationJob, artifacts: tuple[DocumentArtifact, ...]) -> s
     )
     retention = _retention_days(job)
 
-    # Bouton principal : PDF (prioritaire) ou LINK si pas de PDF
+    # Bouton principal : PDF Gamma (moteur de mise en page privilegie) si
+    # present, sinon PDF WeasyPrint (repli), sinon lien HTML.
+    gamma_pdf_artifact = next(
+        (a for a in artifacts if a.kind == ArtifactKind.GAMMA_PDF and a.download_url), None
+    )
     pdf_artifact = next(
         (a for a in artifacts if a.kind == ArtifactKind.PDF and a.download_url), None
     )
     link_artifact = next(
         (a for a in artifacts if a.kind == ArtifactKind.LINK and a.download_url), None
     )
-    primary = pdf_artifact or link_artifact
+    primary = gamma_pdf_artifact or pdf_artifact or link_artifact
     button_html = ""
     if primary:
         btn_label = (
             "Telecharger votre document (PDF)"
-            if primary.kind == ArtifactKind.PDF
+            if primary.kind in {ArtifactKind.PDF, ArtifactKind.GAMMA_PDF}
             else "Visualiser votre document"
         )
         button_html = (
@@ -184,31 +188,41 @@ def _persist_gamma_artifacts(
     export: GammaExportResult,
     presentation_id: str,
 ) -> list[DocumentArtifact]:
-    """Persiste les artefacts Gamma en base (DB uniquement, aucun appel reseau)."""
+    """Persiste les artefacts Gamma en base (DB uniquement, aucun appel reseau).
+
+    Ne persiste QUE les formats reellement exportes : l'API Gamma reelle
+    n'exporte qu'un format par generation (PDF), donc pptx_url est souvent
+    vide et ne doit pas creer un artefact READY sans URL.
+    """
     common = {
         "status": ArtifactStatus.READY,
         "expires_at": _expires_at(job),
         "checksum_sha256": "",
     }
-    gamma_pdf, _ = DocumentArtifact.objects.update_or_create(
-        job=job,
-        kind=ArtifactKind.GAMMA_PDF,
-        defaults={
-            **common,
-            "storage_key": f"gamma/{presentation_id}/pdf",
-            "download_url": export.pdf_url,
-        },
-    )
-    gamma_pptx, _ = DocumentArtifact.objects.update_or_create(
-        job=job,
-        kind=ArtifactKind.GAMMA_PPTX,
-        defaults={
-            **common,
-            "storage_key": f"gamma/{presentation_id}/pptx",
-            "download_url": export.pptx_url,
-        },
-    )
-    return [gamma_pdf, gamma_pptx]
+    artifacts: list[DocumentArtifact] = []
+    if export.pdf_url:
+        gamma_pdf, _ = DocumentArtifact.objects.update_or_create(
+            job=job,
+            kind=ArtifactKind.GAMMA_PDF,
+            defaults={
+                **common,
+                "storage_key": f"gamma/{presentation_id}/pdf",
+                "download_url": export.pdf_url,
+            },
+        )
+        artifacts.append(gamma_pdf)
+    if export.pptx_url:
+        gamma_pptx, _ = DocumentArtifact.objects.update_or_create(
+            job=job,
+            kind=ArtifactKind.GAMMA_PPTX,
+            defaults={
+                **common,
+                "storage_key": f"gamma/{presentation_id}/pptx",
+                "download_url": export.pptx_url,
+            },
+        )
+        artifacts.append(gamma_pptx)
+    return artifacts
 
 
 def ensure_gamma_artifacts(
@@ -222,8 +236,10 @@ def ensure_gamma_artifacts(
     EN DEHORS de toute transaction atomique pour eviter de bloquer la connexion
     DB pendant les 5-30 s de polling Gamma.
 
-    Risque 5 — si l'API Gamma n'est pas configuree (NotImplementedError),
-    on logue un warning et on retourne [] au lieu de bloquer la livraison.
+    Risque 5 — si l'API Gamma echoue (non configuree, timeout, erreur reseau),
+    on logue un warning et on retourne [] : la livraison continue avec le PDF
+    WeasyPrint (repli). Gamma est le moteur de mise en page privilegie, jamais
+    un point de defaillance unique.
     """
     if not job.order.offer.gamma_enabled:
         return []
@@ -241,11 +257,11 @@ def ensure_gamma_artifacts(
         )
         gamma_client.wait_until_ready(presentation_id=presentation.presentation_id)
         export = gamma_client.export(presentation=presentation)
-    except NotImplementedError:
+    except (NotImplementedError, GammaError) as exc:
         _log.warning(
-            "ensure_gamma_artifacts: API Gamma non configuree pour job %s — "
-            "artefacts Gamma ignores, livraison PDF/email maintenue.",
-            job.id,
+            "ensure_gamma_artifacts: Gamma indisponible pour job %s (%s) — "
+            "artefacts Gamma ignores, livraison PDF WeasyPrint maintenue.",
+            job.id, exc,
         )
         return []
 

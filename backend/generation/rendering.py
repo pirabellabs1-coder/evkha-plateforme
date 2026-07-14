@@ -46,8 +46,17 @@ _LEXICAL_SUBSTITUTIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bmicro[- ]learning\b", re.IGNORECASE), "formats courts"),
     (re.compile(r"\bself[- ]paced\b", re.IGNORECASE), "à son rythme"),
     (re.compile(r"\bpain[- ]points?\b", re.IGNORECASE), "vraies difficultés"),
-    (re.compile(r"\bpackager?\b", re.IGNORECASE), "préparer une offre claire"),
-    (re.compile(r"\bpackagée?s?\b", re.IGNORECASE), "claire et structurée"),
+    # "packager" (verbe) et "packagé/e/s" (adjectif) : le remplacement doit
+    # s'accorder. Une substitution unique ("claire et structurée") cassait la
+    # grammaire ("un produit packagé" -> "un produit claire et structurée").
+    # On mappe vers "structurer/structuré" qui s'accorde comme l'original.
+    # Ordre : suffixes les plus longs d'abord (sinon "packagé" matche avant
+    # "packagée" et laisse un "e" orphelin).
+    (re.compile(r"\bpackagées\b", re.IGNORECASE), "structurées"),
+    (re.compile(r"\bpackagés\b", re.IGNORECASE), "structurés"),
+    (re.compile(r"\bpackagée\b", re.IGNORECASE), "structurée"),
+    (re.compile(r"\bpackagé\b", re.IGNORECASE), "structuré"),
+    (re.compile(r"\bpackager\b", re.IGNORECASE), "structurer"),
     # Pitch : variantes specifiques + cas general (eviter "presentation de presentation")
     (re.compile(r"\belevator pitch\b", re.IGNORECASE), "présentation courte"),
     (re.compile(r"\bsales pitch\b", re.IGNORECASE), "argumentaire commercial"),
@@ -142,10 +151,10 @@ _CALLOUT_MARKER_RE = re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]
 _INTERNAL_LABEL_NAMES = (
     "FAITS_VERROUILLES", "VARIABLES_PROJET", "DONNEES_CLIENT",
     "REPERES_DEJA_ENONCES", "RESUME_OPERATIONNEL_PRECEDENT",
-    "RESUME_OPERATIONNEL", "FICHE_SECTORIELLE", "CHAPITRE_CIBLE",
-    "CHAPITRE_PARENT", "SECTIONS_PRECEDENTES", "PROMPT_KEY",
-    "SECTION_A_GENERER", "CONSIGNE_DU_CHAPITRE", "DATE_DU_JOUR",
-    "CONTEXTE_ETUDE_PRECEDENTE",
+    "RESUME_OPERATIONNEL", "FICHE_SECTORIELLE", "SOURCES_WEB",
+    "CHAPITRE_CIBLE", "CHAPITRE_PARENT", "SECTIONS_PRECEDENTES",
+    "PROMPT_KEY", "SECTION_A_GENERER", "CONSIGNE_DU_CHAPITRE",
+    "DATE_DU_JOUR", "CONTEXTE_ETUDE_PRECEDENTE",
 )
 # 1) Occurrence parenthesee : "(FAITS_VERROUILLES)" -> supprimee entierement.
 _INTERNAL_LABEL_PAREN_RE = re.compile(

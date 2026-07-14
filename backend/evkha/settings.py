@@ -15,6 +15,7 @@ env = environ.Env(
     EVKHA_USE_STUB_GAMMA=(bool, True),
     EVKHA_USE_STUB_EMAIL=(bool, True),
     EVKHA_USE_STUB_PDF=(bool, True),
+    EVKHA_USE_STUB_SEARCH=(bool, True),
     EVKHA_DASHBOARD_AUTH_DISABLED=(bool, False),
     EVKHA_BEHIND_PROXY=(bool, False),
     CSRF_TRUSTED_ORIGINS=(list, []),
@@ -171,6 +172,18 @@ EVKHA_USE_STUB_DOCS = env("EVKHA_USE_STUB_DOCS")
 EVKHA_USE_STUB_GAMMA = env("EVKHA_USE_STUB_GAMMA")
 EVKHA_USE_STUB_EMAIL = env("EVKHA_USE_STUB_EMAIL")
 EVKHA_USE_STUB_PDF = env("EVKHA_USE_STUB_PDF")
+EVKHA_USE_STUB_SEARCH = env("EVKHA_USE_STUB_SEARCH")
+
+# Recherche web (ancrage anti-hallucination §6). Tavily : API pensee pour
+# l'ancrage LLM. En prod : EVKHA_USE_STUB_SEARCH=false + TAVILY_API_KEY.
+TAVILY_API_KEY = env("TAVILY_API_KEY", default="")
+
+# Gamma — moteur de mise en page du livrable (Generations API v1.0).
+# En prod : EVKHA_USE_STUB_GAMMA=false + GAMMA_API_KEY (+ GAMMA_THEME_ID
+# optionnel). Le PDF Gamma devient l'artefact client principal quand l'offre
+# a gamma_enabled ; WeasyPrint reste le repli.
+GAMMA_API_KEY = env("GAMMA_API_KEY", default="")
+GAMMA_THEME_ID = env("GAMMA_THEME_ID", default="")
 
 # URL de base publique du serveur (utilisée par WeasyPrint et Brevo pour
 # construire des URLs absolues valides pour les fichiers média).
