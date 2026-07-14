@@ -108,6 +108,38 @@ class GammaApiClient:
             raise GammaError("GAMMA_API_KEY manquante pour GammaApiClient.")
         return {"X-API-KEY": api_key, "Content-Type": "application/json"}
 
+    def list_themes(self) -> list[dict[str, str]]:
+        """GET /v1.0/themes — verifie la cle et renvoie les themes disponibles.
+
+        Appel LEGER : aucune generation, aucun credit consomme. Utilise par la
+        commande de connectivite (tester_apis) pour valider l'auth et recuperer
+        les theme IDs a configurer dans GAMMA_THEME_ID.
+        """
+        import httpx  # import paresseux
+
+        try:
+            response = httpx.get(
+                f"{_GAMMA_BASE_URL}/themes",
+                headers=self._headers(),
+                timeout=_GAMMA_HTTP_TIMEOUT_SECONDS,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPError as exc:
+            raise GammaError(f"Echec lecture themes Gamma : {exc}") from exc
+
+        # Tolerant au format : liste directe ou {"themes": [...]}.
+        items = payload if isinstance(payload, list) else payload.get("themes", [])
+        themes: list[dict[str, str]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            theme_id = str(item.get("id", item.get("themeId", ""))).strip()
+            name = str(item.get("name", item.get("title", ""))).strip()
+            if theme_id:
+                themes.append({"id": theme_id, "name": name})
+        return themes
+
     def create_presentation(
         self,
         *,

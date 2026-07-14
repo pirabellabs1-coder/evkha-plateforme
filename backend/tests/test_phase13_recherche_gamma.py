@@ -341,6 +341,44 @@ def test_html_body_privilegie_le_pdf_gamma(em_submission: IntakeSubmission) -> N
     assert "Telecharger votre document (PDF)" in html
 
 
+# ── Gamma : lecture des thèmes (connectivité) ────────────────────────────────
+
+
+def test_gamma_list_themes(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+
+    from integrations.gamma import GammaApiClient
+
+    def fake_get(url, headers=None, timeout=None):  # noqa: ANN001
+        assert url.endswith("/themes")
+        assert headers["X-API-KEY"] == "gam-test"
+        return _FakeResponse({"themes": [
+            {"id": "th-1", "name": "Corporate"},
+            {"id": "th-2", "name": "Minimal"},
+        ]})
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    themes = GammaApiClient(api_key="gam-test").list_themes()
+    assert themes == [
+        {"id": "th-1", "name": "Corporate"},
+        {"id": "th-2", "name": "Minimal"},
+    ]
+
+
+# ── tester_apis (commande de connectivité) ───────────────────────────────────
+
+
+def test_tester_apis_signale_le_mode_stub() -> None:
+    from django.core.management import call_command
+
+    out = StringIO()
+    call_command("tester_apis", stdout=out)
+    text = out.getvalue()
+    assert "STUB" in text
+    # Aucun appel réseau en mode stub : les deux briques sont signalées.
+    assert "Tavily" in text and "Gamma" in text
+
+
 # ── verifier_gate (commande) ─────────────────────────────────────────────────
 
 
