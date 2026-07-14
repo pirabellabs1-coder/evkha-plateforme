@@ -13,7 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from generation.rendering import _md_to_html, strip_internal_markers
+from generation.rendering import (
+    _md_to_html,
+    strip_callout_markers,
+    strip_diamond_artifacts,
+    strip_internal_markers,
+)
 from generation.validation import (
     ValidationSeverity,
     detect_concatenation_bugs,
@@ -351,3 +356,64 @@ def test_md_to_html_convertit_les_tableaux_markdown() -> None:
 def test_strip_internal_markers_reste_fonctionnel() -> None:
     raw = "Contenu.\n✅ Prompt a utiliser :\nSuite du contenu."
     assert "Prompt a utiliser" not in strip_internal_markers(raw)
+
+
+# --- Fix #9 : marqueurs [[...]] inline ne fuient plus --------------------
+
+
+def test_strip_callout_markers_inline() -> None:
+    """Marqueur colle au texte: satisfaisant.[[/UNDERSTAND]]"""
+    raw = "le revenu est satisfaisant.[[/UNDERSTAND]]"
+    result = strip_callout_markers(raw)
+    assert "[[" not in result
+    assert "satisfaisant." in result
+
+
+def test_strip_callout_markers_chained() -> None:
+    """Deux marqueurs enchaines sur une seule ligne."""
+    raw = "contenu ici\n[[/CONSIDER]][[ATTENTION]]\nplus de contenu"
+    result = strip_callout_markers(raw)
+    assert "[[" not in result
+    assert "contenu ici" in result
+    assert "plus de contenu" in result
+
+
+def test_strip_callout_markers_preserves_wellformed_blocks() -> None:
+    """Les marqueurs sur leur propre ligne sont aussi retires (le parser les gere en amont)."""
+    raw = "[[UNDERSTAND]]\nLe marche est en croissance.\n[[/UNDERSTAND]]"
+    result = strip_callout_markers(raw)
+    assert "[[" not in result
+    assert "Le marche est en croissance." in result
+
+
+def test_strip_diamond_artifacts() -> None:
+    """Losanges <><><> produits par un rendu HTML corrompu."""
+    raw = "Titre du tableau\n<><><><><><><><>\nRisque\nProbabilite"
+    result = strip_diamond_artifacts(raw)
+    assert "<><>" not in result
+    assert "Titre du tableau" in result
+    assert "Risque" in result
+
+
+def test_strip_diamond_single_pair_preserved() -> None:
+    """Un seul <> (balise HTML legit) n'est pas retire."""
+    raw = "voir <em>ici</em> pour details"
+    result = strip_diamond_artifacts(raw)
+    assert result == raw
+
+
+def test_validation_detects_leaked_callout_marker() -> None:
+    """Le validateur detecte les marqueurs [[...]] comme fuite bloquante."""
+    content = "Le marche est satisfaisant.[[/UNDERSTAND]]"
+    issues = detect_placeholder_leaks(content)
+    codes = [i.code for i in issues]
+    assert "leaked_callout_marker" in codes
+    assert any(i.severity == ValidationSeverity.ERROR for i in issues)
+
+
+def test_validation_detects_diamond_artifacts() -> None:
+    """Le validateur detecte les sequences <><><> comme artefact bloquant."""
+    content = "Tableau\n<><><><><>\nRisque"
+    issues = detect_placeholder_leaks(content)
+    codes = [i.code for i in issues]
+    assert "diamond_artifact" in codes

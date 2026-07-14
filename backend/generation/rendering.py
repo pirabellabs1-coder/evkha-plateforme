@@ -130,6 +130,28 @@ class ClientDocument:
         return "\n".join(lines).strip() + "\n"
 
 
+_CALLOUT_MARKER_RE = re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION)\]\]")
+
+
+def strip_callout_markers(text: str) -> str:
+    """Retire les marqueurs [[UNDERSTAND]] etc. colles au texte ou enchaines.
+
+    Le parser _md_to_html gere les marqueurs sur leur propre ligne, mais Claude
+    les colle parfois au texte (ex: ``satisfaisant.[[/UNDERSTAND]]``) ou les
+    enchaine (``[[/CONSIDER]][[ATTENTION]]``). Ce nettoyage en amont garantit
+    qu'aucun marqueur brut ne fuit dans le livrable client.
+    """
+    return _CALLOUT_MARKER_RE.sub("", text)
+
+
+_DIAMOND_ARTIFACT_RE = re.compile(r"(?:<>){2,}")
+
+
+def strip_diamond_artifacts(text: str) -> str:
+    """Retire les sequences de losanges ``<><><>`` produites par un rendu HTML corrompu."""
+    return _DIAMOND_ARTIFACT_RE.sub("", text)
+
+
 def strip_internal_markers(text: str) -> str:
     """Retire les lignes de jargon pipeline ; conserve le contenu redactionnel."""
     kept: list[str] = []
@@ -747,6 +769,8 @@ def _clean_chapter_body(content: str, kind: str) -> str:
        rendu PDF)
     """
     body = strip_internal_markers(content)
+    body = strip_callout_markers(body)
+    body = strip_diamond_artifacts(body)
     if kind != SectionKind.SOURCES:
         body = strip_intermediate_sources(body)
     body = apply_lexical_substitutions(body)

@@ -149,6 +149,14 @@ _PLACEHOLDER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "unresolved_curly_placeholder",
         re.compile(r"\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}"),
     ),
+    (
+        "leaked_callout_marker",
+        re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION)\]\]"),
+    ),
+    (
+        "diamond_artifact",
+        re.compile(r"(?:<>){2,}"),
+    ),
 )
 
 
