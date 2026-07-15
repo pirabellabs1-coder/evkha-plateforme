@@ -1,51 +1,94 @@
 """Collecte du brief de recherche web (ancrage anti-hallucination, §6 cadrage).
 
-Au démarrage d'un job, on lance quelques requêtes ciblées (secteur + pays +
-axes structurants du livrable) et on stocke les VRAIS résultats sur le job.
-Ce brief est ensuite réinjecté dans le contexte de chaque chapitre : les
-chiffres s'appuient sur des sources réelles et datées, et la section Sources
-liste de vraies URLs au lieu d'en inventer.
+Au démarrage d'un job, on lance quelques requêtes ciblées, dérivées de
+PERSPECTIVES d'analyse (technique inspirée de STORM, Stanford : le
+questionnement multi-perspectives donne un brief plus large et plus profond
+qu'une poignée d'axes génériques). On stocke les VRAIS résultats sur le job.
+Ce brief est réinjecté dans le contexte de chaque chapitre : les chiffres
+s'appuient sur des sources réelles et datées, et la section Sources liste de
+vraies URLs au lieu d'en inventer.
 
 Coût maîtrisé : la recherche est faite UNE fois par job (pas par chapitre),
-avec un petit nombre de requêtes. En mode stub (défaut), aucun réseau : le
-brief reste vide et le pipeline fonctionne comme avant.
+bornée à _MAX_QUERIES requêtes, et le fournisseur par défaut est GRATUIT
+(DuckDuckGo). AUCUN appel LLM ici : les perspectives sont curées, pas générées.
+En mode stub (défaut), aucun réseau : le brief reste vide et le pipeline
+fonctionne comme avant.
 """
 from __future__ import annotations
+
+from django.utils import timezone
 
 from catalog.models import DeliverableType
 from integrations.search import SearchResult, WebSearchClient, get_search_client
 
-# Nombre de requêtes par job (borne le coût et la latence).
-_MAX_QUERIES = 6
+# Nombre de requêtes par job (borne le coût et la latence ; DuckDuckGo gratuit
+# mais rate-limité, donc on reste raisonnable).
+_MAX_QUERIES = 7
 _RESULTS_PER_QUERY = 4
-# Score Tavily minimal pour retenir un résultat (filtre le bruit peu pertinent).
+# Score minimal pour retenir un résultat (Tavily uniquement ; DuckDuckGo
+# renvoie score=0, jamais filtré).
 _MIN_SCORE = 0.4
 
+# Perspectives d'analyse communes à tous les livrables (STORM-style). Chaque
+# perspective devient une requête « secteur + pays + perspective ».
+_PERSPECTIVES_COMMUNES: tuple[str, ...] = (
+    "taille du marché chiffres",
+    "taux de croissance TCAC prévisions",
+    "segments de clientèle besoins comportement d'achat",
+    "réglementation cadre légal normes",
+    "tendances récentes innovation",
+)
 
-def _axes_for(deliverable_type: str) -> list[str]:
-    """Axes de recherche structurants selon le type de livrable."""
-    common = ["taille du marché chiffres récents", "taux de croissance TCAC"]
-    if deliverable_type == DeliverableType.COMPETITOR_STUDY:
-        return ["principaux concurrents parts de marché", "positionnement acteurs", *common]
-    if deliverable_type == DeliverableType.BUSINESS_PLAN:
-        return ["réglementation cadre légal", "coûts investissement secteur", *common]
-    if deliverable_type == DeliverableType.BUSINESS_STRATEGY:
-        return ["tendances stratégiques secteur", "leviers de croissance", *common]
-    # Étude de marché (défaut) : couverture large.
-    return [
-        "taille du marché chiffres récents",
-        "taux de croissance TCAC",
-        "réglementation cadre légal",
-        "tendances récentes 2025 2026",
-        "segments clientèle comportements",
-    ]
+# Perspectives additionnelles spécifiques au type de livrable.
+_PERSPECTIVES_PAR_TYPE: dict[str, tuple[str, ...]] = {
+    DeliverableType.COMPETITOR_STUDY: (
+        "principaux concurrents directs et indirects",
+        "positionnement prix et offres des acteurs",
+        "avis clients réputation des acteurs",
+    ),
+    DeliverableType.BUSINESS_PLAN: (
+        "coûts d'investissement et de démarrage",
+        "financements aides et subventions",
+        "rentabilité marges du secteur",
+    ),
+    DeliverableType.BUSINESS_STRATEGY: (
+        "leviers de croissance et stratégies gagnantes",
+        "modèles économiques rentables du secteur",
+        "risques et barrières à l'entrée",
+    ),
+    DeliverableType.MARKET_STUDY: (
+        "principaux acteurs et parts de marché",
+        "risques et barrières à l'entrée",
+    ),
+}
+
+
+def _perspectives_for(deliverable_type: str) -> list[str]:
+    """Perspectives d'analyse (spécifiques d'abord, puis communes), dédupliquées."""
+    specifiques = _PERSPECTIVES_PAR_TYPE.get(deliverable_type, ())
+    ordered = [*specifiques, *_PERSPECTIVES_COMMUNES]
+    seen: set[str] = set()
+    unique: list[str] = []
+    for p in ordered:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+    return unique
+
+
+def _recency_hint() -> str:
+    """Indice d'année pour privilégier les données récentes (charte : 2025/2026...)."""
+    year = timezone.now().year
+    return f"{year - 1} {year}"
 
 
 def build_queries(variables: dict[str, object]) -> list[str]:
-    """Construit les requêtes ciblées à partir du brief client.
+    """Construit les requêtes multi-perspectives à partir du brief client.
 
-    Chaque requête combine secteur + pays + un axe, pour rester géographiquement
-    et sectoriellement pertinente (cohérent avec l'adaptation géographique §7).
+    Chaque requête combine secteur + pays + une perspective d'analyse + un
+    indice de récence, pour rester géographiquement et sectoriellement
+    pertinente (cohérent avec l'adaptation géographique §7) et couvrir les
+    angles structurants du livrable (STORM-style, sans coût LLM).
     """
     secteur = str(variables.get("SECTEUR", "")).strip()
     pays = str(variables.get("PAYS", "")).strip()
@@ -53,8 +96,9 @@ def build_queries(variables: dict[str, object]) -> list[str]:
         return []
 
     zone = f"{secteur} {pays}".strip()
-    axes = _axes_for(str(variables.get("DELIVERABLE_TYPE", "")))
-    queries = [f"{zone} {axe}".strip() for axe in axes]
+    recency = _recency_hint()
+    perspectives = _perspectives_for(str(variables.get("DELIVERABLE_TYPE", "")))
+    queries = [f"{zone} {perspective} {recency}".strip() for perspective in perspectives]
     # Dédoublonne en conservant l'ordre, puis borne le nombre de requêtes.
     seen: set[str] = set()
     unique: list[str] = []

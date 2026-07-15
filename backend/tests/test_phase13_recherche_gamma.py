@@ -101,20 +101,39 @@ def test_get_search_client_stub_par_defaut() -> None:
 
 
 def test_build_queries_combine_secteur_pays_axes() -> None:
-    from generation.research import build_queries
+    from generation.research import _MAX_QUERIES, build_queries
 
     queries = build_queries({
         "SECTEUR": "coworking", "PAYS": "France", "DELIVERABLE_TYPE": "market_study",
     })
     assert queries
     assert all("coworking France" in q for q in queries)
-    assert len(queries) <= 6
+    assert len(queries) <= _MAX_QUERIES
 
 
 def test_build_queries_vide_sans_secteur() -> None:
     from generation.research import build_queries
 
     assert build_queries({"PAYS": "France"}) == []
+
+
+def test_build_queries_perspectives_par_type() -> None:
+    """STORM-style : chaque type de livrable a ses perspectives spécifiques."""
+    from generation.research import build_queries
+
+    bp = " ".join(build_queries({
+        "SECTEUR": "coworking", "PAYS": "France", "DELIVERABLE_TYPE": "business_plan",
+    }))
+    assert "financements" in bp or "investissement" in bp
+
+    ec = " ".join(build_queries({
+        "SECTEUR": "coworking", "PAYS": "France", "DELIVERABLE_TYPE": "competitor_study",
+    }))
+    assert "concurrents" in ec
+
+    # Récence : l'année courante apparaît dans les requêtes.
+    from django.utils import timezone
+    assert str(timezone.now().year) in bp
 
 
 class _FakeSearchClient:
