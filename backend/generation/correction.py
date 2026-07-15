@@ -7,23 +7,39 @@ liste exacte des problèmes en consigne, puis repasse le gate. Répété au plus
 `EVKHA_CORRECTION_ROUNDS` fois (défaut 1) pour borner strictement le coût.
 
 Objectif : réduire les omissions/erreurs qui obligeaient Evangeline à relancer
-20 fois à la main, sans faire exploser le budget API. Si la boucle n'y arrive
-pas, le comportement historique s'applique : le gate bloque la livraison.
+manuellement, SANS dépasser le budget strict PAR DOSSIER (règle d'or #1 :
+EM 3,20 € / BP 2,80 € / STR 2,40 € / EC 2,00 € max ; cible cadrage §3 : idéal
+< 1-2 €). La régénération puise dans CE MÊME plafond : elle ne peut donc rien
+« faire exploser ». Si la boucle n'aboutit pas dans le budget, le comportement
+historique s'applique : le gate bloque la livraison (décision admin).
 
 Bornes de sécurité :
 - nombre de rondes plafonné (défaut 1) ;
 - seuls les chapitres directement désignés par un échec sont régénérés ;
-- un dépassement de budget arrête la boucle proprement (le job reste bloqué,
-  jamais livré à moitié).
+- AUCUNE régénération n'est lancée s'il ne reste plus de budget sur le dossier
+  (on ne démarre pas un appel qu'on ne peut pas payer) ;
+- un dépassement de budget en cours arrête la boucle proprement (le job reste
+  bloqué, jamais livré à moitié).
 """
 from __future__ import annotations
+
+from decimal import Decimal
 
 from django.conf import settings
 
 from . import gate as _gate
-from .cost import CostBudgetExceededError
+from .cost import CostBudgetExceededError, current_job_cost_eur
 from .gate import GateFailure, GateReport
 from .models import GenerationJob
+
+# Réserve minimale de budget avant de tenter une régénération : sous ce seuil,
+# un nouvel appel Claude dépasserait le plafond du dossier — on s'abstient.
+_BUDGET_MARGIN_EUR = Decimal("0.05")
+
+
+def _has_budget_headroom(job: GenerationJob) -> bool:
+    """Reste-t-il du budget sur ce dossier pour un appel de régénération ?"""
+    return current_job_cost_eur(job) < (job.budget_eur - _BUDGET_MARGIN_EUR)
 
 # Types d'échec réparables en régénérant un chapitre précis. Les échecs
 # `verticales` sont au niveau document (pas de chapitre unique) : on ne les
@@ -88,15 +104,21 @@ def run_correction_loop(
             # Aucun échec réparable au niveau chapitre (ex. verticale manquante
             # au niveau document) : la régénération ciblée n'aiderait pas.
             break
+        if not _has_budget_headroom(job):
+            # Plafond du dossier atteint : on ne lance pas d'appel qu'on ne
+            # peut pas payer. Le job reste bloqué (décision admin).
+            break
         attempt += 1
         for chapter_number, note in feedback.items():
+            if not _has_budget_headroom(job):
+                break
             chapter = job.chapters.filter(chapter_number=chapter_number).first()
             if chapter is None:
                 continue
             try:
                 regenerate_chapter(job, chapter, corrective_note=note, client=gen_client)
             except CostBudgetExceededError:
-                # Budget épuisé : on arrête la boucle, le job reste bloqué.
+                # Budget dépassé en cours : on arrête, le job reste bloqué.
                 return _gate.run_delivery_gate(job)
             except Exception:  # noqa: BLE001 — une régénération KO ne casse pas la boucle
                 continue

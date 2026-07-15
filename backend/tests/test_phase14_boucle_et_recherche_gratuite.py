@@ -217,6 +217,32 @@ def test_boucle_desactivee_si_zero_rondes(
     assert calls["n"] == 0
 
 
+@pytest.mark.django_db
+def test_boucle_respecte_le_budget_par_dossier(
+    bp_job: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Plafond du dossier atteint -> aucune régénération lancée (règle d'or #1)."""
+    from decimal import Decimal
+
+    from generation import correction as correction_mod
+    from generation import runner as runner_mod
+
+    _mark_all_done(bp_job, "emprunt de 300 000 € recalculé, analyse complète du projet.")
+    # Épuise le budget : un chapitre porte tout le coût du plafond.
+    ch = bp_job.chapters.get(chapter_number=1)  # type: ignore[attr-defined]
+    ch.cost_eur = bp_job.budget_eur  # type: ignore[attr-defined]
+    ch.save(update_fields=["cost_eur"])
+
+    calls = {"n": 0}
+    monkeypatch.setattr(
+        runner_mod, "regenerate_chapter",
+        lambda *a, **k: calls.__setitem__("n", calls["n"] + 1),
+    )
+    report = correction_mod.run_correction_loop(bp_job, client=object(), max_rounds=1)
+    assert not report.passed
+    assert calls["n"] == 0  # pas de budget -> pas d'appel
+
+
 # ── Note corrective dans le prompt ───────────────────────────────────────────
 
 
