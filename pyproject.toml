@@ -20,6 +20,12 @@ dependencies = [
 ai = [
   "anthropic>=0.40,<1",
 ]
+search = [
+  # Recherche web GRATUITE (ancrage anti-hallucination §6) : DuckDuckGo,
+  # aucune clé, aucun coût. httpx (déjà présent) sert au client Tavily optionnel.
+  "ddgs>=6,<10",
+  "httpx>=0.27,<1",
+]
 pdf = [
   # WeasyPrint génère les PDFs brandés (Phase 4b, D8).
   # Requiert des libs système (Pango, Cairo) — voir docs/deploy-coolify.md.

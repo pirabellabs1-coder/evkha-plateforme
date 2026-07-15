@@ -247,6 +247,34 @@ def run_generation_job(
     return job
 
 
+def regenerate_chapter(
+    job: GenerationJob,
+    chapter: ChapterGeneration,
+    *,
+    corrective_note: str,
+    client: ClaudeClient | None = None,
+) -> None:
+    """Régénère UN chapitre en corrigeant les défauts détectés par le gate.
+
+    Utilisé par la boucle d'auto-correction (generation/correction.py) : on
+    reprend le chapitre avec la liste exacte des problèmes en consigne
+    prioritaire, puis on rejoue la QA règle-métier immédiate. Respecte le
+    budget (le Cost Engine peut lever CostBudgetExceededError, propagée à
+    l'appelant qui décide d'arrêter la boucle).
+    """
+    client = client or get_claude_client()
+    variables = _variables_for(job)
+    country = str(variables.get("PAYS", "")).strip()
+    system_prompt = build_system_prompt(
+        job.deliverable_type, country=country, plan=job.phase0_plan
+    )
+    _generate_chapter(
+        job, chapter, client=client, system_prompt=system_prompt,
+        corrective_note=corrective_note,
+    )
+    _inline_qa_repair(chapter)
+
+
 def _inline_qa_repair(chapter: ChapterGeneration) -> bool:
     """QA rule-based immediate apres generation d'un chapitre.
 
@@ -281,6 +309,7 @@ def _generate_chunked(
     client: ClaudeClient,
     system_prompt: str,
     chapter_model: str | None = None,
+    corrective_note: str = "",
 ) -> tuple[str, int, int, str | None]:
     """Genere un chapitre section par section et fusionne le contenu.
 
@@ -301,7 +330,10 @@ def _generate_chunked(
         # Contexte accumulé des sections déjà générées dans ce chapitre.
         # Aide Claude à ne pas répéter et à rester cohérent entre sections.
         previous_context = "\n\n".join(parts) if parts else ""
-        prompt = build_section_prompt(chapter, section_key, previous_context=previous_context)
+        prompt = build_section_prompt(
+            chapter, section_key,
+            previous_context=previous_context, corrective_note=corrective_note,
+        )
         result = client.complete(
             system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
         )
@@ -319,6 +351,7 @@ def _generate_chapter(
     *,
     client: ClaudeClient,
     system_prompt: str,
+    corrective_note: str = "",
 ) -> None:
     from .validation import (
         ChapterValidationIssue,
@@ -342,7 +375,7 @@ def _generate_chapter(
     if sections:
         content, total_input, total_output, model = _generate_chunked(
             job, chapter, sections, client=client, system_prompt=system_prompt,
-            chapter_model=chapter_model,
+            chapter_model=chapter_model, corrective_note=corrective_note,
         )
         # Les chapitres chunkes passent aussi la validation post-gen : les
         # defauts sont traces (error_message) et repris par la QA finale et
@@ -351,7 +384,7 @@ def _generate_chapter(
         # de la QA), mais aucun defaut ne passe silencieusement.
         issues = validate_chapter_content(content)
     else:
-        prompt = build_chapter_prompt(chapter)
+        prompt = build_chapter_prompt(chapter, corrective_note=corrective_note)
         max_tokens = max_tokens_for_job(job, default_max_tokens=_DEFAULT_MAX_TOKENS)
         result = client.complete(
             system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model

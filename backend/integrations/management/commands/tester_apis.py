@@ -35,19 +35,23 @@ class Command(BaseCommand):
             self._test_gamma()
 
     def _test_tavily(self) -> None:
-        self.stdout.write(self.style.MIGRATE_HEADING("\n== Tavily (recherche web) =="))
+        provider = str(getattr(settings, "EVKHA_SEARCH_PROVIDER", "duckduckgo")).lower()
+        self.stdout.write(self.style.MIGRATE_HEADING(
+            f"\n== Recherche web (fournisseur : {provider}) =="
+        ))
         if bool(getattr(settings, "EVKHA_USE_STUB_SEARCH", True)):
             self.stdout.write(self.style.WARNING(
                 "Mode STUB actif (EVKHA_USE_STUB_SEARCH=true) — aucune vraie "
-                "recherche. Passe à false + TAVILY_API_KEY pour activer."
+                "recherche. Passe à false pour activer (DuckDuckGo est gratuit, "
+                "aucune clé requise)."
             ))
             return
-        from integrations.search import TavilyWebSearchClient
+        from integrations.search import get_search_client
 
+        client = get_search_client()
+        self.stdout.write(f"Client actif : {type(client).__name__}")
         try:
-            resp = TavilyWebSearchClient().search(
-                query="marché du coworking France 2025", max_results=3
-            )
+            resp = client.search(query="marché du coworking France 2025", max_results=3)
         except Exception as exc:  # noqa: BLE001
             self.stdout.write(self.style.ERROR(f"ÉCHEC : {exc}"))
             return

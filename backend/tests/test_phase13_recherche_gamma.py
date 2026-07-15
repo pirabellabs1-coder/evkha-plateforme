@@ -376,7 +376,7 @@ def test_tester_apis_signale_le_mode_stub() -> None:
     text = out.getvalue()
     assert "STUB" in text
     # Aucun appel réseau en mode stub : les deux briques sont signalées.
-    assert "Tavily" in text and "Gamma" in text
+    assert "Recherche web" in text and "Gamma" in text
 
 
 # ── verifier_gate (commande) ─────────────────────────────────────────────────

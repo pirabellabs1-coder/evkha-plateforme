@@ -5,11 +5,11 @@ connaissance du modèle) : URLs inventées, dates fabriquées. Ce module fournit
 un vrai moteur de recherche, sur le même patron que les autres intégrations
 (Protocol + Stub déterministe + client réel + fabrique gâtée sur un flag).
 
-Client réel : Tavily (API pensée pour l'ancrage LLM). Endpoint documenté :
-POST https://api.tavily.com/search, auth Bearer, réponse `results[]` avec
-title/url/content/score. Aucun appel réseau tant que EVKHA_USE_STUB_SEARCH
-est vrai ou que la clé manque : le stub prend le relais et le pipeline
-continue de fonctionner (dégradé mais jamais cassé).
+Fournisseur par défaut : DuckDuckGo (GRATUIT, sans clé, via `ddgs`). Tavily
+reste disponible en option (EVKHA_SEARCH_PROVIDER=tavily + clé) mais n'est
+JAMAIS activé implicitement — aucun coût sans décision explicite. Aucun appel
+réseau tant que EVKHA_USE_STUB_SEARCH est vrai : le stub prend le relais et
+le pipeline continue de fonctionner (dégradé mais jamais cassé).
 """
 from __future__ import annotations
 
@@ -158,19 +158,78 @@ class TavilyWebSearchClient:
         )
 
 
-def get_search_client() -> WebSearchClient:
-    """Stub par défaut ; client Tavily réel si EVKHA_USE_STUB_SEARCH=false + clé.
+class DuckDuckGoWebSearchClient:
+    """Client réel GRATUIT (aucune clé, aucun coût) via DuckDuckGo.
 
-    Robustesse : si le flag réel est demandé mais qu'aucune clé n'est présente,
-    on retombe silencieusement sur le stub (le pipeline ne casse jamais faute
-    de configuration ; l'absence de vraies sources est visible dans le brief).
+    Utilise la bibliothèque `ddgs` (ex-`duckduckgo_search`), installable en
+    extra `[search]`. Aucune facturation, aucune inscription : c'est le
+    fournisseur par défaut pour l'ancrage des sources.
+
+    Limites assumées : DuckDuckGo ne renvoie ni score ni date de publication
+    (score=0 -> jamais filtré ; date vide). En cas de rate-limit ou d'absence
+    de la lib, l'appel lève et la collecte ignore la requête (brief partiel ou
+    vide) ; le pipeline continue.
+    """
+
+    def search(
+        self,
+        *,
+        query: str,
+        max_results: int = _DEFAULT_MAX_RESULTS,
+        topic: str = "general",
+        time_range: str = "",
+    ) -> SearchResponse:
+        try:
+            from ddgs import DDGS  # lib récente
+        except ImportError:
+            try:
+                from duckduckgo_search import DDGS  # ancien nom du package
+            except ImportError as exc:
+                msg = (
+                    "Recherche gratuite indisponible : installe l'extra "
+                    "'pip install systeme-evkha[search]' (paquet ddgs)."
+                )
+                raise RuntimeError(msg) from exc
+
+        raw = DDGS().text(query, max_results=max(1, min(max_results, 20)))
+        results = tuple(
+            SearchResult(
+                title=str(item.get("title", "")).strip(),
+                url=str(item.get("href", item.get("url", ""))).strip(),
+                content=str(item.get("body", item.get("content", ""))).strip(),
+                score=0.0,
+                published_date="",
+            )
+            for item in raw
+            if item.get("href") or item.get("url")
+        )
+        return SearchResponse(query=query, results=results, answer="")
+
+
+def get_search_client() -> WebSearchClient:
+    """Stub par défaut ; sinon fournisseur réel selon EVKHA_SEARCH_PROVIDER.
+
+    - EVKHA_USE_STUB_SEARCH=true (défaut) -> stub, aucun réseau.
+    - Sinon, provider = EVKHA_SEARCH_PROVIDER :
+        * "duckduckgo" (défaut) -> gratuit, sans clé.
+        * "tavily" -> uniquement si TAVILY_API_KEY présente, sinon repli
+          DuckDuckGo (jamais de blocage faute de clé payante).
+    Aucune brique payante n'est jamais activée implicitement.
     """
     import os
 
     use_stub = bool(getattr(settings, "EVKHA_USE_STUB_SEARCH", True))
-    has_key = bool(
-        os.environ.get("TAVILY_API_KEY", "") or str(getattr(settings, "TAVILY_API_KEY", ""))
-    )
-    if use_stub or not has_key:
+    if use_stub:
         return StubWebSearchClient()
-    return TavilyWebSearchClient()
+
+    provider = str(getattr(settings, "EVKHA_SEARCH_PROVIDER", "duckduckgo")).lower()
+    if provider == "tavily":
+        has_key = bool(
+            os.environ.get("TAVILY_API_KEY", "")
+            or str(getattr(settings, "TAVILY_API_KEY", ""))
+        )
+        if has_key:
+            return TavilyWebSearchClient()
+        # Pas de clé payante -> repli gratuit plutôt que stub muet.
+        return DuckDuckGoWebSearchClient()
+    return DuckDuckGoWebSearchClient()

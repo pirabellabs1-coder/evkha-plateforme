@@ -319,6 +319,7 @@ def test_task_bloque_la_livraison_si_gate_echoue(
 ) -> None:
     """Integration tasks.py : gate KO -> qa BLOCKED + incident + PAS d'email."""
     from delivery.models import DeliveryBatch
+    from generation import correction as correction_mod
     from generation import tasks as generation_tasks
     from generation.gate import GateFailure, GateReport
 
@@ -335,8 +336,12 @@ def test_task_bloque_la_livraison_si_gate_echoue(
             failures=(GateFailure(check="contamination", detail="TOKEN test"),),
         )
 
+    # La boucle d'auto-correction résout gate.run_delivery_gate à l'exécution :
+    # patcher le module gate suffit (aucun binding périmé).
     import generation.gate as gate_module
     monkeypatch.setattr(gate_module, "run_delivery_gate", _failing_gate)
+    # Aucune régénération réelle : rondes forcées à 0 (le gate KO doit bloquer).
+    monkeypatch.setattr(correction_mod, "_default_rounds", lambda: 0)
 
     generation_tasks.run_generation_job_task(str(job.id))
     job.refresh_from_db()

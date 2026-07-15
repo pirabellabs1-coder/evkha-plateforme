@@ -72,9 +72,12 @@ def run_generation_job_task(job_id: str) -> str:
         from .qa import run_qa_pass  # noqa: PLC0415
         run_qa_pass(job)
 
-        # ── Gate de livraison (bloquant) ────────────────────────────────────
-        from .gate import run_delivery_gate  # noqa: PLC0415
-        report = run_delivery_gate(job)
+        # ── Boucle d'auto-correction + gate de livraison (bloquant) ─────────
+        # Avant de bloquer, on régénère les chapitres fautifs (contamination,
+        # incohérence chiffrée, troncature) avec les défauts en consigne, puis
+        # on repasse le gate. Borné par EVKHA_CORRECTION_ROUNDS (défaut 1).
+        from .correction import run_correction_loop  # noqa: PLC0415
+        report = run_correction_loop(job)
 
         if not report.passed:
             GenerationJob.objects.filter(pk=job.pk).update(qa_status=QAStatus.BLOCKED)

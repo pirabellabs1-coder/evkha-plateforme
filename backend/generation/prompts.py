@@ -221,7 +221,24 @@ def _word_limit_footer(max_words: int) -> str:
     )
 
 
-def build_chapter_prompt(chapter: ChapterGeneration) -> str:
+def _corrective_footer(corrective_note: str) -> str:
+    """Bloc de correction injecte lors d'une regeneration (boucle d'auto-correction).
+
+    Place en fin de prompt pour maximiser sa priorite : ce sont les defauts
+    exacts detectes par le gate sur la version precedente, a corriger sans faute.
+    """
+    if not corrective_note:
+        return ""
+    return (
+        "\n\n[CORRECTION IMPERATIVE, PRIORITE ABSOLUE]\n"
+        "Ta version precedente de ce chapitre a ete REJETEE par le controle "
+        "qualite pour les raisons ci-dessous. Reprends integralement le chapitre "
+        "en corrigeant CHACUN de ces points, sans en introduire de nouveaux :\n"
+        f"{corrective_note}"
+    )
+
+
+def build_chapter_prompt(chapter: ChapterGeneration, corrective_note: str = "") -> str:
     """Compose le prompt utilisateur : contexte (Context Engine) + consigne chapitre."""
     context = build_context(chapter)
     instruction = prompt_instruction(chapter.prompt_key)
@@ -231,14 +248,18 @@ def build_chapter_prompt(chapter: ChapterGeneration) -> str:
         f"{context}\n\n"
         "CONSIGNE_DU_CHAPITRE :\n"
         f"{instruction}"
-        f"{word_limit}\n\n"
+        f"{word_limit}"
+        f"{_corrective_footer(corrective_note)}\n\n"
         "Rends uniquement le contenu final destine au client, sans repeter ces "
         "consignes."
     )
 
 
 def build_section_prompt(
-    chapter: ChapterGeneration, section_key: str, previous_context: str = ""
+    chapter: ChapterGeneration,
+    section_key: str,
+    previous_context: str = "",
+    corrective_note: str = "",
 ) -> str:
     """Prompt pour une section d'un chapitre en mode chunk generation.
 
@@ -273,7 +294,8 @@ def build_section_prompt(
         f"{previous_block}\n\n"
         "SECTION_A_GENERER :\n"
         f"{instruction}"
-        f"{word_limit}\n\n"
+        f"{word_limit}"
+        f"{_corrective_footer(corrective_note)}\n\n"
         "Rends uniquement le contenu de cette section, destine au client. "
         "Ne repete pas les consignes ni les donnees deja traitees dans les "
         "sections precedentes de ce chapitre."

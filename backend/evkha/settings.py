@@ -174,9 +174,17 @@ EVKHA_USE_STUB_EMAIL = env("EVKHA_USE_STUB_EMAIL")
 EVKHA_USE_STUB_PDF = env("EVKHA_USE_STUB_PDF")
 EVKHA_USE_STUB_SEARCH = env("EVKHA_USE_STUB_SEARCH")
 
-# Recherche web (ancrage anti-hallucination §6). Tavily : API pensee pour
-# l'ancrage LLM. En prod : EVKHA_USE_STUB_SEARCH=false + TAVILY_API_KEY.
+# Recherche web (ancrage anti-hallucination §6). Fournisseur GRATUIT par
+# defaut (DuckDuckGo, sans cle) : pour l'activer, EVKHA_USE_STUB_SEARCH=false
+# suffit (aucun cout, aucune inscription). Tavily reste une option payante
+# activee UNIQUEMENT via EVKHA_SEARCH_PROVIDER=tavily + TAVILY_API_KEY.
+EVKHA_SEARCH_PROVIDER = env("EVKHA_SEARCH_PROVIDER", default="duckduckgo")
 TAVILY_API_KEY = env("TAVILY_API_KEY", default="")
+
+# Boucle d'auto-correction (concept loopy) : nombre de rondes de régénération
+# ciblée des chapitres fautifs avant blocage du gate. 0 = désactivé (le gate
+# bloque directement, comportement historique). Défaut 1 (borne le coût API).
+EVKHA_CORRECTION_ROUNDS = env.int("EVKHA_CORRECTION_ROUNDS", default=1)
 
 # Gamma — moteur de mise en page du livrable (Generations API v1.0).
 # En prod : EVKHA_USE_STUB_GAMMA=false + GAMMA_API_KEY (+ GAMMA_THEME_ID
