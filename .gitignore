@@ -44,3 +44,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Cache local du CLI firecrawl (dossier de scrape des sources externes)
+.firecrawl/

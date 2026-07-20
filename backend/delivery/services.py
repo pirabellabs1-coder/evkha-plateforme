@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from html import escape
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -21,6 +22,7 @@ from integrations.pdf import PdfClient, get_pdf_client
 from monitoring.models import IncidentSeverity, OperationalIncident
 from orders.models import OrderStatus
 
+from .gamma_fidelite import RapportFidelite, controler_fidelite, extraire_texte_pdf
 from .models import DeliveryBatch, DeliveryEvent, DeliveryStatus
 
 _log = logging.getLogger(__name__)
@@ -46,12 +48,27 @@ def _expires_at(job: GenerationJob) -> datetime:
 
 
 def _theme_id_for(job: GenerationJob) -> str:
+    """Theme Gamma : surcharge de la commande, sinon reglage, sinon AUCUN.
+
+    Le repli etait `"evkha-default"`, un identifiant invente qui n'existe dans
+    aucun compte Gamma. Consequence : chaque generation renvoyait
+    HTTP 400 « Theme with id evkha-default not found », l'erreur etait avalee
+    et la livraison repartait en WeasyPrint sans bruit. Gamma n'aurait donc
+    jamais rien produit, meme cle et flag corrects.
+
+    Le reglage `GAMMA_THEME_ID` existait pourtant depuis le debut (settings) et
+    n'etait tout simplement pas lu ici.
+
+    Chaine vide = on n'envoie pas `themeId` du tout, et Gamma applique son
+    theme par defaut (verifie : HTTP 201). Mieux vaut le theme par defaut de
+    Gamma qu'un identifiant fictif qui fait echouer l'appel.
+    """
     raw_payload = job.order.raw_payload or {}
     if isinstance(raw_payload, dict):
         theme_id = raw_payload.get("gamma_theme_id") or raw_payload.get("theme_id")
         if theme_id:
             return str(theme_id)
-    return "evkha-default"
+    return str(getattr(settings, "GAMMA_THEME_ID", "") or "")
 
 
 def _html_body(job: GenerationJob, artifacts: tuple[DocumentArtifact, ...]) -> str:
@@ -246,7 +263,10 @@ def ensure_gamma_artifacts(
 
     gamma_client = gamma_client or get_gamma_client()
     document = render_client_document(job)
-    markdown = document.to_markdown()
+    # `card_breaks=True` : un `---` par section, que Gamma respecte via
+    # `cardSplit=inputTextBreaks`. Sans cela Gamma decide seul et compresse
+    # tout dans son defaut de 10 cartes.
+    markdown = document.to_markdown(card_breaks=True)
 
     try:
         # I/O reseau -- pas de transaction ouverte ici.
@@ -265,11 +285,83 @@ def ensure_gamma_artifacts(
         )
         return []
 
+    # Gamma REECRIT le document : on verifie sa sortie avant de la livrer.
+    # Le gate valide le markdown, puis Gamma refait tout — et rien ne
+    # controlait le resultat. C'est ainsi que 5 verticales sur 10 ont ete
+    # effacees APRES validation, en silence.
+    rapport = _controler_pdf_gamma(job, export=export, markdown=markdown)
+    if not rapport.fidele:
+        _log.warning(
+            "ensure_gamma_artifacts: PDF Gamma INFIDELE pour job %s — %s "
+            "Artefacts Gamma ignores, livraison PDF WeasyPrint maintenue.",
+            job.id, rapport.motif,
+        )
+        OperationalIncident.objects.create(
+            title=f"PDF Gamma infidele — repli WeasyPrint (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={
+                "motif": rapport.motif,
+                "mots_source": rapport.mots_source,
+                "mots_pdf": rapport.mots_pdf,
+                "verticales_perdues": list(rapport.verticales_perdues),
+                "pdf_url": export.pdf_url,
+            },
+        )
+        return []
+
     # Uniquement des ecritures DB a partir d'ici.
     return _persist_gamma_artifacts(
         job,
         export=export,
         presentation_id=presentation.presentation_id,
+    )
+
+
+def _verticales_du_brief(job: GenerationJob) -> tuple[str, ...]:
+    from generation.models import FactProvenance  # noqa: PLC0415
+
+    fait = job.coherence_facts.filter(
+        is_locked=True, provenance=FactProvenance.CLIENT, key="verticales"
+    ).first()
+    if fait is None or not fait.value.strip():
+        return ()
+    import re as _re  # noqa: PLC0415
+
+    return tuple(v.strip() for v in _re.split(r"[/,;]|\n", fait.value) if v.strip())
+
+
+def _controler_pdf_gamma(
+    job: GenerationJob, *, export: GammaExportResult, markdown: str
+) -> RapportFidelite:
+    """Telecharge le PDF Gamma et verifie qu'il restitue bien le document."""
+    if not export.pdf_url:
+        return RapportFidelite(
+            fidele=True, mots_source=len(markdown.split()), mots_pdf=0,
+            verticales_perdues=(), motif="Pas d'URL PDF : rien a controler.",
+        )
+    try:
+        import httpx  # noqa: PLC0415 — dependance optionnelle
+
+        reponse = httpx.get(export.pdf_url, timeout=60.0, follow_redirects=True)
+        reponse.raise_for_status()
+        contenu = reponse.content
+    except Exception as exc:  # noqa: BLE001 — un controle rate ne casse pas la livraison
+        _log.warning(
+            "_controler_pdf_gamma: telechargement impossible pour job %s (%s) — "
+            "controle de fidelite non effectue.",
+            job.id, exc,
+        )
+        return RapportFidelite(
+            fidele=True, mots_source=len(markdown.split()), mots_pdf=0,
+            verticales_perdues=(), motif=f"PDF non telechargeable : {exc}",
+        )
+
+    return controler_fidelite(
+        texte_pdf=extraire_texte_pdf(contenu),
+        markdown_source=markdown,
+        verticales=_verticales_du_brief(job),
     )
 
 

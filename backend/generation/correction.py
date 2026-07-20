@@ -45,8 +45,12 @@ def _has_budget_headroom(job: GenerationJob) -> bool:
 # `verticales` sont au niveau document (pas de chapitre unique) : on ne les
 # régénère pas automatiquement (risque de casser d'autres chapitres) — ils
 # restent bloquants, à traiter à la source (brief/prompt).
+#
+# `etat_chiffre_client` est délibérément ABSENT : régénérer n'y changerait
+# rien, la donnée de référence manque au dossier. Seule une saisie humaine du
+# prévisionnel débloque ce cas — c'est tout l'intérêt de le rendre bloquant.
 _CHAPTER_LEVEL_CHECKS = frozenset(
-    {"contamination", "coherence_chiffree", "troncature"}
+    {"contamination", "coherence_chiffree", "troncature", "ordre_de_grandeur"}
 )
 
 # Libellés lisibles injectés dans la consigne de correction.
@@ -54,6 +58,7 @@ _CHECK_LABELS = {
     "contamination": "Marqueur technique interne présent dans le texte (interdit)",
     "coherence_chiffree": "Chiffre incohérent avec le prévisionnel client",
     "troncature": "Chapitre coupé / phrase ou structure non terminée",
+    "ordre_de_grandeur": "Erreur d'unité : montant hors d'échelle (millions/milliers)",
 }
 
 

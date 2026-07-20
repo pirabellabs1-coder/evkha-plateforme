@@ -10,6 +10,7 @@ KO, marque le chapitre FAILED et ouvre un incident.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 
 
@@ -150,10 +151,6 @@ _PLACEHOLDER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(r"\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}"),
     ),
     (
-        "leaked_callout_marker",
-        re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]"),
-    ),
-    (
         "diamond_artifact",
         re.compile(r"(?:<>){2,}"),
     ),
@@ -171,6 +168,50 @@ _PLACEHOLDER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         ),
     ),
 )
+
+
+# Marqueurs d'encadre mentor : `[[UNDERSTAND]] ... [[/UNDERSTAND]]`.
+_CALLOUT_OPEN_RE = re.compile(r"\[\[(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]")
+_CALLOUT_CLOSE_RE = re.compile(r"\[\[/(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]")
+
+
+def detect_unbalanced_callouts(content: str) -> list[ChapterValidationIssue]:
+    """Detecte les encadres mentor MAL FERMES, pas les encadres eux-memes.
+
+    Le prompt DEMANDE explicitement a Claude d'ecrire `[[UNDERSTAND]] ...
+    [[/UNDERSTAND]]` : c'est la syntaxe des encadres mentor, la signature du
+    ton EVKHA, et le moteur de rendu la transforme en bloc dore. Ces marqueurs
+    sont donc LEGITIMES dans le contenu brut.
+
+    La validation les traitait pourtant comme une fuite bloquante. Consequence
+    mesuree sur le premier vrai dossier (BP SYNAPSES, juillet 2026) : les 13
+    premiers chapitres ont TOUS ete regeneres une fois, pour un defaut qui
+    n'en etait pas un. Claude obeissait au prompt, la validation le punissait,
+    le retry lui redemandait la meme chose. Chaque chapitre etait donc paye
+    DEUX FOIS et le budget explosait (2,96 € pour un plafond de 2,80 €, job
+    interrompu a 15 chapitres sur 20). Le gate, lui, avait raison depuis le
+    debut : « les marqueurs [[UNDERSTAND]] y sont legitimes ».
+
+    Le vrai defaut, c'est le desequilibre : une ouverture sans fermeture casse
+    le parseur et le marqueur part en clair chez le client. C'est cela, et
+    seulement cela, qu'on detecte ici.
+    """
+    issues: list[ChapterValidationIssue] = []
+    ouverts = Counter(m.group(1) for m in _CALLOUT_OPEN_RE.finditer(content))
+    fermes = Counter(m.group(1) for m in _CALLOUT_CLOSE_RE.finditer(content))
+    for nom in sorted(set(ouverts) | set(fermes)):
+        if ouverts[nom] != fermes[nom]:
+            issues.append(
+                ChapterValidationIssue(
+                    code="unbalanced_callout",
+                    severity=ValidationSeverity.ERROR,
+                    message=(
+                        f"Encadre mentor mal ferme : {ouverts[nom]}x [[{nom}]] "
+                        f"pour {fermes[nom]}x [[/{nom}]]."
+                    ),
+                )
+            )
+    return issues
 
 
 def detect_placeholder_leaks(content: str) -> list[ChapterValidationIssue]:
@@ -219,6 +260,7 @@ def validate_chapter_content(content: str) -> list[ChapterValidationIssue]:
     issues: list[ChapterValidationIssue] = []
     issues.extend(detect_empty_tables(content))
     issues.extend(detect_truncation(content))
+    issues.extend(detect_unbalanced_callouts(content))
     issues.extend(detect_placeholder_leaks(content))
     issues.extend(detect_concatenation_bugs(content))
     return issues

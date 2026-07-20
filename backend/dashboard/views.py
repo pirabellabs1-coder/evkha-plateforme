@@ -196,7 +196,7 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
     order_ids = [j.order_id for j in jobs]
 
     # Un seul SELECT pour tous les PDFs prêts (order asc → la dernière URL par job_id gagne)
-    pdf_urls: dict = {
+    pdf_urls: dict[UUID, str] = {
         a.job_id: a.download_url
         for a in DocumentArtifact.objects.filter(
             job_id__in=job_ids,
@@ -205,7 +205,7 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
         ).exclude(download_url="").order_by("created_at")
     }
     # Un seul SELECT pour le dernier batch de livraison par commande
-    delivery_statuses: dict = {
+    delivery_statuses: dict[UUID, str] = {
         b.order_id: b.status
         for b in DeliveryBatch.objects.filter(order_id__in=order_ids).order_by("created_at")
     }

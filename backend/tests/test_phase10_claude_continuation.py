@@ -53,7 +53,10 @@ class _FakeAnthropicClient:
 
 def _install_fake_anthropic(
     monkeypatch: pytest.MonkeyPatch, responses: list[_FakeMessage]
-) -> _FakeAnthropicClient:
+) -> dict[str, _FakeAnthropicClient]:
+    """Retourne le HOLDER, pas le client : celui-ci n'existe qu'apres l'appel
+    a la fabrique par le code teste. L'annotation precedente annoncait le
+    client et masquait l'ecart avec un `type: ignore[return-value]`."""
     holder: dict[str, _FakeAnthropicClient] = {}
 
     def _factory(*, api_key: str) -> _FakeAnthropicClient:
@@ -64,7 +67,7 @@ def _install_fake_anthropic(
     fake_module = types.ModuleType("anthropic")
     fake_module.Anthropic = _factory  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "anthropic", fake_module)
-    return holder  # type: ignore[return-value]
+    return holder
 
 
 def test_complete_returns_immediately_when_not_truncated(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -89,7 +92,7 @@ def test_complete_returns_immediately_when_not_truncated(monkeypatch: pytest.Mon
         {
             "type": "text",
             "text": "sys",
-            "cache_control": {"type": "ephemeral"},
+            "cache_control": {"type": "ephemeral", "ttl": "1h"},
         }
     ]
 

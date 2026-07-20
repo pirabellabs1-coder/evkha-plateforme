@@ -168,11 +168,18 @@ class AnthropicClaudeClient:
 def _cacheable_system(system: str) -> str | list[dict[str, object]]:
     if not system:
         return ""
+    # TTL 1h au lieu du defaut 5 min : un job BP ou EM produit 20 chapitres
+    # sequentiels, la generation depasse regulierement 5 minutes. Passe ce
+    # seuil, chaque chapitre rejouait un cache-write plein (~125 %) au lieu
+    # d'un cache-read (10 %). L'ecriture 1h coute 200 % (soit +75 pts) mais
+    # elle n'est payee QU'UNE FOIS par job — les 19 chapitres suivants
+    # restent a 10 %. Point mort : 3 chapitres. Anthropic (juillet 2026)
+    # confirme un potentiel d'economie de 24 % sur ce compte.
     return [
         {
             "type": "text",
             "text": system,
-            "cache_control": {"type": "ephemeral"},
+            "cache_control": {"type": "ephemeral", "ttl": "1h"},
         }
     ]
 
@@ -196,11 +203,20 @@ class StubClaudeClient:
         model: str | None = None,
     ) -> ClaudeResult:
         digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
+        # Le check `chapitre_avorte` du gate planche a 30 % du max_words du
+        # blueprint (jusqu'a 1 800 mots). Un stub qui rend 28 mots faisait
+        # tomber les tests d'integration : on repete le paragraphe pour tenir
+        # un contenu credible tout en restant purement deterministe.
+        paragraphe = (
+            "Cette section synthetise les donnees chiffrees et sourcees attendues "
+            "pour le chapitre courant, redigee dans le ton mentor EVKHA. "
+            "L'analyse mobilise le contexte projet, les indicateurs sectoriels et "
+            "les leviers d'execution associes au livrable. "
+        )
         content = (
             "Contenu genere (mode demonstration EVKHA).\n\n"
-            "Cette section synthetise les donnees chiffrees et sourcees attendues "
-            "pour le chapitre courant, redigee dans le ton mentor EVKHA.\n\n"
-            f"Empreinte de tracabilite: {digest}.\n\n"
+            + paragraphe * 60
+            + f"\n\nEmpreinte de tracabilite: {digest}.\n\n"
             "Sources\n"
             "- EVKHA, methodologie interne (URL a confirmer)."
         )

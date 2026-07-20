@@ -10,12 +10,35 @@ from django.conf import settings
 # API Gamma Generations v1.0 (developers.gamma.app).
 _GAMMA_BASE_URL = "https://public-api.gamma.app/v1.0"
 _GAMMA_POLL_INTERVAL_SECONDS = 5.0
-_GAMMA_MAX_POLLS = 60  # 60 x 5s = 5 min de plafond (generation typique 1-3 min)
+# 240 x 5s = 20 min. L'ancien plafond (5 min) etait calibre sur les
+# generations que Gamma produisait alors : 10 cartes resumees. Un vrai
+# document (20 cartes, ~38 000 mots) depasse 6 min et tombait donc en
+# timeout — Gamma finissait sa generation, facturee, et on la jetait pour
+# repartir en WeasyPrint. Le worker est asynchrone : attendre ne bloque
+# aucune requete utilisateur.
+_GAMMA_MAX_POLLS = 240
 _GAMMA_HTTP_TIMEOUT_SECONDS = 30.0
 
 
 class GammaError(RuntimeError):
     """Echec de l'API Gamma (creation, polling, export, timeout)."""
+
+
+def _detail(exc: Exception) -> str:
+    """Le corps de la reponse HTTP, quand il existe.
+
+    httpx ne met que le statut dans `str(exc)`. Gamma, lui, explique l'erreur
+    dans le corps ({"message": "Theme with id ... not found"}). Sans cette
+    remontee, un echec systematique reste indiagnosticable depuis les logs.
+    """
+    response = getattr(exc, "response", None)
+    if response is None:
+        return ""
+    try:
+        texte = response.text.strip()
+    except Exception:  # noqa: BLE001 — un detail d'erreur ne doit jamais masquer l'erreur
+        return ""
+    return f" | reponse Gamma : {texte[:300]}" if texte else ""
 
 
 @dataclass(frozen=True)
@@ -154,7 +177,14 @@ class GammaApiClient:
             "textMode": "preserve",
             "format": "document",
             "exportAs": "pdf",
-            "cardSplit": "auto",
+            # "auto" laissait Gamma choisir le nombre de cartes : il applique
+            # alors son defaut (10) et RESUME tout le reste. Mesure sur le BP
+            # SYNAPSES : 38 752 mots -> 3 835, 20 chapitres fusionnes en 10
+            # cartes, 5 verticales sur 10 effacees. Gamma n'etait pas un
+            # moteur de mise en page, c'etait un resumeur.
+            # "inputTextBreaks" : le decoupage vient des `---` du markdown,
+            # donc de NOUS. Une carte par chapitre, rien a decider.
+            "cardSplit": "inputTextBreaks",
             "title": title,
         }
         effective_theme = theme_id or self._theme_id or str(
@@ -173,7 +203,12 @@ class GammaApiClient:
             response.raise_for_status()
             payload = response.json()
         except httpx.HTTPError as exc:
-            raise GammaError(f"Echec creation Gamma : {exc}") from exc
+            # Le corps de la reponse porte la RAISON ; le statut seul ne dit
+            # rien. Sans lui, un « 400 Bad Request » nu a masque pendant tout
+            # ce temps un simple « Theme with id evkha-default not found » —
+            # diagnostic impossible depuis les logs, et repli WeasyPrint
+            # silencieux a chaque dossier.
+            raise GammaError(f"Echec creation Gamma : {exc}{_detail(exc)}") from exc
 
         generation_id = str(payload.get("generationId", "")).strip()
         if not generation_id:

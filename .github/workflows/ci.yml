@@ -19,7 +19,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: python -m pip install -e ".[dev]"
+        # Tous les extras, pas seulement [dev] : sans eux, mypy ne voit ni
+        # anthropic, ni httpx, ni bs4, et signale des dizaines de faux
+        # "import-not-found" qui masquent les vraies erreurs. La CI echouait
+        # ainsi sur main a chaque commit sans que personne ne puisse s'en
+        # servir comme garde-fou. On installe ce que la prod installe.
+        run: python -m pip install -e ".[dev,ai,search,pdf]"
 
       - name: Ruff
         run: ruff check .
@@ -31,6 +36,14 @@ jobs:
         run: pytest
 
       - name: Check migrations
+        env:
+          # Sans .env, DJANGO_DEBUG retombe sur False et le runner se croit en
+          # production : `check_webhook_secrets` passe alors de Warning a Error
+          # et fait echouer l'etape sur des secrets qui n'ont AUCUNE raison
+          # d'exister en CI. On ne neutralise pas le controle (il reste bloquant
+          # en prod, ou DEBUG=False et ou les secrets doivent etre definis) : on
+          # dit simplement la verite sur cet environnement.
+          DJANGO_DEBUG: "True"
         run: python manage.py makemigrations --check --dry-run
 
   secrets:

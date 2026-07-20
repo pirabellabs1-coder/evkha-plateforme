@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from .blueprints import SectionKind, chapters_for_deliverable
 from .charts import replace_chart_fences
+from .internal_labels import callout_alternation, labels_alternation
 from .models import ChapterStatus, GenerationJob
 
 # Marqueurs de pipeline interne a retirer du livrable client (Rendering Engine).
@@ -128,44 +129,68 @@ class RenderedSection:
     body: str
 
 
+# Filet horizontal markdown : une ligne de 3 tirets ou plus, seule.
+# Claude en parseme les chapitres (64 sur le BP SYNAPSES) comme separateurs
+# decoratifs. Or `---` est EXACTEMENT ce que Gamma lit comme rupture de carte :
+# 64 filets + 19 vraies ruptures = 83 cartes, et Gamma refuse au-dela de 60.
+# Ils sont retires quand on compose le markdown destine a Gamma, pour que seules
+# NOS ruptures comptent. La forme `|---|` des tableaux ne matche pas (pipes).
+_RULE_LINE_RE = re.compile(r"^[ \t]*-{3,}[ \t]*$\n?", re.MULTILINE)
+
+
 @dataclass(frozen=True)
 class ClientDocument:
     title: str
     sections: tuple[RenderedSection, ...]
 
-    def to_markdown(self) -> str:
+    def to_markdown(self, *, card_breaks: bool = False) -> str:
+        """Document complet en markdown.
+
+        `card_breaks` insère un `---` entre les sections. C'est le séparateur
+        que Gamma attend avec `cardSplit=inputTextBreaks` : une carte par
+        section, découpage imposé par NOUS.
+
+        Sans ces séparateurs, il faut laisser Gamma décider (`cardSplit=auto`)
+        — et son défaut est de 10 cartes. Mesuré sur le BP SYNAPSES : 38 752
+        mots compressés en 10 cartes, 90 % du document perdu, 5 verticales sur
+        10 effacées, dont le self-stockage et l'hébergement de serveurs — soit
+        exactement le défaut que la cliente reprochait au pipeline.
+        """
         lines = [f"# {self.title}", ""]
-        for section in self.sections:
+        for index, section in enumerate(self.sections):
+            if card_breaks and index > 0:
+                lines.append("---")
+                lines.append("")
             lines.append(f"## {section.number}. {section.title}")
             lines.append("")
-            lines.append(section.body.strip())
+            body = section.body.strip()
+            if card_breaks:
+                body = _RULE_LINE_RE.sub("", body)
+            lines.append(body)
             lines.append("")
         return "\n".join(lines).strip() + "\n"
 
 
-_CALLOUT_MARKER_RE = re.compile(r"\[\[/?(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]")
+_CALLOUT_MARKER_RE = re.compile(rf"\[\[/?({callout_alternation()})\]\]")
 
 # Intitules techniques du contexte de generation. Ne doivent JAMAIS fuiter
 # dans le livrable (brief client juillet 2026 : "en parfaite coherence avec
 # les FAITS_VERROUILLES" est apparu tel quel dans un PDF livre).
-_INTERNAL_LABEL_NAMES = (
-    "FAITS_VERROUILLES", "VARIABLES_PROJET", "DONNEES_CLIENT",
-    "REPERES_DEJA_ENONCES", "RESUME_OPERATIONNEL_PRECEDENT",
-    "RESUME_OPERATIONNEL", "FICHE_SECTORIELLE", "SOURCES_WEB",
-    "CHAPITRE_CIBLE", "CHAPITRE_PARENT", "SECTIONS_PRECEDENTES",
-    "PROMPT_KEY", "SECTION_A_GENERER", "CONSIGNE_DU_CHAPITRE",
-    "DATE_DU_JOUR", "CONTEXTE_ETUDE_PRECEDENTE",
-)
+#
+# La liste vit desormais dans `internal_labels.py`, source UNIQUE partagee avec
+# les deux niveaux du gate. Elle etait auparavant recopiee ici et deux fois
+# dans gate.py : ajouter un label au contexte sans penser aux trois copies
+# rouvrait le defaut (constate sur CHIFFRES_A_CITER).
 # 1) Occurrence parenthesee : "(FAITS_VERROUILLES)" -> supprimee entierement.
 _INTERNAL_LABEL_PAREN_RE = re.compile(
-    r"\s*\(\s*(?:" + "|".join(_INTERNAL_LABEL_NAMES) + r")\s*\)"
+    r"\s*\(\s*(?:" + labels_alternation() + r")\s*\)"
 )
 # 2) Occurrence nue dans la prose -> remplacee par une designation naturelle.
 # L'article precedent eventuel (les/le/la/aux/des/du...) est absorbe pour ne
 # pas produire "les les donnees de reference" apres substitution.
 _INTERNAL_LABEL_BARE_RE = re.compile(
     r"(?:\b(?:les|le|la|l'|aux|au|des|de|du)\s+)?"
-    r"\b(?:" + "|".join(_INTERNAL_LABEL_NAMES) + r")\b",
+    r"\b(?:" + labels_alternation() + r")\b",
     re.IGNORECASE,
 )
 
@@ -622,12 +647,33 @@ def _md_to_html(text: str) -> str:
     return "\n".join(out)
 
 
-def render_branded_html(job: GenerationJob, *, branding: BrandingContext | None = None) -> str:
+def _decouper_si_demande(html: str, chunk_tables: bool) -> str:
+    """Decoupe les tableaux longs, sauf si le mode reparation l'interdit."""
+    return chunk_long_tables(html) if chunk_tables else html
+
+
+def render_branded_html(
+    job: GenerationJob,
+    *,
+    branding: BrandingContext | None = None,
+    chunk_tables: bool = True,
+) -> str:
     """Rend le livrable complet en HTML A4 brandé client.
 
     Utilisé par WeasyPrintPdfClient pour générer le PDF final (D8).
     Le branding est extrait de l'intake Tally (LOGO_URL, COULEUR_PRINCIPALE,
     COULEUR_SECONDAIRE, NOM_ENTREPRISE) avec fallback palette EVKHA.
+
+    `chunk_tables=False` desactive le decoupage des tableaux longs. C'est la
+    SEULE etape du rendu qui reecrit la structure du document — donc la seule
+    qui peut en perdre. Elle a deja detruit les lignes des tableaux financiers
+    (`tbody.decompose()`), et le client a recu `<tbody><></><></></tbody>` a la
+    place du compte de resultat.
+
+    Le bug est corrige, mais `documents/services.py` s'en sert comme REPARATION :
+    si le controle de sortie detecte une perte, on re-rend sans decoupage et on
+    recontrole. Un tableau qui deborde d'une page est moins beau ; un tableau
+    ampute est faux. On prefere toujours le moins beau.
     """
     from django.template.loader import render_to_string
 
@@ -649,13 +695,15 @@ def render_branded_html(job: GenerationJob, *, branding: BrandingContext | None 
             # (BeautifulSoup). L'ordre est critique : chunk_long_tables doit
             # opérer sur du HTML valide (post close_dangling_html_tags) pour
             # que le parser DOM ne rencontre pas de balises ouvertes.
-            "body_html": chunk_long_tables(
-                close_dangling_html_tags(strip_callout_markers(_md_to_html(s.body)))
+            "body_html": _decouper_si_demande(
+                close_dangling_html_tags(strip_callout_markers(_md_to_html(s.body))),
+                chunk_tables,
             ),
             # Idem sur les visual breaks : un <table> non fermé dans un break
             # absorberait tous les chapitres suivants dans WeasyPrint.
-            "visual_after_html": chunk_long_tables(
-                close_dangling_html_tags(visual_breaks.get(s.number, ""))
+            "visual_after_html": _decouper_si_demande(
+                close_dangling_html_tags(visual_breaks.get(s.number, "")),
+                chunk_tables,
             ),
         }
         for s in document.sections
@@ -792,9 +840,30 @@ def chunk_long_tables(html_content: str, max_rows: int = _MAX_ROWS_PER_TABLE) ->
             continue
 
         thead = table.find("thead")
-        table_attrs = dict(table.attrs)
+        # bs4 rend les attributs multi-valués (class, rel...) sous forme de
+        # liste : ["chapter__body", "wide"]. On les re-sérialise en chaîne,
+        # sinon le nouveau <table> hérite d'un attribut invalide et perd son
+        # style — le tableau scindé ne ressemblerait plus au tableau d'origine.
+        table_attrs: dict[str, str] = {
+            key: " ".join(value) if isinstance(value, list) else str(value)
+            for key, value in table.attrs.items()
+        }
 
-        # Vide le <tbody> original
+        # DETACHER les lignes AVANT de supprimer le <tbody>.
+        #
+        # `tbody.decompose()` detruit l'element ET TOUS SES ENFANTS, et libere
+        # leur memoire. Or `rows` contient precisement ces enfants : les lignes
+        # etaient donc detruites juste avant d'etre recopiees, et le code
+        # reinserait des cadavres. Rendu final :
+        #     <tbody><></><></><></>...</tbody>
+        # C'est LA cause des « tableaux tronques » signales de longue date par
+        # la cliente. Le defaut ne frappe que les tableaux de plus de
+        # `max_rows` lignes — donc les tableaux financiers, les plus denses et
+        # les plus regardes dans un dossier bancaire.
+        #
+        # `extract()` detache sans detruire : la ligne survit et reste
+        # reinserable.
+        lignes = [row.extract() for row in rows]
         tbody.decompose()
         new_tbody = soup.new_tag("tbody")
         table.append(new_tbody)
@@ -802,7 +871,7 @@ def chunk_long_tables(html_content: str, max_rows: int = _MAX_ROWS_PER_TABLE) ->
         current_tbody = new_tbody
         row_count = 0
 
-        for row in rows:
+        for row in lignes:
             if row_count >= max_rows:
                 # Saut de page WeasyPrint
                 break_div = soup.new_tag(
@@ -810,7 +879,11 @@ def chunk_long_tables(html_content: str, max_rows: int = _MAX_ROWS_PER_TABLE) ->
                 )
                 current_table.insert_after(break_div)
                 # Nouveau tableau identique (mêmes attributs CSS)
-                new_table = soup.new_tag("table", **table_attrs)
+                # `attrs=` plutot que `**table_attrs` : le dépaquetage entre en
+                # collision avec les parametres nommes de new_tag (namespace,
+                # nsprefix, sourceline...), que mypy tente alors de satisfaire
+                # avec les valeurs du dict.
+                new_table = soup.new_tag("table", attrs=table_attrs)
                 if thead:
                     from bs4 import BeautifulSoup as _BS
 

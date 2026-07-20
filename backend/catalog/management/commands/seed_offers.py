@@ -7,6 +7,8 @@ Si un webhook renvoie un slug différent, mettre à jour le slug dans Django Adm
 """
 from __future__ import annotations
 
+from typing import Any
+
 from django.core.management.base import BaseCommand
 
 from catalog.models import DeliverableType, Offer
@@ -121,7 +123,7 @@ class Command(BaseCommand):
             slug, name, deliverable_type, credits_per_month,
             is_subscription, is_extra_credit, systeme_product_name,
         ) in _OFFERS:
-            defaults: dict = {
+            defaults: dict[str, Any] = {
                 "name": name,
                 "deliverable_type": deliverable_type,
                 "credits_per_month": credits_per_month,

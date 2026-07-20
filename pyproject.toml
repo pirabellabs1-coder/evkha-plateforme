@@ -13,6 +13,12 @@ dependencies = [
   "django-environ>=0.11,<1",
   "gunicorn>=22,<24",
   "psycopg[binary]>=3.2,<4",
+  # `generation/blocks.py` importe pydantic AU NIVEAU MODULE. La dependance
+  # n'etait declaree nulle part : elle n'arrivait que transitivement via
+  # `anthropic`, lui-meme dans l'extra optionnel [ai]. Une installation sans
+  # cet extra plantait donc a l'import. Latent en prod (qui installe [ai]),
+  # mais reel.
+  "pydantic>=2,<3",
   "redis>=5,<6",
 ]
 
@@ -35,6 +41,10 @@ pdf = [
   # BeautifulSoup4 : post-traitement DOM pour le chunking déterministe des
   # tableaux longs avant rendu WeasyPrint (chunk_long_tables).
   "beautifulsoup4>=4.12,<5",
+  # pypdf : relit le PDF rendu par Gamma pour verifier qu'il n'a pas ampute le
+  # document (delivery/gamma_fidelite.py). Gamma REECRIT le contenu — mesure
+  # sur le BP SYNAPSES : 38 752 mots -> 3 835, 5 verticales sur 10 effacees.
+  "pypdf>=4,<7",
 ]
 dev = [
   "django-stubs[compatible-mypy]>=5.2,<6",
@@ -72,7 +82,17 @@ exclude = ["backend/.*/migrations/.*"]
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-module = ["celery", "environ", "anthropic", "weasyprint"]
+# Dependances sans stubs. `ddgs` / `duckduckgo_search` sont en plus des extras
+# optionnels (`pip install systeme-evkha[search]`) : elles sont importees dans
+# un try/except ImportError et peuvent legitimement etre absentes de l'env.
+module = [
+    "celery",
+    "environ",
+    "anthropic",
+    "weasyprint",
+    "ddgs",
+    "duckduckgo_search",
+]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

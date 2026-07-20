@@ -29,6 +29,24 @@ def test_phase0_scaffolds_the_nine_domain_apps() -> None:
 
 
 def test_offer_contract_freezes_gamma_delivery_and_retention_defaults() -> None:
+    """Contrat des defauts d'une offre.
+
+    `gamma_enabled` etait gele a False. C'est precisement ce qui a maintenu
+    Gamma dormant : le code de mise en page etait ecrit, teste et branche, mais
+    aucune offre ne l'activait, `seed_offers` ne le renseignait pas, et aucune
+    migration ne l'a jamais bascule. Gamma n'a donc jamais tourne sur un seul
+    dossier, pas meme en production — alors que `delivery/services.py` le
+    designe comme « le moteur de mise en page privilegie », WeasyPrint n'etant
+    que le repli. Le contrat gelait un defaut qui contredisait l'intention.
+
+    Gamma a donc ete active partout pour etre TESTE. Le test a montre qu'il
+    borne une carte a ~500 mots : aucun livrable EVKHA n'y rentre (BP 25 900
+    mots pour 10 000 de capacite). Mesure : 38 707 mots en entree, 10 121 en
+    sortie, cinq verticales sur dix effacees.
+
+    Decision (juillet 2026) : WeasyPrint est le moteur, Gamma reste
+    disponible offre par offre pour un livrable court.
+    """
     offer = Offer(name="Etude de marche", slug="etude-marche", deliverable_type="market_study")
 
     assert offer.gamma_enabled is False

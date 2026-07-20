@@ -24,6 +24,66 @@ _MARKET_SIZE_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 
+# ── Trois niveaux de marche (Evangeline, question 1 du 17/07/2026) ──────────
+#
+# « On a suite aux deux premiers chapitres : des chiffres mondiaux, continentaux,
+# nationaux et on les garde pour continuer l'etude sur la meme lignee. »
+#
+# Le motif `_MARKET_SIZE_PATTERNS` capturait deja les trois niveaux dans une
+# cle unique. On garde le meme pattern souple, on DISCRIMINE la cle apres :
+# rechercher un qualificatif de zone dans la fenetre du match, plutot que
+# d'exiger « marche mondial ... pese X » a la lettre. Constate sur SYNAPSES
+# v2 : le modele redige « la croissance europeenne est de 8 % », « a l'echelle
+# europeenne le marche represente 8 milliards » — trois patterns rigides ne
+# les capturaient pas, un pattern souple + discrimination par mot cle si.
+_NIVEAUX_QUALIFIANTS: dict[str, re.Pattern[str]] = {
+    "mondial":     re.compile(
+        r"\b(?:mondial(?:e|es|aux)?|global(?:e|es|aux)?|international(?:e|es|aux)?|"
+        r"plan[ée]taire)\b",
+        re.IGNORECASE,
+    ),
+    "continental": re.compile(
+        r"\b(?:europ[ée]en(?:ne|nes|s)?|europe|africain(?:e|es|s)?|"
+        r"asiatique(?:s)?|am[ée]ricain(?:e|es|s)?|maghr[ée]bin(?:e|es|s)?|"
+        r"caribe[ée]n(?:ne|nes|s)?)\b",
+        re.IGNORECASE,
+    ),
+    "national":    re.compile(
+        r"\b(?:national(?:e|es|aux)?|domestique(?:s)?|hexagonal(?:e|es|aux)?|"
+        r"francais(?:e|es)?)\b",
+        re.IGNORECASE,
+    ),
+}
+
+# Mesure de marche : un montant en Md/M/euros/FCFA, precede d'un verbe de
+# valeur, sur une fenetre de contexte assez large pour englober le
+# qualificatif de zone.
+_TAILLE_MARCHE_UNIVERSAL = re.compile(
+    r"march[ée][^.\n]{0,80}?"
+    r"(?:de|estim[ée]\s+[àa]|atteint|p[èe]se|repr[ée]sente|s['’]\s*[ée]l[eè]ve\s+[àa])"
+    r"\s+(\d+(?:[.,]\d+)?)\s*(milliards?|mds?|millions?|m€|md€|mds?€|mfcfa)",
+    re.IGNORECASE,
+)
+# TCAC en pourcentage, meme logique de contexte souple.
+_TCAC_UNIVERSAL = re.compile(
+    r"(?:TCAC|taux\s+de\s+croissance(?:\s+annuel\s+moyen)?|croissance)"
+    r"[^.\n]{0,60}?"
+    r"(?:de|est\s+de|:|s['’]\s*[ée]l[eè]ve\s+[àa]|atteint)\s+"
+    r"(\d+(?:[.,]\d+)?)\s*%",
+    re.IGNORECASE,
+)
+
+
+def _classer_niveau(contexte: str) -> str | None:
+    """Retourne 'mondial', 'continental' ou 'national' si un qualificatif de
+    zone se trouve dans le contexte proche. Sinon None : la mention est
+    globale sans niveau precis, on n'ecrase pas une eventuelle valeur par
+    niveau deja verrouillee."""
+    for niveau, motif in _NIVEAUX_QUALIFIANTS.items():
+        if motif.search(contexte):
+            return niveau
+    return None
+
 # Chiffres financiers projet — verrouilles pour eviter les glissements
 # silencieux d'un chapitre a l'autre (CA cible qui passe de 285 000 a
 # 287 500 EUR, seuil qui varie de 3 %, panier moyen qui s'ajuste sans
@@ -178,6 +238,25 @@ def upsert_locked_fact(
 
     max_len = CoherenceFact._meta.get_field("value").max_length
     if max_len is not None and len(value) > max_len:
+        # Troncature signalee, jamais silencieuse (audit juillet 2026) : une
+        # liste de verticales tronquee perd sa derniere activite, et le check
+        # de completude du gate cherche alors un libelle coupe qu'il ne
+        # trouvera jamais — faux positif bloquant, cause introuvable.
+        OperationalIncident.objects.get_or_create(
+            title=f"Fait client tronque {kind}:{key} job {job.id}",
+            defaults={
+                "severity": IncidentSeverity.MEDIUM,
+                "job": job,
+                "order": job.order,
+                "details": {
+                    "cle": key,
+                    "longueur_recue": len(value),
+                    "longueur_max": max_len,
+                    "valeur_tronquee": value[:max_len],
+                    "hint": "Raccourcir la valeur dans le brief ou augmenter le champ.",
+                },
+            },
+        )
         value = value[:max_len]
 
     existing = CoherenceFact.objects.filter(job=job, kind=kind, key=key).first()
@@ -391,6 +470,60 @@ def extract_and_lock_chiffres_cles(job: GenerationJob, chapter_number: int, cont
                 source_chapter_number=chapter_number,
             )
             break
+
+    # Trois niveaux distincts (mondial / continental / national), verrouilles
+    # separement. Consigne d'Evangeline (Q1 du 17/07/2026) : les chiffres des
+    # deux premiers chapitres EM doivent etre gardes tout le long. Une seule
+    # cle globale ne suffisait pas ; l'IA melangeait les niveaux d'un chapitre
+    # a l'autre.
+    #
+    # Approche : un seul motif universel qui capture le montant, puis on
+    # classe la MENTION par le qualificatif de zone present dans le contexte
+    # proche. Refonte apres SYNAPSES v2 : 3 patterns rigides ne capturaient
+    # rien parce que le modele redige naturellement (« la croissance
+    # europeenne est de 8 % ») au lieu de « marche europeen ... pese X ».
+    for match in _TAILLE_MARCHE_UNIVERSAL.finditer(text):
+        # On elargit le contexte a la phrase courante uniquement, en
+        # remontant jusqu'au precedent point ou saut de ligne. Ainsi
+        # « A l'echelle internationale, le marche pese 30 milliards »
+        # est classe « mondial » (qualificatif AVANT le match), sans qu'une
+        # phrase precedente ne pollue la classification.
+        avant = text[max(0, match.start() - 120) : match.start()]
+        borne = max(avant.rfind("."), avant.rfind("\n"), avant.rfind("!"),
+                    avant.rfind("?"))
+        contexte = (avant[borne + 1 :] if borne >= 0 else avant) + match.group(0)
+        niveau = _classer_niveau(contexte)
+        if niveau is None:
+            continue
+        value = f"{match.group(1)} {match.group(2)}".strip()
+        upsert_locked_fact(
+            job=job,
+            kind=FactKind.MARKET_SIZE,
+            key=f"taille_marche_{niveau}",
+            value=value,
+            source_chapter_number=chapter_number,
+        )
+    for match in _TCAC_UNIVERSAL.finditer(text):
+        # On elargit le contexte a la phrase courante uniquement, en
+        # remontant jusqu'au precedent point ou saut de ligne. Ainsi
+        # « A l'echelle internationale, le marche pese 30 milliards »
+        # est classe « mondial » (qualificatif AVANT le match), sans qu'une
+        # phrase precedente ne pollue la classification.
+        avant = text[max(0, match.start() - 120) : match.start()]
+        borne = max(avant.rfind("."), avant.rfind("\n"), avant.rfind("!"),
+                    avant.rfind("?"))
+        contexte = (avant[borne + 1 :] if borne >= 0 else avant) + match.group(0)
+        niveau = _classer_niveau(contexte)
+        if niveau is None:
+            continue
+        value = match.group(1).replace(",", ".") + "%"
+        upsert_locked_fact(
+            job=job,
+            kind=FactKind.GROWTH_RATE,
+            key=f"tcac_{niveau}",
+            value=value,
+            source_chapter_number=chapter_number,
+        )
 
     # Chiffres financiers projet : CA cible, seuil de rentabilite, panier
     # moyen, marge brute. Verrouilles a la 1ere mention, les mentions

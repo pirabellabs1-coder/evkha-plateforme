@@ -13,9 +13,12 @@ from __future__ import annotations
 
 from io import StringIO
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
+
+if TYPE_CHECKING:
+    from integrations.gamma import GammaClient
 
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
@@ -52,7 +55,12 @@ def test_tavily_client_parse_la_reponse(monkeypatch: pytest.MonkeyPatch) -> None
 
     captured: dict[str, Any] = {}
 
-    def fake_post(url, headers=None, json=None, timeout=None) -> _FakeResponse:  # noqa: ANN001
+    def fake_post(
+        url: str,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> _FakeResponse:
         captured["url"] = url
         captured["headers"] = headers
         captured["body"] = json
@@ -249,14 +257,25 @@ def test_gamma_client_create_poll_export(monkeypatch: pytest.MonkeyPatch) -> Non
 
     from integrations.gamma import GammaApiClient
 
-    def fake_post(url, headers=None, json=None, timeout=None) -> _FakeResponse:  # noqa: ANN001
+    def fake_post(
+        url: str,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> _FakeResponse:
         assert url.endswith("/generations")
+        assert headers is not None
+        assert json is not None
         assert headers["X-API-KEY"] == "gam-test"
         assert json["textMode"] == "preserve"
         assert json["format"] == "document"
         return _FakeResponse({"generationId": "gen-42"})
 
-    def fake_get(url, headers=None, timeout=None) -> _FakeResponse:  # noqa: ANN001
+    def fake_get(
+        url: str,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> _FakeResponse:
         assert url.endswith("/generations/gen-42")
         return _FakeResponse({
             "status": "completed",
@@ -327,22 +346,29 @@ def test_ensure_gamma_repli_sur_erreur(em_submission: IntakeSubmission) -> None:
 
     job = bootstrap_generation_job(em_submission)
     for c in job.chapters.all():
-        c.content, c.status = "Contenu.", ChapterStatus.DONE
+        # Le check `chapitre_avorte` (30 % du max_words) refuserait « Contenu. »
+        # sur les blueprints EM jusqu'a 1 800 mots. On donne au chapitre un
+        # corps suffisant pour ne pas re-mordre sur d'autres tests.
+        c.content, c.status = ("Contenu detaille du chapitre. " * 260), ChapterStatus.DONE
         c.save(update_fields=["content", "status"])
     job.status = JobStatus.DONE
     job.save(update_fields=["status"])
 
     class _BoomGamma:
-        def create_presentation(self, **kw):  # noqa: ANN003
+        def create_presentation(self, **kw: Any) -> dict[str, Any]:
             raise GammaError("boom")
 
-        def wait_until_ready(self, **kw):  # noqa: ANN003
+        def wait_until_ready(self, **kw: Any) -> dict[str, Any]:
             raise GammaError("boom")
 
-        def export(self, **kw):  # noqa: ANN003
+        def export(self, **kw: Any) -> dict[str, Any]:
             raise GammaError("boom")
 
-    assert ensure_gamma_artifacts(job, gamma_client=_BoomGamma()) == []
+    # cast : doublure qui ne leve que des GammaError, elle n'implemente
+    # volontairement pas toute la surface de GammaClient.
+    assert ensure_gamma_artifacts(
+        job, gamma_client=cast("GammaClient", _BoomGamma())
+    ) == []
 
 
 @pytest.mark.django_db
@@ -368,8 +394,13 @@ def test_gamma_list_themes(monkeypatch: pytest.MonkeyPatch) -> None:
 
     from integrations.gamma import GammaApiClient
 
-    def fake_get(url, headers=None, timeout=None):  # noqa: ANN001
+    def fake_get(
+        url: str,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> _FakeResponse:
         assert url.endswith("/themes")
+        assert headers is not None
         assert headers["X-API-KEY"] == "gam-test"
         return _FakeResponse({"themes": [
             {"id": "th-1", "name": "Corporate"},
@@ -415,11 +446,15 @@ def test_verifier_gate_rapport_ok(em_submission: IntakeSubmission) -> None:
     from django.core.management import call_command
 
     job = bootstrap_generation_job(em_submission)
+    # `chapitre_avorte` planche a 30 % du max_words du blueprint EM (jusqu'a
+    # 1 800 mots). Le corps est repete pour tenir cette cible et rester en
+    # dehors du perimetre du test (verifier que `verifier_gate` reussit).
+    corps = (
+        "Analyse detaillee et chiffree du marche du coworking a Lyon, "
+        "avec des donnees locales et une conclusion argumentee complete. "
+    ) * 60
     for c in job.chapters.all():
-        c.content = (
-            "Analyse détaillée et chiffrée du marché du coworking à Lyon, "
-            "avec des données locales et une conclusion argumentée complète."
-        )
+        c.content = corps
         c.status = ChapterStatus.DONE
         c.save(update_fields=["content", "status"])
     job.status = JobStatus.DONE
@@ -446,3 +481,64 @@ def test_lexique_packager_grammatical() -> None:
     assert "produit structuré" in out
     assert "services structurés" in out
     assert "solutions structurées" in out
+
+
+# ── Moteur de mise en page : WeasyPrint, pas Gamma ──────────────────────────
+#
+# Gamma a ete active partout puis TESTE sur un vrai dossier (juillet 2026). Il
+# borne une carte a ~500 mots, soit `nb_chapitres x 500` de capacite. AUCUN
+# livrable EVKHA n'y rentre :
+#     business_plan      25 900 mots pour 10 000 de capacite
+#     market_study       32 400 pour 11 500
+#     business_strategy  26 400 pour 10 000
+#     competitor_study   16 600 pour  5 000
+# Mesure reelle : 38 707 mots en entree, 10 121 en sortie (26 %), et CINQ
+# verticales sur dix effacees avec le reglage d'origine.
+#
+# Ces tests figeaient l'inverse il y a peu ("Gamma actif par defaut"). C'etait
+# juste a ce moment-la : Gamma n'avait jamais tourne, il fallait le tester. On
+# l'a teste, on a mesure, on en tire la consequence.
+
+
+@pytest.mark.django_db
+def test_weasyprint_est_le_moteur_par_defaut() -> None:
+    """Une offre neuve ne passe pas par Gamma : il tronquerait le livrable."""
+    from catalog.models import DeliverableType, Offer
+
+    offre = Offer.objects.create(
+        name="Nouvelle offre", slug="offre-neuve",
+        deliverable_type=DeliverableType.BUSINESS_PLAN,
+    )
+
+    assert offre.gamma_enabled is False
+
+
+@pytest.mark.django_db
+def test_aucune_offre_du_catalogue_ne_passe_par_gamma() -> None:
+    """Les quatre livrables depassent tous la capacite de Gamma."""
+    from io import StringIO
+
+    from django.core.management import call_command
+
+    from catalog.models import Offer
+
+    call_command("seed_offers", stdout=StringIO())
+
+    assert Offer.objects.exists()
+    actives = list(
+        Offer.objects.filter(gamma_enabled=True).values_list("slug", flat=True)
+    )
+    assert not actives, (
+        f"Ces offres passeraient par Gamma, qui tronquerait leur livrable : {actives}"
+    )
+
+
+def test_le_flag_gamma_reste_disponible() -> None:
+    """Contre-epreuve : on desactive Gamma, on ne le supprime pas.
+
+    Le client, le controle de fidelite et le flag restent en place : une offre
+    courte et visuelle pourra le reactiver au cas par cas.
+    """
+    from catalog.models import Offer
+
+    assert Offer._meta.get_field("gamma_enabled") is not None

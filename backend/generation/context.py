@@ -7,17 +7,22 @@ from django.utils import timezone
 from intake.models import IntakeSubmission
 
 from .coherence import client_facts_as_context, generated_facts_as_context
-from .models import ChapterGeneration
+from .models import ChapterGeneration, GenerationJob
+from .substitution import tokens_catalogue
 
 ROLE_LINE = (
     "ROLE: Methode EVKHA, ton mentor, rendu client sans balises internes "
     "(jamais 'Etape', 'Point de controle' ni vocabulaire pipeline). "
-    "Les intitules techniques de ce contexte (VARIABLES_PROJET, "
-    "DONNEES_CLIENT, REPERES_DEJA_ENONCES, FICHE_SECTORIELLE, SOURCES_WEB, "
-    "RESUME_OPERATIONNEL_PRECEDENT, CHAPITRE_CIBLE, PROMPT_KEY, "
-    "SECTION_A_GENERER, FAITS_VERROUILLES) sont des reperes internes : "
-    "ils ne doivent JAMAIS apparaitre dans ta redaction, ni entre "
-    "parentheses, ni cites, ni reformules en 'faits verrouilles du dossier'. "
+    # On n'enumere QUE les labels reellement presents dans le contexte ci-dessous.
+    # Citer un token absent (l'ancien FAITS_VERROUILLES) pour l'interdire ne
+    # faisait que le reintroduire dans la fenetre du modele : interdire un mot
+    # en l'ecrivant est contre-productif (audit juillet 2026).
+    "Tout intitule technique ecrit en MAJUSCULES_AVEC_UNDERSCORES dans ce "
+    "contexte (VARIABLES_PROJET, DONNEES_CLIENT, REPERES_DEJA_ENONCES, "
+    "FICHE_SECTORIELLE, SOURCES_WEB, RESUME_OPERATIONNEL_PRECEDENT, "
+    "CHAPITRE_CIBLE, PROMPT_KEY) est un repere interne : "
+    "il ne doit JAMAIS apparaitre dans ta redaction, ni entre "
+    "parentheses, ni cite, ni reformule en 'faits verrouilles du dossier'. "
     "Si tu dois designer l'origine d'un chiffre client, ecris 'le "
     "previsionnel fourni par le porteur' ou equivalent naturel. "
     "Si VARIABLES_PROJET contient CONTEXTE_ETUDE_PRECEDENTE, appuie-toi sur "
@@ -75,6 +80,28 @@ def _date_line() -> str:
     )
 
 
+def _tokens_block(job: GenerationJob) -> str:
+    """Catalogue des tokens de substitution (Brique 1).
+
+    Le modele voit le nombre deja ecrit a cote du token : il n'a donc aucune
+    raison de l'estimer, et le token garantit que la valeur livree est celle du
+    brief, au caractere pres.
+    """
+    catalogue = tokens_catalogue(job)
+    if not catalogue:
+        return "CHIFFRES_A_CITER: aucun chiffre client scalaire fourni."
+    return (
+        "CHIFFRES_A_CITER (Brique 1 — substitution automatique) :\n"
+        + catalogue
+        + "\n\nREGLE : pour citer l'un de ces chiffres, ecris le token entre "
+        "doubles accolades (ex: {{emprunt}}), JAMAIS le nombre a la main et "
+        "JAMAIS une approximation ('environ', 'de l'ordre de'). Le token est "
+        "remplace automatiquement par la valeur exacte du brief avant "
+        "livraison. N'invente aucun token : seuls ceux listes ci-dessus "
+        "existent. Pour tout autre chiffre, rédige normalement."
+    )
+
+
 def build_context(chapter: ChapterGeneration) -> str:
     job = chapter.job
     submission = IntakeSubmission.objects.filter(order=job.order).first()
@@ -108,6 +135,7 @@ def build_context(chapter: ChapterGeneration) -> str:
             f"SOURCES_WEB:\n{research_block}",
             "DONNEES_CLIENT (brief client, intangibles, priorite absolue):\n"
             + client_facts_as_context(job),
+            _tokens_block(job),
             "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
             "precedents, a reprendre a l'identique, jamais presentes comme "
             "'faits verrouilles'):\n" + generated_facts_as_context(job),

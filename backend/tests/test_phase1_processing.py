@@ -97,7 +97,11 @@ def test_process_tally_event_flags_missing_required_variables() -> None:
 
     submission = IntakeSubmission.objects.get(order__systeme_order_id="order_456")
     assert submission.status == IntakeStatus.INCOMPLETE
-    assert submission.normalized_variables == {"SECTEUR": "beaute", "PAYS": "France", "ZONE": "France"}
+    assert submission.normalized_variables == {
+        "SECTEUR": "beaute",
+        "PAYS": "France",
+        "ZONE": "France",
+    }
     assert set(submission.missing_fields) == {"PROJET"}
 
 

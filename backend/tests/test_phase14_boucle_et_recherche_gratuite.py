@@ -9,13 +9,15 @@ Couvre :
 """
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from generation.coherence import seed_locked_facts_from_variables
 from generation.gate import GateFailure, GateReport
-from generation.models import ChapterStatus, JobStatus
+from generation.models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from generation.services import bootstrap_generation_job
 from intake.models import IntakeStatus, IntakeSubmission
 from integrations.claude import ClaudeResult
@@ -59,7 +61,7 @@ def test_duckduckgo_client_mappe_les_resultats(monkeypatch: pytest.MonkeyPatch) 
     fake_mod = types.ModuleType("ddgs")
 
     class _DDGS:
-        def text(self, query, max_results=5):  # noqa: ANN001
+        def text(self, query: str, max_results: int = 5) -> list[dict[str, str]]:
             return [
                 {"title": "INSEE coworking", "href": "https://insee.fr/a",
                  "body": "Le marché pèse 1,2 Md€."},
@@ -79,7 +81,7 @@ def test_duckduckgo_client_mappe_les_resultats(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.fixture
-def bp_job(db) -> object:  # noqa: ANN001
+def bp_job(db: None) -> GenerationJob:
     offer = Offer.objects.create(
         name="BP", slug="bp-corr", deliverable_type=DeliverableType.BUSINESS_PLAN
     )
@@ -91,6 +93,11 @@ def bp_job(db) -> object:  # noqa: ANN001
         normalized_variables={
             "SECTEUR": "coworking", "PAYS": "France", "ZONE": "Annecy",
             "PROJET": "SYNAPSES", "EMPRUNT": "920 000 €",
+            # Etat chiffre complet : sans lui, le gate bloque desormais le BP
+            # sur `etat_chiffre_client` avant meme d'examiner la coherence.
+            "INVESTISSEMENT_TOTAL": "1 250 000 €",
+            "CA_PREVISIONNEL": "250 272 € / 296 000 €",
+            "RESULTAT_NET_PREVISIONNEL": "44 245 €",
         },
     )
     job = bootstrap_generation_job(submission)
@@ -98,38 +105,47 @@ def bp_job(db) -> object:  # noqa: ANN001
     return job
 
 
-def _mark_all_done(job: object, body: str) -> None:
-    for c in job.chapters.all():  # type: ignore[attr-defined]
+def _mark_all_done(job: GenerationJob, body: str) -> None:
+    for c in job.chapters.all():
         c.content, c.status = body, ChapterStatus.DONE
         c.save(update_fields=["content", "status"])
-    job.status = JobStatus.DONE  # type: ignore[attr-defined]
-    job.save(update_fields=["status"])  # type: ignore[attr-defined]
+    job.status = JobStatus.DONE
+    job.save(update_fields=["status"])
 
 
 @pytest.mark.django_db
 def test_boucle_regenere_le_chapitre_fautif(
-    bp_job: object, monkeypatch: pytest.MonkeyPatch
+    bp_job: GenerationJob, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Un chapitre avec emprunt erroné est régénéré avec la bonne valeur -> gate OK."""
     from generation import correction as correction_mod
 
+    # Le check `chapitre_avorte` planche a 30 % du max_words du blueprint.
+    # On repete le paragraphe pour tenir cette cible sans changer le sens du
+    # test (verifier la valeur d'emprunt citee, pas la longueur).
     good_body = (
         "Le financement repose sur un emprunt de 920 000 € sur 7 ans, "
-        "conforme au plan du porteur, avec une analyse complète et argumentée."
-    )
+        "conforme au plan du porteur, avec une analyse complete et argumentee. "
+    ) * 60
     bad_body = (
         "Le financement repose sur un emprunt de 300 000 € sur 7 ans, "
-        "chiffre recalculé, avec une analyse complète et argumentée du projet."
-    )
+        "chiffre recalcule, avec une analyse complete et argumentee du projet. "
+    ) * 60
     _mark_all_done(bp_job, good_body)
     # Chapitre 14 fautif (emprunt ÷3)
-    ch14 = bp_job.chapters.get(chapter_number=14)  # type: ignore[attr-defined]
+    ch14 = bp_job.chapters.get(chapter_number=14)
     ch14.content = bad_body
     ch14.save(update_fields=["content"])
 
-    captured: dict = {}
+    captured: dict[str, Any] = {}
 
-    def fake_regenerate(job, chapter, *, corrective_note, client=None):  # noqa: ANN001
+    def fake_regenerate(
+        job: GenerationJob,
+        chapter: ChapterGeneration,
+        *,
+        corrective_note: str,
+        client: object = None,
+    ) -> None:
         captured["note"] = corrective_note
         captured["num"] = chapter.chapter_number
         chapter.content = good_body  # la régénération corrige
@@ -146,7 +162,7 @@ def test_boucle_regenere_le_chapitre_fautif(
 
 @pytest.mark.django_db
 def test_boucle_bornee_ne_boucle_pas_indefiniment(
-    bp_job: object, monkeypatch: pytest.MonkeyPatch
+    bp_job: GenerationJob, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Si la régénération ne corrige rien, la boucle s'arrête après max_rounds."""
     from generation import correction as correction_mod
@@ -158,9 +174,15 @@ def test_boucle_bornee_ne_boucle_pas_indefiniment(
     )
     _mark_all_done(bp_job, bad_body)
 
-    calls = {"n": 0}
+    calls: dict[str, int] = {"n": 0}
 
-    def fake_regenerate(job, chapter, *, corrective_note, client=None):  # noqa: ANN001
+    def fake_regenerate(
+        job: GenerationJob,
+        chapter: ChapterGeneration,
+        *,
+        corrective_note: str,
+        client: object = None,
+    ) -> None:
         calls["n"] += 1  # ne corrige jamais
 
     monkeypatch.setattr(runner_mod, "regenerate_chapter", fake_regenerate)
@@ -173,18 +195,24 @@ def test_boucle_bornee_ne_boucle_pas_indefiniment(
 
 @pytest.mark.django_db
 def test_boucle_ignore_echec_niveau_document(
-    bp_job: object, monkeypatch: pytest.MonkeyPatch
+    bp_job: GenerationJob, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Une verticale manquante (doc-level) ne déclenche pas de régénération ciblée."""
     from generation import correction as correction_mod
     from generation import runner as runner_mod
 
-    calls = {"n": 0}
+    calls: dict[str, int] = {"n": 0}
 
-    def fake_regenerate(job, chapter, *, corrective_note, client=None):  # noqa: ANN001
+    def fake_regenerate(
+        job: GenerationJob,
+        chapter: ChapterGeneration,
+        *,
+        corrective_note: str,
+        client: object = None,
+    ) -> None:
         calls["n"] += 1
 
-    def fake_gate(job):  # noqa: ANN001
+    def fake_gate(job: GenerationJob) -> GateReport:
         return GateReport(
             passed=False,
             failures=(GateFailure(check="verticales", detail="X absent", chapter_number=None),),
@@ -201,14 +229,14 @@ def test_boucle_ignore_echec_niveau_document(
 
 @pytest.mark.django_db
 def test_boucle_desactivee_si_zero_rondes(
-    bp_job: object, monkeypatch: pytest.MonkeyPatch
+    bp_job: GenerationJob, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from generation import correction as correction_mod
     from generation import runner as runner_mod
 
     _mark_all_done(bp_job, "emprunt de 300 000 € recalculé, analyse complète du projet.")
 
-    calls = {"n": 0}
+    calls: dict[str, int] = {"n": 0}
     monkeypatch.setattr(
         runner_mod, "regenerate_chapter",
         lambda *a, **k: calls.__setitem__("n", calls["n"] + 1),
@@ -219,21 +247,19 @@ def test_boucle_desactivee_si_zero_rondes(
 
 @pytest.mark.django_db
 def test_boucle_respecte_le_budget_par_dossier(
-    bp_job: object, monkeypatch: pytest.MonkeyPatch
+    bp_job: GenerationJob, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Plafond du dossier atteint -> aucune régénération lancée (règle d'or #1)."""
-    from decimal import Decimal
-
     from generation import correction as correction_mod
     from generation import runner as runner_mod
 
     _mark_all_done(bp_job, "emprunt de 300 000 € recalculé, analyse complète du projet.")
     # Épuise le budget : un chapitre porte tout le coût du plafond.
-    ch = bp_job.chapters.get(chapter_number=1)  # type: ignore[attr-defined]
-    ch.cost_eur = bp_job.budget_eur  # type: ignore[attr-defined]
+    ch = bp_job.chapters.get(chapter_number=1)
+    ch.cost_eur = bp_job.budget_eur
     ch.save(update_fields=["cost_eur"])
 
-    calls = {"n": 0}
+    calls: dict[str, int] = {"n": 0}
     monkeypatch.setattr(
         runner_mod, "regenerate_chapter",
         lambda *a, **k: calls.__setitem__("n", calls["n"] + 1),
@@ -247,31 +273,38 @@ def test_boucle_respecte_le_budget_par_dossier(
 
 
 @pytest.mark.django_db
-def test_corrective_note_injectee_dans_le_prompt(bp_job: object) -> None:
+def test_corrective_note_injectee_dans_le_prompt(bp_job: GenerationJob) -> None:
     from generation.prompts import build_chapter_prompt
 
-    ch = bp_job.chapters.get(chapter_number=1)  # type: ignore[attr-defined]
+    ch = bp_job.chapters.get(chapter_number=1)
     prompt = build_chapter_prompt(ch, corrective_note="- Chiffre incohérent : emprunt")
     assert "CORRECTION IMPERATIVE" in prompt
     assert "emprunt" in prompt
 
 
 @pytest.mark.django_db
-def test_regenerate_chapter_passe_la_note(bp_job: object) -> None:
+def test_regenerate_chapter_passe_la_note(bp_job: GenerationJob) -> None:
     """regenerate_chapter transmet bien la note au générateur (via stub client)."""
     from generation.runner import regenerate_chapter
 
-    captured: dict = {}
+    captured: dict[str, Any] = {}
 
     class _CaptureClient:
-        def complete(self, *, system, prompt, max_tokens=8192, model=None):  # noqa: ANN001
+        def complete(
+            self,
+            *,
+            system: str,
+            prompt: str,
+            max_tokens: int = 8192,
+            model: str | None = None,
+        ) -> ClaudeResult:
             captured["prompt"] = prompt
             return ClaudeResult(
                 content=("Analyse complète et argumentée du projet. " * 40).strip() + ".",
                 input_tokens=50, output_tokens=30, model="claude-sonnet",
             )
 
-    ch = bp_job.chapters.get(chapter_number=1)  # type: ignore[attr-defined]
+    ch = bp_job.chapters.get(chapter_number=1)
     regenerate_chapter(
         bp_job, ch, corrective_note="- Marqueur interne présent", client=_CaptureClient()
     )

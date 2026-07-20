@@ -14,7 +14,7 @@ Anthropic, puis valider la réponse avec ChapterPayload.model_validate(tool_inpu
 """
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -145,7 +145,7 @@ def _standard_table_to_html(block: StandardTableBlock) -> str:
 
 # ── Schéma Anthropic Tool Use ─────────────────────────────────────────────────
 
-LIVRER_CHAPITRE_TOOL: dict = {
+LIVRER_CHAPITRE_TOOL: dict[str, Any] = {
     "name": "livrer_chapitre",
     "description": (
         "Livre le contenu structuré du chapitre sous forme de blocs typés. "

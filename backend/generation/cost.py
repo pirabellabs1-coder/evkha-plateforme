@@ -44,8 +44,29 @@ class CostBudgetExceededError(RuntimeError):
 
 
 def _pricing(model: str | None) -> tuple[Decimal, Decimal]:
-    key = str(model or getattr(settings, "EVKHA_CLAUDE_MODEL", _FALLBACK_MODEL))
-    return MODEL_PRICING_EUR.get(key, MODEL_PRICING_EUR[_FALLBACK_MODEL])
+    """Tarif du modele, resolu par FAMILLE et non par egalite stricte de cle.
+
+    Piege desamorce (audit juillet 2026) : le cout etait indexe sur l'alias
+    EVKHA_CLAUDE_MODEL tandis que l'appel reel peut etre surcharge vers un
+    identifiant complet via EVKHA_ANTHROPIC_MODEL_ID. Une bascule vers Opus
+    sans changer l'alias facturait Opus et affichait du Sonnet — soit un cout
+    reel 5x superieur a celui du dashboard, sur le point que la cliente juge
+    "tres important". On reconnait donc la famille dans l'identifiant, quelle
+    que soit sa forme ("claude-opus", "claude-opus-4-6", "claude-3-opus-...").
+    """
+    key = str(
+        model
+        or getattr(settings, "EVKHA_ANTHROPIC_MODEL_ID", "")
+        or getattr(settings, "EVKHA_CLAUDE_MODEL", _FALLBACK_MODEL)
+    ).lower()
+    if key in MODEL_PRICING_EUR:
+        return MODEL_PRICING_EUR[key]
+    # Resolution par famille : le tarif le PLUS CHER qui correspond, pour ne
+    # jamais sous-estimer le cout reel.
+    for family in ("opus", "sonnet", "haiku"):
+        if family in key:
+            return MODEL_PRICING_EUR[f"claude-{family}"]
+    return MODEL_PRICING_EUR[_FALLBACK_MODEL]
 
 
 def estimate_call_cost_eur(
@@ -119,12 +140,39 @@ def record_additional_cost(
     return extra
 
 
+# Un mot francais coute ~1,6 token. La marge absorbe le balisage (tableaux
+# HTML, titres) qui consomme des tokens sans etre du texte lisible.
+_TOKENS_PAR_MOT = 1.6
+_MARGE_BALISAGE = 1.45
+# Plancher : en dessous, meme un texte court serait coupe en pleine phrase, et
+# une troncature declenche un retry — donc coute plus cher que la place gagnee.
+_PLANCHER_CIBLE_TOKENS = 900
+
+
+def tokens_pour_cible(max_words: int) -> int:
+    """Plafond de sortie derive de la cible editoriale, en tokens.
+
+    Le prompt demandait deja de tenir un budget de mots, mais rien ne l'y
+    obligeait : le modele disposait de 8 192 tokens par appel (~5 100 mots) et
+    jusqu'a 3 appels enchaines par section. Une consigne sans contrainte
+    physique est un voeu — le prevesionnel visait 2 800 mots et en a produit
+    5 639.
+
+    Ce plafond rend le depassement IMPOSSIBLE, au lieu de le deconseiller.
+    Retourne 0 si aucune cible n'est definie (pas de contrainte).
+    """
+    if max_words <= 0:
+        return 0
+    return max(_PLANCHER_CIBLE_TOKENS, int(max_words * _TOKENS_PAR_MOT * _MARGE_BALISAGE))
+
+
 def max_tokens_for_job(
     job: GenerationJob,
     *,
     default_max_tokens: int,
     call_count: int = 1,
     model: str | None = None,
+    validation_retries: int = 0,
 ) -> int:
     """Max_tokens a utiliser pour le(s) prochain(s) appel(s) Claude du job.
 
@@ -167,9 +215,18 @@ def max_tokens_for_job(
     worst_case_calls_per_prompt = k + 1
     effective_rate = output_eur + Decimal(k) * input_eur / 2
 
-    # Slots : sections du chapitre courant + 1 slot par chapitre restant
-    this_chapter_slots = max(call_count, 1) * worst_case_calls_per_prompt
-    other_chapters_slots = (pending_chapters - 1) * worst_case_calls_per_prompt
+    # Slots : sections du chapitre courant + 1 slot par chapitre restant.
+    # `validation_retries` (audit F4) : chaque section peut etre regeneree en
+    # cas de defaut bloquant, ce que la formule ignorait. Le budget etait donc
+    # sous-provisionne sur les chapitres decoupes — les plus denses, donc les
+    # plus sujets au retry. Le plafond strict ne surfacturait pas (il leve
+    # CostBudgetExceededError), mais faisait ECHOUER le job : c'est le taux
+    # d'aboutissement qui payait le retry non anticipe.
+    attempts_per_call = 1 + max(validation_retries, 0)
+    this_chapter_slots = max(call_count, 1) * worst_case_calls_per_prompt * attempts_per_call
+    other_chapters_slots = (
+        (pending_chapters - 1) * worst_case_calls_per_prompt * attempts_per_call
+    )
     total_slots = this_chapter_slots + other_chapters_slots
 
     per_call_budget = remaining / max(total_slots, 1)

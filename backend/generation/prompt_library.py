@@ -219,10 +219,14 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
         "d'URL. Format simple et lisible :\n"
         "## Marche\n- Nom de la source - URL si disponible\n"
         "## Demographie\n- ...\n"
-        "Pas plus de 4-6 sources par thematique. Ajoute un tres court "
-        "paragraphe (3-4 lignes) en fin de chapitre intitule '## Methodologie' "
-        "expliquant la demarche (croisement de sources, periode des donnees). "
-        "Rester concis et structure."
+        "Pas plus de 4-6 sources par thematique. Ajoute un paragraphe "
+        "(5-8 lignes) en fin de chapitre intitule '## Methodologie' expliquant "
+        "la demarche : croisement de sources, periode des donnees, ET pour "
+        "chaque hypothese construite faute de source directe, la methode "
+        "d'estimation (secteur adjacent, zone geographique proche, indicateur "
+        "equivalent). Aucune formule 'donnee non disponible' n'est acceptee : "
+        "chaque chiffre non source doit etre documente ici comme hypothese "
+        "argumentee. Rester structure."
     ),
     # --- Sections de generation par chunks (chapitres denses) ---------------
     # Chaque section est generee separement puis fusionnee en un seul chapitre.

@@ -36,6 +36,7 @@ import json
 import math
 import re
 from html import escape
+from typing import Any
 
 # Palette EVKHA (dupliquee de rendering.py pour ne pas creer d'import
 # circulaire — ces constantes ne changent que sur decision de marque).
@@ -72,7 +73,7 @@ _CHART_FENCE_RE = re.compile(
 )
 
 
-def render_chart_svg(spec: dict) -> str:
+def render_chart_svg(spec: dict[str, Any]) -> str:
     """Genere le SVG inline pour la spec fournie.
 
     Retourne une chaine vide si la spec est invalide — jamais d'exception :
@@ -194,7 +195,11 @@ def _nice_max(values: list[float]) -> float:
     vmax = max(values) if values else 1.0
     if vmax <= 0:
         return 1.0
-    magnitude = 10 ** math.floor(math.log10(vmax))
+    # float() explicite : typeshed declare `int.__pow__` avec un exposant
+    # non-litteral comme renvoyant Any (le resultat peut etre int ou float).
+    # Sans ce cast, `candidate` devient Any et la fonction ne garantit plus
+    # son type de retour.
+    magnitude = float(10 ** math.floor(math.log10(vmax)))
     for step in (1, 2, 2.5, 5, 10):
         candidate = step * magnitude
         if candidate >= vmax:

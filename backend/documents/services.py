@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
 from django.utils import timezone
 
 from generation.models import GenerationJob, JobStatus
-from generation.rendering import render_branded_html, render_client_document
+from generation.rendering import (
+    ClientDocument,
+    render_branded_html,
+    render_client_document,
+)
 from integrations.pdf import PdfClient, get_pdf_client
 
 from .models import ArtifactKind, ArtifactStatus, DocumentArtifact
+from .rendu_fidelite import RapportRendu, controler_rendu
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -69,6 +77,94 @@ def _retention_days(job: GenerationJob) -> int:
     return int(getattr(job.order.offer, "retention_days", 7) or 7)
 
 
+def _incident_rendu(
+    job: GenerationJob, rapport: RapportRendu, *, bloquant: bool
+) -> None:
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    OperationalIncident.objects.create(
+        title=(
+            f"Rendu infidele — assemblage bloque (job {job.id})"
+            if bloquant
+            else f"Rendu repare sans decoupage des tableaux (job {job.id})"
+        ),
+        severity=IncidentSeverity.HIGH if bloquant else IncidentSeverity.MEDIUM,
+        job=job,
+        order=job.order,
+        details={
+            "motifs": list(rapport.motifs),
+            "lignes_markdown": rapport.lignes_markdown,
+            "lignes_html": rapport.lignes_html,
+            "balises_vides": rapport.balises_vides,
+        },
+    )
+
+
+def _rendu_controle(
+    job: GenerationJob, document: ClientDocument
+) -> tuple[str, RapportRendu]:
+    """Rend le HTML, controle sa fidelite, et REPARE si besoin.
+
+    Une seule etape du rendu reecrit la structure du document : le decoupage
+    des tableaux longs. C'est donc la seule qui peut en perdre — et elle l'a
+    fait. La reparation consiste a re-rendre sans elle : un tableau qui deborde
+    d'une page est moins beau, un tableau ampute est faux.
+
+    Retourne le HTML retenu et le rapport correspondant. Si la reparation
+    reussit, on livre le rendu repare et on trace un incident MEDIUM : le
+    document est complet, mais quelque chose a du etre contourne.
+    """
+    markdown = document.to_markdown()
+
+    html = render_branded_html(job)
+    rapport = controler_rendu(html=html, markdown=markdown)
+    if rapport.fidele:
+        return html, rapport
+
+    _log.warning(
+        "assemble_document: rendu infidele pour job %s (%s) — tentative de "
+        "reparation sans decoupage des tableaux.",
+        job.id, rapport.motif,
+    )
+    html_repare = render_branded_html(job, chunk_tables=False)
+    rapport_repare = controler_rendu(html=html_repare, markdown=markdown)
+    if rapport_repare.fidele:
+        _incident_rendu(job, rapport, bloquant=False)
+        return html_repare, rapport_repare
+
+    return html, rapport
+
+
+def _verifier_completude_chapitres(
+    job: GenerationJob, document: ClientDocument
+) -> None:
+    """Tous les chapitres prevus sont-ils la ? Sinon, pas de PDF.
+
+    `render_client_document` ne retient que les chapitres DONE : un chapitre
+    manquant disparait du livrable sans que rien ne le signale. Le gate le
+    verifie deja, mais l'assemblage est appele par d'autres chemins (relance
+    admin, PDF de relecture). Si le blueprint dit 20 chapitres, le PDF en a 20.
+
+    Un job FAILED est explicitement exempte : son PDF sert justement a relire
+    ce qui a ete produit avant l'echec.
+    """
+    if job.status != JobStatus.DONE:
+        return
+    from generation.blueprints import chapters_for_deliverable  # noqa: PLC0415
+
+    attendus = {bp.number for bp in chapters_for_deliverable(job.deliverable_type)}
+    if not attendus:
+        return
+    presents = {s.number for s in document.sections}
+    manquants = sorted(attendus - presents)
+    if manquants:
+        msg = (
+            f"Chapitre(s) absent(s) du livrable : {manquants}. Le PDF partirait "
+            f"ampute ({len(presents)} chapitres sur {len(attendus)})."
+        )
+        raise DocumentAssemblyError(msg)
+
+
 def assemble_document(
     job: GenerationJob,
     *,
@@ -95,7 +191,25 @@ def assemble_document(
         msg = "No completed chapters to assemble."
         raise DocumentAssemblyError(msg)
 
-    html = render_branded_html(job)
+    _verifier_completude_chapitres(job, document)
+
+    # ── Boucle de controle du rendu, AVANT toute generation de PDF ──────
+    # Le gate valide le markdown ; le moteur de rendu fabrique le HTML, et
+    # personne ne regardait son resultat. `chunk_long_tables` detruisait les
+    # lignes des tableaux de plus de 12 lignes — donc les tableaux financiers —
+    # et le client recevait `<tbody><></><></></tbody>` a la place du compte de
+    # resultat. Le markdown, lui, etait propre : le gate passait, le PDF partait
+    # ampute.
+    #
+    # On ne se contente donc pas de bloquer : on REPARE puis on RECONTROLE, et
+    # le PDF n'est produit qu'ensuite. Un incident ne doit pas etre la premiere
+    # reponse a un defaut qu'on sait corriger.
+    html, rapport = _rendu_controle(job, document)
+    if not rapport.fidele:
+        _incident_rendu(job, rapport, bloquant=True)
+        msg = f"Rendu infidele au document valide : {rapport.motif}"
+        raise DocumentAssemblyError(msg)
+
     html_checksum = hashlib.sha256(html.encode("utf-8")).hexdigest()
     result = pdf_client.generate(title=document.title, html=html)
     _check_page_limit(job, getattr(result, "page_count", 0))

@@ -183,7 +183,13 @@ class DuckDuckGoWebSearchClient:
             from ddgs import DDGS  # lib récente
         except ImportError:
             try:
-                from duckduckgo_search import DDGS  # ancien nom du package
+                # `no-redef` assume : c'est un repli sur l'ancien nom du
+                # paquet, pas une vraie redefinition. mypy ne le signale que
+                # lorsque `ddgs` est reellement installe (donc en CI, pas en
+                # local sans l'extra [search]).
+                from duckduckgo_search import (  # type: ignore[no-redef]
+                    DDGS,  # ancien nom du package
+                )
             except ImportError as exc:
                 msg = (
                     "Recherche gratuite indisponible : installe l'extra "

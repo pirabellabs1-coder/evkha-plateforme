@@ -35,6 +35,22 @@ class Offer(UUIDModel):
     # sans passer par un parametre offer_slug dans l'URL de l'automatisation.
     # Renseigner via Django admin ou seed_offers.
     systeme_product_name = models.CharField(max_length=255, blank=True, default="")
+    # Moteur de mise en page : WeasyPrint par defaut, Gamma en option.
+    #
+    # Gamma a ete active partout puis TESTE sur un vrai dossier (juillet 2026).
+    # Il borne une carte a ~500 mots, soit `nb_chapitres x 500` de capacite —
+    # aucun livrable EVKHA n'y rentre (BP 25 900 mots pour 10 000 de capacite ;
+    # EM 32 400 pour 11 500). Mesure : 38 707 mots en entree, 10 121 en sortie,
+    # et CINQ verticales sur dix effacees avec le reglage d'origine. Une
+    # presentation en cartes et un dossier bancaire de 80 pages ne sont pas le
+    # meme objet.
+    #
+    # WeasyPrint ne tronque rien, implemente deja la charte du Bloc 6 et gere
+    # le sommaire pagine que les Consignes exigent.
+    #
+    # Le flag reste : une offre courte et visuelle pourra reactiver Gamma, au
+    # cas par cas et en connaissance de cause. Le controle de fidelite
+    # (`delivery/gamma_fidelite.py`) refusera de livrer un rendu ampute.
     gamma_enabled = models.BooleanField(default=False)
     delivery_mode = models.CharField(
         max_length=32,

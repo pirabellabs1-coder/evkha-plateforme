@@ -15,7 +15,12 @@ from .coherence import (
     extract_and_lock_numeric_facts,
     seed_locked_facts_from_variables,
 )
-from .cost import CostBudgetExceededError, max_tokens_for_job, record_chapter_cost
+from .cost import (
+    CostBudgetExceededError,
+    max_tokens_for_job,
+    record_chapter_cost,
+    tokens_pour_cible,
+)
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 from .qa import detect_violations, repair_rule_based
@@ -55,6 +60,54 @@ def _strip_ai_tell_dashes(content: str) -> str:
         for line in lines
     ]
     return "\n".join(out)
+
+
+def _plafonner_sur_cible(
+    job: GenerationJob,
+    chapter: ChapterGeneration,
+    max_tokens: int,
+    *,
+    sections: tuple[str, ...],
+) -> int:
+    """Borne la sortie sur la cible editoriale du chapitre (ou de la section).
+
+    `max_words` du blueprint s'entend PAR SECTION quand le chapitre est
+    decoupe (cf. son docstring) : on applique donc la meme cible que celle
+    annoncee au modele par `build_section_prompt`, sans quoi la borne dure et
+    la consigne du prompt se contrediraient.
+
+    Sans ce plafond, la consigne de concision restait un voeu : le modele
+    disposait de 8 192 tokens par appel, soit ~5 100 mots pour une cible de
+    900.
+    """
+    from .blueprints import SECTION_MAX_WORDS, get_blueprint  # noqa: PLC0415
+
+    blueprint = get_blueprint(job.deliverable_type, chapter.chapter_number)
+    if blueprint is None or not blueprint.max_words:
+        return max_tokens
+    if sections:
+        # Une seule valeur pour toutes les sections du chapitre : on retient la
+        # plus large des surcharges, la borne reste correcte pour les autres.
+        cibles = [SECTION_MAX_WORDS.get(s, blueprint.max_words) for s in sections]
+        cible = max(cibles) if cibles else blueprint.max_words
+    else:
+        cible = blueprint.max_words
+    plafond = tokens_pour_cible(cible)
+    return min(max_tokens, plafond) if plafond else max_tokens
+
+
+def _resolve_tokens(content: str, job: GenerationJob) -> str:
+    """Brique 1 : remplace les tokens client par la valeur exacte du brief.
+
+    Applique AVANT la validation : sinon un token legitime `{{emprunt}}` serait
+    signale comme placeholder non resolu et declencherait un retry inutile.
+    Un token INCONNU est laisse en place — la validation le detecte alors et le
+    retry demande au modele de le corriger.
+    """
+    from .substitution import resolve_client_fact_tokens  # noqa: PLC0415
+
+    resolved, _unresolved = resolve_client_fact_tokens(content, job)
+    return resolved
 
 
 class GenerationRunError(RuntimeError):
@@ -318,13 +371,28 @@ def _generate_chunked(
     Cost Engine dispose du cout reel complet du chapitre. Le budget restant
     (regle d'or #1 durcie) est reparti sur les sections de CE chapitre.
     """
+    from .validation import (  # noqa: PLC0415 — eviter un cycle d'import
+        format_issues_for_retry,
+        has_blocking_issues,
+        validate_chapter_content,
+    )
+
     parts: list[str] = []
     total_input = 0
     total_output = 0
     last_model: str | None = None
     max_tokens = max_tokens_for_job(
-        job, default_max_tokens=_DEFAULT_MAX_TOKENS, call_count=len(sections)
+        job,
+        default_max_tokens=_DEFAULT_MAX_TOKENS,
+        call_count=len(sections),
+        # Le retry cible ci-dessous peut doubler les appels de chaque section :
+        # le planificateur doit le savoir AVANT (audit F4).
+        validation_retries=_MAX_VALIDATION_RETRIES,
     )
+    # Plafond issu de la CIBLE editoriale, appliqué APRES le calcul budgetaire :
+    # il ne doit pas etre releve par le plancher `_MIN_MAX_TOKENS`, qui protege
+    # d'une penurie de budget, pas d'une consigne de concision.
+    max_tokens = _plafonner_sur_cible(job, chapter, max_tokens, sections=sections)
 
     for section_key in sections:
         # Contexte accumulé des sections déjà générées dans ce chapitre.
@@ -337,9 +405,33 @@ def _generate_chunked(
         result = client.complete(
             system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
         )
-        parts.append(result.content)
         total_input += result.input_tokens
         total_output += result.output_tokens
+
+        # Retry CIBLE sur la section fautive (audit juillet 2026, point 8).
+        # Auparavant les chapitres decoupes n'avaient aucun retry : or ce sont
+        # les plus denses (EC 2/3, EM 1/2/10/14/19, BP 14/15) et donc les plus
+        # exposes aux tableaux vides et aux troncatures. Regenerer LA section
+        # en defaut coute une fraction d'un retry de chapitre entier et ne
+        # detruit pas les sections deja correctes.
+        attempts = 0
+        section_content = _resolve_tokens(result.content, job)
+        issues = validate_chapter_content(section_content)
+        while has_blocking_issues(issues) and attempts < _MAX_VALIDATION_RETRIES:
+            attempts += 1
+            retry_prompt = f"{prompt}\n\n{format_issues_for_retry(issues)}"
+            result = client.complete(
+                system=system_prompt,
+                prompt=retry_prompt,
+                max_tokens=max_tokens,
+                model=chapter_model,
+            )
+            total_input += result.input_tokens
+            total_output += result.output_tokens
+            section_content = _resolve_tokens(result.content, job)
+            issues = validate_chapter_content(section_content)
+
+        parts.append(section_content)
         last_model = result.model
 
     return "\n\n".join(parts), total_input, total_output, last_model
@@ -377,15 +469,20 @@ def _generate_chapter(
             job, chapter, sections, client=client, system_prompt=system_prompt,
             chapter_model=chapter_model, corrective_note=corrective_note,
         )
-        # Les chapitres chunkes passent aussi la validation post-gen : les
-        # defauts sont traces (error_message) et repris par la QA finale et
-        # le gate de livraison. Pas de retry global (le contenu fusionne
-        # provient de plusieurs appels ; la reparation ciblee est du ressort
-        # de la QA), mais aucun defaut ne passe silencieusement.
+        # Chaque section a deja subi sa propre validation + retry cible dans
+        # `_generate_chunked`. On revalide ici le contenu FUSIONNE : un defaut
+        # peut naitre de la jonction entre deux sections (tableau ouvert dans
+        # l'une, referme dans l'autre). Ce qui subsiste est trace puis repris
+        # par la QA finale et le gate de livraison.
         issues = validate_chapter_content(content)
     else:
         prompt = build_chapter_prompt(chapter, corrective_note=corrective_note)
-        max_tokens = max_tokens_for_job(job, default_max_tokens=_DEFAULT_MAX_TOKENS)
+        max_tokens = max_tokens_for_job(
+            job,
+            default_max_tokens=_DEFAULT_MAX_TOKENS,
+            validation_retries=_MAX_VALIDATION_RETRIES,
+        )
+        max_tokens = _plafonner_sur_cible(job, chapter, max_tokens, sections=())
         result = client.complete(
             system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
         )
@@ -395,7 +492,8 @@ def _generate_chapter(
         total_input = result.input_tokens
         total_output = result.output_tokens
         # QC Evangeline #3 : validation post-gen + retry 1x si defauts bloquants.
-        issues = validate_chapter_content(result.content)
+        content = _resolve_tokens(result.content, job)
+        issues = validate_chapter_content(content)
         while has_blocking_issues(issues) and attempts < _MAX_VALIDATION_RETRIES:
             attempts += 1
             corrective = format_issues_for_retry(issues)
@@ -408,8 +506,9 @@ def _generate_chapter(
             )
             total_input += result.input_tokens
             total_output += result.output_tokens
-            issues = validate_chapter_content(result.content)
-        content, model = result.content, result.model
+            content = _resolve_tokens(result.content, job)
+            issues = validate_chapter_content(content)
+        model = result.model
 
     content = _strip_ai_tell_dashes(content)
     chapter.content = content

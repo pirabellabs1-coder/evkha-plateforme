@@ -11,8 +11,11 @@ Ces tests protègent contre les régressions identifiées lors de la review high
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
+from generation.models import GenerationJob
 from generation.runner import _build_phase0_plan, _var
 
 
@@ -39,18 +42,29 @@ def test_var_handles_none_value() -> None:
 
 
 class _FakeJob:
+    """Doublure minimale : `_build_phase0_plan` ne lit que ce champ.
+
+    Caste en GenerationJob a l'appel (cf. `_job`) : monter un vrai job
+    en base pour lire un seul attribut couterait un acces DB par test
+    sans rien verifier de plus.
+    """
+
     def __init__(self, deliverable_type: str = "market_study") -> None:
         self.deliverable_type = deliverable_type
+
+
+def _job(deliverable_type: str = "market_study") -> GenerationJob:
+    return cast("GenerationJob", _FakeJob(deliverable_type))
 
 
 def test_phase0_plan_empty_when_no_client_brief() -> None:
     # Aucune donnée client → aucun bloc à ajouter au system prompt.
     # Coût token = 0 sur les runs sans brief.
-    assert _build_phase0_plan(_FakeJob(), {}) == ""
+    assert _build_phase0_plan(_job(), {}) == ""
 
 
 def test_phase0_plan_present_when_any_brief_field_set() -> None:
-    plan = _build_phase0_plan(_FakeJob(), {"CONCURRENTS": "Nike, Adidas"})
+    plan = _build_phase0_plan(_job(), {"CONCURRENTS": "Nike, Adidas"})
     assert plan  # non vide
     # Pointe vers le user prompt (VARIABLES_PROJET), ne recopie pas le brief.
     assert "VARIABLES_PROJET" in plan
@@ -62,7 +76,7 @@ def test_phase0_plan_stays_short_to_protect_budget() -> None:
     # ephemeral), le coût réel n'est payé qu'une fois par job. Mais on garde
     # une limite raisonnable pour éviter la dérive : 800 chars.
     plan = _build_phase0_plan(
-        _FakeJob(),
+        _job(),
         {
             "CONCURRENTS": "Nike, Adidas, Puma, Under Armour, Reebok",
             "DEMANDES_SPECIFIQUES": "focus sur le marché africain, angle prix bas",
@@ -77,7 +91,7 @@ def test_phase0_plan_does_not_list_concurrents_verbatim() -> None:
     # system prompt avec "RÈGLE ABSOLUE traiter les N dans l'ordre exact".
     # Ceci contredisait ec.01.identification ("sélectionne les 8 plus pertinents")
     # et gaspillait des tokens. Le nouveau plan doit rester générique.
-    plan = _build_phase0_plan(_FakeJob(), {"CONCURRENTS": "Nike, Adidas, Puma"})
+    plan = _build_phase0_plan(_job(), {"CONCURRENTS": "Nike, Adidas, Puma"})
     assert "Nike" not in plan
     assert "Adidas" not in plan
     assert "ordre exact" not in plan.lower()
@@ -89,7 +103,7 @@ def test_phase0_plan_does_not_mention_forbidden_absolute_order_rule() -> None:
     # (aucun sens contradictoire). Seules les formulations qui *contraignent
     # l'ordre* ou *interdisent la sélection* sont bannies.
     plan = _build_phase0_plan(
-        _FakeJob(),
+        _job(),
         {"CONCURRENTS": "Nike, Adidas", "DEMANDES_SPECIFIQUES": "x"},
     )
     forbidden = [

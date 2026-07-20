@@ -58,6 +58,13 @@ def bp_submission() -> IntakeSubmission:
             "PROJET": "tiers-lieu hybride SYNAPSES",
             "INVESTISSEMENT_TOTAL": "1 250 000 €",
             "EMPRUNT": "920 000 €",
+            # Un BP n'a un etat chiffre COMPLET que s'il porte aussi sa
+            # trajectoire de CA et son resultat net : ce sont les chiffres que
+            # le gate exige desormais (check `etat_chiffre_client`). La fixture
+            # les omettait tout en se declarant complete — c'est exactement
+            # l'angle mort qui laissait passer les dossiers reels.
+            "CA_PREVISIONNEL": "250 272 € / 296 000 €",
+            "RESULTAT_NET_PREVISIONNEL": "44 245 €",
             "TAUX_OCCUPATION": "55 % An1 vers 85 % An5",
             "VERTICALES": "coworking / self-storage / hébergement de serveurs / "
             "activités sportives douces",
@@ -72,13 +79,17 @@ def _job_with_content(
     job = bootstrap_generation_job(submission)
     variables = submission.normalized_variables
     seed_locked_facts_from_variables(job, variables)
+    # Le check `chapitre_avorte` planche a 30 % du `max_words` du blueprint.
+    # Un contenu par defaut d'une phrase suffisait avant, il fait aujourd'hui
+    # tomber la fixture sous ce plancher : on repete donc la phrase pour tenir
+    # les cibles de blueprints jusqu'a 1 800 mots.
+    corps_defaut = (
+        "Analyse détaillée du projet, chiffrée et argumentée sur la zone cible. "
+        "Cette section couvre coworking, self-storage, hébergement de serveurs "
+        "et activités sportives douces avec des données locales précises. "
+    ) * 40
     for chapter in job.chapters.all():
-        body = content_by_number.get(
-            chapter.chapter_number,
-            "Analyse détaillée du projet, chiffrée et argumentée sur la zone cible. "
-            "Cette section couvre coworking, self-storage, hébergement de serveurs "
-            "et activités sportives douces avec des données locales précises.",
-        )
+        body = content_by_number.get(chapter.chapter_number, corps_defaut)
         chapter.content = body
         chapter.status = ChapterStatus.DONE
         chapter.save(update_fields=["content", "status"])
@@ -202,9 +213,12 @@ def test_gate_passe_sur_document_sain(bp_submission: IntakeSubmission) -> None:
 def test_gate_bloque_la_fuite_faits_verrouilles(bp_submission: IntakeSubmission) -> None:
     """Cas reel du brief : 'en parfaite coherence avec les FAITS_VERROUILLES'.
 
-    Le Rendering Engine neutralise la fuite (substitution naturelle) : le
-    document nettoye ne contient plus le token, donc le gate PASSE. Mais un
-    token non couvert par la substitution (TODO) reste bloquant.
+    Le Rendering Engine neutralise la fuite pour le client, mais le gate scanne
+    aussi le contenu BRUT (audit juillet 2026, cause 4) : la fuite est donc
+    detectee et bloquante. Auparavant le check n'operait que sur le texte
+    nettoye, avec la meme liste de tokens que le nettoyeur qui venait de les
+    effacer — il ne pouvait mathematiquement jamais echouer, et le signal que
+    le modele confond contexte interne et redaction etait perdu.
     """
     job = _job_with_content(
         bp_submission,
@@ -213,8 +227,10 @@ def test_gate_bloque_la_fuite_faits_verrouilles(bp_submission: IntakeSubmission)
              "hébergement de serveurs et activités sportives douces inclus."},
     )
     report = run_delivery_gate(job)
-    # La fuite est corrigee par le scrub -> pas de blocage sur ce token
-    assert all(f.check != "contamination" for f in report.failures)
+    # La fuite est neutralisee pour le client MAIS detectee dans le brut :
+    # le chapitre doit etre regenere, pas simplement reecrit en silence.
+    assert not report.passed
+    assert any(f.check == "contamination" for f in report.failures)
 
     job2_offer = Offer.objects.create(
         name="BP 2", slug="bp-2", deliverable_type=DeliverableType.BUSINESS_PLAN

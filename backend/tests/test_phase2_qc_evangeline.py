@@ -25,6 +25,7 @@ from generation.validation import (
     detect_empty_tables,
     detect_placeholder_leaks,
     detect_truncation,
+    detect_unbalanced_callouts,
     has_blocking_issues,
     validate_chapter_content,
 )
@@ -249,8 +250,15 @@ def test_build_chapter_prompt_injecte_cadre_editorial() -> None:
         prompt_key="em.01.marche_mondial_europeen",
     )
     prompt = build_chapter_prompt(chapter)
-    assert "CONSIGNE IMPÉRATIVE DE COMPLÉTUDE ET DENSITÉ" in prompt
+    assert "CONSIGNE IMPÉRATIVE DE COMPLÉTUDE ET DE CONCISION" in prompt
     assert "mots" in prompt
+    # Le budget doit etre presente comme une BORNE, pas comme une indication.
+    # L'ancienne formulation disait « budget indicatif » et « si la completude
+    # necessite legerement plus, c'est acceptable » : le modele obeissait et
+    # depassait de 29 % sur l'ensemble du BP, +101 % sur le previsionnel.
+    assert "MAXIMUM" in prompt
+    assert "indicatif" not in prompt
+    assert "acceptable" not in prompt
 
 
 # --- Fix #6 : fraîcheur des sources ---------------------------------------
@@ -402,13 +410,38 @@ def test_strip_diamond_single_pair_preserved() -> None:
     assert result == raw
 
 
-def test_validation_detects_leaked_callout_marker() -> None:
-    """Le validateur detecte les marqueurs [[...]] comme fuite bloquante."""
+def test_validation_detects_unbalanced_callout_marker() -> None:
+    """Un encadre mentor MAL FERME reste un defaut bloquant.
+
+    Ici une fermeture sans ouverture : le parseur ne peut pas construire
+    l'encadre et le marqueur partirait en clair chez le client.
+    """
     content = "Le marche est satisfaisant.[[/UNDERSTAND]]"
-    issues = detect_placeholder_leaks(content)
-    codes = [i.code for i in issues]
-    assert "leaked_callout_marker" in codes
+
+    issues = detect_unbalanced_callouts(content)
+
+    assert "unbalanced_callout" in [i.code for i in issues]
     assert any(i.severity == ValidationSeverity.ERROR for i in issues)
+
+
+def test_validation_accepte_un_encadre_mentor_bien_forme() -> None:
+    """Contre-epreuve, et c'est elle qui manquait.
+
+    `[[UNDERSTAND]] ... [[/UNDERSTAND]]` est la syntaxe que le prompt EXIGE de
+    Claude : c'est la signature du ton EVKHA, transformee en encadre dore par
+    le moteur de rendu. La validation la traitait comme une fuite bloquante.
+    Resultat mesure sur le premier vrai dossier : les 13 premiers chapitres du
+    BP SYNAPSES regeneres pour rien, chaque chapitre paye DEUX FOIS, budget
+    explose (2,96 € pour un plafond de 2,80 €) et job interrompu a 15/20.
+    """
+    content = (
+        "Analyse du marche.\n\n"
+        "[[UNDERSTAND]]\nLe marche existe et grandit.\n[[/UNDERSTAND]]\n\n"
+        "[[ACTION]]\nMois 1 : pre-commercialisation.\n[[/ACTION]]"
+    )
+
+    assert detect_unbalanced_callouts(content) == []
+    assert validate_chapter_content(content) == []
 
 
 def test_validation_detects_diamond_artifacts() -> None:

@@ -94,8 +94,25 @@ _CHARTER = (
     "Quand une donnee precise n'est pas etablie par ces sources, produire une "
     "estimation argumentee EXPLICITEMENT presentee comme telle ('estimation "
     "construite a partir de...', avec le raisonnement), jamais presentee comme "
-    "un fait source. Si aucune source recente fiable n'existe, le dire "
-    "explicitement plutot que d'en fabriquer une.\n"
+    "un fait source. INTERDICTION VERBATIM d'ecrire 'donnee non disponible', "
+    "'information non trouvee', 'source manquante' ou toute variante : ces "
+    "formules donnent au client l'impression d'un travail incomplet. A la place, "
+    "construis l'hypothese par croisement des sources adjacentes (secteurs "
+    "similaires, zone geographique proche, indicateur equivalent), presente-la "
+    "avec sa methode d'estimation, et documente le raisonnement dans l'encadre "
+    "'Methodologie' du chapitre des Sources. Une hypothese sourcee et "
+    "argumentee vaut toujours mieux qu'un silence.\n"
+    "FOURCHETTES DU BRIEF (regle absolue) : quand le brief client cite une "
+    "plage monetaire (« 180-280 kEUR », « entre 3 et 5 M€ ») ou un pourcentage "
+    "en fourchette (« 14-16 % »), tu dois TRANCHER : cite UNE valeur unique "
+    "dans le document. Prends la mediane par defaut (« brief 14-16 % » -> "
+    "« 15 % retenu, mediane de la fourchette fournie »), ou la borne "
+    "conservatrice pour un usage bancaire (borne basse pour un revenu, borne "
+    "haute pour un cout). Documente le choix en une ligne dans l'encadre "
+    "Methodologie du chapitre Sources. Ne RECOPIE JAMAIS la fourchette telle "
+    "quelle : un banquier n'accepte pas « environ 180 a 280 000 EUR de "
+    "seuil », il attend un chiffre. Meme regle pour les fourchettes que "
+    "tu serais tente de produire (« environ X a Y »).\n"
     "TYPOGRAPHIE (regle stricte) : JAMAIS d'em-dash (—) ni d'en-dash (–) "
     "dans la prose redigee. Ce sont des signatures IA immediatement reperees "
     "par les lecteurs professionnels. Utilise a la place : une virgule pour "
@@ -173,6 +190,113 @@ _ROLES: dict[str, str] = {
 }
 
 
+def _consigne_specifique_livrable(deliverable_type: str) -> str:
+    """Consigne verbatim d'Evangeline injectee au prompt selon le livrable.
+
+    Les CHIFFRES et LIBELLES sont importes depuis `checks_evangeline` : c'est
+    la meme source que le gate, donc le prompt et le check ne peuvent pas
+    diverger (regle 5 du CLAUDE.md). Si demain la cliente passe a 10 directs,
+    la modification d'une seule constante propage a l'ecriture ET au controle.
+    """
+    from .checks_evangeline import (  # noqa: PLC0415
+        ATTENDUS_CONCURRENTS,
+        CRITERES_TRI_CONCURRENTS,
+        PILIERS_STRATEGIE,
+    )
+
+    if deliverable_type == DeliverableType.COMPETITOR_STUDY:
+        nd, ni = ATTENDUS_CONCURRENTS["directs"], ATTENDUS_CONCURRENTS["indirects"]
+        criteres = "\n".join(
+            f"  {i}. {c}" for i, c in enumerate(CRITERES_TRI_CONCURRENTS, start=1)
+        )
+        return (
+            f"CONSIGNE STRUCTURELLE (regle absolue) : le livrable doit contenir "
+            f"EXACTEMENT {nd} concurrents directs et EXACTEMENT {ni} concurrents "
+            f"indirects, ni plus, ni moins. Sous-sections dediees, listees comme :\n"
+            f"## Concurrents directs\n- <Nom> — <analyse>\n(x{nd} entrees)\n"
+            f"## Concurrents indirects\n- <Nom> — <analyse>\n(x{ni} entrees)\n"
+            f"Le systeme est MAITRE de la selection. Si le client ne fournit "
+            f"aucun concurrent, tu en cherches. Si le client fournit une liste "
+            f"que tu juges inadequate, tu la corriges. Si tu n'en trouves que "
+            f"{nd - 2}, tu completes avec les {nd - (nd - 2)} acteurs les plus "
+            f"proches. Si tu en trouves {nd + 4}, tu retiens les {nd} plus "
+            f"pertinents. Le nombre n'est jamais negociable.\n"
+            f"CRITERES DE TRI (ordre imperatif) pour arbitrer entre "
+            f"concurrents pertinents :\n{criteres}\n"
+            f"Le premier critere prime toujours. On descend au suivant en cas "
+            f"d'egalite."
+        )
+
+    if deliverable_type == DeliverableType.BUSINESS_STRATEGY:
+        piliers = ", ".join(
+            f"{intitule} ({cle})"
+            for cle, (intitule, _motif) in PILIERS_STRATEGIE.items()
+        )
+        # Reprise verbatim du document methodologique EVKHA envoye par la
+        # cliente (« Systeme EVKHA — Strategies Business Automatisees »,
+        # juillet 2026). Le prompt STR precedent posait les 4 piliers mais
+        # ignorait la posture, la logique d'interpretation du brief et les
+        # interdictions verbatim. Cinq ajouts :
+        #
+        # 1. POSTURE : cabinet de conseil / DAF, lucide meme inconfortable,
+        #    refus de la complaisance.
+        # 2. CINQ OBJECTIFS transversaux : clarification, structuration,
+        #    rentabilite, pilotage, developpement.
+        # 3. INTERPRETATION du brief imparfait : « le desordre initial du
+        #    dirigeant est normal ». Reconstruire la logique cohérente
+        #    plutot que d'exiger un brief parfait.
+        # 4. REDACTION : paragraphes developpes, listes reservees aux
+        #    synthese, arbitrages, feuilles de route.
+        # 5. INTERDITS VERBATIM du PDF EVKHA : phrases motivationnelles
+        #    creuses, conseils generiques.
+        return (
+            "POSTURE (methode EVKHA Strategies) : tu es un consultant senior, "
+            "posture cabinet de conseil / DAF / direction generale. Tu produis "
+            "une analyse lucide, meme inconfortable. Tu refuses la complaisance : "
+            "si une orientation semble incoherente, tu la signales et l'expliques. "
+            "L'objectif n'est pas de rassurer, c'est de piloter.\n"
+            "CINQ OBJECTIFS transversaux de toute strategie EVKHA : "
+            "clarification (positionnement, offres, verticales, vision), "
+            "structuration (modele economique, priorites, croissance, decisions), "
+            "rentabilite (valeur creee, marges, activites peu rentables), "
+            "pilotage (arbitrages, dispersion, ressources, soutenabilite), "
+            "developpement (croissance securisee, differenciation, trajectoire "
+            "long terme). Chaque analyse doit se rattacher a au moins un de "
+            "ces cinq axes.\n"
+            "CONSIGNE STRUCTURELLE (regle absolue) : la strategie repose sur "
+            f"QUATRE PILIERS, TOUS traites, dans cet ordre : {piliers}.\n"
+            "- PILIER 1 (Positionnement & Specialisation) : sortir de la "
+            "confusion, clarifier la direction, affirmer ce qui rend unique.\n"
+            "- PILIER 2 (Structuration de l'offre) : organiser le catalogue "
+            "pour vendre mieux sans s'eparpiller.\n"
+            "- PILIER 3 (Planning editorial) : creer une presence qui attire "
+            "les bons clients.\n"
+            "- PILIER 4 (Analyse de la tarification) : arreter de fixer les "
+            "prix au hasard, vendre avec confiance.\n"
+            "La conclusion doit livrer une vision strategique ET un plan "
+            "d'action operationnel.\n"
+            "INTERPRETATION DU BRIEF (le desordre du dirigeant est normal) : "
+            "aucun brief client n'arrive parfaitement structure. Les "
+            "informations peuvent etre incompletes, desorganisees, "
+            "emotionnelles, contradictoires. Ta tache : identifier les "
+            "problematiques implicites, regrouper les informations similaires, "
+            "reconstituer les intentions reelles du dirigeant, distinguer les "
+            "vraies priorites des idees secondaires. Ne JAMAIS demander un "
+            "brief plus complet ; toujours travailler avec ce qui est fourni.\n"
+            "REDACTION (methode EVKHA) : paragraphes developpes qui expliquent "
+            "les implications de chaque decision, PAS d'accumulation de listes. "
+            "Les listes a puces sont reservees aux synthese, arbitrages, "
+            "feuilles de route, tableaux de priorites, indicateurs.\n"
+            "INTERDICTIONS VERBATIM du systeme EVKHA : ne JAMAIS ecrire "
+            "« il faut poster plus sur Instagram », « il faut etre present sur "
+            "tous les reseaux », « le marche est tres porteur » sans analyse, "
+            "« l'entreprise doit se demarquer » sans explication, « la strategie "
+            "semble coherente » sans demonstration. Ces formules signalent un "
+            "conseil generique deconnecte du projet reel du client."
+        )
+    return ""
+
+
 def build_system_prompt(
     deliverable_type: str,
     country: str = "",
@@ -183,6 +307,9 @@ def build_system_prompt(
     parts = [role, _CHARTER]
     if geo:
         parts.append(geo)
+    consigne = _consigne_specifique_livrable(deliverable_type)
+    if consigne:
+        parts.append(consigne)
     if plan:
         # plan contient : concurrents client (liste verrouillée), exigences verbatim,
         # structure des sous-sections obligatoires — tout avec "RÈGLE ABSOLUE".
@@ -200,23 +327,42 @@ def _country_for(chapter: ChapterGeneration) -> str:
 def _word_limit_footer(max_words: int) -> str:
     """Contrainte de complétude + densité injectée en fin de prompt.
 
-    Formulation avec ordre de priorité explicite : complétude AVANT densité.
-    Évite que Claude s'arrête après le 6e concurrent parce qu'il approche
-    de la limite de mots — la vraie erreur à éviter.
+    La complétude et la concision ne s'opposent PAS : on traite tout, en
+    condensant. L'ancienne formulation les opposait et tranchait en faveur de
+    la longueur — « budget INDICATIF », « si la complétude nécessite
+    légèrement plus, c'est ACCEPTABLE », « la complétude prime sur TOUTE autre
+    contrainte ». Le modèle obéissait : +29 % sur l'ensemble du business plan,
+    +101 % sur le prévisionnel (2 800 mots visés, 5 639 produits).
+
+    Ce dépassement n'est pas cosmétique. Il casse la mise en page : Gamma borne
+    une carte à ~500 mots et 60 cartes au total. À 33 000 mots le document ne
+    rentre pas, Gamma le comprime et 74 % du texte disparaît. À la cible, il
+    passe. Le dépassement coûte aussi en tokens de sortie, le poste le plus
+    cher.
+
+    L'intention d'origine reste juste et est conservée : ne JAMAIS couper une
+    liste avant le dernier élément. On ne gagne pas de la place en supprimant
+    un concurrent, on en gagne en supprimant du délayage.
     """
     if not max_words:
         return ""
     return (
-        f"\n\n[CONSIGNE IMPÉRATIVE DE COMPLÉTUDE ET DENSITÉ]\n"
+        f"\n\n[CONSIGNE IMPÉRATIVE DE COMPLÉTUDE ET DE CONCISION]\n"
         f"PRIORITÉ 1 — COMPLÉTUDE : traite TOUS les éléments demandés dans "
         f"cette section (tous les concurrents, toutes les rubriques, toutes "
         f"les parties de la liste). Ne jamais interrompre une liste avant "
-        f"le dernier élément. La complétude prime sur toute autre contrainte.\n"
-        f"PRIORITÉ 2 — DENSITÉ : budget indicatif de {max_words} mots. "
-        "Si la complétude nécessite légèrement plus, c'est acceptable. "
-        "Si tu approches de la limite, condense ton style (phrases plus "
-        "courtes, moins de transitions) mais ne saute aucun élément.\n"
-        "PRIORITÉ 3 — CLÔTURE : ferme toujours toutes tes balises HTML "
+        f"le dernier élément.\n"
+        f"PRIORITÉ 2 — LIMITE FERME : {max_words} mots MAXIMUM. Ce n'est pas "
+        "une indication, c'est une borne. Le lecteur est un chargé de "
+        "clientèle bancaire : il veut des conclusions, pas du volume.\n"
+        "PRIORITÉ 3 — COMMENT TENIR LES DEUX : la complétude s'obtient par la "
+        "densité, jamais par la longueur. Si ça ne rentre pas, supprime "
+        "d'abord les phrases de transition, les reformulations, les rappels "
+        "de ce qui a déjà été dit, les tournures d'introduction et de "
+        "conclusion de paragraphe. Ne supprime JAMAIS un élément de fond, un "
+        "chiffre ou un item de liste. Un paragraphe qui n'apporte ni "
+        "conclusion, ni chiffre, ni décision est du remplissage : retire-le.\n"
+        "PRIORITÉ 4 — CLÔTURE : ferme toujours toutes tes balises HTML "
         "avant de terminer. Ne laisse jamais une structure ouverte."
     )
 
