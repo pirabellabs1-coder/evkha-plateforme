@@ -937,26 +937,38 @@ def _check_truncation(sections: tuple[RenderedSection, ...]) -> list[GateFailure
     return failures
 
 
-def _check_fourchettes(sections: tuple[RenderedSection, ...]) -> list[GateFailure]:
+def _check_fourchettes(
+    job: GenerationJob, sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
     """Aucune fourchette monetaire ni de pourcentage dans le livrable.
 
-    Regle imposee par Evangeline sur les fiches 1 et 2 : « pas d'invention
-    ou d'extrapolation de montant ou fourchette ». Cible les motifs de plage
-    (« entre 3 et 5 M€ », « 200 000 a 300 000 € », « 15 a 20 % »). Le fait
-    d'exiger une unite monetaire ou un pourcentage en fin de plage evite les
-    faux positifs des numerotations et des dates.
+    Regle stricte pour BP / EC / STR : chaque valeur est unique. En EM,
+    une fourchette suivie IMMEDIATEMENT d'une mediane annoncee (« estime
+    entre 36 et 45 milliards, mediane retenue 40 milliards ») est le
+    registre « estimations sectorielles » d'Evangeline, elle passe.
+
+    Alignement judge-prompt (regle 5) : la meme distinction s'applique en
+    prompt (`_consigne_specifique_livrable` accepte le format EM). Sans
+    alignement, le gate compte 68 faux positifs pour un doc conforme au
+    standard WAOME, comme mesure sur job 49953f14 (20/07/2026).
     """
     from .checks_evangeline import detecter_fourchettes  # noqa: PLC0415
 
     failures: list[GateFailure] = []
     for section in sections:
-        for f in detecter_fourchettes(section.number, section.body):
+        for f in detecter_fourchettes(
+            section.number, section.body,
+            deliverable_type=str(job.deliverable_type),
+        ):
             failures.append(GateFailure(
                 check="fourchette_interdite",
                 chapter_number=f.chapitre,
                 detail=(
                     f"Fourchette detectee : « {f.extrait} ». Le document doit "
-                    "citer un chiffre unique, decide et source, pas une plage."
+                    "citer un chiffre unique, decide et source, pas une plage. "
+                    "En EM, une fourchette est acceptee UNIQUEMENT si elle est "
+                    "immediatement suivie d'une mediane annoncee (« mediane "
+                    "retenue X »)."
                 ),
             ))
     return failures
@@ -1127,7 +1139,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     # livre. Independants du brief et du type de livrable, ils s'appliquent aux
     # quatre types (etude de marche, etude de concurrence, business plan,
     # strategie).
-    failures.extend(_check_fourchettes(sections))
+    failures.extend(_check_fourchettes(job, sections))
     failures.extend(_check_chiffre_contre_chiffre(sections))
     failures.extend(_check_chapitres_avortes(job, sections))
     failures.extend(_check_concurrents_ec(job, sections))

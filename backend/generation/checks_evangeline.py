@@ -73,8 +73,50 @@ class FourchetteTrouvee:
     unite: str
 
 
-def detecter_fourchettes(chapitre_numero: int, texte: str) -> list[FourchetteTrouvee]:
-    """Liste les fourchettes monetaires et de pourcentages du texte."""
+# Marqueur d'une mediane annoncee IMMEDIATEMENT apres une fourchette.
+# Format WAOME (juillet 2026) : « ..., mediane retenue 40 milliards ». Ce
+# motif est la seule chose qui rend une fourchette LEGITIME dans une EM.
+# Il doit apparaitre dans les 120 caracteres qui suivent la fourchette,
+# sans autre fourchette ni saut de paragraphe intercale — sinon la mediane
+# concerne autre chose.
+_MEDIANE_ANNONCEE_RE = re.compile(
+    r"m[eé]diane(?:\s+retenue)?"
+    r"|valeur\s+retenue"
+    r"|retenu[e]?\s*(?:a|:)"
+    r"|(?:on\s+)?retient",
+    re.IGNORECASE,
+)
+_MEDIANE_FENETRE = 120
+
+# Types de livrable ou la fourchette sourcee avec mediane annoncee est LEGITIME
+# (registre « estimations sectorielles » d'Evangeline). Les autres restent
+# strictement interdits : chaque valeur unique.
+_LIVRABLES_FOURCHETTE_SOURCEE_OK: frozenset[str] = frozenset({
+    "market_study",  # DeliverableType.MARKET_STUDY.value
+})
+
+
+def detecter_fourchettes(
+    chapitre_numero: int,
+    texte: str,
+    deliverable_type: str | None = None,
+) -> list[FourchetteTrouvee]:
+    """Liste les fourchettes monetaires et de pourcentages du texte.
+
+    Regle EM (WAOME) : une fourchette suivie dans les 120 caracteres d'une
+    mention « mediane retenue X » ou equivalent est un registre
+    « estimations sectorielles » legitime, elle N'EST PAS retenue comme
+    defaut. Les autres livrables (BP, EC, STR) gardent la regle stricte :
+    aucune fourchette, meme sourcee.
+
+    Par defaut (sans deliverable_type), le comportement est strict — c'est
+    la retro-compatibilite avec les appels existants qui ne passaient pas
+    ce parametre.
+    """
+    fourchette_sourcee_ok = (
+        deliverable_type is not None
+        and deliverable_type in _LIVRABLES_FOURCHETTE_SOURCEE_OK
+    )
     trouvees: list[FourchetteTrouvee] = []
     for motif in (_FOURCHETTE_MONETAIRE, _FOURCHETTE_POURCENTAGE):
         for match in motif.finditer(texte):
@@ -83,6 +125,12 @@ def detecter_fourchettes(chapitre_numero: int, texte: str) -> list[FourchetteTro
             # le dernier groupe.
             borne_basse = match.group(1) or match.group(3)
             borne_haute = match.group(2) or match.group(4)
+            if fourchette_sourcee_ok:
+                fenetre = texte[match.end() : match.end() + _MEDIANE_FENETRE]
+                if _MEDIANE_ANNONCEE_RE.search(fenetre):
+                    # La mediane est annoncee IMMEDIATEMENT apres : registre
+                    # « estimations sectorielles » d'Evangeline, on laisse.
+                    continue
             trouvees.append(
                 FourchetteTrouvee(
                     chapitre=chapitre_numero,
