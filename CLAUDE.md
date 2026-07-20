@@ -114,6 +114,30 @@ validé contient des tableaux HTML stylés en ligne et que `px`, `td`, `padding`
 `cccccc` étaient comptés comme de la prose. **Dépouillez les deux côtés, ou
 vous mesurez votre propre balisage.**
 
+## 10. Chaque génération réelle est une expérience — elle se logge
+
+Inspiré de `karpathy/autoresearch` : un chercheur autonome ne progresse
+que s'il tient un journal de ses expériences. Chaque tentative qui n'est
+pas enregistrée est une leçon perdue.
+
+Ici : **chaque appel API Claude** est une expérience à ~2 € qui produit
+une mesure (gate failures, retours cliente à posteriori). Cette mesure
+doit être enregistrée dans `journal_generations.md` avec un verdict :
+
+- **keep** : la génération a répondu à un défaut nommé, la cliente valide
+  sur le document livré (pas juste les tests unitaires — règle 7).
+- **discard** : la génération n'a pas amélioré ou a régressé.
+- **blocked** : défaut identifié mais pas encore validé sur un doc réel.
+
+Le journal cumule les leçons : on relie chaque correctif à la génération
+qui l'a motivé. Sans ce lien, on refait les mêmes erreurs — pattern
+observé quatre fois sur ce projet (« mêmes défauts qui reviennent »).
+
+**Chaque correction propage à tous les livrables, pas au seul cas
+observé** (règle 4). Un défaut sur un BP devient une correction qui vaut
+aussi pour EM / EC / STR, sauf si le type de livrable impose autre chose
+(cas des fourchettes : strict en BP/EC/STR, sourcée avec médiane en EM).
+
 ---
 
 ## Vérification obligatoire avant tout commit

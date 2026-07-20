@@ -398,6 +398,30 @@ ATTENDUS_CONCURRENTS: dict[str, int] = {
 # plus de concurrents pertinents que la place disponible. Le premier critere
 # prime toujours ; on descend au critere suivant si egalite. La CONSTANTE est
 # la source unique injectee dans le prompt EC (regle 5 du CLAUDE.md).
+# ── 5 registres methodologiques (WAOME, juillet 2026) ──────────────────────
+# Evangeline distingue 5 natures d'information dans une etude de marche :
+# faits verifies, estimations, hypotheses projet, ambitions dirigeantes,
+# elements a tester. Sans ce cadre, le modele melange sources publiees et
+# projections calibrees — un lecteur bancaire ne peut plus arbitrer. On
+# expose la liste comme constante (regle 5) importee par le prompt EM et
+# par la documentation methodologique du chapitre Sources.
+REGISTRES_METHODO: dict[str, tuple[str, str]] = {
+    "faits":       ("Faits documentes",
+                    "Chiffres et donnees publies par des sources identifiees "
+                    "(institutions, cabinets, textes reglementaires)."),
+    "estimations": ("Estimations sectorielles",
+                    "Valeurs projetees a partir de croisements methodologiques, "
+                    "presentees en fourchette avec la mediane retenue."),
+    "hypotheses":  ("Hypotheses projet",
+                    "Choix structurants a valider par l'execution."),
+    "ambitions":   ("Ambitions commerciales",
+                    "Objectifs chiffres du dirigeant, calibres par l'etude."),
+    "a_tester":    ("Elements a tester",
+                    "Points de verification pratique a confirmer dans les "
+                    "6-12 premiers mois d'activite."),
+}
+
+
 CRITERES_TRI_CONCURRENTS: tuple[str, ...] = (
     "Similarite de l'offre (memes produits, memes services)",
     "Cible client comparable",

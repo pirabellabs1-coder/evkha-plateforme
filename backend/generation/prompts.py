@@ -102,17 +102,12 @@ _CHARTER = (
     "avec sa methode d'estimation, et documente le raisonnement dans l'encadre "
     "'Methodologie' du chapitre des Sources. Une hypothese sourcee et "
     "argumentee vaut toujours mieux qu'un silence.\n"
-    "FOURCHETTES DU BRIEF (regle absolue) : quand le brief client cite une "
-    "plage monetaire (« 180-280 kEUR », « entre 3 et 5 M€ ») ou un pourcentage "
-    "en fourchette (« 14-16 % »), tu dois TRANCHER : cite UNE valeur unique "
-    "dans le document. Prends la mediane par defaut (« brief 14-16 % » -> "
-    "« 15 % retenu, mediane de la fourchette fournie »), ou la borne "
-    "conservatrice pour un usage bancaire (borne basse pour un revenu, borne "
-    "haute pour un cout). Documente le choix en une ligne dans l'encadre "
-    "Methodologie du chapitre Sources. Ne RECOPIE JAMAIS la fourchette telle "
-    "quelle : un banquier n'accepte pas « environ 180 a 280 000 EUR de "
-    "seuil », il attend un chiffre. Meme regle pour les fourchettes que "
-    "tu serais tente de produire (« environ X a Y »).\n"
+    # La regle « fourchettes » a ete DEPLACEE en `_consigne_specifique_livrable` :
+    # elle differe selon le livrable (BP/EC/STR strict, EM sourcee autorisee
+    # avec mediane annoncee, en s'alignant sur le standard WAOME juillet 2026).
+    # Regle 4 : viser la classe, adapter la contrainte au type de decision
+    # que le document doit permettre.
+
     "TYPOGRAPHIE (regle stricte) : JAMAIS d'em-dash (—) ni d'en-dash (–) "
     "dans la prose redigee. Ce sont des signatures IA immediatement reperees "
     "par les lecteurs professionnels. Utilise a la place : une virgule pour "
@@ -202,7 +197,58 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         ATTENDUS_CONCURRENTS,
         CRITERES_TRI_CONCURRENTS,
         PILIERS_STRATEGIE,
+        REGISTRES_METHODO,
     )
+
+    # ── Regle FOURCHETTES adaptee par livrable (WAOME juillet 2026) ─────
+    # BP/EC/STR imposent une decision : chaque chiffre est unique. EM est
+    # une analyse externe : les intervalles publies par les sources sont
+    # legitimes A CONDITION d'annoncer la mediane retenue dans la meme
+    # phrase (« TAM 130-200 M€, mediane retenue 150 M€ »). Sans cette
+    # nuance par livrable, on obtient soit du bruit dans un BP, soit un EM
+    # denature ou l'IA se contredit avec ses propres sources.
+    consigne_fourchettes_stricte = (
+        "FOURCHETTES DU BRIEF (regle absolue) : chaque valeur du document est "
+        "un chiffre unique, jamais une plage. Tu ne recopies JAMAIS une "
+        "fourchette (« 180-280 kEUR », « entre 3 et 5 M€ », « 14-16 % ») : tu "
+        "ne la recopies jamais, ni celles du brief, ni celles que tu serais "
+        "tente de produire. Quand une "
+        "donnee source est en fourchette, tu dois TRANCHER : mediane par "
+        "defaut (« 14-16 % » -> « 15 % retenu »), ou borne conservatrice pour "
+        "un usage bancaire (borne basse pour un revenu, borne haute pour un "
+        "cout). Documente le choix dans l'encadre Methodologie du chapitre "
+        "Sources.\n"
+    )
+    consigne_fourchettes_em = (
+        "FOURCHETTES (regle EM) : les intervalles publies par les sources "
+        "sectorielles sont legitimes A CONDITION d'annoncer immediatement la "
+        "MEDIANE RETENUE dans la meme phrase. Format impose : « TAM France "
+        "2026 dans une fourchette de 130 a 200 M€, mediane retenue 150 M€ ». "
+        "La fourchette NUE (sans mediane annoncee) est interdite : le lecteur "
+        "ne saurait pas quelle valeur tu retiens pour la suite du raisonnement. "
+        "Une fois la mediane annoncee, tous les calculs et projections des "
+        "chapitres suivants s'appuient sur elle, jamais sur la borne haute ou "
+        "basse. Pour les fourchettes du BRIEF client (previsionnel, seuil), "
+        "MEME REGLE : reprend la fourchette + annonce la mediane retenue.\n"
+    )
+
+    if deliverable_type == DeliverableType.MARKET_STUDY:
+        registres = "\n".join(
+            f"  - {intitule} : {desc}"
+            for _cle, (intitule, desc) in REGISTRES_METHODO.items()
+        )
+        return (
+            consigne_fourchettes_em +
+            "REGISTRES METHODOLOGIQUES (methode WAOME EVKHA) : chaque affirmation "
+            "du dossier doit se rattacher explicitement a l'un de ces cinq "
+            "registres, dans le corps du texte ou dans un tableau de synthese "
+            "en debut de chapitre :\n" + registres + "\n"
+            "En preambule de la premiere section chiffree (chapitre 1), "
+            "reprend ce tableau de registres pour que le lecteur sache "
+            "toujours quelle nature d'information il consulte. Ne melange "
+            "JAMAIS deux registres dans une meme phrase (un fait documente "
+            "et une hypothese, par exemple)."
+        )
 
     if deliverable_type == DeliverableType.COMPETITOR_STUDY:
         nd, ni = ATTENDUS_CONCURRENTS["directs"], ATTENDUS_CONCURRENTS["indirects"]
@@ -210,6 +256,7 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             f"  {i}. {c}" for i, c in enumerate(CRITERES_TRI_CONCURRENTS, start=1)
         )
         return (
+            consigne_fourchettes_stricte +
             f"CONSIGNE STRUCTURELLE (regle absolue) : le livrable doit contenir "
             f"EXACTEMENT {nd} concurrents directs et EXACTEMENT {ni} concurrents "
             f"indirects, ni plus, ni moins. Sous-sections dediees, listees comme :\n"
@@ -250,6 +297,7 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         # 5. INTERDITS VERBATIM du PDF EVKHA : phrases motivationnelles
         #    creuses, conseils generiques.
         return (
+            consigne_fourchettes_stricte +
             "POSTURE (methode EVKHA Strategies) : tu es un consultant senior, "
             "posture cabinet de conseil / DAF / direction generale. Tu produis "
             "une analyse lucide, meme inconfortable. Tu refuses la complaisance : "
@@ -294,6 +342,14 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             "semble coherente » sans demonstration. Ces formules signalent un "
             "conseil generique deconnecte du projet reel du client."
         )
+
+    if deliverable_type == DeliverableType.BUSINESS_PLAN:
+        # Le BP est un dossier BANCAIRE : chaque chiffre unique, aucune
+        # fourchette. La consigne stricte suffit (la structure du BP est
+        # imposee par le blueprint et les faits CLIENT verrouilles depuis
+        # le brief Tally).
+        return consigne_fourchettes_stricte
+
     return ""
 
 

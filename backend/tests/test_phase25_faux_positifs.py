@@ -155,7 +155,7 @@ def test_le_prompt_ordonne_de_trancher_les_fourchettes_du_brief() -> None:
 
     assert "fourchettes du brief" in prompt.lower()
     assert "trancher" in prompt.lower() or "mediane" in prompt.lower()
-    assert "recopie jamais" in prompt.lower()
+    assert "recopie jamais" in prompt.lower() or "recopies jamais" in prompt.lower()
 
 
 # ── SYNAPSES v2 : les niveaux de marche verrouilles par PROSE NATURELLE ─────
