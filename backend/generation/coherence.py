@@ -572,35 +572,59 @@ def extract_and_lock_chiffres_cles(job: GenerationJob, chapter_number: int, cont
 # que _MARKET_SIZE_PATTERNS (cle fixe "taille_marche") ne couvre pas car
 # chaque entite labellisee a besoin de sa propre cle.
 
-# Motifs syntaxiques : capture le libelle qui precede un chiffre et l'unite.
-# Volontairement conservateur : on ne verrouille QUE ce qui est explicitement
-# libelle + chiffre + unite, pour ne pas capturer du bruit.
-_LABELED_NUMERIC_PATTERNS: tuple[re.Pattern[str], ...] = (
-    # "nombre de X : 1,8 M" / "X actifs : 4,4 millions"
-    re.compile(
-        r"(?P<label>(?:nombre de|nb de|total de|effectif de|part de|volume de)"
-        r"\s+[A-Za-zÀ-ÿ' -]{3,60})"
-        r"\s*[:\-]?\s*"
-        r"(?P<value>[0-9][0-9\s.,]{0,20})\s*"
-        r"(?P<unit>(?:M€|Md€|Mds€|M|Md|Mds|milliards?|millions?|millier[s]?|%|k€|k))",
+# Motifs syntaxiques : liste blanche STRICTE de concepts metier.
+#
+# Refonte apres SYNAPSES v3 (juillet 2026) : les patterns generiques
+# `[A-Za-zÀ-ÿ' -]{3,60}` capturaient des fragments de phrase comme
+# « nombre de micro-entrepreneurs actifs dans l'Herault a progressé de » et
+# creaient des clefs de fait de 60 caracteres qui ne designaient aucun
+# concept metier. Chaque variante lexicale d'un meme concept produisait
+# une clef distincte (« taux de remplissage progressifs », « retenus sont »,
+# « volontairement conservateurs » = trois clefs pour la meme chose), ce
+# qui violait la regle 5 (une seule source par verite).
+#
+# Nouveau motif : chaque concept est nomme explicitement (regle 4 : viser la
+# classe, pas l'exemple). Aucun libelle ne peut etre plus long qu'un intitule
+# metier reconnu. Les concepts qu'on souhaite verrouiller mais qui sont deja
+# couverts par des patterns dedies plus specifiques (CA cible, seuil de
+# rentabilite, panier moyen, marge brute, taille de marche, TCAC par niveau)
+# ne sont PAS repetes ici — la regle 5 l'exige : une seule source.
+_CONCEPTS_METIER: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("taux_occupation",  re.compile(
+        r"taux\s+d['’]?\s*occupation",
         re.IGNORECASE,
-    ),
-    # "CA X : 300 M€" / "chiffre d'affaires de Y = 400 millions d'euros"
-    re.compile(
-        r"(?P<label>(?:CA|chiffre d['’]affaires|revenus?)\s+(?:de\s+|d['’])?[A-Za-zÀ-ÿ'’ -]{2,40})"
-        r"\s*[:\-=]?\s*"
-        r"(?P<value>[0-9][0-9\s.,]{0,20})\s*"
-        r"(?P<unit>(?:M€|Md€|Mds€|millions?|milliards?)(?:\s+d['’]euros?)?)",
+    )),
+    ("taux_conversion",  re.compile(
+        r"taux\s+de\s+conversion",
         re.IGNORECASE,
-    ),
-    # "taux de X : 22 %" / "TCAC de 8,5%"
-    re.compile(
-        r"(?P<label>(?:taux de|TCAC|taux d['’]|part de|penetration de)\s+[A-Za-zÀ-ÿ'’ -]{2,60})"
-        r"\s*[:\-=]?\s*"
-        r"(?P<value>[0-9][0-9.,]{0,10})\s*"
-        r"(?P<unit>%)",
+    )),
+    ("taux_retention",   re.compile(
+        r"taux\s+de\s+r[ée]tention",
         re.IGNORECASE,
-    ),
+    )),
+    ("part_de_marche",   re.compile(
+        r"parts?\s+de\s+march[ée]",
+        re.IGNORECASE,
+    )),
+    ("nombre_clients",   re.compile(
+        r"nombre\s+de\s+clients?(?:\s+cibles?)?",
+        re.IGNORECASE,
+    )),
+    ("ticket_moyen",     re.compile(
+        r"ticket\s+moyen|panier\s+moyen",
+        re.IGNORECASE,
+    )),
+)
+
+# Motif de valeur qui SUIT le concept (verbe de valeur obligatoire, plus la
+# valeur elle-meme). Impose une liaison syntaxique — regle 9, meme logique
+# que pour `checks_evangeline` : la proximite seule cree des faux positifs.
+_VALEUR_APRES_CONCEPT = re.compile(
+    r"\s*(?:est\s+de|s['’]\s*[eé]l[eè]ve\s+[àa]|atteint|de|:|=|"
+    r"repr[eé]sente|se\s+situe\s+[àa])\s*"
+    r"(?P<value>[0-9][0-9\s.,]{0,15})\s*"
+    r"(?P<unit>%|M€|Md€|Mds€|k€|EUR|euros?|milliards?|millions?)",
+    re.IGNORECASE,
 )
 
 
@@ -632,26 +656,27 @@ def extract_and_lock_numeric_facts(chapter: ChapterGeneration) -> list[Coherence
     locked: list[CoherenceFact] = []
     content = chapter.content or ""
     seen_keys: set[str] = set()
-    for pattern in _LABELED_NUMERIC_PATTERNS:
-        for match in pattern.finditer(content):
-            key = _normalize_key(match.group("label"))
-            if not key or key in seen_keys:
+    for cle, motif_concept in _CONCEPTS_METIER:
+        if cle in seen_keys:
+            continue
+        for m in motif_concept.finditer(content):
+            valeur = _VALEUR_APRES_CONCEPT.match(content, m.end())
+            if not valeur:
                 continue
-            seen_keys.add(key)
+            seen_keys.add(cle)
             existing = CoherenceFact.objects.filter(
-                job=chapter.job, kind=FactKind.MARKET_SIZE, key=key
+                job=chapter.job, kind=FactKind.MARKET_SIZE, key=cle
             ).first()
             if existing and existing.is_locked:
-                # Deja verrouille par un chapitre precedent : on ne touche pas.
-                # La divergence eventuelle sera detectee par la validation.
-                continue
-            value = _normalize_value(match.group("value"), match.group("unit"))
+                break
+            value = _normalize_value(valeur.group("value"), valeur.group("unit"))
             fact = upsert_locked_fact(
                 job=chapter.job,
                 kind=FactKind.MARKET_SIZE,
-                key=key,
+                key=cle,
                 value=value,
                 source_chapter_number=chapter.chapter_number,
             )
             locked.append(fact)
+            break
     return locked

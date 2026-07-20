@@ -388,6 +388,36 @@ _MOTS_OUTILS: frozenset[str] = frozenset({
 })
 
 
+def _mot_present(mot: str, full_text: str) -> bool:
+    """Un mot porteur du needle est-il traite dans le document ?
+
+    Deux voies :
+      a) Match strict par frontiere de mot (`\\b...\\b`) : le mot apparait
+         tel quel (ou dans une variante en pluriel/majuscule geree par le
+         `\\w*` implicite). Le simple `in` du code precedent capturait « pro »
+         dans « projet » — faux positif discret qui empechait de detecter
+         les vraies absences.
+      b) Match par RADICAL (regle 4 : viser la classe) : si le mot fait au
+         moins 5 lettres, on tolere qu'un mot du texte commence par les 60 %
+         premieres lettres du needle, avec un plancher de 4 lettres.
+         Constate SYNAPSES v3 : brief « bureaux prives » vs doc « bureaux
+         privatifs » — meme radical `priv`, meme sens, faux positif que
+         cette voie eteint sans laisser passer les vraies verticales
+         effacees (« self », « evenementiel » restent bloques).
+    """
+    if re.search(rf"\b{re.escape(mot)}\b", full_text, re.IGNORECASE):
+        return True
+    if len(mot) < 5:
+        # Trop court pour tolerer une troncature sans creer des faux
+        # positifs (« pro » matcherait « projet », « proche »...).
+        return False
+    n_radical = max(4, -(-len(mot) * 3 // 5))  # ceil(0.6 * len)
+    if n_radical >= len(mot):
+        return False
+    radical = mot[:n_radical]
+    return bool(re.search(rf"\b{re.escape(radical)}\w*", full_text, re.IGNORECASE))
+
+
 def _verticale_present(needle: str, full_text: str) -> bool:
     """La verticale est-elle traitée dans le livrable ?
 
@@ -400,19 +430,16 @@ def _verticale_present(needle: str, full_text: str) -> bool:
 
     Règle : la verticale est traitée si TOUS ses mots porteurs apparaissent
     quelque part dans le document, pas forcément côte à côte ni dans l'ordre.
-    - « domiciliation d'entreprises » -> domiciliation + entreprises : présents ;
-    - « recherche et développement »  -> recherche + développement, même
-      traités dans deux phrases distinctes ;
-    - une verticale réellement effacée perd son mot distinctif (« self-storage »
-      n'apparaît nulle part) et reste bloquée.
-
-    Cette règle unique remplace le match littéral ET la tolérance au « et » :
-    « et » est simplement un mot-outil.
+    Chaque mot du needle doit etre PRESENT au sens de `_mot_present` :
+    match strict OU par radical commun (>= 4 lettres). Le radical rattrape
+    « bureaux prives » vs « bureaux privatifs » constate SYNAPSES v3, sans
+    laisser passer une verticale reellement effacee (« self-storage » n'a
+    pas de synonyme radical dans un document sans stockage).
     """
     mots = [m for m in re.split(r"[^\w-]+", needle) if m and m not in _MOTS_OUTILS]
     if not mots:
         return True
-    return all(mot in full_text for mot in mots)
+    return all(_mot_present(mot, full_text) for mot in mots)
 
 
 def _client_numbers(value: str) -> list[float]:

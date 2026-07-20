@@ -60,6 +60,9 @@ def test_operational_summary_priorise_les_phrases_chiffrees() -> None:
 
 @pytest.mark.django_db
 def test_extract_and_lock_numeric_facts_verrouille_les_chiffres() -> None:
+    """Refonte apres SYNAPSES v3 : la liste blanche stricte des concepts
+    metier remplace les patterns generiques. Les libelles surveilles sont
+    definis dans `_CONCEPTS_METIER` (regle 5 : source unique)."""
     from catalog.models import DeliverableType, Offer
     from customers.models import Customer
     from generation.coherence import extract_and_lock_numeric_facts
@@ -78,23 +81,23 @@ def test_extract_and_lock_numeric_facts_verrouille_les_chiffres() -> None:
         chapter_title="Marche",
         prompt_key="em.01.marche_mondial_europeen",
         content=(
-            "Le nombre de micro-entrepreneurs actifs est de 1,8 M en 2025. "
-            "Le taux de croissance est de 8,5 % par an. "
-            "Le CA moyen du secteur est de 300 M€."
+            "Le taux d'occupation est de 55 % en annee 1. "
+            "Le ticket moyen est de 45 EUR par visite. "
+            "La part de marche visee est de 12 %."
         ),
     )
 
     locked = extract_and_lock_numeric_facts(chapter)
 
-    assert len(locked) >= 2  # au moins 2 des 3 chiffres capturés
+    assert len(locked) >= 2, f"attendu >=2 faits, obtenu {[f.key for f in locked]}"
     keys = {f.key for f in locked}
-    assert any("micro" in k for k in keys)
+    assert "taux_occupation" in keys
     assert all(f.kind == FactKind.MARKET_SIZE for f in locked)
 
 
 @pytest.mark.django_db
 def test_extract_ne_reecrase_pas_un_chiffre_deja_verrouille() -> None:
-    """Le premier chapitre a mentionner un libelle fige la valeur pour la suite."""
+    """Le premier chapitre a mentionner un concept fige la valeur pour la suite."""
     from catalog.models import DeliverableType, Offer
     from customers.models import Customer
     from generation.coherence import extract_and_lock_numeric_facts
@@ -110,21 +113,21 @@ def test_extract_ne_reecrase_pas_un_chiffre_deja_verrouille() -> None:
 
     ch1 = ChapterGeneration.objects.create(
         job=job, chapter_number=1, chapter_title="Marche", prompt_key="em.01",
-        content="Le nombre de micro-entrepreneurs actifs est de 1,8 M en 2025.",
+        content="Le taux d'occupation est de 55 % en annee 1.",
     )
     extract_and_lock_numeric_facts(ch1)
 
     ch2 = ChapterGeneration.objects.create(
         job=job, chapter_number=2, chapter_title="Zone", prompt_key="em.02",
-        content="Le nombre de micro-entrepreneurs actifs est de 4,4 M.",  # incoherent
+        content="Le taux d'occupation est de 88 %.",  # incoherent
     )
     # Ne doit PAS lever : on ignore silencieusement quand deja verrouille.
     extract_and_lock_numeric_facts(ch2)
 
     from generation.coherence import locked_facts_as_context
     dump = locked_facts_as_context(job)
-    assert "1,8" in dump
-    assert "4,4" not in dump  # la premiere valeur reste souveraine
+    assert "55" in dump
+    assert "88" not in dump  # la premiere valeur reste souveraine
 
 
 # --- Fix #3 : validation post-génération -----------------------------------
