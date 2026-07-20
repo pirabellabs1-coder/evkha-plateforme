@@ -35,6 +35,7 @@ Objectif : à chaque nouveau défaut nommé par la cliente ou par le gate,
 |------|--------|--------|----------|--------|-----------|------|---------|---------|-------------|
 | 2026-07-19 | `c3798821` | `e23bbac` | BP | 1,70 | 21,9 | 60 | — | discard | SYNAPSES v2 — brief avec fourchettes de mon cru, modèle les recopie 48× |
 | 2026-07-19 | `60b3e577` | `e23bbac` | BP | 1,54 | 21,8 | 12 | 0 bloquant | **keep** | SYNAPSES v3 — brief nettoyé, chiffres uniques, Évangéline valide sur la forme et le fond |
+| 2026-07-20 | `49953f14` | `a73669b` | EM | 2,03 | 28,8 | 71 → 62 après fix judge-alignment (92676e0) | en attente | **blocked** | WAOME EM v1 — 23 chapitres, 43 730 mots. Le modèle applique bien le format WAOME (fourchettes sourcées + médiane annoncée). Reste 59 micro-fourchettes sans médiane à corriger côté prompt, et 2 vraies divergences chiffrées (marge_brute, résultat_net an3). |
 
 ## Ce qui a été appris (par run)
 
@@ -52,6 +53,16 @@ Objectif : à chaque nouveau défaut nommé par la cliente ou par le gate,
   - **Phase 27** : `_verticale_present` accepte les radicaux communs ≥ 4 lettres.
   - **Phase 28** : `_CONCEPTS_METIER` remplace les patterns génériques dans `extract_and_lock_numeric_facts` (fin des clefs `taux_de_remplissage_volontairement_conservateurs`).
   - **Phase 29** : consigne « fourchettes » adaptée par livrable (BP/EC/STR stricts, EM sourcée avec médiane annoncée). Registres méthodologiques ajoutés au prompt EM d'après WAOME.
+
+### 2026-07-20 WAOME EM v1 — `49953f14`
+
+- **68 fourchettes** signalées au gate — mesuré. **Toutes** sont conformes au standard WAOME (« estimé entre X et Y, médiane retenue Z »). Cas d'école de judge-misalignment : le prompt a été adapté à la règle EM (phase 29), le check gate est resté strict. Résultat : le loop tourne mais compte du bruit.
+- **Correction immédiate — phase 30** : `detecter_fourchettes` reçoit le type de livrable. Pour EM, une fourchette suivie dans les 120 caractères d'une mention « médiane retenue X » est acceptée. Effet mesuré sur le même doc : 68 → 59 fourchettes signalées (les 9 sourcées + médiane annoncée disparaissent).
+- **59 fourchettes restantes** = signal prompt à renforcer : le modèle annonce la médiane pour les macros (mondial, européen, national) mais pas pour toutes les micro-fourchettes qu'il produit dans les chapitres 3+. Correctif prompt à faire avant re-génération.
+- **2 vraies divergences chiffrées** :
+  - `marge_brute 110 kEUR (ch. 14) vs 10 000 EUR (ch. 21)` — vraie incohérence.
+  - `resultat_net an3 : 95k / 270k / 35k` — trois valeurs dans le seul ch. 21.
+- **Leçon transverse (méthode Bles Software)** : chaque nouvelle règle prompt DOIT être aussitôt reflétée dans le check gate correspondant. Sinon le judge n'est plus aligné et le loop devient décoratif.
 
 ## Règles de tenue du journal
 
