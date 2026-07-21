@@ -21,6 +21,6 @@ existants vers les modules par livrable.
 """
 from __future__ import annotations
 
-from .base import LivrableStrategy, get_strategy
+from .base import LivrableStrategy, _reset_cache, get_strategy
 
-__all__ = ["LivrableStrategy", "get_strategy"]
+__all__ = ["LivrableStrategy", "_reset_cache", "get_strategy"]

@@ -331,7 +331,6 @@ def test_get_strategy_retourne_fallback_neutre_pour_les_livrables_non_migres() -
 
     for dt in (
         DeliverableType.COMPETITOR_STUDY,
-        DeliverableType.BUSINESS_STRATEGY,
     ):
         strategy = get_strategy(dt)
         # Fallback : contexte None, aucun probleme detecte.

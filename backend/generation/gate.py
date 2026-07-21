@@ -1008,34 +1008,9 @@ def _check_concurrents_ec(
     return failures
 
 
-def _check_piliers_strategie(
-    job: GenerationJob, sections: tuple[RenderedSection, ...]
-) -> list[GateFailure]:
-    """Les 4 piliers de la strategie doivent tous etre poses (fiche 4).
-
-    Ne s'applique qu'aux strategies business. Les libelles reconnus sont ceux
-    qu'Evangeline a nommes verbatim dans son annotation de la fiche 4.
-    """
-    from catalog.models import DeliverableType  # noqa: PLC0415
-
-    from .checks_evangeline import verifier_piliers_strategie  # noqa: PLC0415
-
-    if str(job.deliverable_type) != DeliverableType.BUSINESS_STRATEGY:
-        return []
-    corpus = "\n\n".join(s.body for s in sections)
-    manquants = verifier_piliers_strategie(corpus)
-    failures: list[GateFailure] = []
-    for p in manquants:
-        failures.append(GateFailure(
-            check="piliers_strategie",
-            detail=(
-                f"{p.intitule} absent du document. Les 4 piliers de la strategie "
-                "sont toujours poses (fiche 4 d'Evangeline) : Positionnement & "
-                "Specialisation, Structuration de l'offre, Planning editorial, "
-                "Analyse de la tarification."
-            ),
-        ))
-    return failures
+# _check_piliers_strategie : migre dans `strategies/str_.py` (etape 5).
+# La logique est desormais portee par la STRStrategy, appelee via
+# `_check_strategie_livrable`. Regle 4 : chaque livrable a son manuel.
 
 
 def _check_post_rendu(
@@ -1222,7 +1197,6 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_chiffre_contre_chiffre(sections))
     failures.extend(_check_chapitres_avortes(job, sections))
     failures.extend(_check_concurrents_ec(job, sections))
-    failures.extend(_check_piliers_strategie(job, sections))
     failures.extend(_check_strategie_livrable(job, sections))
     failures.extend(_check_post_rendu(sections))
 
