@@ -1038,6 +1038,56 @@ def _check_piliers_strategie(
     return failures
 
 
+def _check_post_rendu(
+    sections: tuple[RenderedSection, ...],
+) -> list[GateFailure]:
+    """Verifications transverses sur le rendu final (troncatures, doublons
+    de titres, desaccords numeriques). Voir `checks_post_rendu`.
+
+    Ce check couvre trois defauts nommes par Evangeline sur WAOME EM v1
+    (21/07/2026) et qu'aucun autre check du gate ne capturait :
+      - annexe tronquee mid-phrase (« aupres des prospects grandes mar »),
+      - titres de chapitre en double (« ## 22. Sources » puis « # 22.
+        Sources » consecutifs),
+      - « trois familles » suivi de 4 items.
+    """
+    from .checks_post_rendu import (  # noqa: PLC0415
+        detecter_desaccords_numeriques,
+        detecter_doublons_titres,
+        detecter_troncatures,
+    )
+
+    triplets = [(s.number, s.title, s.body) for s in sections]
+
+    failures: list[GateFailure] = []
+    for t in detecter_troncatures(triplets):
+        failures.append(GateFailure(
+            check="troncature_rendu",
+            chapter_number=t.chapitre,
+            detail=(
+                f"Chapitre « {t.titre} » tronque : la derniere ligne ne se "
+                f"termine pas par une ponctuation forte. Fin capturee : "
+                f"« ...{t.fin_capturee} ». Perte probable de contenu client."
+            ),
+        ))
+    for d in detecter_doublons_titres(triplets):
+        failures.append(GateFailure(
+            check="doublon_titre",
+            chapter_number=d.chapitre,
+            detail=(
+                f"Titre « {d.intitule} » apparait {d.occurrences} fois dans "
+                f"le meme chapitre. Verifier l'assemblage."
+            ),
+        ))
+    for n in detecter_desaccords_numeriques(triplets):
+        failures.append(GateFailure(
+            check="desaccord_numerique",
+            chapter_number=n.chapitre,
+            detail=n.detail,
+        ))
+    return failures
+
+
 def _check_strategie_livrable(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1174,5 +1224,6 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_concurrents_ec(job, sections))
     failures.extend(_check_piliers_strategie(job, sections))
     failures.extend(_check_strategie_livrable(job, sections))
+    failures.extend(_check_post_rendu(sections))
 
     return GateReport(passed=not failures, failures=tuple(failures))
