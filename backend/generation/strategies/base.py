@@ -114,6 +114,12 @@ _STRATEGY_MODULES: dict[str, str] = {
 _STRATEGY_CACHE: dict[str, LivrableStrategy] = {}
 
 
+def _reset_cache() -> None:
+    """Utilitaire de test : vide le cache pour re-tester une strategy
+    apres modification du module. Utilise UNIQUEMENT depuis les tests."""
+    _STRATEGY_CACHE.clear()
+
+
 def get_strategy(deliverable_type: str) -> LivrableStrategy:
     """Retourne la strategy dediee au livrable, fallback neutre sinon.
 

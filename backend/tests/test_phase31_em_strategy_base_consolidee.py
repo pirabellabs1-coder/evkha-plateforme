@@ -322,15 +322,14 @@ def test_get_strategy_retourne_em_strategy_pour_market_study() -> None:
     assert strategy.deliverable_type == DeliverableType.MARKET_STUDY
 
 
-def test_get_strategy_retourne_fallback_neutre_pour_les_autres() -> None:
-    """Les autres livrables n'ont pas encore de strategy dediee. Le
-    fallback neutre ne bloque rien, n'ajoute rien : le socle commun
-    continue d'operer comme avant. Migration progressive assumee."""
+def test_get_strategy_retourne_fallback_neutre_pour_les_livrables_non_migres() -> None:
+    """Les livrables qui n'ont PAS encore leur propre strategy (EC, STR)
+    retombent sur le fallback neutre : aucune regression fonctionnelle.
+    Migration progressive assumee."""
     from catalog.models import DeliverableType
     from generation.strategies import get_strategy
 
     for dt in (
-        DeliverableType.BUSINESS_PLAN,
         DeliverableType.COMPETITOR_STUDY,
         DeliverableType.BUSINESS_STRATEGY,
     ):

@@ -83,10 +83,16 @@ def _job_with_content(
     # Un contenu par defaut d'une phrase suffisait avant, il fait aujourd'hui
     # tomber la fixture sous ce plancher : on repete donc la phrase pour tenir
     # les cibles de blueprints jusqu'a 1 800 mots.
+    # Le check `strategy_business_plan_remuneration_dirigeant` (phase 33)
+    # exige que le corpus mentionne la remuneration dirigeante avec un
+    # montant chiffre. On l'integre au corps par defaut : un vrai BP doit
+    # avoir cette ligne, la fixture doit donc la representer.
     corps_defaut = (
         "Analyse détaillée du projet, chiffrée et argumentée sur la zone cible. "
         "Cette section couvre coworking, self-storage, hébergement de serveurs "
         "et activités sportives douces avec des données locales précises. "
+        "Le previsionnel integre une remuneration dirigeante de 30 000 EUR "
+        "annuelle brute, portee a 55 000 EUR avec les cotisations sociales. "
     ) * 40
     for chapter in job.chapters.all():
         body = content_by_number.get(chapter.chapter_number, corps_defaut)

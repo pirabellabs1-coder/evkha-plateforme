@@ -123,13 +123,18 @@ def test_boucle_regenere_le_chapitre_fautif(
     # Le check `chapitre_avorte` planche a 30 % du max_words du blueprint.
     # On repete le paragraphe pour tenir cette cible sans changer le sens du
     # test (verifier la valeur d'emprunt citee, pas la longueur).
+    # La remuneration dirigeante est integree au corpus pour que le check
+    # `strategy_business_plan_remuneration_dirigeant` (phase 33) passe :
+    # un vrai BP l'a toujours, la fixture doit donc la representer.
     good_body = (
         "Le financement repose sur un emprunt de 920 000 € sur 7 ans, "
         "conforme au plan du porteur, avec une analyse complete et argumentee. "
+        "Remuneration dirigeante de 30 000 EUR annuelle prevue au previsionnel. "
     ) * 60
     bad_body = (
         "Le financement repose sur un emprunt de 300 000 € sur 7 ans, "
         "chiffre recalcule, avec une analyse complete et argumentee du projet. "
+        "Remuneration dirigeante de 30 000 EUR annuelle prevue au previsionnel. "
     ) * 60
     _mark_all_done(bp_job, good_body)
     # Chapitre 14 fautif (emprunt ÷3)
