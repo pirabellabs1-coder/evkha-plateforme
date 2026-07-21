@@ -126,21 +126,32 @@ def build_context(chapter: ChapterGeneration) -> str:
         "publication ; presente toute donnee non etablie comme une estimation."
     )
 
-    return "\n\n".join(
-        [
-            ROLE_LINE,
-            _date_line(),
-            f"VARIABLES_PROJET: {json.dumps(variables, ensure_ascii=False, sort_keys=True)}",
-            f"FICHE_SECTORIELLE:\n{fiche_sectorielle}",
-            f"SOURCES_WEB:\n{research_block}",
-            "DONNEES_CLIENT (brief client, intangibles, priorite absolue):\n"
-            + client_facts_as_context(job),
-            _tokens_block(job),
-            "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
-            "precedents, a reprendre a l'identique, jamais presentes comme "
-            "'faits verrouilles'):\n" + generated_facts_as_context(job),
-            "RESUME_OPERATIONNEL_PRECEDENT:\n" + ("\n".join(summary_lines) or "Aucun."),
-            f"CHAPITRE_CIBLE: {chapter.chapter_number}. {chapter.chapter_title}",
-            f"PROMPT_KEY: {chapter.prompt_key}",
-        ]
+    blocs = [
+        ROLE_LINE,
+        _date_line(),
+        f"VARIABLES_PROJET: {json.dumps(variables, ensure_ascii=False, sort_keys=True)}",
+        f"FICHE_SECTORIELLE:\n{fiche_sectorielle}",
+        f"SOURCES_WEB:\n{research_block}",
+        "DONNEES_CLIENT (brief client, intangibles, priorite absolue):\n"
+        + client_facts_as_context(job),
+        _tokens_block(job),
+        "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
+        "precedents, a reprendre a l'identique, jamais presentes comme "
+        "'faits verrouilles'):\n" + generated_facts_as_context(job),
+        "RESUME_OPERATIONNEL_PRECEDENT:\n" + ("\n".join(summary_lines) or "Aucun."),
+        f"CHAPITRE_CIBLE: {chapter.chapter_number}. {chapter.chapter_title}",
+        f"PROMPT_KEY: {chapter.prompt_key}",
+    ]
+
+    # Bloc de contexte SPECIFIQUE au type de livrable : chaque strategy peut
+    # decider d'injecter un tableau de reference (EM : base chiffree
+    # consolidee apres chapitres 1-2), une checklist metier, un rappel de
+    # posture. Le socle commun (blocs ci-dessus) reste identique.
+    from .strategies import get_strategy  # noqa: PLC0415 (import local, evite cycle)
+    supplement = get_strategy(str(job.deliverable_type)).contexte_supplementaire(
+        job, chapter
     )
+    if supplement is not None:
+        blocs.append(f"{supplement.intitule.upper()}:\n{supplement.corps}")
+
+    return "\n\n".join(blocs)

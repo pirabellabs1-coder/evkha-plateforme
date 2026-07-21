@@ -1038,6 +1038,35 @@ def _check_piliers_strategie(
     return failures
 
 
+def _check_strategie_livrable(
+    job: GenerationJob, sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Delegue les checks specifiques du livrable a sa strategy dediee.
+
+    Chaque type de livrable (EM, EC, BP, STR) a sa propre logique metier
+    exposee via `strategies/`. Cette porte d'entree unique appelle
+    `problemes_de_coherence` sur la strategy — un livrable qui n'a pas
+    encore de strategy dediee retombe sur le fallback neutre, aucune
+    regression.
+
+    C'est ici que passent les checks arithmetiques EM (TCAC recalcule,
+    ratios), et bientot les checks BP (charges obligatoires, IS bracket),
+    EC (matrice concurrentielle) et STR (piliers traites).
+    """
+    from .strategies import get_strategy  # noqa: PLC0415
+
+    corpus = {s.number: s.body for s in sections}
+    strategy = get_strategy(str(job.deliverable_type))
+    return [
+        GateFailure(
+            check=f"strategy_{strategy.deliverable_type}_{p.categorie}",
+            chapter_number=p.chapitre,
+            detail=p.detail,
+        )
+        for p in strategy.problemes_de_coherence(job, corpus)
+    ]
+
+
 def _check_chapitres_avortes(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1144,5 +1173,6 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_chapitres_avortes(job, sections))
     failures.extend(_check_concurrents_ec(job, sections))
     failures.extend(_check_piliers_strategie(job, sections))
+    failures.extend(_check_strategie_livrable(job, sections))
 
     return GateReport(passed=not failures, failures=tuple(failures))
