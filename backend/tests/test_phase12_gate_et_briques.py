@@ -94,8 +94,30 @@ def _job_with_content(
         "Le previsionnel integre une remuneration dirigeante de 30 000 EUR "
         "annuelle brute, portee a 55 000 EUR avec les cotisations sociales. "
     ) * 40
+    # Le check `sources_non_tracables` (phase 36) exige que le chapitre
+    # Sources contienne des URLs verifiables. Un vrai livrable les a
+    # toujours ; la fixture doit donc les representer.
+    corps_sources = (
+        "## Marche\n"
+        "- INSEE, Enquete emploi 2024 - https://www.insee.fr/fr/statistiques/1234\n"
+        "- Xerfi, Etude sectorielle 2025 - https://www.xerfi.com/etude-x\n"
+        "## Reglementation\n"
+        "- Legifrance, art. 219 CGI - https://www.legifrance.gouv.fr/codes/id/1\n"
+        "- Bpifrance - https://www.bpifrance.fr/actualites/y\n"
+        "## Methodologie\n"
+        "Croisement des sources sur la periode 2020-2024. Zone Hauts-de-France.\n"
+    )
+    from generation.blueprints import SectionKind, get_blueprint  # noqa: PLC0415
+    deliverable_type = str(job.deliverable_type)
     for chapter in job.chapters.all():
-        body = content_by_number.get(chapter.chapter_number, corps_defaut)
+        if chapter.chapter_number in content_by_number:
+            body = content_by_number[chapter.chapter_number]
+        else:
+            bp = get_blueprint(deliverable_type, chapter.chapter_number)
+            if bp is not None and bp.section_kind == SectionKind.SOURCES:
+                body = corps_sources
+            else:
+                body = corps_defaut
         chapter.content = body
         chapter.status = ChapterStatus.DONE
         chapter.save(update_fields=["content", "status"])

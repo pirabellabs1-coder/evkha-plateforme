@@ -1000,6 +1000,7 @@ def _check_post_rendu(
     from .checks_post_rendu import (  # noqa: PLC0415
         detecter_desaccords_numeriques,
         detecter_doublons_titres,
+        detecter_sources_non_tracables,
         detecter_troncatures,
     )
 
@@ -1030,6 +1031,12 @@ def _check_post_rendu(
             check="desaccord_numerique",
             chapter_number=n.chapitre,
             detail=n.detail,
+        ))
+    for s in detecter_sources_non_tracables(triplets):
+        failures.append(GateFailure(
+            check=f"sources_non_tracables_{s.motif}",
+            chapter_number=s.chapitre,
+            detail=s.detail,
         ))
     return failures
 

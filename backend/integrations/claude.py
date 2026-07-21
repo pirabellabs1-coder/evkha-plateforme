@@ -213,12 +213,18 @@ class StubClaudeClient:
             "L'analyse mobilise le contexte projet, les indicateurs sectoriels et "
             "les leviers d'execution associes au livrable. "
         )
+        # Bloc Sources credible (2 URLs verifiables minimum) pour satisfaire
+        # le check transverse `sources_non_tracables` du gate. Ce bloc est
+        # emis par TOUS les chapitres du stub, donc en particulier par le
+        # chapitre Sources (identifie par titre au gate).
         content = (
             "Contenu genere (mode demonstration EVKHA).\n\n"
             + paragraphe * 60
             + f"\n\nEmpreinte de tracabilite: {digest}.\n\n"
-            "Sources\n"
-            "- EVKHA, methodologie interne (URL a confirmer)."
+            "## Sources\n"
+            "- INSEE, Enquete emploi 2024 - https://www.insee.fr/fr/statistiques/1234\n"
+            "- Xerfi, Etude sectorielle 2025 - https://www.xerfi.com/etude-x\n"
+            "- EVKHA, methodologie interne (document client sans URL).\n"
         )
         # Estimation grossiere (~4 caracteres par token) pour alimenter le Cost Engine.
         input_tokens = max(1, len(system) + len(prompt)) // 4

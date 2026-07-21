@@ -105,9 +105,30 @@ def bp_job(db: None) -> GenerationJob:
     return job
 
 
+_CORPS_SOURCES_FIXTURE = (
+    "## Marche\n"
+    "- INSEE 2024 - https://www.insee.fr/fr/statistiques/1234\n"
+    "- Xerfi 2025 - https://www.xerfi.com/etude-x\n"
+    "## Reglementation\n"
+    "- Legifrance art. 219 CGI - https://www.legifrance.gouv.fr/codes/id/1\n"
+    "- Bpifrance - https://www.bpifrance.fr/actualites/y\n"
+    "## Methodologie\nCroisement des sources 2020-2024.\n"
+)
+
+
 def _mark_all_done(job: GenerationJob, body: str) -> None:
+    # Le check `sources_non_tracables` (phase 36) exige des URLs verifiables
+    # dans le chapitre Sources. On force le contenu du chapitre SOURCES
+    # a une liste d'URLs plausibles ; les autres gardent `body`.
+    from generation.blueprints import SectionKind, get_blueprint  # noqa: PLC0415
+    deliverable_type = str(job.deliverable_type)
     for c in job.chapters.all():
-        c.content, c.status = body, ChapterStatus.DONE
+        bp = get_blueprint(deliverable_type, c.chapter_number)
+        if bp is not None and bp.section_kind == SectionKind.SOURCES:
+            c.content = _CORPS_SOURCES_FIXTURE
+        else:
+            c.content = body
+        c.status = ChapterStatus.DONE
         c.save(update_fields=["content", "status"])
     job.status = JobStatus.DONE
     job.save(update_fields=["status"])

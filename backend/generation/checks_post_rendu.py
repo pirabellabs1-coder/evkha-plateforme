@@ -278,12 +278,176 @@ def detecter_desaccords_numeriques(
     return desaccords
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# 4. SOURCES TRACABLES — chaque source citee doit etre verifiable
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Retour Evangeline WAOME EM v1 (21/07/2026) : « les sources listees ne sont
+# pas verifiables, plusieurs manquent d'URL, une reference "Maisons du Monde
+# privatisation 2023" est factuellement fausse ». Sous contract SaaS, un
+# livrable rempli de sources bidon sort tel quel chez le client.
+#
+# Trois signaux distincts, chacun independent, categorie unique
+# `sources_non_tracables` cote gate :
+#   - chapitre Sources absent ou vide,
+#   - ratio URLs / puces < 50 % (majorite non tracable),
+#   - URLs manifestement bidon (example.com, source.fr, placeholder).
+
+
+@dataclass(frozen=True)
+class SourceNonTracable:
+    """Un defaut de tracabilite dans le chapitre Sources."""
+
+    chapitre: int
+    motif: str  # « absent », « vide », « ratio_faible », « url_bidon »
+    detail: str
+
+
+# Un chapitre est identifie comme « Sources » si son titre commence par
+# « Source » ou « Sources » — les blueprints EM/EC/BP/STR utilisent
+# « Sources et methodologie », d'autres variantes plausibles sont tolerees.
+_TITRE_SOURCES_RE = re.compile(r"^\s*sources?\b", re.IGNORECASE)
+
+# Une puce de source markdown : `- `, `* `, `• `, ou numerotee.
+_PUCE_SOURCE_RE = re.compile(r"^\s*(?:[-•*]|\d+\.)\s+\S", re.MULTILINE)
+
+# URL http(s) trouvee dans la puce.
+_URL_RE = re.compile(r"https?://[^\s\)\]\<\>»,]+", re.IGNORECASE)
+
+# URLs manifestement bidon. RFC 2606 reserve example.com/net/org et .example
+# aux exemples ; « source.fr » et variantes sont des placeholders inventes ;
+# les crochets `[...]` signalent un template non substitue.
+_URL_BIDON_RE = re.compile(
+    r"://(?:www\.)?example\.(?:com|net|org|fr)"
+    r"|://(?:www\.)?sources?\.fr\b"
+    r"|://(?:www\.)?placeholder\."
+    r"|://(?:www\.)?(?:xxx|aaa|test|dummy|todo)\."
+    r"|://\S*\[",  # crochets = template
+    re.IGNORECASE,
+)
+
+# Seuil minimal de tracabilite. Un chapitre Sources avec moins de la moitie
+# de ses puces liees a une URL est majoritairement non verifiable.
+# Regle 4 : viser la classe, pas l'exemple — un ratio strict (100 % URL)
+# ferait remonter les documents client legitimes sans lien.
+_RATIO_URL_MINIMAL = 0.5
+
+# En-dessous de ce nombre absolu d'URLs reelles, un livrable n'est pas
+# credible cote source, meme si le ratio est bon (peu de puces au total).
+_MIN_URLS_ABSOLUES = 2
+
+
+def _trouver_chapitre_sources(
+    sections: list[tuple[int, str, str]],
+) -> tuple[int, str, str] | None:
+    """Retourne la section identifiee comme le chapitre Sources.
+
+    Convention blueprints : le chapitre s'appelle « Sources » ou
+    « Sources et methodologie ». Si plusieurs matches (cas theorique), on
+    retient le dernier — le plus recent dans l'ordre du document est
+    generalement celui qui recapitule.
+    """
+    candidats = [
+        s for s in sections if _TITRE_SOURCES_RE.match(s[1] or "")
+    ]
+    return candidats[-1] if candidats else None
+
+
+def detecter_sources_non_tracables(
+    sections: list[tuple[int, str, str]],
+) -> list[SourceNonTracable]:
+    """Verifie que le chapitre Sources contient des references verifiables.
+
+    Trois branches independantes signalent chacune leur defaut :
+      - chapitre absent : livrable sans source du tout, tres grave.
+      - chapitre vide : chapitre ecrit mais rien ne suit le titre.
+      - ratio URLs / puces < seuil : majorite non tracable (cas WAOME).
+      - URLs bidon detectees : hallucination du modele.
+
+    Silencieux si le chapitre Sources n'est pas identifiable par titre —
+    on ne signale pas un chapitre qui n'a jamais eu vocation a lister
+    des sources (regle 4 : eviter les faux positifs sur les blueprints
+    qui n'ont pas de chapitre Sources).
+    """
+    defauts: list[SourceNonTracable] = []
+
+    sources_section = _trouver_chapitre_sources(sections)
+    if sources_section is None:
+        # Si AUCUN chapitre du document n'a un titre "Sources", c'est
+        # signale UNE fois — le livrable n'est source par personne.
+        # On imprime le probleme au chapitre max+1 pour rester lisible.
+        max_num = max((s[0] for s in sections), default=0)
+        defauts.append(SourceNonTracable(
+            chapitre=max_num,
+            motif="absent",
+            detail=(
+                "Aucun chapitre « Sources » identifie dans le document. Un "
+                "livrable EVKHA sans chapitre de sources n'est pas verifiable "
+                "et ne peut pas etre delivre a un banquier."
+            ),
+        ))
+        return defauts
+
+    numero, titre, corps = sources_section
+    puces = _PUCE_SOURCE_RE.findall(corps)
+    if not puces:
+        defauts.append(SourceNonTracable(
+            chapitre=numero,
+            motif="vide",
+            detail=(
+                f"Chapitre « {titre} » vide : aucune source listee. Le "
+                "document cite des chiffres sans reference verifiable."
+            ),
+        ))
+        return defauts
+
+    urls = _URL_RE.findall(corps)
+    urls_bidon = [u for u in urls if _URL_BIDON_RE.search(u)]
+    urls_valides = [u for u in urls if not _URL_BIDON_RE.search(u)]
+
+    if urls_bidon:
+        exemples = ", ".join(urls_bidon[:3])
+        defauts.append(SourceNonTracable(
+            chapitre=numero,
+            motif="url_bidon",
+            detail=(
+                f"URL(s) placeholder ou factice(s) detectee(s) dans « {titre} » : "
+                f"{exemples}. Ces URLs sont des exemples reserves (example.com, "
+                "source.fr, crochets non substitues) ou n'existent pas. Cas WAOME "
+                "confirme : hallucination de source, remplace par une reference "
+                "reelle ou une hypothese assumee."
+            ),
+        ))
+
+    n_puces = len(puces)
+    n_urls_valides = len(urls_valides)
+    ratio = n_urls_valides / n_puces if n_puces else 0.0
+
+    if ratio < _RATIO_URL_MINIMAL or n_urls_valides < _MIN_URLS_ABSOLUES:
+        defauts.append(SourceNonTracable(
+            chapitre=numero,
+            motif="ratio_faible",
+            detail=(
+                f"Chapitre « {titre} » : {n_urls_valides} URL(s) verifiable(s) "
+                f"pour {n_puces} source(s) listee(s) (ratio "
+                f"{ratio:.0%}). Un banquier attend au moins la moitie des "
+                "sources avec un lien reel (documents client sans URL "
+                "acceptes, mais pas comme majorite). Cas WAOME : Evangeline "
+                "a signale que la moitie des sources n'etaient pas verifiables."
+            ),
+        ))
+
+    return defauts
+
+
 __all__ = [
     "DesaccordNumerique",
     "DoublonTitre",
+    "SourceNonTracable",
     "Troncature",
     "detecter_desaccords_numeriques",
     "detecter_doublons_titres",
+    "detecter_sources_non_tracables",
     "detecter_troncatures",
 ]
 
