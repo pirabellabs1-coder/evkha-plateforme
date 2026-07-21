@@ -974,38 +974,9 @@ def _check_fourchettes(
     return failures
 
 
-def _check_concurrents_ec(
-    job: GenerationJob, sections: tuple[RenderedSection, ...]
-) -> list[GateFailure]:
-    """8 concurrents directs et 3 indirects, exactement (fiche 2 d'Evangeline).
-
-    Ne s'applique qu'aux etudes de concurrence. Aucun compte trouve : on ne
-    signale rien plutot que d'inventer un defaut sur un blueprint qui n'aurait
-    plus vocation a les lister (contre-epreuve : structure absente = pas de
-    check).
-    """
-    from catalog.models import DeliverableType  # noqa: PLC0415
-
-    from .checks_evangeline import verifier_concurrents_dans_ec  # noqa: PLC0415
-
-    if str(job.deliverable_type) != DeliverableType.COMPETITOR_STUDY:
-        return []
-    divergents = verifier_concurrents_dans_ec(
-        [(s.number, s.body) for s in sections]
-    )
-    failures: list[GateFailure] = []
-    for c in divergents:
-        verbe = "manque(nt)" if c.trouves < c.attendus else "en trop"
-        failures.append(GateFailure(
-            check="concurrents_ec",
-            chapter_number=c.chapitre,
-            detail=(
-                f"Concurrents {c.type_} : {c.trouves} trouves, {c.attendus} attendus "
-                f"({verbe}). Consigne fiche 2 : toujours {c.attendus} concurrents "
-                f"{c.type_}, ni plus ni moins."
-            ),
-        ))
-    return failures
+# _check_concurrents_ec : migre dans `strategies/ec.py` (etape 6).
+# La logique est desormais portee par la ECStrategy, appelee via
+# `_check_strategie_livrable`. Regle 4 : chaque livrable a son manuel.
 
 
 # _check_piliers_strategie : migre dans `strategies/str_.py` (etape 5).
@@ -1196,7 +1167,6 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_fourchettes(job, sections))
     failures.extend(_check_chiffre_contre_chiffre(sections))
     failures.extend(_check_chapitres_avortes(job, sections))
-    failures.extend(_check_concurrents_ec(job, sections))
     failures.extend(_check_strategie_livrable(job, sections))
     failures.extend(_check_post_rendu(sections))
 

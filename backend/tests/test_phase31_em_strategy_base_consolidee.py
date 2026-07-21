@@ -322,17 +322,17 @@ def test_get_strategy_retourne_em_strategy_pour_market_study() -> None:
     assert strategy.deliverable_type == DeliverableType.MARKET_STUDY
 
 
-def test_get_strategy_retourne_fallback_neutre_pour_les_livrables_non_migres() -> None:
-    """Les livrables qui n'ont PAS encore leur propre strategy (EC, STR)
-    retombent sur le fallback neutre : aucune regression fonctionnelle.
-    Migration progressive assumee."""
-    from catalog.models import DeliverableType
+def test_get_strategy_fallback_neutre_pour_type_inconnu() -> None:
+    """Contract du fallback : un type de livrable inconnu du registre
+    retombe sur `_StrategyNeutre` — n'ajoute rien, ne bloque rien. Point
+    d'entree de la migration progressive : ajouter un nouveau
+    DeliverableType n'exige PAS d'ecrire immediatement une strategy
+    dediee, le socle commun continue d'operer.
+
+    Toutes les 4 strategies actuelles (EM/BP/STR/EC) sont maintenant
+    migrees ; on teste donc le contract avec un type factice."""
     from generation.strategies import get_strategy
 
-    for dt in (
-        DeliverableType.COMPETITOR_STUDY,
-    ):
-        strategy = get_strategy(dt)
-        # Fallback : contexte None, aucun probleme detecte.
-        assert strategy.contexte_supplementaire(None, None) is None  # type: ignore[arg-type]
-        assert strategy.problemes_de_coherence(None, {}) == []  # type: ignore[arg-type]
+    strategy = get_strategy("livrable_qui_nexiste_pas")
+    assert strategy.contexte_supplementaire(None, None) is None  # type: ignore[arg-type]
+    assert strategy.problemes_de_coherence(None, {}) == []  # type: ignore[arg-type]
