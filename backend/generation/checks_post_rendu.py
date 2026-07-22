@@ -440,14 +440,105 @@ def detecter_sources_non_tracables(
     return defauts
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# 5. TON NEUTRE — bannir les superlatifs marketing
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Retour Evangeline WAOME EM v1 (21/07/2026) : « le ton est trop
+# publicitaire, on lit du plaquette commerciale ». Un banquier disqualifie
+# un dossier qui vend au lieu de decrire.
+#
+# La liste noire cible des expressions bi-mots — « leader incontestable »,
+# « solution revolutionnaire », « unique en son genre » — pas les mots
+# isoles (« leader » factuellement utilise reste legitime, regle 4).
+
+
+@dataclass(frozen=True)
+class TonPublicitaire:
+    """Une expression au ton publicitaire dans un chapitre editorial."""
+
+    chapitre: int
+    expression: str  # extrait exact fautif
+    extrait: str     # contexte 60 chars autour
+
+
+# Chaque motif capture une locution superlative typique d'un contenu
+# marketing. On evite les mots seuls trop generiques (« leader » factuel).
+_MOTIFS_TON_PUB: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("leader incontestable",
+     re.compile(r"\bleader\s+incontest(?:able|e)\b", re.IGNORECASE)),
+    ("leader incontestable",  # variante orthographique
+     re.compile(r"\bleader\s+incontestable\b", re.IGNORECASE)),
+    ("unique en son genre",
+     re.compile(r"\bunique\s+en\s+son\s+genre\b", re.IGNORECASE)),
+    ("revolutionnaire",
+     re.compile(r"\br[eé]volutionnaire\b", re.IGNORECASE)),
+    ("incontournable",
+     re.compile(r"\bincontournable\b", re.IGNORECASE)),
+    ("solution unique",
+     re.compile(r"\bsolution\s+unique\b", re.IGNORECASE)),
+    ("offre inegalee",
+     re.compile(r"\boffre\s+in[eé]gal[eé]e?\b", re.IGNORECASE)),
+    ("sans equivalent sur le marche",
+     re.compile(r"\bsans\s+[eé]quivalent(?:\s+sur\s+le\s+march[eé])?\b", re.IGNORECASE)),
+    ("100 % [pretention]",
+     re.compile(r"\b100\s*%\s+(?:garanti|sur\s+mesure|innovant)\b", re.IGNORECASE)),
+    ("meilleur(e) du marche",
+     re.compile(r"\bmeilleur[e]?\s+(?:du|de\s+la|des)\s+march[eé]s?\b", re.IGNORECASE)),
+    ("acteur majeur incontournable",
+     re.compile(r"\bacteur\s+(?:majeur|cle)\s+incontournable\b", re.IGNORECASE)),
+    ("disruptif",
+     re.compile(r"\bdisruptif[ve]?\b", re.IGNORECASE)),
+    ("game changer",
+     re.compile(r"\bgame[\-\s]changer\b", re.IGNORECASE)),
+)
+
+# Titres de chapitre exemptes du check (le ton editorial ne s'y applique
+# pas — Sources cite des titres externes, Fiche projet reprend le brief).
+_TITRE_EXEMPT_TON_RE = re.compile(r"^\s*(?:sources?|fiche\s+projet)\b", re.IGNORECASE)
+
+
+def detecter_ton_publicitaire(
+    corpus_par_chapitre: dict[int, str],
+    *,
+    titres_par_chapitre: dict[int, str] | None = None,
+) -> list[TonPublicitaire]:
+    """Chaque chapitre editorial doit rester descriptif — pas de superlatif.
+
+    `titres_par_chapitre` permet d'exempter Sources / Fiche projet du
+    check, ces chapitres citant des titres ou reprenant le brief. Si
+    non fourni, aucun chapitre n'est exempte : tolerance ouverte pour les
+    appels tests unitaires.
+    """
+    titres = titres_par_chapitre or {}
+    defauts: list[TonPublicitaire] = []
+    for numero, corps in corpus_par_chapitre.items():
+        titre = titres.get(numero, "")
+        if _TITRE_EXEMPT_TON_RE.match(titre):
+            continue
+        for _label, motif in _MOTIFS_TON_PUB:
+            for m in motif.finditer(corps):
+                debut = max(0, m.start() - 30)
+                fin = min(len(corps), m.end() + 30)
+                extrait = corps[debut:fin].replace("\n", " ")
+                defauts.append(TonPublicitaire(
+                    chapitre=numero,
+                    expression=m.group(0),
+                    extrait=extrait,
+                ))
+    return defauts
+
+
 __all__ = [
     "DesaccordNumerique",
     "DoublonTitre",
     "SourceNonTracable",
+    "TonPublicitaire",
     "Troncature",
     "detecter_desaccords_numeriques",
     "detecter_doublons_titres",
     "detecter_sources_non_tracables",
+    "detecter_ton_publicitaire",
     "detecter_troncatures",
 ]
 

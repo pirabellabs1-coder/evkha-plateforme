@@ -1001,6 +1001,7 @@ def _check_post_rendu(
         detecter_desaccords_numeriques,
         detecter_doublons_titres,
         detecter_sources_non_tracables,
+        detecter_ton_publicitaire,
         detecter_troncatures,
     )
 
@@ -1037,6 +1038,21 @@ def _check_post_rendu(
             check=f"sources_non_tracables_{s.motif}",
             chapter_number=s.chapitre,
             detail=s.detail,
+        ))
+    corpus_par_chapitre = {s.number: s.body for s in sections}
+    titres_par_chapitre = {s.number: s.title for s in sections}
+    for t in detecter_ton_publicitaire(
+        corpus_par_chapitre, titres_par_chapitre=titres_par_chapitre,
+    ):
+        failures.append(GateFailure(
+            check="ton_publicitaire",
+            chapter_number=t.chapitre,
+            detail=(
+                f"Expression au ton publicitaire detectee : « {t.expression} ». "
+                f"Contexte : « ...{t.extrait}... ». Un livrable bancaire reste "
+                "descriptif et source — supprimer le superlatif ou le "
+                "remplacer par un fait chiffre."
+            ),
         ))
     return failures
 
