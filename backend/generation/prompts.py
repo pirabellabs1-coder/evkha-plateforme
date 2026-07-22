@@ -425,6 +425,30 @@ def _country_for(chapter: ChapterGeneration) -> str:
     return str(submission.normalized_variables.get("PAYS", "")).strip()
 
 
+_RAPPEL_ANTI_RECHUTE_PIED = (
+    "\n\n[RAPPEL DE PIED DE PROMPT — RELIRE AVANT DE REPONDRE]\n"
+    "Ces 5 defauts sont detectes par le gate en aval. Un livrable qui les "
+    "contient est REFUSE et regenere (cout, delai). Chaque fois que tu "
+    "t'appretes a ecrire l'un de ces cas, tu APPLIQUES la regle sans "
+    "exception :\n"
+    "  * Fourchette « X a Y » ou « entre X et Y » OU « X-Y % » → immediatement "
+    "suivie de « mediane retenue Z » dans la MEME phrase. Zero exception. "
+    "Constate WAOME v4 (22/07/2026) : 53 fourchettes rendues, 0 mediane "
+    "annoncee — livrable refuse.\n"
+    "  * Grandeur comptable citee (marge brute, seuil de rentabilite, CA, "
+    "EBE, resultat net) → UNE SEULE valeur numerique dans TOUT le document. "
+    "Si scenarios multiples : renomme (« scenario prudent », « scenario "
+    "cible »).\n"
+    "  * Sous-titre repete dans le meme chapitre → INTERDIT. Prefixe par le "
+    "nom (persona, concurrent, scenario) : « Contexte pro — Marie » et non "
+    "« Contexte pro » x4.\n"
+    "  * TCAC : maximum 3 valeurs DISTINCTES dans tout le document (mondial, "
+    "continental, national). Trancher, ne pas enumerer.\n"
+    "  * Annonce « trois familles », « quatre segments » → la liste qui suit "
+    "a EXACTEMENT ce nombre d'items. Compter avant d'annoncer.\n"
+)
+
+
 def _word_limit_footer(max_words: int) -> str:
     """Contrainte de complétude + densité injectée en fin de prompt.
 
@@ -496,6 +520,7 @@ def build_chapter_prompt(chapter: ChapterGeneration, corrective_note: str = "") 
         "CONSIGNE_DU_CHAPITRE :\n"
         f"{instruction}"
         f"{word_limit}"
+        f"{_RAPPEL_ANTI_RECHUTE_PIED}"
         f"{_corrective_footer(corrective_note)}\n\n"
         "Rends uniquement le contenu final destine au client, sans repeter ces "
         "consignes."
@@ -542,6 +567,7 @@ def build_section_prompt(
         "SECTION_A_GENERER :\n"
         f"{instruction}"
         f"{word_limit}"
+        f"{_RAPPEL_ANTI_RECHUTE_PIED}"
         f"{_corrective_footer(corrective_note)}\n\n"
         "Rends uniquement le contenu de cette section, destine au client. "
         "Ne repete pas les consignes ni les donnees deja traitees dans les "

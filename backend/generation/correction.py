@@ -36,6 +36,14 @@ from .models import GenerationJob
 # un nouvel appel Claude dépasserait le plafond du dossier — on s'abstient.
 _BUDGET_MARGIN_EUR = Decimal("0.05")
 
+# Cap du nombre de chapitres regenerables par round. WAOME v4 a montre
+# qu'une boucle sans limite peut regenerer 15+ chapitres, prendre 100+
+# minutes et faire diverger d'autres chapitres qui etaient corrects.
+# Regle 4 : viser la classe. Un round efficace corrige les 6-8 defauts
+# les PLUS graves, laisse le reste pour le round suivant si necessaire.
+# Le tri de priorite s'appuie sur l'ordre naturel de _CHECK_PRIORITY.
+_MAX_REGEN_PAR_ROUND = 8
+
 
 def _has_budget_headroom(job: GenerationJob) -> bool:
     """Reste-t-il du budget sur ce dossier pour un appel de régénération ?"""
@@ -81,6 +89,37 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
 # quand chapter_number > 0 (le cas 0 = transverse, non regenerable au chapitre).
 _STRATEGY_CHECK_PREFIX = "strategy_"
 
+
+# Priorite des categories de check pour le tri quand on cape a
+# _MAX_REGEN_PAR_ROUND chapitres. Les defauts en tete de liste sont
+# regeneres en priorite dans un round. Rationnel : cohérence chiffrée >
+# sources > structure > ton, dans l'ordre de gravite bancaire.
+_CHECK_PRIORITY = (
+    "coherence_chiffree",
+    "strategy_",              # tout defaut metier par livrable
+    "prudence_juridique_",    # tout defaut juridique
+    "sources_non_tracables_",
+    "fourchette_interdite",
+    "doublon_titre",
+    "troncature_rendu",
+    "desaccord_numerique",
+    "contamination",
+    "ordre_de_grandeur",
+    "troncature",
+    "ton_publicitaire",
+)
+
+
+def _priorite_check(check: str) -> int:
+    """Retourne l'index de priorite d'un check (plus petit = plus urgent).
+
+    Les checks inconnus sont mis en fin de liste (index eleve).
+    """
+    for i, prefix in enumerate(_CHECK_PRIORITY):
+        if check.startswith(prefix):
+            return i
+    return len(_CHECK_PRIORITY)
+
 # Libellés lisibles injectés dans la consigne de correction.
 _CHECK_LABELS = {
     "contamination": "Marqueur technique interne présent dans le texte (interdit)",
@@ -119,7 +158,11 @@ def _is_regenerable(check: str) -> bool:
     return check.startswith(_STRATEGY_CHECK_PREFIX)
 
 
-def _feedback_by_chapter(failures: tuple[GateFailure, ...]) -> dict[int, str]:
+def _feedback_by_chapter(
+    failures: tuple[GateFailure, ...],
+    *,
+    cap: int | None = None,
+) -> dict[int, str]:
     """Regroupe les échecs réparables par numéro de chapitre → consigne texte.
 
     Les échecs sans chapter_number (transverses, ex : « aucun chapitre
@@ -127,8 +170,13 @@ def _feedback_by_chapter(failures: tuple[GateFailure, ...]) -> dict[int, str]:
     Les échecs chapter_number == 0 (transverses aux chapitres analytiques,
     ex : TCAC cardinal) sont attribues au chapitre 1 par convention : c'est
     le point d'ancrage du raisonnement chiffre.
+
+    Si `cap` est fourni, on garde au plus `cap` chapitres — les plus
+    prioritaires selon `_CHECK_PRIORITY`. Un chapitre est priorise par la
+    plus urgente de ses failures.
     """
     grouped: dict[int, list[str]] = {}
+    grouped_priorite: dict[int, int] = {}
     for failure in failures:
         if not _is_regenerable(failure.check):
             continue
@@ -137,6 +185,19 @@ def _feedback_by_chapter(failures: tuple[GateFailure, ...]) -> dict[int, str]:
         target = failure.chapter_number if failure.chapter_number > 0 else 1
         label = _CHECK_LABELS.get(failure.check, failure.check)
         grouped.setdefault(target, []).append(f"- {label} : {failure.detail}")
+        # Priorite du chapitre = la plus urgente de ses failures.
+        p = _priorite_check(failure.check)
+        grouped_priorite[target] = min(grouped_priorite.get(target, p), p)
+
+    if cap is not None and len(grouped) > cap:
+        # Tri par priorite (index bas = plus urgent), puis par numero de
+        # chapitre pour stabilite.
+        chapitres_tries = sorted(
+            grouped.keys(),
+            key=lambda n: (grouped_priorite[n], n),
+        )[:cap]
+        grouped = {n: grouped[n] for n in chapitres_tries}
+
     return {num: "\n".join(items) for num, items in grouped.items()}
 
 
@@ -154,6 +215,7 @@ def run_correction_loop(
     """
     from integrations.claude import ClaudeClient, get_claude_client  # noqa: PLC0415
 
+    from .models import ChapterStatus  # noqa: PLC0415
     from .runner import regenerate_chapter  # noqa: PLC0415 — évite le cycle d'import
 
     rounds = _default_rounds() if max_rounds is None else max(0, max_rounds)
@@ -162,7 +224,7 @@ def run_correction_loop(
     report = _gate.run_delivery_gate(job)
     attempt = 0
     while not report.passed and attempt < rounds:
-        feedback = _feedback_by_chapter(report.failures)
+        feedback = _feedback_by_chapter(report.failures, cap=_MAX_REGEN_PAR_ROUND)
         if not feedback:
             # Aucun échec réparable au niveau chapitre (ex. verticale manquante
             # au niveau document) : la régénération ciblée n'aiderait pas.
@@ -178,12 +240,31 @@ def run_correction_loop(
             chapter = job.chapters.filter(chapter_number=chapter_number).first()
             if chapter is None:
                 continue
+            # Sauvegarde AVANT toute tentative : si `regenerate_chapter` echoue
+            # apres avoir mis le chapitre en RUNNING (le runner reset le
+            # contenu avant l'appel Claude), on doit restaurer l'ancien
+            # contenu et statut DONE. Sans ca, le renderer ignore le
+            # chapitre et livre un document ampute (bug WAOME v4 22/07/2026,
+            # job 45e0809c : chapitres 8, 9, 10 restes RUNNING).
+            contenu_original = chapter.content
+            statut_original = chapter.status
             try:
                 regenerate_chapter(job, chapter, corrective_note=note, client=gen_client)
             except CostBudgetExceededError:
                 # Budget dépassé en cours : on arrête, le job reste bloqué.
+                # On restaure quand meme le chapitre pour ne pas livrer
+                # un document ampute si l'appelant decide de rendre.
+                chapter.content = contenu_original
+                chapter.status = statut_original
+                chapter.save(update_fields=["content", "status"])
                 return _gate.run_delivery_gate(job)
             except Exception:  # noqa: BLE001 — une régénération KO ne casse pas la boucle
+                # Le chapitre est peut-etre reste en RUNNING avec un contenu
+                # vide. On restaure l'ancien etat pour garantir que le
+                # renderer inclura ce chapitre au rendu final.
+                chapter.content = contenu_original
+                chapter.status = statut_original
+                chapter.save(update_fields=["content", "status"])
                 continue
         report = _gate.run_delivery_gate(job)
 
