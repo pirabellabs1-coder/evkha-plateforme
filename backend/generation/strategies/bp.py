@@ -206,7 +206,95 @@ def verifier_remuneration_dirigeant(
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# 3. STRATEGY
+# 3. Tresorerie cumulee reconstituable
+# ══════════════════════════════════════════════════════════════════════════
+
+# Retour Evangeline WAOME : « tresorerie fin annee 2 = 58 kEUR, fin
+# annee 3 = 185 kEUR, la variation n'a pas de source identifiable ».
+# Un banquier reconstitue : treso[N] = treso[N-1] + CAF - remboursements
+# + variation BFR. Sans mention d'une de ces composantes dans le corpus,
+# le previsionnel reste declaratif.
+#
+# Regle 4 : on ne fait PAS le calcul (valeurs approximees, plusieurs
+# annees, formats varies). On exige juste qu'AU MOINS UNE composante
+# soit citee quand une TRAJECTOIRE de tresorerie est annoncee.
+
+# Presence du mot « tresorerie » dans le corpus — condition necessaire
+# pour parler de trajectoire. Sans le mot, on ne peut pas savoir si les
+# valeurs annoncees renvoient a une tresorerie ou a autre chose.
+_MENTION_TRESO_MOT_RE = re.compile(r"\btr[eé]sor(?:erie)?\b", re.IGNORECASE)
+
+# Un montant chiffre en EUR/kEUR. On compte ces montants dans une
+# fenetre autour du mot « tresorerie » pour identifier les points de
+# la trajectoire, qu'ils soient etiquetes « annee N » ou juste enonces
+# en liste (« 12 kEUR, 58 kEUR, 185 kEUR »).
+_MONTANT_EUR_RE = re.compile(
+    r"\b\d[\d\s.,]{0,10}\s*(?:kEUR|k€|EUR|€|milliers)",
+    re.IGNORECASE,
+)
+
+# Composantes qui permettent au lecteur de reconstituer la trajectoire.
+# CAF, remboursements ou variation BFR — au moins UNE des trois.
+_COMPOSANTES_RECONSTITUTION_RE = re.compile(
+    r"\bCAF\b"
+    r"|\bcapacite\s+d['’]?autofinancement\b"
+    r"|\bremboursement[s]?\s+(?:du\s+)?(?:pr[eê]t|emprunt)\b"
+    r"|\bannuit[eé]s?\s+(?:constante|de\s+pr[eê]t|d['’]emprunt)\b"
+    r"|\bvariation\s+(?:du\s+)?BFR\b"
+    r"|\bbesoin\s+en\s+fonds?\s+de\s+roulement\b"
+    r"|\bflux\s+de\s+tr[eé]sorerie\b",
+    re.IGNORECASE,
+)
+
+# Nombre minimal de mentions annuelles pour parler de « trajectoire ».
+_MIN_TRAJECTOIRE = 2
+
+
+def verifier_tresorerie_reconstituable(
+    corpus_par_chapitre: dict[int, str],
+) -> list[str]:
+    """La trajectoire de tresorerie doit etre reconstituable a partir
+    du corpus (au moins UNE composante mentionnee).
+
+    Trois branches :
+      - < 2 mentions de tresorerie annuelle : pas de trajectoire, silence
+        (regle 4, eviter les faux positifs sur BP minimaliste).
+      - Trajectoire ET au moins une composante mentionnee : silence.
+      - Trajectoire ET aucune composante : signal.
+    """
+    corpus_complet = "\n\n".join(corpus_par_chapitre.values())
+
+    # Cherche une fenetre autour de chaque mention de « tresorerie ».
+    # Si l'une contient >= 2 montants EUR, on considere qu'une
+    # trajectoire est annoncee.
+    trajectoire_montants = 0
+    for m in _MENTION_TRESO_MOT_RE.finditer(corpus_complet):
+        debut = max(0, m.start() - 30)
+        fin = min(len(corpus_complet), m.end() + 250)
+        fenetre = corpus_complet[debut:fin]
+        n_montants = len(_MONTANT_EUR_RE.findall(fenetre))
+        if n_montants > trajectoire_montants:
+            trajectoire_montants = n_montants
+
+    if trajectoire_montants < _MIN_TRAJECTOIRE:
+        return []
+
+    if _COMPOSANTES_RECONSTITUTION_RE.search(corpus_complet):
+        return []
+
+    return [
+        f"Trajectoire de tresorerie annoncee ({trajectoire_montants} valeurs "
+        "chiffrees pres du mot « tresorerie ») mais aucune composante de "
+        "reconstitution dans le corpus (CAF / remboursements pret / "
+        "variation BFR / flux de tresorerie). Un banquier ne peut pas "
+        "reconstituer treso[N] = treso[N-1] + CAF - remboursements + "
+        "variation BFR. Le previsionnel reste declaratif — ajouter au "
+        "moins une des composantes explicitement."
+    ]
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 4. STRATEGY
 # ══════════════════════════════════════════════════════════════════════════
 
 
@@ -247,6 +335,13 @@ class BPStrategy:
         for detail in verifier_remuneration_dirigeant(corpus_par_chapitre):
             problemes.append(ProblemeCoherence(
                 categorie="remuneration_dirigeant",
+                chapitre=0,
+                detail=detail,
+            ))
+
+        for detail in verifier_tresorerie_reconstituable(corpus_par_chapitre):
+            problemes.append(ProblemeCoherence(
+                categorie="tresorerie_non_reconstituable",
                 chapitre=0,
                 detail=detail,
             ))
