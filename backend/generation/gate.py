@@ -1000,6 +1000,7 @@ def _check_post_rendu(
     from .checks_post_rendu import (  # noqa: PLC0415
         detecter_desaccords_numeriques,
         detecter_doublons_titres,
+        detecter_prudence_juridique,
         detecter_sources_non_tracables,
         detecter_ton_publicitaire,
         detecter_troncatures,
@@ -1053,6 +1054,14 @@ def _check_post_rendu(
                 "descriptif et source — supprimer le superlatif ou le "
                 "remplacer par un fait chiffre."
             ),
+        ))
+    for r in detecter_prudence_juridique(
+        corpus_par_chapitre, titres_par_chapitre=titres_par_chapitre,
+    ):
+        failures.append(GateFailure(
+            check=f"prudence_juridique_{r.categorie}",
+            chapter_number=r.chapitre,
+            detail=r.detail + f" Extrait : « ...{r.extrait}... ».",
         ))
     return failures
 

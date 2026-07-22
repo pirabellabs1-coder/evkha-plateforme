@@ -529,14 +529,170 @@ def detecter_ton_publicitaire(
     return defauts
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# 6. PRUDENCE JURIDIQUE — evenements corporate + risque diffamation
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Retour Evangeline WAOME EM v1 (21/07/2026) : « Maisons du Monde n'a pas
+# ete privatisee en 2023, c'est factuellement faux — un livrable sous ma
+# marque avec cette erreur m'expose personnellement ». Sous contract SaaS
+# (aucune relecture), un fait faux sur un tiers ou une accusation
+# non sourcee expose EVKHA au risque juridique.
+#
+# On ne verifie pas la verite du fait (impossible offline). On exige
+# qu'il soit source dans les caracteres environnants. Le fait faux
+# tombe (le modele n'a pas d'URL), le fait vrai mal argumente aussi.
+
+
+@dataclass(frozen=True)
+class RisqueJuridique:
+    """Une affirmation sensible sans source verifiable adjacente."""
+
+    chapitre: int
+    categorie: str  # « evenement_corporate » | « diffamation »
+    expression: str
+    extrait: str
+    detail: str
+
+
+# Evenements corporate dates : X (verbe) en YYYY. On tolere l'annee
+# ecrite en toutes lettres a la marge : la forme numerique YYYY est la
+# plus frequente et la plus verifiable.
+_EVT_CORPORATE_VERBES = (
+    r"(?:a\s+ete|s['’]est|est)?\s*"
+    r"(?:privatis[eé]e?|nationalis[eé]e?|rachet[eé]e?|"
+    r"acquis[e]?|fusionn[eé]e?|introduit[e]?\s+en\s+bourse|"
+    r"delist[eé]e?|liquid[eé]e?|plac[eé]e?\s+en\s+redressement|"
+    r"a\s+fait\s+faillite|en\s+cessation\s+de\s+paiement)"
+)
+_EVT_CORPORATE_RE = re.compile(
+    rf"\b{_EVT_CORPORATE_VERBES}\b[^.\n]{{0,60}}?\ben\s+(?:19|20)\d{{2}}\b",
+    re.IGNORECASE,
+)
+
+# Diffamation potentielle : accusation non datee mais grave.
+_DIFFAMATION_MOTIFS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("condamne pour",
+     re.compile(r"\bcondamn[eé]e?s?\s+(?:pour|par)\b", re.IGNORECASE)),
+    ("pratiques anticoncurrentielles",
+     re.compile(r"\bpratiques?\s+anticoncurrentielles?\b", re.IGNORECASE)),
+    ("abus de position dominante",
+     re.compile(r"\babus\s+de\s+position\s+dominante\b", re.IGNORECASE)),
+    ("sanction AMF/CNIL/DGCCRF",
+     re.compile(r"\bsanction(?:n[eé]e?)?\s+par\s+(?:l['’]?AMF|la\s+CNIL|la\s+DGCCRF)\b", re.IGNORECASE)),
+    ("poursuivi en justice",
+     re.compile(r"\bpoursuivi[e]?s?\s+en\s+justice\b", re.IGNORECASE)),
+    ("faillite",
+     re.compile(r"\ba\s+fait\s+faillite\b|\ben\s+faillite\b", re.IGNORECASE)),
+)
+
+_URL_ADJACENTE_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+_MOTS_SOURCE_RE = re.compile(
+    r"\bselon\b|\bd['’]apr[eè]s\b|\brapport(?:e)?\b|\btemoigne\b"
+    r"|(?:19|20)\d{2}[\)\s]",  # « (Xerfi 2024) » suffit comme source proche
+    re.IGNORECASE,
+)
+
+# Fenetre autour d'une affirmation ou l'on cherche une source.
+_FENETRE_SOURCE = 350
+
+
+def _est_source(fenetre: str) -> bool:
+    """Une source est jugee presente dans la fenetre si :
+      - une URL http(s) apparait, OU
+      - une locution de citation (« selon », « d'apres », « rapporte »)
+        accompagnee d'un nom propre + annee.
+    """
+    if _URL_ADJACENTE_RE.search(fenetre):
+        return True
+    # « selon Les Echos », « d'apres Xerfi 2024 », etc. — motif
+    # « [locution] [Nom propre] »
+    if re.search(
+        r"\b(?:selon|d['’]apr[eè]s|rapport[eé]?\s+par)\s+[A-Z][A-Za-zÀ-ÿ\-]+",
+        fenetre,
+    ):
+        return True
+    return False
+
+
+def detecter_prudence_juridique(
+    corpus_par_chapitre: dict[int, str],
+    *,
+    titres_par_chapitre: dict[int, str] | None = None,
+) -> list[RisqueJuridique]:
+    """Chaque affirmation sensible (evenement corporate date OU
+    formulation de type diffamation) doit avoir une source dans une
+    fenetre de +/- 350 chars. Sinon, signal.
+
+    Le chapitre Sources est exempte (il cite des titres externes).
+    """
+    titres = titres_par_chapitre or {}
+    defauts: list[RisqueJuridique] = []
+    for numero, corps in corpus_par_chapitre.items():
+        titre = titres.get(numero, "")
+        if _TITRE_EXEMPT_TON_RE.match(titre):
+            continue
+
+        for m in _EVT_CORPORATE_RE.finditer(corps):
+            debut = max(0, m.start() - _FENETRE_SOURCE)
+            fin = min(len(corps), m.end() + _FENETRE_SOURCE)
+            fenetre = corps[debut:fin]
+            if _est_source(fenetre):
+                continue
+            extrait_debut = max(0, m.start() - 40)
+            extrait_fin = min(len(corps), m.end() + 40)
+            defauts.append(RisqueJuridique(
+                chapitre=numero,
+                categorie="evenement_corporate",
+                expression=m.group(0),
+                extrait=corps[extrait_debut:extrait_fin].replace("\n", " "),
+                detail=(
+                    f"Evenement corporate date sans source : « {m.group(0)} ». "
+                    "Un livrable EVKHA ne peut pas affirmer qu'une entreprise "
+                    "tierce a ete privatisee/rachetee/liquidee sans citer la "
+                    "source (URL ou « selon Xerfi 2024 »). Cas WAOME confirme : "
+                    "Evangeline a signale une affirmation factuellement fausse "
+                    "sur Maisons du Monde privatisation 2023."
+                ),
+            ))
+
+        for label, motif in _DIFFAMATION_MOTIFS:
+            for m in motif.finditer(corps):
+                debut = max(0, m.start() - _FENETRE_SOURCE)
+                fin = min(len(corps), m.end() + _FENETRE_SOURCE)
+                fenetre = corps[debut:fin]
+                if _est_source(fenetre):
+                    continue
+                extrait_debut = max(0, m.start() - 40)
+                extrait_fin = min(len(corps), m.end() + 40)
+                defauts.append(RisqueJuridique(
+                    chapitre=numero,
+                    categorie="diffamation",
+                    expression=label,
+                    extrait=corps[extrait_debut:extrait_fin].replace("\n", " "),
+                    detail=(
+                        f"Formulation a risque juridique detectee « {label} » "
+                        "sans source verifiable adjacente. Attribuer une "
+                        "condamnation, un abus de position dominante ou une "
+                        "faillite a un tiers expose EVKHA au risque de "
+                        "diffamation — exiger une URL ou une citation "
+                        "« selon [organisme] »."
+                    ),
+                ))
+
+    return defauts
+
+
 __all__ = [
     "DesaccordNumerique",
     "DoublonTitre",
+    "RisqueJuridique",
     "SourceNonTracable",
     "TonPublicitaire",
     "Troncature",
     "detecter_desaccords_numeriques",
     "detecter_doublons_titres",
+    "detecter_prudence_juridique",
     "detecter_sources_non_tracables",
     "detecter_ton_publicitaire",
     "detecter_troncatures",
