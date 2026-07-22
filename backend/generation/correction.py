@@ -50,8 +50,36 @@ def _has_budget_headroom(job: GenerationJob) -> bool:
 # rien, la donnée de référence manque au dossier. Seule une saisie humaine du
 # prévisionnel débloque ce cas — c'est tout l'intérêt de le rendre bloquant.
 _CHAPTER_LEVEL_CHECKS = frozenset(
-    {"contamination", "coherence_chiffree", "troncature", "ordre_de_grandeur"}
+    {
+        # Legacy — anciens checks du gate.
+        "contamination",
+        "coherence_chiffree",
+        "troncature",
+        "ordre_de_grandeur",
+        # Nouveaux checks transverses (checks_post_rendu).
+        "troncature_rendu",
+        "doublon_titre",
+        "desaccord_numerique",
+        "ton_publicitaire",
+        # Prudence juridique — les 2 sous-motifs sont chacun cible.
+        "prudence_juridique_evenement_corporate",
+        "prudence_juridique_diffamation",
+        # Sources — chapitre Sources, transverse mais chapitre identifie.
+        "sources_non_tracables_vide",
+        "sources_non_tracables_ratio_faible",
+        "sources_non_tracables_url_bidon",
+        # Fourchettes et cardinaux TCAC (EM/BP/EC/STR — checks_evangeline).
+        "fourchette_interdite",
+        # Nouveaux checks par livrable via _check_strategie_livrable.
+        # Ils portent tous le prefixe `strategy_<deliverable>_<categorie>`.
+        # On les ajoute dynamiquement au frozenset au chargement.
+    }
 )
+
+# Prefixes de checks « strategy_* » qu'on veut router au chapitre. Ces checks
+# nommes categorie=... par la strategy (EM/BP/EC/STR) sont tous chapitre-level
+# quand chapter_number > 0 (le cas 0 = transverse, non regenerable au chapitre).
+_STRATEGY_CHECK_PREFIX = "strategy_"
 
 # Libellés lisibles injectés dans la consigne de correction.
 _CHECK_LABELS = {
@@ -59,6 +87,16 @@ _CHECK_LABELS = {
     "coherence_chiffree": "Chiffre incohérent avec le prévisionnel client",
     "troncature": "Chapitre coupé / phrase ou structure non terminée",
     "ordre_de_grandeur": "Erreur d'unité : montant hors d'échelle (millions/milliers)",
+    "troncature_rendu": "Chapitre tronqué : la dernière phrase n'a pas de ponctuation forte",
+    "doublon_titre": "Sous-titre répété dans le chapitre — préfixer par le nom de la persona/du concurrent",
+    "desaccord_numerique": "Annonce chiffrée (« trois familles ») incompatible avec le nombre d'items suivants",
+    "ton_publicitaire": "Expression au ton publicitaire ou superlatif interdit (« leader incontestable », « révolutionnaire », etc.)",
+    "prudence_juridique_evenement_corporate": "Événement corporate daté sans source vérifiable — ajouter une URL ou une locution « selon [Éditeur] »",
+    "prudence_juridique_diffamation": "Formulation à risque de diffamation (condamnation, faillite, abus de position dominante) sans source",
+    "sources_non_tracables_vide": "Chapitre Sources vide — lister au moins 5 URLs http(s) réelles",
+    "sources_non_tracables_ratio_faible": "Chapitre Sources : moins de 50 % des références ont une URL http(s) réelle",
+    "sources_non_tracables_url_bidon": "URL placeholder ou factice (example.com, source.fr, crochets non substitués) — remplacer par une source réelle",
+    "fourchette_interdite": "Fourchette nue sans médiane annoncée dans la même phrase — écrire « X à Y, médiane retenue Z »",
 }
 
 
@@ -69,16 +107,36 @@ def _default_rounds() -> int:
         return 1
 
 
+def _is_regenerable(check: str) -> bool:
+    """Un check est regenerable au chapitre s'il est dans la whitelist OU
+    s'il est prefixe `strategy_` (checks metier par livrable).
+
+    Regle 4 : plutot que d'enumerer 15 sous-categories `strategy_*`, on
+    accepte le prefixe. Chaque nouvelle strategy est routee automatiquement.
+    """
+    if check in _CHAPTER_LEVEL_CHECKS:
+        return True
+    return check.startswith(_STRATEGY_CHECK_PREFIX)
+
+
 def _feedback_by_chapter(failures: tuple[GateFailure, ...]) -> dict[int, str]:
-    """Regroupe les échecs réparables par numéro de chapitre → consigne texte."""
+    """Regroupe les échecs réparables par numéro de chapitre → consigne texte.
+
+    Les échecs sans chapter_number (transverses, ex : « aucun chapitre
+    Sources ») sont ignorés — pas de chapitre unique à régénérer.
+    Les échecs chapter_number == 0 (transverses aux chapitres analytiques,
+    ex : TCAC cardinal) sont attribues au chapitre 1 par convention : c'est
+    le point d'ancrage du raisonnement chiffre.
+    """
     grouped: dict[int, list[str]] = {}
     for failure in failures:
-        if failure.check not in _CHAPTER_LEVEL_CHECKS:
+        if not _is_regenerable(failure.check):
             continue
         if failure.chapter_number is None:
             continue
+        target = failure.chapter_number if failure.chapter_number > 0 else 1
         label = _CHECK_LABELS.get(failure.check, failure.check)
-        grouped.setdefault(failure.chapter_number, []).append(f"- {label} : {failure.detail}")
+        grouped.setdefault(target, []).append(f"- {label} : {failure.detail}")
     return {num: "\n".join(items) for num, items in grouped.items()}
 
 
