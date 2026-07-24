@@ -1,55 +1,58 @@
-"""Phase 29 — Adaptation des consignes par livrable, tiree de WAOME (20/07/2026).
+"""Phase 29 — Adaptation des consignes par livrable.
 
-Evangeline a envoye une etude de marche de reference (WAOME Studio) qui a
-mis en lumiere deux ecarts entre notre consigne actuelle et son standard :
+Reecrit le 24/07/2026 apres adoption du manuel Evangeline. Les regles WAOME
+de juillet 2026 (fourchette sourcee avec mediane annoncee, 5 registres
+methodologiques imposes en preambule) ont ete EXPLICITEMENT rejetees par
+Evangeline dans le manuel EM du 24/07/2026 : elles polluaient le texte
+livre (les regles etaient recopiees mot-pour-mot).
 
-  1. La regle « JAMAIS de fourchette » est trop stricte pour l'EM. WAOME
-     ecrit systematiquement « TAM 130-200 M€, mediane retenue 150 M€ » :
-     fourchette SOURCEE + valeur retenue. C'est le format d'une etude
-     analytique honnete. Le meme format est INTERDIT dans un BP bancaire
-     qui exige un chiffre unique.
-
-  2. Elle distingue en preambule cinq REGISTRES METHODOLOGIQUES : faits
-     documentes, estimations sectorielles, hypotheses projet, ambitions
-     commerciales, elements a tester. Sans ce cadre, l'IA melange tout et
-     un banquier ne sait plus ce qu'il lit.
-
-Regle 4 (viser la classe) : la consigne fourchettes n'est plus universelle,
-elle est adaptee au TYPE de livrable. La correction WAOME propage aux
-prochaines etudes de marche, pas seulement a WAOME.
-
-Regle 5 (source unique) : les 5 registres sont exportes comme constante,
-importee par prompt et documentation.
+Nouvelles regles verifiees ici :
+- BP / EC / STR : chiffre unique, jamais de fourchette (regle originale
+  conservee — le manuel ne les couvre pas).
+- EM (manuel §3) : voix EVKHA verbatim, fourchettes serrees autorisees,
+  taux/% en valeur fixe unique, PAS de mediane forcee, PAS de registres
+  methodologiques imposes.
 """
 from __future__ import annotations
 
 from catalog.models import DeliverableType
 from generation.prompts import build_system_prompt
 
-# ── 1. Fourchettes : strict en BP/EC, permis SOURCÉ en EM ──────────────────
+# ── 1. Fourchettes : strict en BP/EC/STR, regle Evangeline en EM ───────────
 
 
 def test_le_prompt_bp_interdit_toute_fourchette() -> None:
-    """Un BP bancaire ne cite JAMAIS de fourchette. Chiffre unique
-    obligatoire — c'est la consigne d'origine."""
+    """Un BP bancaire ne cite JAMAIS de fourchette. Chiffre unique."""
     prompt = build_system_prompt(DeliverableType.BUSINESS_PLAN, country="France")
 
-    # La regle « fourchettes du brief » reste presente et interdit la recopie
     assert "recopie jamais" in prompt.lower() or "trancher" in prompt.lower()
     assert "chiffre unique" in prompt.lower() or "valeur unique" in prompt.lower()
 
 
-def test_le_prompt_em_autorise_la_fourchette_sourcee_avec_mediane() -> None:
-    """Une etude de marche cite les intervalles publies (« TAM 130-200 M€ »)
-    a CONDITION d'annoncer la mediane retenue. Sans cette adaptation, le
-    modele ne pourrait pas ecrire du WAOME-like."""
+def test_le_prompt_em_pose_la_regle_evangeline_fourchettes_serrees() -> None:
+    """Manuel Evangeline 24/07/2026 §3 : les fourchettes SERREES sont
+    autorisees (« entre 1 000 et 1 400 »), les taux/pourcentages sont
+    TOUJOURS en valeur fixe unique. C'est la regle qui remplace l'ancienne
+    « mediane annoncee obligatoire » explicitement rejetee par Evangeline."""
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
+    lower = prompt.lower()
 
-    assert "mediane" in prompt.lower()
-    assert "fourchette" in prompt.lower()
-    # La fourchette pure est interdite ; c'est la MEDIANE annoncee qui la
-    # rend acceptable dans une EM.
-    assert any(x in prompt.lower() for x in ("retenue", "annoncee", "declaree"))
+    assert "fourchette" in lower
+    assert "serree" in lower or "coherente" in lower
+    # Taux/% en valeur fixe unique
+    assert "valeur fixe" in lower or "valeur unique" in lower
+    assert "taux" in lower or "pourcentage" in lower
+
+
+def test_le_prompt_em_ne_force_plus_la_mediane_annoncee() -> None:
+    """Manuel 24/07 : la formule « mediane retenue X » est ELLE-MEME la
+    cause du recrachage observe sur WAOME v4. Elle a ete supprimee du
+    charter EM. Contre-epreuve : le prompt n'impose plus cette formulation."""
+    prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
+    lower = prompt.lower()
+
+    assert "mediane retenue" not in lower
+    assert "annonce la mediane" not in lower
 
 
 def test_le_prompt_ec_interdit_toute_fourchette() -> None:
@@ -66,46 +69,68 @@ def test_le_prompt_str_interdit_toute_fourchette() -> None:
     assert "chiffre unique" in prompt.lower() or "valeur unique" in prompt.lower()
 
 
-# ── 2. Registres methodologiques — EM uniquement ────────────────────────────
+# ── 2. Voix EVKHA (manuel §3) — EM ──────────────────────────────────────────
 
 
-def test_le_prompt_em_pose_les_cinq_registres_methodologiques() -> None:
-    """Preambule WAOME : faits documentes, estimations sectorielles,
-    hypotheses projet, ambitions commerciales, elements a tester. Sans ce
-    cadre, l'IA melange sources verifiees et projections calibrees."""
+def test_le_prompt_em_pose_la_voix_evkha_verbatim_du_manuel() -> None:
+    """Le charter EM reprend verbatim les points-cles §3 du manuel :
+    ton professionnel/neutre/credible/fluide/accessible, pas de « tu/vous »,
+    pas d'emoji, pas de ton vendeur, pas de vocabulaire pipeline."""
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
+    lower = prompt.lower()
 
-    for registre in (
-        "faits documentes",
-        "estimations sectorielles",
-        "hypotheses",
-        "ambitions",
-        "elements a tester",
+    for expected in (
+        "professionnel",
+        "neutre",
+        "fluide",
+        "accessible",
+        "novice",
+        "emoji",
+        "ton vendeur",
+        "pipeline",
     ):
-        assert registre in prompt.lower(), f"registre absent : {registre!r}"
+        assert expected in lower, f"element de voix EVKHA absent : {expected!r}"
 
 
-def test_les_5_registres_sont_exportes_comme_constante_unique() -> None:
-    """Regle 5 : une seule source. Le prompt IMPORTE la liste, ne la recopie
-    pas. Si demain on modifie le libelle d'un registre, la modification se
-    propage automatiquement."""
-    from generation.checks_evangeline import REGISTRES_METHODO
-
+def test_le_prompt_em_ne_contient_plus_les_registres_methodologiques() -> None:
+    """Contre-epreuve : les 5 registres methodologiques WAOME (faits
+    documentes, estimations sectorielles, etc.) ont ete SUPPRIMES du
+    charter EM le 24/07/2026 avec l'adoption du manuel Evangeline. Ils
+    ne doivent plus apparaitre dans le prompt EM."""
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
-    for _cle, (intitule, _description) in REGISTRES_METHODO.items():
-        assert intitule.lower() in prompt.lower(), (
-            f"registre {intitule!r} non injecte au prompt"
-        )
+    lower = prompt.lower()
+
+    # Ces libelles etaient injectes verbatim par l'ancien code.
+    for absent in (
+        "registres methodologiques",
+        "ambitions commerciales",
+    ):
+        assert absent not in lower, f"element WAOME encore present : {absent!r}"
 
 
-# ── 3. Contre-epreuves : les registres ne s'appliquent qu'a l'EM ───────────
+# ── 3. Contre-epreuves : le rôle EM est aligné manuel §3 ────────────────────
 
 
-def test_le_prompt_bp_ne_contient_pas_les_registres_em() -> None:
-    """Contre-epreuve : les registres sont specifiques a l'analyse externe
-    d'une EM. Un BP a sa propre logique (etat chiffre CLIENT / previsionnel /
-    hypotheses assumees) — polluer le prompt BP avec les registres EM
-    embrouillerait le modele."""
+def test_le_role_em_precise_specialiste_secteur_zone() -> None:
+    """Manuel §3 : « analyste senior en etude de marche, spécialiste du
+    secteur et de la zone étudiés »."""
+    prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
+    lower = prompt.lower()
+
+    assert "analyste senior" in lower
+    assert "specialiste" in lower
+    assert "secteur" in lower
+    assert "zone" in lower
+
+
+def test_le_prompt_bp_ne_contient_pas_les_regles_specifiques_em() -> None:
+    """Contre-epreuve : les elements EM (voix EVKHA verbatim, fourchettes
+    serrees autorisees) sont specifiques a l'analyse externe. Un BP a sa
+    propre logique (etat chiffre CLIENT strict)."""
     prompt = build_system_prompt(DeliverableType.BUSINESS_PLAN, country="France")
+    lower = prompt.lower()
 
-    assert "faits documentes" not in prompt.lower()
+    # Le BP ne doit pas ouvrir la porte aux fourchettes serrees.
+    assert "fourchette" in lower  # (l'interdiction est mentionnee)
+    # Mais il doit trancher, pas autoriser les fourchettes serrees.
+    assert "recopie jamais" in lower or "trancher" in lower

@@ -942,16 +942,16 @@ def _check_fourchettes(
 ) -> list[GateFailure]:
     """Aucune fourchette monetaire ni de pourcentage dans le livrable.
 
-    Regle stricte pour BP / EC / STR : chaque valeur est unique. En EM,
-    une fourchette suivie IMMEDIATEMENT d'une mediane annoncee (« estime
-    entre 36 et 45 milliards, mediane retenue 40 milliards ») est le
-    registre « estimations sectorielles » d'Evangeline, elle passe.
-
-    Alignement judge-prompt (regle 5) : la meme distinction s'applique en
-    prompt (`_consigne_specifique_livrable` accepte le format EM). Sans
-    alignement, le gate compte 68 faux positifs pour un doc conforme au
-    standard WAOME, comme mesure sur job 49953f14 (20/07/2026).
+    Regle stricte pour BP / EC / STR : chaque valeur est unique. En EM
+    (manuel Evangeline juillet 2026, §3), une fourchette serree et
+    coherente est autorisee (« entre 1 000 et 1 400 »), les taux/% sont
+    en valeur fixe unique. Cette nuance ne se detecte pas fiablement en
+    regex, elle est desormais controlee par les CHECK Sonnet 1/5/6/7 du
+    module `checks_blocs.py`. On skippe donc ce check pour EM.
     """
+    if str(job.deliverable_type) == DeliverableType.MARKET_STUDY:
+        return []
+
     from .checks_evangeline import detecter_fourchettes  # noqa: PLC0415
 
     failures: list[GateFailure] = []
@@ -965,10 +965,7 @@ def _check_fourchettes(
                 chapter_number=f.chapitre,
                 detail=(
                     f"Fourchette detectee : « {f.extrait} ». Le document doit "
-                    "citer un chiffre unique, decide et source, pas une plage. "
-                    "En EM, une fourchette est acceptee UNIQUEMENT si elle est "
-                    "immediatement suivie d'une mediane annoncee (« mediane "
-                    "retenue X »)."
+                    "citer un chiffre unique, decide et source, pas une plage."
                 ),
             ))
     return failures
@@ -986,16 +983,23 @@ def _check_fourchettes(
 
 def _check_post_rendu(
     sections: tuple[RenderedSection, ...],
+    *,
+    deliverable_type: str = "",
 ) -> list[GateFailure]:
-    """Verifications transverses sur le rendu final (troncatures, doublons
-    de titres, desaccords numeriques). Voir `checks_post_rendu`.
+    """Verifications transverses sur le rendu final.
 
-    Ce check couvre trois defauts nommes par Evangeline sur WAOME EM v1
-    (21/07/2026) et qu'aucun autre check du gate ne capturait :
-      - annexe tronquee mid-phrase (« aupres des prospects grandes mar »),
-      - titres de chapitre en double (« ## 22. Sources » puis « # 22.
-        Sources » consecutifs),
-      - « trois familles » suivi de 4 items.
+    Pour EM (manuel Evangeline juillet 2026), on conserve uniquement les
+    GARDES-CATASTROPHE deterministes :
+      - troncature (chapitre coupe mid-phrase — bug reel WAOME 21/07/2026)
+      - sources absent/vide ou URL bidon (example.com, source.fr...)
+    Les autres regles historiques (doublons de titres, desaccords « trois
+    familles » vs 4 items, ton publicitaire, prudence juridique) sont
+    couvertes en amont par le nouveau charter (voix EVKHA §3) et par les
+    CHECK Sonnet inter-blocs, qui evaluent le sens en langage naturel.
+    Les conserver ici cree des faux positifs bloquants sur des livrables
+    conformes au manuel.
+
+    Pour BP/EC/STR : tous les checks restent actifs (manuel ne les couvre pas).
     """
     from .checks_post_rendu import (  # noqa: PLC0415
         detecter_desaccords_numeriques,
@@ -1005,6 +1009,8 @@ def _check_post_rendu(
         detecter_ton_publicitaire,
         detecter_troncatures,
     )
+
+    is_em = deliverable_type == DeliverableType.MARKET_STUDY
 
     triplets = [(s.number, s.title, s.body) for s in sections]
 
@@ -1019,6 +1025,23 @@ def _check_post_rendu(
                 f"« ...{t.fin_capturee} ». Perte probable de contenu client."
             ),
         ))
+    for s in detecter_sources_non_tracables(triplets):
+        # Pour EM : on garde absent, vide, url_bidon (garde-catastrophe).
+        # On retire ratio_faible : le manuel ne fixe pas de ratio et les
+        # CHECK Sonnet 8 (bloc H) + FINAL evaluent la traçabilite en langage
+        # naturel.
+        if is_em and s.motif == "ratio_faible":
+            continue
+        failures.append(GateFailure(
+            check=f"sources_non_tracables_{s.motif}",
+            chapter_number=s.chapitre,
+            detail=s.detail,
+        ))
+
+    if is_em:
+        return failures
+
+    # BP/EC/STR : anciens checks conserves.
     for d in detecter_doublons_titres(triplets):
         failures.append(GateFailure(
             check="doublon_titre",
@@ -1033,12 +1056,6 @@ def _check_post_rendu(
             check="desaccord_numerique",
             chapter_number=n.chapitre,
             detail=n.detail,
-        ))
-    for s in detecter_sources_non_tracables(triplets):
-        failures.append(GateFailure(
-            check=f"sources_non_tracables_{s.motif}",
-            chapter_number=s.chapitre,
-            detail=s.detail,
         ))
     corpus_par_chapitre = {s.number: s.body for s in sections}
     titres_par_chapitre = {s.number: s.title for s in sections}
@@ -1200,6 +1217,6 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_chiffre_contre_chiffre(sections))
     failures.extend(_check_chapitres_avortes(job, sections))
     failures.extend(_check_strategie_livrable(job, sections))
-    failures.extend(_check_post_rendu(sections))
+    failures.extend(_check_post_rendu(sections, deliverable_type=str(job.deliverable_type)))
 
     return GateReport(passed=not failures, failures=tuple(failures))

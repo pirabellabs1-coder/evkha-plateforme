@@ -4,11 +4,13 @@ import re
 
 from django.utils import timezone
 
+from catalog.models import DeliverableType
 from intake.models import IntakeSubmission
 from integrations.claude import _DEFAULT_MAX_TOKENS, ClaudeClient, get_claude_client
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .blueprints import chapters_for_deliverable, get_blueprint
+from .checks_blocs import BLOCS_PAR_IDENTIFIANT, bloc_pour_chapitre, check_bloc
 from .coherence import (
     CoherenceConflictError,
     extract_and_lock_chiffres_cles,
@@ -276,6 +278,10 @@ def run_generation_job(
             # QA rule-based immédiate : corrections automatiques sans appel IA.
             # Les violations critiques restantes sont traitées par le QA final (IA).
             _inline_qa_repair(chapter)
+            # CHECK inter-bloc EVKHA (manuel Evangeline §6) : uniquement pour
+            # l'EM, apres chaque dernier chapitre d'un bloc. Silencieux pour
+            # BP/EC/STR (blueprints non couverts par le manuel).
+            _after_chapter_hook(job, chapter, client=client, system_prompt=system_prompt)
         except CostBudgetExceededError as exc:
             # L'incident budget est deja ouvert par le Cost Engine ; le chapitre
             # courant a un contenu valide. On stoppe juste le job proprement.
@@ -547,6 +553,144 @@ def _generate_chapter(
         input_tokens=total_input,
         output_tokens=total_output,
         model=model,
+    )
+
+
+# ── Hook CHECK inter-bloc (manuel Evangeline §6) ────────────────────────────
+#
+# Le manuel decrit une methode iterative : rediger 1-3 chapitres, lancer un
+# CHECK (5 questions verbatim), et si un defaut est signale, corriger AVANT
+# de continuer. On reproduit ce va-et-vient ici sans casser la boucle par
+# chapitre existante : apres chaque _generate_chapter, on evalue si le
+# chapitre courant termine un bloc EM, et dans ce cas on lance le CHECK
+# correspondant. Si le CHECK echoue, on regenere les chapitres du bloc avec
+# la note corrective, puis on relance le CHECK UNE fois. Un echec persistant
+# apres retry ouvre un incident MEDIUM (non bloquant) : le contenu reste
+# livre au client, mais l'admin est informe.
+
+# Un seul retry par bloc — deuxieme regeneration + re-CHECK. Au-dela, la
+# probabilite de succes chute rapidement et le cout grimpe. Comme la
+# validation, on prefere loguer et continuer.
+_MAX_CHECK_RETRIES = 1
+
+
+def _after_chapter_hook(
+    job: GenerationJob,
+    chapter: ChapterGeneration,
+    *,
+    client: ClaudeClient,
+    system_prompt: str,
+) -> None:
+    """Declenche le CHECK inter-bloc apres un chapitre EM, si applicable.
+
+    Cas geres :
+      - Chapitre 0 (fiche projet) EM -> CHECK INITIAL (5 questions §2 manuel).
+      - Dernier chapitre d'un bloc A-J EM -> CHECK correspondant.
+      - Autre cas -> ne fait rien (les autres livrables et les chapitres
+        intermediaires d'un bloc passent silencieusement).
+    """
+    if job.deliverable_type != DeliverableType.MARKET_STUDY:
+        return
+
+    # Cas 1 : fiche projet (chapitre 0) -> CHECK INITIAL, sur la fiche seule.
+    if chapter.chapter_number == 0:
+        bloc = BLOCS_PAR_IDENTIFIANT.get("INITIAL")
+        if bloc is not None:
+            _executer_check_avec_retry(
+                job, bloc, chapitres=[], client=client, system_prompt=system_prompt,
+            )
+        return
+
+    # Cas 2 : dernier chapitre d'un bloc A-J -> CHECK.
+    bloc = bloc_pour_chapitre(chapter.chapter_number)
+    if bloc is None or not bloc.chapitres:
+        return
+    if chapter.chapter_number != max(bloc.chapitres):
+        return  # bloc encore en cours, attendre le dernier chapitre
+
+    # Vérifier que TOUS les chapitres du bloc sont DONE avant de lancer le
+    # CHECK (situation normale, mais defensif : si un retry precedent a laisse
+    # un chapitre FAILED, on n'evalue pas un bloc partiel).
+    chapitres_bloc = list(
+        job.chapters.filter(
+            chapter_number__in=bloc.chapitres, status=ChapterStatus.DONE,
+        ).order_by("chapter_number")
+    )
+    if len(chapitres_bloc) != len(bloc.chapitres):
+        return
+
+    _executer_check_avec_retry(
+        job, bloc, chapitres=chapitres_bloc, client=client, system_prompt=system_prompt,
+    )
+
+
+def _executer_check_avec_retry(
+    job: GenerationJob,
+    bloc,
+    *,
+    chapitres: list[ChapterGeneration],
+    client: ClaudeClient,
+    system_prompt: str,
+) -> None:
+    """Lance le CHECK, regenere une fois si fix, log un incident si echec persistant."""
+    result = check_bloc(job, bloc, chapitres, client=client)
+
+    if result.est_ok:
+        return
+
+    # Echec 1er passage : regenere chaque chapitre du bloc avec la note.
+    # Le CHECK INITIAL n'a pas de chapitres a regenerer (defaut sur la fiche
+    # projet -> incident direct, l'admin doit intervenir sur le brief).
+    if not chapitres:
+        _log_incident_check(
+            job, bloc, result.note_corrective,
+            titre="CHECK INITIAL echoue (fiche projet a corriger)",
+        )
+        return
+
+    retries = 0
+    while retries < _MAX_CHECK_RETRIES and not result.est_ok:
+        retries += 1
+        for chap in chapitres:
+            regenerate_chapter(
+                job, chap, corrective_note=result.note_corrective, client=client,
+            )
+        # Relire depuis la DB : `regenerate_chapter` a ecrit dans chapter.content.
+        chapitres = list(
+            job.chapters.filter(
+                chapter_number__in=[c.chapter_number for c in chapitres],
+                status=ChapterStatus.DONE,
+            ).order_by("chapter_number")
+        )
+        result = check_bloc(job, bloc, chapitres, client=client)
+
+    if not result.est_ok:
+        _log_incident_check(
+            job, bloc, result.note_corrective,
+            titre=f"CHECK {bloc.check_numero} (bloc {bloc.identifiant}) echoue apres retry",
+        )
+
+
+def _log_incident_check(
+    job: GenerationJob,
+    bloc,
+    note: str,
+    *,
+    titre: str,
+) -> None:
+    """Ouvre un incident MEDIUM. Le contenu reste livre (le gate final decide)."""
+    OperationalIncident.objects.create(
+        title=titre[:200],
+        severity=IncidentSeverity.MEDIUM,
+        job=job,
+        order=job.order,
+        details={
+            "bloc": bloc.identifiant,
+            "check": bloc.check_numero,
+            "intitule": bloc.intitule,
+            "chapitres": list(bloc.chapitres),
+            "note_corrective": note[:2000],
+        },
     )
 
 

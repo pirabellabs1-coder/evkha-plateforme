@@ -6,7 +6,13 @@ from django.utils import timezone
 
 from intake.models import IntakeSubmission
 
-from .coherence import client_facts_as_context, generated_facts_as_context
+from catalog.models import DeliverableType
+
+from .coherence import (
+    chiffres_fondations_as_table,
+    client_facts_as_context,
+    generated_facts_as_context,
+)
 from .models import ChapterGeneration, GenerationJob
 from .substitution import tokens_catalogue
 
@@ -138,6 +144,20 @@ def build_context(chapter: ChapterGeneration) -> str:
         "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
         "precedents, a reprendre a l'identique, jamais presentes comme "
         "'faits verrouilles'):\n" + generated_facts_as_context(job),
+    ]
+
+    # Manuel Evangeline §5 (juillet 2026) : la fiche projet enrichie fait
+    # office de memoire de l'etude EM. Injectee EN PLUS des REPERES_DEJA_ENONCES
+    # pour rendre le format tableau (colonnes Information | Valeur | Source),
+    # comme le manuel le prescrit p. 6. Uniquement pour l'EM — les autres
+    # livrables gardent leur socle inchange.
+    if str(job.deliverable_type) == DeliverableType.MARKET_STUDY:
+        blocs.append(
+            "CHIFFRES_FONDATIONS (manuel §5, memoire enrichie EM):\n"
+            + chiffres_fondations_as_table(job)
+        )
+
+    blocs += [
         "RESUME_OPERATIONNEL_PRECEDENT:\n" + ("\n".join(summary_lines) or "Aucun."),
         f"CHAPITRE_CIBLE: {chapter.chapter_number}. {chapter.chapter_title}",
         f"PROMPT_KEY: {chapter.prompt_key}",

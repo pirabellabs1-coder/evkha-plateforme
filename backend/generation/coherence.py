@@ -438,6 +438,159 @@ def locked_facts_as_context(job: GenerationJob) -> str:
     return "\n".join(f"- {fact.kind}:{fact.key} = {fact.value}" for fact in facts)
 
 
+# ── Enrichissement de la fiche projet apres un CHECK Sonnet (manuel §5-6) ──
+#
+# Manuel Evangeline (juillet 2026), §5 « La fiche projet enrichie : la memoire
+# de l'etude » : « Apres chaque controle, elle recoit les informations qui
+# devront rester coherentes dans la suite. Ces chiffres deviennent
+# inviolables pour la suite. »
+#
+# Cote pipeline, chaque CHECK Sonnet identifie 0 a 10 points structurants
+# (chiffres-fondations, definitions, segments prioritaires...) qui doivent
+# etre reutilises tels quels par les chapitres suivants. On les persiste
+# comme CoherenceFact GENERATED, prefixes par le bloc pour eviter les
+# collisions inter-blocs. Ils sont ensuite lus par `generated_facts_as_context`
+# qui alimente le contexte injecte dans chaque prompt de chapitre.
+
+
+# ── Tableau des chiffres-fondations (manuel §5, p. 6) ──────────────────────
+#
+# Le manuel prescrit un tableau explicite comme carte d'identite chiffree de
+# l'etude : « Information | Valeur retenue | Perimetre/annee/unite | Source
+# ou methode | Reutilisation ». Enrichi apres le CHECK 1 (bloc A) puis
+# maintenu inviolable. Cote pipeline, les faits sont deja stockes dans
+# `CoherenceFact` par les extracteurs (`extract_and_lock_chiffres_cles`) et
+# les CHECKs (`enrichir_fiche_apres_check`). Cette fonction les rend au
+# format tableau attendu par le manuel, et le contexte l'injecte en tete
+# des prompts EM (voir `context.py`).
+
+_LIBELLES_FONDATIONS: dict[str, str] = {
+    # kinds : ASSUMPTION, CURRENCY, MARKET_SIZE, GROWTH_RATE
+    "secteur": "Definition du marche (secteur)",
+    "zone": "Zone d'analyse",
+    "currency": "Devise",
+    "forme_juridique": "Forme juridique du projet",
+    "capital_initial": "Capital initial",
+    "verticales": "Verticales d'activite",
+    # tailles de marche
+    "taille_marche": "Marche (perimetre general)",
+    "taille_marche_mondial": "Marche mondial",
+    "taille_marche_continental": "Marche continental",
+    "taille_marche_national": "Marche national",
+    "taille_marche_local": "Marche local",
+    # TCAC par niveau
+    "tcac": "TCAC (general)",
+    "tcac_mondial": "TCAC mondial",
+    "tcac_continental": "TCAC continental",
+    "tcac_national": "TCAC national",
+    # projet
+    "ca_cible_eur": "CA cible",
+    "seuil_rentabilite_eur": "Seuil de rentabilite (repere)",
+    "panier_moyen_eur": "Panier / prix moyen",
+    "marge_brute": "Marge brute sectorielle",
+    "part_de_marche": "Part de marche estimee",
+    "nombre_clients": "Nombre de clients cibles",
+    "ticket_moyen": "Ticket moyen",
+    "taux_occupation": "Taux d'occupation",
+    "taux_conversion": "Taux de conversion",
+    "taux_retention": "Taux de retention",
+    # previsionnel client
+    "investissement_total": "Investissement total (brief)",
+    "apport": "Apport (brief)",
+    "emprunt": "Emprunt (brief)",
+    "subventions": "Subventions (brief)",
+    "ca_previsionnel": "CA previsionnel (brief)",
+    "ebe_previsionnel": "EBE previsionnel (brief)",
+    "resultat_net_previsionnel": "Resultat net previsionnel (brief)",
+}
+
+
+def chiffres_fondations_as_table(job: GenerationJob) -> str:
+    """Rend les faits verrouilles au format tableau du manuel §5.
+
+    Colonnes : Information | Valeur retenue | Source (chapitre + provenance).
+    La colonne « Reutilisation » du manuel est implicite : « tous les
+    chapitres suivants ». Les cles enrichies par un CHECK (prefixe
+    `bloc_X_...`) sont affichees telles quelles (libelle humanise) car
+    elles portent le vocabulaire choisi par le relecteur Sonnet.
+    """
+    facts = list(job.coherence_facts.filter(is_locked=True).order_by("kind", "key"))
+    if not facts:
+        return (
+            "Aucun chiffre-fondation verrouille pour le moment. Les valeurs "
+            "se figeront apres le CHECK 1 (bloc A, fondations du marche)."
+        )
+
+    rows: list[str] = []
+    for fact in facts:
+        cle = str(fact.key or "")
+        libelle = _LIBELLES_FONDATIONS.get(cle)
+        if libelle is None:
+            if cle.startswith("bloc_"):
+                # Cle enrichie par un CHECK : humanise le suffixe.
+                humanise = cle.replace("_", " ").replace("bloc ", "Bloc ", 1)
+                libelle = humanise[:80]
+            else:
+                # Cle inconnue : on l'affiche telle quelle plutot que la masquer.
+                libelle = cle.replace("_", " ")
+        source_ch = f"ch. {fact.source_chapter_number}" if fact.source_chapter_number else "brief"
+        prov = "CLIENT" if fact.provenance == FactProvenance.CLIENT else "genere"
+        rows.append(f"| {libelle} | {fact.value} | {source_ch} ({prov}) |")
+
+    return (
+        "Chiffres-fondations (manuel §5, memoire enrichie). Valeurs "
+        "INVIOLABLES : chaque chapitre suivant DOIT les reprendre a "
+        "l'identique (definition, annee, unite, valeur).\n\n"
+        "| Information | Valeur retenue | Source |\n"
+        "|---|---|---|\n"
+        + "\n".join(rows)
+    )
+
+
+def enrichir_fiche_apres_check(
+    job: GenerationJob,
+    *,
+    bloc_identifiant: str,
+    points: list[tuple[str, str]],
+) -> list[CoherenceFact]:
+    """Persiste les points identifies par un CHECK dans la fiche enrichie.
+
+    Chaque point (cle, valeur) devient un CoherenceFact GENERATED, avec la
+    convention de cle `bloc_{X}_{cle}` (ex : `bloc_A_definition_marche`).
+    Les cles deja presentes ne sont pas ecrasees a la legere : `upsert_locked_fact`
+    detecte les conflits (tolerance 20 % sur les valeurs numeriques) et cree
+    un incident MEDIUM sans stopper la generation.
+
+    Sans effet si `points` est vide. Silencieux si aucun bloc identifie
+    (jamais le cas en pratique, mais defensif).
+    """
+    if not points or not bloc_identifiant:
+        return []
+
+    prefixe = f"bloc_{bloc_identifiant}"
+    facts: list[CoherenceFact] = []
+    for cle_raw, valeur in points:
+        cle_normalisee = re.sub(r"[^a-z0-9_]", "_", cle_raw.lower().strip())
+        cle_normalisee = re.sub(r"_+", "_", cle_normalisee).strip("_")
+        if not cle_normalisee:
+            continue
+        cle = f"{prefixe}_{cle_normalisee}"[:120]  # cf. max_length du modele
+        # kind = ASSUMPTION par defaut : les faits verrouilles "typees"
+        # (MARKET_SIZE, GROWTH_RATE, CURRENCY) sont gerees par les
+        # extracteurs specialises (extract_and_lock_chiffres_cles), pas ici.
+        # Les points d'un CHECK sont des reperes qualitatifs/quantitatifs
+        # heterogenes, ASSUMPTION est le bon fourre-tout.
+        fact = upsert_locked_fact(
+            job=job,
+            kind=FactKind.ASSUMPTION,
+            key=cle,
+            value=valeur,
+            provenance=FactProvenance.GENERATED,
+        )
+        facts.append(fact)
+    return facts
+
+
 def extract_and_lock_chiffres_cles(job: GenerationJob, chapter_number: int, content: str) -> None:
     """Detecte TCAC et taille de marche dans le contenu d'un chapitre et les verrouille.
 

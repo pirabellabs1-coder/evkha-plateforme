@@ -109,20 +109,32 @@ def test_le_tcac_est_verrouille_par_niveau() -> None:
 
 
 def test_le_prompt_interdit_la_formule_donnee_non_disponible() -> None:
-    """Evangeline : « surtout pas 'donnee non disponible', ca finit partout. »"""
+    """Manuel Evangeline §3 : « Ne jamais afficher 'donnees non disponibles'
+    dans l'etude client. » Le charter mentionne le pluriel avec guillemets ;
+    accepter les deux formes pour ne pas dependre du wording exact."""
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
+    lower = prompt.lower()
 
-    assert "donnee non disponible" in prompt.lower()
-    assert "interdiction verbatim" in prompt.lower()
+    assert (
+        "donnee non disponible" in lower
+        or "donnees non disponibles" in lower
+    )
+    # L'ancienne mention "INTERDICTION VERBATIM" en majuscules a ete retiree
+    # avec le manuel Evangeline (24/07/2026) : le nouveau charter enonce
+    # directement "Ne jamais afficher..." sans l'auto-designer comme "verbatim".
 
 
 def test_le_prompt_impose_la_documentation_dans_la_methodologie() -> None:
-    """La contrepartie : chaque hypothese est expliquee dans l'encadre
-    methodologie du chapitre des Sources."""
+    """Manuel §3 : « construire une estimation prudente et expliquer
+    clairement la methode. » Les sources completes vont dans le chapitre 21.
+    L'ancienne assertion sur 'hypothese' portait sur une formulation retiree ;
+    on verifie desormais la presence de la notion de methode/estimation."""
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
+    lower = prompt.lower()
 
-    assert "encadre" in prompt.lower() or "'methodologie'" in prompt.lower()
-    assert "hypothese" in prompt.lower()
+    assert "methode" in lower
+    assert "estimation" in lower
+    assert "chapitre 21" in lower
 
 
 # ── Q3 : l'ordre de tri des concurrents est injecte ─────────────────────────

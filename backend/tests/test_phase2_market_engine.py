@@ -47,12 +47,14 @@ def normalized_market_submission() -> IntakeSubmission:
 @pytest.mark.django_db
 def test_market_study_blueprint_matches_evkha_method() -> None:
     # Fiche projet en ouverture + 20 chapitres + annexe brief + sources = 23 unites.
-    assert len(MARKET_STUDY_CHAPTERS) == 23
+    # Manuel Evangeline (24/07/2026) : 21 chapitres analytiques + fiche projet
+    # opening. Annexe brief separee supprimee (couverture des demandes vérifiée
+    # par les CHECK 2/6/9). Chapitre 21 = Sources + methodologie fusionnes.
+    assert len(MARKET_STUDY_CHAPTERS) == 22
     assert MARKET_STUDY_CHAPTERS[0].prompt_key == "em.00.fiche_projet"
     assert MARKET_STUDY_CHAPTERS[0].section_kind == SectionKind.OPENING
-    assert MARKET_STUDY_CHAPTERS[1].title.startswith("Analyse chiffrée du marché mondial")
-    assert MARKET_STUDY_CHAPTERS[-2].section_kind == SectionKind.ANNEXE
-    assert MARKET_STUDY_CHAPTERS[-1].prompt_key == "em.22.sources"
+    assert MARKET_STUDY_CHAPTERS[1].title.startswith("Marché mondial")
+    assert MARKET_STUDY_CHAPTERS[-1].prompt_key == "em.21.sources_methodologie"
     assert MARKET_STUDY_CHAPTERS[-1].section_kind == SectionKind.SOURCES
 
 
@@ -63,8 +65,8 @@ def test_bootstrap_generation_job_creates_all_sections(
     job = bootstrap_generation_job(normalized_market_submission)
 
     assert job.deliverable_type == DeliverableType.MARKET_STUDY
-    assert job.chapters.count() == 23
-    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 23))
+    assert job.chapters.count() == 22
+    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 22))
 
 
 @pytest.mark.django_db
@@ -101,7 +103,8 @@ def test_context_builder_includes_variables_summaries_and_locked_facts(
     assert "beaute" in context
     assert "clientes urbaines actives" in context
     assert "currency = XOF" in context
-    assert "CHAPITRE_CIBLE: 2. Analyse chiffrée du marché national et local" in context
+    # Manuel Evangeline 24/07/2026 : titre chapitre 2 aligne §6 p. 8.
+    assert "CHAPITRE_CIBLE: 2. Marché national, local et marché accessible" in context
 
 
 @pytest.mark.django_db
