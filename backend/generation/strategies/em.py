@@ -49,7 +49,10 @@ from generation.strategies.base import (
 # (taille_marche_mondial/continental/national, tcac_mondial/...). La base
 # consolidee est injectee au contexte de tous les chapitres suivants.
 _CHAPITRE_CONSOLIDATION = 2
-_CHAPITRES_CIBLES: tuple[int, ...] = tuple(range(3, 23))
+# Chapitres 3 a 21 (le blueprint EM s'arrete au chapitre 21 « Sources et
+# methodologie » — cf. blueprints.MARKET_STUDY_CHAPTERS). La base consolidee
+# est injectee au contexte de tous ces chapitres.
+_CHAPITRES_CIBLES: tuple[int, ...] = tuple(range(3, 22))
 
 # ── Tolerance arithmetique ──────────────────────────────────────────────────
 # Une projection sur 6 ans a une marge acceptable liee aux arrondis
@@ -256,46 +259,6 @@ def verifier_ratio(texte: str) -> list[str]:
     return problemes
 
 
-def verifier_cardinal_tcac(
-    corpus_par_chapitre: dict[int, str]
-) -> list[str]:
-    """Trop de TCAC differents dans le document = incoherence probable.
-
-    Cas WAOME v1 mesure : 5 valeurs distinctes citees (20, 28, 30, 31,
-    38 %). Le maximum metier legitime est 3 (un par niveau : mondial,
-    continental, national). Au-dela, le lecteur ne sait plus lequel
-    retenir — c'est le defaut nomme par Evangeline (« TCAC 20 % dans un
-    chapitre, 31 % dans un autre »).
-
-    Check plus permissif que `verifier_tcac_coherent_par_niveau` qui
-    exige de retrouver le qualificatif geographique. Utile quand le
-    modele redige des TCAC sans les qualifier ou avec des formulations
-    trop varies (« TCAC retenu de 31 % », « TCAC national retenu 28 % »,
-    « TCAC regional 38 % »...).
-    """
-    valeurs: set[float] = set()
-    for texte in corpus_par_chapitre.values():
-        for m in re.finditer(
-            r"TCAC[^.\n]{0,80}?(\d+(?:[.,]\d+)?)\s*%",
-            texte,
-            re.IGNORECASE,
-        ):
-            v = round(_lire_nombre(m.group(1)), 1)
-            if v > 0:
-                valeurs.add(v)
-
-    max_legitime = 3
-    if len(valeurs) <= max_legitime:
-        return []
-    liste = ", ".join(f"{v:.1f} %" for v in sorted(valeurs))
-    return [
-        f"{len(valeurs)} valeurs distinctes de TCAC citees dans le document "
-        f"({liste}). Le maximum legitime est {max_legitime} (une par niveau "
-        "geographique : mondial, continental, national). Le lecteur ne sait "
-        "plus laquelle retenir."
-    ]
-
-
 def verifier_tcac_coherent_par_niveau(
     corpus_par_chapitre: dict[int, str]
 ) -> list[str]:
@@ -408,13 +371,14 @@ class EMStrategy:
                 chapitre=chapitre_ref,
                 detail=detail,
             ))
-        # Check global : trop de valeurs TCAC differentes.
-        for detail in verifier_cardinal_tcac(corpus_par_chapitre):
-            problemes.append(ProblemeCoherence(
-                categorie="tcac_cardinal",
-                chapitre=0,
-                detail=detail,
-            ))
+        # NB : pas de plafond sur le NOMBRE de TCAC distincts. Le manuel EM
+        # (juillet 2026) n'impose aucun cardinal — une etude cite legitimement
+        # plusieurs taux (mondial, national, par segment au ch. 3, parmi les
+        # 12 chiffres cles du ch. 9...). Seule la COHERENCE d'un meme niveau
+        # geographique est controlee (verifier_tcac_coherent_par_niveau), ce
+        # qui correspond a la regle de cohorence p.4 (« un chiffre valide ne
+        # change pas de valeur »). Un ancien check « max 3 TCAC » a ete retire :
+        # il bloquait des etudes conformes au manuel.
         return problemes
 
 

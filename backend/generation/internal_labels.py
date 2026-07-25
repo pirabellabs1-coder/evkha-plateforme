@@ -48,6 +48,13 @@ INTERNAL_LABEL_NAMES: tuple[str, ...] = (
     "CONSIGNE_DU_CHAPITRE",
     "DATE_DU_JOUR",
     "CONTEXTE_ETUDE_PRECEDENTE",
+    # Marqueur de coupure de cache du system prompt
+    # (integrations.claude.SYSTEM_CACHE_BREAK). Il est normalement consomme par
+    # `_cacheable_system` avant l'appel API et n'atteint donc jamais le modele,
+    # mais il transite bien par le system prompt : la REGLE de ce module
+    # s'applique sans exception, et le jour ou un appelant oublie de passer par
+    # `_cacheable_system`, le gate l'attrape au lieu de le livrer.
+    "EVKHA_CACHE_BREAK",
 )
 
 # Marqueurs de placeholder jamais tolerables dans un livrable (brief client :

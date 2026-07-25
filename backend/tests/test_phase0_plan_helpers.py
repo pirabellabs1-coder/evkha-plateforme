@@ -186,3 +186,26 @@ def test_strip_ai_tell_dashes_removes_em_and_en_dashes() -> None:
     # Idempotent
     already_clean = "texte sans tiret long, propre."
     assert _strip_ai_tell_dashes(already_clean) == already_clean
+
+
+def test_strip_ai_tell_dashes_preserve_les_fourchettes_chiffrees() -> None:
+    # Regression run reel 010e3bf2 (chapitre 2) : la substitution aveugle par
+    # ", " transformait « 100 — 120 kEUR » en « 100, 120 kEUR ». Dans un tableau
+    # financier la fourchette devenait illisible, et le relecteur y lisait une
+    # erreur de calcul. Une fourchette chiffree doit garder sa borne en clair.
+    from generation.runner import _strip_ai_tell_dashes
+
+    assert _strip_ai_tell_dashes("SOM : 100 — 120 kEUR") == "SOM : 100 à 120 kEUR"
+    assert _strip_ai_tell_dashes("CA 7,0 – 7,5 MEUR") == "CA 7,0 à 7,5 MEUR"
+    assert _strip_ai_tell_dashes("horizon 2026–2030") == "horizon 2026 à 2030"
+    # Cellule de tableau reduite au tiret : convention « sans objet », preservee.
+    assert _strip_ai_tell_dashes("<td>90 MEUR</td><td>—</td>") == (
+        "<td>90 MEUR</td><td>—</td>"
+    )
+    assert _strip_ai_tell_dashes("| Part de capture | — |") == (
+        "| Part de capture | — |"
+    )
+    # La prose reste traitee : le tiret parenthetique disparait toujours.
+    assert _strip_ai_tell_dashes("un marche jeune — donc volatil") == (
+        "un marche jeune, donc volatil"
+    )

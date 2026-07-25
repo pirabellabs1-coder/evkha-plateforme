@@ -41,18 +41,33 @@ class ChapterBlueprint:
     # QC Evangeline #5 : c'est ce plafond qui evite la dilution en 126 pages
     # d'un sujet qui tient en 46 pages en chat direct.
     max_words: int = 0
-    # Modele Claude a utiliser pour ce chapitre (alias EVKHA : "claude-haiku",
-    # "claude-sonnet"...). None = herite de EVKHA_CLAUDE_MODEL (defaut global).
-    # Haiku est utilise sur les chapitres purement structures (fiche projet,
-    # annexe Q&A, sources) pour reduire le cout sans perte qualitative.
+    # Modele Claude a utiliser pour ce chapitre (alias EVKHA : "claude-sonnet").
+    # None = herite de EVKHA_CLAUDE_MODEL (defaut global, actuellement
+    # claude-sonnet-4-6 pour toute la pipeline — decision du 25/07/2026).
     model: str | None = None
+    # Autorise l'outil d'execution de code Anthropic sur ce chapitre (Python
+    # sandboxe, sans reseau). Declaratif et volontairement TRES restreint : un
+    # outil s'ajoute au niveau `tools`, qui precede `system` dans la hierarchie
+    # de cache, donc chaque chapitre qui l'active re-ecrit son prefixe au lieu
+    # de le relire a 10 %. A ne poser que sur un chapitre dont l'arithmetique
+    # est emboitee et sensible a la precision — pas sur un chapitre qui cite
+    # simplement des chiffres.
+    code_execution: bool = False
 
 
 MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     # Bloc opening ── fiche projet
-    ChapterBlueprint(
-        0, "Fiche projet", "em.00.fiche_projet", SectionKind.OPENING, model="claude-haiku"
-    ),
+    #
+    # PAS Haiku, contrairement aux autres livrables. La fiche projet n'est pas
+    # un chapitre de remplissage : le manuel p. 6 en fait « la memoire de
+    # l'etude », relue avant chaque nouveau bloc, et c'est elle qui choisit les
+    # 4 a 5 questions du porteur auxquelles l'etude devra repondre. Une lecture
+    # faible du questionnaire ici se propage aux 21 chapitres suivants.
+    # Effet de bord favorable : le cache de prompt Anthropic est par modele.
+    # Avec Haiku au chapitre 0, l'entree de cache ecrite au premier appel
+    # n'etait reutilisable par aucun autre chapitre, et le system prompt
+    # (~5000 tokens) frolait le minimum de 4096 tokens exige par Haiku 4.5.
+    ChapterBlueprint(0, "Fiche projet", "em.00.fiche_projet", SectionKind.OPENING),
     # Bloc A ── marché, géographie et chiffres-fondations
     ChapterBlueprint(
         1,
@@ -61,12 +76,28 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         sections=("em.01.a.mondial", "em.01.b.europeen"),
         max_words=900,
     ),
+    # PAS de `sections` ici, volontairement : le chapitre 2 porte le calcul
+    # TAM/SAM/SOM, qui est un raisonnement arithmetique continu. Le decouper
+    # en « 2.a national / 2.b local » faisait recalculer le marche accessible
+    # dans un second appel qui ne voyait du premier qu'un resume de 1200
+    # caracteres — d'ou les deux valeurs de SAM constatees sur le run reel
+    # 010e3bf2 et le verdict « TAM, SAM et SOM incoherents ». max_words = somme
+    # des deux anciennes cibles de section (1100 + 800), le volume attendu ne
+    # change pas.
+    # `code_execution` : SEUL chapitre du systeme a l'activer. C'est ici que
+    # s'emboitent TAM, SAM, SOM a sept variables, taux d'annulation, commissions
+    # et montee en charge mensuelle — soit exactement le declencheur nomme par
+    # la doc de l'outil (« mathematiques non triviales : grands nombres,
+    # nombreuses etapes, resultats sensibles a la precision »), et exactement le
+    # premier reproche d'Evangeline sur le run 010e3bf2 (« erreurs de calcul
+    # importantes »). Le modele faisait cette arithmetique en prose ; il la pose
+    # maintenant dans un interpreteur.
     ChapterBlueprint(
         2,
         "Marché national, local et marché accessible",
         "em.02.marche_national_local",
-        sections=("em.02.a.national", "em.02.b.local"),
-        max_words=900,
+        max_words=1900,
+        code_execution=True,
     ),
     # Bloc B ── segmentation et alignement avec la demande
     ChapterBlueprint(3, "Segmentation approfondie", "em.03.segmentation", max_words=1800),
@@ -155,7 +186,7 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     # Bloc J ── sources, méthodologie et contrôle final
     ChapterBlueprint(
         21, "Sources et méthodologie", "em.21.sources_methodologie",
-        SectionKind.SOURCES, model="claude-haiku"
+        SectionKind.SOURCES, model=None
     ),
 )
 
@@ -166,7 +197,7 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # Ne PAS inventer de chapitres.
 COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
-        0, "Fiche projet", "ec.00.fiche_projet", SectionKind.OPENING, model="claude-haiku"
+        0, "Fiche projet", "ec.00.fiche_projet", SectionKind.OPENING, model=None
     ),
     ChapterBlueprint(1, "Identification des concurrents", "ec.01.identification", max_words=2000),
     ChapterBlueprint(
@@ -209,10 +240,10 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "Annexe - Réponses aux demandes spécifiques du client",
         "ec.08.annexe_brief",
         SectionKind.ANNEXE,
-        model="claude-haiku",
+        model=None,
     ),
     ChapterBlueprint(
-        9, "Sources et méthodologie", "ec.09.sources", SectionKind.SOURCES, model="claude-haiku"
+        9, "Sources et méthodologie", "ec.09.sources", SectionKind.SOURCES, model=None
     ),
 )
 
@@ -227,7 +258,7 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # ---------------------------------------------------------------------------
 BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
-        0, "Fiche projet", "bp.00.fiche_projet", SectionKind.OPENING, model="claude-haiku"
+        0, "Fiche projet", "bp.00.fiche_projet", SectionKind.OPENING, model=None
     ),
     ChapterBlueprint(1, "Résumé exécutif", "bp.01.resume_executif", max_words=1200),
     ChapterBlueprint(
@@ -284,9 +315,9 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         16, "Risques et facteurs de sécurisation", "bp.18.risques_securisation", max_words=1400
     ),
     ChapterBlueprint(17, "Conclusion", "bp.19.conclusion", max_words=1000),
-    ChapterBlueprint(18, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model="claude-haiku"),
+    ChapterBlueprint(18, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model=None),
     ChapterBlueprint(
-        19, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model="claude-haiku"
+        19, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model=None
     ),
 )
 
@@ -299,7 +330,7 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 # ---------------------------------------------------------------------------
 BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
-        0, "Fiche projet", "str.00.fiche_projet", SectionKind.OPENING, model="claude-haiku"
+        0, "Fiche projet", "str.00.fiche_projet", SectionKind.OPENING, model=None
     ),
     ChapterBlueprint(1, "Introduction stratégique générale", "str.01.introduction", max_words=1200),
     ChapterBlueprint(
@@ -392,10 +423,10 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "Annexe - Réponses aux demandes spécifiques du client",
         "str.18.annexe_brief",
         SectionKind.ANNEXE,
-        model="claude-haiku",
+        model=None,
     ),
     ChapterBlueprint(
-        19, "Sources et méthodologie", "str.19.sources", SectionKind.SOURCES, model="claude-haiku"
+        19, "Sources et méthodologie", "str.19.sources", SectionKind.SOURCES, model=None
     ),
 )
 
@@ -426,9 +457,8 @@ SECTION_MAX_WORDS: dict[str, int] = {
     # EM chapitre 1 — analyse marche mondial/europeen
     "em.01.a.mondial":   1200,  # analyse mondiale chiffree
     "em.01.b.europeen":   900,  # analyse europeenne chiffree
-    # EM chapitre 2 — marche national/local
-    "em.02.a.national":  1100,  # marche national chiffre
-    "em.02.b.local":      800,  # marche local/regional chiffre
+    # EM chapitre 2 : plus de section, cf. le blueprint (calcul TAM/SAM/SOM
+    # indivisible). La cible vit dans ChapterBlueprint.max_words.
     # EM chapitre 10 — clientele cible (3 sections)
     "em.10.a.profil_besoins":     800,  # profil et besoins
     "em.10.b.comportements":      700,  # comportements d'achat

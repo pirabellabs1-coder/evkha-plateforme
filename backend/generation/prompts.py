@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from catalog.models import DeliverableType
 from intake.models import IntakeSubmission
+from integrations.claude import SYSTEM_CACHE_BREAK
 
 from .blueprints import SECTION_MAX_WORDS, get_blueprint
 from .context import build_context
 from .geography import geographic_consigne_for
 from .models import ChapterGeneration
 from .prompt_library import prompt_instruction
+from .reference_em import REFERENCE_EM
 
 # Charte editoriale EVKHA — Manuel d'etude de marche (Evangeline, juillet 2026).
 # Source unique : « EVKHA_Systeme_Manuel_Etude_de_Marche_Simplifie.pdf »,
@@ -278,19 +280,48 @@ def build_system_prompt(
     country: str = "",
     plan: str = "",
 ) -> str:
+    """Assemble le system prompt en deux segments separes par SYSTEM_CACHE_BREAK.
+
+    Ordre voulu, et il n'est pas cosmetique :
+
+      [ role + charte + few-shot EM + consigne ]  <- STABLE
+      SYSTEM_CACHE_BREAK
+      [ consigne geographique + plan Phase 0 ]    <- PROPRE AU JOB
+
+    Le cache Anthropic est un prefixe strict : tout ce qui precede un
+    breakpoint reste valide tant qu'il est inchange. En placant la consigne
+    geographique AVANT la consigne de livrable (l'ordre historique), le
+    moindre changement de pays invalidait la charte et le role, qui sont
+    pourtant identiques pour tous les clients. Les trois blocs stables
+    representent l'essentiel du system prompt : ils sont desormais mutualises
+    entre jobs du meme type dans la fenetre d'1 h.
+    """
     role = _ROLES.get(deliverable_type, _EM_ROLE)
-    geo = geographic_consigne_for(country) if country else ""
-    parts = [role, _CHARTER]
-    if geo:
-        parts.append(geo)
+    stables = [role, _CHARTER]
+    # Few-shot EM (tache #13) : place APRES la charte — le manuel dit quoi
+    # traiter, les extraits Findrax montrent a quel niveau. Et place dans le
+    # segment STABLE : identique pour tous les jobs EM, donc mutualise dans la
+    # fenetre de cache d'1 h. Mesure : 0,014 EUR/job ici, contre 0,077 EUR si
+    # le bloc etait injecte hors cache dans les 30 appels.
+    if deliverable_type == DeliverableType.MARKET_STUDY:
+        stables.append(REFERENCE_EM)
     consigne = _consigne_specifique_livrable(deliverable_type)
     if consigne:
-        parts.append(consigne)
+        stables.append(consigne)
+
+    par_job = []
+    geo = geographic_consigne_for(country) if country else ""
+    if geo:
+        par_job.append(geo)
     if plan:
         # plan contient : concurrents client (liste verrouillée), exigences verbatim,
         # structure des sous-sections obligatoires — tout avec "RÈGLE ABSOLUE".
-        parts.append(plan)
-    return "\n\n".join(parts)
+        par_job.append(plan)
+
+    prefixe = "\n\n".join(stables)
+    if not par_job:
+        return prefixe
+    return prefixe + SYSTEM_CACHE_BREAK + "\n\n".join(par_job)
 
 
 def _country_for(chapter: ChapterGeneration) -> str:

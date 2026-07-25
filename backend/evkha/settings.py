@@ -165,6 +165,61 @@ BREVO_SENDER_NAME = env("BREVO_SENDER_NAME", default="Evkha")
 EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")
 EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="")
 
+# Extended thinking : budget de reflexion accorde a CHAQUE appel de generation.
+# Uniforme par construction — le basculer en cours de job invaliderait le cache
+# du system prompt et des messages (doc « Prompt caching »), et re-paierait une
+# ecriture de cache a 200 % a chaque bascule.
+#
+# 1024 = minimum impose par l'API, et le bon reglage ici : le besoin est un
+# brouillon de calcul avant redaction (emboitement TAM/SAM/SOM, taux de
+# capture), pas une demonstration longue. Cout : 1024 tokens x 0,0000135 EUR
+# = 0,0138 EUR par appel, soit ~+0,41 EUR sur un job EM de 30 appels. Le budget
+# EM a ete releve en consequence (cf. generation/services.py).
+# Mettre 0 pour desactiver.
+EVKHA_THINKING_BUDGET_TOKENS = env.int("EVKHA_THINKING_BUDGET_TOKENS", default=1024)
+
+# Outil advisor (beta `advisor-tool-2026-03-01`) sur les CHECKs de bloc : le
+# relecteur consulte un second relecteur qui relit toute la transcription avant
+# le verdict. Executeur ET conseiller = claude-sonnet-4-6 ; la doc autorise
+# cette paire (« les modeles de capacite egale peuvent se conseiller
+# mutuellement ») et c'est ce qui garde le Cost Engine juste : un seul tarif.
+#
+# Cout : ~0,04 EUR par CHECK conseille (sous-inference du conseiller +
+# relecture du contexte par l'executeur au tour suivant). Limite aux 5 blocs
+# quantifies/transverses = ~0,22 EUR par EM, absorbe par le budget de 4,00 EUR.
+# EVKHA_ADVISOR_BLOCS="*" etend a tous les CHECKs (~0,48 EUR : verifier la
+# marge de retry avant). Chaine vide = aucun bloc.
+# Indisponible sur Bedrock, Vertex et Foundry — API Claude directe uniquement.
+EVKHA_ADVISOR_ENABLED = env.bool("EVKHA_ADVISOR_ENABLED", default=True)
+EVKHA_ADVISOR_BLOCS = env("EVKHA_ADVISOR_BLOCS", default="A,F,G,I,J")
+EVKHA_ADVISOR_MAX_TOKENS = env.int("EVKHA_ADVISOR_MAX_TOKENS", default=2048)
+
+# Outil d'execution de code (`code_execution_20250825`, disponibilite generale,
+# aucun en-tete beta) sur les SEULS chapitres qui le declarent dans leur
+# blueprint — aujourd'hui le chapitre 2 EM, qui porte le calcul TAM/SAM/SOM.
+#
+# Pourquoi : le premier reproche d'Evangeline sur le run 010e3bf2 est « erreurs
+# de calcul importantes ». Le chapitre 2 emboite un TAM, un SAM, un SOM a sept
+# variables, un taux d'annulation et une montee en charge mensuelle — et le
+# modele faisait cette arithmetique en prose. La doc designe exactement ce cas
+# comme declencheur de l'outil : « Mathematiques non triviales (grands nombres,
+# nombreuses etapes, resultats sensibles a la precision) ». Un interpreteur
+# supprime cette classe de defaut ; aucune reformulation de prompt ne le fait.
+#
+# Cout : la doc accorde « 1 550 heures gratuites » par mois et par
+# organisation, puis 0,05 $/h par conteneur, avec une facturation minimale de
+# 5 minutes. Un conteneur par job EM = 0,083 h, soit ~18 600 jobs par mois
+# avant le premier centime. Le cout REEL de la mesure est ailleurs : l'ajout
+# d'un outil modifie le niveau `tools`, qui precede `system` dans la hierarchie
+# de cache, donc le chapitre 2 re-ecrit son prefixe (~+0,01 EUR) au lieu de le
+# relire a 10 %. C'est pour cela que la portee est un seul chapitre : les 20
+# autres continuent de toucher l'entree de cache d'origine.
+#
+# Reseau completement desactive dans le conteneur : aucune donnee client n'en
+# sort et aucune source ne peut y etre telechargee (les chiffres restent ceux
+# du contexte). Indisponible sur Bedrock, Vertex et Foundry.
+EVKHA_CODE_EXECUTION_ENABLED = env.bool("EVKHA_CODE_EXECUTION_ENABLED", default=True)
+
 # Adaptateurs externes : stubs deterministes par defaut (dev/CI, aucun reseau).
 # Passer a False en production une fois les credentials configures.
 EVKHA_USE_STUB_AI = env("EVKHA_USE_STUB_AI")

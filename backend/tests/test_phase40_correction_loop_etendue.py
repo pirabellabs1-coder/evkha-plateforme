@@ -43,9 +43,9 @@ def test_sources_non_tracables_est_regenerable() -> None:
 
 
 def test_strategy_par_livrable_est_regenerable_via_prefix() -> None:
-    """Les checks metier « strategy_market_study_tcac_cardinal »,
+    """Les checks metier « strategy_market_study_arithmetique »,
     « strategy_business_plan_is_bracket », etc. sont attrapes par prefixe."""
-    assert _is_regenerable("strategy_market_study_tcac_cardinal")
+    assert _is_regenerable("strategy_market_study_arithmetique")
     assert _is_regenerable("strategy_business_plan_is_bracket")
     assert _is_regenerable("strategy_business_strategy_pilier_manquant")
     assert _is_regenerable("strategy_competitor_study_matrice_absente")
@@ -71,9 +71,9 @@ def test_feedback_by_chapter_route_les_nouveaux_checks() -> None:
             detail="Titre « Contexte professionnel » x4.",
         ),
         GateFailure(
-            check="strategy_market_study_tcac_cardinal",
+            check="strategy_market_study_arithmetique",
             chapter_number=0,  # transverse — sera route au chap. 1
-            detail="6 TCAC distincts.",
+            detail="TCAC annonce incoherent avec la projection.",
         ),
     )
     routed = _feedback_by_chapter(failures)

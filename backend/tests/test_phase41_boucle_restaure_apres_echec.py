@@ -42,9 +42,9 @@ def test_cap_de_regeneration_par_round_priorise_les_defauts_graves() -> None:
         # Graves — devraient etre priorises.
         + [GateFailure(check="coherence_chiffree", chapter_number=14,
                        detail="Marge brute divergente"),
-           GateFailure(check="strategy_market_study_tcac_cardinal",
+           GateFailure(check="strategy_market_study_arithmetique",
                        chapter_number=0,
-                       detail="5 TCAC distincts"),
+                       detail="TCAC annonce incoherent avec la projection"),
            GateFailure(check="prudence_juridique_evenement_corporate",
                        chapter_number=7,
                        detail="« Canva 2021 » sans source")]

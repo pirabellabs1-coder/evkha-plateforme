@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .reference_em import REFERENCE_SOM
+
 # Bibliotheque d'instructions par chapitre (remplace le "parsing" des prompts
 # proprietaires EVKHA). Source de verite : "PROMPT FINAL VERSION 3 EM_EC" +
 # "Consignes d'ecriture EVKHA". Texte reformule, fidele a la methode, sans
@@ -61,19 +63,93 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
         "Visuel utile : courbe historique et projection, monde versus continent "
         "pertinent."
     ),
+    # Chapitre volontairement NON decoupe en sections, contrairement au
+    # chapitre 1. Le decoupage « 2.a national / 2.b local » a produit sur le
+    # run reel 010e3bf2 deux jeux de chiffres pour le meme marche accessible
+    # (SAM regional a 240 kEUR dans une section, 250 kEUR dans l'autre) : la
+    # section b ne voyait de la section a qu'un resume de 1200 caracteres, donc
+    # elle recalculait. Or l'emboitement TAM > SAM > SOM est UN raisonnement
+    # arithmetique continu : le couper en deux appels, c'est demander deux fois
+    # le meme calcul et esperer la meme reponse. Un seul appel, un seul calcul.
     "em.02.marche_national_local": (
         "CHAPITRE 2 — Marche national, local et marche accessible (manuel §6, p. 8).\n"
         "Objectif : mesurer le terrain reel d'implantation et transformer la "
-        "vue macro en potentiel accessible.\n"
-        "Contenu obligatoire :\n"
-        "- Taille et dynamique nationales ; acteurs structurants sans benchmark "
-        "concurrentiel detaille.\n"
-        "- Donnees locales : demographie, revenus, emploi, flux, usages, densite "
-        "et demande.\n"
-        "- Projection nationale et locale lorsque defendable.\n"
-        "- TAM top-down, SAM filtre par zone/cible/offre, SOM bottom-up annee 1 "
-        "et annee 3.\n"
-        "Visuel utile : graphique national/local + schema TAM/SAM/SOM."
+        "vue macro en potentiel accessible. Le pays cible est extrait de "
+        "VARIABLES_PROJET.PAYS, la zone de VARIABLES_PROJET.ZONE.\n"
+        "Contenu obligatoire, dans cet ordre :\n"
+        "1. Marche NATIONAL : taille et dynamique (valeur, volume, TCAC "
+        "national), acteurs structurants sans benchmark concurrentiel "
+        "detaille, maturite et structure (concentration, distribution), "
+        "specificites nationales utiles (reglementation, habitudes de "
+        "consommation), projection nationale lorsque defendable.\n"
+        "2. Marche LOCAL sur la zone cible : demographie, revenus, emploi, "
+        "flux, usages, densite et demande ; projection locale lorsque "
+        "defendable, avec estimation argumentee si les donnees directes "
+        "manquent.\n"
+        "3. Marche ACCESSIBLE : TAM top-down, SAM filtre par zone/cible/offre, "
+        "SOM bottom-up annee 1 ET annee 3.\n"
+        "Ne repete pas les chiffres mondiaux et continentaux du chapitre 1 : "
+        "tu les reprends comme point de depart, tu ne les re-estimes pas.\n"
+        "\n"
+        "REGLES DE CALCUL DU MARCHE ACCESSIBLE (non negociables) :\n"
+        "- Ecris le calcul, pas seulement le resultat. Chaque etape nomme ses "
+        "variables et leur valeur : population de la zone, taux de "
+        "penetration retenu, panier ou ticket moyen, frequence annuelle, "
+        "part de capture visee. Un lecteur doit pouvoir refaire le calcul et "
+        "retrouver ton chiffre.\n"
+        "- Un seul TAM, un seul SAM, un seul SOM par annee. Si tu donnes une "
+        "fourchette, elle sert partout ensuite a l'identique.\n"
+        "- L'emboitement TAM > SAM > SOM doit etre vrai en euros compares. "
+        "Verifie-le avant d'ecrire : convertis tout dans la meme unite.\n"
+        "- Le SOM annee 1 depasse rarement quelques pour cent du SAM. "
+        "Si ton calcul donne davantage, c'est que le SAM est sous-estime ou "
+        "que le SOM est irrealiste : refais le calcul. Ne justifie JAMAIS un "
+        "taux de capture eleve par un argument redactionnel.\n"
+        "- Ces trois valeurs sont reutilisees telles quelles aux chapitres 14 "
+        "et 15 (manuel p. 6). Elles doivent etre justes ici, elles ne seront "
+        "plus recalculees.\n"
+        # Consigne redigee pour rester vraie que l'outil d'execution de code
+        # soit cable ou non (cf. EVKHA_CODE_EXECUTION_ENABLED). La seconde
+        # phrase est la protection qui compte : les blocs d'outil sont deja
+        # filtres du livrable par integrations/claude.py, mais rien n'empeche le
+        # modele d'ECRIRE « j'ai execute un script pour verifier » — et cette
+        # phrase, elle, atterrirait dans le chapitre livre au client.
+        "- Quand un outil d'execution de code est a ta disposition, pose ces "
+        "calculs dedans au lieu de les faire de tete : l'emboitement "
+        "TAM > SAM > SOM, les conversions d'unites et la montee en charge "
+        "mensuelle sont des enchainements ou une erreur d'arrondi se propage "
+        "jusqu'aux chapitres 14 et 15.\n"
+        "- Le livrable montre le calcul en langage METIER : variables, valeurs, "
+        "formule, hypotheses et sources, comme l'exige la colonne « Formule et "
+        "sources » du manuel p. 6. Il ne montre RIEN de la technique : ni code, "
+        "ni sortie de console, ni mention d'un script, d'un outil, d'un calcul "
+        "« verifie » ou d'une procedure. Tu ecris pour un porteur de projet et "
+        "son banquier, pas un journal de travail.\n"
+        + REFERENCE_SOM +
+        "\n"
+        "Visuel utile (manuel) : graphique national/local + schema TAM/SAM/SOM. "
+        "En fin de chapitre, genere UN graphique HTML en barres montrant la "
+        "repartition ou la dynamique du marche local par segment, en "
+        "utilisant ce pattern exact (adapte valeurs et etiquettes au "
+        "contexte reel) :\n"
+        "<h3 style=\"font-size:13pt;margin:4mm 0 2mm\">Repartition du marche local — segments cles</h3>\n"  # noqa: E501
+        "<table style=\"border-collapse:collapse;width:100%;margin:3mm 0;font-size:9pt\">\n"
+        "<tr><td style=\"padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8;width:30%\">Segment A</td>"  # noqa: E501
+        "<td style=\"padding:1.5mm 2mm;width:60%\">"
+        "<div style=\"background:#C9A227;height:5mm;width:72%;display:inline-block\"></div></td>"
+        "<td style=\"padding:1.5mm 2mm;font-weight:bold;width:10%\">XX %</td></tr>\n"
+        "<tr><td style=\"padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8\">Segment B</td>"
+        "<td style=\"padding:1.5mm 2mm\">"
+        "<div style=\"background:#C9A227;height:5mm;width:50%;display:inline-block\"></div></td>"
+        "<td style=\"padding:1.5mm 2mm;font-weight:bold\">XX %</td></tr>\n"
+        "<tr><td style=\"padding:1.5mm 3mm\">Segment C</td>"
+        "<td style=\"padding:1.5mm 2mm\">"
+        "<div style=\"background:#1A1A1A;height:5mm;width:28%;display:inline-block\"></div></td>"
+        "<td style=\"padding:1.5mm 2mm;font-weight:bold\">XX %</td></tr>\n"
+        "</table>\n"
+        "<p style=\"font-style:italic;font-size:8.5pt;color:#5A5A5A\">"
+        "Source : [cite ta source]. Estimations argumentees sur la base des donnees disponibles.</p>\n"  # noqa: E501
+        "Remplace Segment A/B/C et XX par les vraies donnees etablies dans l'analyse."
     ),
     "em.03.segmentation": (
         "CHAPITRE 3 — Segmentation approfondie (manuel §6, p. 9).\n"
@@ -509,59 +585,6 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
         "<p style=\"font-style:italic;font-size:8.5pt;color:#5A5A5A\">Sources : [cite tes sources]. "  # noqa: E501
         "Est. = estimation. Proj. = projection argumentee.</p>\n"
         "Remplace chaque XX par les vraies valeurs etablies dans l'analyse."
-    ),
-    "em.02.a.national": (
-        "SECTION 2.a — Marche NATIONAL du pays cible (manuel §6 ch. 2, p. 8).\n"
-        "Objectif : mesurer le terrain reel d'implantation a l'echelle du "
-        "pays. Le pays cible est extrait de VARIABLES_PROJET.PAYS.\n"
-        "Contenu obligatoire :\n"
-        "- Taille et dynamique nationales (valeur, volume, TCAC national).\n"
-        "- Acteurs structurants sans benchmark concurrentiel detaille.\n"
-        "- Maturite du marche et structure (concentration, distribution).\n"
-        "- Specificites nationales : reglementation, habitudes de consommation, "
-        "particularites culturelles utiles.\n"
-        "- Projection nationale lorsque defendable.\n"
-        "Chiffres et sources. Ne repete pas les chiffres continentaux du "
-        "chapitre precedent."
-    ),
-    "em.02.b.local": (
-        "SECTION 2.b — Marche LOCAL et marche accessible (TAM/SAM/SOM) "
-        "(manuel §6 ch. 2, p. 8).\n"
-        "Objectif : transformer la vue macro nationale en potentiel accessible "
-        "pour le projet. La zone cible est extraite de VARIABLES_PROJET.ZONE.\n"
-        "Contenu obligatoire :\n"
-        "- Donnees locales : demographie, revenus, emploi, flux, usages, "
-        "densite et demande sur la zone cible.\n"
-        "- Projection locale lorsque defendable, avec estimation argumentee "
-        "si donnees directes indisponibles.\n"
-        "- TAM top-down (marche total adressable, calcul verbatim manuel).\n"
-        "- SAM filtre par zone/cible/offre (marche disponible pour le projet).\n"
-        "- SOM bottom-up annee 1 ET annee 3 (part reellement captable, "
-        "hypotheses assumees).\n"
-        "Ne repete pas les chiffres nationaux deja traites.\n"
-        "Visuel utile (manuel) : graphique national/local + schema TAM/SAM/SOM. "
-        "En fin de section, genere UN graphique HTML en barres montrant la "
-        "repartition ou la dynamique du marche local par segment, en "
-        "utilisant ce pattern exact (adapte valeurs et etiquettes au "
-        "contexte reel) :\n"
-        "<h3 style=\"font-size:13pt;margin:4mm 0 2mm\">Repartition du marche local — segments cles</h3>\n"  # noqa: E501
-        "<table style=\"border-collapse:collapse;width:100%;margin:3mm 0;font-size:9pt\">\n"
-        "<tr><td style=\"padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8;width:30%\">Segment A</td>"  # noqa: E501
-        "<td style=\"padding:1.5mm 2mm;width:60%\">"
-        "<div style=\"background:#C9A227;height:5mm;width:72%;display:inline-block\"></div></td>"
-        "<td style=\"padding:1.5mm 2mm;font-weight:bold;width:10%\">XX %</td></tr>\n"
-        "<tr><td style=\"padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8\">Segment B</td>"
-        "<td style=\"padding:1.5mm 2mm\">"
-        "<div style=\"background:#C9A227;height:5mm;width:50%;display:inline-block\"></div></td>"
-        "<td style=\"padding:1.5mm 2mm;font-weight:bold\">XX %</td></tr>\n"
-        "<tr><td style=\"padding:1.5mm 3mm\">Segment C</td>"
-        "<td style=\"padding:1.5mm 2mm\">"
-        "<div style=\"background:#1A1A1A;height:5mm;width:28%;display:inline-block\"></div></td>"
-        "<td style=\"padding:1.5mm 2mm;font-weight:bold\">XX %</td></tr>\n"
-        "</table>\n"
-        "<p style=\"font-style:italic;font-size:8.5pt;color:#5A5A5A\">"
-        "Source : [cite ta source]. Estimations argumentees sur la base des donnees disponibles.</p>\n"  # noqa: E501
-        "Remplace Segment A/B/C et XX par les vraies donnees etablies dans l'analyse."
     ),
     "em.10.a.profil_besoins": (
         "SECTION 10.a — Produits ou prestations les plus recherches par la "

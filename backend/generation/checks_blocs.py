@@ -27,6 +27,8 @@ import json
 import re
 from dataclasses import dataclass, field
 
+from django.conf import settings
+
 from integrations.claude import ClaudeClient, get_claude_client  # type: ignore[attr-defined]
 
 from .coherence import (
@@ -35,7 +37,6 @@ from .coherence import (
     generated_facts_as_context,
 )
 from .models import ChapterGeneration, GenerationJob
-
 
 # ── Definition des blocs (source : manuel §6 p. 7) ──────────────────────────
 
@@ -281,6 +282,17 @@ BLOCS: tuple[BlocDefinition, ...] = (
 BLOCS_PAR_IDENTIFIANT: dict[str, BlocDefinition] = {b.identifiant: b for b in BLOCS}
 
 
+# Marqueur pose dans OperationalIncident.details quand un CHECK de bloc reste
+# en echec apres retry. Le gate de livraison s'en sert pour BLOQUER l'envoi.
+# Manuel EVKHA p.8-16 (repete apres chaque bloc) : « Si une reponse est non :
+# corriger le bloc concerne, refaire le controle, puis seulement continuer. »
+# Et p.17 : « La livraison est possible uniquement lorsque le fond, les
+# chiffres, les demandes client, les sources, la continuite et la presentation
+# sont tous valides. » Un CHECK non resolu = pas de livraison automatique.
+# L'admin qui resout l'incident (statut RESOLVED) debloque la livraison.
+INCIDENT_TYPE_CHECK_BLOC = "check_bloc_non_resolu"
+
+
 # ── Resultat d'un CHECK ─────────────────────────────────────────────────────
 
 
@@ -304,6 +316,9 @@ class CheckResult:
     output_tokens: int = 0
     model: str = ""
     raw_response: str = ""
+    # Nombre de consultations de l'advisor pendant ce CHECK. 0 sur un bloc
+    # conseille = l'executeur a estime pouvoir trancher seul.
+    advisor_calls: int = 0
 
     @property
     def est_ok(self) -> bool:
@@ -329,15 +344,34 @@ _MAX_CONTENU_PAR_CHAPITRE = 6000  # caracteres — on tronque pour tenir dans le
 
 
 def _extrait_chapitre(chapitre: ChapterGeneration) -> str:
-    """Renvoie un extrait compact du chapitre, adapte au relecteur."""
+    """Renvoie un extrait compact du chapitre, adapte au relecteur.
+
+    La coupe se fait sur des sauts de ligne, jamais au milieu d'un mot : en
+    generation reelle (job 4c573e40, ch. 21), la coupe brute tombait dans le
+    titre d'une source et le relecteur signalait « le titre s'arrete a
+    "Intelligen…" » comme un defaut du livrable. C'etait notre propre coupe.
+    """
     corps = (chapitre.content or "").strip()
-    if len(corps) > _MAX_CONTENU_PAR_CHAPITRE:
-        # On garde le debut + la fin : le milieu se coupe souvent proprement,
-        # les incoherences apparaissent aux extremites (chiffre nouveau ou
-        # troncature de fin de chapitre).
-        moitie = _MAX_CONTENU_PAR_CHAPITRE // 2
-        corps = corps[:moitie] + "\n\n[... contenu tronque pour le check ...]\n\n" + corps[-moitie:]
-    return corps
+    if len(corps) <= _MAX_CONTENU_PAR_CHAPITRE:
+        return corps
+
+    moitie = _MAX_CONTENU_PAR_CHAPITRE // 2
+    # Reculer / avancer jusqu'au saut de ligne le plus proche pour ne couper
+    # ni un mot, ni une ligne de tableau, ni une entree de source.
+    fin_debut = corps.rfind("\n", 0, moitie)
+    if fin_debut == -1:
+        fin_debut = moitie
+    debut_fin = corps.find("\n", len(corps) - moitie)
+    if debut_fin == -1:
+        debut_fin = len(corps) - moitie
+
+    return (
+        corps[:fin_debut].rstrip()
+        + "\n\n[... COUPE PAR L'OUTIL DE RELECTURE — passage central du "
+          "chapitre non transmis. Ce n'est PAS un defaut du livrable : ne le "
+          "signale pas comme une troncature ou une source incomplete ...]\n\n"
+        + corps[debut_fin:].lstrip()
+    )
 
 
 def _formater_chapitres(chapitres: list[ChapterGeneration]) -> str:
@@ -356,6 +390,51 @@ def _formater_questions(questions: tuple[str, ...]) -> str:
     return "\n".join(f"{i}. {q}" for i, q in enumerate(questions, start=1))
 
 
+# CHECK FINAL — certaines questions portent sur le RENDU final (DOCX/PDF,
+# nombre de pages), etape post-redaction que le relecteur ne peut PAS observer
+# depuis des extraits de texte (eux-memes tronques). Sans cadrage, le relecteur
+# repond "non/partiel" par prudence et declenche une regeneration inutile et
+# couteuse. On borne : ces questions ne fondent un 'fix' que si le TEXTE lui-meme
+# porte un defaut visible (tableau geant qui cassera, troncature, placeholder).
+# La limite reelle des 80 pages est deja tenue en amont par le budget de mots
+# (phase 19) et le renderer ; la parite DOCX/PDF est garantie par le renderer.
+_ADDENDUM_CHECK_FINAL = (
+    "\n\n## CADRAGE DES QUESTIONS DE RENDU (CHECK FINAL)\n"
+    "Certaines questions portent sur le rendu final (parite DOCX/PDF, pages "
+    "vides ou tableaux coupes, limite de 80 pages). Ce rendu est produit APRES "
+    "cette relecture, par un moteur de mise en page : tu ne le vois pas ici, et "
+    "les extraits de chapitres sont parfois tronques. Ne reponds 'non' ou "
+    "'partiel' a ces questions QUE si le TEXTE que tu lis contient deja un "
+    "defaut observable (tableau manifestement trop large, contenu tronque, "
+    "placeholder, lien casse). N'invente pas un probleme de pagination, de "
+    "conversion DOCX/PDF ou de depassement de 80 pages que tu ne peux pas "
+    "constater dans le texte : la longueur et la parite sont garanties en amont. "
+    "En l'absence d'indice textuel, reponds 'oui' a ces questions."
+)
+
+
+# CHECK INITIAL — le manuel p.3 fait porter le controle sur LA FICHE PROJET
+# redigee (« Si la fiche projet est complete, coherente et fidele a la demande,
+# commencer le chapitre 1 »), pas sur le brief brut. Le relecteur recoit donc le
+# chapitre 0 comme document a valider, sous un titre explicite : sans lui, il
+# reclamait de « collecter » des elements deja presents dans la fiche et
+# bloquait la generation a tort.
+_ADDENDUM_CHECK_INITIAL = (
+    "\n\n## CADRAGE DU CHECK INITIAL\n"
+    "Le document a valider est la FICHE PROJET REDIGEE ci-dessus, pas le brief "
+    "brut du client. Juge-la telle qu'elle est ecrite : si une information est "
+    "presente dans la fiche, la question correspondante est 'oui', meme si elle "
+    "est formulee autrement que dans la demande du client. Ne demande pas de "
+    "collecter une donnee qui y figure deja. Un point que le client n'a pas "
+    "fourni et qui n'est pas indispensable pour rediger le chapitre 1 (budget "
+    "de l'etude, delai, forme juridique encore a arbitrer) n'est PAS un defaut "
+    "des lors que la fiche le signale honnetement comme non specifie ou "
+    "provisoire. Ne reponds 'non' ou 'partiel' que si la fiche est reellement "
+    "incomplete, contradictoire ou infidele a la demande — auquel cas la "
+    "generation sera stoppee et un humain devra intervenir."
+)
+
+
 def _construire_prompt_check(
     bloc: BlocDefinition,
     job: GenerationJob,
@@ -365,19 +444,39 @@ def _construire_prompt_check(
     fiche_generee = generated_facts_as_context(job)
     corps_chapitres = _formater_chapitres(chapitres)
     questions = _formater_questions(bloc.questions)
+    est_initial = bloc.identifiant == "INITIAL"
+    if bloc.check_numero == "FINAL":
+        addendum = _ADDENDUM_CHECK_FINAL
+    elif est_initial:
+        addendum = _ADDENDUM_CHECK_INITIAL
+    else:
+        addendum = ""
+    # Pour le CHECK INITIAL, les deux sections seraient toutes deux intitulees
+    # « fiche projet » : on distingue la demande brute du document a valider.
+    titre_client = (
+        "## DEMANDE DU CLIENT — donnees verrouillees"
+        if est_initial
+        else "## FICHE PROJET — donnees client verrouillees"
+    )
+    titre_corps = (
+        "## FICHE PROJET REDIGEE — document a valider"
+        if est_initial
+        else "## CHAPITRES DU BLOC"
+    )
 
     return (
         f"## CONTEXTE\n"
         f"Livrable : etude de marche EVKHA (manuel Evangeline, juillet 2026).\n"
         f"Bloc en cours : {bloc.identifiant} — {bloc.intitule}\n"
         f"Objectif du CHECK {bloc.check_numero} : {bloc.focus}\n\n"
-        f"## FICHE PROJET — donnees client verrouillees\n"
+        f"{titre_client}\n"
         f"{fiche_client}\n\n"
         f"## FICHE PROJET — reperes enrichis (chapitres precedents)\n"
         f"{fiche_generee}\n\n"
-        f"## CHAPITRES DU BLOC\n{corps_chapitres}\n\n"
+        f"{titre_corps}\n{corps_chapitres}\n\n"
         f"## QUESTIONS DU CHECK {bloc.check_numero} (verbatim manuel EVKHA)\n"
-        f"{questions}\n\n"
+        f"{questions}"
+        f"{addendum}\n\n"
         f"## FORMAT DE REPONSE (JSON strict, aucun texte hors du bloc)\n"
         "```json\n"
         "{\n"
@@ -476,6 +575,7 @@ def _construire_result(bloc: BlocDefinition, raw: str, client_result) -> CheckRe
         output_tokens=getattr(client_result, "output_tokens", 0),
         model=getattr(client_result, "model", ""),
         raw_response=raw,
+        advisor_calls=int(getattr(client_result, "advisor_calls", 0) or 0),
     )
 
 
@@ -488,9 +588,118 @@ def _construire_result(bloc: BlocDefinition, raw: str, client_result) -> CheckRe
 # override futur si necessaire (parametre `model=`).
 _MODELE_CHECK = "claude-sonnet"
 
-# Cap de tokens pour la reponse. Le format JSON impose une reponse compacte ;
-# 2000 tokens couvrent 10 questions + note corrective + ~10 points d'enrichissement.
-_MAX_TOKENS_CHECK = 2000
+# Cap de tokens pour la reponse. Mesure sur generation reelle (job 4c573e40,
+# 24/07/2026) : un CHECK a 5 questions consomme deja 1985 tokens de sortie —
+# les points d'enrichissement sont verbeux. L'ancien cap de 2000 etait donc
+# atteint en pratique : le JSON arrivait coupe, `_extraire_json` rendait {},
+# `_construire_result` retombait sur verdict 'fix' faute de mieux, et le runner
+# regenerait tout le bloc puis bloquait la livraison pour un defaut inexistant.
+_MAX_TOKENS_CHECK = 6000
+
+
+# ── Outil advisor sur les CHECKs ────────────────────────────────────────────
+# Le relecteur consulte, avant de trancher, un conseiller qui relit toute la
+# transcription du bloc (doc « Outil advisor »). Meme modele des deux cotes
+# (claude-sonnet-4-6) : le gain n'est pas la montee en gamme mais une seconde
+# lecture independante avant le verdict. Evangeline reprochait au run 010e3bf2
+# des « erreurs de calcul importantes », un « TAM/SAM/SOM incoherent » et des
+# « incoherences dans les objectifs commerciaux » : trois defauts que le
+# relecteur en un seul passage avait laisses passer.
+#
+# Pas tous les blocs, et c'est un choix de cout, pas de confort : une
+# consultation ajoute ~0,04 EUR par CHECK (sous-inference + relecture du
+# contexte par l'executeur). Sur les 11 CHECKs, ~0,48 EUR — le budget EM
+# (4,00 EUR) ne l'absorbe pas avec sa marge de retry. On cible donc les blocs
+# ou le raisonnement est QUANTIFIE ou TRANSVERSE, seuls concernes par les
+# reproches d'Evangeline :
+#   A : TAM/SAM/SOM, tailles de marche, projections (chapitres 1-2)
+#   F : 12 chiffres cles, prix, frequences, budgets (chapitres 9-11)
+#   G : matrice de risques, avis de viabilite fonde sur le SOM (12-14)
+#   I : SWOT et recommandations tracees vers les chapitres amont (18-20)
+#   J : CHECK FINAL, coherence de tous les chiffres avec la fiche enrichie
+# Reglable sans toucher au code : EVKHA_ADVISOR_BLOCS="A,F,G,I,J", "*" pour
+# tous les CHECKs, "" pour aucun.
+_BLOCS_AVEC_ADVISOR_DEFAUT = "A,F,G,I,J"
+
+
+def _advisor_actif_pour_bloc(bloc: BlocDefinition) -> bool:
+    if not bool(getattr(settings, "EVKHA_ADVISOR_ENABLED", False)):
+        return False
+    brut = str(
+        getattr(settings, "EVKHA_ADVISOR_BLOCS", _BLOCS_AVEC_ADVISOR_DEFAUT)
+        if getattr(settings, "EVKHA_ADVISOR_BLOCS", None) is not None
+        else _BLOCS_AVEC_ADVISOR_DEFAUT
+    ).strip()
+    if brut == "*":
+        return True
+    identifiants = {part.strip().upper() for part in brut.split(",") if part.strip()}
+    return bloc.identifiant.upper() in identifiants
+
+
+# Consigne de consultation. Sans elle, l'executeur dispose de l'outil mais n'a
+# aucune raison de s'en servir sur une tache qu'il croit simple — la doc note
+# que le cadrage system pilote la frequence de consultation. On borne aussi la
+# longueur du conseil : la doc mesure que la demande de concision reduit le
+# cout total meme quand elle augmente le nombre de consultations.
+_ADDENDUM_ADVISOR = (
+    "\n\n## CONSULTATION D'UN SECOND RELECTEUR\n"
+    "Tu disposes de l'outil `advisor` : un second relecteur qui lit la meme "
+    "transcription que toi. Consulte-le UNE FOIS, avant de formuler ton "
+    "verdict, et fais-lui verifier en priorite : (1) les calculs et "
+    "l'emboitement TAM > SAM > SOM (le SOM doit resulter d'un taux de capture "
+    "explicite du SAM, pas d'un chiffre pose) ; (2) la coherence d'un chapitre "
+    "a l'autre des taux, prix, volumes, dates et objectifs commerciaux ; "
+    "(3) tout chiffre presente comme officiel alors qu'il s'agit d'une "
+    "deduction. Demande-lui un avis sous 250 mots. Son avis t'informe, il ne "
+    "te remplace pas : le verdict final et le JSON restent les tiens, et un "
+    "'fix' doit rester justifie par un defaut reel et actionnable."
+)
+
+
+def _enregistrer_cout_check(
+    *,
+    job: GenerationJob,
+    chapitres: list[ChapterGeneration],
+    input_tokens: int,
+    output_tokens: int,
+    model: str,
+) -> None:
+    """Comptabilise le cout du CHECK sur un chapitre du bloc.
+
+    Defaut corrige ici : le cout des CHECKs n'etait NULLE PART. `CheckResult`
+    portait bien `input_tokens` / `output_tokens`, mais aucun appelant ne les
+    enregistrait — 11 CHECKs par EM (jusqu'a 6 000 tokens de sortie chacun, et
+    un second appel de secours si le JSON revient coupe) invisibles pour le
+    Cost Engine. Consequences mesurables : le run 010e3bf2 annonce 3,05 EUR
+    alors que la depense reelle Anthropic etait superieure, et le throttle de
+    `max_tokens` repartissait un budget restant surestime — le meme mecanisme
+    qui etranglait les derniers chapitres.
+    L'advisor rend le trou plus grave encore : il ajoute une sous-inference
+    entiere sur ces memes appels.
+
+    `record_additional_cost` (et pas `record_chapter_cost`) : le chapitre garde
+    son propre cout de redaction, le CHECK s'y ajoute. Pas d'`enforce_budget`
+    ici — un depassement constate juste apres un CHECK reussi n'a pas a tuer le
+    job dans cette fonction : le total est ecrit en base, donc le prochain
+    `record_chapter_cost` le voit et applique la regle d'or #1.
+    """
+    if input_tokens <= 0 and output_tokens <= 0:
+        return
+
+    # CHECK INITIAL : aucun chapitre dans le bloc, le cout va sur la fiche
+    # projet (chapitre 0), premier chapitre du job.
+    porteur = chapitres[-1] if chapitres else job.chapters.order_by("chapter_number").first()
+    if porteur is None:
+        return
+
+    from .cost import record_additional_cost
+
+    record_additional_cost(
+        chapter=porteur,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        model=model,
+    )
 
 
 def check_bloc(
@@ -511,11 +720,42 @@ def check_bloc(
     client = client or get_claude_client()
     prompt = _construire_prompt_check(bloc, job, chapitres)
 
+    avec_advisor = _advisor_actif_pour_bloc(bloc)
+    system = _SYSTEM_PROMPT_CHECK + (_ADDENDUM_ADVISOR if avec_advisor else "")
+
     resultat_api = client.complete(
-        system=_SYSTEM_PROMPT_CHECK,
+        system=system,
         prompt=prompt,
         max_tokens=_MAX_TOKENS_CHECK,
         model=_MODELE_CHECK,
+        advisor=avec_advisor,
+    )
+    cout_input = resultat_api.input_tokens
+    cout_output = resultat_api.output_tokens
+
+    # Reponse illisible (JSON coupe ou hors format) : `_construire_result`
+    # retomberait sur 'fix', ce qui declencherait la regeneration de tout le
+    # bloc — cher — pour un defaut que personne n'a constate. On rejoue une
+    # fois le CHECK avant de conclure quoi que ce soit sur les chapitres.
+    if not _extraire_json(resultat_api.content):
+        resultat_api = client.complete(
+            system=system,
+            prompt=prompt,
+            max_tokens=_MAX_TOKENS_CHECK,
+            model=_MODELE_CHECK,
+            advisor=avec_advisor,
+        )
+        # Le premier appel a bien ete facture : son cout s'ajoute, il ne se
+        # remplace pas.
+        cout_input += resultat_api.input_tokens
+        cout_output += resultat_api.output_tokens
+
+    _enregistrer_cout_check(
+        job=job,
+        chapitres=chapitres,
+        input_tokens=cout_input,
+        output_tokens=cout_output,
+        model=resultat_api.model or _MODELE_CHECK,
     )
 
     result = _construire_result(bloc, resultat_api.content, resultat_api)

@@ -523,7 +523,8 @@ class _RetryThenGoodClient:
         self.calls = 0
 
     def complete(self, *, system: str, prompt: str, max_tokens: int = 8192,
-                 model: str | None = None) -> ClaudeResult:
+                 model: str | None = None, advisor: bool = False,
+                 code_execution: bool = False) -> ClaudeResult:
         self.calls += 1
         if self.calls == 1:
             content = "| A | B |\n|---|---|\n| — | — |\n| — | — |"

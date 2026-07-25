@@ -10,7 +10,12 @@ from integrations.claude import _DEFAULT_MAX_TOKENS, ClaudeClient, get_claude_cl
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .blueprints import chapters_for_deliverable, get_blueprint
-from .checks_blocs import BLOCS_PAR_IDENTIFIANT, bloc_pour_chapitre, check_bloc
+from .checks_blocs import (
+    BLOCS_PAR_IDENTIFIANT,
+    INCIDENT_TYPE_CHECK_BLOC,
+    bloc_pour_chapitre,
+    check_bloc,
+)
 from .coherence import (
     CoherenceConflictError,
     extract_and_lock_chiffres_cles,
@@ -48,6 +53,28 @@ _AI_TELL_DASHES = re.compile(r"\s*[—–]\s*")
 _HEADING_LINE = re.compile(r"^\s*(?:#{1,6}\s|\*\*?\d+\.\d+\s*[—–]|\d+\.\d+\s*[—–])")
 
 
+def _remplacer_tiret(match: re.Match[str]) -> str:
+    """Choisit le remplacement d'un tiret cadratin selon son contexte.
+
+    Deux contextes ou la virgule detruit l'information (constate sur le run
+    reel 010e3bf2, chapitre 2) :
+      - fourchette chiffree : « 100 — 120 kEUR » devenait « 100, 120 kEUR »,
+        illisible dans un tableau financier et lu comme une erreur de calcul ;
+      - cellule de tableau ne contenant que le tiret (« sans objet ») :
+        « <td>—</td> » devenait « <td>,</td> », cellule videe de son sens.
+    """
+    ligne = match.string
+    avant = ligne[: match.start()].rstrip()
+    apres = ligne[match.end() :].lstrip()
+    # Cellule de tableau reduite au seul tiret : convention « sans objet ».
+    if avant.endswith((">", "|")) and apres[:1] in ("<", "|"):
+        return match.group(0)
+    # Fourchette chiffree : on ecrit la borne en clair.
+    if avant[-1:].isdigit() and apres[:1].isdigit():
+        return " à "
+    return ", "
+
+
 def _strip_ai_tell_dashes(content: str) -> str:
     """Retire les em-dashes / en-dashes de la prose, en preservant les titres.
 
@@ -55,10 +82,12 @@ def _strip_ai_tell_dashes(content: str) -> str:
     prompt : garantit la couverture meme si Claude ignore la consigne.
     Les lignes de titre (markdown '#', ou sous-titre numerote 'X.Y — Titre')
     gardent leur tiret cadratin, exige par le Bloc 1 des Consignes EVKHA.
+    Les fourchettes chiffrees et les cellules « sans objet » sont preservees
+    par _remplacer_tiret : la virgule y detruirait la donnee.
     """
     lines = content.split("\n")
     out = [
-        line if _HEADING_LINE.match(line) else _AI_TELL_DASHES.sub(", ", line)
+        line if _HEADING_LINE.match(line) else _AI_TELL_DASHES.sub(_remplacer_tiret, line)
         for line in lines
     ]
     return "\n".join(out)
@@ -114,6 +143,17 @@ def _resolve_tokens(content: str, job: GenerationJob) -> str:
 
 class GenerationRunError(RuntimeError):
     """Echec irrecuperable d'un cycle de generation (au moins un chapitre KO)."""
+
+
+class CheckInitialBlockedError(GenerationRunError):
+    """Le CHECK INITIAL a echoue : la fiche projet n'est pas prete.
+
+    Manuel EVKHA p.3 : « Si la fiche projet est complete, coherente et fidele
+    a la demande, commencer le chapitre 1. Sinon, corriger la fiche ou demander
+    la precision necessaire AVANT TOUTE REDACTION. » Et p.2 : « On ne continue
+    jamais par automatisme. » On stoppe donc la generation avant le chapitre 1 :
+    l'admin doit corriger le brief / la fiche puis relancer.
+    """
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -281,7 +321,19 @@ def run_generation_job(
             # CHECK inter-bloc EVKHA (manuel Evangeline §6) : uniquement pour
             # l'EM, apres chaque dernier chapitre d'un bloc. Silencieux pour
             # BP/EC/STR (blueprints non couverts par le manuel).
-            _after_chapter_hook(job, chapter, client=client, system_prompt=system_prompt)
+            _after_chapter_hook(job, chapter, client=client)
+        except CheckInitialBlockedError as exc:
+            # CHECK INITIAL bloquant : la fiche projet (chapitre 0) est valide
+            # et DONE — on ne la marque PAS FAILED. L'incident HIGH est deja
+            # ouvert par _executer_check_avec_retry. On stoppe juste le job.
+            GenerationJob.objects.filter(pk=job.pk).update(
+                status=JobStatus.FAILED,
+                error_message=(
+                    "CHECK INITIAL echoue : fiche projet a corriger avant "
+                    f"toute redaction. {exc}"
+                )[:2000],
+            )
+            raise
         except CostBudgetExceededError as exc:
             # L'incident budget est deja ouvert par le Cost Engine ; le chapitre
             # courant a un contenu valide. On stoppe juste le job proprement.
@@ -465,8 +517,17 @@ def _generate_chapter(
     blueprint = get_blueprint(job.deliverable_type, chapter.chapter_number)
     sections = blueprint.sections if blueprint else ()
     # Modele specifique au chapitre (None = herite de EVKHA_CLAUDE_MODEL).
-    # Exemples : fiche_projet, annexe, sources → "claude-haiku" (structure pure).
+    # Depuis le 25/07/2026 tous les blueprints ont model=None : pipeline
+    # homogene sur claude-sonnet-4-6.
     chapter_model = blueprint.model if blueprint else None
+    # Outil d'execution de code : declare par le blueprint, aujourd'hui le seul
+    # chapitre 2 EM (calcul TAM/SAM/SOM). Il n'est cable que sur la branche a
+    # UN appel : un chapitre decoupe en sections re-ecrirait son prefixe de
+    # cache a chaque section, et surtout un calcul emboite ne se decoupe pas —
+    # c'est precisement pourquoi le chapitre 2 a perdu ses sections (tache #9).
+    # `test_blueprints_code_execution` interdit la combinaison des deux, pour
+    # que le drapeau ne puisse pas etre ignore en silence.
+    code_execution = bool(blueprint.code_execution) if blueprint else False
 
     issues: list[ChapterValidationIssue] = []
     attempts = 0
@@ -490,7 +551,11 @@ def _generate_chapter(
         )
         max_tokens = _plafonner_sur_cible(job, chapter, max_tokens, sections=())
         result = client.complete(
-            system=system_prompt, prompt=prompt, max_tokens=max_tokens, model=chapter_model
+            system=system_prompt,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            model=chapter_model,
+            code_execution=code_execution,
         )
         # Suivi des couts (§4 cadrage) : TOUS les appels comptent, y compris
         # les tentatives invalidees. total_* accumule chaque appel ; ne jamais
@@ -509,6 +574,9 @@ def _generate_chapter(
                 prompt=retry_prompt,
                 max_tokens=max_tokens,
                 model=chapter_model,
+                # Le retry garde l'outil : c'est le meme calcul a refaire, et
+                # retirer l'outil re-ecrirait le prefixe de cache pour rien.
+                code_execution=code_execution,
             )
             total_input += result.input_tokens
             total_output += result.output_tokens
@@ -579,12 +647,11 @@ def _after_chapter_hook(
     chapter: ChapterGeneration,
     *,
     client: ClaudeClient,
-    system_prompt: str,
 ) -> None:
     """Declenche le CHECK inter-bloc apres un chapitre EM, si applicable.
 
     Cas geres :
-      - Chapitre 0 (fiche projet) EM -> CHECK INITIAL (5 questions §2 manuel).
+      - Chapitre 0 (fiche projet) EM -> CHECK INITIAL (6 questions, manuel p.3).
       - Dernier chapitre d'un bloc A-J EM -> CHECK correspondant.
       - Autre cas -> ne fait rien (les autres livrables et les chapitres
         intermediaires d'un bloc passent silencieusement).
@@ -593,11 +660,14 @@ def _after_chapter_hook(
         return
 
     # Cas 1 : fiche projet (chapitre 0) -> CHECK INITIAL, sur la fiche seule.
+    # Le manuel p.3 fait porter le controle sur la fiche REDIGEE : on la passe
+    # donc au relecteur comme document a valider. Sans elle, il ne voyait que
+    # le brief brut et reclamait des elements deja presents dans la fiche.
     if chapter.chapter_number == 0:
         bloc = BLOCS_PAR_IDENTIFIANT.get("INITIAL")
         if bloc is not None:
             _executer_check_avec_retry(
-                job, bloc, chapitres=[], client=client, system_prompt=system_prompt,
+                job, bloc, chapitres=[chapter], client=client,
             )
         return
 
@@ -620,7 +690,7 @@ def _after_chapter_hook(
         return
 
     _executer_check_avec_retry(
-        job, bloc, chapitres=chapitres_bloc, client=client, system_prompt=system_prompt,
+        job, bloc, chapitres=chapitres_bloc, client=client,
     )
 
 
@@ -630,23 +700,32 @@ def _executer_check_avec_retry(
     *,
     chapitres: list[ChapterGeneration],
     client: ClaudeClient,
-    system_prompt: str,
 ) -> None:
-    """Lance le CHECK, regenere une fois si fix, log un incident si echec persistant."""
+    """Lance le CHECK, regenere une fois si fix, log un incident si echec persistant.
+
+    Cas particulier du CHECK INITIAL : il est BLOQUANT.
+    Manuel EVKHA p.3 (« corriger la fiche ou demander la precision necessaire
+    AVANT TOUTE REDACTION ») et p.2 (« On ne continue jamais par automatisme »).
+    On leve donc CheckInitialBlockedError pour stopper la generation avant le
+    chapitre 1, au lieu de loguer un incident non bloquant et de continuer.
+    """
     result = check_bloc(job, bloc, chapitres, client=client)
 
     if result.est_ok:
         return
 
     # Echec 1er passage : regenere chaque chapitre du bloc avec la note.
-    # Le CHECK INITIAL n'a pas de chapitres a regenerer (defaut sur la fiche
-    # projet -> incident direct, l'admin doit intervenir sur le brief).
-    if not chapitres:
+    # Le CHECK INITIAL ne se regenere pas tout seul : c'est la fiche projet —
+    # donc le brief du client — qui est en cause. On ouvre un incident HIGH et
+    # on STOPPE la generation (gate amont du manuel) : l'admin corrige le
+    # brief/la fiche puis relance. On ne continue jamais par automatisme.
+    if bloc.identifiant == "INITIAL":
         _log_incident_check(
             job, bloc, result.note_corrective,
-            titre="CHECK INITIAL echoue (fiche projet a corriger)",
+            titre="CHECK INITIAL echoue (fiche projet a corriger) — generation stoppee",
+            severity=IncidentSeverity.HIGH,
         )
-        return
+        raise CheckInitialBlockedError(result.note_corrective)
 
     retries = 0
     while retries < _MAX_CHECK_RETRIES and not result.est_ok:
@@ -677,14 +756,22 @@ def _log_incident_check(
     note: str,
     *,
     titre: str,
+    severity: str = IncidentSeverity.MEDIUM,
 ) -> None:
-    """Ouvre un incident MEDIUM. Le contenu reste livre (le gate final decide)."""
+    """Ouvre un incident (MEDIUM par defaut).
+
+    Pour les CHECKs inter-bloc A-J : MEDIUM, le contenu reste livre (le gate
+    final decide). Pour le CHECK INITIAL bloquant : HIGH (voir appelant).
+    """
     OperationalIncident.objects.create(
         title=titre[:200],
-        severity=IncidentSeverity.MEDIUM,
+        severity=severity,
         job=job,
         order=job.order,
         details={
+            # Marqueur lu par le gate de livraison : tant que cet incident est
+            # OPEN, le document ne part pas (manuel p.17 « Livraison autorisee »).
+            "type": INCIDENT_TYPE_CHECK_BLOC,
             "bloc": bloc.identifiant,
             "check": bloc.check_numero,
             "intitule": bloc.intitule,

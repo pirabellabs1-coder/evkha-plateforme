@@ -54,6 +54,22 @@ _STRUCTURES_STRUCTURELLES = (
 )
 
 
+# Marqueurs d'emphase markdown qui FERMENT le texte apres la ponctuation.
+# Un encadre en italique se termine par « ... la structure.* » : le point est
+# bien la, le « * » n'est qu'un delimiteur. Sans ce nettoyage, la generation
+# reelle du 24/07/2026 (job 4c573e40) faisait remonter le chapitre 6 comme
+# tronque alors qu'il etait complet.
+_FIORITURES_FINALES = "*_`\"'"
+
+
+def sans_fioritures_finales(texte: str) -> str:
+    """Retire les delimiteurs d'emphase/citation en toute fin de texte.
+
+    Ne touche pas aux ponctuations : « » et … restent des fins valides.
+    """
+    return texte.rstrip().rstrip(_FIORITURES_FINALES).rstrip()
+
+
 def _dernier_mot_est_tronque(dernier_mot: str) -> bool:
     """Un mot final court sans ponctuation est probablement tronque.
 
@@ -102,6 +118,9 @@ def detecter_troncatures(
         if any(m.search(derniere_ligne) for m in _STRUCTURES_STRUCTURELLES):
             continue
 
+        # Un encadre en italique ou une citation ferme APRES la ponctuation :
+        # on juge le texte, pas le delimiteur.
+        corps_nettoye = sans_fioritures_finales(corps_nettoye) or corps_nettoye
         dernier_char = corps_nettoye[-1]
         fin_capture = corps_nettoye[-60:].replace("\n", " ")
 

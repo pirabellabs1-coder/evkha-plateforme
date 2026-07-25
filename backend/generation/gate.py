@@ -1180,6 +1180,77 @@ def _check_chiffre_contre_chiffre(
     return failures
 
 
+def _check_blocs_evangeline(job: GenerationJob) -> list[GateFailure]:
+    """Un CHECK de bloc reste-t-il en echec non resolu ?
+
+    Manuel EVKHA, repete a la fin de CHAQUE bloc (pp. 8-16) : « Si une reponse
+    est non : corriger le bloc concerne, refaire le controle, puis seulement
+    continuer. » Et p.17, « Livraison autorisee » : « La livraison est possible
+    uniquement lorsque le fond, les chiffres, les demandes client, les sources,
+    la continuite et la presentation sont tous valides. »
+
+    Le runner rejoue le bloc une fois ; si le CHECK echoue encore, il ouvre un
+    incident. Avant ce garde-fou, cet incident etait purement informatif : le
+    document partait quand meme chez le client avec un controle non valide.
+    Desormais il BLOQUE la livraison. L'admin qui traite l'incident (statut
+    ACKNOWLEDGED/RESOLVED) rend la livraison possible — c'est la traduction du
+    « corriger, refaire le controle, puis seulement continuer ».
+    """
+    from monitoring.models import IncidentStatus, OperationalIncident  # noqa: PLC0415
+
+    from .checks_blocs import INCIDENT_TYPE_CHECK_BLOC  # noqa: PLC0415
+
+    ouverts = OperationalIncident.objects.filter(
+        job=job,
+        status=IncidentStatus.OPEN,
+        details__type=INCIDENT_TYPE_CHECK_BLOC,
+    )
+
+    failures: list[GateFailure] = []
+    for incident in ouverts:
+        details = incident.details or {}
+        chapitres = details.get("chapitres") or []
+        failures.append(GateFailure(
+            check="check_bloc_non_resolu",
+            # Volontairement sans chapter_number : la boucle de correction a
+            # deja rejoue le bloc sans succes. Re-regenerer en boucle couterait
+            # sans rien garantir — le manuel demande une reprise humaine.
+            detail=(
+                f"CHECK {details.get('check', '?')} (bloc "
+                f"{details.get('bloc', '?')} — {details.get('intitule', '')}) "
+                f"non valide sur les chapitres {chapitres}. "
+                f"Note du relecteur : {str(details.get('note_corrective', ''))[:400]} "
+                "Livraison bloquee tant que le controle n'est pas valide "
+                "(manuel EVKHA, « Livraison autorisee »)."
+            ),
+        ))
+    return failures
+
+
+def _check_arithmetique_marche(job: GenerationJob) -> list[GateFailure]:
+    """Bloque un document dont l'emboitement TAM > SAM > SOM est faux.
+
+    Verdict Evangeline du 24/07/2026 sur le run 010e3bf2 : « TAM, SAM et SOM
+    incoherents », « erreurs de calcul importantes ». Aucun check du gate ne
+    regardait ces trois chiffres — ils n'existaient meme pas dans le registre.
+    Le controle porte sur les faits VERROUILLES et non sur le texte rendu :
+    c'est la valeur verrouillee que les chapitres 14 et 15 reutilisent, donc
+    c'est elle qui doit etre juste.
+    """
+    from .coherence import anomalies_tam_sam_som  # noqa: PLC0415
+
+    return [
+        GateFailure(
+            check="arithmetique_marche",
+            detail=(
+                f"{anomalie} Manuel EVKHA p. 6 : la ligne TAM / SAM / SOM est "
+                "reutilisee aux chapitres 2, 14 et 15."
+            ),
+        )
+        for anomalie in anomalies_tam_sam_som(job)
+    ]
+
+
 def run_delivery_gate(job: GenerationJob) -> GateReport:
     """Exécute les quatre checks bloquants sur le document tel que livré.
 
@@ -1208,6 +1279,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_verticales(job, sections))
     failures.extend(_check_truncation(sections))
     failures.extend(_check_ordres_de_grandeur(job, sections))
+    failures.extend(_check_arithmetique_marche(job))
     # Checks ajoutes suite a la relecture d'Evangeline (juillet 2026) : ils
     # verifient DEUX regles qu'aucun check precedent n'imposait sur le document
     # livre. Independants du brief et du type de livrable, ils s'appliquent aux
@@ -1218,5 +1290,8 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_chapitres_avortes(job, sections))
     failures.extend(_check_strategie_livrable(job, sections))
     failures.extend(_check_post_rendu(sections, deliverable_type=str(job.deliverable_type)))
+    # Manuel EVKHA p.17 : livraison possible UNIQUEMENT si tous les controles
+    # sont valides. Un CHECK de bloc encore en echec bloque l'envoi.
+    failures.extend(_check_blocs_evangeline(job))
 
     return GateReport(passed=not failures, failures=tuple(failures))

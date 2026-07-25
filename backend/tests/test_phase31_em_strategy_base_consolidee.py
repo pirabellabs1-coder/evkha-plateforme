@@ -29,7 +29,6 @@ import pytest
 
 from generation.strategies.em import (
     EMStrategy,
-    verifier_cardinal_tcac,
     verifier_ratio,
     verifier_tcac_coherent_par_niveau,
     verifier_tcac_projection,
@@ -275,37 +274,33 @@ def test_tcac_avec_ecart_arrondi_est_tolere() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# 4bis. Cardinal des TCAC — trop de valeurs distinctes = incoherence
+# 4bis. Pas de plafond sur le NOMBRE de TCAC distincts (conformite manuel)
 # ══════════════════════════════════════════════════════════════════════════
 
 
-def test_cardinal_tcac_au_dela_de_3_valeurs_est_signale() -> None:
-    """Cas WAOME v1 mesure : 5 valeurs distinctes (20, 28, 30, 31, 38 %).
-    Le max legitime metier est 3 (mondial/continental/national). Au-dela,
-    le lecteur ne sait plus laquelle retenir."""
+def test_plusieurs_tcac_distincts_ne_bloquent_pas() -> None:
+    """Le manuel EM n'impose aucun cardinal de TCAC. Une etude cite
+    legitimement plusieurs taux (mondial, national, par segment au ch. 3,
+    parmi les 12 chiffres cles du ch. 9). Tant que chaque NIVEAU
+    geographique reste coherent, aucun defaut ne doit etre leve — meme avec
+    5 valeurs distinctes. C'est l'ancien check « max 3 TCAC », retire car il
+    bloquait des etudes conformes au manuel."""
+    from catalog.models import DeliverableType
+    from unittest.mock import MagicMock
+
+    job = MagicMock()
+    job.deliverable_type = DeliverableType.MARKET_STUDY
     corpus = {
-        1: "TCAC retenu de 20 %.",
-        3: "TCAC europeen retenu 28 %.",
-        5: "TCAC de 30 % sur ce segment.",
-        8: "TCAC mondial de 31 %.",
-        12: "TCAC regional le plus eleve : 38 %.",
+        1: "TCAC mondial de 20 %.",
+        3: "Sur ce segment, la croissance annuelle atteint 28 %.",
+        5: "Le sous-secteur progresse de 30 % par an.",
+        9: "Parmi les 12 chiffres cles : une croissance de 31 % du digital.",
+        12: "Le segment premium croit de 38 % par an.",
     }
-    problemes = verifier_cardinal_tcac(corpus)
+    problemes = EMStrategy().problemes_de_coherence(job, corpus)
 
-    assert len(problemes) == 1
-    for v in ("20", "28", "30", "31", "38"):
-        assert v in problemes[0], f"{v} % absent du message"
-
-
-def test_cardinal_tcac_dans_la_limite_ne_declenche_pas() -> None:
-    """Contre-epreuve : 3 valeurs de TCAC = maximum legitime (mondial,
-    continental, national). Pas de signal."""
-    corpus = {
-        1: "TCAC mondial 12 %.",
-        3: "TCAC europeen 8 %.",
-        7: "TCAC national francais 5 %.",
-    }
-    assert verifier_cardinal_tcac(corpus) == []
+    cardinals = [p for p in problemes if "distinctes de TCAC" in p.detail]
+    assert cardinals == [], "aucun plafond de cardinal TCAC ne doit exister"
 
 
 # ══════════════════════════════════════════════════════════════════════════

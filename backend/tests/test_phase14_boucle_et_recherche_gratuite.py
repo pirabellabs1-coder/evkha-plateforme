@@ -323,6 +323,8 @@ def test_regenerate_chapter_passe_la_note(bp_job: GenerationJob) -> None:
             prompt: str,
             max_tokens: int = 8192,
             model: str | None = None,
+            advisor: bool = False,
+            code_execution: bool = False,
         ) -> ClaudeResult:
             captured["prompt"] = prompt
             return ClaudeResult(
