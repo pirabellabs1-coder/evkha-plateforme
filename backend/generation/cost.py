@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 
-from integrations.claude import _MAX_CONTINUATIONS
+from integrations.claude import _MAX_CONTINUATIONS, _thinking_budget
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .models import ChapterGeneration, ChapterStatus, GenerationJob
@@ -15,7 +15,6 @@ from .models import ChapterGeneration, ChapterStatus, GenerationJob
 MODEL_PRICING_EUR: dict[str, tuple[Decimal, Decimal]] = {
     "claude-sonnet": (Decimal("0.0000027"), Decimal("0.0000135")),
     "claude-opus": (Decimal("0.0000135"), Decimal("0.0000675")),
-    "claude-haiku": (Decimal("0.0000007"), Decimal("0.0000036")),
 }
 _FALLBACK_MODEL = "claude-sonnet"
 
@@ -230,6 +229,18 @@ def max_tokens_for_job(
     total_slots = this_chapter_slots + other_chapters_slots
 
     per_call_budget = remaining / max(total_slots, 1)
+
+    # Extended thinking : les tokens de reflexion sont factures au tarif OUTPUT
+    # et `AnthropicClaudeClient.complete` releve max_tokens du budget pour que
+    # la place laissee au contenu reste celle demandee. Ce cout est donc engage
+    # a chaque appel EN PLUS du contenu — il doit sortir du budget par appel
+    # avant le calcul, sinon le throttle autorise des chapitres qu'il ne peut
+    # pas payer et le job meurt sur CostBudgetExceededError vers 90 %.
+    cout_reflexion = Decimal(_thinking_budget()) * output_eur
+    per_call_budget -= cout_reflexion
+    if per_call_budget <= 0:
+        return _MIN_MAX_TOKENS
+
     allowed = int(per_call_budget / effective_rate)
     return max(_MIN_MAX_TOKENS, min(default_max_tokens, allowed))
 

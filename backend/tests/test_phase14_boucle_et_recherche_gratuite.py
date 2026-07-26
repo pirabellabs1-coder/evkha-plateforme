@@ -105,9 +105,30 @@ def bp_job(db: None) -> GenerationJob:
     return job
 
 
+_CORPS_SOURCES_FIXTURE = (
+    "## Marche\n"
+    "- INSEE 2024 - https://www.insee.fr/fr/statistiques/1234\n"
+    "- Xerfi 2025 - https://www.xerfi.com/etude-x\n"
+    "## Reglementation\n"
+    "- Legifrance art. 219 CGI - https://www.legifrance.gouv.fr/codes/id/1\n"
+    "- Bpifrance - https://www.bpifrance.fr/actualites/y\n"
+    "## Methodologie\nCroisement des sources 2020-2024.\n"
+)
+
+
 def _mark_all_done(job: GenerationJob, body: str) -> None:
+    # Le check `sources_non_tracables` (phase 36) exige des URLs verifiables
+    # dans le chapitre Sources. On force le contenu du chapitre SOURCES
+    # a une liste d'URLs plausibles ; les autres gardent `body`.
+    from generation.blueprints import SectionKind, get_blueprint  # noqa: PLC0415
+    deliverable_type = str(job.deliverable_type)
     for c in job.chapters.all():
-        c.content, c.status = body, ChapterStatus.DONE
+        bp = get_blueprint(deliverable_type, c.chapter_number)
+        if bp is not None and bp.section_kind == SectionKind.SOURCES:
+            c.content = _CORPS_SOURCES_FIXTURE
+        else:
+            c.content = body
+        c.status = ChapterStatus.DONE
         c.save(update_fields=["content", "status"])
     job.status = JobStatus.DONE
     job.save(update_fields=["status"])
@@ -123,13 +144,18 @@ def test_boucle_regenere_le_chapitre_fautif(
     # Le check `chapitre_avorte` planche a 30 % du max_words du blueprint.
     # On repete le paragraphe pour tenir cette cible sans changer le sens du
     # test (verifier la valeur d'emprunt citee, pas la longueur).
+    # La remuneration dirigeante est integree au corpus pour que le check
+    # `strategy_business_plan_remuneration_dirigeant` (phase 33) passe :
+    # un vrai BP l'a toujours, la fixture doit donc la representer.
     good_body = (
         "Le financement repose sur un emprunt de 920 000 € sur 7 ans, "
         "conforme au plan du porteur, avec une analyse complete et argumentee. "
+        "Remuneration dirigeante de 30 000 EUR annuelle prevue au previsionnel. "
     ) * 60
     bad_body = (
         "Le financement repose sur un emprunt de 300 000 € sur 7 ans, "
         "chiffre recalcule, avec une analyse complete et argumentee du projet. "
+        "Remuneration dirigeante de 30 000 EUR annuelle prevue au previsionnel. "
     ) * 60
     _mark_all_done(bp_job, good_body)
     # Chapitre 14 fautif (emprunt ÷3)
@@ -297,6 +323,8 @@ def test_regenerate_chapter_passe_la_note(bp_job: GenerationJob) -> None:
             prompt: str,
             max_tokens: int = 8192,
             model: str | None = None,
+            advisor: bool = False,
+            code_execution: bool = False,
         ) -> ClaudeResult:
             captured["prompt"] = prompt
             return ClaudeResult(

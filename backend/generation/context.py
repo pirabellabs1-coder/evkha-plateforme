@@ -6,7 +6,13 @@ from django.utils import timezone
 
 from intake.models import IntakeSubmission
 
-from .coherence import client_facts_as_context, generated_facts_as_context
+from catalog.models import DeliverableType
+
+from .coherence import (
+    chiffres_fondations_as_table,
+    client_facts_as_context,
+    generated_facts_as_context,
+)
 from .models import ChapterGeneration, GenerationJob
 from .substitution import tokens_catalogue
 
@@ -20,7 +26,7 @@ ROLE_LINE = (
     "Tout intitule technique ecrit en MAJUSCULES_AVEC_UNDERSCORES dans ce "
     "contexte (VARIABLES_PROJET, DONNEES_CLIENT, REPERES_DEJA_ENONCES, "
     "FICHE_SECTORIELLE, SOURCES_WEB, RESUME_OPERATIONNEL_PRECEDENT, "
-    "CHAPITRE_CIBLE, PROMPT_KEY) est un repere interne : "
+    "FAITS_REFERENCES, CHAPITRE_CIBLE, PROMPT_KEY) est un repere interne : "
     "il ne doit JAMAIS apparaitre dans ta redaction, ni entre "
     "parentheses, ni cite, ni reformule en 'faits verrouilles du dossier'. "
     "Si tu dois designer l'origine d'un chiffre client, ecris 'le "
@@ -126,21 +132,61 @@ def build_context(chapter: ChapterGeneration) -> str:
         "publication ; presente toute donnee non etablie comme une estimation."
     )
 
-    return "\n\n".join(
-        [
-            ROLE_LINE,
-            _date_line(),
-            f"VARIABLES_PROJET: {json.dumps(variables, ensure_ascii=False, sort_keys=True)}",
-            f"FICHE_SECTORIELLE:\n{fiche_sectorielle}",
-            f"SOURCES_WEB:\n{research_block}",
-            "DONNEES_CLIENT (brief client, intangibles, priorite absolue):\n"
-            + client_facts_as_context(job),
-            _tokens_block(job),
-            "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
-            "precedents, a reprendre a l'identique, jamais presentes comme "
-            "'faits verrouilles'):\n" + generated_facts_as_context(job),
-            "RESUME_OPERATIONNEL_PRECEDENT:\n" + ("\n".join(summary_lines) or "Aucun."),
-            f"CHAPITRE_CIBLE: {chapter.chapter_number}. {chapter.chapter_title}",
-            f"PROMPT_KEY: {chapter.prompt_key}",
-        ]
+    blocs = [
+        ROLE_LINE,
+        _date_line(),
+        f"VARIABLES_PROJET: {json.dumps(variables, ensure_ascii=False, sort_keys=True)}",
+        f"FICHE_SECTORIELLE:\n{fiche_sectorielle}",
+        f"SOURCES_WEB:\n{research_block}",
+        "DONNEES_CLIENT (brief client, intangibles, priorite absolue):\n"
+        + client_facts_as_context(job),
+        _tokens_block(job),
+        "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
+        "precedents, a reprendre a l'identique, jamais presentes comme "
+        "'faits verrouilles'):\n" + generated_facts_as_context(job),
+    ]
+
+    # Mémoire inter-runs : repères de marché validés d'une étude précédente
+    # sur le même secteur/pays. Injectés uniquement au chapitre 1 (point
+    # d'ancrage des fondations) — les chapitres suivants héritent via
+    # CHIFFRES_FONDATIONS. Silencieux si aucun fichier ne correspond.
+    if chapter.chapter_number == 1:
+        from .fact_store import load_facts_block  # noqa: PLC0415
+        facts_block = load_facts_block(variables)
+        if facts_block:
+            blocs.append(
+                "FAITS_REFERENCES (repères d'une étude précédente validée, "
+                "même secteur/pays — à utiliser comme point de départ, "
+                "actualiser si nécessaire, ne jamais recopier aveuglément) :\n"
+                + facts_block
+            )
+
+    # Manuel Evangeline §5 (juillet 2026) : la fiche projet enrichie fait
+    # office de memoire de l'etude EM. Injectee EN PLUS des REPERES_DEJA_ENONCES
+    # pour rendre le format tableau (colonnes Information | Valeur | Source),
+    # comme le manuel le prescrit p. 6. Uniquement pour l'EM — les autres
+    # livrables gardent leur socle inchange.
+    if str(job.deliverable_type) == DeliverableType.MARKET_STUDY:
+        blocs.append(
+            "CHIFFRES_FONDATIONS (manuel §5, memoire enrichie EM):\n"
+            + chiffres_fondations_as_table(job)
+        )
+
+    blocs += [
+        "RESUME_OPERATIONNEL_PRECEDENT:\n" + ("\n".join(summary_lines) or "Aucun."),
+        f"CHAPITRE_CIBLE: {chapter.chapter_number}. {chapter.chapter_title}",
+        f"PROMPT_KEY: {chapter.prompt_key}",
+    ]
+
+    # Bloc de contexte SPECIFIQUE au type de livrable : chaque strategy peut
+    # decider d'injecter un tableau de reference (EM : base chiffree
+    # consolidee apres chapitres 1-2), une checklist metier, un rappel de
+    # posture. Le socle commun (blocs ci-dessus) reste identique.
+    from .strategies import get_strategy  # noqa: PLC0415 (import local, evite cycle)
+    supplement = get_strategy(str(job.deliverable_type)).contexte_supplementaire(
+        job, chapter
     )
+    if supplement is not None:
+        blocs.append(f"{supplement.intitule.upper()}:\n{supplement.corps}")
+
+    return "\n\n".join(blocs)

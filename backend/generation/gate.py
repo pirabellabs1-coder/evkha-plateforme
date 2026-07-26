@@ -538,7 +538,17 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
     locked = _client_fact_keys(job)
     failures: list[GateFailure] = []
 
+    # Les faits financiers (CA, investissement, emprunt...) sont des cibles de
+    # validation seulement pour les types de livrable qui les exigent. Pour une
+    # EM, le CA client est un contexte sectoriel, pas un chiffre a verifier dans
+    # le document : le gate ne doit pas bloquer si le brief en mentionne un.
+    required_financial_keys: frozenset[str] = frozenset(
+        _REQUIRED_CLIENT_FACTS.get(str(job.deliverable_type), ())
+    )
+
     for key, hint in _BRIEF_FINANCIAL_HINTS.items():
+        if required_financial_keys and key not in required_financial_keys:
+            continue
         if key in locked:
             continue
         pattern = re.compile(rf"(?:{hint}){_HINT_GAP}{MONEY_CAPTURED}", re.IGNORECASE)
@@ -937,20 +947,29 @@ def _check_truncation(sections: tuple[RenderedSection, ...]) -> list[GateFailure
     return failures
 
 
-def _check_fourchettes(sections: tuple[RenderedSection, ...]) -> list[GateFailure]:
+def _check_fourchettes(
+    job: GenerationJob, sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
     """Aucune fourchette monetaire ni de pourcentage dans le livrable.
 
-    Regle imposee par Evangeline sur les fiches 1 et 2 : « pas d'invention
-    ou d'extrapolation de montant ou fourchette ». Cible les motifs de plage
-    (« entre 3 et 5 M€ », « 200 000 a 300 000 € », « 15 a 20 % »). Le fait
-    d'exiger une unite monetaire ou un pourcentage en fin de plage evite les
-    faux positifs des numerotations et des dates.
+    Regle stricte pour BP / EC / STR : chaque valeur est unique. En EM
+    (manuel Evangeline juillet 2026, §3), une fourchette serree et
+    coherente est autorisee (« entre 1 000 et 1 400 »), les taux/% sont
+    en valeur fixe unique. Cette nuance ne se detecte pas fiablement en
+    regex, elle est desormais controlee par les CHECK Sonnet 1/5/6/7 du
+    module `checks_blocs.py`. On skippe donc ce check pour EM.
     """
+    if str(job.deliverable_type) == DeliverableType.MARKET_STUDY:
+        return []
+
     from .checks_evangeline import detecter_fourchettes  # noqa: PLC0415
 
     failures: list[GateFailure] = []
     for section in sections:
-        for f in detecter_fourchettes(section.number, section.body):
+        for f in detecter_fourchettes(
+            section.number, section.body,
+            deliverable_type=str(job.deliverable_type),
+        ):
             failures.append(GateFailure(
                 check="fourchette_interdite",
                 chapter_number=f.chapitre,
@@ -962,68 +981,145 @@ def _check_fourchettes(sections: tuple[RenderedSection, ...]) -> list[GateFailur
     return failures
 
 
-def _check_concurrents_ec(
-    job: GenerationJob, sections: tuple[RenderedSection, ...]
+# _check_concurrents_ec : migre dans `strategies/ec.py` (etape 6).
+# La logique est desormais portee par la ECStrategy, appelee via
+# `_check_strategie_livrable`. Regle 4 : chaque livrable a son manuel.
+
+
+# _check_piliers_strategie : migre dans `strategies/str_.py` (etape 5).
+# La logique est desormais portee par la STRStrategy, appelee via
+# `_check_strategie_livrable`. Regle 4 : chaque livrable a son manuel.
+
+
+def _check_post_rendu(
+    sections: tuple[RenderedSection, ...],
+    *,
+    deliverable_type: str = "",
 ) -> list[GateFailure]:
-    """8 concurrents directs et 3 indirects, exactement (fiche 2 d'Evangeline).
+    """Verifications transverses sur le rendu final.
 
-    Ne s'applique qu'aux etudes de concurrence. Aucun compte trouve : on ne
-    signale rien plutot que d'inventer un defaut sur un blueprint qui n'aurait
-    plus vocation a les lister (contre-epreuve : structure absente = pas de
-    check).
+    Pour EM (manuel Evangeline juillet 2026), on conserve uniquement les
+    GARDES-CATASTROPHE deterministes :
+      - troncature (chapitre coupe mid-phrase — bug reel WAOME 21/07/2026)
+      - sources absent/vide ou URL bidon (example.com, source.fr...)
+    Les autres regles historiques (doublons de titres, desaccords « trois
+    familles » vs 4 items, ton publicitaire, prudence juridique) sont
+    couvertes en amont par le nouveau charter (voix EVKHA §3) et par les
+    CHECK Sonnet inter-blocs, qui evaluent le sens en langage naturel.
+    Les conserver ici cree des faux positifs bloquants sur des livrables
+    conformes au manuel.
+
+    Pour BP/EC/STR : tous les checks restent actifs (manuel ne les couvre pas).
     """
-    from catalog.models import DeliverableType  # noqa: PLC0415
-
-    from .checks_evangeline import verifier_concurrents_dans_ec  # noqa: PLC0415
-
-    if str(job.deliverable_type) != DeliverableType.COMPETITOR_STUDY:
-        return []
-    divergents = verifier_concurrents_dans_ec(
-        [(s.number, s.body) for s in sections]
+    from .checks_post_rendu import (  # noqa: PLC0415
+        detecter_desaccords_numeriques,
+        detecter_doublons_titres,
+        detecter_prudence_juridique,
+        detecter_sources_non_tracables,
+        detecter_ton_publicitaire,
+        detecter_troncatures,
     )
+
+    is_em = deliverable_type == DeliverableType.MARKET_STUDY
+
+    triplets = [(s.number, s.title, s.body) for s in sections]
+
     failures: list[GateFailure] = []
-    for c in divergents:
-        verbe = "manque(nt)" if c.trouves < c.attendus else "en trop"
+    for t in detecter_troncatures(triplets):
         failures.append(GateFailure(
-            check="concurrents_ec",
-            chapter_number=c.chapitre,
+            check="troncature_rendu",
+            chapter_number=t.chapitre,
             detail=(
-                f"Concurrents {c.type_} : {c.trouves} trouves, {c.attendus} attendus "
-                f"({verbe}). Consigne fiche 2 : toujours {c.attendus} concurrents "
-                f"{c.type_}, ni plus ni moins."
+                f"Chapitre « {t.titre} » tronque : la derniere ligne ne se "
+                f"termine pas par une ponctuation forte. Fin capturee : "
+                f"« ...{t.fin_capturee} ». Perte probable de contenu client."
             ),
+        ))
+    for s in detecter_sources_non_tracables(triplets):
+        # Pour EM : on garde absent, vide, url_bidon (garde-catastrophe).
+        # On retire ratio_faible : le manuel ne fixe pas de ratio et les
+        # CHECK Sonnet 8 (bloc H) + FINAL evaluent la traçabilite en langage
+        # naturel.
+        if is_em and s.motif == "ratio_faible":
+            continue
+        failures.append(GateFailure(
+            check=f"sources_non_tracables_{s.motif}",
+            chapter_number=s.chapitre,
+            detail=s.detail,
+        ))
+
+    if is_em:
+        return failures
+
+    # BP/EC/STR : anciens checks conserves.
+    for d in detecter_doublons_titres(triplets):
+        failures.append(GateFailure(
+            check="doublon_titre",
+            chapter_number=d.chapitre,
+            detail=(
+                f"Titre « {d.intitule} » apparait {d.occurrences} fois dans "
+                f"le meme chapitre. Verifier l'assemblage."
+            ),
+        ))
+    for n in detecter_desaccords_numeriques(triplets):
+        failures.append(GateFailure(
+            check="desaccord_numerique",
+            chapter_number=n.chapitre,
+            detail=n.detail,
+        ))
+    corpus_par_chapitre = {s.number: s.body for s in sections}
+    titres_par_chapitre = {s.number: s.title for s in sections}
+    for t in detecter_ton_publicitaire(
+        corpus_par_chapitre, titres_par_chapitre=titres_par_chapitre,
+    ):
+        failures.append(GateFailure(
+            check="ton_publicitaire",
+            chapter_number=t.chapitre,
+            detail=(
+                f"Expression au ton publicitaire detectee : « {t.expression} ». "
+                f"Contexte : « ...{t.extrait}... ». Un livrable bancaire reste "
+                "descriptif et source — supprimer le superlatif ou le "
+                "remplacer par un fait chiffre."
+            ),
+        ))
+    for r in detecter_prudence_juridique(
+        corpus_par_chapitre, titres_par_chapitre=titres_par_chapitre,
+    ):
+        failures.append(GateFailure(
+            check=f"prudence_juridique_{r.categorie}",
+            chapter_number=r.chapitre,
+            detail=r.detail + f" Extrait : « ...{r.extrait}... ».",
         ))
     return failures
 
 
-def _check_piliers_strategie(
+def _check_strategie_livrable(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
-    """Les 4 piliers de la strategie doivent tous etre poses (fiche 4).
+    """Delegue les checks specifiques du livrable a sa strategy dediee.
 
-    Ne s'applique qu'aux strategies business. Les libelles reconnus sont ceux
-    qu'Evangeline a nommes verbatim dans son annotation de la fiche 4.
+    Chaque type de livrable (EM, EC, BP, STR) a sa propre logique metier
+    exposee via `strategies/`. Cette porte d'entree unique appelle
+    `problemes_de_coherence` sur la strategy — un livrable qui n'a pas
+    encore de strategy dediee retombe sur le fallback neutre, aucune
+    regression.
+
+    C'est ici que passent les checks arithmetiques EM (TCAC recalcule,
+    ratios), et bientot les checks BP (charges obligatoires, IS bracket),
+    EC (matrice concurrentielle) et STR (piliers traites).
     """
-    from catalog.models import DeliverableType  # noqa: PLC0415
+    from .strategies import get_strategy  # noqa: PLC0415
 
-    from .checks_evangeline import verifier_piliers_strategie  # noqa: PLC0415
-
-    if str(job.deliverable_type) != DeliverableType.BUSINESS_STRATEGY:
-        return []
-    corpus = "\n\n".join(s.body for s in sections)
-    manquants = verifier_piliers_strategie(corpus)
-    failures: list[GateFailure] = []
-    for p in manquants:
-        failures.append(GateFailure(
-            check="piliers_strategie",
-            detail=(
-                f"{p.intitule} absent du document. Les 4 piliers de la strategie "
-                "sont toujours poses (fiche 4 d'Evangeline) : Positionnement & "
-                "Specialisation, Structuration de l'offre, Planning editorial, "
-                "Analyse de la tarification."
-            ),
-        ))
-    return failures
+    corpus = {s.number: s.body for s in sections}
+    strategy = get_strategy(str(job.deliverable_type))
+    return [
+        GateFailure(
+            check=f"strategy_{strategy.deliverable_type}_{p.categorie}",
+            chapter_number=p.chapitre,
+            detail=p.detail,
+        )
+        for p in strategy.problemes_de_coherence(job, corpus)
+    ]
 
 
 def _check_chapitres_avortes(
@@ -1094,6 +1190,77 @@ def _check_chiffre_contre_chiffre(
     return failures
 
 
+def _check_blocs_evangeline(job: GenerationJob) -> list[GateFailure]:
+    """Un CHECK de bloc reste-t-il en echec non resolu ?
+
+    Manuel EVKHA, repete a la fin de CHAQUE bloc (pp. 8-16) : « Si une reponse
+    est non : corriger le bloc concerne, refaire le controle, puis seulement
+    continuer. » Et p.17, « Livraison autorisee » : « La livraison est possible
+    uniquement lorsque le fond, les chiffres, les demandes client, les sources,
+    la continuite et la presentation sont tous valides. »
+
+    Le runner rejoue le bloc une fois ; si le CHECK echoue encore, il ouvre un
+    incident. Avant ce garde-fou, cet incident etait purement informatif : le
+    document partait quand meme chez le client avec un controle non valide.
+    Desormais il BLOQUE la livraison. L'admin qui traite l'incident (statut
+    ACKNOWLEDGED/RESOLVED) rend la livraison possible — c'est la traduction du
+    « corriger, refaire le controle, puis seulement continuer ».
+    """
+    from monitoring.models import IncidentStatus, OperationalIncident  # noqa: PLC0415
+
+    from .checks_blocs import INCIDENT_TYPE_CHECK_BLOC  # noqa: PLC0415
+
+    ouverts = OperationalIncident.objects.filter(
+        job=job,
+        status=IncidentStatus.OPEN,
+        details__type=INCIDENT_TYPE_CHECK_BLOC,
+    )
+
+    failures: list[GateFailure] = []
+    for incident in ouverts:
+        details = incident.details or {}
+        chapitres = details.get("chapitres") or []
+        failures.append(GateFailure(
+            check="check_bloc_non_resolu",
+            # Volontairement sans chapter_number : la boucle de correction a
+            # deja rejoue le bloc sans succes. Re-regenerer en boucle couterait
+            # sans rien garantir — le manuel demande une reprise humaine.
+            detail=(
+                f"CHECK {details.get('check', '?')} (bloc "
+                f"{details.get('bloc', '?')} — {details.get('intitule', '')}) "
+                f"non valide sur les chapitres {chapitres}. "
+                f"Note du relecteur : {str(details.get('note_corrective', ''))[:400]} "
+                "Livraison bloquee tant que le controle n'est pas valide "
+                "(manuel EVKHA, « Livraison autorisee »)."
+            ),
+        ))
+    return failures
+
+
+def _check_arithmetique_marche(job: GenerationJob) -> list[GateFailure]:
+    """Bloque un document dont l'emboitement TAM > SAM > SOM est faux.
+
+    Verdict Evangeline du 24/07/2026 sur le run 010e3bf2 : « TAM, SAM et SOM
+    incoherents », « erreurs de calcul importantes ». Aucun check du gate ne
+    regardait ces trois chiffres — ils n'existaient meme pas dans le registre.
+    Le controle porte sur les faits VERROUILLES et non sur le texte rendu :
+    c'est la valeur verrouillee que les chapitres 14 et 15 reutilisent, donc
+    c'est elle qui doit etre juste.
+    """
+    from .coherence import anomalies_tam_sam_som  # noqa: PLC0415
+
+    return [
+        GateFailure(
+            check="arithmetique_marche",
+            detail=(
+                f"{anomalie} Manuel EVKHA p. 6 : la ligne TAM / SAM / SOM est "
+                "reutilisee aux chapitres 2, 14 et 15."
+            ),
+        )
+        for anomalie in anomalies_tam_sam_som(job)
+    ]
+
+
 def run_delivery_gate(job: GenerationJob) -> GateReport:
     """Exécute les quatre checks bloquants sur le document tel que livré.
 
@@ -1122,15 +1289,19 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_verticales(job, sections))
     failures.extend(_check_truncation(sections))
     failures.extend(_check_ordres_de_grandeur(job, sections))
+    failures.extend(_check_arithmetique_marche(job))
     # Checks ajoutes suite a la relecture d'Evangeline (juillet 2026) : ils
     # verifient DEUX regles qu'aucun check precedent n'imposait sur le document
     # livre. Independants du brief et du type de livrable, ils s'appliquent aux
     # quatre types (etude de marche, etude de concurrence, business plan,
     # strategie).
-    failures.extend(_check_fourchettes(sections))
+    failures.extend(_check_fourchettes(job, sections))
     failures.extend(_check_chiffre_contre_chiffre(sections))
     failures.extend(_check_chapitres_avortes(job, sections))
-    failures.extend(_check_concurrents_ec(job, sections))
-    failures.extend(_check_piliers_strategie(job, sections))
+    failures.extend(_check_strategie_livrable(job, sections))
+    failures.extend(_check_post_rendu(sections, deliverable_type=str(job.deliverable_type)))
+    # Manuel EVKHA p.17 : livraison possible UNIQUEMENT si tous les controles
+    # sont valides. Un CHECK de bloc encore en echec bloque l'envoi.
+    failures.extend(_check_blocs_evangeline(job))
 
     return GateReport(passed=not failures, failures=tuple(failures))

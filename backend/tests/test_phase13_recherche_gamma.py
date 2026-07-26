@@ -453,8 +453,24 @@ def test_verifier_gate_rapport_ok(em_submission: IntakeSubmission) -> None:
         "Analyse detaillee et chiffree du marche du coworking a Lyon, "
         "avec des donnees locales et une conclusion argumentee complete. "
     ) * 60
+    # Chapitre Sources : URLs verifiables pour satisfaire phase 36.
+    corps_sources = (
+        "## Marche\n"
+        "- INSEE 2024 - https://www.insee.fr/fr/statistiques/1234\n"
+        "- Xerfi 2025 - https://www.xerfi.com/etude-x\n"
+        "- Bpifrance - https://www.bpifrance.fr/actualites/y\n"
+        "## Methodologie\n"
+        "Croisement de sources publiees sur la periode 2020-2024.\n"
+    )
+    from generation.blueprints import SectionKind, get_blueprint  # noqa: PLC0415
+    dt = str(job.deliverable_type)
     for c in job.chapters.all():
-        c.content = corps
+        bp = get_blueprint(dt, c.chapter_number)
+        c.content = (
+            corps_sources
+            if bp is not None and bp.section_kind == SectionKind.SOURCES
+            else corps
+        )
         c.status = ChapterStatus.DONE
         c.save(update_fields=["content", "status"])
     job.status = JobStatus.DONE

@@ -39,6 +39,7 @@ services:
     volumes:
       - media:/app/media
       - staticfiles:/app/staticfiles
+      - factstore:/app/fact_store
     restart: unless-stopped
 
   worker:
@@ -52,6 +53,7 @@ services:
       - redis
     volumes:
       - media:/app/media
+      - factstore:/app/fact_store
     restart: unless-stopped
 
   beat:
@@ -109,3 +111,4 @@ volumes:
   redisdata:
   media:
   staticfiles:
+  factstore:

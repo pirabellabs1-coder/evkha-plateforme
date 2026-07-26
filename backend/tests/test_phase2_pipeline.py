@@ -49,8 +49,8 @@ def test_run_generation_job_completes_all_chapters(market_submission: IntakeSubm
     assert job.status == JobStatus.DONE
     assert job.started_at is not None
     assert job.completed_at is not None
-    assert job.chapters.count() == 23
-    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 23
+    assert job.chapters.count() == 22
+    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 22
     assert all(c.content for c in job.chapters.all())
     assert all(c.operational_summary for c in job.chapters.all())
 
@@ -118,8 +118,9 @@ def test_render_client_document_orders_sections(market_submission: IntakeSubmiss
 
     assert document.title == "Étude de marché"
     assert document.sections[0].number == 0  # fiche projet en ouverture
-    # Annexe puis sources en fin de document.
-    assert document.sections[-1].number == 22
+    # Manuel Evangeline (24/07/2026) : chapitre 21 = Sources et méthodologie
+    # (annexe brief séparée supprimée, réponses intégrées via CHECKs).
+    assert document.sections[-1].number == 21
     markdown = document.to_markdown()
     assert markdown.startswith("# Étude de marché")
 

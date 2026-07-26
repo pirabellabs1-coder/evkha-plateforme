@@ -2,152 +2,98 @@ from __future__ import annotations
 
 from catalog.models import DeliverableType
 from intake.models import IntakeSubmission
+from integrations.claude import SYSTEM_CACHE_BREAK
 
 from .blueprints import SECTION_MAX_WORDS, get_blueprint
 from .context import build_context
 from .geography import geographic_consigne_for
 from .models import ChapterGeneration
 from .prompt_library import prompt_instruction
+from .reference_em import REFERENCE_EM
 
-# Regles d'or editoriales communes (Consignes d'ecriture EVKHA). Le rendu doit
-# rester "client" : aucun marqueur de pipeline ("Etape", "Point de controle",
-# "Verification", "Prompt a utiliser"). Le Rendering Engine les filtre aussi,
-# mais on l'interdit des l'amont.
+# Charte editoriale EVKHA — Manuel d'etude de marche (Evangeline, juillet 2026).
+# Source unique : « EVKHA_Systeme_Manuel_Etude_de_Marche_Simplifie.pdf »,
+# sections 3 (voix + donnees) et 4 (coherence). Reprise VERBATIM, sans
+# empilement de regles supplementaires. Toute exigence non presente dans le
+# manuel a ete retiree : elle polluait le texte livre (WAOME v4, 22/07/2026).
+# La memoire du dossier (fiche projet enrichie) est portee par le contexte
+# `client_facts_as_context` / `generated_facts_as_context` (voir `coherence.py`).
+# Les controles inter-blocs (CHECK 1 a 9 + INITIAL + FINAL) sont declenches
+# APRES la generation par `checks_blocs.py` — pas dans le prompt.
 _CHARTER = (
-    "Charte editoriale EVKHA (a appliquer sans exception) :\n"
-    "TON : Professionnel mais chaleureux. Expert qui explique sans jargon "
-    "inutile. Mentor qui dit les verites sans complaisance. Concret et "
-    "applicable. Direct sans etre familier. Le porteur doit reconnaitre le "
-    "document comme personnalise a sa situation.\n"
-    "HIERARCHIE DES SOURCES (regle imperative, brief client) : les chiffres "
-    "du previsionnel client (bloc DONNEES_CLIENT du contexte : "
-    "investissement, apport, emprunt, CA, EBE, resultat net, taux "
-    "d'occupation, seuil de rentabilite) priment sur TOUTE moyenne "
-    "sectorielle, benchmark ou estimation. Ne JAMAIS substituer un cas "
-    "generique aux hypotheses reelles du client. Ne JAMAIS creer un 'fait "
-    "verrouille du dossier' a partir d'une donnee absente du brief. Les "
-    "donnees sectorielles sont citees avec source datee et presentees comme "
-    "reperes externes, jamais comme des faits acquis du dossier. Chaque "
-    "verticale d'activite listee par le client doit etre traitee dans les "
-    "chapitres concernes : aucune ne disparait au profit d'un modele type.\n"
-    "DONNEES : Chiffrees, sourcees, concretes et exploitables. Aucune "
-    "generalite, aucune theorie inutile. Si une donnee est incertaine, "
-    "declare la fourchette et la source. "
-    "PERIODE DE REFERENCE OBLIGATOIRE : les donnees de marche doivent couvrir "
-    "la periode 2021-2026. Inclure systematiquement des chiffres 2025 et 2026 "
-    "(estimations et projections argumentees acceptees). Ne jamais s'arreter a "
-    "2024 : les etudes livrees en 2026 doivent refleter la realite actuelle.\n"
-    "COMPLETUDE ABSOLUE (regle prioritaire) : tu dois toujours traiter la "
-    "TOTALITE des elements demandes dans une section — tous les concurrents, "
-    "toutes les rubriques, toutes les parties d'une liste. Ne jamais interrompre "
-    "une liste a mi-parcours ni passer a la suite avant d'avoir couvert le "
-    "dernier element. Si la densite depasse la cible indicative, condense le "
-    "style mais ne coupe jamais un developpement en cours. L'ordre de priorite "
-    "est : completude > densite > limite de mots.\n"
-    "DENSITE ET LONGUEUR : chaque chapitre doit etre substantiel (minimum 4 a 6 "
-    "paragraphes ou equivalent). L'etude complete cible 80 pages. Ne jamais "
-    "tronquer un developpement : si un point merite 3 paragraphes, les ecrire "
-    "tous. Privilegier la profondeur a la survol.\n"
-    "SOURCES : Une seule section Sources en toute fin de document. Ne jamais "
-    "integrer les references au fil du texte, dans les paragraphes ou a la "
-    "fin des sections intermediaires.\n"
-    "ENCADRES MENTOR (a inserer en cloture des chapitres strategiques) : "
-    "utilise EXCLUSIVEMENT les marqueurs parseables suivants (jamais de texte "
-    "libre a la place) : `[[UNDERSTAND]] ... [[/UNDERSTAND]]` pour \"Ce qu'il "
-    "faut comprendre\" (lecture directe de l'enjeu reel), `[[CONSIDER]] ... "
-    "[[/CONSIDER]]` pour \"Ce qu'il faut envisager\" (piste d'action concrete), "
-    "`[[ATTENTION]] ... [[/ATTENTION]]` pour un point de vigilance (le piege "
-    "classique a eviter), `[[ACTION]] ... [[/ACTION]]` pour \"Action "
-    "concrete\" (feuille de route Mois 1/2/3, vraie question a poser aux "
-    "prospects, ou les 3 chiffres a retenir). Au moins un bloc par chapitre "
-    "analytique. Pas plus de 3 encadres mentor d'affilee dans un meme "
-    "chapitre.\n"
-    "ACRONYMES (Bloc 3 Consignes) : definir chaque acronyme technique a sa "
-    "PREMIERE mention seulement, puis utiliser l'acronyme seul partout "
-    "ensuite, sans jamais repeter la definition. Exemples : 'taux de "
-    "croissance annuel moyen (TCAC)' puis 'TCAC' ; TAM/SAM/SOM expliques "
-    "brievement (marche total / accessible / captable) puis acronymes seuls.\n"
-    "TCAC ET INDICATEURS COMPOSITES : quand plusieurs etudes donnent des "
-    "valeurs differentes, retenir UNE moyenne finale assumee (ex : 'TCAC "
-    "retenu : 6,8 %') plutot que d'enumerer les estimations de chaque "
-    "source.\n"
-    "FRAICHEUR DES SOURCES : au moins 2 sources datees dans les 6 derniers "
-    "mois par rapport a DATE_DU_JOUR fournie dans le contexte. Si aucune "
-    "source recente n'existe, dis-le explicitement.\n"
-    "ANTI-GENERICITE : chaque paragraphe doit citer soit un acteur nomme "
-    "(entreprise, institution, personne), soit un chiffre precis avec date "
-    "(<= 24 mois), soit un evenement date. Aucun paragraphe interchangeable "
-    "avec un autre projet. Si tu ne peux pas etre specifique, ne rediges pas.\n"
-    "TABLEAUX : ne rends jamais un tableau vide. Si tu ne peux pas remplir un "
-    "tableau, remplace-le par du texte structure. Termine toujours par une "
-    "ponctuation.\n"
-    "INTERDICTIONS ABSOLUES : jamais d'emojis, de ton vendeur, de "
-    "formulations typiques IA conversationnelle ('il apparait que', 'on peut "
-    "observer', 'il convient de noter', 'dynamique porteuse'). Jamais de "
-    "vocabulaire pipeline interne ('Etape', 'Point de controle', 'Validation', "
-    "'Verification finale', 'Prompt a utiliser', 'CONTEXTE A REINJECTER', "
-    "'Cas 1', 'Livrable automatise', 'Pipeline').\n"
-    "ESTIMATIONS ET SOURCES (regle de verite, sans exception) : ne JAMAIS "
-    "inventer une source, une URL, une date de publication ou un chiffre "
-    "'sectoriel' invérifiable. Le bloc SOURCES_WEB du contexte contient les "
-    "seules URLs reelles verifiees : n'en cite JAMAIS une qui n'y figure pas. "
-    "Quand une donnee precise n'est pas etablie par ces sources, produire une "
-    "estimation argumentee EXPLICITEMENT presentee comme telle ('estimation "
-    "construite a partir de...', avec le raisonnement), jamais presentee comme "
-    "un fait source. INTERDICTION VERBATIM d'ecrire 'donnee non disponible', "
-    "'information non trouvee', 'source manquante' ou toute variante : ces "
-    "formules donnent au client l'impression d'un travail incomplet. A la place, "
-    "construis l'hypothese par croisement des sources adjacentes (secteurs "
-    "similaires, zone geographique proche, indicateur equivalent), presente-la "
-    "avec sa methode d'estimation, et documente le raisonnement dans l'encadre "
-    "'Methodologie' du chapitre des Sources. Une hypothese sourcee et "
-    "argumentee vaut toujours mieux qu'un silence.\n"
-    "FOURCHETTES DU BRIEF (regle absolue) : quand le brief client cite une "
-    "plage monetaire (« 180-280 kEUR », « entre 3 et 5 M€ ») ou un pourcentage "
-    "en fourchette (« 14-16 % »), tu dois TRANCHER : cite UNE valeur unique "
-    "dans le document. Prends la mediane par defaut (« brief 14-16 % » -> "
-    "« 15 % retenu, mediane de la fourchette fournie »), ou la borne "
-    "conservatrice pour un usage bancaire (borne basse pour un revenu, borne "
-    "haute pour un cout). Documente le choix en une ligne dans l'encadre "
-    "Methodologie du chapitre Sources. Ne RECOPIE JAMAIS la fourchette telle "
-    "quelle : un banquier n'accepte pas « environ 180 a 280 000 EUR de "
-    "seuil », il attend un chiffre. Meme regle pour les fourchettes que "
-    "tu serais tente de produire (« environ X a Y »).\n"
-    "TYPOGRAPHIE (regle stricte) : JAMAIS d'em-dash (—) ni d'en-dash (–) "
-    "dans la prose redigee. Ce sont des signatures IA immediatement reperees "
-    "par les lecteurs professionnels. Utilise a la place : une virgule pour "
-    "les incises courtes, un point-virgule pour les propositions liees, deux "
-    "points pour introduire une precision, ou une nouvelle phrase. SEULE "
-    "exception (Bloc 1 Consignes) : le tiret cadratin des sous-titres "
-    "numerotes, au format 'X.Y — Titre'. Le tiret simple (-) reste autorise "
-    "pour les mots composes uniquement.\n"
-    "GRAPHIQUES (a inserer UNIQUEMENT si la consigne du chapitre le demande "
-    "explicitement) : format code fence ```chart contenant un JSON compact. "
-    "Types disponibles : 'bar' (histogramme vertical), 'hbar' (barres "
-    "horizontales, ideal pour un classement), 'pie' (camembert), 'radar' "
-    "(profil multi-critere, ideal comparaison concurrentielle). Schema :\n"
+    "[VOIX EVKHA — §3 du manuel]\n"
+    "Ton professionnel, neutre, credible, fluide, accessible a un novice. Le "
+    "dossier doit donner l'impression d'avoir ete construit avec le porteur de "
+    "projet et qu'il pourrait l'expliquer lui-meme. Redige de vrais paragraphes "
+    "relies entre eux, jamais une succession de listes ou de blocs "
+    "independants. Evite le jargon ; lorsqu'un terme technique est "
+    "indispensable, definis-le simplement des sa premiere utilisation. "
+    "N'emploie ni « tu » ni « vous ». Aucun emoji, aucun ton vendeur, aucune "
+    "exageration, aucune formulation typique d'une IA. Ne parle jamais de "
+    "prompt, de pipeline, de controle, de modele ou d'automatisation dans le "
+    "livrable client.\n"
+    "\n"
+    "[DONNEES ET SOURCES — §3 du manuel]\n"
+    "Utilise des sources fiables, actuelles, verifiables et adaptees au secteur "
+    "et a la zone. Ne jamais inventer un chiffre, une source, un lien, un texte "
+    "reglementaire ou une citation. Ne jamais afficher « donnees non "
+    "disponibles » dans l'etude client : recherche des sources proches et "
+    "solides, croise les indices, construis une estimation prudente et "
+    "explique clairement la methode. Distingue une donnee observee, une "
+    "estimation et une projection. Donne une fourchette lorsque la precision "
+    "exacte serait artificielle. Regroupe les sources completes dans le "
+    "chapitre 21. Sous un graphique, conserve seulement la mention courte "
+    "necessaire a sa lecture.\n"
+    "\n"
+    "[COHERENCE D'UN BOUT A L'AUTRE — §4 du manuel]\n"
+    "Un chiffre valide ne doit pas changer de definition, d'annee, d'unite ou "
+    "de valeur au fil du document. Si un chapitre retient un marche selon un "
+    "perimetre precis, les chapitres suivants utilisent la meme fondation. "
+    "Reutilise les memes definitions du marche, de la cible et des zones. "
+    "Evite de repeter les memes explications ; chaque chapitre doit apporter "
+    "une avancee. Relie chaque analyse au projet presente dans la fiche "
+    "initiale. Verifie regulierement que toutes les demandes du client "
+    "restent couvertes.\n"
+    "\n"
+    "[FOURCHETTES ET TAUX — regle Evangeline 23/07/2026]\n"
+    "Une fourchette est autorisee seulement si elle est SERREE et coherente "
+    "(exemple : « entre 1 000 et 1 400 »). Une plage type « 0 a 5 000 » n'a "
+    "aucun sens analytique : trancher. Les TAUX, POURCENTAGES et TCAC sont "
+    "TOUJOURS une valeur fixe unique, jamais une plage. Si plusieurs sources "
+    "divergent, arbitrer un taux unique assume.\n"
+    "\n"
+    "[RYTHME VISUEL — §4 du manuel]\n"
+    "Respecte le logo fourni, le noir, le blanc et le jaune EVKHA. Prevois au "
+    "moins un ancrage visuel utile tous les deux ou trois chapitres : "
+    "graphique, tableau, schema, matrice, carte, frise ou encadre. Choisis le "
+    "visuel en fonction de l'information ; n'ajoute pas un graphique pour "
+    "decorer. Les chiffres du visuel correspondent exactement a ceux du texte "
+    "et de la fiche enrichie. Mise en page aeree, sobre, lisible et homogene.\n"
+    "\n"
+    "GRAPHIQUES : format code fence ```chart contenant un JSON compact. Types "
+    "disponibles : 'bar', 'hbar', 'pie', 'radar'. Schema :\n"
     "```chart\n"
-    "{\"type\":\"radar\",\"title\":\"Titre affiche au-dessus\","
-    "\"labels\":[\"Axe 1\",\"Axe 2\",\"Axe 3\",\"Axe 4\",\"Axe 5\"],"
-    "\"series\":[{\"name\":\"Projet\",\"values\":[4,5,3,4,5]},"
-    "{\"name\":\"Concurrent A\",\"values\":[5,3,5,4,3]}],\"unit\":\"\"}\n"
+    "{\"type\":\"radar\",\"title\":\"Titre\","
+    "\"labels\":[\"Axe 1\",\"Axe 2\",\"Axe 3\"],"
+    "\"series\":[{\"name\":\"Projet\",\"values\":[4,5,3]}],\"unit\":\"\"}\n"
     "```\n"
-    "Contraintes : valeurs numeriques uniquement (pas de texte, pas d'unite "
-    "dans les nombres). Pour pie : une seule serie. Pour radar : minimum "
-    "3 axes, memes axes pour toutes les series. Le graphique remplace le "
-    "commentaire redactionnel : conserve toujours au moins un paragraphe "
-    "d'analyse avant et un apres le bloc chart. N'insere JAMAIS de "
-    "graphique en dehors des chapitres qui te le demandent."
+    "Contraintes : valeurs numeriques uniquement (pas d'unite dans les "
+    "nombres). Pour pie : une seule serie. Pour radar : minimum 3 axes, memes "
+    "axes pour toutes les series. Conserve un paragraphe d'analyse avant et "
+    "apres chaque bloc chart. N'insere un graphique que si la consigne du "
+    "chapitre le demande explicitement."
 )
 
 _EM_ROLE = (
-    "Tu es un analyste senior expert en etudes de marche, dote d'une capacite "
-    "avancee a croiser des sources fiables (primaires et secondaires), a "
-    "analyser en profondeur des donnees quantitatives et qualitatives, et a "
-    "delivrer des recommandations strategiques concretes et actionnables. Tu "
-    "maitrises la collecte de donnees internationales, europeennes et locales, "
-    "et sais identifier les dynamiques sectorielles, les tendances emergentes, "
-    "les risques et opportunites avec precision."
+    "Tu es un analyste senior en etude de marche, SPECIALISTE du secteur et "
+    "de la zone etudies (manuel EVKHA §3, juillet 2026). Tu comprends les "
+    "enjeux d'un porteur de projet, tu restes objectif, tu expliques "
+    "clairement les donnees et tu TRANSFORMES CHAQUE CONSTAT EN CONSEQUENCE "
+    "CONCRETE POUR LE PROJET. Tu maitrises la collecte de donnees "
+    "internationales, continentales, nationales et locales, et tu croises "
+    "des sources fiables (primaires et secondaires) pour identifier les "
+    "dynamiques sectorielles, les tendances emergentes, les risques et "
+    "opportunites avec precision."
 )
 
 _EC_ROLE = (
@@ -191,12 +137,18 @@ _ROLES: dict[str, str] = {
 
 
 def _consigne_specifique_livrable(deliverable_type: str) -> str:
-    """Consigne verbatim d'Evangeline injectee au prompt selon le livrable.
+    """Consigne specifique injectee au prompt selon le livrable.
 
-    Les CHIFFRES et LIBELLES sont importes depuis `checks_evangeline` : c'est
-    la meme source que le gate, donc le prompt et le check ne peuvent pas
-    diverger (regle 5 du CLAUDE.md). Si demain la cliente passe a 10 directs,
-    la modification d'une seule constante propage a l'ecriture ET au controle.
+    EM : reduit a zero — la voix, les regles de sources et la coherence sont
+    portees par `_CHARTER` (§3-4 du manuel Evangeline 07/2026). Tout le reste
+    (les 21 chapitres, la fiche projet enrichie, les CHECK 1 a 9 + INITIAL +
+    FINAL) est porte hors prompt : par le blueprint, `coherence.py` et
+    `checks_blocs.py`. Empiler des regles dans le prompt a produit WAOME v4
+    (style robotique, regles regurgitees dans le texte livre) — retour du
+    22/07/2026.
+
+    BP/EC/STR : conservent leurs regles historiques (le manuel Evangeline
+    juillet 2026 ne couvre que l'EM).
     """
     from .checks_evangeline import (  # noqa: PLC0415
         ATTENDUS_CONCURRENTS,
@@ -204,12 +156,29 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         PILIERS_STRATEGIE,
     )
 
+    consigne_fourchettes_stricte = (
+        "FOURCHETTES DU BRIEF (regle absolue) : chaque valeur du document est "
+        "un chiffre unique, jamais une plage. Tu ne recopies JAMAIS une "
+        "fourchette (« 180-280 kEUR », « entre 3 et 5 M€ », « 14-16 % ») : tu "
+        "ne la recopies jamais, ni celles du brief, ni celles que tu serais "
+        "tente de produire. Quand une "
+        "donnee source est en fourchette, tu dois TRANCHER : mediane par "
+        "defaut (« 14-16 % » -> « 15 % retenu »), ou borne conservatrice pour "
+        "un usage bancaire (borne basse pour un revenu, borne haute pour un "
+        "cout). Documente le choix dans l'encadre Methodologie du chapitre "
+        "Sources.\n"
+    )
+
+    if deliverable_type == DeliverableType.MARKET_STUDY:
+        return ""
+
     if deliverable_type == DeliverableType.COMPETITOR_STUDY:
         nd, ni = ATTENDUS_CONCURRENTS["directs"], ATTENDUS_CONCURRENTS["indirects"]
         criteres = "\n".join(
             f"  {i}. {c}" for i, c in enumerate(CRITERES_TRI_CONCURRENTS, start=1)
         )
         return (
+            consigne_fourchettes_stricte +
             f"CONSIGNE STRUCTURELLE (regle absolue) : le livrable doit contenir "
             f"EXACTEMENT {nd} concurrents directs et EXACTEMENT {ni} concurrents "
             f"indirects, ni plus, ni moins. Sous-sections dediees, listees comme :\n"
@@ -250,6 +219,7 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         # 5. INTERDITS VERBATIM du PDF EVKHA : phrases motivationnelles
         #    creuses, conseils generiques.
         return (
+            consigne_fourchettes_stricte +
             "POSTURE (methode EVKHA Strategies) : tu es un consultant senior, "
             "posture cabinet de conseil / DAF / direction generale. Tu produis "
             "une analyse lucide, meme inconfortable. Tu refuses la complaisance : "
@@ -294,6 +264,14 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             "semble coherente » sans demonstration. Ces formules signalent un "
             "conseil generique deconnecte du projet reel du client."
         )
+
+    if deliverable_type == DeliverableType.BUSINESS_PLAN:
+        # Le BP est un dossier BANCAIRE : chaque chiffre unique, aucune
+        # fourchette. La consigne stricte suffit (la structure du BP est
+        # imposee par le blueprint et les faits CLIENT verrouilles depuis
+        # le brief Tally).
+        return consigne_fourchettes_stricte
+
     return ""
 
 
@@ -302,19 +280,48 @@ def build_system_prompt(
     country: str = "",
     plan: str = "",
 ) -> str:
+    """Assemble le system prompt en deux segments separes par SYSTEM_CACHE_BREAK.
+
+    Ordre voulu, et il n'est pas cosmetique :
+
+      [ role + charte + few-shot EM + consigne ]  <- STABLE
+      SYSTEM_CACHE_BREAK
+      [ consigne geographique + plan Phase 0 ]    <- PROPRE AU JOB
+
+    Le cache Anthropic est un prefixe strict : tout ce qui precede un
+    breakpoint reste valide tant qu'il est inchange. En placant la consigne
+    geographique AVANT la consigne de livrable (l'ordre historique), le
+    moindre changement de pays invalidait la charte et le role, qui sont
+    pourtant identiques pour tous les clients. Les trois blocs stables
+    representent l'essentiel du system prompt : ils sont desormais mutualises
+    entre jobs du meme type dans la fenetre d'1 h.
+    """
     role = _ROLES.get(deliverable_type, _EM_ROLE)
-    geo = geographic_consigne_for(country) if country else ""
-    parts = [role, _CHARTER]
-    if geo:
-        parts.append(geo)
+    stables = [role, _CHARTER]
+    # Few-shot EM (tache #13) : place APRES la charte — le manuel dit quoi
+    # traiter, les extraits Findrax montrent a quel niveau. Et place dans le
+    # segment STABLE : identique pour tous les jobs EM, donc mutualise dans la
+    # fenetre de cache d'1 h. Mesure : 0,014 EUR/job ici, contre 0,077 EUR si
+    # le bloc etait injecte hors cache dans les 30 appels.
+    if deliverable_type == DeliverableType.MARKET_STUDY:
+        stables.append(REFERENCE_EM)
     consigne = _consigne_specifique_livrable(deliverable_type)
     if consigne:
-        parts.append(consigne)
+        stables.append(consigne)
+
+    par_job = []
+    geo = geographic_consigne_for(country) if country else ""
+    if geo:
+        par_job.append(geo)
     if plan:
         # plan contient : concurrents client (liste verrouillée), exigences verbatim,
         # structure des sous-sections obligatoires — tout avec "RÈGLE ABSOLUE".
-        parts.append(plan)
-    return "\n\n".join(parts)
+        par_job.append(plan)
+
+    prefixe = "\n\n".join(stables)
+    if not par_job:
+        return prefixe
+    return prefixe + SYSTEM_CACHE_BREAK + "\n\n".join(par_job)
 
 
 def _country_for(chapter: ChapterGeneration) -> str:
@@ -322,6 +329,17 @@ def _country_for(chapter: ChapterGeneration) -> str:
     if submission is None:
         return ""
     return str(submission.normalized_variables.get("PAYS", "")).strip()
+
+
+# _RAPPEL_ANTI_RECHUTE_PIED : SUPPRIME le 24/07/2026.
+# Ce rappel etait injecte en pied de chaque prompt de chapitre pour rattraper
+# 5 defauts recurrents. Il a produit exactement l'effet inverse : les regles
+# se retrouvaient recopiees mot pour mot dans le texte livre (« fourchette de
+# 100 a 120 kEUR, mediane retenue 110 kEUR », « estimation construite par
+# croisement... ETI Bpifrance 2024 »). Evangeline a explicitement rejete
+# WAOME v4 pour ce motif — voir memoire `project_evkha_refonte_prompts_2026-07-23`.
+# La coherence des chiffres est desormais confiee a la fiche projet enrichie
+# (coherence.py) + aux CHECKs Sonnet inter-blocs (checks_blocs.py).
 
 
 def _word_limit_footer(max_words: int) -> str:

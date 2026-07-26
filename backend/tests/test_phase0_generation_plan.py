@@ -101,6 +101,11 @@ def test_market_study_budget_keeps_phase0_margin() -> None:
 
     job = bootstrap_generation_job(submission)
 
-    # Budget releve a 3.20 EUR pour supporter le nouveau plancher
-    # _MIN_MAX_TOKENS=2500 (evite les chapitres etrangles a 1200 tok).
-    assert job.budget_eur == Decimal("3.2000")
+    # Budget releve a 3.20 EUR pour supporter le plancher _MIN_MAX_TOKENS=2500
+    # (evite les chapitres etrangles a 1200 tok), puis a 4.00 EUR : le run reel
+    # 010e3bf2 a coute 3.05 EUR (95 % de l'ancien plafond, plus de marge pour un
+    # retry) et l'extended thinking ajoute ~0.41 EUR sur 30 appels. Puis a
+    # 4.60 EUR : le cout des 11 CHECKs, jusque-la enregistre nulle part, entre
+    # dans le grand livre (~0.46 EUR) avec l'advisor des blocs quantifies
+    # (~0.22 EUR).
+    assert job.budget_eur == Decimal("4.6000")

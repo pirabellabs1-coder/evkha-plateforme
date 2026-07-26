@@ -34,6 +34,8 @@ import re
 from dataclasses import dataclass
 from typing import NamedTuple
 
+from .checks_post_rendu import sans_fioritures_finales
+
 # ── Constantes de détection ───────────────────────────────────────────────────
 
 _CODE_FENCE_RE = re.compile(r"```")
@@ -74,6 +76,20 @@ _SENTENCE_END_RE = re.compile(r"[.!?»’…]\s*$")
 # ponctuation terminale → règle 1 « sentence_cut ».
 _TERMINAL_LETTER_RE = re.compile(r"[a-zA-ZÀ-ÿ]\s*$")
 
+# Mots qui ne peuvent PAS terminer une phrase française, même suivis d'un point.
+# La règle 1 (sentence_cut) répare une phrase coupée en ajoutant un point ; sur
+# une vraie troncature, cette réparation la MASQUE. Constaté en génération réelle
+# (job 4c573e40, 24/07/2026) : le chapitre 21 finissait sur « ... redéployée vers
+# des tâches à. » — ponctuation valide, troncature bien réelle, aucun détecteur
+# déterministe ne la voyait (seul le relecteur Sonnet l'a signalée).
+# Uniquement des prépositions/déterminants : on exclut « plus », « moins »,
+# « bien », « peu », qui terminent légitimement une phrase.
+_HANGING_BEFORE_PERIOD_RE = re.compile(
+    r"\b(?:à|a|de|du|des|la|le|les|un|une|en|au|aux|par|pour|sur|avec|dans"
+    r"|vers|entre|dont|chez|sous|selon|parmi|et|ou|dès|puis)\s*[.]\s*$",
+    re.IGNORECASE,
+)
+
 # Mots qui suggèrent une phrase inachevée quand ils sont en toute fin de contenu
 _HANGING_WORDS_RE = re.compile(
     r"\b(?:notamment|particulier|tels?\s+que|comme|soit|entre|pour|dont"
@@ -110,8 +126,11 @@ _MIN_WORDS_BY_KEY: dict[str, int] = {
     # ── EM ──────────────────────────────────────────────────────────────────
     "em.01.a.mondial":       500,
     "em.01.b.europeen":      500,
-    "em.02.a.national":      500,
-    "em.02.b.local":         500,
+    # Chapitre 2 genere en un seul appel (calcul TAM/SAM/SOM indivisible) :
+    # la QA recoit donc la cle CHAPITRE. Seuil = les deux anciens seuils de
+    # section additionnes, sinon le chapitre fusionne passerait la QA en
+    # ecrivant la moitie du contenu attendu.
+    "em.02.marche_national_local": 1000,
     "em.09.douze_chiffres_cles": 600,   # 12 métriques sourcées
     "em.10.a.profil_besoins":    500,
     "em.10.b.comportements":     500,
@@ -179,8 +198,14 @@ def _last_prose_line(text: str) -> str:
     lines = [ln.strip() for ln in plain.splitlines() if ln.strip()]
     for line in reversed(lines):
         # Ignorer les titres Markdown, les lignes de tableau, les balises nues,
-        # les listes, les délimiteurs de code
-        if re.match(r"^(?:#|[|<`*]|\d+[.)]\s|-\s)", line):
+        # les listes, les délimiteurs de code.
+        # « * » et « - » ne sont des puces que suivis d'une espace : un
+        # paragraphe ouvrant sur du gras (« **Ce que cela signifie pour X.** »
+        # — l'encadré prescrit par le manuel à chaque chapitre) est de la
+        # prose. Le sauter faisait remonter, en génération réelle
+        # (job 4c573e40, 24/07/2026), une cellule de tableau bien plus haut
+        # comme « dernière phrase » et déclenchait un faux sentence_cut.
+        if re.match(r"^(?:#|[|<`]|\d+[.)]\s|[-*]\s)", line):
             continue
         if len(line.split()) < 4:
             continue
@@ -252,7 +277,9 @@ def detect_violations(
     # Quels que soient le quota et les tokens alloués, toute phrase commencée
     # doit se terminer par un point. Réparée de façon déterministe (ajout d'un
     # point) sans appel IA.
-    last_prose = _last_prose_line(stripped)
+    # Le gras/italique de fermeture vient APRES le point : on juge le texte,
+    # pas le délimiteur (« ... la structure.* » n'est pas une troncature).
+    last_prose = sans_fioritures_finales(_last_prose_line(stripped))
     if (
         last_prose
         and not _SENTENCE_END_RE.search(last_prose)
@@ -364,7 +391,12 @@ def detect_violations(
             para_lines.insert(0, line)
         last_para_words = len(" ".join(para_lines).split())
         ends_properly = bool(_SENTENCE_END_RE.search(last_line))
-        hangs_on_preposition = bool(_HANGING_WORDS_RE.search(last_line))
+        # Le point peut avoir ete ajoute par la reparation de la regle 1 :
+        # une preposition suivie d'un point reste une phrase inachevee.
+        hangs_on_preposition = bool(
+            _HANGING_WORDS_RE.search(last_line)
+            or _HANGING_BEFORE_PERIOD_RE.search(last_line)
+        )
 
         if (last_para_words < 15 and not ends_properly) or hangs_on_preposition:
             violations.append(ConditionViolation(

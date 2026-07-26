@@ -288,6 +288,15 @@ def test_build_chapter_prompt_injecte_date_courante() -> None:
     assert "DATE_DU_JOUR" in context
 
 
+import pytest
+
+
+@pytest.mark.skip(reason=(
+    "Regle 'sources datees dans les 6 derniers mois / 24 mois' retiree du "
+    "charter le 24/07/2026. Le manuel Evangeline §3 exige 'sources fiables, "
+    "actuelles, verifiables et adaptees au secteur et a la zone' sans borne "
+    "numerique. Le CHECK 5 (bloc E) valide la fraicheur en langage naturel."
+))
 def test_charter_impose_source_recente() -> None:
     from generation.prompts import build_system_prompt
 
@@ -325,6 +334,11 @@ def test_callout_attention_est_rendu() -> None:
 # --- Fix #7b : la charte instruit d'emettre les marqueurs ------------------
 
 
+@pytest.mark.skip(reason=(
+    "Marqueurs [[UNDERSTAND]] / [[CONSIDER]] / [[ATTENTION]] / [[ACTION]] "
+    "retires du charter le 24/07/2026 avec l'adoption du manuel Evangeline. "
+    "Encadres desormais rediges librement, sans template rigide."
+))
 def test_charter_mentionne_les_marqueurs_parseables() -> None:
     from generation.prompts import build_system_prompt
 
@@ -337,12 +351,19 @@ def test_charter_mentionne_les_marqueurs_parseables() -> None:
 # --- Fix #8b : la charte interdit les paragraphes génériques --------------
 
 
+@pytest.mark.skip(reason=(
+    "Regle ANTI-GENERICITE (« chaque paragraphe doit citer un acteur nomme "
+    "ou un chiffre date ») retiree du charter le 24/07/2026 : ces "
+    "formulations mecaniques polluaient le texte livre. La voix EVKHA §3 "
+    "du manuel Evangeline et les CHECKs Sonnet portent l'exigence de "
+    "specificite en langage naturel."
+))
 def test_charter_interdit_la_genericite() -> None:
     from generation.prompts import build_system_prompt
 
     prompt = build_system_prompt("etude_marche")
     lower = prompt.lower()
-    assert "anti-genericite" in lower or "anti-génericité" in lower or "acteur nomme" in lower
+    assert "acteur nomme" in lower
 
 
 # --- Rendu HTML : les tableaux markdown deviennent de vrais <table> -------
