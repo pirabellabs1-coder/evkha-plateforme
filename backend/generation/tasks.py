@@ -99,6 +99,17 @@ def run_generation_job_task(job_id: str) -> str:
                 )
             return str(job.id)
 
+        # Mémorise les faits de marché validés pour les futurs runs
+        # sur le même secteur/pays (fact store inter-runs).
+        try:
+            from .fact_store import export_facts  # noqa: PLC0415
+            export_facts(job)
+        except Exception:  # noqa: BLE001
+            import logging  # noqa: PLC0415
+            logging.getLogger(__name__).exception(
+                "fact_store: export non bloquant échoué pour le job %s", job.id
+            )
+
         from delivery.tasks import deliver_job_task  # noqa: PLC0415
         deliver_job_task.delay(job_id)
 

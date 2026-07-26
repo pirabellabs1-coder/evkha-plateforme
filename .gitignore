@@ -48,3 +48,6 @@ Thumbs.db
 # Cache local du CLI firecrawl (dossier de scrape des sources externes)
 .firecrawl/
 livrables_test/
+
+# Fact store (mémoire inter-runs) — JSON par secteur/pays, ne pas committer
+fact_store/*.json

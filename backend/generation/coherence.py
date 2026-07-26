@@ -60,8 +60,8 @@ _NIVEAUX_QUALIFIANTS: dict[str, re.Pattern[str]] = {
 # qualificatif de zone.
 _TAILLE_MARCHE_UNIVERSAL = re.compile(
     r"march[ée][^.\n]{0,80}?"
-    r"(?:de|estim[ée]\s+[àa]|atteint|p[èe]se|repr[ée]sente|s['’]\s*[ée]l[eè]ve\s+[àa])"
-    r"\s+(\d+(?:[.,]\d+)?)\s*(milliards?|mds?|millions?|m€|md€|mds?€|mfcfa)",
+    r"(?:de|estim[ée]\s+[àa]|atteint|p[èe]se|repr[ée]sente|s[‘’]\s*[ée]l[eè]ve\s+[àa])"
+    r"\s+[~≈]?\s*(?:environ\s+)?(\d+(?:[.,]\d+)?)\s*(milliards?|mds?|millions?|m€|md€|mds?€|mfcfa)",
     re.IGNORECASE,
 )
 # TCAC en pourcentage, meme logique de contexte souple.

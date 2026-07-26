@@ -26,7 +26,7 @@ ROLE_LINE = (
     "Tout intitule technique ecrit en MAJUSCULES_AVEC_UNDERSCORES dans ce "
     "contexte (VARIABLES_PROJET, DONNEES_CLIENT, REPERES_DEJA_ENONCES, "
     "FICHE_SECTORIELLE, SOURCES_WEB, RESUME_OPERATIONNEL_PRECEDENT, "
-    "CHAPITRE_CIBLE, PROMPT_KEY) est un repere interne : "
+    "FAITS_REFERENCES, CHAPITRE_CIBLE, PROMPT_KEY) est un repere interne : "
     "il ne doit JAMAIS apparaitre dans ta redaction, ni entre "
     "parentheses, ni cite, ni reformule en 'faits verrouilles du dossier'. "
     "Si tu dois designer l'origine d'un chiffre client, ecris 'le "
@@ -145,6 +145,21 @@ def build_context(chapter: ChapterGeneration) -> str:
         "precedents, a reprendre a l'identique, jamais presentes comme "
         "'faits verrouilles'):\n" + generated_facts_as_context(job),
     ]
+
+    # Mémoire inter-runs : repères de marché validés d'une étude précédente
+    # sur le même secteur/pays. Injectés uniquement au chapitre 1 (point
+    # d'ancrage des fondations) — les chapitres suivants héritent via
+    # CHIFFRES_FONDATIONS. Silencieux si aucun fichier ne correspond.
+    if chapter.chapter_number == 1:
+        from .fact_store import load_facts_block  # noqa: PLC0415
+        facts_block = load_facts_block(variables)
+        if facts_block:
+            blocs.append(
+                "FAITS_REFERENCES (repères d'une étude précédente validée, "
+                "même secteur/pays — à utiliser comme point de départ, "
+                "actualiser si nécessaire, ne jamais recopier aveuglément) :\n"
+                + facts_block
+            )
 
     # Manuel Evangeline §5 (juillet 2026) : la fiche projet enrichie fait
     # office de memoire de l'etude EM. Injectee EN PLUS des REPERES_DEJA_ENONCES

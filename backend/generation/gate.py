@@ -538,7 +538,17 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
     locked = _client_fact_keys(job)
     failures: list[GateFailure] = []
 
+    # Les faits financiers (CA, investissement, emprunt...) sont des cibles de
+    # validation seulement pour les types de livrable qui les exigent. Pour une
+    # EM, le CA client est un contexte sectoriel, pas un chiffre a verifier dans
+    # le document : le gate ne doit pas bloquer si le brief en mentionne un.
+    required_financial_keys: frozenset[str] = frozenset(
+        _REQUIRED_CLIENT_FACTS.get(str(job.deliverable_type), ())
+    )
+
     for key, hint in _BRIEF_FINANCIAL_HINTS.items():
+        if required_financial_keys and key not in required_financial_keys:
+            continue
         if key in locked:
             continue
         pattern = re.compile(rf"(?:{hint}){_HINT_GAP}{MONEY_CAPTURED}", re.IGNORECASE)
