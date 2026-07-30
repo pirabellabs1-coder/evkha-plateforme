@@ -5,10 +5,20 @@ produit qu'un exploitant n'a pas choisi : il ne porte pas la charte, il expose
 tous les modèles sans distinction, et il oblige à comprendre la structure de la
 base pour créditer un compte.
 
-Ces vues remplacent cet usage. Elles sont **volontairement étroites** : doter,
-suspendre, réactiver, traiter une demande. Tout le reste — corriger un socle,
-éditer une trame — reste ailleurs tant qu'il n'a pas son propre écran, parce
-qu'une action à moitié portée est pire que pas d'action du tout.
+Ces vues remplacent cet usage. Elles sont **volontairement étroites** : ouvrir
+un abonné, doter, suspendre, réactiver, traiter une demande. Tout le reste —
+corriger un socle, éditer une trame — reste ailleurs tant qu'il n'a pas son
+propre écran, parce qu'une action à moitié portée est pire que pas d'action du
+tout.
+
+## Ouvrir un abonné
+
+`creer_organisation` existait dans `organisations/services.py` et n'était
+appelée **par rien** hors des tests. L'espace administrateur savait souscrire
+une formule, suspendre, réactiver — mais aucun chemin du produit ne créait une
+organisation ni son compte de connexion. Autrement dit : impossible d'accueillir
+un abonné autrement qu'en écrivant du Python dans un terminal. C'est le trou que
+`creer_abonne` comble.
 
 ## Traçabilité
 
@@ -23,15 +33,20 @@ import json
 import logging
 from typing import Any
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from organisations import credits, services
+from customers.models import Customer, CustomerType
+from organisations import authentification, credits, services
 from organisations.models import (
     DemandeCommerciale,
     Formule,
+    MembreOrganisation,
     Organisation,
     StatutDemande,
     TypeMouvement,
@@ -66,6 +81,118 @@ def _auteur(request: HttpRequest, charge: dict[str, Any]) -> str:
 
 def _organisation(identifiant: str) -> Organisation | None:
     return Organisation.objects.filter(id=identifiant).first()
+
+
+# ── Ouvrir un abonné ─────────────────────────────────────────────────────────
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def creer_abonne(request: HttpRequest) -> HttpResponse:
+    """Crée l'organisation, son propriétaire et ses identifiants d'un seul geste.
+
+    Les trois sont indissociables. Une organisation sans compte de connexion est
+    invisible à son propre abonné ; un compte sans organisation ne peut rien
+    afficher, puisque les vues de l'espace client reçoivent l'organisation
+    résolue depuis le jeton.
+
+    Le mot de passe est **validé par les validateurs du projet** plutôt que par
+    une règle écrite ici : deux avis sur ce qu'est un mot de passe acceptable
+    finiraient par se contredire (règle 5).
+
+    Il n'est **jamais renvoyé** dans la réponse. L'administrateur qui ouvre le
+    compte le connaît déjà — il vient de le saisir — et le journaliser en ferait
+    une copie qu'on ne peut plus reprendre.
+    """
+    charge = _corps(request)
+    raison_sociale = str(charge.get("raison_sociale", "")).strip()
+    email = str(charge.get("email", "")).strip().lower()
+    mot_de_passe = str(charge.get("mot_de_passe", ""))
+    code_formule = str(charge.get("formule", "")).strip()
+    auteur = _auteur(request, charge)
+
+    if not raison_sociale:
+        return _refus("Indiquez la raison sociale.", "raison_sociale_manquante", 400)
+    if not email or "@" not in email:
+        return _refus("Indiquez l'adresse e-mail du propriétaire.", "email_invalide", 400)
+    if not mot_de_passe:
+        return _refus("Indiquez un mot de passe.", "mot_de_passe_manquant", 400)
+
+    try:
+        validate_password(mot_de_passe)
+    except ValidationError as exc:
+        return _refus(" ".join(exc.messages), "mot_de_passe_faible", 400)
+
+    formule: Formule | None = None
+    if code_formule:
+        formule = Formule.objects.filter(code=code_formule, active=True).first()
+        if formule is None:
+            return _refus(
+                f"Aucune formule active ne porte le code « {code_formule} ».",
+                "formule_introuvable",
+                404,
+            )
+
+    # Une même personne rattachée à deux organisations rendrait son espace
+    # imprévisible : le décorateur `espace()` retient la PREMIERE adhésion
+    # trouvée. Mieux vaut refuser ici que livrer un espace qui montre parfois
+    # l'une, parfois l'autre.
+    deja = (
+        MembreOrganisation.objects.select_related("organisation")
+        .filter(customer__email__iexact=email, revoque_le__isnull=True)
+        .first()
+    )
+    if deja is not None:
+        return _refus(
+            f"« {email} » appartient déjà à l'organisation "
+            f"« {deja.organisation.raison_sociale} ». Invitez cette personne "
+            "depuis son espace au lieu de créer une seconde organisation.",
+            "deja_membre",
+            409,
+        )
+
+    with transaction.atomic():
+        contact, _ = Customer.objects.get_or_create(
+            email=email,
+            defaults={
+                "first_name": str(charge.get("prenom", "")).strip(),
+                "last_name": str(charge.get("nom", "")).strip(),
+                "company_name": raison_sociale,
+                "customer_type": CustomerType.B2B,
+            },
+        )
+        organisation = services.creer_organisation(
+            raison_sociale=raison_sociale, contact=contact
+        )
+        authentification.creer_compte(contact, mot_de_passe=mot_de_passe)
+        abonnement = None
+        if formule is not None:
+            abonnement = services.souscrire(organisation, formule)
+
+    _log.info(
+        "Abonné ouvert : organisation %s (%s), propriétaire %s, formule %s, par %s",
+        organisation.id,
+        raison_sociale,
+        email,
+        formule.code if formule else "aucune",
+        auteur,
+    )
+
+    return JsonResponse(
+        {
+            "organisation": {
+                "id": str(organisation.id),
+                "raison_sociale": organisation.raison_sociale,
+            },
+            "proprietaire": {"email": email},
+            "formule": formule.code if formule else None,
+            "credits_dotes": (
+                abonnement.formule.credits_par_echeance if abonnement else 0
+            ),
+            "solde": credits.solde(organisation),
+        },
+        status=201,
+    )
 
 
 # ── Crédits ──────────────────────────────────────────────────────────────────

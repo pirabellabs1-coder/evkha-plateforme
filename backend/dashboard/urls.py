@@ -35,6 +35,11 @@ urlpatterns = [
     # Actions d'administration : elles remplacent l'usage de /admin/ Django.
     path("supervision/formules/", actions.formules, name="supervision-formules"),
     path(
+        "supervision/abonnes/",
+        actions.creer_abonne,
+        name="supervision-creer-abonne",
+    ),
+    path(
         "supervision/organisations/<str:organisation_id>/doter/",
         actions.doter,
         name="supervision-doter",
