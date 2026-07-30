@@ -1,0 +1,2669 @@
+{
+  "nom": "modele_etude_marche_v1",
+  "type_document": "etude_de_marche",
+  "statut": "MODELE DE REFERENCE — structure obligatoire, contenu variable",
+  "derive_de": "references/document_reference_v2.json",
+  "variables_globales": {
+    "client.nom": "Nom du client final (remplace partout où le modèle disait Joalie)",
+    "client.logo": "Fichier logo fourni sur la fiche client — page de garde et quatrième de couverture",
+    "client.baseline": "Phrase de signature du client, quatrième de couverture",
+    "client.couleur_principale": "Hex — remplace le prune 3A132C partout",
+    "client.couleur_secondaire": "Hex — remplace l’or B98B4E dans les graphiques",
+    "niche.libelle": "Secteur du client",
+    "zone.pays": "Pays de l’étude",
+    "zone.region": "Région",
+    "zone.ville": "Ville",
+    "date.mois_annee": "Mois et année de production",
+    "socle": "Données de référence verrouillées — SEULE origine autorisée des chiffres"
+  },
+  "gabarit": {
+    "en_tete": "{{client.nom}}  /  ÉTUDE DE MARCHÉ {{date.annee}}",
+    "pied_de_page": "{{agence.nom}}  ·  Document confidentiel  ·  {{numero_page}}",
+    "note": "En marque blanche, le pied de page porte le nom de l’abonné, jamais celui de la plateforme."
+  },
+  "page_de_garde": [
+    {
+      "type": "graphique",
+      "types_autorises": [
+        "barres_verticales",
+        "barres_horizontales",
+        "courbe",
+        "camembert",
+        "pyramide",
+        "matrice_positionnement",
+        "jauge"
+      ],
+      "obligatoire": true,
+      "spec": {
+        "titre": "à définir selon la niche",
+        "data_refs": [
+          "ids du socle"
+        ],
+        "largeur_px": 2000,
+        "dpi": 200
+      }
+    },
+    {
+      "type": "paragraphe",
+      "longueur_cible_signes": 27,
+      "gras": true,
+      "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+    },
+    {
+      "type": "paragraphe",
+      "longueur_cible_signes": 46,
+      "gras": true,
+      "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+    },
+    {
+      "type": "encadre",
+      "etiquette": "FINALITÉ",
+      "longueur_cible_signes": 146,
+      "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+    },
+    {
+      "type": "paragraphe",
+      "longueur_cible_signes": 28,
+      "gras": true,
+      "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+    },
+    {
+      "type": "paragraphe",
+      "longueur_cible_signes": 49,
+      "gras": false,
+      "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+    }
+  ],
+  "synthese_executive": {
+    "titre": "Synthèse exécutive",
+    "blocs": [
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 445,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "tableau",
+        "entetes": [
+          "Question",
+          "Réponse en une phrase"
+        ],
+        "nb_lignes_cible": 5,
+        "nb_colonnes": 2,
+        "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+      },
+      {
+        "type": "encadre",
+        "etiquette": "VERDICT",
+        "longueur_cible_signes": 263,
+        "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 31,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 123,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 135,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 135,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 155,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 135,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 163,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      }
+    ]
+  },
+  "sommaire": {
+    "type": "tableau",
+    "entetes": [
+      "Chap.",
+      "Intitulé",
+      "Chap.",
+      "Intitulé"
+    ],
+    "consigne": "Généré automatiquement depuis la liste des chapitres, sur deux colonnes appariées. Jamais rédigé par le modèle de langage."
+  },
+  "mode_emploi": {
+    "titre": "Mode d’emploi de l’étude",
+    "blocs": [
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 297,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "tableau",
+        "entetes": [
+          "Statut d’une donnée",
+          "Signification",
+          "Usage"
+        ],
+        "nb_lignes_cible": 5,
+        "nb_colonnes": 3,
+        "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 41,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 64,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 83,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 86,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "paragraphe",
+        "longueur_cible_signes": 89,
+        "gras": false,
+        "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+      },
+      {
+        "type": "encadre",
+        "etiquette": "PRINCIPE DE LECTURE",
+        "longueur_cible_signes": 144,
+        "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+      }
+    ]
+  },
+  "regles_generation": {
+    "chiffres": "Toute valeur chiffrée provient du socle et porte un data_ref. Aucune exception.",
+    "structure": "La séquence de blocs de chaque chapitre est obligatoire. Tolérance : ±1 tableau et ±1 paragraphe par chapitre. Aucun bloc d’un type absent du chapitre ne peut être ajouté.",
+    "graphiques": "Nombre minimal par chapitre défini par graphiques_min. Un graphique de plus est permis si le socle le justifie ; jamais un de moins. Palette : couleur principale, couleur secondaire, crème F1EEDB, rose D8C7CF. Fond FDFBF6, sans grille verticale, 2000 px, 200 dpi.",
+    "casse": "Titres de chapitre en casse normale dans les données ; la mise en capitales est du ressort du rendu.",
+    "typographie": "Apostrophes typographiques (’), espaces insécables avant : ; ! ? et dans les nombres.",
+    "longueurs": "longueur_cible_signes = ±20 %. Le volume total du chapitre doit rester dans ±15 % de la référence."
+  },
+  "chapitres": [
+    {
+      "numero": "CHAPITRE 01",
+      "titre_reference": "Marché mondial et continent pertinent",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 101,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 2582,
+        "paragraphes": 10,
+        "tableaux": 0,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "1.1",
+          "intitule_reference": "Deux périmètres à ne pas confondre",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 386,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 396,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
+          "type": "ligne_source",
+          "consigne": "Citer la ou les sources réelles des chiffres du bloc précédent, format identique."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "1.2",
+          "intitule_reference": "Europe : une base culturelle et productive cohérente",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 454,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 372,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "1.3",
+          "intitule_reference": "La seconde main devient une composante normale du luxe",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 382,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 315,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 334,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 02",
+      "titre_reference": "Marché national, local et marché accessible",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 101,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 2,
+      "statistiques_reference": {
+        "signes": 2694,
+        "paragraphes": 11,
+        "tableaux": 1,
+        "graphiques": 2,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "2.1",
+          "intitule_reference": "France : une filière puissante, un marché domestique plus stable",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 516,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
+          "type": "ligne_source",
+          "consigne": "Citer la ou les sources réelles des chiffres du bloc précédent, format identique."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 324,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
+          "type": "ligne_source",
+          "consigne": "Citer la ou les sources réelles des chiffres du bloc précédent, format identique."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "2.2",
+          "intitule_reference": "Paris comme marché local élargi",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 357,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 459,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "2.3",
+          "intitule_reference": "Estimation du marché accessible",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 337,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Niveau",
+            "Ordre de grandeur",
+            "Méthode et interprétation"
+          ],
+          "nb_lignes_cible": 3,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 335,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 310,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 03",
+      "titre_reference": "Segmentation approfondie",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 114,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 792,
+        "paragraphes": 5,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 2,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "3.1",
+          "intitule_reference": "Segments par proposition de valeur",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "nb_lignes_cible": 3,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "3.2",
+          "intitule_reference": "Segments de clientèle prioritaires",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 361,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment comportemental",
+            "Déclencheur",
+            "Frein",
+            "Offre d’entrée"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "3.3",
+          "intitule_reference": "Segments BtoB sélectifs",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 328,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "CRITÈRE DE SÉLECTION BTOB",
+          "longueur_cible_signes": 191,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 334,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 04",
+      "titre_reference": "Avantages et contraintes structurelles du secteur",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 94,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 1303,
+        "paragraphes": 7,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "4.1",
+          "intitule_reference": "Avantages structurels",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Avantage",
+            "Effet pour Joalie"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "4.2",
+          "intitule_reference": "Contraintes structurelles",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 362,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 419,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "4.3",
+          "intitule_reference": "Économie de l’attention et rôle du conseil",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 384,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 318,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "4.4",
+          "intitule_reference": "Arbitrages structurels recommandés",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Décision",
+            "Règle de gestion"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 05",
+      "titre_reference": "Défis et opportunités 2026–2030",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 110,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 1050,
+        "paragraphes": 5,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "5.1",
+          "intitule_reference": "Opportunités",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Tendance 2026–2030",
+            "Pourquoi elle compte",
+            "Réponse Joalie"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "5.2",
+          "intitule_reference": "Défis",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 371,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 312,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 342,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 288,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 06",
+      "titre_reference": "Réglementation, normes et conformité",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 120,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 3793,
+        "paragraphes": 14,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 2,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "6.1",
+          "intitule_reference": "Métaux précieux et poinçons",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 456,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "6.2",
+          "intitule_reference": "Sécurité générale et substances",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 458,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "6.3",
+          "intitule_reference": "Vente à distance, personnalisation et garanties",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 380,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "6.4",
+          "intitule_reference": "Vintage, provenance et fiscalité",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 401,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "6.5",
+          "intitule_reference": "Lutte contre le blanchiment et paiements en espèces",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 830,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "6.6",
+          "intitule_reference": "Médiation de la consommation",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 412,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "6.7",
+          "intitule_reference": "Contraintes à l’export",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 590,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Bloc de contrôle",
+            "Preuve à conserver",
+            "Fréquence"
+          ],
+          "nb_lignes_cible": 7,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "POINT DE VIGILANCE",
+          "longueur_cible_signes": 208,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 270,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 07",
+      "titre_reference": "Tendances à court terme 2026–2027",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 59,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 1177,
+        "paragraphes": 15,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 2,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 29,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 208,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 14,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 112,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 26,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 147,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 24,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 106,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 30,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 111,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 37,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 158,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 22,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 128,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "TEST 90 JOURS",
+          "longueur_cible_signes": 191,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 254,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 25,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Test",
+            "Audience",
+            "Hypothèse",
+            "Seuil de poursuite"
+          ],
+          "nb_lignes_cible": 3,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 08",
+      "titre_reference": "Perspectives et scénarios à horizon 2030",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 83,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 996,
+        "paragraphes": 9,
+        "tableaux": 2,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 399,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 145,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Scénario",
+            "Hypothèses",
+            "Résultat attendu",
+            "Signal de bascule"
+          ],
+          "nb_lignes_cible": 3,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 31,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 71,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 72,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 88,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 78,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 80,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 272,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 32,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Signal",
+            "Accélérer si…",
+            "Ralentir si…"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 09",
+      "titre_reference": "Les 12 chiffres clés",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 35,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 0,
+        "paragraphes": 0,
+        "tableaux": 0,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 4
+      },
+      "blocs": [
+        {
+          "type": "grille_kpi",
+          "cellules": 3,
+          "structure_cellule": [
+            "valeur",
+            "libelle",
+            "source"
+          ],
+          "consigne": "Trois indicateurs clés du chapitre, valeurs issues du socle (data_refs)."
+        },
+        {
+          "type": "grille_kpi",
+          "cellules": 3,
+          "structure_cellule": [
+            "valeur",
+            "libelle",
+            "source"
+          ],
+          "consigne": "Trois indicateurs clés du chapitre, valeurs issues du socle (data_refs)."
+        },
+        {
+          "type": "grille_kpi",
+          "cellules": 3,
+          "structure_cellule": [
+            "valeur",
+            "libelle",
+            "source"
+          ],
+          "consigne": "Trois indicateurs clés du chapitre, valeurs issues du socle (data_refs)."
+        },
+        {
+          "type": "grille_kpi",
+          "cellules": 3,
+          "structure_cellule": [
+            "valeur",
+            "libelle",
+            "source"
+          ],
+          "consigne": "Trois indicateurs clés du chapitre, valeurs issues du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE GLOBALE",
+          "longueur_cible_signes": 211,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 10",
+      "titre_reference": "Clientèle cible et comportements d’achat",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 120,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 1773,
+        "paragraphes": 9,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "10.1",
+          "intitule_reference": "Cœur de cible",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 356,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 259,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "10.2",
+          "intitule_reference": "Parcours d’achat",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Étape",
+            "Question du client",
+            "Réponse attendue de Joalie",
+            "Indicateur"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "10.3",
+          "intitule_reference": "Fiançailles et sur-mesure",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 403,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 274,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "10.4",
+          "intitule_reference": "Rôle des hommes",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 392,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 271,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 11",
+      "titre_reference": "Deux personas fondés sur les données",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 68,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 429,
+        "paragraphes": 3,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 333,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 45,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Dimension",
+            "Profil"
+          ],
+          "nb_lignes_cible": 8,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 51,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Dimension",
+            "Profil"
+          ],
+          "nb_lignes_cible": 8,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "USAGE",
+          "longueur_cible_signes": 153,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 12",
+      "titre_reference": "Risques et plan de maîtrise",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 98,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 497,
+        "paragraphes": 8,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d’alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "nb_lignes_cible": 10,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 27,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 66,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 68,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 92,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 95,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 68,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 58,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 263,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 23,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Situation",
+            "Décision"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 13",
+      "titre_reference": "Cartographie des risques externes",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 96,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 710,
+        "paragraphes": 5,
+        "tableaux": 1,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 91,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 21,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 305,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 275,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 18,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Domaine",
+            "Source",
+            "Rythme",
+            "Décision associée"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 223,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 14",
+      "titre_reference": "Potentiel de viabilité",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 84,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 1136,
+        "paragraphes": 10,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "14.1",
+          "intitule_reference": "Évaluation qualitative",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "14.2",
+          "intitule_reference": "Modèle de viabilité proposé",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 297,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Scénario annuel",
+            "Transactions",
+            "Panier moyen",
+            "Volume d’affaires",
+            "Interprétation"
+          ],
+          "nb_lignes_cible": 3,
+          "nb_colonnes": 5,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 299,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "14.3",
+          "intitule_reference": "Seuils de validation",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 93,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 80,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 89,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 85,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 109,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "VERDICT DE VIABILITÉ",
+          "longueur_cible_signes": 189,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 15",
+      "titre_reference": "Tableau de bord visuel du marché",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 68,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 2,
+      "statistiques_reference": {
+        "signes": 548,
+        "paragraphes": 5,
+        "tableaux": 1,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 86,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 20,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 152,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Axe",
+            "Indicateur",
+            "Cible initiale",
+            "Pourquoi"
+          ],
+          "nb_lignes_cible": 8,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 17,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 273,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 250,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 16",
+      "titre_reference": "Analyse de l’offre et de la demande",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 120,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 1462,
+        "paragraphes": 7,
+        "tableaux": 1,
+        "graphiques": 1,
+        "encadres": 2,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "16.1",
+          "intitule_reference": "Cartographie de l’offre",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Famille d’acteurs",
+            "Force",
+            "Limite face à Joalie",
+            "Exemples indicatifs"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "16.2",
+          "intitule_reference": "Intensité de la demande",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 306,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 318,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 125,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "16.3",
+          "intitule_reference": "Espace stratégique",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "POSITION À DÉFENDRE",
+          "longueur_cible_signes": 195,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 634,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 304,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 17",
+      "titre_reference": "Analyse géographique avancée",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 81,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 1,
+      "statistiques_reference": {
+        "signes": 1829,
+        "paragraphes": 9,
+        "tableaux": 1,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 114,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "17.1",
+          "intitule_reference": "Ordre de priorité",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Vague",
+            "Marchés",
+            "Mode d’entrée",
+            "Objectif de preuve"
+          ],
+          "nb_lignes_cible": 3,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 223,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "17.2",
+          "intitule_reference": "Paris et marchés proches",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 466,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "17.3",
+          "intitule_reference": "États-Unis",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 505,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "17.4",
+          "intitule_reference": "Moyen-Orient",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 438,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 286,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 18",
+      "titre_reference": "SWOT de synthèse",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 58,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 24,
+        "paragraphes": 1,
+        "tableaux": 3,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "tableau",
+          "entetes": [
+            "Forces",
+            "Faiblesses"
+          ],
+          "nb_lignes_cible": 1,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Opportunités",
+            "Menaces"
+          ],
+          "nb_lignes_cible": 1,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 24,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Croisement",
+            "Orientation"
+          ],
+          "nb_lignes_cible": 4,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DIAGNOSTIC",
+          "longueur_cible_signes": 220,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 19",
+      "titre_reference": "Analyse stratégique et recommandations",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 78,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 2644,
+        "paragraphes": 21,
+        "tableaux": 13,
+        "graphiques": 0,
+        "encadres": 9,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "19.1",
+          "intitule_reference": "Positionnement recommandé",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "PROMESSE FRANÇAISE",
+          "longueur_cible_signes": 181,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "PROMESSE INTERNATIONALE",
+          "longueur_cible_signes": 145,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 202,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.2",
+          "intitule_reference": "Architecture de l’offre",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Porte d’entrée",
+            "Promesse",
+            "Produit commercial",
+            "Preuve"
+          ],
+          "nb_lignes_cible": 3,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.3",
+          "intitule_reference": "Plan d’action priorisé",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "nb_lignes_cible": 8,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.4",
+          "intitule_reference": "Contenu et visibilité",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 353,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Pilier",
+            "Formats",
+            "Appel à l’action"
+          ],
+          "nb_lignes_cible": 4,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.5",
+          "intitule_reference": "Partenariats prioritaires",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 367,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "PRINCIPE DIRECTEUR",
+          "longueur_cible_signes": 230,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.6",
+          "intitule_reference": "Tableau des opportunités commerciales",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 206,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Cible",
+            "Pays",
+            "Offre Joalie",
+            "Canal",
+            "Partenaire",
+            "Priorité",
+            "Coût",
+            "Délai",
+            "Indicateur de réussite"
+          ],
+          "nb_lignes_cible": 7,
+          "nb_colonnes": 9,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.7",
+          "intitule_reference": "Budget et arbitrage",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 315,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Enveloppe",
+            "Inclure",
+            "Règle d’arbitrage"
+          ],
+          "nb_lignes_cible": 4,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DONNÉE À OBTENIR",
+          "longueur_cible_signes": 145,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.8",
+          "intitule_reference": "Fiche d’activation — Paris international",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 168,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Composante",
+            "Dispositif recommandé"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "SEUIL DE VALIDATION",
+          "longueur_cible_signes": 153,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.9",
+          "intitule_reference": "Fiche d’offre — Fiançailles autrement",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 215,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Étape",
+            "Contenu",
+            "Cadre de maîtrise"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "MESSAGE",
+          "longueur_cible_signes": 149,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.10",
+          "intitule_reference": "Fiche d’offre — Vintage privé",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 191,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Avant le rendez-vous",
+            "Pendant",
+            "Après"
+          ],
+          "nb_lignes_cible": 1,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Preuve minimale",
+            "Contenu"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DIFFÉRENCIATION",
+          "longueur_cible_signes": 131,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.11",
+          "intitule_reference": "Fiche d’activation — Marché international test",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 199,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Phase",
+            "Action",
+            "Condition de passage"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Poste de coût à intégrer",
+            "Exemples"
+          ],
+          "nb_lignes_cible": 4,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "19.12",
+          "intitule_reference": "Feuille de route de gouvernance — 12 mois",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Rythme",
+            "Rituel",
+            "Décisions"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Responsabilité",
+            "Rôle minimum"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "RÈGLE DE CAPACITÉ",
+          "longueur_cible_signes": 173,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "longueur_cible_signes": 321,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 20",
+      "titre_reference": "Conclusion analytique",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 113,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 1649,
+        "paragraphes": 5,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 2,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 372,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 394,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 520,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 331,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 32,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Objectif",
+            "Réponse"
+          ],
+          "nb_lignes_cible": 5,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "FOCUS — Approfondissement demandé : marché international des galeries et du sur-mesure",
+          "longueur_cible_signes": 2908,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DÉCISION FINALE",
+          "longueur_cible_signes": 256,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    },
+    {
+      "numero": "CHAPITRE 21",
+      "titre_reference": "Sources et méthodologie",
+      "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "accroche": {
+        "longueur_cible_signes": 89,
+        "consigne": "Une phrase de positionnement du chapitre pour cette niche."
+      },
+      "graphiques_min": 0,
+      "statistiques_reference": {
+        "signes": 2062,
+        "paragraphes": 16,
+        "tableaux": 8,
+        "graphiques": 0,
+        "encadres": 3,
+        "grilles_kpi": 0
+      },
+      "blocs": [
+        {
+          "type": "titre_sous_section",
+          "numero": "21.1",
+          "intitule_reference": "Méthode EVKHA appliquée",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 389,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 427,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "21.2",
+          "intitule_reference": "Sources principales — marché et luxe",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Organisme",
+            "Publication",
+            "Lien"
+          ],
+          "nb_lignes_cible": 9,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "21.3",
+          "intitule_reference": "Sources France, clientèle et géographies",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Organisme",
+            "Publication",
+            "Lien"
+          ],
+          "nb_lignes_cible": 9,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "21.4",
+          "intitule_reference": "Sources réglementation",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Organisme",
+            "Publication",
+            "Lien"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "21.5",
+          "intitule_reference": "Sources entreprise et écosystème",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Acteur",
+            "Usage dans l’étude",
+            "Lien"
+          ],
+          "nb_lignes_cible": 7,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "21.6",
+          "intitule_reference": "Limites et prochaines données à intégrer",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 405,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DATE DE RÉFÉRENCE",
+          "longueur_cible_signes": 137,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "titre_sous_section",
+          "numero": "21.7",
+          "intitule_reference": "Protocole de mise à jour",
+          "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Échéance",
+            "Données à actualiser",
+            "Effet attendu"
+          ],
+          "nb_lignes_cible": 3,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 129,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 44,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 148,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Semaine",
+            "Livrable",
+            "Responsable",
+            "Critère de terminé"
+          ],
+          "nb_lignes_cible": 10,
+          "nb_colonnes": 4,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "RÉUNION DE CLÔTURE",
+          "longueur_cible_signes": 119,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 47,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 197,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Bloc",
+            "Champs essentiels",
+            "Décision permise"
+          ],
+          "nb_lignes_cible": 7,
+          "nb_colonnes": 3,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 24,
+          "gras": false,
+          "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Statut",
+            "Définition"
+          ],
+          "nb_lignes_cible": 6,
+          "nb_colonnes": 2,
+          "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
+        },
+        {
+          "type": "encadre",
+          "etiquette": "RÈGLE",
+          "longueur_cible_signes": 169,
+          "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        }
+      ],
+      "saut_de_page_final": true
+    }
+  ],
+  "quatrieme_de_couverture": [
+    {
+      "type": "fond",
+      "couleur": "{{client.couleur_principale}}",
+      "pleine_page": true
+    },
+    {
+      "type": "logo",
+      "source": "{{client.logo}}"
+    },
+    {
+      "type": "nom",
+      "texte": "{{client.nom}}"
+    },
+    {
+      "type": "baseline",
+      "texte": "{{client.baseline}}"
+    },
+    {
+      "type": "mention",
+      "texte": "ÉTUDE DE MARCHÉ APPROFONDIE · {{date.annee}}"
+    }
+  ]
+}

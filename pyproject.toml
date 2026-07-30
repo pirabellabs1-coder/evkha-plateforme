@@ -76,7 +76,12 @@ where = ["backend"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["**/migrations/*.py"]
+# `references/` contient les outils d'extraction du modele de reference, livres
+# tels quels par la cliente et rejoues a la main sur un nouveau document. Les
+# reformater ferait diverger la copie du depot de celle qu'elle execute chez
+# elle. Ils ne sont ni importes ni deployes : les exclure garde la reference a
+# 42 erreurs, donc une vraie regression du code applicatif reste visible.
+extend-exclude = ["**/migrations/*.py", "references/*.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "DJ"]
