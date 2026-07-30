@@ -1,0 +1,3827 @@
+{
+  "titre": "Étude de marché",
+  "sous_titre": "Joaillerie de créateurs · Vintage · Sur-mesure",
+  "mention": "Document confidentiel — usage stratégique interne",
+  "marque": {
+    "nom": "Joalie",
+    "couleur_principale": "#3A132C",
+    "couleur_secondaire": "#B98B4E",
+    "couleur_fond": "#F1EEDB"
+  },
+  "mentions_finales": [
+    "Joalie",
+    "Document confidentiel — reproduction interdite"
+  ],
+  "chapitres": [
+    {
+      "numero": 0,
+      "titre": "Fiche projet",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 0,
+          "titre": "Fiche projet",
+          "accroche": "La demande du client, reformulée et cadrée."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "0.1 Deux périmètres à ne pas confondre"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Périmètres emboîtés : la niche est incluse dans le marché large."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "0.2 Une base culturelle et productive cohérente"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Sources en devises courantes, périmètres non strictement comparables."
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "sous_titre",
+          "texte": "0.3 Une composante désormais normale du marché"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "liste",
+          "elements": [
+            "Clarifier la promesse et la rendre reformulable par un tiers.",
+            "Documenter la preuve avant d'élargir la gamme.",
+            "Mesurer la marge par offre, jamais le seul volume."
+          ]
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 1,
+      "titre": "Marché mondial et continent pertinent",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 1,
+          "titre": "Marché mondial et continent pertinent",
+          "accroche": "Un marché large, mais une niche définie par le positionnement."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "1.1 Une base culturelle et productive cohérente"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Sources en devises courantes, périmètres non strictement comparables."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "1.2 Une composante désormais normale du marché"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "1.3 Une filière puissante, un marché domestique stable"
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "aires",
+          "titre": "Saisonnalité de l'activité",
+          "source": "Répartition mensuelle observée sur le segment.",
+          "donnees": {
+            "abscisses": [
+              "Janv.",
+              "Févr.",
+              "Mars",
+              "Avr.",
+              "Mai",
+              "Juin",
+              "Juil.",
+              "Août",
+              "Sept.",
+              "Oct.",
+              "Nov.",
+              "Déc."
+            ],
+            "series": [
+              [
+                "Boutique",
+                [
+                  42,
+                  38,
+                  45,
+                  51,
+                  63,
+                  58,
+                  49,
+                  37,
+                  55,
+                  61,
+                  78,
+                  96
+                ]
+              ],
+              [
+                "En ligne",
+                [
+                  28,
+                  26,
+                  31,
+                  34,
+                  41,
+                  38,
+                  33,
+                  29,
+                  37,
+                  44,
+                  62,
+                  81
+                ]
+              ]
+            ],
+            "unite": "indice base 100"
+          }
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 2,
+      "titre": "Marché national, local et marché accessible",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 2,
+          "titre": "Marché national, local et marché accessible",
+          "accroche": "Du marché théorique au marché réellement atteignable."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "2.1 Une composante désormais normale du marché"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "2.2 Une filière puissante, un marché domestique stable"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Les ordres de grandeur priment ici sur la précision décimale."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "sous_titre",
+          "texte": "2.3 Le marché local élargi"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "barres_empilees",
+          "titre": "Structure du chiffre d'affaires par exercice",
+          "source": "Projection interne, hypothèse médiane.",
+          "donnees": {
+            "etiquettes": [
+              "Année 1",
+              "Année 2",
+              "Année 3"
+            ],
+            "series": [
+              [
+                "Création",
+                [
+                  62,
+                  88,
+                  121
+                ]
+              ],
+              [
+                "Vintage",
+                [
+                  45,
+                  71,
+                  96
+                ]
+              ],
+              [
+                "Sur-mesure",
+                [
+                  28,
+                  59,
+                  104
+                ]
+              ]
+            ],
+            "unite": "k€"
+          }
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 3,
+      "titre": "Segmentation approfondie",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 3,
+          "titre": "Segmentation approfondie",
+          "accroche": "La segmentation croise motivation, occasion et niveau de confiance."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "3.1 Une filière puissante, un marché domestique stable"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Les ordres de grandeur priment ici sur la précision décimale."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "3.2 Le marché local élargi"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "À recalculer dès les premières données comptables réelles."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "3.3 Estimation du marché accessible"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "liste",
+          "elements": [
+            "Clarifier la promesse et la rendre reformulable par un tiers.",
+            "Documenter la preuve avant d'élargir la gamme.",
+            "Mesurer la marge par offre, jamais le seul volume."
+          ]
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "camembert",
+          "titre": "Origine des demandes entrantes",
+          "source": "Estimation sur la base des canaux actifs.",
+          "donnees": {
+            "etiquettes": [
+              "Recommandation",
+              "Recherche en ligne",
+              "Réseaux sociaux",
+              "Passage en boutique"
+            ],
+            "valeurs": [
+              34,
+              28,
+              23,
+              15
+            ]
+          }
+        },
+        {
+          "type": "repartition",
+          "parts": [
+            {
+              "libelle": "Boutique",
+              "valeur": 46.0
+            },
+            {
+              "libelle": "En ligne",
+              "valeur": 31.0
+            },
+            {
+              "libelle": "Partenaires",
+              "valeur": 15.0
+            },
+            {
+              "libelle": "Événements",
+              "valeur": 8.0
+            }
+          ],
+          "source": "Répartition estimée du chiffre d'affaires par canal."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 4,
+      "titre": "Avantages et contraintes structurelles du secteur",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 4,
+          "titre": "Avantages et contraintes structurelles du secteur",
+          "accroche": "Un secteur à forte valeur, fondé sur la réputation et l'expertise."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "4.1 Le marché local élargi"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "À recalculer dès les premières données comptables réelles."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "4.2 Estimation du marché accessible"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        },
+        {
+          "type": "sous_titre",
+          "texte": "4.3 Segments par proposition de valeur"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "entonnoir",
+          "titre": "Du marché total au marché atteignable",
+          "source": "Calcul interne, méthode descendante puis ascendante.",
+          "donnees": {
+            "etapes": [
+              [
+                "Marché total",
+                3760.0
+              ],
+              [
+                "Marché adressable",
+                246.0
+              ],
+              [
+                "Marché atteignable",
+                2.6
+              ]
+            ],
+            "unite": " M€"
+          }
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 5,
+      "titre": "Défis et opportunités 2026-2030",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 5,
+          "titre": "Défis et opportunités 2026-2030",
+          "accroche": "La période favorise les maisons capables de prouver ce qu'elles avancent."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "5.1 Estimation du marché accessible"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "5.2 Segments par proposition de valeur"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Périmètres emboîtés : la niche est incluse dans le marché large."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "5.3 Segments de clientèle prioritaires"
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "barres_groupees",
+          "titre": "Comparaison des acteurs de la zone",
+          "source": "Relevé terrain, notation de 1 à 5.",
+          "donnees": {
+            "etiquettes": [
+              "Prix",
+              "Choix",
+              "Service",
+              "Notoriété",
+              "Preuve"
+            ],
+            "series": [
+              [
+                "Acteurs installés",
+                [
+                  3.1,
+                  4.4,
+                  3.0,
+                  4.6,
+                  2.8
+                ]
+              ],
+              [
+                "Spécialistes",
+                [
+                  3.8,
+                  2.9,
+                  4.3,
+                  2.6,
+                  4.1
+                ]
+              ],
+              [
+                "Projet",
+                [
+                  3.4,
+                  3.2,
+                  4.6,
+                  1.9,
+                  4.4
+                ]
+              ]
+            ]
+          }
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 6,
+      "titre": "Réglementation, normes et conformité",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 6,
+          "titre": "Réglementation, normes et conformité",
+          "accroche": "La conformité est une preuve de sérieux et un levier de conversion."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "6.1 Segments par proposition de valeur"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Périmètres emboîtés : la niche est incluse dans le marché large."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "6.2 Segments de clientèle prioritaires"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Sources en devises courantes, périmètres non strictement comparables."
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "sous_titre",
+          "texte": "6.3 Intensité de la demande"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "liste",
+          "elements": [
+            "Clarifier la promesse et la rendre reformulable par un tiers.",
+            "Documenter la preuve avant d'élargir la gamme.",
+            "Mesurer la marge par offre, jamais le seul volume."
+          ]
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "jauges",
+          "titre": "Notation des critères de viabilité",
+          "source": "Évaluation interne, notation de 1 à 5.",
+          "donnees": {
+            "notes": [
+              [
+                "Attractivité du segment",
+                4.4
+              ],
+              [
+                "Différenciation",
+                4.6
+              ],
+              [
+                "Accès à la clientèle",
+                3.1
+              ],
+              [
+                "Capacité de preuve",
+                3.8
+              ],
+              [
+                "Économie du modèle",
+                3.3
+              ],
+              [
+                "Scalabilité",
+                2.9
+              ]
+            ]
+          }
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 7,
+      "titre": "Tendances à court terme 2026-2027",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 7,
+          "titre": "Tendances à court terme 2026-2027",
+          "accroche": "Sept tendances à convertir rapidement en tests commerciaux."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "7.1 Segments de clientèle prioritaires"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Sources en devises courantes, périmètres non strictement comparables."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "7.2 Intensité de la demande"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "7.3 Espace stratégique"
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "matrice_positionnement",
+          "titre": "Matrice de positionnement",
+          "source": "Évaluation interne, notation de 1 à 5.",
+          "donnees": {
+            "points": [
+              [
+                "Acteurs installés",
+                4.2,
+                2.24
+              ],
+              [
+                "Spécialistes",
+                2.8,
+                3.9
+              ],
+              [
+                "Plateformes",
+                4.39,
+                1.4
+              ],
+              [
+                "Projet",
+                2.2,
+                4.4
+              ]
+            ],
+            "axe_x": "Notoriété",
+            "axe_y": "Différenciation"
+          }
+        },
+        {
+          "type": "quadrants",
+          "cases": [
+            {
+              "intitule": "Forces",
+              "lignes": [
+                "Triple offre rare et cohérente",
+                "Expertise reconnue sur le vintage",
+                "Capacité de sur-mesure interne"
+              ]
+            },
+            {
+              "intitule": "Faiblesses",
+              "lignes": [
+                "Notoriété à construire",
+                "Preuve peu formalisée",
+                "Trésorerie immobilisée en stock"
+              ]
+            },
+            {
+              "intitule": "Opportunités",
+              "lignes": [
+                "Seconde main désormais structurée",
+                "Demande de personnalisation",
+                "Prescription par les partenaires"
+              ]
+            },
+            {
+              "intitule": "Menaces",
+              "lignes": [
+                "Volatilité du coût des intrants",
+                "Plateformes à forte audience",
+                "Allongement du cycle de décision"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 8,
+      "titre": "Perspectives et scénarios à horizon 2030",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 8,
+          "titre": "Perspectives et scénarios à horizon 2030",
+          "accroche": "Trois trajectoires pour piloter l'incertitude."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "8.1 Intensité de la demande"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "8.2 Espace stratégique"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Les ordres de grandeur priment ici sur la précision décimale."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "sous_titre",
+          "texte": "8.3 Ordre de priorité"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "courbes",
+          "titre": "Trajectoire du marché 2021-2030",
+          "source": "Estimations à partir des données publiques.",
+          "donnees": {
+            "abscisses": [
+              "2021",
+              "2022",
+              "2023",
+              "2024",
+              "2025",
+              "2030"
+            ],
+            "series": [
+              [
+                "Mondial",
+                [
+                  342,
+                  361,
+                  376,
+                  390,
+                  405,
+                  602
+                ]
+              ],
+              [
+                "Continental",
+                [
+                  31,
+                  33,
+                  35,
+                  44,
+                  45,
+                  57
+                ]
+              ]
+            ],
+            "unite": "Md€"
+          }
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 9,
+      "titre": "Les 12 chiffres clés",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 9,
+          "titre": "Les 12 chiffres clés",
+          "accroche": "Les repères à retenir pour décider."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "9.1 Espace stratégique"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Les ordres de grandeur priment ici sur la précision décimale."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "9.2 Ordre de priorité"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "À recalculer dès les premières données comptables réelles."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "9.3 Conditions de réussite communes"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "liste",
+          "elements": [
+            "Clarifier la promesse et la rendre reformulable par un tiers.",
+            "Documenter la preuve avant d'élargir la gamme.",
+            "Mesurer la marge par offre, jamais le seul volume."
+          ]
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "barres",
+          "titre": "Répartition par segment",
+          "source": "Analyse interne.",
+          "donnees": {
+            "etiquettes": [
+              "Segment A",
+              "Segment B",
+              "Segment C",
+              "Segment D"
+            ],
+            "valeurs": [
+              40,
+              27,
+              17,
+              14
+            ],
+            "unite": " %"
+          }
+        },
+        {
+          "type": "kpi",
+          "chiffres": [
+            [
+              "381,5 Md$",
+              "Marché mondial du secteur en 2025",
+              "Grand View Research"
+            ],
+            [
+              "32 Md€",
+              "Segment premium mondial en 2025",
+              "Bain"
+            ],
+            [
+              "+4 à +6 %",
+              "Croissance 2025 du segment premium",
+              "Bain"
+            ],
+            [
+              "50 Md€",
+              "Marché mondial de la seconde main",
+              "Bain"
+            ],
+            [
+              "83 %",
+              "Part des catégories concernées",
+              "Bain"
+            ],
+            [
+              "6,16 Md€",
+              "Production nationale en 2025",
+              "Francéclat"
+            ],
+            [
+              "+8 %",
+              "Croissance de la production nationale",
+              "Francéclat"
+            ],
+            [
+              "5,92 Md€",
+              "Ventes nationales en 2025",
+              "Francéclat"
+            ],
+            [
+              "+38 %",
+              "Hausse du coût des intrants",
+              "Francéclat"
+            ],
+            [
+              "75 %",
+              "Préférence pour des offres différenciées",
+              "McKinsey"
+            ],
+            [
+              "36,3 M",
+              "Fréquentation annuelle de la zone",
+              "Observatoire"
+            ],
+            [
+              "251 000",
+              "Occasions d'achat annuelles",
+              "Insee"
+            ]
+          ]
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 10,
+      "titre": "Clientèle cible et comportements d'achat",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 10,
+          "titre": "Clientèle cible et comportements d'achat",
+          "accroche": "L'achat combine découverte, projection et réduction du risque."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "10.1 Ordre de priorité"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "À recalculer dès les premières données comptables réelles."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "10.2 Conditions de réussite communes"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        },
+        {
+          "type": "sous_titre",
+          "texte": "10.3 Deux périmètres à ne pas confondre"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "carte_chaleur",
+          "titre": "Criticité des risques identifiés",
+          "source": "Probabilité × impact, notation de 1 à 5.",
+          "donnees": {
+            "lignes": [
+              "Notoriété",
+              "Message",
+              "Stock",
+              "Marge",
+              "Matières"
+            ],
+            "colonnes": [
+              "Probabilité",
+              "Impact",
+              "Détectabilité",
+              "Criticité"
+            ],
+            "valeurs": [
+              [
+                4,
+                4,
+                3,
+                4.0
+              ],
+              [
+                3,
+                5,
+                2,
+                3.8
+              ],
+              [
+                4,
+                3,
+                4,
+                3.5
+              ],
+              [
+                3,
+                5,
+                3,
+                4.2
+              ],
+              [
+                4,
+                4,
+                2,
+                3.9
+              ]
+            ]
+          }
+        },
+        {
+          "type": "repartition",
+          "parts": [
+            {
+              "libelle": "Création contemporaine",
+              "valeur": 38.0
+            },
+            {
+              "libelle": "Vintage expertisé",
+              "valeur": 34.0
+            },
+            {
+              "libelle": "Sur-mesure",
+              "valeur": 28.0
+            }
+          ],
+          "source": "Poids relatif des trois lignes d'offre."
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 11,
+      "titre": "Deux personas fondés sur les données",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 11,
+          "titre": "Deux personas fondés sur les données",
+          "accroche": "Des outils d'arbitrage pour le contenu, l'offre et les partenariats."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "11.1 Conditions de réussite communes"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "11.2 Deux périmètres à ne pas confondre"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Périmètres emboîtés : la niche est incluse dans le marché large."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "11.3 Une base culturelle et productive cohérente"
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "anneau",
+          "titre": "Répartition du panier moyen",
+          "source": "Structure observée sur le segment premium.",
+          "donnees": {
+            "etiquettes": [
+              "Pièce principale",
+              "Personnalisation",
+              "Service et garantie",
+              "Écrin et logistique"
+            ],
+            "valeurs": [
+              58,
+              22,
+              13,
+              7
+            ],
+            "centre": "1 840 €"
+          }
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 12,
+      "titre": "Risques et plan de maîtrise",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 12,
+          "titre": "Risques et plan de maîtrise",
+          "accroche": "La viabilité dépend de la rapidité de détection des risques."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "12.1 Deux périmètres à ne pas confondre"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Périmètres emboîtés : la niche est incluse dans le marché large."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "12.2 Une base culturelle et productive cohérente"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Sources en devises courantes, périmètres non strictement comparables."
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "sous_titre",
+          "texte": "12.3 Une composante désormais normale du marché"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "liste",
+          "elements": [
+            "Clarifier la promesse et la rendre reformulable par un tiers.",
+            "Documenter la preuve avant d'élargir la gamme.",
+            "Mesurer la marge par offre, jamais le seul volume."
+          ]
+        },
+        {
+          "type": "saut"
+        },
+        {
+          "type": "graphique",
+          "graphique": "barres_horizontales",
+          "titre": "Poids des segments du marché",
+          "source": "Analyse à partir des sources citées.",
+          "donnees": {
+            "etiquettes": [
+              "Création contemporaine",
+              "Vintage expertisé",
+              "Sur-mesure",
+              "Entrée de gamme",
+              "Grande diffusion"
+            ],
+            "valeurs": [
+              38,
+              27,
+              21,
+              14,
+              9
+            ],
+            "unite": " %"
+          }
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 13,
+      "titre": "Cartographie des risques externes",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 13,
+          "titre": "Cartographie des risques externes",
+          "accroche": "Les risques critiques cumulent coût, dépendance et attention."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "13.1 Une base culturelle et productive cohérente"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Sources en devises courantes, périmètres non strictement comparables."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "13.2 Une composante désormais normale du marché"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "13.3 Une filière puissante, un marché domestique stable"
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 14,
+      "titre": "Potentiel de viabilité",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 14,
+          "titre": "Potentiel de viabilité",
+          "accroche": "Un potentiel réel, conditionné par l'économie unitaire."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "14.1 Une composante désormais normale du marché"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "14.2 Une filière puissante, un marché domestique stable"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Les ordres de grandeur priment ici sur la précision décimale."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "sous_titre",
+          "texte": "14.3 Le marché local élargi"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 15,
+      "titre": "Tableau de bord visuel du marché",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 15,
+          "titre": "Tableau de bord visuel du marché",
+          "accroche": "Un diagnostic simple pour aligner l'équipe."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "15.1 Une filière puissante, un marché domestique stable"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Les ordres de grandeur priment ici sur la précision décimale."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "15.2 Le marché local élargi"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "À recalculer dès les premières données comptables réelles."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "15.3 Estimation du marché accessible"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "liste",
+          "elements": [
+            "Clarifier la promesse et la rendre reformulable par un tiers.",
+            "Documenter la preuve avant d'élargir la gamme.",
+            "Mesurer la marge par offre, jamais le seul volume."
+          ]
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 16,
+      "titre": "Analyse de l'offre et de la demande",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 16,
+          "titre": "Analyse de l'offre et de la demande",
+          "accroche": "Un marché fragmenté où la position d'interface est à prendre."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "16.1 Le marché local élargi"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "À recalculer dès les premières données comptables réelles."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "16.2 Estimation du marché accessible"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        },
+        {
+          "type": "sous_titre",
+          "texte": "16.3 Segments par proposition de valeur"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 17,
+      "titre": "Analyse géographique avancée",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 17,
+          "titre": "Analyse géographique avancée",
+          "accroche": "Prioriser l'accessibilité avant la taille théorique du marché."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "17.1 Estimation du marché accessible"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "17.2 Segments par proposition de valeur"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Périmètres emboîtés : la niche est incluse dans le marché large."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "17.3 Segments de clientèle prioritaires"
+        },
+        {
+          "type": "repartition",
+          "parts": [
+            {
+              "libelle": "Matière",
+              "valeur": 42.0
+            },
+            {
+              "libelle": "Main-d'œuvre",
+              "valeur": 27.0
+            },
+            {
+              "libelle": "Structure",
+              "valeur": 19.0
+            },
+            {
+              "libelle": "Marge",
+              "valeur": 12.0
+            }
+          ],
+          "source": "Décomposition du prix de revient d'une pièce type."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 18,
+      "titre": "SWOT de synthèse",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 18,
+          "titre": "SWOT de synthèse",
+          "accroche": "Une singularité à transformer en système commercial."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "18.1 Segments par proposition de valeur"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "Périmètres emboîtés : la niche est incluse dans le marché large."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "18.2 Segments de clientèle prioritaires"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Sources en devises courantes, périmètres non strictement comparables."
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "sous_titre",
+          "texte": "18.3 Intensité de la demande"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "liste",
+          "elements": [
+            "Clarifier la promesse et la rendre reformulable par un tiers.",
+            "Documenter la preuve avant d'élargir la gamme.",
+            "Mesurer la marge par offre, jamais le seul volume."
+          ]
+        },
+        {
+          "type": "quadrants",
+          "cases": [
+            {
+              "intitule": "Gain élevé, effort faible",
+              "lignes": [
+                "Clarifier la promesse",
+                "Formaliser le passeport de pièce"
+              ]
+            },
+            {
+              "intitule": "Gain élevé, effort fort",
+              "lignes": [
+                "Rendre le sur-mesure achetable en ligne",
+                "Ouvrir un second marché"
+              ]
+            },
+            {
+              "intitule": "Gain faible, effort faible",
+              "lignes": [
+                "Harmoniser les fiches produit",
+                "Recueillir les avis clients"
+              ]
+            },
+            {
+              "intitule": "Gain faible, effort fort",
+              "lignes": [
+                "Élargir la gamme d'entrée",
+                "Industrialiser la curation"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 19,
+      "titre": "Analyse stratégique et recommandations",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 19,
+          "titre": "Analyse stratégique et recommandations",
+          "accroche": "Une feuille de route en trois temps : clarifier, convertir, développer."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "19.1 Segments de clientèle prioritaires"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Sources en devises courantes, périmètres non strictement comparables."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "19.2 Intensité de la demande"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "19.3 Espace stratégique"
+        },
+        {
+          "type": "encadre",
+          "libelle": "À retenir",
+          "lignes": [
+            "Le marché ne manque pas de volume ; la difficulté est d'être identifiable.",
+            "La preuve documentée vaut mieux que l'élargissement de la gamme."
+          ],
+          "verdict": false
+        }
+      ]
+    },
+    {
+      "numero": 20,
+      "titre": "Conclusion analytique",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 20,
+          "titre": "Conclusion analytique",
+          "accroche": "Le verdict et ses conditions."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "20.1 Intensité de la demande"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas les sous-segments visés. La méthode retenue est donc triangulée : marché national, poids de la zone, cohérence avec les prix observés, puis capacité commerciale réaliste en phase de lancement. Chaque niveau est présenté comme un ordre de grandeur à valider, jamais comme une mesure."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "source": "Fourchette large : aucune source publique ne détaille ce sous-segment."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "20.2 Espace stratégique"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Les ordres de grandeur priment ici sur la précision décimale."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "sous_titre",
+          "texte": "20.3 Ordre de priorité"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l'esthétique, la qualité, le prix, l'origine, la sécurité de paiement et la possibilité de revente. L'absence de notoriété peut donc ralentir la décision même lorsque l'intérêt est acquis."
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    },
+    {
+      "numero": 21,
+      "titre": "Sources et méthodologie",
+      "blocs": [
+        {
+          "type": "bandeau",
+          "numero": 21,
+          "titre": "Sources et méthodologie",
+          "accroche": "Une étude triangulée, avec distinction des statuts de donnée."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "21.1 Espace stratégique"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d'alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler l'offre",
+              "Promesse courte, trois portes d'entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation supérieure à douze mois",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Rotation, événements privés, arrêt des achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Repricing, minimum de projet, abandon de références"
+            ],
+            [
+              "Volatilité des matières",
+              "Écart entre devis et coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ]
+          ],
+          "source": "Les ordres de grandeur priment ici sur la précision décimale."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "21.2 Ordre de priorité"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0-30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil bilingue, trois portes d'entrée, page rendez-vous",
+              "80 % des testeurs reformulent l'offre"
+            ],
+            [
+              "0-45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0-60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d'orientation, délais, FAQ",
+              "Demandes qualifiées, moins d'allers-retours"
+            ],
+            [
+              "30-90 j",
+              "Tester trois formats de rendez-vous",
+              "Trois consultations cadrées",
+              "Conversion supérieure à 25 %"
+            ],
+            [
+              "6-18 mois",
+              "Tester un marché proche",
+              "Événement sur invitation",
+              "Trois ventes ou pipeline couvrant trois fois les coûts"
+            ]
+          ],
+          "source": "À recalculer dès les premières données comptables réelles."
+        },
+        {
+          "type": "sous_titre",
+          "texte": "21.3 Conditions de réussite communes"
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Marché en croissance, seconde main structurée, personnalisation recherchée"
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour d'un même récit"
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Zone favorable, mais notoriété et prescription encore à construire"
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise et ateliers solides ; formalisation à renforcer"
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, de marge et de temps de service"
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation peu industrialisable ; croissance sélective préférable"
+            ]
+          ],
+          "source": "Estimation à valider par marge, stock et capacité de service."
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche du projet est celui de la niche premium. Les estimations disponibles situent ce segment nettement en dessous du marché large, avec une croissance supérieure. Cette surperformance s'explique par la dimension émotionnelle de l'achat, la durabilité perçue et l'intérêt pour les pièces personnalisables. Elle ne dispense pas de vérifier la capacité commerciale réelle de la structure sur son territoire."
+        },
+        {
+          "type": "liste",
+          "elements": [
+            "Clarifier la promesse et la rendre reformulable par un tiers.",
+            "Documenter la preuve avant d'élargir la gamme.",
+            "Mesurer la marge par offre, jamais le seul volume."
+          ]
+        },
+        {
+          "type": "encadre",
+          "libelle": "Lecture du chapitre",
+          "lignes": [
+            "Opportunité — la dynamique de marché est favorable au positionnement.",
+            "Limite — les chiffres globaux surestiment le marché accessible.",
+            "Décision — piloter sur un périmètre étroit et une clientèle affinitaire."
+          ],
+          "verdict": false
+        },
+        {
+          "type": "encadre",
+          "libelle": "Verdict",
+          "lignes": [
+            "Potentiel favorable sous conditions. La priorité n'est pas de réinventer l'offre mais de rendre la singularité visible et achetable."
+          ],
+          "verdict": true
+        }
+      ]
+    }
+  ]
+}

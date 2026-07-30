@@ -267,6 +267,36 @@ PROFILS: tuple[ProfilSectoriel, ...] = (
         ),
     ),
     ProfilSectoriel(
+        code="automobile_mobilite",
+        libelle="Automobile et mobilité",
+        # Manquait entièrement : « vente de voitures d'occasion » retombait sur
+        # le profil générique, donc sur des visuels qui ne disaient rien du
+        # métier. Repéré en préparant un aperçu pour cette niche précise.
+        #
+        # Distinct de `transport_logistique`, qui traite le déplacement de
+        # marchandises : ici on VEND, on répare ou on loue le véhicule.
+        mots_cles=(
+            "automobile", "voiture", "vehicule", "concession", "concessionnaire",
+            "garage", "carrosserie", "mecanique", "occasion", "mandataire",
+            "moto", "deux roues", "location de voiture", "reparation automobile",
+            "pieces detachees", "controle technique", "borne de recharge",
+        ),
+        # Le parc se raisonne en stock et en rotation, la demande en entonnoir
+        # d'essai puis d'achat, et l'offre se compare modèle par modèle.
+        graphiques_privilegies=(
+            "barres_groupees", "entonnoir", "courbes", "barres_empilees",
+            "matrice_positionnement", "camembert", "carte_chaleur",
+        ),
+        graphiques_a_eviter=("pyramide_ages",),
+        angles=(
+            "structure du parc par motorisation et par âge du véhicule",
+            "effet des zones à faibles émissions sur la demande",
+            "panier moyen et durée de rotation du stock",
+            "part de la reprise et du financement dans la transaction",
+            "densité des points de vente concurrents dans la zone",
+        ),
+    ),
+    ProfilSectoriel(
         code="agroalimentaire",
         libelle="Agriculture et agroalimentaire",
         mots_cles=(

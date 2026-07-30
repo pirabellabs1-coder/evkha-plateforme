@@ -23,6 +23,12 @@ from typing import Any
 
 from .secteurs import graphiques_conseilles, profil_du_secteur
 
+#: Nombre de visuels visé. La référence `joalie_2026.docx` en porte 11, et la
+#: cliente en a demandé davantage une fois la densité de texte réglée —
+#: `test_lot0_rendu.py` le vérifie. Douze tient cette exigence tout en laissant
+#: deux types de côté, ce qui permet aux secteurs de différer.
+VISUELS_CIBLE = 12
+
 CHAPITRES = [
     ("Fiche projet", "La demande du client, reformulée et cadrée."),
     ("Marché mondial et continent pertinent",
@@ -128,7 +134,7 @@ _LISTES = [
 ]
 
 _ENCADRES = [
-    ("Lecture EVKHA", [
+    ("Lecture du chapitre", [
         "Opportunité — la dynamique de marché est favorable au positionnement.",
         "Limite — les chiffres globaux surestiment le marché accessible.",
         "Décision — piloter sur un périmètre étroit et une clientèle affinitaire.",
@@ -277,7 +283,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
     jeux: dict[str, tuple[str, str, dict[str, Any]]] = {
         "courbes": (
             "Trajectoire du marché 2021-2030",
-            "Estimations EVKHA à partir des données publiques.",
+            "Estimations à partir des données publiques.",
             {"abscisses": ["2021", "2022", "2023", "2024", "2025", "2030"],
              "series": [
                  ("Mondial", [318 + ecart, 337 + ecart, 352 + ecart,
@@ -299,7 +305,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "entonnoir": (
             "Du marché total au marché atteignable",
-            "Calcul EVKHA, méthode descendante puis ascendante.",
+            "Calcul interne, méthode descendante puis ascendante.",
             {"etapes": [("Marché total", 4000.0 - ecart * 20),
                         ("Marché adressable", 250.0 - numero),
                         ("Marché atteignable", max(3.0 - numero * 0.1, 0.4))],
@@ -307,7 +313,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "barres_horizontales": (
             "Poids des segments du marché",
-            "Analyse EVKHA à partir des sources citées.",
+            "Analyse à partir des sources citées.",
             {"etiquettes": ["Création contemporaine", "Vintage expertisé",
                             "Sur-mesure", "Entrée de gamme", "Grande diffusion"],
              "valeurs": [38 + numero % 6, 27, 21, 14, 9],
@@ -315,14 +321,14 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "barres": (
             "Répartition par segment",
-            "Analyse EVKHA.",
+            "Analyse interne.",
             {"etiquettes": ["Segment A", "Segment B", "Segment C", "Segment D"],
              "valeurs": [38 + numero % 7, 27, 21 - numero % 5, 14],
              "unite": " %"},
         ),
         "barres_groupees": (
             "Comparaison des acteurs de la zone",
-            "Relevé EVKHA, notation de 1 à 5.",
+            "Relevé terrain, notation de 1 à 5.",
             {"etiquettes": ["Prix", "Choix", "Service", "Notoriété", "Preuve"],
              "series": [("Acteurs installés", [3.1, 4.4, 3.0, 4.6, 2.8]),
                         ("Spécialistes", [3.8, 2.9, 4.3, 2.6, 4.1]),
@@ -330,7 +336,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "barres_empilees": (
             "Structure du chiffre d'affaires par exercice",
-            "Projection EVKHA, hypothèse médiane.",
+            "Projection interne, hypothèse médiane.",
             {"etiquettes": ["Année 1", "Année 2", "Année 3"],
              "series": [("Création", [62, 88, 121]),
                         ("Vintage", [45, 71, 96]),
@@ -339,7 +345,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "camembert": (
             "Origine des demandes entrantes",
-            "Estimation EVKHA sur la base des canaux actifs.",
+            "Estimation sur la base des canaux actifs.",
             {"etiquettes": ["Recommandation", "Recherche en ligne",
                             "Réseaux sociaux", "Passage en boutique"],
              "valeurs": [34, 28, 23, 15]},
@@ -354,7 +360,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "radar": (
             "Diagnostic du positionnement",
-            "Évaluation EVKHA, notation de 1 à 5.",
+            "Évaluation interne, notation de 1 à 5.",
             {"axes_noms": ["Attractivité", "Différenciation", "Accès clientèle",
                            "Capacité de preuve", "Économie", "Scalabilité"],
              "series": [("Projet", [4.4, 4.6, 3.1, 3.8, 3.3, 2.9]),
@@ -362,7 +368,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "jauges": (
             "Notation des critères de viabilité",
-            "Évaluation EVKHA, notation de 1 à 5.",
+            "Évaluation interne, notation de 1 à 5.",
             {"notes": [("Attractivité du segment", 4.4),
                        ("Différenciation", 4.6),
                        ("Accès à la clientèle", 3.1),
@@ -372,7 +378,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "matrice_positionnement": (
             "Matrice de positionnement",
-            "Évaluation EVKHA, notation de 1 à 5.",
+            "Évaluation interne, notation de 1 à 5.",
             {"points": [("Acteurs installés", 4.2, 2.1 + numero * 0.02),
                         ("Spécialistes", 2.8, 3.9),
                         ("Plateformes", 4.6 - numero * 0.03, 1.4),
@@ -396,7 +402,7 @@ def _donnees_graphique(type_graphique: str, numero: int) -> dict[str, Any]:
         ),
         "chronologie": (
             "Feuille de route à trois horizons",
-            "Plan EVKHA, jalons validés avec le client.",
+            "Plan de déploiement, jalons validés avec le client.",
             {"jalons": [("0-30 j", "Clarifier la promesse"),
                         ("0-60 j", "Formaliser la preuve"),
                         ("3-6 mois", "Rendre le sur-mesure achetable"),
@@ -427,11 +433,28 @@ def construire_fixture(
     le visuel n'est pas décoratif, il doit parler du métier.
     """
     profil = profil_du_secteur(secteur)
-    # Un graphique par type pertinent pour le secteur, jamais deux fois le
-    # même : la référence en compte dix, la cliente en a demandé davantage une
-    # fois la densité de texte réglée. Les chapitres porteurs sont répartis sur
-    # tout le document plutôt que groupés en tête.
-    types = graphiques_conseilles(profil)
+    # Un graphique par type, jamais deux fois le même, répartis sur tout le
+    # document plutôt que groupés en tête.
+    #
+    # Deux contraintes qui tirent en sens inverse, et qu'il faut tenir
+    # ensemble :
+    #
+    # - **au moins autant de visuels que la référence** (11), la cliente en
+    #   ayant demandé davantage une fois la densité de texte réglée ;
+    # - **des visuels qui parlent du métier**. Sans borne,
+    #   `graphiques_conseilles` rend TOUS les types pertinents : l'automobile
+    #   et la restauration sortaient les quatorze mêmes figures, dans un ordre
+    #   différent. Un catalogue, pas une adaptation.
+    #
+    # On prend donc les types privilégiés du secteur EN TÊTE, puis on complète
+    # jusqu'à la cible avec le socle commun — le tout amputé de ce que le
+    # secteur proscrit. Deux secteurs partagent forcément une large part des
+    # figures : le catalogue en compte quatorze et le document en réclame
+    # douze. La différence tient à la tête de liste, aux types écartés, et
+    # surtout aux DONNÉES, qui viennent du socle du dossier.
+    types = graphiques_conseilles(
+        profil, nombre=max(len(profil.graphiques_privilegies), VISUELS_CIBLE)
+    )
     candidats = [n for n in range(nombre_chapitres) if n % 22 not in (0, 21)]
     pas = max(len(candidats) // max(len(types), 1), 1)
     porteurs = candidats[:: pas][: len(types)]
@@ -523,9 +546,10 @@ def construire_fixture(
             "couleur_secondaire": "#B98B4E",
             "couleur_fond": "#F1EEDB",
         },
+        # Le document est remis en marque blanche : il porte le nom de
+        # l'abonné, jamais celui de la plateforme.
         "mentions_finales": [
-            "EVKHA · Système d'analyse de marché",
-            "Méthode déposée à l'INPI",
+            "Joalie",
             "Document confidentiel — reproduction interdite",
         ],
         "chapitres": chapitres,
