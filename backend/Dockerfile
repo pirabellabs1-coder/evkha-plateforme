@@ -60,9 +60,20 @@ ENV HOME=/tmp
 COPY pyproject.toml manage.py /app/
 COPY backend /app/backend
 
-# [dev]  : outils de qualité (pytest, mypy, ruff)
-# [pdf]  : WeasyPrint (génération PDF brandé)
-# [ai]   : Anthropic SDK (génération texte Claude)
-RUN pip install --no-cache-dir -e ".[dev,pdf,ai]"
+# [dev]    : outils de qualité (pytest, mypy, ruff)
+# [pdf]    : WeasyPrint (génération PDF brandé)
+# [ai]     : Anthropic SDK (génération texte Claude)
+# [word]   : python-docx et matplotlib — le livrable Word et ses graphiques
+# [search] : ancrage web anti-hallucination (§6)
+#
+# `word` MANQUAIT. La chaîne de rendu Word du lot 3 était donc installée sans
+# python-docx ni matplotlib : le premier document produit sur le serveur a
+# échoué sur « No module named 'matplotlib' », et l'incident était le seul
+# endroit où ça se voyait.
+#
+# Toute liste d'extras déclarée dans `pyproject.toml`, hors `dev`, doit figurer
+# ici — c'est ce que vérifie `backend/tests/test_image_dependances.py`, pour que
+# le prochain extra ajouté ne soit pas oublié à son tour.
+RUN pip install --no-cache-dir -e ".[dev,pdf,ai,word,search]"
 
 EXPOSE 8000

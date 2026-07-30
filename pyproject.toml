@@ -55,6 +55,12 @@ word = [
   # Lot 3 : le livrable client est un Word produit a partir d'un gabarit, puis
   # converti en PDF. python-docx remplit le gabarit ; il ne le recree pas.
   "python-docx>=1.1,<2",
+  # matplotlib dessine les quinze types de graphiques de `rendu_word/graphiques`.
+  # Il n'etait declare NULLE PART : le rendu ne fonctionnait que parce que la
+  # bibliotheque trainait dans l'environnement local. Le premier document
+  # produit sur le serveur a echoue sur « No module named 'matplotlib' ».
+  # Backend Agg impose dans le code : aucun serveur d'affichage sur le VPS.
+  "matplotlib>=3.8,<4",
 ]
 dev = [
   "django-stubs[compatible-mypy]>=5.2,<6",
