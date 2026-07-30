@@ -57,6 +57,25 @@ def _type_graphique(prompt: str, numero: int) -> str:
     return types[numero % len(types)] if types else "barres"
 
 
+def _tableau(numero: int, intitule: str) -> dict[str, object]:
+    """Tableau de démonstration à quatre colonnes, calibré sur la référence.
+
+    Quatre colonnes et cinq lignes : c'est l'ordre de grandeur relevé dans
+    `references/joalie_2026.docx`, où 52 % des mots vivent dans des tableaux.
+    """
+    entetes = ["Élément", "Constat", "Conséquence", "Décision"]
+    lignes = [
+        [
+            f"{intitule} — point {rang}",
+            "Repère issu du socle verrouillé.",
+            "Effet mesurable sur le périmètre accessible.",
+            "Arbitrage à porter au plan d'action.",
+        ]
+        for rang in range(1, 6)
+    ]
+    return {"entetes": entetes, "lignes": lignes, "source": "Jeu de démonstration"}
+
+
 _PHRASE = (
     "Cette section exploite les données verrouillées du socle et les traduit "
     "en lecture opérationnelle pour le porteur de projet, sans introduire "
@@ -110,9 +129,23 @@ def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
                 ],
             }
         ],
+        # Chaque section porte un TABLEAU. Sans lui, le bouchon ne rendait que
+        # de la prose, dont le rendu ne garde qu'une amorce de 55 mots — le
+        # format validé étant « des tableaux reliés par de la prose courte ».
+        # L'aperçu sortait donc à moitié vide, et donnait à croire que le
+        # gabarit espaçait mal, alors qu'il n'avait rien à mettre dans la page.
+        # 52 % des mots du document de référence vivent dans des tableaux.
         "sections": [
-            {"titre": f"{numero}.1 Lecture du marché", "contenu": _PHRASE * 12},
-            {"titre": f"{numero}.2 Conséquences pour le projet", "contenu": _PHRASE * 10},
+            {
+                "titre": f"{numero}.1 Lecture du marché",
+                "contenu": _PHRASE * 12,
+                "tableau": _tableau(numero, "Lecture du marché"),
+            },
+            {
+                "titre": f"{numero}.2 Conséquences pour le projet",
+                "contenu": _PHRASE * 10,
+                "tableau": _tableau(numero, "Conséquences"),
+            },
         ],
         "donnees_utilisees": list(utilisees),
         "graphiques": graphiques,
