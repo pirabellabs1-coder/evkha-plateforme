@@ -60,6 +60,24 @@ ENV HOME=/tmp
 COPY pyproject.toml manage.py /app/
 COPY backend /app/backend
 
+# Ressources situées à la RACINE du dépôt et résolues à l'exécution par des
+# chemins `parents[3]`. Elles ne sont pas du code, mais sans elles le moteur
+# s'arrête net :
+#
+#   prompts/  — les consignes de rédaction, une par chapitre et par livrable
+#               (`chapitres/configuration.py` : RACINE_PROMPTS) ;
+#   gabarits/ — le modèle Word dont le rendu hérite styles, palette et marges
+#               (`rendu_word/gabarit.py` : CHEMIN_GABARITS).
+#
+# Elles manquaient. La première génération par le nouveau moteur a échoué sur
+# « Prompt introuvable : /app/prompts/etude_marche/chapitre_00.md », et le
+# rendu Word aurait buté ensuite sur le gabarit absent. Aucun test ne pouvait
+# le voir : en local, les fichiers sont là.
+#
+# `test_image_dependances.py` vérifie désormais que ces répertoires sont copiés.
+COPY prompts /app/prompts
+COPY gabarits /app/gabarits
+
 # [dev]    : outils de qualité (pytest, mypy, ruff)
 # [pdf]    : WeasyPrint (génération PDF brandé)
 # [ai]     : Anthropic SDK (génération texte Claude)

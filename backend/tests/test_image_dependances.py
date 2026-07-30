@@ -98,6 +98,35 @@ def test_les_dependances_du_rendu_sont_declarees(module: str, extra: str) -> Non
     )
 
 
+#: Répertoires de la racine résolus à l'exécution par des chemins `parents[3]`.
+#: Ce ne sont pas du code, mais sans eux le moteur s'arrête net.
+RESSOURCES_RACINE = ("prompts", "gabarits")
+
+
+@pytest.mark.parametrize("dossier", RESSOURCES_RACINE)
+def test_l_image_embarque_les_ressources_de_la_racine(dossier: str) -> None:
+    """Deuxième forme du même défaut : une ressource présente en local, absente
+    de l'image.
+
+    La première génération par le nouveau moteur a échoué sur « Prompt
+    introuvable : /app/prompts/etude_marche/chapitre_00.md ». Le Dockerfile ne
+    copiait que `backend/`, alors que les consignes de rédaction et le gabarit
+    Word vivent à la racine.
+    """
+    assert (RACINE / dossier).is_dir(), f"{dossier}/ absent du dépôt"
+
+    texte = DOCKERFILE.read_text(encoding="utf-8")
+    copies = [
+        ligne
+        for ligne in texte.splitlines()
+        if ligne.startswith("COPY") and f" {dossier} " in f" {ligne} "
+    ]
+    assert copies, (
+        f"Le Dockerfile ne copie pas `{dossier}/`. Le code le résout pourtant à "
+        "l'exécution : il échouera sur le serveur, et seulement là."
+    )
+
+
 def test_le_detecteur_lit_bien_le_dockerfile() -> None:
     """Un contrôle qui n'a rien à comparer est un échec (règle 1).
 
