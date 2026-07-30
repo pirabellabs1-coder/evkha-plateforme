@@ -54,8 +54,29 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: var(--e-8);
+  /* L'espacement se resserre AVANT qu'il faille faire défiler quoi que ce
+   * soit. Fixé à `--e-8`, le contenu dépassait dès que la hauteur utile
+   * descendait sous ~660 px — ce qui arrive sur un portable, mais surtout dès
+   * qu'on zoome le navigateur, puisque le zoom réduit la hauteur en pixels
+   * CSS. Mesuré à 1200×560 : 665 px de contenu dans une boîte de 560. */
+  gap: clamp(var(--e-3), 4vh, var(--e-8));
+  /* Filet de sécurité. Sans lui le contenu sortait du fond noir : le bloc de
+   * solde et le bouton « Se déconnecter » flottaient 105 px sous la barre, sur
+   * le fond clair de la page. `visible` était l'ancienne valeur, et rien ne le
+   * signalait — la barre ne défilait qu'en mode tiroir mobile. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
   transition: transform var(--transition);
+}
+
+/* Ce qui encadre la navigation garde sa taille : c'est la LISTE qui défile, de
+ * sorte que la marque reste en haut et que le solde et la déconnexion restent
+ * atteignables. Les faire défiler avec le reste les rendrait introuvables au
+ * moment précis où l'écran est trop court. */
+.espace-marque,
+.espace-solde,
+.espace-barre .bouton-discret {
+  flex-shrink: 0;
 }
 
 .espace-marque {
@@ -106,6 +127,14 @@
   margin: 0;
   padding: 0;
   flex: 1;
+  /* `min-height: auto` est la valeur par défaut d'un enfant flex, et elle
+   * interdit de descendre sous la hauteur du contenu. `flex: 1` ne servait donc
+   * à rien quand la place manquait : la liste poussait le solde et la
+   * déconnexion hors de la barre au lieu de céder. C'est la cause du contenu
+   * qui débordait sur le fond clair. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .espace-nav-groupe {
