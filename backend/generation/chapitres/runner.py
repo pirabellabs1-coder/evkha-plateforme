@@ -28,7 +28,9 @@ OUTIL_DESCRIPTION = (
 )
 
 _SYSTEME = (
-    "Tu rédiges un chapitre d'étude professionnelle selon la méthode EVKHA : "
+    # Sans nommer la plateforme : le livrable est remis en marque blanche, et
+    # un modèle amorcé avec ce nom finit par l'écrire dans le texte.
+    "Tu rédiges un chapitre d'étude professionnelle : "
     "ton mentor, données chiffrées et sourcées, concret et exploitable.\n"
     "\n"
     "RÈGLE ABSOLUE — tu n'as pas le droit de produire un chiffre de marché. "

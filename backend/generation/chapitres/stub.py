@@ -11,6 +11,28 @@ import re
 _ID_SOCLE = re.compile(r"^- `([a-z0-9_]+)` = ", re.MULTILINE)
 _NUMERO = re.compile(r"^CHAPITRE À RÉDIGER : (\d+) — (.+)$", re.MULTILINE)
 
+_SECTEUR = re.compile(r"^SOCLE VERROUILLÉ — (.+?),", re.MULTILINE)
+
+
+def _type_graphique(prompt: str, numero: int) -> str:
+    """Type de graphique du chapitre, tiré du secteur lu dans le prompt.
+
+    Le bouchon demandait toujours « barres ». Un aperçu produit en mode bouchon
+    montrait donc la même figure partout, quel que soit le métier — et c'est
+    précisément sur cet aperçu que la cliente juge si les visuels s'adaptent.
+    Une doublure qui ne varie pas là où le vrai modèle varie ne prépare à rien.
+
+    Le secteur n'est pas deviné : il est lu dans le bloc SOCLE du prompt, comme
+    le reste de ce que ce bouchon produit.
+    """
+    from ..rendu_word.secteurs import graphiques_conseilles, profil_du_secteur  # noqa: PLC0415
+
+    trouve = _SECTEUR.search(prompt)
+    profil = profil_du_secteur(trouve.group(1) if trouve else "")
+    types = graphiques_conseilles(profil)
+    return types[numero % len(types)] if types else "barres"
+
+
 _PHRASE = (
     "Cette section exploite les données verrouillées du socle et les traduit "
     "en lecture opérationnelle pour le porteur de projet, sans introduire "
@@ -44,7 +66,7 @@ def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
     if len(utilisees) >= 2:
         graphiques.append(
             {
-                "type": "barres",
+                "type": _type_graphique(prompt, numero),
                 "titre": "Repères de marché",
                 "donnees_ids": list(utilisees),
                 "commentaire": "Graphique de démonstration.",
@@ -57,7 +79,7 @@ def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
         "accroche": "Accroche de démonstration résumant l'enjeu du chapitre.",
         "encadres": [
             {
-                "intitule": "Lecture EVKHA",
+                "intitule": "Lecture du chapitre",
                 "lignes": [
                     "Opportunité — le socle confirme un marché porteur.",
                     "Limite — les chiffres globaux surestiment l'accessible.",

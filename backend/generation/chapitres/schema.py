@@ -106,10 +106,16 @@ class Graphique(BaseModel):
 class Encadre(BaseModel):
     """Encadré de synthèse fermant une analyse.
 
-    C'est l'élément le plus répété du livrable de référence : « LECTURE EVKHA —
-    Opportunité / Limite / Décision », une occurrence par chapitre sur quinze
-    chapitres. Il porte la méthode, pas de la décoration : c'est là que
+    C'est l'élément le plus répété du livrable de référence : une occurrence par
+    chapitre sur quinze chapitres, sur le patron « Opportunité / Limite /
+    Décision ». Il porte la méthode, pas de la décoration : c'est là que
     l'analyse devient une décision.
+
+    L'intitulé était décrit ici comme « LECTURE EVKHA ». Cette docstring part
+    dans le schéma de l'outil, donc dans la consigne du modèle : chaque vrai
+    document aurait reproduit le nom de la plateforme, alors que le livrable est
+    remis en marque blanche. L'intitulé reste libre — « Lecture du chapitre »,
+    « À retenir », « Verdict » —, il ne nomme simplement personne.
     """
 
     model_config = {"extra": "forbid"}

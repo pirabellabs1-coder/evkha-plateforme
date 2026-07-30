@@ -101,6 +101,16 @@ def test_une_mention_vide_ne_laisse_pas_de_ligne_creuse() -> None:
         "backend/generation/rendu_word/assemblage.py",
         "backend/generation/rendu_word/depuis_json.py",
         "backend/generation/rendu_word/composants.py",
+        "backend/generation/rendu_word/fixture.py",
+        # Ces trois-là décrivent au MODÈLE ce qu'il doit écrire. La docstring
+        # d'`Encadre` disait « LECTURE EVKHA » et part dans le schéma de
+        # l'outil : chaque vrai document aurait reproduit le nom de la
+        # plateforme. Le premier document produit par le nouveau moteur en
+        # portait 22 occurrences. Un contrôle qui ne regarde que le rendu ne
+        # voit pas ce que la consigne y fait entrer (règle 9).
+        "backend/generation/chapitres/schema.py",
+        "backend/generation/chapitres/stub.py",
+        "backend/generation/chapitres/runner.py",
     ],
 )
 def test_le_chemin_de_rendu_n_ecrit_aucun_nom_de_plateforme(chemin: str) -> None:
