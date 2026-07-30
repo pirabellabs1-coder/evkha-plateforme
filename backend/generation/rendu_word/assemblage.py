@@ -209,7 +209,16 @@ def blocs_du_chapitre(
         reference=f"Chapitre {payload.chapitre}",
     )
     if graphiques:
-        blocs.append({"type": "saut"})
+        # PAS de saut de page ici. Il y en avait un, systématique, et il
+        # produisait une page ENTIÈREMENT BLANCHE par chapitre : quand le texte
+        # finissait près du bas de page, le saut tombait sur une page déjà
+        # neuve et en créait une vide de plus. Mesuré sur le document rendu :
+        # une page creuse toutes les trois, aux pages 4, 7, 10, 13, 16, 19…
+        #
+        # Il était là pour éviter qu'un graphique soit coupé de son titre.
+        # C'est désormais assuré autrement, et sans coût : le titre, l'image et
+        # la légende sont liés par `keep_with_next` (voir `composants`). Word
+        # les déplace ensemble s'ils ne tiennent pas, au lieu de sauter d'office.
         blocs.extend(graphiques)
 
     blocs.extend(
