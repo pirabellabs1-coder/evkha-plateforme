@@ -24,15 +24,19 @@ services:
       - "8000"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.evkha-api-http.rule=Host(`app.evkha.fr`)"
-      - "traefik.http.routers.evkha-api-http.entrypoints=http"
-      - "traefik.http.routers.evkha-api-http.middlewares=redirect-to-https"
-      - "traefik.http.routers.evkha-api-https.rule=Host(`app.evkha.fr`)"
-      - "traefik.http.routers.evkha-api-https.entrypoints=https"
-      - "traefik.http.routers.evkha-api-https.tls=true"
-      - "traefik.http.routers.evkha-api-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.evkha-api-https.middlewares=gzip"
-      - "traefik.http.services.evkha-api-svc.loadbalancer.server.port=8000"
+      # Domaine ET nom de routeur paramétrables. Ils étaient écrits en dur, ce
+      # qui rendait impossible un second déploiement à côté du premier : la
+      # nouvelle pile réclamait `app.evkha.fr` à Traefik, et la production
+      # tombait. Les noms de routeurs entraient en collision de la même façon.
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-http.rule=Host(`${API_DOMAIN:?API_DOMAIN requis}`)"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-http.entrypoints=http"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.entrypoints=https"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.tls=true"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.middlewares=gzip"
+      - "traefik.http.services.${STACK_NAME:-evkha}-api-svc.loadbalancer.server.port=8000"
     depends_on:
       - postgres
       - redis
@@ -76,16 +80,16 @@ services:
     labels:
       - "traefik.enable=true"
       # HTTP → redirect HTTPS
-      - "traefik.http.routers.evkha-dashboard-http.rule=Host(`dashboard.evkha.fr`)"
-      - "traefik.http.routers.evkha-dashboard-http.entrypoints=http"
-      - "traefik.http.routers.evkha-dashboard-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-http.rule=Host(`${FRONT_DOMAIN:?FRONT_DOMAIN requis}`)"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-http.entrypoints=http"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-http.middlewares=redirect-to-https"
       # HTTPS + Let's Encrypt
-      - "traefik.http.routers.evkha-dashboard-https.rule=Host(`dashboard.evkha.fr`)"
-      - "traefik.http.routers.evkha-dashboard-https.entrypoints=https"
-      - "traefik.http.routers.evkha-dashboard-https.tls=true"
-      - "traefik.http.routers.evkha-dashboard-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.evkha-dashboard-https.middlewares=gzip"
-      - "traefik.http.services.evkha-dashboard-svc.loadbalancer.server.port=80"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.rule=Host(`${FRONT_DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.entrypoints=https"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.tls=true"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.middlewares=gzip"
+      - "traefik.http.services.${STACK_NAME:-evkha}-dashboard-svc.loadbalancer.server.port=80"
     depends_on:
       - api
     restart: unless-stopped
