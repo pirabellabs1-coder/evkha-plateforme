@@ -113,3 +113,19 @@ main.app-main {
 .pipeline-connector--running { background: var(--blue-5); }
 .pipeline-connector--failed  { background: var(--red-5); }
 .pipeline-connector--pending { background: var(--gray-6); }
+
+/* ── Accessibilité ─────────────────────────────────────────────────────────
+ * Texte réservé aux lecteurs d'écran. `display: none` le retirerait de
+ * l'arbre d'accessibilité, ce qui est exactement l'inverse du but.
+ */
+.visuellement-cache {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -51,3 +51,11 @@ livrables_test/
 
 # Fact store (mémoire inter-runs) — JSON par secteur/pays, ne pas committer
 fact_store/*.json
+
+# ---- Artefacts produits a l'execution ----
+# `mediafiles/` etait ignore mais le reglage reel est MEDIA_ROOT = BASE_DIR/"media".
+# Ces fichiers sont produits par les generations et les televersements ; en
+# production ils vivent dans un volume Docker, pas dans le depot. 90 PDF de test
+# etaient sur le point d'y entrer.
+media/
+out/

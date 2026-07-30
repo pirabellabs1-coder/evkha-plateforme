@@ -36,7 +36,7 @@ function OrderRow({ order }: { order: OrderSummary }) {
 }
 
 export function ClientDetail() {
-  const { clientId } = useParams({ from: "/clients/$clientId" });
+  const { clientId } = useParams({ from: "/admin/clients/$clientId" });
   const { data, isLoading, error } = useQuery<CustomerDetail>({
     queryKey: ["customer", clientId],
     queryFn: () => api.customer(clientId),
@@ -59,7 +59,7 @@ export function ClientDetail() {
     <Box>
       <Flex align="center" gap="3" mb="1">
         <Link
-          to="/clients"
+          to="/admin/clients"
           style={{ color: "var(--gray-9)", textDecoration: "none", fontSize: 13 }}
         >
           ← Clients

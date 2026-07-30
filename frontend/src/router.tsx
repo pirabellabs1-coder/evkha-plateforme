@@ -2,13 +2,13 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  Outlet,
-  Link,
   redirect,
 } from "@tanstack/react-router";
-import { Text, Heading } from "@radix-ui/themes";
-import { Dashboard } from "./pages/Dashboard";
-import { GenerateManual } from "./pages/GenerateManual";
+import { GabaritRacine } from "./GabaritRacine";
+import { CoquilleAdmin } from "./admin/Coquille";
+import { TableauDeBordAdmin } from "./admin/pages/TableauDeBord";
+import { OrganisationsAdmin } from "./admin/pages/Organisations";
+import { DemandesAdmin } from "./admin/pages/Demandes";
 import { Jobs } from "./pages/Jobs";
 import { JobDetail } from "./pages/JobDetail";
 import { Incidents } from "./pages/Incidents";
@@ -17,61 +17,17 @@ import { ClientDetail } from "./pages/ClientDetail";
 import { Orders } from "./pages/Orders";
 import { Login } from "./pages/Login";
 import { isAuthenticated } from "./auth";
+import { routesEspace } from "./espace/routes";
 
-// --- Root layout -------------------------------------------------------------
+// --- Racine ------------------------------------------------------------------
+// Le gabarit vit dans `GabaritRacine.tsx` : il appelle un crochet React, ce
+// qu'une fonction anonyme passee a `component` ne permet pas proprement.
 
 const rootRoute = createRootRoute({
-  component: () => (
-    <div className="layout">
-      <nav className="sidebar">
-        <div className="sidebar-brand">
-          <span className="sidebar-logo">⬡</span>
-          <div>
-            <Heading size="2">EVKHA</Heading>
-            <Text size="1" color="gray">Dashboard</Text>
-          </div>
-        </div>
-        <ul className="sidebar-nav">
-          <li>
-            <Link to="/" className="sidebar-link" activeProps={{ className: "active" }} activeOptions={{ exact: true }}>
-              Vue d'ensemble
-            </Link>
-          </li>
-          <li>
-            <Link to="/clients" className="sidebar-link" activeProps={{ className: "active" }}>
-              Clients
-            </Link>
-          </li>
-          <li>
-            <Link to="/orders" className="sidebar-link" activeProps={{ className: "active" }}>
-              Commandes
-            </Link>
-          </li>
-          <li>
-            <Link to="/jobs" className="sidebar-link" activeProps={{ className: "active" }}>
-              Livrables
-            </Link>
-          </li>
-          <li>
-            <Link to="/generate" className="sidebar-link" activeProps={{ className: "active" }}>
-              Générer
-            </Link>
-          </li>
-          <li>
-            <Link to="/incidents" className="sidebar-link" activeProps={{ className: "active" }}>
-              Incidents
-            </Link>
-          </li>
-        </ul>
-      </nav>
-      <main className="app-main">
-        <Outlet />
-      </main>
-    </div>
-  ),
+  component: GabaritRacine,
 });
 
-// --- Auth guard (skip for /login) -------------------------------------------
+// --- Garde d'acces -----------------------------------------------------------
 
 function requireAuth() {
   if (!isAuthenticated()) {
@@ -79,7 +35,7 @@ function requireAuth() {
   }
 }
 
-// --- Routes ------------------------------------------------------------------
+// --- Connexion ---------------------------------------------------------------
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -87,72 +43,101 @@ const loginRoute = createRoute({
   component: Login,
 });
 
-const indexRoute = createRoute({
+// --- Espace administrateur ---------------------------------------------------
+// La page « Generer » a ete RETIREE : EVKHA ne produit plus les documents a la
+// place de ses clients. Cet espace supervise — il ne lance rien. La generation
+// manuelle reste accessible en administration Django si un depannage l'exige.
+
+// Prefixe REEL et non un `id` de mise en page : dans cette version de
+// TanStack Router, l'identifiant d'une route parente se compose dans les
+// chemins des enfants. Les deux espaces sont donc symetriques : `/admin/*` et
+// `/espace/*`, chacun avec sa coquille.
+const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
+  path: "/admin",
+  beforeLoad: requireAuth,
+  component: CoquilleAdmin,
+});
+
+const adminIndex = createRoute({
+  getParentRoute: () => adminRoute,
   path: "/",
-  beforeLoad: requireAuth,
-  component: Dashboard,
+  component: TableauDeBordAdmin,
 });
 
-const clientsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/clients",
-  beforeLoad: requireAuth,
-  component: Clients,
+const adminOrganisations = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "organisations",
+  component: OrganisationsAdmin,
 });
 
-const clientDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/clients/$clientId",
-  beforeLoad: requireAuth,
-  component: ClientDetail,
+const adminDemandes = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "demandes",
+  component: DemandesAdmin,
 });
 
-const ordersRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/orders",
-  beforeLoad: requireAuth,
-  component: Orders,
-});
-
-const jobsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/jobs",
-  beforeLoad: requireAuth,
+const adminJobs = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "jobs",
   component: Jobs,
 });
 
-const jobDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/jobs/$jobId",
-  beforeLoad: requireAuth,
+const adminJobDetail = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "jobs/$jobId",
   component: JobDetail,
 });
 
-const incidentsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/incidents",
-  beforeLoad: requireAuth,
+const adminIncidents = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "incidents",
   component: Incidents,
 });
 
-const generateRoute = createRoute({
+const adminOrders = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "orders",
+  component: Orders,
+});
+
+const adminClients = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "clients",
+  component: Clients,
+});
+
+const adminClientDetail = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "clients/$clientId",
+  component: ClientDetail,
+});
+
+// La racine renvoie vers l'administration : `/` n'appartient a aucun des deux
+// espaces, et laisser une page blanche a cette adresse serait un cul-de-sac.
+const racineRedirige = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/generate",
-  beforeLoad: requireAuth,
-  component: GenerateManual,
+  path: "/",
+  beforeLoad: () => {
+    throw redirect({ to: "/admin" });
+  },
 });
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  indexRoute,
-  clientsRoute,
-  clientDetailRoute,
-  ordersRoute,
-  jobsRoute,
-  jobDetailRoute,
-  incidentsRoute,
-  generateRoute,
+  racineRedirige,
+  adminRoute.addChildren([
+    adminIndex,
+    adminOrganisations,
+    adminDemandes,
+    adminJobs,
+    adminJobDetail,
+    adminIncidents,
+    adminOrders,
+    adminClients,
+    adminClientDetail,
+  ]),
+  ...routesEspace(rootRoute),
 ]);
 
 export const router = createRouter({ routeTree });

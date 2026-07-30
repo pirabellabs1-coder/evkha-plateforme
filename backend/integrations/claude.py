@@ -343,6 +343,44 @@ def _thinking_budget() -> int:
     return budget if budget >= _MIN_THINKING_BUDGET else 0
 
 
+@dataclass(frozen=True)
+class StructuredResult:
+    """Resultat d'un appel a sortie contrainte par schema (lot 1 — socle).
+
+    `payload` est deja un dictionnaire : aucune analyse de texte n'intervient
+    entre le modele et l'appelant. C'est l'inverse de `ClaudeResult`, dont le
+    `content` doit etre relu par des expressions regulieres.
+    """
+
+    payload: dict[str, object]
+    input_tokens: int
+    output_tokens: int
+    model: str
+    stop_reason: str = "end_turn"
+
+
+@runtime_checkable
+class StructuredClaudeClient(Protocol):
+    """Contrat des clients capables de rendre une sortie typee.
+
+    Protocole SEPARE de `ClaudeClient` a dessein : l'ajouter au contrat
+    existant casserait tout objet double des tests qui n'implemente que
+    `complete()` (le protocole est `runtime_checkable`).
+    """
+
+    def complete_structured(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        outil_nom: str,
+        outil_description: str,
+        schema: dict[str, object],
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
+    ) -> StructuredResult: ...
+
+
 @runtime_checkable
 class ClaudeClient(Protocol):
     """Contrat minimal du moteur de generation textuelle (Cle d'or: cout maitrise)."""
@@ -555,6 +593,76 @@ class AnthropicClaudeClient:
         )
 
 
+    def complete_structured(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        outil_nom: str,
+        outil_description: str,
+        schema: dict[str, object],
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
+    ) -> StructuredResult:
+        """Reponse contrainte a un schema JSON, via l'outil dedie (lot 1).
+
+        Utilise `tool_choice` force : le modele NE PEUT PAS repondre autre chose
+        qu'un appel d'outil conforme au schema. C'est la difference de nature
+        avec `complete()`, qui rend du texte libre a analyser apres coup.
+
+        La reflexion etendue est volontairement DESACTIVEE ici : elle impose
+        `tool_choice: auto` cote API, ce qui reintroduirait la possibilite d'une
+        reponse en texte libre — exactement ce que cette methode elimine.
+        """
+        import os
+
+        import anthropic  # import paresseux : dependance optionnelle hors tests
+
+        api_key = self._api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            msg = "ANTHROPIC_API_KEY manquante pour AnthropicClaudeClient."
+            raise RuntimeError(msg)
+
+        effective_alias = model or self._model_alias
+        model_id = _resolve_anthropic_model_id(effective_alias)
+        client = anthropic.Anthropic(api_key=api_key)
+
+        # `type: ignore` : les surcharges du SDK typent `tools` et `system` avec
+        # des TypedDict fermes. Nos dictionnaires sont construits dynamiquement
+        # (le schema depend du livrable), ce que mypy ne peut pas rapprocher des
+        # surcharges. Meme traitement que `complete()` ci-dessus.
+        message = client.messages.create(  # type: ignore[call-overload]
+            model=model_id,
+            max_tokens=max_tokens,
+            system=_cacheable_system(system),
+            messages=[{"role": "user", "content": prompt}],
+            tools=[
+                {
+                    "name": outil_nom,
+                    "description": outil_description,
+                    "input_schema": schema,
+                }
+            ],
+            tool_choice={"type": "tool", "name": outil_nom},
+        )
+
+        charge: dict[str, object] = {}
+        for bloc in message.content:
+            if getattr(bloc, "type", "") == "tool_use" and getattr(bloc, "name", "") == outil_nom:
+                brut = getattr(bloc, "input", {})
+                charge = dict(brut) if isinstance(brut, dict) else {}
+                break
+
+        usage = getattr(message, "usage", None)
+        return StructuredResult(
+            payload=charge,
+            input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+            output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+            model=effective_alias,
+            stop_reason=str(getattr(message, "stop_reason", "") or ""),
+        )
+
+
 def _cacheable_system(system: str) -> str | list[dict[str, object]]:
     """Decoupe le system prompt en blocs caches, au plus deux breakpoints.
 
@@ -664,6 +772,44 @@ class StubClaudeClient:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             model=effective_alias,
+        )
+
+
+    def complete_structured(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        outil_nom: str,
+        outil_description: str,
+        schema: dict[str, object],
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
+    ) -> StructuredResult:
+        """Socle de demonstration deterministe, conforme au referentiel.
+
+        Import paresseux de `generation.socle` : `integrations` ne depend pas
+        de `generation` au niveau module (ce serait un cycle). Ici l'appel a
+        lieu a l'execution, uniquement sur le chemin bouchon, et seulement
+        pour l'outil du socle.
+        """
+        charge: dict[str, object] = {}
+        if outil_nom == "produire_socle":
+            from generation.socle.stub import socle_de_demonstration  # noqa: PLC0415
+
+            charge = socle_de_demonstration(prompt)
+        elif outil_nom == "rendre_chapitre":
+            from generation.chapitres.stub import (  # noqa: PLC0415
+                chapitre_de_demonstration,
+            )
+
+            charge = chapitre_de_demonstration(prompt)
+
+        return StructuredResult(
+            payload=charge,
+            input_tokens=max(1, len(system) + len(prompt)) // 4,
+            output_tokens=max(1, len(str(charge))) // 4,
+            model=model or self._model_alias,
         )
 
 

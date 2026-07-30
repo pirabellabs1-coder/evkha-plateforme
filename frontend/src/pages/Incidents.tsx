@@ -127,7 +127,7 @@ function IncidentTable({ incidents, canResolve }: { incidents: Incident[]; canRe
             <Table.Cell>
               {inc.job_id ? (
                 <Link
-                  to="/jobs/$jobId"
+                  to="/admin/jobs/$jobId"
                   params={{ jobId: inc.job_id }}
                   style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}
                 >

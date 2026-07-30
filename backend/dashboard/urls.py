@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from . import views
+from . import actions, supervision, views
 
 app_name = "dashboard"
 
@@ -23,6 +23,32 @@ urlpatterns = [
     path("customers/<str:customer_id>/", views.customer_detail, name="customer-detail"),
     # Commandes
     path("orders/", views.orders_list, name="orders-list"),
+    # Supervision (refonte de l'espace administrateur) — lecture seule
+    path("supervision/synthese/", supervision.synthese, name="supervision-synthese"),
+    path("supervision/evolution/", supervision.evolution, name="supervision-evolution"),
+    path(
+        "supervision/organisations/",
+        supervision.organisations,
+        name="supervision-organisations",
+    ),
+    path("supervision/demandes/", supervision.demandes, name="supervision-demandes"),
+    # Actions d'administration : elles remplacent l'usage de /admin/ Django.
+    path("supervision/formules/", actions.formules, name="supervision-formules"),
+    path(
+        "supervision/organisations/<str:organisation_id>/doter/",
+        actions.doter,
+        name="supervision-doter",
+    ),
+    path(
+        "supervision/organisations/<str:organisation_id>/statut/",
+        actions.basculer_statut,
+        name="supervision-statut",
+    ),
+    path(
+        "supervision/demandes/<str:demande_id>/traiter/",
+        actions.traiter_demande,
+        name="supervision-traiter",
+    ),
     # Système
     path("system/", views.system_status, name="system-status"),
     # Génération manuelle

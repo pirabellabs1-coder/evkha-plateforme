@@ -89,7 +89,7 @@ export function Clients() {
                 </Table.Cell>
                 <Table.Cell>
                   <Link
-                    to="/clients/$clientId"
+                    to="/admin/clients/$clientId"
                     params={{ clientId: c.id }}
                     style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}
                   >

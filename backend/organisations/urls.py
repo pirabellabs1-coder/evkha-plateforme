@@ -1,0 +1,52 @@
+"""Routes de l'espace client (lot 4).
+
+Préfixe `/api/espace/`, distinct de `/api/dashboard/` : le middleware du
+dashboard protège ce dernier par un jeton partagé, et laisser les deux sous le
+même préfixe ferait passer l'espace client par une authentification qui ne
+distingue pas les organisations.
+"""
+from __future__ import annotations
+
+from django.urls import path
+
+from . import vues_espace as vues
+
+app_name = "espace"
+
+urlpatterns = [
+    path("connexion/", vues.connexion, name="connexion"),
+    path("deconnexion/", vues.deconnexion, name="deconnexion"),
+    path("moi/", vues.moi, name="moi"),
+    path("credits/", vues.journal_credits, name="credits"),
+    path("clients-finaux/", vues.clients_finaux, name="clients-finaux"),
+    path(
+        "clients-finaux/<str:client_id>/archiver/",
+        vues.archiver_client_final,
+        name="client-final-archiver",
+    ),
+    path("marque/", vues.marque, name="marque"),
+    path("catalogue/", vues.catalogue, name="catalogue"),
+    path("commander/", vues.commander, name="commander"),
+    path(
+        "formulaire/<str:type_document>/",
+        vues.formulaire,
+        name="formulaire",
+    ),
+    path("fichiers/", vues.pieces_jointes, name="fichiers"),
+    path(
+        "fichiers/<str:piece_id>/supprimer/",
+        vues.supprimer_piece_jointe,
+        name="fichier-supprimer",
+    ),
+    path("livrables/", vues.livrables, name="livrables"),
+    path("formules/", vues.formules, name="formules"),
+    path("demandes/", vues.demandes, name="demandes"),
+    path("livrables/<str:job_id>/", vues.suivi_livrable, name="suivi"),
+    path("equipe/", vues.equipe, name="equipe"),
+    path("equipe/inviter/", vues.inviter, name="equipe-inviter"),
+    path(
+        "equipe/<str:membre_id>/revoquer/",
+        vues.revoquer,
+        name="equipe-revoquer",
+    ),
+]

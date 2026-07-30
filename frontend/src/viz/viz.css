@@ -1,0 +1,191 @@
+/* Habillage des graphiques. Uniquement des jetons de `theme/tokens.css`.
+ *
+ * Le texte des graphiques porte des jetons d'ENCRE, jamais la couleur d'une
+ * série : une teinte claire est illisible en texte sur la surface. L'identité
+ * vient de la pastille colorée posée à côté du libellé.
+ */
+
+.viz {
+  margin: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.viz-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+/* Graduations et libellés d'axe : récessifs, à largeur de chiffre fixe pour que
+ * l'axe ne tremble pas quand les valeurs changent. */
+.viz-tick {
+  font-family: var(--police-corps);
+  font-size: 11px;
+  fill: var(--texte-tenu);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Étiquette directe : encre forte, pas la couleur de la série. */
+.viz-etiquette {
+  font-family: var(--police-chiffre);
+  font-size: 11px;
+  font-weight: var(--graisse-forte);
+  fill: var(--texte-fort);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Légende ─────────────────────────────────────────────────────────────── */
+
+.viz-legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2) var(--e-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+.viz-legende li {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.viz-pastille {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: 0 0 10px;
+}
+
+/* ── Infobulle ───────────────────────────────────────────────────────────── */
+
+.viz-infobulle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--e-3) var(--e-4);
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+  border-radius: var(--rayon-sm);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--ombre-lg);
+  /* L'infobulle suit le survol : elle ne doit jamais intercepter le pointeur,
+   * sinon elle se ferme dès qu'on la traverse. */
+  pointer-events: none;
+  z-index: 5;
+  max-width: 60%;
+}
+
+.viz-infobulle span {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+/* ── Vue tableau ─────────────────────────────────────────────────────────── */
+
+.viz-tableau > summary {
+  cursor: pointer;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-doux);
+  padding: var(--e-2) 0;
+  width: fit-content;
+}
+
+.viz-tableau > summary:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+  border-radius: var(--rayon-xs);
+}
+
+.viz-tableau[open] > summary {
+  margin-bottom: var(--e-3);
+}
+
+/* ── Classement en barres ────────────────────────────────────────────────── */
+
+.viz-classement {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.viz-classement li {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.3fr) 3fr auto;
+  align-items: center;
+  gap: var(--e-4);
+}
+
+.viz-classement-libelle {
+  font-size: var(--t-sm);
+  color: var(--texte);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viz-classement-piste {
+  height: 14px;
+  background: var(--fond-enfonce);
+  border-radius: var(--rayon-pilule);
+  overflow: hidden;
+}
+
+.viz-classement-barre {
+  display: block;
+  height: 100%;
+  /* Extrémité arrondie côté donnée, carrée au départ : la barre reste ancrée
+   * à sa ligne de base. */
+  border-radius: 0 4px 4px 0;
+  min-width: 4px;
+}
+
+.viz-classement-valeur {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 3.5ch;
+}
+
+@media (max-width: 640px) {
+  .viz-classement li {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "libelle valeur" "piste piste";
+    gap: var(--e-2) var(--e-3);
+  }
+  .viz-classement-libelle {
+    grid-area: libelle;
+  }
+  .viz-classement-valeur {
+    grid-area: valeur;
+  }
+  .viz-classement-piste {
+    grid-area: piste;
+  }
+
+  /* Sur petit écran l'infobulle ancrée en haut à droite recouvre le
+   * graphique : elle passe sous le tracé. */
+  .viz-infobulle {
+    position: static;
+    max-width: 100%;
+  }
+}

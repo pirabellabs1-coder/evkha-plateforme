@@ -1,0 +1,1331 @@
+/* Espace client EVKHA — habillage construit sur `tokens.css`.
+ *
+ * Aucune couleur, aucun rayon, aucune ombre en dur ici : uniquement des
+ * variables. C'est ce qui permet de corriger la charte en un seul endroit.
+ */
+
+/* ── Coquille ───────────────────────────────────────────────────────────── */
+
+.espace {
+  display: grid;
+  grid-template-columns: var(--largeur-barre) 1fr;
+  min-height: 100vh;
+  background: var(--fond-page);
+  color: var(--texte);
+  font-family: var(--police-corps);
+  font-size: var(--t-base);
+  line-height: var(--interligne);
+}
+
+/* ── Barre latérale ─────────────────────────────────────────────────────── */
+
+.espace-barre {
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+  padding: var(--e-6) var(--e-4);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-8);
+}
+
+.espace-marque {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: 0 var(--e-2);
+}
+
+/* Le logo du site est un mot noir avec une étoile or. On en reprend l'idée :
+ * un carré or, l'initiale en noir. Pas une image — un fichier manquant
+ * casserait l'en-tête, un carré non. */
+.espace-sceau {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  display: grid;
+  place-items: center;
+  font-family: var(--police-titre);
+  font-weight: var(--graisse-affiche);
+  font-size: var(--t-md);
+  letter-spacing: -0.02em;
+}
+
+.espace-marque-nom {
+  font-family: var(--police-titre);
+  font-weight: var(--graisse-titre);
+  font-size: var(--t-md);
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.espace-marque-sous {
+  font-size: var(--t-xs);
+  color: var(--evkha-gris-pale);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.espace-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+}
+
+.espace-nav-groupe {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--evkha-gris-doux);
+  padding: var(--e-4) var(--e-3) var(--e-2);
+}
+
+.espace-lien {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-3);
+  border-radius: var(--rayon-sm);
+  color: var(--evkha-nuage);
+  text-decoration: none;
+  font-weight: var(--graisse-moyenne);
+  transition: background var(--transition), color var(--transition);
+  position: relative;
+}
+
+.espace-lien:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--evkha-blanc);
+}
+
+/* L'état actif ne repose PAS seulement sur la couleur : un liseré or à gauche
+ * le signale aussi. Une distinction chromatique seule disparaît pour un
+ * daltonien et sur un écran mal calibré. */
+.espace-lien.actif {
+  background: rgba(248, 197, 28, 0.14);
+  color: var(--evkha-blanc);
+  font-weight: var(--graisse-forte);
+}
+
+.espace-lien.actif::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+}
+
+.espace-lien-icone {
+  width: 18px;
+  text-align: center;
+  opacity: 0.85;
+  font-size: var(--t-base);
+}
+
+/* Bloc de solde, en pied de barre */
+.espace-solde {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--rayon-md);
+  padding: var(--e-4);
+}
+
+.espace-solde-libelle {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--evkha-gris-pale);
+}
+
+.espace-solde-valeur {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-2xl);
+  font-weight: var(--graisse-affiche);
+  line-height: 1.05;
+  color: var(--evkha-or);
+  margin-top: var(--e-1);
+}
+
+.espace-solde-detail {
+  font-size: var(--t-xs);
+  color: var(--evkha-gris-pale);
+  margin-top: var(--e-1);
+}
+
+.espace-solde.bas .espace-solde-valeur {
+  color: var(--evkha-blanc);
+}
+
+/* ── Zone principale ────────────────────────────────────────────────────── */
+
+.espace-corps {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.espace-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-6);
+  padding: var(--e-6) var(--e-8);
+  background: var(--fond-carte);
+  border-bottom: 1px solid var(--evkha-bordure);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.espace-titre {
+  font-family: var(--police-titre);
+  font-size: var(--t-xl);
+  font-weight: var(--graisse-titre);
+  letter-spacing: -0.015em;
+  line-height: var(--interligne-serre);
+  color: var(--texte-fort);
+  margin: 0;
+}
+
+.espace-sous-titre {
+  color: var(--texte-doux);
+  font-size: var(--t-sm);
+  margin: var(--e-1) 0 0;
+}
+
+.espace-contenu {
+  padding: var(--e-8);
+  max-width: var(--largeur-contenu);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+}
+
+/* ── Cartes ─────────────────────────────────────────────────────────────── */
+
+.carte {
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  padding: var(--e-6);
+  box-shadow: var(--ombre-sm);
+}
+
+.carte-entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e-4);
+  margin-bottom: var(--e-5);
+}
+
+.carte-titre {
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+  margin: 0;
+}
+
+.carte-note {
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+}
+
+/* ── Grille de chiffres clés ────────────────────────────────────────────── */
+
+.grille-chiffres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--e-4);
+}
+
+.chiffre {
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  padding: var(--e-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+}
+
+.chiffre.accent {
+  background: var(--evkha-or-brume);
+  border-color: var(--evkha-or);
+}
+
+.chiffre-libelle {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-forte);
+}
+
+.chiffre-valeur {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-2xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--texte-fort);
+  /* Chiffres à largeur fixe : sans cela une valeur qui change fait sauter la
+   * mise en page à chaque rafraîchissement. */
+  font-variant-numeric: tabular-nums;
+}
+
+.chiffre-detail {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+/* ── Boutons ────────────────────────────────────────────────────────────── */
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  padding: var(--e-3) var(--e-5);
+  border-radius: var(--rayon-pilule);
+  border: 1px solid transparent;
+  font-family: var(--police-corps);
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--transition), border-color var(--transition),
+    transform var(--transition), box-shadow var(--transition);
+  white-space: nowrap;
+}
+
+.bouton:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+.bouton:disabled,
+.bouton[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bouton-principal {
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.bouton-principal:hover:not(:disabled) {
+  background: var(--evkha-or-profond);
+  box-shadow: var(--ombre-or);
+}
+
+.bouton-noir {
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+}
+
+.bouton-noir:hover:not(:disabled) {
+  background: var(--evkha-encre);
+  box-shadow: var(--ombre-md);
+}
+
+.bouton-contour {
+  background: transparent;
+  border-color: var(--evkha-bordure-forte);
+  color: var(--texte-fort);
+}
+
+.bouton-contour:hover:not(:disabled) {
+  border-color: var(--evkha-noir);
+  background: var(--evkha-nuage);
+}
+
+.bouton-discret {
+  background: transparent;
+  color: var(--texte-doux);
+  padding: var(--e-2) var(--e-3);
+}
+
+.bouton-discret:hover:not(:disabled) {
+  background: var(--evkha-nuage);
+  color: var(--texte-fort);
+}
+
+/* Un bouton discret posé sur la barre NOIRE hérite sinon d'un gris sombre sur
+ * fond sombre : mesuré à 2,22:1, illisible. La correction est portée par la
+ * surface et non par l'instance — tout bouton discret placé là sera juste,
+ * pas seulement celui de la déconnexion. */
+.espace-barre .bouton-discret {
+  color: var(--evkha-nuage);
+}
+
+.espace-barre .bouton-discret:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--evkha-blanc);
+}
+
+.bouton-sm {
+  padding: var(--e-2) var(--e-4);
+  font-size: var(--t-sm);
+}
+
+/* ── Pastilles de statut ────────────────────────────────────────────────── */
+
+.pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  padding: 3px var(--e-3);
+  border-radius: var(--rayon-pilule);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Chaque pastille porte un POINT en plus de sa couleur : la couleur seule ne
+ * suffit pas à distinguer un succès d'un échec pour un daltonien. */
+.pastille::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 6px;
+}
+
+.pastille-succes {
+  background: var(--evkha-succes-voile);
+  color: var(--evkha-succes);
+}
+.pastille-alerte {
+  background: var(--evkha-alerte-voile);
+  color: var(--evkha-alerte);
+}
+.pastille-echec {
+  background: var(--evkha-echec-voile);
+  color: var(--evkha-echec);
+}
+.pastille-info {
+  background: var(--evkha-info-voile);
+  color: var(--evkha-info);
+}
+.pastille-neutre {
+  background: var(--evkha-nuage);
+  color: var(--texte-doux);
+}
+
+/* ── Tableaux ───────────────────────────────────────────────────────────── */
+
+.tableau-cadre {
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--fond-carte);
+  overflow: hidden;
+}
+
+/* Le défilement horizontal vit dans le cadre du tableau, jamais sur la page :
+ * une page qui défile latéralement sur mobile est un défaut. */
+.tableau-defile {
+  overflow-x: auto;
+}
+
+.tableau {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+
+.tableau thead th {
+  text-align: left;
+  padding: var(--e-3) var(--e-4);
+  background: var(--fond-enfonce);
+  color: var(--texte-doux);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--evkha-bordure);
+}
+
+.tableau tbody td {
+  padding: var(--e-4);
+  border-bottom: 1px solid var(--evkha-bordure);
+  vertical-align: middle;
+}
+
+.tableau tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tableau tbody tr:hover {
+  background: var(--evkha-or-brume);
+}
+
+.tableau .nombre {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--graisse-forte);
+}
+
+.tableau .nombre.positif {
+  color: var(--evkha-succes);
+}
+.tableau .nombre.negatif {
+  color: var(--evkha-echec);
+}
+
+/* ── État vide ──────────────────────────────────────────────────────────── */
+
+.vide {
+  text-align: center;
+  padding: var(--e-12) var(--e-6);
+  color: var(--texte-doux);
+}
+
+.vide-icone {
+  font-size: 2rem;
+  margin-bottom: var(--e-3);
+  opacity: 0.5;
+}
+
+.vide-titre {
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+  margin: 0 0 var(--e-2);
+}
+
+.vide-texte {
+  margin: 0 auto var(--e-5);
+  max-width: 46ch;
+  font-size: var(--t-sm);
+}
+
+/* ── Bandeau d'alerte ───────────────────────────────────────────────────── */
+
+.bandeau {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-3);
+  padding: var(--e-4) var(--e-5);
+  border-radius: var(--rayon-md);
+  border: 1px solid;
+  font-size: var(--t-sm);
+}
+
+.bandeau-alerte {
+  background: var(--evkha-alerte-voile);
+  border-color: color-mix(in srgb, var(--evkha-alerte) 25%, transparent);
+  color: var(--evkha-alerte);
+}
+
+.bandeau-echec {
+  background: var(--evkha-echec-voile);
+  border-color: color-mix(in srgb, var(--evkha-echec) 25%, transparent);
+  color: var(--evkha-echec);
+}
+
+.bandeau-titre {
+  font-weight: var(--graisse-titre);
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* ── Formulaires ────────────────────────────────────────────────────────── */
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.champ-libelle {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.champ-aide {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+}
+
+.champ-saisie {
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-sm);
+  font-family: var(--police-corps);
+  font-size: var(--t-base);
+  color: var(--texte);
+  background: var(--fond-carte);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  width: 100%;
+}
+
+.champ-saisie:focus {
+  outline: none;
+  border-color: var(--evkha-noir);
+  box-shadow: 0 0 0 3px var(--evkha-or-voile);
+}
+
+.champ-saisie[aria-invalid="true"] {
+  border-color: var(--evkha-echec);
+}
+
+.grille-champs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--e-4);
+}
+
+/* ── Aperçu de charte ───────────────────────────────────────────────────── */
+
+.pastilles-charte {
+  display: flex;
+  gap: var(--e-2);
+  align-items: center;
+}
+
+.puce-couleur {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--rayon-xs);
+  border: 1px solid var(--evkha-bordure-forte);
+  flex: 0 0 22px;
+}
+
+/* ── Squelette de chargement ────────────────────────────────────────────── */
+
+.squelette {
+  background: linear-gradient(
+    90deg,
+    var(--evkha-nuage) 25%,
+    var(--evkha-coquille) 50%,
+    var(--evkha-nuage) 75%
+  );
+  background-size: 200% 100%;
+  animation: squelette-glisse 1.4s ease-in-out infinite;
+  border-radius: var(--rayon-sm);
+  height: 1em;
+}
+
+@keyframes squelette-glisse {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .squelette {
+    animation: none;
+  }
+}
+
+/* ── Bouton hamburger et voile ───────────────────────────────────────────────
+ * Masqués au-delà du seuil mobile : sur grand écran la barre est permanente,
+ * un bouton pour l'ouvrir n'aurait aucun sens.
+ */
+
+.espace-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-carte);
+  cursor: pointer;
+  padding: 0;
+}
+
+.espace-hamburger:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+/* Trois traits dessinés en CSS plutôt qu'une police d'icônes : une police qui
+ * ne charge pas laisserait un carré vide à la place du seul bouton permettant
+ * de naviguer. */
+.espace-hamburger-traits,
+.espace-hamburger-traits::before,
+.espace-hamburger-traits::after {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: var(--rayon-pilule);
+  background: var(--texte-fort);
+  transition: transform var(--transition), opacity var(--transition);
+}
+
+.espace-hamburger-traits::before,
+.espace-hamburger-traits::after {
+  content: "";
+  position: absolute;
+}
+
+.espace-hamburger-traits::before {
+  transform: translateY(-6px);
+}
+.espace-hamburger-traits::after {
+  transform: translateY(6px);
+}
+
+/* Le bouton se transforme en croix quand le tiroir est ouvert : le même
+ * bouton ferme ce qu'il a ouvert, à la même place. */
+.espace-hamburger[aria-expanded="true"] .espace-hamburger-traits {
+  background: transparent;
+}
+.espace-hamburger[aria-expanded="true"] .espace-hamburger-traits::before {
+  transform: rotate(45deg);
+}
+.espace-hamburger[aria-expanded="true"] .espace-hamburger-traits::after {
+  transform: rotate(-45deg);
+}
+
+.espace-voile {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(11, 11, 11, 0.5);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────
+ * « Interface utilisable sur ordinateur et sur mobile » (§14).
+ *
+ * La barre devient un TIROIR qui glisse depuis la GAUCHE, ouvert par un
+ * hamburger. Une première version la posait en bandeau horizontal en haut :
+ * la navigation défilait latéralement, l'utilisateur ne voyait que trois
+ * entrées sur cinq, et rien n'indiquait que les autres existaient. Un tiroir
+ * montre la liste entière d'un seul geste.
+ */
+@media (max-width: 900px) {
+  .espace {
+    grid-template-columns: 1fr;
+  }
+
+  .espace-hamburger {
+    display: inline-flex;
+    position: relative;
+  }
+
+  .espace-barre {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(84vw, var(--largeur-barre));
+    height: 100vh;
+    /* Hors écran, et non `display: none` : la transformation s'anime, et le
+     * contenu reste dans le DOM pour les lecteurs d'écran. */
+    transform: translateX(-100%);
+    transition: transform var(--transition);
+    box-shadow: var(--ombre-lg);
+    overflow-y: auto;
+  }
+
+  .espace-barre.ouverte {
+    transform: translateX(0);
+  }
+
+  .espace-barre.ouverte ~ .espace-voile,
+  .espace-voile.visible {
+    display: block;
+  }
+
+  .espace-entete,
+  .espace-contenu {
+    padding: var(--e-5) var(--e-4);
+  }
+
+  .espace-entete {
+    gap: var(--e-3);
+    position: sticky;
+  }
+
+  /* L'identité de l'organisation passe sous le titre plutôt qu'à sa droite :
+   * côte à côte sur 375 px, les deux se coupent. */
+  .espace-entete-identite {
+    text-align: left !important;
+  }
+}
+
+/* Sur très petit écran, le titre et l'identité s'empilent franchement. */
+@media (max-width: 560px) {
+  .espace-entete {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ── Cartes de formule ───────────────────────────────────────────────────── */
+
+.grille-formules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--e-4);
+}
+
+.formule {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  padding: var(--e-5);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--fond-carte);
+}
+
+/* La formule en cours se distingue par une bordure or ET un ruban : la
+ * couleur seule ne suffirait pas à la repérer sans voir les autres. */
+.formule.actuelle {
+  border-color: var(--evkha-or);
+  border-width: 2px;
+  background: var(--evkha-or-brume);
+}
+
+.formule-ruban {
+  position: absolute;
+  top: calc(-1 * var(--e-3));
+  left: var(--e-5);
+  padding: 2px var(--e-3);
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
+  letter-spacing: 0.03em;
+}
+
+.formule-nom {
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+  margin: 0;
+}
+
+.formule-prix {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.03em;
+  color: var(--texte-fort);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.formule-periode {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-normale);
+  color: var(--texte-doux);
+  letter-spacing: 0;
+}
+
+.formule-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  flex: 1;
+}
+
+/* Puce en or, comme les listes de la page publique. Dessinee en CSS : une
+ * police d'icones absente laisserait un carre vide. */
+.formule-liste li {
+  display: flex;
+  gap: var(--e-2);
+  align-items: baseline;
+}
+
+.formule-liste li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--evkha-or);
+  flex: 0 0 6px;
+  transform: translateY(-2px);
+}
+
+/* ── Accueil explicatif ──────────────────────────────────────────────────── */
+
+.guide {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--e-4);
+}
+
+.guide-etape {
+  display: flex;
+  gap: var(--e-4);
+  align-items: flex-start;
+}
+
+.guide-numero {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+  display: grid;
+  place-items: center;
+  font-family: var(--police-chiffre);
+  font-weight: var(--graisse-titre);
+  font-size: var(--t-sm);
+}
+
+.guide-titre {
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+  margin: 0 0 2px;
+}
+
+.guide-texte {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  margin: 0;
+}
+
+/* ── Variante d'administration ───────────────────────────────────────────────
+ * Le sceau est inversé — noir sur or au lieu d'or sur noir. C'est le seul
+ * signal chromatique qui distingue les deux espaces, et il porte du sens :
+ * savoir d'un coup d'œil dans lequel on se trouve évite d'agir dans le mauvais.
+ */
+.espace-sceau.inverse {
+  background: var(--evkha-blanc);
+  color: var(--evkha-noir);
+}
+
+/* Compteur d'éléments à traiter, dans la navigation. */
+.espace-compteur {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Aperçu de charte ────────────────────────────────────────────────────────
+ * Maquette d'un bandeau de chapitre et d'un encadré. Un aplat de couleur ne dit
+ * rien au client ; la forme réelle du livrable, si.
+ */
+.apercu-charte {
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  overflow: hidden;
+  background: var(--fond-carte);
+}
+
+.apercu-bandeau {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  /* Le texte du bandeau est BLANC ici, comme dans le document : le moteur
+   * choisit noir ou blanc selon la luminance réelle de la couleur saisie
+   * (`palette.texte_lisible_sur`). L'aperçu ne rejoue pas ce calcul — il
+   * montre la forme, pas la décision de contraste. */
+  color: #ffffff;
+}
+
+.apercu-numero {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-affiche);
+  opacity: 0.7;
+}
+
+.apercu-titre-chapitre {
+  font-family: var(--police-titre);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.apercu-corps {
+  padding: var(--e-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  position: relative;
+}
+
+.apercu-ligne {
+  display: block;
+  height: 6px;
+  width: 62%;
+  border-radius: var(--rayon-pilule);
+  background: rgba(11, 11, 11, 0.16);
+}
+
+.apercu-ligne.longue {
+  width: 88%;
+}
+
+.apercu-accent {
+  display: block;
+  height: 6px;
+  width: 34%;
+  border-radius: var(--rayon-pilule);
+}
+
+.apercu-charte .carte-note {
+  padding: var(--e-3) var(--e-4);
+  border-top: 1px solid var(--evkha-bordure);
+  margin: 0;
+}
+
+/* ── Choix du document et questionnaire ──────────────────────────────────── */
+
+.grille-documents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--e-4);
+}
+
+/* Une carte cliquable est un BOUTON, pas un div : elle doit être atteignable
+ * au clavier et annoncée comme actionnable. */
+.carte-document {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  align-items: flex-start;
+  text-align: left;
+  padding: var(--e-5);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--fond-carte);
+  cursor: pointer;
+  font-family: var(--police-corps);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.carte-document:hover:not(:disabled) {
+  border-color: var(--evkha-or);
+  box-shadow: var(--ombre-md);
+}
+
+.carte-document:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+.carte-document:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.carte-document-titre {
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+}
+
+.carte-document-texte {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  flex: 1;
+}
+
+.carte-document-pied {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  width: 100%;
+}
+
+.questionnaire-note {
+  white-space: pre-line;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  margin: 0;
+  padding: var(--e-4);
+  background: var(--evkha-or-brume);
+  border-radius: var(--rayon-md);
+  border-left: 3px solid var(--evkha-or);
+}
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+}
+
+/* Une question porte souvent quatre interrogations en un libellé : elle a
+ * besoin de respirer, et son intitulé se lit comme une phrase, pas comme une
+ * étiquette de champ. */
+.question .champ-libelle {
+  font-weight: var(--graisse-moyenne);
+  line-height: 1.45;
+  max-width: 72ch;
+}
+
+.question-requis {
+  color: var(--evkha-echec);
+  font-weight: var(--graisse-titre);
+}
+
+.question textarea.champ-saisie {
+  resize: vertical;
+  min-height: 3.5em;
+  line-height: var(--interligne);
+}
+
+.champ-aide em {
+  font-style: italic;
+}
+
+/* ── Dépôt de fichiers ───────────────────────────────────────────────────── */
+
+.depot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  width: 100%;
+  padding: var(--e-6) var(--e-4);
+  border: 2px dashed var(--evkha-bordure-forte);
+  border-radius: var(--rayon-md);
+  background: var(--fond-enfonce);
+  cursor: pointer;
+  font-family: var(--police-corps);
+  text-align: center;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.depot:hover:not(:disabled),
+.depot.survol {
+  border-color: var(--evkha-or);
+  background: var(--evkha-or-brume);
+}
+
+.depot:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+.depot:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.depot-icone {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  display: grid;
+  place-items: center;
+  font-weight: var(--graisse-titre);
+}
+
+.depot-texte {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.depot-aide {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+}
+
+.liste-fichiers {
+  list-style: none;
+  margin: var(--e-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.liste-fichiers li {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-carte);
+}
+
+.fichier-nom {
+  flex: 1;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-moyenne);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apercu-logo {
+  max-width: 140px;
+  max-height: 70px;
+  object-fit: contain;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-xs);
+  padding: var(--e-2);
+  background: var(--fond-carte);
+}
+
+/* ── Suivi de production ─────────────────────────────────────────────────── */
+
+.jauge {
+  height: 10px;
+  background: var(--fond-enfonce);
+  border-radius: var(--rayon-pilule);
+  overflow: hidden;
+}
+
+.jauge-remplissage {
+  display: block;
+  height: 100%;
+  background: var(--evkha-or);
+  border-radius: var(--rayon-pilule);
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jauge-remplissage {
+    transition: none;
+  }
+}
+
+.etapes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+  counter-reset: etape;
+}
+
+.etape {
+  display: flex;
+  gap: var(--e-4);
+  align-items: flex-start;
+  position: relative;
+}
+
+/* Trait vertical reliant les étapes : il donne à la liste sa forme de
+ * parcours, plutôt que d'énumérer quatre lignes sans lien. */
+.etape:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: calc(-1 * var(--e-5));
+  width: 2px;
+  background: var(--evkha-bordure);
+}
+
+.etape-puce {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  background: var(--fond-enfonce);
+  color: var(--texte-tenu);
+  border: 2px solid var(--evkha-bordure);
+  z-index: 1;
+}
+
+.etape-fait .etape-puce {
+  background: var(--evkha-succes);
+  border-color: var(--evkha-succes);
+  color: var(--evkha-blanc);
+}
+
+.etape-en_cours .etape-puce {
+  background: var(--evkha-or);
+  border-color: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.etape-echec .etape-puce {
+  background: var(--evkha-echec);
+  border-color: var(--evkha-echec);
+  color: var(--evkha-blanc);
+}
+
+.etape-libelle {
+  margin: 0;
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.etape-attente .etape-libelle {
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-normale);
+}
+
+.etape-detail {
+  margin: 2px 0 0;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+/* ── Actions d'administration en ligne ───────────────────────────────────── */
+
+.actions-organisation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  min-width: 230px;
+  padding: var(--e-3);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-enfonce);
+}

@@ -19,6 +19,8 @@ env = environ.Env(
     EVKHA_DASHBOARD_AUTH_DISABLED=(bool, False),
     EVKHA_BEHIND_PROXY=(bool, False),
     CSRF_TRUSTED_ORIGINS=(list, []),
+    CORS_ALLOWED_ORIGINS=(list, []),
+    EVKHA_AUTORISER_PREVISUALISATIONS_VERCEL=(bool, False),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -37,6 +39,29 @@ if env("EVKHA_BEHIND_PROXY"):
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# Le front vit sur un domaine (Vercel), l'API sur un autre (le VPS). Sans
+# en-tetes CORS, le navigateur bloque chaque appel : c'est le premier point qui
+# casse a la mise en ligne.
+#
+#   CORS_ALLOWED_ORIGINS=https://app.evkha.fr,https://evkha.vercel.app
+#
+# `CORS_ALLOW_CREDENTIALS` reste FAUX : l'authentification passe par un jeton
+# porte dans l'en-tete Authorization (cf. dashboard/middleware.py), pas par un
+# cookie. Autoriser les identifiants ouvrirait l'envoi automatique des cookies
+# de session vers un autre domaine sans qu'aucun code ne le demande.
+CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_CREDENTIALS = False
+CORS_URLS_REGEX = r"^/(api|webhooks)/.*$"
+
+# Chaque deploiement de previsualisation Vercel porte un domaine different
+# (`projet-git-branche-equipe.vercel.app`) : une liste fixe ne peut pas les
+# couvrir. Le motif reste DESACTIVE par defaut, et il doit le rester en
+# production : il autoriserait n'importe quel site heberge sur `vercel.app` a
+# lire les reponses de l'API pour un porteur de jeton valide.
+if env("EVKHA_AUTORISER_PREVISUALISATIONS_VERCEL"):
+    CORS_ALLOWED_ORIGIN_REGEXES = [r"^https://[a-z0-9-]+\.vercel\.app$"]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -44,8 +69,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "catalog",
     "customers",
+    "organisations",
     "orders",
     "intake",
     "generation",
@@ -58,6 +85,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Le plus haut possible, et OBLIGATOIREMENT avant CommonMiddleware : c'est
+    # lui qui doit pouvoir repondre a une requete preflight sans que le reste
+    # de la pile ne s'en mele.
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -235,6 +266,18 @@ EVKHA_USE_STUB_SEARCH = env("EVKHA_USE_STUB_SEARCH")
 # activee UNIQUEMENT via EVKHA_SEARCH_PROVIDER=tavily + TAVILY_API_KEY.
 EVKHA_SEARCH_PROVIDER = env("EVKHA_SEARCH_PROVIDER", default="duckduckgo")
 TAVILY_API_KEY = env("TAVILY_API_KEY", default="")
+
+# Socle de données verrouillé (lot 1 de la refonte du moteur).
+#
+# Faux par défaut : le moteur historique reste seul en service. Passer à true
+# active la passe 1 (production du socle avant toute rédaction) pour les
+# livrables couverts par un référentiel — aujourd'hui l'étude de marché et
+# l'étude de la concurrence. Le business plan et la stratégie continuent de
+# tourner sur l'ancien chemin quelle que soit la valeur de ce réglage.
+#
+# C'est le drapeau de bascule réversible exigé par le cahier des charges :
+# le repasser à false rend le comportement d'avant, sans migration ni purge.
+EVKHA_SOCLE_ENABLED = env.bool("EVKHA_SOCLE_ENABLED", default=False)
 
 # Boucle d'auto-correction (concept loopy) : nombre de rondes de régénération
 # ciblée des chapitres fautifs avant blocage du gate. 0 = désactivé (le gate

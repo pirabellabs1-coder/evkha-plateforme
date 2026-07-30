@@ -121,7 +121,7 @@ export function Orders() {
                   </Table.Cell>
                   <Table.Cell>
                     <Link
-                      to="/clients/$clientId"
+                      to="/admin/clients/$clientId"
                       params={{ clientId: order.customer_id }}
                       style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}
                     >

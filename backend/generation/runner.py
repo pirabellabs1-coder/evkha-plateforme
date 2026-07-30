@@ -8,6 +8,7 @@ from catalog.models import DeliverableType
 from intake.models import IntakeSubmission
 from integrations.claude import _DEFAULT_MAX_TOKENS, ClaudeClient, get_claude_client
 from monitoring.models import IncidentSeverity, OperationalIncident
+from organisations.liaison import debiter_pour_job
 
 from .blueprints import chapters_for_deliverable, get_blueprint
 from .checks_blocs import (
@@ -145,6 +146,15 @@ class GenerationRunError(RuntimeError):
     """Echec irrecuperable d'un cycle de generation (au moins un chapitre KO)."""
 
 
+class CreditsInsuffisantsError(GenerationRunError):
+    """Le portefeuille de l'organisation ne couvre pas cette generation.
+
+    « Commande bloquee avec proposition d'achat de credits additionnels. Aucun
+    decouvert. » (§11) — le job est marque FAILED sans qu'aucun appel facture
+    n'ait ete emis.
+    """
+
+
 class CheckInitialBlockedError(GenerationRunError):
     """Le CHECK INITIAL a echoue : la fiche projet n'est pas prete.
 
@@ -264,6 +274,19 @@ def run_generation_job(
     FAILED, ouvre un incident operationnel et leve une exception.
     """
     client = client or get_claude_client()
+
+    # Lot 4 — debit des credits AU LANCEMENT (cahier des charges §11), avant le
+    # premier appel facture. Sans organisation rattachee, aucun debit : c'est le
+    # flux Systeme.io en service, deja paye autrement. Une relance ne repaie pas
+    # (idempotence par reference de job).
+    autorise, raison = debiter_pour_job(job)
+    if not autorise:
+        GenerationJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.FAILED,
+            error_message=f"Credits insuffisants : {raison}"[:2000],
+        )
+        msg = f"Generation refusee pour le job {job.id} : {raison}"
+        raise CreditsInsuffisantsError(msg)
 
     job.status = JobStatus.RUNNING
     if job.started_at is None:

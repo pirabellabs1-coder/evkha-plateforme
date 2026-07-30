@@ -32,6 +32,9 @@ urlpatterns = [
     # Dashboard API — consomme par le frontend TanStack (phase 6).
     # A securiser avec Better Auth token en production.
     path("api/dashboard/", include("dashboard.urls", namespace="dashboard")),
+    # Espace client (lot 4). Prefixe distinct de /api/dashboard/ : ce dernier
+    # est protege par un jeton PARTAGE, qui ne distingue pas les organisations.
+    path("api/espace/", include("organisations.urls", namespace="espace")),
     # Sert les PDFs/HTML générés (MEDIA_ROOT) y compris en production :
     # Brevo télécharge les pièces jointes par URL publique et les clients
     # ouvrent leur lien de livraison. Noms de fichiers non devinables (hash),

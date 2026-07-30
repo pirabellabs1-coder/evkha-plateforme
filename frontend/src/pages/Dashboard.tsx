@@ -146,7 +146,7 @@ function RecentJobs({ jobs }: { jobs: JobSummary[] }) {
             <Badge color={statusColor(job.status)} variant="soft" size="1" style={{ flexShrink: 0 }}>
               {statusLabel(job.status)}
             </Badge>
-            <Link to="/jobs/$jobId" params={{ jobId: job.id }}
+            <Link to="/admin/jobs/$jobId" params={{ jobId: job.id }}
               style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13, flexShrink: 0 }}>
               Voir →
             </Link>
@@ -357,7 +357,7 @@ export function Dashboard() {
               Les derniers documents générés pour vos clients
             </Text>
           </Box>
-          <Link to="/jobs" style={{ color: "var(--accent-9)", fontSize: 13 }}>
+          <Link to="/admin/jobs" style={{ color: "var(--accent-9)", fontSize: 13 }}>
             Voir tous →
           </Link>
         </Flex>

@@ -160,7 +160,7 @@ export function Jobs() {
                   {job.status === "done" && <JobRowActions job={job} />}
                 </Table.Cell>
                 <Table.Cell>
-                  <Link to="/jobs/$jobId" params={{ jobId: job.id }}
+                  <Link to="/admin/jobs/$jobId" params={{ jobId: job.id }}
                     style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}>
                     Détail →
                   </Link>

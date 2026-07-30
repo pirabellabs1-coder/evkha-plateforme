@@ -1,0 +1,241 @@
+"""Du socle et des chapitres vers la structure de rendu (lot 3).
+
+Le lot 0 a construit un moteur qui rend une étude décrite en JSON. Le lot 1 a
+produit le socle, le lot 2 les chapitres. Ce module est le raccord : il traduit
+les objets métier en blocs de rendu.
+
+Il ne décide de rien d'éditorial. Sa seule liberté est la **mise en forme** :
+quel bloc pour quel contenu, dans quel ordre. Les valeurs viennent du socle,
+les phrases des chapitres.
+
+Deux points structurent tout le module.
+
+1. **La densité.** Le document validé par la cliente est fait de tableaux
+   reliés par de la prose courte : 52 % de ses mots vivent dans des tableaux,
+   la médiane de ses paragraphes est de douze mots. Une section qui porte un
+   tableau le rend ; sa prose devient une amorce, pas un développement.
+
+2. **Le rapport d'assemblage.** Tout ce qui n'a pas pu être rendu est
+   enregistré avec son motif. Un graphique abandonné en silence ferait passer
+   un livrable amputé pour un livrable complet (règle 1).
+"""
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
+from ..chapitres.schema import ChapitrePayload, Graphique
+from ..socle.schema import Socle
+from . import secteurs
+from .donnees_graphiques import resoudre
+
+#: Au-delà, la prose d'une section est une amorce tronquée plutôt qu'un
+#: paragraphe entier : c'est la mesure qui sépare le document de référence du
+#: mur de texte refusé par la cliente.
+MOTS_AMORCE_MAX = 55
+
+
+@dataclass
+class RapportAssemblage:
+    """Ce qui a été rendu, et ce qui ne l'a pas été.
+
+    Destiné à l'admin et au lot 4. Un livrable dont tous les graphiques ont été
+    abandonnés reste un livrable, mais il ne doit pas passer pour complet.
+    """
+
+    graphiques_demandes: int = 0
+    graphiques_rendus: int = 0
+    graphiques_convertis: list[str] = field(default_factory=list)
+    graphiques_abandonnes: list[str] = field(default_factory=list)
+    chapitres: int = 0
+    tableaux: int = 0
+    #: Identifiants du socle effectivement portés par une figure rendue.
+    #: La passe de vérification en a besoin : un chiffre dessiné dans un PNG
+    #: est bien sous les yeux du lecteur, mais invisible à une relecture du
+    #: texte. Sans cette liste, elle le déclarerait absent du livrable.
+    identifiants_rendus: set[str] = field(default_factory=set)
+
+    @property
+    def complet(self) -> bool:
+        return not self.graphiques_abandonnes
+
+    def resume(self) -> str:
+        parties = [
+            f"{self.chapitres} chapitres",
+            f"{self.tableaux} tableaux",
+            f"{self.graphiques_rendus}/{self.graphiques_demandes} graphiques",
+        ]
+        if self.graphiques_convertis:
+            parties.append(f"{len(self.graphiques_convertis)} convertis")
+        if self.graphiques_abandonnes:
+            parties.append(f"{len(self.graphiques_abandonnes)} abandonnés")
+        return ", ".join(parties)
+
+
+def _amorce(texte: str) -> str:
+    """La prose d'une section, ramenée à une amorce.
+
+    Couper à la phrase et non au mot : une amorce tronquée au milieu d'un
+    groupe nominal se voit immédiatement à la lecture.
+    """
+    texte = " ".join(texte.split())
+    if len(texte.split()) <= MOTS_AMORCE_MAX:
+        return texte
+    conserve: list[str] = []
+    total = 0
+    for phrase in texte.replace("! ", "!|").replace("? ", "?|").replace(
+        ". ", ".|"
+    ).split("|"):
+        mots = len(phrase.split())
+        if conserve and total + mots > MOTS_AMORCE_MAX:
+            break
+        conserve.append(phrase)
+        total += mots
+    return " ".join(conserve).strip()
+
+
+def _blocs_graphique(
+    socle: Socle,
+    graphiques: Sequence[Graphique],
+    profil: secteurs.ProfilSectoriel,
+    rapport: RapportAssemblage,
+    reference: str,
+) -> list[dict[str, Any]]:
+    blocs: list[dict[str, Any]] = []
+    for demande in graphiques:
+        rapport.graphiques_demandes += 1
+        type_demande = str(demande.type)
+
+        if type_demande in profil.graphiques_a_eviter:
+            rapport.graphiques_abandonnes.append(
+                f"{reference} · {demande.titre} : type `{type_demande}` hors "
+                f"sujet pour le secteur « {profil.libelle} »"
+            )
+            continue
+
+        resolution = resoudre(socle, type_demande, demande.donnees_ids)
+        if not resolution.retenu:
+            rapport.graphiques_abandonnes.append(
+                f"{reference} · {demande.titre} : {resolution.motif}"
+            )
+            continue
+
+        if resolution.converti:
+            rapport.graphiques_convertis.append(
+                f"{reference} · {demande.titre} : {type_demande} → "
+                f"{resolution.type_graphique} ({resolution.motif})"
+            )
+        rapport.graphiques_rendus += 1
+        rapport.identifiants_rendus.update(demande.donnees_ids)
+        blocs.append({
+            "type": "graphique",
+            "graphique": resolution.type_graphique,
+            "titre": demande.titre,
+            "source": demande.commentaire,
+            "donnees": resolution.donnees,
+        })
+    return blocs
+
+
+def blocs_du_chapitre(
+    payload: ChapitrePayload,
+    socle: Socle,
+    profil: secteurs.ProfilSectoriel,
+    rapport: RapportAssemblage,
+) -> list[dict[str, Any]]:
+    """Un chapitre structuré, traduit en blocs de rendu."""
+    rapport.chapitres += 1
+    blocs: list[dict[str, Any]] = [{
+        "type": "bandeau",
+        "numero": payload.chapitre,
+        "titre": payload.titre,
+        "accroche": payload.accroche,
+    }]
+
+    for rang, section in enumerate(payload.sections, start=1):
+        blocs.append({
+            "type": "sous_titre",
+            "texte": f"{payload.chapitre}.{rang} {section.titre}",
+        })
+        amorce = _amorce(section.contenu)
+        if amorce:
+            blocs.append({"type": "paragraphe", "texte": amorce})
+        if section.tableau is not None:
+            rapport.tableaux += 1
+            blocs.append({
+                "type": "tableau",
+                "entetes": section.tableau.entetes,
+                "lignes": section.tableau.lignes,
+                "source": section.tableau.source,
+            })
+
+    graphiques = _blocs_graphique(
+        socle, payload.graphiques, profil, rapport,
+        reference=f"Chapitre {payload.chapitre}",
+    )
+    if graphiques:
+        blocs.append({"type": "saut"})
+        blocs.extend(graphiques)
+
+    blocs.extend(
+        {"type": "encadre", "libelle": encadre.intitule, "lignes": encadre.lignes,
+         "verdict": _est_un_verdict(encadre.intitule)}
+        for encadre in payload.encadres
+    )
+    return blocs
+
+
+#: Intitulés dont l'encadré prend le fond soutenu de la référence. Comparaison
+#: sur le début de l'intitulé, insensible à la casse : le modèle écrit aussi
+#: bien « Verdict » que « Verdict — conditions de viabilité ».
+_INTITULES_VERDICT = ("verdict", "conclusion", "décision", "decision")
+
+
+def _est_un_verdict(intitule: str) -> bool:
+    debut = intitule.strip().casefold()
+    return any(debut.startswith(mot) for mot in _INTITULES_VERDICT)
+
+
+def assembler_etude(
+    *,
+    socle: Socle,
+    chapitres: Sequence[ChapitrePayload],
+    titre: str,
+    sous_titre: str = "",
+    marque: dict[str, str] | None = None,
+    mention: str = "Document confidentiel — usage stratégique interne",
+) -> tuple[dict[str, Any], RapportAssemblage]:
+    """Structure de rendu complète, plus le rapport de ce qui n'a pas suivi.
+
+    Les chapitres sont rendus dans l'ordre de leur numéro et non dans l'ordre
+    où ils arrivent : la génération est parallèle, la lecture ne l'est pas.
+    """
+    rapport = RapportAssemblage()
+    profil = secteurs.profil_du_secteur(socle.secteur)
+
+    ordonnes = sorted(chapitres, key=lambda payload: payload.chapitre)
+    blocs_par_chapitre = [
+        {
+            "numero": payload.chapitre,
+            "titre": payload.titre,
+            "blocs": blocs_du_chapitre(payload, socle, profil, rapport),
+        }
+        for payload in ordonnes
+    ]
+
+    etude = {
+        "titre": titre,
+        "sous_titre": sous_titre or socle.secteur,
+        "mention": mention,
+        "secteur": socle.secteur,
+        "profil_sectoriel": profil.code,
+        "marque": marque or {},
+        "mentions_finales": [
+            "EVKHA · Système d'analyse de marché",
+            "Méthode déposée à l'INPI",
+            "Document confidentiel — reproduction interdite",
+        ],
+        "chapitres": blocs_par_chapitre,
+    }
+    return etude, rapport
