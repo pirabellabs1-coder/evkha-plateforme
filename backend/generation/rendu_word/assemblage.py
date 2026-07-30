@@ -35,6 +35,31 @@ from .donnees_graphiques import resoudre
 #: mur de texte refusé par la cliente.
 MOTS_AMORCE_MAX = 55
 
+#: Mention de repli, quand l'abonné n'a rien défini. Volontairement **neutre** :
+#: elle ne nomme personne. Un document livré en marque blanche ne doit porter
+#: que le nom de celui qui le remet à son client.
+MENTION_PAR_DEFAUT = "Document confidentiel — reproduction interdite"
+
+
+def mentions_finales(marque: dict[str, Any] | None) -> list[str]:
+    """Mentions de quatrième de couverture, tirées de la marque de l'abonné.
+
+    Elles étaient écrites en dur : « EVKHA · Système d'analyse de marché »,
+    « Méthode déposée à l'INPI ». Chaque document réel aurait donc signé au nom
+    de la plateforme un travail remis par l'abonné à SON client — exactement ce
+    que la marque blanche interdit.
+
+    Aucune mention inventée : si l'abonné n'a rien renseigné, il ne reste que
+    la confidentialité, qui ne nomme personne.
+    """
+    marque = marque or {}
+    lignes = [
+        str(marque.get("nom", "")).strip(),
+        str(marque.get("mention_legale", "")).strip(),
+        str(marque.get("mention_confidentialite", "")).strip() or MENTION_PAR_DEFAUT,
+    ]
+    return [ligne for ligne in lignes if ligne]
+
 
 @dataclass
 class RapportAssemblage:
@@ -231,11 +256,11 @@ def assembler_etude(
         "secteur": socle.secteur,
         "profil_sectoriel": profil.code,
         "marque": marque or {},
-        "mentions_finales": [
-            "EVKHA · Système d'analyse de marché",
-            "Méthode déposée à l'INPI",
-            "Document confidentiel — reproduction interdite",
-        ],
+        # Le document est livré en MARQUE BLANCHE : il porte le nom de
+        # l'abonné, jamais celui de la plateforme. « EVKHA · Système d'analyse
+        # de marché » était écrit en dur ici et serait donc parti sur chaque
+        # document réel, signant le travail d'un tiers au nom d'un autre.
+        "mentions_finales": mentions_finales(marque),
         "chapitres": blocs_par_chapitre,
     }
     return etude, rapport

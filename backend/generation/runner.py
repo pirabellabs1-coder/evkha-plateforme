@@ -32,6 +32,12 @@ from .cost import (
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 from .qa import detect_violations, repair_rule_based
+from .socle import (
+    SocleGenerationError,
+    etablir_socle,
+    livrable_supporte,
+    socle_actif,
+)
 
 # QC Evangeline #1 : porte le resume operationnel a 1200 chars et priorise les
 # phrases chiffrees/sourcees. En dessous, tous les chiffres cles fuyaient d'un
@@ -312,6 +318,43 @@ def run_generation_job(
         if brief:
             job.research_brief = brief
             job.save(update_fields=["research_brief", "updated_at"])
+
+    # ── Socle verrouillé (lot 1) ─────────────────────────────────────────────
+    #
+    # `etablir_socle` existait depuis le lot 1 et n'était appelée QUE par une
+    # action de l'administration Django. Le moteur en service n'en établissait
+    # aucun. Consequence : le rendu Word du lot 3 refusait de produire le
+    # livrable — « aucun socle verrouillé, ses graphiques n'auraient rien à
+    # citer » — et tout le nouveau moteur restait hors circuit.
+    #
+    # Ici, et pas ailleurs : APRÈS la recherche web, qui l'alimente, et AVANT le
+    # premier chapitre, qui le cite. Idempotent — une relance ne le repaie pas.
+    #
+    # Un socle en échec fait échouer le job. Continuer produirait des chapitres
+    # sans référence commune, c'est-à-dire un document qui a l'air complet et
+    # dont aucun chiffre n'est ancré (règle 1 : échouer bruyamment).
+    if socle_actif() and livrable_supporte(job):
+        try:
+            etablir_socle(
+                job,
+                client=client,
+                variables=variables,
+                brief_recherche=job.research_brief or "",
+            )
+        except SocleGenerationError as exc:
+            GenerationJob.objects.filter(pk=job.pk).update(
+                status=JobStatus.FAILED,
+                error_message=f"Socle non établi : {exc}"[:2000],
+            )
+            OperationalIncident.objects.create(
+                title=f"Socle non établi (job {job.id})",
+                severity=IncidentSeverity.HIGH,
+                job=job,
+                order=job.order,
+                details={"motifs": list(getattr(exc, "motifs", [])),
+                         "tentatives": getattr(exc, "tentatives", 0)},
+            )
+            raise
 
     # Phase 0 : rappel court des exigences client. Garde `if not job.phase0_plan` :
     # sur une relance avec chapitres partiellement DONE, on préserve le plan

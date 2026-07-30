@@ -15,6 +15,7 @@ from typing import Any
 from docx.document import Document as DocumentWord
 
 from . import composants, graphiques
+from .assemblage import MENTION_PAR_DEFAUT
 from .gabarit import charger_gabarit
 from .logo import charger_logo
 from .palette import Palette, construire_palette
@@ -102,8 +103,10 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
         {
             "{{ client }}": marque.get("nom", "—"),
             "{{ titre_document }}": etude.get("titre", ""),
+            # Repli NEUTRE : « EVKHA · Document confidentiel » y figurait, et
+            # un document en marque blanche ne doit nommer que son abonné.
             "{{ mention_confidentialite }}": etude.get(
-                "mention", "EVKHA  ·  Document confidentiel"
+                "mention", MENTION_PAR_DEFAUT
             ),
         },
     )
@@ -141,10 +144,8 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
 
     composants.quatrieme_couverture(
         document, palette,
-        mentions=etude.get(
-            "mentions_finales",
-            ["EVKHA", "Méthode déposée à l'INPI", "Document confidentiel"],
-        ),
+        # Idem : aucune mention de la plateforme en repli.
+        mentions=etude.get("mentions_finales", [MENTION_PAR_DEFAUT]),
     )
 
     destination.parent.mkdir(parents=True, exist_ok=True)
