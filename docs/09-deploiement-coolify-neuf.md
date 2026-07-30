@@ -112,6 +112,124 @@ client télécharge un fichier introuvable.
 
 ---
 
+## 3 bis. Ce qui est déjà créé dans Coolify
+
+Mis en place le 30 juillet 2026 via l'API Coolify, et **déployé** le même jour.
+
+| Élément | Identifiant | Note |
+|---|---|---|
+| Coolify | `http://82.165.31.105:8000` | En **HTTP**, pas en HTTPS. À corriger. |
+| Serveur | `kmsk482jekuqvi22wgbgathv` (`localhost`) | Coolify tourne sur le VPS lui-même. |
+| Projet | `flv3qnhvhfcidp0pvm706gcg` (`evkha-plateforme`) | Environnement `production` : `s12w7z0tiwxya79iq36g38bk`. |
+| Ressource neuve | `zft1wslml9mp2dlwuvttjbxw` | Compose, branche `espace-client-et-credits`. |
+| Clé de déploiement | `oxa4hzqbfjz2fuz662itbugh` (`github-deploy-evkha`) | La même que la production. |
+| **Production, à ne pas toucher** | `zuai4axswqlebjukcnxt3jfa` (`evkha-api`) | Branche `main`, `running`. |
+
+### Deux dépôts, et c'est une dette
+
+La clé de déploiement `github-deploy-evkha` n'a **pas** accès à
+`EVKHA-SVG/Systeme-EVKHA-`, le dépôt de la cliente — le premier déploiement a
+échoué au clonage sur `ERROR: Repository not found`. Et une clé de déploiement
+s'ajoute depuis les *Settings* du dépôt, ce qui demande le rôle *Admin* : le
+développeur n'y est que collaborateur.
+
+Contournement en place : la branche est recopiée dans un dépôt **privé**,
+`pirabellabs1-coder/evkha-plateforme`, dont Coolify clone désormais. Le distant
+Git local s'appelle `perso` ; `origin` reste le dépôt de la cliente.
+
+**Les deux dépôts doivent rester identiques** — c'est la règle 5 qui est en jeu.
+Tout commit part sur les deux, sans exception. À la bascule en production, il
+faudra soit obtenir une clé de déploiement sur le dépôt de la cliente, soit lui
+transférer celui-ci. La cliente n'étant pas technique, ce sera au développeur de
+le faire.
+
+À noter au passage : la production clone depuis `git@github.com:tobiags/…`, un
+chemin que la clé lit mais que le compte du développeur ne voit pas. Soit la
+production tourne depuis un dépôt distinct de celui où l'on développe, soit ce
+dépôt a disparu et la production ne peut plus se redéployer. **Non tranché** —
+à clarifier avant la bascule, pas après.
+
+### Ce qui est vérifié, et comment
+
+Un déploiement vert ne prouve rien (règle 7). Mesuré par requêtes réelles, en
+contournant le DNS absent via `curl --resolve` :
+
+| Test | Résultat | Ce que ça prouve |
+|---|---|---|
+| `GET /healthz/` | 200 `{"status":"ok"}` | Django démarre et Gunicorn sert. **Rien de plus** : cette vue renvoie une constante, elle ne touche ni base, ni Redis, ni Celery. |
+| `GET /api/espace/moi/` avec jeton bidon | 401 JSON | La table des jetons est interrogée. |
+| `POST /api/espace/connexion/`, identifiants faux | 401 « Identifiants invalides » | La table des comptes existe et le mot de passe est vérifié : **les migrations sont passées**. |
+| `GET /admin/login/` | 200, 4 238 o | Django rend ses gabarits. |
+| `GET /static/admin/css/base.css` | 200, 22 120 o | `collectstatic` a tourné. |
+| `GET app2.evkha.fr/` | 200, 1 322 o | L'espace client est servi. |
+
+**Ce qui n'est pas vérifié**, et qu'il ne faut pas croire acquis : Celery
+consomme-t-il réellement ses tâches ; LibreOffice convertit-il (l'API Coolify de
+cette version n'expose pas d'exécution de commande, donc `soffice --version`
+n'a pas pu être lancé) ; le certificat Let's Encrypt (impossible sans DNS) ; et
+aucune génération réelle, évidemment.
+
+Les 33 variables d'environnement sont poussées, tous les drapeaux `STUB` à
+`true`. Coolify les enregistre **en double** — un jeu « production » et un jeu
+« aperçu », valeurs identiques. C'est son fonctionnement normal, pas un défaut.
+Conséquence à connaître : le jeu « aperçu » contient une copie des secrets de
+production. Sans déploiement d'aperçu il dort, mais il existe.
+
+### Le piège Traefik, à connaître avant de recommencer ailleurs
+
+Les étiquettes Traefik écrites dans `docker-compose.prod.yml` **ne suffisent
+pas**. Coolify ne raccorde un service Compose à son réseau de proxy que si un
+domaine lui est déclaré *de son côté*, service par service. Sans cette
+déclaration, les conteneurs tournent sur un réseau isolé : Traefik ne les voit
+pas, et le site répond exactement comme un domaine inexistant — **404 en HTTP,
+503 en HTTPS**. Rien dans les journaux de déploiement ne le signale, puisque le
+déploiement, lui, a réussi.
+
+Le symptôme est trompeur : `docker compose` annonce six conteneurs démarrés,
+`nginx` journalise ses processus, et pourtant rien n'est joignable. Le test qui
+tranche est de comparer avec un hôte inventé : s'il renvoie les mêmes codes que
+votre domaine, c'est que Traefik n'a aucune route pour vous.
+
+Correctif appliqué, via l'API (`PATCH /applications/{uuid}`) ou dans l'interface
+onglet *Domains* :
+
+```json
+"docker_compose_domains": [
+  {"name": "api",       "domain": "https://api2.evkha.fr"},
+  {"name": "dashboard", "domain": "https://app2.evkha.fr"}
+]
+```
+
+Un redéploiement est nécessaire ensuite : le raccordement réseau se fait à la
+création des conteneurs.
+
+### Ce qui reste à faire
+
+1. **Les deux enregistrements DNS.** `api2.evkha.fr` et `app2.evkha.fr` ne
+   résolvent pas. Deux enregistrements A vers `82.165.31.105`, chez IONOS. Sans
+   eux, Let's Encrypt ne peut pas émettre de certificat : le site fonctionne
+   (vérifié via `curl --resolve`) mais reste injoignable depuis un navigateur.
+2. **Coolify en HTTPS.** L'API renvoie la clé **privée** de déploiement dans la
+   réponse de `GET /security/keys`, et l'interface parle en HTTP clair. Cette
+   clé traverse donc Internet en clair à chaque appel de ce type. Un
+   enregistrement `coolify.evkha.fr` et un domaine posé sur l'instance ferment
+   la brèche.
+3. **`ANTHROPIC_API_KEY` et `BREVO_API_KEY`** sont vides. Sans conséquence tant
+   que les drapeaux `STUB` valent `true` — c'est-à-dire tant qu'on n'attend pas
+   du système qu'il produise quoi que ce soit de réel.
+
+### Attention au moment de fusionner dans `main`
+
+`docker-compose.prod.yml` exige désormais `API_DOMAIN` et `FRONT_DOMAIN`
+(`${API_DOMAIN:?…}`). La production tourne sur `main`, où ces variables
+n'existent pas encore. Tant que la branche n'est pas fusionnée, rien ne bouge —
+mais **le jour de la fusion, le prochain redéploiement de `evkha-api` échouera**
+si ces deux variables ne lui ont pas été ajoutées d'abord (avec
+`API_DOMAIN=app.evkha.fr` et son `STACK_NAME` propre). À faire avant la fusion,
+pas après.
+
+---
+
 ## 4. Ordre de mise en route
 
 1. **Créer le projet** dans Coolify, source = votre dépôt Git, fichier

@@ -8,6 +8,11 @@
 #   WeasyPrint dans /app/media, l'api les sert sur /media/.
 # - Aucun port Postgres/Redis exposé sur l'hôte (réseau Docker interne).
 # - migrate + collectstatic s'exécutent au démarrage de l'api (idempotents).
+# - `seed_formules` y figure aussi : sans lui, une base neuve n'a aucune formule
+#   d'abonnement et l'espace client ne peut proposer aucun plan. Le laisser en
+#   étape manuelle revient à l'oublier au prochain déploiement neuf. Sans
+#   `--forcer`, il crée ce qui manque et ne touche jamais une formule ajustée
+#   depuis l'administration.
 
 services:
   api:
@@ -17,6 +22,7 @@ services:
     command: >
       sh -c "python manage.py migrate --noinput
       && python manage.py seed_offers
+      && python manage.py seed_formules
       && python manage.py collectstatic --noinput
       && gunicorn evkha.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"
     env_file: .env
