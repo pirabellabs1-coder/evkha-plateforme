@@ -33,7 +33,16 @@ from .donnees_graphiques import resoudre
 #: Au-delà, la prose d'une section est une amorce tronquée plutôt qu'un
 #: paragraphe entier : c'est la mesure qui sépare le document de référence du
 #: mur de texte refusé par la cliente.
-MOTS_AMORCE_MAX = 55
+#:
+#: Calibré à 55, puis relevé à 90 sur mesure comparative. À 55, le document
+#: rendu portait 2 599 mots de prose contre 4 131 au modèle validé, et la part
+#: des mots vivant dans les tableaux montait à 66 % contre 52 %. La cliente
+#: l'a lu comme « trop de tableaux » — à juste titre, mais la cause était
+#: l'inverse : il n'y avait plus assez de texte autour d'eux.
+#:
+#: 90 mots par section × ~50 sections ≈ 4 500, l'ordre de grandeur du modèle.
+#: La coupe reste faite sur une frontière de phrase, jamais au milieu.
+MOTS_AMORCE_MAX = 90
 
 #: Mention de repli, quand l'abonné n'a rien défini. Volontairement **neutre** :
 #: elle ne nomme personne. Un document livré en marque blanche ne doit porter
