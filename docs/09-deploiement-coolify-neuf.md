@@ -149,6 +149,29 @@ production tourne depuis un dépôt distinct de celui où l'on développe, soit 
 dépôt a disparu et la production ne peut plus se redéployer. **Non tranché** —
 à clarifier avant la bascule, pas après.
 
+### Adresses d'accès, sans attendre le DNS
+
+`nip.io` résout n'importe quel `<préfixe>.<ip-en-tirets>.nip.io` vers l'IP
+correspondante, sans aucun enregistrement à créer. Let's Encrypt émet des
+certificats valides pour ces noms — vérifié, `ssl_verify_result` à 0.
+
+| Espace | Adresse |
+|---|---|
+| Espace client | `https://app-evkha.82-165-31-105.nip.io/espace` |
+| Espace administrateur | `https://app-evkha.82-165-31-105.nip.io/login` puis `/admin` |
+| API | `https://api-evkha.82-165-31-105.nip.io/healthz/` |
+
+L'espace administrateur demande le jeton `EVKHA_DASHBOARD_TOKEN` (dans
+`env-coolify.txt`, sur le poste de développement). L'espace client demande un
+compte, qui n'existe pas encore sur cette base neuve.
+
+`api2.evkha.fr` et `app2.evkha.fr` sont configurés en parallèle et répondent
+déjà — le jour où les enregistrements A existeront, il n'y aura rien à refaire.
+
+`EVKHA_BASE_URL` pointe provisoirement sur l'adresse `nip.io` pour que les liens
+de téléchargement soient joignables. **À rebasculer sur `api2.evkha.fr`** à la
+mise en production.
+
 ### Ce qui est vérifié, et comment
 
 Un déploiement vert ne prouve rien (règle 7). Mesuré par requêtes réelles, en
