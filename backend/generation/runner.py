@@ -11,6 +11,8 @@ from monitoring.models import IncidentSeverity, OperationalIncident
 from organisations.liaison import debiter_pour_job
 
 from .blueprints import chapters_for_deliverable, get_blueprint
+from .chapitres.configuration import est_declare
+from .chapitres.services import produire_chapitre
 from .checks_blocs import (
     BLOCS_PAR_IDENTIFIANT,
     INCIDENT_TYPE_CHECK_BLOC,
@@ -37,6 +39,7 @@ from .socle import (
     etablir_socle,
     livrable_supporte,
     socle_actif,
+    socle_verrouille,
 )
 
 # QC Evangeline #1 : porte le resume operationnel a 1200 chars et priorise les
@@ -333,7 +336,16 @@ def run_generation_job(
     # Un socle en échec fait échouer le job. Continuer produirait des chapitres
     # sans référence commune, c'est-à-dire un document qui a l'air complet et
     # dont aucun chiffre n'est ancré (règle 1 : échouer bruyamment).
-    if socle_actif() and livrable_supporte(job):
+    # Un SEUL interrupteur pour tout le nouveau moteur. Les chapitres
+    # structurés exigent le socle : deux drapeaux distincts autoriseraient la
+    # combinaison « chapitres sans socle », qui ne produit que des échecs.
+    moteur_structure = (
+        socle_actif()
+        and livrable_supporte(job)
+        and est_declare(str(job.deliverable_type))
+    )
+
+    if moteur_structure:
         try:
             etablir_socle(
                 job,
@@ -372,6 +384,10 @@ def run_generation_job(
         job.deliverable_type, country=country, plan=phase0_plan
     )
 
+    # Relu UNE fois : le socle est identique pour tous les chapitres du run, et
+    # le relire à chaque tour multiplierait les requêtes sans rien changer.
+    socle_du_run = socle_verrouille(job) if moteur_structure else None
+
     chapters = job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")
     for chapter in chapters:
         # Vérification annulation entre chaque chapitre (check DB allégé)
@@ -380,14 +396,33 @@ def run_generation_job(
             return job
 
         try:
-            _generate_chapter(job, chapter, client=client, system_prompt=system_prompt)
-            # QA rule-based immédiate : corrections automatiques sans appel IA.
-            # Les violations critiques restantes sont traitées par le QA final (IA).
-            _inline_qa_repair(chapter)
-            # CHECK inter-bloc EVKHA (manuel Evangeline §6) : uniquement pour
-            # l'EM, apres chaque dernier chapitre d'un bloc. Silencieux pour
-            # BP/EC/STR (blueprints non couverts par le manuel).
-            _after_chapter_hook(job, chapter, client=client)
+            if moteur_structure:
+                # Sortie STRUCTURÉE (lot 2) : le chapitre cite les identifiants
+                # du socle et demande ses graphiques. `enregistrer_chapitre`
+                # écrit aussi le markdown, de sorte que l'ancienne chaîne de
+                # rendu reste servie par le même chapitre.
+                #
+                # Ni `_inline_qa_repair` ni `_after_chapter_hook` ici, et c'est
+                # délibéré : tous deux réécrivent le MARKDOWN. Or c'est le
+                # `payload` que le rendu Word emploie. Réparer l'un sans
+                # l'autre ferait diverger deux versions du même chapitre
+                # (règle 5), et la réparation n'atteindrait pas le document
+                # réellement livré (règle 3). La vérification du lot 4, elle,
+                # porte sur le `.docx` produit.
+                produire_chapitre(
+                    job, chapter.chapter_number, client=client, socle=socle_du_run
+                )
+            else:
+                _generate_chapter(
+                    job, chapter, client=client, system_prompt=system_prompt
+                )
+                # QA rule-based immédiate : corrections automatiques sans appel IA.
+                # Les violations critiques restantes sont traitées par le QA final (IA).
+                _inline_qa_repair(chapter)
+                # CHECK inter-bloc (manuel Evangeline §6) : uniquement pour
+                # l'EM, apres chaque dernier chapitre d'un bloc. Silencieux pour
+                # BP/EC/STR (blueprints non couverts par le manuel).
+                _after_chapter_hook(job, chapter, client=client)
         except CheckInitialBlockedError as exc:
             # CHECK INITIAL bloquant : la fiche projet (chapitre 0) est valide
             # et DONE — on ne la marque PAS FAILED. L'incident HIGH est deja

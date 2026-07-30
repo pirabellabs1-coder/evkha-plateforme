@@ -58,7 +58,13 @@ def job() -> GenerationJob:
 
 
 def _espionner(monkeypatch: pytest.MonkeyPatch, effet: Any = None) -> list[dict[str, Any]]:
-    """Remplace `etablir_socle` et note ses appels."""
+    """Remplace `etablir_socle` et note ses appels.
+
+    La production des chapitres est neutralisée par la même occasion : ces
+    tests portent sur le socle, et un chapitre structuré relirait en base un
+    socle que la doublure n'y a pas écrit. Sans cela, ils échoueraient sur un
+    motif qui ne les concerne pas.
+    """
     appels: list[dict[str, Any]] = []
 
     def _faux(job_recu: Any, **kwargs: Any) -> Any:
@@ -67,7 +73,17 @@ def _espionner(monkeypatch: pytest.MonkeyPatch, effet: Any = None) -> list[dict[
             raise effet
         return object()
 
+    def _chapitre(job_recu: Any, numero: int, **kwargs: Any) -> Any:
+        chapitre = job_recu.chapters.get(chapter_number=numero)
+        chapitre.status = "done"
+        chapitre.payload = {"chapitre": numero}
+        chapitre.content = "# chapitre"
+        chapitre.save(update_fields=["status", "payload", "content", "updated_at"])
+        return chapitre
+
     monkeypatch.setattr(moteur, "etablir_socle", _faux)
+    monkeypatch.setattr(moteur, "socle_verrouille", lambda job: object())
+    monkeypatch.setattr(moteur, "produire_chapitre", _chapitre)
     return appels
 
 
