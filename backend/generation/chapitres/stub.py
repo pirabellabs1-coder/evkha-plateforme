@@ -67,13 +67,19 @@ def _tableau(numero: int, intitule: str) -> dict[str, object]:
     # 5 133 mots dans les tableaux pour 4 497 au modèle, avec un tiers de
     # tableaux en moins — d'où l'impression de tableaux envahissants. Le modèle
     # tient ses cellules à quelques mots.
+    # Calibré sur le modèle : 77 mots par tableau, soit environ quinze par
+    # ligne. Une première version en mettait le double — 66 % des mots du
+    # document vivaient dans les tableaux, contre 52 % au modèle, et la
+    # cliente l'a lu comme « trop de tableaux ». La correction suivante est
+    # tombée à 40 % : des cases de deux mots, et des tableaux qui ne disaient
+    # plus rien. C'est l'entre-deux qui vaut.
     entetes = ["Élément", "Constat", "Conséquence", "Décision"]
     lignes = [
         [
             f"{intitule} {rang}",
-            "Repère du socle",
-            "Périmètre accessible",
-            "À arbitrer",
+            "Repère issu du socle verrouillé",
+            "Effet sur le périmètre accessible",
+            "Arbitrage à porter au plan",
         ]
         for rang in range(1, 6)
     ]
