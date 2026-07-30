@@ -6,8 +6,31 @@ référentiel et masquer une régression du validateur.
 """
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
+from typing import Any
+
+_BRIEF = re.compile(r"^BRIEF_CLIENT :\n(\{.*?\n\})", re.MULTILINE | re.DOTALL)
+
+
+def _brief_client(prompt: str) -> dict[str, str]:
+    """Variables du brief, relues dans le prompt.
+
+    Le bouchon ne devine rien : il ne restitue que ce qu'on lui a donné, au
+    même titre que les identifiants du référentiel. Un brief illisible rend un
+    dictionnaire vide et les valeurs de repli s'appliquent.
+    """
+    trouve = _BRIEF.search(prompt)
+    if trouve is None:
+        return {}
+    try:
+        charge: Any = json.loads(trouve.group(1))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(charge, dict):
+        return {}
+    return {str(cle): str(valeur) for cle, valeur in charge.items() if valeur}
 
 _LIGNE_ID = re.compile(
     r"^- `(?P<id>[a-z0-9_]+)` — (?P<libelle>.+)\n"
@@ -65,15 +88,26 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
                 "unite": unite,
                 "annee": date.today().year - 1,
                 "perimetre": correspondance.group("perimetre"),
-                "source": "Bouchon EVKHA, jeu de démonstration",
+                "source": "Jeu de démonstration",
                 "fiabilite": "observee",
                 "derivee_de": [],
             }
         )
 
+    brief = _brief_client(prompt)
     return {
-        "secteur": "secteur de démonstration",
-        "zone": {"pays": "France", "region": "Île-de-France", "ville": "Paris"},
+        # Lus dans le BRIEF_CLIENT du prompt, et non écrits en dur. Le bouchon
+        # renvoyait « secteur de démonstration » quelle que soit la demande :
+        # le secteur ne descendait donc jamais jusqu'aux chapitres, qui s'en
+        # servent pour choisir leurs graphiques. Deux aperçus produits pour des
+        # métiers opposés sortaient rigoureusement identiques — même taille,
+        # mêmes figures — et ne pouvaient rien montrer de l'adaptation.
+        "secteur": brief.get("SECTEUR") or "secteur de démonstration",
+        "zone": {
+            "pays": brief.get("PAYS") or "France",
+            "region": brief.get("REGION") or "",
+            "ville": brief.get("ZONE") or brief.get("VILLE") or "",
+        },
         "date_socle": date.today().isoformat(),
         "donnees": donnees,
         "segments_clientele": [
