@@ -14,11 +14,17 @@ import {
 
 /** Les droits affichés viennent du serveur (`moi.utilisateur.droits`) ; seuls
  *  les LIBELLÉS sont ici. Recopier la matrice du §12 dans l'interface la ferait
- *  diverger du serveur au premier ajout d'action. */
+ *  diverger du serveur au premier ajout d'action.
+ *
+ *  `gerer_clients_finaux` est le nom de l'action côté serveur, hérité du modèle
+ *  où un abonné gérait un portefeuille de clients. Cet espace est celui d'UN
+ *  abonné qui gère SA marque, pas une agence : le libellé le dit, la clé garde
+ *  son nom tant que le serveur ne change pas le sien. Renommer l'un sans
+ *  l'autre romprait la correspondance en silence. */
 const LIBELLE_DROIT: Record<string, string> = {
   commander: "Commander un document",
   consulter_livrables: "Consulter les livrables",
-  gerer_clients_finaux: "Gérer les clients finaux et les chartes",
+  gerer_clients_finaux: "Modifier ma marque et ma charte",
   gerer_membres: "Inviter ou révoquer un collaborateur",
   gerer_abonnement: "Changer de formule, acheter des crédits",
   consulter_factures: "Consulter les factures",
