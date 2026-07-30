@@ -74,8 +74,28 @@ export function ClientDetail() {
         </Text>
       )}
 
-      {/* Infos abonnement */}
-      {activeSub ? (
+      {/* Infos abonnement.
+          L'abonnement B2B passe AVANT : il vient du portefeuille d'organisation
+          du lot 4, que cet écran ignorait. Un abonné disposant d'une formule et
+          de dix crédits s'affichait « Aucun abonnement actif · 0 crédit », ce
+          qui laissait croire qu'il n'avait rien payé. */}
+      {data.organisation ? (
+        <Callout.Root color="green" mb="5">
+          <Callout.Text>
+            Abonné B2B · <strong>{data.organisation.raison_sociale}</strong>
+            {" — "}
+            {data.organisation.formule
+              ? <>formule <strong>{data.organisation.formule}</strong></>
+              : "aucune formule active"}
+            {" · "}
+            {data.organisation.solde} crédit{data.organisation.solde > 1 ? "s" : ""}
+            {data.organisation.solde_achete > 0 && (
+              <> (dont {data.organisation.solde_achete} acheté
+                {data.organisation.solde_achete > 1 ? "s" : ""})</>
+            )}
+          </Callout.Text>
+        </Callout.Root>
+      ) : activeSub ? (
         <Callout.Root color="green" mb="5">
           <Callout.Text>
             Abonnement actif : <strong>{TIER_LABELS[activeSub.tier] ?? activeSub.tier}</strong>

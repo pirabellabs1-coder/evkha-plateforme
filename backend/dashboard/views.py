@@ -551,7 +551,54 @@ def customer_detail(request: HttpRequest, customer_id: str) -> JsonResponse:
         "subscriptions": subscriptions,
         "orders": orders,
         "credits_available": credits_available,
+        "organisation": _organisation_du_contact(customer),
     })
+
+
+def _organisation_du_contact(customer: Customer) -> dict[str, Any] | None:
+    """Abonnement et solde B2B du contact, s'il appartient à une organisation.
+
+    Deux systèmes de crédits coexistent sur ce projet : les **tickets** de
+    l'ancien flux Systeme.io, et le **portefeuille** d'organisation du lot 4.
+    Cette vue ne connaissait que le premier. Un abonné B2B disposant d'une
+    formule Structure et de dix crédits s'affichait donc « Aucun abonnement
+    actif · 0 crédit disponible » — un chiffre faux, dans le sens le plus
+    dangereux : un exploitant en conclut que le client n'a rien payé.
+
+    Les deux systèmes restent séparés — les réunir est un chantier à part. Mais
+    l'écran, lui, doit dire la vérité sur les deux.
+    """
+    from organisations import credits as credits_b2b  # noqa: PLC0415
+    from organisations.models import MembreOrganisation, StatutAbonnement  # noqa: PLC0415
+
+    membre = (
+        MembreOrganisation.objects.select_related("organisation")
+        .filter(customer=customer, revoque_le__isnull=True)
+        .first()
+    )
+    if membre is None:
+        return None
+
+    organisation = membre.organisation
+    abonnement = (
+        organisation.abonnements.select_related("formule")
+        .filter(statut=StatutAbonnement.ACTIF)
+        .first()
+    )
+    detail = credits_b2b.detail_solde(organisation)
+    return {
+        "id": str(organisation.id),
+        "raison_sociale": organisation.raison_sociale,
+        "statut": organisation.statut,
+        "role": membre.role,
+        "formule": abonnement.formule.libelle if abonnement else None,
+        "credits_par_echeance": (
+            abonnement.formule.credits_par_echeance if abonnement else 0
+        ),
+        "solde": detail.total,
+        "solde_abonnement": detail.expirables,
+        "solde_achete": detail.perennes,
+    }
 
 
 # ---------------------------------------------------------------------------
