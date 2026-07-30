@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Table, Text, Select, Spinner, Callout,
+  Box, Flex, Badge, Table, Text, Select, Spinner, Callout,
 } from "@radix-ui/themes";
 import { api, type OrderSummary } from "../api";
 import { ORDER_STATUS_LABELS as STATUS_LABELS, orderStatusColor as statusColor } from "../constants/orders";
@@ -39,15 +39,12 @@ export function Orders() {
 
   return (
     <Box>
-      <Flex justify="between" align="center" mb="5">
-        <Box>
-          <Heading size="6">Commandes</Heading>
-          <Text size="2" color="gray" as="p" mt="1">
-            Toutes les commandes B2C, abonnements et tickets de crédit
-          </Text>
-        </Box>
-        {isLoading && <Spinner size="2" />}
-      </Flex>
+      {/* Titre rendu par la coquille d'administration — voir Clients.tsx. */}
+      {isLoading && (
+        <Flex justify="end" align="center" mb="4">
+          <Spinner size="2" />
+        </Flex>
+      )}
 
       <Flex align="center" gap="3" mb="4" wrap="wrap">
         <Select.Root value={kindFilter} onValueChange={setKindFilter} size="2">

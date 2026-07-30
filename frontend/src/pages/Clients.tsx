@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Table, Text, Select, Spinner, Callout,
+  Box, Flex, Badge, Table, Text, Select, Spinner, Callout,
 } from "@radix-ui/themes";
 import { api, type CustomerSummary } from "../api";
 import { TIER_LABELS_SHORT, tierColor } from "../constants/tiers";
@@ -18,15 +18,14 @@ export function Clients() {
 
   return (
     <Box>
-      <Flex justify="between" align="center" mb="5">
-        <Box>
-          <Heading size="6">Clients</Heading>
-          <Text size="2" color="gray" as="p" mt="1">
-            Tous vos clients B2C et abonnés B2B
-          </Text>
-        </Box>
-        {isLoading && <Spinner size="2" />}
-      </Flex>
+      {/* Aucun titre ici : la coquille d'administration le rend déjà, depuis sa
+          table ENTETES. Deux en-têtes pour une même page affichaient le titre
+          en double sur tout l'espace. Une seule source par vérité (règle 5). */}
+      {isLoading && (
+        <Flex justify="end" align="center" mb="4">
+          <Spinner size="2" />
+        </Flex>
+      )}
 
       <Flex align="center" gap="3" mb="4">
         <Select.Root value={typeFilter} onValueChange={setTypeFilter} size="2">

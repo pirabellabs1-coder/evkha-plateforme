@@ -53,13 +53,31 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/admin/clients": { titre: "Clients", sous: "Les contacts et leurs abonnements." },
 };
 
+/** En-tête de la page courante.
+ *
+ * La correspondance exacte ne couvrait pas les pages de détail : `/admin/jobs/42`
+ * et `/admin/clients/<id>` retombaient sur « Administration », un titre qui ne
+ * dit rien de l'écran affiché. On retient donc la clé la PLUS LONGUE qui
+ * préfixe le chemin — ainsi une page de détail hérite du titre de sa liste, et
+ * une nouvelle sous-route n'a pas à être déclarée pour être correctement
+ * titrée. Viser la classe, pas les deux cas connus (règle 4).
+ */
+function enteteDe(chemin: string): { titre: string; sous: string } {
+  const cle = Object.keys(ENTETES)
+    .filter((c) => chemin === c || chemin.startsWith(`${c}/`))
+    .sort((a, b) => b.length - a.length)[0];
+  return (
+    (cle ? ENTETES[cle] : undefined) ?? {
+      titre: "Administration",
+      sous: "Supervision de la plateforme.",
+    }
+  );
+}
+
 export function CoquilleAdmin() {
   const chemin = useRouterState({ select: (etat) => etat.location.pathname });
   const [tiroirOuvert, setTiroirOuvert] = useState(false);
-  const entete = ENTETES[chemin] ?? {
-    titre: "Administration",
-    sous: "Supervision de la plateforme.",
-  };
+  const entete = enteteDe(chemin);
 
   const { data: demandes } = useQuery({
     queryKey: ["admin", "demandes"],

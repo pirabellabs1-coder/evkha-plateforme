@@ -19,13 +19,20 @@ famille.
 **Aucun crédit perdu sur échec.** « Remboursement automatique en cas d'échec
 définitif. » Le remboursement est lui aussi idempotent, et il ne peut pas
 exister sans le débit correspondant.
+
+**Aucun crédit ACHETÉ perdu à la bascule du mois.** L'expiration purgeait le
+solde entier, sans regarder d'où venaient les crédits : un client qui achetait
+des crédits additionnels les perdait au mois suivant, comme ceux de son
+abonnement. Il avait payé, et le solde s'évaporait. Deux réserves sont donc
+distinguées — voir `detail_solde`.
 """
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from django.db import IntegrityError, transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from .models import (
     MouvementCredit,
@@ -69,12 +76,93 @@ def portefeuille_de(organisation: Organisation) -> PortefeuilleCredits:
     return portefeuille
 
 
-def solde(organisation: Organisation) -> int:
-    """Solde courant. Somme du journal, jamais un compteur mémorisé."""
-    total = MouvementCredit.objects.filter(
+#: Natures qui AJOUTENT des crédits.
+ENTREES = (TypeMouvement.DOTATION, TypeMouvement.ACHAT, TypeMouvement.GESTE)
+
+#: Natures qui en RETIRENT, ou qui corrigent une sortie. `REMBOURSEMENT` est
+#: positif au journal : le compter ici le fait *réduire* la consommation nette,
+#: donc rendre au client la réserve dans laquelle son débit avait puisé.
+SORTIES = (
+    TypeMouvement.DEBIT,
+    TypeMouvement.EXPIRATION,
+    TypeMouvement.REMBOURSEMENT,
+)
+
+#: Entrées qui **survivent** à la bascule du mois : le client les a payées à
+#: l'unité. Les purger reviendrait à reprendre ce qu'on vient de lui vendre.
+#:
+#: `GESTE` n'y figure pas, et c'est une **question ouverte**, pas un oubli. Un
+#: geste commercial qui s'évapore au mois suivant n'est pas vraiment un geste ;
+#: mais l'inclure changerait le sort des crédits accordés à la main par
+#: l'administration, ce qui est une décision commerciale et non technique. Elle
+#: n'a pas été prise. En attendant, le comportement d'origine est conservé.
+ENTREES_PERENNES = (TypeMouvement.ACHAT,)
+
+#: Le reste des entrées, **dérivé** et non listé à son tour. Écrire les deux
+#: listes à la main laissait `GESTE` dans aucune des deux : il comptait dans le
+#: total sans compter dans aucune réserve, et l'arithmétique de répartition
+#: devenait fausse en silence. Une partition doit être exhaustive par
+#: construction (règles 4 et 5).
+ENTREES_EXPIRABLES = tuple(t for t in ENTREES if t not in ENTREES_PERENNES)
+
+
+@dataclass(frozen=True)
+class DetailSolde:
+    """Le solde, réparti entre ce qui expire et ce qui reste.
+
+    `expirables + perennes == total`, toujours et par construction : `perennes`
+    est calculé comme le reste. Deux additions indépendantes finiraient par ne
+    plus être d'accord, et c'est exactement la famille de défaut que la règle 5
+    proscrit.
+    """
+
+    expirables: int
+    perennes: int
+
+    @property
+    def total(self) -> int:
+        return self.expirables + self.perennes
+
+
+def detail_solde(organisation: Organisation) -> DetailSolde:
+    """Répartit le solde entre réserve d'abonnement et réserve payée.
+
+    **Règle d'imputation : les sorties consomment d'abord l'expirable.** C'est
+    le choix favorable au client — il garde le plus longtemps possible ce qu'il
+    a payé à l'unité — et c'est celui qui rend l'expiration inoffensive pour les
+    crédits achetés.
+
+    Tout est déduit du journal, rien n'est mémorisé. `perennes` vaut le total
+    moins l'expirable restant, de sorte que la répartition ne peut jamais
+    inventer ni perdre un crédit, même si l'historique contient des expirations
+    écrites par l'ancienne règle — qui, elle, purgeait tout.
+    """
+    chiffres = MouvementCredit.objects.filter(
         portefeuille__organisation=organisation
-    ).aggregate(total=Sum("quantite"))["total"]
-    return int(total or 0)
+    ).aggregate(
+        total=Sum("quantite"),
+        entrees_perennes=Sum("quantite", filter=Q(type__in=ENTREES_PERENNES)),
+        entrees_expirables=Sum("quantite", filter=Q(type__in=ENTREES_EXPIRABLES)),
+    )
+    total = int(chiffres["total"] or 0)
+    perennes_entrees = int(chiffres["entrees_perennes"] or 0)
+    expirables_entrees = int(chiffres["entrees_expirables"] or 0)
+
+    # Sorties cumulées : débits, expirations passées, moins les remboursements.
+    sorties = perennes_entrees + expirables_entrees - total
+    expirables_restants = max(0, expirables_entrees - max(0, sorties))
+    return DetailSolde(
+        expirables=expirables_restants, perennes=total - expirables_restants
+    )
+
+
+def solde(organisation: Organisation) -> int:
+    """Solde courant. Somme du journal, jamais un compteur mémorisé.
+
+    Délègue à `detail_solde` : deux façons de calculer le solde finiraient par
+    se contredire.
+    """
+    return detail_solde(organisation).total
 
 
 def _enregistrer(
@@ -280,9 +368,15 @@ def expirer_solde(
 
     `plafond_conserve` couvre le cas « report plafonné » sans imposer un second
     chemin de code.
+
+    **Seule la réserve d'abonnement est purgée.** Cette fonction lisait le solde
+    entier : les crédits ACHETÉS disparaissaient donc à la bascule du mois, au
+    même titre que ceux de l'abonnement. Le client avait payé et son solde
+    s'évaporait — un défaut d'argent, pas d'affichage. Voir `detail_solde` pour
+    la règle d'imputation.
     """
     portefeuille = portefeuille_de(organisation)
-    disponible = portefeuille.solde
+    disponible = detail_solde(organisation).expirables
     a_purger = disponible - max(plafond_conserve, 0)
     if a_purger <= 0:
         return None

@@ -48,10 +48,28 @@ async function appel<T>(chemin: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (reponse.status === 401) {
-    // Le jeton est mort : l'effacer ici évite une boucle de requêtes 401 sur
-    // chaque écran monté.
-    jeton.effacer();
-    throw new ErreurApi("Session expirée.", 401, "unauthorized");
+    // Un 401 sur la CONNEXION veut dire « identifiants invalides », pas
+    // « session expirée » : il n'y avait pas de session. Réécrire le message
+    // ici affichait « Session expirée » à quelqu'un qui se trompait de mot de
+    // passe — ou dont le compte n'existait pas —, et l'envoyait chercher au
+    // mauvais endroit. Un motif d'erreur doit désigner sa vraie cause
+    // (règle 2). On laisse donc parler le serveur, qui dit « Identifiants
+    // invalides ».
+    const surConnexion = chemin.startsWith("/connexion");
+    if (!surConnexion) {
+      // Le jeton est mort : l'effacer ici évite une boucle de requêtes 401 sur
+      // chaque écran monté.
+      jeton.effacer();
+    }
+    const charge = (await reponse.json().catch(() => ({}))) as {
+      error?: string;
+      code?: string;
+    };
+    throw new ErreurApi(
+      charge.error ?? (surConnexion ? "Identifiants invalides." : "Session expirée."),
+      401,
+      charge.code ?? "unauthorized",
+    );
   }
   if (reponse.status === 204) return undefined as T;
   if (!reponse.ok) {

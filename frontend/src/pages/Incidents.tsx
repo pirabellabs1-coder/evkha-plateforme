@@ -171,15 +171,12 @@ export function Incidents() {
 
   return (
     <Box>
-      <Flex justify="between" align="center" mb="5">
-        <Box>
-          <Heading size="6">Incidents opérationnels</Heading>
-          <Text size="2" color="gray" as="p" mt="1">
-            Cliquez sur "Résoudre" pour clôturer un incident
-          </Text>
-        </Box>
-        {isLoading && <Spinner size="2" />}
-      </Flex>
+      {/* Titre rendu par la coquille d'administration — voir Clients.tsx. */}
+      {isLoading && (
+        <Flex justify="end" align="center" mb="4">
+          <Spinner size="2" />
+        </Flex>
+      )}
 
       {!isLoading && open.length === 0 && inProgress.length === 0 && (
         <Callout.Root color="green" mb="5">

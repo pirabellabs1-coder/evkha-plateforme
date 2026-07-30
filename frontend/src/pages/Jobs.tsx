@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Table, Progress, Text, Select, Spinner, Button,
+  Box, Flex, Badge, Table, Progress, Text, Select, Spinner, Button,
 } from "@radix-ui/themes";
 import { api, type JobSummary } from "../api";
 
@@ -88,7 +88,7 @@ export function Jobs() {
 
   return (
     <Box>
-      <Heading size="6" mb="5">Livrables</Heading>
+      {/* Titre rendu par la coquille d'administration — voir Clients.tsx. */}
 
       <Flex align="center" gap="3" mb="4">
         <Select.Root value={statusFilter} onValueChange={setStatusFilter} size="2">
