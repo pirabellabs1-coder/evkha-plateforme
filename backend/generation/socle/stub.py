@@ -122,20 +122,65 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
             {"nom": "Acteur A", "type": "direct", "positionnement": "généraliste", "source": ""},
             {"nom": "Acteur B", "type": "indirect", "positionnement": "spécialiste", "source": ""},
         ],
+        # QUATRE tendances DATÉES. `_frise` refuse en dessous de deux horizons :
+        # « une frise sans date n'est pas une frise ». Avec une seule tendance,
+        # la chronologie ne sortait jamais.
         "tendances": [
             {
                 "intitule": "Montée de la demande premium",
-                "horizon": "2026-2030",
+                "horizon": "2026",
                 "description": "Tendance de démonstration.",
                 "source": "",
-            }
+            },
+            {
+                "intitule": "Structuration des canaux en ligne",
+                "horizon": "2027",
+                "description": "Tendance de démonstration.",
+                "source": "",
+            },
+            {
+                "intitule": "Exigence de traçabilité et de preuve",
+                "horizon": "2028",
+                "description": "Tendance de démonstration.",
+                "source": "",
+            },
+            {
+                "intitule": "Consolidation des acteurs de la zone",
+                "horizon": "2030",
+                "description": "Tendance de démonstration.",
+                "source": "",
+            },
         ],
+        # QUATRE risques notés, et non un seul. `_matrice` et `_chaleur`
+        # exigent au moins deux risques portant probabilité ET impact : avec
+        # un seul, la matrice de positionnement et la carte de chaleur étaient
+        # refusées à chaque chapitre. L'aperçu ne sortait que six types de
+        # graphiques sur quatorze, et donnait à croire que le rendu les
+        # perdait — alors qu'il n'avait rien à tracer.
         "risques": [
             {
                 "intitule": "Notoriété insuffisante",
                 "probabilite": 3,
                 "impact": 4,
                 "description": "Risque de démonstration.",
-            }
+            },
+            {
+                "intitule": "Dépendance à un canal d'acquisition",
+                "probabilite": 4,
+                "impact": 3,
+                "description": "Risque de démonstration.",
+            },
+            {
+                "intitule": "Pression sur la marge unitaire",
+                "probabilite": 3,
+                "impact": 5,
+                "description": "Risque de démonstration.",
+            },
+            {
+                "intitule": "Évolution réglementaire du secteur",
+                "probabilite": 2,
+                "impact": 4,
+                "description": "Risque de démonstration.",
+            },
         ],
     }
