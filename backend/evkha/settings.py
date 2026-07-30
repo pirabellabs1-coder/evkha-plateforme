@@ -162,6 +162,15 @@ CELERY_BEAT_SCHEDULE = {
         "task": "customers.refresh_monthly_credits",
         "schedule": 3600.0,  # check horaire ; le service decide s'il y a quelque chose a faire
     },
+    # Echeances des abonnements B2B du lot 4 (portefeuille de credits).
+    # `appliquer_echeance` n'etait appelee que par la souscription et par une
+    # action manuelle de l'admin Django : un abonne recevait ses credits UNE
+    # fois et plus jamais. Verification horaire et non mensuelle, pour
+    # rattraper un worker arrete le 1er du mois ; l'echeance est idempotente.
+    "appliquer-echeances-abonnements-b2b": {
+        "task": "organisations.appliquer_echeances",
+        "schedule": 3600.0,
+    },
     # Risque 6 — jobs bloques : reset automatique toutes les heures.
     # Un job RUNNING depuis plus de 2h est forcement bloque (crash worker, timeout reseau).
     # L'incident HIGH cree permet a l'admin de relancer manuellement depuis le dashboard.

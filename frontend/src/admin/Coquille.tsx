@@ -12,7 +12,7 @@
  * - le bloc de pied affiche le nombre de **demandes à traiter** plutôt qu'un
  *   solde de crédits : c'est ce qui appelle une action ici.
  */
-import { useEffect, useState } from "react";
+import { useBarreLaterale } from "../theme/useBarreLaterale";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "./api";
@@ -76,7 +76,7 @@ function enteteDe(chemin: string): { titre: string; sous: string } {
 
 export function CoquilleAdmin() {
   const chemin = useRouterState({ select: (etat) => etat.location.pathname });
-  const [tiroirOuvert, setTiroirOuvert] = useState(false);
+  const barre = useBarreLaterale();
   const entete = enteteDe(chemin);
 
   const { data: demandes } = useQuery({
@@ -86,14 +86,6 @@ export function CoquilleAdmin() {
   });
   const aTraiter = demandes?.ouvertes ?? 0;
 
-  useEffect(() => {
-    if (!tiroirOuvert) return;
-    const surTouche = (evenement: KeyboardEvent) => {
-      if (evenement.key === "Escape") setTiroirOuvert(false);
-    };
-    window.addEventListener("keydown", surTouche);
-    return () => window.removeEventListener("keydown", surTouche);
-  }, [tiroirOuvert]);
 
   function deconnecter() {
     clearToken();
@@ -101,10 +93,10 @@ export function CoquilleAdmin() {
   }
 
   return (
-    <div className="espace">
+    <div className={barre.visible ? "espace" : "espace barre-repliee"}>
       <nav
         id="navigation-admin"
-        className={tiroirOuvert ? "espace-barre ouverte" : "espace-barre"}
+        className={barre.visible ? "espace-barre ouverte" : "espace-barre"}
         aria-label="Navigation de l'administration"
       >
         <div className="espace-marque">
@@ -125,7 +117,7 @@ export function CoquilleAdmin() {
                 className="espace-lien"
                 activeProps={{ className: "espace-lien actif" }}
                 activeOptions={{ exact: "exact" in entree ? entree.exact : false }}
-                onClick={() => setTiroirOuvert(false)}
+                onClick={barre.fermer}
               >
                 <span className="espace-lien-icone" aria-hidden="true">
                   {entree.icone}
@@ -154,9 +146,9 @@ export function CoquilleAdmin() {
 
       <button
         type="button"
-        className={tiroirOuvert ? "espace-voile visible" : "espace-voile"}
+        className={barre.visible && !barre.large ? "espace-voile visible" : "espace-voile"}
         aria-label="Fermer la navigation"
-        onClick={() => setTiroirOuvert(false)}
+        onClick={barre.fermer}
       />
 
       <div className="espace-corps">
@@ -164,10 +156,10 @@ export function CoquilleAdmin() {
           <button
             type="button"
             className="espace-hamburger"
-            aria-label={tiroirOuvert ? "Fermer la navigation" : "Ouvrir la navigation"}
-            aria-expanded={tiroirOuvert}
+            aria-label={barre.visible ? "Fermer la navigation" : "Ouvrir la navigation"}
+            aria-expanded={barre.visible}
             aria-controls="navigation-admin"
-            onClick={() => setTiroirOuvert((ouvert) => !ouvert)}
+            onClick={barre.basculer}
           >
             <span className="espace-hamburger-traits" aria-hidden="true" />
           </button>

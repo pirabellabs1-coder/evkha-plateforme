@@ -4,7 +4,7 @@
  * demande de « consulter la formule en cours et le solde », et la valeur qui
  * décide si l'on peut commander ne doit pas se trouver derrière un clic.
  */
-import { useEffect, useState } from "react";
+import { useBarreLaterale } from "../theme/useBarreLaterale";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { espaceApi, jeton } from "./api";
 import * as f from "./format";
@@ -57,18 +57,7 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
 export function Coquille() {
   const { data: moi } = useMoi();
   const chemin = useRouterState({ select: (s) => s.location.pathname });
-  const [tiroirOuvert, setTiroirOuvert] = useState(false);
-
-  // Échap ferme le tiroir. Sans cela, un utilisateur au clavier n'a aucun
-  // moyen d'en sortir sans le tabuler entierement.
-  useEffect(() => {
-    if (!tiroirOuvert) return;
-    const surTouche = (evenement: KeyboardEvent) => {
-      if (evenement.key === "Escape") setTiroirOuvert(false);
-    };
-    window.addEventListener("keydown", surTouche);
-    return () => window.removeEventListener("keydown", surTouche);
-  }, [tiroirOuvert]);
+  const barre = useBarreLaterale();
   // Une route à paramètre (`/espace/livrables/<id>`) n'a pas d'entrée fixe :
   // on retombe sur l'en-tête de sa section plutôt que sur celui du tableau de
   // bord, qui annoncerait la mauvaise page.
@@ -93,10 +82,10 @@ export function Coquille() {
   }
 
   return (
-    <div className="espace">
+    <div className={barre.visible ? "espace" : "espace barre-repliee"}>
       <nav
         id="navigation-espace"
-        className={tiroirOuvert ? "espace-barre ouverte" : "espace-barre"}
+        className={barre.visible ? "espace-barre ouverte" : "espace-barre"}
         aria-label="Navigation de l'espace client"
       >
         <div className="espace-marque">
@@ -117,7 +106,7 @@ export function Coquille() {
                 className="espace-lien"
                 activeProps={{ className: "espace-lien actif" }}
                 activeOptions={{ exact: "exact" in entree ? entree.exact : false }}
-                onClick={() => setTiroirOuvert(false)}
+                onClick={barre.fermer}
               >
                 <span className="espace-lien-icone" aria-hidden="true">
                   {entree.icone}
@@ -147,9 +136,9 @@ export function Coquille() {
           et annonce comme actionnable par un lecteur d'ecran. */}
       <button
         type="button"
-        className={tiroirOuvert ? "espace-voile visible" : "espace-voile"}
+        className={barre.visible && !barre.large ? "espace-voile visible" : "espace-voile"}
         aria-label="Fermer la navigation"
-        onClick={() => setTiroirOuvert(false)}
+        onClick={barre.fermer}
       />
 
       <div className="espace-corps">
@@ -157,10 +146,10 @@ export function Coquille() {
           <button
             type="button"
             className="espace-hamburger"
-            aria-label={tiroirOuvert ? "Fermer la navigation" : "Ouvrir la navigation"}
-            aria-expanded={tiroirOuvert}
+            aria-label={barre.visible ? "Fermer la navigation" : "Ouvrir la navigation"}
+            aria-expanded={barre.visible}
             aria-controls="navigation-espace"
-            onClick={() => setTiroirOuvert((ouvert) => !ouvert)}
+            onClick={barre.basculer}
           >
             <span className="espace-hamburger-traits" aria-hidden="true" />
           </button>

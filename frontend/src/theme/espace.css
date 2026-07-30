@@ -15,6 +15,32 @@
   font-family: var(--police-corps);
   font-size: var(--t-base);
   line-height: var(--interligne);
+  /* La largeur de colonne s'anime : un repliement instantané fait sauter tout
+   * le contenu et on perd l'endroit où l'on lisait. */
+  transition: grid-template-columns var(--transition);
+}
+
+/* ── Barre repliée, sur grand écran ─────────────────────────────────────────
+ *
+ * La barre occupait une colonne fixe, sans aucun moyen de la refermer au-delà
+ * de 900 px : sur un écran étroit mais « large » au sens de la requête média,
+ * les cartes du tableau de bord se retrouvaient comprimées et coupées.
+ *
+ * Replier rend la colonne au contenu. La préférence est mémorisée — voir
+ * `useBarreLaterale` — parce que la refermer à chaque page serait pire que de
+ * ne pas pouvoir la fermer du tout.
+ */
+.espace.barre-repliee {
+  grid-template-columns: 0 1fr;
+}
+
+.espace.barre-repliee > .espace-barre {
+  /* `transform` et non `display: none` : le mouvement s'anime, et le contenu
+   * reste dans le DOM pour les lecteurs d'écran et le focus clavier. */
+  transform: translateX(-100%);
+  /* Sans ceci, la barre déborde par-dessus le contenu pendant qu'elle sort. */
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* ── Barre latérale ─────────────────────────────────────────────────────── */
@@ -29,6 +55,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--e-8);
+  transition: transform var(--transition);
 }
 
 .espace-marque {
@@ -644,12 +671,19 @@
 }
 
 /* ── Bouton hamburger et voile ───────────────────────────────────────────────
- * Masqués au-delà du seuil mobile : sur grand écran la barre est permanente,
- * un bouton pour l'ouvrir n'aurait aucun sens.
+ *
+ * Le bouton est visible à **toutes** les tailles. Il était masqué au-delà de
+ * 900 px, au motif que la barre y était permanente — mais « permanente »
+ * voulait dire « impossible à refermer », et sur un écran de portable les
+ * cartes du contenu se retrouvaient comprimées sans recours.
+ *
+ * Le voile, lui, reste réservé au petit écran : au large la barre occupe sa
+ * propre colonne et ne masque rien, donc il n'y a rien à fermer d'un clic à
+ * côté.
  */
 
 .espace-hamburger {
-  display: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 44px;
@@ -727,12 +761,21 @@
  * montre la liste entière d'un seul geste.
  */
 @media (max-width: 900px) {
-  .espace {
+  .espace,
+  .espace.barre-repliee {
     grid-template-columns: 1fr;
   }
 
+  /* En tiroir, c'est la classe `ouverte` qui décide — et non `barre-repliee`,
+   * qui ne concerne que la grille du grand écran. Sans cette remise à zéro, une
+   * barre repliée au large restait hors écran après passage en mobile, tiroir
+   * ouvert ou non. */
+  .espace.barre-repliee > .espace-barre {
+    overflow-y: auto;
+    pointer-events: auto;
+  }
+
   .espace-hamburger {
-    display: inline-flex;
     position: relative;
   }
 
