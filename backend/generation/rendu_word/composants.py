@@ -293,7 +293,13 @@ def quatrieme_couverture(
     saut_de_page(document)
     _fond_pleine_page(document, palette.primaire)
 
-    for _ in range(12):
+    # Douze paragraphes vides poussaient les mentions au-delà du bas de page :
+    # la quatrième de couverture débordait sur une page supplémentaire, vide,
+    # qui refermait le document. C'était la dernière page blanche du livrable.
+    #
+    # Huit centrent les mentions sans risquer le débordement — le compte tient
+    # à la hauteur de ligne du style de légende, pas à une préférence.
+    for _ in range(8):
         document.add_paragraph()
 
     if logo:
