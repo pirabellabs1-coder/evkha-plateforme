@@ -9,6 +9,30 @@ from __future__ import annotations
 import re
 
 _ID_SOCLE = re.compile(r"^- `([a-z0-9_]+)` = ", re.MULTILINE)
+
+#: Identifiant ET unité : `- `marche_mondial` = 381.5 MdEUR (2025, …)`.
+_ID_ET_UNITE = re.compile(r"^- `([a-z0-9_]+)` = [-\d.,]+ (\S+)", re.MULTILINE)
+
+
+def _paire_homogene(prompt: str) -> list[str]:
+    """Deux identifiants de MÊME unité, pris dans le socle du prompt.
+
+    Le bouchon retenait les deux premiers venus. Or `donnees_graphiques.resoudre`
+    refuse — à juste titre — de tracer ensemble des grandeurs d'unités
+    différentes : un montant et un pourcentage sur le même axe ne veulent rien
+    dire. Sur vingt-deux graphiques demandés, **un seul** survivait, et l'aperçu
+    donnait à croire que le rendu perdait les visuels.
+
+    À défaut de paire homogène, on rend les deux premiers : le refus reste
+    possible, mais il vient alors des données, pas du bouchon.
+    """
+    par_unite: dict[str, list[str]] = {}
+    for identifiant, unite in _ID_ET_UNITE.findall(prompt):
+        par_unite.setdefault(unite, []).append(identifiant)
+    for identifiants in par_unite.values():
+        if len(identifiants) >= 2:
+            return identifiants[:2]
+    return _ID_SOCLE.findall(prompt)[:2]
 _NUMERO = re.compile(r"^CHAPITRE À RÉDIGER : (\d+) — (.+)$", re.MULTILINE)
 
 _SECTEUR = re.compile(r"^SOCLE VERROUILLÉ — (.+?),", re.MULTILINE)
@@ -57,10 +81,9 @@ def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
     numero = int(correspondance.group(1)) if correspondance else 0
     titre = correspondance.group(2).strip() if correspondance else "Chapitre"
 
-    identifiants = _ID_SOCLE.findall(prompt)
-    # Deux données suffisent à exercer le contrôle de filiation des graphiques
-    # sans gonfler la sortie du bouchon.
-    utilisees = identifiants[:2]
+    # Deux données de MÊME unité : un montant et un pourcentage sur le même
+    # axe ne veulent rien dire, et le rendu refuse le graphique à juste titre.
+    utilisees = _paire_homogene(prompt)
 
     graphiques: list[dict[str, object]] = []
     if len(utilisees) >= 2:
