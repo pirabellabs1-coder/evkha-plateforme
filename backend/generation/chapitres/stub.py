@@ -63,13 +63,17 @@ def _tableau(numero: int, intitule: str) -> dict[str, object]:
     Quatre colonnes et cinq lignes : c'est l'ordre de grandeur relevé dans
     `references/joalie_2026.docx`, où 52 % des mots vivent dans des tableaux.
     """
+    # Cellules COURTES. Une première version y mettait des phrases entières :
+    # 5 133 mots dans les tableaux pour 4 497 au modèle, avec un tiers de
+    # tableaux en moins — d'où l'impression de tableaux envahissants. Le modèle
+    # tient ses cellules à quelques mots.
     entetes = ["Élément", "Constat", "Conséquence", "Décision"]
     lignes = [
         [
-            f"{intitule} — point {rang}",
-            "Repère issu du socle verrouillé.",
-            "Effet mesurable sur le périmètre accessible.",
-            "Arbitrage à porter au plan d'action.",
+            f"{intitule} {rang}",
+            "Repère du socle",
+            "Périmètre accessible",
+            "À arbitrer",
         ]
         for rang in range(1, 6)
     ]
