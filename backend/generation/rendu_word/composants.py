@@ -20,11 +20,12 @@ from __future__ import annotations
 
 import io
 from collections.abc import Sequence
+from typing import Any
 
 from docx.document import Document as DocumentWord
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
-from docx.oxml import parse_xml
+from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
 from docx.shared import Emu, Pt, RGBColor
 from docx.table import Table, _Cell
@@ -141,6 +142,36 @@ def _largeur_cellule(cellule: _Cell, dxa: int) -> None:
     )
 
 
+def ne_pas_fractionner(table: Table, *, entete_repetee: bool = False) -> None:
+    """Interdit à une LIGNE de se couper entre deux pages.
+
+    Word fractionne une ligne par défaut : une cellule de trois lignes de texte
+    commencée en bas de page laisse sa première ligne seule, le reste passant à
+    la page suivante. Sur un document de tableaux, c'est la principale source
+    de pages à moitié vides — mesuré ici : 24 pages sous trente mots sur 67.
+
+    `entete_repetee` redonne l'en-tête en haut de chaque page quand un tableau
+    long finit quand même par s'étendre. Sans lui, le lecteur voit des colonnes
+    sans savoir ce qu'elles portent.
+    """
+    for index, ligne in enumerate(table.rows):
+        proprietes = ligne._tr.get_or_add_trPr()
+        proprietes.append(OxmlElement("w:cantSplit"))
+        if entete_repetee and index == 0:
+            proprietes.append(OxmlElement("w:tblHeader"))
+
+
+def garder_avec_la_suite(paragraphe: Any) -> None:
+    """Attache un paragraphe à ce qui le suit.
+
+    Un sous-titre seul en bas de page, son contenu à la page suivante : c'est
+    l'autre moitié des pages creuses. `keep_with_next` déplace le titre avec
+    son bloc au lieu de laisser la coupure les séparer.
+    """
+    paragraphe.paragraph_format.keep_with_next = True
+    paragraphe.paragraph_format.keep_together = True
+
+
 def _table(
     document: DocumentWord, lignes: int, colonnes: int, largeurs: Sequence[int]
 ) -> Table:
@@ -152,6 +183,10 @@ def _table(
     for ligne in table.rows:
         for index, cellule in enumerate(ligne.cells):
             _largeur_cellule(cellule, largeurs[index])
+    # Tous les composants passent par ici — encadrés, grilles de chiffres,
+    # tableaux de données, matrices. Poser la règle à cet endroit évite de
+    # l'oublier sur l'un d'eux (règle 4 : viser la classe, pas les cas connus).
+    ne_pas_fractionner(table)
     return table  # type: ignore[no-any-return]
 
 
@@ -385,6 +420,9 @@ def tableau(
     table = _table(document, 1 + len(lignes), colonnes, [largeur] * colonnes)
     _bordures(table, palette.fond_clair_alt, epaisseur=4)
     marges_cellules(table, haut=90, cote=140)
+    # Seul le tableau de DONNÉES a une ligne d'en-tête à redonner : les autres
+    # composants passant par `_table` (encadré, grille de chiffres) n'en ont pas.
+    ne_pas_fractionner(table, entete_repetee=True)
 
     for index, intitule in enumerate(entetes):
         cellule = table.rows[0].cells[index]
@@ -424,10 +462,17 @@ def graphique(
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.primaire)
         run.font.size = Pt(11)
+        # Un titre de graphique séparé de son image est pire qu'un sous-titre
+        # orphelin : il annonce une figure absente de la page.
+        garder_avec_la_suite(p)
 
     p = document.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.add_run().add_picture(io.BytesIO(png), width=LARGEUR_UTILE_EMU)
+    if source:
+        # L'image tient sa source avec elle ; sans quoi la légende part seule
+        # en haut de la page suivante.
+        garder_avec_la_suite(p)
 
     if source:
         note_source(document, palette, source)
@@ -462,6 +507,9 @@ def sous_titre(document: DocumentWord, palette: Palette, texte: str) -> None:
     run.font.size = Pt(11)
     run.font.bold = True
     run.font.color.rgb = _rgb(palette.primaire)
+    # Un sous-titre seul en bas de page est la faute de mise en page la plus
+    # visible : le lecteur tourne la page pour trouver ce qu'il annonce.
+    garder_avec_la_suite(p)
 
 
 def paragraphe(document: DocumentWord, palette: Palette, texte: str) -> None:
