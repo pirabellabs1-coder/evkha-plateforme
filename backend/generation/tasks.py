@@ -88,10 +88,20 @@ def run_generation_job_task(job_id: str) -> str:
                 order=job.order,
                 details=report.as_details(),
             )
-            # PDF assemblé pour relecture admin — AUCUN email client.
+            # Document assemblé pour relecture admin — AUCUN email client.
+            # Par la MÊME chaîne que la livraison : relire un document produit
+            # autrement que celui qui serait parti ne dit rien de ce qui serait
+            # parti (règle 3).
             try:
-                from documents.services import assemble_document  # noqa: PLC0415
-                assemble_document(job)
+                from django.conf import settings as _reglages  # noqa: PLC0415
+                if getattr(_reglages, "EVKHA_LIVRABLE_WORD", True):
+                    from documents.livrable_word import (  # noqa: PLC0415
+                        assembler_livrable_word,
+                    )
+                    assembler_livrable_word(job)
+                else:
+                    from documents.services import assemble_document  # noqa: PLC0415
+                    assemble_document(job)
             except Exception:  # noqa: BLE001 — l'assemblage admin ne doit pas masquer le blocage
                 import logging  # noqa: PLC0415
                 logging.getLogger(__name__).exception(

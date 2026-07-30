@@ -16,6 +16,7 @@ env = environ.Env(
     EVKHA_USE_STUB_EMAIL=(bool, True),
     EVKHA_USE_STUB_PDF=(bool, True),
     EVKHA_USE_STUB_SEARCH=(bool, True),
+    EVKHA_LIVRABLE_WORD=(bool, True),
     EVKHA_DASHBOARD_AUTH_DISABLED=(bool, False),
     EVKHA_BEHIND_PROXY=(bool, False),
     CSRF_TRUSTED_ORIGINS=(list, []),
@@ -268,6 +269,17 @@ EVKHA_USE_STUB_GAMMA = env("EVKHA_USE_STUB_GAMMA")
 EVKHA_USE_STUB_EMAIL = env("EVKHA_USE_STUB_EMAIL")
 EVKHA_USE_STUB_PDF = env("EVKHA_USE_STUB_PDF")
 EVKHA_USE_STUB_SEARCH = env("EVKHA_USE_STUB_SEARCH")
+
+# Chaîne de rendu du livrable client.
+#
+# `True`  : Word d'abord, PDF converti DEPUIS le Word — le format du lot 3, avec
+#           ses graphiques sectoriels et ses contrôles de cohérence.
+# `False` : ancienne chaîne, aperçu HTML et PDF WeasyPrint.
+#
+# Un indicateur et non un remplacement pur : le §16 exige que le basculement
+# soit « réversible immédiatement ». Repasser à `false` dans Coolify suffit à
+# revenir à la chaîne éprouvée, sans redéployer de code.
+EVKHA_LIVRABLE_WORD = env("EVKHA_LIVRABLE_WORD")
 
 # Recherche web (ancrage anti-hallucination §6). Fournisseur GRATUIT par
 # defaut (DuckDuckGo, sans cle) : pour l'activer, EVKHA_USE_STUB_SEARCH=false

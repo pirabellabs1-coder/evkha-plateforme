@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from html import escape
+from pathlib import Path
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.db import transaction
@@ -37,6 +40,71 @@ _DELIVERABLE_LABELS: dict[str, str] = {
 
 class DeliveryError(RuntimeError):
     pass
+
+
+class LivrableRetenuError(DeliveryError):
+    """La vérification a bloqué le document : il ne part pas chez le client.
+
+    Volontairement une erreur de livraison, et non un retour silencieux : elle
+    emprunte le chemin d'échec existant, qui enregistre un lot FAILED et un
+    incident HIGH. Un document que le système lui-même déclare défectueux ne
+    doit pas partir, et le fait qu'il ne soit pas parti doit se voir.
+    """
+
+
+@dataclass(frozen=True)
+class Assemblage:
+    """Ce que la chaîne de rendu produit, quelle que soit la chaîne employée."""
+
+    artefacts: tuple[DocumentArtifact, ...]
+    #: URL portée par le lot de livraison. C'était le lien HTML ; la chaîne Word
+    #: n'en produit pas, on retient donc le PDF.
+    url_principale: str
+    #: Motif de blocage, vide si le document est livrable.
+    retenu: str = ""
+
+
+def _assembler_livrable(
+    job: GenerationJob, *, pdf_client: PdfClient | None
+) -> Assemblage:
+    """Assemble le livrable par la chaîne configurée.
+
+    `assembler_livrable_word` existait depuis le lot 3, complète et testée, et
+    **n'était appelée par rien** : le pipeline passait par `assemble_document`.
+    Autrement dit, les graphiques sectoriels, les profils de secteur et les six
+    contrôles de cohérence n'avaient jamais tourné sur un document livré. C'est
+    le défaut que la règle 8 décrit, déjà vécu ici avec Gamma.
+    """
+    if not getattr(settings, "EVKHA_LIVRABLE_WORD", True):
+        ancien: DocumentAssembly = assemble_document(job, pdf_client=pdf_client)
+        return Assemblage(
+            artefacts=(ancien.link, ancien.pdf),
+            url_principale=ancien.link.download_url,
+        )
+
+    from documents.livrable_word import assembler_livrable_word  # noqa: PLC0415
+
+    livrable = assembler_livrable_word(job)
+    artefacts = tuple(
+        artefact for artefact in (livrable.docx, livrable.pdf) if artefact is not None
+    )
+    # Le PDF si la conversion a réussi, sinon le Word : un échec de conversion
+    # ne doit pas priver le client du document qu'il a payé.
+    principale = (
+        livrable.pdf.download_url
+        if livrable.pdf is not None and livrable.pdf.status == ArtifactStatus.READY
+        else livrable.docx.download_url
+    )
+    bloquantes = livrable.controle.bloquantes if livrable.controle else []
+    retenu = (
+        ""
+        if livrable.livrable
+        else " | ".join(anomalie.detail for anomalie in bloquantes)
+        or "vérification non exécutée"
+    )
+    return Assemblage(
+        artefacts=artefacts, url_principale=principale, retenu=retenu
+    )
 
 
 def _retention_days(job: GenerationJob) -> int:
@@ -191,10 +259,35 @@ def notify_generation_started(
         _log.warning("notify_generation_started: echec envoi email pour job %s", job.id)
 
 
+#: Extension de REPLI, quand ni le fichier stocké ni l'URL n'en portent une.
+_EXTENSIONS_PAR_NATURE: dict[str, str] = {
+    ArtifactKind.DOCX: "docx",
+    ArtifactKind.PDF: "pdf",
+    ArtifactKind.GAMMA_PDF: "pdf",
+    ArtifactKind.GAMMA_PPTX: "pptx",
+    ArtifactKind.LINK: "html",
+}
+
+
 def _attachment_filename(artifact: DocumentArtifact, order_id: str) -> str:
-    """Nom de fichier lisible : ex. 'EVKHA_order123_gamma.pdf'."""
+    """Nom de fichier lisible : ex. `EVKHA_order123_docx.docx`.
+
+    L'extension vient du FICHIER, pas d'une liste de cas. Elle était calculée
+    par `"pptx" si GAMMA_PPTX sinon "pdf"` — deux cas énumérés, et tout le
+    reste devenait `.pdf`. Le Word serait donc parti chez la cliente nommé
+    `EVKHA_…_docx.pdf` : un document Word portant l'extension d'un PDF, que son
+    ordinateur aurait refusé d'ouvrir correctement.
+
+    Ajouter `docx` à l'énumération aurait refait la même faute au type suivant.
+    Un correctif qui énumère des cas est incomplet (règle 4).
+    """
     slug = order_id.replace(" ", "_")[:40]
-    extension = "pptx" if artifact.kind == ArtifactKind.GAMMA_PPTX else "pdf"
+    depuis_fichier = Path(str(artifact.storage_key or "")).suffix
+    depuis_url = Path(urlparse(str(artifact.download_url or "")).path).suffix
+    extension = (
+        (depuis_fichier or depuis_url).lstrip(".").lower()
+        or _EXTENSIONS_PAR_NATURE.get(str(artifact.kind), "bin")
+    )
     label = "gamma_pptx" if artifact.kind == ArtifactKind.GAMMA_PPTX else artifact.kind
     return f"EVKHA_{slug}_{label}.{extension}"
 
@@ -421,23 +514,36 @@ def deliver_job(
 
     try:
         # --- I/O externe (pas de transaction ouverte) ---
-        # assemble_document est idempotent via update_or_create.
-        # Retourne DocumentAssembly(link=HTML, pdf=WeasyPrint PDF brandé).
-        assembly: DocumentAssembly = assemble_document(job, pdf_client=pdf_client)
+        # Les deux chaînes sont idempotentes via update_or_create.
+        assemblage = _assembler_livrable(job, pdf_client=pdf_client)
+        if assemblage.retenu:
+            # Avant tout envoi. Un document que la vérification bloque ne part
+            # pas, et l'incident dit pourquoi (règle 1 : échouer bruyamment).
+            msg = f"Livrable retenu à la vérification : {assemblage.retenu}"
+            raise LivrableRetenuError(msg)
+
         gamma_artifacts = ensure_gamma_artifacts(job, gamma_client=gamma_client)
         all_artifacts: tuple[DocumentArtifact, ...] = (
-            assembly.link,
-            assembly.pdf,
+            *assemblage.artefacts,
             *gamma_artifacts,
         )
 
+        # Le Word est joint lui aussi : c'est le document que la cliente
+        # retravaille, le PDF n'en est que la photographie.
         attachments = tuple(
             EmailAttachment(
                 filename=_attachment_filename(artifact, job.order.systeme_order_id),
                 url=artifact.download_url,
             )
             for artifact in all_artifacts
-            if artifact.kind in {ArtifactKind.PDF, ArtifactKind.GAMMA_PDF, ArtifactKind.GAMMA_PPTX}
+            if artifact.download_url
+            and artifact.kind
+            in {
+                ArtifactKind.DOCX,
+                ArtifactKind.PDF,
+                ArtifactKind.GAMMA_PDF,
+                ArtifactKind.GAMMA_PPTX,
+            }
         )
         result = email_client.send_delivery_email(
             recipient_email=job.order.customer.email,
@@ -454,7 +560,7 @@ def deliver_job(
                     "status": DeliveryStatus.SENT,
                     "email_provider": "brevo",
                     "recipient_email": job.order.customer.email,
-                    "download_url": assembly.link.download_url,
+                    "download_url": assemblage.url_principale,
                     "error_message": "",
                     "sent_at": timezone.now(),
                 },
