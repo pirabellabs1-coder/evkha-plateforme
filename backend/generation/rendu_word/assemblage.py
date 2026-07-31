@@ -226,11 +226,15 @@ def blocs_du_chapitre(
                 "verdict": _est_un_verdict(bloc.encadre.intitule),
             })
         elif isinstance(bloc, BlocGrilleKpi):
+            # `chiffres`, et un TRIPLET par cellule : c'est ce qu'attend
+            # `composants.grille_chiffres`. Une première version émettait
+            # `cellules` avec des dictionnaires — la livraison échouait sur un
+            # `KeyError: 'chiffres'`, et l'incident était le seul endroit où ça
+            # se voyait.
             blocs.append({
                 "type": "kpi",
-                "cellules": [
-                    {"valeur": c.valeur, "libelle": c.libelle, "source": c.source}
-                    for c in bloc.cellules
+                "chiffres": [
+                    (c.valeur, c.libelle, c.source) for c in bloc.cellules
                 ],
             })
         elif isinstance(bloc, BlocGraphique):
