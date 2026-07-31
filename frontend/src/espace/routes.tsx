@@ -10,7 +10,9 @@ import { Coquille } from "./Coquille";
 import { Abonnement } from "./pages/Abonnement";
 import { Commander } from "./pages/Commander";
 import { MaMarque } from "./pages/MaMarque";
-import { Connexion } from "./pages/Connexion";
+// La connexion partage la coquille de l'inscription : deux portes du meme
+// endroit doivent se ressembler. Elle vit donc avec les pages publiques.
+import { Connexion } from "../public/Connexion";
 import { Credits } from "./pages/Credits";
 import { Equipe } from "./pages/Equipe";
 import { Livrables } from "./pages/Livrables";

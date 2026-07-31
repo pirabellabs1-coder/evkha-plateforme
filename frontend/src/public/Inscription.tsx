@@ -1,17 +1,24 @@
 /** Création de compte depuis la page partenaires.
  *
- * Le visiteur arrive ici avec sa formule dans l'adresse
- * (`/inscription?formule=pro`). La page la lui **rappelle avec son prix** :
- * un formulaire qui ne dit pas ce qu'on souscrit oblige à revenir en arrière
- * pour vérifier, et c'est là qu'on perd les gens.
+ * Le visiteur arrive avec sa formule dans l'adresse (`/inscription?formule=pro`).
+ * La page la lui **rappelle avec son prix** : un formulaire qui ne dit pas ce
+ * qu'on souscrit oblige à revenir en arrière pour vérifier, et c'est là qu'on
+ * perd les gens.
  *
- * Elle annonce aussi, sans détour, ce qui ne se passera pas : aucun paiement
- * n'est demandé et aucun crédit n'est délivré. Laisser croire à un abonnement
- * actif ferait découvrir la vérité au moment de commander — trop tard.
+ * Elle n'annonce PAS de reprise de contact par EVKHA : le produit est un
+ * SaaS, personne ne doit passer par un humain pour souscrire ni pour générer.
+ * Le paiement en libre-service arrive plus tard ; d'ici là, l'activation reste
+ * manuelle côté administration, mais ce n'est pas au visiteur d'en connaître
+ * la mécanique interne.
+ *
+ * La mise en page est celle de `Portail`, partagée avec la connexion : les
+ * deux pages sont deux portes du même endroit, elles doivent se ressembler.
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { jeton } from "../espace/api";
+import { BoutonGoogle } from "./BoutonGoogle";
+import { Portail } from "./Portail";
 import {
   chargerFormules,
   euros,
@@ -19,8 +26,6 @@ import {
   RefusInscription,
   type FormulePublique,
 } from "./donnees";
-import "./Partenaires.css";
-import "./Inscription.css";
 
 /** Formule visée, lue dans l'adresse.
  *
@@ -48,20 +53,12 @@ export function Inscription() {
   const [envoi, setEnvoi] = useState(false);
 
   useEffect(() => {
-    const precedent = document.title;
-    document.title = "Créer mon compte partenaire — EVKHA";
-    return () => {
-      document.title = precedent;
-    };
-  }, []);
-
-  useEffect(() => {
     let vivant = true;
     chargerFormules()
       .then((liste) => vivant && setFormules(liste))
       // Le catalogue n'est qu'un RAPPEL : s'il ne charge pas, l'inscription
       // reste possible. Bloquer le formulaire parce qu'un prix n'a pas pu
-      // s'afficher serait disproportionne.
+      // s'afficher serait disproportionné.
       .catch(() => vivant && setFormules([]));
     return () => {
       vivant = false;
@@ -69,6 +66,11 @@ export function Inscription() {
   }, []);
 
   const formule = (formules ?? []).find((f) => f.code === code);
+
+  function entrer(jetonSession: string) {
+    jeton.ecrire(jetonSession);
+    void naviguer({ to: "/espace" });
+  }
 
   async function soumettre(evenement: React.FormEvent) {
     evenement.preventDefault();
@@ -86,8 +88,7 @@ export function Inscription() {
       });
       // La session est ouverte par le serveur : on entre directement dans
       // l'espace, sans redemander les identifiants qu'on vient de choisir.
-      jeton.ecrire(ouvert.jeton);
-      await naviguer({ to: "/espace" });
+      entrer(ouvert.jeton);
     } catch (cause) {
       if (cause instanceof RefusInscription) {
         setErreur(cause.message);
@@ -101,124 +102,127 @@ export function Inscription() {
   }
 
   return (
-    <div className="pp insc">
-      <div className="insc-carte">
-        <h1>Créer mon compte partenaire</h1>
-
-        {formule ? (
-          <div className="insc-formule">
-            <div className="insc-formule-nom">
-              Formule {formule.libelle}
-              <span>
-                {euros(formule.prix_mensuel_cents)} / mois ·{" "}
-                {formule.credits_par_echeance} crédit
-                {formule.credits_par_echeance > 1 ? "s" : ""} par mois
-              </span>
-            </div>
-            <a className="insc-changer" href="/partenaires">
-              Changer
-            </a>
-          </div>
+    <Portail
+      titre="Créer votre espace partenaire"
+      onglet="inscription"
+      sousTitre={
+        formule ? (
+          <p className="prt-sous-titre">
+            Formule <b>{formule.libelle}</b> —{" "}
+            {euros(formule.prix_mensuel_cents)} / mois,{" "}
+            {formule.credits_par_echeance} crédit
+            {formule.credits_par_echeance > 1 ? "s" : ""} par mois.{" "}
+            <a href="/partenaires">Changer</a>
+          </p>
         ) : (
-          code && (
-            <p className="insc-note">
-              Formule « {code} » — le détail n'a pas pu être chargé, votre
-              demande sera bien enregistrée.
-            </p>
-          )
-        )}
+          <p className="prt-sous-titre">
+            Quelques informations, et votre espace est ouvert.
+          </p>
+        )
+      }
+      panneau={{
+        image: "/partenaires/reunion.jpg",
+        alt: "",
+        titre: "Vos études, sous votre marque, sans y passer vos soirées.",
+        arguments: [
+          "Vos couleurs et votre logo sur chaque document",
+          "Réception rapide sous 24 h : PDF + version éditable",
+          "Vous restez l'interlocuteur de votre client",
+        ],
+      }}
+      enfants={
+        <>
+          <BoutonGoogle
+            // La raison sociale est lue AU CLIC : elle change pendant que la
+            // personne tape, et une valeur figée à l'affichage serait vide.
+            extras={() => ({ raison_sociale: raisonSociale, formule: code })}
+            onSession={(session) => entrer(session.jeton)}
+            onErreur={(message, codeErreur) => {
+              setErreur(message);
+              setChampFautif(codeErreur);
+            }}
+          />
 
-        <form onSubmit={soumettre} noValidate>
-          <label>
-            Raison sociale
-            <input
-              value={raisonSociale}
-              onChange={(e) => setRaisonSociale(e.target.value)}
-              autoComplete="organization"
-              aria-invalid={champFautif === "raison_sociale_manquante"}
-              required
-            />
-          </label>
-
-          <div className="insc-duo">
+          <form onSubmit={soumettre} noValidate>
             <label>
-              Prénom
+              Raison sociale
               <input
-                value={prenom}
-                onChange={(e) => setPrenom(e.target.value)}
-                autoComplete="given-name"
+                value={raisonSociale}
+                onChange={(e) => setRaisonSociale(e.target.value)}
+                autoComplete="organization"
+                aria-invalid={champFautif === "raison_sociale_manquante"}
+                required
               />
             </label>
+
+            <div className="insc-duo">
+              <label>
+                Prénom
+                <input
+                  value={prenom}
+                  onChange={(e) => setPrenom(e.target.value)}
+                  autoComplete="given-name"
+                />
+              </label>
+              <label>
+                Nom
+                <input
+                  value={nom}
+                  onChange={(e) => setNom(e.target.value)}
+                  autoComplete="family-name"
+                />
+              </label>
+            </div>
+
             <label>
-              Nom
+              Adresse e-mail
               <input
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                autoComplete="family-name"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                aria-invalid={
+                  champFautif === "email_invalide" ||
+                  champFautif === "deja_membre"
+                }
+                required
               />
             </label>
-          </div>
 
-          <label>
-            Adresse e-mail
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              aria-invalid={
-                champFautif === "email_invalide" || champFautif === "deja_membre"
-              }
-              required
-            />
-          </label>
+            <label>
+              Mot de passe
+              <input
+                type="password"
+                value={motDePasse}
+                onChange={(e) => setMotDePasse(e.target.value)}
+                autoComplete="new-password"
+                aria-invalid={
+                  champFautif === "mot_de_passe_faible" ||
+                  champFautif === "mot_de_passe_manquant"
+                }
+                required
+              />
+              <small>Au moins douze signes, et pas seulement des chiffres.</small>
+            </label>
 
-          <label>
-            Mot de passe
-            <input
-              type="password"
-              value={motDePasse}
-              onChange={(e) => setMotDePasse(e.target.value)}
-              autoComplete="new-password"
-              aria-invalid={
-                champFautif === "mot_de_passe_faible" ||
-                champFautif === "mot_de_passe_manquant"
-              }
-              required
-            />
-            <small>Au moins douze signes, et pas seulement des chiffres.</small>
-          </label>
+            {erreur && (
+              <p className="insc-erreur" role="alert">
+                {erreur}
+                {champFautif === "deja_membre" && (
+                  <>
+                    {" "}
+                    <a href="/espace/connexion">Se connecter</a>
+                  </>
+                )}
+              </p>
+            )}
 
-          {erreur && (
-            <p className="insc-erreur" role="alert">
-              {erreur}
-              {champFautif === "deja_membre" && (
-                <>
-                  {" "}
-                  <a href="/espace/connexion">Se connecter</a>
-                </>
-              )}
-            </p>
-          )}
-
-          <button type="submit" disabled={envoi}>
-            {envoi ? "Création en cours…" : "Créer mon compte"}
-          </button>
-        </form>
-
-        {/* Dit ce qui ne se passera PAS. Un formulaire de souscription qui
-            n'annonce pas l'absence de paiement laisse croire a un abonnement
-            actif, et la verite se decouvre au moment de commander. */}
-        <p className="insc-avertissement">
-          Aucun paiement ne vous est demandé à cette étape et aucun crédit n'est
-          délivré. Votre demande de formule est enregistrée : EVKHA vous
-          recontacte pour l'activer.
-        </p>
-
-        <p className="insc-deja">
-          Vous avez déjà un compte ? <a href="/espace/connexion">Se connecter</a>
-        </p>
-      </div>
-    </div>
+            <button type="submit" disabled={envoi}>
+              {envoi ? "Création en cours…" : "Créer mon compte"}
+            </button>
+          </form>
+        </>
+      }
+    />
   );
 }

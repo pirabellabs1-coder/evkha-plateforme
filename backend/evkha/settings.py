@@ -264,6 +264,15 @@ EVKHA_CODE_EXECUTION_ENABLED = env.bool("EVKHA_CODE_EXECUTION_ENABLED", default=
 # Adaptateurs externes : stubs deterministes par defaut (dev/CI, aucun reseau).
 # Passer a False en production une fois les credentials configures.
 EVKHA_USE_STUB_AI = env("EVKHA_USE_STUB_AI")
+
+# Identifiant OAuth de l'application Google, pour « Continuer avec Google ».
+# PUBLIC par construction : le navigateur l'envoie a Google. Le secret OAuth
+# n'est pas necessaire — le navigateur obtient le jeton d'identite, le serveur
+# se contente de le verifier (voir organisations/google.py).
+#
+# Vide = la connexion Google est desactivee, et le bouton ne s'affiche PAS.
+# Un bouton qui echoue faute de reglage est pire que pas de bouton.
+EVKHA_GOOGLE_CLIENT_ID = env("EVKHA_GOOGLE_CLIENT_ID", default="")
 EVKHA_USE_STUB_DOCS = env("EVKHA_USE_STUB_DOCS")
 EVKHA_USE_STUB_GAMMA = env("EVKHA_USE_STUB_GAMMA")
 EVKHA_USE_STUB_EMAIL = env("EVKHA_USE_STUB_EMAIL")

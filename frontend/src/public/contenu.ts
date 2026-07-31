@@ -7,7 +7,14 @@
  */
 
 export const HERO = {
-  titre: "Vous avez besoin d'Études, de Benchmarking et de Stratégies Business ?",
+  /** Trois lignes, coupées comme sur la maquette. Laisser le navigateur
+   *  décider produirait un retour à la ligne différent à chaque largeur, et
+   *  le titre perdrait son équilibre. */
+  titre: [
+    "Vous avez besoin d'Études,",
+    "de Benchmarking et de",
+    "Stratégies Business ?",
+  ],
   accroche: "EVKHA LES PRODUIT POUR VOUS.",
   corps: [
     "Études de marché, analyses concurrentielles, business plans et stratégies de haut niveau, générés par la méthode Evkha, livrés en un temps record avec VOTRE LOGO et VOS COULEURS.",

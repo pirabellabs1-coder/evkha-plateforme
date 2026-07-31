@@ -14,7 +14,12 @@
   --creme-clair: #faf7f0;
   --gris: #5a5a5a;
 
-  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  /* Deux familles, comme la maquette : une geometrique sans pour l'essentiel,
+     une serif pour « Pour QUI ? », les libelles de preuves et le lisere. */
+  --serif: "Playfair Display", "Georgia", "Times New Roman", serif;
+  --bleu-texte: #2f4858;
+
+  font-family: "Poppins", "Montserrat", "Segoe UI", system-ui, sans-serif;
   color: var(--noir);
   background: #ffffff;
   line-height: 1.65;
@@ -42,23 +47,32 @@
 }
 
 .pp-hero h1 {
-  font-size: clamp(1.7rem, 3.2vw, 2.35rem);
+  font-size: clamp(1.75rem, 3.4vw, 2.5rem);
   font-weight: 800;
-  line-height: 1.25;
-  margin: 0 0 1.5rem;
+  line-height: 1.28;
+  margin: 0 0 1.7rem;
+}
+
+/* Chaque ligne du titre occupe la sienne : la coupe est decidee, pas subie. */
+.pp-hero h1 span {
+  display: block;
 }
 
 .pp-hero-accroche {
-  color: var(--or-fonce);
+  color: var(--or);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  margin: 0 0 0.9rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  margin: 0 0 1.1rem;
 }
 
+/* Le corps du bandeau est bleu ardoise sur la maquette, pas gris : c'est ce
+   qui le distingue des textes secondaires du reste de la page. */
 .pp-hero p {
-  color: var(--gris);
-  font-size: 0.82rem;
-  margin: 0 0 0.7rem;
+  color: var(--bleu-texte);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  margin: 0 0 0.9rem;
 }
 
 .pp-hero-signature {
@@ -68,7 +82,7 @@
 
 .pp-hero-image {
   width: 100%;
-  border-radius: 4px;
+  border-radius: 14px;
   object-fit: cover;
   aspect-ratio: 3 / 2;
   background: var(--creme);
@@ -86,14 +100,15 @@
 
 .pp-preuve-valeur {
   color: var(--or-fonce);
-  font-size: 1.7rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
 .pp-preuve-libelle {
-  color: var(--gris);
-  font-size: 0.82rem;
+  font-family: var(--serif);
+  color: #9a9a9a;
+  font-size: 1.05rem;
 }
 
 /* ── Sections ────────────────────────────────────────────────────────────── */
@@ -104,6 +119,14 @@
 
 .pp-section-creme {
   background: var(--creme);
+}
+
+/* Encadre creme autonome, pose sur fond blanc — c'est ainsi qu'apparait le
+   bloc « Le calcul est simple » sur la maquette. */
+.pp-encadre-creme {
+  background: var(--creme-clair);
+  border-radius: 4px;
+  padding: 2.5rem 2.2rem 3rem;
 }
 
 .pp-surtitre {
@@ -119,7 +142,22 @@
   text-align: center;
   font-size: clamp(1.35rem, 2.4vw, 1.75rem);
   font-weight: 800;
-  margin: 0 0 2.5rem;
+  margin: 0 0 1rem;
+}
+
+/* « Pour QUI ? » et « Ce qu'on nous demande » sont en serif sur la maquette. */
+.pp-titre-serif {
+  font-family: var(--serif);
+  font-weight: 700;
+  margin-bottom: 2.5rem;
+}
+
+/* Court filet dore sous les titres, comme sur la maquette. */
+.pp-filet {
+  width: 56px;
+  height: 2px;
+  background: var(--or);
+  margin: 0 auto 2.5rem;
 }
 
 /* ── Le principe : quatre étapes ─────────────────────────────────────────── */
@@ -175,41 +213,50 @@
 .pp-formules-intro {
   text-align: center;
   color: var(--gris);
-  font-size: 0.75rem;
-  margin: -1.8rem 0 2.2rem;
+  font-size: 0.72rem;
+  margin: 0 0 2.2rem;
+}
+
+/* Les cartes sont BLANCHES sur un bandeau NOIR — et non l'inverse. C'est ce
+   qui donne son contraste a la section sur la maquette. */
+.pp-formules-bandeau {
+  background: var(--noir);
+  padding: 1.6rem;
 }
 
 .pp-formules {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  gap: 1.1rem;
   align-items: stretch;
 }
 
 .pp-formule {
-  background: var(--noir);
-  color: #ffffff;
-  border-radius: 4px;
-  padding: 1.4rem 1.2rem 1.2rem;
+  background: #ffffff;
+  color: var(--noir);
+  border-radius: 3px;
+  padding: 1.3rem 1.1rem 1.1rem;
   display: flex;
   flex-direction: column;
   border: 2px solid transparent;
 }
 
+/* La formule mise en avant se distingue par un liseré doré. */
 .pp-formule.pp-avant {
   border-color: var(--or);
 }
 
 .pp-formule-sous-titre {
-  color: var(--or);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  margin-bottom: 1.4rem;
+  color: var(--or-fonce);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  margin-bottom: 1.6rem;
 }
 
 .pp-formule h3 {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin: 0;
   text-align: center;
@@ -217,46 +264,58 @@
 
 .pp-formule-prix {
   text-align: center;
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0.2rem 0 1.3rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0.25rem 0 1.4rem;
 }
 
 .pp-formule-prix span {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 400;
-  color: #bdbdbd;
+  color: var(--gris);
 }
 
 .pp-formule-quoi {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.9rem;
 }
 
 .pp-formule ul {
   list-style: none;
   padding: 0;
-  margin: 0 0 1.4rem;
+  margin: 0 0 1.5rem;
   display: grid;
-  gap: 0.55rem;
+  gap: 0.6rem;
 }
 
 .pp-formule li {
-  font-size: 0.68rem;
-  line-height: 1.5;
-  padding-left: 1.1rem;
-  position: relative;
-  color: #e8e8e8;
+  display: grid;
+  grid-template-columns: 1rem 1fr;
+  gap: 0.45rem;
+  align-items: start;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: #3a3a3a;
 }
 
-.pp-formule li::before {
-  content: "●";
-  color: var(--or);
-  position: absolute;
-  left: 0;
-  font-size: 0.6rem;
-  top: 0.15rem;
+/* Coche doree en pastille, comme sur la maquette. */
+.pp-coche {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  background: var(--or);
+  color: #ffffff;
+  font-size: 0.55rem;
+  line-height: 0.95rem;
+  text-align: center;
+  font-weight: 700;
+  margin-top: 0.12rem;
+}
+
+.pp-formule li b {
+  font-weight: 700;
+  color: var(--noir);
 }
 
 .pp-formule-souscrire {
@@ -265,13 +324,12 @@
   width: 100%;
   background: var(--noir);
   color: #ffffff;
-  border: 1px solid #ffffff;
+  border: none;
   border-radius: 2px;
-  padding: 0.6rem;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  padding: 0.7rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
@@ -280,7 +338,6 @@
 
 .pp-formule-souscrire:hover {
   background: var(--or);
-  border-color: var(--or);
   color: var(--noir);
 }
 
@@ -289,34 +346,49 @@
 .pp-cibles {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1.2rem;
+  gap: 1.4rem;
 }
 
 .pp-cible {
   background: #ffffff;
-  border: 1px solid #e7e0cf;
+  border: 1px solid #ece5d6;
   border-top: 3px solid var(--or);
   border-radius: 3px;
-  padding: 1.4rem 1.2rem;
+  padding: 1.5rem 1.3rem;
 }
 
 .pp-cible h3 {
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 700;
-  margin: 0 0 0.7rem;
+  line-height: 1.4;
+  margin: 0 0 0.9rem;
 }
 
 .pp-cible p {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  line-height: 1.6;
   color: var(--gris);
-  margin: 0 0 0.8rem;
+  margin: 0 0 1rem;
 }
 
+/* « Avec Evkha : … » est encadre : fond creme, filet dore a gauche. C'est la
+   conclusion de chaque carte, elle ne doit pas se lire comme la suite du
+   paragraphe. */
 .pp-cible-avec {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.7rem !important;
+  line-height: 1.6;
   color: var(--noir) !important;
+  background: var(--creme-clair);
+  border-left: 3px solid var(--or);
+  padding: 0.75rem 0.9rem;
   margin: 0 !important;
+}
+
+/* Filet dore plein entre « Pour QUI ? » et « Le calcul est simple ». */
+.pp-separateur {
+  border: none;
+  border-top: 1px solid var(--or);
+  margin: 3.5rem 0 0;
 }
 
 /* ── Le calcul ───────────────────────────────────────────────────────────── */
@@ -324,56 +396,66 @@
 .pp-calcul {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-  background: var(--creme-clair);
-  border: 1px solid #e7e0cf;
-  border-radius: 4px;
-  padding: 2rem 2.2rem;
+  gap: 2.2rem;
+  padding: 0 1rem;
+}
+
+/* Chaque colonne est coiffee d'un filet dore. */
+.pp-calcul > div {
+  border-top: 2px solid var(--or);
+  padding-top: 1.1rem;
 }
 
 .pp-calcul-valeur {
   color: var(--or-fonce);
-  font-size: 1.05rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.45rem;
 }
 
 .pp-calcul h3 {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.6rem;
 }
 
 .pp-calcul p {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  line-height: 1.6;
   color: var(--gris);
   margin: 0;
 }
 
 .pp-lisere {
+  font-family: var(--serif);
   text-align: center;
-  font-size: 0.72rem;
-  color: var(--gris);
-  margin-top: 2.5rem;
+  font-size: 0.82rem;
+  color: var(--noir);
+  margin-top: 3.5rem;
 }
 
 .pp-lisere a {
-  color: var(--or-fonce);
-  font-weight: 600;
+  color: var(--or);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pp-lisere a:hover {
+  text-decoration: underline;
 }
 
 /* ── Fondatrice ──────────────────────────────────────────────────────────── */
 
 .pp-fondatrice {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 3rem;
+  grid-template-columns: 300px 1fr;
+  gap: 4rem;
   align-items: center;
 }
 
 .pp-fondatrice-portrait {
   width: 100%;
-  border-radius: 3px;
+  border-radius: 8px;
   aspect-ratio: 3 / 4;
   object-fit: cover;
   background: var(--creme);
@@ -381,29 +463,32 @@
 
 .pp-fondatrice-surtitre {
   color: var(--or-fonce);
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.16em;
-  margin: 0 0 0.8rem;
+  letter-spacing: 0.2em;
+  margin: 0 0 1.1rem;
 }
 
 .pp-fondatrice h2 {
-  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
   font-weight: 800;
-  margin: 0 0 1.2rem;
-  line-height: 1.2;
+  margin: 0 0 1.4rem;
+  line-height: 1.22;
 }
 
+/* Filet dore aligne a GAUCHE ici, contrairement aux titres de section qui le
+   portent centre. */
 .pp-fondatrice-trait {
-  width: 70px;
+  width: 90px;
   height: 2px;
   background: var(--or);
-  margin-bottom: 1.4rem;
+  margin-bottom: 1.6rem;
 }
 
 .pp-fondatrice p {
   color: var(--gris);
-  font-size: 0.86rem;
+  font-size: 0.95rem;
+  line-height: 1.75;
   margin: 0;
 }
 

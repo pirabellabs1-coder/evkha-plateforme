@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import json
 import logging
+import secrets
 
 from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import authentification, inscription
+from . import authentification, google, inscription
 from .models import Formule
 
 _log = logging.getLogger(__name__)
@@ -176,6 +177,149 @@ def inscrire(request: HttpRequest) -> HttpResponse:
             # Dit explicitement ce qui n'a PAS eu lieu : l'interface doit
             # pouvoir annoncer « souscription en cours de validation » plutot
             # que laisser croire a un abonnement actif.
+            "abonnement_actif": False,
+            "demande_id": str(ouverture.demande.id) if ouverture.demande else None,
+        },
+        status=201,
+    )
+
+
+@require_GET
+def reglages_publics(request: HttpRequest) -> HttpResponse:
+    """Ce que l'interface publique doit savoir avant d'afficher quoi que ce soit.
+
+    Aujourd'hui : la connexion Google est-elle utilisable, et sous quel
+    identifiant d'application. Sans cet appel, l'interface afficherait un
+    bouton « Continuer avec Google » qui échouerait faute de réglage — pire que
+    pas de bouton, parce qu'il fait douter du reste de la page (règle 1).
+
+    L'identifiant OAuth est PUBLIC par construction : le navigateur l'envoie à
+    Google. Ce n'est pas un secret qui fuit ici.
+    """
+    return JsonResponse({
+        "google": {
+            "actif": google.configure(),
+            "client_id": google.identifiant_client(),
+        },
+    })
+
+
+@csrf_exempt
+@require_POST
+def google_session(request: HttpRequest) -> HttpResponse:
+    """Connecte — ou inscrit — depuis un compte Google.
+
+    Un SEUL point d'entrée pour les deux : au moment où la personne clique, ni
+    elle ni nous ne savons si elle a déjà un compte. Deux points d'entrée
+    obligeraient l'interface à deviner, et à se tromper une fois sur deux.
+
+    - **adresse connue** → session ouverte, et les champs d'identité VIDES du
+      contact sont complétés par ce que Google atteste ;
+    - **adresse inconnue** → compte créé, comme par le formulaire : aucun
+      crédit, l'intention enregistrée comme demande.
+
+    Le compte créé par Google reçoit un mot de passe aléatoire qu'il ne connaît
+    pas. Il n'en a pas besoin pour entrer, et la personne peut en définir un
+    par la procédure d'oubli. Laisser un mot de passe VIDE serait pire : le
+    compte deviendrait accessible à quiconque poste une chaîne vide.
+    """
+    try:
+        charge = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return _refus("Requête illisible.", "corps_invalide")
+    if not isinstance(charge, dict):
+        return _refus("Requête illisible.", "corps_invalide")
+
+    try:
+        identite = google.verifier(str(charge.get("jeton_google", "")))
+    except google.GoogleRefuseError as refus:
+        return _refus(str(refus), refus.code, refus.statut)
+
+    from .models import CompteClient  # noqa: PLC0415 — evite un cycle a l'import
+
+    compte = (
+        CompteClient.objects.select_related("customer")
+        .filter(user__username__iexact=identite.email, actif=True)
+        .first()
+    )
+
+    if compte is not None:
+        # La plateforme prend en compte ce que Google atteste, sans jamais
+        # ecraser ce que la personne a saisi elle-meme.
+        ecrits = google.completer_le_contact(compte.customer, identite)
+        jeton_clair = authentification.ouvrir_session_sans_mot_de_passe(compte)
+        _log.info(
+            "Connexion Google : %s (champs completes : %s)",
+            identite.email, ", ".join(ecrits) or "aucun",
+        )
+        return JsonResponse({
+            "jeton": jeton_clair,
+            "compte_cree": False,
+            "champs_completes": ecrits,
+        })
+
+    # Compte inconnu : on inscrit, avec les memes garanties que le formulaire.
+    cle = f"inscription:{_adresse(request)}"
+    tentatives = cache.get_or_set(cle, 0, 3600) or 0
+    if int(tentatives) >= INSCRIPTIONS_PAR_HEURE:
+        return _refus(
+            "Trop de créations de compte depuis cette connexion. Réessayez "
+            "dans une heure, ou écrivez-nous à contact@evkha.fr.",
+            "trop_de_tentatives",
+            429,
+        )
+
+    raison_sociale = str(charge.get("raison_sociale", "")).strip()
+    if not raison_sociale:
+        # On NE DEVINE PAS la raison sociale a partir de l'adresse : une
+        # organisation nommee « gmail » apparaitrait sur les documents remis
+        # aux clients de l'abonne. L'interface redemande le champ.
+        return _refus(
+            "Indiquez la raison sociale pour créer votre espace.",
+            "raison_sociale_manquante",
+        )
+
+    try:
+        inscription.refuser_si_deja_membre(
+            identite.email, nommer_organisation=False
+        )
+        formule = inscription.formule_ou_refus(str(charge.get("formule", "")))
+        ouverture = inscription.ouvrir_compte(
+            raison_sociale=raison_sociale,
+            email=identite.email,
+            # Aleatoire et jamais communique : la personne entre par Google.
+            mot_de_passe=secrets.token_urlsafe(32),
+            prenom=identite.prenom,
+            nom=identite.nom,
+            formule=formule,
+            activer_abonnement=False,
+            message="Souscription demandée depuis la page partenaires (compte Google).",
+        )
+    except inscription.InscriptionRefuseeError as refus:
+        return _refus(str(refus), refus.code, refus.statut)
+
+    try:
+        cache.incr(cle)
+    except ValueError:
+        cache.set(cle, 1, 3600)
+
+    compte = CompteClient.objects.select_related("customer").get(
+        user__username__iexact=identite.email
+    )
+    jeton_clair = authentification.ouvrir_session_sans_mot_de_passe(compte)
+    _log.info(
+        "Inscription Google : organisation %s, formule demandee %s",
+        ouverture.organisation.id, formule.code if formule else "aucune",
+    )
+    return JsonResponse(
+        {
+            "jeton": jeton_clair,
+            "compte_cree": True,
+            "organisation": {
+                "id": str(ouverture.organisation.id),
+                "raison_sociale": ouverture.organisation.raison_sociale,
+            },
+            "formule_demandee": formule.code if formule else None,
             "abonnement_actif": False,
             "demande_id": str(ouverture.demande.id) if ouverture.demande else None,
         },

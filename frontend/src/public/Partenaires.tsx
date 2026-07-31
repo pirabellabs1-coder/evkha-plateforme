@@ -51,6 +51,20 @@ function lienSouscription(code: string): string {
   return `/inscription?formule=${encodeURIComponent(code)}`;
 }
 
+/** Puce à coche dorée. La coche est décorative : elle double une information
+ *  déjà portée par le texte, et un lecteur d'écran qui l'annoncerait dirait
+ *  « coche » avant chaque ligne sans rien apporter. */
+function Puce({ children }: { children: React.ReactNode }) {
+  return (
+    <li>
+      <span className="pp-coche" aria-hidden="true">
+        ✓
+      </span>
+      <span>{children}</span>
+    </li>
+  );
+}
+
 function Formules({ formules }: { formules: FormulePublique[] }) {
   return (
     <div className="pp-formules">
@@ -71,19 +85,22 @@ function Formules({ formules }: { formules: FormulePublique[] }) {
 
           <div className="pp-formule-quoi">Ce que vous obtenez :</div>
           <ul>
-            <li>
-              {formule.credits_par_echeance} crédit
-              {formule.credits_par_echeance > 1 ? "s" : ""} inclus chaque mois
-            </li>
-            <li>
+            <Puce>
+              <b>
+                {formule.credits_par_echeance} crédit
+                {formule.credits_par_echeance > 1 ? "s" : ""} inclus
+              </b>{" "}
+              chaque mois
+            </Puce>
+            <Puce>
               Crédit supplémentaire&nbsp;:{" "}
               {euros(formule.prix_credit_supplementaire_cents)}
-            </li>
-            <li>
+            </Puce>
+            <Puce>
               Soit {euros(formule.cout_par_livrable_cents)} par livrable inclus
-            </li>
+            </Puce>
             {formule.avantages.map((avantage) => (
-              <li key={avantage}>{avantage}</li>
+              <Puce key={avantage}>{avantage}</Puce>
             ))}
           </ul>
 
@@ -142,7 +159,11 @@ export function Partenaires() {
       {/* ── Ouverture ────────────────────────────────────────────────── */}
       <header className="pp-large pp-hero">
         <div>
-          <h1>{HERO.titre}</h1>
+          <h1>
+            {HERO.titre.map((ligne) => (
+              <span key={ligne}>{ligne}</span>
+            ))}
+          </h1>
           <p className="pp-hero-accroche">{HERO.accroche}</p>
           {HERO.corps.map((p) => (
             <p key={p}>{p}</p>
@@ -171,6 +192,7 @@ export function Partenaires() {
         <div className="pp-large">
           <p className="pp-surtitre">{PRINCIPE.surtitre}</p>
           <h2 className="pp-titre">{PRINCIPE.titre}</h2>
+          <div className="pp-filet" />
           <div className="pp-etapes">
             {PRINCIPE.etapes.map((etape, rang) => (
               <article className="pp-etape" key={etape.titre}>
@@ -191,6 +213,7 @@ export function Partenaires() {
       <section className="pp-section">
         <div className="pp-large">
           <h2 className="pp-titre">Quatre formules, zéro droit d'entrée</h2>
+          <div className="pp-filet" />
           <p className="pp-formules-intro">
             Abonnement mensuel avec crédits inclus. Engagement minimum de
             3&nbsp;mois, puis sans engagement. Crédits supplémentaires à tarif
@@ -207,7 +230,9 @@ export function Partenaires() {
             <p className="pp-attente">Chargement des formules…</p>
           )}
           {formules !== null && formules.length > 0 && (
-            <Formules formules={formules} />
+            <div className="pp-formules-bandeau">
+              <Formules formules={formules} />
+            </div>
           )}
         </div>
       </section>
@@ -215,7 +240,7 @@ export function Partenaires() {
       {/* ── Pour qui ─────────────────────────────────────────────────── */}
       <section className="pp-section">
         <div className="pp-large">
-          <h2 className="pp-titre">{POUR_QUI.titre}</h2>
+          <h2 className="pp-titre pp-titre-serif">{POUR_QUI.titre}</h2>
           <div className="pp-cibles">
             {POUR_QUI.cibles.map((cible) => (
               <article className="pp-cible" key={cible.titre}>
@@ -225,14 +250,16 @@ export function Partenaires() {
               </article>
             ))}
           </div>
+          <hr className="pp-separateur" />
         </div>
       </section>
 
       {/* ── Le calcul ────────────────────────────────────────────────── */}
-      <section className="pp-section pp-section-creme">
-        <div className="pp-large">
+      <section className="pp-section">
+        <div className="pp-large pp-encadre-creme">
           <p className="pp-surtitre">{CALCUL.surtitre}</p>
           <h2 className="pp-titre">{CALCUL.titre}</h2>
+          <div className="pp-filet" />
           <div className="pp-calcul">
             {CALCUL.colonnes.map((colonne) => (
               <div key={colonne.titre}>
@@ -274,7 +301,7 @@ export function Partenaires() {
       <section className="pp-section">
         <div className="pp-large">
           <p className="pp-surtitre">{FAQ.surtitre}</p>
-          <h2 className="pp-titre">{FAQ.titre}</h2>
+          <h2 className="pp-titre pp-titre-serif">{FAQ.titre}</h2>
           <div className="pp-faq">
             {FAQ.questions.map((question) => (
               <div className="pp-question" key={question.q}>

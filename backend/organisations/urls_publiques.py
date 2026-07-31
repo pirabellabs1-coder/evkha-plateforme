@@ -15,4 +15,8 @@ app_name = "public"
 urlpatterns = [
     path("formules/", vues.formules_publiques, name="formules"),
     path("inscription/", vues.inscrire, name="inscription"),
+    path("reglages/", vues.reglages_publics, name="reglages"),
+    # Un seul point d'entree pour la connexion ET l'inscription par Google : au
+    # moment du clic, personne ne sait encore si le compte existe.
+    path("google/", vues.google_session, name="google"),
 ]

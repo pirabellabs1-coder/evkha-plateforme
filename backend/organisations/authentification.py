@@ -115,6 +115,33 @@ def ouvrir_session(email: str, mot_de_passe: str) -> tuple[str, JetonAcces]:
     return jeton_clair, jeton
 
 
+def ouvrir_session_sans_mot_de_passe(compte: CompteClient) -> str:
+    """Délivre un jeton à un compte DÉJÀ authentifié autrement.
+
+    Utilisé par la connexion Google : c'est Google qui a prouvé l'identité, et
+    la personne n'a pas de mot de passe à saisir — souvent elle n'en a même
+    pas, son compte ayant été créé par ce chemin.
+
+    **Cette fonction ne vérifie rien.** C'est délibéré, et c'est pourquoi elle
+    porte ce nom-là plutôt qu'un nom neutre : l'appelant DOIT avoir établi
+    l'identité avant de l'appeler. La nommer `connexion_directe` aurait fini
+    par la faire appeler depuis un endroit qui ne vérifie rien du tout.
+
+    La fabrication du jeton est identique à `ouvrir_session` — même longueur,
+    même condensat, même durée. Deux façons de fabriquer un jeton finiraient
+    par diverger sur la seule chose qui compte : sa solidité (règle 5).
+    """
+    jeton_clair = secrets.token_hex(OCTETS_JETON)
+    JetonAcces.objects.create(
+        compte=compte,
+        condensat=_condenser(jeton_clair),
+        expire_le=timezone.now() + DUREE_VALIDITE,
+    )
+    compte.derniere_connexion = timezone.now()
+    compte.save(update_fields=["derniere_connexion", "updated_at"])
+    return jeton_clair
+
+
 def compte_du_jeton(jeton_clair: str) -> CompteClient | None:
     """Compte associé à un jeton, ou None s'il est inutilisable.
 
