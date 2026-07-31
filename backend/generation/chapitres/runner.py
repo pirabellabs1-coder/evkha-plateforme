@@ -203,27 +203,49 @@ def payload_vers_markdown(payload: ChapitrePayload) -> str:
     Sert de pont : le lot 3 remplacera ce rendu par un gabarit Word, mais tant
     qu'il n'est pas là, le document doit rester assemblable.
     """
+    from .schema import (  # noqa: PLC0415 — importés seulement pour le pont
+        BlocEncadre,
+        BlocGraphique,
+        BlocGrilleKpi,
+        BlocParagraphe,
+        BlocSousTitre,
+        BlocTableau,
+    )
+
     morceaux: list[str] = []
-    for section in payload.sections:
-        morceaux.append(f"## {section.titre}\n\n{section.contenu.strip()}")
-        if section.tableau is not None:
+    # Dans l'ORDRE des blocs : le markdown est un pont, il ne doit pas
+    # réorganiser ce que le chapitre a composé.
+    for bloc in payload.blocs:
+        if isinstance(bloc, BlocSousTitre):
+            morceaux.append(f"## {bloc.numero} {bloc.intitule}")
+        elif isinstance(bloc, BlocParagraphe):
+            morceaux.append(bloc.texte.strip())
+        elif isinstance(bloc, BlocTableau):
             # Sans cette reprise, le pont vers l'ancienne chaîne perdrait
             # silencieusement la moitié de l'information du chapitre.
-            entetes = " | ".join(section.tableau.entetes)
-            separateur = " | ".join(["---"] * len(section.tableau.entetes))
+            entetes = " | ".join(bloc.tableau.entetes)
+            separateur = " | ".join(["---"] * len(bloc.tableau.entetes))
             lignes = "\n".join(
-                "| " + " | ".join(ligne) + " |" for ligne in section.tableau.lignes
+                "| " + " | ".join(ligne) + " |" for ligne in bloc.tableau.lignes
             )
             morceaux.append(f"| {entetes} |\n| {separateur} |\n{lignes}")
-            if section.tableau.source:
-                morceaux.append(f"*{section.tableau.source}*")
-    for graphique in payload.graphiques:
-        # Marqueur explicite : le rendu résoudra les identifiants en valeurs.
-        morceaux.append(
-            f"<!-- graphique:{graphique.type} "
-            f"titre=\"{graphique.titre}\" "
-            f"donnees=\"{','.join(graphique.donnees_ids)}\" -->"
-        )
+            if bloc.tableau.source:
+                morceaux.append(f"*{bloc.tableau.source}*")
+        elif isinstance(bloc, BlocEncadre):
+            lignes = "\n".join(f"- {ligne}" for ligne in bloc.encadre.lignes)
+            morceaux.append(f"**{bloc.encadre.intitule}**\n\n{lignes}")
+        elif isinstance(bloc, BlocGrilleKpi):
+            morceaux.append("\n".join(
+                f"**{c.valeur}** — {c.libelle}" + (f" *({c.source})*" if c.source else "")
+                for c in bloc.cellules
+            ))
+        elif isinstance(bloc, BlocGraphique):
+            # Marqueur explicite : le rendu résoudra les identifiants en valeurs.
+            morceaux.append(
+                f"<!-- graphique:{bloc.graphique.type} "
+                f"titre=\"{bloc.graphique.titre}\" "
+                f"donnees=\"{','.join(bloc.graphique.donnees_ids)}\" -->"
+            )
     return "\n\n".join(morceaux)
 
 

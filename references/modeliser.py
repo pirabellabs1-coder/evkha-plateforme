@@ -194,6 +194,48 @@ def _blocs(blocs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bool]:
     return modele, saut_final
 
 
+def _placer_graphiques_supplementaires(
+    blocs: list[dict[str, Any]], minimum: int
+) -> list[dict[str, Any]]:
+    """Ajoute les emplacements de graphique que `GRAPHIQUES_MIN` réclame.
+
+    Le supplément demandé — quatorze visuels contre huit dans l'original —
+    portait sur le COMPTE, pas sur la séquence. Cinq chapitres exigeaient donc
+    un graphique sans qu'aucun bloc ne lui donne de place : le modèle demandait
+    une chose qu'il ne permettait pas de placer, et un chapitre respectant sa
+    séquence était refusé pour graphique manquant.
+
+    L'emplacement retenu est APRÈS le premier paragraphe. C'est là que le
+    document de référence place les siens quand il en a un : le lecteur pose le
+    cadre, puis voit la figure. Un choix explicite, pas un défaut.
+    """
+    presents = sum(1 for b in blocs if b["type"] == "graphique")
+    manquants = minimum - presents
+    if manquants <= 0:
+        return blocs
+
+    modele = list(blocs)
+    for _ in range(manquants):
+        gabarit = {
+            "type": "graphique",
+            "types_autorises": TYPES_GRAPHIQUES,
+            "obligatoire": True,
+            "ajoute_par_le_modele": True,
+            "spec": {
+                "titre": "à définir selon la niche",
+                "data_refs": ["ids du socle"],
+                "largeur_px": 2000,
+                "dpi": 200,
+            },
+        }
+        position = next(
+            (i + 1 for i, b in enumerate(modele) if b["type"] == "paragraphe"),
+            len(modele),
+        )
+        modele.insert(position, gabarit)
+    return modele
+
+
 def construire(reference: dict[str, Any]) -> dict[str, Any]:
     chapitres = []
     for chapitre in reference["chapitres"]:
@@ -202,6 +244,7 @@ def construire(reference: dict[str, Any]) -> dict[str, Any]:
             msg = f"{numero} n’a pas de graphiques_min déclaré."
             raise ValueError(msg)
         blocs, saut = _blocs(chapitre["blocs"])
+        blocs = _placer_graphiques_supplementaires(blocs, GRAPHIQUES_MIN[numero])
         chapitres.append({
             "numero": numero,
             "titre_reference": chapitre["titre"],

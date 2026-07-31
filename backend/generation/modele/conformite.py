@@ -17,10 +17,11 @@ TOLERANCE_VOLUME = 0.15
 #: Une variable de gabarit laissée telle quelle : `{{client.nom}}`.
 _VARIABLE = re.compile(r"\{\{[^}]*\}\}")
 
-#: Séparateur de paragraphes dans le champ `contenu` d'une section : une ligne
-#: vide. Le modèle compte les paragraphes un par un ; `Section.contenu` peut en
-#: porter plusieurs.
-_PARAGRAPHES = re.compile(r"\n\s*\n")
+#: Blocs dont l'ordre porte le sens et dont la place ne se rattrape pas au
+#: rendu. Le contrôle de séquence les compare position par position ; les
+#: paragraphes et tableaux, eux, gardent la tolérance de ±1 du cahier des
+#: charges et ne sont pas comparés dans l'ordre.
+_ORDRE_SIGNIFIANT = ("titre_sous_section", "graphique", "encadre", "grille_kpi")
 
 
 class Gravite(StrEnum):
@@ -88,49 +89,68 @@ class Comptes:
     sous_sections: int
 
 
-def compter(payload: Any) -> Comptes:
-    """Traduit un `ChapitrePayload` en comptes de blocs du modèle.
+def sequence(payload: Any) -> list[str]:
+    """Types des blocs du chapitre, dans l'ordre. Le contrat porte l'ordre."""
+    return [str(bloc.type) for bloc in payload.blocs]
 
-    Une `Section` vaut un titre de sous-section, un ou plusieurs paragraphes
-    (séparés par une ligne vide) et au plus un tableau.
+
+def sequence_attendue(chapitre_modele: dict[str, Any]) -> list[str]:
+    """Types des blocs du modèle, dans l'ordre.
+
+    Les `ligne_source` sont retirées : elles sont écrites par le rendu sous un
+    graphique, jamais demandées au modèle de langage. Les compter reviendrait à
+    reprocher au chapitre de ne pas produire ce qu'on ne lui demande pas.
     """
-    paragraphes = 0
-    tableaux = 0
-    for section in payload.sections:
-        morceaux = [m for m in _PARAGRAPHES.split(section.contenu or "") if m.strip()]
-        paragraphes += max(len(morceaux), 1)
-        if getattr(section, "tableau", None) is not None:
-            tableaux += 1
+    return [
+        str(b.get("type"))
+        for b in chapitre_modele.get("blocs", [])
+        if b.get("type") != "ligne_source"
+    ]
+
+
+def compter(payload: Any) -> Comptes:
+    """Compte les blocs du chapitre par type."""
+    types = sequence(payload)
     return Comptes(
-        paragraphes=paragraphes,
-        tableaux=tableaux,
-        encadres=len(payload.encadres),
-        graphiques=len(payload.graphiques),
-        sous_sections=len(payload.sections),
+        paragraphes=types.count("paragraphe"),
+        tableaux=types.count("tableau"),
+        encadres=types.count("encadre"),
+        graphiques=types.count("graphique"),
+        sous_sections=types.count("titre_sous_section"),
     )
 
 
 def _textes(payload: Any) -> Iterable[tuple[str, str]]:
-    """Tous les textes du chapitre, avec l'endroit où les trouver."""
+    """Tous les textes du chapitre, avec l'endroit où les trouver.
+
+    Parcourt les blocs dans l'ordre : le numéro de bloc annoncé dans un motif
+    d'écart doit permettre de retrouver l'endroit exact (règle 2).
+    """
     yield "titre", payload.titre
     yield "accroche", payload.accroche or ""
     yield "résumé", payload.resume
-    for index, section in enumerate(payload.sections, start=1):
-        yield f"section {index} — titre", section.titre
-        yield f"section {index} — contenu", section.contenu or ""
-        tableau = getattr(section, "tableau", None)
-        if tableau is not None:
-            for entete in tableau.entetes:
-                yield f"section {index} — en-tête de tableau", entete
-            for rang, ligne in enumerate(tableau.lignes, start=1):
+    for index, bloc in enumerate(payload.blocs, start=1):
+        type_bloc = str(bloc.type)
+        if type_bloc == "titre_sous_section":
+            yield f"bloc {index} — sous-titre", bloc.intitule
+        elif type_bloc == "paragraphe":
+            yield f"bloc {index} — paragraphe", bloc.texte
+        elif type_bloc == "tableau":
+            for entete in bloc.tableau.entetes:
+                yield f"bloc {index} — en-tête de tableau", entete
+            for rang, ligne in enumerate(bloc.tableau.lignes, start=1):
                 for cellule in ligne:
-                    yield f"section {index} — tableau, ligne {rang}", cellule
-    for index, encadre in enumerate(payload.encadres, start=1):
-        yield f"encadré {index} — intitulé", encadre.intitule
-        for ligne in encadre.lignes:
-            yield f"encadré {index}", ligne
-    for index, graphique in enumerate(payload.graphiques, start=1):
-        yield f"graphique {index} — titre", graphique.titre
+                    yield f"bloc {index} — tableau, ligne {rang}", cellule
+        elif type_bloc == "encadre":
+            yield f"bloc {index} — intitulé d'encadré", bloc.encadre.intitule
+            for ligne in bloc.encadre.lignes:
+                yield f"bloc {index} — encadré", ligne
+        elif type_bloc == "grille_kpi":
+            for cellule in bloc.cellules:
+                yield f"bloc {index} — chiffre clé", cellule.valeur
+                yield f"bloc {index} — libellé", cellule.libelle
+        elif type_bloc == "graphique":
+            yield f"bloc {index} — titre de graphique", bloc.graphique.titre
 
 
 def _signes(payload: Any) -> int:
@@ -141,8 +161,12 @@ def _signes(payload: Any) -> int:
     choses différentes des deux côtés produirait un écart qui n'existe pas.
     """
     total = 0
-    for section in payload.sections:
-        total += len(section.titre or "") + len(section.contenu or "")
+    for bloc in payload.blocs:
+        type_bloc = str(bloc.type)
+        if type_bloc == "titre_sous_section":
+            total += len(bloc.numero) + 1 + len(bloc.intitule)
+        elif type_bloc == "paragraphe":
+            total += len(bloc.texte)
     return total
 
 
@@ -182,6 +206,40 @@ def _controler_dosage(comptes: Comptes, attendu: Dosage) -> list[Ecart]:
         ))
 
     return ecarts
+
+
+def _controler_sequence(payload: Any, chapitre_modele: dict[str, Any]) -> list[Ecart]:
+    """Compare l'ORDRE des blocs porteurs de sens.
+
+    Ce contrôle était impossible tant que le contrat portait `sections`,
+    `encadres` et `graphiques` en trois listes séparées : la position d'un
+    graphique entre deux paragraphes ne pouvait pas s'exprimer, et le moteur
+    produisait la même forme pour les vingt-et-un chapitres.
+
+    Seuls les blocs dont la place ne se rattrape pas au rendu sont comparés
+    position par position. Les paragraphes et les tableaux gardent la tolérance
+    de ±1 du cahier des charges : les inclure ici la contredirait, et deux
+    règles qui se contredisent en font une de trop (règle 5).
+    """
+    produit = [t for t in sequence(payload) if t in _ORDRE_SIGNIFIANT]
+    attendu = [
+        t for t in sequence_attendue(chapitre_modele) if t in _ORDRE_SIGNIFIANT
+    ]
+    if produit == attendu:
+        return []
+
+    for rang, (obtenu, voulu) in enumerate(zip(produit, attendu, strict=False), start=1):
+        if obtenu != voulu:
+            return [Ecart(
+                "sequence_des_blocs", Gravite.BLOQUANTE,
+                f"au {rang}e bloc porteur : « {obtenu} » là où le modèle place "
+                f"« {voulu} »",
+            )]
+    return [Ecart(
+        "sequence_des_blocs", Gravite.BLOQUANTE,
+        f"{len(produit)} bloc(s) porteur(s) pour {len(attendu)} au modèle : "
+        + " / ".join(attendu),
+    )]
 
 
 def _controler_graphiques(comptes: Comptes, attendu: Dosage) -> list[Ecart]:
@@ -254,17 +312,7 @@ def _controler_variables(payload: Any) -> list[Ecart]:
 #: Contrôles que le contrat du lot 2 ne permet pas d'exécuter aujourd'hui.
 #: Déclarés, jamais tus : c'est la différence entre « vérifié » et « pas de
 #: nouvelle » (règle 1).
-IMPOSSIBLES = {
-    "sequence_des_blocs": (
-        "`ChapitrePayload` porte `sections`, `encadres` et `graphiques` en trois "
-        "listes séparées : il ne peut pas exprimer la position d'un graphique "
-        "entre deux paragraphes. Exige une refonte du contrat du lot 2."
-    ),
-    "longueur_par_paragraphe": (
-        "Sans ordre des blocs, aucun paragraphe ne peut être apparié à sa cible "
-        "du modèle. Seul le volume total est vérifié."
-    ),
-}
+IMPOSSIBLES: dict[str, str] = {}
 
 
 def verifier_chapitre(
@@ -297,6 +345,7 @@ def verifier_chapitre(
     identifiants = frozenset(identifiants_socle)
 
     ecarts: list[Ecart] = []
+    ecarts += _controler_sequence(payload, modele)
     ecarts += _controler_dosage(comptes, attendu)
     ecarts += _controler_graphiques(comptes, attendu)
     ecarts += _controler_volume(payload, attendu)
@@ -307,9 +356,10 @@ def verifier_chapitre(
         chapitre=numero,
         ecarts=ecarts,
         controles_executes=[
-            "modele_present", "dosage_tableaux", "dosage_paragraphes",
-            "dosage_encadres", "dosage_sous_sections", "graphiques_min",
-            "volume", "data_refs_inconnus", "variable_non_resolue",
+            "modele_present", "sequence_des_blocs", "dosage_tableaux",
+            "dosage_paragraphes", "dosage_encadres", "dosage_sous_sections",
+            "graphiques_min", "volume", "data_refs_inconnus",
+            "variable_non_resolue",
         ],
         controles_impossibles=dict(IMPOSSIBLES),
     )

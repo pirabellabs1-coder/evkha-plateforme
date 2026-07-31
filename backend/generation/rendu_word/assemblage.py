@@ -187,45 +187,66 @@ def blocs_du_chapitre(
         "accroche": payload.accroche,
     }]
 
-    for rang, section in enumerate(payload.sections, start=1):
-        blocs.append({
-            "type": "sous_titre",
-            "texte": f"{payload.chapitre}.{rang} {section.titre}",
-        })
-        amorce = _amorce(section.contenu)
-        if amorce:
-            blocs.append({"type": "paragraphe", "texte": amorce})
-        if section.tableau is not None:
+    # Les blocs sont parcourus DANS LEUR ORDRE. C'est tout l'objet du contrat :
+    # le modèle de référence décrit une suite différente pour chacun des
+    # vingt-et-un chapitres, et trois listes séparées ne pouvaient produire
+    # qu'une forme unique, répétée partout.
+    from ..chapitres.schema import (  # noqa: PLC0415 — évite un cycle d'import
+        BlocEncadre,
+        BlocGraphique,
+        BlocGrilleKpi,
+        BlocParagraphe,
+        BlocSousTitre,
+        BlocTableau,
+    )
+
+    for bloc in payload.blocs:
+        if isinstance(bloc, BlocSousTitre):
+            blocs.append({
+                "type": "sous_titre",
+                "texte": f"{bloc.numero} {bloc.intitule}".strip(),
+            })
+        elif isinstance(bloc, BlocParagraphe):
+            amorce = _amorce(bloc.texte)
+            if amorce:
+                blocs.append({"type": "paragraphe", "texte": amorce})
+        elif isinstance(bloc, BlocTableau):
             rapport.tableaux += 1
             blocs.append({
                 "type": "tableau",
-                "entetes": section.tableau.entetes,
-                "lignes": section.tableau.lignes,
-                "source": section.tableau.source,
+                "entetes": bloc.tableau.entetes,
+                "lignes": bloc.tableau.lignes,
+                "source": bloc.tableau.source,
             })
+        elif isinstance(bloc, BlocEncadre):
+            blocs.append({
+                "type": "encadre",
+                "libelle": bloc.encadre.intitule,
+                "lignes": bloc.encadre.lignes,
+                "verdict": _est_un_verdict(bloc.encadre.intitule),
+            })
+        elif isinstance(bloc, BlocGrilleKpi):
+            blocs.append({
+                "type": "kpi",
+                "cellules": [
+                    {"valeur": c.valeur, "libelle": c.libelle, "source": c.source}
+                    for c in bloc.cellules
+                ],
+            })
+        elif isinstance(bloc, BlocGraphique):
+            # Résolu ICI, à sa place dans la suite. Les résoudre en bloc à la
+            # fin les aurait tous rejetés en queue de chapitre, ce qui est
+            # précisément ce que le contrat ordonné vient corriger.
+            #
+            # Pas de saut de page avant : il y en avait un, systématique, qui
+            # produisait une page ENTIÈREMENT BLANCHE par chapitre — mesuré aux
+            # pages 4, 7, 10, 13, 16, 19… Le titre, l'image et la légende sont
+            # désormais liés par `keep_with_next` (voir `composants`).
+            blocs.extend(_blocs_graphique(
+                socle, [bloc.graphique], profil, rapport,
+                reference=f"Chapitre {payload.chapitre}",
+            ))
 
-    graphiques = _blocs_graphique(
-        socle, payload.graphiques, profil, rapport,
-        reference=f"Chapitre {payload.chapitre}",
-    )
-    if graphiques:
-        # PAS de saut de page ici. Il y en avait un, systématique, et il
-        # produisait une page ENTIÈREMENT BLANCHE par chapitre : quand le texte
-        # finissait près du bas de page, le saut tombait sur une page déjà
-        # neuve et en créait une vide de plus. Mesuré sur le document rendu :
-        # une page creuse toutes les trois, aux pages 4, 7, 10, 13, 16, 19…
-        #
-        # Il était là pour éviter qu'un graphique soit coupé de son titre.
-        # C'est désormais assuré autrement, et sans coût : le titre, l'image et
-        # la légende sont liés par `keep_with_next` (voir `composants`). Word
-        # les déplace ensemble s'ils ne tiennent pas, au lieu de sauter d'office.
-        blocs.extend(graphiques)
-
-    blocs.extend(
-        {"type": "encadre", "libelle": encadre.intitule, "lignes": encadre.lignes,
-         "verdict": _est_un_verdict(encadre.intitule)}
-        for encadre in payload.encadres
-    )
     return blocs
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 from enum import StrEnum
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -65,7 +66,12 @@ class Tableau(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    entetes: list[str] = Field(min_length=2, max_length=6)
+    #: Neuf colonnes au maximum, et non six. Le plafond était à six ; le modèle
+    #: de référence porte un tableau des opportunités commerciales à NEUF
+    #: colonnes au chapitre 19 — cible, pays, offre, canal, partenaire,
+    #: priorité, coût, délai, indicateur. Une contrainte qui interdit ce que le
+    #: document validé contient est une contrainte fausse.
+    entetes: list[str] = Field(min_length=2, max_length=9)
     lignes: list[list[str]] = Field(min_length=1)
     source: str = ""
 
@@ -120,12 +126,137 @@ class Encadre(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    intitule: str = Field(min_length=1, max_length=80)
+    #: Cent-vingt caractères, et non quatre-vingts. Le plafond était à 80 ; le
+    #: modèle de référence porte au chapitre 20 un encadré intitulé « FOCUS —
+    #: Approfondissement demandé : marché international des galeries et du
+    #: sur-mesure », soit 86 caractères. Une contrainte qui interdit ce que le
+    #: document validé contient est une contrainte fausse.
+    intitule: str = Field(min_length=1, max_length=120)
     lignes: list[str] = Field(min_length=1, max_length=6)
 
 
+class CelluleKpi(BaseModel):
+    """Un chiffre clé : la valeur, ce qu'elle mesure, d'où elle vient."""
+
+    model_config = {"extra": "forbid"}
+
+    valeur: str = Field(min_length=1, max_length=40)
+    libelle: str = Field(min_length=1, max_length=160)
+    source: str = ""
+
+
+class BlocSousTitre(BaseModel):
+    """Titre de sous-section : « 1.1 Deux périmètres à ne pas confondre »."""
+
+    model_config = {"extra": "forbid"}
+
+    type: Literal["titre_sous_section"] = "titre_sous_section"
+    numero: str = Field(min_length=1, max_length=8)
+    intitule: str = Field(min_length=1, max_length=220)
+
+
+class BlocParagraphe(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    type: Literal["paragraphe"] = "paragraphe"
+    texte: str = Field(min_length=1)
+
+
+class BlocTableau(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    type: Literal["tableau"] = "tableau"
+    tableau: Tableau
+
+
+class BlocEncadre(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    type: Literal["encadre"] = "encadre"
+    encadre: Encadre
+
+
+class BlocGraphique(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    type: Literal["graphique"] = "graphique"
+    graphique: Graphique
+
+
+class BlocGrilleKpi(BaseModel):
+    """Rangée de chiffres clés. Le modèle en aligne trois par rangée."""
+
+    model_config = {"extra": "forbid"}
+
+    type: Literal["grille_kpi"] = "grille_kpi"
+    cellules: list[CelluleKpi] = Field(min_length=2, max_length=4)
+
+
+#: Un bloc du chapitre, discriminé par son champ `type`.
+Bloc = Annotated[
+    BlocSousTitre | BlocParagraphe | BlocTableau | BlocEncadre | BlocGraphique
+    | BlocGrilleKpi,
+    Field(discriminator="type"),
+]
+
+
+def depuis_ancien_format(valeurs: dict[str, Any]) -> dict[str, Any]:
+    """Convertit un payload écrit avant l'ordonnancement des blocs.
+
+    Le contrat portait `sections`, `encadres` et `graphiques` en trois listes
+    séparées. Il ne pouvait donc pas exprimer « graphique entre le deuxième et
+    le troisième paragraphe », et le modèle de référence — qui décrit une forme
+    DIFFÉRENTE pour chacun des vingt-et-un chapitres — restait hors de portée :
+    le moteur produisait la même forme partout.
+
+    Les chapitres déjà en base gardent l'ancienne forme. Les convertir à la
+    lecture évite de les rendre illisibles sans créer une seconde vérité :
+    `blocs` reste la seule, l'ancien format n'est qu'une porte d'entrée.
+
+    L'ordre reconstruit est celui que produisait le rendu — sous-titre,
+    paragraphe, tableau pour chaque section, puis les graphiques, puis les
+    encadrés. C'est une reconstitution fidèle de ce qui était rendu, pas une
+    amélioration : on ne devine pas un ordre que la donnée ne porte pas.
+    """
+    if "blocs" in valeurs or "sections" not in valeurs:
+        return valeurs
+
+    converti = dict(valeurs)
+    numero = converti.get("chapitre", 0)
+    blocs: list[dict[str, Any]] = []
+
+    for rang, brut in enumerate(converti.pop("sections", None) or [], start=1):
+        section = brut if isinstance(brut, dict) else brut.model_dump()
+        blocs.append({
+            "type": "titre_sous_section",
+            "numero": f"{numero}.{rang}",
+            "intitule": section.get("titre") or "Sous-section",
+        })
+        contenu = (section.get("contenu") or "").strip()
+        if contenu:
+            blocs.append({"type": "paragraphe", "texte": contenu})
+        if section.get("tableau"):
+            blocs.append({"type": "tableau", "tableau": section["tableau"]})
+
+    for graphique in converti.pop("graphiques", None) or []:
+        blocs.append({"type": "graphique", "graphique": graphique})
+    for encadre in converti.pop("encadres", None) or []:
+        blocs.append({"type": "encadre", "encadre": encadre})
+
+    converti["blocs"] = blocs
+    return converti
+
+
 class ChapitrePayload(BaseModel):
-    """Sortie structurée d'un chapitre."""
+    """Sortie structurée d'un chapitre : une SUITE ORDONNÉE de blocs.
+
+    L'ordre EST le contrat. Le modèle de référence décrit, chapitre par
+    chapitre, quels blocs se suivent : le chapitre 09 aligne quatre grilles de
+    chiffres et aucun paragraphe, le 19 enchaîne treize tableaux et neuf
+    encadrés. Trois listes séparées ne pouvaient pas dire cela — elles
+    produisaient la même forme pour les vingt-et-un chapitres, et le validateur
+    de conformité mesurait zéro chapitre conforme sur vingt-et-un.
+    """
 
     model_config = {"extra": "forbid"}
 
@@ -133,15 +264,40 @@ class ChapitrePayload(BaseModel):
     titre: str = Field(min_length=1, max_length=220)
     #: Phrase d'accroche affichée sous le titre dans le bandeau de chapitre.
     accroche: str = Field(default="", max_length=400)
-    sections: list[Section] = Field(min_length=1)
-    #: Encadrés de synthèse. Vide accepté pour rester compatible avec les
-    #: chapitres produits avant l'ajout de ce champ.
-    encadres: list[Encadre] = Field(default_factory=list)
+    blocs: list[Bloc] = Field(min_length=1)
     #: Identifiants du socle réellement exploités par ce chapitre.
     donnees_utilisees: list[str] = Field(default_factory=list)
-    graphiques: list[Graphique] = Field(default_factory=list)
     #: Résumé transmis aux chapitres suivants (§6.1 : 150 à 250 mots).
     resume: str = Field(min_length=1)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accepter_ancien_format(cls, valeurs: Any) -> Any:
+        return depuis_ancien_format(valeurs) if isinstance(valeurs, dict) else valeurs
+
+    # ── Vues dérivées ────────────────────────────────────────────────────────
+    # Elles LISENT `blocs`, elles ne le doublent pas : une seule source par
+    # vérité. Elles évitent que chaque appelant refasse le même filtrage.
+
+    @property
+    def graphiques(self) -> list[Graphique]:
+        return [b.graphique for b in self.blocs if isinstance(b, BlocGraphique)]
+
+    @property
+    def encadres(self) -> list[Encadre]:
+        return [b.encadre for b in self.blocs if isinstance(b, BlocEncadre)]
+
+    @property
+    def tableaux(self) -> list[Tableau]:
+        return [b.tableau for b in self.blocs if isinstance(b, BlocTableau)]
+
+    @property
+    def paragraphes(self) -> list[str]:
+        return [b.texte for b in self.blocs if isinstance(b, BlocParagraphe)]
+
+    @property
+    def sous_titres(self) -> list[BlocSousTitre]:
+        return [b for b in self.blocs if isinstance(b, BlocSousTitre)]
 
     @model_validator(mode="after")
     def _coherence_interne(self) -> ChapitrePayload:
@@ -159,7 +315,14 @@ class ChapitrePayload(BaseModel):
 
     @property
     def texte(self) -> str:
-        return "\n\n".join(f"{s.titre}\n{s.contenu}" for s in self.sections)
+        """Prose du chapitre : sous-titres et paragraphes, dans l'ordre."""
+        morceaux: list[str] = []
+        for bloc in self.blocs:
+            if isinstance(bloc, BlocSousTitre):
+                morceaux.append(f"{bloc.numero} {bloc.intitule}")
+            elif isinstance(bloc, BlocParagraphe):
+                morceaux.append(bloc.texte)
+        return "\n\n".join(morceaux)
 
 
 def compter_mots(texte: str) -> int:
@@ -212,8 +375,8 @@ def valider_chapitre(
             "trop court il perd des chiffres, trop long il sature leur contexte."
         )
 
-    titres = [s.titre.strip().lower() for s in payload.sections]
+    titres = [bloc.intitule.strip().lower() for bloc in payload.sous_titres]
     if len(set(titres)) != len(titres):
-        motifs.append("Deux sections portent le même titre.")
+        motifs.append("Deux sous-sections portent le même titre.")
 
     return motifs

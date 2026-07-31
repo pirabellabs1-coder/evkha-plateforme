@@ -692,6 +692,28 @@
           "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
         },
         {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "ajoute_par_le_modele": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
           "type": "paragraphe",
           "longueur_cible_signes": 312,
           "gras": false,
@@ -863,6 +885,28 @@
           "longueur_cible_signes": 29,
           "gras": false,
           "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "ajoute_par_le_modele": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
         },
         {
           "type": "paragraphe",
@@ -1163,6 +1207,28 @@
           "etiquette": "LECTURE GLOBALE",
           "longueur_cible_signes": 211,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "ajoute_par_le_modele": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
         }
       ],
       "saut_de_page_final": true
@@ -1196,6 +1262,28 @@
           "longueur_cible_signes": 356,
           "gras": false,
           "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "ajoute_par_le_modele": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
         },
         {
           "type": "paragraphe",
@@ -1560,6 +1648,28 @@
           "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
         },
         {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "ajoute_par_le_modele": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
+        },
+        {
           "type": "tableau",
           "entetes": [
             "Scénario annuel",
@@ -1667,6 +1777,28 @@
           "longueur_cible_signes": 86,
           "gras": false,
           "consigne": "Rédiger à partir du socle uniquement. Aucun chiffre hors socle."
+        },
+        {
+          "type": "graphique",
+          "types_autorises": [
+            "barres_verticales",
+            "barres_horizontales",
+            "courbe",
+            "camembert",
+            "pyramide",
+            "matrice_positionnement",
+            "jauge"
+          ],
+          "obligatoire": true,
+          "ajoute_par_le_modele": true,
+          "spec": {
+            "titre": "à définir selon la niche",
+            "data_refs": [
+              "ids du socle"
+            ],
+            "largeur_px": 2000,
+            "dpi": 200
+          }
         },
         {
           "type": "paragraphe",

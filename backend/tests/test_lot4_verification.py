@@ -458,8 +458,7 @@ def test_la_passe_voit_un_chiffre_invente_dans_un_vrai_fichier(tmp_path: Path) -
     """La preuve qui compte : le défaut est détecté sur le fichier, pas sur l'objet."""
     socle = _socle_complet()
     chapitre = _chapitre_citant(socle, 1)
-    tableau = chapitre.sections[0].tableau
-    assert tableau is not None
+    tableau = chapitre.tableaux[0]
     tableau.lignes.append(["Chiffre inventé", "777 M€", "2025"])
     etude, assemblage = assembler_etude(
         socle=socle, chapitres=[chapitre], titre="Étude de marché"
