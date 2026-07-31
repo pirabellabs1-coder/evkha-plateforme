@@ -77,6 +77,10 @@ COPY backend /app/backend
 # `test_image_dependances.py` vérifie désormais que ces répertoires sont copiés.
 COPY prompts /app/prompts
 COPY gabarits /app/gabarits
+# `references/` porte le MODÈLE de l'étude de marché, lu à l'exécution par
+# `generation/modele/chargement.py`. Sans lui, aucun chapitre ne peut être
+# comparé — et un contrôle qui n'a rien à comparer est un échec, pas un succès.
+COPY references /app/references
 
 # [dev]    : outils de qualité (pytest, mypy, ruff)
 # [pdf]    : WeasyPrint (génération PDF brandé)

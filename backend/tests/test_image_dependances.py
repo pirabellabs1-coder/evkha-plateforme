@@ -100,7 +100,7 @@ def test_les_dependances_du_rendu_sont_declarees(module: str, extra: str) -> Non
 
 #: Répertoires de la racine résolus à l'exécution par des chemins `parents[3]`.
 #: Ce ne sont pas du code, mais sans eux le moteur s'arrête net.
-RESSOURCES_RACINE = ("prompts", "gabarits")
+RESSOURCES_RACINE = ("prompts", "gabarits", "references")
 
 
 @pytest.mark.parametrize("dossier", RESSOURCES_RACINE)
