@@ -64,6 +64,39 @@ Objectif : à chaque nouveau défaut nommé par la cliente ou par le gate,
   - `resultat_net an3 : 95k / 270k / 35k` — trois valeurs dans le seul ch. 21.
 - **Leçon transverse (méthode Bles Software)** : chaque nouvelle règle prompt DOIT être aussitôt reflétée dans le check gate correspondant. Sinon le judge n'est plus aligné et le loop devient décoratif.
 
+### 2026-07-31 Voitures d'occasion Paris EM — `16a597e6` — **discard**
+
+Première tentative d'appel réel après la pose de la clé. **Aucun document, aucun
+coût : 0,0000 €.** L'API a refusé la requête en 0,9 seconde.
+
+- **Refus** : `400 — You have reached your specified API usage limits. You will
+  regain access on 2026-08-01 at 00:00 UTC.` Plafond de dépenses configuré sur
+  le compte, atteint avant même le socle. Ni la clé, ni le worker, ni le réseau
+  n'étaient en cause.
+- **Défaut trouvé, et c'est la vraie leçon** : la tâche Celery a levé, mais
+  **le job est resté affiché `running` pendant quatorze minutes**. Le gardien
+  `reset_stuck_generation_jobs` ne l'aurait requalifié qu'au bout de deux
+  heures — délai juste pour un worker mort, absurde pour un crash instantané.
+  Un client aurait lu « en cours » sur une génération morte (règle 1).
+- **Erreur de diagnostic à noter** : j'ai déduit d'un coût à zéro que l'appel
+  n'était jamais revenu, et cherché une panne réseau. Un appel *refusé* ne
+  coûte rien non plus. La réponse était dans les journaux du worker depuis le
+  début — les lire avant d'émettre une hypothèse aurait fait gagner un quart
+  d'heure.
+- **Correctif — `generation/echecs.py`** : filet à la frontière de la tâche.
+  Toute exception traversant le pipeline requalifie le job en `failed`, ouvre
+  un incident HIGH, et écrit un motif *actionnable* (« relever le plafond dans
+  Settings → Limits ») en conservant le message d'origine. Vise la classe, pas
+  l'erreur de plafond (règle 4). Contre-épreuve jouée : sur le code d'avant, le
+  test échoue sur `assert job.status == FAILED — 'running'`.
+- **Mesure préalable, à confirmer sur un vrai run** : ~55 000 jetons d'entrée
+  pour 21 chapitres, soit environ 1,50 € par étude — et non 4,60 €, qui est le
+  plafond de sécurité, pas le prix. Deux gains identifiés et non encore
+  appliqués : le socle est réinjecté en clair dans chacun des 21 prompts alors
+  que le bloc mis en cache ne fait que 202 jetons — sous le minimum de 1 024,
+  donc **le cache ne s'active jamais** (−40 % à récupérer) ; et la génération
+  étant asynchrone, l'API Batch vaudrait −50 %.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.
