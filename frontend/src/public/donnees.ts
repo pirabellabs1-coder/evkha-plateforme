@@ -48,3 +48,54 @@ export function euros(cents: number): string {
     maximumFractionDigits: 2,
   }).format(montant);
 }
+
+export type Inscription = {
+  raison_sociale: string;
+  email: string;
+  mot_de_passe: string;
+  prenom?: string;
+  nom?: string;
+  formule?: string;
+};
+
+export type CompteOuvert = {
+  jeton: string;
+  organisation: { id: string; raison_sociale: string };
+  formule_demandee: string | null;
+  /** Toujours `false` aujourd'hui : rien n'est encaissé, donc rien n'est
+   *  activé. Le champ existe pour que l'interface n'ait pas à le deviner —
+   *  et pour qu'elle n'ait rien à changer le jour où Stripe le fait passer à
+   *  `true`. */
+  abonnement_actif: boolean;
+  demande_id: string | null;
+};
+
+/** Refus du serveur, avec son code.
+ *
+ * Le `code` désigne le champ fautif sans comparer une phrase : un message
+ * reformulé casserait silencieusement une interface qui se fie au texte.
+ */
+export class RefusInscription extends Error {
+  readonly code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+export async function inscrire(saisie: Inscription): Promise<CompteOuvert> {
+  const reponse = await fetch(`${BASE}/api/public/inscription/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(saisie),
+  });
+  const charge: unknown = await reponse.json().catch(() => ({}));
+  if (!reponse.ok) {
+    const detail = charge as { erreur?: string; code?: string };
+    throw new RefusInscription(
+      detail.erreur ?? `Inscription impossible (${reponse.status})`,
+      detail.code ?? "",
+    );
+  }
+  return charge as CompteOuvert;
+}

@@ -156,6 +156,16 @@ def moi(
         .filter(statut=StatutAbonnement.ACTIF)
         .first()
     )
+    # Souscription demandee mais pas encore activee. Sans elle, quelqu'un qui
+    # vient de s'inscrire depuis la page partenaires lit « Contactez EVKHA pour
+    # souscrire » — exactement ce qu'il vient de faire — et croit son
+    # inscription perdue (regle 1 : le systeme sait, il doit le dire).
+    demande = (
+        organisation.demandes.select_related("formule_visee")
+        .filter(type=TypeDemande.CHANGEMENT_FORMULE, statut=StatutDemande.OUVERTE)
+        .order_by("-created_at")
+        .first()
+    )
     disponible = credits.solde(organisation)
     return JsonResponse({
         "utilisateur": {
@@ -185,6 +195,13 @@ def moi(
             "devise": abonnement.formule.devise,
             "debut_le": abonnement.debut_le.isoformat(),
             "derniere_periode_dotee": abonnement.derniere_periode_dotee,
+        },
+        "souscription_en_attente": None if demande is None else {
+            "formule": (
+                demande.formule_visee.libelle if demande.formule_visee else ""
+            ),
+            "code": demande.formule_visee.code if demande.formule_visee else "",
+            "demandee_le": demande.created_at.isoformat(),
         },
     })
 

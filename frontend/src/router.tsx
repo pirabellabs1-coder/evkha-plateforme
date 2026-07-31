@@ -19,6 +19,7 @@ import { Login } from "./pages/Login";
 import { isAuthenticated } from "./auth";
 import { routesEspace } from "./espace/routes";
 import { Partenaires } from "./public/Partenaires";
+import { Inscription } from "./public/Inscription";
 
 // --- Racine ------------------------------------------------------------------
 // Le gabarit vit dans `GabaritRacine.tsx` : il appelle un crochet React, ce
@@ -46,6 +47,14 @@ const partenairesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/partenaires",
   component: Partenaires,
+});
+
+// Creation de compte, publique elle aussi : celui qui souscrit n'a pas encore
+// de compte, donc pas de jeton a presenter.
+const inscriptionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/inscription",
+  component: Inscription,
 });
 
 // --- Connexion ---------------------------------------------------------------
@@ -138,6 +147,7 @@ const racineRedirige = createRoute({
 
 const routeTree = rootRoute.addChildren([
   partenairesRoute,
+  inscriptionRoute,
   loginRoute,
   racineRedirige,
   adminRoute.addChildren([

@@ -33,20 +33,15 @@ import json
 import logging
 from typing import Any
 
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from customers.models import Customer, CustomerType
-from organisations import authentification, credits, services
+from organisations import credits, inscription, services
 from organisations.models import (
     DemandeCommerciale,
     Formule,
-    MembreOrganisation,
     Organisation,
     StatutDemande,
     TypeMouvement,
@@ -105,69 +100,37 @@ def creer_abonne(request: HttpRequest) -> HttpResponse:
     une copie qu'on ne peut plus reprendre.
     """
     charge = _corps(request)
+    auteur = _auteur(request, charge)
     raison_sociale = str(charge.get("raison_sociale", "")).strip()
     email = str(charge.get("email", "")).strip().lower()
     mot_de_passe = str(charge.get("mot_de_passe", ""))
-    code_formule = str(charge.get("formule", "")).strip()
-    auteur = _auteur(request, charge)
 
-    if not raison_sociale:
-        return _refus("Indiquez la raison sociale.", "raison_sociale_manquante", 400)
-    if not email or "@" not in email:
-        return _refus("Indiquez l'adresse e-mail du propriétaire.", "email_invalide", 400)
-    if not mot_de_passe:
-        return _refus("Indiquez un mot de passe.", "mot_de_passe_manquant", 400)
-
+    # Controles, unicite et orchestration viennent de `organisations.inscription`,
+    # partages avec l'inscription publique de la page partenaires. Les dupliquer
+    # ici ferait deux facons d'ouvrir un compte, qui finiraient par diverger sur
+    # ce qui compte : les credits (regle 5).
     try:
-        validate_password(mot_de_passe)
-    except ValidationError as exc:
-        return _refus(" ".join(exc.messages), "mot_de_passe_faible", 400)
-
-    formule: Formule | None = None
-    if code_formule:
-        formule = Formule.objects.filter(code=code_formule, active=True).first()
-        if formule is None:
-            return _refus(
-                f"Aucune formule active ne porte le code « {code_formule} ».",
-                "formule_introuvable",
-                404,
-            )
-
-    # Une même personne rattachée à deux organisations rendrait son espace
-    # imprévisible : le décorateur `espace()` retient la PREMIERE adhésion
-    # trouvée. Mieux vaut refuser ici que livrer un espace qui montre parfois
-    # l'une, parfois l'autre.
-    deja = (
-        MembreOrganisation.objects.select_related("organisation")
-        .filter(customer__email__iexact=email, revoque_le__isnull=True)
-        .first()
-    )
-    if deja is not None:
-        return _refus(
-            f"« {email} » appartient déjà à l'organisation "
-            f"« {deja.organisation.raison_sociale} ». Invitez cette personne "
-            "depuis son espace au lieu de créer une seconde organisation.",
-            "deja_membre",
-            409,
+        inscription.controler_saisie(
+            raison_sociale=raison_sociale, email=email, mot_de_passe=mot_de_passe
         )
-
-    with transaction.atomic():
-        contact, _ = Customer.objects.get_or_create(
+        inscription.refuser_si_deja_membre(email, nommer_organisation=True)
+        formule = inscription.formule_ou_refus(str(charge.get("formule", "")))
+        ouverture = inscription.ouvrir_compte(
+            raison_sociale=raison_sociale,
             email=email,
-            defaults={
-                "first_name": str(charge.get("prenom", "")).strip(),
-                "last_name": str(charge.get("nom", "")).strip(),
-                "company_name": raison_sociale,
-                "customer_type": CustomerType.B2B,
-            },
+            mot_de_passe=mot_de_passe,
+            prenom=str(charge.get("prenom", "")).strip(),
+            nom=str(charge.get("nom", "")).strip(),
+            formule=formule,
+            # L'administration ouvre un compte DEJA negocie : elle active et
+            # dote. C'est le seul point ou les deux chemins different.
+            activer_abonnement=True,
         )
-        organisation = services.creer_organisation(
-            raison_sociale=raison_sociale, contact=contact
-        )
-        authentification.creer_compte(contact, mot_de_passe=mot_de_passe)
-        abonnement = None
-        if formule is not None:
-            abonnement = services.souscrire(organisation, formule)
+    except inscription.InscriptionRefuseeError as refus:
+        return _refus(str(refus), refus.code, refus.statut)
+
+    organisation = ouverture.organisation
+    abonnement = ouverture.abonnement
 
     _log.info(
         "Abonné ouvert : organisation %s (%s), propriétaire %s, formule %s, par %s",

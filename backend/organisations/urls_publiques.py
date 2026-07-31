@@ -14,4 +14,5 @@ app_name = "public"
 
 urlpatterns = [
     path("formules/", vues.formules_publiques, name="formules"),
+    path("inscription/", vues.inscrire, name="inscription"),
 ]

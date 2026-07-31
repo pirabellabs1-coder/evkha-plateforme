@@ -115,6 +115,15 @@ export interface Moi {
     debut_le: string;
     derniere_periode_dotee: string;
   } | null;
+  /** Souscription demandée mais pas encore activée — le paiement n'est pas
+   *  branché, EVKHA active à la main. Sans ce champ, quelqu'un qui vient de
+   *  s'inscrire lit « Contactez EVKHA pour souscrire » et croit sa demande
+   *  perdue. */
+  souscription_en_attente: {
+    formule: string;
+    code: string;
+    demandee_le: string;
+  } | null;
 }
 
 export type TypeMouvement =

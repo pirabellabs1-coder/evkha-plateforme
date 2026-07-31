@@ -38,14 +38,17 @@ import "./Partenaires.css";
 
 /** Destination du bouton « Souscrire ».
  *
- * Le prestataire de paiement n'est pas branché. Plutôt qu'un bouton inerte ou
- * un bouton qui prétendrait débiter une carte, on amène le visiteur à la
- * création de compte, en mémorisant la formule visée. La souscription est
- * ensuite enregistrée comme demande — exactement ce que fait déjà l'espace
- * client. Le jour où Stripe arrive, seule cette fonction change.
+ * Vers la création de compte, pas vers la connexion : le visiteur qui clique
+ * n'a par définition pas encore de compte, et lui présenter un écran de
+ * connexion est le meilleur moyen de le perdre.
+ *
+ * La formule voyage dans l'adresse. Le prestataire de paiement n'étant pas
+ * branché, l'inscription enregistre l'intention sans rien encaisser ni
+ * créditer — voir `organisations/inscription.py`. Le jour où Stripe arrive,
+ * c'est cette fonction qui mènera au paiement.
  */
 function lienSouscription(code: string): string {
-  return `/espace/connexion?formule=${encodeURIComponent(code)}`;
+  return `/inscription?formule=${encodeURIComponent(code)}`;
 }
 
 function Formules({ formules }: { formules: FormulePublique[] }) {

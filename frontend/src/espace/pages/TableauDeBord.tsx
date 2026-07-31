@@ -48,11 +48,19 @@ export function TableauDeBord() {
         />
         <Chiffre
           libelle="Formule"
-          valeur={moi?.abonnement?.formule ?? "—"}
+          valeur={
+            moi?.abonnement?.formule ??
+            moi?.souscription_en_attente?.formule ??
+            "—"
+          }
           detail={
             moi?.abonnement
               ? `Depuis le ${f.date(moi.abonnement.debut_le)}`
-              : "Contactez EVKHA pour souscrire"
+              : moi?.souscription_en_attente
+                // Elle a demande, on le lui dit. « Contactez EVKHA pour
+                // souscrire » lui repondait de faire ce qu'elle venait de faire.
+                ? `Demandée le ${f.date(moi.souscription_en_attente.demandee_le)} — en cours de validation`
+                : "Contactez EVKHA pour souscrire"
           }
         />
       </div>
