@@ -315,6 +315,81 @@ def _controler_variables(payload: Any) -> list[Ecart]:
 IMPOSSIBLES: dict[str, str] = {}
 
 
+#: Règles dont l'écart rend le document **faux**, et non seulement hors forme.
+#: Un `{{client.nom}}` imprimé tel quel ou un chiffre qui ne vient pas du socle
+#: se voient à la première lecture et discréditent l'étude entière. Ceux-là ne
+#: partent jamais, quel que soit le nombre de tentatives déjà brûlées.
+REGLES_REDHIBITOIRES = frozenset({"variable_non_resolue", "data_refs_inconnus"})
+
+#: Un chapitre que le modèle ne décrit pas — la fiche projet, numérotée 00. Le
+#: rapport le déclare bloquant, à juste titre : il ne peut RIEN vérifier, et un
+#: contrôle sans point de comparaison est un échec (règle 1). Mais bloquer
+#: l'étude pour un écart connu, documenté et sans rapport avec la qualité du
+#: texte serait absurde. On le consigne comme non contrôlé, et on avance.
+REGLE_HORS_MODELE = "modele_absent"
+
+
+@dataclass(frozen=True)
+class Arbitrage:
+    """Ce qu'on refuse, ce qu'on accepte en le disant.
+
+    La séparation existe parce qu'une passe de conformité tout-ou-rien coûterait
+    plus qu'elle ne rapporte : vingt-et-un chapitres × trois tentatives, à
+    environ deux euros la génération, pour finir en `intervention_requise` sur
+    un écart de dosage d'un tableau. Un chapitre légèrement hors dosage reste un
+    chapitre lisible ; une étude bloquée n'est rien.
+
+    Ce qui est accepté n'est jamais tu : c'est la différence entre « vérifié »
+    et « pas de nouvelle » (règle 1).
+    """
+
+    refus: list[str] = field(default_factory=list)
+    acceptes: list[str] = field(default_factory=list)
+    non_controle: str = ""
+
+    @property
+    def bloque(self) -> bool:
+        return bool(self.refus)
+
+
+def arbitrer(rapport: RapportConformite, *, derniere_tentative: bool) -> Arbitrage:
+    """Décide du sort d'un chapitre au vu de son rapport de conformité.
+
+    Trois issues, et une seule dépend du compte des tentatives :
+
+    - un écart rédhibitoire refuse **toujours** ;
+    - un écart de forme refuse tant qu'il reste une tentative, et est accepté
+      puis consigné sur la dernière ;
+    - un chapitre hors modèle n'est pas jugé, et le dit.
+    """
+    hors_modele = next(
+        (e for e in rapport.ecarts if e.regle == REGLE_HORS_MODELE), None
+    )
+    if hors_modele is not None:
+        return Arbitrage(non_controle=hors_modele.detail)
+
+    if not rapport.controles_executes:
+        # Ne rien avoir vérifié n'est pas avoir vérifié sans rien trouver.
+        return Arbitrage(refus=["aucun contrôle de conformité n'a pu être exécuté"])
+
+    redhibitoires = [
+        f"{e.regle} : {e.detail}"
+        for e in rapport.bloquantes
+        if e.regle in REGLES_REDHIBITOIRES
+    ]
+    forme = [
+        f"{e.regle} : {e.detail}"
+        for e in rapport.bloquantes
+        if e.regle not in REGLES_REDHIBITOIRES
+    ]
+
+    if redhibitoires:
+        return Arbitrage(refus=redhibitoires + forme)
+    if forme and not derniere_tentative:
+        return Arbitrage(refus=forme)
+    return Arbitrage(acceptes=forme)
+
+
 def verifier_chapitre(
     payload: Any,
     *,

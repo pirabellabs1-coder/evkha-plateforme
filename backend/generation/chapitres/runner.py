@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, GenerationJob
 from ..socle.schema import Socle
 from .configuration import TypeDocument, type_document
@@ -290,7 +291,7 @@ def generer_chapitre(
     socle: Socle,
     variables: Mapping[str, object],
     max_tokens: int = 8192,
-) -> tuple[ChapitrePayload, dict[str, int]]:
+) -> tuple[ChapitrePayload, dict[str, int], Arbitrage]:
     """Produit UN chapitre. Lève `ChapitreInvalideError` si le contrat est rompu.
 
     Ne fait qu'une tentative : la reprise est portée par la tâche Celery, qui
@@ -345,7 +346,61 @@ def generer_chapitre(
     if motifs:
         raise ChapitreInvalideError(motifs)
 
-    return payload, consommation
+    arbitrage = _arbitrer_conformite(chapter, payload, document)
+    if arbitrage.bloque:
+        raise ChapitreInvalideError(arbitrage.refus)
+
+    return payload, consommation, arbitrage
+
+
+def _arbitrer_conformite(
+    chapter: ChapterGeneration, payload: ChapitrePayload, document: TypeDocument
+) -> Arbitrage:
+    """Passe de conformité au modèle, branchée sur la boucle de reprise.
+
+    Elle ne remplace pas `valider_chapitre` : celle-ci juge le CONTRAT (un
+    chapitre bien formé), celle-ci juge la FORME (le chapitre attendu). Un
+    chapitre peut satisfaire le contrat et ne rien avoir du chapitre 09.
+
+    Le compte des tentatives est lu sur le chapitre, pas passé en argument :
+    c'est la seule valeur que la tâche Celery et cette fonction partagent
+    réellement. Sur la dernière, les écarts de forme sont acceptés — voir
+    `Arbitrage` pour ce que coûterait l'inverse.
+    """
+    from ..modele.chargement import ModeleIntrouvableError, modele_couvre  # noqa: PLC0415
+    from ..modele.conformite import verifier_chapitre  # noqa: PLC0415
+
+    if not modele_couvre(str(chapter.job.deliverable_type)):
+        return Arbitrage(non_controle="type de livrable non décrit par le modèle")
+
+    socle_ids: frozenset[str] = frozenset()
+    from ..socle.services import socle_verrouille  # noqa: PLC0415
+
+    socle_du_job = socle_verrouille(chapter.job)
+    if socle_du_job is not None:
+        socle_ids = frozenset(socle_du_job.identifiants)
+
+    try:
+        rapport = verifier_chapitre(payload, identifiants_socle=socle_ids)
+    except ModeleIntrouvableError as erreur:
+        # Sans modèle il n'y a rien à comparer. On ne laisse pas passer en
+        # silence — mais on ne bloque pas non plus une étude entière sur un
+        # fichier manquant côté serveur : on le nomme (règle 1).
+        _log.error("Conformité chapitre %s : %s", chapter.chapter_number, erreur)
+        return Arbitrage(non_controle=f"modèle indisponible : {erreur}")
+
+    # `retry_count` compte les tentatives DÉJÀ échouées ; la présente est donc
+    # la (retry_count + 1)-ième.
+    derniere = chapter.retry_count + 1 >= document.tentatives_max
+    arbitrage = arbitrer(rapport, derniere_tentative=derniere)
+
+    if arbitrage.acceptes:
+        _log.warning(
+            "Chapitre %s accepté avec %s écart(s) de forme après %s tentatives : %s",
+            chapter.chapter_number, len(arbitrage.acceptes),
+            chapter.retry_count + 1, " ; ".join(arbitrage.acceptes),
+        )
+    return arbitrage
 
 
 _PREFIXE_MOTIFS = "[contrat] "

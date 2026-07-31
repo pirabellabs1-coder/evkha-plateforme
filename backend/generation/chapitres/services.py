@@ -10,6 +10,7 @@ from django.db import transaction
 from intake.models import IntakeSubmission
 from monitoring.models import IncidentSeverity, OperationalIncident
 
+from ..modele.conformite import Arbitrage
 from ..models import (
     ChapterGeneration,
     ChapterStatus,
@@ -50,12 +51,36 @@ def variables_du_job(job: GenerationJob) -> dict[str, object]:
     return dict(soumission.normalized_variables) if soumission else {}
 
 
+#: Préfixes de `error_message` sur un chapitre TERMINÉ. Ils ne signalent pas un
+#: échec : ils disent ce que la passe de conformité a laissé passer, ou n'a pas
+#: pu juger. Distincts de `[contrat] `, qui porte un refus et se relit dans le
+#: prompt de la tentative suivante.
+PREFIXE_ECARTS = "[écarts acceptés] "
+PREFIXE_NON_CONTROLE = "[non contrôlé] "
+
+
+def _mention_arbitrage(arbitrage: Arbitrage | None) -> str:
+    """Trace lisible de la passe de conformité sur un chapitre accepté.
+
+    Vide quand tout est conforme : une mention systématique se lirait comme du
+    bruit et finirait ignorée, y compris le jour où elle dit quelque chose.
+    """
+    if arbitrage is None:
+        return ""
+    if arbitrage.non_controle:
+        return (PREFIXE_NON_CONTROLE + arbitrage.non_controle)[:2000]
+    if arbitrage.acceptes:
+        return (PREFIXE_ECARTS + " ; ".join(arbitrage.acceptes))[:2000]
+    return ""
+
+
 @transaction.atomic
 def enregistrer_chapitre(
     chapter: ChapterGeneration,
     payload: ChapitrePayload,
     consommation: Mapping[str, int],
     model: str | None = None,
+    arbitrage: Arbitrage | None = None,
 ) -> ChapterGeneration:
     """Persiste la sortie structurée ET son rendu markdown.
 
@@ -69,7 +94,11 @@ def enregistrer_chapitre(
     chapter.content = payload_vers_markdown(payload)
     chapter.operational_summary = payload.resume
     chapter.status = ChapterStatus.DONE
-    chapter.error_message = ""
+    # Un chapitre accepté malgré des écarts de forme reste DONE — mais ne passe
+    # pas pour parfait. Le préfixe le distingue de `[contrat] `, que la
+    # tentative suivante relit pour se corriger : celui-ci ne doit surtout pas
+    # être réinjecté dans un prompt, la décision est prise.
+    chapter.error_message = _mention_arbitrage(arbitrage)
     chapter.save(
         update_fields=[
             "payload", "content", "operational_summary",
@@ -114,7 +143,7 @@ def produire_chapitre(
     chapter.save(update_fields=["status", "updated_at"])
 
     try:
-        payload, consommation = generer_chapitre(
+        payload, consommation, arbitrage = generer_chapitre(
             client=client,
             chapter=chapter,
             socle=socle,
@@ -129,7 +158,7 @@ def produire_chapitre(
         )
         raise
 
-    return enregistrer_chapitre(chapter, payload, consommation)
+    return enregistrer_chapitre(chapter, payload, consommation, arbitrage=arbitrage)
 
 
 def regenerer_chapitre(job: GenerationJob, numero: int, *, client: Any) -> ChapterGeneration:
