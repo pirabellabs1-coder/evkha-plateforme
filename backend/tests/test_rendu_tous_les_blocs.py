@@ -14,6 +14,7 @@ que le lecteur va lire).
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -22,7 +23,7 @@ from generation.chapitres.schema import ChapitrePayload
 pytestmark = pytest.mark.django_db
 
 
-def _socle():  # type: ignore[no-untyped-def]
+def _socle() -> Any:
     from generation.socle.schema import Socle
 
     return Socle.model_validate({
