@@ -35,6 +35,13 @@ urlpatterns = [
     # Espace client (lot 4). Prefixe distinct de /api/dashboard/ : ce dernier
     # est protege par un jeton PARTAGE, qui ne distingue pas les organisations.
     path("api/espace/", include("organisations.urls", namespace="espace")),
+    # Catalogue commercial, SANS authentification : la page partenaires est
+    # ouverte a qui n'a pas encore de compte. Prefixe distinct de
+    # `/api/espace/`, ou tout est nominatif — voir `vues_publiques`.
+    path(
+        "api/public/",
+        include("organisations.urls_publiques", namespace="public"),
+    ),
     # Sert les PDFs/HTML générés (MEDIA_ROOT) y compris en production :
     # Brevo télécharge les pièces jointes par URL publique et les clients
     # ouvrent leur lien de livraison. Noms de fichiers non devinables (hash),

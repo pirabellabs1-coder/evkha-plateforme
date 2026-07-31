@@ -1,0 +1,620 @@
+/* Page partenaires — charte reprise de evkha.fr/partenairespro.
+ *
+ * Feuille autonome, volontairement à l'écart du thème Radix des deux espaces
+ * connectés : cette page s'adresse à des visiteurs, pas à des utilisateurs, et
+ * elle doit ressembler au site vitrine — pas à l'application.
+ */
+
+.pp {
+  --or: #e8b923;
+  --or-fonce: #b8901a;
+  --vert: #1f3d35;
+  --noir: #111111;
+  --creme: #f7f3e8;
+  --creme-clair: #faf7f0;
+  --gris: #5a5a5a;
+
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  color: var(--noir);
+  background: #ffffff;
+  line-height: 1.65;
+}
+
+.pp *,
+.pp *::before,
+.pp *::after {
+  box-sizing: border-box;
+}
+
+.pp-large {
+  width: min(1120px, 92vw);
+  margin-inline: auto;
+}
+
+/* ── Barre de navigation ─────────────────────────────────────────────────── */
+
+.pp-nav {
+  background: var(--vert);
+  padding: 0.75rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.pp-nav-interieur {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.pp-logo {
+  background: var(--or);
+  color: var(--noir);
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 1.4rem;
+  border-radius: 999px;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.pp-logo small {
+  display: block;
+  font-size: 0.42rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-align: center;
+}
+
+.pp-nav-liens {
+  display: flex;
+  gap: 1.4rem;
+  margin-left: auto;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pp-nav-liens a {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.pp-nav-liens a:hover {
+  color: var(--or);
+}
+
+.pp-nav-cta {
+  border: 1px solid #ffffff;
+  border-radius: 999px;
+  padding: 0.4rem 1.1rem;
+}
+
+/* ── Bandeau d'ouverture ─────────────────────────────────────────────────── */
+
+.pp-hero {
+  padding: 3.5rem 0 2rem;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+
+.pp-hero h1 {
+  font-size: clamp(1.7rem, 3.2vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 1.5rem;
+}
+
+.pp-hero-accroche {
+  color: var(--or-fonce);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.9rem;
+}
+
+.pp-hero p {
+  color: var(--gris);
+  font-size: 0.82rem;
+  margin: 0 0 0.7rem;
+}
+
+.pp-hero-signature {
+  font-weight: 700;
+  color: var(--noir) !important;
+}
+
+.pp-hero-image {
+  width: 100%;
+  border-radius: 4px;
+  object-fit: cover;
+  aspect-ratio: 3 / 2;
+  background: var(--creme);
+}
+
+/* ── Preuves chiffrées ───────────────────────────────────────────────────── */
+
+.pp-preuves {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  padding: 1.5rem 0 3.5rem;
+  text-align: center;
+}
+
+.pp-preuve-valeur {
+  color: var(--or-fonce);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.pp-preuve-libelle {
+  color: var(--gris);
+  font-size: 0.82rem;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+
+.pp-section {
+  padding: 3.5rem 0;
+}
+
+.pp-section-creme {
+  background: var(--creme);
+}
+
+.pp-surtitre {
+  text-align: center;
+  color: var(--or-fonce);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  margin: 0 0 0.6rem;
+}
+
+.pp-titre {
+  text-align: center;
+  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+  font-weight: 800;
+  margin: 0 0 2.5rem;
+}
+
+/* ── Le principe : quatre étapes ─────────────────────────────────────────── */
+
+.pp-etapes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.pp-etape {
+  background: #ffffff;
+  border: 1px solid #e7e0cf;
+  border-radius: 4px;
+  padding: 1.4rem 1.1rem;
+}
+
+.pp-etape-rang {
+  color: var(--or);
+  font-weight: 800;
+  font-size: 1.1rem;
+  line-height: 1;
+  margin-bottom: 0.7rem;
+}
+
+.pp-etape h3 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.pp-etape p {
+  font-size: 0.72rem;
+  color: var(--gris);
+  margin: 0;
+}
+
+.pp-bandeau-noir {
+  background: var(--noir);
+  color: #ffffff;
+  border-radius: 4px;
+  padding: 1rem 1.6rem;
+  margin-top: 1.6rem;
+  font-size: 0.76rem;
+}
+
+.pp-bandeau-noir strong {
+  color: var(--or);
+}
+
+/* ── Formules ────────────────────────────────────────────────────────────── */
+
+.pp-formules-intro {
+  text-align: center;
+  color: var(--gris);
+  font-size: 0.75rem;
+  margin: -1.8rem 0 2.2rem;
+}
+
+.pp-formules {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.pp-formule {
+  background: var(--noir);
+  color: #ffffff;
+  border-radius: 4px;
+  padding: 1.4rem 1.2rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid transparent;
+}
+
+.pp-formule.pp-avant {
+  border-color: var(--or);
+}
+
+.pp-formule-sous-titre {
+  color: var(--or);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  margin-bottom: 1.4rem;
+}
+
+.pp-formule h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  text-align: center;
+}
+
+.pp-formule-prix {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0.2rem 0 1.3rem;
+}
+
+.pp-formule-prix span {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: #bdbdbd;
+}
+
+.pp-formule-quoi {
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+}
+
+.pp-formule ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.4rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pp-formule li {
+  font-size: 0.68rem;
+  line-height: 1.5;
+  padding-left: 1.1rem;
+  position: relative;
+  color: #e8e8e8;
+}
+
+.pp-formule li::before {
+  content: "●";
+  color: var(--or);
+  position: absolute;
+  left: 0;
+  font-size: 0.6rem;
+  top: 0.15rem;
+}
+
+.pp-formule-souscrire {
+  margin-top: auto;
+  display: block;
+  width: 100%;
+  background: var(--noir);
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 2px;
+  padding: 0.6rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pp-formule-souscrire:hover {
+  background: var(--or);
+  border-color: var(--or);
+  color: var(--noir);
+}
+
+/* ── Pour qui ────────────────────────────────────────────────────────────── */
+
+.pp-cibles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.2rem;
+}
+
+.pp-cible {
+  background: #ffffff;
+  border: 1px solid #e7e0cf;
+  border-top: 3px solid var(--or);
+  border-radius: 3px;
+  padding: 1.4rem 1.2rem;
+}
+
+.pp-cible h3 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0 0 0.7rem;
+}
+
+.pp-cible p {
+  font-size: 0.72rem;
+  color: var(--gris);
+  margin: 0 0 0.8rem;
+}
+
+.pp-cible-avec {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--noir) !important;
+  margin: 0 !important;
+}
+
+/* ── Le calcul ───────────────────────────────────────────────────────────── */
+
+.pp-calcul {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  background: var(--creme-clair);
+  border: 1px solid #e7e0cf;
+  border-radius: 4px;
+  padding: 2rem 2.2rem;
+}
+
+.pp-calcul-valeur {
+  color: var(--or-fonce);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.pp-calcul h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.pp-calcul p {
+  font-size: 0.7rem;
+  color: var(--gris);
+  margin: 0;
+}
+
+.pp-lisere {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--gris);
+  margin-top: 2.5rem;
+}
+
+.pp-lisere a {
+  color: var(--or-fonce);
+  font-weight: 600;
+}
+
+/* ── Fondatrice ──────────────────────────────────────────────────────────── */
+
+.pp-fondatrice {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.pp-fondatrice-portrait {
+  width: 100%;
+  border-radius: 3px;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: var(--creme);
+}
+
+.pp-fondatrice-surtitre {
+  color: var(--or-fonce);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  margin: 0 0 0.8rem;
+}
+
+.pp-fondatrice h2 {
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  font-weight: 800;
+  margin: 0 0 1.2rem;
+  line-height: 1.2;
+}
+
+.pp-fondatrice-trait {
+  width: 70px;
+  height: 2px;
+  background: var(--or);
+  margin-bottom: 1.4rem;
+}
+
+.pp-fondatrice p {
+  color: var(--gris);
+  font-size: 0.86rem;
+  margin: 0;
+}
+
+/* ── Questions ───────────────────────────────────────────────────────────── */
+
+.pp-faq {
+  background: var(--creme-clair);
+  border: 1px solid #ece5d6;
+  border-radius: 3px;
+  padding: 1.8rem 2rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.pp-question {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr;
+  gap: 0.4rem 0.5rem;
+}
+
+.pp-question-chevron {
+  color: var(--or);
+  font-weight: 700;
+  grid-row: span 2;
+}
+
+.pp-question h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pp-question p {
+  font-size: 0.74rem;
+  color: var(--gris);
+  margin: 0.35rem 0 0;
+}
+
+/* ── Appel final ─────────────────────────────────────────────────────────── */
+
+.pp-appel {
+  background: var(--noir);
+  color: #ffffff;
+  text-align: center;
+  padding: 2.5rem 2rem;
+}
+
+.pp-appel-surtitre {
+  color: var(--or);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0 0 1rem;
+}
+
+.pp-appel h2 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 1.2rem;
+}
+
+.pp-appel p {
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+  color: #dcdcdc;
+}
+
+.pp-appel-bouton {
+  display: inline-block;
+  margin-top: 2rem;
+  background: var(--or);
+  color: var(--noir);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  padding: 0.85rem 2.4rem;
+  border: none;
+  border-radius: 2px;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pp-appel-bouton:hover {
+  background: #f0c93a;
+}
+
+/* ── Pied de page ────────────────────────────────────────────────────────── */
+
+.pp-pied {
+  background: var(--or);
+  text-align: center;
+  padding: 1.4rem 1rem;
+  font-size: 0.76rem;
+}
+
+.pp-pied a {
+  color: var(--noir);
+  text-decoration: none;
+  margin: 0 0.5rem;
+}
+
+.pp-pied a:hover {
+  text-decoration: underline;
+}
+
+.pp-pied-copyright {
+  margin-top: 0.4rem;
+  font-size: 0.7rem;
+}
+
+/* ── États de chargement ─────────────────────────────────────────────────── */
+
+.pp-attente,
+.pp-erreur {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--gris);
+  font-size: 0.82rem;
+}
+
+.pp-erreur {
+  color: #a33;
+}
+
+/* ── Adaptations ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1000px) {
+  .pp-formules,
+  .pp-etapes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pp-cibles,
+  .pp-calcul {
+    grid-template-columns: 1fr;
+  }
+  .pp-hero,
+  .pp-fondatrice {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .pp-formules,
+  .pp-etapes,
+  .pp-preuves {
+    grid-template-columns: 1fr;
+  }
+  .pp-nav-liens {
+    display: none;
+  }
+}

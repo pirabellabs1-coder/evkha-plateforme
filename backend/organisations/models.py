@@ -177,9 +177,25 @@ class Formule(UUIDModel):
     regenerations_offertes = models.PositiveSmallIntegerField(default=1)
     validation_socle_par_client = models.BooleanField(default=False)
     controle_qualite_avant_envoi = models.BooleanField(default=False)
+    #: Prix d'un crédit acheté AU-DELÀ de la dotation mensuelle, en centimes.
+    #: Il figure sur la page publique (« crédit supplémentaire : 59 € ») et
+    #: décroît avec la formule. Stocké et non calculé : ce n'est pas un rapport
+    #: entre deux champs, contrairement au coût par livrable inclus — c'est un
+    #: tarif commercial décidé formule par formule.
+    prix_credit_supplementaire_cents = models.PositiveIntegerField(default=0)
     #: Identifiant du prix chez le prestataire de paiement (Stripe). Vide tant
     #: que la formule n'est pas rattachée à un tarif.
     reference_paiement = models.CharField(max_length=160, blank=True)
+    #: Argument commercial propre à la formule, affiché sur la page publique
+    #: (« Convention-cadre possible », « Interlocutrice dédiée »). Une liste,
+    #: pas un texte libre : la page en fait des puces.
+    avantages = models.JSONField(default=list, blank=True)
+    #: Ordre d'affichage sur la page publique. À défaut, les formules sortent
+    #: par prix croissant — ce qui est l'ordre voulu aujourd'hui, mais qui
+    #: cesserait de l'être si une formule annuelle arrivait.
+    rang = models.PositiveSmallIntegerField(default=0)
+    #: Formule mise en avant (« CHOISIR LA FORMULE PRO » sur la page).
+    mise_en_avant = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
 
     class Meta:

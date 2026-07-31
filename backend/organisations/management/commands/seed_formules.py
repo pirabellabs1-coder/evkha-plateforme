@@ -18,14 +18,39 @@ from django.core.management.base import BaseCommand
 
 from organisations.models import Formule, ReportCredits
 
-#: (code, libellé, cible commerciale, crédits/mois, prix mensuel en centimes,
-#:  prix du crédit supplémentaire en centimes)
-FORMULES: tuple[tuple[str, str, str, int, int, int], ...] = (
-    ("solo", "Solo", "Coach · Freelance", 2, 12_900, 5_900),
-    ("pro", "Pro", "Agence · Cabinet", 3, 18_900, 5_500),
-    ("pro-plus", "Pro Plus", "Agence avec volume", 5, 24_900, 4_500),
-    ("structure", "Structure", "Incubateur · Association · Réseau", 10, 42_900, 3_900),
+#: Les quatre formules de la page partenaires publique.
+#:
+#: `prix_credit_supplementaire` était jusqu'ici seulement AFFICHÉ par cette
+#: commande, sans être stocké — la page publique n'aurait donc eu aucun moyen
+#: de le lire, et il aurait fallu le recopier dans le React. Il a maintenant sa
+#: colonne, et cette commande la remplit : une seule source (règle 5).
+#:
+#: `avantages` porte les arguments propres à une formule (« Convention-cadre
+#: possible »). Les deux lignes communes à toutes les formules sont ajoutées
+#: automatiquement — les répéter quatre fois garantirait qu'elles finissent par
+#: diverger.
+AVANTAGES_COMMUNS: tuple[str, ...] = (
+    "Les 4 livrables du catalogue (plus les nouveaux)",
+    "Livraison PDF + version éditable",
 )
+
+#: (code, libellé, cible commerciale, crédits/mois, prix mensuel en centimes,
+#:  prix du crédit supplémentaire en centimes, avantages propres)
+FORMULES: tuple[tuple[str, str, str, int, int, int, tuple[str, ...]], ...] = (
+    ("solo", "Solo", "Coach · Freelance", 2, 12_900, 5_900, ()),
+    ("pro", "Pro", "Agence · Cabinet", 3, 18_900, 5_500, ()),
+    ("pro-plus", "Pro Plus", "Agence avec volume", 5, 24_900, 4_500, ()),
+    (
+        "structure", "Structure", "Incubateur · Association · Réseau",
+        10, 42_900, 3_900,
+        ("Convention-cadre possible", "Interlocutrice dédiée"),
+    ),
+)
+
+#: Formule mise en avant sur la page (« CHOISIR LA FORMULE PRO »). Une seule,
+#: et le test le vérifie : deux formules mises en avant, c'est un appel à
+#: l'action qui ne dit plus quoi choisir.
+CODE_MIS_EN_AVANT = "pro"
 
 
 class Command(BaseCommand):
@@ -47,7 +72,8 @@ class Command(BaseCommand):
         forcer = bool(options["forcer"])
         crees, majs, laissees = 0, 0, 0
 
-        for code, libelle, cible, credits_mois, prix, prix_credit in FORMULES:
+        for rang, (code, libelle, cible, credits_mois, prix, prix_credit,
+                   propres) in enumerate(FORMULES, start=1):
             valeurs = {
                 "libelle": libelle,
                 "credits_par_echeance": credits_mois,
@@ -58,6 +84,10 @@ class Command(BaseCommand):
                 "report_credits": ReportCredits.AUCUN,
                 "plafond_report": 0,
                 "regenerations_offertes": 1,
+                "prix_credit_supplementaire_cents": prix_credit,
+                "avantages": [*AVANTAGES_COMMUNS, *propres],
+                "rang": rang,
+                "mise_en_avant": code == CODE_MIS_EN_AVANT,
                 "active": True,
             }
             formule = Formule.objects.filter(code=code).first()

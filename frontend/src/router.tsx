@@ -18,6 +18,7 @@ import { Orders } from "./pages/Orders";
 import { Login } from "./pages/Login";
 import { isAuthenticated } from "./auth";
 import { routesEspace } from "./espace/routes";
+import { Partenaires } from "./public/Partenaires";
 
 // --- Racine ------------------------------------------------------------------
 // Le gabarit vit dans `GabaritRacine.tsx` : il appelle un crochet React, ce
@@ -34,6 +35,18 @@ function requireAuth() {
     throw redirect({ to: "/login" });
   }
 }
+
+// --- Connexion ---------------------------------------------------------------
+
+// --- Page partenaires (PUBLIQUE) ---------------------------------------------
+// Aucune garde : elle s'adresse a des visiteurs sans compte. C'est la seule
+// route de l'application dans ce cas — le menu du site vitrine pointe dessus.
+
+const partenairesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/partenaires",
+  component: Partenaires,
+});
 
 // --- Connexion ---------------------------------------------------------------
 
@@ -124,6 +137,7 @@ const racineRedirige = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
+  partenairesRoute,
   loginRoute,
   racineRedirige,
   adminRoute.addChildren([
