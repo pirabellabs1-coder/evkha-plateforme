@@ -157,3 +157,78 @@ def test_le_detecteur_ignore_une_docstring_qui_cite_le_terme() -> None:
         '    return [marque["nom"]]\n'
     )
     assert chaines_suspectes(legitime) == []
+
+
+# ── Le nom peut aussi venir d'un fichier de DONNÉES ──────────────────────────
+#
+# Le détecteur ci-dessus ne lit que du CODE. Il a donc laissé passer le cas
+# réel suivant : le modèle de référence, dérivé du document produit par la
+# plateforme POUR sa propre cliente, portait « LECTURE EVKHA » sur quinze
+# encadrés et « Méthode EVKHA appliquée » en titre de sous-section. Le premier
+# document produit par le contrat ordonné nommait la plateforme **seize fois**.
+#
+# C'est le défaut de la règle 9 : un contrôle qui ne regarde qu'un endroit ne
+# trouvera jamais ce qui vit ailleurs. Les deux tests qui suivent regardent les
+# données, puis le document rendu.
+
+
+def test_le_modele_de_reference_ne_nomme_pas_la_plateforme() -> None:
+    """Le modèle est recopié dans le document : ses libellés sont visibles."""
+    from generation.modele.chargement import CHEMIN_MODELE
+
+    brut = CHEMIN_MODELE.read_text(encoding="utf-8")
+    trouves = INTERDIT.findall(brut)
+    assert not trouves, (
+        f"{len(trouves)} mention(s) de la plateforme dans "
+        f"{CHEMIN_MODELE.name} : elles partiraient sur chaque document"
+    )
+
+
+@pytest.mark.django_db
+def test_un_document_rendu_ne_nomme_pas_la_plateforme(tmp_path: object) -> None:
+    """Le contrôle sur ce que le LECTEUR lit, pas sur ce qu'on lui envoie (règle 3).
+
+    Les deux tests précédents peuvent être verts et le document fautif : c'est
+    exactement ce qui s'est produit. Celui-ci ouvre le `.docx` écrit sur disque
+    et lit son texte.
+    """
+    import zipfile
+    from pathlib import Path
+
+    from generation.chapitres.runner import _bloc_socle
+    from generation.chapitres.schema import ChapitrePayload
+    from generation.chapitres.stub import chapitre_de_demonstration
+    from generation.rendu_word.assemblage import assembler_etude
+    from generation.rendu_word.depuis_json import rendre_etude
+    from tests.test_rendu_tous_les_blocs import _socle
+
+    socle = _socle()
+
+    # Les chapitres sont construits par le chemin RÉEL : la doublure recopie les
+    # étiquettes du modèle. Un chapitre écrit à la main dans le test ne pourrait
+    # pas porter le défaut, et le test ne tomberait donc pas sur le code d'avant
+    # (règle 6). Les vingt-et-un, parce que quinze encadrés étaient en cause.
+    chapitres = [
+        ChapitrePayload.model_validate(
+            chapitre_de_demonstration(
+                f"{_bloc_socle(socle)}\n\n"
+                f"CHAPITRE À RÉDIGER : {numero} — Chapitre {numero}"
+            )
+        )
+        for numero in range(1, 22)
+    ]
+
+    etude, _ = assembler_etude(
+        socle=socle, chapitres=chapitres, titre="Étude de marché"
+    )
+    chemin = rendre_etude(etude, Path(str(tmp_path)) / "marque_blanche.docx")
+
+    with zipfile.ZipFile(chemin) as archive:
+        xml = archive.read("word/document.xml").decode("utf-8")
+    texte = "".join(re.findall(r"<w:t(?: [^>]*)?>([^<]*)</w:t>", xml))
+
+    trouves = INTERDIT.findall(texte)
+    assert not trouves, (
+        f"la plateforme est nommée {len(trouves)} fois dans le texte du "
+        "document rendu"
+    )

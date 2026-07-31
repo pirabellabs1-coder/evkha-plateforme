@@ -319,7 +319,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 334,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -461,7 +461,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 310,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -548,7 +548,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 334,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -621,7 +621,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 318,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         },
@@ -727,7 +727,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 288,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -855,7 +855,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 270,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -994,7 +994,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 254,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         },
@@ -1120,7 +1120,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 272,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         },
@@ -1341,7 +1341,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 271,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -1487,7 +1487,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 263,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         },
@@ -1593,7 +1593,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 223,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -1838,7 +1838,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 250,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -1946,7 +1946,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 304,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -2060,7 +2060,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 286,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -2471,7 +2471,7 @@
         },
         {
           "type": "encadre",
-          "etiquette": "LECTURE EVKHA",
+          "etiquette": "LECTURE",
           "longueur_cible_signes": 321,
           "consigne": "Étiquette fixe. Le texte est une lecture stratégique propre à la niche."
         }
@@ -2572,7 +2572,7 @@
         {
           "type": "titre_sous_section",
           "numero": "21.1",
-          "intitule_reference": "Méthode EVKHA appliquée",
+          "intitule_reference": "Méthode appliquée",
           "consigne": "Adapter l'intitulé à la niche en gardant le même angle d'analyse."
         },
         {

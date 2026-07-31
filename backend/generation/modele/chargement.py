@@ -41,6 +41,26 @@ def charger_modele(chemin: str | None = None) -> dict[str, Any]:
         raise ModeleIntrouvableError(msg) from erreur
 
 
+#: Le modèle ne décrit QU'UN type de document. Soumettre un business plan à la
+#: forme de l'étude de marché lui imposerait un plan qui n'est pas le sien —
+#: et le validateur de conformité le refuserait pour un défaut qu'on aurait
+#: nous-mêmes provoqué.
+TYPE_LIVRABLE_MODELE = "market_study"
+
+
+def modele_couvre(code_livrable: str, *, chemin: str | None = None) -> bool:
+    """Le modèle décrit-il ce type de livrable ?
+
+    Vérifie les DEUX côtés : le code du livrable demandé et le `type_document`
+    déclaré dans le fichier. Si le jour où un second modèle arrive le fichier
+    change de type sans que ce code bouge, la consigne ne partira pas quand
+    même — elle s'éteindra.
+    """
+    if code_livrable != TYPE_LIVRABLE_MODELE:
+        return False
+    return charger_modele(chemin).get("type_document") == "etude_de_marche"
+
+
 def chapitre_du_modele(numero: int, *, chemin: str | None = None) -> dict[str, Any] | None:
     """Chapitre du modèle, ou None s'il n'existe pas.
 

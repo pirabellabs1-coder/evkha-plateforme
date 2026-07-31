@@ -108,6 +108,29 @@ CONSIGNE_KPI = (
 )
 
 
+#: Nom de la plateforme, tel qu'il apparaît dans le document de référence.
+#: Celui-ci a été produit PAR la plateforme POUR sa propre cliente : il signe
+#: donc son travail. Les documents que le moteur produit, eux, partent en
+#: **marque blanche** — l'abonné les remet à SON client. Le nom de la
+#: plateforme sur l'un d'eux signerait le travail d'un tiers au nom d'un autre.
+#:
+#: Mesuré : « LECTURE EVKHA » étiquetait quinze encadrés du modèle et « 21.1
+#: Méthode EVKHA appliquée » un titre de sous-section. Le document livré portait
+#: la mention seize fois.
+MARQUE_PLATEFORME = re.compile(r"\s*\bEVKHA\b\s*", re.IGNORECASE)
+
+
+def _neutraliser(texte: str) -> str:
+    """Retire le nom de la plateforme d'un libellé destiné au document.
+
+    Appliqué à TOUT libellé recopié de la référence, pas aux seuls encadrés :
+    un correctif qui énumère les cas est incomplet (règle 4). Ce qui garantit
+    l'absence, ce n'est pas cette fonction mais le contrôle qui balaie le
+    modèle entier — voir `test_marque_blanche_document.py`.
+    """
+    return " ".join(MARQUE_PLATEFORME.sub(" ", texte).split()).strip()
+
+
 def _variabiliser(bloc: dict[str, Any], precedent: dict[str, Any] | None) -> dict[str, Any] | None:
     """Transforme UN bloc de la référence en emplacement du modèle."""
     type_bloc = bloc["type"]
@@ -124,7 +147,7 @@ def _variabiliser(bloc: dict[str, Any], precedent: dict[str, Any] | None) -> dic
                 return {
                     "type": "titre_sous_section",
                     "numero": trouve.group(1),
-                    "intitule_reference": trouve.group(2).strip(),
+                    "intitule_reference": _neutraliser(trouve.group(2)),
                     "consigne": CONSIGNE_SOUS_SECTION,
                 }
         # La ligne qui suit un graphique et commence par « Source » est sa
@@ -141,7 +164,7 @@ def _variabiliser(bloc: dict[str, Any], precedent: dict[str, Any] | None) -> dic
     if type_bloc == "tableau":
         return {
             "type": "tableau",
-            "entetes": bloc.get("entetes", []),
+            "entetes": [_neutraliser(str(e)) for e in bloc.get("entetes", [])],
             "nb_lignes_cible": bloc.get("nb_lignes", 0),
             "nb_colonnes": bloc.get("nb_colonnes", 0),
             "consigne": CONSIGNE_TABLEAU,
@@ -150,7 +173,7 @@ def _variabiliser(bloc: dict[str, Any], precedent: dict[str, Any] | None) -> dic
     if type_bloc == "encadre":
         return {
             "type": "encadre",
-            "etiquette": bloc.get("etiquette", ""),
+            "etiquette": _neutraliser(bloc.get("etiquette", "")),
             "longueur_cible_signes": len(bloc.get("texte", "")),
             "consigne": CONSIGNE_ENCADRE,
         }
@@ -247,7 +270,7 @@ def construire(reference: dict[str, Any]) -> dict[str, Any]:
         blocs = _placer_graphiques_supplementaires(blocs, GRAPHIQUES_MIN[numero])
         chapitres.append({
             "numero": numero,
-            "titre_reference": chapitre["titre"],
+            "titre_reference": _neutraliser(chapitre["titre"]),
             "titre_consigne": (
                 "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 "
                 "précisent la zone de la niche."

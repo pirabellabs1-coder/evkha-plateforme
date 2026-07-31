@@ -607,9 +607,17 @@ def test_le_prompt_impose_les_tableaux_et_l_amorce(job_rendu: Any) -> None:
         chapitre, socle=socle, variables={"SECTEUR": socle.secteur},
         document=type_document(str(job_rendu.deliverable_type)),
     )
-    assert "FORME ATTENDUE" in prompt
-    assert "TABLEAUX" in prompt
-    assert "AMORCE" in prompt
+    # La consigne générique « FORME ATTENDUE » décrivait la MOYENNE des
+    # vingt-et-un chapitres. Elle est remplacée, pour les livrables que le
+    # modèle décrit, par le plan de CE chapitre — plus exigeant, et vérifiable :
+    # le validateur de conformité juge sur le même fichier.
+    assert "PLAN IMPOSÉ DU CHAPITRE 02" in prompt
+    assert "DANS CET ORDRE" in prompt
+    assert "`tableau`" in prompt
+    assert "`encadre`" in prompt
+    # Et l'exemple de rédaction, avec l'interdiction d'en reprendre les chiffres.
+    assert "EXEMPLE — chapitre 02" in prompt
+    assert "AUCUN chiffre" in prompt
 
 
 def test_le_prompt_porte_le_catalogue_et_le_profil_du_secteur(job_rendu: Any) -> None:

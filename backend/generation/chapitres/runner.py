@@ -119,6 +119,40 @@ def _bloc_forme() -> str:
     )
 
 
+def _blocs_du_modele(code_livrable: str, numero: int) -> list[str]:
+    """Plan du chapitre et exemple de référence, quand le modèle les porte.
+
+    Remplace la consigne générique par la forme PROPRE à ce chapitre. Le modèle
+    de référence décrit vingt-et-une structures différentes ; une consigne
+    unique ne pouvait en produire qu'une, répétée partout — c'est ce que
+    mesurait le validateur de conformité, à zéro chapitre conforme sur
+    vingt-et-un.
+
+    Le repli sur `_bloc_forme()` n'est pas silencieux : il vaut pour les
+    livrables que le modèle ne décrit pas (business plan, stratégie) et pour la
+    fiche projet, qui n'a pas d'équivalent dans le document validé. Dans ces
+    cas, la consigne moyenne reste ce qu'on a de mieux.
+    """
+    from ..modele.chargement import ModeleIntrouvableError, modele_couvre  # noqa: PLC0415
+    from ..modele.consigne import exemple_de_reference, plan_du_chapitre  # noqa: PLC0415
+
+    try:
+        if not modele_couvre(code_livrable):
+            return [_bloc_forme()]
+        plan = plan_du_chapitre(numero)
+        exemple = exemple_de_reference(numero)
+    except ModeleIntrouvableError as erreur:
+        # Le modèle est censé être dans l'image — `test_image_dependances.py`
+        # le vérifie. S'il manque quand même, on le DIT dans la consigne au
+        # lieu de rendre une forme moyenne en faisant croire à la forme
+        # imposée (règle 1).
+        return [_bloc_forme(), f"NOTE INTERNE — modèle de référence indisponible : {erreur}"]
+
+    if not plan:
+        return [_bloc_forme()]
+    return [plan, exemple] if exemple else [plan]
+
+
 def _bloc_visuels(socle: Socle) -> str:
     """Catalogue des visuels et consigne sectorielle.
 
@@ -178,7 +212,7 @@ def construire_prompt_chapitre(
         _bloc_resumes(chapter.job, chapter.chapter_number),
         f"CHAPITRE À RÉDIGER : {chapter.chapter_number} — {chapter.chapter_title}",
         f"INSTRUCTION DU CHAPITRE :\n{instruction}",
-        _bloc_forme(),
+        *_blocs_du_modele(str(chapter.job.deliverable_type), chapter.chapter_number),
         _bloc_visuels(socle),
         (
             f"RÉSUMÉ : termine par un résumé de {document.resume_mots_min} à "
