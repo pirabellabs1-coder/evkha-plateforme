@@ -31,68 +31,6 @@
   margin-inline: auto;
 }
 
-/* ── Barre de navigation ─────────────────────────────────────────────────── */
-
-.pp-nav {
-  background: var(--vert);
-  padding: 0.75rem 0;
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-
-.pp-nav-interieur {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.pp-logo {
-  background: var(--or);
-  color: var(--noir);
-  font-weight: 800;
-  font-size: 1.35rem;
-  letter-spacing: 0.02em;
-  padding: 0.35rem 1.4rem;
-  border-radius: 999px;
-  text-decoration: none;
-  line-height: 1.2;
-}
-
-.pp-logo small {
-  display: block;
-  font-size: 0.42rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-align: center;
-}
-
-.pp-nav-liens {
-  display: flex;
-  gap: 1.4rem;
-  margin-left: auto;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.pp-nav-liens a {
-  color: #ffffff;
-  text-decoration: none;
-  font-size: 0.82rem;
-  font-weight: 500;
-}
-
-.pp-nav-liens a:hover {
-  color: var(--or);
-}
-
-.pp-nav-cta {
-  border: 1px solid #ffffff;
-  border-radius: 999px;
-  padding: 0.4rem 1.1rem;
-}
-
 /* ── Bandeau d'ouverture ─────────────────────────────────────────────────── */
 
 .pp-hero {
@@ -613,8 +551,5 @@
   .pp-etapes,
   .pp-preuves {
     grid-template-columns: 1fr;
-  }
-  .pp-nav-liens {
-    display: none;
   }
 }

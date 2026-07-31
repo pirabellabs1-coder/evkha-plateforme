@@ -1,8 +1,12 @@
 /** Page partenaires publique — reprise de `evkha.fr/partenairespro`.
  *
  * Elle remplace la page systeme.io : c'est ici que le visiteur choisit sa
- * formule, crée son compte et accède à ses crédits. Le menu du site vitrine
- * pointera dessus.
+ * formule, crée son compte et accède à ses crédits.
+ *
+ * **Pas de barre de navigation.** Le menu reste celui du site vitrine, qui
+ * pointera vers cette adresse : en reconstruire une copie ici ferait deux
+ * menus à tenir à jour, et le nôtre serait faux dès la première page ajoutée
+ * sur systeme.io (règle 5).
  *
  * Deux principes de construction :
  *
@@ -42,30 +46,6 @@ import "./Partenaires.css";
  */
 function lienSouscription(code: string): string {
   return `/espace/connexion?formule=${encodeURIComponent(code)}`;
-}
-
-function Navigation() {
-  return (
-    <nav className="pp-nav">
-      <div className="pp-large pp-nav-interieur">
-        <a className="pp-logo" href="https://www.evkha.fr">
-          Evkha
-          <small>ÉTUDES &amp; STRATÉGIES</small>
-        </a>
-        <div className="pp-nav-liens">
-          <a href="https://www.evkha.fr">Accueil</a>
-          <a href="https://www.evkha.fr/etudes">Étude de marché &amp; livrables</a>
-          <a href="https://www.evkha.fr/packs">Nos packs accompagnement</a>
-          <a href="/partenaires">Partenaires PRO et abonnements</a>
-          <a href="https://www.evkha.fr/formations">Nos formations</a>
-          <a href="https://www.evkha.fr/outils">Boîte à outils</a>
-          <a className="pp-nav-cta" href={`mailto:${CONTACT_EMAIL}`}>
-            Me contacter
-          </a>
-        </div>
-      </div>
-    </nav>
-  );
 }
 
 function Formules({ formules }: { formules: FormulePublique[] }) {
@@ -120,6 +100,17 @@ export function Partenaires() {
   const [formules, setFormules] = useState<FormulePublique[] | null>(null);
   const [erreur, setErreur] = useState("");
 
+  // Le gabarit HTML annonce « EVKHA — Espace client » : juste pour les deux
+  // espaces connectes, faux pour une page publique que l'on partage par lien
+  // et que les moteurs indexent.
+  useEffect(() => {
+    const precedent = document.title;
+    document.title = "Partenaires PRO et abonnements — EVKHA";
+    return () => {
+      document.title = precedent;
+    };
+  }, []);
+
   useEffect(() => {
     let vivant = true;
     chargerFormules()
@@ -145,8 +136,6 @@ export function Partenaires() {
 
   return (
     <div className="pp">
-      <Navigation />
-
       {/* ── Ouverture ────────────────────────────────────────────────── */}
       <header className="pp-large pp-hero">
         <div>
