@@ -18,6 +18,9 @@ urlpatterns = [
     path("deconnexion/", vues.deconnexion, name="deconnexion"),
     path("moi/", vues.moi, name="moi"),
     path("credits/", vues.journal_credits, name="credits"),
+    # Agregation mensuelle : le journal ligne a ligne ne dit pas si la formule
+    # est la bonne, c'est pourtant LA question d'un abonne.
+    path("consommation/", vues.consommation, name="consommation"),
     path("clients-finaux/", vues.clients_finaux, name="clients-finaux"),
     path(
         "clients-finaux/<str:client_id>/archiver/",

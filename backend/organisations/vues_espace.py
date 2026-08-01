@@ -15,11 +15,14 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
+from datetime import timedelta
 from functools import wraps
 from typing import Any
 
 from django.core.files.base import ContentFile
+from django.db.models import Sum
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
@@ -47,6 +50,7 @@ from .models import (
     StatutAbonnement,
     StatutDemande,
     TypeDemande,
+    TypeMouvement,
 )
 
 _log = logging.getLogger(__name__)
@@ -207,6 +211,118 @@ def moi(
 
 
 # ── Crédits ──────────────────────────────────────────────────────────────────
+
+
+#: Profondeur de l'historique de consommation, en mois. Douze : c'est la durée
+#: sur laquelle un abonné juge si sa formule est la bonne. Au-delà, la courbe
+#: écrase les mois récents, qui sont ceux qui décident.
+MOIS_HISTORIQUE = 12
+
+
+@require_http_methods(["GET"])
+@espace("consulter_livrables")
+def consommation(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Crédits reçus et consommés, mois par mois.
+
+    C'est la question que se pose un abonné : **ma formule est-elle la bonne ?**
+    Le journal ligne à ligne y répond mal — il faut additionner de tête, sur
+    des dizaines de lignes.
+
+    L'agrégation se fait ICI, jamais dans l'interface. Deux additions du même
+    journal finiraient par ne pas dire la même chose, et c'est déjà la raison
+    pour laquelle le solde est recalculé côté serveur (règle 5).
+
+    Les natures viennent de `credits.ENTREES` / `credits.SORTIES` : réécrire la
+    liste ici la ferait diverger de celle qui calcule le solde, et le graphique
+    contredirait le compteur affiché juste à côté.
+    """
+    from django.db.models.functions import TruncMonth  # noqa: PLC0415
+
+    # `localtime` et non `now` : `TruncMonth` groupe dans le fuseau du projet
+    # (Europe/Paris), pas en UTC. Un mouvement du 31 juillet a 22 h 33 UTC tombe
+    # le 1er aout a Paris. Batir le calendrier en UTC et grouper en local, c'est
+    # mesurer les deux cotes differemment — le defaut de la regle 2 : les
+    # colonnes du graphique se decalent d'un mois pendant les deux dernieres
+    # heures de chaque mois, et personne ne le voit.
+    maintenant = timezone.localtime()
+    debut = (maintenant - timedelta(days=31 * MOIS_HISTORIQUE)).replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    )
+    lignes = (
+        credits.portefeuille_de(organisation)
+        .mouvements.filter(created_at__gte=debut)
+        .annotate(mois=TruncMonth("created_at"))
+        .values("mois", "type")
+        .annotate(total=Sum("quantite"))
+    )
+
+    # SIGNES DU JOURNAL — ils ne sont pas uniformes, et s'y tromper inverse le
+    # graphique :
+    #
+    # - une ENTREE est stockee POSITIVE (dotation, achat, geste) ;
+    # - un DEBIT et une EXPIRATION sont stockes NEGATIFS — c'est ce qui permet
+    #   au solde d'etre une simple somme du journal ;
+    # - un REMBOURSEMENT est stocke POSITIF tout en figurant dans les SORTIES :
+    #   il REND des credits.
+    #
+    # La consommation affichee est donc « ce qui est sorti, moins ce qui a ete
+    # rendu ». Compter le remboursement comme une sortie accuserait le client
+    # de ce qu'on vient justement de lui rembourser.
+    par_mois: dict[str, dict[str, int]] = {}
+    for ligne in lignes:
+        cle = ligne["mois"].strftime("%Y-%m")
+        seau = par_mois.setdefault(cle, {"recus": 0, "consommes": 0})
+        quantite = int(ligne["total"] or 0)
+        if ligne["type"] in credits.ENTREES:
+            seau["recus"] += quantite
+        elif ligne["type"] == TypeMouvement.REMBOURSEMENT:
+            seau["consommes"] -= quantite
+        elif ligne["type"] in credits.SORTIES:
+            # Deja negatif au journal : on le repasse en positif pour l'axe.
+            seau["consommes"] -= quantite
+
+    # Les mois SANS mouvement doivent apparaitre a zero : un graphique qui les
+    # saute laisse croire a une consommation continue alors qu'il y a eu des
+    # mois blancs.
+    # On recule de mois CALENDAIRES, jamais par pas de trente jours : un pas
+    # fixe retombe deux fois dans le meme mois et en saute d'autres, si bien
+    # qu'on n'obtient ni douze entrees ni douze mois distincts.
+    mois: list[dict[str, str | int]] = []
+    total_recu = 0
+    total_consomme = 0
+    annee, numero = maintenant.year, maintenant.month
+    calendrier: list[tuple[int, int]] = []
+    for _ in range(MOIS_HISTORIQUE):
+        calendrier.append((annee, numero))
+        numero -= 1
+        if numero == 0:
+            annee, numero = annee - 1, 12
+    for annee_mois, numero_mois in reversed(calendrier):
+        cle = f"{annee_mois:04d}-{numero_mois:02d}"
+        seau = par_mois.get(cle, {"recus": 0, "consommes": 0})
+        total_recu += seau["recus"]
+        total_consomme += seau["consommes"]
+        mois.append({
+            "mois": cle,
+            "libelle": _MOIS_COURTS[numero_mois - 1],
+            "recus": seau["recus"],
+            "consommes": seau["consommes"],
+        })
+
+    return JsonResponse({
+        "mois": mois,
+        "total_consomme": total_consomme,
+        "total_recu": total_recu,
+    })
+
+
+#: Libellés courts, pour un axe qui doit tenir en largeur.
+_MOIS_COURTS = (
+    "janv.", "févr.", "mars", "avr.", "mai", "juin",
+    "juil.", "août", "sept.", "oct.", "nov.", "déc.",
+)
 
 
 @require_http_methods(["GET"])

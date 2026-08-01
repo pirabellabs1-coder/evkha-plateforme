@@ -9,6 +9,7 @@ Chaque refus a sa contre-épreuve — le cas légitime doit passer (règle 6).
 from __future__ import annotations
 
 import pytest
+from django.test import Client
 
 from customers.models import Customer
 from organisations import credits, services
@@ -22,8 +23,19 @@ from organisations.models import (
     StatutAbonnement,
     TypeMouvement,
 )
+from tests.conftest import JETON_ADMIN
 
 pytestmark = pytest.mark.django_db
+
+def _administration() -> Client:
+    """Client de test qui presente le jeton d'administration.
+
+    Les routes de supervision vivent sous `/api/dashboard/`. Ces tests ne
+    passaient auparavant que grace au contournement de developpement lu dans
+    le `.env` local ; ils empruntent desormais le vrai chemin.
+    """
+    return Client(HTTP_AUTHORIZATION=f"Bearer {JETON_ADMIN}")
+
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -653,9 +665,7 @@ def test_la_synthese_dit_la_nature_du_revenu(client: object) -> None:
     le dire, sinon le tableau de bord laisse croire à un chiffre d'affaires
     réalisé.
     """
-    from django.test import Client as ClientDeTest
-
-    reponse = ClientDeTest().get("/api/dashboard/supervision/synthese/")
+    reponse = _administration().get("/api/dashboard/supervision/synthese/")
     assert reponse.status_code == 200
     charge = reponse.json()
     assert charge["revenu"]["nature"] == "contractuel"
@@ -665,10 +675,8 @@ def test_la_synthese_dit_la_nature_du_revenu(client: object) -> None:
 def test_la_synthese_compte_le_revenu_des_abonnements_actifs(
     organisation: Organisation, formule_pro: Formule
 ) -> None:
-    from django.test import Client as ClientDeTest
-
     services.souscrire(organisation, formule_pro, doter_immediatement=False)
-    charge = ClientDeTest().get("/api/dashboard/supervision/synthese/").json()
+    charge = _administration().get("/api/dashboard/supervision/synthese/").json()
     assert charge["revenu"]["recurrent_mensuel_cents"] == 18_900
 
 
@@ -676,21 +684,17 @@ def test_un_abonnement_resilie_ne_compte_plus_dans_le_revenu(
     organisation: Organisation, formule_pro: Formule
 ) -> None:
     """Contre-épreuve : sans cela le revenu ne ferait que croître."""
-    from django.test import Client as ClientDeTest
-
     abonnement = services.souscrire(organisation, formule_pro, doter_immediatement=False)
     abonnement.statut = StatutAbonnement.RESILIE
     abonnement.save(update_fields=["statut"])
-    charge = ClientDeTest().get("/api/dashboard/supervision/synthese/").json()
+    charge = _administration().get("/api/dashboard/supervision/synthese/").json()
     assert charge["revenu"]["recurrent_mensuel_cents"] == 0
 
 
 def test_l_evolution_couvre_douze_mois_meme_sans_activite() -> None:
     """Omettre les mois vides ferait d'un creux une ligne qui saute : le
     graphique mentirait sur la forme de la courbe."""
-    from django.test import Client as ClientDeTest
-
-    charge = ClientDeTest().get("/api/dashboard/supervision/evolution/").json()
+    charge = _administration().get("/api/dashboard/supervision/evolution/").json()
     assert len(charge["mois"]) == 12
     for serie in charge["series"]:
         assert len(serie["valeurs"]) == 12
@@ -699,12 +703,10 @@ def test_l_evolution_couvre_douze_mois_meme_sans_activite() -> None:
 def test_la_supervision_expose_le_solde_et_la_consommation_par_organisation(
     organisation: Organisation,
 ) -> None:
-    from django.test import Client as ClientDeTest
-
     credits.crediter(organisation, 5, motif="Dotation")
     credits.debiter(organisation, 2, reference="job-supervision", motif="Étude")
 
-    charge = ClientDeTest().get("/api/dashboard/supervision/organisations/").json()
+    charge = _administration().get("/api/dashboard/supervision/organisations/").json()
     ligne = next(
         o for o in charge["organisations"] if o["raison_sociale"] == "Agence Test"
     )

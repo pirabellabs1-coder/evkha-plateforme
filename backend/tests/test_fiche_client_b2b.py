@@ -25,8 +25,22 @@ from django.test import Client
 from customers.models import Customer, CustomerType
 from organisations import credits, services
 from organisations.models import Formule, ReportCredits, TypeMouvement
+from tests.conftest import JETON_ADMIN
 
 pytestmark = pytest.mark.django_db
+
+@pytest.fixture
+def client() -> Client:
+    """Redefinit la fixture de pytest-django pour TOUT ce module.
+
+    Chaque route testee ici vit sous `/api/dashboard/`, c'est-a-dire derriere
+    la garde d'administration. Le client de test presente donc le jeton, comme
+    le fera le navigateur de l'equipe. Sans cela ces tests ne passaient que
+    grace au contournement de developpement lu dans le `.env` local — une
+    porte qu'on vient justement de fermer.
+    """
+    return Client(HTTP_AUTHORIZATION=f"Bearer {JETON_ADMIN}")
+
 
 
 @pytest.fixture

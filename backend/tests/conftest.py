@@ -5,6 +5,8 @@ n'y pense en ecrivant un test.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from django.conf import settings
 
@@ -45,6 +47,40 @@ def _force_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
     # Ceinture-bretelles : meme si un client reel etait instancie, il ne
     # trouverait pas de cle et echouerait bruyamment plutot que de facturer.
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+
+#: Jeton d'administration utilise par toute la suite. Connu, fixe, et sans
+#: rapport avec celui de qui que ce soit.
+JETON_ADMIN = "jeton-de-test-administration-64-signes-exactement-pour-la-suite"
+
+
+@pytest.fixture(autouse=True)
+def _garde_administration(monkeypatch: pytest.MonkeyPatch) -> None:
+    """L'administration est PROTEGEE pendant les tests, comme en production.
+
+    Elle ne l'etait pas : les reglages venaient du `.env` local, ou le
+    contournement de developpement est actif. La suite passait donc par une
+    porte ouverte, et ne prouvait rien sur l'authentification — jusqu'a ce
+    qu'on decouvre que cette meme porte etait ouverte sur le serveur public.
+
+    Meme raison que `_force_stubs` juste au-dessus : un test qui depend d'un
+    fichier de configuration local n'est pas reproductible, et il valide un
+    comportement que personne n'a choisi.
+
+    Les tests qui appellent `/api/dashboard/` doivent desormais s'authentifier,
+    via la fixture `client_admin`. C'est plus verbeux, et c'est le but : la
+    suite exerce le vrai chemin (regle 7).
+    """
+    monkeypatch.setattr(settings, "EVKHA_DASHBOARD_AUTH_DISABLED", False, raising=False)
+    monkeypatch.setattr(settings, "EVKHA_DASHBOARD_TOKEN", JETON_ADMIN, raising=False)
+
+
+@pytest.fixture
+def client_admin() -> Any:
+    """Client de test qui presente le jeton d'administration a chaque appel."""
+    from django.test import Client
+
+    return Client(HTTP_AUTHORIZATION=f"Bearer {JETON_ADMIN}")
 
 
 @pytest.fixture(autouse=True, scope="session")

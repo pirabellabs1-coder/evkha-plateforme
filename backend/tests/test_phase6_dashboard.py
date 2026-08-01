@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from django.test import Client, override_settings
 
@@ -15,8 +17,14 @@ from orders.models import Order
 
 @pytest.mark.django_db
 def test_dashboard_overview_accessible_when_auth_disabled() -> None:
+    """Le contournement n'ouvre QUE le developpement.
+
+    `DEBUG=True` est explicite ici parce que Django force `DEBUG=False`
+    pendant les tests : sans lui, ce test verifierait le comportement de
+    production tout en pretendant verifier celui du developpement.
+    """
     client = Client()
-    with override_settings(EVKHA_DASHBOARD_AUTH_DISABLED=True):
+    with override_settings(DEBUG=True, EVKHA_DASHBOARD_AUTH_DISABLED=True):
         response = client.get("/api/dashboard/overview/")
     assert response.status_code == 200
     data = response.json()
@@ -67,7 +75,14 @@ def test_dashboard_returns_401_with_wrong_token() -> None:
 
 
 @pytest.mark.django_db
-def test_dashboard_accepts_token_via_query_param() -> None:
+def test_dashboard_refuse_le_jeton_en_parametre_d_url() -> None:
+    """Ce test verifiait l'INVERSE — il verrouillait une faille.
+
+    Le jeton etait accepte en `?token=`, « pour les clients simples ». Une URL
+    se retrouve dans les journaux du serveur, l'historique du navigateur,
+    l'en-tete `Referer` envoye aux sites tiers et sur toute capture d'ecran. Un
+    jeton qui ouvre l'ensemble des donnees clients ne peut pas y transiter.
+    """
     token = "query-param-token-32chars-minx"
     client = Client()
     with override_settings(
@@ -75,7 +90,7 @@ def test_dashboard_accepts_token_via_query_param() -> None:
         EVKHA_DASHBOARD_TOKEN=token,
     ):
         response = client.get(f"/api/dashboard/overview/?token={token}")
-    assert response.status_code == 200
+    assert response.status_code == 401
 
 
 @pytest.mark.django_db
@@ -96,26 +111,22 @@ def test_non_dashboard_routes_unaffected_by_middleware() -> None:
 
 
 @pytest.mark.django_db
-def test_jobs_list_returns_empty_list_initially() -> None:
-    client = Client()
-    with override_settings(EVKHA_DASHBOARD_AUTH_DISABLED=True):
-        response = client.get("/api/dashboard/jobs/")
+def test_jobs_list_returns_empty_list_initially(client_admin: Any) -> None:
+    response = client_admin.get("/api/dashboard/jobs/")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
 
 @pytest.mark.django_db
-def test_job_detail_returns_404_for_unknown_id() -> None:
+def test_job_detail_returns_404_for_unknown_id(client_admin: Any) -> None:
     import uuid
 
-    client = Client()
-    with override_settings(EVKHA_DASHBOARD_AUTH_DISABLED=True):
-        response = client.get(f"/api/dashboard/jobs/{uuid.uuid4()}/")
+    response = client_admin.get(f"/api/dashboard/jobs/{uuid.uuid4()}/")
     assert response.status_code == 404
 
 
 @pytest.mark.django_db
-def test_dashboard_surfaces_phase0_plan_observability() -> None:
+def test_dashboard_surfaces_phase0_plan_observability(client_admin: Any) -> None:
     offer = Offer.objects.create(
         name="Etude de marche",
         slug="etude-marche-dashboard",
@@ -134,10 +145,8 @@ def test_dashboard_surfaces_phase0_plan_observability() -> None:
         phase0_plan="PLAN VERROUILLE\n- Contrainte observable",
     )
 
-    client = Client()
-    with override_settings(EVKHA_DASHBOARD_AUTH_DISABLED=True):
-        list_response = client.get("/api/dashboard/jobs/")
-        detail_response = client.get(f"/api/dashboard/jobs/{job.id}/")
+    list_response = client_admin.get("/api/dashboard/jobs/")
+    detail_response = client_admin.get(f"/api/dashboard/jobs/{job.id}/")
 
     assert list_response.status_code == 200
     list_item = list_response.json()[0]
@@ -154,9 +163,7 @@ def test_dashboard_surfaces_phase0_plan_observability() -> None:
 
 
 @pytest.mark.django_db
-def test_incidents_list_returns_empty_list_initially() -> None:
-    client = Client()
-    with override_settings(EVKHA_DASHBOARD_AUTH_DISABLED=True):
-        response = client.get("/api/dashboard/incidents/")
+def test_incidents_list_returns_empty_list_initially(client_admin: Any) -> None:
+    response = client_admin.get("/api/dashboard/incidents/")
     assert response.status_code == 200
     assert isinstance(response.json(), list)

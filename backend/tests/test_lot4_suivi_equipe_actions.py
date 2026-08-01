@@ -45,6 +45,7 @@ from organisations.models import (
     TypeDemande,
     TypeMouvement,
 )
+from tests.conftest import JETON_ADMIN
 
 pytestmark = pytest.mark.django_db
 
@@ -81,7 +82,9 @@ def autre() -> Abonne:
 
 @pytest.fixture
 def api() -> Client:
-    return Client()
+    # L'administration est protegee, y compris dans la suite : le client
+    # de test presente le jeton comme le fera le navigateur de l'equipe.
+    return Client(HTTP_AUTHORIZATION=f"Bearer {JETON_ADMIN}")
 
 
 def charge(reponse: Any) -> dict[str, Any]:

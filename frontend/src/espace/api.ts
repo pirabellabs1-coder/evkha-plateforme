@@ -126,6 +126,18 @@ export interface Moi {
   } | null;
 }
 
+/** Consommation agrégée, mois par mois.
+ *
+ * L'agrégation est faite par le SERVEUR. La refaire ici à partir du journal
+ * produirait un second calcul qui finirait par contredire le solde affiché
+ * juste à côté (règle 5).
+ */
+export interface Consommation {
+  mois: { mois: string; libelle: string; recus: number; consommes: number }[];
+  total_recu: number;
+  total_consomme: number;
+}
+
 export type TypeMouvement =
   | "dotation"
   | "achat"
@@ -294,6 +306,7 @@ export const espaceApi = {
       body: JSON.stringify({ email, mot_de_passe }),
     }),
   deconnexion: () => appel<void>("/deconnexion/", { method: "POST" }),
+  consommation: () => appel<Consommation>("/consommation/"),
   moi: () => appel<Moi>("/moi/"),
   credits: () =>
     appel<{ solde: number; mouvements: Mouvement[] }>("/credits/"),

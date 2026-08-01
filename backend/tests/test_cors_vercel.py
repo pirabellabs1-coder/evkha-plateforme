@@ -14,6 +14,8 @@ from typing import Any
 import pytest
 from django.test import Client
 
+from tests.conftest import JETON_ADMIN
+
 ORIGINE_AUTORISEE = "https://app.evkha.fr"
 ORIGINE_INCONNUE = "https://site-malveillant.example"
 CHEMIN = "/api/dashboard/summary/"
@@ -24,7 +26,7 @@ def api(settings: Any) -> Client:
     settings.CORS_ALLOWED_ORIGINS = [ORIGINE_AUTORISEE]
     settings.CORS_ALLOWED_ORIGIN_REGEXES = []
     settings.EVKHA_DASHBOARD_AUTH_DISABLED = True
-    return Client()
+    return Client(HTTP_AUTHORIZATION=f"Bearer {JETON_ADMIN}")
 
 
 def test_une_origine_autorisee_recoit_l_en_tete_cors(api: Client) -> None:
@@ -62,7 +64,7 @@ def test_le_preflight_passe_meme_sans_jeton(settings: Any) -> None:
     settings.CORS_ALLOWED_ORIGINS = [ORIGINE_AUTORISEE]
     settings.CORS_ALLOWED_ORIGIN_REGEXES = []
     settings.EVKHA_DASHBOARD_AUTH_DISABLED = False
-    reponse = Client().options(
+    reponse = Client(HTTP_AUTHORIZATION=f"Bearer {JETON_ADMIN}").options(
         CHEMIN,
         HTTP_ORIGIN=ORIGINE_AUTORISEE,
         HTTP_ACCESS_CONTROL_REQUEST_METHOD="GET",

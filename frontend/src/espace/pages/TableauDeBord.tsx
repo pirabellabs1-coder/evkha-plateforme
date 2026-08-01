@@ -5,6 +5,7 @@ import { espaceApi } from "../api";
 import * as f from "../format";
 import { useMoi } from "../useMoi";
 import { Carte, Chiffre, Pastille, Squelette, Vide } from "../composants/Interface";
+import { Colonnes } from "../../viz/Graphiques";
 
 export function TableauDeBord() {
   const { data: moi, isPending: chargeMoi } = useMoi();
@@ -12,6 +13,16 @@ export function TableauDeBord() {
     queryKey: ["espace", "livrables"],
     queryFn: espaceApi.livrables,
   });
+  const { data: conso } = useQuery({
+    queryKey: ["espace", "consommation"],
+    queryFn: espaceApi.consommation,
+  });
+
+  // Un graphique de douze mois vides ne dit rien et occupe la moitie de
+  // l'ecran. On ne l'affiche qu'a partir du moment ou il y a quelque chose a
+  // lire — sinon le guide de demarrage est plus utile.
+  const aDeLHistorique =
+    (conso?.total_recu ?? 0) > 0 || (conso?.total_consomme ?? 0) > 0;
 
   const livrables = donneesLivrables?.livrables ?? [];
   const enCours = livrables.filter((l) => l.statut === "running").length;
@@ -64,6 +75,39 @@ export function TableauDeBord() {
           }
         />
       </div>
+
+      {/* La question qu'un abonné se pose vraiment : « ma formule est-elle la
+          bonne ? » Le journal ligne à ligne n'y répond pas — il faut
+          additionner de tête. Les colonnes la rendent lisible d'un coup d'œil.
+
+          L'agrégation vient du serveur : la refaire ici produirait un second
+          calcul qui finirait par contredire le solde affiché plus haut. */}
+      {aDeLHistorique && conso && (
+        <Carte
+          titre="Vos crédits, mois par mois"
+          note={
+            `Sur douze mois : ${conso.total_recu} reçus, ` +
+            `${conso.total_consomme} consommés.`
+          }
+        >
+          <Colonnes
+            abscisses={conso.mois.map((m) => m.libelle)}
+            series={[
+              {
+                cle: "recus",
+                libelle: "Reçus",
+                valeurs: conso.mois.map((m) => m.recus),
+              },
+              {
+                cle: "consommes",
+                libelle: "Consommés",
+                valeurs: conso.mois.map((m) => m.consommes),
+              },
+            ]}
+            unite="crédits"
+          />
+        </Carte>
+      )}
 
       {/* Un espace client dont on ne comprend pas l'usage est un espace client
           raté. Ce guide reste affiché tant qu'aucun document n'a été produit,
