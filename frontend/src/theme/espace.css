@@ -1401,3 +1401,36 @@
   border-radius: var(--rayon-sm);
   background: var(--fond-enfonce);
 }
+
+/* ── Autonomie : combien de temps les crédits tiennent ──────────────────── */
+
+.autonomie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--e-5);
+}
+
+.autonomie-valeur {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-top: var(--e-1);
+}
+
+/* L'unité reste lisible sans concurrencer le chiffre : c'est lui qu'on vient
+   lire, l'unité ne fait que le qualifier. */
+.autonomie-unite {
+  font-family: var(--police-corps);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-normale);
+  color: var(--texte-tenu);
+  letter-spacing: 0;
+}
+
+/* La couleur ne porte JAMAIS l'information seule : le bandeau d'alerte dit
+   déjà la même chose en toutes lettres, et la date reste lisible sans elle. */
+.autonomie-tendue {
+  color: var(--evkha-alerte);
+}

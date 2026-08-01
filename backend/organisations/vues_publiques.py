@@ -16,12 +16,11 @@ import json
 import logging
 import secrets
 
-from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import authentification, google, inscription
+from . import authentification, google, inscription, limitation
 from .models import Formule
 
 _log = logging.getLogger(__name__)
@@ -32,7 +31,9 @@ _log = logging.getLogger(__name__)
 #: mille. Le plafond est volontairement bas : une personne s'inscrit une fois,
 #: et le seul cas légitime de répétition — plusieurs collaborateurs d'un même
 #: bureau — passe par l'invitation depuis l'espace, pas par ce formulaire.
-INSCRIPTIONS_PAR_HEURE = 5
+INSCRIPTIONS_PAR_HEURE = limitation.Plafond(
+    "inscription", maximum=5, fenetre_s=3600
+)
 
 
 @require_GET
@@ -80,19 +81,6 @@ def _refus(message: str, code: str, statut: int = 400) -> HttpResponse:
     return JsonResponse({"erreur": message, "code": code}, status=statut)
 
 
-def _adresse(request: HttpRequest) -> str:
-    """Adresse d'origine, telle que le proxy la transmet.
-
-    Derrière nginx, `REMOTE_ADDR` vaut l'adresse du proxy et serait donc la
-    même pour tout le monde : le plafond horaire s'appliquerait alors à
-    l'ensemble des visiteurs au lieu de chacun.
-    """
-    transmise = str(request.META.get("HTTP_X_FORWARDED_FOR", "") or "")
-    if transmise:
-        return transmise.split(",")[0].strip()
-    return str(request.META.get("REMOTE_ADDR", "") or "inconnue")
-
-
 @csrf_exempt
 @require_POST
 def inscrire(request: HttpRequest) -> HttpResponse:
@@ -114,14 +102,8 @@ def inscrire(request: HttpRequest) -> HttpResponse:
     if not isinstance(charge, dict):
         return _refus("Requête illisible.", "corps_invalide")
 
-    cle = f"inscription:{_adresse(request)}"
-    # `get_or_set` peut rendre None si le cache est indisponible ; on lit alors
-    # zero plutot que de laisser une comparaison echouer. Un cache en panne ne
-    # doit pas fermer l'inscription — il fait seulement tomber la protection,
-    # et c'est le bon arbitrage : le plafond protege d'un abus, il n'est pas la
-    # condition d'un service legitime.
-    tentatives = cache.get_or_set(cle, 0, 3600) or 0
-    if int(tentatives) >= INSCRIPTIONS_PAR_HEURE:
+    adresse = limitation.adresse_client(request)
+    if limitation.depasse(INSCRIPTIONS_PAR_HEURE, adresse):
         return _refus(
             "Trop de créations de compte depuis cette connexion. Réessayez "
             "dans une heure, ou écrivez-nous à contact@evkha.fr.",
@@ -154,10 +136,7 @@ def inscrire(request: HttpRequest) -> HttpResponse:
 
     # Le compteur n'avance QU'APRES une inscription reussie : compter les
     # echecs punirait quelqu'un qui se trompe de mot de passe cinq fois.
-    try:
-        cache.incr(cle)
-    except ValueError:  # cle expiree entre le controle et l'increment
-        cache.set(cle, 1, 3600)
+    limitation.enregistrer(INSCRIPTIONS_PAR_HEURE, adresse)
 
     jeton_clair, _ = authentification.ouvrir_session(email, mot_de_passe)
     _log.info(
@@ -259,9 +238,8 @@ def google_session(request: HttpRequest) -> HttpResponse:
         })
 
     # Compte inconnu : on inscrit, avec les memes garanties que le formulaire.
-    cle = f"inscription:{_adresse(request)}"
-    tentatives = cache.get_or_set(cle, 0, 3600) or 0
-    if int(tentatives) >= INSCRIPTIONS_PAR_HEURE:
+    adresse = limitation.adresse_client(request)
+    if limitation.depasse(INSCRIPTIONS_PAR_HEURE, adresse):
         return _refus(
             "Trop de créations de compte depuis cette connexion. Réessayez "
             "dans une heure, ou écrivez-nous à contact@evkha.fr.",
@@ -298,10 +276,7 @@ def google_session(request: HttpRequest) -> HttpResponse:
     except inscription.InscriptionRefuseeError as refus:
         return _refus(str(refus), refus.code, refus.statut)
 
-    try:
-        cache.incr(cle)
-    except ValueError:
-        cache.set(cle, 1, 3600)
+    limitation.enregistrer(INSCRIPTIONS_PAR_HEURE, adresse)
 
     compte = CompteClient.objects.select_related("customer").get(
         user__username__iexact=identite.email

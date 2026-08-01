@@ -4,6 +4,9 @@ import { espaceApi, type Mouvement } from "../api";
 import * as f from "../format";
 import { useMoi } from "../useMoi";
 import { Carte, Chiffre, Squelette, Vide } from "../composants/Interface";
+import { Autonomie } from "../composants/Autonomie";
+import { telechargerJournal } from "../journal";
+import { Colonnes } from "../../viz/Graphiques";
 
 /** Un mouvement d'entrée se lit en vert, une sortie en rouge — mais le SIGNE
  *  porte déjà l'information. La couleur n'est qu'un renfort : sans elle, le
@@ -22,6 +25,10 @@ export function Credits() {
   const { data, isPending } = useQuery({
     queryKey: ["espace", "credits"],
     queryFn: espaceApi.credits,
+  });
+  const { data: conso } = useQuery({
+    queryKey: ["espace", "consommation"],
+    queryFn: espaceApi.consommation,
   });
 
   const mouvements = data?.mouvements ?? [];
@@ -65,8 +72,43 @@ export function Credits() {
         />
       </div>
 
+      {conso && <Autonomie rythme={conso.rythme} />}
+
+      {/* Le journal répond à « qu'ai-je consommé le 12 mars ». Il ne répond pas
+          à « est-ce que je consomme plus qu'avant » : il faudrait additionner
+          de tête, mois par mois. Les colonnes le montrent d'un coup d'œil.
+
+          L'agrégation vient du serveur, comme l'autonomie ci-dessus : la
+          refaire ici ferait deux calculs, et deux occasions de se contredire. */}
+      {conso && (conso.total_recu > 0 || conso.total_consomme > 0) && (
+        <Carte
+          titre="Douze derniers mois"
+          note={`${conso.total_recu} crédits reçus, ${conso.total_consomme} consommés.`}
+        >
+          <Colonnes
+            abscisses={conso.mois.map((m) => m.libelle)}
+            series={[
+              {
+                cle: "recus",
+                libelle: "Reçus",
+                valeurs: conso.mois.map((m) => m.recus),
+              },
+              {
+                cle: "consommes",
+                libelle: "Consommés",
+                valeurs: conso.mois.map((m) => m.consommes),
+              },
+            ]}
+            unite="crédits"
+          />
+        </Carte>
+      )}
+
       {moi?.abonnement && (
-        <Carte titre="Votre formule" note="Modifiable en nous contactant.">
+        <Carte
+          titre="Votre formule"
+          note="Modifiable depuis la page Abonnement."
+        >
           <div className="grille-chiffres">
             <div>
               <div className="chiffre-libelle">Formule</div>
@@ -104,6 +146,17 @@ export function Credits() {
       <Carte
         titre="Consommation"
         note="Chaque mouvement est enregistré : date, motif, document concerné."
+        action={
+          mouvements.length > 0 ? (
+            <button
+              type="button"
+              className="bouton bouton-contour bouton-sm"
+              onClick={() => telechargerJournal(mouvements)}
+            >
+              Exporter en CSV
+            </button>
+          ) : undefined
+        }
       >
         {isPending ? (
           <Squelette lignes={5} />

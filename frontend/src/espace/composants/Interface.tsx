@@ -45,7 +45,7 @@ export function Chiffre({
 }: {
   libelle: string;
   valeur: ReactNode;
-  detail?: string;
+  detail?: ReactNode;
   accent?: boolean;
 }) {
   return (

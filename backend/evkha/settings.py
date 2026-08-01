@@ -333,3 +333,11 @@ EVKHA_BASE_URL = env("EVKHA_BASE_URL", default="http://localhost:8000")
 # TODO: remplacer par JWT Better Auth quand BETTER_AUTH_SECRET est configure.
 EVKHA_DASHBOARD_AUTH_DISABLED = env("EVKHA_DASHBOARD_AUTH_DISABLED")
 EVKHA_DASHBOARD_TOKEN = env("EVKHA_DASHBOARD_TOKEN", default="")
+
+# Nombre de relais de confiance devant l'application. Sert a lire l'adresse
+# d'origine sans qu'un appelant puisse la choisir — voir organisations/limitation.py.
+#
+# 1 en production : Traefik, pose par Coolify, ajoute la vraie adresse a droite
+# de X-Forwarded-For. 0 quand le serveur est joint directement, sinon l'en-tete
+# serait cru sur parole et tous les plafonds de tentatives sauteraient.
+EVKHA_PROXIES_DE_CONFIANCE = env.int("EVKHA_PROXIES_DE_CONFIANCE", default=1)

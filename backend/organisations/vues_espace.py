@@ -30,7 +30,7 @@ from customers.models import Customer
 from documents.models import ArtifactKind, DocumentArtifact
 from generation.models import GenerationJob
 
-from . import commandes, credits, fichiers, formulaires, services, suivi
+from . import commandes, credits, fichiers, formulaires, limitation, services, suivi
 from .authentification import (
     AuthentificationRefuseeError,
     compte_du_jeton,
@@ -118,18 +118,75 @@ def _corps(request: HttpRequest) -> dict[str, Any]:
 
 # ── Session ──────────────────────────────────────────────────────────────────
 
+#: Échecs tolérés sur un même compte depuis une même adresse, par quart d'heure.
+#:
+#: Assez haut pour que quelqu'un cherche son mot de passe sans être arrêté —
+#: c'est le cas légitime, et il est fréquent. Trop bas pour qu'un dictionnaire
+#: serve à quoi que ce soit : 10 essais par quart d'heure, c'est 960 par jour,
+#: là où une attaque en réclame des millions.
+CONNEXIONS_PAR_COMPTE = limitation.Plafond("connexion-compte", maximum=10, fenetre_s=900)
+
+#: Échecs tolérés depuis une même adresse, tous comptes confondus.
+#:
+#: Vise le balayage : un mot de passe courant essayé sur beaucoup d'adresses
+#: e-mail. Le plafond par compte ne le voit pas, chaque compte n'étant essayé
+#: qu'une seule fois. La marge tient compte des bureaux partageant une sortie
+#: unique, où plusieurs personnes se trompent le même matin.
+CONNEXIONS_PAR_ADRESSE = limitation.Plafond(
+    "connexion-adresse", maximum=30, fenetre_s=900
+)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def connexion(request: HttpRequest) -> HttpResponse:
-    """Ouvre une session et renvoie le jeton. Le jeton n'est lisible qu'ici."""
+    """Ouvre une session et renvoie le jeton. Le jeton n'est lisible qu'ici.
+
+    Cette vue n'avait **aucun plafond de tentatives** : un mot de passe pouvait
+    être essayé aussi vite que le réseau le permettait. L'inscription publique
+    en avait un depuis le début ; la porte réellement intéressante pour un
+    attaquant, elle, était grande ouverte.
+
+    Deux plafonds, et le second n'est pas redondant :
+
+    - par **compte et adresse**, contre l'essai méthodique d'un mot de passe ;
+    - par **adresse seule**, contre le balayage d'un même mot de passe sur
+      quantité d'adresses e-mail, que le premier plafond ne verrait jamais
+      puisque chaque compte n'est essayé qu'une fois.
+
+    Le premier est volontairement lié à l'adresse d'origine et pas au seul
+    e-mail : un plafond par e-mail permettrait à n'importe qui de bloquer le
+    compte d'autrui en se trompant exprès. La protection deviendrait l'attaque.
+
+    Un succès efface le compteur : quelqu'un qui cherche son mot de passe, le
+    trouve, puis revient le lendemain ne doit pas payer ses hésitations de la
+    veille.
+    """
     charge = _corps(request)
-    try:
-        jeton, objet = ouvrir_session(
-            str(charge.get("email", "")), str(charge.get("mot_de_passe", ""))
+    email = str(charge.get("email", "")).strip().lower()
+    adresse = limitation.adresse_client(request)
+    par_compte = f"{email}|{adresse}"
+
+    if limitation.depasse(CONNEXIONS_PAR_COMPTE, par_compte) or limitation.depasse(
+        CONNEXIONS_PAR_ADRESSE, adresse
+    ):
+        # Réponse identique que le compte existe ou non : sinon ce refus
+        # deviendrait un moyen de savoir quelles adresses sont enregistrées.
+        return _refus(
+            "Trop de tentatives de connexion. Réessayez dans un quart d'heure, "
+            "ou écrivez-nous à contact@evkha.fr.",
+            "trop_de_tentatives",
+            429,
         )
+
+    try:
+        jeton, objet = ouvrir_session(email, str(charge.get("mot_de_passe", "")))
     except AuthentificationRefuseeError as refus:
+        limitation.enregistrer(CONNEXIONS_PAR_COMPTE, par_compte)
+        limitation.enregistrer(CONNEXIONS_PAR_ADRESSE, adresse)
         return _refus(str(refus), "identifiants_invalides", 401)
+
+    limitation.oublier(CONNEXIONS_PAR_COMPTE, par_compte)
     return JsonResponse({"jeton": jeton, "expire_le": objet.expire_le.isoformat()})
 
 
@@ -315,7 +372,90 @@ def consommation(
         "mois": mois,
         "total_consomme": total_consomme,
         "total_recu": total_recu,
+        "rythme": _rythme(organisation, mois, maintenant),
     })
+
+
+def _rythme(
+    organisation: Organisation,
+    mois: list[dict[str, str | int]],
+    maintenant: Any,
+) -> dict[str, Any]:
+    """Rythme de consommation et date d'épuisement — ou le refus de les donner.
+
+    C'est la question qu'un abonné se pose vraiment : « ma formule tient-elle ? ».
+    Le journal ligne à ligne n'y répond pas, et le graphique demande de faire la
+    moyenne de tête.
+
+    **Deux pièges, et ils donnent tous les deux un chiffre faux plutôt qu'une
+    absence de chiffre** — c'est-à-dire le pire des cas (règles 1 et 2) :
+
+    1. *Diviser par douze.* Un compte ouvert il y a deux mois qui a consommé
+       6 crédits ne consomme pas 0,5 crédit par mois : il en consomme 3. La
+       moyenne ne porte donc que sur les mois réellement écoulés depuis le
+       premier mouvement.
+
+    2. *Compter le mois en cours.* Le 3 du mois, la consommation partielle
+       tirerait la moyenne vers le bas et promettrait une autonomie qui
+       n'existe pas. Le mois courant est exclu du calcul.
+
+    Quand l'historique ne permet pas de conclure, on ne conclut pas : `motif`
+    dit pourquoi, et l'interface affiche cette raison au lieu d'une date
+    inventée.
+    """
+    solde = credits.solde(organisation)
+    courant = f"{maintenant.year:04d}-{maintenant.month:02d}"
+
+    premier = (
+        credits.portefeuille_de(organisation)
+        .mouvements.order_by("created_at")
+        .values_list("created_at", flat=True)
+        .first()
+    )
+    if premier is None:
+        return _sans_rythme(solde, "aucun_mouvement")
+
+    debut_local = timezone.localtime(premier)
+    depuis = f"{debut_local.year:04d}-{debut_local.month:02d}"
+
+    # Mois révolus : après l'ouverture du compte, et avant le mois en cours.
+    revolus = [
+        ligne
+        for ligne in mois
+        if depuis <= str(ligne["mois"]) < courant
+    ]
+    if not revolus:
+        # Compte ouvert ce mois-ci : rien n'est encore mesurable. Le dire vaut
+        # mieux qu'extrapoler quelques jours sur un an.
+        return _sans_rythme(solde, "pas_assez_d_historique")
+
+    consomme = sum(int(ligne["consommes"]) for ligne in revolus)
+    mensuel = consomme / len(revolus)
+    if mensuel <= 0:
+        return _sans_rythme(solde, "aucune_consommation", mois_observes=len(revolus))
+
+    mois_restants = solde / mensuel
+    jours_restants = int(mois_restants * 30.44)  # durée moyenne d'un mois
+    return {
+        "mensuel": round(mensuel, 1),
+        "mois_observes": len(revolus),
+        "solde": solde,
+        "jours_restants": jours_restants,
+        "epuisement_le": (maintenant + timedelta(days=jours_restants)).date().isoformat(),
+        "motif": "",
+    }
+
+
+def _sans_rythme(solde: int, motif: str, *, mois_observes: int = 0) -> dict[str, Any]:
+    """Forme unique du refus : l'interface n'a qu'un seul cas à traiter."""
+    return {
+        "mensuel": 0.0,
+        "mois_observes": mois_observes,
+        "solde": solde,
+        "jours_restants": None,
+        "epuisement_le": None,
+        "motif": motif,
+    }
 
 
 #: Libellés courts, pour un axe qui doit tenir en largeur.

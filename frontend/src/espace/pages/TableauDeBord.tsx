@@ -6,6 +6,7 @@ import * as f from "../format";
 import { useMoi } from "../useMoi";
 import { Carte, Chiffre, Pastille, Squelette, Vide } from "../composants/Interface";
 import { Colonnes } from "../../viz/Graphiques";
+import { Autonomie } from "../composants/Autonomie";
 
 export function TableauDeBord() {
   const { data: moi, isPending: chargeMoi } = useMoi();
@@ -71,7 +72,12 @@ export function TableauDeBord() {
                 // Elle a demande, on le lui dit. « Contactez EVKHA pour
                 // souscrire » lui repondait de faire ce qu'elle venait de faire.
                 ? `Demandée le ${f.date(moi.souscription_en_attente.demandee_le)} — en cours de validation`
-                : "Contactez EVKHA pour souscrire"
+                : (
+                    // Renvoyer vers un humain n'a pas de sens ici : la page
+                    // Abonnement presente les formules et enregistre la
+                    // demande. C'est un SaaS, le parcours reste dans l'outil.
+                    <Link to="/espace/abonnement">Choisir une formule</Link>
+                  )
           }
         />
       </div>
@@ -82,6 +88,10 @@ export function TableauDeBord() {
 
           L'agrégation vient du serveur : la refaire ici produirait un second
           calcul qui finirait par contredire le solde affiché plus haut. */}
+      {/* Placée avant le graphique : le graphique montre le passé, celle-ci
+          dit ce qu'il implique. C'est la seconde qui appelle une décision. */}
+      {conso && <Autonomie rythme={conso.rythme} />}
+
       {aDeLHistorique && conso && (
         <Carte
           titre="Vos crédits, mois par mois"

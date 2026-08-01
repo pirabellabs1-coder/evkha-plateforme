@@ -136,6 +136,27 @@ export interface Consommation {
   mois: { mois: string; libelle: string; recus: number; consommes: number }[];
   total_recu: number;
   total_consomme: number;
+  rythme: Rythme;
+}
+
+/** Rythme de consommation — ou la raison de ne pas l'annoncer.
+ *
+ * `epuisement_le` et `jours_restants` valent `null` dès que l'historique ne
+ * permet pas de conclure ; `motif` dit alors pourquoi. L'interface doit
+ * afficher cette raison, jamais une date de repli : une date inventée se croit
+ * et décide d'un renouvellement.
+ */
+export interface Rythme {
+  mensuel: number;
+  mois_observes: number;
+  solde: number;
+  jours_restants: number | null;
+  epuisement_le: string | null;
+  motif:
+    | ""
+    | "aucun_mouvement"
+    | "pas_assez_d_historique"
+    | "aucune_consommation";
 }
 
 export type TypeMouvement =

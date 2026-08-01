@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { espaceApi } from "../api";
 import * as f from "../format";
 import { Carte, Pastille, Squelette, Vide } from "../composants/Interface";
+import { BarresClassement } from "../../viz/Graphiques";
 
 export function Livrables() {
   const [filtre, setFiltre] = useState("");
@@ -24,7 +25,41 @@ export function Livrables() {
     ? livrables.filter((l) => l.type === filtre)
     : livrables;
 
+  // Un simple décompte de la liste déjà chargée : ce n'est pas une seconde
+  // source de vérité, c'est une lecture de la première. Passer par le serveur
+  // pour compter des lignes qu'on tient en main ajouterait un aller-retour et
+  // une occasion de diverger.
+  const parType = useMemo(() => {
+    const compte = new Map<string, number>();
+    for (const livrable of livrables) {
+      compte.set(livrable.type, (compte.get(livrable.type) ?? 0) + 1);
+    }
+    return [...compte.entries()]
+      .map(([cle, valeur]) => ({ cle, libelle: f.typeLivrable(cle), valeur }))
+      .sort((a, b) => b.valeur - a.valeur);
+  }, [livrables]);
+
   return (
+    <>
+      {/* Le tableau répond à « où est mon étude ». Il ne répond pas à « que
+          produisons-nous le plus », qui est la question qu'on se pose en fin de
+          trimestre — et qui oblige sinon à compter les lignes à la main.
+
+          Sous deux types, le classement n'apprendrait rien : une barre seule
+          n'est pas une comparaison. */}
+      {parType.length > 1 && (
+        <Carte
+          titre="Ce que vous produisez"
+          note="Répartition de vos documents par type d'étude."
+        >
+          <BarresClassement
+            lignes={parType}
+            libelleValeur="Documents"
+          />
+        </Carte>
+      )}
+
+    
     <Carte
       titre={`${livrables.length} document${livrables.length > 1 ? "s" : ""}`}
       note="Téléchargeables sans limite de nombre, en Word et en PDF."
@@ -119,6 +154,7 @@ export function Livrables() {
           </table>
         </div>
       )}
-    </Carte>
+      </Carte>
+    </>
   );
 }

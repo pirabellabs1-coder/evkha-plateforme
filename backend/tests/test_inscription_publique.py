@@ -169,7 +169,7 @@ def test_le_nombre_d_inscriptions_par_heure_est_plafonne(client: Client) -> None
     """Sans plafond, un formulaire public ouvert crée mille comptes en une nuit."""
     from organisations.vues_publiques import INSCRIPTIONS_PAR_HEURE
 
-    for rang in range(INSCRIPTIONS_PAR_HEURE):
+    for rang in range(INSCRIPTIONS_PAR_HEURE.maximum):
         reponse = _inscrire(
             client,
             email=f"essai{rang}@exemple.fr",
@@ -192,7 +192,7 @@ def test_les_echecs_ne_consomment_pas_le_plafond(client: Client) -> None:
     """
     from organisations.vues_publiques import INSCRIPTIONS_PAR_HEURE
 
-    for _ in range(INSCRIPTIONS_PAR_HEURE + 3):
+    for _ in range(INSCRIPTIONS_PAR_HEURE.maximum + 3):
         assert _inscrire(client, mot_de_passe="1234").status_code == 400
 
     assert _inscrire(client).status_code == 201
