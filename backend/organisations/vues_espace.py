@@ -951,7 +951,11 @@ def pieces_jointes(
     except fichiers.FichierRefuseError as refus:
         return _refus(str(refus), "fichier_refuse", 400)
 
-    nom = fichiers.nom_sur(nom_envoye)
+    # Le format reconnu dans les octets est transmis : c'est lui qui impose
+    # l'extension de stockage. La conserver telle que le client l'a ecrite
+    # laissait deposer un `.html` — servi ensuite en `text/html` sur le domaine
+    # de l'API. Voir `fichiers.nom_sur`.
+    nom = fichiers.nom_sur(nom_envoye, format_trouve)
     piece = PieceJointe(
         organisation=organisation,
         categorie=categorie,

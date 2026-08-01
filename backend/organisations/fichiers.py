@@ -138,13 +138,52 @@ def valider_document(contenu: bytes, nom: str = "") -> TypeFichier:
     return format_trouve
 
 
-def nom_sur(nom: str) -> str:
-    """Nom de fichier débarrassé de tout ce qui pourrait sortir du dossier.
+#: Extensions qu'un fichier stocké peut porter. Liste FERMÉE, dérivée des
+#: formats acceptés — jamais saisie à la main, sinon les deux divergeraient
+#: (règle 5). Les variantes Office partagent la même signature ZIP et ne se
+#: distinguent que par l'extension : elles sont donc admises explicitement.
+EXTENSIONS_ADMISES = frozenset(
+    {format_fichier.extension for format_fichier in (*DOCUMENTS, *IMAGES)}
+    | {".xlsx", ".pptx", ".jpeg", ".xls", ".ppt"}
+)
 
-    Django assainit déjà les noms au stockage ; on ne s'en remet pas à cela
-    seul. Un nom contenant `../` ou un séparateur de chemin est réduit à sa
-    dernière composante, et la longueur est bornée.
+
+def nom_sur(nom: str, format_trouve: TypeFichier | None = None) -> str:
+    """Nom de fichier débarrassé de tout ce qui pourrait sortir du dossier —
+    **et de toute extension que nous n'avons pas choisie**.
+
+    Le nettoyage des séparateurs existait déjà. Il manquait l'essentiel :
+    l'extension du client était conservée telle quelle. Or c'est elle, et non
+    le contenu, qui décide du `Content-Type` avec lequel un serveur rend un
+    fichier.
+
+    Le scénario complet, vérifié : un fichier nommé `rapport.html` dont les
+    premiers octets sont `%PDF-` passe la reconnaissance binaire — qui ne
+    regarde que la tête — puis est stocké en `.html`, puis servi en
+    `text/html` sur le domaine qui héberge `/admin/` et `/api/dashboard/`. Le
+    reste du fichier peut être ce qu'on veut. L'inscription étant libre, il n'y
+    a aucun préalable à réunir.
+
+    La docstring de ce module affirmait « Aucun fichier n'est exécuté, rendu,
+    ni servi depuis le domaine de l'API ». C'était faux, et c'est sur cette
+    phrase que reposait l'acceptation de l'extension du client.
+
+    Le correctif ne bannit pas `.html` : énumérer les extensions dangereuses
+    est sans fin (`.svg`, `.xhtml`, `.htm`, `.xml`…). Il retient une liste
+    **fermée** de ce qui est admis, et remplace tout le reste par l'extension
+    du format reconnu dans les octets (règle 4 : la classe, pas l'exemple).
     """
     dernier = nom.replace("\\", "/").rsplit("/", 1)[-1].strip()
     propre = "".join(c for c in dernier if c.isalnum() or c in " ._-()")
-    return (propre or "fichier")[:120]
+    propre = (propre or "fichier")[:120]
+
+    if format_trouve is None:
+        return propre
+
+    base, point, extension = propre.rpartition(".")
+    if point and f".{extension.lower()}" in EXTENSIONS_ADMISES:
+        return propre
+
+    # Aucune extension, ou une extension hors de la liste fermée : c'est le
+    # format lu dans les octets qui tranche.
+    return f"{base or propre}{format_trouve.extension}"

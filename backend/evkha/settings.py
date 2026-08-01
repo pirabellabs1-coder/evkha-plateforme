@@ -334,6 +334,42 @@ EVKHA_BASE_URL = env("EVKHA_BASE_URL", default="http://localhost:8000")
 EVKHA_DASHBOARD_AUTH_DISABLED = env("EVKHA_DASHBOARD_AUTH_DISABLED")
 EVKHA_DASHBOARD_TOKEN = env("EVKHA_DASHBOARD_TOKEN", default="")
 
+# ── Cache ────────────────────────────────────────────────────────────────────
+#
+# Il n'y en avait AUCUN de declare. Django retombait donc sur LocMemCache, un
+# dictionnaire LOCAL AU PROCESSUS — et la production tourne
+# `gunicorn --workers 2`. Les plafonds de tentatives d'organisations/limitation.py
+# s'appuient entierement sur `django.core.cache` : chaque worker tenait son
+# propre compteur, si bien que le plafond annonce « 10 essais par quart d'heure »
+# en autorisait 20, et repartait de zero a chaque redeploiement.
+#
+# La protection existait dans le code, se lisait, se testait — et ne comptait
+# pas ce qu'elle pretendait compter (regle 1). Les tests ne pouvaient pas le
+# voir : ils tournent dans un seul processus (regle 7).
+#
+# Redis est deja la pour Celery. On prend une base DISTINCTE de celle du
+# courtier : melanger des cles de cache et une file de taches expose a ce qu'un
+# `clear()` du cache efface des taches en attente.
+EVKHA_CACHE_URL = env("EVKHA_CACHE_URL", default="")
+
+if EVKHA_CACHE_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": EVKHA_CACHE_URL,
+        }
+    }
+else:
+    # Developpement et tests : un cache local suffit, un seul processus tourne.
+    # En production ce repli est REFUSE par le controle `evkha.C001` — voir
+    # organisations/checks.py. Se taire ici rendrait la faille invisible.
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "evkha-local",
+        }
+    }
+
 # Nombre de relais de confiance devant l'application. Sert a lire l'adresse
 # d'origine sans qu'un appelant puisse la choisir — voir organisations/limitation.py.
 #

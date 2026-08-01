@@ -13,6 +13,8 @@ from integrations.views import (
     tally_intake_webhook,
 )
 
+from .media import servir_media
+
 
 def healthz(_request: HttpRequest) -> JsonResponse:
     return JsonResponse({"status": "ok"})
@@ -42,14 +44,27 @@ urlpatterns = [
         "api/public/",
         include("organisations.urls_publiques", namespace="public"),
     ),
-    # Sert les PDFs/HTML générés (MEDIA_ROOT) y compris en production :
-    # Brevo télécharge les pièces jointes par URL publique et les clients
-    # ouvrent leur lien de livraison. Noms de fichiers non devinables (hash),
-    # rétention 7 jours (purge_expired_artifacts). À remplacer par nginx/S3
-    # si le volume devient significatif.
+    # Sert les PDFs/HTML générés (MEDIA_ROOT) y compris en production : Brevo
+    # télécharge les pièces jointes par URL publique et les clients ouvrent
+    # leur lien de livraison — aucun des deux ne présente de session.
+    #
+    # Le commentaire précédent invoquait deux protections. AUCUNE des deux
+    # n'existait :
+    #
+    # - « noms de fichiers non devinables (hash) » : les pièces jointes
+    #   conservaient le nom d'origine du client, sous
+    #   `pieces-jointes/<id-organisation>/<nom>` ;
+    # - « rétention 7 jours (purge_expired_artifacts) » : cette tâche bascule
+    #   un statut en base et vide `download_url` — elle ne supprimait rien du
+    #   disque, et le fichier restait téléchargeable indéfiniment.
+    #
+    # `servir_media` impose au moins que le contenu soit téléchargé et non
+    # rendu (voir evkha/media.py). Le contrôle d'ACCÈS, lui, reste à faire :
+    # il demande des URL signées à durée limitée, puisque ni Brevo ni le
+    # client final ne peuvent présenter de session.
     re_path(
         r"^media/(?P<path>.*)$",
-        serve,
+        servir_media,
         {"document_root": settings.MEDIA_ROOT},
         name="media",
     ),

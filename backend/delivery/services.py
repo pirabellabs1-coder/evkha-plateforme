@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
 
@@ -690,12 +691,43 @@ def send_email_for_job(
 
 
 def purge_expired_artifacts(*, now: datetime | None = None) -> int:
+    """Supprime les documents arrivés à échéance — **du disque**, pas seulement
+    de la base.
+
+    Cette fonction ne faisait que basculer un statut et vider `download_url`.
+    Le fichier, lui, restait dans `MEDIA_ROOT`, à une adresse que
+    `django.views.static.serve` continuait de servir sans authentification :
+    l'étude de marché d'un client final restait donc téléchargeable
+    indéfiniment par quiconque avait vu passer le lien.
+
+    La rétention était pourtant invoquée comme une garantie de confidentialité,
+    en toutes lettres, dans le commentaire de la route `/media/`. Une garantie
+    écrite et non tenue est le défaut de la règle 1 : elle a dispensé de poser
+    la vraie protection.
+
+    L'échec de suppression d'un fichier n'interrompt pas la purge : un artefact
+    déjà absent du disque — nettoyage manuel, volume recréé — ne doit pas
+    laisser tous les suivants en place. Il est journalisé, et le statut bascule
+    quand même, sans quoi la purge le repasserait indéfiniment.
+    """
     now = now or timezone.now()
     expired = DocumentArtifact.objects.filter(
         status=ArtifactStatus.READY,
         expires_at__isnull=False,
         expires_at__lte=now,
     )
+
+    # On lit les cles AVANT le `update` : ensuite le filtre ne les retrouve
+    # plus, et on supprimerait zero fichier en croyant en supprimer tous.
+    cles = [cle for cle in expired.values_list("storage_key", flat=True) if cle]
     count = expired.count()
     expired.update(status=ArtifactStatus.EXPIRED, download_url="")
+
+    for cle in cles:
+        try:
+            if default_storage.exists(cle):
+                default_storage.delete(cle)
+        except Exception:  # noqa: BLE001 — un fichier recalcitrant n'arrete pas la purge
+            _log.exception("Purge : suppression impossible pour %s", cle)
+
     return count
