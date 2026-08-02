@@ -42,20 +42,35 @@ NEUTRE = RGBColor(0x20, 0x20, 0x20)
 #: Noms des styles que le moteur de rendu attend. Contrat entre le gabarit et
 #: le code : renommer un style dans Word casse le rendu, d'où le contrôle
 #: `styles_manquants()`.
-STYLE_TITRE_DOCUMENT = "EVKHA Titre document"
-STYLE_SOUS_TITRE = "EVKHA Sous-titre"
-STYLE_CHAPITRE = "EVKHA Titre chapitre"
-STYLE_SECTION = "EVKHA Titre section"
-STYLE_CORPS = "EVKHA Corps"
-STYLE_BANDEAU = "EVKHA Bandeau"
-STYLE_ENCADRE_TITRE = "EVKHA Encadré titre"
-STYLE_ENCADRE_CORPS = "EVKHA Encadré corps"
-STYLE_CHIFFRE_VALEUR = "EVKHA Chiffre valeur"
-STYLE_CHIFFRE_LIBELLE = "EVKHA Chiffre libellé"
-STYLE_TABLEAU_ENTETE = "EVKHA Tableau en-tête"
-STYLE_TABLEAU_CELLULE = "EVKHA Tableau cellule"
-STYLE_SOURCE = "EVKHA Source"
-STYLE_LEGENDE = "EVKHA Légende"
+#:
+#: **Ils s'appelaient « EVKHA Corps », « EVKHA Bandeau »…** — quatorze styles
+#: portant le nom de la plateforme, dans le fichier réellement expédié. Word
+#: affiche le nom du style courant dans la galerie du ruban et dans le volet
+#: Styles : le client final de l'abonné le lisait dès qu'il cliquait dans un
+#: paragraphe. C'est une violation de la marque blanche, qui est une contrainte
+#: produit et non une préférence.
+#:
+#: Le test de marque blanche existant ne pouvait pas l'attraper : il excluait
+#: explicitement ces noms comme « identifiants internes, jamais affichés ».
+#: Vrai du corps du document, faux de l'interface de Word — le contrôle et sa
+#: réparation regardaient au même endroit (règle 9).
+#:
+#: Le préfixe est désormais « Étude », qui décrit la nature du document et ne
+#: nomme personne.
+STYLE_TITRE_DOCUMENT = "Étude Titre document"
+STYLE_SOUS_TITRE = "Étude Sous-titre"
+STYLE_CHAPITRE = "Étude Titre chapitre"
+STYLE_SECTION = "Étude Titre section"
+STYLE_CORPS = "Étude Corps"
+STYLE_BANDEAU = "Étude Bandeau"
+STYLE_ENCADRE_TITRE = "Étude Encadré titre"
+STYLE_ENCADRE_CORPS = "Étude Encadré corps"
+STYLE_CHIFFRE_VALEUR = "Étude Chiffre valeur"
+STYLE_CHIFFRE_LIBELLE = "Étude Chiffre libellé"
+STYLE_TABLEAU_ENTETE = "Étude Tableau en-tête"
+STYLE_TABLEAU_CELLULE = "Étude Tableau cellule"
+STYLE_SOURCE = "Étude Source"
+STYLE_LEGENDE = "Étude Légende"
 
 STYLES_ATTENDUS: tuple[str, ...] = (
     STYLE_TITRE_DOCUMENT, STYLE_SOUS_TITRE, STYLE_CHAPITRE, STYLE_SECTION,

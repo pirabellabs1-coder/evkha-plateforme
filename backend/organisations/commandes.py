@@ -141,11 +141,21 @@ def variables_de_commande(
     if not variables.get("SECTEUR") and organisation.secteur:
         variables["SECTEUR"] = organisation.secteur
 
+    # `couleur_fond` et `mention_confidentialite` manquaient a cette liste.
+    # L'abonne les saisit dans « Ma Marque », le moteur de rendu les LIT
+    # (`depuis_json.rendre_etude`, `assemblage.mentions_finales`) — et ils
+    # n'arrivaient jamais jusqu'a lui. Chaque document partait donc avec la
+    # mention de confidentialite par defaut, et le fond de reference.
+    #
+    # Deux champs de formulaire sans effet, sans qu'aucun ecran ne le dise :
+    # l'abonne croit avoir personnalise ce que son client va lire.
     marque = {
         "NOM_ENTREPRISE": organisation.raison_sociale,
         "LOGO_URL": organisation.logo_url,
         "COULEUR_PRINCIPALE": organisation.couleur_principale,
         "COULEUR_SECONDAIRE": organisation.couleur_secondaire,
+        "COULEUR_FOND": organisation.couleur_fond,
+        "MENTION_CONFIDENTIALITE": organisation.mention_confidentialite,
     }
     variables.update({cle: valeur for cle, valeur in marque.items() if valeur})
 

@@ -91,6 +91,12 @@ def marque_du_job(job: GenerationJob) -> dict[str, str]:
         "logo_url": marque.logo_url,
         "couleur_principale": marque.color_primary,
         "couleur_secondaire": marque.color_secondary,
+        # Ces deux cles etaient absentes, et le rendu les lit : `rendre_etude`
+        # interroge `marque["couleur_fond"]`, `mentions_finales` interroge
+        # `marque["mention_confidentialite"]`. Les omettre ici rendait morts
+        # deux champs que l'abonne remplit dans « Ma Marque ».
+        "couleur_fond": marque.color_background,
+        "mention_confidentialite": marque.confidentiality_mention,
     }
 
 

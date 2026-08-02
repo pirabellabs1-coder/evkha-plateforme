@@ -340,6 +340,11 @@ class BrandingContext:
     color_primary: str
     color_secondary: str
     company_name: str
+    #: Fond clair et mention de confidentialite, saisis par l'abonne dans
+    #: « Ma Marque ». Ils etaient absents de ce contexte alors que le moteur de
+    #: rendu les lit : les deux champs n'avaient donc aucun effet.
+    color_background: str = ""
+    confidentiality_mention: str = ""
 
 
 def extract_branding(job: GenerationJob) -> BrandingContext:
@@ -363,6 +368,8 @@ def extract_branding(job: GenerationJob) -> BrandingContext:
         color_primary=variables.get("COULEUR_PRINCIPALE", _EVKHA_PRIMARY),
         color_secondary=variables.get("COULEUR_SECONDAIRE", _EVKHA_SECONDARY),
         company_name=variables.get("NOM_ENTREPRISE", ""),
+        color_background=variables.get("COULEUR_FOND", ""),
+        confidentiality_mention=variables.get("MENTION_CONFIDENTIALITE", ""),
     )
 
 

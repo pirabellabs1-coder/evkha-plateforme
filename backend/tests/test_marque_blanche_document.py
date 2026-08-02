@@ -11,10 +11,20 @@ document produit. Repéré en ouvrant le XML des modèles validés, pas en relis
 le code.
 
 Le test vise la classe : aucun nom de plateforme, sous aucune forme, dans ce
-que le lecteur verra. Il ne regarde pas les *noms de styles* du gabarit
-(`EVKHA Titre document`) : ce sont des identifiants internes, jamais affichés
-dans le corps du document. Les renommer est un changement de gabarit, à faire
-séparément et entièrement.
+que le lecteur verra.
+
+**Ce fichier a longtemps porté une exemption, et elle était fausse.** Il
+déclarait ne pas regarder les noms de styles du gabarit — « des identifiants
+internes, jamais affichés dans le corps du document ». Vrai du corps, faux de
+l'interface : Word affiche le nom du style courant dans la galerie du ruban et
+dans le volet Styles. Le client final de l'abonné lisait donc « EVKHA Corps »
+dès qu'il cliquait dans un paragraphe, sur les quatorze styles du gabarit.
+
+Le contrôle et sa réparation regardaient au même endroit — le corps — et
+l'exemption écrite noir sur blanc a dispensé d'aller voir ailleurs pendant tout
+ce temps (règle 9). D'où le contrôle d'ARCHIVE ajouté en fin de fichier : il
+n'exempte rien, et c'est le seul qui prouve quelque chose sur le fichier
+réellement expédié.
 """
 from __future__ import annotations
 
@@ -231,4 +241,77 @@ def test_un_document_rendu_ne_nomme_pas_la_plateforme(tmp_path: object) -> None:
     assert not trouves, (
         f"la plateforme est nommée {len(trouves)} fois dans le texte du "
         "document rendu"
+    )
+
+
+# ── Le fichier réellement expédié ────────────────────────────────────────────
+
+
+def test_aucune_partie_du_gabarit_ne_nomme_la_plateforme() -> None:
+    """Le test qui échoue sur le code d'avant, et qu'aucune exemption ne borne.
+
+    Un `.docx` est une archive : styles, propriétés, en-têtes, thème, relations.
+    Les contrôles précédents lisaient le texte rendu ; celui-ci ouvre le fichier
+    et cherche dans **toutes** ses parties. C'est ce qui distingue « ce qu'on a
+    écrit » de « ce que le lecteur reçoit » (règle 7).
+
+    Au moment où il a été écrit, il trouvait 28 occurrences dans
+    `word/styles.xml` — les 14 identifiants et les 14 noms affichés.
+    """
+    import zipfile
+
+    from generation.rendu_word.gabarit import GABARIT_DEFAUT
+
+    assert GABARIT_DEFAUT.exists(), "gabarit absent : le rendu ne peut pas tourner"
+
+    coupables: dict[str, int] = {}
+    with zipfile.ZipFile(GABARIT_DEFAUT) as archive:
+        for membre in archive.namelist():
+            contenu = archive.read(membre)
+            trouvailles = len(INTERDIT.findall(contenu.decode("utf-8", "ignore")))
+            if trouvailles:
+                coupables[membre] = trouvailles
+
+    assert not coupables, (
+        f"la plateforme est nommee dans le gabarit livre : {coupables}"
+    )
+
+
+def test_le_document_produit_porte_le_nom_de_l_abonne_et_pas_l_outil() -> None:
+    """`dc:creator` valait « python-docx », et Word l'affiche.
+
+    Ce n'est pas la même fuite que les styles, mais c'est la même classe : tout
+    ce que le lecteur peut voir du fichier doit parler de l'abonné, jamais de
+    la chaîne de fabrication.
+    """
+    import tempfile
+    import zipfile
+    from pathlib import Path
+
+    from generation.rendu_word.depuis_json import rendre_etude
+
+    etude = {
+        "titre": "Étude de marché — vente de voitures d'occasion",
+        "sous_titre": "Paris et petite couronne",
+        "marque": {"nom": "Cabinet Duval", "couleur_principale": "#123456"},
+        "chapitres": [],
+    }
+
+    with tempfile.TemporaryDirectory() as dossier:
+        produit = rendre_etude(etude, Path(dossier) / "etude.docx")
+        with zipfile.ZipFile(produit) as archive:
+            core = archive.read("docProps/core.xml").decode("utf-8")
+            parties = {
+                membre: len(
+                    INTERDIT.findall(
+                        archive.read(membre).decode("utf-8", "ignore")
+                    )
+                )
+                for membre in archive.namelist()
+            }
+
+    assert "python-docx" not in core, "l'outil de fabrication signe le document"
+    assert "Cabinet Duval" in core, "le document ne porte pas le nom de l'abonne"
+    assert not {k: v for k, v in parties.items() if v}, (
+        "la plateforme est nommee dans le document produit"
     )
