@@ -27,7 +27,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from customers.models import Customer
-from documents.models import ArtifactKind, DocumentArtifact
 from generation.models import GenerationJob, JobStatus
 
 from . import (
@@ -726,15 +725,12 @@ def livrables(
         .select_related("order", "order__offer")
         .order_by("-created_at")[:200]
     )
-    artefacts_par_job: dict[str, list[dict[str, str]]] = {}
-    for artefact in DocumentArtifact.objects.filter(
-        job__in=jobs, kind__in=[ArtifactKind.DOCX, ArtifactKind.PDF]
-    ):
-        artefacts_par_job.setdefault(str(artefact.job_id), []).append({
-            "kind": artefact.kind,
-            "statut": artefact.status,
-            "url": artefact.download_url,
-        })
+    # Le MEME predicat que la page de suivi : cette liste offrait auparavant
+    # tous les DOCX/PDF sans regarder leur statut ni celui du job, si bien
+    # qu'un document retenu par le controle qualite restait telechargeable.
+    artefacts_par_job: dict[str, list[dict[str, str]]] = {
+        str(job.id): suivi.fichiers_du_client(job) for job in jobs
+    }
 
     return JsonResponse({
         "livrables": [

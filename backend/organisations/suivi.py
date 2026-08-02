@@ -190,17 +190,48 @@ def message_client(job: GenerationJob) -> str:
     return MESSAGES.get(str(job.status), "Votre étude est en cours de traitement.")
 
 
-def en_dict(job: GenerationJob) -> dict[str, Any]:
-    """Suivi complet d'une génération, pour l'espace client."""
-    from documents.models import ArtifactKind, DocumentArtifact
+#: Seul état dans lequel un document peut être remis au client.
+#:
+#: Liste FERMÉE, et volontairement réduite à un élément : tout autre état —
+#: échec, annulation, intervention requise — signifie que le système lui-même
+#: ne garantit pas le document. On énumère ce qui est livrable, pas ce qui ne
+#: l'est pas (règle 4).
+ETATS_LIVRABLES = ("done",)
 
-    fichiers = [
+
+def fichiers_du_client(job: GenerationJob) -> list[dict[str, str]]:
+    """Documents que le client peut réellement télécharger.
+
+    **Un document retenu par le contrôle qualité restait téléchargeable.**
+    `_assembler_livrable` écrit les artefacts en `READY` avec leur URL AVANT
+    que la vérification ne tranche ; quand elle bloque, `LivrableRetenuError`
+    empêche l'envoi du courriel — et rien d'autre. L'espace client, lui,
+    listait tous les `DOCX`/`PDF` du job sans regarder ni leur statut ni celui
+    du job. Le client téléchargeait donc, d'un bouton, le document que le
+    système venait de déclarer défectueux.
+
+    C'est la règle 3 : le contrôle protégeait le courriel, pas ce que le
+    lecteur allait ouvrir. Et la règle 5 : deux vues listaient ces fichiers
+    chacune de leur côté, avec deux filtres différents — d'où ce prédicat
+    unique, que les deux appellent.
+    """
+    from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
+
+    if job.status not in ETATS_LIVRABLES:
+        return []
+
+    return [
         {"kind": artefact.kind, "statut": artefact.status, "url": artefact.download_url}
         for artefact in DocumentArtifact.objects.filter(
             job=job, kind__in=[ArtifactKind.DOCX, ArtifactKind.PDF]
         )
-        if artefact.download_url
+        if artefact.download_url and artefact.status == ArtifactStatus.READY
     ]
+
+
+def en_dict(job: GenerationJob) -> dict[str, Any]:
+    """Suivi complet d'une génération, pour l'espace client."""
+    fichiers = fichiers_du_client(job)
 
     return {
         "id": str(job.id),

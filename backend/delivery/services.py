@@ -685,6 +685,33 @@ def send_email_for_job(
                         "error_message": str(exc),
                     },
                 )
+                if isinstance(exc, LivrableRetenuError):
+                    # Le job restait DONE : l'espace client continuait donc de
+                    # presenter le document en telechargement, alors que la
+                    # verification venait de le declarer defectueux. Le controle
+                    # protegeait le courriel, pas ce que le lecteur allait
+                    # ouvrir (regle 3).
+                    #
+                    # `INTERVENTION_REQUISE` existait deja et signifie exactement
+                    # cela : produit, mais aucun envoi client possible.
+                    GenerationJob.objects.filter(pk=job.pk).update(
+                        status=JobStatus.INTERVENTION_REQUISE,
+                        error_message=str(exc)[:2000],
+                    )
+                    OperationalIncident.objects.create(
+                        title=f"Livrable retenu a la verification (job {job.id})",
+                        severity=IncidentSeverity.HIGH,
+                        job=job,
+                        order=job.order,
+                        details={
+                            "motif": str(exc),
+                            "consigne": (
+                                "Aucun e-mail client n'est parti et le document "
+                                "n'est PAS telechargeable depuis l'espace. "
+                                "Corriger la cause, puis relancer le job."
+                            ),
+                        },
+                    )
         except Exception:  # noqa: BLE001
             pass
         raise DeliveryError(str(exc)) from exc
