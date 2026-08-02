@@ -19,4 +19,17 @@ urlpatterns = [
     # Un seul point d'entree pour la connexion ET l'inscription par Google : au
     # moment du clic, personne ne sait encore si le compte existe.
     path("google/", vues.google_session, name="google"),
+    # Definir son mot de passe depuis un lien recu par courriel. Sert aux deux
+    # parcours — activer une invitation, reinitialiser un oubli — parce que
+    # c'est le meme geste.
+    path(
+        "mot-de-passe/oublie/",
+        vues.mot_de_passe_oublie,
+        name="mot-de-passe-oublie",
+    ),
+    path(
+        "mot-de-passe/definir/",
+        vues.definir_mot_de_passe,
+        name="mot-de-passe-definir",
+    ),
 ]

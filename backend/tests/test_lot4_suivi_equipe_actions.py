@@ -221,12 +221,50 @@ def test_un_proprietaire_invite_un_collaborateur(api: Client, abonne: Abonne) ->
     ).exists()
 
 
-def test_l_invitation_ne_cree_pas_de_mot_de_passe(api: Client, abonne: Abonne) -> None:
-    """Créer un compte avec un mot de passe choisi par l'invitant reviendrait à
-    ce qu'une personne connaisse le mot de passe d'une autre."""
+def test_l_invitation_ne_donne_aucun_mot_de_passe_utilisable(
+    api: Client, abonne: Abonne
+) -> None:
+    """Personne ne doit connaître le mot de passe d'un autre — intention conservée.
+
+    Ce test exigeait auparavant qu'AUCUN compte ne soit créé. C'était le moyen
+    retenu à l'époque, et il rendait l'invitation inopérante : sans compte,
+    l'invité ne pouvait ni se connecter, ni s'inscrire — `refuser_si_deja_membre`
+    lui répondait « cette adresse a déjà un compte » —, ni passer par Google.
+
+    Le compte est désormais créé, avec un mot de passe **inutilisable**. La
+    propriété qui compte est donc vérifiée directement, et elle est plus forte
+    que l'ancienne : le compte existe, et il n'ouvre rien.
+    """
+    from organisations.authentification import (
+        AuthentificationRefuseeError,
+        ouvrir_session,
+    )
+
     _inviter(api, abonne, "thomas@example.com", RoleOrganisation.MEMBRE)
     invite = Customer.objects.get(email="thomas@example.com")
-    assert not hasattr(invite, "compte")
+
+    assert hasattr(invite, "compte"), "sans compte, l'invite ne peut rien faire"
+    assert not invite.compte.user.has_usable_password()
+
+    # Contre-épreuve : aucune saisie n'ouvre la session, pas même la chaîne
+    # vide ni la valeur que Django inscrit pour un mot de passe inutilisable.
+    for tentative in ("", "!", invite.compte.user.password):
+        with pytest.raises(AuthentificationRefuseeError):
+            ouvrir_session("thomas@example.com", tentative)
+
+
+def test_l_invitation_envoie_un_lien_d_activation(
+    api: Client, abonne: Abonne
+) -> None:
+    """L'écran promettait « EVKHA lui transmettra ses identifiants ».
+
+    Personne ne transmettait rien : aucun envoi de courriel n'existait dans
+    tout `backend/organisations/`. La fonctionnalité Équipe était décorative.
+    """
+    reponse = _inviter(api, abonne, "thomas@example.com", RoleOrganisation.MEMBRE)
+
+    assert reponse.status_code == 201
+    assert charge(reponse)["invitation_envoyee"] is True
 
 
 def test_une_adresse_invalide_est_refusee(api: Client, abonne: Abonne) -> None:

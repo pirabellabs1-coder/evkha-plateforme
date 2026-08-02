@@ -99,3 +99,61 @@ export async function inscrire(saisie: Inscription): Promise<CompteOuvert> {
   }
   return charge as CompteOuvert;
 }
+
+// ── Mot de passe : oublier, définir ─────────────────────────────────────────
+
+/** Demande un lien de réinitialisation.
+ *
+ *  La réponse est **volontairement la même** que l'adresse existe ou non :
+ *  distinguer les deux transformerait ce formulaire en annuaire. L'interface
+ *  ne doit donc surtout pas essayer d'en déduire quoi que ce soit.
+ */
+export async function demanderUnLien(email: string): Promise<string> {
+  const reponse = await fetch(`${BASE}/api/public/mot-de-passe/oublie/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const charge = (await reponse.json().catch(() => ({}))) as {
+    message?: string;
+    error?: string;
+    code?: string;
+  };
+  if (!reponse.ok) {
+    throw new RefusInscription(
+      charge.error ?? `Demande impossible (${reponse.status})`,
+      charge.code ?? "",
+    );
+  }
+  return charge.message ?? "";
+}
+
+/** Pose le mot de passe depuis un lien reçu par courriel, et ouvre la session.
+ *
+ *  Sert aux deux parcours — activer une invitation, réinitialiser un oubli —
+ *  parce que c'est le même geste côté serveur.
+ */
+export async function definirLeMotDePasse(saisie: {
+  id: string;
+  jeton: string;
+  mot_de_passe: string;
+}): Promise<{ jeton: string; email: string }> {
+  const reponse = await fetch(`${BASE}/api/public/mot-de-passe/definir/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(saisie),
+  });
+  const charge = (await reponse.json().catch(() => ({}))) as {
+    jeton?: string;
+    email?: string;
+    error?: string;
+    code?: string;
+  };
+  if (!reponse.ok) {
+    throw new RefusInscription(
+      charge.error ?? `Impossible de définir le mot de passe (${reponse.status})`,
+      charge.code ?? "",
+    );
+  }
+  return { jeton: charge.jeton ?? "", email: charge.email ?? "" };
+}

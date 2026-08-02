@@ -266,3 +266,81 @@ def limitation_maximum() -> int:
     from organisations.vues_espace import CONNEXIONS_PAR_COMPTE
 
     return CONNEXIONS_PAR_COMPTE.maximum
+
+
+# ── Une panne de cache ne ferme pas la plateforme ────────────────────────────
+
+
+class _CacheEnPanne:
+    """Cache dont chaque appel échoue, comme un Redis injoignable."""
+
+    def _tombe(self, *a: Any, **k: Any) -> Any:
+        msg = "Error 10061 connecting to redis:6379."
+        raise ConnectionError(msg)
+
+    get = add = incr = set = delete = clear = _tombe
+
+
+def test_un_cache_injoignable_laisse_les_abonnes_se_connecter(
+    client: Client, compte: None, monkeypatch: Any
+) -> None:
+    """Le test qui échoue sur le code d'avant, et le défaut était le mien.
+
+    `depasse` DOCUMENTE qu'un cache indisponible répond « non » — et ne
+    l'implémentait pas : `cache.get` lève quand le serveur ne répond pas, rien
+    ne l'attrapait, et la connexion comme l'inscription renvoyaient une 500.
+
+    Une coupure de Redis fermait donc la plateforme à tout le monde, soit
+    exactement l'inverse de l'arbitrage écrit dans le module. Le défaut ne
+    pouvait pas se voir tant que le cache était un dictionnaire en mémoire : il
+    est apparu le jour où il est devenu un vrai service réseau (règle 1).
+    """
+    monkeypatch.setattr("organisations.limitation.cache", _CacheEnPanne())
+
+    reponse = _tenter(client, mot_de_passe=MOT_DE_PASSE)
+
+    assert reponse.status_code == 200, (
+        "une panne de cache empeche les abonnes de se connecter"
+    )
+
+
+def test_un_cache_injoignable_laisse_creer_un_compte(
+    client: Client, monkeypatch: Any
+) -> None:
+    """Même arbitrage sur l'inscription : le plafond protège, il ne conditionne pas."""
+    from django.core.management import call_command
+
+    call_command("seed_formules", "--forcer", verbosity=0)
+    monkeypatch.setattr("organisations.limitation.cache", _CacheEnPanne())
+
+    reponse = client.post(
+        "/api/public/inscription/",
+        data=json.dumps({
+            "raison_sociale": "Agence Rivage",
+            "email": "rivage@exemple.fr",
+            "mot_de_passe": "un-mot-de-passe-solide-42",
+            "formule": "pro",
+        }),
+        content_type="application/json",
+    )
+
+    assert reponse.status_code == 201, reponse.content
+
+
+def test_la_protection_tombe_mais_le_dit(
+    client: Client, compte: None, monkeypatch: Any, caplog: Any
+) -> None:
+    """Une protection qui se retire en SILENCE laisse croire qu'elle protège.
+
+    Le journal est le seul endroit où l'exploitation peut constater que le
+    plafond n'est plus applique — sans quoi la panne passerait inaperçue
+    jusqu'au prochain incident.
+    """
+    import logging
+
+    monkeypatch.setattr("organisations.limitation.cache", _CacheEnPanne())
+
+    with caplog.at_level(logging.WARNING, logger="organisations.limitation"):
+        _tenter(client, mot_de_passe="faux")
+
+    assert any("injoignable" in ligne.message.lower() for ligne in caplog.records)

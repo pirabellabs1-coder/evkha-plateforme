@@ -87,6 +87,25 @@ def _cache_local_pour_la_suite() -> Any:
 
 
 @pytest.fixture(autouse=True)
+def _cache_vide_entre_les_tests() -> Any:
+    """Chaque test part d'un cache propre.
+
+    Les plafonds de tentatives vivent dans le cache. Sans ce nettoyage, un test
+    qui epuise un plafond le laisse epuise pour les suivants : ils echouent
+    alors sur un etat qu'ils n'ont pas produit, et l'ordre d'execution devient
+    une variable cachee de la suite.
+
+    Deux fichiers appelaient deja `cache.clear()` chacun de leur cote — c'est
+    le signe qu'il en fallait un seul, ici (regle 5).
+    """
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
+@pytest.fixture(autouse=True)
 def _garde_administration(monkeypatch: pytest.MonkeyPatch) -> None:
     """L'administration est PROTEGEE pendant les tests, comme en production.
 

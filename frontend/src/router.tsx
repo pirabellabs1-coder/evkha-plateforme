@@ -20,6 +20,7 @@ import { isAuthenticated } from "./auth";
 import { routesEspace } from "./espace/routes";
 import { Partenaires } from "./public/Partenaires";
 import { Inscription } from "./public/Inscription";
+import { DefinirMotDePasse, MotDePasseOublie } from "./public/MotDePasse";
 
 // --- Racine ------------------------------------------------------------------
 // Le gabarit vit dans `GabaritRacine.tsx` : il appelle un crochet React, ce
@@ -55,6 +56,21 @@ const inscriptionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/inscription",
   component: Inscription,
+});
+
+// Definir son mot de passe depuis le lien recu par courriel, et le redemander
+// quand on l'a perdu. Publiques toutes les deux : la personne n'a par
+// definition pas de session — c'est meme le probleme qu'elle vient resoudre.
+const definirMotDePasseRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/definir-mot-de-passe",
+  component: DefinirMotDePasse,
+});
+
+const motDePasseOublieRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/mot-de-passe-oublie",
+  component: MotDePasseOublie,
 });
 
 // --- Connexion ---------------------------------------------------------------
@@ -148,6 +164,8 @@ const racineRedirige = createRoute({
 const routeTree = rootRoute.addChildren([
   partenairesRoute,
   inscriptionRoute,
+  definirMotDePasseRoute,
+  motDePasseOublieRoute,
   loginRoute,
   racineRedirige,
   adminRoute.addChildren([

@@ -32,9 +32,11 @@ from generation.models import GenerationJob, JobStatus
 
 from . import (
     commandes,
+    courriels,
     credits,
     fichiers,
     formulaires,
+    identifiants,
     liaison,
     limitation,
     services,
@@ -210,6 +212,62 @@ def deconnexion(request: HttpRequest) -> HttpResponse:
     """
     fermer_session(_jeton(request))
     return HttpResponse(status=204)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace()
+def changer_mot_de_passe(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Change son mot de passe et **ferme toutes les sessions**, y compris celle-ci.
+
+    Aucune route de ce genre n'existait : `set_password` n'apparaissait qu'une
+    fois dans tout le dépôt, à la création du compte. Un abonné dont le mot de
+    passe fuit ne pouvait rien faire pendant les quatorze jours de validité de
+    ses jetons.
+
+    Le mot de passe ACTUEL est exigé. Sans lui, un jeton volé — la situation
+    même dont on cherche à sortir — suffirait à changer le mot de passe et à
+    verrouiller le titulaire hors de son propre compte.
+
+    Toutes les sessions tombent, celle qui vient de faire la demande comprise :
+    c'est ce qu'on veut, puisqu'on ne sait pas laquelle est l'intruse. Un jeton
+    neuf est rendu pour que la personne ne soit pas déconnectée de l'écran où
+    elle se trouve.
+    """
+    charge = _corps(request)
+    compte = compte_du_jeton(_jeton(request))
+    if compte is None:  # pragma: no cover — le decorateur l'a deja verifie
+        return _refus("Authentification requise.", "unauthorized", 401)
+
+    if not compte.user.check_password(str(charge.get("mot_de_passe_actuel", ""))):
+        return _refus(
+            "Le mot de passe actuel est incorrect.", "mot_de_passe_actuel", 403
+        )
+
+    try:
+        fermees = identifiants.definir_mot_de_passe(
+            compte, str(charge.get("nouveau_mot_de_passe", ""))
+        )
+    except identifiants.MotDePasseRefuseError as refus:
+        return _refus(str(refus), "mot_de_passe_faible", 400)
+
+    return JsonResponse({
+        "sessions_fermees": fermees,
+        "jeton": authentification_ouvrir(compte),
+    })
+
+
+def authentification_ouvrir(compte: Any) -> str:
+    """Délivre un jeton neuf après un changement de mot de passe réussi.
+
+    Nommé à part pour que l'import paresseux reste lisible : le module
+    d'authentification importe déjà celui-ci.
+    """
+    from .authentification import ouvrir_session_sans_mot_de_passe  # noqa: PLC0415
+
+    return str(ouvrir_session_sans_mot_de_passe(compte))
 
 
 # ── Compte et organisation ───────────────────────────────────────────────────
@@ -1158,13 +1216,31 @@ def inviter(
         )
 
     nouveau = services.inviter_membre(organisation, invite, role=role)
+
+    # Le compte de connexion est cree ICI, avec un mot de passe INUTILISABLE.
+    # Il ne l'etait nulle part : l'invite se retrouvait sans compte, donc
+    # incapable de se connecter, refuse a l'inscription publique (« cette
+    # adresse a deja un compte » — faux) et refuse par Google pour la meme
+    # raison. La fonctionnalite Equipe ne fonctionnait pas du tout, alors que
+    # l'ecran promettait « EVKHA lui transmettra ses identifiants ».
+    compte = identifiants.compte_sans_mot_de_passe(invite)
+    lien = identifiants.lien_pour(compte)
+    envoye = courriels.inviter_un_collaborateur(
+        destinataire=invite.email,
+        organisation=organisation.raison_sociale,
+        lien=lien,
+    )
+
     return JsonResponse(
         {
             "id": str(nouveau.id),
             "email": invite.email,
             "role": nouveau.role,
             "actif": nouveau.actif,
-            "compte_a_creer": not hasattr(invite, "compte"),
+            "invitation_envoyee": envoye,
+            # Rendu a l'ecran QUAND l'envoi a echoue : une panne de messagerie
+            # ne doit pas laisser l'invitant sans recours. Il recopie le lien.
+            "lien_activation": "" if envoye else lien,
         },
         status=201,
     )

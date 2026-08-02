@@ -17,6 +17,13 @@ urlpatterns = [
     path("connexion/", vues.connexion, name="connexion"),
     path("deconnexion/", vues.deconnexion, name="deconnexion"),
     path("moi/", vues.moi, name="moi"),
+    # Changer son mot de passe ferme TOUTES les sessions : c'est le seul
+    # recours de quelqu'un dont le jeton a fuite.
+    path(
+        "mot-de-passe/",
+        vues.changer_mot_de_passe,
+        name="mot-de-passe",
+    ),
     path("credits/", vues.journal_credits, name="credits"),
     # Agregation mensuelle : le journal ligne a ligne ne dit pas si la formule
     # est la bonne, c'est pourtant LA question d'un abonne.

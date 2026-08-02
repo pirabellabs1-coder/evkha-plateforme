@@ -328,3 +328,21 @@
     gap: 0;
   }
 }
+
+/* Lien d'appoint sous un formulaire : « mot de passe oublié ». Discret sans
+   être invisible — c'est la sortie de secours de quelqu'un qui est bloqué. */
+.prt-appoint {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 14px;
+}
+
+.prt-appoint a {
+  color: var(--prt-encre-tenue, #6b6a65);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.prt-appoint a:hover {
+  color: var(--prt-encre, #21201c);
+}

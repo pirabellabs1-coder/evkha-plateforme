@@ -20,7 +20,14 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from . import authentification, google, inscription, limitation
+from . import (
+    authentification,
+    courriels,
+    google,
+    identifiants,
+    inscription,
+    limitation,
+)
 from .models import Formule
 
 _log = logging.getLogger(__name__)
@@ -300,3 +307,109 @@ def google_session(request: HttpRequest) -> HttpResponse:
         },
         status=201,
     )
+
+
+# ── Mot de passe : définir, oublier ──────────────────────────────────────────
+
+#: Demandes de réinitialisation tolérées depuis une même adresse, par heure.
+#:
+#: Sans plafond, ce point d'entrée devient un moyen d'inonder la boîte de
+#: quelqu'un dont on connaît l'adresse — et de faire passer nos envois pour du
+#: courrier indésirable auprès des fournisseurs de messagerie.
+REINITIALISATIONS_PAR_HEURE = limitation.Plafond(
+    "reinitialisation", maximum=5, fenetre_s=3600
+)
+
+
+@csrf_exempt
+@require_POST
+def mot_de_passe_oublie(request: HttpRequest) -> HttpResponse:
+    """Envoie un lien de réinitialisation — et répond toujours la même chose.
+
+    **La réponse ne dit jamais si l'adresse est connue.** Distinguer les deux
+    transformerait ce formulaire en annuaire : on y saisirait des adresses
+    jusqu'à trouver lesquelles ont un compte, c'est-à-dire qui travaille avec
+    la plateforme. C'est la même raison qui fait que `connexion` refuse d'un
+    seul message.
+
+    Il n'existait aucune route de ce genre : `set_password` n'apparaissait
+    qu'une fois dans tout le dépôt, à la création du compte. Quelqu'un qui
+    perdait son mot de passe était enfermé dehors définitivement.
+    """
+    try:
+        charge = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return _refus("Requête illisible.", "corps_invalide")
+    if not isinstance(charge, dict):
+        return _refus("Requête illisible.", "corps_invalide")
+
+    adresse = limitation.adresse_client(request)
+    if limitation.depasse(REINITIALISATIONS_PAR_HEURE, adresse):
+        return _refus(
+            "Trop de demandes depuis cette connexion. Réessayez dans une heure.",
+            "trop_de_tentatives",
+            429,
+        )
+    limitation.enregistrer(REINITIALISATIONS_PAR_HEURE, adresse)
+
+    email = str(charge.get("email", "")).strip().lower()
+    from .models import CompteClient  # noqa: PLC0415 — evite un cycle a l'import
+
+    compte = (
+        CompteClient.objects.select_related("user", "customer")
+        .filter(user__username__iexact=email, actif=True)
+        .first()
+    )
+    if compte is not None:
+        courriels.reinitialiser_le_mot_de_passe(
+            destinataire=compte.customer.email,
+            lien=identifiants.lien_pour(compte),
+        )
+    else:
+        # Journalisé, jamais renvoyé : l'exploitation doit pouvoir constater
+        # qu'une personne se trompe d'adresse, sans que l'appelant l'apprenne.
+        _log.info("Reinitialisation demandee pour une adresse inconnue.")
+
+    return JsonResponse({
+        "message": (
+            "Si un compte existe pour cette adresse, un lien vient d'être "
+            "envoyé. Vérifiez aussi vos indésirables."
+        )
+    })
+
+
+@csrf_exempt
+@require_POST
+def definir_mot_de_passe(request: HttpRequest) -> HttpResponse:
+    """Pose le mot de passe depuis un lien reçu par courriel.
+
+    Sert aux DEUX parcours — activer une invitation, réinitialiser un mot de
+    passe oublié — parce que c'est le même geste et que le jeton porte déjà la
+    distinction. En faire deux routes ferait diverger les contrôles.
+
+    La session est ouverte dans la foulée : renvoyer vers un écran de connexion
+    juste après avoir fait choisir un mot de passe est une friction gratuite.
+    """
+    try:
+        charge = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return _refus("Requête illisible.", "corps_invalide")
+    if not isinstance(charge, dict):
+        return _refus("Requête illisible.", "corps_invalide")
+
+    try:
+        compte = identifiants.compte_du_lien(
+            str(charge.get("id", "")), str(charge.get("jeton", ""))
+        )
+    except identifiants.LienInvalideError as refus:
+        return _refus(str(refus), "lien_invalide", 400)
+
+    try:
+        identifiants.definir_mot_de_passe(
+            compte, str(charge.get("mot_de_passe", ""))
+        )
+    except identifiants.MotDePasseRefuseError as refus:
+        return _refus(str(refus), "mot_de_passe_faible", 400)
+
+    jeton_clair = authentification.ouvrir_session_sans_mot_de_passe(compte)
+    return JsonResponse({"jeton": jeton_clair, "email": compte.customer.email})

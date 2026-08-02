@@ -34,11 +34,14 @@ ignoré purement et simplement : `REMOTE_ADDR` est alors la seule vérité.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpRequest
+
+_log = logging.getLogger(__name__)
 
 
 #: Nombre de relais de confiance placés devant l'application.
@@ -104,8 +107,23 @@ def depasse(plafond: Plafond, identifiant: str) -> bool:
     C'est l'inverse de l'arbitrage retenu pour la garde d'administration, où
     l'absence de secret REFUSE : là-bas il n'y a rien à protéger d'autre que
     l'accès lui-même, et personne n'est bloqué en dehors de l'équipe.
+
+    **Cet arbitrage était écrit ici et pas implémenté.** `cache.get` lève quand
+    le serveur ne répond pas, et rien ne l'attrapait : une coupure de Redis
+    renvoyait une erreur 500 sur la connexion ET sur l'inscription, c'est-à-dire
+    fermait la plateforme à tout le monde — exactement l'inverse de ce que ce
+    paragraphe promettait. Le défaut ne s'est vu qu'au moment où le cache est
+    devenu un vrai service réseau ; avec un dictionnaire en mémoire, il ne
+    pouvait pas se produire (règle 1).
     """
-    compte = cache.get(plafond.cle(identifiant))
+    try:
+        compte = cache.get(plafond.cle(identifiant))
+    except Exception:  # noqa: BLE001 — cache injoignable : voir l'arbitrage ci-dessus
+        _log.warning(
+            "Cache injoignable : le plafond %r n'est pas applique.", plafond.nom
+        )
+        return False
+
     if compte is None:
         return False
     try:
@@ -142,5 +160,11 @@ def oublier(plafond: Plafond, identifiant: str) -> None:
     Sans cela, quelqu'un qui se trompe plusieurs fois puis finit par entrer se
     verrait refuser la connexion suivante alors qu'il vient de prouver qu'il
     est bien le titulaire du compte.
+
+    Même arbitrage que `depasse` : un cache injoignable ne doit pas faire
+    échouer une connexion qui vient de RÉUSSIR.
     """
-    cache.delete(plafond.cle(identifiant))
+    try:
+        cache.delete(plafond.cle(identifiant))
+    except Exception:  # noqa: BLE001 — voir l'arbitrage de `depasse`
+        _log.warning("Cache injoignable : compteur %r non efface.", plafond.nom)

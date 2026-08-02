@@ -112,6 +112,12 @@ export function Connexion() {
             <button type="submit" disabled={envoi}>
               {envoi ? "Connexion en cours…" : "Se connecter"}
             </button>
+
+            {/* Il n'existait aucun moyen de retrouver son mot de passe :
+                quelqu'un qui l'oubliait etait enferme dehors definitivement. */}
+            <p className="prt-appoint">
+              <a href="/mot-de-passe-oublie">Mot de passe oublié ?</a>
+            </p>
           </form>
         </>
       }
