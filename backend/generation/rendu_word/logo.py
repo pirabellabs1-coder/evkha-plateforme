@@ -109,13 +109,11 @@ def charger_logo(url: str) -> bytes | None:
         return None
 
     try:
-        import httpx  # noqa: PLC0415
-
-        reponse = httpx.get(url, timeout=DELAI_S, follow_redirects=True)
-        reponse.raise_for_status()
-        contenu = reponse.content
+        contenu = _telecharger_hors_du_reseau_interne(url)
     except Exception as erreur:  # noqa: BLE001 — aucune cause ne justifie de perdre le livrable
         _log.warning("Logo non récupéré (%s) : %s", url[:80], erreur)
+        return None
+    if contenu is None:
         return None
 
     if len(contenu) > TAILLE_MAX_OCTETS:
@@ -127,3 +125,87 @@ def charger_logo(url: str) -> bytes | None:
         _log.warning("Logo ignoré : le contenu récupéré n'est pas une image reconnue.")
         return None
     return contenu
+
+
+#: Nombre de redirections suivies. Chacune est contrôlée avant d'être suivie.
+REDIRECTIONS_MAX = 3
+
+
+class AdresseInterneRefuseeError(ValueError):
+    """L'URL vise le réseau de la plateforme, pas Internet."""
+
+
+def _vise_le_reseau_interne(url: str) -> bool:
+    """L'hôte de cette URL résout-il vers une adresse non publique ?
+
+    On vérifie l'adresse RÉSOLUE, pas le nom écrit. Sans cela, il suffirait de
+    faire pointer un domaine public vers 127.0.0.1 pour passer : le contrôle
+    porterait sur ce que l'appelant écrit, jamais sur ce que le serveur joint
+    (règle 1).
+
+    `is_global` couvre d'un coup la boucle locale, les plages privées, le
+    lien-local — donc l'API de métadonnées de l'hébergeur en 169.254.169.254 —
+    et les adresses réservées. Énumérer les hôtes interdits (`redis`,
+    `postgres`, `localhost`…) aurait été sans fin et faux dès le prochain
+    service ajouté à la pile (règle 4).
+    """
+    import ipaddress  # noqa: PLC0415
+    import socket  # noqa: PLC0415
+    from urllib.parse import urlparse  # noqa: PLC0415
+
+    hote = urlparse(url).hostname
+    if not hote:
+        return True
+
+    try:
+        resolutions = socket.getaddrinfo(hote, None)
+    except OSError:
+        # Nom introuvable : rien à joindre, donc rien à protéger — mais on
+        # refuse quand même, faute de pouvoir juger (règle 1).
+        return True
+
+    for famille in resolutions:
+        adresse = famille[4][0]
+        try:
+            if not ipaddress.ip_address(adresse).is_global:
+                return True
+        except ValueError:
+            return True
+    return False
+
+
+def _telecharger_hors_du_reseau_interne(url: str) -> bytes | None:
+    """Récupère une URL externe, en refusant tout ce qui pointe chez nous.
+
+    `httpx.get(..., follow_redirects=True)` était appelé sans aucune
+    restriction d'hôte. Un abonné qui écrit `http://redis:6379/` dans son
+    champ « logo » faisait émettre la requête **par le worker**, à l'intérieur
+    du réseau Docker où aucun de ces ports n'est exposé publiquement. Les
+    erreurs et les temps de réponse suffisent alors à cartographier la pile.
+
+    Les redirections sont suivies à la main : une URL parfaitement publique
+    peut répondre `302 → http://postgres:5432`, et le contrôle initial n'aurait
+    rien vu passer. Chaque saut est donc contrôlé (règle 3 : ce qui refait la
+    requête après le contrôle doit être contrôlé à son tour).
+    """
+    import httpx  # noqa: PLC0415
+
+    vue = url
+    for _ in range(REDIRECTIONS_MAX + 1):
+        if _vise_le_reseau_interne(vue):
+            msg = "l'adresse vise le réseau interne de la plateforme"
+            raise AdresseInterneRefuseeError(msg)
+
+        reponse = httpx.get(vue, timeout=DELAI_S, follow_redirects=False)
+        if reponse.is_redirect:
+            suivante = reponse.headers.get("location", "")
+            if not suivante:
+                return None
+            vue = str(httpx.URL(vue).join(suivante))
+            continue
+
+        reponse.raise_for_status()
+        return bytes(reponse.content)
+
+    _log.warning("Logo ignoré : trop de redirections (%s).", url[:80])
+    return None

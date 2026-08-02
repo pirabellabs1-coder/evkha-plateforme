@@ -24,9 +24,11 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import timedelta
 from typing import Any
 
 from django.db import transaction
+from django.utils import timezone
 
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
@@ -38,6 +40,14 @@ from orders.models import Order, OrderStatus
 from . import credits, formulaires
 from .liaison import cout_en_credits
 from .models import Organisation
+
+#: Fenêtre pendant laquelle une soumission identique est traitée comme un
+#: double envoi, et non comme une nouvelle commande.
+#:
+#: Assez large pour couvrir un double-clic, un rejeu de formulaire ou une
+#: relance réseau ; assez courte pour ne jamais empêcher quelqu'un de
+#: recommander délibérément la même étude.
+FENETRE_ANTI_DOUBLON = timedelta(minutes=10)
 
 _log = logging.getLogger(__name__)
 
@@ -206,6 +216,36 @@ def creer_commande(
     possible, raison = credits.peut_commander(organisation, cout)
     if not possible:
         raise CommandeRefuseeError(raison)
+
+    # DOUBLE ENVOI. Chaque POST fabriquait un `systeme_order_id` neuf, donc une
+    # commande neuve, donc un job neuf — et le debit est idempotent par JOB.
+    # Deux clics sur « Commander », un navigateur qui rejoue la requete, un
+    # reseau qui hesite : deux etudes identiques produites, deux credits
+    # preleves. La garantie « aucun double debit » etait vraie a la lettre et
+    # sans effet ici.
+    #
+    # On ne pose pas d'unicite definitive sur le contenu : recommander la meme
+    # etude un an plus tard est legitime. Ce qu'on refuse, c'est la MEME
+    # soumission deux fois de suite (regle 4) — et l'appelant recoit le job
+    # deja cree, pas une erreur : il vient de commander, il doit voir son etude.
+    recente = (
+        Order.objects.filter(
+            organisation=organisation,
+            offer=_offre_pour(type_document),
+            created_at__gte=timezone.now() - FENETRE_ANTI_DOUBLON,
+            raw_payload__saisie=saisie,
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if recente is not None:
+        deja = GenerationJob.objects.filter(order=recente).order_by("-created_at").first()
+        if deja is not None:
+            _log.info(
+                "Commande identique renvoyee pour %s : job %s (double envoi).",
+                organisation, deja.id,
+            )
+            return deja
 
     commande = Order.objects.create(
         customer=demandeur,
