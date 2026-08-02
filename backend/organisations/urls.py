@@ -45,6 +45,13 @@ urlpatterns = [
     path("formules/", vues.formules, name="formules"),
     path("demandes/", vues.demandes, name="demandes"),
     path("livrables/<str:job_id>/", vues.suivi_livrable, name="suivi"),
+    # Renoncer a une etude en echec et recuperer son credit, sans passer
+    # par un humain — voir `abandonner_livrable`.
+    path(
+        "livrables/<str:job_id>/abandonner/",
+        vues.abandonner_livrable,
+        name="abandonner",
+    ),
     path("equipe/", vues.equipe, name="equipe"),
     path("equipe/inviter/", vues.inviter, name="equipe-inviter"),
     path(

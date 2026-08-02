@@ -28,9 +28,18 @@ from django.views.decorators.http import require_http_methods
 
 from customers.models import Customer
 from documents.models import ArtifactKind, DocumentArtifact
-from generation.models import GenerationJob
+from generation.models import GenerationJob, JobStatus
 
-from . import commandes, credits, fichiers, formulaires, limitation, services, suivi
+from . import (
+    commandes,
+    credits,
+    fichiers,
+    formulaires,
+    liaison,
+    limitation,
+    services,
+    suivi,
+)
 from .authentification import (
     AuthentificationRefuseeError,
     compte_du_jeton,
@@ -1025,6 +1034,79 @@ def suivi_livrable(
     if job is None:
         return _refus("Étude introuvable.", "introuvable", 404)
     return JsonResponse(suivi.en_dict(job))
+
+
+#: États depuis lesquels une étude peut être abandonnée par son commanditaire.
+#:
+#: Volontairement PAS `running` : une étude en cours de production consomme
+#: déjà des appels facturés, et l'abandonner en vol rendrait un crédit pour un
+#: travail réellement effectué. Volontairement pas `done` non plus : le
+#: document est livré.
+ETATS_ABANDONNABLES = ("failed", "intervention_requise")
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("commander")
+def abandonner_livrable(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    job_id: str,
+) -> HttpResponse:
+    """Renonce à une étude en échec et récupère le crédit — **sans personne**.
+
+    C'était le seul recours manquant, et il coûtait cher. Le crédit est débité
+    au lancement ; aucun chemin du produit n'écrivait jamais de remboursement.
+    Un abonné dont l'étude échouait payait donc un document qu'il ne recevrait
+    pas, et devait ouvrir une demande commerciale traitée à la main — un
+    parcours qui oblige à contacter un humain, ce que ce produit exclut.
+
+    L'abandon est un acte **explicite**, et c'est ce que `rembourser_job`
+    attendait depuis le début : rembourser sur la simple bascule en `FAILED`
+    offrirait l'étude à qui échoue puis relance, puisque la ligne de débit
+    resterait en place.
+
+    Une fois abandonnée, l'étude ne peut plus être relancée — `debiter_pour_job`
+    le refuse, dans la couche qui tient l'argent et non dans une vue.
+    """
+    job = (
+        GenerationJob.objects.filter(id=job_id, order__organisation=organisation)
+        .select_related("order")
+        .first()
+    )
+    if job is None:
+        return _refus("Étude introuvable.", "introuvable", 404)
+
+    if job.status not in ETATS_ABANDONNABLES:
+        return _refus(
+            "Cette étude ne peut pas être abandonnée : elle n'est pas en échec.",
+            "etat_incompatible",
+            409,
+        )
+
+    if liaison.credits_restitues(job):
+        # Idempotent : un double clic ne rend pas deux crédits. Le journal
+        # l'interdirait de toute façon, mais un 409 muet laisserait croire à
+        # une panne.
+        return _refus(
+            "Le crédit de cette étude vous a déjà été restitué.",
+            "deja_restitue",
+            409,
+        )
+
+    GenerationJob.objects.filter(pk=job.pk).update(status=JobStatus.CANCELLED)
+    job.refresh_from_db(fields=["status"])
+    restitue = liaison.rembourser_job(
+        job, motif="Étude abandonnée par le client après échec"
+    )
+
+    return JsonResponse({
+        "job_id": str(job.id),
+        "statut": job.status,
+        "credits_restitues": restitue,
+        "solde": credits.solde(organisation),
+    })
 
 
 # ── Équipe ───────────────────────────────────────────────────────────────────

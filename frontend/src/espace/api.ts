@@ -387,6 +387,16 @@ export const espaceApi = {
       body: JSON.stringify(corps),
     }),
   suivi: (jobId: string) => appel<Suivi>(`/livrables/${jobId}/`),
+  /** Renonce à une étude en échec et récupère son crédit.
+   *
+   *  Le crédit est débité au lancement. Sans cette route, un abonné dont
+   *  l'étude échouait payait un document qu'il ne recevrait jamais, et devait
+   *  ouvrir une demande traitée à la main. */
+  abandonnerLivrable: (jobId: string) =>
+    appel<{ job_id: string; statut: string; credits_restitues: boolean; solde: number }>(
+      `/livrables/${jobId}/abandonner/`,
+      { method: "POST", body: "{}" },
+    ),
   inviter: (corps: { email: string; role: Role; prenom?: string; nom?: string }) =>
     appel<{ id: string; email: string; role: Role; compte_a_creer: boolean }>(
       "/equipe/inviter/",

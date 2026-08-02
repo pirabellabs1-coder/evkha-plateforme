@@ -12,7 +12,7 @@
  * - le rafraîchissement ne tourne **que pendant la production**. Interroger le
  *   serveur toutes les dix secondes sur une étude terminée est du bruit.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { espaceApi, type EtapeSuivi } from "../api";
 import * as f from "../format";
@@ -52,6 +52,7 @@ function Etape({ etape }: { etape: EtapeSuivi }) {
 
 export function SuiviLivrable() {
   const { jobId } = useParams({ from: "/espace/livrables/$jobId" });
+  const client = useQueryClient();
 
   const { data, isPending } = useQuery({
     queryKey: ["espace", "suivi", jobId],
@@ -61,6 +62,15 @@ export function SuiviLivrable() {
       requete.state.data?.en_production ? 10_000 : false,
   });
 
+  const abandon = useMutation({
+    mutationFn: () => espaceApi.abandonnerLivrable(jobId),
+    onSuccess: () => {
+      // Le solde et la liste changent tous les deux : les rafraîchir ensemble
+      // évite d'afficher un crédit rendu à côté d'un solde périmé.
+      void client.invalidateQueries({ queryKey: ["espace"] });
+    },
+  });
+
   if (isPending) return <Squelette lignes={5} />;
   if (!data) return <Bandeau ton="echec">Étude introuvable.</Bandeau>;
 
@@ -68,6 +78,22 @@ export function SuiviLivrable() {
 
   return (
     <>
+      {/* Hors de la carte d'échec, et c'est délibéré : dès la restitution
+          obtenue, le serveur renvoie le statut « annulée » et le bandeau
+          d'échec disparaît. Placée à l'intérieur, la confirmation partait avec
+          lui — le client voyait « Cette étude a été annulée » et n'apprenait
+          nulle part que son crédit était revenu. Constaté en cliquant, pas en
+          relisant le code (règle 7). */}
+      {abandon.isSuccess && (
+        <Bandeau titre="Votre crédit vous a été restitué">
+          Le crédit de cette étude est de nouveau disponible
+          {typeof abandon.data?.solde === "number"
+            ? ` — vous en avez ${abandon.data.solde} au total.`
+            : "."}{" "}
+          Vous pouvez commander une nouvelle étude quand vous le souhaitez.
+        </Bandeau>
+      )}
+
       <Carte
         titre={f.typeLivrable(data.type)}
         note={`Commandée le ${f.dateHeure(data.cree_le)}`}
@@ -82,6 +108,29 @@ export function SuiviLivrable() {
         {echec ? (
           <Bandeau ton="echec" titre="Production interrompue">
             {data.message}
+            {/* Le crédit a été débité au lancement. Sans ce bouton, la seule
+                issue était d'écrire à EVKHA et d'attendre un geste manuel —
+                pour un document qui ne sera jamais livré. */}
+            <p style={{ marginTop: "var(--e-3)" }}>
+              Vous pouvez renoncer à cette étude : son crédit vous est rendu
+              immédiatement.
+            </p>
+            <button
+              type="button"
+              className="bouton bouton-contour bouton-sm"
+              style={{ marginTop: "var(--e-2)" }}
+              disabled={abandon.isPending}
+              onClick={() => abandon.mutate()}
+            >
+              {abandon.isPending
+                ? "Restitution en cours…"
+                : "Renoncer et récupérer mon crédit"}
+            </button>
+            {abandon.isError && (
+              <p className="carte-note" style={{ marginTop: "var(--e-2)" }}>
+                La restitution n'a pas abouti : {String(abandon.error)}
+              </p>
+            )}
           </Bandeau>
         ) : (
           <p style={{ margin: "0 0 var(--e-5)" }}>{data.message}</p>

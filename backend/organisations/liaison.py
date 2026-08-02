@@ -31,7 +31,12 @@ import logging
 from generation.models import GenerationJob
 
 from . import credits
-from .models import MembreOrganisation, Organisation, StatutOrganisation
+from .models import (
+    MembreOrganisation,
+    Organisation,
+    StatutOrganisation,
+    TypeMouvement,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -121,6 +126,20 @@ def debiter_pour_job(job: GenerationJob) -> tuple[bool, str]:
     if organisation is None:
         return True, "Commande sans organisation : aucun crédit débité."
 
+    # Le remboursement CLÔT l'étude. Sans ce garde-fou, la suite du code
+    # rencontrerait la ligne de débit d'origine — toujours présente — et
+    # conclurait « déjà débité, on relance sans repayer », alors que les
+    # crédits sont retournés au client : l'étude serait produite gratuitement.
+    #
+    # Le contrôle est ici, dans la couche qui tient l'argent, et non dans la
+    # vue de relance : une seconde porte d'appel apparaîtrait un jour, et elle
+    # n'y penserait pas (règle 4).
+    if credits_restitues(job):
+        return False, (
+            "Les crédits de cette étude ont été restitués : elle ne peut plus "
+            "être relancée. Passez une nouvelle commande."
+        )
+
     cout = cout_en_credits(job)
     try:
         credits.debiter(
@@ -138,12 +157,45 @@ def debiter_pour_job(job: GenerationJob) -> tuple[bool, str]:
     return True, f"{cout} crédit(s) débité(s), solde restant {credits.solde(organisation)}."
 
 
+def credits_restitues(job: GenerationJob) -> bool:
+    """Les crédits de cette étude ont-ils déjà été rendus ?
+
+    Lu dans le journal, jamais mémorisé sur le job : un second champ pourrait
+    dire l'inverse du journal, et c'est le journal qui fait foi sur le solde
+    (règle 5).
+
+    Cette question n'existait pas, et son absence ouvrait un trou de caisse.
+    `debiter_pour_job` traite une référence déjà consommée comme « autorisé,
+    pas de nouveau débit » — ce qui est juste pour une relance ordinaire. Mais
+    après un remboursement, la ligne de débit existe toujours : la relance
+    passait donc le contrôle et produisait l'étude **gratuitement**. C'est
+    exactement le risque que la docstring ci-dessous nommait, sans que rien ne
+    l'empêche.
+    """
+    organisation = organisation_du_job(job)
+    if organisation is None:
+        return False
+    return (
+        credits.portefeuille_de(organisation)
+        .mouvements.filter(
+            type=TypeMouvement.REMBOURSEMENT, reference=reference_de_debit(job)
+        )
+        .exists()
+    )
+
+
 def rembourser_job(job: GenerationJob, *, motif: str) -> bool:
     """Restitue les crédits d'une étude **définitivement** abandonnée.
 
     À n'appeler que sur un abandon explicite, jamais depuis la bascule en
     `FAILED` : un job en échec est rattrapable, et rembourser à ce moment-là
     offrirait l'étude à qui échoue puis relance.
+
+    Cette fonction existait, était testée, et **n'était appelée par aucun
+    chemin du produit** — seulement par ses propres tests. Le module `credits`
+    annonce en tête « Aucun crédit perdu sur échec » : la garantie était écrite
+    deux fois et tenue zéro fois (règles 1 et 8). Un abonné payait un crédit
+    pour un document qu'il ne recevait pas.
 
     Retourne Vrai si un remboursement a été écrit.
     """

@@ -416,7 +416,21 @@ def job_cancel(request: HttpRequest, job_id: str) -> JsonResponse:
         status=ChapterStatus.FAILED,
         error_message="Job annulé manuellement.",
     )
-    return _json({"job_id": str(job.id), "status": "cancelled"})
+
+    # L'annulation est l'abandon EXPLICITE que `rembourser_job` attendait — et
+    # que personne ne prononçait. La fonction existait, était testée, et n'était
+    # appelée par aucun chemin du produit : l'abonné payait un crédit pour un
+    # document qu'il ne recevait pas (règle 8).
+    from organisations.liaison import rembourser_job  # noqa: PLC0415
+
+    job.refresh_from_db(fields=["status"])
+    restitue = rembourser_job(job, motif="Étude annulée avant livraison")
+
+    return _json({
+        "job_id": str(job.id),
+        "status": "cancelled",
+        "credits_restitues": restitue,
+    })
 
 
 # ---------------------------------------------------------------------------
