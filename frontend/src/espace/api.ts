@@ -114,6 +114,13 @@ export interface Moi {
     devise: string;
     debut_le: string;
     derniere_periode_dotee: string;
+    /** Ce qu'il advient des crédits non consommés à l'échéance.
+     *
+     *  L'interface l'écrivait en dur (« Aucun »). Elle affirmait donc au
+     *  client ce qu'il advient de son argent sans jamais l'avoir lu, et se
+     *  serait trompée sur une formule à report plafonné. */
+    report_credits: "aucun" | "integral" | "plafonne";
+    plafond_report: number;
   } | null;
   /** Souscription demandée mais pas encore activée — le paiement n'est pas
    *  branché, EVKHA active à la main. Sans ce champ, quelqu'un qui vient de

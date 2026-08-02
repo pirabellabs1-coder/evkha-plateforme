@@ -27,8 +27,13 @@ const RAISONS: Record<Exclude<Rythme["motif"], "">, string> = {
     "Votre autonomie s'affichera dès le premier mouvement enregistré sur votre portefeuille.",
   pas_assez_d_historique:
     "Votre compte a été ouvert ce mois-ci : il faut un mois complet pour mesurer un rythme qui veuille dire quelque chose.",
+  // « Vos crédits restent disponibles sans limite de durée » : c'est ce que
+  // cette phrase disait, et c'était FAUX. `appliquer_echeance` purge le solde
+  // à chaque échéance pour toute formule sans report — et la page Crédits
+  // affirmait l'inverse deux écrans plus loin. La plateforme racontait deux
+  // choses contradictoires sur l'argent du client (règle 5).
   aucune_consommation:
-    "Aucune consommation mesurée pour l'instant. Vos crédits restent disponibles sans limite de durée pendant l'abonnement.",
+    "Aucune consommation mesurée pour l'instant. Le détail de ce qu'il advient de vos crédits à l'échéance figure sur la page Crédits.",
 };
 
 export function Autonomie({ rythme }: { rythme: Rythme }) {

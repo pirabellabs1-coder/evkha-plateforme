@@ -350,6 +350,12 @@ def moi(
             "devise": abonnement.formule.devise,
             "debut_le": abonnement.debut_le.isoformat(),
             "derniere_periode_dotee": abonnement.derniere_periode_dotee,
+            # La regle de report N'ETAIT PAS exposee, et l'interface ecrivait
+            # « Aucun » en dur : elle affirmait donc au client ce qu'il advient
+            # de ses credits sans jamais l'avoir lu. Une formule a report
+            # plafonne aurait affiche le contraire de la verite.
+            "report_credits": abonnement.formule.report_credits,
+            "plafond_report": abonnement.formule.plafond_report,
         },
         "souscription_en_attente": None if demande is None else {
             "formule": (

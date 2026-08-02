@@ -133,10 +133,17 @@ export function Credits() {
             <div>
               <div className="chiffre-libelle">Report des crédits</div>
               <div style={{ fontWeight: 600, marginTop: "var(--e-1)" }}>
-                Aucun
+                {f.reportCredits(moi.abonnement.report_credits)}
               </div>
               <div className="carte-note">
-                Les crédits non consommés expirent à l'échéance.
+                {/* Lu sur la formule, jamais écrit en dur : ce paragraphe
+                    parle de l'argent du client, et il affirmait « Aucun » quel
+                    que soit son abonnement réel. */}
+                {moi.abonnement.report_credits === "aucun"
+                  ? "Les crédits non consommés expirent à l'échéance."
+                  : moi.abonnement.report_credits === "plafonne"
+                    ? `Jusqu'à ${moi.abonnement.plafond_report} crédits non consommés sont conservés à l'échéance.`
+                    : "Vos crédits non consommés sont conservés d'un mois sur l'autre."}
               </div>
             </div>
           </div>
