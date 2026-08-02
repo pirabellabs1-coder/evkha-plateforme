@@ -228,7 +228,13 @@ def appliquer_echeance(
 
     try:
         credits.doter(
-            abonnement.organisation, formule.credits_par_echeance, periode=periode
+            abonnement.organisation,
+            formule.credits_par_echeance,
+            periode=periode,
+            # L'identifiant de l'abonnement fait partie de la cle : sans lui,
+            # une montee de gamme en cours de mois expirait le solde puis se
+            # voyait refuser la nouvelle dotation comme doublon.
+            abonnement_id=abonnement.id,
         )
     except credits.MouvementDejaEnregistreError:
         # La dotation existe déjà : on aligne le marqueur et on n'ajoute rien.

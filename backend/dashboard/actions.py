@@ -296,8 +296,12 @@ def traiter_demande(request: HttpRequest, demande_id: str) -> HttpResponse:
                 return _refus(
                     "La formule visée n'existe plus.", "formule_absente", 409
                 )
+            # `doter_immediatement=True` : sans cela, l'abonne attendait le
+            # prochain passage de la tache horaire pour voir ses credits, en
+            # ayant deja perdu les precedents. Il regardait un solde a zero sur
+            # une demande qu'on venait de lui ACCORDER.
             services.souscrire(
-                demande.organisation, demande.formule_visee, doter_immediatement=False
+                demande.organisation, demande.formule_visee, doter_immediatement=True
             )
         elif demande.type == "credits_additionnels":
             credits.crediter(

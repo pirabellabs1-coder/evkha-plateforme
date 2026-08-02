@@ -227,17 +227,51 @@ def crediter(
 
 
 @transaction.atomic
-def doter(
-    organisation: Organisation, quantite: int, *, periode: str, motif: str = ""
-) -> MouvementCredit:
-    """Dotation d'échéance d'abonnement, idempotente par période.
+def reference_de_dotation(periode: str, abonnement_id: object = None) -> str:
+    """Clé d'idempotence d'une dotation.
 
-    `periode` au format `AAAA-MM` sert de référence : une tâche périodique
-    relancée deux fois dans le même mois ne dote qu'une fois.
+    Elle valait la seule PÉRIODE, et c'était un trou de caisse à l'envers :
+    l'abonné y perdait ses crédits.
+
+    Enchaînement vérifié. Un abonné déjà doté ce mois-ci demande une montée de
+    gamme. L'équipe accorde : `souscrire` résilie l'ancien abonnement et en crée
+    un neuf, dont `derniere_periode_dotee` est vide. La tâche horaire appelle
+    alors `appliquer_echeance`, qui **expire d'abord le solde** — report AUCUN —
+    puis appelle `doter`… qui trouve la dotation du mois déjà passée par
+    l'ancien abonnement, la refuse comme doublon, et n'ajoute rien.
+
+    Résultat : solde à zéro jusqu'au 1er du mois suivant. Le client a demandé
+    PLUS, il a reçu ZÉRO — et il l'avait demandé lui-même.
+
+    Une dotation appartient à un **abonnement** ET à une période, pas à une
+    période seule : deux abonnements successifs dans le même mois sont deux
+    droits distincts. C'est cette confusion qu'on retire, pas le seul symptôme
+    (règle 4).
+
+    Sans `abonnement_id`, la clé reste la période : les dotations déjà écrites
+    gardent leur référence, et les appels historiques ne changent pas de sens.
     """
+    return f"{abonnement_id}:{periode}" if abonnement_id is not None else periode
+
+
+def doter(
+    organisation: Organisation,
+    quantite: int,
+    *,
+    periode: str,
+    motif: str = "",
+    abonnement_id: object = None,
+) -> MouvementCredit:
+    """Dotation d'échéance d'abonnement, idempotente par abonnement ET période.
+
+    Une tâche périodique relancée deux fois dans le même mois ne dote qu'une
+    fois — mais un changement de formule en cours de mois ouvre bien un
+    nouveau droit. Voir `reference_de_dotation`.
+    """
+    reference = reference_de_dotation(periode, abonnement_id)
     portefeuille = portefeuille_de(organisation)
     deja = portefeuille.mouvements.filter(
-        type=TypeMouvement.DOTATION, reference=periode
+        type=TypeMouvement.DOTATION, reference=reference
     ).first()
     if deja is not None:
         msg = f"La période {periode} a déjà été dotée pour {organisation}."
@@ -247,7 +281,7 @@ def doter(
         type_mouvement=TypeMouvement.DOTATION,
         quantite=quantite,
         motif=motif or f"Dotation de l'échéance {periode}",
-        reference=periode,
+        reference=reference,
     )
 
 
