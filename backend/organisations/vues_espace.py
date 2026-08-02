@@ -75,12 +75,34 @@ def _refus(message: str, code: str, statut: int) -> JsonResponse:
     return JsonResponse({"error": message, "code": code}, status=statut)
 
 
-def espace(action: str = "") -> Callable[..., Any]:
+#: Méthodes qui MODIFIENT quelque chose. Liste fermée, et volontairement pas
+#: son complément : un verbe exotique inconnu doit compter comme une écriture,
+#: pas passer pour une lecture (règle 1).
+METHODES_SURES = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def espace(action: str = "", *, ecriture: str = "") -> Callable[..., Any]:
     """Résout le membre et son organisation depuis le jeton, puis vérifie le droit.
 
     La vue décorée reçoit `(request, membre, organisation, ...)`. Elle n'a aucun
     moyen d'accéder à une autre organisation : c'est ce qui rend le cloisonnement
     structurel plutôt que déclaratif.
+
+    **`ecriture` existe parce que le droit était vérifié sans regarder la
+    méthode HTTP.** Quatre vues servent GET *et* POST sous un seul décorateur :
+    `marque`, `demandes`, `clients_finaux` et `pieces_jointes`. Elles ne
+    pouvaient donc déclarer qu'un seul droit — et déclaraient le plus faible,
+    c'est-à-dire aucun.
+
+    Conséquence vérifiée : un compte « Lecture seule » pouvait réécrire la
+    charte graphique de l'agence, qui part sur **chaque document livré** chez
+    les clients de l'abonné. Il pouvait aussi ouvrir une demande commerciale et
+    téléverser des fichiers.
+
+    Le défaut n'était pas quatre oublis, c'était que le décorateur ne savait
+    pas distinguer une lecture d'une écriture (règle 4). `test_droits_par_methode`
+    verrouille désormais la propriété : aucune vue de l'espace n'accepte
+    d'écriture sans droit d'écriture.
     """
 
     def decorateur(vue: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
@@ -99,12 +121,18 @@ def espace(action: str = "") -> Callable[..., Any]:
                 return _refus(
                     "Aucune organisation active pour ce compte.", "sans_organisation", 403
                 )
-            if action and not services.peut(membre, action):
+
+            exige = action
+            if request.method not in METHODES_SURES and ecriture:
+                exige = ecriture
+            if exige and not services.peut(membre, exige):
                 return _refus(
-                    f"Votre rôle ne permet pas l'action « {action} ».", "interdit", 403
+                    f"Votre rôle ne permet pas l'action « {exige} ».", "interdit", 403
                 )
             return vue(request, membre, membre.organisation, *args, **kwargs)
 
+        enveloppe.action_lecture = action  # type: ignore[attr-defined]
+        enveloppe.action_ecriture = ecriture  # type: ignore[attr-defined]
         return enveloppe
 
     return decorateur
@@ -586,7 +614,7 @@ def _client_final_en_dict(client: ClientFinal) -> dict[str, Any]:
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
-@espace()
+@espace("consulter_livrables", ecriture="gerer_clients_finaux")
 def clients_finaux(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -600,9 +628,6 @@ def clients_finaux(
                 _client_final_en_dict(c) for c in requete.order_by("raison_sociale")
             ]
         })
-
-    if not services.peut(membre, "gerer_clients_finaux"):
-        return _refus("Votre rôle ne permet pas cette action.", "interdit", 403)
 
     charge = _corps(request)
     raison_sociale = str(charge.get("raison_sociale", "")).strip()
@@ -674,16 +699,13 @@ def _marque_en_dict(organisation: Organisation) -> dict[str, Any]:
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
-@espace()
+@espace("consulter_livrables", ecriture="gerer_marque")
 def marque(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
     """Profil et charte de l'abonné (§9.2, adapté à un abonné unique)."""
     if request.method == "GET":
         return JsonResponse(_marque_en_dict(organisation))
-
-    if not services.peut(membre, "gerer_clients_finaux"):
-        return _refus("Votre rôle ne permet pas cette action.", "interdit", 403)
 
     charge = _corps(request)
     inconnus = sorted(set(charge) - set(CHAMPS_MARQUE))
@@ -811,7 +833,7 @@ def _demande_en_dict(demande: DemandeCommerciale) -> dict[str, Any]:
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
-@espace()
+@espace("gerer_abonnement", ecriture="gerer_abonnement")
 def demandes(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -829,11 +851,6 @@ def demandes(
                 for d in organisation.demandes.select_related("formule_visee")[:50]
             ]
         })
-
-    if not services.peut(membre, "gerer_abonnement"):
-        return _refus(
-            "Seul un propriétaire peut engager l'organisation.", "interdit", 403
-        )
 
     charge = _corps(request)
     type_demande = str(charge.get("type", ""))
@@ -979,7 +996,7 @@ def _piece_en_dict(piece: PieceJointe) -> dict[str, Any]:
 
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
-@espace()
+@espace("consulter_livrables", ecriture="commander")
 def pieces_jointes(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -994,9 +1011,6 @@ def pieces_jointes(
         if categorie:
             requete = requete.filter(categorie=categorie)
         return JsonResponse({"pieces": [_piece_en_dict(p) for p in requete[:100]]})
-
-    if not services.peut(membre, "gerer_clients_finaux"):
-        return _refus("Votre rôle ne permet pas cette action.", "interdit", 403)
 
     envoye = request.FILES.get("fichier")
     if envoye is None:

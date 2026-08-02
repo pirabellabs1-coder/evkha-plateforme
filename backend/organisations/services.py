@@ -29,9 +29,13 @@ DROITS: dict[str, frozenset[str]] = {
     RoleOrganisation.PROPRIETAIRE: frozenset({
         "commander", "consulter_livrables", "gerer_clients_finaux",
         "gerer_membres", "gerer_abonnement", "consulter_factures",
+        "gerer_marque",
     }),
     RoleOrganisation.MEMBRE: frozenset({
         "commander", "consulter_livrables", "gerer_clients_finaux",
+        # La charte part sur CHAQUE document livre chez les clients de
+        # l'abonne : un membre peut la regler, un compte en lecture seule non.
+        "gerer_marque",
     }),
     RoleOrganisation.LECTURE: frozenset({"consulter_livrables"}),
 }
