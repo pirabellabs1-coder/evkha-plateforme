@@ -8,7 +8,7 @@
  * compte vingt-quatre questions, dont plusieurs demandent de la réflexion. Les
  * poser d'un bloc fait fermer l'onglet.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -19,6 +19,12 @@ import {
 } from "../api";
 import * as f from "../format";
 import { peut, useMoi } from "../useMoi";
+import {
+  dateDuBrouillon,
+  enregistrerBrouillon,
+  lireBrouillon,
+  oublierBrouillon,
+} from "../brouillon";
 import { Bandeau, Carte, Squelette, Vide } from "../composants/Interface";
 import {
   ListeFichiers,
@@ -90,6 +96,31 @@ export function Commander() {
 
   const peutCommander = peut(moi, "commander");
 
+  // Une saisie en cours vaut 24 réponses de texte long : elle doit survivre à
+  // un rechargement, à un clic dans la barre latérale, à un onglet fermé.
+  const saisieEnCours = Object.values(reponses).some((v) => v.trim());
+  const brouillonRestaure = useMemo(
+    () => (choisi ? dateDuBrouillon(choisi) : null),
+    // Ne dépend QUE du type choisi : rafraîchir la date à chaque frappe
+    // ferait annoncer « saisie d'il y a une seconde » pendant qu'on écrit.
+    [choisi],
+  );
+
+  useEffect(() => {
+    if (choisi) enregistrerBrouillon(choisi, reponses);
+  }, [choisi, reponses]);
+
+  // Le navigateur ne laisse pas personnaliser ce message, et c'est très bien :
+  // ce qui compte est qu'il y en ait un.
+  useEffect(() => {
+    if (!saisieEnCours) return undefined;
+    const avertir = (evenement: BeforeUnloadEvent) => {
+      evenement.preventDefault();
+    };
+    window.addEventListener("beforeunload", avertir);
+    return () => window.removeEventListener("beforeunload", avertir);
+  }, [saisieEnCours]);
+
   const { data: catalogue, isPending } = useQuery({
     queryKey: ["espace", "catalogue"],
     queryFn: espaceApi.catalogue,
@@ -128,6 +159,9 @@ export function Commander() {
   const envoi = useMutation({
     mutationFn: () => espaceApi.commander(choisi!, reponses),
     onSuccess: () => {
+      // La saisie est partie : la garder en brouillon la ferait « restaurer »
+      // à la prochaine commande, et quelqu'un l'enverrait une seconde fois.
+      if (choisi) oublierBrouillon(choisi);
       void cache.invalidateQueries({ queryKey: ["espace"] });
       void naviguer({ to: "/espace/livrables" });
     },
@@ -198,8 +232,13 @@ export function Commander() {
                   className="carte-document"
                   disabled={indisponible}
                   onClick={() => {
-                    setChoisi(doc.type);
-                    setReponses({});
+                    // `setReponses({})` s'exécutait même en re-sélectionnant
+                    // le document DÉJÀ choisi : aller lire la description d'un
+                    // autre type puis revenir effaçait 24 réponses en un clic.
+                    if (doc.type !== choisi) {
+                      setChoisi(doc.type);
+                      setReponses(lireBrouillon(doc.type));
+                    }
                     setErreur("");
                     setManquants([]);
                   }}
@@ -245,6 +284,31 @@ export function Commander() {
         {/* La note d'introduction vient du serveur : c'est celle des
             questionnaires Tally, mot pour mot. */}
         <p className="questionnaire-note">{questionnaire.note}</p>
+
+        {/* Restaurer en silence ferait envoyer une saisie qu'on croit neuve.
+            On le dit, avec sa date, et on laisse la main. */}
+        {brouillonRestaure && saisieEnCours && (
+          <p className="questionnaire-note" role="status">
+            <strong>Brouillon repris</strong> — saisie du{" "}
+            {brouillonRestaure.toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "long",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            .{" "}
+            <button
+              type="button"
+              className="bouton bouton-discret bouton-sm"
+              onClick={() => {
+                setReponses({});
+                if (choisi) oublierBrouillon(choisi);
+              }}
+            >
+              Repartir d'une page blanche
+            </button>
+          </p>
+        )}
       </Carte>
 
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
