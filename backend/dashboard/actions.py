@@ -33,6 +33,7 @@ import json
 import logging
 from typing import Any
 
+from django.db import transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -44,6 +45,7 @@ from organisations.models import (
     Formule,
     Organisation,
     StatutDemande,
+    TypeDemande,
     TypeMouvement,
 )
 
@@ -260,6 +262,7 @@ def basculer_statut(request: HttpRequest, organisation_id: str) -> HttpResponse:
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@transaction.atomic
 def traiter_demande(request: HttpRequest, demande_id: str) -> HttpResponse:
     """Accorde ou refuse une demande venue d'un espace client (§10.2).
 
@@ -310,6 +313,25 @@ def traiter_demande(request: HttpRequest, demande_id: str) -> HttpResponse:
                 motif=f"Achat de crédits accordé — demande du {demande.created_at:%d/%m/%Y}",
                 type_mouvement=TypeMouvement.ACHAT,
                 auteur=auteur,
+            )
+        elif demande.type == TypeDemande.RESILIATION:
+            # Cette branche N'EXISTAIT PAS, et il n'y avait pas non plus de
+            # `else`. Accorder une resiliation la marquait donc « Traitee »
+            # pendant que l'abonnement restait ACTIF : dote chaque mois, et
+            # compte dans le revenu recurrent.
+            services.resilier(
+                demande.organisation,
+                motif=f"Résiliation accordée par {auteur}",
+            )
+        else:
+            # Tout type non gere REFUSE, au lieu d'etre marque « Traite » par
+            # le simple fait de traverser la suite de `elif`. Le prochain type
+            # ajoute a `TypeDemande` ne pourra plus passer en silence (regle 4).
+            return _refus(
+                f"Ce type de demande ne sait pas être accordé : {demande.type!r}. "
+                "Rien n'a été modifié.",
+                "type_non_gere",
+                409,
             )
         demande.statut = StatutDemande.TRAITEE
     else:

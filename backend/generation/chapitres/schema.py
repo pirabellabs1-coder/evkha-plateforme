@@ -329,6 +329,49 @@ def compter_mots(texte: str) -> int:
     return len([mot for mot in re.split(r"\s+", texte.strip()) if mot])
 
 
+def raccourcir_le_resume(payload: ChapitrePayload, *, maximum: int) -> str:
+    """Ramène un résumé trop long dans sa borne. Retourne la mention, ou "".
+
+    **Pourquoi réparer plutôt que refuser.** Le motif de rejet disait lui-même
+    à quoi sert cette borne : « il est relu par tous les chapitres suivants :
+    trop court il perd des chiffres, trop long il sature leur contexte ».
+    Raccourcir atteint exactement ce but. Rejeter le chapitre ne l'atteint pas
+    — il le détruit, et avec lui l'étude entière, puisque le runner de
+    production ne réessaie pas.
+
+    Mesuré : la seconde génération réelle est morte au chapitre 5 sur un résumé
+    de **254 mots pour 250 attendus**. Quatre mots. Quatre chapitres écrits et
+    payés, perdus.
+
+    Ce qui n'est PAS réparé : un résumé trop COURT. On ne peut pas inventer le
+    contenu manquant, et prétendre le contraire serait la règle 1 à l'envers —
+    une réparation qui ne répare rien mais fait taire le contrôle.
+
+    La coupe se fait sur une frontière de phrase quand il en existe une dans la
+    borne : couper au mot près rendrait un résumé qui s'interrompt au milieu
+    d'une idée, et ce résumé est LU par les chapitres suivants.
+    """
+    mots = payload.resume.split()
+    if len(mots) <= maximum:
+        return ""
+
+    tronque = " ".join(mots[:maximum])
+    derniere_phrase = max(
+        tronque.rfind(". "), tronque.rfind(" ! "), tronque.rfind(" ? ")
+    )
+    # On ne coupe a la phrase que si cela ne sacrifie pas la moitie du resume :
+    # un resume ampute de trop perdrait les chiffres qu'il doit transmettre.
+    if derniere_phrase > len(tronque) // 2:
+        tronque = tronque[: derniere_phrase + 1]
+
+    ancien_compte = len(mots)
+    payload.resume = tronque.rstrip()
+    return (
+        f"résumé raccourci de {ancien_compte} à "
+        f"{len(payload.resume.split())} mots (maximum {maximum})"
+    )
+
+
 def valider_chapitre(
     payload: ChapitrePayload,
     *,

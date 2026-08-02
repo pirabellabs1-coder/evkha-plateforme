@@ -287,6 +287,37 @@ def suspendre(organisation: Organisation, *, motif: str = "") -> Organisation:
 
 
 @transaction.atomic
+def resilier(organisation: Organisation, *, motif: str = "") -> int:
+    """Met fin à l'abonnement actif. Retourne le nombre d'abonnements résiliés.
+
+    Cette fonction n'existait pas, et son absence n'était pas visible : la
+    résiliation ne se faisait nulle part, alors que `TypeDemande.RESILIATION`
+    existe, que l'espace client permet de la demander et que l'administration
+    permet de l'« accorder ». Accorder marquait la demande « Traitée » et
+    laissait l'abonnement ACTIF — donc doté chaque mois et compté dans le
+    revenu récurrent.
+
+    Un statut qui affirme une action non faite est pire que pas de statut : il
+    empêche de s'apercevoir qu'il reste quelque chose à faire (règle 1).
+
+    Les crédits déjà au portefeuille ne sont PAS repris : ils ont été dotés au
+    titre d'une échéance payée. C'est l'échéance suivante qui n'aura pas lieu.
+    """
+    resilies = AbonnementOrganisation.objects.filter(
+        organisation=organisation, statut=StatutAbonnement.ACTIF
+    ).update(
+        statut=StatutAbonnement.RESILIE,
+        fin_le=timezone.now(),
+        updated_at=timezone.now(),
+    )
+    _log.info(
+        "Organisation %s : %s abonnement(s) resilie(s). %s",
+        organisation, resilies, motif,
+    )
+    return int(resilies)
+
+
+@transaction.atomic
 def reactiver(organisation: Organisation) -> Organisation:
     organisation.statut = StatutOrganisation.ACTIVE
     organisation.save(update_fields=["statut", "updated_at"])

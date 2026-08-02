@@ -18,7 +18,7 @@ from ..models import ChapterGeneration, GenerationJob
 from ..socle.schema import Socle
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
-from .schema import ChapitrePayload, valider_chapitre
+from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
 
 _log = logging.getLogger(__name__)
 
@@ -238,13 +238,13 @@ def payload_vers_markdown(payload: ChapitrePayload) -> str:
     Sert de pont : le lot 3 remplacera ce rendu par un gabarit Word, mais tant
     qu'il n'est pas là, le document doit rester assemblable.
     """
-    from .schema import (  # noqa: PLC0415 — importés seulement pour le pont
+    from .schema import (
         BlocEncadre,
         BlocGraphique,
         BlocGrilleKpi,
         BlocParagraphe,
         BlocSousTitre,
-        BlocTableau,
+        BlocTableau,  # noqa: PLC0415 — importés seulement pour le pont
     )
 
     morceaux: list[str] = []
@@ -336,6 +336,17 @@ def generer_chapitre(
             for item in erreur.errors()[:12]
         ]
         raise ChapitreInvalideError(motifs) from erreur
+
+    # Reparer AVANT de juger : un resume trop long est ramene dans sa borne,
+    # ce qui atteint exactement le but que la borne poursuit. Le refuser
+    # detruirait le chapitre — et l'etude, puisque ce runner ne reessaie pas.
+    mention_resume = raccourcir_le_resume(
+        payload, maximum=document.resume_mots_max
+    )
+    if mention_resume:
+        _log.warning(
+            "Chapitre %s : %s", chapter.chapter_number, mention_resume
+        )
 
     motifs = valider_chapitre(
         payload,
