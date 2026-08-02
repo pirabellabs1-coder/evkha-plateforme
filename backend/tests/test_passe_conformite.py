@@ -389,22 +389,50 @@ def test_un_ecart_redhibitoire_refuse_meme_sans_reprise(
     assert arbitrage.bloque
 
 
-def test_le_runner_synchrone_annonce_qu_il_ne_reessaiera_pas() -> None:
-    """La propriété structurelle, pas seulement le comportement de la fonction.
+def test_le_runner_declare_la_verite_sur_ses_reprises() -> None:
+    """L'appelant doit dire à l'arbitrage s'il réessaiera — et dire VRAI.
 
-    Vérifier `_arbitrer_conformite` isolément est exactement ce qui a laissé
-    passer le défaut : l'arbitrage était juste, et l'appelant ne lui disait pas
-    la vérité (règle 7).
+    Ce test exigeait d'abord `derniere_tentative=True` en dur, parce que le
+    runner n'avait aucune reprise. Il en a une désormais : la valeur doit donc
+    être CALCULÉE, vraie sur la dernière tentative et fausse avant.
+
+    Figer `True` redeviendrait un mensonge — les écarts de forme seraient
+    acceptés dès le premier essai, alors qu'une reprise pourrait produire un
+    meilleur chapitre. Figer `False` recréerait le défaut du run nº1 : l'étage
+    « accepter puis consigner » ne serait jamais atteint.
     """
     import inspect
 
     from generation import runner
 
-    source = inspect.getsource(runner)
-    debut = source.index("produire_chapitre(")
-    appel = source[debut : source.index(")", debut + 400)]
+    source = inspect.getsource(runner._produire_avec_reprises)
 
-    assert "derniere_tentative=True" in appel, (
-        "le runner synchrone ne reessaie pas, mais ne le dit pas a l'arbitrage : "
-        "tout ecart de forme redevient fatal au premier essai"
+    assert "derniere_tentative=(tentative == document.tentatives_max)" in source, (
+        "le runner ne calcule pas sa derniere tentative : l'arbitrage sera "
+        "renseigne a tort, dans un sens ou dans l'autre"
+    )
+
+
+def test_le_runner_reessaie_reellement() -> None:
+    """La propriété qui a coûté trois générations réelles.
+
+    Ce runner appelait `produire_chapitre` UNE fois et laissait l'exception
+    remonter. Une réponse de modèle incomplète — l'incident transitoire par
+    excellence — a ainsi détruit dix-neuf chapitres écrits et 1,21 € au
+    chapitre 20.
+
+    La boucle de reprise existait pourtant, complète et testée, dans la tâche
+    Celery par chapitre : elle n'était appelée par rien (règle 8).
+    """
+    import inspect
+
+    from generation import runner
+
+    source = inspect.getsource(runner._produire_avec_reprises)
+
+    assert "for tentative in range(1, document.tentatives_max + 1)" in source, (
+        "aucune boucle de reprise : le moindre alea detruit l'etude entiere"
+    )
+    assert "ERREURS_SANS_REPRISE" in source, (
+        "rejouer un budget depasse ne ferait que depenser plus pour le meme refus"
     )

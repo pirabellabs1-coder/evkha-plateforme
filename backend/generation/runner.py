@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import re
+from typing import Any
 
 from django.utils import timezone
 
@@ -11,7 +13,7 @@ from monitoring.models import IncidentSeverity, OperationalIncident
 from organisations.liaison import debiter_pour_job
 
 from .blueprints import chapters_for_deliverable, get_blueprint
-from .chapitres.configuration import est_declare
+from .chapitres.configuration import est_declare, type_document
 from .chapitres.services import produire_chapitre
 from .checks_blocs import (
     BLOCS_PAR_IDENTIFIANT,
@@ -151,6 +153,8 @@ def _resolve_tokens(content: str, job: GenerationJob) -> str:
     return resolved
 
 
+_log = logging.getLogger(__name__)
+
 class GenerationRunError(RuntimeError):
     """Echec irrecuperable d'un cycle de generation (au moins un chapitre KO)."""
 
@@ -269,6 +273,88 @@ def _var(v: dict[str, object], k: str) -> str:
     if isinstance(raw, list):
         return ", ".join(str(x).strip() for x in raw if str(x).strip())
     return str(raw).strip()
+
+
+#: Motifs qui ne valent pas la peine d'etre rejoues.
+#:
+#: Rejouer un budget depasse ou une annulation ne ferait que depenser
+#: davantage pour le meme refus. Liste FERMEE de ce qu'on ne rejoue pas — on
+#: rejoue tout le reste, y compris les erreurs qu'on n'a pas prevues, parce que
+#: c'est precisement celles-la qui coutent le plus cher (regle 4).
+ERREURS_SANS_REPRISE = (CostBudgetExceededError, CheckInitialBlockedError)
+
+
+def _produire_avec_reprises(
+    job: GenerationJob, chapter: Any, *, client: Any, socle: Any
+) -> None:
+    """Produit un chapitre, en REESSAYANT — ce que ce runner ne faisait pas.
+
+    ## Pourquoi cette fonction existe
+
+    Trois generations reelles, trois morts, une seule cause structurelle.
+
+    Ce runner appelait `produire_chapitre` UNE fois et laissait l'exception
+    remonter. Or il est le chemin de production : la tache Celery par chapitre,
+    qui porte une boucle de reprise complete avec temporisation exponentielle,
+    n'est employee par rien.
+
+    - Run nº1 : mort au chapitre 1 sur un ecart de volume de 20 %.
+    - Run nº2 : mort au chapitre 5 sur un resume de 254 mots pour 250.
+    - Run nº3 : mort au chapitre 20 sur `blocs : Field required` — une reponse
+      de modele incomplete, c'est-a-dire l'incident TRANSITOIRE par excellence.
+      Dix-neuf chapitres ecrits, 1,21 EUR, perdus.
+
+    J'ai corrige les deux premiers en rendant les regles concernees tolerantes.
+    C'etait traiter deux instances d'un defaut dont la classe est ici : un
+    chemin sans reprise transforme le moindre alea en perte totale (regle 4).
+
+    ## Ce que la reprise coute, et ce qu'elle evite
+
+    Une tentative supplementaire coute un appel — de l'ordre de six centimes.
+    L'absence de reprise a coute 1,21 EUR et vingt minutes, trois fois. Le
+    plafond vient de `tentatives_max` (3), la meme valeur que la tache Celery
+    utilise deja : une seule source pour cette verite (regle 5).
+
+    ## Pourquoi la derniere tentative se declare
+
+    L'arbitrage de conformite accepte les ecarts de forme sur la DERNIERE
+    tentative seulement. Il ne peut pas le deviner : `retry_count` n'est
+    incremente que par le chemin d'echec, et le deduire ici recreerait le
+    defaut du run nº1. On le lui dit.
+    """
+    document = type_document(str(job.deliverable_type))
+    derniere_erreur: Exception | None = None
+
+    for tentative in range(1, document.tentatives_max + 1):
+        try:
+            produire_chapitre(
+                job, chapter.chapter_number, client=client, socle=socle,
+                derniere_tentative=(tentative == document.tentatives_max),
+            )
+            if tentative > 1:
+                _log.warning(
+                    "Job %s chapitre %s : reussi a la tentative %s.",
+                    job.id, chapter.chapter_number, tentative,
+                )
+            return
+        except ERREURS_SANS_REPRISE:
+            # Rejouer ne changerait rien : le budget reste depasse, le CHECK
+            # INITIAL reste bloquant. On laisse remonter tel quel.
+            raise
+        except Exception as erreur:  # noqa: BLE001 — on rejoue tout le reste
+            derniere_erreur = erreur
+            if tentative < document.tentatives_max:
+                _log.warning(
+                    "Job %s chapitre %s : tentative %s/%s echouee (%s). On rejoue.",
+                    job.id, chapter.chapter_number, tentative,
+                    document.tentatives_max, erreur,
+                )
+
+    # Toutes les tentatives ont echoue : l'appelant ouvre l'incident et arrete
+    # l'etude, comme avant. La difference est qu'on y arrive apres avoir
+    # reellement essaye.
+    assert derniere_erreur is not None
+    raise derniere_erreur
 
 
 def run_generation_job(
@@ -409,15 +495,8 @@ def run_generation_job(
                 # (règle 5), et la réparation n'atteindrait pas le document
                 # réellement livré (règle 3). La vérification du lot 4, elle,
                 # porte sur le `.docx` produit.
-                produire_chapitre(
-                    job, chapter.chapter_number, client=client,
-                    socle=socle_du_run,
-                    # Ce runner ne REESSAIE PAS : toute exception remonte et
-                    # tue l'etude. Chaque tentative y est donc la derniere, et
-                    # le dire est la seule facon pour l'arbitrage de conformite
-                    # d'accepter un ecart de forme plutot que de perdre une
-                    # etude sur un ecart de dosage.
-                    derniere_tentative=True,
+                _produire_avec_reprises(
+                    job, chapter, client=client, socle=socle_du_run
                 )
             else:
                 _generate_chapter(
