@@ -189,11 +189,13 @@ def test_media_impose_le_telechargement(client: Any, dans_media: Any) -> None:
     imposée, et la génération y écrit par d'autres chemins que le téléversement
     client. Corriger la seule porte d'entrée laisserait ceux-là exécutables.
     """
+    from evkha import signatures
+
     nom = dans_media(
         "test-ancien.html", b"<script>alert(document.cookie)</script>"
     )
 
-    reponse = client.get(f"/media/{nom}")
+    reponse = client.get(signatures.lien(nom))
 
     assert reponse.status_code == 200
     assert reponse.headers["Content-Disposition"] == "attachment", (
@@ -209,9 +211,11 @@ def test_media_sert_toujours_le_contenu(client: Any, dans_media: Any) -> None:
     Brevo récupère les pièces jointes par URL depuis Internet ; si cette route
     cessait de servir, plus aucun document ne partirait.
     """
+    from evkha import signatures
+
     nom = dans_media("test-etude.pdf", PDF)
 
-    reponse = client.get(f"/media/{nom}")
+    reponse = client.get(signatures.lien(nom))
     assert reponse.status_code == 200
     contenu = b"".join(reponse.streaming_content) if reponse.streaming else reponse.content
     reponse.close()

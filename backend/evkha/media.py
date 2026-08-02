@@ -20,20 +20,32 @@ extensions dangereuses une par une :
 - `X-Content-Type-Options: nosniff` — le navigateur ne « devine » pas un type
   plus permissif que celui annoncé, ce qu'il fait volontiers sinon.
 
-Ce que cette couche ne fait PAS, et qu'il faut savoir en la lisant : elle ne
-contrôle **aucun droit d'accès**. Qui détient l'URL télécharge. Les liens de
-livraison sont récupérés par Brevo depuis Internet, sans session — les protéger
-demande des URL signées à durée limitée, pas une authentification de session.
-C'est un chantier distinct, et il reste ouvert.
+**Le contrôle d'accès est désormais là.** Chaque lien porte une signature
+horodatée liée au chemin (`evkha/signatures.py`). Un nom de fichier deviné ne
+suffit plus, et un lien ne vaut plus éternellement.
+
+Il ne s'agit pas d'une authentification, et c'est délibéré : ni Brevo, qui
+récupère les pièces jointes depuis Internet, ni le client final de l'abonné,
+qui n'a pas de compte chez nous, ne peuvent présenter de session. Un lien
+transmis reste donc utilisable jusqu'à son expiration — ce qui disparaît, c'est
+l'énumération et la validité sans fin.
 """
 from __future__ import annotations
 
-from django.http import HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from django.views.static import serve as servir_statique
+
+from . import signatures
 
 
 def servir_media(request: HttpRequest, path: str, **kwargs: object) -> HttpResponse:
-    """Sert un fichier de `MEDIA_ROOT` en imposant qu'il soit téléchargé."""
+    """Sert un fichier de `MEDIA_ROOT`, signature vérifiée, en téléchargement."""
+    if not signatures.signature_valable(path, request.GET.get(signatures.PARAMETRE, "")):
+        # Réponse volontairement identique à celle d'un fichier absent : dire
+        # « signature invalide » confirmerait au passage que le fichier existe,
+        # et transformerait cette route en oracle d'énumération.
+        raise Http404
+
     reponse = servir_statique(request, path, **kwargs)  # type: ignore[arg-type]
 
     # `filename` n'est volontairement pas renseigne : le nom stocke suffit, et

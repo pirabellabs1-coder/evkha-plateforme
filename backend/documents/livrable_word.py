@@ -55,9 +55,17 @@ class LivrableAssemble:
 
 
 def _url(cle: str) -> str:
+    """URL de telechargement, SIGNEE.
+
+    Sans signature, `/media/` servait n'importe quel chemin a qui le devinait
+    ou l'avait vu passer, sans limite de duree. Le lien reste ouvrable par qui
+    le recoit — Brevo et le client final n'ont pas de session a presenter —
+    mais il ne se devine plus et il expire.
+    """
+    from evkha import signatures  # noqa: PLC0415 — evite un cycle a l'import
+
     base = str(getattr(settings, "EVKHA_BASE_URL", "")).rstrip("/")
-    media = str(getattr(settings, "MEDIA_URL", "/media/")).rstrip("/")
-    return f"{base}{media}/{cle}"
+    return f"{base}{signatures.lien(cle)}"
 
 
 def _retention(job: GenerationJob) -> timedelta:

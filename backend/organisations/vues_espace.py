@@ -960,6 +960,8 @@ def commander(
 
 
 def _piece_en_dict(piece: PieceJointe) -> dict[str, Any]:
+    from evkha import signatures  # noqa: PLC0415 — evite un cycle a l'import
+
     return {
         "id": str(piece.id),
         "categorie": piece.categorie,
@@ -967,7 +969,11 @@ def _piece_en_dict(piece: PieceJointe) -> dict[str, Any]:
         "taille_octets": piece.taille_octets,
         "type_mime": piece.type_mime,
         "date": piece.created_at.isoformat(),
-        "url": piece.fichier.url if piece.fichier else "",
+        # L'URL brute etait rendue telle quelle : `pieces-jointes/<id
+        # d'organisation>/<nom d'origine du client>` se devine, et `/media/`
+        # servait sans rien verifier. Le bilan financier depose par une agence
+        # etait donc telechargeable par qui avait vu passer le chemin.
+        "url": signatures.lien(piece.fichier.name) if piece.fichier else "",
     }
 
 
