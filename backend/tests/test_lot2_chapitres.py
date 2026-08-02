@@ -164,12 +164,45 @@ def test_rejette_une_donnee_absente_du_socle() -> None:
     assert any("chiffre_invente" in motif for motif in motifs)
 
 
-def test_rejette_un_graphique_adosse_a_une_donnee_non_declaree() -> None:
+def test_une_donnee_de_graphique_non_declaree_est_AJOUTEE_a_la_declaration() -> None:
+    """Ce test exigeait auparavant un REJET. Il a tué une etude reelle.
+
+    Le modele demandait un graphique citant `marche_continental_taille` sans
+    l'inscrire dans `donnees_utilisees`. Trois tentatives, trois fois le meme
+    oubli : une etourderie de tenue de registre, pas une erreur sur le marche.
+
+    Les deux champs sont remplis par le MEME modele sur le MEME chapitre : leur
+    desaccord dit que la declaration est incomplete, pas qu'un chiffre est
+    invente. La completer la rend vraie.
+    """
     charge = _payload_valide()
     charge["graphiques"][0]["donnees_ids"] = ["som"]
-    with pytest.raises(ValidationError) as capture:
-        ChapitrePayload.model_validate(charge)
-    assert "donnees_utilisees" in str(capture.value)
+
+    payload = ChapitrePayload.model_validate(charge)
+
+    assert "som" in payload.donnees_utilisees, (
+        "la declaration n'a pas ete completee : l'etude sera perdue sur une "
+        "etourderie de registre"
+    )
+
+
+def test_une_donnee_de_graphique_ABSENTE_DU_SOCLE_est_toujours_refusee() -> None:
+    """LA garantie qui compte, verifiee contre la bonne evidence (regle 9).
+
+    Completer la declaration ne doit rien masquer : la regle de fond n'est pas
+    « les deux champs concordent » mais « un chapitre n'exploite que des
+    donnees du socle ». Un graphique qui inventerait une donnee doit rester
+    rejete — par le controle qui compare au socle, et non par celui qui compare
+    un champ a un autre.
+    """
+    charge = _payload_valide()
+    charge["graphiques"][0]["donnees_ids"] = ["chiffre_invente"]
+
+    motifs = _valider(charge)
+
+    assert any("chiffre_invente" in motif for motif in motifs), (
+        "un graphique peut desormais reposer sur une donnee inventee"
+    )
 
 
 def test_rejette_un_numero_de_chapitre_incoherent() -> None:

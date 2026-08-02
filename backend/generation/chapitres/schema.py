@@ -301,16 +301,39 @@ class ChapitrePayload(BaseModel):
 
     @model_validator(mode="after")
     def _coherence_interne(self) -> ChapitrePayload:
-        declares = set(self.donnees_utilisees)
+        """Complète `donnees_utilisees` avec ce que les graphiques emploient.
+
+        **Cette cohérence était une cause de rejet, et elle a tué une étude.**
+        Le modèle demandait un graphique citant `marche_continental_taille`
+        sans l'inscrire dans `donnees_utilisees`. Trois tentatives, trois fois
+        le même oubli : ce n'est pas un aléa, c'est une étourderie de tenue de
+        registre que le modèle reproduit.
+
+        Or les deux champs sont remplis par le MÊME modèle, sur le MÊME
+        chapitre. Leur désaccord ne dit rien de faux sur le marché : il dit que
+        la déclaration est incomplète. La compléter la rend vraie.
+
+        **Ce que cette réparation ne peut PAS masquer.** La règle de fond n'est
+        pas « les deux champs concordent », c'est « un chapitre n'exploite que
+        des données du socle » — et elle est vérifiée ailleurs, par
+        `valider_chapitre`, qui refuse tout identifiant absent du socle
+        verrouillé. Un graphique qui inventerait une donnée est donc toujours
+        rejeté, par le contrôle qui regarde la bonne évidence (règle 9).
+
+        Autrement dit : on ajoute la donnée à la déclaration, et c'est le socle
+        qui tranche. Le contrôle qui reste est celui qui compare à quelque
+        chose.
+        """
+        declares = list(self.donnees_utilisees)
+        connus = set(declares)
         for graphique in self.graphiques:
-            hors = [i for i in graphique.donnees_ids if i not in declares]
-            if hors:
-                msg = (
-                    f"Le graphique « {graphique.titre} » utilise {hors}, "
-                    "absent de `donnees_utilisees`. Un graphique ne peut pas "
-                    "reposer sur une donnée que le chapitre ne déclare pas."
-                )
-                raise ValueError(msg)
+            for identifiant in graphique.donnees_ids:
+                if identifiant not in connus:
+                    declares.append(identifiant)
+                    connus.add(identifiant)
+
+        if len(declares) != len(self.donnees_utilisees):
+            self.donnees_utilisees = declares
         return self
 
     @property
