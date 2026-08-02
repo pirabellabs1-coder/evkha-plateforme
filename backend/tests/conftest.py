@@ -54,6 +54,38 @@ def _force_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
 JETON_ADMIN = "jeton-de-test-administration-64-signes-exactement-pour-la-suite"
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _cache_local_pour_la_suite() -> Any:
+    """La suite n'exige AUCUN service exterieur.
+
+    `settings.py` deduit desormais l'adresse du cache du courtier Celery : en
+    production, Redis. Ici, laisser ce reglage obligerait a faire tourner un
+    Redis pour lancer les tests — et une suite qui depend d'un service qu'on a
+    oublie de demarrer ne se distingue pas d'une suite qui echoue.
+
+    C'est la meme raison que `_force_stubs` : un test qui depend de
+    l'environnement local n'est pas reproductible.
+
+    Ce que ce repli ne masque PAS : la production doit avoir un cache PARTAGE
+    entre ses processus, sans quoi les plafonds de tentatives ne comptent rien.
+    Cette exigence-la est tenue par le controle `evkha.C001`, lui-meme teste
+    dans `test_reglages_de_production.py` — pas par ce que la suite utilise.
+    """
+    from django.test import override_settings
+
+    local = override_settings(
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "suite-de-tests",
+            }
+        }
+    )
+    local.enable()
+    yield
+    local.disable()
+
+
 @pytest.fixture(autouse=True)
 def _garde_administration(monkeypatch: pytest.MonkeyPatch) -> None:
     """L'administration est PROTEGEE pendant les tests, comme en production.

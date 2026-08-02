@@ -350,7 +350,24 @@ EVKHA_DASHBOARD_TOKEN = env("EVKHA_DASHBOARD_TOKEN", default="")
 # Redis est deja la pour Celery. On prend une base DISTINCTE de celle du
 # courtier : melanger des cles de cache et une file de taches expose a ce qu'un
 # `clear()` du cache efface des taches en attente.
-EVKHA_CACHE_URL = env("EVKHA_CACHE_URL", default="")
+#
+# L'adresse est DEDUITE du courtier Celery quand elle n'est pas fournie. Poser
+# une variable de plus obligerait a s'en souvenir sur chaque environnement, et
+# un oubli ferait echouer `evkha.C001` au demarrage — donc casserait le
+# deploiement pour un reglage que le systeme pouvait deduire seul.
+#
+# On ne deduit QUE si le courtier est bien un Redis : si quelqu'un passe un
+# jour a RabbitMQ, mieux vaut retomber sur le cache local et se faire refuser
+# bruyamment par le controle que fabriquer une adresse qui ne repond pas.
+def _cache_deduit_du_courtier() -> str:
+    courtier = str(env("CELERY_BROKER_URL", default=""))
+    if not courtier.startswith(("redis://", "rediss://")):
+        return ""
+    base, _, _ = courtier.rpartition("/")
+    return f"{base}/1" if base else ""
+
+
+EVKHA_CACHE_URL = env("EVKHA_CACHE_URL", default="") or _cache_deduit_du_courtier()
 
 if EVKHA_CACHE_URL:
     CACHES = {

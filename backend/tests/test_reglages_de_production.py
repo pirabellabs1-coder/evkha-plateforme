@@ -85,22 +85,37 @@ def test_le_developpement_n_est_pas_concerne(settings: Any) -> None:
     assert checks.controler_cache_partage(None) == []
 
 
-def test_le_defaut_livre_est_bien_celui_qu_on_croit() -> None:
-    """Le contrôle porte-t-il sur le réglage RÉELLEMENT chargé ?
+def test_l_adresse_du_cache_est_deduite_du_courtier() -> None:
+    """Le réglage réellement produit par `settings.py`, sans mise en scène.
 
-    Sans ce test, on vérifierait des `CACHES` fabriqués par le test lui-même,
-    jamais ceux que `settings.py` produit. Le contrôle serait vert sur une
-    configuration qui n'existe nulle part.
+    Ce test ne peut PAS lire `settings.CACHES` : `conftest.py` le remplace par
+    un cache local pour toute la suite, afin qu'aucun test n'exige un Redis en
+    marche. Il lirait donc la configuration du banc d'essai, jamais celle qui
+    part en production — exactement le genre de vérification qui se croit utile
+    et ne l'est pas.
+
+    `EVKHA_CACHE_URL`, lui, n'est pas surchargé : c'est la valeur que
+    `settings.py` calcule. On vérifie donc la seule chose qui compte, et qui a
+    été conçue pour qu'aucune variable ne soit à poser à la main sur chaque
+    environnement : la base de cache est déduite du Redis de Celery, sur un
+    numéro DIFFÉRENT du sien.
     """
     from django.conf import settings as reglages
 
-    backend = reglages.CACHES["default"]["BACKEND"]
-    if getattr(reglages, "EVKHA_CACHE_URL", ""):
-        assert "RedisCache" in backend
-    else:
-        # Repli assume en developpement et en test — et refuse en production
-        # par `evkha.C001`, ce que les tests ci-dessus verrouillent.
-        assert backend in checks.BACKENDS_NON_PARTAGES
+    courtier = str(reglages.CELERY_BROKER_URL)
+    adresse = str(getattr(reglages, "EVKHA_CACHE_URL", ""))
+
+    if not courtier.startswith(("redis://", "rediss://")):
+        pytest.skip("le courtier n'est pas un Redis : rien n'est deduit")
+
+    assert adresse, "aucune adresse de cache deduite : le plafond ne comptera rien"
+    assert adresse != courtier, (
+        "le cache partage la base du courtier : un vidage du cache effacerait "
+        "des taches en attente"
+    )
+    assert adresse.rsplit("/", 1)[0] == courtier.rsplit("/", 1)[0], (
+        "le cache ne pointe pas sur le meme serveur Redis que le courtier"
+    )
 
 
 # ── La clé secrète ───────────────────────────────────────────────────────────
