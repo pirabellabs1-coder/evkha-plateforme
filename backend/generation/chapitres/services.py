@@ -120,6 +120,7 @@ def produire_chapitre(
     *,
     client: Any,
     socle: Socle | None = None,
+    derniere_tentative: bool | None = None,
 ) -> ChapterGeneration:
     """Produit et enregistre un chapitre. Idempotent : un chapitre DONE est rendu tel quel.
 
@@ -148,6 +149,7 @@ def produire_chapitre(
             chapter=chapter,
             socle=socle,
             variables=variables_du_job(job),
+            derniere_tentative=derniere_tentative,
         )
     except ChapitreInvalideError as erreur:
         # Les motifs sont conservés : la tentative suivante les recevra.

@@ -329,6 +329,26 @@ _MOIS_FR: dict[int, str] = {
 }
 
 
+#: Noms des variables de charte, dans l'intake. UNE seule liste.
+#:
+#: Elles vivaient a TROIS endroits : `dashboard.views._OPTIONAL_VARS`,
+#: `organisations.commandes.variables_de_commande`, et la lecture ci-dessous.
+#: Les trois ne disaient pas la meme chose — `COULEUR_FOND` et
+#: `MENTION_CONFIDENTIALITE` manquaient aux deux premiers, si bien que deux
+#: champs remplis par l'abonne n'atteignaient jamais le document (regle 5).
+#:
+#: Ajouter une variable de charte ici la rend disponible partout : c'est la
+#: propriete qu'on veut, et elle ne s'obtient qu'avec une liste unique.
+VARIABLES_DE_MARQUE: tuple[str, ...] = (
+    "LOGO_URL",
+    "COULEUR_PRINCIPALE",
+    "COULEUR_SECONDAIRE",
+    "NOM_ENTREPRISE",
+    "COULEUR_FOND",
+    "MENTION_CONFIDENTIALITE",
+)
+
+
 @dataclass(frozen=True)
 class BrandingContext:
     """Variables de branding client extraites de l'intake Tally.

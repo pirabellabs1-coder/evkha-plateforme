@@ -291,6 +291,7 @@ def generer_chapitre(
     socle: Socle,
     variables: Mapping[str, object],
     max_tokens: int = 8192,
+    derniere_tentative: bool | None = None,
 ) -> tuple[ChapitrePayload, dict[str, int], Arbitrage]:
     """Produit UN chapitre. Lève `ChapitreInvalideError` si le contrat est rompu.
 
@@ -346,7 +347,9 @@ def generer_chapitre(
     if motifs:
         raise ChapitreInvalideError(motifs)
 
-    arbitrage = _arbitrer_conformite(chapter, payload, document)
+    arbitrage = _arbitrer_conformite(
+        chapter, payload, document, derniere_tentative=derniere_tentative
+    )
     if arbitrage.bloque:
         raise ChapitreInvalideError(arbitrage.refus)
 
@@ -354,7 +357,11 @@ def generer_chapitre(
 
 
 def _arbitrer_conformite(
-    chapter: ChapterGeneration, payload: ChapitrePayload, document: TypeDocument
+    chapter: ChapterGeneration,
+    payload: ChapitrePayload,
+    document: TypeDocument,
+    *,
+    derniere_tentative: bool | None = None,
 ) -> Arbitrage:
     """Passe de conformité au modèle, branchée sur la boucle de reprise.
 
@@ -389,9 +396,26 @@ def _arbitrer_conformite(
         _log.error("Conformité chapitre %s : %s", chapter.chapter_number, erreur)
         return Arbitrage(non_controle=f"modèle indisponible : {erreur}")
 
-    # `retry_count` compte les tentatives DÉJÀ échouées ; la présente est donc
-    # la (retry_count + 1)-ième.
-    derniere = chapter.retry_count + 1 >= document.tentatives_max
+    # QUI SAIT s'il y aura une autre tentative ? L'appelant, et lui seul.
+    #
+    # Cette valeur était déduite de `chapter.retry_count`, un compteur que
+    # **seule** la tâche Celery par chapitre incrémente. Or le chemin qui tourne
+    # réellement est le runner synchrone, qui appelle `produire_chapitre` UNE
+    # fois et propage l'exception : `retry_count` y reste à zéro, `derniere`
+    # y est donc toujours faux, et l'étage « accepter puis consigner » n'était
+    # jamais atteint.
+    #
+    # Conséquence mesurée sur la première génération réelle : l'étude est morte
+    # au chapitre 1 sur un écart de volume de 20 %, après 0,0574 € — un écart
+    # de dosage, sur un chapitre parfaitement lisible. Exactement ce que la
+    # docstring d'`Arbitrage` disait vouloir éviter, et exactement ce que la
+    # règle 9 décrit : le contrôle et sa réparation jugeaient sur la même
+    # évidence, et la doublure produisait des chapitres conformes — la branche
+    # de refus n'a donc jamais tourné avant le premier vrai dossier (règle 7).
+    if derniere_tentative is None:
+        derniere = chapter.retry_count + 1 >= document.tentatives_max
+    else:
+        derniere = derniere_tentative
     arbitrage = arbitrer(rapport, derniere_tentative=derniere)
 
     if arbitrage.acceptes:

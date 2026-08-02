@@ -13,6 +13,7 @@ tentatives.
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -286,3 +287,124 @@ def job_conformite(db: object) -> Any:
         job=job, statut=SocleStatut.VALIDE, contenu=socle.model_dump(mode="json")
     )
     return job
+
+
+# ── Le chemin qui tourne réellement ──────────────────────────────────────────
+#
+# Tout ce qui précède vérifie `arbitrer` en isolation. Le premier vrai dossier a
+# montré que cela ne prouvait rien sur ce qui est exécuté : l'étude est morte au
+# chapitre 1, sur un écart de VOLUME de 20 %, après 0,0574 €.
+#
+# Cause : `derniere_tentative` était déduit de `chapter.retry_count`, un
+# compteur que **seule** la tâche Celery par chapitre incrémente. Le runner
+# synchrone — celui que la production emprunte — appelle `produire_chapitre` UNE
+# fois et propage l'exception. `retry_count` y reste donc à zéro, l'étage
+# « accepter puis consigner » n'était jamais atteint, et chaque écart de forme
+# était fatal au premier essai.
+#
+# La doublure produisait des chapitres conformes : la branche de refus n'a
+# jamais tourné avant la première génération réelle (règles 7 et 9).
+
+
+def _rapport_hors_dosage(regle: str) -> Any:
+    """Rapport de conformité portant UN écart bloquant, et rien d'autre."""
+    return _rapport(
+        Ecart(regle, Gravite.BLOQUANTE, "volume : 2948 signes contre 2457"),
+        controles=["volume"],
+    )
+
+
+@pytest.mark.django_db
+def test_sans_reprise_un_ecart_de_forme_n_arrete_pas_l_etude(
+    job_conformite: Any, monkeypatch: Any
+) -> None:
+    """Le test qui échoue sur le code d'avant.
+
+    Quand l'appelant annonce qu'il ne réessaiera pas, un écart de dosage doit
+    être accepté et consigné : un chapitre légèrement hors volume reste un
+    chapitre lisible, une étude bloquée n'est rien.
+    """
+    from generation.chapitres.runner import _arbitrer_conformite
+
+    monkeypatch.setattr(
+        "generation.modele.conformite.verifier_chapitre",
+        lambda *a, **k: _rapport_hors_dosage("volume"),
+    )
+    chapitre = job_conformite.chapters.get(chapter_number=1)
+    document = SimpleNamespace(tentatives_max=3)
+
+    arbitrage = _arbitrer_conformite(
+        chapitre, object(), document, derniere_tentative=True
+    )
+
+    assert not arbitrage.bloque, (
+        f"une etude est perdue sur un ecart de forme : {arbitrage.refus}"
+    )
+    assert arbitrage.acceptes, "l'ecart doit etre CONSIGNE, pas efface"
+
+
+@pytest.mark.django_db
+def test_avec_reprise_un_ecart_de_forme_fait_toujours_recommencer(
+    job_conformite: Any, monkeypatch: Any
+) -> None:
+    """Contre-épreuve : on n'a pas transformé l'arbitrage en laissez-passer."""
+    from generation.chapitres.runner import _arbitrer_conformite
+
+    monkeypatch.setattr(
+        "generation.modele.conformite.verifier_chapitre",
+        lambda *a, **k: _rapport_hors_dosage("volume"),
+    )
+    chapitre = job_conformite.chapters.get(chapter_number=1)
+
+    arbitrage = _arbitrer_conformite(
+        chapitre, object(), SimpleNamespace(tentatives_max=3),
+        derniere_tentative=False,
+    )
+
+    assert arbitrage.bloque
+
+
+@pytest.mark.django_db
+def test_un_ecart_redhibitoire_refuse_meme_sans_reprise(
+    job_conformite: Any, monkeypatch: Any
+) -> None:
+    """La contre-épreuve qui compte : on n'a pas ouvert les vannes.
+
+    Une variable non résolue reste une variable non résolue — le lecteur y
+    verrait `{{ SECTEUR }}` en toutes lettres.
+    """
+    from generation.chapitres.runner import _arbitrer_conformite
+
+    monkeypatch.setattr(
+        "generation.modele.conformite.verifier_chapitre",
+        lambda *a, **k: _rapport_hors_dosage("variable_non_resolue"),
+    )
+    chapitre = job_conformite.chapters.get(chapter_number=1)
+
+    arbitrage = _arbitrer_conformite(
+        chapitre, object(), SimpleNamespace(tentatives_max=3),
+        derniere_tentative=True,
+    )
+
+    assert arbitrage.bloque
+
+
+def test_le_runner_synchrone_annonce_qu_il_ne_reessaiera_pas() -> None:
+    """La propriété structurelle, pas seulement le comportement de la fonction.
+
+    Vérifier `_arbitrer_conformite` isolément est exactement ce qui a laissé
+    passer le défaut : l'arbitrage était juste, et l'appelant ne lui disait pas
+    la vérité (règle 7).
+    """
+    import inspect
+
+    from generation import runner
+
+    source = inspect.getsource(runner)
+    debut = source.index("produire_chapitre(")
+    appel = source[debut : source.index(")", debut + 400)]
+
+    assert "derniere_tentative=True" in appel, (
+        "le runner synchrone ne reessaie pas, mais ne le dit pas a l'arbitrage : "
+        "tout ecart de forme redevient fatal au premier essai"
+    )

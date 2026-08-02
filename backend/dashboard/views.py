@@ -16,6 +16,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer, CustomerType, Subscription, SubscriptionStatus
 from generation.models import ChapterStatus, GenerationJob, JobStatus
+from generation.rendering import VARIABLES_DE_MARQUE
 from generation.services import bootstrap_generation_job, relaunch_generation_job
 from generation.tasks import run_generation_job_task
 from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
@@ -35,7 +36,9 @@ _OPTIONAL_VARS = (
     "ELEMENTS_A_RETENIR", "DEMANDES_SPECIFIQUES", "CONCURRENTS",
     "CAPITAL_INITIAL", "FORME_JURIDIQUE", "MODELE_REVENUS", "EQUIPE",
     "OBJECTIF_STRATEGIQUE", "HORIZON_PLANIFICATION",
-    "LOGO_URL", "COULEUR_PRINCIPALE", "COULEUR_SECONDAIRE", "NOM_ENTREPRISE",
+    # Les variables de CHARTE viennent d'une liste unique : les recopier ici
+    # les faisait diverger, et deux d'entre elles manquaient (regle 5).
+    *VARIABLES_DE_MARQUE,
     "PHOTO_1", "PHOTO_2", "PHOTO_3",
     # Etat chiffre client (Brique 1) + verticales (check completude du gate)
     "INVESTISSEMENT_TOTAL", "APPORT", "EMPRUNT", "SUBVENTIONS",

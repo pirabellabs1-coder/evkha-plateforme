@@ -410,7 +410,14 @@ def run_generation_job(
                 # réellement livré (règle 3). La vérification du lot 4, elle,
                 # porte sur le `.docx` produit.
                 produire_chapitre(
-                    job, chapter.chapter_number, client=client, socle=socle_du_run
+                    job, chapter.chapter_number, client=client,
+                    socle=socle_du_run,
+                    # Ce runner ne REESSAIE PAS : toute exception remonte et
+                    # tue l'etude. Chaque tentative y est donc la derniere, et
+                    # le dire est la seule facon pour l'arbitrage de conformite
+                    # d'accepter un ecart de forme plutot que de perdre une
+                    # etude sur un ecart de dosage.
+                    derniere_tentative=True,
                 )
             else:
                 _generate_chapter(
