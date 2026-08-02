@@ -122,11 +122,49 @@ def inviter_membre(
         defaults={"role": role, "invite_le": timezone.now()},
     )
     if not cree:
+        # Cette fonction ECRASE le role d'un membre existant. Le dernier
+        # proprietaire pouvait donc se « reinviter » avec le role « membre » et
+        # se demettre lui-meme : la garde de `revoquer_membre` etait contournee
+        # sans etre touchee, et l'organisation devenait inadministrable pour
+        # toujours.
+        #
+        # Le garde-fou etait pose sur UN CHEMIN — la revocation — alors que la
+        # propriete a tenir est « une organisation garde toujours un
+        # proprietaire ». Elle est desormais verifiee partout ou un role
+        # change (regle 4).
+        if membre.role == RoleOrganisation.PROPRIETAIRE != role:
+            _exiger_un_autre_proprietaire(membre, geste="retrograder")
         membre.role = role
         membre.revoque_le = None
         membre.invite_le = membre.invite_le or timezone.now()
         membre.save(update_fields=["role", "revoque_le", "invite_le", "updated_at"])
     return membre
+
+
+def _exiger_un_autre_proprietaire(membre: MembreOrganisation, *, geste: str) -> None:
+    """Refuse si `membre` est le SEUL propriétaire actif de son organisation.
+
+    Une seule écriture de cette règle, appelée par tous les gestes qui peuvent
+    retirer un propriétaire — révocation et changement de rôle. Deux copies
+    finiraient par ne plus dire la même chose, et c'est exactement ce qui s'est
+    produit : la révocation était gardée, le changement de rôle non (règle 5).
+    """
+    autres = (
+        MembreOrganisation.objects.filter(
+            organisation=membre.organisation,
+            role=RoleOrganisation.PROPRIETAIRE,
+            revoque_le__isnull=True,
+        )
+        .exclude(pk=membre.pk)
+        .exists()
+    )
+    if not autres:
+        msg = (
+            f"Impossible de {geste} le dernier propriétaire de "
+            f"{membre.organisation} : l'organisation deviendrait "
+            "inadministrable."
+        )
+        raise AccesRefuseError(msg)
 
 
 @transaction.atomic
@@ -137,22 +175,7 @@ def revoquer_membre(membre: MembreOrganisation) -> MembreOrganisation:
     intervenir en base pour la récupérer.
     """
     if membre.role == RoleOrganisation.PROPRIETAIRE:
-        autres = (
-            MembreOrganisation.objects.filter(
-                organisation=membre.organisation,
-                role=RoleOrganisation.PROPRIETAIRE,
-                revoque_le__isnull=True,
-            )
-            .exclude(pk=membre.pk)
-            .exists()
-        )
-        if not autres:
-            msg = (
-                "Impossible de révoquer le dernier propriétaire de "
-                f"{membre.organisation} : l'organisation deviendrait "
-                "inadministrable."
-            )
-            raise AccesRefuseError(msg)
+        _exiger_un_autre_proprietaire(membre, geste="révoquer")
     membre.revoque_le = timezone.now()
     membre.save(update_fields=["revoque_le", "updated_at"])
     return membre

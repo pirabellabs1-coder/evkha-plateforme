@@ -1231,7 +1231,13 @@ def inviter(
             409,
         )
 
-    nouveau = services.inviter_membre(organisation, invite, role=role)
+    try:
+        nouveau = services.inviter_membre(organisation, invite, role=role)
+    except services.AccesRefuseError as refus:
+        # Retrograder le dernier proprietaire. `inviter_membre` ecrase le role
+        # d'un membre existant : sans cette traduction, le refus remontait en
+        # erreur 500 et personne ne savait pourquoi.
+        return _refus(str(refus), "dernier_proprietaire", 409)
 
     # Le compte de connexion est cree ICI, avec un mot de passe INUTILISABLE.
     # Il ne l'etait nulle part : l'invite se retrouvait sans compte, donc

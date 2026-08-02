@@ -240,3 +240,65 @@ def _methodes(vue: Any) -> set[str]:
     # Aucune restriction trouvee : on considere que TOUT est accepte, ce qui
     # est le cas le plus exigeant pour le test.
     return {"GET", "POST", "PUT", "PATCH", "DELETE"}
+
+
+# ── Une organisation garde toujours un propriétaire ──────────────────────────
+
+
+def test_le_dernier_proprietaire_ne_peut_pas_se_retrograder(
+    client: Any, lecteur: str
+) -> None:
+    """Le test qui échoue sur le code d'avant.
+
+    `revoquer_membre` refusait bien de retirer le dernier propriétaire. Mais
+    `inviter_membre` ÉCRASE le rôle d'un membre existant : le dernier
+    propriétaire pouvait donc se « réinviter » avec le rôle « membre » et se
+    démettre lui-même. La garde était contournée sans être touchée, et
+    l'organisation devenait inadministrable pour toujours — plus personne pour
+    gérer l'équipe, l'abonnement ni la marque.
+
+    Le garde-fou était posé sur UN CHEMIN au lieu de la propriété (règle 4).
+    """
+    from organisations import authentification, services
+    from organisations.models import MembreOrganisation, RoleOrganisation
+
+    jeton, _ = authentification.ouvrir_session(PROPRIETAIRE, MOT_DE_PASSE)
+
+    reponse = _poster(
+        client, jeton, "/api/espace/equipe/inviter/",
+        email=PROPRIETAIRE, role=RoleOrganisation.MEMBRE,
+    )
+
+    assert reponse.status_code in (403, 409), (
+        f"le dernier proprietaire s'est retrograde (statut {reponse.status_code})"
+    )
+    membre = MembreOrganisation.objects.get(customer__email=PROPRIETAIRE)
+    assert membre.role == RoleOrganisation.PROPRIETAIRE
+    assert services.peut(membre, "gerer_membres")
+
+
+def test_un_proprietaire_peut_se_retrograder_s_il_en_reste_un_autre(
+    client: Any, lecteur: str
+) -> None:
+    """Contre-épreuve : la règle protège l'organisation, pas un privilège.
+
+    Passer la main est légitime — c'est même le geste normal quand quelqu'un
+    quitte l'agence. Ce qui est refusé, c'est de ne laisser personne.
+    """
+    from customers.models import Customer
+    from organisations import services
+    from organisations.models import MembreOrganisation, Organisation, RoleOrganisation
+
+    organisation = Organisation.objects.get()
+    second = Customer.objects.create(email="associe@cabinet-duval.fr")
+    services.inviter_membre(
+        organisation, second, role=RoleOrganisation.PROPRIETAIRE
+    )
+
+    ancien = Customer.objects.get(email=PROPRIETAIRE)
+    services.inviter_membre(organisation, ancien, role=RoleOrganisation.MEMBRE)
+
+    assert (
+        MembreOrganisation.objects.get(customer=ancien).role
+        == RoleOrganisation.MEMBRE
+    )
