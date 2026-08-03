@@ -112,6 +112,55 @@ def controler_secret_django(
     return problemes
 
 
+#: Bouchons qui remplacent une promesse du produit, et non un simple detail.
+#:
+#: `EVKHA_USE_STUB_SEARCH` etait ABSENT de la production, donc a `True` par
+#: defaut. Chaque « etude de marche » etait donc redigee a partir de resultats
+#: portant en toutes lettres « Contenu de demonstration (mode stub EVKHA).
+#: Aucune donnee reelle. » — le modele n'avait rien d'autre a citer, d'ou des
+#: chapitres qui tournent en rond, et le mot EVKHA se glissait au passage dans
+#: un document en marque blanche.
+#:
+#: Le fournisseur reel est GRATUIT et ne demande aucune cle : la recherche
+#: n'etait pas coupee pour economiser, elle l'etait par oubli.
+#:
+#: On enumere les bouchons qui touchent a la SUBSTANCE du livrable. Le bouchon
+#: d'e-mail n'y figure pas : ne pas envoyer un courriel se voit, tandis qu'une
+#: etude bâtie sur du vide a l'air d'une etude.
+BOUCHONS_INTERDITS_EN_PRODUCTION = (
+    ("EVKHA_USE_STUB_AI", "aucun texte n'est redige par le modele"),
+    ("EVKHA_USE_STUB_SEARCH", "aucune recherche reelle n'ancre les chiffres"),
+)
+
+
+@register()
+def controler_bouchons_de_production(
+    app_configs: object, **kwargs: object
+) -> list[Error | Warning]:
+    """Le produit fait-il reellement ce qu'il vend ?
+
+    Un bouchon rend un service qui a la FORME du vrai. C'est ce qui le rend
+    dangereux : rien ne casse, rien n'alerte, et le client recoit un document
+    qui ressemble a une etude sans en etre une (regle 1).
+
+    Ce controle est un ERREUR et non un avertissement : un avertissement se
+    lit une fois, puis se confond avec le bruit du demarrage.
+    """
+    problemes: list[Error | Warning] = []
+    if settings.DEBUG:
+        return problemes
+
+    for nom, consequence in BOUCHONS_INTERDITS_EN_PRODUCTION:
+        if bool(getattr(settings, nom, False)):
+            problemes.append(Error(
+                f"{nom} est actif en production : {consequence}. Le livrable "
+                "a la forme d'une etude sans en etre une.",
+                hint=f"Poser {nom}=false dans les variables du serveur.",
+                id="evkha.C005",
+            ))
+    return problemes
+
+
 @register()
 def controler_adresse_du_front(
     app_configs: object, **kwargs: object

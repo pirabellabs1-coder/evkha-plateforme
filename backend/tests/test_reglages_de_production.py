@@ -168,3 +168,69 @@ def test_le_repli_surveille_est_celui_qui_est_reellement_ecrit() -> None:
     assert trouve.group(1) == checks.REPLI_CONNU, (
         "le repli de settings.py a change : checks.REPLI_CONNU ne le reconnait plus"
     )
+
+
+# ── Le produit doit faire ce qu'il vend ──────────────────────────────────────
+
+
+def test_la_recherche_bouchonnee_est_refusee_en_production(settings: Any) -> None:
+    """Le défaut le plus grave trouvé sur ce dépôt, et le plus silencieux.
+
+    `EVKHA_USE_STUB_SEARCH` était ABSENT de la production, donc à `True` par
+    défaut. Chaque « étude de marché » était donc rédigée à partir de résultats
+    portant en toutes lettres « Contenu de démonstration (mode stub EVKHA).
+    Aucune donnée réelle. »
+
+    Le modèle n'avait rien d'autre à citer : d'où des chapitres qui tournent en
+    rond, constat remonté par le client. Et le mot EVKHA se glissait au passage
+    dans un document vendu en marque blanche.
+
+    Le fournisseur réel est GRATUIT et ne demande aucune clé : la recherche
+    n'était pas coupée pour économiser, elle l'était par oubli. Rien ne le
+    disait, parce qu'un bouchon rend un service qui a la FORME du vrai.
+    """
+    settings.DEBUG = False
+    settings.EVKHA_USE_STUB_SEARCH = True
+    settings.EVKHA_USE_STUB_AI = False
+
+    assert "evkha.C005" in [
+        p.id for p in checks.controler_bouchons_de_production(None)
+    ], "une etude peut etre bâtie sur du vide sans que rien ne le dise"
+
+
+def test_le_texte_bouchonne_est_refuse_aussi(settings: Any) -> None:
+    """La CLASSE, pas le seul cas de la recherche (règle 4).
+
+    On énumère les bouchons qui touchent à la SUBSTANCE du livrable. Celui de
+    l'e-mail n'y figure pas, et c'est délibéré : ne pas envoyer un courriel se
+    voit, tandis qu'une étude bâtie sur du vide a l'air d'une étude.
+    """
+    settings.DEBUG = False
+    settings.EVKHA_USE_STUB_SEARCH = False
+    settings.EVKHA_USE_STUB_AI = True
+
+    assert "evkha.C005" in [
+        p.id for p in checks.controler_bouchons_de_production(None)
+    ]
+
+
+def test_une_production_reelle_ne_declenche_rien(settings: Any) -> None:
+    """Contre-épreuve : le contrôle ne doit pas crier sur une bonne config."""
+    settings.DEBUG = False
+    settings.EVKHA_USE_STUB_SEARCH = False
+    settings.EVKHA_USE_STUB_AI = False
+
+    assert checks.controler_bouchons_de_production(None) == []
+
+
+def test_le_developpement_garde_ses_bouchons(settings: Any) -> None:
+    """Contre-épreuve : la suite et le développement local en dépendent.
+
+    Refuser ici rendrait tout travail hors ligne impossible, et ferait appeler
+    l'API à chaque test — lente et facturée (règle 6).
+    """
+    settings.DEBUG = True
+    settings.EVKHA_USE_STUB_SEARCH = True
+    settings.EVKHA_USE_STUB_AI = True
+
+    assert checks.controler_bouchons_de_production(None) == []
