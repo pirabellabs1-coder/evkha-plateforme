@@ -118,8 +118,19 @@ def _ligne_de_plan(rang: int, bloc: dict[str, Any]) -> str:
             "(valeur, libellé, source)"
         )
     elif type_bloc == "graphique":
-        types = [str(t) for t in (bloc.get("types_autorises") or [])]
-        tete = "`graphique` — types admis : " + (", ".join(types) or "au choix")
+        # PAS de liste de types ici, et c'est délibéré (règle 5). Le modèle
+        # portait la sienne — `barres_verticales`, `courbe`, `pyramide`,
+        # `jauge` — dont AUCUN de ces quatre n'existe dans
+        # `chapitres.schema.TypeGraphique`. Le même prompt annonçait donc une
+        # liste « imposée » qui faisait échouer la validation plus d'une fois
+        # sur deux, et une liste « disponible » correcte quelques lignes plus
+        # bas. Le modèle de langage suivait la première : il ne restait que
+        # `barres_horizontales`, `camembert` et `matrice_positionnement` pour
+        # tout un document — d'où des figures qui ne varient jamais.
+        #
+        # Les types appartiennent au moteur qui dessine, une seule fois, dans
+        # le bloc VISUELS du prompt.
+        tete = "`graphique` — type à choisir dans le catalogue VISUELS ci-dessous"
     else:
         # `ligne_source` et compagnie : produits par le rendu, pas par le
         # modèle de langage. On ne les demande pas, mais on ne les efface pas
@@ -146,22 +157,37 @@ def plan_du_chapitre(numero: int, *, chemin: str | None = None) -> str:
     accroche = modele.get("accroche") or {}
     graphiques_min = int(modele.get("graphiques_min", 0))
 
-    entete = (
+    entete = [
         f"PLAN IMPOSÉ DU CHAPITRE {numero:02d} — c'est la structure du document "
-        "validé par la cliente, mesurée sur lui, pas une préférence de style.\n"
+        "validé par la cliente, mesurée sur lui, pas une préférence de style.",
         "Produis les blocs DANS CET ORDRE et dans ces proportions. Le champ "
-        "`blocs` de ta réponse doit suivre cette suite.\n"
-        f"Titre : {modele.get('titre_consigne', '')}\n"
+        "`blocs` de ta réponse doit suivre cette suite.",
+        f"Titre : {modele.get('titre_consigne', '')}",
         f"Accroche : environ {int(accroche.get('longueur_cible_signes', 0))} "
-        f"signes. {accroche.get('consigne', '')}"
-    )
+        f"signes. {accroche.get('consigne', '')}",
+    ]
+
+    # Le manuel donne, chapitre par chapitre, une épaisseur ET une intention
+    # visuelle — « Courbe historique et projection » au chapitre 1, « Scorecard
+    # de viabilité » au 14. C'est ce que le catalogue de types ne peut pas
+    # dire : il sait dessiner, il ne sait pas QUOI montrer ici.
+    pages = modele.get("volume_pages") or []
+    if len(pages) == 2:
+        entete.append(
+            f"Épaisseur attendue : {pages[0]} à {pages[1]} pages de l'étude "
+            "finale, remplies d'analyse utile — jamais par de la redite."
+        )
+    visuel = str(modele.get("visuel_attendu", "")).strip()
+    if visuel:
+        entete.append(f"Visuel attendu par le manuel : {visuel}")
+
     pied = (
         f"\nAu moins {graphiques_min} graphique"
         f"{'s' if graphiques_min > 1 else ''} dans ce chapitre."
         if graphiques_min
         else ""
     )
-    return entete + "\n\n" + "\n".join(lignes) + pied
+    return "\n".join(entete) + "\n\n" + "\n".join(lignes) + pied
 
 
 def _bloc_en_exemple(bloc: dict[str, Any]) -> str:

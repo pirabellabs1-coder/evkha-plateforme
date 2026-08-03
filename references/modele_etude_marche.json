@@ -24,15 +24,6 @@
   "page_de_garde": [
     {
       "type": "graphique",
-      "types_autorises": [
-        "barres_verticales",
-        "barres_horizontales",
-        "courbe",
-        "camembert",
-        "pyramide",
-        "matrice_positionnement",
-        "jauge"
-      ],
       "obligatoire": true,
       "spec": {
         "titre": "à définir selon la niche",
@@ -224,6 +215,11 @@
       "numero": "CHAPITRE 01",
       "titre_reference": "Marché mondial et continent pertinent",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        4,
+        5
+      ],
+      "visuel_attendu": "Courbe historique et projection ; monde versus continent pertinent.",
       "accroche": {
         "longueur_cible_signes": 101,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -258,15 +254,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "spec": {
             "titre": "à définir selon la niche",
@@ -330,6 +317,11 @@
       "numero": "CHAPITRE 02",
       "titre_reference": "Marché national, local et marché accessible",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        5,
+        6
+      ],
+      "visuel_attendu": "Graphique national/local et schéma TAM/SAM/SOM.",
       "accroche": {
         "longueur_cible_signes": 101,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -358,15 +350,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "spec": {
             "titre": "à définir selon la niche",
@@ -389,15 +372,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "spec": {
             "titre": "à définir selon la niche",
@@ -472,6 +446,11 @@
       "numero": "CHAPITRE 03",
       "titre_reference": "Segmentation approfondie",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Carte ou matrice de segmentation, limitée aux axes utiles.",
       "accroche": {
         "longueur_cible_signes": 114,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -559,6 +538,11 @@
       "numero": "CHAPITRE 04",
       "titre_reference": "Avantages et contraintes structurelles du secteur",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        2,
+        3
+      ],
+      "visuel_attendu": "Encadré comparatif ou balance avantages/contraintes.",
       "accroche": {
         "longueur_cible_signes": 94,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -648,6 +632,11 @@
       "numero": "CHAPITRE 05",
       "titre_reference": "Défis et opportunités 2026–2030",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Matrice impact/horizon des défis et opportunités.",
       "accroche": {
         "longueur_cible_signes": 110,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -693,15 +682,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "ajoute_par_le_modele": true,
           "spec": {
@@ -738,6 +718,11 @@
       "numero": "CHAPITRE 06",
       "titre_reference": "Réglementation, normes et conformité",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Parcours de conformité ou tableau obligations/actions.",
       "accroche": {
         "longueur_cible_signes": 120,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -866,6 +851,11 @@
       "numero": "CHAPITRE 07",
       "titre_reference": "Tendances à court terme 2026–2027",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        2,
+        3
+      ],
+      "visuel_attendu": "Frise 2026-2027 ou radar de tendances.",
       "accroche": {
         "longueur_cible_signes": 59,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -888,15 +878,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "ajoute_par_le_modele": true,
           "spec": {
@@ -1023,6 +1004,11 @@
       "numero": "CHAPITRE 08",
       "titre_reference": "Perspectives et scénarios à horizon 2030",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Frise ou tableau de scénarios à 2030.",
       "accroche": {
         "longueur_cible_signes": 83,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1045,15 +1031,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "spec": {
             "titre": "à définir selon la niche",
@@ -1148,6 +1125,11 @@
       "numero": "CHAPITRE 09",
       "titre_reference": "Les 12 chiffres clés",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        2,
+        3
+      ],
+      "visuel_attendu": "Tuiles chiffrées ou tableau synthétique lisible.",
       "accroche": {
         "longueur_cible_signes": 35,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1210,15 +1192,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "ajoute_par_le_modele": true,
           "spec": {
@@ -1237,6 +1210,11 @@
       "numero": "CHAPITRE 10",
       "titre_reference": "Clientèle cible et comportements d’achat",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        4,
+        5
+      ],
+      "visuel_attendu": "Parcours de décision ou matrice attentes/freins/leviers.",
       "accroche": {
         "longueur_cible_signes": 120,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1265,15 +1243,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "ajoute_par_le_modele": true,
           "spec": {
@@ -1352,6 +1321,11 @@
       "numero": "CHAPITRE 11",
       "titre_reference": "Deux personas fondés sur les données",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        2,
+        3
+      ],
+      "visuel_attendu": "Deux fiches persona sobres et comparables.",
       "accroche": {
         "longueur_cible_signes": 68,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1417,6 +1391,11 @@
       "numero": "CHAPITRE 12",
       "titre_reference": "Risques et plan de maîtrise",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        4,
+        5
+      ],
+      "visuel_attendu": "Registre des risques synthétique.",
       "accroche": {
         "longueur_cible_signes": 98,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1514,6 +1493,11 @@
       "numero": "CHAPITRE 13",
       "titre_reference": "Cartographie des risques externes",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        2,
+        3
+      ],
+      "visuel_attendu": "Matrice probabilité/impact haute résolution.",
       "accroche": {
         "longueur_cible_signes": 96,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1530,15 +1514,6 @@
       "blocs": [
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "spec": {
             "titre": "à définir selon la niche",
@@ -1604,6 +1579,11 @@
       "numero": "CHAPITRE 14",
       "titre_reference": "Potentiel de viabilité",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Scorecard de viabilité avec justification, jamais un score décoratif.",
       "accroche": {
         "longueur_cible_signes": 84,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1649,15 +1629,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "ajoute_par_le_modele": true,
           "spec": {
@@ -1737,6 +1708,11 @@
       "numero": "CHAPITRE 15",
       "titre_reference": "Tableau de bord visuel du marché",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Planche de graphiques cohérente avec la charte.",
       "accroche": {
         "longueur_cible_signes": 68,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1753,15 +1729,6 @@
       "blocs": [
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "spec": {
             "titre": "à définir selon la niche",
@@ -1780,15 +1747,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "ajoute_par_le_modele": true,
           "spec": {
@@ -1849,6 +1807,11 @@
       "numero": "CHAPITRE 16",
       "titre_reference": "Analyse de l’offre et de la demande",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Matrice besoins/couverture ou équilibre offre-demande.",
       "accroche": {
         "longueur_cible_signes": 120,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1901,15 +1864,6 @@
         },
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "spec": {
             "titre": "à définir selon la niche",
@@ -1957,6 +1911,11 @@
       "numero": "CHAPITRE 17",
       "titre_reference": "Analyse géographique avancée",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Carte si données géographiques fiables ; sinon tableau de scoring.",
       "accroche": {
         "longueur_cible_signes": 81,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -1973,15 +1932,6 @@
       "blocs": [
         {
           "type": "graphique",
-          "types_autorises": [
-            "barres_verticales",
-            "barres_horizontales",
-            "courbe",
-            "camembert",
-            "pyramide",
-            "matrice_positionnement",
-            "jauge"
-          ],
           "obligatoire": true,
           "spec": {
             "titre": "à définir selon la niche",
@@ -2071,6 +2021,11 @@
       "numero": "CHAPITRE 18",
       "titre_reference": "SWOT de synthèse",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        4
+      ],
+      "visuel_attendu": "Matrice SWOT 2 × 2 lisible.",
       "accroche": {
         "longueur_cible_signes": 58,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -2134,6 +2089,11 @@
       "numero": "CHAPITRE 19",
       "titre_reference": "Analyse stratégique et recommandations",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        4,
+        5
+      ],
+      "visuel_attendu": "Feuille de route 90 jours / 12 mois / 24 mois.",
       "accroche": {
         "longueur_cible_signes": 78,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -2482,6 +2442,11 @@
       "numero": "CHAPITRE 20",
       "titre_reference": "Conclusion analytique",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        2,
+        3
+      ],
+      "visuel_attendu": "Encadré final « Potentiel / Conditions / Vigilances ».",
       "accroche": {
         "longueur_cible_signes": 113,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."
@@ -2555,6 +2520,11 @@
       "numero": "CHAPITRE 21",
       "titre_reference": "Sources et méthodologie",
       "titre_consigne": "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 précisent la zone de la niche.",
+      "volume_pages": [
+        3,
+        5
+      ],
+      "visuel_attendu": "Aucun visuel obligatoire ; mise en page bibliographique claire.",
       "accroche": {
         "longueur_cible_signes": 89,
         "consigne": "Une phrase de positionnement du chapitre pour cette niche."

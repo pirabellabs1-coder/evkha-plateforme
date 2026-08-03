@@ -175,3 +175,119 @@ def test_le_modele_ne_couvre_que_l_etude_de_marche() -> None:
     assert not modele_couvre("business_plan")
     assert not modele_couvre("business_strategy")
     assert not modele_couvre("competitor_study")
+
+
+# ── Les visuels : une seule liste de types, celle du moteur ──────────────────
+
+
+def test_le_modele_ne_nomme_aucun_type_de_graphique() -> None:
+    """Le test qui échoue sur le code d'avant, et sur sa CLASSE (règle 4).
+
+    Le modèle portait `types_autorises` : sept noms, dont `barres_verticales`,
+    `courbe`, `pyramide` et `jauge` — quatre que `TypeGraphique` refuse. Le même
+    prompt annonçait donc une liste « imposée » qui faisait échouer la
+    validation plus d'une fois sur deux, et le catalogue correct quelques lignes
+    plus bas. Il ne restait que trois types utilisables pour tout un document.
+
+    On n'interdit pas ces quatre noms : on interdit qu'une liste de types vive
+    ailleurs que dans le moteur qui dessine. Un nom ajouté demain au modèle
+    retomberait sinon exactement dans le même piège.
+    """
+    from generation.chapitres.schema import TypeGraphique
+
+    connus = {t.value for t in TypeGraphique}
+    for numero in range(1, 22):
+        chapitre = chapitre_du_modele(numero)
+        assert chapitre is not None
+        for bloc in chapitre["blocs"]:
+            if bloc["type"] != "graphique":
+                continue
+            inconnus = {
+                str(nom) for nom in bloc.get("types_autorises") or []
+            } - connus
+            assert not bloc.get("types_autorises"), (
+                f"chapitre {numero} : le modèle nomme des types de graphique "
+                f"({sorted(bloc['types_autorises'])}). La liste appartient au "
+                f"moteur de rendu — dont {sorted(inconnus)} est absent."
+            )
+
+
+def test_le_plan_renvoie_au_catalogue_pour_le_type() -> None:
+    """Contre-épreuve : retirer la liste ne doit pas laisser le modèle sans consigne."""
+    plans = [plan_du_chapitre(n) for n in (1, 2, 13, 14, 15)]
+    for plan in plans:
+        assert "`graphique` — type à choisir dans le catalogue VISUELS" in plan
+    assert "types admis" not in "\n".join(plans)
+
+
+def test_le_plan_porte_le_visuel_attendu_par_le_manuel() -> None:
+    """Le catalogue dit ce qu'on sait dessiner ; le manuel dit quoi montrer ICI.
+
+    Sans cette ligne, les vingt-et-un chapitres choisissaient leur figure sur le
+    seul profil sectoriel — donc la même, partout. Le manuel, lui, prescrit une
+    courbe au chapitre 1 et une scorecard au 14.
+    """
+    attendus = {
+        1: "Courbe historique et projection",
+        13: "Matrice probabilité/impact",
+        14: "Scorecard de viabilité",
+        19: "Feuille de route 90 jours",
+    }
+    for numero, extrait in attendus.items():
+        plan = plan_du_chapitre(numero)
+        assert "Visuel attendu par le manuel" in plan, numero
+        assert extrait in plan, f"chapitre {numero} : « {extrait} » absent du plan"
+
+    # Et sur TOUS les chapitres, pas seulement ceux qu'on a choisis (règle 4).
+    intentions = set()
+    for numero in range(1, 22):
+        chapitre = chapitre_du_modele(numero)
+        assert chapitre is not None
+        visuel = chapitre.get("visuel_attendu", "")
+        assert visuel, f"chapitre {numero} : aucun visuel attendu déclaré"
+        assert visuel in plan_du_chapitre(numero)
+        intentions.add(visuel)
+    assert len(intentions) == 21, "deux chapitres partagent la même intention visuelle"
+
+
+def test_le_plan_annonce_l_epaisseur_en_pages_du_manuel() -> None:
+    """Le manuel raisonne en pages ; le blueprint, en mots.
+
+    Le modèle de langage ne voyait que la cible de mots, qui ne dit rien de ce
+    que le lecteur tiendra en main.
+    """
+    assert "Épaisseur attendue : 4 à 5 pages" in plan_du_chapitre(1)
+    assert "Épaisseur attendue : 5 à 6 pages" in plan_du_chapitre(2)
+    for numero in range(1, 22):
+        chapitre = chapitre_du_modele(numero)
+        assert chapitre is not None
+        mini, maxi = chapitre["volume_pages"]
+        assert 2 <= mini <= maxi <= 6, f"chapitre {numero} : {mini}-{maxi} pages"
+
+
+def test_le_plancher_des_volumes_produit_deja_une_etude_conforme() -> None:
+    """« 55 à 70 pages utiles », « le document final ne dépasse pas 80 pages ».
+
+    Les volumes du manuel sont indicatifs et NON additifs : leurs planchers
+    cumulés font 63 pages, leurs plafonds 85 — soit cinq de plus que la limite
+    que le manuel se donne lui-même, annexe non comprise. Écart réel du manuel,
+    signalé à la cliente ; on ne récrit pas ses chiffres ici.
+
+    Ce que le test verrouille, c'est la seule propriété dont la génération
+    dépend : un chapitre écrit au plancher donne DÉJÀ une étude conforme. Sans
+    elle, respecter le manuel chapitre par chapitre pourrait produire un
+    document trop court, et personne ne le verrait avant la livraison.
+    """
+    bornes = [
+        chapitre_du_modele(n)["volume_pages"]  # type: ignore[index]
+        for n in range(1, 22)
+    ]
+    mini = sum(b[0] for b in bornes)
+    assert 55 <= mini <= 70, (
+        f"au plancher, l'étude ferait {mini} pages — hors des 55 à 70 pages "
+        "utiles du manuel"
+    )
+    # Le plafond reste hors borne par construction. On l'enregistre pour que sa
+    # dérive éventuelle se voie, sans prétendre qu'il est conforme.
+    maxi = sum(b[1] for b in bornes)
+    assert maxi <= 90, f"plafond cumulé {maxi} pages : dérive au-delà du manuel"

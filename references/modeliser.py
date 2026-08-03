@@ -40,10 +40,60 @@ GRAPHIQUES_MIN: dict[str, int] = {
     "CHAPITRE 21": 0,
 }
 
-TYPES_GRAPHIQUES = [
-    "barres_verticales", "barres_horizontales", "courbe", "camembert",
-    "pyramide", "matrice_positionnement", "jauge",
-]
+#: « Visuel pertinent » du manuel EVKHA « Cheminement et profondeur d'une étude
+#: de marché » (pp. 11-31), chapitre par chapitre, verbatim.
+#:
+#: Ce que le modèle apporte ici, c'est l'INTENTION — quoi montrer — et rien
+#: d'autre. Il portait naguère un `TYPES_GRAPHIQUES` de sept noms dont quatre —
+#: `barres_verticales`, `courbe`, `pyramide`, `jauge` — que
+#: `chapitres.schema.TypeGraphique` refuse. Le prompt annonçait donc une liste
+#: « imposée » qui faisait échouer la validation plus d'une fois sur deux, et le
+#: catalogue correct quelques lignes plus bas. Il ne restait que trois types
+#: employables pour tout un document : les figures ne pouvaient pas varier.
+#:
+#: La liste des types appartient au moteur qui dessine
+#: (`rendu_word.graphiques.RENDU_PAR_TYPE`), une seule fois — règle 5.
+VISUEL_ATTENDU: dict[str, str] = {
+    "CHAPITRE 01": "Courbe historique et projection ; monde versus continent pertinent.",
+    "CHAPITRE 02": "Graphique national/local et schéma TAM/SAM/SOM.",
+    "CHAPITRE 03": "Carte ou matrice de segmentation, limitée aux axes utiles.",
+    "CHAPITRE 04": "Encadré comparatif ou balance avantages/contraintes.",
+    "CHAPITRE 05": "Matrice impact/horizon des défis et opportunités.",
+    "CHAPITRE 06": "Parcours de conformité ou tableau obligations/actions.",
+    "CHAPITRE 07": "Frise 2026-2027 ou radar de tendances.",
+    "CHAPITRE 08": "Frise ou tableau de scénarios à 2030.",
+    "CHAPITRE 09": "Tuiles chiffrées ou tableau synthétique lisible.",
+    "CHAPITRE 10": "Parcours de décision ou matrice attentes/freins/leviers.",
+    "CHAPITRE 11": "Deux fiches persona sobres et comparables.",
+    "CHAPITRE 12": "Registre des risques synthétique.",
+    "CHAPITRE 13": "Matrice probabilité/impact haute résolution.",
+    "CHAPITRE 14": "Scorecard de viabilité avec justification, jamais un score décoratif.",
+    "CHAPITRE 15": "Planche de graphiques cohérente avec la charte.",
+    "CHAPITRE 16": "Matrice besoins/couverture ou équilibre offre-demande.",
+    "CHAPITRE 17": "Carte si données géographiques fiables ; sinon tableau de scoring.",
+    "CHAPITRE 18": "Matrice SWOT 2 × 2 lisible.",
+    "CHAPITRE 19": "Feuille de route 90 jours / 12 mois / 24 mois.",
+    "CHAPITRE 20": "Encadré final « Potentiel / Conditions / Vigilances ».",
+    "CHAPITRE 21": "Aucun visuel obligatoire ; mise en page bibliographique claire.",
+}
+
+#: « Volume indicatif dans l'étude client » du manuel, en pages.
+#:
+#: Indicatif et NON additif : les planchers cumulés font 63 pages, les plafonds
+#: 85 — cinq de plus que la limite de 80 que le manuel se donne lui-même, annexe
+#: non comprise. On recopie ses chiffres sans les corriger ; c'est sa décision,
+#: pas la nôtre. Le test `test_le_plancher_des_volumes_produit_deja_une_etude_
+#: conforme` verrouille la seule propriété dont la génération dépend : au
+#: plancher, l'étude est déjà conforme.
+VOLUME_PAGES: dict[str, tuple[int, int]] = {
+    "CHAPITRE 01": (4, 5), "CHAPITRE 02": (5, 6), "CHAPITRE 03": (3, 4),
+    "CHAPITRE 04": (2, 3), "CHAPITRE 05": (3, 4), "CHAPITRE 06": (3, 4),
+    "CHAPITRE 07": (2, 3), "CHAPITRE 08": (3, 4), "CHAPITRE 09": (2, 3),
+    "CHAPITRE 10": (4, 5), "CHAPITRE 11": (2, 3), "CHAPITRE 12": (4, 5),
+    "CHAPITRE 13": (2, 3), "CHAPITRE 14": (3, 4), "CHAPITRE 15": (3, 4),
+    "CHAPITRE 16": (3, 4), "CHAPITRE 17": (3, 4), "CHAPITRE 18": (3, 4),
+    "CHAPITRE 19": (4, 5), "CHAPITRE 20": (2, 3), "CHAPITRE 21": (3, 5),
+}
 
 VARIABLES_GLOBALES = {
     "client.nom": "Nom du client final (remplace partout où le modèle disait Joalie)",
@@ -181,7 +231,6 @@ def _variabiliser(bloc: dict[str, Any], precedent: dict[str, Any] | None) -> dic
     if type_bloc == "graphique":
         return {
             "type": "graphique",
-            "types_autorises": TYPES_GRAPHIQUES,
             "obligatoire": True,
             "spec": {
                 "titre": "à définir selon la niche",
@@ -241,7 +290,6 @@ def _placer_graphiques_supplementaires(
     for _ in range(manquants):
         gabarit = {
             "type": "graphique",
-            "types_autorises": TYPES_GRAPHIQUES,
             "obligatoire": True,
             "ajoute_par_le_modele": True,
             "spec": {
@@ -268,6 +316,12 @@ def construire(reference: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(msg)
         blocs, saut = _blocs(chapitre["blocs"])
         blocs = _placer_graphiques_supplementaires(blocs, GRAPHIQUES_MIN[numero])
+        if numero not in VISUEL_ATTENDU or numero not in VOLUME_PAGES:
+            # Bruyant, jamais un repli (règle 1) : un chapitre sans intention
+            # visuelle ni épaisseur reprendrait la figure du profil sectoriel,
+            # la même que ses voisins — exactement le défaut qu'on corrige.
+            msg = f"{numero} n’a ni visuel attendu ni volume déclaré."
+            raise ValueError(msg)
         chapitres.append({
             "numero": numero,
             "titre_reference": _neutraliser(chapitre["titre"]),
@@ -275,6 +329,8 @@ def construire(reference: dict[str, Any]) -> dict[str, Any]:
                 "Conserver le titre tel quel ; seuls les chapitres 1, 2 et 17 "
                 "précisent la zone de la niche."
             ),
+            "volume_pages": list(VOLUME_PAGES[numero]),
+            "visuel_attendu": VISUEL_ATTENDU[numero],
             "accroche": {
                 "longueur_cible_signes": len(chapitre.get("accroche", "")),
                 "consigne": "Une phrase de positionnement du chapitre pour cette niche.",
