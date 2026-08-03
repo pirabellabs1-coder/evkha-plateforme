@@ -96,6 +96,53 @@ def _bloc_resumes(job: GenerationJob, numero: int) -> str:
     return "CHAPITRES PRÉCÉDENTS (résumés) :\n\n" + "\n\n".join(lignes)
 
 
+def _bloc_sources(job: GenerationJob, numero: int) -> str:
+    """Sources web réelles utiles à CE chapitre.
+
+    Ce bloc manquait, et c'est la cause la plus lourde des redites relevées par
+    la cliente. Mesuré : dans le moteur structuré — celui qui tourne —, le seul
+    matériau qu'un chapitre recevait était `_bloc_socle`, soit **vingt-neuf
+    emplacements de données pour l'étude entière**, plus les résumés des
+    chapitres précédents. Le brief de recherche, lui, était consommé UNE fois
+    pour remplir ces vingt-neuf cases, puis jeté : aucun chapitre ne le voyait.
+
+    Deux conséquences directes.
+
+    1. Vingt-et-un chapitres de trois à cinq pages écrits à partir de
+       vingt-neuf chiffres n'ont rien de neuf à dire passé le troisième. Ce
+       n'est pas le modèle qui se répète, c'est la matière qui manque.
+    2. Le manuel exige « 35 à 60 sources distinctes » au chapitre 21. Avec au
+       plus vingt-neuf données portant chacune une source — souvent la même —,
+       la cible était hors d'atteinte par construction.
+
+    Le socle reste l'AUTORITÉ sur les chiffres : il est verrouillé, contrôlé,
+    et c'est lui qui garantit qu'un montant ne change pas d'un chapitre à
+    l'autre. Ces sources servent à tout ce que le socle ne porte pas — une
+    obligation réglementaire, un comportement d'achat, un signal de tendance —
+    et à la bibliographie du chapitre 21. La règle de préséance est écrite dans
+    le bloc, sans quoi le modèle citerait un chiffre du web contre un chiffre
+    verrouillé.
+    """
+    from ..research import brief_pour_chapitre  # noqa: PLC0415
+
+    utile = brief_pour_chapitre(job.research_brief or "", numero)
+    if not utile.strip():
+        return (
+            "SOURCES WEB : aucune source collectée pour ce chapitre. N'invente "
+            "ni URL ni date de publication ; n'avance aucun fait daté que le "
+            "socle ne porte pas."
+        )
+    return (
+        "SOURCES WEB RÉELLES POUR CE CHAPITRE — matière de première main, "
+        "collectée pour lui.\n"
+        "Préséance : sur tout CHIFFRE que le socle porte déjà, le socle gagne, "
+        "toujours. Ces sources servent à ce que le socle ne porte pas — "
+        "obligations, comportements, prix observés, signaux de tendance — et à "
+        "la bibliographie du chapitre 21. Ne cite jamais une URL absente de "
+        "cette liste.\n\n" + utile
+    )
+
+
 def _bloc_forme() -> str:
     """Consigne de forme, identique pour tous les chapitres et tous les livrables.
 
@@ -209,6 +256,7 @@ def construire_prompt_chapitre(
 
     blocs = [
         _bloc_socle(socle),
+        _bloc_sources(chapter.job, chapter.chapter_number),
         f"BRIEF_CLIENT :\n{json.dumps(dict(variables), ensure_ascii=False, sort_keys=True)}",
         _bloc_resumes(chapter.job, chapter.chapter_number),
         f"CHAPITRE À RÉDIGER : {chapter.chapter_number} — {chapter.chapter_title}",

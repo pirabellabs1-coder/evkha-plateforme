@@ -127,7 +127,23 @@ def build_context(chapter: ChapterGeneration) -> str:
     fiche_sectorielle = job.context_summary or "Non encore etablie."
 
     # Brief de recherche web (vraies sources datees). Vide en mode stub.
-    research_block = job.research_brief or (
+    #
+    # FILTRE par chapitre : le brief entier partait dans tous les chapitres, si
+    # bien que celui sur la reglementation recevait exactement les extraits de
+    # celui sur les personas. Des chapitres nourris de la meme matiere n'ont
+    # plus rien de neuf a dire passe le troisieme.
+    #
+    # ATTENTION au lecteur : ce module est l'ANCIENNE chaine. En production,
+    # `EVKHA_SOCLE_ENABLED` vaut vrai et c'est `chapitres.runner` qui compose le
+    # prompt — il n'appelle jamais `build_context`. Le meme filtrage y est
+    # applique par `_bloc_sources`, ou il produit reellement son effet. On le
+    # pose ici aussi pour que les deux chaines se comportent pareil si le
+    # drapeau retombe, pas parce que c'est ici que le defaut faisait mal.
+    from .research import brief_pour_chapitre  # noqa: PLC0415
+
+    research_block = brief_pour_chapitre(
+        job.research_brief, chapter.chapter_number
+    ) or (
         "Aucune source web collectee : n'invente aucune URL ni date de "
         "publication ; presente toute donnee non etablie comme une estimation."
     )
