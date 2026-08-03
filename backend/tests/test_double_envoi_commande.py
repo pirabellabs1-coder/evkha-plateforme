@@ -191,3 +191,88 @@ def test_deux_organisations_ne_se_bloquent_pas_l_une_l_autre(atelier: Any) -> No
     )
 
     assert second.id != premier.id, "une agence a bloque la commande d'une autre"
+
+
+# ── Là où deux correctifs de la même session se détruisaient ─────────────────
+
+
+def test_apres_un_abandon_l_abonne_peut_recommander_la_meme_etude(
+    atelier: Any,
+) -> None:
+    """Le test qui manquait, et qui a laissé passer un défaut réel.
+
+    Enchaînement rejoué sur les vraies routes par une relecture adversariale :
+
+    1. l'étude échoue ;
+    2. le client clique « Renoncer », son crédit revient ;
+    3. il recommande la même étude — geste que l'écran l'invite explicitement à
+       faire (« Vous pouvez commander une nouvelle étude quand vous le
+       souhaitez ») ;
+    4. la fenêtre anti-doublon retrouvait la commande d'origine et lui rendait
+       le job ANNULÉ ET REMBOURSÉ ;
+    5. la vue répondait « commande acceptée », relançait ce job mort, et
+       `debiter_pour_job` le refusait puisque les crédits avaient été restitués.
+
+    Dix minutes durant, le client ne pouvait plus commander, avec un
+    portefeuille plein et un écran affichant un échec.
+
+    Les deux correctifs — anti-doublon et refus de relance après remboursement —
+    sont justes séparément. Aucun test ne les croisait : `test_double_envoi`
+    n'abandonnait jamais, `test_remboursement` ne repassait jamais par
+    `creer_commande`.
+    """
+    from generation.models import GenerationJob, JobStatus
+    from organisations import liaison
+
+    premier = _commander(atelier)
+    liaison.debiter_pour_job(premier)
+    GenerationJob.objects.filter(pk=premier.pk).update(status=JobStatus.FAILED)
+
+    # Le client renonce : son crédit revient.
+    premier.refresh_from_db()
+    GenerationJob.objects.filter(pk=premier.pk).update(status=JobStatus.CANCELLED)
+    premier.refresh_from_db()
+    assert liaison.rembourser_job(premier, motif="Abandon client")
+    assert credits.solde(atelier.organisation) == 10
+
+    # Il recommande aussitôt la même étude.
+    second = _commander(atelier)
+
+    assert second.id != premier.id, (
+        "la fenetre anti-doublon a rendu le job abandonne : le client est "
+        "enferme jusqu'a expiration de la fenetre"
+    )
+    autorise, raison = liaison.debiter_pour_job(second)
+    assert autorise, raison
+    assert credits.solde(atelier.organisation) == 9
+
+
+def test_un_job_annule_sans_remboursement_n_est_pas_rendu_non_plus(
+    atelier: Any,
+) -> None:
+    """La CLASSE, pas le seul cas du remboursement (règle 4).
+
+    On énumère ce qui SERT — en attente, en cours, terminé, en échec — jamais
+    ce qui ne sert pas. Un statut ajouté demain serait sinon considéré
+    utilisable par défaut, et le défaut reviendrait sous une autre forme.
+    """
+    from generation.models import GenerationJob, JobStatus
+
+    premier = _commander(atelier)
+    GenerationJob.objects.filter(pk=premier.pk).update(status=JobStatus.CANCELLED)
+
+    assert _commander(atelier).id != premier.id
+
+
+def test_un_job_en_echec_RECUPERABLE_est_toujours_rendu(atelier: Any) -> None:
+    """Contre-épreuve : le double-clic reste un double-clic.
+
+    Une étude en échec non abandonnée est relançable sans repayer — c'est ce
+    que le §13 demande. La rendre est la bonne réponse à un second clic.
+    """
+    from generation.models import GenerationJob, JobStatus
+
+    premier = _commander(atelier)
+    GenerationJob.objects.filter(pk=premier.pk).update(status=JobStatus.FAILED)
+
+    assert _commander(atelier).id == premier.id

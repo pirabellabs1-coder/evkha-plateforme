@@ -120,7 +120,16 @@ def lien_pour(compte: CompteClient, *, chemin: str = "/definir-mot-de-passe") ->
     premier dit qui, le second prouve que nous l'avons émis. Sans le second,
     changer un chiffre dans l'URL suffirait à prendre le compte du voisin.
     """
-    base = str(getattr(settings, "EVKHA_BASE_URL", "")).rstrip("/")
+    # L'adresse du FRONT, pas celle de l'API : ces liens menent a des pages de
+    # l'espace client. Construits sur `EVKHA_BASE_URL`, ils envoyaient l'invite
+    # sur un 404 en production — la fonctionnalite Equipe etait livree, testee,
+    # et inutilisable (regle 8, encore).
+    base = str(getattr(settings, "EVKHA_APP_URL", "") or "").rstrip("/")
+    if not base:
+        # On ne fabrique PAS un lien de repli sur l'API : il aurait l'air
+        # valide et ne menerait nulle part. `evkha.C004` refuse le demarrage
+        # en production ; en developpement, le front local.
+        base = "http://localhost:5173"
     identifiant = urlsafe_base64_encode(force_bytes(compte.user_id))
     jeton = _jetons.make_token(compte.user)
     return f"{base}{chemin}?id={identifiant}&jeton={jeton}"

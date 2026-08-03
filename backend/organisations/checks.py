@@ -112,6 +112,36 @@ def controler_secret_django(
     return problemes
 
 
+@register()
+def controler_adresse_du_front(
+    app_configs: object, **kwargs: object
+) -> list[Error | Warning]:
+    """Les liens d'invitation menent-ils quelque part ?
+
+    Ils pointent vers des pages de l'espace client. Construits sur
+    `EVKHA_BASE_URL` — l'adresse de l'API —, ils renvoyaient un 404 : la
+    fonctionnalite Equipe etait livree, testee, et inutilisable.
+
+    Un lien qui ne mene nulle part est pire qu'une invitation non partie : il a
+    l'air d'avoir marche, et personne ne cherche la cause (regle 1).
+    """
+    problemes: list[Error | Warning] = []
+    if settings.DEBUG:
+        return problemes
+
+    if not str(getattr(settings, "EVKHA_APP_URL", "") or ""):
+        problemes.append(Error(
+            "EVKHA_APP_URL n'est pas defini : les liens d'invitation et de "
+            "reinitialisation de mot de passe menent a une page inexistante.",
+            hint=(
+                "Definir EVKHA_APP_URL sur l'adresse de l'espace client, "
+                "par exemple https://app2.evkha.fr."
+            ),
+            id="evkha.C004",
+        ))
+    return problemes
+
+
 #: Valeur de repli inscrite dans `settings.py`. Nommée ici pour que le contrôle
 #: la reconnaisse sans la recopier à l'aveugle : si elle change là-bas et pas
 #: ici, le contrôle cesse de protéger sans rien dire — d'où le test dédié qui

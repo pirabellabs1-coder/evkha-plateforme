@@ -326,6 +326,19 @@ GAMMA_THEME_ID = env("GAMMA_THEME_ID", default="")
 # Exemple production : https://app.evkha.fr
 EVKHA_BASE_URL = env("EVKHA_BASE_URL", default="http://localhost:8000")
 
+# Adresse de l'ESPACE CLIENT (le front), distincte de celle de l'API.
+#
+# Les liens d'invitation et de reinitialisation de mot de passe menent a des
+# pages du front — `/definir-mot-de-passe`, `/mot-de-passe-oublie`. Ils etaient
+# construits sur EVKHA_BASE_URL, qui designe l'API : en production, chaque
+# invitation envoyait donc l'invite sur un 404, et la fonctionnalite Equipe
+# etait inutilisable alors qu'elle etait livree et testee.
+#
+# Sans valeur, `evkha.C004` refuse hors DEBUG : un lien qui ne mene nulle part
+# est pire qu'une invitation qui n'est pas partie, parce qu'il a l'air d'avoir
+# marche (regle 1).
+EVKHA_APP_URL = env("EVKHA_APP_URL", default="")
+
 # Dashboard auth (Phase 6).
 # EVKHA_DASHBOARD_AUTH_DISABLED=true en dev/CI (defaut).
 # En production : EVKHA_DASHBOARD_AUTH_DISABLED=false

@@ -118,6 +118,29 @@ def _offre_pour(type_document: str) -> Offer:
     return offre
 
 
+#: Etats depuis lesquels rendre un job existant a du sens.
+#:
+#: On enumere ce qui SERT, jamais ce qui ne sert pas : un statut ajoute demain
+#: serait sinon considere utilisable par defaut, et le defaut reviendrait sous
+#: une autre forme (regle 4).
+ETATS_ENCORE_UTILISABLES = ("pending", "running", "done", "failed")
+
+
+def _reste_utilisable(job: GenerationJob) -> bool:
+    """Ce job peut-il encore etre rendu comme reponse a « je commande » ?
+
+    Deux conditions, et la seconde ne se lit pas dans le statut : un job dont
+    les credits ont ete restitues ne repartira jamais — `debiter_pour_job` le
+    refuse. Le rendre reviendrait a repondre « c'est fait » a quelqu'un pour
+    qui rien ne sera fait.
+    """
+    from .liaison import credits_restitues  # noqa: PLC0415 — evite un cycle
+
+    if str(job.status) not in ETATS_ENCORE_UTILISABLES:
+        return False
+    return not credits_restitues(job)
+
+
 def variables_de_commande(
     organisation: Organisation, type_document: str, saisie: dict[str, Any]
 ) -> tuple[dict[str, str], list[str]]:
@@ -240,7 +263,21 @@ def creer_commande(
     )
     if recente is not None:
         deja = GenerationJob.objects.filter(order=recente).order_by("-created_at").first()
-        if deja is not None:
+        # Le job rendu doit encore SERVIR A QUELQUE CHOSE.
+        #
+        # Sans ce controle, deux correctifs de cette meme session se
+        # detruisaient l'un l'autre. Enchainement rejoue sur les vraies
+        # routes : l'etude echoue, le client clique « Renoncer », son credit
+        # revient — puis il recommande la meme etude, geste que l'ecran
+        # l'invite explicitement a faire. La fenetre retrouvait alors la
+        # commande d'origine et lui rendait le job ANNULE ET REMBOURSE. La vue
+        # repondait « commande acceptee », relancait ce job mort, et
+        # `debiter_pour_job` le refusait puisque les credits avaient ete
+        # restitues.
+        #
+        # Resultat : dix minutes durant, le client ne pouvait plus commander,
+        # avec un portefeuille plein et un ecran affichant un echec.
+        if deja is not None and _reste_utilisable(deja):
             _log.info(
                 "Commande identique renvoyee pour %s : job %s (double envoi).",
                 organisation, deja.id,
