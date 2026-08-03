@@ -266,6 +266,81 @@ def _blocs(blocs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], bool]:
     return modele, saut_final
 
 
+#: Blocs que le MANUEL exige et que le document de référence ne contient pas.
+#:
+#: Le modèle est mesuré sur `joalie_2026.docx`, produit AVANT le manuel
+#: « Cheminement et profondeur d'une étude de marché ». Là où les deux se
+#: contredisent, le manuel tranche : c'est la spécification écrite, et la plus
+#: récente. On le dit ici plutôt que de laisser le conflit vivre en silence.
+#:
+#: Cas unique à ce jour, le chapitre 18. Le manuel y ajoute une section rédigée
+#: obligatoire — « Ce que la SWOT ne dit pas » — traitant les dépendances entre
+#: facteurs, la chronologie, la capacité réelle d'exécution, les arbitrages de
+#: ressources, les hypothèses fragiles et les signaux faibles, puis 3 à 5
+#: décisions à approfondir au chapitre 19.
+#:
+#: Or la référence ne prévoit à ce chapitre que VINGT-QUATRE signes de prose,
+#: entre trois tableaux. Le prompt aurait donc réclamé une section entière que
+#: le plan interdisait — le chapitre aurait été refusé pour non-respect de sa
+#: séquence, quoi qu'écrive le modèle (règle 9 : demander une chose et en
+#: contrôler une autre).
+BLOCS_DU_MANUEL: dict[str, tuple[dict[str, Any], ...]] = {
+    "CHAPITRE 18": (
+        {
+            "type": "titre_sous_section",
+            "numero": "18.3",
+            "intitule_reference": "Ce que la SWOT ne dit pas",
+            "consigne": (
+                "Intitulé FIXE, imposé par le manuel : ne pas l'adapter à la niche."
+            ),
+            "ajoute_par_le_manuel": True,
+        },
+        {
+            "type": "paragraphe",
+            "longueur_cible_signes": 900,
+            "consigne": (
+                "Angles morts de la matrice : dépendances entre facteurs, ordre "
+                "dans lequel les événements peuvent survenir, capacité réelle "
+                "d'exécution du porteur, arbitrages de ressources."
+            ),
+            "ajoute_par_le_manuel": True,
+        },
+        {
+            "type": "paragraphe",
+            "longueur_cible_signes": 900,
+            "consigne": (
+                "Ce que la seule SWOT ne permet PAS de conclure : rentabilité, "
+                "vitesse de conversion, réaction du marché, capacité "
+                "opérationnelle, efficacité future des recommandations. "
+                "Terminer par 3 à 5 décisions à approfondir au chapitre 19."
+            ),
+            "ajoute_par_le_manuel": True,
+        },
+    ),
+}
+
+
+def _ajouter_blocs_du_manuel(
+    numero: str, blocs: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Insère les blocs que le manuel exige en plus de la référence.
+
+    Placés AVANT l'encadré final : celui-ci porte le diagnostic, il doit rester
+    la dernière chose que le lecteur voit.
+    """
+    supplement = BLOCS_DU_MANUEL.get(numero)
+    if not supplement:
+        return blocs
+    if any(b.get("ajoute_par_le_manuel") for b in blocs):
+        return blocs
+
+    modele = list(blocs)
+    position = next(
+        (i for i, b in enumerate(modele) if b["type"] == "encadre"), len(modele)
+    )
+    return modele[:position] + list(supplement) + modele[position:]
+
+
 def _placer_graphiques_supplementaires(
     blocs: list[dict[str, Any]], minimum: int
 ) -> list[dict[str, Any]]:
@@ -315,6 +390,7 @@ def construire(reference: dict[str, Any]) -> dict[str, Any]:
             msg = f"{numero} n’a pas de graphiques_min déclaré."
             raise ValueError(msg)
         blocs, saut = _blocs(chapitre["blocs"])
+        blocs = _ajouter_blocs_du_manuel(numero, blocs)
         blocs = _placer_graphiques_supplementaires(blocs, GRAPHIQUES_MIN[numero])
         if numero not in VISUEL_ATTENDU or numero not in VOLUME_PAGES:
             # Bruyant, jamais un repli (règle 1) : un chapitre sans intention

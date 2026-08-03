@@ -12,7 +12,15 @@ Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
 CHAPITRE 2 — Marche national, local et marche accessible (manuel §6, p. 8).
-Objectif : mesurer le terrain reel d'implantation et transformer la vue macro en potentiel accessible. Le pays cible est extrait de VARIABLES_PROJET.PAYS, la zone de VARIABLES_PROJET.ZONE.
+Objectif : mesurer le terrain reel d'implantation et transformer la vue macro en potentiel accessible. Le pays cible est extrait de BRIEF_CLIENT.PAYS, la zone de BRIEF_CLIENT.ZONE.
+
+Questions auxquelles ce chapitre doit repondre :
+- Quelle est la taille du marche dans le pays, la region et la zone d'implantation reelle ?
+- La population, le pouvoir d'achat, les usages, les flux et la densite locale creent-ils une demande suffisante ?
+- Quelle part du marche total correspond reellement a l'offre, a la cible et a la zone du projet ?
+- Quel niveau de marche le projet peut-il raisonnablement atteindre en annee 1 puis en annee 3 ?
+- Quelles hypotheses expliquent le TAM, le SAM et le SOM, et lesquelles sont les plus sensibles ?
+
 Contenu obligatoire, dans cet ordre :
 1. Marche NATIONAL : taille et dynamique (valeur, volume, TCAC national), acteurs structurants sans benchmark concurrentiel detaille, maturite et structure (concentration, distribution), specificites nationales utiles (reglementation, habitudes de consommation), projection nationale lorsque defendable.
 2. Marche LOCAL sur la zone cible : demographie, revenus, emploi, flux, usages, densite et demande ; projection locale lorsque defendable, avec estimation argumentee si les donnees directes manquent.
@@ -20,10 +28,10 @@ Contenu obligatoire, dans cet ordre :
 Ne repete pas les chiffres mondiaux et continentaux du chapitre 1 : tu les reprends comme point de depart, tu ne les re-estimes pas.
 
 DISTINCTION CRITIQUE mondial / continental (erreur fatale de coherence) :
-Le bloc CHIFFRES_FONDATIONS contient DEUX valeurs separees et differentes :
-  - `taille_marche_mondial` = taille totale du marche mondial (toutes geographies, toutes technologies pertinentes au projet)
-  - `taille_marche_continental` = part de ce marche a l'echelle du continent pertinent (ex. Europe IA strict pour un projet francais)
-Ces deux valeurs sont differentes. Si tu ouvres ce chapitre avec une phrase du type 'Le chapitre 1 a etabli que le marche mondial represente X', X doit etre EXACTEMENT `taille_marche_mondial`, jamais `taille_marche_continental`. Confondre les deux dans la phrase d'ouverture propage l'erreur dans tous les chapitres suivants qui s'appuient sur ce chapitre comme reference.
+Le bloc SOCLE VERROUILLE contient DEUX valeurs separees et differentes :
+  - `marche_mondial_taille` = taille totale du marche mondial (toutes geographies, toutes technologies pertinentes au projet)
+  - `marche_continental_taille` = part de ce marche a l'echelle du continent pertinent (ex. Europe IA strict pour un projet francais)
+Ces deux valeurs sont differentes. Si tu ouvres ce chapitre avec une phrase du type 'Le chapitre 1 a etabli que le marche mondial represente X', X doit etre EXACTEMENT `marche_mondial_taille`, jamais `marche_continental_taille`. Confondre les deux dans la phrase d'ouverture propage l'erreur dans tous les chapitres suivants qui s'appuient sur ce chapitre comme reference.
 
 REGLES DE CALCUL DU MARCHE ACCESSIBLE (non negociables) :
 - Ecris le calcul, pas seulement le resultat. Chaque etape nomme ses variables et leur valeur : population de la zone, taux de penetration retenu, panier ou ticket moyen, frequence annuelle, part de capture visee. Un lecteur doit pouvoir refaire le calcul et retrouver ton chiffre.
@@ -64,3 +72,5 @@ Visuel utile (manuel) : graphique national/local + schema TAM/SAM/SOM. En fin de
 </table>
 <p style="font-style:italic;font-size:8.5pt;color:#5A5A5A">Source : [cite ta source]. Estimations argumentees sur la base des donnees disponibles.</p>
 Remplace Segment A/B/C et XX par les vraies donnees etablies dans l'analyse.
+
+Lecture strategique attendue : Dire si la zone est pertinente, quelle part du marche est reellement accessible et quelles hypotheses doivent etre testees en priorite.

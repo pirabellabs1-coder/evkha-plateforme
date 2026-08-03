@@ -46,16 +46,19 @@ def normalized_market_submission() -> IntakeSubmission:
 
 @pytest.mark.django_db
 def test_market_study_blueprint_matches_evkha_method() -> None:
-    # Fiche projet en ouverture + 20 chapitres + annexe brief + sources = 23 unites.
-    # Manuel Evangeline (24/07/2026) : 21 chapitres analytiques + fiche projet
-    # opening. Annexe brief separee supprimee (couverture des demandes vérifiée
-    # par les CHECK 2/6/9). Chapitre 21 = Sources + methodologie fusionnes.
-    assert len(MARKET_STUDY_CHAPTERS) == 22
+    # Fiche projet en ouverture + 21 chapitres analytiques + annexe = 23 unites.
+    # Manuel « Cheminement et profondeur d'une etude de marche » : chapitre 21 =
+    # Sources et methodologie ; annexe « Reponses essentielles au client »
+    # RETABLIE d'apres son §8 (pp. 33-34), qui l'exige apres le chapitre 21 et
+    # inscrit sa presence dans le CHECK FINAL.
+    assert len(MARKET_STUDY_CHAPTERS) == 23
     assert MARKET_STUDY_CHAPTERS[0].prompt_key == "em.00.fiche_projet"
     assert MARKET_STUDY_CHAPTERS[0].section_kind == SectionKind.OPENING
     assert MARKET_STUDY_CHAPTERS[1].title.startswith("Marché mondial")
-    assert MARKET_STUDY_CHAPTERS[-1].prompt_key == "em.21.sources_methodologie"
-    assert MARKET_STUDY_CHAPTERS[-1].section_kind == SectionKind.SOURCES
+    assert MARKET_STUDY_CHAPTERS[-2].prompt_key == "em.21.sources_methodologie"
+    assert MARKET_STUDY_CHAPTERS[-2].section_kind == SectionKind.SOURCES
+    assert MARKET_STUDY_CHAPTERS[-1].prompt_key == "em.22.annexe_reponses"
+    assert MARKET_STUDY_CHAPTERS[-1].section_kind == SectionKind.ANNEXE
 
 
 @pytest.mark.django_db
@@ -65,8 +68,8 @@ def test_bootstrap_generation_job_creates_all_sections(
     job = bootstrap_generation_job(normalized_market_submission)
 
     assert job.deliverable_type == DeliverableType.MARKET_STUDY
-    assert job.chapters.count() == 22
-    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 22))
+    assert job.chapters.count() == 23
+    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 23))
 
 
 @pytest.mark.django_db

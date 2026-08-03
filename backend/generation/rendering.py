@@ -113,12 +113,11 @@ _SOURCES_BLOCK_PATTERN = re.compile(
     r"^\s*(?:#{1,4}\s*)?Sources?\s*(?:[:—-].*)?$", re.IGNORECASE
 )
 
-_SECTION_ORDER: dict[str, int] = {
-    SectionKind.OPENING: 0,
-    SectionKind.CHAPTER: 1,
-    SectionKind.ANNEXE: 2,
-    SectionKind.SOURCES: 3,
-}
+# RETIRÉ : `_SECTION_ORDER`, qui classait les sections par nature avant de les
+# classer par numéro. Il plaçait toute annexe avant les sources, ce qui sortait
+# l'étude de marché dans l'ordre 20, 22, 21 — le manuel exige l'annexe APRÈS le
+# chapitre 21. L'ordre de lecture est celui du blueprint, c'est-à-dire le
+# numéro ; laisser une seconde règle à côté était l'occasion de diverger.
 
 
 @dataclass(frozen=True)
@@ -982,5 +981,17 @@ def render_client_document(job: GenerationJob) -> ClientDocument:
             )
         )
 
-    sections.sort(key=lambda s: (_SECTION_ORDER.get(s.kind, 1), s.number))
+    # L'ordre de lecture est celui du BLUEPRINT, donc le numéro de chapitre.
+    #
+    # Trier d'abord par nature plaçait toute annexe avant les sources. Cela
+    # convenait aux trois autres livrables, qui numérotent déjà leur annexe
+    # avant leurs sources — et cassait l'étude de marché, dont le manuel exige
+    # l'annexe APRÈS le chapitre 21 : le document sortait 20, 22, 21.
+    #
+    # Le numéro suffit, et il ne peut pas mentir : c'est lui qui décide de
+    # l'ordre de génération. Vérifié sur les quatre livrables — pour les trois
+    # autres, le résultat est identique à l'ancienne règle. La chaîne Word, elle,
+    # triait déjà ainsi (`rendu_word.assemblage`) : les deux disent désormais la
+    # même chose (règle 5).
+    sections.sort(key=lambda s: s.number)
     return ClientDocument(title=_document_title(job), sections=tuple(sections))

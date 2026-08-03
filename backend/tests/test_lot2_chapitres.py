@@ -82,8 +82,13 @@ def test_tous_les_types_declares_ont_leur_chapitrage() -> None:
 
 
 def test_le_nombre_de_chapitres_vient_de_la_configuration() -> None:
-    """Aucune constante 22 : le chapitrage est une donnée."""
-    assert type_document(EM).nombre_de_chapitres() == 22
+    """Aucune constante en dur : le chapitrage est une donnée.
+
+    Vingt-trois pour l'étude de marché : la fiche projet, les vingt-et-un
+    chapitres du manuel, et l'annexe des réponses essentielles rétablie d'après
+    son §8.
+    """
+    assert type_document(EM).nombre_de_chapitres() == 23
     assert type_document(DeliverableType.COMPETITOR_STUDY).nombre_de_chapitres() == 10
 
 

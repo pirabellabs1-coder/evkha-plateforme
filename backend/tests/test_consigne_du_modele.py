@@ -265,6 +265,35 @@ def test_le_plan_annonce_l_epaisseur_en_pages_du_manuel() -> None:
         assert 2 <= mini <= maxi <= 6, f"chapitre {numero} : {mini}-{maxi} pages"
 
 
+def test_le_plan_du_18_permet_la_section_que_le_manuel_exige() -> None:
+    """Le manuel ajoute au chapitre 18 une section rédigée obligatoire.
+
+    Le modèle est mesuré sur un document ANTÉRIEUR au manuel : il n'y prévoyait
+    que vingt-quatre signes de prose, entre trois tableaux. Le prompt aurait
+    donc réclamé « Ce que la SWOT ne dit pas » pendant que le plan l'interdisait
+    — le chapitre aurait été refusé pour non-respect de sa séquence, quoi
+    qu'écrive le modèle (règle 9 : demander une chose, en contrôler une autre).
+    """
+    modele = chapitre_du_modele(18)
+    assert modele is not None
+    ajoutes = [b for b in modele["blocs"] if b.get("ajoute_par_le_manuel")]
+    assert ajoutes, "le chapitre 18 ne porte pas les blocs ajoutés par le manuel"
+
+    prose = sum(
+        int(b.get("longueur_cible_signes", 0))
+        for b in modele["blocs"]
+        if b["type"] == "paragraphe"
+    )
+    assert prose >= 1_500, (
+        f"{prose} signes de prose au chapitre 18 : la section « Ce que la SWOT "
+        "ne dit pas » n'y tient pas"
+    )
+
+    plan = plan_du_chapitre(18)
+    assert "Ce que la SWOT ne dit pas" in plan
+    assert "décisions à approfondir au chapitre 19" in plan
+
+
 def test_le_plancher_des_volumes_produit_deja_une_etude_conforme() -> None:
     """« 55 à 70 pages utiles », « le document final ne dépasse pas 80 pages ».
 

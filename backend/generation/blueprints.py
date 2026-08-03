@@ -7,13 +7,11 @@ from catalog.models import DeliverableType
 # Source de verite du chapitrage EM : « Systeme EVKHA — Cheminement manuel
 # d'une etude de marche » (Evangeline, juillet 2026), pp. 8-17.
 # Ordre final : page de garde -> sommaire -> FICHE PROJET (ouverture) ->
-# chapitres 1 a 20 -> chapitre 21 « Sources et methodologie » -> « Fin de l'etude ».
-# 21 chapitres analytiques + fiche projet en opening. L'ANNEXE brief separee
-# du blueprint precedent a ete SUPPRIMEE : le manuel exige que « toutes les
-# demandes du client aient une reponse identifiable dans l'etude » via les
-# CHECKs inter-blocs, pas dans un chapitre annexe (§7 du manuel).
+# chapitres 1 a 20 -> chapitre 21 « Sources et methodologie » -> ANNEXE
+# « Reponses essentielles au client » -> « Fin de l'etude ».
+# 21 chapitres analytiques + fiche projet en opening + annexe (§8, pp. 33-34).
 # Blocs de controle (§6 manuel) : A(1-2) B(3) C(4-5) D(6) E(7-8) F(9-11)
-# G(12-14) H(15-17) I(18-20) J(21). Chaque bloc declenche un CHECK Sonnet
+# G(12-14) H(15-17) I(18-20) J(21-22). Chaque bloc declenche un CHECK Sonnet
 # apres generation, gere par `checks_blocs.py` (Vague 2).
 # BP/EC/STR : blueprints inchanges (le manuel Evangeline ne couvre que l'EM).
 
@@ -187,6 +185,25 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
         21, "Sources et méthodologie", "em.21.sources_methodologie",
         SectionKind.SOURCES, model=None
+    ),
+    # Bloc K ── annexe des reponses essentielles
+    #
+    # RETABLIE. Elle avait ete supprimee sur la foi de la version precedente du
+    # manuel, au motif que les CHECKs inter-blocs suffisaient a garantir que
+    # « toutes les demandes du client aient une reponse identifiable ». Le
+    # manuel de juillet 2026 la reinstaure explicitement (§8, pp. 33-34) : deux
+    # a quatre pages, un tableau a cinq colonnes, place APRES le chapitre 21 ;
+    # et son CHECK FINAL exige desormais qu'elle soit presente.
+    #
+    # Un CHECK verifie que la reponse EXISTE quelque part dans soixante pages.
+    # L'annexe la rend TROUVABLE en une minute. Ce n'est pas la meme promesse.
+    ChapterBlueprint(
+        22,
+        "Réponses essentielles au client — en un coup d'œil",
+        "em.22.annexe_reponses",
+        SectionKind.ANNEXE,
+        max_words=1200,
+        model=None,
     ),
 )
 

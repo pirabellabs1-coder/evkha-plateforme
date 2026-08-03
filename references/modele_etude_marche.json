@@ -2077,6 +2077,25 @@
           "consigne": "Conserver les en-têtes tels quels si génériques, sinon adapter à la niche. Toute valeur chiffrée provient du socle (data_refs)."
         },
         {
+          "type": "titre_sous_section",
+          "numero": "18.3",
+          "intitule_reference": "Ce que la SWOT ne dit pas",
+          "consigne": "Intitulé FIXE, imposé par le manuel : ne pas l'adapter à la niche.",
+          "ajoute_par_le_manuel": true
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 900,
+          "consigne": "Angles morts de la matrice : dépendances entre facteurs, ordre dans lequel les événements peuvent survenir, capacité réelle d'exécution du porteur, arbitrages de ressources.",
+          "ajoute_par_le_manuel": true
+        },
+        {
+          "type": "paragraphe",
+          "longueur_cible_signes": 900,
+          "consigne": "Ce que la seule SWOT ne permet PAS de conclure : rentabilité, vitesse de conversion, réaction du marché, capacité opérationnelle, efficacité future des recommandations. Terminer par 3 à 5 décisions à approfondir au chapitre 19.",
+          "ajoute_par_le_manuel": true
+        },
+        {
           "type": "encadre",
           "etiquette": "DIAGNOSTIC",
           "longueur_cible_signes": 220,
