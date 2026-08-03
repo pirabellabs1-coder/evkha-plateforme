@@ -385,6 +385,25 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
         msg = f"Seuls les jobs échoués ou annulés peuvent être relancés (statut : {job.status})."
         return _json({"error": msg}, status=400)
 
+    # Une annulation REMBOURSE, et un job rembourse ne repart pas : le debit
+    # est refuse au lancement. Sans ce controle, l'operateur voyait « relance
+    # acceptee » puis un echec « credits restitues » plusieurs minutes plus
+    # tard — le parcours « annuler puis relancer » etait casse sans le dire.
+    from organisations.liaison import credits_restitues  # noqa: PLC0415
+
+    if credits_restitues(job):
+        return _json(
+            {
+                "error": (
+                    "Les crédits de cette étude ont été restitués au client : "
+                    "elle ne peut plus être relancée. Le client doit passer "
+                    "une nouvelle commande."
+                ),
+                "code": "credits_restitues",
+            },
+            status=409,
+        )
+
     relaunch_generation_job(job)
     run_generation_job_task.delay(str(job.id))
     return _json({"job_id": str(job.id), "status": job.status}, status=202)

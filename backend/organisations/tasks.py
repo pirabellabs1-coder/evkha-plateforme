@@ -80,12 +80,75 @@ def appliquer_echeances() -> dict[str, int]:
         else:
             deja += 1
 
+    # La reserve des abonnements RESILIES.
+    #
+    # `expirer_solde` n'etait appele que pour les abonnements ACTIFS. Une fois
+    # resilie, plus d'echeance — donc plus JAMAIS d'expiration : l'ancien
+    # abonne gardait sa reserve indefiniment et continuait de consommer l'API,
+    # alors que sa formule annonce que les credits non consommes expirent.
+    #
+    # On ne reprend rien au moment du clic sur « resilier » : le mois en cours
+    # est paye. C'est a la bascule de periode, ici, que la reserve s'eteint.
+    expirees = _expirer_les_reserves_resiliees()
+
     resultat: dict[str, int] = {
         "dotees": dotees,
         "deja_a_jour": deja,
         "ecartees_suspendues": ecartees,
         "en_echec": en_echec,
+        "reserves_resiliees_expirees": expirees,
     }
     if dotees or en_echec:
         _log.info("Échéances B2B : %s", resultat)
     return resultat
+
+
+def _expirer_les_reserves_resiliees() -> int:
+    """Éteint la réserve des abonnements résiliés dont la période est écoulée.
+
+    `derniere_periode_dotee` porte la période que le client a payée. Tant
+    qu'elle vaut la période courante, il utilise ce qu'il a acheté. Dès qu'on
+    en change, cette réserve n'a plus de contrepartie.
+
+    Les crédits ACHETÉS ne sont pas touchés : `expirer_solde` ne purge que la
+    part expirable, ce que `test_credits_achetes_survivent` verrouille déjà.
+    """
+    from . import credits, services  # noqa: PLC0415
+
+    courante = services.periode_courante()
+    expirees = 0
+
+    resilies = (
+        AbonnementOrganisation.objects.filter(statut=StatutAbonnement.RESILIE)
+        .exclude(derniere_periode_dotee=courante)
+        .select_related("organisation")
+    )
+
+    # Une organisation qui a resouscrit depuis n'est pas concernée : son
+    # abonnement ACTIF gouverne, et l'échéance ordinaire s'en charge.
+    actives = set(
+        AbonnementOrganisation.objects.filter(
+            statut=StatutAbonnement.ACTIF
+        ).values_list("organisation_id", flat=True)
+    )
+
+    for abonnement in resilies:
+        if abonnement.organisation_id in actives:
+            continue
+        try:
+            mouvement = credits.expirer_solde(
+                abonnement.organisation, periode=courante
+            )
+        except Exception:  # noqa: BLE001 — un cas qui casse n'arrête pas les autres
+            _log.exception(
+                "Expiration post-résiliation en échec pour %s",
+                abonnement.organisation_id,
+            )
+            continue
+        if mouvement is not None:
+            expirees += 1
+            _log.info(
+                "Réserve expirée après résiliation pour %s.", abonnement.organisation
+            )
+
+    return expirees

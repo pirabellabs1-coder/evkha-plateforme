@@ -300,8 +300,19 @@ def resilier(organisation: Organisation, *, motif: str = "") -> int:
     Un statut qui affirme une action non faite est pire que pas de statut : il
     empêche de s'apercevoir qu'il reste quelque chose à faire (règle 1).
 
-    Les crédits déjà au portefeuille ne sont PAS repris : ils ont été dotés au
-    titre d'une échéance payée. C'est l'échéance suivante qui n'aura pas lieu.
+    **Rien n'est repris ici, et la réserve n'est pas éternelle non plus.**
+
+    Le mois en cours est payé : retirer ses crédits au clic serait lui prendre
+    ce qu'il a acheté. Mais `expirer_solde` n'était appelé que par
+    `appliquer_echeance`, qui ne regarde que les abonnements ACTIFS — une fois
+    résilié, plus d'échéance, donc plus JAMAIS d'expiration. L'ancien abonné
+    gardait sa réserve indéfiniment et continuait de consommer l'API, alors que
+    sa formule annonce « les crédits non consommés expirent à l'échéance ».
+
+    C'est `organisations.tasks.appliquer_echeances` qui ferme la fuite, à la
+    bascule de période : il expire désormais aussi la réserve des abonnements
+    résiliés dont la période payée est écoulée. Le client garde ce qu'il a
+    payé, et pas au-delà.
     """
     resilies = AbonnementOrganisation.objects.filter(
         organisation=organisation, statut=StatutAbonnement.ACTIF

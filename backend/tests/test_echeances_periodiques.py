@@ -163,7 +163,8 @@ def test_ecarte_les_organisations_suspendues() -> None:
     assert credits.solde(organisation) == 3, "le solde existant n'est pas touché"
 
 
-def test_ignore_un_abonnement_resilie() -> None:
+def test_un_abonnement_resilie_n_est_plus_dote() -> None:
+    """Il ne reçoit plus rien — c'est la moitié évidente de la règle."""
     organisation = _organisation("resilie@exemple.fr", "Résilié")
     abonnement = _abonne_au_mois_precedent(organisation, _formule(credits_mois=3))
     abonnement.statut = StatutAbonnement.RESILIE
@@ -171,12 +172,65 @@ def test_ignore_un_abonnement_resilie() -> None:
 
     resultat = appliquer_echeances()
 
-    assert resultat == {
-        "dotees": 0,
-        "deja_a_jour": 0,
-        "ecartees_suspendues": 0,
-        "en_echec": 0,
-    }
+    assert resultat["dotees"] == 0
+    assert resultat["deja_a_jour"] == 0
+    assert resultat["ecartees_suspendues"] == 0
+    assert resultat["en_echec"] == 0
+
+
+def test_la_reserve_d_un_resilie_expire_a_la_bascule_de_periode() -> None:
+    """L'autre moitié, qui manquait — et qui laissait une fuite ouverte.
+
+    `expirer_solde` n'était appelé que pour les abonnements ACTIFS. Une fois
+    résilié, plus d'échéance, donc plus JAMAIS d'expiration : l'ancien abonné
+    gardait sa réserve indéfiniment et continuait de consommer l'API, alors
+    que sa formule annonce que les crédits non consommés expirent.
+
+    On ne lui reprend rien au moment du clic — le mois en cours est payé. La
+    réserve s'éteint à la bascule de période, ici.
+    """
+    from organisations import credits
+
+    organisation = _organisation("fuite@exemple.fr", "Fuite")
+    abonnement = _abonne_au_mois_precedent(organisation, _formule(credits_mois=3))
+    credits.crediter(
+        organisation, 5, motif="Reste du mois paye", reference="reste",
+        type_mouvement=TypeMouvement.DOTATION,
+    )
+    abonnement.statut = StatutAbonnement.RESILIE
+    abonnement.save(update_fields=["statut"])
+    assert credits.solde(organisation) > 0
+
+    resultat = appliquer_echeances()
+
+    assert resultat["reserves_resiliees_expirees"] == 1
+    assert credits.solde(organisation) == 0, (
+        "l'ancien abonne garde sa reserve et continue de consommer l'API"
+    )
+
+
+def test_les_credits_ACHETES_survivent_a_la_resiliation() -> None:
+    """Contre-épreuve : ce qui a été payé à part n'est pas de la réserve.
+
+    Un abonné qui a acheté des crédits supplémentaires ne doit pas les perdre
+    parce qu'il résilie son abonnement — ce sont deux transactions distinctes.
+    """
+    from organisations import credits
+
+    organisation = _organisation("achete@exemple.fr", "Achat")
+    abonnement = _abonne_au_mois_precedent(organisation, _formule(credits_mois=3))
+    credits.crediter(
+        organisation, 4, motif="Credits supplementaires", reference="achat-1",
+        type_mouvement=TypeMouvement.ACHAT,
+    )
+    abonnement.statut = StatutAbonnement.RESILIE
+    abonnement.save(update_fields=["statut"])
+
+    appliquer_echeances()
+
+    assert credits.solde(organisation) >= 4, (
+        "les credits achetes ont ete purges avec la reserve d'abonnement"
+    )
 
 
 def test_un_abonnement_en_echec_n_empeche_pas_les_autres(
