@@ -25,6 +25,30 @@ class BlocInconnuError(ValueError):
     """Le JSON déclare un type de bloc que le moteur ne sait pas rendre."""
 
 
+def pour_le_client(chapitre: dict[str, Any]) -> bool:
+    """Ce chapitre part-il chez le client ?
+
+    Le chapitre 0 est la FICHE PROJET : la carte d'identité interne de la
+    commande — reformulation du brief, questions implicites, budget, points
+    sensibles, contraintes. Le manuel en fait « la mémoire de l'étude », relue
+    par l'analyste avant chaque bloc, et son contrôle final exige que « les
+    contrôles internes soient retirés du livrable client ».
+
+    Elle était exclue du SOMMAIRE — `if chapitre["numero"] > 0` — et rendue
+    dans le CORPS, la boucle suivante ne filtrant rien. L'étude s'ouvrait donc
+    sur une section que sa propre table des matières ignore : l'asymétrie
+    montre l'oubli, personne ne choisit d'imprimer un chapitre invisible au
+    sommaire.
+
+    Exporté et appelé aux deux endroits : deux filtres pour une même question
+    finissent par diverger, et c'est cette divergence-là qui a produit le
+    défaut (règle 5). `verification/services._chapitres_attendus` applique la
+    même règle sur le blueprint, faute de quoi le contrôle d'intégrité
+    réclamerait un chapitre qu'on vient de ne plus écrire (règle 3).
+    """
+    return int(chapitre["numero"]) > 0
+
+
 def _remplacer_reperes(document: DocumentWord, valeurs: dict[str, str]) -> None:
     for section in document.sections:
         for zone in (section.header, section.footer):
@@ -126,16 +150,13 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
         logo=octets_logo,
     )
 
-    entrees = [
-        (f"{chapitre['numero']:02d}", chapitre["titre"], "")
-        for chapitre in etude.get("chapitres", [])
-        if chapitre["numero"] > 0
-    ]
+    chapitres = [c for c in etude.get("chapitres", []) if pour_le_client(c)]
+
+    entrees = [(f"{c['numero']:02d}", c["titre"], "") for c in chapitres]
     if entrees:
         composants.sommaire(document, palette, entrees)
         composants.saut_de_page(document)
 
-    chapitres = etude.get("chapitres", [])
     for index, chapitre in enumerate(chapitres):
         for bloc in chapitre.get("blocs", []):
             _rendre_bloc(document, palette, bloc)

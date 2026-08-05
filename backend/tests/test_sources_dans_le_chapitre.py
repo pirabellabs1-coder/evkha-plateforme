@@ -161,6 +161,35 @@ def test_sans_brief_le_chapitre_est_prevenu_au_lieu_d_etre_muet(
 
 
 @pytest.mark.django_db
+def test_la_methode_d_estimation_parvient_au_chapitre(job_em: GenerationJob) -> None:
+    """`libelle` porte la méthode et la fourchette — et n'était jamais rendu.
+
+    Le prompt du socle y loge expressément ces deux choses (règles 5 et 7 de
+    `socle/prompt.py`) : « explique la méthode dans `libelle` », « indique la
+    fourchette dans `libelle` ». Le champ est obligatoire au contrat, produit,
+    stocké — et `_bloc_socle` ne l'écrivait pas. Un chiffre estimé arrivait au
+    chapitre nu, indistinguable d'un chiffre observé, alors que le CHECK 1
+    demande justement « les estimations sont-elles expliquées sans présenter
+    une déduction comme une donnée officielle ? ».
+
+    Échoue sur le code d'avant : la méthode n'apparaissait dans aucun prompt.
+    """
+    from generation.socle.services import socle_verrouille
+
+    socle = socle_verrouille(job_em)
+    assert socle is not None
+    porteuses = [d for d in socle.donnees if d.libelle]
+    assert porteuses, "le socle de la doublure ne porte aucun libellé à vérifier"
+
+    prompt = _prompt(job_em, 6)
+    for donnee in porteuses:
+        assert donnee.libelle in prompt, (
+            f"la méthode de `{donnee.id}` n'atteint pas le chapitre : "
+            f"« {donnee.libelle} »"
+        )
+
+
+@pytest.mark.django_db
 def test_le_chapitre_des_sources_recoit_toute_la_bibliographie(
     job_em: GenerationJob,
 ) -> None:

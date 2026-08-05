@@ -105,12 +105,27 @@ def test_le_livrable_est_produit(demo: Path) -> None:
 # ── Conformité de structure à la référence ───────────────────────────────────
 
 
-def test_vingt_deux_bandeaux_de_chapitre(
+def test_un_bandeau_par_chapitre_du_client(
     profil_demo: dict[str, Any], profil_reference: dict[str, Any]
 ) -> None:
-    """Exigence exacte, pas approchée : un bandeau par chapitre."""
-    assert profil_reference["bandeaux"] == 22
-    assert profil_demo["bandeaux"] == 22
+    """Exigence exacte, pas approchée : un bandeau par chapitre RENDU.
+
+    Vingt-et-un, et non vingt-deux : la fiche projet (chapitre 0) est la carte
+    d'identité interne de la commande et ne part plus chez le client. Elle
+    était déjà absente du sommaire ; elle l'est désormais aussi du corps.
+
+    Le document de RÉFÉRENCE, lui, en porte vingt-deux : c'est le `.docx` de la
+    cliente, que notre code ne touche pas. L'écart attendu est donc exactement
+    d'un bandeau, et c'est celui-là qu'on vérifie — écrire « les deux sont
+    égaux » reviendrait à réclamer l'impression de la fiche interne.
+    """
+    attendu = len([c for c in construire_fixture()["chapitres"] if c["numero"] > 0])
+    assert attendu == 21
+    assert profil_demo["bandeaux"] == attendu
+    assert profil_reference["bandeaux"] - profil_demo["bandeaux"] == 1, (
+        "l'écart au document de référence n'est plus la seule fiche projet : "
+        f"référence {profil_reference['bandeaux']}, rendu {profil_demo['bandeaux']}"
+    )
 
 
 def test_les_grilles_de_chiffres_cles_sont_au_bon_nombre(
@@ -398,9 +413,15 @@ def test_un_type_de_graphique_inconnu_ne_casse_pas_le_rendu() -> None:
 
 
 def test_un_bloc_inconnu_est_refuse(tmp_path: Path) -> None:
-    """Mieux vaut échouer au rendu que produire un document amputé en silence."""
-    etude = construire_fixture(nombre_chapitres=1)
-    etude["chapitres"][0]["blocs"].append({"type": "carrousel_3d"})
+    """Mieux vaut échouer au rendu que produire un document amputé en silence.
+
+    Le bloc fautif est posé dans un chapitre DU CLIENT, pas dans la fiche
+    projet : celle-ci n'est plus rendue (elle est interne), et l'y placer
+    ferait passer ce test pour la mauvaise raison — le rendu ne la lit plus.
+    """
+    etude = construire_fixture(nombre_chapitres=2)
+    client = next(c for c in etude["chapitres"] if c["numero"] > 0)
+    client["blocs"].append({"type": "carrousel_3d"})
     with pytest.raises(BlocInconnuError):
         rendre_etude(etude, tmp_path / "ko.docx")
 

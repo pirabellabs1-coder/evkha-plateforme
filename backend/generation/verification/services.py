@@ -138,9 +138,22 @@ def verifier_livrable(
 
 
 def _chapitres_attendus(job: GenerationJob) -> list[int]:
-    from ..blueprints import chapters_for_deliverable  # noqa: PLC0415
+    """Chapitres qu'on doit RETROUVER dans le fichier livré.
 
-    return [bp.number for bp in chapters_for_deliverable(job.deliverable_type)]
+    La fiche projet (`SectionKind.OPENING`) en est exclue : elle ne part pas
+    chez le client — voir `rendu_word.depuis_json.pour_le_client`. La réclamer
+    ici ferait échouer le contrôle d'intégrité sur un chapitre que le rendu a
+    délibérément omis, c'est-à-dire remplacer un défaut par un blocage
+    (règle 3 : ce qui refait le document doit être contrôlé à son tour, et
+    inversement).
+    """
+    from ..blueprints import SectionKind, chapters_for_deliverable  # noqa: PLC0415
+
+    return [
+        bp.number
+        for bp in chapters_for_deliverable(job.deliverable_type)
+        if bp.section_kind != SectionKind.OPENING
+    ]
 
 
 def _incident(job: GenerationJob, rapport: RapportControle) -> None:

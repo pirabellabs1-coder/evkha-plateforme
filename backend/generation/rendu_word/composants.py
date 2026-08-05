@@ -318,6 +318,27 @@ def quatrieme_couverture(
 # ── 2. Bandeau de chapitre ───────────────────────────────────────────────────
 
 
+def marqueur_de_chapitre(numero: int) -> str:
+    """Texte exact du bandeau qui ouvre un chapitre dans le `.docx`.
+
+    Exporté, et c'est tout l'objet de cette fonction : la passe de vérification
+    cherche ce marqueur dans le document livré pour dire si un chapitre est
+    présent. Elle en portait sa PROPRE version, « Chapitre 01 » en casse mixte,
+    quand le rendu écrit « CHAPITRE 01 » en capitales. La comparaison est
+    sensible à la casse : le contrôle déclarait donc les vingt-trois chapitres
+    ABSENTS d'un document qui les contient tous, en bloquant.
+
+    Mesuré sur la fixture complète : 604 Ko, 128 tableaux, les vingt-trois
+    bandeaux présents, et « Chapitre(s) absent(s) du livrable : [0, 1, ..., 22] ».
+    Aucune étude de marché ne pouvait partir, et le motif était introuvable
+    dans le document par qui l'ouvrait — c'est la règle 2 mot pour mot.
+
+    Deux modules qui décrivent le même texte finissent toujours par diverger
+    (règle 5). Il n'y en a plus qu'un : celui qui l'écrit.
+    """
+    return f"CHAPITRE {numero:02d}"
+
+
 def bandeau_chapitre(
     document: DocumentWord, palette: Palette, numero: int, titre: str, accroche: str = ""
 ) -> None:
@@ -328,7 +349,7 @@ def bandeau_chapitre(
     fond_cellule(cellule, palette.fond_bandeau)
 
     _ecrire(
-        cellule, f"CHAPITRE {numero:02d}", STYLE_ENCADRE_TITRE,
+        cellule, marqueur_de_chapitre(numero), STYLE_ENCADRE_TITRE,
         couleur=palette.rose_grise,
     )
     _ecrire(

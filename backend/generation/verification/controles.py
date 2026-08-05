@@ -312,11 +312,22 @@ def controler_integrite_du_document(
         ))
 
     if chapitres_attendus:
-        texte = document.texte_integral
+        # Le marqueur vient du module qui l'ÉCRIT, jamais d'une copie locale.
+        # Ce contrôle portait la sienne — « Chapitre 01 » — quand le rendu écrit
+        # « CHAPITRE 01 » : il déclarait les vingt-trois chapitres absents d'un
+        # document qui les contient tous, et bloquait toutes les livraisons.
+        #
+        # La comparaison reste insensible à la casse par-dessus le marché : si
+        # demain le bandeau passe en petites capitales de STYLE plutôt qu'en
+        # capitales de TEXTE, le texte stocké changera de casse sans que
+        # personne y pense, et le contrôle recommencerait à mentir.
+        from ..rendu_word.composants import marqueur_de_chapitre  # noqa: PLC0415
+
+        texte = document.texte_integral.lower()
         manquants = [
             numero for numero in chapitres_attendus
-            if f"Chapitre {numero:02d}" not in texte
-            and f"Chapitre {numero}" not in texte
+            if marqueur_de_chapitre(numero).lower() not in texte
+            and f"chapitre {numero}" not in texte
         ]
         if manquants:
             anomalies.append(Anomalie(

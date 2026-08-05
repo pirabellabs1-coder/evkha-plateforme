@@ -65,9 +65,25 @@ def _bloc_socle(socle: Socle) -> str:
 
     Format tabulaire plutôt que JSON brut : à contenu égal il consomme moins
     de jetons et se lit mieux, or ce bloc est réinjecté à CHAQUE chapitre.
+
+    `libelle` MANQUAIT, et c'était une perte sèche. Le prompt du socle y loge
+    expressément deux choses (`socle/prompt.py`, règles 5 et 7) : la MÉTHODE
+    d'une valeur `estimee` — « explique la méthode dans `libelle` » — et la
+    FOURCHETTE quand la donnée en est une, dont seule la médiane part dans
+    `valeur`. Le champ est obligatoire au contrat, il est produit, il est
+    stocké, et il était jeté avant le premier chapitre.
+
+    Le manuel demande l'inverse : « construire une estimation prudente et
+    expliquer clairement la méthode » (p. 4), « donner une fourchette lorsque
+    la précision exacte serait artificielle » (p. 8), et le CHECK 1 interroge
+    « les estimations sont-elles expliquées sans présenter une déduction comme
+    une donnée officielle ? ». La matière pour y répondre existait ; elle
+    n'atteignait personne. Un chiffre estimé arrivait donc au chapitre nu,
+    impossible à distinguer d'un chiffre observé.
     """
     lignes = [
         f"- `{d.id}` = {d.valeur} {d.unite} ({d.annee}, {d.perimetre}, {d.fiabilite})"
+        + (f" — {d.libelle}" if d.libelle else "")
         + (f" — source : {d.source}" if d.source else "")
         + (f" — dérivé de {', '.join(d.derivee_de)}" if d.derivee_de else "")
         for d in socle.donnees
