@@ -233,6 +233,26 @@ EVKHA_THINKING_BUDGET_TOKENS = env.int("EVKHA_THINKING_BUDGET_TOKENS", default=1
 # actionner avant de couper la reflexion tout court.
 EVKHA_CLAUDE_EFFORT = env("EVKHA_CLAUDE_EFFORT", default="high")
 
+# Plafond de mots par section a l'assemblage du Word. 0 = aucune coupe.
+# Au-dela, la prose de la section est ramenee a une amorce, sur une frontiere
+# de phrase.
+#
+# Le modele valide par la cliente est un STANDARD, pas un plafond : un client
+# dont le besoin est plus large doit recevoir DAVANTAGE, pas la meme chose
+# tronquee. L'ancienne valeur, 90, avait ete calibree pour reproduire le volume
+# de prose du modele — 90 mots x ~50 sections ~= 4 500 — donc pour ne jamais le
+# depasser. 150 laisse a une section la place d'une analyse developpee, ce que
+# les cahiers des charges Strategie et Concurrence exigent explicitement
+# (« les paragraphes doivent etre rediges »).
+#
+# Le garde-fou contre le mur de texte n'a pas disparu : il vit en aval, dans
+# `verification/controles.py`, qui mesure sur le FICHIER rendu la part des
+# tableaux, la mediane des paragraphes et la part des paragraphes longs — trois
+# seuils releves sur le modele et valides par la cliente. Relever ce plafond
+# deplace donc le curseur vers ces trois seuils : a remesurer sur un dossier
+# reel avant de monter plus haut (regle 7).
+EVKHA_MOTS_PARAGRAPHE_MAX = env.int("EVKHA_MOTS_PARAGRAPHE_MAX", default=150)
+
 # Outil advisor (beta `advisor-tool-2026-03-01`) sur les CHECKs de bloc : le
 # relecteur consulte un second relecteur qui relit toute la transcription avant
 # le verdict. Executeur ET conseiller = claude-sonnet-4-6 ; la doc autorise

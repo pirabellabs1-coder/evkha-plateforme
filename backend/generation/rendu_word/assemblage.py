@@ -21,16 +21,21 @@ Deux points structurent tout le module.
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
+
+from django.conf import settings
 
 from ..chapitres.schema import ChapitrePayload, Graphique
 from ..socle.schema import Socle
 from . import secteurs
 from .donnees_graphiques import resoudre
 
-#: Au-delà, la prose d'une section est une amorce tronquée plutôt qu'un
+_log = logging.getLogger(__name__)
+
+#: Au-delà, la prose d'une section est ramenée à une amorce plutôt qu'un
 #: paragraphe entier : c'est la mesure qui sépare le document de référence du
 #: mur de texte refusé par la cliente.
 #:
@@ -40,9 +45,42 @@ from .donnees_graphiques import resoudre
 #: l'a lu comme « trop de tableaux » — à juste titre, mais la cause était
 #: l'inverse : il n'y avait plus assez de texte autour d'eux.
 #:
-#: 90 mots par section × ~50 sections ≈ 4 500, l'ordre de grandeur du modèle.
-#: La coupe reste faite sur une frontière de phrase, jamais au milieu.
-MOTS_AMORCE_MAX = 90
+#: La coupe est faite sur une frontière de phrase, jamais au milieu.
+#:
+#: ── Relevé le 05/08/2026 : ce plafond empêchait de DÉPASSER le modèle ──────
+#:
+#: 90 mots × ~50 sections ≈ 4 500, soit exactement l'ordre de grandeur du
+#: modèle. Le réglage visait donc à ATTEINDRE la référence — et interdisait
+#: mécaniquement de la dépasser. Or le modèle est un standard, pas un plafond :
+#: un client dont le besoin est plus large doit recevoir plus, pas la même
+#: chose tronquée.
+#:
+#: Deux défauts distincts, et le second est le plus grave :
+#:   1. le plafond bride la richesse du livrable ;
+#:   2. la coupe était SILENCIEUSE. Un chapitre de 200 mots d'analyse en
+#:      perdait 110 sans que rien ne le signale — ni au log, ni au rapport
+#:      d'assemblage, ni à la vérification. Quelque chose refaisait le document
+#:      après la génération et l'amputait (règle 3).
+#:
+#: Le garde-fou contre le mur de texte n'a pas disparu pour autant : il vit en
+#: aval, dans `verification/controles.py`, qui mesure sur le FICHIER rendu la
+#: part des tableaux, la médiane des paragraphes et la part des paragraphes
+#: longs — trois seuils relevés sur le modèle et validés par la cliente. Cette
+#: troncature en amont faisait double emploi avec lui, au prix du contenu.
+#:
+#: Réglable sans redéploiement, et désactivable : 0 = aucune coupe.
+_MOTS_PARAGRAPHE_DEFAUT = 150
+
+
+def mots_paragraphe_max() -> int:
+    """Plafond de mots par section, ou 0 si la coupe est désactivée."""
+    valeur = getattr(settings, "EVKHA_MOTS_PARAGRAPHE_MAX", _MOTS_PARAGRAPHE_DEFAUT)
+    return max(int(valeur if valeur is not None else _MOTS_PARAGRAPHE_DEFAUT), 0)
+
+
+#: Conservé pour les appelants existants (tests, imports). Lire la valeur par
+#: `mots_paragraphe_max()` : elle seule tient compte du réglage.
+MOTS_AMORCE_MAX = _MOTS_PARAGRAPHE_DEFAUT
 
 #: Mention de repli, quand l'abonné n'a rien défini. Volontairement **neutre** :
 #: elle ne nomme personne. Un document livré en marque blanche ne doit porter
@@ -89,10 +127,16 @@ class RapportAssemblage:
     #: est bien sous les yeux du lecteur, mais invisible à une relecture du
     #: texte. Sans cette liste, elle le déclarerait absent du livrable.
     identifiants_rendus: set[str] = field(default_factory=set)
+    #: Prose écartée du document au moment de l'assemblage. Ces deux compteurs
+    #: existent parce que la coupe était silencieuse : le contenu disparaissait
+    #: du livrable sans trace nulle part. Un livrable dont on a retiré 800 mots
+    #: d'analyse reste un livrable, mais il ne doit pas passer pour intact.
+    paragraphes_tronques: int = 0
+    mots_tronques: int = 0
 
     @property
     def complet(self) -> bool:
-        return not self.graphiques_abandonnes
+        return not self.graphiques_abandonnes and not self.paragraphes_tronques
 
     def resume(self) -> str:
         parties = [
@@ -104,29 +148,55 @@ class RapportAssemblage:
             parties.append(f"{len(self.graphiques_convertis)} convertis")
         if self.graphiques_abandonnes:
             parties.append(f"{len(self.graphiques_abandonnes)} abandonnés")
+        if self.paragraphes_tronques:
+            parties.append(
+                f"{self.paragraphes_tronques} paragraphe(s) tronqué(s), "
+                f"{self.mots_tronques} mots écartés"
+            )
         return ", ".join(parties)
 
 
-def _amorce(texte: str) -> str:
-    """La prose d'une section, ramenée à une amorce.
+def _amorce(texte: str, rapport: RapportAssemblage | None = None) -> str:
+    """La prose d'une section, ramenée à une amorce si elle dépasse le plafond.
 
     Couper à la phrase et non au mot : une amorce tronquée au milieu d'un
     groupe nominal se voit immédiatement à la lecture.
+
+    Toute coupe est DÉCLARÉE au rapport. Elle était silencieuse : le document
+    perdait de l'analyse sans que personne ne puisse le constater ailleurs que
+    sur le fichier final, en comptant les mots. Ce qui refait le document après
+    la génération doit se voir (règle 3).
     """
+    plafond = mots_paragraphe_max()
     texte = " ".join(texte.split())
-    if len(texte.split()) <= MOTS_AMORCE_MAX:
+    mots_entree = len(texte.split())
+
+    if plafond <= 0 or mots_entree <= plafond:
         return texte
+
     conserve: list[str] = []
     total = 0
     for phrase in texte.replace("! ", "!|").replace("? ", "?|").replace(
         ". ", ".|"
     ).split("|"):
         mots = len(phrase.split())
-        if conserve and total + mots > MOTS_AMORCE_MAX:
+        if conserve and total + mots > plafond:
             break
         conserve.append(phrase)
         total += mots
-    return " ".join(conserve).strip()
+
+    resultat = " ".join(conserve).strip()
+    perdus = mots_entree - len(resultat.split())
+    if perdus > 0:
+        if rapport is not None:
+            rapport.paragraphes_tronques += 1
+            rapport.mots_tronques += perdus
+        _log.warning(
+            "Assemblage : paragraphe ramené de %s à %s mots (plafond %s). "
+            "%s mots d'analyse écartés du document livré.",
+            mots_entree, len(resultat.split()), plafond, perdus,
+        )
+    return resultat
 
 
 def _blocs_graphique(
@@ -207,7 +277,7 @@ def blocs_du_chapitre(
                 "texte": f"{bloc.numero} {bloc.intitule}".strip(),
             })
         elif isinstance(bloc, BlocParagraphe):
-            amorce = _amorce(bloc.texte)
+            amorce = _amorce(bloc.texte, rapport)
             if amorce:
                 blocs.append({"type": "paragraphe", "texte": amorce})
         elif isinstance(bloc, BlocTableau):

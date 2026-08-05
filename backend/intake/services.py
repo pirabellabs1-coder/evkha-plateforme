@@ -420,8 +420,8 @@ def _collect_raw_pairs(payload: dict[str, Any]) -> dict[str, Any]:
         for field in fields:
             if not isinstance(field, dict):
                 continue
-            value = field.get("value")
-            if value in (None, ""):
+            value = _valeur_lisible(field)
+            if value in (None, "", []):
                 continue
             key = field.get("key")
             label = field.get("label")
@@ -433,13 +433,61 @@ def _collect_raw_pairs(payload: dict[str, Any]) -> dict[str, Any]:
     return pairs
 
 
+def _valeur_lisible(field: dict[str, Any]) -> Any:
+    """La valeur d'un champ Tally, resolue en TEXTE quand c'est un choix.
+
+    Un champ a choix — DROPDOWN, MULTIPLE_CHOICE, CHECKBOXES — n'envoie pas le
+    libelle mais une liste d'IDENTIFIANTS d'options ; le texte lisible vit dans
+    `field["options"]`, que ce module ne lisait pas.
+
+    Consequence mesuree sur une charge utile reelle : un client qui choisit
+    « Benin » dans une liste deroulante produisait
+    `PAYS == ["c0a1-11ee-benin"]`. Cette valeur etant non vide, elle passait le
+    controle des champs requis, puis partait telle quelle dans le prompt : le
+    modele redigeait un chapitre sur un pays nomme `['c0a1-11ee-benin']`.
+
+    Pire sur les cases a cocher : les identifiants des verticales etaient
+    verrouilles en faits CLIENT, et le gate allait ensuite les chercher dans le
+    document livre — il bloquait donc sur un motif introuvable par le lecteur,
+    exactement ce que la regle 2 interdit.
+
+    Une liste vide est rendue telle quelle : c'est une ABSENCE de reponse, et
+    l'appelant doit pouvoir la traiter comme telle. `[] not in (None, "")` est
+    vrai, donc sans ce traitement la cle etait enregistree vide.
+    """
+    valeur = field.get("value")
+    options = field.get("options")
+
+    if not isinstance(options, list) or not options:
+        return valeur
+
+    libelles = {
+        str(option.get("id")): str(option.get("text", "")).strip()
+        for option in options
+        if isinstance(option, dict) and option.get("id") is not None
+    }
+
+    def _resoudre(brut: Any) -> str:
+        return libelles.get(str(brut)) or str(brut)
+
+    if isinstance(valeur, list):
+        textes = [t for t in (_resoudre(v) for v in valeur) if t]
+        if not textes:
+            return []
+        return textes[0] if len(textes) == 1 else ", ".join(textes)
+
+    return _resoudre(valeur) if valeur is not None else valeur
+
+
 def normalize_intake_variables(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (normalized_variables, missing_required_fields)."""
     normalized: dict[str, Any] = {}
     raw_pairs = _collect_raw_pairs(payload)
     for raw_key, value in raw_pairs.items():
         canonical = _canonical_key(raw_key)
-        if canonical and value not in (None, ""):
+        # `[]` = question a choix laissee sans reponse. Sans ce cas, la cle
+        # etait enregistree vide et echappait au controle des champs requis.
+        if canonical and value not in (None, "", []):
             normalized[canonical] = value
 
     if "DELIVERABLE_TYPE" in normalized:
@@ -493,10 +541,31 @@ def _infer_missing_from_textareas(payload: dict[str, Any], normalized: dict[str,
             normalized["SECTEUR"] = shortest
         elif len(textareas) > 1:
             normalized["SECTEUR"] = textareas[0]
-    if not normalized.get("PAYS"):
-        normalized["PAYS"] = "France"
-    if not normalized.get("ZONE"):
-        normalized["ZONE"] = "France"
+    # PAYS n'est JAMAIS ecrit par le code. Il l'etait — « France » par defaut —
+    # et cette ligne etait executee AVANT le calcul des champs manquants : PAYS
+    # ne pouvait donc structurellement jamais etre signale absent, alors que la
+    # declaration de REQUIRED_VARIABLES promet des constantes du domaine
+    # « jamais inventees a la volee ».
+    #
+    # Mesure sur une charge utile reelle : un client qui repond « Cotonou,
+    # Benin » a la question de zone sans repondre a celle du pays produisait
+    # PAYS = « France » et missing = []. Le dossier partait donc en generation,
+    # et tout le pipeline suivait : marche mondial puis EUROPEEN dans le prompt
+    # systeme, chapitre 1 retitre « marche mondial et europeen », devise EUR
+    # verrouillee en fait CLIENT a tolerance zero pour un pays en XOF, et
+    # requetes web « <secteur> France ». Le client recevait une etude
+    # europeenne pour un projet beninois — ce que le manuel EM qualifie
+    # lui-meme d'erreur, produit par le code.
+    #
+    # Sans valeur, le dossier passe en INCOMPLETE et le bootstrap refuse : c'est
+    # le comportement voulu (regle 1 — echouer bruyamment plutot que deviner).
+    #
+    # ZONE garde un repli, mais un repli HONNETE : le pays declare par le
+    # client, jamais une constante. C'est deja ce que fait l'autre voie de
+    # saisie (`organisations/commandes.py`), et une seule regle vaut mieux que
+    # deux (regle 5).
+    if not normalized.get("ZONE") and normalized.get("PAYS"):
+        normalized["ZONE"] = normalized["PAYS"]
 
 
 def sync_intake_from_tally_payload(payload: dict[str, Any]) -> IntakeSubmission:

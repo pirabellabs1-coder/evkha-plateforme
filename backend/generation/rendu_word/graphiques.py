@@ -36,7 +36,26 @@ from .palette import Palette  # noqa: E402
 
 DPI = 200
 LARGEUR_PX = 2000
-POLICE = ["Aptos", "Segoe UI", "DejaVu Sans"]
+
+#: Chaîne de repli des étiquettes de graphique.
+#
+# Ces graphiques ne sont pas du texte : ce sont des PNG rendus ICI, sur le
+# serveur, puis encastrés dans le `.docx`. Leur police est donc figée à la
+# génération — contrairement au texte du document, qu'un Word équipé d'Aptos
+# affichera correctement chez la cliente. Un repli mal choisi se voit
+# definitivement, dans le Word COMME dans le PDF.
+#
+# Mesure du 05/08/2026, en rendant un document et en le comparant à
+# `references/joalie_2026.docx` : ni Aptos ni Segoe UI n'existent sur l'image
+# Debian de production (le Dockerfile le dit lui-même — polices Microsoft non
+# redistribuables). La chaîne tombait donc sur DejaVu Sans, une grotesque très
+# éloignée d'Aptos : les étiquettes juraient avec le texte qui les entoure.
+#
+# `Carlito` s'intercale : clone libre métriquement compatible de Calibri, DÉJÀ
+# installé dans l'image (`fonts-crosextra-carlito`) pour WeasyPrint. Aptos a
+# remplacé Calibri comme police par défaut d'Office — c'est le repli le plus
+# proche disponible sans embarquer de police sous licence Microsoft.
+POLICE = ["Aptos", "Segoe UI", "Carlito", "DejaVu Sans"]
 
 #: Emplacements de légende employés. `Axes.legend` n'accepte pas un `str`
 #: quelconque : la liste est fermée côté matplotlib, on la reflète ici.

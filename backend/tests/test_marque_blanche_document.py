@@ -62,12 +62,35 @@ def chaines_suspectes(source: str) -> list[str]:
             ):
                 docstrings.add(id(premier.value))
 
+    # Noms d'ATTRIBUT passés à getattr / setattr / hasattr. Ce sont des clés de
+    # configuration — `EVKHA_MOTS_PARAGRAPHE_MAX`, par exemple —, jamais du
+    # texte destiné au document. Les compter reviendrait à interdire au chemin
+    # de rendu de lire un réglage de la plateforme, ce qui n'a rien à voir avec
+    # la marque blanche : le détecteur mesurerait son propre balisage
+    # (corollaire de la règle 9, déjà rencontré sur les commentaires).
+    #
+    # L'exemption est étroite À DESSEIN : uniquement le deuxième argument
+    # POSITIONNEL de ces trois fonctions. Une chaîne passée ailleurs — valeur
+    # par défaut comprise — reste signalée, car elle, peut atteindre le lecteur.
+    cles_de_configuration = set()
+    for noeud in ast.walk(arbre):
+        if (
+            isinstance(noeud, ast.Call)
+            and isinstance(noeud.func, ast.Name)
+            and noeud.func.id in {"getattr", "setattr", "hasattr"}
+            and len(noeud.args) >= 2
+            and isinstance(noeud.args[1], ast.Constant)
+            and isinstance(noeud.args[1].value, str)
+        ):
+            cles_de_configuration.add(id(noeud.args[1]))
+
     return [
         noeud.value
         for noeud in ast.walk(arbre)
         if isinstance(noeud, ast.Constant)
         and isinstance(noeud.value, str)
         and id(noeud) not in docstrings
+        and id(noeud) not in cles_de_configuration
         and INTERDIT.search(noeud.value)
     ]
 
