@@ -108,13 +108,18 @@ C'est là que se joue la mission. Volume total : environ 480 ko de Python.
 
 - Alias configuré : `EVKHA_CLAUDE_MODEL=claude-sonnet`, résolu vers `claude-sonnet-4-6` (`integrations/claude.py:13`).
 - `_DEFAULT_MAX_TOKENS = 8192` (`integrations/claude.py:26`).
-- Réflexion étendue activée sur **tous** les appels : `EVKHA_THINKING_BUDGET_TOKENS=1024`, envoyée en `thinking: {type: "enabled", budget_tokens: N}` (`integrations/claude.py:432`).
+- Réflexion **adaptative** activée sur tous les appels de génération : `thinking: {type: "adaptive"}` accompagné de `output_config: {effort: …}` (`EVKHA_CLAUDE_EFFORT`, « high » par défaut). `EVKHA_THINKING_BUDGET_TOKENS=1024` n'est plus transmis à l'API : c'est désormais une **provision** interne, réservée dans `max_tokens` et provisionnée par le throttle (`_provision_reflexion`).
+- La réflexion est toujours **explicite**, jamais omise. Sur les modèles récents, omettre `thinking` ne l'éteint pas : elle tourne en adaptatif. `complete_structured` la coupe donc par `thinking: {type: "disabled"}`, et non plus par silence.
 - Mise en cache du prompt système avec durée de vie d'une heure (`_cacheable_system`, `integrations/claude.py:583`).
 - Outil `advisor` sur cinq blocs de contrôle, en-tête bêta `advisor-tool-2026-03-01`.
 - Outil d'exécution de code sur le seul chapitre 2 de l'étude de marché.
 - Continuation automatique sur `stop_reason: max_tokens`, plafonnée à `_MAX_CONTINUATIONS = 2`.
 
-**Point de vigilance sur la montée de version du SDK.** Le paramètre `thinking` avec `budget_tokens` est un mode hérité. Sur les modèles récents, la réflexion adaptative (`thinking: {type: "adaptive"}` combinée à `output_config.effort`) remplace ce réglage, et `budget_tokens` y est refusé. Toute bascule de modèle imposera de reprendre `integrations/claude.py:432` et `settings.py:179`. À ne pas faire dans le cadre de cette mission, mais à connaître.
+**Point de vigilance levé le 05/08/2026.** Ce paragraphe signalait que `budget_tokens` était un mode hérité, refusé par les modèles récents, et qu'une bascule de modèle imposerait de reprendre le code. C'est fait : le passage en réflexion adaptative est intégré, et le code n'envoie plus `budget_tokens`. Sans cette reprise, `claude-sonnet-5` aurait renvoyé une erreur 400 sur **chaque** appel — pas une dégradation, un arrêt complet.
+
+**Ce qui reste à faire pour la bascule.** Une seule variable Coolify : `EVKHA_ANTHROPIC_MODEL_ID=claude-sonnet-5`. L'alias `EVKHA_CLAUDE_MODEL` reste `claude-sonnet` ; la tarification se résout par famille (`generation/cost.py::_pricing`), donc le tarif Sonnet s'applique sans autre changement — Sonnet 5 est facturé au même prix que Sonnet 4.6.
+
+**Ce que la bascule change réellement.** Pas le tarif, mais le **tokenizer** : le même texte compte environ 30 % de tokens en plus. Les budgets de `_BUDGET_EUR_BY_TYPE` ont été relevés d'autant. Ces valeurs restent une projection tant qu'aucune génération réelle n'a tourné sur Sonnet 5 (règle 7 : le vert des tests ne prouve rien sur le document livré).
 
 ---
 

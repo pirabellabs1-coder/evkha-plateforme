@@ -26,9 +26,10 @@ from generation.models import GenerationJob
 from generation.prompts import build_system_prompt
 from integrations.claude import (
     SYSTEM_CACHE_BREAK,
+    AnthropicClaudeClient,
     _cacheable_system,
     _input_facturable,
-    _thinking_budget,
+    _provision_reflexion,
 )
 from orders.models import Order
 
@@ -143,19 +144,148 @@ def test_le_marqueur_est_un_token_interdit_du_gate():
 
 
 @override_settings(EVKHA_THINKING_BUDGET_TOKENS=1024)
-def test_thinking_actif_par_defaut():
-    assert _thinking_budget() == 1024
+def test_provision_active_par_defaut() -> None:
+    assert _provision_reflexion() == 1024
 
 
 @override_settings(EVKHA_THINKING_BUDGET_TOKENS=512)
-def test_thinking_sous_le_minimum_api_est_desactive():
-    """L'API refuse budget_tokens < 1024 : mieux vaut off que 400."""
-    assert _thinking_budget() == 0
+def test_une_provision_sous_1024_vaut_desormais_sa_valeur() -> None:
+    """Le plancher de 1024 etait une contrainte de `budget_tokens`.
+
+    Ce parametre a ete supprime de l'API : il n'y a plus de minimum a
+    respecter, et une provision de 512 doit donc valoir 512. L'ancien code
+    rendait 0 ici — c'etait un zero deguise, qui privait le throttle de toute
+    provision sans que personne ne l'ait demande.
+    """
+    assert _provision_reflexion() == 512
 
 
 @override_settings(EVKHA_THINKING_BUDGET_TOKENS=0)
-def test_thinking_desactivable():
-    assert _thinking_budget() == 0
+def test_provision_nulle_reste_le_levier_de_coupure() -> None:
+    assert _provision_reflexion() == 0
+
+
+# ── 3 bis. Forme exacte de l'appel : le mode a budget fixe renvoie 400 ───────
+#
+# `thinking: {type: "enabled", budget_tokens: N}` a ete supprime de l'API et
+# renvoie 400 sur claude-sonnet-5. Ces tests echouent sur le code d'avant
+# (regle 6) : il envoyait precisement cette forme, sur chaque appel.
+
+
+class _FakeUsage:
+    input_tokens = 10
+    output_tokens = 20
+
+
+class _FakeBlock:
+    type = "text"
+    text = "ok"
+
+
+class _FakeMessage:
+    def __init__(self) -> None:
+        self.content = [_FakeBlock()]
+        self.stop_reason = "end_turn"
+        self.usage = _FakeUsage()
+
+
+class _FakeMessages:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def create(self, **kwargs: object) -> _FakeMessage:
+        self.calls.append(kwargs)
+        return _FakeMessage()
+
+
+def _appel_capture(monkeypatch: pytest.MonkeyPatch) -> _FakeMessages:
+    """Installe un faux SDK et rend la ressource qui enregistre les appels."""
+    import sys
+    import types
+
+    messages = _FakeMessages()
+    faux = types.ModuleType("anthropic")
+    faux.Anthropic = lambda **_: types.SimpleNamespace(  # type: ignore[attr-defined]
+        messages=messages
+    )
+    monkeypatch.setitem(sys.modules, "anthropic", faux)
+    return messages
+
+
+@override_settings(EVKHA_THINKING_BUDGET_TOKENS=1024, EVKHA_CLAUDE_EFFORT="high")
+def test_aucun_appel_ne_declare_de_budget_de_reflexion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le defaut qui rendait la bascule Sonnet 5 impossible : un 400 par appel."""
+    messages = _appel_capture(monkeypatch)
+    AnthropicClaudeClient(api_key="fake").complete(system="sys", prompt="p")
+
+    envoye = messages.calls[0]
+    assert "budget_tokens" not in str(envoye["thinking"])
+
+
+@override_settings(EVKHA_THINKING_BUDGET_TOKENS=1024, EVKHA_CLAUDE_EFFORT="high")
+def test_la_reflexion_est_adaptative_et_porte_un_effort(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    messages = _appel_capture(monkeypatch)
+    AnthropicClaudeClient(api_key="fake").complete(system="sys", prompt="p")
+
+    envoye = messages.calls[0]
+    assert envoye["thinking"] == {"type": "adaptive"}
+    assert envoye["output_config"] == {"effort": "high"}
+
+
+@override_settings(EVKHA_THINKING_BUDGET_TOKENS=0)
+def test_provision_nulle_coupe_la_reflexion_EXPLICITEMENT(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Omettre `thinking` ne coupe rien : les modeles recents la laissent en
+    adaptatif. Le levier de repli doit donc dire non, pas se taire."""
+    messages = _appel_capture(monkeypatch)
+    AnthropicClaudeClient(api_key="fake").complete(system="sys", prompt="p")
+
+    envoye = messages.calls[0]
+    assert envoye["thinking"] == {"type": "disabled"}
+    assert "output_config" not in envoye
+
+
+@override_settings(EVKHA_THINKING_BUDGET_TOKENS=1024)
+def test_la_provision_reste_reservee_dans_max_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Contre-epreuve : le correctif ne doit pas casser ce qui marchait.
+
+    `max_tokens` borne la reflexion ET le texte ensemble. Sans cette reserve,
+    la reflexion mange la place du chapitre et le rend court.
+    """
+    messages = _appel_capture(monkeypatch)
+    AnthropicClaudeClient(api_key="fake").complete(
+        system="sys", prompt="p", max_tokens=4000
+    )
+
+    assert messages.calls[0]["max_tokens"] == 4000 + 1024
+
+
+def test_la_sortie_structuree_coupe_la_reflexion_explicitement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`tool_choice` force est incompatible avec la reflexion.
+
+    Le code d'avant comptait sur l'omission de `thinking` pour l'eteindre. Sur
+    les modeles recents, l'omission la rallume : le socle et chaque chapitre
+    structure auraient reflechi en adaptatif, hors de toute provision.
+    """
+    messages = _appel_capture(monkeypatch)
+    AnthropicClaudeClient(api_key="fake").complete_structured(
+        system="sys",
+        prompt="p",
+        outil_nom="produire_socle",
+        outil_description="d",
+        schema={"type": "object"},
+    )
+
+    assert messages.calls[0]["thinking"] == {"type": "disabled"}
 
 
 @pytest.fixture
@@ -188,3 +318,22 @@ def test_budget_em_releve_pour_absorber_la_reflexion() -> None:
     from generation.services import _BUDGET_EUR_BY_TYPE
 
     assert _BUDGET_EUR_BY_TYPE[DeliverableType.MARKET_STUDY] >= Decimal("4.0000")
+
+
+def test_les_quatre_budgets_absorbent_le_tokenizer_de_sonnet_5() -> None:
+    """Sonnet 5 compte ~30 % de tokens en plus pour le meme texte, a tarif egal.
+
+    Le plafond n'aurait pas surfacture — il aurait fait raboter max_tokens par
+    le throttle, donc raccourci les derniers chapitres. La cause etant commune
+    a tous les livrables, la hausse l'est aussi (regle 4).
+    """
+    from generation.services import _BUDGET_EUR_BY_TYPE
+
+    avant = {
+        DeliverableType.MARKET_STUDY: Decimal("4.6000"),
+        DeliverableType.BUSINESS_PLAN: Decimal("2.8000"),
+        DeliverableType.BUSINESS_STRATEGY: Decimal("2.4000"),
+        DeliverableType.COMPETITOR_STUDY: Decimal("2.0000"),
+    }
+    for livrable, ancien in avant.items():
+        assert _BUDGET_EUR_BY_TYPE[livrable] >= ancien * Decimal("1.28"), livrable

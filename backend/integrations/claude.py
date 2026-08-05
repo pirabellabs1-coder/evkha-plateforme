@@ -353,12 +353,25 @@ def _code_execution_requests(usage: object) -> int:
     return int(getattr(vue, "code_execution_requests", 0) or 0)
 
 
-# Minimum impose par l'API Anthropic pour `thinking.budget_tokens`.
-_MIN_THINKING_BUDGET = 1024
+# Reflexion ADAPTATIVE. Le mode a budget fixe
+# (`thinking: {type: "enabled", budget_tokens: N}`) a ete SUPPRIME de l'API :
+# il renvoie 400 sur les modeles recents, dont claude-sonnet-5. La profondeur
+# se pilote desormais par `output_config.effort`, et le modele decide seul du
+# nombre de tokens qu'il consacre a reflechir.
+#
+# Consequence sur ce reglage : EVKHA_THINKING_BUDGET_TOKENS n'est plus un
+# budget envoye au modele, mais une PROVISION que nous nous imposons a deux
+# endroits ou son absence coute cher :
+#   - `max_tokens` est releve d'autant, car ce plafond borne la reflexion ET le
+#     texte ENSEMBLE : sans provision, la reflexion mange la place du chapitre
+#     et le rend court — le defaut meme signale par la cliente ;
+#   - le throttle budgetaire (cost.py) en retire le cout d'avance, sinon il
+#     autorise des chapitres qu'il ne peut pas payer et le job meurt vers 90 %.
+_EFFORT_PAR_DEFAUT = "high"
 
 
-def _thinking_budget() -> int:
-    """Budget de reflexion (extended thinking) applique a TOUS les appels.
+def _provision_reflexion() -> int:
+    """Provision de reflexion, en tokens, appliquee a TOUS les appels.
 
     Uniforme par construction, et c'est volontaire : la doc « Prompt caching »
     precise que basculer le thinking invalide le cache du system prompt et des
@@ -366,10 +379,24 @@ def _thinking_budget() -> int:
     une ecriture de cache a 200 % a chaque bascule — plus cher que le gain
     espere sur le chapitre concerne.
 
-    0 (ou moins que le minimum API de 1024) = desactive.
+    Le plancher de 1024 a disparu avec `budget_tokens` : c'etait une contrainte
+    de l'API sur un parametre qui n'existe plus. Une provision de 512 vaut
+    desormais 512, et non zero comme auparavant.
+
+    0 = reflexion desactivee (levier de repli documente dans
+    `generation/services.py`).
     """
-    budget = int(getattr(settings, "EVKHA_THINKING_BUDGET_TOKENS", 0) or 0)
-    return budget if budget >= _MIN_THINKING_BUDGET else 0
+    return max(int(getattr(settings, "EVKHA_THINKING_BUDGET_TOKENS", 0) or 0), 0)
+
+
+def _effort_reflexion() -> str:
+    """Niveau d'effort envoye en `output_config.effort` (low → max).
+
+    Une seule source pour tout le job, meme raison que la provision : le cache
+    du system prompt ne survit pas a une bascule en cours de route.
+    """
+    valeur = getattr(settings, "EVKHA_CLAUDE_EFFORT", _EFFORT_PAR_DEFAUT)
+    return str(valeur or _EFFORT_PAR_DEFAUT)
 
 
 @dataclass(frozen=True)
@@ -487,17 +514,27 @@ class AnthropicClaudeClient:
         # cache_control ephemeral TTL 1h par `_cacheable_system`, il est paye
         # plein une fois (ecriture 200 %) puis 10 % a chaque appel suivant.
         #
-        # Extended thinking : le budget est le MEME pour tous les appels du job
-        # (cf. `_thinking_budget`). Le basculer en cours de job invaliderait le
+        # Reflexion adaptative : la profondeur est portee par `effort`, et la
+        # provision est la MEME pour tous les appels du job (cf.
+        # `_provision_reflexion`). La basculer en cours de job invaliderait le
         # cache du system prompt ET des messages, et re-paierait une ecriture a
-        # 200 % a chaque bascule. `max_tokens` doit englober les tokens de
-        # reflexion : on l'augmente du budget pour que la place laissee au
-        # contenu redactionnel reste exactement celle demandee par l'appelant.
-        budget_reflexion = _thinking_budget()
+        # 200 % a chaque bascule. `max_tokens` borne la reflexion ET le texte :
+        # on l'augmente de la provision pour que la place laissee au contenu
+        # redactionnel reste exactement celle demandee par l'appelant.
+        #
+        # `thinking` est TOUJOURS explicite, jamais omis : sur les modeles
+        # recents, omettre le parametre ne desactive pas la reflexion, il la
+        # laisse tourner en adaptatif. Un silence ici ne voudrait donc pas dire
+        # « pas de reflexion » mais « reflexion non provisionnee », c'est-a-dire
+        # des tokens factures que ni `max_tokens` ni le throttle n'ont prevus.
+        provision_reflexion = _provision_reflexion()
         extra: dict[str, object] = {}
-        if budget_reflexion:
-            extra["thinking"] = {"type": "enabled", "budget_tokens": budget_reflexion}
-            max_tokens = max_tokens + budget_reflexion
+        if provision_reflexion:
+            extra["thinking"] = {"type": "adaptive"}
+            extra["output_config"] = {"effort": _effort_reflexion()}
+            max_tokens = max_tokens + provision_reflexion
+        else:
+            extra["thinking"] = {"type": "disabled"}
 
         # Outil advisor : reserve aux appels qui le demandent explicitement
         # (aujourd'hui les CHECKs de bloc, cf. generation/checks_blocs.py). Il
@@ -520,12 +557,20 @@ class AnthropicClaudeClient:
             # L'endpoint beta n'est requis que par l'advisor. L'execution de
             # code seule reste sur l'endpoint stable.
             creer = client.beta.messages.create if outil_advisor else client.messages.create
-            message = creer(
+            # `type: ignore[call-overload]` : le SDK type ses parametres avec
+            # des TypedDict fermes, et `extra` est construit a l'execution — sa
+            # composition depend de la provision de reflexion, de l'advisor et
+            # de l'execution de code. Aucune surcharge ne peut donc etre
+            # rapprochee statiquement. Meme traitement que `complete_structured`
+            # ci-dessous. Les trois `arg-type` cibles qui figuraient ici ne
+            # portaient plus rien : l'echec se produit au niveau de l'appel, pas
+            # d'un argument.
+            message = creer(  # type: ignore[call-overload]
                 model=model_id,
                 max_tokens=max_tokens,
-                system=system_param,  # type: ignore[arg-type]
-                messages=messages,  # type: ignore[arg-type]
-                **extra,  # type: ignore[arg-type]
+                system=system_param,
+                messages=messages,
+                **extra,
             )
             # Seuls les blocs `text` sont du livrable : avec l'advisor, le
             # contenu porte aussi `server_tool_use` et `advisor_tool_result`,
@@ -639,9 +684,15 @@ class AnthropicClaudeClient:
         qu'un appel d'outil conforme au schema. C'est la difference de nature
         avec `complete()`, qui rend du texte libre a analyser apres coup.
 
-        La reflexion etendue est volontairement DESACTIVEE ici : elle impose
+        La reflexion est volontairement DESACTIVEE ici : elle impose
         `tool_choice: auto` cote API, ce qui reintroduirait la possibilite d'une
         reponse en texte libre — exactement ce que cette methode elimine.
+
+        Elle est desactivee EXPLICITEMENT, et non par omission. Sur les modeles
+        recents, ne pas envoyer `thinking` ne coupe pas la reflexion : elle
+        tourne en adaptatif. L'omission qui suffisait jusqu'ici aurait donc
+        silencieusement rallume ce que ce paragraphe declare eteindre, sur
+        chaque appel du socle et de chaque chapitre structure.
         """
         import os
 
@@ -673,6 +724,7 @@ class AnthropicClaudeClient:
                 }
             ],
             tool_choice={"type": "tool", "name": outil_nom},
+            thinking={"type": "disabled"},
         )
 
         charge: dict[str, object] = {}

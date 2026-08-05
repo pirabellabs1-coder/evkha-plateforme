@@ -51,11 +51,27 @@ _SUPPORTED_DELIVERABLES = frozenset(
 # = 4,14 EUR attendus, + ~0,46 de marge de retry -> 4,60 EUR.
 # Leviers de retour en arriere, par ordre d'effet : EVKHA_ADVISOR_ENABLED=false
 # (-0,22), EVKHA_THINKING_BUDGET_TOKENS=0 (-0,41).
+#
+# Revision 05/08/2026 — les quatre budgets releves d'environ 30 % pour la
+# bascule vers claude-sonnet-5. Ce n'est PAS une hausse de tarif : Sonnet 5 est
+# facture au meme prix que Sonnet 4.6 (3 $ / 15 $ par million de tokens). C'est
+# un changement de TOKENIZER — le meme texte y compte environ 30 % de tokens en
+# plus. A budget inchange, le throttle aurait donc rabote max_tokens sur les
+# derniers chapitres pour tenir un plafond calibre sur l'ancien decoupage : des
+# chapitres plus courts, c'est-a-dire le defaut meme que la cliente signale.
+#
+# Le pourcentage s'applique a chaque ligne parce que la cause est commune a
+# tous les livrables — ce n'est pas l'EM qui coute plus cher, c'est chaque
+# token qui compte differemment (regle 4 : viser la classe, pas l'exemple).
+#
+# Ces valeurs restent une PROJECTION tant qu'aucune generation reelle n'a
+# tourne sur Sonnet 5. La premiere mesure reelle doit etre reportee ici et dans
+# journal_generations.md (regle 10) — et elle prime sur ce calcul.
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("4.6000"),  # 30 appels + thinking + CHECKs
-    DeliverableType.BUSINESS_PLAN:     Decimal("2.8000"),  # 20 chapitres, ~24 appels chunked
-    DeliverableType.BUSINESS_STRATEGY: Decimal("2.4000"),  # 20 appels
-    DeliverableType.COMPETITOR_STUDY:  Decimal("2.0000"),  # 12 appels (sans SWOT)
+    DeliverableType.MARKET_STUDY:      Decimal("6.0000"),  # 30 appels + reflexion + CHECKs
+    DeliverableType.BUSINESS_PLAN:     Decimal("3.6500"),  # 20 chapitres, ~24 appels chunked
+    DeliverableType.BUSINESS_STRATEGY: Decimal("3.1500"),  # 20 appels
+    DeliverableType.COMPETITOR_STUDY:  Decimal("2.6000"),  # 12 appels (sans SWOT)
 }
 
 

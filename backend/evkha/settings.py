@@ -206,18 +206,32 @@ BREVO_SENDER_NAME = env("BREVO_SENDER_NAME", default="Evkha")
 EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")
 EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="")
 
-# Extended thinking : budget de reflexion accorde a CHAQUE appel de generation.
+# Reflexion adaptative : PROVISION de reflexion reservee a CHAQUE appel de
+# generation. Depuis le passage aux modeles recents, ce nombre n'est plus
+# transmis a l'API — `thinking.budget_tokens` y a ete supprime et renvoie 400.
+# Il sert desormais de reserve interne (cf. `_provision_reflexion` dans
+# integrations/claude.py) : place gardee dans max_tokens, et euros provisionnes
+# par le throttle.
+#
 # Uniforme par construction — le basculer en cours de job invaliderait le cache
 # du system prompt et des messages (doc « Prompt caching »), et re-paierait une
 # ecriture de cache a 200 % a chaque bascule.
 #
-# 1024 = minimum impose par l'API, et le bon reglage ici : le besoin est un
-# brouillon de calcul avant redaction (emboitement TAM/SAM/SOM, taux de
-# capture), pas une demonstration longue. Cout : 1024 tokens x 0,0000135 EUR
-# = 0,0138 EUR par appel, soit ~+0,41 EUR sur un job EM de 30 appels. Le budget
-# EM a ete releve en consequence (cf. generation/services.py).
-# Mettre 0 pour desactiver.
+# 1024 reste le bon ordre de grandeur : le besoin est un brouillon de calcul
+# avant redaction (emboitement TAM/SAM/SOM, taux de capture), pas une
+# demonstration longue. Cout : 1024 tokens x 0,0000135 EUR = 0,0138 EUR par
+# appel, soit ~+0,41 EUR sur un job EM de 30 appels. Les budgets par livrable
+# sont dimensionnes en consequence (cf. generation/services.py).
+# Mettre 0 pour desactiver la reflexion.
 EVKHA_THINKING_BUDGET_TOKENS = env.int("EVKHA_THINKING_BUDGET_TOKENS", default=1024)
+
+# Profondeur de la reflexion adaptative, envoyee en `output_config.effort`.
+# Valeurs : low | medium | high | max (xhigh existe sur la famille Opus recente,
+# pas sur Sonnet 4.6). « high » est le defaut de l'API et le reglage retenu ici :
+# les chapitres quantifies (TAM/SAM/SOM, previsionnel) sont le genre de travail
+# ou la profondeur se voit. Descendre a « medium » est le levier d'economie a
+# actionner avant de couper la reflexion tout court.
+EVKHA_CLAUDE_EFFORT = env("EVKHA_CLAUDE_EFFORT", default="high")
 
 # Outil advisor (beta `advisor-tool-2026-03-01`) sur les CHECKs de bloc : le
 # relecteur consulte un second relecteur qui relit toute la transcription avant

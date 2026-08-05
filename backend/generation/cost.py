@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 
-from integrations.claude import _MAX_CONTINUATIONS, _thinking_budget
+from integrations.claude import _MAX_CONTINUATIONS, _provision_reflexion
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .models import ChapterGeneration, ChapterStatus, GenerationJob
@@ -230,13 +230,20 @@ def max_tokens_for_job(
 
     per_call_budget = remaining / max(total_slots, 1)
 
-    # Extended thinking : les tokens de reflexion sont factures au tarif OUTPUT
-    # et `AnthropicClaudeClient.complete` releve max_tokens du budget pour que
-    # la place laissee au contenu reste celle demandee. Ce cout est donc engage
-    # a chaque appel EN PLUS du contenu — il doit sortir du budget par appel
-    # avant le calcul, sinon le throttle autorise des chapitres qu'il ne peut
-    # pas payer et le job meurt sur CostBudgetExceededError vers 90 %.
-    cout_reflexion = Decimal(_thinking_budget()) * output_eur
+    # Reflexion adaptative : les tokens de reflexion sont factures au tarif
+    # OUTPUT et `AnthropicClaudeClient.complete` releve max_tokens de la
+    # provision pour que la place laissee au contenu reste celle demandee. Ce
+    # cout est donc engage a chaque appel EN PLUS du contenu — il doit sortir du
+    # budget par appel avant le calcul, sinon le throttle autorise des chapitres
+    # qu'il ne peut pas payer et le job meurt sur CostBudgetExceededError vers
+    # 90 %.
+    #
+    # En adaptatif, la depense reelle de reflexion n'est plus connue d'avance :
+    # le modele la choisit. La provision reste donc une ESTIMATION — mais elle
+    # n'est pas le seul garde-fou : `max_tokens` borne la reflexion et le texte
+    # ensemble, et `enforce_budget` coupe net au depassement. Une provision trop
+    # basse rogne le texte, elle ne laisse pas filer la facture.
+    cout_reflexion = Decimal(_provision_reflexion()) * output_eur
     per_call_budget -= cout_reflexion
     if per_call_budget <= 0:
         return _MIN_MAX_TOKENS
