@@ -57,9 +57,14 @@ NEUTRE = RGBColor(0x20, 0x20, 0x20)
 #:
 #: Le préfixe est désormais « Étude », qui décrit la nature du document et ne
 #: nomme personne.
+#: « Étude Titre chapitre » a été RETIRÉ du contrat le 05/08/2026. Il était
+#: défini, exigé de tout gabarit par `styles_manquants`, et employé nulle part :
+#: les titres de chapitre vivent dans le bandeau coloré (`STYLE_BANDEAU`), qui
+#: est le design validé par la cliente. Deux styles pour une même vérité, dont
+#: un mort — exactement ce que la règle 5 interdit, et ce que la règle 8 décrit
+#: (« intégré, testé, exigé… jamais exécuté »).
 STYLE_TITRE_DOCUMENT = "Étude Titre document"
 STYLE_SOUS_TITRE = "Étude Sous-titre"
-STYLE_CHAPITRE = "Étude Titre chapitre"
 STYLE_SECTION = "Étude Titre section"
 STYLE_CORPS = "Étude Corps"
 STYLE_BANDEAU = "Étude Bandeau"
@@ -73,7 +78,7 @@ STYLE_SOURCE = "Étude Source"
 STYLE_LEGENDE = "Étude Légende"
 
 STYLES_ATTENDUS: tuple[str, ...] = (
-    STYLE_TITRE_DOCUMENT, STYLE_SOUS_TITRE, STYLE_CHAPITRE, STYLE_SECTION,
+    STYLE_TITRE_DOCUMENT, STYLE_SOUS_TITRE, STYLE_SECTION,
     STYLE_CORPS, STYLE_BANDEAU, STYLE_ENCADRE_TITRE, STYLE_ENCADRE_CORPS,
     STYLE_CHIFFRE_VALEUR, STYLE_CHIFFRE_LIBELLE, STYLE_TABLEAU_ENTETE,
     STYLE_TABLEAU_CELLULE, STYLE_SOURCE, STYLE_LEGENDE,
@@ -103,8 +108,21 @@ def _definir(
     alignement: WD_ALIGN_PARAGRAPH | None = None,
     majuscules: bool = False,
     interlettrage: int = 0,
+    niveau_plan: int | None = None,
 ) -> None:
-    """Crée un style de paragraphe, ou le remet à ces valeurs s'il existe."""
+    """Crée un style de paragraphe, ou le remet à ces valeurs s'il existe.
+
+    `niveau_plan` écrit `w:outlineLvl`. C'est lui, et rien d'autre, qui fait
+    qu'un paragraphe apparaît dans le **volet de navigation** de Word et dans
+    une table des matières automatique. Un style peut être gros, gras et
+    Georgia : sans niveau de plan, Word ne le tient pas pour un titre.
+
+    Mesuré sur la première étude réelle complète (`90cbb3d9`, 05/08/2026) : le
+    livrable portait ses 22 titres de chapitre, parfaitement visibles à l'œil,
+    et **zéro** entrée navigable — contre 83 au document validé par la cliente.
+    Le lecteur ne pouvait ni sauter d'un chapitre à l'autre, ni générer un
+    sommaire.
+    """
     styles = document.styles
     try:
         style = styles[nom]
@@ -138,6 +156,13 @@ def _definir(
     paragraphe.line_spacing = interligne
     if alignement is not None:
         paragraphe.alignment = alignement
+
+    if niveau_plan is not None:
+        ppr = style.element.get_or_add_pPr()
+        for ancien in ppr.findall(qn("w:outlineLvl")):
+            ppr.remove(ancien)
+        plan = ppr.makeelement(qn("w:outlineLvl"), {qn("w:val"): str(niveau_plan)})
+        ppr.append(plan)
 
 
 def _champ_page(paragraphe: Paragraph) -> None:
@@ -175,16 +200,19 @@ def construire_gabarit(destination: Path | None = None) -> Path:
              apres=6, interligne=1.0)
     _definir(document, STYLE_SOUS_TITRE, police=POLICE_CORPS, taille=14,
              apres=18, interligne=1.2)
-    _definir(document, STYLE_CHAPITRE, police=POLICE_TITRES, taille=18,
-             avant=18, apres=8, interligne=1.1)
+    # Niveau 1 du plan : c'est le titre de SECTION (« 1.1 Deux périmètres… »).
+    # Il était défini et n'était employé nulle part — le moteur posait le style
+    # des en-têtes de tableau sur les titres de section.
     _definir(document, STYLE_SECTION, police=POLICE_CORPS, taille=13, gras=True,
-             avant=12, apres=4)
+             avant=12, apres=4, niveau_plan=1)
     _definir(document, STYLE_CORPS, police=POLICE_CORPS, taille=10,
              apres=6, interligne=1.25, alignement=WD_ALIGN_PARAGRAPH.JUSTIFY)
 
     # Bandeau de chapitre : texte clair sur aplat de couleur principale.
+    # Niveau 0 du plan — c'est LUI qui porte les titres de chapitre dans le
+    # document réel, pas un style « titre de chapitre » séparé.
     _definir(document, STYLE_BANDEAU, police=POLICE_TITRES, taille=16,
-             avant=4, apres=4, interligne=1.1)
+             avant=4, apres=4, interligne=1.1, niveau_plan=0)
 
     _definir(document, STYLE_ENCADRE_TITRE, police=POLICE_CORPS, taille=9,
              gras=True, apres=2, majuscules=True, interlettrage=20)

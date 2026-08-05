@@ -39,6 +39,7 @@ from .gabarit import (
     STYLE_ENCADRE_CORPS,
     STYLE_ENCADRE_TITRE,
     STYLE_LEGENDE,
+    STYLE_SECTION,
     STYLE_SOURCE,
     STYLE_SOUS_TITRE,
     STYLE_TABLEAU_CELLULE,
@@ -484,11 +485,17 @@ def graphique(
 ) -> None:
     """Insère un PNG matplotlib sur toute la largeur utile."""
     if titre:
-        p = document.add_paragraph(style=STYLE_TABLEAU_ENTETE)
+        # Une LÉGENDE, pas un en-tête de tableau — et pas un titre de section
+        # non plus : le titre d'une figure n'a rien à faire dans la table des
+        # matières, il nomme une image, pas une partie du document.
+        p = document.add_paragraph(style=STYLE_LEGENDE)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run(titre)
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.primaire)
         run.font.size = Pt(11)
+        run.font.bold = True
+        run.font.italic = False
         # Un titre de graphique séparé de son image est pire qu'un sous-titre
         # orphelin : il annonce une figure absente de la page.
         garder_avec_la_suite(p)
@@ -511,15 +518,34 @@ def graphique(
 def sommaire(
     document: DocumentWord, palette: Palette, entrees: Sequence[tuple[str, str, str]]
 ) -> None:
-    """Deux colonnes chapitre / page. La référence n'utilise pas de champ TOC."""
+    """Numéro et intitulé de chaque chapitre. La référence n'emploie pas de champ TOC.
+
+    La colonne « Page » a été RETIRÉE. Elle était rendue à chaque étude et
+    restait **toujours vide** : `depuis_json.rendre_etude` passe une chaîne
+    vide en troisième position, et rien nulle part ne calcule une pagination —
+    elle n'existe qu'après la mise en page, que ce moteur ne fait pas.
+
+    Une colonne intitulée « Page » sans un seul numéro n'est pas un détail de
+    forme : elle annonce au lecteur une information, puis ne la donne pas. Le
+    tenir pour un défaut mineur, c'est le laisser dans le document livré.
+
+    La navigation par chapitre existe désormais pour de bon, et par le moyen
+    que Word attend : les styles de titre portent un niveau de plan (voir
+    `gabarit._definir`), donc le volet de navigation les liste et une table des
+    matières automatique se génère en deux clics, avec ses vraies pages.
+
+    Le troisième élément de chaque entrée est conservé dans la signature : les
+    appelants le fournissent déjà, et il portera la page le jour où la
+    pagination sera connue.
+    """
     p = document.add_paragraph(style=STYLE_BANDEAU)
     run = p.add_run("Sommaire")
     _poser_police(run, STYLE_BANDEAU)
     run.font.color.rgb = _rgb(palette.primaire)
 
     tableau(
-        document, palette, ["Chap.", "Intitulé", "Page"],
-        [[numero, titre, page] for numero, titre, page in entrees],
+        document, palette, ["Chap.", "Intitulé"],
+        [[numero, titre] for numero, titre, _page in entrees],
     )
 
 
@@ -527,8 +553,15 @@ def sommaire(
 
 
 def sous_titre(document: DocumentWord, palette: Palette, texte: str) -> None:
-    """Titre de section numéroté (« 1.1 Deux périmètres à ne pas confondre »)."""
-    p = document.add_paragraph(style=STYLE_TABLEAU_ENTETE)
+    """Titre de section numéroté (« 1.1 Deux périmètres à ne pas confondre »).
+
+    Il portait le style des EN-TÊTES DE TABLEAU, pendant que « Étude Titre
+    section » — défini pour cet usage exact — n'était employé nulle part. Deux
+    conséquences : le volet de navigation de Word restait vide, et le nom de
+    style qu'affiche le ruban annonçait un tableau au lecteur qui cliquait dans
+    un titre.
+    """
+    p = document.add_paragraph(style=STYLE_SECTION)
     run = p.add_run(texte)
     run.font.name = POLICE_CORPS
     run.font.size = Pt(11)

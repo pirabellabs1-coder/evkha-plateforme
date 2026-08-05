@@ -19,6 +19,7 @@ parfaitement honnêtes.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -50,6 +51,41 @@ class Resolution:
     @property
     def retenu(self) -> bool:
         return self.donnees is not None
+
+
+#: Longueur au-delà de laquelle une étiquette de figure devient illisible.
+#:
+#: Mesurée, pas choisie. Première génération réelle complète (`90cbb3d9`,
+#: 05/08/2026) : les deux graphiques du livrable portaient en abscisse
+#: « Croissance annuelle estimée du marché mondial de la joaillerie, ordre de
+#: grandeur sectoriel luxe/joaillerie » — 96 signes. Les deux étiquettes se
+#: chevauchaient et débordaient de l'image.
+ETIQUETTE_MAX = 34
+
+
+def etiquette_de(donnee: DonneeSocle) -> str:
+    """Nom COURT d'une donnée, pour l'axe d'une figure.
+
+    Le `libelle` du socle est une définition : il doit lever toute ambiguïté sur
+    ce que le chiffre mesure, donc il est long, et c'est très bien — il sert au
+    modèle, aux contrôles et aux notes de source. Il ne peut simplement pas
+    servir d'étiquette d'axe.
+
+    La règle est générale, et pas une liste de cas (règle 4) : on garde le
+    segment de tête — ce qui précède la première virgule, parenthèse ou tiret,
+    qui porte toujours la nature de la grandeur — puis on borne. Un libellé
+    déjà court traverse inchangé.
+
+    Le nom n'est jamais remplacé par l'identifiant : `marche_mondial_croissance`
+    est un repère de code, pas un mot que le lecteur d'une étude doit voir.
+    """
+    tete = re.split(r"[,(—–:;]", donnee.libelle, maxsplit=1)[0].strip()
+    tete = tete or donnee.libelle.strip()
+    if len(tete) <= ETIQUETTE_MAX:
+        return tete
+    # Coupe sur une frontière de mot : un mot tronqué se lit comme une faute.
+    coupe = tete[:ETIQUETTE_MAX].rsplit(" ", 1)[0].rstrip(" -")
+    return f"{coupe or tete[:ETIQUETTE_MAX]}…"
 
 
 def _famille(donnee: DonneeSocle) -> FamilleUnite | None:
@@ -115,7 +151,7 @@ def _scalaires(
             + ", ".join(sorted({d.unite for d in donnees}))
         )
 
-    etiquettes = [donnee.libelle for donnee in donnees]
+    etiquettes = [etiquette_de(donnee) for donnee in donnees]
     valeurs = [donnee.valeur for donnee in donnees]
 
     if type_demande in ("camembert", "anneau"):
@@ -189,7 +225,7 @@ def _temporel(
 
     par_libelle: dict[str, dict[int, float]] = {}
     for donnee in donnees:
-        par_libelle.setdefault(donnee.libelle, {})[donnee.annee] = donnee.valeur
+        par_libelle.setdefault(etiquette_de(donnee), {})[donnee.annee] = donnee.valeur
 
     series: list[tuple[str, list[float]]] = []
     for libelle, points in par_libelle.items():
@@ -239,7 +275,7 @@ def _groupees(
     annees = sorted({donnee.annee for donnee in donnees})
     par_libelle: dict[str, dict[int, float]] = {}
     for donnee in donnees:
-        par_libelle.setdefault(donnee.libelle, {})[donnee.annee] = donnee.valeur
+        par_libelle.setdefault(etiquette_de(donnee), {})[donnee.annee] = donnee.valeur
 
     series = [
         (libelle, [points[annee] for annee in annees])
@@ -282,7 +318,7 @@ def _notes(
         return Resolution(motif="échelles de notation différentes sur un même radar")
     return Resolution(
         type_demande,
-        {"axes_noms": [donnee.libelle for donnee in donnees],
+        {"axes_noms": [etiquette_de(donnee) for donnee in donnees],
          "series": [("Projet", [donnee.valeur for donnee in donnees])],
          "maximum": 10.0 if unite == "note_sur_10" else 5.0},
     )

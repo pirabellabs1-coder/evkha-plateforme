@@ -72,6 +72,60 @@ def _retention(job: GenerationJob) -> timedelta:
     return timedelta(days=int(getattr(job.order.offer, "retention_days", 7) or 7))
 
 
+#: Marqueur lu par le tableau de bord : ce dossier a perdu des figures.
+INCIDENT_TYPE_VISUELS_ABANDONNES = "visuels_abandonnes"
+
+
+def _consigner_les_visuels_abandonnes(
+    job: GenerationJob, rapport: RapportAssemblage
+) -> None:
+    """Rend LISIBLE le motif de chaque graphique abandonné.
+
+    `RapportAssemblage` note depuis toujours, pour chaque figure écartée, la
+    raison exacte — « identifiants absents du socle : … », « unités
+    hétérogènes : … », « un seul chiffre ». Sa propre docstring en explique
+    l'enjeu : « un graphique abandonné en silence ferait passer un livrable
+    amputé pour un livrable complet ».
+
+    Ce rapport partait pourtant dans un `logger.warning`, c'est-à-dire dans le
+    journal du conteneur — que l'administration ne consulte pas et que
+    l'exploitant n'atteint pas toujours. Constaté le 05/08/2026 sur la première
+    étude réelle complète : le livrable portait **2 figures** contre 10 au
+    document validé, et il a été impossible de dire pourquoi. La mesure existait
+    et était perdue à la seconde même où elle était prise.
+
+    Un incident la conserve, à côté du dossier qu'elle concerne. Il ne bloque
+    rien — un livrable sans une de ses figures reste un livrable — mais il rend
+    la prochaine correction possible, ce qui est tout l'objet du journal des
+    générations (règle 10).
+    """
+    if not rapport.graphiques_abandonnes:
+        return
+
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    demandes = rapport.graphiques_demandes
+    rendus = rapport.graphiques_rendus
+    OperationalIncident.objects.update_or_create(
+        job=job,
+        title=f"Figures abandonnées à l'assemblage ({rendus}/{demandes}) — job {job.id}"[:200],
+        defaults={
+            "severity": IncidentSeverity.MEDIUM,
+            "order": job.order,
+            "details": {
+                "type": INCIDENT_TYPE_VISUELS_ABANDONNES,
+                "demandes": demandes,
+                "rendus": rendus,
+                # Le motif AVEC la figure : « ch.4 · Répartition… : unités
+                # hétérogènes ». Sans le motif, l'entrée dirait qu'il manque
+                # quelque chose sans dire quoi corriger (règle 2).
+                "abandonnes": rapport.graphiques_abandonnes[:60],
+                "convertis": rapport.graphiques_convertis[:30],
+            },
+        },
+    )
+
+
 def chaine_word_active(job: GenerationJob) -> bool:
     """La chaîne Word peut-elle servir CE dossier ?
 
@@ -140,6 +194,8 @@ def assembler_livrable_word(
     livrable = produire_docx(job, destination=racine / cle_docx)
     octets = livrable.chemin.read_bytes()
     expire_le = timezone.now() + _retention(job)
+
+    _consigner_les_visuels_abandonnes(job, livrable.rapport)
 
     # La vérification porte sur le FICHIER, et elle passe avant l'enregistrement
     # des artefacts : ce qui refait le document après le contrôle doit être
