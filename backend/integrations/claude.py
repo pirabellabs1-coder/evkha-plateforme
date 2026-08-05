@@ -66,24 +66,42 @@ _COUT_LECTURE_CACHE = 0.10
 # le verdict — exactement ce qui manquait aux CHECKs (erreurs de calcul et
 # TAM/SAM/SOM incoherents releves par Evangeline sur le run 010e3bf2).
 #
-# La doc impose : advisor >= executeur en capacite, et advisor >= Sonnet 4.6.
-# Les modeles de capacite EGALE peuvent se conseiller mutuellement, ce qui rend
-# la paire sonnet-4-6 -> sonnet-4-6 valide. Deux exceptions dans le tableau de
-# compatibilite : claude-haiku-4-5 (jamais advisor) et claude-sonnet-5 (dont la
-# liste d'advisors exclut sonnet-5). Toute paire invalide = 400.
+# La doc impose : advisor AU MOINS aussi capable que l'executeur. On avait
+# resume cette regle par « les modeles de capacite egale peuvent se conseiller
+# mutuellement », donc advisor = executeur — FAUX pour le seul modele que ce
+# projet emploie. Le tableau de compatibilite officiel donne, pour un executeur
+# `claude-sonnet-4-6`, les advisors valides : opus-4-7, opus-4-8, opus-5,
+# fable-5, mythos-5. Sonnet 4.6 n'y figure pas. La paire que nous emettions —
+# sonnet-4-6 conseille par sonnet-4-6 — est donc un 400.
+#
+# Elle n'a jamais leve, et c'est ce qui la rendait invisible : l'advisor n'est
+# monte que sur les CHECKs de bloc, et les CHECKs ne s'executent pas dans le
+# moteur en service. Rebrancher les CHECKs sans corriger ceci ferait echouer
+# d'un coup les blocs A, F, G, I et J.
+#
+# On encode donc le TABLEAU (regle 4), au lieu de deduire l'advisor de
+# l'executeur : une regle resumee se trompe sur les cas qu'elle n'a pas listes.
 _ADVISOR_BETA = "advisor-tool-2026-03-01"
 _ADVISOR_TOOL_TYPE = "advisor_20260301"
-_MODELES_AUTO_ADVISOR = frozenset(
-    {
-        "claude-sonnet-4-6",
-        "claude-opus-4-6",
-        "claude-opus-4-7",
-        "claude-opus-4-8",
-        "claude-opus-5",
-        "claude-fable-5",
-        "claude-mythos-5",
-    }
-)
+
+#: Executeur -> advisors valides, du moins cher au plus cher.
+#:
+#: L'ordre porte une decision : on prend le PREMIER disponible, c'est-a-dire le
+#: moins cher qui satisfasse la contrainte. Monter en gamme sans raison
+#: doublerait le tarif de la sous-inference sans rien apporter au verdict.
+_ADVISORS_VALIDES: dict[str, tuple[str, ...]] = {
+    # Executeurs Sonnet et Opus anciens : advisor Opus obligatoire.
+    "claude-sonnet-4-6": ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"),
+    "claude-sonnet-5":   ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"),
+    "claude-opus-4-6":   ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"),
+    # A partir d'Opus 4.7, un modele peut se conseiller lui-meme.
+    "claude-opus-4-7":   ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"),
+    "claude-opus-4-8":   ("claude-opus-4-8", "claude-opus-5"),
+    "claude-opus-5":     ("claude-opus-5",),
+    "claude-fable-5":    ("claude-opus-5", "claude-fable-5"),
+    "claude-mythos-5":   ("claude-opus-5", "claude-mythos-5"),
+    # claude-haiku-4-5 n'est jamais advisor et n'a pas d'advisor : absent.
+}
 # Plafond de sortie de l'advisor (reflexion + texte) par appel. Minimum API
 # 1024 ; 2048 est le point de depart recommande par la doc : sortie moyenne
 # ~630-840 tokens, troncature ~0 %. A 1024 la doc mesure ~10 % d'appels
@@ -273,20 +291,31 @@ def _usage_totaux(usage: object) -> _Totaux:
 def _advisor_tool(model_id: str) -> dict[str, object] | None:
     """Definition de l'outil advisor pour cet executeur, ou None si impossible.
 
-    L'advisor est le MEME modele que l'executeur : c'est la contrainte projet
-    (tout reste sur Sonnet 4.6) et c'est aussi ce qui garde le Cost Engine
-    exact, puisqu'un seul tarif s'applique. La paire n'est emise que si le
-    modele figure dans `_MODELES_AUTO_ADVISOR` — sinon l'API repondrait 400
-    (cas reels : claude-haiku-4-5, jamais advisor ; claude-sonnet-5, dont la
-    liste d'advisors exclut sonnet-5).
+    L'advisor est lu dans `_ADVISORS_VALIDES`, jamais deduit de l'executeur.
+    Nous mettions l'advisor au MEME modele que l'executeur, en resumant la
+    regle de la doc par « les modeles de capacite egale peuvent se conseiller
+    mutuellement ». C'est vrai a partir d'Opus 4.7 et faux pour Sonnet 4.6 —
+    le seul modele que ce projet emploie. La paire emise etait donc un 400,
+    jamais leve parce que les CHECKs ne s'executent pas dans le moteur en
+    service.
+
+    Un executeur absent de la table n'a pas d'advisor valide : on renvoie None
+    plutot que d'emettre une paire au jugé. Un 400 en pleine generation coute
+    un chapitre ; ne pas consulter l'advisor ne coute qu'un conseil.
+
+    Le Cost Engine voit desormais DEUX tarifs quand l'advisor est monte —
+    l'executeur et le conseiller, plus cher. C'est le prix de la conformite :
+    la paire d'un seul tarif n'existe pas pour Sonnet.
 
     `caching` reste desactive (defaut) : la doc ne le recommande qu'a partir de
     trois consultations dans une meme conversation, or on en autorise une.
     """
     if not bool(getattr(settings, "EVKHA_ADVISOR_ENABLED", False)):
         return None
-    if model_id not in _MODELES_AUTO_ADVISOR:
+    advisors = _ADVISORS_VALIDES.get(model_id)
+    if not advisors:
         return None
+    modele_advisor = advisors[0]
 
     plafond = int(
         getattr(settings, "EVKHA_ADVISOR_MAX_TOKENS", _ADVISOR_MAX_TOKENS_DEFAUT)
@@ -295,7 +324,7 @@ def _advisor_tool(model_id: str) -> dict[str, object] | None:
     return {
         "type": _ADVISOR_TOOL_TYPE,
         "name": "advisor",
-        "model": model_id,
+        "model": modele_advisor,
         "max_uses": _ADVISOR_MAX_USES,
         "max_tokens": max(_MIN_ADVISOR_MAX_TOKENS, plafond),
     }
