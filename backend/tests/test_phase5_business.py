@@ -66,23 +66,28 @@ def str_submission() -> IntakeSubmission:
 
 
 def test_business_plan_blueprint_structure() -> None:
-    # EVKHA V1 + Sources finales + fusion 14+15 et 16+17 (retour client juillet
-    # 2026, rendu plus lisible). fiche projet + ch1-17 fusionnes + annexes +
-    # sources = 20 unites (au lieu de 22).
-    assert len(BUSINESS_PLAN_CHAPTERS) == 20
+    # Document « Systeme EVKHA — Business Plans — V1 FINALE » (05/08/2026) :
+    # fiche projet + ses vingt chapitres + sources = 22 unites.
+    #
+    # Les fusions 14+15 et 16+17 de juillet 2026 ont ete DEFAITES : le document
+    # redetaille ces chapitres separement, et la cliente a confirme le retour
+    # aux vingt chapitres. Le chapitre 18, Politique de remuneration, est ajoute
+    # — il n'existait dans aucun des vingt prompts precedents.
+    assert len(BUSINESS_PLAN_CHAPTERS) == 22
     assert BUSINESS_PLAN_CHAPTERS[0].prompt_key == "bp.00.fiche_projet"
     assert BUSINESS_PLAN_CHAPTERS[0].section_kind == SectionKind.OPENING
     assert BUSINESS_PLAN_CHAPTERS[-1].section_kind == SectionKind.SOURCES
     assert BUSINESS_PLAN_CHAPTERS[-1].prompt_key == "bp.21.sources"
     keys = [c.prompt_key for c in BUSINESS_PLAN_CHAPTERS]
-    # Nouveaux dispatchers issus des fusions (garantissent que le regroupement
-    # est bien pris en compte cote runner).
-    assert "bp.14.besoin_financement" in keys
-    assert "bp.15.previsionnel_tresorerie" in keys
-    # Anciens chapitres 15 et 17 ne doivent plus etre des chapitres autonomes :
-    # ils vivent maintenant comme sections des chapitres fusionnes.
-    assert "bp.15.plan_financement" not in keys
-    assert "bp.17.budget_tresorerie" not in keys
+    # Les deux chapitres rendus a leur autonomie.
+    assert "bp.14.investissements" in keys
+    assert "bp.15.plan_financement" in keys
+    # Le chapitre qui manquait.
+    assert "bp.18.remuneration" in keys
+    # Les dispatchers des fusions doivent avoir disparu avec elles : les
+    # laisser aurait maintenu deux cles vers un chapitre qui n'existe plus.
+    assert "bp.14.besoin_financement" not in keys
+    assert "bp.15.previsionnel_tresorerie" not in keys
     assert "bp.09.modele_bmc" in keys
     assert "bp.20.annexes" in keys
 
@@ -109,8 +114,8 @@ def test_bootstrap_bp_job_creates_all_sections(bp_submission: IntakeSubmission) 
     job = bootstrap_generation_job(bp_submission)
 
     assert job.deliverable_type == DeliverableType.BUSINESS_PLAN
-    assert job.chapters.count() == 20
-    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 20))
+    assert job.chapters.count() == 22
+    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 22))
 
 
 @pytest.mark.django_db
@@ -133,7 +138,7 @@ def test_run_bp_job_completes_and_renders(bp_submission: IntakeSubmission) -> No
     job.refresh_from_db()
 
     assert job.status == JobStatus.DONE
-    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 20
+    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 22
     assert job.total_cost_eur <= job.budget_eur
 
     document = render_client_document(job)
@@ -151,6 +156,8 @@ def test_run_str_job_completes_and_renders(str_submission: IntakeSubmission) -> 
     job.refresh_from_db()
 
     assert job.status == JobStatus.DONE
+    # La stratégie business reste à 20 : son chapitrage n'a pas changé, seul
+    # celui du business plan est repassé aux vingt chapitres de son document.
     assert job.chapters.filter(status=ChapterStatus.DONE).count() == 20
     assert job.total_cost_eur <= job.budget_eur
 

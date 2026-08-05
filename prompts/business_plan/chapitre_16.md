@@ -1,9 +1,15 @@
 <!--
-Prompt du chapitre 16 — Risques et facteurs de sécurisation
-Clé historique : bp.18.risques_securisation
+Prompt du chapitre 16 — Prévisionnel financier
+Clé : bp.16.previsionnel_financier
 
-Exporté depuis generation/prompt_library.py. Ce fichier est désormais la
-source de vérité : modifier le prompt ici, plus dans le code Python.
+Chapitre découpé en trois sections : `bp.16.a.comptes_resultats`,
+`bp.16.b.bilan_projection`, `bp.16.c.budget_tresorerie`. Le découpage n'est pas
+éditorial — tables financières et graphiques dépassent 3 500 jetons en un seul
+appel, et la troncature y coupe un tableau au milieu.
+
+La trésorerie est une SECTION de ce chapitre, et non un chapitre à part : le
+document « Systeme EVKHA — Business Plans — V1 FINALE » la traite dans le 16
+(« comment la trésorerie est sécurisée ») et ne lui donne pas de chapitre.
 
 Variables interpolées disponibles ({{ nom }}) :
   {{ secteur }}   {{ pays }}   {{ zone }}   {{ projet }}
@@ -11,4 +17,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Risques identifies et facteurs de securisation : principaux risques (saisonnalite, dependance, concurrence, reglementation), leur probabilite et impact, leviers de securisation concrets pour chacun. Lecture lucide sans dramatisation.
+Ce chapitre est genere en trois sections distinctes. Ne pas utiliser ce prompt directement.

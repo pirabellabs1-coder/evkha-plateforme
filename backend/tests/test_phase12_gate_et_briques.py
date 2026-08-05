@@ -353,9 +353,15 @@ def test_gate_bloque_verticale_effacee(bp_submission: IntakeSubmission) -> None:
         "Le coworking générique répond à la demande locale avec une offre "
         "de bureaux flexibles et de salles de réunion sur Annecy."
     )
-    job = _job_with_content(
-        bp_submission, {n: generic for n in range(0, 20)}
-    )
+    # La plage vient du BLUEPRINT, jamais d'un nombre recopié. Écrite
+    # `range(0, 20)`, elle laissait sans contenu les chapitres ajoutés au
+    # retour aux vingt chapitres du document : le corpus n'était plus
+    # entièrement générique, et le contrôle des verticales n'avait plus le cas
+    # qu'on prétendait lui soumettre.
+    from generation.blueprints import chapters_for_deliverable
+
+    tous = [c.number for c in chapters_for_deliverable(str(DeliverableType.BUSINESS_PLAN))]
+    job = _job_with_content(bp_submission, dict.fromkeys(tous, generic))
     report = run_delivery_gate(job)
     assert not report.passed
     missing = [f.detail for f in report.failures if f.check == "verticales"]

@@ -1272,19 +1272,12 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "contraintes reglementaires specifiques au secteur et a la zone, "
         "protection de la marque ou propriete intellectuelle si applicable."
     ),
-    # Fusion chapitre 14 (14+15 avant juillet 2026) : dispatcher decoratif,
-    # generation reelle via les sous-sections bp.14.investissements et
-    # bp.15.plan_financement.
-    "bp.14.besoin_financement": (
-        "Ce chapitre est genere en deux sections distinctes. "
-        "Ne pas utiliser ce prompt directement."
-    ),
-    # Fusion chapitre 15 (16+17 avant juillet 2026) : dispatcher decoratif,
-    # generation reelle via les sous-sections bp.16.a, bp.16.b, bp.17.
-    "bp.15.previsionnel_tresorerie": (
-        "Ce chapitre est genere en trois sections distinctes. "
-        "Ne pas utiliser ce prompt directement."
-    ),
+    # `bp.14.besoin_financement` et `bp.15.previsionnel_tresorerie` ont ete
+    # RETIRES : c'etaient les dispatchers des deux fusions de juillet 2026,
+    # defaites le 05/08/2026 au retour aux vingt chapitres du document V1
+    # FINALE. Les laisser aurait maintenu deux cles vers un chapitre qui
+    # n'existe plus, et la prochaine relecture aurait cru le chapitre encore
+    # fusionne.
     "bp.14.investissements": (
         "Investissements et besoins au demarrage : nature et montant des "
         "investissements initiaux, apports en nature eventuels, besoin en "
@@ -1339,7 +1332,7 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "3) Un tableau de financement du projet : apports propres, emprunts, aides. "
         "Conclure par une synthese 1 paragraphe sur la viabilite financiere globale."
     ),
-    "bp.17.budget_tresorerie": (
+    "bp.16.c.budget_tresorerie": (
         "Budget de tresorerie mensuel : logique de tresorerie sur 12-24 "
         "mois, integration de la saisonnalite, evolution du solde, "
         "securisation financiere. Fournis un tableau exploitable mois par mois. "
@@ -1349,11 +1342,26 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "que les graphiques barres EVKHA (titre H3, tableau, barre #C9A227, "
         "valeurs reelles en euros, legende courte en italique)."
     ),
-    "bp.18.risques_securisation": (
+    "bp.17.risques_securisation": (
         "Risques identifies et facteurs de securisation : principaux risques "
         "(saisonnalite, dependance, concurrence, reglementation), leur "
         "probabilite et impact, leviers de securisation concrets pour chacun. "
         "Lecture lucide sans dramatisation."
+    ),
+    # Chapitre AJOUTE : aucun des vingt prompts precedents ne traitait la
+    # remuneration du dirigeant. Le fichier `prompts/business_plan/
+    # chapitre_18.md` porte la version complete ; cette entree existe pour les
+    # appelants qui resolvent encore par cle.
+    "bp.18.remuneration": (
+        "Politique de remuneration du dirigeant et, le cas echeant, de "
+        "l'equipe : montant prevu, calendrier, justification, impact sur la "
+        "tresorerie, lien avec le statut social retenu. Charges sociales et "
+        "leur poids dans le previsionnel. Arbitrage salaire/dividendes, "
+        "maintien de l'ARE si applicable. Evolution progressive et conditions "
+        "qui la declenchent. Une remuneration n'est credible que si son COUT "
+        "COMPLET, charges comprises, figure dans le modele financier. Si le "
+        "dirigeant ne se remunere pas au demarrage, presenter ce choix comme "
+        "une securisation financiere, jamais comme une fragilite."
     ),
     "bp.19.conclusion": (
         "Conclusion strategique : synthese des points forts du projet, "

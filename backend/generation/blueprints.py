@@ -267,11 +267,31 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 
 # ---------------------------------------------------------------------------
 # Business Plan (BP)
-# Chapitrage officiel EVKHA V1 (spec "Systeme EVKHA Business Plans V1 FINALE
-# OK TOBIAS.pdf" + squelette FIRE EVENT). Chapitres 2-11 documentes dans la
-# spec V1 partielle ; chapitres 12-19 issus du squelette de reference FIRE
-# EVENT (structure validee Evangeline, jan 2026). Ne PAS modifier sans
-# validation d'Evangeline.
+#
+# Source de verite : « Systeme EVKHA — Business Plans — V1 FINALE », 133 pages,
+# remis par la cliente le 05/08/2026. Ses SECTIONS DETAILLEES font foi, et non
+# son sommaire : les deux se contredisent a partir du chapitre 17 (le sommaire
+# donne 17 Remuneration / 18 Risques, les sections detaillees l'inverse). Ecart
+# signale a la cliente ; on suit les sections, qui portent le contenu reel.
+#
+# Vingt-deux entrees : fiche projet (0), les vingt chapitres du document
+# (1 a 20, annexes comprises), puis les sources (21).
+#
+# DEFUSION des chapitres 14+15 et 16+17. Ces deux fusions dataient d'une demande
+# cliente de juillet 2026 ; le document V1 FINALE les redetaille comme chapitres
+# distincts, et la cliente a confirme le retour aux vingt chapitres le
+# 05/08/2026. Aucun contenu n'est cree pour l'occasion : les sections existantes
+# — `bp.14.investissements`, `bp.15.plan_financement` — deviennent les chapitres
+# qu'elles etaient avant d'etre repliees.
+#
+# AJOUT du chapitre 18, Politique de remuneration. Verifie sur les vingt prompts
+# du depot : aucun ne traitait le montant de la remuneration du dirigeant, son
+# calendrier, les charges sociales, l'arbitrage salaire/dividendes ni le
+# maintien de l'ARE. Le document y consacre un chapitre entier, et sa lecture
+# bancaire en depend — une remuneration absente du modele financier rend le
+# previsionnel incomplet.
+#
+# Les cles de prompt s'alignent desormais sur la numerotation du document.
 # ---------------------------------------------------------------------------
 BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
@@ -302,39 +322,38 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
         13, "Structure juridique et réglementaire", "bp.13.structure_juridique", max_words=1200
     ),
-    # Fusion chapitres 14+15 (demande client, juillet 2026) : reduit la
-    # duplication des sections financieres liees et compresse le budget IA.
-    # Chunked en 2 sections qui reutilisent les prompts existants bp.14 et
-    # bp.15 : aucun contenu editorial n'est perdu.
     ChapterBlueprint(
-        14,
-        "Besoin au démarrage et plan de financement initial",
-        "bp.14.besoin_financement",
-        sections=("bp.14.investissements", "bp.15.plan_financement"),
-        max_words=1250,
+        14, "Investissements et besoins", "bp.14.investissements", max_words=1400
     ),
-    # Fusion chapitres 16+17 (demande client, juillet 2026) : previsionnel
-    # + tresorerie forment un tout financier, plus lisible d'un bloc.
-    # Chunked en 3 sections (comptes resultats, bilan/graph, tresorerie)
-    # pour eviter les troncatures sur le contenu dense (tables + graphes).
     ChapterBlueprint(
-        15,
-        "Prévisionnel financier et trésorerie",
-        "bp.15.previsionnel_tresorerie",
+        15, "Plan de financement", "bp.15.plan_financement", max_words=1100
+    ),
+    # Le previsionnel reste decoupe en trois sections : tables financieres et
+    # graphiques depassent 3500 jetons en un seul appel, et la troncature y
+    # coupe un tableau au milieu. La tresorerie en est une SECTION et non un
+    # chapitre — le document la traite dans le 16 (« comment la tresorerie est
+    # securisee »), il ne lui donne pas de chapitre propre.
+    ChapterBlueprint(
+        16,
+        "Prévisionnel financier",
+        "bp.16.previsionnel_financier",
         sections=(
             "bp.16.a.comptes_resultats",
             "bp.16.b.bilan_projection",
-            "bp.17.budget_tresorerie",
+            "bp.16.c.budget_tresorerie",
         ),
         max_words=900,
     ),
     ChapterBlueprint(
-        16, "Risques et facteurs de sécurisation", "bp.18.risques_securisation", max_words=1400
+        17, "Risques et facteurs de sécurisation", "bp.17.risques_securisation", max_words=1400
     ),
-    ChapterBlueprint(17, "Conclusion", "bp.19.conclusion", max_words=1000),
-    ChapterBlueprint(18, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model=None),
     ChapterBlueprint(
-        19, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model=None
+        18, "Politique de rémunération", "bp.18.remuneration", max_words=1200
+    ),
+    ChapterBlueprint(19, "Conclusion", "bp.19.conclusion", max_words=1000),
+    ChapterBlueprint(20, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model=None),
+    ChapterBlueprint(
+        21, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model=None
     ),
 )
 
@@ -487,13 +506,16 @@ SECTION_MAX_WORDS: dict[str, int] = {
     # EM chapitre 19 — recommandations strategiques
     "em.19.a.diagnostic":  900,  # diagnostic strategique
     "em.19.b.plan_action": 800,  # plan d'action concret
-    # BP chapitre 14 — besoin au demarrage et plan de financement (fusion 14+15)
-    "bp.14.investissements":      1400,  # investissements initiaux + BFR
-    "bp.15.plan_financement":     1100,  # plan de financement + graphique
-    # BP chapitre 15 — previsionnel financier et tresorerie (fusion 16+17)
+    # BP chapitre 16 — previsionnel financier (3 sections)
+    #
+    # `bp.14.investissements` et `bp.15.plan_financement` ne figurent plus ici :
+    # la defusion en a refait des CHAPITRES, dont la cible de mots vit dans
+    # `ChapterBlueprint.max_words`. Les laisser ici aurait cree deux avis sur la
+    # meme longueur (regle 5), et c'est celui-ci qui l'emporte dans
+    # `build_section_prompt`.
     "bp.16.a.comptes_resultats":  1000,  # comptes de resultats projetes
     "bp.16.b.bilan_projection":    800,  # bilan + graphique CA/EBITDA
-    "bp.17.budget_tresorerie":    1000,  # budget de tresorerie mensuel
+    "bp.16.c.budget_tresorerie":  1000,  # budget de tresorerie mensuel
 }
 
 
