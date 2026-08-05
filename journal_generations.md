@@ -41,6 +41,8 @@ Objectif : à chaque nouveau défaut nommé par la cliente ou par le gate,
 | 2026-08-02 | `acff2d6c` | `ddabcb2` | EM | 1,21 | 0,61 | — | non atteint | **discard** | Même sujet. Les deux correctifs précédents TIENNENT : 19 chapitres écrits d'affilée, sans un blocage de conformité. Morte au chapitre 20 sur « blocs : Field required ; resume : Field required » — une réponse de modèle incomplète, soit l'aléa transitoire par excellence. DIAGNOSTIC RÉEL, après trois runs : le runner de production appelait `produire_chapitre` UNE fois et laissait remonter. La boucle de reprise existait pourtant, complète, dans la tâche Celery par chapitre — et n'était appelée par rien (règle 8, le défaut de Gamma à l'identique). J'avais corrigé les runs 1 et 2 en rendant deux règles tolérantes : c'était traiter deux instances d'un défaut dont la classe est l'absence de reprise (règle 4). |
 | 2026-08-02 | `31b3bb75` | `854e0ec` | EM | 0,08 | 0,04 | — | non atteint | **discard** | La REPRISE FONCTIONNE, et elle a paye des le premier run : ch1 a echoue une fois puis reussi a la seconde tentative. Le ch2, lui, a echoue TROIS fois sur le meme motif — donc deterministe, pas un alea : « le graphique utilise `marche_continental_taille`, absent de `donnees_utilisees` ». Les deux champs sont remplis par le MEME modele sur le MEME chapitre : leur desaccord dit que la declaration est incomplete, pas qu'un chiffre est invente. On la complete, et c'est le SOCLE qui tranche — le controle qui compare a quelque chose (regle 9). Un graphique qui inventerait une donnee reste refuse, verifie par un test dedie. |
 
+| 2026-08-05 | `07745d4a` | `4415784` | EM | 0,01 | 1,0 | — | non atteint | **discard** | Joalie, premier lancement depuis l'espace client déployé. Morte au CHECK INITIAL, avant le chapitre 1. Le relecteur réclamait six éléments dans la fiche projet, dont **la devise, le lecteur final et une section signalant les points non spécifiés** — trois choses que le prompt de la fiche n'a jamais demandées (dix rubriques prescrites, aucune ne les porte). Judge-misalignment, exactement comme le 20/07. Aggravant : le code stoppait l'étude **sans tenter la moindre correction**, au motif que « c'est le brief du client qui est en cause », et invitait l'admin à corriger le brief — ce qu'aucune correction du brief n'aurait réparé. Gate en impasse (règle 1). Deux correctifs : la fiche gagne les rubriques manquantes, et le CHECK INITIAL régénère la fiche une fois avec la note avant de bloquer (règle 4 : la reprise, déjà rendue aux chapitres le 02/08, manquait encore à la fiche). |
+
 ## Ce qui a été appris (par run)
 
 ### 2026-07-19 SYNAPSES v2 — `c3798821`
@@ -100,6 +102,31 @@ coût : 0,0000 €.** L'API a refusé la requête en 0,9 seconde.
   que le bloc mis en cache ne fait que 202 jetons — sous le minimum de 1 024,
   donc **le cache ne s'active jamais** (−40 % à récupérer) ; et la génération
   étant asynchrone, l'API Batch vaudrait −50 %.
+
+### 2026-08-05 Joalie EM — `07745d4a` — **discard**
+
+- **Le brief est parti avec les accents corrompus.** Erreur d'outillage, pas de
+  plateforme : PowerShell 5.1 relit un `.ps1` en page de code ANSI, donc
+  « joaillerie de créateurs » écrit en UTF-8 dans le script devient
+  « joaillerie de crÃ©ateurs » à l'exécution — puis part tel quel dans l'appel.
+  Détecté après le lancement, avant que l'étude n'écrive un chapitre de fond.
+  **Tout script de lancement doit être ASCII strict**, ou lire son brief depuis
+  un `.json` avec un décodage UTF-8 explicite.
+- **La mort au CHECK INITIAL n'est pas due à cette corruption** : les trois
+  éléments réclamés (devise, lecteur final, points non spécifiés) manquaient au
+  prompt, pas au brief. Une relance à accents corrects serait morte au même
+  endroit.
+- **Répétitions à blanc, gratuites, faites le même jour** — elles ont trouvé ce
+  qu'aucun test unitaire n'avait vu :
+  - `EVKHA_SOCLE_ENABLED` vaut `false` en local et `true` en production. Une
+    répétition qui ne le pose pas observe **un autre logiciel** que celui qui
+    tourne chez le client.
+  - **Le business plan et la stratégie ne produisaient AUCUN document.** 21 et
+    22 chapitres écrits, puis `LivrableIncompletError` : le drapeau global
+    `EVKHA_LIVRABLE_WORD=true` envoie les quatre livrables vers une chaîne qui
+    exige un socle, que seuls l'EM et l'EC produisent. L'échec était silencieux
+    (`except Exception` dans la tâche). Correctif : la chaîne se choisit sur ce
+    que le dossier CONTIENT, et le repli se journalise.
 
 ## Règles de tenue du journal
 

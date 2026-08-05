@@ -957,11 +957,42 @@ def _executer_check_avec_retry(
         return
 
     # Echec 1er passage : regenere chaque chapitre du bloc avec la note.
-    # Le CHECK INITIAL ne se regenere pas tout seul : c'est la fiche projet —
-    # donc le brief du client — qui est en cause. On ouvre un incident HIGH et
-    # on STOPPE la generation (gate amont du manuel) : l'admin corrige le
-    # brief/la fiche puis relance. On ne continue jamais par automatisme.
+    #
+    # Le CHECK INITIAL suit la MEME regle, et c'est un correctif du 05/08/2026.
+    # Le code d'avant bloquait sans avoir rien tente, au motif que « c'est la
+    # fiche projet — donc le brief du client — qui est en cause ». Ce motif est
+    # faux dans le cas general, et la premiere generation reelle de l'espace
+    # client l'a montre (job 07745d4a, 0,01 EUR, aucun document) : la note du
+    # relecteur disait « Rediger integralement la fiche projet », et reclamait
+    # la devise, le lecteur final et une section signalant les points non
+    # specifies. Trois elements que le prompt de la fiche ne demandait pas —
+    # donc qu'AUCUNE correction du brief par l'administrateur n'aurait produits.
+    # Le gate etait une impasse : il exigeait d'un humain une action qui n'avait
+    # aucun effet sur la cause.
+    #
+    # Le manuel p.3 ouvre deux voies — « corriger la fiche OU demander la
+    # precision necessaire » — et le code n'avait retenu que la seconde. On
+    # tente donc la premiere, UNE fois, avec la note du relecteur en consigne,
+    # avant de rendre la main. « On ne continue jamais par automatisme » (p.2)
+    # interdit de poursuivre SANS corriger, pas de corriger.
+    #
+    # C'est la classe de defaut deja corrigee pour les chapitres le 02/08/2026
+    # — trois etudes mortes faute de reprise — appliquee a la fiche, qui n'en
+    # avait jamais eu (regle 4).
     if bloc.identifiant == "INITIAL":
+        fiche = chapitres[0] if chapitres else None
+        if fiche is not None:
+            for _ in range(_MAX_CHECK_RETRIES):
+                regenerate_chapter(
+                    job, fiche, corrective_note=result.note_corrective, client=client,
+                )
+                fiche.refresh_from_db()
+                result = check_bloc(job, bloc, [fiche], client=client)
+                if result.est_ok:
+                    return
+        # La fiche reste refusee apres correction : la cause est bien en amont
+        # (brief contradictoire, demande illisible). La generation s'arrete,
+        # comme avant, et un humain tranche.
         _log_incident_check(
             job, bloc, result.note_corrective,
             titre="CHECK INITIAL echoue (fiche projet a corriger) — generation stoppee",

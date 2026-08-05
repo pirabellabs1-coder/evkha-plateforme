@@ -72,6 +72,51 @@ def _retention(job: GenerationJob) -> timedelta:
     return timedelta(days=int(getattr(job.order.offer, "retention_days", 7) or 7))
 
 
+def chaine_word_active(job: GenerationJob) -> bool:
+    """La chaîne Word peut-elle servir CE dossier ?
+
+    Défaut mesuré le 05/08/2026, sur une répétition à blanc gratuite : le
+    drapeau `EVKHA_LIVRABLE_WORD` est GLOBAL et vaut `true` en production, mais
+    la chaîne Word exige un socle verrouillé et des chapitres structurés — que
+    seuls l'étude de marché et l'étude concurrentielle produisent. Le business
+    plan et la stratégie tournent encore sur le moteur hérité (`_PAR_LIVRABLE`
+    ne les couvre pas) : ils écrivaient leurs 21 chapitres, puis `produire_docx`
+    levait `LivrableIncompletError` et **le client n'obtenait aucun document**.
+    L'échec était de surcroît silencieux : la tâche l'attrape et journalise
+    « Assemblage PDF admin impossible ».
+
+    Un drapeau unique décidait donc pour quatre produits dont deux ne peuvent
+    pas l'honorer. La décision se prend désormais sur ce que le dossier
+    CONTIENT, et non sur ce qu'un réglage souhaite — c'est-à-dire sur les mêmes
+    faits que le rendu emploie (règle 9 : un contrôle et sa réparation ne
+    doivent pas juger sur des évidences différentes).
+
+    Le repli n'est pas silencieux : le drapeau demandait le Word, il ne l'aura
+    pas, et cela se lit dans les journaux (règle 1).
+    """
+    if not getattr(settings, "EVKHA_LIVRABLE_WORD", True):
+        return False
+
+    from generation.rendu_word.services import payloads_du_job  # noqa: PLC0415
+    from generation.socle.services import socle_verrouille  # noqa: PLC0415
+
+    if socle_verrouille(job) is None:
+        _log.warning(
+            "Job %s (%s) : EVKHA_LIVRABLE_WORD demande le Word, mais ce dossier "
+            "n'a pas de socle verrouillé. Repli sur la chaîne HTML/PDF.",
+            job.id, job.deliverable_type,
+        )
+        return False
+    if not payloads_du_job(job):
+        _log.warning(
+            "Job %s (%s) : socle présent mais aucun chapitre structuré. "
+            "Repli sur la chaîne HTML/PDF.",
+            job.id, job.deliverable_type,
+        )
+        return False
+    return True
+
+
 def assembler_livrable_word(
     job: GenerationJob,
     *,

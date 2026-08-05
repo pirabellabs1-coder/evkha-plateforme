@@ -195,3 +195,68 @@ def lire_livrable(chemin: Path) -> DocumentLu:
         lu.mesures.extend(mesures_dans(contenu, dans_un_tableau=True))
 
     return lu
+
+
+#: Balises dont le texte est de la PROSE. Les titres en font partie : le
+#: contrôle d'intégrité cherche « CHAPITRE 07 » dans le texte intégral, et ce
+#: marqueur vit dans un `<h…>`.
+_BALISES_DE_PROSE = ("p", "li", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote")
+
+
+def lire_livrable_html(html: str, *, chemin: Path | None = None) -> DocumentLu:
+    """Même matière vérifiable, autre porte d'entrée : le document HTML.
+
+    Le business plan et la stratégie tournent sur le moteur hérité : ils ne
+    produisent ni socle ni `.docx`, donc `lire_livrable` — qui ouvre un `.docx`
+    — ne peut rien lire chez eux. Deux des six contrôles du lot 4 ne dépendent
+    pourtant pas du socle (intégrité et densité), et ce sont exactement ceux qui
+    ont attrapé les désastres historiques du projet : tableaux vidés de leurs
+    lignes, chapitres absents, document sans prose. Les priver de porte
+    d'entrée revenait à ne pas les exécuter du tout.
+
+    Deux précautions, toutes deux payées comptant sur ce dépôt :
+
+    - **Les cellules sont relevées AVANT de détacher le tableau.** `decompose()`
+      détruit l'élément ET ses enfants : c'est ce qui a envoyé un compte de
+      résultat vide à un client (règle 3). On extrait, puis on détache — et avec
+      `extract()`, qui détache sans détruire.
+    - **On ne mesure pas notre propre balisage.** Le texte est pris balise par
+      balise, jamais par un `get_text()` global : sans quoi `px`, `padding` et
+      `cccccc` des styles en ligne entreraient dans la prose et fausseraient la
+      densité — défaut réellement mesuré ici (corollaire de la règle 9).
+    """
+    from bs4 import BeautifulSoup  # noqa: PLC0415
+
+    soupe = BeautifulSoup(html, "html.parser")
+    for parasite in soupe(["script", "style", "head"]):
+        parasite.decompose()
+
+    lu = DocumentLu(chemin=chemin or Path("(document HTML)"))
+    lu.images = len(soupe.find_all("img"))
+
+    # Tableaux les plus extérieurs seulement : un tableau imbriqué verrait
+    # sinon ses cellules comptées deux fois, et gonflerait la part en tableaux.
+    tableaux = [t for t in soupe.find_all("table") if t.find_parent("table") is None]
+    for tableau in tableaux:
+        lu.tableaux += 1
+        contenu = [
+            cellule.get_text(" ", strip=True)
+            for cellule in tableau.find_all(["td", "th"])
+        ]
+        contenu = [texte for texte in contenu if texte]
+        if not contenu:
+            lu.tableaux_vides += 1
+        lu.cellules.extend(contenu)
+        tableau.extract()
+
+    for bloc in soupe.find_all(_BALISES_DE_PROSE):
+        texte = bloc.get_text(" ", strip=True)
+        if texte:
+            lu.paragraphes.append(texte)
+
+    for prose in lu.paragraphes:
+        lu.mesures.extend(mesures_dans(prose))
+    for contenu_cellule in lu.cellules:
+        lu.mesures.extend(mesures_dans(contenu_cellule, dans_un_tableau=True))
+
+    return lu

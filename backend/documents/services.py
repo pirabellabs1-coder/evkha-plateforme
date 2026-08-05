@@ -27,10 +27,18 @@ class DocumentAssembly:
 
     - link : fichier HTML (aperçu navigateur, artefact LINK)
     - pdf  : livrable final WeasyPrint brandé (artefact PDF)
+    - html : le HTML EXACTEMENT tel qu'il a été livré
     """
 
     link: DocumentArtifact
     pdf: DocumentArtifact
+    #: Le HTML retenu — celui dont le PDF est tiré, réparation comprise.
+    #:
+    #: Il est rendu ici, et l'appelant doit pouvoir le contrôler sans le
+    #: refabriquer : un second rendu n'est pas le document livré, et vérifier
+    #: autre chose que ce que le lecteur reçoit ne dit rien de ce qu'il reçoit
+    #: (règle 3). Vide par défaut, pour les appelants qui n'en ont pas besoin.
+    html: str = ""
 
 
 class DocumentAssemblyError(RuntimeError):
@@ -238,4 +246,4 @@ def assemble_document(
             "expires_at": expires_at,
         },
     )
-    return DocumentAssembly(link=link_artifact, pdf=pdf_artifact)
+    return DocumentAssembly(link=link_artifact, pdf=pdf_artifact, html=html)

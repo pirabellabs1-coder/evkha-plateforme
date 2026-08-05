@@ -75,15 +75,25 @@ def _assembler_livrable(
     Autrement dit, les graphiques sectoriels, les profils de secteur et les six
     contrôles de cohérence n'avaient jamais tourné sur un document livré. C'est
     le défaut que la règle 8 décrit, déjà vécu ici avec Gamma.
+
+    Le choix de la chaîne ne se lit plus sur le seul drapeau : il se prend sur
+    ce que le dossier contient (`chaine_word_active`). Un drapeau global décidait
+    pour quatre livrables dont deux — business plan et stratégie — ne produisent
+    ni socle ni chapitres structurés, et n'obtenaient donc AUCUN document.
     """
-    if not getattr(settings, "EVKHA_LIVRABLE_WORD", True):
+    from documents.livrable_word import (  # noqa: PLC0415
+        assembler_livrable_word,
+        chaine_word_active,
+    )
+
+    if not chaine_word_active(job):
         ancien: DocumentAssembly = assemble_document(job, pdf_client=pdf_client)
+        retenu_ancien = _controler_document_herite(job, ancien.html)
         return Assemblage(
             artefacts=(ancien.link, ancien.pdf),
             url_principale=ancien.link.download_url,
+            retenu=retenu_ancien,
         )
-
-    from documents.livrable_word import assembler_livrable_word  # noqa: PLC0415
 
     livrable = assembler_livrable_word(job)
     artefacts = tuple(
@@ -105,6 +115,101 @@ def _assembler_livrable(
     )
     return Assemblage(
         artefacts=artefacts, url_principale=principale, retenu=retenu
+    )
+
+
+#: Marqueur lu par le tableau de bord : ce dossier est parti avec un contrôle
+#: de moins que l'étude de marché. Il disparaîtra le jour où le business plan
+#: et la stratégie rejoindront le moteur structuré.
+INCIDENT_TYPE_CONTROLE_FICHIER_ABSENT = "controle_fichier_absent"
+
+
+def _controler_document_herite(job: GenerationJob, html: str) -> str:
+    """Contrôle de contenu du document livré par la chaîne héritée.
+
+    Le contrôle de contenu du lot 4 ne s'appliquait qu'aux études de marché et
+    concurrentielle : il ouvre un `.docx` et compare au socle. Le business plan
+    et la stratégie n'ont ni l'un ni l'autre — ils partaient donc **sans aucun
+    contrôle du fichier**, avec pour seul filet le contrôle de rendu (fidélité
+    HTML/markdown) et le gate en amont.
+
+    Deux des six contrôles ne demandent pourtant pas de socle, et ce sont ceux
+    qui ont attrapé les désastres de ce dépôt : intégrité (tableaux vidés de
+    leurs lignes, document sans prose) et densité. Ils s'exécutent désormais sur
+    le HTML **exactement tel qu'il a été livré**, pas sur un second rendu.
+
+    Ce qui BLOQUE : aucun tableau, un tableau sans une seule cellule remplie,
+    aucun texte. Trois défauts que le lecteur constate en ouvrant le document.
+    La densité, elle, n'émet que des avertissements — la cliente a refusé une
+    livraison pour cette raison, mais un document dense à 35 % au lieu de 40
+    reste un document.
+
+    Ce qui NE tourne PAS reste dit, dans un incident : les quatre contrôles qui
+    comparent au socle. Ne pas avoir vérifié n'est pas la même chose qu'avoir
+    vérifié sans rien trouver (règle 1).
+
+    Renvoie le motif de blocage, ou la chaîne vide.
+    """
+    from generation.verification.lecture import lire_livrable_html  # noqa: PLC0415
+    from generation.verification.services import (  # noqa: PLC0415
+        verifier_document_sans_socle,
+    )
+
+    rapport = verifier_document_sans_socle(lire_livrable_html(html))
+    _signaler_controle_partiel(job, rapport.resume())
+    if rapport.bloquantes:
+        return " | ".join(anomalie.detail for anomalie in rapport.bloquantes)
+    return ""
+
+
+def _signaler_controle_partiel(job: GenerationJob, resume: str) -> None:
+    """Dit ce qui a été contrôlé sur ce document — ET ce qui ne l'a pas été.
+
+    Quatre des six contrôles du lot 4 comparent au socle. Le business plan et
+    la stratégie n'en ont pas : ces quatre-là ne peuvent rien dire d'eux.
+    Passer sous silence cette moitié manquante la ferait passer pour un « rien
+    à signaler », et c'est exactement le défaut que la chaîne Word nomme
+    elle-même : « ne pas avoir vérifié n'est pas la même chose qu'avoir vérifié
+    sans rien trouver » (règle 1).
+
+    L'incident nomme donc les contrôles EXÉCUTÉS autant que les manquants — un
+    incident qui n'énumérerait que les absents laisserait croire que rien n'a
+    été vérifié, ce qui est faux et démobilise autant qu'un silence.
+
+    Un incident par job (`update_or_create`) : une relivraison ne doit pas
+    empiler des doublons qui noieraient les vrais incidents.
+    """
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    OperationalIncident.objects.update_or_create(
+        job=job,
+        title=f"Contrôle de contenu partiel sur le fichier livré (job {job.id})"[:200],
+        defaults={
+            "severity": IncidentSeverity.MEDIUM,
+            "order": job.order,
+            "details": {
+                "type": INCIDENT_TYPE_CONTROLE_FICHIER_ABSENT,
+                "livrable": str(job.deliverable_type),
+                "controles_executes": [
+                    "gate de livraison",
+                    "complétude des chapitres",
+                    "fidélité du rendu HTML au markdown validé",
+                    "intégrité du fichier livré (tableaux, prose)",
+                    "densité du fichier livré",
+                ],
+                "resultat_sur_le_fichier": resume,
+                "controles_manquants": [
+                    "chiffres hors socle",
+                    "couverture du socle",
+                    "hiérarchie des marchés",
+                    "visuels abandonnés à l'assemblage",
+                ],
+                "cause": (
+                    "Ces quatre contrôles comparent au socle verrouillé. Ce "
+                    "livrable tourne sur le moteur hérité : il n'en a pas."
+                ),
+            },
+        },
     )
 
 

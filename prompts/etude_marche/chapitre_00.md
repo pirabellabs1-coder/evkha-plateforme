@@ -20,6 +20,7 @@ FORMAT STRICT : produis EXACTEMENT un tableau Markdown a 2 colonnes, aucun texte
 | Projet | Nom, activite envisagee, offre, stade d'avancement et objectif du porteur. |
 | Marche exact | Secteur principal, sous-secteur, produits ou services reellement concernes. |
 | Geographie | Pays, ville ou zone d'implantation, puis continent pertinent. Jamais l'Europe par defaut. |
+| Devise | Devise de reference de l'etude, deduite du pays. Si le brief melange plusieurs monnaies, dis laquelle fait foi et le taux retenu. |
 | Clientele | B2C, B2B, institutions, cibles deja envisagees, profil et besoins. |
 | Positionnement | Niveau de gamme, proposition de valeur, particularites, differenciation envisagee. |
 | Modele | Mode de vente, canaux, frequence, revenus attendus et capacites connues. |
@@ -27,5 +28,12 @@ FORMAT STRICT : produis EXACTEMENT un tableau Markdown a 2 colonnes, aucun texte
 | Questions implicites | Ce qu'un porteur de projet dans ce domaine doit normalement comprendre avant de se lancer. |
 | Contraintes | Budget, delai, reglementation pressentie, ressources, limites, points sensibles. |
 | Identite visuelle | Logo fourni, couleurs EVKHA, consignes de marque et format final. |
+| Lecteur final | A qui l'etude est destinee (porteur seul, banque, investisseur, jury, partenaire) et niveau de langage attendu. Deduis-le du projet si le brief ne le dit pas, et dis que c'est une deduction. |
 
-Apres le tableau, saute une ligne et ajoute UNE seule section intitulee « ## Questions auxquelles cette etude repond » avec une liste a puces de 4 a 5 questions du porteur (explicites + implicites). Rien d'autre. Aucune phrase meta du type « Voici la fiche projet ».
+Apres le tableau, saute une ligne et ajoute DEUX sections, dans cet ordre, et rien d'autre.
+
+« ## Questions auxquelles cette etude repond » : liste a puces de 4 a 5 questions du porteur (explicites + implicites).
+
+« ## Points non specifies par le client » : liste a puces de ce que la demande ne precise pas et que tu laisses donc ouvert (budget de l'etude, delai, forme juridique, financement, capacite de production...). Marque chacun « provisoire ». Ecris « Aucun » si la demande ne laisse rien d'ouvert. N'INVENTE JAMAIS la valeur manquante : la signaler EST la reponse attendue, et le relecteur du CHECK INITIAL l'accepte comme telle.
+
+Aucune phrase meta du type « Voici la fiche projet ».

@@ -835,9 +835,26 @@ class StubClaudeClient:
         # le check transverse `sources_non_tracables` du gate. Ce bloc est
         # emis par TOUS les chapitres du stub, donc en particulier par le
         # chapitre Sources (identifie par titre au gate).
+        # Un TABLEAU, parce que le livrable EVKHA en est fait : « des tableaux
+        # relies par de la prose courte ». Le stub n'en produisait aucun, donc
+        # tout test qui inspecte le DOCUMENT mesurait un artefact qu'aucun
+        # client n'accepterait — et le controle d'integrite, qui refuse un
+        # livrable sans un seul tableau, ne pouvait pas etre eprouve.
+        #
+        # Constate le 05/08/2026 en branchant ce controle sur la chaine heritee :
+        # quatre tests de livraison se sont mis a echouer sur « le livrable ne
+        # contient aucun tableau ». Le motif etait juste ; c'est la doublure qui
+        # etait irrealiste. Meme lecon que la fixture de la chaine Word le meme
+        # jour : une doublure qui ne ressemble pas au livrable ne prouve rien
+        # sur le livrable (regle 7).
         content = (
             "Contenu genere (mode demonstration EVKHA).\n\n"
             + paragraphe * 60
+            + "\n\n| Indicateur | Valeur | Source |\n"
+            "|---|---|---|\n"
+            "| Taille du marche national | 1 250 MEUR | INSEE 2024 |\n"
+            "| Croissance annuelle moyenne | 4,2 % | Xerfi 2025 |\n"
+            "| Nombre d'acteurs recenses | 320 | INSEE 2024 |\n"
             + f"\n\nEmpreinte de tracabilite: {digest}.\n\n"
             "## Sources\n"
             "- INSEE, Enquete emploi 2024 - https://www.insee.fr/fr/statistiques/1234\n"

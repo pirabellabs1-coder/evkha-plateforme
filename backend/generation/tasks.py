@@ -106,11 +106,11 @@ def run_generation_job_task(job_id: str) -> str:
             # autrement que celui qui serait parti ne dit rien de ce qui serait
             # parti (règle 3).
             try:
-                from django.conf import settings as _reglages  # noqa: PLC0415
-                if getattr(_reglages, "EVKHA_LIVRABLE_WORD", True):
-                    from documents.livrable_word import (  # noqa: PLC0415
-                        assembler_livrable_word,
-                    )
+                from documents.livrable_word import (  # noqa: PLC0415
+                    assembler_livrable_word,
+                    chaine_word_active,
+                )
+                if chaine_word_active(job):
                     assembler_livrable_word(job)
                 else:
                     from documents.services import assemble_document  # noqa: PLC0415

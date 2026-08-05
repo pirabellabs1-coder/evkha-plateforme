@@ -74,9 +74,21 @@ def _livrable_word(*, bloquantes: list[str] | None = None) -> _LivrableAssemble:
 
 
 @pytest.fixture
-def job() -> Any:
-    """Un objet quelconque : `_assembler_livrable` ne fait que le transmettre."""
-    return object()
+def job(job_livrable: Any) -> Any:
+    """Un VRAI dossier structuré, pas un objet quelconque.
+
+    C'était `object()`, au motif que « `_assembler_livrable` ne fait que le
+    transmettre ». Ce n'est plus vrai, et c'est le correctif du 05/08/2026 : le
+    choix de la chaîne ne se lit plus sur un drapeau global mais sur ce que le
+    dossier CONTIENT — socle verrouillé, chapitres structurés. Un drapeau seul
+    envoyait le business plan et la stratégie vers un rendu Word qu'ils ne
+    peuvent pas produire, et le client n'obtenait aucun document.
+
+    Une doublure vide ne pouvait donc plus répondre à la question posée. Ces
+    tests éprouvent maintenant le routage sur un dossier réel, ce qui est
+    précisément ce qu'ils affirment vérifier.
+    """
+    return job_livrable
 
 
 def _brancher(monkeypatch: pytest.MonkeyPatch, retour: Any) -> dict[str, int]:
@@ -95,6 +107,14 @@ def _brancher(monkeypatch: pytest.MonkeyPatch, retour: Any) -> dict[str, int]:
             {
                 "link": _Artefact(ArtifactKind.LINK, "https://exemple.fr/apercu.html"),
                 "pdf": _Artefact(ArtifactKind.PDF, "https://exemple.fr/ancien.pdf"),
+                # Le HTML livré : la chaîne héritée le contrôle désormais avant
+                # d'envoyer quoi que ce soit. Une doublure qui ne le porte pas
+                # ferait passer ce contrôle pour inexistant.
+                "html": (
+                    "<html><body><p>Prose du document.</p>"
+                    "<table><tr><td>Poste</td><td>120 000 EUR</td></tr></table>"
+                    "</body></html>"
+                ),
             },
         )()
 
@@ -238,7 +258,18 @@ class _EmailEnregistreur:
 
 @pytest.fixture
 def job_livrable() -> Any:
-    """Un job terminé, prêt à être livré."""
+    """Un job terminé, prêt à être livré — **avec son socle**, comme en production.
+
+    `EVKHA_SOCLE_ENABLED` vaut `false` par défaut dans le code et `true` sur le
+    serveur. Une fixture qui ne le pose pas fabrique donc un dossier du moteur
+    HÉRITÉ — sans socle ni chapitres structurés — et prétend ensuite éprouver la
+    chaîne Word, qui exige exactement ces deux choses. Le décalage est resté
+    invisible tant que le routage se lisait sur un simple drapeau ; il ne l'est
+    plus depuis que la chaîne se choisit sur ce que le dossier CONTIENT.
+
+    Constaté le 05/08/2026 par une répétition à blanc : c'est le même écart qui
+    laissait le business plan et la stratégie ne produire aucun document.
+    """
     from catalog.models import DeliverableType, Offer
     from customers.models import Customer
     from generation.services import bootstrap_generation_job
@@ -267,8 +298,9 @@ def job_livrable() -> Any:
     )
     from generation.runner import run_generation_job
 
-    job = bootstrap_generation_job(soumission)
-    run_generation_job(job)
+    with override_settings(EVKHA_SOCLE_ENABLED=True):
+        job = bootstrap_generation_job(soumission)
+        run_generation_job(job)
     job.refresh_from_db()
     return job
 

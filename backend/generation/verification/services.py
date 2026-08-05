@@ -97,6 +97,49 @@ def verifier_document(
     return rapport
 
 
+def verifier_document_sans_socle(document: DocumentLu) -> RapportControle:
+    """Les contrôles du lot 4 qui ne demandent PAS de socle.
+
+    Quatre des six en demandent un — chiffres hors socle, couverture, hiérarchie
+    des marchés, visuels — et ne peuvent donc rien dire du business plan ni de
+    la stratégie, qui tournent sur le moteur hérité. Les deux autres, si :
+    l'intégrité du fichier et sa densité. Ce sont précisément ceux qui ont
+    attrapé les désastres de ce projet — un compte de résultat vidé de ses
+    lignes, un document sans prose.
+
+    Ne pas les exécuter faute de socle revenait à livrer sans aucun contrôle de
+    contenu deux produits sur quatre.
+
+    **Le contrôle de présence des chapitres est délibérément écarté ici.** Il
+    cherche le marqueur écrit par le rendu Word (« CHAPITRE 07 ») ; la chaîne
+    HTML titre autrement, et mesuré sur un vrai rendu il déclarait absents deux
+    chapitres présents — un motif introuvable par le lecteur, ce qui est pire
+    qu'absent (règle 2). Cette vérité a déjà sa source dans cette chaîne :
+    `documents.services._verifier_completude_chapitres`, qui compare le
+    chapitrage aux sections rendues et refuse le PDF s'il en manque une. En
+    poser une seconde, avec une autre convention, c'est la règle 5.
+
+    Le rapport ne nomme donc que ce qu'il a réellement exécuté : `resume()` dira
+    « intégrité, densité » et pas davantage.
+    """
+    rapport = RapportControle()
+    rapport.mesures = {
+        "mots": document.mots,
+        "part_en_tableaux": round(document.part_en_tableaux, 3),
+        "mediane_paragraphe": document.mediane_paragraphe,
+        "part_paragraphes_longs": round(document.part_paragraphes_longs, 3),
+        "tableaux": document.tableaux,
+        "images": document.images,
+    }
+
+    rapport.controles_executes.append("integrite")
+    rapport.ajouter(*controles.controler_integrite_du_document(document))
+
+    rapport.controles_executes.append("densite")
+    rapport.ajouter(*controles.controler_densite(document))
+    return rapport
+
+
 def verifier_livrable(
     job: GenerationJob,
     chemin: Path,
