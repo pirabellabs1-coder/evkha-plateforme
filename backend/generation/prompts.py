@@ -41,8 +41,14 @@ _CHARTER = (
     "solides, croise les indices, construis une estimation prudente et "
     "explique clairement la methode. Distingue une donnee observee, une "
     "estimation et une projection. Donne une fourchette lorsque la precision "
+    # « chapitre 21 » etait code en dur : c'est le numero du chapitre Sources de
+    # l'ETUDE DE MARCHE seule. Or cette charte est injectee dans les QUATRE
+    # livrables, dont les chapitres Sources sont respectivement 21 (EM), 21 (BP),
+    # 20 (STR) et 9 (EC). Trois livrables sur quatre recevaient donc l'ordre de
+    # regrouper leurs sources dans un chapitre qui n'existe pas chez eux. On
+    # nomme le chapitre au lieu de le numeroter (regle 4 : viser la classe).
     "exacte serait artificielle. Regroupe les sources completes dans le "
-    "chapitre 21. Sous un graphique, conserve seulement la mention courte "
+    "chapitre Sources du document. Sous un graphique, conserve seulement la mention courte "
     "necessaire a sa lecture.\n"
     "\n"
     "[COHERENCE D'UN BOUT A L'AUTRE — §4 du manuel]\n"
@@ -177,8 +183,31 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         criteres = "\n".join(
             f"  {i}. {c}" for i, c in enumerate(CRITERES_TRI_CONCURRENTS, start=1)
         )
+        # EXCEPTION du 05/08/2026 — la regle stricte interdisait exactement ce que
+        # le cahier des charges EC rend OBLIGATOIRE. Son etape 6.2, FORMAT
+        # OBLIGATOIRE : « Pour chaque concurrent estime, le systeme doit produire
+        # une fourchette basse / haute, les hypotheses retenues clairement
+        # explicitees, le niveau de fiabilite de l'estimation, la methode
+        # utilisee » ; et son etape 6.4 veut les parts de marche « accompagnees
+        # d'une fourchette si pertinent ».
+        #
+        # Le prompt systeme bloquait donc le format de sortie impose par le
+        # chapitre : quoi qu'ecrive le modele, il violait l'une des deux
+        # consignes. On leve l'interdiction sur ce seul cas — un chiffre
+        # d'affaires ESTIME, faute d'etre publie — et nulle part ailleurs : les
+        # taux, pourcentages et TCAC restent des valeurs uniques.
+        exception_ca_estime = (
+            "EXCEPTION, et elle est etroite : le CHIFFRE D'AFFAIRES ESTIME d'un "
+            "concurrent non reference se rend OBLIGATOIREMENT en fourchette "
+            "basse / haute, accompagnee des hypotheses retenues, de la methode "
+            "d'estimation et du niveau de fiabilite. Une part de marche estimee "
+            "peut l'etre aussi. Un CA PUBLIE, lui, reste un chiffre unique avec "
+            "son annee et sa source. Cette exception ne s'etend a rien d'autre : "
+            "taux, pourcentages et TCAC restent des valeurs uniques.\n"
+        )
         return (
             consigne_fourchettes_stricte +
+            exception_ca_estime +
             f"CONSIGNE STRUCTURELLE (regle absolue) : le livrable doit contenir "
             f"EXACTEMENT {nd} concurrents directs et EXACTEMENT {ni} concurrents "
             f"indirects, ni plus, ni moins. Sous-sections dediees, listees comme :\n"

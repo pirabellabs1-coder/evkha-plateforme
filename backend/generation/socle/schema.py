@@ -164,11 +164,35 @@ class SegmentClientele(BaseModel):
 
 
 class Concurrent(BaseModel):
+    """Un acteur de la base consolidée concurrents.
+
+    Les champs suivent le POINT DE CONTRÔLE « BASE CONSOLIDÉE CONCURRENTS » du
+    cahier des charges Étude de la concurrence, qui en impose neuf. Le modèle
+    n'en portait que quatre — nom, type, positionnement, source — et le chapitre
+    6 (estimation des chiffres d'affaires et parts de marché) était donc
+    impossible par construction : il exige un CA par acteur, sa méthode
+    d'estimation et son niveau de fiabilité, qu'aucun champ ne pouvait recevoir.
+
+    `methode_estimation` est le champ porteur : c'est lui qui rend l'étape
+    d'estimation exécutable pour un acteur dont le CA n'est pas publié.
+    """
+
     model_config = {"extra": "forbid"}
 
     nom: str = Field(min_length=1)
     type: str = "direct"  # direct | indirect
+    emplacement: str = ""
+    structure: str = ""
     positionnement: str = ""
+    site_web: str = ""
+    #: Montant + année, ou la mention « non publié ». Jamais un chiffre nu.
+    ca_connu: str = ""
+    #: D'où vient le CA ci-dessus. Vide si non publié.
+    ca_source: str = ""
+    #: Comment estimer le CA quand il n'est pas publié : trafic, volume, prix
+    #: moyen, nombre de points de vente... C'est l'entrée du chapitre 6.
+    methode_estimation: str = ""
+    fiabilite: str = ""
     source: str = ""
 
 

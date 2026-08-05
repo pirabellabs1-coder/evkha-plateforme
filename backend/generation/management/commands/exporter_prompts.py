@@ -9,6 +9,30 @@ dans les fichiers, plus dans le code.
 
     python manage.py exporter_prompts             # écrit les fichiers
     python manage.py exporter_prompts --verifier  # contrôle sans rien écrire
+    python manage.py exporter_prompts --document business_strategy
+
+⚠️ CETTE COMMANDE ÉCRASE. Elle recopie le code VERS les fichiers, alors que la
+phrase ci-dessus dit de modifier les fichiers. Les deux ne peuvent pas être
+vraies en même temps, et la contradiction se paie.
+
+Et elle ne se paie pas partout pareil, parce que les quatre livrables ne lisent
+pas la même source :
+
+  - étude de marché, étude concurrentielle → moteur STRUCTURÉ, qui lit les
+    fichiers `.md` (`rendre_prompt`). Le fichier est la source VIVANTE ;
+    `prompt_library.py` en est un miroir mort.
+  - business plan, stratégie → moteur HÉRITÉ, qui lit `prompt_library.py`
+    (`prompt_instruction`). C'est l'inverse : le code est vivant, le `.md` mort.
+
+Un export SANS `--document` écrit donc du code périmé par-dessus les prompts
+vivants de l'EM et de l'EC. Constaté le 05/08/2026 : un export global a effacé
+huit correctifs de prompts EM livrés le matin même, et seul
+`test_prompts_ne_citent_que_des_blocs_reels` l'a vu.
+
+Avant tout export, demandez-vous quelle source est vivante pour le livrable
+visé, et filtrez avec `--document`. La cause profonde reste ouverte : deux
+sources pour une même vérité (règle 5) — voir `_PAR_LIVRABLE` dans
+`socle/referentiel.py`, qui décide lequel des deux moteurs sert le livrable.
 """
 from __future__ import annotations
 

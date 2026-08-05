@@ -126,15 +126,39 @@ def test_le_prompt_interdit_la_formule_donnee_non_disponible() -> None:
 
 def test_le_prompt_impose_la_documentation_dans_la_methodologie() -> None:
     """Manuel §3 : « construire une estimation prudente et expliquer
-    clairement la methode. » Les sources completes vont dans le chapitre 21.
-    L'ancienne assertion sur 'hypothese' portait sur une formulation retiree ;
-    on verifie desormais la presence de la notion de methode/estimation."""
+    clairement la methode. » Les sources completes vont dans le chapitre Sources.
+
+    Le numero « chapitre 21 » etait code en dur dans la charte, et cette charte
+    est injectee dans les QUATRE livrables. Or leurs chapitres Sources sont
+    respectivement 21 (EM), 21 (BP), 20 (STR) et 9 (EC) : trois sur quatre
+    recevaient l'ordre de regrouper leurs sources dans un chapitre qui n'existe
+    pas chez eux. Ce test verrouillait ce numero, donc le defaut (regle 6). On
+    verifie desormais que le chapitre est NOMME et non numerote.
+    """
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
     lower = prompt.lower()
 
     assert "methode" in lower
     assert "estimation" in lower
-    assert "chapitre 21" in lower
+    assert "chapitre sources" in lower
+    assert "chapitre 21" not in lower
+
+
+def test_la_charte_ne_numerote_le_chapitre_sources_pour_aucun_livrable() -> None:
+    """Contre-epreuve : la correction doit valoir pour les quatre (regle 4).
+
+    Corriger le seul cas observe aurait laisse le meme defaut vivre ailleurs :
+    c'est exactement le motif de la regle 4 du depot.
+    """
+    for livrable in (
+        DeliverableType.MARKET_STUDY,
+        DeliverableType.BUSINESS_PLAN,
+        DeliverableType.BUSINESS_STRATEGY,
+        DeliverableType.COMPETITOR_STUDY,
+    ):
+        lower = build_system_prompt(livrable, country="France").lower()
+        assert "chapitre 21" not in lower, livrable
+        assert "chapitre sources" in lower, livrable
 
 
 # ── Q3 : l'ordre de tri des concurrents est injecte ─────────────────────────

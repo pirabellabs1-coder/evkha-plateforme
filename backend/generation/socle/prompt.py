@@ -9,8 +9,38 @@ import json
 from collections.abc import Mapping
 from datetime import date
 
+from catalog.models import DeliverableType
+
 from .referentiel import DefinitionDonnee, definitions_pour
 from .schema import unites_hint
+
+# Base consolidée concurrents — POINT DE CONTRÔLE du cahier des charges
+# « Étude de la concurrence ». Neuf colonnes imposées, et la sélection est figée
+# à 8 acteurs directs + 3 indirects.
+#
+# `methode_estimation` est le champ qui porte tout le chapitre 6 : sans lui, un
+# acteur dont le CA n'est pas publié ne peut pas être estimé, et l'étape reste
+# lettre morte. Il est donc demandé même — surtout — quand le CA est absent.
+_BASE_CONCURRENTS = (
+    "BASE CONSOLIDÉE CONCURRENTS (obligatoire pour cette étude).\n"
+    "Renseigne `concurrents` avec EXACTEMENT 8 acteurs de type `direct` et "
+    "3 de type `indirect`, soit 11. Pour chacun :\n"
+    "- `nom`, `emplacement` (adresse ou ville précise), `structure` "
+    "(indépendant, chaîne, franchise, groupe...), `positionnement`, `site_web` ;\n"
+    "- `ca_connu` : le chiffre d'affaires PUBLIÉ avec son année "
+    "(« 1,4 M€ (2024) »), ou la mention exacte « non publié ». Ne devine "
+    "jamais un montant ici ;\n"
+    "- `ca_source` : d'où vient ce montant. Vide si non publié ;\n"
+    "- `methode_estimation` : comment ce CA POURRA être estimé si tu ne l'as "
+    "pas trouvé — nombre de points de vente, volume de clients, panier moyen, "
+    "fréquence d'activité, volume visible, benchmark sectoriel. Ce champ est "
+    "ce qui rend l'estimation possible plus loin : ne le laisse pas vide pour "
+    "un acteur sans CA publié ;\n"
+    "- `fiabilite` : `haute`, `moyenne` ou `faible`, selon la qualité de la "
+    "source ou de la méthode.\n"
+    "Un acteur que tu ne peux pas situer et sourcer n'entre pas dans la liste : "
+    "mieux vaut le remplacer par un acteur vérifiable."
+)
 
 _ROLE = (
     "Tu es analyste de marché. Ta seule tâche ici est de produire le SOCLE DE "
@@ -111,6 +141,17 @@ def construire_prompt_socle(
         )
 
     blocs.append(bloc_referentiel(deliverable_type))
+
+    # Base consolidée concurrents — étude de la concurrence uniquement.
+    #
+    # Le référentiel EC annonce que « l'essentiel du socle EC vit dans
+    # `concurrents` », et le schéma déclare bien cette liste. Mais RIEN ne la
+    # demandait : ce prompt ne contenait aucune occurrence du mot concurrent.
+    # La liste partait donc vide à chaque étude, et le chapitre 6 — estimation
+    # des chiffres d'affaires et parts de marché — n'avait aucune matière.
+    if deliverable_type == DeliverableType.COMPETITOR_STUDY:
+        blocs.append(_BASE_CONCURRENTS)
+
     blocs.append(_REGLES)
 
     if motifs_precedents:

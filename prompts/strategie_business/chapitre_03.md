@@ -11,4 +11,24 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Analyse du positionnement actuel : quelle place occupe reellement l'entreprise sur son marche, comment est-elle percue, coherence entre image / offre / cible / prix / ambition. Identifie les risques de dilution ou de confusion de positionnement. GRAPHIQUE OBLIGATOIRE : apres l'analyse redigee, insere un bloc ```chart de type 'radar' avec title "Positionnement du projet", labels ["Clarte de l'offre", "Notoriete", "Prix pergu", "Differenciation", "Coherence marque", "Digital"], et une serie {"name": "Aujourd'hui", "values":[...]} avec des scores de 0 a 5 refletant l'etat REEL du business (pas ideal, pas projete). Si tu identifies un positionnement cible clair, ajoute une deuxieme serie {"name": "Cible", "values":[...]}. Le radar donne au dirigeant une lecture immediate des ecarts a combler.
+Analyse du positionnement actuel. Etablis la place reellement occupee par l'entreprise sur son marche, la maniere dont elle est percue, et la coherence entre image, offre, cible, prix et ambition strategique.
+
+## Structure obligatoire
+- Positionnement perçu : image actuelle du business, perception client, discours tenu, niveau de gamme percu, coherence des offres, ecarts de comprehension et confusions de positionnement.
+- Segments clients actuels : segments reellement adresses, leur coherence, leur alignement avec la strategie souhaitee ; distingue clients coeur de business, clients secondaires, clients opportunistes et segments a faible coherence strategique.
+- Écart stratégique : compare positionnement actuel et positionnement souhaite ; nomme les incoherences d'image, problemes de lisibilite, risques de sous-valorisation et contradictions strategiques, avec leurs consequences.
+- Risques liés au positionnement actuel : risques structurels et impacts business — guerre des prix, dispersion, confusion, perte de credibilite, difficulte de montee en gamme.
+
+## Questions a traiter
+Comment l'entreprise est-elle reellement percue, ce positionnement est-il coherent avec les ambitions du dirigeant, existe-t-il un ecart entre image percue et image souhaitee, le business est-il trop generaliste, quels segments doivent devenir prioritaires, quels risques de dilution existent, quelle differenciation peut etre reellement defendue, le positionnement soutient-il la rentabilite.
+
+## A retenir
+Bloc de recul : ce que le positionnement actuel rend possible ou impossible pour l'offre, les clients, les canaux et la rentabilite, et les arbitrages de specialisation qu'il prepare.
+
+## Graphique obligatoire
+Apres l'analyse redigee, insere un bloc ```chart de type 'radar', title "Positionnement du projet", labels ["Clarte de l'offre", "Notoriete", "Prix percu", "Differenciation", "Coherence marque", "Digital"], et une serie {"name": "Aujourd'hui", "values":[...]} notee de 0 a 5 sur l'etat REEL du business, jamais ideal ni projete. Si un positionnement cible clair ressort de l'analyse, ajoute {"name": "Cible", "values":[...]} pour donner une lecture immediate des ecarts a combler.
+
+## Synthese et transition
+Termine par une synthese strategique, une clarification des enjeux de positionnement, et une transition vers l'analyse des forces structurelles du business.
+
+Agis en consultant en positionnement strategique : detecte les incoherences et les faiblesses de perception. Paragraphes developpes, analyses specifiques au projet, conclusions credibles. Interdits : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile.

@@ -454,15 +454,39 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "str.17.feuille_route",
         max_words=1600,
     ),
+    # AJOUT du chapitre 18, Conclusion strategique generale (05/08/2026).
+    #
+    # Le sommaire officiel du manuel — « STRUCTURE OFFICIELLE V1 RECOMMANDEE »,
+    # p. 31 — se termine par « PARTIE VII / Chapitre 16 — Feuille de route » PUIS
+    # « CONCLUSION STRATEGIQUE ». Le corps du document lui consacre une section
+    # entiere (p. 93-96) traitee comme un chapitre : objectif, role, questions
+    # strategiques, structure interne obligatoire en quatre parties, et son propre
+    # controle qualite.
+    #
+    # Elle n'existait dans AUCUN des vingt prompts du depot : la strategie passait
+    # de la feuille de route directement a l'annexe. Le business plan, lui, porte
+    # bien son chapitre de conclusion — c'est cette asymetrie entre deux livrables
+    # batis sur le meme modele qui a rendu le trou visible. Meme classe de defaut
+    # que la « Politique de remuneration » absente du BP (regle 4).
+    #
+    # Le chapitre 17 (Feuille de route) doit d'ailleurs s'ouvrir sur elle : le
+    # manuel lui impose en TRANSITION STRATEGIQUE « une ouverture vers la
+    # conclusion strategique generale du document ».
     ChapterBlueprint(
         18,
+        "Conclusion stratégique générale",
+        "str.18.conclusion",
+        max_words=1400,
+    ),
+    ChapterBlueprint(
+        19,
         "Annexe - Réponses aux demandes spécifiques du client",
-        "str.18.annexe_brief",
+        "str.19.annexe_brief",
         SectionKind.ANNEXE,
         model=None,
     ),
     ChapterBlueprint(
-        19, "Sources et méthodologie", "str.19.sources", SectionKind.SOURCES, model=None
+        20, "Sources et méthodologie", "str.20.sources", SectionKind.SOURCES, model=None
     ),
 )
 

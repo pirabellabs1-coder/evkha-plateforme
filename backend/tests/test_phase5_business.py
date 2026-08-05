@@ -93,17 +93,38 @@ def test_business_plan_blueprint_structure() -> None:
 
 
 def test_business_strategy_blueprint_structure() -> None:
-    # Structure officielle EVKHA V1 + Annexe brief avant Sources (Bloc 5 Consignes) :
-    # fiche projet + ch1-17 + annexe + sources = 20 unites.
-    assert len(BUSINESS_STRATEGY_CHAPTERS) == 20
+    # Document « SYSTEME EVKHA — STRATEGIES BUSINESS AUTOMATISEES » (96 pages).
+    # Son sommaire officiel — « STRUCTURE OFFICIELLE V1 RECOMMANDEE », p. 31 —
+    # donne : INTRODUCTION GENERALE (ch. 0), sept PARTIES portant les chapitres
+    # 1 a 16, puis CONCLUSION STRATEGIQUE. Soit 18 unites de contenu.
+    #
+    # Le depot reserve l'index 0 a la fiche projet et decale donc les chapitres
+    # du document de +1. Total : fiche projet + 18 unites + annexe + sources = 21.
+    #
+    # Le 20 d'avant tenait a une omission : la CONCLUSION STRATEGIQUE GENERALE
+    # (p. 93-96) n'existait dans aucun des vingt prompts. Le document lui consacre
+    # une section entiere au format d'un chapitre — objectif, role, questions,
+    # structure interne obligatoire en quatre parties, controle qualite — et le
+    # chapitre precedent doit s'ouvrir sur elle. Le livrable se terminait donc sur
+    # une feuille de route, une annexe et une bibliographie : aucune lecture
+    # finale de cabinet.
+    assert len(BUSINESS_STRATEGY_CHAPTERS) == 21
     assert BUSINESS_STRATEGY_CHAPTERS[0].prompt_key == "str.00.fiche_projet"
     assert BUSINESS_STRATEGY_CHAPTERS[0].section_kind == SectionKind.OPENING
+    assert BUSINESS_STRATEGY_CHAPTERS[-1].section_kind == SectionKind.SOURCES
     keys = [c.prompt_key for c in BUSINESS_STRATEGY_CHAPTERS]
     assert "str.07.verticales_strategiques" in keys
     assert "str.14.rentabilite_modele" in keys
     assert "str.17.feuille_route" in keys
-    assert "str.18.annexe_brief" in keys
-    assert "str.19.sources" in keys
+    # Le chapitre qui manquait.
+    assert "str.18.conclusion" in keys
+    # Decales par son insertion. Les anciennes cles doivent avoir DISPARU : les
+    # laisser vivre aurait maintenu deux cles vers un meme chapitre, et la
+    # migration 0013 qui renomme l'existant n'aurait plus de cible unique.
+    assert "str.19.annexe_brief" in keys
+    assert "str.20.sources" in keys
+    assert "str.18.annexe_brief" not in keys
+    assert "str.19.sources" not in keys
 
 
 # --- Bootstrap tests -------------------------------------------------------
@@ -123,8 +144,8 @@ def test_bootstrap_str_job_creates_all_sections(str_submission: IntakeSubmission
     job = bootstrap_generation_job(str_submission)
 
     assert job.deliverable_type == DeliverableType.BUSINESS_STRATEGY
-    assert job.chapters.count() == 20
-    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 20))
+    assert job.chapters.count() == 21
+    assert list(job.chapters.values_list("chapter_number", flat=True)) == list(range(0, 21))
 
 
 # --- Generation tests -------------------------------------------------------
@@ -156,9 +177,10 @@ def test_run_str_job_completes_and_renders(str_submission: IntakeSubmission) -> 
     job.refresh_from_db()
 
     assert job.status == JobStatus.DONE
-    # La stratégie business reste à 20 : son chapitrage n'a pas changé, seul
-    # celui du business plan est repassé aux vingt chapitres de son document.
-    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 20
+    # 21 depuis l'ajout de la conclusion stratégique (05/08/2026) : le document
+    # la place au sommaire après le chapitre 16 et lui consacre une section
+    # entière, mais elle n'existait dans aucun des vingt prompts du dépôt.
+    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 21
     assert job.total_cost_eur <= job.budget_eur
 
     document = render_client_document(job)

@@ -1,6 +1,6 @@
 <!--
-Prompt du chapitre 19 — Sources et méthodologie
-Clé historique : str.19.sources
+Prompt du chapitre 19 — Annexe - Réponses aux demandes spécifiques du client
+Clé historique : str.19.annexe_brief
 
 Exporté depuis generation/prompt_library.py. Ce fichier est désormais la
 source de vérité : modifier le prompt ici, plus dans le code Python.
@@ -11,9 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Liste les sources utilisees pour construire cette strategie, regroupees par thematique (Donnees marche, Benchmarks sectoriels, Reglementation, Documents client). Reprends en PRIORITE les URLs reelles du bloc SOURCES_WEB du contexte ; n'invente aucune URL absente de ce bloc. Format simple :
-## Donnees marche
-- Nom - URL si disponible
-## Benchmarks sectoriels
-- ...
-Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe '## Methodologie' (3-4 lignes) precisant la demarche (croisement diagnostic / arbitrages / feuille de route). Rester concis et structure.
+Annexe finale (format identique aux annexes EM) : pour chaque demande specifique du brief client, fournis une reponse synthetique de 1-2 paragraphes suivie d'un encadre intitule 'Strategie bonus' contenant 2-3 pistes operationnelles concretes. Numerotation A.1, A.2, A.3... Ton plus direct que les chapitres : conversation finale avec le dirigeant.

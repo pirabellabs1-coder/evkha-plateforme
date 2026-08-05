@@ -309,8 +309,15 @@ def test_les_quatre_piliers_de_la_strategie_sont_verifies() -> None:
     assert verifier_piliers_strategie(corpus_complet) == []
 
 
-def test_le_pilier_editorial_absent_est_signale() -> None:
-    """Un pilier manquant, un signalement — les 4 sont obligatoires."""
+def test_le_pilier_visibilite_absent_est_signale() -> None:
+    """Un pilier manquant, un signalement — les 4 sont obligatoires.
+
+    Le pilier s'appelait « editorial » et n'acceptait que la chaine « planning
+    editorial ». Or le cahier des charges « Strategies business » n'emploie
+    jamais cette expression et exclut explicitement que le systeme devienne un
+    calendrier editorial ; sa PARTIE IV s'intitule « VISIBILITE & ACQUISITION ».
+    Le pilier accepte donc desormais les deux vocabulaires.
+    """
     corpus_amputee = (
         "## Pilier 1 - Positionnement & Specialisation\n"
         "Contenu.\n\n"
@@ -323,4 +330,23 @@ def test_le_pilier_editorial_absent_est_signale() -> None:
     manquants = verifier_piliers_strategie(corpus_amputee)
 
     assert len(manquants) == 1
-    assert manquants[0].cle == "editorial"
+    assert manquants[0].cle == "visibilite"
+
+
+def test_une_strategie_conforme_au_cahier_des_charges_passe_les_piliers() -> None:
+    """LE test du defaut : ce corpus etait BLOQUE au gate (regle 6).
+
+    Il n'emploie que le vocabulaire du cahier des charges V1 — les intitules
+    exacts de ses sept parties. L'ancienne grille exigeait « positionnement &
+    specialisation », « planning editorial » et « analyse de la tarification » :
+    trois piliers sur quatre echouaient, et une strategie strictement conforme a
+    la specification de la cliente ne pouvait pas etre livree.
+    """
+    corpus_conforme = (
+        "## Positionnement & differenciation\nContenu.\n\n"
+        "## Structuration de l'offre\nContenu.\n\n"
+        "## Visibilite & acquisition\nContenu.\n\n"
+        "## Rentabilite & modele economique\nContenu.\n"
+    )
+
+    assert verifier_piliers_strategie(corpus_conforme) == []

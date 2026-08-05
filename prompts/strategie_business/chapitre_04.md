@@ -11,7 +11,27 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Analyse des forces structurelles du business : identifie les veritables atouts internes (pas seulement des avantages de confort), evalue les ressources et avantages concurrentiels reels sur lesquels le developpement futur peut s'appuyer solidement. Puis genere en HTML inline (sans <html>/<body>) un encadre visuel listant les 4 a 5 forces principales avec un niveau de solidite (barre CSS), sur ce pattern (adapte au contenu reel) :
-<table style="border-collapse:collapse;width:100%;margin:3mm 0;font-size:9.5pt">
-<tr><td style="padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8;width:45%">Force 1 : libelle concret</td><td style="padding:1.5mm 2mm;width:45%"><div style="background:#2E7D4F;height:5mm;width:80%;display:inline-block"></div></td><td style="padding:1.5mm 2mm;font-weight:bold;color:#1A1A1A;width:10%">Solide</td></tr>
-</table>
+Identifie les forces internes reellement structurantes du business et les actifs capables de soutenir durablement la strategie. Distingue en permanence les forces structurantes des simples elements de confort operationnel.
+
+## Compétences clés du dirigeant
+Analyse les competences reelles et les expertises differenciantes du dirigeant (expertise metier, experience terrain, capacite d'execution, competences commerciales, logique reseau, capacite d'analyse, leadership, vision entrepreneuriale, competences techniques) et separe celles qui sont strategiques de celles qui restent operationnelles.
+
+## Actifs stratégiques existants
+Identifie les actifs materiels et immateriels (image de marque, reputation, reseau, base clients, savoir-faire, outils, methodologies, materiel, donnees, contenus, processus, communaute, partenariats, actifs digitaux), evalue leur valeur reelle et nomme ceux qui sont difficilement duplicables ou capables de soutenir une montee en gamme et une scalabilite future.
+
+## Capacité d'exécution opérationnelle
+Evalue la capacite reelle a produire, livrer, gerer la croissance et absorber la charge : organisation actuelle, flexibilite du modele, qualite d'execution, capacite de reaction, niveau de dependance au dirigeant, limites operationnelles potentielles.
+
+## Forces structurelles du modèle économique
+Analyse les avantages economiques structurels et les leviers de stabilite : flexibilite des couts, faibles charges fixes, recurrence, marges, logique premium, fidelisation, retention client, effet reseau, revenus recurrents, potentiel scalable.
+
+Traite explicitement : quelles sont les vraies forces du business, quels actifs ont une valeur strategique reelle, quels avantages sont difficilement replicables, la differenciation est-elle durable, quelles ressources soutiennent la croissance, quels elements peuvent devenir des leviers long terme, quelles forces restent sous-exploitees.
+
+Pour chaque force, explique pourquoi elle est importante, ce qu'elle permet, comment elle soutiendra la strategie future. Redige en paragraphes analytiques et contextualises. Ne survalorise jamais le projet, ne confonds pas potentiel et realite, ne transforme pas un element mineur en avantage concurrentiel majeur. Interdits : listes a puces sans analyse, paragraphes generiques, jargon inutile, complaisance.
+
+## A retenir
+Prends du recul : hierarchise les fondations reelles du modele, nomme les consequences futures de chaque force et relie ces constats aux decisions de developpement a venir.
+
+Termine par une synthese des forces reelles du business, une lecture globale des leviers de developpement, et une transition vers le chapitre Analyse des contraintes et fragilites structurelles.
+
+Apres l'analyse redigee, insere un encadre HTML inline (sans <html>/<body>) : un tableau a 3 colonnes listant les 4 a 5 forces principales, chacune suivie d'une barre CSS de solidite (div background #2E7D4F, height 5mm, largeur proportionnelle) et d'un niveau en gras.

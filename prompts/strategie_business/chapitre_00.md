@@ -11,15 +11,32 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-FORMAT STRICT (Bloc 5 Consignes EVKHA) : produis EXACTEMENT un tableau Markdown a 2 colonnes (Label | Valeur), AUCUN texte autour, AUCUNE introduction, AUCUN commentaire. Les 8 lignes obligatoires dans cet ordre exact :
-| Élément | Détail |
-|---|---|
-| Secteur | [valeur] |
-| Pays | [valeur] |
-| Projet | [description en 1-2 phrases] |
-| Zone | [valeur] |
-| Positionnement | [synthese 1 phrase] |
-| Clientèle cible | [synthese 1 phrase] |
-| Modèle économique | [synthese 1 phrase] |
-| Éléments à retenir | [3 a 5 points cles separes par ' / '] |
-Apres le tableau, saute une ligne et ajoute UNE SEULE section intitulee '## Questions auxquelles cette strategie repond' avec une liste a puces de 4 a 5 questions implicites du dirigeant orientees pilotage (type 'Quelles activites doivent devenir centrales et lesquelles abandonner ?'). Rien d'autre.
+Produis la fiche projet strategique complete : la base de reference unique du livrable, le socle de coherence strategique et le point de depart de tous les arbitrages. Tous les chapitres suivants seront rediges en fonction d'elle.
+
+Sources a croiser : reponses du questionnaire, elements libres, notes desorganisees, documents complementaires, precisions ajoutees, elements conversationnels, previsionnels. Les documents fournis sont des elements de contexte et des indicateurs, pas des verites absolues : signale les incoherences entre eux.
+
+REGLE ABSOLUE : un champ que le brief client ne permet pas de renseigner est rendu avec la mention « Non renseigne par le brief ». Jamais supprime en silence, jamais invente, jamais devine.
+
+Quatre blocs obligatoires, dans cet ordre, chacun en tableau Markdown a deux colonnes ouvert par l'entete | Élément | Détail | puis |---|---|. Une ligne par champ, tous les champs presents.
+
+## IDENTITÉ DU PROJET
+Nom du projet, Secteur, Pays, Zone, Modèle économique, Positionnement, Clientèle cible, Niveau de gamme, Type de business, Niveau de maturité.
+
+## STRUCTURE BUSINESS
+Offres existantes, Verticales, Logique de revenus, Revenus récurrents, Activités principales, Activités secondaires, Dépendance au dirigeant, Niveau de structuration.
+
+## VARIABLES DIRIGEANT
+Vision, Objectifs, Ambition, Contraintes, Ressources disponibles, Capacité de développement, Charge actuelle, Niveau de dispersion.
+
+## VARIABLES STRATÉGIQUES
+Forces, Fragilités, Risques, Opportunités, Différenciateurs, Problèmes de positionnement, Problèmes d'offre, Problèmes de rentabilité, Problèmes d'organisation, Risques de dispersion, Potentiel scalable.
+
+Valeurs courtes, factuelles, tirees du business reel. Interdits : formulations generiques, jargon inutile, complaisance, survalorisation artificielle du projet, evitement des sujets sensibles.
+
+## QUESTIONS IMPLICITES DU CLIENT
+Liste a puces de 5 a 8 vraies questions auxquelles le dirigeant cherche une reponse : business structure, modele soutenable, clients a cibler reellement, activites a arreter, chemin vers la rentabilite, clarte de l'offre, reduction de la charge, scalabilite, sortie du temps contre argent, structuration de la croissance.
+
+## A retenir
+Trois a cinq lignes de lecture directionnelle : dependances critiques, risques de dispersion, coherence economique du modele, ecarts reperes entre les donnees d'entree. Relie chaque constat aux arbitrages qu'il commande et aux consequences futures. Aucune puce sans analyse.
+
+Termine par une phrase de synthese posant le point de depart strategique, puis annonce que ces constats sont repris et deployes dans l'Introduction générale.

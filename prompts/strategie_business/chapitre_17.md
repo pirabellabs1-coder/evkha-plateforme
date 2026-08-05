@@ -11,8 +11,30 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Feuille de route strategique et priorisation : actions prioritaires a court terme (0-3 mois), orientations a moyen terme (3-12 mois), cap a long terme (1-3 ans). Pour chaque action : quoi faire, pourquoi, quel indicateur prouvera le succes. Avant le detail textuel, genere une frise chronologique visuelle en HTML inline (sans <html>/<body>) avec 3 blocs colores cote a cote, sur ce pattern (remplace les exemples par les actions reelles, 2 a 3 actions cle par bloc) :
-<table style="border-collapse:collapse;width:100%;margin:4mm 0;font-size:9pt;table-layout:fixed">
-<tr><th style="background:#C9A227;color:#1A1A1A;padding:2mm;text-align:center;border:0.5pt solid #EFEAD8">Court terme (0-3 mois)</th><th style="background:#1A1A1A;color:#fff;padding:2mm;text-align:center;border:0.5pt solid #EFEAD8">Moyen terme (3-12 mois)</th><th style="background:#2E7D4F;color:#fff;padding:2mm;text-align:center;border:0.5pt solid #EFEAD8">Long terme (1-3 ans)</th></tr>
-<tr><td style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><ul><li>Action 1</li><li>Action 2</li></ul></td><td style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><ul><li>Action 1</li><li>Action 2</li></ul></td><td style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><ul><li>Action 1</li><li>Action 2</li></ul></td></tr>
-</table>
+Feuille de route strategique et priorisation : transforme l'ensemble des analyses precedentes en plan d'action coherent, hierarchise les priorites et construit une trajectoire claire de developpement. Le dirigeant doit ressortir en sachant ce qui doit etre fait maintenant, ce qui doit etre differe et ce qui ne doit pas devenir prioritaire — sortir de l'urgence permanente pour une progression structuree, realiste et soutenable.
+
+Ouvre par une frise chronologique en HTML inline (sans <html>/<body>) : un tableau de trois colonnes cote a cote, en-tetes « Court terme (0-3 mois) » fond #C9A227 texte #1A1A1A, « Moyen terme (3-12 mois) » fond #1A1A1A texte blanc, « Long terme (1-3 ans) » fond #2E7D4F texte blanc ; cellules fond #FBF8EF, bordures 0.5pt #EFEAD8, 2 a 3 actions reelles du projet par colonne.
+
+## Priorités stratégiques immédiates
+Identifie les actions prioritaires et hierarchise les urgences strategiques. Distingue explicitement priorites critiques, optimisations secondaires et projets prematures.
+
+## Feuille de route court terme
+Structure les chantiers des prochains mois et contextualise les objectifs prioritaires : structuration de l'offre, clarification du positionnement, acquisition, organisation, rentabilite, visibilite, outils de pilotage.
+
+## Feuille de route moyen terme
+Organise les phases suivantes et prepare la croissance progressive : montee en gamme, automatisation, structuration de l'equipe, developpement commercial, diversification maitrisee, recurrence.
+
+## Vision long terme & trajectoire cible
+Contextualise la trajectoire ideale, relie la vision du dirigeant a la strategie : soutenabilite, stabilite, rentabilite long terme, logique scalable, maturite future du business.
+
+## Arbitrages & éléments à limiter
+Rappelle les risques de dispersion et nomme les non-priorites : projets prematures, developpements incoherents, activites energivores, leviers a faible valeur strategique.
+
+Pour chaque action : ce qu'il faut faire, pourquoi, et l'indicateur qui prouvera sa reussite. Traite au passage : quelles sont les priorites absolues, que traiter immediatement, quels projets differer, quels axes deviennent centraux, quels leviers auront le plus d'impact, quelle trajectoire est reellement soutenable, que faut-il abandonner ou limiter.
+
+## A retenir
+Prends du recul : analyse directionnelle, consequences futures, lien explicite entre les constats et les decisions. Verifie que les arbitrages sont coherents, que le rythme propose est realiste, que la trajectoire respecte les ressources disponibles et que les non-priorites restent visibles.
+
+Termine par une synthese globale de la trajectoire strategique, une clarification des priorites de developpement, puis une ouverture vers la conclusion strategique generale du document.
+
+INTERDIT : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile.

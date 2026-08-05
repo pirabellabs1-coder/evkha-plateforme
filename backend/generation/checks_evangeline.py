@@ -470,12 +470,25 @@ REGISTRES_METHODO: dict[str, tuple[str, str]] = {
 }
 
 
+# Criteres de selection des concurrents — « Cahier des charges technique V1 —
+# Etude de la concurrence », etape 1.4, CRITERES DE SELECTION (p. 11-12).
+# Repris verbatim et dans leur ordre : cette constante est la source unique
+# injectee dans le prompt EC (prompts.py), donc la formuler autrement revient a
+# trier sur d'autres criteres que ceux du document.
+#
+# Corrige le 05/08/2026. La liste precedente en comptait cinq, dont trois du
+# document manquaient — visibilite digitale et terrain, intensite concurrentielle
+# observee, potentiel d'enseignement strategique — et dont une, « Anciennete sur
+# le marche », n'apparait NULLE PART dans les 33 pages. Le systeme retenait donc
+# ses onze acteurs sur une grille qui n'etait pas celle de la cliente.
 CRITERES_TRI_CONCURRENTS: tuple[str, ...] = (
-    "Similarite de l'offre (memes produits, memes services)",
-    "Cible client comparable",
-    "Taille (chiffre d'affaires, notoriete)",
-    "Proximite geographique avec le client",
-    "Anciennete sur le marche",
+    "Influence sur le marche (notoriete, parts de marche percues)",
+    "Proximite avec l'offre du projet",
+    "Proximite avec la clientele cible",
+    "Presence sur la zone ou accessibilite depuis cette zone",
+    "Visibilite digitale et terrain",
+    "Intensite concurrentielle observee",
+    "Potentiel d'enseignement strategique pour le projet",
 )
 
 _SOUS_SECTIONS_CONCURRENTS: dict[str, re.Pattern[str]] = {
@@ -559,18 +572,48 @@ def verifier_concurrents_dans_ec(
 
 # ── Piliers de la strategie business : les 4 sont toujours poses ────────────
 #
-# Consigne d'Evangeline (fiche 4, question 1) : pour une strategie business,
-# les 4 piliers sont TOUJOURS traites, dans le meme ordre, avec leur objectif
-# verbatim. On les verifie present dans le document livre.
+# Consigne d'Evangeline (fiche 4, question 1) : pour une strategie business, les
+# 4 piliers sont TOUJOURS traites. On les verifie presents dans le document.
+#
+# ARBITRAGE DU 05/08/2026 — deux documents de la cliente se contredisent.
+#
+# La fiche 4 nommait ces piliers « Planning editorial » et « Analyse de la
+# tarification ». Le cahier des charges « STRATEGIES BUSINESS AUTOMATISEES »
+# (96 pages) n'emploie JAMAIS ces deux expressions — verifie sur l'integralite
+# du document — et exclut explicitement que le systeme devienne « un calendrier
+# editorial ». Sa colonne vertebrale est en sept parties, dont PARTIE IV
+# « VISIBILITE & ACQUISITION » et PARTIE V « RENTABILITE & MODELE ECONOMIQUE ».
+#
+# Le controle etait donc pire qu'inutile : il BLOQUAIT au gate une strategie
+# strictement conforme au cahier des charges. Et pas seulement sur ces deux
+# piliers — le pilier 1 exigeait « positionnement & specialisation » quand le
+# document ecrit « positionnement & differenciation ». Trois piliers sur quatre
+# echouaient sur un document conforme.
+#
+# Plutot que de supprimer le controle (il porte une intention reelle : quatre
+# axes structurants doivent etre traites) ou de choisir un document contre
+# l'autre, chaque pilier accepte DESORMAIS les deux vocabulaires. Il continue
+# d'echouer bruyamment si un axe est absent des deux facons a la fois — ce qui
+# est le seul cas ou l'on peut affirmer qu'il manque (regles 1 et 2).
+#
+# A rouvrir avec Evangeline : lequel des deux documents fait foi.
 
 PILIERS_STRATEGIE: dict[str, tuple[str, str]] = {
     "positionnement": (
         "PILIER 1",
-        rf"positionnement(?:{_S}+&{_S}+|{_S}+et{_S}+)sp[ée]cialisation",
+        rf"positionnement(?:{_S}+&{_S}+|{_S}+et{_S}+)"
+        rf"(?:sp[ée]cialisation|diff[ée]renciation)",
     ),
-    "offre":       ("PILIER 2", rf"structuration{_S}+de{_S}+l['’]offre"),
-    "editorial":   ("PILIER 3", rf"planning{_S}+[ée]ditorial"),
-    "tarification":("PILIER 4", rf"analyse{_S}+de{_S}+la{_S}+tarification"),
+    "offre": ("PILIER 2", rf"structuration{_S}+de{_S}+l['’]offre"),
+    "visibilite": (
+        "PILIER 3",
+        rf"(?:planning{_S}+[ée]ditorial|visibilit[ée]|acquisition)",
+    ),
+    "rentabilite": (
+        "PILIER 4",
+        rf"(?:analyse{_S}+de{_S}+la{_S}+tarification|rentabilit[ée]"
+        rf"|mod[èe]le{_S}+[ée]conomique)",
+    ),
 }
 
 

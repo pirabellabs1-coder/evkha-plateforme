@@ -11,9 +11,23 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Conclusion analytique : forces/faiblesses majeures du marche concurrentiel, axe strategique prioritaire pour le projet, leviers differenciants des le lancement. Avant la conclusion textuelle, genere 4 graphiques en HTML inline (sans <html>/<body>) a l'aide de tableaux HTML avec barres CSS, sur le meme modele que les graphiques du chapitre marche : titre H3, tableau barres avec valeurs reelles, legende courte en italique sous chaque tableau. Pattern a suivre pour chaque graphique en barres (adapte les donnees reelles) :
-<h3 style="font-size:14pt;margin:4mm 0 2mm">Graphique 1 — Titre</h3>
-<table style="border-collapse:collapse;width:100%;margin:3mm 0;font-size:9.5pt">
-<tr><td style="padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8;width:35%">Label A</td><td style="padding:1.5mm 2mm;width:55%"><div style="background:#C9A227;height:5mm;width:75%;display:inline-block"></div></td><td style="padding:1.5mm 2mm;font-weight:bold;color:#1A1A1A;width:10%">75 %</td></tr>
-</table>
-Les 4 graphiques a produire : (1) parts de marche des principaux concurrents identifies (barres, %), (2) repartition des canaux de distribution/acquisition du marche (barres, %), (3) comparatif forces/faiblesses des 2-3 concurrents principaux face au projet : une ligne par critere (prix, qualite, notoriete, digital...), une barre par acteur avec sa couleur propre (#C9A227 pour le projet, #1A1A1A pour les concurrents), (4) carte synthetique des concurrents par categorie (directs, indirects, emergents) sous forme de tableau a 3 colonnes listant les acteurs de chaque categorie. Utilise les donnees chiffrees reelles etablies dans les chapitres precedents, jamais de valeurs inventees sans base. Termine par la conclusion analytique textuelle demandee ci-dessus.
+Produis la conclusion analytique finale de l'etude de la concurrence et les 4 visuels strategiques exploitables dans un business plan, un pitch ou une presentation bancaire. Appuie-toi sur les chapitres precedents, sans aucune redite descriptive.
+
+## Conclusion analytique stratégique
+Trois paragraphes rediges, un par question structurante : forces et faiblesses majeures du marche concurrentiel ; axe strategique prioritaire pour le projet ; leviers differenciants a actionner des le lancement. Recommandations concretes et atteignables, jamais generales.
+
+## Génération des 4 visuels stratégiques
+Quatre visuels presentes successivement, chacun suivi d'une courte lecture strategique.
+Visuel 1 — Carte des concurrents : implantations locale, regionale, nationale ou internationale des 11 acteurs, adaptee au niveau de geographie concurrentielle retenu ; rends-la sous forme de tableau structure.
+Visuel 2 — Graphique comparatif des parts de marche ou de visibilite : bloc ```chart de type hbar ou pie, acteurs dominants et emergents, position du projet si pertinent.
+Visuel 3 — Diagramme radar des forces / faiblesses : bloc ```chart de type radar, les 11 acteurs evalues sur 5 a 6 axes cles (qualite, prix, innovation, RSE, experience client, notoriete). Grille strictement identique pour les directs et les indirects ; si la lisibilite l'impose, scinde en deux radars sur les MEMES axes.
+Visuel 4 — Répartition des canaux de communication : bloc ```chart de type bar, comparatif par canal (digital, terrain, bouche-a-oreille, presse, reseaux sociaux, partenariats), par concurrent ou par categorie d'acteur.
+Chaque visuel porte un titre clair, des axes ou categories lisibles, une legende explicite et sa source en pied de visuel. Noms qui ne se chevauchent pas, couleurs distinguables, rendu exploitable en imprime comme en digital. Reprends les chiffres etablis dans les chapitres precedents ; aucune valeur inventee.
+
+## Lecture strategique
+Depasse le constat : nomme les espaces strategiques peu exploites, anticipe les menaces concurrentielles a venir et relie chaque enseignement a une decision que le porteur doit prendre.
+
+## Synthèse finale
+Un paragraphe executif : positionnement recommande, enseignements cles, trajectoire concurrentielle du projet. Conclus par une transition vers l'annexe finale de validation des demandes specifiques du client.
+
+Interdits : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile. Sources listees uniquement en fin de reponse.

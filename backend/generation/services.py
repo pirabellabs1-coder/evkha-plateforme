@@ -70,7 +70,7 @@ _SUPPORTED_DELIVERABLES = frozenset(
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
     DeliverableType.MARKET_STUDY:      Decimal("6.0000"),  # 30 appels + reflexion + CHECKs
     DeliverableType.BUSINESS_PLAN:     Decimal("3.6500"),  # 20 chapitres, ~24 appels chunked
-    DeliverableType.BUSINESS_STRATEGY: Decimal("3.1500"),  # 20 appels
+    DeliverableType.BUSINESS_STRATEGY: Decimal("3.3500"),  # 21 appels (+ conclusion)
     DeliverableType.COMPETITOR_STUDY:  Decimal("2.6000"),  # 12 appels (sans SWOT)
 }
 
