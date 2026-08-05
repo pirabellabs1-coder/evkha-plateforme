@@ -31,7 +31,6 @@ from generation.strategies.bp import (
     verifier_remuneration_dirigeant,
 )
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # 1. IS 15 % appliquable UNIQUEMENT sur la premiere tranche 42 500 EUR
 # ══════════════════════════════════════════════════════════════════════════

@@ -288,9 +288,6 @@ def test_build_chapter_prompt_injecte_date_courante() -> None:
     assert "DATE_DU_JOUR" in context
 
 
-import pytest
-
-
 @pytest.mark.skip(reason=(
     "Regle 'sources datees dans les 6 derniers mois / 24 mois' retiree du "
     "charter le 24/07/2026. Le manuel Evangeline §3 exige 'sources fiables, "

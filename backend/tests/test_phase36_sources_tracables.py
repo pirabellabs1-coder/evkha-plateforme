@@ -29,7 +29,6 @@ from __future__ import annotations
 
 from generation.checks_post_rendu import detecter_sources_non_tracables
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # 1. Chapitre Sources present et bien rempli
 # ══════════════════════════════════════════════════════════════════════════

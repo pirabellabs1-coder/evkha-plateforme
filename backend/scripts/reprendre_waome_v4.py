@@ -11,7 +11,6 @@ import sys
 import time
 from pathlib import Path
 
-
 JOB_ID_PREFIX = "45e0809c"  # WAOME v4 crashe au ch. 21
 
 
@@ -22,7 +21,7 @@ def main() -> int:
 
     from generation.correction import run_correction_loop
     from generation.gate import run_delivery_gate
-    from generation.models import ChapterStatus, JobStatus, GenerationJob
+    from generation.models import ChapterStatus, GenerationJob, JobStatus
     from generation.rendering import render_branded_html
     from generation.runner import run_generation_job
     from integrations.claude import get_claude_client
@@ -62,7 +61,10 @@ def main() -> int:
         t_c = time.time()
         report = run_correction_loop(job, client=client, max_rounds=2)
         job.refresh_from_db()
-        print(f"         Terminee en {(time.time()-t_c)/60:.1f} min. Cout : {job.total_cost_eur} EUR")
+        print(
+            f"         Terminee en {(time.time()-t_c)/60:.1f} min. "
+            f"Cout : {job.total_cost_eur} EUR"
+        )
         print(f"         Gate final : {report.passed} ({len(report.failures)} failures)")
     else:
         report = report0
@@ -93,7 +95,10 @@ def main() -> int:
 
     md_path = livrables / f"WAOME_v4_{short}.md"
     with md_path.open("w", encoding="utf-8") as f:
-        f.write(f"# WAOME v4 - job {job.id}\n\nStatut : {job.status} — passed : {report.passed}\n\n")
+        f.write(
+            f"# WAOME v4 - job {job.id}\n\n"
+            f"Statut : {job.status} — passed : {report.passed}\n\n"
+        )
         for ch in job.chapters.order_by("chapter_number"):
             f.write(f"\n\n## Chapitre {ch.chapter_number} — {ch.chapter_title}\n\n")
             f.write(ch.content or "(vide)")

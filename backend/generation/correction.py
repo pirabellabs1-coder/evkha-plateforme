@@ -127,15 +127,39 @@ _CHECK_LABELS = {
     "troncature": "Chapitre coupé / phrase ou structure non terminée",
     "ordre_de_grandeur": "Erreur d'unité : montant hors d'échelle (millions/milliers)",
     "troncature_rendu": "Chapitre tronqué : la dernière phrase n'a pas de ponctuation forte",
-    "doublon_titre": "Sous-titre répété dans le chapitre — préfixer par le nom de la persona/du concurrent",
-    "desaccord_numerique": "Annonce chiffrée (« trois familles ») incompatible avec le nombre d'items suivants",
-    "ton_publicitaire": "Expression au ton publicitaire ou superlatif interdit (« leader incontestable », « révolutionnaire », etc.)",
-    "prudence_juridique_evenement_corporate": "Événement corporate daté sans source vérifiable — ajouter une URL ou une locution « selon [Éditeur] »",
-    "prudence_juridique_diffamation": "Formulation à risque de diffamation (condamnation, faillite, abus de position dominante) sans source",
+    "doublon_titre": (
+        "Sous-titre répété dans le chapitre — préfixer par le nom de la "
+        "persona/du concurrent"
+    ),
+    "desaccord_numerique": (
+        "Annonce chiffrée (« trois familles ») incompatible avec le nombre "
+        "d'items suivants"
+    ),
+    "ton_publicitaire": (
+        "Expression au ton publicitaire ou superlatif interdit "
+        "(« leader incontestable », « révolutionnaire », etc.)"
+    ),
+    "prudence_juridique_evenement_corporate": (
+        "Événement corporate daté sans source vérifiable — ajouter une URL ou "
+        "une locution « selon [Éditeur] »"
+    ),
+    "prudence_juridique_diffamation": (
+        "Formulation à risque de diffamation (condamnation, faillite, abus de "
+        "position dominante) sans source"
+    ),
     "sources_non_tracables_vide": "Chapitre Sources vide — lister au moins 5 URLs http(s) réelles",
-    "sources_non_tracables_ratio_faible": "Chapitre Sources : moins de 50 % des références ont une URL http(s) réelle",
-    "sources_non_tracables_url_bidon": "URL placeholder ou factice (example.com, source.fr, crochets non substitués) — remplacer par une source réelle",
-    "fourchette_interdite": "Fourchette nue sans médiane annoncée dans la même phrase — écrire « X à Y, médiane retenue Z »",
+    "sources_non_tracables_ratio_faible": (
+        "Chapitre Sources : moins de 50 % des références ont une URL http(s) "
+        "réelle"
+    ),
+    "sources_non_tracables_url_bidon": (
+        "URL placeholder ou factice (example.com, source.fr, crochets non "
+        "substitués) — remplacer par une source réelle"
+    ),
+    "fourchette_interdite": (
+        "Fourchette nue sans médiane annoncée dans la même phrase — écrire "
+        "« X à Y, médiane retenue Z »"
+    ),
 }
 
 
@@ -215,7 +239,6 @@ def run_correction_loop(
     """
     from integrations.claude import ClaudeClient, get_claude_client  # noqa: PLC0415
 
-    from .models import ChapterStatus  # noqa: PLC0415
     from .runner import regenerate_chapter  # noqa: PLC0415 — évite le cycle d'import
 
     rounds = _default_rounds() if max_rounds is None else max(0, max_rounds)

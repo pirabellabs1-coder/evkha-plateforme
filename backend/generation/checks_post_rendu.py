@@ -598,7 +598,10 @@ _DIFFAMATION_MOTIFS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("abus de position dominante",
      re.compile(r"\babus\s+de\s+position\s+dominante\b", re.IGNORECASE)),
     ("sanction AMF/CNIL/DGCCRF",
-     re.compile(r"\bsanction(?:n[eé]e?)?\s+par\s+(?:l['’]?AMF|la\s+CNIL|la\s+DGCCRF)\b", re.IGNORECASE)),
+     re.compile(
+         r"\bsanction(?:n[eé]e?)?\s+par\s+(?:l['’]?AMF|la\s+CNIL|la\s+DGCCRF)\b",
+         re.IGNORECASE,
+     )),
     ("poursuivi en justice",
      re.compile(r"\bpoursuivi[e]?s?\s+en\s+justice\b", re.IGNORECASE)),
     ("faillite",

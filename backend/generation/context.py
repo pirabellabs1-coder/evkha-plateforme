@@ -4,9 +4,8 @@ import json
 
 from django.utils import timezone
 
-from intake.models import IntakeSubmission
-
 from catalog.models import DeliverableType
+from intake.models import IntakeSubmission
 
 from .coherence import (
     chiffres_fondations_as_table,

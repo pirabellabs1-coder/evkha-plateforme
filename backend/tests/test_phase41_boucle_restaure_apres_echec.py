@@ -70,10 +70,10 @@ def test_cap_de_regeneration_par_round_priorise_les_defauts_graves() -> None:
 def test_boucle_restaure_direct() -> None:
     """Test unitaire du contrat : la boucle capture-et-restaure quand
     regenerate_chapter leve, sans dependre du client Claude."""
-    from generation.correction import run_correction_loop
-    from generation.models import GenerationJob, ChapterGeneration
     from catalog.models import DeliverableType, Offer
     from customers.models import Customer
+    from generation.correction import run_correction_loop
+    from generation.models import ChapterGeneration, GenerationJob
     from orders.models import Order
 
     # Construction minimale d'un job avec 1 chapitre + 1 defaut.
@@ -102,7 +102,7 @@ def test_boucle_restaure_direct() -> None:
     contenu_initial = chapter.content
 
     # Mock : le gate signale UN defaut, regenerate_chapter leve toujours.
-    from generation.gate import GateReport, GateFailure
+    from generation.gate import GateFailure, GateReport
     fake_report = GateReport(
         passed=False,
         failures=(GateFailure(

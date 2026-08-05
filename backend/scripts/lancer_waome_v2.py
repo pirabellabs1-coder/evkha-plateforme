@@ -38,14 +38,14 @@ def main() -> int:
         return 1
 
     from customers.models import Customer
-    from orders.models import Order
-    from generation.models import GenerationJob
     from generation.correction import run_correction_loop
-    from generation.runner import run_generation_job
     from generation.gate import run_delivery_gate
+    from generation.models import GenerationJob
+    from generation.runner import run_generation_job
     from generation.services import bootstrap_generation_job
     from intake.models import IntakeStatus, IntakeSubmission
     from integrations.claude import get_claude_client
+    from orders.models import Order
 
     # 1. Recup vars WAOME v1.
     job_v1 = GenerationJob.objects.get(id__startswith="49953f14")
@@ -54,7 +54,10 @@ def main() -> int:
         print("ABORT: submission WAOME v1 introuvable.")
         return 1
     variables = dict(sub_v1.normalized_variables)
-    print(f"[step 1] Variables recuperees ({len(variables)} keys) — projet: {variables.get('NOM_ENTREPRISE')}")
+    print(
+        f"[step 1] Variables recuperees ({len(variables)} keys) "
+        f"— projet: {variables.get('NOM_ENTREPRISE')}"
+    )
 
     # 2. Nouvel order + submission dedies a la relance.
     offer = job_v1.order.offer

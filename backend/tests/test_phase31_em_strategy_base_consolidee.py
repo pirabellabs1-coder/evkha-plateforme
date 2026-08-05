@@ -285,8 +285,9 @@ def test_plusieurs_tcac_distincts_ne_bloquent_pas() -> None:
     geographique reste coherent, aucun defaut ne doit etre leve — meme avec
     5 valeurs distinctes. C'est l'ancien check « max 3 TCAC », retire car il
     bloquait des etudes conformes au manuel."""
-    from catalog.models import DeliverableType
     from unittest.mock import MagicMock
+
+    from catalog.models import DeliverableType
 
     job = MagicMock()
     job.deliverable_type = DeliverableType.MARKET_STUDY

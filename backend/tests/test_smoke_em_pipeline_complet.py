@@ -20,8 +20,8 @@ from generation.models import ChapterStatus, JobStatus
 from generation.rendering import render_client_document
 from generation.runner import run_generation_job
 from generation.services import bootstrap_generation_job
-from integrations.claude import StubClaudeClient
 from intake.models import IntakeStatus, IntakeSubmission
+from integrations.claude import StubClaudeClient
 from orders.models import Order
 
 

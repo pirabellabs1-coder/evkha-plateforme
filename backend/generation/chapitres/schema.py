@@ -99,11 +99,30 @@ class Section(BaseModel):
 
 
 class Graphique(BaseModel):
-    """Demande de visuel. Ne porte AUCUNE valeur, seulement des identifiants."""
+    """Demande de visuel. Ne porte AUCUNE valeur, seulement des identifiants.
 
-    model_config = {"extra": "forbid"}
+    ## Pourquoi le champ s'appelle `type_graphique` dans le contrat
 
-    type: TypeGraphique
+    Il s'appelait `type`, comme le discriminant du bloc qui le contient. Le même
+    mot désignait donc deux choses emboîtées : la NATURE DU BLOC au niveau du
+    dessus (« graphique »), et la NATURE DU VISUEL ici (« courbe », « barres »).
+
+    Mesuré le 05/08/2026, génération réelle `6557b06b` : le modèle a résolu la
+    collision tout seul, et de la seule façon possible — il a écrit
+    `type_graphique` et remonté les champs d'un cran, produisant
+    `{type: "graphique", type_graphique: …, titre: …}` au lieu de
+    `{type: "graphique", graphique: {type: …, titre: …}}`. Trois fois de suite,
+    sur deux chapitres : déterministe, pas un aléa. L'étude est morte au
+    chapitre 1 pour 0,41 EUR.
+
+    L'alias donne au contrat un nom qui ne se confond avec rien, et
+    `populate_by_name` continue d'accepter `type` : les chapitres déjà en base
+    restent lisibles, et le rendu lit toujours `graphique.type` en Python.
+    """
+
+    model_config = {"extra": "forbid", "populate_by_name": True}
+
+    type: TypeGraphique = Field(alias="type_graphique")
     titre: str = Field(min_length=1, max_length=220)
     donnees_ids: list[str] = Field(min_length=1)
     commentaire: str = ""
@@ -162,11 +181,58 @@ class BlocParagraphe(BaseModel):
     texte: str = Field(min_length=1)
 
 
+def _renester(valeurs: Any, cle: str, modele: type[BaseModel]) -> Any:
+    """Remonte dans `cle` les champs que le modèle a écrits à plat.
+
+    Ces trois blocs ont la même forme — un discriminant `type`, et un objet
+    imbriqué sous une clé qui répète ce discriminant. Le modèle aplatit
+    régulièrement cette imbrication : elle lui demande d'écrire deux fois le
+    même mot pour deux sens différents. Constaté en génération réelle sur le
+    graphique (`6557b06b`, 05/08/2026), trois échecs identiques.
+
+    On répare le TRANSPORT, jamais le fond : re-nicher des clés ne change aucune
+    valeur et n'invente rien. C'est le même geste que `depuis_ancien_format`,
+    qui accepte déjà une autre écriture du même contenu sans créer une seconde
+    vérité. Ce qui juge le contenu — « un chapitre n'exploite que des données du
+    socle » — reste `valider_chapitre`, intact.
+
+    Et on vise la CLASSE : la correction porte sur les trois blocs à
+    enveloppe, pas sur le seul graphique qui a échoué (règle 4). Le tableau et
+    l'encadré présentent exactement la même invitation à l'erreur.
+
+    Les champs sont lus sur le modèle cible, jamais recopiés ici : une liste
+    locale divergerait au premier champ ajouté (règle 5).
+
+    **On retient l'alias quand il existe, jamais les deux noms.** Retenir aussi
+    le nom Python happerait `type` — qui, au niveau du bloc, est le
+    discriminant : la forme aplatie perdrait sa nature de bloc en même temps
+    qu'elle retrouverait sa structure. C'est précisément le nom que l'alias
+    existe pour désambiguïser.
+    """
+    if not isinstance(valeurs, dict) or cle in valeurs:
+        return valeurs
+    noms = {
+        champ.alias or nom
+        for nom, champ in modele.model_fields.items()
+    }
+    interieur = {nom: valeur for nom, valeur in valeurs.items() if nom in noms}
+    if not interieur:
+        return valeurs
+    dehors = {nom: valeur for nom, valeur in valeurs.items() if nom not in noms}
+    dehors[cle] = interieur
+    return dehors
+
+
 class BlocTableau(BaseModel):
     model_config = {"extra": "forbid"}
 
     type: Literal["tableau"] = "tableau"
     tableau: Tableau
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accepter_la_forme_aplatie(cls, valeurs: Any) -> Any:
+        return _renester(valeurs, "tableau", Tableau)
 
 
 class BlocEncadre(BaseModel):
@@ -175,12 +241,22 @@ class BlocEncadre(BaseModel):
     type: Literal["encadre"] = "encadre"
     encadre: Encadre
 
+    @model_validator(mode="before")
+    @classmethod
+    def _accepter_la_forme_aplatie(cls, valeurs: Any) -> Any:
+        return _renester(valeurs, "encadre", Encadre)
+
 
 class BlocGraphique(BaseModel):
     model_config = {"extra": "forbid"}
 
     type: Literal["graphique"] = "graphique"
     graphique: Graphique
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accepter_la_forme_aplatie(cls, valeurs: Any) -> Any:
+        return _renester(valeurs, "graphique", Graphique)
 
 
 class BlocGrilleKpi(BaseModel):
