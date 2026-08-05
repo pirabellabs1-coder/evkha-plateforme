@@ -10,10 +10,15 @@ en service passait par `_generate_chapter`, qui écrit du markdown. Troisième
 lot successif écrit et relié à rien.
 
 Ces tests verrouillent aussi une décision qui ne se voit pas dans le résultat :
-sur la voie structurée, la réparation QA du markdown et le CHECK inter-bloc ne
-sont PAS appliqués. Tous deux réécrivent le markdown, alors que le rendu Word
-emploie le `payload`. Les laisser ferait diverger deux versions du même
-chapitre, et la réparation n'atteindrait pas le document livré.
+sur la voie structurée, la réparation QA du markdown n'est PAS appliquée. Elle
+réécrit le markdown seul, alors que le rendu Word emploie le `payload` — la
+laisser ferait diverger deux versions du même chapitre, et la réparation
+n'atteindrait pas le document livré.
+
+Le CHECK inter-bloc, lui, avait été écarté par le même raisonnement, à tort :
+il DÉTECTE, et sa réparation suit désormais le moteur actif. Le test qui
+l'excluait verrouillait donc un défaut — aucun CHECK ne s'exécutait en
+production. Il a été retourné (règle 6).
 """
 from __future__ import annotations
 
@@ -116,15 +121,40 @@ def test_la_reparation_markdown_n_est_pas_appliquee(
 ) -> None:
     """Décision assumée, invisible dans le résultat, donc verrouillée ici.
 
-    `_inline_qa_repair` et le CHECK inter-bloc réécrivent le markdown. Le rendu
-    Word emploie le `payload`. Les appliquer ferait diverger deux versions du
-    même chapitre (règle 5) et la réparation n'atteindrait pas le document
-    livré (règle 3).
+    `_inline_qa_repair` réécrit le MARKDOWN seul, alors que le rendu Word
+    emploie le `payload` : l'appliquer ferait diverger deux versions du même
+    chapitre (règle 5) et la réparation n'atteindrait pas le document livré
+    (règle 3).
     """
     moteur.run_generation_job(job)
 
     assert traces.qa == [], "la QA markdown ne doit pas toucher un chapitre structuré"
-    assert traces.checks == [], "le CHECK inter-bloc ne s'applique pas non plus"
+
+
+@override_settings(EVKHA_SOCLE_ENABLED=True)
+def test_le_check_inter_bloc_s_execute_sur_la_voie_structuree(
+    job: GenerationJob, traces: _Traces
+) -> None:
+    """Ce test affirmait l'inverse, et verrouillait le défaut (règle 6).
+
+    Il exigeait `traces.checks == []`, au motif que le CHECK réécrit le
+    markdown comme la QA. C'est faux, et l'amalgame coûtait cher : le CHECK
+    DÉTECTE — il lit le markdown, rendu fidèlement depuis le payload — et sa
+    réparation passe par `regenerate_chapter`, qui suit le moteur actif.
+
+    Tant qu'il passait, AUCUN CHECK ne pouvait s'exécuter en production, où
+    `EVKHA_SOCLE_ENABLED=true`. Le gate cherchait alors des incidents
+    `check_bloc_non_resolu` qui ne pouvaient pas exister et concluait au succès
+    (règle 1), le CHECK INITIAL bloquant ne se déclenchait jamais, et la fiche
+    projet cessait d'être enrichie entre les blocs.
+    """
+    moteur.run_generation_job(job)
+
+    assert traces.checks, "le CHECK inter-bloc doit s'exécuter sur la voie structurée"
+    # Le hook reçoit (job, chapitre) : il doit voir la fiche projet, dont le
+    # CHECK INITIAL est le gate amont du manuel.
+    numeros = [appel[1].chapter_number for appel in traces.checks]
+    assert 0 in numeros, "la fiche projet doit passer au CHECK INITIAL"
 
 
 @override_settings(EVKHA_SOCLE_ENABLED=False)

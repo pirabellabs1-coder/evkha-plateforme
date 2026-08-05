@@ -163,19 +163,38 @@ def produire_chapitre(
     return enregistrer_chapitre(chapter, payload, consommation, arbitrage=arbitrage)
 
 
-def regenerer_chapitre(job: GenerationJob, numero: int, *, client: Any) -> ChapterGeneration:
+def regenerer_chapitre(
+    job: GenerationJob,
+    numero: int,
+    *,
+    client: Any,
+    note_corrective: str = "",
+) -> ChapterGeneration:
     """Régénère UN chapitre sans toucher aux autres.
 
-    Critère de recette du cahier des charges. La remise à zéro est explicite :
-    sans elle, `produire_chapitre` rendrait le chapitre déjà DONE tel quel.
+    Critère de recette du cahier des charges. La remise à zéro du STATUT est
+    explicite : sans elle, `produire_chapitre` rendrait le chapitre déjà DONE
+    tel quel, puisqu'il est idempotent.
+
+    `note_corrective` : ce que le gate de livraison ou un CHECK inter-bloc
+    reproche au chapitre. Elle est déposée sous le préfixe `[contrat] `, que
+    `construire_prompt_chapitre` relit et rend au modèle sous « TENTATIVE
+    PRÉCÉDENTE REFUSÉE ». On ne redemande pas « fais mieux » : on redonne la
+    liste exacte de ce qui a été refusé — le canal existait déjà pour les
+    refus de contrat, on ne lui en ajoute pas un second (règle 5).
+
+    `payload`, `content` et le résumé ne sont PAS effacés avant l'appel. Les
+    effacer rendait la régénération destructive : une tentative qui échoue
+    laissait un chapitre vide, et `payloads_du_job` écarte un chapitre vide —
+    le document livré y aurait perdu un chapitre entier, là où garder
+    l'ancienne version le laisse simplement non corrigé. Le statut suffit à
+    lever l'idempotence, et `enregistrer_chapitre` écrase ces champs quand, et
+    seulement quand, une nouvelle version existe.
     """
     chapter = job.chapters.get(chapter_number=numero)
     ChapterGeneration.objects.filter(pk=chapter.pk).update(
         status=ChapterStatus.PENDING,
-        payload={},
-        content="",
-        operational_summary="",
-        error_message="",
+        error_message=formater_motifs([note_corrective]) if note_corrective else "",
     )
     chapter.refresh_from_db()
     return produire_chapitre(job, numero, client=client)

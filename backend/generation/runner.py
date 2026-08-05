@@ -18,6 +18,7 @@ from .chapitres.services import produire_chapitre
 from .checks_blocs import (
     BLOCS_PAR_IDENTIFIANT,
     INCIDENT_TYPE_CHECK_BLOC,
+    BlocDefinition,
     bloc_pour_chapitre,
     check_bloc,
 )
@@ -284,6 +285,21 @@ def _var(v: dict[str, object], k: str) -> str:
 ERREURS_SANS_REPRISE = (CostBudgetExceededError, CheckInitialBlockedError)
 
 
+def _moteur_structure(job: GenerationJob) -> bool:
+    """Le job passe-t-il par le moteur structure (socle + payload) ?
+
+    Une seule source pour cette verite (regle 5). Elle gouverne DEUX decisions
+    qui doivent rester d'accord : par quel chemin un chapitre est ecrit, et par
+    quel chemin il est REecrit. Les laisser diverger, c'est reparer une
+    representation du chapitre pendant que le document en rend une autre.
+    """
+    return (
+        socle_actif()
+        and livrable_supporte(job)
+        and est_declare(str(job.deliverable_type))
+    )
+
+
 def _produire_avec_reprises(
     job: GenerationJob, chapter: Any, *, client: Any, socle: Any
 ) -> None:
@@ -425,11 +441,7 @@ def run_generation_job(
     # Un SEUL interrupteur pour tout le nouveau moteur. Les chapitres
     # structurés exigent le socle : deux drapeaux distincts autoriseraient la
     # combinaison « chapitres sans socle », qui ne produit que des échecs.
-    moteur_structure = (
-        socle_actif()
-        and livrable_supporte(job)
-        and est_declare(str(job.deliverable_type))
-    )
+    moteur_structure = _moteur_structure(job)
 
     if moteur_structure:
         try:
@@ -488,16 +500,30 @@ def run_generation_job(
                 # écrit aussi le markdown, de sorte que l'ancienne chaîne de
                 # rendu reste servie par le même chapitre.
                 #
-                # Ni `_inline_qa_repair` ni `_after_chapter_hook` ici, et c'est
-                # délibéré : tous deux réécrivent le MARKDOWN. Or c'est le
-                # `payload` que le rendu Word emploie. Réparer l'un sans
-                # l'autre ferait diverger deux versions du même chapitre
-                # (règle 5), et la réparation n'atteindrait pas le document
-                # réellement livré (règle 3). La vérification du lot 4, elle,
-                # porte sur le `.docx` produit.
+                # `_inline_qa_repair` reste ÉCARTÉ : il réécrit le MARKDOWN seul,
+                # or c'est le `payload` que le rendu Word emploie. Sa réparation
+                # n'atteindrait pas le document livré (règle 3) et ferait diverger
+                # deux versions du même chapitre (règle 5). La vérification du
+                # lot 4, elle, porte sur le `.docx` produit.
+                #
+                # `_after_chapter_hook` est RÉTABLI. Il avait été écarté avec lui,
+                # alors qu'il ne partage pas son défaut : il DÉTECTE — le CHECK lit
+                # le markdown, rendu fidèlement depuis le payload par
+                # `enregistrer_chapitre` — et sa réparation passe par
+                # `regenerate_chapter`, qui suit désormais le moteur actif.
+                #
+                # Sans cet appel, AUCUN CHECK ne s'exécutait en production
+                # (EVKHA_SOCLE_ENABLED=true). Trois conséquences, pas une : le gate
+                # cherchait des incidents `check_bloc_non_resolu` qui ne pouvaient
+                # pas exister et concluait au succès (règle 1) ; le CHECK INITIAL,
+                # que le manuel veut bloquant avant toute rédaction, ne se
+                # déclenchait jamais — un brief défaillant produisait une étude
+                # entière ; et `enrichir_fiche_apres_check` ne tournait plus, donc
+                # la fiche projet cessait de s'enrichir entre les blocs.
                 _produire_avec_reprises(
                     job, chapter, client=client, socle=socle_du_run
                 )
+                _after_chapter_hook(job, chapter, client=client)
             else:
                 _generate_chapter(
                     job, chapter, client=client, system_prompt=system_prompt
@@ -552,15 +578,44 @@ def regenerate_chapter(
     corrective_note: str,
     client: ClaudeClient | None = None,
 ) -> None:
-    """Régénère UN chapitre en corrigeant les défauts détectés par le gate.
+    """Régénère UN chapitre en corrigeant les défauts détectés.
 
-    Utilisé par la boucle d'auto-correction (generation/correction.py) : on
+    Deux appelants : la boucle d'auto-correction post-gate
+    (generation/correction.py) et la réparation des CHECKs inter-blocs. On
     reprend le chapitre avec la liste exacte des problèmes en consigne
-    prioritaire, puis on rejoue la QA règle-métier immédiate. Respecte le
-    budget (le Cost Engine peut lever CostBudgetExceededError, propagée à
-    l'appelant qui décide d'arrêter la boucle).
+    prioritaire. Respecte le budget (le Cost Engine peut lever
+    CostBudgetExceededError, propagée à l'appelant qui décide d'arrêter).
+
+    ## Régénérer par le chemin que le document lit réellement
+
+    Cette fonction passait inconditionnellement par `_generate_chapter`, qui
+    n'écrit que `chapter.content`. Or, moteur structuré actif — c'est le cas
+    en production —, le `.docx` est rendu depuis `payloads_du_job`,
+    c'est-à-dire `chapter.payload`, que ce chemin ne touche jamais.
+
+    La boucle d'auto-correction réécrivait donc le markdown, revalidait le
+    markdown, se déclarait satisfaite, et livrait un document INCHANGÉ : le
+    contrôle et sa réparation jugeaient sur une évidence que le lecteur ne
+    reçoit pas (règles 3 et 9). On suit désormais le moteur actif, une seule
+    fois et pour tous les appelants — plutôt que de corriger chaque appelant
+    séparément (règle 4).
     """
     client = client or get_claude_client()
+
+    if _moteur_structure(job):
+        # Import tardif : `chapitres.services` remonte vers `generation.cost`,
+        # le cycle se referme si on le charge au niveau module.
+        from .chapitres.services import regenerer_chapitre  # noqa: PLC0415
+
+        regenerer_chapitre(
+            job,
+            chapter.chapter_number,
+            client=client,
+            note_corrective=corrective_note,
+        )
+        chapter.refresh_from_db()
+        return
+
     variables = _variables_for(job)
     country = str(variables.get("PAYS", "")).strip()
     system_prompt = build_system_prompt(
@@ -883,7 +938,7 @@ def _after_chapter_hook(
 
 def _executer_check_avec_retry(
     job: GenerationJob,
-    bloc,
+    bloc: BlocDefinition,
     *,
     chapitres: list[ChapterGeneration],
     client: ClaudeClient,
@@ -939,7 +994,7 @@ def _executer_check_avec_retry(
 
 def _log_incident_check(
     job: GenerationJob,
-    bloc,
+    bloc: BlocDefinition,
     note: str,
     *,
     titre: str,
