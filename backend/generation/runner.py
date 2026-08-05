@@ -13,8 +13,7 @@ from monitoring.models import IncidentSeverity, OperationalIncident
 from organisations.liaison import debiter_pour_job
 
 from .blueprints import chapters_for_deliverable, get_blueprint
-from .chapitres.configuration import est_declare, type_document
-from .chapitres.services import produire_chapitre
+from .chapitres.configuration import est_declare
 from .checks_blocs import (
     BLOCS_PAR_IDENTIFIANT,
     INCIDENT_TYPE_CHECK_BLOC,
@@ -337,40 +336,22 @@ def _produire_avec_reprises(
     tentative seulement. Il ne peut pas le deviner : `retry_count` n'est
     incremente que par le chemin d'echec, et le deduire ici recreerait le
     defaut du run nº1. On le lui dit.
+
+    ## Ou vit desormais la boucle
+
+    Dans `chapitres.services`, avec le cycle de vie du chapitre — parce qu'elle
+    doit servir a la REPARATION autant qu'a la premiere ecriture. Ecrite ici,
+    elle ne couvrait que la premiere : le run `4c8cfa53` du 05/08/2026 est mort
+    a la reparation du chapitre 3, en une seule tentative. Ce qui ecrit un
+    chapitre et ce qui le REECRIT doivent avoir les memes droits a l'erreur
+    (regle 4), et cette verite n'a qu'une source (regle 5).
     """
-    document = type_document(str(job.deliverable_type))
-    derniere_erreur: Exception | None = None
+    from .chapitres.services import produire_avec_reprises  # noqa: PLC0415
 
-    for tentative in range(1, document.tentatives_max + 1):
-        try:
-            produire_chapitre(
-                job, chapter.chapter_number, client=client, socle=socle,
-                derniere_tentative=(tentative == document.tentatives_max),
-            )
-            if tentative > 1:
-                _log.warning(
-                    "Job %s chapitre %s : reussi a la tentative %s.",
-                    job.id, chapter.chapter_number, tentative,
-                )
-            return
-        except ERREURS_SANS_REPRISE:
-            # Rejouer ne changerait rien : le budget reste depasse, le CHECK
-            # INITIAL reste bloquant. On laisse remonter tel quel.
-            raise
-        except Exception as erreur:  # noqa: BLE001 — on rejoue tout le reste
-            derniere_erreur = erreur
-            if tentative < document.tentatives_max:
-                _log.warning(
-                    "Job %s chapitre %s : tentative %s/%s echouee (%s). On rejoue.",
-                    job.id, chapter.chapter_number, tentative,
-                    document.tentatives_max, erreur,
-                )
-
-    # Toutes les tentatives ont echoue : l'appelant ouvre l'incident et arrete
-    # l'etude, comme avant. La difference est qu'on y arrive apres avoir
-    # reellement essaye.
-    assert derniere_erreur is not None
-    raise derniere_erreur
+    produire_avec_reprises(
+        job, chapter.chapter_number, client=client, socle=socle,
+        sans_reprise=ERREURS_SANS_REPRISE,
+    )
 
 
 def run_generation_job(
@@ -1004,9 +985,34 @@ def _executer_check_avec_retry(
     while retries < _MAX_CHECK_RETRIES and not result.est_ok:
         retries += 1
         for chap in chapitres:
-            regenerate_chapter(
-                job, chap, corrective_note=result.note_corrective, client=client,
-            )
+            try:
+                regenerate_chapter(
+                    job, chap, corrective_note=result.note_corrective, client=client,
+                )
+            except ERREURS_SANS_REPRISE:
+                raise
+            except Exception as erreur:  # noqa: BLE001 — voir ci-dessous
+                # Une REPARATION qui echoue ne doit pas tuer l'etude. Ce module
+                # le dit deja de lui-meme, quelques lignes plus haut : « un
+                # echec persistant apres retry ouvre un incident MEDIUM (non
+                # bloquant) : le contenu reste livre au client ». L'exception
+                # n'etait simplement pas retenue, et remontait jusqu'au filet
+                # generique de `run_generation_job`, qui arrete tout.
+                #
+                # Mesure du 05/08/2026, run `4c8cfa53` : trois chapitres ecrits,
+                # le CHECK du bloc B demande une correction du chapitre 3, la
+                # correction depasse le volume de reference de 22 % pour une
+                # tolerance de 15 %, et l'etude entiere meurt — 0,43 EUR, aucun
+                # document. Le chapitre 3 avait pourtant une version acceptee.
+                #
+                # Le chapitre garde donc sa version d'avant (voir
+                # `regenerer_chapitre`), l'incident dit ce qui n'a pas pu etre
+                # corrige, et la generation continue.
+                _log.warning(
+                    "Job %s chapitre %s : reparation du CHECK %s impossible (%s). "
+                    "Version precedente conservee.",
+                    job.id, chap.chapter_number, bloc.check_numero, erreur,
+                )
         # Relire depuis la DB : `regenerate_chapter` a ecrit dans chapter.content.
         chapitres = list(
             job.chapters.filter(
@@ -1014,6 +1020,11 @@ def _executer_check_avec_retry(
                 status=ChapterStatus.DONE,
             ).order_by("chapter_number")
         )
+        if not chapitres:
+            # Plus rien a relire : le CHECK n'aurait aucune evidence a juger, et
+            # un controle qui n'a rien a comparer est un echec, pas un succes
+            # (regle 1). On sort par l'incident, sans rejouer a vide.
+            break
         result = check_bloc(job, bloc, chapitres, client=client)
 
     if not result.est_ok:

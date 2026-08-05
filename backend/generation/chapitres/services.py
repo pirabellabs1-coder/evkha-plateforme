@@ -192,12 +192,103 @@ def regenerer_chapitre(
     seulement quand, une nouvelle version existe.
     """
     chapter = job.chapters.get(chapter_number=numero)
+    statut_avant = chapter.status
     ChapterGeneration.objects.filter(pk=chapter.pk).update(
         status=ChapterStatus.PENDING,
         error_message=formater_motifs([note_corrective]) if note_corrective else "",
     )
     chapter.refresh_from_db()
-    return produire_chapitre(job, numero, client=client)
+    try:
+        return produire_avec_reprises(job, numero, client=client)
+    except Exception:
+        # La réparation a échoué. Le chapitre garde sa version précédente —
+        # `payload` et `content` n'ont pas été effacés — mais son STATUT, lui,
+        # est resté sur l'échec, et `payloads_du_job` n'assemble que les
+        # chapitres TERMINÉS : le document perdait le chapitre entier alors
+        # qu'une version acceptable existait toujours en base.
+        #
+        # On restaure donc le statut d'avant quand une version subsiste. Une
+        # réparation qui échoue laisse le chapitre NON CORRIGÉ ; elle ne doit
+        # pas le faire disparaître. C'est le prolongement, au statut, de ce que
+        # la docstring dit déjà du contenu.
+        chapter.refresh_from_db()
+        if chapter.payload and statut_avant == ChapterStatus.DONE:
+            ChapterGeneration.objects.filter(pk=chapter.pk).update(status=statut_avant)
+            _log.warning(
+                "Job %s chapitre %s : réparation échouée, version précédente "
+                "conservée.", job.id, numero,
+            )
+        raise
+
+
+def produire_avec_reprises(
+    job: GenerationJob,
+    numero: int,
+    *,
+    client: Any,
+    socle: Socle | None = None,
+    sans_reprise: tuple[type[BaseException], ...] = (),
+) -> ChapterGeneration:
+    """Produit un chapitre en RÉESSAYANT. Une seule boucle pour tout le monde.
+
+    ## Pourquoi elle vit ici, et plus dans le runner
+
+    Elle était écrite dans `generation.runner`, et ne servait donc qu'à la
+    PREMIÈRE écriture d'un chapitre. La RÉPARATION — celle qu'un CHECK
+    inter-bloc ou le gate déclenche — appelait `produire_chapitre` une seule
+    fois, sans jamais déclarer de dernière tentative.
+
+    Mesuré le 05/08/2026, génération réelle `4c8cfa53` : trois chapitres écrits,
+    puis le CHECK du bloc B demande une correction du chapitre 3, la correction
+    dépasse le volume du modèle de 22 % pour une tolérance de 15 %, et l'étude
+    entière meurt — 0,43 EUR, aucun document. Une seule tentative, `essais=1`.
+
+    C'est exactement le défaut corrigé le 02/08 pour la première écriture,
+    laissé en place sur le chemin de la réparation. J'avais traité l'instance et
+    pas la classe (règle 4) : ce qui écrit un chapitre et ce qui le RÉÉCRIT
+    doivent avoir les mêmes droits à l'erreur.
+
+    ## La dernière tentative se déclare, elle ne se devine pas
+
+    L'arbitrage de conformité n'accepte un écart de forme que sur la dernière
+    tentative. Il ne peut pas la déduire de `retry_count`, que seul le chemin
+    d'échec incrémente. On le lui dit.
+
+    ## Ce qu'on ne rejoue pas
+
+    L'appelant le déclare (`sans_reprise`) : rejouer un budget dépassé ne fait
+    que dépenser davantage pour le même refus. La liste est fermée du côté du
+    runner ; tout le reste est rejoué, y compris l'imprévu — c'est lui qui coûte
+    le plus cher.
+    """
+    document = type_document(str(job.deliverable_type))
+    derniere_erreur: Exception | None = None
+
+    for tentative in range(1, document.tentatives_max + 1):
+        try:
+            chapitre = produire_chapitre(
+                job, numero, client=client, socle=socle,
+                derniere_tentative=(tentative == document.tentatives_max),
+            )
+        except sans_reprise:
+            raise
+        except Exception as erreur:  # noqa: BLE001 — on rejoue tout le reste
+            derniere_erreur = erreur
+            if tentative < document.tentatives_max:
+                _log.warning(
+                    "Job %s chapitre %s : tentative %s/%s échouée (%s). On rejoue.",
+                    job.id, numero, tentative, document.tentatives_max, erreur,
+                )
+        else:
+            if tentative > 1:
+                _log.warning(
+                    "Job %s chapitre %s : réussi à la tentative %s.",
+                    job.id, numero, tentative,
+                )
+            return chapitre
+
+    assert derniere_erreur is not None
+    raise derniere_erreur
 
 
 def marquer_intervention_requise(

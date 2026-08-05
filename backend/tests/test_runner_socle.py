@@ -83,7 +83,12 @@ def _espionner(monkeypatch: pytest.MonkeyPatch, effet: Any = None) -> list[dict[
 
     monkeypatch.setattr(moteur, "etablir_socle", _faux)
     monkeypatch.setattr(moteur, "socle_verrouille", lambda job: object())
-    monkeypatch.setattr(moteur, "produire_chapitre", _chapitre)
+    # `produire_chapitre` vit dans `chapitres.services`, avec le cycle de vie du
+    # chapitre : la boucle de reprise y a déménagé le 05/08/2026 pour servir la
+    # RÉPARATION autant que la première écriture. Le runner délègue.
+    from generation.chapitres import services as cycle_de_vie
+
+    monkeypatch.setattr(cycle_de_vie, "produire_chapitre", _chapitre)
     return appels
 
 

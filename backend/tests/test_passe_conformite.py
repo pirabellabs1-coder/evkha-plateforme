@@ -403,12 +403,12 @@ def test_le_runner_declare_la_verite_sur_ses_reprises() -> None:
     """
     import inspect
 
-    from generation import runner
+    from generation.chapitres import services
 
-    source = inspect.getsource(runner._produire_avec_reprises)
+    source = inspect.getsource(services.produire_avec_reprises)
 
     assert "derniere_tentative=(tentative == document.tentatives_max)" in source, (
-        "le runner ne calcule pas sa derniere tentative : l'arbitrage sera "
+        "la boucle ne calcule pas sa derniere tentative : l'arbitrage sera "
         "renseigne a tort, dans un sens ou dans l'autre"
     )
 
@@ -427,12 +427,16 @@ def test_le_runner_reessaie_reellement() -> None:
     import inspect
 
     from generation import runner
+    from generation.chapitres import services
 
-    source = inspect.getsource(runner._produire_avec_reprises)
+    source = inspect.getsource(services.produire_avec_reprises)
 
     assert "for tentative in range(1, document.tentatives_max + 1)" in source, (
         "aucune boucle de reprise : le moindre alea detruit l'etude entiere"
     )
-    assert "ERREURS_SANS_REPRISE" in source, (
+    # La liste de ce qu'on ne rejoue PAS est declaree par l'appelant : elle
+    # depend de qui appelle, pas de la boucle. Le runner la passe ; on verifie
+    # donc chez lui, sinon on ne verrouille plus rien.
+    assert "ERREURS_SANS_REPRISE" in inspect.getsource(runner._produire_avec_reprises), (
         "rejouer un budget depasse ne ferait que depenser plus pour le meme refus"
     )

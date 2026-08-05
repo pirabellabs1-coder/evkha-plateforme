@@ -93,7 +93,12 @@ def traces(monkeypatch: pytest.MonkeyPatch) -> _Traces:
         chapitre.content = "# markdown"
         chapitre.save(update_fields=["status", "content", "updated_at"])
 
-    monkeypatch.setattr(moteur, "produire_chapitre", _structure)
+    # `produire_chapitre` vit dans `chapitres.services` — la boucle de reprise y
+    # a demenage le 05/08/2026, pour que la REPARATION d'un chapitre ait les
+    # memes droits a l'erreur que sa premiere ecriture. Le runner delegue.
+    from generation.chapitres import services as cycle_de_vie
+
+    monkeypatch.setattr(cycle_de_vie, "produire_chapitre", _structure)
     monkeypatch.setattr(moteur, "_generate_chapter", _markdown)
     monkeypatch.setattr(moteur, "_inline_qa_repair", lambda c: t.qa.append(c))
     monkeypatch.setattr(

@@ -16,6 +16,17 @@ et **rien ne l'appelle** (règle 8, le défaut de Gamma à l'identique).
 J'ai corrigé les deux premiers en rendant les règles concernées tolérantes.
 C'était traiter deux instances d'un défaut dont la classe est ici : un chemin
 sans reprise transforme le moindre aléa en perte totale (règle 4).
+
+**Mise à jour du 05/08/2026.** La boucle vivait dans `generation.runner`, donc
+sur le seul chemin de la PREMIÈRE écriture. La RÉPARATION d'un chapitre —
+celle qu'un CHECK inter-bloc déclenche — appelait `produire_chapitre` une fois,
+et le run réel `4c8cfa53` est mort là-dessus : trois chapitres écrits, puis
+`essais=1` sur la réparation du chapitre 3. Le même défaut, sur l'autre chemin.
+
+La boucle a donc déménagé dans `chapitres.services`, avec le cycle de vie du
+chapitre, et sert les deux. Ces tests l'éprouvent toujours **par le runner** :
+c'est lui qui déclare ce qu'on ne rejoue pas, et cette déclaration fait partie
+de ce qu'il faut verrouiller.
 """
 from __future__ import annotations
 
@@ -32,16 +43,19 @@ def decor(monkeypatch: Any) -> Any:
     from types import SimpleNamespace
 
     from generation import runner
+    from generation.chapitres import services
 
     appels: list[bool] = []
 
     monkeypatch.setattr(
-        runner, "type_document", lambda _: SimpleNamespace(tentatives_max=3)
+        services, "type_document", lambda _: SimpleNamespace(tentatives_max=3)
     )
 
     job = SimpleNamespace(id="job-essai", deliverable_type="market_study")
     chapitre = SimpleNamespace(chapter_number=7)
-    return SimpleNamespace(job=job, chapitre=chapitre, appels=appels, runner=runner)
+    return SimpleNamespace(
+        job=job, chapitre=chapitre, appels=appels, runner=runner, services=services
+    )
 
 
 def _brancher(monkeypatch: Any, decor: Any, comportement: Any) -> None:
@@ -49,7 +63,7 @@ def _brancher(monkeypatch: Any, decor: Any, comportement: Any) -> None:
         decor.appels.append(derniere_tentative)
         comportement(len(decor.appels))
 
-    monkeypatch.setattr(decor.runner, "produire_chapitre", faux)
+    monkeypatch.setattr(decor.services, "produire_chapitre", faux)
 
 
 # ── La reprise existe et s'arrête au bon moment ──────────────────────────────
@@ -189,9 +203,29 @@ def test_le_plafond_vient_de_la_configuration_du_document() -> None:
     """
     import inspect
 
+    from generation.chapitres import services
+
+    source = inspect.getsource(services.produire_avec_reprises)
+
+    assert "document.tentatives_max" in source
+    assert "range(1, 3" not in source and "range(3)" not in source
+
+
+def test_la_boucle_n_est_ecrite_qu_une_fois() -> None:
+    """Écrire un chapitre et le RÉÉCRIRE doivent suivre le même chemin.
+
+    Deux boucles séparées divergent : c'est arrivé, et ça a coûté une étude.
+    Celle du runner ne servait qu'à la première écriture ; la réparation
+    appelait `produire_chapitre` une seule fois, sans jamais déclarer de
+    dernière tentative. Le runner DÉLÈGUE désormais, il ne recopie pas.
+    """
+    import inspect
+
     from generation import runner
 
     source = inspect.getsource(runner._produire_avec_reprises)
 
-    assert "document.tentatives_max" in source
-    assert "range(1, 3" not in source and "range(3)" not in source
+    assert "produire_avec_reprises" in source
+    assert "for tentative in range" not in source, (
+        "Le runner a de nouveau sa propre boucle : les deux vont diverger."
+    )
