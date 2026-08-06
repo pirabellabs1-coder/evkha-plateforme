@@ -66,6 +66,17 @@ LIBELLES: dict[str, str] = {
     DeliverableType.BUSINESS_STRATEGY.value: "Stratégie d'entreprise",
 }
 
+#: Ce que chaque livrable contient, dans les mots du client.
+#:
+#: Deux des quatre n'en avaient AUCUNE : l'écran « Commander » affichait deux
+#: cartes décrites et deux cartes muettes, réduites à leur titre et à leur coût.
+#: Choisir entre elles supposait de savoir d'avance ce qu'est un business plan
+#: chez EVKHA — c'est-à-dire de ne pas avoir besoin de la page.
+#:
+#: Le nombre de chapitres exclut la « Fiche projet », qui récapitule le brief et
+#: n'est pas un chapitre d'analyse. C'est la convention des deux descriptions
+#: d'origine (23 chapitres au plan pour « 22 » annoncés), et elle est tenue ici
+#: pour les quatre : 22, 9, 21, 20.
 DESCRIPTIONS: dict[str, str] = {
     DeliverableType.MARKET_STUDY.value: (
         "22 chapitres. Dimensionnement du marché, segmentation, concurrence, "
@@ -74,6 +85,14 @@ DESCRIPTIONS: dict[str, str] = {
     DeliverableType.COMPETITOR_STUDY.value: (
         "9 chapitres. Cartographie des acteurs, positionnement, forces et "
         "faiblesses, espace stratégique à prendre."
+    ),
+    DeliverableType.BUSINESS_PLAN.value: (
+        "21 chapitres. Modèle économique, offre, prévisionnel financier, plan "
+        "de financement, organisation et sécurisation des risques."
+    ),
+    DeliverableType.BUSINESS_STRATEGY.value: (
+        "20 chapitres. Positionnement, verticales, architecture d'offre, "
+        "montée en gamme, canaux d'acquisition et feuille de route."
     ),
 }
 

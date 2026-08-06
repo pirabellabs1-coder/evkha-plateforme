@@ -168,8 +168,13 @@ def test_les_etudes_sont_invitees_a_varier_les_formes() -> None:
     """
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
 
-    assert "QUINZE figures" in prompt
-    assert "DIX FORMES DIFFERENTES" in prompt
+    # L'objectif CHIFFRE, pas le mot qui le porte : ce test comparait
+    # « QUINZE figures » et tombait le jour où la cliente a relevé la barre à
+    # dix-sept. Le nombre exact appartient à `test_variete_des_figures`, qui le
+    # vérifie contre le plancher demandé ; ici on tient la propriété qui compte
+    # pour CE fichier — l'ambition est chiffrée, et la variété est réclamée.
+    assert "FORMES DIFFERENTES" in prompt
+    assert "figures" in prompt
     assert "formes l'etude a DEJA employees" in prompt
     # La liste sectorielle n'est PAS dans la charte : elle vient du profil.
     assert "matrice de positionnement" not in prompt

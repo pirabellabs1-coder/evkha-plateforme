@@ -140,16 +140,49 @@ def test_le_prompt_nomme_les_formes_vues_et_celles_qui_restent(job: Any) -> None
     assert "`radar`" in bloc
 
 
+#: Plancher exige par la cliente le 06/08/2026 : « au moins 17 a 25 graphes par
+#: document, c'est une obligation absolue ».
+#:
+#: La charte demande PLUS que ce plancher, et c'est deliberé : mesure du dossier
+#: 9be9a422, quinze figures demandees pour onze rendues. Le rendu refuse
+#: legitimement celles dont la donnee ne se prete pas (unites melangees, radar
+#: sans notes). Viser le plancher exact le manquerait une fois sur deux.
+PLANCHER_CLIENTE = 17
+
+#: Ecrit en toutes lettres dans la charte, parce qu'un modele suit mieux un mot
+#: qu'un chiffre noye dans une phrase.
+NOMBRES_EN_LETTRES = {
+    "QUINZE": 15, "SEIZE": 16, "DIX-SEPT": 17, "DIX-HUIT": 18, "DIX-NEUF": 19,
+    "VINGT": 20, "VINGT-ET-UNE": 21, "VINGT-DEUX": 22, "VINGT-TROIS": 23,
+    "VINGT-QUATRE": 24, "VINGT-CINQ": 25,
+}
+
+
+def _figures_demandees(prompt: str) -> int:
+    """Combien de figures la charte reclame-t-elle, quel que soit le mot employe."""
+    for mot, valeur in NOMBRES_EN_LETTRES.items():
+        if f"{mot} figures" in prompt:
+            return valeur
+    raise AssertionError("la charte ne chiffre plus son objectif de figures")
+
+
 def test_l_objectif_chiffre_est_dit_au_modele() -> None:
     """« Il faut au moins 10 graphes differents […] plus de 15 graphes » — 05/08.
+    Puis « au moins 17 a 25 graphes par document » — 06/08.
 
     Une ambition qui n'est pas chiffree n'en est pas une : la consigne d'avant
     disait « emploie-les », et l'etude en portait deux.
+
+    Le test ne compare plus au MOT « QUINZE » : il lisait la formulation, pas
+    l'exigence, et tombait des que la cliente relevait la barre — en donnant
+    l'impression d'une regression alors que le produit s'ameliorait. Il verifie
+    desormais que la charte chiffre son objectif, et que ce chiffre atteint le
+    plancher demande.
     """
     from generation.prompts import build_system_prompt
 
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
 
-    assert "QUINZE figures" in prompt
-    assert "DIX FORMES DIFFERENTES" in prompt
+    assert _figures_demandees(prompt) >= PLANCHER_CLIENTE
+    assert "FORMES DIFFERENTES" in prompt
     assert "un chapitre sans figure doit etre l'exception" in prompt

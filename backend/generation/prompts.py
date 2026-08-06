@@ -143,10 +143,22 @@ _GRAPHIQUES_MOTEUR_HERITE = (
 _GRAPHIQUES_MOTEUR_STRUCTURE = (
     "\n\nGRAPHIQUES : le catalogue complet et les types pertinents pour CE "
     "secteur te sont donnes avec la consigne du chapitre.\n"
-    "OBJECTIF DE L'ETUDE ENTIERE : au moins QUINZE figures, et au moins DIX "
-    "FORMES DIFFERENTES. C'est une etude illustree, pas un rapport de texte : "
-    "un chapitre sans figure doit etre l'exception, et il faut une raison — "
-    "aucune donnee du socle ne s'y prete.\n"
+    # De QUINZE a VINGT-DEUX, sur demande de la cliente : « au moins 17 a 25
+    # graphes par document, c'est une obligation absolue ».
+    #
+    # On demande VINGT-DEUX pour en obtenir dix-sept. Mesure du 06/08/2026 sur
+    # le dossier 9be9a422 : quinze demandees, onze rendues — les quatre
+    # abandons etant des refus legitimes du rendu (unites melangees, chronologie
+    # sans dates, radar sans notes, matrice sans risques notes). Le taux tenant
+    # autour des trois quarts, viser le plancher exact du client le manquerait
+    # une fois sur deux.
+    "OBJECTIF DE L'ETUDE ENTIERE : au moins VINGT-DEUX figures, et au moins "
+    "DOUZE FORMES DIFFERENTES. C'est une etude illustree, pas un rapport de "
+    "texte : un chapitre sans figure doit etre l'exception, et il faut une "
+    "raison — aucune donnee du socle ne s'y prete.\n"
+    "Vise DEUX figures par chapitre des que deux idees distinctes s'y "
+    "illustrent : c'est ce qui fait la difference entre une etude illustree et "
+    "une etude ou l'on a colle une image par section.\n"
     "Un chapitre qui porte une comparaison, une repartition, une progression "
     "dans le temps, un classement, une evaluation ou un passage d'un perimetre "
     "a un autre APPELLE sa figure. Deux figures dans un meme chapitre sont "
