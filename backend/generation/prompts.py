@@ -140,25 +140,38 @@ _GRAPHIQUES_MOTEUR_HERITE = (
     "apres chaque bloc chart."
 )
 
-_GRAPHIQUES_MOTEUR_STRUCTURE = (
-    "\n\nGRAPHIQUES : le catalogue complet et les types pertinents pour CE "
-    "secteur te sont donnes avec la consigne du chapitre.\n"
-    # De QUINZE a VINGT-DEUX, sur demande de la cliente : « au moins 17 a 25
-    # graphes par document, c'est une obligation absolue ».
-    #
-    # On demande VINGT-DEUX pour en obtenir dix-sept. Mesure du 06/08/2026 sur
-    # le dossier 9be9a422 : quinze demandees, onze rendues — les quatre
-    # abandons etant des refus legitimes du rendu (unites melangees, chronologie
-    # sans dates, radar sans notes, matrice sans risques notes). Le taux tenant
-    # autour des trois quarts, viser le plancher exact du client le manquerait
-    # une fois sur deux.
+#: L'objectif chiffre de figures, en UN SEUL exemplaire.
+#:
+#: Il etait ecrit dans `_GRAPHIQUES_MOTEUR_STRUCTURE` — c'est-a-dire dans
+#: `build_system_prompt`, que SEUL le moteur herite envoie (`runner.py:462`).
+#: Le moteur structure, le seul qui rende des figures, envoie `_SYSTEME` et le
+#: bloc visuels de `chapitres/runner.py` : l'objectif ne lui parvenait JAMAIS.
+#:
+#: C'est le motif Gamma, une fois de plus (regle 8) : une exigence ecrite,
+#: testee — et jamais transmise a qui devait l'appliquer. Les onze figures sur
+#: quinze demandees du dossier 9be9a422 s'expliquent d'autant mieux que les
+#: quinze n'ont jamais ete demandees au modele : elles venaient du seul
+#: entrainement du profil sectoriel.
+#:
+#: Les deux chartes lisent desormais CE bloc (regle 5). Le quota vient de la
+#: cliente : « au moins 17 a 25 graphes par document, obligation absolue » —
+#: on demande vingt-deux pour en obtenir dix-sept, le rendu refusant
+#: legitimement les figures dont la donnee ne se prete pas (taux mesure : onze
+#: rendues pour quinze demandees).
+OBJECTIF_FIGURES_TEXTE = (
     "OBJECTIF DE L'ETUDE ENTIERE : au moins VINGT-DEUX figures, et au moins "
     "DOUZE FORMES DIFFERENTES. C'est une etude illustree, pas un rapport de "
     "texte : un chapitre sans figure doit etre l'exception, et il faut une "
     "raison — aucune donnee du socle ne s'y prete.\n"
     "Vise DEUX figures par chapitre des que deux idees distinctes s'y "
-    "illustrent : c'est ce qui fait la difference entre une etude illustree et "
-    "une etude ou l'on a colle une image par section.\n"
+    "illustrent : c'est ce qui fait la difference entre une etude illustree "
+    "et une etude ou l'on a colle une image par section."
+)
+
+_GRAPHIQUES_MOTEUR_STRUCTURE = (
+    "\n\nGRAPHIQUES : le catalogue complet et les types pertinents pour CE "
+    "secteur te sont donnes avec la consigne du chapitre.\n"
+    + OBJECTIF_FIGURES_TEXTE + "\n"
     "Un chapitre qui porte une comparaison, une repartition, une progression "
     "dans le temps, un classement, une evaluation ou un passage d'un perimetre "
     "a un autre APPELLE sa figure. Deux figures dans un meme chapitre sont "

@@ -327,10 +327,19 @@ def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
                if libres else
                "Toutes ont servi : reprends alors celle qui sert le mieux CE propos.")
         )
+    # L'objectif chiffre vient de `prompts.OBJECTIF_FIGURES_TEXTE`, et c'est le
+    # SEUL endroit du chemin structure qui le transmet. Il vivait exclusivement
+    # dans `build_system_prompt` — que seul le moteur herite envoie : le moteur
+    # qui rend les figures n'a donc JAMAIS recu l'objectif « quinze figures »
+    # d'hier. Les onze figures du dossier 9be9a422 venaient du seul profil
+    # sectoriel. Motif Gamma, encore (regle 8) : ecrit, teste, jamais transmis.
+    from ..prompts import OBJECTIF_FIGURES_TEXTE  # noqa: PLC0415
+
     return (
         "VISUELS — un graphique ne porte AUCUNE valeur : il porte des "
         "identifiants du socle, résolus au rendu. Un identifiant absent du "
         "socle fait abandonner la figure entière.\n\n"
+        + OBJECTIF_FIGURES_TEXTE + "\n\n"
         "Types disponibles :\n" + resume_catalogue() + "\n\n"
         + secteurs.consigne_visuelle(profil)
         + memoire

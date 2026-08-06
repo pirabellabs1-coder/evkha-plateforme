@@ -140,6 +140,40 @@ def test_le_prompt_nomme_les_formes_vues_et_celles_qui_restent(job: Any) -> None
     assert "`radar`" in bloc
 
 
+@pytest.mark.django_db
+def test_l_objectif_chiffre_atteint_le_moteur_qui_rend_les_figures(job: Any) -> None:
+    """LE test de la journee sur ce fichier — motif Gamma, encore (regle 8).
+
+    L'objectif « quinze figures » vivait dans `build_system_prompt`, que SEUL
+    le moteur herite envoie. Le moteur structure — le seul qui rende des
+    figures — envoyait son propre systeme et un bloc visuels sans objectif :
+    l'exigence etait ecrite, testee (par le test ci-dessous), et jamais
+    transmise a qui devait l'appliquer. Les onze figures du dossier 9be9a422
+    venaient du seul profil sectoriel.
+
+    Ce test lit le bloc que le chemin structure envoie REELLEMENT, pas la
+    charte du chemin herite : c'est la difference entre tester la formulation
+    et tester la transmission (regle 7, transposee au prompt).
+    """
+    from datetime import date
+
+    from generation.chapitres.runner import _bloc_visuels
+    from generation.socle.schema import Socle, Zone
+
+    bloc = _bloc_visuels(
+        Socle(
+            secteur="joaillerie de créateurs",
+            zone=Zone(pays="France"),
+            date_socle=date(2026, 8, 6),
+        ),
+        job,
+        numero=3,
+    )
+
+    assert _figures_demandees(bloc) >= PLANCHER_CLIENTE
+    assert "FORMES DIFFERENTES" in bloc
+
+
 #: Plancher exige par la cliente le 06/08/2026 : « au moins 17 a 25 graphes par
 #: document, c'est une obligation absolue ».
 #:
