@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, GenerationJob
@@ -58,6 +58,53 @@ class ChapitreInvalideError(RuntimeError):
 
 def schema_outil() -> dict[str, Any]:
     return ChapitrePayload.model_json_schema()
+
+
+def _motif_de_validation(item: Mapping[str, Any]) -> str:
+    """Motif de refus qui dit ce qui est ATTENDU, pas seulement ce qui est refusé.
+
+    Pydantic écrit « intitulo : Extra inputs are not permitted ». Ce motif part
+    au modèle sous « TENTATIVE PRÉCÉDENTE REFUSÉE » et lui demande de deviner le
+    nom qu'il aurait dû écrire.
+
+    Mesuré le 05/08/2026, génération réelle `5ed4f03f` : le modèle a répété la
+    même faute de frappe TROIS fois de suite, et l'étude est morte au chapitre
+    18 pour 2,10 EUR. Un motif qui ne dit pas quoi corriger ne corrige rien
+    (règle 2).
+
+    On y ajoute donc les champs admis à cet emplacement. La liste vient du
+    modèle lui-même, jamais d'une copie : elle suivra le contrat sans que
+    personne y pense.
+    """
+    emplacement = ".".join(str(part) for part in item.get("loc", ()))
+    message = str(item.get("msg", ""))
+    if item.get("type") != "extra_forbidden":
+        return f"{emplacement} : {message}"
+
+    modele = _modele_de_l_emplacement(item.get("loc", ()))
+    if modele is None:
+        return f"{emplacement} : {message}"
+    admis = ", ".join(
+        sorted(champ.alias or nom for nom, champ in modele.model_fields.items())
+    )
+    return f"{emplacement} : {message}. Champs admis ici : {admis}."
+
+
+def _modele_de_l_emplacement(loc: Sequence[Any]) -> type[BaseModel] | None:
+    """Le modèle qui refuse la clé, déduit du chemin d'erreur de Pydantic.
+
+    Le chemin d'un bloc discriminé ressemble à
+    `('blocs', 4, 'titre_sous_section', 'intitulo')` : l'avant-dernier élément
+    nomme le variant. On s'appuie sur le discriminant plutôt que sur une table
+    de correspondance, qui divergerait au premier bloc ajouté (règle 5).
+    """
+    from .schema import BLOC_PAR_TYPE  # noqa: PLC0415
+
+    for part in reversed(list(loc)[:-1]):
+        modele = BLOC_PAR_TYPE.get(str(part))
+        if modele is not None:
+            return modele
+    return None
 
 
 def _bloc_socle(socle: Socle) -> str:
@@ -395,10 +442,7 @@ def generer_chapitre(
     try:
         payload = ChapitrePayload.model_validate(dict(resultat.payload))
     except ValidationError as erreur:
-        motifs = [
-            f"{'.'.join(str(p) for p in item['loc'])} : {item['msg']}"
-            for item in erreur.errors()[:12]
-        ]
+        motifs = [_motif_de_validation(item) for item in erreur.errors()[:12]]
         raise ChapitreInvalideError(motifs) from erreur
 
     # Reparer AVANT de juger : un resume trop long est ramene dans sa borne,

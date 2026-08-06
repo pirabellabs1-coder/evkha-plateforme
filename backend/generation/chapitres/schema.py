@@ -10,11 +10,124 @@ socle, résolus au rendu.
 """
 from __future__ import annotations
 
+import logging
 import re
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
+
+_log = logging.getLogger(__name__)
+
+
+def _differe_d_un_signe(a: str, b: str) -> bool:
+    """`a` et `b` ne diffèrent-ils que d'une insertion, suppression ou substitution ?
+
+    Distance d'édition bornée à un, écrite explicitement plutôt qu'empruntée à
+    une similarité floue : un seuil de ressemblance se règle au jugé et dérive.
+    « à un signe près » se raisonne, se teste, et ne rapproche jamais deux mots
+    réellement distincts.
+    """
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) > len(b):
+        a, b = b, a
+    i = j = 0
+    ecart = False
+    while i < len(a) and j < len(b):
+        if a[i] == b[j]:
+            i += 1
+            j += 1
+            continue
+        if ecart:
+            return False
+        ecart = True
+        if len(a) == len(b):
+            i += 1
+        j += 1
+    return True
+
+
+def rapprocher_les_cles(valeurs: Any, modele: type[BaseModel]) -> Any:
+    """Rattache une clé inconnue au champ dont elle ne diffère que d'un signe.
+
+    ## Le défaut
+
+    Génération réelle `5ed4f03f`, 05/08/2026 : le modèle a écrit `intitulo` au
+    lieu de `intitule` dans un titre de sous-section. Le contrat refuse les
+    champs inconnus — à raison, c'est ce qui empêche un chapitre d'inventer sa
+    structure — et l'étude est morte au chapitre 18, après **trois tentatives
+    identiques** et 2,10 EUR, sur une faute de frappe d'une lettre.
+
+    Trois fois la même : la reprise ne sauve pas ce cas, parce que le refus
+    arrive à la validation du schéma, avant l'arbitrage de conformité. Et le
+    motif rendu au modèle — « intitulo : Extra inputs are not permitted » —
+    dit ce qui est refusé sans dire ce qui est attendu.
+
+    ## Pourquoi accepter, et jusqu'où
+
+    Une clé à un signe d'un champ connu ne porte aucune ambiguïté sur
+    l'intention : c'est du TRANSPORT, pas du fond. Le geste est le même que
+    `depuis_ancien_format` et que la forme aplatie des blocs — accepter une
+    autre écriture du même contenu sans créer une seconde vérité.
+
+    Ce qui reste refusé, et doit l'être : une clé qui ne ressemble à rien de
+    connu, et une clé qui ressemble à DEUX champs à la fois. Dans les deux cas
+    l'intention est incertaine, et deviner reviendrait à ranger du contenu
+    sous un champ qui n'est pas le sien. Le contrat refuse alors, comme avant.
+
+    On ne recouvre jamais une clé déjà présente : si le modèle a écrit les
+    deux, la valeur juste est celle qu'il a nommée juste.
+    """
+    if not isinstance(valeurs, dict):
+        return valeurs
+    attendus = {
+        champ.alias or nom for nom, champ in modele.model_fields.items()
+    } | set(modele.model_fields)
+    inconnues = [cle for cle in valeurs if cle not in attendus]
+    if not inconnues:
+        return valeurs
+
+    corrige = dict(valeurs)
+    for cle in inconnues:
+        candidats = [
+            attendu for attendu in attendus
+            if _differe_d_un_signe(str(cle), attendu)
+        ]
+        if len(candidats) != 1:
+            continue
+        cible = candidats[0]
+        if cible in corrige:
+            # Le modèle a écrit les DEUX. La valeur juste est celle qu'il a
+            # nommée juste ; l'autre est un doublon dont on ne peut rien dire.
+            # On l'écarte plutôt que de laisser tomber le chapitre entier — et
+            # on le DIT, parce qu'écarter du contenu en silence est le défaut
+            # que ce dépôt paie le plus cher (règle 1).
+            _log.warning(
+                "Contrat %s : clé « %s » écartée, « %s » est déjà renseigné.",
+                modele.__name__, cle, cible,
+            )
+            corrige.pop(cle)
+            continue
+        corrige[cible] = corrige.pop(cle)
+    return corrige
+
+
+class SortieDeChapitre(BaseModel):
+    """Base des modèles du contrat : champs inconnus refusés, typos rattrapées.
+
+    Le refus des champs inconnus est la garantie centrale du contrat — sans
+    lui, un chapitre inventerait sa structure. Le rattrapage d'un signe ne
+    l'affaiblit pas : il ne crée aucun champ, il en renomme un dont
+    l'intention est certaine.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accepter_une_typo(cls, valeurs: Any) -> Any:
+        return rapprocher_les_cles(valeurs, cls)
 
 
 class TypeGraphique(StrEnum):
@@ -51,7 +164,7 @@ class TypeGraphique(StrEnum):
     CHRONOLOGIE = "chronologie"
 
 
-class Tableau(BaseModel):
+class Tableau(SortieDeChapitre):
     """Tableau de données porté par une section.
 
     Ajouté au lot 3. Le contrat initial ne prévoyait qu'un champ `contenu` en
@@ -88,7 +201,7 @@ class Tableau(BaseModel):
         return self
 
 
-class Section(BaseModel):
+class Section(SortieDeChapitre):
     model_config = {"extra": "forbid"}
 
     titre: str = Field(min_length=1, max_length=220)
@@ -98,7 +211,7 @@ class Section(BaseModel):
     tableau: Tableau | None = None
 
 
-class Graphique(BaseModel):
+class Graphique(SortieDeChapitre):
     """Demande de visuel. Ne porte AUCUNE valeur, seulement des identifiants.
 
     ## Pourquoi le champ s'appelle `type_graphique` dans le contrat
@@ -128,7 +241,7 @@ class Graphique(BaseModel):
     commentaire: str = ""
 
 
-class Encadre(BaseModel):
+class Encadre(SortieDeChapitre):
     """Encadré de synthèse fermant une analyse.
 
     C'est l'élément le plus répété du livrable de référence : une occurrence par
@@ -154,7 +267,7 @@ class Encadre(BaseModel):
     lignes: list[str] = Field(min_length=1, max_length=6)
 
 
-class CelluleKpi(BaseModel):
+class CelluleKpi(SortieDeChapitre):
     """Un chiffre clé : la valeur, ce qu'elle mesure, d'où elle vient."""
 
     model_config = {"extra": "forbid"}
@@ -164,7 +277,7 @@ class CelluleKpi(BaseModel):
     source: str = ""
 
 
-class BlocSousTitre(BaseModel):
+class BlocSousTitre(SortieDeChapitre):
     """Titre de sous-section : « 1.1 Deux périmètres à ne pas confondre »."""
 
     model_config = {"extra": "forbid"}
@@ -174,7 +287,7 @@ class BlocSousTitre(BaseModel):
     intitule: str = Field(min_length=1, max_length=220)
 
 
-class BlocParagraphe(BaseModel):
+class BlocParagraphe(SortieDeChapitre):
     model_config = {"extra": "forbid"}
 
     type: Literal["paragraphe"] = "paragraphe"
@@ -215,15 +328,25 @@ def _renester(valeurs: Any, cle: str, modele: type[BaseModel]) -> Any:
         champ.alias or nom
         for nom, champ in modele.model_fields.items()
     }
-    interieur = {nom: valeur for nom, valeur in valeurs.items() if nom in noms}
+
+    def _appartient(candidat: str) -> bool:
+        # « à un signe près » vaut ici AUSSI : sans quoi une clé aplatie ET
+        # mal orthographiée resterait dehors, le bloc serait re-niché sans
+        # elle, et le contrat la refuserait — le chapitre mourrait pour la
+        # combinaison de deux écarts que l'on sait chacun rattraper.
+        return any(nom == candidat or _differe_d_un_signe(candidat, nom) for nom in noms)
+
+    interieur = {nom: valeur for nom, valeur in valeurs.items() if _appartient(str(nom))}
     if not interieur:
         return valeurs
-    dehors = {nom: valeur for nom, valeur in valeurs.items() if nom not in noms}
+    dehors = {
+        nom: valeur for nom, valeur in valeurs.items() if not _appartient(str(nom))
+    }
     dehors[cle] = interieur
     return dehors
 
 
-class BlocTableau(BaseModel):
+class BlocTableau(SortieDeChapitre):
     model_config = {"extra": "forbid"}
 
     type: Literal["tableau"] = "tableau"
@@ -235,7 +358,7 @@ class BlocTableau(BaseModel):
         return _renester(valeurs, "tableau", Tableau)
 
 
-class BlocEncadre(BaseModel):
+class BlocEncadre(SortieDeChapitre):
     model_config = {"extra": "forbid"}
 
     type: Literal["encadre"] = "encadre"
@@ -247,7 +370,7 @@ class BlocEncadre(BaseModel):
         return _renester(valeurs, "encadre", Encadre)
 
 
-class BlocGraphique(BaseModel):
+class BlocGraphique(SortieDeChapitre):
     model_config = {"extra": "forbid"}
 
     type: Literal["graphique"] = "graphique"
@@ -259,7 +382,7 @@ class BlocGraphique(BaseModel):
         return _renester(valeurs, "graphique", Graphique)
 
 
-class BlocGrilleKpi(BaseModel):
+class BlocGrilleKpi(SortieDeChapitre):
     """Rangée de chiffres clés. Le modèle en aligne trois par rangée."""
 
     model_config = {"extra": "forbid"}
@@ -274,6 +397,17 @@ Bloc = Annotated[
     | BlocGrilleKpi,
     Field(discriminator="type"),
 ]
+
+#: Le variant derrière chaque valeur du discriminant. Dérivé de l'union, jamais
+#: recopié : une table écrite à la main divergerait au premier bloc ajouté
+#: (règle 5). Sert au motif de refus, qui doit nommer les champs admis.
+BLOC_PAR_TYPE: dict[str, type[SortieDeChapitre]] = {
+    str(modele.model_fields["type"].default): modele
+    for modele in (
+        BlocSousTitre, BlocParagraphe, BlocTableau, BlocEncadre,
+        BlocGraphique, BlocGrilleKpi,
+    )
+}
 
 
 def depuis_ancien_format(valeurs: dict[str, Any]) -> dict[str, Any]:
@@ -323,7 +457,7 @@ def depuis_ancien_format(valeurs: dict[str, Any]) -> dict[str, Any]:
     return converti
 
 
-class ChapitrePayload(BaseModel):
+class ChapitrePayload(SortieDeChapitre):
     """Sortie structurée d'un chapitre : une SUITE ORDONNÉE de blocs.
 
     L'ordre EST le contrat. Le modèle de référence décrit, chapitre par
