@@ -24,6 +24,14 @@
  */
 import { useId, useState } from "react";
 import { CHROME, couleurSerie } from "./palette";
+import { depuisLaPremiereDonnee, type Serie } from "./series";
+
+// Ré-exporté pour les appelants qui l'importaient déjà d'ici. Le TYPE vit
+// désormais dans `series.ts`, avec la fonction qui le manipule : deux
+// définitions du même contrat finissent par diverger (règle 5). Un `export
+// type` est effacé à la compilation et ne gêne pas le rafraîchissement à chaud,
+// contrairement à une fonction.
+export type { Serie };
 
 // ── Utilitaires ─────────────────────────────────────────────────────────────
 
@@ -38,12 +46,6 @@ function graduations(maximum: number, nombre = 4): number[] {
 }
 
 const fr = new Intl.NumberFormat("fr-FR");
-
-export interface Serie {
-  cle: string;
-  libelle: string;
-  valeurs: number[];
-}
 
 // ── Légende ─────────────────────────────────────────────────────────────────
 
@@ -121,8 +123,8 @@ export function TableauDeDonnees({
 // ── Colonnes groupées ───────────────────────────────────────────────────────
 
 export function Colonnes({
-  abscisses,
-  series,
+  abscisses: abscissesRecues,
+  series: seriesRecues,
   hauteur = 240,
   unite = "",
 }: {
@@ -133,6 +135,16 @@ export function Colonnes({
 }) {
   const [survol, setSurvol] = useState<number | null>(null);
   const identifiant = useId();
+
+  // La série commence à sa première donnée, pas au bord de la fenêtre.
+  // Appliqué ICI plutôt que chez chaque appelant : le défaut tient à la forme
+  // des données — douze mois toujours rendus —, pas à un écran en particulier,
+  // et le corriger écran par écran laisserait le prochain graphique le
+  // réintroduire (règle 4).
+  const { abscisses, series } = depuisLaPremiereDonnee(
+    abscissesRecues,
+    seriesRecues,
+  );
 
   const largeur = 720;
   const marge = { haut: 16, droite: 12, bas: 34, gauche: 44 };

@@ -32,6 +32,14 @@ export function DefinirMotDePasse() {
   const [motDePasse, setMotDePasse] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [erreur, setErreur] = useState("");
+  // Le CODE du refus, en plus de son message.
+  //
+  // Il était jeté, si bien que l'écran ne pouvait distinguer un lien périmé
+  // d'un mot de passe trop faible qu'en cherchant « plus valable » dans la
+  // phrase. `RefusInscription` porte pourtant un code depuis toujours, et son
+  // commentaire dit précisément pourquoi : « un texte que l'on compare finit
+  // toujours par être reformulé ».
+  const [codeErreur, setCodeErreur] = useState("");
   const [envoi, setEnvoi] = useState(false);
 
   // Lus dans l'URL et non dans un état de route : la personne arrive depuis sa
@@ -45,6 +53,7 @@ export function DefinirMotDePasse() {
   async function soumettre(evenement: React.FormEvent) {
     evenement.preventDefault();
     setErreur("");
+    setCodeErreur("");
 
     // Vérifié ici ET côté serveur pour la solidité du mot de passe ; la
     // concordance des deux saisies, elle, n'a de sens que devant l'écran.
@@ -63,11 +72,16 @@ export function DefinirMotDePasse() {
       sessionJeton.ecrire(session.jeton);
       void naviguer({ to: "/espace" });
     } catch (cause) {
-      setErreur(
-        cause instanceof RefusInscription
-          ? cause.message
-          : "Impossible de définir le mot de passe. Vérifiez votre réseau.",
-      );
+      if (cause instanceof RefusInscription) {
+        setErreur(cause.message);
+        setCodeErreur(cause.code);
+      } else {
+        // Panne réseau : aucun code, parce que le serveur n'a rien dit. Le
+        // laisser vide est ce qui empêche d'offrir « Demander un nouveau
+        // lien » à quelqu'un dont le lien est parfaitement valable.
+        setErreur("Impossible de définir le mot de passe. Vérifiez votre réseau.");
+        setCodeErreur("");
+      }
     } finally {
       setEnvoi(false);
     }
@@ -117,8 +131,13 @@ export function DefinirMotDePasse() {
               <p className="insc-erreur" role="alert">
                 {erreur}
                 {/* Un lien périmé est le cas le plus fréquent : on nomme la
-                    sortie au lieu de laisser la personne chercher. */}
-                {erreur.includes("plus valable") && (
+                    sortie au lieu de laisser la personne chercher.
+                    Sur le CODE et non sur la phrase — la comparer à
+                    « plus valable » rendait cette branche muette dès que le
+                    serveur reformulait son message. Elle l'a été plus
+                    longtemps encore : `donnees.ts` lisait la mauvaise clé, si
+                    bien qu'aucun message du serveur n'arrivait jamais ici. */}
+                {codeErreur === "lien_invalide" && (
                   <>
                     {" "}
                     <a href="/mot-de-passe-oublie">Demander un nouveau lien</a>
