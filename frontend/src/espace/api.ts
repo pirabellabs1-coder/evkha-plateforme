@@ -91,6 +91,13 @@ async function appel<T>(chemin: string, options: RequestInit = {}): Promise<T> {
 export type Role = "proprietaire" | "membre" | "lecture";
 
 export interface Moi {
+  /** La porte est-elle ouverte ? Décision du SERVEUR, jamais recalculée ici.
+   *
+   *  Tentant de l'inférer de `abonnement === null` — et faux : une organisation
+   *  résiliée qui a encore des crédits ACHETÉS n'a pas d'abonnement actif et
+   *  garde pourtant l'accès, ces crédits étant pérennes. L'interface lui aurait
+   *  présenté un mur de paiement pour un service déjà payé. */
+  acces_ouvert: boolean;
   utilisateur: {
     email: string;
     prenom: string;
@@ -382,6 +389,16 @@ export const espaceApi = {
   livrables: () => appel<{ livrables: Livrable[] }>("/livrables/"),
   formules: () =>
     appel<{ code_actuel: string; formules: FormuleOffre[] }>("/formules/"),
+  /** Ouvre le paiement d'une formule et rend l'adresse Stripe où aller payer.
+   *
+   *  On n'envoie qu'un CODE. Le montant est celui du tarif Stripe rattaché à
+   *  la formule côté serveur : rien de ce que cette page transmet ne fixe un
+   *  prix. */
+  ouvrirLePaiement: (formule: string) =>
+    appel<{ adresse: string }>("/paiement/", {
+      method: "POST",
+      body: JSON.stringify({ formule }),
+    }),
   demandes: () => appel<{ demandes: Demande[] }>("/demandes/"),
   creerDemande: (corps: {
     type: TypeDemande;

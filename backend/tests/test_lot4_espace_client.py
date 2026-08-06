@@ -42,6 +42,7 @@ from organisations.models import (
     Organisation,
     RoleOrganisation,
 )
+from tests.aides_abonnement import abonner
 
 pytestmark = pytest.mark.django_db
 
@@ -56,6 +57,9 @@ class Agence:
         self.organisation = services.creer_organisation(
             raison_sociale=nom, contact=self.contact
         )
+        # L'espace est fermé à qui n'a rien payé : sans abonnement, chaque vue
+        # répondrait 402. Aucun crédit versé, le solde reste à zéro.
+        abonner(self.organisation)
         if role != RoleOrganisation.PROPRIETAIRE:
             membre = MembreOrganisation.objects.get(
                 organisation=self.organisation, customer=self.contact

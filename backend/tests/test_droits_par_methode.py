@@ -22,6 +22,7 @@ from typing import Any
 import pytest
 
 from organisations import inscription
+from tests.aides_abonnement import abonner
 
 pytestmark = pytest.mark.django_db
 
@@ -43,6 +44,9 @@ def lecteur() -> str:
         mot_de_passe=MOT_DE_PASSE,
         activer_abonnement=False,
     ).organisation
+    # L'espace est fermé à qui n'a rien payé : sans abonnement, chaque vue
+    # répondrait 402. Aucun crédit versé, le solde reste à zéro.
+    abonner(organisation)
 
     observateur = Customer.objects.create(email=LECTEUR)
     services.inviter_membre(

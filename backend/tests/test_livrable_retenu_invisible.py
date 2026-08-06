@@ -24,6 +24,7 @@ from typing import Any
 import pytest
 
 from organisations import inscription, suivi
+from tests.aides_abonnement import abonner
 
 pytestmark = pytest.mark.django_db
 
@@ -45,6 +46,9 @@ def dossier() -> Any:
         mot_de_passe="un-mot-de-passe-solide-42",
         activer_abonnement=False,
     ).organisation
+    # L'espace est fermé à qui n'a rien payé : sans abonnement, chaque vue
+    # répondrait 402. Aucun crédit versé, le solde reste à zéro.
+    abonner(organisation)
 
     offre = Offer.objects.create(
         name="Étude de marché",

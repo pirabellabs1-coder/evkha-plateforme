@@ -25,6 +25,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from paiement import stripe_api as paiement_stripe
 
 from customers.models import Customer
 from generation.models import GenerationJob, JobStatus
@@ -49,11 +50,13 @@ from .authentification import (
     revoquer_tous_les_jetons,
 )
 from .models import (
+    AbonnementOrganisation,  # noqa: F401 — type de retour de `abonnement_actif`
     CategorieFichier,
     ClientFinal,
     DemandeCommerciale,
     Formule,
     MembreOrganisation,
+    MouvementCredit,
     Organisation,
     PieceJointe,
     RoleOrganisation,
@@ -81,7 +84,62 @@ def _refus(message: str, code: str, statut: int) -> JsonResponse:
 METHODES_SURES = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
-def espace(action: str = "", *, ecriture: str = "") -> Callable[..., Any]:
+def abonnement_actif(organisation: Organisation) -> AbonnementOrganisation | None:
+    """L'abonnement actif de cette organisation, s'il y en a un.
+
+    Une seule fonction pour la garde ET pour l'affichage (`moi`, `formules`) :
+    deux facons de repondre a « cette organisation a-t-elle un abonnement ? »
+    finiraient par ne pas etre d'accord, et le desaccord se lirait comme un
+    espace ferme qui s'annonce ouvert (regle 5).
+    """
+    return (
+        organisation.abonnements.select_related("formule")
+        .filter(statut=StatutAbonnement.ACTIF)
+        .first()
+    )
+
+
+def acces_ouvert(organisation: Organisation) -> bool:
+    """Cette organisation a-t-elle droit à son espace ?
+
+    **Ce n'est pas « a-t-elle un abonnement actif ».** J'ai commencé par écrire
+    cela, et 90 tests l'ont démenti d'un coup — à raison. Deux cas légitimes
+    tombaient :
+
+    - une organisation **résiliée** qui a encore des crédits ACHETÉS. Ceux-là
+      sont pérennes par construction (`credits.detail_solde`), et lui fermer la
+      porte reviendrait à encaisser un achat puis à en interdire l'usage ;
+    - une organisation **dotée à la main** depuis l'administration — geste
+      commercial, dépannage, compte de démonstration — qui n'a jamais eu de
+      formule.
+
+    Le critère juste n'est pas l'abonnement du jour, c'est : **quelqu'un a-t-il
+    décidé que cette organisation reçoive quelque chose ?** Or un crédit n'entre
+    dans un portefeuille que par deux portes, toutes deux volontaires : une
+    souscription payée, ou un geste d'administration. Un mouvement, quel qu'il
+    soit, prouve donc qu'une décision a été prise.
+
+    Restent les deux clauses ci-dessous, et elles posent deux questions
+    différentes — « paie-t-elle aujourd'hui ? » et « a-t-elle jamais reçu
+    quelque chose ? ». La première seule fermerait la porte aux résiliés ; la
+    seconde seule la fermerait à un abonné dont la formule ne dote rien
+    (`credits_par_echeance = 0`) ou dont la première échéance n'est pas encore
+    tombée.
+
+    Ce qu'aucune des deux ne laisse passer, c'est exactement le cas visé : un
+    compte créé par le formulaire public, qui n'a rien payé et à qui personne
+    n'a rien accordé.
+    """
+    if abonnement_actif(organisation) is not None:
+        return True
+    return MouvementCredit.objects.filter(
+        portefeuille__organisation=organisation
+    ).exists()
+
+
+def espace(
+    action: str = "", *, ecriture: str = "", sans_abonnement: bool = False
+) -> Callable[..., Any]:
     """Résout le membre et son organisation depuis le jeton, puis vérifie le droit.
 
     La vue décorée reçoit `(request, membre, organisation, ...)`. Elle n'a aucun
@@ -103,6 +161,22 @@ def espace(action: str = "", *, ecriture: str = "") -> Callable[..., Any]:
     pas distinguer une lecture d'une écriture (règle 4). `test_droits_par_methode`
     verrouille désormais la propriété : aucune vue de l'espace n'accepte
     d'écriture sans droit d'écriture.
+
+    **`sans_abonnement` ferme l'espace à qui n'a pas payé.** Jusqu'ici la garde
+    n'exigeait qu'un jeton, une adhésion et un rôle : n'importe qui obtenait, en
+    une requête au formulaire public, un accès complet et permanent sans qu'un
+    centime soit encaissé. Ce qui retenait un compte non payé n'était pas une
+    barrière, c'était un solde à zéro — une propriété tenue par un seul booléen,
+    `activer_abonnement=False`. Le renverser, ou ajouter un appelant à
+    `ouvrir_compte` qui l'oublierait, livrait des études gratuites sans qu'aucune
+    couche ne s'en aperçoive.
+
+    La renonciation est **déclarée à la vue**, pas tenue dans une liste de noms
+    ailleurs : une liste centrale s'oublie au moment où l'on ajoute une route,
+    et l'oubli y est silencieux dans le sens dangereux. Ici l'oubli ferme, il
+    n'ouvre pas. Quatre vues seulement y renoncent, et
+    `test_barriere_de_paiement` vérifie que ce sont bien celles-là — le jour où
+    une cinquième apparaît, le test le dit.
     """
 
     def decorateur(vue: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
@@ -129,10 +203,23 @@ def espace(action: str = "", *, ecriture: str = "") -> Callable[..., Any]:
                 return _refus(
                     f"Votre rôle ne permet pas l'action « {exige} ».", "interdit", 403
                 )
+
+            # 402 « Payment Required » et non 403 : le refus n'est pas un
+            # manque de droit, c'est un abonnement à activer. L'interface
+            # distingue les deux — un 403 la ferait écrire « votre rôle ne
+            # permet pas », ce qui enverrait chercher un administrateur au lieu
+            # du paiement.
+            if not sans_abonnement and not acces_ouvert(membre.organisation):
+                return _refus(
+                    "Votre souscription n'est pas encore active.",
+                    "souscription_requise",
+                    402,
+                )
             return vue(request, membre, membre.organisation, *args, **kwargs)
 
         enveloppe.action_lecture = action  # type: ignore[attr-defined]
         enveloppe.action_ecriture = ecriture  # type: ignore[attr-defined]
+        enveloppe.sans_abonnement = sans_abonnement  # type: ignore[attr-defined]
         return enveloppe
 
     return decorateur
@@ -243,7 +330,10 @@ def deconnexion(request: HttpRequest) -> HttpResponse:
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace()
+# Sans abonnement : changer son mot de passe est le recours de quelqu'un dont
+# le jeton a fuité. Le subordonner au paiement ferait dépendre une mesure de
+# sécurité d'une question comptable.
+@espace(sans_abonnement=True)
 def changer_mot_de_passe(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -301,16 +391,15 @@ def authentification_ouvrir(compte: Any) -> str:
 
 
 @require_http_methods(["GET"])
-@espace()
+# Sans abonnement : c'est précisément la vue qui apprend à l'interface qu'il
+# n'y en a pas. La fermer renverrait 402 à la requête chargée de découvrir
+# le 402, et l'espace n'afficherait rien du tout.
+@espace(sans_abonnement=True)
 def moi(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
     """Tout ce dont l'interface a besoin au chargement : identité, rôle, solde, formule."""
-    abonnement = (
-        organisation.abonnements.select_related("formule")
-        .filter(statut=StatutAbonnement.ACTIF)
-        .first()
-    )
+    abonnement = abonnement_actif(organisation)
     # Souscription demandee mais pas encore activee. Sans elle, quelqu'un qui
     # vient de s'inscrire depuis la page partenaires lit « Contactez EVKHA pour
     # souscrire » — exactement ce qu'il vient de faire — et croit son
@@ -323,6 +412,13 @@ def moi(
     )
     disponible = credits.solde(organisation)
     return JsonResponse({
+        # LA décision de la garde, telle quelle. L'interface ne la rejoue pas :
+        # elle en déduirait « pas d'abonnement, donc payer », ce qui afficherait
+        # un mur de paiement à un résilié qui a encore des crédits ACHETÉS — et
+        # que le serveur, lui, laisse entrer. Deux réponses à la même question
+        # finissent toujours par diverger (règle 5) ; celle-ci décide de ce que
+        # le client voit, donc elle vient d'un seul endroit.
+        "acces_ouvert": acces_ouvert(organisation),
         "utilisateur": {
             "email": membre.customer.email,
             "prenom": membre.customer.first_name,
@@ -780,8 +876,10 @@ def livrables(
 # ── Formules et demandes commerciales ────────────────────────────────────────
 
 
+# Sans abonnement : c'est le catalogue qu'il faut lire POUR souscrire. Le
+# fermer à qui n'a pas payé demanderait de payer avant de savoir quoi payer.
 @require_http_methods(["GET"])
-@espace()
+@espace(sans_abonnement=True)
 def formules(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -791,11 +889,7 @@ def formules(
     entre deux champs de la formule. Le mémoriser en ferait une troisième
     valeur susceptible de contredire les deux autres (règle 5).
     """
-    actif = (
-        organisation.abonnements.select_related("formule")
-        .filter(statut=StatutAbonnement.ACTIF)
-        .first()
-    )
+    actif = abonnement_actif(organisation)
     code_actuel = actif.formule.code if actif else ""
 
     return JsonResponse({
@@ -821,6 +915,63 @@ def formules(
             )
         ],
     })
+
+
+# Sans abonnement : c'est LA vue qui sert à en obtenir un. C'est aussi la seule
+# des quatre renonciations qui écrit quelque chose — d'où le POST exigé et le
+# droit `gerer_abonnement` : un compte « Lecture seule » ne doit pas pouvoir
+# engager sa société dans un prélèvement mensuel.
+# `csrf_exempt` comme toutes les vues POST de l'espace : l'authentification se
+# fait par jeton porteur dans l'en-tête, jamais par cookie de session — il n'y a
+# donc pas de requête intersite à forger. Son oubli m'a coûté un « Erreur 403 »
+# à l'écran alors que les seize tests de ce chemin étaient verts : le client de
+# test Django n'applique pas la vérification CSRF, un navigateur si (règle 7).
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("gerer_abonnement", ecriture="gerer_abonnement", sans_abonnement=True)
+def ouvrir_le_paiement(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Ouvre une session Stripe Checkout et renvoie l'adresse où aller payer.
+
+    La formule vient du corps de la requête, mais **rien de ce que le
+    navigateur envoie ne fixe un prix** : on ne lit qu'un code, et le montant
+    est celui du tarif Stripe rattaché à cette formule. Accepter un montant
+    depuis le client reviendrait à laisser choisir combien payer.
+
+    Le cas « déjà abonné » est refusé ici, alors que le décorateur laisse
+    passer : la renonciation sert à souscrire, pas à souscrire deux fois. Sans
+    ce refus, un abonné actif pourrait ouvrir une seconde souscription Stripe et
+    se retrouver prélevé deux fois pour un seul espace.
+    """
+    if abonnement_actif(organisation) is not None:
+        return _refus(
+            "Votre abonnement est déjà actif. Pour changer de formule, passez "
+            "par une demande.",
+            "deja_abonne",
+            409,
+        )
+
+    code = str(_corps(request).get("formule") or "").strip()
+    formule = Formule.objects.filter(code=code, active=True).first()
+    if formule is None:
+        return _refus("Cette formule n'existe pas.", "formule_inconnue", 400)
+
+    try:
+        adresse = paiement_stripe.creer_session_de_paiement(
+            organisation, formule, email=membre.customer.email
+        )
+    except paiement_stripe.PaiementIndisponible as exc:
+        # 503 et non 400 : la demande était valable, c'est nous qui ne pouvons
+        # pas la servir. Le message vient de l'exception, qui est écrite pour
+        # être lue par la personne — jamais le message brut de Stripe.
+        _log.error(
+            "Paiement impossible pour l'organisation %s (formule %s) : %s",
+            organisation.id, code, exc,
+        )
+        return _refus(str(exc), "paiement_indisponible", 503)
+
+    return JsonResponse({"adresse": adresse}, status=200)
 
 
 def _demande_en_dict(demande: DemandeCommerciale) -> dict[str, Any]:

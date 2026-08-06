@@ -62,3 +62,9 @@ out/
 
 # Bloc de variables genere localement : contient des secrets.
 env-coolify.txt
+
+# Brouillon de message de commit. PowerShell 5.1 ne sait pas passer proprement
+# un texte multiligne accentue a `git commit -m` : on l'ecrit dans ce fichier,
+# on fait `git commit -F`, puis on l'efface. Un `git add -A` l'a embarque une
+# fois — l'ignorer vaut mieux que s'en souvenir.
+message_commit.txt

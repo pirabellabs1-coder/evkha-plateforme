@@ -30,6 +30,7 @@ from typing import Any
 import pytest
 
 from evkha import signatures
+from tests.aides_abonnement import abonner
 
 pytestmark = pytest.mark.django_db
 
@@ -161,6 +162,9 @@ def test_les_pieces_jointes_sont_signees(client: Any) -> None:
         mot_de_passe="un-mot-de-passe-solide-42",
         activer_abonnement=False,
     ).organisation
+    # L'espace est fermé à qui n'a rien payé : sans abonnement, la liste des
+    # fichiers répondrait 402. Aucun crédit versé, le solde reste à zéro.
+    abonner(organisation)
     from customers.models import Customer
 
     piece = PieceJointe(

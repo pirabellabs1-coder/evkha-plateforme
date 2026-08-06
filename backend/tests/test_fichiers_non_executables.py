@@ -29,6 +29,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from organisations import fichiers
+from tests.aides_abonnement import abonner
 
 pytestmark = pytest.mark.django_db
 
@@ -108,12 +109,15 @@ def test_la_liste_des_extensions_admises_derive_des_formats() -> None:
 def _espace(client: Any) -> str:
     from organisations import authentification, inscription
 
-    inscription.ouvrir_compte(
+    ouverture = inscription.ouvrir_compte(
         raison_sociale="Cabinet Duval",
         email="claire@cabinet-duval.fr",
         mot_de_passe="un-mot-de-passe-solide-42",
         activer_abonnement=False,
     )
+    # L'espace est fermé à qui n'a rien payé : sans abonnement, le dépôt d'un
+    # fichier répondrait 402. Aucun crédit versé, le solde reste à zéro.
+    abonner(ouverture.organisation)
     jeton, _ = authentification.ouvrir_session(
         "claire@cabinet-duval.fr", "un-mot-de-passe-solide-42"
     )

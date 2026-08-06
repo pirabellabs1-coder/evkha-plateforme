@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 
 from organisations import identifiants, inscription
+from tests.aides_abonnement import abonner
 
 pytestmark = pytest.mark.django_db
 
@@ -39,12 +40,15 @@ NOUVEAU = "un-autre-mot-de-passe-98"
 def compte() -> Any:
     from organisations.models import CompteClient
 
-    inscription.ouvrir_compte(
+    ouverture = inscription.ouvrir_compte(
         raison_sociale="Cabinet Duval",
         email=EMAIL,
         mot_de_passe=MOT_DE_PASSE,
         activer_abonnement=False,
     )
+    # L'espace est fermé à qui n'a rien payé : sans abonnement, l'invitation
+    # d'un collaborateur répondrait 402. Aucun crédit versé, solde à zéro.
+    abonner(ouverture.organisation)
     return CompteClient.objects.select_related("user", "customer").get(
         user__username__iexact=EMAIL
     )

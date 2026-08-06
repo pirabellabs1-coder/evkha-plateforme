@@ -45,6 +45,7 @@ from organisations.models import (
     TypeDemande,
     TypeMouvement,
 )
+from tests.aides_abonnement import abonner
 from tests.conftest import JETON_ADMIN
 
 pytestmark = pytest.mark.django_db
@@ -58,6 +59,9 @@ class Abonne:
         self.organisation = services.creer_organisation(
             raison_sociale=nom, contact=self.contact
         )
+        # L'espace est fermé à qui n'a rien payé : sans abonnement, chaque vue
+        # répondrait 402. Aucun crédit versé, le solde reste à zéro.
+        abonner(self.organisation)
         if role != RoleOrganisation.PROPRIETAIRE:
             membre = self.organisation.membres.get(customer=self.contact)
             membre.role = role

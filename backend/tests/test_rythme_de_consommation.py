@@ -23,6 +23,7 @@ from django.utils import timezone
 
 from organisations import credits, inscription
 from organisations.models import TypeMouvement
+from tests.aides_abonnement import abonner
 
 pytestmark = pytest.mark.django_db
 
@@ -39,6 +40,9 @@ def espace(client: Client) -> Any:
         mot_de_passe=MOT_DE_PASSE,
         activer_abonnement=False,
     )
+    # L'espace est fermé à qui n'a rien payé : sans abonnement, la vue de la
+    # consommation répondrait 402. Aucun crédit versé, le solde reste à zéro.
+    abonner(ouverture.organisation)
     from organisations import authentification
 
     jeton, _ = authentification.ouvrir_session(EMAIL, MOT_DE_PASSE)

@@ -6,6 +6,7 @@ from django.http import HttpRequest, JsonResponse
 from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 from django.views.static import serve
+from paiement.vues import webhook as stripe_webhook
 
 from integrations.views import (
     systeme_order_webhook,
@@ -31,6 +32,11 @@ urlpatterns = [
         name="systeme-subscription-webhook",
     ),
     path("webhooks/tally/intake/", tally_intake_webhook, name="tally-intake-webhook"),
+    # Stripe. Volontairement a cote des autres webhooks et pas sous /api/ : ce
+    # n'est pas notre interface, c'est une adresse que l'on copie dans le
+    # tableau de bord Stripe et qui ne bouge plus. Elle se verifie par signature
+    # et non par jeton partage — voir `paiement/vues.py`.
+    path("webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
     # Dashboard API — consomme par le frontend TanStack (phase 6).
     # A securiser avec Better Auth token en production.
     path("api/dashboard/", include("dashboard.urls", namespace="dashboard")),

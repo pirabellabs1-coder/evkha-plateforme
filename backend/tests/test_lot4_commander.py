@@ -21,6 +21,7 @@ from generation.models import GenerationJob
 from organisations import commandes, credits, formulaires, services
 from organisations.authentification import creer_compte, ouvrir_session
 from organisations.models import RoleOrganisation
+from tests.aides_abonnement import abonner
 
 pytestmark = pytest.mark.django_db
 
@@ -51,6 +52,9 @@ class Abonne:
         self.organisation = services.creer_organisation(
             raison_sociale=nom, contact=self.contact
         )
+        # L'espace est fermé à qui n'a rien payé : sans abonnement, chaque vue
+        # répondrait 402. Aucun crédit versé, le solde reste à zéro.
+        abonner(self.organisation)
         if role != RoleOrganisation.PROPRIETAIRE:
             membre = self.organisation.membres.get(customer=self.contact)
             membre.role = role

@@ -25,6 +25,17 @@ dependencies = [
   # mais reel.
   "pydantic>=2,<3",
   "redis>=5,<6",
+  # Encaissement des abonnements. Volontairement dans les dependances de base
+  # et non dans un extra : le webhook Stripe est la SEULE porte par laquelle un
+  # credit entre desormais dans un portefeuille. Une installation qui
+  # l'oublierait ne ferait pas « moins de fonctionnalites », elle laisserait la
+  # facturation muette sans que rien ne le signale.
+  #
+  # La bibliotheque officielle plutot qu'un appel HTTP direct : c'est elle qui
+  # verifie la signature des webhooks (horodatage compris, donc anti-rejeu), et
+  # une verification HMAC ecrite a la main sur un flux de paiement est
+  # exactement le genre de code qu'on ne veut pas maintenir.
+  "stripe>=10,<14",
 ]
 
 [project.optional-dependencies]

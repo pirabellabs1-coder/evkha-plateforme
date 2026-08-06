@@ -50,6 +50,10 @@ urlpatterns = [
     ),
     path("livrables/", vues.livrables, name="livrables"),
     path("formules/", vues.formules, name="formules"),
+    # Ouvre le paiement de la formule choisie. POST : elle a un effet chez
+    # Stripe, et une adresse de paiement ne doit pas se retrouver dans un
+    # historique de navigation ni dans un journal d'accès.
+    path("paiement/", vues.ouvrir_le_paiement, name="paiement"),
     path("demandes/", vues.demandes, name="demandes"),
     path("livrables/<str:job_id>/", vues.suivi_livrable, name="suivi"),
     # Renoncer a une etude en echec et recuperer son credit, sans passer

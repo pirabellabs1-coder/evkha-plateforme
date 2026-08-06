@@ -9,6 +9,7 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { espaceApi, jeton } from "./api";
 import * as f from "./format";
 import { useMoi } from "./useMoi";
+import { Souscription } from "./Souscription";
 import { Bandeau } from "./composants/Interface";
 
 const ENTREES = [
@@ -58,6 +59,18 @@ export function Coquille() {
   const { data: moi } = useMoi();
   const chemin = useRouterState({ select: (s) => s.location.pathname });
   const barre = useBarreLaterale();
+
+  // Souscription non réglée : l'espace entier cède la place à l'écran de
+  // paiement. Pas un bandeau au-dessus d'un espace vide — chaque page
+  // recevrait de toute façon un 402, et la personne collectionnerait les
+  // erreurs sans jamais lire ce qu'il faut faire.
+  //
+  // Placé APRÈS les crochets et non avant : un retour anticipé au-dessus de
+  // `useMoi` ou `useBarreLaterale` changerait le nombre de crochets appelés
+  // d'un rendu à l'autre, ce que React interdit.
+  if (moi && !moi.acces_ouvert) {
+    return <Souscription moi={moi} />;
+  }
   // Une route à paramètre (`/espace/livrables/<id>`) n'a pas d'entrée fixe :
   // on retombe sur l'en-tête de sa section plutôt que sur celui du tableau de
   // bord, qui annoncerait la mauvaise page.

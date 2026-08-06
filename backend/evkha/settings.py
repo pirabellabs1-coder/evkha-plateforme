@@ -188,6 +188,22 @@ EVKHA_EMAIL_PROVIDER = env("EVKHA_EMAIL_PROVIDER", default="brevo")
 SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
 TALLY_WEBHOOK_SECRET = env("TALLY_WEBHOOK_SECRET", default="")
 
+# Stripe — encaissement des abonnements B2B.
+#
+# Ces deux valeurs vivent dans Coolify, jamais dans le depot. Le defaut vide
+# n'est pas une permission : `paiement/stripe_api.py` REFUSE de fonctionner
+# sans elles, et le webhook refuse tout evenement. C'est deliberement l'inverse
+# de `SYSTEME_WEBHOOK_SECRET`, dont l'absence laisse passer (`is_webhook_
+# authorized` est fail-open) — tolerable pour un webhook qui n'a longtemps rien
+# credite dans l'espace client, inacceptable pour celui qui ouvre l'acces.
+#
+# STRIPE_SECRET_KEY   : cle secrete (sk_test_… en recette, sk_live_… en reel).
+# STRIPE_WEBHOOK_SECRET : secret de signature du point de terminaison (whsec_…),
+#                         propre a CHAQUE point de terminaison Stripe. Celui de
+#                         la recette ne valide pas les evenements du reel.
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+
 # URLs Tally par type de livrable (envoyees dans les emails de tickets de credit).
 # Configurees en prod via env. Chaque URL recoit ?order_id=<ticket_id> en query.
 EVKHA_TALLY_URL_MARKET_STUDY = env("EVKHA_TALLY_URL_MARKET_STUDY", default="")

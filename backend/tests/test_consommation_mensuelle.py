@@ -17,6 +17,8 @@ import pytest
 from django.test import Client
 from django.utils import timezone
 
+from tests.aides_abonnement import abonner
+
 pytestmark = pytest.mark.django_db
 
 
@@ -36,6 +38,9 @@ def espace(db: object) -> Any:
     organisation = services.creer_organisation(
         raison_sociale="Cabinet Conso", contact=contact
     )
+    # L'espace est fermé à qui n'a rien payé : sans abonnement, la vue de la
+    # consommation répondrait 402. Aucun crédit versé, le solde reste à zéro.
+    abonner(organisation)
     authentification.creer_compte(contact, mot_de_passe="un-mot-de-passe-long-42")
     jeton, _ = authentification.ouvrir_session(
         "conso@exemple.fr", "un-mot-de-passe-long-42"
