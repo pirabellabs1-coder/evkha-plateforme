@@ -8,15 +8,43 @@
   min-height: 100vh;
 }
 
+/* Le visuel à GAUCHE, le formulaire à droite. Demande de la cliente.
+ *
+ * Les deux colonnes ne sont plus nommées par leur côté : `prt-gauche` et
+ * `prt-droite` sont devenues fausses le jour où l'on a voulu les échanger, et
+ * un nom faux se recopie. Elles disent maintenant ce qu'elles SONT — un
+ * formulaire, un visuel — donc les inverser à nouveau ne coûtera qu'un
+ * `order`, sans laisser derrière soi un nom qui ment (règle 4).
+ *
+ * Les planchers disent ce que chaque colonne exige, plutôt qu'une largeur
+ * d'écran devinée : 240 px pour que la photo reste une photo et non un
+ * liseré ; 448 px pour le formulaire, soit les 400 px de `.prt-contenu` plus
+ * ses 2 × 1,5 rem de marge. Le premier plancher va à la colonne de gauche,
+ * donc au visuel — l'ordre des pistes suit l'ordre d'affichage, pas l'ordre
+ * du HTML.
+ */
 .prt-grille {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(240px, 1fr) minmax(448px, 1fr);
   min-height: 100vh;
+}
+
+/* Le HTML garde le formulaire en PREMIER, et c'est délibéré : au clavier comme
+ * au lecteur d'écran, la première chose atteinte doit être ce que la personne
+ * est venue faire. Le visuel, lui, est `aria-hidden` — il argumente, il
+ * n'informe pas. Seul l'affichage est inversé.
+ */
+.prt-visuel {
+  order: 1;
+}
+
+.prt-formulaire {
+  order: 2;
 }
 
 /* ── Colonne du formulaire ───────────────────────────────────────────────── */
 
-.prt-gauche {
+.prt-formulaire {
   background: #ffffff;
   display: grid;
   place-items: center;
@@ -96,7 +124,7 @@
 
 /* ── Colonne visuelle ────────────────────────────────────────────────────── */
 
-.prt-droite {
+.prt-visuel {
   position: relative;
   background: var(--noir);
   overflow: hidden;
@@ -104,7 +132,7 @@
   place-items: end start;
 }
 
-.prt-droite img {
+.prt-visuel img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -214,17 +242,19 @@
 
 /* ── Adaptations ─────────────────────────────────────────────────────────── */
 
-@media (max-width: 900px) {
+/* 688 px = la somme des deux planchers. En dessous, une des deux colonnes
+   mentirait sur sa largeur et la page déborderait horizontalement. */
+@media (max-width: 700px) {
   .prt-grille {
     grid-template-columns: 1fr;
   }
   /* Sur mobile, le visuel passe SOUS le formulaire : il argumente, il ne doit
      pas retarder l'accès à ce que la personne est venue faire. */
-  .prt-droite {
+  .prt-visuel {
     min-height: 320px;
     order: 2;
   }
-  .prt-gauche {
+  .prt-formulaire {
     order: 1;
   }
 }

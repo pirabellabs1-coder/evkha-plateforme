@@ -115,6 +115,26 @@ def _couleurs(palette: Palette, nombre: int) -> list[str]:
     return [base[index % len(base)] for index in range(nombre)]
 
 
+def _pourcentages_lisibles(
+    textes: Sequence[Any], couleurs: Sequence[str]
+) -> None:
+    """Le pourcentage se lit sur SA part, jamais dans une couleur fixe.
+
+    `textprops` pose une couleur unique pour toutes les parts. Sur une part
+    sombre, le pourcentage devient invisible — mesuré sur le livrable reel
+    `9be9a422` : l'anneau « Emboitement du marche » portait « 93 % » en sombre
+    sur une part noire, donc rien.
+
+    C'est le meme defaut que celui corrige une heure plus tot sur l'entonnoir,
+    ou la couleur du texte se deduisait du RANG de la marche. Je l'avais traite
+    sur l'entonnoir seul : l'instance, pas la classe (regle 4). Il vit partout
+    ou un texte se pose sur un aplat de couleur.
+    """
+    for texte, couleur in zip(textes, couleurs, strict=False):
+        texte.set_color(texte_lisible_sur(couleur))
+        texte.set_fontweight("bold")
+
+
 def _legende(
     axes: Axes, palette: Palette, position: _Position = "upper left"
 ) -> None:
@@ -277,13 +297,14 @@ def camembert(
 ) -> bytes:
     """Parts d'un tout : structure d'un marché, poids des canaux."""
     figure, axes = _figure(palette, hauteur_ratio=0.52)
-    axes.pie(
-        list(valeurs), labels=list(etiquettes),
-        colors=_couleurs(palette, len(valeurs)),
+    couleurs = _couleurs(palette, len(valeurs))
+    _, _, pourcentages = axes.pie(
+        list(valeurs), labels=list(etiquettes), colors=couleurs,
         autopct="%1.0f %%", startangle=90, counterclock=False,
         textprops={"fontsize": 9, "color": palette.texte_corps},
         wedgeprops={"edgecolor": palette.fond_graphique, "linewidth": 2},
     )
+    _pourcentages_lisibles(pourcentages, couleurs)
     axes.set_aspect("equal")
     return _exporter(figure, palette)
 
@@ -296,13 +317,14 @@ def anneau(
 ) -> bytes:
     """Camembert évidé, avec un chiffre au centre. Plus lisible qu'un camembert."""
     figure, axes = _figure(palette, hauteur_ratio=0.52)
-    axes.pie(
-        list(valeurs), labels=list(etiquettes),
-        colors=_couleurs(palette, len(valeurs)),
+    couleurs = _couleurs(palette, len(valeurs))
+    _, _, pourcentages = axes.pie(
+        list(valeurs), labels=list(etiquettes), colors=couleurs,
         autopct="%1.0f %%", startangle=90, counterclock=False, pctdistance=0.78,
         textprops={"fontsize": 9, "color": palette.texte_corps},
         wedgeprops={"width": 0.42, "edgecolor": palette.fond_graphique, "linewidth": 2},
     )
+    _pourcentages_lisibles(pourcentages, couleurs)
     if centre:
         axes.text(
             0, 0, centre, ha="center", va="center", fontsize=15,

@@ -39,8 +39,11 @@ export function Portail({
   return (
     <div className="pp prt">
       <div className="prt-grille">
-        {/* ── Colonne de gauche : le formulaire ─────────────────────── */}
-        <section className="prt-gauche">
+        {/* ── Le formulaire ─────────────────────────────────────────── */}
+        {/* Premier dans le HTML, affiché à droite : voir `Portail.css`. Le
+            côté est une décision de mise en page, l'ordre du HTML une
+            décision d'accessibilité — les mélanger obligerait à choisir. */}
+        <section className="prt-formulaire">
           <div className="prt-contenu">
             <a className="prt-logo" href="/partenaires">
               Evkha
@@ -71,8 +74,8 @@ export function Portail({
           </div>
         </section>
 
-        {/* ── Colonne de droite : visuel et argumentaire ─────────────── */}
-        <aside className="prt-droite" aria-hidden="true">
+        {/* ── Le visuel et son argumentaire ─────────────────────────── */}
+        <aside className="prt-visuel" aria-hidden="true">
           <img src={panneau.image} alt={panneau.alt} loading="lazy" />
           <div className="prt-voile" />
           <div className="prt-panneau">
