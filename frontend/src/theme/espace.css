@@ -1789,26 +1789,6 @@
   gap: var(--e-4);
 }
 
-/* Ce que « arrêter son abonnement » veut dire, sous la grille des formules.
- *
- * Encadré plutôt que noyé dans une note grise : il porte la seule information
- * qui se découvre autrement en réclamant un remboursement qui ne viendra pas.
- * Le ton reste neutre — ce n'est ni une alerte ni un argument de vente. */
-.formules-arret {
-  margin: var(--e-5, 1.25rem) 0 0;
-  padding: 0.8rem 1rem;
-  background: var(--fond-enfonce);
-  border-radius: var(--rayon-sm);
-  font-size: var(--t-sm);
-  line-height: var(--interligne);
-  color: var(--texte-doux);
-}
-
-.formules-arret strong {
-  color: var(--texte-fort);
-  font-weight: var(--graisse-forte);
-}
-
 /* Bandeau de réussite. Il manquait : « Invitation envoyée » s'affichait dans
    les couleurs de l'alerte, avec son « ! », et une bonne nouvelle se lisait
    comme un avertissement. */
@@ -1831,4 +1811,359 @@
   margin-top: var(--e-6);
   padding-top: var(--e-5);
   border-top: 1px solid var(--evkha-bordure);
+}
+
+/* ══ Frise de production ═════════════════════════════════════════════════════
+ *
+ * Le suivi d'une étude était une liste de quatre pastilles reliées par un trait
+ * gris. Rien n'y distinguait une étude en train de tourner d'une étude finie :
+ * la cliente l'a dit — « ça serait en train de tourner ».
+ *
+ * Quatre principes tiennent cette section :
+ *
+ * 1. **Chaque état a sa forme**, pas seulement sa couleur : disque plein et
+ *    coche pour ce qui est fait, croix pour l'échec, anneau pointillé numéroté
+ *    pour ce qui attend, arc en rotation pour ce qui travaille. La frise reste
+ *    lisible en noir et blanc, et pour qui ne distingue pas le vert du rouge.
+ * 2. **Le mouvement ne porte jamais d'information.** `LIBELLE_ETAT` écrit
+ *    « En cours » en toutes lettres à côté du jalon. Qui coupe les animations ne
+ *    perd rien — voir le bloc `prefers-reduced-motion` en fin de section.
+ * 3. **Aucune couleur en dur** : tout vient de `tokens.css`.
+ * 4. **Rien ne bouge hors production.** Les animations sont portées par
+ *    `.frise-active`, que le composant ne pose que si `en_production` est vrai.
+ *    Un arc qui tournerait sur une étude livrée mentirait sur son état.
+ */
+
+.frise {
+  display: grid;
+  gap: var(--e-5, 1.25rem);
+}
+
+/* ── Avancement chiffré et délai ─────────────────────────────────────────── */
+
+.frise-tete {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.4rem;
+}
+
+.frise-chiffre {
+  margin: 0;
+  font-family: var(--police-chiffre);
+  font-size: var(--t-2xl);
+  font-weight: var(--graisse-affiche);
+  line-height: 1;
+  color: var(--texte-fort);
+  /* Chiffres à chasse fixe : le pourcentage change toutes les dix secondes, et
+     sans cela toute la ligne se décale au passage de 9 à 10. */
+  font-variant-numeric: tabular-nums;
+}
+
+.frise-unite {
+  margin-left: 0.15rem;
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-doux);
+}
+
+.frise-delai {
+  flex: 1 1 16rem;
+}
+
+.frise-delai-titre {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+/* La réserve nuance le chiffre : elle doit se lire, pas s'imposer. */
+.frise-delai-reserve {
+  margin: 0.2rem 0 0;
+  font-size: var(--t-xs);
+  line-height: var(--interligne);
+  color: var(--texte-tenu);
+}
+
+/* ── Les jalons ──────────────────────────────────────────────────────────── */
+
+.frise-etapes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+
+/* Deux colonnes par étape : le jalon, puis son texte. Le segment est tracé par
+   le pseudo-élément du jalon, ce qui le maintient centré sous la médaille
+   quelle que soit la hauteur du texte. */
+/* `position: relative` sur l'ÉTAPE et non sur le jalon : c'est elle qui sert
+   de référence au segment.
+
+   Le segment était tracé depuis `.frise-jalon`, dont la largeur vaut 44 px.
+   Son `100%` valait donc 44 px, et le trait mesurait 42 px pour un écart réel
+   de 217 px entre deux jalons : il flottait dans le vide au lieu de relier.
+   Mesuré à l'écran le 06/08/2026, invisible pour `tsc` comme pour `eslint`. */
+.frise-etape {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 0 var(--e-4, 1rem);
+  padding-bottom: var(--e-5, 1.25rem);
+}
+
+.frise-etape:last-child {
+  padding-bottom: 0;
+}
+
+.frise-jalon {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+
+/* Le segment qui DESCEND du jalon vers le suivant. Son état se déduit de
+   l'étape amont : le trait dit ce qu'il est advenu du travail de celle-ci.
+
+   `top` et `bottom` plutôt qu'une hauteur calculée : la hauteur d'une étape
+   dépend de la longueur de son détail, qu'aucun calcul ne peut deviner. Le
+   segment s'étire donc du bas de la médaille au bas de la cellule — laquelle
+   inclut l'espacement, ce qui l'amène exactement sous le jalon suivant. */
+.frise-etape:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 46px;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--evkha-bordure);
+}
+
+.frise-liaison-plein::after {
+  background: var(--evkha-succes);
+}
+
+/* Le segment en circulation : un dégradé descendant, animé seulement quand la
+   production tourne. Sans animation il reste un dégradé lisible, pas un vide. */
+.frise-liaison-flux::after {
+  background: linear-gradient(
+    to bottom,
+    var(--evkha-succes) 0%,
+    var(--evkha-or) 45%,
+    var(--evkha-bordure) 100%
+  );
+  background-size: 100% 200%;
+}
+
+.frise-active .frise-liaison-flux::after {
+  animation: frise-descente 1.8s linear infinite;
+}
+
+@keyframes frise-descente {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 -200%;
+  }
+}
+
+/* ── La médaille ─────────────────────────────────────────────────────────── */
+
+.frise-medaille {
+  width: 44px;
+  height: 44px;
+  display: block;
+}
+
+/* En attente : anneau pointillé, creux. La forme dit « pas commencé » sans
+   qu'aucune couleur ne soit nécessaire. */
+.frise-anneau {
+  fill: var(--fond-carte);
+  stroke: var(--evkha-bordure-forte);
+  stroke-width: 2;
+  stroke-dasharray: 3 5;
+}
+
+.frise-numero {
+  fill: var(--texte-tenu);
+  font-family: var(--police-chiffre);
+  font-size: 15px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* En cours : une piste complète, un cœur clair, et un arc qui la parcourt. */
+.frise-piste {
+  fill: none;
+  stroke: var(--evkha-or-voile);
+  stroke-width: 3;
+}
+
+.frise-noyau {
+  fill: var(--evkha-or-brume);
+}
+
+.frise-arc {
+  fill: none;
+  stroke: var(--evkha-or-profond);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* Un quart de la circonférence (2πr ≈ 125,7) : l'arc se lit comme un
+     mouvement, non comme un anneau presque fermé qu'on prendrait pour un
+     avancement de 90 %. */
+  stroke-dasharray: 31 95;
+  transform-origin: 50% 50%;
+}
+
+.frise-active .frise-arc {
+  animation: frise-rotation 1.1s linear infinite;
+}
+
+@keyframes frise-rotation {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fait et échec : un disque plein, un glyphe blanc. La couleur distingue les
+   deux, la forme du glyphe aussi — coche contre croix. */
+.frise-disque {
+  fill: var(--evkha-succes);
+}
+
+.frise-etape-echec .frise-disque {
+  fill: var(--evkha-echec);
+}
+
+.frise-glyphe {
+  fill: none;
+  stroke: var(--evkha-blanc);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Le texte de l'étape ─────────────────────────────────────────────────── */
+
+.frise-texte {
+  padding-top: 0.35rem;
+  min-width: 0;
+}
+
+.frise-libelle {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+  line-height: var(--interligne-serre);
+}
+
+/* L'état en toutes lettres. C'est lui qui rend le mouvement facultatif. */
+.frise-etat {
+  margin: 0.15rem 0 0;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texte-tenu);
+}
+
+.frise-etape-en_cours .frise-etat {
+  color: var(--evkha-alerte);
+}
+
+.frise-etape-fait .frise-etat {
+  color: var(--evkha-succes);
+}
+
+.frise-etape-echec .frise-etat {
+  color: var(--evkha-echec);
+}
+
+.frise-detail {
+  margin: 0.25rem 0 0;
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+  color: var(--texte-doux);
+}
+
+/* Une étape à venir s'efface sans disparaître : on doit pouvoir lire le
+   parcours entier d'avance. */
+.frise-etape-attente .frise-libelle {
+  color: var(--texte-doux);
+  font-weight: var(--graisse-moyenne);
+}
+
+/* ── Au-delà de 760 px : la frise passe à l'horizontale ──────────────────── */
+
+@media (min-width: 760px) {
+  .frise-etapes {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+
+  .frise-etape {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    padding: 0 0.4rem;
+  }
+
+  /* Le segment devient horizontal. Les deux jalons voisins sont centrés dans
+     leur colonne : le trait part donc de 50 % + le rayon de la médaille et
+     court jusqu'à 150 % − ce même rayon. C'est vrai quelle que soit la largeur
+     des colonnes, sans aucune valeur d'écran écrite en dur. */
+  .frise-etape:not(:last-child)::after {
+    left: calc(50% + 24px);
+    top: 21px;
+    bottom: auto;
+    width: calc(100% - 48px);
+    height: 2px;
+  }
+
+  .frise-liaison-flux::after {
+    background: linear-gradient(
+      to right,
+      var(--evkha-succes) 0%,
+      var(--evkha-or) 45%,
+      var(--evkha-bordure) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  .frise-active .frise-liaison-flux::after {
+    animation: frise-defilement 1.8s linear infinite;
+  }
+
+  .frise-texte {
+    padding-top: 0.6rem;
+  }
+}
+
+@keyframes frise-defilement {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────── */
+
+/* Tout s'arrête, et RIEN n'est perdu : l'état de chaque étape est écrit en
+   toutes lettres sous son libellé, et le dégradé du segment reste visible.
+   L'animation n'a jamais porté d'information — elle disait seulement « ça
+   travaille », ce que « EN COURS » dit aussi. */
+@media (prefers-reduced-motion: reduce) {
+  .frise-active .frise-arc,
+  .frise-active .frise-liaison-flux::after {
+    animation: none;
+  }
 }

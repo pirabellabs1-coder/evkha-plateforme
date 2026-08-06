@@ -542,17 +542,42 @@ def consommation(
     # La consommation affichee est donc « ce qui est sorti, moins ce qui a ete
     # rendu ». Compter le remboursement comme une sortie accuserait le client
     # de ce qu'on vient justement de lui rembourser.
+    # UN CREDIT EXPIRE N'A PAS ETE CONSOMME — il a ete PERDU.
+    #
+    # Les deux etaient additionnes sous « consommes », parce que tous deux
+    # figurent dans `credits.SORTIES` et sont negatifs au journal. Consequence
+    # mesuree le 06/08/2026 sur un compte reel : « 40 consommes » affiche en
+    # face de « 22 documents produits ». Le client lisait qu'il avait utilise
+    # presque deux fois ce qu'il avait recu.
+    #
+    # Et le defaut ne s'arretait pas a l'affichage : `_rythme` somme cette
+    # colonne pour projeter une date d'epuisement. Elle annoncait donc
+    # « 23 credits/mois » et « epuisement le 19 aout » a quelqu'un qui en
+    # consomme reellement bien moins — une alarme fondee sur des credits que le
+    # client n'a PAS utilises. Or l'expiration est la consequence d'une
+    # non-consommation : la compter comme de la consommation predit d'autant
+    # plus de depenses qu'on depense moins.
+    #
+    # Les deux chiffres restent rendus, separement. Celui des expirations n'est
+    # pas cache : il est le vrai argument d'un changement de formule, et le
+    # taire reviendrait a masquer au client ce qu'il perd (regle 1).
     par_mois: dict[str, dict[str, int]] = {}
     for ligne in lignes:
         cle = ligne["mois"].strftime("%Y-%m")
-        seau = par_mois.setdefault(cle, {"recus": 0, "consommes": 0})
+        seau = par_mois.setdefault(
+            cle, {"recus": 0, "consommes": 0, "expires": 0}
+        )
         quantite = int(ligne["total"] or 0)
         if ligne["type"] in credits.ENTREES:
             seau["recus"] += quantite
         elif ligne["type"] == TypeMouvement.REMBOURSEMENT:
+            # Positif au journal, et il REND un credit : il reduit la
+            # consommation nette du mois.
             seau["consommes"] -= quantite
-        elif ligne["type"] in credits.SORTIES:
+        elif ligne["type"] == TypeMouvement.EXPIRATION:
             # Deja negatif au journal : on le repasse en positif pour l'axe.
+            seau["expires"] -= quantite
+        elif ligne["type"] in credits.SORTIES:
             seau["consommes"] -= quantite
 
     # Les mois SANS mouvement doivent apparaitre a zero : un graphique qui les
@@ -564,6 +589,7 @@ def consommation(
     mois: list[dict[str, str | int]] = []
     total_recu = 0
     total_consomme = 0
+    total_expire = 0
     annee, numero = maintenant.year, maintenant.month
     calendrier: list[tuple[int, int]] = []
     for _ in range(MOIS_HISTORIQUE):
@@ -573,19 +599,24 @@ def consommation(
             annee, numero = annee - 1, 12
     for annee_mois, numero_mois in reversed(calendrier):
         cle = f"{annee_mois:04d}-{numero_mois:02d}"
-        seau = par_mois.get(cle, {"recus": 0, "consommes": 0})
+        seau = par_mois.get(cle, {"recus": 0, "consommes": 0, "expires": 0})
         total_recu += seau["recus"]
         total_consomme += seau["consommes"]
+        total_expire += seau["expires"]
         mois.append({
             "mois": cle,
             "libelle": _MOIS_COURTS[numero_mois - 1],
             "recus": seau["recus"],
             "consommes": seau["consommes"],
+            "expires": seau["expires"],
         })
 
     return JsonResponse({
         "mois": mois,
         "total_consomme": total_consomme,
+        # Rendu meme a zero : l'interface doit pouvoir dire « rien de perdu »,
+        # ce qui n'est pas la meme chose que ne rien dire.
+        "total_expire": total_expire,
         "total_recu": total_recu,
         "rythme": _rythme(organisation, mois, maintenant),
     })
@@ -613,6 +644,14 @@ def _rythme(
     2. *Compter le mois en cours.* Le 3 du mois, la consommation partielle
        tirerait la moyenne vers le bas et promettrait une autonomie qui
        n'existe pas. Le mois courant est exclu du calcul.
+
+    3. *Compter les crédits EXPIRÉS comme de la consommation.* C'était le cas :
+       `consommes` additionnait débits et expirations. Un compte qui laissait
+       expirer huit crédits par mois se voyait donc annoncer un rythme de huit
+       crédits par mois et une date d'épuisement imminente — alors qu'il ne
+       consommait presque rien. Le piège est retors parce qu'il s'inverse :
+       moins on consomme, plus il expire, donc plus la projection annonce une
+       consommation forte. Seuls les débits comptent désormais.
 
     Quand l'historique ne permet pas de conclure, on ne conclut pas : `motif`
     dit pourquoi, et l'interface affiche cette raison au lieu d'une date

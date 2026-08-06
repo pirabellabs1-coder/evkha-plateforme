@@ -306,17 +306,6 @@ export function Abonnement() {
           </p>
         )}
 
-        {/* Ce que « arrêter » veut dire exactement, sous les formules et non
-            dans une page d'aide. Deux choses que personne ne devine, et dont la
-            seconde se découvre autrement en réclamant un remboursement qui ne
-            viendra pas. */}
-        <p className="formules-arret">
-          <strong>Arrêter son abonnement</strong> se fait ici, en un clic, sans
-          préavis ni justification. Les prélèvements suivants cessent&nbsp;; le
-          mois déjà réglé, lui, <strong>n'est pas remboursé</strong> — vous en
-          gardez l'accès et les crédits jusqu'à son terme, et vous pouvez
-          revenir sur votre décision jusque-là.
-        </p>
       </Carte>
 
       {/* Seul geste qui reste une demande : l'achat de crédits à l'unité

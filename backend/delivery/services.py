@@ -31,11 +31,17 @@ from .models import DeliveryBatch, DeliveryEvent, DeliveryStatus
 
 _log = logging.getLogger(__name__)
 
+#: Intitulés lus PAR LE CLIENT — objet du courriel et corps du message.
+#:
+#: Accentués : ils étaient écrits « Etude de marche » et « Strategie business »,
+#: ce qui suffit à faire passer un livrable à 189 € pour un envoi automatique
+#: bâclé. Ce sont des valeurs d'affichage, jamais des clés : rien ne les
+#: compare, les accentuer ne casse aucun appariement.
 _DELIVERABLE_LABELS: dict[str, str] = {
-    "market_study":      "Etude de marche",
-    "competitor_study":  "Etude de la concurrence",
-    "business_plan":     "Business Plan",
-    "business_strategy": "Strategie business",
+    "market_study":      "Étude de marché",
+    "competitor_study":  "Étude de la concurrence",
+    "business_plan":     "Business plan",
+    "business_strategy": "Stratégie business",
 }
 
 
@@ -243,6 +249,28 @@ def _theme_id_for(job: GenerationJob) -> str:
         if theme_id:
             return str(theme_id)
     return str(getattr(settings, "GAMMA_THEME_ID", "") or "")
+
+
+def sujet_de_livraison(job: GenerationJob) -> str:
+    """Objet du courriel qui annonce l'étude terminée.
+
+    Il était `f"Livrables EVKHA - {systeme_order_id}"` pour tout le monde. Cet
+    identifiant vient de Systeme.io ; pour une commande passée depuis l'espace
+    client, `commandes.creer_commande` le fabrique sous la forme
+    `espace-a1b2c3d4e5f6`. Le client recevait donc dans sa boîte un objet
+    contenant une référence interne qui ne lui dit rien et qu'il ne peut citer
+    nulle part.
+
+    Ce qui l'intéresse tient en deux mots : quel document, et pour qui. On les
+    lui donne, et la référence reste dans le corps du message pour le support.
+    """
+    intitule = _DELIVERABLE_LABELS.get(
+        str(job.deliverable_type), str(job.deliverable_type)
+    )
+    organisation = getattr(job.order, "organisation", None)
+    if organisation is not None:
+        return f"Votre {intitule.lower()} est prête — {organisation.raison_sociale}"
+    return f"Livrables EVKHA - {job.order.systeme_order_id}"
 
 
 def _html_body(job: GenerationJob, artifacts: tuple[DocumentArtifact, ...]) -> str:
@@ -653,7 +681,7 @@ def deliver_job(
         )
         result = email_client.send_delivery_email(
             recipient_email=job.order.customer.email,
-            subject=f"Livrables EVKHA - {job.order.systeme_order_id}",
+            subject=sujet_de_livraison(job),
             html_body=_html_body(job, all_artifacts),
             attachments=attachments,
         )
@@ -744,7 +772,7 @@ def send_email_for_job(
     try:
         result = email_client.send_delivery_email(
             recipient_email=job.order.customer.email,
-            subject=f"Livrables EVKHA - {job.order.systeme_order_id}",
+            subject=sujet_de_livraison(job),
             html_body=_html_body(job, artifacts),
             attachments=attachments,
         )

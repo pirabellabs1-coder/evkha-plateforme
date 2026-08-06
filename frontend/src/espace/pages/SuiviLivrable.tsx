@@ -4,49 +4,171 @@
  * il ne voit rien pendant tout ce temps — et c'est le manque le plus visible de
  * l'espace.
  *
- * Deux partis pris :
+ * Trois partis pris :
  *
  * - la progression est **comptée** sur les chapitres terminés, jamais simulée.
  *   Une barre qui avance toute seule se trahit au moment où elle atteint 99 %
  *   et s'arrête ;
  * - le rafraîchissement ne tourne **que pendant la production**. Interroger le
- *   serveur toutes les dix secondes sur une étude terminée est du bruit.
+ *   serveur toutes les dix secondes sur une étude terminée est du bruit ;
+ * - **le mouvement non plus**. Une frise qui pulse sur une étude livrée, en
+ *   échec ou annulée raconte une production qui n'a plus lieu ; l'animation est
+ *   donc conditionnée à `en_production`, et jamais au fait qu'un jalon porte
+ *   l'état « en cours » — un échec fige justement l'étape courante.
+ *
+ * ## Pourquoi une frise et non plus une liste
+ *
+ * Les quatre étapes s'affichaient l'une sous l'autre, quatre pastilles reliées
+ * par un filet gris. On y lisait où en était l'étude, mais rien de ce qu'un
+ * client attend d'un écran d'attente : le chemin déjà parcouru, celui qui
+ * reste, et le fait que quelque chose est en train de se produire à l'instant
+ * même. La frise porte les trois — le segment rempli derrière le jalon courant,
+ * les segments vides devant, et un flux qui circule uniquement là où la
+ * production travaille.
+ *
+ * Le mouvement n'apporte **rien** que le texte ne dise déjà : chaque jalon
+ * porte son état en toutes lettres (« En cours », « À venir »…). C'est ce qui
+ * rend `prefers-reduced-motion` tenable — on retire les animations sans retirer
+ * une information.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { espaceApi, type EtapeSuivi } from "../api";
+import { espaceApi, type EtapeSuivi, type Suivi } from "../api";
 import * as f from "../format";
+import { LIBELLE_ETAT, delaiAnnonce, liaison } from "../suivi";
 import { Bandeau, Carte, Squelette } from "../composants/Interface";
 
-const SYMBOLE: Record<EtapeSuivi["etat"], string> = {
-  fait: "✓",
-  en_cours: "•",
-  attente: "",
-  echec: "!",
-};
-
-function Etape({ etape }: { etape: EtapeSuivi }) {
+/** Le médaillon d'un jalon.
+ *
+ * Dessiné à la main : quatre formes, aucune bibliothèque à charger pour cela.
+ * Il ne porte AUCUNE couleur — tout vient des classes, donc des jetons de
+ * charte (`theme/espace.css`). Un `fill` écrit ici échapperait au thème et
+ * serait le premier endroit oublié le jour d'un changement de palette.
+ *
+ * Chaque état a sa forme propre, lisible sans la couleur : disque plein et
+ * coche pour ce qui est fait, croix pour l'échec, anneau pointillé numéroté
+ * pour ce qui attend, arc en rotation pour ce qui travaille.
+ */
+function Medaille({ etat, rang }: { etat: EtapeSuivi["etat"]; rang: number }) {
   return (
-    <li className={`etape etape-${etape.etat}`}>
-      {/* Un symbole en plus de la couleur : la distinction reste lisible en
-          noir et blanc comme pour un daltonien. */}
-      <span className="etape-puce" aria-hidden="true">
-        {SYMBOLE[etape.etat]}
+    <svg
+      className="frise-medaille"
+      viewBox="0 0 44 44"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {etat === "attente" && (
+        <circle className="frise-anneau" cx="22" cy="22" r="20" />
+      )}
+      {etat === "en_cours" && (
+        <>
+          <circle className="frise-piste" cx="22" cy="22" r="20" />
+          <circle className="frise-noyau" cx="22" cy="22" r="14" />
+          <circle className="frise-arc" cx="22" cy="22" r="20" />
+        </>
+      )}
+      {(etat === "fait" || etat === "echec") && (
+        <circle className="frise-disque" cx="22" cy="22" r="21" />
+      )}
+      {etat === "fait" && (
+        <path className="frise-glyphe" d="M14.5 22.6l5.2 5.2 9.8-11.4" />
+      )}
+      {etat === "echec" && (
+        <path className="frise-glyphe" d="M16.5 16.5l11 11m0-11l-11 11" />
+      )}
+      {(etat === "attente" || etat === "en_cours") && (
+        <text className="frise-numero" x="22" y="22">
+          {rang}
+        </text>
+      )}
+    </svg>
+  );
+}
+
+/** Un jalon et le segment qui en part.
+ *
+ * `liaison` regarde l'étape AMONT : le trait dit ce qu'il est advenu du travail
+ * de cette étape-là, pas ce que la suivante promet.
+ */
+function Jalon({ etape, rang }: { etape: EtapeSuivi; rang: number }) {
+  return (
+    <li
+      className={`frise-etape frise-etape-${etape.etat} frise-liaison-${liaison(
+        etape.etat,
+      )}`}
+    >
+      <span className="frise-jalon">
+        <Medaille etat={etape.etat} rang={rang} />
       </span>
-      <div>
-        <p className="etape-libelle">{etape.libelle}</p>
-        {etape.detail && <p className="etape-detail">{etape.detail}</p>}
+      <div className="frise-texte">
+        <p className="frise-libelle">{etape.libelle}</p>
+        <p className="frise-etat">{LIBELLE_ETAT[etape.etat]}</p>
+        {/* « 22 chapitres sur 22 » : le seul endroit où le client voit que
+            l'étude avance vraiment, pas juste qu'elle est « en cours ». */}
+        {etape.detail && <p className="frise-detail">{etape.detail}</p>}
       </div>
-      <span className="visuellement-cache">
-        {etape.etat === "fait"
-          ? " : terminé"
-          : etape.etat === "en_cours"
-            ? " : en cours"
-            : etape.etat === "echec"
-              ? " : interrompu"
-              : " : à venir"}
-      </span>
     </li>
+  );
+}
+
+/** La frise complète : avancement chiffré, délai s'il est connu, quatre jalons. */
+function Frise({ suivi }: { suivi: Suivi }) {
+  const delai = delaiAnnonce(suivi);
+
+  // Le pourcentage n'a de sens ni sur une étude livrée — il vaut 100 et les
+  // quatre jalons verts le disent mieux —, ni sur une étude annulée, où le
+  // serveur le force à zéro pour signifier « sans objet » et non « rien de
+  // fait ». Après un échec, en revanche, il dit jusqu'où on était allé.
+  const montrerAvancement =
+    suivi.statut !== "done" && suivi.statut !== "cancelled";
+
+  return (
+    <div className={suivi.en_production ? "frise frise-active" : "frise"}>
+      {(montrerAvancement || delai) && (
+        // `aria-live` : ces deux valeurs changent toutes les dix secondes sous
+        // les yeux de quelqu'un qui ne les regarde pas. Le reste de la frise
+        // n'est pas annoncé — relire quatre étapes à chaque sondage rendrait
+        // l'écran inutilisable au lecteur d'écran.
+        <div className="frise-tete" aria-live="polite">
+          {montrerAvancement && (
+            <p className="frise-chiffre">
+              {suivi.progression}
+              <span className="frise-unite">%</span>
+            </p>
+          )}
+          {delai && (
+            <div className="frise-delai">
+              <p className="frise-delai-titre">{delai.texte}</p>
+              {delai.reserve && (
+                <p className="frise-delai-reserve">{delai.reserve}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {montrerAvancement && (
+        <div
+          className="jauge"
+          role="progressbar"
+          aria-valuenow={suivi.progression}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Avancement de la production"
+        >
+          <span
+            className="jauge-remplissage"
+            style={{ width: `${suivi.progression}%` }}
+          />
+        </div>
+      )}
+
+      <ol className="frise-etapes">
+        {suivi.etapes.map((etape, index) => (
+          <Jalon key={etape.cle} etape={etape} rang={index + 1} />
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -133,40 +255,17 @@ export function SuiviLivrable() {
             )}
           </Bandeau>
         ) : (
-          <p style={{ margin: "0 0 var(--e-5)" }}>{data.message}</p>
-        )}
-
-        {data.statut !== "done" && (
-          <>
-            <div
-              className="jauge"
-              role="progressbar"
-              aria-valuenow={data.progression}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Avancement de la production"
-            >
-              <span
-                className="jauge-remplissage"
-                style={{ width: `${data.progression}%` }}
-              />
-            </div>
-            <p className="carte-note" style={{ marginTop: "var(--e-2)" }}>
-              {data.progression} % ·{" "}
-              {data.duree_estimee_minutes
-                ? `durée habituelle : ${data.duree_estimee_minutes[0]} à ${data.duree_estimee_minutes[1]} minutes`
-                : "durée inconnue"}
-            </p>
-          </>
+          <p style={{ margin: 0 }}>{data.message}</p>
         )}
       </Carte>
 
+      {/* Avancement, délai et étapes dans UNE carte, et non plus une jauge ici
+          et des pastilles là. Les deux moitiés décrivaient le même fait à deux
+          endroits, avec deux vocabulaires du temps qui pouvaient se
+          contredire : la jauge annonçait « durée habituelle : 20 à 45 minutes »
+          pendant que rien ne disait où en était réellement l'étude (règle 5). */}
       <Carte titre="Où en est votre étude">
-        <ol className="etapes">
-          {data.etapes.map((etape) => (
-            <Etape key={etape.cle} etape={etape} />
-          ))}
-        </ol>
+        <Frise suivi={data} />
       </Carte>
 
       {data.fichiers.length > 0 && (

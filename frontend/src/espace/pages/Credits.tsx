@@ -98,6 +98,20 @@ export function Credits() {
                 libelle: "Consommés",
                 valeurs: conso.mois.map((m) => m.consommes),
               },
+              // Affichée seulement s'il y a eu des pertes : une troisième série
+              // constamment à zéro encombrerait la légende sans rien apprendre.
+              // Quand elle apparaît, elle est le meilleur argument pour changer
+              // de formule — et la masquer reviendrait à cacher au client ce
+              // qu'il perd.
+              ...(conso.total_expire > 0
+                ? [
+                    {
+                      cle: "expires",
+                      libelle: "Perdus",
+                      valeurs: conso.mois.map((m) => m.expires),
+                    },
+                  ]
+                : []),
             ]}
             unite="crédits"
           />

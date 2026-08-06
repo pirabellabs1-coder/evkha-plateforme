@@ -25,7 +25,10 @@ s'en aperçoit au moment où elle atteint 99 % et s'arrête.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
+
+from django.utils import timezone
 
 from generation.models import (
     ChapterGeneration,
@@ -150,7 +153,16 @@ def etapes(job: GenerationJob) -> list[Etape]:
             if total
             else ""
         )
-        + (f" · en cours : {en_cours.chapter_title}" if en_cours else "")
+        # Le titre du chapitre en cours n'est pas toujours renseigné : il est
+        # écrit par le plan, qui arrive parfois après la mise en file. Sans ce
+        # test, l'écran affichait « 9 chapitres sur 22 · en cours : » suivi de
+        # rien — une phrase coupée en deux, qui donne l'impression que la page
+        # n'a pas fini de charger. Vu à l'écran le 06/08/2026.
+        + (
+            f" · en cours : {en_cours.chapter_title}"
+            if en_cours and (en_cours.chapter_title or "").strip()
+            else ""
+        )
         + (f" · {echoues} à reprendre" if echoues else ""),
         "verification": "",
         "rendu": "",
@@ -188,6 +200,120 @@ def progression(job: GenerationJob) -> int:
 def message_client(job: GenerationJob) -> str:
     """Phrase destinée au client. Le message technique reste côté administration."""
     return MESSAGES.get(str(job.status), "Votre étude est en cours de traitement.")
+
+
+#: En deçà de cet avancement, on refuse d'extrapoler.
+#:
+#: Une règle de trois sur 3 % d'avancement multiplie par trente-trois la moindre
+#: irrégularité de démarrage — et le démarrage est justement irrégulier : mise
+#: en file, recherche documentaire, premiers appels plus lents. Annoncer
+#: « 4 heures » à quelqu'un qui en a pour vingt minutes est pire que ne rien
+#: annoncer (règle 1 : on se tait plutôt que de mentir).
+PROGRESSION_MINIMALE_POUR_ESTIMER = 12
+
+#: Et en deçà de cette durée écoulée, la mesure du rythme n'a rien mesuré.
+SECONDES_MINIMALES_POUR_ESTIMER = 90
+
+#: Nombre d'études passées consultées pour l'estimation de repli.
+ETUDES_PASSEES_CONSULTEES = 20
+
+#: Il en faut au moins trois : une médiane sur deux valeurs n'est pas une
+#: médiane, c'est une moyenne de deux accidents.
+ETUDES_PASSEES_MINIMALES = 3
+
+
+def _duree_mediane_des_etudes_passees(job: GenerationJob) -> timedelta | None:
+    """Combien de temps ont réellement pris les études du même type.
+
+    La MÉDIANE et non la moyenne : une étude qui a échoué puis repris traîne
+    parfois trois heures, et une seule suffirait à décaler une moyenne pour tout
+    le monde.
+
+    Restreinte au même type de livrable : un business plan et une étude
+    concurrentielle n'ont ni le même nombre de chapitres ni la même recherche.
+    Les mélanger donnerait une estimation juste en moyenne et fausse pour
+    chacun.
+    """
+    # Les deux dates sont re-testées ici alors que la requête les filtre déjà.
+    # Ce n'est pas de la superstition : `values_list` rend des `datetime | None`
+    # quel que soit le filtre, et mypy a raison de le refuser. Le contrôle
+    # explicite vaut mieux qu'un `type: ignore` qui affirmerait ce que le typage
+    # ne peut pas savoir.
+    durees: list[timedelta] = []
+    for demarre, termine in (
+        GenerationJob.objects.filter(
+            deliverable_type=job.deliverable_type,
+            status=JobStatus.DONE,
+            started_at__isnull=False,
+            completed_at__isnull=False,
+        )
+        .order_by("-completed_at")
+        .values_list("started_at", "completed_at")[:ETUDES_PASSEES_CONSULTEES]
+    ):
+        if demarre is None or termine is None or termine <= demarre:
+            continue
+        durees.append(termine - demarre)
+    if len(durees) < ETUDES_PASSEES_MINIMALES:
+        return None
+    durees.sort()
+    return durees[len(durees) // 2]
+
+
+def fin_estimee(job: GenerationJob) -> dict[str, Any] | None:
+    """Dans combien de temps l'étude sera-t-elle prête ? Ou rien.
+
+    Trois sources, essayées dans cet ordre, de la plus fiable à la moins :
+
+    1. **Cette étude elle-même.** L'avancement est compté, pas simulé
+       (`progression`) : si 40 % du travail a pris dix minutes, le reste en
+       prendra quinze. C'est la seule source qui tienne compte d'une journée où
+       l'API répond lentement.
+    2. **Les études passées du même type**, par leur durée médiane. Utile au
+       démarrage, quand il n'y a encore rien à extrapoler.
+    3. **Rien.** L'appelant affiche alors la fourchette large `DUREE_MINUTES`,
+       qui ne prétend pas être une estimation.
+
+    On réutilise `progression` plutôt que de recompter les chapitres : deux
+    mesures de l'avancement finiraient par se contredire à l'écran, l'une dans
+    la barre et l'autre dans le compte à rebours (règle 5).
+
+    Le résultat n'est JAMAIS négatif ni nul : une étude en retard sur sa propre
+    estimation affiche « bientôt », pas « il y a trois minutes ».
+    """
+    if job.status not in EN_PRODUCTION or job.started_at is None:
+        return None
+
+    maintenant = timezone.now()
+    ecoule = maintenant - job.started_at
+    avancement = progression(job)
+
+    reste: timedelta | None = None
+    fondee_sur = ""
+
+    if (
+        avancement >= PROGRESSION_MINIMALE_POUR_ESTIMER
+        and ecoule.total_seconds() >= SECONDES_MINIMALES_POUR_ESTIMER
+    ):
+        total_estime = ecoule * (100 / avancement)
+        reste = total_estime - ecoule
+        fondee_sur = "cette_etude"
+    else:
+        mediane = _duree_mediane_des_etudes_passees(job)
+        if mediane is not None:
+            reste = mediane - ecoule
+            fondee_sur = "etudes_passees"
+
+    if reste is None:
+        return None
+
+    # Plancher d'une minute : une étude qui dépasse son estimation doit dire
+    # « bientôt », jamais un nombre négatif ni zéro.
+    minutes = max(1, round(reste.total_seconds() / 60))
+    return {
+        "minutes_restantes": minutes,
+        "fondee_sur": fondee_sur,
+        "echeance": (maintenant + timedelta(minutes=minutes)).isoformat(),
+    }
 
 
 #: Seul état dans lequel un document peut être remis au client.
@@ -243,6 +369,10 @@ def en_dict(job: GenerationJob) -> dict[str, Any]:
         "duree_estimee_minutes": (
             list(DUREE_MINUTES) if job.status in EN_PRODUCTION else None
         ),
+        # Estimation MESURÉE, ou `null`. La fourchette ci-dessus reste rendue :
+        # elle sert de repli quand il n'y a encore rien à mesurer, et elle ne
+        # prétend pas être une estimation.
+        "fin_estimee": fin_estimee(job),
         "cree_le": job.created_at.isoformat(),
         "demarre_le": job.started_at.isoformat() if job.started_at else None,
         "termine_le": job.completed_at.isoformat() if job.completed_at else None,

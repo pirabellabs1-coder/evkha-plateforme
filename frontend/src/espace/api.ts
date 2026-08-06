@@ -166,9 +166,21 @@ export interface Moi {
  * juste à côté (règle 5).
  */
 export interface Consommation {
-  mois: { mois: string; libelle: string; recus: number; consommes: number }[];
+  mois: {
+    mois: string;
+    libelle: string;
+    recus: number;
+    /** Crédits dépensés pour produire un document, remboursements déduits. */
+    consommes: number;
+    /** Crédits PERDUS à la bascule de période. Ils étaient additionnés aux
+     *  consommés : un compte affichait « 40 consommés » pour 22 documents
+     *  produits, et la projection d'épuisement s'appuyait sur des crédits
+     *  jamais utilisés. */
+    expires: number;
+  }[];
   total_recu: number;
   total_consomme: number;
+  total_expire: number;
   rythme: Rythme;
 }
 
@@ -326,6 +338,19 @@ export interface EtapeSuivi {
   detail: string;
 }
 
+/** Fin estimée d'une production, ou l'aveu qu'on ne sait pas.
+ *
+ *  `fondee_sur` n'est pas décoratif : `cette_etude` extrapole l'avancement
+ *  RÉELLEMENT compté sur cette génération, `etudes_passees` retombe sur la
+ *  durée médiane des études du même type — utile au démarrage, mais aveugle à
+ *  une journée où l'API répond lentement. Afficher les deux du même ton
+ *  promettrait au client une précision que la seconde n'a pas. */
+export interface FinEstimee {
+  minutes_restantes: number;
+  fondee_sur: "cette_etude" | "etudes_passees";
+  echeance: string;
+}
+
 export interface Suivi {
   id: string;
   type: string;
@@ -334,6 +359,9 @@ export interface Suivi {
   progression: number;
   en_production: boolean;
   duree_estimee_minutes: [number, number] | null;
+  /** `null` dès que le serveur refuse d'extrapoler. L'écran se tait alors sur
+   *  le délai plutôt que d'inventer un nombre. */
+  fin_estimee: FinEstimee | null;
   cree_le: string;
   demarre_le: string | null;
   termine_le: string | null;
