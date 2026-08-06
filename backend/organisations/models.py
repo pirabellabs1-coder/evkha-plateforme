@@ -232,6 +232,23 @@ class AbonnementOrganisation(UUIDModel):
     #: créditerait deux fois.
     derniere_periode_dotee = models.CharField(max_length=7, blank=True, db_index=True)
     reference_paiement = models.CharField(max_length=160, blank=True)
+    #: Le renouvellement est-il encore prévu ?
+    #:
+    #: Distinct de `statut`, et il faut les deux. Un abonné qui arrête son
+    #: abonnement le 6 pour une échéance au 20 reste ACTIF jusqu'au 20 : il a
+    #: payé ce mois-ci, il garde ses crédits et son droit de commander. Le
+    #: passer RESILIE tout de suite lui reprendrait ce qu'il a réglé.
+    #:
+    #: C'est donc l'état « arrêté mais pas encore fini », que Stripe appelle
+    #: `cancel_at_period_end` et qu'aucun de nos deux champs ne savait dire.
+    renouvellement_actif = models.BooleanField(default=True)
+    #: Terme de la période en cours, tel que Stripe le calcule.
+    #:
+    #: Recopié et non déduit : la date d'échéance dépend du jour de
+    #: souscription, des essais, des changements de formule en cours de mois et
+    #: des reports de prélèvement. La recalculer ici en donnerait une seconde
+    #: version, qui contredirait le relevé bancaire (règle 5).
+    fin_de_periode_le = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-debut_le"]

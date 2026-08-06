@@ -54,6 +54,12 @@ urlpatterns = [
     # Stripe, et une adresse de paiement ne doit pas se retrouver dans un
     # historique de navigation ni dans un journal d'accès.
     path("paiement/", vues.ouvrir_le_paiement, name="paiement"),
+    # Arrêter, reprendre, changer de formule. Trois gestes qui passaient par une
+    # demande écrite qu'un humain d'EVKHA devait accorder ; ils ne demandent
+    # plus rien à personne.
+    path("abonnement/arreter/", vues.arreter_l_abonnement, name="abonnement-arreter"),
+    path("abonnement/reprendre/", vues.reprendre_l_abonnement, name="abonnement-reprendre"),
+    path("abonnement/formule/", vues.changer_de_formule, name="abonnement-formule"),
     path("demandes/", vues.demandes, name="demandes"),
     path("livrables/<str:job_id>/", vues.suivi_livrable, name="suivi"),
     # Renoncer a une etude en echec et recuperer son credit, sans passer

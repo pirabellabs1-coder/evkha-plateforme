@@ -55,17 +55,14 @@ pytestmark = pytest.mark.django_db
 MOT_DE_PASSE = "mot-de-passe-de-test-2026"
 SECRET_WEBHOOK = "whsec_secret_de_test_pour_la_suite"
 
-#: Les quatre — et seulement les quatre — vues joignables sans avoir paye.
-#: Ecrite ici pour etre COMPAREE au code, jamais importee de lui : une liste
-#: lue depuis `vues_espace` s'accorderait toujours avec lui, y compris le jour
-#: ou quelqu'un ouvre une cinquieme vue par megarde (regle 9 — un controle ne
-#: doit pas juger sur l'evidence qu'il controle).
-OUVERTES_SANS_PAYER = {
-    "moi",
-    "formules",
-    "changer_mot_de_passe",
-    "ouvrir_le_paiement",
-}
+#: La seule vue qui exige un abonnement, et c'est la seule qui engage EVKHA
+#: dans une production payante.
+#:
+#: Ecrite ici pour etre COMPAREE au code, jamais importee de lui : une liste lue
+#: depuis `vues_espace` s'accorderait toujours avec lui, y compris le jour ou
+#: quelqu'un ferme une deuxieme vue par megarde (regle 9 — un controle ne doit
+#: pas juger sur l'evidence qu'il controle).
+EXIGENT_UN_ABONNEMENT = {"commander"}
 
 
 # ── Fabriques ────────────────────────────────────────────────────────────────
@@ -174,58 +171,66 @@ def _chemin(route: URLPattern) -> str:
     return f"/api/espace/{motif}"
 
 
-def _routes_gardees() -> list[tuple[str, URLPattern]]:
-    """Les routes de l'espace qui doivent exiger un paiement.
+def test_un_inscrit_sans_abonnement_ne_peut_pas_commander() -> None:
+    """La barriere retient la MAIN, pas les yeux.
 
-    On interroge le decorateur, pas une liste de noms : `connexion` et
-    `deconnexion` ne portent pas l'attribut du tout — elles ne sont pas
-    decorees — et sont donc ecartees sans avoir a les nommer (regle 4).
-    """
-    gardees = []
-    for route in routes_espace:
-        vue = route.callback
-        if not hasattr(vue, "sans_abonnement"):
-            continue
-        if not vue.sans_abonnement:
-            gardees.append((vue.__name__, route))
-    return gardees
-
-
-@pytest.mark.parametrize(
-    "nom,route", _routes_gardees(), ids=[n for n, _ in _routes_gardees()]
-)
-def test_un_inscrit_qui_n_a_pas_paye_est_refuse_partout(
-    nom: str, route: URLPattern
-) -> None:
-    """AUCUNE vue gardee ne sert un compte sans paiement.
-
-    Sur le code d'avant, toutes repondaient 200 : c'est le defaut lui-meme.
-
-    Le test essaie GET puis POST parce que `require_http_methods` enveloppe le
-    decorateur et repond 405 avant lui. Un 405 n'est donc pas un echec — mais il
-    ne doit jamais etre la SEULE reponse : il faut qu'une methode au moins
-    atteigne la barriere et se voie refusee.
+    Sur le code d'avant, commander repondait sans jamais demander si
+    l'organisation avait paye : le seul obstacle etait un solde a zero, qui
+    repond a « ce portefeuille couvre-t-il ce cout ? » et jamais a « cette
+    organisation a-t-elle paye ? ».
     """
     inscrit = Inscrit()
-    client = Client()
-    chemin = _chemin(route)
+    formule()
 
-    reponses = [
-        client.get(chemin, headers=inscrit.entetes),
-        client.post(
-            chemin, data="{}", content_type="application/json",
-            headers=inscrit.entetes,
-        ),
-    ]
-    codes = [r.status_code for r in reponses]
+    reponse = Client().post(
+        "/api/espace/commander/",
+        data=json.dumps({"type": "market_study"}),
+        content_type="application/json",
+        headers=inscrit.entetes,
+    )
 
-    assert 402 in codes, f"{nom} ({chemin}) n'a jamais refuse : {codes}"
-    for reponse in reponses:
-        assert reponse.status_code in {402, 405}, (
-            f"{nom} a servi un compte non paye : {reponse.status_code}"
-        )
-        if reponse.status_code == 402:
-            assert reponse.json()["code"] == "souscription_requise"
+    assert reponse.status_code == 402
+    assert reponse.json()["code"] == "souscription_requise"
+
+
+#: Toutes les routes de l'espace en LECTURE, hors celles a parametre : ce sont
+#: elles que la cliente a demande de laisser ouvertes.
+LECTURES_OUVERTES = [
+    "/api/espace/moi/",
+    "/api/espace/livrables/",
+    "/api/espace/credits/",
+    "/api/espace/consommation/",
+    "/api/espace/clients-finaux/",
+    "/api/espace/marque/",
+    "/api/espace/catalogue/",
+    "/api/espace/formules/",
+    "/api/espace/demandes/",
+    "/api/espace/equipe/",
+    "/api/espace/fichiers/",
+]
+
+
+@pytest.mark.parametrize("chemin", LECTURES_OUVERTES)
+def test_un_inscrit_sans_abonnement_voit_quand_meme_son_espace(chemin: str) -> None:
+    """CONTRE-EPREUVE de la correction du 06/08/2026, et elle compte autant.
+
+    J'avais ferme l'espace entier : ces onze routes repondaient 402 et
+    l'interface les remplacait par un ecran de paiement. La cliente l'a corrige
+    le jour meme — « meme si le forfait n'est pas actif ca devrait montrer les
+    documents sans possibilite de commander ».
+
+    Elle a raison sur le fond : quelqu'un dont l'abonnement s'arrete doit
+    continuer a voir ce qu'il a deja commande. Ce test empeche la fermeture de
+    revenir par megarde.
+    """
+    inscrit = Inscrit()
+
+    reponse = Client().get(chemin, headers=inscrit.entetes)
+
+    assert reponse.status_code == 200, (
+        f"{chemin} refuse un compte sans abonnement : l'espace doit rester "
+        f"consultable ({reponse.status_code})"
+    )
 
 
 def _routes_ou_le_navigateur_poste() -> list[tuple[str, URLPattern]]:
@@ -292,19 +297,20 @@ def test_aucune_vue_postee_par_le_navigateur_n_exige_de_jeton_csrf(
     ), f"{nom} rejette un POST faute de jeton CSRF : ajoutez @csrf_exempt"
 
 
-def test_les_vues_ouvertes_sans_payer_sont_exactement_les_quatre_prevues() -> None:
-    """Une cinquieme renonciation doit se voir, pas se glisser.
+def test_une_seule_vue_exige_un_abonnement_et_c_est_la_commande() -> None:
+    """Une deuxieme fermeture doit se voir, pas se glisser.
 
     C'est la contre-partie de la declaration au point d'usage : elle est locale
-    et lisible, mais rien n'empeche de l'ecrire une fois de trop. Ce test est ce
-    qui l'empeche.
+    et lisible, mais rien n'empeche de l'ecrire une fois de trop. Le jour ou
+    quelqu'un ferme `livrables` « par prudence », ce test le dit — et la
+    prudence en question reprendrait a un client la vue de ce qu'il a paye.
     """
-    ouvertes = {
+    fermees = {
         route.callback.__name__
         for route in routes_espace
-        if getattr(route.callback, "sans_abonnement", False)
+        if getattr(route.callback, "exige_abonnement", False)
     }
-    assert ouvertes == OUVERTES_SANS_PAYER
+    assert fermees == EXIGENT_UN_ABONNEMENT
 
 
 def test_un_inscrit_sans_paiement_lit_quand_meme_son_etat() -> None:

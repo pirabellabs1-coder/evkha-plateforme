@@ -1645,3 +1645,146 @@
     animation: none;
   }
 }
+
+/* ── Lien d'action dans un bandeau ──────────────────────────────────────────
+ *
+ * Un bandeau qui annonce un problème sans porter le geste qui le résout oblige
+ * à chercher. Celui de l'abonnement inactif mène directement à l'activation.
+ *
+ * Souligné ET plus foncé : la couleur seule ne suffit pas à distinguer un lien
+ * pour qui ne perçoit pas les contrastes de teinte. */
+.bandeau-lien {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: inherit;
+  font-weight: var(--graisse-forte);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bandeau-lien:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ── Lien d'activation de secours ───────────────────────────────────────────
+ *
+ * Affiché uniquement quand le courriel d'invitation N'EST PAS parti. Il doit
+ * être recopiable d'un seul geste : d'où la coupure de mot autorisée et la
+ * sélection facilitée. Le laisser déborder de son bandeau serait pire que de
+ * ne rien afficher — le lien serait tronqué, donc faux. */
+.equipe-lien-secours {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-xs);
+  font-family: var(--police-mono);
+  font-size: var(--t-xs);
+  line-height: 1.5;
+  color: var(--texte);
+  word-break: break-all;
+  user-select: all;
+}
+
+/* ── Mon compte ─────────────────────────────────────────────────────────────
+ *
+ * Identité de la personne connectée et changement de mot de passe. L'écran
+ * n'existait pas alors que la route du serveur, elle, était écrite et testée.
+ */
+
+.compte-identite {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--e-5) var(--e-6);
+  margin: 0;
+}
+
+.compte-identite > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  /* Sans cela, une adresse longue impose sa largeur à toute la colonne de la
+     grille et pousse les voisines hors de la carte. */
+  min-width: 0;
+}
+
+/* Même traitement que `.chiffre-libelle` : ces intitulés jouent le même rôle
+   d'étiquette au-dessus d'une valeur, ils doivent se lire pareil. */
+.compte-identite dt {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: var(--graisse-forte);
+  color: var(--texte-tenu);
+}
+
+.compte-identite dd {
+  margin: 0;
+  font-size: var(--t-base);
+  color: var(--texte-fort);
+  /* Une adresse électronique se replie plutôt que de déborder : tronquée, elle
+     serait fausse, et c'est justement l'identifiant de connexion. */
+  overflow-wrap: anywhere;
+}
+
+.compte-pied {
+  margin: var(--e-5) 0 0;
+  line-height: var(--interligne);
+}
+
+/* Ce que fait le changement de mot de passe, dit AVANT le formulaire.
+ *
+ * Ni alerte ni échec, d'où un bloc à part plutôt qu'un `.bandeau` : fermer
+ * toutes les autres sessions est le service rendu, pas un incident. Le liseré
+ * porte la couleur, le texte reste sur l'encre courante — un paragraphe entier
+ * en bleu d'information se lit moins bien. */
+.compte-avis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  margin-bottom: var(--e-5);
+  padding: var(--e-4);
+  border-left: 3px solid var(--evkha-info);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-info-voile);
+  color: var(--texte);
+}
+
+.compte-avis-titre {
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  color: var(--evkha-info);
+}
+
+.compte-avis p {
+  margin: 0;
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+}
+
+/* Sans marge propre : elle vit dans le formulaire, dont l'espacement la sépare
+   des champs. Une marge ici s'ajouterait à cet écart. */
+.compte-confirmation {
+  margin: 0;
+  padding: var(--e-3) var(--e-4);
+  border-left: 3px solid var(--evkha-succes);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-succes-voile);
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+  color: var(--texte);
+}
+
+.compte-formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+}
+
+.compte-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-4);
+}

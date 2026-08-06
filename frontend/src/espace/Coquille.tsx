@@ -9,7 +9,6 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { espaceApi, jeton } from "./api";
 import * as f from "./format";
 import { useMoi } from "./useMoi";
-import { Souscription } from "./Souscription";
 import { Bandeau } from "./composants/Interface";
 
 const ENTREES = [
@@ -20,6 +19,10 @@ const ENTREES = [
   { vers: "/espace/credits", libelle: "Crédits", icone: "◐" },
   { vers: "/espace/abonnement", libelle: "Abonnement", icone: "◎" },
   { vers: "/espace/equipe", libelle: "Équipe", icone: "◍" },
+  // En dernier, contre le bouton de déconnexion : « Mon compte » n'est pas une
+  // section de travail comme les précédentes mais une action personnelle, et
+  // c'est là qu'on la cherche.
+  { vers: "/espace/mon-compte", libelle: "Mon compte", icone: "⊙" },
 ] as const;
 
 /** Titre et sous-titre de l'en-tête, dérivés de la route courante.
@@ -53,24 +56,16 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
     titre: "Équipe",
     sous: "Les collaborateurs qui partagent votre portefeuille de crédits.",
   },
+  "/espace/mon-compte": {
+    titre: "Mon compte",
+    sous: "Votre identité, et le mot de passe qui ouvre cet espace.",
+  },
 };
 
 export function Coquille() {
   const { data: moi } = useMoi();
   const chemin = useRouterState({ select: (s) => s.location.pathname });
   const barre = useBarreLaterale();
-
-  // Souscription non réglée : l'espace entier cède la place à l'écran de
-  // paiement. Pas un bandeau au-dessus d'un espace vide — chaque page
-  // recevrait de toute façon un 402, et la personne collectionnerait les
-  // erreurs sans jamais lire ce qu'il faut faire.
-  //
-  // Placé APRÈS les crochets et non avant : un retour anticipé au-dessus de
-  // `useMoi` ou `useBarreLaterale` changerait le nombre de crochets appelés
-  // d'un rendu à l'autre, ce que React interdit.
-  if (moi && !moi.acces_ouvert) {
-    return <Souscription moi={moi} />;
-  }
   // Une route à paramètre (`/espace/livrables/<id>`) n'a pas d'entrée fixe :
   // on retombe sur l'en-tête de sa section plutôt que sur celui du tableau de
   // bord, qui annoncerait la mauvaise page.
@@ -188,12 +183,30 @@ export function Coquille() {
               accès.
             </Bandeau>
           )}
-          {alerte && moi?.organisation.statut !== "suspendue" && (
-            <Bandeau titre="Solde bas">
-              Il vous reste {f.credits(solde)}. Une commande est bloquée si le
-              solde ne la couvre pas — aucun découvert n'est possible.
+          {/* Abonnement inactif : on le DIT, on ne ferme pas la porte. L'espace
+              reste consultable — ses documents, son journal, son équipe. Seule
+              la commande est retenue, parce qu'elle seule engage une
+              production. */}
+          {moi && !moi.acces_ouvert && (
+            <Bandeau titre="Abonnement à activer">
+              Vous pouvez consulter votre espace, mais pas encore commander de
+              document.{" "}
+              <Link to="/espace/souscription" className="bandeau-lien">
+                Activer mon abonnement
+              </Link>
             </Bandeau>
           )}
+          {/* « Solde bas » n'a rien à dire de plus au compte qui n'a pas encore
+              activé son abonnement : le bandeau ci-dessus le couvre, et les
+              empiler ferait deux alertes pour une seule situation. */}
+          {alerte &&
+            moi?.acces_ouvert &&
+            moi?.organisation.statut !== "suspendue" && (
+              <Bandeau titre="Solde bas">
+                Il vous reste {f.credits(solde)}. Une commande est bloquée si le
+                solde ne la couvre pas — aucun découvert n'est possible.
+              </Bandeau>
+            )}
           <Outlet />
         </main>
       </div>

@@ -16,6 +16,8 @@ import { Connexion } from "../public/Connexion";
 import { Credits } from "./pages/Credits";
 import { Equipe } from "./pages/Equipe";
 import { Livrables } from "./pages/Livrables";
+import { MonCompte } from "./pages/MonCompte";
+import { Souscription } from "./pages/Souscription";
 import { SuiviLivrable } from "./pages/SuiviLivrable";
 import { TableauDeBord } from "./pages/TableauDeBord";
 
@@ -84,10 +86,25 @@ export function routesEspace(racine: AnyRoute) {
       path: "abonnement",
       component: Abonnement,
     }),
+    // Activation de l'abonnement. Une page de l'espace, atteignable depuis le
+    // bandeau et depuis Abonnement — c'est aussi l'adresse de retour de Stripe.
+    createRoute({
+      getParentRoute: () => coquille,
+      path: "souscription",
+      component: Souscription,
+    }),
     createRoute({
       getParentRoute: () => coquille,
       path: "equipe",
       component: Equipe,
+    }),
+    // Identité et mot de passe. Enfant de la coquille comme les autres : le
+    // changement de mot de passe exige une session, et c'est `beforeLoad` du
+    // parent qui la réclame.
+    createRoute({
+      getParentRoute: () => coquille,
+      path: "mon-compte",
+      component: MonCompte,
     }),
   ];
 

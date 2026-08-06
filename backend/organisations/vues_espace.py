@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any
 
@@ -138,7 +138,7 @@ def acces_ouvert(organisation: Organisation) -> bool:
 
 
 def espace(
-    action: str = "", *, ecriture: str = "", sans_abonnement: bool = False
+    action: str = "", *, ecriture: str = "", exige_abonnement: bool = False
 ) -> Callable[..., Any]:
     """Résout le membre et son organisation depuis le jeton, puis vérifie le droit.
 
@@ -162,21 +162,32 @@ def espace(
     verrouille désormais la propriété : aucune vue de l'espace n'accepte
     d'écriture sans droit d'écriture.
 
-    **`sans_abonnement` ferme l'espace à qui n'a pas payé.** Jusqu'ici la garde
-    n'exigeait qu'un jeton, une adhésion et un rôle : n'importe qui obtenait, en
-    une requête au formulaire public, un accès complet et permanent sans qu'un
-    centime soit encaissé. Ce qui retenait un compte non payé n'était pas une
-    barrière, c'était un solde à zéro — une propriété tenue par un seul booléen,
-    `activer_abonnement=False`. Le renverser, ou ajouter un appelant à
-    `ouvrir_compte` qui l'oublierait, livrait des études gratuites sans qu'aucune
-    couche ne s'en aperçoive.
+    **`exige_abonnement` protège la COMMANDE, pas la vue.**
 
-    La renonciation est **déclarée à la vue**, pas tenue dans une liste de noms
-    ailleurs : une liste centrale s'oublie au moment où l'on ajoute une route,
-    et l'oubli y est silencieux dans le sens dangereux. Ici l'oubli ferme, il
-    n'ouvre pas. Quatre vues seulement y renoncent, et
-    `test_barriere_de_paiement` vérifie que ce sont bien celles-là — le jour où
-    une cinquième apparaît, le test le dit.
+    J'avais d'abord fermé l'espace entier : sans abonnement, toutes les pages
+    répondaient 402 et l'interface les remplaçait par un écran de paiement. La
+    cliente l'a corrigé le jour même, et elle a raison sur les deux points.
+
+    D'abord parce que c'est faux du point de vue de qui a déjà payé : quelqu'un
+    dont l'abonnement s'arrête doit continuer à voir les documents qu'il a
+    commandés. Les lui cacher, c'est reprendre ce qui est livré.
+
+    Ensuite parce que la barrière ne protégeait rien de plus que le solde. Ce
+    qui coûte de l'argent à EVKHA, c'est **produire une étude** — et cela est
+    déjà tenu par le portefeuille, sous verrou de ligne, avec une clé
+    d'idempotence en base. Fermer la lecture ajoutait de la gêne sans ajouter de
+    sûreté.
+
+    Le défaut d'origine reste réel : le formulaire public délivrait une session
+    immédiate, et rien ne distinguait « a payé » de « n'a pas payé ». La réponse
+    juste n'était pas de fermer les yeux du client, c'était de fermer sa main.
+
+    Le prédicat est `acces_ouvert` et non « abonnement actif », pour la même
+    raison : un résilié qui a ACHETÉ des crédits doit pouvoir les dépenser.
+
+    La déclaration reste **au point d'usage** : une liste centrale s'oublie au
+    moment où l'on ajoute une route. `test_barriere_de_paiement` vérifie
+    qu'exactement les vues qui engagent une production la portent.
     """
 
     def decorateur(vue: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
@@ -209,9 +220,10 @@ def espace(
             # distingue les deux — un 403 la ferait écrire « votre rôle ne
             # permet pas », ce qui enverrait chercher un administrateur au lieu
             # du paiement.
-            if not sans_abonnement and not acces_ouvert(membre.organisation):
+            if exige_abonnement and not acces_ouvert(membre.organisation):
                 return _refus(
-                    "Votre souscription n'est pas encore active.",
+                    "Votre abonnement n'est pas actif. Activez-le pour "
+                    "commander un document.",
                     "souscription_requise",
                     402,
                 )
@@ -219,7 +231,7 @@ def espace(
 
         enveloppe.action_lecture = action  # type: ignore[attr-defined]
         enveloppe.action_ecriture = ecriture  # type: ignore[attr-defined]
-        enveloppe.sans_abonnement = sans_abonnement  # type: ignore[attr-defined]
+        enveloppe.exige_abonnement = exige_abonnement  # type: ignore[attr-defined]
         return enveloppe
 
     return decorateur
@@ -330,10 +342,7 @@ def deconnexion(request: HttpRequest) -> HttpResponse:
 
 @csrf_exempt
 @require_http_methods(["POST"])
-# Sans abonnement : changer son mot de passe est le recours de quelqu'un dont
-# le jeton a fuité. Le subordonner au paiement ferait dépendre une mesure de
-# sécurité d'une question comptable.
-@espace(sans_abonnement=True)
+@espace()
 def changer_mot_de_passe(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -391,10 +400,7 @@ def authentification_ouvrir(compte: Any) -> str:
 
 
 @require_http_methods(["GET"])
-# Sans abonnement : c'est précisément la vue qui apprend à l'interface qu'il
-# n'y en a pas. La fermer renverrait 402 à la requête chargée de découvrir
-# le 402, et l'espace n'afficherait rien du tout.
-@espace(sans_abonnement=True)
+@espace()
 def moi(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -446,6 +452,19 @@ def moi(
             "devise": abonnement.formule.devise,
             "debut_le": abonnement.debut_le.isoformat(),
             "derniere_periode_dotee": abonnement.derniere_periode_dotee,
+            # L'abonnement se reconduit-il ? Et jusqu'à quand est-il payé ?
+            # Sans ces deux-là, l'interface ne peut ni proposer d'arrêter, ni
+            # dire à quelqu'un qui vient d'arrêter jusqu'à quand il garde son
+            # accès — elle écrirait « actif » à quelqu'un qui a résilié.
+            "renouvellement_actif": abonnement.renouvellement_actif,
+            "fin_de_periode_le": (
+                abonnement.fin_de_periode_le.isoformat()
+                if abonnement.fin_de_periode_le
+                else ""
+            ),
+            # Un abonnement ouvert à la main n'a pas de prélèvement derrière
+            # lui : les boutons d'arrêt et de changement n'ont rien à piloter.
+            "pilote_par_carte": bool(str(abonnement.reference_paiement or "").strip()),
             # La regle de report N'ETAIT PAS exposee, et l'interface ecrivait
             # « Aucun » en dur : elle affirmait donc au client ce qu'il advient
             # de ses credits sans jamais l'avoir lu. Une formule a report
@@ -876,10 +895,8 @@ def livrables(
 # ── Formules et demandes commerciales ────────────────────────────────────────
 
 
-# Sans abonnement : c'est le catalogue qu'il faut lire POUR souscrire. Le
-# fermer à qui n'a pas payé demanderait de payer avant de savoir quoi payer.
 @require_http_methods(["GET"])
-@espace(sans_abonnement=True)
+@espace()
 def formules(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -928,7 +945,7 @@ def formules(
 # test Django n'applique pas la vérification CSRF, un navigateur si (règle 7).
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("gerer_abonnement", ecriture="gerer_abonnement", sans_abonnement=True)
+@espace("gerer_abonnement", ecriture="gerer_abonnement")
 def ouvrir_le_paiement(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -972,6 +989,166 @@ def ouvrir_le_paiement(
         return _refus(str(exc), "paiement_indisponible", 503)
 
     return JsonResponse({"adresse": adresse}, status=200)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("gerer_abonnement", ecriture="gerer_abonnement")
+def arreter_l_abonnement(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Arrête la reconduction. Sans demande, sans délai, sans personne.
+
+    L'écran de paiement promettait « résiliable à tout moment depuis votre
+    espace » — au moment le plus sensible, juste avant la saisie de la carte —
+    et aucun bouton ne tenait la promesse. Le seul chemin passait par une
+    `DemandeCommerciale` qu'un humain d'EVKHA devait accorder.
+
+    **Le mois en cours reste dû et reste servi.** On ne coupe rien aujourd'hui :
+    Stripe cesse de prélever au terme, l'abonnement garde son statut ACTIF
+    jusque-là, et les crédits déjà déposés restent consommables. C'est aussi ce
+    qui rend le geste réversible sans ressaisir une carte.
+
+    Le corollaire est important : `statut` ne change pas ici. C'est le webhook
+    `customer.subscription.deleted`, au terme réel, qui résiliera — un seul
+    endroit prononce la fin, et c'est celui qui sait que l'argent a cessé.
+    """
+    abonnement = abonnement_actif(organisation)
+    if abonnement is None:
+        return _refus("Aucun abonnement actif à arrêter.", "sans_abonnement", 409)
+
+    reference = str(abonnement.reference_paiement or "").strip()
+    if not reference:
+        # Abonnement ouvert à la main depuis l'administration : il n'y a aucun
+        # prélèvement à arrêter. On le dit plutôt que de prétendre l'avoir fait.
+        return _refus(
+            "Cet abonnement n'a pas été souscrit par carte. Écrivez-nous pour "
+            "l'arrêter.",
+            "abonnement_hors_carte",
+            409,
+        )
+
+    try:
+        fin = paiement_stripe.arreter_le_renouvellement(reference)
+    except paiement_stripe.PaiementIndisponible as exc:
+        return _refus(str(exc), "paiement_indisponible", 503)
+
+    abonnement.renouvellement_actif = False
+    if fin:
+        # `datetime` de la bibliotheque standard et non `timezone.datetime` :
+        # Django reexporte le nom sans le declarer public, et mypy le refuse a
+        # juste titre — c'est un detail d'implementation qui peut disparaitre.
+        abonnement.fin_de_periode_le = datetime.fromisoformat(fin)
+    abonnement.save(
+        update_fields=["renouvellement_actif", "fin_de_periode_le", "updated_at"]
+    )
+    _log.info("Renouvellement arrete par le client : organisation=%s", organisation.id)
+    return JsonResponse({
+        "renouvellement_actif": False,
+        "fin_de_periode_le": (
+            abonnement.fin_de_periode_le.isoformat()
+            if abonnement.fin_de_periode_le
+            else ""
+        ),
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("gerer_abonnement", ecriture="gerer_abonnement")
+def reprendre_l_abonnement(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Revient sur un arrêt, tant que le terme n'est pas atteint.
+
+    Sans ce retour, une hésitation devient un départ définitif : reprendre
+    exigerait une nouvelle souscription, donc une nouvelle saisie de carte.
+    """
+    abonnement = abonnement_actif(organisation)
+    if abonnement is None:
+        return _refus("Aucun abonnement actif.", "sans_abonnement", 409)
+    if abonnement.renouvellement_actif:
+        return _refus("Votre abonnement est déjà reconduit.", "deja_actif", 409)
+
+    reference = str(abonnement.reference_paiement or "").strip()
+    if not reference:
+        return _refus(
+            "Cet abonnement n'a pas été souscrit par carte.",
+            "abonnement_hors_carte",
+            409,
+        )
+
+    try:
+        paiement_stripe.reprendre_le_renouvellement(reference)
+    except paiement_stripe.PaiementIndisponible as exc:
+        return _refus(str(exc), "paiement_indisponible", 503)
+
+    abonnement.renouvellement_actif = True
+    abonnement.save(update_fields=["renouvellement_actif", "updated_at"])
+    _log.info("Renouvellement repris par le client : organisation=%s", organisation.id)
+    return JsonResponse({"renouvellement_actif": True})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("gerer_abonnement", ecriture="gerer_abonnement")
+def changer_de_formule(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Change de formule tout de suite, chez Stripe et chez nous.
+
+    C'était une `DemandeCommerciale` qu'un humain accordait — et, plus grave,
+    l'accorder ne touchait pas Stripe : le prélèvement suivant repartait sur
+    l'ancien tarif, et la formule « changée » se défaisait d'elle-même à
+    l'échéance.
+
+    L'ordre compte. Stripe d'abord : s'il refuse, rien n'a bougé chez nous et le
+    client garde ce qu'il paie. L'inverse laisserait une organisation sur une
+    formule qu'aucun prélèvement ne finance.
+    """
+    abonnement = abonnement_actif(organisation)
+    if abonnement is None:
+        return _refus("Aucun abonnement actif.", "sans_abonnement", 409)
+
+    code = str(_corps(request).get("formule") or "").strip()
+    formule = Formule.objects.filter(code=code, active=True).first()
+    if formule is None:
+        return _refus("Cette formule n'existe pas.", "formule_inconnue", 400)
+    if formule.pk == abonnement.formule_id:
+        return _refus("C'est déjà votre formule.", "formule_identique", 409)
+
+    reference = str(abonnement.reference_paiement or "").strip()
+    if not reference:
+        return _refus(
+            "Cet abonnement n'a pas été souscrit par carte. Écrivez-nous pour "
+            "en changer.",
+            "abonnement_hors_carte",
+            409,
+        )
+
+    try:
+        paiement_stripe.changer_de_formule(reference, formule)
+    except paiement_stripe.PaiementIndisponible as exc:
+        return _refus(str(exc), "paiement_indisponible", 503)
+
+    # `doter_immediatement=False` : Stripe facture la différence au prorata et
+    # émettra sa facture ; c'est `invoice.paid` qui dotera. Doter ici donnerait
+    # les crédits de la nouvelle formule avant que la différence soit encaissée,
+    # et une seconde fois à l'arrivée de la facture.
+    nouveau = services.souscrire(organisation, formule, doter_immediatement=False)
+    nouveau.reference_paiement = reference
+    nouveau.derniere_periode_dotee = abonnement.derniere_periode_dotee
+    nouveau.renouvellement_actif = abonnement.renouvellement_actif
+    nouveau.fin_de_periode_le = abonnement.fin_de_periode_le
+    nouveau.save(update_fields=[
+        "reference_paiement", "derniere_periode_dotee", "renouvellement_actif",
+        "fin_de_periode_le", "updated_at",
+    ])
+    _log.info(
+        "Formule changee par le client : organisation=%s -> %s",
+        organisation.id, formule.code,
+    )
+    return JsonResponse({"formule": formule.code, "libelle": formule.libelle})
 
 
 def _demande_en_dict(demande: DemandeCommerciale) -> dict[str, Any]:
@@ -1094,9 +1271,13 @@ def formulaire(
     return JsonResponse(formulaires.en_dict(questionnaire))
 
 
+# LA seule vue qui exige un abonnement, et c'est la seule qui engage EVKHA :
+# elle lance une production qui coûte de l'argent réel. Lire son espace, ses
+# documents ou son journal de crédits reste ouvert — un abonné dont le
+# prélèvement s'arrête ne doit pas perdre la vue de ce qu'il a déjà payé.
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("commander")
+@espace("commander", exige_abonnement=True)
 def commander(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:

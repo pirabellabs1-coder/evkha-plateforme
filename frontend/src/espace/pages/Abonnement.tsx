@@ -1,15 +1,28 @@
-/** Formules, changement d'abonnement et achat de crédits (§9.6).
+/** Formules, changement d'abonnement, arrêt, et achat de crédits (§9.6).
  *
- * Aucun encaissement : le prestataire de paiement n'est pas branché. Un bouton
- * qui prétendrait débiter une carte serait un mensonge, un bouton inerte une
- * impasse. La demande est donc **enregistrée** et EVKHA la traite — ce que
- * l'interface annonce explicitement, sans laisser croire à un paiement.
+ * ## Ce qui a changé le 06/08/2026
+ *
+ * Cette page a longtemps enregistré des DEMANDES qu'un humain d'EVKHA devait
+ * accorder — faute de prestataire de paiement. Stripe étant branché, elle agit :
+ * changer de formule et arrêter l'abonnement se font ici, tout de suite, sans
+ * l'intervention de personne.
+ *
+ * Le changement de formule ne se contentait d'ailleurs pas d'attendre un
+ * humain : une fois accordé, il ne touchait pas Stripe. Le prélèvement suivant
+ * repartait sur l'ancien tarif et le changement se défaisait tout seul à
+ * l'échéance, sans que rien ne le signale.
+ *
+ * L'achat de crédits additionnels reste une demande, et c'est assumé : il
+ * suppose un paiement à l'unité que rien n'encaisse encore. Le bandeau le dit
+ * pour ce seul cas, au lieu d'annoncer que la plateforme entière ne prend pas
+ * la carte.
  */
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ErreurApi, espaceApi, type FormuleOffre } from "../api";
 import * as f from "../format";
-import { peut, useMoi } from "../useMoi";
+import { CLE_MOI, peut, useMoi } from "../useMoi";
 import {
   Bandeau,
   Carte,
@@ -19,15 +32,32 @@ import {
   Vide,
 } from "../composants/Interface";
 
+/** Ce que fait le bouton d'une formule, et donc ce qu'il doit annoncer.
+ *
+ * Trois situations, trois verbes. Elles disaient toutes « Demander cette
+ * formule », y compris à quelqu'un qui n'a aucun abonnement et pour qui le
+ * paiement est à un clic : on lui faisait ouvrir une demande, donc attendre un
+ * appel qui ne viendrait pas.
+ */
+type Geste = "payer" | "changer" | "demander";
+
+const LIBELLE_DU_GESTE: Record<Geste, string> = {
+  payer: "Choisir cette formule",
+  changer: "Passer à cette formule",
+  demander: "Demander cette formule",
+};
+
 function CarteFormule({
   formule,
   peutEngager,
   enCours,
+  geste,
   onChoisir,
 }: {
   formule: FormuleOffre;
   peutEngager: boolean;
   enCours: boolean;
+  geste: Geste;
   onChoisir: (code: string) => void;
 }) {
   return (
@@ -73,7 +103,7 @@ function CarteFormule({
           }
           onClick={() => onChoisir(formule.code)}
         >
-          Demander cette formule
+          {LIBELLE_DU_GESTE[geste]}
         </button>
       )}
     </div>
@@ -83,6 +113,7 @@ function CarteFormule({
 export function Abonnement() {
   const { data: moi } = useMoi();
   const cache = useQueryClient();
+  const naviguer = useNavigate();
   const [quantite, setQuantite] = useState("1");
   const [erreur, setErreur] = useState("");
 
@@ -109,22 +140,128 @@ export function Abonnement() {
       ),
   });
 
+  // Les trois gestes qui ne passent plus par personne. Chacun réinvalide `moi`
+  // ET le catalogue : la formule en cours est marquée dans les deux, et n'en
+  // rafraîchir qu'un laisserait la page se contredire elle-même.
+  const rafraichir = () => {
+    void cache.invalidateQueries({ queryKey: CLE_MOI });
+    void cache.invalidateQueries({ queryKey: ["espace", "formules"] });
+  };
+  const surEchec = (defaut: string) => (cause: unknown) =>
+    setErreur(cause instanceof ErreurApi ? cause.message : defaut);
+
+  const arret = useMutation({
+    mutationFn: espaceApi.arreterAbonnement,
+    onSuccess: () => {
+      setErreur("");
+      rafraichir();
+    },
+    onError: surEchec("Arrêt impossible."),
+  });
+
+  const reprise = useMutation({
+    mutationFn: espaceApi.reprendreAbonnement,
+    onSuccess: () => {
+      setErreur("");
+      rafraichir();
+    },
+    onError: surEchec("Reprise impossible."),
+  });
+
+  const changement = useMutation({
+    mutationFn: (code: string) => espaceApi.changerDeFormule(code),
+    onSuccess: () => {
+      setErreur("");
+      rafraichir();
+    },
+    onError: surEchec("Changement de formule impossible."),
+  });
+
   const demandes = suivi?.demandes ?? [];
   const ouverte = (type: string) =>
     demandes.some((d) => d.type === type && d.statut === "ouverte");
 
+  const abonnement = moi?.abonnement ?? null;
+  const parCarte = abonnement?.pilote_par_carte ?? false;
+  // Sans abonnement on paie ; abonné par carte on change ; abonné à la main on
+  // demande. Le verbe affiché sur le bouton suit ce geste (voir `CarteFormule`).
+  const geste: Geste = !abonnement ? "payer" : parCarte ? "changer" : "demander";
+
   return (
     <>
-      <Bandeau titre="Comment fonctionne le paiement">
-        Le règlement par carte n'est pas encore activé sur la plateforme. Vos
-        demandes de changement de formule et d'achat de crédits sont
-        <strong> enregistrées ici</strong>, et EVKHA vous recontacte pour les
-        finaliser. Vous suivez leur avancement en bas de page.
-      </Bandeau>
+      {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+
+      {/* L'état de l'abonnement AVANT les formules : c'est la première chose
+          qu'on vient vérifier ici, et c'est là que se prend la décision
+          d'arrêter. */}
+      {abonnement && (
+        <Carte
+          titre={
+            abonnement.renouvellement_actif
+              ? "Votre abonnement se reconduit chaque mois"
+              : "Votre abonnement s'arrête à la fin de la période"
+          }
+          note={
+            abonnement.renouvellement_actif
+              ? `Formule ${abonnement.formule} — ${f.montant(
+                  abonnement.prix_mensuel_cents,
+                )} par mois, ${abonnement.credits_par_echeance} crédit${
+                  abonnement.credits_par_echeance > 1 ? "s" : ""
+                } déposés à chaque échéance.`
+              : abonnement.fin_de_periode_le
+                ? `Vous gardez votre accès et vos crédits jusqu'au ${f.date(
+                    abonnement.fin_de_periode_le,
+                  )}. Aucun prélèvement ne suivra.`
+                : "Vous gardez votre accès et vos crédits jusqu'au terme de la période déjà réglée. Aucun prélèvement ne suivra."
+          }
+        >
+          {!parCarte && (
+            <p className="carte-note">
+              Cet abonnement a été ouvert directement par EVKHA, sans carte
+              enregistrée. Écrivez-nous pour le modifier.
+            </p>
+          )}
+          {parCarte && peutEngager && abonnement.renouvellement_actif && (
+            <button
+              type="button"
+              className="bouton bouton-discret"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Arrêter votre abonnement ? Vous gardez votre accès et vos " +
+                      "crédits jusqu'au terme de la période déjà réglée, et rien " +
+                      "ne sera prélevé ensuite. Vous pourrez revenir sur cette " +
+                      "décision tant que le terme n'est pas atteint.",
+                  )
+                ) {
+                  arret.mutate();
+                }
+              }}
+              disabled={arret.isPending}
+            >
+              {arret.isPending ? "Arrêt en cours…" : "Arrêter mon abonnement"}
+            </button>
+          )}
+          {parCarte && peutEngager && !abonnement.renouvellement_actif && (
+            <button
+              type="button"
+              className="bouton"
+              onClick={() => reprise.mutate()}
+              disabled={reprise.isPending}
+            >
+              {reprise.isPending ? "Reprise en cours…" : "Reprendre mon abonnement"}
+            </button>
+          )}
+        </Carte>
+      )}
 
       <Carte
         titre="Les formules"
-        note="Un crédit correspond à un livrable produit."
+        note={
+          parCarte
+            ? "Un crédit correspond à un livrable produit. Le changement prend effet immédiatement ; Stripe calcule la différence au prorata."
+            : "Un crédit correspond à un livrable produit."
+        }
       >
         {isPending ? (
           <Squelette lignes={4} />
@@ -135,26 +272,44 @@ export function Abonnement() {
                 key={formule.code}
                 formule={formule}
                 peutEngager={peutEngager}
-                enCours={ouverte("changement_formule") || envoyer.isPending}
-                onChoisir={(code) =>
-                  envoyer.mutate({ type: "changement_formule", formule: code })
-                }
+                enCours={changement.isPending || envoyer.isPending}
+                geste={geste}
+                onChoisir={(code) => {
+                  if (geste === "payer") {
+                    // Aucun abonnement : le paiement est à un clic. Ouvrir une
+                    // demande ici ferait attendre un appel qui ne viendra pas.
+                    void naviguer({
+                      to: "/espace/souscription",
+                      search: { formule: code },
+                    });
+                  } else if (geste === "changer") {
+                    changement.mutate(code);
+                  } else {
+                    // Abonnement ouvert à la main : aucun prélèvement à
+                    // modifier, on retombe sur la demande écrite.
+                    envoyer.mutate({ type: "changement_formule", formule: code });
+                  }
+                }}
               />
             ))}
           </div>
         )}
-        {ouverte("changement_formule") && (
+        {!parCarte && ouverte("changement_formule") && (
           <p className="carte-note" style={{ marginTop: "var(--e-4)" }}>
             Une demande de changement est déjà en cours de traitement.
           </p>
         )}
       </Carte>
 
+      {/* Seul geste qui reste une demande : l'achat de crédits à l'unité
+          suppose un paiement ponctuel que rien n'encaisse encore. On le dit
+          pour ce cas précis, plutôt que d'annoncer en tête de page que la
+          plateforme entière ne prend pas la carte — ce qui est faux depuis que
+          l'abonnement, lui, se règle en ligne. */}
       <Carte
         titre="Crédits additionnels"
-        note="Hors abonnement, au tarif de votre formule en cours."
+        note="Hors abonnement, au tarif de votre formule en cours. EVKHA vous recontacte pour le règlement."
       >
-        {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
         <form
           onSubmit={(evenement) => {
             evenement.preventDefault();

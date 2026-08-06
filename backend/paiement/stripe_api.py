@@ -135,8 +135,8 @@ def creer_session_de_paiement(
             # navigateur qui revient, et n'importe qui peut taper cette adresse.
             # L'interface s'en sert seulement pour savoir qu'il faut attendre le
             # webhook, jamais pour ouvrir l'espace (voir `vues_espace.moi`).
-            success_url=_adresse_de_retour("/espace?paiement=ok"),
-            cancel_url=_adresse_de_retour("/espace?paiement=abandon"),
+            success_url=_adresse_de_retour("/espace/souscription?paiement=ok"),
+            cancel_url=_adresse_de_retour("/espace/souscription?paiement=abandon"),
             subscription_data={
                 "metadata": {
                     "organisation_id": str(organisation.id),
@@ -168,3 +168,115 @@ def creer_session_de_paiement(
             "quelques minutes."
         )
     return adresse
+
+
+def arreter_le_renouvellement(reference_stripe: str) -> str:
+    """Demande à Stripe de ne plus reconduire cet abonnement.
+
+    **`cancel_at_period_end` et non une résiliation immédiate.** Le mois en
+    cours est payé : le couper à l'instant du clic reprendrait ce que le client
+    vient de régler. Il garde donc son accès et ses crédits jusqu'au terme, et
+    rien n'est prélevé ensuite.
+
+    C'est aussi ce qui rend le geste réversible sans repasser par une carte —
+    voir `reprendre_le_renouvellement`. Une annulation sèche
+    (`Subscription.cancel`) obligerait à ressaisir un moyen de paiement pour
+    revenir, ce qui transforme une hésitation en départ définitif.
+
+    Retourne la date de fin, en texte ISO, ou une chaîne vide si Stripe ne la
+    donne pas — l'appelant l'affiche, il ne s'en sert pas pour décider.
+    """
+    try:
+        abonnement: Any = stripe.Subscription.modify(
+            reference_stripe, api_key=cle_secrete(), cancel_at_period_end=True
+        )
+    except stripe.StripeError as exc:
+        _log.error("Stripe refuse l'arret du renouvellement %s : %s", reference_stripe, exc)
+        raise PaiementIndisponible(
+            "L'arrêt de l'abonnement n'a pas pu être enregistré. Réessayez dans "
+            "quelques minutes ; rien n'a été modifié."
+        ) from exc
+    return _fin_de_periode(abonnement)
+
+
+def reprendre_le_renouvellement(reference_stripe: str) -> None:
+    """Annule l'arrêt : l'abonnement se reconduira de nouveau.
+
+    Tant que le terme n'est pas atteint, revenir sur sa décision ne doit rien
+    coûter — ni un nouveau paiement, ni une nouvelle saisie de carte.
+    """
+    try:
+        stripe.Subscription.modify(
+            reference_stripe, api_key=cle_secrete(), cancel_at_period_end=False
+        )
+    except stripe.StripeError as exc:
+        _log.error("Stripe refuse la reprise de %s : %s", reference_stripe, exc)
+        raise PaiementIndisponible(
+            "La reprise de l'abonnement n'a pas pu être enregistrée. Réessayez "
+            "dans quelques minutes."
+        ) from exc
+
+
+def changer_de_formule(reference_stripe: str, formule: Formule) -> None:
+    """Bascule un abonnement Stripe sur le tarif d'une autre formule.
+
+    `proration_behavior="create_prorations"` : Stripe calcule lui-même ce qui
+    reste dû ou ce qui est rendu sur le mois en cours. Écrire ce calcul ici en
+    donnerait deux versions — la sienne, qui facture, et la nôtre, qui affiche
+    (règle 5).
+
+    On modifie la LIGNE existante au lieu d'en ajouter une : ajouter reviendrait
+    à facturer les deux formules ensemble, ce qui est précisément le défaut
+    qu'un abonné remarque sur son relevé et pas sur notre écran.
+    """
+    tarif = str(formule.reference_paiement or "").strip()
+    if not tarif:
+        raise PaiementIndisponible(
+            f"La formule « {formule.libelle} » n'a pas encore de tarif Stripe. "
+            "Renseignez sa référence de paiement en administration."
+        )
+    try:
+        actuel: Any = stripe.Subscription.retrieve(
+            reference_stripe, api_key=cle_secrete()
+        )
+        lignes = (actuel.get("items") or {}).get("data") or []
+        if not lignes:
+            raise PaiementIndisponible(
+                "Cet abonnement n'a aucune ligne de facturation chez Stripe."
+            )
+        stripe.Subscription.modify(
+            reference_stripe,
+            api_key=cle_secrete(),
+            items=[{"id": lignes[0]["id"], "price": tarif}],
+            proration_behavior="create_prorations",
+        )
+    except stripe.StripeError as exc:
+        _log.error(
+            "Stripe refuse le changement de formule %s -> %s : %s",
+            reference_stripe, formule.code, exc,
+        )
+        raise PaiementIndisponible(
+            "Le changement de formule n'a pas pu être enregistré. Réessayez "
+            "dans quelques minutes ; votre formule actuelle est inchangée."
+        ) from exc
+
+
+def _fin_de_periode(abonnement: dict[str, Any]) -> str:
+    """La fin de la période en cours, en ISO, depuis un abonnement Stripe.
+
+    Stripe l'expose au niveau de l'abonnement dans les versions anciennes, et
+    au niveau de la ligne de facturation depuis 2025. Lire les deux coûte cinq
+    lignes ; n'en lire qu'une donne une date vide en production et une date
+    juste en recette.
+    """
+    from datetime import UTC, datetime
+
+    horodatage = abonnement.get("current_period_end")
+    if not horodatage:
+        for ligne in (abonnement.get("items") or {}).get("data") or []:
+            if ligne.get("current_period_end"):
+                horodatage = ligne["current_period_end"]
+                break
+    if not horodatage:
+        return ""
+    return datetime.fromtimestamp(int(horodatage), tz=UTC).isoformat()

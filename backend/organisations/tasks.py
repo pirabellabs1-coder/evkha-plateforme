@@ -45,17 +45,43 @@ def appliquer_echeances() -> dict[str, int]:
     Une organisation en échec n'interrompt pas les autres. Un abonnement qui
     lève doit être visible dans les journaux, pas faire échouer la tâche
     entière : sinon un seul cas bloque la dotation de tous les suivants.
+
+    ## Les abonnements payés par Stripe sont écartés, et c'est la règle 5
+
+    Depuis le 06/08/2026, un abonnement souscrit par carte est doté par
+    l'événement `invoice.paid` — c'est-à-dire **quand l'argent est réellement
+    encaissé**. Laisser cette tâche les doter aussi donnerait deux réponses à la
+    question « ce mois-ci est-il payé ? » : notre calendrier, et la banque.
+
+    Elles se contrediraient dans les deux sens, et les deux coûtent :
+
+    - une carte refusée le 3 n'empêcherait pas la dotation du 1er. Stripe
+      retente pendant des jours, finit par abandonner — et pendant tout ce
+      temps le client produit des études gratuitement. Le mois suivant
+      recommence. C'est une fuite de revenu qui ne se voit sur aucun écran ;
+    - un abonnement souscrit le 20 est prélevé le 20 de chaque mois, alors que
+      `periode_courante()` bascule le 1er. Le client serait donc doté dix jours
+      avant d'avoir payé, tous les mois.
+
+    Le critère est `reference_paiement`, l'identifiant d'abonnement Stripe :
+    non vide, Stripe décide ; vide, cette tâche reste seule maîtresse — ce qui
+    couvre les abonnements ouverts à la main depuis l'administration, qui n'ont
+    aucun prélèvement derrière eux.
     """
     dotees = 0
     deja = 0
     ecartees = 0
     en_echec = 0
+    payees_par_stripe = 0
 
     abonnements = AbonnementOrganisation.objects.filter(
         statut=StatutAbonnement.ACTIF
     ).select_related("organisation", "formule")
 
     for abonnement in abonnements:
+        if str(abonnement.reference_paiement or "").strip():
+            payees_par_stripe += 1
+            continue
         if abonnement.organisation.statut != StatutOrganisation.ACTIVE:
             ecartees += 1
             continue
@@ -95,6 +121,11 @@ def appliquer_echeances() -> dict[str, int]:
         "dotees": dotees,
         "deja_a_jour": deja,
         "ecartees_suspendues": ecartees,
+        # Comptées et non tues : le jour où ce nombre vaut tout l'effectif et
+        # que `dotees` reste à zéro, c'est normal ; le jour où il tombe à zéro
+        # alors que des abonnés paient par carte, quelque chose a effacé les
+        # références Stripe et cette tâche s'est remise à doter en double.
+        "payees_par_stripe": payees_par_stripe,
         "en_echec": en_echec,
         "reserves_resiliees_expirees": expirees,
     }

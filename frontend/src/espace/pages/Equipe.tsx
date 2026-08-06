@@ -36,7 +36,15 @@ export function Equipe() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("membre");
   const [erreur, setErreur] = useState("");
-  const [invite, setInvite] = useState("");
+  // Ce que le SERVEUR a réellement fait, pas ce qu'on suppose : l'adresse
+  // invitée, si le courriel est parti, et le lien de secours dans le cas
+  // contraire. L'écran affirmait « EVKHA lui transmettra ses identifiants »
+  // alors que le message part tout seul — et se taisait quand il ne partait pas.
+  const [invitation_faite, setInvitationFaite] = useState<{
+    email: string;
+    envoyee: boolean;
+    lien: string;
+  } | null>(null);
 
   const peutGerer = peut(moi, "gerer_membres");
 
@@ -49,7 +57,11 @@ export function Equipe() {
     mutationFn: () => espaceApi.inviter({ email: email.trim(), role }),
     onSuccess: (retour) => {
       setErreur("");
-      setInvite(retour.email);
+      setInvitationFaite({
+        email: retour.email,
+        envoyee: retour.invitation_envoyee,
+        lien: retour.lien_activation,
+      });
       setEmail("");
       void cache.invalidateQueries({ queryKey: ["espace", "equipe"] });
     },
@@ -76,10 +88,23 @@ export function Equipe() {
   return (
     <>
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
-      {invite && (
-        <Bandeau titre="Collaborateur ajouté">
-          {invite} fait désormais partie de votre équipe. EVKHA lui transmettra
-          ses identifiants de connexion.
+      {invitation_faite?.envoyee && (
+        <Bandeau titre="Invitation envoyée">
+          Un courriel vient de partir vers {invitation_faite.email} : votre
+          collaborateur y choisit son mot de passe et entre. Personne d'autre ne
+          le connaîtra, pas même vous — et EVKHA n'a rien à faire.
+        </Bandeau>
+      )}
+      {/* L'envoi a échoué : on donne le lien plutôt que de laisser quelqu'un
+          attendre un courriel qui n'arrivera pas. C'est le serveur qui le
+          fournit, et seulement dans ce cas. */}
+      {invitation_faite && !invitation_faite.envoyee && (
+        <Bandeau ton="echec" titre="Courriel non parti">
+          {invitation_faite.email} fait bien partie de votre équipe, mais le
+          message n'a pas pu être envoyé. Transmettez-lui ce lien vous-même — il
+          est valable trois jours et ne sert qu'une fois :
+          <br />
+          <code className="equipe-lien-secours">{invitation_faite.lien}</code>
         </Bandeau>
       )}
 

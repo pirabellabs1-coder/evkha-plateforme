@@ -56,9 +56,18 @@ async function appel<T>(chemin: string, options: RequestInit = {}): Promise<T> {
     // (règle 2). On laisse donc parler le serveur, qui dit « Identifiants
     // invalides ».
     const surConnexion = chemin.startsWith("/connexion");
-    if (!surConnexion) {
-      // Le jeton est mort : l'effacer ici évite une boucle de requêtes 401 sur
-      // chaque écran monté.
+    // On n'efface que SI le jeton refusé est encore celui du poste.
+    //
+    // Changer son mot de passe ferme toutes les sessions et en délivre une
+    // neuve. Une requête déjà en vol au même instant porte l'ancien jeton,
+    // revient en 401 — et effaçait le jeton neuf tout juste écrit. La personne
+    // se retrouvait déconnectée à la seconde où elle sécurisait son compte.
+    //
+    // La fenêtre est étroite mais `refetchOnWindowFocus` la rend atteignable :
+    // il suffit de changer de fenêtre pendant l'envoi. Comparer avant d'effacer
+    // coûte une ligne et supprime la classe entière du problème — tout appel
+    // dont la réponse arrive après un renouvellement de jeton (règle 4).
+    if (!surConnexion && jeton.lire() === valeur) {
       jeton.effacer();
     }
     const charge = (await reponse.json().catch(() => ({}))) as {
@@ -128,6 +137,16 @@ export interface Moi {
      *  serait trompée sur une formule à report plafonné. */
     report_credits: "aucun" | "integral" | "plafonne";
     plafond_report: number;
+    /** L'abonnement se reconduira-t-il ? Distinct du statut : quelqu'un qui
+     *  arrête le 6 pour une échéance au 20 reste actif jusqu'au 20 — il a payé
+     *  ce mois-ci et garde ses crédits. */
+    renouvellement_actif: boolean;
+    /** Terme de la période en cours, tel que Stripe le calcule. Vide tant
+     *  qu'aucun événement Stripe ne l'a fourni. */
+    fin_de_periode_le: string;
+    /** Faux pour un abonnement ouvert à la main depuis l'administration : il
+     *  n'y a aucun prélèvement à arrêter ni à modifier. */
+    pilote_par_carte: boolean;
   } | null;
   /** Souscription demandée mais pas encore activée — le paiement n'est pas
    *  branché, EVKHA active à la main. Sans ce champ, quelqu'un qui vient de
@@ -341,6 +360,29 @@ export const espaceApi = {
       body: JSON.stringify({ email, mot_de_passe }),
     }),
   deconnexion: () => appel<void>("/deconnexion/", { method: "POST" }),
+  /** Change son mot de passe, et rattrape la session au passage.
+   *
+   *  Le serveur révoque TOUS les jetons du compte — celui qui porte cette
+   *  requête compris, puisqu'il ignore lequel est l'intrus — puis en délivre un
+   *  neuf. La réécriture se fait ICI et non dans l'écran appelant : un appelant
+   *  qui l'oublierait déconnecterait la personne à la seconde même où elle
+   *  vient de sécuriser son compte, et l'oubli ne se verrait qu'à la requête
+   *  suivante, loin de sa cause.
+   *
+   *  `sessions_fermees` compte la session courante, qui repart pourtant avec le
+   *  jeton neuf. À l'écran de retrancher cette unité avant d'annoncer un
+   *  nombre. */
+  changerMotDePasse: async (corps: {
+    mot_de_passe_actuel: string;
+    nouveau_mot_de_passe: string;
+  }) => {
+    const retour = await appel<{ sessions_fermees: number; jeton: string }>(
+      "/mot-de-passe/",
+      { method: "POST", body: JSON.stringify(corps) },
+    );
+    jeton.ecrire(retour.jeton);
+    return retour;
+  },
   consommation: () => appel<Consommation>("/consommation/"),
   moi: () => appel<Moi>("/moi/"),
   credits: () =>
@@ -399,6 +441,31 @@ export const espaceApi = {
       method: "POST",
       body: JSON.stringify({ formule }),
     }),
+  /** Arrête la reconduction. Le mois en cours reste dû et reste servi.
+   *
+   *  Ce n'était pas une action mais une DEMANDE qu'un humain d'EVKHA devait
+   *  accorder — alors que l'écran de paiement promettait « résiliable à tout
+   *  moment depuis votre espace » juste avant la saisie de la carte. */
+  arreterAbonnement: () =>
+    appel<{ renouvellement_actif: boolean; fin_de_periode_le: string }>(
+      "/abonnement/arreter/",
+      { method: "POST", body: "{}" },
+    ),
+  reprendreAbonnement: () =>
+    appel<{ renouvellement_actif: boolean }>("/abonnement/reprendre/", {
+      method: "POST",
+      body: "{}",
+    }),
+  /** Change de formule tout de suite, chez Stripe et chez nous.
+   *
+   *  L'ancien chemin ouvrait une demande, et l'accorder ne touchait pas
+   *  Stripe : le prélèvement suivant repartait sur l'ancien tarif, et le
+   *  changement se défaisait tout seul à l'échéance. */
+  changerDeFormule: (formule: string) =>
+    appel<{ formule: string; libelle: string }>("/abonnement/formule/", {
+      method: "POST",
+      body: JSON.stringify({ formule }),
+    }),
   demandes: () => appel<{ demandes: Demande[] }>("/demandes/"),
   creerDemande: (corps: {
     type: TypeDemande;
@@ -421,11 +488,24 @@ export const espaceApi = {
       `/livrables/${jobId}/abandonner/`,
       { method: "POST", body: "{}" },
     ),
+  /** Invite un collaborateur. Le courriel part TOUT DE SUITE, sans personne.
+   *
+   *  Le type déclarait `compte_a_creer`, un champ que le serveur ne renvoie
+   *  pas, et taisait les deux qu'il renvoie vraiment. L'écran affichait donc
+   *  « EVKHA lui transmettra ses identifiants » alors que le message était
+   *  déjà parti — et, quand l'envoi échouait, il ne disait rien du tout et
+   *  jetait le lien de secours. */
   inviter: (corps: { email: string; role: Role; prenom?: string; nom?: string }) =>
-    appel<{ id: string; email: string; role: Role; compte_a_creer: boolean }>(
-      "/equipe/inviter/",
-      { method: "POST", body: JSON.stringify(corps) },
-    ),
+    appel<{
+      id: string;
+      email: string;
+      role: Role;
+      actif: boolean;
+      invitation_envoyee: boolean;
+      /** Vide quand l'envoi a réussi. Renseigné sinon, pour que l'invitant ait
+       *  un recours immédiat plutôt qu'un collaborateur bloqué. */
+      lien_activation: string;
+    }>("/equipe/inviter/", { method: "POST", body: JSON.stringify(corps) }),
   revoquer: (id: string) =>
     appel<{ id: string; actif: boolean }>(`/equipe/${id}/revoquer/`, {
       method: "POST",

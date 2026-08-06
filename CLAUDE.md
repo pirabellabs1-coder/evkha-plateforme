@@ -153,6 +153,23 @@ Les quatre. La CI a été **rouge sur `main` pendant des mois** sans que
 personne ne s'en serve : elle n'installait que `[dev]`, donc mypy ne voyait ni
 `anthropic`, ni `httpx`, ni `bs4`.
 
+### Et pour le front, `tsc -b` — jamais `tsc --noEmit`
+
+```bash
+cd frontend && npx tsc -b --force && npx eslint src --quiet
+```
+
+`frontend/tsconfig.json` porte `"files": []` et ne fait que **référencer**
+`tsconfig.app.json` et `tsconfig.node.json`. Un `npx tsc --noEmit` lancé à la
+racine du front ne vérifie donc **aucun fichier** : il rend 0 quoi qu'il
+arrive.
+
+Mesuré le 06/08/2026 : `npx tsc --noEmit` a rendu « propre » sur un fichier
+contenant `Cannot find name 'naviguer'`. `tsc -b` l'a trouvé du premier coup.
+C'est la règle 1 appliquée à l'outillage — un contrôle qui n'a rien à comparer
+n'est pas un succès, et celui-là s'était fait passer pour tel toute une
+journée.
+
 ## Ne jamais faire
 
 - **Contourner un hook** (`--no-verify`) ou masquer une erreur par un

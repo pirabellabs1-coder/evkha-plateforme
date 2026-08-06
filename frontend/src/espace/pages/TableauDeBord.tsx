@@ -67,17 +67,20 @@ export function TableauDeBord() {
           }
           detail={
             moi?.abonnement
-              ? `Depuis le ${f.date(moi.abonnement.debut_le)}`
-              : moi?.souscription_en_attente
-                // Elle a demande, on le lui dit. « Contactez EVKHA pour
-                // souscrire » lui repondait de faire ce qu'elle venait de faire.
-                ? `Demandée le ${f.date(moi.souscription_en_attente.demandee_le)} — en cours de validation`
-                : (
-                    // Renvoyer vers un humain n'a pas de sens ici : la page
-                    // Abonnement presente les formules et enregistre la
-                    // demande. C'est un SaaS, le parcours reste dans l'outil.
-                    <Link to="/espace/abonnement">Choisir une formule</Link>
-                  )
+              ? moi.abonnement.renouvellement_actif
+                ? `Depuis le ${f.date(moi.abonnement.debut_le)}`
+                : "S'arrête à la fin de la période"
+              : // « En cours de validation » : personne ne valide plus rien.
+                // La formule choisie à l'inscription n'attend qu'un règlement,
+                // et le bouton est à un clic. Annoncer une validation ferait
+                // attendre un appel qui ne viendra pas.
+                (
+                  <Link to="/espace/souscription">
+                    {moi?.souscription_en_attente
+                      ? "À régler pour activer"
+                      : "Choisir une formule"}
+                  </Link>
+                )
           }
         />
       </div>

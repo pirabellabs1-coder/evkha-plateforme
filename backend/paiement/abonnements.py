@@ -29,6 +29,7 @@ savoir — et c'est la resiliation prononcee par Stripe qui ferme l'acces.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -282,6 +283,67 @@ def sur_prelevement_refuse(facture: dict[str, Any]) -> str:
     return "incident ouvert"
 
 
+def sur_abonnement_modifie(abonnement_stripe: dict[str, Any]) -> str:
+    """`customer.subscription.updated` — Stripe est l'autorite sur ces deux etats.
+
+    Il ne dote RIEN, et c'est deliberement etroit : cet evenement part a chaque
+    changement de carte, chaque relance, chaque modification de metadonnee. Le
+    traiter largement suffirait a crediter a chaque fois.
+
+    Il recopie deux choses, et rien d'autre :
+
+    - `cancel_at_period_end`, parce qu'une resiliation peut etre prononcee
+      AILLEURS QUE CHEZ NOUS — depuis le tableau de bord Stripe, ou par Stripe
+      lui-meme apres une serie d'impayes. Sans cet evenement, notre ecran
+      continuerait d'annoncer « se reconduit chaque mois » a quelqu'un dont le
+      prelevement est deja arrete ;
+    - le terme de la periode, qui bouge a chaque echeance et dont nous n'avons
+      aucun moyen de deduire la valeur.
+    """
+    reference = str(abonnement_stripe.get("id") or "")
+    concerne = AbonnementOrganisation.objects.filter(
+        reference_paiement=reference, statut=StatutAbonnement.ACTIF
+    ).first()
+    if concerne is None:
+        return "aucun abonnement actif pour cette reference, ignore"
+
+    arrete = bool(abonnement_stripe.get("cancel_at_period_end"))
+    concerne.renouvellement_actif = not arrete
+
+    champs = ["renouvellement_actif", "updated_at"]
+    fin = _fin_de_periode(abonnement_stripe)
+    if fin is not None:
+        concerne.fin_de_periode_le = fin
+        champs.insert(1, "fin_de_periode_le")
+    concerne.save(update_fields=champs)
+
+    return "renouvellement arrete" if arrete else "renouvellement actif"
+
+
+def _fin_de_periode(abonnement_stripe: dict[str, Any]) -> datetime | None:
+    """Le terme de la periode en cours, ou None si Stripe ne le donne pas.
+
+    None et non « maintenant » : une date inventee serait affichee au client
+    comme la date jusqu'a laquelle il garde son acces (regle 1 — on n'ecrit pas
+    une valeur qu'on n'a pas).
+
+    Stripe l'expose au niveau de l'abonnement dans les versions anciennes, et au
+    niveau de la ligne de facturation depuis 2025.
+    """
+    horodatage = abonnement_stripe.get("current_period_end")
+    if not horodatage:
+        for ligne in (abonnement_stripe.get("items") or {}).get("data") or []:
+            if ligne.get("current_period_end"):
+                horodatage = ligne["current_period_end"]
+                break
+    if not horodatage:
+        return None
+    try:
+        return datetime.fromtimestamp(int(horodatage), tz=UTC)
+    except (ValueError, OSError, TypeError):
+        return None
+
+
 #: Evenements traites, et eux seuls. Une liste fermee plutot qu'un `else` qui
 #: tenterait sa chance : Stripe en envoie des dizaines par defaut, et un
 #: traitement approximatif de `customer.subscription.updated` suffirait a doter
@@ -290,6 +352,7 @@ _TRAITEMENTS = {
     "checkout.session.completed": sur_session_terminee,
     "invoice.paid": sur_facture_payee,
     "invoice.payment_failed": sur_prelevement_refuse,
+    "customer.subscription.updated": sur_abonnement_modifie,
     "customer.subscription.deleted": sur_abonnement_supprime,
 }
 
