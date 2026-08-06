@@ -25,7 +25,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..socle.referentiel import FamilleUnite
-from ..socle.schema import DonneeSocle, Socle, famille_de_l_unite
+from ..socle.schema import (
+    DonneeSocle,
+    Socle,
+    famille_de_l_unite,
+    valeur_en_unites_de_base,
+)
 
 #: Types alimentés par une simple liste de valeurs scalaires.
 _SCALAIRES = (
@@ -116,14 +121,85 @@ def _resoudre_ids(
     return trouvees, ""
 
 
-def _unite_commune(donnees: Sequence[DonneeSocle]) -> str | None:
-    """L'unité partagée par toutes les données, ou None si elles divergent.
+#: Magnitudes d'affichage, de la plus grande à la plus petite. Le préfixe se
+#: recolle à la devise (`Md` + `EUR`), comme `socle.schema.unites_monetaires`
+#: les fabrique : la correspondance magnitude → facteur n'est pas redéclarée
+#: ici (règle 5).
+_MAGNITUDES_AFFICHAGE: tuple[tuple[str, float], ...] = (
+    ("Md", 1e9), ("M", 1e6), ("k", 1e3), ("", 1.0),
+)
 
-    Additionner ou comparer des grandeurs d'unités différentes sur un même axe
-    produit une figure fausse alors que chaque chiffre pris isolément est juste.
+
+def _harmoniser(
+    donnees: Sequence[DonneeSocle],
+) -> tuple[list[float], str] | None:
+    """Valeurs comparables sur un même axe, et l'unité qui les porte.
+
+    ## Ce que refusait la version d'avant, et qu'elle n'aurait pas dû
+
+    Elle comparait les unités comme des CHAÎNES : `{"EUR", "MEUR", "MdEUR"}`
+    faisait trois unités, donc « unités hétérogènes », donc figure abandonnée.
+    Ce ne sont pas trois unités — c'est une monnaie à trois échelles.
+
+    Mesuré sur la génération réelle `18ce3fca` du 05/08/2026, grâce à l'incident
+    qui conserve désormais les motifs d'abandon : **12 figures sur 14 écartées,
+    dont 11 pour « unités hétérogènes »**, et six d'entre elles listaient
+    `EUR, MEUR, MdEUR` ou `MEUR, MdEUR`. Autrement dit, le moteur refusait de
+    dessiner l'entonnoir TAM / SAM / SOM — la figure la plus attendue d'une
+    étude de marché — parce qu'il ne savait pas que mille millions font un
+    milliard.
+
+    La conversion existait pourtant, complète, dans `socle.schema` :
+    `valeur_en_unites_de_base` décompose `MdEUR` en magnitude et devise depuis
+    le lot 1. Ce module ne l'appelait pas. C'est le défaut de la règle 8 —
+    « intégré, testé… jamais exécuté » — sur une fonction et non sur un service.
+
+    ## Ce qui reste refusé, et doit l'être
+
+    Deux DEVISES différentes : sans taux de change, `MdEUR` et `MdUSD` sur un
+    même axe produisent une figure fausse dont chaque chiffre est juste. Et un
+    taux à côté d'un montant (`%` et `MdEUR`) : ce sont deux natures de
+    grandeur, pas deux échelles.
+
+    ## Quelle échelle afficher
+
+    Celle qui laisse le PLUS de valeurs au-dessus de l'unité, et à égalité la
+    plus grande — donc la moins bavarde en chiffres.
+
+    Prendre simplement l'échelle du plus grand montant paraissait naturel et
+    donnait le contraire de l'effet voulu : un TAM à 1,2 Md€, un SAM à 240 M€ et
+    un SOM à 1,8 M€ s'affichaient « 1,2 / 0,24 / 0,0018 », deux valeurs sur
+    trois sous l'unité. En millions, la même figure lit « 1 200 / 240 / 1,8 ».
+
+    Un entonnoir dont la dernière marche est mille fois plus petite que la
+    première reste écrasé — mais c'est la donnée qui le veut, pas le rendu, et
+    les étiquettes portent les valeurs.
     """
     unites = {donnee.unite for donnee in donnees}
-    return unites.pop() if len(unites) == 1 else None
+    if len(unites) == 1:
+        return [donnee.valeur for donnee in donnees], unites.pop()
+
+    bases: list[float] = []
+    devises: set[str] = set()
+    for donnee in donnees:
+        converti = valeur_en_unites_de_base(donnee.valeur, donnee.unite)
+        if converti is None:
+            return None  # au moins une grandeur non monétaire : natures mêlées
+        valeur, devise = converti
+        bases.append(valeur)
+        devises.add(devise)
+    if len(devises) != 1:
+        return None
+
+    devise = devises.pop()
+    prefixe, facteur = max(
+        _MAGNITUDES_AFFICHAGE,
+        key=lambda candidat: (
+            sum(1 for valeur in bases if abs(valeur) >= candidat[1]),
+            candidat[1],
+        ),
+    )
+    return [valeur / facteur for valeur in bases], f"{prefixe}{devise}"
 
 
 def _suffixe(unite: str) -> str:
@@ -144,15 +220,15 @@ def _scalaires(
             motif="un seul chiffre : un graphique à une barre n'apprend rien"
         )
 
-    unite = _unite_commune(donnees)
-    if unite is None:
+    harmonise = _harmoniser(donnees)
+    if harmonise is None:
         return Resolution(
             motif="unités hétérogènes : "
             + ", ".join(sorted({d.unite for d in donnees}))
         )
+    valeurs, unite = harmonise
 
     etiquettes = [etiquette_de(donnee) for donnee in donnees]
-    valeurs = [donnee.valeur for donnee in donnees]
 
     if type_demande in ("camembert", "anneau"):
         if any(valeur < 0 for valeur in valeurs):
@@ -216,16 +292,17 @@ def _temporel(
             )
         return Resolution(motif="une seule année et " + repli.motif)
 
-    unite = _unite_commune(donnees)
-    if unite is None:
+    harmonise = _harmoniser(donnees)
+    if harmonise is None:
         return Resolution(
             motif="unités hétérogènes : "
             + ", ".join(sorted({d.unite for d in donnees}))
         )
+    valeurs, unite = harmonise
 
     par_libelle: dict[str, dict[int, float]] = {}
-    for donnee in donnees:
-        par_libelle.setdefault(etiquette_de(donnee), {})[donnee.annee] = donnee.valeur
+    for donnee, valeur in zip(donnees, valeurs, strict=True):
+        par_libelle.setdefault(etiquette_de(donnee), {})[donnee.annee] = valeur
 
     series: list[tuple[str, list[float]]] = []
     for libelle, points in par_libelle.items():
@@ -263,19 +340,20 @@ def _groupees(
     if motif:
         return Resolution(motif=motif)
 
-    unite = _unite_commune(donnees)
-    if unite is None:
+    harmonise = _harmoniser(donnees)
+    if harmonise is None:
         return Resolution(
             motif="unités hétérogènes : "
             + ", ".join(sorted({d.unite for d in donnees}))
         )
+    valeurs, unite = harmonise
     if type_demande == "barres_empilees" and any(d.valeur < 0 for d in donnees):
         return Resolution(motif="valeur négative : un empilement deviendrait faux")
 
     annees = sorted({donnee.annee for donnee in donnees})
     par_libelle: dict[str, dict[int, float]] = {}
-    for donnee in donnees:
-        par_libelle.setdefault(etiquette_de(donnee), {})[donnee.annee] = donnee.valeur
+    for donnee, valeur in zip(donnees, valeurs, strict=True):
+        par_libelle.setdefault(etiquette_de(donnee), {})[donnee.annee] = valeur
 
     series = [
         (libelle, [points[annee] for annee in annees])
@@ -313,9 +391,13 @@ def _notes(
             motif="le radar exige des notes ; ces données ne sont pas des "
             "ratios notés"
         )
-    unite = _unite_commune(donnees)
-    if unite is None:
+    # Ici l'identité d'unité est EXIGÉE, pas harmonisée : `note_sur_5` et
+    # `note_sur_10` ne sont pas deux échelles d'une même grandeur, ce sont deux
+    # barèmes. Les ramener l'un à l'autre changerait le sens des notes.
+    unites = {donnee.unite for donnee in donnees}
+    if len(unites) != 1:
         return Resolution(motif="échelles de notation différentes sur un même radar")
+    unite = unites.pop()
     return Resolution(
         type_demande,
         {"axes_noms": [etiquette_de(donnee) for donnee in donnees],
