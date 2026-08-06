@@ -175,9 +175,74 @@ def verifier_livrable(
     )
 
     _log.info("Vérification du job %s : %s", job.id, rapport.resume())
-    if not rapport.livrable and ouvrir_incident:
-        _incident(job, rapport)
+    if ouvrir_incident:
+        if not rapport.livrable:
+            _incident(job, rapport)
+        else:
+            _consigner_les_avertissements(job, rapport)
     return rapport
+
+
+#: Marqueur lu par le tableau de bord : ce dossier est parti avec des réserves.
+INCIDENT_TYPE_RESERVES_VERIFICATION = "reserves_verification"
+
+#: Au-delà, l'entrée devient illisible. Un livrable réel porte 447 grandeurs
+#: chiffrées ; en lister mille ne dit rien de plus que d'en lister quarante.
+_RESERVES_MAX = 40
+
+
+def _consigner_les_avertissements(
+    job: GenerationJob, rapport: RapportControle
+) -> None:
+    """Conserve les RÉSERVES d'un livrable pourtant jugé livrable.
+
+    Le contrôle central du lot 4 vérifie **chaque grandeur chiffrée** du
+    document contre le socle et le brief client, et nomme celles qui n'y
+    trouvent pas d'équivalent — avec l'extrait où le lecteur peut les retrouver.
+    Sa gravité est délibérément un avertissement : une somme légitime de deux
+    valeurs du socle y apparaît, et bloquer là-dessus arrêterait des livrables
+    corrects.
+
+    Mais un avertissement qui ne va nulle part n'existe pas. `_incident` ne
+    s'ouvrait que sur un blocage : sur un document accepté, la liste des
+    chiffres sans source était calculée puis jetée. Constaté le 05/08/2026, en
+    cherchant à répondre à une question simple — « combien des 447 chiffres de
+    cette étude sont sourcés ? » — à laquelle le système savait répondre et ne
+    répondait à personne.
+
+    C'est la même classe que les figures abandonnées, corrigée le même jour :
+    la mesure est prise, puis perdue (règle 1). On la conserve, sans bloquer.
+    """
+    reserves = [a for a in rapport.anomalies if a.gravite is not Gravite.BLOQUANTE]
+    if not reserves:
+        return
+
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    par_controle: dict[str, int] = {}
+    for anomalie in reserves:
+        par_controle[anomalie.controle] = par_controle.get(anomalie.controle, 0) + 1
+
+    OperationalIncident.objects.update_or_create(
+        job=job,
+        title=f"Réserves à la vérification ({len(reserves)}) — job {job.id}"[:200],
+        defaults={
+            "severity": IncidentSeverity.MEDIUM,
+            "order": job.order,
+            "details": {
+                "type": INCIDENT_TYPE_RESERVES_VERIFICATION,
+                "total": len(reserves),
+                "par_controle": par_controle,
+                "mesures": rapport.mesures,
+                # L'extrait accompagne le motif : sans lui, « 420 » est
+                # introuvable dans le document par le lecteur (règle 2).
+                "reserves": [
+                    {"controle": a.controle, "detail": a.detail, "extrait": a.extrait}
+                    for a in reserves[:_RESERVES_MAX]
+                ],
+            },
+        },
+    )
 
 
 def _chapitres_attendus(job: GenerationJob) -> list[int]:

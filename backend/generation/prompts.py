@@ -36,7 +36,31 @@ _CHARTER = (
     "[DONNEES ET SOURCES — §3 du manuel]\n"
     "Utilise des sources fiables, actuelles, verifiables et adaptees au secteur "
     "et a la zone. Ne jamais inventer un chiffre, une source, un lien, un texte "
-    "reglementaire ou une citation. Ne jamais afficher « donnees non "
+    "reglementaire ou une citation.\n"
+    # « Fiable » ne se decrete pas : il fallait dire LESQUELLES priment. Mesure
+    # du 05/08/2026 sur le livrable reel `18ce3fca` : le domaine le plus cite de
+    # l'etude etait un site de modeles de business plan, la ou le document
+    # valide par la cliente cite l'INSEE, economie.gouv.fr, la Commission
+    # europeenne, Deloitte, Reuters et UBS. Aucune URL n'etait inventee — le
+    # controle le verifiait deja — mais l'AUTORITE des sources n'etait
+    # gouvernee par rien.
+    "HIERARCHIE DES SOURCES, du plus fort au plus faible. Remonte toujours "
+    "aussi haut que possible :\n"
+    "  1. le PRODUCTEUR de la donnee : institut statistique national, banque "
+    "centrale, ministere, douanes, registre officiel, texte reglementaire ;\n"
+    "  2. l'organisation professionnelle du secteur, la federation, "
+    "l'observatoire de branche ;\n"
+    "  3. le cabinet d'etudes ou l'auditeur reconnu, le rapport annuel d'une "
+    "entreprise cotee ;\n"
+    "  4. la presse economique ou professionnelle etablie, quand elle cite "
+    "elle-meme sa source.\n"
+    "Un agregateur, un comparateur, un blog, un site de modeles de documents ou "
+    "de creation d'entreprise n'est PAS une source : il repete quelqu'un. "
+    "Remonte a celui qu'il repete et cite-le, lui. Si tu n'y parviens pas, "
+    "n'emploie pas le chiffre — construis une estimation et dis-le.\n"
+    "Chaque source nommee porte QUI produit la donnee et QUAND : « INSEE, "
+    "recensement 2024 », pas « une etude recente ».\n"
+    "Ne jamais afficher « donnees non "
     "disponibles » dans l'etude client : recherche des sources proches et "
     "solides, croise les indices, construis une estimation prudente et "
     "explique clairement la methode. Distingue une donnee observee, une "
@@ -74,10 +98,32 @@ _CHARTER = (
     "graphique, tableau, schema, matrice, carte, frise ou encadre. Choisis le "
     "visuel en fonction de l'information ; n'ajoute pas un graphique pour "
     "decorer. Les chiffres du visuel correspondent exactement a ceux du texte "
-    "et de la fiche enrichie. Mise en page aeree, sobre, lisible et homogene.\n"
-    "\n"
-    "GRAPHIQUES : format code fence ```chart contenant un JSON compact. Types "
-    "disponibles : 'bar', 'hbar', 'pie', 'radar'. Schema :\n"
+    "et de la fiche enrichie. Mise en page aeree, sobre, lisible et homogene."
+)
+
+# ── Le format des graphiques depend du MOTEUR, pas de la charte ──────────────
+#
+# Ce bloc etait dans `_CHARTER`, donc injecte dans les QUATRE livrables. Il
+# annoncait quatre types ('bar', 'hbar', 'pie', 'radar') dans un format de code
+# fence, et fermait sur « n'insere un graphique que si la consigne du chapitre
+# le demande explicitement ».
+#
+# C'est exact pour le business plan et la strategie, servis par le moteur
+# herite, dont le rendu lit bien ces fences (`generation/charts.py`).
+#
+# C'est FAUX pour l'etude de marche et l'etude concurrentielle, servies par le
+# moteur structure : elles ne rendent aucun fence, leur catalogue compte QUINZE
+# types, et leur prompt de chapitre le leur presente deja avec la consigne
+# sectorielle (`chapitres/runner._bloc_visuels`). Le modele recevait donc deux
+# ordres contradictoires — quinze types d'un cote, quatre de l'autre — et,
+# par-dessus, une invitation a la parcimonie.
+#
+# Mesure du 05/08/2026, livrable reel `18ce3fca` : DEUX figures pour vingt-trois
+# chapitres, contre dix au document valide par la cliente. Deux sources pour une
+# meme verite, et c'est celle qui restreint qui gagnait (regle 5).
+_GRAPHIQUES_MOTEUR_HERITE = (
+    "\n\nGRAPHIQUES : format code fence ```chart contenant un JSON compact. "
+    "Types disponibles : 'bar', 'hbar', 'pie', 'radar'. Schema :\n"
     "```chart\n"
     "{\"type\":\"radar\",\"title\":\"Titre\","
     "\"labels\":[\"Axe 1\",\"Axe 2\",\"Axe 3\"],"
@@ -86,8 +132,24 @@ _CHARTER = (
     "Contraintes : valeurs numeriques uniquement (pas d'unite dans les "
     "nombres). Pour pie : une seule serie. Pour radar : minimum 3 axes, memes "
     "axes pour toutes les series. Conserve un paragraphe d'analyse avant et "
-    "apres chaque bloc chart. N'insere un graphique que si la consigne du "
-    "chapitre le demande explicitement."
+    "apres chaque bloc chart."
+)
+
+_GRAPHIQUES_MOTEUR_STRUCTURE = (
+    "\n\nGRAPHIQUES : le catalogue complet et les types pertinents pour CE "
+    "secteur te sont donnes avec la consigne du chapitre. Emploie-les — le "
+    "document de reference porte une dizaine de figures de FORMES DIFFERENTES "
+    "sur une vingtaine de chapitres : entonnoir, matrice de positionnement, "
+    "courbes, anneau, barres horizontales, chronologie. Un chapitre qui porte "
+    "une comparaison, une repartition, une progression dans le temps ou un "
+    "passage d'un perimetre a un autre APPELLE sa figure. Ne repete pas deux "
+    "fois la meme forme dans l'etude tant qu'une autre convient au propos.\n"
+    "Un graphique ne porte aucune valeur : il porte des identifiants du socle. "
+    "Deux consequences pratiques — cite au moins DEUX identifiants (une figure "
+    "a une seule barre n'apprend rien), et cite des grandeurs de MEME NATURE "
+    "(des montants entre eux, des taux entre eux). Les echelles, elles, se "
+    "melangent librement : euros, milliers, millions et milliards d'une meme "
+    "monnaie sont ramenes a une echelle commune au rendu."
 )
 
 _EM_ROLE = (
@@ -326,7 +388,19 @@ def build_system_prompt(
     entre jobs du meme type dans la fenetre d'1 h.
     """
     role = _ROLES.get(deliverable_type, _EM_ROLE)
-    stables = [role, _CHARTER]
+    # La consigne graphique suit le MOTEUR qui sert ce livrable, et cette
+    # verite a une seule source : `livrable_couvert`, la meme que
+    # `runner._moteur_structure` interroge pour choisir le chemin d'ecriture
+    # (regle 5). Deux drapeaux distincts finiraient par se contredire, et
+    # c'est exactement ce qui produisait deux figures au lieu de dix.
+    from .socle.referentiel import livrable_couvert  # noqa: PLC0415
+
+    graphiques = (
+        _GRAPHIQUES_MOTEUR_STRUCTURE
+        if livrable_couvert(deliverable_type)
+        else _GRAPHIQUES_MOTEUR_HERITE
+    )
+    stables = [role, _CHARTER + graphiques]
     # Few-shot EM (tache #13) : place APRES la charte — le manuel dit quoi
     # traiter, les extraits Findrax montrent a quel niveau. Et place dans le
     # segment STABLE : identique pour tous les jobs EM, donc mutualise dans la
