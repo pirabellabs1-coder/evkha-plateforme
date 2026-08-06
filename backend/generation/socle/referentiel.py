@@ -502,14 +502,23 @@ _STR: tuple[DefinitionDonnee, ...] = (
 )
 
 
-#: Les livrables couverts par le moteur structuré. `_BP` et `_STR` sont écrits
-#: et testés mais PAS enregistrés : les brancher est un commit d'une ligne,
-#: volontairement séparé — c'est l'interrupteur qui fait basculer production,
-#: socle, figures et contrôles d'un coup, et il doit partir seul pour être
-#: réversible d'un revert (plan du 06/08/2026, étape 8).
+#: Les livrables couverts par le moteur structuré — LES QUATRE, depuis le
+#: 06/08/2026. Chaque entrée de ce dictionnaire est un interrupteur : elle fait
+#: basculer d'un coup socle, chapitres structurés, figures matplotlib, chaîne
+#: Word et six contrôles du fichier livré (`EVKHA_SOCLE_ENABLED` est vrai en
+#: production). Retirer une ligne rend le livrable au moteur hérité — c'est la
+#: réversibilité voulue par le plan de migration, étape 8.
+#:
+#: La bascule du BP et de la STR est arrivée EN DERNIER, après : référentiels
+#: testés, équilibre financier contrôlé, groupement des séries d'entreprise,
+#: recherche ciblée, CHECK INITIAL étendu, consigne anti-fourchettes transmise,
+#: fences ```chart purgés — et une répétition à blanc aux drapeaux de
+#: production (voir `test_repetition_a_blanc_bp_et_str`).
 _PAR_LIVRABLE: dict[str, tuple[DefinitionDonnee, ...]] = {
     DeliverableType.MARKET_STUDY: _EM,
     DeliverableType.COMPETITOR_STUDY: _EC,
+    DeliverableType.BUSINESS_PLAN: _BP,
+    DeliverableType.BUSINESS_STRATEGY: _STR,
 }
 
 

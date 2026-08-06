@@ -56,6 +56,50 @@ _VALEURS: dict[str, float] = {
     "panier_moyen": 4000.0,
 }
 
+#: Valeurs d'entreprise pour la démonstration d'un business plan ou d'une
+#: stratégie. En EUR et non en MdEUR : un prévisionnel de démonstration à
+#: 1,0 MdEUR par ligne passerait les contrôles (tout est égal) mais rendrait
+#: des figures plates et absurdes — la répétition à blanc ne montrerait rien.
+#: Les trois exercices CROISSENT : c'est ce qui donne aux courbes du
+#: prévisionnel une pente à dessiner.
+_VALEURS_ENTREPRISE: dict[str, float] = {
+    "ca_previsionnel_an1": 135_000.0,
+    "ca_previsionnel_an2": 218_000.0,
+    "ca_previsionnel_an3": 320_000.0,
+    "resultat_net_an1": -12_000.0,
+    "resultat_net_an2": 24_000.0,
+    "resultat_net_an3": 61_000.0,
+    "ebe_an1": 4_000.0,
+    "ebe_an2": 42_000.0,
+    "ebe_an3": 88_000.0,
+    "caf_an1": -2_000.0,
+    "caf_an2": 31_000.0,
+    "caf_an3": 72_000.0,
+    "tresorerie_fin_an1": 28_000.0,
+    "tresorerie_fin_an2": 47_000.0,
+    "tresorerie_fin_an3": 96_000.0,
+    "dette_residuelle_an1": 52_000.0,
+    "dette_residuelle_an2": 38_000.0,
+    "dette_residuelle_an3": 23_000.0,
+    "charges_fixes_an1": 78_000.0,
+    "investissement_total": 100_000.0,
+    "apport": 40_000.0,
+    "emprunt": 60_000.0,
+    "autres_ressources": 8_000.0,
+    "bfr": 14_000.0,
+    "seuil_rentabilite": 190_000.0,
+    "remuneration_dirigeant_an1": 24_000.0,
+    "masse_salariale_an1": 36_000.0,
+    "ca_actuel": 96_000.0,
+    "cout_acquisition_client": 85.0,
+    "valeur_vie_client": 1_400.0,
+    "ca_objectif_horizon": 260_000.0,
+}
+
+#: Exercice porté par un identifiant annuel : `ca_previsionnel_an2` -> 2.
+_SUFFIXE_EXERCICE = re.compile(r"_an(\d{1,2})$")
+
+
 _DEFAUTS_PAR_FAMILLE: dict[str, tuple[float, str]] = {
     "pourcentage": (4.5, "%"),
     "effectif": (12064.0, "unite"),
@@ -66,6 +110,8 @@ _DEFAUTS_PAR_FAMILLE: dict[str, tuple[float, str]] = {
 
 def _unite_et_valeur(identifiant: str, hint_unite: str) -> tuple[float, str]:
     hint = hint_unite.strip().lower()
+    if identifiant in _VALEURS_ENTREPRISE and hint.startswith("montant"):
+        return _VALEURS_ENTREPRISE[identifiant], "EUR"
     if hint.startswith("montant"):
         return _VALEURS.get(identifiant, 1.0), "MdEUR"
     for famille, (valeur, unite) in _DEFAUTS_PAR_FAMILLE.items():
@@ -80,13 +126,22 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
     for correspondance in _LIGNE_ID.finditer(prompt):
         identifiant = correspondance.group("id")
         valeur, unite = _unite_et_valeur(identifiant, correspondance.group("unite"))
+        # Un identifiant annuel porte l'annee de SON exercice : trois points a
+        # la meme annee ne font pas une serie, et la repetition a blanc ne
+        # dessinerait aucune courbe du previsionnel.
+        exercice = _SUFFIXE_EXERCICE.search(identifiant)
+        annee = (
+            date.today().year + int(exercice.group(1)) - 1
+            if exercice
+            else date.today().year - 1
+        )
         donnees.append(
             {
                 "id": identifiant,
                 "libelle": correspondance.group("libelle").strip(),
                 "valeur": valeur,
                 "unite": unite,
-                "annee": date.today().year - 1,
+                "annee": annee,
                 "perimetre": correspondance.group("perimetre"),
                 "source": "Jeu de démonstration",
                 "fiabilite": "observee",

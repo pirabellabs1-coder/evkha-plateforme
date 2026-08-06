@@ -143,13 +143,28 @@ def test_les_etudes_ne_recoivent_plus_la_consigne_du_moteur_herite() -> None:
         assert "que si la consigne du chapitre le demande" not in prompt, livrable
 
 
-def test_le_business_plan_garde_sa_consigne_de_code_fence() -> None:
-    """Contre-épreuve : le moteur hérité rend bien ces fences, ne le privons pas."""
+def test_les_quatre_livrables_recoivent_la_charte_structuree() -> None:
+    """Renverse du 06/08/2026 : ce test verrouillait l'INVERSE.
+
+    Il garantissait que le BP et la STR gardaient leur consigne ```chart —
+    la contre-épreuve juste tant qu'ils tournaient sur le moteur hérité, qui
+    rend ces fences. Depuis leur bascule, `livrable_couvert` est vrai pour les
+    quatre : leur charte est celle du moteur structuré, où un fence serait un
+    artefact que le rendu ignore. Le test garantit désormais le nouvel état —
+    et c'est exactement ainsi qu'un verrou doit tourner : avec la conception,
+    jamais contre elle en silence.
+    """
     from generation.prompts import build_system_prompt
 
-    for livrable in (DeliverableType.BUSINESS_PLAN, DeliverableType.BUSINESS_STRATEGY):
+    for livrable in (
+        DeliverableType.MARKET_STUDY,
+        DeliverableType.COMPETITOR_STUDY,
+        DeliverableType.BUSINESS_PLAN,
+        DeliverableType.BUSINESS_STRATEGY,
+    ):
         prompt = build_system_prompt(livrable)
-        assert "```chart" in prompt, livrable
+        assert "```chart" not in prompt, livrable
+        assert "FORMES DIFFERENTES" in prompt, livrable
 
 
 def test_les_etudes_sont_invitees_a_varier_les_formes() -> None:

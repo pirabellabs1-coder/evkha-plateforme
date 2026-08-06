@@ -38,18 +38,19 @@ from generation.socle.schema import DonneeSocle, Socle, Zone, valider_socle
 
 
 @pytest.fixture
-def bp_enregistre(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Enregistre `_BP` le temps du test — la ligne exacte de la future bascule."""
-    monkeypatch.setitem(
-        referentiel._PAR_LIVRABLE, DeliverableType.BUSINESS_PLAN, _BP
-    )
+def bp_enregistre() -> None:
+    """Vestige d'avant la bascule : `_BP` vit desormais dans `_PAR_LIVRABLE`.
+
+    Conservee en no-op plutot que retiree : les tests qui la citent decrivent
+    des comportements du referentiel ENREGISTRE, et c'est l'etat courant. La
+    supprimer imposerait de reecrire leurs signatures sans rien verifier de
+    plus.
+    """
 
 
 @pytest.fixture
-def str_enregistre(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(
-        referentiel._PAR_LIVRABLE, DeliverableType.BUSINESS_STRATEGY, _STR
-    )
+def str_enregistre() -> None:
+    """Meme statut que `bp_enregistre`."""
 
 
 def _socle(*donnees: DonneeSocle) -> Socle:
@@ -78,18 +79,22 @@ def _d(
 # ── 0. Rien n'a bascule ──────────────────────────────────────────────────────
 
 
-def test_rien_n_a_bascule() -> None:
-    """LA contre-epreuve. La bascule est un commit d'une ligne, pas un effet de bord.
+def test_les_quatre_livrables_sont_couverts() -> None:
+    """La bascule du 06/08/2026 a eu lieu, et rien n'a ete debranche.
 
-    Si ce test tombe, `_PAR_LIVRABLE` porte le business plan ou la strategie
-    alors que la repetition a blanc n'a pas eu lieu : la production genererait
-    des documents sur un chemin jamais essaye.
+    Ce test disait l'inverse — `test_rien_n_a_bascule` — tant que la
+    repetition a blanc n'avait pas eu lieu. Il verrouille desormais l'etat
+    voulu : les QUATRE livrables passent par le moteur structure. Si l'un
+    d'eux retombe, c'est soit un revert volontaire (mettre ce test a jour avec
+    lui), soit une regression a corriger.
     """
-    assert not referentiel.livrable_couvert(DeliverableType.BUSINESS_PLAN)
-    assert not referentiel.livrable_couvert(DeliverableType.BUSINESS_STRATEGY)
-    # Et les deux etudes, elles, restent couvertes : on n'a rien debranche.
-    assert referentiel.livrable_couvert(DeliverableType.MARKET_STUDY)
-    assert referentiel.livrable_couvert(DeliverableType.COMPETITOR_STUDY)
+    for livrable in (
+        DeliverableType.MARKET_STUDY,
+        DeliverableType.COMPETITOR_STUDY,
+        DeliverableType.BUSINESS_PLAN,
+        DeliverableType.BUSINESS_STRATEGY,
+    ):
+        assert referentiel.livrable_couvert(livrable), livrable
 
 
 # ── 1. Structure des referentiels ────────────────────────────────────────────

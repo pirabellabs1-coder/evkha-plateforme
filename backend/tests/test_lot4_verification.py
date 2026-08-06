@@ -196,9 +196,14 @@ def test_une_donnee_obligatoire_absente_du_socle_bloque() -> None:
 
 
 def test_un_livrable_sans_referentiel_bloque_au_lieu_de_passer() -> None:
-    """Règle 1, encore : impossible de juger n'est pas la même chose que rien à dire."""
+    """Règle 1, encore : impossible de juger n'est pas la même chose que rien à dire.
+
+    Citait le business plan avant sa bascule du 06/08/2026 sur le moteur
+    structuré ; la propriété se vérifie sur un type inconnu, non couvert pour
+    toujours.
+    """
     anomalies = controles.controler_couverture_du_socle(
-        _document(["250 M€"]), _socle(), "business_plan"
+        _document(["250 M€"]), _socle(), "livrable_inconnu"
     )
     assert [a.gravite for a in anomalies] == [Gravite.BLOQUANTE]
 

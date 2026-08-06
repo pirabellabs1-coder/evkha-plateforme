@@ -92,8 +92,14 @@ def test_le_referentiel_em_est_ferme_et_non_vide() -> None:
 
 
 def test_les_livrables_non_couverts_ne_produisent_aucun_identifiant() -> None:
-    """Le business plan reste hors périmètre du lot 1 : pas de faux positif."""
-    assert identifiants_pour(DeliverableType.BUSINESS_PLAN) == frozenset()
+    """Un type inconnu ne produit rien : pas de faux positif.
+
+    Ce test citait le business plan — hors périmètre du lot 1, couvert depuis
+    la bascule du 06/08/2026. La PROPRIÉTÉ qu'il verrouille n'a pas changé :
+    un livrable sans référentiel rend l'ensemble vide, jamais un référentiel
+    d'emprunt. Elle se vérifie désormais sur un type qui n'existera jamais.
+    """
+    assert identifiants_pour("livrable_inconnu") == frozenset()
 
 
 def test_le_schema_outil_enumere_les_identifiants_autorises() -> None:
@@ -283,11 +289,16 @@ def test_la_seconde_tentative_recoit_les_motifs_du_refus() -> None:
 
 
 def test_un_livrable_sans_referentiel_est_refuse_sans_appel_api() -> None:
+    """Le refus vient AVANT l'appel : un type non couvert ne coûte rien.
+
+    Citait le business plan avant sa bascule du 06/08/2026 ; la propriété se
+    vérifie sur un type inconnu, qui restera non couvert pour toujours.
+    """
     client = _ClientTetu()
     with pytest.raises(SocleGenerationError):
         produire_socle(
             client=client,
-            deliverable_type=DeliverableType.BUSINESS_PLAN,
+            deliverable_type="livrable_inconnu",
             variables=_VARIABLES,
         )
     assert client.appels == 0, "Aucun appel ne doit être payé pour un livrable non couvert."
