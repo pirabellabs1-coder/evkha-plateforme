@@ -30,6 +30,8 @@ Quatre tableaux Markdown a deux colonnes, dans cet ordre, chacun precede de son 
 | Niveau de gamme | [accessible, milieu de gamme, premium, haut de gamme] |
 | Type de business | [service, produit, hybride ; B2B, B2C, mixte] |
 | Niveau de maturité | [lancement, validation, structuration, croissance, transition] |
+| Devise | Devise de reference du document, deduite du pays. Si le brief melange plusieurs monnaies, dis laquelle fait foi et le taux retenu. |
+| Lecteur final | A qui le document est destine (porteur seul, banque, investisseur, jury, partenaire) et niveau de langage attendu. Deduis-le du projet si le brief ne le dit pas, et dis que c'est une deduction. |
 
 ## Structure business
 | Offres existantes | [ce qui est reellement vendu aujourd'hui] |
@@ -68,6 +70,10 @@ Valeurs courtes et factuelles, tirees du business reel. Interdits : formulations
 
 ## Questions auxquelles cette stratégie répond
 Liste a puces de 5 a 8 questions : les VRAIES questions que le dirigeant se pose, deduites du brief et non recopiees d'une liste type. Le document en donne des exemples : mon business est-il structure, mon modele est-il soutenable, quels clients cibler reellement, quelles activites arreter, comment devenir plus rentable, mon offre est-elle claire, comment reduire ma charge, comment sortir du temps contre argent.
+
+
+## Points non specifies par le client
+Liste a puces de ce que la demande ne precise pas et que tu laisses donc ouvert (budget, delai, forme juridique, financement, capacite de production...). Marque chacun « provisoire ». Ecris « Aucun » si la demande ne laisse rien d'ouvert. N'INVENTE JAMAIS la valeur manquante : la signaler EST la reponse attendue, et le relecteur du CHECK INITIAL l'accepte comme telle.
 
 ## À retenir
 Trois a cinq lignes de lecture directionnelle : dependances critiques, risques de dispersion, coherence economique du modele, ecarts releves entre les donnees d'entree. Relie chaque constat a l'arbitrage qu'il commande. Aucune puce sans analyse.

@@ -146,6 +146,52 @@ _AXES_ETUDE_DE_MARCHE: tuple[Axe, ...] = (
 )
 
 
+# ── Axes du business plan ────────────────────────────────────────────────────
+#
+# Cibles par chapitre, sur le modèle des dix-huit axes EM. Les trois axes non
+# ciblés d'avant arrosaient les vingt-deux chapitres des mêmes extraits — la
+# cause mécanique des redites, mesurée sur l'EM avant son propre ciblage.
+# Numéros : `blueprints`, section business plan (6 marché, 7 concurrence,
+# 8 offre, 9 modèle, 10-11 commercial, 12 organisation, 13 juridique,
+# 14 investissements, 15 financement, 16 prévisionnel, 17 risques, 18 salaires).
+_AXES_BUSINESS_PLAN: tuple[Axe, ...] = (
+    Axe("marche_national", "marché national taille croissance statistiques", (6,)),
+    Axe("typologie_clients", "typologie clientèle profils dépense moyenne", (6, 10)),
+    Axe("concurrents", "principaux concurrents positionnement parts de marché", (7,)),
+    Axe("prix_pratiques", "prix moyen tarifs pratiqués fourchette secteur", (8, 9, 16)),
+    Axe("modeles_economiques", "modèle économique marges structure de coûts secteur", (9, 16)),
+    Axe("canaux_acquisition", "canaux de vente marketing coût d'acquisition", (10, 11)),
+    Axe("charges_salariales", "salaires charges sociales conventions collectives",
+        (12, 16, 18)),
+    Axe("statut_reglementation", "statut juridique obligations réglementaires activité", (13,)),
+    Axe("couts_demarrage", "coûts d'investissement démarrage équipement local", (14,)),
+    Axe("aides_subventions", "aides subventions dispositifs création d'entreprise", (15,)),
+    Axe("conditions_bancaires", "conditions emprunt bancaire taux apport exigé création", (15,)),
+    Axe("ratios_sectoriels", "ratios financiers rentabilité marge EBE secteur", (16, 17)),
+    Axe("risques_secteur", "risques défaillances taux de survie entreprises secteur", (17,)),
+    # Familles de sources exigées par le manuel, tous chapitres.
+    Axe("federation", "fédération professionnelle syndicat rapport annuel secteur"),
+    Axe("observatoire", "observatoire étude sectorielle rapport"),
+)
+
+# ── Axes de la stratégie ─────────────────────────────────────────────────────
+# Numéros : 2 lecture du projet, 3 positionnement actuel, 5 fragilités,
+# 6 enjeux, 7 verticales, 8 différenciation, 10-11 offre et gamme,
+# 12-13 canaux, 14 économie du modèle, 15 arbitrages, 16 pilotage.
+_AXES_STRATEGIE: tuple[Axe, ...] = (
+    Axe("tendances_marche", "tendances marché évolution demande secteur", (2, 6)),
+    Axe("positionnement_acteurs", "positionnement des acteurs niveaux de gamme", (3, 8)),
+    Axe("attentes_clients", "attentes clients critères de choix segments", (7, 8)),
+    Axe("pricing_gamme", "prix premium montée en gamme valeur perçue secteur", (10, 11)),
+    Axe("canaux_efficaces", "canaux d'acquisition efficacité conversion secteur", (12, 13)),
+    Axe("couts_acquisition", "coût d'acquisition client benchmarks marketing", (12, 13, 14)),
+    Axe("modeles_rentables", "modèles économiques rentables marges récurrence", (14,)),
+    Axe("indicateurs_pilotage", "indicateurs de pilotage KPI tableaux de bord métier", (16,)),
+    Axe("risques_barrieres", "risques barrières à l'entrée dépendances secteur", (5, 15)),
+    Axe("federation", "fédération professionnelle syndicat rapport annuel secteur"),
+    Axe("observatoire", "observatoire étude sectorielle rapport"),
+)
+
 _AXES_PAR_TYPE: dict[str, tuple[Axe, ...]] = {
     DeliverableType.MARKET_STUDY: _AXES_ETUDE_DE_MARCHE,
     DeliverableType.COMPETITOR_STUDY: (
@@ -153,16 +199,8 @@ _AXES_PAR_TYPE: dict[str, tuple[Axe, ...]] = {
         Axe("positionnement", "positionnement prix et offres des acteurs"),
         Axe("reputation", "avis clients réputation des acteurs"),
     ),
-    DeliverableType.BUSINESS_PLAN: (
-        Axe("investissement", "coûts d'investissement et de démarrage"),
-        Axe("financement", "financements aides et subventions"),
-        Axe("rentabilite", "rentabilité marges du secteur"),
-    ),
-    DeliverableType.BUSINESS_STRATEGY: (
-        Axe("leviers", "leviers de croissance et stratégies gagnantes"),
-        Axe("modeles", "modèles économiques rentables du secteur"),
-        Axe("risques", "risques et barrières à l'entrée"),
-    ),
+    DeliverableType.BUSINESS_PLAN: _AXES_BUSINESS_PLAN,
+    DeliverableType.BUSINESS_STRATEGY: _AXES_STRATEGIE,
 }
 
 
@@ -326,18 +364,35 @@ def collect_research_brief(
     return header + "\n\n".join(sections)
 
 
-#: Chapitre qui recense les sources : il reçoit le brief ENTIER, y compris les
-#: axes qui ne l'ont pas nourri directement. Le manuel l'exige — « faire
-#: apparaître toutes les sources réellement utilisées, même celles qui ont servi
-#: à confirmer ou nuancer ».
-_CHAPITRE_DES_SOURCES = 21
+def _chapitre_des_sources(deliverable_type: str) -> int | None:
+    """Chapitre qui recense les sources : il reçoit le brief ENTIER.
+
+    Le manuel l'exige — « faire apparaître toutes les sources réellement
+    utilisées, même celles qui ont servi à confirmer ou nuancer ».
+
+    Dérivé du blueprint et non écrit en dur : la constante valait `21`, juste
+    pour l'étude de marché, juste par coïncidence pour le business plan — et
+    fausse pour la stratégie (20) comme pour l'étude concurrentielle (9). Sur
+    ces deux-là, le chapitre des sources recevait un brief FILTRÉ, donc amputé
+    des axes qui n'avaient pas de section dédiée : la bibliographie taisait
+    des sources réellement employées. Le numéro appartient au plan ; le lire
+    ailleurs, c'est deux vérités (règles 4 et 5).
+    """
+    from .blueprints import SectionKind, chapters_for_deliverable  # noqa: PLC0415
+
+    for chapitre in chapters_for_deliverable(deliverable_type):
+        if chapitre.section_kind == SectionKind.SOURCES:
+            return chapitre.number
+    return None
 
 _ENTETE_SECTION = re.compile(
     re.escape(PREFIXE_SECTION) + r"\S+ \[chapitres: ([^\]]+)\]"
 )
 
 
-def brief_pour_chapitre(brief: str, numero: int) -> str:
+def brief_pour_chapitre(
+    brief: str, numero: int, deliverable_type: str = ""
+) -> str:
     """Ne garde du brief que les axes qui nourrissent CE chapitre.
 
     Vingt-et-un chapitres alimentés des mêmes extraits n'ont plus rien de neuf à
@@ -348,10 +403,17 @@ def brief_pour_chapitre(brief: str, numero: int) -> str:
     Un brief SANS marqueur de section est rendu tel quel : c'est le cas des
     briefs déjà stockés sur les jobs en cours et de ceux que les tests posent à
     la main. Les filtrer les ferait disparaître en silence (règle 1).
+
+    `deliverable_type` désigne le plan dont on lit le chapitre des sources. Le
+    défaut vide retombe sur l'étude de marché — le comportement historique des
+    appels qui ne le passaient pas encore.
     """
     if not brief or PREFIXE_SECTION not in brief:
         return brief
-    if numero == _CHAPITRE_DES_SOURCES:
+    sources = _chapitre_des_sources(
+        deliverable_type or DeliverableType.MARKET_STUDY
+    )
+    if sources is not None and numero == sources:
         return brief
 
     tete, _, corps = brief.partition(PREFIXE_SECTION)

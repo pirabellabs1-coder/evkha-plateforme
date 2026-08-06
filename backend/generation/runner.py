@@ -871,27 +871,37 @@ def _after_chapter_hook(
     *,
     client: ClaudeClient,
 ) -> None:
-    """Declenche le CHECK inter-bloc apres un chapitre EM, si applicable.
+    """Declenche le CHECK inter-bloc apres un chapitre, si applicable.
 
     Cas geres :
-      - Chapitre 0 (fiche projet) EM -> CHECK INITIAL (6 questions, manuel p.3).
+      - Chapitre 0 (fiche projet), TOUS livrables -> CHECK INITIAL.
       - Dernier chapitre d'un bloc A-J EM -> CHECK correspondant.
-      - Autre cas -> ne fait rien (les autres livrables et les chapitres
-        intermediaires d'un bloc passent silencieusement).
+      - Autre cas -> ne fait rien.
     """
-    if job.deliverable_type != DeliverableType.MARKET_STUDY:
-        return
-
     # Cas 1 : fiche projet (chapitre 0) -> CHECK INITIAL, sur la fiche seule.
     # Le manuel p.3 fait porter le controle sur la fiche REDIGEE : on la passe
     # donc au relecteur comme document a valider. Sans elle, il ne voyait que
     # le brief brut et reclamait des elements deja presents dans la fiche.
+    #
+    # TOUS les livrables, et plus seulement l'EM : les quatre plans ouvrent sur
+    # une fiche projet (bp.00, str.00, ec.00), et les six questions du CHECK —
+    # devise, lecteur final, perimetre, points non specifies — valent pour un
+    # business plan autant que pour une etude. Le court-circuit `!= EM` datait
+    # du temps ou seuls les CHECKs de blocs existaient ; il privait les trois
+    # autres livrables du seul controle qui attrape une fiche muette AVANT que
+    # vingt chapitres ne soient payes sur elle (lecon 07745d4a).
     if chapter.chapter_number == 0:
         bloc = BLOCS_PAR_IDENTIFIANT.get("INITIAL")
         if bloc is not None:
             _executer_check_avec_retry(
                 job, bloc, chapitres=[chapter], client=client,
             )
+        return
+
+    # Les CHECKs de blocs A-J, eux, restent propres a l'etude de marche :
+    # leurs numeros de chapitres sont ceux du plan EM (`checks_blocs`), et les
+    # appliquer a un business plan comparerait des chapitres qui n'existent pas.
+    if job.deliverable_type != DeliverableType.MARKET_STUDY:
         return
 
     # Cas 2 : dernier chapitre d'un bloc A-J -> CHECK.

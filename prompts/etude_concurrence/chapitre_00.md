@@ -27,11 +27,17 @@ FORMAT STRICT : produis EXACTEMENT un tableau Markdown a 2 colonnes, AUCUN texte
 | Éléments à retenir | [3 a 5 points cles separes par ' / '] |
 | Concurrents pressentis par le client | [pour chaque acteur cite spontanement par le porteur : nom, type percu par le client (direct / indirect), precisions transmises (lien, localisation, ressenti) ; separer les acteurs par ' / '] |
 | Niveau de géographie concurrentielle | [une seule valeur parmi : « une concurrence locale uniquement (exemple : un restaurant, un mariage, un service de proximité) », « une concurrence nationale », « une concurrence nationale + internationale », « une concurrence digitale sans frontière »] |
+| Devise | Devise de reference du document, deduite du pays. Si le brief melange plusieurs monnaies, dis laquelle fait foi et le taux retenu. |
+| Lecteur final | A qui le document est destine (porteur seul, banque, investisseur, jury, partenaire) et niveau de langage attendu. Deduis-le du projet si le brief ne le dit pas, et dis que c'est une deduction. |
 
 Un champ non renseignable depuis le brief se rend « Non renseigne par le brief ». Ne supprime jamais une ligne. N'invente jamais un concurrent pressenti ni un niveau de geographie.
 
 Apres le tableau, saute une ligne et ajoute la section '## Questions auxquelles cette etude repond' : liste a puces de 4 a 5 questions implicites du porteur orientees benchmark concurrentiel — qui occupe reellement son marche, comment se positionnent ces acteurs, ce que chacun fait bien ou mal, ou se situent les espaces strategiques disponibles, comment le projet peut se differencier durablement, quels leviers concurrentiels actionner des le lancement.
 
 Puis la section '## Lecture strategique' : 3 a 5 lignes redigees. Enonce ce que le niveau de geographie concurrentielle impose a la suite du livrable — cette variable conditionne toute la profondeur de la recherche concurrentielle — et ce que les concurrents pressentis revelent de la connaissance terrain du porteur, en indiquant les consequences pour la recherche a venir. Interdits : listes de points successifs sans analyse, paragraphes vagues ou generiques, complaisance vis-a-vis du projet client, jargon inutile.
+
+
+## Points non specifies par le client
+Liste a puces de ce que la demande ne precise pas et que tu laisses donc ouvert (budget, delai, forme juridique, financement, capacite de production...). Marque chacun « provisoire ». Ecris « Aucun » si la demande ne laisse rien d'ouvert. N'INVENTE JAMAIS la valeur manquante : la signaler EST la reponse attendue, et le relecteur du CHECK INITIAL l'accepte comme telle.
 
 Termine par une phrase de transition vers le chapitre Identification des concurrents. Rien d'autre.

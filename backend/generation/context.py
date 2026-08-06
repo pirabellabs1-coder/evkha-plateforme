@@ -141,7 +141,7 @@ def build_context(chapter: ChapterGeneration) -> str:
     from .research import brief_pour_chapitre  # noqa: PLC0415
 
     research_block = brief_pour_chapitre(
-        job.research_brief, chapter.chapter_number
+        job.research_brief, chapter.chapter_number, job.deliverable_type
     ) or (
         "Aucune source web collectee : n'invente aucune URL ni date de "
         "publication ; presente toute donnee non etablie comme une estimation."

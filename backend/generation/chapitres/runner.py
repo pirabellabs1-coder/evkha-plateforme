@@ -189,7 +189,9 @@ def _bloc_sources(job: GenerationJob, numero: int) -> str:
     """
     from ..research import brief_pour_chapitre  # noqa: PLC0415
 
-    utile = brief_pour_chapitre(job.research_brief or "", numero)
+    utile = brief_pour_chapitre(
+        job.research_brief or "", numero, job.deliverable_type
+    )
     if not utile.strip():
         return (
             "SOURCES WEB : aucune source collectée pour ce chapitre. N'invente "
