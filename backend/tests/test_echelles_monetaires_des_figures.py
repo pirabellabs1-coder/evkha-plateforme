@@ -54,6 +54,22 @@ def _donnee(identifiant: str, valeur: float, unite: str) -> DonneeSocle:
     )
 
 
+def _mondial(identifiant: str, valeur: float, annee: int) -> DonneeSocle:
+    return DonneeSocle(
+        id=identifiant, libelle=f"Marché mondial — {identifiant}", valeur=valeur,
+        unite="MdEUR", annee=annee, perimetre=Perimetre.MONDE,
+        fiabilite=Fiabilite.ESTIMEE,
+    )
+
+
+def _continental(identifiant: str, valeur: float, annee: int) -> DonneeSocle:
+    return DonneeSocle(
+        id=identifiant, libelle=f"Marché européen — {identifiant}", valeur=valeur,
+        unite="MdEUR", annee=annee, perimetre=Perimetre.CONTINENT,
+        fiabilite=Fiabilite.ESTIMEE,
+    )
+
+
 def _socle(*donnees: DonneeSocle) -> Socle:
     return Socle(
         secteur="joaillerie de créateurs",
@@ -140,6 +156,95 @@ def test_un_taux_a_cote_d_un_montant_reste_refuse() -> None:
 
     assert not resolution.retenu
     assert "hétérogènes" in resolution.motif
+
+
+def test_une_trajectoire_sur_deux_perimetres_donne_deux_series() -> None:
+    """Les courbes etaient STRUCTURELLEMENT infaisables.
+
+    Le socle interdit les doublons — « un identifiant, une seule valeur » — et
+    chaque donnee porte UNE annee. Une courbe « mondial 2026 -> 2035 » se
+    declare donc avec deux identifiants : `..._taille` et `..._projection`.
+    Le resolveur groupait par LIBELLE : deux identifiants, deux libelles, deux
+    series d'un seul point, aucune couvrant les deux annees, toutes ecartees.
+    Motif rendu : « aucune serie complete ».
+
+    Quatre formes sur quinze — courbes, aires, barres groupees, barres
+    empilees, les plus attendues d'une etude de marche — ne pouvaient donc
+    JAMAIS etre dessinees. Mesure du 05/08/2026, hors ligne et sans un appel au
+    modele.
+
+    Le regroupement se fait desormais par PERIMETRE, qui vient du referentiel :
+    la taille d'un marche et sa projection le partagent par construction.
+    """
+    socle = _socle(
+        _mondial("marche_mondial_taille", 310.0, 2026),
+        _mondial("marche_mondial_projection", 480.0, 2035),
+        _continental("marche_continental_taille", 96.0, 2026),
+        _continental("marche_continental_projection", 141.0, 2035),
+    )
+
+    resolution = resoudre(socle, "courbes", [
+        "marche_mondial_taille", "marche_mondial_projection",
+        "marche_continental_taille", "marche_continental_projection",
+    ])
+
+    assert resolution.retenu, resolution.motif
+    series = resolution.donnees["series"]  # type: ignore[index]
+    assert len(series) == 2, series
+    assert resolution.donnees["abscisses"] == ["2026", "2035"]  # type: ignore[index]
+    valeurs = {nom: points for nom, points in series}
+    assert list(valeurs.values())[0] == pytest.approx([310.0, 480.0])
+
+
+def test_une_serie_trouee_reste_ecartee() -> None:
+    """Contre-epreuve : une valeur manquante ne s'interpole pas.
+
+    Une pente inventee entre deux points reels est un mensonge invisible.
+    """
+    socle = _socle(
+        _mondial("marche_mondial_taille", 310.0, 2026),
+        _mondial("marche_mondial_projection", 480.0, 2035),
+        _continental("marche_continental_taille", 96.0, 2026),
+    )
+
+    resolution = resoudre(socle, "courbes", [
+        "marche_mondial_taille", "marche_mondial_projection",
+        "marche_continental_taille",
+    ])
+
+    assert resolution.retenu, resolution.motif
+    # Seul le perimetre MONDE couvre les deux annees.
+    assert len(resolution.donnees["series"]) == 1  # type: ignore[index]
+
+
+def test_la_derniere_marche_d_un_entonnoir_reste_visible() -> None:
+    """Un TAM/SAM/SOM enjambe plusieurs ordres de grandeur.
+
+    Largeur strictement proportionnelle : marche national 4 200 M€, parisien
+    240 M€, atteignable 1,8 M€ — la troisieme marche n'avait AUCUN pixel. Le
+    lecteur ne voyait pas qu'une troisieme etape existait. Une figure qui efface
+    une de ses donnees est fausse, quelle que soit la rigueur du calcul.
+
+    La largeur porte desormais l'ORDRE ; le chiffre, exact, est ecrit sur chaque
+    marche.
+    """
+    from generation.rendu_word.graphiques import (
+        _ENTONNOIR_LARGEUR_MIN,
+        entonnoir,
+    )
+    from generation.rendu_word.palette import construire_palette
+
+    assert _ENTONNOIR_LARGEUR_MIN >= 0.2, (
+        "une marche sous 20 % de la largeur redevient illisible"
+    )
+    png = entonnoir(
+        construire_palette(primaire="#1A1A1A", secondaire="#C9A227", fond_clair=""),
+        [("Marché national", 4200.0), ("Marché parisien", 240.0),
+         ("Marché atteignable", 1.8)],
+        unite=" MEUR",
+    )
+    assert png.startswith(b"\x89PNG")
+    assert len(png) > 5_000
 
 
 def test_deux_baremes_de_notes_restent_refuses() -> None:

@@ -280,19 +280,45 @@ def anneau(
     return _exporter(figure, palette)
 
 
+#: Largeurs extremes des marches d'un entonnoir, en fraction de la largeur
+#: utile. La derniere marche reste largement visible : c'est tout l'objet.
+_ENTONNOIR_LARGEUR_MAX = 1.0
+_ENTONNOIR_LARGEUR_MIN = 0.34
+
+
 def entonnoir(
     palette: Palette, etapes: Sequence[tuple[str, float]], unite: str = ""
 ) -> bytes:
     """Marché total vers marché atteignable, ou parcours de conversion.
 
-    Chaque étape est une barre centrée dont la largeur est proportionnelle à sa
-    valeur : la forme en entonnoir se lit sans légende.
+    ## La largeur porte l'ORDRE, l'étiquette porte la valeur
+
+    Elle était strictement proportionnelle à la valeur. Sur un parcours de
+    conversion — 1 000 visiteurs, 200 prospects, 40 clients — c'est parfait.
+    Sur un entonnoir de marché, ça ne marche pas : un TAM/SAM/SOM enjambe
+    presque toujours plusieurs ordres de grandeur.
+
+    Mesuré le 05/08/2026 en dessinant la figure hors ligne, sur le socle Joalie :
+    marché national 4 200 M€, marché parisien 240 M€, marché atteignable
+    1,8 M€. La deuxième marche devenait un trait, la **troisième n'avait aucun
+    pixel** — le lecteur ne voyait pas qu'il existait une troisième étape. Une
+    figure qui efface une de ses données est fausse, quelle que soit la rigueur
+    du calcul qui l'a produite.
+
+    Les largeurs décroissent donc par RANG, entre `_ENTONNOIR_LARGEUR_MAX` et
+    `_ENTONNOIR_LARGEUR_MIN`. La géométrie dit « ça se resserre, dans cet
+    ordre » ; le chiffre, lui, est écrit sur chaque marche et reste exact. C'est
+    la convention de toutes les études de marché, et elle ne prétend pas être un
+    diagramme en barres — ce que la largeur proportionnelle, elle, laissait
+    croire.
     """
     figure, axes = _figure(palette, hauteur_ratio=0.11 * max(len(etapes), 3))
-    maximum = max((valeur for _, valeur in etapes), default=1.0) or 1.0
     couleurs = _couleurs(palette, len(etapes))
+    dernier = max(len(etapes) - 1, 1)
     for index, (nom, valeur) in enumerate(etapes):
-        largeur = valeur / maximum
+        largeur = _ENTONNOIR_LARGEUR_MAX - (
+            (_ENTONNOIR_LARGEUR_MAX - _ENTONNOIR_LARGEUR_MIN) * index / dernier
+        )
         axes.barh(
             index, largeur, left=(1 - largeur) / 2, height=0.62, color=couleurs[index]
         )

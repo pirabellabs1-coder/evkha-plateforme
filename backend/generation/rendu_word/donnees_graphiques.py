@@ -267,13 +267,66 @@ def _scalaires(
     )
 
 
+def series_par_perimetre(
+    donnees: Sequence[DonneeSocle], valeurs: Sequence[float], annees: Sequence[int]
+) -> list[tuple[str, list[float]]]:
+    """Regroupe les points en séries : une série par périmètre géographique.
+
+    ## Pourquoi pas par libellé, comme avant
+
+    Le socle interdit les doublons — « un identifiant, une seule valeur » — et
+    chaque donnée porte UNE année. Une courbe « marché mondial 2026 → 2035 » se
+    déclare donc forcément avec DEUX identifiants distincts :
+    `marche_mondial_taille` et `marche_mondial_projection`. Deux identifiants,
+    donc deux libellés, donc — avec un regroupement par libellé — deux séries
+    d'un seul point chacune. Aucune ne couvrait toutes les années, toutes
+    étaient écartées, et la figure mourait sur « aucune série complète ».
+
+    Autrement dit : **courbes, aires, barres groupées et barres empilées —
+    quatre formes sur quinze, et les plus attendues d'une étude de marché —
+    étaient structurellement infaisables.** Mesuré le 05/08/2026 en dessinant
+    le catalogue hors ligne, sur un socle réaliste et sans un appel au modèle.
+
+    Cela corrobore les abandons du livrable réel `18ce3fca`, qui portaient tous
+    sur des trajectoires : « Marché mondial : évolution 2025 et projection
+    2035 », « Trajectoires comparées 2025-2035 ». Le modèle demandait bien la
+    bonne figure ; c'est le résolveur qui ne savait pas la construire.
+
+    ## Le périmètre, et pas une table de correspondance
+
+    `Perimetre` est déjà porté par chaque donnée du socle et vient du
+    référentiel : la taille du marché mondial et sa projection le partagent, par
+    construction. Écrire ici une table « ces identifiants vont ensemble »
+    divergerait au premier identifiant ajouté (règle 5).
+
+    Une série trouée reste écartée : une valeur manquante ne s'interpole pas,
+    sous peine de faire mentir la pente.
+    """
+    groupes: dict[str, dict[int, float]] = {}
+    noms: dict[str, str] = {}
+    for donnee, valeur in zip(donnees, valeurs, strict=True):
+        cle = str(donnee.perimetre)
+        groupes.setdefault(cle, {})[donnee.annee] = valeur
+        # Le nom de la série vient de la première donnée du périmètre : c'est
+        # elle qui porte la grandeur observée, la suivante sa projection.
+        noms.setdefault(cle, etiquette_de(donnee))
+
+    series: list[tuple[str, list[float]]] = []
+    for cle, points in groupes.items():
+        if len(points) != len(annees):
+            continue
+        series.append((noms[cle], [points[annee] for annee in annees]))
+    return series
+
+
 def _temporel(
     socle: Socle, type_demande: str, identifiants: Sequence[str]
 ) -> Resolution:
     """Courbes et aires : exigent un axe des temps, donc plusieurs années.
 
-    Les données sont regroupées par libellé — chaque libellé devient une série,
-    chaque année un point.
+    Une série par PÉRIMÈTRE, chaque année un point — voir
+    `series_par_perimetre` pour ce que le regroupement par libellé rendait
+    impossible.
     """
     donnees, motif = _resoudre_ids(socle, identifiants)
     if motif:
@@ -300,16 +353,7 @@ def _temporel(
         )
     valeurs, unite = harmonise
 
-    par_libelle: dict[str, dict[int, float]] = {}
-    for donnee, valeur in zip(donnees, valeurs, strict=True):
-        par_libelle.setdefault(etiquette_de(donnee), {})[donnee.annee] = valeur
-
-    series: list[tuple[str, list[float]]] = []
-    for libelle, points in par_libelle.items():
-        # Une série trouée fait mentir la pente ; on n'interpole pas.
-        if len(points) != len(annees):
-            continue
-        series.append((libelle, [points[annee] for annee in annees]))
+    series = series_par_perimetre(donnees, valeurs, annees)
 
     if not series:
         return Resolution(
@@ -335,7 +379,12 @@ def _temporel(
 def _groupees(
     socle: Socle, type_demande: str, identifiants: Sequence[str]
 ) -> Resolution:
-    """Barres groupées ou empilées : une série par libellé, un groupe par année."""
+    """Barres groupées ou empilées : une série par PÉRIMÈTRE, un groupe par année.
+
+    Même correction que les courbes : le regroupement par libellé rendait ces
+    deux formes infaisables, puisqu'un périmètre suivi dans le temps s'exprime
+    forcément avec plusieurs identifiants (voir `series_par_perimetre`).
+    """
     donnees, motif = _resoudre_ids(socle, identifiants)
     if motif:
         return Resolution(motif=motif)
@@ -351,15 +400,7 @@ def _groupees(
         return Resolution(motif="valeur négative : un empilement deviendrait faux")
 
     annees = sorted({donnee.annee for donnee in donnees})
-    par_libelle: dict[str, dict[int, float]] = {}
-    for donnee, valeur in zip(donnees, valeurs, strict=True):
-        par_libelle.setdefault(etiquette_de(donnee), {})[donnee.annee] = valeur
-
-    series = [
-        (libelle, [points[annee] for annee in annees])
-        for libelle, points in par_libelle.items()
-        if len(points) == len(annees)
-    ]
+    series = series_par_perimetre(donnees, valeurs, annees)
     if len(series) < 2 or len(annees) < 2:
         repli = _scalaires(socle, "barres", identifiants)
         if repli.retenu:
