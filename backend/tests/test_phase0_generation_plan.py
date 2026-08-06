@@ -117,6 +117,16 @@ def test_market_study_budget_keeps_phase0_margin() -> None:
     # l'ancien decoupage, et rendu des chapitres courts : le defaut meme que le
     # plancher _MIN_MAX_TOKENS avait corrige.
     #
-    # Valeur PROJETEE tant qu'aucune generation reelle n'a tourne sur Sonnet 5.
-    # La premiere mesure reelle prime sur ce calcul (regles 7 et 10).
-    assert job.budget_eur == Decimal("6.0000")
+    # Puis RAMENE a 4,00 EUR le 05/08/2026, et c'est la mesure reelle qui prime
+    # sur la projection, comme annonce ci-dessus (regles 7 et 10).
+    #
+    # Deux etudes de marche COMPLETES ont tourne sur Sonnet 5 : 3,12 et 3,32 EUR.
+    # La projection a 6,00 portait donc pres du double de la depense observee.
+    #
+    # Et ce nombre ne plafonne plus rien : la depense est desormais coupee en dur
+    # a 3,10 EUR par `cost.PLAFOND_DEPENSE_EUR`, sur decision de la cliente. Ce
+    # qui reste a ce budget-ci, c'est son role de RYTHME — il sert de
+    # denominateur au throttle. Le seuil sous lequel il rabote les chapitres est
+    # MESURE a 3,80 EUR (voir `test_plafond_de_generation`) : 4,00 laisse la
+    # marge utile, et pas davantage.
+    assert job.budget_eur == Decimal("4.0000")

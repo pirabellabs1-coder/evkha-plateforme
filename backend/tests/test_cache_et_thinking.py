@@ -320,17 +320,25 @@ def test_budget_em_releve_pour_absorber_la_reflexion() -> None:
     assert _BUDGET_EUR_BY_TYPE[DeliverableType.MARKET_STUDY] >= Decimal("4.0000")
 
 
-def test_les_quatre_budgets_absorbent_le_tokenizer_de_sonnet_5() -> None:
+def test_les_trois_autres_budgets_absorbent_le_tokenizer_de_sonnet_5() -> None:
     """Sonnet 5 compte ~30 % de tokens en plus pour le meme texte, a tarif egal.
 
-    Le plafond n'aurait pas surfacture — il aurait fait raboter max_tokens par
-    le throttle, donc raccourci les derniers chapitres. La cause etant commune
-    a tous les livrables, la hausse l'est aussi (regle 4).
+    Un budget de rythme inchange n'aurait pas surfacture — il aurait fait
+    raboter max_tokens par le throttle, donc raccourci les derniers chapitres.
+    La cause etant commune a tous les livrables, la hausse l'est aussi.
+
+    **L'etude de marche sort de ce test le 05/08/2026.** Son rythme est ramene
+    de 6,00 a 4,00 EUR, non par economie — c'est
+    `cost.PLAFOND_DEPENSE_EUR` qui plafonne desormais la depense, a 3,10 — mais
+    parce qu'un rythme surdimensionne n'apporte rien : les deux etudes
+    COMPLETES mesurees ont coute 3,12 et 3,32 EUR, et le seuil sous lequel les
+    chapitres sont rabotes est a 3,80. 4,00 laisse la marge utile, pas
+    davantage. Elle garde son propre garde-fou, mesure celui-la, dans
+    `test_plafond_de_generation`.
     """
     from generation.services import _BUDGET_EUR_BY_TYPE
 
     avant = {
-        DeliverableType.MARKET_STUDY: Decimal("4.6000"),
         DeliverableType.BUSINESS_PLAN: Decimal("2.8000"),
         DeliverableType.BUSINESS_STRATEGY: Decimal("2.4000"),
         DeliverableType.COMPETITOR_STUDY: Decimal("2.0000"),

@@ -67,8 +67,27 @@ _SUPPORTED_DELIVERABLES = frozenset(
 # Ces valeurs restent une PROJECTION tant qu'aucune generation reelle n'a
 # tourne sur Sonnet 5. La premiere mesure reelle doit etre reportee ici et dans
 # journal_generations.md (regle 10) — et elle prime sur ce calcul.
+# ── Deux nombres, et le code n'en avait qu'un ────────────────────────────────
+#
+# `budget_eur` servait A LA FOIS de rythme et de plafond. Le throttle de
+# `cost.py` repartit le budget RESTANT sur les appels restants : baisser ce
+# nombre ne fait pas baisser la depense, il RETRECIT chaque chapitre.
+#
+# Mesure du 05/08/2026, sur le vrai `max_tokens_for_job` : en dessous de
+# 3,80 EUR de budget, le premier appel d'une etude de marche est deja borne au
+# plancher de 2 500 jetons de sortie — alors que ses chapitres en consomment
+# environ 3 000. Poser 3,00 EUR ici n'aurait donc pas coute 3,00 EUR : cela
+# aurait produit vingt-trois chapitres rabotes, c'est-a-dire le defaut meme que
+# la cliente signale.
+#
+# On separe donc les deux roles. Le RYTHME reste dimensionne sur le travail a
+# faire ; le PLAFOND DE DEPENSE, lui, est une decision commerciale et il
+# s'applique en dur (voir `cost.enforce_budget`).
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("6.0000"),  # 30 appels + reflexion + CHECKs
+    # Ramene de 6,00 : les deux etudes COMPLETES mesurees ont coute 3,12 et
+    # 3,32 EUR, et 4,00 laisse au throttle la marge qu'il lui faut pour ne pas
+    # raboter (seuil mesure : 3,80).
+    DeliverableType.MARKET_STUDY:      Decimal("4.0000"),  # 30 appels + reflexion + CHECKs
     DeliverableType.BUSINESS_PLAN:     Decimal("3.6500"),  # 20 chapitres, ~24 appels chunked
     DeliverableType.BUSINESS_STRATEGY: Decimal("3.3500"),  # 21 appels (+ conclusion)
     DeliverableType.COMPETITOR_STUDY:  Decimal("2.6000"),  # 12 appels (sans SWOT)

@@ -403,7 +403,24 @@ def test_le_stub_de_dev_accepte_le_parametre_advisor(em_job: GenerationJob) -> N
     assert "verdict" in resultat.content
 
 
-def test_budget_em_couvre_les_checks_et_ladvisor() -> None:
+def test_le_rythme_em_couvre_les_checks_et_ladvisor() -> None:
+    """Le budget de rythme doit laisser passer un chapitre de taille normale.
+
+    Ce test exigeait 4,60 EUR — le PIRE CAS projeté : chapitres + réflexion +
+    CHECKs + advisor + marge de reprise. Or ce nombre ne plafonne plus la
+    dépense depuis le 05/08/2026 : `cost.PLAFOND_DEPENSE_EUR` s'en charge, sur
+    décision de la cliente (3,10 EUR maximum).
+
+    Ce que ce nombre-ci gouverne, c'est le THROTTLE — il répartit le restant sur
+    les appels à venir. Ce qu'il doit garantir n'est donc plus « couvrir le pire
+    cas » mais « ne pas raboter les chapitres ». Le seuil est mesuré, pas
+    projeté : sous 3,80 EUR, le premier appel est déjà borné au plancher de
+    2 500 jetons (voir `test_plafond_de_generation`).
+
+    Les deux études COMPLÈTES mesurées ont coûté 3,12 et 3,32 EUR — la
+    projection à 4,60 portait donc environ 40 % de marge sur une dépense qui,
+    elle, est désormais coupée en dur.
+    """
     from generation.services import _BUDGET_EUR_BY_TYPE
 
-    assert _BUDGET_EUR_BY_TYPE[DeliverableType.MARKET_STUDY] >= Decimal("4.6000")
+    assert _BUDGET_EUR_BY_TYPE[DeliverableType.MARKET_STUDY] >= Decimal("3.8000")

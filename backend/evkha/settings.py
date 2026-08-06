@@ -233,6 +233,12 @@ EVKHA_THINKING_BUDGET_TOKENS = env.int("EVKHA_THINKING_BUDGET_TOKENS", default=1
 # actionner avant de couper la reflexion tout court.
 EVKHA_CLAUDE_EFFORT = env("EVKHA_CLAUDE_EFFORT", default="high")
 
+# Ce qu'une generation ne doit JAMAIS depasser, quel que soit le livrable.
+# Contrainte COMMERCIALE, distincte du budget de rythme de chaque livrable :
+# baisser celui-ci ne fait pas baisser la depense, il retrecit les chapitres
+# (voir generation/cost.py, PLAFOND_DEPENSE_EUR). Reglable sans redeploiement.
+EVKHA_PLAFOND_DEPENSE_EUR = env("EVKHA_PLAFOND_DEPENSE_EUR", default="3.10")
+
 # Plafond de mots par section a l'assemblage du Word. 0 = aucune coupe.
 # Au-dela, la prose de la section est ramenee a une amorce, sur une frontiere
 # de phrase.

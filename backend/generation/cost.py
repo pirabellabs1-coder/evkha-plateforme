@@ -252,16 +252,41 @@ def max_tokens_for_job(
     return max(_MIN_MAX_TOKENS, min(default_max_tokens, allowed))
 
 
-def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) -> None:
-    """Arret immediat si total > budget_eur. Budget MAX = 2 EUR, STRICT, SANS TOLERANCE.
+#: Ce qu'une generation ne doit JAMAIS depasser, quel que soit le livrable et
+#: quel que soit son budget de rythme. Decision de la cliente du 05/08/2026,
+#: releve de la console Anthropic a l'appui — 44,26 $US de credits restants,
+#: rechargement automatique actif : « on ne doit pas depasser 3 euros pour une
+#: generation, ou 3,1 au max ».
+#:
+#: Pourquoi un nombre DISTINCT de `budget_eur`. Celui-ci sert de denominateur au
+#: throttle : il repartit le restant sur les appels a venir. Le baisser ne fait
+#: pas baisser la depense, il RETRECIT chaque chapitre — mesure le 05/08/2026,
+#: sous 3,80 EUR chaque appel d'une etude de marche est deja borne au plancher.
+#: Confondre les deux revenait a croire qu'on plafonnait une facture alors qu'on
+#: rabotait un document.
+#:
+#: Reglable sans redeploiement : la contrainte est commerciale, elle bougera.
+PLAFOND_DEPENSE_EUR = Decimal("3.1000")
 
-    Des que le cumul des chapitres depasse budget_eur, CostBudgetExceededError est
-    leve et la generation s'arrete. Le chapitre qui a declenche le depassement est
-    deja sauvegarde (le cout a ete engage cote Anthropic) mais aucun chapitre
-    suivant ne demarre.
+
+def plafond_de_depense(job: GenerationJob) -> Decimal:
+    """Le plus contraignant des deux : le rythme du job, ou le plafond commercial."""
+    plafond = getattr(settings, "EVKHA_PLAFOND_DEPENSE_EUR", None)
+    absolu = Decimal(str(plafond)) if plafond is not None else PLAFOND_DEPENSE_EUR
+    return min(job.budget_eur, absolu)
+
+
+def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) -> None:
+    """Arret immediat des que la depense passe le plafond. STRICT, SANS TOLERANCE.
+
+    Le chapitre qui a declenche le depassement est deja sauvegarde (le cout a ete
+    engage cote Anthropic) mais aucun chapitre suivant ne demarre.
+
+    Le plafond n'est plus `budget_eur` seul : c'est le plus contraignant du
+    rythme du job et du plafond commercial (voir `PLAFOND_DEPENSE_EUR`).
     """
     total = current_total if current_total is not None else job.total_cost_eur
-    if total <= job.budget_eur:
+    if total <= plafond_de_depense(job):
         return
 
     # Un seul incident par job — pas de spam.
@@ -277,11 +302,13 @@ def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) 
             details={
                 "total_cost_eur": str(total),
                 "budget_eur": str(job.budget_eur),
+                "plafond_depense_eur": str(plafond_de_depense(job)),
             },
         )
 
     msg = (
-        f"Budget strict depasse : {total} EUR > {job.budget_eur} EUR (job {job.id}). "
+        f"Plafond de depense atteint : {total} EUR > "
+        f"{plafond_de_depense(job)} EUR (job {job.id}). "
         "Generation stoppee immediatement."
     )
     raise CostBudgetExceededError(msg)
