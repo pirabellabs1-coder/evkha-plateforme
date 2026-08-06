@@ -263,6 +263,250 @@ _EC: tuple[DefinitionDonnee, ...] = (
 )
 
 
+# ── Business plan ────────────────────────────────────────────────────────────
+# Les identifiants annuels suivent la convention `<serie>_anN` : c'est elle que
+# le rendu emploie pour reconstituer une série temporelle d'entreprise (voir
+# `rendu_word/donnees_graphiques.series_par_perimetre` — toutes les données du
+# prévisionnel partagent le périmètre ENTREPRISE, le radical est donc le seul
+# axe de groupement possible).
+#
+# Les libellés reprennent `checks_evangeline._LIBELLES_SURVEILLES` : ce sont
+# les chiffres qu'Évangéline a nommés intangibles (fiche 3), et le gate les
+# surveille déjà sous ces noms. Inventer ici une seconde nomenclature ferait
+# deux listes pour une même vérité (règle 5).
+
+_BP: tuple[DefinitionDonnee, ...] = (
+    # Chapitre 6 — synthèse de marché. Volontairement réduit : le BP cite le
+    # marché, il ne le démontre pas — c'est le rôle de l'étude de marché.
+    DefinitionDonnee(
+        "marche_national_taille", "Taille du marché national",
+        Perimetre.NATIONAL, FamilleUnite.MONETAIRE, obligatoire=True, chapitres=(6,),
+    ),
+    DefinitionDonnee(
+        "marche_national_croissance", "Croissance annuelle du marché national",
+        Perimetre.NATIONAL, FamilleUnite.POURCENTAGE, chapitres=(6,),
+    ),
+    DefinitionDonnee(
+        "taille_clientele_cible", "Taille de la clientèle cible",
+        Perimetre.NATIONAL, FamilleUnite.EFFECTIF, chapitres=(6, 10),
+    ),
+    # Chapitres 8-10 — offre et économie unitaire
+    DefinitionDonnee(
+        "panier_moyen", "Panier moyen constaté ou visé",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(8, 9, 16),
+    ),
+    DefinitionDonnee(
+        "marge_brute_taux", "Taux de marge brute",
+        Perimetre.ENTREPRISE, FamilleUnite.POURCENTAGE, chapitres=(9, 16),
+        commentaire="Global : un seul taux pour le document, sauf mention "
+                    "explicite d'une évolution par exercice dans le brief.",
+    ),
+    # Chapitre 14 — investissements
+    DefinitionDonnee(
+        "investissement_total", "Investissement total au démarrage",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, obligatoire=True,
+        chapitres=(14, 15),
+        commentaire="Somme des emplois durables du plan de financement initial.",
+    ),
+    DefinitionDonnee(
+        "bfr", "Besoin en fonds de roulement",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(14, 15, 16),
+    ),
+    # Chapitre 15 — plan de financement
+    DefinitionDonnee(
+        "apport", "Apport personnel du porteur",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, obligatoire=True,
+        chapitres=(15,),
+        commentaire="Vient du brief : fiabilité `declaree`.",
+    ),
+    DefinitionDonnee(
+        "emprunt", "Emprunt bancaire sollicité",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(15, 16),
+    ),
+    DefinitionDonnee(
+        "autres_ressources", "Autres ressources du plan de financement",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(15,),
+        commentaire="Subventions, aides, prêts d'honneur, apports en compte "
+                    "courant. Ce qui n'est ni l'apport ni l'emprunt bancaire.",
+    ),
+    # Chapitre 16 — prévisionnel sur trois exercices. Chaque série est annuelle
+    # et chaque valeur est un `scenario` — jamais une prévision observée.
+    DefinitionDonnee(
+        "ca_previsionnel_an1", "Chiffre d'affaires prévisionnel — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, obligatoire=True,
+        chapitres=(1, 16),
+    ),
+    DefinitionDonnee(
+        "ca_previsionnel_an2", "Chiffre d'affaires prévisionnel — exercice 2",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, obligatoire=True,
+        chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "ca_previsionnel_an3", "Chiffre d'affaires prévisionnel — exercice 3",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, obligatoire=True,
+        chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "resultat_net_an1", "Résultat net — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+        commentaire="Peut être négatif : un premier exercice en perte est un "
+                    "scénario légitime, pas une incohérence.",
+    ),
+    DefinitionDonnee(
+        "resultat_net_an2", "Résultat net — exercice 2",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "resultat_net_an3", "Résultat net — exercice 3",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "ebe_an1", "Excédent brut d'exploitation — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "ebe_an2", "Excédent brut d'exploitation — exercice 2",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "ebe_an3", "Excédent brut d'exploitation — exercice 3",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "caf_an1", "Capacité d'autofinancement — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "caf_an2", "Capacité d'autofinancement — exercice 2",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "caf_an3", "Capacité d'autofinancement — exercice 3",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "tresorerie_fin_an1", "Trésorerie de clôture — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "tresorerie_fin_an2", "Trésorerie de clôture — exercice 2",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "tresorerie_fin_an3", "Trésorerie de clôture — exercice 3",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "dette_residuelle_an1", "Dette résiduelle — fin d'exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "dette_residuelle_an2", "Dette résiduelle — fin d'exercice 2",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "dette_residuelle_an3", "Dette résiduelle — fin d'exercice 3",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "charges_fixes_an1", "Charges fixes — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    ),
+    DefinitionDonnee(
+        "seuil_rentabilite", "Seuil de rentabilité (point mort)",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, obligatoire=True,
+        chapitres=(16, 17),
+        commentaire="Niveau de chiffre d'affaires, pas un résultat. Se dérive "
+                    "des charges fixes et du taux de marge.",
+    ),
+    # Chapitre 18 — rémunération
+    DefinitionDonnee(
+        "remuneration_dirigeant_an1", "Rémunération du dirigeant — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16, 18),
+    ),
+    DefinitionDonnee(
+        "masse_salariale_an1", "Masse salariale — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(12, 16, 18),
+    ),
+    DefinitionDonnee(
+        "effectif_an1", "Effectif — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.EFFECTIF, chapitres=(12, 18),
+    ),
+)
+
+
+# ── Stratégie d'entreprise ───────────────────────────────────────────────────
+# L'essentiel d'une stratégie vit dans le qualitatif — verticales, architecture
+# d'offre — porté par `segments_clientele`, pas par des données chiffrées. Le
+# référentiel reste donc court, et presque tout y est `declaree` : ce sont les
+# chiffres du client, pas ceux du marché.
+
+_STR: tuple[DefinitionDonnee, ...] = (
+    DefinitionDonnee(
+        "marche_national_taille", "Taille du marché national",
+        Perimetre.NATIONAL, FamilleUnite.MONETAIRE, obligatoire=True, chapitres=(2,),
+    ),
+    DefinitionDonnee(
+        "marche_national_croissance", "Croissance annuelle du marché national",
+        Perimetre.NATIONAL, FamilleUnite.POURCENTAGE, chapitres=(2,),
+    ),
+    DefinitionDonnee(
+        "ca_actuel", "Chiffre d'affaires actuel de l'entreprise",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(3, 14),
+        commentaire="Facultatif : un projet en création n'en a pas encore.",
+    ),
+    DefinitionDonnee(
+        "panier_moyen", "Panier moyen constaté",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(9, 10, 14),
+    ),
+    DefinitionDonnee(
+        "marge_moyenne_taux", "Taux de marge moyen",
+        Perimetre.ENTREPRISE, FamilleUnite.POURCENTAGE, chapitres=(14,),
+    ),
+    DefinitionDonnee(
+        "nb_clients_actifs", "Nombre de clients actifs",
+        Perimetre.ENTREPRISE, FamilleUnite.EFFECTIF, chapitres=(3, 12),
+    ),
+    DefinitionDonnee(
+        "taux_conversion", "Taux de conversion constaté",
+        Perimetre.ENTREPRISE, FamilleUnite.POURCENTAGE, chapitres=(12, 13),
+    ),
+    DefinitionDonnee(
+        "cout_acquisition_client", "Coût d'acquisition d'un client",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(12, 13, 14),
+    ),
+    DefinitionDonnee(
+        "valeur_vie_client", "Valeur vie client (LTV)",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(13, 14),
+        commentaire="Se dérive du panier moyen et de la fréquence de réachat : "
+                    "déclarer `derivee_de` quand c'est le cas.",
+    ),
+    DefinitionDonnee(
+        "part_ca_recurrent", "Part du chiffre d'affaires récurrent",
+        Perimetre.ENTREPRISE, FamilleUnite.POURCENTAGE, chapitres=(10, 14),
+    ),
+    DefinitionDonnee(
+        "part_ca_en_ligne", "Part du chiffre d'affaires réalisée en ligne",
+        Perimetre.ENTREPRISE, FamilleUnite.POURCENTAGE, chapitres=(12,),
+    ),
+    DefinitionDonnee(
+        "ca_objectif_horizon", "Chiffre d'affaires visé à l'horizon de la feuille de route",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(17,),
+        commentaire="Scénario, jamais une promesse. L'horizon est celui du "
+                    "chapitre 17 (feuille de route).",
+    ),
+    DefinitionDonnee(
+        "horizon_feuille_de_route", "Horizon de la feuille de route",
+        Perimetre.ENTREPRISE, FamilleUnite.DUREE, chapitres=(17,),
+    ),
+)
+
+
+#: Les livrables couverts par le moteur structuré. `_BP` et `_STR` sont écrits
+#: et testés mais PAS enregistrés : les brancher est un commit d'une ligne,
+#: volontairement séparé — c'est l'interrupteur qui fait basculer production,
+#: socle, figures et contrôles d'un coup, et il doit partir seul pour être
+#: réversible d'un revert (plan du 06/08/2026, étape 8).
 _PAR_LIVRABLE: dict[str, tuple[DefinitionDonnee, ...]] = {
     DeliverableType.MARKET_STUDY: _EM,
     DeliverableType.COMPETITOR_STUDY: _EC,

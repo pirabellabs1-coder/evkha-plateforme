@@ -42,6 +42,44 @@ _BASE_CONCURRENTS = (
     "mieux vaut le remplacer par un acteur vérifiable."
 )
 
+# Règles du prévisionnel — business plan uniquement. Le pendant de
+# `_BASE_CONCURRENTS` : ce que ce livrable exige de son socle et que le
+# référentiel seul ne dit pas.
+_PREVISIONNEL_BP = (
+    "PRÉVISIONNEL FINANCIER (obligatoire pour ce business plan).\n"
+    "Le prévisionnel se construit sur TROIS exercices, portés par les "
+    "identifiants `_an1`, `_an2`, `_an3` du référentiel.\n"
+    "- Chaque valeur du prévisionnel est un `scenario` : une hypothèse "
+    "explicite, jamais une prévision observée. Les montants venus du brief "
+    "(apport, emprunt, investissement) sont `declaree`.\n"
+    "- Le plan de financement s'équilibre : apport + emprunt + autres "
+    "ressources couvrent l'investissement total. Un découvert de départ n'est "
+    "pas un montage, c'est un refus de socle.\n"
+    "- Un premier exercice en perte est un scénario légitime : n'embellis pas "
+    "`resultat_net_an1` pour le rendre positif.\n"
+    "- Le seuil de rentabilité est un NIVEAU DE CHIFFRE D'AFFAIRES, dérivé "
+    "des charges fixes et du taux de marge : déclare `derivee_de`.\n"
+    "- Cohérence d'échelle : tout le prévisionnel dans la même unité "
+    "monétaire. Un résultat net ne dépasse jamais le chiffre d'affaires du "
+    "même exercice."
+)
+
+# Cadrage chiffré — stratégie uniquement. Presque tout vient du brief : le
+# socle d'une stratégie dit ce que l'entreprise EST, pas ce que le marché vaut.
+_CADRAGE_STR = (
+    "CADRAGE CHIFFRÉ (stratégie d'entreprise).\n"
+    "L'essentiel de ce socle vient du BRIEF : chiffre d'affaires actuel, "
+    "panier moyen, marges, conversion. Fiabilité `declaree`, et rien "
+    "d'inventé — une stratégie bâtie sur des chiffres supposés se retourne "
+    "contre son lecteur.\n"
+    "- Un projet en création n'a pas de `ca_actuel` : OMETS l'identifiant "
+    "plutôt que d'y mettre zéro ou un objectif.\n"
+    "- `ca_objectif_horizon` est un `scenario`, jamais une promesse, et "
+    "`horizon_feuille_de_route` dit à quelle échéance il s'entend.\n"
+    "- Renseigne `segments_clientele` avec les verticales du projet : nom, "
+    "besoin dominant, part estimée. C'est la matière des chapitres 7 à 11."
+)
+
 _ROLE = (
     "Tu es analyste de marché. Ta seule tâche ici est de produire le SOCLE DE "
     "DONNÉES chiffrées d'une étude : les chiffres de référence sur lesquels "
@@ -151,6 +189,14 @@ def construire_prompt_socle(
     # des chiffres d'affaires et parts de marché — n'avait aucune matière.
     if deliverable_type == DeliverableType.COMPETITOR_STUDY:
         blocs.append(_BASE_CONCURRENTS)
+    # Même mécanisme pour les deux livrables suivants : un bloc d'exigences
+    # propres au métier du document, à côté du référentiel qui liste les
+    # emplacements. Sans lui, la leçon de `_BASE_CONCURRENTS` se répéterait —
+    # un schéma déclaré que rien ne demande part vide à chaque étude.
+    elif deliverable_type == DeliverableType.BUSINESS_PLAN:
+        blocs.append(_PREVISIONNEL_BP)
+    elif deliverable_type == DeliverableType.BUSINESS_STRATEGY:
+        blocs.append(_CADRAGE_STR)
 
     blocs.append(_REGLES)
 

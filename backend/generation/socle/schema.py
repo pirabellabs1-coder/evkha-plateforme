@@ -311,6 +311,84 @@ def valider_socle(socle: Socle, deliverable_type: str) -> list[str]:
                 )
 
     motifs.extend(_controler_emboitement_marche(socle))
+    motifs.extend(_controler_equilibre_financier(socle))
+    return motifs
+
+
+def _controler_equilibre_financier(socle: Socle) -> list[str]:
+    """Cohérences arithmétiques d'un prévisionnel. Trois règles, pas plus.
+
+    Les identifiants contrôlés n'existent que dans le référentiel du business
+    plan : sur une étude de marché, ces contrôles ne trouvent rien et se
+    taisent — comme l'emboîtement TAM/SAM/SOM se tait sur une étude
+    concurrentielle.
+
+    La parcimonie est volontaire (leçon des runs 1-3 : chaque règle trop
+    stricte a tué des études). Ne sont refusées que des impossibilités
+    arithmétiques qu'un lecteur constaterait — pas des choix de scénario :
+
+    - un premier exercice en perte est LÉGITIME (`resultat_net_an1` négatif) ;
+    - un chiffre d'affaires qui ne croît pas est un scénario, pas une faute ;
+    - la seule vraie exigence d'équilibre porte sur le plan de financement.
+    """
+    motifs: list[str] = []
+
+    def montant(identifiant: str) -> tuple[float, str] | None:
+        item = socle.donnee(identifiant)
+        if item is None:
+            return None
+        return valeur_en_unites_de_base(item.valeur, item.unite)
+
+    # 1. Le plan de financement couvre l'investissement. Tolérance de 2 % :
+    #    les arrondis d'un montage réel ne sont pas une incohérence.
+    investissement = montant("investissement_total")
+    if investissement is not None:
+        ressources = [
+            r for r in (montant("apport"), montant("emprunt"), montant("autres_ressources"))
+            if r is not None
+        ]
+        devises = {r[1] for r in ressources} | {investissement[1]}
+        if ressources and len(devises) == 1:
+            total = sum(r[0] for r in ressources)
+            if total < investissement[0] * 0.98:
+                motifs.append(
+                    f"Le plan de financement ne couvre pas l'investissement : "
+                    f"{total:,.0f} {investissement[1]} de ressources (apport + "
+                    f"emprunt + autres) pour {investissement[0]:,.0f} "
+                    f"{investissement[1]} d'emplois. Ajuste l'un ou l'autre, ou "
+                    f"déclare la ressource manquante dans `autres_ressources`."
+                )
+
+    # 2. Un résultat net ne dépasse jamais le chiffre d'affaires du même
+    #    exercice. Quand cela arrive, c'est presque toujours une erreur
+    #    d'échelle (k€ contre €) — exactement ce qu'un contrôle attrape mieux
+    #    qu'un lecteur.
+    for annee in (1, 2, 3):
+        ca = montant(f"ca_previsionnel_an{annee}")
+        resultat = montant(f"resultat_net_an{annee}")
+        if ca is None or resultat is None or ca[1] != resultat[1]:
+            continue
+        if resultat[0] > ca[0]:
+            motifs.append(
+                f"`resultat_net_an{annee}` ({resultat[0]:,.0f} {resultat[1]}) "
+                f"dépasse `ca_previsionnel_an{annee}` ({ca[0]:,.0f} {ca[1]}) : "
+                f"un résultat ne peut pas excéder le chiffre d'affaires. "
+                f"Vérifie les échelles."
+            )
+
+    # 3. Le seuil de rentabilité reste dans l'ordre de grandeur du
+    #    prévisionnel. Au-delà du chiffre d'affaires de l'exercice 3, ce n'est
+    #    presque jamais un scénario assumé : c'est une confusion d'unités.
+    seuil = montant("seuil_rentabilite")
+    ca3 = montant("ca_previsionnel_an3")
+    if seuil is not None and ca3 is not None and seuil[1] == ca3[1] and seuil[0] > ca3[0]:
+        motifs.append(
+            f"`seuil_rentabilite` ({seuil[0]:,.0f} {seuil[1]}) dépasse "
+            f"`ca_previsionnel_an3` ({ca3[0]:,.0f} {ca3[1]}) : l'activité "
+            f"n'atteindrait jamais son point mort sur l'horizon du plan. "
+            f"Vérifie les échelles, ou assume ce scénario dans le libellé."
+        )
+
     return motifs
 
 

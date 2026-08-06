@@ -360,15 +360,34 @@ def series_par_perimetre(
 
     Une série trouée reste écartée : une valeur manquante ne s'interpole pas,
     sous peine de faire mentir la pente.
+
+    ## Le radical d'identifiant passe AVANT le périmètre
+
+    Le périmètre suffisait tant que les seules trajectoires étaient
+    géographiques : mondial, national — un périmètre, une série. Le
+    prévisionnel d'un business plan casse cette hypothèse : `ca_previsionnel`,
+    `resultat_net` et `tresorerie_fin` partagent TOUS le périmètre ENTREPRISE.
+    Groupés par périmètre, leurs points s'écrasent mutuellement
+    (`groupes[cle][annee] = valeur` — même clé, même année) : une figure
+    « CA vs résultat sur trois exercices » rendait UNE série aux valeurs
+    mélangées, sans qu'aucune erreur ne le dise.
+
+    D'où la convention `<serie>_anN` du référentiel : une donnée qui la porte
+    est groupée par son RADICAL (`ca_previsionnel_an2` → `ca_previsionnel`),
+    les autres retombent sur le périmètre. Les deux mondes coexistent dans une
+    même figure — « marché national vs CA du projet » groupe l'un par
+    périmètre, l'autre par radical.
     """
     groupes: dict[str, dict[int, float]] = {}
     noms: dict[str, str] = {}
     for donnee, valeur in zip(donnees, valeurs, strict=True):
-        cle = str(donnee.perimetre)
+        serie = _RADICAL_ANNUEL.match(donnee.id)
+        cle = serie.group("radical") if serie else str(donnee.perimetre)
         groupes.setdefault(cle, {})[donnee.annee] = valeur
-        # Le nom de la série vient de la première donnée du périmètre : c'est
-        # elle qui porte la grandeur observée, la suivante sa projection.
-        noms.setdefault(cle, etiquette_de(donnee))
+        # Le nom de la série vient de sa première donnée — délestée de son
+        # « — exercice N » pour une série annuelle : la série couvre les trois
+        # exercices, son nom ne doit pas en désigner un seul.
+        noms.setdefault(cle, _SUFFIXE_EXERCICE.sub("", etiquette_de(donnee)))
 
     series: list[tuple[str, list[float]]] = []
     for cle, points in groupes.items():
@@ -376,6 +395,17 @@ def series_par_perimetre(
             continue
         series.append((noms[cle], [points[annee] for annee in annees]))
     return series
+
+
+#: La convention d'identifiant des séries annuelles d'entreprise, déclarée au
+#: référentiel (`socle/referentiel.py`, section business plan) et verrouillée
+#: par `test_referentiels_bp_et_str` : c'est la MÊME vérité aux deux bouts
+#: (règle 5). Le motif accepte tout exercice à un ou deux chiffres.
+_RADICAL_ANNUEL = re.compile(r"^(?P<radical>.+)_an\d{1,2}$")
+
+#: « — exercice N » en fin d'étiquette, tiret cadratin ou simple, accents ou
+#: non : la classe entière plutôt que la forme exacte de nos libellés (règle 4).
+_SUFFIXE_EXERCICE = re.compile(r"\s*[—–-]\s*exercice\s+\d{1,2}\s*$", re.IGNORECASE)
 
 
 def _temporel(
