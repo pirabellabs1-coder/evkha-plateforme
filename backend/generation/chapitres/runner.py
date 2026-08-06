@@ -380,8 +380,21 @@ def construire_prompt_chapitre(
         _valeurs_interpolation(chapter, variables),
     )
 
+    # La consigne propre au livrable — dont la regle STRICTE anti-fourchettes
+    # du BP, de l'EC et de la STR — vivait dans `build_system_prompt`, que seul
+    # le moteur herite envoie. Sans elle, le gate `_check_fourchettes` (strict
+    # hors EM) bloquerait des chapitres auxquels la regle n'a jamais ete dite :
+    # le meme trou de transmission que l'objectif de figures, corrige le meme
+    # jour (motif Gamma, regle 8). Vide pour l'EM — sa charte la porte deja.
+    from ..prompts import _consigne_specifique_livrable  # noqa: PLC0415
+
+    consigne_livrable = _consigne_specifique_livrable(
+        str(chapter.job.deliverable_type)
+    )
+
     blocs = [
         _bloc_socle(socle),
+        *( [consigne_livrable] if consigne_livrable else [] ),
         _bloc_sources(chapter.job, chapter.chapter_number),
         f"BRIEF_CLIENT :\n{json.dumps(dict(variables), ensure_ascii=False, sort_keys=True)}",
         _bloc_resumes(chapter.job, chapter.chapter_number),
