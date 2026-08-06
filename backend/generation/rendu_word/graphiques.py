@@ -33,7 +33,7 @@ from matplotlib.axes import Axes  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 
-from .palette import Palette  # noqa: E402
+from .palette import Palette, texte_lisible_sur  # noqa: E402
 
 DPI = 200
 LARGEUR_PX = 2000
@@ -319,7 +319,10 @@ _ENTONNOIR_LARGEUR_MIN = 0.34
 
 
 def entonnoir(
-    palette: Palette, etapes: Sequence[tuple[str, float]], unite: str = ""
+    palette: Palette,
+    etapes: Sequence[tuple[str, float]],
+    unite: str = "",
+    valeurs_affichees: Sequence[str] | None = None,
 ) -> bytes:
     """Marché total vers marché atteignable, ou parcours de conversion.
 
@@ -354,11 +357,24 @@ def entonnoir(
         axes.barh(
             index, largeur, left=(1 - largeur) / 2, height=0.62, color=couleurs[index]
         )
-        couleur_texte = (
-            palette.texte_sur_primaire if index == 0 else palette.prune_fonce
+        # La couleur du texte se déduit du FOND RÉEL de la marche, jamais de
+        # son rang. Elle se déduisait de l'index — clair sur la première,
+        # sombre sur toutes les autres — et la palette ne compte que quatre
+        # teintes : un entonnoir à cinq marches reprenait la teinte sombre du
+        # début, et sa dernière marche portait du texte noir sur fond noir.
+        # Mesuré sur le livrable réel `4b827759` : la marche « Marché
+        # atteignable par Joalie » était invisible.
+        couleur_texte = texte_lisible_sur(couleurs[index])
+        # `valeurs_affichees` porte chaque montant a SON echelle — « 600 k€ »
+        # plutot que « 0,0006 Md€ ». Un entonnoir n'a pas d'axe commun : rien
+        # n'oblige ses marches a partager une unite.
+        montant = (
+            valeurs_affichees[index]
+            if valeurs_affichees is not None and index < len(valeurs_affichees)
+            else f"{valeur:g}{unite}"
         )
         axes.text(
-            0.5, index, f"{nom}  ·  {valeur:g}{unite}", ha="center", va="center",
+            0.5, index, f"{nom}  ·  {montant}", ha="center", va="center",
             fontsize=10, color=couleur_texte, fontweight="bold",
         )
     axes.set_xlim(0, 1)

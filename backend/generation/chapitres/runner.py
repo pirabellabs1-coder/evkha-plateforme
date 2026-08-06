@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
 from ..modele.conformite import Arbitrage, arbitrer
-from ..models import ChapterGeneration, GenerationJob
+from ..models import ChapterGeneration, ChapterStatus, GenerationJob
 from ..socle.schema import Socle
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
@@ -264,8 +265,41 @@ def _blocs_du_modele(code_livrable: str, numero: int) -> list[str]:
     return [plan, exemple] if exemple else [plan]
 
 
-def _bloc_visuels(socle: Socle) -> str:
-    """Catalogue des visuels et consigne sectorielle.
+def formes_deja_employees(job: GenerationJob, avant: int) -> list[str]:
+    """Types de figures déjà demandés par les chapitres précédents de ce job.
+
+    Le modèle écrit un chapitre à la fois et ne voit pas les autres : il n'a
+    aucun moyen de savoir quelle forme il a déjà employée. Lui demander de « ne
+    pas se répéter » était donc lui demander l'impossible.
+
+    Mesuré sur le livrable réel `4b827759`, dix figures rendues : deux
+    entonnoirs quasi identiques, l'un « du marché mondial au marché
+    atteignable », l'autre « du marché national au marché atteignable ». La
+    cliente l'a vu immédiatement — « on voit un certain graphe même plusieurs
+    fois ».
+
+    On le lui dit donc. La liste vient des payloads déjà écrits, seule source
+    qui sache ce que l'étude porte réellement (règle 5).
+    """
+    from .schema import ChapitrePayload  # noqa: PLC0415
+
+    formes: list[str] = []
+    requete = (
+        job.chapters.filter(chapter_number__lt=avant, status=ChapterStatus.DONE)
+        .exclude(payload={})
+        .order_by("chapter_number")
+    )
+    for chapitre in requete:
+        try:
+            payload = ChapitrePayload.model_validate(chapitre.payload)
+        except ValidationError:
+            continue  # un chapitre illisible ne doit pas priver le suivant
+        formes.extend(str(graphique.type) for graphique in payload.graphiques)
+    return formes
+
+
+def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
+    """Catalogue des visuels, consigne sectorielle, et MÉMOIRE des formes.
 
     Le choix d'un type de graphique dépend du SECTEUR, jamais du numéro de
     chapitre : une saisonnalité mensuelle n'a pas de sens dans une étude sur le
@@ -273,15 +307,33 @@ def _bloc_visuels(socle: Socle) -> str:
     déduit du secteur porté par le socle.
     """
     from ..rendu_word import secteurs  # noqa: PLC0415
-    from ..rendu_word.graphiques import resume_catalogue  # noqa: PLC0415
+    from ..rendu_word.graphiques import TYPES_DISPONIBLES, resume_catalogue  # noqa: PLC0415
 
     profil = secteurs.profil_du_secteur(socle.secteur)
+    deja = formes_deja_employees(job, numero)
+    memoire = ""
+    if deja:
+        compte = Counter(deja)
+        vues = ", ".join(
+            f"`{forme}`" + (f" ×{n}" if n > 1 else "") for forme, n in compte.most_common()
+        )
+        libres = [t for t in TYPES_DISPONIBLES if t not in compte]
+        memoire = (
+            f"\n\nFORMES DÉJÀ EMPLOYÉES dans cette étude : {vues}.\n"
+            "Choisis une forme ENCORE INEMPLOYÉE dès que le propos s'y prête — "
+            "une étude qui répète deux fois le même graphique se lit comme un "
+            "gabarit, pas comme une analyse. "
+            + (f"Encore libres : {', '.join(f'`{t}`' for t in libres)}."
+               if libres else
+               "Toutes ont servi : reprends alors celle qui sert le mieux CE propos.")
+        )
     return (
         "VISUELS — un graphique ne porte AUCUNE valeur : il porte des "
         "identifiants du socle, résolus au rendu. Un identifiant absent du "
         "socle fait abandonner la figure entière.\n\n"
         "Types disponibles :\n" + resume_catalogue() + "\n\n"
         + secteurs.consigne_visuelle(profil)
+        + memoire
     )
 
 
@@ -325,7 +377,7 @@ def construire_prompt_chapitre(
         f"CHAPITRE À RÉDIGER : {chapter.chapter_number} — {chapter.chapter_title}",
         f"INSTRUCTION DU CHAPITRE :\n{instruction}",
         *_blocs_du_modele(str(chapter.job.deliverable_type), chapter.chapter_number),
-        _bloc_visuels(socle),
+        _bloc_visuels(socle, chapter.job, chapter.chapter_number),
         (
             f"RÉSUMÉ : termine par un résumé de {document.resume_mots_min} à "
             f"{document.resume_mots_max} mots. Il sera relu par tous les "

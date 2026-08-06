@@ -405,7 +405,17 @@ def _valeurs_distinctes(mentions: tuple[Mention, ...]) -> bool:
 # cause (context length, refus du modele, exception silencieuse). Sans
 # `max_words` (Annexes, Fiche projet, Sources), on ne peut pas juger — on
 # laisse passer plutot que d'inventer une regle.
-_PLANCHER_RATIO = 0.30
+#: Fraction de la MEDIANE des chapitres du meme document sous laquelle un
+#: chapitre est tenu pour avorte. A 40 %, un chapitre de 250 mots au milieu de
+#: chapitres de 625 est signale ; un chapitre de 470, non — et il ne devait pas
+#: l'etre, le document valide par la cliente ayant lui-meme des parties courtes.
+_PLANCHER_RATIO_VOISINS = 0.40
+
+#: Plancher absolu, independant de la mediane : un chapitre de trente mots est
+#: avorte meme si tout le document est court. Sans lui, un document
+#: uniformement indigent se declarerait sain — un controle qui se compare a
+#: lui-meme se donne toujours raison (regle 9).
+_PLANCHER_ABSOLU_MOTS = 120
 
 
 @dataclass(frozen=True)
@@ -642,28 +652,57 @@ def verifier_piliers_strategie(corpus: str) -> list[PilierManquant]:
 def detecter_chapitres_avortes(
     sections_avec_plafond: list[tuple[int, str, str, int]],
 ) -> list[ChapitreAvorte]:
-    """Signale les chapitres qui rendent moins de 30 % de leur plafond.
+    """Signale les chapitres manifestement plus courts QUE LEURS VOISINS.
 
-    `sections_avec_plafond` = liste de (numero, titre, corps, max_words). Un
-    `max_words == 0` (Annexes, Sources, Fiche projet) desactive le check :
-    ces chapitres n'ont pas de cible et rester silencieux est preferable a
-    inventer une regle.
+    ## Pourquoi la reference a change
+
+    Le seuil valait 30 % de `max_words`. Or `max_words` est une borne de
+    PLANIFICATION — elle dimensionne la fenetre de tokens, le blueprint le dit
+    lui-meme : « cible editoriale indicative […] injectee comme borne haute ».
+    Ce n'est pas une cible a atteindre, et un plancher calcule dessus compare a
+    la mauvaise reference (regle 2).
+
+    Mesure du 05/08/2026, livrable reel `4b827759` : le gate a declare SIX
+    chapitres « non produits », a 470 mots pour un plafond de 1 800. Or ce
+    document pese 14 387 mots, soit 24 % de PLUS que le document valide par la
+    cliente (11 580), et ses chapitres font 625 mots en moyenne. Le controle
+    signalait donc comme avortes des chapitres a 75 % de la moyenne de leur
+    propre document — et il le faisait sur un document plus dense que la
+    reference.
+
+    ## La nouvelle reference : le document lui-meme
+
+    Un chapitre est avorte quand il est tres en dessous de SES VOISINS, pas
+    d'un plafond theorique. La mediane des chapitres du meme document est une
+    reference reelle, disponible, et qui s'adapte a chaque livrable sans
+    constante a maintenir.
+
+    Le plancher absolu reste : un chapitre de trente mots est avorte quelle que
+    soit la mediane, y compris si tout le document est court.
     """
-    avortes: list[ChapitreAvorte] = []
-    for numero, titre, corps, max_words in sections_avec_plafond:
-        if max_words <= 0:
-            continue
-        mots = _compter_mots(corps)
-        seuil = int(max_words * _PLANCHER_RATIO)
-        if mots < seuil:
-            avortes.append(ChapitreAvorte(
-                chapitre=numero,
-                titre=titre,
-                mots_rendus=mots,
-                mots_attendus=max_words,
-                ratio=mots / max_words if max_words else 0.0,
-            ))
-    return avortes
+    mesures = [
+        (numero, titre, _compter_mots(corps), max_words)
+        for numero, titre, corps, max_words in sections_avec_plafond
+        if max_words > 0
+    ]
+    if not mesures:
+        return []
+
+    longueurs = sorted(mots for _n, _t, mots, _m in mesures)
+    mediane = longueurs[len(longueurs) // 2]
+    seuil = max(int(mediane * _PLANCHER_RATIO_VOISINS), _PLANCHER_ABSOLU_MOTS)
+
+    return [
+        ChapitreAvorte(
+            chapitre=numero,
+            titre=titre,
+            mots_rendus=mots,
+            mots_attendus=seuil,
+            ratio=mots / seuil if seuil else 0.0,
+        )
+        for numero, titre, mots, _max_words in mesures
+        if mots < seuil
+    ]
 
 
 def detecter_divergences(mentions: list[Mention]) -> list[DivergenceChiffree]:

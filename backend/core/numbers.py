@@ -51,13 +51,26 @@ SPACE_CLASS = r"[^\S\r\n]"
 NUMBER_BODY = rf"-?\d(?:\d|{SPACE_CLASS})*(?:[.,]\d+)?"
 _NUMBER_START = r"(?<![A-Za-z\d])"
 
+# Fin de mot, cote DROIT d'une unite. Sans elle, « euro » se reconnaissait au
+# debut d'« Europe » : le sous-titre « 1.2 Europe et France » etait lu comme le
+# montant « 1,2 euro », et la passe de verification le signalait comme un chiffre
+# sans equivalent au socle. Un motif d'echec introuvable dans le document par le
+# lecteur est pire qu'absent (regle 2) — releve sur le livrable `4b827759`.
+#
+# Elle est posee DANS l'alternation, et pas a chaque emploi : les quatre motifs
+# qui s'en servent la recevraient sinon separement, et l'un d'eux finirait par
+# l'oublier (regle 5).
+_FIN_D_UNITE = r"(?![A-Za-zÀ-ÖØ-öø-ÿ])"
+
 # Devises reconnues, prefixes longs AVANT les courts (sinon « M€ » serait
 # tronque en « € »). Zone euro + zone franc CFA : la table `_COUNTRY_CURRENCY`
 # de generation/coherence.py mappe une douzaine de pays vers XOF/XAF.
-CURRENCY_ALTERNATION = r"Mds€|Md€|M€|k€|kEUR|€|euros?|EUR|FCFA|XOF|XAF|CFA"
+CURRENCY_ALTERNATION = (
+    rf"(?:Mds€|Md€|M€|k€|kEUR|€|euros?|EUR|FCFA|XOF|XAF|CFA){_FIN_D_UNITE}"
+)
 
 # Mots de magnitude ecrits en toutes lettres (« 420 millions d'euros »).
-MAGNITUDE_WORDS = r"millions?|milliards?"
+MAGNITUDE_WORDS = rf"(?:millions?|milliards?){_FIN_D_UNITE}"
 
 # Montant SANS groupe capturant — a envelopper par l'appelant.
 MONEY = rf"{NUMBER_BODY}{SPACE_CLASS}*(?:{CURRENCY_ALTERNATION})"

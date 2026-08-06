@@ -153,13 +153,26 @@ def test_le_business_plan_garde_sa_consigne_de_code_fence() -> None:
 
 
 def test_les_etudes_sont_invitees_a_varier_les_formes() -> None:
-    """« Ça manque de graphiques, et de formes différentes » — la cliente, 05/08."""
-    from generation.prompts import build_system_prompt
+    """« Ça manque de graphiques, et de formes différentes » — la cliente, 05/08.
 
+    Ce test exigeait que la charte NOMME « entonnoir », « matrice de
+    positionnement », « chronologie ». C'était une erreur : ce sont les formes
+    privilégiées du profil JOAILLERIE, et cette charte est commune aux quatre
+    livrables et à tous les secteurs. Une étude sur la restauration y lisait
+    une liste qui ne la concerne pas, pendant que la sienne — portée par
+    `rendu_word.secteurs` — lui arrivait par ailleurs. Deux sources pour une
+    même vérité (règle 5).
+
+    La charte porte désormais l'AMBITION, chiffrée ; le choix des formes reste
+    au profil sectoriel, qui seul sait ce qu'un métier appelle.
+    """
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
-    for forme in ("entonnoir", "matrice de positionnement", "chronologie"):
-        assert forme in prompt, forme
-    assert "Ne repete pas deux fois la meme forme" in prompt
+
+    assert "QUINZE figures" in prompt
+    assert "DIX FORMES DIFFERENTES" in prompt
+    assert "formes l'etude a DEJA employees" in prompt
+    # La liste sectorielle n'est PAS dans la charte : elle vient du profil.
+    assert "matrice de positionnement" not in prompt
 
 
 # ── 3. La hiérarchie des sources est dite ────────────────────────────────────

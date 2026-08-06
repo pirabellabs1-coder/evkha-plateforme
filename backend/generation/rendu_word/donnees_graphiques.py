@@ -168,17 +168,23 @@ def _harmoniser(
 
     ## Quelle échelle afficher
 
-    Celle qui laisse le PLUS de valeurs au-dessus de l'unité, et à égalité la
-    plus grande — donc la moins bavarde en chiffres.
+    Celle qui place le PLUS GRAND montant entre 1 et 1 000. C'est la borne qui
+    garantit qu'aucun nombre ne devient illisible.
 
-    Prendre simplement l'échelle du plus grand montant paraissait naturel et
-    donnait le contraire de l'effet voulu : un TAM à 1,2 Md€, un SAM à 240 M€ et
-    un SOM à 1,8 M€ s'affichaient « 1,2 / 0,24 / 0,0018 », deux valeurs sur
-    trois sous l'unité. En millions, la même figure lit « 1 200 / 240 / 1,8 ».
+    Deux règles ont été essayées avant, et chacune a échoué à l'usage :
 
-    Un entonnoir dont la dernière marche est mille fois plus petite que la
-    première reste écrasé — mais c'est la donnée qui le veut, pas le rendu, et
-    les étiquettes portent les valeurs.
+    - l'échelle du plus grand montant, prise au sens « ≥ facteur » : un TAM à
+      1,2 Md€ s'affichait « 1,2 » et le SOM « 0,0018 ». Deux valeurs sur trois
+      sous l'unité ;
+    - celle qui laisse le plus de valeurs au-dessus de l'unité : mesurée le
+      05/08/2026 sur le livrable réel, elle a choisi le millier d'euros pour un
+      entonnoir mondial, et la première marche est sortie en **`3.2e+11 kEUR`**.
+      Optimiser la lisibilité des petites valeurs au prix d'une notation
+      scientifique sur les grandes, c'est déplacer le défaut, pas le corriger.
+
+    Un entonnoir dont la dernière marche est un millionième de la première
+    reste écrasé — c'est la donnée qui le veut, pas le rendu. Mais aucun de ses
+    chiffres n'est illisible, et c'est ce qu'on peut garantir.
     """
     unites = {donnee.unite for donnee in donnees}
     if len(unites) == 1:
@@ -197,18 +203,56 @@ def _harmoniser(
         return None
 
     devise = devises.pop()
-    prefixe, facteur = max(
-        _MAGNITUDES_AFFICHAGE,
-        key=lambda candidat: (
-            sum(1 for valeur in bases if abs(valeur) >= candidat[1]),
-            candidat[1],
+    sommet = max(abs(valeur) for valeur in bases) or 1.0
+    # La plus grande magnitude qui laisse le sommet au-dessus de 1 : il tombe
+    # donc dans [1, 1000[ et ne part jamais en notation scientifique.
+    prefixe, facteur = next(
+        (
+            (nom, valeur) for nom, valeur in _MAGNITUDES_AFFICHAGE
+            if sommet >= valeur
         ),
+        _MAGNITUDES_AFFICHAGE[-1],
     )
     return [valeur / facteur for valeur in bases], f"{prefixe}{devise}"
 
 
 def _suffixe(unite: str) -> str:
     return "" if unite == "%" else f" {unite}"
+
+
+def _valeur_lisible(valeur: float, unite: str) -> str:
+    """Un montant écrit à SON échelle, comme un analyste l'écrirait.
+
+    « 600 k€ », pas « 0,0006 Md€ ». Réservé aux figures sans axe commun —
+    l'entonnoir — où rien n'oblige deux marches à partager une unité.
+
+    Une grandeur non monétaire traverse inchangée : un pourcentage n'a pas de
+    magnitude, et lui en chercher une produirait des « 0,055 k% ».
+    """
+    decompose = _decomposer(unite)
+    if decompose is None:
+        return f"{valeur:g}{_suffixe(unite)}"
+
+    magnitude_source, devise = decompose
+    base = valeur * dict(_MAGNITUDES_AFFICHAGE)[magnitude_source]
+    for prefixe, facteur in _MAGNITUDES_AFFICHAGE:
+        if abs(base) >= facteur:
+            return f"{base / facteur:g} {prefixe}{devise}"
+    return f"{base:g} {devise}"
+
+
+def _decomposer(unite: str) -> tuple[str, str] | None:
+    """`MdEUR` -> (`Md`, `EUR`), en s'appuyant sur le socle et pas sur une copie."""
+    from ..socle.schema import valeur_en_unites_de_base  # noqa: PLC0415
+
+    converti = valeur_en_unites_de_base(1.0, unite)
+    if converti is None:
+        return None
+    facteur, devise = converti
+    for prefixe, valeur in _MAGNITUDES_AFFICHAGE:
+        if abs(facteur - valeur) < 1e-9:
+            return prefixe, devise
+    return "", devise
 
 
 # ── Résolveurs par forme de données ──────────────────────────────────────────
@@ -249,8 +293,18 @@ def _scalaires(
         # L'entonnoir se lit du plus large au plus étroit ; on trie plutôt que
         # d'exiger du modèle qu'il déclare ses identifiants dans le bon ordre.
         paires = sorted(zip(etiquettes, valeurs, strict=True), key=lambda p: -p[1])
+        # **Chaque marche porte SA propre échelle.** Un entonnoir n'a pas d'axe
+        # commun : rien n'oblige ses cinq marches à partager une unité, et
+        # beaucoup les sépare. Mesuré sur le livrable `4b827759` : du marché
+        # mondial au marché atteignable, six ordres de grandeur — la dernière
+        # marche s'affichait « 0.0006 MdEUR » là où un analyste écrit « 600 k€ ».
+        affichees = [
+            _valeur_lisible(valeur, unite) for _nom, valeur in paires
+        ]
         return Resolution(
-            type_demande, {"etapes": paires, "unite": _suffixe(unite)}
+            type_demande,
+            {"etapes": paires, "unite": _suffixe(unite),
+             "valeurs_affichees": affichees},
         )
 
     if type_demande == "jauges":

@@ -86,6 +86,11 @@ def test_un_entonnoir_en_trois_echelles_d_euros_est_dessine() -> None:
     """LE cas qui a coûté six figures sur la génération réelle.
 
     Sur le code d'avant : « unités hétérogènes : EUR, MEUR, MdEUR », abandon.
+
+    Ce que le LECTEUR voit est vérifié ici, et pas seulement la valeur interne :
+    chaque marche porte sa propre échelle, parce qu'un entonnoir n'a pas d'axe
+    commun. « 1,8 M€ », jamais « 0,0018 Md€ » — ni, comme le livrable réel
+    `4b827759` l'a montré, « 3.2e+11 kEUR ».
     """
     socle = _socle(
         _donnee("tam", 1.2, "MdEUR"),
@@ -96,15 +101,20 @@ def test_un_entonnoir_en_trois_echelles_d_euros_est_dessine() -> None:
     resolution = resoudre(socle, "entonnoir", ["tam", "sam", "som"])
 
     assert resolution.retenu, resolution.motif
-    etapes = resolution.donnees["etapes"]  # type: ignore[index]
-    # Tout est ramené à la plus grande échelle présente : 1,2 Md€ = 1 200 M€…
-    valeurs = [valeur for _libelle, valeur in etapes]
-    assert valeurs == pytest.approx([1200.0, 240.0, 1.8])
-    assert resolution.donnees["unite"].strip() == "MEUR"  # type: ignore[index]
+    affichees = resolution.donnees["valeurs_affichees"]  # type: ignore[index]
+    assert affichees == ["1.2 MdEUR", "240 MEUR", "1.8 MEUR"], affichees
+    # Aucune notation scientifique nulle part.
+    assert not any("e+" in texte or "e-" in texte for texte in affichees)
 
 
-def test_l_echelle_retenue_est_celle_du_plus_grand_montant() -> None:
-    """Un axe en euros pour des milliards serait illisible, et l'inverse aussi."""
+def test_l_echelle_d_un_axe_garde_le_sommet_lisible() -> None:
+    """Un axe, lui, exige UNE unité commune : on choisit celle du sommet.
+
+    C'est la seule règle qui interdit mécaniquement la notation scientifique.
+    Celle qu'elle remplace — « l'échelle qui laisse le plus de valeurs
+    au-dessus de 1 » — a produit `3.2e+11 kEUR` sur le livrable `4b827759` :
+    elle optimisait les petites valeurs au prix des grandes.
+    """
     socle = _socle(
         _donnee("mondial", 300.0, "MdEUR"),
         _donnee("national", 4_500.0, "MEUR"),
@@ -113,7 +123,9 @@ def test_l_echelle_retenue_est_celle_du_plus_grand_montant() -> None:
     resolution = resoudre(socle, "barres", ["mondial", "national"])
 
     assert resolution.retenu, resolution.motif
-    assert resolution.donnees["valeurs"] == pytest.approx([300.0, 4.5])  # type: ignore[index]
+    valeurs = resolution.donnees["valeurs"]  # type: ignore[index]
+    assert valeurs == pytest.approx([300.0, 4.5])
+    assert 1 <= max(valeurs) < 1000, valeurs
 
 
 def test_une_unite_unique_traverse_sans_conversion() -> None:
