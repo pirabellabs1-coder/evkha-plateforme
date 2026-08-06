@@ -20,6 +20,7 @@ parfaitement honnêtes.
 from __future__ import annotations
 
 import re
+import textwrap
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -83,14 +84,18 @@ def etiquette_de(donnee: DonneeSocle) -> str:
 
     Le nom n'est jamais remplacé par l'identifiant : `marche_mondial_croissance`
     est un repère de code, pas un mot que le lecteur d'une étude doit voir.
+
+    **Ce qui dépasse est REPLIÉ, plus tronqué.** Le document validé écrit
+    « Attractivité du / segment » et « Capacité de / preuve » sur deux lignes.
+    Couper à « Marché parisien de la joaillerie… » fait perdre au lecteur
+    précisément ce qui distingue cette barre de la suivante ; le repli garde
+    tout, et matplotlib gère la hauteur.
     """
     tete = re.split(r"[,(—–:;]", donnee.libelle, maxsplit=1)[0].strip()
     tete = tete or donnee.libelle.strip()
     if len(tete) <= ETIQUETTE_MAX:
         return tete
-    # Coupe sur une frontière de mot : un mot tronqué se lit comme une faute.
-    coupe = tete[:ETIQUETTE_MAX].rsplit(" ", 1)[0].rstrip(" -")
-    return f"{coupe or tete[:ETIQUETTE_MAX]}…"
+    return "\n".join(textwrap.wrap(tete, ETIQUETTE_MAX, max_lines=2, placeholder="…"))
 
 
 def _famille(donnee: DonneeSocle) -> FamilleUnite | None:

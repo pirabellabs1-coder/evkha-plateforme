@@ -101,10 +101,14 @@ def _rendre_bloc(
             bloc.get("source", ""),
         )
     elif type_bloc == "graphique":
-        png = graphiques.rendre(palette, bloc["graphique"], bloc["donnees"])
-        composants.graphique(
-            document, palette, png, bloc.get("titre", ""), bloc.get("source", "")
+        # Le titre est dessiné DANS l'image, comme dans le document validé : la
+        # figure reste lisible seule, une fois sortie du document. Il n'est donc
+        # plus passé au composant, qui en faisait un paragraphe au-dessus — deux
+        # titres pour une même figure.
+        png = graphiques.rendre(
+            palette, bloc["graphique"], bloc["donnees"], titre=bloc.get("titre", "")
         )
+        composants.graphique(document, palette, png, "", bloc.get("source", ""))
     elif type_bloc == "saut":
         composants.saut_de_page(document)
     else:

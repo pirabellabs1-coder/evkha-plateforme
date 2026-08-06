@@ -35,6 +35,7 @@ from typing import Any
 import pytest
 
 from catalog.models import DeliverableType
+from generation.prompts import build_system_prompt
 from generation.verification.rapport import Anomalie, Gravite, RapportControle
 from monitoring.models import OperationalIncident
 
@@ -172,8 +173,23 @@ def test_la_charte_classe_les_sources_par_autorite() -> None:
     for niveau in ("institut statistique national", "banque centrale",
                    "organisation professionnelle", "cabinet d'etudes"):
         assert niveau in prompt, niveau
-    assert "n'est PAS une source" in prompt
-    assert "Remonte a celui qu'il repete" in prompt
+    assert "remonte a celui qu'il repete" in prompt.lower()
+
+
+def test_la_hierarchie_reste_une_preference() -> None:
+    """Une source institutionnelle n'est PAS exigee, et c'est voulu.
+
+    Un marche de niche — la joaillerie de createurs a Paris — n'est couvert par
+    aucun institut statistique. Ecarter un chiffre de Francelat ou de Xerfi
+    faute d'INSEE appauvrirait l'etude au nom de la rigueur.
+
+    Ce qui reste exigible, en revanche : nommer QUI produit la donnee et QUAND.
+    """
+    prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
+
+    assert "PREFERENCE, pas une exigence" in prompt
+    assert "n'ecarte pas un chiffre utile faute d'institution" in prompt.lower()
+    assert "ne souffre pas d'exception" in prompt
 
 
 def test_la_hierarchie_vaut_pour_les_quatre_livrables() -> None:

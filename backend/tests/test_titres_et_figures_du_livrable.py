@@ -61,7 +61,12 @@ def _donnee(libelle: str) -> DonneeSocle:
 
 
 def test_une_etiquette_trop_longue_est_ramenee_a_sa_tete() -> None:
-    """LE libelle qui a produit les deux figures illisibles du livrable reel."""
+    """LE libelle qui a produit les deux figures illisibles du livrable reel.
+
+    Le segment de queue — « ordre de grandeur sectoriel luxe/joaillerie » —
+    est ecarte : il precise la methode, pas la grandeur, et n'a rien a faire
+    sur un axe.
+    """
     donnee = _donnee(
         "Croissance annuelle estimée du marché mondial de la joaillerie, "
         "ordre de grandeur sectoriel luxe/joaillerie"
@@ -69,9 +74,12 @@ def test_une_etiquette_trop_longue_est_ramenee_a_sa_tete() -> None:
 
     etiquette = etiquette_de(donnee)
 
-    assert len(etiquette) <= ETIQUETTE_MAX + 1, etiquette
     assert etiquette.startswith("Croissance annuelle")
     assert "ordre de grandeur" not in etiquette
+    # Chaque LIGNE tient dans la largeur ; le tout peut en occuper deux.
+    lignes = etiquette.split("\n")
+    assert len(lignes) <= 2, etiquette
+    assert all(len(ligne) <= ETIQUETTE_MAX for ligne in lignes), etiquette
 
 
 def test_une_etiquette_deja_courte_traverse_intacte() -> None:
@@ -81,16 +89,26 @@ def test_une_etiquette_deja_courte_traverse_intacte() -> None:
     )
 
 
-def test_une_etiquette_longue_est_coupee_sur_un_mot() -> None:
-    """Un mot tronque en plein milieu se lit comme une faute d'orthographe."""
-    etiquette = etiquette_de(
-        _donnee("Chiffre affaires prévisionnel consolidé du réseau national")
-    )
-    assert etiquette.endswith("…")
-    assert not etiquette.rstrip("…").endswith(" ")
-    # Aucun mot coupe : le dernier fragment doit exister dans le libelle.
-    dernier = etiquette.rstrip("…").split()[-1]
-    assert dernier in "Chiffre affaires prévisionnel consolidé du réseau national"
+def test_une_etiquette_longue_est_REPLIEE_et_non_tronquee() -> None:
+    """Le document valide replie ses etiquettes, il ne les coupe pas.
+
+    Il ecrit « Attractivité du / segment » et « Capacité de / preuve » sur deux
+    lignes. Couper a « Marché parisien de la joaillerie… » ferait perdre au
+    lecteur precisement ce qui distingue cette barre de la suivante.
+
+    Ce test echoue sur la version d'avant, qui rendait une seule ligne suivie
+    de points de suspension.
+    """
+    libelle = "Chiffre affaires prévisionnel consolidé du réseau national"
+
+    etiquette = etiquette_de(_donnee(libelle))
+
+    assert "\n" in etiquette, etiquette
+    # Rien n'est perdu : tous les mots du libelle se retrouvent dans l'etiquette.
+    assert etiquette.replace("\n", " ") == libelle
+    # Aucun mot coupe en plein milieu.
+    for mot in etiquette.replace("\n", " ").split():
+        assert mot in libelle
 
 
 def test_l_identifiant_technique_ne_sert_jamais_d_etiquette() -> None:

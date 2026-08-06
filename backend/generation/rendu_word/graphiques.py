@@ -18,6 +18,7 @@ aucun cadre, étiquettes en Aptos, 200 dpi, 2000 px de large.
 from __future__ import annotations
 
 import io
+import textwrap
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -62,11 +63,32 @@ POLICE = ["Aptos", "Segoe UI", "Carlito", "DejaVu Sans"]
 _Position = Literal["upper left", "upper right", "lower left", "lower right"]
 
 
+#: Titre a dessiner DANS l'image, pose par `rendre` le temps d'un appel.
+#:
+#: Pourquoi ici et pas en parametre des quinze fonctions de rendu : parce qu'il
+#: faudrait le passer QUINZE fois, et qu'on en oublierait une — la figure
+#: concernee sortirait alors sans titre, sans que rien ne le signale. Le poser
+#: la ou toutes les fonctions passent le rend inoubliable.
+#:
+#: Ce module porte deja l'etat global de pyplot (`plt.subplots`,
+#: `plt.rcParams`), qui n'est de toute facon pas partageable entre fils : ce
+#: n'est donc pas un risque nouveau.
+_titre_courant: str = ""
+
+#: Au-dela, un titre de figure passe sur deux lignes plutot que de deborder.
+_TITRE_LARGEUR = 70
+
+
 def _figure(palette: Palette, hauteur_ratio: float = 0.42) -> tuple[Figure, Axes]:
     largeur_pouces = LARGEUR_PX / DPI
     figure, axes = plt.subplots(
         figsize=(largeur_pouces, largeur_pouces * hauteur_ratio), dpi=DPI
     )
+    if _titre_courant:
+        axes.set_title(
+            textwrap.fill(_titre_courant, _TITRE_LARGEUR),
+            fontsize=13, fontweight="bold", color=palette.primaire, pad=14,
+        )
     # Mise en page contrainte plutôt que `bbox_inches="tight"` : ce dernier
     # RECADRE la figure et ramenait la sortie à 1 672 px au lieu des 2 000
     # exigés. Ici la taille demandée est la taille obtenue.
@@ -108,7 +130,14 @@ def barres_verticales(
     palette: Palette, etiquettes: Sequence[str], valeurs: Sequence[float], unite: str = ""
 ) -> bytes:
     figure, axes = _figure(palette)
-    axes.bar(list(etiquettes), list(valeurs), color=palette.primaire, width=0.55)
+    # Une couleur PAR BARRE, comme le document validé : ses histogrammes
+    # graduent crème / bronze / prune d'une barre à l'autre. Une seule couleur
+    # rendait une comparaison à trois barres plate et monotone — et interdisait
+    # au lecteur de suivre une barre d'une figure à l'autre.
+    axes.bar(
+        list(etiquettes), list(valeurs),
+        color=_couleurs(palette, len(valeurs)), width=0.55,
+    )
     axes.grid(axis="y", color=palette.fond_clair_alt, linewidth=0.8)
     axes.set_axisbelow(True)
     axes.set_xticks(range(len(etiquettes)))
@@ -126,7 +155,10 @@ def barres_horizontales(
 ) -> bytes:
     figure, axes = _figure(palette, hauteur_ratio=0.06 * max(len(etiquettes), 4))
     positions = range(len(etiquettes))
-    axes.barh(list(positions), list(valeurs), color=palette.primaire, height=0.55)
+    axes.barh(
+        list(positions), list(valeurs),
+        color=_couleurs(palette, len(valeurs)), height=0.55,
+    )
     axes.set_yticks(list(positions))
     axes.set_yticklabels(etiquettes)
     axes.invert_yaxis()
@@ -613,16 +645,37 @@ def resume_catalogue() -> str:
     )
 
 
-def rendre(palette: Palette, type_graphique: str, donnees: dict[str, Any]) -> bytes:
+def rendre(
+    palette: Palette,
+    type_graphique: str,
+    donnees: dict[str, Any],
+    titre: str = "",
+) -> bytes:
     """Produit le PNG d'un graphique. Repli en barres si le type est inconnu.
 
     Le repli est délibéré : un visuel approximatif vaut mieux qu'un livrable
     qui ne sort pas parce que le modèle a inventé un nom de type.
+
+    `titre` est dessiné DANS l'image. Le document validé par la cliente fait
+    ainsi pour ses dix figures — « Marché mondial de la bijouterie, périmètre
+    large (Md$) », « Scénarios — indice d'activité (2025 = 100) » — et c'est ce
+    qui rend chaque image lisible seule, une fois sortie du document.
+
+    Notre rendu posait le titre dans un paragraphe Word au-dessus. À l'œil, la
+    différence saute : la figure du modèle est un objet complet, la nôtre une
+    image anonyme précédée d'une ligne de texte. Mesuré le 05/08/2026 en
+    ouvrant les dix images du document de référence.
     """
-    fonction = RENDU_PAR_TYPE.get(type_graphique)
-    if fonction is None:
-        return barres_verticales(
-            palette, donnees.get("etiquettes", []), donnees.get("valeurs", []),
-            donnees.get("unite", ""),
-        )
-    return fonction(palette, **donnees)  # type: ignore[operator,no-any-return]
+    global _titre_courant  # noqa: PLW0603 — voir la note sur `_titre_courant`
+    _titre_courant = titre.strip()
+    try:
+        fonction = RENDU_PAR_TYPE.get(type_graphique)
+        if fonction is None:
+            return barres_verticales(
+                palette, donnees.get("etiquettes", []), donnees.get("valeurs", []),
+                donnees.get("unite", ""),
+            )
+        return fonction(palette, **donnees)  # type: ignore[operator,no-any-return]
+    finally:
+        # Sans ce retablissement, la figure SUIVANTE heriterait de ce titre.
+        _titre_courant = ""
