@@ -221,8 +221,10 @@ export function Souscription() {
 
         <p className="souscription-pied">
           Paiement par carte, traité par Stripe. Nous ne voyons jamais votre
-          numéro de carte. L'abonnement se reconduit chaque mois et s'arrête dès
-          que vous le demandez, sans préavis ni justification.
+          numéro de carte. L'abonnement se reconduit chaque mois et s'arrête
+          depuis votre espace en un clic, sans préavis ni justification. Un mois
+          entamé n'est pas remboursé&nbsp;: vous en gardez l'accès et les crédits
+          jusqu'à son terme.
         </p>
       </Carte>
     </>

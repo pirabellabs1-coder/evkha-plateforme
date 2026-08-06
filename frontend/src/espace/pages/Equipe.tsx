@@ -88,11 +88,14 @@ export function Equipe() {
   return (
     <>
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+      {/* Une phrase, un fait. La version précédente expliquait en outre que le
+          mot de passe resterait secret et qu'EVKHA n'interviendrait pas :
+          personne ne se pose ces questions au moment d'inviter quelqu'un, et
+          les devancer donne à une réussite le ton d'une justification. */}
       {invitation_faite?.envoyee && (
-        <Bandeau titre="Invitation envoyée">
-          Un courriel vient de partir vers {invitation_faite.email} : votre
-          collaborateur y choisit son mot de passe et entre. Personne d'autre ne
-          le connaîtra, pas même vous — et EVKHA n'a rien à faire.
+        <Bandeau ton="succes" titre="Invitation envoyée">
+          {invitation_faite.email} a reçu un courriel pour rejoindre votre
+          espace.
         </Bandeau>
       )}
       {/* L'envoi a échoué : on donne le lien plutôt que de laisser quelqu'un

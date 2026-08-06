@@ -134,18 +134,26 @@ export function Vide({
 
 // ── Bandeau ─────────────────────────────────────────────────────────────────
 
+/** Bandeau d'information.
+ *
+ * `succes` existe parce qu'une réussite s'affichait avec le « ! » de l'alerte :
+ * « Invitation envoyée » se lisait comme un avertissement. Le ton par défaut
+ * reste `alerte` — un bandeau sans intention déclarée signale quelque chose,
+ * il ne félicite pas.
+ */
 export function Bandeau({
   ton = "alerte",
   titre,
   children,
 }: {
-  ton?: "alerte" | "echec";
+  ton?: "alerte" | "echec" | "succes";
   titre?: string;
   children: ReactNode;
 }) {
+  const symbole = ton === "echec" ? "✕" : ton === "succes" ? "✓" : "!";
   return (
     <div className={`bandeau bandeau-${ton}`} role="status">
-      <span aria-hidden="true">{ton === "echec" ? "✕" : "!"}</span>
+      <span aria-hidden="true">{symbole}</span>
       <div>
         {titre && <strong className="bandeau-titre">{titre}</strong>}
         {children}

@@ -1788,3 +1788,31 @@
   align-items: center;
   gap: var(--e-4);
 }
+
+/* Ce que « arrêter son abonnement » veut dire, sous la grille des formules.
+ *
+ * Encadré plutôt que noyé dans une note grise : il porte la seule information
+ * qui se découvre autrement en réclamant un remboursement qui ne viendra pas.
+ * Le ton reste neutre — ce n'est ni une alerte ni un argument de vente. */
+.formules-arret {
+  margin: var(--e-5, 1.25rem) 0 0;
+  padding: 0.8rem 1rem;
+  background: var(--fond-enfonce);
+  border-radius: var(--rayon-sm);
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+  color: var(--texte-doux);
+}
+
+.formules-arret strong {
+  color: var(--texte-fort);
+  font-weight: var(--graisse-forte);
+}
+
+/* Bandeau de réussite. Il manquait : « Invitation envoyée » s'affichait dans
+   les couleurs de l'alerte, avec son « ! », et une bonne nouvelle se lisait
+   comme un avertissement. */
+.bandeau-succes {
+  background: var(--evkha-succes-voile);
+  color: var(--evkha-succes);
+}

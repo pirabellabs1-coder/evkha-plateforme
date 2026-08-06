@@ -10,7 +10,7 @@
  */
 import { useMemo, useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ErreurApi,
   espaceApi,
@@ -210,11 +210,26 @@ export function Commander() {
             la commande.
           </Bandeau>
         )}
-        {solde === 0 && (
+        {/* Deux situations distinctes derrière un même solde à zéro, et deux
+            gestes différents. Le bandeau disait « Rendez-vous dans Abonnement
+            pour DEMANDER des crédits » dans les deux cas : il envoyait
+            attendre un appel quelqu'un dont l'abonnement se règle en un clic. */}
+        {solde === 0 && !moi?.abonnement && (
+          <Bandeau ton="echec" titre="Abonnement à activer">
+            Vos crédits sont déposés dès le règlement.{" "}
+            <Link to="/espace/souscription" className="bandeau-lien">
+              Activer mon abonnement
+            </Link>
+          </Bandeau>
+        )}
+        {solde === 0 && moi?.abonnement && (
           <Bandeau ton="echec" titre="Aucun crédit disponible">
-            Une commande est bloquée si le solde ne la couvre pas — aucun
-            découvert n'est possible. Rendez-vous dans Abonnement pour demander
-            des crédits.
+            Aucun découvert n'est possible. Vos prochains crédits arrivent à la
+            prochaine échéance, ou{" "}
+            <Link to="/espace/abonnement" className="bandeau-lien">
+              changez de formule
+            </Link>
+            .
           </Bandeau>
         )}
 

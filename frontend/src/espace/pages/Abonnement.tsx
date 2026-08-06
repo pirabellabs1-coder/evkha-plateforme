@@ -88,6 +88,10 @@ function CarteFormule({
           {formule.regenerations_offertes > 1 ? "s" : ""} offerte
           {formule.regenerations_offertes > 1 ? "s" : ""}
         </li>
+        {/* Dit AVANT le choix, pas après. Quelqu'un qui hésite à s'engager a
+            besoin de savoir qu'il pourra s'arrêter — le lui apprendre une fois
+            abonné, c'est le rassurer trop tard. */}
+        <li>Arrêt possible à tout moment</li>
       </ul>
       {formule.actuelle ? (
         <span className="carte-note">Formule active</span>
@@ -228,10 +232,12 @@ export function Abonnement() {
               onClick={() => {
                 if (
                   window.confirm(
-                    "Arrêter votre abonnement ? Vous gardez votre accès et vos " +
-                      "crédits jusqu'au terme de la période déjà réglée, et rien " +
-                      "ne sera prélevé ensuite. Vous pourrez revenir sur cette " +
-                      "décision tant que le terme n'est pas atteint.",
+                    "Arrêter votre abonnement ?\n\n" +
+                      "• Plus aucun prélèvement après le terme en cours.\n" +
+                      "• Le mois déjà réglé n'est pas remboursé : vous gardez " +
+                      "votre accès et vos crédits jusqu'à son terme.\n" +
+                      "• Vous pouvez revenir sur cette décision jusque-là, sans " +
+                      "ressaisir votre carte.",
                   )
                 ) {
                   arret.mutate();
@@ -299,6 +305,18 @@ export function Abonnement() {
             Une demande de changement est déjà en cours de traitement.
           </p>
         )}
+
+        {/* Ce que « arrêter » veut dire exactement, sous les formules et non
+            dans une page d'aide. Deux choses que personne ne devine, et dont la
+            seconde se découvre autrement en réclamant un remboursement qui ne
+            viendra pas. */}
+        <p className="formules-arret">
+          <strong>Arrêter son abonnement</strong> se fait ici, en un clic, sans
+          préavis ni justification. Les prélèvements suivants cessent&nbsp;; le
+          mois déjà réglé, lui, <strong>n'est pas remboursé</strong> — vous en
+          gardez l'accès et les crédits jusqu'à son terme, et vous pouvez
+          revenir sur votre décision jusque-là.
+        </p>
       </Carte>
 
       {/* Seul geste qui reste une demande : l'achat de crédits à l'unité
