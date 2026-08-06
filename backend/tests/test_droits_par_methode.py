@@ -190,6 +190,20 @@ def test_aucune_vue_de_l_espace_n_accepte_une_ecriture_sans_droit() -> None:
         # gestes sur SON compte. Les soumettre à un rôle enfermerait dehors
         # quelqu'un dont le mot de passe a fuite.
         "connexion", "deconnexion", "changer_mot_de_passe",
+        # Même famille, ajoutées le 06/08/2026 : son prénom, son nom, et son
+        # adresse de connexion. Ce que ces vues écrivent n'appartient PAS à
+        # l'organisation — c'est l'état civil de la personne, qui n'apparaît que
+        # sur les écrans et dans les courriels qui s'adressent à elle.
+        #
+        # Les soumettre à un rôle empêcherait un compte « Lecture seule » de
+        # corriger une faute sur son propre nom, ce qui n'a aucun sens.
+        #
+        # `demander_une_nouvelle_adresse` n'est pas pour autant sans preuve :
+        # elle exige le MOT DE PASSE actuel, puis un clic dans la boîte visée.
+        # Deux preuves plutôt qu'un rôle — parce que le risque n'est pas qu'un
+        # collaborateur déborde de ses droits, mais qu'un écran resté ouvert
+        # serve à déplacer l'identifiant de connexion.
+        "modifier_son_profil", "demander_une_nouvelle_adresse",
     }
 
     manquants: list[str] = []

@@ -1816,3 +1816,19 @@
   background: var(--evkha-succes-voile);
   color: var(--evkha-succes);
 }
+
+/* ── Ce qui ne se corrige pas ici ───────────────────────────────────────────
+ *
+ * Adresse de connexion, rôle, organisation : trois valeurs en lecture, sous le
+ * formulaire qui, lui, se modifie. Le filet et l'écart disent où s'arrête la
+ * saisie — collée au bouton d'enregistrement, la première étiquette se lirait
+ * comme sa légende, et l'adresse aurait l'air d'un champ que l'on vient de
+ * soumettre.
+ *
+ * L'espacement appartient à ce conteneur : `.compte-identite` ne porte pas de
+ * marge propre, ici comme partout ailleurs dans cette feuille. */
+.compte-lecture {
+  margin-top: var(--e-6);
+  padding-top: var(--e-5);
+  border-top: 1px solid var(--evkha-bordure);
+}

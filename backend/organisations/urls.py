@@ -24,6 +24,11 @@ urlpatterns = [
         vues.changer_mot_de_passe,
         name="mot-de-passe",
     ),
+    # Son prénom et son nom. Pas son adresse : elle est l'identifiant de
+    # connexion, et son changement passe par une confirmation dans la boîte
+    # visée — voir la route suivante.
+    path("profil/", vues.modifier_son_profil, name="profil"),
+    path("adresse/", vues.demander_une_nouvelle_adresse, name="adresse"),
     path("credits/", vues.journal_credits, name="credits"),
     # Agregation mensuelle : le journal ligne a ligne ne dit pas si la formule
     # est la bonne, c'est pourtant LA question d'un abonne.

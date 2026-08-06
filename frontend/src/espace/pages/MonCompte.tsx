@@ -9,15 +9,27 @@
  * Le geste est annoncé pour ce qu'il est. Fermer toutes les autres sessions
  * n'est pas un effet de bord qu'on tairait par crainte d'inquiéter : c'est
  * précisément ce qu'on vient chercher ici.
+ *
+ * ## Trois cartes, et non deux, parce que le nom et l'adresse ne se valent pas
+ *
+ * Le nom se corrige seul : il n'appartient qu'à la personne et n'engage rien.
+ * L'adresse est l'IDENTIFIANT de connexion et la destination des liens de
+ * réinitialisation — qui la change prend le compte. Elle exige donc deux
+ * preuves, le mot de passe puis un clic dans la boîte visée, et ce n'est pas
+ * la même carte ni le même geste. Les mêler dans un seul formulaire ferait
+ * réclamer un mot de passe à qui vient corriger une faute sur son prénom.
+ *
+ * L'écran disait auparavant d'écrire à EVKHA pour l'un comme pour l'autre.
  */
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ErreurApi, espaceApi } from "../api";
-import { useMoi } from "../useMoi";
+import { CLE_MOI, useMoi } from "../useMoi";
 import * as f from "../format";
 import { Bandeau, Carte, Champ, Squelette } from "../composants/Interface";
 
 const VIDE = { actuel: "", nouveau: "", confirmation: "" };
+const ADRESSE_VIDE = { motDePasse: "", nouvelle: "" };
 
 /** Quel champ porte le refus, selon le code rendu par le serveur.
  *
@@ -50,10 +62,84 @@ function autresSessions(fermees: number): string {
 
 export function MonCompte() {
   const { data: moi } = useMoi();
+  const cache = useQueryClient();
   const [saisie, setSaisie] = useState(VIDE);
   const [erreur, setErreur] = useState("");
   const [code, setCode] = useState("");
   const [fermees, setFermees] = useState<number | null>(null);
+
+  // `null` tant que rien n'a été saisi : le formulaire AFFICHE alors ce que
+  // rend le serveur. Recopier ces valeurs dans l'état depuis un effet
+  // écraserait la frappe en cours dès que `moi` se rejoue en arrière-plan —
+  // ce qu'il fait au retour sur la fenêtre.
+  const [profil, setProfil] = useState<{ prenom: string; nom: string } | null>(
+    null,
+  );
+  const [erreurProfil, setErreurProfil] = useState("");
+  const [profilEnregistre, setProfilEnregistre] = useState(false);
+
+  const [adresse, setAdresse] = useState(ADRESSE_VIDE);
+  const [erreurAdresse, setErreurAdresse] = useState("");
+  const [demande, setDemande] = useState<{
+    adresse_visee: string;
+    courriel_envoye: boolean;
+    lien_confirmation: string;
+  } | null>(null);
+
+  const brouillon = profil ?? {
+    prenom: moi?.utilisateur.prenom ?? "",
+    nom: moi?.utilisateur.nom ?? "",
+  };
+
+  const enregistrementProfil = useMutation({
+    mutationFn: () => espaceApi.modifierProfil(brouillon),
+    onSuccess: (retour) => {
+      setErreurProfil("");
+      setProfilEnregistre(true);
+      // On adopte ce que le serveur a RETENU, pas ce qui a été tapé : il coupe
+      // à 150 caractères et retire les espaces de bordure. Garder la saisie
+      // laisserait le champ afficher autre chose que le nom réellement porté
+      // par le compte — deux vérités pour un même état civil.
+      setProfil(retour);
+      // La coquille, l'en-tête et les courriels lisent tous `moi` : sans cette
+      // invalidation, le nom corrigé n'apparaîtrait qu'au rechargement complet.
+      void cache.invalidateQueries({ queryKey: CLE_MOI });
+    },
+    onError: (cause) => {
+      setProfilEnregistre(false);
+      setErreurProfil(
+        cause instanceof ErreurApi
+          ? cause.message
+          : "Enregistrement impossible. Vérifiez votre réseau.",
+      );
+    },
+  });
+
+  const demandeAdresse = useMutation({
+    mutationFn: () =>
+      espaceApi.demanderNouvelleAdresse({
+        mot_de_passe: adresse.motDePasse,
+        nouvelle_adresse: adresse.nouvelle,
+      }),
+    onSuccess: (retour) => {
+      setErreurAdresse("");
+      setDemande(retour);
+      // Le mot de passe ne traîne pas à l'écran une fois la demande partie ; la
+      // nouvelle adresse non plus, le bandeau la répète déjà.
+      setAdresse(ADRESSE_VIDE);
+      // Aucune invalidation de `CLE_MOI` ici, et c'est le point de tout
+      // l'écran : la demande ne change RIEN. Rafraîchir l'identité afficherait
+      // encore l'ancienne adresse et donnerait à croire que l'envoi a échoué.
+    },
+    onError: (cause) => {
+      setDemande(null);
+      setErreurAdresse(
+        cause instanceof ErreurApi
+          ? cause.message
+          : "Demande impossible. Vérifiez votre réseau.",
+      );
+    },
+  });
 
   const changement = useMutation({
     mutationFn: () =>
@@ -91,6 +177,23 @@ export function MonCompte() {
     };
   }
 
+  function modifierProfil(champ: "prenom" | "nom") {
+    return (evenement: React.ChangeEvent<HTMLInputElement>) => {
+      const valeur = evenement.target.value;
+      // La confirmation disparaît dès la frappe suivante : un « Enregistré »
+      // laissé au-dessus d'un champ modifié depuis affirmerait le faux.
+      setProfilEnregistre(false);
+      setProfil((precedent) => ({ ...(precedent ?? brouillon), [champ]: valeur }));
+    };
+  }
+
+  function modifierAdresse(champ: keyof typeof ADRESSE_VIDE) {
+    return (evenement: React.ChangeEvent<HTMLInputElement>) => {
+      const valeur = evenement.target.value;
+      setAdresse((precedent) => ({ ...precedent, [champ]: valeur }));
+    };
+  }
+
   function soumettre(evenement: React.FormEvent) {
     evenement.preventDefault();
     setFermees(null);
@@ -112,43 +215,169 @@ export function MonCompte() {
     <>
       <Carte
         titre="Vos informations"
-        note="Elles viennent de votre compte et de votre organisation."
+        note="Votre prénom et votre nom se corrigent ici, sans passer par personne."
       >
         {/* Le squelette ne couvre QUE cette carte. Le changement de mot de
             passe reste atteignable même si l'identité n'arrive pas : c'est le
             recours de quelqu'un dont l'accès est compromis, il ne doit dépendre
             d'aucune autre requête. */}
         {moi ? (
-          <dl className="compte-identite">
-            <div>
-              <dt>Adresse e-mail</dt>
-              <dd>{moi.utilisateur.email}</dd>
+          <>
+            {/* Refus et confirmation vivent DANS le formulaire, dont
+                l'espacement les sépare des champs : ni `.bandeau` ni `.carte`
+                ne portent de marge propre, et c'est le conteneur qui espace. */}
+            <form
+              className="compte-formulaire"
+              onSubmit={(evenement) => {
+                evenement.preventDefault();
+                enregistrementProfil.mutate();
+              }}
+              noValidate
+            >
+              {erreurProfil && <Bandeau ton="echec">{erreurProfil}</Bandeau>}
+              {profilEnregistre && (
+                <Bandeau ton="succes">Votre nom est enregistré.</Bandeau>
+              )}
+
+              <div className="grille-champs">
+                <Champ
+                  libelle="Prénom"
+                  name="prenom"
+                  autoComplete="given-name"
+                  value={brouillon.prenom}
+                  onChange={modifierProfil("prenom")}
+                />
+                <Champ
+                  libelle="Nom"
+                  name="nom"
+                  autoComplete="family-name"
+                  value={brouillon.nom}
+                  onChange={modifierProfil("nom")}
+                />
+              </div>
+              <div className="compte-actions">
+                <button
+                  type="submit"
+                  className="bouton bouton-principal"
+                  disabled={enregistrementProfil.isPending}
+                >
+                  {enregistrementProfil.isPending
+                    ? "Enregistrement…"
+                    : "Enregistrer"}
+                </button>
+              </div>
+            </form>
+
+            {/* Ce qui ne se corrige pas d'un champ de saisie : l'adresse a sa
+                carte, le rôle et l'organisation viennent de l'équipe. */}
+            <div className="compte-lecture">
+              <dl className="compte-identite">
+                <div>
+                  <dt>Adresse de connexion</dt>
+                  <dd>{moi.utilisateur.email}</dd>
+                </div>
+                <div>
+                  <dt>Rôle</dt>
+                  <dd>{f.role(moi.utilisateur.role)}</dd>
+                </div>
+                <div>
+                  <dt>Organisation</dt>
+                  <dd>{moi.organisation.raison_sociale}</dd>
+                </div>
+              </dl>
             </div>
-            <div>
-              <dt>Prénom</dt>
-              <dd>{moi.utilisateur.prenom || "—"}</dd>
-            </div>
-            <div>
-              <dt>Nom</dt>
-              <dd>{moi.utilisateur.nom || "—"}</dd>
-            </div>
-            <div>
-              <dt>Rôle</dt>
-              <dd>{f.role(moi.utilisateur.role)}</dd>
-            </div>
-            <div>
-              <dt>Organisation</dt>
-              <dd>{moi.organisation.raison_sociale}</dd>
-            </div>
-          </dl>
+          </>
         ) : (
           <Squelette lignes={4} />
         )}
-        <p className="carte-note compte-pied">
-          Votre adresse et votre nom sont ceux de votre compte de connexion.
-          Pour les corriger, écrivez à EVKHA — nous ne changeons pas une adresse
-          de connexion sans en avoir la confirmation.
-        </p>
+      </Carte>
+
+      <Carte
+        titre="Changer d'adresse de connexion"
+        note="Votre mot de passe ici, puis un clic dans la nouvelle boîte."
+      >
+        <form
+          className="compte-formulaire"
+          onSubmit={(evenement) => {
+            evenement.preventDefault();
+            // La demande précédente disparaît : un « courriel parti » laissé
+            // au-dessus d'un refus dirait deux choses contraires à la fois.
+            setDemande(null);
+            setErreurAdresse("");
+            demandeAdresse.mutate();
+          }}
+          noValidate
+        >
+          {/* Le refus du serveur est affiché TEL QUEL : « C'est déjà votre
+              adresse » et « Cette adresse est déjà utilisée par un compte »
+              n'appellent pas la même correction, et un message générique les
+              confondrait. */}
+          {erreurAdresse && <Bandeau ton="echec">{erreurAdresse}</Bandeau>}
+
+          {/* Un envoi, jamais un changement : le serveur répond 202, l'adresse
+              n'a pas bougé. Une phrase — la cliente a reproché aux bandeaux de
+              se justifier. */}
+          {demande?.courriel_envoye && (
+            <Bandeau ton="succes">
+              Un courriel est parti vers {demande.adresse_visee}&nbsp;: votre
+              adresse de connexion ne changera qu'au clic sur le lien qu'il
+              contient.
+            </Bandeau>
+          )}
+
+          {/* L'envoi a échoué : on donne le lien plutôt que de laisser quelqu'un
+              attendre un message qui n'arrivera pas. C'est le serveur qui le
+              fournit, et seulement dans ce cas. */}
+          {demande && !demande.courriel_envoye && (
+            <Bandeau ton="echec" titre="Courriel non parti">
+              Le message destiné à {demande.adresse_visee} n'a pas pu être
+              envoyé. Ouvrez ce lien vous-même&nbsp;— rien ne change
+              avant&nbsp;:
+              <code className="equipe-lien-secours">
+                {demande.lien_confirmation}
+              </code>
+            </Bandeau>
+          )}
+
+          <div className="grille-champs">
+            {/* `name` distinct de celui du formulaire de mot de passe : `Champ`
+                en dérive l'identifiant, et deux `id` identiques feraient
+                pointer le libellé d'ici sur la case de l'autre carte. */}
+            <Champ
+              libelle="Mot de passe actuel"
+              name="mot_de_passe_adresse"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={adresse.motDePasse}
+              onChange={modifierAdresse("motDePasse")}
+              aide="Exigé en plus de votre session — un écran resté ouvert ne doit pas suffire à déplacer votre identifiant de connexion."
+            />
+            <Champ
+              libelle="Nouvelle adresse"
+              name="nouvelle_adresse"
+              type="email"
+              autoComplete="email"
+              required
+              value={adresse.nouvelle}
+              onChange={modifierAdresse("nouvelle")}
+              aide="Le lien de confirmation y sera envoyé. Rien ne change avant le clic."
+            />
+          </div>
+
+          <div className="compte-actions">
+            <button
+              type="submit"
+              className="bouton bouton-principal"
+              disabled={demandeAdresse.isPending}
+            >
+              {demandeAdresse.isPending ? "Envoi…" : "Envoyer la confirmation"}
+            </button>
+            <span className="carte-note">
+              Votre adresse actuelle est prévenue au même moment.
+            </span>
+          </div>
+        </form>
       </Carte>
 
       <Carte

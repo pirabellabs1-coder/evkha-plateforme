@@ -515,4 +515,42 @@ export const espaceApi = {
       membres: Membre[];
       roles_disponibles: { code: Role; libelle: string }[];
     }>("/equipe/"),
+  /** Corrige son prénom et son nom. Aucun droit requis, et c'est voulu.
+   *
+   *  Ce sont les siens : un rôle « Lecture seule » doit pouvoir écrire son
+   *  propre état civil sans quémander. Aucune action du §12 n'entre en jeu —
+   *  ces champs n'engagent pas l'organisation.
+   *
+   *  L'adresse n'a délibérément pas sa place dans ce corps : le serveur ignore
+   *  un `email` envoyé ici, il ne l'honore jamais. La déclarer dans ce type
+   *  ferait croire l'inverse à l'écran suivant, qui l'enverrait et croirait
+   *  l'avoir changée. Voir `demanderNouvelleAdresse`. */
+  modifierProfil: (corps: { prenom: string; nom: string }) =>
+    appel<{ prenom: string; nom: string }>("/profil/", {
+      method: "POST",
+      body: JSON.stringify(corps),
+    }),
+  /** Ouvre un changement d'adresse de connexion. **Rien ne change ici.**
+   *
+   *  La réponse est un 202, pas un 200 : elle accuse réception d'une demande.
+   *  L'adresse ne bougera qu'au clic dans la boîte visée — c'est ce clic seul
+   *  qui prouve que cette boîte existe et appartient bien à la personne, et
+   *  c'est lui qui rattrape une faute de frappe avant qu'elle n'enferme
+   *  quelqu'un dehors. L'écran doit donc annoncer un envoi, jamais un
+   *  changement.
+   *
+   *  Le mot de passe actuel est exigé en plus du jeton de session : un écran
+   *  resté ouvert ne doit pas suffire à déplacer un identifiant de connexion. */
+  demanderNouvelleAdresse: (corps: {
+    mot_de_passe: string;
+    nouvelle_adresse: string;
+  }) =>
+    appel<{
+      adresse_visee: string;
+      courriel_envoye: boolean;
+      /** Vide quand le courriel est parti. Renseigné sinon — même contrat que
+       *  `lien_activation` d'une invitation : une panne de messagerie ne doit
+       *  pas laisser la personne attendre un message qui n'arrivera pas. */
+      lien_confirmation: string;
+    }>("/adresse/", { method: "POST", body: JSON.stringify(corps) }),
 };

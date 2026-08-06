@@ -114,14 +114,19 @@ export async function demanderUnLien(email: string): Promise<string> {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ email }),
   });
+  // `erreur` et non `error` : les vues PUBLIQUES rendent `{"erreur": …}`
+  // (`vues_publiques._refus`), là où celles de l'espace rendent `{"error": …}`.
+  // Lire la clé anglaise ici perdait systématiquement le message du serveur au
+  // profit du repli générique — un motif d'échec doit rester trouvable
+  // (règle 2).
   const charge = (await reponse.json().catch(() => ({}))) as {
     message?: string;
-    error?: string;
+    erreur?: string;
     code?: string;
   };
   if (!reponse.ok) {
     throw new RefusInscription(
-      charge.error ?? `Demande impossible (${reponse.status})`,
+      charge.erreur ?? `Demande impossible (${reponse.status})`,
       charge.code ?? "",
     );
   }
@@ -143,17 +148,57 @@ export async function definirLeMotDePasse(saisie: {
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(saisie),
   });
+  // Même clé que ci-dessus, et même conséquence : c'est ce défaut qui rendait
+  // MORTE la branche « lien plus valable » de `MotDePasse.tsx`, laquelle
+  // propose de redemander un lien. Le message n'arrivait jamais jusqu'à elle.
   const charge = (await reponse.json().catch(() => ({}))) as {
     jeton?: string;
     email?: string;
-    error?: string;
+    erreur?: string;
     code?: string;
   };
   if (!reponse.ok) {
     throw new RefusInscription(
-      charge.error ?? `Impossible de définir le mot de passe (${reponse.status})`,
+      charge.erreur ?? `Impossible de définir le mot de passe (${reponse.status})`,
       charge.code ?? "",
     );
   }
   return { jeton: charge.jeton ?? "", email: charge.email ?? "" };
+}
+
+// ── Adresse de connexion : confirmer depuis le lien reçu ────────────────────
+
+/** Applique le changement d'adresse porté par le lien reçu par courriel.
+ *
+ *  Sans jeton de session, et il le faut : la personne clique depuis sa boîte,
+ *  souvent sur un autre appareil que celui où sa session est ouverte. Exiger
+ *  une session rendrait le lien inutilisable pour ceux qui en ont le plus
+ *  besoin — précisément ceux qui n'ont plus accès à l'ancienne adresse. Le
+ *  lien EST la preuve : nous l'avons signé, il vaut trois jours, et il cesse
+ *  de valoir dès qu'il a servi une fois.
+ *
+ *  Le refus se lit dans `erreur` et non dans `error` : c'est la clé que rend
+ *  `_refus` de `vues_publiques.py`. Se tromper de clé ne casse rien de visible
+ *  — le repli générique s'affiche —, mais le message précis du serveur est
+ *  perdu, et c'est lui qui distingue un lien périmé d'une adresse prise
+ *  entre-temps.
+ */
+export async function confirmerLAdresse(jetonDuLien: string): Promise<string> {
+  const reponse = await fetch(`${BASE}/api/public/adresse/confirmer/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ jeton: jetonDuLien }),
+  });
+  const charge = (await reponse.json().catch(() => ({}))) as {
+    email?: string;
+    erreur?: string;
+    code?: string;
+  };
+  if (!reponse.ok) {
+    throw new RefusInscription(
+      charge.erreur ?? `Confirmation impossible (${reponse.status})`,
+      charge.code ?? "",
+    );
+  }
+  return charge.email ?? "";
 }

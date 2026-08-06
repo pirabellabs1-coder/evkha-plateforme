@@ -413,3 +413,40 @@ def definir_mot_de_passe(request: HttpRequest) -> HttpResponse:
 
     jeton_clair = authentification.ouvrir_session_sans_mot_de_passe(compte)
     return JsonResponse({"jeton": jeton_clair, "email": compte.customer.email})
+
+
+@csrf_exempt
+@require_POST
+def confirmer_la_nouvelle_adresse(request: HttpRequest) -> HttpResponse:
+    """Applique le changement d'adresse porté par le lien reçu par courriel.
+
+    **Publique**, et il le faut : la personne clique depuis sa boîte, souvent
+    depuis un autre appareil que celui où sa session est ouverte. Exiger un
+    jeton de session rendrait le lien inutilisable pour ceux qui en ont le plus
+    besoin — précisément ceux qui ont perdu l'accès à l'ancienne adresse.
+
+    Ce n'est pas un relâchement : le lien EST la preuve. Il est signé par nous,
+    valable trois jours, et cesse de valoir dès que l'adresse du compte n'est
+    plus celle qu'il a signée — donc dès qu'il a servi une fois. Il a fallu, en
+    amont, le mot de passe actuel pour l'obtenir.
+    """
+    try:
+        charge = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return _refus("Requête illisible.", "corps_invalide")
+    if not isinstance(charge, dict):
+        return _refus("Requête illisible.", "corps_invalide")
+
+    try:
+        compte, _ancienne = identifiants.appliquer_changement_d_adresse(
+            str(charge.get("jeton", ""))
+        )
+    except identifiants.LienInvalideError as refus:
+        return _refus(str(refus), "lien_invalide", 400)
+    except identifiants.AdresseRefuseeError as refus:
+        # Trois jours séparent la demande de ce clic : quelqu'un a pu prendre
+        # l'adresse entre-temps. On le dit plutôt que de renvoyer un « lien
+        # invalide » qui enverrait chercher au mauvais endroit (règle 2).
+        return _refus(str(refus), "adresse_refusee", 409)
+
+    return JsonResponse({"email": compte.customer.email})

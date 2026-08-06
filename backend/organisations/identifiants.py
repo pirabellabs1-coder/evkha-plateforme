@@ -195,3 +195,132 @@ def mot_de_passe_provisoire() -> str:
     plus tard vers le mot de passe si Google devenait injoignable.
     """
     return secrets.token_urlsafe(32)
+
+
+# ── Changer son adresse de connexion ─────────────────────────────────────────
+#
+# L'adresse n'est pas un champ de profil comme un autre : c'est l'IDENTIFIANT de
+# connexion, et c'est là que partent les liens de réinitialisation. La modifier
+# sans preuve reviendrait à offrir la reprise d'un compte à quiconque emprunte
+# un écran resté ouvert cinq minutes.
+#
+# D'où deux exigences, et pas une seule : le mot de passe actuel au moment de la
+# demande, puis un clic dans la BOÎTE VISÉE. La première prouve que c'est bien
+# le titulaire ; la seconde, que l'adresse existe et lui appartient.
+
+#: Sel de signature propre à cet usage. Un jeton fabriqué pour autre chose ne
+#: doit pas pouvoir servir ici, même émis par nous.
+_SEL_ADRESSE = "evkha.changement-adresse"
+
+#: Trois jours, comme les autres liens de ce module. Un courriel reçu le
+#: vendredi soir doit encore valoir le lundi matin.
+_VALIDITE_ADRESSE_S = 3 * 24 * 3600
+
+
+class AdresseRefuseeError(ValueError):
+    """La nouvelle adresse ne convient pas, et la personne doit savoir pourquoi.
+
+    Contrairement à `LienInvalideError`, ce message-là est PRÉCIS : il répond à
+    quelqu'un d'authentifié qui vient de taper une adresse, pas à un inconnu qui
+    sonde un lien. Lui cacher que l'adresse est déjà prise l'enverrait chercher
+    une panne inexistante.
+    """
+
+
+def jeton_de_changement_d_adresse(compte: CompteClient, nouvelle: str) -> str:
+    """Signe la demande, sans rien écrire en base.
+
+    Le jeton porte l'ANCIENNE adresse en plus de la nouvelle, et c'est ce qui le
+    rend à usage unique sans table ni purge : une fois le changement appliqué,
+    l'ancienne ne correspond plus à celle du compte et le même lien, rejoué, est
+    refusé. Même effet qu'un jeton consommé, sans l'état à maintenir.
+    """
+    from django.core import signing  # noqa: PLC0415
+
+    return signing.dumps(
+        {
+            "compte": str(compte.id),
+            "ancienne": compte.customer.email,
+            "nouvelle": nouvelle,
+        },
+        salt=_SEL_ADRESSE,
+    )
+
+
+def lien_de_changement_d_adresse(compte: CompteClient, nouvelle: str) -> str:
+    base = str(getattr(settings, "EVKHA_APP_URL", "") or "").rstrip("/")
+    if not base:
+        base = "http://localhost:5173"
+    jeton = jeton_de_changement_d_adresse(compte, nouvelle)
+    return f"{base}/confirmer-adresse?jeton={jeton}"
+
+
+def verifier_adresse_libre(nouvelle: str, *, compte: CompteClient) -> str:
+    """Normalise l'adresse et refuse si elle est déjà celle de quelqu'un.
+
+    Le contrôle a lieu DEUX fois — ici, à la demande, et à la confirmation. Ce
+    n'est pas une redondance : trois jours séparent les deux, et quelqu'un peut
+    s'inscrire avec cette adresse entre-temps. Ne vérifier qu'à la demande
+    laisserait deux comptes se disputer un même identifiant de connexion.
+    """
+    adresse = str(nouvelle or "").strip().lower()
+    if "@" not in adresse or len(adresse) < 5:
+        raise AdresseRefuseeError("Cette adresse e-mail n'est pas valide.")
+    if adresse == compte.customer.email.lower():
+        raise AdresseRefuseeError("C'est déjà votre adresse.")
+    if Customer.objects.filter(email__iexact=adresse).exclude(
+        pk=compte.customer_id
+    ).exists():
+        raise AdresseRefuseeError("Cette adresse est déjà utilisée par un compte.")
+    return adresse
+
+
+def appliquer_changement_d_adresse(jeton: str) -> tuple[CompteClient, str]:
+    """Applique le changement porté par un lien, ou refuse.
+
+    Retourne `(compte, ancienne_adresse)` — l'ancienne sert à prévenir la boîte
+    qui perd le compte, ce qui est le seul moyen de repérer une reprise dont on
+    n'est pas l'auteur.
+
+    Les sessions ne sont PAS fermées ici, contrairement au changement de mot de
+    passe : l'adresse change, pas le secret. Fermer les sessions punirait une
+    correction de faute de frappe.
+    """
+    from django.core import signing  # noqa: PLC0415
+
+    try:
+        charge = signing.loads(
+            jeton, salt=_SEL_ADRESSE, max_age=_VALIDITE_ADRESSE_S
+        )
+    except signing.BadSignature:
+        raise LienInvalideError(MESSAGE_LIEN) from None
+
+    compte = (
+        CompteClient.objects.select_related("customer", "user")
+        .filter(id=charge.get("compte"), actif=True)
+        .first()
+    )
+    if compte is None:
+        raise LienInvalideError(MESSAGE_LIEN)
+
+    ancienne = str(charge.get("ancienne") or "")
+    # LE contrôle d'usage unique. Si l'adresse du compte n'est plus celle que le
+    # jeton a signée, c'est que le changement a déjà eu lieu — ou qu'un autre
+    # est passé entre-temps. Dans les deux cas, ce lien ne vaut plus.
+    if compte.customer.email.lower() != ancienne.lower():
+        raise LienInvalideError(MESSAGE_LIEN)
+
+    nouvelle = verifier_adresse_libre(str(charge.get("nouvelle") or ""), compte=compte)
+
+    compte.customer.email = nouvelle
+    compte.customer.save(update_fields=["email"])
+    # `User.username` porte l'adresse : la connexion la cherche là. Ne changer
+    # que `Customer.email` laisserait la personne se connecter avec l'ancienne
+    # et lire la nouvelle à l'écran — deux vérités pour un identifiant.
+    if compte.user.username != nouvelle:
+        compte.user.username = nouvelle
+        compte.user.email = nouvelle
+        compte.user.save(update_fields=["username", "email"])
+
+    _log.info("Adresse de connexion changee : %s -> %s", ancienne, nouvelle)
+    return compte, ancienne

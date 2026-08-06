@@ -993,6 +993,93 @@ def ouvrir_le_paiement(
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@espace()
+def modifier_son_profil(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Corrige son prénom et son nom. Sans droit particulier, et c'est voulu.
+
+    Ce sont les siens : un rôle « Lecture seule » doit pouvoir écrire son propre
+    nom correctement. Aucun droit du §12 ne s'applique ici, parce qu'aucun de
+    ces champs n'engage l'organisation — ils n'apparaissent que sur les écrans
+    et dans les courriels qui s'adressent à la personne elle-même.
+
+    L'adresse n'est PAS modifiable ici. Elle est l'identifiant de connexion et
+    la destination des liens de réinitialisation : la changer sans preuve
+    offrirait la reprise du compte à qui emprunte un écran resté ouvert. Voir
+    `demander_une_nouvelle_adresse` juste en dessous.
+    """
+    charge = _corps(request)
+    contact = membre.customer
+    contact.first_name = str(charge.get("prenom", "")).strip()[:150]
+    contact.last_name = str(charge.get("nom", "")).strip()[:150]
+    contact.save(update_fields=["first_name", "last_name"])
+    return JsonResponse({
+        "prenom": contact.first_name,
+        "nom": contact.last_name,
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace()
+def demander_une_nouvelle_adresse(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Ouvre un changement d'adresse. **Rien ne change avant confirmation.**
+
+    Deux preuves, et il en faut deux :
+
+    - **le mot de passe actuel**, ici. Un jeton de session suffit à lire
+      l'espace ; il ne doit pas suffire à déplacer l'identifiant de connexion,
+      sans quoi cinq minutes devant un écran resté ouvert donnent le compte ;
+    - **un clic dans la boîte visée**, ensuite. C'est la seule façon de savoir
+      que l'adresse existe et appartient bien à la personne. Sans elle, une
+      faute de frappe enfermerait quelqu'un dehors définitivement.
+
+    L'ancienne adresse est prévenue au même moment. Sans cet avertissement, une
+    reprise de compte serait silencieuse : le voleur change l'adresse, et le
+    titulaire ne l'apprend qu'en cessant de recevoir quoi que ce soit.
+    """
+    compte = compte_du_jeton(_jeton(request))
+    if compte is None:
+        return _refus("Authentification requise.", "unauthorized", 401)
+
+    charge = _corps(request)
+    if not compte.user.check_password(str(charge.get("mot_de_passe", ""))):
+        return _refus(
+            "Mot de passe incorrect.", "mot_de_passe_actuel", 403
+        )
+
+    try:
+        nouvelle = identifiants.verifier_adresse_libre(
+            str(charge.get("nouvelle_adresse", "")), compte=compte
+        )
+    except identifiants.AdresseRefuseeError as refus:
+        return _refus(str(refus), "adresse_refusee", 400)
+
+    ancienne = compte.customer.email
+    lien = identifiants.lien_de_changement_d_adresse(compte, nouvelle)
+    envoye = courriels.confirmer_la_nouvelle_adresse(
+        destinataire=nouvelle, lien=lien
+    )
+    if envoye:
+        courriels.prevenir_l_ancienne_adresse(
+            destinataire=ancienne, nouvelle=nouvelle
+        )
+
+    _log.info("Changement d'adresse demande : %s -> %s", ancienne, nouvelle)
+    return JsonResponse({
+        "adresse_visee": nouvelle,
+        "courriel_envoye": envoye,
+        # Rendu SEULEMENT quand l'envoi echoue, comme pour l'invitation : une
+        # panne de messagerie ne doit pas laisser la personne sans recours.
+        "lien_confirmation": "" if envoye else lien,
+    }, status=202)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 @espace("gerer_abonnement", ecriture="gerer_abonnement")
 def arreter_l_abonnement(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation

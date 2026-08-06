@@ -32,4 +32,13 @@ urlpatterns = [
         vues.definir_mot_de_passe,
         name="mot-de-passe-definir",
     ),
+    # Confirmer une nouvelle adresse de connexion. PUBLIQUE, et il le faut : la
+    # personne clique depuis sa boîte, souvent sur un autre appareil que celui
+    # où sa session est ouverte. Exiger un jeton de session ici rendrait le lien
+    # inutilisable précisément pour ceux qui en ont le plus besoin.
+    path(
+        "adresse/confirmer/",
+        vues.confirmer_la_nouvelle_adresse,
+        name="adresse-confirmer",
+    ),
 ]

@@ -21,6 +21,7 @@ import { routesEspace } from "./espace/routes";
 import { Partenaires } from "./public/Partenaires";
 import { Inscription } from "./public/Inscription";
 import { DefinirMotDePasse, MotDePasseOublie } from "./public/MotDePasse";
+import { ConfirmerAdresse } from "./public/ConfirmerAdresse";
 
 // --- Racine ------------------------------------------------------------------
 // Le gabarit vit dans `GabaritRacine.tsx` : il appelle un crochet React, ce
@@ -71,6 +72,20 @@ const motDePasseOublieRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/mot-de-passe-oublie",
   component: MotDePasseOublie,
+});
+
+// Confirmer sa nouvelle adresse de connexion. PUBLIQUE, et le chemin est fige :
+// c'est celui que le serveur ecrit dans le courriel
+// (`{EVKHA_APP_URL}/confirmer-adresse?jeton=...`). Le renommer casserait tous
+// les liens deja partis, qui restent valables trois jours.
+//
+// Publique aussi parce qu'on clique depuis sa boite, souvent sur un autre
+// appareil que celui ou la session est ouverte — exiger un jeton fermerait la
+// porte a ceux qui n'ont plus acces a l'ancienne adresse.
+const confirmerAdresseRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/confirmer-adresse",
+  component: ConfirmerAdresse,
 });
 
 // --- Connexion ---------------------------------------------------------------
@@ -176,6 +191,7 @@ const routeTree = rootRoute.addChildren([
   inscriptionRoute,
   definirMotDePasseRoute,
   motDePasseOublieRoute,
+  confirmerAdresseRoute,
   loginRoute,
   racine,
   adminRoute.addChildren([

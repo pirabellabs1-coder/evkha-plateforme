@@ -156,3 +156,58 @@ def reinitialiser_le_mot_de_passe(*, destinataire: str, lien: str) -> bool:
             bouton="Définir un nouveau mot de passe",
         ),
     )
+
+
+def confirmer_la_nouvelle_adresse(*, destinataire: str, lien: str) -> bool:
+    """Part vers la NOUVELLE adresse : c'est elle qu'il faut prouver.
+
+    L'envoyer à l'ancienne ne démontrerait rien — on saurait que le titulaire
+    est d'accord, jamais que la boîte visée existe et lui appartient.
+    """
+    return _envoyer(
+        destinataire=destinataire,
+        sujet="Confirmez votre nouvelle adresse EVKHA",
+        corps_html=_gabarit(
+            titre="Confirmez cette adresse",
+            phrases=[
+                "Quelqu'un a demandé que cette adresse devienne l'identifiant "
+                "de connexion d'un espace EVKHA.",
+                "Si c'est bien vous, confirmez-le ci-dessous. Tant que vous ne "
+                "l'aurez pas fait, rien ne change.",
+            ],
+            lien=lien,
+            bouton="Confirmer cette adresse",
+        ),
+    )
+
+
+def prevenir_l_ancienne_adresse(*, destinataire: str, nouvelle: str) -> bool:
+    """Prévient la boîte qui PERD le compte.
+
+    Sans ce message, une reprise de compte serait silencieuse : le voleur change
+    l'adresse, et le titulaire ne l'apprend qu'en ne recevant plus rien. C'est
+    le seul avertissement qui atteint quelqu'un dont on est en train de prendre
+    l'accès — il est donc court et sans bouton, pour ne pas se faire prendre
+    lui-même pour une tentative d'hameçonnage.
+    """
+    return _envoyer(
+        destinataire=destinataire,
+        sujet="L'adresse de votre espace EVKHA a changé",
+        corps_html=(
+            f'<div style="font-family:Segoe UI,Helvetica,Arial,sans-serif;'
+            f'background:{_COQUILLE};padding:28px 16px;">'
+            f'<div style="max-width:520px;margin:0 auto;background:#ffffff;'
+            f'border:1px solid {_BORDURE};border-radius:14px;overflow:hidden;">'
+            f'<div style="height:4px;background:{_OR};"></div>'
+            f'<div style="padding:26px 28px 30px;">'
+            f'<h1 style="font-size:20px;margin:0 0 16px;color:{_ENCRE};">'
+            f"L'adresse de votre espace a changé</h1>"
+            f'<p style="margin:0 0 14px;font-size:15px;line-height:1.6;'
+            f'color:{_GRIS};">Votre espace EVKHA utilise désormais '
+            f"<b>{escape(nouvelle)}</b> comme adresse de connexion.</p>"
+            f'<p style="margin:0;font-size:15px;line-height:1.6;color:{_GRIS};">'
+            f"Si vous n'êtes pas à l'origine de ce changement, répondez à ce "
+            f"message immédiatement&nbsp;: nous rétablirons votre accès.</p>"
+            f"</div></div></div>"
+        ),
+    )

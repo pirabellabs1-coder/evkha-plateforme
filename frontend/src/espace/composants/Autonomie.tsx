@@ -14,7 +14,7 @@
  */
 import type { Rythme } from "../api";
 import * as f from "../format";
-import { Bandeau, Carte } from "./Interface";
+import { Carte } from "./Interface";
 
 /** Sous ce seuil, l'information devient une alerte.
  *
@@ -56,15 +56,16 @@ export function Autonomie({ rythme }: { rythme: Rythme }) {
         rythme.mois_observes > 1 ? "s" : ""
       }, mois en cours exclu.`}
     >
-      {alerte && (
-        <Bandeau titre="Vos crédits arrivent à leur terme">
-          À ce rythme, votre solde sera épuisé dans {jours} jour
-          {jours > 1 ? "s" : ""}. Vous pouvez commander des crédits
-          supplémentaires ou passer à une formule supérieure sans attendre
-          l'échéance.
-        </Bandeau>
-      )}
-
+      {/* Le bandeau d'alerte a été RETIRÉ, à la demande de la cliente.
+       *
+       * Il annonçait « vos crédits arrivent à leur terme » et enchaînait sur
+       * une invitation à acheter ou à monter en gamme. Or la carte affiche déjà
+       * les trois chiffres — rythme, solde, épuisement estimé — juste en
+       * dessous : le bandeau n'apportait aucune information, il ajoutait une
+       * recommandation commerciale à un écran de mesure.
+       *
+       * `SEUIL_ALERTE_JOURS` reste utilisé plus bas pour teinter la seule date
+       * d'épuisement : la donnée continue de se signaler, sans discours. */}
       <div className="autonomie">
         <div>
           <div className="chiffre-libelle">Rythme constaté</div>
