@@ -151,14 +151,24 @@ const adminClientDetail = createRoute({
   component: ClientDetail,
 });
 
-// La racine renvoie vers l'administration : `/` n'appartient a aucun des deux
-// espaces, et laisser une page blanche a cette adresse serait un cul-de-sac.
-const racineRedirige = createRoute({
+// --- Page d'accueil ----------------------------------------------------------
+//
+// La racine EST la page partenaires. Elle renvoyait vers `/admin` : la premiere
+// chose qu'un visiteur du tunnel de vente rencontrait etait donc l'ecran de
+// connexion de l'administration — au mieux un cul-de-sac, au pire une invitation
+// a chercher la porte de service.
+//
+// Le meme composant sert les deux adresses plutot qu'une redirection : `/`
+// pour le menu du site, et `/partenaires` qui reste valide pour tout lien deja
+// diffuse. Une redirection aurait fait clignoter l'URL sous les yeux du
+// visiteur, et casse le partage d'un lien profond.
+//
+// L'administration reste a `/admin`, hors de tout chemin public : aucune page
+// visible par un visiteur n'y renvoie.
+const racine = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  beforeLoad: () => {
-    throw redirect({ to: "/admin" });
-  },
+  component: Partenaires,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -167,7 +177,7 @@ const routeTree = rootRoute.addChildren([
   definirMotDePasseRoute,
   motDePasseOublieRoute,
   loginRoute,
-  racineRedirige,
+  racine,
   adminRoute.addChildren([
     adminIndex,
     adminOrganisations,
