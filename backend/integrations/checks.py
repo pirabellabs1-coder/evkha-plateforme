@@ -44,13 +44,23 @@ def check_stripe_credentials(app_configs: object, **kwargs: object) -> list[Erro
     secret de signature seulement au moment de creer le point de terminaison,
     souvent un autre jour. N'en avoir qu'une donne un tunnel qui encaisse sans
     jamais ouvrir l'espace — le pire des trois etats.
+
+    **Toujours `Warning`, jamais `Error`, meme en production** — et c'est la
+    seule difference de forme avec `check_webhook_secrets`. Un `Error` fait
+    echouer les commandes de gestion, `migrate` compris : il empecherait le
+    deploiement de la version qui apporte le paiement, faute de cles qu'on ne
+    peut precisement poser qu'une fois cette version en ligne. Le check
+    refuserait de demarrer parce qu'il n'a rien a dire d'autre que « ce n'est
+    pas encore branche ».
+
+    Ce n'est pas un relachement : ce qui protege ici, ce n'est pas ce check,
+    c'est que `stripe_api` leve sans cle et que le webhook repond 503 sans
+    secret. Le check ne fait que le dire tot.
     """
     issues: list[Error | Warning] = []
-    is_prod = not settings.DEBUG
-    cls = Error if is_prod else Warning
 
     if not getattr(settings, "STRIPE_SECRET_KEY", ""):
-        issues.append(cls(
+        issues.append(Warning(
             "STRIPE_SECRET_KEY non configuree : aucune souscription ne peut "
             "etre payee, donc aucun nouvel abonne n'accede a son espace.",
             hint=(
@@ -61,7 +71,7 @@ def check_stripe_credentials(app_configs: object, **kwargs: object) -> list[Erro
         ))
 
     if not getattr(settings, "STRIPE_WEBHOOK_SECRET", ""):
-        issues.append(cls(
+        issues.append(Warning(
             "STRIPE_WEBHOOK_SECRET non configure : les evenements de paiement "
             "seront TOUS rejetes. Un client pourra payer sans jamais recevoir "
             "ses credits.",
