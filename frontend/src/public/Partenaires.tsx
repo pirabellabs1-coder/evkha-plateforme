@@ -169,6 +169,19 @@ export function Partenaires() {
             <p key={p}>{p}</p>
           ))}
           <p className="pp-hero-signature">{HERO.signature}</p>
+          {/* Deux gestes, deux poids. Le visiteur nouveau va aux formules —
+              c'est l'action que la page existe pour obtenir, elle porte l'or.
+              L'abonné qui revient se connecte — action secondaire, en filet.
+              Une ancre et non un défilement scripté : le lien marche aussi
+              depuis un partage direct de l'URL. */}
+          <div className="pp-hero-actions">
+            <a className="pp-hero-cta" href="#formules">
+              Découvrir les formules
+            </a>
+            <a className="pp-hero-connexion" href="/espace/connexion">
+              Se connecter
+            </a>
+          </div>
         </div>
         <img
           className="pp-hero-image"
@@ -210,7 +223,9 @@ export function Partenaires() {
       </section>
 
       {/* ── Formules ─────────────────────────────────────────────────── */}
-      <section className="pp-section">
+      {/* `id` : cible du bouton d'action du héros. `scroll-margin-top` dans la
+          feuille de style évite que le titre n'atterrisse sous le menu. */}
+      <section className="pp-section" id="formules">
         <div className="pp-large">
           <h2 className="pp-titre">Quatre formules, zéro droit d'entrée</h2>
           <div className="pp-filet" />

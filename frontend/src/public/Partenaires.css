@@ -341,6 +341,57 @@
   color: var(--noir);
 }
 
+/* ── Actions du héros ────────────────────────────────────────────────────────
+ *
+ * Deux gestes, deux poids : « Découvrir les formules » porte l'or — c'est
+ * l'action que la page existe pour obtenir. « Se connecter » reste en filet,
+ * pour l'abonné qui revient : lui donner le même poids ferait hésiter le
+ * visiteur nouveau entre deux portes dont une seule le concerne.
+ */
+.pp-hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 1.6rem;
+}
+
+.pp-hero-cta {
+  display: inline-block;
+  background: var(--or);
+  color: var(--noir);
+  padding: 0.85rem 1.7rem;
+  border-radius: 2px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.pp-hero-cta:hover {
+  background: var(--noir);
+  color: #ffffff;
+}
+
+.pp-hero-connexion {
+  color: var(--noir);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pp-hero-connexion:hover {
+  color: var(--or-fonce, var(--or));
+}
+
+/* L'ancre du bouton : sans cette marge, le titre des formules atterrit collé
+   au bord haut de la fenêtre après le défilement. */
+#formules {
+  scroll-margin-top: 4.5rem;
+}
+
 /* ── Pour qui ────────────────────────────────────────────────────────────── */
 
 .pp-cibles {
