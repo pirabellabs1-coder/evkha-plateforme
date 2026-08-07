@@ -19,10 +19,16 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    # `assurer_admin` vient APRES les migrations — il ecrit dans auth_user — et
+    # AVANT gunicorn. Sans lui, personne ne peut entrer dans /admin/ :
+    # `createsuperuser` est interactif, et l'API de Coolify n'expose aucune
+    # execution de commande dans le conteneur. Sans EVKHA_ADMIN_EMAIL ni
+    # EVKHA_ADMIN_PASSWORD, la commande ne fait rien et le dit.
     command: >
       sh -c "python manage.py migrate --noinput
       && python manage.py seed_offers
       && python manage.py seed_formules
+      && python manage.py assurer_admin
       && python manage.py collectstatic --noinput
       && gunicorn evkha.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"
     env_file: .env
