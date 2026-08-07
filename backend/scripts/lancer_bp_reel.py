@@ -19,6 +19,7 @@ Le .docx est copie dans %TEMP% pour relecture ; rien ne part chez qui que ce soi
 """
 from __future__ import annotations
 
+import io
 import os
 import shutil
 import sys
@@ -33,7 +34,11 @@ def main() -> int:
     import django
 
     django.setup()
-    sys.stdout.reconfigure(encoding="utf-8")
+    # La console Windows sort en cp1252 : les accents du brief la font
+    # tomber. `reconfigure` n'existe que sur un vrai flux texte — sous
+    # pytest ou un pipe, stdout peut etre autre chose.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding="utf-8")
 
     from django.conf import settings
 
@@ -95,7 +100,7 @@ def main() -> int:
         raw_payload=variables,
         normalized_variables=variables,
     )
-    job = bootstrap_generation_job(commande.intake_submissions.first())
+    job = bootstrap_generation_job(commande.intake_submission)
     print(f"JOB {job.id}")
     print(f"  type {job.deliverable_type} — {job.chapters.count()} chapitres — "
           f"budget {job.budget_eur} EUR (plafond dur 3,10)")
@@ -108,7 +113,7 @@ def main() -> int:
         job.refresh_from_db()
         faits = job.chapters.filter(status=ChapterStatus.DONE).count()
         print(f"  statut {job.status} — {faits}/{job.chapters.count()} chapitres "
-              f"— {duree/60:.1f} min — cout {job.cost_eur} EUR")
+              f"— {duree/60:.1f} min — cout {job.total_cost_eur} EUR")
 
     if job.status != JobStatus.DONE:
         print("GENERATION INCOMPLETE — voir incidents.")
