@@ -452,16 +452,15 @@ def moi(
 ) -> HttpResponse:
     """Tout ce dont l'interface a besoin au chargement : identité, rôle, solde, formule."""
     abonnement = abonnement_actif(organisation)
-    # Souscription demandee mais pas encore activee. Sans elle, quelqu'un qui
-    # vient de s'inscrire depuis la page partenaires lit « Contactez EVKHA pour
-    # souscrire » — exactement ce qu'il vient de faire — et croit son
-    # inscription perdue (regle 1 : le systeme sait, il doit le dire).
-    demande = (
-        organisation.demandes.select_related("formule_visee")
-        .filter(type=TypeDemande.CHANGEMENT_FORMULE, statut=StatutDemande.OUVERTE)
-        .order_by("-created_at")
-        .first()
-    )
+    # Formule choisie sur la page partenaires, pas encore payee. Sans elle,
+    # quelqu'un qui vient de s'inscrire lit « Contactez EVKHA pour souscrire » —
+    # exactement ce qu'il vient de faire — et croit son inscription perdue
+    # (regle 1 : le systeme sait, il doit le dire).
+    #
+    # C'etait une `DemandeCommerciale` ouverte a l'inscription. Elle atterrissait
+    # dans la file « A traiter » de l'administration alors qu'elle n'attendait
+    # rien de personne : depuis Stripe, le visiteur paie lui-meme.
+    pressentie = organisation.formule_pressentie
     disponible = credits.solde(organisation)
     return JsonResponse({
         # LA décision de la garde, telle quelle. L'interface ne la rejoue pas :
@@ -525,12 +524,13 @@ def moi(
             "report_credits": abonnement.formule.report_credits,
             "plafond_report": abonnement.formule.plafond_report,
         },
-        "souscription_en_attente": None if demande is None else {
-            "formule": (
-                demande.formule_visee.libelle if demande.formule_visee else ""
-            ),
-            "code": demande.formule_visee.code if demande.formule_visee else "",
-            "demandee_le": demande.created_at.isoformat(),
+        "souscription_en_attente": None if pressentie is None else {
+            "formule": pressentie.libelle,
+            "code": pressentie.code,
+            # La date de creation de l'organisation : c'est le moment ou la
+            # formule a ete choisie, l'inscription et le choix etant le meme
+            # geste sur la page partenaires.
+            "demandee_le": organisation.created_at.isoformat(),
         },
     })
 
@@ -1475,6 +1475,26 @@ def demandes(
     if type_demande not in TypeDemande.values:
         return _refus(
             f"Type de demande inconnu : {type_demande!r}.", "type_inconnu", 400
+        )
+
+    # Les credits additionnels s'ACHETENT, ils ne se demandent plus.
+    #
+    # Ce type ouvrait une demande ecrite — << EVKHA vous recontacte pour le
+    # reglement >> — parce que rien n'encaissait un paiement ponctuel. Depuis,
+    # `/credits/acheter/` ouvre un paiement Stripe a l'unite. Laisser les deux
+    # chemins ouverts ferait deux facons d'obtenir la meme chose, dont une qui
+    # fait attendre un appel telephonique : la cliente a ete claire, elle n'a
+    # pas a traiter cela (regle 5).
+    #
+    # Le refus est explicite plutot que silencieux : une page restee ouverte
+    # dans un navigateur appelle encore ce point d'entree, et son utilisateur
+    # doit apprendre ou aller, pas voir une erreur.
+    if type_demande == TypeDemande.CREDITS_ADDITIONNELS:
+        return _refus(
+            "Les crédits supplémentaires s'achètent directement depuis la page "
+            "Crédits de votre espace, sans attendre de réponse.",
+            "achat_direct",
+            409,
         )
 
     formule_visee = None

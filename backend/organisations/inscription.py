@@ -34,8 +34,6 @@ from .models import (
     Formule,
     MembreOrganisation,
     Organisation,
-    StatutDemande,
-    TypeDemande,
 )
 
 
@@ -189,16 +187,22 @@ def ouvrir_compte(
         if activer_abonnement:
             abonnement = services.souscrire(organisation, formule)
         else:
-            demande = DemandeCommerciale.objects.create(
-                organisation=organisation,
-                demandeur=contact,
-                type=TypeDemande.CHANGEMENT_FORMULE,
-                statut=StatutDemande.OUVERTE,
-                formule_visee=formule,
-                message=(message or "Souscription demandée depuis la page partenaires.")[
-                    :2000
-                ],
-            )
+            # La formule choisie est MEMORISEE, elle n'est plus DEMANDEE.
+            #
+            # Cette inscription ouvrait une `DemandeCommerciale` qui atterrissait
+            # dans la file << A traiter >> de l'administration. C'etait juste
+            # avant Stripe : quelqu'un devait accorder la souscription a la main.
+            # Depuis, le visiteur paie lui-meme et ses credits arrivent par le
+            # webhook — la demande n'attendait plus rien de personne, et polluait
+            # une file censee ne contenir que ce qui reclame une decision
+            # humaine. La cliente l'a dit le 07/08/2026 : << elle n'a pas besoin
+            # d'accorder quoi que ce soit >>.
+            #
+            # L'intention, elle, sert encore : l'ecran de souscription
+            # pre-selectionne la formule choisie sur la page partenaires, pour
+            # que le visiteur n'ait pas a la rechoisir apres son inscription.
+            organisation.formule_pressentie = formule
+            organisation.save(update_fields=["formule_pressentie", "updated_at"])
 
     return Ouverture(
         organisation=organisation,

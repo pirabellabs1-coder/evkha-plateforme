@@ -164,7 +164,10 @@ def inscrire(request: HttpRequest) -> HttpResponse:
             # pouvoir annoncer « souscription en cours de validation » plutot
             # que laisser croire a un abonnement actif.
             "abonnement_actif": False,
-            "demande_id": str(ouverture.demande.id) if ouverture.demande else None,
+            # Plus aucune demande n'est ouverte a l'inscription : le
+            # visiteur paie lui-meme. La cle reste, a `null`, pour ne pas
+            # casser une page encore ouverte dans un navigateur.
+            "demande_id": None,
         },
         status=201,
     )
@@ -303,7 +306,10 @@ def google_session(request: HttpRequest) -> HttpResponse:
             },
             "formule_demandee": formule.code if formule else None,
             "abonnement_actif": False,
-            "demande_id": str(ouverture.demande.id) if ouverture.demande else None,
+            # Plus aucune demande n'est ouverte a l'inscription : le
+            # visiteur paie lui-meme. La cle reste, a `null`, pour ne pas
+            # casser une page encore ouverte dans un navigateur.
+            "demande_id": None,
         },
         status=201,
     )

@@ -18,7 +18,7 @@
  * la carte.
  */
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ErreurApi, espaceApi, type FormuleOffre } from "../api";
 import * as f from "../format";
@@ -26,7 +26,6 @@ import { CLE_MOI, peut, useMoi } from "../useMoi";
 import {
   Bandeau,
   Carte,
-  Champ,
   Pastille,
   Squelette,
   Vide,
@@ -121,7 +120,6 @@ export function Abonnement() {
   const { data: moi } = useMoi();
   const cache = useQueryClient();
   const naviguer = useNavigate();
-  const [quantite, setQuantite] = useState("1");
   const [erreur, setErreur] = useState("");
 
   const peutEngager = peut(moi, "gerer_abonnement");
@@ -180,6 +178,10 @@ export function Abonnement() {
     demandes.some((d) => d.type === type && d.statut === "ouverte");
 
   const abonnement = moi?.abonnement ?? null;
+  // Tarif du credit a l'unite, lu sur l'abonnement : le recopier ici en
+  // ferait une seconde verite, et l'ecran finirait par annoncer un prix que
+  // la caisse ne pratique pas.
+  const tarifCredit = abonnement?.prix_credit_supplementaire_cents ?? 0;
   const parCarte = abonnement?.pilote_par_carte ?? false;
   // Sans abonnement on paie ; abonné par carte on change ; abonné à la main on
   // demande. Le verbe affiché sur le bouton suit ce geste (voir `CarteFormule`).
@@ -295,69 +297,26 @@ export function Abonnement() {
 
       </Carte>
 
-      {/* Seul geste qui reste une demande : l'achat de crédits à l'unité
-          suppose un paiement ponctuel que rien n'encaisse encore. On le dit
-          pour ce cas précis, plutôt que d'annoncer en tête de page que la
-          plateforme entière ne prend pas la carte — ce qui est faux depuis que
-          l'abonnement, lui, se règle en ligne. */}
+      {/* Les crédits additionnels s'ACHÈTENT, ils ne se demandent plus.
+          Ce bloc ouvrait une demande écrite — « EVKHA vous recontacte pour le
+          règlement » — parce que rien n'encaissait un paiement ponctuel. Ce
+          n'est plus vrai : l'achat passe par Stripe, à l'unité, au tarif de la
+          formule. Faire patienter quelqu'un qui veut payer tout de suite lui
+          fait perdre l'envie, et fait perdre la vente. */}
       <Carte
         titre="Crédits additionnels"
-        note="Hors abonnement, au tarif de votre formule en cours. EVKHA vous recontacte pour le règlement."
+        note={`${f.montant(tarifCredit)} le crédit, au tarif de votre formule. Ces crédits-là n'expirent pas.`}
+        action={
+          <Link to="/espace/credits" className="bouton bouton-contour bouton-sm">
+            Acheter des crédits
+          </Link>
+        }
       >
-        <form
-          onSubmit={(evenement) => {
-            evenement.preventDefault();
-            envoyer.mutate({
-              type: "credits_additionnels",
-              quantite: Number(quantite),
-            });
-          }}
-          style={{
-            display: "flex",
-            gap: "var(--e-4)",
-            alignItems: "flex-end",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ maxWidth: 200 }}>
-            <Champ
-              libelle="Nombre de crédits"
-              name="quantite"
-              type="number"
-              min={1}
-              max={50}
-              required
-              value={quantite}
-              onChange={(evenement) => setQuantite(evenement.target.value)}
-              aide="Un crédit = un livrable."
-            />
-          </div>
-          <button
-            type="submit"
-            className="bouton bouton-principal"
-            disabled={
-              !peutEngager || ouverte("credits_additionnels") || envoyer.isPending
-            }
-            title={
-              peutEngager
-                ? undefined
-                : "Seul un propriétaire peut engager l'organisation."
-            }
-          >
-            {envoyer.isPending ? "Envoi…" : "Demander ces crédits"}
-          </button>
-        </form>
-        {!peutEngager && (
-          <p className="carte-note" style={{ marginTop: "var(--e-4)" }}>
-            Votre rôle ne permet pas d'engager l'organisation. Demandez à un
-            propriétaire de votre équipe.
-          </p>
-        )}
-        {ouverte("credits_additionnels") && (
-          <p className="carte-note" style={{ marginTop: "var(--e-4)" }}>
-            Une demande d'achat est déjà en cours de traitement.
-          </p>
-        )}
+        <p className="carte-note">
+          Le paiement est immédiat et n'affecte pas votre abonnement. Les
+          crédits achetés à l'unité restent acquis&nbsp;: contrairement à la
+          dotation mensuelle, ils n'expirent pas à la fin du mois.
+        </p>
       </Carte>
 
       <Carte titre="Vos demandes" note="Historique et statut de traitement.">

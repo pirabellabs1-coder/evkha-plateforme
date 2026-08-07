@@ -96,20 +96,28 @@ def test_aucun_abonnement_n_est_active(client: Client) -> None:
     ).exists()
 
 
-def test_l_intention_est_enregistree_comme_demande(client: Client) -> None:
-    """Ce qui remplace la souscription : une demande qu'EVKHA traite.
+def test_l_intention_est_memorisee_sans_rien_demander(client: Client) -> None:
+    """La formule choisie est MÉMORISÉE, elle n'est plus DEMANDÉE.
 
-    Sans elle, le visiteur aurait un compte vide et personne ne saurait qu'il
-    voulait souscrire — le formulaire n'aurait servi à rien.
+    Ce test verrouillait l'inverse : l'inscription ouvrait une
+    `DemandeCommerciale` qu'un humain devait accorder. C'était juste avant
+    Stripe. Depuis, le visiteur paie lui-même et ses crédits arrivent par le
+    webhook — la demande n'attendait plus rien de personne et polluait une file
+    censée ne contenir que ce qui réclame une décision. La cliente l'a dit le
+    07/08/2026 : « elle n'a pas besoin d'accorder quoi que ce soit ».
+
+    L'intention, elle, sert encore : sans elle, le visiteur devrait rechoisir
+    après son inscription la formule qu'il venait de choisir.
     """
-    from organisations.models import DemandeCommerciale, StatutDemande, TypeDemande
+    from organisations.models import DemandeCommerciale, Organisation
 
-    reponse = _inscrire(client)
-    demande = DemandeCommerciale.objects.get(id=reponse.json()["demande_id"])
-    assert demande.type == TypeDemande.CHANGEMENT_FORMULE
-    assert demande.statut == StatutDemande.OUVERTE
-    assert demande.formule_visee is not None
-    assert demande.formule_visee.code == "pro"
+    _inscrire(client)
+
+    organisation = Organisation.objects.get()
+    assert organisation.formule_pressentie is not None
+    assert organisation.formule_pressentie.code == "pro"
+    # Et RIEN n'atterrit dans la file d'attente de l'administration.
+    assert not DemandeCommerciale.objects.exists()
 
 
 # ── Refus ────────────────────────────────────────────────────────────────────
@@ -236,16 +244,18 @@ def test_un_espace_sans_demande_n_annonce_rien(client: Client) -> None:
     assert moi["souscription_en_attente"] is None
 
 
-def test_une_demande_traitee_ne_reste_pas_affichee(client: Client) -> None:
-    """Une fois la formule activée, l'espace montre l'abonnement, pas l'attente.
+def test_une_souscription_activee_ne_reste_pas_affichee_en_attente(
+    client: Client,
+) -> None:
+    """Une fois la formule payée, l'espace montre l'abonnement, pas l'attente.
 
     Sinon la personne lirait « en cours de validation » sur un abonnement déjà
     actif — un motif faux est pire qu'un motif absent (règle 2).
     """
-    from organisations.models import DemandeCommerciale, StatutDemande
+    from organisations.models import Organisation
 
     jeton = _inscrire(client).json()["jeton"]
-    DemandeCommerciale.objects.update(statut=StatutDemande.TRAITEE)
+    Organisation.objects.update(formule_pressentie=None)
 
     moi = client.get("/api/espace/moi/", HTTP_AUTHORIZATION=f"Bearer {jeton}").json()
     assert moi["souscription_en_attente"] is None

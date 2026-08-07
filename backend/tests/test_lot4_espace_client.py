@@ -581,7 +581,7 @@ def test_un_role_membre_ne_peut_pas_engager_l_organisation(api: Client) -> None:
     membre = Agence("Agence Faire 2", "faire2@example.com", role=RoleOrganisation.MEMBRE)
     reponse = api.post(
         "/api/espace/demandes/",
-        data=json.dumps({"type": "credits_additionnels", "quantite": 3}),
+        data=json.dumps({"type": "changement_formule", "formule": "pro"}),
         content_type="application/json",
         headers=membre.entetes,
     )
@@ -591,7 +591,15 @@ def test_un_role_membre_ne_peut_pas_engager_l_organisation(api: Client) -> None:
 
 def test_deux_demandes_du_meme_type_sont_refusees(api: Client, lumen: Agence) -> None:
     """Un double clic en ouvrirait deux, et EVKHA traiterait deux fois."""
-    corps = json.dumps({"type": "credits_additionnels", "quantite": 2})
+    Formule.objects.get_or_create(
+        code="pro",
+        defaults={
+            "libelle": "Pro",
+            "credits_par_echeance": 3,
+            "prix_mensuel_cents": 18_900,
+        },
+    )
+    corps = json.dumps({"type": "changement_formule", "formule": "pro"})
     premiere = api.post(
         "/api/espace/demandes/", data=corps,
         content_type="application/json", headers=lumen.entetes,
@@ -604,14 +612,29 @@ def test_deux_demandes_du_meme_type_sont_refusees(api: Client, lumen: Agence) ->
     assert seconde.status_code == 409
 
 
-def test_un_achat_sans_quantite_est_refuse(api: Client, lumen: Agence) -> None:
+def test_une_demande_de_credits_renvoie_vers_l_achat(
+    api: Client, lumen: Agence
+) -> None:
+    """Les crédits supplémentaires s'ACHÈTENT, ils ne se demandent plus.
+
+    Ce test vérifiait qu'une demande sans quantité était refusée. La demande
+    elle-même a disparu : elle ouvrait un dossier écrit — « EVKHA vous
+    recontacte pour le règlement » — parce que rien n'encaissait un paiement
+    ponctuel. Depuis, `/credits/acheter/` ouvre un paiement Stripe à l'unité.
+
+    Le refus est EXPLICITE plutôt que silencieux : une page restée ouverte dans
+    un navigateur appelle encore ce point d'entrée, et son utilisateur doit
+    apprendre où aller, pas voir une erreur technique.
+    """
     reponse = api.post(
         "/api/espace/demandes/",
-        data=json.dumps({"type": "credits_additionnels"}),
+        data=json.dumps({"type": "credits_additionnels", "quantite": 3}),
         content_type="application/json",
         headers=lumen.entetes,
     )
-    assert reponse.status_code == 400
+    assert reponse.status_code == 409
+    assert charge(reponse)["code"] == "achat_direct"
+    assert "Crédits" in charge(reponse)["error"]
 
 
 def test_un_type_de_demande_inconnu_est_refuse(api: Client, lumen: Agence) -> None:
@@ -627,9 +650,17 @@ def test_un_type_de_demande_inconnu_est_refuse(api: Client, lumen: Agence) -> No
 def test_les_demandes_sont_cloisonnees(
     api: Client, lumen: Agence, rivage: Agence
 ) -> None:
+    Formule.objects.get_or_create(
+        code="pro",
+        defaults={
+            "libelle": "Pro",
+            "credits_par_echeance": 3,
+            "prix_mensuel_cents": 18_900,
+        },
+    )
     api.post(
         "/api/espace/demandes/",
-        data=json.dumps({"type": "credits_additionnels", "quantite": 4}),
+        data=json.dumps({"type": "changement_formule", "formule": "pro"}),
         content_type="application/json",
         headers=rivage.entetes,
     )

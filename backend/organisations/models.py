@@ -69,6 +69,22 @@ class Organisation(UUIDModel):
     )
     #: Marque blanche : aucune mention d'EVKHA sur les documents produits (§07).
     marque_blanche = models.BooleanField(default=True)
+    #: Formule choisie sur la page partenaires, avant tout paiement.
+    #:
+    #: Une INTENTION, pas un engagement : elle sert seulement à préselectionner
+    #: la bonne carte sur l'écran de souscription, pour que le visiteur n'ait
+    #: pas à rechoisir ce qu'il vient de choisir.
+    #:
+    #: Elle remplace une `DemandeCommerciale` ouverte à l'inscription, qui
+    #: atterrissait dans la file « À traiter » de l'administration et n'y
+    #: attendait rien de personne : depuis Stripe, le visiteur paie lui-même.
+    formule_pressentie = models.ForeignKey(
+        "Formule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     #: Options du §10.6, activables par organisation.
     validation_socle_par_client = models.BooleanField(default=False)
     controle_qualite_avant_envoi = models.BooleanField(default=False)
