@@ -66,7 +66,7 @@ export function Credits() {
               ? `${f.montant(
                   moi.abonnement.prix_mensuel_cents,
                   moi.abonnement.devise,
-                )} par mois`
+                )} HT par mois`
               : "Aucun abonnement actif"
           }
         />

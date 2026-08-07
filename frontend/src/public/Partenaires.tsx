@@ -84,7 +84,7 @@ function Formules({ formules }: { formules: FormulePublique[] }) {
           </div>
           <h3>{formule.libelle}</h3>
           <div className="pp-formule-prix">
-            {euros(formule.prix_mensuel_cents)} <span>/ mois</span>
+            {euros(formule.prix_mensuel_cents)} <span>/ mois HT</span>
           </div>
 
           <div className="pp-formule-quoi">Ce que vous obtenez :</div>
@@ -236,7 +236,8 @@ export function Partenaires() {
           <h2 className="pp-titre">Quatre formules, zéro droit d'entrée</h2>
           <div className="pp-filet" />
           <p className="pp-formules-intro">
-            Abonnement mensuel avec crédits inclus. Engagement minimum de
+            Abonnement mensuel avec crédits inclus. Prix hors taxes&nbsp;; la
+            TVA s'ajoute au moment du paiement. Engagement minimum de
             3&nbsp;mois, puis sans engagement. Crédits supplémentaires à tarif
             dégressif.
           </p>

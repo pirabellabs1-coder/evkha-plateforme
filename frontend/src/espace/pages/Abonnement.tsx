@@ -71,7 +71,7 @@ function CarteFormule({
       <h3 className="formule-nom">{formule.libelle}</h3>
       <p className="formule-prix">
         {f.montant(formule.prix_mensuel_cents, formule.devise)}
-        <span className="formule-periode"> / mois</span>
+        <span className="formule-periode"> / mois HT</span>
       </p>
       <ul className="formule-liste">
         <li>
@@ -209,7 +209,7 @@ export function Abonnement() {
             abonnement.renouvellement_actif
               ? `Formule ${abonnement.formule} — ${f.montant(
                   abonnement.prix_mensuel_cents,
-                )} par mois, ${abonnement.credits_par_echeance} crédit${
+                )} HT par mois, ${abonnement.credits_par_echeance} crédit${
                   abonnement.credits_par_echeance > 1 ? "s" : ""
                 } déposés à chaque échéance.`
               : abonnement.fin_de_periode_le
