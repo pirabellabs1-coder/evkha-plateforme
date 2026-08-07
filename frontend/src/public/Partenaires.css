@@ -692,70 +692,184 @@
 
 /* ── Menu du site vitrine ────────────────────────────────────────────────
  *
- * Cette page a remplacé `evkha.fr/partenairespro` dans le tunnel de vente : le
- * visiteur qui cliquait arrivait sur un autre site, sans aucune navigation, au
- * milieu d'un parcours d'achat. Le menu est donc reproduit — voir
- * `contenu.MENU_SITE`, seul endroit où il est écrit.
+ * Repris de la barre de `www.evkha.fr` : bandeau or aux extremites arrondies,
+ * pastille blanche a gauche pour le logo, appel a l'action blanc a droite,
+ * libelles en serif. Les entrees viennent de `contenu.MENU_SITE`.
  *
- * Il défile horizontalement plutôt que de se replier en menu hamburger : huit
- * entrées repliées derrière un bouton, c'est exactement la disparition qu'on
+ * Il defile horizontalement plutot que de se replier derriere un bouton
+ * hamburger : sept entrees repliees, c'est exactement la disparition qu'on
  * corrige. Sur mobile on en voit trois et on fait glisser — la navigation
  * reste VISIBLE, ce qui est la demande. */
 .pp-menu {
-  background: var(--vert);
+  padding: 18px clamp(10px, 3vw, 28px) 8px;
+  background: #ffffff;
+}
+
+.pp-menu-barre {
+  display: flex;
+  align-items: stretch;
+  max-width: 1240px;
+  margin: 0 auto;
+  background: var(--or);
+  border-radius: 999px;
+  /* Le contenu deborde vers la droite quand il ne tient pas, sans jamais
+     pousser la page : `min-width: 0` est ce qui autorise le retrecissement. */
+  min-width: 0;
+}
+
+.pp-menu-logo {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 6px 18px;
+  background: #ffffff;
+  border-radius: 999px 0 0 999px;
+}
+
+.pp-menu-logo img {
+  display: block;
+  height: 38px;
+  width: auto;
+}
+
+.pp-menu-entrees {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  gap: 0;
+  margin: 0;
+  padding: 0 6px;
+  list-style: none;
+  min-width: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 
-.pp-menu::-webkit-scrollbar {
+.pp-menu-entrees::-webkit-scrollbar {
   display: none;
 }
 
-.pp-menu ul {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  margin: 0;
-  padding: 0 clamp(12px, 3vw, 28px);
-  list-style: none;
-  /* Sans cela, les entrees se compriment jusqu'a devenir illisibles au lieu
-     de deborder — et il n'y a alors plus rien a faire defiler. */
-  width: max-content;
-  min-width: 100%;
-}
-
-.pp-menu a {
+.pp-menu-entrees > li {
   display: flex;
   align-items: center;
-  padding: 14px 16px;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  flex: 0 0 auto;
+  position: relative;
+}
+
+.pp-menu-entrees a,
+.pp-menu-entrees button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-family: var(--serif);
+  font-size: 0.9375rem;
+  line-height: 1.25;
+  color: var(--noir);
+  text-align: center;
   text-decoration: none;
   white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  transition: color 140ms ease, border-color 140ms ease;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: opacity 140ms ease;
 }
 
-.pp-menu a:hover,
-.pp-menu a:focus-visible {
-  color: #ffffff;
-  border-bottom-color: var(--or);
+.pp-menu-entrees a:hover,
+.pp-menu-entrees a:focus-visible,
+.pp-menu-entrees button:hover,
+.pp-menu-entrees button:focus-visible {
+  opacity: 0.68;
 }
 
-/* La page où l'on se trouve. Elle reste cliquable — un lien mort dans un menu
-   laisse croire à une page cassée. */
-.pp-menu a.pp-menu-courant {
-  color: var(--or);
-  font-weight: 600;
-  border-bottom-color: var(--or);
+/* La page ou l'on se trouve. Elle reste cliquable — un lien mort dans un menu
+   laisse croire a une page cassee. */
+.pp-menu-entrees a.pp-menu-courant {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+/* « Me contacter » : pastille blanche, HORS de la file qui defile.
+ *
+ * Placee dedans, elle sortait de l'ecran des que les entrees ne tenaient plus
+ * — mesure : elle etait coupee des 1200 px. C'est le seul lien du menu qu'on
+ * ne veut jamais voir disparaitre. */
+.pp-menu-appel {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 6px 0 4px;
+  padding: 9px 22px;
+  background: #ffffff;
+  border-radius: 999px;
+  font-family: var(--serif);
+  font-size: 1rem;
+  color: var(--noir);
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.16);
+  transition: opacity 140ms ease;
+}
+
+.pp-menu-appel:hover,
+.pp-menu-appel:focus-visible {
+  opacity: 0.82;
+}
+
+.pp-menu-chevron {
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.pp-menu-deroulant > ul {
+  position: absolute;
+  top: 100%;
+  left: 4px;
+  z-index: 30;
+  min-width: 260px;
+  margin: 6px 0 0;
+  padding: 6px 0;
+  list-style: none;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(17, 17, 17, 0.18);
+}
+
+.pp-menu-deroulant > ul a {
+  padding: 10px 18px;
+  white-space: normal;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 760px) {
+  .pp-menu-logo img {
+    height: 30px;
+  }
+
+  .pp-menu-entrees a,
+  .pp-menu-entrees button {
+    padding: 10px 11px;
+    font-size: 0.875rem;
+  }
+
+  .pp-menu-appel {
+    padding: 8px 15px;
+    font-size: 0.875rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pp-menu a {
+  .pp-menu-entrees a,
+  .pp-menu-entrees button,
+  .pp-menu-appel {
     transition: none;
   }
 }

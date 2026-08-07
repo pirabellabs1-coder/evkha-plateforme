@@ -31,13 +31,13 @@ import {
   FAQ,
   FONDATRICE,
   FORMULES_SOUS_TITRES,
-  MENU_SITE,
   HERO,
   POUR_QUI,
   PREUVES,
   PRINCIPE,
 } from "./contenu";
 import { chargerFormules, euros, type FormulePublique } from "./donnees";
+import { MenuSite } from "./MenuSite";
 import "./Partenaires.css";
 
 /** Destination du bouton « Souscrire ».
@@ -160,22 +160,7 @@ export function Partenaires() {
 
   return (
     <div className="pp">
-      {/* ── Menu du site vitrine ─────────────────────────────────────── */}
-      <nav className="pp-menu" aria-label="Navigation du site EVKHA">
-        <ul>
-          {MENU_SITE.map((entree) => (
-            <li key={entree.lien}>
-              <a
-                href={entree.lien}
-                className={entree.courant ? "pp-menu-courant" : undefined}
-                aria-current={entree.courant ? "page" : undefined}
-              >
-                {entree.libelle}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <MenuSite />
 
       {/* ── Ouverture ────────────────────────────────────────────────── */}
       <header className="pp-large pp-hero">

@@ -168,9 +168,9 @@ export const CONTACT_EMAIL = "contact@evkha.fr";
 /** Le menu du site vitrine, reproduit sur nos pages publiques.
  *
  * Cette page a remplacé `evkha.fr/partenairespro` dans le tunnel de vente. Le
- * visiteur qui cliquait dessus arrivait chez nous — et le menu disparaissait,
- * puisque c'est un autre site. Constaté par la cliente le 07/08/2026 : « on ne
- * voit plus le menu du tunnel de vente ».
+ * visiteur qui cliquait arrivait chez nous — et le menu disparaissait, puisque
+ * c'est un autre site. Constaté par la cliente le 07/08/2026 : « on ne voit
+ * plus le menu du tunnel de vente ».
  *
  * **C'est une duplication, et elle est assumée.** Elle contredit la règle 5 —
  * une seule source par vérité — mais l'alternative était de laisser le visiteur
@@ -178,10 +178,39 @@ export const CONTACT_EMAIL = "contact@evkha.fr";
  * une entrée change sur Systeme.io, elle doit changer ICI, et nulle part
  * ailleurs. C'est le seul endroit du dépôt où ce menu est écrit.
  *
- * Relevé sur `https://www.evkha.fr/` le 07/08/2026.
+ * Relevé sur `https://www.evkha.fr/` le 07/08/2026, structure et ordre compris.
+ *
+ * Une différence assumée avec l'original : le site écrit « Boite à outils »
+ * sans accent circonflexe. On écrit « Boîte » — recopier une faute pour
+ * ressembler à la source la ferait exister à deux endroits au lieu d'un.
  */
-export const MENU_SITE: { libelle: string; lien: string; courant?: boolean }[] = [
+export type EntreeMenu = {
+  libelle: string;
+  lien: string;
+  /** Page où l'on se trouve : signalée, mais toujours cliquable. */
+  courant?: boolean;
+  /** Bouton d'appel, à droite et détaché du reste. */
+  appel?: boolean;
+  /** Sous-entrées d'un menu déroulant. */
+  enfants?: { libelle: string; lien: string }[];
+};
+
+export const MENU_SITE: EntreeMenu[] = [
   { libelle: "Accueil", lien: "https://www.evkha.fr/" },
+  {
+    libelle: "Etude de marché & Livrables",
+    lien: "https://www.evkha.fr/etudedemarche",
+    enfants: [
+      {
+        libelle: "Générer votre étude ou livrable",
+        lien: "https://www.evkha.fr/etudedemarche",
+      },
+      {
+        libelle: "Études en téléchargement immédiat",
+        lien: "https://www.evkha.fr/etude-achat-immediat",
+      },
+    ],
+  },
   { libelle: "Nos packs accompagnement", lien: "https://www.evkha.fr/packs" },
   {
     libelle: "Partenariats PRO et abonnements",
@@ -191,12 +220,10 @@ export const MENU_SITE: { libelle: string; lien: string; courant?: boolean }[] =
   { libelle: "Nos Formations", lien: "https://www.evkha.fr/formation" },
   { libelle: "Boîte à outils", lien: "https://www.evkha.fr/boite-a-outil" },
   {
-    libelle: "Générer votre étude ou livrable",
-    lien: "https://www.evkha.fr/etudedemarche",
+    libelle: "Me contacter",
+    lien: "https://www.evkha.fr/contacts",
+    appel: true,
   },
-  {
-    libelle: "Études en téléchargement immédiat",
-    lien: "https://www.evkha.fr/etude-achat-immediat",
-  },
-  { libelle: "Me contacter", lien: "https://www.evkha.fr/contacts" },
 ];
+
+export const LOGO_SITE = "/partenaires/logo-evkha.png";
