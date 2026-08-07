@@ -29,6 +29,7 @@ services:
       && python manage.py seed_offers
       && python manage.py seed_formules
       && python manage.py assurer_admin
+      && python manage.py reinitialiser_la_plateforme
       && python manage.py collectstatic --noinput
       && gunicorn evkha.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"
     env_file: .env
