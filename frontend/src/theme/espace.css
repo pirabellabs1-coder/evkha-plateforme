@@ -232,22 +232,35 @@
   flex-direction: column;
 }
 
+/* En-tête de page, commun à l'espace client et à l'administration.
+ *
+ * Il occupait une bande de 96 px collée en haut de CHAQUE écran, avec un titre
+ * en 28 px et l'adresse e-mail complète de la personne connectée. Sur un
+ * portable de 800 px de haut, cela prend un huitième de l'écran en permanence
+ * pour redire à quelqu'un son propre nom.
+ *
+ * Il est désormais compact, et il ne reste collé que sur les petites largeurs
+ * — là où le bouton de navigation qu'il porte est le seul accès au menu. Au
+ * large, la navigation est visible en permanence dans la barre latérale :
+ * l'en-tête peut défiler avec la page et rendre sa hauteur au contenu.
+ *
+ * `position` n'est PAS redéclaré ici : la bascule en `sticky` vit déjà dans la
+ * règle « ≤ 900 px » plus bas, avec le reste de l'adaptation aux petits
+ * écrans. En poser une seconde copie ici, c'était deux endroits à corriger le
+ * jour où le seuil bouge (règle 5). */
 .espace-entete {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--e-6);
-  padding: var(--e-6) var(--e-8);
+  gap: var(--e-4);
+  padding: var(--e-3) var(--e-8);
   background: var(--fond-carte);
   border-bottom: 1px solid var(--evkha-bordure);
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 .espace-titre {
   font-family: var(--police-titre);
-  font-size: var(--t-xl);
+  font-size: var(--t-lg);
   font-weight: var(--graisse-titre);
   letter-spacing: -0.015em;
   line-height: var(--interligne-serre);
@@ -258,7 +271,36 @@
 .espace-sous-titre {
   color: var(--texte-doux);
   font-size: var(--t-sm);
-  margin: var(--e-1) 0 0;
+  margin: 2px 0 0;
+}
+
+/* Sous 600 px, le sous-titre explique une page déjà titrée et pousse le
+ * contenu hors de l'écran : le titre suffit. */
+@media (max-width: 600px) {
+  .espace-sous-titre {
+    display: none;
+  }
+}
+
+/* Le nom de l'organisation, seul rescapé du bloc d'identité. Une seule ligne,
+ * tronquée plutôt qu'enroulée : une raison sociale à rallonge ne doit pas
+ * pouvoir doubler la hauteur de l'en-tête. */
+.espace-entete-identite {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--texte-doux);
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .espace-entete-identite {
+    display: none;
+  }
 }
 
 .espace-contenu {
@@ -833,14 +875,22 @@
     display: block;
   }
 
-  .espace-entete,
   .espace-contenu {
     padding: var(--e-5) var(--e-4);
   }
 
+  /* Sous 900 px, la barre latérale est repliée : ce bouton est le SEUL accès
+   * à la navigation, l'en-tête doit donc rester atteignable au défilement.
+   * `top` et `z-index` sont ici, avec le `sticky` qu'ils servent — les laisser
+   * dans la règle de base, où plus rien ne colle, en faisait deux déclarations
+   * dont l'une ne s'appliquait jamais, et le jour où elle a disparu le
+   * `sticky` a continué d'exister sans plus rien coller. */
   .espace-entete {
     gap: var(--e-3);
+    padding: var(--e-3) var(--e-4);
     position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   /* L'identité de l'organisation passe sous le titre plutôt qu'à sa droite :

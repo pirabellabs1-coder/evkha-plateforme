@@ -165,12 +165,16 @@ export function Coquille() {
             <h1 className="espace-titre">{entete.titre}</h1>
             <p className="espace-sous-titre">{entete.sous}</p>
           </div>
+          {/* L'adresse e-mail et le rôle figuraient ici, sur deux lignes, en
+              haut de chaque écran. Personne n'a besoin qu'on lui rappelle sa
+              propre adresse à chaque page — et sur un poste partagé, l'afficher
+              en permanence n'aide personne non plus. Les deux restent lisibles
+              sur « Mon compte », où l'on va justement pour cela.
+              Reste le nom de l'organisation : le document est livré en marque
+              blanche, savoir POUR QUI on travaille n'est pas du décor. */}
           {moi && (
-            <div className="espace-entete-identite" style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 600 }}>{moi.organisation.raison_sociale}</div>
-              <div className="carte-note">
-                {moi.utilisateur.email} · {f.role(moi.utilisateur.role)}
-              </div>
+            <div className="espace-entete-identite">
+              {moi.organisation.raison_sociale}
             </div>
           )}
         </header>
