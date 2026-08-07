@@ -232,10 +232,67 @@ def sur_facture_payee(facture: dict[str, Any]) -> str:
         reference_stripe=abonnement_stripe,
     )
     if cree:
+        _enregistrer_l_encaissement(facture, abonnement)
         return "abonnement ouvert"
 
+    _enregistrer_l_encaissement(facture, abonnement)
     ajoutes = services.appliquer_echeance(abonnement)
     return f"echeance appliquee ({ajoutes} credits)" if ajoutes else "periode deja dotee"
+
+
+def _enregistrer_l_encaissement(facture: dict[str, Any], abonnement: Any) -> None:
+    """Garde la trace de ce qui est REELLEMENT rentre.
+
+    Le tableau de bord ne savait afficher qu'un revenu contractuel — la somme
+    des abonnements actifs — faute de quoi que ce soit d'encaisse a montrer.
+    Cette ligne est la seule source d'un chiffre d'affaires realise.
+
+    `get_or_create` sur la reference de facture, et une contrainte d'unicite en
+    base derriere : Stripe rejoue ses evenements pendant trois jours en cas
+    d'erreur, et compter deux fois un meme paiement gonflerait la recette sans
+    que rien ne le signale. Deux verrous pour la meme faute, qui ne jugent pas
+    sur la meme evidence (regle 9).
+
+    Ne leve jamais : un defaut de comptabilite ne doit pas empecher un client
+    d'etre dote de ses credits. L'echec ouvre un incident, il ne se tait pas.
+    """
+    reference = str(facture.get("id") or "").strip()
+    montant = int(facture.get("amount_paid") or 0)
+    if not reference or montant <= 0:
+        return
+
+    from django.utils import timezone  # noqa: PLC0415
+
+    from organisations.models import Encaissement  # noqa: PLC0415
+
+    transitions = facture.get("status_transitions") or {}
+    horodatage = transitions.get("paid_at") or facture.get("created")
+    paye_le = (
+        datetime.fromtimestamp(int(horodatage), tz=UTC)
+        if horodatage
+        else timezone.now()
+    )
+
+    try:
+        Encaissement.objects.get_or_create(
+            reference_facture=reference,
+            defaults={
+                "organisation": abonnement.organisation,
+                "formule_code": getattr(abonnement.formule, "code", ""),
+                "montant_cents": montant,
+                "devise": str(facture.get("currency") or "eur").upper()[:3],
+                "reference_abonnement": _abonnement_stripe_de_la_facture(facture),
+                "paye_le": paye_le,
+            },
+        )
+    except Exception as erreur:  # noqa: BLE001
+        _incident(
+            "Encaissement non enregistre",
+            IncidentSeverity.MEDIUM,
+            facture=reference,
+            montant_cents=montant,
+            motif=f"{type(erreur).__name__} : {erreur}",
+        )
 
 
 def sur_abonnement_supprime(abonnement_stripe: dict[str, Any]) -> str:

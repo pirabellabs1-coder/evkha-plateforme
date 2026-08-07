@@ -660,16 +660,30 @@ def test_les_codes_de_formule_couvrent_les_paliers_deja_declares() -> None:
 def test_la_synthese_dit_la_nature_du_revenu(client: object) -> None:
     """Un chiffre dont on ignore la nature est un chiffre faux.
 
-    Le revenu affiché est CONTRACTUEL : aucun prestataire de paiement n'étant
-    branché, la plateforme ne connaît aucun encaissement réel. La réponse doit
-    le dire, sinon le tableau de bord laisse croire à un chiffre d'affaires
-    réalisé.
+    Ce test verrouillait l'état d'avant : « aucun prestataire de paiement
+    n'étant branché, la plateforme ne connaît aucun encaissement réel ». C'était
+    exact jusqu'au 07/08/2026. Stripe est désormais branché, chaque facture
+    payée laisse une ligne, et cet avertissement serait devenu FAUX — donc pire
+    que pas d'avertissement du tout, parce qu'on ne cherche pas ce qu'on croit
+    impossible.
+
+    Ce que le test tient désormais : les deux revenus sont donnés SÉPARÉMENT,
+    et la réponse dit lequel est lequel. Les confondre, ou n'en montrer qu'un,
+    ferait passer un impayé pour une recette.
     """
     reponse = _administration().get("/api/dashboard/supervision/synthese/")
     assert reponse.status_code == 200
-    charge = reponse.json()
-    assert charge["revenu"]["nature"] == "contractuel"
-    assert "encaissements" in charge["revenu"]["avertissement"]
+    revenu = reponse.json()["revenu"]
+
+    assert revenu["nature"] == "contractuel"
+    assert "recurrent_mensuel_cents" in revenu
+    assert "encaisse_periode_cents" in revenu
+    assert "encaisse_total_cents" in revenu
+    # L'avertissement explique la difference entre les deux.
+    assert "contractuel" in revenu["avertissement"]
+    assert "impayé" in revenu["avertissement"]
+    # Et il n'affirme plus ce qui n'est plus vrai.
+    assert "aucun prestataire" not in revenu["avertissement"].lower()
 
 
 def test_la_synthese_compte_le_revenu_des_abonnements_actifs(

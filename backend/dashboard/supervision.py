@@ -11,10 +11,14 @@ Il faut le dire clairement, parce qu'un tableau de bord qui affiche un chiffre
 faux est pire qu'un tableau de bord qui n'affiche rien (règle 2) :
 
 - le **revenu récurrent** est calculé depuis les abonnements actifs et leurs
-  formules. C'est un revenu *contractuel*, pas un encaissement : aucun
-  prestataire de paiement n'est branché, donc personne ne sait ici si la carte a
-  passé. La réponse le signale explicitement plutôt que de laisser croire à un
-  chiffre d'affaires réalisé ;
+  formules. C'est un revenu *contractuel* : ce qui devrait rentrer si toutes
+  les cartes passent ;
+- le **revenu encaissé** est la somme des factures que Stripe nous a
+  rapportées payées (`organisations.Encaissement`). C'est le chiffre
+  d'affaires réalisé. Les deux sont donnés SÉPARÉMENT et jamais confondus :
+  les additionner, ou n'en montrer qu'un, ferait passer un impayé pour une
+  recette. Jusqu'au 07/08/2026 seul le premier existait, faute de prestataire
+  branché — c'est désormais le cas ;
 - le **coût de production** vient de `GenerationJob.total_cost_eur`, alimenté par
   le moteur de coûts à chaque appel. Celui-là est réel ;
 - la **marge** n'est donnée que par document, jamais globalement : rapporter une
@@ -36,6 +40,7 @@ from customers.models import Customer
 from generation.models import GenerationJob, JobStatus
 from monitoring.models import IncidentSeverity, OperationalIncident
 from organisations.models import (
+    Encaissement,
     MouvementCredit,
     Organisation,
     StatutAbonnement,
@@ -133,6 +138,17 @@ def synthese(request: HttpRequest) -> JsonResponse:
         MouvementCredit.objects.aggregate(total=Sum("quantite"))["total"] or 0
     )
 
+    # Encaissé : ce qui est REELLEMENT rentré, par opposition au contractuel.
+    encaissements = Encaissement.objects.all()
+    encaisse_total = int(
+        encaissements.aggregate(total=Sum("montant_cents"))["total"] or 0
+    )
+    encaisse_periode = int(
+        encaissements.filter(paye_le__date__gte=periode.debut)
+        .aggregate(total=Sum("montant_cents"))["total"]
+        or 0
+    )
+
     incidents = OperationalIncident.objects.filter(resolved_at__isnull=True)
 
     return _json({
@@ -148,14 +164,17 @@ def synthese(request: HttpRequest) -> JsonResponse:
         },
         "revenu": {
             "recurrent_mensuel_cents": recurrent,
+            "encaisse_periode_cents": encaisse_periode,
+            "encaisse_total_cents": encaisse_total,
             "devise": "EUR",
             # Un tableau de bord qui affiche un chiffre faux est pire qu'un
-            # tableau de bord vide. On dit ce que le chiffre EST.
+            # tableau de bord vide. On dit ce que CHAQUE chiffre est.
             "nature": "contractuel",
             "avertissement": (
-                "Revenu contractuel calculé sur les abonnements actifs. Aucun "
-                "prestataire de paiement n'étant branché, les encaissements "
-                "réels ne sont pas connus de la plateforme."
+                "Le revenu récurrent est contractuel : la somme des abonnements "
+                "actifs, c'est-à-dire ce qui devrait rentrer. L'encaissé est ce "
+                "que le prestataire a rapporté payé. Un impayé creuse l'écart "
+                "entre les deux."
             ),
         },
         "documents": {
@@ -190,16 +209,29 @@ def synthese(request: HttpRequest) -> JsonResponse:
 
 @require_http_methods(["GET"])
 def evolution(request: HttpRequest) -> JsonResponse:
-    """Séries mensuelles sur douze mois : documents, crédits, coût.
+    """Séries mensuelles : documents, crédits, revenu encaissé.
 
     Les mois sans activité sont présents avec des zéros. Les omettre ferait
     d'un creux d'activité une ligne qui saute d'un mois à l'autre — le
     graphique mentirait sur la forme de la courbe.
+
+    La profondeur se règle par `?mois=N`, ce qui permet au tableau de bord de
+    filtrer sur une période sans que le serveur ait à connaître les boutons de
+    l'interface. Bornée entre 1 et 36 : au-delà, la courbe devient illisible, et
+    en deçà elle n'a plus de forme. Une valeur illisible retombe sur le défaut
+    plutôt que de faire échouer la page — un tableau de bord vide pour un
+    paramètre mal tapé serait une punition disproportionnée.
     """
     from django.utils import timezone
 
+    try:
+        profondeur = int(request.GET.get("mois", MOIS_HISTORIQUE))
+    except (TypeError, ValueError):
+        profondeur = MOIS_HISTORIQUE
+    profondeur = max(1, min(profondeur, 36))
+
     aujourdhui = timezone.now().date()
-    cles = [_mois(aujourdhui, decalage) for decalage in range(MOIS_HISTORIQUE - 1, -1, -1)]
+    cles = [_mois(aujourdhui, decalage) for decalage in range(profondeur - 1, -1, -1)]
     index = {cle: position for position, cle in enumerate(cles)}
     zeros = [0] * len(cles)
 
@@ -228,6 +260,22 @@ def evolution(request: HttpRequest) -> JsonResponse:
         elif mouvement["type"] in (TypeMouvement.DOTATION, TypeMouvement.ACHAT):
             dotations[position] += mouvement["quantite"]
 
+    # Revenu REELLEMENT encaisse, mois par mois. En centimes comme partout
+    # ailleurs : convertir ici ferait deux unites dans la meme reponse.
+    encaisse = list(zeros)
+    for ligne in Encaissement.objects.values("paye_le", "montant_cents"):
+        cle = f"{ligne['paye_le'].year:04d}-{ligne['paye_le'].month:02d}"
+        position = index.get(cle)
+        if position is not None:
+            encaisse[position] += int(ligne["montant_cents"])
+
+    cout_mensuel = [0] * len(cles)
+    for depense in GenerationJob.objects.values("created_at", "total_cost_eur"):
+        cle = f"{depense['created_at'].year:04d}-{depense['created_at'].month:02d}"
+        position = index.get(cle)
+        if position is not None:
+            cout_mensuel[position] += _cents(depense["total_cost_eur"] or 0)
+
     return _json({
         "mois": cles,
         "series": [
@@ -235,6 +283,18 @@ def evolution(request: HttpRequest) -> JsonResponse:
             {"cle": "echecs", "libelle": "Échecs", "valeurs": echecs},
             {"cle": "debits", "libelle": "Crédits consommés", "valeurs": debits},
             {"cle": "dotations", "libelle": "Crédits attribués", "valeurs": dotations},
+            {
+                "cle": "encaisse",
+                "libelle": "Revenu encaissé",
+                "valeurs": encaisse,
+                "unite": "cents",
+            },
+            {
+                "cle": "cout",
+                "libelle": "Coût de production",
+                "valeurs": cout_mensuel,
+                "unite": "cents",
+            },
         ],
     })
 

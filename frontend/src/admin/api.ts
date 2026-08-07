@@ -32,7 +32,12 @@ export interface Synthese {
   periode: { debut: string; fin: string; jours: number };
   organisations: { total: number; actives: number; suspendues: number };
   revenu: {
+    /** Contractuel : la somme des abonnements actifs, ce qui DEVRAIT rentrer. */
     recurrent_mensuel_cents: number;
+    /** Réel : ce que le prestataire a rapporté payé sur la période. */
+    encaisse_periode_cents: number;
+    /** Réel, depuis toujours. */
+    encaisse_total_cents: number;
     devise: string;
     nature: string;
     avertissement: string;
@@ -58,7 +63,14 @@ export interface Synthese {
 
 export interface Evolution {
   mois: string[];
-  series: { cle: string; libelle: string; valeurs: number[] }[];
+  series: {
+    cle: string;
+    libelle: string;
+    valeurs: number[];
+    /** « cents » quand la série est monétaire. Absent sinon : un compte de
+     *  documents et une somme d'argent ne se lisent pas de la même façon. */
+    unite?: string;
+  }[];
 }
 
 export interface OrganisationSupervision {
@@ -114,7 +126,8 @@ async function post<T>(chemin: string, corps: unknown): Promise<T> {
 
 export const adminApi = {
   synthese: (jours = 30) => get<Synthese>("/supervision/synthese/", { jours: String(jours) }),
-  evolution: () => get<Evolution>("/supervision/evolution/"),
+  evolution: (mois = 12) =>
+    get<Evolution>("/supervision/evolution/", { mois: String(mois) }),
   organisations: () =>
     get<{ organisations: OrganisationSupervision[] }>("/supervision/organisations/"),
   demandes: () =>

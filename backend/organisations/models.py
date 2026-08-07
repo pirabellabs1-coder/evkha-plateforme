@@ -583,3 +583,46 @@ class JetonAcces(UUIDModel):
     @property
     def valide(self) -> bool:
         return self.revoque_le is None and self.expire_le > timezone.now()
+
+
+class Encaissement(UUIDModel):
+    """Un paiement RÉELLEMENT encaissé, tel que le prestataire le rapporte.
+
+    Le tableau de bord ne savait afficher qu'un revenu *contractuel* — la somme
+    des abonnements actifs — et le disait honnêtement : « aucun prestataire de
+    paiement n'étant branché, les encaissements réels ne sont pas connus ».
+    C'était vrai jusqu'au 07/08/2026. Stripe est désormais branché, et un
+    paiement a été encaissé pour de bon : le webhook appliquait l'échéance et
+    n'en gardait aucune trace, si bien que la somme réellement perçue restait
+    introuvable côté plateforme.
+
+    Une ligne par facture payée. C'est la seule source d'un chiffre d'affaires
+    réalisé : le revenu contractuel dit ce qui DEVRAIT rentrer, celui-ci dit ce
+    qui est rentré. Les confondre ferait passer un impayé pour une recette.
+    """
+
+    organisation = models.ForeignKey(
+        Organisation, on_delete=models.CASCADE, related_name="encaissements"
+    )
+    #: Formule au moment du paiement. Conservée par valeur : une formule
+    #: renommée ou dont le tarif change ne doit pas réécrire l'histoire
+    #: comptable.
+    formule_code = models.CharField(max_length=64, blank=True)
+    montant_cents = models.PositiveIntegerField()
+    devise = models.CharField(max_length=3, default="EUR")
+    #: Identifiant de la facture chez le prestataire. UNIQUE, et c'est
+    #: essentiel : Stripe rejoue ses événements pendant trois jours en cas
+    #: d'erreur. Sans cette contrainte, un même paiement compterait deux fois
+    #: et gonflerait le chiffre d'affaires sans que rien ne le signale.
+    reference_facture = models.CharField(max_length=160, unique=True)
+    reference_abonnement = models.CharField(max_length=160, blank=True)
+    paye_le = models.DateTimeField()
+
+    class Meta:
+        ordering = ["-paye_le"]
+        verbose_name = "encaissement"
+        verbose_name_plural = "encaissements"
+        indexes = [models.Index(fields=["paye_le"])]
+
+    def __str__(self) -> str:
+        return f"{self.montant_cents / 100:.2f} {self.devise} — {self.organisation}"

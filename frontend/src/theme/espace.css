@@ -2217,3 +2217,13 @@
     animation: none;
   }
 }
+
+/* Sélecteur de période du tableau de bord. Il gouverne les chiffres ET les
+ * courbes : les laisser diverger — trente jours en haut, douze mois en bas —
+ * obligeait à deviner à quoi chaque nombre se rapporte. */
+.admin-periodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin-bottom: var(--e-5);
+}

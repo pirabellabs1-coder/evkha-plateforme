@@ -4,6 +4,7 @@
  * Volumes produits, consommation de crédits, revenu récurrent, coût de
  * production, classement des organisations.
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { adminApi } from "../api";
@@ -17,14 +18,30 @@ import {
 } from "../../espace/composants/Interface";
 import { BarresClassement, Colonnes, Courbes } from "../../viz/Graphiques";
 
+/** Les périodes proposées. `jours` sert aux chiffres instantanés, `mois` aux
+ *  séries : un même choix pilote les deux, pour qu'ils parlent du même temps. */
+type Periode = { libelle: string; jours: number; mois: number };
+
+const PERIODES: Periode[] = [
+  { libelle: "30 jours", jours: 30, mois: 3 },
+  { libelle: "90 jours", jours: 90, mois: 6 },
+  { libelle: "12 mois", jours: 365, mois: 12 },
+  { libelle: "24 mois", jours: 730, mois: 24 },
+];
+
 export function TableauDeBordAdmin() {
+  // La période gouverne À LA FOIS les chiffres du haut et les courbes. Les
+  // laisser diverger — trente jours en haut, douze mois en bas — obligeait à
+  // deviner à quoi chaque nombre se rapporte.
+  const [periode, setPeriode] = useState<Periode>(PERIODES[2]);
+
   const { data: synthese, isPending } = useQuery({
-    queryKey: ["admin", "synthese"],
-    queryFn: () => adminApi.synthese(30),
+    queryKey: ["admin", "synthese", periode.jours],
+    queryFn: () => adminApi.synthese(periode.jours),
   });
   const { data: evolution } = useQuery({
-    queryKey: ["admin", "evolution"],
-    queryFn: adminApi.evolution,
+    queryKey: ["admin", "evolution", periode.mois],
+    queryFn: () => adminApi.evolution(periode.mois),
   });
   const { data: organisations } = useQuery({
     queryKey: ["admin", "organisations"],
@@ -40,6 +57,21 @@ export function TableauDeBordAdmin() {
       valeurs: [],
     };
 
+  /** Une série monétaire, ramenée en euros pour l'affichage.
+   *
+   * Le serveur compte en centimes partout — deux unités dans une même réponse
+   * seraient une source d'erreur permanente. Mais le graphique ne fait
+   * qu'accoler son unité au nombre : lui passer des centimes écrirait
+   * « 18900 cents » sous une colonne. La conversion se fait donc ici, au seul
+   * endroit qui sait qu'on est en train d'AFFICHER. */
+  const serieEnEuros = (cle: string) => {
+    const brute = serie(cle);
+    return {
+      ...brute,
+      valeurs: brute.valeurs.map((centimes) => Math.round(centimes / 100)),
+    };
+  };
+
   const lignes = (organisations?.organisations ?? [])
     .filter((o) => o.documents_produits > 0 || o.credits_consommes > 0)
     .sort((a, b) => b.credits_consommes - a.credits_consommes)
@@ -52,6 +84,24 @@ export function TableauDeBordAdmin() {
 
   return (
     <>
+      <div className="admin-periodes" role="group" aria-label="Période observée">
+        {PERIODES.map((p) => (
+          <button
+            key={p.libelle}
+            type="button"
+            className={
+              p.libelle === periode.libelle
+                ? "bouton bouton-sm"
+                : "bouton bouton-contour bouton-sm"
+            }
+            aria-pressed={p.libelle === periode.libelle}
+            onClick={() => setPeriode(p)}
+          >
+            {p.libelle}
+          </button>
+        ))}
+      </div>
+
       <div className="grille-chiffres">
         <Chiffre
           libelle="Revenu récurrent"
@@ -63,9 +113,20 @@ export function TableauDeBordAdmin() {
           accent
         />
         <Chiffre
+          libelle="Revenu encaissé"
+          valeur={f.montant(
+            synthese?.revenu.encaisse_periode_cents ?? 0,
+            synthese?.revenu.devise ?? "EUR",
+          )}
+          detail={`${f.montant(
+            synthese?.revenu.encaisse_total_cents ?? 0,
+            synthese?.revenu.devise ?? "EUR",
+          )} depuis l'ouverture`}
+        />
+        <Chiffre
           libelle="Documents produits"
           valeur={f.nombre(synthese?.documents.produits ?? 0)}
-          detail={`Sur ${synthese?.periode.jours ?? 30} jours`}
+          detail={`${f.nombre(synthese?.documents.total ?? 0)} au total, toutes périodes`}
         />
         <Chiffre
           libelle="Crédits consommés"
@@ -100,7 +161,7 @@ export function TableauDeBordAdmin() {
       )}
 
       <Carte
-        titre="Production sur douze mois"
+        titre={`Production sur ${periode.mois} mois`}
         note="Documents terminés et échecs, par mois."
       >
         {evolution ? (
@@ -121,6 +182,21 @@ export function TableauDeBordAdmin() {
           <Courbes
             abscisses={evolution.mois}
             series={[serie("dotations"), serie("debits")]}
+          />
+        ) : (
+          <Squelette lignes={3} />
+        )}
+      </Carte>
+
+      <Carte
+        titre="Revenu encaissé et coût de production"
+        note="Ce qui est réellement rentré, en regard de ce que la production a coûté. L'écart est la marge brute."
+      >
+        {evolution ? (
+          <Colonnes
+            abscisses={evolution.mois}
+            series={[serieEnEuros("encaisse"), serieEnEuros("cout")]}
+            unite=" €"
           />
         ) : (
           <Squelette lignes={3} />
