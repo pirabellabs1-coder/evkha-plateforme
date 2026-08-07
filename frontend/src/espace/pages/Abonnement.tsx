@@ -71,7 +71,7 @@ function CarteFormule({
       <h3 className="formule-nom">{formule.libelle}</h3>
       <p className="formule-prix">
         {f.montant(formule.prix_mensuel_cents, formule.devise)}
-        <span className="formule-periode"> / mois HT</span>
+        <span className="formule-periode"> / mois</span>
       </p>
       <ul className="formule-liste">
         <li>
@@ -114,6 +114,9 @@ function CarteFormule({
   );
 }
 
+/** L'adresse à laquelle un abonné demande l'arrêt de son abonnement. */
+const CONTACT = "contact@evkha.fr";
+
 export function Abonnement() {
   const { data: moi } = useMoi();
   const cache = useQueryClient();
@@ -153,15 +156,6 @@ export function Abonnement() {
   };
   const surEchec = (defaut: string) => (cause: unknown) =>
     setErreur(cause instanceof ErreurApi ? cause.message : defaut);
-
-  const arret = useMutation({
-    mutationFn: espaceApi.arreterAbonnement,
-    onSuccess: () => {
-      setErreur("");
-      rafraichir();
-    },
-    onError: surEchec("Arrêt impossible."),
-  });
 
   const reprise = useMutation({
     mutationFn: espaceApi.reprendreAbonnement,
@@ -209,7 +203,7 @@ export function Abonnement() {
             abonnement.renouvellement_actif
               ? `Formule ${abonnement.formule} — ${f.montant(
                   abonnement.prix_mensuel_cents,
-                )} HT par mois, ${abonnement.credits_par_echeance} crédit${
+                )} par mois, ${abonnement.credits_par_echeance} crédit${
                   abonnement.credits_par_echeance > 1 ? "s" : ""
                 } déposés à chaque échéance.`
               : abonnement.fin_de_periode_le
@@ -225,28 +219,21 @@ export function Abonnement() {
               enregistrée. Écrivez-nous pour le modifier.
             </p>
           )}
+          {/* L'arrêt ne se fait plus d'un clic.
+              La cliente a tranché le 07/08/2026 : « l'annulation doit se faire
+              manuellement, donc la personne doit la contacter ». Elle traite
+              ces demandes elle-même, au moins au début — c'est aussi
+              l'occasion de retenir un abonné qui part.
+              On le DIT ici, plutôt que de laisser un bouton qui échouerait :
+              un abonné qui veut partir et se heurte à une erreur technique
+              part quand même, en plus mécontent. */}
           {parCarte && peutEngager && abonnement.renouvellement_actif && (
-            <button
-              type="button"
-              className="bouton bouton-discret"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "Arrêter votre abonnement ?\n\n" +
-                      "• Plus aucun prélèvement après le terme en cours.\n" +
-                      "• Le mois déjà réglé n'est pas remboursé : vous gardez " +
-                      "votre accès et vos crédits jusqu'à son terme.\n" +
-                      "• Vous pouvez revenir sur cette décision jusque-là, sans " +
-                      "ressaisir votre carte.",
-                  )
-                ) {
-                  arret.mutate();
-                }
-              }}
-              disabled={arret.isPending}
-            >
-              {arret.isPending ? "Arrêt en cours…" : "Arrêter mon abonnement"}
-            </button>
+            <p className="carte-note">
+              Pour arrêter votre abonnement, écrivez-nous à{" "}
+              <a href={`mailto:${CONTACT}`}>{CONTACT}</a> : nous nous en
+              occupons et vous confirmons l'arrêt par retour. L'engagement
+              minimum est de trois mois à compter de votre souscription.
+            </p>
           )}
           {parCarte && peutEngager && !abonnement.renouvellement_actif && (
             <button

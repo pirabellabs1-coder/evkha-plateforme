@@ -117,11 +117,19 @@ def faux_stripe(monkeypatch: pytest.MonkeyPatch) -> FauxStripe:
 
 
 @override_settings(**STRIPE_REGLE)
-def test_arreter_son_abonnement_previent_stripe(faux_stripe: FauxStripe) -> None:
-    """LE test de ce fichier. Sans lui, un client parti reste preleve.
+def test_arreter_renvoie_vers_evkha_et_ne_coupe_RIEN(
+    faux_stripe: FauxStripe,
+) -> None:
+    """LE test de ce fichier, retourne le 07/08/2026 sur decision de la cliente.
 
-    Ce qui est verifie n'est pas la reponse HTTP mais l'appel sortant :
-    `cancel_at_period_end=True` sur le BON abonnement.
+    Il verrouillait l'inverse : un clic coupait la reconduction chez Stripe. La
+    cliente a tranche autrement — << l'annulation doit se faire manuellement,
+    donc la personne doit la contacter >>. Elle traite ces demandes elle-meme,
+    au moins au debut, et c'est aussi l'occasion de retenir un abonne qui part.
+
+    Ce qui est verifie n'est pas la reponse HTTP mais l'ABSENCE d'appel
+    sortant : rien ne doit partir chez Stripe. Un refus qui couperait quand
+    meme serait le pire des deux mondes.
     """
     abonne = Abonne()
 
@@ -130,44 +138,24 @@ def test_arreter_son_abonnement_previent_stripe(faux_stripe: FauxStripe) -> None
         content_type="application/json", headers=abonne.entetes,
     )
 
-    assert reponse.status_code == 200
-    assert len(faux_stripe.modifications) == 1
-    envoye = faux_stripe.modifications[0]
-    assert envoye["reference"] == "sub_test"
-    assert envoye["cancel_at_period_end"] is True
-
-
-@override_settings(**STRIPE_REGLE)
-def test_arreter_ne_reprend_pas_le_mois_deja_paye(faux_stripe: FauxStripe) -> None:
-    """CONTRE-EPREUVE : le correctif ne doit pas couper ce qui est regle.
-
-    Le statut reste ACTIF et les credits restent la. Prononcer la resiliation
-    au clic reprendrait au client ce qu'il vient de payer — et c'est le webhook
-    `customer.subscription.deleted`, au terme reel, qui tranchera.
-    """
-    abonne = Abonne()
-    solde_avant = credits.solde(abonne.organisation)
-
-    Client().post(
-        "/api/espace/abonnement/arreter/", data="{}",
-        content_type="application/json", headers=abonne.entetes,
-    )
-
+    assert reponse.status_code == 409
+    assert reponse.json()["code"] == "arret_sur_demande"
+    assert faux_stripe.modifications == []
+    # Et l'abonnement est intact : ni statut, ni reconduction touches.
     relu = abonne.relire()
     assert relu.statut == StatutAbonnement.ACTIF
-    assert relu.renouvellement_actif is False
-    assert credits.solde(abonne.organisation) == solde_avant
-    # Et il peut toujours commander : il a paye ce mois-ci.
-    assert Client().get(
-        "/api/espace/catalogue/", headers=abonne.entetes
-    ).status_code == 200
+    assert relu.renouvellement_actif is True
 
 
 @override_settings(**STRIPE_REGLE)
-def test_arreter_note_jusqu_a_quand_l_acces_est_garanti(
-    faux_stripe: FauxStripe
-) -> None:
-    """Sans cette date, l'interface ne peut pas dire « jusqu'au ... »."""
+def test_le_refus_donne_l_adresse_ou_ecrire(faux_stripe: FauxStripe) -> None:
+    """Un refus sans issue est un mur.
+
+    L'abonne doit savoir a qui s'adresser dans le message meme, sans avoir a
+    chercher : c'est le moment ou il est le plus dispose a renoncer.
+    """
+    from django.conf import settings
+
     abonne = Abonne()
 
     reponse = Client().post(
@@ -175,27 +163,31 @@ def test_arreter_note_jusqu_a_quand_l_acces_est_garanti(
         content_type="application/json", headers=abonne.entetes,
     )
 
-    assert reponse.json()["fin_de_periode_le"]
-    assert abonne.relire().fin_de_periode_le is not None
+    assert settings.EVKHA_SENDER_EMAIL in reponse.json()["error"]
+    assert not faux_stripe.modifications
 
 
 @override_settings(**STRIPE_REGLE)
-def test_reprendre_annule_l_arret(faux_stripe: FauxStripe) -> None:
-    """Une hesitation ne doit pas devenir un depart definitif."""
+def test_le_refus_rappelle_l_engagement_en_cours(faux_stripe: FauxStripe) -> None:
+    """Trois mois d'engagement, annonces sur la page et jamais appliques.
+
+    Ce n'est pas un refus supplementaire — l'arret passe par EVKHA dans tous
+    les cas — mais l'abonne a le droit de savoir jusqu'a quand il est engage
+    AVANT d'ecrire, plutot que de l'apprendre en reponse a son courriel.
+    """
+    from organisations.vues_espace import MOIS_ENGAGEMENT
+
     abonne = Abonne()
-    Client().post(
+
+    reponse = Client().post(
         "/api/espace/abonnement/arreter/", data="{}",
         content_type="application/json", headers=abonne.entetes,
     )
 
-    reponse = Client().post(
-        "/api/espace/abonnement/reprendre/", data="{}",
-        content_type="application/json", headers=abonne.entetes,
-    )
-
-    assert reponse.status_code == 200
-    assert abonne.relire().renouvellement_actif is True
-    assert faux_stripe.modifications[-1]["cancel_at_period_end"] is False
+    message = reponse.json()["error"]
+    assert f"{MOIS_ENGAGEMENT} mois" in message
+    # Une date, pas une formule vague : << bientot >> ne se verifie pas.
+    assert "/" in message.split("jusqu'au")[-1]
 
 
 @override_settings(**STRIPE_REGLE)
@@ -216,8 +208,11 @@ def test_un_abonnement_ouvert_a_la_main_ne_pretend_pas_s_arreter(
         content_type="application/json", headers=abonne.entetes,
     )
 
+    # Meme refus pour tout le monde depuis que l'arret est manuel : le client
+    # n'a pas a savoir si son abonnement est adosse a une carte ou ouvert a la
+    # main. Ce qui compte est qu'on ne pretende RIEN avoir arrete.
     assert reponse.status_code == 409
-    assert reponse.json()["code"] == "abonnement_hors_carte"
+    assert reponse.json()["code"] == "arret_sur_demande"
     assert faux_stripe.modifications == []
 
 

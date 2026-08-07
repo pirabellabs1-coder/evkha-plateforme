@@ -126,7 +126,7 @@ export function Souscription() {
       <Carte titre="Votre abonnement est actif">
         <p className="carte-note">
           Formule <b>{moi.abonnement.formule}</b> —{" "}
-          {f.montant(moi.abonnement.prix_mensuel_cents)} HT par mois,{" "}
+          {f.montant(moi.abonnement.prix_mensuel_cents)} par mois,{" "}
           {moi.abonnement.credits_par_echeance} crédit
           {moi.abonnement.credits_par_echeance > 1 ? "s" : ""} déposés chaque
           mois. Il se reconduit tout seul&nbsp;; vous pouvez l'arrêter quand

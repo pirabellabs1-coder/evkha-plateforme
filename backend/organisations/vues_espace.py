@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any
 
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import Sum
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -82,6 +83,51 @@ def _refus(message: str, code: str, statut: int) -> JsonResponse:
 #: son complément : un verbe exotique inconnu doit compter comme une écriture,
 #: pas passer pour une lecture (règle 1).
 METHODES_SURES = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+#: Durée d'engagement minimale, en mois.
+#:
+#: Ce n'est pas une invention technique : la page publique l'annonce depuis
+#: toujours (« Engagement minimum de 3 mois, puis sans engagement »), et la
+#: cliente l'a confirmée le 07/08/2026 comme une regle deja en vigueur sur ses
+#: autres pages de vente. Rien ne l'appliquait cote code : un abonne pouvait
+#: resilier le lendemain de sa souscription.
+#:
+#: Le nombre vit ICI et nulle part ailleurs. Le recopier dans le texte de la
+#: page ferait deux verites pour une meme regle, et le jour ou l'engagement
+#: passe a six mois, l'une des deux resterait a trois (regle 5).
+MOIS_ENGAGEMENT = 3
+
+
+def fin_de_l_engagement(
+    abonnement: AbonnementOrganisation,
+) -> datetime | None:
+    """La date de fin d'engagement si elle est A VENIR, sinon `None`.
+
+    Rendre `None` quand l'engagement est echu plutot qu'une date passee : le
+    seul usage est de savoir s'il faut refuser, et une date passee obligerait
+    chaque appelant a refaire la comparaison — donc a pouvoir se tromper.
+
+    Le calcul part de `debut_le`, la date de souscription. Trois mois se
+    comptent en mois calendaires, pas en 90 jours : un abonnement du 31 janvier
+    finit son engagement le 30 avril, ce qu'un client comprend, la ou le
+    1er mai le surprendrait.
+    """
+    debut = abonnement.debut_le
+    if debut is None:
+        return None
+
+    mois = debut.month - 1 + MOIS_ENGAGEMENT
+    annee = debut.year + mois // 12
+    mois = mois % 12 + 1
+    # Le meme quantieme, ramene au dernier jour du mois s'il n'existe pas —
+    # 31 janvier + 3 mois donne le 30 avril, et non le 1er mai.
+    import calendar  # noqa: PLC0415
+
+    jour = min(debut.day, calendar.monthrange(annee, mois)[1])
+    fin = debut.replace(year=annee, month=mois, day=jour)
+
+    return fin if fin > timezone.now() else None
 
 
 def abonnement_actif(organisation: Organisation) -> AbonnementOrganisation | None:
@@ -1123,30 +1169,65 @@ def demander_une_nouvelle_adresse(
 def arreter_l_abonnement(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
-    """Arrête la reconduction. Sans demande, sans délai, sans personne.
+    """Refuse l'arrêt en libre-service, et dit à qui écrire.
 
-    L'écran de paiement promettait « résiliable à tout moment depuis votre
-    espace » — au moment le plus sensible, juste avant la saisie de la carte —
-    et aucun bouton ne tenait la promesse. Le seul chemin passait par une
-    `DemandeCommerciale` qu'un humain d'EVKHA devait accorder.
+    Cette vue coupait la reconduction chez Stripe d'un seul clic. La cliente a
+    tranché autrement le 07/08/2026 : « l'annulation doit se faire
+    manuellement, donc la personne doit la contacter ». Elle traite ces
+    demandes elle-même, au moins au début — c'est aussi l'occasion de retenir
+    un abonné qui part.
 
-    **Le mois en cours reste dû et reste servi.** On ne coupe rien aujourd'hui :
-    Stripe cesse de prélever au terme, l'abonnement garde son statut ACTIF
-    jusque-là, et les crédits déjà déposés restent consommables. C'est aussi ce
-    qui rend le geste réversible sans ressaisir une carte.
+    **Le point d'entrée subsiste, et refuse.** Le supprimer aurait laissé les
+    pages encore ouvertes dans un navigateur appeler une adresse disparue : le
+    client aurait vu une erreur technique là où il attend une marche à suivre.
+    Ici il reçoit la bonne, et rien n'est arrêté — aucun appel ne part chez
+    Stripe.
 
-    Le corollaire est important : `statut` ne change pas ici. C'est le webhook
-    `customer.subscription.deleted`, au terme réel, qui résiliera — un seul
-    endroit prononce la fin, et c'est celui qui sait que l'argent a cessé.
+    Le message rappelle l'engagement de trois mois quand il court encore. Ce
+    n'est pas un refus supplémentaire — l'arrêt passe par EVKHA dans tous les
+    cas — mais l'abonné a le droit de savoir jusqu'à quand il est engagé AVANT
+    d'écrire, plutôt que de l'apprendre en réponse à son courriel.
+
+    L'ancien enchaînement vers Stripe vit dans `_arret_automatique_retire`,
+    hors service. Il est conservé parce que la cliente prévoit de rouvrir le
+    libre-service une fois le volume installé : le réécrire de mémoire ce
+    jour-là coûterait ses défauts.
     """
     abonnement = abonnement_actif(organisation)
     if abonnement is None:
         return _refus("Aucun abonnement actif à arrêter.", "sans_abonnement", 409)
 
+    fin_engagement = fin_de_l_engagement(abonnement)
+    engagement = (
+        f" Votre engagement de {MOIS_ENGAGEMENT} mois court jusqu'au "
+        f"{fin_engagement:%d/%m/%Y}."
+        if fin_engagement is not None
+        else ""
+    )
+    return _refus(
+        "L'arrêt d'un abonnement se fait sur demande auprès d'EVKHA. "
+        f"Écrivez-nous à {settings.EVKHA_SENDER_EMAIL} et nous nous en "
+        f"occupons.{engagement}",
+        "arret_sur_demande",
+        409,
+    )
+
+
+def _arret_automatique_retire(
+    abonnement: AbonnementOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """L'ancien arrêt en libre-service, hors service depuis le 07/08/2026.
+
+    Il coupait la reconduction chez Stripe au terme de la période payée, sans
+    rien reprendre au client : le statut restait ACTIF, les crédits déposés
+    restaient consommables, et c'est le webhook `customer.subscription.deleted`
+    qui prononçait la fin le moment venu.
+
+    Plus personne ne l'appelle. Il reste écrit pour le jour où l'arrêt
+    redeviendra libre-service.
+    """
     reference = str(abonnement.reference_paiement or "").strip()
     if not reference:
-        # Abonnement ouvert à la main depuis l'administration : il n'y a aucun
-        # prélèvement à arrêter. On le dit plutôt que de prétendre l'avoir fait.
         return _refus(
             "Cet abonnement n'a pas été souscrit par carte. Écrivez-nous pour "
             "l'arrêter.",
@@ -1161,14 +1242,11 @@ def arreter_l_abonnement(
 
     abonnement.renouvellement_actif = False
     if fin:
-        # `datetime` de la bibliotheque standard et non `timezone.datetime` :
-        # Django reexporte le nom sans le declarer public, et mypy le refuse a
-        # juste titre — c'est un detail d'implementation qui peut disparaitre.
         abonnement.fin_de_periode_le = datetime.fromisoformat(fin)
     abonnement.save(
         update_fields=["renouvellement_actif", "fin_de_periode_le", "updated_at"]
     )
-    _log.info("Renouvellement arrete par le client : organisation=%s", organisation.id)
+    _log.info("Renouvellement arrete : organisation=%s", organisation.id)
     return JsonResponse({
         "renouvellement_actif": False,
         "fin_de_periode_le": (
