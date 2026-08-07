@@ -2,6 +2,18 @@ import { useState } from "react";
 import { Card, Flex, Box, Text, Heading, TextField, Button } from "@radix-ui/themes";
 import { setToken } from "../auth";
 
+/** Où atterrit un administrateur qui vient de présenter son jeton.
+ *
+ * Cette page redirigeait vers `/`. C'était juste au temps où `/` servait le
+ * tableau de bord ; depuis que la racine rend la page partenaires — publique —,
+ * coller un jeton d'administration menait sur le site vitrine. Le jeton était
+ * pourtant bien enregistré : rien n'échouait, on n'arrivait simplement jamais.
+ *
+ * La destination est nommée ici, à côté du geste qui l'emprunte, pour qu'un
+ * futur changement de racine ne puisse plus la déplacer en silence.
+ */
+export const APRES_CONNEXION = "/admin";
+
 export function Login() {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
@@ -14,7 +26,9 @@ export function Login() {
       return;
     }
     setToken(trimmed);
-    window.location.href = "/";
+    // Rechargement complet et non navigation interne : la garde de route lit
+    // le jeton au chargement, et l'application doit repartir avec.
+    window.location.href = APRES_CONNEXION;
   }
 
   return (
