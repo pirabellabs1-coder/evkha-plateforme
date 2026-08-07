@@ -29,8 +29,8 @@ def _fake_urlopen_response(body: dict[str, Any]) -> MagicMock:
 
 @override_settings(
     BREVO_API_KEY="test-key",
-    BREVO_SENDER_EMAIL="contact@evkha.fr",
-    BREVO_SENDER_NAME="Evkha",
+    EVKHA_SENDER_EMAIL="contact@evkha.fr",
+    EVKHA_SENDER_NAME="Evkha",
 )
 def test_brevo_client_builds_conformant_payload() -> None:
     client = BrevoApiClient()
@@ -67,8 +67,8 @@ def test_brevo_client_builds_conformant_payload() -> None:
 
 @override_settings(
     BREVO_API_KEY="test-key",
-    BREVO_SENDER_EMAIL="contact@evkha.fr",
-    BREVO_SENDER_NAME="Evkha",
+    EVKHA_SENDER_EMAIL="contact@evkha.fr",
+    EVKHA_SENDER_NAME="Evkha",
 )
 def test_brevo_client_omits_attachment_field_when_empty() -> None:
     client = BrevoApiClient()

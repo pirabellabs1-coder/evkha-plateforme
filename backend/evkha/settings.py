@@ -211,10 +211,31 @@ EVKHA_TALLY_URL_COMPETITOR_STUDY = env("EVKHA_TALLY_URL_COMPETITOR_STUDY", defau
 EVKHA_TALLY_URL_BUSINESS_PLAN = env("EVKHA_TALLY_URL_BUSINESS_PLAN", default="")
 EVKHA_TALLY_URL_BUSINESS_STRATEGY = env("EVKHA_TALLY_URL_BUSINESS_STRATEGY", default="")
 
-# Brevo — email transactionnel de livraison (utilise quand EVKHA_USE_STUB_EMAIL=false).
+# Courriel transactionnel (utilise quand EVKHA_USE_STUB_EMAIL=false).
+#
+# Deux fournisseurs possibles derriere le meme protocole. `resend` est celui
+# retenu par la cliente ; `brevo` reste branchable sans redeploiement, ce qui
+# evite d'avoir a rouvrir le code un soir de panne de fournisseur.
+EVKHA_EMAIL_PROVIDER = env("EVKHA_EMAIL_PROVIDER", default="resend")
+
+# L'expediteur ne depend PAS du fournisseur : c'est l'adresse d'EVKHA, et elle
+# doit rester la meme si l'on bascule de l'un a l'autre. Les reglages `BREVO_*`
+# servent de repli pour ne pas casser une installation qui les portait deja.
+EVKHA_SENDER_EMAIL = env(
+    "EVKHA_SENDER_EMAIL", default=env("BREVO_SENDER_EMAIL", default="contact@evkha.fr")
+)
+EVKHA_SENDER_NAME = env(
+    "EVKHA_SENDER_NAME", default=env("BREVO_SENDER_NAME", default="Evkha")
+)
+
+RESEND_API_KEY = env("RESEND_API_KEY", default="")
 BREVO_API_KEY = env("BREVO_API_KEY", default="")
-BREVO_SENDER_EMAIL = env("BREVO_SENDER_EMAIL", default="contact@evkha.fr")
-BREVO_SENDER_NAME = env("BREVO_SENDER_NAME", default="Evkha")
+
+# Pas de `BREVO_SENDER_EMAIL` ni de `BREVO_SENDER_NAME` : les deux clients
+# lisent `EVKHA_SENDER_*`. Les avoir gardes en copie a l'egal aurait fait deux
+# variables pour une seule verite — et une copie prise au CHARGEMENT, donc
+# muette a toute modification ulterieure. Le repli sur les anciens noms est
+# assure plus haut, a la lecture de l'environnement, la ou il a un sens.
 
 # Modele Claude actif pour la tarification du Cost Engine (M4).
 # claude-sonnet : qualite optimale pour les analyses longues (80 pages). Les budgets
