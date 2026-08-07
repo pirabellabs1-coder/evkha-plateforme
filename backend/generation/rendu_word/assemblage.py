@@ -426,34 +426,55 @@ def _completer_les_figures(
                 continue
 
             deja_vus = consommes.setdefault(payload.chapitre, set())
-            restants = [i for i in payload.donnees_utilisees if i not in deja_vus]
-            if len(restants) < 2:
-                continue
 
-            # Les identifiants encore jamais tracés dans TOUT le document
-            # d'abord : c'est ce qui ajoute de l'information plutôt que de la
-            # répétition. À défaut, on retrace ce que le chapitre cite — une
-            # donnée peut légitimement paraître deux fois sous deux angles.
-            inedits = [i for i in restants if i not in rapport.identifiants_rendus]
-            candidats = (inedits if len(inedits) >= 2 else restants)[:_DONNEES_PAR_FIGURE]
-
+            # On essaie les candidats du chapitre JUSQU'À en trouver qui se
+            # tracent, sans rendre la main entre deux essais.
+            #
+            # Une première version passait au chapitre suivant dès le premier
+            # refus, en comptant sur une passe ultérieure. Elle ne revenait
+            # jamais : une passe qui ne fait qu'épuiser des candidats n'ajoute
+            # aucune figure, `progres` reste faux, et la boucle s'arrête. Mesuré
+            # sur la stratégie : ses quatre premiers identifiants inédits mêlent
+            # des pourcentages et un montant — rejetés à raison —, et la paire
+            # traçable qui venait juste après n'était jamais atteinte. Quatorze
+            # figures au lieu de dix-sept, sans qu'aucun abandon ne soit
+            # consigné, puisque rien n'avait été demandé.
             resolution = None
-            for decalage in range(len(_FORMES_DE_COMPLETION)):
-                type_graphique = _FORMES_DE_COMPLETION[
-                    (forme + decalage) % len(_FORMES_DE_COMPLETION)
-                ]
-                if type_graphique in profil.graphiques_a_eviter:
-                    continue
-                essai = resoudre(socle, type_graphique, candidats)
-                if essai.retenu:
-                    resolution = essai
-                    forme += decalage + 1
+            candidats: list[str] = []
+            while resolution is None:
+                restants = [i for i in payload.donnees_utilisees if i not in deja_vus]
+                if len(restants) < 2:
                     break
 
+                # Les identifiants encore jamais tracés dans TOUT le document
+                # d'abord : c'est ce qui ajoute de l'information plutôt que de
+                # la répétition. À défaut, on retrace ce que le chapitre cite —
+                # une donnée peut légitimement paraître deux fois sous deux
+                # angles.
+                inedits = [i for i in restants if i not in rapport.identifiants_rendus]
+                candidats = (
+                    inedits if len(inedits) >= 2 else restants
+                )[:_DONNEES_PAR_FIGURE]
+
+                for decalage in range(len(_FORMES_DE_COMPLETION)):
+                    type_graphique = _FORMES_DE_COMPLETION[
+                        (forme + decalage) % len(_FORMES_DE_COMPLETION)
+                    ]
+                    if type_graphique in profil.graphiques_a_eviter:
+                        continue
+                    essai = resoudre(socle, type_graphique, candidats)
+                    if essai.retenu:
+                        resolution = essai
+                        forme += decalage + 1
+                        break
+
+                if resolution is None:
+                    # Ces identifiants ne donnent rien — unités mêlées, le plus
+                    # souvent. On les retire du chapitre et on essaie la suite ;
+                    # sans cela, la boucle les représenterait indéfiniment.
+                    deja_vus.update(candidats)
+
             if resolution is None or resolution.donnees is None:
-                # Ces identifiants ne donnent rien : les retenir quand même,
-                # sinon la boucle les represente indéfiniment.
-                deja_vus.update(candidats)
                 continue
 
             titre = f"{payload.titre} — repères chiffrés"

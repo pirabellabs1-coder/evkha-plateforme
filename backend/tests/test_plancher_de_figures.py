@@ -254,6 +254,54 @@ def test_un_document_deja_conforme_n_est_pas_complete(
     assert not blocs[0]["blocs"]
 
 
+def test_des_candidats_intracables_ne_font_pas_abandonner_le_chapitre(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mesuré sur la stratégie : quatorze figures au lieu de dix-sept.
+
+    Ses quatre premiers identifiants inédits mêlent des pourcentages et un
+    montant — le rendu les refuse à raison. La version d'avant passait alors au
+    chapitre suivant en comptant sur une passe ultérieure, qui ne venait
+    jamais : une passe qui ne fait qu'épuiser des candidats n'ajoute aucune
+    figure, donc `progres` reste faux, donc la boucle s'arrête. La paire
+    traçable qui suivait n'était jamais atteinte, et rien ne le signalait —
+    aucun abandon n'est consigné pour une figure qui n'a jamais été demandée.
+    """
+    from generation.rendu_word import assemblage
+    from generation.rendu_word.donnees_graphiques import Resolution
+
+    refusables = {"melange_a", "melange_b", "melange_c", "melange_d"}
+
+    def resoudre(_socle: Any, type_graphique: str, ids: Any) -> Resolution:
+        if any(i in refusables for i in ids):
+            return Resolution(motif="unités hétérogènes : %, EUR")
+        return Resolution(
+            type_graphique=type_graphique,
+            donnees={"valeurs": [(str(i), 1.0) for i in ids]},
+        )
+
+    monkeypatch.setattr(assemblage, "resoudre", resoudre)
+
+    # Les quatre premiers sont intraçables, la paire utile vient après.
+    payloads = [
+        _Payload(n, f"Chapitre {n}",
+                 ["melange_a", "melange_b", "melange_c", "melange_d",
+                  f"bon_{n}_a", f"bon_{n}_b"])
+        for n in range(1, 4)
+    ]
+    blocs = [
+        {"numero": p.chapitre, "titre": p.titre, "blocs": []} for p in payloads
+    ]
+    rapport = RapportAssemblage()
+    rapport.graphiques_rendus = PLANCHER_FIGURES - 3
+
+    _completer_les_figures(blocs, payloads, object(), _Profil(), rapport)
+
+    assert rapport.graphiques_rendus == PLANCHER_FIGURES, (
+        "la complétion a renoncé au premier refus au lieu d'essayer la suite"
+    )
+
+
 def test_une_figure_ajoutee_est_declaree_dans_le_resume(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

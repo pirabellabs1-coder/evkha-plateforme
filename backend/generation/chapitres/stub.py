@@ -15,8 +15,31 @@ _ID_SOCLE = re.compile(r"^- `([a-z0-9_]+)` = ", re.MULTILINE)
 _ID_ET_UNITE = re.compile(r"^- `([a-z0-9_]+)` = [-\d.,]+ (\S+)", re.MULTILINE)
 
 
+#: Combien d'identifiants un chapitre cite, dans la doublure.
+#:
+#: Il en citait DEUX, quel que soit le socle — deux sur les vingt-neuf d'une
+#: étude de marché comme sur les cinq d'une étude concurrentielle. La
+#: répétition à blanc mesurait donc toujours la doublure, jamais le socle :
+#: enrichir un référentiel de cinq à vingt-quatre données ne changeait pas
+#: d'une ligne le document produit, ce qui rendait l'enrichissement
+#: invérifiable autrement qu'en payant une génération réelle.
+#:
+#: Six, parce que c'est l'ordre de grandeur observé sur les dossiers réels, et
+#: parce que c'est ce qu'il faut pour qu'un chapitre puisse porter DEUX figures
+#: — la charte le demande « dès que deux idées distinctes s'y illustrent ».
+_CITATIONS_PAR_CHAPITRE = 6
+
+
+def _groupes_par_unite(prompt: str) -> list[list[str]]:
+    """Les identifiants du socle du prompt, groupés par unité, le plus fourni d'abord."""
+    par_unite: dict[str, list[str]] = {}
+    for identifiant, unite in _ID_ET_UNITE.findall(prompt):
+        par_unite.setdefault(unite, []).append(identifiant)
+    return sorted(par_unite.values(), key=len, reverse=True)
+
+
 def _paire_homogene(prompt: str) -> list[str]:
-    """Deux identifiants de MÊME unité, pris dans le socle du prompt.
+    """Deux identifiants de MÊME unité — ce qu'un GRAPHIQUE peut tracer.
 
     Le bouchon retenait les deux premiers venus. Or `donnees_graphiques.resoudre`
     refuse — à juste titre — de tracer ensemble des grandeurs d'unités
@@ -24,16 +47,40 @@ def _paire_homogene(prompt: str) -> list[str]:
     dire. Sur vingt-deux graphiques demandés, **un seul** survivait, et l'aperçu
     donnait à croire que le rendu perdait les visuels.
 
-    À défaut de paire homogène, on rend les deux premiers : le refus reste
+    Cette fonction sert les graphiques, et elle seule : lui faire rendre les six
+    identifiants cités par le chapitre a produit onze abandons « unités
+    hétérogènes : %, EUR » sur une seule stratégie. Ce qu'un chapitre CITE et ce
+    qu'une figure TRACE ne sont pas la même chose.
+
+    À défaut de toute paire homogène, on rend les deux premiers : le refus reste
     possible, mais il vient alors des données, pas du bouchon.
     """
-    par_unite: dict[str, list[str]] = {}
-    for identifiant, unite in _ID_ET_UNITE.findall(prompt):
-        par_unite.setdefault(unite, []).append(identifiant)
-    for identifiants in par_unite.values():
-        if len(identifiants) >= 2:
-            return identifiants[:2]
+    groupes = _groupes_par_unite(prompt)
+    if groupes and len(groupes[0]) >= 2:
+        return groupes[0][:2]
     return _ID_SOCLE.findall(prompt)[:2]
+
+
+def _donnees_citees(prompt: str) -> list[str]:
+    """Les identifiants que le chapitre déclare exploiter.
+
+    Plus larges que la paire du graphique, et groupés par unité pour que la
+    passe de complétion y trouve de quoi tracer : elle prend les identifiants
+    dans l'ordre, et une liste mêlée ne lui donnerait que des refus.
+
+    Essayé et REVENU : prendre trois identifiants en tête de chaque famille
+    plutôt qu'une famille entière, pour que la doublure cite aussi des montants.
+    Mesuré — l'étude concurrentielle tombait de dix-sept figures à seize, et le
+    contrôle de hiérarchie des marchés qui motivait l'essai n'était pas
+    davantage satisfait. Une doublure se règle sur ce qu'elle produit, pas sur
+    ce qu'on espère d'elle.
+    """
+    cites: list[str] = []
+    for groupe in _groupes_par_unite(prompt):
+        cites.extend(groupe)
+        if len(cites) >= _CITATIONS_PAR_CHAPITRE:
+            break
+    return cites[:_CITATIONS_PAR_CHAPITRE] or _ID_SOCLE.findall(prompt)[:2]
 _NUMERO = re.compile(r"^CHAPITRE À RÉDIGER : (\d+) — (.+)$", re.MULTILINE)
 
 _SECTEUR = re.compile(r"^SOCLE VERROUILLÉ — (.+?),", re.MULTILINE)
@@ -111,16 +158,21 @@ def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
     numero = int(correspondance.group(1)) if correspondance else 0
     titre = correspondance.group(2).strip() if correspondance else "Chapitre"
 
-    # Deux données de MÊME unité : un montant et un pourcentage sur le même
-    # axe ne veulent rien dire, et le rendu refuse le graphique à juste titre.
-    utilisees = _paire_homogene(prompt)
+    # Deux listes, et c'est voulu : la figure ne trace qu'une paire de MÊME
+    # unité, le chapitre en CITE davantage. Les confondre produisait soit des
+    # figures aux unités mêlées, soit un chapitre qui n'exploite que deux
+    # chiffres sur les vingt-neuf de son socle.
+    pour_les_figures = _paire_homogene(prompt)
+    citees = _donnees_citees(prompt)
 
     return {
         "chapitre": numero,
         "titre": titre,
         "accroche": "Accroche de démonstration résumant l'enjeu du chapitre.",
-        "blocs": _blocs_du_modele(numero, prompt, utilisees),
-        "donnees_utilisees": list(utilisees),
+        "blocs": _blocs_du_modele(numero, prompt, pour_les_figures),
+        # Le validateur complète cette liste avec ce que les graphiques
+        # emploient : la paire y entre donc d'elle-même si elle en sortait.
+        "donnees_utilisees": list(dict.fromkeys([*citees, *pour_les_figures])),
         "resume": _resume(),
     }
 

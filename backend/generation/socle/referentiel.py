@@ -236,10 +236,27 @@ _EM: tuple[DefinitionDonnee, ...] = (
 
 
 # ── Étude de la concurrence ──────────────────────────────────────────────────
-# Volontairement minimal : l'essentiel du socle EC vit dans `concurrents`,
-# pas dans les données chiffrées.
+# L'essentiel du socle EC vit dans `concurrents` : c'est là que se trouve ce qui
+# est propre à CHAQUE acteur (chiffre d'affaires, avis, positionnement). Ce
+# référentiel ne porte que les grandeurs de MARCHÉ, communes à tous.
+#
+# Il n'en comptait que cinq, contre vingt-neuf pour l'étude de marché et
+# trente-trois pour le business plan. Mesuré le 07/08/2026 : le document ne
+# tenait pas le plancher de dix-sept figures exigé par la cliente, et pour une
+# raison qui n'était pas un défaut de rendu — un document qui ne dispose que de
+# cinq chiffres vérifiés n'a rien à mettre sur ses figures. La cause n'était pas
+# dans le moteur, elle était ici.
+#
+# Les grandeurs ajoutées viennent toutes du cahier des charges EC
+# (`references/systemes/02-etude-concurrence-cdc-v1.pdf`) : parts de marché
+# locales, chiffres d'affaires estimés, prix par gamme, notes par axe, points
+# de vente, avis clients. Aucune n'est OBLIGATOIRE : un marché de niche peut
+# légitimement n'avoir aucun prix public, et refuser l'étude pour cela
+# appauvrirait le livrable au nom de la rigueur. Le socle les accueille quand
+# la recherche les trouve.
 
 _EC: tuple[DefinitionDonnee, ...] = (
+    # Étape 1 — dimensionner le terrain de jeu.
     DefinitionDonnee(
         "marche_national_taille", "Taille du marché national",
         Perimetre.NATIONAL, FamilleUnite.MONETAIRE, obligatoire=True, chapitres=(1, 6),
@@ -247,6 +264,10 @@ _EC: tuple[DefinitionDonnee, ...] = (
     DefinitionDonnee(
         "marche_regional_taille", "Taille du marché sur la zone du projet",
         Perimetre.REGIONAL, FamilleUnite.MONETAIRE, chapitres=(1, 6),
+    ),
+    DefinitionDonnee(
+        "marche_regional_croissance", "Croissance annuelle du marché sur la zone",
+        Perimetre.REGIONAL, FamilleUnite.POURCENTAGE, chapitres=(1, 6, 7),
     ),
     DefinitionDonnee(
         "nb_concurrents_directs", "Nombre de concurrents directs retenus",
@@ -257,8 +278,100 @@ _EC: tuple[DefinitionDonnee, ...] = (
         Perimetre.REGIONAL, FamilleUnite.EFFECTIF, obligatoire=True, chapitres=(1, 2, 3),
     ),
     DefinitionDonnee(
+        "nb_acteurs_zone", "Nombre total d'acteurs recensés sur la zone",
+        Perimetre.REGIONAL, FamilleUnite.EFFECTIF, chapitres=(1, 6),
+        commentaire="Population de départ, avant sélection des concurrents retenus.",
+    ),
+    DefinitionDonnee(
+        "nb_points_de_vente_zone", "Nombre de points de vente sur la zone",
+        Perimetre.REGIONAL, FamilleUnite.EFFECTIF, chapitres=(4, 6),
+    ),
+
+    # Étape 6.4 — concentration et parts de marché locales. Le cahier des
+    # charges en fait une étape à part entière ; sans ces trois grandeurs, le
+    # « tableau de synthèse des parts de marché » n'a rien à synthétiser.
+    DefinitionDonnee(
+        "part_marche_leader", "Part de marché locale du leader",
+        Perimetre.REGIONAL, FamilleUnite.POURCENTAGE, chapitres=(5, 6, 7),
+    ),
+    DefinitionDonnee(
+        "part_marche_top3", "Part de marché locale cumulée des trois premiers",
+        Perimetre.REGIONAL, FamilleUnite.POURCENTAGE, chapitres=(5, 6, 7),
+        commentaire="Mesure de concentration : dit si le marché est verrouillé ou ouvert.",
+    ),
+    DefinitionDonnee(
+        "part_marche_top5", "Part de marché locale cumulée des cinq premiers",
+        Perimetre.REGIONAL, FamilleUnite.POURCENTAGE, chapitres=(5, 6, 7),
+    ),
+
+    # Étape 6.1 à 6.3 — estimation des chiffres d'affaires. La médiane ACCOMPAGNE
+    # la moyenne : sur onze acteurs dont un géant, la moyenne seule ment.
+    DefinitionDonnee(
+        "ca_moyen_concurrent", "Chiffre d'affaires moyen des concurrents retenus",
+        Perimetre.REGIONAL, FamilleUnite.MONETAIRE, chapitres=(6, 7),
+    ),
+    DefinitionDonnee(
+        "ca_median_concurrent", "Chiffre d'affaires médian des concurrents retenus",
+        Perimetre.REGIONAL, FamilleUnite.MONETAIRE, chapitres=(6, 7),
+    ),
+    DefinitionDonnee(
+        "ca_leader", "Chiffre d'affaires du leader",
+        Perimetre.REGIONAL, FamilleUnite.MONETAIRE, chapitres=(6, 7),
+    ),
+
+    # Prix et panier — l'axe « Prix vs Qualité perçue » de la matrice de
+    # positionnement, et la méthode d'estimation quand un CA n'est pas publié.
+    DefinitionDonnee(
         "panier_moyen", "Panier moyen du marché",
         Perimetre.REGIONAL, FamilleUnite.MONETAIRE, chapitres=(6,),
+    ),
+    DefinitionDonnee(
+        "prix_entree_gamme", "Prix moyen constaté en entrée de gamme",
+        Perimetre.REGIONAL, FamilleUnite.MONETAIRE, chapitres=(3, 4, 5),
+    ),
+    DefinitionDonnee(
+        "prix_milieu_gamme", "Prix moyen constaté en milieu de gamme",
+        Perimetre.REGIONAL, FamilleUnite.MONETAIRE, chapitres=(3, 4, 5),
+    ),
+    DefinitionDonnee(
+        "prix_haut_de_gamme", "Prix moyen constaté en haut de gamme",
+        Perimetre.REGIONAL, FamilleUnite.MONETAIRE, chapitres=(3, 4, 5),
+    ),
+
+    # Avis clients — « signaux faibles stratégiques » du cahier des charges. Ce
+    # sont des agrégats : jamais un avis nominatif, la consigne est explicite.
+    DefinitionDonnee(
+        "note_moyenne_avis", "Note moyenne des avis clients du secteur sur la zone",
+        Perimetre.REGIONAL, FamilleUnite.RATIO, chapitres=(2, 3),
+        commentaire="Sur l'échelle de la plateforme citée (5 le plus souvent).",
+    ),
+    DefinitionDonnee(
+        "nb_avis_moyen", "Nombre moyen d'avis par concurrent",
+        Perimetre.REGIONAL, FamilleUnite.EFFECTIF, chapitres=(2, 3),
+        commentaire="Approche la notoriété : dix avis et mille avis ne pèsent pas pareil.",
+    ),
+    DefinitionDonnee(
+        "taux_satisfaction", "Part d'avis positifs sur la zone",
+        Perimetre.REGIONAL, FamilleUnite.POURCENTAGE, chapitres=(2, 3),
+    ),
+
+    # Maturité et pratiques — les axes du comparatif visuel demandé au
+    # chapitre 5 (« qualité, prix, innovation, RSE »).
+    DefinitionDonnee(
+        "anciennete_moyenne_concurrents", "Ancienneté moyenne des concurrents",
+        Perimetre.REGIONAL, FamilleUnite.DUREE, chapitres=(2, 3),
+    ),
+    DefinitionDonnee(
+        "taux_presence_numerique", "Part des concurrents disposant d'une vente en ligne",
+        Perimetre.REGIONAL, FamilleUnite.POURCENTAGE, chapitres=(3, 4),
+    ),
+    DefinitionDonnee(
+        "taux_demarche_rse", "Part des concurrents affichant une démarche RSE",
+        Perimetre.REGIONAL, FamilleUnite.POURCENTAGE, chapitres=(3, 4),
+    ),
+    DefinitionDonnee(
+        "effectif_moyen_concurrent", "Effectif moyen d'un concurrent",
+        Perimetre.REGIONAL, FamilleUnite.EFFECTIF, chapitres=(2, 3),
     ),
 )
 
