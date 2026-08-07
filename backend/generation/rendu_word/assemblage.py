@@ -29,11 +29,33 @@ from typing import Any
 from django.conf import settings
 
 from ..chapitres.schema import ChapitrePayload, Graphique
+from ..prompts import PLANCHER_FIGURES
 from ..socle.schema import Socle
 from . import secteurs
 from .donnees_graphiques import resoudre
 
 _log = logging.getLogger(__name__)
+
+#: Formes employées par la passe de complétion, dans cet ordre de préférence.
+#:
+#: Toutes se contentent d'une liste de valeurs scalaires — c'est la seule chose
+#: dont la complétion dispose, puisqu'elle ne travaille qu'avec les
+#: identifiants que le chapitre a lui-même cités. Les formes qui exigent une
+#: série temporelle, des notes ou une matrice ne sont pas candidates : les
+#: proposer produirait des abandons, c'est-à-dire du travail pour rien.
+#:
+#: L'ordre fait tourner les formes d'un chapitre à l'autre : quatre entonnoirs
+#: de suite tiendraient le plancher tout en trahissant la demande — « les
+#: graphes ne seront pas toujours les mêmes ».
+_FORMES_DE_COMPLETION = (
+    "barres_horizontales", "anneau", "barres", "camembert", "jauges", "entonnoir",
+)
+
+#: Identifiants portés par une figure de complétion. Deux au minimum — une
+#: figure à une seule barre n'apprend rien —, quatre au plus : au-delà, les
+#: étiquettes se chevauchent, défaut mesuré sur le dossier réel 90cbb3d9.
+#: Ce plafond est aussi ce qui permet à un chapitre riche d'en porter deux.
+_DONNEES_PAR_FIGURE = 4
 
 #: Au-delà, la prose d'une section est ramenée à une amorce plutôt qu'un
 #: paragraphe entier : c'est la mesure qui sépare le document de référence du
@@ -133,6 +155,11 @@ class RapportAssemblage:
     #: d'analyse reste un livrable, mais il ne doit pas passer pour intact.
     paragraphes_tronques: int = 0
     mots_tronques: int = 0
+    #: Figures ajoutées par la passe de complétion, avec le chapitre et les
+    #: identifiants employés. Une complétion silencieuse serait un mensonge par
+    #: omission : le lecteur du rapport doit pouvoir distinguer une figure
+    #: voulue par le modèle d'une figure ajoutée pour tenir le plancher.
+    graphiques_completes: list[str] = field(default_factory=list)
 
     @property
     def complet(self) -> bool:
@@ -144,6 +171,8 @@ class RapportAssemblage:
             f"{self.tableaux} tableaux",
             f"{self.graphiques_rendus}/{self.graphiques_demandes} graphiques",
         ]
+        if self.graphiques_completes:
+            parties.append(f"{len(self.graphiques_completes)} complétés")
         if self.graphiques_convertis:
             parties.append(f"{len(self.graphiques_convertis)} convertis")
         if self.graphiques_abandonnes:
@@ -330,6 +359,129 @@ def blocs_du_chapitre(
 _INTITULES_VERDICT = ("verdict", "conclusion", "décision", "decision")
 
 
+def _completer_les_figures(
+    blocs_par_chapitre: list[dict[str, Any]],
+    payloads: Sequence[ChapitrePayload],
+    socle: Socle,
+    profil: secteurs.ProfilSectoriel,
+    rapport: RapportAssemblage,
+) -> None:
+    """Ramène le document au plancher de figures, en place.
+
+    La cliente a posé un quota : « au moins 17 à 25 graphes par document, c'est
+    une obligation absolue ». La charte le demande au modèle — mais un modèle
+    qui en déclare douze produisait jusqu'ici un document à douze figures, sans
+    que rien ne le relève.
+
+    La complétion ne fabrique AUCUN chiffre : elle ne trace que des données du
+    socle, déjà vérifiées, et seulement celles que le chapitre a lui-même
+    déclarées dans `donnees_utilisees`. Une figure ajoutée à un chapitre parle
+    donc de ce dont ce chapitre parle.
+
+    Elle sert d'abord les chapitres qui n'ont AUCUNE figure : c'est là que le
+    lecteur voit un mur de texte, et c'est aussi là qu'une figure de plus
+    apporte le plus. Les identifiants déjà tracés ailleurs passent en dernier —
+    redessiner deux fois la même donnée tiendrait le compte sans rien apprendre.
+    """
+    if rapport.graphiques_rendus >= PLANCHER_FIGURES:
+        return
+
+    par_numero = {payload.chapitre: payload for payload in payloads}
+    # Le chapitre 0 est la « Fiche projet » : elle récapitule le brief du
+    # client, elle n'analyse rien. Une figure n'y a pas de sens — et surtout,
+    # elle n'y arriverait pas : mesuré, le document sortait avec DIX-SEPT
+    # figures au rapport et SEIZE sous les yeux du lecteur, la dix-septième
+    # étant celle posée sur cette fiche, que le gabarit rend autrement.
+    # Compter une figure que personne ne voit, c'est la règle 9 : le contrôle
+    # et le document n'auraient plus jugé sur la même évidence.
+    eligibles = [c for c in blocs_par_chapitre if c["numero"] != 0]
+    # Un chapitre sans aucune figure d'abord ; les autres ensuite.
+    sans_figure = [
+        chapitre for chapitre in eligibles
+        if not any(b.get("type") == "graphique" for b in chapitre["blocs"])
+    ]
+    avec_figure = [c for c in eligibles if c not in sans_figure]
+
+    forme = 0
+    # Ce que la complétion a déjà consommé, CHAPITRE PAR CHAPITRE. Une première
+    # version retenait une signature globale « chapitre + identifiants » : elle
+    # rendait la seconde passe inerte, puisqu'un chapitre repassait toujours
+    # avec la même liste. Un chapitre qui cite six données doit pouvoir en
+    # porter deux figures ; un chapitre qui n'en cite que deux, une seule.
+    consommes: dict[int, set[str]] = {}
+
+    # On repasse tant que la passe précédente a servi à quelque chose. Une
+    # seule passe donnait une figure par chapitre au plus : suffisant pour une
+    # étude de marché (vingt-et-un chapitres), pas pour une étude
+    # concurrentielle, qui n'en a que neuf.
+    progres = True
+    while progres and rapport.graphiques_rendus < PLANCHER_FIGURES:
+        progres = False
+        for chapitre in [*sans_figure, *avec_figure]:
+            if rapport.graphiques_rendus >= PLANCHER_FIGURES:
+                return
+
+            payload = par_numero.get(chapitre["numero"])
+            if payload is None:
+                continue
+
+            deja_vus = consommes.setdefault(payload.chapitre, set())
+            restants = [i for i in payload.donnees_utilisees if i not in deja_vus]
+            if len(restants) < 2:
+                continue
+
+            # Les identifiants encore jamais tracés dans TOUT le document
+            # d'abord : c'est ce qui ajoute de l'information plutôt que de la
+            # répétition. À défaut, on retrace ce que le chapitre cite — une
+            # donnée peut légitimement paraître deux fois sous deux angles.
+            inedits = [i for i in restants if i not in rapport.identifiants_rendus]
+            candidats = (inedits if len(inedits) >= 2 else restants)[:_DONNEES_PAR_FIGURE]
+
+            resolution = None
+            for decalage in range(len(_FORMES_DE_COMPLETION)):
+                type_graphique = _FORMES_DE_COMPLETION[
+                    (forme + decalage) % len(_FORMES_DE_COMPLETION)
+                ]
+                if type_graphique in profil.graphiques_a_eviter:
+                    continue
+                essai = resoudre(socle, type_graphique, candidats)
+                if essai.retenu:
+                    resolution = essai
+                    forme += decalage + 1
+                    break
+
+            if resolution is None or resolution.donnees is None:
+                # Ces identifiants ne donnent rien : les retenir quand même,
+                # sinon la boucle les represente indéfiniment.
+                deja_vus.update(candidats)
+                continue
+
+            titre = f"{payload.titre} — repères chiffrés"
+            # AVANT les encadrés de fin, pas après : un chapitre se ferme sur
+            # son verdict, et une figure posée dessous le repousse hors de vue.
+            # La première version faisait `append` — le « Verdict » du chapitre
+            # se retrouvait au milieu, suivi d'une image.
+            blocs_du_chapitre_courant = chapitre["blocs"]
+            position = len(blocs_du_chapitre_courant)
+            while position and blocs_du_chapitre_courant[position - 1]["type"] == "encadre":
+                position -= 1
+            blocs_du_chapitre_courant.insert(position, {
+                "type": "graphique",
+                "graphique": resolution.type_graphique,
+                "titre": titre,
+                "source": "Données du socle vérifié",
+                "donnees": resolution.donnees,
+            })
+            deja_vus.update(candidats)
+            progres = True
+            rapport.graphiques_rendus += 1
+            rapport.identifiants_rendus.update(candidats)
+            rapport.graphiques_completes.append(
+                f"Chapitre {payload.chapitre} · {titre} "
+                f"({resolution.type_graphique}, {len(candidats)} identifiants)"
+            )
+
+
 def _est_un_verdict(intitule: str) -> bool:
     debut = intitule.strip().casefold()
     return any(debut.startswith(mot) for mot in _INTITULES_VERDICT)
@@ -361,6 +513,12 @@ def assembler_etude(
         }
         for payload in ordonnes
     ]
+
+    # Le plancher de figures est une exigence de la cliente, pas une préférence
+    # de mise en page. On le tient AVANT de figer la structure : après, il n'y
+    # a plus qu'un fichier, et un contrôle qui constate le manque sans pouvoir
+    # le réparer ne laisse le choix qu'entre bloquer et se taire.
+    _completer_les_figures(blocs_par_chapitre, ordonnes, socle, profil, rapport)
 
     etude = {
         "titre": titre,

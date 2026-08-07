@@ -266,8 +266,17 @@ def test_l_assemblage_produit_les_blocs_attendus(socle: Socle) -> None:
     assert "sous_titre" in types
     assert "tableau" in types
     assert "graphique" in types
-    assert types[-1] == "encadre"
-    assert rapport.graphiques_rendus == 1
+    assert types[-1] == "encadre", (
+        "le chapitre se ferme sur son verdict — une figure de complétion "
+        "posée dessous le repousserait hors de vue"
+    )
+    # La figure DÉCLARÉE par le chapitre est rendue. Le total, lui, n'est plus
+    # figé : l'assemblage complète depuis le socle jusqu'au plancher exigé par
+    # la cliente (dix-sept figures), et cette maquette d'un seul chapitre en
+    # déclenche donc quelques-unes. Ce que ce test tient, c'est la STRUCTURE
+    # des blocs ; le plancher a son propre fichier.
+    assert rapport.graphiques_rendus >= 1
+    assert rapport.graphiques_rendus - len(rapport.graphiques_completes) == 1
     assert rapport.complet
 
 

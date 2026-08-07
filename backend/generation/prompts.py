@@ -158,11 +158,33 @@ _GRAPHIQUES_MOTEUR_HERITE = (
 #: on demande vingt-deux pour en obtenir dix-sept, le rendu refusant
 #: legitimement les figures dont la donnee ne se prete pas (taux mesure : onze
 #: rendues pour quinze demandees).
+#: Le quota, en CHIFFRES. Il gouverne trois choses qui doivent rester
+#: d'accord : ce qu'on demande au modele, ce qu'on complete depuis le socle
+#: quand il en manque, et ce qu'on verifie sur le document livre. Les separer,
+#: c'est se garantir qu'ils divergeront (regle 5) — et c'est ce qui vient
+#: d'arriver : l'objectif etait ecrit en toutes lettres dans la charte, et
+#: `controler_visuels` ne se plaignait que d'un document a ZERO figure. Un
+#: livrable a cinq figures passait donc pour complet.
+#:
+#: Ecrit en chiffres et non en mots pour que l'interpolation soit possible :
+#: « VINGT-DEUX » ne peut pas etre derive de `22`, et deux ecritures d'un meme
+#: nombre finissent toujours par se contredire.
+PLANCHER_FIGURES = 17
+PLAFOND_FIGURES = 25
+#: On en demande PLUS que le plancher : le rendu refuse legitimement les
+#: figures dont la donnee ne se prete pas (taux mesure sur le dossier reel
+#: 9be9a422 : onze rendues pour quinze demandees).
+CIBLE_FIGURES_DEMANDEES = 22
+#: Varier les formes est une exigence a part entiere : « des graphes de divers
+#: maniere », et « les graphes ne seront pas toujours les memes ».
+FORMES_DIFFERENTES_MINIMUM = 12
+
 OBJECTIF_FIGURES_TEXTE = (
-    "OBJECTIF DE L'ETUDE ENTIERE : au moins VINGT-DEUX figures, et au moins "
-    "DOUZE FORMES DIFFERENTES. C'est une etude illustree, pas un rapport de "
-    "texte : un chapitre sans figure doit etre l'exception, et il faut une "
-    "raison — aucune donnee du socle ne s'y prete.\n"
+    f"OBJECTIF DE L'ETUDE ENTIERE : au moins {CIBLE_FIGURES_DEMANDEES} figures, "
+    f"et au moins {FORMES_DIFFERENTES_MINIMUM} FORMES DIFFERENTES. C'est une "
+    "etude illustree, pas un rapport de texte : un chapitre sans figure doit "
+    "etre l'exception, et il faut une raison — aucune donnee du socle ne s'y "
+    "prete.\n"
     "Vise DEUX figures par chapitre des que deux idees distinctes s'y "
     "illustrent : c'est ce qui fait la difference entre une etude illustree "
     "et une etude ou l'on a colle une image par section."

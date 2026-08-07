@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
+from ..prompts import PLAFOND_FIGURES, PLANCHER_FIGURES
 from ..socle.referentiel import identifiants_obligatoires
 from ..socle.schema import Socle, valeur_en_unites_de_base
 from .lecture import DocumentLu, Mesure
@@ -398,6 +399,22 @@ def controler_visuels(
             "visuels", Gravite.BLOQUANTE,
             f"Aucun des {graphiques_demandes} graphiques demandés n'a pu être "
             "alimenté par le socle.",
+        ))
+    elif graphiques_rendus < PLANCHER_FIGURES:
+        # Le quota vient de la cliente : « au moins 17 à 25 graphes par
+        # document, c'est une obligation absolue ». Il était demandé au modèle
+        # et vérifié nulle part : ce contrôle ne se plaignait que d'un document
+        # à ZÉRO figure, si bien qu'un livrable à cinq passait pour complet.
+        #
+        # Bloquant, et à raison : la passe de complétion de l'assemblage a déjà
+        # eu l'occasion de tirer du socle tout ce qu'il pouvait donner. Si le
+        # compte n'y est toujours pas, le document ne tient pas la promesse
+        # faite au client, et le livrer en silence serait le pire des deux.
+        anomalies.append(Anomalie(
+            "visuels", Gravite.BLOQUANTE,
+            f"{graphiques_rendus} figures dans le document, pour un plancher "
+            f"de {PLANCHER_FIGURES} ({PLANCHER_FIGURES} à {PLAFOND_FIGURES} "
+            "attendues). Le socle n'a pas pu en alimenter davantage.",
         ))
     anomalies.extend(
         Anomalie("visuels", Gravite.AVERTISSEMENT, f"Graphique abandonné — {motif}")

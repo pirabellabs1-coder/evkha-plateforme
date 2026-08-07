@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from generation.prompts import PLANCHER_FIGURES
 from generation.rendu_word.assemblage import RapportAssemblage, assembler_etude
 from generation.rendu_word.depuis_json import rendre_etude
 from generation.socle.schema import Socle
@@ -341,12 +342,23 @@ def test_tous_les_graphiques_abandonnes_bloquent() -> None:
 
 
 def test_un_abandon_isole_avertit_seulement() -> None:
-    anomalies = controles.controler_visuels(5, 4, ["Chapitre 3 · Figure : motif"])
+    """Un abandon sur vingt reste un avertissement, pas un blocage.
+
+    Le compte est pris AU-DESSUS du plancher de figures : sous le plancher, la
+    gravité du document est décidée par ce plancher, et ce test ne mesurerait
+    plus ce qu'il annonce (il l'a fait pendant une heure le 07/08/2026, en
+    tombant sur « 4 figures pour un plancher de 17 »).
+    """
+    anomalies = controles.controler_visuels(
+        PLANCHER_FIGURES + 1, PLANCHER_FIGURES, ["Chapitre 3 · Figure : motif"]
+    )
     assert [a.gravite for a in anomalies] == [Gravite.AVERTISSEMENT]
 
 
 def test_une_conversion_est_tracee_sans_jugement() -> None:
-    anomalies = controles.controler_visuels(1, 1, [], ["courbes → barres"])
+    anomalies = controles.controler_visuels(
+        PLANCHER_FIGURES, PLANCHER_FIGURES, [], ["courbes → barres"]
+    )
     assert [a.gravite for a in anomalies] == [Gravite.INFORMATION]
 
 
@@ -447,8 +459,16 @@ def test_un_livrable_qui_cite_son_socle_passe_la_verification(tmp_path: Path) ->
     rapport = verifier_document(
         document, socle, deliverable_type="market_study", assemblage=assemblage
     )
-    assert rapport.livrable, [a.detail for a in rapport.bloquantes]
-    assert not rapport.anomalies, [a.detail for a in rapport.anomalies]
+    # Le plancher de dix-sept figures est hors sujet ici : cette maquette n'a
+    # qu'UN chapitre, elle ne peut pas en porter dix-sept, et l'exiger d'elle
+    # ferait tomber un test qui parle de tout autre chose — la citation du
+    # socle. Le plancher a son propre fichier, `test_plancher_de_figures.py`,
+    # où il est mesuré sur des documents entiers.
+    autres = [a for a in rapport.anomalies if a.controle != "visuels"]
+    assert not [a for a in autres if a.gravite is Gravite.BLOQUANTE], (
+        [a.detail for a in autres]
+    )
+    assert not autres, [a.detail for a in autres]
 
 
 def test_la_lecture_d_un_livrable_absent_echoue_au_lieu_de_rendre_un_vide(

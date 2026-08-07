@@ -17,6 +17,8 @@ qui sache ce que l'etude porte reellement.
 """
 from __future__ import annotations
 
+import re
+
 from decimal import Decimal
 from typing import Any
 
@@ -183,8 +185,15 @@ def test_l_objectif_chiffre_atteint_le_moteur_qui_rend_les_figures(job: Any) -> 
 #: sans notes). Viser le plancher exact le manquerait une fois sur deux.
 PLANCHER_CLIENTE = 17
 
-#: Ecrit en toutes lettres dans la charte, parce qu'un modele suit mieux un mot
-#: qu'un chiffre noye dans une phrase.
+#: La charte a longtemps ecrit le quota en toutes lettres. Elle l'ecrit
+#: desormais en chiffres, et pour une raison qui prime : le nombre est
+#: INTERPOLE depuis `prompts.PLANCHER_FIGURES` et ses voisines, si bien que la
+#: charte et le controle de livraison ne peuvent plus se contredire (regle 5).
+#: « VINGT-DEUX » ne se derive pas de `22`, et deux ecritures d'un meme nombre
+#: finissent toujours par diverger — c'est exactement ce qui etait arrive.
+#:
+#: Les deux formes restent lues ici : ce test mesure que la charte CHIFFRE son
+#: ambition, pas la typographie qu'elle emploie pour le faire.
 NOMBRES_EN_LETTRES = {
     "QUINZE": 15, "SEIZE": 16, "DIX-SEPT": 17, "DIX-HUIT": 18, "DIX-NEUF": 19,
     "VINGT": 20, "VINGT-ET-UNE": 21, "VINGT-DEUX": 22, "VINGT-TROIS": 23,
@@ -197,6 +206,9 @@ def _figures_demandees(prompt: str) -> int:
     for mot, valeur in NOMBRES_EN_LETTRES.items():
         if f"{mot} figures" in prompt:
             return valeur
+    en_chiffres = re.search(r"au moins (\d+) figures", prompt)
+    if en_chiffres:
+        return int(en_chiffres.group(1))
     raise AssertionError("la charte ne chiffre plus son objectif de figures")
 
 
