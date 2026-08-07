@@ -689,3 +689,73 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Menu du site vitrine ────────────────────────────────────────────────
+ *
+ * Cette page a remplacé `evkha.fr/partenairespro` dans le tunnel de vente : le
+ * visiteur qui cliquait arrivait sur un autre site, sans aucune navigation, au
+ * milieu d'un parcours d'achat. Le menu est donc reproduit — voir
+ * `contenu.MENU_SITE`, seul endroit où il est écrit.
+ *
+ * Il défile horizontalement plutôt que de se replier en menu hamburger : huit
+ * entrées repliées derrière un bouton, c'est exactement la disparition qu'on
+ * corrige. Sur mobile on en voit trois et on fait glisser — la navigation
+ * reste VISIBLE, ce qui est la demande. */
+.pp-menu {
+  background: var(--vert);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.pp-menu::-webkit-scrollbar {
+  display: none;
+}
+
+.pp-menu ul {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0 clamp(12px, 3vw, 28px);
+  list-style: none;
+  /* Sans cela, les entrees se compriment jusqu'a devenir illisibles au lieu
+     de deborder — et il n'y a alors plus rien a faire defiler. */
+  width: max-content;
+  min-width: 100%;
+}
+
+.pp-menu a {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.pp-menu a:hover,
+.pp-menu a:focus-visible {
+  color: #ffffff;
+  border-bottom-color: var(--or);
+}
+
+/* La page où l'on se trouve. Elle reste cliquable — un lien mort dans un menu
+   laisse croire à une page cassée. */
+.pp-menu a.pp-menu-courant {
+  color: var(--or);
+  font-weight: 600;
+  border-bottom-color: var(--or);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-menu a {
+    transition: none;
+  }
+}

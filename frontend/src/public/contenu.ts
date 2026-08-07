@@ -164,3 +164,39 @@ export const APPEL_FINAL = {
 };
 
 export const CONTACT_EMAIL = "contact@evkha.fr";
+
+/** Le menu du site vitrine, reproduit sur nos pages publiques.
+ *
+ * Cette page a remplacé `evkha.fr/partenairespro` dans le tunnel de vente. Le
+ * visiteur qui cliquait dessus arrivait chez nous — et le menu disparaissait,
+ * puisque c'est un autre site. Constaté par la cliente le 07/08/2026 : « on ne
+ * voit plus le menu du tunnel de vente ».
+ *
+ * **C'est une duplication, et elle est assumée.** Elle contredit la règle 5 —
+ * une seule source par vérité — mais l'alternative était de laisser le visiteur
+ * sans issue au milieu d'un parcours d'achat. On paie donc un entretien : si
+ * une entrée change sur Systeme.io, elle doit changer ICI, et nulle part
+ * ailleurs. C'est le seul endroit du dépôt où ce menu est écrit.
+ *
+ * Relevé sur `https://www.evkha.fr/` le 07/08/2026.
+ */
+export const MENU_SITE: { libelle: string; lien: string; courant?: boolean }[] = [
+  { libelle: "Accueil", lien: "https://www.evkha.fr/" },
+  { libelle: "Nos packs accompagnement", lien: "https://www.evkha.fr/packs" },
+  {
+    libelle: "Partenariats PRO et abonnements",
+    lien: "https://app2.evkha.fr/partenaires/",
+    courant: true,
+  },
+  { libelle: "Nos Formations", lien: "https://www.evkha.fr/formation" },
+  { libelle: "Boîte à outils", lien: "https://www.evkha.fr/boite-a-outil" },
+  {
+    libelle: "Générer votre étude ou livrable",
+    lien: "https://www.evkha.fr/etudedemarche",
+  },
+  {
+    libelle: "Études en téléchargement immédiat",
+    lien: "https://www.evkha.fr/etude-achat-immediat",
+  },
+  { libelle: "Me contacter", lien: "https://www.evkha.fr/contacts" },
+];

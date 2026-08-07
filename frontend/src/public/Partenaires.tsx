@@ -3,10 +3,13 @@
  * Elle remplace la page systeme.io : c'est ici que le visiteur choisit sa
  * formule, crée son compte et accède à ses crédits.
  *
- * **Pas de barre de navigation.** Le menu reste celui du site vitrine, qui
- * pointera vers cette adresse : en reconstruire une copie ici ferait deux
- * menus à tenir à jour, et le nôtre serait faux dès la première page ajoutée
- * sur systeme.io (règle 5).
+ * **Le menu du site est reproduit en haut.** Ce fichier disait l'inverse, et
+ * pour une bonne raison — deux menus à tenir à jour, c'est deux vérités qui
+ * finissent par diverger (règle 5). La réalité l'a tranché autrement : cette
+ * page a remplacé `evkha.fr/partenairespro` DANS le tunnel de vente, et le
+ * visiteur qui cliquait se retrouvait sans aucune navigation, au milieu d'un
+ * parcours d'achat. Laisser quelqu'un sans issue coûte plus cher qu'un menu à
+ * entretenir. Il vit dans `contenu.MENU_SITE`, et nulle part ailleurs.
  *
  * Deux principes de construction :
  *
@@ -28,6 +31,7 @@ import {
   FAQ,
   FONDATRICE,
   FORMULES_SOUS_TITRES,
+  MENU_SITE,
   HERO,
   POUR_QUI,
   PREUVES,
@@ -156,6 +160,23 @@ export function Partenaires() {
 
   return (
     <div className="pp">
+      {/* ── Menu du site vitrine ─────────────────────────────────────── */}
+      <nav className="pp-menu" aria-label="Navigation du site EVKHA">
+        <ul>
+          {MENU_SITE.map((entree) => (
+            <li key={entree.lien}>
+              <a
+                href={entree.lien}
+                className={entree.courant ? "pp-menu-courant" : undefined}
+                aria-current={entree.courant ? "page" : undefined}
+              >
+                {entree.libelle}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
       {/* ── Ouverture ────────────────────────────────────────────────── */}
       <header className="pp-large pp-hero">
         <div>
