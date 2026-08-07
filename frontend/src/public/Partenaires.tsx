@@ -236,10 +236,10 @@ export function Partenaires() {
           <h2 className="pp-titre">Quatre formules, zéro droit d'entrée</h2>
           <div className="pp-filet" />
           <p className="pp-formules-intro">
-            Abonnement mensuel avec crédits inclus. Prix hors taxes&nbsp;; la
-            TVA s'ajoute au moment du paiement. Engagement minimum de
-            3&nbsp;mois, puis sans engagement. Crédits supplémentaires à tarif
-            dégressif.
+            Abonnement mensuel avec crédits inclus. Prix hors taxes&nbsp;: la
+            TVA applicable est ajoutée au moment du paiement. Engagement minimum
+            de 3&nbsp;mois, puis sans engagement. Crédits supplémentaires à
+            tarif dégressif.
           </p>
 
           {erreur && (
