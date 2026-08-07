@@ -83,6 +83,20 @@ class ResendApiClient:
             "subject": subject,
             "html": html_body,
         }
+
+        # Copie CACHEE a la maison, quand elle est demandee.
+        #
+        # La cliente veut voir passer ce qui part a ses partenaires, sans que
+        # le destinataire l'apprenne : << ca ne doit pas mentionner que c'est
+        # une copie >>. Le champ `bcc` fait exactement cela — il n'apparait
+        # dans aucun en-tete recu, et le message est rigoureusement identique.
+        #
+        # Envoyer un SECOND message a l'adresse maison aurait ete le contraire
+        # de la demande : un doublon reconnaissable, avec son propre horodatage,
+        # et deux entrees dans les journaux du prestataire pour un seul echange.
+        copie = str(getattr(settings, "EVKHA_COPIE_COURRIEL", "") or "").strip()
+        if copie and copie.lower() != recipient_email.lower():
+            payload["bcc"] = [copie]
         if attachments:
             payload["attachments"] = [
                 {"path": piece.url, "filename": piece.filename}

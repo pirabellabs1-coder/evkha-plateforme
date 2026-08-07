@@ -109,6 +109,13 @@ class BrevoApiClient:
             "subject": subject,
             "htmlContent": html_body,
         }
+        # Copie cachee, meme regle que chez Resend : Brevo est le repli, et un
+        # repli qui perd la copie la ferait disparaitre le jour ou l'on bascule,
+        # sans que personne ne s'en apercoive (regle 4).
+        copie = str(getattr(settings, "EVKHA_COPIE_COURRIEL", "") or "").strip()
+        if copie and copie.lower() != recipient_email.lower():
+            payload["bcc"] = [{"email": copie}]
+
         if attachments:
             payload["attachment"] = [
                 {"url": attachment.url, "name": attachment.filename}

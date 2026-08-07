@@ -81,7 +81,10 @@ function CarteFormule({
           Soit {f.montant(formule.cout_par_livrable_cents, formule.devise)} par
           livrable inclus
         </li>
-        <li>{f.reportCredits(formule.report_credits)}</li>
+        {/* Le report des credits n'est plus liste : sur une carte de
+            formule, << Aucun report >> parle d'une perte au moment ou
+            l'on cherche a convaincre. La regle continue de s'appliquer,
+            on cesse seulement de la mettre en avant. */}
         <li>
           {formule.regenerations_offertes} régénération
           {formule.regenerations_offertes > 1 ? "s" : ""} offerte

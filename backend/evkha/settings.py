@@ -182,7 +182,6 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
-EVKHA_EMAIL_PROVIDER = env("EVKHA_EMAIL_PROVIDER", default="brevo")
 
 # Webhook shared secrets (M1).
 SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
@@ -227,6 +226,15 @@ EVKHA_SENDER_EMAIL = env(
 EVKHA_SENDER_NAME = env(
     "EVKHA_SENDER_NAME", default=env("BREVO_SENDER_NAME", default="Evkha")
 )
+
+#: Adresse qui recoit une copie CACHEE de tout courriel transactionnel.
+#:
+#: La cliente veut voir passer ce qui part a ses partenaires — invitations,
+#: liens de mot de passe, livraisons, relances — sans que le destinataire
+#: l'apprenne. Vide, aucune copie n'est envoyee : c'est un choix explicite, pas
+#: un defaut. Une adresse mise ici recevra TOUT, y compris des liens
+#: personnels : la remplir est une decision.
+EVKHA_COPIE_COURRIEL = env("EVKHA_COPIE_COURRIEL", default="")
 
 RESEND_API_KEY = env("RESEND_API_KEY", default="")
 BREVO_API_KEY = env("BREVO_API_KEY", default="")

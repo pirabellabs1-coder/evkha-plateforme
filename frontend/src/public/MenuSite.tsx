@@ -18,18 +18,27 @@ import { LOGO_SITE, MENU_SITE } from "./contenu";
 
 export function MenuSite() {
   const [ouvert, setOuvert] = useState<string | null>(null);
+  // Le menu replie sur mobile. Sept entrees sur deux lignes ne tiennent pas
+  // sous 860 px : elles defilaient horizontalement, ce qui coupait les
+  // libelles et allongeait la page. Le site en fait autant — la page doit lui
+  // ressembler sur telephone comme sur ordinateur.
+  const [deplie, setDeplie] = useState(false);
   const barre = useRef<HTMLElement>(null);
 
   // Un clic ailleurs referme, et Échap aussi : sans cela, le déroulant reste
   // ouvert par-dessus la page et masque le contenu qu'on vient chercher.
   useEffect(() => {
-    if (ouvert === null) return undefined;
+    if (ouvert === null && !deplie) return undefined;
 
     function auClic(evenement: MouseEvent) {
-      if (!barre.current?.contains(evenement.target as Node)) setOuvert(null);
+      if (barre.current?.contains(evenement.target as Node)) return;
+      setOuvert(null);
+      setDeplie(false);
     }
     function auClavier(evenement: KeyboardEvent) {
-      if (evenement.key === "Escape") setOuvert(null);
+      if (evenement.key !== "Escape") return;
+      setOuvert(null);
+      setDeplie(false);
     }
     document.addEventListener("mousedown", auClic);
     document.addEventListener("keydown", auClavier);
@@ -37,7 +46,7 @@ export function MenuSite() {
       document.removeEventListener("mousedown", auClic);
       document.removeEventListener("keydown", auClavier);
     };
-  }, [ouvert]);
+  }, [ouvert, deplie]);
 
   // L'appel a l'action est rendu HORS de la file qui defile : place dedans,
   // il sortait de l'ecran des que les entrees ne tenaient plus, et c'est
@@ -52,7 +61,24 @@ export function MenuSite() {
           <img src={LOGO_SITE} alt="EVKHA — Business et formations" />
         </a>
 
-        <ul className="pp-menu-entrees">
+        <button
+          type="button"
+          className="pp-menu-bouton"
+          aria-expanded={deplie}
+          aria-controls="menu-site-evkha"
+          aria-label={deplie ? "Fermer le menu" : "Ouvrir le menu"}
+          onClick={() => {
+            setDeplie((etat) => !etat);
+            setOuvert(null);
+          }}
+        >
+          <span className="pp-menu-traits" aria-hidden="true" />
+        </button>
+
+        <ul
+          id="menu-site-evkha"
+          className={deplie ? "pp-menu-entrees deplie" : "pp-menu-entrees"}
+        >
           {entrees.map((entree) => {
             if (!entree.enfants) {
               return (

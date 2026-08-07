@@ -735,6 +735,59 @@
   width: auto;
 }
 
+/* Bouton hamburger. Absent sur ordinateur, ou les sept entrees tiennent : un
+ * menu replie la ou il y a la place cache pour rien. */
+.pp-menu-bouton {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 46px;
+  align-self: center;
+  margin-left: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.pp-menu-traits,
+.pp-menu-traits::before,
+.pp-menu-traits::after {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--noir);
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.pp-menu-traits::before,
+.pp-menu-traits::after {
+  content: "";
+  position: absolute;
+}
+
+.pp-menu-traits::before {
+  transform: translateY(-7px);
+}
+
+.pp-menu-traits::after {
+  transform: translateY(7px);
+}
+
+.pp-menu-bouton[aria-expanded="true"] .pp-menu-traits {
+  background: transparent;
+}
+
+.pp-menu-bouton[aria-expanded="true"] .pp-menu-traits::before {
+  transform: rotate(45deg);
+}
+
+.pp-menu-bouton[aria-expanded="true"] .pp-menu-traits::after {
+  transform: rotate(-45deg);
+}
+
 .pp-menu-entrees {
   display: flex;
   align-items: stretch;
@@ -871,35 +924,84 @@
   }
 }
 
-/* Sous 860 px, sept entrees sur deux lignes ne tiennent plus : la file defile
-   horizontalement. On en voit trois et on fait glisser — la navigation reste
-   VISIBLE, ce qui est la demande, la ou un bouton hamburger la ferait
-   disparaitre a nouveau. */
+/* Sous 860 px, sept entrees ne tiennent plus.
+ *
+ * Premiere version : elles defilaient horizontalement, pour que la navigation
+ * reste VISIBLE — c'etait la demande initiale. A l'usage, la cliente a tranche
+ * autrement : << en version mobile c'est long et tout est coupe, ca doit meme
+ * en version mobile ressembler a l'autre >>. Les libelles coupes en milieu de
+ * mot faisaient plus de mal que le repli. Et c'est ce que fait son site.
+ *
+ * La barre garde donc le logo et le bouton ; les entrees se deplient DESSOUS,
+ * en pleine largeur, une par ligne — lisibles d'un coup d'oeil, sans defilement
+ * lateral. */
 @media (max-width: 860px) {
   .pp-menu-barre {
+    flex-wrap: wrap;
     padding-left: 0;
     border-radius: 26px;
   }
 
-  .pp-menu-entrees {
-    justify-content: flex-start;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+  .pp-menu-bouton {
+    display: flex;
   }
 
-  .pp-menu-entrees::-webkit-scrollbar {
+  .pp-menu-logo {
+    border-radius: 26px 0 0 26px;
+  }
+
+  .pp-menu-entrees {
     display: none;
+    order: 3;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 4px 10px 12px;
+  }
+
+  .pp-menu-entrees.deplie {
+    display: flex;
   }
 
   .pp-menu-entrees > li {
     flex: 0 0 auto;
+    width: 100%;
+    border-top: 1px solid rgba(17, 17, 17, 0.12);
   }
 
   .pp-menu-entrees a,
   .pp-menu-entrees button {
-    white-space: nowrap;
+    width: 100%;
+    justify-content: flex-start;
+    padding: 13px 14px;
+    text-align: left;
+    font-size: 1rem;
+  }
+
+  /* Le deroulant s'ouvre DANS la file, pas en surimpression : une carte
+     flottante par-dessus un menu deja deplie masque ce qu'on vient d'ouvrir. */
+  .pp-menu-deroulant {
+    flex-wrap: wrap;
+  }
+
+  .pp-menu-deroulant > ul {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 6px;
+    box-shadow: none;
+    background: rgba(17, 17, 17, 0.05);
+  }
+
+  .pp-menu-deroulant > ul a {
+    padding-left: 30px;
+  }
+
+  /* « Me contacter » reste dans la barre, a cote du bouton : c'est le lien
+     qu'on ne veut jamais voir disparaitre, et le replier le cacherait. */
+  .pp-menu-appel {
+    order: 2;
+    margin: 7px 6px;
   }
 }
 

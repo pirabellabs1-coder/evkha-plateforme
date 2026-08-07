@@ -210,22 +210,14 @@ export function Credits() {
                   : "—"}
               </div>
             </div>
-            <div>
-              <div className="chiffre-libelle">Report des crédits</div>
-              <div style={{ fontWeight: 600, marginTop: "var(--e-1)" }}>
-                {f.reportCredits(moi.abonnement.report_credits)}
-              </div>
-              <div className="carte-note">
-                {/* Lu sur la formule, jamais écrit en dur : ce paragraphe
-                    parle de l'argent du client, et il affirmait « Aucun » quel
-                    que soit son abonnement réel. */}
-                {moi.abonnement.report_credits === "aucun"
-                  ? "Les crédits non consommés expirent à l'échéance."
-                  : moi.abonnement.report_credits === "plafonne"
-                    ? `Jusqu'à ${moi.abonnement.plafond_report} crédits non consommés sont conservés à l'échéance.`
-                    : "Vos crédits non consommés sont conservés d'un mois sur l'autre."}
-              </div>
-            </div>
+            {/* Le report des crédits n'est plus affiché.
+                Il annonçait « Aucun report — les crédits non consommés
+                expirent à l'échéance ». C'est exact, mais le dire sur l'écran
+                des crédits, c'est rappeler une perte à quelqu'un qui vient
+                consulter son solde. La cliente l'a retiré : « on n'a pas du
+                tout besoin de ceci ou de le dire ».
+                La règle, elle, ne change pas — l'expiration reste appliquée par
+                `credits.py`. On cesse de l'afficher, pas de la respecter. */}
           </div>
         </Carte>
       )}
