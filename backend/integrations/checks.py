@@ -104,17 +104,53 @@ def check_ai_credentials(app_configs: object, **kwargs: object) -> list[Error | 
     return issues
 
 
+#: Cle attendue pour chaque fournisseur de courriel. Meme table que celle de
+#: `integrations.brevo` — au sens ou elle doit lister les MEMES fournisseurs.
+#: Un fournisseur ajoute la-bas et oublie ici demarrerait sans sa cle.
+_CLE_PAR_FOURNISSEUR = {
+    "brevo": "BREVO_API_KEY",
+    "resend": "RESEND_API_KEY",
+}
+
+
 @register()
 def check_email_credentials(app_configs: object, **kwargs: object) -> list[Error | Warning]:
-    """Risque 4 — livraison email bloquee si BREVO_API_KEY absente."""
+    """Risque 4 — livraison email bloquee si la cle du fournisseur ACTIF manque.
+
+    Ce controle a mis la production a terre le 07/08/2026. Il exigeait
+    `BREVO_API_KEY` des que la doublure etait desactivee — sans savoir que le
+    fournisseur venait de passer a Resend. La cle Resend etait posee, celle de
+    Brevo ne l'etait pas : `manage.py migrate` a leve `SystemCheckError`, la
+    chaine de demarrage s'est arretee, et les conteneurs sont sortis. Le site
+    entier est tombe pour une cle dont personne n'avait besoin.
+
+    C'est la regle 2 du depot : un controle qui compare a la mauvaise donnee
+    est PIRE qu'absent. Celui-ci ne se plaignait pas d'un defaut, il en
+    fabriquait un. Il juge desormais le fournisseur reellement en service.
+    """
     issues: list[Error | Warning] = []
 
-    use_stub = getattr(settings, "EVKHA_USE_STUB_EMAIL", True)
-    if not use_stub and not getattr(settings, "BREVO_API_KEY", ""):
+    if getattr(settings, "EVKHA_USE_STUB_EMAIL", True):
+        return issues
+
+    fournisseur = str(
+        getattr(settings, "EVKHA_EMAIL_PROVIDER", "resend") or ""
+    ).lower().strip()
+    cle = _CLE_PAR_FOURNISSEUR.get(fournisseur)
+
+    if cle is None:
         issues.append(Error(
-            "BREVO_API_KEY absente alors que EVKHA_USE_STUB_EMAIL=False. "
-            "Les emails de livraison echoueront systematiquement.",
-            hint="Definir BREVO_API_KEY dans les variables d'environnement du VPS.",
+            f"EVKHA_EMAIL_PROVIDER vaut « {fournisseur} », qui n'est pas un "
+            "fournisseur connu. Aucun courriel ne partira.",
+            hint="Valeurs acceptees : " + ", ".join(sorted(_CLE_PAR_FOURNISSEUR)) + ".",
+            id="evkha.E003",
+        ))
+    elif not getattr(settings, cle, ""):
+        issues.append(Error(
+            f"{cle} absente alors que EVKHA_USE_STUB_EMAIL=False et que le "
+            f"fournisseur actif est « {fournisseur} ». Les courriels "
+            "echoueront systematiquement.",
+            hint=f"Definir {cle} dans les variables d'environnement du VPS.",
             id="evkha.E002",
         ))
 
