@@ -25,7 +25,8 @@ services:
     # execution de commande dans le conteneur. Sans EVKHA_ADMIN_EMAIL ni
     # EVKHA_ADMIN_PASSWORD, la commande ne fait rien et le dit.
     command: >
-      sh -c "python manage.py migrate --noinput
+      sh -c "python manage.py changer_le_mot_de_passe_postgres
+      && python manage.py migrate --noinput
       && python manage.py seed_offers
       && python manage.py seed_formules
       && python manage.py assurer_admin
