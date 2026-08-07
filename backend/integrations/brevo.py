@@ -19,6 +19,14 @@ from django.conf import settings
 _BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email"
 _BREVO_TIMEOUT_SECONDS = 30
 
+#: Agent utilisateur annonce au prestataire. Brevo l'accepte sans, mais
+#: Resend non : son API est derriere Cloudflare, qui bannit l'agent par
+#: defaut d'urllib (403 Error 1010). Le meme oubli dort donc ici — et Brevo
+#: est justement le repli vers lequel on basculerait un jour de panne
+#: Resend. Un repli qui echoue silencieusement le jour ou l'on en a besoin
+#: ne vaut pas mieux que pas de repli (regle 4 : viser la CLASSE du defaut).
+_AGENT = "EVKHA/1.0 (+https://evkha.fr)"
+
 
 @dataclass(frozen=True)
 class EmailAttachment:
@@ -114,6 +122,7 @@ class BrevoApiClient:
                 "api-key": api_key,
                 "content-type": "application/json",
                 "accept": "application/json",
+                "user-agent": _AGENT,
             },
             method="POST",
         )

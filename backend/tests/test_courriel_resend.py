@@ -140,6 +140,8 @@ def test_la_requete_a_la_forme_attendue_par_resend(
     requete = vues[0]
     assert requete.full_url == "https://api.resend.com/emails"
     assert requete.get_header("Authorization") == "Bearer re_test_000"
+    # Sans agent utilisateur, Cloudflare refuse la requête AVANT Resend.
+    assert requete.get_header("User-agent") == "EVKHA/1.0 (+https://evkha.fr)"
 
     envoi = json.loads(requete.data.decode("utf-8"))
     assert envoi["from"] == "EVKHA <contact@evkha.fr>"
@@ -234,3 +236,37 @@ def test_les_deux_fournisseurs_ecrivent_de_la_meme_adresse(
     chez_brevo = json.loads(vues[1].data.decode("utf-8"))
     assert chez_resend["from"] == "EVKHA <contact@evkha.fr>"
     assert chez_brevo["sender"] == {"name": "EVKHA", "email": "contact@evkha.fr"}
+
+
+# ── 4. L'agent utilisateur ───────────────────────────────────────────────────
+
+
+@override_settings(RESEND_API_KEY="re_test_000", BREVO_API_KEY="xkeysib-test")
+def test_les_deux_clients_s_annoncent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Aucun courriel ne partait, et rien nulle part ne le disait.
+
+    `api.resend.com` est derrière Cloudflare, qui bannit l'agent par défaut
+    d'`urllib` (« Python-urllib/3.x ») : 403 « Error 1010 —
+    browser_signature_banned », AVANT d'atteindre Resend. Le tableau de bord du
+    prestataire ne montrait donc aucune tentative, et `courriels._envoyer`
+    rattrapant l'exception, l'échec n'apparaissait ni à l'écran, ni dans
+    l'interface, ni dans un journal consultable.
+
+    Brevo, lui, accepte les requêtes sans agent. Mais c'est le REPLI vers lequel
+    on basculerait un jour de panne Resend : y laisser dormir le même oubli,
+    c'est se garantir qu'il se réveillera au pire moment. On vise la classe du
+    défaut, pas l'instance rencontrée (règle 4).
+    """
+    vues = _intercepter(monkeypatch)
+
+    ResendApiClient().send_delivery_email(
+        recipient_email="a@b.fr", subject="s", html_body="h", attachments=(),
+    )
+    BrevoApiClient().send_delivery_email(
+        recipient_email="a@b.fr", subject="s", html_body="h", attachments=(),
+    )
+
+    for requete in vues:
+        agent = requete.get_header("User-agent") or ""
+        assert agent.startswith("EVKHA/"), f"agent absent ou par défaut : {agent!r}"
+        assert "urllib" not in agent.lower()

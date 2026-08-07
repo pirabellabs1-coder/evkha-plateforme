@@ -24,8 +24,26 @@ from html import escape
 _log = logging.getLogger(__name__)
 
 
+#: Type d'incident ouvert quand un courriel ne part pas.
+INCIDENT_TYPE_COURRIEL = "courriel_non_envoye"
+
+
 def _envoyer(*, destinataire: str, sujet: str, corps_html: str) -> bool:
-    """Envoie, et dit si c'est parti. Ne lève jamais."""
+    """Envoie, et dit si c'est parti. Ne lève jamais.
+
+    **L'échec ouvre un incident**, en plus de la ligne de journal.
+
+    Mesuré le 07/08/2026 : `api.resend.com` est derrière Cloudflare, qui
+    bannissait l'agent utilisateur par défaut d'`urllib`. AUCUN courriel ne
+    partait — ni invitation, ni lien de mot de passe — et rien nulle part ne le
+    disait : pas d'erreur à l'écran, rien dans l'interface, aucune trace chez le
+    prestataire puisque la requête était refusée avant lui, et une ligne de
+    journal dans un conteneur dont les journaux ne sont pas consultables.
+
+    Le silence était donc TOTAL. La ligne de journal donnait l'illusion d'une
+    surveillance qui n'existait pas — un contrôle qui n'alerte personne n'est
+    pas un contrôle (règle 1). L'incident, lui, se voit depuis l'administration.
+    """
     from integrations.brevo import get_transactional_email_client  # noqa: PLC0415
 
     try:
@@ -35,10 +53,47 @@ def _envoyer(*, destinataire: str, sujet: str, corps_html: str) -> bool:
             html_body=corps_html,
             attachments=(),
         )
-    except Exception:  # noqa: BLE001 — voir l'arbitrage en tête de module
+    except Exception as erreur:  # noqa: BLE001 — voir l'arbitrage en tête de module
         _log.exception("Courriel non envoye a %s (%s)", destinataire, sujet)
+        _ouvrir_incident(destinataire=destinataire, sujet=sujet, erreur=erreur)
         return False
     return True
+
+
+def _ouvrir_incident(*, destinataire: str, sujet: str, erreur: Exception) -> None:
+    """Rend l'échec visible. Ne lève jamais, à son tour.
+
+    Un incident qui ferait échouer l'action qu'il documente serait pire que le
+    silence qu'il corrige : une invitation valide serait annulée parce que la
+    supervision est indisponible.
+
+    Le corps de la réponse HTTP est conservé quand il existe : c'est lui qui
+    porte le motif. Sans lui, l'incident dirait « HTTP Error 403 » et
+    n'apprendrait rien — un motif introuvable par son lecteur (règle 2).
+    """
+    try:
+        from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+        motif = f"{type(erreur).__name__} : {erreur}"
+        corps = getattr(erreur, "read", None)
+        if callable(corps):
+            try:
+                motif += " — " + corps().decode("utf-8", "replace")[:600]
+            except Exception:  # noqa: BLE001, S110 — le motif de base suffit
+                pass
+
+        OperationalIncident.objects.create(
+            title="Courriel non envoyé",
+            severity=IncidentSeverity.HIGH,
+            details={
+                "type": INCIDENT_TYPE_COURRIEL,
+                "destinataire": destinataire,
+                "sujet": sujet,
+                "motif": motif,
+            },
+        )
+    except Exception:  # noqa: BLE001
+        _log.exception("Incident de messagerie non enregistre")
 
 
 #: Les couleurs de la plateforme, recopiées de `frontend/src/theme/tokens.css`.

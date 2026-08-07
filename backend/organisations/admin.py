@@ -71,10 +71,25 @@ class OrganisationAdmin(admin.ModelAdmin):
 class FormuleAdmin(admin.ModelAdmin):
     list_display = (
         "libelle", "code", "credits_par_echeance", "prix_affiche",
-        "cout_par_livrable", "report_credits", "active",
+        "cout_par_livrable", "tarif_stripe", "report_credits", "active",
     )
     list_filter = ("active", "report_credits")
     prepopulated_fields = {"code": ("libelle",)}
+
+    @admin.display(description="Tarif Stripe")
+    def tarif_stripe(self, obj: Formule) -> str:
+        """Dit d'un coup d'œil si la formule est reliée à un tarif.
+
+        Le champ était saisissable mais invisible dans la liste : pour savoir
+        laquelle des quatre formules manquait sa référence, il fallait les
+        ouvrir une par une. Or une formule active sans tarif Stripe est un
+        bouton « Souscrire » qui échoue au clic — le pire endroit où découvrir
+        un oubli.
+        """
+        reference = str(obj.reference_paiement or "").strip()
+        if reference:
+            return reference
+        return "— absent" if obj.active else "—"
 
     @admin.display(description="Prix mensuel")
     def prix_affiche(self, obj: Formule) -> str:

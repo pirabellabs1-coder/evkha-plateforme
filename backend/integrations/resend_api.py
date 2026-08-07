@@ -25,6 +25,21 @@ from .brevo import EmailAttachment, EmailSendResult
 _RESEND_ENDPOINT = "https://api.resend.com/emails"
 _RESEND_TIMEOUT_SECONDS = 30
 
+#: Agent utilisateur annoncé à Resend.
+#:
+#: **Sans lui, rien ne part.** `api.resend.com` est derrière Cloudflare, qui
+#: bannit l'agent par défaut d'`urllib` (« Python-urllib/3.x ») : la requête est
+#: refusée d'un 403 « Error 1010 — browser_signature_banned » avant même
+#: d'atteindre Resend. Mesuré le 07/08/2026 — le tableau de bord Resend ne
+#: montrait AUCUNE tentative, et comme `courriels._envoyer` rattrape
+#: l'exception, l'échec n'apparaissait nulle part : ni pour l'utilisateur, ni
+#: dans l'interface, ni chez le prestataire.
+#:
+#: Il nomme le produit plutôt qu'il n'imite un navigateur : c'est ce que
+#: Cloudflare attend d'un client applicatif, et cela rend nos appels
+#: identifiables dans les journaux du prestataire.
+_AGENT = "EVKHA/1.0 (+https://evkha.fr)"
+
 
 class ResendApiClient:
     """Envoi transactionnel via `POST https://api.resend.com/emails`.
@@ -81,6 +96,7 @@ class ResendApiClient:
                 "authorization": f"Bearer {cle}",
                 "content-type": "application/json",
                 "accept": "application/json",
+                "user-agent": _AGENT,
             },
             method="POST",
         )
