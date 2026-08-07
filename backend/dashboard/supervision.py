@@ -549,3 +549,93 @@ def relancer_la_transaction(
     tentative.relancee_le = timezone.now()
     tentative.save(update_fields=["relances", "relancee_le", "updated_at"])
     return _json({"relances": tentative.relances})
+
+
+# ── Livrables : ce qui les fabrique, en lecture seule ────────────────────────
+
+
+@require_http_methods(["GET"])
+def livrables(request: HttpRequest) -> JsonResponse:
+    """Toute la configuration des quatre livrables, telle qu'elle tourne.
+
+    Elle vivait dans le code, illisible pour qui ne l'écrit pas : le plan de
+    chapitres, le référentiel de données à collecter, la charte envoyée au
+    modèle, les contrôles. Quatre-vingts pour cent des questions de la cliente
+    portent sur ce que le système fait vraiment — cette page y répond sans
+    qu'il faille ouvrir un fichier Python.
+
+    **Lecture seule, et c'est un choix.** Un livrable n'est pas une donnée :
+    c'est un assemblage de code — un plan, un référentiel, des axes de
+    recherche, des contrôles qui se répondent. Rendre la charte modifiable en
+    base créerait DEUX vérités, celle que les tests vérifient et celle qui
+    tourne (règles 5 et 6). Le jour où un livrable doit changer, il change dans
+    le dépôt, avec ses tests.
+
+    Aucun ajout non plus : créer un cinquième livrable demande un plan de
+    chapitres, un référentiel, des axes de recherche et des contrôles. Un
+    bouton « Ajouter » donnerait l'illusion que trois champs suffisent, et
+    produirait un document vide au premier essai.
+    """
+    from catalog.models import DeliverableType
+    from generation.blueprints import chapters_for_deliverable
+    from generation.prompts import (
+        CIBLE_FIGURES_DEMANDEES,
+        FORMES_DIFFERENTES_MINIMUM,
+        PLAFOND_FIGURES,
+        PLANCHER_FIGURES,
+        build_system_prompt,
+    )
+    from generation.socle.referentiel import _PAR_LIVRABLE
+    from organisations.commandes import DESCRIPTIONS, LIBELLES
+
+    resultat = []
+    for type_document in DeliverableType.values:
+        chapitres = list(chapters_for_deliverable(type_document))
+        socle = list(_PAR_LIVRABLE.get(type_document, ()))
+        resultat.append({
+            "type": type_document,
+            "libelle": LIBELLES.get(type_document, type_document),
+            "description": DESCRIPTIONS.get(type_document, ""),
+            "chapitres": [
+                {
+                    "numero": index,
+                    "titre": getattr(chapitre, "title", "") or "",
+                    "mots_max": getattr(chapitre, "max_words", 0) or 0,
+                }
+                for index, chapitre in enumerate(chapitres)
+            ],
+            "socle": [
+                {
+                    "identifiant": donnee.identifiant,
+                    "libelle": donnee.libelle,
+                    "perimetre": str(donnee.perimetre),
+                    "unite": str(donnee.famille_unite),
+                    "obligatoire": donnee.obligatoire,
+                    "chapitres": list(donnee.chapitres),
+                    "commentaire": donnee.commentaire,
+                }
+                for donnee in socle
+            ],
+            # La charte ENTIERE, telle que le modele la recoit. La resumer
+            # trahirait : c'est le texte exact qui explique ce que le document
+            # devient.
+            "charte": build_system_prompt(type_document),
+        })
+
+    return _json({
+        "livrables": resultat,
+        "figures": {
+            "plancher": PLANCHER_FIGURES,
+            "plafond": PLAFOND_FIGURES,
+            "demandees_au_modele": CIBLE_FIGURES_DEMANDEES,
+            "formes_minimum": FORMES_DIFFERENTES_MINIMUM,
+        },
+        # Dit a l'ecran, plutot que laisse a deviner devant l'absence de bouton.
+        "modifiable": False,
+        "pourquoi": (
+            "Un livrable est un assemblage de code — plan de chapitres, "
+            "référentiel de données, axes de recherche, contrôles — et non une "
+            "donnée. Le modifier ici créerait deux vérités : celle que les "
+            "tests vérifient et celle qui tourne."
+        ),
+    })

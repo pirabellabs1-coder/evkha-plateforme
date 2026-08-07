@@ -2261,3 +2261,23 @@
   font-weight: 600;
   color: var(--texte-fort);
 }
+
+/* La charte du modèle, telle qu'elle part. Affichée en entier et non résumée :
+ * c'est ce texte qui explique ce que le document devient. Hauteur bornée pour
+ * qu'elle ne pousse pas le reste de la page hors de vue, et défilement propre
+ * plutôt que troncature — un texte coupé donne l'illusion qu'on l'a lu. */
+.charte-modele {
+  max-height: 520px;
+  overflow: auto;
+  margin: var(--e-4) 0 0;
+  padding: var(--e-4);
+  background: var(--fond-enfonce);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  font-family: var(--police-mono);
+  font-size: var(--t-xs);
+  line-height: 1.65;
+  color: var(--texte);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

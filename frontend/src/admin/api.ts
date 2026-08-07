@@ -93,6 +93,25 @@ export interface TransactionSupervision {
   relancee_le: string;
 }
 
+export interface LivrableConfiguration {
+  type: string;
+  libelle: string;
+  description: string;
+  chapitres: { numero: number; titre: string; mots_max: number }[];
+  socle: {
+    identifiant: string;
+    libelle: string;
+    perimetre: string;
+    unite: string;
+    obligatoire: boolean;
+    chapitres: number[];
+    commentaire: string;
+  }[];
+  /** La charte ENTIÈRE reçue par le modèle. Non résumée : c'est elle qui
+   *  explique ce que le document devient. */
+  charte: string;
+}
+
 export interface OrganisationSupervision {
   id: string;
   raison_sociale: string;
@@ -161,6 +180,18 @@ export const adminApi = {
     }>("/supervision/transactions/", etat ? { etat } : undefined),
   relancerLaTransaction: (id: string) =>
     post<{ relances: number }>(`/supervision/transactions/${id}/relancer/`, {}),
+  livrables: () =>
+    get<{
+      livrables: LivrableConfiguration[];
+      figures: {
+        plancher: number;
+        plafond: number;
+        demandees_au_modele: number;
+        formes_minimum: number;
+      };
+      modifiable: boolean;
+      pourquoi: string;
+    }>("/supervision/livrables/"),
   organisations: () =>
     get<{ organisations: OrganisationSupervision[] }>("/supervision/organisations/"),
   demandes: () =>

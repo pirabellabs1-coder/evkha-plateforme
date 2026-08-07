@@ -9,8 +9,11 @@
  *
  * - le sceau est **noir sur or** au lieu d'or sur noir, pour qu'on sache d'un
  *   coup d'œil dans lequel des deux espaces on se trouve ;
- * - le bloc de pied affiche le nombre de **demandes à traiter** plutôt qu'un
- *   solde de crédits : c'est ce qui appelle une action ici.
+ * - le bloc de pied affichait le nombre de **demandes à traiter**. Il a été
+ *   retiré le 07/08/2026, en même temps que le solde de l'espace client. La
+ *   pastille à côté de « Demandes » subsiste, elle : elle tient en deux
+ *   chiffres et signale qu'il y a quelque chose à faire, là où le bloc de pied
+ *   répétait la même information en grand sur chaque écran.
  */
 import { useBarreLaterale } from "../theme/useBarreLaterale";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
@@ -21,6 +24,7 @@ import { clearToken } from "../auth";
 const ENTREES = [
   { vers: "/admin", libelle: "Tableau de bord", icone: "◈", exact: true },
   { vers: "/admin/organisations", libelle: "Organisations", icone: "◍" },
+  { vers: "/admin/livrables", libelle: "Livrables", icone: "▣" },
   { vers: "/admin/transactions", libelle: "Transactions", icone: "◈" },
   { vers: "/admin/demandes", libelle: "Demandes", icone: "◇" },
   { vers: "/admin/jobs", libelle: "Générations", icone: "▤" },
@@ -37,6 +41,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/admin/organisations": {
     titre: "Organisations",
     sous: "Formule, solde, consommation et volumes, agence par agence.",
+  },
+  "/admin/livrables": {
+    titre: "Livrables",
+    sous: "Plan de chapitres, données collectées et charte du modèle, livrable par livrable.",
   },
   "/admin/transactions": {
     titre: "Transactions",
@@ -84,6 +92,9 @@ export function CoquilleAdmin() {
   const barre = useBarreLaterale();
   const entete = enteteDe(chemin);
 
+  // La requete sert encore : la pastille a cote de << Demandes >> signale qu'il
+  // y a quelque chose a traiter. C'est le gros bloc de pied qui a ete retire,
+  // pas cet indicateur — il tient en deux chiffres et il est a sa place.
   const { data: demandes } = useQuery({
     queryKey: ["admin", "demandes"],
     queryFn: adminApi.demandes,
@@ -136,13 +147,10 @@ export function CoquilleAdmin() {
           ))}
         </ul>
 
-        <div className="espace-solde">
-          <div className="espace-solde-libelle">Demandes à traiter</div>
-          <div className="espace-solde-valeur">{aTraiter}</div>
-          <div className="espace-solde-detail">
-            {aTraiter === 0 ? "Rien en attente" : "Formules et crédits"}
-          </div>
-        </div>
+        {/* Meme retrait que dans l'espace client. Le compteur de demandes a
+            d'autant moins sa place ici que la file s'est videe : depuis que le
+            paiement et l'achat de credits sont directs, plus rien n'y atterrit
+            sauf le changement de formule d'un abonnement sans carte. */}
 
         <button type="button" className="bouton bouton-discret" onClick={deconnecter}>
           Se déconnecter

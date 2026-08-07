@@ -1,8 +1,11 @@
 /** Coquille de l'espace client : barre latérale, en-tête, contenu.
  *
- * La barre porte le solde de crédits en permanence. C'est délibéré : le §9.6
- * demande de « consulter la formule en cours et le solde », et la valeur qui
- * décide si l'on peut commander ne doit pas se trouver derrière un clic.
+ * La barre ne porte plus le solde. Elle l'affichait en permanence, sur chaque
+ * écran — le §9.6 demande de « consulter la formule en cours et le solde », et
+ * la lecture d'alors était que la valeur décidant d'une commande ne devait pas
+ * se trouver derrière un clic. La cliente l'a retiré le 07/08/2026. Le solde
+ * reste consultable là où on va le chercher : la page Crédits, qui le donne
+ * avec son historique et son autonomie.
  */
 import { useBarreLaterale } from "../theme/useBarreLaterale";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
@@ -125,15 +128,10 @@ export function Coquille() {
           ))}
         </ul>
 
-        <div className={alerte ? "espace-solde bas" : "espace-solde"}>
-          <div className="espace-solde-libelle">Solde</div>
-          <div className="espace-solde-valeur">{f.nombre(solde)}</div>
-          <div className="espace-solde-detail">
-            {moi?.abonnement
-              ? `Formule ${moi.abonnement.formule}`
-              : "Aucun abonnement actif"}
-          </div>
-        </div>
+        {/* Le solde n'est plus affiche dans la barre.
+            Il y figurait en permanence, sur chaque ecran. La cliente l'a
+            retire. Le chiffre reste consultable la ou on va le chercher : la
+            page Credits, qui le donne avec son historique et son autonomie. */}
 
         <button type="button" className="bouton bouton-discret" onClick={deconnecter}>
           Se déconnecter

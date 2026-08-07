@@ -46,6 +46,12 @@ urlpatterns = [
     ),
     # Actions d'administration : elles remplacent l'usage de /admin/ Django.
     path("supervision/formules/", actions.formules, name="supervision-formules"),
+    # Ce qui fabrique chaque livrable, en lecture seule.
+    path(
+        "supervision/livrables/",
+        supervision.livrables,
+        name="supervision-livrables",
+    ),
     path(
         "supervision/abonnes/",
         actions.creer_abonne,
