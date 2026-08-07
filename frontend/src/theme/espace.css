@@ -2227,3 +2227,37 @@
   gap: var(--e-2);
   margin-bottom: var(--e-5);
 }
+
+/* Achat de crédits à l'unité. Le total s'affiche À CÔTÉ du champ, pas après
+ * validation : le prix d'un geste doit être connu avant de le faire. */
+.achat-credits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-3);
+}
+
+.achat-credits label {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+.achat-credits input {
+  width: 92px;
+  padding: var(--e-2) var(--e-3);
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-carte);
+  font: inherit;
+  color: var(--texte-fort);
+}
+
+.achat-credits input:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+.achat-credits-total {
+  font-weight: 600;
+  color: var(--texte-fort);
+}

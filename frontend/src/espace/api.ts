@@ -147,6 +147,9 @@ export interface Moi {
     /** Faux pour un abonnement ouvert à la main depuis l'administration : il
      *  n'y a aucun prélèvement à arrêter ni à modifier. */
     pilote_par_carte: boolean;
+    /** Tarif d'un crédit acheté à l'unité, en centimes. Vient de la
+     *  formule : jamais recopié côté navigateur. */
+    prix_credit_supplementaire_cents: number;
   } | null;
   /** Souscription demandée mais pas encore activée — le paiement n'est pas
    *  branché, EVKHA active à la main. Sans ce champ, quelqu'un qui vient de
@@ -479,6 +482,19 @@ export const espaceApi = {
       "/abonnement/arreter/",
       { method: "POST", body: "{}" },
     ),
+  /** Ouvre un paiement PONCTUEL pour des crédits supplémentaires.
+   *
+   *  La page publique en annonce le tarif depuis le premier jour — « Crédit
+   *  supplémentaire : 59 € » — et aucun chemin ne permettait de les payer.
+   *
+   *  Le montant n'est PAS envoyé : seul le nombre l'est. Le tarif unitaire est
+   *  celui de la formule, côté serveur. Envoyer un prix depuis le navigateur
+   *  reviendrait à laisser choisir combien payer. */
+  acheterDesCredits: (quantite: number) =>
+    appel<{ url: string }>("/credits/acheter/", {
+      method: "POST",
+      body: JSON.stringify({ quantite }),
+    }),
   reprendreAbonnement: () =>
     appel<{ renouvellement_actif: boolean }>("/abonnement/reprendre/", {
       method: "POST",

@@ -170,6 +170,91 @@ def creer_session_de_paiement(
     return adresse
 
 
+def creer_paiement_de_credits(
+    *,
+    organisation: Any,
+    formule: Any,
+    quantite: int,
+    email: str = "",
+) -> str:
+    """Ouvre un paiement PONCTUEL pour des credits supplementaires.
+
+    `mode="payment"` et non `subscription` : c'est un achat unique, pas un
+    engagement. Le confondre avec l'abonnement creerait un second prelevement
+    mensuel a cote du premier — le client paierait deux fois par mois pour
+    avoir achete des credits une fois.
+
+    Le montant est transmis A LA VOLEE (`price_data`) plutot que par un tarif
+    Stripe preenregistre. Un tarif par formule ferait quatre produits de plus a
+    creer et a tenir a jour, et le prix du credit supplementaire vit deja dans
+    la formule, en administration : le dupliquer chez Stripe ferait deux
+    verites pour un meme tarif (regle 5), et celle de Stripe gagnerait sans que
+    personne ne l'ait decide.
+
+    La QUANTITE voyage dans les metadonnees. La relire depuis le montant paye
+    serait une division, donc une occasion de se tromper d'un credit le jour
+    ou une remise ou un arrondi s'en mele.
+    """
+    prix_unitaire = int(getattr(formule, "prix_credit_supplementaire_cents", 0) or 0)
+    if prix_unitaire <= 0:
+        raise PaiementIndisponible(
+            f"La formule « {formule.libelle} » ne propose pas de credit "
+            "supplementaire. Renseignez son tarif en administration."
+        )
+
+    facultatifs: dict[str, Any] = {}
+    if email:
+        facultatifs["customer_email"] = email
+
+    libelle = (
+        f"{quantite} credit supplementaire"
+        if quantite == 1
+        else f"{quantite} credits supplementaires"
+    )
+
+    try:
+        session: Any = stripe.checkout.Session.create(
+            api_key=cle_secrete(),
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": str(getattr(formule, "devise", "EUR") or "EUR").lower(),
+                    "unit_amount": prix_unitaire,
+                    "product_data": {"name": f"EVKHA — {libelle}"},
+                },
+                "quantity": quantite,
+            }],
+            client_reference_id=str(organisation.id),
+            success_url=_adresse_de_retour("/espace/credits?achat=ok"),
+            cancel_url=_adresse_de_retour("/espace/credits?achat=abandon"),
+            metadata={
+                "organisation_id": str(organisation.id),
+                "formule_code": formule.code,
+                # Ce qui distingue cet achat d'une souscription au webhook.
+                "achat": "credits",
+                "quantite": str(quantite),
+            },
+            **facultatifs,
+        )
+    except stripe.StripeError as exc:
+        _log.error(
+            "Stripe a refuse l'achat de credits (organisation=%s, quantite=%s) : %s",
+            organisation.id, quantite, exc,
+        )
+        raise PaiementIndisponible(
+            "Le paiement est momentanément indisponible. Réessayez dans "
+            "quelques minutes."
+        ) from exc
+
+    adresse = str(session.get("url") or "")
+    if not adresse:
+        raise PaiementIndisponible(
+            "Le paiement est momentanément indisponible. Réessayez dans "
+            "quelques minutes."
+        )
+    return adresse
+
+
 def arreter_le_renouvellement(reference_stripe: str) -> str:
     """Demande à Stripe de ne plus reconduire cet abonnement.
 

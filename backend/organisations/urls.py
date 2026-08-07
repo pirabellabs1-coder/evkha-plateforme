@@ -30,6 +30,13 @@ urlpatterns = [
     path("profil/", vues.modifier_son_profil, name="profil"),
     path("adresse/", vues.demander_une_nouvelle_adresse, name="adresse"),
     path("credits/", vues.journal_credits, name="credits"),
+    # Achat de credits a l'unite : la page publique en annonce le tarif
+    # depuis le premier jour, et aucun chemin ne permettait de les payer.
+    path(
+        "credits/acheter/",
+        vues.acheter_des_credits,
+        name="acheter-des-credits",
+    ),
     # Agregation mensuelle : le journal ligne a ligne ne dit pas si la formule
     # est la bonne, c'est pourtant LA question d'un abonne.
     path("consommation/", vues.consommation, name="consommation"),

@@ -511,6 +511,13 @@ def moi(
             # Un abonnement ouvert à la main n'a pas de prélèvement derrière
             # lui : les boutons d'arrêt et de changement n'ont rien à piloter.
             "pilote_par_carte": bool(str(abonnement.reference_paiement or "").strip()),
+            # Tarif du credit supplementaire, pour que l'espace puisse le
+            # proposer a l'achat. Il vient de la FORMULE : le recopier dans
+            # le React en ferait une seconde verite, et la page publique
+            # finirait par annoncer un prix que la caisse ne pratique pas.
+            "prix_credit_supplementaire_cents": (
+                abonnement.formule.prix_credit_supplementaire_cents
+            ),
             # La regle de report N'ETAIT PAS exposee, et l'interface ecrivait
             # « Aucun » en dur : elle affirmait donc au client ce qu'il advient
             # de ses credits sans jamais l'avoir lu. Une formule a report
@@ -1161,6 +1168,79 @@ def demander_une_nouvelle_adresse(
         # panne de messagerie ne doit pas laisser la personne sans recours.
         "lien_confirmation": "" if envoye else lien,
     }, status=202)
+
+
+#: Nombre de crédits qu'un achat unique peut porter.
+#:
+#: Un plafond, parce qu'une quantité venue du navigateur ne se croit pas :
+#: `quantite = 100000` produirait une facture de six millions d'euros que
+#: personne ne paiera, mais aussi une session Stripe absurde dans le journal.
+#: Cinquante couvre très largement le besoin d'un partenaire — la plus grosse
+#: formule en inclut dix par mois.
+ACHAT_CREDITS_MAX = 50
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("gerer_abonnement", ecriture="gerer_abonnement")
+def acheter_des_credits(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Ouvre un paiement ponctuel pour des crédits supplémentaires.
+
+    La page publique annonce « Crédit supplémentaire : 59 € » sur chaque
+    formule depuis le premier jour, et **aucun chemin ne permettait d'en
+    acheter** : pas de bouton, pas de route, pas de paiement. Un partenaire à
+    court de crédits en milieu de mois n'avait qu'à attendre le suivant.
+
+    **Rien de ce que le navigateur envoie ne fixe un prix.** On ne lit qu'une
+    quantité ; le tarif unitaire est celui de la formule de l'organisation, en
+    administration. Accepter un montant depuis le client reviendrait à laisser
+    choisir combien payer.
+
+    L'abonnement actif est exigé, et ce n'est pas une restriction gratuite :
+    c'est lui qui porte la formule, donc le tarif. Sans lui, il n'existe aucun
+    prix à appliquer — et en inventer un par défaut ferait payer à quelqu'un un
+    tarif que personne ne lui a annoncé.
+    """
+    abonnement = abonnement_actif(organisation)
+    if abonnement is None:
+        return _refus(
+            "L'achat de crédits supplémentaires est réservé aux abonnés. "
+            "Souscrivez à une formule pour en bénéficier.",
+            "sans_abonnement",
+            409,
+        )
+
+    brut = _corps(request).get("quantite")
+    try:
+        quantite = int(str(brut))
+    except (TypeError, ValueError):
+        return _refus("Indiquez un nombre de crédits.", "quantite_invalide", 400)
+
+    if quantite < 1 or quantite > ACHAT_CREDITS_MAX:
+        return _refus(
+            f"Le nombre de crédits doit être compris entre 1 et "
+            f"{ACHAT_CREDITS_MAX}.",
+            "quantite_invalide",
+            400,
+        )
+
+    try:
+        adresse = paiement_stripe.creer_paiement_de_credits(
+            organisation=organisation,
+            formule=abonnement.formule,
+            quantite=quantite,
+            email=organisation.contact.email if organisation.contact_id else "",
+        )
+    except paiement_stripe.PaiementIndisponible as exc:
+        return _refus(str(exc), "paiement_indisponible", 503)
+
+    _log.info(
+        "Achat de credits ouvert : organisation=%s quantite=%s",
+        organisation.id, quantite,
+    )
+    return JsonResponse({"url": adresse})
 
 
 @csrf_exempt

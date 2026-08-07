@@ -201,6 +201,13 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
     if str(session.get("status") or "") != "complete":
         return "session non terminee, ignoree"
 
+    # Un achat de credits passe par le MEME evenement qu'une souscription. Sans
+    # cet aiguillage, il serait traite comme un abonnement : `_identite` ne
+    # trouverait aucun abonnement Stripe, ouvrirait un incident, et le client
+    # aurait paye sans rien recevoir.
+    if str((session.get("metadata") or {}).get("achat") or "") == "credits":
+        return _crediter_l_achat(session)
+
     abonnement_stripe = str(session.get("subscription") or "")
     organisation_id, formule_code = _identite(session, abonnement_stripe)
     _, cree = assurer_abonnement(
@@ -209,6 +216,74 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
         reference_stripe=abonnement_stripe,
     )
     return "abonnement ouvert" if cree else "abonnement deja ouvert"
+
+
+def _crediter_l_achat(session: dict[str, Any]) -> str:
+    """Verse les credits supplementaires payes a l'unite.
+
+    La quantite vient des METADONNEES, pas du montant : la relire par division
+    serait une occasion de se tromper d'un credit le jour ou une remise ou un
+    arrondi s'en mele.
+
+    Le type `ACHAT` n'est pas cosmetique. `credits.ENTREES_PERENNES` le
+    distingue de la dotation mensuelle : ces credits-la NE PERIMENT PAS. Les
+    verser en `DOTATION` les ferait expirer a la fin du mois — le client aurait
+    paye 59 EUR pour un credit qui disparait le 31.
+
+    La reference de session sert de garde : Stripe rejoue ses evenements
+    pendant trois jours, et un second versement doublerait les credits d'un
+    paiement unique. Le journal des webhooks assure deja cette idempotence, mais
+    les deux verrous ne jugent pas sur la meme evidence (regle 9).
+    """
+    from organisations import credits as credits_service  # noqa: PLC0415
+    from organisations.models import MouvementCredit, TypeMouvement  # noqa: PLC0415
+
+    metadonnees = session.get("metadata") or {}
+    reference = str(session.get("id") or "").strip()
+    organisation_id = str(
+        metadonnees.get("organisation_id") or session.get("client_reference_id") or ""
+    ).strip()
+
+    try:
+        quantite = int(metadonnees.get("quantite") or 0)
+    except (TypeError, ValueError):
+        quantite = 0
+
+    if not organisation_id or quantite <= 0:
+        _incident(
+            "Achat de credits inexploitable",
+            IncidentSeverity.HIGH,
+            session=reference,
+            motif=(
+                "Paiement de credits sans organisation ou sans quantite "
+                f"lisible : organisation={organisation_id!r}, "
+                f"quantite={metadonnees.get('quantite')!r}."
+            ),
+        )
+        return "achat de credits inexploitable"
+
+    if reference and MouvementCredit.objects.filter(reference=reference).exists():
+        return "achat deja credite"
+
+    organisation = Organisation.objects.filter(id=organisation_id).first()
+    if organisation is None:
+        _incident(
+            "Achat de credits sans organisation connue",
+            IncidentSeverity.HIGH,
+            session=reference,
+            motif=f"Organisation {organisation_id} introuvable.",
+        )
+        return "organisation inconnue"
+
+    credits_service.crediter(
+        organisation,
+        quantite,
+        motif=f"Achat de {quantite} credit(s) supplementaire(s)",
+        type_mouvement=TypeMouvement.ACHAT,
+        reference=reference,
+        auteur="stripe",
+    )
+    return f"{quantite} credits achetes"
 
 
 def sur_facture_payee(facture: dict[str, Any]) -> str:

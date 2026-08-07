@@ -1,9 +1,10 @@
 /** Crédits et abonnement (§9.6) : solde, formule, consommation ligne par ligne. */
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { espaceApi, type Mouvement } from "../api";
 import * as f from "../format";
 import { useMoi } from "../useMoi";
-import { Carte, Chiffre, Squelette, Vide } from "../composants/Interface";
+import { Bandeau, Carte, Chiffre, Squelette, Vide } from "../composants/Interface";
 import { Autonomie } from "../composants/Autonomie";
 import { telechargerJournal } from "../journal";
 import { Colonnes } from "../../viz/Graphiques";
@@ -30,6 +31,28 @@ export function Credits() {
     queryKey: ["espace", "consommation"],
     queryFn: espaceApi.consommation,
   });
+
+  // Achat de credits a l'unite. Le tarif est celui de la formule, cote
+  // serveur : on n'envoie que le NOMBRE. Envoyer un prix depuis ici
+  // reviendrait a laisser choisir combien payer.
+  const [quantite, setQuantite] = useState(1);
+  const [erreurAchat, setErreurAchat] = useState("");
+  const achat = useMutation({
+    mutationFn: () => espaceApi.acheterDesCredits(quantite),
+    // On ne remplace pas la page : Stripe s'ouvre, et le retour repasse par
+    // `/espace/credits`. Les credits n'arrivent qu'au webhook, jamais au retour
+    // du navigateur — celui-ci peut etre tape a la main par n'importe qui.
+    onSuccess: (reponse) => {
+      window.location.href = reponse.url;
+    },
+    onError: (cause: unknown) =>
+      setErreurAchat(
+        cause instanceof Error ? cause.message : "Achat impossible pour l'instant.",
+      ),
+  });
+
+  const tarif = moi?.abonnement?.prix_credit_supplementaire_cents ?? 0;
+  const abonne = Boolean(moi?.abonnement);
 
   const mouvements = data?.mouvements ?? [];
   const consommes = mouvements
@@ -80,6 +103,49 @@ export function Credits() {
 
           L'agrégation vient du serveur, comme l'autonomie ci-dessus : la
           refaire ici ferait deux calculs, et deux occasions de se contredire. */}
+      {/* Le tarif du credit supplementaire figure sur la page publique depuis
+          le premier jour. Il n'y avait aucun moyen d'en acheter : un abonne a
+          court de credits en milieu de mois n'avait qu'a attendre le suivant. */}
+      {abonne && tarif > 0 && (
+        <Carte
+          titre="Besoin de crédits supplémentaires ?"
+          note={`${f.montant(tarif)} le crédit, au tarif de votre formule. Ces crédits-là n'expirent pas.`}
+        >
+          {erreurAchat && (
+            <Bandeau ton="echec" titre="Achat impossible">
+              {erreurAchat}
+            </Bandeau>
+          )}
+          <div className="achat-credits">
+            <label htmlFor="quantite-credits">Nombre de crédits</label>
+            <input
+              id="quantite-credits"
+              type="number"
+              min={1}
+              max={50}
+              value={quantite}
+              onChange={(evenement) =>
+                setQuantite(Math.max(1, Math.min(50, Number(evenement.target.value) || 1)))
+              }
+            />
+            <span className="achat-credits-total">
+              soit {f.montant(tarif * quantite)}
+            </span>
+            <button
+              type="button"
+              className="bouton"
+              onClick={() => {
+                setErreurAchat("");
+                achat.mutate();
+              }}
+              disabled={achat.isPending}
+            >
+              {achat.isPending ? "Ouverture du paiement…" : "Acheter"}
+            </button>
+          </div>
+        </Carte>
+      )}
+
       {conso && (conso.total_recu > 0 || conso.total_consomme > 0) && (
         <Carte
           titre="Douze derniers mois"
