@@ -31,6 +31,8 @@ organisation et par mois — l'agrégat coûte moins qu'un bug de solde.
 """
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import Sum
@@ -642,3 +644,80 @@ class Encaissement(UUIDModel):
 
     def __str__(self) -> str:
         return f"{self.montant_cents / 100:.2f} {self.devise} — {self.organisation}"
+
+
+class EtatTentative(models.TextChoices):
+    """Où en est une tentative de paiement."""
+
+    OUVERTE = "ouverte", "Ouverte — en attente de paiement"
+    PAYEE = "payee", "Payée"
+    ABANDONNEE = "abandonnee", "Abandonnée"
+
+
+class ObjetTentative(models.TextChoices):
+    ABONNEMENT = "abonnement", "Souscription à une formule"
+    CREDITS = "credits", "Achat de crédits supplémentaires"
+
+
+class TentativePaiement(UUIDModel):
+    """Une session de paiement ouverte, aboutie ou non.
+
+    Rien n'était enregistré : on demandait une adresse à Stripe, on la donnait
+    au client, et s'il abandonnait, personne ne le savait jamais. Un panier
+    abandonné est pourtant l'information commerciale la plus utile de la
+    plateforme — quelqu'un a voulu payer et s'est arrêté en chemin.
+
+    La tentative naît à l'ouverture du paiement, pas à son aboutissement.
+    C'est tout l'intérêt : une tentative qui reste `OUVERTE` est exactement ce
+    qu'on cherche à voir.
+
+    Elle ne remplace pas `Encaissement`, qui est la comptabilité : ici on suit
+    une INTENTION, là on constate une recette. Les confondre ferait figurer des
+    paniers abandonnés dans le chiffre d'affaires.
+    """
+
+    organisation = models.ForeignKey(
+        Organisation, on_delete=models.CASCADE, related_name="tentatives_paiement"
+    )
+    objet = models.CharField(max_length=16, choices=ObjetTentative.choices)
+    etat = models.CharField(
+        max_length=16, choices=EtatTentative.choices, default=EtatTentative.OUVERTE
+    )
+    #: Formule visée pour une souscription. Nul pour un achat de crédits.
+    formule = models.ForeignKey(
+        "Formule", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    #: Nombre de crédits pour un achat. Zéro pour une souscription.
+    quantite = models.PositiveSmallIntegerField(default=0)
+    montant_cents = models.PositiveIntegerField(default=0)
+    devise = models.CharField(max_length=3, default="EUR")
+    #: Identifiant de la session Checkout. UNIQUE : le webhook la retrouve par
+    #: là, et deux lignes pour une session rendraient l'état ambigu.
+    reference_session = models.CharField(max_length=200, unique=True)
+    payee_le = models.DateTimeField(null=True, blank=True)
+    #: Dernière relance envoyée. Sert à ne pas harceler : l'écran d'admin le
+    #: montre, et c'est un humain qui décide de renvoyer.
+    relancee_le = models.DateTimeField(null=True, blank=True)
+    relances = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "tentative de paiement"
+        verbose_name_plural = "tentatives de paiement"
+        indexes = [models.Index(fields=["etat", "-created_at"])]
+
+    def __str__(self) -> str:
+        return f"{self.get_objet_display()} — {self.organisation} ({self.etat})"
+
+    @property
+    def abandonnee(self) -> bool:
+        """Ouverte depuis plus d'une journée : Stripe a expiré la session.
+
+        Calculé plutôt que stocké. Stripe n'envoie `checkout.session.expired`
+        que si l'on s'y abonne, et compter sur un événement facultatif pour
+        savoir si un panier est abandonné ferait dépendre une information
+        commerciale d'un réglage que personne ne verrait s'il sautait.
+        """
+        if self.etat != EtatTentative.OUVERTE:
+            return False
+        return (timezone.now() - self.created_at) > timedelta(hours=24)

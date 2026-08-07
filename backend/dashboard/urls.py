@@ -32,6 +32,18 @@ urlpatterns = [
         name="supervision-organisations",
     ),
     path("supervision/demandes/", supervision.demandes, name="supervision-demandes"),
+    # Suivi des paiements : aboutis, en cours, abandonnes. Rien n'etait
+    # enregistre — une session ouverte puis delaissee ne laissait aucune trace.
+    path(
+        "supervision/transactions/",
+        supervision.transactions,
+        name="supervision-transactions",
+    ),
+    path(
+        "supervision/transactions/<str:transaction_id>/relancer/",
+        supervision.relancer_la_transaction,
+        name="supervision-transaction-relancer",
+    ),
     # Actions d'administration : elles remplacent l'usage de /admin/ Django.
     path("supervision/formules/", actions.formules, name="supervision-formules"),
     path(

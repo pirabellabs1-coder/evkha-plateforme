@@ -8,6 +8,7 @@ import { GabaritRacine } from "./GabaritRacine";
 import { CoquilleAdmin } from "./admin/Coquille";
 import { TableauDeBordAdmin } from "./admin/pages/TableauDeBord";
 import { OrganisationsAdmin } from "./admin/pages/Organisations";
+import { TransactionsAdmin } from "./admin/pages/Transactions";
 import { DemandesAdmin } from "./admin/pages/Demandes";
 import { Jobs } from "./pages/Jobs";
 import { JobDetail } from "./pages/JobDetail";
@@ -124,6 +125,12 @@ const adminOrganisations = createRoute({
   component: OrganisationsAdmin,
 });
 
+const adminTransactions = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "transactions",
+  component: TransactionsAdmin,
+});
+
 const adminDemandes = createRoute({
   getParentRoute: () => adminRoute,
   path: "demandes",
@@ -197,6 +204,7 @@ const routeTree = rootRoute.addChildren([
   adminRoute.addChildren([
     adminIndex,
     adminOrganisations,
+    adminTransactions,
     adminDemandes,
     adminJobs,
     adminJobDetail,

@@ -266,3 +266,57 @@ def prevenir_l_ancienne_adresse(*, destinataire: str, nouvelle: str) -> bool:
             f"</div></div></div>"
         ),
     )
+
+
+def relancer_un_paiement(
+    *,
+    destinataire: str,
+    organisation: str,
+    objet: str,
+    montant_cents: int,
+    devise: str = "EUR",
+) -> bool:
+    """Invite à terminer un paiement resté en suspens.
+
+    **Aucun lien de paiement n'est renvoyé.** Une session Stripe expire au bout
+    de vingt-quatre heures : un lien mort dans un courriel de relance donnerait
+    l'impression d'un service en panne au moment précis où l'on cherche à
+    rassurer. On renvoie vers l'espace, où le geste est à un clic et toujours
+    valable.
+
+    Le ton n'insiste pas. Quelqu'un qui a renoncé à payer a peut-être une bonne
+    raison — un doute, un budget, un empêchement. Une relance qui presse
+    transforme une hésitation en refus.
+    """
+    montant = f"{montant_cents / 100:.2f} {devise}".replace(".", ",")
+    return _envoyer(
+        destinataire=destinataire,
+        sujet="Votre commande EVKHA n'a pas été finalisée",
+        corps_html=_gabarit(
+            titre="Votre commande est restée en attente",
+            phrases=[
+                f"Vous avez commencé une {objet.lower()} pour "
+                f"{escape(organisation)} — {montant} — sans aller au bout du "
+                "paiement.",
+                "Rien n'a été débité et rien n'est perdu : vous pouvez "
+                "reprendre depuis votre espace quand vous le souhaitez.",
+                "Si vous avez une question sur la formule ou sur les crédits, "
+                "répondez simplement à ce message.",
+            ],
+            lien=_adresse_de_l_espace(),
+            bouton="Reprendre depuis mon espace",
+        ),
+    )
+
+
+def _adresse_de_l_espace() -> str:
+    """L'adresse publique de l'espace client, telle que la configuration la dit.
+
+    Lue dans les réglages plutôt qu'écrite ici : un domaine en dur dans un
+    courriel survit aux déménagements, et envoie les clients sur une adresse
+    morte sans que personne ne s'en aperçoive.
+    """
+    from django.conf import settings  # noqa: PLC0415
+
+    base = str(getattr(settings, "EVKHA_APP_URL", "") or "").rstrip("/")
+    return f"{base}/espace/abonnement" if base else "https://app2.evkha.fr/espace"

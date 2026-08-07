@@ -21,6 +21,7 @@ import { clearToken } from "../auth";
 const ENTREES = [
   { vers: "/admin", libelle: "Tableau de bord", icone: "◈", exact: true },
   { vers: "/admin/organisations", libelle: "Organisations", icone: "◍" },
+  { vers: "/admin/transactions", libelle: "Transactions", icone: "◈" },
   { vers: "/admin/demandes", libelle: "Demandes", icone: "◇" },
   { vers: "/admin/jobs", libelle: "Générations", icone: "▤" },
   { vers: "/admin/incidents", libelle: "Incidents", icone: "⚠" },
@@ -36,6 +37,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/admin/organisations": {
     titre: "Organisations",
     sous: "Formule, solde, consommation et volumes, agence par agence.",
+  },
+  "/admin/transactions": {
+    titre: "Transactions",
+    sous: "Paiements aboutis, en cours et paniers abandonnés. Relance au cas par cas.",
   },
   "/admin/demandes": {
     titre: "Demandes à traiter",

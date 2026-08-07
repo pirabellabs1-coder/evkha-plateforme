@@ -201,6 +201,8 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
     if str(session.get("status") or "") != "complete":
         return "session non terminee, ignoree"
 
+    _marquer_la_tentative_payee(str(session.get("id") or ""))
+
     # Un achat de credits passe par le MEME evenement qu'une souscription. Sans
     # cet aiguillage, il serait traite comme un abonnement : `_identite` ne
     # trouverait aucun abonnement Stripe, ouvrirait un incident, et le client
@@ -216,6 +218,33 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
         reference_stripe=abonnement_stripe,
     )
     return "abonnement ouvert" if cree else "abonnement deja ouvert"
+
+
+def _marquer_la_tentative_payee(reference: str) -> None:
+    """Ferme la tentative ouverte a l'entree du paiement.
+
+    Sans cela, une souscription reussie resterait affichee comme panier
+    abandonne dans l'administration — et la cliente relancerait un client qui a
+    deja paye. Un suivi qui se trompe est pire qu'un suivi absent (regle 2).
+
+    Ne leve jamais : le versement des credits ne doit pas dependre de la bonne
+    tenue d'un tableau de bord.
+    """
+    if not reference:
+        return
+    try:
+        from django.utils import timezone  # noqa: PLC0415
+
+        from organisations.models import (  # noqa: PLC0415
+            EtatTentative,
+            TentativePaiement,
+        )
+
+        TentativePaiement.objects.filter(reference_session=reference).update(
+            etat=EtatTentative.PAYEE, payee_le=timezone.now()
+        )
+    except Exception:  # noqa: BLE001
+        _log.exception("Tentative de paiement non marquee payee (%s)", reference)
 
 
 def _crediter_l_achat(session: dict[str, Any]) -> str:

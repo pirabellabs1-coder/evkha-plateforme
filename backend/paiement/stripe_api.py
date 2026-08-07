@@ -9,6 +9,7 @@ donc passee explicitement a chaque appel.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import stripe
@@ -87,9 +88,22 @@ def _adresse_de_retour(chemin: str) -> str:
     return f"{base}{chemin}"
 
 
+@dataclass(frozen=True)
+class SessionOuverte:
+    """Une session Checkout, telle que Stripe vient de la creer.
+
+    L'adresse seule ne suffisait plus : sans l'IDENTIFIANT, une tentative de
+    paiement ouverte ne peut pas etre retrouvee au retour du webhook, et un
+    panier abandonne reste invisible pour toujours.
+    """
+
+    identifiant: str
+    adresse: str
+
+
 def creer_session_de_paiement(
     organisation: Organisation, formule: Formule, *, email: str
-) -> str:
+) -> SessionOuverte:
     """Ouvre une session Checkout et rend l'adresse ou envoyer la personne.
 
     `mode="subscription"` et non `payment` : c'est Stripe qui portera ensuite
@@ -167,7 +181,9 @@ def creer_session_de_paiement(
             "Le paiement est momentanément indisponible. Réessayez dans "
             "quelques minutes."
         )
-    return adresse
+    return SessionOuverte(
+        identifiant=str(session.get("id") or ""), adresse=adresse
+    )
 
 
 def creer_paiement_de_credits(
@@ -176,7 +192,7 @@ def creer_paiement_de_credits(
     formule: Any,
     quantite: int,
     email: str = "",
-) -> str:
+) -> SessionOuverte:
     """Ouvre un paiement PONCTUEL pour des credits supplementaires.
 
     `mode="payment"` et non `subscription` : c'est un achat unique, pas un
@@ -252,7 +268,9 @@ def creer_paiement_de_credits(
             "Le paiement est momentanément indisponible. Réessayez dans "
             "quelques minutes."
         )
-    return adresse
+    return SessionOuverte(
+        identifiant=str(session.get("id") or ""), adresse=adresse
+    )
 
 
 def arreter_le_renouvellement(reference_stripe: str) -> str:

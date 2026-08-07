@@ -73,6 +73,26 @@ export interface Evolution {
   }[];
 }
 
+export interface TransactionSupervision {
+  id: string;
+  ouverte_le: string;
+  organisation: string;
+  organisation_id: string;
+  contact: string;
+  objet: "abonnement" | "credits";
+  objet_libelle: string;
+  formule: string;
+  quantite: number;
+  montant_cents: number;
+  devise: string;
+  /** « ouverte » tant que Stripe attend, « abandonnee » passé 24 h, « payee »
+   *  quand le webhook a confirmé. L'abandon est calculé, jamais reçu. */
+  etat: "ouverte" | "payee" | "abandonnee";
+  payee_le: string;
+  relances: number;
+  relancee_le: string;
+}
+
 export interface OrganisationSupervision {
   id: string;
   raison_sociale: string;
@@ -128,6 +148,19 @@ export const adminApi = {
   synthese: (jours = 30) => get<Synthese>("/supervision/synthese/", { jours: String(jours) }),
   evolution: (mois = 12) =>
     get<Evolution>("/supervision/evolution/", { mois: String(mois) }),
+  transactions: (etat = "") =>
+    get<{
+      transactions: TransactionSupervision[];
+      resume: {
+        en_cours: number;
+        abandonnees: number;
+        payees: number;
+        manque_a_gagner_cents: number;
+        encaisse_cents: number;
+      };
+    }>("/supervision/transactions/", etat ? { etat } : undefined),
+  relancerLaTransaction: (id: string) =>
+    post<{ relances: number }>(`/supervision/transactions/${id}/relancer/`, {}),
   organisations: () =>
     get<{ organisations: OrganisationSupervision[] }>("/supervision/organisations/"),
   demandes: () =>

@@ -34,6 +34,7 @@ from typing import Any
 
 from django.db.models import Count, Q, Sum
 from django.http import HttpRequest, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from customers.models import Customer
@@ -416,3 +417,135 @@ def demandes(request: HttpRequest) -> JsonResponse:
             statut=StatutDemande.OUVERTE
         ).count(),
     })
+
+
+# ── Transactions et paniers abandonnés ───────────────────────────────────────
+
+
+@require_http_methods(["GET"])
+def transactions(request: HttpRequest) -> JsonResponse:
+    """Les paiements ouverts, aboutis ou abandonnés.
+
+    Une session de paiement ne laissait aucune trace : on demandait une adresse
+    à Stripe, on la donnait au client, et s'il abandonnait, personne ne le
+    savait jamais. Un panier abandonné est pourtant l'information commerciale la
+    plus utile de la plateforme — quelqu'un a voulu payer et s'est arrêté.
+
+    L'état « abandonnée » est CALCULÉ sur l'âge, pas stocké. Stripe n'envoie
+    `checkout.session.expired` que si l'on s'y abonne : faire dépendre une
+    information commerciale d'un réglage facultatif reviendrait à la perdre le
+    jour où quelqu'un le décoche, sans que rien ne le signale.
+    """
+    from organisations.models import EtatTentative, TentativePaiement
+
+    filtre = str(request.GET.get("etat", "")).strip()
+    lignes = TentativePaiement.objects.select_related(
+        "organisation", "organisation__contact", "formule"
+    )[:400]
+
+    resultat: list[dict[str, Any]] = []
+    for tentative in lignes:
+        etat = (
+            EtatTentative.ABANDONNEE if tentative.abandonnee else tentative.etat
+        )
+        if filtre and etat != filtre:
+            continue
+        contact = tentative.organisation.contact
+        resultat.append({
+            "id": str(tentative.id),
+            "ouverte_le": tentative.created_at.isoformat(),
+            "organisation": tentative.organisation.raison_sociale,
+            "organisation_id": str(tentative.organisation_id),
+            "contact": contact.email if contact else "",
+            "objet": tentative.objet,
+            "objet_libelle": tentative.get_objet_display(),
+            "formule": tentative.formule.libelle if tentative.formule else "",
+            "quantite": tentative.quantite,
+            "montant_cents": tentative.montant_cents,
+            "devise": tentative.devise,
+            "etat": etat,
+            "payee_le": tentative.payee_le.isoformat() if tentative.payee_le else "",
+            "relances": tentative.relances,
+            "relancee_le": (
+                tentative.relancee_le.isoformat() if tentative.relancee_le else ""
+            ),
+        })
+
+    abandonnees = [t for t in resultat if t["etat"] == EtatTentative.ABANDONNEE]
+    payees = [t for t in resultat if t["etat"] == EtatTentative.PAYEE]
+
+    return _json({
+        "transactions": resultat,
+        "resume": {
+            "en_cours": sum(
+                1 for t in resultat if t["etat"] == EtatTentative.OUVERTE
+            ),
+            "abandonnees": len(abandonnees),
+            "payees": len(payees),
+            # Ce que les paniers abandonnés représentent : le seul chiffre qui
+            # dise combien vaut le fait de relancer ces personnes.
+            "manque_a_gagner_cents": sum(
+                int(t["montant_cents"]) for t in abandonnees
+            ),
+            "encaisse_cents": sum(int(t["montant_cents"]) for t in payees),
+        },
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def relancer_la_transaction(
+    request: HttpRequest, transaction_id: str
+) -> JsonResponse:
+    """Envoie un courriel invitant à terminer un paiement resté en suspens.
+
+    **Le lien de paiement n'est PAS renvoyé.** Une session Checkout expire au
+    bout de vingt-quatre heures : un lien mort dans un courriel de relance
+    donnerait l'impression d'un service en panne au moment précis où l'on
+    cherche à rassurer. Le courriel renvoie vers l'espace, où le geste est à un
+    clic et toujours valable.
+
+    La relance est comptée et datée. L'écran d'administration les montre :
+    c'est un humain qui décide de renvoyer, et il doit voir qu'il a déjà écrit
+    deux fois avant d'écrire une troisième.
+    """
+    from django.utils import timezone
+
+    from organisations import courriels
+    from organisations.models import EtatTentative, TentativePaiement
+
+    tentative = (
+        TentativePaiement.objects.select_related("organisation__contact")
+        .filter(id=transaction_id)
+        .first()
+    )
+    if tentative is None:
+        return _json({"error": "Transaction inconnue."}, 404)
+    if tentative.etat == EtatTentative.PAYEE:
+        return _json(
+            {"error": "Ce paiement est abouti : il n'y a rien à relancer."}, 409
+        )
+
+    contact = tentative.organisation.contact
+    if contact is None or not contact.email:
+        return _json(
+            {"error": "Cette organisation n'a aucune adresse de contact."}, 409
+        )
+
+    envoye = courriels.relancer_un_paiement(
+        destinataire=contact.email,
+        organisation=tentative.organisation.raison_sociale,
+        objet=tentative.get_objet_display(),
+        montant_cents=tentative.montant_cents,
+        devise=tentative.devise,
+    )
+    if not envoye:
+        return _json(
+            {"error": "Le courriel n'a pas pu être envoyé. Voir les incidents."},
+            503,
+        )
+
+    tentative.relances += 1
+    tentative.relancee_le = timezone.now()
+    tentative.save(update_fields=["relances", "relancee_le", "updated_at"])
+    return _json({"relances": tentative.relances})

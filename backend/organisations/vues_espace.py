@@ -58,11 +58,13 @@ from .models import (
     Formule,
     MembreOrganisation,
     MouvementCredit,
+    ObjetTentative,
     Organisation,
     PieceJointe,
     RoleOrganisation,
     StatutAbonnement,
     StatutDemande,
+    TentativePaiement,
     TypeDemande,
     TypeMouvement,
 )
@@ -1067,7 +1069,7 @@ def ouvrir_le_paiement(
         return _refus("Cette formule n'existe pas.", "formule_inconnue", 400)
 
     try:
-        adresse = paiement_stripe.creer_session_de_paiement(
+        session = paiement_stripe.creer_session_de_paiement(
             organisation, formule, email=membre.customer.email
         )
     except paiement_stripe.PaiementIndisponible as exc:
@@ -1080,7 +1082,15 @@ def ouvrir_le_paiement(
         )
         return _refus(str(exc), "paiement_indisponible", 503)
 
-    return JsonResponse({"adresse": adresse}, status=200)
+    _noter_la_tentative(
+        organisation=organisation,
+        objet=ObjetTentative.ABONNEMENT,
+        reference=session.identifiant,
+        formule=formule,
+        montant_cents=formule.prix_mensuel_cents,
+        devise=formule.devise,
+    )
+    return JsonResponse({"adresse": session.adresse}, status=200)
 
 
 @csrf_exempt
@@ -1170,6 +1180,44 @@ def demander_une_nouvelle_adresse(
     }, status=202)
 
 
+def _noter_la_tentative(
+    *,
+    organisation: Organisation,
+    objet: str,
+    reference: str,
+    formule: Formule | None = None,
+    quantite: int = 0,
+    montant_cents: int = 0,
+    devise: str = "EUR",
+) -> None:
+    """Enregistre qu'un paiement a été OUVERT, abouti ou non.
+
+    Rien n'était noté : on demandait une adresse à Stripe, on la donnait au
+    client, et s'il abandonnait, personne ne le savait jamais. Un panier
+    abandonné est pourtant l'information commerciale la plus utile de la
+    plateforme — quelqu'un a voulu payer et s'est arrêté en chemin.
+
+    **Ne lève jamais.** Un défaut de suivi ne doit pas empêcher un client de
+    payer : le geste qui rapporte passe avant celui qui l'observe.
+    """
+    if not reference:
+        return
+    try:
+        TentativePaiement.objects.get_or_create(
+            reference_session=reference,
+            defaults={
+                "organisation": organisation,
+                "objet": objet,
+                "formule": formule,
+                "quantite": quantite,
+                "montant_cents": montant_cents,
+                "devise": devise,
+            },
+        )
+    except Exception:  # noqa: BLE001
+        _log.exception("Tentative de paiement non enregistree (%s)", reference)
+
+
 #: Nombre de crédits qu'un achat unique peut porter.
 #:
 #: Un plafond, parce qu'une quantité venue du navigateur ne se croit pas :
@@ -1227,7 +1275,7 @@ def acheter_des_credits(
         )
 
     try:
-        adresse = paiement_stripe.creer_paiement_de_credits(
+        session = paiement_stripe.creer_paiement_de_credits(
             organisation=organisation,
             formule=abonnement.formule,
             quantite=quantite,
@@ -1236,11 +1284,21 @@ def acheter_des_credits(
     except paiement_stripe.PaiementIndisponible as exc:
         return _refus(str(exc), "paiement_indisponible", 503)
 
+    _noter_la_tentative(
+        organisation=organisation,
+        objet=ObjetTentative.CREDITS,
+        reference=session.identifiant,
+        quantite=quantite,
+        montant_cents=(
+            abonnement.formule.prix_credit_supplementaire_cents * quantite
+        ),
+        devise=abonnement.formule.devise,
+    )
     _log.info(
         "Achat de credits ouvert : organisation=%s quantite=%s",
         organisation.id, quantite,
     )
-    return JsonResponse({"url": adresse})
+    return JsonResponse({"url": session.adresse})
 
 
 @csrf_exempt
