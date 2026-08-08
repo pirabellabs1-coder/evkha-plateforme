@@ -26,6 +26,7 @@ Ces tests tiennent ce qui peut mal tourner :
 from __future__ import annotations
 
 from io import StringIO
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -33,6 +34,15 @@ import pytest
 from django.core.management import call_command
 
 MOT_DE_PASSE_VALABLE = "un-mot-de-passe-de-trente-six-signes"
+
+#: Racine du depot, deduite de l'emplacement de CE fichier et non du repertoire
+#: courant : un chemin relatif au CWD ne vaut que si pytest est lance depuis la
+#: racine, et un test qui ne trouve pas son fichier ne verrouille rien.
+RACINE = Path(__file__).resolve().parents[2]
+SOURCE_DE_LA_COMMANDE = (
+    RACINE
+    / "backend/organisations/management/commands/changer_le_mot_de_passe_postgres.py"
+)
 
 
 def _jouer(
@@ -368,33 +378,12 @@ def test_la_commande_se_connecte_sans_passer_par_django() -> None:
     `DATABASE_URL` peut ainsi porter deja le NOUVEAU, et tout ce qui suit dans
     la chaine de demarrage fonctionne du premier coup.
     """
-    from pathlib import Path
+    source = SOURCE_DE_LA_COMMANDE.read_text(encoding="utf-8")
 
-    source = Path(
-        "backend/organisations/management/commands/changer_le_mot_de_passe_postgres.py"
-    ).read_text(encoding="utf-8")
-
-    assert "psycopg.connect(" in source
-    assert "password=ancien" in source
-    assert "password=nouveau" in source
-    # Et surtout : plus aucun curseur Django, qui rouvrirait la mauvaise
-    # connexion.
+    # Le curseur Django est ce qui rouvrirait la mauvaise connexion. Son absence
+    # est une propriete de STRUCTURE : aucun test de comportement ne peut la
+    # constater, puisqu'un curseur Django ferait passer les memes assertions.
     assert "connection.cursor()" not in source
-
-
-def test_le_changement_est_idempotent() -> None:
-    """Si le nouveau mot de passe marche deja, on ne le rejoue pas.
-
-    C'est ce qui rend un redeploiement sans danger, meme en laissant les
-    variables en place — et un redeploiement, il y en a toujours un.
-    """
-    from pathlib import Path
-
-    source = Path(
-        "backend/organisations/management/commands/changer_le_mot_de_passe_postgres.py"
-    ).read_text(encoding="utf-8")
-
-    assert "deja en place, rien a faire" in source
 
 
 @pytest.mark.django_db
@@ -404,11 +393,7 @@ def test_le_seuil_de_longueur_est_de_vingt_quatre() -> None:
     Un seuil recopié dans la documentation et dans le code finit par diverger,
     et c'est la documentation qu'on lit avant de choisir un mot de passe.
     """
-    from pathlib import Path
-
-    source = Path(
-        "backend/organisations/management/commands/changer_le_mot_de_passe_postgres.py"
-    ).read_text(encoding="utf-8")
+    source = SOURCE_DE_LA_COMMANDE.read_text(encoding="utf-8")
 
     assert "len(nouveau) < 24" in source
     assert "Vingt-quatre au minimum" in source

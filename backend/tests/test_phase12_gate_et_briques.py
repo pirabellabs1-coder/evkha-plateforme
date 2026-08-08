@@ -10,6 +10,8 @@ Couvre :
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from catalog.models import DeliverableType, Offer
@@ -36,6 +38,13 @@ from intake.models import IntakeStatus, IntakeSubmission
 from integrations.claude import ClaudeResult, StubClaudeClient
 from monitoring.models import IncidentSeverity, OperationalIncident
 from orders.models import Order
+
+#: Racine du depot, deduite de l'emplacement de CE fichier et non du repertoire
+#: courant. Un chemin relatif au CWD ne vaut que si pytest est lance depuis la
+#: racine — sinon le test ne trouve rien, et on le fait taire au lieu de le
+#: reparer. Meme convention que dans les dix autres fichiers qui lisent le
+#: depot.
+RACINE = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture
@@ -494,19 +503,24 @@ def test_marqueurs_colles_sont_normalises_puis_rendus() -> None:
     assert "[[" not in strip_callout_markers(html)
 
 
-@pytest.mark.skip(reason=(
-    "Path relatif 'backend/generation/templates/...' echoue quand pytest "
-    "tourne depuis backend/ (CWD standard) — bug pre-existant sans lien "
-    "avec la refonte manuel Evangeline. A corriger separement."
-))
 def test_template_definit_le_style_action() -> None:
-    from pathlib import Path
+    """Le gabarit porte le style des encadres ACTION, et UNE seule regle de tableau.
 
-    template = Path("backend/generation/templates/generation/document.html").read_text(
-        encoding="utf-8"
-    )
-    assert "callout--action" in template
-    assert template.count(".chapter__body table {") == 1
+    Ce test a saute pendant des mois : il localisait le gabarit par un chemin
+    relatif au repertoire courant, qui ne vaut que si pytest est lance depuis la
+    racine. Le `skip` posé dessus a rendu le gabarit de rendu — ce que le client
+    lit reellement — invisible à toute la suite. Un test qui saute ne verrouille
+    rien (regle 1). Le chemin part desormais du fichier de test lui-meme.
+
+    La regle de tableau est comptee : deux declarations `.chapter__body table {`
+    se surchargeraient en silence, et c'est la derniere lue qui gagnerait.
+    """
+    gabarit = (
+        RACINE / "backend/generation/templates/generation/document.html"
+    ).read_text(encoding="utf-8")
+
+    assert "callout--action" in gabarit
+    assert gabarit.count(".chapter__body table {") == 1
 
 
 # ── Em-dash : titres preserves, prose nettoyee ──────────────────────────────
