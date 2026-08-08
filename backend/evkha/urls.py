@@ -54,20 +54,32 @@ urlpatterns = [
     # télécharge les pièces jointes par URL publique et les clients ouvrent
     # leur lien de livraison — aucun des deux ne présente de session.
     #
-    # Le commentaire précédent invoquait deux protections. AUCUNE des deux
-    # n'existait :
+    # Trois protections, et elles existent TOUTES aujourd'hui. Ce commentaire a
+    # longtemps dit le contraire, bien après que le manque eut été comblé — et
+    # ça n'est pas anodin : une relecture de sécurité menée le 08/08/2026 a
+    # conclu, sur la foi de ces lignes, que les livrables étaient accessibles
+    # sans contrôle. Elle avait lu le commentaire, pas le code. Un fichier qui
+    # se contredit lui-même est pire qu'un fichier sans commentaire.
     #
-    # - « noms de fichiers non devinables (hash) » : les pièces jointes
-    #   conservaient le nom d'origine du client, sous
-    #   `pieces-jointes/<id-organisation>/<nom>` ;
-    # - « rétention 7 jours (purge_expired_artifacts) » : cette tâche bascule
-    #   un statut en base et vide `download_url` — elle ne supprimait rien du
-    #   disque, et le fichier restait téléchargeable indéfiniment.
+    # - **Signature horodatée**, liée au chemin (`evkha/signatures.py`). Un nom
+    #   deviné ne suffit plus, et un lien n'est plus éternel. `servir_media`
+    #   répond 404 quand elle manque — volontairement indiscernable d'un
+    #   fichier absent, pour ne pas faire de cette route un oracle.
+    # - **Téléchargement forcé** : `Content-Disposition: attachment` et
+    #   `X-Content-Type-Options: nosniff`, pour qu'un fichier ne soit jamais
+    #   *rendu* sur l'origine qui héberge `/admin/` (voir `evkha/media.py`).
+    # - **Purge à échéance** : `purge_expired_artifacts` supprime bien du
+    #   disque, et pas seulement en base.
     #
-    # `servir_media` impose au moins que le contenu soit téléchargé et non
-    # rendu (voir evkha/media.py). Le contrôle d'ACCÈS, lui, reste à faire :
-    # il demande des URL signées à durée limitée, puisque ni Brevo ni le
-    # client final ne peuvent présenter de session.
+    # Ce n'est pas une authentification, et c'est délibéré : ni Brevo, qui
+    # récupère les pièces jointes depuis Internet, ni le client final de
+    # l'abonné, qui n'a pas de compte chez nous, ne peuvent présenter de
+    # session. Un lien transmis reste donc utilisable jusqu'à son expiration.
+    #
+    # Corollaire à ne pas perdre de vue : toute URL de média remise à un client
+    # DOIT passer par `signatures.lien`. Le client PDF réel la construisait à la
+    # main, et le bouton du courriel de livraison menait à un 404 que rien ne
+    # signalait — voir `test_les_liens_livres_sont_servables.py`.
     re_path(
         r"^media/(?P<path>.*)$",
         servir_media,

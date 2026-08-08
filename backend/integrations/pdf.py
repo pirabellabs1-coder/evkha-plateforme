@@ -60,15 +60,37 @@ class WeasyPrintPdfClient:
     - artifacts/pdf/{digest}.pdf    → artefact PDF  (livrable final)
     """
 
-    def __init__(
-        self,
-        media_root: Path,
-        media_url: str,
-        base_url: str = "",
-    ) -> None:
+    def __init__(self, media_root: Path, base_url: str = "") -> None:
+        # `media_url` a disparu des parametres : le prefixe `/media/` vit
+        # desormais dans `signatures.lien`, avec la signature qui l'accompagne.
+        # Le garder ici aurait laisse croire qu'on peut changer le prefixe a cet
+        # endroit — alors que la route et le signataire ne l'auraient pas suivi.
         self._media_root = media_root
-        self._media_url = media_url.rstrip("/")
         self._base_url = base_url.rstrip("/")
+
+    def url_de_telechargement(self, cle: str) -> str:
+        """Adresse publique d'un fichier de `MEDIA_ROOT`, **signée**.
+
+        Ce client assemblait `{base}{MEDIA_URL}/{cle}` a la main. Or
+        `servir_media` exige une signature horodatee, et repond `404` quand
+        elle manque — volontairement indiscernable d'un fichier absent, pour ne
+        pas devenir un oracle d'enumeration.
+
+        Consequence : le bouton du courriel de livraison menait a une page
+        d'erreur, et rien ne disait pourquoi. Ni les journaux ni le tableau de
+        bord n'avaient de quoi alerter — la requete avait ete servie
+        correctement, avec le code qu'on lui avait demande de rendre. La
+        protection ne s'etait pas trompee ; c'est le producteur du lien qui
+        n'avait pas suivi.
+
+        Passer par `signatures.lien` plutot que de reconstruire l'adresse ici
+        garantit qu'il n'existe qu'UNE facon de fabriquer une URL de media
+        (regle 5) : la prochaine evolution du schema de signature n'aura pas a
+        etre repercutee dans ce fichier.
+        """
+        from evkha import signatures  # noqa: PLC0415 — evite un cycle a l'import
+
+        return f"{self._base_url}{signatures.lien(cle)}"
 
     def generate(self, *, title: str, html: str) -> PdfGenerationResult:
         from weasyprint import HTML as WeasyHTML
@@ -77,8 +99,8 @@ class WeasyPrintPdfClient:
 
         html_key = f"artifacts/html/{digest}.html"
         pdf_key = f"artifacts/pdf/{digest}.pdf"
-        html_url = f"{self._base_url}{self._media_url}/{html_key}"
-        pdf_url = f"{self._base_url}{self._media_url}/{pdf_key}"
+        html_url = self.url_de_telechargement(html_key)
+        pdf_url = self.url_de_telechargement(pdf_key)
 
         html_dest = self._media_root / html_key
         pdf_dest = self._media_root / pdf_key
@@ -109,7 +131,7 @@ def get_pdf_client() -> PdfClient:
 
     Le client réel requiert :
     - EVKHA_USE_STUB_PDF=false
-    - MEDIA_ROOT et MEDIA_URL configurés
+    - MEDIA_ROOT configuré
     - EVKHA_BASE_URL pour construire les URLs absolues (Brevo a besoin d'URLs publiques)
     """
     use_stub = bool(getattr(settings, "EVKHA_USE_STUB_PDF", True))
@@ -117,6 +139,5 @@ def get_pdf_client() -> PdfClient:
         return StubPdfClient()
     return WeasyPrintPdfClient(
         media_root=Path(str(settings.MEDIA_ROOT)),
-        media_url=str(getattr(settings, "MEDIA_URL", "/media/")),
         base_url=str(getattr(settings, "EVKHA_BASE_URL", "")),
     )
