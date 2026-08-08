@@ -112,6 +112,21 @@ coût : 0,0000 €.** L'API a refusé la requête en 0,9 seconde.
   que le bloc mis en cache ne fait que 202 jetons — sous le minimum de 1 024,
   donc **le cache ne s'active jamais** (−40 % à récupérer) ; et la génération
   étant asynchrone, l'API Batch vaudrait −50 %.
+  > **Corrigé le 08/08/2026 — la première moitié de ce constat est périmée.**
+  > Mesuré à `count_tokens` sur `claude-sonnet-5`, le bloc stable fait **2 692 à
+  > 3 898 jetons** selon le livrable (BP 2 692, EC 3 393, STR 3 748, EM 3 898),
+  > très au-dessus du minimum de 1 024. **Le cache s'active.** Le gain a été pris
+  > entre-temps, sans que cette ligne soit relue : la charte et le bloc de
+  > référence EM ont été déplacés dans le segment stable, et le `partition` sur
+  > `SYSTEM_CACHE_BREAK` a été introduit pour que le pays n'invalide plus la
+  > charte. Le second breakpoint (153 jetons de queue) cache lui aussi : le
+  > minimum porte sur le PRÉFIXE cumulé, pas sur la taille du bloc.
+  > Reste vrai : l'API Batch n'est pas utilisée (aucun appel à
+  > `messages.batches` dans le dépôt) et vaut toujours −50 %.
+  > **Leçon de méthode** : un chiffre de coût non daté et non re-mesuré devient
+  > une consigne fausse. Le minimum de cache dépend en outre du MODÈLE — 1 024
+  > pour Sonnet 5, mais 512 pour Opus 5 et 4 096 pour Opus 4.6 : changer
+  > `EVKHA_ANTHROPIC_MODEL_ID` peut désactiver un cache qui fonctionnait.
 
 ### 2026-08-05 Joalie EM — `07745d4a` — **discard**
 
@@ -137,6 +152,32 @@ coût : 0,0000 €.** L'API a refusé la requête en 0,9 seconde.
     exige un socle, que seuls l'EM et l'EC produisent. L'échec était silencieux
     (`except Exception` dans la tâche). Correctif : la chaîne se choisit sur ce
     que le dossier CONTIENT, et le repli se journalise.
+
+### 2026-08-08 — Mesure de coût, **aucune génération** — `a14ddbe`
+
+Entrée de MESURE, pas d'expérience : aucun appel de génération n'a été passé, donc
+aucun verdict `keep` / `discard` / `blocked`. Seul `count_tokens` a été appelé —
+il est gratuit et ne produit aucun texte. La distinction compte : compter cette
+ligne comme une génération fausserait le coût cumulé du projet.
+
+- **Le cache fonctionne, contrairement à ce que disait ce journal.** Voir la
+  correction insérée sous l'entrée `49953f14`. Bloc stable de 2 692 à 3 898
+  jetons contre un minimum de 1 024 : le −40 % annoncé comme « à récupérer »
+  était déjà acquis. Chercher à le reprendre aurait été du travail sur un
+  défaut inexistant.
+- **Ce qui reste vraiment à gagner** : l'API Batch (−50 %), non câblée. Elle
+  convient à cette chaîne, qui est déjà asynchrone (Celery), mais elle n'est
+  pas gratuite en conception : les résultats reviennent **dans le désordre**,
+  se relèvent par `custom_id`, et un lot peut prendre jusqu'à 24 h. Le pipeline
+  actuel écrit ses chapitres séquentiellement et fait dépendre le CHECK d'un
+  chapitre du précédent — la moitié des appels n'est donc pas « batchable » en
+  l'état. Le gain réel est inférieur à 50 % tant que cette dépendance existe.
+- **Un piège de configuration nommé pour la prochaine fois** : le minimum de
+  cache dépend du modèle (512 / 1 024 / 2 048 / 4 096 selon la génération).
+  Passer `EVKHA_ANTHROPIC_MODEL_ID` d'un modèle à un autre peut faire tomber le
+  cache en silence — aucune erreur, seulement `cache_read_input_tokens` à zéro
+  et une facture qui double. C'est la seule vérification à faire après un
+  changement de modèle.
 
 ## Règles de tenue du journal
 

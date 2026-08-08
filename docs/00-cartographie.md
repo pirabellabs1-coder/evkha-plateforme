@@ -346,10 +346,18 @@ flowchart LR
 
 ### 6.3 Ce qui manque au regard du lot 3
 
+> ⚠️ **Ce tableau a été relu le 08/08/2026 et ses deux premières lignes étaient
+> fausses depuis un moment.** `backend/documents/livrable_word.py` et
+> `backend/generation/rendu_word/` existent, `EVKHA_LIVRABLE_WORD` est posé à
+> `true` en production, et la chaîne produit bien un `.docx` puis un PDF
+> converti depuis lui — dans cet ordre imposé, pour que les deux fichiers ne
+> divergent pas sur la pagination. Les lignes sont corrigées ci-dessous ;
+> les autres restent à vérifier avant d'être crues.
+
 | Exigence du cahier des charges | État |
 |---|---|
-| Word depuis un gabarit `.docx` | **Inexistant.** Aucune bibliothèque Word, aucun gabarit, aucun code. |
-| PDF converti depuis le Word | **Non.** Le PDF vient du HTML, jamais d'un Word. |
+| Word depuis un gabarit `.docx` | **Fait** (corrigé le 08/08/2026) — `documents/livrable_word.py`, `generation/rendu_word/`, drapeau `EVKHA_LIVRABLE_WORD`. Ne couvre que EM et EC : le BP et la stratégie retombent sur la chaîne héritée, faute de socle verrouillé. |
+| PDF converti depuis le Word | **Fait** (corrigé le 08/08/2026) — `integrations/docx_pdf.py`, le PDF est une photographie du Word et jamais un second rendu. |
 | Charte client sur le modèle client | **Non.** Le logo et les couleurs sont dans les variables Tally de la commande, pas sur `Customer`. |
 | Graphiques depuis les identifiants du socle | **Non.** Les graphiques viennent d'un JSON que le modèle écrit dans sa prose. Aucun lien avec `CoherenceFact`. |
 | Pyramide des âges, matrice de positionnement | **Absents** de `charts.py`. |
@@ -470,8 +478,11 @@ Un point mineur : `SECRET_KEY` a une valeur de repli `dev-only-secret-key` (`set
 | **Tâche Celery unique et longue** | Une étude entière tient dans une seule tâche de 20 à 30 minutes. Un redémarrage du worker perd la tâche en cours ; seul le gardien horaire la rattrape. Le découpage en une tâche par chapitre demandé au lot 2 corrige ce point. |
 | **Borne du SDK Anthropic** | `anthropic >= 0.40, < 1` autorise n'importe quelle version 0.x. Aucun fichier de verrouillage. |
 | **`ROLE_LINE` de 3 500 caractères** | Un bloc de contraintes en prose, reconstruit dans le prompt utilisateur à chaque appel — donc jamais mis en cache, contrairement au prompt système. |
+| **Minimum de cache lié au MODÈLE** *(ajouté le 08/08/2026)* | Le prompt système est bien mis en cache : mesuré à `count_tokens`, le bloc stable fait 2 692 à 3 898 jetons selon le livrable, contre un minimum de 1 024 sur `claude-sonnet-5`. Mais ce minimum **dépend du modèle** — 512 sur Opus 5, 4 096 sur Opus 4.6. Changer `EVKHA_ANTHROPIC_MODEL_ID` peut donc désactiver le cache **en silence** : aucune erreur, seulement `cache_read_input_tokens` à zéro et une facture qui double. À vérifier après tout changement de modèle. |
+| **API Batch non câblée** *(ajouté le 08/08/2026)* | −50 % sur tous les jetons, et la chaîne est déjà asynchrone. Mais les résultats reviennent dans le désordre (relevés par `custom_id`), un lot peut prendre 24 h, et le pipeline fait dépendre le CHECK d'un chapitre du précédent : la moitié des appels n'est pas « batchable » en l'état. Le gain réel est donc inférieur à 50 % tant que cette dépendance séquentielle existe. |
 | **Gamma désactivé mais présent** | Environ 16 ko de code (`integrations/gamma.py`, `delivery/gamma_fidelite.py`) pour une intégration désactivée par défaut, jugée inadaptée après mesure. Dette morte à conserver ou supprimer sur décision. |
-| **Authentification du tableau de bord** | Jeton statique partagé, avec un TODO pour passer à Better Auth (`dashboard/middleware.py:17`). Hors périmètre. |
+| **Authentification du tableau de bord** | Jeton statique partagé, avec un TODO pour passer à Better Auth — le TODO est dans `evkha/settings.py:431`, et non dans `dashboard/middleware.py:17` comme l'indiquait cette ligne jusqu'au 08/08/2026. Hors périmètre. |
+| **Accès aux livrables** *(corrigé le 08/08/2026)* | **Ce point était donné comme manquant ; il ne l'est plus.** `/media/` exige une signature horodatée liée au chemin (`evkha/signatures.py`), sert en téléchargement forcé (`evkha/media.py`), et `purge_expired_artifacts` supprime bien du disque. Une relecture de sécurité menée ce jour a conclu l'inverse en lisant un commentaire périmé plutôt que le code. |
 | **`SECRET_KEY` de repli** | Voir 8.1. |
 
 ---
