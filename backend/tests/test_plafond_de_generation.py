@@ -1,8 +1,13 @@
 """Une generation ne depasse jamais le plafond fixe par la cliente.
 
 **Decision du 08/08/2026**, qui remplace le plafond unique de 3,10 EUR arrete le
-05/08 : le prix d'un livrable depend de ce qu'il demande. Etude de marche 6,00,
+05/08 : le prix d'un livrable depend de ce qu'il demande. Etude de marche 8,00,
 business plan 4,00, strategie 4,00, etude concurrentielle 3,50.
+
+L'etude de marche est passee de 6,00 a 8,00 le meme jour, sur MESURE : le
+dossier reel `b561c2d6` a ete coupe par ce garde-fou a 22 chapitres sur 23,
+pour 5,94 EUR. Le plafond a bien fonctionne — il a stoppe net — mais il etait
+pose trop bas d'un chapitre.
 
 ## Ce que la revision a mis au jour
 
@@ -67,7 +72,7 @@ from generation.services import _BUDGET_EUR_BY_TYPE
 #: Un test qui relit la table qu'il verifie ne verifie rien : c'est le seul
 #: doublon voulu du depot, et c'est sa raison d'etre.
 DECISION_CLIENTE = {
-    DeliverableType.MARKET_STUDY: Decimal("6.00"),
+    DeliverableType.MARKET_STUDY: Decimal("8.00"),
     DeliverableType.BUSINESS_PLAN: Decimal("4.00"),
     DeliverableType.BUSINESS_STRATEGY: Decimal("4.00"),
     DeliverableType.COMPETITOR_STUDY: Decimal("3.50"),

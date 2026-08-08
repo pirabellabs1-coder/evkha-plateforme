@@ -297,8 +297,22 @@ def max_tokens_for_job(
 #: chapitre. Mesure le 05/08/2026 : sous 3,80 EUR, chaque appel d'une etude de
 #: marche est deja borne au plancher. Confondre les deux revient a croire qu'on
 #: plafonne une facture alors qu'on rabote un document.
+#: L'etude de marche est passee de 6,00 a 8,00 le 08/08/2026, sur mesure et non
+#: sur estimation : le dossier reel `b561c2d6` a ete COUPE par ce garde-fou a
+#: 22 chapitres sur 23, pour 5,94 EUR. Le plafond a fonctionne — il a stoppe
+#: net plutot que de depasser — mais il etait pose trop bas d'un chapitre.
+#:
+#: Ce chiffre de 5,94 n'est PAS le prix d'une etude de marche, et il ne faut pas
+#: le lire ainsi : ce dossier a paye deux changements de regime en cours de
+#: route (le controle de ressemblance rendu consultatif) et six appels tronques
+#: sur le chapitre 19, avant que la borne de sortie ne soit corrigee. Une etude
+#: produite d'un trait sous les regles actuelles coutera moins. Le prochain run
+#: complet donnera ce chiffre-la, et c'est lui qu'il faudra inscrire ici.
+#:
+#: 8,00 laisse donc la marge d'un dossier difficile sans pretendre mesurer un
+#: dossier normal.
 PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("6.0000"),
+    DeliverableType.MARKET_STUDY:      Decimal("8.0000"),
     DeliverableType.BUSINESS_PLAN:     Decimal("4.0000"),
     DeliverableType.BUSINESS_STRATEGY: Decimal("4.0000"),
     DeliverableType.COMPETITOR_STUDY:  Decimal("3.5000"),

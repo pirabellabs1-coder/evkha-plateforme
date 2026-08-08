@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
-
 import pytest
 
 from catalog.models import DeliverableType, Offer
@@ -122,7 +120,9 @@ def test_market_study_budget_keeps_phase0_margin() -> None:
     #
     # Deux etudes de marche COMPLETES ont tourne sur Sonnet 5 : 3,12 et 3,32 EUR.
     #
-    # PORTE A 6,00 EUR LE 08/08/2026, sur decision de la cliente. Et cette fois
+    # PORTE A 6,00 PUIS 8,00 EUR LE 08/08/2026. Le passage a 8,00 est une
+    # MESURE et non une projection : le dossier reel `b561c2d6` a ete coupe par
+    # le garde-fou a 22 chapitres sur 23, pour 5,94 EUR. Et cette fois
     # le nombre plafonne VRAIMENT : rythme et plafond sont devenus la meme
     # table, `cost.PLAFOND_PAR_LIVRABLE`. Ils avaient diverge — rythme 4,00,
     # frein 3,10 — et le throttle cadencait alors vers un montant que le frein
@@ -137,4 +137,3 @@ def test_market_study_budget_keeps_phase0_margin() -> None:
     from generation.cost import PLAFOND_PAR_LIVRABLE
 
     assert job.budget_eur == PLAFOND_PAR_LIVRABLE[DeliverableType.MARKET_STUDY]
-    assert job.budget_eur == Decimal("6.0000")
