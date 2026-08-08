@@ -227,6 +227,58 @@ n'était jamais parti. Celui-ci passe, sans un seul incident.
   polices Carlito et Aptos manquent aussi en local — matplotlib a replié, donc
   le rendu du conteneur peut différer.
 
+### 2026-08-08 Maison Lorel EM — `b561c2d6` — **keep**
+
+**Première étude de marché complète VALIDÉE.** Prêt-à-porter de créateurs,
+Paris. Le business plan du même jour était le premier livrable ; celui-ci est le
+premier que la cliente juge bon.
+
+| | |
+|---|---|
+| Chapitres | **23 / 23**, aucun en échec |
+| Verdict | `livrable = True` |
+| Coût | **6,2600 €** — plafond porté à 8,00 € |
+| Jetons | 982 206 en entrée, 267 242 en sortie |
+| Rendu | 23 chapitres, 49 tableaux, **17 figures sur 35** |
+| Document | 849 Ko |
+
+**Ce que ces 6,26 € ne mesurent pas.** Ce dossier a payé deux changements de
+régime en cours de route et six appels tronqués sur le chapitre 19, avant que
+la borne de sortie ne soit corrigée. Une étude produite d'un trait sous les
+règles actuelles coûtera nettement moins. **Le chiffre à retenir viendra du
+prochain run complet, pas de celui-ci.**
+
+**Trois défauts trouvés, tous invisibles en test :**
+
+- **Le contrôle de ressemblance coûtait plus cher que le document.** Cinq
+  règles — volume, ordre des blocs, dosages — faisaient rejouer le chapitre
+  jusqu'à ce qu'il ressemble au modèle. Rythme mesuré : 10,2 min/chapitre
+  contre 6,5 une fois la règle rendue consultative, et 6,1 sur le business plan
+  qui n'a pas de modèle. Décision de la cliente : « le modèle est pour
+  l'entraînement et c'est tout. » Commit `cd1d113`.
+- **Les chapitres étaient coupés à 8 192 jetons de sortie**, sans que rien ne le
+  dise. `complete_structured` ne fait qu'un seul appel — pas de continuation —
+  donc l'appel d'outil arrivait tronqué et perdait ses derniers champs. Le motif
+  rendu accusait le schéma : six tentatives passées à chercher un défaut
+  inexistant. `stop_reason` était capturé et lu par personne. Commit `1e1732a`.
+- **Le plafond de 6,00 € coupait à 22 chapitres sur 23.** Le garde-fou a
+  fonctionné — arrêt net, aucun dépassement — mais il était posé trop bas d'un
+  chapitre. Porté à 8,00 € sur mesure. Commit `6af8d7c`.
+
+**Les 18 figures refusées ont une cause dominante, et elle n'est PAS le
+moteur.** Vérifié : le rendu normalise déjà les échelles monétaires
+(`MdEUR` → magnitude + devise). Les motifs sont `MEUR, million`, `EUR, MEUR,
+unite`, `%, MEUR` — le modèle met un MONTANT et un DÉCOMPTE sur le même axe. La
+règle « cite des grandeurs de même nature » existe dans la consigne depuis le
+matin même et n'est pas suivie. Le rappeler plus fort ne marchera pas : il
+faudra donner au modèle la NATURE de chaque identifiant du socle au moment où
+il choisit sa figure.
+
+**Non vérifié, et à ne pas croire acquis** : la conversion PDF (ni LibreOffice
+ni WeasyPrint sur le poste, convertisseur tombé sur son bouchon) et le rendu
+des polices Carlito et Aptos, absentes — matplotlib a replié. Le rendu du
+conteneur peut différer de ce qui a été relu et validé.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.
