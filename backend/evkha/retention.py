@@ -39,6 +39,33 @@ def jours_par_defaut() -> int:
     return int(getattr(settings, "EVKHA_DEFAULT_RETENTION_DAYS", 7) or 7)
 
 
+def jours_pieces_jointes() -> int:
+    """Combien de temps un fichier DÉPOSÉ par le client reste sur le volume.
+
+    Volontairement séparé de `jours_par_defaut()`, qui gouverne les livrables.
+    Les deux durées répondent à des questions différentes et il serait faux de
+    les confondre :
+
+    - un **livrable** est produit par nous, réenvoyable, et sept jours suffisent
+      au client pour le télécharger ;
+    - une **pièce jointe** est le bilan d'un tiers, déposé par l'abonné, que
+      personne ne peut reconstituer s'il disparaît. L'abonné le réutilise d'une
+      commande à l'autre — le pool est rattaché à l'organisation, jamais à une
+      commande (`PieceJointe.commande` existe et n'est assignée nulle part).
+
+    Douze mois : c'est le cycle d'un bilan. L'abonné dépose le nouvel exercice
+    une fois par an, et l'ancien s'efface de lui-même au lieu de rester
+    indéfiniment sur le volume.
+
+    Le logo n'est PAS concerné, et c'est un choix de conception, pas un oubli :
+    `organisation.logo_url` pointe sur `piece.fichier.url` et le moteur le lit à
+    chaque génération (`commandes.py` → `LOGO_URL` → `depuis_json.charger_logo`).
+    Le purger éteindrait la marque de tous les livrables suivants. Un logo est
+    de la configuration, pas un dépôt. Voir `organisations.purge`.
+    """
+    return int(getattr(settings, "EVKHA_PIECES_JOINTES_RETENTION_DAYS", 365) or 365)
+
+
 def jours(job: Any) -> int:
     """Durée de conservation applicable à ce dossier, en jours.
 
@@ -53,6 +80,10 @@ def jours(job: Any) -> int:
 
 def duree(job: Any) -> timedelta:
     return timedelta(days=jours(job))
+
+
+def duree_pieces_jointes() -> timedelta:
+    return timedelta(days=jours_pieces_jointes())
 
 
 def duree_en_secondes(job: Any) -> int:

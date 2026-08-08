@@ -183,3 +183,20 @@ def _expirer_les_reserves_resiliees() -> int:
             )
 
     return expirees
+
+
+@shared_task(name="organisations.purger_les_pieces_jointes")  # type: ignore[untyped-decorator]
+def purger_les_pieces_jointes_task() -> int:
+    """Purge horaire des documents déposés arrivés à échéance (12 mois).
+
+    Le pendant de `delivery.purge_expired_artifacts`, pour les fichiers que le
+    client dépose au lieu de ceux que nous produisons. Ils n'avaient jusqu'ici
+    aucune échéance : un bilan déposé restait sur le volume indéfiniment.
+    """
+    from .purge import purger_les_pieces_jointes  # noqa: PLC0415
+
+    # La tâche purge pour de bon : le mode « compte sans supprimer » sert à
+    # l'inspection avant mise en service, par la commande
+    # `purger_les_pieces_jointes --simulation`. Le brancher ici donnerait une
+    # tâche planifiée qui journalise un travail qu'elle ne fait pas.
+    return purger_les_pieces_jointes().compte

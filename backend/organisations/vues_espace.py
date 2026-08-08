@@ -1771,12 +1771,19 @@ def supprimer_piece_jointe(
     organisation: Organisation,
     piece_id: str,
 ) -> HttpResponse:
-    """Supprime un fichier. Le filtre porte sur l'organisation, pas sur l'identifiant seul."""
+    """Supprime un fichier. Le filtre porte sur l'organisation, pas sur l'identifiant seul.
+
+    L'effacement du fichier lui-même n'est plus fait ici : il est porté par le
+    `post_delete` de `organisations/purge.py`, seul endroit du dépôt qui libère
+    le volume. Cette route était la seule des quatre voies de suppression à le
+    faire — le remplacement d'un logo et le CASCADE laissaient l'orphelin
+    derrière eux. Le refaire ici donnerait deux réponses à la même question
+    (règle 5).
+    """
     piece = organisation.pieces_jointes.filter(id=piece_id).first()
     if piece is None:
         return _refus("Fichier introuvable.", "introuvable", 404)
     etait_logo = piece.categorie == CategorieFichier.LOGO
-    piece.fichier.delete(save=False)
     piece.delete()
     if etait_logo:
         organisation.logo_url = ""

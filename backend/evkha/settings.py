@@ -10,6 +10,7 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     DJANGO_ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1"]),
     EVKHA_DEFAULT_RETENTION_DAYS=(int, 7),
+    EVKHA_PIECES_JOINTES_RETENTION_DAYS=(int, 365),
     EVKHA_USE_STUB_AI=(bool, True),
     EVKHA_USE_STUB_DOCS=(bool, True),
     EVKHA_USE_STUB_GAMMA=(bool, True),
@@ -172,6 +173,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "organisations.appliquer_echeances",
         "schedule": 3600.0,
     },
+    # Purge des fichiers DEPOSES par le client (bilans, comptes de resultat).
+    # Distincte de la purge des artefacts : celle-ci ne touchait que ce que
+    # NOUS produisons, et les depots des clients n'expiraient jamais.
+    # Retention 12 mois, comptee depuis le depot ; les logos sont exclus.
+    "purger-les-pieces-jointes": {
+        "task": "organisations.purger_les_pieces_jointes",
+        "schedule": 3600.0,
+    },
     # Risque 6 — jobs bloques : reset automatique toutes les heures.
     # Un job RUNNING depuis plus de 2h est forcement bloque (crash worker, timeout reseau).
     # L'incident HIGH cree permet a l'admin de relancer manuellement depuis le dashboard.
@@ -182,6 +191,11 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
+
+# Fichiers DÉPOSÉS par le client (bilans, comptes de résultat). Douze mois : le
+# cycle d'un bilan. Distinct de la rétention des livrables — voir
+# `evkha/retention.py`, qui explique pourquoi les confondre serait faux.
+EVKHA_PIECES_JOINTES_RETENTION_DAYS = env("EVKHA_PIECES_JOINTES_RETENTION_DAYS")
 
 # Webhook shared secrets (M1).
 SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
