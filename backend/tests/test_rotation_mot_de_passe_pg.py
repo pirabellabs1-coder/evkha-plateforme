@@ -26,6 +26,8 @@ Ces tests tiennent ce qui peut mal tourner :
 from __future__ import annotations
 
 from io import StringIO
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from django.core.management import call_command
@@ -33,10 +35,23 @@ from django.core.management import call_command
 MOT_DE_PASSE_VALABLE = "un-mot-de-passe-de-trente-six-signes"
 
 
-def _jouer(monkeypatch: pytest.MonkeyPatch, valeur: str | None) -> str:
+def _jouer(
+    monkeypatch: pytest.MonkeyPatch,
+    valeur: str | None,
+    ancien: str | None = None,
+) -> str:
+    """Joue la commande avec l'environnement décrit, et rend sa sortie.
+
+    Les DEUX variables sont posées explicitement — celle qu'on ne veut pas est
+    effacée. Hériter d'une variable laissée par le shell ferait passer un test
+    pour la mauvaise raison, et le jour où il tomberait, sur la mauvaise piste.
+    """
     monkeypatch.delenv("EVKHA_NOUVEAU_MOT_DE_PASSE_PG", raising=False)
+    monkeypatch.delenv("EVKHA_ANCIEN_MOT_DE_PASSE_PG", raising=False)
     if valeur is not None:
         monkeypatch.setenv("EVKHA_NOUVEAU_MOT_DE_PASSE_PG", valeur)
+    if ancien is not None:
+        monkeypatch.setenv("EVKHA_ANCIEN_MOT_DE_PASSE_PG", ancien)
     sortie = StringIO()
     call_command("changer_le_mot_de_passe_postgres", stdout=sortie)
     return sortie.getvalue()
@@ -90,7 +105,7 @@ def test_la_valeur_est_echappee_par_le_pilote(
     requete = sql.SQL("ALTER USER {} WITH PASSWORD {}").format(
         sql.Identifier("evkha"), sql.Literal(piegeux)
     )
-    rendu = requete.as_string(None)  # type: ignore[arg-type]
+    rendu = requete.as_string(None)
 
     # Les apostrophes sont doublees, l'identifiant est entre guillemets.
     assert "''bonjour''" in rendu
@@ -113,6 +128,273 @@ def test_sur_sqlite_la_commande_s_abstient(monkeypatch: pytest.MonkeyPatch) -> N
     sortie = _jouer(monkeypatch, MOT_DE_PASSE_VALABLE)
 
     assert "non PostgreSQL" in sortie
+
+
+# ---------------------------------------------------------------------------
+# Un PostgreSQL de comédie
+#
+# La suite tourne sur SQLite. Tout ce qui suit le test du `vendor` — c'est-à-dire
+# la totalité de ce que fait la commande — n'y est donc JAMAIS atteint. Une
+# première version de ces tests posait un `pytest.skip` sur ce constat : elle
+# sautait à chaque exécution, en local comme en CI, et ne verrouillait rien
+# (règle 1 — un contrôle qui n'a rien à comparer n'est pas un succès).
+#
+# Le banc ci-dessous fournit la seule chose qui manquait : un `vendor` qui dit
+# `postgresql`, des réglages complets, et un `psycopg.connect` qui accepte les
+# mots de passe qu'on lui désigne. Les tests deviennent alors des tests de
+# COMPORTEMENT — quel mot de passe est essayé, quel SQL est exécuté — et non
+# plus des lectures du texte de la source.
+# ---------------------------------------------------------------------------
+
+REGLAGES_POSTGRES = {
+    "HOST": "db.interne",
+    "PORT": 5432,
+    "NAME": "evkha",
+    "USER": "evkha",
+}
+ANCIEN_MOT_DE_PASSE = "l-ancien-mot-de-passe-qui-a-fuite"
+
+
+class _FauxCurseur:
+    def __init__(self, requetes: list[Any]) -> None:
+        self._requetes = requetes
+
+    def __enter__(self) -> _FauxCurseur:
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        """Ne rend rien : une sortie vraie avalerait les exceptions du test."""
+
+    def execute(self, requete: Any) -> None:
+        self._requetes.append(requete)
+
+
+class _FauxLien:
+    def __init__(self, requetes: list[Any]) -> None:
+        self._requetes = requetes
+        self.commits = 0
+        self.ferme = False
+
+    def __enter__(self) -> _FauxLien:
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        """Ne rend rien : une sortie vraie avalerait les exceptions du test."""
+
+    def cursor(self) -> _FauxCurseur:
+        return _FauxCurseur(self._requetes)
+
+    def commit(self) -> None:
+        self.commits += 1
+
+    def close(self) -> None:
+        self.ferme = True
+
+
+class _BancPostgres:
+    """Enregistre ce que la commande TENTE, et pas seulement ce qu'elle dit."""
+
+    def __init__(self, *mots_de_passe_valables: str) -> None:
+        self.valables = set(mots_de_passe_valables)
+        self.tentatives: list[dict[str, Any]] = []
+        self.requetes: list[Any] = []
+        self.liens: list[_FauxLien] = []
+
+    @property
+    def mots_de_passe_essayes(self) -> list[str]:
+        return [t.get("password", "") for t in self.tentatives]
+
+    def connect(self, **parametres: Any) -> _FauxLien:
+        import psycopg
+
+        self.tentatives.append(parametres)
+        if parametres.get("password") not in self.valables:
+            raise psycopg.OperationalError("mot de passe refuse")
+        lien = _FauxLien(self.requetes)
+        self.liens.append(lien)
+        return lien
+
+    def sql_execute(self) -> list[str]:
+        return [requete.as_string(None) for requete in self.requetes]
+
+
+def _installer_banc(
+    monkeypatch: pytest.MonkeyPatch, *mots_de_passe_valables: str
+) -> _BancPostgres:
+    """Fait croire à la commande qu'elle parle à PostgreSQL.
+
+    On remplace le `connection` du module — pas celui de Django — pour que la
+    vraie base de test reste hors d'atteinte : si la commande revenait un jour à
+    un curseur Django, elle toucherait une base SQLite qui ne connaît pas
+    `ALTER USER`, et le test tomberait au lieu de mentir.
+    """
+    import psycopg
+
+    from organisations.management.commands import changer_le_mot_de_passe_postgres
+
+    banc = _BancPostgres(*mots_de_passe_valables)
+    monkeypatch.setattr(psycopg, "connect", banc.connect)
+
+    faux_connection = SimpleNamespace(
+        vendor="postgresql", settings_dict=dict(REGLAGES_POSTGRES)
+    )
+    monkeypatch.setattr(
+        changer_le_mot_de_passe_postgres, "connection", faux_connection
+    )
+    return banc
+
+
+def test_le_cas_nominal_execute_bien_un_alter_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le seul chemin qui change quelque chose, vérifié de bout en bout.
+
+    Pas de `django_db` : la commande ne doit toucher AUCUNE base par le chemin
+    Django. Si elle le refaisait, pytest-django refuserait l'accès et ce test
+    tomberait — c'est la contre-épreuve du défaut décrit plus bas.
+    """
+    banc = _installer_banc(monkeypatch, ANCIEN_MOT_DE_PASSE)
+
+    sortie = _jouer(monkeypatch, MOT_DE_PASSE_VALABLE, ancien=ANCIEN_MOT_DE_PASSE)
+
+    # Le nouveau est essayé d'abord (idempotence), l'ancien seulement ensuite.
+    assert banc.mots_de_passe_essayes == [MOT_DE_PASSE_VALABLE, ANCIEN_MOT_DE_PASSE]
+    requete = banc.sql_execute()[0]
+    assert requete.startswith('ALTER USER "evkha" WITH PASSWORD ')
+    assert MOT_DE_PASSE_VALABLE in requete
+    assert banc.liens[0].commits == 1
+    assert "change" in sortie
+
+
+def test_la_connexion_vise_la_base_que_django_utilise(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hôte, port, base, utilisateur viennent des réglages — pas d'un doublon.
+
+    Redemander ces quatre valeurs en variables d'environnement les ferait
+    diverger un jour de la configuration réelle : on changerait alors le mot de
+    passe d'une AUTRE base que celle que l'application ouvre, en annonçant un
+    succès (règle 5).
+    """
+    banc = _installer_banc(monkeypatch, ANCIEN_MOT_DE_PASSE)
+
+    _jouer(monkeypatch, MOT_DE_PASSE_VALABLE, ancien=ANCIEN_MOT_DE_PASSE)
+
+    vise = banc.tentatives[0]
+    assert vise["host"] == "db.interne"
+    assert vise["port"] == "5432"
+    assert vise["dbname"] == "evkha"
+    assert vise["user"] == "evkha"
+
+
+def test_sans_ancien_mot_de_passe_rien_n_est_tente(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La connexion explicite a besoin de l'ancien mot de passe.
+
+    Sans lui, la commande ne peut ni vérifier que le nouveau est déjà en place,
+    ni ouvrir la connexion qui permettrait de le changer. Elle refuse en le
+    disant, plutôt que de laisser croire au succès.
+    """
+    banc = _installer_banc(monkeypatch, ANCIEN_MOT_DE_PASSE)
+
+    sortie = _jouer(monkeypatch, MOT_DE_PASSE_VALABLE, ancien=None)
+
+    assert "ANCIEN" in sortie
+    assert banc.requetes == []
+
+
+def test_un_ancien_mot_de_passe_faux_ne_laisse_pas_croire_au_succes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le motif d'échec doit désigner la bonne variable.
+
+    Si l'opérateur recopie un ancien mot de passe périmé, il doit lire que c'est
+    LUI qui ne passe pas — sinon il ira chercher du côté du réseau ou de
+    l'hôte (règle 2).
+    """
+    banc = _installer_banc(monkeypatch, ANCIEN_MOT_DE_PASSE)
+
+    sortie = _jouer(monkeypatch, MOT_DE_PASSE_VALABLE, ancien="ce-n-est-pas-le-bon")
+
+    assert "ancien mot de passe" in sortie
+    assert banc.requetes == []
+
+
+def test_rejouer_la_commande_ne_change_rien_une_seconde_fois(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """L'idempotence, vérifiée sur le comportement et non sur un message.
+
+    Un redéploiement, il y en a toujours un — et les variables sont souvent
+    laissées en place. Si la commande rejouait `ALTER USER` avec un ancien mot
+    de passe devenu invalide, elle échouerait bruyamment à chaque démarrage.
+    """
+    banc = _installer_banc(monkeypatch, MOT_DE_PASSE_VALABLE)
+
+    sortie = _jouer(monkeypatch, MOT_DE_PASSE_VALABLE, ancien=ANCIEN_MOT_DE_PASSE)
+
+    assert banc.mots_de_passe_essayes == [MOT_DE_PASSE_VALABLE]
+    assert banc.requetes == []
+    assert "deja en place" in sortie
+
+
+def test_une_apostrophe_dans_le_mot_de_passe_ne_casse_pas_la_requete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """L'échappement, vérifié sur le SQL que la commande exécute VRAIMENT.
+
+    Le test voisin vérifie que `psycopg.sql` échappe correctement ; celui-ci
+    vérifie que la commande s'en sert. Les deux sont nécessaires : le premier
+    passerait encore si la commande concaténait à la main.
+    """
+    piegeux = "il-a-dit-'bonjour'-puis-il-est-parti-tranquille"
+    banc = _installer_banc(monkeypatch, ANCIEN_MOT_DE_PASSE)
+
+    _jouer(monkeypatch, piegeux, ancien=ANCIEN_MOT_DE_PASSE)
+
+    assert "''bonjour''" in banc.sql_execute()[0]
+
+
+def test_la_commande_se_connecte_sans_passer_par_django() -> None:
+    """LE defaut evite avant de deployer.
+
+    Une premiere version utilisait la connexion Django. Elle changeait le mot
+    de passe, puis `migrate` demarrait DANS UN AUTRE PROCESSUS et se connectait
+    avec l'ancien — qui ne valait plus rien. Le conteneur s'arretait, Coolify le
+    relancait, il echouait encore : plateforme a terre.
+
+    La connexion est donc montee a la main, avec un mot de passe explicite.
+    `DATABASE_URL` peut ainsi porter deja le NOUVEAU, et tout ce qui suit dans
+    la chaine de demarrage fonctionne du premier coup.
+    """
+    from pathlib import Path
+
+    source = Path(
+        "backend/organisations/management/commands/changer_le_mot_de_passe_postgres.py"
+    ).read_text(encoding="utf-8")
+
+    assert "psycopg.connect(" in source
+    assert "password=ancien" in source
+    assert "password=nouveau" in source
+    # Et surtout : plus aucun curseur Django, qui rouvrirait la mauvaise
+    # connexion.
+    assert "connection.cursor()" not in source
+
+
+def test_le_changement_est_idempotent() -> None:
+    """Si le nouveau mot de passe marche deja, on ne le rejoue pas.
+
+    C'est ce qui rend un redeploiement sans danger, meme en laissant les
+    variables en place — et un redeploiement, il y en a toujours un.
+    """
+    from pathlib import Path
+
+    source = Path(
+        "backend/organisations/management/commands/changer_le_mot_de_passe_postgres.py"
+    ).read_text(encoding="utf-8")
+
+    assert "deja en place, rien a faire" in source
 
 
 @pytest.mark.django_db
