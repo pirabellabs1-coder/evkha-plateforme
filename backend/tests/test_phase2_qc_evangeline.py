@@ -8,6 +8,30 @@ Chaque test cible un symptome concret observe sur les documents pipeline :
 - sources trop anciennes => Fix #6 (freshness) via _CHARTER
 - blocs analytiques fondus dans la prose => Fix #7a (parsing) + #7b (charter)
 - paragraphes interchangeables => Fix #8b (charter anti-generique)
+
+## Trois tests retires le 08/08/2026, et pourquoi
+
+Ils exigeaient du charter des regles supprimees le 24/07/2026, a l'adoption du
+manuel Evangeline. Ils portaient donc un `skip` permanent : ils ne s'executaient
+ni en local ni en CI, et un test qui ne tourne jamais ne verrouille rien
+(regle 1). Leur motif etait leur seule valeur — il est conserve ici.
+
+- `test_charter_impose_source_recente` (Fix #6) — la borne numerique
+  << 6 derniers mois / 24 mois >> a disparu. Le manuel (§3) exige des sources
+  << fiables, actuelles, verifiables et adaptees au secteur et a la zone >>,
+  sans chiffre ; le CHECK 5 (bloc E) juge la fraicheur en langage naturel.
+- `test_charter_mentionne_les_marqueurs_parseables` (Fix #7b) — les marqueurs
+  `[[UNDERSTAND]]` / `[[CONSIDER]]` / `[[ATTENTION]]` / `[[ACTION]]` sont
+  retires. Les encadres se redigent librement, sans gabarit rigide. Le rendu de
+  ces encadres, lui, reste teste (Fix #7a).
+- `test_charter_interdit_la_genericite` (Fix #8b) — la regle ANTI-GENERICITE
+  (<< chaque paragraphe doit citer un acteur nomme ou un chiffre date >>) est
+  retiree : ces formulations mecaniques polluaient le texte livre. La voix EVKHA
+  (§3) et les CHECKs Sonnet portent l'exigence de specificite.
+
+Les Fix #6, #7b et #8b ne sont donc plus verifies PAR LE CHARTER. Ce qui les
+porte aujourd'hui est nomme ci-dessus, et n'a pas d'equivalent testable ici :
+un prompt en langage naturel ne se verifie pas par sous-chaine.
 """
 from __future__ import annotations
 
@@ -288,19 +312,6 @@ def test_build_chapter_prompt_injecte_date_courante() -> None:
     assert "DATE_DU_JOUR" in context
 
 
-@pytest.mark.skip(reason=(
-    "Regle 'sources datees dans les 6 derniers mois / 24 mois' retiree du "
-    "charter le 24/07/2026. Le manuel Evangeline §3 exige 'sources fiables, "
-    "actuelles, verifiables et adaptees au secteur et a la zone' sans borne "
-    "numerique. Le CHECK 5 (bloc E) valide la fraicheur en langage naturel."
-))
-def test_charter_impose_source_recente() -> None:
-    from generation.prompts import build_system_prompt
-
-    prompt = build_system_prompt("etude_marche")
-    assert "6 derniers mois" in prompt or "24 mois" in prompt
-
-
 # --- Fix #7a : rendu des callouts -----------------------------------------
 
 
@@ -326,41 +337,6 @@ def test_callout_attention_est_rendu() -> None:
     md = "! Attention : la reglementation change en janvier."
     html = _md_to_html(md)
     assert "callout--attention" in html
-
-
-# --- Fix #7b : la charte instruit d'emettre les marqueurs ------------------
-
-
-@pytest.mark.skip(reason=(
-    "Marqueurs [[UNDERSTAND]] / [[CONSIDER]] / [[ATTENTION]] / [[ACTION]] "
-    "retires du charter le 24/07/2026 avec l'adoption du manuel Evangeline. "
-    "Encadres desormais rediges librement, sans template rigide."
-))
-def test_charter_mentionne_les_marqueurs_parseables() -> None:
-    from generation.prompts import build_system_prompt
-
-    prompt = build_system_prompt("etude_marche")
-    assert "[[UNDERSTAND]]" in prompt
-    assert "[[CONSIDER]]" in prompt
-    assert "[[ATTENTION]]" in prompt
-
-
-# --- Fix #8b : la charte interdit les paragraphes génériques --------------
-
-
-@pytest.mark.skip(reason=(
-    "Regle ANTI-GENERICITE (« chaque paragraphe doit citer un acteur nomme "
-    "ou un chiffre date ») retiree du charter le 24/07/2026 : ces "
-    "formulations mecaniques polluaient le texte livre. La voix EVKHA §3 "
-    "du manuel Evangeline et les CHECKs Sonnet portent l'exigence de "
-    "specificite en langage naturel."
-))
-def test_charter_interdit_la_genericite() -> None:
-    from generation.prompts import build_system_prompt
-
-    prompt = build_system_prompt("etude_marche")
-    lower = prompt.lower()
-    assert "acteur nomme" in lower
 
 
 # --- Rendu HTML : les tableaux markdown deviennent de vrais <table> -------
