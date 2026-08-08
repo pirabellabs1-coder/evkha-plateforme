@@ -71,14 +71,34 @@ plateforme qui fait semblant.
 
 | Variable | Recette | Production | Ce que `true` signifie |
 |---|---|---|---|
-| `EVKHA_USE_STUB_AI` | `true` | `false` | Aucun appel à Claude. Les chapitres sont des textes factices. **Gratuit.** |
+| `EVKHA_USE_STUB_AI` | **interdit** hors `DEBUG` | `false` | Aucun appel à Claude. Les chapitres sont des textes factices. **Gratuit.** |
+| `EVKHA_USE_STUB_SEARCH` | **interdit** hors `DEBUG` | `false` | Aucune recherche réelle n'ancre les chiffres. Le fournisseur réel est **gratuit** et ne demande aucune clé. |
 | `EVKHA_USE_STUB_PDF` | `true` | `false` | Le PDF est un fichier bouchon, pas un vrai document. |
 | `EVKHA_USE_STUB_EMAIL` | `true` | `false` | Aucun e-mail ne part. |
 | `EVKHA_USE_STUB_DOCS` | `true` | `false` | |
 
-**Commencez tout en `true`.** Vous validez la chaîne complète sans dépenser un
-euro et sans risquer d'écrire à un vrai client depuis un environnement de test.
-Vous basculez ensuite, un drapeau à la fois.
+**Deux de ces drapeaux ne peuvent pas démarrer à `true`.** Cette page a
+longtemps dit « commencez tout en `true` » ; c'était faux, et le prix en est un
+conteneur mort. `EVKHA_USE_STUB_AI` et `EVKHA_USE_STUB_SEARCH` posés à `true`
+avec `DJANGO_DEBUG=false` lèvent chacun une **erreur** `evkha.C005`. Une erreur
+de contrôle arrête `manage.py migrate`, qui est le deuxième maillon de la
+chaîne `&&` du démarrage : `gunicorn` n'est jamais lancé, rien ne répond, et
+Coolify rapporte pourtant « finished ». `EVKHA_APP_URL` vide fait de même, avec
+`evkha.C004`.
+
+La raison de cette sévérité : ces deux bouchons ne coupent pas un détail, ils
+remplacent la **substance** du livrable. Le client reçoit un document qui a la
+forme d'une étude sans en être une — et rien ne casse, rien n'alerte. Le
+bouchon d'e-mail, lui, reste permis : ne pas envoyer un courriel se voit.
+
+**Les trois autres, commencez-les à `true`.** Vous validez la chaîne sans
+produire de vrai PDF et sans risquer d'écrire à un vrai client depuis un
+environnement de test. Vous basculez ensuite, un drapeau à la fois.
+
+La liste qui fait foi est `BOUCHONS_INTERDITS_EN_PRODUCTION`, dans
+`organisations/checks.py`. `backend/tests/test_le_gabarit_d_environnement_demarre.py`
+la relie à `.env.example` : ce tableau est le seul endroit qui puisse encore
+diverger, faute de pouvoir tester de la prose.
 
 ### Accès à l'administration
 
@@ -257,7 +277,10 @@ pas après.
 
 1. **Créer le projet** dans Coolify, source = votre dépôt Git, fichier
    `docker-compose.prod.yml`.
-2. **Saisir les variables**, tous les drapeaux `STUB` à `true`.
+2. **Saisir les variables.** `EVKHA_USE_STUB_PDF`, `EVKHA_USE_STUB_EMAIL` et
+   `EVKHA_USE_STUB_DOCS` à `true` ; `EVKHA_USE_STUB_AI` et
+   `EVKHA_USE_STUB_SEARCH` à `false` — à `true`, le conteneur ne démarrera pas
+   (voir le tableau des drapeaux plus haut). Ne pas oublier `EVKHA_APP_URL`.
 3. **Déployer.** La construction installe LibreOffice : comptez cinq à dix
    minutes de plus qu'à l'ordinaire, et environ 400 Mo d'image en plus.
 4. **Vérifier que ça répond** : `https://<votre-api>/healthz/` doit renvoyer
