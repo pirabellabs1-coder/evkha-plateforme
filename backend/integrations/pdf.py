@@ -29,9 +29,16 @@ class PdfGenerationResult:
 
 @runtime_checkable
 class PdfClient(Protocol):
-    """Génère un livrable PDF brandé à partir d'un titre et d'un corps HTML."""
+    """Génère un livrable PDF brandé à partir d'un titre et d'un corps HTML.
 
-    def generate(self, *, title: str, html: str) -> PdfGenerationResult: ...
+    `duree_lien_s` est la durée de validité des liens produits. Le client ne la
+    DÉCIDE pas — il ne connaît ni le dossier ni son offre —, il l'applique. La
+    politique reste chez l'appelant, qui la tire de `evkha/retention.py`.
+    """
+
+    def generate(
+        self, *, title: str, html: str, duree_lien_s: int | None = None
+    ) -> PdfGenerationResult: ...
 
 
 class StubPdfClient:
@@ -41,7 +48,11 @@ class StubPdfClient:
     la reproductibilité sans dépendre de WeasyPrint.
     """
 
-    def generate(self, *, title: str, html: str) -> PdfGenerationResult:
+    def generate(
+        self, *, title: str, html: str, duree_lien_s: int | None = None
+    ) -> PdfGenerationResult:
+        # `duree_lien_s` est ignoree : le bouchon ne produit aucune URL servie
+        # par `/media/`, donc aucune signature a dater.
         digest = hashlib.sha256(f"{title}:{html[:256]}".encode()).hexdigest()[:16]
         return PdfGenerationResult(
             html_storage_key=f"stub/html/{digest}.html",
@@ -68,7 +79,7 @@ class WeasyPrintPdfClient:
         self._media_root = media_root
         self._base_url = base_url.rstrip("/")
 
-    def url_de_telechargement(self, cle: str) -> str:
+    def url_de_telechargement(self, cle: str, duree_s: int | None = None) -> str:
         """Adresse publique d'un fichier de `MEDIA_ROOT`, **signée**.
 
         Ce client assemblait `{base}{MEDIA_URL}/{cle}` a la main. Or
@@ -90,17 +101,19 @@ class WeasyPrintPdfClient:
         """
         from evkha import signatures  # noqa: PLC0415 — evite un cycle a l'import
 
-        return f"{self._base_url}{signatures.lien(cle)}"
+        return f"{self._base_url}{signatures.lien(cle, duree_s)}"
 
-    def generate(self, *, title: str, html: str) -> PdfGenerationResult:
+    def generate(
+        self, *, title: str, html: str, duree_lien_s: int | None = None
+    ) -> PdfGenerationResult:
         from weasyprint import HTML as WeasyHTML
 
         digest = hashlib.sha256(f"{title}:{html[:256]}".encode()).hexdigest()[:16]
 
         html_key = f"artifacts/html/{digest}.html"
         pdf_key = f"artifacts/pdf/{digest}.pdf"
-        html_url = self.url_de_telechargement(html_key)
-        pdf_url = self.url_de_telechargement(pdf_key)
+        html_url = self.url_de_telechargement(html_key, duree_lien_s)
+        pdf_url = self.url_de_telechargement(pdf_key, duree_lien_s)
 
         html_dest = self._media_root / html_key
         pdf_dest = self._media_root / pdf_key

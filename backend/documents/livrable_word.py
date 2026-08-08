@@ -54,22 +54,29 @@ class LivrableAssemble:
         return self.controle is not None and self.controle.livrable
 
 
-def _url(cle: str) -> str:
-    """URL de telechargement, SIGNEE.
+def _url(cle: str, duree_s: int | None = None) -> str:
+    """URL de telechargement, SIGNEE et datee sur la duree du dossier.
 
     Sans signature, `/media/` servait n'importe quel chemin a qui le devinait
     ou l'avait vu passer, sans limite de duree. Le lien reste ouvrable par qui
     le recoit — Brevo et le client final n'ont pas de session a presenter —
     mais il ne se devine plus et il expire.
+
+    `duree_s` vient de l'offre du dossier : le lien doit mourir avec le
+    fichier, pas sur une valeur globale que le courriel de livraison ne
+    promet pas.
     """
     from evkha import signatures  # noqa: PLC0415 — evite un cycle a l'import
 
     base = str(getattr(settings, "EVKHA_BASE_URL", "")).rstrip("/")
-    return f"{base}{signatures.lien(cle)}"
+    return f"{base}{signatures.lien(cle, duree_s)}"
 
 
 def _retention(job: GenerationJob) -> timedelta:
-    return timedelta(days=int(getattr(job.order.offer, "retention_days", 7) or 7))
+    """Délégué à `evkha.retention` : ce repli `7` était l'une de cinq copies."""
+    from evkha import retention  # noqa: PLC0415 — evite un cycle a l'import
+
+    return retention.duree(job)
 
 
 #: Marqueur lu par le tableau de bord : ce dossier a perdu des figures.
@@ -194,6 +201,10 @@ def assembler_livrable_word(
     livrable = produire_docx(job, destination=racine / cle_docx)
     octets = livrable.chemin.read_bytes()
     expire_le = timezone.now() + _retention(job)
+    # Un seul nombre pour les deux : la date de purge du fichier et l'echeance
+    # inscrite dans la signature du lien. Les separer, c'est promettre au client
+    # une duree que le lien ne tient pas.
+    duree_lien_s = int(_retention(job).total_seconds())
 
     _consigner_les_visuels_abandonnes(job, livrable.rapport)
 
@@ -217,7 +228,7 @@ def assembler_livrable_word(
         defaults={
             "status": ArtifactStatus.READY,
             "storage_key": cle_docx,
-            "download_url": _url(cle_docx),
+            "download_url": _url(cle_docx, duree_lien_s),
             "checksum_sha256": hashlib.sha256(octets).hexdigest(),
             "expires_at": expire_le,
         },
@@ -250,7 +261,7 @@ def assembler_livrable_word(
         defaults={
             "status": ArtifactStatus.READY,
             "storage_key": cle_pdf,
-            "download_url": _url(cle_pdf),
+            "download_url": _url(cle_pdf, duree_lien_s),
             "checksum_sha256": "",
             "expires_at": expire_le,
         },

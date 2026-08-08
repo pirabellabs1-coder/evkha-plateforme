@@ -3,9 +3,6 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass
-from datetime import timedelta
-
-from django.utils import timezone
 
 from generation.models import GenerationJob, JobStatus
 from generation.rendering import (
@@ -82,7 +79,10 @@ def _check_page_limit(job: GenerationJob, page_count: int) -> None:
 
 
 def _retention_days(job: GenerationJob) -> int:
-    return int(getattr(job.order.offer, "retention_days", 7) or 7)
+    """Délégué à `evkha.retention` : ce repli `7` était l'une de cinq copies."""
+    from evkha import retention  # noqa: PLC0415 — evite un cycle a l'import
+
+    return retention.jours(job)
 
 
 def _incident_rendu(
@@ -218,10 +218,20 @@ def assemble_document(
         msg = f"Rendu infidele au document valide : {rapport.motif}"
         raise DocumentAssemblyError(msg)
 
+    from evkha import retention  # noqa: PLC0415 — evite un cycle a l'import
+
     html_checksum = hashlib.sha256(html.encode("utf-8")).hexdigest()
-    result = pdf_client.generate(title=document.title, html=html)
+    # La durée de vie des liens est celle du FICHIER, pas une valeur globale :
+    # le courriel de livraison annonce au client la rétention de son offre, et
+    # un lien qui meurt avant le fichier lui montrerait un 404 indiscernable
+    # d'une suppression.
+    result = pdf_client.generate(
+        title=document.title,
+        html=html,
+        duree_lien_s=retention.duree_en_secondes(job),
+    )
     _check_page_limit(job, getattr(result, "page_count", 0))
-    expires_at = timezone.now() + timedelta(days=_retention_days(job))
+    expires_at = retention.echeance(job)
 
     link_artifact, _ = DocumentArtifact.objects.update_or_create(
         job=job,

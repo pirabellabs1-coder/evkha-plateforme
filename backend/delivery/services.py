@@ -220,7 +220,15 @@ def _signaler_controle_partiel(job: GenerationJob, resume: str) -> None:
 
 
 def _retention_days(job: GenerationJob) -> int:
-    return int(getattr(job.order.offer, "retention_days", 7) or 7)
+    """Délégué à `evkha.retention` : ce repli `7` était l'une de cinq copies.
+
+    C'est ce nombre que le courriel annonce au client (« valable N jours »). Il
+    doit donc être le même que celui qui date la signature du lien, sans quoi la
+    promesse est fausse — et invérifiable, puisque le lien mort répond 404.
+    """
+    from evkha import retention  # noqa: PLC0415 — evite un cycle a l'import
+
+    return retention.jours(job)
 
 
 def _expires_at(job: GenerationJob) -> datetime:
