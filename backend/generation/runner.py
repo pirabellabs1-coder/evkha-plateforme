@@ -748,8 +748,11 @@ def _generate_chapter(
     # UN appel : un chapitre decoupe en sections re-ecrirait son prefixe de
     # cache a chaque section, et surtout un calcul emboite ne se decoupe pas —
     # c'est precisement pourquoi le chapitre 2 a perdu ses sections (tache #9).
-    # `test_blueprints_code_execution` interdit la combinaison des deux, pour
-    # que le drapeau ne puisse pas etre ignore en silence.
+    # `test_aucun_blueprint_ne_combine_sections_et_execution_de_code`
+    # (test_code_execution_chapitre2.py) interdit la combinaison des deux, pour
+    # que le drapeau ne puisse pas etre ignore en silence. Cette ligne citait un
+    # `test_blueprints_code_execution` qui n'existe pas : une garantie nommee
+    # mais introuvable ne se verifie pas, et ne protege donc personne.
     code_execution = bool(blueprint.code_execution) if blueprint else False
 
     issues: list[ChapterValidationIssue] = []

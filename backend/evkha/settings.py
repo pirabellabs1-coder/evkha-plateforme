@@ -386,9 +386,11 @@ TAVILY_API_KEY = env("TAVILY_API_KEY", default="")
 #
 # Faux par défaut : le moteur historique reste seul en service. Passer à true
 # active la passe 1 (production du socle avant toute rédaction) pour les
-# livrables couverts par un référentiel — aujourd'hui l'étude de marché et
-# l'étude de la concurrence. Le business plan et la stratégie continuent de
-# tourner sur l'ancien chemin quelle que soit la valeur de ce réglage.
+# livrables couverts par un référentiel — **les quatre depuis le 06/08/2026**,
+# business plan et stratégie compris. Ce commentaire nommait encore les deux
+# seules études, et un inventaire du 08/08/2026 en a conclu qu'il restait une
+# migration à faire. La liste qui fait foi est `_PAR_LIVRABLE`, dans
+# `generation/socle/referentiel.py` — ne pas la recopier ici.
 #
 # C'est le drapeau de bascule réversible exigé par le cahier des charges :
 # le repasser à false rend le comportement d'avant, sans migration ni purge.

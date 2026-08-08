@@ -1,22 +1,30 @@
-"""Les referentiels du business plan et de la strategie, AVANT leur bascule.
+"""Les referentiels du business plan et de la strategie. **La bascule a eu lieu.**
 
-Etape 1-2 du plan du 06/08/2026. `_BP` et `_STR` sont ecrits, testes — et PAS
-enregistres dans `_PAR_LIVRABLE` : les brancher est un commit d'une ligne,
-volontairement separe, parce que c'est l'interrupteur qui fait basculer d'un
-coup production, socle, figures et controles (`EVKHA_SOCLE_ENABLED` est vrai en
-production).
+`_BP` et `_STR` sont enregistres dans `_PAR_LIVRABLE` depuis le 06/08/2026 :
+les quatre livrables passent par le moteur structure — socle, chapitres
+structures, figures, chaine Word, controles du fichier livre. C'est
+`test_les_quatre_livrables_sont_couverts` qui le verrouille.
 
-Ces tests montent donc la machinerie complete — validation, prompt — en
-enregistrant le referentiel LE TEMPS DU TEST (`monkeypatch.setitem`). C'est la
-seule facon de prouver que la bascule fonctionnera sans la faire : le jour du
-branchement, la ligne ajoutee est exactement celle que ces tests posent.
+CE TITRE DISAIT << AVANT LEUR BASCULE >>, et ce qui suivait decrivait un etat
+depasse depuis deux jours : referentiels ecrits mais PAS enregistres, bascule
+restant a faire en un commit d'une ligne. Un inventaire du 08/08/2026 en a
+conclu que le business plan et la strategie tournaient encore sur l'ancien
+moteur, et a propose de refaire le travail. Un fichier de test qui decrit
+l'etat d'avant dans sa docstring de tete est un piege : c'est le premier
+endroit ou l'on va chercher ce que le sujet garantit.
+
+Les tests montent la machinerie complete — validation, prompt — et certains
+enregistrent encore le referentiel LE TEMPS DU TEST (`monkeypatch.setitem`).
+Ce n'est plus necessaire pour prouver que la bascule fonctionnera, mais reste
+utile pour isoler un referentiel d'un autre sans dependre de l'etat global.
 
 ## La contre-epreuve qui compte le plus
 
-`test_rien_n_a_bascule` : tant que la ligne n'est pas commitee,
-`livrable_couvert("business_plan")` reste faux. Si ce test tombe, quelqu'un a
-branche la bascule par megarde — et la production genere des BP sur un moteur
-jamais repete a blanc.
+`test_les_quatre_livrables_sont_couverts`. S'il tombe, un livrable est retombe
+sur le moteur herite — soit un revert volontaire, et il faut mettre ce test a
+jour avec, soit une regression qui livrera des documents amputes sans rien
+signaler. L'ancienne contre-epreuve `test_rien_n_a_bascule` verrouillait
+l'invariant INVERSE, avant le 06/08/2026 ; elle n'existe plus.
 """
 from __future__ import annotations
 

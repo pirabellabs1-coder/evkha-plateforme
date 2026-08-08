@@ -139,10 +139,17 @@ def chaine_word_active(job: GenerationJob) -> bool:
     Défaut mesuré le 05/08/2026, sur une répétition à blanc gratuite : le
     drapeau `EVKHA_LIVRABLE_WORD` est GLOBAL et vaut `true` en production, mais
     la chaîne Word exige un socle verrouillé et des chapitres structurés — que
-    seuls l'étude de marché et l'étude concurrentielle produisent. Le business
-    plan et la stratégie tournent encore sur le moteur hérité (`_PAR_LIVRABLE`
-    ne les couvre pas) : ils écrivaient leurs 21 chapitres, puis `produire_docx`
-    levait `LivrableIncompletError` et **le client n'obtenait aucun document**.
+    seuls l'étude de marché et l'étude concurrentielle produisaient ALORS. Le
+    business plan et la stratégie tournaient sur le moteur hérité : ils
+    écrivaient leurs 21 chapitres, puis `produire_docx` levait
+    `LivrableIncompletError` et **le client n'obtenait aucun document**.
+
+    **`_PAR_LIVRABLE` couvre les quatre livrables depuis le 06/08/2026** — la
+    parenthèse qui disait le contraire ici a survécu à la bascule et a été
+    citée le 08/08/2026 pour conclure qu'une migration restait à faire. Le
+    repli décrit ci-dessous n'a pas disparu pour autant : il se déclenche sur
+    ce que le dossier CONTIENT, pas sur le type de livrable, donc un dossier
+    sans socle verrouillé y tombe encore — c'est bien ce qu'on veut.
     L'échec était de surcroît silencieux : la tâche l'attrape et journalise
     « Assemblage PDF admin impossible ».
 

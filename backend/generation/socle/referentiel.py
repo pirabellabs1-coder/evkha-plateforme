@@ -626,7 +626,13 @@ _STR: tuple[DefinitionDonnee, ...] = (
 #: testés, équilibre financier contrôlé, groupement des séries d'entreprise,
 #: recherche ciblée, CHECK INITIAL étendu, consigne anti-fourchettes transmise,
 #: fences ```chart purgés — et une répétition à blanc aux drapeaux de
-#: production (voir `test_repetition_a_blanc_bp_et_str`).
+#: production, consignée dans `journal_generations.md`.
+#:
+#: Ce qui verrouille la couverture est `test_referentiels_bp_et_str.py` (20
+#: tests, dont `test_les_quatre_livrables_sont_couverts`). La ligne précédente
+#: renvoyait à un `test_repetition_a_blanc_bp_et_str` qui n'a jamais existé
+#: dans le dépôt : une répétition à blanc est une manipulation, pas un test, et
+#: la citer comme un test faisait croire à une garantie rejouable.
 _PAR_LIVRABLE: dict[str, tuple[DefinitionDonnee, ...]] = {
     DeliverableType.MARKET_STUDY: _EM,
     DeliverableType.COMPETITOR_STUDY: _EC,
@@ -638,9 +644,12 @@ _PAR_LIVRABLE: dict[str, tuple[DefinitionDonnee, ...]] = {
 def definitions_pour(deliverable_type: str) -> tuple[DefinitionDonnee, ...]:
     """Référentiel du livrable, ou tuple vide s'il n'est pas encore couvert.
 
-    Le business plan et la stratégie ne sont pas couverts par le lot 1 : ils
-    continuent de tourner sur l'ancien moteur, drapeau `EVKHA_SOCLE_ENABLED`
-    ou pas.
+    **Les quatre livrables sont couverts depuis le 06/08/2026** — BP 33
+    définitions, EM 29, EC 24, STR 13, verrouillés par
+    `test_les_quatre_livrables_sont_couverts`. Cette docstring affirmait
+    l'inverse, à dix lignes du dictionnaire qui la dément : un inventaire du
+    08/08/2026 l'a citée pour conclure que le BP et la stratégie tournaient
+    encore sur l'ancien moteur, et a proposé de refaire un travail déjà fait.
     """
     return _PAR_LIVRABLE.get(deliverable_type, ())
 
