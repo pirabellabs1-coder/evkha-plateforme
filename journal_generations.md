@@ -274,10 +274,35 @@ matin même et n'est pas suivie. Le rappeler plus fort ne marchera pas : il
 faudra donner au modèle la NATURE de chaque identifiant du socle au moment où
 il choisit sa figure.
 
-**Non vérifié, et à ne pas croire acquis** : la conversion PDF (ni LibreOffice
-ni WeasyPrint sur le poste, convertisseur tombé sur son bouchon) et le rendu
-des polices Carlito et Aptos, absentes — matplotlib a replié. Le rendu du
-conteneur peut différer de ce qui a été relu et validé.
+**Deux défauts de plus, trouvés APRÈS la validation, en ouvrant le fichier.**
+La cliente a demandé si les couleurs et le logo étaient pris en compte. Y
+répondre a demandé de lire le `.docx` lui-même, pas le code :
+
+- **Un séparateur orphelin sur les soixante-dix pages.** L'en-tête portait
+  « ` /  Étude de marché` » : `NOM_ENTREPRISE` est optionnel, et laissé vide il
+  ne laissait pas un blanc mais sa ponctuation. Le repli censé l'éviter,
+  `marque.get("nom", "—")`, n'a jamais pu se déclencher — la clé existe
+  toujours, avec une valeur vide, et `dict.get` ne regarde que l'absence.
+  Corrigé pour la classe : tout repère vide emporte le séparateur qui le borde.
+  Commit `61c8bc2`.
+- **Six figures sur dix-sept en noir et blanc intégral**, comptées au pixel.
+  Mécanique : l'ordre des séries est `principale, or, crème, rosé`, donc une
+  figure à série unique s'arrêtait au rang 0. L'or passe en tête pour les
+  figures simples — décision de la cliente — avec le trait épaissi, l'or valant
+  2,96 de contraste sur le fond des figures contre 15,51 pour la principale,
+  sous le seuil de 3:1. Commit `dc464b2`.
+
+**La chaîne PDF est désormais éprouvée**, et ce n'est plus une promesse :
+LibreOffice installé sur le poste, `LibreOfficeConvertisseurDocx` — le chemin
+de code exact du conteneur — a rendu **67 pages, 2,0 Mo**. Contrôle d'amputation
+passé (règle 3) : 21 678 mots dans le PDF contre 21 104 dans le `.docx`, l'écart
+venant de l'en-tête répété, et 1 139 / 67 = exactement 17 figures référencées
+par page. Word, à titre de comparaison, rend 70 pages — l'écart tient aux
+polices Carlito et Aptos, absentes du poste mais **présentes dans l'image**
+(`fonts-crosextra-carlito`, Dockerfile).
+
+**Reste non vérifié** : le rendu des figures avec les vraies polices — matplotlib
+a replié ici, pas dans le conteneur.
 
 ## Règles de tenue du journal
 
