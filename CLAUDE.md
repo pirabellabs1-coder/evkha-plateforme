@@ -86,6 +86,15 @@ un dossier réel.
 
 ## 8. Chercher dans le dépôt avant de conclure
 
+> **Avant tout audit, inventaire ou relecture : lire
+> `.claude/skills/enqueter-dans-evkha/SKILL.md`.** Ce dépôt raconte ses défauts
+> passés au présent, et le 08/08/2026 trois relectures s'y sont trompées le même
+> jour — dont une qui a conclu que les livrables étaient accessibles sans
+> contrôle alors que la signature horodatée était en place et testée. Le skill
+> nomme les quatre artefacts qui mentent le plus et donne la vérification de
+> chacun.
+
+
 Gamma était intégré, testé, branché — et n'avait **jamais tourné** : flag
 jamais activé, thème `evkha-default` inexistant, erreur qui masquait sa propre
 cause. Le budget, les cibles de mots, la charte : tout est déjà écrit quelque
