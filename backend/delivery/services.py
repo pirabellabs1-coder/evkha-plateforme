@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from html import escape
+from pathlib import Path
+from urllib.parse import urlparse
 
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
 
@@ -27,11 +31,17 @@ from .models import DeliveryBatch, DeliveryEvent, DeliveryStatus
 
 _log = logging.getLogger(__name__)
 
+#: Intitulés lus PAR LE CLIENT — objet du courriel et corps du message.
+#:
+#: Accentués : ils étaient écrits « Etude de marche » et « Strategie business »,
+#: ce qui suffit à faire passer un livrable à 189 € pour un envoi automatique
+#: bâclé. Ce sont des valeurs d'affichage, jamais des clés : rien ne les
+#: compare, les accentuer ne casse aucun appariement.
 _DELIVERABLE_LABELS: dict[str, str] = {
-    "market_study":      "Etude de marche",
-    "competitor_study":  "Etude de la concurrence",
-    "business_plan":     "Business Plan",
-    "business_strategy": "Strategie business",
+    "market_study":      "Étude de marché",
+    "competitor_study":  "Étude de la concurrence",
+    "business_plan":     "Business plan",
+    "business_strategy": "Stratégie business",
 }
 
 
@@ -39,8 +49,186 @@ class DeliveryError(RuntimeError):
     pass
 
 
+class LivrableRetenuError(DeliveryError):
+    """La vérification a bloqué le document : il ne part pas chez le client.
+
+    Volontairement une erreur de livraison, et non un retour silencieux : elle
+    emprunte le chemin d'échec existant, qui enregistre un lot FAILED et un
+    incident HIGH. Un document que le système lui-même déclare défectueux ne
+    doit pas partir, et le fait qu'il ne soit pas parti doit se voir.
+    """
+
+
+@dataclass(frozen=True)
+class Assemblage:
+    """Ce que la chaîne de rendu produit, quelle que soit la chaîne employée."""
+
+    artefacts: tuple[DocumentArtifact, ...]
+    #: URL portée par le lot de livraison. C'était le lien HTML ; la chaîne Word
+    #: n'en produit pas, on retient donc le PDF.
+    url_principale: str
+    #: Motif de blocage, vide si le document est livrable.
+    retenu: str = ""
+
+
+def _assembler_livrable(
+    job: GenerationJob, *, pdf_client: PdfClient | None
+) -> Assemblage:
+    """Assemble le livrable par la chaîne configurée.
+
+    `assembler_livrable_word` existait depuis le lot 3, complète et testée, et
+    **n'était appelée par rien** : le pipeline passait par `assemble_document`.
+    Autrement dit, les graphiques sectoriels, les profils de secteur et les six
+    contrôles de cohérence n'avaient jamais tourné sur un document livré. C'est
+    le défaut que la règle 8 décrit, déjà vécu ici avec Gamma.
+
+    Le choix de la chaîne ne se lit plus sur le seul drapeau : il se prend sur
+    ce que le dossier contient (`chaine_word_active`). Un drapeau global décidait
+    pour quatre livrables dont deux — business plan et stratégie — ne produisent
+    ni socle ni chapitres structurés, et n'obtenaient donc AUCUN document.
+    """
+    from documents.livrable_word import (  # noqa: PLC0415
+        assembler_livrable_word,
+        chaine_word_active,
+    )
+
+    if not chaine_word_active(job):
+        ancien: DocumentAssembly = assemble_document(job, pdf_client=pdf_client)
+        retenu_ancien = _controler_document_herite(job, ancien.html)
+        return Assemblage(
+            artefacts=(ancien.link, ancien.pdf),
+            url_principale=ancien.link.download_url,
+            retenu=retenu_ancien,
+        )
+
+    livrable = assembler_livrable_word(job)
+    artefacts = tuple(
+        artefact for artefact in (livrable.docx, livrable.pdf) if artefact is not None
+    )
+    # Le PDF si la conversion a réussi, sinon le Word : un échec de conversion
+    # ne doit pas priver le client du document qu'il a payé.
+    principale = (
+        livrable.pdf.download_url
+        if livrable.pdf is not None and livrable.pdf.status == ArtifactStatus.READY
+        else livrable.docx.download_url
+    )
+    bloquantes = livrable.controle.bloquantes if livrable.controle else []
+    retenu = (
+        ""
+        if livrable.livrable
+        else " | ".join(anomalie.detail for anomalie in bloquantes)
+        or "vérification non exécutée"
+    )
+    return Assemblage(
+        artefacts=artefacts, url_principale=principale, retenu=retenu
+    )
+
+
+#: Marqueur lu par le tableau de bord : ce dossier est parti avec un contrôle
+#: de moins que l'étude de marché. Il disparaîtra le jour où le business plan
+#: et la stratégie rejoindront le moteur structuré.
+INCIDENT_TYPE_CONTROLE_FICHIER_ABSENT = "controle_fichier_absent"
+
+
+def _controler_document_herite(job: GenerationJob, html: str) -> str:
+    """Contrôle de contenu du document livré par la chaîne héritée.
+
+    Le contrôle de contenu du lot 4 ne s'appliquait qu'aux études de marché et
+    concurrentielle : il ouvre un `.docx` et compare au socle. Le business plan
+    et la stratégie n'ont ni l'un ni l'autre — ils partaient donc **sans aucun
+    contrôle du fichier**, avec pour seul filet le contrôle de rendu (fidélité
+    HTML/markdown) et le gate en amont.
+
+    Deux des six contrôles ne demandent pourtant pas de socle, et ce sont ceux
+    qui ont attrapé les désastres de ce dépôt : intégrité (tableaux vidés de
+    leurs lignes, document sans prose) et densité. Ils s'exécutent désormais sur
+    le HTML **exactement tel qu'il a été livré**, pas sur un second rendu.
+
+    Ce qui BLOQUE : aucun tableau, un tableau sans une seule cellule remplie,
+    aucun texte. Trois défauts que le lecteur constate en ouvrant le document.
+    La densité, elle, n'émet que des avertissements — la cliente a refusé une
+    livraison pour cette raison, mais un document dense à 35 % au lieu de 40
+    reste un document.
+
+    Ce qui NE tourne PAS reste dit, dans un incident : les quatre contrôles qui
+    comparent au socle. Ne pas avoir vérifié n'est pas la même chose qu'avoir
+    vérifié sans rien trouver (règle 1).
+
+    Renvoie le motif de blocage, ou la chaîne vide.
+    """
+    from generation.verification.lecture import lire_livrable_html  # noqa: PLC0415
+    from generation.verification.services import (  # noqa: PLC0415
+        verifier_document_sans_socle,
+    )
+
+    rapport = verifier_document_sans_socle(lire_livrable_html(html))
+    _signaler_controle_partiel(job, rapport.resume())
+    if rapport.bloquantes:
+        return " | ".join(anomalie.detail for anomalie in rapport.bloquantes)
+    return ""
+
+
+def _signaler_controle_partiel(job: GenerationJob, resume: str) -> None:
+    """Dit ce qui a été contrôlé sur ce document — ET ce qui ne l'a pas été.
+
+    Quatre des six contrôles du lot 4 comparent au socle. Le business plan et
+    la stratégie n'en ont pas : ces quatre-là ne peuvent rien dire d'eux.
+    Passer sous silence cette moitié manquante la ferait passer pour un « rien
+    à signaler », et c'est exactement le défaut que la chaîne Word nomme
+    elle-même : « ne pas avoir vérifié n'est pas la même chose qu'avoir vérifié
+    sans rien trouver » (règle 1).
+
+    L'incident nomme donc les contrôles EXÉCUTÉS autant que les manquants — un
+    incident qui n'énumérerait que les absents laisserait croire que rien n'a
+    été vérifié, ce qui est faux et démobilise autant qu'un silence.
+
+    Un incident par job (`update_or_create`) : une relivraison ne doit pas
+    empiler des doublons qui noieraient les vrais incidents.
+    """
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    OperationalIncident.objects.update_or_create(
+        job=job,
+        title=f"Contrôle de contenu partiel sur le fichier livré (job {job.id})"[:200],
+        defaults={
+            "severity": IncidentSeverity.MEDIUM,
+            "order": job.order,
+            "details": {
+                "type": INCIDENT_TYPE_CONTROLE_FICHIER_ABSENT,
+                "livrable": str(job.deliverable_type),
+                "controles_executes": [
+                    "gate de livraison",
+                    "complétude des chapitres",
+                    "fidélité du rendu HTML au markdown validé",
+                    "intégrité du fichier livré (tableaux, prose)",
+                    "densité du fichier livré",
+                ],
+                "resultat_sur_le_fichier": resume,
+                "controles_manquants": [
+                    "chiffres hors socle",
+                    "couverture du socle",
+                    "hiérarchie des marchés",
+                    "visuels abandonnés à l'assemblage",
+                ],
+                "cause": (
+                    "Ces quatre contrôles comparent au socle verrouillé. Ce "
+                    "livrable tourne sur le moteur hérité : il n'en a pas."
+                ),
+            },
+        },
+    )
+
+
 def _retention_days(job: GenerationJob) -> int:
-    return int(getattr(job.order.offer, "retention_days", 7) or 7)
+    """Délégué à `evkha.retention` : ce repli `7` était l'une de cinq copies.
+
+    C'est ce nombre que le courriel annonce au client (« valable N jours »). Il
+    doit donc être le même que celui qui date la signature du lien, sans quoi la
+    promesse est fausse — et invérifiable, puisque le lien mort répond 404.
+    """
+    from evkha import retention  # noqa: PLC0415 — evite un cycle a l'import
+
+    return retention.jours(job)
 
 
 def _expires_at(job: GenerationJob) -> datetime:
@@ -69,6 +257,28 @@ def _theme_id_for(job: GenerationJob) -> str:
         if theme_id:
             return str(theme_id)
     return str(getattr(settings, "GAMMA_THEME_ID", "") or "")
+
+
+def sujet_de_livraison(job: GenerationJob) -> str:
+    """Objet du courriel qui annonce l'étude terminée.
+
+    Il était `f"Livrables EVKHA - {systeme_order_id}"` pour tout le monde. Cet
+    identifiant vient de Systeme.io ; pour une commande passée depuis l'espace
+    client, `commandes.creer_commande` le fabrique sous la forme
+    `espace-a1b2c3d4e5f6`. Le client recevait donc dans sa boîte un objet
+    contenant une référence interne qui ne lui dit rien et qu'il ne peut citer
+    nulle part.
+
+    Ce qui l'intéresse tient en deux mots : quel document, et pour qui. On les
+    lui donne, et la référence reste dans le corps du message pour le support.
+    """
+    intitule = _DELIVERABLE_LABELS.get(
+        str(job.deliverable_type), str(job.deliverable_type)
+    )
+    organisation = getattr(job.order, "organisation", None)
+    if organisation is not None:
+        return f"Votre {intitule.lower()} est prête — {organisation.raison_sociale}"
+    return f"Livrables EVKHA - {job.order.systeme_order_id}"
 
 
 def _html_body(job: GenerationJob, artifacts: tuple[DocumentArtifact, ...]) -> str:
@@ -191,10 +401,35 @@ def notify_generation_started(
         _log.warning("notify_generation_started: echec envoi email pour job %s", job.id)
 
 
+#: Extension de REPLI, quand ni le fichier stocké ni l'URL n'en portent une.
+_EXTENSIONS_PAR_NATURE: dict[str, str] = {
+    ArtifactKind.DOCX: "docx",
+    ArtifactKind.PDF: "pdf",
+    ArtifactKind.GAMMA_PDF: "pdf",
+    ArtifactKind.GAMMA_PPTX: "pptx",
+    ArtifactKind.LINK: "html",
+}
+
+
 def _attachment_filename(artifact: DocumentArtifact, order_id: str) -> str:
-    """Nom de fichier lisible : ex. 'EVKHA_order123_gamma.pdf'."""
+    """Nom de fichier lisible : ex. `EVKHA_order123_docx.docx`.
+
+    L'extension vient du FICHIER, pas d'une liste de cas. Elle était calculée
+    par `"pptx" si GAMMA_PPTX sinon "pdf"` — deux cas énumérés, et tout le
+    reste devenait `.pdf`. Le Word serait donc parti chez la cliente nommé
+    `EVKHA_…_docx.pdf` : un document Word portant l'extension d'un PDF, que son
+    ordinateur aurait refusé d'ouvrir correctement.
+
+    Ajouter `docx` à l'énumération aurait refait la même faute au type suivant.
+    Un correctif qui énumère des cas est incomplet (règle 4).
+    """
     slug = order_id.replace(" ", "_")[:40]
-    extension = "pptx" if artifact.kind == ArtifactKind.GAMMA_PPTX else "pdf"
+    depuis_fichier = Path(str(artifact.storage_key or "")).suffix
+    depuis_url = Path(urlparse(str(artifact.download_url or "")).path).suffix
+    extension = (
+        (depuis_fichier or depuis_url).lstrip(".").lower()
+        or _EXTENSIONS_PAR_NATURE.get(str(artifact.kind), "bin")
+    )
     label = "gamma_pptx" if artifact.kind == ArtifactKind.GAMMA_PPTX else artifact.kind
     return f"EVKHA_{slug}_{label}.{extension}"
 
@@ -421,27 +656,40 @@ def deliver_job(
 
     try:
         # --- I/O externe (pas de transaction ouverte) ---
-        # assemble_document est idempotent via update_or_create.
-        # Retourne DocumentAssembly(link=HTML, pdf=WeasyPrint PDF brandé).
-        assembly: DocumentAssembly = assemble_document(job, pdf_client=pdf_client)
+        # Les deux chaînes sont idempotentes via update_or_create.
+        assemblage = _assembler_livrable(job, pdf_client=pdf_client)
+        if assemblage.retenu:
+            # Avant tout envoi. Un document que la vérification bloque ne part
+            # pas, et l'incident dit pourquoi (règle 1 : échouer bruyamment).
+            msg = f"Livrable retenu à la vérification : {assemblage.retenu}"
+            raise LivrableRetenuError(msg)
+
         gamma_artifacts = ensure_gamma_artifacts(job, gamma_client=gamma_client)
         all_artifacts: tuple[DocumentArtifact, ...] = (
-            assembly.link,
-            assembly.pdf,
+            *assemblage.artefacts,
             *gamma_artifacts,
         )
 
+        # Le Word est joint lui aussi : c'est le document que la cliente
+        # retravaille, le PDF n'en est que la photographie.
         attachments = tuple(
             EmailAttachment(
                 filename=_attachment_filename(artifact, job.order.systeme_order_id),
                 url=artifact.download_url,
             )
             for artifact in all_artifacts
-            if artifact.kind in {ArtifactKind.PDF, ArtifactKind.GAMMA_PDF, ArtifactKind.GAMMA_PPTX}
+            if artifact.download_url
+            and artifact.kind
+            in {
+                ArtifactKind.DOCX,
+                ArtifactKind.PDF,
+                ArtifactKind.GAMMA_PDF,
+                ArtifactKind.GAMMA_PPTX,
+            }
         )
         result = email_client.send_delivery_email(
             recipient_email=job.order.customer.email,
-            subject=f"Livrables EVKHA - {job.order.systeme_order_id}",
+            subject=sujet_de_livraison(job),
             html_body=_html_body(job, all_artifacts),
             attachments=attachments,
         )
@@ -454,7 +702,7 @@ def deliver_job(
                     "status": DeliveryStatus.SENT,
                     "email_provider": "brevo",
                     "recipient_email": job.order.customer.email,
-                    "download_url": assembly.link.download_url,
+                    "download_url": assemblage.url_principale,
                     "error_message": "",
                     "sent_at": timezone.now(),
                 },
@@ -532,7 +780,7 @@ def send_email_for_job(
     try:
         result = email_client.send_delivery_email(
             recipient_email=job.order.customer.email,
-            subject=f"Livrables EVKHA - {job.order.systeme_order_id}",
+            subject=sujet_de_livraison(job),
             html_body=_html_body(job, artifacts),
             attachments=attachments,
         )
@@ -578,18 +826,81 @@ def send_email_for_job(
                         "error_message": str(exc),
                     },
                 )
+                if isinstance(exc, LivrableRetenuError):
+                    # Le job restait DONE : l'espace client continuait donc de
+                    # presenter le document en telechargement, alors que la
+                    # verification venait de le declarer defectueux. Le controle
+                    # protegeait le courriel, pas ce que le lecteur allait
+                    # ouvrir (regle 3).
+                    #
+                    # `INTERVENTION_REQUISE` existait deja et signifie exactement
+                    # cela : produit, mais aucun envoi client possible.
+                    GenerationJob.objects.filter(pk=job.pk).update(
+                        status=JobStatus.INTERVENTION_REQUISE,
+                        error_message=str(exc)[:2000],
+                    )
+                    OperationalIncident.objects.create(
+                        title=f"Livrable retenu a la verification (job {job.id})",
+                        severity=IncidentSeverity.HIGH,
+                        job=job,
+                        order=job.order,
+                        details={
+                            "motif": str(exc),
+                            "consigne": (
+                                "Aucun e-mail client n'est parti et le document "
+                                "n'est PAS telechargeable depuis l'espace. "
+                                "Corriger la cause, puis relancer le job."
+                            ),
+                        },
+                    )
         except Exception:  # noqa: BLE001
             pass
         raise DeliveryError(str(exc)) from exc
 
 
 def purge_expired_artifacts(*, now: datetime | None = None) -> int:
+    """Supprime les documents arrivés à échéance — **du disque**, pas seulement
+    de la base.
+
+    **La suppression disque EST faite** — voir la boucle `default_storage.delete`
+    en fin de fonction, et `test_la_purge_efface_le_fichier_du_disque`. Le
+    paragraphe suivant décrit l'état d'AVANT ; il a été cité deux fois comme s'il
+    décrivait le présent, à dix lignes du code qui le dément.
+
+    Cette fonction ne faisait que basculer un statut et vider `download_url`.
+    Le fichier, lui, restait dans `MEDIA_ROOT`, à une adresse que
+    `django.views.static.serve` continuait de servir sans authentification :
+    l'étude de marché d'un client final restait donc téléchargeable
+    indéfiniment par quiconque avait vu passer le lien.
+
+    La rétention était pourtant invoquée comme une garantie de confidentialité,
+    en toutes lettres, dans le commentaire de la route `/media/`. Une garantie
+    écrite et non tenue est le défaut de la règle 1 : elle a dispensé de poser
+    la vraie protection.
+
+    L'échec de suppression d'un fichier n'interrompt pas la purge : un artefact
+    déjà absent du disque — nettoyage manuel, volume recréé — ne doit pas
+    laisser tous les suivants en place. Il est journalisé, et le statut bascule
+    quand même, sans quoi la purge le repasserait indéfiniment.
+    """
     now = now or timezone.now()
     expired = DocumentArtifact.objects.filter(
         status=ArtifactStatus.READY,
         expires_at__isnull=False,
         expires_at__lte=now,
     )
+
+    # On lit les cles AVANT le `update` : ensuite le filtre ne les retrouve
+    # plus, et on supprimerait zero fichier en croyant en supprimer tous.
+    cles = [cle for cle in expired.values_list("storage_key", flat=True) if cle]
     count = expired.count()
     expired.update(status=ArtifactStatus.EXPIRED, download_url="")
+
+    for cle in cles:
+        try:
+            if default_storage.exists(cle):
+                default_storage.delete(cle)
+        except Exception:  # noqa: BLE001 — un fichier recalcitrant n'arrete pas la purge
+            _log.exception("Purge : suppression impossible pour %s", cle)
+
     return count

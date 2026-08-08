@@ -7,13 +7,11 @@ from catalog.models import DeliverableType
 # Source de verite du chapitrage EM : « Systeme EVKHA — Cheminement manuel
 # d'une etude de marche » (Evangeline, juillet 2026), pp. 8-17.
 # Ordre final : page de garde -> sommaire -> FICHE PROJET (ouverture) ->
-# chapitres 1 a 20 -> chapitre 21 « Sources et methodologie » -> « Fin de l'etude ».
-# 21 chapitres analytiques + fiche projet en opening. L'ANNEXE brief separee
-# du blueprint precedent a ete SUPPRIMEE : le manuel exige que « toutes les
-# demandes du client aient une reponse identifiable dans l'etude » via les
-# CHECKs inter-blocs, pas dans un chapitre annexe (§7 du manuel).
+# chapitres 1 a 20 -> chapitre 21 « Sources et methodologie » -> ANNEXE
+# « Reponses essentielles au client » -> « Fin de l'etude ».
+# 21 chapitres analytiques + fiche projet en opening + annexe (§8, pp. 33-34).
 # Blocs de controle (§6 manuel) : A(1-2) B(3) C(4-5) D(6) E(7-8) F(9-11)
-# G(12-14) H(15-17) I(18-20) J(21). Chaque bloc declenche un CHECK Sonnet
+# G(12-14) H(15-17) I(18-20) J(21-22). Chaque bloc declenche un CHECK Sonnet
 # apres generation, gere par `checks_blocs.py` (Vague 2).
 # BP/EC/STR : blueprints inchanges (le manuel Evangeline ne couvre que l'EM).
 
@@ -188,6 +186,25 @@ MARKET_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         21, "Sources et méthodologie", "em.21.sources_methodologie",
         SectionKind.SOURCES, model=None
     ),
+    # Bloc K ── annexe des reponses essentielles
+    #
+    # RETABLIE. Elle avait ete supprimee sur la foi de la version precedente du
+    # manuel, au motif que les CHECKs inter-blocs suffisaient a garantir que
+    # « toutes les demandes du client aient une reponse identifiable ». Le
+    # manuel de juillet 2026 la reinstaure explicitement (§8, pp. 33-34) : deux
+    # a quatre pages, un tableau a cinq colonnes, place APRES le chapitre 21 ;
+    # et son CHECK FINAL exige desormais qu'elle soit presente.
+    #
+    # Un CHECK verifie que la reponse EXISTE quelque part dans soixante pages.
+    # L'annexe la rend TROUVABLE en une minute. Ce n'est pas la meme promesse.
+    ChapterBlueprint(
+        22,
+        "Réponses essentielles au client — en un coup d'œil",
+        "em.22.annexe_reponses",
+        SectionKind.ANNEXE,
+        max_words=1200,
+        model=None,
+    ),
 )
 
 
@@ -250,11 +267,31 @@ COMPETITOR_STUDY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
 
 # ---------------------------------------------------------------------------
 # Business Plan (BP)
-# Chapitrage officiel EVKHA V1 (spec "Systeme EVKHA Business Plans V1 FINALE
-# OK TOBIAS.pdf" + squelette FIRE EVENT). Chapitres 2-11 documentes dans la
-# spec V1 partielle ; chapitres 12-19 issus du squelette de reference FIRE
-# EVENT (structure validee Evangeline, jan 2026). Ne PAS modifier sans
-# validation d'Evangeline.
+#
+# Source de verite : « Systeme EVKHA — Business Plans — V1 FINALE », 133 pages,
+# remis par la cliente le 05/08/2026. Ses SECTIONS DETAILLEES font foi, et non
+# son sommaire : les deux se contredisent a partir du chapitre 17 (le sommaire
+# donne 17 Remuneration / 18 Risques, les sections detaillees l'inverse). Ecart
+# signale a la cliente ; on suit les sections, qui portent le contenu reel.
+#
+# Vingt-deux entrees : fiche projet (0), les vingt chapitres du document
+# (1 a 20, annexes comprises), puis les sources (21).
+#
+# DEFUSION des chapitres 14+15 et 16+17. Ces deux fusions dataient d'une demande
+# cliente de juillet 2026 ; le document V1 FINALE les redetaille comme chapitres
+# distincts, et la cliente a confirme le retour aux vingt chapitres le
+# 05/08/2026. Aucun contenu n'est cree pour l'occasion : les sections existantes
+# — `bp.14.investissements`, `bp.15.plan_financement` — deviennent les chapitres
+# qu'elles etaient avant d'etre repliees.
+#
+# AJOUT du chapitre 18, Politique de remuneration. Verifie sur les vingt prompts
+# du depot : aucun ne traitait le montant de la remuneration du dirigeant, son
+# calendrier, les charges sociales, l'arbitrage salaire/dividendes ni le
+# maintien de l'ARE. Le document y consacre un chapitre entier, et sa lecture
+# bancaire en depend — une remuneration absente du modele financier rend le
+# previsionnel incomplet.
+#
+# Les cles de prompt s'alignent desormais sur la numerotation du document.
 # ---------------------------------------------------------------------------
 BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
@@ -285,39 +322,38 @@ BUSINESS_PLAN_CHAPTERS: tuple[ChapterBlueprint, ...] = (
     ChapterBlueprint(
         13, "Structure juridique et réglementaire", "bp.13.structure_juridique", max_words=1200
     ),
-    # Fusion chapitres 14+15 (demande client, juillet 2026) : reduit la
-    # duplication des sections financieres liees et compresse le budget IA.
-    # Chunked en 2 sections qui reutilisent les prompts existants bp.14 et
-    # bp.15 : aucun contenu editorial n'est perdu.
     ChapterBlueprint(
-        14,
-        "Besoin au démarrage et plan de financement initial",
-        "bp.14.besoin_financement",
-        sections=("bp.14.investissements", "bp.15.plan_financement"),
-        max_words=1250,
+        14, "Investissements et besoins", "bp.14.investissements", max_words=1400
     ),
-    # Fusion chapitres 16+17 (demande client, juillet 2026) : previsionnel
-    # + tresorerie forment un tout financier, plus lisible d'un bloc.
-    # Chunked en 3 sections (comptes resultats, bilan/graph, tresorerie)
-    # pour eviter les troncatures sur le contenu dense (tables + graphes).
     ChapterBlueprint(
-        15,
-        "Prévisionnel financier et trésorerie",
-        "bp.15.previsionnel_tresorerie",
+        15, "Plan de financement", "bp.15.plan_financement", max_words=1100
+    ),
+    # Le previsionnel reste decoupe en trois sections : tables financieres et
+    # graphiques depassent 3500 jetons en un seul appel, et la troncature y
+    # coupe un tableau au milieu. La tresorerie en est une SECTION et non un
+    # chapitre — le document la traite dans le 16 (« comment la tresorerie est
+    # securisee »), il ne lui donne pas de chapitre propre.
+    ChapterBlueprint(
+        16,
+        "Prévisionnel financier",
+        "bp.16.previsionnel_financier",
         sections=(
             "bp.16.a.comptes_resultats",
             "bp.16.b.bilan_projection",
-            "bp.17.budget_tresorerie",
+            "bp.16.c.budget_tresorerie",
         ),
         max_words=900,
     ),
     ChapterBlueprint(
-        16, "Risques et facteurs de sécurisation", "bp.18.risques_securisation", max_words=1400
+        17, "Risques et facteurs de sécurisation", "bp.17.risques_securisation", max_words=1400
     ),
-    ChapterBlueprint(17, "Conclusion", "bp.19.conclusion", max_words=1000),
-    ChapterBlueprint(18, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model=None),
     ChapterBlueprint(
-        19, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model=None
+        18, "Politique de rémunération", "bp.18.remuneration", max_words=1200
+    ),
+    ChapterBlueprint(19, "Conclusion", "bp.19.conclusion", max_words=1000),
+    ChapterBlueprint(20, "Annexes", "bp.20.annexes", SectionKind.ANNEXE, model=None),
+    ChapterBlueprint(
+        21, "Sources et méthodologie", "bp.21.sources", SectionKind.SOURCES, model=None
     ),
 )
 
@@ -418,15 +454,39 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "str.17.feuille_route",
         max_words=1600,
     ),
+    # AJOUT du chapitre 18, Conclusion strategique generale (05/08/2026).
+    #
+    # Le sommaire officiel du manuel — « STRUCTURE OFFICIELLE V1 RECOMMANDEE »,
+    # p. 31 — se termine par « PARTIE VII / Chapitre 16 — Feuille de route » PUIS
+    # « CONCLUSION STRATEGIQUE ». Le corps du document lui consacre une section
+    # entiere (p. 93-96) traitee comme un chapitre : objectif, role, questions
+    # strategiques, structure interne obligatoire en quatre parties, et son propre
+    # controle qualite.
+    #
+    # Elle n'existait dans AUCUN des vingt prompts du depot : la strategie passait
+    # de la feuille de route directement a l'annexe. Le business plan, lui, porte
+    # bien son chapitre de conclusion — c'est cette asymetrie entre deux livrables
+    # batis sur le meme modele qui a rendu le trou visible. Meme classe de defaut
+    # que la « Politique de remuneration » absente du BP (regle 4).
+    #
+    # Le chapitre 17 (Feuille de route) doit d'ailleurs s'ouvrir sur elle : le
+    # manuel lui impose en TRANSITION STRATEGIQUE « une ouverture vers la
+    # conclusion strategique generale du document ».
     ChapterBlueprint(
         18,
+        "Conclusion stratégique générale",
+        "str.18.conclusion",
+        max_words=1400,
+    ),
+    ChapterBlueprint(
+        19,
         "Annexe - Réponses aux demandes spécifiques du client",
-        "str.18.annexe_brief",
+        "str.19.annexe_brief",
         SectionKind.ANNEXE,
         model=None,
     ),
     ChapterBlueprint(
-        19, "Sources et méthodologie", "str.19.sources", SectionKind.SOURCES, model=None
+        20, "Sources et méthodologie", "str.20.sources", SectionKind.SOURCES, model=None
     ),
 )
 
@@ -470,13 +530,16 @@ SECTION_MAX_WORDS: dict[str, int] = {
     # EM chapitre 19 — recommandations strategiques
     "em.19.a.diagnostic":  900,  # diagnostic strategique
     "em.19.b.plan_action": 800,  # plan d'action concret
-    # BP chapitre 14 — besoin au demarrage et plan de financement (fusion 14+15)
-    "bp.14.investissements":      1400,  # investissements initiaux + BFR
-    "bp.15.plan_financement":     1100,  # plan de financement + graphique
-    # BP chapitre 15 — previsionnel financier et tresorerie (fusion 16+17)
+    # BP chapitre 16 — previsionnel financier (3 sections)
+    #
+    # `bp.14.investissements` et `bp.15.plan_financement` ne figurent plus ici :
+    # la defusion en a refait des CHAPITRES, dont la cible de mots vit dans
+    # `ChapterBlueprint.max_words`. Les laisser ici aurait cree deux avis sur la
+    # meme longueur (regle 5), et c'est celui-ci qui l'emporte dans
+    # `build_section_prompt`.
     "bp.16.a.comptes_resultats":  1000,  # comptes de resultats projetes
     "bp.16.b.bilan_projection":    800,  # bilan + graphique CA/EBITDA
-    "bp.17.budget_tresorerie":    1000,  # budget de tresorerie mensuel
+    "bp.16.c.budget_tresorerie":  1000,  # budget de tresorerie mensuel
 }
 
 

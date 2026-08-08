@@ -5,6 +5,8 @@ n'y pense en ecrivant un test.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from django.conf import settings
 
@@ -45,3 +47,107 @@ def _force_stubs(monkeypatch: pytest.MonkeyPatch) -> None:
     # Ceinture-bretelles : meme si un client reel etait instancie, il ne
     # trouverait pas de cle et echouerait bruyamment plutot que de facturer.
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+
+#: Jeton d'administration utilise par toute la suite. Connu, fixe, et sans
+#: rapport avec celui de qui que ce soit.
+JETON_ADMIN = "jeton-de-test-administration-64-signes-exactement-pour-la-suite"
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _cache_local_pour_la_suite() -> Any:
+    """La suite n'exige AUCUN service exterieur.
+
+    `settings.py` deduit desormais l'adresse du cache du courtier Celery : en
+    production, Redis. Ici, laisser ce reglage obligerait a faire tourner un
+    Redis pour lancer les tests — et une suite qui depend d'un service qu'on a
+    oublie de demarrer ne se distingue pas d'une suite qui echoue.
+
+    C'est la meme raison que `_force_stubs` : un test qui depend de
+    l'environnement local n'est pas reproductible.
+
+    Ce que ce repli ne masque PAS : la production doit avoir un cache PARTAGE
+    entre ses processus, sans quoi les plafonds de tentatives ne comptent rien.
+    Cette exigence-la est tenue par le controle `evkha.C001`, lui-meme teste
+    dans `test_reglages_de_production.py` — pas par ce que la suite utilise.
+    """
+    from django.test import override_settings
+
+    local = override_settings(
+        CACHES={
+            "default": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+                "LOCATION": "suite-de-tests",
+            }
+        }
+    )
+    local.enable()
+    yield
+    local.disable()
+
+
+@pytest.fixture(autouse=True)
+def _cache_vide_entre_les_tests() -> Any:
+    """Chaque test part d'un cache propre.
+
+    Les plafonds de tentatives vivent dans le cache. Sans ce nettoyage, un test
+    qui epuise un plafond le laisse epuise pour les suivants : ils echouent
+    alors sur un etat qu'ils n'ont pas produit, et l'ordre d'execution devient
+    une variable cachee de la suite.
+
+    Deux fichiers appelaient deja `cache.clear()` chacun de leur cote — c'est
+    le signe qu'il en fallait un seul, ici (regle 5).
+    """
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def _garde_administration(monkeypatch: pytest.MonkeyPatch) -> None:
+    """L'administration est PROTEGEE pendant les tests, comme en production.
+
+    Elle ne l'etait pas : les reglages venaient du `.env` local, ou le
+    contournement de developpement est actif. La suite passait donc par une
+    porte ouverte, et ne prouvait rien sur l'authentification — jusqu'a ce
+    qu'on decouvre que cette meme porte etait ouverte sur le serveur public.
+
+    Meme raison que `_force_stubs` juste au-dessus : un test qui depend d'un
+    fichier de configuration local n'est pas reproductible, et il valide un
+    comportement que personne n'a choisi.
+
+    Les tests qui appellent `/api/dashboard/` doivent desormais s'authentifier,
+    via la fixture `client_admin`. C'est plus verbeux, et c'est le but : la
+    suite exerce le vrai chemin (regle 7).
+    """
+    monkeypatch.setattr(settings, "EVKHA_DASHBOARD_AUTH_DISABLED", False, raising=False)
+    monkeypatch.setattr(settings, "EVKHA_DASHBOARD_TOKEN", JETON_ADMIN, raising=False)
+
+
+@pytest.fixture
+def client_admin() -> Any:
+    """Client de test qui presente le jeton d'administration a chaque appel."""
+    from django.test import Client
+
+    return Client(HTTP_AUTHORIZATION=f"Bearer {JETON_ADMIN}")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _hachage_rapide() -> None:
+    """Hachage de mot de passe rapide pendant les tests, jamais en production.
+
+    `creer_compte` d'un compte d'espace client passe par PBKDF2 avec le nombre
+    d'iterations de production — ce qui est exactement ce qu'on veut en
+    production, et ce qui coute environ un tiers de seconde par appel. Une
+    cinquantaine de comptes de test suffisaient a faire depasser la suite de
+    plusieurs minutes.
+
+    Ce reglage ne touche QUE la configuration de test : le hachage reel reste
+    celui de Django. Affaiblir le hachage de production pour gagner du temps de
+    test serait evidemment inacceptable.
+    """
+    settings.PASSWORD_HASHERS = [
+        "django.contrib.auth.hashers.MD5PasswordHasher",
+    ]

@@ -35,6 +35,7 @@ from generation.checks_blocs import (
 from generation.models import ChapterGeneration, GenerationJob
 from integrations.claude import (
     _ADVISOR_BETA,
+    _ADVISORS_VALIDES,
     _MIN_ADVISOR_MAX_TOKENS,
     StubClaudeClient,
     _advisor_tool,
@@ -60,25 +61,57 @@ def test_la_definition_de_loutil_suit_la_doc():
     assert outil == {
         "type": "advisor_20260301",
         "name": "advisor",
-        "model": _SONNET,
+        # PAS `_SONNET`. Le tableau de compatibilite officiel ne place pas
+        # sonnet-4-6 parmi ses propres advisors : la paire sonnet -> sonnet est
+        # un 400. On prend le premier advisor valide, c'est-a-dire le moins
+        # cher qui satisfasse la contrainte.
+        "model": "claude-opus-4-7",
         "max_uses": 1,
         "max_tokens": 2048,
     }
 
 
 @override_settings(EVKHA_ADVISOR_ENABLED=True)
-def test_le_conseiller_est_le_meme_modele_que_lexecuteur():
-    """Contrainte projet ET condition de justesse du Cost Engine."""
+def test_le_conseiller_est_au_moins_aussi_capable_que_lexecuteur():
+    """Ce test affirmait l'inverse, et verrouillait une paire refusee par l'API.
+
+    Il exigeait `advisor == executeur`, en resumant la regle de la doc par
+    « les modeles de capacite egale peuvent se conseiller mutuellement ». C'est
+    vrai a partir d'Opus 4.7 et faux pour Sonnet 4.6 — le seul modele que ce
+    projet emploie. La paire emise etait donc un 400, jamais leve parce que
+    l'advisor ne monte que sur les CHECKs de bloc et que ceux-ci ne s'executent
+    pas dans le moteur en service.
+
+    Un test qui verrouille un defaut est pire qu'une absence de test : il
+    interdit de le corriger (regle 6).
+    """
     outil = _advisor_tool(_SONNET)
     assert outil is not None
-    assert outil["model"] == _SONNET
+    assert outil["model"] != _SONNET, (
+        "sonnet-4-6 ne peut pas se conseiller lui-meme : l'API refuse la paire"
+    )
+    assert outil["model"] in _ADVISORS_VALIDES[_SONNET]
 
 
 @override_settings(EVKHA_ADVISOR_ENABLED=True)
-@pytest.mark.parametrize("model_id", ["claude-haiku-4-5-20251001", "claude-sonnet-5"])
+@pytest.mark.parametrize("model_id", ["claude-haiku-4-5-20251001"])
 def test_aucune_paire_invalide_nest_emise(model_id: str):
-    """Haiku n'est jamais advisor ; sonnet-5 ne figure pas dans ses advisors."""
+    """Haiku n'est jamais advisor et n'a pas d'advisor : absent du tableau.
+
+    `claude-sonnet-5` a ete RETIRE de ce parametrage : il figure bien dans le
+    tableau, avec des advisors Opus valides. L'exclure revenait a priver de
+    conseiller le modele vers lequel le projet migre.
+    """
     assert _advisor_tool(model_id) is None
+
+
+@override_settings(EVKHA_ADVISOR_ENABLED=True)
+def test_sonnet_5_a_bien_un_conseiller() -> None:
+    """Contre-epreuve du retrait ci-dessus, et cas du modele a venir."""
+    outil = _advisor_tool("claude-sonnet-5")
+    assert outil is not None
+    assert outil["model"] in _ADVISORS_VALIDES["claude-sonnet-5"]
+    assert outil["model"] != "claude-sonnet-5"
 
 
 @override_settings(EVKHA_ADVISOR_ENABLED=False)
@@ -370,7 +403,24 @@ def test_le_stub_de_dev_accepte_le_parametre_advisor(em_job: GenerationJob) -> N
     assert "verdict" in resultat.content
 
 
-def test_budget_em_couvre_les_checks_et_ladvisor() -> None:
+def test_le_rythme_em_couvre_les_checks_et_ladvisor() -> None:
+    """Le budget de rythme doit laisser passer un chapitre de taille normale.
+
+    Ce test exigeait 4,60 EUR — le PIRE CAS projeté : chapitres + réflexion +
+    CHECKs + advisor + marge de reprise. Or ce nombre ne plafonne plus la
+    dépense depuis le 05/08/2026 : `cost.PLAFOND_DEPENSE_EUR` s'en charge, sur
+    décision de la cliente (3,10 EUR maximum).
+
+    Ce que ce nombre-ci gouverne, c'est le THROTTLE — il répartit le restant sur
+    les appels à venir. Ce qu'il doit garantir n'est donc plus « couvrir le pire
+    cas » mais « ne pas raboter les chapitres ». Le seuil est mesuré, pas
+    projeté : sous 3,80 EUR, le premier appel est déjà borné au plancher de
+    2 500 jetons (voir `test_plafond_de_generation`).
+
+    Les deux études COMPLÈTES mesurées ont coûté 3,12 et 3,32 EUR — la
+    projection à 4,60 portait donc environ 40 % de marge sur une dépense qui,
+    elle, est désormais coupée en dur.
+    """
     from generation.services import _BUDGET_EUR_BY_TYPE
 
-    assert _BUDGET_EUR_BY_TYPE[DeliverableType.MARKET_STUDY] >= Decimal("4.6000")
+    assert _BUDGET_EUR_BY_TYPE[DeliverableType.MARKET_STUDY] >= Decimal("3.8000")

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 from generation.checks_post_rendu import detecter_ton_publicitaire
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # 1. Superlatifs marketing → signal
 # ══════════════════════════════════════════════════════════════════════════

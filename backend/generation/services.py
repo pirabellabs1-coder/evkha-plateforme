@@ -51,11 +51,46 @@ _SUPPORTED_DELIVERABLES = frozenset(
 # = 4,14 EUR attendus, + ~0,46 de marge de retry -> 4,60 EUR.
 # Leviers de retour en arriere, par ordre d'effet : EVKHA_ADVISOR_ENABLED=false
 # (-0,22), EVKHA_THINKING_BUDGET_TOKENS=0 (-0,41).
+#
+# Revision 05/08/2026 — les quatre budgets releves d'environ 30 % pour la
+# bascule vers claude-sonnet-5. Ce n'est PAS une hausse de tarif : Sonnet 5 est
+# facture au meme prix que Sonnet 4.6 (3 $ / 15 $ par million de tokens). C'est
+# un changement de TOKENIZER — le meme texte y compte environ 30 % de tokens en
+# plus. A budget inchange, le throttle aurait donc rabote max_tokens sur les
+# derniers chapitres pour tenir un plafond calibre sur l'ancien decoupage : des
+# chapitres plus courts, c'est-a-dire le defaut meme que la cliente signale.
+#
+# Le pourcentage s'applique a chaque ligne parce que la cause est commune a
+# tous les livrables — ce n'est pas l'EM qui coute plus cher, c'est chaque
+# token qui compte differemment (regle 4 : viser la classe, pas l'exemple).
+#
+# Ces valeurs restent une PROJECTION tant qu'aucune generation reelle n'a
+# tourne sur Sonnet 5. La premiere mesure reelle doit etre reportee ici et dans
+# journal_generations.md (regle 10) — et elle prime sur ce calcul.
+# ── Deux nombres, et le code n'en avait qu'un ────────────────────────────────
+#
+# `budget_eur` servait A LA FOIS de rythme et de plafond. Le throttle de
+# `cost.py` repartit le budget RESTANT sur les appels restants : baisser ce
+# nombre ne fait pas baisser la depense, il RETRECIT chaque chapitre.
+#
+# Mesure du 05/08/2026, sur le vrai `max_tokens_for_job` : en dessous de
+# 3,80 EUR de budget, le premier appel d'une etude de marche est deja borne au
+# plancher de 2 500 jetons de sortie — alors que ses chapitres en consomment
+# environ 3 000. Poser 3,00 EUR ici n'aurait donc pas coute 3,00 EUR : cela
+# aurait produit vingt-trois chapitres rabotes, c'est-a-dire le defaut meme que
+# la cliente signale.
+#
+# On separe donc les deux roles. Le RYTHME reste dimensionne sur le travail a
+# faire ; le PLAFOND DE DEPENSE, lui, est une decision commerciale et il
+# s'applique en dur (voir `cost.enforce_budget`).
 _BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("4.6000"),  # 30 appels + thinking + CHECKs
-    DeliverableType.BUSINESS_PLAN:     Decimal("2.8000"),  # 20 chapitres, ~24 appels chunked
-    DeliverableType.BUSINESS_STRATEGY: Decimal("2.4000"),  # 20 appels
-    DeliverableType.COMPETITOR_STUDY:  Decimal("2.0000"),  # 12 appels (sans SWOT)
+    # Ramene de 6,00 : les deux etudes COMPLETES mesurees ont coute 3,12 et
+    # 3,32 EUR, et 4,00 laisse au throttle la marge qu'il lui faut pour ne pas
+    # raboter (seuil mesure : 3,80).
+    DeliverableType.MARKET_STUDY:      Decimal("4.0000"),  # 30 appels + reflexion + CHECKs
+    DeliverableType.BUSINESS_PLAN:     Decimal("3.6500"),  # 20 chapitres, ~24 appels chunked
+    DeliverableType.BUSINESS_STRATEGY: Decimal("3.3500"),  # 21 appels (+ conclusion)
+    DeliverableType.COMPETITOR_STUDY:  Decimal("2.6000"),  # 12 appels (sans SWOT)
 }
 
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Table, Progress, Text, Select, Spinner, Button,
+  Box, Flex, Badge, Table, Progress, Text, Select, Spinner, Button,
 } from "@radix-ui/themes";
 import { api, type JobSummary } from "../api";
 
@@ -88,7 +88,7 @@ export function Jobs() {
 
   return (
     <Box>
-      <Heading size="6" mb="5">Livrables</Heading>
+      {/* Titre rendu par la coquille d'administration — voir Clients.tsx. */}
 
       <Flex align="center" gap="3" mb="4">
         <Select.Root value={statusFilter} onValueChange={setStatusFilter} size="2">
@@ -160,7 +160,7 @@ export function Jobs() {
                   {job.status === "done" && <JobRowActions job={job} />}
                 </Table.Cell>
                 <Table.Cell>
-                  <Link to="/jobs/$jobId" params={{ jobId: job.id }}
+                  <Link to="/admin/jobs/$jobId" params={{ jobId: job.id }}
                     style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}>
                     Détail →
                   </Link>

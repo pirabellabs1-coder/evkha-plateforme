@@ -195,6 +195,21 @@ export interface CustomerDetail extends CustomerSummary {
   }[];
   orders: OrderSummary[];
   credits_available: number;
+  /** Abonnement B2B du lot 4. `null` si le contact n'appartient à aucune
+   *  organisation. Distinct de `subscriptions`, qui décrit l'ancien flux
+   *  Systeme.io : deux systèmes de crédits coexistent, et cet écran n'en
+   *  connaissait qu'un. */
+  organisation: {
+    id: string;
+    raison_sociale: string;
+    statut: string;
+    role: string;
+    formule: string | null;
+    credits_par_echeance: number;
+    solde: number;
+    solde_abonnement: number;
+    solde_achete: number;
+  } | null;
 }
 
 export interface OrderSummary {

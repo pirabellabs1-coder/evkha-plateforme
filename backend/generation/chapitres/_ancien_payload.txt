@@ -1,0 +1,38 @@
+class ChapitrePayload(BaseModel):
+    """Sortie structurée d'un chapitre."""
+
+    model_config = {"extra": "forbid"}
+
+    chapitre: int = Field(ge=0, le=99)
+    titre: str = Field(min_length=1, max_length=220)
+    #: Phrase d'accroche affichée sous le titre dans le bandeau de chapitre.
+    accroche: str = Field(default="", max_length=400)
+    sections: list[Section] = Field(min_length=1)
+    #: Encadrés de synthèse. Vide accepté pour rester compatible avec les
+    #: chapitres produits avant l'ajout de ce champ.
+    encadres: list[Encadre] = Field(default_factory=list)
+    #: Identifiants du socle réellement exploités par ce chapitre.
+    donnees_utilisees: list[str] = Field(default_factory=list)
+    graphiques: list[Graphique] = Field(default_factory=list)
+    #: Résumé transmis aux chapitres suivants (§6.1 : 150 à 250 mots).
+    resume: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _coherence_interne(self) -> ChapitrePayload:
+        declares = set(self.donnees_utilisees)
+        for graphique in self.graphiques:
+            hors = [i for i in graphique.donnees_ids if i not in declares]
+            if hors:
+                msg = (
+                    f"Le graphique « {graphique.titre} » utilise {hors}, "
+                    "absent de `donnees_utilisees`. Un graphique ne peut pas "
+                    "reposer sur une donnée que le chapitre ne déclare pas."
+                )
+                raise ValueError(msg)
+        return self
+
+    @property
+    def texte(self) -> str:
+        return "\n\n".join(f"{s.titre}\n{s.contenu}" for s in self.sections)
+
+

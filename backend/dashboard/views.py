@@ -16,6 +16,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer, CustomerType, Subscription, SubscriptionStatus
 from generation.models import ChapterStatus, GenerationJob, JobStatus
+from generation.rendering import VARIABLES_DE_MARQUE
 from generation.services import bootstrap_generation_job, relaunch_generation_job
 from generation.tasks import run_generation_job_task
 from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
@@ -35,7 +36,9 @@ _OPTIONAL_VARS = (
     "ELEMENTS_A_RETENIR", "DEMANDES_SPECIFIQUES", "CONCURRENTS",
     "CAPITAL_INITIAL", "FORME_JURIDIQUE", "MODELE_REVENUS", "EQUIPE",
     "OBJECTIF_STRATEGIQUE", "HORIZON_PLANIFICATION",
-    "LOGO_URL", "COULEUR_PRINCIPALE", "COULEUR_SECONDAIRE", "NOM_ENTREPRISE",
+    # Les variables de CHARTE viennent d'une liste unique : les recopier ici
+    # les faisait diverger, et deux d'entre elles manquaient (regle 5).
+    *VARIABLES_DE_MARQUE,
     "PHOTO_1", "PHOTO_2", "PHOTO_3",
     # Etat chiffre client (Brique 1) + verticales (check completude du gate)
     "INVESTISSEMENT_TOTAL", "APPORT", "EMPRUNT", "SUBVENTIONS",
@@ -382,6 +385,25 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
         msg = f"Seuls les jobs échoués ou annulés peuvent être relancés (statut : {job.status})."
         return _json({"error": msg}, status=400)
 
+    # Une annulation REMBOURSE, et un job rembourse ne repart pas : le debit
+    # est refuse au lancement. Sans ce controle, l'operateur voyait « relance
+    # acceptee » puis un echec « credits restitues » plusieurs minutes plus
+    # tard — le parcours « annuler puis relancer » etait casse sans le dire.
+    from organisations.liaison import credits_restitues  # noqa: PLC0415
+
+    if credits_restitues(job):
+        return _json(
+            {
+                "error": (
+                    "Les crédits de cette étude ont été restitués au client : "
+                    "elle ne peut plus être relancée. Le client doit passer "
+                    "une nouvelle commande."
+                ),
+                "code": "credits_restitues",
+            },
+            status=409,
+        )
+
     relaunch_generation_job(job)
     run_generation_job_task.delay(str(job.id))
     return _json({"job_id": str(job.id), "status": job.status}, status=202)
@@ -416,7 +438,21 @@ def job_cancel(request: HttpRequest, job_id: str) -> JsonResponse:
         status=ChapterStatus.FAILED,
         error_message="Job annulé manuellement.",
     )
-    return _json({"job_id": str(job.id), "status": "cancelled"})
+
+    # L'annulation est l'abandon EXPLICITE que `rembourser_job` attendait — et
+    # que personne ne prononçait. La fonction existait, était testée, et n'était
+    # appelée par aucun chemin du produit : l'abonné payait un crédit pour un
+    # document qu'il ne recevait pas (règle 8).
+    from organisations.liaison import rembourser_job  # noqa: PLC0415
+
+    job.refresh_from_db(fields=["status"])
+    restitue = rembourser_job(job, motif="Étude annulée avant livraison")
+
+    return _json({
+        "job_id": str(job.id),
+        "status": "cancelled",
+        "credits_restitues": restitue,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -551,7 +587,54 @@ def customer_detail(request: HttpRequest, customer_id: str) -> JsonResponse:
         "subscriptions": subscriptions,
         "orders": orders,
         "credits_available": credits_available,
+        "organisation": _organisation_du_contact(customer),
     })
+
+
+def _organisation_du_contact(customer: Customer) -> dict[str, Any] | None:
+    """Abonnement et solde B2B du contact, s'il appartient à une organisation.
+
+    Deux systèmes de crédits coexistent sur ce projet : les **tickets** de
+    l'ancien flux Systeme.io, et le **portefeuille** d'organisation du lot 4.
+    Cette vue ne connaissait que le premier. Un abonné B2B disposant d'une
+    formule Structure et de dix crédits s'affichait donc « Aucun abonnement
+    actif · 0 crédit disponible » — un chiffre faux, dans le sens le plus
+    dangereux : un exploitant en conclut que le client n'a rien payé.
+
+    Les deux systèmes restent séparés — les réunir est un chantier à part. Mais
+    l'écran, lui, doit dire la vérité sur les deux.
+    """
+    from organisations import credits as credits_b2b  # noqa: PLC0415
+    from organisations.models import MembreOrganisation, StatutAbonnement  # noqa: PLC0415
+
+    membre = (
+        MembreOrganisation.objects.select_related("organisation")
+        .filter(customer=customer, revoque_le__isnull=True)
+        .first()
+    )
+    if membre is None:
+        return None
+
+    organisation = membre.organisation
+    abonnement = (
+        organisation.abonnements.select_related("formule")
+        .filter(statut=StatutAbonnement.ACTIF)
+        .first()
+    )
+    detail = credits_b2b.detail_solde(organisation)
+    return {
+        "id": str(organisation.id),
+        "raison_sociale": organisation.raison_sociale,
+        "statut": organisation.statut,
+        "role": membre.role,
+        "formule": abonnement.formule.libelle if abonnement else None,
+        "credits_par_echeance": (
+            abonnement.formule.credits_par_echeance if abonnement else 0
+        ),
+        "solde": detail.total,
+        "solde_abonnement": detail.expirables,
+        "solde_achete": detail.perennes,
+    }
 
 
 # ---------------------------------------------------------------------------

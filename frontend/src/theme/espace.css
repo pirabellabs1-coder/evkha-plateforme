@@ -1,0 +1,2283 @@
+/* Espace client EVKHA — habillage construit sur `tokens.css`.
+ *
+ * Aucune couleur, aucun rayon, aucune ombre en dur ici : uniquement des
+ * variables. C'est ce qui permet de corriger la charte en un seul endroit.
+ */
+
+/* ── Coquille ───────────────────────────────────────────────────────────── */
+
+.espace {
+  display: grid;
+  grid-template-columns: var(--largeur-barre) 1fr;
+  min-height: 100vh;
+  background: var(--fond-page);
+  color: var(--texte);
+  font-family: var(--police-corps);
+  font-size: var(--t-base);
+  line-height: var(--interligne);
+  /* La largeur de colonne s'anime : un repliement instantané fait sauter tout
+   * le contenu et on perd l'endroit où l'on lisait. */
+  transition: grid-template-columns var(--transition);
+}
+
+/* ── Barre repliée, sur grand écran ─────────────────────────────────────────
+ *
+ * La barre occupait une colonne fixe, sans aucun moyen de la refermer au-delà
+ * de 900 px : sur un écran étroit mais « large » au sens de la requête média,
+ * les cartes du tableau de bord se retrouvaient comprimées et coupées.
+ *
+ * Replier rend la colonne au contenu. La préférence est mémorisée — voir
+ * `useBarreLaterale` — parce que la refermer à chaque page serait pire que de
+ * ne pas pouvoir la fermer du tout.
+ */
+.espace.barre-repliee {
+  grid-template-columns: 0 1fr;
+}
+
+.espace.barre-repliee > .espace-barre {
+  /* `transform` et non `display: none` : le mouvement s'anime, et le contenu
+   * reste dans le DOM pour les lecteurs d'écran et le focus clavier. */
+  transform: translateX(-100%);
+  /* Sans ceci, la barre déborde par-dessus le contenu pendant qu'elle sort. */
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── Barre latérale ─────────────────────────────────────────────────────── */
+
+.espace-barre {
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+  padding: var(--e-6) var(--e-4);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* L'espacement se resserre AVANT qu'il faille faire défiler quoi que ce
+   * soit. Fixé à `--e-8`, le contenu dépassait dès que la hauteur utile
+   * descendait sous ~660 px — ce qui arrive sur un portable, mais surtout dès
+   * qu'on zoome le navigateur, puisque le zoom réduit la hauteur en pixels
+   * CSS. Mesuré à 1200×560 : 665 px de contenu dans une boîte de 560. */
+  gap: clamp(var(--e-3), 4vh, var(--e-8));
+  /* Filet de sécurité. Sans lui le contenu sortait du fond noir : le bloc de
+   * solde et le bouton « Se déconnecter » flottaient 105 px sous la barre, sur
+   * le fond clair de la page. `visible` était l'ancienne valeur, et rien ne le
+   * signalait — la barre ne défilait qu'en mode tiroir mobile. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: transform var(--transition);
+}
+
+/* Ce qui encadre la navigation garde sa taille : c'est la LISTE qui défile, de
+ * sorte que la marque reste en haut et que le solde et la déconnexion restent
+ * atteignables. Les faire défiler avec le reste les rendrait introuvables au
+ * moment précis où l'écran est trop court. */
+.espace-marque,
+.espace-solde,
+.espace-barre .bouton-discret {
+  flex-shrink: 0;
+}
+
+.espace-marque {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: 0 var(--e-2);
+}
+
+/* Le logo du site est un mot noir avec une étoile or. On en reprend l'idée :
+ * un carré or, l'initiale en noir. Pas une image — un fichier manquant
+ * casserait l'en-tête, un carré non. */
+.espace-sceau {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  display: grid;
+  place-items: center;
+  font-family: var(--police-titre);
+  font-weight: var(--graisse-affiche);
+  font-size: var(--t-md);
+  letter-spacing: -0.02em;
+}
+
+.espace-marque-nom {
+  font-family: var(--police-titre);
+  font-weight: var(--graisse-titre);
+  font-size: var(--t-md);
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.espace-marque-sous {
+  font-size: var(--t-xs);
+  color: var(--evkha-gris-pale);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.espace-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  /* `min-height: auto` est la valeur par défaut d'un enfant flex, et elle
+   * interdit de descendre sous la hauteur du contenu. `flex: 1` ne servait donc
+   * à rien quand la place manquait : la liste poussait le solde et la
+   * déconnexion hors de la barre au lieu de céder. C'est la cause du contenu
+   * qui débordait sur le fond clair. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.espace-nav-groupe {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--evkha-gris-doux);
+  padding: var(--e-4) var(--e-3) var(--e-2);
+}
+
+.espace-lien {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-3);
+  border-radius: var(--rayon-sm);
+  color: var(--evkha-nuage);
+  text-decoration: none;
+  font-weight: var(--graisse-moyenne);
+  transition: background var(--transition), color var(--transition);
+  position: relative;
+}
+
+.espace-lien:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--evkha-blanc);
+}
+
+/* L'état actif ne repose PAS seulement sur la couleur : un liseré or à gauche
+ * le signale aussi. Une distinction chromatique seule disparaît pour un
+ * daltonien et sur un écran mal calibré. */
+.espace-lien.actif {
+  background: rgba(248, 197, 28, 0.14);
+  color: var(--evkha-blanc);
+  font-weight: var(--graisse-forte);
+}
+
+.espace-lien.actif::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+}
+
+.espace-lien-icone {
+  width: 18px;
+  text-align: center;
+  opacity: 0.85;
+  font-size: var(--t-base);
+}
+
+/* Bloc de solde, en pied de barre */
+.espace-solde {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--rayon-md);
+  padding: var(--e-4);
+}
+
+.espace-solde-libelle {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--evkha-gris-pale);
+}
+
+.espace-solde-valeur {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-2xl);
+  font-weight: var(--graisse-affiche);
+  line-height: 1.05;
+  color: var(--evkha-or);
+  margin-top: var(--e-1);
+}
+
+.espace-solde-detail {
+  font-size: var(--t-xs);
+  color: var(--evkha-gris-pale);
+  margin-top: var(--e-1);
+}
+
+.espace-solde.bas .espace-solde-valeur {
+  color: var(--evkha-blanc);
+}
+
+/* ── Zone principale ────────────────────────────────────────────────────── */
+
+.espace-corps {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* En-tête de page, commun à l'espace client et à l'administration.
+ *
+ * Il occupait une bande de 96 px collée en haut de CHAQUE écran, avec un titre
+ * en 28 px et l'adresse e-mail complète de la personne connectée. Sur un
+ * portable de 800 px de haut, cela prend un huitième de l'écran en permanence
+ * pour redire à quelqu'un son propre nom.
+ *
+ * Il est désormais compact, et il ne reste collé que sur les petites largeurs
+ * — là où le bouton de navigation qu'il porte est le seul accès au menu. Au
+ * large, la navigation est visible en permanence dans la barre latérale :
+ * l'en-tête peut défiler avec la page et rendre sa hauteur au contenu.
+ *
+ * `position` n'est PAS redéclaré ici : la bascule en `sticky` vit déjà dans la
+ * règle « ≤ 900 px » plus bas, avec le reste de l'adaptation aux petits
+ * écrans. En poser une seconde copie ici, c'était deux endroits à corriger le
+ * jour où le seuil bouge (règle 5). */
+.espace-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-4);
+  padding: var(--e-3) var(--e-8);
+  background: var(--fond-carte);
+  border-bottom: 1px solid var(--evkha-bordure);
+}
+
+.espace-titre {
+  font-family: var(--police-titre);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-titre);
+  letter-spacing: -0.015em;
+  line-height: var(--interligne-serre);
+  color: var(--texte-fort);
+  margin: 0;
+}
+
+.espace-sous-titre {
+  color: var(--texte-doux);
+  font-size: var(--t-sm);
+  margin: 2px 0 0;
+}
+
+/* Sous 600 px, le sous-titre explique une page déjà titrée et pousse le
+ * contenu hors de l'écran : le titre suffit. */
+@media (max-width: 600px) {
+  .espace-sous-titre {
+    display: none;
+  }
+}
+
+/* Le nom de l'organisation, seul rescapé du bloc d'identité. Une seule ligne,
+ * tronquée plutôt qu'enroulée : une raison sociale à rallonge ne doit pas
+ * pouvoir doubler la hauteur de l'en-tête. */
+.espace-entete-identite {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--texte-doux);
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .espace-entete-identite {
+    display: none;
+  }
+}
+
+.espace-contenu {
+  padding: var(--e-8);
+  max-width: var(--largeur-contenu);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+}
+
+/* ── Cartes ─────────────────────────────────────────────────────────────── */
+
+.carte {
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  padding: var(--e-6);
+  box-shadow: var(--ombre-sm);
+}
+
+.carte-entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e-4);
+  margin-bottom: var(--e-5);
+}
+
+.carte-titre {
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+  margin: 0;
+}
+
+.carte-note {
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+}
+
+/* ── Grille de chiffres clés ────────────────────────────────────────────── */
+
+.grille-chiffres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--e-4);
+}
+
+.chiffre {
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  padding: var(--e-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+}
+
+.chiffre.accent {
+  background: var(--evkha-or-brume);
+  border-color: var(--evkha-or);
+}
+
+.chiffre-libelle {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-forte);
+}
+
+.chiffre-valeur {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-2xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--texte-fort);
+  /* Chiffres à largeur fixe : sans cela une valeur qui change fait sauter la
+   * mise en page à chaque rafraîchissement. */
+  font-variant-numeric: tabular-nums;
+}
+
+.chiffre-detail {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+/* ── Boutons ────────────────────────────────────────────────────────────── */
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  padding: var(--e-3) var(--e-5);
+  border-radius: var(--rayon-pilule);
+  border: 1px solid transparent;
+  font-family: var(--police-corps);
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--transition), border-color var(--transition),
+    transform var(--transition), box-shadow var(--transition);
+  white-space: nowrap;
+}
+
+.bouton:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+.bouton:disabled,
+.bouton[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bouton-principal {
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.bouton-principal:hover:not(:disabled) {
+  background: var(--evkha-or-profond);
+  box-shadow: var(--ombre-or);
+}
+
+.bouton-noir {
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+}
+
+.bouton-noir:hover:not(:disabled) {
+  background: var(--evkha-encre);
+  box-shadow: var(--ombre-md);
+}
+
+.bouton-contour {
+  background: transparent;
+  border-color: var(--evkha-bordure-forte);
+  color: var(--texte-fort);
+}
+
+.bouton-contour:hover:not(:disabled) {
+  border-color: var(--evkha-noir);
+  background: var(--evkha-nuage);
+}
+
+.bouton-discret {
+  background: transparent;
+  color: var(--texte-doux);
+  padding: var(--e-2) var(--e-3);
+}
+
+.bouton-discret:hover:not(:disabled) {
+  background: var(--evkha-nuage);
+  color: var(--texte-fort);
+}
+
+/* Un bouton discret posé sur la barre NOIRE hérite sinon d'un gris sombre sur
+ * fond sombre : mesuré à 2,22:1, illisible. La correction est portée par la
+ * surface et non par l'instance — tout bouton discret placé là sera juste,
+ * pas seulement celui de la déconnexion. */
+.espace-barre .bouton-discret {
+  color: var(--evkha-nuage);
+}
+
+.espace-barre .bouton-discret:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--evkha-blanc);
+}
+
+.bouton-sm {
+  padding: var(--e-2) var(--e-4);
+  font-size: var(--t-sm);
+}
+
+/* ── Pastilles de statut ────────────────────────────────────────────────── */
+
+.pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  padding: 3px var(--e-3);
+  border-radius: var(--rayon-pilule);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Chaque pastille porte un POINT en plus de sa couleur : la couleur seule ne
+ * suffit pas à distinguer un succès d'un échec pour un daltonien. */
+.pastille::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 6px;
+}
+
+.pastille-succes {
+  background: var(--evkha-succes-voile);
+  color: var(--evkha-succes);
+}
+.pastille-alerte {
+  background: var(--evkha-alerte-voile);
+  color: var(--evkha-alerte);
+}
+.pastille-echec {
+  background: var(--evkha-echec-voile);
+  color: var(--evkha-echec);
+}
+.pastille-info {
+  background: var(--evkha-info-voile);
+  color: var(--evkha-info);
+}
+.pastille-neutre {
+  background: var(--evkha-nuage);
+  color: var(--texte-doux);
+}
+
+/* ── Tableaux ───────────────────────────────────────────────────────────── */
+
+.tableau-cadre {
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--fond-carte);
+  overflow: hidden;
+}
+
+/* Le défilement horizontal vit dans le cadre du tableau, jamais sur la page :
+ * une page qui défile latéralement sur mobile est un défaut. */
+.tableau-defile {
+  overflow-x: auto;
+}
+
+.tableau {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+
+.tableau thead th {
+  text-align: left;
+  padding: var(--e-3) var(--e-4);
+  background: var(--fond-enfonce);
+  color: var(--texte-doux);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--evkha-bordure);
+}
+
+.tableau tbody td {
+  padding: var(--e-4);
+  border-bottom: 1px solid var(--evkha-bordure);
+  vertical-align: middle;
+}
+
+.tableau tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tableau tbody tr:hover {
+  background: var(--evkha-or-brume);
+}
+
+.tableau .nombre {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--graisse-forte);
+}
+
+.tableau .nombre.positif {
+  color: var(--evkha-succes);
+}
+.tableau .nombre.negatif {
+  color: var(--evkha-echec);
+}
+
+/* ── État vide ──────────────────────────────────────────────────────────── */
+
+.vide {
+  text-align: center;
+  padding: var(--e-12) var(--e-6);
+  color: var(--texte-doux);
+}
+
+.vide-icone {
+  font-size: 2rem;
+  margin-bottom: var(--e-3);
+  opacity: 0.5;
+}
+
+.vide-titre {
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+  margin: 0 0 var(--e-2);
+}
+
+.vide-texte {
+  margin: 0 auto var(--e-5);
+  max-width: 46ch;
+  font-size: var(--t-sm);
+}
+
+/* ── Bandeau d'alerte ───────────────────────────────────────────────────── */
+
+.bandeau {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-3);
+  padding: var(--e-4) var(--e-5);
+  border-radius: var(--rayon-md);
+  border: 1px solid;
+  font-size: var(--t-sm);
+}
+
+.bandeau-alerte {
+  background: var(--evkha-alerte-voile);
+  border-color: color-mix(in srgb, var(--evkha-alerte) 25%, transparent);
+  color: var(--evkha-alerte);
+}
+
+.bandeau-echec {
+  background: var(--evkha-echec-voile);
+  border-color: color-mix(in srgb, var(--evkha-echec) 25%, transparent);
+  color: var(--evkha-echec);
+}
+
+.bandeau-titre {
+  font-weight: var(--graisse-titre);
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* ── Formulaires ────────────────────────────────────────────────────────── */
+
+.champ {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.champ-libelle {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.champ-aide {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+}
+
+.champ-saisie {
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-sm);
+  font-family: var(--police-corps);
+  font-size: var(--t-base);
+  color: var(--texte);
+  background: var(--fond-carte);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  width: 100%;
+}
+
+.champ-saisie:focus {
+  outline: none;
+  border-color: var(--evkha-noir);
+  box-shadow: 0 0 0 3px var(--evkha-or-voile);
+}
+
+.champ-saisie[aria-invalid="true"] {
+  border-color: var(--evkha-echec);
+}
+
+.grille-champs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--e-4);
+}
+
+/* ── Aperçu de charte ───────────────────────────────────────────────────── */
+
+.pastilles-charte {
+  display: flex;
+  gap: var(--e-2);
+  align-items: center;
+}
+
+.puce-couleur {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--rayon-xs);
+  border: 1px solid var(--evkha-bordure-forte);
+  flex: 0 0 22px;
+}
+
+/* ── Squelette de chargement ────────────────────────────────────────────── */
+
+.squelette {
+  background: linear-gradient(
+    90deg,
+    var(--evkha-nuage) 25%,
+    var(--evkha-coquille) 50%,
+    var(--evkha-nuage) 75%
+  );
+  background-size: 200% 100%;
+  animation: squelette-glisse 1.4s ease-in-out infinite;
+  border-radius: var(--rayon-sm);
+  height: 1em;
+}
+
+@keyframes squelette-glisse {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .squelette {
+    animation: none;
+  }
+}
+
+/* ── Bouton hamburger et voile ───────────────────────────────────────────────
+ *
+ * Le bouton est visible à **toutes** les tailles. Il était masqué au-delà de
+ * 900 px, au motif que la barre y était permanente — mais « permanente »
+ * voulait dire « impossible à refermer », et sur un écran de portable les
+ * cartes du contenu se retrouvaient comprimées sans recours.
+ *
+ * Le voile, lui, reste réservé au petit écran : au large la barre occupe sa
+ * propre colonne et ne masque rien, donc il n'y a rien à fermer d'un clic à
+ * côté.
+ */
+
+.espace-hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-carte);
+  cursor: pointer;
+  padding: 0;
+}
+
+.espace-hamburger:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+/* Trois traits dessinés en CSS plutôt qu'une police d'icônes : une police qui
+ * ne charge pas laisserait un carré vide à la place du seul bouton permettant
+ * de naviguer. */
+.espace-hamburger-traits,
+.espace-hamburger-traits::before,
+.espace-hamburger-traits::after {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: var(--rayon-pilule);
+  background: var(--texte-fort);
+  transition: transform var(--transition), opacity var(--transition);
+}
+
+.espace-hamburger-traits::before,
+.espace-hamburger-traits::after {
+  content: "";
+  position: absolute;
+}
+
+.espace-hamburger-traits::before {
+  transform: translateY(-6px);
+}
+.espace-hamburger-traits::after {
+  transform: translateY(6px);
+}
+
+/* Le bouton se transforme en croix quand le tiroir est ouvert : le même
+ * bouton ferme ce qu'il a ouvert, à la même place. */
+.espace-hamburger[aria-expanded="true"] .espace-hamburger-traits {
+  background: transparent;
+}
+.espace-hamburger[aria-expanded="true"] .espace-hamburger-traits::before {
+  transform: rotate(45deg);
+}
+.espace-hamburger[aria-expanded="true"] .espace-hamburger-traits::after {
+  transform: rotate(-45deg);
+}
+
+.espace-voile {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(11, 11, 11, 0.5);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────
+ * « Interface utilisable sur ordinateur et sur mobile » (§14).
+ *
+ * La barre devient un TIROIR qui glisse depuis la GAUCHE, ouvert par un
+ * hamburger. Une première version la posait en bandeau horizontal en haut :
+ * la navigation défilait latéralement, l'utilisateur ne voyait que trois
+ * entrées sur cinq, et rien n'indiquait que les autres existaient. Un tiroir
+ * montre la liste entière d'un seul geste.
+ */
+@media (max-width: 900px) {
+  .espace,
+  .espace.barre-repliee {
+    grid-template-columns: 1fr;
+  }
+
+  /* En tiroir, c'est la classe `ouverte` qui décide — et non `barre-repliee`,
+   * qui ne concerne que la grille du grand écran. Sans cette remise à zéro, une
+   * barre repliée au large restait hors écran après passage en mobile, tiroir
+   * ouvert ou non. */
+  .espace.barre-repliee > .espace-barre {
+    overflow-y: auto;
+    pointer-events: auto;
+  }
+
+  .espace-hamburger {
+    position: relative;
+  }
+
+  .espace-barre {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(84vw, var(--largeur-barre));
+    height: 100vh;
+    /* Hors écran, et non `display: none` : la transformation s'anime, et le
+     * contenu reste dans le DOM pour les lecteurs d'écran. */
+    transform: translateX(-100%);
+    transition: transform var(--transition);
+    box-shadow: var(--ombre-lg);
+    overflow-y: auto;
+  }
+
+  .espace-barre.ouverte {
+    transform: translateX(0);
+  }
+
+  .espace-barre.ouverte ~ .espace-voile,
+  .espace-voile.visible {
+    display: block;
+  }
+
+  .espace-contenu {
+    padding: var(--e-5) var(--e-4);
+  }
+
+  /* Sous 900 px, la barre latérale est repliée : ce bouton est le SEUL accès
+   * à la navigation, l'en-tête doit donc rester atteignable au défilement.
+   * `top` et `z-index` sont ici, avec le `sticky` qu'ils servent — les laisser
+   * dans la règle de base, où plus rien ne colle, en faisait deux déclarations
+   * dont l'une ne s'appliquait jamais, et le jour où elle a disparu le
+   * `sticky` a continué d'exister sans plus rien coller. */
+  .espace-entete {
+    gap: var(--e-3);
+    padding: var(--e-3) var(--e-4);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  /* L'identité de l'organisation passe sous le titre plutôt qu'à sa droite :
+   * côte à côte sur 375 px, les deux se coupent. */
+  .espace-entete-identite {
+    text-align: left !important;
+  }
+}
+
+/* Sur très petit écran, le titre et l'identité s'empilent franchement. */
+@media (max-width: 560px) {
+  .espace-entete {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ── Cartes de formule ───────────────────────────────────────────────────── */
+
+.grille-formules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--e-4);
+}
+
+.formule {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  padding: var(--e-5);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--fond-carte);
+}
+
+/* La formule en cours se distingue par une bordure or ET un ruban : la
+ * couleur seule ne suffirait pas à la repérer sans voir les autres. */
+.formule.actuelle {
+  border-color: var(--evkha-or);
+  border-width: 2px;
+  background: var(--evkha-or-brume);
+}
+
+.formule-ruban {
+  position: absolute;
+  top: calc(-1 * var(--e-3));
+  left: var(--e-5);
+  padding: 2px var(--e-3);
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
+  letter-spacing: 0.03em;
+}
+
+.formule-nom {
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+  margin: 0;
+}
+
+.formule-prix {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.03em;
+  color: var(--texte-fort);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.formule-periode {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-normale);
+  color: var(--texte-doux);
+  letter-spacing: 0;
+}
+
+.formule-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  flex: 1;
+}
+
+/* Puce en or, comme les listes de la page publique. Dessinee en CSS : une
+ * police d'icones absente laisserait un carre vide. */
+.formule-liste li {
+  display: flex;
+  gap: var(--e-2);
+  align-items: baseline;
+}
+
+.formule-liste li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--evkha-or);
+  flex: 0 0 6px;
+  transform: translateY(-2px);
+}
+
+/* ── Accueil explicatif ──────────────────────────────────────────────────── */
+
+.guide {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--e-4);
+}
+
+.guide-etape {
+  display: flex;
+  gap: var(--e-4);
+  align-items: flex-start;
+}
+
+.guide-numero {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+  display: grid;
+  place-items: center;
+  font-family: var(--police-chiffre);
+  font-weight: var(--graisse-titre);
+  font-size: var(--t-sm);
+}
+
+.guide-titre {
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+  margin: 0 0 2px;
+}
+
+.guide-texte {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  margin: 0;
+}
+
+/* ── Variante d'administration ───────────────────────────────────────────────
+ * Le sceau est inversé — noir sur or au lieu d'or sur noir. C'est le seul
+ * signal chromatique qui distingue les deux espaces, et il porte du sens :
+ * savoir d'un coup d'œil dans lequel on se trouve évite d'agir dans le mauvais.
+ */
+.espace-sceau.inverse {
+  background: var(--evkha-blanc);
+  color: var(--evkha-noir);
+}
+
+/* Compteur d'éléments à traiter, dans la navigation. */
+.espace-compteur {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Aperçu de charte ────────────────────────────────────────────────────────
+ * Maquette d'un bandeau de chapitre et d'un encadré. Un aplat de couleur ne dit
+ * rien au client ; la forme réelle du livrable, si.
+ */
+.apercu-charte {
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  overflow: hidden;
+  background: var(--fond-carte);
+}
+
+.apercu-bandeau {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  /* Le texte du bandeau est BLANC ici, comme dans le document : le moteur
+   * choisit noir ou blanc selon la luminance réelle de la couleur saisie
+   * (`palette.texte_lisible_sur`). L'aperçu ne rejoue pas ce calcul — il
+   * montre la forme, pas la décision de contraste. */
+  color: #ffffff;
+}
+
+.apercu-numero {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-affiche);
+  opacity: 0.7;
+}
+
+.apercu-titre-chapitre {
+  font-family: var(--police-titre);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.apercu-corps {
+  padding: var(--e-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  position: relative;
+}
+
+.apercu-ligne {
+  display: block;
+  height: 6px;
+  width: 62%;
+  border-radius: var(--rayon-pilule);
+  background: rgba(11, 11, 11, 0.16);
+}
+
+.apercu-ligne.longue {
+  width: 88%;
+}
+
+.apercu-accent {
+  display: block;
+  height: 6px;
+  width: 34%;
+  border-radius: var(--rayon-pilule);
+}
+
+.apercu-charte .carte-note {
+  padding: var(--e-3) var(--e-4);
+  border-top: 1px solid var(--evkha-bordure);
+  margin: 0;
+}
+
+/* ── Choix du document et questionnaire ──────────────────────────────────── */
+
+.grille-documents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--e-4);
+}
+
+/* Une carte cliquable est un BOUTON, pas un div : elle doit être atteignable
+ * au clavier et annoncée comme actionnable. */
+.carte-document {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  align-items: flex-start;
+  text-align: left;
+  padding: var(--e-5);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--fond-carte);
+  cursor: pointer;
+  font-family: var(--police-corps);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.carte-document:hover:not(:disabled) {
+  border-color: var(--evkha-or);
+  box-shadow: var(--ombre-md);
+}
+
+.carte-document:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+.carte-document:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.carte-document-titre {
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+}
+
+.carte-document-texte {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  flex: 1;
+}
+
+.carte-document-pied {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  width: 100%;
+}
+
+.questionnaire-note {
+  white-space: pre-line;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  margin: 0;
+  padding: var(--e-4);
+  background: var(--evkha-or-brume);
+  border-radius: var(--rayon-md);
+  border-left: 3px solid var(--evkha-or);
+}
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+}
+
+/* Une question porte souvent quatre interrogations en un libellé : elle a
+ * besoin de respirer, et son intitulé se lit comme une phrase, pas comme une
+ * étiquette de champ. */
+.question .champ-libelle {
+  font-weight: var(--graisse-moyenne);
+  line-height: 1.45;
+  max-width: 72ch;
+}
+
+.question-requis {
+  color: var(--evkha-echec);
+  font-weight: var(--graisse-titre);
+}
+
+.question textarea.champ-saisie {
+  resize: vertical;
+  min-height: 3.5em;
+  line-height: var(--interligne);
+}
+
+.champ-aide em {
+  font-style: italic;
+}
+
+/* ── Dépôt de fichiers ───────────────────────────────────────────────────── */
+
+.depot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  width: 100%;
+  padding: var(--e-6) var(--e-4);
+  border: 2px dashed var(--evkha-bordure-forte);
+  border-radius: var(--rayon-md);
+  background: var(--fond-enfonce);
+  cursor: pointer;
+  font-family: var(--police-corps);
+  text-align: center;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.depot:hover:not(:disabled),
+.depot.survol {
+  border-color: var(--evkha-or);
+  background: var(--evkha-or-brume);
+}
+
+.depot:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+.depot:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.depot-icone {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  display: grid;
+  place-items: center;
+  font-weight: var(--graisse-titre);
+}
+
+.depot-texte {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.depot-aide {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+}
+
+.liste-fichiers {
+  list-style: none;
+  margin: var(--e-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.liste-fichiers li {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-carte);
+}
+
+.fichier-nom {
+  flex: 1;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-moyenne);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apercu-logo {
+  max-width: 140px;
+  max-height: 70px;
+  object-fit: contain;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-xs);
+  padding: var(--e-2);
+  background: var(--fond-carte);
+}
+
+/* ── Suivi de production ─────────────────────────────────────────────────── */
+
+.jauge {
+  height: 10px;
+  background: var(--fond-enfonce);
+  border-radius: var(--rayon-pilule);
+  overflow: hidden;
+}
+
+.jauge-remplissage {
+  display: block;
+  height: 100%;
+  background: var(--evkha-or);
+  border-radius: var(--rayon-pilule);
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jauge-remplissage {
+    transition: none;
+  }
+}
+
+.etapes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+  counter-reset: etape;
+}
+
+.etape {
+  display: flex;
+  gap: var(--e-4);
+  align-items: flex-start;
+  position: relative;
+}
+
+/* Trait vertical reliant les étapes : il donne à la liste sa forme de
+ * parcours, plutôt que d'énumérer quatre lignes sans lien. */
+.etape:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: calc(-1 * var(--e-5));
+  width: 2px;
+  background: var(--evkha-bordure);
+}
+
+.etape-puce {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  background: var(--fond-enfonce);
+  color: var(--texte-tenu);
+  border: 2px solid var(--evkha-bordure);
+  z-index: 1;
+}
+
+.etape-fait .etape-puce {
+  background: var(--evkha-succes);
+  border-color: var(--evkha-succes);
+  color: var(--evkha-blanc);
+}
+
+.etape-en_cours .etape-puce {
+  background: var(--evkha-or);
+  border-color: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.etape-echec .etape-puce {
+  background: var(--evkha-echec);
+  border-color: var(--evkha-echec);
+  color: var(--evkha-blanc);
+}
+
+.etape-libelle {
+  margin: 0;
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.etape-attente .etape-libelle {
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-normale);
+}
+
+.etape-detail {
+  margin: 2px 0 0;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+/* ── Actions d'administration en ligne ───────────────────────────────────── */
+
+.actions-organisation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  min-width: 230px;
+  padding: var(--e-3);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-enfonce);
+}
+
+/* ── Autonomie : combien de temps les crédits tiennent ──────────────────── */
+
+.autonomie {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--e-5);
+}
+
+.autonomie-valeur {
+  font-family: var(--police-chiffre);
+  font-size: var(--t-xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-top: var(--e-1);
+}
+
+/* L'unité reste lisible sans concurrencer le chiffre : c'est lui qu'on vient
+   lire, l'unité ne fait que le qualifier. */
+.autonomie-unite {
+  font-family: var(--police-corps);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-normale);
+  color: var(--texte-tenu);
+  letter-spacing: 0;
+}
+
+/* La couleur ne porte JAMAIS l'information seule : le bandeau d'alerte dit
+   déjà la même chose en toutes lettres, et la date reste lisible sans elle. */
+.autonomie-tendue {
+  color: var(--evkha-alerte);
+}
+
+/* ══ Souscription à régler ═══════════════════════════════════════════════════
+ *
+ * Cet écran remplace l'espace entier tant que l'abonnement n'est pas payé. Il
+ * emprunte les jetons de la charte, sans en créer : un second jeu de couleurs
+ * pour un seul écran finirait par diverger du reste (règle 5).
+ *
+ * Il ne porte NI barre latérale NI navigation, et c'est voulu. Offrir les
+ * liens de l'espace mènerait à sept pages qui répondent 402 : la personne
+ * découvrirait le refus sept fois au lieu de lire une fois ce qu'il faut faire.
+ */
+.souscription {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem 3rem;
+  background: var(--fond-page);
+}
+
+.souscription-carte {
+  width: min(560px, 100%);
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  padding: 2.2rem 2rem 1.6rem;
+}
+
+.souscription-marque {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1.6rem;
+}
+
+.souscription-carte h1 {
+  font-family: var(--police-titre);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-titre);
+  line-height: var(--interligne-serre);
+  color: var(--texte-fort);
+  margin: 0 0 0.5rem;
+}
+
+.souscription-sous {
+  font-size: var(--t-base);
+  line-height: var(--interligne);
+  color: var(--texte-doux);
+  margin: 0 0 1.5rem;
+}
+
+.souscription-note,
+.souscription-erreur {
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+  border-radius: var(--rayon-xs);
+  padding: 0.65rem 0.85rem;
+  margin: 0 0 1.2rem;
+}
+
+.souscription-note {
+  background: var(--evkha-info-voile);
+  color: var(--evkha-info);
+}
+
+.souscription-erreur {
+  background: var(--evkha-echec-voile);
+  color: var(--evkha-echec);
+}
+
+/* ── Le choix de la formule ───────────────────────────────────────────────── */
+
+.souscription-formules {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 1.4rem;
+}
+
+/* Une grille de deux colonnes : le nom et le prix sur la première ligne, la
+   dotation en dessous, sur toute la largeur. Le bouton radio reste dans le
+   flux plutôt que masqué — c'est lui que le clavier atteint, et le masquer
+   demanderait de réinventer son anneau de focus. */
+.souscription-formule {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.2rem 0.7rem;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+}
+
+.souscription-formule:hover {
+  border-color: var(--evkha-bordure-forte);
+}
+
+.souscription-formule.choisie {
+  border-color: var(--evkha-or-profond);
+  background: var(--evkha-or-brume);
+}
+
+.souscription-formule input {
+  accent-color: var(--evkha-or-profond);
+  margin: 0;
+}
+
+.souscription-formule-nom {
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.souscription-formule-prix {
+  font-family: var(--police-chiffre);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+  white-space: nowrap;
+}
+
+.souscription-formule-prix small {
+  font-weight: var(--graisse-normale);
+  color: var(--texte-tenu);
+}
+
+/* La dotation part sous le bouton radio, pas sous le nom : elle appartient à
+   la formule entière, pas à son intitulé. */
+.souscription-formule-credits {
+  grid-column: 2 / -1;
+  font-size: var(--t-xs);
+  color: var(--texte-doux);
+}
+
+/* ── Le règlement ─────────────────────────────────────────────────────────── */
+
+.souscription-payer {
+  width: 100%;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  border: none;
+  border-radius: var(--rayon-xs);
+  padding: 0.85rem;
+  font-family: inherit;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-titre);
+  cursor: pointer;
+}
+
+.souscription-payer:hover:not(:disabled) {
+  background: var(--evkha-or-profond);
+}
+
+.souscription-payer:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.souscription-pied {
+  font-size: var(--t-xs);
+  line-height: var(--interligne);
+  color: var(--texte-tenu);
+  margin: 1rem 0 0;
+}
+
+.souscription-sortir {
+  display: block;
+  margin: 1.2rem auto 0;
+  background: none;
+  border: none;
+  padding: 0.3rem;
+  font-family: inherit;
+  font-size: var(--t-xs);
+  color: var(--texte-doux);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ── L'attente du webhook ─────────────────────────────────────────────────── */
+
+.souscription-attente {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+.souscription-point {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--evkha-or-profond);
+  animation: souscription-battement 1s ease-in-out infinite;
+}
+
+@keyframes souscription-battement {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Le battement est une commodité, jamais une information : le compteur de
+   tentatives dit la même chose en toutes lettres, et il est annoncé par
+   `aria-live`. Qui demande moins d'animation n'a donc rien à y perdre. */
+@media (prefers-reduced-motion: reduce) {
+  .souscription-point {
+    animation: none;
+  }
+}
+
+/* ── Lien d'action dans un bandeau ──────────────────────────────────────────
+ *
+ * Un bandeau qui annonce un problème sans porter le geste qui le résout oblige
+ * à chercher. Celui de l'abonnement inactif mène directement à l'activation.
+ *
+ * Souligné ET plus foncé : la couleur seule ne suffit pas à distinguer un lien
+ * pour qui ne perçoit pas les contrastes de teinte. */
+.bandeau-lien {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: inherit;
+  font-weight: var(--graisse-forte);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bandeau-lien:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ── Lien d'activation de secours ───────────────────────────────────────────
+ *
+ * Affiché uniquement quand le courriel d'invitation N'EST PAS parti. Il doit
+ * être recopiable d'un seul geste : d'où la coupure de mot autorisée et la
+ * sélection facilitée. Le laisser déborder de son bandeau serait pire que de
+ * ne rien afficher — le lien serait tronqué, donc faux. */
+.equipe-lien-secours {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-xs);
+  font-family: var(--police-mono);
+  font-size: var(--t-xs);
+  line-height: 1.5;
+  color: var(--texte);
+  word-break: break-all;
+  user-select: all;
+}
+
+/* ── Mon compte ─────────────────────────────────────────────────────────────
+ *
+ * Identité de la personne connectée et changement de mot de passe. L'écran
+ * n'existait pas alors que la route du serveur, elle, était écrite et testée.
+ */
+
+.compte-identite {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--e-5) var(--e-6);
+  margin: 0;
+}
+
+.compte-identite > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  /* Sans cela, une adresse longue impose sa largeur à toute la colonne de la
+     grille et pousse les voisines hors de la carte. */
+  min-width: 0;
+}
+
+/* Même traitement que `.chiffre-libelle` : ces intitulés jouent le même rôle
+   d'étiquette au-dessus d'une valeur, ils doivent se lire pareil. */
+.compte-identite dt {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: var(--graisse-forte);
+  color: var(--texte-tenu);
+}
+
+.compte-identite dd {
+  margin: 0;
+  font-size: var(--t-base);
+  color: var(--texte-fort);
+  /* Une adresse électronique se replie plutôt que de déborder : tronquée, elle
+     serait fausse, et c'est justement l'identifiant de connexion. */
+  overflow-wrap: anywhere;
+}
+
+.compte-pied {
+  margin: var(--e-5) 0 0;
+  line-height: var(--interligne);
+}
+
+/* Ce que fait le changement de mot de passe, dit AVANT le formulaire.
+ *
+ * Ni alerte ni échec, d'où un bloc à part plutôt qu'un `.bandeau` : fermer
+ * toutes les autres sessions est le service rendu, pas un incident. Le liseré
+ * porte la couleur, le texte reste sur l'encre courante — un paragraphe entier
+ * en bleu d'information se lit moins bien. */
+.compte-avis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  margin-bottom: var(--e-5);
+  padding: var(--e-4);
+  border-left: 3px solid var(--evkha-info);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-info-voile);
+  color: var(--texte);
+}
+
+.compte-avis-titre {
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  color: var(--evkha-info);
+}
+
+.compte-avis p {
+  margin: 0;
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+}
+
+/* Sans marge propre : elle vit dans le formulaire, dont l'espacement la sépare
+   des champs. Une marge ici s'ajouterait à cet écart. */
+.compte-confirmation {
+  margin: 0;
+  padding: var(--e-3) var(--e-4);
+  border-left: 3px solid var(--evkha-succes);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-succes-voile);
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+  color: var(--texte);
+}
+
+.compte-formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+}
+
+.compte-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-4);
+}
+
+/* Bandeau de réussite. Il manquait : « Invitation envoyée » s'affichait dans
+   les couleurs de l'alerte, avec son « ! », et une bonne nouvelle se lisait
+   comme un avertissement. */
+.bandeau-succes {
+  background: var(--evkha-succes-voile);
+  color: var(--evkha-succes);
+}
+
+/* ── Ce qui ne se corrige pas ici ───────────────────────────────────────────
+ *
+ * Adresse de connexion, rôle, organisation : trois valeurs en lecture, sous le
+ * formulaire qui, lui, se modifie. Le filet et l'écart disent où s'arrête la
+ * saisie — collée au bouton d'enregistrement, la première étiquette se lirait
+ * comme sa légende, et l'adresse aurait l'air d'un champ que l'on vient de
+ * soumettre.
+ *
+ * L'espacement appartient à ce conteneur : `.compte-identite` ne porte pas de
+ * marge propre, ici comme partout ailleurs dans cette feuille. */
+.compte-lecture {
+  margin-top: var(--e-6);
+  padding-top: var(--e-5);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+/* ══ Frise de production ═════════════════════════════════════════════════════
+ *
+ * Le suivi d'une étude était une liste de quatre pastilles reliées par un trait
+ * gris. Rien n'y distinguait une étude en train de tourner d'une étude finie :
+ * la cliente l'a dit — « ça serait en train de tourner ».
+ *
+ * Quatre principes tiennent cette section :
+ *
+ * 1. **Chaque état a sa forme**, pas seulement sa couleur : disque plein et
+ *    coche pour ce qui est fait, croix pour l'échec, anneau pointillé numéroté
+ *    pour ce qui attend, arc en rotation pour ce qui travaille. La frise reste
+ *    lisible en noir et blanc, et pour qui ne distingue pas le vert du rouge.
+ * 2. **Le mouvement ne porte jamais d'information.** `LIBELLE_ETAT` écrit
+ *    « En cours » en toutes lettres à côté du jalon. Qui coupe les animations ne
+ *    perd rien — voir le bloc `prefers-reduced-motion` en fin de section.
+ * 3. **Aucune couleur en dur** : tout vient de `tokens.css`.
+ * 4. **Rien ne bouge hors production.** Les animations sont portées par
+ *    `.frise-active`, que le composant ne pose que si `en_production` est vrai.
+ *    Un arc qui tournerait sur une étude livrée mentirait sur son état.
+ */
+
+.frise {
+  display: grid;
+  gap: var(--e-5, 1.25rem);
+}
+
+/* ── Avancement chiffré et délai ─────────────────────────────────────────── */
+
+.frise-tete {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.4rem;
+}
+
+.frise-chiffre {
+  margin: 0;
+  font-family: var(--police-chiffre);
+  font-size: var(--t-2xl);
+  font-weight: var(--graisse-affiche);
+  line-height: 1;
+  color: var(--texte-fort);
+  /* Chiffres à chasse fixe : le pourcentage change toutes les dix secondes, et
+     sans cela toute la ligne se décale au passage de 9 à 10. */
+  font-variant-numeric: tabular-nums;
+}
+
+.frise-unite {
+  margin-left: 0.15rem;
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-doux);
+}
+
+.frise-delai {
+  flex: 1 1 16rem;
+}
+
+.frise-delai-titre {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+/* La réserve nuance le chiffre : elle doit se lire, pas s'imposer. */
+.frise-delai-reserve {
+  margin: 0.2rem 0 0;
+  font-size: var(--t-xs);
+  line-height: var(--interligne);
+  color: var(--texte-tenu);
+}
+
+/* ── Les jalons ──────────────────────────────────────────────────────────── */
+
+.frise-etapes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+
+/* Deux colonnes par étape : le jalon, puis son texte. Le segment est tracé par
+   le pseudo-élément du jalon, ce qui le maintient centré sous la médaille
+   quelle que soit la hauteur du texte. */
+/* `position: relative` sur l'ÉTAPE et non sur le jalon : c'est elle qui sert
+   de référence au segment.
+
+   Le segment était tracé depuis `.frise-jalon`, dont la largeur vaut 44 px.
+   Son `100%` valait donc 44 px, et le trait mesurait 42 px pour un écart réel
+   de 217 px entre deux jalons : il flottait dans le vide au lieu de relier.
+   Mesuré à l'écran le 06/08/2026, invisible pour `tsc` comme pour `eslint`. */
+.frise-etape {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 0 var(--e-4, 1rem);
+  padding-bottom: var(--e-5, 1.25rem);
+}
+
+.frise-etape:last-child {
+  padding-bottom: 0;
+}
+
+.frise-jalon {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+
+/* Le segment qui DESCEND du jalon vers le suivant. Son état se déduit de
+   l'étape amont : le trait dit ce qu'il est advenu du travail de celle-ci.
+
+   `top` et `bottom` plutôt qu'une hauteur calculée : la hauteur d'une étape
+   dépend de la longueur de son détail, qu'aucun calcul ne peut deviner. Le
+   segment s'étire donc du bas de la médaille au bas de la cellule — laquelle
+   inclut l'espacement, ce qui l'amène exactement sous le jalon suivant. */
+.frise-etape:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 46px;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--evkha-bordure);
+}
+
+.frise-liaison-plein::after {
+  background: var(--evkha-succes);
+}
+
+/* Le segment en circulation : un dégradé descendant, animé seulement quand la
+   production tourne. Sans animation il reste un dégradé lisible, pas un vide. */
+.frise-liaison-flux::after {
+  background: linear-gradient(
+    to bottom,
+    var(--evkha-succes) 0%,
+    var(--evkha-or) 45%,
+    var(--evkha-bordure) 100%
+  );
+  background-size: 100% 200%;
+}
+
+.frise-active .frise-liaison-flux::after {
+  animation: frise-descente 1.8s linear infinite;
+}
+
+@keyframes frise-descente {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 -200%;
+  }
+}
+
+/* ── La médaille ─────────────────────────────────────────────────────────── */
+
+.frise-medaille {
+  width: 44px;
+  height: 44px;
+  display: block;
+}
+
+/* En attente : anneau pointillé, creux. La forme dit « pas commencé » sans
+   qu'aucune couleur ne soit nécessaire. */
+.frise-anneau {
+  fill: var(--fond-carte);
+  stroke: var(--evkha-bordure-forte);
+  stroke-width: 2;
+  stroke-dasharray: 3 5;
+}
+
+.frise-numero {
+  fill: var(--texte-tenu);
+  font-family: var(--police-chiffre);
+  font-size: 15px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* En cours : une piste complète, un cœur clair, et un arc qui la parcourt. */
+.frise-piste {
+  fill: none;
+  stroke: var(--evkha-or-voile);
+  stroke-width: 3;
+}
+
+.frise-noyau {
+  fill: var(--evkha-or-brume);
+}
+
+.frise-arc {
+  fill: none;
+  stroke: var(--evkha-or-profond);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* Un quart de la circonférence (2πr ≈ 125,7) : l'arc se lit comme un
+     mouvement, non comme un anneau presque fermé qu'on prendrait pour un
+     avancement de 90 %. */
+  stroke-dasharray: 31 95;
+  transform-origin: 50% 50%;
+}
+
+.frise-active .frise-arc {
+  animation: frise-rotation 1.1s linear infinite;
+}
+
+@keyframes frise-rotation {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fait et échec : un disque plein, un glyphe blanc. La couleur distingue les
+   deux, la forme du glyphe aussi — coche contre croix. */
+.frise-disque {
+  fill: var(--evkha-succes);
+}
+
+.frise-etape-echec .frise-disque {
+  fill: var(--evkha-echec);
+}
+
+.frise-glyphe {
+  fill: none;
+  stroke: var(--evkha-blanc);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Le texte de l'étape ─────────────────────────────────────────────────── */
+
+.frise-texte {
+  padding-top: 0.35rem;
+  min-width: 0;
+}
+
+.frise-libelle {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+  line-height: var(--interligne-serre);
+}
+
+/* L'état en toutes lettres. C'est lui qui rend le mouvement facultatif. */
+.frise-etat {
+  margin: 0.15rem 0 0;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texte-tenu);
+}
+
+.frise-etape-en_cours .frise-etat {
+  color: var(--evkha-alerte);
+}
+
+.frise-etape-fait .frise-etat {
+  color: var(--evkha-succes);
+}
+
+.frise-etape-echec .frise-etat {
+  color: var(--evkha-echec);
+}
+
+.frise-detail {
+  margin: 0.25rem 0 0;
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+  color: var(--texte-doux);
+}
+
+/* Une étape à venir s'efface sans disparaître : on doit pouvoir lire le
+   parcours entier d'avance. */
+.frise-etape-attente .frise-libelle {
+  color: var(--texte-doux);
+  font-weight: var(--graisse-moyenne);
+}
+
+/* ── Au-delà de 760 px : la frise passe à l'horizontale ──────────────────── */
+
+@media (min-width: 760px) {
+  .frise-etapes {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+  }
+
+  .frise-etape {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    padding: 0 0.4rem;
+  }
+
+  /* Le segment devient horizontal. Les deux jalons voisins sont centrés dans
+     leur colonne : le trait part donc de 50 % + le rayon de la médaille et
+     court jusqu'à 150 % − ce même rayon. C'est vrai quelle que soit la largeur
+     des colonnes, sans aucune valeur d'écran écrite en dur. */
+  .frise-etape:not(:last-child)::after {
+    left: calc(50% + 24px);
+    top: 21px;
+    bottom: auto;
+    width: calc(100% - 48px);
+    height: 2px;
+  }
+
+  .frise-liaison-flux::after {
+    background: linear-gradient(
+      to right,
+      var(--evkha-succes) 0%,
+      var(--evkha-or) 45%,
+      var(--evkha-bordure) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  .frise-active .frise-liaison-flux::after {
+    animation: frise-defilement 1.8s linear infinite;
+  }
+
+  .frise-texte {
+    padding-top: 0.6rem;
+  }
+}
+
+@keyframes frise-defilement {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────── */
+
+/* Tout s'arrête, et RIEN n'est perdu : l'état de chaque étape est écrit en
+   toutes lettres sous son libellé, et le dégradé du segment reste visible.
+   L'animation n'a jamais porté d'information — elle disait seulement « ça
+   travaille », ce que « EN COURS » dit aussi. */
+@media (prefers-reduced-motion: reduce) {
+  .frise-active .frise-arc,
+  .frise-active .frise-liaison-flux::after {
+    animation: none;
+  }
+}
+
+/* Sélecteur de période du tableau de bord. Il gouverne les chiffres ET les
+ * courbes : les laisser diverger — trente jours en haut, douze mois en bas —
+ * obligeait à deviner à quoi chaque nombre se rapporte. */
+.admin-periodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin-bottom: var(--e-5);
+}
+
+/* Achat de crédits à l'unité. Le total s'affiche À CÔTÉ du champ, pas après
+ * validation : le prix d'un geste doit être connu avant de le faire. */
+.achat-credits {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-3);
+}
+
+.achat-credits label {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+.achat-credits input {
+  width: 92px;
+  padding: var(--e-2) var(--e-3);
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-carte);
+  font: inherit;
+  color: var(--texte-fort);
+}
+
+.achat-credits input:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+.achat-credits-total {
+  font-weight: 600;
+  color: var(--texte-fort);
+}
+
+/* La charte du modèle, telle qu'elle part. Affichée en entier et non résumée :
+ * c'est ce texte qui explique ce que le document devient. Hauteur bornée pour
+ * qu'elle ne pousse pas le reste de la page hors de vue, et défilement propre
+ * plutôt que troncature — un texte coupé donne l'illusion qu'on l'a lu. */
+.charte-modele {
+  max-height: 520px;
+  overflow: auto;
+  margin: var(--e-4) 0 0;
+  padding: var(--e-4);
+  background: var(--fond-enfonce);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  font-family: var(--police-mono);
+  font-size: var(--t-xs);
+  line-height: 1.65;
+  color: var(--texte);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

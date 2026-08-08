@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 
-from integrations.claude import _MAX_CONTINUATIONS, _thinking_budget
+from integrations.claude import _MAX_CONTINUATIONS, _provision_reflexion
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .models import ChapterGeneration, ChapterStatus, GenerationJob
@@ -95,10 +95,33 @@ def record_chapter_cost(
     output_tokens: int,
     model: str | None = None,
 ) -> Decimal:
+    """Enregistre le cout d'une passe de generation. **Cumulatif.**
+
+    Cette fonction ECRASAIT `chapter.cost_eur`. Une regeneration — CHECK de
+    bloc, boucle de correction — repasse par `_generate_chapter`, donc par ici :
+    la premiere tentative disparaissait du total alors qu'Anthropic l'avait bel
+    et bien facturee.
+
+    Consequence, et c'est le defaut qui compte : `enforce_budget` comparait la
+    depense a un chiffre qui OUBLIE les reprises. Le plafond du dossier ne
+    portait donc pas sur l'argent reellement depense, et il echouait en
+    silence — ni erreur, ni incident, seulement un total sous-estime. Un
+    dossier dont six chapitres sont regeneres pouvait depasser son plafond sans
+    que rien ne le dise.
+
+    On additionne desormais des qu'une passe precedente a laisse une trace.
+    L'effet visible est que certains dossiers atteindront leur plafond plus
+    tot : non parce qu'ils coutent plus cher qu'avant, mais parce qu'on cesse
+    de sous-compter.
+    """
     cost = estimate_call_cost_eur(input_tokens, output_tokens, model)
-    chapter.input_tokens = input_tokens
-    chapter.output_tokens = output_tokens
-    chapter.cost_eur = cost
+    # `> 0` et non `is not None` : un chapitre neuf vaut zero, une passe
+    # precedente a forcement laisse un montant. C'est le seul signal disponible
+    # ici — `_generate_chapter` ne sait pas s'il regenere ou s'il ecrit.
+    reprise = chapter.cost_eur > Decimal("0")
+    chapter.input_tokens = (chapter.input_tokens + input_tokens) if reprise else input_tokens
+    chapter.output_tokens = (chapter.output_tokens + output_tokens) if reprise else output_tokens
+    chapter.cost_eur = (chapter.cost_eur + cost) if reprise else cost
     chapter.save(update_fields=["input_tokens", "output_tokens", "cost_eur", "updated_at"])
 
     job = chapter.job
@@ -230,13 +253,20 @@ def max_tokens_for_job(
 
     per_call_budget = remaining / max(total_slots, 1)
 
-    # Extended thinking : les tokens de reflexion sont factures au tarif OUTPUT
-    # et `AnthropicClaudeClient.complete` releve max_tokens du budget pour que
-    # la place laissee au contenu reste celle demandee. Ce cout est donc engage
-    # a chaque appel EN PLUS du contenu — il doit sortir du budget par appel
-    # avant le calcul, sinon le throttle autorise des chapitres qu'il ne peut
-    # pas payer et le job meurt sur CostBudgetExceededError vers 90 %.
-    cout_reflexion = Decimal(_thinking_budget()) * output_eur
+    # Reflexion adaptative : les tokens de reflexion sont factures au tarif
+    # OUTPUT et `AnthropicClaudeClient.complete` releve max_tokens de la
+    # provision pour que la place laissee au contenu reste celle demandee. Ce
+    # cout est donc engage a chaque appel EN PLUS du contenu — il doit sortir du
+    # budget par appel avant le calcul, sinon le throttle autorise des chapitres
+    # qu'il ne peut pas payer et le job meurt sur CostBudgetExceededError vers
+    # 90 %.
+    #
+    # En adaptatif, la depense reelle de reflexion n'est plus connue d'avance :
+    # le modele la choisit. La provision reste donc une ESTIMATION — mais elle
+    # n'est pas le seul garde-fou : `max_tokens` borne la reflexion et le texte
+    # ensemble, et `enforce_budget` coupe net au depassement. Une provision trop
+    # basse rogne le texte, elle ne laisse pas filer la facture.
+    cout_reflexion = Decimal(_provision_reflexion()) * output_eur
     per_call_budget -= cout_reflexion
     if per_call_budget <= 0:
         return _MIN_MAX_TOKENS
@@ -245,16 +275,41 @@ def max_tokens_for_job(
     return max(_MIN_MAX_TOKENS, min(default_max_tokens, allowed))
 
 
-def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) -> None:
-    """Arret immediat si total > budget_eur. Budget MAX = 2 EUR, STRICT, SANS TOLERANCE.
+#: Ce qu'une generation ne doit JAMAIS depasser, quel que soit le livrable et
+#: quel que soit son budget de rythme. Decision de la cliente du 05/08/2026,
+#: releve de la console Anthropic a l'appui — 44,26 $US de credits restants,
+#: rechargement automatique actif : « on ne doit pas depasser 3 euros pour une
+#: generation, ou 3,1 au max ».
+#:
+#: Pourquoi un nombre DISTINCT de `budget_eur`. Celui-ci sert de denominateur au
+#: throttle : il repartit le restant sur les appels a venir. Le baisser ne fait
+#: pas baisser la depense, il RETRECIT chaque chapitre — mesure le 05/08/2026,
+#: sous 3,80 EUR chaque appel d'une etude de marche est deja borne au plancher.
+#: Confondre les deux revenait a croire qu'on plafonnait une facture alors qu'on
+#: rabotait un document.
+#:
+#: Reglable sans redeploiement : la contrainte est commerciale, elle bougera.
+PLAFOND_DEPENSE_EUR = Decimal("3.1000")
 
-    Des que le cumul des chapitres depasse budget_eur, CostBudgetExceededError est
-    leve et la generation s'arrete. Le chapitre qui a declenche le depassement est
-    deja sauvegarde (le cout a ete engage cote Anthropic) mais aucun chapitre
-    suivant ne demarre.
+
+def plafond_de_depense(job: GenerationJob) -> Decimal:
+    """Le plus contraignant des deux : le rythme du job, ou le plafond commercial."""
+    plafond = getattr(settings, "EVKHA_PLAFOND_DEPENSE_EUR", None)
+    absolu = Decimal(str(plafond)) if plafond is not None else PLAFOND_DEPENSE_EUR
+    return min(job.budget_eur, absolu)
+
+
+def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) -> None:
+    """Arret immediat des que la depense passe le plafond. STRICT, SANS TOLERANCE.
+
+    Le chapitre qui a declenche le depassement est deja sauvegarde (le cout a ete
+    engage cote Anthropic) mais aucun chapitre suivant ne demarre.
+
+    Le plafond n'est plus `budget_eur` seul : c'est le plus contraignant du
+    rythme du job et du plafond commercial (voir `PLAFOND_DEPENSE_EUR`).
     """
     total = current_total if current_total is not None else job.total_cost_eur
-    if total <= job.budget_eur:
+    if total <= plafond_de_depense(job):
         return
 
     # Un seul incident par job — pas de spam.
@@ -270,11 +325,13 @@ def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) 
             details={
                 "total_cost_eur": str(total),
                 "budget_eur": str(job.budget_eur),
+                "plafond_depense_eur": str(plafond_de_depense(job)),
             },
         )
 
     msg = (
-        f"Budget strict depasse : {total} EUR > {job.budget_eur} EUR (job {job.id}). "
+        f"Plafond de depense atteint : {total} EUR > "
+        f"{plafond_de_depense(job)} EUR (job {job.id}). "
         "Generation stoppee immediatement."
     )
     raise CostBudgetExceededError(msg)

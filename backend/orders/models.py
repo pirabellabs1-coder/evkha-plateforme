@@ -18,6 +18,17 @@ class OrderStatus(models.TextChoices):
 
 class Order(UUIDModel):
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="orders")
+    # Lot 4 — rattachement a l'organisation qui paie. Nullable et sans valeur
+    # par defaut : les commandes du flux Systeme.io en service n'en ont pas, et
+    # en exiger une casserait la production. Quand elle est renseignee, c'est
+    # elle qui designe le portefeuille a debiter, sans deduction.
+    organisation = models.ForeignKey(
+        "organisations.Organisation",
+        on_delete=models.PROTECT,
+        related_name="commandes",
+        null=True,
+        blank=True,
+    )
     offer = models.ForeignKey(Offer, on_delete=models.PROTECT, related_name="orders")
     systeme_order_id = models.CharField(max_length=140, unique=True)
     # Lien vers l'Order parent (abonnement/crédit) pour les tickets de crédit auto-créés.

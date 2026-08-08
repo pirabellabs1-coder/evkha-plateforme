@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from django.test import override_settings
 
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
@@ -74,6 +75,13 @@ def market_submission_with_gamma() -> IntakeSubmission:
 
 
 @pytest.mark.django_db
+# Chaîne de REPLI (`EVKHA_LIVRABLE_WORD=False`) : ces tests portent sur
+# l'orchestration de la livraison — lot, e-mail, artefacts — et attendent
+# l'aperçu HTML que seule l'ancienne chaîne produit. La chaîne Word exige en
+# outre un socle verrouillé, que ces jeux d'essai n'ont pas. Épinglés
+# explicitement : le §16 promet un repli réversible, et une promesse que
+# rien n'exerce cesse d'être vraie sans prévenir.
+@override_settings(EVKHA_LIVRABLE_WORD=False)
 def test_deliver_job_creates_link_pdf_and_sent_batch(
     market_submission_no_gamma: IntakeSubmission,
 ) -> None:
@@ -106,6 +114,13 @@ def test_deliver_job_creates_link_pdf_and_sent_batch(
 
 
 @pytest.mark.django_db
+# Chaîne de REPLI (`EVKHA_LIVRABLE_WORD=False`) : ces tests portent sur
+# l'orchestration de la livraison — lot, e-mail, artefacts — et attendent
+# l'aperçu HTML que seule l'ancienne chaîne produit. La chaîne Word exige en
+# outre un socle verrouillé, que ces jeux d'essai n'ont pas. Épinglés
+# explicitement : le §16 promet un repli réversible, et une promesse que
+# rien n'exerce cesse d'être vraie sans prévenir.
+@override_settings(EVKHA_LIVRABLE_WORD=False)
 def test_deliver_job_creates_gamma_artifacts_when_enabled(
     market_submission_with_gamma: IntakeSubmission,
 ) -> None:
@@ -125,6 +140,13 @@ def test_deliver_job_creates_gamma_artifacts_when_enabled(
 
 
 @pytest.mark.django_db
+# Chaîne de REPLI (`EVKHA_LIVRABLE_WORD=False`) : ces tests portent sur
+# l'orchestration de la livraison — lot, e-mail, artefacts — et attendent
+# l'aperçu HTML que seule l'ancienne chaîne produit. La chaîne Word exige en
+# outre un socle verrouillé, que ces jeux d'essai n'ont pas. Épinglés
+# explicitement : le §16 promet un repli réversible, et une promesse que
+# rien n'exerce cesse d'être vraie sans prévenir.
+@override_settings(EVKHA_LIVRABLE_WORD=False)
 def test_purge_expired_artifacts_marks_ready_links_expired(
     market_submission_no_gamma: IntakeSubmission,
 ) -> None:

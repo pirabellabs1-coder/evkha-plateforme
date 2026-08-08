@@ -113,12 +113,11 @@ _SOURCES_BLOCK_PATTERN = re.compile(
     r"^\s*(?:#{1,4}\s*)?Sources?\s*(?:[:—-].*)?$", re.IGNORECASE
 )
 
-_SECTION_ORDER: dict[str, int] = {
-    SectionKind.OPENING: 0,
-    SectionKind.CHAPTER: 1,
-    SectionKind.ANNEXE: 2,
-    SectionKind.SOURCES: 3,
-}
+# RETIRÉ : `_SECTION_ORDER`, qui classait les sections par nature avant de les
+# classer par numéro. Il plaçait toute annexe avant les sources, ce qui sortait
+# l'étude de marché dans l'ordre 20, 22, 21 — le manuel exige l'annexe APRÈS le
+# chapitre 21. L'ordre de lecture est celui du blueprint, c'est-à-dire le
+# numéro ; laisser une seconde règle à côté était l'occasion de diverger.
 
 
 @dataclass(frozen=True)
@@ -329,6 +328,26 @@ _MOIS_FR: dict[int, str] = {
 }
 
 
+#: Noms des variables de charte, dans l'intake. UNE seule liste.
+#:
+#: Elles vivaient a TROIS endroits : `dashboard.views._OPTIONAL_VARS`,
+#: `organisations.commandes.variables_de_commande`, et la lecture ci-dessous.
+#: Les trois ne disaient pas la meme chose — `COULEUR_FOND` et
+#: `MENTION_CONFIDENTIALITE` manquaient aux deux premiers, si bien que deux
+#: champs remplis par l'abonne n'atteignaient jamais le document (regle 5).
+#:
+#: Ajouter une variable de charte ici la rend disponible partout : c'est la
+#: propriete qu'on veut, et elle ne s'obtient qu'avec une liste unique.
+VARIABLES_DE_MARQUE: tuple[str, ...] = (
+    "LOGO_URL",
+    "COULEUR_PRINCIPALE",
+    "COULEUR_SECONDAIRE",
+    "NOM_ENTREPRISE",
+    "COULEUR_FOND",
+    "MENTION_CONFIDENTIALITE",
+)
+
+
 @dataclass(frozen=True)
 class BrandingContext:
     """Variables de branding client extraites de l'intake Tally.
@@ -340,6 +359,11 @@ class BrandingContext:
     color_primary: str
     color_secondary: str
     company_name: str
+    #: Fond clair et mention de confidentialite, saisis par l'abonne dans
+    #: « Ma Marque ». Ils etaient absents de ce contexte alors que le moteur de
+    #: rendu les lit : les deux champs n'avaient donc aucun effet.
+    color_background: str = ""
+    confidentiality_mention: str = ""
 
 
 def extract_branding(job: GenerationJob) -> BrandingContext:
@@ -363,6 +387,8 @@ def extract_branding(job: GenerationJob) -> BrandingContext:
         color_primary=variables.get("COULEUR_PRINCIPALE", _EVKHA_PRIMARY),
         color_secondary=variables.get("COULEUR_SECONDAIRE", _EVKHA_SECONDARY),
         company_name=variables.get("NOM_ENTREPRISE", ""),
+        color_background=variables.get("COULEUR_FOND", ""),
+        confidentiality_mention=variables.get("MENTION_CONFIDENTIALITE", ""),
     )
 
 
@@ -955,5 +981,17 @@ def render_client_document(job: GenerationJob) -> ClientDocument:
             )
         )
 
-    sections.sort(key=lambda s: (_SECTION_ORDER.get(s.kind, 1), s.number))
+    # L'ordre de lecture est celui du BLUEPRINT, donc le numéro de chapitre.
+    #
+    # Trier d'abord par nature plaçait toute annexe avant les sources. Cela
+    # convenait aux trois autres livrables, qui numérotent déjà leur annexe
+    # avant leurs sources — et cassait l'étude de marché, dont le manuel exige
+    # l'annexe APRÈS le chapitre 21 : le document sortait 20, 22, 21.
+    #
+    # Le numéro suffit, et il ne peut pas mentir : c'est lui qui décide de
+    # l'ordre de génération. Vérifié sur les quatre livrables — pour les trois
+    # autres, le résultat est identique à l'ancienne règle. La chaîne Word, elle,
+    # triait déjà ainsi (`rendu_word.assemblage`) : les deux disent désormais la
+    # même chose (règle 5).
+    sections.sort(key=lambda s: s.number)
     return ClientDocument(title=_document_title(job), sections=tuple(sections))

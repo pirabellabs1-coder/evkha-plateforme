@@ -1,0 +1,160 @@
+/* Jetons de design EVKHA — source unique de la charte de la plateforme.
+ *
+ * Valeurs MESURÉES sur https://www.evkha.fr/ (styles calculés du navigateur,
+ * pas une estimation à l'œil) :
+ *
+ *   or principal      rgb(248, 197, 28)   #F8C51C   48 occurrences
+ *   or secondaire     rgb(230, 197, 34)   #E6C522
+ *   or tertiaire      rgb(238, 186, 43)   #EEBA2B
+ *   noir              rgb(0, 0, 0)        #000000
+ *   quasi-noir        rgb(11, 11, 11)     #0B0B0B
+ *   gris texte        rgb(74, 74, 74)     #4A4A4A
+ *   gris secondaire   rgb(128, 128, 128)  #808080
+ *   fond très clair   rgb(248, 244, 244)  #F8F4F4
+ *   police            Montserrat, Raleway en secondaire
+ *   rayons            20px, 30px, 40px (pilules), 10px, 3px
+ *
+ * NE PAS écrire une couleur en dur ailleurs. Toute la charte se corrige ici.
+ *
+ * Distinction essentielle : ces jetons habillent la PLATEFORME. Les documents
+ * produits portent la charte du CLIENT FINAL (`generation/rendu_word/palette.py`),
+ * qui change à chaque étude. Les deux ne doivent jamais se mélanger.
+ */
+
+:root {
+  /* ── Couleurs de marque ─────────────────────────────────────────────── */
+  --evkha-or: #f8c51c;
+  --evkha-or-fonce: #e6c522;
+  --evkha-or-profond: #eeba2b;
+  --evkha-or-voile: #fdf4d6;
+  --evkha-or-brume: #fefaef;
+
+  --evkha-noir: #0b0b0b;
+  --evkha-noir-pur: #000000;
+  --evkha-encre: #1a1a1a;
+
+  /* ── Neutres ────────────────────────────────────────────────────────── */
+  --evkha-blanc: #ffffff;
+  --evkha-coquille: #f8f4f4;
+  --evkha-nuage: #f2f0ef;
+  --evkha-bordure: #e6e2e0;
+  --evkha-bordure-forte: #d4cfcc;
+  --evkha-gris: #4a4a4a;
+  --evkha-gris-doux: #808080;
+  --evkha-gris-pale: #a8a4a2;
+
+  /* ── Couleurs de statut ─────────────────────────────────────────────────
+   * Choisies pour tenir 4,5:1 sur fond blanc (WCAG AA, texte normal). Le vert
+   * et le rouge par défaut des navigateurs échouent à ce seuil.
+   */
+  /* `#1A7F4B` mesurait 4,48:1 sur son voile — sous le seuil de 0,02 point.
+   * Un « presque conforme » n'existe pas : assombri à 4,90:1. */
+  --evkha-succes: #18784a;
+  --evkha-succes-voile: #e8f5ee;
+  --evkha-alerte: #9a6408;
+  --evkha-alerte-voile: #fdf3e0;
+  --evkha-echec: #b3261e;
+  --evkha-echec-voile: #fdeceb;
+  --evkha-info: #1c5d99;
+  --evkha-info-voile: #eaf2fa;
+
+  /* ── Texte ──────────────────────────────────────────────────────────── */
+  --texte-fort: var(--evkha-noir);
+  --texte: var(--evkha-encre);
+  --texte-doux: var(--evkha-gris);
+  /* PAS `--evkha-gris-doux` (#808080), bien qu'il soit dans la charte du site.
+   * Mesuré sur le rendu : 3,95:1 sur blanc et 3,79:1 sur le crème des cartes,
+   * pour du texte de 12 à 13 px — sous le seuil WCAG AA de 4,5:1. Un site
+   * vitrine s'en accommode ; un espace client dense en petits libellés non.
+   * `#6E6E6E` monte à 5,1:1 sur blanc et 4,9:1 sur le crème, en conservant la
+   * même famille de gris neutre. */
+  --texte-tenu: #6e6e6e;
+  /* Sur l'or, le texte est NOIR. Le blanc sur #F8C51C plafonne à 1,9:1,
+   * illisible ; le noir atteint 11,5:1. */
+  --texte-sur-or: var(--evkha-noir);
+  --texte-sur-noir: var(--evkha-blanc);
+
+  /* ── Surfaces ───────────────────────────────────────────────────────── */
+  --fond-page: var(--evkha-coquille);
+  --fond-carte: var(--evkha-blanc);
+  --fond-enfonce: var(--evkha-nuage);
+
+  /* ── Typographie ────────────────────────────────────────────────────── */
+  --police-titre: "Montserrat", "Segoe UI", system-ui, sans-serif;
+  --police-corps: "Montserrat", "Segoe UI", system-ui, sans-serif;
+  --police-chiffre: "Montserrat", "Segoe UI", system-ui, sans-serif;
+  --police-mono: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+
+  /* Échelle typographique en ratio 1,2 — assez de contraste entre niveaux
+   * sans que les titres écrasent le corps. */
+  --t-xs: 0.75rem;
+  --t-sm: 0.8125rem;
+  --t-base: 0.9375rem;
+  --t-md: 1.0625rem;
+  --t-lg: 1.375rem;
+  --t-xl: 1.75rem;
+  --t-2xl: 2.25rem;
+  --t-3xl: 2.875rem;
+
+  --graisse-normale: 400;
+  --graisse-moyenne: 500;
+  --graisse-forte: 600;
+  --graisse-titre: 700;
+  --graisse-affiche: 800;
+
+  --interligne-serre: 1.15;
+  --interligne: 1.55;
+
+  /* ── Rayons ───────────────────────────────────────────────────────────
+   * La charte du site est franchement arrondie (20 à 40 px). On la suit :
+   * un espace client aux angles droits ne ressemblerait pas à la marque.
+   */
+  --rayon-xs: 6px;
+  --rayon-sm: 10px;
+  --rayon-md: 16px;
+  --rayon-lg: 22px;
+  --rayon-xl: 30px;
+  --rayon-pilule: 999px;
+
+  /* ── Espacement, sur une base de 4 px ───────────────────────────────── */
+  --e-1: 4px;
+  --e-2: 8px;
+  --e-3: 12px;
+  --e-4: 16px;
+  --e-5: 20px;
+  --e-6: 24px;
+  --e-8: 32px;
+  --e-10: 40px;
+  --e-12: 48px;
+  --e-16: 64px;
+
+  /* ── Ombres ───────────────────────────────────────────────────────────
+   * Très douces et teintées de noir chaud : une ombre grise franche sur un
+   * fond coquille paraît sale.
+   */
+  --ombre-sm: 0 1px 2px rgba(11, 11, 11, 0.05);
+  --ombre-md: 0 2px 8px rgba(11, 11, 11, 0.06), 0 1px 2px rgba(11, 11, 11, 0.04);
+  --ombre-lg: 0 8px 28px rgba(11, 11, 11, 0.08), 0 2px 6px rgba(11, 11, 11, 0.04);
+  --ombre-or: 0 6px 20px rgba(248, 197, 28, 0.28);
+
+  /* ── Anneau de focus ──────────────────────────────────────────────────
+   * L'or seul ne suffit pas à signaler le focus sur un bouton or : on ajoute
+   * un liseré sombre, visible sur toutes les surfaces.
+   */
+  --anneau-focus: 0 0 0 2px var(--evkha-blanc), 0 0 0 4px var(--evkha-noir);
+
+  /* ── Mouvement ────────────────────────────────────────────────────────── */
+  --transition: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Gabarit ──────────────────────────────────────────────────────────── */
+  --largeur-barre: 264px;
+  --largeur-contenu: 1180px;
+}
+
+/* Respecter le réglage système : une animation imposée est un défaut
+ * d'accessibilité, pas un raffinement. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition: 0ms;
+  }
+}

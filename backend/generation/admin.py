@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from django.db.models import QuerySet
+from django.forms import ModelForm
+from django.http import HttpRequest
 
-from .models import ChapterGeneration, CoherenceFact, GenerationJob
+from .models import ChapterGeneration, CoherenceFact, GenerationJob, SocleDonnees
 
 
 class ChapterGenerationInline(admin.TabularInline):
@@ -33,6 +36,80 @@ class ChapterGenerationAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("chapter_title", "prompt_key", "job__order__systeme_order_id")
     autocomplete_fields = ("job",)
+
+
+@admin.register(SocleDonnees)
+class SocleDonneesAdmin(admin.ModelAdmin):
+    """Point de correction manuelle du socle, exigé par le cahier des charges.
+
+    La cliente doit pouvoir rectifier un chiffre AVANT que l'étude ne se
+    construise dessus. Toute modification est revalidée contre le référentiel :
+    une correction humaine n'échappe pas aux contrôles.
+    """
+
+    list_display = ("job", "version", "statut", "nb_donnees", "tentatives",
+                    "corrige_manuellement", "valide_at")
+    list_filter = ("statut", "corrige_manuellement")
+    search_fields = ("job__order__systeme_order_id", "job__order__customer__email")
+    autocomplete_fields = ("job",)
+    readonly_fields = ("version", "tentatives", "valide_at", "motifs_rejet",
+                       "input_tokens", "output_tokens", "cost_eur")
+    actions = ("action_revalider", "action_regenerer")
+
+    @admin.display(description="Données")
+    def nb_donnees(self, objet: SocleDonnees) -> int:
+        contenu = objet.contenu
+        return len(contenu.get("donnees", [])) if isinstance(contenu, dict) else 0
+
+    def save_model(
+        self,
+        request: HttpRequest,
+        obj: SocleDonnees,
+        form: ModelForm[SocleDonnees],
+        change: bool,
+    ) -> None:
+        """Revalide systématiquement après une édition manuelle."""
+        if change and "contenu" in form.changed_data:
+            obj.corrige_manuellement = True
+        super().save_model(request, obj, form, change)
+        if change and "contenu" in form.changed_data:
+            from .socle.services import revalider_socle  # noqa: PLC0415
+
+            motifs = revalider_socle(obj)
+            if motifs:
+                self.message_user(
+                    request,
+                    f"Socle enregistré mais INVALIDE : {' ; '.join(motifs[:5])}",
+                    level="ERROR",
+                )
+            else:
+                self.message_user(request, "Socle corrigé et revalidé.")
+
+    @admin.action(description="Revalider le socle contre le référentiel")
+    def action_revalider(
+        self, request: HttpRequest, queryset: QuerySet[SocleDonnees]
+    ) -> None:
+        from .socle.services import revalider_socle  # noqa: PLC0415
+
+        for enregistrement in queryset:
+            motifs = revalider_socle(enregistrement)
+            niveau = "ERROR" if motifs else "INFO"
+            texte = " ; ".join(motifs[:5]) if motifs else "valide"
+            self.message_user(request, f"{enregistrement.job_id} : {texte}", level=niveau)
+
+    @admin.action(description="Régénérer le socle (INVALIDE tous les chapitres)")
+    def action_regenerer(
+        self, request: HttpRequest, queryset: QuerySet[SocleDonnees]
+    ) -> None:
+        from .socle.services import regenerer_socle  # noqa: PLC0415
+
+        for enregistrement in queryset:
+            remis = regenerer_socle(enregistrement.job)
+            self.message_user(
+                request,
+                f"{enregistrement.job_id} : socle invalidé, {remis} chapitre(s) "
+                "remis en attente.",
+            )
 
 
 @admin.register(CoherenceFact)

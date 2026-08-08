@@ -86,6 +86,15 @@ un dossier réel.
 
 ## 8. Chercher dans le dépôt avant de conclure
 
+> **Avant tout audit, inventaire ou relecture : lire
+> `.claude/skills/enqueter-dans-evkha/SKILL.md`.** Ce dépôt raconte ses défauts
+> passés au présent, et le 08/08/2026 trois relectures s'y sont trompées le même
+> jour — dont une qui a conclu que les livrables étaient accessibles sans
+> contrôle alors que la signature horodatée était en place et testée. Le skill
+> nomme les quatre artefacts qui mentent le plus et donne la vérification de
+> chacun.
+
+
 Gamma était intégré, testé, branché — et n'avait **jamais tourné** : flag
 jamais activé, thème `evkha-default` inexistant, erreur qui masquait sa propre
 cause. Le budget, les cibles de mots, la charte : tout est déjà écrit quelque
@@ -120,7 +129,12 @@ Inspiré de `karpathy/autoresearch` : un chercheur autonome ne progresse
 que s'il tient un journal de ses expériences. Chaque tentative qui n'est
 pas enregistrée est une leçon perdue.
 
-Ici : **chaque appel API Claude** est une expérience à ~2 € qui produit
+Ici : **chaque dossier généré** est une expérience à **2,60 € à 4,00 €** selon
+le livrable — plafond appliqué par `_BUDGET_EUR_BY_TYPE`
+(`generation/services.py`), et deux études de marché complètes ont réellement
+coûté 3,12 € et 3,32 €. Ce fichier annonçait « ~2 € » jusqu'au 08/08/2026 :
+c'était le défaut du champ `budget_eur`, écrasé à la création du job. Une
+expérience qui produit
 une mesure (gate failures, retours cliente à posteriori). Cette mesure
 doit être enregistrée dans `journal_generations.md` avec un verdict :
 
@@ -153,6 +167,23 @@ Les quatre. La CI a été **rouge sur `main` pendant des mois** sans que
 personne ne s'en serve : elle n'installait que `[dev]`, donc mypy ne voyait ni
 `anthropic`, ni `httpx`, ni `bs4`.
 
+### Et pour le front, `tsc -b` — jamais `tsc --noEmit`
+
+```bash
+cd frontend && npx tsc -b --force && npx eslint src --quiet
+```
+
+`frontend/tsconfig.json` porte `"files": []` et ne fait que **référencer**
+`tsconfig.app.json` et `tsconfig.node.json`. Un `npx tsc --noEmit` lancé à la
+racine du front ne vérifie donc **aucun fichier** : il rend 0 quoi qu'il
+arrive.
+
+Mesuré le 06/08/2026 : `npx tsc --noEmit` a rendu « propre » sur un fichier
+contenant `Cannot find name 'naviguer'`. `tsc -b` l'a trouvé du premier coup.
+C'est la règle 1 appliquée à l'outillage — un contrôle qui n'a rien à comparer
+n'est pas un succès, et celui-là s'était fait passer pour tel toute une
+journée.
+
 ## Ne jamais faire
 
 - **Contourner un hook** (`--no-verify`) ou masquer une erreur par un
@@ -161,6 +192,9 @@ personne ne s'en serve : elle n'installait que `[dev]`, donc mypy ne voyait ni
   rendu), une annotation qui ment.
 - **Manipuler une clé d'API.** Elles vivent dans Coolify et dans le `.env`
   local, jamais dans le code, jamais dans une conversation.
-- **Lancer une génération réelle sans accord** : ~2 € par dossier.
+- **Lancer une génération réelle sans accord.** Le plafond appliqué va de
+  2,60 € (étude concurrentielle) à 4,00 € (étude de marché) selon le livrable,
+  et deux études complètes ont coûté 3,12 € et 3,32 €. La liste qui fait foi est
+  `_BUDGET_EUR_BY_TYPE` — ne pas recopier ces montants ailleurs.
 - **Livrer par e-mail depuis un environnement de test** : les dossiers portent
   de vraies adresses client.

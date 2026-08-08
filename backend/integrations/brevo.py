@@ -1,3 +1,12 @@
+"""Port du courriel transactionnel : protocole, doublure, fabrique.
+
+Le module porte le nom de l'un des fournisseurs pour une raison d'histoire
+— Brevo etait le seul — et tout le produit importe
+`get_transactional_email_client` d'ici. Le renommer imposerait de toucher
+chaque appelant pour un gain nul ; ce qui compte est qu'il n'existe QU'UN
+port, et que les adaptateurs se rangent derriere lui. Resend vit dans
+`resend_api.py`.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -9,6 +18,14 @@ from django.conf import settings
 
 _BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email"
 _BREVO_TIMEOUT_SECONDS = 30
+
+#: Agent utilisateur annonce au prestataire. Brevo l'accepte sans, mais
+#: Resend non : son API est derriere Cloudflare, qui bannit l'agent par
+#: defaut d'urllib (403 Error 1010). Le meme oubli dort donc ici — et Brevo
+#: est justement le repli vers lequel on basculerait un jour de panne
+#: Resend. Un repli qui echoue silencieusement le jour ou l'on en a besoin
+#: ne vaut pas mieux que pas de repli (regle 4 : viser la CLASSE du defaut).
+_AGENT = "EVKHA/1.0 (+https://evkha.fr)"
 
 
 @dataclass(frozen=True)
@@ -58,7 +75,9 @@ class StubBrevoClient:
 class BrevoApiClient:
     """Client Brevo reel — API transactionnelle v3 (POST /smtp/email).
 
-    Lit BREVO_API_KEY / BREVO_SENDER_EMAIL / BREVO_SENDER_NAME dans les settings.
+    Lit BREVO_API_KEY, et l'expediteur COMMUN aux deux fournisseurs
+    (EVKHA_SENDER_EMAIL / EVKHA_SENDER_NAME) : basculer de prestataire ne
+    doit pas changer l'adresse d'ou EVKHA ecrit a ses partenaires.
     Les pieces jointes sont transmises par URL publique (champ `attachment[].url`),
     Brevo les telecharge lui-meme : EVKHA_BASE_URL doit donc etre accessible
     depuis Internet.
@@ -83,13 +102,20 @@ class BrevoApiClient:
 
         payload: dict[str, Any] = {
             "sender": {
-                "name": str(getattr(settings, "BREVO_SENDER_NAME", "Evkha")),
-                "email": str(getattr(settings, "BREVO_SENDER_EMAIL", "")),
+                "name": str(getattr(settings, "EVKHA_SENDER_NAME", "Evkha")),
+                "email": str(getattr(settings, "EVKHA_SENDER_EMAIL", "")),
             },
             "to": [{"email": recipient_email}],
             "subject": subject,
             "htmlContent": html_body,
         }
+        # Copie cachee, meme regle que chez Resend : Brevo est le repli, et un
+        # repli qui perd la copie la ferait disparaitre le jour ou l'on bascule,
+        # sans que personne ne s'en apercoive (regle 4).
+        copie = str(getattr(settings, "EVKHA_COPIE_COURRIEL", "") or "").strip()
+        if copie and copie.lower() != recipient_email.lower():
+            payload["bcc"] = [{"email": copie}]
+
         if attachments:
             payload["attachment"] = [
                 {"url": attachment.url, "name": attachment.filename}
@@ -103,6 +129,7 @@ class BrevoApiClient:
                 "api-key": api_key,
                 "content-type": "application/json",
                 "accept": "application/json",
+                "user-agent": _AGENT,
             },
             method="POST",
         )
@@ -111,9 +138,39 @@ class BrevoApiClient:
         return EmailSendResult(provider_message_id=str(body.get("messageId", "")))
 
 
+def _fournisseurs() -> dict[str, type]:
+    """Table FERMEE des fournisseurs branchables.
+
+    Construite a l'appel et non au chargement : `resend_api` importe les
+    dataclasses de ce module, et un import en tete produirait un cycle.
+
+    Fermee, parce qu'un nom inconnu doit echouer bruyamment plutot que de
+    retomber en silence sur un fournisseur que personne n'a choisi : une
+    faute de frappe enverrait tout le courrier chez l'ancien prestataire
+    sans que rien ne le dise (regle 1).
+    """
+    from .resend_api import ResendApiClient  # noqa: PLC0415 — evite un cycle
+
+    return {"brevo": BrevoApiClient, "resend": ResendApiClient}
+
+
 def get_transactional_email_client() -> TransactionalEmailClient:
-    """Stub par defaut ; client reel quand EVKHA_USE_STUB_EMAIL=false."""
-    use_stub = bool(getattr(settings, "EVKHA_USE_STUB_EMAIL", True))
-    if use_stub:
+    """Doublure par defaut ; fournisseur reel quand EVKHA_USE_STUB_EMAIL=false.
+
+    Le choix du fournisseur se fait par `EVKHA_EMAIL_PROVIDER`, donc sans
+    redeploiement : le jour ou Resend tombe, on repasse a Brevo depuis Coolify.
+    """
+    if bool(getattr(settings, "EVKHA_USE_STUB_EMAIL", True)):
         return StubBrevoClient()
-    return BrevoApiClient()
+
+    nom = str(getattr(settings, "EVKHA_EMAIL_PROVIDER", "resend") or "").lower().strip()
+    table = _fournisseurs()
+    fournisseur = table.get(nom)
+    if fournisseur is None:
+        connus = ", ".join(sorted(table))
+        msg = (
+            f"EVKHA_EMAIL_PROVIDER inconnu : {nom!r}. Valeurs acceptees : {connus}."
+        )
+        raise RuntimeError(msg)
+    client: TransactionalEmailClient = fournisseur()
+    return client

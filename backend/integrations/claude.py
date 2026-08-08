@@ -66,24 +66,42 @@ _COUT_LECTURE_CACHE = 0.10
 # le verdict — exactement ce qui manquait aux CHECKs (erreurs de calcul et
 # TAM/SAM/SOM incoherents releves par Evangeline sur le run 010e3bf2).
 #
-# La doc impose : advisor >= executeur en capacite, et advisor >= Sonnet 4.6.
-# Les modeles de capacite EGALE peuvent se conseiller mutuellement, ce qui rend
-# la paire sonnet-4-6 -> sonnet-4-6 valide. Deux exceptions dans le tableau de
-# compatibilite : claude-haiku-4-5 (jamais advisor) et claude-sonnet-5 (dont la
-# liste d'advisors exclut sonnet-5). Toute paire invalide = 400.
+# La doc impose : advisor AU MOINS aussi capable que l'executeur. On avait
+# resume cette regle par « les modeles de capacite egale peuvent se conseiller
+# mutuellement », donc advisor = executeur — FAUX pour le seul modele que ce
+# projet emploie. Le tableau de compatibilite officiel donne, pour un executeur
+# `claude-sonnet-4-6`, les advisors valides : opus-4-7, opus-4-8, opus-5,
+# fable-5, mythos-5. Sonnet 4.6 n'y figure pas. La paire que nous emettions —
+# sonnet-4-6 conseille par sonnet-4-6 — est donc un 400.
+#
+# Elle n'a jamais leve, et c'est ce qui la rendait invisible : l'advisor n'est
+# monte que sur les CHECKs de bloc, et les CHECKs ne s'executent pas dans le
+# moteur en service. Rebrancher les CHECKs sans corriger ceci ferait echouer
+# d'un coup les blocs A, F, G, I et J.
+#
+# On encode donc le TABLEAU (regle 4), au lieu de deduire l'advisor de
+# l'executeur : une regle resumee se trompe sur les cas qu'elle n'a pas listes.
 _ADVISOR_BETA = "advisor-tool-2026-03-01"
 _ADVISOR_TOOL_TYPE = "advisor_20260301"
-_MODELES_AUTO_ADVISOR = frozenset(
-    {
-        "claude-sonnet-4-6",
-        "claude-opus-4-6",
-        "claude-opus-4-7",
-        "claude-opus-4-8",
-        "claude-opus-5",
-        "claude-fable-5",
-        "claude-mythos-5",
-    }
-)
+
+#: Executeur -> advisors valides, du moins cher au plus cher.
+#:
+#: L'ordre porte une decision : on prend le PREMIER disponible, c'est-a-dire le
+#: moins cher qui satisfasse la contrainte. Monter en gamme sans raison
+#: doublerait le tarif de la sous-inference sans rien apporter au verdict.
+_ADVISORS_VALIDES: dict[str, tuple[str, ...]] = {
+    # Executeurs Sonnet et Opus anciens : advisor Opus obligatoire.
+    "claude-sonnet-4-6": ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"),
+    "claude-sonnet-5":   ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"),
+    "claude-opus-4-6":   ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"),
+    # A partir d'Opus 4.7, un modele peut se conseiller lui-meme.
+    "claude-opus-4-7":   ("claude-opus-4-7", "claude-opus-4-8", "claude-opus-5"),
+    "claude-opus-4-8":   ("claude-opus-4-8", "claude-opus-5"),
+    "claude-opus-5":     ("claude-opus-5",),
+    "claude-fable-5":    ("claude-opus-5", "claude-fable-5"),
+    "claude-mythos-5":   ("claude-opus-5", "claude-mythos-5"),
+    # claude-haiku-4-5 n'est jamais advisor et n'a pas d'advisor : absent.
+}
 # Plafond de sortie de l'advisor (reflexion + texte) par appel. Minimum API
 # 1024 ; 2048 est le point de depart recommande par la doc : sortie moyenne
 # ~630-840 tokens, troncature ~0 %. A 1024 la doc mesure ~10 % d'appels
@@ -273,20 +291,31 @@ def _usage_totaux(usage: object) -> _Totaux:
 def _advisor_tool(model_id: str) -> dict[str, object] | None:
     """Definition de l'outil advisor pour cet executeur, ou None si impossible.
 
-    L'advisor est le MEME modele que l'executeur : c'est la contrainte projet
-    (tout reste sur Sonnet 4.6) et c'est aussi ce qui garde le Cost Engine
-    exact, puisqu'un seul tarif s'applique. La paire n'est emise que si le
-    modele figure dans `_MODELES_AUTO_ADVISOR` — sinon l'API repondrait 400
-    (cas reels : claude-haiku-4-5, jamais advisor ; claude-sonnet-5, dont la
-    liste d'advisors exclut sonnet-5).
+    L'advisor est lu dans `_ADVISORS_VALIDES`, jamais deduit de l'executeur.
+    Nous mettions l'advisor au MEME modele que l'executeur, en resumant la
+    regle de la doc par « les modeles de capacite egale peuvent se conseiller
+    mutuellement ». C'est vrai a partir d'Opus 4.7 et faux pour Sonnet 4.6 —
+    le seul modele que ce projet emploie. La paire emise etait donc un 400,
+    jamais leve parce que les CHECKs ne s'executent pas dans le moteur en
+    service.
+
+    Un executeur absent de la table n'a pas d'advisor valide : on renvoie None
+    plutot que d'emettre une paire au jugé. Un 400 en pleine generation coute
+    un chapitre ; ne pas consulter l'advisor ne coute qu'un conseil.
+
+    Le Cost Engine voit desormais DEUX tarifs quand l'advisor est monte —
+    l'executeur et le conseiller, plus cher. C'est le prix de la conformite :
+    la paire d'un seul tarif n'existe pas pour Sonnet.
 
     `caching` reste desactive (defaut) : la doc ne le recommande qu'a partir de
     trois consultations dans une meme conversation, or on en autorise une.
     """
     if not bool(getattr(settings, "EVKHA_ADVISOR_ENABLED", False)):
         return None
-    if model_id not in _MODELES_AUTO_ADVISOR:
+    advisors = _ADVISORS_VALIDES.get(model_id)
+    if not advisors:
         return None
+    modele_advisor = advisors[0]
 
     plafond = int(
         getattr(settings, "EVKHA_ADVISOR_MAX_TOKENS", _ADVISOR_MAX_TOKENS_DEFAUT)
@@ -295,7 +324,7 @@ def _advisor_tool(model_id: str) -> dict[str, object] | None:
     return {
         "type": _ADVISOR_TOOL_TYPE,
         "name": "advisor",
-        "model": model_id,
+        "model": modele_advisor,
         "max_uses": _ADVISOR_MAX_USES,
         "max_tokens": max(_MIN_ADVISOR_MAX_TOKENS, plafond),
     }
@@ -324,12 +353,25 @@ def _code_execution_requests(usage: object) -> int:
     return int(getattr(vue, "code_execution_requests", 0) or 0)
 
 
-# Minimum impose par l'API Anthropic pour `thinking.budget_tokens`.
-_MIN_THINKING_BUDGET = 1024
+# Reflexion ADAPTATIVE. Le mode a budget fixe
+# (`thinking: {type: "enabled", budget_tokens: N}`) a ete SUPPRIME de l'API :
+# il renvoie 400 sur les modeles recents, dont claude-sonnet-5. La profondeur
+# se pilote desormais par `output_config.effort`, et le modele decide seul du
+# nombre de tokens qu'il consacre a reflechir.
+#
+# Consequence sur ce reglage : EVKHA_THINKING_BUDGET_TOKENS n'est plus un
+# budget envoye au modele, mais une PROVISION que nous nous imposons a deux
+# endroits ou son absence coute cher :
+#   - `max_tokens` est releve d'autant, car ce plafond borne la reflexion ET le
+#     texte ENSEMBLE : sans provision, la reflexion mange la place du chapitre
+#     et le rend court — le defaut meme signale par la cliente ;
+#   - le throttle budgetaire (cost.py) en retire le cout d'avance, sinon il
+#     autorise des chapitres qu'il ne peut pas payer et le job meurt vers 90 %.
+_EFFORT_PAR_DEFAUT = "high"
 
 
-def _thinking_budget() -> int:
-    """Budget de reflexion (extended thinking) applique a TOUS les appels.
+def _provision_reflexion() -> int:
+    """Provision de reflexion, en tokens, appliquee a TOUS les appels.
 
     Uniforme par construction, et c'est volontaire : la doc « Prompt caching »
     precise que basculer le thinking invalide le cache du system prompt et des
@@ -337,10 +379,62 @@ def _thinking_budget() -> int:
     une ecriture de cache a 200 % a chaque bascule — plus cher que le gain
     espere sur le chapitre concerne.
 
-    0 (ou moins que le minimum API de 1024) = desactive.
+    Le plancher de 1024 a disparu avec `budget_tokens` : c'etait une contrainte
+    de l'API sur un parametre qui n'existe plus. Une provision de 512 vaut
+    desormais 512, et non zero comme auparavant.
+
+    0 = reflexion desactivee (levier de repli documente dans
+    `generation/services.py`).
     """
-    budget = int(getattr(settings, "EVKHA_THINKING_BUDGET_TOKENS", 0) or 0)
-    return budget if budget >= _MIN_THINKING_BUDGET else 0
+    return max(int(getattr(settings, "EVKHA_THINKING_BUDGET_TOKENS", 0) or 0), 0)
+
+
+def _effort_reflexion() -> str:
+    """Niveau d'effort envoye en `output_config.effort` (low → max).
+
+    Une seule source pour tout le job, meme raison que la provision : le cache
+    du system prompt ne survit pas a une bascule en cours de route.
+    """
+    valeur = getattr(settings, "EVKHA_CLAUDE_EFFORT", _EFFORT_PAR_DEFAUT)
+    return str(valeur or _EFFORT_PAR_DEFAUT)
+
+
+@dataclass(frozen=True)
+class StructuredResult:
+    """Resultat d'un appel a sortie contrainte par schema (lot 1 — socle).
+
+    `payload` est deja un dictionnaire : aucune analyse de texte n'intervient
+    entre le modele et l'appelant. C'est l'inverse de `ClaudeResult`, dont le
+    `content` doit etre relu par des expressions regulieres.
+    """
+
+    payload: dict[str, object]
+    input_tokens: int
+    output_tokens: int
+    model: str
+    stop_reason: str = "end_turn"
+
+
+@runtime_checkable
+class StructuredClaudeClient(Protocol):
+    """Contrat des clients capables de rendre une sortie typee.
+
+    Protocole SEPARE de `ClaudeClient` a dessein : l'ajouter au contrat
+    existant casserait tout objet double des tests qui n'implemente que
+    `complete()` (le protocole est `runtime_checkable`).
+    """
+
+    def complete_structured(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        outil_nom: str,
+        outil_description: str,
+        schema: dict[str, object],
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
+    ) -> StructuredResult: ...
 
 
 @runtime_checkable
@@ -420,17 +514,27 @@ class AnthropicClaudeClient:
         # cache_control ephemeral TTL 1h par `_cacheable_system`, il est paye
         # plein une fois (ecriture 200 %) puis 10 % a chaque appel suivant.
         #
-        # Extended thinking : le budget est le MEME pour tous les appels du job
-        # (cf. `_thinking_budget`). Le basculer en cours de job invaliderait le
+        # Reflexion adaptative : la profondeur est portee par `effort`, et la
+        # provision est la MEME pour tous les appels du job (cf.
+        # `_provision_reflexion`). La basculer en cours de job invaliderait le
         # cache du system prompt ET des messages, et re-paierait une ecriture a
-        # 200 % a chaque bascule. `max_tokens` doit englober les tokens de
-        # reflexion : on l'augmente du budget pour que la place laissee au
-        # contenu redactionnel reste exactement celle demandee par l'appelant.
-        budget_reflexion = _thinking_budget()
+        # 200 % a chaque bascule. `max_tokens` borne la reflexion ET le texte :
+        # on l'augmente de la provision pour que la place laissee au contenu
+        # redactionnel reste exactement celle demandee par l'appelant.
+        #
+        # `thinking` est TOUJOURS explicite, jamais omis : sur les modeles
+        # recents, omettre le parametre ne desactive pas la reflexion, il la
+        # laisse tourner en adaptatif. Un silence ici ne voudrait donc pas dire
+        # « pas de reflexion » mais « reflexion non provisionnee », c'est-a-dire
+        # des tokens factures que ni `max_tokens` ni le throttle n'ont prevus.
+        provision_reflexion = _provision_reflexion()
         extra: dict[str, object] = {}
-        if budget_reflexion:
-            extra["thinking"] = {"type": "enabled", "budget_tokens": budget_reflexion}
-            max_tokens = max_tokens + budget_reflexion
+        if provision_reflexion:
+            extra["thinking"] = {"type": "adaptive"}
+            extra["output_config"] = {"effort": _effort_reflexion()}
+            max_tokens = max_tokens + provision_reflexion
+        else:
+            extra["thinking"] = {"type": "disabled"}
 
         # Outil advisor : reserve aux appels qui le demandent explicitement
         # (aujourd'hui les CHECKs de bloc, cf. generation/checks_blocs.py). Il
@@ -453,12 +557,20 @@ class AnthropicClaudeClient:
             # L'endpoint beta n'est requis que par l'advisor. L'execution de
             # code seule reste sur l'endpoint stable.
             creer = client.beta.messages.create if outil_advisor else client.messages.create
-            message = creer(
+            # `type: ignore[call-overload]` : le SDK type ses parametres avec
+            # des TypedDict fermes, et `extra` est construit a l'execution — sa
+            # composition depend de la provision de reflexion, de l'advisor et
+            # de l'execution de code. Aucune surcharge ne peut donc etre
+            # rapprochee statiquement. Meme traitement que `complete_structured`
+            # ci-dessous. Les trois `arg-type` cibles qui figuraient ici ne
+            # portaient plus rien : l'echec se produit au niveau de l'appel, pas
+            # d'un argument.
+            message = creer(  # type: ignore[call-overload]
                 model=model_id,
                 max_tokens=max_tokens,
-                system=system_param,  # type: ignore[arg-type]
-                messages=messages,  # type: ignore[arg-type]
-                **extra,  # type: ignore[arg-type]
+                system=system_param,
+                messages=messages,
+                **extra,
             )
             # Seuls les blocs `text` sont du livrable : avec l'advisor, le
             # contenu porte aussi `server_tool_use` et `advisor_tool_result`,
@@ -555,6 +667,83 @@ class AnthropicClaudeClient:
         )
 
 
+    def complete_structured(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        outil_nom: str,
+        outil_description: str,
+        schema: dict[str, object],
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
+    ) -> StructuredResult:
+        """Reponse contrainte a un schema JSON, via l'outil dedie (lot 1).
+
+        Utilise `tool_choice` force : le modele NE PEUT PAS repondre autre chose
+        qu'un appel d'outil conforme au schema. C'est la difference de nature
+        avec `complete()`, qui rend du texte libre a analyser apres coup.
+
+        La reflexion est volontairement DESACTIVEE ici : elle impose
+        `tool_choice: auto` cote API, ce qui reintroduirait la possibilite d'une
+        reponse en texte libre — exactement ce que cette methode elimine.
+
+        Elle est desactivee EXPLICITEMENT, et non par omission. Sur les modeles
+        recents, ne pas envoyer `thinking` ne coupe pas la reflexion : elle
+        tourne en adaptatif. L'omission qui suffisait jusqu'ici aurait donc
+        silencieusement rallume ce que ce paragraphe declare eteindre, sur
+        chaque appel du socle et de chaque chapitre structure.
+        """
+        import os
+
+        import anthropic  # import paresseux : dependance optionnelle hors tests
+
+        api_key = self._api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            msg = "ANTHROPIC_API_KEY manquante pour AnthropicClaudeClient."
+            raise RuntimeError(msg)
+
+        effective_alias = model or self._model_alias
+        model_id = _resolve_anthropic_model_id(effective_alias)
+        client = anthropic.Anthropic(api_key=api_key)
+
+        # `type: ignore` : les surcharges du SDK typent `tools` et `system` avec
+        # des TypedDict fermes. Nos dictionnaires sont construits dynamiquement
+        # (le schema depend du livrable), ce que mypy ne peut pas rapprocher des
+        # surcharges. Meme traitement que `complete()` ci-dessus.
+        message = client.messages.create(  # type: ignore[call-overload]
+            model=model_id,
+            max_tokens=max_tokens,
+            system=_cacheable_system(system),
+            messages=[{"role": "user", "content": prompt}],
+            tools=[
+                {
+                    "name": outil_nom,
+                    "description": outil_description,
+                    "input_schema": schema,
+                }
+            ],
+            tool_choice={"type": "tool", "name": outil_nom},
+            thinking={"type": "disabled"},
+        )
+
+        charge: dict[str, object] = {}
+        for bloc in message.content:
+            if getattr(bloc, "type", "") == "tool_use" and getattr(bloc, "name", "") == outil_nom:
+                brut = getattr(bloc, "input", {})
+                charge = dict(brut) if isinstance(brut, dict) else {}
+                break
+
+        usage = getattr(message, "usage", None)
+        return StructuredResult(
+            payload=charge,
+            input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+            output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+            model=effective_alias,
+            stop_reason=str(getattr(message, "stop_reason", "") or ""),
+        )
+
+
 def _cacheable_system(system: str) -> str | list[dict[str, object]]:
     """Decoupe le system prompt en blocs caches, au plus deux breakpoints.
 
@@ -646,9 +835,26 @@ class StubClaudeClient:
         # le check transverse `sources_non_tracables` du gate. Ce bloc est
         # emis par TOUS les chapitres du stub, donc en particulier par le
         # chapitre Sources (identifie par titre au gate).
+        # Un TABLEAU, parce que le livrable EVKHA en est fait : « des tableaux
+        # relies par de la prose courte ». Le stub n'en produisait aucun, donc
+        # tout test qui inspecte le DOCUMENT mesurait un artefact qu'aucun
+        # client n'accepterait — et le controle d'integrite, qui refuse un
+        # livrable sans un seul tableau, ne pouvait pas etre eprouve.
+        #
+        # Constate le 05/08/2026 en branchant ce controle sur la chaine heritee :
+        # quatre tests de livraison se sont mis a echouer sur « le livrable ne
+        # contient aucun tableau ». Le motif etait juste ; c'est la doublure qui
+        # etait irrealiste. Meme lecon que la fixture de la chaine Word le meme
+        # jour : une doublure qui ne ressemble pas au livrable ne prouve rien
+        # sur le livrable (regle 7).
         content = (
             "Contenu genere (mode demonstration EVKHA).\n\n"
             + paragraphe * 60
+            + "\n\n| Indicateur | Valeur | Source |\n"
+            "|---|---|---|\n"
+            "| Taille du marche national | 1 250 MEUR | INSEE 2024 |\n"
+            "| Croissance annuelle moyenne | 4,2 % | Xerfi 2025 |\n"
+            "| Nombre d'acteurs recenses | 320 | INSEE 2024 |\n"
             + f"\n\nEmpreinte de tracabilite: {digest}.\n\n"
             "## Sources\n"
             "- INSEE, Enquete emploi 2024 - https://www.insee.fr/fr/statistiques/1234\n"
@@ -664,6 +870,44 @@ class StubClaudeClient:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             model=effective_alias,
+        )
+
+
+    def complete_structured(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        outil_nom: str,
+        outil_description: str,
+        schema: dict[str, object],
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+        model: str | None = None,
+    ) -> StructuredResult:
+        """Socle de demonstration deterministe, conforme au referentiel.
+
+        Import paresseux de `generation.socle` : `integrations` ne depend pas
+        de `generation` au niveau module (ce serait un cycle). Ici l'appel a
+        lieu a l'execution, uniquement sur le chemin bouchon, et seulement
+        pour l'outil du socle.
+        """
+        charge: dict[str, object] = {}
+        if outil_nom == "produire_socle":
+            from generation.socle.stub import socle_de_demonstration  # noqa: PLC0415
+
+            charge = socle_de_demonstration(prompt)
+        elif outil_nom == "rendre_chapitre":
+            from generation.chapitres.stub import (  # noqa: PLC0415
+                chapitre_de_demonstration,
+            )
+
+            charge = chapitre_de_demonstration(prompt)
+
+        return StructuredResult(
+            payload=charge,
+            input_tokens=max(1, len(system) + len(prompt)) // 4,
+            output_tokens=max(1, len(str(charge))) // 4,
+            model=model or self._model_alias,
         )
 
 

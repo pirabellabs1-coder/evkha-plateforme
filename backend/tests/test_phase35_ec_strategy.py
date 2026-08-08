@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # 1. Cardinaux concurrents (migre)
 # ══════════════════════════════════════════════════════════════════════════
@@ -41,7 +40,13 @@ def test_cardinaux_conformes_ne_signalent_rien() -> None:
     problemes = ECStrategy().problemes_de_coherence(
         None, {2: corps, 5: corps_matrice},  # type: ignore[arg-type]
     )
-    assert problemes == []
+    # Ce corpus ne porte que les chapitres 2 et 5. Les grilles de verification
+    # finale du cahier des charges signalent donc, a juste titre, l'absence des
+    # chapitres 4, 7 et 8 : c'est le comportement voulu (regle 1 — un controle
+    # sans matiere echoue, il ne se tait pas). Ce test-ci porte sur les
+    # CARDINAUX : on ne verifie que sa propre categorie.
+    assert [p for p in problemes if p.categorie == "concurrents_ec"] == []
+    assert [p for p in problemes if p.categorie == "matrice_absente"] == []
 
 
 def test_cardinaux_divergents_sont_signales() -> None:
@@ -135,10 +140,19 @@ def test_tableau_trop_petit_est_signale() -> None:
     assert len(matrice_problemes) == 1
 
 
-def test_absence_de_chapitre_5_ne_leve_pas_derreur() -> None:
-    """Regle 4 : si le blueprint change et supprime le chapitre 5, on ne
-    doit pas planter — juste ne pas signaler la matrice absente (le
-    contract « matrice au chap. 5 » n'a plus de sens)."""
+def test_absence_de_chapitre_5_est_signalee() -> None:
+    """Ce test affirmait l'inverse, et verrouillait un defaut (regle 6).
+
+    Il exigeait le SILENCE quand le chapitre matrice manque, au motif qu'un
+    blueprint modifie ne devait pas produire de faux positif. Mais un livrable
+    dont le chapitre matrice a disparu n'est pas un cas a passer sous silence :
+    le cahier des charges en fait l'un de ses quatre visuels centraux, et un
+    controle qui n'a rien a comparer conclut alors au succes — nommement la
+    regle 1 du depot.
+
+    Le vrai garde-fou contre le faux positif n'est pas le silence : c'est que le
+    motif soit trouvable par le lecteur (regle 2). « Chapitre 5 absent » l'est.
+    """
     from generation.strategies.ec import ECStrategy
 
     corps_cardinaux = "## Concurrents directs\n" + "\n".join(
@@ -150,7 +164,8 @@ def test_absence_de_chapitre_5_ne_leve_pas_derreur() -> None:
         None, {2: corps_cardinaux},  # type: ignore[arg-type]
     )
     matrice_problemes = [p for p in problemes if p.categorie == "matrice_absente"]
-    assert matrice_problemes == []
+    assert len(matrice_problemes) == 1
+    assert "absent" in matrice_problemes[0].detail.lower()
 
 
 # ══════════════════════════════════════════════════════════════════════════

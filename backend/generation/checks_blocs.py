@@ -252,15 +252,29 @@ BLOCS: tuple[BlocDefinition, ...] = (
         identifiant="J",
         check_numero="FINAL",
         intitule="Controle final avant livraison",
-        chapitres=(21,),
+        chapitres=(21, 22),
         focus="Verifier que tout le dossier est pret a etre remis au client.",
         questions=(
             "Toutes les sources utilisees figurent une seule fois dans le "
             "chapitre 21, avec organisme, titre, annee et lien verifie ?",
+            # Les quatre questions qui suivent sont celles que le manuel de
+            # juillet 2026 AJOUTE a son controle final. Sans elles, un dossier
+            # de douze sources datees de 2019, sans annexe, passait le controle.
+            "La quantite et la diversite des sources sont-elles coherentes avec "
+            "la profondeur de l'etude — 35 a 60 references distinctes et utiles, "
+            "reparties sur plusieurs familles ?",
+            "Les chiffres decrivant la situation actuelle privilegient-ils "
+            "2024-2026 ou la derniere annee reellement disponible, les donnees "
+            "plus anciennes etant clairement justifiees ?",
+            "Les projections portent-elles sur un horizon coherent, generalement "
+            "2026-2030, et restent-elles distinguees des donnees observees ?",
+            "L'annexe « Reponses essentielles au client — en un coup d'oeil » "
+            "reprend-elle toutes les demandes explicites et les questions "
+            "essentielles du porteur, sans y introduire aucun chiffre nouveau ?",
             "Les estimations importantes expliquent sobrement leur methode, "
             "leurs hypotheses et leurs limites ?",
-            "Les 21 chapitres sont presents dans le bon ordre et forment une "
-            "lecture continue ?",
+            "Les 21 chapitres et l'annexe sont presents dans le bon ordre et "
+            "forment une lecture continue ?",
             "Tous les chiffres, dates, unites, devises, definitions et graphiques "
             "correspondent a la fiche enrichie ?",
             "Toutes les demandes du client ont une reponse identifiable dans "

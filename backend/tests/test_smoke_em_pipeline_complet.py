@@ -20,8 +20,8 @@ from generation.models import ChapterStatus, JobStatus
 from generation.rendering import render_client_document
 from generation.runner import run_generation_job
 from generation.services import bootstrap_generation_job
-from integrations.claude import StubClaudeClient
 from intake.models import IntakeStatus, IntakeSubmission
+from integrations.claude import StubClaudeClient
 from orders.models import Order
 
 
@@ -57,12 +57,14 @@ def test_em_complete_traverse_le_pipeline(soumission_em: IntakeSubmission) -> No
     # 1. Le job va au bout : aucun CHECK ne l'a bloque sur le chemin nominal.
     assert job.status == JobStatus.DONE, job.error_message
 
-    # 2. Structure du manuel : fiche projet (ch. 0) + 21 chapitres.
+    # 2. Structure du manuel : fiche projet (ch. 0) + 21 chapitres + annexe.
     numeros = sorted(job.chapters.values_list("chapter_number", flat=True))
-    assert numeros == list(range(0, 22)), f"Chapitres inattendus : {numeros}"
-    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 22
-    # Le manuel s'arrete au chapitre 21 (Sources et methodologie).
-    assert max(numeros) == 21
+    assert numeros == list(range(0, 23)), f"Chapitres inattendus : {numeros}"
+    assert job.chapters.filter(status=ChapterStatus.DONE).count() == 23
+    # Le dernier est l'annexe « Reponses essentielles au client », retablie
+    # d'apres le §8 du manuel ; le chapitre 21 reste Sources et methodologie.
+    assert max(numeros) == 22
+    assert job.chapters.get(chapter_number=21).chapter_title.startswith("Sources")
 
     # 3. Le gate de livraison se prononce sans exploser.
     rapport = run_delivery_gate(job)

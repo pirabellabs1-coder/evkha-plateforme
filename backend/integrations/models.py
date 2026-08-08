@@ -14,6 +14,7 @@ class IntegrationProvider(models.TextChoices):
     SYSTEME_SUB = "systeme_sub", "Systeme.io (abonnements)"
     TALLY = "tally", "Tally"
     N8N = "n8n", "n8n"
+    STRIPE = "stripe", "Stripe (abonnements)"
 
 
 class WebhookStatus(models.TextChoices):

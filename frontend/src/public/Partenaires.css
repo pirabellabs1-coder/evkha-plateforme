@@ -1,0 +1,1014 @@
+/* Page partenaires — charte reprise de evkha.fr/partenairespro.
+ *
+ * Feuille autonome, volontairement à l'écart du thème Radix des deux espaces
+ * connectés : cette page s'adresse à des visiteurs, pas à des utilisateurs, et
+ * elle doit ressembler au site vitrine — pas à l'application.
+ */
+
+.pp {
+  --or: #e8b923;
+  --or-fonce: #b8901a;
+  --vert: #1f3d35;
+  --noir: #111111;
+  --creme: #f7f3e8;
+  --creme-clair: #faf7f0;
+  --gris: #5a5a5a;
+
+  /* Deux familles, comme la maquette : une geometrique sans pour l'essentiel,
+     une serif pour « Pour QUI ? », les libelles de preuves et le lisere. */
+  --serif: "Playfair Display", "Georgia", "Times New Roman", serif;
+  --bleu-texte: #2f4858;
+
+  font-family: "Poppins", "Montserrat", "Segoe UI", system-ui, sans-serif;
+  color: var(--noir);
+  background: #ffffff;
+  line-height: 1.65;
+}
+
+.pp *,
+.pp *::before,
+.pp *::after {
+  box-sizing: border-box;
+}
+
+.pp-large {
+  width: min(1120px, 92vw);
+  margin-inline: auto;
+}
+
+/* ── Bandeau d'ouverture ─────────────────────────────────────────────────── */
+
+.pp-hero {
+  padding: 3.5rem 0 2rem;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+
+.pp-hero h1 {
+  font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.28;
+  margin: 0 0 1.7rem;
+}
+
+/* Chaque ligne du titre occupe la sienne : la coupe est decidee, pas subie. */
+.pp-hero h1 span {
+  display: block;
+}
+
+.pp-hero-accroche {
+  color: var(--or);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  margin: 0 0 1.1rem;
+}
+
+/* Le corps du bandeau est bleu ardoise sur la maquette, pas gris : c'est ce
+   qui le distingue des textes secondaires du reste de la page. */
+.pp-hero p {
+  color: var(--bleu-texte);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  margin: 0 0 0.9rem;
+}
+
+.pp-hero-signature {
+  font-weight: 700;
+  color: var(--noir) !important;
+}
+
+.pp-hero-image {
+  width: 100%;
+  border-radius: 14px;
+  object-fit: cover;
+  aspect-ratio: 3 / 2;
+  background: var(--creme);
+}
+
+/* ── Preuves chiffrées ───────────────────────────────────────────────────── */
+
+.pp-preuves {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  padding: 1.5rem 0 3.5rem;
+  text-align: center;
+}
+
+.pp-preuve-valeur {
+  color: var(--or-fonce);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pp-preuve-libelle {
+  font-family: var(--serif);
+  color: #9a9a9a;
+  font-size: 1.05rem;
+}
+
+/* ── Sections ────────────────────────────────────────────────────────────── */
+
+.pp-section {
+  padding: 3.5rem 0;
+}
+
+.pp-section-creme {
+  background: var(--creme);
+}
+
+/* Encadre creme autonome, pose sur fond blanc — c'est ainsi qu'apparait le
+   bloc « Le calcul est simple » sur la maquette. */
+.pp-encadre-creme {
+  background: var(--creme-clair);
+  border-radius: 4px;
+  padding: 2.5rem 2.2rem 3rem;
+}
+
+.pp-surtitre {
+  text-align: center;
+  color: var(--or-fonce);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  margin: 0 0 0.6rem;
+}
+
+.pp-titre {
+  text-align: center;
+  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+  font-weight: 800;
+  margin: 0 0 1rem;
+}
+
+/* « Pour QUI ? » et « Ce qu'on nous demande » sont en serif sur la maquette. */
+.pp-titre-serif {
+  font-family: var(--serif);
+  font-weight: 700;
+  margin-bottom: 2.5rem;
+}
+
+/* Court filet dore sous les titres, comme sur la maquette. */
+.pp-filet {
+  width: 56px;
+  height: 2px;
+  background: var(--or);
+  margin: 0 auto 2.5rem;
+}
+
+/* ── Le principe : quatre étapes ─────────────────────────────────────────── */
+
+.pp-etapes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.pp-etape {
+  background: #ffffff;
+  border: 1px solid #e7e0cf;
+  border-radius: 4px;
+  padding: 1.4rem 1.1rem;
+}
+
+.pp-etape-rang {
+  color: var(--or);
+  font-weight: 800;
+  font-size: 1.1rem;
+  line-height: 1;
+  margin-bottom: 0.7rem;
+}
+
+.pp-etape h3 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.pp-etape p {
+  font-size: 0.72rem;
+  color: var(--gris);
+  margin: 0;
+}
+
+.pp-bandeau-noir {
+  background: var(--noir);
+  color: #ffffff;
+  border-radius: 4px;
+  padding: 1rem 1.6rem;
+  margin-top: 1.6rem;
+  font-size: 0.76rem;
+}
+
+.pp-bandeau-noir strong {
+  color: var(--or);
+}
+
+/* ── Formules ────────────────────────────────────────────────────────────── */
+
+.pp-formules-intro {
+  text-align: center;
+  color: var(--gris);
+  font-size: 0.72rem;
+  margin: 0 0 2.2rem;
+}
+
+/* Les cartes sont BLANCHES sur un bandeau NOIR — et non l'inverse. C'est ce
+   qui donne son contraste a la section sur la maquette. */
+.pp-formules-bandeau {
+  background: var(--noir);
+  padding: 1.6rem;
+}
+
+.pp-formules {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.1rem;
+  align-items: stretch;
+}
+
+.pp-formule {
+  background: #ffffff;
+  color: var(--noir);
+  border-radius: 3px;
+  padding: 1.3rem 1.1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid transparent;
+}
+
+/* La formule mise en avant se distingue par un liseré doré. */
+.pp-formule.pp-avant {
+  border-color: var(--or);
+}
+
+.pp-formule-sous-titre {
+  color: var(--or-fonce);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  margin-bottom: 1.6rem;
+}
+
+.pp-formule h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  text-align: center;
+}
+
+.pp-formule-prix {
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0.25rem 0 1.4rem;
+}
+
+.pp-formule-prix span {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--gris);
+}
+
+.pp-formule-quoi {
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+}
+
+.pp-formule ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.pp-formule li {
+  display: grid;
+  grid-template-columns: 1rem 1fr;
+  gap: 0.45rem;
+  align-items: start;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: #3a3a3a;
+}
+
+/* Coche doree en pastille, comme sur la maquette. */
+.pp-coche {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  background: var(--or);
+  color: #ffffff;
+  font-size: 0.55rem;
+  line-height: 0.95rem;
+  text-align: center;
+  font-weight: 700;
+  margin-top: 0.12rem;
+}
+
+.pp-formule li b {
+  font-weight: 700;
+  color: var(--noir);
+}
+
+.pp-formule-souscrire {
+  margin-top: auto;
+  display: block;
+  width: 100%;
+  background: var(--noir);
+  color: #ffffff;
+  border: none;
+  border-radius: 2px;
+  padding: 0.7rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pp-formule-souscrire:hover {
+  background: var(--or);
+  color: var(--noir);
+}
+
+/* ── Actions du héros ────────────────────────────────────────────────────────
+ *
+ * Deux gestes, deux poids : « Découvrir les formules » porte l'or — c'est
+ * l'action que la page existe pour obtenir. « Se connecter » reste en filet,
+ * pour l'abonné qui revient : lui donner le même poids ferait hésiter le
+ * visiteur nouveau entre deux portes dont une seule le concerne.
+ */
+.pp-hero-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 1.6rem;
+}
+
+.pp-hero-cta {
+  display: inline-block;
+  background: var(--or);
+  color: var(--noir);
+  padding: 0.85rem 1.7rem;
+  border-radius: 2px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.pp-hero-cta:hover {
+  background: var(--noir);
+  color: #ffffff;
+}
+
+.pp-hero-connexion {
+  color: var(--noir);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pp-hero-connexion:hover {
+  color: var(--or-fonce, var(--or));
+}
+
+/* L'ancre du bouton : sans cette marge, le titre des formules atterrit collé
+   au bord haut de la fenêtre après le défilement. */
+#formules {
+  scroll-margin-top: 4.5rem;
+}
+
+/* ── Pour qui ────────────────────────────────────────────────────────────── */
+
+.pp-cibles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.4rem;
+}
+
+.pp-cible {
+  background: #ffffff;
+  border: 1px solid #ece5d6;
+  border-top: 3px solid var(--or);
+  border-radius: 3px;
+  padding: 1.5rem 1.3rem;
+}
+
+.pp-cible h3 {
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 0.9rem;
+}
+
+.pp-cible p {
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--gris);
+  margin: 0 0 1rem;
+}
+
+/* « Avec Evkha : … » est encadre : fond creme, filet dore a gauche. C'est la
+   conclusion de chaque carte, elle ne doit pas se lire comme la suite du
+   paragraphe. */
+.pp-cible-avec {
+  font-size: 0.7rem !important;
+  line-height: 1.6;
+  color: var(--noir) !important;
+  background: var(--creme-clair);
+  border-left: 3px solid var(--or);
+  padding: 0.75rem 0.9rem;
+  margin: 0 !important;
+}
+
+/* Filet dore plein entre « Pour QUI ? » et « Le calcul est simple ». */
+.pp-separateur {
+  border: none;
+  border-top: 1px solid var(--or);
+  margin: 3.5rem 0 0;
+}
+
+/* ── Le calcul ───────────────────────────────────────────────────────────── */
+
+.pp-calcul {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2.2rem;
+  padding: 0 1rem;
+}
+
+/* Chaque colonne est coiffee d'un filet dore. */
+.pp-calcul > div {
+  border-top: 2px solid var(--or);
+  padding-top: 1.1rem;
+}
+
+.pp-calcul-valeur {
+  color: var(--or-fonce);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.45rem;
+}
+
+.pp-calcul h3 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 0 0.6rem;
+}
+
+.pp-calcul p {
+  font-size: 0.68rem;
+  line-height: 1.6;
+  color: var(--gris);
+  margin: 0;
+}
+
+.pp-lisere {
+  font-family: var(--serif);
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--noir);
+  margin-top: 3.5rem;
+}
+
+.pp-lisere a {
+  color: var(--or);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pp-lisere a:hover {
+  text-decoration: underline;
+}
+
+/* ── Fondatrice ──────────────────────────────────────────────────────────── */
+
+.pp-fondatrice {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+.pp-fondatrice-portrait {
+  width: 100%;
+  border-radius: 8px;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: var(--creme);
+}
+
+.pp-fondatrice-surtitre {
+  color: var(--or-fonce);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  margin: 0 0 1.1rem;
+}
+
+.pp-fondatrice h2 {
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
+  font-weight: 800;
+  margin: 0 0 1.4rem;
+  line-height: 1.22;
+}
+
+/* Filet dore aligne a GAUCHE ici, contrairement aux titres de section qui le
+   portent centre. */
+.pp-fondatrice-trait {
+  width: 90px;
+  height: 2px;
+  background: var(--or);
+  margin-bottom: 1.6rem;
+}
+
+.pp-fondatrice p {
+  color: var(--gris);
+  font-size: 0.95rem;
+  line-height: 1.75;
+  margin: 0;
+}
+
+/* ── Questions ───────────────────────────────────────────────────────────── */
+
+.pp-faq {
+  background: var(--creme-clair);
+  border: 1px solid #ece5d6;
+  border-radius: 3px;
+  padding: 1.8rem 2rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.pp-question {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr;
+  gap: 0.4rem 0.5rem;
+}
+
+.pp-question-chevron {
+  color: var(--or);
+  font-weight: 700;
+  grid-row: span 2;
+}
+
+.pp-question h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pp-question p {
+  font-size: 0.74rem;
+  color: var(--gris);
+  margin: 0.35rem 0 0;
+}
+
+/* ── Appel final ─────────────────────────────────────────────────────────── */
+
+.pp-appel {
+  background: var(--noir);
+  color: #ffffff;
+  text-align: center;
+  padding: 2.5rem 2rem;
+}
+
+.pp-appel-surtitre {
+  color: var(--or);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0 0 1rem;
+}
+
+.pp-appel h2 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 1.2rem;
+}
+
+.pp-appel p {
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+  color: #dcdcdc;
+}
+
+.pp-appel-bouton {
+  display: inline-block;
+  margin-top: 2rem;
+  background: var(--or);
+  color: var(--noir);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  padding: 0.85rem 2.4rem;
+  border: none;
+  border-radius: 2px;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pp-appel-bouton:hover {
+  background: #f0c93a;
+}
+
+/* ── Pied de page ────────────────────────────────────────────────────────── */
+
+.pp-pied {
+  background: var(--or);
+  text-align: center;
+  padding: 1.4rem 1rem;
+  font-size: 0.76rem;
+}
+
+.pp-pied a {
+  color: var(--noir);
+  text-decoration: none;
+  margin: 0 0.5rem;
+}
+
+.pp-pied a:hover {
+  text-decoration: underline;
+}
+
+.pp-pied-copyright {
+  margin-top: 0.4rem;
+  font-size: 0.7rem;
+}
+
+/* ── États de chargement ─────────────────────────────────────────────────── */
+
+.pp-attente,
+.pp-erreur {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--gris);
+  font-size: 0.82rem;
+}
+
+.pp-erreur {
+  color: #a33;
+}
+
+/* ── Adaptations ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1000px) {
+  .pp-formules,
+  .pp-etapes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pp-cibles,
+  .pp-calcul {
+    grid-template-columns: 1fr;
+  }
+  .pp-hero,
+  .pp-fondatrice {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .pp-formules,
+  .pp-etapes,
+  .pp-preuves {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Menu du site vitrine ────────────────────────────────────────────────
+ *
+ * Repris trait pour trait de la barre de `www.evkha.fr`, sur capture de la
+ * cliente : bandeau or en pilule, pastille blanche pour le logo posee dessus,
+ * libelles en serif sur DEUX lignes, page courante en blanc, et un appel a
+ * l'action blanc, large, a droite.
+ *
+ * Les libelles se coupent en deux lignes plutot que de defiler : c'est ce qui
+ * fait tenir les sept entrees sur une largeur d'ecran ordinaire, et c'est ce
+ * que fait l'original. Une premiere version les gardait sur une ligne et
+ * faisait defiler la barre — plus rien ne ressemblait au site.
+ *
+ * Les entrees viennent de `contenu.MENU_SITE`. */
+.pp-menu {
+  padding: 22px clamp(10px, 3vw, 28px) 10px;
+  background: #ffffff;
+}
+
+.pp-menu-barre {
+  display: flex;
+  align-items: stretch;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding-left: 52px;
+  background: var(--or);
+  border-radius: 999px;
+  min-width: 0;
+}
+
+/* Pastille blanche du logo, posee SUR l'or : d'ou le retrait a gauche de la
+   barre, qui laisse voir l'arrondi dore derriere elle. */
+.pp-menu-logo {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 10px 26px;
+  background: #ffffff;
+}
+
+.pp-menu-logo img {
+  display: block;
+  height: 44px;
+  width: auto;
+}
+
+/* Bouton hamburger. Absent sur ordinateur, ou les sept entrees tiennent : un
+ * menu replie la ou il y a la place cache pour rien. */
+.pp-menu-bouton {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 46px;
+  align-self: center;
+  margin-left: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.pp-menu-traits,
+.pp-menu-traits::before,
+.pp-menu-traits::after {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--noir);
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.pp-menu-traits::before,
+.pp-menu-traits::after {
+  content: "";
+  position: absolute;
+}
+
+.pp-menu-traits::before {
+  transform: translateY(-7px);
+}
+
+.pp-menu-traits::after {
+  transform: translateY(7px);
+}
+
+.pp-menu-bouton[aria-expanded="true"] .pp-menu-traits {
+  background: transparent;
+}
+
+.pp-menu-bouton[aria-expanded="true"] .pp-menu-traits::before {
+  transform: rotate(45deg);
+}
+
+.pp-menu-bouton[aria-expanded="true"] .pp-menu-traits::after {
+  transform: rotate(-45deg);
+}
+
+.pp-menu-entrees {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  justify-content: space-evenly;
+  gap: 0;
+  margin: 0;
+  padding: 0 8px;
+  list-style: none;
+  min-width: 0;
+}
+
+.pp-menu-entrees > li {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  position: relative;
+}
+
+.pp-menu-entrees a,
+.pp-menu-entrees button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-family: var(--serif);
+  font-size: 1.0625rem;
+  line-height: 1.3;
+  color: var(--noir);
+  /* Deux lignes, comme l'original : c'est ce qui fait tenir sept entrees. */
+  text-align: center;
+  text-wrap: balance;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: opacity 140ms ease;
+}
+
+.pp-menu-entrees a:hover,
+.pp-menu-entrees a:focus-visible,
+.pp-menu-entrees button:hover,
+.pp-menu-entrees button:focus-visible {
+  opacity: 0.7;
+}
+
+/* La page ou l'on se trouve : en BLANC, comme sur le site — c'est ainsi que
+   « Accueil » se distingue sur leur page d'accueil. Elle reste cliquable : un
+   lien mort dans un menu laisse croire a une page cassee. */
+.pp-menu-entrees a.pp-menu-courant {
+  color: #ffffff;
+}
+
+.pp-menu-chevron {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+  border-right: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  transform: translateY(-3px) rotate(45deg);
+}
+
+.pp-menu-deroulant > ul {
+  position: absolute;
+  top: 100%;
+  left: 4px;
+  z-index: 30;
+  min-width: 280px;
+  margin: 8px 0 0;
+  padding: 8px 0;
+  list-style: none;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 12px 34px rgba(17, 17, 17, 0.2);
+}
+
+.pp-menu-deroulant > ul a {
+  justify-content: flex-start;
+  padding: 11px 20px;
+  text-align: left;
+  font-size: 0.9375rem;
+}
+
+/* « Me contacter » : grande pastille blanche, HORS de la file.
+ *
+ * Placee dans la file, elle etait coupee des 1200 px de large — mesure a
+ * l'ecran. C'est le seul lien du menu qu'on ne veut jamais voir disparaitre. */
+.pp-menu-appel {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 7px 8px 7px 6px;
+  padding: 13px 30px;
+  background: #ffffff;
+  border-radius: 999px;
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  color: var(--noir);
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(17, 17, 17, 0.18);
+  transition: opacity 140ms ease;
+}
+
+.pp-menu-appel:hover,
+.pp-menu-appel:focus-visible {
+  opacity: 0.85;
+}
+
+@media (max-width: 1100px) {
+  .pp-menu-entrees a,
+  .pp-menu-entrees button {
+    padding: 8px 9px;
+    font-size: 0.9375rem;
+  }
+
+  .pp-menu-appel {
+    padding: 11px 20px;
+    font-size: 1.0625rem;
+  }
+
+  .pp-menu-barre {
+    padding-left: 30px;
+  }
+
+  .pp-menu-logo {
+    padding: 8px 16px;
+  }
+
+  .pp-menu-logo img {
+    height: 34px;
+  }
+}
+
+/* Sous 860 px, sept entrees ne tiennent plus.
+ *
+ * Premiere version : elles defilaient horizontalement, pour que la navigation
+ * reste VISIBLE — c'etait la demande initiale. A l'usage, la cliente a tranche
+ * autrement : << en version mobile c'est long et tout est coupe, ca doit meme
+ * en version mobile ressembler a l'autre >>. Les libelles coupes en milieu de
+ * mot faisaient plus de mal que le repli. Et c'est ce que fait son site.
+ *
+ * La barre garde donc le logo et le bouton ; les entrees se deplient DESSOUS,
+ * en pleine largeur, une par ligne — lisibles d'un coup d'oeil, sans defilement
+ * lateral. */
+@media (max-width: 860px) {
+  .pp-menu-barre {
+    flex-wrap: wrap;
+    padding-left: 0;
+    border-radius: 26px;
+  }
+
+  .pp-menu-bouton {
+    display: flex;
+  }
+
+  .pp-menu-logo {
+    border-radius: 26px 0 0 26px;
+  }
+
+  .pp-menu-entrees {
+    display: none;
+    order: 3;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 4px 10px 12px;
+  }
+
+  .pp-menu-entrees.deplie {
+    display: flex;
+  }
+
+  .pp-menu-entrees > li {
+    flex: 0 0 auto;
+    width: 100%;
+    border-top: 1px solid rgba(17, 17, 17, 0.12);
+  }
+
+  .pp-menu-entrees a,
+  .pp-menu-entrees button {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 13px 14px;
+    text-align: left;
+    font-size: 1rem;
+  }
+
+  /* Le deroulant s'ouvre DANS la file, pas en surimpression : une carte
+     flottante par-dessus un menu deja deplie masque ce qu'on vient d'ouvrir. */
+  .pp-menu-deroulant {
+    flex-wrap: wrap;
+  }
+
+  .pp-menu-deroulant > ul {
+    position: static;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 6px;
+    box-shadow: none;
+    background: rgba(17, 17, 17, 0.05);
+  }
+
+  .pp-menu-deroulant > ul a {
+    padding-left: 30px;
+  }
+
+  /* « Me contacter » reste dans la barre, a cote du bouton : c'est le lien
+     qu'on ne veut jamais voir disparaitre, et le replier le cacherait. */
+  .pp-menu-appel {
+    order: 2;
+    margin: 7px 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-menu-entrees a,
+  .pp-menu-entrees button,
+  .pp-menu-appel {
+    transition: none;
+  }
+}

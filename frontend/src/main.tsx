@@ -5,6 +5,9 @@ import { RouterProvider } from "@tanstack/react-router";
 import { Theme } from "@radix-ui/themes";
 import "@radix-ui/themes/styles.css";
 import { router } from "./router";
+import "./theme/tokens.css";
+import "./theme/espace.css";
+import "./viz/viz.css";
 import "./index.css";
 
 const queryClient = new QueryClient({

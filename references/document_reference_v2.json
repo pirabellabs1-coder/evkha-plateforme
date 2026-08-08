@@ -1,0 +1,4147 @@
+{
+  "type_document": "etude_de_marche",
+  "source": "ref.docx",
+  "gabarit": {
+    "en_tete": "JOALIE  /  ÉTUDE DE MARCHÉ 2026",
+    "pied_de_page": "EVKHA  ·  Document confidentiel  ·"
+  },
+  "page_de_garde": [
+    {
+      "type": "graphique",
+      "fichier": "image1.png",
+      "octets": 23142
+    },
+    {
+      "type": "paragraphe",
+      "texte": "ÉTUDE DE MARCHÉ\nAPPROFONDIE",
+      "style": null,
+      "gras": true,
+      "signes": 27
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Joaillerie de créateurs · Vintage · Sur-mesure",
+      "style": null,
+      "gras": true,
+      "signes": 46
+    },
+    {
+      "type": "encadre",
+      "etiquette": "FINALITÉ",
+      "texte": "Accélérer la visibilité et les opportunités commerciales de Joalie en France et à l’international, tout en renforçant la singularité de la maison.",
+      "fond": "F1EEDB"
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Système EVKHA · Juillet 2026",
+      "style": null,
+      "gras": true,
+      "signes": 28
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Document confidentiel — usage stratégique interne",
+      "style": null,
+      "gras": false,
+      "signes": 49
+    }
+  ],
+  "synthese_executive": [
+    {
+      "type": "paragraphe",
+      "texte": "Joalie se positionne sur une zone de marché exigeante mais porteuse : la joaillerie d’auteur à forte valeur émotionnelle, enrichie par une curation vintage et une capacité de commande sur mesure. Cette combinaison répond à trois moteurs contemporains — recherche de singularité, désir de traçabilité et valorisation de la relation de conseil — mais elle doit être simplifiée dans le discours commercial pour devenir immédiatement compréhensible.",
+      "style": null,
+      "gras": false,
+      "signes": 445
+    },
+    {
+      "type": "tableau",
+      "entetes": [
+        "Question",
+        "Réponse en une phrase"
+      ],
+      "lignes": [
+        [
+          "Le marché est-il attractif ?",
+          "Oui. La joaillerie de luxe progresse alors que le luxe ralentit, et la seconde main de luxe atteint 50 Md€ en 2025."
+        ],
+        [
+          "La proposition Joalie est-elle différenciante ?",
+          "Oui, par la réunion sous une même maison de la création contemporaine, du vintage expertisé et du sur-mesure."
+        ],
+        [
+          "Où se situe le principal risque ?",
+          "Dans la faible notoriété, la complexité du message, le coût d’acquisition et la trésorerie immobilisée par les pièces."
+        ],
+        [
+          "Quelle priorité géographique ?",
+          "Paris et la clientèle internationale déjà présente à Paris (0 à 6 mois), puis des activations sélectives à Bruxelles, Londres et Genève (6 à 18 mois), puis New York et Dubaï (12 à 24 mois)."
+        ],
+        [
+          "Quelle priorité commerciale ?",
+          "Transformer la curation en rendez-vous de conseil, puis le rendez-vous en relation longue : achat, commande, anniversaire, transmission, recommandation."
+        ]
+      ],
+      "nb_lignes": 5,
+      "nb_colonnes": 2
+    },
+    {
+      "type": "encadre",
+      "etiquette": "VERDICT",
+      "texte": "Potentiel favorable sous conditions. Joalie ne doit pas chercher la couverture maximale, mais la densité relationnelle : peu de marchés, peu de partenaires, un discours extrêmement lisible, et une preuve irréprochable sur l’origine, l’expertise et la fabrication.",
+      "fond": "EDE6D0"
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Les six décisions structurantes",
+      "style": "Heading2",
+      "gras": false,
+      "signes": 31
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Adopter une promesse courte et internationale : « A Parisian jewellery editing house — contemporary, vintage and bespoke ».",
+      "style": "ListNumber",
+      "gras": false,
+      "signes": 123
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Organiser le portefeuille en trois portes d’entrée commerciales distinctes, reliées par une même idée : le bijou comme récit personnel.",
+      "style": "ListNumber",
+      "gras": false,
+      "signes": 135
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Faire du rendez-vous privé le produit d’accès à la marque, avec prise de rendez-vous bilingue, préparation en amont et suivi documenté.",
+      "style": "ListNumber",
+      "gras": false,
+      "signes": 135
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Concentrer l’internationalisation sur les clientèles déjà accessibles à Paris, puis tester les marchés par pop-up et prescription avant toute implantation.",
+      "style": "ListNumber",
+      "gras": false,
+      "signes": 155
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Créer un protocole de confiance commun aux trois offres : certificat, provenance, matières, atelier, entretien, assurance et livraison.",
+      "style": "ListNumber",
+      "gras": false,
+      "signes": 135
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Piloter la croissance par la marge contributive, la rotation des pièces, le taux rendez-vous/achat et la part de clients récurrents — pas seulement par l’audience.",
+      "style": "ListNumber",
+      "gras": false,
+      "signes": 163
+    }
+  ],
+  "sommaire": [
+    {
+      "type": "tableau",
+      "entetes": [
+        "Chap.",
+        "Intitulé",
+        "Chap.",
+        "Intitulé"
+      ],
+      "lignes": [
+        [
+          "01",
+          "Marché mondial et continent pertinent",
+          "12",
+          "Risques et plan de maîtrise"
+        ],
+        [
+          "02",
+          "Marché national, local et marché accessible",
+          "13",
+          "Cartographie des risques externes"
+        ],
+        [
+          "03",
+          "Segmentation approfondie",
+          "14",
+          "Potentiel de viabilité"
+        ],
+        [
+          "04",
+          "Avantages et contraintes structurelles du secteur",
+          "15",
+          "Tableau de bord visuel du marché"
+        ],
+        [
+          "05",
+          "Défis et opportunités 2026–2030",
+          "16",
+          "Analyse de l’offre et de la demande"
+        ],
+        [
+          "06",
+          "Réglementation, normes et conformité",
+          "17",
+          "Analyse géographique avancée"
+        ],
+        [
+          "07",
+          "Tendances à court terme 2026–2027",
+          "18",
+          "SWOT de synthèse"
+        ],
+        [
+          "08",
+          "Perspectives et scénarios à horizon 2030",
+          "19",
+          "Analyse stratégique et recommandations"
+        ],
+        [
+          "09",
+          "Les 12 chiffres clés",
+          "20",
+          "Conclusion analytique"
+        ],
+        [
+          "10",
+          "Clientèle cible et comportements d’achat",
+          "21",
+          "Sources et méthodologie"
+        ],
+        [
+          "11",
+          "Deux personas fondés sur les données",
+          "",
+          ""
+        ]
+      ],
+      "nb_lignes": 11,
+      "nb_colonnes": 4
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Les styles de titres permettent également d’afficher le volet de navigation dans Word.",
+      "style": null,
+      "gras": false,
+      "signes": 86
+    }
+  ],
+  "mode_emploi": [
+    {
+      "type": "paragraphe",
+      "texte": "Le rapport est conçu comme un outil de décision. Les chapitres 1 à 9 dimensionnent le marché ; les chapitres 10 à 18 traduisent ces données en clientèle, risques, viabilité et positionnement ; les chapitres 19 et 20 donnent la feuille de route et le verdict ; le chapitre 21 documente les sources.",
+      "style": null,
+      "gras": false,
+      "signes": 297
+    },
+    {
+      "type": "tableau",
+      "entetes": [
+        "Statut d’une donnée",
+        "Signification",
+        "Usage"
+      ],
+      "lignes": [
+        [
+          "Observée",
+          "Chiffre publié par une source identifiée",
+          "Comprendre le marché et comparer des périodes"
+        ],
+        [
+          "Estimée",
+          "Fourchette EVKHA construite par triangulation",
+          "Cadrer un ordre de grandeur à valider"
+        ],
+        [
+          "Scénario",
+          "Hypothèses explicites, non prévision",
+          "Décider sous incertitude et définir des seuils"
+        ],
+        [
+          "Recommandation",
+          "Action déduite de l’analyse",
+          "Prioriser, tester, mesurer et arrêter si nécessaire"
+        ],
+        [
+          "Persona / Cible",
+          "Hypothèse de profil ou d’objectif construite à partir du marché et du positionnement déclaré",
+          "Tester en clientèle réelle et recalibrer dès les premières données de Joalie"
+        ]
+      ],
+      "nb_lignes": 5,
+      "nb_colonnes": 3
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Comment l’utiliser en comité de direction",
+      "style": "Heading2",
+      "gras": false,
+      "signes": 41
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Commencer par la synthèse exécutive et la conclusion analytique.",
+      "style": "ListBullet",
+      "gras": false,
+      "signes": 64
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Valider les hypothèses internes du chapitre 14 avec les données comptables réelles.",
+      "style": "ListBullet",
+      "gras": false,
+      "signes": 83
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Choisir trois actions du chapitre 19, chacune avec responsable, coût et seuil d’arrêt.",
+      "style": "ListBullet",
+      "gras": false,
+      "signes": 86
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Revoir chaque trimestre le tableau de bord du chapitre 15 et les scénarios du chapitre 8.",
+      "style": "ListBullet",
+      "gras": false,
+      "signes": 89
+    },
+    {
+      "type": "encadre",
+      "etiquette": "PRINCIPE DE LECTURE",
+      "texte": "Un chiffre n’est utile que s’il modifie une décision. Les estimations doivent être remplacées progressivement par les données propres de Joalie.",
+      "fond": "F1EEDB"
+    }
+  ],
+  "nb_chapitres": 21,
+  "chapitres": [
+    {
+      "numero": "CHAPITRE 01",
+      "titre": "Marché mondial et continent pertinent",
+      "accroche": "Un marché large, mais une niche Joalie définie par le luxe, la création indépendante et la confiance.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "1.1 Deux périmètres à ne pas confondre",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 38
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le marché mondial de la bijouterie est estimé à 381,5 Md$ en 2025 et à 397,7 Md$ en 2026, avec une trajectoire vers 578,5 Md$ en 2033 selon Grand View Research. Ce périmètre est large : il inclut des catégories, des niveaux de prix et des circuits très éloignés de Joalie. Il sert donc à comprendre la profondeur du secteur, pas à calculer directement le marché accessible de la maison.",
+          "style": null,
+          "gras": false,
+          "signes": 386
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le périmètre le plus proche de Joalie est celui de la joaillerie de luxe. Bain estime ce segment à environ 32 Md€ en 2025, en croissance de 4 à 6 %, alors que le marché des biens personnels de luxe se contractait légèrement. Cette surperformance s’explique par la dimension émotionnelle, la durabilité perçue, la valeur de transmission et l’intérêt pour les pièces modulaires ou personnalisables.",
+          "style": null,
+          "gras": false,
+          "signes": 396
+        },
+        {
+          "type": "graphique",
+          "fichier": "image2.png",
+          "octets": 75739
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Sources : Grand View Research, Jewelry Market (2026) et Europe Jewelry Market (2025). Périmètres larges, en dollars courants.",
+          "style": null,
+          "gras": false,
+          "signes": 125
+        },
+        {
+          "type": "paragraphe",
+          "texte": "1.2 Europe : une base culturelle et productive cohérente",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 56
+        },
+        {
+          "type": "paragraphe",
+          "texte": "L’Europe représente un espace pertinent pour Joalie par sa densité de patrimoines joailliers, de collectionneurs, de foires d’art et de métropoles à hauts revenus. Le marché européen de la bijouterie est estimé à 37,32 Md$ en 2024 et pourrait atteindre 56,99 Md$ en 2033. Les magasins physiques concentraient encore 83,4 % des ventes dans ce périmètre, ce qui confirme qu’un achat à forte valeur reste lié à l’essai, à la confiance et à l’accompagnement.",
+          "style": null,
+          "gras": false,
+          "signes": 454
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La production européenne est très concentrée. Eurostat évalue la production de bijoux de l’Union européenne à 4,363 Md€ en 2023 ; l’Italie représentait 36 % de ce total, la France 33 % et l’Allemagne 12 %. Pour Joalie, cette proximité d’ateliers, de savoir-faire et de réseaux professionnels facilite la sélection, le contrôle et la narration d’une fabrication européenne.",
+          "style": null,
+          "gras": false,
+          "signes": 372
+        },
+        {
+          "type": "paragraphe",
+          "texte": "1.3 La seconde main devient une composante normale du luxe",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 58
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le marché mondial du luxe d’occasion atteint environ 50 Md€ en 2025, en hausse de 4 à 6 % selon Bain. Les montres et bijoux représentent 83 % de ce marché. Cette donnée est particulièrement favorable à l’axe vintage de Joalie : elle confirme que la pièce ancienne n’est plus un marché périphérique, mais une porte d’entrée structurante vers le luxe, la collection et la circularité.",
+          "style": null,
+          "gras": false,
+          "signes": 382
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La croissance ne supprime pas le besoin de preuve. Les revendeurs physiques demeurent des points d’ancrage de crédibilité, même lorsque la découverte a lieu en ligne. L’authentification, le certificat, la documentation historique, l’état de conservation et la politique de retour ont une valeur commerciale directe.",
+          "style": null,
+          "gras": false,
+          "signes": 315
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Joalie se trouve au croisement de deux poches dynamiques : joaillerie de luxe et seconde main.\nLimite — Les chiffres globaux surestiment fortement le marché réellement accessible à une jeune maison.\nDécision — Piloter avec un périmètre étroit : joaillerie d’auteur à ticket élevé, clients affinitaires et vente assistée.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 2582,
+        "paragraphes": 10,
+        "tableaux": 0,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 02",
+      "titre": "Marché national, local et marché accessible",
+      "accroche": "La France fournit à la fois une base productive, une clientèle domestique et une vitrine touristique.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "2.1 France : une filière puissante, un marché domestique plus stable",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 68
+        },
+        {
+          "type": "paragraphe",
+          "texte": "En 2025, la production française d’horlogerie-bijouterie-joaillerie atteint 6,6 Md€ HT, en hausse de 7 %, avec environ 15 000 emplois. Au sein de cet ensemble, la production de bijouterie-joaillerie représente 6,162 Md€, en hausse de 8 %, et 12 064 salariés. La bijouterie-joaillerie en or et platine atteint 4,486 Md€, en hausse de 13 %, dont 3,807 Md€ pour la seule joaillerie, en hausse de 14 %. La filière française a multiplié sa production par 3,5 en dix ans et ajouté environ 50 000 m² d’ateliers en cinq ans.",
+          "style": null,
+          "gras": false,
+          "signes": 516
+        },
+        {
+          "type": "graphique",
+          "fichier": "image3.png",
+          "octets": 77488
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Source : Francéclat, Bilan économique 2025. Périmètres emboîtés : joaillerie ⊂ or et platine ⊂ ensemble bijouterie-joaillerie.",
+          "style": null,
+          "gras": false,
+          "signes": 126
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les ventes françaises de bijoux précieux et montres s’établissent à 5,92 Md€ HT en 2025, en hausse de 1 %. La progression modérée contraste avec l’accélération de la production et des exportations : le marché français reste solide, mais l’expansion des maisons dépend davantage de la clientèle internationale et de l’export.",
+          "style": null,
+          "gras": false,
+          "signes": 324
+        },
+        {
+          "type": "graphique",
+          "fichier": "image4.png",
+          "octets": 50205
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Source : Francéclat, Bilan économique 2025. Ventes hors taxes de bijoux précieux et montres en France.",
+          "style": null,
+          "gras": false,
+          "signes": 102
+        },
+        {
+          "type": "paragraphe",
+          "texte": "2.2 Paris comme marché local élargi",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 35
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Joalie dispose d’une galerie sur rendez-vous au 3 rue Tardieu, à Montmartre. L’emplacement associe une forte valeur culturelle et touristique à une contrainte : la rue n’est pas un axe joaillier de destination comparable à la place Vendôme ou à la rue Saint-Honoré. Le trafic spontané est donc moins décisif que la capacité à attirer un public intentionnel.",
+          "style": null,
+          "gras": false,
+          "signes": 357
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le Grand Paris a accueilli 36,3 millions de touristes en 2024. Entre janvier et mai 2025, les arrivées hôtelières progressaient de 7,6 % ; les États-Unis représentaient 911 000 arrivées, en hausse de 18,4 %, et constituaient le deuxième marché international. En 2025, la France a accueilli 102 millions de visiteurs internationaux et généré 77,5 Md€ de recettes touristiques. Joalie peut internationaliser ses ventes avant d’internationaliser ses coûts fixes.",
+          "style": null,
+          "gras": false,
+          "signes": 459
+        },
+        {
+          "type": "paragraphe",
+          "texte": "2.3 Estimation du marché accessible",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 35
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les statistiques publiques ne séparent pas la joaillerie de créateurs, le vintage et le sur-mesure. EVKHA utilise donc une méthode triangulée : marché national de bijoux précieux, poids de Paris et des clientèles aisées, cohérence avec les prix observés chez Joalie, puis capacité commerciale réaliste d’une maison en phase de lancement.",
+          "style": null,
+          "gras": false,
+          "signes": 337
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Niveau",
+            "Ordre de grandeur",
+            "Méthode et interprétation"
+          ],
+          "lignes": [
+            [
+              "TAM France",
+              "3,6 à 4,4 Md€ HT",
+              "Calcul : ventes françaises de bijoux précieux et montres (5,92 Md€ HT, Francéclat) desquelles est retranchée la part horlogerie estimée, puis recoupées avec la production nationale de bijouterie-joaillerie (6,162 Md€) et les flux d’export. Marché théorique total, pas un marché accessible à Joalie."
+            ],
+            [
+              "SAM affinitaires",
+              "150 à 300 M€",
+              "Calcul : au TAM France est appliquée une pondération pour le seul segment premium et créatif (joaillerie d’auteur, vintage expertisé — hors grande diffusion et maisons de luxe établies), puis un élargissement pour la clientèle internationale de passage à Paris. Fourchette large : aucune source ne publie ce sous-segment."
+            ],
+            [
+              "SOM Joalie — rythme annuel",
+              "0,12 à 0,5 M€ de volume d’affaires annuel",
+              "Calcul ascendant (chapitre 14) : 35 à 100 transactions par an × un panier moyen de 3 500 à 5 000 €. Montant exprimé en rythme ANNUEL visé, non en cumul sur 24 mois : les 24 premiers mois servent de fenêtre pour l’atteindre, pas à l’additionner. À valider par marge, stock et capacité."
+            ]
+          ],
+          "nb_lignes": 3,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "TAM = marché total (haut vers le bas) ; SAM = marché réellement adressable (haut vers le bas) ; SOM = part atteignable par Joalie (bas vers le haut, à partir des transactions réalistes du chapitre 14). Le volume d’affaires n’est pas nécessairement le chiffre d’affaires comptable si Joalie fonctionne en dépôt-vente ou à la commission.",
+          "style": null,
+          "gras": false,
+          "signes": 335
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Paris permet de combiner clientèle locale aisée, culture et flux internationaux.\nLimite — Une galerie sur rendez-vous ne capte pas naturellement le flux touristique.\nDécision — Créer des canaux prescripteurs : conciergeries, hôtels, architectes, art advisors, wedding planners et maisons privées.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 2694,
+        "paragraphes": 11,
+        "tableaux": 1,
+        "graphiques": 2,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 03",
+      "titre": "Segmentation approfondie",
+      "accroche": "La vraie segmentation ne repose pas seulement sur l’âge : elle croise motivation, occasion et niveau de confiance.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "3.1 Segments par proposition de valeur",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 38
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment",
+            "Besoin dominant",
+            "Preuve attendue",
+            "Rôle dans le modèle"
+          ],
+          "lignes": [
+            [
+              "Création contemporaine",
+              "Singularité, auteur, style personnel",
+              "Biographie, démarche, atelier, rareté, essayage",
+              "Image, renouvellement, fidélisation"
+            ],
+            [
+              "Vintage expertisé",
+              "Histoire, collection, durabilité, trouvaille",
+              "Authenticité, époque, état, provenance, restauration",
+              "Différenciation, acquisition de collectionneurs"
+            ],
+            [
+              "Sur-mesure",
+              "Symboliser un lien ou une étape de vie",
+              "Processus, budget, calendrier, dessins, pierres, garanties",
+              "Panier élevé, relation longue, recommandation"
+            ]
+          ],
+          "nb_lignes": 3,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "3.2 Segments de clientèle prioritaires",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 38
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le cœur de cible décrit par Joalie — femme de 35 à 65 ans, urbaine, cultivée et à fort pouvoir d’achat — est cohérent avec l’offre. Cette définition doit toutefois être traduite en situations d’achat observables. Une même personne peut passer du rôle de découvreuse à celui de collectionneuse, puis confier une transformation de bijou ou une commande familiale.",
+          "style": null,
+          "gras": false,
+          "signes": 361
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Segment comportemental",
+            "Déclencheur",
+            "Frein",
+            "Offre d’entrée"
+          ],
+          "lignes": [
+            [
+              "Collectionneuse de création",
+              "Coup de cœur, rencontre avec un auteur",
+              "Doute sur la valeur ou la portabilité",
+              "Rendez-vous de curation thématique"
+            ],
+            [
+              "Acheteuse de jalon personnel",
+              "Anniversaire, réussite, changement de vie",
+              "Légitimité à acheter pour soi",
+              "Sélection narrative et essayage privé"
+            ],
+            [
+              "Amatrice de vintage",
+              "Recherche d’une époque, d’une signature ou d’une pièce unique",
+              "Authenticité, état, prix de comparaison",
+              "Dossier d’expertise synthétique"
+            ],
+            [
+              "Couple sur-mesure 30–39 ans",
+              "Fiançailles, alliance, héritage transformé",
+              "Budget, délai, manque de repères",
+              "Consultation cadrée avec fourchettes"
+            ],
+            [
+              "Homme prescripteur ou acheteur",
+              "Cadeau à forte symbolique",
+              "Peur de se tromper",
+              "Conciergerie de cadeau et validation discrète"
+            ],
+            [
+              "Cliente internationale à Paris",
+              "Voyage culturel, découverte confidentielle",
+              "Temps, langue, livraison et taxes",
+              "Rendez-vous bilingue préparé à distance"
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "3.3 Segments BtoB sélectifs",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 27
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le BtoB ne doit pas diluer la maison. Il peut en revanche ouvrir des projets à forte cohérence : cadeaux de direction en série très limitée, commandes pour hôtels ou maisons culturelles, collaborations avec designers et architectes, prêts éditoriaux, capsules d’exposition, ou accompagnement de clients privés d’un prescripteur.",
+          "style": null,
+          "gras": false,
+          "signes": 328
+        },
+        {
+          "type": "encadre",
+          "etiquette": "CRITÈRE DE SÉLECTION BTOB",
+          "texte": "Accepter un projet s’il renforce au moins deux actifs de Joalie : visibilité qualifiée, accès à une clientèle affinitaires, relation avec un métier d’art, marge ou crédibilité internationale.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Le portefeuille permet plusieurs occasions d’achat sans changer de territoire de marque.\nLimite — Trois offres peuvent être perçues comme trois activités sans lien si le récit n’est pas unifié.\nDécision — Organiser le site et le rendez-vous autour de l’intention du client, pas uniquement autour des catégories produits.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 792,
+        "paragraphes": 5,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 2,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 04",
+      "titre": "Avantages et contraintes structurelles du secteur",
+      "accroche": "Un secteur à forte valeur, mais fondé sur la réputation, le stock, la sécurité et l’expertise.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "4.1 Avantages structurels",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 25
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Avantage",
+            "Effet pour Joalie"
+          ],
+          "lignes": [
+            [
+              "Valeur émotionnelle élevée",
+              "Réduit la comparaison purement fonctionnelle et permet une narration forte."
+            ],
+            [
+              "Durabilité et transmission",
+              "Favorisent le vintage, la transformation et la relation après-vente."
+            ],
+            [
+              "Panier moyen élevé",
+              "Permet un modèle à faible volume si le taux de conversion et la marge sont maîtrisés."
+            ],
+            [
+              "Écosystème français reconnu",
+              "Apporte ateliers, expertise, légitimité culturelle et argument d’origine."
+            ],
+            [
+              "Marché international mobile",
+              "Paris donne accès à des clients étrangers sans implantation immédiate."
+            ],
+            [
+              "Contenu riche",
+              "Créateurs, gestes, pierres et histoires produisent une matière éditoriale différenciante."
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "paragraphe",
+          "texte": "4.2 Contraintes structurelles",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 29
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La valeur unitaire des pièces impose un besoin de confiance disproportionné par rapport à une jeune marque. Le client évalue simultanément l’esthétique, la qualité, le prix, l’origine, la sécurité de paiement, la garantie et la possibilité de revente ou de transmission. L’absence de notoriété peut donc ralentir l’achat même lorsque le coup de cœur est présent.",
+          "style": null,
+          "gras": false,
+          "signes": 362
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le modèle économique dépend aussi de la nature du stock. L’achat ferme immobilise de la trésorerie et expose à une rotation lente ; le dépôt-vente réduit ce risque mais peut comprimer la marge et créer une dépendance aux créateurs. Le sur-mesure améliore la visibilité de trésorerie grâce aux acomptes, mais augmente le risque de projet : délai, validation esthétique, variation de matières, reprises et responsabilité.",
+          "style": null,
+          "gras": false,
+          "signes": 419
+        },
+        {
+          "type": "paragraphe",
+          "texte": "4.3 Économie de l’attention et rôle du conseil",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 46
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le luxe a fortement augmenté ses prix au cours des dernières années ; McKinsey estime que les hausses de prix ont représenté plus de 80 % de la croissance récente du secteur. Cette stratégie atteint un plafond pour les clients aspirationnels. Une maison indépendante doit donc justifier le prix autrement : rareté réelle, travail, histoire, personnalisation et qualité de la relation.",
+          "style": null,
+          "gras": false,
+          "signes": 384
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Un modèle de faible volume peut être viable si la relation et la marge par client sont élevées.\nLimite — La rotation lente et la complexité opérationnelle peuvent absorber la marge.\nDécision — Mesurer séparément marge, rotation, délai de vente et coût de service pour contemporain, vintage et sur-mesure.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "4.4 Arbitrages structurels recommandés",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 38
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Décision",
+            "Règle de gestion"
+          ],
+          "lignes": [
+            [
+              "Achat ferme ou dépôt-vente",
+              "Achat ferme uniquement si la marge et la probabilité de rotation justifient l’immobilisation ; dépôt-vente pour tester une nouvelle signature."
+            ],
+            [
+              "Largeur de sélection",
+              "Conserver une profondeur éditoriale, mais limiter les doublons de style, de prix et d’usage."
+            ],
+            [
+              "Service inclus",
+              "Définir ce qui est compris dans le prix et ce qui devient une prestation facturable."
+            ],
+            [
+              "Sur-mesure",
+              "Exiger acompte, budget minimum, calendrier et nombre de modifications avant démarrage."
+            ],
+            [
+              "International",
+              "Ne promettre une zone que lorsque paiement, transport, assurance, taxes et retours sont maîtrisés."
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 1303,
+        "paragraphes": 7,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 05",
+      "titre": "Défis et opportunités 2026–2030",
+      "accroche": "La période favorise les maisons capables de rendre le luxe plus personnel, plus prouvable et plus relationnel.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "5.1 Opportunités",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 16
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Tendance 2026–2030",
+            "Pourquoi elle compte",
+            "Réponse Joalie"
+          ],
+          "lignes": [
+            [
+              "Expression de soi",
+              "71 % des consommateurs interrogés par McKinsey voient le bijou comme une expression de la personnalité.",
+              "Curation par tempérament, histoire ou geste plutôt que seulement par type de bijou."
+            ],
+            [
+              "Recherche de création",
+              "75 % préfèrent des designs créatifs ou uniques.",
+              "Pièces uniques, petites séries, auteurs identifiables."
+            ],
+            [
+              "Normalisation de la seconde main",
+              "Un acheteur de luxe sur deux consulte la seconde main avant le neuf selon Bain 2026.",
+              "Vintage intégré à la maison, non traité comme une rubrique secondaire."
+            ],
+            [
+              "Personnalisation",
+              "Le sur-mesure produit exclusivité et implication.",
+              "Processus en étapes, consultation, carnet de création."
+            ],
+            [
+              "Clientèle américaine",
+              "Les marques émergentes expriment l’identité pour 68 % des clients US interrogés.",
+              "Éditorial anglophone, rendez-vous Paris, early access."
+            ],
+            [
+              "Clientèle du Golfe",
+              "Le bespoke, les rendez-vous privés et le conseiller de confiance sont particulièrement valorisés.",
+              "Conciergerie privée, discrétion, service à distance."
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "5.2 Défis",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 9
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le premier défi est la reconstruction de la pertinence du luxe. Le nombre de clients actifs du luxe serait passé d’environ 400 millions en 2022 à 330 millions en 2025. Les clients demandent plus de sens et sanctionnent les prix jugés déconnectés de la valeur. Pour Joalie, la profondeur du récit doit rester concrète : matière, geste, temps, provenance, usage et émotion.",
+          "style": null,
+          "gras": false,
+          "signes": 371
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le deuxième défi est la volatilité des matières. Francéclat relève en 2025 une hausse de 38 % du prix du lingot d’or et de 35 % de l’once d’argent ; les niveaux de janvier 2026 étaient encore supérieurs. Le sur-mesure doit intégrer une validité courte des devis et une clause explicite sur l’évolution des cours.",
+          "style": null,
+          "gras": false,
+          "signes": 312
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le troisième défi est l’internationalisation sans dispersion. Traduire le site ou expédier à l’étranger ne suffit pas. Chaque marché ajoute fiscalité, douane, assurance, paiement, retours, conformité produit et besoin de prescription. La priorité doit aller aux marchés où Joalie peut obtenir une relation de confiance avant l’investissement.",
+          "style": null,
+          "gras": false,
+          "signes": 342
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Les tendances de fond sont exceptionnellement cohérentes avec la proposition Joalie.\nLimite — La cohérence de marché ne garantit ni la notoriété ni la rentabilité.\nDécision — Transformer chaque tendance en un dispositif commercial mesurable, avec propriétaire et calendrier.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 1050,
+        "paragraphes": 5,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 06",
+      "titre": "Réglementation, normes et conformité",
+      "accroche": "La conformité est une preuve de sérieux et un levier de conversion, particulièrement pour le vintage et l’international.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "6.1 Métaux précieux et poinçons",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 31
+        },
+        {
+          "type": "paragraphe",
+          "texte": "En France, les ouvrages en métaux précieux relèvent des règles de garantie et de poinçonnage. Les seuils de dispense de poinçon de garantie sont de 3 grammes pour l’or et le platine et de 30 grammes pour l’argent ; la responsabilité du professionnel sur le titre et l’information demeure. Les pièces importées, les fabrications d’ateliers partenaires et les bijoux vintage doivent être vérifiés selon leur origine, leur ancienneté et les poinçons présents.",
+          "style": null,
+          "gras": false,
+          "signes": 456
+        },
+        {
+          "type": "paragraphe",
+          "texte": "6.2 Sécurité générale et substances",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 35
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le règlement européen sur la sécurité générale des produits s’applique depuis le 13 décembre 2024 aux produits neufs, d’occasion, réparés et reconditionnés, y compris vendus en ligne. Il renforce l’identification de l’opérateur économique, la traçabilité, l’évaluation des risques, l’information en ligne et les procédures de retrait ou de rappel. Les restrictions REACH concernent notamment le nickel, le plomb et le cadmium dans les articles de bijouterie.",
+          "style": null,
+          "gras": false,
+          "signes": 458
+        },
+        {
+          "type": "paragraphe",
+          "texte": "6.3 Vente à distance, personnalisation et garanties",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 51
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La vente à distance ouvre en principe un délai de rétractation de 14 jours. Les biens nettement personnalisés ou confectionnés selon les spécifications du client sont exclus de ce droit, à condition que l’information soit claire avant commande. Cette exception ne supprime ni l’obligation d’information, ni la garantie légale de conformité, ni la garantie contre les vices cachés.",
+          "style": null,
+          "gras": false,
+          "signes": 380
+        },
+        {
+          "type": "paragraphe",
+          "texte": "6.4 Vintage, provenance et fiscalité",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 36
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La vente professionnelle de biens mobiliers usagés impose la tenue d’un registre des objets mobiliers, permettant d’identifier les objets et les intervenants. Le régime de TVA sur la marge peut s’appliquer à certains biens d’occasion acquis dans les conditions prévues par le Code général des impôts ; les achats, importations et ventes doivent être tracés séparément avec un conseil comptable adapté.",
+          "style": null,
+          "gras": false,
+          "signes": 401
+        },
+        {
+          "type": "paragraphe",
+          "texte": "6.5 Lutte contre le blanchiment et paiements en espèces",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 55
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les négociants en biens de grande valeur, y compris les bijoutiers-joailliers, sont assujettis aux obligations de lutte contre le blanchiment de capitaux et le financement du terrorisme dès lors qu’ils réalisent des transactions en espèces au-delà des seuils réglementaires : vigilance renforcée, identification du client, conservation des pièces justificatives et déclaration de soupçon auprès de Tracfin le cas échéant. Le paiement en espèces est plafonné entre professionnel et particulier résidant fiscalement en France, avec un seuil plus élevé pour un client non-résident agissant à titre non professionnel sur justificatif. Pour Joalie, cela implique une procédure interne claire de vérification d’identité et de traçabilité des règlements, en particulier pour les pièces vintage et les commandes sur-mesure à ticket élevé.",
+          "style": null,
+          "gras": false,
+          "signes": 830
+        },
+        {
+          "type": "paragraphe",
+          "texte": "6.6 Médiation de la consommation",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 32
+        },
+        {
+          "type": "paragraphe",
+          "texte": "En tant que professionnel vendant à des consommateurs, Joalie doit permettre le recours gratuit à un médiateur de la consommation en cas de litige non résolu directement, et afficher les coordonnées du médiateur compétent sur le site, dans les conditions générales de vente et sur les documents de commande. Cette obligation s’applique aussi bien à la vente en boutique qu’à la vente à distance et au sur-mesure.",
+          "style": null,
+          "gras": false,
+          "signes": 412
+        },
+        {
+          "type": "paragraphe",
+          "texte": "6.7 Contraintes à l’export",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 26
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Au-delà de la facture et de la nomenclature douanière déjà mentionnées, l’export de bijoux et de pièces vintage suppose une vigilance sur l’origine des matières (diamants bruts soumis au Processus de Kimberley, matériaux anciens pouvant relever de la convention CITES pour certaines espèces protégées), sur la TVA à l’export et sur les formalités propres à chaque pays d’activation : droits de douane, déclaration de valeur, assurance transport. Un carnet ATA peut faciliter le transport temporaire de pièces pour un trunk show ou un rendez-vous privé à l’étranger sans taxation définitive.",
+          "style": null,
+          "gras": false,
+          "signes": 590
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Bloc de contrôle",
+            "Preuve à conserver",
+            "Fréquence"
+          ],
+          "lignes": [
+            [
+              "Identité de la pièce",
+              "Référence, photos, dimensions, poids, matériaux, poinçons",
+              "À l’entrée en stock"
+            ],
+            [
+              "Provenance vintage",
+              "Identité vendeur, facture/mandat, historique, registre",
+              "À chaque transaction"
+            ],
+            [
+              "Conformité matière",
+              "Déclaration atelier/fournisseur, tests si nécessaires",
+              "Par série ou pièce"
+            ],
+            [
+              "Information client",
+              "Fiche produit, prix TTC, délais, retours, garanties",
+              "Avant publication et commande"
+            ],
+            [
+              "Sur-mesure",
+              "Cahier des charges signé, devis, étapes de validation, acompte",
+              "À chaque projet"
+            ],
+            [
+              "Export",
+              "Facture, origine, nomenclature, valeur assurée, preuves de sortie",
+              "À chaque expédition"
+            ],
+            [
+              "Données personnelles",
+              "Consentement, finalité, durée de conservation, sécurité",
+              "Revue annuelle"
+            ]
+          ],
+          "nb_lignes": 7,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "encadre",
+          "etiquette": "POINT DE VIGILANCE",
+          "texte": "Ce chapitre constitue une lecture de marché et non un avis juridique. Un audit court avec un spécialiste douane/métaux précieux, un fiscaliste et l’assureur est recommandé avant l’accélération internationale.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Une conformité documentée renforce directement la valeur perçue.\nLimite — Le vintage et l’export multiplient les obligations de preuve.\nDécision — Créer un passeport de pièce unique, utilisable en boutique, en ligne, pour l’assurance et lors d’une revente.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 3793,
+        "paragraphes": 14,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 2,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 07",
+      "titre": "Tendances à court terme 2026–2027",
+      "accroche": "Sept tendances à convertir rapidement en tests commerciaux.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "1. Curation humaine augmentée",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 29
+        },
+        {
+          "type": "paragraphe",
+          "texte": "L’IA est utilisée dans le parcours d’un acheteur de luxe sur deux, mais la confiance finale reste humaine. Joalie peut utiliser le digital pour préparer la sélection, puis réserver l’arbitrage au rendez-vous.",
+          "style": null,
+          "gras": false,
+          "signes": 208
+        },
+        {
+          "type": "paragraphe",
+          "texte": "2. Accès privé",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 14
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Early access, rendez-vous confidentiels et séries limitées créent l’exclusivité sans dépendre d’un logo mondial.",
+          "style": null,
+          "gras": false,
+          "signes": 112
+        },
+        {
+          "type": "paragraphe",
+          "texte": "3. Hybridation neuf–ancien",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 26
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le client compare plus facilement création contemporaine, seconde main et transformation. La maison peut éditorialiser des dialogues entre époques.",
+          "style": null,
+          "gras": false,
+          "signes": 147
+        },
+        {
+          "type": "paragraphe",
+          "texte": "4. Preuve avant promesse",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 24
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Origine, matière, atelier, état et entretien deviennent des éléments de vente, pas des annexes techniques.",
+          "style": null,
+          "gras": false,
+          "signes": 106
+        },
+        {
+          "type": "paragraphe",
+          "texte": "5. Pièces portables et signées",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 30
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La demande porte sur des bijoux reconnaissables par leur dessin, mais compatibles avec un usage réel et répété.",
+          "style": null,
+          "gras": false,
+          "signes": 111
+        },
+        {
+          "type": "paragraphe",
+          "texte": "6. Fiançailles moins conventionnelles",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 37
+        },
+        {
+          "type": "paragraphe",
+          "texte": "L’âge moyen plus élevé, la personnalisation des unions et les budgets autonomes favorisent les pierres de couleur, le vintage et la transformation d’héritage.",
+          "style": null,
+          "gras": false,
+          "signes": 158
+        },
+        {
+          "type": "paragraphe",
+          "texte": "7. Relation post-achat",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 22
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Entretien, mise à taille, ajout, transformation et recherche de pièces prolongent la valeur du client au-delà d’une transaction.",
+          "style": null,
+          "gras": false,
+          "signes": 128
+        },
+        {
+          "type": "encadre",
+          "etiquette": "TEST 90 JOURS",
+          "texte": "Lancer trois rendez-vous thématiques : « Trouver sa pièce-signature », « Vintage privé » et « Fiançailles autrement ». Mesurer demandes, présence, conversion, panier, marge et recommandation.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Les tendances court terme favorisent une petite maison experte et agile.\nLimite — La multiplication des formats peut disperser l’équipe.\nDécision — Ne conserver qu’un test par porte d’entrée, avec un seuil explicite de poursuite ou d’arrêt.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Protocole des trois tests",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 25
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Test",
+            "Audience",
+            "Hypothèse",
+            "Seuil de poursuite"
+          ],
+          "lignes": [
+            [
+              "Pièce-signature",
+              "Femmes 35–65, création et design",
+              "La curation guidée convertit mieux qu’une exploration seule",
+              "≥ 8 rendez-vous et 2 achats"
+            ],
+            [
+              "Vintage privé",
+              "Amatrices d’ancien et collectionneuses",
+              "La preuve d’expertise augmente la confiance et le panier",
+              "≥ 6 rendez-vous et 2 achats"
+            ],
+            [
+              "Fiançailles autrement",
+              "Couples 30–39 ans",
+              "Trois voies réduisent la comparaison avec le solitaire standard",
+              "≥ 5 briefs qualifiés et 1 projet"
+            ]
+          ],
+          "nb_lignes": 3,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 1177,
+        "paragraphes": 15,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 2,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 08",
+      "titre": "Perspectives et scénarios à horizon 2030",
+      "accroche": "Trois trajectoires pour piloter l’incertitude sans confondre ambition et prévision.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "Bain prévoit pour 2026 un marché mondial des biens personnels de luxe compris entre 365 et 373 Md€, en hausse de 2 à 4 % dans son scénario central. McKinsey projette un marché mondial du luxe d’environ 700 Md$ à l’horizon 2030, avec une croissance annuelle de 4 à 6 %. Pour Joalie, l’enjeu n’est pas de répliquer ces taux, mais de capter une niche relationnelle plus dynamique que le marché général.",
+          "style": null,
+          "gras": false,
+          "signes": 399
+        },
+        {
+          "type": "graphique",
+          "fichier": "image5.png",
+          "octets": 121127
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Scénarios EVKHA, indice d’activité Joalie 2025 = 100. Ils illustrent des trajectoires possibles et ne constituent pas des prévisions financières.",
+          "style": null,
+          "gras": false,
+          "signes": 145
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Scénario",
+            "Hypothèses",
+            "Résultat attendu",
+            "Signal de bascule"
+          ],
+          "lignes": [
+            [
+              "Accélération",
+              "Message clarifié, partenaires prescripteurs, clientèle internationale, réachat",
+              "Croissance forte mais maîtrisée, activité multipliée par environ 1,4 d’ici 2030",
+              "Rendez-vous qualifiés > 12/mois et réachat/recommandation > 30 %"
+            ],
+            [
+              "Central",
+              "Progression organique, activations sélectives, équipe contrainte",
+              "Activité +20 % environ sur cinq ans, meilleure qualité de marge",
+              "Conversion stable, rotation améliorée, un marché test validé"
+            ],
+            [
+              "Sous contrainte",
+              "Coût matières, faible notoriété, stock lent, international dispersé",
+              "Stagnation puis reprise lente",
+              "Trésorerie stock tendue ou CAC supérieur à la marge contributive"
+            ]
+          ],
+          "nb_lignes": 3,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Conditions de réussite communes",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 31
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Une proposition immédiatement compréhensible en français et en anglais.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 71
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Un pilotage par l’économie unitaire de chaque pièce et de chaque projet.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 72
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Une base de données clients structurée autour des goûts, jalons de vie et consentements.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 88
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Une capacité à produire de la confiance à distance avant la visite ou l’achat.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 78
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Une internationalisation par preuve de demande, non par prestige du marché visé.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 80
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Le scénario central est accessible sans implantation internationale lourde.\nLimite — Un scénario haut ne doit pas dégrader l’expérience ou la trésorerie.\nDécision — Réviser les scénarios chaque trimestre à partir de six indicateurs commerciaux et financiers.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Grille de révision trimestrielle",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 32
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Signal",
+            "Accélérer si…",
+            "Ralentir si…"
+          ],
+          "lignes": [
+            [
+              "Demande",
+              "Le pipeline qualifié couvre 3 mois de capacité",
+              "Les rendez-vous baissent deux mois consécutifs"
+            ],
+            [
+              "Marge",
+              "La marge contributive progresse par offre",
+              "Le service et la logistique absorbent la marge"
+            ],
+            [
+              "Stock",
+              "La rotation respecte les cibles",
+              "Les pièces âgées augmentent sans plan de sortie"
+            ],
+            [
+              "International",
+              "Un pays produit réachat et prescription",
+              "Les ventes dépendent d’un événement isolé"
+            ],
+            [
+              "Équipe",
+              "Les délais de réponse et livraison sont tenus",
+              "La fondatrice devient le goulot d’étranglement"
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 996,
+        "paragraphes": 9,
+        "tableaux": 2,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 09",
+      "titre": "Les 12 chiffres clés",
+      "accroche": "Les repères à retenir pour décider.",
+      "blocs": [
+        {
+          "type": "grille_kpi",
+          "cellules": [
+            {
+              "contenu": "381,5 Md$\nMarché mondial large de la bijouterie en 2025\nGrand View Research",
+              "fond": "F1EEDB"
+            },
+            {
+              "contenu": "32 Md€\nJoaillerie de luxe mondiale en 2025\nBain",
+              "fond": "E9DFE4"
+            },
+            {
+              "contenu": "+4 à +6 %\nCroissance 2025 de la joaillerie de luxe\nBain",
+              "fond": "F1EEDB"
+            }
+          ]
+        },
+        {
+          "type": "grille_kpi",
+          "cellules": [
+            {
+              "contenu": "50 Md€\nMarché mondial du luxe d’occasion en 2025\nBain",
+              "fond": "E9DFE4"
+            },
+            {
+              "contenu": "83 %\nPart montres et bijoux dans le luxe d’occasion\nBain",
+              "fond": "F1EEDB"
+            },
+            {
+              "contenu": "6,162 Md€\nProduction française de bijoux en 2025\nFrancéclat",
+              "fond": "E9DFE4"
+            }
+          ]
+        },
+        {
+          "type": "grille_kpi",
+          "cellules": [
+            {
+              "contenu": "+8 %\nCroissance de la bijouterie-joaillerie française en 2025\nFrancéclat",
+              "fond": "F1EEDB"
+            },
+            {
+              "contenu": "5,92 Md€\nVentes France de bijoux précieux et montres en 2025\nFrancéclat",
+              "fond": "E9DFE4"
+            },
+            {
+              "contenu": "+38 %\nHausse du lingot d’or en 2025\nFrancéclat",
+              "fond": "F1EEDB"
+            }
+          ]
+        },
+        {
+          "type": "grille_kpi",
+          "cellules": [
+            {
+              "contenu": "75 %\nPréférence pour des designs créatifs ou uniques\nMcKinsey",
+              "fond": "E9DFE4"
+            },
+            {
+              "contenu": "36,3 M\nTouristes dans le Grand Paris en 2024\nParis je t’aime",
+              "fond": "F1EEDB"
+            },
+            {
+              "contenu": "251 000\nMariages célébrés en France en 2025\nInsee",
+              "fond": "E9DFE4"
+            }
+          ]
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE GLOBALE",
+          "texte": "Le marché ne manque pas de volume. La difficulté consiste à rendre Joalie identifiable, crédible et mémorable au sein d’une offre abondante, puis à transformer une affinité culturelle en rendez-vous et en achat.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 0,
+        "paragraphes": 0,
+        "tableaux": 0,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 4
+      }
+    },
+    {
+      "numero": "CHAPITRE 10",
+      "titre": "Clientèle cible et comportements d’achat",
+      "accroche": "L’achat de joaillerie d’auteur combine découverte, projection personnelle, réduction du risque et justification du prix.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "10.1 Cœur de cible",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 18
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le cœur de cible prioritaire demeure la femme de 35 à 65 ans à fort pouvoir d’achat, cultivée et urbaine, résidant à Paris ou dans une grande métropole française, européenne, américaine ou du Moyen-Orient. Sa sensibilité à l’art, au design, à l’architecture, à la mode et aux métiers d’art constitue un meilleur prédicteur d’affinité que la seule richesse.",
+          "style": null,
+          "gras": false,
+          "signes": 356
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Elle n’achète pas d’abord pour afficher un statut. Elle cherche un objet qui donne forme à une personnalité, marque une étape de vie ou soutient une création. Cette motivation rend le récit central, mais le récit ne doit jamais remplacer la preuve matérielle.",
+          "style": null,
+          "gras": false,
+          "signes": 259
+        },
+        {
+          "type": "paragraphe",
+          "texte": "10.2 Parcours d’achat",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 21
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Étape",
+            "Question du client",
+            "Réponse attendue de Joalie",
+            "Indicateur"
+          ],
+          "lignes": [
+            [
+              "Découverte",
+              "Pourquoi cette maison ?",
+              "Promesse claire, image forte, sélection reconnaissable",
+              "Visite qualifiée / sauvegarde"
+            ],
+            [
+              "Exploration",
+              "Cette pièce me ressemble-t-elle ?",
+              "Contexte d’auteur, dimensions, porté, comparaison",
+              "Consultation fiche / demande"
+            ],
+            [
+              "Confiance",
+              "Puis-je croire la valeur annoncée ?",
+              "Certificat, provenance, atelier, matières, expertise",
+              "Rendez-vous confirmé"
+            ],
+            [
+              "Décision",
+              "Est-ce le bon choix maintenant ?",
+              "Essayage, conseil, options de paiement/livraison, absence de pression",
+              "Taux rendez-vous/achat"
+            ],
+            [
+              "Après-vente",
+              "La maison reste-t-elle présente ?",
+              "Entretien, mise à taille, assurance, suivi",
+              "Satisfaction / réachat"
+            ],
+            [
+              "Transmission",
+              "À qui en parler ?",
+              "Histoire partageable, attention personnelle, invitation privée",
+              "Recommandation"
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "10.3 Fiançailles et sur-mesure",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 30
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La France a enregistré environ 251 000 mariages en 2025. L’âge moyen des femmes au mariage atteint 37,5 ans pour les couples de sexe différent. Cette maturité favorise des acheteurs plus autonomes, moins attachés à un modèle unique de bague et plus sensibles à une démarche personnelle. La cible des trentenaires est donc cohérente, à condition d’offrir des repères de budget, de calendrier et de choix.",
+          "style": null,
+          "gras": false,
+          "signes": 403
+        },
+        {
+          "type": "paragraphe",
+          "texte": "L’entrée « fiançailles autrement » peut réunir trois solutions : création originale, pièce vintage et transformation d’un bijou transmis. Elle distingue Joalie des joailliers centrés exclusivement sur le diamant neuf et rend visible la totalité du savoir-faire de la maison.",
+          "style": null,
+          "gras": false,
+          "signes": 274
+        },
+        {
+          "type": "paragraphe",
+          "texte": "10.4 Rôle des hommes",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 20
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les hommes forment une cible d’achat et de prescription importante, notamment pour le cadeau. Leur principal risque perçu est l’erreur : goût, taille, symbole, délai. Une offre de conciergerie doit réduire ce risque par une courte consultation, une sélection restreinte, des options d’échange clairement expliquées et, lorsque cela est approprié, une validation discrète avec la destinataire.",
+          "style": null,
+          "gras": false,
+          "signes": 392
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Les comportements correspondent à une vente de conseil, non à un simple e-commerce.\nLimite — Trop d’information peut aussi retarder la décision.\nDécision — Construire un parcours en couches : émotion d’abord, preuve ensuite, détails techniques à la demande.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 1773,
+        "paragraphes": 9,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 11",
+      "titre": "Deux personas fondés sur les données",
+      "accroche": "Des outils d’arbitrage pour le contenu, l’offre et les partenariats.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "Ces deux profils sont des hypothèses de travail construites à partir du marché, du positionnement déclaré par Joalie et de ses premiers clients observés — pas des segments validés statistiquement. Ils doivent être confrontés au CRM et recalibrés dès que Joalie disposera de données réelles sur qui achète, pourquoi et par quel canal.",
+          "style": null,
+          "gras": false,
+          "signes": 333
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Persona 1 — Claire, collectionneuse de récits",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 45
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Dimension",
+            "Profil"
+          ],
+          "lignes": [
+            [
+              "Situation",
+              "47 ans, Paris ou grande métropole européenne, profession intellectuelle ou dirigeante, forte autonomie d’achat."
+            ],
+            [
+              "Univers",
+              "Art contemporain, architecture, design, mode indépendante, gastronomie, voyages culturels."
+            ],
+            [
+              "Motivation",
+              "Porter une pièce rare qui exprime une sensibilité ; acheter pour elle-même lors d’un jalon professionnel ou personnel."
+            ],
+            [
+              "Comportement",
+              "Découvre via la presse, Instagram, une amie ou une foire ; consulte longtemps ; préfère essayer et échanger avec une experte."
+            ],
+            [
+              "Freins",
+              "Crainte d’un prix insuffisamment justifié, d’une pièce difficile à porter ou d’une maison encore peu connue."
+            ],
+            [
+              "Message",
+              "Une sélection pensée comme une exposition intime, avec des œuvres à porter et à transmettre."
+            ],
+            [
+              "Offre",
+              "Rendez-vous « pièce-signature », contemporary + vintage, accès anticipé aux nouvelles sélections."
+            ],
+            [
+              "Preuves",
+              "Histoire de l’auteur, fabrication, rareté, certificat, photographie portée, service d’entretien."
+            ]
+          ],
+          "nb_lignes": 8,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Persona 2 — Maya et Julien, fiançailles singulières",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 51
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Dimension",
+            "Profil"
+          ],
+          "lignes": [
+            [
+              "Situation",
+              "34 et 36 ans, Paris/Londres/Bruxelles/New York ; budget significatif mais réfléchi ; premier achat de joaillerie important."
+            ],
+            [
+              "Univers",
+              "Voyages, design, restaurants, photographie, objets durables ; faible intérêt pour les codes ostentatoires."
+            ],
+            [
+              "Motivation",
+              "Créer une bague qui raconte leur relation et ne ressemble pas à un standard."
+            ],
+            [
+              "Comportement",
+              "Recherche en ligne, partage des références, compare création neuve, vintage et transformation familiale."
+            ],
+            [
+              "Freins",
+              "Vocabulaire technique, incertitude sur le budget, délais, choix de pierre et peur du résultat final."
+            ],
+            [
+              "Message",
+              "Trois voies pour une même histoire : créer, choisir une pièce ancienne ou transformer un héritage."
+            ],
+            [
+              "Offre",
+              "Consultation de 60 minutes, budget d’orientation, trois pistes créatives, calendrier et validations."
+            ],
+            [
+              "Preuves",
+              "Portfolio, croquis/maquette, pierre documentée, devis détaillé, étapes signées, entretien."
+            ]
+          ],
+          "nb_lignes": 8,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "encadre",
+          "etiquette": "USAGE",
+          "texte": "Chaque campagne, événement ou nouvelle offre doit préciser quel persona est visé, quel déclencheur est activé et quelle preuve réduit le frein principal.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 429,
+        "paragraphes": 3,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 12",
+      "titre": "Risques et plan de maîtrise",
+      "accroche": "La viabilité dépend moins du nombre de risques que de la rapidité avec laquelle ils sont détectés.",
+      "blocs": [
+        {
+          "type": "tableau",
+          "entetes": [
+            "Risque",
+            "Indicateur d’alerte",
+            "Prévention",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Notoriété insuffisante",
+              "Trafic non qualifié, peu de rendez-vous",
+              "Partenariats, presse, événements ciblés",
+              "Concentrer le budget sur deux canaux qui convertissent"
+            ],
+            [
+              "Message trop complexe",
+              "Clients incapables de reformuler Joalie",
+              "Promesse courte, trois portes d’entrée",
+              "Tests de compréhension et refonte des pages"
+            ],
+            [
+              "Stock lent",
+              "Rotation > 12 mois, trésorerie tendue",
+              "Dépôt-vente, quotas, revue mensuelle",
+              "Retour/rotation, événements privés, stop achats"
+            ],
+            [
+              "Marge insuffisante",
+              "Service élevé non facturé",
+              "Coût complet par offre",
+              "Reprix, minimum de projet, abandon références"
+            ],
+            [
+              "Volatilité matières",
+              "Écart devis/coût réel",
+              "Durée de validité, acompte, couverture",
+              "Révision contractuelle et alternatives"
+            ],
+            [
+              "Défaut d’authenticité",
+              "Pièce ou provenance contestée",
+              "Double contrôle, dossier, assurance",
+              "Retrait immédiat, expertise tierce, protocole client"
+            ],
+            [
+              "Retard sur-mesure",
+              "Jalons glissants",
+              "Planning atelier, marges, validations",
+              "Information proactive, option de secours"
+            ],
+            [
+              "Dommage / vol",
+              "Incident transport ou galerie",
+              "Assurance, emballage, transporteur spécialisé",
+              "Déclaration, traçabilité, gestion de crise"
+            ],
+            [
+              "Export non conforme",
+              "Blocage douane, coût imprévu",
+              "Checklist pays, Incoterm, partenaire",
+              "Suspendre pays ou catégorie concernée"
+            ],
+            [
+              "Dépendance fondatrice",
+              "Délai de réponse, saturation",
+              "Process, CRM, délégation",
+              "Prioriser, limiter événements, recrutement ciblé"
+            ]
+          ],
+          "nb_lignes": 10,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Plan de maîtrise à 90 jours",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 27
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Établir le coût complet et la marge contributive des trois offres.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 66
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Créer une fiche standard d’entrée en stock et un passeport de pièce.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 68
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Fixer des règles de stock : achat ferme, dépôt-vente, durée cible, seuil de remise en cause.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 92
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Écrire le processus sur-mesure : brief, acompte, validations, délai, réception et modification.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 95
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Revoir assurance, sécurité, expédition et couverture internationale.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 68
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Installer un tableau de bord mensuel avec seuils d’alerte.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 58
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — La majorité des risques peuvent être réduits par le processus et la documentation.\nLimite — Le risque de trésorerie et de dépendance à la fondatrice est transversal.\nDécision — Faire de la revue mensuelle stock–marge–pipeline un rituel de direction.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Règles d’arrêt immédiat",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 23
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Situation",
+            "Décision"
+          ],
+          "lignes": [
+            [
+              "Provenance ou authenticité non résolue",
+              "Retirer la pièce de la vente jusqu’à expertise tierce concluante."
+            ],
+            [
+              "Marge contributive négative récurrente",
+              "Suspendre l’offre ou repricer avant nouvelle commande."
+            ],
+            [
+              "Blocage douanier non compris",
+              "Suspendre les expéditions vers le pays concerné."
+            ],
+            [
+              "Retard sur-mesure critique",
+              "Informer le client, sécuriser une solution et revoir la capacité atelier."
+            ],
+            [
+              "Stock au-delà du seuil",
+              "Geler les achats fermes et décider pièce par pièce."
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 497,
+        "paragraphes": 8,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 13",
+      "titre": "Cartographie des risques externes",
+      "accroche": "Les risques les plus critiques cumulent coût des matières, sécurité et dépendance à l’attention.",
+      "blocs": [
+        {
+          "type": "graphique",
+          "fichier": "image6.png",
+          "octets": 118148
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Évaluation EVKHA, juillet 2026. Probabilité et impact notés de 1 (faible) à 5 (très élevé).",
+          "style": null,
+          "gras": false,
+          "signes": 91
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Lecture de la matrice",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 21
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La notoriété, la trésorerie liée au stock et la dépendance à l’offre des créateurs doivent être traitées en priorité, car elles influencent directement la capacité à convertir et à financer l’activité. Le risque d’authenticité ou de conformité est moins fréquent mais son impact réputationnel est maximal.",
+          "style": null,
+          "gras": false,
+          "signes": 305
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le coût des métaux doit être surveillé sans faire de la spéculation. Il s’agit de raccourcir la validité des devis, de documenter les hypothèses, de proposer des alternatives de poids ou de pierre et de séparer clairement les variations de matière des honoraires de création.",
+          "style": null,
+          "gras": false,
+          "signes": 275
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Veille recommandée",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 18
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Domaine",
+            "Source",
+            "Rythme",
+            "Décision associée"
+          ],
+          "lignes": [
+            [
+              "Cours or/argent/platine",
+              "Francéclat, LBMA, fournisseurs",
+              "Hebdomadaire",
+              "Devis, prix, achat matière"
+            ],
+            [
+              "Marché luxe",
+              "Bain, McKinsey, Deloitte",
+              "Semestriel",
+              "Cibles, canaux, scénarios"
+            ],
+            [
+              "Réglementation",
+              "Douane, DGCCRF, UE, conseil",
+              "Trimestriel",
+              "Fiches, export, contrats"
+            ],
+            [
+              "Tourisme Paris",
+              "Paris je t’aime, Atout France",
+              "Trimestriel",
+              "Langues, partenariats, événements"
+            ],
+            [
+              "Stock et demandes",
+              "CRM et gestion interne",
+              "Mensuel",
+              "Achat, rotation, contenu"
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — La veille devient utile lorsqu’elle déclenche une décision prédéfinie.\nLimite — Une jeune structure ne peut suivre tous les signaux.\nDécision — Limiter la veille à cinq domaines et à un responsable par alerte.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 710,
+        "paragraphes": 5,
+        "tableaux": 1,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 14",
+      "titre": "Potentiel de viabilité",
+      "accroche": "Un potentiel réel, conditionné par l’économie unitaire et la discipline commerciale.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "14.1 Évaluation qualitative",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 27
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Critère",
+            "Note / 5",
+            "Justification"
+          ],
+          "lignes": [
+            [
+              "Attractivité du segment",
+              "4,4",
+              "Joaillerie en croissance, seconde main structurée, personnalisation recherchée."
+            ],
+            [
+              "Différenciation",
+              "4,6",
+              "Triple offre rare et cohérente autour du bijou comme récit."
+            ],
+            [
+              "Accès à la clientèle",
+              "3,1",
+              "Paris favorable, mais notoriété et prescription encore à construire."
+            ],
+            [
+              "Capacité de preuve",
+              "3,8",
+              "Expertise, ateliers et histoire fortes ; formalisation à renforcer."
+            ],
+            [
+              "Économie du modèle",
+              "3,3",
+              "Panier élevé mais risque de stock, marge et temps de service."
+            ],
+            [
+              "Scalabilité",
+              "2,9",
+              "Curation et sur-mesure peu industrialisables ; croissance sélective préférable."
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "14.2 Modèle de viabilité proposé",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 32
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La viabilité doit être vérifiée par un modèle à faible volume et forte valeur relationnelle. Un panier moyen apparent de 3,5 à 5 k€ est cohérent avec les prix observés sur le site, mais la marge nette dépend du mix : achat-revente, dépôt-vente, commission, fabrication et honoraires de conception.",
+          "style": null,
+          "gras": false,
+          "signes": 297
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Scénario annuel",
+            "Transactions",
+            "Panier moyen",
+            "Volume d’affaires",
+            "Interprétation"
+          ],
+          "lignes": [
+            [
+              "Prudent",
+              "35",
+              "3 500 €",
+              "122 500 €",
+              "Validation du positionnement, forte dépendance aux coûts fixes."
+            ],
+            [
+              "Central",
+              "60",
+              "4 000 €",
+              "240 000 €",
+              "Base crédible si marge contributive et charges sont maîtrisées."
+            ],
+            [
+              "Dynamique",
+              "100",
+              "5 000 €",
+              "500 000 €",
+              "Exige un pipeline international et des processus solides."
+            ]
+          ],
+          "nb_lignes": 3,
+          "nb_colonnes": 5
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Scénarios de volume d’affaires en rythme ANNUEL (pas un cumul sur 24 mois), ni prévision de chiffre d’affaires ni de résultat. Les 24 premiers mois d’activité servent de fenêtre pour atteindre ce rythme, pas à l’additionner. Ils doivent être recalculés avec les données comptables réelles de Joalie.",
+          "style": null,
+          "gras": false,
+          "signes": 299
+        },
+        {
+          "type": "paragraphe",
+          "texte": "14.3 Seuils de validation",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 25
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Marge contributive positive après temps de vente, logistique, paiement, assurance et service.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 93
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Taux de conversion rendez-vous/achat supérieur à 25 % sur rendez-vous qualifiés.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 80
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Rotation cible définie par catégorie ; aucune extension de stock sans preuve de rotation.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 89
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Au moins 25 % des ventes issues de réachat, recommandation ou prescripteur à 24 mois.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 85
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Un marché international testé avec trois partenaires et dix clients qualifiés avant investissement permanent.",
+          "style": "ListBullet",
+          "gras": false,
+          "signes": 109
+        },
+        {
+          "type": "encadre",
+          "etiquette": "VERDICT DE VIABILITÉ",
+          "texte": "Favorable sous conditions. Le produit–marché est cohérent ; l’incertitude principale porte sur la machine commerciale et la marge réelle, non sur l’existence d’un désir pour la proposition.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 1136,
+        "paragraphes": 10,
+        "tableaux": 2,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 15",
+      "titre": "Tableau de bord visuel du marché",
+      "accroche": "Un diagnostic simple pour aligner l’équipe et suivre les arbitrages.",
+      "blocs": [
+        {
+          "type": "graphique",
+          "fichier": "image7.png",
+          "octets": 81664
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Appréciation EVKHA sur 5, fondée sur les données de marché et l’offre publique Joalie.",
+          "style": null,
+          "gras": false,
+          "signes": 86
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Indicateurs mensuels",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 20
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les cibles ci-dessous sont des hypothèses de démarrage, pas des objectifs figés : elles doivent être recalibrées dès les premiers mois de mesure réelle.",
+          "style": null,
+          "gras": false,
+          "signes": 152
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Axe",
+            "Indicateur",
+            "Cible initiale",
+            "Pourquoi"
+          ],
+          "lignes": [
+            [
+              "Acquisition",
+              "Rendez-vous qualifiés",
+              "8 à 12 / mois",
+              "Mesure la demande réelle, pas l’audience."
+            ],
+            [
+              "Conversion",
+              "Rendez-vous → achat",
+              "≥ 25 %",
+              "Valide sélection, prix, confiance et conseil."
+            ],
+            [
+              "Valeur",
+              "Panier et marge contributive",
+              "Par offre",
+              "Évite de confondre volume et rentabilité."
+            ],
+            [
+              "Stock",
+              "Rotation et âge des pièces",
+              "Revue mensuelle",
+              "Protège la trésorerie."
+            ],
+            [
+              "Relation",
+              "Réachat / recommandation",
+              "≥ 25 % à 24 mois",
+              "Mesure l’actif relationnel."
+            ],
+            [
+              "International",
+              "Demandes, rendez-vous, ventes",
+              "Par pays",
+              "Autorise ou non l’investissement suivant."
+            ],
+            [
+              "Sur-mesure",
+              "Délai et reprises",
+              "≥ 90 % à l’heure",
+              "Protège confiance et marge."
+            ],
+            [
+              "Preuve",
+              "Fiches/passeports complets",
+              "100 %",
+              "Réduit le risque réglementaire et commercial."
+            ]
+          ],
+          "nb_lignes": 8,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Règle de pilotage",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 17
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Chaque indicateur doit avoir une définition fixe, une source et un seuil d’action. Par exemple, une pièce dépassant son âge cible déclenche une décision : mise en récit, événement, nouvelle photographie, retour au créateur ou sortie du stock — jamais une attente indéfinie.",
+          "style": null,
+          "gras": false,
+          "signes": 273
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — Le diagnostic montre une forte proposition et un accès marché encore perfectible.\nLimite — La croissance d’audience peut masquer un faible taux de conversion.\nDécision — Faire du rendez-vous qualifié l’unité centrale du tableau de bord.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 548,
+        "paragraphes": 5,
+        "tableaux": 1,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 16",
+      "titre": "Analyse de l’offre et de la demande",
+      "accroche": "Le marché est fragmenté entre maisons, galeries, plateformes, antiquaires et artisans ; Joalie doit occuper l’interface.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "16.1 Cartographie de l’offre",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 28
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Famille d’acteurs",
+            "Force",
+            "Limite face à Joalie",
+            "Exemples indicatifs"
+          ],
+          "lignes": [
+            [
+              "Maisons historiques",
+              "Notoriété, patrimoine, réseau mondial",
+              "Standardisation perçue, prix et codes établis",
+              "Cartier, Van Cleef & Arpels, Chaumet"
+            ],
+            [
+              "Galeries de créateurs",
+              "Curation et découverte",
+              "Vintage et sur-mesure parfois absents",
+              "WHITEbIRD, Mad Lords, Objet d’Emotion"
+            ],
+            [
+              "Plateformes internationales",
+              "Choix, portée, transaction",
+              "Relation distante, surcharge de choix",
+              "The Jewellery Room"
+            ],
+            [
+              "Marchands vintage",
+              "Expertise historique et pièces rares",
+              "Création contemporaine absente",
+              "Galerie Pénélope, Macklowe Gallery, Hancocks London"
+            ],
+            [
+              "Joailliers-artisans",
+              "Sur-mesure, proximité, maîtrise du geste",
+              "Curation multi-auteurs et vintage limités",
+              "Ateliers indépendants parisiens (dont Van Hoye)"
+            ],
+            [
+              "Enchères et resale",
+              "Prix de marché, collection, liquidité",
+              "Expérience irrégulière, frais, faible accompagnement",
+              "Maisons de ventes et plateformes"
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "16.2 Intensité de la demande",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 28
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La demande est favorable aux pièces créatives et personnelles, mais le client dispose de nombreux substituts : art, mode, voyage, design, luxe d’occasion ou maisons historiques. Joalie ne concurrence donc pas seulement d’autres joailliers. Elle concurrence toutes les dépenses émotionnelles à forte valeur.",
+          "style": null,
+          "gras": false,
+          "signes": 306
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le site public présente une sélection d’environ 142 pièces et une fourchette observée d’environ 1 800 à 11 700 € sur un échantillon consulté. Cette amplitude permet plusieurs portes d’entrée, mais elle nécessite des repères : découverte sous 2 500 €, cœur de collection entre 2 500 et 5 000 €, pièces majeures au-delà.",
+          "style": null,
+          "gras": false,
+          "signes": 318
+        },
+        {
+          "type": "graphique",
+          "fichier": "image8.png",
+          "octets": 85726
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Échantillon exploratoire de 11 prix affichés sur joalie.fr en juillet 2026 ; il ne représente pas l’intégralité du catalogue.",
+          "style": null,
+          "gras": false,
+          "signes": 125
+        },
+        {
+          "type": "paragraphe",
+          "texte": "16.3 Espace stratégique",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 23
+        },
+        {
+          "type": "encadre",
+          "etiquette": "POSITION À DÉFENDRE",
+          "texte": "Joalie n’est ni une marketplace ni une bijouterie multimarque classique. C’est une maison d’édition : elle sélectionne, met en relation des époques et accompagne la création d’un bijou personnel.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La défense de cette position repose sur la voix curatoriale. Chaque pièce doit expliquer pourquoi elle est chez Joalie, à qui elle pourrait parler et comment elle dialogue avec le reste de la sélection. Le rôle de la fondatrice et des expertes devient ainsi une infrastructure commerciale, à formaliser pour qu’elle soit transmissible. Cette infrastructure repose déjà sur un collectif rare pour une jeune maison : neuf créateurs aux inspirations plurielles et une experte en bijoux anciens, réunis autour d’artisans joailliers. C’est ce collectif, plus que le catalogue à un instant donné, qui constitue l’actif défendable de Joalie.",
+          "style": null,
+          "gras": false,
+          "signes": 634
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — L’espace concurrentiel existe entre galerie, expert vintage et joaillier-artisan.\nLimite — Les concurrents spécialisés sont plus simples à comprendre en un regard.\nDécision — Utiliser « maison d’édition joaillière » comme catégorie centrale, puis expliquer les trois services en une phrase.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 1462,
+        "paragraphes": 7,
+        "tableaux": 1,
+        "graphiques": 1,
+        "encadres": 2,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 17",
+      "titre": "Analyse géographique avancée",
+      "accroche": "Prioriser l’accessibilité et la prescription avant la taille théorique du marché.",
+      "blocs": [
+        {
+          "type": "graphique",
+          "fichier": "image9.png",
+          "octets": 69458
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Scores EVKHA sur 5. L’accessibilité combine proximité, langue, coûts d’activation, logistique et réseau potentiel.",
+          "style": null,
+          "gras": false,
+          "signes": 114
+        },
+        {
+          "type": "paragraphe",
+          "texte": "17.1 Ordre de priorité",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 22
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Vague",
+            "Marchés",
+            "Mode d’entrée",
+            "Objectif de preuve"
+          ],
+          "lignes": [
+            [
+              "0–6 mois",
+              "Paris / Grand Paris + touristes US et Golfe",
+              "Rendez-vous bilingues, hôtels, conciergeries, art advisors",
+              "50 contacts qualifiés, 12 ventes internationales"
+            ],
+            [
+              "6–18 mois",
+              "Bruxelles, Londres, Genève",
+              "Trunk shows, partenaires culture/design, rendez-vous sur invitation",
+              "10 rendez-vous et 3 ventes par activation"
+            ],
+            [
+              "12–24 mois",
+              "New York, Dubaï",
+              "Partenaire local, pop-up court, événement privé",
+              "Pipeline couvrant au moins 3× le coût complet"
+            ]
+          ],
+          "nb_lignes": 3,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Au-delà de 24 mois, Riyad et d’autres villes restent des marchés d’opportunité (prescription locale, projet BtoB ou événement institutionnel), testés seulement une fois la demande prouvée — sans logistique dédiée anticipée.",
+          "style": null,
+          "gras": false,
+          "signes": 223
+        },
+        {
+          "type": "paragraphe",
+          "texte": "17.2 Paris et marchés proches",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 29
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Paris reste le marché prioritaire car il agrège production française, légitimité culturelle, clientèle locale et visiteurs internationaux. Bruxelles offre une proximité logistique et un lien naturel avec l’expertise vintage belge. Londres réunit collectionneurs, galeries indépendantes et foires comme PAD, mais ajoute des formalités post-Brexit. Genève concentre fortune privée, horlogerie et clientèle internationale, avec un accès par rendez-vous et prescription.",
+          "style": null,
+          "gras": false,
+          "signes": 466
+        },
+        {
+          "type": "paragraphe",
+          "texte": "17.3 États-Unis",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 15
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les États-Unis forment le premier bassin mondial de millionnaires et un grand marché du luxe. New York est la ville d’entrée la plus cohérente pour Joalie par la densité de collectionneurs, de galeries et de médias. McKinsey observe que les clients américains valorisent particulièrement les marques émergentes reflétant leur identité, l’accès anticipé et les éditions limitées. L’activation doit cependant précéder l’export régulier : partenaire, rendez-vous privés, règles de retour, taxes et assurance.",
+          "style": null,
+          "gras": false,
+          "signes": 505
+        },
+        {
+          "type": "paragraphe",
+          "texte": "17.4 Moyen-Orient",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 17
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les Émirats arabes unis et l’Arabie saoudite combinent croissance des patrimoines et appétence pour le luxe. UBS comptait plus de 240 000 millionnaires aux Émirats et environ 339 000 en Arabie saoudite dans son édition 2025, avec une progression attendue d’ici 2029. Le service privé, le bespoke, la discrétion et la confiance personnelle sont particulièrement importants. Dubaï constitue un premier marché test plus accessible que Riyad.",
+          "style": null,
+          "gras": false,
+          "signes": 438
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — L’international peut d’abord être capté à Paris, puis consolidé par activations courtes.\nLimite — Le prestige d’une ville peut masquer un coût d’entrée élevé.\nDécision — Aucune implantation permanente sans preuve de pipeline, de marge nette export et de partenaire fiable.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 1829,
+        "paragraphes": 9,
+        "tableaux": 1,
+        "graphiques": 1,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 18",
+      "titre": "SWOT de synthèse",
+      "accroche": "Une singularité forte à transformer en système commercial.",
+      "blocs": [
+        {
+          "type": "tableau",
+          "entetes": [
+            "Forces",
+            "Faiblesses"
+          ],
+          "lignes": [
+            [
+              "• Triple proposition contemporaine, vintage, sur-mesure\n• Voix curatoriale et expertise\n• Ancrage parisien et métiers d’art\n• Pièces rares, petites séries, auteurs\n• Forte matière éditoriale",
+              "• Notoriété récente\n• Message potentiellement complexe\n• Dépendance à la fondatrice et aux partenaires\n• Risque de stock et de service non valorisé\n• Parcours international encore à formaliser"
+            ]
+          ],
+          "nb_lignes": 1,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Opportunités",
+            "Menaces"
+          ],
+          "lignes": [
+            [
+              "• Croissance de la joaillerie de luxe\n• Seconde main devenue centrale\n• Recherche de designs uniques\n• Fiançailles personnalisées et transformation\n• Tourisme international à Paris\n• Appétence US et Golfe pour l’identité et le service privé",
+              "• Volatilité de l’or et des matières\n• Contraction du nombre de clients luxe\n• Concurrence des maisons et plateformes\n• Coûts d’acquisition et dépendance aux réseaux sociaux\n• Risques d’authenticité, sécurité, douane\n• Arbitrage vers expériences, art ou voyage"
+            ]
+          ],
+          "nb_lignes": 1,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Croisements stratégiques",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 24
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Croisement",
+            "Orientation"
+          ],
+          "lignes": [
+            [
+              "Forces × opportunités",
+              "Créer des rendez-vous et contenus qui réunissent création contemporaine, vintage et transformation autour d’un même thème."
+            ],
+            [
+              "Forces × menaces",
+              "Utiliser l’expertise, le passeport de pièce et l’ancrage atelier pour défendre le prix et la confiance."
+            ],
+            [
+              "Faiblesses × opportunités",
+              "S’appuyer sur des partenaires prescripteurs pour compenser la faible notoriété."
+            ],
+            [
+              "Faiblesses × menaces",
+              "Limiter stock, marchés et projets ; documenter la marge et les obligations avant toute expansion."
+            ]
+          ],
+          "nb_lignes": 4,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DIAGNOSTIC",
+          "texte": "Joalie dispose d’une singularité stratégique supérieure à sa maturité commerciale. La priorité n’est pas de réinventer l’offre, mais de créer les mécanismes qui rendent cette singularité visible, rassurante et achetable.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 24,
+        "paragraphes": 1,
+        "tableaux": 3,
+        "graphiques": 0,
+        "encadres": 1,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 19",
+      "titre": "Analyse stratégique et recommandations",
+      "accroche": "Une feuille de route en trois temps : clarifier, convertir, internationaliser.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "19.1 Positionnement recommandé",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 30
+        },
+        {
+          "type": "encadre",
+          "etiquette": "PROMESSE FRANÇAISE",
+          "texte": "Joalie est une maison d’édition joaillière parisienne qui réunit créations contemporaines, bijoux vintage expertisés et commandes sur mesure pour donner forme aux récits personnels.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "encadre",
+          "etiquette": "PROMESSE INTERNATIONALE",
+          "texte": "A Parisian jewellery editing house curating contemporary creations, expert vintage pieces and bespoke commissions — jewels with a personal story.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La formulation internationale conserve l’idée d’édition, mais l’explique immédiatement. Le terme « gallery » peut être utilisé comme preuve d’expérience, sans remplacer la catégorie de maison d’édition.",
+          "style": null,
+          "gras": false,
+          "signes": 202
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.2 Architecture de l’offre",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 28
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Porte d’entrée",
+            "Promesse",
+            "Produit commercial",
+            "Preuve"
+          ],
+          "lignes": [
+            [
+              "Contemporain",
+              "Trouver une pièce-signature",
+              "Rendez-vous de curation de 45–60 min",
+              "Sélection préparée, auteurs, porté, certificat"
+            ],
+            [
+              "Vintage",
+              "Choisir une histoire à continuer",
+              "Vintage privé / recherche de pièce",
+              "Expertise, provenance, état, restauration"
+            ],
+            [
+              "Sur-mesure",
+              "Donner forme à un récit personnel",
+              "Consultation cadrée et projet en jalons",
+              "Portfolio, devis, pierre, atelier, validations"
+            ]
+          ],
+          "nb_lignes": 3,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.3 Plan d’action priorisé",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 27
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Horizon",
+            "Action",
+            "Livrable",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "0–30 j",
+              "Clarifier la promesse et la navigation",
+              "Accueil FR/EN, trois portes d’entrée, page rendez-vous",
+              "80 % des testeurs reformulent l’offre"
+            ],
+            [
+              "0–45 j",
+              "Formaliser la preuve",
+              "Passeport de pièce, checklist vintage, fiche atelier",
+              "100 % des pièces documentées"
+            ],
+            [
+              "0–60 j",
+              "Rendre le sur-mesure achetable",
+              "Processus, budgets d’orientation, délais, FAQ",
+              "Demandes qualifiées et moins d’allers-retours"
+            ],
+            [
+              "0–90 j",
+              "Installer le CRM relationnel",
+              "Profils, goûts, jalons, consentements, relances",
+              "Suivi sous 48 h ; historique complet"
+            ],
+            [
+              "30–90 j",
+              "Tester trois rendez-vous",
+              "Pièce-signature, Vintage privé, Fiançailles autrement",
+              "Conversion ≥ 25 %"
+            ],
+            [
+              "60–120 j",
+              "Activer Paris international",
+              "Kit conciergerie/hôtels/art advisors",
+              "5 partenaires actifs"
+            ],
+            [
+              "6–18 mois",
+              "Tester Bruxelles, Londres ou Genève",
+              "Trunk show sur invitation",
+              "3 ventes ou pipeline 3× coûts"
+            ],
+            [
+              "12–24 mois",
+              "Tester New York ou Dubaï",
+              "Partenaire et événement privé",
+              "Marge nette export positive"
+            ]
+          ],
+          "nb_lignes": 8,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.4 Contenu et visibilité",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 26
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le contenu doit se répartir entre désir et preuve. Le désir montre le porté, la personnalité, le dialogue entre les pièces et la voix des créateurs. La preuve montre le geste, les poinçons, la restauration, la provenance, les délais et l’entretien. Un calendrier éditorial équilibré évite une image uniquement esthétique ou, à l’inverse, trop technique.",
+          "style": null,
+          "gras": false,
+          "signes": 353
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Pilier",
+            "Formats",
+            "Appel à l’action"
+          ],
+          "lignes": [
+            [
+              "Éditer",
+              "Sélections, dialogues entre époques, pièces-signatures",
+              "Découvrir la sélection"
+            ],
+            [
+              "Rencontrer",
+              "Portraits de créateurs, ateliers, expertes",
+              "Réserver un rendez-vous"
+            ],
+            [
+              "Prouver",
+              "Poinçons, matériaux, restauration, fabrication",
+              "Voir le passeport de pièce"
+            ],
+            [
+              "Accompagner",
+              "Guides de fiançailles, cadeau, entretien, transformation",
+              "Demander une consultation"
+            ]
+          ],
+          "nb_lignes": 4,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.5 Partenariats prioritaires",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 30
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les partenariats doivent donner accès à une clientèle déjà qualifiée. À Paris : hôtels et conciergeries haut de gamme, art advisors, galeries, architectes et décorateurs, wedding planners premium, clubs privés, fondations et événements métiers d’art. À l’international : curateurs, boutiques invitées, foires de design ou d’art et organisateurs de rendez-vous privés.",
+          "style": null,
+          "gras": false,
+          "signes": 367
+        },
+        {
+          "type": "encadre",
+          "etiquette": "PRINCIPE DIRECTEUR",
+          "texte": "Mieux vaut dix prescripteurs capables de présenter précisément Joalie que cent contacts génériques. Chaque partenaire reçoit une phrase de présentation, trois cas d’usage, une sélection visuelle et un lien de rendez-vous traçable.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.6 Tableau des opportunités commerciales",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 42
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Synthèse opérationnelle des couples cible/marché déjà identifiés dans l’étude (chapitres 3, 10, 17 et 19), avec priorité, ordre de coût et échéance harmonisée sur le calendrier international à trois vagues.",
+          "style": null,
+          "gras": false,
+          "signes": 206
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Cible",
+            "Pays",
+            "Offre Joalie",
+            "Canal",
+            "Partenaire",
+            "Priorité",
+            "Coût",
+            "Délai",
+            "Indicateur de réussite"
+          ],
+          "lignes": [
+            [
+              "Couples 30-39 ans (fiançailles)",
+              "France (Paris)",
+              "Sur-mesure « Fiançailles autrement »",
+              "Rendez-vous boutique",
+              "Wedding planners, conciergeries",
+              "Haute",
+              "Faible",
+              "0–6 mois",
+              "≥5 briefs qualifiés/mois, 1 projet converti"
+            ],
+            [
+              "Touristes US et Golfe à Paris",
+              "France (Paris)",
+              "Rendez-vous curation + vintage",
+              "Hôtels, conciergeries, art advisors",
+              "Concierges 5*, art advisors",
+              "Haute",
+              "Faible à modéré",
+              "0–6 mois",
+              "50 contacts qualifiés, 12 ventes"
+            ],
+            [
+              "Collectionneuses vintage",
+              "Belgique (Bruxelles)",
+              "Vintage privé",
+              "Trunk show sur invitation",
+              "Experts vintage, galeries locales",
+              "Moyenne",
+              "Modéré",
+              "6–18 mois",
+              "10 rendez-vous et 3 ventes"
+            ],
+            [
+              "Collectionneurs, galeries indépendantes",
+              "Royaume-Uni (Londres)",
+              "Curation contemporaine",
+              "Foires (PAD), partenariats galeries",
+              "Galeries indépendantes, foires design",
+              "Moyenne",
+              "Modéré à élevé",
+              "6–18 mois",
+              "10 rendez-vous et 3 ventes"
+            ],
+            [
+              "Fortune privée internationale",
+              "Suisse (Genève)",
+              "Sur-mesure haut de gamme + vintage",
+              "Rendez-vous privé, prescription",
+              "Family offices, gérants de fortune",
+              "Moyenne",
+              "Modéré à élevé",
+              "6–18 mois",
+              "10 rendez-vous et 3 ventes"
+            ],
+            [
+              "Collectionneurs et médias",
+              "États-Unis (New York)",
+              "Pièce-signature + sur-mesure",
+              "Partenaire local, pop-up court",
+              "Galerie locale, presse spécialisée",
+              "Test",
+              "Élevé",
+              "12–24 mois",
+              "Pipeline ≥3× coût complet"
+            ],
+            [
+              "Clientèle privée fortunée",
+              "Émirats arabes unis (Dubaï)",
+              "Sur-mesure discret, bespoke",
+              "Événement privé, partenaire local",
+              "Family office, concierge de luxe",
+              "Test",
+              "Élevé",
+              "12–24 mois",
+              "Marge nette export positive"
+            ]
+          ],
+          "nb_lignes": 7,
+          "nb_colonnes": 9
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.7 Budget et arbitrage",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 24
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Sans données financières internes, l’étude ne fixe pas un budget absolu. Elle recommande une règle : aucun canal ne doit être prolongé après deux cycles s’il ne génère ni rendez-vous qualifié, ni partenaire, ni vente attribuable. Les dépenses d’image non mesurables sont limitées à une enveloppe décidée séparément.",
+          "style": null,
+          "gras": false,
+          "signes": 315
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Enveloppe",
+            "Inclure",
+            "Règle d’arbitrage"
+          ],
+          "lignes": [
+            [
+              "Acquisition mesurable",
+              "Partenariats, invitations, ciblage, déplacements",
+              "Poursuivre si coût d’acquisition < marge contributive attendue"
+            ],
+            [
+              "Image de marque",
+              "Photographie, presse, scénographie, contenus fondateurs",
+              "Budget annuel plafonné, évalué par actifs créés et retombées qualifiées"
+            ],
+            [
+              "Opérations",
+              "CRM, documentation, traduction, assurance, emballage",
+              "Prioritaire si elle réduit un risque ou libère du temps commercial"
+            ],
+            [
+              "Tests internationaux",
+              "Préqualification, transport, événement, suivi",
+              "Aucun test sans pipeline couvrant au moins 3× le coût complet"
+            ]
+          ],
+          "nb_lignes": 4,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DONNÉE À OBTENIR",
+          "texte": "Calculer pour chaque canal : coût complet, nombre de rendez-vous, ventes attribuées, volume d’affaires, marge contributive et réachat à six mois.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.8 Fiche d’activation — Paris international",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 45
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Cette activation vise les visiteurs étrangers déjà présents à Paris. Elle limite le risque logistique et permet d’observer les attentes par pays avant tout déplacement.",
+          "style": null,
+          "gras": false,
+          "signes": 168
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Composante",
+            "Dispositif recommandé"
+          ],
+          "lignes": [
+            [
+              "Proposition",
+              "Private jewellery appointment in Montmartre — contemporary, vintage and bespoke."
+            ],
+            [
+              "Cibles",
+              "Clientèles US, Royaume-Uni, Suisse, Belgique, Émirats et Arabie saoudite ; voyageurs culturels et collectionneurs."
+            ],
+            [
+              "Prescripteurs",
+              "Conciergeries d’hôtels, travel designers, art advisors, architectes, galeries, wedding planners."
+            ],
+            [
+              "Parcours",
+              "Questionnaire bref → sélection préparée → rendez-vous bilingue → dossier de pièce → livraison assurée."
+            ],
+            [
+              "Matériel",
+              "Mini-site anglais, dossier PDF léger, sélection de 12 pièces, biographie, adresse, conditions de détaxe/livraison."
+            ],
+            [
+              "Mesure",
+              "Source du contact, pays, date de voyage, rendez-vous, achat, panier, marge, suivi à 30 jours."
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "encadre",
+          "etiquette": "SEUIL DE VALIDATION",
+          "texte": "Cinq prescripteurs actifs, vingt rendez-vous internationaux qualifiés et un taux de conversion au moins équivalent au canal direct français sur six mois.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.9 Fiche d’offre — Fiançailles autrement",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 42
+        },
+        {
+          "type": "paragraphe",
+          "texte": "L’objectif est d’attirer les trentenaires sans banaliser Joalie. L’offre ne promet pas seulement une bague personnalisée : elle donne le choix entre création, sélection vintage et transformation d’un bijou transmis.",
+          "style": null,
+          "gras": false,
+          "signes": 215
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Étape",
+            "Contenu",
+            "Cadre de maîtrise"
+          ],
+          "lignes": [
+            [
+              "1. Orientation",
+              "Consultation de 60 minutes, histoire, usages, style, budget, échéance",
+              "Compte rendu validé et fourchette budgétaire"
+            ],
+            [
+              "2. Trois voies",
+              "Création originale, pièce vintage, transformation",
+              "Avantages, limites et délais présentés"
+            ],
+            [
+              "3. Proposition",
+              "Une à trois pistes, pierres et métal, estimation",
+              "Durée de validité liée aux cours"
+            ],
+            [
+              "4. Engagement",
+              "Devis, acompte, calendrier, responsabilités",
+              "Conditions signées avant fabrication"
+            ],
+            [
+              "5. Validation",
+              "Dessin, maquette ou étape d’essayage",
+              "Nombre de modifications défini"
+            ],
+            [
+              "6. Livraison",
+              "Certificat, entretien, assurance, histoire de la pièce",
+              "Réception signée et suivi à 30 jours"
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "encadre",
+          "etiquette": "MESSAGE",
+          "texte": "« Créer une pièce nouvelle, choisir une histoire ancienne ou transformer un héritage : trois chemins pour un engagement qui ne ressemble qu’à vous. »",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.10 Fiche d’offre — Vintage privé",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 35
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le vintage doit être présenté comme une expertise vivante, non comme un simple stock d’occasion. Le service associe sélection, contexte historique, état, usage et possibilité de transmission.",
+          "style": null,
+          "gras": false,
+          "signes": 191
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Avant le rendez-vous",
+            "Pendant",
+            "Après"
+          ],
+          "lignes": [
+            [
+              "• Époque ou style recherché\n• Budget et type de pièce\n• Taille et contraintes de porté\n• Sélection de 5 à 8 pièces",
+              "• Contexte et singularité\n• Lecture des poinçons\n• État et restaurations\n• Essayage et comparaison\n• Conditions de conservation",
+              "• Passeport de pièce\n• Mise à taille ou entretien\n• Conseil assurance\n• Suivi de recherche\n• Invitation aux nouvelles entrées"
+            ]
+          ],
+          "nb_lignes": 1,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Preuve minimale",
+            "Contenu"
+          ],
+          "lignes": [
+            [
+              "Identification",
+              "Époque estimée, style, matériaux, dimensions, poids, poinçons, photos."
+            ],
+            [
+              "Provenance",
+              "Origine de l’acquisition et chaîne documentaire disponible."
+            ],
+            [
+              "État",
+              "Usures, réparations, éléments remplacés, interventions recommandées."
+            ],
+            [
+              "Expertise",
+              "Nom de l’experte, niveau de certitude, recours à un tiers lorsque nécessaire."
+            ],
+            [
+              "Commercial",
+              "Prix, TVA applicable, garanties, retour, entretien et livraison."
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DIFFÉRENCIATION",
+          "texte": "Faire dialoguer une pièce vintage avec une création contemporaine partageant un geste, une couleur, un symbole ou une architecture.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.11 Fiche d’activation — Marché international test",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 52
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Une activation internationale n’est validée que si elle teste une hypothèse précise. Le choix de la ville suit la qualité du réseau disponible et la marge attendue, pas seulement la taille du marché.",
+          "style": null,
+          "gras": false,
+          "signes": 199
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Phase",
+            "Action",
+            "Condition de passage"
+          ],
+          "lignes": [
+            [
+              "1. Préqualification",
+              "20 entretiens clients/prescripteurs, benchmark prix, règles fiscales et logistiques",
+              "Au moins 10 contacts demandent une suite"
+            ],
+            [
+              "2. Prévente",
+              "Sélection privée à distance, prises de rendez-vous et acomptes si approprié",
+              "Pipeline ≥ 3× le coût complet"
+            ],
+            [
+              "3. Activation",
+              "Événement de 1 à 3 jours avec partenaire et rendez-vous cadencés",
+              "Taux de présence ≥ 70 %"
+            ],
+            [
+              "4. Suivi",
+              "Relance sous 48 h, livraison, contenu, recommandations",
+              "Marge nette positive à 60 jours"
+            ],
+            [
+              "5. Répétition",
+              "Deuxième activation ou partenariat régulier",
+              "Trois ventes et cinq opportunités qualifiées"
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Poste de coût à intégrer",
+            "Exemples"
+          ],
+          "lignes": [
+            [
+              "Commercial",
+              "Temps de préparation, traduction, invitations, partenaire, commission."
+            ],
+            [
+              "Opérationnel",
+              "Transport sécurisé, assurance, douane, taxes, paiement, retours."
+            ],
+            [
+              "Événement",
+              "Lieu, scénographie, sécurité, accueil, photographie."
+            ],
+            [
+              "Après-vente",
+              "Livraison finale, ajustement, suivi client, éventuelle reprise."
+            ]
+          ],
+          "nb_lignes": 4,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "saut_de_page"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "19.12 Feuille de route de gouvernance — 12 mois",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 47
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Rythme",
+            "Rituel",
+            "Décisions"
+          ],
+          "lignes": [
+            [
+              "Hebdomadaire",
+              "Pipeline et rendez-vous",
+              "Priorités de suivi, préparation, relances, risques projet"
+            ],
+            [
+              "Mensuel",
+              "Stock, marge, trésorerie",
+              "Achats, retours, prix, allocation de contenu, arrêt de références"
+            ],
+            [
+              "Trimestriel",
+              "Marchés et partenaires",
+              "Poursuivre, ajuster ou arrêter chaque canal et activation"
+            ],
+            [
+              "Semestriel",
+              "Portefeuille de créateurs",
+              "Équilibre esthétique, rotation, contribution, nouvelles voix"
+            ],
+            [
+              "Annuel",
+              "Positionnement et scénarios",
+              "Objectifs, capacité, équipe, assurance, marchés de l’année"
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Responsabilité",
+            "Rôle minimum"
+          ],
+          "lignes": [
+            [
+              "Direction / curation",
+              "Positionnement, sélection, grands clients, créateurs, arbitrage final."
+            ],
+            [
+              "Développement commercial",
+              "CRM, partenaires, rendez-vous, suivi et mesure des canaux."
+            ],
+            [
+              "Opérations",
+              "Stock, documents, transport, assurance, conformité et sur-mesure."
+            ],
+            [
+              "Contenu / presse",
+              "Calendrier, traduction, dossiers, événements et cohérence de marque."
+            ],
+            [
+              "Conseils externes",
+              "Comptabilité, fiscalité, douane, droit, gemmologie et assurance."
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "encadre",
+          "etiquette": "RÈGLE DE CAPACITÉ",
+          "texte": "Lorsqu’un nouveau marché ou format est ouvert, une activité moins prioritaire doit être suspendue ou déléguée. La rareté de la maison doit aussi se traduire dans son agenda.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "encadre",
+          "etiquette": "LECTURE EVKHA",
+          "texte": "Opportunité — La stratégie repose sur des actifs déjà présents : sélection, expertise, Paris et réseau d’artisans.\nLimite — Le plan échoue si les actions de visibilité ne sont pas reliées au rendez-vous et au CRM.\nDécision — Nommer une personne responsable de chaque action, une date, un coût complet et un seuil d’arrêt.",
+          "fond": "EDE6D0"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 2644,
+        "paragraphes": 21,
+        "tableaux": 13,
+        "graphiques": 0,
+        "encadres": 9,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 20",
+      "titre": "Conclusion analytique",
+      "accroche": "Joalie peut occuper une place distinctive, à condition de choisir la précision plutôt que l’expansion prématurée.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "L’analyse confirme un alignement rare entre la proposition de Joalie et les transformations actuelles du marché. La joaillerie de luxe résiste mieux que d’autres catégories ; la seconde main devient un réflexe ; la recherche de pièces uniques, d’expression personnelle et de preuves d’origine s’intensifie. La maison possède une réponse crédible à chacune de ces attentes.",
+          "style": null,
+          "gras": false,
+          "signes": 372
+        },
+        {
+          "type": "paragraphe",
+          "texte": "La singularité n’est toutefois pas auto-explicative. « Marque », « galerie », « vintage » et « artisan » sont quatre catégories que le client connaît, mais leur superposition peut créer de l’ambiguïté. La notion de maison d’édition joaillière doit servir de cadre : Joalie choisit des voix, met les pièces en relation et accompagne un récit personnel par la création, l’ancien ou le sur-mesure.",
+          "style": null,
+          "gras": false,
+          "signes": 394
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le marché français offre une base productive et culturelle forte. Paris donne accès à une clientèle locale aisée et à un flux international considérable. La première internationalisation doit donc se produire dans la galerie parisienne, sur le site bilingue et via les prescripteurs. Bruxelles, Londres et Genève sont des extensions proches, à activer entre 6 et 18 mois ; New York et Dubaï deviennent des marchés de test entre 12 et 24 mois, lorsque le processus commercial, la preuve et la marge export sont maîtrisés.",
+          "style": null,
+          "gras": false,
+          "signes": 520
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le potentiel de viabilité est favorable, mais il reste conditionnel. Les risques décisifs sont internes au modèle : rotation du stock, marge réellement disponible après service, dépendance à la fondatrice, qualité du suivi client et discipline de sélection. Aucun chiffre mondial ne peut compenser une économie unitaire mal connue.",
+          "style": null,
+          "gras": false,
+          "signes": 331
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Réponse aux objectifs de l’étude",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 32
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Objectif",
+            "Réponse"
+          ],
+          "lignes": [
+            [
+              "Ouvrir des opportunités en France",
+              "Oui : renforcer Paris, les rendez-vous thématiques, les prescripteurs et la cible fiançailles 30–39 ans."
+            ],
+            [
+              "Ouvrir des opportunités internationales",
+              "Oui : capter d’abord les clients étrangers à Paris (0 à 6 mois), puis tester par activation Bruxelles/Londres/Genève (6 à 18 mois) et ensuite New York/Dubaï (12 à 24 mois)."
+            ],
+            [
+              "Renforcer la singularité",
+              "Oui : revendiquer la maison d’édition joaillière et organiser les trois offres comme trois voies vers un bijou-récit."
+            ],
+            [
+              "Développer les galeries de créateurs et le vintage",
+              "S’appuyer sur la curation, l’expertise et le passeport de pièce ; privilégier rendez-vous, événements et partenariats."
+            ],
+            [
+              "Développer le sur-mesure",
+              "Créer une offre lisible « fiançailles autrement » et un processus contractualisé, visuel et rassurant."
+            ]
+          ],
+          "nb_lignes": 5,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "encadre",
+          "etiquette": "FOCUS — Approfondissement demandé : marché international des galeries et du sur-mesure",
+          "texte": "Le marché international des galeries de bijoux de créateurs et vintage est fragmenté et ne dispose pas de statistique publique dédiée : Francéclat, Bain et Grand View Research ne l’isolent pas (chapitre 2). L’étude le documente par cartographie concurrentielle et par géographie. Les galeries de curation (WHITEbIRD, Mad Lords, Objet d’Emotion) et les acteurs vintage (Galerie Pénélope, Macklowe Gallery, Hancocks London) montrent que peu d’acteurs identifiés combinent création contemporaine, vintage et sur-mesure sous une même maison (chapitre 16.1) — sans qu’une veille concurrentielle exhaustive ne permette d’affirmer l’absence de tout équivalent, notamment hors des marchés étudiés. Le luxe d’occasion, dont bijoux et montres représentent 83 % des 50 Md€ mondiaux en 2025, confirme la solidité structurelle du segment vintage (chapitre 1.3), et la préférence pour des designs créatifs ou uniques (75 %, McKinsey, chapitre 9) soutient la demande pour une curation de créateurs. La feuille de route internationale suit l’ordre Paris (0 à 6 mois), puis Bruxelles / Londres / Genève — pôles historiques de la curation et du vintage, galeries indépendantes et foires comme PAD (6 à 18 mois) —, puis New York et Dubaï (12 à 24 mois), chapitre 17.\nLe marché du sur-mesure est traité comme une composante du marché accessible français (TAM 3,6 à 4,4 Md€ HT, chapitre 2) et comme un segment de clientèle prioritaire, en particulier les couples de 30 à 39 ans pour les fiançailles (chapitre 3.2, persona dédié au chapitre 10.3). Ordre de grandeur illustratif : la France a célébré 251 000 mariages en 2025 (Insee, chapitre 9) ; capter ne serait-ce que 0,02 % de ces couples pour un projet « fiançailles autrement » représenterait environ 50 projets sur-mesure par an — un volume cohérent avec le scénario central du chapitre 14 (60 transactions annuelles tous types confondus). Son économie est chiffrée dans le modèle de viabilité (paniers de 3 500 à 5 000 €, rythme annuel, chapitre 14) et ses risques spécifiques — volatilité des matières, délais, export non conforme — font l’objet d’un plan de maîtrise dédié (chapitres 4 et 12). À l’international, le sur-mesure suit la même séquence géographique que les galeries (Paris 0 à 6 mois, Bruxelles/Londres/Genève 6 à 18 mois, New York/Dubaï 12 à 24 mois), avec une vigilance accrue sur la validité des devis et les formalités d’export (chapitre 17).\nLimite méthodologique — Aucune source publique ne mesure isolément ces deux marchés : les chiffres cités proviennent d’une triangulation (marché national des bijoux, poids de Paris, prix observés chez Joalie) et non d’une statistique dédiée, à l’exception de l’illustration mariages/sur-mesure ci-dessus qui reste un ordre de grandeur, pas une prévision. Ils doivent être resserrés dès que Joalie disposera de données de vente propres, au même titre que les personas et cibles commerciales du reste de l’étude.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DÉCISION FINALE",
+          "texte": "Poursuivre l’accélération, avec une priorité absolue donnée à la lisibilité de l’offre, à la conversion par rendez-vous, à la documentation de confiance et à la mesure de la marge. L’international vient ensuite comme prolongement prouvé du modèle parisien.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        }
+      ],
+      "statistiques": {
+        "signes": 1649,
+        "paragraphes": 5,
+        "tableaux": 1,
+        "graphiques": 0,
+        "encadres": 2,
+        "grilles_kpi": 0
+      }
+    },
+    {
+      "numero": "CHAPITRE 21",
+      "titre": "Sources et méthodologie",
+      "accroche": "Une étude triangulée, avec distinction entre données observées, estimations et scénarios.",
+      "blocs": [
+        {
+          "type": "paragraphe",
+          "texte": "21.1 Méthode EVKHA appliquée",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 28
+        },
+        {
+          "type": "paragraphe",
+          "texte": "L’étude croise des sources institutionnelles, des analyses sectorielles reconnues, les informations publiques de Joalie et des estimations EVKHA. Les données observées sont nommées comme telles. Les fourchettes TAM–SAM–SOM, les scores, la carte des risques et les scénarios sont des estimations destinées à la décision ; ils ne constituent ni une valorisation, ni une prévision financière.",
+          "style": null,
+          "gras": false,
+          "signes": 389
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les écarts entre sources tiennent principalement au périmètre. Grand View Research mesure un marché large de la bijouterie en dollars, tandis que Bain isole la joaillerie de luxe dans l’écosystème des biens personnels de luxe en euros. Francéclat publie des données françaises de production, de commerce extérieur et de ventes de bijoux précieux et montres. L’étude ne fusionne pas ces chiffres comme s’ils étaient comparables.",
+          "style": null,
+          "gras": false,
+          "signes": 427
+        },
+        {
+          "type": "paragraphe",
+          "texte": "21.2 Sources principales — marché et luxe",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 41
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Organisme",
+            "Publication",
+            "Lien"
+          ],
+          "lignes": [
+            [
+              "Bain & Company",
+              "Finding a New Longevity for Luxury, décembre 2025",
+              "https://www.bain.com/insights/finding-a-new-longevity-for-luxury/"
+            ],
+            [
+              "Bain & Company",
+              "Global luxury stabilizes amid compounding disruptions, juin 2026",
+              "https://www.bain.com/about/media-center/press-releases/2026/global-luxury-stabilizes-amid-compounding-disruptions-as-brands-race-to-amplify-meaning-and-rebuild-relevance/"
+            ],
+            [
+              "McKinsey & Company",
+              "The State of Fashion 2026",
+              "https://www.mckinsey.com/~/media/mckinsey/industries/retail/our%20insights/state%20of%20fashion/2026/the-state-of-fashion-2026-vf.pdf"
+            ],
+            [
+              "McKinsey & Company",
+              "The State of Luxury: US and China, juin 2026",
+              "https://www.mckinsey.com/industries/retail/our-insights/state-of-luxury"
+            ],
+            [
+              "McKinsey & Company",
+              "The State of Luxury 2025",
+              "https://www.mckinsey.com/industries/retail/our-insights/state-of-luxury-2025"
+            ],
+            [
+              "Deloitte",
+              "Global Powers of Luxury Goods 2026",
+              "https://www.deloitte.com/global/en/industries/consumer/perspectives/global-powers-of-luxury.html"
+            ],
+            [
+              "Grand View Research",
+              "Jewelry Market Size & Trends",
+              "https://www.grandviewresearch.com/industry-analysis/jewelry-market"
+            ],
+            [
+              "Grand View Research",
+              "Europe Jewelry Market",
+              "https://www.grandviewresearch.com/industry-analysis/europe-jewelry-market-report"
+            ],
+            [
+              "Eurostat",
+              "Valentine’s Day: EU jewellery production up 1% in 2023",
+              "https://ec.europa.eu/eurostat/web/products-eurostat-news/w/edn-20250214-1"
+            ]
+          ],
+          "nb_lignes": 9,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "21.3 Sources France, clientèle et géographies",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 45
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Organisme",
+            "Publication",
+            "Lien"
+          ],
+          "lignes": [
+            [
+              "Francéclat",
+              "Bilan économique 2025 de la filière HBJ",
+              "https://franceclat.fr/securedfiles/cb81bc25-dbe3-4de4-b550-6473f4b9cef8"
+            ],
+            [
+              "Francéclat",
+              "Les Français et les achats de bijoux et montres",
+              "https://franceclat.fr/thematiques/etudes-et-statistiques/les-francais-et-les-achats-de-bijoux-et-montres"
+            ],
+            [
+              "OpinionWay / UFBJOP",
+              "Les Français et l’industrie de la joaillerie 2025",
+              "https://www.opinion-way.com/fr/publications/les-francais-et-lindustrie-de-la-joaillerie-2025-21501/"
+            ],
+            [
+              "Insee",
+              "Mariages et Pacs — données 1990 à 2025",
+              "https://www.insee.fr/fr/statistiques/2381498"
+            ],
+            [
+              "Insee",
+              "Âge moyen des mariés selon le sexe",
+              "https://www.insee.fr/fr/statistiques/2381500"
+            ],
+            [
+              "Paris je t’aime",
+              "Tourisme à Paris — chiffres clés",
+              "https://parisjetaime.com/convention/article/tourisme-a-paris-chiffres-cles-a1749"
+            ],
+            [
+              "Paris je t’aime",
+              "Baromètre estival 2025",
+              "https://parisjetaime.com/media/article/barometre-estival-2025-a1900"
+            ],
+            [
+              "Reuters",
+              "France welcomed 102 million international visitors in 2025",
+              "https://www.reuters.com/world/europe/despite-trump-attacks-against-europe-americans-flocked-france-2025-2026-02-19/"
+            ],
+            [
+              "UBS",
+              "Global Wealth Report 2025",
+              "https://www.ubs.com/global/en/media/display-page-ndp/en-20250618-gwr-2025.html"
+            ]
+          ],
+          "nb_lignes": 9,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "21.4 Sources réglementation",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 27
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Organisme",
+            "Publication",
+            "Lien"
+          ],
+          "lignes": [
+            [
+              "Douane française",
+              "Importer des métaux précieux",
+              "https://www.douane.gouv.fr/demarche/importer-des-metaux-precieux-provenance-hors-ue-suisse-turquie-et-etat-membre-de-lespace"
+            ],
+            [
+              "Commission européenne",
+              "General Product Safety Regulation",
+              "https://trade.ec.europa.eu/access-to-markets/en/content/trade-regime-and-general-product-safety"
+            ],
+            [
+              "Service-Public",
+              "Devenir brocanteur, antiquaire ou ouvrir un dépôt-vente",
+              "https://entreprendre.service-public.fr/vosdroits/F23207"
+            ],
+            [
+              "BOFiP",
+              "Biens d’occasion — régime de la marge",
+              "https://bofip.impots.gouv.fr/bofip/13268-PGP.html/identifiant=BOI-TVA-SECT-90-20-20-20250514"
+            ],
+            [
+              "DGCCRF",
+              "Achats et services en ligne : droit de rétractation et exceptions",
+              "https://www.economie.gouv.fr/particuliers/mes-droits-conso/gerer-un-litige/achats-et-services-en-ligne-6-conseils-en-cas-de-litige"
+            ],
+            [
+              "DGCCRF",
+              "Garanties légales",
+              "https://www.economie.gouv.fr/dgccrf/les-fiches-pratiques/les-garanties-legales-de-conformite-et-contre-les-vices-caches"
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "21.5 Sources entreprise et écosystème",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 37
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Acteur",
+            "Usage dans l’étude",
+            "Lien"
+          ],
+          "lignes": [
+            [
+              "Joalie",
+              "Site officiel, manifeste, équipe, créateurs, vintage, sur-mesure et catalogue",
+              "https://www.joalie.fr"
+            ],
+            [
+              "WHITEbIRD",
+              "Boutique Mont-Thabor et joaillerie contemporaine",
+              "https://www.whitebirdjewellery.com/en-us/pages/mont-thabor-shop"
+            ],
+            [
+              "Mad Lords",
+              "Maison de bijoux et créateurs",
+              "https://www.madlords.com/en"
+            ],
+            [
+              "Objet d’Emotion",
+              "Curated shopping concept",
+              "https://objetdemotion.com/"
+            ],
+            [
+              "The Jewellery Room",
+              "Independent designers partnership",
+              "https://thejewelleryroom.com/en-us/pages/auverture"
+            ],
+            [
+              "Galerie Pénélope",
+              "Bijoux anciens et vintage",
+              "https://en.galeriepenelope.com/"
+            ],
+            [
+              "Macklowe Gallery",
+              "Antique and vintage fine jewelry",
+              "https://www.macklowegallery.com/collections/jewelry"
+            ]
+          ],
+          "nb_lignes": 7,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "21.6 Limites et prochaines données à intégrer",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 45
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Pour passer de l’étude de marché au plan financier, cinq données internes sont nécessaires : chiffre d’affaires et volume d’affaires par offre, marge brute et marge contributive par type de contrat, valeur et âge du stock, taux de conversion par canal, et temps de travail consacré à chaque vente ou projet. Ces données permettront de recalculer le SOM, le besoin de trésorerie et le seuil de rentabilité.",
+          "style": null,
+          "gras": false,
+          "signes": 405
+        },
+        {
+          "type": "encadre",
+          "etiquette": "DATE DE RÉFÉRENCE",
+          "texte": "Étude arrêtée au 24 juillet 2026. Les données 2026 sont identifiées comme provisoires ou issues de publications disponibles à cette date.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "21.7 Protocole de mise à jour",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 29
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Échéance",
+            "Données à actualiser",
+            "Effet attendu"
+          ],
+          "lignes": [
+            [
+              "Trimestriel",
+              "Prix des métaux, pipeline, stock, conversion, marchés test",
+              "Arbitrages commerciaux et de trésorerie"
+            ],
+            [
+              "Semestriel",
+              "Marché du luxe, tourisme, concurrence, réglementation",
+              "Ajustement des cibles et des canaux"
+            ],
+            [
+              "Annuel",
+              "TAM–SAM–SOM, personas, scénarios 2030, rentabilité par offre",
+              "Nouvelle feuille de route et budget"
+            ]
+          ],
+          "nb_lignes": 3,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Les sources datées et les hypothèses EVKHA doivent être conservées pour comparer les versions sans réécrire l’histoire du projet.",
+          "style": null,
+          "gras": false,
+          "signes": 129
+        },
+        {
+          "type": "saut_de_page"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Annexe opérationnelle A — Checklist 30 jours",
+          "style": "Heading1",
+          "gras": false,
+          "signes": 44
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Cette checklist transforme les recommandations prioritaires en livrables vérifiables. Elle peut être utilisée comme support de réunion hebdomadaire.",
+          "style": null,
+          "gras": false,
+          "signes": 148
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Semaine",
+            "Livrable",
+            "Responsable",
+            "Critère de terminé"
+          ],
+          "lignes": [
+            [
+              "S1",
+              "Promesse FR/EN et trois portes d’entrée",
+              "Direction / contenu",
+              "Texte validé et publié sur les points de contact prioritaires"
+            ],
+            [
+              "S1",
+              "Définition des rendez-vous",
+              "Direction / commercial",
+              "Durée, préparation, confirmation et suivi documentés"
+            ],
+            [
+              "S1–S2",
+              "Passeport de pièce",
+              "Opérations / expertise",
+              "Modèle validé puis appliqué aux pièces actives"
+            ],
+            [
+              "S2",
+              "Processus vintage",
+              "Expertise / opérations",
+              "Registre, provenance, état, assurance et TVA vérifiés"
+            ],
+            [
+              "S2",
+              "Processus sur-mesure",
+              "Direction / ateliers",
+              "Brief, budget, acompte, jalons et modifications formalisés"
+            ],
+            [
+              "S2–S3",
+              "CRM minimum",
+              "Développement commercial",
+              "Source, goûts, jalons, consentement, actions et statut renseignés"
+            ],
+            [
+              "S3",
+              "Kit prescripteur Paris",
+              "Commercial / contenu",
+              "Présentation, 12 pièces, rendez-vous et conditions internationales"
+            ],
+            [
+              "S3–S4",
+              "Tableau de bord",
+              "Direction / finance",
+              "Marge, stock, pipeline, conversion et international suivis"
+            ],
+            [
+              "S4",
+              "Calendrier des trois tests",
+              "Équipe",
+              "Dates, cibles, invitations, coûts et seuils de poursuite validés"
+            ],
+            [
+              "S4",
+              "Revue assurance / expédition",
+              "Opérations / conseils",
+              "Couvertures, transporteurs, pays et exclusions confirmés"
+            ]
+          ],
+          "nb_lignes": 10,
+          "nb_colonnes": 4
+        },
+        {
+          "type": "encadre",
+          "etiquette": "RÉUNION DE CLÔTURE",
+          "texte": "À J+30, décider ce qui est terminé, ce qui bloque et quelles trois actions seront menées pendant les 60 jours suivants.",
+          "fond": "F1EEDB"
+        },
+        {
+          "type": "saut_de_page"
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Annexe opérationnelle B — Données CRM minimales",
+          "style": "Heading1",
+          "gras": false,
+          "signes": 47
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Le CRM doit préserver la qualité relationnelle de Joalie sans transformer l’expérience en mécanique impersonnelle. Les données sont collectées avec une finalité claire et le consentement approprié.",
+          "style": null,
+          "gras": false,
+          "signes": 197
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Bloc",
+            "Champs essentiels",
+            "Décision permise"
+          ],
+          "lignes": [
+            [
+              "Identité et consentement",
+              "Nom, coordonnées, langue, pays, source, consentements",
+              "Communiquer légalement et dans la bonne langue"
+            ],
+            [
+              "Affinités",
+              "Créateurs, époques, matériaux, couleurs, tailles, pièces évitées",
+              "Préparer une sélection réellement personnelle"
+            ],
+            [
+              "Occasions",
+              "Anniversaire, fiançailles, réussite, cadeau, transmission",
+              "Contacter au bon moment avec un motif légitime"
+            ],
+            [
+              "Historique",
+              "Rendez-vous, pièces essayées, objections, achats, entretien",
+              "Assurer la continuité du conseil"
+            ],
+            [
+              "Économie",
+              "Panier, marge, canal, coûts spécifiques, recommandation",
+              "Évaluer la valeur de la relation et du canal"
+            ],
+            [
+              "International",
+              "Date de voyage, livraison, taxes, devise, partenaire",
+              "Sécuriser le service et choisir les marchés"
+            ],
+            [
+              "Prochaine action",
+              "Responsable, date, objectif, statut",
+              "Éviter les opportunités sans suivi"
+            ]
+          ],
+          "nb_lignes": 7,
+          "nb_colonnes": 3
+        },
+        {
+          "type": "paragraphe",
+          "texte": "Nomenclature du pipeline",
+          "style": "Heading2",
+          "gras": false,
+          "signes": 24
+        },
+        {
+          "type": "tableau",
+          "entetes": [
+            "Statut",
+            "Définition"
+          ],
+          "lignes": [
+            [
+              "À qualifier",
+              "Contact identifié, besoin et budget non confirmés."
+            ],
+            [
+              "Qualifié",
+              "Besoin, calendrier et ordre de grandeur compatibles avec Joalie."
+            ],
+            [
+              "Rendez-vous",
+              "Date fixée, sélection ou brief préparé."
+            ],
+            [
+              "Proposition",
+              "Pièce réservée, sélection envoyée ou devis remis."
+            ],
+            [
+              "Gagné / perdu",
+              "Achat conclu ou motif de non-achat documenté."
+            ],
+            [
+              "Relation active",
+              "Suivi, entretien, recommandation ou nouvelle occasion à venir."
+            ]
+          ],
+          "nb_lignes": 6,
+          "nb_colonnes": 2
+        },
+        {
+          "type": "encadre",
+          "etiquette": "RÈGLE",
+          "texte": "Aucun contact qualifié sans prochaine action datée. Aucun motif de non-achat n’est traité comme un échec : il nourrit la sélection, le prix, le contenu ou le calendrier.",
+          "fond": "F1EEDB"
+        }
+      ],
+      "statistiques": {
+        "signes": 2062,
+        "paragraphes": 16,
+        "tableaux": 8,
+        "graphiques": 0,
+        "encadres": 3,
+        "grilles_kpi": 0
+      }
+    }
+  ],
+  "quatrieme_de_couverture": [
+    {
+      "type": "graphique",
+      "fichier": "image10.png",
+      "octets": 26083
+    },
+    {
+      "type": "paragraphe",
+      "texte": "JOALIE",
+      "style": null,
+      "gras": true,
+      "signes": 6
+    },
+    {
+      "type": "paragraphe",
+      "texte": "Une maison d’édition joaillière parisienne\npour des bijoux qui deviennent récits.",
+      "style": null,
+      "gras": false,
+      "signes": 81
+    },
+    {
+      "type": "paragraphe",
+      "texte": "ÉTUDE DE MARCHÉ APPROFONDIE · SYSTÈME EVKHA · 2026",
+      "style": null,
+      "gras": true,
+      "signes": 50
+    }
+  ],
+  "totaux": {
+    "blocs": 354,
+    "paragraphes": 200,
+    "tableaux": 49,
+    "encadres": 39,
+    "grilles_kpi": 4,
+    "graphiques": 10,
+    "sauts_de_page": 30,
+    "signes": 31555
+  }
+}

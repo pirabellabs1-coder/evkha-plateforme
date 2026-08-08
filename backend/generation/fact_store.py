@@ -18,9 +18,17 @@ import re
 import unicodedata
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.conf import settings
+
+if TYPE_CHECKING:
+    # Import réservé aux annotations : `from __future__ import annotations` les
+    # laisse sous forme de chaînes, donc rien n'est chargé à l'exécution et
+    # aucun cycle ne se referme. L'annotation citait `GenerationJob` sans que le
+    # nom existe nulle part, et un `type: ignore[name-defined]` faisait taire le
+    # symptôme — ce que le dépôt interdit explicitement.
+    from .models import GenerationJob
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +80,7 @@ def _store_path(secteur: str, pays: str) -> Path:
     return _FACT_STORE_DIR / f"{_slug(secteur)}_{_slug(pays)}.json"
 
 
-def export_facts(job: "GenerationJob") -> None:  # type: ignore[name-defined]
+def export_facts(job: GenerationJob) -> None:
     """Exporte les faits validés du job vers le fact store JSON.
 
     Appelé après que le gate de livraison ait passé. En cas d'erreur, log

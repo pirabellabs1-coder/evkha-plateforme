@@ -29,7 +29,6 @@ from __future__ import annotations
 
 from generation.checks_post_rendu import detecter_prudence_juridique
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # 1. Evenement corporate date non source
 # ══════════════════════════════════════════════════════════════════════════

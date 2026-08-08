@@ -293,7 +293,7 @@ function RelaunchButton({ jobId }: { jobId: string }) {
 
 
 export function JobDetail() {
-  const { jobId } = useParams({ from: "/jobs/$jobId" });
+  const { jobId } = useParams({ from: "/admin/jobs/$jobId" });
   const { data, isLoading, error } = useQuery<JobDetailType>({
     queryKey: ["job", jobId],
     queryFn: () => api.job(jobId),
@@ -322,7 +322,7 @@ export function JobDetail() {
     <Box>
       <Flex align="center" gap="2" mb="3">
         <Link
-          to="/jobs"
+          to="/admin/jobs"
           style={{ color: "var(--gray-9)", textDecoration: "none", fontSize: 13 }}
         >
           ← Livrables
@@ -350,7 +350,7 @@ export function JobDetail() {
           <Text size="2" color="gray">
             Client :{" "}
             <Link
-              to="/clients/$clientId"
+              to="/admin/clients/$clientId"
               params={{ clientId: data.customer_id }}
               style={{ color: "var(--accent-9)", textDecoration: "none" }}
             >

@@ -76,10 +76,18 @@ def _pass_result() -> CheckResult:
 
 @pytest.mark.django_db
 def test_check_initial_fix_stoppe_la_generation() -> None:
-    """Un CHECK INITIAL 'fix' leve CheckInitialBlockedError (gate bloquant)."""
+    """Un CHECK INITIAL 'fix' PERSISTANT leve CheckInitialBlockedError.
+
+    Depuis le 05/08/2026, une fiche refusee est d'abord regeneree une fois avec
+    la note du relecteur (voir `test_phase46_...`) : le blocage n'intervient
+    que si le refus SURVIT a cette correction. `regenerate_chapter` est donc
+    neutralise ici — le relecteur, lui, refuse toujours. Ce qui est verifie est
+    inchange : l'etude s'arrete, la fiche reste DONE, l'incident est HIGH.
+    """
     job, fiche = _make_job_avec_fiche()
 
-    with patch("generation.runner.check_bloc", return_value=_fix_result()):
+    with patch("generation.runner.check_bloc", return_value=_fix_result()), \
+         patch("generation.runner.regenerate_chapter"):
         with pytest.raises(CheckInitialBlockedError):
             _after_chapter_hook(job, fiche, client=object())
 

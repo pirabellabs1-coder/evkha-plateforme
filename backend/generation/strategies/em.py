@@ -49,10 +49,14 @@ from generation.strategies.base import (
 # (taille_marche_mondial/continental/national, tcac_mondial/...). La base
 # consolidee est injectee au contexte de tous les chapitres suivants.
 _CHAPITRE_CONSOLIDATION = 2
-# Chapitres 3 a 21 (le blueprint EM s'arrete au chapitre 21 « Sources et
-# methodologie » — cf. blueprints.MARKET_STUDY_CHAPTERS). La base consolidee
-# est injectee au contexte de tous ces chapitres.
-_CHAPITRES_CIBLES: tuple[int, ...] = tuple(range(3, 22))
+# Chapitres 3 a 22 : les dix-neuf chapitres d'analyse, les sources (21) et
+# l'annexe des reponses essentielles (22) — cf. blueprints.MARKET_STUDY_CHAPTERS.
+#
+# L'annexe en a besoin plus que tout autre : le manuel lui interdit d'introduire
+# le moindre chiffre nouveau, et elle doit reprendre « exactement les memes
+# chiffres, unites, dates et conclusions que dans les chapitres ». Sans la base
+# consolidee, elle n'aurait rien contre quoi se verifier.
+_CHAPITRES_CIBLES: tuple[int, ...] = tuple(range(3, 23))
 
 # ── Tolerance arithmetique ──────────────────────────────────────────────────
 # Une projection sur 6 ans a une marge acceptable liee aux arrondis

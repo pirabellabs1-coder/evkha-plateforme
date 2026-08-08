@@ -108,4 +108,25 @@ def test_market_study_budget_keeps_phase0_margin() -> None:
     # 4.60 EUR : le cout des 11 CHECKs, jusque-la enregistre nulle part, entre
     # dans le grand livre (~0.46 EUR) avec l'advisor des blocs quantifies
     # (~0.22 EUR).
-    assert job.budget_eur == Decimal("4.6000")
+    #
+    # Puis a 6.00 EUR (05/08/2026) pour la bascule vers claude-sonnet-5. Ce
+    # n'est pas une depense nouvelle : le tarif de Sonnet 5 est celui de
+    # Sonnet 4.6. C'est son TOKENIZER qui change — le meme texte y compte
+    # environ 30 % de tokens en plus. A 4,60 le throttle aurait rabote
+    # max_tokens sur les derniers chapitres pour tenir un plafond calibre sur
+    # l'ancien decoupage, et rendu des chapitres courts : le defaut meme que le
+    # plancher _MIN_MAX_TOKENS avait corrige.
+    #
+    # Puis RAMENE a 4,00 EUR le 05/08/2026, et c'est la mesure reelle qui prime
+    # sur la projection, comme annonce ci-dessus (regles 7 et 10).
+    #
+    # Deux etudes de marche COMPLETES ont tourne sur Sonnet 5 : 3,12 et 3,32 EUR.
+    # La projection a 6,00 portait donc pres du double de la depense observee.
+    #
+    # Et ce nombre ne plafonne plus rien : la depense est desormais coupee en dur
+    # a 3,10 EUR par `cost.PLAFOND_DEPENSE_EUR`, sur decision de la cliente. Ce
+    # qui reste a ce budget-ci, c'est son role de RYTHME — il sert de
+    # denominateur au throttle. Le seuil sous lequel il rabote les chapitres est
+    # MESURE a 3,80 EUR (voir `test_plafond_de_generation`) : 4,00 laisse la
+    # marge utile, et pas davantage.
+    assert job.budget_eur == Decimal("4.0000")

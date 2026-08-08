@@ -97,12 +97,12 @@ def test_process_tally_event_flags_missing_required_variables() -> None:
 
     submission = IntakeSubmission.objects.get(order__systeme_order_id="order_456")
     assert submission.status == IntakeStatus.INCOMPLETE
-    assert submission.normalized_variables == {
-        "SECTEUR": "beaute",
-        "PAYS": "France",
-        "ZONE": "France",
-    }
-    assert set(submission.missing_fields) == {"PROJET"}
+    # Le code n'ecrit plus PAYS ni ZONE. Il les remplissait par « France »
+    # AVANT le calcul des manquants : ces deux variables requises ne pouvaient
+    # donc jamais etre signalees absentes, et un dossier hors de France partait
+    # en generation avec une geographie fausse.
+    assert submission.normalized_variables == {"SECTEUR": "beaute"}
+    assert set(submission.missing_fields) == {"PROJET", "PAYS", "ZONE"}
 
 
 @pytest.mark.django_db

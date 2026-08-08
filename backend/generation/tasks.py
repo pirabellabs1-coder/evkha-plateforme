@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from monitoring.models import IncidentSeverity, OperationalIncident
 
+from .echecs import marquer_echec
 from .models import GenerationJob, JobStatus, QAStatus
 from .runner import run_generation_job
 
@@ -65,7 +66,19 @@ def run_generation_job_task(job_id: str) -> str:
     4. Livraison (assemblage PDF + email client) — uniquement si gate PASSED
     """
     job = GenerationJob.objects.get(id=job_id)
-    run_generation_job(job)
+    try:
+        run_generation_job(job)
+    except Exception as erreur:  # noqa: BLE001 — dernier filet, voir `echecs`
+        # Sans ce filet, une exception qui traverse le pipeline laisse le job
+        # affiche `running` jusqu'a ce que le gardien des jobs bloques passe
+        # — deux heures plus tard. Vecu le 31/07/2026 : refus de l'API en 0,9
+        # seconde, job « en cours » pendant quatorze minutes (regle 1).
+        #
+        # On attrape `Exception` et non une liste de types : une liste fermee
+        # serait incomplete par construction, et c'est precisement le cas non
+        # prevu qui produit le silence (regle 4).
+        marquer_echec(job, erreur, etape="generation")
+        raise
 
     if job.status == JobStatus.DONE:
         # ── Passe QA (corrective) ───────────────────────────────────────────
@@ -88,10 +101,20 @@ def run_generation_job_task(job_id: str) -> str:
                 order=job.order,
                 details=report.as_details(),
             )
-            # PDF assemblé pour relecture admin — AUCUN email client.
+            # Document assemblé pour relecture admin — AUCUN email client.
+            # Par la MÊME chaîne que la livraison : relire un document produit
+            # autrement que celui qui serait parti ne dit rien de ce qui serait
+            # parti (règle 3).
             try:
-                from documents.services import assemble_document  # noqa: PLC0415
-                assemble_document(job)
+                from documents.livrable_word import (  # noqa: PLC0415
+                    assembler_livrable_word,
+                    chaine_word_active,
+                )
+                if chaine_word_active(job):
+                    assembler_livrable_word(job)
+                else:
+                    from documents.services import assemble_document  # noqa: PLC0415
+                    assemble_document(job)
             except Exception:  # noqa: BLE001 — l'assemblage admin ne doit pas masquer le blocage
                 import logging  # noqa: PLC0415
                 logging.getLogger(__name__).exception(

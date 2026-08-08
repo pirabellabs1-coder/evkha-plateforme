@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # 1. La strategy remonte les piliers manquants
 # ══════════════════════════════════════════════════════════════════════════

@@ -28,7 +28,6 @@ import sys
 import time
 from pathlib import Path
 
-
 # Job WAOME v1 (premier test reel, brief original) - variables source.
 # Si introuvable dans la DB, tombe sur la derniere IntakeSubmission MARKET_STUDY.
 _JOB_SOURCE_PREFIX = "49953f14"

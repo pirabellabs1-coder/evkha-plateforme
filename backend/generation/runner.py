@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import re
+from typing import Any
 
 from django.utils import timezone
 
@@ -8,11 +10,14 @@ from catalog.models import DeliverableType
 from intake.models import IntakeSubmission
 from integrations.claude import _DEFAULT_MAX_TOKENS, ClaudeClient, get_claude_client
 from monitoring.models import IncidentSeverity, OperationalIncident
+from organisations.liaison import debiter_pour_job
 
 from .blueprints import chapters_for_deliverable, get_blueprint
+from .chapitres.configuration import est_declare
 from .checks_blocs import (
     BLOCS_PAR_IDENTIFIANT,
     INCIDENT_TYPE_CHECK_BLOC,
+    BlocDefinition,
     bloc_pour_chapitre,
     check_bloc,
 )
@@ -31,6 +36,13 @@ from .cost import (
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 from .prompts import build_chapter_prompt, build_section_prompt, build_system_prompt
 from .qa import detect_violations, repair_rule_based
+from .socle import (
+    SocleGenerationError,
+    etablir_socle,
+    livrable_supporte,
+    socle_actif,
+    socle_verrouille,
+)
 
 # QC Evangeline #1 : porte le resume operationnel a 1200 chars et priorise les
 # phrases chiffrees/sourcees. En dessous, tous les chiffres cles fuyaient d'un
@@ -141,8 +153,19 @@ def _resolve_tokens(content: str, job: GenerationJob) -> str:
     return resolved
 
 
+_log = logging.getLogger(__name__)
+
 class GenerationRunError(RuntimeError):
     """Echec irrecuperable d'un cycle de generation (au moins un chapitre KO)."""
+
+
+class CreditsInsuffisantsError(GenerationRunError):
+    """Le portefeuille de l'organisation ne couvre pas cette generation.
+
+    « Commande bloquee avec proposition d'achat de credits additionnels. Aucun
+    decouvert. » (§11) — le job est marque FAILED sans qu'aucun appel facture
+    n'ait ete emis.
+    """
 
 
 class CheckInitialBlockedError(GenerationRunError):
@@ -252,6 +275,85 @@ def _var(v: dict[str, object], k: str) -> str:
     return str(raw).strip()
 
 
+#: Motifs qui ne valent pas la peine d'etre rejoues.
+#:
+#: Rejouer un budget depasse ou une annulation ne ferait que depenser
+#: davantage pour le meme refus. Liste FERMEE de ce qu'on ne rejoue pas — on
+#: rejoue tout le reste, y compris les erreurs qu'on n'a pas prevues, parce que
+#: c'est precisement celles-la qui coutent le plus cher (regle 4).
+ERREURS_SANS_REPRISE = (CostBudgetExceededError, CheckInitialBlockedError)
+
+
+def _moteur_structure(job: GenerationJob) -> bool:
+    """Le job passe-t-il par le moteur structure (socle + payload) ?
+
+    Une seule source pour cette verite (regle 5). Elle gouverne DEUX decisions
+    qui doivent rester d'accord : par quel chemin un chapitre est ecrit, et par
+    quel chemin il est REecrit. Les laisser diverger, c'est reparer une
+    representation du chapitre pendant que le document en rend une autre.
+    """
+    return (
+        socle_actif()
+        and livrable_supporte(job)
+        and est_declare(str(job.deliverable_type))
+    )
+
+
+def _produire_avec_reprises(
+    job: GenerationJob, chapter: Any, *, client: Any, socle: Any
+) -> None:
+    """Produit un chapitre, en REESSAYANT — ce que ce runner ne faisait pas.
+
+    ## Pourquoi cette fonction existe
+
+    Trois generations reelles, trois morts, une seule cause structurelle.
+
+    Ce runner appelait `produire_chapitre` UNE fois et laissait l'exception
+    remonter. Or il est le chemin de production : la tache Celery par chapitre,
+    qui porte une boucle de reprise complete avec temporisation exponentielle,
+    n'est employee par rien.
+
+    - Run nº1 : mort au chapitre 1 sur un ecart de volume de 20 %.
+    - Run nº2 : mort au chapitre 5 sur un resume de 254 mots pour 250.
+    - Run nº3 : mort au chapitre 20 sur `blocs : Field required` — une reponse
+      de modele incomplete, c'est-a-dire l'incident TRANSITOIRE par excellence.
+      Dix-neuf chapitres ecrits, 1,21 EUR, perdus.
+
+    J'ai corrige les deux premiers en rendant les regles concernees tolerantes.
+    C'etait traiter deux instances d'un defaut dont la classe est ici : un
+    chemin sans reprise transforme le moindre alea en perte totale (regle 4).
+
+    ## Ce que la reprise coute, et ce qu'elle evite
+
+    Une tentative supplementaire coute un appel — de l'ordre de six centimes.
+    L'absence de reprise a coute 1,21 EUR et vingt minutes, trois fois. Le
+    plafond vient de `tentatives_max` (3), la meme valeur que la tache Celery
+    utilise deja : une seule source pour cette verite (regle 5).
+
+    ## Pourquoi la derniere tentative se declare
+
+    L'arbitrage de conformite accepte les ecarts de forme sur la DERNIERE
+    tentative seulement. Il ne peut pas le deviner : `retry_count` n'est
+    incremente que par le chemin d'echec, et le deduire ici recreerait le
+    defaut du run nº1. On le lui dit.
+
+    ## Ou vit desormais la boucle
+
+    Dans `chapitres.services`, avec le cycle de vie du chapitre — parce qu'elle
+    doit servir a la REPARATION autant qu'a la premiere ecriture. Ecrite ici,
+    elle ne couvrait que la premiere : le run `4c8cfa53` du 05/08/2026 est mort
+    a la reparation du chapitre 3, en une seule tentative. Ce qui ecrit un
+    chapitre et ce qui le REECRIT doivent avoir les memes droits a l'erreur
+    (regle 4), et cette verite n'a qu'une source (regle 5).
+    """
+    from .chapitres.services import produire_avec_reprises  # noqa: PLC0415
+
+    produire_avec_reprises(
+        job, chapter.chapter_number, client=client, socle=socle,
+        sans_reprise=ERREURS_SANS_REPRISE,
+    )
+
+
 def run_generation_job(
     job: GenerationJob,
     *,
@@ -264,6 +366,19 @@ def run_generation_job(
     FAILED, ouvre un incident operationnel et leve une exception.
     """
     client = client or get_claude_client()
+
+    # Lot 4 — debit des credits AU LANCEMENT (cahier des charges §11), avant le
+    # premier appel facture. Sans organisation rattachee, aucun debit : c'est le
+    # flux Systeme.io en service, deja paye autrement. Une relance ne repaie pas
+    # (idempotence par reference de job).
+    autorise, raison = debiter_pour_job(job)
+    if not autorise:
+        GenerationJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.FAILED,
+            error_message=f"Credits insuffisants : {raison}"[:2000],
+        )
+        msg = f"Generation refusee pour le job {job.id} : {raison}"
+        raise CreditsInsuffisantsError(msg)
 
     job.status = JobStatus.RUNNING
     if job.started_at is None:
@@ -290,6 +405,48 @@ def run_generation_job(
             job.research_brief = brief
             job.save(update_fields=["research_brief", "updated_at"])
 
+    # ── Socle verrouillé (lot 1) ─────────────────────────────────────────────
+    #
+    # `etablir_socle` existait depuis le lot 1 et n'était appelée QUE par une
+    # action de l'administration Django. Le moteur en service n'en établissait
+    # aucun. Consequence : le rendu Word du lot 3 refusait de produire le
+    # livrable — « aucun socle verrouillé, ses graphiques n'auraient rien à
+    # citer » — et tout le nouveau moteur restait hors circuit.
+    #
+    # Ici, et pas ailleurs : APRÈS la recherche web, qui l'alimente, et AVANT le
+    # premier chapitre, qui le cite. Idempotent — une relance ne le repaie pas.
+    #
+    # Un socle en échec fait échouer le job. Continuer produirait des chapitres
+    # sans référence commune, c'est-à-dire un document qui a l'air complet et
+    # dont aucun chiffre n'est ancré (règle 1 : échouer bruyamment).
+    # Un SEUL interrupteur pour tout le nouveau moteur. Les chapitres
+    # structurés exigent le socle : deux drapeaux distincts autoriseraient la
+    # combinaison « chapitres sans socle », qui ne produit que des échecs.
+    moteur_structure = _moteur_structure(job)
+
+    if moteur_structure:
+        try:
+            etablir_socle(
+                job,
+                client=client,
+                variables=variables,
+                brief_recherche=job.research_brief or "",
+            )
+        except SocleGenerationError as exc:
+            GenerationJob.objects.filter(pk=job.pk).update(
+                status=JobStatus.FAILED,
+                error_message=f"Socle non établi : {exc}"[:2000],
+            )
+            OperationalIncident.objects.create(
+                title=f"Socle non établi (job {job.id})",
+                severity=IncidentSeverity.HIGH,
+                job=job,
+                order=job.order,
+                details={"motifs": list(getattr(exc, "motifs", [])),
+                         "tentatives": getattr(exc, "tentatives", 0)},
+            )
+            raise
+
     # Phase 0 : rappel court des exigences client. Garde `if not job.phase0_plan` :
     # sur une relance avec chapitres partiellement DONE, on préserve le plan
     # initial pour ne pas générer les chapitres restants avec un plan divergent
@@ -306,6 +463,10 @@ def run_generation_job(
         job.deliverable_type, country=country, plan=phase0_plan
     )
 
+    # Relu UNE fois : le socle est identique pour tous les chapitres du run, et
+    # le relire à chaque tour multiplierait les requêtes sans rien changer.
+    socle_du_run = socle_verrouille(job) if moteur_structure else None
+
     chapters = job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")
     for chapter in chapters:
         # Vérification annulation entre chaque chapitre (check DB allégé)
@@ -314,14 +475,47 @@ def run_generation_job(
             return job
 
         try:
-            _generate_chapter(job, chapter, client=client, system_prompt=system_prompt)
-            # QA rule-based immédiate : corrections automatiques sans appel IA.
-            # Les violations critiques restantes sont traitées par le QA final (IA).
-            _inline_qa_repair(chapter)
-            # CHECK inter-bloc EVKHA (manuel Evangeline §6) : uniquement pour
-            # l'EM, apres chaque dernier chapitre d'un bloc. Silencieux pour
-            # BP/EC/STR (blueprints non couverts par le manuel).
-            _after_chapter_hook(job, chapter, client=client)
+            if moteur_structure:
+                # Sortie STRUCTURÉE (lot 2) : le chapitre cite les identifiants
+                # du socle et demande ses graphiques. `enregistrer_chapitre`
+                # écrit aussi le markdown, de sorte que l'ancienne chaîne de
+                # rendu reste servie par le même chapitre.
+                #
+                # `_inline_qa_repair` reste ÉCARTÉ : il réécrit le MARKDOWN seul,
+                # or c'est le `payload` que le rendu Word emploie. Sa réparation
+                # n'atteindrait pas le document livré (règle 3) et ferait diverger
+                # deux versions du même chapitre (règle 5). La vérification du
+                # lot 4, elle, porte sur le `.docx` produit.
+                #
+                # `_after_chapter_hook` est RÉTABLI. Il avait été écarté avec lui,
+                # alors qu'il ne partage pas son défaut : il DÉTECTE — le CHECK lit
+                # le markdown, rendu fidèlement depuis le payload par
+                # `enregistrer_chapitre` — et sa réparation passe par
+                # `regenerate_chapter`, qui suit désormais le moteur actif.
+                #
+                # Sans cet appel, AUCUN CHECK ne s'exécutait en production
+                # (EVKHA_SOCLE_ENABLED=true). Trois conséquences, pas une : le gate
+                # cherchait des incidents `check_bloc_non_resolu` qui ne pouvaient
+                # pas exister et concluait au succès (règle 1) ; le CHECK INITIAL,
+                # que le manuel veut bloquant avant toute rédaction, ne se
+                # déclenchait jamais — un brief défaillant produisait une étude
+                # entière ; et `enrichir_fiche_apres_check` ne tournait plus, donc
+                # la fiche projet cessait de s'enrichir entre les blocs.
+                _produire_avec_reprises(
+                    job, chapter, client=client, socle=socle_du_run
+                )
+                _after_chapter_hook(job, chapter, client=client)
+            else:
+                _generate_chapter(
+                    job, chapter, client=client, system_prompt=system_prompt
+                )
+                # QA rule-based immédiate : corrections automatiques sans appel IA.
+                # Les violations critiques restantes sont traitées par le QA final (IA).
+                _inline_qa_repair(chapter)
+                # CHECK inter-bloc (manuel Evangeline §6) : uniquement pour
+                # l'EM, apres chaque dernier chapitre d'un bloc. Silencieux pour
+                # BP/EC/STR (blueprints non couverts par le manuel).
+                _after_chapter_hook(job, chapter, client=client)
         except CheckInitialBlockedError as exc:
             # CHECK INITIAL bloquant : la fiche projet (chapitre 0) est valide
             # et DONE — on ne la marque PAS FAILED. L'incident HIGH est deja
@@ -365,15 +559,44 @@ def regenerate_chapter(
     corrective_note: str,
     client: ClaudeClient | None = None,
 ) -> None:
-    """Régénère UN chapitre en corrigeant les défauts détectés par le gate.
+    """Régénère UN chapitre en corrigeant les défauts détectés.
 
-    Utilisé par la boucle d'auto-correction (generation/correction.py) : on
+    Deux appelants : la boucle d'auto-correction post-gate
+    (generation/correction.py) et la réparation des CHECKs inter-blocs. On
     reprend le chapitre avec la liste exacte des problèmes en consigne
-    prioritaire, puis on rejoue la QA règle-métier immédiate. Respecte le
-    budget (le Cost Engine peut lever CostBudgetExceededError, propagée à
-    l'appelant qui décide d'arrêter la boucle).
+    prioritaire. Respecte le budget (le Cost Engine peut lever
+    CostBudgetExceededError, propagée à l'appelant qui décide d'arrêter).
+
+    ## Régénérer par le chemin que le document lit réellement
+
+    Cette fonction passait inconditionnellement par `_generate_chapter`, qui
+    n'écrit que `chapter.content`. Or, moteur structuré actif — c'est le cas
+    en production —, le `.docx` est rendu depuis `payloads_du_job`,
+    c'est-à-dire `chapter.payload`, que ce chemin ne touche jamais.
+
+    La boucle d'auto-correction réécrivait donc le markdown, revalidait le
+    markdown, se déclarait satisfaite, et livrait un document INCHANGÉ : le
+    contrôle et sa réparation jugeaient sur une évidence que le lecteur ne
+    reçoit pas (règles 3 et 9). On suit désormais le moteur actif, une seule
+    fois et pour tous les appelants — plutôt que de corriger chaque appelant
+    séparément (règle 4).
     """
     client = client or get_claude_client()
+
+    if _moteur_structure(job):
+        # Import tardif : `chapitres.services` remonte vers `generation.cost`,
+        # le cycle se referme si on le charge au niveau module.
+        from .chapitres.services import regenerer_chapitre  # noqa: PLC0415
+
+        regenerer_chapitre(
+            job,
+            chapter.chapter_number,
+            client=client,
+            note_corrective=corrective_note,
+        )
+        chapter.refresh_from_db()
+        return
+
     variables = _variables_for(job)
     country = str(variables.get("PAYS", "")).strip()
     system_prompt = build_system_prompt(
@@ -525,8 +748,11 @@ def _generate_chapter(
     # UN appel : un chapitre decoupe en sections re-ecrirait son prefixe de
     # cache a chaque section, et surtout un calcul emboite ne se decoupe pas —
     # c'est precisement pourquoi le chapitre 2 a perdu ses sections (tache #9).
-    # `test_blueprints_code_execution` interdit la combinaison des deux, pour
-    # que le drapeau ne puisse pas etre ignore en silence.
+    # `test_aucun_blueprint_ne_combine_sections_et_execution_de_code`
+    # (test_code_execution_chapitre2.py) interdit la combinaison des deux, pour
+    # que le drapeau ne puisse pas etre ignore en silence. Cette ligne citait un
+    # `test_blueprints_code_execution` qui n'existe pas : une garantie nommee
+    # mais introuvable ne se verifie pas, et ne protege donc personne.
     code_execution = bool(blueprint.code_execution) if blueprint else False
 
     issues: list[ChapterValidationIssue] = []
@@ -648,27 +874,37 @@ def _after_chapter_hook(
     *,
     client: ClaudeClient,
 ) -> None:
-    """Declenche le CHECK inter-bloc apres un chapitre EM, si applicable.
+    """Declenche le CHECK inter-bloc apres un chapitre, si applicable.
 
     Cas geres :
-      - Chapitre 0 (fiche projet) EM -> CHECK INITIAL (6 questions, manuel p.3).
+      - Chapitre 0 (fiche projet), TOUS livrables -> CHECK INITIAL.
       - Dernier chapitre d'un bloc A-J EM -> CHECK correspondant.
-      - Autre cas -> ne fait rien (les autres livrables et les chapitres
-        intermediaires d'un bloc passent silencieusement).
+      - Autre cas -> ne fait rien.
     """
-    if job.deliverable_type != DeliverableType.MARKET_STUDY:
-        return
-
     # Cas 1 : fiche projet (chapitre 0) -> CHECK INITIAL, sur la fiche seule.
     # Le manuel p.3 fait porter le controle sur la fiche REDIGEE : on la passe
     # donc au relecteur comme document a valider. Sans elle, il ne voyait que
     # le brief brut et reclamait des elements deja presents dans la fiche.
+    #
+    # TOUS les livrables, et plus seulement l'EM : les quatre plans ouvrent sur
+    # une fiche projet (bp.00, str.00, ec.00), et les six questions du CHECK —
+    # devise, lecteur final, perimetre, points non specifies — valent pour un
+    # business plan autant que pour une etude. Le court-circuit `!= EM` datait
+    # du temps ou seuls les CHECKs de blocs existaient ; il privait les trois
+    # autres livrables du seul controle qui attrape une fiche muette AVANT que
+    # vingt chapitres ne soient payes sur elle (lecon 07745d4a).
     if chapter.chapter_number == 0:
         bloc = BLOCS_PAR_IDENTIFIANT.get("INITIAL")
         if bloc is not None:
             _executer_check_avec_retry(
                 job, bloc, chapitres=[chapter], client=client,
             )
+        return
+
+    # Les CHECKs de blocs A-J, eux, restent propres a l'etude de marche :
+    # leurs numeros de chapitres sont ceux du plan EM (`checks_blocs`), et les
+    # appliquer a un business plan comparerait des chapitres qui n'existent pas.
+    if job.deliverable_type != DeliverableType.MARKET_STUDY:
         return
 
     # Cas 2 : dernier chapitre d'un bloc A-J -> CHECK.
@@ -696,7 +932,7 @@ def _after_chapter_hook(
 
 def _executer_check_avec_retry(
     job: GenerationJob,
-    bloc,
+    bloc: BlocDefinition,
     *,
     chapitres: list[ChapterGeneration],
     client: ClaudeClient,
@@ -715,11 +951,42 @@ def _executer_check_avec_retry(
         return
 
     # Echec 1er passage : regenere chaque chapitre du bloc avec la note.
-    # Le CHECK INITIAL ne se regenere pas tout seul : c'est la fiche projet —
-    # donc le brief du client — qui est en cause. On ouvre un incident HIGH et
-    # on STOPPE la generation (gate amont du manuel) : l'admin corrige le
-    # brief/la fiche puis relance. On ne continue jamais par automatisme.
+    #
+    # Le CHECK INITIAL suit la MEME regle, et c'est un correctif du 05/08/2026.
+    # Le code d'avant bloquait sans avoir rien tente, au motif que « c'est la
+    # fiche projet — donc le brief du client — qui est en cause ». Ce motif est
+    # faux dans le cas general, et la premiere generation reelle de l'espace
+    # client l'a montre (job 07745d4a, 0,01 EUR, aucun document) : la note du
+    # relecteur disait « Rediger integralement la fiche projet », et reclamait
+    # la devise, le lecteur final et une section signalant les points non
+    # specifies. Trois elements que le prompt de la fiche ne demandait pas —
+    # donc qu'AUCUNE correction du brief par l'administrateur n'aurait produits.
+    # Le gate etait une impasse : il exigeait d'un humain une action qui n'avait
+    # aucun effet sur la cause.
+    #
+    # Le manuel p.3 ouvre deux voies — « corriger la fiche OU demander la
+    # precision necessaire » — et le code n'avait retenu que la seconde. On
+    # tente donc la premiere, UNE fois, avec la note du relecteur en consigne,
+    # avant de rendre la main. « On ne continue jamais par automatisme » (p.2)
+    # interdit de poursuivre SANS corriger, pas de corriger.
+    #
+    # C'est la classe de defaut deja corrigee pour les chapitres le 02/08/2026
+    # — trois etudes mortes faute de reprise — appliquee a la fiche, qui n'en
+    # avait jamais eu (regle 4).
     if bloc.identifiant == "INITIAL":
+        fiche = chapitres[0] if chapitres else None
+        if fiche is not None:
+            for _ in range(_MAX_CHECK_RETRIES):
+                regenerate_chapter(
+                    job, fiche, corrective_note=result.note_corrective, client=client,
+                )
+                fiche.refresh_from_db()
+                result = check_bloc(job, bloc, [fiche], client=client)
+                if result.est_ok:
+                    return
+        # La fiche reste refusee apres correction : la cause est bien en amont
+        # (brief contradictoire, demande illisible). La generation s'arrete,
+        # comme avant, et un humain tranche.
         _log_incident_check(
             job, bloc, result.note_corrective,
             titre="CHECK INITIAL echoue (fiche projet a corriger) — generation stoppee",
@@ -731,9 +998,34 @@ def _executer_check_avec_retry(
     while retries < _MAX_CHECK_RETRIES and not result.est_ok:
         retries += 1
         for chap in chapitres:
-            regenerate_chapter(
-                job, chap, corrective_note=result.note_corrective, client=client,
-            )
+            try:
+                regenerate_chapter(
+                    job, chap, corrective_note=result.note_corrective, client=client,
+                )
+            except ERREURS_SANS_REPRISE:
+                raise
+            except Exception as erreur:  # noqa: BLE001 — voir ci-dessous
+                # Une REPARATION qui echoue ne doit pas tuer l'etude. Ce module
+                # le dit deja de lui-meme, quelques lignes plus haut : « un
+                # echec persistant apres retry ouvre un incident MEDIUM (non
+                # bloquant) : le contenu reste livre au client ». L'exception
+                # n'etait simplement pas retenue, et remontait jusqu'au filet
+                # generique de `run_generation_job`, qui arrete tout.
+                #
+                # Mesure du 05/08/2026, run `4c8cfa53` : trois chapitres ecrits,
+                # le CHECK du bloc B demande une correction du chapitre 3, la
+                # correction depasse le volume de reference de 22 % pour une
+                # tolerance de 15 %, et l'etude entiere meurt — 0,43 EUR, aucun
+                # document. Le chapitre 3 avait pourtant une version acceptee.
+                #
+                # Le chapitre garde donc sa version d'avant (voir
+                # `regenerer_chapitre`), l'incident dit ce qui n'a pas pu etre
+                # corrige, et la generation continue.
+                _log.warning(
+                    "Job %s chapitre %s : reparation du CHECK %s impossible (%s). "
+                    "Version precedente conservee.",
+                    job.id, chap.chapter_number, bloc.check_numero, erreur,
+                )
         # Relire depuis la DB : `regenerate_chapter` a ecrit dans chapter.content.
         chapitres = list(
             job.chapters.filter(
@@ -741,6 +1033,11 @@ def _executer_check_avec_retry(
                 status=ChapterStatus.DONE,
             ).order_by("chapter_number")
         )
+        if not chapitres:
+            # Plus rien a relire : le CHECK n'aurait aucune evidence a juger, et
+            # un controle qui n'a rien a comparer est un echec, pas un succes
+            # (regle 1). On sort par l'incident, sans rejouer a vide.
+            break
         result = check_bloc(job, bloc, chapitres, client=client)
 
     if not result.est_ok:
@@ -752,7 +1049,7 @@ def _executer_check_avec_retry(
 
 def _log_incident_check(
     job: GenerationJob,
-    bloc,
+    bloc: BlocDefinition,
     note: str,
     *,
     titre: str,

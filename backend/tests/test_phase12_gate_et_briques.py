@@ -7,8 +7,33 @@ Couvre :
   completude verticales, troncature) + integration tasks.py
 - Correctifs audit : fuite des labels internes, encadre ACTION, em-dash des
   titres preserve, couts exacts (retry + QA IA), limite de pages, fiche projet.
+
+## Quatre tests retires le 08/08/2026, et pourquoi
+
+Ils exigeaient du charter des regles supprimees le 24/07/2026, a l'adoption du
+manuel Evangeline. Ils portaient donc un `skip` permanent : ils ne s'executaient
+ni en local ni en CI, et un test qui ne tourne jamais ne verrouille rien
+(regle 1). Leur motif etait leur seule valeur — il est conserve ici.
+
+- `test_charter_impose_hierarchie_des_sources` — la regle << HIERARCHIE DES
+  SOURCES >> a disparu du charter. Le principe demeure, porte par `context.py`
+  (`ROLE_LINE`), qui rappelle que DONNEES_CLIENT prime sur toute moyenne
+  sectorielle. Voir `project_evkha_manuel_2026-07-24`.
+- `test_charter_regles_acronymes_et_tcac_retenu` — regles ACRONYMES et
+  << TCAC moyenne finale retenue >> retirees : formulations mecaniques qui
+  polluaient le texte livre (constate sur WAOME v4).
+- `test_charter_mentionne_le_marqueur_action` — les marqueurs parseables
+  `[[UNDERSTAND]]` / `[[ACTION]]` sont retires. Les encadres se redigent
+  librement selon le sens, sans gabarit rigide.
+- `test_charter_em_dash_exception_titres` — la contrainte typographique
+  << X.Y — Titre >> n'existe plus ; la voix EVKHA du manuel (§3) suffit.
+
+Ce qui reste teste ici sur le charter, c'est ce que le manuel exige VRAIMENT :
+voir `test_charter_interdit_les_sources_inventees`.
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 
@@ -36,6 +61,13 @@ from intake.models import IntakeStatus, IntakeSubmission
 from integrations.claude import ClaudeResult, StubClaudeClient
 from monitoring.models import IncidentSeverity, OperationalIncident
 from orders.models import Order
+
+#: Racine du depot, deduite de l'emplacement de CE fichier et non du repertoire
+#: courant. Un chemin relatif au CWD ne vaut que si pytest est lance depuis la
+#: racine — sinon le test ne trouve rien, et on le fait taire au lieu de le
+#: reparer. Meme convention que dans les dix autres fichiers qui lisent le
+#: depot.
+RACINE = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture
@@ -186,19 +218,6 @@ def test_fait_client_remplace_fait_genere_existant(
 # ── Brique 2 : charte / hierarchie des sources ───────────────────────────────
 
 
-@pytest.mark.skip(reason=(
-    "Regle 'HIERARCHIE DES SOURCES' retiree du charter le 24/07/2026 "
-    "avec l'adoption du manuel Evangeline. Le principe reste applique via "
-    "context.py (ROLE_LINE ligne 51) qui rappelle DONNEES_CLIENT prime sur "
-    "toute moyenne sectorielle. Voir project_evkha_manuel_2026-07-24."
-))
-def test_charter_impose_hierarchie_des_sources() -> None:
-    from generation.prompts import build_system_prompt
-
-    prompt = build_system_prompt(DeliverableType.BUSINESS_PLAN)
-    assert "HIERARCHIE DES SOURCES" in prompt
-
-
 def test_charter_interdit_les_sources_inventees() -> None:
     """Manuel §3 : « ne jamais inventer un chiffre, une source, un lien... »."""
     from generation.prompts import build_system_prompt
@@ -208,42 +227,6 @@ def test_charter_interdit_les_sources_inventees() -> None:
     assert "inventer un chiffre, une source" in lower or "jamais inventer" in lower
     # Verbatim manuel : distinguer donnee observee / estimation / projection.
     assert "estimation" in lower
-
-
-@pytest.mark.skip(reason=(
-    "Regles ACRONYMES et 'TCAC moyenne finale retenue' retirees du charter "
-    "le 24/07/2026 : formulations mecaniques qui polluaient le texte livre "
-    "(WAOME v4). Le manuel Evangeline ne les prescrit pas."
-))
-def test_charter_regles_acronymes_et_tcac_retenu() -> None:
-    from generation.prompts import build_system_prompt
-
-    prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
-    assert "ACRONYMES" in prompt
-
-
-@pytest.mark.skip(reason=(
-    "Marqueurs parseables [[UNDERSTAND]] / [[ACTION]] retires du charter "
-    "le 24/07/2026 (manuel Evangeline). Encadres desormais rediges "
-    "librement selon le sens, sans template rigide."
-))
-def test_charter_mentionne_le_marqueur_action() -> None:
-    from generation.prompts import build_system_prompt
-
-    prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
-    assert "[[ACTION]]" in prompt
-
-
-@pytest.mark.skip(reason=(
-    "Regle typographique 'em-dash exception titres X.Y — Titre' retiree "
-    "du charter le 24/07/2026. Le manuel ne mentionne aucune contrainte "
-    "typographique explicite ; la voix EVKHA §3 suffit."
-))
-def test_charter_em_dash_exception_titres() -> None:
-    from generation.prompts import build_system_prompt
-
-    prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
-    assert "X.Y — Titre" in prompt
 
 
 # ── Brique 3 : gate de livraison ─────────────────────────────────────────────
@@ -353,9 +336,15 @@ def test_gate_bloque_verticale_effacee(bp_submission: IntakeSubmission) -> None:
         "Le coworking générique répond à la demande locale avec une offre "
         "de bureaux flexibles et de salles de réunion sur Annecy."
     )
-    job = _job_with_content(
-        bp_submission, {n: generic for n in range(0, 20)}
-    )
+    # La plage vient du BLUEPRINT, jamais d'un nombre recopié. Écrite
+    # `range(0, 20)`, elle laissait sans contenu les chapitres ajoutés au
+    # retour aux vingt chapitres du document : le corpus n'était plus
+    # entièrement générique, et le contrôle des verticales n'avait plus le cas
+    # qu'on prétendait lui soumettre.
+    from generation.blueprints import chapters_for_deliverable
+
+    tous = [c.number for c in chapters_for_deliverable(str(DeliverableType.BUSINESS_PLAN))]
+    job = _job_with_content(bp_submission, dict.fromkeys(tous, generic))
     report = run_delivery_gate(job)
     assert not report.passed
     missing = [f.detail for f in report.failures if f.check == "verticales"]
@@ -488,19 +477,24 @@ def test_marqueurs_colles_sont_normalises_puis_rendus() -> None:
     assert "[[" not in strip_callout_markers(html)
 
 
-@pytest.mark.skip(reason=(
-    "Path relatif 'backend/generation/templates/...' echoue quand pytest "
-    "tourne depuis backend/ (CWD standard) — bug pre-existant sans lien "
-    "avec la refonte manuel Evangeline. A corriger separement."
-))
 def test_template_definit_le_style_action() -> None:
-    from pathlib import Path
+    """Le gabarit porte le style des encadres ACTION, et UNE seule regle de tableau.
 
-    template = Path("backend/generation/templates/generation/document.html").read_text(
-        encoding="utf-8"
-    )
-    assert "callout--action" in template
-    assert template.count(".chapter__body table {") == 1
+    Ce test a saute pendant des mois : il localisait le gabarit par un chemin
+    relatif au repertoire courant, qui ne vaut que si pytest est lance depuis la
+    racine. Le `skip` posé dessus a rendu le gabarit de rendu — ce que le client
+    lit reellement — invisible à toute la suite. Un test qui saute ne verrouille
+    rien (regle 1). Le chemin part desormais du fichier de test lui-meme.
+
+    La regle de tableau est comptee : deux declarations `.chapter__body table {`
+    se surchargeraient en silence, et c'est la derniere lue qui gagnerait.
+    """
+    gabarit = (
+        RACINE / "backend/generation/templates/generation/document.html"
+    ).read_text(encoding="utf-8")
+
+    assert "callout--action" in gabarit
+    assert gabarit.count(".chapter__body table {") == 1
 
 
 # ── Em-dash : titres preserves, prose nettoyee ──────────────────────────────

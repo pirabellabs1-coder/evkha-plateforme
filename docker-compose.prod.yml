@@ -8,15 +8,29 @@
 #   WeasyPrint dans /app/media, l'api les sert sur /media/.
 # - Aucun port Postgres/Redis exposé sur l'hôte (réseau Docker interne).
 # - migrate + collectstatic s'exécutent au démarrage de l'api (idempotents).
+# - `seed_formules` y figure aussi : sans lui, une base neuve n'a aucune formule
+#   d'abonnement et l'espace client ne peut proposer aucun plan. Le laisser en
+#   étape manuelle revient à l'oublier au prochain déploiement neuf. Sans
+#   `--forcer`, il crée ce qui manque et ne touche jamais une formule ajustée
+#   depuis l'administration.
 
 services:
   api:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    # `assurer_admin` vient APRES les migrations — il ecrit dans auth_user — et
+    # AVANT gunicorn. Sans lui, personne ne peut entrer dans /admin/ :
+    # `createsuperuser` est interactif, et l'API de Coolify n'expose aucune
+    # execution de commande dans le conteneur. Sans EVKHA_ADMIN_EMAIL ni
+    # EVKHA_ADMIN_PASSWORD, la commande ne fait rien et le dit.
     command: >
-      sh -c "python manage.py migrate --noinput
+      sh -c "python manage.py changer_le_mot_de_passe_postgres
+      && python manage.py migrate --noinput
       && python manage.py seed_offers
+      && python manage.py seed_formules
+      && python manage.py assurer_admin
+      && python manage.py reinitialiser_la_plateforme
       && python manage.py collectstatic --noinput
       && gunicorn evkha.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"
     env_file: .env
@@ -24,15 +38,19 @@ services:
       - "8000"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.evkha-api-http.rule=Host(`app.evkha.fr`)"
-      - "traefik.http.routers.evkha-api-http.entrypoints=http"
-      - "traefik.http.routers.evkha-api-http.middlewares=redirect-to-https"
-      - "traefik.http.routers.evkha-api-https.rule=Host(`app.evkha.fr`)"
-      - "traefik.http.routers.evkha-api-https.entrypoints=https"
-      - "traefik.http.routers.evkha-api-https.tls=true"
-      - "traefik.http.routers.evkha-api-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.evkha-api-https.middlewares=gzip"
-      - "traefik.http.services.evkha-api-svc.loadbalancer.server.port=8000"
+      # Domaine ET nom de routeur paramétrables. Ils étaient écrits en dur, ce
+      # qui rendait impossible un second déploiement à côté du premier : la
+      # nouvelle pile réclamait `app.evkha.fr` à Traefik, et la production
+      # tombait. Les noms de routeurs entraient en collision de la même façon.
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-http.rule=Host(`${API_DOMAIN:?API_DOMAIN requis}`)"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-http.entrypoints=http"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.entrypoints=https"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.tls=true"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-api-https.middlewares=gzip"
+      - "traefik.http.services.${STACK_NAME:-evkha}-api-svc.loadbalancer.server.port=8000"
     depends_on:
       - postgres
       - redis
@@ -76,16 +94,16 @@ services:
     labels:
       - "traefik.enable=true"
       # HTTP → redirect HTTPS
-      - "traefik.http.routers.evkha-dashboard-http.rule=Host(`dashboard.evkha.fr`)"
-      - "traefik.http.routers.evkha-dashboard-http.entrypoints=http"
-      - "traefik.http.routers.evkha-dashboard-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-http.rule=Host(`${FRONT_DOMAIN:?FRONT_DOMAIN requis}`)"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-http.entrypoints=http"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-http.middlewares=redirect-to-https"
       # HTTPS + Let's Encrypt
-      - "traefik.http.routers.evkha-dashboard-https.rule=Host(`dashboard.evkha.fr`)"
-      - "traefik.http.routers.evkha-dashboard-https.entrypoints=https"
-      - "traefik.http.routers.evkha-dashboard-https.tls=true"
-      - "traefik.http.routers.evkha-dashboard-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.evkha-dashboard-https.middlewares=gzip"
-      - "traefik.http.services.evkha-dashboard-svc.loadbalancer.server.port=80"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.rule=Host(`${FRONT_DOMAIN}`)"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.entrypoints=https"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.tls=true"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.middlewares=gzip"
+      - "traefik.http.services.${STACK_NAME:-evkha}-dashboard-svc.loadbalancer.server.port=80"
     depends_on:
       - api
     restart: unless-stopped

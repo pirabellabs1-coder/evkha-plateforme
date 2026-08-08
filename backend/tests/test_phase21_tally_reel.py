@@ -221,15 +221,23 @@ def test_le_formulaire_business_plan_livre_les_faits_exiges_par_le_gate() -> Non
     assert normalise["NOM_ENTREPRISE"] == "SYNAPSES"
 
 
-def test_pays_et_zone_sont_devines_faute_de_champ_dedie() -> None:
-    """Constat, pas approbation : le fallback invente « France ».
+def test_un_pays_absent_est_signale_et_jamais_invente() -> None:
+    """Ce test affirmait l'inverse, et verrouillait le defaut (regle 6).
 
-    Aucun des quatre formulaires n'a de champ dedie au pays ni a la ville : ils
-    sont noyes dans un encadre multi-questions. `_infer_missing_from_textareas`
-    comble alors le trou par « France » — en silence, et faux des que le client
-    n'est pas francais. La correction est cote formulaire, pas cote code : ce
-    test existe pour que le jour ou la cliente ajoute les champs, personne ne
-    s'etonne de le voir tomber.
+    Il exigeait `normalise["PAYS"] == "France"`, en le presentant comme un
+    « constat, pas approbation », et concluait que « la correction est cote
+    formulaire, pas cote code ». C'est ce raisonnement qui etait faux : le code
+    ne doit pas inventer un pays, quel que soit l'etat du formulaire.
+
+    Le repli etait applique AVANT le calcul des manquants, si bien que PAYS et
+    ZONE — deux des quatre variables requises — ne pouvaient structurellement
+    jamais etre signalees absentes. Mesure sur charge utile reelle : un dossier
+    beninois partait en generation avec « marche europeen » dans le prompt
+    systeme, la devise EUR verrouillee a tolerance zero, et des requetes web
+    « <secteur> France ».
+
+    Sans pays, le dossier doit rester INCOMPLETE : quelqu'un le complete, et
+    personne ne recoit une etude sur le mauvais continent (regle 1).
     """
     normalise, manquantes = normalize_intake_variables(
         {
@@ -245,6 +253,80 @@ def test_pays_et_zone_sont_devines_faute_de_champ_dedie() -> None:
         }
     )
 
-    assert normalise["PAYS"] == "France"
-    assert normalise["ZONE"] == "France"
-    assert "PROJET" in manquantes
+    assert "PAYS" not in normalise
+    assert "ZONE" not in normalise
+    assert {"PAYS", "ZONE", "PROJET"} <= set(manquantes)
+
+
+def test_zone_absente_reprend_le_pays_declare() -> None:
+    """Un repli honnete : la donnee du client, jamais une constante.
+
+    C'est deja ce que fait l'autre voie de saisie (`organisations/commandes.py`)
+    — une seule regle pour les deux (regle 5).
+    """
+    normalise, _ = normalize_intake_variables(
+        {
+            "data": {
+                "fields": [
+                    {"label": LIBELLE_SECTEUR, "type": "INPUT_TEXT", "value": "coworking"},
+                    {"label": "Pays", "type": "INPUT_TEXT", "value": "Bénin"},
+                ]
+            }
+        }
+    )
+
+    assert normalise["PAYS"] == "Bénin"
+    assert normalise["ZONE"] == "Bénin"
+
+
+def test_une_reponse_a_choix_est_rendue_en_texte_et_non_en_identifiant() -> None:
+    """Tally envoie des IDENTIFIANTS d'options, le libelle vit dans `options`.
+
+    Ce module ne lisait pas `options` : un client choisissant « Benin » dans une
+    liste deroulante produisait `PAYS == ["c0a1-11ee-benin"]`. Valeur non vide,
+    donc elle passait le controle des requis, puis partait telle quelle dans le
+    prompt — le modele redigeait un chapitre sur un pays nomme par un UUID.
+    """
+    normalise, _ = normalize_intake_variables(
+        {
+            "data": {
+                "fields": [
+                    {"label": LIBELLE_SECTEUR, "type": "INPUT_TEXT", "value": "coworking"},
+                    {
+                        "label": "Pays",
+                        "type": "DROPDOWN",
+                        "value": ["c0a1-11ee-benin"],
+                        "options": [
+                            {"id": "c0a1-11ee-benin", "text": "Bénin"},
+                            {"id": "c0a1-11ee-france", "text": "France"},
+                        ],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert normalise["PAYS"] == "Bénin"
+
+
+def test_une_question_a_choix_sans_reponse_compte_comme_absente() -> None:
+    """`[]` n'est ni None ni "" : la cle etait enregistree vide et echappait
+    au controle des champs requis."""
+    normalise, manquantes = normalize_intake_variables(
+        {
+            "data": {
+                "fields": [
+                    {"label": LIBELLE_SECTEUR, "type": "INPUT_TEXT", "value": "coworking"},
+                    {
+                        "label": "Pays",
+                        "type": "DROPDOWN",
+                        "value": [],
+                        "options": [{"id": "x", "text": "France"}],
+                    },
+                ]
+            }
+        }
+    )
+
+    assert "PAYS" not in normalise
+    assert "PAYS" in manquantes

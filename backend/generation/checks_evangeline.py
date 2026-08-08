@@ -405,7 +405,17 @@ def _valeurs_distinctes(mentions: tuple[Mention, ...]) -> bool:
 # cause (context length, refus du modele, exception silencieuse). Sans
 # `max_words` (Annexes, Fiche projet, Sources), on ne peut pas juger — on
 # laisse passer plutot que d'inventer une regle.
-_PLANCHER_RATIO = 0.30
+#: Fraction de la MEDIANE des chapitres du meme document sous laquelle un
+#: chapitre est tenu pour avorte. A 40 %, un chapitre de 250 mots au milieu de
+#: chapitres de 625 est signale ; un chapitre de 470, non — et il ne devait pas
+#: l'etre, le document valide par la cliente ayant lui-meme des parties courtes.
+_PLANCHER_RATIO_VOISINS = 0.40
+
+#: Plancher absolu, independant de la mediane : un chapitre de trente mots est
+#: avorte meme si tout le document est court. Sans lui, un document
+#: uniformement indigent se declarerait sain — un controle qui se compare a
+#: lui-meme se donne toujours raison (regle 9).
+_PLANCHER_ABSOLU_MOTS = 120
 
 
 @dataclass(frozen=True)
@@ -470,12 +480,25 @@ REGISTRES_METHODO: dict[str, tuple[str, str]] = {
 }
 
 
+# Criteres de selection des concurrents — « Cahier des charges technique V1 —
+# Etude de la concurrence », etape 1.4, CRITERES DE SELECTION (p. 11-12).
+# Repris verbatim et dans leur ordre : cette constante est la source unique
+# injectee dans le prompt EC (prompts.py), donc la formuler autrement revient a
+# trier sur d'autres criteres que ceux du document.
+#
+# Corrige le 05/08/2026. La liste precedente en comptait cinq, dont trois du
+# document manquaient — visibilite digitale et terrain, intensite concurrentielle
+# observee, potentiel d'enseignement strategique — et dont une, « Anciennete sur
+# le marche », n'apparait NULLE PART dans les 33 pages. Le systeme retenait donc
+# ses onze acteurs sur une grille qui n'etait pas celle de la cliente.
 CRITERES_TRI_CONCURRENTS: tuple[str, ...] = (
-    "Similarite de l'offre (memes produits, memes services)",
-    "Cible client comparable",
-    "Taille (chiffre d'affaires, notoriete)",
-    "Proximite geographique avec le client",
-    "Anciennete sur le marche",
+    "Influence sur le marche (notoriete, parts de marche percues)",
+    "Proximite avec l'offre du projet",
+    "Proximite avec la clientele cible",
+    "Presence sur la zone ou accessibilite depuis cette zone",
+    "Visibilite digitale et terrain",
+    "Intensite concurrentielle observee",
+    "Potentiel d'enseignement strategique pour le projet",
 )
 
 _SOUS_SECTIONS_CONCURRENTS: dict[str, re.Pattern[str]] = {
@@ -559,18 +582,48 @@ def verifier_concurrents_dans_ec(
 
 # ── Piliers de la strategie business : les 4 sont toujours poses ────────────
 #
-# Consigne d'Evangeline (fiche 4, question 1) : pour une strategie business,
-# les 4 piliers sont TOUJOURS traites, dans le meme ordre, avec leur objectif
-# verbatim. On les verifie present dans le document livre.
+# Consigne d'Evangeline (fiche 4, question 1) : pour une strategie business, les
+# 4 piliers sont TOUJOURS traites. On les verifie presents dans le document.
+#
+# ARBITRAGE DU 05/08/2026 — deux documents de la cliente se contredisent.
+#
+# La fiche 4 nommait ces piliers « Planning editorial » et « Analyse de la
+# tarification ». Le cahier des charges « STRATEGIES BUSINESS AUTOMATISEES »
+# (96 pages) n'emploie JAMAIS ces deux expressions — verifie sur l'integralite
+# du document — et exclut explicitement que le systeme devienne « un calendrier
+# editorial ». Sa colonne vertebrale est en sept parties, dont PARTIE IV
+# « VISIBILITE & ACQUISITION » et PARTIE V « RENTABILITE & MODELE ECONOMIQUE ».
+#
+# Le controle etait donc pire qu'inutile : il BLOQUAIT au gate une strategie
+# strictement conforme au cahier des charges. Et pas seulement sur ces deux
+# piliers — le pilier 1 exigeait « positionnement & specialisation » quand le
+# document ecrit « positionnement & differenciation ». Trois piliers sur quatre
+# echouaient sur un document conforme.
+#
+# Plutot que de supprimer le controle (il porte une intention reelle : quatre
+# axes structurants doivent etre traites) ou de choisir un document contre
+# l'autre, chaque pilier accepte DESORMAIS les deux vocabulaires. Il continue
+# d'echouer bruyamment si un axe est absent des deux facons a la fois — ce qui
+# est le seul cas ou l'on peut affirmer qu'il manque (regles 1 et 2).
+#
+# A rouvrir avec Evangeline : lequel des deux documents fait foi.
 
 PILIERS_STRATEGIE: dict[str, tuple[str, str]] = {
     "positionnement": (
         "PILIER 1",
-        rf"positionnement(?:{_S}+&{_S}+|{_S}+et{_S}+)sp[ée]cialisation",
+        rf"positionnement(?:{_S}+&{_S}+|{_S}+et{_S}+)"
+        rf"(?:sp[ée]cialisation|diff[ée]renciation)",
     ),
-    "offre":       ("PILIER 2", rf"structuration{_S}+de{_S}+l['’]offre"),
-    "editorial":   ("PILIER 3", rf"planning{_S}+[ée]ditorial"),
-    "tarification":("PILIER 4", rf"analyse{_S}+de{_S}+la{_S}+tarification"),
+    "offre": ("PILIER 2", rf"structuration{_S}+de{_S}+l['’]offre"),
+    "visibilite": (
+        "PILIER 3",
+        rf"(?:planning{_S}+[ée]ditorial|visibilit[ée]|acquisition)",
+    ),
+    "rentabilite": (
+        "PILIER 4",
+        rf"(?:analyse{_S}+de{_S}+la{_S}+tarification|rentabilit[ée]"
+        rf"|mod[èe]le{_S}+[ée]conomique)",
+    ),
 }
 
 
@@ -599,28 +652,57 @@ def verifier_piliers_strategie(corpus: str) -> list[PilierManquant]:
 def detecter_chapitres_avortes(
     sections_avec_plafond: list[tuple[int, str, str, int]],
 ) -> list[ChapitreAvorte]:
-    """Signale les chapitres qui rendent moins de 30 % de leur plafond.
+    """Signale les chapitres manifestement plus courts QUE LEURS VOISINS.
 
-    `sections_avec_plafond` = liste de (numero, titre, corps, max_words). Un
-    `max_words == 0` (Annexes, Sources, Fiche projet) desactive le check :
-    ces chapitres n'ont pas de cible et rester silencieux est preferable a
-    inventer une regle.
+    ## Pourquoi la reference a change
+
+    Le seuil valait 30 % de `max_words`. Or `max_words` est une borne de
+    PLANIFICATION — elle dimensionne la fenetre de tokens, le blueprint le dit
+    lui-meme : « cible editoriale indicative […] injectee comme borne haute ».
+    Ce n'est pas une cible a atteindre, et un plancher calcule dessus compare a
+    la mauvaise reference (regle 2).
+
+    Mesure du 05/08/2026, livrable reel `4b827759` : le gate a declare SIX
+    chapitres « non produits », a 470 mots pour un plafond de 1 800. Or ce
+    document pese 14 387 mots, soit 24 % de PLUS que le document valide par la
+    cliente (11 580), et ses chapitres font 625 mots en moyenne. Le controle
+    signalait donc comme avortes des chapitres a 75 % de la moyenne de leur
+    propre document — et il le faisait sur un document plus dense que la
+    reference.
+
+    ## La nouvelle reference : le document lui-meme
+
+    Un chapitre est avorte quand il est tres en dessous de SES VOISINS, pas
+    d'un plafond theorique. La mediane des chapitres du meme document est une
+    reference reelle, disponible, et qui s'adapte a chaque livrable sans
+    constante a maintenir.
+
+    Le plancher absolu reste : un chapitre de trente mots est avorte quelle que
+    soit la mediane, y compris si tout le document est court.
     """
-    avortes: list[ChapitreAvorte] = []
-    for numero, titre, corps, max_words in sections_avec_plafond:
-        if max_words <= 0:
-            continue
-        mots = _compter_mots(corps)
-        seuil = int(max_words * _PLANCHER_RATIO)
-        if mots < seuil:
-            avortes.append(ChapitreAvorte(
-                chapitre=numero,
-                titre=titre,
-                mots_rendus=mots,
-                mots_attendus=max_words,
-                ratio=mots / max_words if max_words else 0.0,
-            ))
-    return avortes
+    mesures = [
+        (numero, titre, _compter_mots(corps), max_words)
+        for numero, titre, corps, max_words in sections_avec_plafond
+        if max_words > 0
+    ]
+    if not mesures:
+        return []
+
+    longueurs = sorted(mots for _n, _t, mots, _m in mesures)
+    mediane = longueurs[len(longueurs) // 2]
+    seuil = max(int(mediane * _PLANCHER_RATIO_VOISINS), _PLANCHER_ABSOLU_MOTS)
+
+    return [
+        ChapitreAvorte(
+            chapitre=numero,
+            titre=titre,
+            mots_rendus=mots,
+            mots_attendus=seuil,
+            ratio=mots / seuil if seuil else 0.0,
+        )
+        for numero, titre, mots, _max_words in mesures
+        if mots < seuil
+    ]
 
 
 def detecter_divergences(mentions: list[Mention]) -> list[DivergenceChiffree]:
