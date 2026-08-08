@@ -110,9 +110,39 @@ def _exporter(figure: Figure, palette: Palette) -> bytes:
     return tampon.read()
 
 
+#: Trait epaissi quand une figure a une seule serie, donc l'or.
+#:
+#: L'or vaut 2,96 de contraste sur le fond des figures, la couleur principale
+#: 15,5 — mesure faite avant de livrer, pas apres. Sur un aplat (barre, part,
+#: aire) l'ecart ne se voit pas : la surface porte la couleur. Sur un trait de
+#: 2 points, il se voit. On rend donc au trait en epaisseur ce qu'il perd en
+#: contraste, plutot que de livrer une courbe delavee.
+EPAISSEUR_TRAIT_SOLO = 2.8
+EPAISSEUR_TRAIT = 2.0
+
+
 def _couleurs(palette: Palette, nombre: int) -> list[str]:
+    """Couleurs des series, dans l'ordre du lot 0 — sauf pour une serie seule.
+
+    L'ordre `primaire, or, creme, rose` vient du document de reference et ne
+    bouge pas : sur une figure a plusieurs series, la premiere reste sombre,
+    sinon deux figures voisines ne se compareraient plus.
+
+    **Une figure a une SEULE serie part directement sur l'or** (decision de la
+    cliente du 08/08/2026). Mesure sur le dossier reel `b561c2d6` : six figures
+    sur dix-sept sortaient en noir et blanc integral, uniquement parce qu'elles
+    n'avaient qu'une serie et que le rang 0 est sombre. La charte y perdait sans
+    qu'aucune regle ne le demande.
+    """
     base = palette.series_graphique
+    if nombre == 1:
+        return [palette.or_bronze]
     return [base[index % len(base)] for index in range(nombre)]
+
+
+def _epaisseur(nombre_de_series: int) -> float:
+    """Trait plus epais quand il est or, c'est-a-dire quand la serie est seule."""
+    return EPAISSEUR_TRAIT_SOLO if nombre_de_series == 1 else EPAISSEUR_TRAIT
 
 
 def _pourcentages_lisibles(
@@ -256,7 +286,8 @@ def courbes(
     couleurs = _couleurs(palette, len(series))
     for index, (nom, valeurs) in enumerate(series):
         axes.plot(
-            list(abscisses), list(valeurs), marker="o", markersize=4, linewidth=2,
+            list(abscisses), list(valeurs), marker="o", markersize=4,
+            linewidth=_epaisseur(len(series)),
             color=couleurs[index], label=nom,
         )
     axes.grid(axis="y", color=palette.fond_clair_alt, linewidth=0.8)
@@ -429,7 +460,10 @@ def radar(
     couleurs = _couleurs(palette, len(series))
     for index, (nom, valeurs) in enumerate(series):
         points = [*list(valeurs), list(valeurs)[0]]
-        axes.plot(angles, points, linewidth=2, color=couleurs[index], label=nom)
+        axes.plot(
+            angles, points, linewidth=_epaisseur(len(series)),
+            color=couleurs[index], label=nom,
+        )
         axes.fill(angles, points, color=couleurs[index], alpha=0.18)
     axes.set_xticks(angles[:-1])
     axes.set_xticklabels(list(axes_noms), fontsize=9, color=palette.texte_corps)
