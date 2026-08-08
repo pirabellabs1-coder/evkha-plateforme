@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 
+from catalog.models import DeliverableType
 from integrations.claude import _MAX_CONTINUATIONS, _provision_reflexion
 from monitoring.models import IncidentSeverity, OperationalIncident
 
@@ -275,27 +276,56 @@ def max_tokens_for_job(
     return max(_MIN_MAX_TOKENS, min(default_max_tokens, allowed))
 
 
-#: Ce qu'une generation ne doit JAMAIS depasser, quel que soit le livrable et
-#: quel que soit son budget de rythme. Decision de la cliente du 05/08/2026,
-#: releve de la console Anthropic a l'appui — 44,26 $US de credits restants,
-#: rechargement automatique actif : « on ne doit pas depasser 3 euros pour une
-#: generation, ou 3,1 au max ».
+#: Ce qu'une generation ne doit JAMAIS depasser. **Decision de la cliente du
+#: 08/08/2026**, qui remplace le plafond unique de 3,10 EUR arrete le 05/08 :
+#: le prix d'un livrable depend de ce qu'il demande, et un plafond unique
+#: rationnait l'etude de marche pour rien pendant qu'il laissait de l'air a
+#: l'etude concurrentielle.
 #:
-#: Pourquoi un nombre DISTINCT de `budget_eur`. Celui-ci sert de denominateur au
-#: throttle : il repartit le restant sur les appels a venir. Le baisser ne fait
-#: pas baisser la depense, il RETRECIT chaque chapitre — mesure le 05/08/2026,
-#: sous 3,80 EUR chaque appel d'une etude de marche est deja borne au plancher.
-#: Confondre les deux revenait a croire qu'on plafonnait une facture alors qu'on
-#: rabotait un document.
+#: C'EST LA SEULE TABLE. `services._BUDGET_EUR_BY_TYPE` la relit au lieu de la
+#: recopier : deux tables aux memes nombres auraient diverge, et c'est
+#: exactement ce que la regle 5 condamne.
 #:
-#: Reglable sans redeploiement : la contrainte est commerciale, elle bougera.
-PLAFOND_DEPENSE_EUR = Decimal("3.1000")
+#: Le rythme et le plafond valent desormais LA MEME valeur, et ce n'est pas une
+#: economie de ligne. `budget_eur` sert de denominateur au throttle : il
+#: repartit le restant sur les appels a venir. Quand il depassait le plafond —
+#: 4,00 contre 3,10 jusqu'a aujourd'hui — le throttle cadencait vers un montant
+#: que le frein n'autorisait pas : il allouait genereusement, puis le dossier
+#: etait coupe net avant la fin. Les egaliser supprime cette contradiction.
+#:
+#: Baisser ces nombres ne fait PAS baisser la depense : cela retrecit chaque
+#: chapitre. Mesure le 05/08/2026 : sous 3,80 EUR, chaque appel d'une etude de
+#: marche est deja borne au plancher. Confondre les deux revient a croire qu'on
+#: plafonne une facture alors qu'on rabote un document.
+PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
+    DeliverableType.MARKET_STUDY:      Decimal("6.0000"),
+    DeliverableType.BUSINESS_PLAN:     Decimal("4.0000"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("4.0000"),
+    DeliverableType.COMPETITOR_STUDY:  Decimal("3.5000"),
+}
+
+#: Repli pour un type de livrable inconnu de la table — le plus BAS, jamais le
+#: plus haut. Un livrable qu'on n'a pas budgete ne doit pas heriter du plafond
+#: le plus genereux : il s'arretera tot, ouvrira un incident, et le manque se
+#: verra. L'inverse depenserait en silence.
+PLAFOND_REPLI_EUR = min(PLAFOND_PAR_LIVRABLE.values())
 
 
 def plafond_de_depense(job: GenerationJob) -> Decimal:
-    """Le plus contraignant des deux : le rythme du job, ou le plafond commercial."""
-    plafond = getattr(settings, "EVKHA_PLAFOND_DEPENSE_EUR", None)
-    absolu = Decimal(str(plafond)) if plafond is not None else PLAFOND_DEPENSE_EUR
+    """Le plus contraignant : le rythme du job, ou le plafond de son livrable.
+
+    `EVKHA_PLAFOND_DEPENSE_EUR` reste un frein d'urgence GLOBAL, reglable sans
+    redeploiement : pose, il s'applique a tous les livrables. C'est ce qu'on
+    veut d'un frein — on le tire sans se demander quel type de dossier tourne.
+    """
+    # `str(...).strip()` et non `is not None` : le reglage vient de
+    # l'environnement, ou « absent » s'ecrit chaine vide. Tester la non-nullite
+    # laissait le frein serre en permanence sur sa valeur par defaut, et la
+    # table par livrable n'etait jamais atteinte.
+    surcharge = str(getattr(settings, "EVKHA_PLAFOND_DEPENSE_EUR", "") or "").strip()
+    if surcharge:
+        return min(job.budget_eur, Decimal(surcharge))
+    absolu = PLAFOND_PAR_LIVRABLE.get(str(job.deliverable_type), PLAFOND_REPLI_EUR)
     return min(job.budget_eur, absolu)
 
 

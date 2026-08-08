@@ -292,11 +292,18 @@ EVKHA_THINKING_BUDGET_TOKENS = env.int("EVKHA_THINKING_BUDGET_TOKENS", default=1
 # actionner avant de couper la reflexion tout court.
 EVKHA_CLAUDE_EFFORT = env("EVKHA_CLAUDE_EFFORT", default="high")
 
-# Ce qu'une generation ne doit JAMAIS depasser, quel que soit le livrable.
-# Contrainte COMMERCIALE, distincte du budget de rythme de chaque livrable :
-# baisser celui-ci ne fait pas baisser la depense, il retrecit les chapitres
-# (voir generation/cost.py, PLAFOND_DEPENSE_EUR). Reglable sans redeploiement.
-EVKHA_PLAFOND_DEPENSE_EUR = env("EVKHA_PLAFOND_DEPENSE_EUR", default="3.10")
+# FREIN D'URGENCE GLOBAL, vide par defaut. Pose, il plafonne TOUS les livrables
+# a la meme valeur, sans redeploiement — on le tire sans se demander quel type
+# de dossier tourne.
+#
+# Il portait un defaut de « 3.10 » jusqu'au 08/08/2026, et ce defaut le rendait
+# TOUJOURS actif : le plafond par livrable de `cost.PLAFOND_PAR_LIVRABLE`
+# n'etait jamais atteint, et une etude de marche annoncee a 4,00 EUR etait en
+# realite coupee a 3,10. Un frein d'urgence serre en permanence n'est plus un
+# frein d'urgence, c'est le plafond — et il masquait celui qu'on croyait lire.
+#
+# Vide = la table par livrable s'applique. C'est elle qui fait foi.
+EVKHA_PLAFOND_DEPENSE_EUR = env("EVKHA_PLAFOND_DEPENSE_EUR", default="")
 
 # Plafond de mots par section a l'assemblage du Word. 0 = aucune coupe.
 # Au-dela, la prose de la section est ramenee a une amorce, sur une frontiere

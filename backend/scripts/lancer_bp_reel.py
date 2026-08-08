@@ -9,7 +9,9 @@ Garde-fous, repris des lanceurs precedents :
   - refuse de tourner si le courriel n'est PAS bouche (aucun envoi automatique
     depuis un environnement de test — CLAUDE.md) ;
   - EVKHA_SOCLE_ENABLED force : sans lui on observe un autre logiciel ;
-  - le plafond de depense (3,10 EUR) est tenu par `enforce_budget`, pas ici.
+  - le plafond de depense est tenu par `enforce_budget`, pas ici. Il vaut
+    4,00 EUR pour un business plan depuis le 08/08/2026 (cliente) — la
+    table qui fait foi est `cost.PLAFOND_PAR_LIVRABLE`.
 
 Usage (depuis la racine, venv actif) :
     EVKHA_USE_STUB_AI=false EVKHA_USE_STUB_EMAIL=true EVKHA_SOCLE_ENABLED=true \\
@@ -101,9 +103,12 @@ def main() -> int:
         normalized_variables=variables,
     )
     job = bootstrap_generation_job(commande.intake_submission)
+    from generation.cost import plafond_de_depense
+
     print(f"JOB {job.id}")
     print(f"  type {job.deliverable_type} — {job.chapters.count()} chapitres — "
-          f"budget {job.budget_eur} EUR (plafond dur 3,10)")
+          f"budget {job.budget_eur} EUR — plafond dur "
+          f"{plafond_de_depense(job)} EUR")
 
     debut = time.monotonic()
     try:

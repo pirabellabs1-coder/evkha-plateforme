@@ -121,12 +121,20 @@ def test_market_study_budget_keeps_phase0_margin() -> None:
     # sur la projection, comme annonce ci-dessus (regles 7 et 10).
     #
     # Deux etudes de marche COMPLETES ont tourne sur Sonnet 5 : 3,12 et 3,32 EUR.
-    # La projection a 6,00 portait donc pres du double de la depense observee.
     #
-    # Et ce nombre ne plafonne plus rien : la depense est desormais coupee en dur
-    # a 3,10 EUR par `cost.PLAFOND_DEPENSE_EUR`, sur decision de la cliente. Ce
-    # qui reste a ce budget-ci, c'est son role de RYTHME — il sert de
-    # denominateur au throttle. Le seuil sous lequel il rabote les chapitres est
-    # MESURE a 3,80 EUR (voir `test_plafond_de_generation`) : 4,00 laisse la
-    # marge utile, et pas davantage.
-    assert job.budget_eur == Decimal("4.0000")
+    # PORTE A 6,00 EUR LE 08/08/2026, sur decision de la cliente. Et cette fois
+    # le nombre plafonne VRAIMENT : rythme et plafond sont devenus la meme
+    # table, `cost.PLAFOND_PAR_LIVRABLE`. Ils avaient diverge — rythme 4,00,
+    # frein 3,10 — et le throttle cadencait alors vers un montant que le frein
+    # n'autorisait pas.
+    #
+    # Ce test ne recopie plus la valeur : il relit la table. Le montant lui-meme
+    # est verrouille par `test_plafond_de_generation`, qui le compare a la
+    # decision de la cliente recopiee a la main. Ici, ce qui compte est que
+    # `bootstrap_generation_job` POSE bien ce plafond sur le job — c'est le seul
+    # endroit qui le fait, et un job cree sans lui retomberait sur le defaut du
+    # modele (2,00 EUR), donc sur des chapitres rabotes.
+    from generation.cost import PLAFOND_PAR_LIVRABLE
+
+    assert job.budget_eur == PLAFOND_PAR_LIVRABLE[DeliverableType.MARKET_STUDY]
+    assert job.budget_eur == Decimal("6.0000")

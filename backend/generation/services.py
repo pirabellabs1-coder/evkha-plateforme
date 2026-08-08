@@ -6,6 +6,7 @@ from catalog.models import DeliverableType
 from intake.models import IntakeStatus, IntakeSubmission
 
 from .blueprints import chapters_for_deliverable
+from .cost import PLAFOND_PAR_LIVRABLE
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 
 # Livrables couverts par le moteur de generation (phases 2-5).
@@ -83,15 +84,38 @@ _SUPPORTED_DELIVERABLES = frozenset(
 # On separe donc les deux roles. Le RYTHME reste dimensionne sur le travail a
 # faire ; le PLAFOND DE DEPENSE, lui, est une decision commerciale et il
 # s'applique en dur (voir `cost.enforce_budget`).
-_BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    # Ramene de 6,00 : les deux etudes COMPLETES mesurees ont coute 3,12 et
-    # 3,32 EUR, et 4,00 laisse au throttle la marge qu'il lui faut pour ne pas
-    # raboter (seuil mesure : 3,80).
-    DeliverableType.MARKET_STUDY:      Decimal("4.0000"),  # 30 appels + reflexion + CHECKs
-    DeliverableType.BUSINESS_PLAN:     Decimal("3.6500"),  # 20 chapitres, ~24 appels chunked
-    DeliverableType.BUSINESS_STRATEGY: Decimal("3.3500"),  # 21 appels (+ conclusion)
-    DeliverableType.COMPETITOR_STUDY:  Decimal("2.6000"),  # 12 appels (sans SWOT)
-}
+#: Rythme du throttle, par livrable. **Ce n'est PAS une seconde table** : c'est
+#: `cost.PLAFOND_PAR_LIVRABLE`, relue ici. Deux tables aux memes nombres
+#: auraient diverge au premier ajustement, et c'est la regle 5.
+#:
+#: Rythme et plafond valent la meme valeur, et c'est voulu. Ils ont differe
+#: jusqu'au 08/08/2026 — rythme 4,00, plafond 3,10 — et le throttle cadencait
+#: alors vers un montant que le frein n'autorisait pas : allocation genereuse,
+#: puis coupure nette avant la fin du dossier.
+#:
+#: Plafonds arretes par la cliente le 08/08/2026 : etude de marche 6,00,
+#: business plan 4,00, strategie 4,00, etude concurrentielle 3,50. Ce sont des
+#: PLAFONDS, pas des cibles — les deux seules etudes de marche completes
+#: mesurees ont coute 3,12 et 3,32 EUR, et rien ne pousse le moteur a depenser
+#: davantage parce qu'on lui en laisse la place.
+#:
+#: Ce que la hausse achete : le throttle cesse de raboter les chapitres (sous
+#: 3,80 EUR sur une etude de marche, chaque appel etait deja borne au plancher —
+#: le defaut meme que la cliente avait signale), et `_has_budget_headroom`
+#: autorise plus de rondes de correction avant de refuser une regeneration.
+#:
+#: Ce qu'elle n'achete PAS, et il faut le dire : aucun graphique de plus. Les
+#: figures sont rendues par matplotlib depuis le socle
+#: (`rendu_word/donnees_graphiques.py`), sans le moindre appel API. Une figure
+#: abandonnee l'est parce que le socle ne peut pas l'alimenter — identifiants
+#: absents, unites heterogenes, un seul chiffre — jamais faute de budget.
+#:
+#: AVERTISSEMENT sur les deux mesures citees : elles datent d'avant le correctif
+#: de comptabilisation du 08/08/2026, qui ecrasait le cout des chapitres
+#: regeneres. Elles SOUS-ESTIMENT la depense reelle, d'autant plus que le
+#: dossier a subi des reprises. Le prochain dossier reel donnera le premier
+#: chiffre honnete.
+_BUDGET_EUR_BY_TYPE: dict[str, Decimal] = PLAFOND_PAR_LIVRABLE
 
 
 class GenerationBootstrapError(ValueError):
