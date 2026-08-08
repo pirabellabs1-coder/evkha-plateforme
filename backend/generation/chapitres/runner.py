@@ -471,13 +471,51 @@ def payload_vers_markdown(payload: ChapitrePayload) -> str:
     return "\n\n".join(morceaux)
 
 
+#: Borne de sortie d'un chapitre structure. **C'est un PLAFOND, pas une
+#: depense** : le relever ne coute rien tant que le modele n'ecrit pas
+#: davantage. Ce qu'il evite, lui, coute cher.
+#:
+#: Elle valait 8 192, et aucun appelant ne l'a jamais surchargee : chaque
+#: chapitre recevait la meme borne, quelle que soit sa cible editoriale. Or
+#: `complete_structured` ne fait QU'UN SEUL appel — pas de boucle de
+#: continuation, contrairement a `complete()`. Un chapitre qui demande plus rend
+#: donc un appel d'outil tronque, dont l'`input` perd ses derniers champs.
+#:
+#: Mesure du 08/08/2026, etude de marche `b561c2d6` : le chapitre 19 a echoue
+#: SIX fois de suite sur << blocs : champ requis ; resume : champ requis >>,
+#: alors que ses voisins consommaient 5 400 a 6 400 jetons — assez pres de la
+#: borne pour que le suivant la depasse.
+#:
+#: 16 000 et pas davantage : au-dela, un appel NON diffuse en flux risque
+#: d'expirer avant de rendre sa reponse, et ce client n'utilise pas le flux.
+MAX_TOKENS_CHAPITRE = 16000
+
+
+def motif_de_troncature(stop_reason: str, max_tokens: int) -> list[str]:
+    """Rend le motif d'une reponse COUPEE, ou rien si elle s'est terminee.
+
+    Fonction a part, et non trois lignes dans `generer_chapitre` : c'est la
+    seule facon de l'eprouver sans monter tout le chemin d'appel — client,
+    socle, variables, prompt. Un test qui doit simuler cinq collaborateurs pour
+    verifier une condition finit par tester le montage, pas la condition.
+    """
+    if stop_reason != "max_tokens":
+        return []
+    return [
+        f"reponse tronquee a {max_tokens} jetons de sortie : le modele n'a pas "
+        "pu terminer son appel d'outil, les derniers champs du schema "
+        "manquent. Ce n'est PAS un defaut de schema — relever la borne de "
+        "sortie de ce chapitre, ou resserrer sa cible editoriale."
+    ]
+
+
 def generer_chapitre(
     *,
     client: Any,
     chapter: ChapterGeneration,
     socle: Socle,
     variables: Mapping[str, object],
-    max_tokens: int = 8192,
+    max_tokens: int = MAX_TOKENS_CHAPITRE,
     derniere_tentative: bool | None = None,
 ) -> tuple[ChapitrePayload, dict[str, int], Arbitrage]:
     """Produit UN chapitre. Lève `ChapitreInvalideError` si le contrat est rompu.
@@ -514,6 +552,22 @@ def generer_chapitre(
         "input_tokens": resultat.input_tokens,
         "output_tokens": resultat.output_tokens,
     }
+
+    # La reponse a-t-elle ete COUPEE ? `complete_structured` ne fait qu'un seul
+    # appel — pas de boucle de continuation, contrairement a `complete()`. Un
+    # chapitre qui demande plus que `max_tokens` rend donc un appel d'outil
+    # tronque, dont l'`input` perd ses derniers champs.
+    #
+    # Sans ce controle, la validation accuse le mauvais coupable : elle annonce
+    # << blocs : champ requis ; resume : champ requis >>, ce qui envoie chercher
+    # un defaut de schema alors que le schema est intact. Mesure du 08/08/2026,
+    # etude de marche `b561c2d6`, chapitre 19 : SIX tentatives, six fois ce
+    # motif, et le vrai motif — `stop_reason: max_tokens` — etait capture par
+    # `StructuredResult` sans que personne ne le lise. Un motif faux coute plus
+    # cher qu'un motif absent (regle 2).
+    tronquee = motif_de_troncature(resultat.stop_reason, max_tokens)
+    if tronquee:
+        raise ChapitreInvalideError(tronquee)
 
     try:
         payload = ChapitrePayload.model_validate(dict(resultat.payload))
