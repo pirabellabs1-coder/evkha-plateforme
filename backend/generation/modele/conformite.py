@@ -321,6 +321,35 @@ IMPOSSIBLES: dict[str, str] = {}
 #: partent jamais, quel que soit le nombre de tentatives déjà brûlées.
 REGLES_REDHIBITOIRES = frozenset({"variable_non_resolue", "data_refs_inconnus"})
 
+#: Règles qui mesurent une RESSEMBLANCE AU MODÈLE, et rien d'autre.
+#:
+#: Décision du 08/08/2026 : « on n'a pas besoin de suivre exactement le modèle,
+#: le modèle est pour l'entraînement et c'est tout. » Elles étaient traitées
+#: comme un refus tant qu'il restait une tentative, ce qui faisait rejouer le
+#: chapitre jusqu'à ce qu'il ressemble au gabarit.
+#:
+#: Mesuré sur l'étude de marché réelle `b561c2d6` : le rythme est passé de 6,1 à
+#: 10,2 minutes par chapitre à mesure que l'étude avançait, parce que les
+#: chapitres tardifs — les plus longs et les plus chiffrés — s'écartaient le plus
+#: du volume du modèle. 3,14 EUR consommés pour 14 chapitres sur 23, contre
+#: 2,28 EUR pour les 22 chapitres du business plan, qui n'a PAS de modèle.
+#: Le contrôle coûtait donc davantage que le document lui-même.
+#:
+#: L'écart n'est pas tu pour autant : il est consigné dans `acceptes`, et c'est
+#: la différence entre « vérifié » et « pas de nouvelle » (règle 1). Ce qui
+#: change, c'est qu'on ne repaye plus un appel pour le corriger.
+#:
+#: `graphiques_min` n'y figure PAS, et c'est délibéré : ce n'est pas une
+#: ressemblance au modèle mais un PLANCHER de figures. Le rendre consultatif
+#: réduirait le nombre de graphiques, alors que la cliente en demande davantage.
+REGLES_DE_RESSEMBLANCE = frozenset({
+    "volume",
+    "sequence_des_blocs",
+    "dosage_tableaux",
+    "dosage_paragraphes",
+    "dosage_encadres",
+})
+
 #: Un chapitre que le modèle ne décrit pas — la fiche projet, numérotée 00. Le
 #: rapport le déclare bloquant, à juste titre : il ne peut RIEN vérifier, et un
 #: contrôle sans point de comparaison est un échec (règle 1). Mais bloquer
@@ -377,17 +406,26 @@ def arbitrer(rapport: RapportConformite, *, derniere_tentative: bool) -> Arbitra
         for e in rapport.bloquantes
         if e.regle in REGLES_REDHIBITOIRES
     ]
+    # Ressemblance au modèle : constatée et consignée, jamais rejouée.
+    ressemblance = [
+        f"{e.regle} : {e.detail}"
+        for e in rapport.bloquantes
+        if e.regle in REGLES_DE_RESSEMBLANCE
+    ]
+    # Ce qui reste : ni faux, ni simple ressemblance — `graphiques_min`
+    # aujourd'hui. Un plancher se rattrape en rejouant, donc on rejoue.
     forme = [
         f"{e.regle} : {e.detail}"
         for e in rapport.bloquantes
         if e.regle not in REGLES_REDHIBITOIRES
+        and e.regle not in REGLES_DE_RESSEMBLANCE
     ]
 
     if redhibitoires:
-        return Arbitrage(refus=redhibitoires + forme)
+        return Arbitrage(refus=redhibitoires + forme, acceptes=ressemblance)
     if forme and not derniere_tentative:
-        return Arbitrage(refus=forme)
-    return Arbitrage(acceptes=forme)
+        return Arbitrage(refus=forme, acceptes=ressemblance)
+    return Arbitrage(acceptes=forme + ressemblance)
 
 
 def verifier_chapitre(
