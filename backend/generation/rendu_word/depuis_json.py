@@ -9,6 +9,7 @@ Types de blocs : `bandeau`, `sous_titre`, `paragraphe`, `encadre`, `tableau`,
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -49,14 +50,45 @@ def pour_le_client(chapitre: dict[str, Any]) -> bool:
     return int(chapitre["numero"]) > 0
 
 
+def substituer_reperes(gabarit: str, valeurs: dict[str, str]) -> str:
+    """Substitue les repères, et fait disparaître les séparateurs orphelins.
+
+    L'en-tête du gabarit vaut `{{ client }}  /  {{ titre_document }}`. Quand le
+    client ne remplit pas `NOM_ENTREPRISE` — le champ est optionnel et
+    `extract_branding` rend alors `""` — la substitution naïve laissait
+    « ` /  Étude de marché` » **sur chacune des soixante-dix pages**. Mesuré sur
+    le dossier réel `b561c2d6`.
+
+    Le repli qui aurait dû l'éviter, `marque.get("nom", "—")`, n'a jamais servi :
+    la clé EXISTE, avec une valeur vide, et `dict.get` ne regarde que l'absence.
+    Un défaut de la classe « valeur par défaut qui ne se déclenche jamais ».
+
+    La correction vise la CLASSE (règle 4) : tout repère vide emporte le
+    séparateur qui le borde, quel que soit le repère et de quel côté. Elle ne
+    touche RIEN quand la valeur est renseignée — un titre contenant lui-même une
+    barre oblique (« Étude B2B/B2C ») traverse intact, ce que vérifie la
+    contre-épreuve de `test_l_entete_ne_garde_pas_de_separateur_orphelin`.
+    """
+    texte = gabarit
+    for repere, valeur in valeurs.items():
+        if valeur:
+            continue
+        echappe = re.escape(repere)
+        texte = re.sub(rf"{echappe}\s*/\s*", "", texte)
+        texte = re.sub(rf"\s*/\s*{echappe}", "", texte)
+        texte = texte.replace(repere, "")
+    for repere, valeur in valeurs.items():
+        texte = texte.replace(repere, valeur)
+    return texte.strip()
+
+
 def _remplacer_reperes(document: DocumentWord, valeurs: dict[str, str]) -> None:
     for section in document.sections:
         for zone in (section.header, section.footer):
             for paragraphe in zone.paragraphs:
                 for run in paragraphe.runs:
-                    for repere, valeur in valeurs.items():
-                        if repere in run.text:
-                            run.text = run.text.replace(repere, valeur)
+                    if any(repere in run.text for repere in valeurs):
+                        run.text = substituer_reperes(run.text, valeurs)
 
 
 def _rendre_bloc(
@@ -129,7 +161,10 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
     _remplacer_reperes(
         document,
         {
-            "{{ client }}": marque.get("nom", "—"),
+            # Pas de repli « — » : il n'a jamais pu se declencher, la cle etant
+            # toujours posee par `marque_du_job`, et il aurait imprime un tiret
+            # a la place du nom. Un nom vide efface desormais son separateur.
+            "{{ client }}": marque.get("nom", ""),
             "{{ titre_document }}": etude.get("titre", ""),
             # Repli NEUTRE : « EVKHA · Document confidentiel » y figurait, et
             # un document en marque blanche ne doit nommer que son abonné.
