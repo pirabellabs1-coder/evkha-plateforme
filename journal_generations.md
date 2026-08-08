@@ -179,6 +179,54 @@ ligne comme une génération fausserait le coût cumulé du projet.
   et une facture qui double. C'est la seule vérification à faire après un
   changement de modèle.
 
+### 2026-08-08 Joalie BP — `09f32041` — **keep**
+
+**Premier livrable complet et livrable depuis le début du projet.** Le dernier
+run complet (`90cbb3d9`, 05/08) avait été bloqué par le gate sur 23 motifs et
+n'était jamais parti. Celui-ci passe, sans un seul incident.
+
+| | |
+|---|---|
+| Chapitres | **22 / 22**, aucun en échec, aucune reprise |
+| Incidents | **0** |
+| Verdict | `livrable = True`, aucun motif de contrôle |
+| Coût réel | **2,2848 €** — plafond 4,00 €, marge 1,72 € |
+| Jetons | 329 337 en entrée, 103 375 en sortie |
+| Rendu | 22 chapitres, 100 tableaux, **32 figures sur 48** |
+| Document | 1 585 Ko |
+
+- **Le coût est le premier chiffre honnête du projet.** Il est mesuré après le
+  correctif de comptabilisation du même jour, qui écrasait le coût des
+  chapitres régénérés au lieu de l'additionner. Les 3,12 € et 3,32 € des deux
+  études antérieures, eux, sous-estiment. Mon estimation au prorata des appels
+  annonçait 2,57 € : la mesure donne 2,28 €, soit 11 % de moins.
+- **Les 16 figures refusées ont une cause unique**, et c'est un défaut de
+  CONSIGNE, pas de données : le chapitre déclare un type de visuel que ses
+  propres chiffres ne peuvent pas alimenter. Cinq fois « unités hétérogènes :
+  %, EUR », quatre fois un radar demandé avec des montants au lieu de notes,
+  quatre fois « un seul chiffre : un graphique à une barre n'apprend rien »,
+  deux jauges dans le même cas, une série incomplète. Le moteur refuse au lieu
+  d'inventer une échelle — c'est le bon comportement, et c'est ce qui protège
+  d'un graphique faux, indétectable à la lecture.
+  **Aucun budget supplémentaire n'aurait ajouté une seule figure** : elles
+  sortent de matplotlib, sans appel API.
+- **Le business plan n'a pas de garde-fou de forme.** Chaque chapitre porte
+  `[non contrôlé] type de livrable non décrit par le modèle` : `modele_couvre`
+  ne rend vrai que pour l'étude de marché, seul livrable doté d'un modèle de
+  référence. Le système le DIT plutôt que de laisser croire qu'il a vérifié
+  (règle 1), mais le manque est réel — un modèle BP reste à écrire.
+- **Deux échecs avant celui-ci, aucun imputable au moteur.** Le premier : la
+  base locale avait quatre migrations de retard (`formule_pressentie_id`
+  absente) — tombé avant tout appel, zéro euro. Le second : une erreur
+  d'écriture SQLite transitoire après 16 chapitres, avec 13,5 Go libres et une
+  base de 11 Mo ; intégrité vérifiée `ok` juste après. Le dossier a été REPRIS
+  et non relancé, ce qui a préservé les 1,55 € déjà engagés.
+- **Non vérifié, et il ne faut pas le croire acquis** : la conversion PDF. Ni
+  LibreOffice ni WeasyPrint ne sont installés sur le poste, le convertisseur
+  est tombé sur son bouchon. Le `.docx` est réel, le PDF ne l'est pas. Les
+  polices Carlito et Aptos manquent aussi en local — matplotlib a replié, donc
+  le rendu du conteneur peut différer.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.
