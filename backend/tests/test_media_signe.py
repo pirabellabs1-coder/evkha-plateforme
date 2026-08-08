@@ -11,6 +11,13 @@ n'existait** : les pièces jointes conservaient le nom d'origine du client sous
 `pieces-jointes/<id-organisation>/<nom>`, et la « rétention 7 jours » basculait
 un statut en base sans rien supprimer du disque.
 
+**C'était l'état d'AVANT. Les tests de ce fichier sont la preuve du contraire
+aujourd'hui** : ils passent tous, par le vrai URLconf et le client HTTP. Ce
+rappel est là parce que le paragraphe ci-dessus a été relu deux fois comme un
+constat présent — la seconde par une relecture de sécurité qui en a conclu que
+la faille était ouverte. Le nom du fichier n'aide pas : on cherche l'état des
+signatures et on tombe sur l'histoire de leur absence.
+
 ## Pourquoi une signature et non une session
 
 Deux consommateurs légitimes ne peuvent en présenter aucune : Brevo, qui

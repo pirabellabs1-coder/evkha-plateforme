@@ -862,6 +862,11 @@ def purge_expired_artifacts(*, now: datetime | None = None) -> int:
     """Supprime les documents arrivés à échéance — **du disque**, pas seulement
     de la base.
 
+    **La suppression disque EST faite** — voir la boucle `default_storage.delete`
+    en fin de fonction, et `test_la_purge_efface_le_fichier_du_disque`. Le
+    paragraphe suivant décrit l'état d'AVANT ; il a été cité deux fois comme s'il
+    décrivait le présent, à dix lignes du code qui le dément.
+
     Cette fonction ne faisait que basculer un statut et vider `download_url`.
     Le fichier, lui, restait dans `MEDIA_ROOT`, à une adresse que
     `django.views.static.serve` continuait de servir sans authentification :

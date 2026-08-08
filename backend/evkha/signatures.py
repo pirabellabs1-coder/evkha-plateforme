@@ -1,5 +1,11 @@
 """Signature des liens de téléchargement.
 
+**État actuel : la protection est EN PLACE et couverte par `test_media_signe.py`.**
+Tout ce qui suit raconte le défaut d'origine, au passé, parce que c'est lui qui
+explique la forme du code. Deux relectures ont pourtant conclu de ce texte que
+la faille était ouverte — dont une le 08/08/2026. D'où cette ligne, qui répond
+avant qu'on ait fini de lire.
+
 `/media/` était servi **sans aucun contrôle d'accès**. L'étude de marché
 complète d'un client final — chiffre d'affaires, marges, concurrents — et le
 bilan qu'une agence avait déposé étaient téléchargeables par quiconque
