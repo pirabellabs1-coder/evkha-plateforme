@@ -206,7 +206,18 @@ _GRAPHIQUES_MOTEUR_STRUCTURE = (
     "a une seule barre n'apprend rien), et cite des grandeurs de MEME NATURE "
     "(des montants entre eux, des taux entre eux). Les echelles, elles, se "
     "melangent librement : euros, milliers, millions et milliards d'une meme "
-    "monnaie sont ramenes a une echelle commune au rendu."
+    "monnaie sont ramenes a une echelle commune au rendu.\n"
+    "Trois formes reclament une donnee particuliere, et un identifiant qui ne "
+    "la porte pas fait abandonner la figure :\n"
+    "- RADAR et JAUGES : des NOTES sur une echelle commune (par exemple sur 10 "
+    "ou sur 100), jamais des montants ni des pourcentages de repartition. Pour "
+    "comparer des euros entre eux, prends des barres.\n"
+    "- RADAR : trois axes au minimum, et les memes axes pour toutes les "
+    "series.\n"
+    "- COURBES et AIRES : chaque serie couvre TOUTES les periodes de l'axe. "
+    "Une annee manquante n'est pas interpolee, la figure est abandonnee.\n"
+    "Choisis donc la forme d'apres les identifiants dont tu disposes, et non "
+    "l'inverse."
 )
 
 _EM_ROLE = (
