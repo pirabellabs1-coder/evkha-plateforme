@@ -191,6 +191,63 @@ def controler_adresse_du_front(
     return problemes
 
 
+@register()
+def controler_formules_payables(
+    app_configs: object, **kwargs: object
+) -> list[Error | Warning]:
+    """Les formules proposées peuvent-elles réellement être achetées ?
+
+    Une formule `active` sans `reference_paiement` est un bouton « Souscrire »
+    qui échoue au clic. `seed_formules` ne renseigne pas ce champ, et ne le peut
+    pas : les identifiants de tarif appartiennent au compte Stripe de la
+    cliente, ils n'ont rien à faire dans le dépôt. Sur une base fraîchement
+    amorcée, les quatre formules sont donc affichées et aucune n'est achetable.
+
+    Rien n'est cassé pour autant : `stripe_api` lève avec un motif lisible, et
+    l'espace client répond 503. Le défaut n'est pas que ça échoue, c'est que ça
+    n'échoue **que devant le client**. La liste d'administration le montre déjà,
+    mais encore faut-il aller la regarder. Ce contrôle le dit à chaque
+    démarrage, dans les journaux, sans que personne n'ait à y penser.
+
+    **`Warning` et jamais `Error`**, pour la raison exacte qui vaut déjà pour
+    `STRIPE_SECRET_KEY` : un `Error` fait échouer `migrate`, donc empêcherait de
+    déployer la version qui apporte le paiement — alors que les références ne
+    peuvent se saisir qu'une fois cette version en ligne. Le contrôle refuserait
+    de démarrer parce qu'il n'a rien à dire d'autre que « ce n'est pas encore
+    branché ».
+    """
+    from django.db import DatabaseError  # noqa: PLC0415
+
+    from organisations.models import Formule  # noqa: PLC0415
+
+    try:
+        sans_tarif = sorted(
+            Formule.objects.filter(active=True)
+            .filter(reference_paiement="")
+            .values_list("libelle", flat=True)
+        )
+    except DatabaseError:
+        # Les controles systeme tournent AVANT `migrate`. Sur une base neuve,
+        # la table n'existe pas encore. Se taire est ici la bonne reponse — il
+        # n'y a aucune formule a juger, pas meme zero — la ou lever ferait
+        # echouer le tout premier deploiement.
+        return []
+
+    if not sans_tarif:
+        return []
+
+    return [Warning(
+        f"{len(sans_tarif)} formule(s) active(s) sans reference de paiement : "
+        f"{', '.join(sans_tarif)}. Le bouton « Souscrire » echouera au clic.",
+        hint=(
+            "Coller l'identifiant de tarif Stripe (price_…) dans le champ "
+            "« Reference paiement » de chaque formule, depuis l'administration. "
+            "Il appartient au compte Stripe et ne peut pas venir du depot."
+        ),
+        id="evkha.W005",
+    )]
+
+
 #: Valeur de repli inscrite dans `settings.py`. Nommée ici pour que le contrôle
 #: la reconnaisse sans la recopier à l'aveugle : si elle change là-bas et pas
 #: ici, le contrôle cesse de protéger sans rien dire — d'où le test dédié qui
