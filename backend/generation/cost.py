@@ -95,10 +95,33 @@ def record_chapter_cost(
     output_tokens: int,
     model: str | None = None,
 ) -> Decimal:
+    """Enregistre le cout d'une passe de generation. **Cumulatif.**
+
+    Cette fonction ECRASAIT `chapter.cost_eur`. Une regeneration — CHECK de
+    bloc, boucle de correction — repasse par `_generate_chapter`, donc par ici :
+    la premiere tentative disparaissait du total alors qu'Anthropic l'avait bel
+    et bien facturee.
+
+    Consequence, et c'est le defaut qui compte : `enforce_budget` comparait la
+    depense a un chiffre qui OUBLIE les reprises. Le plafond du dossier ne
+    portait donc pas sur l'argent reellement depense, et il echouait en
+    silence — ni erreur, ni incident, seulement un total sous-estime. Un
+    dossier dont six chapitres sont regeneres pouvait depasser son plafond sans
+    que rien ne le dise.
+
+    On additionne desormais des qu'une passe precedente a laisse une trace.
+    L'effet visible est que certains dossiers atteindront leur plafond plus
+    tot : non parce qu'ils coutent plus cher qu'avant, mais parce qu'on cesse
+    de sous-compter.
+    """
     cost = estimate_call_cost_eur(input_tokens, output_tokens, model)
-    chapter.input_tokens = input_tokens
-    chapter.output_tokens = output_tokens
-    chapter.cost_eur = cost
+    # `> 0` et non `is not None` : un chapitre neuf vaut zero, une passe
+    # precedente a forcement laisse un montant. C'est le seul signal disponible
+    # ici — `_generate_chapter` ne sait pas s'il regenere ou s'il ecrit.
+    reprise = chapter.cost_eur > Decimal("0")
+    chapter.input_tokens = (chapter.input_tokens + input_tokens) if reprise else input_tokens
+    chapter.output_tokens = (chapter.output_tokens + output_tokens) if reprise else output_tokens
+    chapter.cost_eur = (chapter.cost_eur + cost) if reprise else cost
     chapter.save(update_fields=["input_tokens", "output_tokens", "cost_eur", "updated_at"])
 
     job = chapter.job
