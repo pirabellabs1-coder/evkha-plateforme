@@ -473,8 +473,18 @@ EVKHA_DASHBOARD_TOKEN = env("EVKHA_DASHBOARD_TOKEN", default="")
 # On ne deduit QUE si le courtier est bien un Redis : si quelqu'un passe un
 # jour a RabbitMQ, mieux vaut retomber sur le cache local et se faire refuser
 # bruyamment par le controle que fabriquer une adresse qui ne repond pas.
+#
+# Le courtier se lit dans `CELERY_BROKER_URL` calcule plus haut, PAS par un
+# second `env(...)`. La deduction relisait la variable d'environnement avec un
+# repli different (`""` contre `redis://localhost:6379/0`) : deux lectures de
+# la meme verite, qui se contredisaient des que la variable n'etait pas posee.
+# Les reglages affirmaient alors que le courtier est un Redis pendant que la
+# deduction affirmait qu'il n'y en a pas, et le cache retombait en LocMem.
+# C'est la regle 5, et elle rendait `test_l_adresse_du_cache_est_deduite_du_
+# courtier` rouge sur tout environnement sans `.env` — un poste neuf, la CI,
+# l'image Docker.
 def _cache_deduit_du_courtier() -> str:
-    courtier = str(env("CELERY_BROKER_URL", default=""))
+    courtier = str(CELERY_BROKER_URL)
     if not courtier.startswith(("redis://", "rediss://")):
         return ""
     base, _, _ = courtier.rpartition("/")
