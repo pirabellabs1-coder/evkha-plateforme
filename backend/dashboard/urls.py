@@ -68,6 +68,11 @@ urlpatterns = [
         name="supervision-statut",
     ),
     path(
+        "supervision/organisations/<str:organisation_id>/resilier/",
+        actions.resilier_abonnement,
+        name="supervision-resilier",
+    ),
+    path(
         "supervision/demandes/<str:demande_id>/traiter/",
         actions.traiter_demande,
         name="supervision-traiter",
