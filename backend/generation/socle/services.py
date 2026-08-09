@@ -58,6 +58,46 @@ def socle_verrouille(job: GenerationJob) -> Socle | None:
     return socle
 
 
+def _journaliser_la_verification(job: GenerationJob, rapport: Any) -> None:
+    """Porte le résultat de la vérification au journal des incidents.
+
+    Un socle vérifié et un socle non vérifié ne doivent pas se ressembler. Trois
+    cas, trois traces distinctes :
+
+    - la passe n'a PAS pu tourner → incident MOYEN. Les chiffres ne sont pas
+      faux pour autant, mais personne ne les a confrontés, et l'ignorer
+      laisserait un socle non contrôlé passer pour contrôlé (règle 1) ;
+    - des chiffres ont été déclassés → incident MOYEN, avec la liste. C'est
+      l'information la plus utile du dossier : elle dit où l'étude s'appuie sur
+      une estimation plutôt que sur une donnée publiée ;
+    - tout est confirmé → rien. Un journal qui parle quand tout va bien cesse
+      d'être lu.
+    """
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    if not rapport.passe_executee:
+        OperationalIncident.objects.create(
+            title=f"Socle NON vérifié (job {job.id})",
+            severity=IncidentSeverity.MEDIUM,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+        return
+
+    if rapport.total_declassees:
+        OperationalIncident.objects.create(
+            title=(
+                f"Socle : {rapport.total_declassees} chiffre(s) déclassé(s) en "
+                f"estimation (job {job.id})"
+            ),
+            severity=IncidentSeverity.MEDIUM,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+
+
 @transaction.atomic
 def etablir_socle(
     job: GenerationJob,
@@ -98,6 +138,24 @@ def etablir_socle(
             },
         )
         raise
+
+    # ── Vérification AVANT verrouillage ──────────────────────────────────────
+    #
+    # Le socle est le point unique de vérité de l'étude : ses chiffres sont
+    # repris dans les vingt-trois chapitres. C'est sa force, et c'est ce qui
+    # rend une erreur initiale si chère — retour de la cliente du 09/08/2026 :
+    # « si un chiffre initial est errone, date, issu d'un mauvais perimetre ou
+    # mal interprete, il est actuellement repete dans toute l'etude ».
+    #
+    # Rien ne le regardait : le socle etait scelle VALIDE des sa production.
+    # Ce qui n'est pas confirme par les sources collectees passe desormais en
+    # `estimee`, motif inscrit dans son libelle — donc lisible par le client.
+    from .verification import verifier_le_socle  # noqa: PLC0415
+
+    rapport_verif = verifier_le_socle(
+        socle, client=client, brief_recherche=brief_recherche
+    )
+    _journaliser_la_verification(job, rapport_verif)
 
     from ..cost import estimate_call_cost_eur  # noqa: PLC0415 — évite un cycle
 

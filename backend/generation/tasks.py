@@ -49,6 +49,60 @@ def reset_stuck_generation_jobs() -> int:
     return len(stuck_jobs)
 
 
+def _controler_les_demandes_du_client(job: GenerationJob) -> None:
+    """Relit le brief du client et dit ce qui n'a pas reçu de réponse.
+
+    Ne lève jamais : une panne de ce contrôle ne rend pas l'étude fausse, elle
+    rend sa couverture inconnue. Faire mourir un dossier de vingt-trois
+    chapitres sur ce point coûterait bien plus que ce qu'il rapporte.
+
+    Mais l'incident, lui, se voit — et il porte chaque question insuffisamment
+    traitée avec ce qui lui manque, en toutes lettres. C'est l'information que
+    la cliente relira avant de remettre l'étude à SON client.
+    """
+    from integrations.claude import get_claude_client  # noqa: PLC0415
+
+    from .couverture import controler_la_couverture  # noqa: PLC0415
+
+    try:
+        soumission = job.order.intake_submission
+        variables = soumission.normalized_variables
+        texte = "\n\n".join(
+            c.content for c in job.chapters.order_by("chapter_number") if c.content
+        )
+        rapport = controler_la_couverture(
+            client=get_claude_client(), variables=variables, document=texte
+        )
+    except Exception:  # noqa: BLE001 — un contrôle ne fait pas échouer l'étude
+        import logging  # noqa: PLC0415
+        logging.getLogger(__name__).exception(
+            "Contrôle de couverture impossible pour le job %s", job.id
+        )
+        return
+
+    if not rapport.passe_executee:
+        OperationalIncident.objects.create(
+            title=f"Couverture des demandes NON contrôlée (job {job.id})",
+            severity=IncidentSeverity.MEDIUM,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+        return
+
+    if rapport.insuffisantes:
+        OperationalIncident.objects.create(
+            title=(
+                f"{len(rapport.insuffisantes)} demande(s) client "
+                f"insuffisamment traitée(s) (job {job.id})"
+            ),
+            severity=IncidentSeverity.MEDIUM,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+
+
 @shared_task(name="generation.run_generation_job")  # type: ignore[untyped-decorator]
 def run_generation_job_task(job_id: str) -> str:
     """Lance la generation complete d'un job (chapitres + QA + gate + livraison).
@@ -89,6 +143,20 @@ def run_generation_job_task(job_id: str) -> str:
         # Avant de bloquer, on régénère les chapitres fautifs (contamination,
         # incohérence chiffrée, troncature) avec les défauts en consigne, puis
         # on repasse le gate. Borné par EVKHA_CORRECTION_ROUNDS (défaut 1).
+        # ── Les questions du client ont-elles reçu une réponse ? ────────────
+        #
+        # Angle mort exact, signalé par la cliente le 09/08/2026 : « éviter
+        # d'avoir une étude très complète en apparence mais qui laisse
+        # certaines questions initiales insuffisamment traitées ». Le gate
+        # regarde la troncature et la cohérence, la conformité regarde la
+        # forme, la vérification regarde les chiffres — personne ne relisait le
+        # brief pour se demander si on y avait répondu (règle 9).
+        #
+        # Le résultat ne BLOQUE pas : il nomme. Un approfondissement
+        # automatique réécrirait des chapitres, donc dépenserait, et ce projet
+        # a appris quatre fois qu'on règle mal ce qu'on n'a pas d'abord mesuré.
+        _controler_les_demandes_du_client(job)
+
         from .correction import run_correction_loop  # noqa: PLC0415
         report = run_correction_loop(job)
 

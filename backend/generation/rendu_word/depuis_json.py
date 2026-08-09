@@ -148,6 +148,97 @@ def _rendre_bloc(
         raise BlocInconnuError(msg)
 
 
+#: Intitulé de l'encadré de clôture. Neutre : il annonce une suite d'analyse,
+#: pas une offre.
+INTITULE_RECOMMANDATION = "Pour aller plus loin"
+
+#: Recommandation de clôture, demandée par la cliente le 09/08/2026 : « à la
+#: toute fin de l'étude, après la conclusion, un petit encadré standard, discret
+#: et non commercial ».
+#:
+#: `{marque}` est remplacé par le nom de L'ABONNÉ, jamais par celui de la
+#: plateforme. Le document est remis en marque blanche : c'est l'abonné qui le
+#: signe et qui vend la suite. Nommer la plateforme ici lui ferait recommander
+#: son propre fournisseur à son client.
+#: Ce que chaque livrable recommande d'aller chercher ENSUITE.
+#:
+#: Une seule ligne suffisait tant qu'on ne pensait qu'à l'étude de marché. Elle
+#: aurait recommandé une étude de la concurrence **à la fin d'une étude de la
+#: concurrence** — le genre de détail qui fait perdre en une phrase la crédibilité
+#: que trente pages ont construite.
+#:
+#: `{marque}` est remplacé par le nom de L'ABONNÉ, jamais par celui de la
+#: plateforme : le document est remis en marque blanche, c'est l'abonné qui le
+#: signe et qui vend la suite.
+RECOMMANDATION_PAR_LIVRABLE: dict[str, tuple[str, ...]] = {
+    "market_study": (
+        "Pour compléter cette étude de marché et approfondir le positionnement "
+        "du projet face aux acteurs déjà présents, la réalisation d'une étude "
+        "de la concurrence en parallèle est recommandée.",
+        "Une étude de la concurrence personnalisée et réalisée sur mesure est "
+        "disponible auprès de {marque}.",
+    ),
+    "competitor_study": (
+        "Pour transformer cette lecture de la concurrence en trajectoire "
+        "chiffrée, un business plan permet d'en tirer les conséquences "
+        "financières et le calendrier.",
+        "Un business plan personnalisé et réalisé sur mesure est disponible "
+        "auprès de {marque}.",
+    ),
+    "business_plan": (
+        "Pour sécuriser les hypothèses de ce plan face au marché réel, une "
+        "étude de marché en apporte les fondations chiffrées.",
+        "Une étude de marché personnalisée et réalisée sur mesure est "
+        "disponible auprès de {marque}.",
+    ),
+    "business_strategy": (
+        "Pour mesurer l'écart entre cette stratégie et les acteurs déjà en "
+        "place, une étude de la concurrence en donne les repères.",
+        "Une étude de la concurrence personnalisée et réalisée sur mesure est "
+        "disponible auprès de {marque}.",
+    ),
+}
+
+
+def _recommandation_finale(
+    document: DocumentWord,
+    palette: Palette,
+    marque: dict[str, Any],
+    livrable: str = "market_study",
+) -> None:
+    """Un encadré de clôture, UNE seule fois, à la toute fin de l'étude.
+
+    ## Pourquoi le rendu et non le modèle de langage
+
+    Demandé « uniquement à la fin, et pas répété dans les chapitres ». Confié au
+    modèle, cette consigne serait tenue vingt-trois fois sur vingt-trois — ou
+    zéro. Ce projet l'a déjà mesuré sur les budgets de mots : une consigne sans
+    contrainte physique est un vœu. Ici, le rendu le pose une fois, à un endroit
+    qui ne dépend de personne.
+
+    ## Pourquoi il disparaît si l'abonné n'a pas de nom
+
+    La phrase recommande d'aller voir QUELQU'UN. Sans nom, elle recommanderait
+    d'aller nulle part — et écrire le nom de la plateforme à la place ferait
+    signer au client de l'abonné une publicité pour le fournisseur de son
+    fournisseur. Le document est remis en marque blanche : mieux vaut pas
+    d'encadré qu'un encadré qui nomme la mauvaise personne.
+    """
+    nom = str(marque.get("nom", "")).strip()
+    lignes = RECOMMANDATION_PAR_LIVRABLE.get(livrable)
+    if not nom or not lignes:
+        # Pas de nom, ou livrable dont on n'a pas décidé la suite : on n'écrit
+        # rien. Une recommandation qui ne mène nulle part vaut moins que son
+        # absence.
+        return
+    composants.encadre(
+        document,
+        palette,
+        INTITULE_RECOMMANDATION,
+        [ligne.format(marque=nom) for ligne in lignes],
+    )
+
+
 def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
     """Produit le `.docx` complet d'une étude décrite en JSON."""
     marque = etude.get("marque", {})
@@ -201,6 +292,10 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
             _rendre_bloc(document, palette, bloc)
         if index < len(chapitres) - 1:
             composants.saut_de_page(document)
+
+    _recommandation_finale(
+        document, palette, marque, str(etude.get("type_livrable", "market_study"))
+    )
 
     composants.quatrieme_couverture(
         document, palette,

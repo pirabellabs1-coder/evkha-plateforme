@@ -122,7 +122,32 @@ _REGLES = (
     "calculé à partir du panier moyen déclare `[\"panier_moyen\", "
     "\"transactions_annuelles_cible\"]`. Une donnée primaire laisse la liste vide.\n"
     "10. Toute donnée facultative que tu ne peux pas établir sérieusement doit "
-    "être OMISE. Un socle court et juste vaut mieux qu'un socle complet et faux."
+    "être OMISE. Un socle court et juste vaut mieux qu'un socle complet et faux.\n"
+    # Retour de la cliente du 09/08/2026 sur l'etude e-commerce animalier :
+    # « eviter qu'une source secondaire devienne la source principale d'un
+    # chiffre structurant lorsqu'une source officielle plus fiable existe ».
+    # L'ordre n'INTERDIT pas les sources secondaires — il interdit qu'elles
+    # priment quand mieux existe.
+    "11. HIÉRARCHIE DES SOURCES. Quand plusieurs sources donnent le même "
+    "chiffre, retiens TOUJOURS la plus haute de cet ordre : (1) organismes "
+    "publics et statistique officielle — Insee, ministères, data.gouv.fr, "
+    "EUR-Lex, Service-public, DGCCRF ; (2) fédérations et syndicats "
+    "professionnels du secteur — Fevad, Facco, Fediaf, Francéclat et leurs "
+    "équivalents ; (3) cabinets d'études reconnus ; (4) presse spécialisée et "
+    "publications d'acteurs. Les niveaux 3 et 4 restent utiles quand rien "
+    "au-dessus ne publie la donnée — ils ne doivent simplement jamais porter "
+    "seuls un chiffre structurant qu'un organisme officiel publie.\n"
+    # Meme retour : « un panier moyen du e-commerce francais tous secteurs
+    # confondus ne doit pas devenir automatiquement le panier moyen du
+    # e-commerce animalier ».
+    "12. UN BENCHMARK GÉNÉRAL N'EST PAS UNE DONNÉE SECTORIELLE. Un chiffre "
+    "mesuré sur un périmètre plus large que celui demandé ne peut pas être "
+    "recopié comme s'il valait pour le secteur : le panier moyen de "
+    "l'e-commerce français tous secteurs confondus n'est pas celui de "
+    "l'e-commerce animalier. Deux options, jamais une troisième : soit tu "
+    "trouves la donnée SUR LE BON PÉRIMÈTRE et elle est `observee`, soit tu la "
+    "transposes et elle devient `estimee`, avec la méthode et le périmètre "
+    "d'origine écrits dans `libelle`."
 )
 
 

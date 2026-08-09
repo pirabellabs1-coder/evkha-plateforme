@@ -66,6 +66,37 @@ _SYSTEME = (
     # refuser un chapitre pour une double espace couterait une reprise. Ce qui
     # suit vise ce qu'aucune reparation ne peut rattraper : une faute d'accord,
     # un chiffre recopie de travers, un nom propre mal orthographie.
+    # Retour de la cliente du 09/08/2026 : « ma cible, ce sont de JEUNES
+    # PORTEURS DE PROJET ; l'ideal est qu'un novice comprenne bien l'etude ».
+    # Une etude de marche est pleine de termes qui vont de soi pour qui en lit
+    # tous les jours — TAM, SAM, SOM, churn, panier moyen, taux de captation —
+    # et qui arretent net celui qui decouvre.
+    # Retour de la cliente du 09/08/2026 : segmentation, personas, risques,
+    # segments porteurs, opportunites accessibles et facteurs cles de succes
+    # « restent encore un peu trop generaux ». Le socle porte souvent le chiffre
+    # qui aurait tranche — le chapitre n'est simplement pas alle le chercher.
+    "CHIFFRE D'ABORD, QUALIFICATIF ENSUITE. Avant d'écrire « le segment premium "
+    "est porteur », regarde si le socle porte de quoi le DIRE : une taille, une "
+    "part, une croissance, un panier. S'il l'a, la phrase devient « le segment "
+    "premium pèse X et croît de Y % par an » — et le qualificatif suit le "
+    "chiffre au lieu de le remplacer. C'est ce qui sépare une analyse d'un "
+    "commentaire, et cela vaut d'abord pour la segmentation de clientèle, les "
+    "profils clients, les risques, les segments les plus porteurs, les "
+    "opportunités accessibles et les facteurs clés de succès. Quand le socle ne "
+    "porte rien sur un point, dis-le : « le socle ne documente pas ce point » "
+    "vaut mieux qu'une généralité qui en prend la place.\n"
+    "\n"
+    "ÉCRIT POUR QUELQU'UN QUI DÉCOUVRE. Ton lecteur porte un projet, il n'est "
+    "pas analyste. La PREMIÈRE fois qu'un terme technique apparaît dans "
+    "l'étude, explique-le en une demi-phrase, entre parenthèses ou entre "
+    "tirets, puis emploie-le librement ensuite : « le SOM (la part de marché "
+    "que le projet peut réalistement capter les premières années) ». Cela vaut "
+    "pour le vocabulaire d'analyse — TAM, SAM, SOM, churn, taux de captation, "
+    "panier moyen, marge brute — comme pour le jargon du secteur étudié. "
+    "N'explique pas deux fois le même terme : les résumés des chapitres "
+    "précédents te disent ce qui a déjà été posé. Une phrase que le lecteur "
+    "doit relire pour la comprendre est une phrase à réécrire.\n"
+    "\n"
     "FRANÇAIS IRRÉPROCHABLE. Ce document est remis tel quel à un client final. "
     "Relis chaque phrase avant de la rendre : accords en genre et en nombre, "
     "conjugaison, participes passés, noms propres et raisons sociales écrits "
@@ -748,6 +779,10 @@ def generer_chapitre(
         identifiants_socle=frozenset(socle.identifiants),
         resume_mots_min=document.resume_mots_min,
         resume_mots_max=document.resume_mots_max,
+        # Le secteur de CETTE étude, pour que le contrôle de secteur étranger
+        # vaille sur les QUATRE livrables et pas seulement sur l'étude de
+        # marché — la seule que le modèle de forme décrive.
+        secteur=socle.secteur,
     )
     if motifs:
         raise ChapitreInvalideError(motifs, consommation)

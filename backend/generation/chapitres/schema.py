@@ -612,6 +612,7 @@ def valider_chapitre(
     identifiants_socle: frozenset[str],
     resume_mots_min: int,
     resume_mots_max: int,
+    secteur: str = "",
 ) -> list[str]:
     """Contrôles croisés avec le socle et le chapitrage.
 
@@ -656,7 +657,64 @@ def valider_chapitre(
         motifs.append("Deux sous-sections portent le même titre.")
 
     motifs.extend(motifs_de_balisage(payload))
+    motifs.extend(motifs_de_secteur_etranger(payload, secteur))
 
+    return motifs
+
+
+def motifs_de_secteur_etranger(payload: ChapitrePayload, secteur: str) -> list[str]:
+    """Refuse le vocabulaire d'un AUTRE secteur dans le texte du chapitre.
+
+    ## Pourquoi ce contrôle vaut pour les QUATRE livrables
+
+    Le contrôle de conformité au modèle (`contamination_du_modele`) ne s'exécute
+    que sur l'étude de marché : c'est le seul livrable que le modèle de forme
+    décrive. Business plan, stratégie et étude concurrentielle n'y passent pas.
+
+    Or le défaut, lui, n'est pas propre à l'étude de marché. Il tient à une
+    cause générale : **le moteur montre au modèle des exemples écrits pour un
+    autre secteur**, et le modèle fait ce qu'on lui montre. C'est la troisième
+    fuite de cette famille en deux jours — exemples HTML hérités, notation
+    `[pourcentage]`, intitulés de joaillerie.
+
+    Ce contrôle-ci ne compare donc pas à un modèle : il compare au SECTEUR de
+    l'étude en cours, que le socle porte toujours. Il s'applique partout.
+
+    ## La contre-épreuve, et elle est indispensable
+
+    Une VRAIE étude sur la joaillerie doit pouvoir écrire « joaillerie » : c'est
+    son sujet. Le contrôle ne se déclenche que si le mot est étranger au secteur
+    déclaré — sans quoi il rendrait impossible le seul document où ces mots ont
+    leur place, et ce serait la règle 2 dans sa forme la plus bête.
+    """
+    if not secteur.strip():
+        # Pas de secteur déclaré : rien à quoi comparer. On ne juge pas — et on
+        # ne prétend pas avoir jugé (règle 1). Le cas ne se produit pas en
+        # production, le socle portant toujours son secteur.
+        return []
+
+    from ..modele.conformite import (  # noqa: PLC0415 — évite un cycle
+        _SECTEUR_DE_REFERENCE,
+        _porte_le_secteur_de_reference,
+    )
+
+    mots_du_secteur = set(re.findall(r"[\w-]+", secteur.casefold()))
+    if mots_du_secteur & _SECTEUR_DE_REFERENCE:
+        # L'étude PORTE sur ce secteur : ces mots y sont chez eux.
+        return []
+
+    motifs: list[str] = []
+    for index, bloc in enumerate(getattr(payload, "blocs", ()) or ()):
+        for champ, texte in _textes_du_bloc(bloc):
+            if not _porte_le_secteur_de_reference(texte):
+                continue
+            motifs.append(
+                f"Bloc {index} ({bloc.type}), champ `{champ}` : ce passage parle "
+                f"d'un secteur qui n'est pas celui de l'étude (« {secteur} ») — "
+                f"« {texte[:110]} ». Il vient d'un exemple écrit pour un autre "
+                "document : réécris-le pour CE sujet."
+            )
+            break
     return motifs
 
 

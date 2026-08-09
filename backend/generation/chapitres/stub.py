@@ -177,6 +177,54 @@ def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
     }
 
 
+def _adapte_au_secteur(intitule: str) -> str:
+    """Réécrit un intitulé qui nomme le secteur du document de référence.
+
+    Le modèle de forme a été mesuré sur une étude de joaillerie : ses intitulés
+    portent les mots de ce secteur. Un vrai chapitre doit les ADAPTER — recopier
+    « Vintage, provenance et fiscalité » dans une étude sur l'e-commerce
+    animalier place le sujet d'une autre étude dans celle du client, et
+    `contamination_du_modele` le refuse depuis le 09/08/2026.
+
+    Une doublure qui reproduirait ce défaut décrirait un chapitre que le produit
+    refuse de livrer : elle ferait échouer toute la suite pour la bonne raison,
+    mais au mauvais endroit (règle 7).
+
+    ## Pourquoi elle RETIRE le mot au lieu d'ajouter une mention
+
+    Une première version se contentait d'ajouter « (adapté au secteur de
+    l'étude) » à la fin. Le mot d'origine restait — « Vintage, provenance et
+    fiscalité (adapté au secteur de l'étude) » — et le contrôle universel
+    `motifs_de_secteur_etranger`, qui lit le TEXTE et non l'égalité des
+    libellés, l'a refusé à juste titre.
+
+    C'était une adaptation de façade : la doublure se déclarait conforme sans
+    l'être. Le contrôle a fait exactement ce qu'on attend de lui, et c'est la
+    doublure qui avait tort.
+    """
+    import re  # noqa: PLC0415
+
+    from ..modele.conformite import (  # noqa: PLC0415
+        _SECTEUR_DE_REFERENCE,
+        _porte_le_secteur_de_reference,
+    )
+
+    if not _porte_le_secteur_de_reference(intitule):
+        return intitule
+    # MÊME découpage que `_porte_le_secteur_de_reference` : `[\w-]+`, qui garde
+    # « sur-mesure » d'un seul tenant. Un découpage sur `\W` l'aurait coupé en
+    # « sur » et « mesure », dont aucun n'est dans la liste — le mot serait
+    # resté et le contrôle aurait eu raison de refuser. Deux découpages pour la
+    # même question finissent toujours par ne pas être d'accord (règle 5).
+    garde = [
+        mot
+        for mot in re.split(r"([\w-]+)", intitule)
+        if mot.casefold() not in _SECTEUR_DE_REFERENCE
+    ]
+    nettoye = re.sub(r"\s{2,}", " ", "".join(garde)).strip(" ,;—-")
+    return nettoye or "Lecture du chapitre"
+
+
 def _prose(signes: int) -> str:
     """Prose de la longueur demandée, coupée sur la frontière de phrase la plus PROCHE.
 
@@ -244,7 +292,9 @@ def _blocs_du_modele(
             blocs.append({
                 "type": "titre_sous_section",
                 "numero": str(bloc.get("numero") or f"{numero}.{rang_sous_section}"),
-                "intitule": str(bloc.get("intitule_reference") or "Sous-section"),
+                "intitule": _adapte_au_secteur(
+                    str(bloc.get("intitule_reference") or "Sous-section")
+                ),
             })
         elif type_bloc == "paragraphe":
             blocs.append({
@@ -260,7 +310,9 @@ def _blocs_du_modele(
             blocs.append({
                 "type": "encadre",
                 "encadre": {
-                    "intitule": str(bloc.get("etiquette") or "Lecture du chapitre"),
+                    "intitule": _adapte_au_secteur(
+                        str(bloc.get("etiquette") or "Lecture du chapitre")
+                    ),
                     "lignes": [
                         "Opportunité — le socle confirme un marché porteur.",
                         "Limite — les chiffres globaux surestiment l'accessible.",

@@ -86,6 +86,31 @@ def _abreger(texte: str, maximum: int) -> str:
     return (texte[:coupe] if coupe > 0 else texte[:maximum]) + " […]"
 
 
+#: Ce qu'il faut dire CHAQUE FOIS qu'on montre au modèle un mot du document de
+#: référence.
+#:
+#: Le modèle de forme a été mesuré sur une étude de JOAILLERIE. Tout ce qu'il
+#: contient — intitulés, en-têtes de tableau, étiquettes d'encadré — est donc
+#: écrit avec les mots de ce secteur-là. Ces mots décrivent une FONCTION dans le
+#: raisonnement ; ils ne décrivent pas le sujet de l'étude en cours.
+#:
+#: **Mesuré sur le dossier réel `c8b4e60a`**, une étude sur l'e-commerce pour
+#: animaux. Page 52, le lecteur trouvait : « FOCUS — Approfondissement demandé :
+#: marché international des galeries et du sur-mesure ». Le modèle n'a rien
+#: inventé — on lui avait remis cette étiquette telle quelle.
+#:
+#: C'est la troisième fuite de la même famille en deux jours : les exemples HTML
+#: hérités, la notation `[pourcentage]`, et ceci. **Tout ce qu'on montre au
+#: modèle pour l'aider peut ressortir dans le document, et doit donc arriver
+#: avec la façon de s'en servir.**
+ADAPTER_AU_SECTEUR = (
+    "Ces mots viennent d'une étude sur un AUTRE secteur : ils décrivent la "
+    "fonction du bloc, jamais son sujet. Réécris-les pour le secteur de CETTE "
+    "étude. Recopier un mot du secteur d'origine est une faute visible par le "
+    "client."
+)
+
+
 def _ligne_de_plan(rang: int, bloc: dict[str, Any]) -> str:
     """Un bloc du modèle, rendu en une ligne de consigne."""
     type_bloc = str(bloc.get("type", ""))
@@ -106,11 +131,24 @@ def _ligne_de_plan(rang: int, bloc: dict[str, Any]) -> str:
         tete = (
             f"`tableau` — {int(bloc.get('nb_lignes_cible', 0))} lignes, "
             f"en-têtes de référence : {' | '.join(entetes)}"
+            + f"\n   → {ADAPTER_AU_SECTEUR}"
         )
     elif type_bloc == "encadre":
+        # L'étiquette du modèle décrit une FONCTION — « ce chapitre ouvre un
+        # approfondissement » — mais elle est écrite avec les mots de la
+        # joaillerie, puisqu'elle vient d'une étude sur la joaillerie. Remise
+        # telle quelle, le modèle la recopie : le dossier réel `c8b4e60a`
+        # (e-commerce animalier) portait en page 52 « FOCUS — Approfondissement
+        # demandé : marché international des galeries et du sur-mesure ».
+        #
+        # Le titre de sous-section portait DÉJÀ sa consigne d'adaptation. Ni
+        # l'étiquette ni les en-têtes ne l'avaient : l'oubli n'était pas une
+        # règle manquante, c'était la même règle appliquée à un seul cas
+        # (règle 4).
         tete = (
             f"`encadre` — étiquette « {bloc.get('etiquette', '')} », environ "
             f"{int(bloc.get('longueur_cible_signes', 0))} signes"
+            + f"\n   → {ADAPTER_AU_SECTEUR}"
         )
     elif type_bloc == "grille_kpi":
         tete = (
