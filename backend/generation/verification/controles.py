@@ -75,19 +75,123 @@ def _valeurs_de_reference(socle: Socle) -> list[tuple[float, str]]:
     return references
 
 
-def _proche(mesure: float, reference: float) -> bool:
+def _proche(
+    mesure: float, reference: float, tolerance: float = TOLERANCE
+) -> bool:
     if abs(mesure - reference) <= EPSILON:
         return True
     echelle = max(abs(mesure), abs(reference))
-    return echelle > 0 and abs(mesure - reference) / echelle <= TOLERANCE
+    return echelle > 0 and abs(mesure - reference) / echelle <= tolerance
 
 
-def _justifiee(mesure: Mesure, references: Sequence[tuple[float, str]]) -> bool:
+#: Au-delà, on ne calcule plus les combinaisons deux à deux : un socle de
+#: quarante données produit déjà 1 600 couples, chacun donnant quatre
+#: dérivations. C'est instantané ; à quatre cents données ce ne le serait plus.
+#: Le plafond protège le temps de contrôle, pas la justesse.
+_MAX_DONNEES_POUR_DERIVATIONS = 80
+
+#: Tolérance appliquée aux valeurs CALCULÉES, cent fois plus serrée que celle
+#: des valeurs lues du socle.
+#:
+#: ## Pourquoi elle ne peut pas être la même
+#:
+#: `TOLERANCE` vaut 1 %, pour absorber l'arrondi d'affichage d'un chiffre
+#: RECOPIÉ (« 381,5 Md€ » écrit « 382 Md€ »). Appliquée aux dérivations, elle
+#: fait s'effondrer le contrôle : un socle de vingt-neuf données produit près de
+#: trois mille combinaisons, et chacune couvre une bande de ±1 %. Ensemble,
+#: elles couvrent presque tout l'espace des nombres plausibles.
+#:
+#: **Mesuré, et par un test qui existait déjà** :
+#: `test_la_passe_voit_un_chiffre_invente_dans_un_vrai_fichier` glisse « 777 M€ »
+#: dans un document. Avec la tolérance à 1 %, il cessait d'être détecté — une
+#: dérivation valant 781 250 000 passait à 0,55 % de lui. Le garde-fou existant
+#: a attrapé ma propre régression, exactement là où je prévenais du risque pour
+#: trois termes : il se produisait déjà à deux.
+#:
+#: ## Pourquoi 0,01 % est le bon ordre de grandeur
+#:
+#: Un chiffre CALCULÉ n'est pas approché : il EST le résultat. Quand un chapitre
+#: écrit « SOM = 1,0 Md€ × 0,05 % = 0,5 M€ », la valeur tombe juste, au bit
+#: près. La marge ne sert qu'à absorber la représentation décimale, pas un
+#: arrondi éditorial — celui-là appartient aux valeurs recopiées, et il a déjà
+#: sa tolérance.
+TOLERANCE_DERIVATION = 0.0001
+
+
+def _derivations(references: Sequence[tuple[float, str]]) -> set[float]:
+    """Ce qu'un chapitre peut légitimement CALCULER à partir du socle.
+
+    ## Pourquoi cette fonction existe
+
+    Le contrôle des chiffres hors socle était volontairement un simple
+    avertissement, et sa docstring disait pourquoi : « le contrôle ne recalcule
+    pas l'arithmétique interne des chapitres, si bien qu'une somme légitime de
+    deux valeurs du socle apparaît ici comme hors socle ».
+
+    C'était juste, et c'était la bonne décision tant que rien ne calculait. Mais
+    cela laissait le contrôle incapable de distinguer les deux seules choses qui
+    comptent :
+
+        « SOM = 1,0 Md€ × 0,05 % = 0,5 M€ »   — un calcul, parfaitement légitime
+        « 26,3 millions de chiens et chats »  — un chiffre de marché INVENTÉ
+
+    Les deux sortaient pareil. Sur le dossier réel `c8b4e60a`, quatorze réserves
+    mélangeaient les unes et les autres, et il fallait les relire à la main pour
+    savoir lesquelles comptaient.
+
+    ## Ce qu'on calcule, et pourquoi on s'arrête là
+
+    Les combinaisons DEUX À DEUX : produit, quotient, somme, différence, et
+    l'application d'un taux (a × b/100). C'est la famille qui couvre
+    l'écrasante majorité des dérivations réelles d'une étude — un SOM tiré d'un
+    SAM et d'un taux de capture, un total tiré de deux segments.
+
+    On ne va pas à trois termes, et c'est délibéré : le nombre de combinaisons
+    explose, et surtout la probabilité qu'un chiffre INVENTÉ tombe par hasard
+    sur l'une d'elles devient réelle. Un contrôle qui justifie tout ne justifie
+    plus rien — ce serait remplacer un bruit par un silence.
+    """
+    valeurs = [valeur for valeur, _ in references]
+    if len(valeurs) > _MAX_DONNEES_POUR_DERIVATIONS:
+        valeurs = valeurs[:_MAX_DONNEES_POUR_DERIVATIONS]
+
+    calculees: set[float] = set()
+    for index, gauche in enumerate(valeurs):
+        for droite in valeurs[index + 1:]:
+            calculees.add(gauche + droite)
+            calculees.add(abs(gauche - droite))
+            calculees.add(gauche * droite)
+            # Un taux s'applique en pourcentage : « 1,0 Md€ × 0,05 % ».
+            calculees.add(gauche * droite / 100)
+            calculees.add(droite * gauche / 100)
+            for a, b in ((gauche, droite), (droite, gauche)):
+                if abs(b) > EPSILON:
+                    calculees.add(a / b)
+                    # Une part exprimée en pourcentage : « 12 sur 48 = 25 % ».
+                    calculees.add(a / b * 100)
+    return calculees
+
+
+def _justifiee(
+    mesure: Mesure,
+    references: Sequence[tuple[float, str]],
+    derivations: Sequence[float] = (),
+) -> bool:
     famille = "monetaire" if mesure.est_monetaire else "brut"
-    return any(
+    if any(
         _proche(mesure.valeur, valeur)
         for valeur, nature in references
         if nature == famille or famille == "brut"
+    ):
+        return True
+    # Un chiffre CALCULÉ à partir du socle n'est pas un chiffre hors socle : il
+    # est exactement ce que le chapitre a le droit de faire avec ses données.
+    # Tolérance BEAUCOUP plus serrée — voir `TOLERANCE_DERIVATION` : à 1 %, les
+    # trois mille combinaisons d'un socle ordinaire justifient à peu près
+    # n'importe quel nombre.
+    return any(
+        _proche(mesure.valeur, valeur, TOLERANCE_DERIVATION)
+        for valeur in derivations
     )
 
 
@@ -128,10 +232,16 @@ def controler_chiffres_hors_socle(
         *((valeur, "monetaire") for valeur in chiffres_du_brief),
     ]
 
+    # Les dérivations sont calculées UNE fois pour tout le document : elles ne
+    # dépendent que du socle, et les recalculer par mesure coûterait le carré
+    # du socle multiplié par le nombre de grandeurs relevées — quatre cent
+    # trente-cinq sur le dossier `c8b4e60a`.
+    derivations = sorted(_derivations(references))
+
     anomalies: list[Anomalie] = []
     deja_vues: set[str] = set()
     for mesure in document.mesures:
-        if _justifiee(mesure, references):
+        if _justifiee(mesure, references, derivations):
             continue
         if mesure.texte in deja_vues:
             continue
