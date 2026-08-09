@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, ChapterStatus, GenerationJob
-from ..socle.schema import Socle
+from ..socle.schema import Socle, famille_de_l_unite
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
@@ -45,15 +45,41 @@ _SYSTEME = (
     "identifiants du socle. Le rendu résout les valeurs lui-même, ce qui rend "
     "impossible qu'un graphique contredise le texte qui l'entoure.\n"
     "\n"
+    # Les fichiers d'instruction montrent des exemples de tableaux HTML. Ils
+    # datent du moteur HERITE, qui produisait du HTML et pour lequel ils etaient
+    # justes. Le modele fait ce qu'on lui montre : les deux livrables valides du
+    # 08/08/2026 portaient des `<table style="...">` IMPRIMES EN TOUTES LETTRES
+    # dans le document — dix dans l'etude de marche, quarante-quatre dans le
+    # business plan. On le dit donc explicitement, plutot que d'esperer que la
+    # forme du contrat suffise a l'en dissuader.
+    "AUCUN BALISAGE DANS TES TEXTES. Les instructions de chapitre te montrent "
+    "parfois des tableaux écrits en HTML (`<table style=…>`) : ils viennent "
+    "d'un moteur précédent et ne te concernent PAS. Tu ne produis jamais de "
+    "balise — ni `<table>`, ni `<div>`, ni `<td>`, ni aucune autre. Un tableau "
+    "se demande avec un bloc `tableau` et ses cellules ; un encadré avec un "
+    "bloc `encadre`. Une balise écrite dans un texte est imprimée telle quelle "
+    "dans le document du client, et fait rejeter le chapitre.\n"
+    "\n"
     f"Tu réponds exclusivement par un appel de l'outil `{OUTIL_NOM}`."
 )
 
 
 class ChapitreInvalideError(RuntimeError):
-    """Le chapitre produit ne respecte pas son contrat."""
+    """Le chapitre produit ne respecte pas son contrat.
 
-    def __init__(self, motifs: list[str]) -> None:
+    Porte la CONSOMMATION de la tentative refusée. Anthropic facture un appel
+    dont la réponse est rejetée exactement comme un appel réussi : sans ce
+    transport, la dépense disparaissait entre le `raise` et la reprise. Six
+    appels perdus sur le seul chapitre 19 du dossier `b561c2d6`, absents du
+    grand livre — le plafond de dépense portait donc sur un chiffre inférieur à
+    la facture réelle, et il échouait en silence (règle 1).
+    """
+
+    def __init__(
+        self, motifs: list[str], consommation: Mapping[str, int] | None = None
+    ) -> None:
         self.motifs = motifs
+        self.consommation: Mapping[str, int] = consommation or {}
         super().__init__(" ; ".join(motifs))
 
 
@@ -108,6 +134,33 @@ def _modele_de_l_emplacement(loc: Sequence[Any]) -> type[BaseModel] | None:
     return None
 
 
+#: Nature affichée quand l'unité n'est reconnue par aucune famille.
+#:
+#: Elle ne se tait PAS (règle 1) : « inconnue » se voit dans le prompt, alors
+#: qu'une chaîne vide se lirait comme « pas de contrainte » et inviterait le
+#: modèle à mélanger. Une nature qu'on ne sait pas nommer est un motif de
+#: prudence, jamais une permission.
+NATURE_INCONNUE = "inconnue"
+
+
+def _nature(unite: str) -> str:
+    """Famille de grandeur d'une unité, telle que le modèle doit la lire.
+
+    Dérivée de l'unité et non lue au référentiel, pour la raison déjà établie
+    par `rendu_word.donnees_graphiques._famille` : le référentiel s'indexe par
+    type de livrable, information que le socle rechargé depuis la base ne porte
+    plus. L'unité, elle, est toujours là.
+
+    C'est la MÊME fonction que celle qui décide, au rendu, si une figure est
+    abandonnée — `famille_de_l_unite`. Le modèle voit donc exactement le critère
+    auquel il sera jugé, et non une paraphrase. Deux formulations du même test
+    auraient fini par diverger (règle 5), et le modèle aurait été refusé sur un
+    critère qu'on ne lui avait pas montré.
+    """
+    famille = famille_de_l_unite(unite)
+    return str(famille) if famille is not None else NATURE_INCONNUE
+
+
 def _bloc_socle(socle: Socle) -> str:
     """Socle sérialisé, lisible et exhaustif.
 
@@ -130,7 +183,8 @@ def _bloc_socle(socle: Socle) -> str:
     impossible à distinguer d'un chiffre observé.
     """
     lignes = [
-        f"- `{d.id}` = {d.valeur} {d.unite} ({d.annee}, {d.perimetre}, {d.fiabilite})"
+        f"- `{d.id}` = {d.valeur} {d.unite} [{_nature(d.unite)}]"
+        f" ({d.annee}, {d.perimetre}, {d.fiabilite})"
         + (f" — {d.libelle}" if d.libelle else "")
         + (f" — source : {d.source}" if d.source else "")
         + (f" — dérivé de {', '.join(d.derivee_de)}" if d.derivee_de else "")
@@ -335,13 +389,22 @@ def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
     # qui rend les figures n'a donc JAMAIS recu l'objectif « quinze figures »
     # d'hier. Les onze figures du dossier 9be9a422 venaient du seul profil
     # sectoriel. Motif Gamma, encore (regle 8) : ecrit, teste, jamais transmis.
-    from ..prompts import OBJECTIF_FIGURES_TEXTE  # noqa: PLC0415
+    #
+    # `REGLES_IDENTIFIANTS_FIGURES` est arrive ici pour la MEME raison, et il a
+    # fallu un second dossier reel pour s'en apercevoir. Les regles de selection
+    # — deux identifiants minimum, natures homogenes, notes pour le radar,
+    # periodes completes pour les courbes — vivaient elles aussi dans le seul
+    # `build_system_prompt`. Dix-huit figures abandonnees sur `b561c2d6`, presque
+    # toutes pour « unites heterogenes », parce que la consigne etait MUETTE et
+    # non parce qu'elle etait ignoree.
+    from ..prompts import OBJECTIF_FIGURES_TEXTE, REGLES_IDENTIFIANTS_FIGURES  # noqa: PLC0415
 
     return (
         "VISUELS — un graphique ne porte AUCUNE valeur : il porte des "
         "identifiants du socle, résolus au rendu. Un identifiant absent du "
         "socle fait abandonner la figure entière.\n\n"
         + OBJECTIF_FIGURES_TEXTE + "\n\n"
+        + REGLES_IDENTIFIANTS_FIGURES + "\n\n"
         "Types disponibles :\n" + resume_catalogue() + "\n\n"
         + secteurs.consigne_visuelle(profil)
         + memoire
@@ -551,6 +614,15 @@ def generer_chapitre(
     consommation = {
         "input_tokens": resultat.input_tokens,
         "output_tokens": resultat.output_tokens,
+        # Le cache n'atteignait pas la base. `ClaudeResult` le porte depuis le
+        # debut ; personne ne le transportait plus loin. Les deux compteurs sont
+        # separes a dessein : une ECRITURE coute 25 % de plus qu'un jeton
+        # normal, une LECTURE 90 % de moins. Leur somme ne veut rien dire.
+        # `getattr` : plusieurs doublures de test rendent leur propre objet de
+        # resultat, sans ces champs. Une doublure qui ne simule pas le cache
+        # n'en a pas — zero est la lecture juste, pas un silence.
+        "cache_write_tokens": getattr(resultat, "cache_creation_input_tokens", 0),
+        "cache_read_tokens": getattr(resultat, "cache_read_input_tokens", 0),
     }
 
     # La reponse a-t-elle ete COUPEE ? `complete_structured` ne fait qu'un seul
@@ -567,13 +639,13 @@ def generer_chapitre(
     # cher qu'un motif absent (regle 2).
     tronquee = motif_de_troncature(resultat.stop_reason, max_tokens)
     if tronquee:
-        raise ChapitreInvalideError(tronquee)
+        raise ChapitreInvalideError(tronquee, consommation)
 
     try:
         payload = ChapitrePayload.model_validate(dict(resultat.payload))
     except ValidationError as erreur:
         motifs = [_motif_de_validation(item) for item in erreur.errors()[:12]]
-        raise ChapitreInvalideError(motifs) from erreur
+        raise ChapitreInvalideError(motifs, consommation) from erreur
 
     # Reparer AVANT de juger : un resume trop long est ramene dans sa borne,
     # ce qui atteint exactement le but que la borne poursuit. Le refuser
@@ -594,13 +666,13 @@ def generer_chapitre(
         resume_mots_max=document.resume_mots_max,
     )
     if motifs:
-        raise ChapitreInvalideError(motifs)
+        raise ChapitreInvalideError(motifs, consommation)
 
     arbitrage = _arbitrer_conformite(
         chapter, payload, document, derniere_tentative=derniere_tentative
     )
     if arbitrage.bloque:
-        raise ChapitreInvalideError(arbitrage.refus)
+        raise ChapitreInvalideError(arbitrage.refus, consommation)
 
     return payload, consommation, arbitrage
 

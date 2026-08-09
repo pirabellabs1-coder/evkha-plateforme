@@ -304,6 +304,35 @@ polices Carlito et Aptos, absentes du poste mais **présentes dans l'image**
 **Reste non vérifié** : le rendu des figures avec les vraies polices — matplotlib
 a replié ici, pas dans le conteneur.
 
+### Ce que la RELECTURE des deux documents a trouvé, après validation
+
+La cliente a demandé si les couleurs et le logo étaient pris en compte, puis a
+signalé « des lignes de code » dans les deux fichiers. Répondre a demandé de les
+ouvrir. Quatre défauts, dont un qu'elle a vu avant nous.
+
+- **Du HTML imprimé en toutes lettres.** `<table style="border-collapse:…">` en
+  pleine page : **10 occurrences** dans `b561c2d6`, **44** dans `09f32041`. Les
+  fichiers d'instruction montrent des exemples de tableaux écrits en HTML,
+  hérités du moteur précédent où ils étaient justes ; le modèle fait ce qu'on
+  lui montre. **Aucun contrôle ne regardait le texte** — le gate lit le
+  markdown, la conformité juge les volumes, la validation croise les
+  identifiants : personne ne se demandait s'il contenait du balisage (règle 9).
+  La consigne l'interdit désormais, `motifs_de_balisage` refuse le chapitre.
+- **Les règles de figures n'atteignaient pas le modèle.** Elles vivaient dans
+  `build_system_prompt`, que seul le moteur HÉRITÉ envoie. Les dix-huit figures
+  abandonnées ci-dessus **n'étaient pas de la désobéissance : la consigne était
+  muette.** Ce journal affirmait le contraire — corrigé. Chaque ligne du socle
+  porte maintenant sa nature entre crochets, avec les mots exacts de
+  `famille_de_l_unite`, la fonction qui décide du refus au rendu.
+- **Un séparateur orphelin** sur les soixante-dix pages, déjà décrit plus haut.
+- **Six figures sur dix-sept en noir et blanc**, déjà décrites plus haut.
+
+**Leçon commune aux quatre : ils ont tous été trouvés en OUVRANT le fichier.**
+Aucun n'était visible depuis le code, aucune suite de tests ne les voyait, et
+deux d'entre eux ont été signalés par la cliente. C'est la règle 7 sous sa forme
+la plus coûteuse — et la relecture d'un document livré devrait être une étape,
+pas un hasard.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.

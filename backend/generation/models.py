@@ -115,6 +115,24 @@ class ChapterGeneration(UUIDModel):
     input_tokens = models.PositiveIntegerField(default=0)
     output_tokens = models.PositiveIntegerField(default=0)
     cost_eur = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal("0.0000"))
+    # Cache de prompt. `ClaudeResult` porte ces deux compteurs depuis le debut et
+    # ILS N'ATTEIGNAIENT JAMAIS LA BASE : la console montrait 20 % de succes sur
+    # le dossier reel `b561c2d6` et rien n'en restait apres le run. On ne pouvait
+    # donc ni mesurer l'economie, ni voir une regression du cache — le cout
+    # aurait simplement augmente sans qu'on sache pourquoi.
+    #
+    # Une ECRITURE de cache coute 25 % de plus qu'un jeton normal, une LECTURE
+    # 90 % de moins. Les separer est indispensable : leur somme ne dit rien.
+    cache_write_tokens = models.PositiveIntegerField(default=0)
+    cache_read_tokens = models.PositiveIntegerField(default=0)
+    # Cout des tentatives PERDUES : appels factures par Anthropic dont la reponse
+    # a ete rejetee (schema invalide, troncature, conformite). Ils etaient
+    # invisibles — six sur le seul chapitre 19 de `b561c2d6`. Compte a part de
+    # `cost_eur`, qui reste le cout du travail RETENU : les additionner
+    # empecherait de voir ce que la reprise coute vraiment.
+    cost_perdu_eur = models.DecimalField(
+        max_digits=10, decimal_places=4, default=Decimal("0.0000")
+    )
     retry_count = models.PositiveSmallIntegerField(default=0)
     error_message = models.TextField(blank=True)
 

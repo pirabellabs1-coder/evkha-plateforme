@@ -85,8 +85,61 @@ def current_job_cost_eur(job: GenerationJob) -> Decimal:
     Ne jamais lire job.total_cost_eur directement pour une decision en cours
     de generation : ce champ n'est mis a jour qu'en base (queryset.update),
     l'instance Python en memoire peut etre perimee au sein d'une meme boucle.
+
+    **Inclut les tentatives PERDUES.** Anthropic les facture ; un total qui les
+    ignore n'est pas le cout du dossier, c'est le cout de ce qu'on en a garde.
+    Le plafond doit porter sur la facture, pas sur le resultat — sinon un
+    dossier qui echoue beaucoup depasse son plafond sans que rien ne le dise,
+    ce qui est exactement ce qui s'est produit sur `b561c2d6`.
     """
-    return sum((item.cost_eur for item in job.chapters.all()), Decimal("0"))
+    return sum(
+        (item.cost_eur + item.cost_perdu_eur for item in job.chapters.all()),
+        Decimal("0"),
+    )
+
+
+def record_tentative_perdue(
+    *,
+    chapter: ChapterGeneration,
+    input_tokens: int,
+    output_tokens: int,
+    model: str | None = None,
+) -> Decimal:
+    """Enregistre le cout d'une tentative REFUSEE. Toujours cumulatif.
+
+    Anthropic facture un appel dont la reponse est rejetee — schema invalide,
+    troncature, refus de conformite — exactement comme un appel reussi. Ce cout
+    n'etait compte nulle part : le chapitre 19 du dossier reel `b561c2d6` a
+    consomme six appels de ce genre, tous absents du grand livre.
+
+    ## Pourquoi un champ SEPARE et non un ajout a `cost_eur`
+
+    Les deux chiffres repondent a deux questions differentes. `cost_eur` dit ce
+    que le travail RETENU a coute — c'est lui qu'on compare au prix de vente.
+    `cost_perdu_eur` dit ce que les reprises ont coute, et c'est la mesure qui
+    dira si une consigne s'ameliore. Fondus dans un seul champ, on perdrait la
+    seconde sans jamais s'en apercevoir.
+
+    ## Le plafond, lui, porte sur la SOMME
+
+    `enforce_budget` est appele ici aussi, sur le total des deux. Un dossier qui
+    brulerait son budget en tentatives refusees doit s'arreter — c'est
+    exactement le cas que l'ancien comptage laissait filer, puisqu'il ne voyait
+    pas la depense.
+    """
+    if input_tokens <= 0 and output_tokens <= 0:
+        return Decimal("0")
+
+    perdu = estimate_call_cost_eur(input_tokens, output_tokens, model)
+    chapter.cost_perdu_eur += perdu
+    chapter.save(update_fields=["cost_perdu_eur", "updated_at"])
+
+    job = chapter.job
+    total = current_job_cost_eur(job)
+    GenerationJob.objects.filter(pk=job.pk).update(total_cost_eur=total)
+
+    enforce_budget(job, current_total=total)
+    return perdu
 
 
 def record_chapter_cost(
@@ -95,6 +148,8 @@ def record_chapter_cost(
     input_tokens: int,
     output_tokens: int,
     model: str | None = None,
+    cache_write_tokens: int = 0,
+    cache_read_tokens: int = 0,
 ) -> Decimal:
     """Enregistre le cout d'une passe de generation. **Cumulatif.**
 
@@ -123,7 +178,20 @@ def record_chapter_cost(
     chapter.input_tokens = (chapter.input_tokens + input_tokens) if reprise else input_tokens
     chapter.output_tokens = (chapter.output_tokens + output_tokens) if reprise else output_tokens
     chapter.cost_eur = (chapter.cost_eur + cost) if reprise else cost
-    chapter.save(update_fields=["input_tokens", "output_tokens", "cost_eur", "updated_at"])
+    # Les compteurs de cache suivent la MEME regle de cumul que les jetons
+    # qu'ils accompagnent. Les ecrire toujours en absolu ferait mentir le taux
+    # de succes des qu'un chapitre est repris — precisement les chapitres ou le
+    # cache travaille le plus, puisque le prompt y est deja chaud.
+    chapter.cache_write_tokens = (
+        (chapter.cache_write_tokens + cache_write_tokens) if reprise else cache_write_tokens
+    )
+    chapter.cache_read_tokens = (
+        (chapter.cache_read_tokens + cache_read_tokens) if reprise else cache_read_tokens
+    )
+    chapter.save(update_fields=[
+        "input_tokens", "output_tokens", "cost_eur",
+        "cache_write_tokens", "cache_read_tokens", "updated_at",
+    ])
 
     job = chapter.job
     total = current_job_cost_eur(job)

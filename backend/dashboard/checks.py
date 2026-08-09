@@ -58,4 +58,48 @@ def controler_garde_administration(
             id="evkha.D003",
         ))
 
+    problemes.extend(_controler_rotation(jeton))
+    return problemes
+
+
+def _controler_rotation(jeton: str) -> list[Error | Warning]:
+    """La fenetre de rotation est-elle ouverte, et l'est-elle pour une raison ?
+
+    `EVKHA_DASHBOARD_TOKEN_PRECEDENT` existe pour qu'un secret PUISSE etre
+    change. Avec un jeton unique, tourner la cle casse tous les appelants a la
+    seconde du deploiement — donc on repousse, et le meme secret reste en place
+    indefiniment. C'est la rotation qui protege un jeton statique, pas sa
+    longueur.
+
+    Mais une fenetre qu'on oublie de fermer est pire que pas de rotation du
+    tout : elle laisse vivre exactement le secret qu'on voulait retirer, en
+    donnant l'impression qu'il l'a ete. On le rappelle donc a chaque demarrage,
+    tant qu'elle est ouverte.
+    """
+    precedent = str(
+        getattr(settings, "EVKHA_DASHBOARD_TOKEN_PRECEDENT", "") or ""
+    ).strip()
+    if not precedent:
+        return []
+
+    problemes: list[Error | Warning] = [Warning(
+        "EVKHA_DASHBOARD_TOKEN_PRECEDENT est pose : DEUX jetons ouvrent "
+        "actuellement l'administration. C'est voulu le temps d'une rotation, "
+        "et seulement ce temps-la.",
+        hint=(
+            "Une fois tous les appelants passes au nouveau jeton, VIDER "
+            "EVKHA_DASHBOARD_TOKEN_PRECEDENT."
+        ),
+        id="evkha.D004",
+    )]
+
+    if precedent == jeton:
+        problemes.append(Error(
+            "EVKHA_DASHBOARD_TOKEN_PRECEDENT porte la MEME valeur que "
+            "EVKHA_DASHBOARD_TOKEN : la rotation n'a rien tourne, et la "
+            "configuration donne a croire le contraire.",
+            hint="Poser l'ANCIENNE valeur dans le precedent, la nouvelle au-dessus.",
+            id="evkha.D005",
+        ))
+
     return problemes

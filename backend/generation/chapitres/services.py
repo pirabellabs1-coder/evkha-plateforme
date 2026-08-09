@@ -110,6 +110,8 @@ def enregistrer_chapitre(
         input_tokens=consommation.get("input_tokens", 0),
         output_tokens=consommation.get("output_tokens", 0),
         model=model,
+        cache_write_tokens=consommation.get("cache_write_tokens", 0),
+        cache_read_tokens=consommation.get("cache_read_tokens", 0),
     )
     return chapter
 
@@ -221,6 +223,55 @@ def regenerer_chapitre(
         raise
 
 
+def _compter_la_tentative_perdue(
+    job: GenerationJob, numero: int, erreur: BaseException
+) -> None:
+    """Porte au grand livre le coût d'une tentative refusée, quand il est connu.
+
+    ## Ce que cette fonction ne fait PAS, et pourquoi
+
+    Elle n'invente pas de coût. Seule `ChapitreInvalideError` transporte une
+    consommation, parce que seule elle survient APRÈS que le modèle a répondu.
+    Une panne réseau, une clé refusée, un dépassement de budget n'ont rien
+    coûté : leur prêter un montant serait un chiffre faux, et un chiffre faux
+    est pire qu'un chiffre absent (règle 2).
+
+    ## Pourquoi elle ne laisse pas remonter ses propres erreurs
+
+    Sauf une : `CostBudgetExceededError`. Comptabiliser la tentative peut faire
+    franchir le plafond, et cet arrêt-là doit se propager — c'est précisément le
+    cas qu'on veut voir. Tout autre incident d'écriture est journalisé sans
+    masquer l'erreur d'origine : le motif du chapitre vaut mieux qu'un défaut
+    survenu en le consignant.
+    """
+    from ..cost import CostBudgetExceededError, record_tentative_perdue  # noqa: PLC0415
+    from .runner import ChapitreInvalideError  # noqa: PLC0415
+
+    if not isinstance(erreur, ChapitreInvalideError):
+        return
+    consommation = erreur.consommation
+    if not consommation:
+        return
+
+    chapitre = job.chapters.filter(chapter_number=numero).first()
+    if chapitre is None:
+        return
+
+    try:
+        record_tentative_perdue(
+            chapter=chapitre,
+            input_tokens=int(consommation.get("input_tokens", 0)),
+            output_tokens=int(consommation.get("output_tokens", 0)),
+        )
+    except CostBudgetExceededError:
+        raise
+    except Exception:
+        _log.exception(
+            "Job %s chapitre %s : le coût de la tentative perdue n'a pas pu "
+            "être enregistré.", job.id, numero,
+        )
+
+
 def produire_avec_reprises(
     job: GenerationJob,
     numero: int,
@@ -274,6 +325,11 @@ def produire_avec_reprises(
             raise
         except Exception as erreur:  # noqa: BLE001 — on rejoue tout le reste
             derniere_erreur = erreur
+            # La tentative a ete FACTUREE. Elle l'etait deja avant, mais elle
+            # disparaissait ici : le `raise` emportait la consommation avec lui.
+            # Six appels perdus sur le seul chapitre 19 de `b561c2d6`, jamais
+            # comptes — donc un plafond qui portait sur moins que la facture.
+            _compter_la_tentative_perdue(job, numero, erreur)
             if tentative < document.tentatives_max:
                 _log.warning(
                     "Job %s chapitre %s : tentative %s/%s échouée (%s). On rejoue.",

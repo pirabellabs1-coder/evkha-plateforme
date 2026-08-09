@@ -454,6 +454,14 @@ EVKHA_APP_URL = env("EVKHA_APP_URL", default="")
 # TODO: remplacer par JWT Better Auth quand BETTER_AUTH_SECRET est configure.
 EVKHA_DASHBOARD_AUTH_DISABLED = env("EVKHA_DASHBOARD_AUTH_DISABLED")
 EVKHA_DASHBOARD_TOKEN = env("EVKHA_DASHBOARD_TOKEN", default="")
+# Jeton PRECEDENT, accepte le temps d'une rotation. Un secret qu'on ne peut pas
+# changer sans coupure ne se change jamais : avec un jeton unique, tourner la
+# cle casse tous les appelants a la seconde du deploiement, donc on repousse.
+# Manoeuvre : poser l'ancienne valeur ici, la nouvelle au-dessus, deployer,
+# mettre les appelants a jour, puis VIDER cette variable. `evkha.W007` la
+# rappelle tant qu'elle est posee, pour qu'une fenetre de rotation ne devienne
+# pas un etat permanent.
+EVKHA_DASHBOARD_TOKEN_PRECEDENT = env("EVKHA_DASHBOARD_TOKEN_PRECEDENT", default="")
 
 # ── Cache ────────────────────────────────────────────────────────────────────
 #

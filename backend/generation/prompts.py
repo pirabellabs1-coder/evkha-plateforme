@@ -190,6 +190,51 @@ OBJECTIF_FIGURES_TEXTE = (
     "et une etude ou l'on a colle une image par section."
 )
 
+#: Regles de SELECTION des identifiants d'une figure — le seul texte qui dit au
+#: modele ce qui fait abandonner une figure au rendu.
+#:
+#: **Extrait ici parce qu'il n'atteignait pas le moteur qui rend les figures.**
+#: Il vivait dans `_GRAPHIQUES_MOTEUR_STRUCTURE`, donc dans `build_system_prompt`,
+#: que seul le moteur HERITE envoie. Le moteur structure — celui de la
+#: production, `EVKHA_SOCLE_ENABLED=true` — passe `_SYSTEME` et n'a jamais vu ces
+#: regles. Exactement le motif deja corrige pour `OBJECTIF_FIGURES_TEXTE` : ecrit,
+#: teste, jamais transmis (regle 8).
+#:
+#: Mesure sur le dossier reel `b561c2d6` : dix-huit figures abandonnees, dont la
+#: quasi-totalite pour « unites heterogenes » — `MEUR, million`, `EUR, MEUR,
+#: unite`, `%, MEUR`. Un montant et un decompte sur le meme axe. Ce n'etait pas
+#: de la desobeissance : la consigne etait muette.
+#:
+#: `chapitres/runner._bloc_visuels` le reinjecte desormais. Une seule source
+#: (regle 5) : les deux moteurs lisent CETTE constante.
+REGLES_IDENTIFIANTS_FIGURES = (
+    "Un graphique ne porte aucune valeur : il porte des identifiants du socle. "
+    "Deux consequences pratiques — cite au moins DEUX identifiants (une figure "
+    "a une seule barre n'apprend rien), et cite des grandeurs de MEME NATURE "
+    "(des montants entre eux, des taux entre eux). Chaque ligne du socle porte "
+    "sa nature entre crochets : `[monetaire]`, `[effectif]`, `[pourcentage]`, "
+    "`[duree]`, `[ratio]`. DEUX NATURES DIFFERENTES SUR UNE MEME FIGURE LA FONT "
+    "ABANDONNER — un montant en euros et un nombre d'entreprises ne se tracent "
+    "pas ensemble, quelle que soit la pertinence du propos. Verifie les "
+    "crochets avant de citer.\n"
+    "Les echelles, elles, se melangent librement : euros, milliers, millions et "
+    "milliards d'une meme monnaie sont ramenes a une echelle commune au rendu. "
+    "Deux DEVISES differentes, en revanche, font abandonner la figure : sans "
+    "taux de change, des euros et des dollars sur un meme axe produisent une "
+    "figure fausse dont chaque chiffre est juste.\n"
+    "Trois formes reclament une donnee particuliere, et un identifiant qui ne "
+    "la porte pas fait abandonner la figure :\n"
+    "- RADAR et JAUGES : des NOTES sur une echelle commune (par exemple sur 10 "
+    "ou sur 100), donc `[ratio]`, jamais des montants ni des pourcentages de "
+    "repartition. Pour comparer des euros entre eux, prends des barres.\n"
+    "- RADAR : trois axes au minimum, et les memes axes pour toutes les "
+    "series.\n"
+    "- COURBES et AIRES : chaque serie couvre TOUTES les periodes de l'axe. "
+    "Une annee manquante n'est pas interpolee, la figure est abandonnee.\n"
+    "Choisis donc la forme d'apres les identifiants dont tu disposes, et non "
+    "l'inverse."
+)
+
 _GRAPHIQUES_MOTEUR_STRUCTURE = (
     "\n\nGRAPHIQUES : le catalogue complet et les types pertinents pour CE "
     "secteur te sont donnes avec la consigne du chapitre.\n"
@@ -201,23 +246,7 @@ _GRAPHIQUES_MOTEUR_STRUCTURE = (
     "La consigne du chapitre te dit quelles formes l'etude a DEJA employees : "
     "prends-en une autre des que le propos s'y prete. Reprendre une forme est "
     "permis — deux entonnoirs de suite, non.\n"
-    "Un graphique ne porte aucune valeur : il porte des identifiants du socle. "
-    "Deux consequences pratiques — cite au moins DEUX identifiants (une figure "
-    "a une seule barre n'apprend rien), et cite des grandeurs de MEME NATURE "
-    "(des montants entre eux, des taux entre eux). Les echelles, elles, se "
-    "melangent librement : euros, milliers, millions et milliards d'une meme "
-    "monnaie sont ramenes a une echelle commune au rendu.\n"
-    "Trois formes reclament une donnee particuliere, et un identifiant qui ne "
-    "la porte pas fait abandonner la figure :\n"
-    "- RADAR et JAUGES : des NOTES sur une echelle commune (par exemple sur 10 "
-    "ou sur 100), jamais des montants ni des pourcentages de repartition. Pour "
-    "comparer des euros entre eux, prends des barres.\n"
-    "- RADAR : trois axes au minimum, et les memes axes pour toutes les "
-    "series.\n"
-    "- COURBES et AIRES : chaque serie couvre TOUTES les periodes de l'axe. "
-    "Une annee manquante n'est pas interpolee, la figure est abandonnee.\n"
-    "Choisis donc la forme d'apres les identifiants dont tu disposes, et non "
-    "l'inverse."
+    + REGLES_IDENTIFIANTS_FIGURES
 )
 
 _EM_ROLE = (

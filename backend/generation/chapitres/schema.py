@@ -655,4 +655,109 @@ def valider_chapitre(
     if len(set(titres)) != len(titres):
         motifs.append("Deux sous-sections portent le même titre.")
 
+    motifs.extend(motifs_de_balisage(payload))
+
     return motifs
+
+
+#: Une VRAIE balise : un chevron ouvrant, un nom d'élément connu, un chevron
+#: fermant. Pas « 1 < 2 », pas « panier < 220 € » — des comparaisons légitimes
+#: qu'un motif plus large condamnerait, et qui abondent dans un plan d'affaires
+#: (seuils d'alerte, conditions de déclenchement). Un correctif qui casse ce qui
+#: était correct est pire que le défaut qu'il traite (règles 2 et 6).
+_BALISE = re.compile(
+    r"</?\s*(?:table|thead|tbody|tfoot|tr|td|th|div|span|p|br|hr|h[1-6]|"
+    r"strong|em|b|i|u|small|code|pre|ul|ol|li|img|a|font)\b[^>]*>",
+    re.IGNORECASE,
+)
+
+#: Longueur du fragment cité dans le motif de rejet. Assez pour que la personne
+#: qui lit le motif RETROUVE le passage dans le chapitre (règle 2), pas assez
+#: pour noyer le motif.
+_EXTRAIT = 120
+
+
+def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
+    """Refuse un chapitre dont le TEXTE contient du balisage.
+
+    ## Le défaut, mesuré sur les deux livrables validés
+
+    Le 08/08/2026, `b561c2d6` (étude de marché) et `09f32041` (business plan)
+    portaient tous deux des tableaux HTML **imprimés en toutes lettres** dans
+    le corps du document : `<table style="border-collapse:collapse;width:100%…`.
+    Dix balises dans l'un, quarante-quatre dans l'autre. La cliente les a vus
+    avant nous.
+
+    ## D'où ils viennent
+
+    Les fichiers d'instruction des chapitres montrent des exemples de tableaux
+    HTML — ils datent du moteur HÉRITÉ, qui produisait du HTML et pour lequel
+    ces exemples étaient justes. Le moteur STRUCTURÉ les reçoit toujours, et le
+    modèle fait ce qu'on lui montre : il recopie le motif dans un bloc de texte,
+    où il n'a plus aucun sens. La cause est traitée dans la consigne ; ce
+    contrôle est la dernière ligne, celle qui regarde ce que le lecteur va
+    vraiment lire (règle 3).
+
+    ## Pourquoi un refus et non un nettoyage
+
+    Retirer les balises laisserait le contenu du tableau aplati en une phrase
+    illisible, et le chapitre passerait pour bon. Le refus fait rejouer la
+    tentative — la machinerie de reprise existe déjà — et le modèle produit
+    alors un bloc `tableau`, c'est-à-dire ce qu'il aurait dû produire.
+    """
+    motifs: list[str] = []
+    # `getattr` et non `payload.blocs` : `valider_chapitre` accepte aussi des
+    # porteurs minimaux, que plusieurs tests emploient pour isoler leur sujet
+    # sans construire un chapitre entier. Ce n'est pas une permissivite — un
+    # objet sans blocs n'a aucun texte, donc rien a examiner, et le dire
+    # autrement serait inventer un defaut (regle 2). Un vrai `ChapitrePayload`
+    # porte toujours ses blocs : le contrat les exige (`min_length=1`).
+    for index, bloc in enumerate(getattr(payload, "blocs", ()) or ()):
+        for champ, texte in _textes_du_bloc(bloc):
+            trouvee = _BALISE.search(texte)
+            if trouvee is None:
+                continue
+            debut = max(trouvee.start() - 20, 0)
+            motifs.append(
+                f"Bloc {index} ({bloc.type}), champ `{champ}` : du balisage HTML "
+                f"figure dans le TEXTE et sera imprimé tel quel — "
+                f"« …{texte[debut:debut + _EXTRAIT]}… ». Un tableau se demande "
+                "avec un bloc `tableau`, jamais en HTML ; les exemples HTML des "
+                "instructions viennent d'un moteur précédent."
+            )
+    return motifs
+
+
+def _textes_du_bloc(bloc: BaseModel, prefixe: str = "") -> list[tuple[str, str]]:
+    """Tous les champs textuels d'un bloc, y compris IMBRIQUÉS.
+
+    Parcourt le modèle plutôt qu'une liste de noms écrite à la main : un bloc
+    ajouté demain sera couvert sans que personne y pense, et une liste fermée
+    est exactement ce que la règle 4 condamne.
+
+    **La descente dans les modèles imbriqués n'est pas un raffinement.** Un
+    `BlocTableau` ne porte pas de texte : il porte un `Tableau`, qui porte
+    `entetes` et `lignes`. Une première version restée en surface ne voyait donc
+    aucune cellule — c'est-à-dire précisément l'endroit où un tableau HTML a le
+    plus de chances d'atterrir, puisque c'est un tableau que le modèle essayait
+    de faire. Le contrôle aurait été vert sur le défaut qu'il vise (règle 1).
+    """
+    sortie: list[tuple[str, str]] = []
+    for nom in type(bloc).model_fields:
+        chemin = f"{prefixe}{nom}"
+        sortie.extend(_textes_de_la_valeur(getattr(bloc, nom, None), chemin))
+    return sortie
+
+
+def _textes_de_la_valeur(valeur: Any, chemin: str) -> list[tuple[str, str]]:
+    """Chaînes contenues dans une valeur, quelle que soit sa profondeur."""
+    if isinstance(valeur, str):
+        return [(chemin, valeur)]
+    if isinstance(valeur, BaseModel):
+        return _textes_du_bloc(valeur, prefixe=f"{chemin}.")
+    if isinstance(valeur, (list, tuple)):
+        sortie: list[tuple[str, str]] = []
+        for element in valeur:
+            sortie.extend(_textes_de_la_valeur(element, chemin))
+        return sortie
+    return []

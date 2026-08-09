@@ -413,6 +413,14 @@ class StructuredResult:
     output_tokens: int
     model: str
     stop_reason: str = "end_turn"
+    # Cache de prompt. `ClaudeResult` les porte depuis le debut ; ce resultat-ci
+    # ne les portait PAS, alors que c'est lui que rend le moteur structure —
+    # celui de la production. Le cache travaillait donc sans qu'aucun chiffre
+    # n'en sorte, et une regression se serait vue seulement par une facture qui
+    # monte. Separes a dessein : une ECRITURE coute 25 % de plus qu'un jeton
+    # normal, une LECTURE 90 % de moins ; leur somme ne veut rien dire.
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 
 @runtime_checkable
@@ -741,6 +749,12 @@ class AnthropicClaudeClient:
             output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
             model=effective_alias,
             stop_reason=str(getattr(message, "stop_reason", "") or ""),
+            cache_creation_input_tokens=int(
+                getattr(usage, "cache_creation_input_tokens", 0) or 0
+            ),
+            cache_read_input_tokens=int(
+                getattr(usage, "cache_read_input_tokens", 0) or 0
+            ),
         )
 
 
