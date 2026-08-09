@@ -20,6 +20,7 @@ from ..socle.schema import Socle, famille_de_l_unite
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
+from .typographie import reparer_typographie
 
 _log = logging.getLogger(__name__)
 
@@ -59,6 +60,19 @@ _SYSTEME = (
     "se demande avec un bloc `tableau` et ses cellules ; un encadré avec un "
     "bloc `encadre`. Une balise écrite dans un texte est imprimée telle quelle "
     "dans le document du client, et fait rejeter le chapitre.\n"
+    "\n"
+    # Demande de la cliente : « ne jamais rencontrer d'incident dans la
+    # generation ». L'espacement fautif est REPARE en aval (`typographie.py`) —
+    # refuser un chapitre pour une double espace couterait une reprise. Ce qui
+    # suit vise ce qu'aucune reparation ne peut rattraper : une faute d'accord,
+    # un chiffre recopie de travers, un nom propre mal orthographie.
+    "FRANÇAIS IRRÉPROCHABLE. Ce document est remis tel quel à un client final. "
+    "Relis chaque phrase avant de la rendre : accords en genre et en nombre, "
+    "conjugaison, participes passés, noms propres et raisons sociales écrits "
+    "exactement comme dans le brief. Un nombre recopié du socle se recopie au "
+    "signe près — ni arrondi, ni reformulé. En cas de doute sur un mot, emploie "
+    "celui dont tu es sûr : une phrase simple et juste vaut mieux qu'une "
+    "tournure savante et fautive.\n"
     "\n"
     f"Tu réponds exclusivement par un appel de l'outil `{OUTIL_NOM}`."
 )
@@ -263,8 +277,55 @@ def _bloc_sources(job: GenerationJob, numero: int) -> str:
     )
 
 
-def _bloc_forme() -> str:
-    """Consigne de forme, identique pour tous les chapitres et tous les livrables.
+#: Ce que chaque livrable NON DÉCRIT par le modèle doit porter en propre.
+#:
+#: Le repli était le MÊME texte pour le business plan, la stratégie et l'étude
+#: concurrentielle. Or ces trois documents n'ont ni le même objet, ni le même
+#: lecteur, ni les mêmes tableaux : un plan d'affaires se juge sur des chiffres
+#: qui s'enchaînent d'un chapitre à l'autre, une étude concurrentielle sur des
+#: comparaisons à critères constants, une stratégie sur des décisions datées et
+#: assignées. Leur servir une consigne moyenne produisait trois documents de la
+#: même forme, et c'est le reproche que la cliente adresse depuis le début.
+#:
+#: Ce n'est PAS un modèle de référence et cela n'en tient pas lieu : aucune de
+#: ces lignes n'est mesurée sur un document validé, aucun contrôle de conformité
+#: ne s'y adosse. C'est une consigne, pas un étalon — et la distinction compte,
+#: parce qu'un jour quelqu'un lira ce fichier en croyant y trouver le second.
+_FORME_PAR_LIVRABLE: dict[str, str] = {
+    "business_plan": (
+        "- Les chiffres s'ENCHAÎNENT d'un chapitre à l'autre : un montant posé "
+        "au prévisionnel doit se retrouver au plan de financement et au seuil "
+        "de rentabilité, à l'identique. Un tableau qui recommence à zéro rend "
+        "le document incrédible.\n"
+        "- Chaque tableau financier porte ses ANNÉES en colonnes (N, N+1, N+2) "
+        "et ses postes en lignes. Jamais l'inverse.\n"
+        "- Toute hypothèse chiffrée dit sur quoi elle repose — un encadré "
+        "« Hypothèses » vaut mieux qu'une note de bas de tableau."
+    ),
+    "competitor_study": (
+        "- Les concurrents se comparent sur des CRITÈRES CONSTANTS : les mêmes "
+        "colonnes d'un tableau à l'autre, d'un chapitre à l'autre. Un critère "
+        "qui n'apparaît que pour un concurrent transforme la comparaison en "
+        "plaidoyer.\n"
+        "- Une case sans donnée s'écrit « non communiqué », jamais un tiret "
+        "seul ni une estimation présentée comme un fait.\n"
+        "- Chaque chapitre se ferme sur ce que la comparaison IMPLIQUE pour le "
+        "client, pas sur le classement lui-même."
+    ),
+    "business_strategy": (
+        "- Une recommandation sans ÉCHÉANCE ni RESPONSABLE n'est pas une "
+        "recommandation. Chaque tableau d'actions porte au minimum : action, "
+        "échéance, ressource engagée, indicateur de réussite.\n"
+        "- Les priorités s'ordonnent et se justifient : dire ce qu'on ne fait "
+        "PAS d'abord vaut autant que dire ce qu'on fait.\n"
+        "- Un encadré par chapitre porte la décision, au présent de l'indicatif "
+        "et à la première personne du pluriel."
+    ),
+}
+
+
+def _bloc_forme(code_livrable: str = "") -> str:
+    """Consigne de forme, commune à tous, PLUS ce qui est propre au livrable.
 
     Elle vit ici et pas dans les 72 fichiers de prompt : la répéter soixante-douze
     fois garantirait qu'elle finisse par diverger d'un fichier à l'autre
@@ -272,7 +333,16 @@ def _bloc_forme() -> str:
     validé par la cliente porte 52 % de ses mots dans des tableaux et une
     médiane de douze mots par paragraphe. Un chapitre qui ne rend que de la
     prose produit le mur de texte qu'elle a explicitement refusé.
+
+    La partie commune reste commune ; ce qui distingue un plan d'affaires d'une
+    étude concurrentielle s'ajoute par-dessus. Un livrable inconnu de la table
+    reçoit la partie commune seule — pas de silence, pas d'invention.
     """
+    propre = _FORME_PAR_LIVRABLE.get(code_livrable, "")
+    return _forme_commune() + (f"\n{propre}" if propre else "")
+
+
+def _forme_commune() -> str:
     return (
         "FORME ATTENDUE — contrainte mesurée sur le livrable de référence, "
         "pas une préférence de style :\n"
@@ -306,7 +376,7 @@ def _blocs_du_modele(code_livrable: str, numero: int) -> list[str]:
 
     try:
         if not modele_couvre(code_livrable):
-            return [_bloc_forme()]
+            return [_bloc_forme(code_livrable)]
         plan = plan_du_chapitre(numero)
         exemple = exemple_de_reference(numero)
     except ModeleIntrouvableError as erreur:
@@ -314,10 +384,13 @@ def _blocs_du_modele(code_livrable: str, numero: int) -> list[str]:
         # le vérifie. S'il manque quand même, on le DIT dans la consigne au
         # lieu de rendre une forme moyenne en faisant croire à la forme
         # imposée (règle 1).
-        return [_bloc_forme(), f"NOTE INTERNE — modèle de référence indisponible : {erreur}"]
+        return [
+            _bloc_forme(code_livrable),
+            f"NOTE INTERNE — modèle de référence indisponible : {erreur}",
+        ]
 
     if not plan:
-        return [_bloc_forme()]
+        return [_bloc_forme(code_livrable)]
     return [plan, exemple] if exemple else [plan]
 
 
@@ -650,6 +723,17 @@ def generer_chapitre(
     # Reparer AVANT de juger : un resume trop long est ramene dans sa borne,
     # ce qui atteint exactement le but que la borne poursuit. Le refuser
     # detruirait le chapitre — et l'etude, puisque ce runner ne reessaie pas.
+    # Reparer AVANT de juger, suite : la typographie se corrige, elle ne se
+    # refuse pas. Une double espace ou une ponctuation collee ferait rejouer un
+    # appel a six centimes pour un defaut que trois caracteres corrigent. Le
+    # compte part au journal : si l'entrainement de la consigne sert, il baisse.
+    retouches = reparer_typographie(payload)
+    if retouches:
+        _log.info(
+            "Chapitre %s : %s retouche(s) typographique(s).",
+            chapter.chapter_number, retouches,
+        )
+
     mention_resume = raccourcir_le_resume(
         payload, maximum=document.resume_mots_max
     )
