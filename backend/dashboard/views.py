@@ -82,11 +82,31 @@ def _job_summary(
     pdf_download_url: str | None = None,
     delivery_status: str | None = None,
 ) -> dict[str, Any]:
+    from generation.services import (  # noqa: PLC0415
+        duree_sans_progression,
+        generation_interrompue,
+    )
+
     chapters_qs = list(job.chapters.all())
     done = sum(1 for c in chapters_qs if c.status == ChapterStatus.DONE)
+    # `interrompue` est CALCULEE ICI et non deduite par le front. La regle « un
+    # dossier sans progression depuis vingt minutes n'est plus en cours » vit
+    # dans `generation.services` ; la recalculer en TypeScript ferait deux
+    # sources pour la meme verite, et elles auraient diverge (regle 5).
+    #
+    # C'est deja arrive sur ce meme bouton : le front decidait `failed ||
+    # cancelled` pendant que le backend acceptait davantage, et le bouton etait
+    # donc cache exactement dans le cas qui l'a fait ecrire — la generation
+    # d'une cliente tuee par un deploiement le 09/08/2026, restee « en cours »
+    # soixante-seize minutes.
+    silence = duree_sans_progression(job)
     return {
         "id": str(job.id),
         "deliverable_type": job.deliverable_type,
+        "interrompue": generation_interrompue(job),
+        "minutes_sans_progression": (
+            int(silence.total_seconds() // 60) if silence is not None else None
+        ),
         "status": job.status,
         # "blocked" = gate qualite KO : le document n'est PAS parti chez le
         # client ; livraison manuelle possible via redeliver (decision admin).

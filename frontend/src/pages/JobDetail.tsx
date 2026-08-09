@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router";
 import {
   Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner, Button,
 } from "@radix-ui/themes";
-import { api, type Chapter, type JobDetail as JobDetailType } from "../api";
+import { api, estRelancable, type Chapter, type JobDetail as JobDetailType } from "../api";
 
 const STATUS_ICON: Record<string, string> = {
   done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—",
@@ -312,7 +312,12 @@ export function JobDetail() {
     (acc, c) => acc + c.input_tokens + c.output_tokens, 0,
   );
   const overBudget = parseFloat(data.total_cost_eur) > parseFloat(data.budget_eur);
-  const canRelaunch = data.status === "failed" || data.status === "cancelled";
+  // `estRelancable` relit ce que le backend a decide (`interrompue`) au lieu de
+  // le rededuire ici. La version precedente ecrivait `failed || cancelled` — une
+  // regle plus stricte que celle du serveur, donc un bouton cache exactement
+  // dans le cas ou l'on en a besoin : une generation tuee par un deploiement,
+  // restee « en cours ». Le 09/08/2026, il a fallu une requete HTTP a la main.
+  const canRelaunch = estRelancable(data);
   const canCancel = data.status === "running" || data.status === "pending";
   // Job FAILED avec au moins un chapitre terminé : PDF admin téléchargeable, sans email
   const hasAnyDoneChapter = data.chapters.some((c) => c.status === "done");

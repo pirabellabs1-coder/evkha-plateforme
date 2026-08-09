@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import {
   Box, Flex, Badge, Table, Progress, Text, Select, Spinner, Button,
 } from "@radix-ui/themes";
-import { api, type JobSummary } from "../api";
+import { api, estRelancable, type JobSummary } from "../api";
 
 const DELIVERABLE_LABELS: Record<string, string> = {
   market_study: "Étude de marché",
@@ -28,6 +28,62 @@ function statusColor(status: string): RadixColor {
     pending: "gray", running: "blue", done: "green", failed: "red", cancelled: "gray",
   };
   return map[status] ?? "gray";
+}
+
+/**
+ * Bouton « Relancer » posé sur la LIGNE, et pas seulement sur la fiche.
+ *
+ * Le 09/08/2026, la génération d'une cliente a été tuée par un déploiement et
+ * son dossier est resté « en cours » soixante-seize minutes, à deux chapitres
+ * sur vingt-trois. La relancer a demandé une requête HTTP écrite à la main :
+ * le bouton existait sur la fiche, mais sa condition d'affichage
+ * (`failed || cancelled`) était plus stricte que ce que le backend accepte, et
+ * il était donc caché exactement dans ce cas-là.
+ *
+ * Ici, la condition vient du backend (`job.interrompue`) — voir `estRelancable`.
+ */
+function BoutonRelancer({ job }: { job: JobSummary }) {
+  const queryClient = useQueryClient();
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => api.jobRelaunch(job.id),
+    onSuccess: () => {
+      setErreur(null);
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["job", job.id] });
+    },
+    // Le message vient du backend : « ce dossier progresse encore », « les
+    // crédits ont été restitués ». L'écraser par un « Erreur » générique
+    // priverait de la seule information qui dit quoi faire ensuite.
+    onError: (err: Error) => setErreur(err.message),
+  });
+
+  const silence = job.minutes_sans_progression;
+  const titre =
+    job.status === "running" && silence !== null
+      ? `Aucun chapitre depuis ${silence} min — relancer au dernier chapitre écrit`
+      : "Relancer la génération";
+
+  return (
+    <Flex direction="column" align="start" gap="1">
+      <Button
+        size="1"
+        variant="soft"
+        color="orange"
+        loading={mutation.isPending}
+        onClick={() => mutation.mutate()}
+        title={titre}
+      >
+        ↻ Relancer
+      </Button>
+      {erreur && (
+        <Text size="1" color="red" style={{ maxWidth: 260 }}>
+          {erreur}
+        </Text>
+      )}
+    </Flex>
+  );
 }
 
 function JobRowActions({ job }: { job: JobSummary }) {
@@ -126,9 +182,22 @@ export function Jobs() {
                   <Text size="2">{DELIVERABLE_LABELS[job.deliverable_type] ?? job.deliverable_type}</Text>
                 </Table.Cell>
                 <Table.Cell>
-                  <Badge color={statusColor(job.status)} variant="soft">
-                    {STATUS_LABELS[job.status] ?? job.status}
-                  </Badge>
+                  <Flex direction="column" align="start" gap="1">
+                    <Badge color={statusColor(job.status)} variant="soft">
+                      {STATUS_LABELS[job.status] ?? job.status}
+                    </Badge>
+                    {/* Un dossier « en cours » qui ne l'est plus doit se VOIR.
+                        C'est ce qui manquait le 09/08/2026 : rien ne distinguait
+                        une génération qui travaille d'une génération morte. */}
+                    {job.interrompue && (
+                      <Badge color="amber" variant="soft" title="Aucun chapitre produit depuis longtemps">
+                        interrompu
+                        {job.minutes_sans_progression !== null
+                          ? ` · ${job.minutes_sans_progression} min`
+                          : ""}
+                      </Badge>
+                    )}
+                  </Flex>
                 </Table.Cell>
                 <Table.Cell>
                   <Flex align="center" gap="2">
@@ -158,6 +227,7 @@ export function Jobs() {
                 </Table.Cell>
                 <Table.Cell>
                   {job.status === "done" && <JobRowActions job={job} />}
+                  {estRelancable(job) && <BoutonRelancer job={job} />}
                 </Table.Cell>
                 <Table.Cell>
                   <Link to="/admin/jobs/$jobId" params={{ jobId: job.id }}

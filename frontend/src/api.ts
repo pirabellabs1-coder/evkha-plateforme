@@ -77,6 +77,19 @@ export interface JobSummary {
   id: string;
   deliverable_type: string;
   status: string;
+  /**
+   * Le dossier se dit « en cours » alors que plus personne ne travaille dessus.
+   *
+   * Calculé par le backend, jamais déduit ici : la règle (aucun chapitre touché
+   * depuis vingt minutes) vit dans `generation.services`. La redécider en
+   * TypeScript ferait deux sources pour la même vérité — et c'est exactement ce
+   * qui s'était produit sur le bouton « Relancer », dont la condition front
+   * `failed || cancelled` était plus stricte que le backend. Il était donc
+   * caché précisément dans le cas qui l'a fait écrire.
+   */
+  interrompue: boolean;
+  /** Minutes écoulées depuis le dernier chapitre touché. `null` hors « en cours ». */
+  minutes_sans_progression: number | null;
   total_cost_eur: string;
   budget_eur: string;
   chapters_done: number;
@@ -87,6 +100,11 @@ export interface JobSummary {
   error_message: string | null;
   pdf_download_url: string | null;
   delivery_status: string | null;
+}
+
+/** Un dossier relançable : échoué, annulé, ou interrompu sans le savoir. */
+export function estRelancable(job: Pick<JobSummary, "status" | "interrompue">): boolean {
+  return job.status === "failed" || job.status === "cancelled" || job.interrompue;
 }
 
 export interface Chapter {
