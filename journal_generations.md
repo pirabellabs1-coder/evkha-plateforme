@@ -333,6 +333,60 @@ deux d'entre eux ont été signalés par la cliente. C'est la règle 7 sous sa f
 la plus coûteuse — et la relecture d'un document livré devrait être une étape,
 pas un hasard.
 
+### 2026-08-09 Maison Lorel EC — `2490c7cf` — **keep**
+
+**Première étude concurrentielle du projet**, et le premier dossier lancé pour
+PROUVER des correctifs plutôt que pour produire un document. Prêt-à-porter de
+créateurs, Paris, cinq concurrents nommés.
+
+| | EM `b561c2d6` | **EC `2490c7cf`** |
+|---|---|---|
+| Chapitres | 23 / 23 | **10 / 10**, 0 en échec |
+| Durée | ~4 h | **24 min** |
+| Coût retenu | 6,26 € | **1,2651 €** (plafond 3,50) |
+| Tentatives perdues | invisibles | **0,1172 €** |
+| Cache | non mesuré | **24 % de l'entrée** |
+| Figures | 17 / 35 — **49 %** | **17 / 24 — 71 %** |
+| Balises HTML | 10 | **0** |
+| Styles CSS | 26 | **0** |
+
+`livrable = True`, 47 tableaux, 831 Ko. PDF produit **dans le pipeline** par
+LibreOffice (2,0 Mo) et non à côté : `EVKHA_USE_STUB_PDF=false`.
+
+**Ce que ce dossier tranche.**
+
+- **Le balisage HTML est éteint.** Zéro balise, zéro style, zéro couleur
+  hexadécimale, là où les deux livrables précédents en portaient 10 et 44.
+- **Les figures : 49 % → 71 %.** Le diagnostic était bon — les règles de
+  sélection n'atteignaient pas le modèle, elles vivaient dans un prompt que le
+  moteur de production n'envoie jamais. Ce n'était pas de la désobéissance.
+- **Le coût réel d'un dossier produit d'un trait**, pour la première fois avec
+  les tentatives perdues comptées : 1,38 € tout compris, pour un plafond de
+  3,50 €. À rapprocher des 6,26 € de l'étude de marché, qui payait deux
+  changements de régime en cours de route.
+
+**Ce que ce dossier a introduit, et qui a été trouvé par le scan.** Une
+occurrence de la notation interne dans un commentaire de figure : « deux taux
+de même nature `[pourcentage]` ». Les crochets de nature, ajoutés le jour même
+pour aider le modèle, sont ressortis dans le document. Il n'a rien fait de mal :
+on lui a montré cette écriture, il l'a employée — **exactement la cause des
+tableaux HTML**, mêmes causes, même semaine.
+
+**La leçon dépasse le cas : toute aide ajoutée au prompt peut ressortir dans le
+document, et doit donc arriver AVEC son interdiction de la recopier, le même
+jour.** Sans quoi on ferme une fuite en en ouvrant une autre.
+
+**Premier dossier scanné AVANT d'être remis** à la cliente, et c'est ce qui a
+permis de le dire. Les trois précédents ont été relus après coup, deux de leurs
+défauts signalés par elle. Le scan devient une étape.
+
+**Sept figures refusées, et elles se rangent en trois familles :** trois
+demandent des notes pour un radar ou une jauge (règle connue, désormais dans la
+consigne transmise), trois mêlent encore des natures (`%, unite` ; `%, annees` ;
+`%, EUR, MEUR, annees, unite`) malgré les crochets, une réclame une structure
+démographique que le socle ne porte pas — refus légitime. Le mélange des natures
+recule mais ne disparaît pas : c'est le prochain palier.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.

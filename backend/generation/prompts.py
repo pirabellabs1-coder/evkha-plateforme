@@ -217,6 +217,15 @@ REGLES_IDENTIFIANTS_FIGURES = (
     "ABANDONNER — un montant en euros et un nombre d'entreprises ne se tracent "
     "pas ensemble, quelle que soit la pertinence du propos. Verifie les "
     "crochets avant de citer.\n"
+    # Fuite mesuree des la premiere generation qui a recu cette notation
+    # (`2490c7cf`) : un commentaire de figure disait « deux taux de meme nature
+    # [pourcentage] ». Le modele n'a rien fait de mal — on lui a montre cette
+    # ecriture, il l'a employee. Toute aide ajoutee au prompt peut ressortir
+    # dans le document ; elle arrive donc avec son interdiction, le meme jour.
+    "CES CROCHETS SONT POUR TOI SEUL. Ils ne s'ecrivent JAMAIS dans le "
+    "document — ni dans un titre, ni dans un commentaire de figure, ni dans une "
+    "cellule. Le client lit une etude, pas la consigne qui l'a produite. Ne "
+    "commente pas non plus ton choix d'identifiants : la figure se suffit.\n"
     "Les echelles, elles, se melangent librement : euros, milliers, millions et "
     "milliards d'une meme monnaie sont ramenes a une echelle commune au rendu. "
     "Deux DEVISES differentes, en revanche, font abandonner la figure : sans "

@@ -676,6 +676,24 @@ _BALISE = re.compile(
 #: pour noyer le motif.
 _EXTRAIT = 120
 
+#: Notation INTERNE du prompt : la nature de chaque identifiant du socle, servie
+#: entre crochets pour que le modèle sache ce qui se trace ensemble.
+#:
+#: Elle a fuité dans le document dès la première génération qui l'a reçue —
+#: étude concurrentielle `2490c7cf`, un commentaire de figure disant « deux taux
+#: de même nature [pourcentage] ». Une seule occurrence, presque lisible, et
+#: c'est précisément ce qui la rend dangereuse : elle passe pour de la prose.
+#:
+#: La leçon est plus large que le cas. **Tout ce qu'on ajoute au prompt pour
+#: aider le modèle peut ressortir dans le document.** C'était vrai des exemples
+#: HTML hérités, ce l'est de cette notation-ci, ce le sera de la suivante. Une
+#: aide au raisonnement doit donc arriver AVEC son interdiction de la recopier,
+#: le même jour — sans quoi on ferme une fuite en en ouvrant une autre.
+_NOTATION_INTERNE = re.compile(
+    r"\[(?:monetaire|effectif|pourcentage|duree|ratio|inconnue)\]",
+    re.IGNORECASE,
+)
+
 
 def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
     """Refuse un chapitre dont le TEXTE contient du balisage.
@@ -706,6 +724,7 @@ def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
     alors un bloc `tableau`, c'est-à-dire ce qu'il aurait dû produire.
     """
     motifs: list[str] = []
+    motifs.extend(_motifs_de_notation_interne(payload))
     # `getattr` et non `payload.blocs` : `valider_chapitre` accepte aussi des
     # porteurs minimaux, que plusieurs tests emploient pour isoler leur sujet
     # sans construire un chapitre entier. Ce n'est pas une permissivite — un
@@ -724,6 +743,37 @@ def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
                 f"« …{texte[debut:debut + _EXTRAIT]}… ». Un tableau se demande "
                 "avec un bloc `tableau`, jamais en HTML ; les exemples HTML des "
                 "instructions viennent d'un moteur précédent."
+            )
+    return motifs
+
+
+def _motifs_de_notation_interne(payload: ChapitrePayload) -> list[str]:
+    """Refuse la notation du prompt recopiée dans le document.
+
+    Mesuré sur `2490c7cf` : le modèle a écrit « deux taux de même nature
+    [pourcentage] » dans un commentaire de figure. Il n'a rien fait de mal — on
+    lui a montré cette notation, il l'a employée. C'est à nous de dire qu'elle
+    ne se recopie pas, et de le vérifier.
+
+    La réparation aurait été possible ici (retirer les crochets). On refuse
+    quand même : contrairement à une double espace, la présence de cette
+    notation signale que le modèle PARLE de sa consigne au lieu de rédiger.
+    Effacer les crochets laisserait la phrase « deux taux de même nature », qui
+    n'a rien à faire dans une étude remise à un client.
+    """
+    motifs: list[str] = []
+    for index, bloc in enumerate(getattr(payload, "blocs", ()) or ()):
+        for champ, texte in _textes_du_bloc(bloc):
+            trouvee = _NOTATION_INTERNE.search(texte)
+            if trouvee is None:
+                continue
+            motifs.append(
+                f"Bloc {index} ({bloc.type}), champ `{champ}` : « "
+                f"{trouvee.group(0)} » est une notation de la CONSIGNE, pas du "
+                "français. Le socle te donne la nature de chaque identifiant "
+                "entre crochets pour que tu saches ce qui se trace ensemble ; "
+                "elle ne se recopie jamais dans le document. Écris la phrase "
+                "sans elle, ou sans la mention de nature du tout."
             )
     return motifs
 
