@@ -188,6 +188,50 @@ class QAResult(NamedTuple):
 # ── Utilitaires ───────────────────────────────────────────────────────────────
 
 
+#: Lignes qui ne sont PAS de la prose, et qu'on ne juge donc pas comme telle.
+#:
+#: **Mesuré sur le dossier réel `c8b4e60a` du 09/08/2026** — une étude d'une
+#: cliente, bloquée à la livraison par le gate. Quatre motifs `sentence_cut`,
+#: dont TROIS étaient faux :
+#:
+#:     ch. 3  : « **CRITÈRE DE SÉLECTION BTOB »       → un intitulé en capitales
+#:     ch. 8  : « *EVKHA, à partir du socle verrouillé » → une ligne de source
+#:     ch. 4  : « ion_cible, panier_moyen, sam, … »   → des identifiants du socle
+#:
+#: Aucune de ces lignes n'a de ponctuation finale, et aucune n'en réclame : ce
+#: ne sont pas des phrases. Le gate a donc retenu un document de vingt-trois
+#: chapitres, à 5,26 EUR, pour une faute qui n'existait pas.
+#:
+#: C'est la règle 2 dans sa forme la plus chère : un contrôle qui compare à une
+#: donnée MAL EXTRAITE est pire qu'absent. Ici il ne se contente pas d'un motif
+#: faux — il bloque la livraison.
+#:
+#: `_last_prose_line` écartait déjà les titres Markdown, les tableaux, les
+#: puces. Il lui manquait ces trois formes, et elles ont suffi.
+_NON_PROSE_RES = (
+    # Intitulé en capitales, éventuellement en gras : « **CRITÈRE DE SÉLECTION ».
+    # Au moins deux mots capitalisés d'affilée — un sigle isolé dans une phrase
+    # (« le CA progresse ») n'en fait pas un titre.
+    re.compile(r"^\**\s*[A-ZÀ-Ý][A-ZÀ-Ý0-9\s'’\-]{6,}$"),
+    # Ligne de source : le rendu les écrit en italique, elles finissent sans
+    # point. « *Source : Insee, 2025* », « *EVKHA, à partir du socle verrouillé* ».
+    re.compile(r"^\**\s*(?:sources?\s*[:—-]|.*\bà partir du socle\b)", re.IGNORECASE),
+    # Résidu d'un marqueur de graphique : une énumération d'identifiants du
+    # socle, en minuscules avec des tirets bas, sans verbe.
+    re.compile(r"^[a-z0-9_]+(?:\s*,\s*[a-z0-9_]+){2,}\s*$"),
+)
+
+
+def _est_de_la_prose(ligne: str) -> bool:
+    """Cette ligne est-elle une phrase, ou une étiquette ?
+
+    Séparée de `_last_prose_line` pour être testable seule : c'est elle qui a
+    bloqué une livraison réelle, et une fonction qu'on ne peut pas interroger
+    directement se corrige à l'aveugle.
+    """
+    return not any(motif.match(ligne) for motif in _NON_PROSE_RES)
+
+
 def _last_prose_line(text: str) -> str:
     """Retourne la dernière ligne de prose lisible (≥4 mots, non-titre/tableau/HTML).
 
@@ -197,6 +241,8 @@ def _last_prose_line(text: str) -> str:
     plain = re.sub(r"<[^>]+>", " ", text)
     lines = [ln.strip() for ln in plain.splitlines() if ln.strip()]
     for line in reversed(lines):
+        if not _est_de_la_prose(line):
+            continue
         # Ignorer les titres Markdown, les lignes de tableau, les balises nues,
         # les listes, les délimiteurs de code.
         # « * » et « - » ne sont des puces que suivis d'une espace : un
