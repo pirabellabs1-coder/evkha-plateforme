@@ -381,8 +381,38 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
     except Exception:
         return _json({"error": "Invalid job id."}, status=400)
 
-    if job.status not in (JobStatus.FAILED, JobStatus.CANCELLED):
-        msg = f"Seuls les jobs échoués ou annulés peuvent être relancés (statut : {job.status})."
+    # Un dossier `running` est relançable À UNE CONDITION : qu'il ne progresse
+    # plus. C'est le cas qu'aucun état ne couvrait, et c'est celui qui est
+    # arrive le 09/08/2026 — une generation tuee par un deploiement, laissee
+    # « en cours » soixante-seize minutes, avec la cliente qui rafraichit sa
+    # page devant un document que plus rien ne fabrique.
+    #
+    # La condition n'est pas decorative : relancer un dossier qui travaille
+    # VRAIMENT ferait tourner deux generations sur le meme job, donc payer deux
+    # fois et ecrire deux fois les memes chapitres. Le refus reste donc la
+    # regle, et l'exception se mesure (`generation_interrompue`) au lieu de se
+    # decreter.
+    from generation.services import (  # noqa: PLC0415
+        DELAI_SANS_PROGRESSION,
+        duree_sans_progression,
+        generation_interrompue,
+    )
+
+    relancable = (JobStatus.FAILED, JobStatus.CANCELLED)
+    if job.status not in relancable and not generation_interrompue(job):
+        silence = duree_sans_progression(job)
+        if job.status == JobStatus.RUNNING and silence is not None:
+            msg = (
+                f"Ce dossier progresse encore (dernier chapitre il y a "
+                f"{int(silence.total_seconds() // 60)} min). Le relancer ferait "
+                "tourner deux générations sur le même dossier. Seuil "
+                f"d'interruption : {int(DELAI_SANS_PROGRESSION.total_seconds() // 60)} min."
+            )
+        else:
+            msg = (
+                "Seuls les dossiers échoués, annulés ou interrompus peuvent "
+                f"être relancés (statut : {job.status})."
+            )
         return _json({"error": msg}, status=400)
 
     # Une annulation REMBOURSE, et un job rembourse ne repart pas : le debit

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
+
+from django.utils import timezone
 
 from catalog.models import DeliverableType
 from intake.models import IntakeStatus, IntakeSubmission
@@ -157,6 +160,64 @@ def bootstrap_generation_job(submission: IntakeSubmission) -> GenerationJob:
         )
 
     return job
+
+
+#: Au-delà de ce silence, un dossier « en cours » ne l'est plus vraiment.
+#:
+#: Le chapitre le plus lent jamais mesuré sur ce projet a pris 10,2 minutes —
+#: étude de marché `b561c2d6`, avant que le contrôle de ressemblance ne soit
+#: rendu consultatif. On double, et on arrondit : vingt minutes sans qu'aucun
+#: chapitre ne bouge ne s'expliquent plus par la lenteur.
+DELAI_SANS_PROGRESSION = timedelta(minutes=20)
+
+
+def duree_sans_progression(job: GenerationJob) -> timedelta | None:
+    """Depuis combien de temps ce dossier n'a-t-il plus rien produit ?
+
+    `None` s'il n'est pas en cours — la question ne se pose pas pour un dossier
+    terminé, échoué ou en attente.
+
+    On regarde la date du dernier CHAPITRE touché, pas celle du job : le job est
+    enregistré au lancement puis plus jamais tant qu'il tourne, sa date ne dit
+    donc rien de son avancement. Les chapitres, eux, sont écrits à chaque coût
+    enregistré.
+    """
+    if job.status != JobStatus.RUNNING:
+        return None
+    dernier = job.chapters.order_by("-updated_at").values_list("updated_at", flat=True).first()
+    repere = dernier or job.started_at
+    if repere is None:
+        return None
+    return timezone.now() - repere
+
+
+def generation_interrompue(job: GenerationJob) -> bool:
+    """Le dossier se dit « en cours » alors que plus personne ne travaille dessus.
+
+    ## Le cas réel qui a créé cette fonction
+
+    Le 09/08/2026, une cliente lance une étude depuis son espace à 06:22:59.
+    Trois minutes plus tard, un déploiement redémarre les conteneurs et tue le
+    processus qui produisait ses chapitres. Deux autres déploiements suivent.
+
+    Le dossier reste `running` en base pendant **soixante-seize minutes**, avec
+    deux chapitres sur vingt-trois et pas un centime de mouvement. Aucun
+    incident ouvert, aucun délai de garde, aucune reprise. La cliente rafraîchit
+    sa page — les journaux du serveur ne montrent qu'elle — et attend un
+    document que rien ne fabrique.
+
+    C'est le silence que la règle 1 condamne, appliqué à un dossier entier : un
+    état qui n'a rien à comparer et qui, faute de mieux, se déclare vivant.
+
+    ## Ce qui l'a rendu possible
+
+    Un déploiement tue les générations en cours, et rien ne le rattrape : ni
+    l'ordonnanceur qui a perdu sa tâche, ni le dossier qui garde son statut, ni
+    la relance du tableau de bord — qui n'acceptait que `failed` et `cancelled`,
+    c'est-à-dire tous les états SAUF celui où l'on se retrouve.
+    """
+    duree = duree_sans_progression(job)
+    return duree is not None and duree > DELAI_SANS_PROGRESSION
 
 
 def relaunch_generation_job(job: GenerationJob) -> None:

@@ -198,3 +198,23 @@ journée.
   `_BUDGET_EUR_BY_TYPE` — ne pas recopier ces montants ailleurs.
 - **Livrer par e-mail depuis un environnement de test** : les dossiers portent
   de vraies adresses client.
+- **Déployer sans avoir vérifié qu'aucune génération ne tourne.** Un
+  déploiement redémarre les conteneurs et TUE le processus qui produit les
+  chapitres. Le dossier garde son statut `running` et n'est repris par
+  personne.
+
+  Constaté le 09/08/2026 : une cliente lance une étude à 06:22:59, un
+  déploiement part à 06:25:56, deux autres suivent. Son dossier est resté
+  « en cours » **soixante-seize minutes** à 2 chapitres sur 23, pendant qu'elle
+  rafraîchissait sa page. Les journaux du serveur ne montraient qu'elle.
+
+  La vérification tient en une requête, et elle est obligatoire avant tout
+  déploiement :
+
+  ```bash
+  curl -s -H "Authorization: Bearer $EVKHA_DASHBOARD_TOKEN" https://api2.evkha.fr/api/dashboard/jobs/
+  ```
+
+  Aucun `"status": "running"` — on déploie. Sinon, on attend, ou on prévient.
+  `generation.services.generation_interrompue` détecte après coup ; elle ne
+  dispense pas de regarder avant.
