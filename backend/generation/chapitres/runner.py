@@ -382,7 +382,34 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         "- Une case sans donnée s'écrit « non communiqué », jamais un tiret "
         "seul ni une estimation présentée comme un fait.\n"
         "- Chaque chapitre se ferme sur ce que la comparaison IMPLIQUE pour le "
-        "client, pas sur le classement lui-même."
+        "client, pas sur le classement lui-même.\n"
+        # Ajouts demandes par la cliente le 09/08/2026, apres analyse de la
+        # premiere etude concurrentielle reelle. Ce ne sont pas des correctifs :
+        # ce sont les analyses qui font la valeur du dossier et qui manquaient.
+        "- Un chiffre d'affaires indisponible n'arrête pas la comparaison : "
+        "prends des INDICATEURS OBSERVABLES — nombre de points de vente ou "
+        "d'agences, effectif, avis clients, abonnés, trafic estimé, largeur de "
+        "gamme, fréquence de publication, téléchargements d'application, levées "
+        "de fonds, ancienneté. Choisis ceux qui existent DANS CE SECTEUR.\n"
+        "- Une COMPARAISON TARIFAIRE est obligatoire, avec les variables du "
+        "métier étudié : prix d'entrée, abonnement, commission, frais annexes, "
+        "livraison, installation, garantie, stockage, maintenance. Compare "
+        "quand c'est possible le coût réel pour deux ou trois profils de "
+        "clients types — le prix affiché ne dit pas ce que le client paie.\n"
+        "- Analyse COMMENT chaque concurrent trouve ses clients : référencement, "
+        "publicité, réseaux sociaux, points de vente, prescripteurs, "
+        "affiliation, partenariats, événements, places de marché, contenu, "
+        "bouche-à-oreille. Là encore, les canaux du secteur, pas une liste "
+        "générique.\n"
+        "- Les AVIS CLIENTS font partie du comparatif : note, nombre d'avis, "
+        "plateformes, motifs récurrents de satisfaction et d'insatisfaction. "
+        "Un irritant qui revient chez tous les acteurs est une opportunité.\n"
+        "- La conclusion répond à ces questions, nommément : qui sont les "
+        "concurrents les plus dangereux ? sur quels critères le projet est-il "
+        "réellement différent ? où le marché est-il déjà saturé ? sur quoi "
+        "faut-il être meilleur ? quelles pratiques reprendre, quelles erreurs "
+        "éviter ? quel concurrent peut neutraliser rapidement l'avantage ? "
+        "quelles priorités avant le lancement ?"
     ),
     "business_strategy": (
         "- Une recommandation sans ÉCHÉANCE ni RESPONSABLE n'est pas une "
@@ -391,7 +418,11 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         "- Les priorités s'ordonnent et se justifient : dire ce qu'on ne fait "
         "PAS d'abord vaut autant que dire ce qu'on fait.\n"
         "- Un encadré par chapitre porte la décision, au présent de l'indicatif "
-        "et à la première personne du pluriel."
+        "et à la première personne du pluriel.\n"
+        "- Un SCÉNARIO est RECOMMANDÉ, nommément, et les autres disent ce qu'il "
+        "faudrait pour qu'ils le deviennent. Trois scénarios présentés à "
+        "égalité ne sont pas une stratégie : c'est un renvoi de la décision au "
+        "lecteur."
     ),
 }
 
@@ -432,7 +463,18 @@ def _forme_commune() -> str:
         "- Chaque chapitre répond, dans l'ordre, à QUATRE questions : que "
         "montre le marché ? qu'est-ce que cela signifie pour ce projet ? quel "
         "ordre de grandeur retenir ? quelle décision en découle ? Un chapitre "
-        "qui s'arrête à la première n'a fait que le quart du travail."
+        "qui s'arrête à la première n'a fait que le quart du travail.\n"
+        # Demande de la cliente du 09/08/2026 : « une note ne doit jamais etre
+        # attribuee parce que l'acteur SEMBLE premium ». Une note sans echelle
+        # n'est pas une mesure, c'est une impression — et une impression chiffree
+        # est plus trompeuse qu'une impression assumee.
+        "- Toute NOTE — radar, score, matrice, classement — repose sur cette "
+        "échelle et sur aucune autre : 1 absent · 2 faible · 3 moyen · "
+        "4 développé · 5 référence du secteur. Et chaque note s'appuie sur un "
+        "fait OBSERVABLE, cité : un nombre, une présence, une absence. Jamais "
+        "sur une impression — « semble premium » n'est pas un critère. Quand "
+        "une échelle sert dans un chapitre, le tableau qui la porte dit ce que "
+        "chaque niveau signifie."
     )
 
 
