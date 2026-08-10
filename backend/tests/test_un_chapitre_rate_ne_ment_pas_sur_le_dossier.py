@@ -50,7 +50,14 @@ from generation.models import (
 )
 from generation.runner import _fail
 from generation.socle.referentiel import Fiabilite, Perimetre
-from generation.socle.schema import Concurrent, Critere, DonneeSocle, Socle, Zone
+from generation.socle.schema import (
+    Concurrent,
+    Critere,
+    DonneeSocle,
+    NoteConcurrent,
+    Socle,
+    Zone,
+)
 from monitoring.models import OperationalIncident
 from orders.models import Order
 
@@ -78,8 +85,14 @@ def _socle_note() -> Socle:
         ],
         grille_notation=CRITERES,
         concurrents=[
-            Concurrent(nom="VeraCash", notes={"offre": 4, "service": 3}),
-            Concurrent(nom="AuCOFFRE", notes={"offre": 3, "service": 4}),
+            Concurrent(nom="VeraCash", notes=[
+                NoteConcurrent(critere="offre", note=4),
+                NoteConcurrent(critere="service", note=3),
+            ]),
+            Concurrent(nom="AuCOFFRE", notes=[
+                NoteConcurrent(critere="offre", note=3),
+                NoteConcurrent(critere="service", note=4),
+            ]),
         ],
     )
 

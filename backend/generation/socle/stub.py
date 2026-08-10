@@ -14,6 +14,11 @@ from typing import Any
 _BRIEF = re.compile(r"^BRIEF_CLIENT :\n(\{.*?\n\})", re.MULTILINE | re.DOTALL)
 
 
+def _notes(**par_critere: int) -> list[dict[str, Any]]:
+    """Notes d'un acteur, au format du contrat : une entrée par critère."""
+    return [{"critere": code, "note": note} for code, note in par_critere.items()]
+
+
 def _brief_client(prompt: str) -> dict[str, str]:
     """Variables du brief, relues dans le prompt.
 
@@ -181,13 +186,13 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
         # figures sur quinze sont tombées faute de coordonnées.
         "concurrents": [
             {"nom": "Acteur A", "type": "direct", "positionnement": "généraliste",
-             "source": "", "notes": {"prix": 4, "offre": 3, "notoriete": 4, "service": 3}},
+             "source": "", "notes": _notes(prix=4, offre=3, notoriete=4, service=3)},
             {"nom": "Acteur B", "type": "indirect", "positionnement": "spécialiste",
-             "source": "", "notes": {"prix": 2, "offre": 5, "notoriete": 3, "service": 4}},
+             "source": "", "notes": _notes(prix=2, offre=5, notoriete=3, service=4)},
             {"nom": "Acteur C", "type": "direct", "positionnement": "discount",
-             "source": "", "notes": {"prix": 5, "offre": 2, "notoriete": 2, "service": 2}},
+             "source": "", "notes": _notes(prix=5, offre=2, notoriete=2, service=2)},
             {"nom": "Acteur D", "type": "direct", "positionnement": "premium",
-             "source": "", "notes": {"prix": 1, "offre": 4, "notoriete": 5, "service": 5}},
+             "source": "", "notes": _notes(prix=1, offre=4, notoriete=5, service=5)},
         ],
         "grille_notation": [
             {"code": "prix", "intitule": "Accessibilité tarifaire",

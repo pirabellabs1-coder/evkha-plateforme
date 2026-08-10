@@ -306,7 +306,10 @@ def _bloc_grille(socle: Socle) -> str:
     ]
     notes = [
         f"- {acteur.nom} : "
-        + ", ".join(f"{code} {acteur.notes[code]}/5" for code in sorted(acteur.notes))
+        + ", ".join(
+            f"{note.critere} {note.note}/5"
+            for note in sorted(acteur.notes, key=lambda n: n.critere)
+        )
         for acteur in socle.concurrents
         if acteur.notes
     ]

@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from .prompt import construire_prompt_socle
 from .referentiel import identifiants_pour, livrable_couvert
-from .schema import Socle, valider_socle
+from .schema import Socle, reparer_la_grille, valider_socle
 
 _log = logging.getLogger(__name__)
 
@@ -65,8 +65,16 @@ def schema_outil(deliverable_type: str) -> dict[str, Any]:
     return schema
 
 
-def _analyser(charge: dict[str, Any], deliverable_type: str) -> tuple[Socle | None, list[str]]:
-    """Valide la charge utile. Retourne (socle, motifs). Socle non nul = accepté."""
+def _analyser(
+    charge: dict[str, Any], deliverable_type: str, *, dernier_recours: bool = False
+) -> tuple[Socle | None, list[str]]:
+    """Valide la charge utile. Retourne (socle, motifs). Socle non nul = accepté.
+
+    `dernier_recours` répare la grille de notation au lieu de la refuser. Voir
+    `reparer_la_grille` : sur les premières tentatives le refus fait corriger
+    le modèle, mais à la dernière il tuerait l'étude avant son premier
+    chapitre — ce qui est arrivé à `6a44baff` le 10/08/2026.
+    """
     if not charge:
         return None, ["Le modèle n'a produit aucun appel d'outil exploitable."]
 
@@ -78,6 +86,15 @@ def _analyser(charge: dict[str, Any], deliverable_type: str) -> tuple[Socle | No
             for item in erreur.errors()[:12]
         ]
         return None, motifs
+
+    if dernier_recours:
+        retires = reparer_la_grille(socle)
+        if retires:
+            _log.warning(
+                "Socle : critères retirés faute d'acteurs notés — %s. "
+                "Les figures qui les citaient seront abandonnées avec un motif.",
+                ", ".join(retires),
+            )
 
     motifs = valider_socle(socle, deliverable_type)
     if motifs:
@@ -132,7 +149,11 @@ def produire_socle(
         consommation["input_tokens"] += resultat.input_tokens
         consommation["output_tokens"] += resultat.output_tokens
 
-        socle, motifs = _analyser(dict(resultat.payload), deliverable_type)
+        socle, motifs = _analyser(
+            dict(resultat.payload),
+            deliverable_type,
+            dernier_recours=tentative == MAX_TENTATIVES,
+        )
         if socle is not None:
             return socle, consommation, tentative
 

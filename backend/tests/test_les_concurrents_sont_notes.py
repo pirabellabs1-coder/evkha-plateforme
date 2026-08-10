@@ -41,10 +41,12 @@ from generation.rendu_word.donnees_graphiques import resoudre
 from generation.socle.schema import (
     Concurrent,
     Critere,
+    NoteConcurrent,
     Risque,
     Socle,
     Zone,
     _controler_grille_notation,
+    reparer_la_grille,
 )
 
 CRITERES = [
@@ -58,7 +60,10 @@ CRITERES = [
 
 
 def _acteur(nom: str, **notes: int) -> Concurrent:
-    return Concurrent(nom=nom, notes=notes)
+    return Concurrent(
+        nom=nom,
+        notes=[NoteConcurrent(critere=code, note=n) for code, n in notes.items()],
+    )
 
 
 def _socle(*acteurs: Concurrent, criteres: list[Critere] | None = None,
@@ -85,8 +90,21 @@ def _notes_completes() -> list[Concurrent]:
 
 
 def test_une_note_hors_de_l_echelle_est_refusee() -> None:
-    with pytest.raises(ValidationError, match="1-5"):
-        Concurrent(nom="VeraCash", notes={"prix": 7})
+    """La borne vit sur le champ, donc à un seul endroit (règle 5)."""
+    with pytest.raises(ValidationError, match="less than or equal to 5"):
+        NoteConcurrent(critere="prix", note=7)
+
+
+def test_un_acteur_ne_peut_pas_etre_note_deux_fois_sur_le_meme_critere() -> None:
+    """Deux notes pour un axe : laquelle placer ? La question n'a pas de réponse."""
+    with pytest.raises(ValidationError, match="plusieurs fois"):
+        Concurrent(
+            nom="VeraCash",
+            notes=[
+                NoteConcurrent(critere="prix", note=4),
+                NoteConcurrent(critere="prix", note=2),
+            ],
+        )
 
 
 def test_un_critere_sans_definition_de_bornes_est_refuse() -> None:
@@ -130,6 +148,71 @@ def test_un_critere_declare_deux_fois_est_signale() -> None:
 
 def test_un_socle_note_correctement_ne_produit_aucun_motif() -> None:
     assert _controler_grille_notation(_socle(*_notes_completes())) == []
+
+
+# ── Le refus ne doit jamais coûter l'étude ───────────────────────────────────
+
+
+def test_une_grille_sans_aucune_note_est_reparee_et_non_refusee() -> None:
+    """Le défaut qui a tué `6a44baff` à 0 € et 0 chapitre.
+
+    Le modèle avait produit quatre critères impeccables — définis, sourcés,
+    pertinents — et n'avait noté aucun acteur. Mon contrôle refusait le socle
+    entier, trois fois, et l'étude mourait avant son premier chapitre.
+
+    Le refus garde son rôle sur les premières tentatives : c'est lui qui fait
+    corriger le modèle. En dernier recours, on retire les critères orphelins.
+    L'étude perd des figures, avec un motif nommé au rendu — au lieu de ne pas
+    exister.
+    """
+    socle = _socle(
+        Concurrent(nom="VeraCash"),
+        Concurrent(nom="AuCOFFRE"),
+    )
+
+    retires = reparer_la_grille(socle)
+
+    assert retires == ["notoriete", "offre", "prix"]
+    assert socle.grille_notation == []
+    assert _controler_grille_notation(socle) == []
+
+
+def test_la_reparation_garde_les_criteres_qui_comparent() -> None:
+    """On retire l'orphelin, pas la grille.
+
+    CONTRE-ÉPREUVE de la réparation : une réparation trop large ferait perdre
+    des figures que le socle pouvait parfaitement alimenter — le remède qui
+    frappe ce qui n'était pas malade.
+    """
+    socle = _socle(
+        _acteur("VeraCash", prix=4, offre=3),
+        _acteur("AuCOFFRE", prix=3, offre=4),
+    )
+
+    assert reparer_la_grille(socle) == ["notoriete"]
+    assert [c.code for c in socle.grille_notation] == ["prix", "offre"]
+    assert socle.notes_sur(["prix", "offre"]) != []
+
+
+def test_la_reparation_retire_aussi_les_notes_devenues_orphelines() -> None:
+    """Une note dont le critère a disparu ferait échouer la validation ensuite."""
+    socle = _socle(
+        _acteur("VeraCash", prix=4, offre=3, notoriete=5),
+        _acteur("AuCOFFRE", prix=3, offre=4),
+    )
+
+    reparer_la_grille(socle)
+
+    assert all("notoriete" not in a.codes_notes for a in socle.concurrents)
+    assert _controler_grille_notation(socle) == []
+
+
+def test_un_socle_complet_n_est_pas_touche_par_la_reparation() -> None:
+    """CONTRE-ÉPREUVE : rien ne bouge quand rien ne cloche."""
+    socle = _socle(*_notes_completes())
+
+    assert reparer_la_grille(socle) == []
+    assert len(socle.grille_notation) == 3
 
 
 def test_un_livrable_sans_notation_traverse_intact() -> None:

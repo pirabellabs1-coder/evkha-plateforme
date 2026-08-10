@@ -230,6 +230,16 @@ class Critere(BaseModel):
     note_5: str = Field(min_length=1)
 
 
+class NoteConcurrent(BaseModel):
+    """La note d'un acteur sur UN critère. Bornes tenues par le contrat."""
+
+    model_config = {"extra": "forbid"}
+
+    #: `code` d'un critère de `Socle.grille_notation`.
+    critere: str = Field(min_length=1)
+    note: int = Field(ge=1, le=5)
+
+
 class Concurrent(BaseModel):
     """Un acteur de la base consolidée concurrents.
 
@@ -261,27 +271,44 @@ class Concurrent(BaseModel):
     methode_estimation: str = ""
     fiabilite: str = ""
     source: str = ""
-    #: Note de 1 à 5 par `code` de `Socle.grille_notation`.
+    #: Notes de cet acteur, une par critère de `Socle.grille_notation`.
     #:
     #: C'est CE champ qui alimente les radars et les cartes de positionnement.
     #: Sans lui, `donnees_graphiques` n'a aucune coordonnée à placer : le
     #: dossier `5892daa5` (10/08/2026) a perdu onze figures sur quinze pour
     #: cette seule raison, et s'est fait bloquer au plancher de figures avec
     #: quatre visuels pour dix-sept attendus.
-    notes: dict[str, int] = Field(default_factory=dict)
+    #:
+    #: ## Pourquoi une LISTE et non un dictionnaire
+    #:
+    #: La première version portait `dict[str, int]`. Le schéma d'outil la rend
+    #: en `additionalProperties`, c'est-à-dire un objet sans forme annoncée — et
+    #: le modèle ne l'a pas remplie. Mesuré sur `6a44baff` (10/08/2026) : les
+    #: QUATRE critères de la grille étaient produits, corrects et définis, et
+    #: pas un seul acteur n'était noté. Le socle a été refusé trois fois, et
+    #: l'étude est morte avant son premier chapitre.
+    #:
+    #: Une liste d'objets nommés se voit dans le schéma, donc se remplit.
+    notes: list[NoteConcurrent] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _controler_notes(self) -> Concurrent:
-        hors_bornes = sorted(
-            code for code, note in self.notes.items() if not 1 <= note <= 5
-        )
-        if hors_bornes:
-            msg = (
-                f"{self.nom} : notes hors de l'échelle 1-5 pour "
-                f"{', '.join(hors_bornes)}."
-            )
+        vus = Counter(note.critere for note in self.notes)
+        doublons = sorted(code for code, n in vus.items() if n > 1)
+        if doublons:
+            msg = f"{self.nom} : {', '.join(doublons)} noté(s) plusieurs fois."
             raise ValueError(msg)
         return self
+
+    @property
+    def codes_notes(self) -> set[str]:
+        return {note.critere for note in self.notes}
+
+    def note_sur(self, code: str) -> int | None:
+        for note in self.notes:
+            if note.critere == code:
+                return note.note
+        return None
 
 
 class Tendance(BaseModel):
@@ -373,9 +400,10 @@ class Socle(BaseModel):
         """
         retenus: list[tuple[str, list[float]]] = []
         for acteur in self.concurrents:
-            if all(code in acteur.notes for code in codes):
+            valeurs = [acteur.note_sur(code) for code in codes]
+            if all(valeur is not None for valeur in valeurs):
                 retenus.append(
-                    (acteur.nom, [float(acteur.notes[code]) for code in codes])
+                    (acteur.nom, [float(valeur) for valeur in valeurs if valeur])
                 )
         return retenus
 
@@ -453,6 +481,44 @@ def valider_socle(socle: Socle, deliverable_type: str) -> list[str]:
     return motifs
 
 
+def reparer_la_grille(socle: Socle) -> list[str]:
+    """Rend la grille recevable en retirant ce qui ne compare rien.
+
+    ## Pourquoi une réparation, et pas seulement un refus
+
+    Le refus est juste : un critère que personne ne note n'a pas d'axe. Mais
+    appliqué à la dernière tentative, il tue l'étude AVANT son premier
+    chapitre — mesuré sur `6a44baff` (10/08/2026), mort à 0 € et 0 chapitre
+    parce que le modèle avait produit quatre critères impeccables sans noter
+    un seul acteur.
+
+    Ce dépôt a déjà tranché ce genre d'arbitrage trois fois aujourd'hui, dans
+    le même sens : la typographie se répare, une ligne de tableau trop courte
+    se complète, un résumé trop long se raccourcit. Un défaut de FORME ne doit
+    pas coûter un livrable.
+
+    Le refus garde donc tout son rôle sur les premières tentatives — c'est lui
+    qui fait corriger le modèle. En dernier recours, on retire les critères
+    orphelins : l'étude perd des figures, avec un motif nommé au rendu, au lieu
+    de ne pas exister.
+
+    Retourne ce qui a été retiré, pour que le journal le dise.
+    """
+    codes = {critere.code for critere in socle.grille_notation}
+    utiles = {
+        code for code in codes
+        if sum(1 for a in socle.concurrents if code in a.codes_notes) >= 2
+    }
+    retires = sorted(codes - utiles)
+    if not retires:
+        return []
+
+    socle.grille_notation = [c for c in socle.grille_notation if c.code in utiles]
+    for acteur in socle.concurrents:
+        acteur.notes = [n for n in acteur.notes if n.critere in utiles]
+    return retires
+
+
 def _controler_grille_notation(socle: Socle) -> list[str]:
     """Une note n'a de sens que rattachée à un barème déclaré.
 
@@ -485,7 +551,7 @@ def _controler_grille_notation(socle: Socle) -> list[str]:
         motifs.append(f"Le critère `{code}` est déclaré plusieurs fois dans la grille.")
 
     for acteur in socle.concurrents:
-        inconnus = sorted(set(acteur.notes) - codes)
+        inconnus = sorted(acteur.codes_notes - codes)
         if inconnus:
             motifs.append(
                 f"{acteur.nom} est noté sur {', '.join(f'`{c}`' for c in inconnus)}, "
@@ -494,7 +560,7 @@ def _controler_grille_notation(socle: Socle) -> list[str]:
             )
 
     for critere in socle.grille_notation:
-        notes = sum(1 for a in socle.concurrents if critere.code in a.notes)
+        notes = sum(1 for a in socle.concurrents if critere.code in a.codes_notes)
         if notes < 2:
             motifs.append(
                 f"Le critère `{critere.code}` ne note que {notes} acteur(s) : "
