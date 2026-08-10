@@ -37,4 +37,4 @@ Prends du recul : transforme les fragilites implicites en problematiques strateg
 
 Termine par une synthese des fragilites majeures, une lecture des priorites structurelles, et une transition vers la clarification du positionnement strategique et des verticales prioritaires, traitee au chapitre Enjeux strategiques du positionnement.
 
-Apres l'analyse redigee, insere un encadre HTML inline (sans <html>/<body>) : un tableau a 3 colonnes listant les 4 a 5 fragilites principales, chacune suivie d'une barre CSS de criticite (div background #B73E3E, height 5mm, largeur proportionnelle) et d'un niveau en gras Critique / Elevee / Moderee.
+Apres l'analyse redigee, un bloc `tableau` a trois colonnes : les 4 a 5 fragilites principales, leur criticite (Critique / Elevee / Moderee), et le fait qui la justifie.

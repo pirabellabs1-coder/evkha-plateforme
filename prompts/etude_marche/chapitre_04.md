@@ -27,10 +27,7 @@ Contenu obligatoire :
 - Impact sur l'entree, les couts, la demande, la marge, la confiance ou les operations.
 - Effet specifique sur le projet.
 - Hierarchisation par importance, pas simple inventaire.
-Visuel obligatoire : en fin de chapitre, genere un tableau HTML comparatif avantages / contraintes. Format exact (remplace les exemples par les vrais points du projet) :
-<h3 style="font-size:13pt;margin:4mm 0 2mm">Balance avantages / contraintes</h3>
-<table style="border-collapse:collapse;width:100%;margin:3mm 0;font-size:9pt">
-<thead><tr><th style="background:#2E7D4F;color:#fff;padding:2mm 4mm;width:50%;text-align:left">Avantages structurants</th><th style="background:#B73E3E;color:#fff;padding:2mm 4mm;width:50%;text-align:left">Contraintes durables</th></tr></thead><tbody><tr><td style="vertical-align:top;padding:3mm 4mm;border:0.5pt solid #EFEAD8"><ul style="margin:0;padding-left:4mm"><li>Avantage 1 (ref. au texte)</li><li>Avantage 2</li><li>Avantage 3</li><li>Avantage 4</li><li>Avantage 5</li></ul></td><td style="vertical-align:top;padding:3mm 4mm;border:0.5pt solid #EFEAD8"><ul style="margin:0;padding-left:4mm"><li>Contrainte 1 (ref. au texte)</li><li>Contrainte 2</li><li>Contrainte 3</li><li>Contrainte 4</li><li>Contrainte 5</li></ul></td></tr></tbody></table>
+Visuel obligatoire : en fin de chapitre, un bloc `tableau` comparatif a deux colonnes — avantages structurants / contraintes durables — avec les vrais points du projet.
 Remplace chaque item par les vrais avantages et contraintes identifies dans l'analyse. Ce tableau est obligatoire — sans lui le visuel manquant invalide le chapitre.
 
 Lecture strategique attendue : Identifier les avantages exploitables immediatement et les contraintes qui exigent une adaptation du projet.

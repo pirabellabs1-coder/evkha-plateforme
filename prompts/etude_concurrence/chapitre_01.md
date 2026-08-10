@@ -26,7 +26,7 @@ Indirect = substitut repondant au meme besoin autrement. Produis 5 a 8 alternati
 Retiens exactement 8 directs et 3 indirects, soit 11 acteurs, sur ces criteres : influence sur le marche, proximite d'offre, proximite de clientele, presence ou accessibilite sur la zone, visibilite digitale et terrain, intensite concurrentielle, potentiel d'enseignement strategique. Justifie chaque selection et chaque exclusion ; ecarter un nom cite par le client reste factuel, respectueux, argumente. Aucun acteur hors secteur cible.
 
 ## Base consolidée concurrents
-Tableau Markdown puis version CSV brute : nom, type, emplacement precis, structure, positionnement, site web, CA connu avec annee et source ou mention « non publié », methode d'estimation prevue si le CA manque (trafic, volume, prix moyen), niveau de fiabilite (certifie / estime / inconnu).
+Bloc `tableau` : nom, type, emplacement precis, structure, positionnement, site web, CA connu avec annee et source ou mention « non publié », methode d'estimation prevue si le CA manque (trafic, volume, prix moyen), niveau de fiabilite (certifie / estime / inconnu). Reprends la BASE CONSOLIDEE CONCURRENTS donnee avec le socle, telle quelle : memes acteurs, memes comptes. Aucun autre format — ni Markdown, ni CSV : tout format de donnees dans un texte arrive brut chez le client.
 
 Traite au passage : qui occupe ce marche, qui concurrence frontalement et qui substitue, ce que la perception du client confirme ou corrige, quels acteurs meritent l'analyse approfondie.
 

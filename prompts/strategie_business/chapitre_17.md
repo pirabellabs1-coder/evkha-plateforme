@@ -13,7 +13,7 @@ Une variable inconnue est laissée telle quelle et signalée à la génération.
 
 Feuille de route strategique et priorisation : transforme l'ensemble des analyses precedentes en plan d'action coherent, hierarchise les priorites et construit une trajectoire claire de developpement. Le dirigeant doit ressortir en sachant ce qui doit etre fait maintenant, ce qui doit etre differe et ce qui ne doit pas devenir prioritaire — sortir de l'urgence permanente pour une progression structuree, realiste et soutenable.
 
-Ouvre par une frise chronologique en HTML inline (sans <html>/<body>) : un tableau de trois colonnes cote a cote, en-tetes « Court terme (0-3 mois) » fond #C9A227 texte #1A1A1A, « Moyen terme (3-12 mois) » fond #1A1A1A texte blanc, « Long terme (1-3 ans) » fond #2E7D4F texte blanc ; cellules fond #FBF8EF, bordures 0.5pt #EFEAD8, 2 a 3 actions reelles du projet par colonne.
+Ouvre par un bloc `tableau` a trois colonnes — « Court terme (0-3 mois) », « Moyen terme (3-12 mois) », « Long terme (1-3 ans) » — avec 2 a 3 actions reelles du projet par colonne.
 
 ## Priorités stratégiques immédiates
 Identifie les actions prioritaires et hierarchise les urgences strategiques. Distingue explicitement priorites critiques, optimisations secondaires et projets prematures.

@@ -106,8 +106,11 @@ def test_les_deux_chapitres_defusionnes_gardent_leur_contenu() -> None:
     assert "besoin en fonds de roulement" in investissements.lower()
     assert "tresorerie de securite" in investissements.lower()
     # Le graphique de répartition des ressources vivait dans la section : il
-    # doit survivre à la promotion en chapitre.
-    assert "Repartition des ressources de financement" in financement
+    # doit survivre à la promotion en chapitre. Depuis le 10/08/2026 il se
+    # demande au contrat structuré (identifiants du socle), plus en patron
+    # HTML — le marqueur suit la phrase de la fiche, pas l'ancien <h3>.
+    assert "repartition des ressources de financement" in financement.lower()
+    assert "identifiants du socle" in financement
     assert "apport personnel" in financement.lower()
     assert "emprunt" in financement.lower() or "financements externes" in financement.lower()
 

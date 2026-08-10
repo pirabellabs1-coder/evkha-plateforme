@@ -30,6 +30,8 @@ elle devient visible.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from django.test import Client, override_settings
 
@@ -54,7 +56,8 @@ def _job(qa_status: str) -> GenerationJob:
     )
 
 
-def _get(url: str) -> dict | list:
+def _get(url: str) -> Any:
+    """Le JSON de l'endpoint — `Any` assumé : c'est du JSON, les asserts trient."""
     with override_settings(DEBUG=True, EVKHA_DASHBOARD_AUTH_DISABLED=True):
         reponse = Client().get(url)
     assert reponse.status_code == 200, reponse.content

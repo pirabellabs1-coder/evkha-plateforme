@@ -63,14 +63,7 @@ Immediatement apres avoir annonce le SOM An1, insere un paragraphe intitule en g
 5. La verification de l'emboitement : TAM > SAM > SOM An3 > SOM An1 en euros sur une seule ligne
 Ce paragraphe est non-negociable : sans lui, le chapitre est rejete par le CHECK 1 (bloc A — Fondations du marche).
 
-Visuel utile (manuel) : graphique national/local + schema TAM/SAM/SOM. En fin de chapitre, genere UN graphique HTML en barres montrant la repartition ou la dynamique du marche local par segment, en utilisant ce pattern exact (adapte valeurs et etiquettes au contexte reel) :
-<h3 style="font-size:13pt;margin:4mm 0 2mm">Repartition du marche local — segments cles</h3>
-<table style="border-collapse:collapse;width:100%;margin:3mm 0;font-size:9pt">
-<tr><td style="padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8;width:30%">Segment A</td><td style="padding:1.5mm 2mm;width:60%"><div style="background:#C9A227;height:5mm;width:72%;display:inline-block"></div></td><td style="padding:1.5mm 2mm;font-weight:bold;width:10%">XX %</td></tr>
-<tr><td style="padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8">Segment B</td><td style="padding:1.5mm 2mm"><div style="background:#C9A227;height:5mm;width:50%;display:inline-block"></div></td><td style="padding:1.5mm 2mm;font-weight:bold">XX %</td></tr>
-<tr><td style="padding:1.5mm 3mm">Segment C</td><td style="padding:1.5mm 2mm"><div style="background:#1A1A1A;height:5mm;width:28%;display:inline-block"></div></td><td style="padding:1.5mm 2mm;font-weight:bold">XX %</td></tr>
-</table>
-<p style="font-style:italic;font-size:8.5pt;color:#5A5A5A">Source : [cite ta source]. Estimations argumentees sur la base des donnees disponibles.</p>
+Visuel utile (manuel) : graphique national/local + schema TAM/SAM/SOM. En fin de chapitre, demande UN graphique en barres montrant la repartition ou la dynamique du marche local, en citant des identifiants du socle de meme nature.
 Remplace Segment A/B/C et XX par les vraies donnees etablies dans l'analyse.
 
 Lecture strategique attendue : Dire si la zone est pertinente, quelle part du marche est reellement accessible et quelles hypotheses doivent etre testees en priorite.

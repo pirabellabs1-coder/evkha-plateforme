@@ -31,6 +31,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
+from core.numbers import amounts_in
+
 from ..prompts import PLAFOND_FIGURES, PLANCHER_FIGURES
 from ..socle.referentiel import identifiants_obligatoires
 from ..socle.schema import Socle, valeur_en_unites_de_base
@@ -72,6 +74,19 @@ def _valeurs_de_reference(socle: Socle) -> list[tuple[float, str]]:
             # La valeur telle qu'écrite compte aussi : le document affiche
             # « 381,5 Md€ », pas « 381 500 000 000 ».
             references.append((donnee.valeur, "brut"))
+
+    # Les CA de la base consolidée concurrents sont du socle au même titre
+    # que ses données : le chapitre 6 d'une étude concurrentielle les reprend
+    # et les compare — c'est sa raison d'être. Ils étaient pourtant absents de
+    # cette référence : sur `6cb0fab3` (10/08/2026), des montants parfaitement
+    # sourcés dans `ca_connu` sont partis en réserve « hors socle » par
+    # dizaines. Un contrôle qui compare à une référence incomplète fabrique
+    # des motifs faux (règle 2), et un rapport à trente-cinq réserves noie la
+    # seule qui compte.
+    for acteur in socle.concurrents:
+        for montant in amounts_in(acteur.ca_connu):
+            references.append((montant, "monetaire"))
+            references.append((montant, "brut"))
     return references
 
 

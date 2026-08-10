@@ -14,6 +14,8 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from integrations.claude import SYSTEM_CACHE_BREAK
+
 from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, ChapterStatus, GenerationJob
 from ..socle.schema import Socle, famille_de_l_unite, unite_lisible
@@ -285,7 +287,50 @@ def _bloc_socle(socle: Socle) -> str:
         + (f" / {socle.zone.ville}" if socle.zone.ville else "")
         + f" (arrêté au {socle.date_socle.isoformat()})"
     )
-    return entete + "\n" + "\n".join(lignes) + _bloc_grille(socle)
+    return (
+        entete + "\n" + "\n".join(lignes)
+        + _bloc_concurrents(socle)
+        + _bloc_grille(socle)
+    )
+
+
+def _bloc_concurrents(socle: Socle) -> str:
+    """La base consolidée concurrents, transmise aux chapitres.
+
+    Elle ne l'était PAS. Le socle porte onze acteurs — noms, emplacements,
+    CA connus, méthodes d'estimation — et les chapitres n'en voyaient que les
+    notes de la grille. Mesuré sur `6cb0fab3` (10/08/2026) : le chapitre 9
+    présente 7 concurrents directs au lieu de 8 et 6 indirects au lieu de 3,
+    parce que le modèle recompose sa propre liste de mémoire, chapitre après
+    chapitre. Le gate compte, la liste dérive, le document est bloqué — pour
+    une donnée que le socle portait depuis la passe 1 (règle 8 : écrit,
+    validé, jamais transmis ; c'est la sixième fois sur ce projet).
+    """
+    if not socle.concurrents:
+        return ""
+
+    directs = sum(1 for a in socle.concurrents if a.type == "direct")
+    indirects = len(socle.concurrents) - directs
+    lignes = []
+    for a in socle.concurrents:
+        tete = f"- {a.nom} ({a.type}" + (f", {a.emplacement}" if a.emplacement else "") + ")"
+        morceaux = [tete]
+        if a.ca_connu:
+            morceaux.append(f"CA : {a.ca_connu}")
+        elif a.methode_estimation:
+            morceaux.append(f"CA non publié — à estimer par : {a.methode_estimation}")
+        if a.positionnement:
+            morceaux.append(a.positionnement)
+        lignes.append(" — ".join(morceaux))
+
+    return (
+        f"\n\nBASE CONSOLIDÉE CONCURRENTS — liste FERMÉE : {directs} directs "
+        f"et {indirects} indirects, ni plus ni moins.\n"
+        "Tout chapitre qui compare, compte ou classe reprend CES acteurs et "
+        "ces comptes tels quels. Personne d'autre n'entre, personne ne sort : "
+        "ajouter un acteur ou en omettre un fait rejeter le document.\n"
+        + "\n".join(lignes)
+    )
 
 
 def _bloc_grille(socle: Socle) -> str:
@@ -430,7 +475,13 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         "- Chaque tableau financier porte ses ANNÉES en colonnes (N, N+1, N+2) "
         "et ses postes en lignes. Jamais l'inverse.\n"
         "- Toute hypothèse chiffrée dit sur quoi elle repose — un encadré "
-        "« Hypothèses » vaut mieux qu'une note de bas de tableau."
+        "« Hypothèses » vaut mieux qu'une note de bas de tableau.\n"
+        # Le gate `fourchette_interdite` punissait ce que la consigne ne disait
+        # pas : « 3-5 % » au chapitre 7 de `6cb0fab3`, corrigé deux fois, revenu
+        # deux fois — le modèle ne savait pas que c'était interdit.
+        "- Un montant se DÉCIDE : jamais de fourchette (« 100-120 k€ », "
+        "« 3-5 % »). Un chiffre unique, et l'hypothèse qui le porte. La plage "
+        "appartient à l'étude de marché ; un prévisionnel tranche."
     ),
     "competitor_study": (
         "- Les concurrents se comparent sur des CRITÈRES CONSTANTS : les mêmes "
@@ -467,7 +518,10 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         "réellement différent ? où le marché est-il déjà saturé ? sur quoi "
         "faut-il être meilleur ? quelles pratiques reprendre, quelles erreurs "
         "éviter ? quel concurrent peut neutraliser rapidement l'avantage ? "
-        "quelles priorités avant le lancement ?"
+        "quelles priorités avant le lancement ?\n"
+        "- Un chiffre se DÉCIDE : jamais de fourchette nue (« 3-5 % »). Quand "
+        "une source donne une plage, écris le chiffre retenu et dis pourquoi "
+        "celui-là."
     ),
     "business_strategy": (
         "- Une recommandation sans ÉCHÉANCE ni RESPONSABLE n'est pas une "
@@ -480,7 +534,10 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         "- Un SCÉNARIO est RECOMMANDÉ, nommément, et les autres disent ce qu'il "
         "faudrait pour qu'ils le deviennent. Trois scénarios présentés à "
         "égalité ne sont pas une stratégie : c'est un renvoi de la décision au "
-        "lecteur."
+        "lecteur.\n"
+        "- Un objectif chiffré se DÉCIDE : jamais de fourchette nue "
+        "(« 3-5 % »). Une stratégie qui vise « entre 100 et 150 k€ » n'a pas "
+        "choisi — écris le chiffre visé et l'hypothèse qui le porte."
     ),
 }
 
@@ -774,6 +831,42 @@ def _valeurs_interpolation(
     }
 
 
+class PromptChapitre(str):
+    """Le prompt complet d'un chapitre, découpé pour le cache.
+
+    ## Pourquoi une chaîne qui se connaît en deux morceaux
+
+    Le prompt d'un chapitre pèse dix à vingt fois le rôle système, et sa plus
+    grande part — socle, base concurrents, grille, consigne de livrable,
+    brief — est IDENTIQUE pour les dix à vingt-trois chapitres d'un même
+    dossier. Elle partait pourtant entière dans le message utilisateur, que
+    rien ne met en cache : seuls les blocs système portent `cache_control`
+    (`integrations/claude.py`, TTL 1 h). Mesuré sur le dossier réel
+    `2490c7cf` : 24 % de lecture cache — le rôle système, rien d'autre.
+    Chaque chapitre repayait le socle entier au tarif plein.
+
+    `generer_chapitre` envoie donc `par_job` dans le SYSTÈME, derrière
+    `SYSTEM_CACHE_BREAK` : écrit une fois au premier chapitre du dossier,
+    relu à un dixième du prix par tous les suivants. `par_chapitre` reste
+    dans le message utilisateur, puisqu'il change à chaque appel — sources du
+    chapitre, résumés accumulés, instruction, motifs de reprise.
+
+    La chaîne elle-même reste le prompt COMPLET, blocs dans l'ordre : tout
+    consommateur existant — tests, script de vérification des demandes de la
+    cliente — qui la lit comme un texte y trouve tout ce qu'il y trouvait.
+    """
+
+    par_job: str
+    par_chapitre: str
+
+    def __new__(cls, par_job: str, par_chapitre: str) -> PromptChapitre:
+        complet = par_job + "\n\n" + par_chapitre if par_job else par_chapitre
+        instance = super().__new__(cls, complet)
+        instance.par_job = par_job
+        instance.par_chapitre = par_chapitre
+        return instance
+
+
 def construire_prompt_chapitre(
     chapter: ChapterGeneration,
     *,
@@ -781,7 +874,7 @@ def construire_prompt_chapitre(
     variables: Mapping[str, object],
     document: TypeDocument,
     motifs_precedents: list[str] | None = None,
-) -> tuple[str, list[str]]:
+) -> tuple[PromptChapitre, list[str]]:
     """Prompt utilisateur du chapitre. Retourne (prompt, variables manquantes)."""
     instruction, manquantes = rendre_prompt(
         document.code,
@@ -801,11 +894,22 @@ def construire_prompt_chapitre(
         str(chapter.job.deliverable_type)
     )
 
-    blocs = [
+    # PAR_JOB : strictement identique pour tous les chapitres du dossier —
+    # le socle est verrouillé, la consigne de livrable est une constante, le
+    # brief est figé à l'intake. C'est la condition du cache : un octet qui
+    # varie invalide tout le préfixe.
+    par_job = "\n\n".join([
         _bloc_socle(socle),
-        *( [consigne_livrable] if consigne_livrable else [] ),
-        _bloc_sources(chapter.job, chapter.chapter_number),
+        *([consigne_livrable] if consigne_livrable else []),
         f"BRIEF_CLIENT :\n{json.dumps(dict(variables), ensure_ascii=False, sort_keys=True)}",
+    ])
+
+    # PAR_CHAPITRE : tout ce qui change d'un appel à l'autre — les sources
+    # collectées pour CE chapitre, les résumés qui s'accumulent, l'instruction,
+    # les formes déjà employées, le verdict du dernier chapitre, les motifs
+    # d'une reprise.
+    blocs = [
+        _bloc_sources(chapter.job, chapter.chapter_number),
         _bloc_resumes(chapter.job, chapter.chapter_number),
         f"CHAPITRE À RÉDIGER : {chapter.chapter_number} — {chapter.chapter_title}",
         f"INSTRUCTION DU CHAPITRE :\n{instruction}",
@@ -832,7 +936,7 @@ def construire_prompt_chapitre(
             "TENTATIVE PRÉCÉDENTE REFUSÉE. Corrige EXACTEMENT ces points :\n" + motifs
         )
 
-    return "\n\n".join(blocs), manquantes
+    return PromptChapitre(par_job, "\n\n".join(blocs)), manquantes
 
 
 def payload_vers_markdown(payload: ChapitrePayload) -> str:
@@ -956,9 +1060,13 @@ def generer_chapitre(
             chapter.chapter_number, manquantes,
         )
 
+    # Le bloc par-job passe dans le SYSTÈME, derrière le point de coupe du
+    # cache : `_cacheable_system` en fait un second bloc `cache_control`,
+    # écrit au premier chapitre, relu à un dixième du prix par les suivants.
+    # Voir `PromptChapitre` pour la mesure qui a motivé ce découpage.
     resultat = client.complete_structured(
-        system=_SYSTEME,
-        prompt=prompt,
+        system=_SYSTEME + SYSTEM_CACHE_BREAK + prompt.par_job,
+        prompt=prompt.par_chapitre,
         outil_nom=OUTIL_NOM,
         outil_description=OUTIL_DESCRIPTION,
         schema=schema_outil(),

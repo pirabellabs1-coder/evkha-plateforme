@@ -167,6 +167,22 @@ Les quatre. La CI a été **rouge sur `main` pendant des mois** sans que
 personne ne s'en serve : elle n'installait que `[dev]`, donc mypy ne voyait ni
 `anthropic`, ni `httpx`, ni `bs4`.
 
+### Et avant tout déploiement, la répétition à blanc
+
+```bash
+python manage.py repetition_a_blanc
+```
+
+La chaîne entière — socle, chapitres, gate — jouée sur la doublure pour les
+quatre livrables. Zéro appel d'API, zéro centime. Le 10/08/2026, **trois
+défauts sur cinq étaient des contradictions internes** (une consigne qui
+ordonne ce qu'un contrôle interdit, une liste que l'autre moitié du code
+ignore) et chacun a été découvert en payant une génération réelle — 5,22 €
+d'essais pour voir ce que cette commande montre gratuitement en deux minutes.
+`pytest` la rejoue aussi (`test_repetition_a_blanc.py`), mais l'exécuter
+nommément avant de déployer force à en LIRE le rapport — y compris les échecs
+de gate attendus sur la doublure, qui disent où le contenu réel sera jugé.
+
 ### Et pour le front, `tsc -b` — jamais `tsc --noEmit`
 
 ```bash

@@ -678,7 +678,34 @@ def _matrice(
     )
 
 
-def _chaleur(socle: Socle, type_demande: str, _: Sequence[str]) -> Resolution:
+def _chaleur(
+    socle: Socle, type_demande: str, identifiants: Sequence[str]
+) -> Resolution:
+    """Carte de chaleur : des acteurs notés par critère, ou des risques.
+
+    Le premier mode manquait, et c'est le correctif du matin qui l'a montré :
+    j'avais étendu la carte de positionnement et le radar aux critères de la
+    grille, PAS la carte de chaleur — l'exemple, pas la classe (règle 4,
+    troisième résolveur sur trois). Le chapitre 3 de `6cb0fab3` a perdu sa
+    « criticité concurrentielle par critère noté » sur le motif des risques,
+    alors que le socle portait onze acteurs notés sur cinq critères.
+    """
+    criteres = _criteres_cites(socle, identifiants)
+    if len(criteres) >= 2:
+        codes = [critere.code for critere in criteres]
+        notes = socle.notes_sur(codes)
+        if len(notes) < 2:
+            return Resolution(
+                motif="moins de deux acteurs sont notés sur tous les critères "
+                "cités ; une carte de chaleur à une ligne ne compare rien"
+            )
+        return Resolution(
+            type_demande,
+            {"lignes": [nom for nom, _ in notes],
+             "colonnes": [critere.intitule for critere in criteres],
+             "valeurs": [valeurs for _, valeurs in notes]},
+        )
+
     risques = _risques_notes(socle)
     if len(risques) < 2:
         return Resolution(

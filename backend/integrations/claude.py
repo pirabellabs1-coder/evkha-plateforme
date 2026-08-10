@@ -905,17 +905,24 @@ class StubClaudeClient:
         lieu a l'execution, uniquement sur le chemin bouchon, et seulement
         pour l'outil du socle.
         """
+        # La doublure lit le CONTEXTE COMPLET, comme le vrai modele. Le socle
+        # et la base concurrents vivent desormais dans le bloc systeme (part
+        # cachee du prompt, voir `PromptChapitre`) : une doublure qui ne
+        # scannerait que le message utilisateur n'y verrait plus un seul
+        # identifiant et ne demanderait plus une seule figure — trois tests
+        # l'ont mesure a l'instant meme du deplacement (`graphiques_min : 0`).
+        contexte = f"{system}\n\n{prompt}" if system else prompt
         charge: dict[str, object] = {}
         if outil_nom == "produire_socle":
             from generation.socle.stub import socle_de_demonstration  # noqa: PLC0415
 
-            charge = socle_de_demonstration(prompt)
+            charge = socle_de_demonstration(contexte)
         elif outil_nom == "rendre_chapitre":
             from generation.chapitres.stub import (  # noqa: PLC0415
                 chapitre_de_demonstration,
             )
 
-            charge = chapitre_de_demonstration(prompt)
+            charge = chapitre_de_demonstration(contexte)
 
         return StructuredResult(
             payload=charge,

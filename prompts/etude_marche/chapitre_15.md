@@ -27,11 +27,7 @@ Contenu obligatoire :
 - Titre, unite, periode, legende et source courte pour chaque visuel.
 - Commentaire d'une a trois phrases par visuel.
 
-Chaque graphique est genere en HTML inline (sans <html>/<body>) a l'aide de tableaux HTML avec barres CSS. Voici le pattern a suivre (adapte les donnees reelles du projet) :
-<h3 style="font-size:14pt;margin:4mm 0 2mm">Graphique 1 — Titre du graphique</h3>
-<table style="border-collapse:collapse;width:100%;margin:3mm 0;font-size:9.5pt">
-<tr><td style="padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8;width:35%">Label A</td><td style="padding:1.5mm 2mm;width:55%"><div style="background:#C9A227;height:5mm;width:75%;display:inline-block"></div></td><td style="padding:1.5mm 2mm;font-weight:bold;color:#1A1A1A;width:10%">75 %</td></tr>
-</table>
+Chaque visuel se demande en figure du catalogue (barres, camembert, courbes...), en citant des identifiants du socle de meme nature — jamais de valeurs en clair dans la figure, jamais de tableau mis en forme a la main.
 Pour chaque graphique : titre H3, tableau barres avec valeurs reelles, legende courte sous le tableau en italique. Produis 3 a 5 graphiques (manuel §6, p. 15 : 3-5 visuels maximum) selectionnes selon le projet, en priorite parmi : (1) evolution du marche 2021-2026, (2) repartition CA cible par segment, (3) croissance projetee 2026-2030, (4) repartition clientele cible, (5) comparaison positionnement prix concurrents si disponible. Utilise les donnees chiffrees reelles etablies dans les chapitres precedents. Couleur principale des barres : #C9A227 (or EVKHA). Barres secondaires : #1A1A1A.
 
 CONTRAINTE ABSOLUE — coherence chiffres-fondations pour ce chapitre :
