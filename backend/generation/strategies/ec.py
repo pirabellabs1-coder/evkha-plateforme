@@ -186,12 +186,25 @@ _VISUELS_ATTENDUS = 4
 _TITRE_ANNEXE_RE = re.compile(
     r"^#{2,4}\s*(?:\d[\w.]*\s+)?annexe\b", re.IGNORECASE | re.MULTILINE
 )
-#: `<!-- graphique:` est LE visuel du moteur structuré : un `BlocGraphique`
+#: Ce qui compte comme UN visuel, dans les deux moteurs.
+#:
+#: `<!-- graphique:` est le visuel du moteur structuré : un `BlocGraphique`
 #: sérialisé par `payload_vers_markdown`, résolu en figure au rendu. Ne pas le
 #: compter, c'était exiger du chapitre 7 des visuels dans un format que le
-#: moteur ne produit jamais — la même cécité que la matrice HTML, mesurée le
-#: même jour (10/08/2026) sur la répétition à blanc.
-_VISUEL_RE = re.compile(r"<table\b|```chart\b|!\[|<!--\s*graphique:", re.IGNORECASE)
+#: moteur ne produit jamais — la même cécité que la matrice HTML.
+#:
+#: Le SÉPARATEUR de tableau markdown (`| --- | --- |`) est arrivé ensuite, et
+#: pour la même raison. La fiche du chapitre 7 demande explicitement deux de
+#: ses quatre visuels « sous forme de tableau structuré » — la carte des
+#: implantations, la répartition des canaux — et le moteur structuré rend un
+#: `BlocTableau` en markdown, jamais en `<table>`. Le job réel `026fecea`
+#: portait ses quatre visuels et n'en faisait compter que trois : sa carte
+#: était un tableau, donc invisible. Le séparateur apparaît UNE fois par
+#: tableau, ce qui compte des blocs et non des lignes.
+_VISUEL_RE = re.compile(
+    r"<table\b|```chart\b|!\[|<!--\s*graphique:|^\s*\|[\s:|-]*-{3,}[\s:|-]*\|",
+    re.IGNORECASE | re.MULTILINE,
+)
 #: Etape 8.2 : chaque demande porte un statut sur trois.
 _STATUT_RE = re.compile(
     r"\b(?:traitée?|traitee?|partiellement\s+traitée?|partiellement\s+traitee?"
