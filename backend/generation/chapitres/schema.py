@@ -692,35 +692,46 @@ def valider_chapitre(
         motifs.append("Deux sous-sections portent le même titre.")
 
     motifs.extend(motifs_de_balisage(payload))
-    motifs.extend(motifs_de_secteur_etranger(payload, secteur))
 
     return motifs
 
 
 def motifs_de_secteur_etranger(payload: ChapitrePayload, secteur: str) -> list[str]:
-    """Refuse le vocabulaire d'un AUTRE secteur dans le texte du chapitre.
+    """RETIRÉ DE LA VALIDATION le 09/08/2026. Conservé pour mémoire, jamais appelé.
 
-    ## Pourquoi ce contrôle vaut pour les QUATRE livrables
+    ## Ce qu'il a cassé, en production, le jour même de sa mise en service
 
-    Le contrôle de conformité au modèle (`contamination_du_modele`) ne s'exécute
-    que sur l'étude de marché : c'est le seul livrable que le modèle de forme
-    décrive. Business plan, stratégie et étude concurrentielle n'y passent pas.
+    Étude concurrentielle `5892daa5`, secteur déclaré : « Fintech patrimoniale
+    spécialisée dans **l'or physique et les métaux précieux** : achat, rachat,
+    stockage sécurisé… ». Un chapitre écrivait, très légitimement :
 
-    Or le défaut, lui, n'est pas propre à l'étude de marché. Il tient à une
-    cause générale : **le moteur montre au modèle des exemples écrits pour un
-    autre secteur**, et le modèle fait ce qu'on lui montre. C'est la troisième
-    fuite de cette famille en deux jours — exemples HTML hérités, notation
-    `[pourcentage]`, intitulés de joaillerie.
+        « Le rachat de BIJOUX et pièces anciennes fait partie du cœur de métier »
 
-    Ce contrôle-ci ne compare donc pas à un modèle : il compare au SECTEUR de
-    l'étude en cours, que le socle porte toujours. Il s'applique partout.
+    « bijoux » figure dans `_SECTEUR_DE_REFERENCE`, la liste des mots de la
+    joaillerie sur laquelle le modèle de forme a été mesuré. Et comme le secteur
+    déclaré dit « or » et « métaux précieux » sans dire « bijou », le garde-fou
+    ne s'est pas reconnu comme concerné : il a refusé le chapitre, l'étude est
+    morte à 2,07 EUR.
 
-    ## La contre-épreuve, et elle est indispensable
+    ## Pourquoi il ne pouvait PAS marcher
 
-    Une VRAIE étude sur la joaillerie doit pouvoir écrire « joaillerie » : c'est
-    son sujet. Le contrôle ne se déclenche que si le mot est étranger au secteur
-    déclaré — sans quoi il rendrait impossible le seul document où ces mots ont
-    leur place, et ce serait la règle 2 dans sa forme la plus bête.
+    Il repose sur une liste fermée de mots, et la règle 4 de ce dépôt condamne
+    exactement cela : « si votre correctif énumère des cas, il est incomplet ».
+    Un secteur ADJACENT — l'or, le rachat, le luxe, la seconde main — partage
+    forcément du vocabulaire avec la joaillerie sans être elle. Aucun
+    allongement de la liste ne répare ce défaut ; il le déplace.
+
+    ## Ce qui reste, et qui est juste
+
+    `modele.conformite._controler_contamination`. Il ne devine rien : il compare
+    l'intitulé produit aux intitulés EXACTS du chapitre du modèle. « FOCUS —
+    Approfondissement demandé : marché international des galeries et du
+    sur-mesure » recopié mot pour mot est une contamination certaine ; « le
+    rachat de bijoux » dans une étude sur l'or ne l'est pas.
+
+    Un contrôle précis qui couvre un seul livrable vaut mieux qu'un contrôle
+    large qui tue des chapitres corrects. La couverture des trois autres
+    livrables reste ouverte, et se fera avec un signal qui ne devine pas.
     """
     if not secteur.strip():
         # Pas de secteur déclaré : rien à quoi comparer. On ne juge pas — et on

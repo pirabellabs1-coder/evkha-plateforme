@@ -537,14 +537,47 @@ def run_generation_job(
             )
             raise
         except Exception as exc:  # noqa: BLE001 - tout echec doit etre trace + incident
+            # UN CHAPITRE QUI COINCE NE TUE PLUS L'ETUDE.
+            #
+            # Jusqu'ici cette ligne levait, et le dossier entier mourait. Le
+            # 09/08/2026, l'etude concurrentielle `5892daa5` est morte deux fois
+            # de suite — une fois sur une cellule de tableau manquante, une fois
+            # sur un controle trop large — apres avoir ecrit ses premiers
+            # chapitres et depense 2,07 EUR. La cliente n'a rien recu.
+            #
+            # Le calcul est sans appel : perdre vingt-deux chapitres corrects
+            # parce que le vingt-troisieme resiste coute infiniment plus cher que
+            # de livrer un document avec un trou nomme. Un chapitre manquant se
+            # regenere seul (`regenerate_chapter`) ; une etude morte se
+            # recommande.
+            #
+            # On NE SE TAIT PAS pour autant : le chapitre reste FAILED, son
+            # motif est enregistre, l'incident HIGH est ouvert par `_fail`, et
+            # le gate de livraison verra le trou. C'est la difference entre
+            # « continuer » et « ignorer » (regle 1).
             _fail(job, chapter, exc, title=f"Echec generation chapitre {chapter.chapter_number}")
-            msg = f"Generation failed on chapter {chapter.chapter_number}: {exc}"
-            raise GenerationRunError(msg) from exc
+            _log.warning(
+                "Job %s : chapitre %s abandonne (%s). L'etude CONTINUE.",
+                job.id, chapter.chapter_number, exc,
+            )
+            continue
 
     # Ne pas écraser une annulation demandée pendant la dernière génération
     job.refresh_from_db(fields=["status"])
     if job.status == JobStatus.CANCELLED:
         return job
+
+    # Un dossier dont AUCUN chapitre n'aboutit n'est pas un dossier avec un
+    # trou : c'est un echec. Le distinguer evite de livrer une coquille vide en
+    # la declarant terminee (regle 1).
+    ecrits = job.chapters.filter(status=ChapterStatus.DONE).count()
+    if not ecrits:
+        GenerationJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.FAILED,
+            error_message="Aucun chapitre n'a pu etre produit."[:2000],
+        )
+        msg = f"Generation failed: aucun chapitre produit (job {job.id})."
+        raise GenerationRunError(msg)
 
     job.status = JobStatus.DONE
     job.completed_at = timezone.now()
