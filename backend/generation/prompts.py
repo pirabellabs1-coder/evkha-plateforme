@@ -240,6 +240,15 @@ REGLES_IDENTIFIANTS_FIGURES = (
     "series.\n"
     "- COURBES et AIRES : chaque serie couvre TOUTES les periodes de l'axe. "
     "Une annee manquante n'est pas interpolee, la figure est abandonnee.\n"
+    # Onze figures sur quinze perdues sur `5892daa5` (10/08/2026) : le modele
+    # demandait de positionner huit concurrents, et le resolveur repondait
+    # qu'il manquait des RISQUES notes. Les deux formes qui comparent des
+    # acteurs n'avaient aucune matiere, et rien ne disait ou la prendre.
+    "- RADAR et CARTE DE POSITIONNEMENT peuvent aussi comparer des ACTEURS. "
+    "Ils citent alors les CODES DE LA GRILLE DE NOTATION donnee avec le socle, "
+    "et non des identifiants chiffres : deux codes pour une carte (abscisse "
+    "puis ordonnee), trois ou plus pour un radar. Ne melange jamais un code de "
+    "critere et un identifiant chiffre dans la meme figure.\n"
     "Choisis donc la forme d'apres les identifiants dont tu disposes, et non "
     "l'inverse."
 )

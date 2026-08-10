@@ -6,6 +6,8 @@ extrait ce qu'il peut de la prose et se tait sur le reste.
 """
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Sequence
 from datetime import date
 
 from pydantic import BaseModel, Field, model_validator
@@ -202,6 +204,32 @@ class SegmentClientele(BaseModel):
     part_estimee: float | None = Field(default=None, ge=0, le=100)
 
 
+class Critere(BaseModel):
+    """Un axe de notation, défini UNE FOIS pour toute l'étude.
+
+    ## Pourquoi la définition des bornes est obligatoire
+
+    La cliente a demandé « une échelle de notation reproductible de 1 à 5 ».
+    Reproductible veut dire qu'un lecteur qui reprend la grille retrouve les
+    mêmes notes. Une note sans barème n'est pas une mesure, c'est une opinion
+    chiffrée — exactement le « chiffre inventé » que le socle entier existe
+    pour empêcher.
+
+    `note_1` et `note_5` sont donc exigés, et un socle qui note sans définir
+    est refusé. C'est un coût de reprise assumé : une grille absente rend
+    ininterprétables les quarante notes qui en dépendent.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    #: Code court cité par les figures (`prix`, `couverture_service`).
+    code: str = Field(min_length=1, pattern=r"^[a-z][a-z0-9_]{1,39}$")
+    intitule: str = Field(min_length=1)
+    #: Ce que vaut la note la plus basse, puis la plus haute. Le barème.
+    note_1: str = Field(min_length=1)
+    note_5: str = Field(min_length=1)
+
+
 class Concurrent(BaseModel):
     """Un acteur de la base consolidée concurrents.
 
@@ -233,6 +261,27 @@ class Concurrent(BaseModel):
     methode_estimation: str = ""
     fiabilite: str = ""
     source: str = ""
+    #: Note de 1 à 5 par `code` de `Socle.grille_notation`.
+    #:
+    #: C'est CE champ qui alimente les radars et les cartes de positionnement.
+    #: Sans lui, `donnees_graphiques` n'a aucune coordonnée à placer : le
+    #: dossier `5892daa5` (10/08/2026) a perdu onze figures sur quinze pour
+    #: cette seule raison, et s'est fait bloquer au plancher de figures avec
+    #: quatre visuels pour dix-sept attendus.
+    notes: dict[str, int] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _controler_notes(self) -> Concurrent:
+        hors_bornes = sorted(
+            code for code, note in self.notes.items() if not 1 <= note <= 5
+        )
+        if hors_bornes:
+            msg = (
+                f"{self.nom} : notes hors de l'échelle 1-5 pour "
+                f"{', '.join(hors_bornes)}."
+            )
+            raise ValueError(msg)
+        return self
 
 
 class Tendance(BaseModel):
@@ -266,6 +315,9 @@ class Socle(BaseModel):
     concurrents: list[Concurrent] = Field(default_factory=list)
     tendances: list[Tendance] = Field(default_factory=list)
     risques: list[Risque] = Field(default_factory=list)
+    #: Barème commun aux notes portées par les concurrents. Déclaré une fois,
+    #: cité par code : c'est la source unique du sens des notes (règle 5).
+    grille_notation: list[Critere] = Field(default_factory=list)
 
     # Champ de travail, non produit par le modèle : renseigné par le validateur
     # pour que les contrôles croisés connaissent le référentiel applicable.
@@ -280,6 +332,28 @@ class Socle(BaseModel):
     @property
     def identifiants(self) -> set[str]:
         return {item.id for item in self.donnees}
+
+    def critere(self, code: str) -> Critere | None:
+        for item in self.grille_notation:
+            if item.code == code:
+                return item
+        return None
+
+    def notes_sur(self, codes: Sequence[str]) -> list[tuple[str, list[float]]]:
+        """Les concurrents notés sur TOUS ces critères, dans l'ordre demandé.
+
+        Un acteur noté sur trois critères et muet sur le quatrième est écarté :
+        le placer avec une coordonnée manquante produirait une figure fausse
+        dont chaque note est juste — le défaut que `_harmoniser` évite déjà sur
+        les unités.
+        """
+        retenus: list[tuple[str, list[float]]] = []
+        for acteur in self.concurrents:
+            if all(code in acteur.notes for code in codes):
+                retenus.append(
+                    (acteur.nom, [float(acteur.notes[code]) for code in codes])
+                )
+        return retenus
 
 
 class SocleInvalideError(ValueError):
@@ -351,6 +425,59 @@ def valider_socle(socle: Socle, deliverable_type: str) -> list[str]:
 
     motifs.extend(_controler_emboitement_marche(socle))
     motifs.extend(_controler_equilibre_financier(socle))
+    motifs.extend(_controler_grille_notation(socle))
+    return motifs
+
+
+def _controler_grille_notation(socle: Socle) -> list[str]:
+    """Une note n'a de sens que rattachée à un barème déclaré.
+
+    ## Ce qui a rendu ce contrôle nécessaire
+
+    Le dossier `5892daa5` (étude concurrentielle, 10/08/2026) a été bloqué au
+    plancher de figures : quatre visuels pour dix-sept attendus, onze abandons
+    sur quinze pour « le socle ne porte pas deux [grandeurs] notées » ou « un
+    radar exige au moins trois axes ». Le socle décrivait ses onze concurrents
+    en texte libre — positionnement, structure, méthode d'estimation — et pas
+    une note. Les radars et les cartes de positionnement n'avaient aucune
+    coordonnée à placer.
+
+    ## Trois motifs, et pourquoi chacun bloque
+
+    Une note dont le critère n'existe pas est une coordonnée sans axe. Une
+    grille sans aucune note est une promesse non tenue, et le lecteur y verrait
+    un barème qui ne sert à rien. Un critère noté sur un seul acteur ne compare
+    rien : c'est la règle 1 — un contrôle, ou ici une figure, qui n'a rien à
+    comparer n'est pas un succès.
+    """
+    if not socle.grille_notation and not any(a.notes for a in socle.concurrents):
+        return []  # Livrable sans notation : rien à contrôler, pas un défaut.
+
+    motifs: list[str] = []
+    codes = {critere.code for critere in socle.grille_notation}
+
+    comptes = Counter(critere.code for critere in socle.grille_notation)
+    for code in sorted(code for code, n in comptes.items() if n > 1):
+        motifs.append(f"Le critère `{code}` est déclaré plusieurs fois dans la grille.")
+
+    for acteur in socle.concurrents:
+        inconnus = sorted(set(acteur.notes) - codes)
+        if inconnus:
+            motifs.append(
+                f"{acteur.nom} est noté sur {', '.join(f'`{c}`' for c in inconnus)}, "
+                "absent de `grille_notation`. Une note sans critère déclaré ne "
+                "peut pas être placée sur une figure ni relue par le client."
+            )
+
+    for critere in socle.grille_notation:
+        notes = sum(1 for a in socle.concurrents if critere.code in a.notes)
+        if notes < 2:
+            motifs.append(
+                f"Le critère `{critere.code}` ne note que {notes} acteur(s) : "
+                "un axe qui ne compare rien n'a pas sa place dans la grille. "
+                "Note-le sur tous les concurrents, ou retire-le."
+            )
+
     return motifs
 
 

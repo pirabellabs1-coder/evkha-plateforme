@@ -285,7 +285,45 @@ def _bloc_socle(socle: Socle) -> str:
         + (f" / {socle.zone.ville}" if socle.zone.ville else "")
         + f" (arrêté au {socle.date_socle.isoformat()})"
     )
-    return entete + "\n" + "\n".join(lignes)
+    return entete + "\n" + "\n".join(lignes) + _bloc_grille(socle)
+
+
+def _bloc_grille(socle: Socle) -> str:
+    """La grille de notation et les acteurs notés, pour les figures.
+
+    Sans ce bloc, la grille existerait dans le socle sans que le chapitre
+    puisse la citer : les radars et les cartes de positionnement resteraient
+    exactement aussi impossibles qu'avant. C'est le défaut que ce projet a
+    rencontré quatre fois — écrit, stocké, jamais transmis (règle 8).
+    """
+    if not socle.grille_notation:
+        return ""
+
+    lignes = [
+        f"- `{critere.code}` — {critere.intitule} "
+        f"(1 = {critere.note_1} … 5 = {critere.note_5})"
+        for critere in socle.grille_notation
+    ]
+    notes = [
+        f"- {acteur.nom} : "
+        + ", ".join(f"{code} {acteur.notes[code]}/5" for code in sorted(acteur.notes))
+        for acteur in socle.concurrents
+        if acteur.notes
+    ]
+    return (
+        "\n\nGRILLE DE NOTATION — ces codes s'emploient comme identifiants de "
+        "figure, à la place des identifiants chiffrés :\n"
+        + "\n".join(lignes)
+        + "\n- carte de positionnement : cite DEUX codes, abscisse puis "
+        "ordonnée.\n"
+        "- radar : cite TROIS codes ou plus ; chaque acteur noté devient une "
+        "série.\n"
+        "Ces notes font foi : tu les reprends telles quelles et tu n'en "
+        "réinventes aucune. Le premier chapitre qui s'en sert reproduit la "
+        "grille dans un tableau — intitulé, ce que vaut 1, ce que vaut 5 — "
+        "pour que le lecteur puisse refaire la notation lui-même.\n"
+        "Les notes déjà attribuées :\n" + "\n".join(notes)
+    )
 
 
 def _bloc_resumes(job: GenerationJob, numero: int) -> str:
@@ -471,8 +509,10 @@ REGLES_DE_FOND = (
     # premium. » Une note sans echelle n'est pas une mesure, c'est une
     # impression — et une impression chiffree trompe plus qu'une impression
     # assumee.
-    "- Toute NOTE — radar, score, matrice, classement — repose sur cette "
-    "échelle et sur aucune autre : 1 absent · 2 faible · 3 moyen · "
+    "- Toute NOTE — radar, score, matrice, classement — repose sur une seule "
+    "échelle. Si une GRILLE DE NOTATION t'est donnée avec le socle, c'est "
+    "elle qui fait foi, critère par critère, et tu n'en inventes pas d'autre. "
+    "À défaut : 1 absent · 2 faible · 3 moyen · "
     "4 développé · 5 référence du secteur. Et chaque note s'appuie sur un "
     "fait OBSERVABLE, cité : un nombre, une présence, une absence. Jamais "
     "sur une impression — « semble premium » n'est pas un critère. Quand "

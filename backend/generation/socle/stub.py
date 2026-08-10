@@ -173,9 +173,35 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
                 "part_estimee": 60.0,
             }
         ],
+        # QUATRE acteurs NOTÉS sur QUATRE critères, pour la même raison que les
+        # quatre risques ci-dessous. `_radar_des_acteurs` exige trois axes, et
+        # `_matrice` deux acteurs notés sur les deux mêmes critères : avec deux
+        # acteurs sans notes, le radar et la carte de positionnement étaient
+        # refusés à chaque chapitre — le défaut mesuré sur `5892daa5`, où onze
+        # figures sur quinze sont tombées faute de coordonnées.
         "concurrents": [
-            {"nom": "Acteur A", "type": "direct", "positionnement": "généraliste", "source": ""},
-            {"nom": "Acteur B", "type": "indirect", "positionnement": "spécialiste", "source": ""},
+            {"nom": "Acteur A", "type": "direct", "positionnement": "généraliste",
+             "source": "", "notes": {"prix": 4, "offre": 3, "notoriete": 4, "service": 3}},
+            {"nom": "Acteur B", "type": "indirect", "positionnement": "spécialiste",
+             "source": "", "notes": {"prix": 2, "offre": 5, "notoriete": 3, "service": 4}},
+            {"nom": "Acteur C", "type": "direct", "positionnement": "discount",
+             "source": "", "notes": {"prix": 5, "offre": 2, "notoriete": 2, "service": 2}},
+            {"nom": "Acteur D", "type": "direct", "positionnement": "premium",
+             "source": "", "notes": {"prix": 1, "offre": 4, "notoriete": 5, "service": 5}},
+        ],
+        "grille_notation": [
+            {"code": "prix", "intitule": "Accessibilité tarifaire",
+             "note_1": "tarifs très supérieurs au marché",
+             "note_5": "tarifs parmi les plus bas du marché"},
+            {"code": "offre", "intitule": "Étendue de l'offre",
+             "note_1": "une seule prestation",
+             "note_5": "gamme complète et services associés"},
+            {"code": "notoriete", "intitule": "Notoriété",
+             "note_1": "inconnu hors de sa zone immédiate",
+             "note_5": "référence citée du secteur"},
+            {"code": "service", "intitule": "Qualité de service",
+             "note_1": "aucun accompagnement",
+             "note_5": "accompagnement personnalisé et suivi"},
         ],
         # QUATRE tendances DATÉES. `_frise` refuse en dessous de deux horizons :
         # « une frise sans date n'est pas une frise ». Avec une seule tendance,
