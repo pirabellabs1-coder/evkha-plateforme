@@ -291,8 +291,22 @@ def _bloc_resumes(job: GenerationJob, numero: int) -> str:
         .exclude(operational_summary="")
         .order_by("chapter_number")
     )
+    # Le chapitre 0 — la fiche projet — N'EST PAS PUBLIÉ : le sommaire ne le
+    # porte pas, le document ne le contient pas. Le presenter ici comme
+    # « Chapitre 0 » amenait le modele a y RENVOYER dans sa prose, et le lecteur
+    # cherchait dans le sommaire un chapitre qui n'y figure pas. Signale par la
+    # cliente le 09/08/2026 sur l'etude concurrentielle.
+    #
+    # On garde son contenu — c'est le cadrage du projet, il sert a tous les
+    # chapitres — mais on lui retire son numero, qui est un repere interne.
     lignes = [
-        f"Chapitre {c.chapter_number} — {c.chapter_title} :\n{c.operational_summary}"
+        (
+            f"Cadrage du projet (non publié, ne le cite jamais) :\n"
+            f"{c.operational_summary}"
+            if c.chapter_number == 0
+            else f"Chapitre {c.chapter_number} — {c.chapter_title} :\n"
+                 f"{c.operational_summary}"
+        )
         for c in precedents
     ]
     if not lignes:
@@ -427,6 +441,43 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
 }
 
 
+#: Règles de FOND, valables pour les quatre livrables ET pour tout chapitre —
+#: décrit par le modèle de forme ou non.
+#:
+#: ## Pourquoi elles vivent ici et plus dans `_forme_commune`
+#:
+#: Elles y étaient, et **l'étude de marché ne les recevait pas**. `_bloc_forme`
+#: n'est employé que pour les livrables que le modèle de forme NE décrit PAS ;
+#: l'étude de marché, elle, reçoit le plan du chapitre à la place. Les deux
+#: règles atteignaient donc le business plan, la stratégie et l'étude
+#: concurrentielle — et pas le seul livrable sur lequel la cliente les avait
+#: demandées.
+#:
+#: Trouvé en construisant le prompt RÉELLEMENT envoyé et en cherchant dedans,
+#: le 09/08/2026. Les tests passaient : ils appelaient `_bloc_forme`
+#: directement. C'est le motif qui a coûté dix-huit figures deux jours plus
+#: tôt — écrit, testé, jamais transmis (règle 8).
+REGLES_DE_FOND = (
+    # « Chaque chapitre doit idealement repondre a quatre questions » : la
+    # structure d'une etude qui DECIDE, par opposition a une etude qui decrit.
+    "- Chaque chapitre répond, dans l'ordre, à QUATRE questions : que "
+    "montre le marché ? qu'est-ce que cela signifie pour ce projet ? quel "
+    "ordre de grandeur retenir ? quelle décision en découle ? Un chapitre "
+    "qui s'arrête à la première n'a fait que le quart du travail.\n"
+    # « Une note ne doit jamais etre attribuee parce que l'acteur SEMBLE
+    # premium. » Une note sans echelle n'est pas une mesure, c'est une
+    # impression — et une impression chiffree trompe plus qu'une impression
+    # assumee.
+    "- Toute NOTE — radar, score, matrice, classement — repose sur cette "
+    "échelle et sur aucune autre : 1 absent · 2 faible · 3 moyen · "
+    "4 développé · 5 référence du secteur. Et chaque note s'appuie sur un "
+    "fait OBSERVABLE, cité : un nombre, une présence, une absence. Jamais "
+    "sur une impression — « semble premium » n'est pas un critère. Quand "
+    "une échelle sert dans un chapitre, le tableau qui la porte dit ce que "
+    "chaque niveau signifie."
+)
+
+
 def _bloc_forme(code_livrable: str = "") -> str:
     """Consigne de forme, commune à tous, PLUS ce qui est propre au livrable.
 
@@ -456,26 +507,8 @@ def _forme_commune() -> str:
         "développement : deux à trois phrases qui annoncent ce que le tableau "
         "montre. Au-delà, il sera tronqué au rendu.\n"
         "- Un encadré au moins par chapitre, avec un verdict actionnable "
-        "(opportunité, limite, décision) — jamais un résumé de ce qui précède.\n"
-        # Demande de la cliente du 09/08/2026 : « chaque chapitre doit
-        # idealement repondre a quatre questions ». C'est la structure d'une
-        # etude qui DECIDE, par opposition a une etude qui decrit.
-        "- Chaque chapitre répond, dans l'ordre, à QUATRE questions : que "
-        "montre le marché ? qu'est-ce que cela signifie pour ce projet ? quel "
-        "ordre de grandeur retenir ? quelle décision en découle ? Un chapitre "
-        "qui s'arrête à la première n'a fait que le quart du travail.\n"
-        # Demande de la cliente du 09/08/2026 : « une note ne doit jamais etre
-        # attribuee parce que l'acteur SEMBLE premium ». Une note sans echelle
-        # n'est pas une mesure, c'est une impression — et une impression chiffree
-        # est plus trompeuse qu'une impression assumee.
-        "- Toute NOTE — radar, score, matrice, classement — repose sur cette "
-        "échelle et sur aucune autre : 1 absent · 2 faible · 3 moyen · "
-        "4 développé · 5 référence du secteur. Et chaque note s'appuie sur un "
-        "fait OBSERVABLE, cité : un nombre, une présence, une absence. Jamais "
-        "sur une impression — « semble premium » n'est pas un critère. Quand "
-        "une échelle sert dans un chapitre, le tableau qui la porte dit ce que "
-        "chaque niveau signifie."
-    )
+        "(opportunité, limite, décision) — jamais un résumé de ce qui précède."
+    ) + "\n" + REGLES_DE_FOND
 
 
 def _blocs_du_modele(code_livrable: str, numero: int) -> list[str]:
@@ -512,7 +545,12 @@ def _blocs_du_modele(code_livrable: str, numero: int) -> list[str]:
 
     if not plan:
         return [_bloc_forme(code_livrable)]
-    return [plan, exemple] if exemple else [plan]
+    # Le plan remplace la FORME moyenne — il décrit celle de ce chapitre-là.
+    # Il ne remplace pas les règles de FOND : quatre questions par chapitre et
+    # échelle de notation valent partout, et l'étude de marché ne les recevait
+    # PAS, faute d'avoir jamais vu `_bloc_forme`. C'est le seul livrable sur
+    # lequel la cliente les avait demandées.
+    return [REGLES_DE_FOND, plan, exemple] if exemple else [REGLES_DE_FOND, plan]
 
 
 def formes_deja_employees(job: GenerationJob, avant: int) -> list[str]:

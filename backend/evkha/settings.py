@@ -143,6 +143,29 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # En production : monter un volume persistant sur MEDIA_ROOT et servir /media/ via nginx.
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
+
+# ── Taille des dépôts de fichiers ────────────────────────────────────────────
+#
+# DEUX PLAFONDS SE CONTREDISAIENT, et le plus bas n'était écrit nulle part.
+#
+# `organisations.fichiers.TAILLE_MAX_DOCUMENT` accepte 10 Mo — le plafond du
+# formulaire Tally, repris à l'octet près. Mais Django refuse tout corps de
+# requête au-delà de `DATA_UPLOAD_MAX_MEMORY_SIZE`, dont le défaut vaut
+# 2,5 Mo, et il le refuse AVANT que la vue ne s'exécute : la validation
+# applicative n'était jamais atteinte.
+#
+# Constaté le 09/08/2026 : un fichier de 3,5 Mo « ne s'ajoutait pas », sans
+# message exploitable. L'application annonçait 10 Mo, le cadre coupait à 2,5.
+#
+# On dérive donc les deux réglages de la MÊME constante (règle 5), avec une
+# marge pour l'enveloppe multipart — les en-têtes et les frontières de parties
+# s'ajoutent au fichier lui-même, et un fichier de 10,0 Mo pile serait refusé
+# sans elle.
+from organisations.fichiers import TAILLE_MAX_DOCUMENT  # noqa: E402
+
+_MARGE_MULTIPART = 1 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = TAILLE_MAX_DOCUMENT + _MARGE_MULTIPART
+FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
