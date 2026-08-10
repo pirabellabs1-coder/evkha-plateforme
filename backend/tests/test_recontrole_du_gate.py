@@ -94,6 +94,63 @@ def test_un_blocage_toujours_justifie_est_confirme_avec_motifs_frais(
 
 
 @pytest.mark.django_db
+def test_corriger_rejoue_la_boucle_et_rend_son_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`{"corriger": true}` : le chemin « tout vert » d'un document déjà payé.
+
+    Le gate échoue, la boucle de correction régénère les chapitres fautifs
+    sous le plafond du dossier, et c'est SON verdict final qui fait foi —
+    exactement le rapport que `tasks.py` consomme en fin de génération.
+    """
+    import generation.correction as correction
+    import generation.gate as gate
+
+    monkeypatch.setattr(gate, "run_delivery_gate", lambda _job: _Rapport(passed=False))
+    monkeypatch.setattr(
+        correction, "run_correction_loop", lambda _job: _Rapport(passed=True)
+    )
+    job = _job()
+
+    with override_settings(DEBUG=True, EVKHA_DASHBOARD_AUTH_DISABLED=True):
+        reponse = Client().post(
+            f"/api/dashboard/jobs/{job.id}/reverifier/",
+            data='{"corriger": true}',
+            content_type="application/json",
+        )
+
+    assert reponse.status_code == 200, reponse.content
+    job.refresh_from_db()
+    assert job.qa_status == QAStatus.PASSED
+
+
+@pytest.mark.django_db
+def test_sans_corriger_la_boucle_ne_tourne_jamais(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CONTRE-ÉPREUVE : le recontrôle nu reste GRATUIT — zéro appel IA.
+
+    Une boucle de correction qui partirait sur un simple recontrôle
+    dépenserait sans accord : c'est précisément l'interdit du dépôt.
+    """
+    import generation.correction as correction
+    import generation.gate as gate
+
+    def _interdit(_job: object) -> None:
+        raise AssertionError("run_correction_loop appelé sans corriger=true")
+
+    monkeypatch.setattr(gate, "run_delivery_gate", lambda _job: _Rapport(passed=False))
+    monkeypatch.setattr(correction, "run_correction_loop", _interdit)
+    job = _job()
+
+    reponse = _poster(job)
+
+    assert reponse.status_code == 200, reponse.content
+    job.refresh_from_db()
+    assert job.qa_status == QAStatus.BLOCKED
+
+
+@pytest.mark.django_db
 def test_un_dossier_non_termine_ne_se_recontrole_pas() -> None:
     """Un gate sans document complet n'a rien à juger (règle 1)."""
     job = _job(statut=JobStatus.RUNNING)

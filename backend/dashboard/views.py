@@ -355,6 +355,26 @@ def job_reverifier(request: HttpRequest, job_id: str) -> JsonResponse:
     from generation.models import QAStatus  # noqa: PLC0415
 
     rapport = run_delivery_gate(job)
+
+    # `{"corriger": true}` : si le gate échoue encore, rejouer la boucle de
+    # correction — les chapitres fautifs sont régénérés avec leurs motifs,
+    # SOUS LE PLAFOND DU DOSSIER (le Cost Engine coupe comme pendant la
+    # génération). C'est le chemin « tout vert » sur un document déjà payé :
+    # corriger deux chapitres coûte des centimes, régénérer l'étude 3,50 €.
+    if not rapport.passed:
+        corriger = False
+        try:
+            corps = json.loads(request.body.decode("utf-8") or "{}")
+            corriger = bool(corps.get("corriger"))
+        except (json.JSONDecodeError, ValueError):
+            corriger = False
+        if corriger:
+            from generation.correction import run_correction_loop  # noqa: PLC0415
+
+            # La boucle rend elle-même le verdict de gate FINAL, après ses
+            # régénérations — le même rapport que `tasks.py` consomme.
+            rapport = run_correction_loop(job)
+
     verdict = QAStatus.PASSED if rapport.passed else QAStatus.BLOCKED
     GenerationJob.objects.filter(pk=job.pk).update(qa_status=verdict)
 

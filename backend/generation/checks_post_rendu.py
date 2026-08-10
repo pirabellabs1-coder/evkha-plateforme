@@ -58,6 +58,13 @@ _STRUCTURES_STRUCTURELLES = (
     # terminé « Sources et méthodologie » sur son graphique tarifaire. Motif
     # faux : rien n'était perdu, le rendu allait dessiner la figure.
     re.compile(r"-->\s*$"),                                       # fin de commentaire
+    # Une ligne qui se termine par une URL complète est une ligne complète :
+    # « … rachat bijoux Paris depuis 1977 — https://www.interor.fr/ » est une
+    # référence de source, pas une phrase coupée. Le même recontrôle l'a
+    # comptée « perte probable de contenu client ». Le risque résiduel — une
+    # troncature qui tomberait PILE à la fin d'une URL valide — est accepté :
+    # l'inverse condamne chaque liste de sources du contrat.
+    re.compile(r"https?://\S+/?\s*$"),                            # référence sourcée
 )
 
 

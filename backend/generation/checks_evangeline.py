@@ -501,9 +501,22 @@ CRITERES_TRI_CONCURRENTS: tuple[str, ...] = (
     "Potentiel d'enseignement strategique pour le projet",
 )
 
+#: Un TITRE de section, pas une mention. L'ancien motif attrapait la phrase
+#: « concurrents directs » n'importe où — prose, cellule de tableau, rappel de
+#: consigne. Tant qu'un seul chapitre parlait des concurrents, l'écart passait
+#: inaperçu ; la base consolidée transmise partout (10/08/2026) a mis la
+#: phrase dans chaque chapitre, et le recontrôle de `026fecea` a rendu
+#: QUARANTE-SEPT « sections » à zéro concurrent — quarante-sept motifs
+#: introuvables dans le document (règle 2).
 _SOUS_SECTIONS_CONCURRENTS: dict[str, re.Pattern[str]] = {
-    "directs":   re.compile(r"concurrent[s]?\s+direct[s]?", re.IGNORECASE),
-    "indirects": re.compile(r"concurrent[s]?\s+indirect[s]?", re.IGNORECASE),
+    "directs": re.compile(
+        r"^#{2,4}\s+(?:\d[\w.]*\s+)?.{0,40}concurrent[s]?\s+direct[s]?",
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    "indirects": re.compile(
+        r"^#{2,4}\s+(?:\d[\w.]*\s+)?.{0,40}concurrent[s]?\s+indirect[s]?",
+        re.IGNORECASE | re.MULTILINE,
+    ),
 }
 _LIGNE_LISTE = re.compile(r"^\s*(?:[-•*]|\d+\.)\s+\S", re.MULTILINE)
 
@@ -541,6 +554,14 @@ def compter_concurrents(
             break
         bloc = corps[fin_titre:fin_bloc]
         trouves = len(_LIGNE_LISTE.findall(bloc))
+        # Le compteur ne sait compter que des PUCES. Une section qui liste ses
+        # acteurs en TABLEAU — la forme normale du contrat structuré — lui est
+        # invisible : zéro puce n'y signifie pas zéro concurrent, mais une
+        # matière qu'il ne sait pas lire. Juger « 0 trouvé » là-dessus, c'est
+        # comparer à une extraction fausse — pire qu'un contrôle absent
+        # (règle 2). On ne juge que ce qu'on a su compter.
+        if trouves == 0:
+            continue
         resultats.append(CompteConcurrents(
             type_=type_,
             trouves=trouves,
