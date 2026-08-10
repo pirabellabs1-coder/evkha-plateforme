@@ -181,11 +181,15 @@ def test_chaque_identifiant_porte_sa_nature(socle: Socle) -> None:
     """
     prompt = _prompt(DeliverableType.MARKET_STUDY, socle)
 
-    assert "`tam` = 1.2 MdEUR [monetaire]" in prompt
-    assert "`nombre_entreprises` = 4200.0 unite [effectif]" in prompt
+    # L'unité est montrée TELLE QU'ELLE DOIT APPARAÎTRE dans le document —
+    # `Md€`, pas `MdEUR`. Le modèle recopie ce qu'il lit : lui montrer la
+    # notation de stockage, c'est la retrouver dans la prose du client
+    # (retour cliente du 09/08/2026, « remplacer MEUR par 6,8 Md€ »).
+    assert "`tam` = 1.2 Md€ [monetaire]" in prompt
+    assert "`nombre_entreprises` = 4200.0  [effectif]" in prompt
     assert "`croissance` = 3.4 % [pourcentage]" in prompt
     assert "`delai_moyen` = 8.0 mois [duree]" in prompt
-    assert "`note_maturite` = 3.5 note_sur_5 [ratio]" in prompt
+    assert "`note_maturite` = 3.5 /5 [ratio]" in prompt
 
 
 @pytest.mark.django_db

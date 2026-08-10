@@ -30,6 +30,7 @@ from ..socle.schema import (
     DonneeSocle,
     Socle,
     famille_de_l_unite,
+    unite_lisible,
     valeur_en_unites_de_base,
 )
 
@@ -217,7 +218,16 @@ def _harmoniser(
 
 
 def _suffixe(unite: str) -> str:
-    return "" if unite == "%" else f" {unite}"
+    """Unité accolée à une valeur, écrite POUR LE LECTEUR.
+
+    `unite_lisible` est la source unique : `MdEUR` devient `Md€` ici comme dans
+    la ligne du socle injectée au prompt. Deux traductions de la même notation
+    auraient fini par diverger, et le document aurait porté les deux (règle 5).
+    """
+    if unite == "%":
+        return ""
+    lisible = unite_lisible(unite)
+    return f" {lisible}" if lisible else ""
 
 
 def _valeur_lisible(valeur: float, unite: str) -> str:
@@ -237,8 +247,8 @@ def _valeur_lisible(valeur: float, unite: str) -> str:
     base = valeur * dict(_MAGNITUDES_AFFICHAGE)[magnitude_source]
     for prefixe, facteur in _MAGNITUDES_AFFICHAGE:
         if abs(base) >= facteur:
-            return f"{base / facteur:g} {prefixe}{devise}"
-    return f"{base:g} {devise}"
+            return f"{base / facteur:g} {unite_lisible(f'{prefixe}{devise}')}"
+    return f"{base:g} {unite_lisible(devise)}"
 
 
 def _decomposer(unite: str) -> tuple[str, str] | None:

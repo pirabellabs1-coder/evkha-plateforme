@@ -102,6 +102,48 @@ def test_ce_qui_est_deja_correct_traverse_intact(texte: str) -> None:
     assert reparer_texte(texte) == texte
 
 
+@pytest.mark.parametrize(
+    ("avant", "apres"),
+    [
+        ("coffre‑fort", "coffre-fort"),
+        ("achat‐vente", "achat-vente"),
+        ("e–commerce", "e-commerce"),
+        ("experts‒comptables", "experts-comptables"),
+        ("un mot­coupé", "un motcoupé"),
+        ("texte﻿avec BOM", "texteavec BOM"),
+        ("caract​ère", "caractère"),
+    ],
+)
+def test_les_traits_exotiques_et_invisibles_disparaissent(
+    avant: str, apres: str
+) -> None:
+    """Signalé par la cliente : un carré parasite dans les mots à trait d'union.
+
+    Le modèle écrit un trait d'union insécable ou typographique ; la police de
+    rendu ne le porte pas, et le lecteur voit un carré. Invisible en test —
+    Carlito et Aptos manquent sur le poste de développement.
+    """
+    assert reparer_texte(avant) == apres
+
+
+@pytest.mark.parametrize(
+    "texte",
+    [
+        "La période 2025–2026 marque un tournant",
+        "Le marché — et c'est notable — progresse de 3 %",
+        "Une fourchette de 10–15 % selon les segments",
+    ],
+)
+def test_les_tirets_LEGITIMES_survivent(texte: str) -> None:
+    """CONTRE-ÉPREUVE : le demi-cadratin entre deux nombres est correct.
+
+    Le remplacer partout abîmerait une ponctuation juste — la règle 2, un
+    remède qui frappe ce qui n'était pas malade. D'où la condition « entre deux
+    LETTRES », qui distingue le mot composé de l'intervalle et de l'incise.
+    """
+    assert reparer_texte(texte) == texte
+
+
 def test_la_reparation_est_idempotente() -> None:
     """La rejouer ne doit rien changer — sinon chaque passe abîmerait un peu plus."""
     une_fois = reparer_texte("Le point  clé est simple: agir , vite .")

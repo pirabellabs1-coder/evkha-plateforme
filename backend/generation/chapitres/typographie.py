@@ -74,11 +74,42 @@ _AVANT_DOUBLE = re.compile(rf"(\w)([{_DOUBLE}])(?=\s|$)")
 _DEJA_ESPACEE = re.compile(rf"[^\S\r\n]+([{_DOUBLE}])(?=\s|$)")
 
 
+#: Caractères qui n'ont AUCUNE raison d'atteindre le document, et que la police
+#: ne sait souvent pas dessiner — le lecteur voit alors un carré.
+#:
+#: **Signalé par la cliente le 09/08/2026** sur l'étude concurrentielle : un
+#: caractère parasite dans « coffre-fort », « achat-vente », « e-commerce »,
+#: « experts-comptables » et dans des URL. Tous des mots à TRAIT D'UNION — ce
+#: n'était pas un hasard.
+#:
+#: Rien de tel dans le code ni dans les consignes : c'est le modèle qui écrit un
+#: trait d'union exotique (insécable, tiret conditionnel, tiret typographique),
+#: et la police de rendu ne le porte pas. Carlito et Aptos manquent d'ailleurs
+#: sur le poste de développement, ce qui rend le défaut invisible en test.
+#:
+#: On ramène donc à un trait d'union ordinaire, et on supprime les invisibles.
+_INVISIBLES = str.maketrans({
+    "­": "",   # tiret conditionnel : jamais visible, souvent copié-collé
+    "﻿": "",   # marque d'ordre des octets égarée dans un texte
+    "￾": "",   # non-caractère : n'a aucune raison d'exister
+    "�": "",   # caractère de remplacement : trace d'un décodage raté
+    "​": "",   # espace de largeur nulle
+})
+
+#: Un trait d'union EXOTIQUE entre deux lettres. La condition « entre deux
+#: lettres » compte : le tiret demi-cadratin garde sa place entre deux nombres
+#: (« 2025–2026 ») et le tiret cadratin sa place dans une incise. Les remplacer
+#: partout abîmerait une ponctuation correcte (règle 2).
+_TRAIT_EXOTIQUE = re.compile(r"(?<=[^\W\d_])[‐‑‒–](?=[^\W\d_])")
+
+
 def reparer_texte(texte: str) -> str:
     """Texte aux espaces normalisées. Idempotente : la rejouer ne change rien."""
     if not texte:
         return texte
-    corrige = _ESPACES_MULTIPLES.sub(" ", texte)
+    corrige = texte.translate(_INVISIBLES)
+    corrige = _TRAIT_EXOTIQUE.sub("-", corrige)
+    corrige = _ESPACES_MULTIPLES.sub(" ", corrige)
     corrige = _AVANT_SIMPLE.sub(r"\1", corrige)
     corrige = _DEJA_ESPACEE.sub(rf"{FINE_INSECABLE}\1", corrige)
     return _AVANT_DOUBLE.sub(rf"\1{FINE_INSECABLE}\2", corrige)

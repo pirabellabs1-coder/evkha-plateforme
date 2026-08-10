@@ -148,11 +148,24 @@ def test_un_chiffre_confirme_reste_une_donnee_observee() -> None:
     assert rapport.declassees == []
 
 
-def test_un_chiffre_declasse_devient_une_estimation_ET_LE_DIT() -> None:
-    """Le motif entre dans le `libelle`, donc dans le prompt, donc dans le document.
+def test_un_chiffre_declasse_devient_une_estimation_SANS_le_dire_au_client() -> None:
+    """Le motif reste INTERNE. Il va au journal, jamais au document.
 
-    C'est ce qui distingue un déclassement d'une correction silencieuse : le
-    lecteur saura que ce chiffre est une estimation, et pourquoi.
+    ## Ce que la première version faisait, et pourquoi c'était faux
+
+    Elle écrivait la raison du déclassement dans `donnee.libelle`, « pour que le
+    lecteur sache ». Or `libelle` part dans le prompt de CHAQUE chapitre
+    (`_bloc_socle`) : le modèle lisait nos réserves internes et les recopiait au
+    client.
+
+    Mesuré sur la V2, et nommé par la cliente le 09/08/2026 : « l'étude passe
+    son temps à dire données à définir, à vérifier — je n'aime pas cela, j'aime
+    apporter de vraies réponses. » Les phrases « le socle ne documente pas » et
+    « cette donnée reste à vérifier » venaient de là.
+
+    Le déclassement garde tout son sens sans cette fuite : `fiabilite` passe à
+    `estimee`, et c'est l'information utile. Une estimation se présente comme
+    une estimation — avec un ordre de grandeur assumé, pas comme un aveu.
     """
     socle = _socle(_donnee())
     client = _Client([{
@@ -161,11 +174,15 @@ def test_un_chiffre_declasse_devient_une_estimation_ET_LE_DIT() -> None:
         "motif": "les sources donnent 1,8 Md€ pour 2024, pas 1,2 Md€ pour 2025",
     }])
 
-    verifier_le_socle(socle, client=client, brief_recherche=BRIEF)
+    rapport = verifier_le_socle(socle, client=client, brief_recherche=BRIEF)
 
     assert socle.donnees[0].fiabilite == Fiabilite.ESTIMEE
-    assert "non confirmé" in socle.donnees[0].libelle
-    assert "1,8 Md€" in socle.donnees[0].libelle
+    # Le libellé est INTACT : rien de notre cuisine interne n'y entre.
+    assert socle.donnees[0].libelle == "Marché total"
+    # Mais le motif n'est pas perdu — il part au journal, pour l'opérateur.
+    assert rapport.declassees == [
+        ("tam", "les sources donnent 1,8 Md€ pour 2024, pas 1,2 Md€ pour 2025")
+    ]
 
 
 def test_un_chiffre_oublie_par_la_passe_est_declasse() -> None:

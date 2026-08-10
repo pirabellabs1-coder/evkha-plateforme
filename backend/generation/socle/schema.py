@@ -47,6 +47,45 @@ def unites_monetaires() -> tuple[str, ...]:
     )
 
 
+#: Symbole d'affichage d'une devise. Seules celles qui en ont un y figurent :
+#: le franc CFA s'écrit « FCFA », pas avec un signe, et inventer un symbole
+#: serait pire que garder le code.
+_SYMBOLE_DEVISE: dict[str, str] = {
+    "EUR": "€", "USD": "$", "GBP": "£", "XOF": "FCFA", "XAF": "FCFA",
+}
+
+#: Unités non monétaires telles qu'un lecteur les lit.
+_UNITE_LISIBLE: dict[str, str] = {
+    "unite": "", "millier": "milliers", "million": "millions",
+    "annees": "ans", "note_sur_5": "/5", "note_sur_10": "/10", "ratio": "",
+}
+
+
+def unite_lisible(unite: str) -> str:
+    """L'unité telle qu'elle doit APPARAÎTRE dans le document.
+
+    `MdEUR` → `Md€`, `MEUR` → `M€`, `kEUR` → `k€`, `annees` → `ans`.
+
+    ## Pourquoi cette fonction existe
+
+    Retour de la cliente du 09/08/2026 : « remplacer les unités techniques comme
+    MEUR par des formats plus simples : 6,8 Md€, 1,02 Md€, 600 k€ ».
+
+    `MdEUR` est une notation de STOCKAGE : elle sépare la magnitude de la devise
+    pour que les conversions soient possibles sans ambiguïté. Elle n'a aucune
+    raison d'atteindre le lecteur — pas plus que le nom d'un identifiant.
+
+    Elle vit ICI, à côté des unités qu'elle traduit, et pas dans le rendu Word :
+    la ligne du socle injectée dans le prompt en a besoin AUSSI, sinon le modèle
+    recopie `MEUR` dans sa prose et aucun rendu ne le rattrape (règle 5).
+    """
+    decompose = _decomposer_unite_monetaire(unite)
+    if decompose is not None:
+        magnitude, devise = decompose
+        return f"{magnitude}{_SYMBOLE_DEVISE.get(devise, devise)}"
+    return _UNITE_LISIBLE.get(unite, unite)
+
+
 def unites_autorisees(famille: FamilleUnite) -> tuple[str, ...]:
     if famille is FamilleUnite.MONETAIRE:
         return unites_monetaires()

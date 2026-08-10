@@ -16,7 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, ChapterStatus, GenerationJob
-from ..socle.schema import Socle, famille_de_l_unite
+from ..socle.schema import Socle, famille_de_l_unite, unite_lisible
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
@@ -85,6 +85,43 @@ _SYSTEME = (
     "opportunités accessibles et les facteurs clés de succès. Quand le socle ne "
     "porte rien sur un point, dis-le : « le socle ne documente pas ce point » "
     "vaut mieux qu'une généralité qui en prend la place.\n"
+    "\n"
+    # Retour de la cliente du 09/08/2026 sur la V2 : « l'etude passe son temps
+    # a dire donnees a definir, a verifier — je n'aime pas cela, j'aime apporter
+    # de vraies reponses. Le client doit sortir de l'etude avec une direction et
+    # des conclusions, pas avec une liste de choses a verifier ensuite. »
+    #
+    # La V2 etait devenue trop prudente : la rigueur s'y lisait comme une
+    # derobade. Une etude qui enumere ses incertitudes n'est pas plus honnete
+    # qu'une etude qui tranche en les assumant — elle est seulement inutile.
+    "TU CONCLUS, TU N'INVENTORIES PAS. Ton lecteur veut savoir si son marché "
+    "est porteur, accessible, rentable, saturé, et par où commencer. Chaque "
+    "développement suit donc la même chaîne : ce que montre la donnée, ce que "
+    "cela signifie POUR CE PROJET, l'ordre de grandeur à retenir, la décision "
+    "qui en découle. Un constat qui ne débouche sur rien n'a pas sa place.\n"
+    "\n"
+    "CES FORMULATIONS SONT INTERDITES, sans exception :\n"
+    "« aucune donnée disponible », « le socle ne documente pas », « donnée à "
+    "définir », « reste à vérifier », « à confirmer avec un professionnel », "
+    "« cette donnée ne peut pas être utilisée », « hypothèse à tester ».\n"
+    "\n"
+    "Quand un chiffre manque ou reste fragile, tu ne le signales pas : tu "
+    "PRENDS POSITION, prudemment. Une fourchette assumée, un ordre de grandeur "
+    "raisonné, un scénario central — et tu dis sur quoi tu t'appuies. Écris "
+    "« nous retenons une hypothèse prudente comprise entre X et Y », « au vu "
+    "des éléments disponibles, le marché apparaît favorable sous conditions », "
+    "« le scénario central paraît aujourd'hui le plus cohérent ». Jamais « la "
+    "donnée n'est pas disponible ».\n"
+    "\n"
+    "Une estimation n'est pas un aveu : c'est un travail d'analyste. Le socle "
+    "distingue ce qui est observé de ce qui est estimé — sers-t'en pour "
+    "calibrer ta prudence, jamais pour t'abriter derrière.\n"
+    "\n"
+    "AUCUNE TRACE DE FABRICATION dans le document. Les identifiants du socle "
+    "(`tam`, `sam`, `som`, `marche_national_taille`…) sont des noms internes : "
+    "écris « le marché national », « le marché adressable », jamais leur "
+    "identifiant. Pas davantage de « analyse à dire d'expert », de « socle "
+    "verrouillé », ni d'aucune mention du dispositif qui produit l'étude.\n"
     "\n"
     "ÉCRIT POUR QUELQU'UN QUI DÉCOUVRE. Ton lecteur porte un projet, il n'est "
     "pas analyste. La PREMIÈRE fois qu'un terme technique apparaît dans "
@@ -227,8 +264,12 @@ def _bloc_socle(socle: Socle) -> str:
     n'atteignait personne. Un chiffre estimé arrivait donc au chapitre nu,
     impossible à distinguer d'un chiffre observé.
     """
+    # L'unite est donnee TELLE QU'ELLE DOIT APPARAITRE dans le document —
+    # `Md€`, pas `MdEUR`. Le modele recopie ce qu'il lit : lui montrer la
+    # notation de stockage, c'est la retrouver dans la prose du client, et
+    # aucun rendu ne la rattrape a ce stade (retour cliente du 09/08/2026).
     lignes = [
-        f"- `{d.id}` = {d.valeur} {d.unite} [{_nature(d.unite)}]"
+        f"- `{d.id}` = {d.valeur} {unite_lisible(d.unite)} [{_nature(d.unite)}]"
         f" ({d.annee}, {d.perimetre}, {d.fiabilite})"
         + (f" — {d.libelle}" if d.libelle else "")
         + (f" — source : {d.source}" if d.source else "")
@@ -384,7 +425,14 @@ def _forme_commune() -> str:
         "développement : deux à trois phrases qui annoncent ce que le tableau "
         "montre. Au-delà, il sera tronqué au rendu.\n"
         "- Un encadré au moins par chapitre, avec un verdict actionnable "
-        "(opportunité, limite, décision) — jamais un résumé de ce qui précède."
+        "(opportunité, limite, décision) — jamais un résumé de ce qui précède.\n"
+        # Demande de la cliente du 09/08/2026 : « chaque chapitre doit
+        # idealement repondre a quatre questions ». C'est la structure d'une
+        # etude qui DECIDE, par opposition a une etude qui decrit.
+        "- Chaque chapitre répond, dans l'ordre, à QUATRE questions : que "
+        "montre le marché ? qu'est-ce que cela signifie pour ce projet ? quel "
+        "ordre de grandeur retenir ? quelle décision en découle ? Un chapitre "
+        "qui s'arrête à la première n'a fait que le quart du travail."
     )
 
 
@@ -456,6 +504,66 @@ def formes_deja_employees(job: GenerationJob, avant: int) -> list[str]:
             continue  # un chapitre illisible ne doit pas priver le suivant
         formes.extend(str(graphique.type) for graphique in payload.graphiques)
     return formes
+
+
+#: Les six axes du verdict de clôture, avec leur vocabulaire FERMÉ.
+#:
+#: Demande de la cliente du 09/08/2026 : « en fin d'étude, ajouter un verdict
+#: synthétique, avec une justification courte pour chaque point ».
+#:
+#: Le vocabulaire est imposé pour une raison simple : un verdict libre redevient
+#: une nuance. « Plutôt favorable dans certaines conditions » ne se compare pas
+#: d'une étude à l'autre et ne décide rien. Trois mots par axe, et le lecteur
+#: sait où il est.
+AXES_DU_VERDICT: tuple[tuple[str, tuple[str, str, str]], ...] = (
+    ("Marché porteur", ("Oui", "Modérément", "Non")),
+    ("Potentiel pour un nouvel entrant", ("Fort", "Moyen", "Faible")),
+    ("Niveau de concurrence", ("Faible", "Moyen", "Élevé")),
+    ("Marché saturé", ("Oui", "Partiellement", "Non")),
+    ("Potentiel de rentabilité", ("Favorable", "À sécuriser", "Fragile")),
+    ("Viabilité globale", (
+        "Favorable", "Favorable sous conditions", "Défavorable",
+    )),
+)
+
+
+def _bloc_verdict(job: GenerationJob, numero: int) -> str:
+    """Consigne du verdict de clôture — DERNIER chapitre seulement.
+
+    ## Pourquoi il est demandé ici et pas au rendu
+
+    Le tableau du verdict n'est pas décoratif : chaque ligne est un JUGEMENT sur
+    le marché, et seul le modèle qui vient d'écrire vingt-trois chapitres peut le
+    porter. Le rendu, lui, ne saurait qu'imprimer une case vide.
+
+    ## Pourquoi il n'apparaît qu'une fois
+
+    La consigne n'est injectée que pour le dernier chapitre. Confiée à tous, elle
+    produirait vingt-trois verdicts contradictoires — le même défaut que la
+    recommandation de clôture, qu'on a justement sortie du modèle de langage
+    pour cette raison.
+    """
+    dernier = job.chapters.order_by("-chapter_number").values_list(
+        "chapter_number", flat=True
+    ).first()
+    if dernier is None or numero != dernier:
+        return ""
+
+    lignes = "\n".join(
+        f"- {axe} : {' / '.join(valeurs)}" for axe, valeurs in AXES_DU_VERDICT
+    )
+    return (
+        "VERDICT DE CLÔTURE — ce chapitre ferme l'étude, il doit donc TRANCHER.\n"
+        "Produis un bloc `tableau` à trois colonnes — Critère, Verdict, "
+        "Pourquoi — portant EXACTEMENT ces six lignes, dans cet ordre, et "
+        "n'employant que les mots proposés en face de chacune :\n"
+        f"{lignes}\n"
+        "La colonne « Pourquoi » tient en une phrase et s'appuie sur ce que "
+        "l'étude a établi — un chiffre, un segment, un constat de concurrence. "
+        "Pas de nuance ajoutée au verdict lui-même : le mot choisi EST la "
+        "réponse. Le lecteur doit pouvoir lire ces six lignes seules et savoir "
+        "s'il se lance."
+    )
 
 
 def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
@@ -568,6 +676,13 @@ def construire_prompt_chapitre(
         f"CHAPITRE À RÉDIGER : {chapter.chapter_number} — {chapter.chapter_title}",
         f"INSTRUCTION DU CHAPITRE :\n{instruction}",
         *_blocs_du_modele(str(chapter.job.deliverable_type), chapter.chapter_number),
+        # Vide pour tous les chapitres sauf le dernier : un verdict repete
+        # vingt-trois fois ne serait plus un verdict.
+        *(
+            [verdict]
+            if (verdict := _bloc_verdict(chapter.job, chapter.chapter_number))
+            else []
+        ),
         _bloc_visuels(socle, chapter.job, chapter.chapter_number),
         (
             f"RÉSUMÉ : termine par un résumé de {document.resume_mots_min} à "

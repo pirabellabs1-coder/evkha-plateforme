@@ -102,7 +102,12 @@ def test_un_entonnoir_en_trois_echelles_d_euros_est_dessine() -> None:
 
     assert resolution.retenu, resolution.motif
     affichees = resolution.donnees["valeurs_affichees"]  # type: ignore[index]
-    assert affichees == ["1.2 MdEUR", "240 MEUR", "1.8 MEUR"], affichees
+    # `Md€` et non `MdEUR` : depuis le 09/08/2026, l'unité est écrite POUR LE
+    # LECTEUR. `MdEUR` est une notation de stockage — elle sépare magnitude et
+    # devise pour rendre les conversions possibles — et n'a aucune raison
+    # d'atteindre le document. Demande de la cliente : « remplacer les unités
+    # techniques comme MEUR par 6,8 Md€, 1,02 Md€, 600 k€ ».
+    assert affichees == ["1.2 Md€", "240 M€", "1.8 M€"], affichees
     # Aucune notation scientifique nulle part.
     assert not any("e+" in texte or "e-" in texte for texte in affichees)
 

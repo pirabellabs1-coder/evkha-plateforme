@@ -124,16 +124,30 @@ class RapportVerification:
 
 
 def _declasser(donnee: Any, motif: str) -> None:
-    """Passe une donnée en `estimee` et écrit la raison dans son libellé.
+    """Passe une donnée en `estimee`. Le motif reste INTERNE.
 
-    Le motif atteint le document : `libelle` est repris dans le prompt de chaque
-    chapitre (`_bloc_socle`). Le lecteur saura donc que ce chiffre est une
-    estimation, et pourquoi — au lieu de le lire comme une donnée publiée.
+    ## Pourquoi le motif ne va plus dans le libellé
+
+    Première version : la raison du déclassement était écrite dans
+    `donnee.libelle`, « pour que le lecteur sache ». Or `libelle` part dans le
+    prompt de CHAQUE chapitre (`_bloc_socle`) : le modèle lisait donc nos
+    réserves internes et les recopiait au client.
+
+    Résultat mesuré sur la V2, et la cliente l'a nommé le 09/08/2026 :
+    « l'étude passe son temps à dire données à définir, à vérifier — je n'aime
+    pas cela, j'aime apporter de vraies réponses. » Des phrases comme « le socle
+    ne documente pas », « cette donnée reste à vérifier » venaient de là.
+
+    Le déclassement garde tout son sens sans cette fuite : `fiabilite` passe à
+    `estimee`, et c'est exactement l'information utile — une estimation se
+    présente comme une estimation, avec un ordre de grandeur assumé, pas comme
+    un aveu d'ignorance.
+
+    Le motif, lui, va au JOURNAL : l'incident du socle le porte, l'opérateur le
+    lit, le client ne le voit pas. C'est sa place — ce qui aide à produire n'est
+    pas ce qu'on livre.
     """
     donnee.fiabilite = Fiabilite.ESTIMEE
-    marque = f"[non confirmé : {motif}]"
-    if marque not in donnee.libelle:
-        donnee.libelle = f"{donnee.libelle} {marque}".strip()
 
 
 # ── Ce que ce module ne contrôle PAS, et pourquoi ────────────────────────────
