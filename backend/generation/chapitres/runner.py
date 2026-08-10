@@ -53,13 +53,16 @@ _SYSTEME = (
     # dans le document — dix dans l'etude de marche, quarante-quatre dans le
     # business plan. On le dit donc explicitement, plutot que d'esperer que la
     # forme du contrat suffise a l'en dissuader.
-    "AUCUN BALISAGE DANS TES TEXTES. Les instructions de chapitre te montrent "
-    "parfois des tableaux écrits en HTML (`<table style=…>`) : ils viennent "
-    "d'un moteur précédent et ne te concernent PAS. Tu ne produis jamais de "
-    "balise — ni `<table>`, ni `<div>`, ni `<td>`, ni aucune autre. Un tableau "
-    "se demande avec un bloc `tableau` et ses cellules ; un encadré avec un "
-    "bloc `encadre`. Une balise écrite dans un texte est imprimée telle quelle "
-    "dans le document du client, et fait rejeter le chapitre.\n"
+    "AUCUN FORMAT DE DONNÉES DANS TES TEXTES. Les instructions de chapitre te "
+    "montrent parfois des tableaux écrits en HTML (`<table style=…>`) : ils "
+    "viennent d'un moteur précédent et ne te concernent PAS. Tu ne produis "
+    "jamais de balise — ni `<table>`, ni `<div>`, ni `<td>` — et pas davantage "
+    "de données brutes : pas de lignes séparées par des points-virgules ou des "
+    "barres verticales, pas de tabulations, pas de JSON, pas de bloc de code. "
+    "Un tableau se demande avec un bloc `tableau` et ses cellules ; un encadré "
+    "avec un bloc `encadre`. Tout ce qui ressemble à un fichier de données est "
+    "imprimé tel quel dans le document du client, et fait rejeter le "
+    "chapitre.\n"
     "\n"
     # Demande de la cliente : « ne jamais rencontrer d'incident dans la
     # generation ». L'espacement fautif est REPARE en aval (`typographie.py`) —
@@ -474,7 +477,15 @@ REGLES_DE_FOND = (
     "fait OBSERVABLE, cité : un nombre, une présence, une absence. Jamais "
     "sur une impression — « semble premium » n'est pas un critère. Quand "
     "une échelle sert dans un chapitre, le tableau qui la porte dit ce que "
-    "chaque niveau signifie."
+    "chaque niveau signifie.\n"
+    # « La SWOT doit deboucher sur de vraies priorites strategiques, pas sur
+    # une liste de limites. » Une SWOT qui s'arrete au tableau laisse au
+    # lecteur le travail qu'il a paye : croiser les quatre cases.
+    "- Une SWOT ne s'arrête JAMAIS au tableau. Elle se ferme sur deux ou "
+    "trois priorités, tirées du CROISEMENT des cases : quelle force sert "
+    "quelle opportunité, quelle faiblesse expose à quelle menace, et donc "
+    "par où commencer. Une SWOT qui énumère sans conclure laisse au lecteur "
+    "le travail qu'il a payé."
 )
 
 

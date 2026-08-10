@@ -780,6 +780,35 @@ _BALISE = re.compile(
 #: pour noyer le motif.
 _EXTRAIT = 120
 
+#: Données BRUTES glissées dans un texte : CSV, colonnes tabulées, ligne de
+#: tableau markdown, JSON, bloc de code.
+#:
+#: Signalé par la cliente le 09/08/2026 : « du code / CSV brut est visible dans
+#: le document ». La cause exacte n'est pas établie — et n'a pas besoin de
+#: l'être. C'est la CLASSE qu'on interdit, comme pour le HTML deux jours plus
+#: tôt : un format de données n'a rien à faire dans une phrase, quelle que soit
+#: la façon dont il y est arrivé (règle 4).
+#:
+#: ## Chaque motif est choisi pour ne PAS mordre sur du français
+#:
+#: - trois points-virgules ou plus : une phrase française en porte rarement un,
+#:   jamais trois ;
+#: - deux barres verticales ou plus : c'est une ligne de tableau markdown ;
+#: - une tabulation : elle ne survit à aucune rédaction normale ;
+#: - une accolade ou un crochet ouvrant suivi d'un guillemet et d'un
+#:   deux-points : la signature du JSON ;
+#: - trois accents graves : un bloc de code.
+#:
+#: Une énumération française — « le prix, la garantie, la livraison » — emploie
+#: des virgules et traverse intacte. C'est la contre-épreuve qui compte.
+_DONNEES_BRUTES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("lignes séparées par des points-virgules", re.compile(r"(?:[^;\n]*;){3,}")),
+    ("ligne de tableau brute", re.compile(r"\|[^|\n]*\|[^|\n]*\|")),
+    ("tabulations", re.compile(r"\t")),
+    ("JSON", re.compile(r"[{\[]\s*\"[^\"]+\"\s*:")),
+    ("bloc de code", re.compile(r"```")),
+)
+
 #: Notation INTERNE du prompt : la nature de chaque identifiant du socle, servie
 #: entre crochets pour que le modèle sache ce qui se trace ensemble.
 #:
@@ -829,6 +858,7 @@ def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
     """
     motifs: list[str] = []
     motifs.extend(_motifs_de_notation_interne(payload))
+    motifs.extend(_motifs_de_donnees_brutes(payload))
     # `getattr` et non `payload.blocs` : `valider_chapitre` accepte aussi des
     # porteurs minimaux, que plusieurs tests emploient pour isoler leur sujet
     # sans construire un chapitre entier. Ce n'est pas une permissivite — un
@@ -848,6 +878,44 @@ def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
                 "avec un bloc `tableau`, jamais en HTML ; les exemples HTML des "
                 "instructions viennent d'un moteur précédent."
             )
+    return motifs
+
+
+def _motifs_de_donnees_brutes(payload: ChapitrePayload) -> list[str]:
+    """Refuse un format de données glissé dans un texte.
+
+    Même famille que `motifs_de_balisage`, et pour la même raison : le rendu
+    imprime le champ tel quel, donc tout ce qui n'est pas une phrase arrive chez
+    le client sous sa forme brute.
+
+    On ne cherche pas la cause — elle n'est pas établie et n'a pas besoin de
+    l'être pour interdire la classe. Un tableau se demande avec un bloc
+    `tableau` ; aucune autre façon d'aligner des colonnes n'a de sens ici.
+    """
+    motifs: list[str] = []
+    for index, bloc in enumerate(getattr(payload, "blocs", ()) or ()):
+        for champ, texte in _textes_du_bloc(bloc):
+            # Un texte deja signale comme HTML n'est pas signale une seconde
+            # fois : `style="border-collapse:collapse;width:100%;…"` porte
+            # quatre points-virgules et ressemble donc a un CSV. Le passage est
+            # le meme, le chapitre est rejoue de toute facon, mais le second
+            # motif enverrait corriger un fichier de donnees qui est en realite
+            # une feuille de style (regle 2 — un motif doit etre trouvable tel
+            # qu'il est ecrit). Le diagnostic HTML est le plus precis des deux.
+            if _BALISE.search(texte) is not None:
+                continue
+            for nom, motif in _DONNEES_BRUTES:
+                trouvee = motif.search(texte)
+                if trouvee is None:
+                    continue
+                debut = max(trouvee.start() - 10, 0)
+                motifs.append(
+                    f"Bloc {index} ({bloc.type}), champ `{champ}` : {nom} dans "
+                    f"le TEXTE — « …{texte[debut:debut + _EXTRAIT]}… ». Ce sera "
+                    "imprimé tel quel chez le client. Un tableau se demande "
+                    "avec un bloc `tableau` et ses cellules."
+                )
+                break
     return motifs
 
 

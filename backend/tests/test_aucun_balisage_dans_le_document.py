@@ -175,6 +175,12 @@ def test_la_consigne_interdit_explicitement_le_balisage() -> None:
     """
     from generation.chapitres.runner import _SYSTEME
 
-    assert "AUCUN BALISAGE" in _SYSTEME
+    # L'intitule a ete elargi le 10/08/2026 : la cliente a vu du CSV brut dans
+    # un document, et l'interdiction ne vise plus le seul HTML mais la classe
+    # entiere (regle 4). Ce qui compte ici n'a pas bouge — la consigne doit
+    # nommer la balise, sans quoi le modele continue d'imiter les exemples HTML
+    # de ses instructions et chaque chapitre coute une reprise.
+    assert "AUCUN FORMAT DE DONNÉES" in _SYSTEME
+    assert "jamais de balise" in _SYSTEME
     assert "<table" in _SYSTEME
     assert "`tableau`" in _SYSTEME
