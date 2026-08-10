@@ -333,6 +333,30 @@ class Socle(BaseModel):
     def identifiants(self) -> set[str]:
         return {item.id for item in self.donnees}
 
+    @property
+    def identifiants_citables(self) -> set[str]:
+        """Tout ce qu'un chapitre a le DROIT de citer : données ET critères.
+
+        ## Ce qui a rendu cette propriété nécessaire
+
+        Le 10/08/2026, quelques heures après avoir donné au modèle une grille de
+        notation et lui avoir dit d'en citer les codes comme identifiants de
+        figure, le dossier `d326557e` est mort au chapitre 1 :
+
+            `offre` ne figure pas dans le socle verrouillé.
+            `service` ne figure pas dans le socle verrouillé.
+
+        Le modèle avait obéi. La validation, elle, ne connaissait que
+        `socle.donnees` — et j'avais créé DEUX SOURCES pour « ce qui peut être
+        cité » le jour même où je tranchais un conflit de règle 5 sur l'échelle
+        de notation. Vue d'un côté, pas de l'autre.
+
+        Une seule propriété répond désormais à la question, et les deux
+        contrôles l'interrogent. Un code de critère est une chose que le socle
+        porte : le citer n'est pas inventer.
+        """
+        return self.identifiants | {c.code for c in self.grille_notation}
+
     def critere(self, code: str) -> Critere | None:
         for item in self.grille_notation:
             if item.code == code:

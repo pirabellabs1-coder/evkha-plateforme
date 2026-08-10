@@ -1122,10 +1122,23 @@ def _fail(
         status=ChapterStatus.FAILED,
         error_message=str(exc),
     )
-    GenerationJob.objects.filter(pk=job.pk).update(
-        status=JobStatus.FAILED,
-        error_message=str(exc),
-    )
+    # LE JOB N'EST PAS MARQUE FAILED ICI.
+    #
+    # Il l'etait, et c'etait le reliquat du temps ou un chapitre rate tuait
+    # l'etude. L'appelant `continue` desormais : le dossier travaille encore, et
+    # seule la fin de boucle sait s'il a produit quelque chose. Ecrire FAILED au
+    # milieu, c'est affirmer une chose fausse sur un dossier vivant — le contraire
+    # de la regle 1, qui refuse les etats qui ne correspondent a rien.
+    #
+    # Mesure du 10/08/2026 sur `d326557e`, et les trois consequences se sont
+    # enchainees : le tableau de bord annonçait « echec » pendant que les
+    # chapitres s'ecrivaient ; le suivi l'a cru et s'est arrete ; et surtout
+    # `job_cancel` a REFUSE d'agir — « ce job ne peut pas etre annule (statut :
+    # failed) » — sur une generation qui tournait vraiment. Un statut faux ne
+    # trompe pas seulement le lecteur : il desarme les commandes.
+    #
+    # Le motif n'est pas perdu pour autant : il vit sur le chapitre, dans
+    # l'incident HIGH ci-dessous, et le gate de livraison verra le trou.
     OperationalIncident.objects.create(
         title=title,
         severity=IncidentSeverity.HIGH,

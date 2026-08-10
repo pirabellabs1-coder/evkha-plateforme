@@ -1022,7 +1022,7 @@ def generer_chapitre(
     motifs = valider_chapitre(
         payload,
         numero_attendu=chapter.chapter_number,
-        identifiants_socle=frozenset(socle.identifiants),
+        identifiants_socle=frozenset(socle.identifiants_citables),
         resume_mots_min=document.resume_mots_min,
         resume_mots_max=document.resume_mots_max,
         # Le secteur de CETTE étude, pour que le contrôle de secteur étranger
@@ -1071,7 +1071,7 @@ def _arbitrer_conformite(
 
     socle_du_job = socle_verrouille(chapter.job)
     if socle_du_job is not None:
-        socle_ids = frozenset(socle_du_job.identifiants)
+        socle_ids = frozenset(socle_du_job.identifiants_citables)
 
     try:
         rapport = verifier_chapitre(payload, identifiants_socle=socle_ids)
