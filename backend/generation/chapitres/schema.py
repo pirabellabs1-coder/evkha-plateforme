@@ -190,14 +190,49 @@ class Tableau(SortieDeChapitre):
 
     @model_validator(mode="after")
     def _lignes_au_format_des_entetes(self) -> Tableau:
+        """Complète une ligne trop courte au lieu de rejeter le chapitre entier.
+
+        ## Le cas réel qui a changé cette règle
+
+        Étude concurrentielle `5892daa5`, 09/08/2026, en production : « la ligne
+        10 compte 8 cellules pour 9 colonnes déclarées ». Le chapitre 1 a été
+        rejoué jusqu'à épuisement des tentatives et le dossier est mort, après
+        avoir brûlé **0,76 EUR sur un seul chapitre** — quand l'étude
+        concurrentielle complète de la veille en avait coûté 1,27 EUR pour dix.
+
+        Une cellule manquante sur les quatre-vingt-dix d'un tableau. Le contenu
+        des huit autres était bon.
+
+        ## Pourquoi réparer, et pas refuser
+
+        Le dépôt applique déjà ce principe à `raccourcir_le_resume` et à la
+        typographie : **réparer quand la réparation atteint exactement le but
+        que la règle poursuit**. La règle veut un tableau rectangulaire ; la
+        compléter d'une cellule vide le rend rectangulaire. Rejouer un appel
+        entier pour cela coûte six centimes et plusieurs minutes, et le modèle
+        peut refaire la même étourderie — c'est ce qui vient d'arriver.
+
+        Une cellule vide se voit dans le document et se corrige à la main. Un
+        chapitre manquant, non.
+
+        ## Ce qui reste refusé
+
+        Une ligne PLUS LONGUE que ses en-têtes : on ne sait pas laquelle des
+        cellules est en trop, et en choisir une au hasard détruirait de la
+        donnée. Le refus reste le bon comportement quand la réparation devrait
+        deviner (règle 2).
+        """
         largeur = len(self.entetes)
         for rang, ligne in enumerate(self.lignes, start=1):
-            if len(ligne) != largeur:
+            if len(ligne) > largeur:
                 msg = (
                     f"La ligne {rang} compte {len(ligne)} cellules pour "
-                    f"{largeur} colonnes déclarées."
+                    f"{largeur} colonnes déclarées. Une cellule en trop ne peut "
+                    "pas être retirée sans deviner laquelle."
                 )
                 raise ValueError(msg)
+            if len(ligne) < largeur:
+                ligne.extend([""] * (largeur - len(ligne)))
         return self
 
 

@@ -269,12 +269,85 @@ def axes_et_requetes(variables: dict[str, object]) -> list[tuple[Axe, str]]:
     return couples
 
 
-def _format_result(result: SearchResult) -> str:
+#: Mots qui trahissent un périmètre PLUS LARGE que le pays étudié.
+#:
+#: Ils ne disqualifient pas une source : un chiffre mondial a sa place dans une
+#: étude, à condition qu'on sache que c'est un chiffre mondial. Ce qu'on refuse,
+#: c'est qu'il devienne le chiffre national sans que personne ne l'ait décidé.
+_PERIMETRE_PLUS_LARGE = (
+    ("mondial", "monde entier"),
+    ("worldwide", "monde entier"),
+    ("global market", "monde entier"),
+    ("global", "monde entier"),
+    ("international", "plusieurs pays"),
+    ("européen", "Europe"),
+    ("europe", "Europe"),
+    ("union européenne", "Europe"),
+)
+
+
+def _perimetre_apparent(result: SearchResult, pays: str) -> str:
+    """Ce que la source semble couvrir, quand ce n'est visiblement pas le pays.
+
+    ## Pourquoi cette fonction existe
+
+    Retour de la cliente, 09/08/2026 : « l'IA ne doit pas chercher des infos qui
+    ne correspondent pas, c'est grave et une perte de temps — surtout quand il y
+    aura plus d'utilisateurs. »
+
+    Elle a raison, et la chaîne le montrait : la requête ciblait bien
+    « e-commerce animalier **France** », mais rien ne vérifiait que le RÉSULTAT
+    parlait de la France. Sur le dossier réel `451f955b`, une source sur le
+    marché **mondial** des « pet products » est entrée dans le brief, le socle
+    l'a exploitée, l'appel a été payé — et la vérification l'a déclassée ensuite.
+    Trois dépenses pour une source qu'il fallait écarter au départ. À dix
+    utilisateurs, c'est dix fois ce gaspillage.
+
+    ## Pourquoi on MARQUE au lieu de JETER
+
+    Un filtre lexical qui supprime se trompe dans les deux sens : une page de la
+    Fevad sur le marché français n'écrit pas forcément « France », et un article
+    « mondial » peut porter le seul chiffre disponible. Supprimer sur cette base
+    ferait disparaître des sources utiles sans que personne ne le sache — le
+    silence que ce dépôt combat (règle 1).
+
+    Marquer donne au modèle l'information AU MOMENT où il choisit, exactement
+    comme la nature des identifiants du socle donnée entre crochets. C'est la
+    leçon de cette semaine : une aide arrive là où la décision se prend.
+
+    ## Ce qui déclenche la marque
+
+    Un mot de périmètre plus large — mondial, worldwide, européen — ET l'absence
+    du pays étudié dans le titre ou l'extrait. Les deux ensemble : un article
+    intitulé « le marché mondial, et la France en particulier » n'est pas hors
+    périmètre.
+    """
+    if not pays.strip():
+        return ""
+    texte = f"{result.title} {result.content}".casefold()
+    if pays.casefold() in texte:
+        return ""
+    for marqueur, portee in _PERIMETRE_PLUS_LARGE:
+        if marqueur in texte:
+            return portee
+    return ""
+
+
+def _format_result(result: SearchResult, pays: str = "") -> str:
     date = f" ({result.published_date})" if result.published_date else ""
     extrait = result.content.strip().replace("\n", " ")
     if len(extrait) > 320:
         extrait = extrait[:320].rstrip() + "…"
-    return f"- {result.title}{date}\n  URL : {result.url}\n  Extrait : {extrait}"
+    ligne = f"- {result.title}{date}\n  URL : {result.url}\n  Extrait : {extrait}"
+    portee = _perimetre_apparent(result, pays)
+    if portee:
+        ligne += (
+            f"\n  ⚠ PÉRIMÈTRE APPARENT : {portee} — l'étude porte sur "
+            f"{pays}. Un chiffre pris ici ne peut PAS être déclaré `observee` "
+            "sur le périmètre national : soit tu trouves la donnée française, "
+            "soit tu la transposes en `estimee` avec la méthode écrite."
+        )
+    return ligne
 
 
 def collect_research_brief(
@@ -304,6 +377,10 @@ def collect_research_brief(
     if not couples:
         return ""
 
+    # Le pays de l'étude sert à MARQUER les sources d'un périmètre plus large :
+    # une source mondiale n'est pas écartée, elle est signalée comme telle au
+    # moment où le socle la lit. Voir `_perimetre_apparent`.
+    pays_du_job = str(variables.get("PAYS", "")).strip()
     sections: list[str] = []
     urls_vues: set[str] = set()
     retenues = 0
@@ -330,7 +407,7 @@ def collect_research_brief(
             if result.url.endswith(".evkha.local") or ".evkha.local/" in result.url:
                 continue
             urls_vues.add(result.url)
-            gardees.append(_format_result(result))
+            gardees.append(_format_result(result, pays_du_job))
         if gardees:
             retenues += len(gardees)
             # Les chapitres servis sont écrits DANS la section : c'est ce que
