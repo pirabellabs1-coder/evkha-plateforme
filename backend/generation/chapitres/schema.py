@@ -802,7 +802,25 @@ _EXTRAIT = 120
 #: Une énumération française — « le prix, la garantie, la livraison » — emploie
 #: des virgules et traverse intacte. C'est la contre-épreuve qui compte.
 _DONNEES_BRUTES: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("lignes séparées par des points-virgules", re.compile(r"(?:[^;\n]*;){3,}")),
+    # L'ESPACE AVANT LE POINT-VIRGULE sépare le CSV du français.
+    #
+    # La première version comptait trois points-virgules, quelle que soit leur
+    # ponctuation. Elle a tué une génération CLIENTE le 10/08/2026 —
+    # `cc0dfe14`, étude de marché d'Eva, bloquée 89 minutes, chapitre 0 en
+    # échec — sur cette phrase parfaitement française :
+    #
+    #   « Taille du marché français 2026 et part réalisée en ligne ;
+    #     évolution et perspectives à 3-5 ans ; segments porteurs »
+    #
+    # Mes contre-épreuves testaient des phrases à UN point-virgule ; aucune ne
+    # testait une énumération à trois, qui est la forme normale d'une cellule
+    # de tableau. Le remède frappait ce qui n'était pas malade (règle 2), et il
+    # le faisait sur un document payé, en cours, devant une cliente.
+    #
+    # La typographie française impose une espace avant le point-virgule ; un
+    # fichier de données n'en met jamais. C'est ce signal qu'on lit désormais,
+    # et non le seul comptage.
+    ("lignes séparées par des points-virgules", re.compile(r"(?:[^;\n]{0,40}\S;){3,}")),
     ("ligne de tableau brute", re.compile(r"\|[^|\n]*\|[^|\n]*\|")),
     ("tabulations", re.compile(r"\t")),
     ("JSON", re.compile(r"[{\[]\s*\"[^\"]+\"\s*:")),

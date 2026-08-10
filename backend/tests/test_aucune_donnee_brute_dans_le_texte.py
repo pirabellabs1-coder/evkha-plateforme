@@ -106,6 +106,16 @@ def test_les_donnees_brutes_sont_traquees_dans_les_cellules_et_encadres() -> Non
 @pytest.mark.parametrize(
     "texte",
     [
+        # LA phrase qui a tué la génération cliente `cc0dfe14` (10/08/2026,
+        # 89 minutes de blocage, chapitre 0 en échec). Une énumération à trois
+        # points-virgules est la forme NORMALE d'une cellule de tableau ; mes
+        # contre-épreuves n'en testaient aucune.
+        "Taille du marché français 2026 et part réalisée en ligne ; évolution "
+        "et perspectives à 3-5 ans du e-commerce animalier ; segments les plus "
+        "porteurs ; barrières à l'entrée identifiées",
+        "Le prix ; la garantie ; la livraison ; le service après-vente",
+        "Concentrer l'offre sur l'alimentation récurrente et le conseil ; "
+        "éviter le catalogue large ; viser l'abonnement dès le lancement",
         "Le prix, la garantie et la livraison pèsent le plus dans la décision.",
         "Trois acteurs dominent : Sézane, Rouje et Ba&sh.",
         "Le marché progresse de 3,4 % ; la part en ligne, elle, double.",
