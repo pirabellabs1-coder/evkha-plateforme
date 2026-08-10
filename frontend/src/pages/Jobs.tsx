@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import {
   Box, Flex, Badge, Table, Progress, Text, Select, Spinner, Button,
 } from "@radix-ui/themes";
-import { api, estRelancable, type JobSummary } from "../api";
+import { api, estRelancable, livraisonBloquee, type JobSummary } from "../api";
 
 const DELIVERABLE_LABELS: Record<string, string> = {
   market_study: "Étude de marché",
@@ -105,6 +105,14 @@ function JobRowActions({ job }: { job: JobSummary }) {
   const deliverySent = job.delivery_status === "sent";
   const pendingConfirmation = emailQueued && !deliverySent;
 
+  // La MÊME dérogation qu'en page de détail, pour la même raison. Ne garder
+  // l'avertissement que sur une des deux pages en ferait une décoration :
+  // l'autre bouton envoie le même document, au même client, en un clic
+  // (règle 4 — viser la classe, pas l'endroit observé).
+  const bloque = livraisonBloquee(job);
+  const [derogation, setDerogation] = useState(false);
+  const armer = bloque && !derogation && !deliverySent;
+
   return (
     <Flex gap="1" align="center">
       {hasPdf ? (
@@ -121,13 +129,23 @@ function JobRowActions({ job }: { job: JobSummary }) {
       <Button
         size="1"
         variant="ghost"
-        color={deliverySent && !pendingConfirmation ? "green" : "blue"}
+        color={
+          deliverySent && !pendingConfirmation ? "green" : bloque ? "red" : "blue"
+        }
         disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
         loading={emailMutation.isPending}
-        onClick={() => emailMutation.mutate()}
-        title={deliverySent ? "Email envoyé — renvoyer ?" : "Envoyer par email"}
+        onClick={() => (armer ? setDerogation(true) : emailMutation.mutate())}
+        title={
+          armer
+            ? "Gate qualité : document refusé. Un second clic l'enverra quand même."
+            : bloque
+            ? "Confirmer l'envoi d'un document refusé par le gate qualité"
+            : deliverySent
+            ? "Email envoyé — renvoyer ?"
+            : "Envoyer par email"
+        }
       >
-        {pendingConfirmation ? "…" : deliverySent ? "✓" : "✉"}
+        {pendingConfirmation ? "…" : armer ? "⚠" : bloque ? "⚠ !" : deliverySent ? "✓" : "✉"}
       </Button>
     </Flex>
   );
@@ -195,6 +213,17 @@ export function Jobs() {
                         {job.minutes_sans_progression !== null
                           ? ` · ${job.minutes_sans_progression} min`
                           : ""}
+                      </Badge>
+                    )}
+                    {/* Même raison : sur la liste, trois dossiers bloqués
+                        étaient indiscernables de trois dossiers validés. */}
+                    {livraisonBloquee(job) && (
+                      <Badge
+                        color="red"
+                        variant="soft"
+                        title="Gate qualité : document refusé, non parti automatiquement"
+                      >
+                        qualité bloquée
                       </Badge>
                     )}
                   </Flex>

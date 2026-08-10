@@ -90,6 +90,18 @@ export interface JobSummary {
   interrompue: boolean;
   /** Minutes écoulées depuis le dernier chapitre touché. `null` hors « en cours ». */
   minutes_sans_progression: number | null;
+  /**
+   * Verdict du gate qualité : `pending`, `running`, `passed`, `failed`, `blocked`.
+   *
+   * `blocked` veut dire que le document n'est PAS parti automatiquement. La
+   * livraison reste possible à la main — c'est une dérogation prévue, « décision
+   * humaine assumée » selon `generation/gate.py`. Encore faut-il que l'humain
+   * la voie : le backend sérialisait ce champ depuis toujours et AUCUN écran ne
+   * le lisait. Trois dossiers bloqués sont partis chez la cliente le
+   * 10/08/2026, étude de marché comprise, avec le même bouton et aucun
+   * avertissement. On n'assume pas une décision qu'on ne voit pas.
+   */
+  qa_status: string;
   total_cost_eur: string;
   budget_eur: string;
   chapters_done: number;
@@ -100,6 +112,18 @@ export interface JobSummary {
   error_message: string | null;
   pdf_download_url: string | null;
   delivery_status: string | null;
+}
+
+/**
+ * Le gate qualité a refusé ce document : l'envoyer est une dérogation.
+ *
+ * La règle vit ici et nulle part ailleurs (`qa_status === "blocked"`), pour la
+ * raison qui a déjà piégé le bouton « Relancer » : deux conditions écrites à
+ * deux endroits finissent par diverger, et celle du front était plus stricte
+ * que celle du back exactement dans le cas qu'elle devait couvrir.
+ */
+export function livraisonBloquee(job: Pick<JobSummary, "qa_status">): boolean {
+  return job.qa_status === "blocked";
 }
 
 /** Un dossier relançable : échoué, annulé, ou interrompu sans le savoir. */

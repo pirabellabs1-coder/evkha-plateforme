@@ -5,7 +5,10 @@ import { Link } from "@tanstack/react-router";
 import {
   Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner, Button,
 } from "@radix-ui/themes";
-import { api, estRelancable, type Chapter, type JobDetail as JobDetailType } from "../api";
+import {
+  api, estRelancable, livraisonBloquee,
+  type Chapter, type JobDetail as JobDetailType,
+} from "../api";
 
 const STATUS_ICON: Record<string, string> = {
   done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—",
@@ -182,18 +185,42 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
   const emailSent = job.delivery?.status === "sent";
   const pendingConfirmation = emailQueued && !emailSent;
 
+  // Le gate a refusé ce document. L'envoyer reste permis — c'est la dérogation
+  // prévue par `generation/gate.py` — mais elle doit être VOULUE. Jusqu'ici le
+  // bouton était identique à celui d'un dossier validé : trois documents
+  // bloqués sont partis chez la cliente le 10/08/2026 sans que personne ne le
+  // sache. Un premier clic arme, un second envoie.
+  const bloque = livraisonBloquee(job);
+  const [derogation, setDerogation] = useState(false);
+  const armer = bloque && !derogation && !emailSent;
+
   const emailLabel = emailMutation.isPending
     ? "Envoi…"
     : pendingConfirmation
     ? "Email en cours…"
     : emailSent
     ? "✓ Email envoyé"
+    : armer
+    ? "Envoyer malgré le blocage"
+    : bloque
+    ? "Confirmer l'envoi du document bloqué"
     : "Envoyer par email";
 
   return (
     <Flex direction="column" align="end" gap="2">
       {pdfOnly && (
         <Text size="1" color="orange">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</Text>
+      )}
+      {bloque && !emailSent && (
+        <Text size="1" color="red" align="right">
+          ⚠ Gate qualité : ce document n'est PAS parti chez le client.
+          {" "}L'envoyer est une dérogation — relisez-le d'abord.
+        </Text>
+      )}
+      {bloque && emailSent && (
+        <Text size="1" color="orange" align="right">
+          ⚠ Document envoyé alors que le gate qualité l'avait bloqué.
+        </Text>
       )}
       <Flex gap="2" wrap="wrap" justify="end">
         {!hasPdf && (
@@ -223,10 +250,12 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
           <Button
             size="2"
             variant="soft"
-            color={emailSent && !pendingConfirmation ? "green" : "blue"}
+            color={
+              emailSent && !pendingConfirmation ? "green" : bloque ? "red" : "blue"
+            }
             loading={emailMutation.isPending}
             disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
-            onClick={() => emailMutation.mutate()}
+            onClick={() => (armer ? setDerogation(true) : emailMutation.mutate())}
           >
             {emailLabel}
           </Button>
@@ -341,6 +370,20 @@ export function JobDetail() {
             {STATUS_ICON[data.status] ?? data.status}{" "}
             {STATUS_LABELS[data.status] ?? data.status}
           </Badge>
+          {/* Un dossier refusé par le gate doit se VOIR, au même endroit que son
+              statut. Sans ce badge, il était en tous points identique à un
+              dossier validé — et l'écran est le seul endroit où la « décision
+              humaine assumée » peut l'être. */}
+          {livraisonBloquee(data) && (
+            <Badge
+              color="red"
+              variant="solid"
+              size="2"
+              title="Le gate qualité a refusé ce document : il n'est pas parti automatiquement."
+            >
+              ⚠ Qualité : bloqué
+            </Badge>
+          )}
         </Flex>
         {canCancel && <CancelButton jobId={jobId} />}
         {canRelaunch && <RelaunchButton jobId={jobId} />}
