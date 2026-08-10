@@ -14,6 +14,7 @@ urlpatterns = [
     path("jobs/<str:job_id>/cancel/", views.job_cancel, name="job-cancel"),
     path("jobs/<str:job_id>/relaunch/", views.job_relaunch, name="job-relaunch"),
     path("jobs/<str:job_id>/redeliver/", views.job_redeliver, name="job-redeliver"),
+    path("jobs/<str:job_id>/reverifier/", views.job_reverifier, name="job-reverifier"),
     path("jobs/<str:job_id>/send-email/", views.job_send_email, name="job-send-email"),
     # Incidents
     path("incidents/", views.incidents_list, name="incidents-list"),

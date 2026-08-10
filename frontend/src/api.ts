@@ -280,6 +280,7 @@ export const api = {
   jobCancel:          (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/cancel/`, {}),
   jobRelaunch:        (id: string) => post<GenerateResponse>(`/jobs/${id}/relaunch/`, {}),
   jobRedeliver:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/redeliver/`, {}),
+  jobReverifier:      (id: string) => post<{ job_id: string; qa_status: string; passed: boolean; echecs: number }>(`/jobs/${id}/reverifier/`, {}),
   jobSendEmail:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/send-email/`, {}),
   incidents:          () => get<Incident[]>("/incidents/"),
   incidentResolve:    (id: string) => post<{ id: string; status: string }>(`/incidents/${id}/resolve/`, {}),

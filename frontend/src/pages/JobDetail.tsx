@@ -182,6 +182,19 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
     onError: (err: Error) => setEmailError(err.message),
   });
 
+  // Recontrôle : le gate rejoué sur le document existant, zéro appel IA.
+  // Un blocage peut devenir faux quand le CONTRÔLE était le défaut — trois
+  // contrôles réparés le 10/08/2026 après le blocage de `026fecea`. Sans ce
+  // bouton, le seul choix était d'assumer une dérogation sur un verdict
+  // périmé, ou de repayer 3,50 € pour un document déjà produit.
+  const reverifierMutation = useMutation({
+    mutationFn: () => api.jobReverifier(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+  });
+
   const emailSent = job.delivery?.status === "sent";
   const pendingConfirmation = emailQueued && !emailSent;
 
@@ -212,10 +225,22 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
         <Text size="1" color="orange">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</Text>
       )}
       {bloque && !emailSent && (
-        <Text size="1" color="red" align="right">
-          ⚠ Gate qualité : ce document n'est PAS parti chez le client.
-          {" "}L'envoyer est une dérogation — relisez-le d'abord.
-        </Text>
+        <Flex align="center" gap="2" justify="end">
+          <Text size="1" color="red">
+            ⚠ Bloqué par le contrôle qualité — non envoyé au client.
+          </Text>
+          <Button
+            size="1"
+            variant="soft"
+            color="gray"
+            loading={reverifierMutation.isPending}
+            disabled={reverifierMutation.isPending}
+            onClick={() => reverifierMutation.mutate()}
+            title="Rejoue le contrôle qualité sur ce document, sans appel IA ni dépense."
+          >
+            ↻ Recontrôler
+          </Button>
+        </Flex>
       )}
       {bloque && emailSent && (
         <Text size="1" color="orange" align="right">

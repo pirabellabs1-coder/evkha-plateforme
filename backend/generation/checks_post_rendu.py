@@ -51,6 +51,13 @@ _STRUCTURES_STRUCTURELLES = (
     re.compile(r"[|+-]\s*$"),                                    # fin de tableau
     re.compile(r"</?[a-zA-Z][^>]*>\s*$"),                        # balise HTML
     re.compile(r"```\s*$"),                                       # fin de code fence
+    # Marqueur graphique du moteur structuré : un `BlocGraphique` sérialisé
+    # par `payload_vers_markdown`, résolu en figure au rendu. Un chapitre a le
+    # DROIT de se fermer sur une figure — le contrat le permet — et le job
+    # réel `026fecea` (10/08/2026) s'est fait compter « tronqué » pour avoir
+    # terminé « Sources et méthodologie » sur son graphique tarifaire. Motif
+    # faux : rien n'était perdu, le rendu allait dessiner la figure.
+    re.compile(r"-->\s*$"),                                       # fin de commentaire
 )
 
 

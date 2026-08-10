@@ -139,6 +139,16 @@ _SYSTEME = (
     "précédents te disent ce qui a déjà été posé. Une phrase que le lecteur "
     "doit relire pour la comprendre est une phrase à réécrire.\n"
     "\n"
+    # Le gate refuse ces locutions (`detecter_ton_publicitaire`) et la
+    # consigne ne les nommait pas : le modele les decouvrait en payant une
+    # reprise — « incontournable » corrige en cours de route sur `026fecea`.
+    "TON DESCRIPTIF, JAMAIS PUBLICITAIRE. Aucun superlatif marketing — "
+    "« leader incontestable », « incontournable », « révolutionnaire », "
+    "« unique en son genre », « sans équivalent », « meilleur du marché » — "
+    "pas même pour décrire un concurrent. À la place, le FAIT CHIFFRÉ qui "
+    "justifierait l'adjectif : « cité par 9 comparateurs sur 12 » dit plus "
+    "qu'« incontournable ».\n"
+    "\n"
     "FRANÇAIS IRRÉPROCHABLE. Ce document est remis tel quel à un client final. "
     "Relis chaque phrase avant de la rendre : accords en genre et en nombre, "
     "conjugaison, participes passés, noms propres et raisons sociales écrits "

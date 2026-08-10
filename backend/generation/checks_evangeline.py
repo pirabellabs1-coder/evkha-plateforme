@@ -553,30 +553,28 @@ def compter_concurrents(
 def verifier_concurrents_dans_ec(
     sections: list[tuple[int, str]],
 ) -> list[CompteConcurrents]:
-    """Compte les concurrents sur l'ensemble des chapitres d'une EC.
+    """Chaque section « Concurrents » presente les cardinaux exacts — PAR CHAPITRE.
 
-    Retourne UNIQUEMENT les comptes qui divergent des attendus. Aucun compte
-    trouve = aucune sous-section detectee : on ne signale rien plutot que
-    d'inventer un defaut sur un chapitre qui n'a jamais eu vocation a les
-    lister (structure du blueprint qui aurait change).
+    La version d'origine ADDITIONNAIT les comptes de tous les chapitres. Elle
+    etait juste tant qu'un seul chapitre listait les acteurs. Depuis que la
+    base consolidee est transmise a chaque chapitre (10/08/2026), plusieurs
+    chapitres la reprennent legitimement — c'est meme la consigne (« liste
+    figee du chapitre 1 »). Le job reel `026fecea` a ete bloque sur
+    « 20 trouves, 8 attendus » : 8 au chapitre 1, 8 au chapitre 2, 4 en
+    synthese. Vingt concurrents que personne n'a ecrits — le motif etait
+    introuvable dans le document (regle 2).
+
+    Le compte se juge donc la ou il se fait : toute section qui liste doit
+    lister juste, et un document qui reprend deux fois ses huit directs est
+    plus conforme, pas moins. Aucune sous-section detectee = silence — on ne
+    signale rien plutot que d'inventer un defaut sur un chapitre qui n'a
+    jamais eu vocation a lister (regle 4).
     """
-    par_type: dict[str, int] = {"directs": 0, "indirects": 0}
-    dernier_chapitre: dict[str, int] = {}
+    divergents: list[CompteConcurrents] = []
     for numero, corps in sections:
         for c in compter_concurrents(numero, corps):
-            par_type[c.type_] += c.trouves
-            dernier_chapitre[c.type_] = numero
-    divergents: list[CompteConcurrents] = []
-    for type_, attendus in ATTENDUS_CONCURRENTS.items():
-        trouves = par_type[type_]
-        if type_ not in dernier_chapitre or trouves == attendus:
-            continue
-        divergents.append(CompteConcurrents(
-            type_=type_,
-            trouves=trouves,
-            attendus=attendus,
-            chapitre=dernier_chapitre[type_],
-        ))
+            if c.trouves != c.attendus:
+                divergents.append(c)
     return divergents
 
 

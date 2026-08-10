@@ -177,7 +177,15 @@ _ANNEXES_MAX = 4
 #: marche, radar des 11 acteurs, repartition des canaux.
 _VISUELS_ATTENDUS = 4
 
-_TITRE_ANNEXE_RE = re.compile(r"^#{2,4}\s*annexe\b", re.IGNORECASE | re.MULTILINE)
+#: Le préfixe de numérotation est optionnel : le moteur structuré rend chaque
+#: sous-titre en `## {numero} {intitule}` — « ## 4.1 Annexe A — Grille » — et
+#: l'ancien motif exigeait « annexe » collé aux dièses. Un modèle qui titrait
+#: ses annexes DANS la numérotation du contrat ne pouvait jamais être compté
+#: (job réel `026fecea`, 10/08/2026 : « 0 annexe(s) titrée(s) » sur un
+#: chapitre qui en portait).
+_TITRE_ANNEXE_RE = re.compile(
+    r"^#{2,4}\s*(?:\d[\w.]*\s+)?annexe\b", re.IGNORECASE | re.MULTILINE
+)
 #: `<!-- graphique:` est LE visuel du moteur structuré : un `BlocGraphique`
 #: sérialisé par `payload_vers_markdown`, résolu en figure au rendu. Ne pas le
 #: compter, c'était exiger du chapitre 7 des visuels dans un format que le

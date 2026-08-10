@@ -317,6 +317,69 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def job_reverifier(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Rejoue le gate de livraison et met le verdict à jour. Zéro appel IA.
+
+    ## Pourquoi ce recontrôle existe
+
+    Le 10/08/2026, le dossier `026fecea` — dix chapitres propres, 1,94 € — a
+    été bloqué par TROIS contrôles qui jugeaient le contrat structuré avec
+    les yeux de l'ancien moteur : un chapitre fermé sur sa figure compté
+    « tronqué », les cardinaux de concurrents ADDITIONNÉS entre chapitres
+    (« 20 trouvés » que personne n'avait écrits), des annexes titrées dans la
+    numérotation du contrat comptées zéro. Les contrôles ont été réparés —
+    mais le verdict, lui, restait écrit en base, et le tableau de bord
+    continuait d'afficher un blocage que plus rien ne justifiait.
+
+    Un verdict doit pouvoir être rejoué quand le JUGE a changé : c'est la
+    seule issue honnête entre livrer sous dérogation (assumer un blocage
+    faux) et repayer une génération entière (3,50 €) pour un document déjà
+    produit. Lecture seule sur le document ; seule l'étiquette change, dans
+    les deux sens — un recontrôle peut aussi CONFIRMER un blocage, avec des
+    motifs frais.
+    """
+    try:
+        job = GenerationJob.objects.get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    if job.status != JobStatus.DONE:
+        return _json(
+            {"error": f"Recontrôle impossible : job {job.status}, DONE attendu."},
+            status=400,
+        )
+
+    from generation.gate import run_delivery_gate  # noqa: PLC0415
+    from generation.models import QAStatus  # noqa: PLC0415
+
+    rapport = run_delivery_gate(job)
+    verdict = QAStatus.PASSED if rapport.passed else QAStatus.BLOCKED
+    GenerationJob.objects.filter(pk=job.pk).update(qa_status=verdict)
+
+    if not rapport.passed:
+        # Motifs FRAIS : laisser l'ancien incident raconter d'anciens échecs
+        # ferait relire un blocage périmé (règle 2 — un motif doit être
+        # trouvable dans le document tel qu'il est).
+        OperationalIncident.objects.create(
+            title=f"Gate qualité (recontrôle) : toujours bloqué (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+
+    return _json({
+        "job_id": str(job.id),
+        "qa_status": str(verdict),
+        "passed": rapport.passed,
+        "echecs": len(getattr(rapport, "failures", ()) or ()),
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def job_redeliver(request: HttpRequest, job_id: str) -> JsonResponse:
     """Relance la livraison depuis le dashboard.
 
