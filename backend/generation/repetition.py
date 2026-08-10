@@ -31,6 +31,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from django.test import override_settings
+
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from generation.gate import run_delivery_gate
@@ -50,6 +52,20 @@ VARIABLES_DE_REPETITION: dict[str, str] = {
     "PROJET": "Atelier de torréfaction avec vente directe et abonnements",
     "CLIENTELE_CIBLE": "Particuliers amateurs et cafés-restaurants indépendants",
     "CONCURRENTS": "Torréfacteurs locaux, chaînes nationales, vente en ligne",
+    # L'état chiffré client, sans lequel `_check_etat_chiffre_present` bloque
+    # tout business plan — à raison : un gate sans référentiel de comparaison
+    # rendrait `passed` sur n'importe quoi (règle 1). Un brief de répétition
+    # sans ces montants ne répète pas le cas nominal, il répète le cas
+    # dégradé « prévisionnel manquant, relecture admin ».
+    "INVESTISSEMENT_TOTAL": "85 000 €",
+    "APPORT": "25 000 €",
+    "EMPRUNT": "60 000 €",
+    "SUBVENTIONS": "0 €",
+    "CA_PREVISIONNEL": "120 000 €",
+    "EBE_PREVISIONNEL": "18 000 €",
+    "RESULTAT_NET_PREVISIONNEL": "9 000 €",
+    "SEUIL_RENTABILITE": "95 000 €",
+    "TAUX_OCCUPATION": "70 %",
 }
 
 
@@ -64,6 +80,12 @@ class RapportRepetition:
     #: (numéro, motif) des chapitres FAILED — toujours un défaut interne :
     #: sur la doublure, un chapitre qui échoue ne peut s'en prendre qu'à nous.
     chapitres_rates: list[tuple[int, str]] = field(default_factory=list)
+    #: Chapitres DONE sans payload structuré : le moteur HÉRITÉ a joué à la
+    #: place du moteur de production. Mesuré le 10/08/2026 : la première
+    #: version de cette répétition a rendu « SAIN ×4 » sur le mauvais moteur,
+    #: parce que `EVKHA_SOCLE_ENABLED` est faux par défaut hors production.
+    #: Une répétition de la mauvaise pièce est pire qu'aucune répétition.
+    chapitres_sans_payload: list[int] = field(default_factory=list)
     gate_passe: bool = False
     #: Échecs de gate, rapportés pour information (contenu de doublure).
     gate_echecs: list[str] = field(default_factory=list)
@@ -73,6 +95,12 @@ class RapportRepetition:
     @property
     def defauts_internes(self) -> list[str]:
         defauts = [f"chapitre {n} : {motif}" for n, motif in self.chapitres_rates]
+        if self.chapitres_sans_payload:
+            defauts.append(
+                "moteur hérité employé — chapitres sans payload structuré : "
+                + ", ".join(str(n) for n in self.chapitres_sans_payload)
+                + ". La répétition doit jouer le moteur de PRODUCTION."
+            )
         if self.erreur_chaine:
             defauts.append(f"chaîne interrompue : {self.erreur_chaine}")
         return defauts
@@ -116,8 +144,14 @@ def jouer_a_blanc(deliverable_type: str) -> RapportRepetition:
     # Le client est INJECTÉ : la répétition ne dépend pas d'un réglage
     # d'environnement pour être gratuite. Quoi qu'il y ait dans le `.env`,
     # aucun appel réseau ne part d'ici.
+    #
+    # Et le moteur est FORCÉ sur celui de production. `EVKHA_SOCLE_ENABLED`
+    # est faux par défaut hors production : sans ce forçage, la répétition
+    # joue le moteur hérité et rend un « SAIN » qui ne parle pas du système
+    # déployé — mesuré le 10/08/2026, première exécution de ce module.
     try:
-        run_generation_job(job, client=StubClaudeClient())
+        with override_settings(EVKHA_SOCLE_ENABLED=True):
+            run_generation_job(job, client=StubClaudeClient())
     except GenerationRunError as erreur:
         rapport.erreur_chaine = str(erreur)
     except Exception as erreur:  # noqa: BLE001 — tout arrêt est un constat, pas un crash
@@ -131,6 +165,11 @@ def jouer_a_blanc(deliverable_type: str) -> RapportRepetition:
         (c.chapter_number, (c.error_message or "sans motif")[:300])
         for c in chapitres
         if c.status == ChapterStatus.FAILED
+    ]
+    rapport.chapitres_sans_payload = [
+        c.chapter_number
+        for c in chapitres
+        if c.status == ChapterStatus.DONE and not c.payload
     ]
 
     # Le gate en lecture seule — ses échecs de CONTENU sont attendus sur une

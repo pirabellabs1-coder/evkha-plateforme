@@ -537,7 +537,18 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         "lecteur.\n"
         "- Un objectif chiffré se DÉCIDE : jamais de fourchette nue "
         "(« 3-5 % »). Une stratégie qui vise « entre 100 et 150 k€ » n'a pas "
-        "choisi — écris le chiffre visé et l'hypothèse qui le porte."
+        "choisi — écris le chiffre visé et l'hypothèse qui le porte.\n"
+        # Le gate STR verifie ces trois structures (structure_chapitre,
+        # lecture_strategique_absente, pilier_manquant) et la consigne ne les
+        # disait pas : la meme surdite que la fourchette, mesuree sur la
+        # repetition a blanc du 10/08/2026.
+        "- Chaque chapitre porte AU MOINS DEUX sous-parties nommées (blocs "
+        "`titre_sous_section`) et se ferme sur un bloc de recul — « À "
+        "retenir » ou « Lecture stratégique » : conséquences futures, lien "
+        "aux décisions.\n"
+        "- Les QUATRE PILIERS structurent le document et chacun y apparaît en "
+        "toutes lettres : positionnement et différenciation, structuration de "
+        "l'offre, visibilité et acquisition, rentabilité du modèle économique."
     ),
 }
 

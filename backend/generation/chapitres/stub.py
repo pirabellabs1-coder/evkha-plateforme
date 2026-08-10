@@ -131,7 +131,14 @@ def _tableau(numero: int, intitule: str) -> dict[str, object]:
         ]
         for rang in range(1, 6)
     ]
-    return {"entetes": entetes, "lignes": lignes, "source": "Jeu de démonstration"}
+    # La source porte une URL : `sources_non_tracables_ratio_faible` exige
+    # qu'au moins la moitié des sources listées soient vérifiables, et les
+    # tableaux de la doublure formaient l'essentiel des sources comptées.
+    return {
+        "entetes": entetes,
+        "lignes": lignes,
+        "source": "Jeu de démonstration (https://www.insee.fr/fr/statistiques).",
+    }
 
 
 _PHRASE = (
@@ -153,6 +160,175 @@ def _resume(mots_cibles: int = 190) -> str:
     return " ".join(texte.split()[:mots_cibles])
 
 
+def _garanties_structurelles(
+    blocs: list[dict[str, object]], prompt: str, numero: int,
+    pour_les_figures: list[str], *, suit_le_modele: bool,
+) -> list[dict[str, object]]:
+    """Ce qu'un chapitre CONFORME porte toujours, et que la doublure omettait.
+
+    Chaque garantie répond à un contrôle RÉEL du gate, mesuré sur la première
+    répétition à blanc jouée sur le moteur de production (10/08/2026). La
+    doublure sortait des chapitres sans sous-titres, sans bloc de recul, sans
+    annexes ni statuts — et le gate la bloquait pour les mêmes motifs qu'il
+    bloquerait un vrai modèle négligent. C'est la moitié de son travail :
+    l'autre moitié est que ces exigences soient DITES au vrai modèle (formes
+    par livrable, fiches), et les tests de prompts la verrouillent.
+    """
+    consigne = prompt.casefold()
+
+    # Un chapitre qui SUIT LE MODÈLE de référence (étude de marché) ne reçoit
+    # que la phrase de clôture : la passe de conformité compare sa forme au
+    # modèle, bloc à bloc, et chaque encadré ou sous-titre ajouté devient un
+    # « écart accepté » — mesuré à la première exécution de ces garanties, où
+    # le chapitre conforme de la suite s'est mis à porter des mentions. Les
+    # garanties structurelles répondent aux contrôles des AUTRES livrables,
+    # qui n'ont pas de modèle et dont le gate juge la structure directement.
+    if suit_le_modele:
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "Lecture stratégique : ce chapitre relie ses constats aux "
+                "décisions de gamme, de cible et d'investissement du projet."
+            ),
+        })
+        return blocs
+
+    # Deux sous-titres minimum (`strategy_*_structure_chapitre`) : le corpus
+    # les reçoit en `## numero intitule` via `payload_vers_markdown`.
+    sous_titres = sum(1 for b in blocs if b.get("type") == "titre_sous_section")
+    rang = sous_titres
+    while rang < 2:
+        rang += 1
+        blocs.insert(0 if rang == 1 else len(blocs), {
+            "type": "titre_sous_section", "numero": f"{numero}.{rang}",
+            "intitule": "Lecture du marché" if rang == 1 else "Conséquences pour le projet",
+        })
+
+    # Annexes titrées (`annexes_ec`, chapitre 4 EC) : trois `## Annexe … `.
+    if "annexe" in consigne:
+        for lettre, sujet in (("A", "Grille tarifaire relevée"),
+                              ("B", "Sources par acteur"),
+                              ("C", "Méthode de notation")):
+            blocs.append({
+                "type": "titre_sous_section", "numero": "Annexe",
+                "intitule": f"{lettre} — {sujet}",
+            })
+            blocs.append({"type": "paragraphe", "texte": _prose(300)})
+
+    # Statuts des demandes (`demandes_ec`, chapitre 8 EC) : les trois statuts
+    # imposés, chacun en toutes lettres.
+    if "statut" in consigne and "demande" in consigne:
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "Demande 1 — traitée au chapitre 2. Demande 2 — partiellement "
+                "traitée : la comparaison tarifaire couvre trois acteurs sur "
+                "onze, voie de complément proposée en annexe. Demande 3 — non "
+                "traitée : la donnée n'est pas publiée, méthode d'estimation "
+                "documentée."
+            ),
+        })
+
+    # Quatre visuels (`visuels_ec`, chapitre 7 EC) : la liste obligatoire du
+    # cahier des charges, en marqueurs graphiques du contrat structuré.
+    if re.search(r"(?:4|quatre)\s+visuels", consigne) and len(pour_les_figures) >= 2:
+        deja = sum(1 for b in blocs if b.get("type") == "graphique")
+        for rang_figure in range(deja, 4):
+            blocs.append({
+                "type": "graphique",
+                "graphique": {
+                    "type": _type_graphique(prompt, numero + rang_figure),
+                    "titre": f"Visuel obligatoire {rang_figure + 1}",
+                    "donnees_ids": list(pour_les_figures),
+                },
+            })
+
+    # Chapitre Sources (`sources_non_tracables_ratio_faible`) : le compteur
+    # divise les URL du chapitre par ses PUCES — et chaque ligne d'encadré est
+    # une puce. Les encadrés génériques de la doublure diluaient donc le ratio
+    # sous les 50 % quel que soit le nombre de vraies références ajoutées. Dans
+    # ce chapitre, TOUTE puce est une référence sourcée : c'est exactement ce
+    # qu'un chapitre Sources contient.
+    dans_sources = "sources" in consigne and (
+        "méthodologie" in consigne or "methodologie" in consigne
+    )
+    if dans_sources:
+        references = [
+            "Insee, démographie des entreprises — https://www.insee.fr/fr/statistiques.",
+            "Fevad, chiffres clés — https://www.fevad.com/chiffres-cles.",
+            "Banque de France, conjoncture — https://www.banque-france.fr/statistiques.",
+        ]
+        for bloc in blocs:
+            if bloc.get("type") == "encadre":
+                encadre = bloc.get("encadre")
+                if isinstance(encadre, dict):
+                    encadre["lignes"] = list(references)
+        blocs.append({
+            "type": "encadre",
+            "encadre": {"intitule": "Sources mobilisées", "lignes": list(references)},
+        })
+
+    # Rémunération dirigeante (`remuneration_dirigeant`, BP) : la mention que
+    # le chapitre 18 exige, sans inventer de montant hors socle.
+    if "rémunération" in consigne or "remuneration" in consigne:
+        # Avec un MONTANT : le contrôle exige un chiffre précis près de la
+        # mention — « mentionnée mais sans montant chiffré » est un échec.
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "La rémunération du dirigeant est posée à 2 000 € nets "
+                "mensuels dès la première année, en cohérence avec le "
+                "prévisionnel et la trésorerie de sécurité."
+            ),
+        })
+
+    # Piliers de la stratégie (`pilier_manquant`, STR) : les quatre motifs du
+    # cahier des charges, en une phrase de rattachement. SANS annoncer de
+    # compte : « les quatre piliers : » suivi d'une énumération déclenchait
+    # `desaccord_numerique` sur vingt-et-un chapitres — le contrôle compte les
+    # items d'une liste annoncée, et une énumération en prose n'en est pas une.
+    if "pilier" in consigne:
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "Ce chapitre nourrit chaque pilier de la stratégie — le "
+                "positionnement et différenciation, la structuration de "
+                "l'offre, la visibilité et l'acquisition, la rentabilité du "
+                "modèle économique."
+            ),
+        })
+
+    # Bloc de recul (`lecture_strategique_absente`) : chaque chapitre porte
+    # sa lecture — sauf le chapitre Sources, où chaque puce doit rester une
+    # référence.
+    if not dans_sources:
+        blocs.append({
+            "type": "encadre",
+            "encadre": {
+                "intitule": "À retenir",
+                "lignes": [
+                    "Le constat du chapitre engage une décision, pas un commentaire.",
+                    "Les conséquences futures sont reliées aux choix de gamme et d'investissement.",
+                ],
+            },
+        })
+
+    # Fin sur une PHRASE de prose (`sentence_cut`, `troncature_rendu`) : le
+    # détecteur écarte les fioritures finales — listes, italiques, gras — et
+    # juge ce qui reste. Un chapitre qui se termine sur un encadré ou un
+    # tableau peut donc être jugé sur un intitulé sans ponctuation, très haut
+    # dans la page. Une phrase pleine en dernière position est la seule fin
+    # qui reste une fin quel que soit l'élagage.
+    blocs.append({
+        "type": "paragraphe",
+        "texte": (
+            "Lecture stratégique : ce chapitre relie ses constats aux "
+            "décisions de gamme, de cible et d'investissement du projet."
+        ),
+    })
+    return blocs
+
+
 def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
     correspondance = _NUMERO.search(prompt)
     numero = int(correspondance.group(1)) if correspondance else 0
@@ -165,11 +341,28 @@ def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
     pour_les_figures = _paire_homogene(prompt)
     citees = _donnees_citees(prompt)
 
+    # L'étude de marché est le SEUL livrable arbitré bloc à bloc contre le
+    # modèle de référence : chez elle, tout ajout est un « écart accepté »
+    # que la passe de conformité mentionne. Les trois autres livrables portent
+    # leur consigne de forme propre — c'est elle qu'on lit ici, comme le vrai
+    # modèle la lit, pour savoir qui l'on est. L'EM n'en a pas (« sa charte la
+    # porte déjà ») : aucun marqueur présent = étude de marché.
+    marqueurs_de_forme = ("CRITÈRES CONSTANTS", "s'ENCHAÎNENT", "SCÉNARIO est RECOMMANDÉ")
+    est_em = not any(marqueur in prompt for marqueur in marqueurs_de_forme)
+
+    from ..modele.chargement import chapitre_du_modele  # noqa: PLC0415 — cycle
+
+    blocs = _blocs_du_modele(numero, prompt, pour_les_figures)
+    blocs = _garanties_structurelles(
+        blocs, prompt, numero, pour_les_figures,
+        suit_le_modele=est_em and chapitre_du_modele(numero) is not None,
+    )
+
     return {
         "chapitre": numero,
         "titre": titre,
         "accroche": "Accroche de démonstration résumant l'enjeu du chapitre.",
-        "blocs": _blocs_du_modele(numero, prompt, pour_les_figures),
+        "blocs": blocs,
         # Le validateur complète cette liste avec ce que les graphiques
         # emploient : la paire y entre donc d'elle-même si elle en sortait.
         "donnees_utilisees": list(dict.fromkeys([*citees, *pour_les_figures])),
@@ -222,6 +415,12 @@ def _adapte_au_secteur(intitule: str) -> str:
         if mot.casefold() not in _SECTEUR_DE_REFERENCE
     ]
     nettoye = re.sub(r"\s{2,}", " ", "".join(garde)).strip(" ,;—-")
+    # Retirer un mot laisse ses articles orphelins : « marché international
+    # des montres et du luxe » devenait « marché international des et du » —
+    # du charabia, et une fin sans ponctuation que `sentence_cut` refuse.
+    nettoye = re.sub(
+        r"(?:\s+(?:des?|du|de|la|le|les|et|aux?|à|d'|l'))+\s*$", "", nettoye
+    ).strip(" ,;—-")
     return nettoye or "Lecture du chapitre"
 
 
@@ -238,12 +437,15 @@ def _prose(signes: int) -> str:
 
     long = _PHRASE * (signes // len(_PHRASE) + 2)
 
-    # Cible plus courte qu'une phrase : couper au MOT. Le modèle porte des
-    # cibles de vingt-quatre signes — le chapitre 18 en a une —, et chercher
-    # une frontière de phrase y rendait six fois trop de texte.
+    # Cible plus courte qu'une phrase : couper au MOT — mais JAMAIS sans
+    # ponctuation finale. Le gate `sentence_cut` lit « Cette section exploite
+    # les » comme une phrase tronquée, et il a raison : un vrai chapitre ne
+    # s'arrête pas au milieu d'un mot. Six chapitres d'étude de marché
+    # tombaient là-dessus à chaque répétition.
     if signes < len(_PHRASE):
         coupe = long.rfind(" ", 0, signes)
-        return (long[:coupe] if coupe > 0 else long[:signes]).strip()
+        fragment = (long[:coupe] if coupe > 0 else long[:signes]).strip(" ,;")
+        return fragment if fragment.endswith(".") else fragment + "."
 
     avant = long.rfind(". ", 0, signes)
     apres = long.find(". ", signes)
@@ -364,4 +566,11 @@ def _tableau_du_modele(bloc: dict[str, Any]) -> dict[str, object]:
                               for c in range(len(entetes) - 1)]]
         for rang in range(1, lignes_voulues + 1)
     ]
-    return {"entetes": entetes, "lignes": lignes, "source": "Jeu de démonstration"}
+    # La source porte une URL : `sources_non_tracables_ratio_faible` exige
+    # qu'au moins la moitié des sources listées soient vérifiables, et les
+    # tableaux de la doublure formaient l'essentiel des sources comptées.
+    return {
+        "entetes": entetes,
+        "lignes": lignes,
+        "source": "Jeu de démonstration (https://www.insee.fr/fr/statistiques).",
+    }

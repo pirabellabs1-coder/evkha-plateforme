@@ -178,7 +178,12 @@ _ANNEXES_MAX = 4
 _VISUELS_ATTENDUS = 4
 
 _TITRE_ANNEXE_RE = re.compile(r"^#{2,4}\s*annexe\b", re.IGNORECASE | re.MULTILINE)
-_VISUEL_RE = re.compile(r"<table\b|```chart\b|!\[", re.IGNORECASE)
+#: `<!-- graphique:` est LE visuel du moteur structuré : un `BlocGraphique`
+#: sérialisé par `payload_vers_markdown`, résolu en figure au rendu. Ne pas le
+#: compter, c'était exiger du chapitre 7 des visuels dans un format que le
+#: moteur ne produit jamais — la même cécité que la matrice HTML, mesurée le
+#: même jour (10/08/2026) sur la répétition à blanc.
+_VISUEL_RE = re.compile(r"<table\b|```chart\b|!\[|<!--\s*graphique:", re.IGNORECASE)
 #: Etape 8.2 : chaque demande porte un statut sur trois.
 _STATUT_RE = re.compile(
     r"\b(?:traitée?|traitee?|partiellement\s+traitée?|partiellement\s+traitee?"
