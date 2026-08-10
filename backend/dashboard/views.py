@@ -356,11 +356,13 @@ def job_reverifier(request: HttpRequest, job_id: str) -> JsonResponse:
 
     rapport = run_delivery_gate(job)
 
-    # `{"corriger": true}` : si le gate échoue encore, rejouer la boucle de
-    # correction — les chapitres fautifs sont régénérés avec leurs motifs,
-    # SOUS LE PLAFOND DU DOSSIER (le Cost Engine coupe comme pendant la
-    # génération). C'est le chemin « tout vert » sur un document déjà payé :
-    # corriger deux chapitres coûte des centimes, régénérer l'étude 3,50 €.
+    # `{"corriger": true}` : si le gate échoue encore, la boucle de correction
+    # part en TÂCHE DE FOND — les chapitres fautifs se régénèrent avec leurs
+    # motifs, sous le plafond du dossier, et le verdict s'écrit à la fin.
+    # JAMAIS dans la requête : la première version y a laissé un 500 et un
+    # chapitre fantôme en `running` quand le serveur a tué le worker à son
+    # délai de garde (10/08/2026, `026fecea`). Une régénération est une
+    # génération : elle vit là où vivent les générations.
     if not rapport.passed:
         corriger = False
         try:
@@ -369,11 +371,14 @@ def job_reverifier(request: HttpRequest, job_id: str) -> JsonResponse:
         except (json.JSONDecodeError, ValueError):
             corriger = False
         if corriger:
-            from generation.correction import run_correction_loop  # noqa: PLC0415
+            from generation.tasks import recontroler_et_corriger_task  # noqa: PLC0415
 
-            # La boucle rend elle-même le verdict de gate FINAL, après ses
-            # régénérations — le même rapport que `tasks.py` consomme.
-            rapport = run_correction_loop(job)
+            recontroler_et_corriger_task.delay(str(job.id))
+            return _json(
+                {"job_id": str(job.id), "statut": "correction_en_fond",
+                 "echecs_avant": len(getattr(rapport, "failures", ()) or ())},
+                status=202,
+            )
 
     verdict = QAStatus.PASSED if rapport.passed else QAStatus.BLOCKED
     GenerationJob.objects.filter(pk=job.pk).update(qa_status=verdict)

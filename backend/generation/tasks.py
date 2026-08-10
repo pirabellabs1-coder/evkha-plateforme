@@ -205,3 +205,37 @@ def run_generation_job_task(job_id: str) -> str:
         deliver_job_task.delay(job_id)
 
     return str(job.id)
+
+
+@shared_task(name="generation.recontroler_et_corriger")  # type: ignore[untyped-decorator]
+def recontroler_et_corriger_task(job_id: str) -> str:
+    """Boucle de correction en TACHE DE FOND, puis verdict — jamais en requête.
+
+    La première version du recontrôle « corriger » tournait dans la requête
+    HTTP (10/08/2026, job `026fecea`) : le serveur web a tué le worker à son
+    délai de garde, la réponse a été un 500, et le chapitre en cours de
+    régénération est resté fantôme en `running` — le motif du dossier de la
+    cliente du 09/08, reproduit en miniature par l'outil censé réparer.
+
+    Une régénération est une génération : elle vit là où vivent les
+    générations. Le Cost Engine borne la dépense au plafond du dossier,
+    comme pendant la production. Aucune livraison ici — seule l'étiquette
+    change, et l'incident porte les motifs frais si le blocage tient.
+    """
+    job = GenerationJob.objects.select_related("order").get(id=job_id)
+
+    from .correction import run_correction_loop  # noqa: PLC0415
+
+    rapport = run_correction_loop(job)
+    verdict = QAStatus.PASSED if rapport.passed else QAStatus.BLOCKED
+    GenerationJob.objects.filter(pk=job.pk).update(qa_status=verdict)
+
+    if not rapport.passed:
+        OperationalIncident.objects.create(
+            title=f"Gate qualité (correction) : toujours bloqué (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+    return f"{job.id}:{verdict}"

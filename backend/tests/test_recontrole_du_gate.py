@@ -94,21 +94,24 @@ def test_un_blocage_toujours_justifie_est_confirme_avec_motifs_frais(
 
 
 @pytest.mark.django_db
-def test_corriger_rejoue_la_boucle_et_rend_son_verdict(
+def test_corriger_part_en_tache_de_fond_jamais_dans_la_requete(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`{"corriger": true}` : le chemin « tout vert » d'un document déjà payé.
+    """`{"corriger": true}` : la boucle s'ENQUEUE, la requête répond 202.
 
-    Le gate échoue, la boucle de correction régénère les chapitres fautifs
-    sous le plafond du dossier, et c'est SON verdict final qui fait foi —
-    exactement le rapport que `tasks.py` consomme en fin de génération.
+    La première version corrigeait DANS la requête : le serveur web a tué le
+    worker à son délai de garde — 500, et un chapitre fantôme en `running`
+    (10/08/2026, `026fecea`). Une régénération est une génération ; elle vit
+    en tâche de fond, là où le délai de garde n'existe pas.
     """
-    import generation.correction as correction
     import generation.gate as gate
+    import generation.tasks as tasks
 
+    lancements: list[str] = []
     monkeypatch.setattr(gate, "run_delivery_gate", lambda _job: _Rapport(passed=False))
     monkeypatch.setattr(
-        correction, "run_correction_loop", lambda _job: _Rapport(passed=True)
+        tasks.recontroler_et_corriger_task, "delay",
+        lambda job_id: lancements.append(job_id),
     )
     job = _job()
 
@@ -119,7 +122,30 @@ def test_corriger_rejoue_la_boucle_et_rend_son_verdict(
             content_type="application/json",
         )
 
-    assert reponse.status_code == 200, reponse.content
+    assert reponse.status_code == 202, reponse.content
+    assert lancements == [str(job.id)]
+
+
+@pytest.mark.django_db
+def test_la_tache_de_correction_ecrit_le_verdict_final(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La tâche rend le verdict de la boucle — le rapport que `tasks.py` consomme."""
+    import generation.tasks as tasks
+
+    monkeypatch.setattr(
+        tasks, "run_correction_loop", lambda _job: _Rapport(passed=True),
+        raising=False,
+    )
+    import generation.correction as correction
+
+    monkeypatch.setattr(
+        correction, "run_correction_loop", lambda _job: _Rapport(passed=True)
+    )
+    job = _job()
+
+    tasks.recontroler_et_corriger_task(str(job.id))
+
     job.refresh_from_db()
     assert job.qa_status == QAStatus.PASSED
 
