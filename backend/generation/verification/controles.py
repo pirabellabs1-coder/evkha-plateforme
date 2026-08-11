@@ -29,6 +29,7 @@ cherchera pas non plus :
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Sequence
 
 from core.numbers import amounts_in
@@ -549,4 +550,118 @@ def controler_visuels(
         Anomalie("visuels", Gravite.INFORMATION, f"Graphique converti — {motif}")
         for motif in convertis
     )
+    return anomalies
+
+
+# ── Contrôle 7 : les calculs annoncés sont-ils justes ? ──────────────────────
+
+#: « 130 000 € sur 1,36 Md€, soit 0,0096 % » — un calcul que le document POSE.
+#:
+#: Le motif exige les trois pièces dans l'ordre : la part, le tout, le
+#: pourcentage. C'est ce qui le rend vérifiable, et c'est aussi ce que la
+#: consigne demande désormais d'écrire (« tout chiffre calculé montre son
+#: calcul »). On ne devine jamais un calcul qui n'est pas écrit.
+_CALCUL_ANNONCE = re.compile(
+    r"([\d][\d\s\u202f\u00a0.,]*)\s*"
+    r"(k€|M€|Md€|€|k EUR|MEUR|MdEUR|EUR|%)?\s*"
+    r"(?:sur|/|rapport[ée]s? à|par rapport à)\s*"
+    r"([\d][\d\s\u202f\u00a0.,]*)\s*"
+    r"(k€|M€|Md€|€|k EUR|MEUR|MdEUR|EUR|%)?\s*"
+    r"[,;:]?\s*(?:soit|c'est-à-dire|=)\s*"
+    r"([\d][\d\s\u202f\u00a0.,]*)\s*%",
+    re.IGNORECASE,
+)
+
+#: Facteurs d'échelle, écrits ici parce que le contrôle lit du TEXTE et non
+#: des `DonneeSocle`. Ils sont dérivés du même vocabulaire que
+#: `socle.schema.unites_monetaires` — jamais une seconde liste de devises.
+_ECHELLES: dict[str, float] = {
+    "": 1.0, "€": 1.0, "eur": 1.0, "%": 1.0,
+    "k€": 1e3, "k eur": 1e3,
+    "m€": 1e6, "meur": 1e6,
+    "md€": 1e9, "mdeur": 1e9,
+}
+
+
+def _nombre(brut: str) -> float | None:
+    """Un nombre écrit à la française, ramené à un flottant."""
+    nettoye = (
+        brut.replace("\u202f", "").replace("\u00a0", "")
+        .replace(" ", "").replace(".", "").replace(",", ".")
+    )
+    try:
+        return float(nettoye)
+    except ValueError:
+        return None
+
+
+def _decimales(brut: str) -> int:
+    _, virgule, apres = brut.strip().partition(",")
+    return len(apres) if virgule else 0
+
+
+def controler_les_calculs_annonces(document: DocumentLu) -> list[Anomalie]:
+    """Un pourcentage que le document CALCULE doit tomber juste.
+
+    ## Pourquoi ce contrôle existe
+
+    Cliente, 11/08/2026 : « bien vérifier la cohérence des chiffres… il y a
+    des erreurs dans les calculs et pourcentages ». Une extrapolation est
+    légitime — le manuel l'autorise et elle est souvent nécessaire — mais une
+    extrapolation FAUSSE ruine la crédibilité de tout le document : un
+    pourcentage qui ne tombe pas juste se repère au premier coup d'œil et
+    fait douter de chaque autre chiffre.
+
+    ## Ce qu'il vérifie, et ce qu'il ne devine pas
+
+    Uniquement les calculs que le document POSE lui-même, dans l'ordre part,
+    tout, résultat : « 130 000 € sur 1,36 Md€, soit 0,0096 % ». C'est
+    exactement la forme que la consigne demande d'écrire. Un pourcentage
+    isolé n'est pas jugé : il n'y a rien à quoi le comparer, et inventer
+    l'opération produirait des motifs faux (règle 2).
+
+    ## La tolérance suit l'ÉCRITURE, pas un seuil choisi
+
+    « 0,0096 % » est arrondi au dix-millième : l'écart admissible est la
+    moitié de cette décimale. Un seuil fixe serait soit trop lâche pour les
+    petits pourcentages — 0,05 accepterait n'importe quoi face à 0,0096 —
+    soit trop serré pour les grands. On y ajoute un pour cent relatif, pour
+    les arrondis faits sur les OPÉRANDES plutôt que sur le résultat.
+
+    Gravité : **avertissement**. Le lecteur juge ; le contrôle nomme.
+    """
+    anomalies: list[Anomalie] = []
+    deja_vues: set[str] = set()
+
+    for texte in (*document.paragraphes, *document.cellules):
+        for trouve in _CALCUL_ANNONCE.finditer(texte):
+            part_brut, unite_part, tout_brut, unite_tout, resultat_brut = (
+                trouve.groups()
+            )
+            part = _nombre(part_brut)
+            tout = _nombre(tout_brut)
+            annonce = _nombre(resultat_brut)
+            if part is None or tout is None or annonce is None:
+                continue
+
+            part *= _ECHELLES.get((unite_part or "").strip().lower(), 1.0)
+            tout *= _ECHELLES.get((unite_tout or "").strip().lower(), 1.0)
+            if abs(tout) < EPSILON:
+                continue
+
+            calcule = part / tout * 100
+            tolerance = 0.5 * 10 ** (-_decimales(resultat_brut)) + abs(calcule) * 0.01
+            if abs(calcule - annonce) <= tolerance:
+                continue
+
+            extrait = trouve.group(0).strip()
+            if extrait in deja_vues:
+                continue
+            deja_vues.add(extrait)
+            anomalies.append(Anomalie(
+                "calcul_faux", Gravite.AVERTISSEMENT,
+                f"« {extrait} » : le calcul donne {calcule:.4g} %, "
+                f"le document annonce {annonce:g} %.",
+                extrait=extrait,
+            ))
     return anomalies

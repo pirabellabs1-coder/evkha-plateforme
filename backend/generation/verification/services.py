@@ -82,6 +82,13 @@ def verifier_document(
         identifiants_en_figure=assemblage.identifiants_rendus if assemblage else (),
     ))
 
+    # « Bien vérifier la cohérence des chiffres… il y a des erreurs dans les
+    # calculs et pourcentages » (cliente, 11/08/2026). Une extrapolation est
+    # légitime — le manuel l'autorise — mais une extrapolation FAUSSE ruine la
+    # crédibilité de tout le document.
+    rapport.controles_executes.append("calculs_annonces")
+    rapport.ajouter(*controles.controler_les_calculs_annonces(document))
+
     rapport.controles_executes.append("densite")
     rapport.ajouter(*controles.controler_densite(document))
 
