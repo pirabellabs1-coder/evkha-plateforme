@@ -366,6 +366,20 @@ export function Commander() {
           enCours={depot.isPending}
           onDeposer={(fichier) => depot.mutate(fichier)}
         />
+        {/* L'échec d'un dépôt s'affiche ICI, sous la zone.
+            Il ne s'affichait qu'en tête de formulaire, à trente lignes de
+            questions au-dessus : on cliquait en bas, le message apparaissait
+            hors écran, et il ne se passait visiblement RIEN. C'est ce que la
+            cliente décrivait — « il ne s'ajoutait pas » — sans jamais voir la
+            raison. Un motif qu'on ne lit pas ne vaut pas mieux qu'un silence
+            (règle 2). */}
+        {depot.isError && (
+          <p className="carte-note" style={{ color: "var(--evkha-echec)" }}>
+            {depot.error instanceof ErreurApi
+              ? depot.error.message
+              : "Dépôt impossible — réessayez, ou vérifiez le format et la taille."}
+          </p>
+        )}
         <ListeFichiers
           fichiers={pieces?.pieces ?? []}
           onSupprimer={(id) => suppression.mutate(id)}

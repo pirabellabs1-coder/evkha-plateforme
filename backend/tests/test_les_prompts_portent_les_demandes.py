@@ -241,3 +241,54 @@ def test_aucune_fiche_n_exige_un_format_de_donnees() -> None:
             if exigence in texte:
                 fautifs.append(f"{fiche.parent.name}/{fiche.name} : « {exigence} »")
     assert fautifs == [], "\n".join(fautifs)
+
+
+#: Retours de la cliente du 11/08/2026 sur l'étude de la concurrence V2.
+#: Même méthode : on cherche dans le prompt RÉELLEMENT construit.
+DEMANDES_V2: list[tuple[str, str, str]] = [
+    ("Périmètre identique pour les parts de marché", "PÉRIMÈTRE IDENTIQUE", "E"),
+    ("Les six critères de périmètre", "même canal", "E"),
+    ("Benchmark sur faits observables", "FAITS OBSERVABLES", "E"),
+    ("La note résume les faits, ne les remplace pas", "au moins un fait cité", "E"),
+    ("Sources de première main", "conditions générales de vente", "E"),
+    ("Cinq niveaux de différenciation", "occupé mais sous-exploité", "E"),
+    ("Formules binaires bannies", "personne n'est présent", "E"),
+    ("Les onze questions de clôture", "ai-je une vraie chance", "E"),
+    ("Le calcul se montre", "montre son calcul", "P"),
+    ("Hypothèse : trois conditions", "elle se dit hypothèse", "P"),
+    ("Vocabulaire du dispositif banni", "Ne nomme JAMAIS nos rouages", "S"),
+]
+
+
+@pytest.mark.parametrize(
+    ("libelle", "fragment", "ou"),
+    DEMANDES_V2,
+    ids=[libelle for libelle, _, _ in DEMANDES_V2],
+)
+def test_la_demande_v2_est_dans_le_prompt_reellement_envoye(
+    textes: dict[str, str], libelle: str, fragment: str, ou: str
+) -> None:
+    assert fragment in textes[ou], (
+        f"« {libelle} » ne part plus : fragment « {fragment} » absent du "
+        f"prompt {ou}."
+    )
+
+
+def test_les_fiches_ec_envoient_chercher_les_sources_officielles() -> None:
+    """La fiche du chapitre 1 doit nommer les pages à consulter.
+
+    « Bien aller consulter ces sources directes pour l'analyse des
+    concurrents » — site officiel, CGV, tarifs, livraison, fidélité. La règle
+    de forme le dit au niveau du livrable ; la fiche le dit au moment où le
+    modèle constitue sa base, c'est-à-dire quand il peut encore aller voir.
+    """
+    from generation.chapitres.fichiers_prompts import rendre_prompt
+
+    racine = __import__("pathlib").Path(rendre_prompt.__code__.co_filename)
+    fiche = (
+        racine.parents[3] / "prompts" / "etude_concurrence" / "chapitre_01.md"
+    ).read_text(encoding="utf-8")
+
+    for attendu in ("site du concurrent", "conditions generales de vente",
+                    "page tarifs", "page livraison", "fidelite"):
+        assert attendu in fiche, attendu

@@ -845,6 +845,44 @@ _NOTATION_INTERNE = re.compile(
     re.IGNORECASE,
 )
 
+#: Le vocabulaire du DISPOSITIF, jamais celui du marché.
+#:
+#: La cliente, 11/08/2026 : « il y a encore quelques éléments qui ressortent
+#: comme socle bloqué / pipeline système etc qui ne doivent pas être vus du
+#: client ». Elle lit une étude, pas le journal de la machine qui l'a écrite.
+#:
+#: ## Chaque motif porte SON QUALIFICATIF, et c'est tout le soin
+#:
+#: « socle », « pipeline », « prompt », « runner » sont des mots français ou
+#: des mots de métier parfaitement légitimes : un pipeline COMMERCIAL, un
+#: socle de CLIENTÈLE, un socle RÉGLEMENTAIRE, un prompt dans une étude sur
+#: l'IA, un runner dans une étude sur la course à pied. Les bannir seuls
+#: tuerait des chapitres justes — c'est exactement l'erreur commise le
+#: 10/08/2026 avec une liste de mots sectoriels trop large, qui a coûté un
+#: chapitre parfaitement correct.
+#:
+#: On ne retient donc que des locutions qui n'ont AUCUN sens hors de nos
+#: propres rouages.
+_VOCABULAIRE_INTERNE: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("socle verrouillé/bloqué", re.compile(
+        r"\bsocle\s+(?:verrouill|bloqu|de\s+donn[ée]es\b)", re.IGNORECASE)),
+    ("hors socle", re.compile(r"\bhors[- ]socle\b", re.IGNORECASE)),
+    # Pas de nom de plateforme ICI : ce fichier part dans le schéma de
+    # l'outil, et le modèle recopie ce qu'on lui montre. Un premier document
+    # en portait vingt-deux occurrences, écrites depuis une docstring de ce
+    # module. Le garde-fou de marque blanche l'a rattrapé le 11/08/2026.
+    ("pipeline interne", re.compile(
+        r"\bpipeline\s+(?:syst[èe]me|de\s+g[ée]n[ée]ration)\b",
+        re.IGNORECASE)),
+    ("gate qualité", re.compile(
+        r"\bgate\s+(?:qualit|de\s+livraison)", re.IGNORECASE)),
+    ("prompt système", re.compile(r"\bprompt\s+syst[èe]me\b", re.IGNORECASE)),
+    ("chapitre 0", re.compile(r"\bchapitre\s+0\b", re.IGNORECASE)),
+    ("identifiant du socle", re.compile(
+        r"\bidentifiants?\s+du\s+socle\b", re.IGNORECASE)),
+    ("livrable bloqué", re.compile(r"\blivrable\s+bloqu[ée]", re.IGNORECASE)),
+)
+
 
 def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
     """Refuse un chapitre dont le TEXTE contient du balisage.
@@ -876,6 +914,7 @@ def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
     """
     motifs: list[str] = []
     motifs.extend(_motifs_de_notation_interne(payload))
+    motifs.extend(_motifs_de_vocabulaire_interne(payload))
     motifs.extend(_motifs_de_donnees_brutes(payload))
     # `getattr` et non `payload.blocs` : `valider_chapitre` accepte aussi des
     # porteurs minimaux, que plusieurs tests emploient pour isoler leur sujet
@@ -932,6 +971,34 @@ def _motifs_de_donnees_brutes(payload: ChapitrePayload) -> list[str]:
                     f"le TEXTE — « …{texte[debut:debut + _EXTRAIT]}… ». Ce sera "
                     "imprimé tel quel chez le client. Un tableau se demande "
                     "avec un bloc `tableau` et ses cellules."
+                )
+                break
+    return motifs
+
+
+def _motifs_de_vocabulaire_interne(payload: ChapitrePayload) -> list[str]:
+    """Refuse le vocabulaire du dispositif dans le document du client.
+
+    Voir `_VOCABULAIRE_INTERNE` : chaque locution porte son qualificatif, pour
+    qu'un pipeline commercial, un socle de clientèle ou un prompt dans une
+    étude sur l'IA traversent intacts. Le refus vaut mieux qu'un nettoyage :
+    retirer « socle verrouillé » d'une phrase laisserait une phrase qui parle
+    encore de nos rouages.
+    """
+    motifs: list[str] = []
+    for index, bloc in enumerate(getattr(payload, "blocs", ()) or ()):
+        for champ, texte in _textes_du_bloc(bloc):
+            for nom, motif in _VOCABULAIRE_INTERNE:
+                trouvee = motif.search(texte)
+                if trouvee is None:
+                    continue
+                debut = max(trouvee.start() - 20, 0)
+                motifs.append(
+                    f"Bloc {index} ({bloc.type}), champ `{champ}` : « "
+                    f"{trouvee.group(0)} » nomme le DISPOSITIF, pas le marché "
+                    f"({nom}) — « …{texte[debut:debut + _EXTRAIT]}… ». Le client "
+                    "lit une étude, jamais le journal de la machine qui l'a "
+                    "écrite. Dis la chose du marché, ou retire la phrase."
                 )
                 break
     return motifs

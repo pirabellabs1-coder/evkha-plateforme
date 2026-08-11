@@ -224,12 +224,31 @@ def recontroler_et_corriger_task(job_id: str) -> str:
     """
     job = GenerationJob.objects.select_related("order").get(id=job_id)
 
+    from .checks_blocs import rejouer_les_checks_ouverts  # noqa: PLC0415
     from .correction import run_correction_loop  # noqa: PLC0415
+    from .gate import run_delivery_gate  # noqa: PLC0415
 
     # `inclure_les_checks` : cette tâche N'EST lancée que par le bouton
     # « corriger » du recontrôle — donc par une décision humaine, celle-là même
     # que le manuel exige avant de rejouer un CHECK de bloc.
     rapport = run_correction_loop(job, inclure_les_checks=True)
+
+    # LA RÉGÉNÉRATION SEULE NE DÉBLOQUE RIEN.
+    #
+    # Le gate lit les incidents CHECK encore OUVERTS. Réécrire les chapitres
+    # ne rejoue pas le CHECK et ne ferme pas l'incident : le dossier reste
+    # bloqué sur un verdict rendu avant la correction. Mesuré sur `cc0dfe14`
+    # (11/08/2026) : dix-sept chapitres régénérés pour 0,74 €, dix-neuf motifs
+    # avant, vingt-et-un après — la boucle ne pouvait pas converger.
+    #
+    # C'est le défaut de la règle 9 dans sa forme la plus coûteuse : une
+    # réparation qui n'atteint pas ce qui juge. On rejoue donc les CHECK dont
+    # les chapitres viennent d'être réécrits, et on ferme les incidents que le
+    # document ne justifie plus.
+    rejoues = rejouer_les_checks_ouverts(job)
+    if rejoues:
+        rapport = run_delivery_gate(job)
+
     verdict = QAStatus.PASSED if rapport.passed else QAStatus.BLOCKED
     GenerationJob.objects.filter(pk=job.pk).update(qa_status=verdict)
 

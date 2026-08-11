@@ -28,6 +28,7 @@ import re
 from dataclasses import dataclass, field
 
 from django.conf import settings
+from django.utils import timezone
 
 from integrations.claude import ClaudeClient, get_claude_client  # type: ignore[attr-defined]
 
@@ -801,3 +802,62 @@ __all__ = [
     "bloc_pour_chapitre",
     "check_bloc",
 ]
+
+
+def rejouer_les_checks_ouverts(
+    job: GenerationJob, *, client: ClaudeClient | None = None
+) -> int:
+    """Rejoue les CHECK dont l'incident est encore ouvert, ferme ceux qui passent.
+
+    ## Pourquoi cette fonction existe
+
+    Le gate lit les incidents CHECK **ouverts**. Régénérer les chapitres d'un
+    bloc ne rejoue pas son CHECK et ne ferme pas son incident : le dossier
+    reste bloqué sur un verdict rendu AVANT la correction, indéfiniment.
+
+    Mesuré sur `cc0dfe14` (11/08/2026) : dix-sept chapitres réécrits pour
+    0,74 €, dix-neuf motifs avant, vingt-et-un après. La boucle régénérait
+    sans jamais pouvoir converger — une réparation qui n'atteint pas ce qui
+    juge (règle 9).
+
+    Retourne le nombre d'incidents fermés. Un CHECK qui échoue encore garde
+    son incident ouvert ET met à jour sa note : relire une note périmée ferait
+    chercher dans le document un défaut qui n'y est plus (règle 2).
+    """
+    from monitoring.models import IncidentStatus, OperationalIncident  # noqa: PLC0415
+
+    client = client or get_claude_client()
+    fermes = 0
+
+    ouverts = OperationalIncident.objects.filter(
+        job=job,
+        status=IncidentStatus.OPEN,
+        details__type=INCIDENT_TYPE_CHECK_BLOC,
+    )
+    for incident in ouverts:
+        details = incident.details or {}
+        bloc = BLOCS_PAR_IDENTIFIANT.get(str(details.get("bloc", "")))
+        if bloc is None or not bloc.chapitres:
+            continue
+
+        chapitres = list(
+            job.chapters.filter(chapter_number__in=bloc.chapitres)
+            .order_by("chapter_number")
+        )
+        if not chapitres:
+            continue
+
+        resultat = check_bloc(job, bloc, chapitres, client=client)
+        if resultat.est_ok:
+            incident.status = IncidentStatus.RESOLVED
+            incident.resolved_at = timezone.now()
+            incident.save(update_fields=["status", "resolved_at"])
+            fermes += 1
+            continue
+
+        # Toujours en échec : la note du relecteur est RAFRAÎCHIE sur le
+        # document tel qu'il est maintenant.
+        incident.details = {**details, "note_corrective": resultat.note_corrective}
+        incident.save(update_fields=["details"])
+
+    return fermes

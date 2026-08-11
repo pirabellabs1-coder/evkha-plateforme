@@ -131,9 +131,8 @@ def test_la_tache_de_correction_ecrit_le_verdict_final(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """La tâche rend le verdict de la boucle — le rapport que `tasks.py` consomme."""
-    import generation.tasks as tasks
-
     import generation.correction as correction
+    import generation.tasks as tasks
 
     monkeypatch.setattr(
         correction, "run_correction_loop",
@@ -236,3 +235,85 @@ def test_le_chemin_automatique_ne_rejoue_jamais_un_check_de_bloc() -> None:
 
     assert _feedback_by_chapter((echec,)) == {}
     assert 21 in _feedback_by_chapter((echec,), inclure_les_checks=True)
+
+
+# ── Rejouer les CHECK : la seule chose qui puisse lever le blocage ───────────
+
+
+class _ResultatCheck:
+    def __init__(self, ok: bool) -> None:
+        self.est_ok = ok
+        self.note_corrective = "" if ok else "Note fraîche sur le document actuel."
+
+
+def _incident_check(job: GenerationJob, bloc: str, chapitres: list[int]) -> object:
+    from generation.checks_blocs import INCIDENT_TYPE_CHECK_BLOC
+    from monitoring.models import IncidentSeverity, OperationalIncident
+
+    return OperationalIncident.objects.create(
+        title=f"CHECK bloc {bloc}",
+        severity=IncidentSeverity.HIGH,
+        job=job,
+        order=job.order,
+        details={
+            "type": INCIDENT_TYPE_CHECK_BLOC, "bloc": bloc, "check": "1",
+            "intitule": "Fondations", "chapitres": chapitres,
+            "note_corrective": "Note d'AVANT la correction.",
+        },
+    )
+
+
+@pytest.mark.django_db
+def test_un_check_qui_repasse_ferme_son_incident(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sans cela, régénérer ne débloque JAMAIS rien.
+
+    Le gate lit les incidents OUVERTS. Sur `cc0dfe14` (11/08/2026),
+    dix-sept chapitres ont été réécrits pour 0,74 € et le dossier est resté
+    bloqué sur un verdict rendu avant la correction : dix-neuf motifs avant,
+    vingt-et-un après. Une réparation qui n'atteint pas ce qui juge (règle 9).
+    """
+    import generation.checks_blocs as blocs
+    from generation.models import ChapterGeneration
+    from monitoring.models import IncidentStatus
+
+    monkeypatch.setattr(
+        blocs, "check_bloc", lambda *_a, **_k: _ResultatCheck(ok=True)
+    )
+    job = _job()
+    ChapterGeneration.objects.create(job=job, chapter_number=1, chapter_title="Ch1")
+    ChapterGeneration.objects.create(job=job, chapter_number=2, chapter_title="Ch2")
+    incident = _incident_check(job, "A", [1, 2])
+
+    assert blocs.rejouer_les_checks_ouverts(job) == 1
+
+    incident.refresh_from_db()
+    assert incident.status == IncidentStatus.RESOLVED
+
+
+@pytest.mark.django_db
+def test_un_check_qui_echoue_encore_rafraichit_sa_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CONTRE-ÉPREUVE : rejouer n'est pas fermer.
+
+    L'incident reste OUVERT, et sa note décrit le document TEL QU'IL EST —
+    relire une note périmée ferait chercher un défaut qui n'y est plus.
+    """
+    import generation.checks_blocs as blocs
+    from generation.models import ChapterGeneration
+    from monitoring.models import IncidentStatus
+
+    monkeypatch.setattr(
+        blocs, "check_bloc", lambda *_a, **_k: _ResultatCheck(ok=False)
+    )
+    job = _job()
+    ChapterGeneration.objects.create(job=job, chapter_number=1, chapter_title="Ch1")
+    incident = _incident_check(job, "A", [1, 2])
+
+    assert blocs.rejouer_les_checks_ouverts(job) == 0
+
+    incident.refresh_from_db()
+    assert incident.status == IncidentStatus.OPEN
+    assert incident.details["note_corrective"] == "Note fraîche sur le document actuel."
