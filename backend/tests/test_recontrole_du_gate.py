@@ -133,14 +133,11 @@ def test_la_tache_de_correction_ecrit_le_verdict_final(
     """La tâche rend le verdict de la boucle — le rapport que `tasks.py` consomme."""
     import generation.tasks as tasks
 
-    monkeypatch.setattr(
-        tasks, "run_correction_loop", lambda _job: _Rapport(passed=True),
-        raising=False,
-    )
     import generation.correction as correction
 
     monkeypatch.setattr(
-        correction, "run_correction_loop", lambda _job: _Rapport(passed=True)
+        correction, "run_correction_loop",
+        lambda _job, **_kw: _Rapport(passed=True),
     )
     job = _job()
 
@@ -184,3 +181,58 @@ def test_un_dossier_non_termine_ne_se_recontrole_pas() -> None:
     reponse = _poster(job)
 
     assert reponse.status_code == 400
+
+
+# ── Les CHECK de bloc deviennent réparables sur décision humaine ─────────────
+
+
+@pytest.mark.django_db
+def test_un_check_de_bloc_nomme_ses_chapitres() -> None:
+    """Sans numéro, la note du relecteur ne peut rien réparer.
+
+    Sur `cc0dfe14` (11/08/2026), sept CHECK bloquants nommaient leurs
+    chapitres dans leur TEXTE — « non valide sur les chapitres [21, 22] » —
+    et arrivaient avec `chapter_number: None`. Les notes étaient pourtant les
+    plus actionnables du lot : « dédupliquer les deux entrées Xerfi du tableau
+    21.2 ». Sept motifs précis, zéro routable.
+    """
+    from generation.checks_blocs import INCIDENT_TYPE_CHECK_BLOC
+    from generation.gate import _check_blocs_evangeline
+    from monitoring.models import IncidentSeverity, OperationalIncident
+
+    job = _job()
+    OperationalIncident.objects.create(
+        title="CHECK FINAL non valide",
+        severity=IncidentSeverity.HIGH,
+        job=job,
+        order=job.order,
+        details={
+            "type": INCIDENT_TYPE_CHECK_BLOC,
+            "check": "FINAL", "bloc": "J", "intitule": "Contrôle final",
+            "chapitres": [21, 22],
+            "note_corrective": "Dédupliquer les deux entrées Xerfi.",
+        },
+    )
+
+    failures = _check_blocs_evangeline(job)
+
+    assert sorted(f.chapter_number for f in failures) == [21, 22]
+    assert all("Xerfi" in f.detail for f in failures)
+
+
+def test_le_chemin_automatique_ne_rejoue_jamais_un_check_de_bloc() -> None:
+    """CONTRE-ÉPREUVE : la génération ne boucle pas dessus toute seule.
+
+    Elle l'a déjà retenté une fois ; recommencer dépenserait sans rien
+    garantir. Le manuel demande une reprise HUMAINE — c'est le bouton
+    « corriger », et lui seul ouvre la porte.
+    """
+    from generation.correction import _feedback_by_chapter
+    from generation.gate import GateFailure
+
+    echec = GateFailure(
+        check="check_bloc_non_resolu", chapter_number=21, detail="Note.",
+    )
+
+    assert _feedback_by_chapter((echec,)) == {}
+    assert 21 in _feedback_by_chapter((echec,), inclure_les_checks=True)

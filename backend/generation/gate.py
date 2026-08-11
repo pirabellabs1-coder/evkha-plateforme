@@ -1220,20 +1220,35 @@ def _check_blocs_evangeline(job: GenerationJob) -> list[GateFailure]:
     for incident in ouverts:
         details = incident.details or {}
         chapitres = details.get("chapitres") or []
-        failures.append(GateFailure(
-            check="check_bloc_non_resolu",
-            # Volontairement sans chapter_number : la boucle de correction a
-            # deja rejoue le bloc sans succes. Re-regenerer en boucle couterait
-            # sans rien garantir — le manuel demande une reprise humaine.
-            detail=(
-                f"CHECK {details.get('check', '?')} (bloc "
-                f"{details.get('bloc', '?')} — {details.get('intitule', '')}) "
-                f"non valide sur les chapitres {chapitres}. "
-                f"Note du relecteur : {str(details.get('note_corrective', ''))[:400]} "
-                "Livraison bloquee tant que le controle n'est pas valide "
-                "(manuel EVKHA, « Livraison autorisee »)."
-            ),
-        ))
+        detail = (
+            f"CHECK {details.get('check', '?')} (bloc "
+            f"{details.get('bloc', '?')} — {details.get('intitule', '')}) "
+            f"non valide sur les chapitres {chapitres}. "
+            f"Note du relecteur : {str(details.get('note_corrective', ''))[:400]} "
+            "Livraison bloquee tant que le controle n'est pas valide "
+            "(manuel EVKHA, « Livraison autorisee »)."
+        )
+        # UNE entree par chapitre nomme, et le numero est PORTE.
+        #
+        # Il ne l'etait pas, volontairement : « la boucle a deja rejoue le bloc
+        # sans succes, le manuel demande une reprise humaine ». Le raisonnement
+        # tient pour le chemin AUTOMATIQUE, et `_is_regenerable` l'y maintient
+        # — ce check reste hors de la whitelist, donc la generation ne rejoue
+        # rien d'elle-meme.
+        #
+        # Mais la reprise humaine EXISTE desormais : c'est le bouton
+        # « corriger » du recontrole, ou l'admin decide apres avoir lu la note.
+        # Sans numero de chapitre, cette reprise ne savait rien regenerer et la
+        # note du relecteur — « dedupliquer les deux entrees Xerfi du tableau
+        # 21.2 », precise et actionnable — restait lettre morte. Mesure sur
+        # `cc0dfe14` (11/08/2026) : sept CHECK bloquants, sept chapitres
+        # nommes dans le texte, zero routable.
+        for numero in chapitres or [None]:
+            failures.append(GateFailure(
+                check="check_bloc_non_resolu",
+                chapter_number=numero,
+                detail=detail,
+            ))
     return failures
 
 

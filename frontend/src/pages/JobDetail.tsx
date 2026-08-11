@@ -214,9 +214,9 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
     : emailSent
     ? "✓ Email envoyé"
     : armer
-    ? "Envoyer malgré le blocage"
+    ? "Envoyer sans attendre la relecture"
     : bloque
-    ? "Confirmer l'envoi du document bloqué"
+    ? "Confirmer l'envoi"
     : "Envoyer par email";
 
   return (
@@ -224,10 +224,10 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
       {pdfOnly && (
         <Text size="1" color="orange">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</Text>
       )}
-      {bloque && !emailSent && (
+      {bloque && (
         <Flex align="center" gap="2" justify="end">
-          <Text size="1" color="red">
-            ⚠ Bloqué par le contrôle qualité — non envoyé au client.
+          <Text size="1" color="gray">
+            Retenu pour relecture — pas encore envoyé.
           </Text>
           <Button
             size="1"
@@ -241,11 +241,6 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
             ↻ Recontrôler
           </Button>
         </Flex>
-      )}
-      {bloque && emailSent && (
-        <Text size="1" color="orange" align="right">
-          ⚠ Document envoyé alors que le gate qualité l'avait bloqué.
-        </Text>
       )}
       <Flex gap="2" wrap="wrap" justify="end">
         {!hasPdf && (
@@ -276,7 +271,7 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
             size="2"
             variant="soft"
             color={
-              emailSent && !pendingConfirmation ? "green" : bloque ? "red" : "blue"
+              emailSent && !pendingConfirmation ? "green" : bloque ? "amber" : "blue"
             }
             loading={emailMutation.isPending}
             disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
@@ -395,18 +390,19 @@ export function JobDetail() {
             {STATUS_ICON[data.status] ?? data.status}{" "}
             {STATUS_LABELS[data.status] ?? data.status}
           </Badge>
-          {/* Un dossier refusé par le gate doit se VOIR, au même endroit que son
-              statut. Sans ce badge, il était en tous points identique à un
-              dossier validé — et l'écran est le seul endroit où la « décision
-              humaine assumée » peut l'être. */}
+          {/* Un dossier RETENU doit se voir, au même endroit que son statut :
+              sans ce badge il serait en tous points identique à un dossier
+              validé. Mais il disparaît dès l'envoi — un document parti n'est
+              plus retenu, et l'afficher en rouge à côté de « ✓ Email envoyé »
+              alarmait sur ce qu'aucun geste ne pouvait changer. */}
           {livraisonBloquee(data) && (
             <Badge
-              color="red"
-              variant="solid"
+              color="amber"
+              variant="soft"
               size="2"
-              title="Le gate qualité a refusé ce document : il n'est pas parti automatiquement."
+              title="Le contrôle qualité a retenu ce document : il n'est pas parti automatiquement."
             >
-              ⚠ Qualité : bloqué
+              En attente de relecture
             </Badge>
           )}
         </Flex>

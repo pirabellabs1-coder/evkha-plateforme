@@ -115,15 +115,29 @@ export interface JobSummary {
 }
 
 /**
- * Le gate qualité a refusé ce document : l'envoyer est une dérogation.
+ * Une livraison RETENUE : le gate a refusé, et le document n'est pas parti.
  *
- * La règle vit ici et nulle part ailleurs (`qa_status === "blocked"`), pour la
- * raison qui a déjà piégé le bouton « Relancer » : deux conditions écrites à
- * deux endroits finissent par diverger, et celle du front était plus stricte
- * que celle du back exactement dans le cas qu'elle devait couvrir.
+ * ## Pourquoi la livraison entre dans la condition
+ *
+ * Un dossier déjà envoyé n'est plus « bloqué » : la décision est prise, le
+ * client a son document. Continuer à l'afficher en rouge, c'est alarmer sur
+ * une chose qu'aucun geste ne peut changer — et c'était contradictoire à
+ * lire : « Qualité : bloqué » à côté de « ✓ Email envoyé ».
+ *
+ * L'avertissement ne vaut que là où il est ACTIONNABLE : avant l'envoi, quand
+ * on peut encore relire, recontrôler ou renoncer. C'est aussi ce qui lui rend
+ * son sens — un badge qui crie sur des dossiers réglés finit ignoré, et le
+ * jour où il dit vrai personne ne le regarde.
+ *
+ * La règle vit ici et nulle part ailleurs, pour la raison qui a déjà piégé le
+ * bouton « Relancer » : deux conditions écrites à deux endroits finissent par
+ * diverger, et celle du front était plus stricte que celle du back exactement
+ * dans le cas qu'elle devait couvrir.
  */
-export function livraisonBloquee(job: Pick<JobSummary, "qa_status">): boolean {
-  return job.qa_status === "blocked";
+export function livraisonBloquee(
+  job: Pick<JobSummary, "qa_status" | "delivery_status">,
+): boolean {
+  return job.qa_status === "blocked" && job.delivery_status !== "sent";
 }
 
 /** Un dossier relançable : échoué, annulé, ou interrompu sans le savoir. */

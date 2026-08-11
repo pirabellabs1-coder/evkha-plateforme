@@ -599,6 +599,46 @@ REGLES_DE_FOND = (
     "sur une impression — « semble premium » n'est pas un critère. Quand "
     "une échelle sert dans un chapitre, le tableau qui la porte dit ce que "
     "chaque niveau signifie.\n"
+    # Quatre des sept CHECK bloquants de `cc0dfe14` (11/08/2026) portaient sur
+    # CE point, sous quatre formes : « inverser l'ordre logique », « nommer le
+    # taux de capture », « boucler l'emboitement », « trancher le scenario
+    # central ». Le relecteur redemandait la meme chose a quatre chapitres
+    # differents, et chaque demande coutait une reprise.
+    "- Un marche atteignable se DEDUIT, il ne se justifie pas apres coup. "
+    "Ecris toujours dans cet ordre : un taux de capture du marche accessible, "
+    "puis le montant qui en decoule, puis sa traduction concrete. « Un taux "
+    "de capture de 0,01 % du marche accessible donne 130 000 €, soit environ "
+    "2 000 commandes a 65 € » — jamais l'inverse. Ce taux se REPETE dans le "
+    "verdict de viabilite : c'est lui qui rend l'objectif discutable.\n"
+    # « Preciser explicitement si le taux compare est celui du marche francais
+    # ou du marche mondial. » Un taux nu oblige le lecteur a deviner.
+    "- Tout taux et tout montant nomme SON PERIMETRE a chaque occurrence : "
+    "« 3,4 % par an (France) », jamais « 3,4 % » seul quand le document porte "
+    "aussi un chiffre mondial. Deux perimetres compares dans la meme phrase "
+    "se nomment tous les deux.\n"
+    # « Ne pas enoncer de nouveau les chiffres presents tels quels, mais
+    # expliquer en quoi ces contraintes se transforment a horizon 2026-2030. »
+    "- Une section sur l'AVENIR ne redit pas les chiffres du present : elle "
+    "dit ce qu'ils deviennent. Un defi se projette — s'aggrave, s'attenue, "
+    "sature — avec l'horizon et le mecanisme. Reciter le present sous un "
+    "titre d'avenir ne repond pas a la question posee.\n"
+    # « Citer les references precises des textes evoques. »
+    "- Une regle de droit se cite avec SA REFERENCE : numero de reglement, "
+    "de directive ou article de code. « Le delai de retractation de 14 jours "
+    "(article L221-18 du code de la consommation) » — une obligation sans "
+    "reference n'est pas verifiable, donc pas opposable.\n"
+    # « Dedupliquer les deux entrees Xerfi, memes lien et code d'etude, titres
+    # differents. » Une source citee deux fois gonfle le compte sans rien
+    # ajouter, et fait douter des autres.
+    "- Une SOURCE n'apparait qu'UNE FOIS dans la bibliographie. Deux entrees "
+    "au meme lien ou au meme numero d'etude se fondent en une, sous le titre "
+    "exact de l'editeur.\n"
+    # Deux troncatures sur le meme dossier : un chapitre fini sur un intitule
+    # en gras, un autre sur une cellule de tableau. Le lecteur y voit une
+    # coupure, et le controle aussi.
+    "- Un chapitre se termine par une PHRASE, jamais par un titre, une "
+    "etiquette en gras, une cellule de tableau ou une figure. La derniere "
+    "ligne porte un point final.\n"
     # « La SWOT doit deboucher sur de vraies priorites strategiques, pas sur
     # une liste de limites. » Une SWOT qui s'arrete au tableau laisse au
     # lecteur le travail qu'il a paye : croiser les quatre cases.

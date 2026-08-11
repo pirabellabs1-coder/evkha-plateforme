@@ -130,16 +130,16 @@ function JobRowActions({ job }: { job: JobSummary }) {
         size="1"
         variant="ghost"
         color={
-          deliverySent && !pendingConfirmation ? "green" : bloque ? "red" : "blue"
+          deliverySent && !pendingConfirmation ? "green" : bloque ? "amber" : "blue"
         }
         disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
         loading={emailMutation.isPending}
         onClick={() => (armer ? setDerogation(true) : emailMutation.mutate())}
         title={
           armer
-            ? "Gate qualité : document refusé. Un second clic l'enverra quand même."
+            ? "Document retenu pour relecture. Un second clic l'enverra."
             : bloque
-            ? "Confirmer l'envoi d'un document refusé par le gate qualité"
+            ? "Confirmer l'envoi"
             : deliverySent
             ? "Email envoyé — renvoyer ?"
             : "Envoyer par email"
@@ -215,15 +215,16 @@ export function Jobs() {
                           : ""}
                       </Badge>
                     )}
-                    {/* Même raison : sur la liste, trois dossiers bloqués
-                        étaient indiscernables de trois dossiers validés. */}
+                    {/* Même raison : sur la liste, un dossier retenu serait
+                        indiscernable d'un dossier validé. Il disparaît dès
+                        l'envoi — voir `livraisonBloquee`. */}
                     {livraisonBloquee(job) && (
                       <Badge
-                        color="red"
+                        color="amber"
                         variant="soft"
-                        title="Gate qualité : document refusé, non parti automatiquement"
+                        title="Contrôle qualité : document retenu, non parti automatiquement"
                       >
-                        qualité bloquée
+                        à relire
                       </Badge>
                     )}
                   </Flex>

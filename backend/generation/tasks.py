@@ -226,7 +226,10 @@ def recontroler_et_corriger_task(job_id: str) -> str:
 
     from .correction import run_correction_loop  # noqa: PLC0415
 
-    rapport = run_correction_loop(job)
+    # `inclure_les_checks` : cette tâche N'EST lancée que par le bouton
+    # « corriger » du recontrôle — donc par une décision humaine, celle-là même
+    # que le manuel exige avant de rejouer un CHECK de bloc.
+    rapport = run_correction_loop(job, inclure_les_checks=True)
     verdict = QAStatus.PASSED if rapport.passed else QAStatus.BLOCKED
     GenerationJob.objects.filter(pk=job.pk).update(qa_status=verdict)
 

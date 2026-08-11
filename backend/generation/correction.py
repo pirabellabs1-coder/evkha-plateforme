@@ -89,6 +89,10 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
 # quand chapter_number > 0 (le cas 0 = transverse, non regenerable au chapitre).
 _STRATEGY_CHECK_PREFIX = "strategy_"
 
+#: Le CHECK de bloc — hors whitelist automatique, réparable sur décision.
+#: Voir `_feedback_by_chapter` et `run_correction_loop(inclure_les_checks=)`.
+_CHECK_BLOC = "check_bloc_non_resolu"
+
 
 # Priorite des categories de check pour le tri quand on cape a
 # _MAX_REGEN_PAR_ROUND chapitres. Les defauts en tete de liste sont
@@ -186,6 +190,7 @@ def _feedback_by_chapter(
     failures: tuple[GateFailure, ...],
     *,
     cap: int | None = None,
+    inclure_les_checks: bool = False,
 ) -> dict[int, str]:
     """Regroupe les échecs réparables par numéro de chapitre → consigne texte.
 
@@ -202,7 +207,14 @@ def _feedback_by_chapter(
     grouped: dict[int, list[str]] = {}
     grouped_priorite: dict[int, int] = {}
     for failure in failures:
-        if not _is_regenerable(failure.check):
+        # Les CHECK de bloc ne sont JAMAIS rejoués par le chemin automatique :
+        # la génération les a déjà retentés une fois, et boucler dessus
+        # dépenserait sans rien garantir. Ils ne deviennent réparables que sur
+        # décision explicite — le bouton « corriger » du recontrôle, qui EST
+        # la reprise humaine que le manuel demande.
+        if failure.check == _CHECK_BLOC and not inclure_les_checks:
+            continue
+        if failure.check != _CHECK_BLOC and not _is_regenerable(failure.check):
             continue
         if failure.chapter_number is None:
             continue
@@ -230,12 +242,20 @@ def run_correction_loop(
     *,
     client: object | None = None,
     max_rounds: int | None = None,
+    inclure_les_checks: bool = False,
 ) -> GateReport:
     """Exécute le gate, régénère les chapitres fautifs, repasse le gate (borné).
 
     Retourne le rapport final du gate (passé ou non). Ne livre rien : c'est
     l'appelant (tasks.py) qui décide, sur report.passed, de livrer ou de
     marquer le job BLOCKED.
+
+    `inclure_les_checks` ouvre la régénération aux CHECK de bloc, dont la note
+    du relecteur est souvent la plus actionnable de toutes (« dédupliquer les
+    deux entrées Xerfi du tableau 21.2 »). Faux par défaut : le chemin
+    automatique les a déjà retentés une fois et le manuel demande alors une
+    reprise humaine. Le bouton « corriger » du recontrôle EST cette reprise —
+    c'est le seul appelant qui passe vrai.
     """
     from integrations.claude import ClaudeClient, get_claude_client  # noqa: PLC0415
 
@@ -247,7 +267,11 @@ def run_correction_loop(
     report = _gate.run_delivery_gate(job)
     attempt = 0
     while not report.passed and attempt < rounds:
-        feedback = _feedback_by_chapter(report.failures, cap=_MAX_REGEN_PAR_ROUND)
+        feedback = _feedback_by_chapter(
+            report.failures,
+            cap=_MAX_REGEN_PAR_ROUND,
+            inclure_les_checks=inclure_les_checks,
+        )
         if not feedback:
             # Aucun échec réparable au niveau chapitre (ex. verticale manquante
             # au niveau document) : la régénération ciblée n'aiderait pas.
