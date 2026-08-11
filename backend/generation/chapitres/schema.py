@@ -915,6 +915,7 @@ def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
     motifs: list[str] = []
     motifs.extend(_motifs_de_notation_interne(payload))
     motifs.extend(_motifs_de_vocabulaire_interne(payload))
+    motifs.extend(_motifs_de_parts_incoherentes(payload))
     motifs.extend(_motifs_de_donnees_brutes(payload))
     # `getattr` et non `payload.blocs` : `valider_chapitre` accepte aussi des
     # porteurs minimaux, que plusieurs tests emploient pour isoler leur sujet
@@ -973,6 +974,93 @@ def _motifs_de_donnees_brutes(payload: ChapitrePayload) -> list[str]:
                     "avec un bloc `tableau` et ses cellules."
                 )
                 break
+    return motifs
+
+
+#: Un en-tête de colonne qui annonce une répartition du marché.
+_COLONNE_DE_PART = re.compile(
+    r"\bparts?\s+(?:de\s+)?march[ée]|\bpart\s*\(\s*%|\bpdm\b", re.IGNORECASE
+)
+
+#: Un pourcentage dans une cellule : « 12 % », « 12,4% », « 12.4 % ».
+_POURCENTAGE_CELLULE = re.compile(r"^\s*(\d{1,3}(?:[.,]\d+)?)\s*%\s*$")
+
+
+
+def _motifs_de_parts_incoherentes(payload: ChapitrePayload) -> list[str]:
+    """Des parts de marché qui totalisent plus de 100 % sont fausses.
+
+    ## La demande, mot pour mot
+
+    Cliente, 11/08/2026 : « Toutes les parts de marché doivent utiliser le
+    même périmètre. Avant de comparer des parts de marché, LE SYSTÈME DOIT
+    CONTRÔLER : même pays, même année, même secteur, même canal, même
+    périmètre produit/service, même unité. »
+
+    Six critères, dont aucun ne se lit dans un tableau. Ce qui se lit, en
+    revanche, c'est leur CONSÉQUENCE arithmétique : mélanger des périmètres
+    fait presque toujours déborder le total. Une part nationale posée à côté
+    d'une part régionale, une part 2024 à côté d'une part 2026, une part du
+    canal en ligne à côté d'une part du marché entier — et la somme dépasse
+    cent.
+
+    C'est le seul symptôme MÉCANIQUEMENT vérifiable des six critères, et il
+    est sans appel : aucune répartition d'un même tout ne dépasse 100 %,
+    quelle qu'en soit la cause.
+
+    ## Ce que ce contrôle ne prétend pas faire
+
+    Il ne lit ni le pays, ni l'année, ni le canal — rien dans une cellule ne
+    les porte. Un document qui compare deux périmètres SANS déborder passe
+    donc, et c'est la consigne qui doit l'en empêcher. Prétendre l'inverse
+    fabriquerait des motifs faux (règle 2) ; le dire ici évite qu'on croie ce
+    contrôle plus large qu'il n'est (règle 1 dans l'autre sens).
+
+    Un total INFÉRIEUR à 100 % est parfaitement normal : un tableau des huit
+    premiers acteurs n'épuise pas le marché.
+    """
+    motifs: list[str] = []
+    for index, bloc in enumerate(getattr(payload, "blocs", ()) or ()):
+        tableau = getattr(bloc, "tableau", None)
+        if tableau is None:
+            continue
+        for colonne, entete in enumerate(tableau.entetes):
+            if not _COLONNE_DE_PART.search(entete):
+                continue
+            parts = []
+            for ligne in tableau.lignes:
+                if colonne >= len(ligne):
+                    continue
+                trouve = _POURCENTAGE_CELLULE.match(ligne[colonne])
+                if trouve:
+                    ecrit = trouve.group(1)
+                    _, separateur, apres = ecrit.replace(".", ",").partition(",")
+                    parts.append((
+                        float(ecrit.replace(",", ".")),
+                        len(apres) if separateur else 0,
+                    ))
+            if len(parts) < 2:
+                continue
+            total = sum(valeur for valeur, _ in parts)
+            # La marge se DÉDUIT de l'écriture, elle ne se choisit pas.
+            #
+            # Chaque part arrondie porte au plus la moitié de sa dernière
+            # décimale d'écart : « 33,3 % » vaut entre 33,25 et 33,35. Trois
+            # parts au dixième tolèrent donc 0,15 point, douze en tolèrent
+            # 0,6. Un seuil fixe serait trop serré pour un tableau à douze
+            # acteurs — et refuserait un tableau juste — ou trop lâche pour
+            # trois, laissant passer une vraie incohérence.
+            marge = sum(0.5 * 10 ** (-decimales) for _, decimales in parts)
+            if total <= 100 + marge:
+                continue
+            motifs.append(
+                f"Bloc {index} (tableau), colonne « {entete} » : les parts "
+                f"totalisent {total:.1f} %, ce qui est impossible pour une "
+                "répartition d'un même marché. Vérifie que toutes portent le "
+                "MÊME périmètre — même pays, même année, même secteur, même "
+                "canal, même périmètre de produits, même unité — et écarte "
+                "celles qui n'y répondent pas."
+            )
     return motifs
 
 
