@@ -246,6 +246,65 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 @csrf_exempt
+def job_brief(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Le BRIEF client d'un dossier — les réponses qui ont produit le livrable.
+
+    ## Pourquoi cette route existe
+
+    Le 12/08/2026, le business plan `2a8872d0` s'est terminé sans son analyse
+    concurrentielle. Le refaire proprement demandait un dossier neuf, et un
+    dossier neuf demande le brief. Or les réponses vivent dans
+    `IntakeSubmission.normalized_variables`, qu'AUCUNE route n'exposait : le
+    seul recours était de les recopier à la main depuis l'administration
+    Django, une vingtaine de champs, avec le risque de ne pas reproduire à
+    l'identique le brief d'une cliente.
+
+    Refaire un livrable est une opération normale — un défaut corrigé, un
+    dossier à reprendre. Elle ne doit pas dépendre d'un copier-coller.
+
+    ## Ce qu'elle ne fait pas
+
+    Elle ne rend PAS `raw_payload` : la charge brute du formulaire porte des
+    métadonnées de collecte (identifiants de champs, horodatages, parfois
+    l'adresse de l'envoyeur) dont personne n'a besoin pour relancer une
+    génération. On expose ce qui sert, pas tout ce qu'on a.
+    """
+    try:
+        job = GenerationJob.objects.select_related("order").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    soumission = IntakeSubmission.objects.filter(order=job.order).first()
+    if soumission is None:
+        # Règle 1 : on ne rend pas un brief vide en faisant croire qu'il l'est.
+        # Un dossier sans soumission existe (génération manuelle d'avant la
+        # traçabilité) et le dire est plus utile qu'un `{}`.
+        return _json(
+            {
+                "error": "Aucune soumission d'intake pour ce dossier.",
+                "job_id": str(job.id),
+            },
+            status=404,
+        )
+
+    return _json({
+        "job_id": str(job.id),
+        "deliverable_type": job.deliverable_type,
+        "customer_email": job.order.customer.email,
+        "source": soumission.source,
+        "status": soumission.status,
+        "submitted_at": (
+            soumission.submitted_at.isoformat() if soumission.submitted_at else None
+        ),
+        "missing_fields": list(soumission.missing_fields or []),
+        "variables": dict(soumission.normalized_variables or {}),
+    })
+
+
+@require_GET
+@csrf_exempt
 def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
     """Detail d'un job : infos + chapitres + document."""
     try:
