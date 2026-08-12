@@ -246,6 +246,73 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
 
 @require_http_methods(["POST"])
 @csrf_exempt
+def job_supprimer(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Efface un dossier RATÉ, et écrit dans le journal ce qu'il emporte.
+
+    ## Ce que la suppression touche, et ce qu'elle ne touche pas
+
+    Partent avec le dossier : ses chapitres, son socle, ses faits de cohérence,
+    ses documents. Restent : la COMMANDE et le BRIEF du client — ils ne
+    dépendent pas du dossier, c'est lui qui pointe vers eux — ainsi que les
+    incidents, qui se détachent au lieu de disparaître. Un dossier supprimé ne
+    fait donc perdre ni les réponses du client ni la trace de ce qui a échoué.
+
+    ## Pourquoi seulement les dossiers ratés
+
+    Un dossier abouti porte le livrable payé par un client. Cette route refuse
+    donc tout ce qui n'est pas en échec : la commodité de faire le ménage ne
+    justifie pas de pouvoir effacer une commande honorée d'un appel.
+
+    ## Le coût part au journal AVANT de disparaître
+
+    `total_cost_eur` EST la comptabilité de ce projet — il n'existe aucun
+    registre séparé. Supprimer un dossier qui a dépensé 4,29 € fait donc
+    disparaître ces 4,29 € de partout. On les écrit en WARNING avant l'effacement :
+    la dépense a eu lieu, elle doit rester lisible quelque part.
+    """
+    try:
+        job = GenerationJob.objects.select_related("order__customer").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    if job.status != JobStatus.FAILED:
+        return _json(
+            {
+                "error": (
+                    "Seul un dossier en échec peut être supprimé. Celui-ci est "
+                    f"« {job.status} » : annulez-le d'abord si c'est voulu."
+                ),
+                "status": str(job.status),
+            },
+            status=409,
+        )
+
+    trace = {
+        "job_id": str(job.id),
+        "deliverable_type": str(job.deliverable_type),
+        "customer_email": job.order.customer.email,
+        "total_cost_eur": str(job.total_cost_eur),
+        "chapitres": job.chapters.count(),
+        "error_message": (job.error_message or "")[:300],
+    }
+
+    import logging  # noqa: PLC0415
+
+    logging.getLogger(__name__).warning(
+        "SUPPRESSION dossier %s (%s, client %s) : %s EUR reellement depenses "
+        "sortent du grand livre, %s chapitre(s) effaces. Motif d'echec : %s",
+        trace["job_id"], trace["deliverable_type"], trace["customer_email"],
+        trace["total_cost_eur"], trace["chapitres"], trace["error_message"],
+    )
+
+    job.delete()
+    return _json({"supprime": trace}, status=200)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
 def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
     """Refait un dossier À L'IDENTIQUE : même brief, socle neuf, budget neuf.
 

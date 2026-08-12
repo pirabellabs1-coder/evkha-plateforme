@@ -95,21 +95,25 @@ def test_em_complete_traverse_le_pipeline(soumission_em: IntakeSubmission) -> No
 
 
 @pytest.mark.django_db
-def test_check_initial_ko_stoppe_le_pipeline_avant_le_chapitre_1(
+def test_check_initial_ko_laisse_l_etude_aller_au_bout(
     soumission_em: IntakeSubmission,
 ) -> None:
-    """Preuve en conditions reelles du gate amont du manuel (p.3).
+    """Une fiche refusee n'annule plus les vingt-et-un chapitres suivants.
 
-    « Si la fiche projet est complete [...] commencer le chapitre 1. Sinon,
-    corriger la fiche ou demander la precision necessaire AVANT TOUTE
-    REDACTION. » Le test unitaire de la phase 42 couvre le hook ; ici on
-    verifie que `run_generation_job` lui-meme s'arrete, et surtout qu'aucun
-    des 21 chapitres n'a ete redige sur une fiche defectueuse.
+    Le manuel p.3 dit « corriger la fiche ou demander la precision necessaire
+    AVANT TOUTE REDACTION », et le code n'avait retenu que l'arret. Decision
+    cliente du 12/08/2026, sur une mesure : le business plan `2b6cc7d6` s'est
+    arrete a dix centimes parce que le relecteur exigeait de justifier des
+    montants ABSENTS du brief — une correction impossible. La cliente n'avait
+    ni document ni diagnostic.
+
+    On corrige donc la fiche (reprise avec la note), puis on continue en
+    laissant une trace HIGH. Le gate de livraison juge le document a la fin :
+    c'est lui qui decide s'il part, pas un controle a la troisieme ligne.
     """
     from unittest.mock import patch
 
     from generation.checks_blocs import CheckResult
-    from generation.runner import CheckInitialBlockedError
 
     def _check_ko_sur_initial(job, bloc, chapitres, **_kwargs):
         if bloc.identifiant == "INITIAL":
@@ -122,16 +126,23 @@ def test_check_initial_ko_stoppe_le_pipeline_avant_le_chapitre_1(
     job = bootstrap_generation_job(soumission_em)
 
     with patch("generation.runner.check_bloc", side_effect=_check_ko_sur_initial):
-        with pytest.raises(CheckInitialBlockedError):
-            run_generation_job(job, client=StubClaudeClient())
+        run_generation_job(job, client=StubClaudeClient())
 
     job.refresh_from_db()
-    assert job.status == JobStatus.FAILED
-    assert "CHECK INITIAL" in job.error_message
-
-    # Le coeur du manuel : AUCUNE redaction n'a commence. Seule la fiche
-    # projet (ch. 0) existe ; les chapitres 1 a 21 sont restes intouches.
-    rediges = job.chapters.filter(status=ChapterStatus.DONE)
-    assert [c.chapter_number for c in rediges] == [0], (
-        "Des chapitres ont ete rediges malgre une fiche projet invalide."
+    assert job.status == JobStatus.DONE, (
+        "Une fiche refusee ne doit plus tuer l'etude : c'est le gate de "
+        "livraison qui tranche, sur le document complet."
     )
+
+    # L'etude va au bout. Ce qui compte n'est plus qu'elle s'arrete, mais que
+    # le refus LAISSE UNE TRACE : sans elle, on livrerait en silence un
+    # document assis sur une fiche que le relecteur a refusee.
+    rediges = [c.chapter_number for c in job.chapters.filter(status=ChapterStatus.DONE)]
+    assert len(rediges) > 1, "La redaction devait continuer apres la fiche."
+
+    from monitoring.models import IncidentSeverity, OperationalIncident
+
+    incidents = OperationalIncident.objects.filter(
+        job=job, severity=IncidentSeverity.HIGH
+    )
+    assert incidents.exists(), "Le refus de la fiche doit rester visible."

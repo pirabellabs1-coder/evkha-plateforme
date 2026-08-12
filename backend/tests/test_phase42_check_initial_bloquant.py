@@ -8,13 +8,19 @@ Manuel EVKHA « Etude de marche simplifiee » :
 
 Avant ce correctif, un CHECK INITIAL en echec ouvrait un incident MEDIUM puis
 laissait la generation continuer : les 21 chapitres etaient rediges sur une
-fiche projet defectueuse (exactement ce que le manuel interdit). Desormais, un
-CHECK INITIAL 'fix' :
-  - ouvre un incident HIGH,
-  - leve CheckInitialBlockedError -> le job est marque FAILED,
-  - MAIS ne degrade PAS la fiche projet (chapitre 0), qui reste DONE.
+fiche projet defectueuse (exactement ce que le manuel interdit). Un CHECK
+INITIAL 'fix' declenche desormais une REPRISE de la fiche avec la note du
+relecteur, et :
+  - ouvre un incident HIGH si le refus survit a la reprise,
+  - ne degrade PAS la fiche projet (chapitre 0), qui reste DONE,
+  - laisse la redaction CONTINUER — decision cliente du 12/08/2026 : « quand il
+    s'agit d'une incoherence, au lieu de mettre en echec, il faut plutot
+    corriger et mettre de la logique dedans ».
 
-L'admin corrige le brief / la fiche puis relance.
+Le blocage a ete leve sur une mesure : business plan `2b6cc7d6`, arrete a dix
+centimes parce que le relecteur reclamait de justifier des montants absents du
+brief. La correction demandee etait impossible, et la cliente n'avait rien.
+C'est le gate de livraison qui juge le document a la fin.
 """
 from __future__ import annotations
 
@@ -25,7 +31,7 @@ import pytest
 
 from generation.checks_blocs import BLOCS_PAR_IDENTIFIANT, CheckResult
 from generation.models import ChapterStatus
-from generation.runner import CheckInitialBlockedError, _after_chapter_hook
+from generation.runner import _after_chapter_hook
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 
@@ -75,21 +81,24 @@ def _pass_result() -> CheckResult:
 
 
 @pytest.mark.django_db
-def test_check_initial_fix_stoppe_la_generation() -> None:
-    """Un CHECK INITIAL 'fix' PERSISTANT leve CheckInitialBlockedError.
+def test_check_initial_fix_laisse_une_trace_haute_et_poursuit() -> None:
+    """Un CHECK INITIAL 'fix' PERSISTANT ouvre un incident HIGH, sans tuer l'etude.
 
     Depuis le 05/08/2026, une fiche refusee est d'abord regeneree une fois avec
-    la note du relecteur (voir `test_phase46_...`) : le blocage n'intervient
-    que si le refus SURVIT a cette correction. `regenerate_chapter` est donc
-    neutralise ici — le relecteur, lui, refuse toujours. Ce qui est verifie est
-    inchange : l'etude s'arrete, la fiche reste DONE, l'incident est HIGH.
+    la note du relecteur (voir `test_phase46_...`). Depuis le 12/08/2026, un
+    refus qui SURVIT a cette correction n'arrete plus la generation — decision
+    cliente : « quand il s'agit d'une incoherence, au lieu de mettre en echec,
+    il faut plutot corriger et mettre de la logique dedans ».
+
+    Ce qui est verifie ici reste ce qui comptait : la fiche demeure DONE, et
+    l'incident est HIGH — la trace ne s'efface pas, seule la mort de l'etude
+    disparait. Le gate juge le document a la fin.
     """
     job, fiche = _make_job_avec_fiche()
 
     with patch("generation.runner.check_bloc", return_value=_fix_result()), \
          patch("generation.runner.regenerate_chapter"):
-        with pytest.raises(CheckInitialBlockedError):
-            _after_chapter_hook(job, fiche, client=object())
+        _after_chapter_hook(job, fiche, client=object())
 
     # La fiche projet reste DONE : elle est valide en soi, c'est son CONTENU
     # que l'admin doit corriger. On ne la marque pas FAILED.

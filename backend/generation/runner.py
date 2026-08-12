@@ -945,6 +945,28 @@ def _generate_chapter(
 # validation, on prefere loguer et continuer.
 _MAX_CHECK_RETRIES = 1
 
+#: L'issue que le relecteur laisse implicite, et sans laquelle sa demande est
+#: impossible à satisfaire.
+#:
+#: Business plan `2b6cc7d6` (12/08/2026) : le relecteur refuse la fiche parce
+#: qu'elle avance 65 000 €, 1 400 € et 62 000 € absents du brief, et demande
+#: « soit retirer les montants, soit ajouter le détail du calcul ». Le rédacteur
+#: a tenté la seconde voie — la seule qui ne le fasse pas revenir les mains
+#: vides — et il ne pouvait pas : on ne justifie pas un chiffre qu'on n'a pas.
+#:
+#: On lui dit donc explicitement que retirer est une réponse VALIDE, et même la
+#: bonne. Une fiche qui nomme ce qui manque est utilisable ; une fiche qui
+#: invente un calcul pour tenir debout ne l'est pas — elle contamine ensuite
+#: chaque chapitre qui s'appuie dessus.
+_ISSUE_DU_CHIFFRE_ABSENT = (
+    "\n\nSI UN MONTANT NE PEUT PAS ÊTRE JUSTIFIÉ à partir du dossier client : "
+    "RETIRE-le. N'invente jamais le calcul qui le rendrait acceptable. Écris à "
+    "la place, en une ligne, quelle donnée manque et à qui la demander — "
+    "« chiffre d'affaires prévisionnel non fourni par le client ». Une fiche "
+    "qui nomme ce qui manque est exploitable ; une fiche qui habille un chiffre "
+    "inventé contamine tous les chapitres qui s'appuieront dessus."
+)
+
 
 def _after_chapter_hook(
     job: GenerationJob,
@@ -1056,21 +1078,51 @@ def _executer_check_avec_retry(
         if fiche is not None:
             for _ in range(_MAX_CHECK_RETRIES):
                 regenerate_chapter(
-                    job, fiche, corrective_note=result.note_corrective, client=client,
+                    job, fiche,
+                    corrective_note=result.note_corrective + _ISSUE_DU_CHIFFRE_ABSENT,
+                    client=client,
                 )
                 fiche.refresh_from_db()
                 result = check_bloc(job, bloc, [fiche], client=client)
                 if result.est_ok:
                     return
-        # La fiche reste refusee apres correction : la cause est bien en amont
-        # (brief contradictoire, demande illisible). La generation s'arrete,
-        # comme avant, et un humain tranche.
+        # LA FICHE REFUSEE NE TUE PLUS L'ETUDE.
+        #
+        # Decision cliente du 12/08/2026 : « quand il s'agit d'une incoherence,
+        # au lieu de mettre en echec, il faut plutot corriger et mettre de la
+        # logique dedans ».
+        #
+        # Mesure qui la motive — business plan `2b6cc7d6` : le relecteur refuse
+        # la fiche parce qu'elle avance 65 000 €, 1 400 € et 62 000 € que le
+        # brief ne contient pas. Il a raison. Mais la correction qu'il reclame
+        # est IMPOSSIBLE : on ne justifie pas un chiffre absent du brief. La
+        # generation s'arretait donc a 10 centimes, et la cliente n'avait RIEN
+        # — ni document, ni diagnostic exploitable.
+        #
+        # C'est la classe de defaut deja corrigee deux fois sur ce depot : « un
+        # chapitre qui coince ne tue plus l'etude » (02/08), puis la fiche qui
+        # gagne une reprise (05/08). Le refus FINAL, lui, restait fatal.
+        #
+        # Tension assumee avec le manuel p.2 — « on ne continue jamais par
+        # automatisme ». On ne continue pas par automatisme : on continue apres
+        # avoir tente la correction, en laissant une trace HIGH, et le document
+        # reste juge par le gate a la fin. Un dossier livre avec un defaut nomme
+        # vaut mieux qu'un dossier inexistant : le premier se corrige, le second
+        # ne s'analyse meme pas.
         _log_incident_check(
             job, bloc, result.note_corrective,
-            titre="CHECK INITIAL echoue (fiche projet a corriger) — generation stoppee",
+            titre=(
+                "CHECK INITIAL non resolu (fiche projet) — redaction poursuivie, "
+                "gate a la fin"
+            ),
             severity=IncidentSeverity.HIGH,
         )
-        raise CheckInitialBlockedError(result.note_corrective)
+        _log.warning(
+            "Job %s : CHECK INITIAL non resolu apres %s reprise(s). La redaction "
+            "continue ; le gate tranchera sur le document. Note : %s",
+            job.id, _MAX_CHECK_RETRIES, result.note_corrective[:300],
+        )
+        return
 
     retries = 0
     while retries < _MAX_CHECK_RETRIES and not result.est_ok:
