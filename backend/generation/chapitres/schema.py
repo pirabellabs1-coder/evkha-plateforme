@@ -738,6 +738,77 @@ def raccourcir_le_resume(payload: ChapitrePayload, *, maximum: int) -> str:
     )
 
 
+#: Un identifiant se lit en jetons : `taille_marche` vaut `("taille", "marche")`.
+#: Les accents tombent, la casse aussi — le modèle écrit `critere_accessibilité`
+#: là où le socle porte `accessibilite`, et cette différence-là n'en est pas une.
+_SEPARATEURS = re.compile(r"[^0-9a-z]+")
+
+#: Table de dépouillement des accents, sans dépendance : `str.translate` sur les
+#: quelques lettres que le français emploie. Une normalisation Unicode complète
+#: (`NFKD`) ferait le même travail, mais dépouillerait aussi des caractères
+#: qu'un identifiant n'a de toute façon pas le droit de porter.
+_SANS_ACCENT = str.maketrans("àâäçéèêëîïôöùûüÿœæ", "aaaceeeeiioouuuyoa")
+
+
+def _jetons(identifiant: str) -> tuple[str, ...]:
+    depouille = identifiant.casefold().translate(_SANS_ACCENT)
+    return tuple(j for j in _SEPARATEURS.split(depouille) if j)
+
+
+def resoudre_identifiant(declare: str, connus: frozenset[str]) -> str | None:
+    """L'identifiant du socle que `declare` DÉSIGNE, ou None si aucun.
+
+    ## Le défaut mesuré
+
+    Business plan `2a8872d0` (12/08/2026), chapitre 7 « Analyse
+    concurrentielle » : mort après TROIS tentatives, pour zéro centime de
+    contenu utile, sur trois motifs identiques —
+
+        `critere_accessibilite_evkha` ne figure pas dans le socle verrouillé.
+
+    Le modèle n'a rien inventé : il a DÉCORÉ. Un préfixe qui dit la nature
+    (`critere_`), un suffixe qui dit la maison (`_evkha`, au passage le nom de
+    la marque dans un livrable en marque blanche). Le contrôle, lui, compare à
+    la lettre près, et un chapitre entier meurt d'un préfixe.
+
+    ## Pourquoi une résolution et non une liste de préfixes
+
+    Énumérer `critere_`, `donnee_`, `id_`, `_evkha`… c'est la règle 4 du dépôt
+    prise à l'envers : « si votre correctif énumère des cas, il est incomplet ».
+    On ne connaît pas la prochaine décoration.
+
+    Un identifiant du socle est donc RECONNU quand ses jetons apparaissent, à
+    la suite, dans ceux du nom déclaré. Le plus long gagne — `prix_median` prime
+    sur `prix`. Deux candidats de même longueur : on ne tranche pas, et le
+    chapitre est refusé comme avant. Mieux vaut redemander que deviner (règle 2).
+    """
+    if declare in connus:
+        return declare
+
+    jetons = _jetons(declare)
+    if not jetons:
+        return None
+
+    meilleurs: list[str] = []
+    longueur_max = 0
+    for connu in connus:
+        cible = _jetons(connu)
+        if not cible or len(cible) > len(jetons):
+            continue
+        contigu = any(
+            jetons[i : i + len(cible)] == cible
+            for i in range(len(jetons) - len(cible) + 1)
+        )
+        if not contigu:
+            continue
+        if len(cible) > longueur_max:
+            longueur_max, meilleurs = len(cible), [connu]
+        elif len(cible) == longueur_max:
+            meilleurs.append(connu)
+
+    return meilleurs[0] if len(meilleurs) == 1 else None
+
+
 def valider_chapitre(
     payload: ChapitrePayload,
     *,
@@ -763,7 +834,24 @@ def valider_chapitre(
             f"chapitre demandé ({numero_attendu})."
         )
 
-    inconnues = [i for i in payload.donnees_utilisees if i not in identifiants_socle]
+    # On RÉSOUT avant de refuser : un préfixe ou un suffixe décoratif n'est pas
+    # une donnée hors socle, et faire mourir un chapitre dessus coûte un trou
+    # dans le document livré (business plan `2a8872d0`, chapitre 7).
+    inconnues: list[str] = []
+    resolus: list[str] = []
+    for declare in payload.donnees_utilisees:
+        vrai = resoudre_identifiant(declare, identifiants_socle)
+        if vrai is None:
+            inconnues.append(declare)
+            resolus.append(declare)
+            continue
+        if vrai != declare:
+            _log.info(
+                "identifiant décoré ramené au socle : %r -> %r", declare, vrai
+            )
+        resolus.append(vrai)
+    payload.donnees_utilisees = resolus
+
     for identifiant in sorted(set(inconnues)):
         motifs.append(
             f"`{identifiant}` ne figure pas dans le socle verrouillé. "

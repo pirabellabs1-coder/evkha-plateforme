@@ -442,6 +442,35 @@ def _verticale_present(needle: str, full_text: str) -> bool:
     return all(_mot_present(mot, full_text) for mot in mots)
 
 
+#: Un montant qui porte SON unité. `amounts_in` la rend facultative — c'est
+#: juste pour lire « 55 % An1 -> 85 % An5 », et faux pour décider si une
+#: réponse client contient un montant.
+_MONTANT_AVEC_DEVISE = re.compile(MONEY_CAPTURED, re.IGNORECASE)
+
+
+def _exige_une_devise(patterns: tuple[re.Pattern[str], ...]) -> bool:
+    """Le fait se cherche-t-il dans le document avec une unité monétaire ?
+
+    Déduit des motifs eux-mêmes, et non d'une seconde liste de clés à tenir à
+    jour : ajouter un fait monétaire à `_CLIENT_FACT_PATTERNS` suffit, le
+    contrôle suit (règle 5).
+    """
+    return any(_MONEY in motif.pattern for motif in patterns)
+
+
+def _extrait(valeur: str, largeur: int = 90) -> str:
+    """Le début d'une réponse client, entre guillemets, pour un motif lisible.
+
+    Le message reproduisait la réponse ENTIÈRE — sur le business plan
+    `2a8872d0`, un paragraphe de mille signes dans un motif d'échec. Un motif
+    qu'on ne peut pas lire ne se corrige pas (règle 2).
+    """
+    aplati = " ".join(valeur.split())
+    if len(aplati) <= largeur:
+        return f"« {aplati} »"
+    return f"« {aplati[:largeur].rstrip()}… »"
+
+
 def _client_numbers(value: str) -> list[float]:
     """Montants d'une valeur de fait client, normalises en unites de base.
 
@@ -862,6 +891,31 @@ def _check_numeric_coherence(
         expected = _client_numbers(client_value)
         if not expected:
             continue  # pas de donnée client structurée pour cette clé
+
+        # Le document est cherché avec `_MONEY` : une unité monétaire est
+        # OBLIGATOIRE de ce côté. Le brief, lui, était lu par `amounts_in`, où
+        # l'unité est facultative — d'où la comparaison d'un montant à des
+        # nombres qui n'en sont pas. On ne juge pas sans référence opposable.
+        if _exige_une_devise(patterns) and not _MONTANT_AVEC_DEVISE.search(client_value):
+            failures.append(GateFailure(
+                check="reference_client_illisible",
+                # `None` et non `0` : un échec à zéro est routé vers le
+                # chapitre 1 pour réécriture (`correction.py`), et aucune
+                # réécriture ne fera apparaître un chiffre que le client n'a
+                # pas donné. On paierait une reprise pour rien. Sans chapitre,
+                # l'échec bloque la livraison et remonte au rapport — ce qui
+                # est exactement ce qu'on veut : une action humaine.
+                chapter_number=None,
+                detail=(
+                    f"{key} : le brief client ne donne aucun montant "
+                    f"exploitable — sa réponse est en texte libre "
+                    f"({_extrait(client_value)}). Le document ne peut donc pas "
+                    "être confronté à une référence, et ce n'est pas au "
+                    "rédacteur de la deviner : il faut obtenir le chiffre "
+                    "auprès du client."
+                ),
+            ))
+            continue
 
         is_trajectory = key in _TRAJECTORY_FACT_KEYS
         lo, hi = min(expected), max(expected)

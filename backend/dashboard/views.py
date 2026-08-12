@@ -500,12 +500,7 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
     # fois et ecrire deux fois les memes chapitres. Le refus reste donc la
     # regle, et l'exception se mesure (`generation_interrompue`) au lieu de se
     # decreter.
-    from generation.services import (  # noqa: PLC0415
-        DELAI_SANS_PROGRESSION,
-        duree_sans_progression,
-        generation_interrompue,
-    )
-
+    #
     # Un dossier TERMINÉ avec un chapitre en échec est relançable, lui aussi.
     #
     # `run_generation_job` ne marque plus FAILED un dossier dont un chapitre a
@@ -521,6 +516,29 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
     # La relance ne réécrit QUE les chapitres FAILED ou SKIPPED
     # (`relaunch_generation_job`) : les vingt autres sont conservés, et la
     # dépense se limite au trou.
+    #
+    # Avant de décider, on NORMALISE. Un chapitre resté « en cours » sur un
+    # dossier terminé n'est ni fini ni en échec : il n'est rien, et le trou
+    # devenait invisible ET définitif — la condition ci-dessous ne regarde que
+    # les chapitres FAILED.
+    #
+    # Mesuré sur le business plan `2a8872d0` (12/08/2026) : chapitre 6 laissé
+    # `running` par une boucle de correction qui n'est pas allée au bout,
+    # dossier « terminé » à 20/22, et pour seul recours repayer 3,27 €.
+    # `run_generation_job` ferme désormais ces états à la fin d'une génération ;
+    # on le refait ici pour les dossiers DÉJÀ terminés avant le correctif, et
+    # pour tout chemin qui aboutirait au même trou (règle 4 : la classe, pas le
+    # cas). Sans effet sur un dossier sain.
+    from generation.runner import fermer_les_chapitres_inacheves  # noqa: PLC0415
+    from generation.services import (  # noqa: PLC0415
+        DELAI_SANS_PROGRESSION,
+        duree_sans_progression,
+        generation_interrompue,
+    )
+
+    if job.status == JobStatus.DONE:
+        fermer_les_chapitres_inacheves(job)
+
     trou_a_combler = (
         job.status == JobStatus.DONE
         and job.chapters.filter(status=ChapterStatus.FAILED).exists()

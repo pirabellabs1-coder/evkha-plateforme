@@ -43,6 +43,14 @@ _SYSTEME = (
     "établis et verrouillés. Tu les EXPLOITES ; tu ne les recalcules pas, tu "
     "ne les arrondis pas, tu n'en inventes pas d'autres. Chaque identifiant de "
     "donnée que tu mobilises doit être listé dans `donnees_utilisees`.\n"
+    # Business plan `2a8872d0` (12/08/2026) : le chapitre 7 est mort en trois
+    # tentatives sur `critere_accessibilite_evkha`. Le modele n'avait rien
+    # invente — il avait DECORE le code : un prefixe qui dit la nature, un
+    # suffixe qui dit la maison. Le resolveur repare desormais ce cas ; la
+    # consigne existe pour qu'il n'ait pas a le faire.
+    "Un identifiant se recopie EXACTEMENT tel qu'il t'est donné : pas de "
+    "préfixe (`critere_`, `donnee_`), pas de suffixe, jamais un nom de "
+    "marque. `accessibilite` reste `accessibilite`.\n"
     "\n"
     "Les graphiques que tu demandes ne portent AUCUNE valeur : seulement des "
     "identifiants du socle. Le rendu résout les valeurs lui-même, ce qui rend "

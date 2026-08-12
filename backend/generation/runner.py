@@ -579,10 +579,55 @@ def run_generation_job(
         msg = f"Generation failed: aucun chapitre produit (job {job.id})."
         raise GenerationRunError(msg)
 
+    fermer_les_chapitres_inacheves(job)
+
     job.status = JobStatus.DONE
     job.completed_at = timezone.now()
     job.save(update_fields=["status", "completed_at", "updated_at"])
     return job
+
+
+def fermer_les_chapitres_inacheves(job: GenerationJob) -> list[int]:
+    """Passe en ÉCHEC tout chapitre resté en attente ou en cours. Rend leurs numéros.
+
+    ## Le défaut mesuré
+
+    Business plan `2a8872d0` (12/08/2026) : le chapitre 6 est resté « en cours »
+    sur un dossier « terminé » à 20 chapitres sur 22. Deux conséquences, et la
+    seconde est la pire :
+
+    - le tableau de bord affiche 20/22 indéfiniment, sans que rien n'explique
+      ce qui manque ;
+    - le rattrapage (`job_relaunch`, mode `trou_a_combler`) ne reconnaît que
+      les chapitres en ÉCHEC. Le seul recours était donc de repayer le dossier
+      entier — 3,27 € pour deux chapitres manquants.
+
+    Un état intermédiaire qui survit à la fin du traitement n'est pas un état :
+    c'est un échec qui ne dit pas son nom (règle 1).
+
+    Le motif EXISTANT est conservé et préfixé, jamais remplacé : sur
+    `2a8872d0`, le chapitre 6 portait le retour du contrôle qualité, la seule
+    explication du trou. L'écraser aurait effacé la cause en signalant l'effet.
+    """
+    inacheves = list(job.chapters.filter(
+        status__in=[ChapterStatus.PENDING, ChapterStatus.RUNNING]
+    ))
+    for chapitre in inacheves:
+        ancien = (chapitre.error_message or "").strip()
+        chapitre.status = ChapterStatus.FAILED
+        chapitre.error_message = (
+            f"Chapitre inachevé à la fin de la génération. {ancien}".strip()[:2000]
+        )
+        chapitre.save(update_fields=["status", "error_message", "updated_at"])
+
+    numeros = [c.chapter_number for c in inacheves]
+    if numeros:
+        _log.warning(
+            "Job %s termine avec %s chapitre(s) inacheve(s) : %s. Marques en "
+            "echec pour rester rattrapables.",
+            job.id, len(numeros), ", ".join(str(n) for n in numeros),
+        )
+    return numeros
 
 
 def regenerate_chapter(
