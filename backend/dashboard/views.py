@@ -244,6 +244,134 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
     return _json(items)
 
 
+@require_http_methods(["POST"])
+@csrf_exempt
+def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Refait un dossier À L'IDENTIQUE : même brief, socle neuf, budget neuf.
+
+    ## Pourquoi la relance ordinaire ne suffisait pas
+
+    `job_relaunch` réécrit les chapitres en échec d'un dossier EXISTANT. Elle
+    ne reconstruit jamais le socle, et elle ne recale le budget que si aucun
+    chapitre n'est terminé. Un dossier qui a consommé son plafond sur un socle
+    défectueux est donc définitivement clos : le plafond appliqué est
+    `min(budget du dossier, table du livrable)`, un minimum qu'aucune valeur
+    saisie ne franchit.
+
+    Mesuré le 12/08/2026 sur le business plan `2a8872d0` : socle sans
+    concurrents, chapitre 7 mort cinq fois, 4,19 € dépensés sur 5,50 €.
+
+    ## Pourquoi pas `create_generation`
+
+    Elle FILTRE le brief sur `_REQUIRED_VARS + _OPTIONAL_VARS`. Sur le brief
+    réel de ce dossier, dix variables sur vingt-huit disparaissaient — près de
+    6 600 signes de réponses client, dont `RESUME_EXECUTIF`,
+    `PARCOURS_PORTEUR` et `OFFRE`. Pour un business plan dont le chapitre 1
+    s'appelle « Résumé exécutif » et le chapitre 2 « Présentation du porteur de
+    projet », c'est rédhibitoire — et le filtre est SILENCIEUX : on aurait payé
+    une génération pour un document plus pauvre que celui qu'on répare.
+
+    Les deux listes ont divergé parce qu'aucun chemin ne les confrontait : le
+    questionnaire de l'espace client est bien plus riche que ce que la
+    génération manuelle accepte. On ne les réconcilie pas ici — on RECOPIE le
+    brief tel quel, ce qui rend la question sans objet (règle 5 : la
+    soumission d'origine est la seule source de ce que la cliente a répondu).
+
+    ## Ce que la reprise ne fait pas
+
+    Elle ne touche NI au dossier d'origine, ni aux crédits du client : la
+    reprise passe par l'offre manuelle, comme toute reprise à nos frais. Le
+    coût déjà engagé reste inscrit là où il a eu lieu — c'est la vérité
+    comptable, et le nouveau dossier repart de zéro avec le plafond de son
+    livrable.
+    """
+    try:
+        job = GenerationJob.objects.select_related("order__customer").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    from generation.services import generation_interrompue  # noqa: PLC0415
+
+    # Un dossier qui travaille VRAIMENT ne se refait pas : on paierait deux
+    # générations pour le même client. L'exception se MESURE — un dossier tué
+    # par un déploiement reste « en cours » sans que rien ne le fabrique.
+    if job.status == JobStatus.RUNNING and not generation_interrompue(job):
+        return _json(
+            {"error": "Ce dossier tourne encore. Annulez-le avant de le refaire."},
+            status=409,
+        )
+
+    soumission = IntakeSubmission.objects.filter(order=job.order).first()
+    if soumission is None or not soumission.normalized_variables:
+        # Sans brief, une reprise « à l'identique » n'a aucun sens : elle
+        # produirait un document sur des réponses vides en le présentant comme
+        # une reprise. Règle 1 — on refuse bruyamment.
+        return _json(
+            {
+                "error": (
+                    "Aucun brief exploitable pour ce dossier : impossible de le "
+                    "refaire à l'identique."
+                ),
+                "job_id": str(job.id),
+            },
+            status=409,
+        )
+
+    offre, _ = Offer.objects.get_or_create(
+        slug=f"manuel-{job.deliverable_type.replace('_', '-')}",
+        defaults={
+            "name": _MANUAL_OFFER_NAMES[str(job.deliverable_type)],
+            "deliverable_type": job.deliverable_type,
+            "is_active": True,
+        },
+    )
+
+    commande = Order.objects.create(
+        customer=job.order.customer,
+        offer=offre,
+        # L'identifiant PORTE la filiation : sans elle, un dossier repris est
+        # indiscernable d'une commande manuelle ordinaire, et personne ne
+        # saura dans six mois pourquoi ce client a deux business plans.
+        systeme_order_id=f"reprise-{str(job.id)[:8]}-{_uuid.uuid4().hex[:8]}",
+        status=OrderStatus.WAITING_INTAKE,
+        raw_payload={"reprise_de": str(job.id)},
+    )
+
+    reprise = IntakeSubmission.objects.create(
+        order=commande,
+        source=IntakeSource.MANUAL,
+        status=IntakeStatus.NORMALIZED,
+        raw_payload={"reprise_de": str(job.id)},
+        # VERBATIM. Aucun filtre, aucune normalisation, aucune valeur par
+        # défaut : ce que la cliente a répondu, et rien d'autre.
+        normalized_variables=dict(soumission.normalized_variables),
+        missing_fields=list(soumission.missing_fields or []),
+    )
+
+    try:
+        nouveau = bootstrap_generation_job(reprise)
+        run_generation_job_task.delay(str(nouveau.id))
+    except Exception:
+        import logging  # noqa: PLC0415
+        logging.getLogger(__name__).exception("job_regenerer failed")
+        return _json(
+            {"error": "Erreur interne lors du bootstrap de la reprise."}, status=500
+        )
+
+    return _json(
+        {
+            "job_id": str(nouveau.id),
+            "reprise_de": str(job.id),
+            "status": nouveau.status,
+            "budget_eur": str(nouveau.budget_eur),
+            "variables_reprises": len(reprise.normalized_variables),
+        },
+        status=202,
+    )
+
+
 @require_GET
 @csrf_exempt
 def job_brief(request: HttpRequest, job_id: str) -> JsonResponse:
