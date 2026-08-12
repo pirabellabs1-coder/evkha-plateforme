@@ -184,9 +184,47 @@ class Tableau(SortieDeChapitre):
     #: colonnes au chapitre 19 — cible, pays, offre, canal, partenaire,
     #: priorité, coût, délai, indicateur. Une contrainte qui interdit ce que le
     #: document validé contient est une contrainte fausse.
-    entetes: list[str] = Field(min_length=2, max_length=9)
+    entetes: list[str] = Field(min_length=2)
     lignes: list[list[str]] = Field(min_length=1)
     source: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _au_plus_neuf_colonnes(cls, valeurs: Any) -> Any:
+        """Ramène le tableau à neuf colonnes plutôt que de perdre le chapitre.
+
+        Neuf est une contrainte de LARGEUR DE PAGE : une dixième colonne sort
+        de la feuille A4 et rend le tableau illisible. C'est donc un excédent
+        de forme, exactement comme l'encadré à sept lignes qui a tué le
+        chapitre 0 de `0f9fb13a` (11/08/2026) — et la réponse doit être la
+        même : couper, journaliser, continuer.
+
+        La coupe porte sur les en-têtes ET sur chaque ligne, sans quoi le
+        tableau cesserait d'être rectangulaire et le validateur suivant
+        refuserait ce que celui-ci vient de sauver.
+
+        Elle a lieu AVANT la validation des champs : c'est la seule position
+        d'où l'on peut désamorcer un plafond que Pydantic appliquerait sinon
+        le premier.
+        """
+        if not isinstance(valeurs, dict):
+            return valeurs
+        entetes = valeurs.get("entetes")
+        if not isinstance(entetes, list) or len(entetes) <= 9:
+            return valeurs
+
+        _log.warning(
+            "Tableau : %s colonnes ramenées à 9. Retirées : %s",
+            len(entetes), " | ".join(str(e) for e in entetes[9:]),
+        )
+        corrige = dict(valeurs)
+        corrige["entetes"] = entetes[:9]
+        lignes = corrige.get("lignes")
+        if isinstance(lignes, list):
+            corrige["lignes"] = [
+                ligne[:9] if isinstance(ligne, list) else ligne for ligne in lignes
+            ]
+        return corrige
 
     @model_validator(mode="after")
     def _lignes_au_format_des_entetes(self) -> Tableau:
@@ -299,7 +337,47 @@ class Encadre(SortieDeChapitre):
     #: sur-mesure », soit 86 caractères. Une contrainte qui interdit ce que le
     #: document validé contient est une contrainte fausse.
     intitule: str = Field(min_length=1, max_length=120)
-    lignes: list[str] = Field(min_length=1, max_length=6)
+    lignes: list[str] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _au_plus_six_lignes(self) -> Encadre:
+        """Garde les six premières au lieu de refuser le chapitre entier.
+
+        ## Le cas réel qui a changé cette règle
+
+        Stratégie `0f9fb13a` (11/08/2026), cliente : le chapitre 0 — la fiche
+        projet, celle qui conditionne toute la génération — est mort sur
+
+            blocs.14.encadre.encadre.lignes : List should have at most
+            6 items after validation, not 7
+
+        **Une ligne de trop.** Un chapitre entier, payé, correct par ailleurs,
+        perdu pour un excédent qui se retire en une opération.
+
+        ## Pourquoi couper, et pas refuser
+
+        Le plafond protège la MISE EN PAGE : un encadré de douze lignes cesse
+        d'être un encadré. Six suffisent au patron du document de référence —
+        opportunité, limite, décision — et l'excédent ne porte, par
+        construction, que ce qui vient après l'essentiel.
+
+        Refuser coûte une reprise entière ; couper coûte une ligne. Ce dépôt a
+        déjà tranché trois fois dans ce sens — la ligne de tableau trop courte
+        qu'on complète, le résumé trop long qu'on raccourcit, la typographie
+        qu'on répare. La règle est la même : un défaut de FORME ne doit jamais
+        coûter un livrable.
+
+        On ne se tait pas pour autant : la coupe est journalisée avec ce
+        qu'elle retire (règle 1).
+        """
+        if len(self.lignes) <= 6:
+            return self
+        _log.warning(
+            "Encadré « %s » : %s lignes ramenées à 6. Retirées : %s",
+            self.intitule, len(self.lignes), " | ".join(self.lignes[6:]),
+        )
+        self.lignes = self.lignes[:6]
+        return self
 
 
 class CelluleKpi(SortieDeChapitre):
@@ -423,7 +501,27 @@ class BlocGrilleKpi(SortieDeChapitre):
     model_config = {"extra": "forbid"}
 
     type: Literal["grille_kpi"] = "grille_kpi"
-    cellules: list[CelluleKpi] = Field(min_length=2, max_length=4)
+    cellules: list[CelluleKpi] = Field(min_length=2)
+
+    @model_validator(mode="after")
+    def _au_plus_quatre_cellules(self) -> BlocGrilleKpi:
+        """Garde les quatre premières — même famille que l'encadré à 7 lignes.
+
+        Le plafond tient à la MISE EN PAGE : au-delà de quatre, la rangée de
+        chiffres clés ne tient plus sur une ligne et cesse d'être une rangée.
+        Une cinquième cellule est un excédent, pas une erreur de fond : la
+        retirer coûte un chiffre, refuser coûte le chapitre (règle 4 — la
+        classe, pas l'exemple).
+        """
+        if len(self.cellules) <= 4:
+            return self
+        _log.warning(
+            "Grille de KPI : %s cellules ramenées à 4. Retirées : %s",
+            len(self.cellules),
+            " | ".join(c.libelle for c in self.cellules[4:]),
+        )
+        self.cellules = self.cellules[:4]
+        return self
 
 
 #: Un bloc du chapitre, discriminé par son champ `type`.

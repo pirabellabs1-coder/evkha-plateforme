@@ -503,6 +503,69 @@ def jauges(
     return _exporter(figure, palette)
 
 
+#: Au-delà, un nom d'acteur déborde sur ses voisins quoi qu'on fasse.
+#: « Comptoir National de l'Or/Gold.fr » fait 33 signes et traverse un quart
+#: de la figure.
+_NOM_SUR_MATRICE_MAX = 22
+
+#: Les positions d'étiquette essayées, dans l'ordre, autour d'un point.
+#: (décalage x, décalage y, alignement horizontal, alignement vertical)
+_PLACEMENTS: tuple[tuple[int, int, str, str], ...] = (
+    (0, 14, "center", "bottom"),
+    (0, -16, "center", "top"),
+    (14, 0, "left", "center"),
+    (-14, 0, "right", "center"),
+    (0, 28, "center", "bottom"),
+    (0, -30, "center", "top"),
+    (14, 16, "left", "bottom"),
+    (-14, -18, "right", "top"),
+)
+
+
+def _abreger(nom: str) -> str:
+    if len(nom) <= _NOM_SUR_MATRICE_MAX:
+        return nom
+    return nom[: _NOM_SUR_MATRICE_MAX - 1].rstrip(" ,-/") + "…"
+
+
+def _placements_sans_chevauchement(
+    points: Sequence[tuple[str, float, float]],
+) -> list[tuple[int, int, str, str]]:
+    """Une position d'étiquette par point, distincte pour les points voisins.
+
+    ## Le défaut
+
+    Toutes les étiquettes étaient posées AU MÊME endroit relatif — quatorze
+    points au-dessus du marqueur, centrées. Deux acteurs voisins sur une
+    échelle de 1 à 5, et les deux noms se superposent exactement. Avec onze
+    concurrents sur une grille de vingt-cinq cases, la collision est certaine.
+
+    Signalé par la cliente le 11/08/2026 sur une étude notée 8,5/10 : « des
+    noms et mots se chevauchent encore sur des cartes ou matrice de
+    positionnement ».
+
+    ## La méthode, et sa limite
+
+    Les points sont regroupés par case d'un demi-point ; à l'intérieur d'une
+    case, chaque étiquette prend la position suivante du tour — dessus,
+    dessous, droite, gauche, puis plus loin. Huit positions suffisent à
+    séparer huit acteurs exactement superposés, ce qui n'arrive pas.
+
+    Ce n'est pas un placement optimal au pixel près : il faudrait mesurer le
+    texte rendu, donc dessiner deux fois. C'est un placement qui garantit que
+    deux étiquettes VOISINES ne partagent jamais la même position — ce qui
+    est exactement le défaut observé.
+    """
+    occupation: dict[tuple[int, int], int] = {}
+    placements: list[tuple[int, int, str, str]] = []
+    for _, x, y in points:
+        case = (round(x * 2), round(y * 2))
+        rang = occupation.get(case, 0)
+        occupation[case] = rang + 1
+        placements.append(_PLACEMENTS[rang % len(_PLACEMENTS)])
+    return placements
+
+
 def matrice_positionnement(
     palette: Palette,
     points: Sequence[tuple[str, float, float]],
@@ -512,11 +575,14 @@ def matrice_positionnement(
     """Nuage étiqueté : positionnement concurrentiel, matrice de risques."""
     figure, axes = _figure(palette, hauteur_ratio=0.62)
     couleurs = _couleurs(palette, len(points))
+    placements = _placements_sans_chevauchement(points)
     for index, (nom, x, y) in enumerate(points):
+        decalage_x, decalage_y, ha, va = placements[index]
         axes.scatter(x, y, s=260, color=couleurs[index], zorder=3)
         axes.annotate(
-            nom, (x, y), textcoords="offset points", xytext=(0, 14),
-            ha="center", fontsize=9, color=palette.texte_corps,
+            _abreger(nom), (x, y), textcoords="offset points",
+            xytext=(decalage_x, decalage_y), ha=ha, va=va,
+            fontsize=9, color=palette.texte_corps,
         )
     axes.grid(color=palette.fond_clair_alt, linewidth=0.8)
     axes.set_axisbelow(True)

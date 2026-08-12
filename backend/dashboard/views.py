@@ -506,8 +506,31 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
         generation_interrompue,
     )
 
+    # Un dossier TERMINÉ avec un chapitre en échec est relançable, lui aussi.
+    #
+    # `run_generation_job` ne marque plus FAILED un dossier dont un chapitre a
+    # coincé : il livre le reste avec un trou nommé, ce qui vaut infiniment
+    # mieux que de perdre vingt-deux chapitres corrects. Mais la relance, elle,
+    # n'a jamais appris cette nuance : elle n'acceptait que `failed` et
+    # `cancelled`, si bien que le trou devenait DÉFINITIF.
+    #
+    # Mesuré sur la stratégie `0f9fb13a` (11/08/2026, cliente) : chapitre 0 —
+    # la fiche projet — perdu sur un encadré d'une ligne de trop, vingt
+    # chapitres livrés, et aucun moyen de récupérer le vingt-et-unième.
+    #
+    # La relance ne réécrit QUE les chapitres FAILED ou SKIPPED
+    # (`relaunch_generation_job`) : les vingt autres sont conservés, et la
+    # dépense se limite au trou.
+    trou_a_combler = (
+        job.status == JobStatus.DONE
+        and job.chapters.filter(status=ChapterStatus.FAILED).exists()
+    )
     relancable = (JobStatus.FAILED, JobStatus.CANCELLED)
-    if job.status not in relancable and not generation_interrompue(job):
+    if (
+        job.status not in relancable
+        and not trou_a_combler
+        and not generation_interrompue(job)
+    ):
         silence = duree_sans_progression(job)
         if job.status == JobStatus.RUNNING and silence is not None:
             msg = (
@@ -518,8 +541,9 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
             )
         else:
             msg = (
-                "Seuls les dossiers échoués, annulés ou interrompus peuvent "
-                f"être relancés (statut : {job.status})."
+                "Seuls les dossiers échoués, annulés, interrompus, ou terminés "
+                "avec un chapitre en échec peuvent être relancés "
+                f"(statut : {job.status})."
             )
         return _json({"error": msg}, status=400)
 

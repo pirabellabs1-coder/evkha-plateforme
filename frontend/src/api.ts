@@ -140,9 +140,29 @@ export function livraisonBloquee(
   return job.qa_status === "blocked" && job.delivery_status !== "sent";
 }
 
-/** Un dossier relançable : échoué, annulé, ou interrompu sans le savoir. */
-export function estRelancable(job: Pick<JobSummary, "status" | "interrompue">): boolean {
-  return job.status === "failed" || job.status === "cancelled" || job.interrompue;
+/**
+ * Un dossier relançable : échoué, annulé, interrompu — ou TERMINÉ avec un trou.
+ *
+ * Le dernier cas est arrivé après les autres. Un chapitre qui coince ne tue
+ * plus l'étude : le dossier se termine avec un trou nommé, ce qui vaut mieux
+ * que de perdre vingt-deux chapitres corrects. Mais sans ce bouton, le trou
+ * devenait DÉFINITIF — stratégie `0f9fb13a` (11/08/2026), chapitre 0 perdu
+ * sur un encadré d'une ligne de trop, vingt chapitres livrés, rien à faire.
+ *
+ * La relance ne réécrit que les chapitres en échec : la dépense se limite au
+ * trou.
+ */
+export function estRelancable(
+  job: Pick<JobSummary, "status" | "interrompue" | "chapters_done" | "chapters_total">,
+): boolean {
+  const trouAcombler =
+    job.status === "done" && job.chapters_done < job.chapters_total;
+  return (
+    job.status === "failed" ||
+    job.status === "cancelled" ||
+    job.interrompue ||
+    trouAcombler
+  );
 }
 
 export interface Chapter {
