@@ -319,6 +319,35 @@ def test_le_caractere_monetaire_se_deduit_des_motifs() -> None:
     assert not _exige_une_devise(_CLIENT_FACT_PATTERNS["taux_occupation"])
 
 
+def test_l_echelle_des_ordres_de_grandeur_exige_aussi_un_montant() -> None:
+    """LE défaut que la première réparation avait laissé passer.
+
+    Reprise `5c5e91b9`, quelques heures après avoir réparé
+    `_check_numeric_coherence` : le contrôle des ordres de grandeur construit
+    SA propre échelle, à partir de la même lecture. La réponse « pour s1 2027
+    20 abonnés » lui donnait une référence de 2 027 € — l'année prise pour un
+    montant — et il reprochait au document ses « 260 000 €, plus de 100× la
+    référence client », en suggérant une erreur d'unité qui n'existait pas.
+
+    Deux contrôles, la même lecture, une seule réparée. Règle 9 : ce qu'un
+    contrôle ne regarde pas est exactement là où sa réparation ne cherche pas
+    non plus.
+    """
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1] / "generation" / "gate.py"
+    ).read_text(encoding="utf-8")
+
+    # L'échelle se construit APRÈS le filtre monétaire, pas avant.
+    filtre = source.index("if not _MONTANT_AVEC_DEVISE.search(valeur):")
+    lecture = source.index("numbers = _client_numbers(valeur)")
+    assert filtre < lecture, (
+        "la référence se construit encore sur des nombres nus : une année "
+        "redeviendrait un montant"
+    )
+
+
 def test_le_motif_ne_recopie_pas_le_paragraphe_entier() -> None:
     """Un motif d'échec illisible ne se corrige pas (règle 2).
 

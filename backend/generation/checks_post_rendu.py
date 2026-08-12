@@ -829,54 +829,91 @@ def detecter_demandes_contredites(
     la cliente a vue — et il le dit, plutôt que de laisser croire à une
     garantie plus large (règle 1 dans l'autre sens).
     """
+    # Le texte de chaque section, replié une seule fois. Le reconstruire à
+    # chaque tour rejoignait tout le document autant de fois qu'il a de
+    # chapitres — et surtout, on a besoin du DÉCOUPAGE pour compter dans
+    # combien de chapitres un mot apparaît, pas seulement s'il apparaît.
+    replies = [(numero, corps.casefold()) for numero, _titre, corps in sections]
+
     defauts: list[DemandeContredite] = []
     for numero, _titre, corps in sections:
-        ailleurs = "\n".join(
-            autre for autre_numero, _, autre in sections if autre_numero != numero
-        ).casefold()
-        if not ailleurs:
+        autres = [(n, texte) for n, texte in replies if n != numero]
+        if not autres:
             continue
 
-        for ligne in corps.splitlines():
-            trouve = _NON_TRAITE_RE.search(ligne)
-            if trouve is None:
-                continue
-            # Le SUJET précède le statut : « Analyser les canaux d'acquisition
-            # des concurrents : non traitée ». Prendre la ligne entière ramasse
-            # la justification qui SUIT — « la donnée n'est pas publiée,
-            # méthode d'estimation documentée » — et, quand plusieurs demandes
-            # partagent une ligne, les mots des AUTRES demandes.
-            #
-            # Mesuré à la première exécution : la répétition à blanc a signalé
-            # les quatre livrables sur « annexe, comparaison, complément,
-            # couvre », mots venus d'une demande voisine et de la mécanique du
-            # statut. Un contrôle qui lit trop large accuse à tort (règle 2).
-            sujet = ligne[: trouve.start()]
-            coupe = max(
-                (sujet.rfind(frontiere) + len(frontiere)
-                 for frontiere in _FRONTIERES_DE_DEMANDE
-                 if frontiere in sujet),
-                default=0,
-            )
-            sujet = sujet[coupe:]
-            porteurs = {
-                mot.casefold()
-                for mot in _MOT_PORTEUR_RE.findall(sujet)
-                if mot.casefold() not in _MOTS_TROP_COURANTS
-            }
-            communs = sorted(mot for mot in porteurs if mot in ailleurs)
-            if len(communs) < _MOTS_COMMUNS_MIN:
-                continue
-            defauts.append(DemandeContredite(
-                chapitre=numero,
-                demande=ligne.strip()[:160],
-                ailleurs=len(communs),
-                detail=(
-                    f"Chapitre {numero} declare « non traite » un sujet que le "
-                    f"document traite ailleurs : {', '.join(communs[:4])}. "
-                    "Un point annonce puis declare non traite est pire qu'un "
-                    "point absent — il fait douter de tout le reste. Reprends "
-                    "le statut, ou nomme ce qui manque vraiment."
-                ),
-            ))
+        # Un mot présent dans la MOITIÉ des autres chapitres ne désigne aucun
+        # sujet : c'est un mot de liaison.
+        #
+        # Business plan `5c5e91b9` (12/08/2026) : le contrôle a conclu à une
+        # contradiction au chapitre 20 sur « chaque, chiffrée, explicite,
+        # manque ». Quatre mots de six lettres ou plus, absents de la liste des
+        # mots trop courants — et présents dans presque tous les chapitres d'un
+        # document de vingt-deux. Le motif était faux.
+        #
+        # Rallonger la liste aurait été réparer l'instance : on ne connaît pas
+        # les quatre mots suivants. La DISTINCTIVITÉ, elle, se mesure — et un
+        # sujet réellement traité ailleurs ne sature pas le document entier,
+        # là où un mot de liaison le fait toujours (règle 4).
+        plafond = max(1, len(autres) // 2)
+        defauts.extend(
+            _contradictions_de_la_section(numero, corps, autres, plafond)
+        )
+    return defauts
+
+
+def _contradictions_de_la_section(
+    numero: int,
+    corps: str,
+    autres: list[tuple[int, str]],
+    plafond: int,
+) -> list[DemandeContredite]:
+    """Les demandes de CE chapitre que le reste du document contredit."""
+    defauts: list[DemandeContredite] = []
+    for ligne in corps.splitlines():
+        trouve = _NON_TRAITE_RE.search(ligne)
+        if trouve is None:
+            continue
+        # Le SUJET précède le statut : « Analyser les canaux d'acquisition
+        # des concurrents : non traitée ». Prendre la ligne entière ramasse
+        # la justification qui SUIT — « la donnée n'est pas publiée,
+        # méthode d'estimation documentée » — et, quand plusieurs demandes
+        # partagent une ligne, les mots des AUTRES demandes.
+        #
+        # Mesuré à la première exécution : la répétition à blanc a signalé
+        # les quatre livrables sur « annexe, comparaison, complément,
+        # couvre », mots venus d'une demande voisine et de la mécanique du
+        # statut. Un contrôle qui lit trop large accuse à tort (règle 2).
+        sujet = ligne[: trouve.start()]
+        coupe = max(
+            (sujet.rfind(frontiere) + len(frontiere)
+             for frontiere in _FRONTIERES_DE_DEMANDE
+             if frontiere in sujet),
+            default=0,
+        )
+        sujet = sujet[coupe:]
+        porteurs = {
+            mot.casefold()
+            for mot in _MOT_PORTEUR_RE.findall(sujet)
+            if mot.casefold() not in _MOTS_TROP_COURANTS
+        }
+        # DISTINCTIF, et pas seulement present : un mot de liaison figure
+        # dans tous les chapitres et ne designe aucun sujet.
+        communs = sorted(
+            mot for mot in porteurs
+            if 0 < sum(1 for _, texte in autres if mot in texte) <= plafond
+        )
+        if len(communs) < _MOTS_COMMUNS_MIN:
+            continue
+        defauts.append(DemandeContredite(
+            chapitre=numero,
+            demande=ligne.strip()[:160],
+            ailleurs=len(communs),
+            detail=(
+                f"Chapitre {numero} declare « non traite » un sujet que le "
+                f"document traite ailleurs : {', '.join(communs[:4])}. "
+                "Un point annonce puis declare non traite est pire qu'un "
+                "point absent — il fait douter de tout le reste. Reprends "
+                "le statut, ou nomme ce qui manque vraiment."
+            ),
+        ))
     return defauts

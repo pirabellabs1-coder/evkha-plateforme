@@ -718,9 +718,29 @@ def _check_ordres_de_grandeur(
     # alors que l'erreur « millions/milliers » est une faute de redaction, pas
     # une specificite du BP. Une etude de marche qui fournit un CA client est
     # desormais couverte.
+    # L'échelle se construit sur des MONTANTS, pas sur des nombres.
+    #
+    # Reprise `5c5e91b9` (12/08/2026) : la cliente avait répondu « pour s1 2027
+    # 20 abonnés » à la question du chiffre d'affaires prévisionnel. Le lecteur
+    # y voyait l'année, 2027, et le contrôle en faisait une référence de
+    # 2 027 € — puis reprochait au document ses « 260 000 €, plus de 100× la
+    # référence client », en suggérant une erreur d'unité qui n'existait pas.
+    #
+    # C'est le défaut réparé le matin même dans `_check_numeric_coherence`, et
+    # laissé intact ici : deux contrôles, la même lecture, une seule réparée.
+    # Règle 9 du dépôt — ce qu'un contrôle ne regarde pas est exactement là où
+    # sa réparation ne cherche pas non plus.
+    #
+    # Une unité monétaire est donc EXIGÉE côté brief, comme elle l'est déjà
+    # côté document (`_PROJECT_MONEY_RE`). Sans elle, il n'y a pas d'échelle —
+    # et l'absence de chiffre exploitable est signalée par
+    # `reference_client_illisible`, qui nomme le vrai problème.
     reference = 0.0
     for key in _MONETARY_FACT_KEYS:
-        numbers = _client_numbers(client_facts.get(key, ""))
+        valeur = client_facts.get(key, "")
+        if not _MONTANT_AVEC_DEVISE.search(valeur):
+            continue
+        numbers = _client_numbers(valeur)
         if numbers:
             reference = max(reference, max(numbers))
     if reference <= 0:

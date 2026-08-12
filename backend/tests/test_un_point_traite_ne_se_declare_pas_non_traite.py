@@ -109,6 +109,54 @@ def test_un_statut_traite_n_est_jamais_signale() -> None:
     assert detecter_demandes_contredites(sections) == []
 
 
+def test_un_mot_present_partout_ne_designe_aucun_sujet() -> None:
+    """LE faux positif du 12/08/2026, sur le business plan `5c5e91b9`.
+
+    Le contrôle a conclu à une contradiction au chapitre 20 sur « chaque,
+    chiffrée, explicite, manque ». Quatre mots de six lettres ou plus, absents
+    de la liste des mots trop courants — et présents dans presque tous les
+    chapitres d'un document de vingt-deux.
+
+    Rallonger la liste aurait réparé l'instance : on ne connaît pas les quatre
+    mots suivants. La DISTINCTIVITÉ se mesure — un mot de liaison sature le
+    document, un sujet non (règle 4).
+    """
+    liaison = "Chaque point est explicite et chiffrée ; rien ne manque ici."
+    sections = [(n, f"Chapitre {n}", liaison) for n in range(1, 22)]
+    sections.append((
+        20, "Validation",
+        "- Fournir le détail : non traitée, chaque élément chiffrée explicite manque.",
+    ))
+
+    assert detecter_demandes_contredites(sections) == []
+
+
+def test_un_sujet_distinctif_reste_signale_dans_un_long_document() -> None:
+    """CONTRE-ÉPREUVE : la mesure ne doit pas débrancher le contrôle.
+
+    Le cas de la cliente, mais noyé dans vingt chapitres de prose : « canaux
+    d'acquisition » traité au 3, déclaré non traité au 8. Ces mots-là ne sont
+    pas partout — c'est précisément ce qui en fait un sujet.
+    """
+    sections = [(
+        3, "Canaux",
+        "Les canaux d'acquisition reposent sur le référencement naturel.",
+    )]
+    sections += [
+        (n, f"Ch{n}", "Analyse générale du positionnement du projet.")
+        for n in range(4, 22)
+    ]
+    sections.append((
+        8, "Validation",
+        "- Analyser les canaux d'acquisition des concurrents : non traitée.",
+    ))
+
+    defauts = detecter_demandes_contredites(sections)
+
+    assert len(defauts) == 1
+    assert defauts[0].chapitre == 8
+
+
 def test_le_gate_execute_le_controle_sur_les_quatre_livrables() -> None:
     """La cause, pas seulement la fonction.
 
