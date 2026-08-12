@@ -194,6 +194,11 @@ export interface JobDetail extends JobSummary {
     status: string;
     sent_at: string | null;
   } | null;
+  /** Ce que le dernier contrôle qualité a reproché au document.
+   *
+   * Vide quand rien n'a été retenu. Sans cette liste, l'écran affichait un
+   * statut sans raison — et un statut sans raison ne se corrige pas. */
+  qa_motifs?: { check: string; chapitre: number | null; detail: string }[];
 }
 
 export interface Incident {

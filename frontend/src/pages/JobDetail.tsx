@@ -227,7 +227,7 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
       {bloque && (
         <Flex align="center" gap="2" justify="end">
           <Text size="1" color="gray">
-            Retenu pour relecture — pas encore envoyé.
+            Retenu par le contrôle qualité — rien ne partira sans votre décision.
           </Text>
           <Button
             size="1"
@@ -395,14 +395,26 @@ export function JobDetail() {
               validé. Mais il disparaît dès l'envoi — un document parti n'est
               plus retenu, et l'afficher en rouge à côté de « ✓ Email envoyé »
               alarmait sur ce qu'aucun geste ne pouvait changer. */}
+          {/* « Ça dit en attente de relecture pourtant rien ne se passe »
+              (cliente, 12/08/2026). Elle avait raison deux fois : aucune
+              relecture n'est programmée — rien ne relit, rien n'arrivera — et
+              l'écran ne disait pas POURQUOI le document était retenu.
+
+              Un libellé qui annonce une étape inexistante fait attendre. On dit
+              donc ce qui est vrai : le contrôle a trouvé N points, et c'est à
+              un humain de décider. Les motifs sont listés plus bas. */}
           {livraisonBloquee(data) && (
             <Badge
               color="amber"
               variant="soft"
               size="2"
-              title="Le contrôle qualité a retenu ce document : il n'est pas parti automatiquement."
+              title="Le contrôle qualité a retenu ce document. Rien ne partira sans votre décision."
             >
-              En attente de relecture
+              {data.qa_motifs?.length
+                ? `Contrôle qualité : ${data.qa_motifs.length} point${
+                    data.qa_motifs.length > 1 ? "s" : ""
+                  } à revoir`
+                : "Retenu par le contrôle qualité"}
             </Badge>
           )}
         </Flex>
@@ -413,6 +425,34 @@ export function JobDetail() {
       </Flex>
 
       <Pipeline job={data} />
+
+      {/* LES MOTIFS. Le statut seul faisait attendre une relecture qui
+          n'arrivait jamais ; pour connaître les neuf points d'un business plan,
+          il fallait interroger un incident par l'API. Ce qui est reproché au
+          document se lit désormais là où on décide de l'envoyer ou non. */}
+      {livraisonBloquee(data) && (data.qa_motifs?.length ?? 0) > 0 && (
+        <Card mb="4">
+          <Text size="2" weight="bold">
+            Ce que le contrôle qualité a retenu
+          </Text>
+          <Text size="1" color="gray" as="p" mb="2">
+            Aucune relecture automatique n'est programmée : c'est à vous de
+            corriger, de relancer une passe, ou d'envoyer malgré tout.
+          </Text>
+          <Flex direction="column" gap="1">
+            {data.qa_motifs!.map((motif, index) => (
+              <Flex key={`${motif.check}-${index}`} gap="2" align="start">
+                <Badge size="1" variant="soft" color="gray">
+                  {motif.chapitre === null || motif.chapitre === undefined
+                    ? "document"
+                    : `ch. ${motif.chapitre}`}
+                </Badge>
+                <Text size="1">{motif.detail}</Text>
+              </Flex>
+            ))}
+          </Flex>
+        </Card>
+      )}
 
       <Card mb="4">
         <Flex wrap="wrap" gap="4">

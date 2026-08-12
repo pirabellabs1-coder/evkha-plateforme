@@ -499,7 +499,48 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
     data["offer_name"] = job.order.offer.name
     data["delivery"] = delivery_data
     data["phase0_plan"]["content"] = job.phase0_plan or ""
+    data["qa_motifs"] = _motifs_du_dernier_controle(job)
     return _json(data)
+
+
+def _motifs_du_dernier_controle(job: GenerationJob) -> list[dict[str, Any]]:
+    """Ce que le dernier contrôle qualité a REPROCHÉ au document.
+
+    ## Pourquoi le statut ne suffisait pas
+
+    L'écran affichait « En attente de relecture » et rien d'autre. Cliente,
+    12/08/2026 : « ça dit en attente de relecture pourtant rien ne se passe ».
+    Elle avait doublement raison — aucune relecture n'était programmée, et
+    surtout aucun écran ne disait POURQUOI le document était retenu. Pour lire
+    les neuf motifs de son business plan, il a fallu interroger un incident
+    par l'API.
+
+    Un statut sans raison ne se corrige pas. C'est la règle 2 du dépôt vue de
+    l'autre côté : un motif que le lecteur ne peut pas trouver ne vaut pas
+    mieux qu'un silence — ici il n'y avait même pas de motif à trouver.
+
+    On relit l'incident du dernier contrôle plutôt que de rejouer le gate :
+    rejouer coûterait un rendu complet du document à chaque ouverture de la
+    page, pour un verdict déjà calculé.
+    """
+    incident = (
+        OperationalIncident.objects.filter(job=job, details__has_key="failures")
+        .order_by("-created_at")
+        .first()
+    )
+    if incident is None:
+        return []
+
+    echecs = incident.details.get("failures") or []
+    return [
+        {
+            "check": str(echec.get("check", "")),
+            "chapitre": echec.get("chapitre"),
+            "detail": str(echec.get("detail", "")),
+        }
+        for echec in echecs
+        if isinstance(echec, dict)
+    ]
 
 
 @csrf_exempt
