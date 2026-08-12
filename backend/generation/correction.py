@@ -4,7 +4,8 @@ Inspiré du principe des boucles agentiques (Forward-Future/loopy) : plutôt que
 de BLOQUER dès qu'un défaut subsiste, le système « apprend du résultat et fait
 le pas utile suivant » — il régénère UNIQUEMENT les chapitres fautifs avec la
 liste exacte des problèmes en consigne, puis repasse le gate. Répété au plus
-`EVKHA_CORRECTION_ROUNDS` fois (défaut 1) pour borner strictement le coût.
+`EVKHA_CORRECTION_ROUNDS` fois (défaut 3) ; le coût reste borné par le
+plafond du livrable, pas par ce nombre.
 
 Objectif : réduire les omissions/erreurs qui obligeaient Evangeline à relancer
 manuellement, SANS dépasser le budget strict PAR DOSSIER (règle d'or #1 :
@@ -14,7 +15,7 @@ EM 3,20 € / BP 2,80 € / STR 2,40 € / EC 2,00 € max ; cible cadrage §3 :
 historique s'applique : le gate bloque la livraison (décision admin).
 
 Bornes de sécurité :
-- nombre de rondes plafonné (défaut 1) ;
+- nombre de rondes plafonné (défaut 3) ;
 - seuls les chapitres directement désignés par un échec sont régénérés ;
 - AUCUNE régénération n'est lancée s'il ne reste plus de budget sur le dossier
   (on ne démarre pas un appel qu'on ne peut pas payer) ;

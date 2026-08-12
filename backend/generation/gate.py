@@ -587,8 +587,8 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
                 check="brief_non_lu",
                 detail=(
                     f"Le brief mentionne « {_FACT_LABELS.get(key, key)} » avec un "
-                    f"montant ({match.group(0).strip()!r}), mais le pipeline n'a "
-                    "pas su l'extraire : cette valeur n'est donc verifiee nulle "
+                    f"montant ({match.group(0).strip()!r}), mais la lecture automatique "
+                    "ne l'a pas retenu : cette valeur n'est donc verifiee nulle "
                     "part. Reformuler la ligne du brief ou saisir la valeur en "
                     "clair avant relance."
                 ),
@@ -598,8 +598,8 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
         failures.append(GateFailure(
             check="brief_non_lu",
             detail=(
-                "Le brief donne un taux d'occupation que le pipeline n'a pas su "
-                "extraire : il n'est verifie nulle part."
+                "Le brief donne un taux d'occupation que la lecture automatique "
+                "n'a pas retenu : il n'est verifie nulle part."
             ),
         ))
 
@@ -607,8 +607,8 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
         failures.append(GateFailure(
             check="brief_non_lu",
             detail=(
-                "Le brief liste des verticales d'activite que le pipeline n'a pas "
-                "su extraire : rien ne garantit qu'elles figurent dans le "
+                "Le brief liste des verticales d'activite que la lecture automatique "
+                "n'a pas retenues : rien ne garantit qu'elles figurent dans le "
                 "livrable. C'est le defaut SYNAPSES — trois verticales effacees "
                 "au profit d'un modele generique."
             ),

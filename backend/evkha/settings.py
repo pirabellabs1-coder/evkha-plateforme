@@ -442,8 +442,26 @@ EVKHA_SOCLE_ENABLED = env.bool("EVKHA_SOCLE_ENABLED", default=False)
 
 # Boucle d'auto-correction (concept loopy) : nombre de rondes de régénération
 # ciblée des chapitres fautifs avant blocage du gate. 0 = désactivé (le gate
-# bloque directement, comportement historique). Défaut 1 (borne le coût API).
-EVKHA_CORRECTION_ROUNDS = env.int("EVKHA_CORRECTION_ROUNDS", default=1)
+# bloque directement, comportement historique).
+#
+# TROIS depuis le 12/08/2026, décision cliente, sur une mesure.
+#
+# Une seule ronde laissait sur la table ce qui était réparable. Business plan
+# `5c5e91b9` : neuf motifs restants, dont six libellés financiers qui se
+# contredisent d'un chapitre à l'autre — un investissement total à 68 000,
+# 1 400 puis 85 000 €. Choisir une valeur et la propager est exactement ce que
+# cette boucle sait faire ; elle n'en avait pas le droit.
+#
+# Le coût reste borné par le PLAFOND du livrable (`cost.plafond_de_depense`),
+# pas par ce nombre : une ronde qui ferait dépasser s'arrête d'elle-même. Ce
+# réglage autorise, il ne dépense pas.
+#
+# CE QU'AUCUNE RONDE NE RÉPARERA : `reference_client_illisible`. Quand le brief
+# ne donne aucun montant, le rédacteur invente — et trois rondes de plus le
+# feraient inventer de façon COHÉRENTE, ce qui est pire : un dossier bancaire
+# plausible et invérifiable au lieu d'un dossier qui signale son propre
+# problème. Ce motif désigne une action humaine, et il reste bloquant.
+EVKHA_CORRECTION_ROUNDS = env.int("EVKHA_CORRECTION_ROUNDS", default=3)
 
 # Gamma — moteur de mise en page du livrable (Generations API v1.0).
 # En prod : EVKHA_USE_STUB_GAMMA=false + GAMMA_API_KEY (+ GAMMA_THEME_ID

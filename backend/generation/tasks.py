@@ -142,7 +142,7 @@ def run_generation_job_task(job_id: str) -> str:
         # ── Boucle d'auto-correction + gate de livraison (bloquant) ─────────
         # Avant de bloquer, on régénère les chapitres fautifs (contamination,
         # incohérence chiffrée, troncature) avec les défauts en consigne, puis
-        # on repasse le gate. Borné par EVKHA_CORRECTION_ROUNDS (défaut 1).
+        # on repasse le gate. Borné par EVKHA_CORRECTION_ROUNDS (défaut 3).
         # ── Les questions du client ont-elles reçu une réponse ? ────────────
         #
         # Angle mort exact, signalé par la cliente le 09/08/2026 : « éviter
