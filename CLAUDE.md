@@ -173,6 +173,11 @@ personne ne s'en serve : elle n'installait que `[dev]`, donc mypy ne voyait ni
 python manage.py repetition_a_blanc
 ```
 
+**Depuis la RACINE du dépôt** — `manage.py` n'est pas dans `backend/`, et le
+chercher là rend un `No such file or directory` qu'on peut prendre pour un
+détail. Le 12/08/2026, cette commande n'a donc pas tourné avant un
+déploiement : le rapport était vert, mais il a été lu APRÈS coup.
+
 La chaîne entière — socle, chapitres, gate — jouée sur la doublure pour les
 quatre livrables. Zéro appel d'API, zéro centime. Le 10/08/2026, **trois
 défauts sur cinq étaient des contradictions internes** (une consigne qui

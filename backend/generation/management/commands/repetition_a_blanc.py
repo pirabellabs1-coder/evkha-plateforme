@@ -12,12 +12,43 @@ payés le 10/08/2026 auraient été attrapés ici, gratuitement.
 """
 from __future__ import annotations
 
+import sys
 from typing import Any
 
 from django.core.management.base import BaseCommand
 
 from catalog.models import DeliverableType
 from generation.repetition import jouer_a_blanc
+
+
+def _console_en_utf8() -> None:
+    """La sortie de cette commande ne doit pas dépendre de la console.
+
+    ## Le défaut mesuré
+
+    12/08/2026 : lancée depuis un terminal Windows, la commande s'arrête sur
+    `UnicodeEncodeError: 'charmap' codec can't encode characters` — sur la
+    ligne de séparation `═══` et sur les accents de « passé ». Rien à voir
+    avec la chaîne testée : c'est le rapport qui ne s'imprime pas, et la
+    commande sort en erreur sans avoir rien dit.
+
+    Cette commande est OBLIGATOIRE avant tout déploiement (CLAUDE.md). Une
+    étape obligatoire qui plante sur la console standard finit par être
+    contournée, puis oubliée — c'est exactement l'histoire de Gamma dans ce
+    dépôt : intégré, testé, branché, et jamais exécuté.
+
+    On reconfigure donc la sortie plutôt que d'appauvrir le rapport : un
+    tableau lisible vaut mieux qu'un tableau qui passe partout.
+    """
+    for flux in (sys.stdout, sys.stderr):
+        reconfigurer = getattr(flux, "reconfigure", None)
+        if reconfigurer is not None:
+            try:
+                reconfigurer(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                # Flux capturé par un test ou redirigé : il n'y a rien à
+                # reconfigurer, et ce n'est pas une raison d'échouer.
+                pass
 
 
 class Command(BaseCommand):
@@ -31,6 +62,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
+        _console_en_utf8()
         livrables = (
             [options["livrable"]] if options["livrable"] else list(DeliverableType.values)
         )
