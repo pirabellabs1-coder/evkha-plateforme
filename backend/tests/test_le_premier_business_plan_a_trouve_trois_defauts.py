@@ -141,6 +141,73 @@ def test_le_prompt_du_socle_bp_reclame_bien_la_grille() -> None:
     assert "concurrents" in prompt
 
 
+# ── Et la facture de ce correctif : le socle ne tenait plus dans sa fenêtre ──
+#
+# Reprise `779862a5`, le même jour : « Socle non recevable après 3 tentatives :
+# le modèle n'a produit aucun appel d'outil exploitable. » Zéro chapitre, là où
+# le dossier d'origine en produisait vingt-et-un.
+#
+# La charge revenait VIDE : le client cherche un bloc `tool_use`, et une
+# réponse coupée en plein appel d'outil n'en contient aucun. Le business plan
+# porte désormais la base concurrents ET son prévisionnel — son prompt est
+# passé de 11 000 à 15 000 signes, sa charge de sortie a grossi d'autant, et
+# 8 192 jetons ne suffisaient plus.
+#
+# CE QU'AUCUN TEST NE PROUVE : la doublure ne consomme pas de jetons. Cette
+# classe de défaut ne se voit que sur une génération réelle (règle 7). Les deux
+# tests ci-dessous verrouillent ce qui EST vérifiable — que la valeur ne
+# redevienne pas un littéral oublié.
+
+
+def test_le_plafond_de_sortie_du_socle_est_nomme() -> None:
+    """Une constante commentée, pas un nombre au milieu d'une signature.
+
+    `max_tokens: int = 8192` ne disait pas d'où venait 8192 ni ce qu'il fallait
+    regarder pour le changer. Le prochain qui élargit une demande de socle doit
+    tomber sur l'explication.
+    """
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "generation" / "socle" / "builder.py"
+    ).read_text(encoding="utf-8")
+
+    assert "max_tokens: int = _PLAFOND_DE_SORTIE_SOCLE" in source
+    assert "779862a5" in source, "le défaut qui l'a fait bouger doit rester nommé"
+
+
+def test_le_plafond_depasse_ce_qui_a_coince() -> None:
+    """8 192 jetons ne suffisaient plus au socle le plus lourd."""
+    from generation.socle.builder import _PLAFOND_DE_SORTIE_SOCLE
+
+    assert _PLAFOND_DE_SORTIE_SOCLE > 8192
+
+
+def test_le_socle_du_business_plan_est_le_plus_lourd() -> None:
+    """La mesure qui explique le reste : il porte DEUX blocs métier.
+
+    Si un jour l'étude concurrentielle repassait devant, c'est que le business
+    plan aurait perdu l'un des deux — et son chapitre 7 remourrait.
+    """
+    from catalog.models import DeliverableType
+    from generation.socle.prompt import construire_prompt_socle
+
+    tailles = {
+        livrable: len(construire_prompt_socle(
+            deliverable_type=livrable,
+            variables={"SECTEUR": "x", "PAYS": "France", "ZONE": "y"},
+        ))
+        for livrable in DeliverableType.values
+    }
+
+    assert tailles[DeliverableType.BUSINESS_PLAN] == max(tailles.values())
+    assert (
+        tailles[DeliverableType.BUSINESS_PLAN]
+        > tailles[DeliverableType.COMPETITOR_STUDY]
+    )
+
+
 # ── Le filet : un chapitre ne meurt pas d'une métadonnée ────────────────────
 
 

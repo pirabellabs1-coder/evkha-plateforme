@@ -19,6 +19,38 @@ from .schema import Socle, reparer_la_grille, valider_socle
 _log = logging.getLogger(__name__)
 
 OUTIL_NOM = "produire_socle"
+
+#: Plafond de SORTIE de l'appel qui produit le socle.
+#:
+#: ## Le défaut mesuré
+#:
+#: 12/08/2026, reprise `779862a5` : « Socle non recevable après 3 tentatives :
+#: le modèle n'a produit aucun appel d'outil exploitable. » Zéro chapitre, là
+#: où le dossier d'origine en produisait vingt-et-un.
+#:
+#: La charge revenait VIDE. Le client cherche un bloc `tool_use` dans la
+#: réponse ; quand elle est coupée en plein appel d'outil, il n'en trouve
+#: aucun et rend `{}` — un motif qui accuse le modèle alors que c'est la
+#: fenêtre qui manquait.
+#:
+#: Ce qui a changé le même jour : le socle d'un business plan réclame
+#: désormais la base concurrents (onze acteurs à neuf champs, une grille et ses
+#: cinquante-cinq notes) EN PLUS de son prévisionnel financier. Son prompt est
+#: passé de 11 000 à 15 000 signes, et sa charge de sortie a grossi d'autant.
+#: L'étude concurrentielle tenait dans 8 192 jetons parce qu'elle n'a pas le
+#: prévisionnel ; le business plan porte les deux.
+#:
+#: ## Pourquoi élargir plutôt que rogner
+#:
+#: Rogner la demande — moins de concurrents pour un business plan — est
+#: probablement la bonne réponse de fond, mais elle exige un CHIFFRE, et ce
+#: chiffre appartient à la cliente (voir le commentaire de
+#: `_BASE_CONCURRENTS` dans `socle/prompt.py`). Une fenêtre trop étroite, elle,
+#: n'est la réponse à aucune question : elle coupe le travail au milieu.
+#:
+#: Le plafond ne coûte rien en soi — seuls les jetons RÉELLEMENT produits sont
+#: facturés. Il autorise, il ne dépense pas.
+_PLAFOND_DE_SORTIE_SOCLE = 16384
 OUTIL_DESCRIPTION = (
     "Enregistre le socle de données chiffrées de l'étude. Chaque donnée porte "
     "un identifiant du référentiel imposé, une valeur numérique, une unité, "
@@ -110,7 +142,7 @@ def produire_socle(
     deliverable_type: str,
     variables: Mapping[str, object],
     brief_recherche: str = "",
-    max_tokens: int = 8192,
+    max_tokens: int = _PLAFOND_DE_SORTIE_SOCLE,
 ) -> tuple[Socle, dict[str, int], int]:
     """Produit et valide le socle.
 
