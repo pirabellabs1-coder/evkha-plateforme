@@ -384,6 +384,15 @@ def _bloc_grille(socle: Socle) -> str:
         "ordonnée.\n"
         "- radar : cite TROIS codes ou plus ; chaque acteur noté devient une "
         "série.\n"
+        # Quatre radars identiques dans un meme document (chapitres 1, 2.3,
+        # 7.6, 7.7), dont un intitule « concurrents indirects » qui affichait
+        # des directs : rien ne permettait de dire QUELS acteurs comparer.
+        "- QUELS acteurs : ajoute `directs` ou `indirects` à tes identifiants "
+        "pour ne comparer que ceux-là, ou cite leurs NOMS exacts tels qu'ils "
+        "figurent dans la base consolidée. Sans cette précision, la figure "
+        "prend tous les acteurs notés — et deux chapitres qui comparent des "
+        "groupes différents obtiendraient la MÊME image. Le titre d'une "
+        "figure doit décrire ce qu'elle montre vraiment.\n"
         "Ces notes font foi : tu les reprends telles quelles et tu n'en "
         "réinventes aucune. Le premier chapitre qui s'en sert reproduit la "
         "grille dans un tableau — intitulé, ce que vaut 1, ce que vaut 5 — "
@@ -699,6 +708,13 @@ REGLES_DE_FOND = (
     "recoupent.\n"
     # « Un point non traité n'est pas très acceptable dans une étude qui dit
     # qu'elle va le faire » — et il l'était par simple oubli de relecture.
+    # « Le texte de legende admet lui-meme que c'est un placeholder jamais
+    # complete » (cliente, 11/08/2026). Un provisoire livre est un aveu.
+    "- Aucune figure, aucun tableau, aucune légende n'est PROVISOIRE. Pas de "
+    "« à compléter », « exemple générique », « données à insérer », « placeholder ». "
+    "Si tu ne peux pas alimenter un visuel, ne le demande pas et dis en une "
+    "phrase ce qui manquerait pour le produire. Une légende qui avoue son "
+    "propre inachèvement décrédibilise tout le document.\n"
     "- Ne déclare JAMAIS « non traité » un sujet que le document aborde "
     "ailleurs. Avant de statuer sur une demande du client, relis les résumés "
     "des chapitres précédents : s'ils la couvrent, le statut est « traitée » "

@@ -46,6 +46,7 @@ ponctuation passer à la ligne seule.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 #: Espace fine insécable — celle de Word en français (U+202F).
@@ -87,14 +88,54 @@ _DEJA_ESPACEE = re.compile(rf"[^\S\r\n]+([{_DOUBLE}])(?=\s|$)")
 #: et la police de rendu ne le porte pas. Carlito et Aptos manquent d'ailleurs
 #: sur le poste de développement, ce qui rend le défaut invisible en test.
 #:
-#: On ramène donc à un trait d'union ordinaire, et on supprime les invisibles.
-_INVISIBLES = str.maketrans({
-    "­": "",   # tiret conditionnel : jamais visible, souvent copié-collé
-    "﻿": "",   # marque d'ordre des octets égarée dans un texte
-    "￾": "",   # non-caractère : n'a aucune raison d'exister
-    "�": "",   # caractère de remplacement : trace d'un décodage raté
-    "​": "",   # espace de largeur nulle
-})
+#: ## Pourquoi la liste de cinq caractères a été remplacée
+#:
+#: **Cliente, 12/08/2026, sur la stratégie : « nettoyer les caractères Unicode
+#: invisibles ».** Le correctif du 09/08 en énumérait cinq — tiret conditionnel,
+#: marque d'ordre des octets, non-caractère, caractère de remplacement, espace
+#: de largeur nulle. Il en reste plus de cent cinquante : liant et anti-liant de
+#: largeur nulle, marques de direction, jointeur de mots, opérateurs invisibles,
+#: annotations interlinéaires. En ajouter cinq de plus n'aurait fait que différer
+#: le prochain retour — c'est la règle 4 du dépôt, mot pour mot : « si votre
+#: correctif énumère des cas, il est incomplet ».
+#:
+#: On vise donc la CLASSE. Unicode range lui-même ces caractères : `Cf` (format,
+#: invisible par construction), `Cc` (commande), `Cn` (non assigné), `Co` (usage
+#: privé), `Cs` (demi-codet égaré). Aucun n'a de dessin. Trois exceptions, et
+#: trois seulement : le saut de ligne, le retour chariot et la tabulation, qui
+#: sont la mise en page du texte.
+_SANS_DESSIN = frozenset({"Cc", "Cf", "Cn", "Co", "Cs"})
+
+#: La mise en page, elle, se garde — sans quoi le document deviendrait un bloc.
+_MISE_EN_PAGE = "\n\r\t"
+
+#: Catégorie `So`, donc hors des classes ci-dessus, mais c'est la trace d'un
+#: décodage raté : le losange à point d'interrogation. Il se voit, et il ne
+#: devrait jamais se voir.
+_REMPLACEMENT = "�"
+
+
+def _doit_disparaitre(caractere: str) -> bool:
+    """Vrai si le caractère n'a aucun dessin — ni glyphe, ni fonction de page."""
+    if caractere in _MISE_EN_PAGE:
+        return False
+    if caractere == _REMPLACEMENT:
+        return True
+    return unicodedata.category(caractere) in _SANS_DESSIN
+
+
+def purger_les_invisibles(texte: str) -> str:
+    """Retire tout caractère sans dessin. Idempotente.
+
+    Exposée à part de `reparer_texte` parce que le moteur structuré n'est pas
+    le seul chemin : un chapitre rendu en markdown ne passe jamais par la
+    réparation de typographie, et c'est pourtant le même lecteur qui reçoit le
+    document. `rendering._clean_chapter_body` l'appelle donc aussi (règle 5 :
+    une seule source pour cette vérité, deux appelants).
+    """
+    if not texte:
+        return texte
+    return "".join(c for c in texte if not _doit_disparaitre(c))
 
 #: Un trait d'union EXOTIQUE entre deux lettres. La condition « entre deux
 #: lettres » compte : le tiret demi-cadratin garde sa place entre deux nombres
@@ -107,7 +148,7 @@ def reparer_texte(texte: str) -> str:
     """Texte aux espaces normalisées. Idempotente : la rejouer ne change rien."""
     if not texte:
         return texte
-    corrige = texte.translate(_INVISIBLES)
+    corrige = purger_les_invisibles(texte)
     corrige = _TRAIT_EXOTIQUE.sub("-", corrige)
     corrige = _ESPACES_MULTIPLES.sub(" ", corrige)
     corrige = _AVANT_SIMPLE.sub(r"\1", corrige)

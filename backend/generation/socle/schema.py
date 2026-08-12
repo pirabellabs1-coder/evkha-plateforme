@@ -390,22 +390,50 @@ class Socle(BaseModel):
                 return item
         return None
 
-    def notes_sur(self, codes: Sequence[str]) -> list[tuple[str, list[float]]]:
+    def notes_sur(
+        self, codes: Sequence[str], *, acteurs: Sequence[str] | None = None
+    ) -> list[tuple[str, list[float]]]:
         """Les concurrents notés sur TOUS ces critères, dans l'ordre demandé.
 
         Un acteur noté sur trois critères et muet sur le quatrième est écarté :
         le placer avec une coordonnée manquante produirait une figure fausse
         dont chaque note est juste — le défaut que `_harmoniser` évite déjà sur
         les unités.
+
+        `acteurs` restreint la sélection à des NOMS précis. Sans lui, toute
+        figure d'acteurs rendait la même liste : quatre radars de chapitres
+        différents — les 8 directs, puis les 3 indirects — produisaient
+        exactement la même image, et le radar « indirects » affichait des
+        directs. Signalé par la cliente le 11/08/2026 sur une étude notée
+        8,5/10 ; le défaut vient du résolveur écrit le matin même, qui n'avait
+        aucun moyen de savoir QUELS acteurs le chapitre demandait.
         """
+        # `acteurs is None` = aucune restriction ; une liste VIDE en est une,
+        # et elle ne retient personne. La nuance porte tout le correctif :
+        # rendre tout le monde à un chapitre qui a désigné quelqu'un produit
+        # la figure au titre menteur.
+        voulus = (
+            None if acteurs is None else {nom.casefold() for nom in acteurs}
+        )
         retenus: list[tuple[str, list[float]]] = []
         for acteur in self.concurrents:
+            if voulus is not None and acteur.nom.casefold() not in voulus:
+                continue
             valeurs = [acteur.note_sur(code) for code in codes]
             if all(valeur is not None for valeur in valeurs):
                 retenus.append(
                     (acteur.nom, [float(valeur) for valeur in valeurs if valeur])
                 )
         return retenus
+
+    def acteurs_du_type(self, type_: str) -> list[str]:
+        """Les noms des concurrents `direct` ou `indirect`.
+
+        C'est ce qui permet à un chapitre de demander « le radar des trois
+        indirects » sans recopier leurs noms — et donc d'obtenir une figure
+        qui porte réellement ce que son titre annonce.
+        """
+        return [a.nom for a in self.concurrents if a.type == type_]
 
 
 class SocleInvalideError(ValueError):

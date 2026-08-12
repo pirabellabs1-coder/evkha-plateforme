@@ -530,7 +530,9 @@ def _notes(
     """
     criteres = _criteres_cites(socle, identifiants)
     if criteres:
-        return _radar_des_acteurs(socle, type_demande, criteres)
+        return _radar_des_acteurs(
+            socle, type_demande, criteres, _acteurs_cites(socle, identifiants)
+        )
 
     donnees, motif = _resoudre_ids(socle, identifiants)
     if motif:
@@ -558,20 +560,30 @@ def _notes(
 
 
 def _radar_des_acteurs(
-    socle: Socle, type_demande: str, criteres: Sequence[Any]
+    socle: Socle,
+    type_demande: str,
+    criteres: Sequence[Any],
+    acteurs: Sequence[str] | None = None,
 ) -> Resolution:
-    """Un axe par critère, une série par concurrent noté sur tous."""
+    """Un axe par critère, une série par concurrent noté sur tous.
+
+    `acteurs` dit LESQUELS. Sans lui, quatre radars de chapitres différents —
+    les huit directs, puis les trois indirects — rendaient exactement la même
+    image, et celui qui s'annonçait « indirects » affichait des directs.
+    """
     if len(criteres) < 3:
         return Resolution(
             motif="un radar exige au moins trois axes ; "
             f"{len(criteres)} critère(s) cité(s)"
         )
     codes = [critere.code for critere in criteres]
-    notes = socle.notes_sur(codes)
+    notes = socle.notes_sur(codes, acteurs=acteurs)
     if not notes:
         intitules = ", ".join(f"« {c.intitule} »" for c in criteres)
+        precision = f" parmi {', '.join(acteurs)}" if acteurs else ""
         return Resolution(
-            motif=f"aucun acteur n'est noté sur TOUS ces critères : {intitules}"
+            motif=f"aucun acteur{precision} n'est noté sur TOUS ces critères : "
+            f"{intitules}"
         )
 
     retenus, motif = notes[:_SERIES_RADAR_MAX], ""
@@ -613,6 +625,66 @@ def _risques_notes(socle: Socle) -> list[Any]:
 _SERIES_RADAR_MAX = 5
 
 
+#: Sélecteurs d'acteurs qu'un chapitre peut citer parmi ses identifiants.
+#: Écrits comme les codes de critères, ils disent QUELS concurrents la figure
+#: compare — sans obliger le chapitre à recopier onze noms.
+_SELECTEURS_D_ACTEURS: dict[str, str] = {
+    "directs": "direct",
+    "concurrents_directs": "direct",
+    "indirects": "indirect",
+    "concurrents_indirects": "indirect",
+}
+
+
+def _acteurs_cites(socle: Socle, identifiants: Sequence[str]) -> list[str] | None:
+    """Les acteurs que la figure doit comparer, ou `None` pour tous.
+
+    ## Le défaut que cette fonction répare
+
+    Rien ne permettait à un chapitre de dire QUELS concurrents sa figure
+    compare. Toute figure d'acteurs prenait donc la liste entière et gardait
+    les premiers : quatre radars — chapitres 1, 2.3, 7.6, 7.7 — rendaient la
+    MÊME image, et celui qui s'annonçait « concurrents indirects » affichait
+    des directs. Signalé par la cliente le 11/08/2026 ; le résolveur écrit le
+    matin même n'avait aucun moyen de faire autrement.
+
+    Deux écritures acceptées, parce que les deux sont naturelles : un
+    sélecteur (`directs`, `indirects`) ou les NOMS des acteurs voulus. Un nom
+    inconnu du socle est ignoré — le chapitre ne peut pas inventer un
+    concurrent par ce chemin.
+    """
+    voulus: list[str] = []
+    designe = False
+    connus = {a.nom.casefold(): a.nom for a in socle.concurrents}
+    codes = {c.code.casefold() for c in socle.grille_notation}
+    for identifiant in identifiants:
+        cle = identifiant.strip().casefold()
+        type_ = _SELECTEURS_D_ACTEURS.get(cle)
+        if type_ is not None:
+            designe = True
+            voulus.extend(socle.acteurs_du_type(type_))
+            continue
+        if cle in connus:
+            designe = True
+            voulus.append(connus[cle])
+            continue
+        # Ni sélecteur, ni acteur connu, ni code de critère, ni donnée du
+        # socle : le chapitre DÉSIGNAIT quelqu'un — un nom mal orthographié,
+        # un acteur absent de la base. On le retient comme une intention.
+        if cle not in codes and cle not in {i.casefold() for i in socle.identifiants}:
+            designe = True
+
+    retenus = list(dict.fromkeys(voulus))
+    if retenus:
+        return retenus
+    # Distinguer « aucun sélecteur » de « sélecteurs tous inconnus » : le
+    # premier veut tous les acteurs, le second ne veut sûrement pas ceux
+    # qu'on lui donnerait. Rendre la liste entière à un chapitre qui a
+    # nommé quelqu'un, c'est produire la figure au titre menteur — le
+    # défaut même qu'on répare.
+    return [] if designe else None
+
+
 def _criteres_cites(socle: Socle, identifiants: Sequence[str]) -> list[Any]:
     """Les critères de la grille cités par le chapitre, dans l'ordre donné.
 
@@ -649,7 +721,10 @@ def _matrice(
                 f"grille ; un seul est cité : « {criteres[0].intitule} »"
             )
         abscisse, ordonnee = criteres[0], criteres[1]
-        notes = socle.notes_sur([abscisse.code, ordonnee.code])
+        notes = socle.notes_sur(
+            [abscisse.code, ordonnee.code],
+            acteurs=_acteurs_cites(socle, identifiants),
+        )
         if len(notes) < 2:
             return Resolution(
                 motif="moins de deux acteurs sont notés à la fois sur "
@@ -693,7 +768,7 @@ def _chaleur(
     criteres = _criteres_cites(socle, identifiants)
     if len(criteres) >= 2:
         codes = [critere.code for critere in criteres]
-        notes = socle.notes_sur(codes)
+        notes = socle.notes_sur(codes, acteurs=_acteurs_cites(socle, identifiants))
         if len(notes) < 2:
             return Resolution(
                 motif="moins de deux acteurs sont notés sur tous les critères "

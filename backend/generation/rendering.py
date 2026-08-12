@@ -7,6 +7,7 @@ from datetime import datetime
 from django.utils import timezone
 
 from .blueprints import SectionKind, chapters_for_deliverable
+from .chapitres.typographie import purger_les_invisibles
 from .charts import replace_chart_fences
 from .internal_labels import callout_alternation, labels_alternation
 from .models import ChapterStatus, GenerationJob
@@ -940,7 +941,13 @@ def _clean_chapter_body(content: str, kind: str) -> str:
        troncatures max_tokens qui font disparaitre les chapitres suivants au
        rendu PDF)
     """
-    body = strip_internal_markers(content)
+    # Les caractères sans dessin partent EN PREMIER : un liant de largeur nulle
+    # glissé au milieu d'un marqueur interne empêcherait tous les nettoyages
+    # suivants de le reconnaitre. Et c'est le seul chemin des chapitres rendus
+    # en markdown, que la réparation de typographie du moteur structuré ne voit
+    # jamais (cliente, 12/08/2026, sur la stratégie).
+    body = purger_les_invisibles(content)
+    body = strip_internal_markers(body)
     body = strip_internal_label_tokens(body)
     body = normalize_callout_markers(body)
     body = strip_diamond_artifacts(body)
