@@ -48,15 +48,35 @@ def test_le_socle_ec_reclame_la_methode_d_estimation() -> None:
     assert "non publié" in prompt
 
 
-def test_les_autres_livrables_ne_recoivent_pas_ce_bloc() -> None:
-    """Contre-épreuve : le correctif ne doit pas polluer les autres livrables."""
+def test_les_livrables_sans_chapitre_de_concurrence_ne_recoivent_pas_ce_bloc() -> None:
+    """Contre-épreuve : le correctif ne doit pas polluer les autres livrables.
+
+    La liste comptait le BUSINESS PLAN, et c'était une erreur de classement,
+    pas de principe : il porte un chapitre 7 « Analyse concurrentielle ». Le
+    12/08/2026, ce chapitre est mort cinq fois pour 4,19 € parce que son socle
+    n'avait ni concurrents ni grille — il inventait les identifiants qu'on ne
+    lui donnait pas.
+
+    L'exigence est désormais DÉDUITE du chapitrage plutôt que déclarée ici :
+    restent l'étude de marché et la stratégie, qui n'ont réellement aucun
+    chapitre de concurrence et dont le socle ne s'alourdit pas.
+    """
     for livrable in (
         DeliverableType.MARKET_STUDY,
-        DeliverableType.BUSINESS_PLAN,
         DeliverableType.BUSINESS_STRATEGY,
     ):
         prompt = construire_prompt_socle(deliverable_type=livrable, variables={})
         assert _MARQUEUR not in prompt, livrable
+
+
+def test_le_business_plan_recoit_ce_bloc_et_garde_son_previsionnel() -> None:
+    """Les deux, pas l'un OU l'autre : la chaîne `elif` supposait le contraire."""
+    prompt = construire_prompt_socle(
+        deliverable_type=DeliverableType.BUSINESS_PLAN, variables={}
+    )
+
+    assert _MARQUEUR in prompt
+    assert "PRÉVISIONNEL FINANCIER" in prompt
 
 
 def test_le_schema_concurrent_porte_les_neuf_colonnes_du_document() -> None:

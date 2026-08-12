@@ -1315,6 +1315,10 @@ def generer_chapitre(
         # vaille sur les QUATRE livrables et pas seulement sur l'étude de
         # marché — la seule que le modèle de forme décrive.
         secteur=socle.secteur,
+        # Au dernier essai, un identifiant hors socle fait jeter la DÉCLARATION
+        # et non le chapitre : perdre une analyse concurrentielle entière pour
+        # une métadonnée est le mauvais prix (business plan `2a8872d0`).
+        derniere_tentative=derniere_tentative,
     )
     if motifs:
         raise ChapitreInvalideError(motifs, consommation)

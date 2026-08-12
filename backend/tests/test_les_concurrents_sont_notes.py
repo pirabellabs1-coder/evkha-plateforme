@@ -389,8 +389,35 @@ def test_le_prompt_du_socle_reclame_la_grille_et_les_notes() -> None:
     assert "`notes`" in prompt
 
 
-def test_le_prompt_du_business_plan_ne_reclame_aucune_grille() -> None:
-    """CONTRE-ÉPREUVE : la demande est portée par le livrable qui en a besoin."""
+def test_le_prompt_d_une_etude_de_marche_ne_reclame_aucune_grille() -> None:
+    """CONTRE-ÉPREUVE : la demande est portée par le livrable qui en a besoin.
+
+    ## Pourquoi ce test parlait du business plan, et n'en parle plus
+
+    Son intention était juste — ne pas alourdir le socle d'un livrable qui
+    n'exploite pas la grille — mais son EXEMPLE était faux. Le business plan
+    porte un chapitre 7 « Analyse concurrentielle » : il en a besoin.
+
+    Mesuré le 12/08/2026 sur `2a8872d0` : ce chapitre est mort CINQ fois, pour
+    4,19 €, sur des identifiants que le modèle inventait faute d'en recevoir —
+    `critere_accessibilite_evkha`, puis `ACC` et `TAR`. Le contrôle avait
+    raison de refuser ; c'est la matière qui manquait.
+
+    L'intention est donc conservée, et vérifiée sur un livrable qui n'a
+    VRAIMENT aucun chapitre de concurrence : l'étude de marché.
+    """
+    from generation.socle.prompt import construire_prompt_socle
+
+    prompt = construire_prompt_socle(
+        deliverable_type="market_study",
+        variables={"SECTEUR": "boulangerie", "PAYS": "France"},
+    )
+
+    assert "grille_notation" not in prompt
+
+
+def test_le_prompt_du_business_plan_reclame_la_grille() -> None:
+    """Il a un chapitre « Analyse concurrentielle » : il lui faut de quoi le nourrir."""
     from generation.socle.prompt import construire_prompt_socle
 
     prompt = construire_prompt_socle(
@@ -398,7 +425,10 @@ def test_le_prompt_du_business_plan_ne_reclame_aucune_grille() -> None:
         variables={"SECTEUR": "boulangerie", "PAYS": "France"},
     )
 
-    assert "grille_notation" not in prompt
+    assert "grille_notation" in prompt
+    # Et il garde son prévisionnel : une chaîne `elif` le lui avait retiré à
+    # l'instant même où il rejoignait la première branche.
+    assert "PRÉVISIONNEL FINANCIER" in prompt
 
 
 def test_le_chapitre_recoit_la_grille_et_les_notes() -> None:

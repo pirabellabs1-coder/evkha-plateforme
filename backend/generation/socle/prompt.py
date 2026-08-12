@@ -6,6 +6,7 @@ déclarés dans le référentiel : c'est ce qui rend la sortie contrôlable.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from datetime import date
 
@@ -191,6 +192,32 @@ def _ligne_referentiel(item: DefinitionDonnee) -> str:
     return ligne
 
 
+#: Un chapitre qui parle de concurrence se reconnaît à son intitulé. La
+#: recherche est volontairement large — « concurrent », « concurrentiel »,
+#: « concurrence » — et sur la RACINE, pas sur une liste de titres exacts : le
+#: chapitrage évolue, et une liste fermée redeviendrait fausse en silence
+#: (règle 4).
+_CHAPITRE_DE_CONCURRENCE = re.compile(r"concurren", re.IGNORECASE)
+
+
+def _le_livrable_analyse_la_concurrence(deliverable_type: str) -> bool:
+    """Le chapitrage de ce livrable consacre-t-il un chapitre à la concurrence ?
+
+    On le DÉDUIT du blueprint plutôt que de le déclarer une seconde fois : le
+    blueprint est la seule source de ce que contient un livrable, et une liste
+    de types recopiée ici aurait divergé du jour où le chapitrage change
+    (règle 5). C'est d'ailleurs par une telle liste que le business plan s'est
+    retrouvé avec un chapitre « Analyse concurrentielle » et un socle sans
+    concurrents.
+    """
+    from generation.blueprints import chapters_for_deliverable  # noqa: PLC0415
+
+    return any(
+        _CHAPITRE_DE_CONCURRENCE.search(blueprint.title)
+        for blueprint in chapters_for_deliverable(deliverable_type)
+    )
+
+
 def bloc_referentiel(deliverable_type: str) -> str:
     definitions = definitions_pour(deliverable_type)
     lignes = "\n".join(_ligne_referentiel(item) for item in definitions)
@@ -238,15 +265,48 @@ def construire_prompt_socle(
     # demandait : ce prompt ne contenait aucune occurrence du mot concurrent.
     # La liste partait donc vide à chaque étude, et le chapitre 6 — estimation
     # des chiffres d'affaires et parts de marché — n'avait aucune matière.
-    if deliverable_type == DeliverableType.COMPETITOR_STUDY:
+    # La condition portait sur le TYPE de livrable, et elle avait tort d'un
+    # livrable.
+    #
+    # Business plan `2a8872d0` (12/08/2026) : le chapitre 7 « Analyse
+    # concurrentielle » est mort CINQ fois, pour 4,19 €, sur des identifiants
+    # que le modèle inventait — `critere_accessibilite_evkha`, puis `ACC` et
+    # `TAR`. Il n'avait rien à recopier : le socle d'un business plan ne
+    # portait ni concurrents ni grille de notation, parce que ce bloc-ci ne
+    # partait que pour l'étude concurrentielle. Un chapitre réclamait une
+    # matière que personne n'avait demandée.
+    #
+    # C'est le défaut décrit six lignes plus haut, un livrable plus loin. La
+    # condition se déduit donc du CHAPITRAGE, seule source de ce que contient
+    # un livrable : celui qui consacre un chapitre à la concurrence a besoin
+    # d'une base de concurrents. Vérifié sur les quatre — étude
+    # concurrentielle et business plan oui, étude de marché et stratégie non,
+    # qui n'en ont aucun chapitre et dont le socle ne s'alourdit pas.
+    # À ROUVRIR AVEC LA CLIENTE : ce bloc impose « EXACTEMENT 8 directs et 3
+    # indirects », cardinaux figés par le cahier des charges de l'ÉTUDE
+    # CONCURRENTIELLE. Rien ne dit qu'un business plan en demande autant, et
+    # onze acteurs alourdissent son socle. On ne devine pas un chiffre à sa
+    # place : le business plan reçoit donc la même exigence que l'étude
+    # concurrentielle jusqu'à ce qu'elle en arrête une autre. Mieux vaut un
+    # socle trop riche qu'un chapitre mort — c'est ce qui vient de coûter
+    # 4,19 €.
+    if _le_livrable_analyse_la_concurrence(deliverable_type):
         blocs.append(_BASE_CONCURRENTS)
-    # Même mécanisme pour les deux livrables suivants : un bloc d'exigences
-    # propres au métier du document, à côté du référentiel qui liste les
-    # emplacements. Sans lui, la leçon de `_BASE_CONCURRENTS` se répéterait —
-    # un schéma déclaré que rien ne demande part vide à chaque étude.
-    elif deliverable_type == DeliverableType.BUSINESS_PLAN:
+
+    # Des `if` INDÉPENDANTS, et la nuance a un coût mesuré : la chaîne `elif`
+    # d'origine supposait qu'un livrable n'a qu'un seul besoin. Dès que le
+    # business plan a rejoint la première branche, il a PERDU son prévisionnel
+    # financier — attrapé par `test_le_prompt_socle_bp_exige_le_previsionnel`
+    # à la minute où le correctif ci-dessus a été écrit. Un business plan
+    # réclame les deux : des concurrents pour son chapitre 7, un prévisionnel
+    # pour tout le reste.
+    #
+    # Même mécanisme que `_BASE_CONCURRENTS` : un bloc d'exigences propres au
+    # métier du document, à côté du référentiel qui liste les emplacements.
+    # Sans lui, un schéma déclaré que rien ne demande part vide à chaque étude.
+    if deliverable_type == DeliverableType.BUSINESS_PLAN:
         blocs.append(_PREVISIONNEL_BP)
-    elif deliverable_type == DeliverableType.BUSINESS_STRATEGY:
+    if deliverable_type == DeliverableType.BUSINESS_STRATEGY:
         blocs.append(_CADRAGE_STR)
 
     blocs.append(_REGLES)

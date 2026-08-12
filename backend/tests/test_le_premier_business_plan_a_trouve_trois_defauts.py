@@ -88,6 +88,114 @@ def test_deux_candidats_de_meme_longueur_ne_se_devinent_pas() -> None:
     assert resoudre_identifiant("critere_prix_ou_cout", ambigu) is None
 
 
+# ── La cause, trouvée à la relance : il n'y avait RIEN à citer ──────────────
+#
+# Après le correctif ci-dessus, le chapitre 7 est reparti et il est mort deux
+# fois de plus — sur `ACC` et `TAR`. Des abréviations, cette fois, et non des
+# décorations : le modèle n'inventait pas la même chose deux fois, il
+# inventait tout court.
+#
+# Le chapitrage donne la réponse. Le business plan porte un chapitre 7
+# « Analyse concurrentielle », et le socle d'un business plan ne demandait ni
+# concurrents ni grille de notation — ce bloc-là ne partait que pour l'étude
+# concurrentielle. Un chapitre réclamait une matière que personne n'avait
+# demandée.
+
+
+def test_un_livrable_qui_analyse_la_concurrence_recoit_une_base() -> None:
+    """Le business plan a un chapitre « Analyse concurrentielle » : il lui faut
+    des concurrents. Déduit du chapitrage, pas d'une liste de types."""
+    from catalog.models import DeliverableType
+    from generation.socle.prompt import _le_livrable_analyse_la_concurrence
+
+    assert _le_livrable_analyse_la_concurrence(DeliverableType.BUSINESS_PLAN)
+    assert _le_livrable_analyse_la_concurrence(DeliverableType.COMPETITOR_STUDY)
+
+
+def test_un_livrable_sans_chapitre_concurrence_ne_s_alourdit_pas() -> None:
+    """CONTRE-ÉPREUVE : l'étude de marché et la stratégie n'en ont aucun.
+
+    Leur envoyer la base concurrents gonflerait le socle, donc le coût, pour
+    une matière qu'aucun de leurs chapitres n'exploite.
+    """
+    from catalog.models import DeliverableType
+    from generation.socle.prompt import _le_livrable_analyse_la_concurrence
+
+    assert not _le_livrable_analyse_la_concurrence(DeliverableType.MARKET_STUDY)
+    assert not _le_livrable_analyse_la_concurrence(
+        DeliverableType.BUSINESS_STRATEGY
+    )
+
+
+def test_le_prompt_du_socle_bp_reclame_bien_la_grille() -> None:
+    """La cause, pas seulement le prédicat : il pourrait être vrai sans servir."""
+    from catalog.models import DeliverableType
+    from generation.socle.prompt import construire_prompt_socle
+
+    prompt = construire_prompt_socle(
+        deliverable_type=DeliverableType.BUSINESS_PLAN,
+        variables={"SECTEUR": "conseil", "PAYS": "France", "ZONE": "Lyon"},
+    )
+
+    assert "grille_notation" in prompt
+    assert "concurrents" in prompt
+
+
+# ── Le filet : un chapitre ne meurt pas d'une métadonnée ────────────────────
+
+
+def _payload_avec(identifiants: list[str]):  # type: ignore[no-untyped-def]
+    from generation.chapitres.schema import ChapitrePayload
+
+    return ChapitrePayload(
+        chapitre=7,
+        titre="Analyse concurrentielle",
+        resume=" ".join(["mot"] * 60),
+        donnees_utilisees=identifiants,
+        blocs=[{
+            "type": "paragraphe",
+            "texte": "Le marché local compte plusieurs acteurs comparables.",
+        }],
+    )
+
+
+def _valider(identifiants: list[str], *, derniere: bool):  # type: ignore[no-untyped-def]
+    from generation.chapitres.schema import valider_chapitre
+
+    payload = _payload_avec(identifiants)
+    motifs = valider_chapitre(
+        payload,
+        numero_attendu=7,
+        identifiants_socle=frozenset({"accessibilite"}),
+        resume_mots_min=10,
+        resume_mots_max=200,
+        derniere_tentative=derniere,
+    )
+    return [m for m in motifs if "socle" in m], payload.donnees_utilisees
+
+
+def test_un_identifiant_inconnu_refuse_le_chapitre_tant_qu_il_reste_des_essais() -> None:
+    """CONTRE-ÉPREUVE : le refus reste la règle. Le modèle a ses chances."""
+    motifs, _ = _valider(["ACC", "TAR"], derniere=False)
+
+    assert len(motifs) == 2
+
+
+def test_au_dernier_essai_on_jette_la_declaration_pas_le_chapitre() -> None:
+    """4,19 € et deux fois aucune analyse concurrentielle : le mauvais prix.
+
+    `donnees_utilisees` trace et résout les figures ; elle ne porte pas le
+    texte. Perdre un chapitre entier pour une métadonnée coûte un trou dans le
+    document livré.
+    """
+    motifs, restants = _valider(
+        ["ACC", "TAR", "critere_accessibilite_evkha"], derniere=True
+    )
+
+    assert motifs == []
+    assert restants == ["accessibilite"], "l'inconnu part, le résolu reste"
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # 2. Un contrôle qui compare un montant à de la prose
 # ══════════════════════════════════════════════════════════════════════════

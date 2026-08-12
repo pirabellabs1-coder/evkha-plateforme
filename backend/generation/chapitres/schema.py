@@ -817,6 +817,7 @@ def valider_chapitre(
     resume_mots_min: int,
     resume_mots_max: int,
     secteur: str = "",
+    derniere_tentative: bool = False,
 ) -> list[str]:
     """Contrôles croisés avec le socle et le chapitrage.
 
@@ -851,6 +852,33 @@ def valider_chapitre(
             )
         resolus.append(vrai)
     payload.donnees_utilisees = resolus
+
+    if inconnues and derniere_tentative:
+        # DERNIER essai : on garde le chapitre, on jette la DÉCLARATION.
+        #
+        # `donnees_utilisees` est une liste déclarative — elle sert à tracer et
+        # à résoudre les figures, pas à porter le texte. Perdre tout un
+        # chapitre parce qu'elle contient un nom inconnu, c'est payer un trou
+        # dans le document au prix d'une métadonnée.
+        #
+        # Business plan `2a8872d0` (12/08/2026) : le chapitre 7 est mort CINQ
+        # fois là-dessus, pour 4,19 €, et la cliente n'a pas eu son analyse
+        # concurrentielle. Deux fois de suite.
+        #
+        # Le refus reste la règle sur les essais précédents : le modèle a
+        # toutes ses chances de citer juste, et il y arrive presque toujours.
+        # Ce qui change, c'est ce qu'on fait quand il n'y arrive pas — et une
+        # figure qui s'appuierait sur un identifiant jeté est de toute façon
+        # abandonnée par le résolveur, avec son motif.
+        _log.warning(
+            "Chapitre %s, dernier essai : %s identifiant(s) hors socle "
+            "abandonné(s) plutôt que le chapitre entier — %s",
+            numero_attendu, len(set(inconnues)), ", ".join(sorted(set(inconnues))),
+        )
+        payload.donnees_utilisees = [
+            i for i in resolus if i in identifiants_socle
+        ]
+        inconnues = []
 
     for identifiant in sorted(set(inconnues)):
         motifs.append(

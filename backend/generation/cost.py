@@ -381,7 +381,7 @@ def max_tokens_for_job(
 #: dossier normal.
 PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
     DeliverableType.MARKET_STUDY:      Decimal("8.0000"),
-    DeliverableType.BUSINESS_PLAN:     Decimal("4.0000"),
+    DeliverableType.BUSINESS_PLAN:     Decimal("5.5000"),
     DeliverableType.BUSINESS_STRATEGY: Decimal("5.5000"),
     DeliverableType.COMPETITOR_STUDY:  Decimal("3.5000"),
 }

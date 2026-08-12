@@ -283,8 +283,11 @@ def test_le_prompt_socle_bp_exige_le_previsionnel() -> None:
     assert "ca_previsionnel_an1" in prompt        # le referentiel est joint
     assert "seuil_rentabilite" in prompt
     assert "plan de financement s'équilibre" in prompt
-    # Et jamais la base concurrents : c'est l'exigence d'un autre livrable.
-    assert "BASE CONSOLIDÉE CONCURRENTS" not in prompt
+    # Et la base concurrents AUSSI, depuis le 12/08/2026 : le business plan
+    # porte un chapitre 7 « Analyse concurrentielle », et son chapitre est mort
+    # cinq fois faute de la recevoir. Les deux exigences coexistent — l'ancienne
+    # chaîne `elif` supposait qu'un livrable n'en a qu'une.
+    assert "BASE CONSOLIDÉE CONCURRENTS" in prompt
 
 
 @pytest.mark.usefixtures("str_enregistre")
