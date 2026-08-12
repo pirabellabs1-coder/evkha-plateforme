@@ -1012,6 +1012,7 @@ def _check_post_rendu(
     Pour BP/EC/STR : tous les checks restent actifs (manuel ne les couvre pas).
     """
     from .checks_post_rendu import (  # noqa: PLC0415
+        detecter_demandes_contredites,
         detecter_desaccords_numeriques,
         detecter_doublons_titres,
         detecter_prudence_juridique,
@@ -1046,6 +1047,23 @@ def _check_post_rendu(
             check=f"sources_non_tracables_{s.motif}",
             chapter_number=s.chapitre,
             detail=s.detail,
+        ))
+
+    # AVANT le retour anticipé de l'étude de marché : la contradiction vaut
+    # pour les QUATRE livrables. Le chapitre de validation des demandes existe
+    # partout — EC 8, stratégie 19, étude de marché 22, business plan 20 — et
+    # le contrôle des statuts ne vivait que dans la strategy EC, où il
+    # vérifiait seulement qu'UN statut existe, jamais qu'il soit vrai.
+    #
+    # « Les canaux d'acquisition sont bien analysés au chapitre 3 puis
+    # déclarés non traités au chapitre 8 » (cliente, 11/08/2026, sur une étude
+    # notée 8,5/10). Un point annoncé puis déclaré non traité est pire qu'un
+    # point absent : il fait douter de tout le reste.
+    for contradiction in detecter_demandes_contredites(triplets):
+        failures.append(GateFailure(
+            check="demande_contredite",
+            chapter_number=contradiction.chapitre,
+            detail=contradiction.detail,
         ))
 
     if is_em:

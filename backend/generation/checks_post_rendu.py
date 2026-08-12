@@ -738,3 +738,145 @@ __all__ = [
 # Deduplique le type d'import — evite l'avertissement sur `defaultdict`
 # quand un check en aurait besoin plus tard.
 _ = defaultdict
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 7. UNE DEMANDE DÉCLARÉE « NON TRAITÉE » QUI EST POURTANT TRAITÉE
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@dataclass(frozen=True)
+class DemandeContredite:
+    """Le document se contredit sur le sort d'une demande du client."""
+
+    chapitre: int
+    demande: str
+    ailleurs: int
+    detail: str
+
+
+#: Mots trop courants pour distinguer un sujet d'un autre. Sans ce filtre, la
+#: moindre demande partagerait ses mots avec tout le document et chaque statut
+#: « non traité » serait signalé — un contrôle qui crie toujours ne contrôle
+#: plus rien.
+_MOTS_TROP_COURANTS = frozenset({
+    "client", "clients", "marche", "marché", "projet", "etude", "étude",
+    "donnees", "données", "analyse", "analyser", "chapitre", "document",
+    "secteur", "France", "france", "entreprise", "entreprises", "acteurs",
+    "concurrents", "concurrent", "demande", "demandes", "information",
+    "informations", "elements", "éléments", "point", "points", "partie",
+})
+
+#: Une ligne qui statue « non traitée » sur une demande.
+_NON_TRAITE_RE = re.compile(r"non\s+trait[ée]e?s?\b", re.IGNORECASE)
+
+#: Un mot assez long pour porter un sujet. « canaux », « acquisition »,
+#: « fidélité » — pas « des », « pour », « avec ».
+_MOT_PORTEUR_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]{6,}")
+
+#: Combien de mots porteurs doivent se retrouver ailleurs pour conclure à la
+#: contradiction. DEUX, et non un : un seul mot commun arrive par hasard,
+#: deux mots longs d'une même demande, non.
+_MOTS_COMMUNS_MIN = 2
+
+#: Ce qui SÉPARE deux demandes écrites sur une même ligne.
+#:
+#: Une fenêtre en nombre de signes ne suffit pas : la doublure de la
+#: répétition à blanc empile trois demandes sur une ligne, et cent-vingt
+#: signes avant « non traitée » ramassaient la précédente — « la comparaison
+#: tarifaire couvre trois acteurs, voie de complément proposée en annexe ».
+#: Quatre mots, aucun du sujet jugé, et les quatre livrables signalés à tort.
+#:
+#: Le deux-points est ABSENT de la liste, volontairement : c'est lui qui
+#: introduit le plus souvent le statut — « analyser les canaux d'acquisition
+#: des concurrents : non traitée » — et couper dessus effacerait le sujet
+#: qu'on cherche.
+_FRONTIERES_DE_DEMANDE = (". ", " — ", " – ", "; ", "• ", "\t")
+
+
+def detecter_demandes_contredites(
+    sections: list[tuple[int, str, str]],
+) -> list[DemandeContredite]:
+    """Un sujet déclaré « non traité » alors que le document le traite.
+
+    ## Le défaut, signalé sur une étude notée 8,5/10
+
+    Cliente, 11/08/2026 : « les canaux d'acquisition sont bien analysés au
+    chapitre 3 puis déclarés "non traités" au chapitre 8 ; on dirait que ça ne
+    l'a pas pris en compte, et avoir un point non traité n'est pas très
+    acceptable dans une étude qui dit qu'elle va le faire ».
+
+    Elle a raison sur le fond : un point annoncé puis déclaré non traité est
+    pire qu'un point absent — il fait douter de tout le reste.
+
+    ## Pourquoi ce contrôle vaut pour les QUATRE livrables
+
+    Le chapitre de validation des demandes existe partout : étude
+    concurrentielle 8, stratégie 19, étude de marché 22, business plan 20. Le
+    contrôle des statuts, lui, ne vivait que dans la strategy EC, et il
+    vérifiait seulement qu'UN statut existe — jamais qu'il soit vrai. La
+    contradiction est une classe, pas un cas (règle 4).
+
+    ## Comment il évite de crier à tort
+
+    Une ligne « non traitée » livre ses mots PORTEURS — six lettres au moins,
+    hors vocabulaire commun à toute étude. Il en faut DEUX retrouvés dans un
+    autre chapitre pour conclure : un mot isolé se croise par hasard, deux
+    mots longs d'une même demande, non.
+
+    Le contrôle ne lit pas le SENS : il ne saura jamais qu'un sujet a été
+    survolé plutôt que traité. Il attrape la contradiction franche, celle que
+    la cliente a vue — et il le dit, plutôt que de laisser croire à une
+    garantie plus large (règle 1 dans l'autre sens).
+    """
+    defauts: list[DemandeContredite] = []
+    for numero, _titre, corps in sections:
+        ailleurs = "\n".join(
+            autre for autre_numero, _, autre in sections if autre_numero != numero
+        ).casefold()
+        if not ailleurs:
+            continue
+
+        for ligne in corps.splitlines():
+            trouve = _NON_TRAITE_RE.search(ligne)
+            if trouve is None:
+                continue
+            # Le SUJET précède le statut : « Analyser les canaux d'acquisition
+            # des concurrents : non traitée ». Prendre la ligne entière ramasse
+            # la justification qui SUIT — « la donnée n'est pas publiée,
+            # méthode d'estimation documentée » — et, quand plusieurs demandes
+            # partagent une ligne, les mots des AUTRES demandes.
+            #
+            # Mesuré à la première exécution : la répétition à blanc a signalé
+            # les quatre livrables sur « annexe, comparaison, complément,
+            # couvre », mots venus d'une demande voisine et de la mécanique du
+            # statut. Un contrôle qui lit trop large accuse à tort (règle 2).
+            sujet = ligne[: trouve.start()]
+            coupe = max(
+                (sujet.rfind(frontiere) + len(frontiere)
+                 for frontiere in _FRONTIERES_DE_DEMANDE
+                 if frontiere in sujet),
+                default=0,
+            )
+            sujet = sujet[coupe:]
+            porteurs = {
+                mot.casefold()
+                for mot in _MOT_PORTEUR_RE.findall(sujet)
+                if mot.casefold() not in _MOTS_TROP_COURANTS
+            }
+            communs = sorted(mot for mot in porteurs if mot in ailleurs)
+            if len(communs) < _MOTS_COMMUNS_MIN:
+                continue
+            defauts.append(DemandeContredite(
+                chapitre=numero,
+                demande=ligne.strip()[:160],
+                ailleurs=len(communs),
+                detail=(
+                    f"Chapitre {numero} declare « non traite » un sujet que le "
+                    f"document traite ailleurs : {', '.join(communs[:4])}. "
+                    "Un point annonce puis declare non traite est pire qu'un "
+                    "point absent — il fait douter de tout le reste. Reprends "
+                    "le statut, ou nomme ce qui manque vraiment."
+                ),
+            ))
+    return defauts

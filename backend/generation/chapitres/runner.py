@@ -687,6 +687,24 @@ REGLES_DE_FOND = (
     "valeur de DÉPART, une projection en multipliant. Relis chaque opération "
     "avant de l'écrire : un pourcentage faux se repère au premier coup d'œil "
     "et fait douter de tout le reste.\n"
+    # « Renforcer les points d'estimation avec des donnees REELLES : trafic,
+    # CA groupe/pays, reseau, nombre de commandes, avis. Ce sont des donnees
+    # concretes que les clients aiment bien » (cliente, 11/08/2026).
+    "- Une taille d'acteur ou de marché s'ESTIME sur des traces observables, "
+    "et tu les cites : trafic du site, chiffre d'affaires du groupe ou du "
+    "pays, nombre de points de vente ou d'agences, effectif, nombre de "
+    "commandes ou d'abonnés, volume et note des avis, ancienneté, levées de "
+    "fonds. Une estimation qui ne dit pas SUR QUOI elle repose n'est qu'une "
+    "opinion chiffrée — et deux traces valent mieux qu'une, parce qu'elles se "
+    "recoupent.\n"
+    # « Un point non traité n'est pas très acceptable dans une étude qui dit
+    # qu'elle va le faire » — et il l'était par simple oubli de relecture.
+    "- Ne déclare JAMAIS « non traité » un sujet que le document aborde "
+    "ailleurs. Avant de statuer sur une demande du client, relis les résumés "
+    "des chapitres précédents : s'ils la couvrent, le statut est « traitée » "
+    "et tu nommes le chapitre. « Non traité » ne se dit que d'un sujet absent "
+    "de tout le document, et s'accompagne alors de ce qui manque pour le "
+    "traiter.\n"
     "- Une hypothèse ou une extrapolation est PERMISE, à trois conditions : "
     "elle se dit hypothèse, elle nomme la donnée de départ et le raisonnement "
     "appliqué, et son résultat reste cohérent avec les autres chiffres du "
