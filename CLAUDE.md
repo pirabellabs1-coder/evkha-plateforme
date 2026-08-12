@@ -129,7 +129,7 @@ Inspiré de `karpathy/autoresearch` : un chercheur autonome ne progresse
 que s'il tient un journal de ses expériences. Chaque tentative qui n'est
 pas enregistrée est une leçon perdue.
 
-Ici : **chaque dossier généré** est une expérience à **2,60 € à 4,00 €** selon
+Ici : **chaque dossier généré** est une expérience à **plusieurs euros** selon
 le livrable — plafond appliqué par `_BUDGET_EUR_BY_TYPE`
 (`generation/services.py`), et deux études de marché complètes ont réellement
 coûté 3,12 € et 3,32 €. Ce fichier annonçait « ~2 € » jusqu'au 08/08/2026 :
@@ -209,9 +209,11 @@ journée.
 - **Manipuler une clé d'API.** Elles vivent dans Coolify et dans le `.env`
   local, jamais dans le code, jamais dans une conversation.
 - **Lancer une génération réelle sans accord.** Le plafond appliqué va de
-  2,60 € (étude concurrentielle) à 4,00 € (étude de marché) selon le livrable,
-  et deux études complètes ont coûté 3,12 € et 3,32 €. La liste qui fait foi est
-  `_BUDGET_EUR_BY_TYPE` — ne pas recopier ces montants ailleurs.
+  quelques euros à plusieurs selon le livrable, et une étude de marché
+  complète a coûté 7,43 €. La liste qui fait foi est `_BUDGET_EUR_BY_TYPE`
+  (`cost.PLAFOND_PAR_LIVRABLE`) — ne recopiez ces montants NULLE PART, pas
+  même ici : les deux chiffres qui figuraient dans cette phrase étaient faux
+  depuis le 08/08/2026, dans le fichier qui interdit de les recopier.
 - **Livrer par e-mail depuis un environnement de test** : les dossiers portent
   de vraies adresses client.
 - **Déployer sans avoir vérifié qu'aucune génération ne tourne.** Un

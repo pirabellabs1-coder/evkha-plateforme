@@ -668,6 +668,250 @@ def verifier_piliers_strategie(corpus: str) -> list[PilierManquant]:
     return manquants
 
 
+# ── Les DECISIONS que chaque pilier doit livrer ────────────────────────────
+#
+# Cliente, 12/08/2026, sur une strategie notee 7,5/10 :
+#
+#   « le document est encore trop proche d'un audit / diagnostic strategique :
+#   il analyse beaucoup, explique beaucoup et repete parfois les constats. Je
+#   souhaite que la strategie apporte davantage de solutions, methodes,
+#   decisions et actions directement applicables. […] Mes 4 piliers doivent
+#   devenir la colonne vertebrale OBLIGATOIRE du livrable. […] A la fin, le
+#   client ne doit pas simplement se dire "je comprends mieux mon entreprise",
+#   mais "je sais exactement ce que je dois faire maintenant, dans quel ordre,
+#   comment et avec quels indicateurs". »
+#
+# Le controle des piliers ci-dessus verifiait qu'un AXE est traite. Il rendait
+# donc `passed` sur un chapitre qui analyse le positionnement pendant mille
+# six cents mots sans jamais dire lequel est retenu — exactement le document
+# qu'elle decrit. Un axe traite n'est pas une decision prise.
+#
+# ## Une seule liste, deux lecteurs (regle 5)
+#
+# `prompts.py` construit la consigne a partir de cette declaration, et la
+# strategy STR juge le document sur la meme. Ecrire la demande d'un cote et le
+# controle de l'autre, c'est la contradiction interne qui a coute 5,22 € le
+# 10/08 : une consigne qui ordonne ce qu'un controle ignore, ou l'inverse.
+#
+# ## Verrouillee ou seulement demandee
+#
+# Une decision porte un `motif` quand elle a une formulation francaise stable
+# — « cible prioritaire », « planning editorial », « 90 jours ». Elle n'en
+# porte pas quand sa presence ne se lit pas sans interpreter : « montrer le
+# parcours logique du client entre les offres » est une exigence de fond, pas
+# une chaine de caracteres. Pretendre la controler produirait un motif faux,
+# pire qu'un controle absent (regle 2). Ces demandes-la vivent dans la
+# consigne et se jugent a la relecture — le champ vide le DIT, au lieu de
+# laisser croire que tout est verrouille.
+#
+# ## Pourquoi le document entier, mais un chapitre nomme
+#
+# Le jugement porte sur le corpus COMPLET : rien ne garantit que le modele
+# pose la cible prioritaire au chapitre 8 plutot qu'au 6, et bloquer sur son
+# emplacement punirait un document juste. Le chapitre porteur ne sert qu'a
+# router la reparation vers celui qui doit l'accueillir.
+
+
+@dataclass(frozen=True)
+class DecisionAttendue:
+    """Une decision que le livrable doit prendre, pas seulement eclairer."""
+
+    libelle: str
+    #: Vide = demandee par la consigne, non verrouillee par le gate.
+    motif: str = ""
+
+
+@dataclass(frozen=True)
+class BlocDeDecisions:
+    """Un pilier — ou la feuille de route — et ce qu'il doit trancher."""
+
+    cle: str
+    intitule: str
+    #: Chapitre qui accueille naturellement ces decisions, pour router la
+    #: reparation. Le controle, lui, lit tout le document.
+    chapitre_porteur: int
+    decisions: tuple[DecisionAttendue, ...]
+
+
+_D = DecisionAttendue
+
+#: Espace SOUPLE : elle accepte le retour a la ligne, contrairement a `_S`.
+#:
+#: `_S` a raison ailleurs — un libelle financier ne se coupe pas en deux
+#: paragraphes. Ici il a tort : un document markdown coupe ses lignes ou il
+#: veut, et « les canaux \n a eviter » est le meme francais que « les canaux a
+#: eviter ». Mesure du 12/08/2026 : deux decisions sur vingt-quatre echouaient
+#: sur un document qui les prend, uniquement a cause d'un retour a la ligne.
+#: Un controle qui depend de la LARGEUR DE COLONNE juge autre chose que ce
+#: qu'il prétend juger (regle 2).
+_E = r"\s"
+
+DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
+    BlocDeDecisions(
+        cle="positionnement",
+        intitule="PILIER 1 — Positionnement & spécialisation",
+        chapitre_porteur=8,
+        decisions=(
+            _D("la cible prioritaire, nommée",
+               rf"(?:cible|client[èe]le|segment)s?{_E}+"
+               rf"(?:prioritaires?|principa(?:l|le|ux|les))"),
+            _D("la cible secondaire",
+               rf"(?:cible|client[èe]le|segment)s?{_E}+"
+               rf"(?:secondaires?|compl[ée]mentaires?)"),
+            _D("le positionnement retenu",
+               rf"positionnement{_E}+"
+               rf"(?:retenu|recommand[ée]|choisi|cible|d[ée]fendu"
+               rf"|propos[ée]|pr[ée]conis[ée])"),
+            _D("la spécialisation recommandée"),
+            _D("le produit ou service à pousser en priorité",
+               rf"(?:offre|produit|service|prestation)s?{_E}+"
+               rf"(?:phares?|locomotives?|[àa]{_E}+pousser)"),
+            _D("la proposition de valeur", rf"proposition{_E}+de{_E}+valeur"),
+            _D("les éléments concrets de différenciation"),
+            _D("le message commercial principal",
+               rf"(?:message|discours|accroche|promesse)s?{_E}+"
+               rf"(?:commercial|commerciale|principal|principale|cl[ée])"),
+            _D("ce qu'il faut volontairement abandonner ou repousser",
+               r"(?:abandonner|abandonn[ée]e?s?|renoncer|renonc[ée]e?s?"
+               r"|[ée]carter|[ée]cart[ée]e?s?|repousser|repouss[ée]e?s?"
+               r"|non-?priorit[ée]s?)"),
+        ),
+    ),
+    BlocDeDecisions(
+        cle="offre",
+        intitule="PILIER 2 — Structuration de l'offre",
+        chapitre_porteur=10,
+        decisions=(
+            _D("les offres à conserver, modifier, supprimer ou reporter",
+               rf"[àa]{_E}+(?:conserver|maintenir|supprimer|arr[êe]ter"
+               rf"|reporter|retravailler)"),
+            _D("l'offre d'entrée de gamme",
+               rf"(?:entr[ée]e{_E}+de{_E}+gamme"
+               rf"|offre{_E}+d['’](?:appel|entr[ée]e))"),
+            _D("l'offre premium",
+               rf"premium|haut{_E}+de{_E}+gamme|gamme{_E}+sup[ée]rieure"
+               rf"|offre{_E}+haute"),
+            _D("les possibilités d'upsell et de cross-sell",
+               rf"up-?sell|cross-?sell|vente{_E}+(?:additionnelle|crois[ée]e)"
+               rf"|mont[ée]e{_E}+en{_E}+gamme"),
+            _D("le parcours du client entre les offres",
+               rf"parcours{_E}+(?:client|d['’]achat|utilisateur)"),
+            _D("le rôle de chaque offre : acquisition, marge, "
+               "récurrence ou fidélisation"),
+        ),
+    ),
+    BlocDeDecisions(
+        cle="visibilite",
+        intitule="PILIER 3 — Visibilité, acquisition & planning éditorial",
+        chapitre_porteur=13,
+        decisions=(
+            _D("les canaux prioritaires",
+               rf"(?:canaux|leviers|r[ée]seaux){_E}+"
+               rf"(?:prioritaires|principaux|majeurs|structurants"
+               rf"|de{_E}+premier{_E}+plan)"),
+            _D("les canaux secondaires",
+               rf"(?:canaux|leviers|r[ée]seaux){_E}+"
+               rf"(?:secondaires|compl[ée]mentaires|d['’]appoint"
+               rf"|de{_E}+soutien)"),
+            _D("les canaux à éviter",
+               rf"(?:canaux|leviers|r[ée]seaux|plateformes|supports){_E}+"
+               rf"(?:[àa]{_E}+(?:[ée]viter|proscrire|exclure|abandonner"
+               rf"|ne{_E}+pas{_E}+(?:investir|privil[ée]gier))"
+               rf"|d[ée]conseill[ée]s?|non{_E}+retenus?)"),
+            _D("les thématiques et types de contenus recommandés"),
+            _D("la fréquence de publication",
+               rf"(?:fr[ée]quence|rythme|cadence){_E}+(?:de{_E}+)?"
+               rf"(?:publication|parution|diffusion|contenus?)"
+               rf"|\d+{_E}*(?:publications?|posts?|contenus?|articles?){_E}*"
+               rf"(?:par|\/){_E}*(?:semaine|mois)"),
+            _D("un planning éditorial concret, sur un mois au minimum",
+               rf"(?:planning|calendrier|programme){_E}+[ée]ditorial"),
+            _D("l'acquisition hors réseaux sociaux : prospection, "
+               "partenariats, référencement, prescription, événements, emailing",
+               r"prospection|partenariats?|r[ée]f[ée]rencement|emailing"
+               r"|prescription|[ée]v[ée]nements?"),
+            _D("les outils pratiques pour mettre tout cela en œuvre"),
+        ),
+    ),
+    BlocDeDecisions(
+        cle="rentabilite",
+        intitule="PILIER 4 — Tarification & rentabilité",
+        chapitre_porteur=14,
+        decisions=(
+            _D("une recommandation tarifaire concrète : fourchette ou prix cible",
+               rf"(?:prix|tarif)s?{_E}+"
+               rf"(?:cibles?|recommand[ée]s?|conseill[ée]s?|pr[ée]conis[ée]s?)"
+               rf"|(?:recommandation|proposition|strat[ée]gie|grille)s?{_E}+"
+               rf"(?:tarifaires?|de{_E}+prix)"
+               rf"|fourchette{_E}+(?:tarifaire|de{_E}+prix)"),
+            _D("le prix par niveau d'offre"),
+            _D("la logique de montée en gamme"),
+            _D("l'impact attendu sur la marge",
+               rf"(?:impact|effet|cons[ée]quence)[^.]{{0,60}}marge"
+               rf"|marges?{_E}+(?:attendues?|cibles?|projet[ée]es?"
+               rf"|suppl[ée]mentaires?)"),
+            _D("la distinction explicite entre les prix issus du dossier "
+               "et les prix recommandés par l'analyse"),
+        ),
+    ),
+    BlocDeDecisions(
+        cle="feuille_de_route",
+        intitule="FEUILLE DE ROUTE OPÉRATIONNELLE",
+        chapitre_porteur=17,
+        decisions=(
+            _D("les actions à 30, 60 et 90 jours",
+               rf"\b(?:30|60|90){_E}*jours"),
+            _D("les actions à 6 et 12 mois",
+               rf"\b(?:6|12|six|douze){_E}*mois"),
+            _D("ce qui est prioritaire et ce qui est secondaire"),
+            _D("les indicateurs à suivre",
+               rf"\bKPI\b|indicateurs?{_E}+(?:cl[ée]s?|de{_E}+"
+               rf"(?:suivi|performance|pilotage|r[ée]ussite))"),
+            _D("le seuil à partir duquel poursuivre, modifier ou arrêter "
+               "une action",
+               rf"seuils?{_E}+(?:de{_E}+)?(?:d[ée]cision|d[ée]clenchement|alerte)"
+               rf"|crit[èe]re{_E}+d['’]arr[êe]t|point{_E}+de{_E}+bascule"
+               rf"|r[èe]gle{_E}+d['’]arbitrage"
+               rf"|(?:poursuivre|maintenir|continuer)[^.]{{0,90}}"
+               rf"(?:modifier|ajuster)[^.]{{0,90}}"
+               rf"(?:arr[êe]ter|abandonner|stopper)"),
+        ),
+    ),
+)
+
+
+@dataclass(frozen=True)
+class DecisionManquante:
+    """Une decision attendue que le document ne prend nulle part."""
+
+    cle_bloc: str
+    intitule_bloc: str
+    chapitre_porteur: int
+    libelle: str
+
+
+def verifier_decisions_strategie(corpus: str) -> list[DecisionManquante]:
+    """Les decisions VERROUILLEES que le document ne prend pas.
+
+    Les autres — celles sans motif — sont demandees par la consigne et ne
+    sont pas jugees ici : voir le commentaire de `DECISIONS_STRATEGIE`.
+    """
+    manquantes: list[DecisionManquante] = []
+    for bloc in DECISIONS_STRATEGIE:
+        for decision in bloc.decisions:
+            if not decision.motif:
+                continue
+            if re.search(decision.motif, corpus, re.IGNORECASE):
+                continue
+            manquantes.append(DecisionManquante(
+                cle_bloc=bloc.cle,
+                intitule_bloc=bloc.intitule,
+                chapitre_porteur=bloc.chapitre_porteur,
+                libelle=decision.libelle,
+            ))
+    return manquantes
+
+
 def detecter_chapitres_avortes(
     sections_avec_plafond: list[tuple[int, str, str, int]],
 ) -> list[ChapitreAvorte]:

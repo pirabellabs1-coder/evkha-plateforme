@@ -336,6 +336,7 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
     from .checks_evangeline import (  # noqa: PLC0415
         ATTENDUS_CONCURRENTS,
         CRITERES_TRI_CONCURRENTS,
+        DECISIONS_STRATEGIE,
         PILIERS_STRATEGIE,
     )
 
@@ -407,6 +408,15 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             f"{intitule} ({cle})"
             for cle, (intitule, _motif) in PILIERS_STRATEGIE.items()
         )
+        # La colonne vertebrale de decisions, lue de la MEME declaration que
+        # le controle du gate (regle 5). Ecrire la demande ici et le controle
+        # ailleurs, c'est la contradiction interne qui a coute 5,22 € le
+        # 10/08/2026 — une consigne qui ordonne ce qu'un controle ignore.
+        colonne_vertebrale = "\n".join(
+            f"{bloc.intitule} — le document doit poser :\n"
+            + "".join(f"  - {d.libelle} ;\n" for d in bloc.decisions)
+            for bloc in DECISIONS_STRATEGIE
+        )
         # Reprise verbatim du document methodologique EVKHA envoye par la
         # cliente (« Systeme EVKHA — Strategies Business Automatisees »,
         # juillet 2026). Le prompt STR precedent posait les 4 piliers mais
@@ -451,6 +461,31 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             "prix au hasard, vendre avec confiance.\n"
             "La conclusion doit livrer une vision strategique ET un plan "
             "d'action operationnel.\n"
+            # ── Le centre de gravite du livrable ──────────────────────────
+            # Cliente, 12/08/2026, sur une strategie notee 7,5/10 : « le
+            # document est encore trop proche d'un audit / diagnostic
+            # strategique : il analyse beaucoup, explique beaucoup et repete
+            # parfois les constats ». Elle ne demande pas de refaire la
+            # pipeline — elle demande de deplacer son centre de gravite.
+            "CENTRE DE GRAVITE (regle qui prime sur le ton) : moins AUDITER, "
+            "davantage DECIDER. Moins EXPLIQUER, davantage RECOMMANDER. Moins "
+            "CONSTATER, davantage CONSTRUIRE. Moins de theorie, davantage de "
+            "methodes et d'actions. Une analyse qui ne debouche sur aucune "
+            "decision n'a pas sa place : coupe-la, ou termine-la. A la fin de "
+            "sa lecture, le dirigeant ne doit pas se dire « je comprends mieux "
+            "mon entreprise » mais « je sais exactement ce que je dois faire "
+            "maintenant, dans quel ordre, comment, et avec quels indicateurs "
+            "pour savoir si cela fonctionne ».\n"
+            "COLONNE VERTEBRALE OBLIGATOIRE — chaque analyse se termine par sa "
+            "decision, et le document entier doit poser les elements suivants. "
+            "Ce ne sont pas des suggestions : leur absence est un defaut de "
+            "livrable, verifie au controle qualite.\n"
+            f"{colonne_vertebrale}"
+            "Quand une donnee manque pour trancher, tu tranches quand meme et "
+            "tu DIS a quelle condition la decision change. « Les donnees "
+            "disponibles ne permettent pas de recommander un prix » n'est pas "
+            "une reponse acceptable : donne une fourchette de travail, nomme "
+            "l'hypothese qui la sous-tend, et l'indicateur qui la confirmera.\n"
             "INTERPRETATION DU BRIEF (le desordre du dirigeant est normal) : "
             "aucun brief client n'arrive parfaitement structure. Les "
             "informations peuvent etre incompletes, desorganisees, "

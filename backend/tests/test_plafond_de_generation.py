@@ -74,7 +74,7 @@ from generation.services import _BUDGET_EUR_BY_TYPE
 DECISION_CLIENTE = {
     DeliverableType.MARKET_STUDY: Decimal("8.00"),
     DeliverableType.BUSINESS_PLAN: Decimal("4.00"),
-    DeliverableType.BUSINESS_STRATEGY: Decimal("4.00"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("5.50"),
     DeliverableType.COMPETITOR_STUDY: Decimal("3.50"),
 }
 

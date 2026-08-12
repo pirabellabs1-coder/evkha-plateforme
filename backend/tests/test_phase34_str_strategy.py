@@ -27,8 +27,21 @@ import pytest
 # ══════════════════════════════════════════════════════════════════════════
 
 
-def test_document_complet_ne_remonte_aucun_probleme() -> None:
-    """Contre-epreuve : les 4 piliers sont poses, la strategy passe."""
+def test_les_quatre_piliers_poses_ne_remontent_aucun_manque() -> None:
+    """Contre-epreuve : les 4 piliers sont poses, aucun n'est signale absent.
+
+    L'assertion portait sur la TOTALITE des problemes — « document complet ».
+    Elle ne le peut plus, et c'est un progres, pas une regression : depuis le
+    12/08/2026 un document complet doit aussi PRENDRE ses decisions (cible
+    prioritaire, canaux a eviter, feuille de route 30/60/90…), et ces quatre
+    lignes n'en prennent aucune. Elles n'ont jamais ete un document complet ;
+    l'assertion large le laissait croire.
+
+    La contre-epreuve des decisions vit dans
+    `test_une_strategie_tranche_au_lieu_d_analyser.py`, sur un corpus qui les
+    prend vraiment. Ici on verifie ce que ce test a toujours verifie : quatre
+    piliers poses, zero pilier reclame.
+    """
     from generation.strategies.str_ import STRStrategy
 
     corpus = {
@@ -43,7 +56,7 @@ def test_document_complet_ne_remonte_aucun_probleme() -> None:
     }
     problemes = STRStrategy().problemes_de_coherence(None, corpus)  # type: ignore[arg-type]
 
-    assert problemes == []
+    assert [p for p in problemes if p.categorie == "pilier_manquant"] == []
 
 
 def test_pilier_editorial_absent_est_signale() -> None:

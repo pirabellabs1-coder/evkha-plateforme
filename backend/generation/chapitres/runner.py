@@ -733,7 +733,26 @@ REGLES_DE_FOND = (
     "trois priorités, tirées du CROISEMENT des cases : quelle force sert "
     "quelle opportunité, quelle faiblesse expose à quelle menace, et donc "
     "par où commencer. Une SWOT qui énumère sans conclure laisse au lecteur "
-    "le travail qu'il a payé."
+    "le travail qu'il a payé.\n"
+    # « Rendre l'etude plus accessible, moins de tournures techniques »
+    # (cliente, 12/08/2026), avec SON exemple : « l'abonnement CRM sort de
+    # cette lecture comme la verticale la plus scalable » -> « l'abonnement
+    # CRM apparait comme l'activite la plus facile a developper a grande
+    # echelle sans augmenter les couts au meme rythme ».
+    #
+    # Le lecteur du livrable est un DIRIGEANT, pas un consultant. Ce qu'il ne
+    # comprend pas, il ne l'applique pas — et une strategie qu'on n'applique
+    # pas ne vaut rien, quelle que soit sa justesse. La regle vaut pour les
+    # quatre livrables : « ca doit s'appliquer sur toutes les etudes »
+    # (cliente, 11/08/2026).
+    "- Écris pour un DIRIGEANT, pas pour un consultant. Chaque terme technique "
+    "ou anglais est soit remplacé par son équivalent courant, soit expliqué "
+    "dans la phrase même — jamais laissé nu. « La verticale la plus scalable » "
+    "devient « l'activité la plus facile à développer à grande échelle sans "
+    "augmenter les coûts au même rythme ». Même traitement pour churn, lead, "
+    "funnel, ARR, CAC, LTV, scalabilité, verticale, pricing, benchmark, "
+    "top-of-funnel. Le test : une phrase qu'un lecteur doit relire deux fois "
+    "pour la comprendre est à réécrire, même si elle est juste."
 )
 
 

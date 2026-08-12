@@ -354,9 +354,15 @@ export function Commander() {
         </Carte>
       ))}
 
+      {/* « Il reste les fichiers de la stratégie » (cliente, 12/08/2026). Ce
+          n'est pas un bug de nettoyage : le dépôt appartient à l'ORGANISATION,
+          jamais à une commande — un bilan se dépose une fois par an et se
+          réutilise. Mais la carte le présentait comme les pièces de CETTE
+          commande, et le client pressé ne fait pas la différence. On dit donc
+          ce qui est vrai, et la liste porte désormais la date de dépôt. */}
       <Carte
-        titre="Documents complémentaires"
-        note="Tableaux financiers, études déjà réalisées, présentations."
+        titre="Vos documents"
+        note="Tableaux financiers, études déjà réalisées, présentations. Cette bibliothèque appartient à votre organisation : elle reste d'une commande à l'autre tant que vous ne retirez pas un fichier."
       >
         <ZoneDepot
           libelle="Ajouter un document"

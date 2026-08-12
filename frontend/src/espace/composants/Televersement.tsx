@@ -103,6 +103,17 @@ export function ZoneDepot({
   );
 }
 
+/** Date de dépôt, courte et française. Une date ISO ne se lit pas d'un œil. */
+function dateCourte(iso: string): string {
+  const quand = new Date(iso);
+  if (Number.isNaN(quand.getTime())) return "";
+  return quand.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function ListeFichiers({
   fichiers,
   onSupprimer,
@@ -121,6 +132,15 @@ export function ListeFichiers({
         <li key={fichier.id}>
           <span className="fichier-nom">{fichier.nom}</span>
           <span className="carte-note">{poids(fichier.taille_octets)}</span>
+          {/* La DATE, et pas seulement le nom. Le dépôt est rattaché à
+              l'organisation, jamais à une commande : un bilan déposé pour
+              l'étude de mars réapparaît sur la commande de septembre, à
+              l'identique. Cliente, 12/08/2026 : « j'ai cliqué sur commander un
+              business plan et il reste les fichiers de la stratégie […] au cas
+              où un client ne fasse pas attention et lance un nouveau projet
+              avec d'anciens docs ». Sans la date, rien à l'écran ne distingue
+              le document d'aujourd'hui de celui d'il y a six mois. */}
+          <span className="carte-note">{dateCourte(fichier.date)}</span>
           {peutSupprimer && (
             <button
               type="button"

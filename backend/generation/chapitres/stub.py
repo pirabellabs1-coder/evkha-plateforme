@@ -298,6 +298,79 @@ def _garanties_structurelles(
             ),
         })
 
+    # Décisions de la stratégie (`decision_absente`, STR). La colonne
+    # vertébrale que la cliente a posée le 12/08/2026 : chaque pilier doit
+    # TRANCHER, pas seulement analyser.
+    #
+    # Ces phrases sont écrites comme un consultant les écrirait, pas comme les
+    # expressions régulières les attendent — c'est délibéré. Une doublure
+    # taillée sur la forme du contrôle donnerait raison au contrôle sans rien
+    # prouver (règle 9) ; celle-ci mesure au moins que les motifs acceptent du
+    # français ordinaire. Aucun montant : un chiffre hors socle ferait échouer
+    # la validation du chapitre, et ce n'est pas ce qu'on répète ici.
+    if "colonne vertebrale" in consigne:
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "La cible prioritaire est le café-restaurant indépendant ; la "
+                "cible secondaire, l'amateur équipé qui achète en ligne. Le "
+                "positionnement retenu est celui du torréfacteur de quartier à "
+                "traçabilité complète, et la spécialisation recommandée porte "
+                "sur les cafés d'origine unique. L'offre phare est "
+                "l'abonnement mensuel. La proposition de valeur tient en une "
+                "phrase, et le message commercial principal la reprend telle "
+                "quelle. La vente en grande distribution, elle, est écartée."
+            ),
+        })
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "Le catalogue se resserre : deux références sont à conserver, "
+                "la formule découverte est à modifier, le coffret cadeau est à "
+                "supprimer. L'architecture cible tient en trois niveaux, d'une "
+                "offre d'entrée de gamme à une offre premium. La montée en "
+                "gamme s'organise par l'abonnement, et le parcours client va "
+                "de la dégustation en boutique à l'abonnement annuel : "
+                "l'entrée sert l'acquisition, le cœur d'offre la marge."
+            ),
+        })
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "Les canaux prioritaires sont le référencement local et la "
+                "prescription par les cafés partenaires. Les canaux "
+                "secondaires restent la presse locale et le réseau "
+                "professionnel. Les canaux à éviter sont les places de marché "
+                "généralistes, qui détruisent la marge. La fréquence de "
+                "publication est arrêtée, et le planning éditorial couvre le "
+                "premier mois. Hors réseaux sociaux, la prospection directe "
+                "auprès des restaurateurs et les partenariats avec deux "
+                "épiceries fines portent l'acquisition."
+            ),
+        })
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "Le prix cible du paquet est supérieur au tarif pratiqué "
+                "aujourd'hui, et la grille tarifaire recommandée distingue "
+                "chaque niveau d'offre. L'impact attendu sur la marge justifie "
+                "à lui seul la reprise du positionnement."
+            ),
+        })
+        blocs.append({
+            "type": "paragraphe",
+            "texte": (
+                "À 30 jours, la grille tarifaire est reprise et affichée ; à "
+                "60 jours, l'abonnement ouvre à la vente ; à 90 jours, deux "
+                "partenariats sont signés. À 6 mois, la boutique en ligne "
+                "ouvre, et à 12 mois le second point de vente se décide. Les "
+                "indicateurs de suivi sont le nombre d'abonnés actifs, le "
+                "panier moyen et la marge brute. Règle d'arbitrage : au-delà "
+                "de la cible du troisième mois, poursuivre ; sous cette cible, "
+                "modifier le message ; loin dessous, arrêter la campagne."
+            ),
+        })
+
     # Bloc de recul (`lecture_strategique_absente`) : chaque chapitre porte
     # sa lecture — sauf le chapitre Sources, où chaque puce doit rester une
     # référence.

@@ -134,7 +134,10 @@ class STRStrategy:
         """Piliers transversaux, puis structure interne de chaque chapitre."""
         # Import lazy pour eviter le cycle strategies -> checks_evangeline
         # -> generation.models -> generation.strategies au demarrage.
-        from generation.checks_evangeline import verifier_piliers_strategie  # noqa: PLC0415
+        from generation.checks_evangeline import (  # noqa: PLC0415
+            verifier_decisions_strategie,
+            verifier_piliers_strategie,
+        )
 
         corpus_complet = "\n\n".join(corpus_par_chapitre.values())
 
@@ -151,6 +154,22 @@ class STRStrategy:
             )
             for p in verifier_piliers_strategie(corpus_complet)
         ]
+
+        # Un axe traite n'est pas une decision prise. Le controle ci-dessus
+        # verifie que le pilier existe ; celui-ci verifie qu'il TRANCHE.
+        problemes.extend(
+            ProblemeCoherence(
+                categorie="decision_absente",
+                chapitre=d.chapitre_porteur,
+                detail=(
+                    f"{d.intitule_bloc} : le document ne pose nulle part "
+                    f"{d.libelle}. Une strategie ne se termine pas sur un "
+                    "constat — le dirigeant doit savoir ce qui est decide, "
+                    "pas seulement ce qui a ete observe."
+                ),
+            )
+            for d in verifier_decisions_strategie(corpus_complet)
+        )
 
         problemes.extend(verifier_structure_des_chapitres(corpus_par_chapitre))
         return problemes
