@@ -307,7 +307,15 @@ _CE_QUI_NE_SE_RECOPIE_PAS = (
     "secteur, mars 2026 », ou l'une des sources web fournies pour ce chapitre. "
     "Si la valeur vient du dossier client, écris « données du projet ». Si tu "
     "n'as pas de source à citer, LAISSE LE CHAMP VIDE — un champ vide se lit, "
-    "une référence interne trahit la machine."
+    "une référence interne trahit la machine.\n"
+    "\nTU NE RECALCULES RIEN. Les chiffres ci-dessous sont arrêtés pour tout le "
+    "document : un seuil de rentabilité, une marge, un total de financement ne "
+    "se redérivent pas au fil des chapitres. Reprends la valeur telle qu'elle "
+    "est. Si un chiffre dont tu as besoin n'y figure pas, ÉCRIS QU'IL MANQUE — "
+    "n'en produis pas un de ton côté : ton voisin en produirait un autre, et le "
+    "document se contredirait d'un chapitre à l'autre. Les lignes marquées "
+    "« Calculé : » portent leur formule ; cite-la si le lecteur doit pouvoir "
+    "refaire l'opération, mais ne refais pas le calcul toi-même."
 )
 
 
