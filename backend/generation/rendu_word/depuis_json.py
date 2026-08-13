@@ -185,12 +185,21 @@ RECOMMANDATION_PAR_LIVRABLE: dict[str, tuple[str, ...]] = {
         "Un business plan personnalisé et réalisé sur mesure est disponible "
         "auprès de {marque}.",
     ),
-    "business_plan": (
-        "Pour sécuriser les hypothèses de ce plan face au marché réel, une "
-        "étude de marché en apporte les fondations chiffrées.",
-        "Une étude de marché personnalisée et réalisée sur mesure est "
-        "disponible auprès de {marque}.",
-    ),
+    # LE BUSINESS PLAN N'EN A PAS, ET C'EST DÉLIBÉRÉ.
+    #
+    # Retour cliente du 12/08/2026 : « un CTA commercial automatique, qui peut
+    # être présent sur les autres livrables mais pas sur le business plan (car
+    # présenté à une banque comme si vous l'aviez écrit) ».
+    #
+    # Les trois autres livrables se lisent en interne : leur destinataire est
+    # le dirigeant qui les a commandés, et lui proposer la suite est un service.
+    # Un business plan, lui, part chez un banquier ou un investisseur. Une
+    # dernière page qui vend une prestation y détruit ce que le document
+    # construit : elle dit au lecteur que le plan qu'il évalue a été acheté, et
+    # que son auteur n'est pas celui qui le présente.
+    #
+    # `_recommandation_finale` n'écrit rien pour un livrable absent de cette
+    # table — l'omission est le mécanisme, il n'y a pas d'exception à coder.
     "business_strategy": (
         "Pour mesurer l'écart entre cette stratégie et les acteurs déjà en "
         "place, une étude de la concurrence en donne les repères.",

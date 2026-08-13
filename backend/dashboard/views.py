@@ -307,8 +307,58 @@ def job_supprimer(request: HttpRequest, job_id: str) -> JsonResponse:
         trace["total_cost_eur"], trace["chapitres"], trace["error_message"],
     )
 
+    trace["fichiers_effaces"] = _effacer_les_fichiers(job)
     job.delete()
     return _json({"supprime": trace}, status=200)
+
+
+def _effacer_les_fichiers(job: GenerationJob) -> int:
+    """Efface du DISQUE les documents du dossier. Retourne le nombre effacé.
+
+    ## Pourquoi ce n'est pas automatique
+
+    Supprimer un `GenerationJob` efface en cascade la LIGNE de chaque
+    `DocumentArtifact`, pas le fichier qu'elle décrit : Django ne touche jamais
+    au disque. Le `.docx` et le `.pdf` restaient donc sous
+    `MEDIA_ROOT/livrables/`, et leur lien signé continuait de répondre jusqu'à
+    son échéance.
+
+    Signalé par la cliente le 12/08/2026, sur les dossiers effacés le matin
+    même : « les anciens docs téléchargés restaient encore intègres alors que
+    cela correspondait à d'anciens livrables ». Un document qu'on croit
+    supprimé et qui se télécharge encore n'est pas un détail de ménage — c'est
+    la promesse de la suppression qui est fausse.
+
+    ## Pourquoi un échec d'effacement ne fait pas échouer la suppression
+
+    Le dossier DOIT disparaître, même si un fichier est verrouillé par un autre
+    processus ou déjà absent. On journalise et on continue : laisser le dossier
+    en base au motif qu'un fichier résiste rendrait la suppression impossible
+    au moment précis où elle est demandée.
+    """
+    import logging  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    from django.conf import settings  # noqa: PLC0415
+
+    racine = Path(str(getattr(settings, "MEDIA_ROOT", "") or "media"))
+    journal = logging.getLogger(__name__)
+    effaces = 0
+
+    for artefact in job.artifacts.all():
+        cle = (artefact.storage_key or "").strip()
+        if not cle:
+            continue
+        chemin = racine / cle
+        try:
+            chemin.unlink(missing_ok=True)
+            effaces += 1
+        except OSError:
+            journal.warning(
+                "Suppression %s : fichier %s non efface (il reste sur le disque).",
+                job.id, chemin, exc_info=True,
+            )
+    return effaces
 
 
 @require_http_methods(["POST"])

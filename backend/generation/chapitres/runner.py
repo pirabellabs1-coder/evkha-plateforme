@@ -274,6 +274,43 @@ def _nature(unite: str) -> str:
     return str(famille) if famille is not None else NATURE_INCONNUE
 
 
+#: La consigne qui manquait sous le socle, et qui a coûté un défaut de forme.
+#:
+#: Retour cliente du 12/08/2026 sur un business plan noté 8/10 : « des traces
+#: techniques internes. Des mentions telles que "socle EVKHA",
+#: ca_previsionnel_an1, marche_national_taille apparaissent sous des tableaux ».
+#:
+#: LE MODÈLE N'A RIEN FAIT DE MAL. Les lignes qui suivent lui montrent, côte à
+#: côte, un identifiant entre accents graves et le mot « source ». Quand il
+#: remplit le champ `source` d'un tableau, il écrit ce qu'il a sous les yeux.
+#: On lui a montré la notation de stockage sans jamais lui dire qu'elle ne se
+#: recopie pas — exactement la leçon déjà tirée des unités (`Md€` et non
+#: `MdEUR`), une ligne plus haut dans ce même fichier, et jamais étendue aux
+#: identifiants eux-mêmes.
+#:
+#: Le garde-fou du schéma refuse ces fuites. Il arrive après : il fait perdre
+#: une tentative et de l'argent là où une phrase de consigne suffit (règle 3 —
+#: la cause dans la consigne, le contrôle en dernière ligne).
+_CE_QUI_NE_SE_RECOPIE_PAS = (
+    "\n\nCE QUI NE SE RECOPIE JAMAIS DANS LE DOCUMENT :\n"
+    "- Les identifiants ci-dessous (`ca_previsionnel_an1`, "
+    "`marche_national_taille`…) sont des ÉTIQUETTES POUR TOI, qui te servent à "
+    "retrouver la même valeur d'un chapitre à l'autre. Ils ne s'écrivent nulle "
+    "part dans le texte : ni dans une phrase, ni dans un titre, ni sous un "
+    "tableau, ni dans le commentaire d'une figure. Dis la CHOSE — « le chiffre "
+    "d'affaires prévisionnel de la première année » — jamais son étiquette.\n"
+    "- Le mot « socle », et le nom de la plateforme qui produit ce document, "
+    "n'apparaissent jamais. Le livrable est remis en marque blanche : son "
+    "lecteur croit — et doit croire — que son auteur l'a écrit lui-même.\n"
+    "- Le champ `source` d'un tableau ou d'un indicateur cite une source "
+    "RÉELLE et vérifiable : « INSEE, base Sirene 2025 », « Xerfi, panorama du "
+    "secteur, mars 2026 », ou l'une des sources web fournies pour ce chapitre. "
+    "Si la valeur vient du dossier client, écris « données du projet ». Si tu "
+    "n'as pas de source à citer, LAISSE LE CHAMP VIDE — un champ vide se lit, "
+    "une référence interne trahit la machine."
+)
+
+
 def _bloc_socle(socle: Socle) -> str:
     """Socle sérialisé, lisible et exhaustif.
 
@@ -312,6 +349,7 @@ def _bloc_socle(socle: Socle) -> str:
         + (f" / {socle.zone.region}" if socle.zone.region else "")
         + (f" / {socle.zone.ville}" if socle.zone.ville else "")
         + f" (arrêté au {socle.date_socle.isoformat()})"
+        + _CE_QUI_NE_SE_RECOPIE_PAS
     )
     return (
         entete + "\n" + "\n".join(lignes)

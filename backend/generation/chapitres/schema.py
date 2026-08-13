@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import logging
 import re
-from enum import StrEnum
-from typing import Annotated, Any, Literal
+from enum import Enum, StrEnum
+from functools import lru_cache
+from typing import Annotated, Any, Literal, get_args
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -1095,7 +1096,92 @@ _VOCABULAIRE_INTERNE: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("identifiant du socle", re.compile(
         r"\bidentifiants?\s+du\s+socle\b", re.IGNORECASE)),
     ("livrable bloqué", re.compile(r"\blivrable\s+bloqu[ée]", re.IGNORECASE)),
+    # « Socle EVKHA », lu par la cliente sous des tableaux le 12/08/2026.
+    #
+    # Le motif d'en haut exige « verrouillé », « bloqué » ou « de données »
+    # après « socle » — pour laisser passer un socle de compétences ou un socle
+    # tarifaire, qui sont du français. « Socle » suivi d'un NOM PROPRE, lui,
+    # n'est jamais du français : c'est une attribution de source, et la source
+    # citée est notre entrepôt interne.
+    # `[Ss]ocle` écrit à la main, et SANS `IGNORECASE` : c'est la capitale du
+    # mot SUIVANT qui distingue « socle EVKHA » d'« un socle commun ». Rendre
+    # tout le motif insensible à la casse effacerait précisément le signal.
+    ("socle nommé comme une source", re.compile(
+        r"\b[Ss]ocle\s+[A-ZÀ-Þ][\wÀ-ÿ-]*")),
+    # Les identifiants eux-mêmes : `ca_previsionnel_an1`,
+    # `marche_national_taille`. Vus le même jour, sous les mêmes tableaux.
+    #
+    # CLASSE, et non liste (règle 4) : on ne connaît pas les identifiants que
+    # le socle portera demain, mais on sait qu'AUCUN mot français ne s'écrit en
+    # minuscules avec des tirets bas. Le motif décrit donc la forme, pas le
+    # vocabulaire — un identifiant ajouté plus tard est couvert sans que
+    # personne y pense.
+    #
+    # Les adresses web sont retirées du texte avant l'examen (voir
+    # `_sans_les_adresses`) : « /mon_article » n'est pas une fuite.
+    ("identifiant technique", re.compile(r"\b[a-zà-ÿ]{2,}_[a-zà-ÿ0-9_]{2,}\b")),
 )
+
+#: Une adresse web porte légitimement des tirets bas.
+_ADRESSE_WEB = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
+
+#: Les champs que le RENDU consomme, et que le lecteur ne voit jamais.
+#:
+#: `donnees_ids` porte les identifiants du socle qu'une figure trace :
+#: « ca_previsionnel_an1 », « marche_national_taille ». C'est sa RAISON D'ÊTRE.
+#: Le rendu les résout en barres et en courbes ; aucun n'atteint le document.
+#:
+#: Sans cette exclusion, la règle « identifiant technique » ajoutée le
+#: 12/08/2026 refusait TOUTE figure, sur les quatre livrables — vérifié avant
+#: déploiement sur un graphique parfaitement légitime, trois motifs levés. Un
+#: garde-fou qui refuse le fonctionnement normal du système ne protège personne :
+#: il aurait fait échouer chaque chapitre portant un graphique.
+#:
+#: Ce jeu se maintient : `test_aucun_champ_machine_n_echappe_a_l_inventaire`
+#: échoue si le schéma gagne un champ de ce genre sans qu'on l'ait déclaré ici.
+_CHAMPS_LUS_PAR_LA_MACHINE = frozenset({"donnees_ids"})
+
+
+@lru_cache(maxsize=1)
+def _valeurs_structurelles() -> frozenset[str]:
+    """Toutes les constantes que le SCHÉMA lui-même déclare.
+
+    Les discriminants de blocs — « titre_sous_section », « grille_kpi » — et
+    les valeurs d'énumération — « barres_empilees ». Ce sont des noms de
+    STRUCTURE : le rendu s'en sert pour savoir quoi dessiner, et aucun
+    n'atteint jamais le document.
+
+    ## Pourquoi cette fonction existe
+
+    La règle « identifiant technique » du 12/08/2026 les prenait tous pour des
+    fuites : la répétition à blanc a rendu un défaut interne sur presque chaque
+    chapitre des quatre livrables. Exclure les champs un par un ne suffisait
+    pas — le discriminant s'appelle `type`, un nom qu'on ne peut pas réserver.
+
+    On juge donc la VALEUR, pas le champ : un texte qui est exactement une
+    constante du schéma est structurel. « Source : marche_national_taille
+    (2026) » n'en est pas une, et reste refusé — c'est bien une phrase, écrite
+    pour être lue.
+
+    Calculé une fois : le schéma ne change pas en cours d'exécution.
+    """
+    valeurs: set[str] = set()
+    for objet in list(globals().values()):
+        if isinstance(objet, type) and issubclass(objet, Enum):
+            valeurs.update(str(membre.value) for membre in objet)
+        elif isinstance(objet, type) and issubclass(objet, BaseModel):
+            for info in objet.model_fields.values():
+                valeurs.update(
+                    str(argument)
+                    for argument in get_args(info.annotation)
+                    if isinstance(argument, str)
+                )
+    return frozenset(valeurs)
+
+
+def _sans_les_adresses(texte: str) -> str:
+    """Le texte débarrassé de ses URL, pour juger la prose seule."""
+    return _ADRESSE_WEB.sub(" ", texte)
 
 
 def motifs_de_balisage(payload: ChapitrePayload) -> list[str]:
@@ -1289,7 +1375,12 @@ def _motifs_de_vocabulaire_interne(payload: ChapitrePayload) -> list[str]:
     """
     motifs: list[str] = []
     for index, bloc in enumerate(getattr(payload, "blocs", ()) or ()):
-        for champ, texte in _textes_du_bloc(bloc):
+        for champ, texte_brut in _textes_du_bloc(bloc):
+            if champ.rsplit(".", 1)[-1] in _CHAMPS_LUS_PAR_LA_MACHINE:
+                continue
+            if texte_brut.strip() in _valeurs_structurelles():
+                continue
+            texte = _sans_les_adresses(texte_brut)
             for nom, motif in _VOCABULAIRE_INTERNE:
                 trouvee = motif.search(texte)
                 if trouvee is None:

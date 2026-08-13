@@ -145,6 +145,66 @@ def test_la_lecture_seule_n_efface_rien(client_admin) -> None:  # type: ignore[n
 
 
 @pytest.mark.django_db
+def test_les_fichiers_partent_du_disque(client_admin, tmp_path, settings) -> None:  # type: ignore[no-untyped-def]
+    """LE défaut signalé par la cliente : le document restait téléchargeable.
+
+    « Les anciens docs téléchargés restaient encore intègres alors que cela
+    correspondait à d'anciens livrables » (12/08/2026, sur les dossiers effacés
+    le matin même).
+
+    Supprimer un dossier efface la LIGNE de chaque artefact, jamais le fichier
+    qu'elle décrit — Django ne touche pas au disque. Le `.docx` et le `.pdf`
+    survivaient donc, et leur lien signé répondait jusqu'à son échéance. Un
+    document qu'on croit supprimé et qui se télécharge encore rend fausse la
+    promesse de la suppression.
+    """
+    from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
+    from generation.models import JobStatus
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    job = _dossier(JobStatus.FAILED)
+
+    dossier_livrables = tmp_path / "livrables"
+    dossier_livrables.mkdir()
+    for extension, genre in (("docx", ArtifactKind.DOCX), ("pdf", ArtifactKind.PDF)):
+        cle = f"livrables/{job.id}.{extension}"
+        (tmp_path / cle).write_bytes(b"contenu du livrable")
+        DocumentArtifact.objects.create(
+            job=job, kind=genre, status=ArtifactStatus.READY, storage_key=cle,
+        )
+
+    reponse = client_admin.post(f"/api/dashboard/jobs/{job.id}/supprimer/")
+
+    assert json.loads(reponse.content)["supprime"]["fichiers_effaces"] == 2
+    assert list(dossier_livrables.iterdir()) == [], "des fichiers survivent"
+
+
+@pytest.mark.django_db
+def test_un_fichier_deja_absent_n_empeche_pas_la_suppression(  # type: ignore[no-untyped-def]
+    client_admin, tmp_path, settings
+) -> None:
+    """CONTRE-ÉPREUVE : le dossier DOIT disparaître, fichier ou pas.
+
+    Refuser la suppression parce qu'un fichier manque la rendrait impossible au
+    moment précis où elle est demandée.
+    """
+    from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
+    from generation.models import GenerationJob, JobStatus
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    job = _dossier(JobStatus.FAILED)
+    DocumentArtifact.objects.create(
+        job=job, kind=ArtifactKind.DOCX, status=ArtifactStatus.READY,
+        storage_key=f"livrables/{job.id}.docx",  # jamais écrit sur le disque
+    )
+
+    reponse = client_admin.post(f"/api/dashboard/jobs/{job.id}/supprimer/")
+
+    assert reponse.status_code == 200
+    assert not GenerationJob.objects.filter(id=job.id).exists()
+
+
+@pytest.mark.django_db
 def test_le_cout_est_journalise_avant_l_effacement(client_admin, caplog) -> None:  # type: ignore[no-untyped-def]
     """La dépense a eu lieu : elle doit rester lisible quelque part."""
     import logging
