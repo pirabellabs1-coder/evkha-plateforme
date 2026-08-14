@@ -214,7 +214,11 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
     : emailSent
     ? "✓ Email envoyé"
     : armer
-    ? "Envoyer sans attendre la relecture"
+    // « La mention à relire doit être enlevée, je n'ai rien à faire dans le
+    // document jusqu'à envoi au client » (cliente, 13/08/2026). Son seul geste
+    // est d'envoyer : le bouton le dit, sans lui reprocher de ne pas avoir
+    // relu.
+    ? "Envoyer quand même"
     : bloque
     ? "Confirmer l'envoi"
     : "Envoyer par email";
@@ -408,13 +412,13 @@ export function JobDetail() {
               color="amber"
               variant="soft"
               size="2"
-              title="Le contrôle qualité a retenu ce document. Rien ne partira sans votre décision."
+              title="La correction automatique n'a pas pu tout fermer. Le document est prêt ; rien ne part sans votre envoi."
             >
               {data.qa_motifs?.length
                 ? `Contrôle qualité : ${data.qa_motifs.length} point${
                     data.qa_motifs.length > 1 ? "s" : ""
-                  } à revoir`
-                : "Retenu par le contrôle qualité"}
+                  } non résolu${data.qa_motifs.length > 1 ? "s" : ""}`
+                : "Prêt, non envoyé"}
             </Badge>
           )}
         </Flex>
@@ -435,9 +439,23 @@ export function JobDetail() {
           <Text size="2" weight="bold">
             Ce que le contrôle qualité a retenu
           </Text>
+          {/* Cette phrase disait « aucune relecture automatique n'est
+              programmée : c'est à vous de corriger ». Elle a été écrite pour
+              remplacer un « En attente de relecture » qui laissait espérer une
+              étape inexistante — et elle a corrigé le mensonge en confiant le
+              travail au lecteur.
+
+              Retour de la cliente du 13/08/2026 : « pourquoi c'est à nous de
+              corriger ? ». Elle avait raison deux fois. La phrase était aussi
+              devenue FAUSSE : trois passes de correction tournent depuis le
+              12/08, et ce qui reste ici est ce qu'elles n'ont pas su fermer.
+
+              On dit donc ce qui s'est réellement passé, et ce qui reste
+              possible — sans désigner un responsable. */}
           <Text size="1" color="gray" as="p" mb="2">
-            Aucune relecture automatique n'est programmée : c'est à vous de
-            corriger, de relancer une passe, ou d'envoyer malgré tout.
+            La correction automatique est déjà passée : voici ce qu'elle n'a pas
+            pu fermer seule. Vous pouvez relancer une passe, corriger le dossier
+            client si un chiffre manque, ou envoyer malgré tout.
           </Text>
           <Flex direction="column" gap="1">
             {data.qa_motifs!.map((motif, index) => (

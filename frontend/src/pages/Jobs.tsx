@@ -137,7 +137,9 @@ function JobRowActions({ job }: { job: JobSummary }) {
         onClick={() => (armer ? setDerogation(true) : emailMutation.mutate())}
         title={
           armer
-            ? "Document retenu pour relecture. Un second clic l'enverra."
+            // Plus de « retenu pour relecture » : la cliente n'a rien à relire,
+            // son geste est l'envoi (13/08/2026). On dit l'état, pas une tâche.
+            ? "Des points sont restés non résolus. Un second clic envoie quand même."
             : bloque
             ? "Confirmer l'envoi"
             : deliverySent
@@ -222,9 +224,9 @@ export function Jobs() {
                       <Badge
                         color="amber"
                         variant="soft"
-                        title="Contrôle qualité : document retenu, non parti automatiquement"
+                        title="La correction automatique n'a pas tout fermé. Le document est prêt ; il attend votre envoi."
                       >
-                        à relire
+                        non envoyé
                       </Badge>
                     )}
                   </Flex>

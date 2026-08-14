@@ -65,6 +65,18 @@ _STRUCTURES_STRUCTURELLES = (
     # troncature qui tomberait PILE à la fin d'une URL valide — est accepté :
     # l'inverse condamne chaque liste de sources du contrat.
     re.compile(r"https?://\S+/?\s*$"),                            # référence sourcée
+    # Une ligne ENTIÈREMENT en gras est un TITRE, et un titre ne prend pas de
+    # point final. Le nettoyage des fioritures retirait les astérisques puis
+    # jugeait « Lecture de la fiche projet » comme une phrase inachevée.
+    #
+    # Relevé par la cliente le 13/08/2026, sur un chapitre retenu pour ce seul
+    # motif : « pourquoi c'est à nous de corriger ? ». Elle a raison — faire
+    # relire « il manque un point » à quelqu'un qui a payé un livrable est
+    # l'inverse d'un service, et le motif était FAUX en plus d'être trivial.
+    #
+    # La distinction tient : une vraie troncature — « auprès des prospects
+    # grandes mar » — n'est jamais encadrée par des astérisques.
+    re.compile(r"^\s*\*{2}[^*]+\*{2}\s*$"),                       # titre en gras
 )
 
 

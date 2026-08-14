@@ -151,13 +151,48 @@ def test_l_ecran_ne_promet_plus_une_relecture_inexistante() -> None:
     et le libellé continuerait de faire attendre une relecture qui n'arrive
     jamais.
     """
-    from pathlib import Path
-
-    ecran = (
-        Path(__file__).resolve().parents[2]
-        / "frontend" / "src" / "pages" / "JobDetail.tsx"
-    ).read_text(encoding="utf-8")
+    ecran = _ecran_sans_commentaires("JobDetail.tsx")
 
     assert "En attente de relecture" not in ecran
     assert "qa_motifs" in ecran, "les motifs ne sont pas affichés"
     assert "Ce que le contrôle qualité a retenu" in ecran
+
+
+def test_aucun_ecran_ne_demande_une_relecture() -> None:
+    """« Je n'ai rien à faire dans le document jusqu'à envoi au client. »
+
+    Demande de la cliente du 13/08/2026, et elle a raison sur le fond : trois
+    des quatre motifs qu'elle a relevés ce jour-là étaient FAUX — un contrôle
+    qui refuse ce que notre propre consigne demande d'écrire, un mot de son
+    métier pris pour du jargon interne, un titre en gras compté comme phrase
+    tronquée.
+
+    Lui demander de « relire » revenait à lui faire porter nos défauts. Son
+    geste est l'ENVOI : les écrans disent donc un état — ce que la correction
+    automatique n'a pas su fermer — jamais une tâche qui lui incombe.
+    """
+    for fichier in ("JobDetail.tsx", "Jobs.tsx"):
+        ecran = _ecran_sans_commentaires(fichier)
+        for interdit in ("relecture", "à relire", "à revoir"):
+            assert interdit not in ecran, f"{fichier} : « {interdit} »"
+
+
+def _ecran_sans_commentaires(fichier: str) -> str:
+    """Le texte AFFICHÉ, commentaires retirés.
+
+    Un commentaire a le droit de citer l'ancien libellé pour dire pourquoi il a
+    changé — c'est même ce que ce dépôt demande. Sans ce nettoyage, le test
+    tomberait sur l'explication au lieu de l'interface, et pousserait à effacer
+    la mémoire du défaut pour faire passer le contrôle.
+    """
+    import re
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[2] / "frontend" / "src" / "pages" / fichier
+    ).read_text(encoding="utf-8")
+    sans_blocs = re.sub(r"/\*[\s\S]*?\*/", " ", source)
+    return "\n".join(
+        ligne for ligne in sans_blocs.split("\n")
+        if not ligne.strip().startswith("//")
+    )
