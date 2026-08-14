@@ -171,4 +171,7 @@ def test_la_table_des_blocs_couvre_l_union() -> None:
     assert set(BLOC_PAR_TYPE) == {
         "titre_sous_section", "paragraphe", "tableau", "encadre",
         "graphique", "grille_kpi",
+        # `canvas` depuis le 13/08/2026 : le Business Model Canvas se dessine
+        # dans la disposition d'Osterwalder, pas en neuf lignes empilées.
+        "canvas",
     }

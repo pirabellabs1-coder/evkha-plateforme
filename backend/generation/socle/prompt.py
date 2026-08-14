@@ -42,6 +42,35 @@ _BASE_CONCURRENTS = (
     "Un acteur que tu ne peux pas situer et sourcer n'entre pas dans la liste : "
     "mieux vaut le remplacer par un acteur vérifiable.\n"
     "\n"
+    # L'ENTREPRISE ÉTUDIÉE EST UN ACTEUR DE LA BASE.
+    #
+    # Retour de la cliente du 13/08/2026 : « dans plusieurs graphiques de
+    # concurrence, les concurrents apparaissent mais l'entreprise elle-même
+    # n'est pas représentée. Le lecteur doit immédiatement pouvoir voir : où se
+    # situe mon entreprise par rapport à ses concurrents ? »
+    #
+    # Elle a raison, et la cause est ici : `concurrents` ne contenait QUE des
+    # concurrents. Un radar ne pouvait donc pas la placer, et lui demander de
+    # l'ajouter au moment de la figure reviendrait à lui faire inventer des
+    # notes — le défaut qu'on passe la journée à combattre.
+    #
+    # Elle est donc notée à la source, sur la MÊME grille, ce qui rend la
+    # comparaison honnête : ses notes se défendent avec les mêmes barreaux que
+    # celles de ses concurrents.
+    "AJOUTE UN DOUZIÈME ACTEUR : l'entreprise du dossier client elle-même, "
+    "avec `type` valant exactement `projet`.\n"
+    "- son `nom` est celui de l'entreprise ou du projet tel qu'il figure dans "
+    "le dossier ;\n"
+    "- ses champs se remplissent depuis le dossier client, pas depuis le web : "
+    "`ca_connu` porte le chiffre d'affaires qu'il annonce, ou « non publié » "
+    "pour un projet en création ;\n"
+    "- elle reçoit une note sur CHAQUE critère de la grille, au même titre que "
+    "les autres. Note-la avec la même sévérité : une entreprise qui obtient 5 "
+    "partout produit un graphique que personne ne croit, et qui dessert le "
+    "dossier devant un financeur.\n"
+    "Elle ne compte NI dans les 8 directs NI dans les 3 indirects : c'est le "
+    "point de référence du lecteur, pas un concurrent de lui-même.\n"
+    "\n"
     "GRILLE DE NOTATION (obligatoire, et c'est elle qui rend les figures "
     "possibles).\n"
     "Renseigne `grille_notation` avec 4 à 6 critères d'évaluation adaptés au "

@@ -33,3 +33,31 @@ Prends du recul : produis une analyse directionnelle, nomme les consequences fut
 Termine par une synthese des leviers de visibilite prioritaires, une lecture des futurs axes de developpement commercial, puis une transition vers le chapitre Lecture economique & rentabilite du modele.
 
 Interdits : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile, recommandations non contextualisees du type « il faut poster plus » ou « il faut etre present sur tous les reseaux ».
+
+## SOUS-CHAPITRE OBLIGATOIRE — « Planning éditorial opérationnel »
+
+Demande de la cliente le 13/08/2026, sur une version qu'elle juge « bien plus
+proche d'une vraie stratégie business ». Ce chapitre dit QUELS canaux et
+POURQUOI ; il ne dit pas ce qu'on publie lundi prochain. Un dirigeant qui ferme
+le document doit pouvoir commencer sans rien réinventer.
+
+Produis un TABLEAU couvrant un mois complet, une ligne par publication, avec
+ces colonnes : semaine, canal, format, sujet concret, objectif visé.
+
+- **Le sujet est CONCRET**, tiré du métier du client : « Les trois erreurs de
+  tarification que font les cabinets à leur première année », pas « publier un
+  contenu d'expertise ». Un intitulé qui vaudrait pour n'importe quelle
+  entreprise n'a aucune valeur.
+- **La fréquence se déduit du tableau** et doit être tenable par la personne
+  qui porte le projet, seule et en plus de son activité. Mieux vaut deux
+  publications par semaine réellement faites que cinq abandonnées au bout d'un
+  mois — dis-le si le rythme proposé est déjà ambitieux.
+- **L'objectif est nommé pour chaque ligne** : notoriété, preuve d'expertise,
+  acquisition directe, fidélisation, ou recrutement de partenaires. Une
+  publication sans objectif est une publication qu'on arrêtera la première
+  semaine chargée.
+- **Les canaux repris sont ceux que tu viens de déclarer prioritaires**, pas
+  une liste générique de réseaux sociaux.
+
+Ajoute ensuite un paragraphe court : ce qui se réutilise d'un mois sur l'autre,
+et ce qui doit être renouvelé.

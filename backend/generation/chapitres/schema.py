@@ -525,10 +525,47 @@ class BlocGrilleKpi(SortieDeChapitre):
         return self
 
 
+class Canvas(BaseModel):
+    """Les neuf briques du Business Model Canvas d'Osterwalder.
+
+    Champs NOMMÉS plutôt qu'une liste de neuf lignes : la disposition du canvas
+    n'est pas un ordre, c'est une CARTE. Ce que l'entreprise fait est à gauche,
+    ce que le client reçoit à droite, l'argent en bas. Un tableau de neuf
+    lignes perd cette lecture — et c'est ce que la cliente a demandé de
+    corriger le 13/08/2026, modèle AFE à l'appui.
+
+    Un bloc vide reste vide : un modèle sans partenaires clés est une
+    information, et l'inventer pour remplir la case serait exactement ce que ce
+    projet combat.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    partenaires_cles: list[str] = Field(default_factory=list)
+    activites_cles: list[str] = Field(default_factory=list)
+    ressources_cles: list[str] = Field(default_factory=list)
+    proposition_valeur: list[str] = Field(default_factory=list)
+    relation_client: list[str] = Field(default_factory=list)
+    canaux: list[str] = Field(default_factory=list)
+    segments_clientele: list[str] = Field(default_factory=list)
+    structure_couts: list[str] = Field(default_factory=list)
+    sources_revenus: list[str] = Field(default_factory=list)
+
+
+class BlocCanvas(SortieDeChapitre):
+    """Le Business Model Canvas, dessiné dans sa disposition d'origine."""
+
+    model_config = {"extra": "forbid"}
+
+    type: Literal["canvas"] = "canvas"
+    canvas: Canvas
+    source: str = ""
+
+
 #: Un bloc du chapitre, discriminé par son champ `type`.
 Bloc = Annotated[
     BlocSousTitre | BlocParagraphe | BlocTableau | BlocEncadre | BlocGraphique
-    | BlocGrilleKpi,
+    | BlocGrilleKpi | BlocCanvas,
     Field(discriminator="type"),
 ]
 
@@ -539,7 +576,7 @@ BLOC_PAR_TYPE: dict[str, type[SortieDeChapitre]] = {
     str(modele.model_fields["type"].default): modele
     for modele in (
         BlocSousTitre, BlocParagraphe, BlocTableau, BlocEncadre,
-        BlocGraphique, BlocGrilleKpi,
+        BlocGraphique, BlocGrilleKpi, BlocCanvas,
     )
 }
 

@@ -441,6 +441,18 @@ def _bloc_grille(socle: Socle) -> str:
         # Quatre radars identiques dans un meme document (chapitres 1, 2.3,
         # 7.6, 7.7), dont un intitule « concurrents indirects » qui affichait
         # des directs : rien ne permettait de dire QUELS acteurs comparer.
+        # Retour cliente du 13/08/2026 : « lorsqu'un graphique sert à démontrer
+        # le positionnement concurrentiel, le lecteur doit immédiatement
+        # pouvoir voir : où se situe mon entreprise par rapport à ses
+        # concurrents ? » Le socle la note désormais comme douzième acteur ;
+        # reste à dire qu'elle ne se retire jamais d'une comparaison.
+        "- L'ENTREPRISE DU DOSSIER, notée `projet` dans la base, figure sur "
+        "TOUTE figure qui compare des acteurs — radar, carte de "
+        "positionnement, matrice, comparatif chiffré. C'est le point de "
+        "référence du lecteur : un benchmark sans elle lui montre le marché "
+        "sans lui dire où il se trouve. Elle s'ajoute AUX acteurs que tu "
+        "compares, même quand tu restreins la figure aux directs ou aux "
+        "indirects.\n"
         "- QUELS acteurs : ajoute `directs` ou `indirects` à tes identifiants "
         "pour ne comparer que ceux-là, ou cite leurs NOMS exacts tels qu'ils "
         "figurent dans la base consolidée. Sans cette précision, la figure "

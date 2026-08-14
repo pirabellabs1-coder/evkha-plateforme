@@ -11,4 +11,22 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Presente la logique economique globale : comment l'entreprise cree de la valeur, comment elle genere du chiffre d'affaires, structure des couts principaux, marge brute estimee, point mort. Puis presente le Business Model Canvas en bloc `tableau` : neuf lignes, une par bloc du canvas (partenaires cles, activites cles, ressources cles, proposition de valeur, relation client, canaux, segments de clientele, structure de couts, sources de revenus), avec 2 a 3 elements concrets du projet par ligne. IMPORTANT : le contenu reel du projet, jamais les exemples.
+Presente la logique economique globale : comment l'entreprise cree de la valeur, comment elle genere du chiffre d'affaires, structure des couts principaux, marge brute estimee, point mort. Puis presente le Business Model Canvas en bloc `canvas` — PAS en bloc `tableau`.
+
+Le bloc `canvas` porte neuf champs, un par brique : `partenaires_cles`,
+`activites_cles`, `ressources_cles`, `proposition_valeur`, `relation_client`,
+`canaux`, `segments_clientele`, `structure_couts`, `sources_revenus`. Chacun
+recoit une liste de 2 a 4 elements COURTS — une ligne chacun, pas un
+paragraphe : ils s'affichent dans une case, et une phrase longue rend la carte
+illisible.
+
+Le rendu les dessine dans la disposition d'origine d'Osterwalder, celle que
+tout lecteur de business plan reconnait : ce que l'entreprise mobilise a
+gauche, ce que le client recoit a droite, l'argent en bas. C'est pour cela que
+neuf lignes empilees ne conviennent pas — elles donnent une liste la ou le
+canvas est une carte, et le lecteur perd la lecture d'un coup d'oeil.
+
+IMPORTANT : le contenu REEL du projet, jamais les exemples du modele. Une
+brique que le dossier client ne permet pas de remplir reste VIDE — un modele
+economique sans partenaires cles est une information utile, l'inventer pour
+remplir la case ne l'est pas.

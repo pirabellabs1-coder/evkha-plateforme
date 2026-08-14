@@ -799,3 +799,83 @@ def liste(document: DocumentWord, palette: Palette, elements: Sequence[str]) -> 
         run = p.add_run(element)
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.texte_corps)
+
+
+# ── 9. Business Model Canvas ─────────────────────────────────────────────────
+
+#: La disposition d'Osterwalder, telle que l'AFE la distribue.
+#:
+#: Demande de la cliente le 13/08/2026, modèle à l'appui : « il serait plus
+#: intéressant de mettre un business model canvas complété dans sa forme
+#: originale qu'un tableau ».
+#:
+#: Elle a raison, et ce n'est pas une question d'esthétique. Le canvas se LIT
+#: par blocs : ce que l'entreprise fait est à gauche, ce que le client reçoit
+#: à droite, l'argent en bas. Neuf lignes empilées perdent cette lecture — on
+#: obtient une liste, pas une carte, et le lecteur ne voit plus d'un coup d'œil
+#: qu'une proposition de valeur sans canal pour l'atteindre est un modèle qui
+#: ne tient pas.
+#:
+#: Grille : cinq colonnes, trois rangées. Les blocs pleine hauteur occupent
+#: leurs deux premières rangées, les colonnes 1 et 3 se coupent en deux, et la
+#: rangée du bas se partage entre coûts et revenus.
+_CASES_DU_CANVAS: tuple[tuple[str, str, int, int, int, int], ...] = (
+    # (champ, intitulé, ligne, colonne, hauteur, largeur)
+    ("partenaires_cles",    "Partenaires clés",       0, 0, 2, 1),
+    ("activites_cles",      "Activités clés",         0, 1, 1, 1),
+    ("ressources_cles",     "Ressources clés",        1, 1, 1, 1),
+    ("proposition_valeur",  "Proposition de valeur",  0, 2, 2, 1),
+    ("relation_client",     "Relation client",        0, 3, 1, 1),
+    ("canaux",              "Canaux",                 1, 3, 1, 1),
+    ("segments_clientele",  "Segments de clientèle",  0, 4, 2, 1),
+    ("structure_couts",     "Structure de coûts",     2, 0, 1, 2),
+    ("sources_revenus",     "Sources de revenus",     2, 2, 1, 3),
+)
+
+
+def business_model_canvas(
+    document: DocumentWord,
+    palette: Palette,
+    blocs: dict[str, Sequence[str]],
+    source: str = "",
+) -> None:
+    """Dessine le canvas dans sa disposition d'origine, cases fusionnées.
+
+    `blocs` associe chaque champ du canvas à ses éléments. Un bloc vide garde
+    sa case : un canvas amputé d'une case cesse d'être un canvas, et le trou
+    DIT quelque chose — un modèle sans partenaires clés est une information,
+    pas une omission de mise en page.
+    """
+    largeur = LARGEUR_UTILE_DXA // 5
+    table = _table(document, 3, 5, [largeur] * 5)
+    _bordures(table, palette.fond_clair_alt, epaisseur=4)
+    marges_cellules(table, haut=90, cote=120)
+
+    for champ, intitule, ligne, colonne, hauteur, largeur_cases in _CASES_DU_CANVAS:
+        cellule = table.rows[ligne].cells[colonne]
+        if hauteur > 1 or largeur_cases > 1:
+            cellule = cellule.merge(
+                table.rows[ligne + hauteur - 1].cells[colonne + largeur_cases - 1]
+            )
+        fond_cellule(cellule, palette.fond_clair)
+
+        # L'intitulé de la case, puis ses éléments en puces. On passe par
+        # `_ecrire` plutôt que de poser le style à la main : lui seul connaît
+        # la police du gabarit, et un style appliqué sans elle rend un texte
+        # qui détonne au milieu du document.
+        _ecrire(
+            cellule, intitule, STYLE_TABLEAU_ENTETE,
+            couleur=palette.primaire, gras=True,
+        )
+        for element in blocs.get(champ) or ():
+            texte = str(element).strip()
+            if texte:
+                _ecrire(
+                    cellule, f"• {texte}", STYLE_TABLEAU_CELLULE,
+                    couleur=palette.texte_corps, premier=False,
+                )
+
+    if source:
+        note_source(document, palette, source)
+    else:
+        document.add_paragraph()

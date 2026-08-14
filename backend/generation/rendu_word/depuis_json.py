@@ -141,6 +141,13 @@ def _rendre_bloc(
             palette, bloc["graphique"], bloc["donnees"], titre=bloc.get("titre", "")
         )
         composants.graphique(document, palette, png, "", bloc.get("source", ""))
+    elif type_bloc == "canvas":
+        # Le canvas d'Osterwalder dans sa disposition d'origine — demande de la
+        # cliente du 13/08/2026, modèle AFE à l'appui. Neuf lignes empilées
+        # donnaient une liste ; la carte, elle, se lit d'un coup d'œil.
+        composants.business_model_canvas(
+            document, palette, bloc["canvas"], bloc.get("source", ""),
+        )
     elif type_bloc == "saut":
         composants.saut_de_page(document)
     else:
