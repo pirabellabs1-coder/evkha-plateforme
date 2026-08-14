@@ -192,6 +192,46 @@ def test_deux_debits_de_la_meme_reference_sont_impossibles(
     assert credits.solde(organisation) == 7
 
 
+def test_une_relance_passe_meme_a_solde_zero(organisation: Organisation) -> None:
+    """LE défaut mesuré en production le 13/08/2026.
+
+    Trois relances refusées d'un coup sur « Solde insuffisant : 0 crédit(s)
+    disponible(s) pour 1 requis », alors que les trois études étaient DÉJÀ
+    PAYÉES et qu'il ne leur manquait qu'un chapitre — tué par un contrôle
+    défectueux, pas par le client.
+
+    L'idempotence existait et était documentée — « une relance ne repaie pas »
+    — mais le contrôle de SOLDE passait devant : un client à zéro crédit ne
+    pouvait plus relancer une étude qu'il avait réglée. Le solde ne concerne
+    que les débits NEUFS ; refuser une relance déjà payée revient à facturer
+    deux fois le même travail.
+    """
+    credits.crediter(organisation, 1, motif="Dotation")
+    credits.debiter(organisation, 1, reference="job-relance", motif="Étude")
+    assert credits.solde(organisation) == 0
+
+    # Sur le code d'avant, cette ligne levait `SoldeInsuffisantError`.
+    with pytest.raises(credits.MouvementDejaEnregistreError):
+        credits.debiter(organisation, 1, reference="job-relance", motif="Étude")
+
+    assert credits.solde(organisation) == 0, "une relance ne débite rien"
+
+
+def test_une_commande_neuve_reste_refusee_a_solde_zero(
+    organisation: Organisation,
+) -> None:
+    """CONTRE-ÉPREUVE : on lève le blocage des relances, pas celui du découvert.
+
+    « Commande bloquée, aucun découvert » reste la règle pour une référence
+    que le portefeuille n'a jamais vue.
+    """
+    credits.crediter(organisation, 1, motif="Dotation")
+    credits.debiter(organisation, 1, reference="job-a", motif="Étude")
+
+    with pytest.raises(credits.SoldeInsuffisantError):
+        credits.debiter(organisation, 1, reference="job-b", motif="Autre étude")
+
+
 def test_deux_references_distinctes_se_debitent_normalement(
     organisation: Organisation,
 ) -> None:

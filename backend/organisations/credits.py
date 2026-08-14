@@ -325,6 +325,29 @@ def debiter(
         msg = f"L'organisation {organisation} est suspendue : aucune consommation."
         raise OrganisationSuspendueError(msg)
 
+    # L'IDEMPOTENCE SE CONSTATE AVANT LE SOLDE.
+    #
+    # 13/08/2026, en production : trois relances refusées d'un coup sur
+    # « Solde insuffisant : 0 crédit(s) disponible(s) pour 1 requis », alors
+    # que les trois études étaient DÉJÀ PAYÉES et qu'il ne leur manquait qu'un
+    # chapitre — tué par un contrôle défectueux, pas par le client.
+    #
+    # `_enregistrer` détecte la référence déjà consommée et lève
+    # `MouvementDejaEnregistreError`, que `debiter_pour_job` traduit en
+    # « relance sans nouveau débit ». Mais il n'y arrivait jamais : le contrôle
+    # de solde passait devant, et un client à zéro crédit ne pouvait plus
+    # relancer une étude qu'il avait pourtant réglée.
+    #
+    # Le solde ne concerne QUE les débits neufs. Refuser une relance déjà
+    # payée au motif du solde, c'est faire payer deux fois le même travail —
+    # et ici, faire payer au client la réparation de nos propres défauts.
+    if MouvementCredit.objects.filter(
+        portefeuille=verrouille,
+        type=TypeMouvement.DEBIT,
+        reference=reference,
+    ).exists():
+        raise MouvementDejaEnregistreError(reference)
+
     disponible = verrouille.solde
     if disponible < quantite:
         raise SoldeInsuffisantError(disponible, quantite)
