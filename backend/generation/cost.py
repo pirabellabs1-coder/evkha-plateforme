@@ -379,11 +379,28 @@ def max_tokens_for_job(
 #:
 #: 8,00 laisse donc la marge d'un dossier difficile sans pretendre mesurer un
 #: dossier normal.
+#: RELEVES LE 13/08/2026, sur decision cliente et sur trois mesures reelles.
+#:
+#: Deux dossiers se sont arretes a UN chapitre de la fin, apres avoir engage le
+#: cout de ce chapitre :
+#:
+#:   etude concurrentielle `1489271e` : 3,63 € > 3,50 €  (9 chapitres sur 10)
+#:   business plan        `6efaf48b` : 5,58 € > 5,50 €  (21 sur 22)
+#:   strategie            `d667fbb4` : 5,45 € sur 5,50 € (21 sur 21, au ras)
+#:
+#: Les plafonds dataient de livrables plus legers. Depuis, un socle porte douze
+#: acteurs avec grille de notation, et trois passes de correction tournent
+#: (12/08). Un plafond sous le cout reel ne protege de rien : il sacrifie le
+#: DERNIER chapitre — celui qui conclut — apres avoir paye la tentative.
+#:
+#: Marge d'environ 15 % au-dessus du cout observe : assez pour les passes de
+#: correction, pas assez pour qu'une derive passe inapercue. L'etude de marche
+#: garde 8,00 € : la seule mesuree tres en dessous de sa borne (7,44 €).
 PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
     DeliverableType.MARKET_STUDY:      Decimal("8.0000"),
-    DeliverableType.BUSINESS_PLAN:     Decimal("5.5000"),
-    DeliverableType.BUSINESS_STRATEGY: Decimal("5.5000"),
-    DeliverableType.COMPETITOR_STUDY:  Decimal("3.5000"),
+    DeliverableType.BUSINESS_PLAN:     Decimal("6.5000"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("6.5000"),
+    DeliverableType.COMPETITOR_STUDY:  Decimal("4.5000"),
 }
 
 #: Repli pour un type de livrable inconnu de la table — le plus BAS, jamais le

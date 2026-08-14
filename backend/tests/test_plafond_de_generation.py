@@ -71,11 +71,16 @@ from generation.services import _BUDGET_EUR_BY_TYPE
 #: Les quatre montants arretes par la cliente le 08/08/2026, RECOPIES a dessein.
 #: Un test qui relit la table qu'il verifie ne verifie rien : c'est le seul
 #: doublon voulu du depot, et c'est sa raison d'etre.
+# Relevés le 13/08/2026, sur décision cliente et sur trois mesures réelles :
+# deux dossiers arrêtés à UN chapitre de la fin après avoir engagé son coût
+# (3,63 € > 3,50 € ; 5,58 € > 5,50 €) et une stratégie finie au ras (5,45 €).
+# Un plafond sous le coût réel sacrifie le dernier chapitre — celui qui conclut
+# — et fait payer la tentative.
 DECISION_CLIENTE = {
     DeliverableType.MARKET_STUDY: Decimal("8.00"),
-    DeliverableType.BUSINESS_PLAN: Decimal("5.50"),
-    DeliverableType.BUSINESS_STRATEGY: Decimal("5.50"),
-    DeliverableType.COMPETITOR_STUDY: Decimal("3.50"),
+    DeliverableType.BUSINESS_PLAN: Decimal("6.50"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("6.50"),
+    DeliverableType.COMPETITOR_STUDY: Decimal("4.50"),
 }
 
 
