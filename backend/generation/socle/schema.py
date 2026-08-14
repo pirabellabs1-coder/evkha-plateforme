@@ -382,7 +382,27 @@ class Socle(BaseModel):
         contrôles l'interrogent. Un code de critère est une chose que le socle
         porte : le citer n'est pas inventer.
         """
-        return self.identifiants | {c.code for c in self.grille_notation}
+        return (
+            self.identifiants
+            | {c.code for c in self.grille_notation}
+            # Les SÉLECTEURS d'acteurs et les NOMS des acteurs.
+            #
+            # 13/08/2026, étude concurrentielle en cours : le chapitre 7 est
+            # mort sur « `directs` ne figure pas dans le socle verrouillé ;
+            # `indirects` ne figure pas ; `projet` ne figure pas ».
+            #
+            # Le modèle avait obéi — c'est NOTRE consigne de figures qui lui
+            # dit « ajoute `directs` ou `indirects` à tes identifiants, ou
+            # cite leurs NOMS exacts ». Le contrôle, lui, ne connaissait que
+            # les données et les critères. Exactement le défaut décrit
+            # ci-dessus pour les codes de grille, trois jours plus tard, sur le
+            # vocabulaire ajouté entre-temps.
+            #
+            # Un sélecteur désigne des acteurs QUE LE SOCLE PORTE : l'employer
+            # n'est pas inventer, c'est nommer un groupe au lieu d'une liste.
+            | set(SELECTEURS_D_ACTEURS)
+            | {a.nom for a in self.concurrents}
+        )
 
     def critere(self, code: str) -> Critere | None:
         for item in self.grille_notation:
@@ -434,6 +454,22 @@ class Socle(BaseModel):
         qui porte réellement ce que son titre annonce.
         """
         return [a.nom for a in self.concurrents if a.type == type_]
+
+
+#: Les groupes d'acteurs qu'un chapitre peut désigner dans une figure, au lieu
+#: d'en recopier les noms.
+#:
+#: Définis ICI et importés par le rendu : deux tables auraient divergé au
+#: premier groupe ajouté, et c'est précisément ce qui est arrivé le 13/08/2026
+#: avec `projet`, ajouté au vocabulaire sans l'être à la table (règle 5).
+SELECTEURS_D_ACTEURS: dict[str, str] = {
+    "directs": "direct",
+    "concurrents_directs": "direct",
+    "indirects": "indirect",
+    "concurrents_indirects": "indirect",
+    "projet": "projet",
+    "entreprise_etudiee": "projet",
+}
 
 
 class SocleInvalideError(ValueError):

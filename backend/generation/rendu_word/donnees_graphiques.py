@@ -27,6 +27,7 @@ from typing import Any
 
 from ..socle.referentiel import FamilleUnite
 from ..socle.schema import (
+    SELECTEURS_D_ACTEURS,
     DonneeSocle,
     Socle,
     famille_de_l_unite,
@@ -628,12 +629,10 @@ _SERIES_RADAR_MAX = 5
 #: Sélecteurs d'acteurs qu'un chapitre peut citer parmi ses identifiants.
 #: Écrits comme les codes de critères, ils disent QUELS concurrents la figure
 #: compare — sans obliger le chapitre à recopier onze noms.
-_SELECTEURS_D_ACTEURS: dict[str, str] = {
-    "directs": "direct",
-    "concurrents_directs": "direct",
-    "indirects": "indirect",
-    "concurrents_indirects": "indirect",
-}
+#: Repris du socle, jamais recopié : c'est lui qui décide de ce qu'un chapitre
+#: a le droit d'écrire, et deux tables auraient divergé — elles l'ont fait le
+#: 13/08/2026, quand `projet` est entré dans le vocabulaire d'un côté seulement.
+_SELECTEURS_D_ACTEURS = SELECTEURS_D_ACTEURS
 
 
 def _acteurs_cites(socle: Socle, identifiants: Sequence[str]) -> list[str] | None:

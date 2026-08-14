@@ -101,7 +101,26 @@ def test_les_codes_de_criteres_sont_citables() -> None:
     """Le défaut exact : le modèle obéissait, la validation le punissait."""
     socle = _socle_note()
 
-    assert socle.identifiants_citables == {"taille_marche", "offre", "service"}
+    assert {"taille_marche", "offre", "service"} <= socle.identifiants_citables
+
+
+def test_les_selecteurs_d_acteurs_sont_citables() -> None:
+    """LE MÊME défaut, trois jours plus tard, sur le vocabulaire ajouté depuis.
+
+    13/08/2026, étude concurrentielle en cours : le chapitre 7 est mort sur
+    « `directs` ne figure pas dans le socle verrouillé ; `indirects` ne figure
+    pas ; `projet` ne figure pas ».
+
+    Le modèle avait obéi — c'est la consigne des figures qui lui dit « ajoute
+    `directs` ou `indirects` à tes identifiants, ou cite leurs NOMS exacts ».
+    Un sélecteur désigne des acteurs QUE LE SOCLE PORTE : l'employer n'est pas
+    inventer, c'est nommer un groupe au lieu d'une liste.
+    """
+    citables = _socle_note().identifiants_citables
+
+    for selecteur in ("directs", "indirects", "projet", "entreprise_etudiee"):
+        assert selecteur in citables, selecteur
+
 
 
 def test_un_chapitre_qui_cite_un_critere_est_accepte() -> None:
@@ -156,7 +175,12 @@ def test_un_identifiant_invente_reste_refuse() -> None:
 
 
 def test_un_socle_sans_grille_ne_cite_que_ses_donnees() -> None:
-    """CONTRE-ÉPREUVE : rien ne change pour les livrables sans notation."""
+    """CONTRE-ÉPREUVE : rien ne change pour les livrables sans notation.
+
+    Les sélecteurs d'acteurs restent citables — ils appartiennent au
+    vocabulaire des figures, pas à ce socle-ci — mais aucun code de critère ni
+    aucun nom d'acteur ne s'ajoute quand il n'y en a pas.
+    """
     socle = Socle(
         secteur="boulangerie",
         zone=Zone(pays="France"),
@@ -170,7 +194,11 @@ def test_un_socle_sans_grille_ne_cite_que_ses_donnees() -> None:
         ],
     )
 
-    assert socle.identifiants_citables == socle.identifiants
+    from generation.socle.schema import SELECTEURS_D_ACTEURS
+
+    assert socle.identifiants_citables == (
+        socle.identifiants | set(SELECTEURS_D_ACTEURS)
+    )
 
 
 # ── Défaut 2 : le statut qui ment ────────────────────────────────────────────

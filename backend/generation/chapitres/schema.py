@@ -1123,9 +1123,25 @@ _VOCABULAIRE_INTERNE: tuple[tuple[str, re.Pattern[str]], ...] = (
     # l'outil, et le modèle recopie ce qu'on lui montre. Un premier document
     # en portait vingt-deux occurrences, écrites depuis une docstring de ce
     # module. Le garde-fou de marque blanche l'a rattrapé le 11/08/2026.
-    ("pipeline interne", re.compile(
-        r"\bpipeline\s+(?:syst[èe]me|de\s+g[ée]n[ée]ration)\b",
-        re.IGNORECASE)),
+    # « pipeline SYSTÈME » seulement, et plus « pipeline de génération ».
+    #
+    # 13/08/2026, stratégie d'entreprise en cours de génération : le chapitre 11
+    # est MORT et le 12 a été signalé sur « la pipeline de génération de
+    # livrables est développée et utilisée en production ». Cette phrase décrit
+    # le PRODUIT de la cliente — sa plateforme fabrique des livrables — et le
+    # garde-fou l'a prise pour une fuite de la machine.
+    #
+    # C'est le risque propre à ce contrôle chez CE client : notre dispositif et
+    # son métier portent les mêmes mots. La fuite réellement mesurée le 10/08
+    # disait « pipeline système » ; « pipeline de génération » est un terme
+    # industriel ordinaire, que quiconque vend une chaîne de production de
+    # documents emploiera pour parler de lui-même.
+    #
+    # Entre laisser passer une formulation qu'on n'a jamais observée et tuer un
+    # chapitre payé qui décrit l'activité du client, le second coûte plus cher
+    # — et se voit moins.
+    ("pipeline système", re.compile(
+        r"\bpipeline\s+syst[èe]me\b", re.IGNORECASE)),
     ("gate qualité", re.compile(
         r"\bgate\s+(?:qualit|de\s+livraison)", re.IGNORECASE)),
     ("prompt système", re.compile(r"\bprompt\s+syst[èe]me\b", re.IGNORECASE)),
