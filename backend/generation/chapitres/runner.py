@@ -558,7 +558,23 @@ def _bloc_sources(job: GenerationJob, numero: int) -> str:
         "toujours. Ces sources servent à ce que le socle ne porte pas — "
         "obligations, comportements, prix observés, signaux de tendance — et à "
         "la bibliographie du chapitre 21. Ne cite jamais une URL absente de "
-        "cette liste.\n\n" + utile
+        "cette liste.\n"
+        # La même exigence que le socle, à l'endroit où les sources sont
+        # RÉELLEMENT citées. Demande de la cliente du 13/08/2026, posée pour
+        # les quatre livrables ; la mettre dans le seul prompt du socle
+        # l'aurait laissée sans effet sur les tableaux et les notes de bas de
+        # figure, c'est-à-dire là où le lecteur la voit.
+        "QUALITÉ DES SOURCES, quand plusieurs disent la même chose : prends la "
+        "plus PRIMAIRE et la plus RÉCENTE — statistiques publiques et "
+        "organismes officiels d'abord, puis fédérations professionnelles, puis "
+        "sites officiels des acteurs, puis études sectorielles ; la presse et "
+        "les blogs en dernier, et jamais pour un chiffre qu'une source des "
+        "rangs supérieurs pourrait donner.\n"
+        "LA SOURCE DOIT PORTER CE QUE TU LUI FAIS DIRE. Une page qui traite du "
+        "sujet sans donner la valeur n'étaye pas la valeur : la citer ferait "
+        "passer ton raisonnement pour un fait publié. Dans ce cas, écris que "
+        "c'est une estimation et dis sur quoi elle s'appuie, ou ne cite "
+        "rien.\n\n" + utile
     )
 
 
