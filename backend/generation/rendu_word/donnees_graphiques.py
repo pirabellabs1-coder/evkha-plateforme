@@ -676,6 +676,22 @@ def _acteurs_cites(socle: Socle, identifiants: Sequence[str]) -> list[str] | Non
 
     retenus = list(dict.fromkeys(voulus))
     if retenus:
+        # L'ENTREPRISE DU DOSSIER S'AJOUTE TOUJOURS.
+        #
+        # Demande de la cliente du 13/08/2026 : « tout graphique de benchmark,
+        # positionnement, matrice concurrentielle ou radar destiné à comparer
+        # les acteurs doit obligatoirement intégrer l'entreprise étudiée comme
+        # point de référence ».
+        #
+        # La consigne le dit au rédacteur, et ce n'est pas suffisant : `directs`
+        # rend les huit directs, un point c'est tout. La figure ne porterait
+        # l'entreprise que les fois où le modèle pense à la nommer — c'est-à-dire
+        # la plupart des fois, et pas toutes. On le fait ici, où c'est
+        # mécanique : un lecteur qui regarde un benchmark cherche d'abord où il
+        # se trouve, et une figure sur deux qui l'oublie est un défaut de plus à
+        # relire.
+        projet = socle.acteurs_du_type("projet")
+        retenus.extend(nom for nom in projet if nom not in retenus)
         return retenus
     # Distinguer « aucun sélecteur » de « sélecteurs tous inconnus » : le
     # premier veut tous les acteurs, le second ne veut sûrement pas ceux

@@ -193,6 +193,21 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
              "source": "", "notes": _notes(prix=5, offre=2, notoriete=2, service=2)},
             {"nom": "Acteur D", "type": "direct", "positionnement": "premium",
              "source": "", "notes": _notes(prix=1, offre=4, notoriete=5, service=5)},
+            # L'ENTREPRISE DU DOSSIER, type `projet`, notée comme les autres.
+            #
+            # Sans elle, la doublure ne rencontrait JAMAIS la forme réelle de la
+            # base. Deux défauts introduits le 13/08/2026 lui ont échappé pour
+            # cette seule raison : le comptage des indirects par soustraction,
+            # qui faisait du projet un quatrième indirect, et la sélection
+            # d'acteurs d'une figure, qui l'omettait dès qu'un chapitre
+            # demandait « les directs ». Tous deux trouvés à la lecture, aucun
+            # par la répétition à blanc.
+            #
+            # Une doublure qui ne ressemble pas au réel valide une chaîne qui
+            # n'existe pas (règle 3).
+            {"nom": "Projet du dossier", "type": "projet",
+             "positionnement": "l'entreprise étudiée",
+             "source": "", "notes": _notes(prix=3, offre=3, notoriete=2, service=4)},
         ],
         "grille_notation": [
             {"code": "prix", "intitule": "Accessibilité tarifaire",

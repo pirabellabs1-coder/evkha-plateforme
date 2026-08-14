@@ -381,8 +381,17 @@ def _bloc_concurrents(socle: Socle) -> str:
     if not socle.concurrents:
         return ""
 
+    # Comptés par leur TYPE, jamais par soustraction.
+    #
+    # `indirects = len(concurrents) - directs` a tenu tant que la base ne
+    # portait que des concurrents. Depuis le 13/08/2026 elle porte aussi
+    # l'entreprise du dossier, de type `projet`, pour qu'elle figure sur ses
+    # propres graphiques — et la soustraction la comptait comme un indirect.
+    # Chaque chapitre aurait reçu « 8 directs et 4 indirects, ni plus ni
+    # moins », un compte faux que le socle dément à trois lignes de là.
     directs = sum(1 for a in socle.concurrents if a.type == "direct")
-    indirects = len(socle.concurrents) - directs
+    indirects = sum(1 for a in socle.concurrents if a.type == "indirect")
+    projet = next((a for a in socle.concurrents if a.type == "projet"), None)
     lignes = []
     for a in socle.concurrents:
         tete = f"- {a.nom} ({a.type}" + (f", {a.emplacement}" if a.emplacement else "") + ")"
@@ -401,6 +410,14 @@ def _bloc_concurrents(socle: Socle) -> str:
         "Tout chapitre qui compare, compte ou classe reprend CES acteurs et "
         "ces comptes tels quels. Personne d'autre n'entre, personne ne sort : "
         "ajouter un acteur ou en omettre un fait rejeter le document.\n"
+        + (
+            f"L'entreprise du dossier, « {projet.nom} », figure dans la liste "
+            "avec le type `projet`. Elle NE COMPTE PAS dans les deux nombres "
+            "ci-dessus — ce n'est pas un concurrent d'elle-même — mais elle "
+            "apparaît sur toute figure qui compare des acteurs, pour que le "
+            "lecteur voie où elle se situe.\n"
+            if projet is not None else ""
+        )
         + "\n".join(lignes)
     )
 
