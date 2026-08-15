@@ -975,6 +975,37 @@ def _check_numeric_coherence(
     return failures
 
 
+def _check_arithmetique(
+    sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Refait les opérations que le document POSE lui-même.
+
+    Demande de la cliente, 13/08/2026 : « vérifier automatiquement tous les
+    calculs simples : pourcentages, ratios, taux de conversion, marges,
+    évolutions, parts de marché, additions, moyennes et projections ».
+
+    Le déclencheur est mesuré : « 102 / 50 000 000 = 0,000204 % », écrit douze
+    fois dans un business plan. L'unité fautive est réparée à la source ; ce
+    contrôle attrape la classe entière — un résultat qui ne découle pas de ses
+    propres termes, quelle qu'en soit la cause.
+
+    Ne juge QUE les opérations explicites, celles dont le texte donne les deux
+    termes et le résultat. Deviner un terme manquant produirait des motifs
+    faux, et ce projet a mesuré ce qu'ils coûtent.
+    """
+    from .arithmetique import verifier  # noqa: PLC0415
+
+    failures: list[GateFailure] = []
+    for section in sections:
+        for faute in verifier(section.body):
+            failures.append(GateFailure(
+                check="calcul_faux",
+                chapter_number=section.number,
+                detail=str(faute),
+            ))
+    return failures
+
+
 def _check_verticales(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1396,6 +1427,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_verticales(job, sections))
     failures.extend(_check_truncation(sections))
     failures.extend(_check_ordres_de_grandeur(job, sections))
+    failures.extend(_check_arithmetique(sections))
     failures.extend(_check_arithmetique_marche(job))
     # Checks ajoutes suite a la relecture d'Evangeline (juillet 2026) : ils
     # verifient DEUX regles qu'aucun check precedent n'imposait sur le document

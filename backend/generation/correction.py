@@ -65,6 +65,11 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
         "coherence_chiffree",
         "troncature",
         "ordre_de_grandeur",
+        # Un calcul faux se corrige DANS le chapitre qui l'a ecrit : il suffit
+        # de refaire l'operation. Ajoute le 13/08/2026 avec le controle
+        # lui-meme — un motif que la boucle ne sait pas reparer bloque sans
+        # jamais aboutir, et c'est le defaut qu'on repare toute la journee.
+        "calcul_faux",
         # Nouveaux checks transverses (checks_post_rendu).
         "troncature_rendu",
         "doublon_titre",
@@ -129,6 +134,7 @@ def _priorite_check(check: str) -> int:
 _CHECK_LABELS = {
     "contamination": "Marqueur technique interne présent dans le texte (interdit)",
     "coherence_chiffree": "Chiffre incohérent avec le prévisionnel client",
+    "calcul_faux": "Calcul dont le résultat ne découle pas de ses termes",
     "troncature": "Chapitre coupé / phrase ou structure non terminée",
     "ordre_de_grandeur": "Erreur d'unité : montant hors d'échelle (millions/milliers)",
     "troncature_rendu": "Chapitre tronqué : la dernière phrase n'a pas de ponctuation forte",
