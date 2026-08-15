@@ -258,7 +258,22 @@ export function Jobs() {
                   </Text>
                 </Table.Cell>
                 <Table.Cell>
-                  {job.status === "done" && <JobRowActions job={job} />}
+                  {/* UN DOCUMENT PRODUIT SE TÉLÉCHARGE, MÊME SI LE DOSSIER
+                      A ÉCHOUÉ.
+
+                      « Les documents échoués ne sont pas téléchargeables et
+                      restent rouges, pourtant je les ai reçus par mail »
+                      (cliente, 13/08/2026). Elle a raison : un dossier arrêté
+                      au dernier chapitre a bel et bien produit son PDF, et
+                      l'email est parti. Le cacher ici oblige à rouvrir le
+                      détail, ou à retrouver le mail.
+
+                      Le critère devient donc « le PDF EXISTE-t-il ? », et non
+                      « le dossier s'est-il terminé ? ». Le statut rouge reste :
+                      il dit la vérité sur la génération, pas sur le document. */}
+                  {(job.status === "done" || job.pdf_download_url) && (
+                    <JobRowActions job={job} />
+                  )}
                   {estRelancable(job) && <BoutonRelancer job={job} />}
                 </Table.Cell>
                 <Table.Cell>
