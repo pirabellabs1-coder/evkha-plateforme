@@ -103,6 +103,63 @@ def _controler_les_demandes_du_client(job: GenerationJob) -> None:
         )
 
 
+def _assembler_ce_qui_est_ecrit(job: GenerationJob) -> None:
+    """Assemble le document d'un dossier EN ÉCHEC, s'il a écrit des chapitres.
+
+    ## Pourquoi
+
+    Demande de la cliente, 13/08/2026 : « il faut que les documents qui ont
+    été en échec soient utilisables aussi ». Un dossier arrêté au dernier
+    chapitre en a produit vingt-et-un : ils sont écrits, contrôlés, PAYÉS. Les
+    perdre parce que le vingt-deuxième a échoué revient à jeter l'essentiel
+    pour un accident de fin de course.
+
+    ## Ce que cela coûte
+
+    RIEN au modèle. L'assemblage est de la mise en page sur du texte déjà
+    produit : aucun appel, aucun jeton, aucun centime. C'est la raison pour
+    laquelle il n'y a pas d'arbitrage à faire — le seul choix était entre
+    « disponible » et « perdu ».
+
+    ## Ce que cela ne fait pas
+
+    Aucun email. Le document existe et se télécharge, chez l'administrateur
+    comme dans l'espace du client — qui liste tout artefact prêt, quel que soit
+    le statut du dossier. Mais un dossier en échec ne s'envoie pas tout seul :
+    c'est un document incomplet, et son envoi reste une décision.
+
+    Ne lève jamais : un échec d'assemblage ne doit pas masquer l'échec
+    d'origine, qui est celui qu'on veut voir remonter.
+    """
+    from .models import ChapterStatus  # noqa: PLC0415
+
+    if not job.chapters.filter(status=ChapterStatus.DONE).exists():
+        return
+
+    import logging  # noqa: PLC0415
+
+    try:
+        from documents.livrable_word import (  # noqa: PLC0415
+            assembler_livrable_word,
+            chaine_word_active,
+        )
+        if chaine_word_active(job):
+            assembler_livrable_word(job)
+        else:
+            from documents.services import assemble_document  # noqa: PLC0415
+            assemble_document(job)
+    except Exception:  # noqa: BLE001 — ne masque jamais l'échec d'origine
+        logging.getLogger(__name__).exception(
+            "Assemblage impossible pour le dossier en échec %s", job.id
+        )
+    else:
+        logging.getLogger(__name__).info(
+            "Dossier %s en échec : document assemblé avec les %s chapitre(s) "
+            "écrits, téléchargeable sans nouvel appel au modèle.",
+            job.id, job.chapters.filter(status=ChapterStatus.DONE).count(),
+        )
+
+
 @shared_task(name="generation.run_generation_job")  # type: ignore[untyped-decorator]
 def run_generation_job_task(job_id: str) -> str:
     """Lance la generation complete d'un job (chapitres + QA + gate + livraison).
@@ -134,6 +191,7 @@ def run_generation_job_task(job_id: str) -> str:
         # serait incomplete par construction, et c'est precisement le cas non
         # prevu qui produit le silence (regle 4).
         marquer_echec(job, erreur, etape="generation")
+        _assembler_ce_qui_est_ecrit(job)
         raise
 
     if job.status == JobStatus.DONE:
