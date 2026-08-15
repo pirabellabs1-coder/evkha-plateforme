@@ -253,10 +253,12 @@ def run_correction_loop(
 
     `inclure_les_checks` ouvre la régénération aux CHECK de bloc, dont la note
     du relecteur est souvent la plus actionnable de toutes (« dédupliquer les
-    deux entrées Xerfi du tableau 21.2 »). Faux par défaut : le chemin
-    automatique les a déjà retentés une fois et le manuel demande alors une
-    reprise humaine. Le bouton « corriger » du recontrôle EST cette reprise —
-    c'est le seul appelant qui passe vrai.
+    deux entrées Xerfi du tableau 21.2 »).
+
+    Faux par DÉFAUT, mais les deux appelants passent désormais vrai. Le motif
+    d'origine — « le manuel demande alors une reprise humaine » — est tombé le
+    13/08/2026 : il n'y a plus de reprise humaine, l'envoi est automatique.
+    Garder ces notes pour un geste qui n'existe plus, c'était les perdre.
     """
     from integrations.claude import ClaudeClient, get_claude_client  # noqa: PLC0415
 

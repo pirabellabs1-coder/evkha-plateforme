@@ -111,13 +111,15 @@ def run_generation_job_task(job_id: str) -> str:
     1. Génération de tous les chapitres (runner)
     2. Passe QA post-génération (correction code fence, tables coupées,
        complétion IA des troncatures sévères)
-    3. GATE DE LIVRAISON (Brique 3, brief client juillet 2026) — BLOQUANT :
-       contamination pipeline, cohérence chiffrée vs brief, complétude des
-       verticales, troncature. Un seul échec → le document NE PART PAS chez
-       le client ; incident HIGH + statut qa BLOCKED ; le PDF est tout de
-       même assemblé pour relecture admin (sans email). La livraison ne peut
-       alors être déclenchée que manuellement depuis le dashboard.
-    4. Livraison (assemblage PDF + email client) — uniquement si gate PASSED
+    3. GATE DE LIVRAISON — NON BLOQUANT depuis le 13/08/2026 : contamination,
+       cohérence chiffrée vs brief, complétude des verticales, troncature. Ce
+       qui reste après les trois passes de correction ouvre un incident HIGH
+       et marque `qa_status` BLOCKED, mais N'ARRÊTE PLUS l'envoi.
+       Décision cliente : « l'envoi du document doit être auto et sans aucune
+       action de ma part ». Sur les quatre motifs qu'elle a relevés ce jour-là,
+       trois étaient FAUX — retenir un livrable payé sur nos propres défauts,
+       puis lui demander de trancher, lui faisait porter nos erreurs.
+    4. Livraison (assemblage PDF + email client) — TOUJOURS.
     """
     job = GenerationJob.objects.get(id=job_id)
     try:
@@ -157,38 +159,52 @@ def run_generation_job_task(job_id: str) -> str:
         # a appris quatre fois qu'on règle mal ce qu'on n'a pas d'abord mesuré.
         _controler_les_demandes_du_client(job)
 
+        # `inclure_les_checks=True` : la boucle automatique corrige AUTANT que
+        # la reprise manuelle. Décision cliente du 13/08/2026 — « les points
+        # relevés par le contrôle doivent être corrigés en même temps et
+        # automatiquement ».
+        #
+        # Ces motifs étaient exclus « parce que le manuel demande alors une
+        # reprise humaine ». Il n'y a plus de reprise humaine : les exclure
+        # revenait à garder pour un geste qui n'existe plus les notes les plus
+        # actionnables de toutes — « dédupliquer les deux entrées Xerfi du
+        # tableau 21.2 » se corrige mieux que « incohérence détectée ».
         from .correction import run_correction_loop  # noqa: PLC0415
-        report = run_correction_loop(job)
+        report = run_correction_loop(job, inclure_les_checks=True)
 
         if not report.passed:
+            # LE DOCUMENT PART QUAND MÊME. Décision cliente du 13/08/2026 :
+            # « l'envoi du document doit être auto et sans aucune action de ma
+            # part ».
+            #
+            # Ce qu'elle a mesuré ce jour-là : sur les quatre motifs qu'elle a
+            # relevés, TROIS étaient faux — un identifiant refusé alors que
+            # notre propre consigne demande de l'écrire, un mot de son métier
+            # pris pour du jargon interne, un titre en gras compté comme phrase
+            # tronquée. Retenir un livrable payé sur des motifs que nous
+            # inventons, puis lui demander de trancher, revenait à lui faire
+            # porter nos défauts.
+            #
+            # L'incident RESTE, en HIGH : ce qui n'a pas pu être fermé après
+            # trois passes de correction doit se voir. Ce qui disparaît, c'est
+            # l'attente — pas la trace.
+            #
+            # RISQUE ASSUMÉ, et il est réel : un motif VRAI part désormais chez
+            # le client final. Le rempart n'est plus le blocage, ce sont les
+            # trois passes de correction et la justesse des contrôles — c'est
+            # pourquoi un contrôle qui crie faux coûte maintenant plus cher
+            # qu'avant, et doit être réparé le jour où il se voit.
             GenerationJob.objects.filter(pk=job.pk).update(qa_status=QAStatus.BLOCKED)
             OperationalIncident.objects.create(
-                title=f"Gate qualité : livraison bloquée (job {job.id})",
+                title=(
+                    f"Gate qualité : {len(report.failures)} point(s) non résolu(s), "
+                    f"document livré quand même (job {job.id})"
+                ),
                 severity=IncidentSeverity.HIGH,
                 job=job,
                 order=job.order,
                 details=report.as_details(),
             )
-            # Document assemblé pour relecture admin — AUCUN email client.
-            # Par la MÊME chaîne que la livraison : relire un document produit
-            # autrement que celui qui serait parti ne dit rien de ce qui serait
-            # parti (règle 3).
-            try:
-                from documents.livrable_word import (  # noqa: PLC0415
-                    assembler_livrable_word,
-                    chaine_word_active,
-                )
-                if chaine_word_active(job):
-                    assembler_livrable_word(job)
-                else:
-                    from documents.services import assemble_document  # noqa: PLC0415
-                    assemble_document(job)
-            except Exception:  # noqa: BLE001 — l'assemblage admin ne doit pas masquer le blocage
-                import logging  # noqa: PLC0415
-                logging.getLogger(__name__).exception(
-                    "Assemblage PDF admin impossible pour le job bloqué %s", job.id
-                )
-            return str(job.id)
 
         # Mémorise les faits de marché validés pour les futurs runs
         # sur le même secteur/pays (fact store inter-runs).
