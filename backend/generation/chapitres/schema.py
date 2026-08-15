@@ -561,6 +561,36 @@ class BlocCanvas(SortieDeChapitre):
     canvas: Canvas
     source: str = ""
 
+    @model_validator(mode="before")
+    @classmethod
+    def _accepter_les_briques_a_plat(cls, valeurs: Any) -> Any:
+        """Replie les neuf briques écrites au niveau du bloc.
+
+        ## Le défaut, mesuré à la PREMIÈRE génération réelle
+
+        13/08/2026, business plan `1fdc457b` : le chapitre 9 est mort sur
+        « blocs : Input should be a valid list ». Le modèle avait écrit les
+        neuf briques À PLAT — `{"type": "canvas", "partenaires_cles": [...]}`
+        — au lieu de les imbriquer sous `canvas`.
+
+        Il n'a rien fait de mal : la consigne disait « le bloc `canvas` porte
+        neuf champs », ce qui décrit exactement ce qu'il a produit. La consigne
+        est corrigée, et cette tolérance reste — c'est la même mécanique que
+        `rapprocher_les_cles` pour les fautes de frappe, et la même leçon : une
+        forme prévisible que le schéma sait replier ne doit pas coûter un
+        chapitre (règle 4).
+        """
+        if not isinstance(valeurs, dict) or "canvas" in valeurs:
+            return valeurs
+        briques = {
+            nom: valeurs.pop(nom)
+            for nom in list(valeurs)
+            if nom in Canvas.model_fields
+        }
+        if briques:
+            valeurs["canvas"] = briques
+        return valeurs
+
 
 #: Un bloc du chapitre, discriminé par son champ `type`.
 Bloc = Annotated[

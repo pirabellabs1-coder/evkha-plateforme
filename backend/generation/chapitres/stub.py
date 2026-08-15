@@ -559,6 +559,30 @@ def _blocs_du_modele(
     blocs: list[dict[str, object]] = []
     rang_sous_section = 0
     graphiques_places = 0
+
+    # LE CANVAS, AJOUTÉ D'OFFICE AU CHAPITRE 9 D'UN BUSINESS PLAN.
+    #
+    # Le modèle de référence porte un TABLEAU à cet endroit : il date d'avant
+    # le bloc `canvas` (13/08/2026). La doublure ne pouvait donc jamais en
+    # produire un, et la répétition à blanc n'a pas vu que le chapitre 9 mourait
+    # sur « blocs : Input should be a valid list » — la cliente l'a vu à notre
+    # place, sur une génération payée.
+    #
+    # Il est donc posé explicitement, dans la forme À PLAT qui a réellement
+    # échoué : si le repli la traverse, la forme imbriquée passe d'office.
+    if numero == 9 and "usiness" in prompt and "anvas" in prompt:
+        blocs.append({
+            "type": "canvas",
+            "partenaires_cles": ["Réseau de démonstration"],
+            "activites_cles": ["Production du livrable"],
+            "ressources_cles": ["Plateforme"],
+            "proposition_valeur": ["Repère de démonstration"],
+            "relation_client": ["Espace en ligne"],
+            "canaux": ["Site web"],
+            "segments_clientele": ["Créateurs d'entreprise"],
+            "structure_couts": ["Coût de production"],
+            "sources_revenus": ["Vente à l'unité"],
+        })
     for bloc in modele.get("blocs", []):
         type_bloc = bloc.get("type")
 
@@ -604,6 +628,32 @@ def _blocs_du_modele(
                      "source": "Jeu de démonstration"}
                     for rang in range(int(bloc.get("cellules", 3)))
                 ],
+            })
+        elif type_bloc == "canvas":
+            # LES NEUF BRIQUES, ÉCRITES À PLAT — la forme que le modèle a
+            # réellement produite le 13/08/2026 sur le business plan
+            # `1fdc457b`, et qui a tué le chapitre 9 : « blocs : Input should
+            # be a valid list ».
+            #
+            # La doublure ne produisait AUCUN bloc `canvas` : la répétition à
+            # blanc ne pouvait pas rencontrer le défaut, et il est arrivé chez
+            # la cliente. C'est la troisième fois qu'un trou de la doublure
+            # laisse passer un défaut (règle 3) — et le `canvas` était le
+            # dernier ajout non couvert.
+            #
+            # On prend la forme la plus DIFFICILE des deux, celle qui a
+            # échoué : si le repli la traverse, l'imbriquée passe d'office.
+            blocs.append({
+                "type": "canvas",
+                "partenaires_cles": ["Réseau de démonstration"],
+                "activites_cles": ["Production du livrable"],
+                "ressources_cles": ["Plateforme"],
+                "proposition_valeur": ["Repère de démonstration"],
+                "relation_client": ["Espace en ligne"],
+                "canaux": ["Site web"],
+                "segments_clientele": ["Créateurs d'entreprise"],
+                "structure_couts": ["Coût de production"],
+                "sources_revenus": ["Vente à l'unité"],
             })
         elif type_bloc == "graphique" and len(utilisees) >= 2:
             graphiques_places += 1

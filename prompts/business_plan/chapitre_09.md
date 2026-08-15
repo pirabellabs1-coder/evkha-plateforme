@@ -13,7 +13,13 @@ Une variable inconnue est laissée telle quelle et signalée à la génération.
 
 Presente la logique economique globale : comment l'entreprise cree de la valeur, comment elle genere du chiffre d'affaires, structure des couts principaux, marge brute estimee, point mort. Puis presente le Business Model Canvas en bloc `canvas` — PAS en bloc `tableau`.
 
-Le bloc `canvas` porte neuf champs, un par brique : `partenaires_cles`,
+Le bloc `canvas` contient un objet `canvas`, et c'est cet OBJET qui porte les
+neuf briques :
+
+    {"type": "canvas", "canvas": {"partenaires_cles": [...], "activites_cles": [...]}}
+
+Les neuf champs vont DANS `canvas`, jamais a cote de `type`. Les voici :
+`partenaires_cles`,
 `activites_cles`, `ressources_cles`, `proposition_valeur`, `relation_client`,
 `canaux`, `segments_clientele`, `structure_couts`, `sources_revenus`. Chacun
 recoit une liste de 2 a 4 elements COURTS — une ligne chacun, pas un
