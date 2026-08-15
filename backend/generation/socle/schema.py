@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Sequence
 from datetime import date
+from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -180,6 +181,47 @@ class DonneeSocle(BaseModel):
     #: la passe de vérification du lot 4 ne peut pas les distinguer d'une
     #: hallucination.
     derivee_de: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _un_denombrement_s_ecrit_en_unites(cls, valeurs: Any) -> Any:
+        """Ramène un effectif exprimé en `millier`/`million` à son compte réel.
+
+        ## Le défaut, mesuré sur un business plan livré
+
+        13/08/2026, retour de la cliente : « le document écrit à de très
+        nombreuses reprises 50 000 milliers de cibles, puis interprète cela
+        comme 50 000 000, et calcule 102 / 50 000 000 = 0,000204 % ». Répété
+        DOUZE fois, pages 11, 12, 15, 20, 22, 38, 41, 43, 46.
+
+        Il n'y a pas cinquante millions de créateurs d'entreprise en France. Le
+        modèle voulait dire 50 000 cibles ; il a choisi l'unité `millier` en
+        gardant le compte entier, et l'affichage a multiplié par mille.
+
+        ## Pourquoi convertir plutôt que refuser
+
+        L'unité `millier` pour un DÉNOMBREMENT est un piège que nous avons
+        tendu : « 50 000 » est aussi lisible que « 50 milliers », et proposer
+        les deux écritures invite exactement cette confusion. Un refus ferait
+        perdre un chapitre là où la valeur réelle est connue sans ambiguïté —
+        le compte est le nombre, quelle que soit l'échelle choisie pour le dire.
+
+        Un effectif se stocke donc TOUJOURS en unités absolues. Les magnitudes
+        restent acceptées à l'entrée pour ne pas casser les socles existants,
+        et sont converties ici, une fois pour toutes.
+        """
+        if not isinstance(valeurs, dict):
+            return valeurs
+        unite = str(valeurs.get("unite", "")).strip()
+        facteur = {"millier": 1_000.0, "million": 1_000_000.0}.get(unite)
+        if facteur is None:
+            return valeurs
+        try:
+            valeurs["valeur"] = float(valeurs.get("valeur", 0)) * facteur
+        except (TypeError, ValueError):
+            return valeurs
+        valeurs["unite"] = "unite"
+        return valeurs
 
     @model_validator(mode="after")
     def _controler_source(self) -> DonneeSocle:

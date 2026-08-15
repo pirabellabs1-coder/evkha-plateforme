@@ -1203,6 +1203,16 @@ _VOCABULAIRE_INTERNE: tuple[tuple[str, re.Pattern[str]], ...] = (
     # Les adresses web sont retirées du texte avant l'examen (voir
     # `_sans_les_adresses`) : « /mon_article » n'est pas une fuite.
     ("identifiant technique", re.compile(r"\b[a-zà-ÿ]{2,}_[a-zà-ÿ0-9_]{2,}\b")),
+    # « données du projet, bloc B » — lu par la cliente dans une étude de
+    # marché le 13/08/2026. Les blocs de contrôle du manuel portent une LETTRE
+    # (INITIAL, A à J, FINAL) : c'est le découpage de notre relecture, pas une
+    # partie du document que le client reçoit.
+    #
+    # « Bloc » suivi d'une lettre ISOLÉE, jamais « bloc » tout court : un bloc
+    # opératoire, un bloc de compétences et un achat en bloc sont du français
+    # ordinaire, et un garde-fou qui les refuse coûte un chapitre.
+    ("bloc de contrôle", re.compile(
+        r"\b[Bb]loc\s+(?:[A-J]\b|INITIAL\b|FINAL\b)")),
 )
 
 #: Une adresse web porte légitimement des tirets bas.
