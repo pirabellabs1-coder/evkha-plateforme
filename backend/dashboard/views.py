@@ -246,6 +246,59 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
 
 @require_http_methods(["POST"])
 @csrf_exempt
+def job_assembler(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Assemble le document d'un dossier DEJA en echec, sans rien regenerer.
+
+    Depuis le 13/08/2026, un dossier qui s'arrete assemble ce qu'il a ecrit,
+    au moment ou il s'arrete. Les dossiers tombes AVANT ce correctif n'ont
+    jamais eu ce moment : leurs chapitres sont en base, payes, et sans
+    document.
+
+    Cette route rattrape ces cas-la, et servira a chaque fois qu'un assemblage
+    aura echoue pour une raison qui lui est propre — disque plein, gabarit
+    momentanement illisible. Elle ne coute RIEN au modele : c'est de la mise en
+    page sur du texte deja produit.
+
+    Aucun email : le document devient telechargeable, son envoi reste une
+    decision.
+    """
+    from generation.tasks import _assembler_ce_qui_est_ecrit  # noqa: PLC0415
+
+    try:
+        job = GenerationJob.objects.select_related("order").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    ecrits = job.chapters.filter(status=ChapterStatus.DONE).count()
+    if not ecrits:
+        return _json(
+            {
+                "error": (
+                    "Ce dossier n'a aucun chapitre ecrit : il n'y a rien a "
+                    "assembler. Un document de couverture seule ferait croire "
+                    "a un livrable."
+                ),
+                "job_id": str(job.id),
+            },
+            status=409,
+        )
+
+    _assembler_ce_qui_est_ecrit(job)
+
+    from documents.models import ArtifactStatus  # noqa: PLC0415
+
+    pret = job.artifacts.filter(status=ArtifactStatus.READY).count()
+    return _json({
+        "job_id": str(job.id),
+        "chapitres_assembles": ecrits,
+        "artefacts_prets": pret,
+    })
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
 def job_supprimer(request: HttpRequest, job_id: str) -> JsonResponse:
     """Efface un dossier RATÉ, et écrit dans le journal ce qu'il emporte.
 

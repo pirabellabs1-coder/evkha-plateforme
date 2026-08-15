@@ -14,6 +14,7 @@ urlpatterns = [
     # et `<str:job_id>` avalerait « <id>/brief » comme un identifiant.
     path("jobs/<str:job_id>/brief/", views.job_brief, name="job-brief"),
     path("jobs/<str:job_id>/regenerer/", views.job_regenerer, name="job-regenerer"),
+    path("jobs/<str:job_id>/assembler/", views.job_assembler, name="job-assembler"),
     path("jobs/<str:job_id>/supprimer/", views.job_supprimer, name="job-supprimer"),
     path("jobs/<str:job_id>/", views.job_detail, name="job-detail"),
     path("jobs/<str:job_id>/cancel/", views.job_cancel, name="job-cancel"),
