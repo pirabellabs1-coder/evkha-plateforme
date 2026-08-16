@@ -169,3 +169,77 @@ def verifier(texte: str) -> list[CalculFaux]:
             ))
 
     return fautes
+
+
+# ── Une même donnée, une seule source ────────────────────────────────────────
+
+#: « 1,4 M€ (Insee, 2025) » ou « 1,4 M€ — source : Xerfi 2026 ».
+#:
+#: Le montant PUIS sa source, dans la parenthèse ou après un tiret. C'est la
+#: forme que produisent les tableaux et les notes de figure.
+_MONTANT_SOURCE = re.compile(
+    rf"(?P<montant>{_NOMBRE})\s*(?P<unite>M€|Md€|k€|€|%)\s*"
+    rf"(?:\(|—\s*source\s*:\s*|-\s*source\s*:\s*)"
+    rf"(?P<source>[^)\n.;]{{3,60}})",
+    re.IGNORECASE,
+)
+
+#: Ce qui n'est pas une source mais une précision : « (2025) », « (estimation) ».
+_PAS_UNE_SOURCE = re.compile(
+    r"^\s*(?:\d{4}|estimation|estimé\w*|prévision\w*|hypothèse|projection)\s*$",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class SourceDivergente:
+    """Un même montant attribué à deux sources différentes."""
+
+    montant: str
+    sources: tuple[str, ...]
+
+    def __str__(self) -> str:
+        liste = " ; ".join(f"« {s} »" for s in self.sources)
+        return (
+            f"Le montant {self.montant} est attribué à {len(self.sources)} "
+            f"sources différentes dans le document : {liste}. Un lecteur qui "
+            "vérifie ira à la première et n'y trouvera pas le chiffre. Une "
+            "donnée a UNE origine : garde celle qui la porte réellement."
+        )
+
+
+def sources_divergentes(textes: list[str]) -> list[SourceDivergente]:
+    """Les montants que le document attribue à plusieurs sources.
+
+    ## Le défaut visé
+
+    Demande de la cliente, 13/08/2026 : « tester les cohérences interchapitres
+    toujours niveau chiffres ET sources ». La cohérence des CHIFFRES était
+    contrôlée depuis longtemps ; celle des SOURCES ne l'était pas.
+
+    Une même donnée créditée à l'Insee au chapitre 3 et à Xerfi au chapitre 12
+    est un défaut plus grave qu'il n'y paraît : le lecteur qui vérifie ira à la
+    première, n'y trouvera pas le chiffre, et cessera de croire le reste.
+
+    ## Ce qui n'est pas jugé
+
+    Les parenthèses qui portent une ANNÉE ou une nature — « (2025) »,
+    « (estimation) » — ne sont pas des sources. Les compter ferait crier sur
+    un montant daté deux fois, ce qui est normal et souhaitable.
+    """
+    par_montant: dict[str, list[str]] = {}
+    for texte in textes:
+        for m in _MONTANT_SOURCE.finditer(texte):
+            source = " ".join(m.group("source").split()).strip(" ,;")
+            if not source or _PAS_UNE_SOURCE.match(source):
+                continue
+            cle = f"{re.sub(r'[    ]', '', m.group('montant'))} {m.group('unite')}"
+            connues = par_montant.setdefault(cle, [])
+            if source.casefold() not in {s.casefold() for s in connues}:
+                connues.append(source)
+
+    return [
+        SourceDivergente(montant=montant, sources=tuple(sources))
+        for montant, sources in par_montant.items()
+        if len(sources) > 1
+    ]

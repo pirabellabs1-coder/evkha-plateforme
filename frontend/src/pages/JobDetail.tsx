@@ -45,12 +45,27 @@ function Pipeline({ job }: { job: JobDetailType }) {
   const deliveryFailed = job.delivery?.status === "failed";
   const genDone        = job.status === "done";
 
-  // Assemblage PDF : en cours si gen terminée mais livraison pas encore envoyée
-  const pdfStatus = deliverySent ? "done"
+  // ASSEMBLAGE PDF : ce que disent les ARTEFACTS, pas la livraison.
+  //
+  // « Pourquoi ceci n'a pas changé ? » (cliente, 13/08/2026, capture a l'appui).
+  // Le document venait d'etre assemble — deux artefacts prets — et l'etape
+  // restait rouge. Elle ne regardait pas les documents : elle recopiait l'etat
+  // de la LIVRAISON. Un envoi en echec peignait donc en rouge un assemblage
+  // parfaitement reussi, et aucun assemblage ne pouvait jamais s'afficher vert
+  // tant que l'email n'etait pas parti.
+  //
+  // Deux etapes distinctes doivent lire deux faits distincts : le PDF existe,
+  // et l'email est parti. Les confondre, c'est mentir sur l'une des deux
+  // (regle 1).
+  const pdfPret = (job.artifacts ?? []).some(
+    (a) => (a.kind === "pdf" || a.kind === "gamma_pdf" || a.kind === "docx")
+      && a.status === "ready",
+  );
+  const pdfStatus = pdfPret ? "done"
     : deliveryFailed ? "failed"
     : genDone ? "running"
     : "pending";
-  const pdfIcon = deliverySent ? "✓" : deliveryFailed ? "✗" : genDone ? "⚡" : "○";
+  const pdfIcon = pdfPret ? "✓" : deliveryFailed ? "✗" : genDone ? "⚡" : "○";
 
   // Email envoyé : uniquement quand le batch est confirmé SENT
   const emailStatus = deliverySent ? "done" : deliveryFailed ? "failed" : "pending";

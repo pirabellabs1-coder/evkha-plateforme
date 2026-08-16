@@ -1006,6 +1006,27 @@ def _check_arithmetique(
     return failures
 
 
+def _check_sources_coherentes(
+    sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Une meme donnee ne peut pas venir de deux sources differentes.
+
+    Demande de la cliente, 13/08/2026 : « tester les coherences interchapitres
+    toujours niveau chiffres ET sources ». La coherence des CHIFFRES etait
+    controlee depuis longtemps ; celle des SOURCES ne l'etait pas.
+
+    Le motif porte sur le DOCUMENT, pas sur un chapitre : la divergence n'existe
+    qu'entre deux endroits, et l'accrocher a l'un des deux enverrait corriger
+    au hasard.
+    """
+    from .arithmetique import sources_divergentes  # noqa: PLC0415
+
+    return [
+        GateFailure(check="source_divergente", detail=str(divergence))
+        for divergence in sources_divergentes([s.body for s in sections])
+    ]
+
+
 def _check_verticales(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1428,6 +1449,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_truncation(sections))
     failures.extend(_check_ordres_de_grandeur(job, sections))
     failures.extend(_check_arithmetique(sections))
+    failures.extend(_check_sources_coherentes(sections))
     failures.extend(_check_arithmetique_marche(job))
     # Checks ajoutes suite a la relecture d'Evangeline (juillet 2026) : ils
     # verifient DEUX regles qu'aucun check precedent n'imposait sur le document

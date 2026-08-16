@@ -1213,6 +1213,20 @@ _VOCABULAIRE_INTERNE: tuple[tuple[str, re.Pattern[str]], ...] = (
     # ordinaire, et un garde-fou qui les refuse coûte un chapitre.
     ("bloc de contrôle", re.compile(
         r"\b[Bb]loc\s+(?:[A-J]\b|INITIAL\b|FINAL\b)")),
+    # « write » — lu par la cliente dans une stratégie le 13/08/2026.
+    #
+    # Ce n'est pas un anglicisme de style, que la table de substitution
+    # traduirait : c'est un RÉSIDU de la machinerie, un verbe d'instruction qui
+    # n'a aucune raison d'apparaître dans un document français remis à un
+    # client. Sa présence signale une fuite, pas une maladresse — on refuse
+    # donc, on ne remplace pas.
+    #
+    # Liste COURTE et sûre : uniquement des verbes d'instruction. « SEO »,
+    # « cash-flow », « business plan » et les noms de marques restent du
+    # vocabulaire métier légitime, et un garde-fou qui les refuserait coûterait
+    # un chapitre à chaque page.
+    ("mot d'instruction en anglais", re.compile(
+        r"\b(?:write|rewrite|output|generate|summarize)\b", re.IGNORECASE)),
 )
 
 #: Une adresse web porte légitimement des tirets bas.
