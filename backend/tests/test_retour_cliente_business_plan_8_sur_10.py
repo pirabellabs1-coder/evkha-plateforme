@@ -157,10 +157,36 @@ def test_la_consigne_dit_au_modele_de_ne_pas_recopier_les_etiquettes() -> None:
     from generation.chapitres.runner import _CE_QUI_NE_SE_RECOPIE_PAS as consigne
 
     assert "ÉTIQUETTES POUR TOI" in consigne
-    assert "ca_previsionnel_an1" in consigne     # l'exemple qu'elle a lu
     assert "marque blanche" in consigne          # pourquoi le nom disparaît
     assert "LAISSE LE CHAMP VIDE" in consigne    # l'issue quand rien à citer
     assert "données du projet" in consigne       # l'issue quand ça vient du brief
+
+
+def test_la_consigne_ne_cite_aucun_identifiant_en_exemple() -> None:
+    """L'exemple d'une interdiction se recopie comme le reste.
+
+    Étude concurrentielle `b6cb8076`, 13/08/2026 : le chapitre 8 a cité
+    `ca_previsionnel_an1` — un identifiant de BUSINESS PLAN, absent du socle
+    d'une étude de concurrence. Le contrôle a eu raison de le refuser.
+
+    Le modèle ne l'avait pas inventé : il l'a lu dans cette consigne, qui
+    l'employait comme exemple de ce qu'il ne faut PAS recopier. En lui
+    interdisant de recopier les identifiants, on lui en montrait un qu'il ne
+    connaissait pas.
+
+    C'est la leçon déjà écrite pour la notation entre crochets : tout ce qu'on
+    ajoute au prompt pour aider le modèle peut ressortir dans le document. Elle
+    vaut aussi pour les exemples d'une règle. La consigne DÉSIGNE donc les
+    lignes du socle sans en nommer aucune — le modèle a la liste réelle sous
+    les yeux, elle lui suffit.
+    """
+    import re
+
+    from generation.chapitres.runner import _CE_QUI_NE_SE_RECOPIE_PAS as consigne
+
+    cites = re.findall(r"`([a-z]+_[a-z0-9_]+)`", consigne)
+
+    assert cites == [], f"identifiant(s) montré(s) en exemple : {cites}"
 
 
 def test_la_consigne_atteint_reellement_le_chapitre() -> None:

@@ -293,8 +293,27 @@ def _nature(unite: str) -> str:
 #: la cause dans la consigne, le contrôle en dernière ligne).
 _CE_QUI_NE_SE_RECOPIE_PAS = (
     "\n\nCE QUI NE SE RECOPIE JAMAIS DANS LE DOCUMENT :\n"
-    "- Les identifiants ci-dessous (`ca_previsionnel_an1`, "
-    "`marche_national_taille`…) sont des ÉTIQUETTES POUR TOI, qui te servent à "
+    # AUCUN IDENTIFIANT EN EXEMPLE ICI.
+    #
+    # Cette consigne en citait deux — `ca_previsionnel_an1` et
+    # `marche_national_taille` — pour illustrer ce qu'il ne faut pas recopier.
+    # Étude concurrentielle `b6cb8076`, 13/08/2026 : le chapitre 8 a cité
+    # `ca_previsionnel_an1`, un identifiant de BUSINESS PLAN absent du socle
+    # d'une étude de concurrence. Le contrôle a eu raison de le refuser.
+    #
+    # Le modèle ne l'a pas inventé : il l'a lu ICI. En lui interdisant de
+    # recopier les identifiants, on lui en montrait un qu'il ne connaissait
+    # pas — et l'exemple d'une interdiction se recopie comme le reste.
+    #
+    # C'est la leçon déjà écrite dans `schema.py` à propos de la notation entre
+    # crochets : « tout ce qu'on ajoute au prompt pour aider le modèle peut
+    # ressortir dans le document ». Elle vaut aussi pour les exemples d'une
+    # règle qui interdit de recopier.
+    #
+    # La consigne DÉSIGNE désormais les lignes qui suivent, sans en nommer
+    # aucune : le modèle a la liste réelle sous les yeux, elle lui suffit.
+    "- Les identifiants entre accents graves dans les lignes ci-dessous sont "
+    "des ÉTIQUETTES POUR TOI, qui te servent à "
     "retrouver la même valeur d'un chapitre à l'autre. Ils ne s'écrivent nulle "
     "part dans le texte : ni dans une phrase, ni dans un titre, ni sous un "
     "tableau, ni dans le commentaire d'une figure. Dis la CHOSE — « le chiffre "
