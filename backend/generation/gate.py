@@ -694,6 +694,18 @@ def _check_contamination(
     return failures
 
 
+#: Ce qui designe une grandeur de MARCHE, sans rapport avec la taille du projet.
+#:
+#: Un marche national, un secteur, une filiere se chiffrent en milliards la ou
+#: une entreprise se chiffre en centaines de milliers. Les comparer produit un
+#: refus qu'aucune reecriture ne peut satisfaire.
+_MONTANT_DE_MARCHE = re.compile(
+    r"\bmarch[ée]|\bsecteur|\bfili[èe]re|\bnational|\bmondial"
+    r"|\beurop[ée]en|\bTAM\b|\bSAM\b|\bSOM\b",
+    re.IGNORECASE,
+)
+
+
 def _check_ordres_de_grandeur(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -760,6 +772,26 @@ def _check_ordres_de_grandeur(
             # montant. Un parsing local reintroduirait la divergence.
             absolute = _amount_from_match(match)
             if absolute is None:
+                continue
+            # UN MARCHÉ N'EST PAS BORNÉ PAR LE CHIFFRE D'AFFAIRES DU CLIENT.
+            #
+            # Business plan `b8da2640`, 13/08/2026 : le chapitre 6 refusé en
+            # boucle sur « chiffre d'affaires annuel du secteur : 16,5 Md€ =
+            # plus de 100× la référence client (430 000 €) ». La phrase est
+            # JUSTE — un marché national est évidemment mille fois plus grand
+            # qu'une boulangerie de quartier.
+            #
+            # La référence est le chiffre d'affaires du PROJET : elle borne les
+            # montants du projet, pas ceux du marché qui l'entoure. Le contrôle
+            # comparait deux grandeurs sans rapport, et son refus ne pouvait
+            # jamais être satisfait : la cliente l'a dit en une phrase — « la
+            # correction ne va jamais terminer ».
+            #
+            # On écarte donc les montants dont la PHRASE parle du marché, du
+            # secteur ou de la filière. Le contrôle garde tout son sens là où
+            # il sert : un montant du projet écrit en millions au lieu de
+            # milliers.
+            if _MONTANT_DE_MARCHE.search(_phrase_autour(section.body, match.start())):
                 continue
             if absolute > ceiling:
                 failures.append(GateFailure(
