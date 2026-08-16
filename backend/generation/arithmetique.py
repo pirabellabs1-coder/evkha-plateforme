@@ -36,6 +36,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from core.numbers import CURRENCY_ALTERNATION, to_base_units
+
 #: Écart relatif toléré entre le résultat écrit et le résultat recalculé.
 TOLERANCE = 0.01
 
@@ -83,6 +85,83 @@ _EVOLUTION = re.compile(
 )
 
 
+#: Les devises et magnitudes que le dépôt sait déjà lire.
+#:
+#: Règle 5 — une seule source par vérité. Cette liste a existé en trois
+#: exemplaires sur ce projet, et c'est de leur désaccord qu'est venu le défaut
+#: « 1,25 M€ lu 1.25 ». On importe, on ne recopie pas.
+_UNITE = CURRENCY_ALTERNATION
+
+
+def _meme_echelle(
+    valeur: float, unite: str | None, unite_du_resultat: str | None
+) -> float:
+    """Ramène une valeur dans l'unité du résultat écrit.
+
+    « 320 k€ pour 40 000 clients, soit 8 € » : sans cette conversion le code
+    calculerait 320 / 40 000 = 0,008 et crierait faux sur une phrase juste.
+    C'est exactement le défaut que ce module a été écrit pour attraper — il
+    serait absurde de le commettre en le cherchant.
+
+    Quand une seule des deux unités est écrite, on lit le texte comme un
+    lecteur le ferait : la même unité vaut des deux côtés.
+    """
+    if unite is None or unite_du_resultat is None:
+        return valeur
+    echelle = to_base_units(1.0, unite_du_resultat)
+    return to_base_units(valeur, unite) / echelle if echelle else valeur
+
+
+#: « 320 000 € pour 40 000 clients, soit un panier moyen de 8 € » — la moyenne.
+#:
+#: Le mot « moyen » (ou « moyenne ») juste avant le résultat est ce qui rend
+#: l'opération lisible : sans lui, « 320 000 € pour 40 000 clients, soit 8 € »
+#: pourrait désigner tout autre chose. On ne juge que ce que le texte nomme.
+_MOYENNE = re.compile(
+    rf"(?P<total>{_NOMBRE})\s*(?P<u1>{_UNITE})?\s*"
+    rf"(?:pour|r[ée]partis?\s+sur|divis[ée]s?\s+par)\s*"
+    rf"(?P<effectif>{_NOMBRE})\s*[^.;]{{0,40}}?"
+    rf"(?:,\s*)?(?:soit|=)\s*[^.;0-9]{{0,40}}?moyen(?:ne)?\s*"
+    rf"(?:de\s*|d'\s*|:\s*)?(?P<res>{_NOMBRE})\s*(?P<u2>{_UNITE})?",
+    re.IGNORECASE,
+)
+
+#: Les seules extrapolations de période qui ne cachent PAS une hypothèse.
+#:
+#: Une année compte douze mois et quatre trimestres : personne n'en décide
+#: autrement. Le jour et la semaine sont volontairement absents — « 1 000 € par
+#: jour, soit 300 000 € par an » est JUSTE pour un commerce fermé le dimanche
+#: et en août, et un contrôle qui multiplierait par 365 crierait faux sur une
+#: phrase correcte. C'est la règle 2 du dépôt appliquée au calendrier.
+_PERIODES = {
+    ("mois", "an"): 12.0,
+    ("mois", "année"): 12.0,
+    ("mois", "trimestre"): 3.0,
+    ("trimestre", "an"): 4.0,
+    ("trimestre", "année"): 4.0,
+}
+
+_PERIODE = r"mois|trimestre|an(?:née)?"
+
+#: « 26 000 € par mois, soit 312 000 € par an » — la projection de période.
+_PROJECTION = re.compile(
+    rf"(?P<unitaire>{_NOMBRE})\s*(?P<u1>{_UNITE})?\s*(?:par|/)\s*"
+    rf"(?P<source>{_PERIODE})\b\s*[^.;]{{0,30}}?"
+    rf"(?:,\s*)?(?:soit|=)\s*(?P<res>{_NOMBRE})\s*(?P<u2>{_UNITE})?\s*"
+    rf"(?:par|sur|/)\s*(?:un[e]?\s+)?(?P<cible>{_PERIODE})\b",
+    re.IGNORECASE,
+)
+
+#: « 8 000 € par mois sur 18 mois, soit 144 000 € » — la durée dite en clair.
+_PROJECTION_DUREE = re.compile(
+    rf"(?P<unitaire>{_NOMBRE})\s*(?P<u1>{_UNITE})?\s*(?:par|/)\s*"
+    rf"(?P<source>{_PERIODE})\b\s*(?:sur|pendant)\s*(?P<combien>\d+)\s*"
+    rf"(?P=source)s?\b\s*[^.;]{{0,20}}?"
+    rf"(?:,\s*)?(?:soit|=)\s*(?P<res>{_NOMBRE})\s*(?P<u2>{_UNITE})?",
+    re.IGNORECASE,
+)
+
+
 @dataclass(frozen=True)
 class CalculFaux:
     """Une opération dont le résultat écrit ne découle pas de ses termes."""
@@ -93,12 +172,22 @@ class CalculFaux:
     nature: str
 
     def __str__(self) -> str:
-        return (
+        motif = (
             f"{self.nature} : le document écrit « {self.extrait.strip()} », "
             f"mais le calcul donne {self.calcule:,.4g} et non "
             f"{self.ecrit:,.4g}. Un lecteur qui refait l'opération le verra ; "
             "corrige le résultat, ou les termes s'ils sont faux."
         )
+        if self.nature == "Projection":
+            # Une activité saisonnière a raison de ne pas compter douze mois —
+            # mais elle doit le DIRE, sinon le lecteur refait la multiplication
+            # et se trompe à sa place. Le motif demande la phrase, pas le
+            # chiffre.
+            motif += (
+                " Si l'activité ne tourne pas sur toute la période, écris-le "
+                "dans la phrase : sans cela le lecteur multiplie comme moi."
+            )
+        return motif
 
 
 def _decimales(texte: str) -> int:
@@ -166,6 +255,48 @@ def verifier(texte: str) -> list[CalculFaux]:
             fautes.append(CalculFaux(
                 extrait=m.group(0), ecrit=res, calcule=calcule,  # type: ignore[arg-type]
                 nature="Évolution",
+            ))
+
+    for m in _MOYENNE.finditer(texte):
+        total, effectif, res = (_valeur(m.group(n)) for n in ("total", "effectif", "res"))
+        if None in (total, effectif, res) or not effectif:
+            continue
+        ramene = _meme_echelle(total, m.group("u1"), m.group("u2"))  # type: ignore[arg-type]
+        calcule = ramene / effectif
+        if _ecart_trop_grand(res, calcule, _decimales(m.group("res"))):  # type: ignore[arg-type]
+            fautes.append(CalculFaux(
+                extrait=m.group(0), ecrit=res, calcule=calcule,  # type: ignore[arg-type]
+                nature="Moyenne",
+            ))
+
+    for m in _PROJECTION.finditer(texte):
+        facteur = _PERIODES.get(
+            (m.group("source").lower(), m.group("cible").lower())
+        )
+        if facteur is None:
+            continue
+        unitaire, res = (_valeur(m.group(n)) for n in ("unitaire", "res"))
+        if None in (unitaire, res):
+            continue
+        ramene = _meme_echelle(unitaire, m.group("u1"), m.group("u2"))  # type: ignore[arg-type]
+        calcule = ramene * facteur
+        if _ecart_trop_grand(res, calcule, _decimales(m.group("res"))):  # type: ignore[arg-type]
+            fautes.append(CalculFaux(
+                extrait=m.group(0), ecrit=res, calcule=calcule,  # type: ignore[arg-type]
+                nature="Projection",
+            ))
+
+    for m in _PROJECTION_DUREE.finditer(texte):
+        unitaire, res = (_valeur(m.group(n)) for n in ("unitaire", "res"))
+        combien = float(m.group("combien"))
+        if None in (unitaire, res) or not combien:
+            continue
+        ramene = _meme_echelle(unitaire, m.group("u1"), m.group("u2"))  # type: ignore[arg-type]
+        calcule = ramene * combien
+        if _ecart_trop_grand(res, calcule, _decimales(m.group("res"))):  # type: ignore[arg-type]
+            fautes.append(CalculFaux(
+                extrait=m.group(0), ecrit=res, calcule=calcule,  # type: ignore[arg-type]
+                nature="Projection",
             ))
 
     return fautes
