@@ -243,3 +243,116 @@ def sources_divergentes(textes: list[str]) -> list[SourceDivergente]:
         for montant, sources in par_montant.items()
         if len(sources) > 1
     ]
+
+
+# ── Les tableaux qui annoncent un total ──────────────────────────────────────
+
+#: Une ligne de tableau markdown : « | a | b | c | ».
+_LIGNE_TABLEAU = re.compile(r"^\s*\|(?P<cellules>.+)\|\s*$")
+
+#: Une ligne de séparation : « |---|---|ce ».
+_SEPARATEUR = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
+
+#: L'intitulé qui ANNONCE une somme. C'est le seul cas vérifiable sans deviner.
+_INTITULE_TOTAL = re.compile(r"\btotal\b|\bcumul\b|\bensemble\b", re.IGNORECASE)
+
+#: Un intitulé qui porte DÉJÀ une somme partielle : l'additionner double-compte.
+_INTITULE_PARTIEL = re.compile(r"sous[- ]total|\bdont\b|\bsoit\b", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class TotalFaux:
+    """Une colonne dont le total annoncé ne fait pas la somme de ses lignes."""
+
+    colonne: str
+    annonce: float
+    somme: float
+
+    def __str__(self) -> str:
+        return (
+            f"Colonne « {self.colonne} » : le tableau annonce un total de "
+            f"{self.annonce:,.2f}, mais ses lignes font {self.somme:,.2f}. "
+            "Un lecteur qui additionne la colonne verra l'écart ; corrige le "
+            "total, ou la ligne qui manque."
+        )
+
+
+def _cellules(ligne: str) -> list[str]:
+    trouve = _LIGNE_TABLEAU.match(ligne)
+    return [c.strip() for c in trouve.group("cellules").split("|")] if trouve else []
+
+
+def totaux_faux(texte: str) -> list[TotalFaux]:
+    """Les totaux annoncés qu'un tableau ne vérifie pas.
+
+    ## Ce que ce contrôle vérifie, et pourquoi si peu
+
+    Demande de la cliente, 13/08/2026 : vérifier « les additions » des
+    tableaux. Un tableau ne dit PAS lequel de ses nombres est une somme — il
+    faudrait le comprendre. Ce contrôle ne juge donc que le cas où le document
+    l'ANNONCE lui-même : une ligne intitulée « Total », « Cumul »,
+    « Ensemble ».
+
+    Deviner qu'une ligne est un total parce qu'elle est la dernière ferait
+    crier sur tous les tableaux qui n'en portent pas — et ce projet a mesuré ce
+    que coûte un contrôle qui se trompe : des réécritures payantes sur des
+    défauts inexistants.
+
+    ## Les deux pièges évités
+
+    Les lignes qui portent déjà une somme partielle — « sous-total », « dont »,
+    « soit » — sont exclues des termes : les additionner double-compterait et
+    produirait un motif sur un tableau juste.
+
+    Une colonne dont une seule cellule n'est pas un nombre est ignorée
+    entièrement : elle mélange du texte et des chiffres, et sa somme n'a pas de
+    sens.
+    """
+    fautes: list[TotalFaux] = []
+    lignes = texte.split("\n")
+    debut = 0
+
+    while debut < len(lignes):
+        if not _cellules(lignes[debut]):
+            debut += 1
+            continue
+        fin = debut
+        while fin < len(lignes) and (_cellules(lignes[fin]) or _SEPARATEUR.match(lignes[fin])):
+            fin += 1
+
+        table = [
+            _cellules(ligne) for ligne in lignes[debut:fin]
+            if _cellules(ligne) and not _SEPARATEUR.match(ligne)
+        ]
+        debut = fin
+        if len(table) < 3:
+            continue
+
+        entetes, corps = table[0], table[1:]
+        totaux = [r for r in corps if r and _INTITULE_TOTAL.search(r[0])]
+        termes = [
+            r for r in corps
+            if r and not _INTITULE_TOTAL.search(r[0]) and not _INTITULE_PARTIEL.search(r[0])
+        ]
+        if len(totaux) != 1 or not termes:
+            continue
+        total = totaux[0]
+
+        for colonne in range(1, min(len(entetes), len(total))):
+            annonce = _valeur(re.sub(r"[^\d,.\s ]", "", total[colonne]))
+            if annonce is None:
+                continue
+            valeurs = [
+                _valeur(re.sub(r"[^\d,.\s ]", "", r[colonne]))
+                for r in termes if colonne < len(r)
+            ]
+            if not valeurs or any(v is None for v in valeurs):
+                continue
+            somme = sum(v for v in valeurs if v is not None)
+            if _ecart_trop_grand(annonce, somme, _decimales(total[colonne])):
+                fautes.append(TotalFaux(
+                    colonne=entetes[colonne] or f"colonne {colonne}",
+                    annonce=annonce, somme=somme,
+                ))
+
+    return fautes

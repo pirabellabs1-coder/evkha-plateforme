@@ -993,7 +993,7 @@ def _check_arithmetique(
     termes et le résultat. Deviner un terme manquant produirait des motifs
     faux, et ce projet a mesuré ce qu'ils coûtent.
     """
-    from .arithmetique import verifier  # noqa: PLC0415
+    from .arithmetique import totaux_faux, verifier  # noqa: PLC0415
 
     failures: list[GateFailure] = []
     for section in sections:
@@ -1002,6 +1002,13 @@ def _check_arithmetique(
                 check="calcul_faux",
                 chapter_number=section.number,
                 detail=str(faute),
+            ))
+        # Les tableaux qui ANNONCENT un total : la somme se refait, elle aussi.
+        for total in totaux_faux(section.body):
+            failures.append(GateFailure(
+                check="calcul_faux",
+                chapter_number=section.number,
+                detail=str(total),
             ))
     return failures
 
