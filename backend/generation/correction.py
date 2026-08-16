@@ -70,6 +70,15 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
         # lui-meme — un motif que la boucle ne sait pas reparer bloque sans
         # jamais aboutir, et c'est le defaut qu'on repare toute la journee.
         "calcul_faux",
+        # Un chapitre qui declare « non traite » un sujet traite ailleurs se
+        # repare en le REECRIVANT : le motif nomme les mots concernes, et c'est
+        # exactement ce dont le redacteur a besoin.
+        #
+        # Ajoute le 13/08/2026 apres un audit des motifs non corrigeables :
+        # depuis que la livraison ne s'arrete plus, un motif que la boucle ne
+        # sait pas traiter part chez le client SANS avoir ete retente. Le
+        # laisser dehors, c'etait garantir qu'il arrive tel quel.
+        "demande_contredite",
         # Nouveaux checks transverses (checks_post_rendu).
         "troncature_rendu",
         "doublon_titre",
@@ -135,6 +144,7 @@ _CHECK_LABELS = {
     "contamination": "Marqueur technique interne présent dans le texte (interdit)",
     "coherence_chiffree": "Chiffre incohérent avec le prévisionnel client",
     "calcul_faux": "Calcul dont le résultat ne découle pas de ses termes",
+    "demande_contredite": "Sujet déclaré « non traité » alors qu'il l'est ailleurs",
     "troncature": "Chapitre coupé / phrase ou structure non terminée",
     "ordre_de_grandeur": "Erreur d'unité : montant hors d'échelle (millions/milliers)",
     "troncature_rendu": "Chapitre tronqué : la dernière phrase n'a pas de ponctuation forte",
