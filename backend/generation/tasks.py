@@ -228,7 +228,34 @@ def run_generation_job_task(job_id: str) -> str:
         # actionnables de toutes — « dédupliquer les deux entrées Xerfi du
         # tableau 21.2 » se corrige mieux que « incohérence détectée ».
         from .correction import run_correction_loop  # noqa: PLC0415
-        report = run_correction_loop(job, inclure_les_checks=True)
+
+        # LA CORRECTION NE DOIT PAS EMPORTER LA LIVRAISON AVEC ELLE.
+        #
+        # Etude concurrentielle `b6cb8076`, 13/08/2026 : dix chapitres sur dix,
+        # 1,96 € payes, et RIEN — ni assemblage, ni email. La boucle de
+        # correction avait bute sur le chapitre 8, son exception a traverse, et
+        # tout ce qui suit — assemblage, livraison — n'a jamais ete atteint.
+        #
+        # La correction est une AMELIORATION du document, pas sa condition
+        # d'existence. Un document imparfait mais complet vaut infiniment mieux
+        # qu'un document parfait qui n'arrive jamais : c'est la meme lecon que
+        # « un chapitre qui coince ne tue plus l'etude » (02/08) et que le CHECK
+        # INITIAL cesse d'etre fatal (12/08), appliquee un cran plus loin.
+        #
+        # L'echec est journalise et le gate rejoue sur le document tel qu'il
+        # est : le rapport dira ce qui n'a pas pu etre corrige, et la suite
+        # s'execute normalement.
+        try:
+            report = run_correction_loop(job, inclure_les_checks=True)
+        except Exception:  # noqa: BLE001 — la correction n'est pas la livraison
+            import logging  # noqa: PLC0415
+
+            logging.getLogger(__name__).exception(
+                "Boucle de correction interrompue pour le job %s : le document "
+                "part tel quel, le gate tranche sur son etat reel.", job.id,
+            )
+            from .gate import run_delivery_gate  # noqa: PLC0415
+            report = run_delivery_gate(job)
 
         if not report.passed:
             # LE DOCUMENT PART QUAND MÊME. Décision cliente du 13/08/2026 :
