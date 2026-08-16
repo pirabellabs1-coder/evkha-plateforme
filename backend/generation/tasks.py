@@ -196,8 +196,32 @@ def run_generation_job_task(job_id: str) -> str:
 
     if job.status == JobStatus.DONE:
         # ── Passe QA (corrective) ───────────────────────────────────────────
+        #
+        # AUCUNE ETAPE D'AMELIORATION NE DOIT EMPORTER LA LIVRAISON.
+        #
+        # Business plan `b8da2640`, 13/08/2026 : 21 chapitres sur 22, 3,55 €
+        # payes, `qa_status` reste a `failed` — et aucun document, aucun email.
+        # Une exception levee ENTRE la passe QA et le gate faisait sortir toute
+        # la fin du pipeline, assemblage compris.
+        #
+        # Le correctif precedent protegeait la seule boucle de correction. Le
+        # principe etait juste, applique un cran trop bas : c'est la SEQUENCE
+        # entiere d'amelioration — QA, controle de couverture, correction —
+        # qui doit pouvoir echouer sans detruire ce qui est ecrit.
+        #
+        # Chaque etape journalise son echec ; aucune ne decide plus si le
+        # document existe.
+        import logging  # noqa: PLC0415
+
+        _journal = logging.getLogger(__name__)
+
         from .qa import run_qa_pass  # noqa: PLC0415
-        run_qa_pass(job)
+        try:
+            run_qa_pass(job)
+        except Exception:  # noqa: BLE001 — la QA n'est pas la livraison
+            _journal.exception(
+                "Passe QA interrompue pour le job %s : la suite continue.", job.id
+            )
 
         # ── Boucle d'auto-correction + gate de livraison (bloquant) ─────────
         # Avant de bloquer, on régénère les chapitres fautifs (contamination,
@@ -215,7 +239,12 @@ def run_generation_job_task(job_id: str) -> str:
         # Le résultat ne BLOQUE pas : il nomme. Un approfondissement
         # automatique réécrirait des chapitres, donc dépenserait, et ce projet
         # a appris quatre fois qu'on règle mal ce qu'on n'a pas d'abord mesuré.
-        _controler_les_demandes_du_client(job)
+        try:
+            _controler_les_demandes_du_client(job)
+        except Exception:  # noqa: BLE001 — un controle n'est pas la livraison
+            _journal.exception(
+                "Controle de couverture interrompu pour le job %s.", job.id
+            )
 
         # `inclure_les_checks=True` : la boucle automatique corrige AUTANT que
         # la reprise manuelle. Décision cliente du 13/08/2026 — « les points
