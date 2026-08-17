@@ -254,9 +254,32 @@ _MOTS_DE_RUPTURE = re.compile(
     r"\b(?:mais|toutefois|cependant|contre|au\s+lieu\s+de|superieur\s+a|"
     r"inferieur\s+a|annuit[eé]|salaire|charges?|amortissement|"
     r"remboursement|loyer|prix|tarif|cout|budget|"
-    r"subvention|remuneration)\b",
+    r"subvention|remuneration"
+    # Mesures du business plan 73dde3ab, 17/08/2026. « Part de l'apport dans
+    # le besoin total de 195 000 EUR » liait 195 000 a l'apport : le montant
+    # appartient a l'agregat que la preposition vient de nommer.
+    r"|besoin\s+total|besoin\s+de\s+financement|financement\s+global"
+    r"|masse\s+salariale|chiffre\s+d['’]affaires"
+    # « marge brute unitaire de 4,68 EUR » face a « la marge brute de
+    # l'exercice 1 s'eleve a 230 400 EUR » : ce n'est pas la meme grandeur,
+    # et les opposer produisait une divergence sur un document juste.
+    r"|unitaire|par\s+unit[eé]|par\s+ticket|par\s+client)\b",
     re.IGNORECASE,
 )
+
+#: Une phrase qui se termine emporte son sujet avec elle.
+#:
+#: « ...et du taux de marge brute. La masse salariale prevsionnelle represente
+#: a elle seule 70 000 euros » : 70 000 ne dit rien de la marge brute, il
+#: appartient a la phrase suivante. La fenetre de 100 caracteres traversait
+#: les points sans les voir.
+_FIN_DE_PHRASE = re.compile(r"[.!?]\s")
+
+#: Au-dela d'une cellule franchie, le montant est ailleurs dans le tableau.
+#:
+#: « Seuil de rentabilite annuel | donnees du projet | 195 000 EUR » : une
+#: barre separe un libelle de SA valeur, deux barres separent deux lignes.
+_CELLULES_MAX_FRANCHIES = 1
 
 # Ecart relatif tolere entre deux mentions du meme libelle et de la meme annee.
 # Zero est trop strict : 168 622 arrondi a 168 600 n'est pas une incoherence.
@@ -339,6 +362,24 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             if not _CONNECTEURS_VALEUR.search(entre):
                 continue
             if _MOTS_DE_RUPTURE.search(entre):
+                continue
+            if _FIN_DE_PHRASE.search(entre):
+                continue
+            if entre.count("|") > _CELLULES_MAX_FRANCHIES:
+                continue
+            # Un AUTRE libelle surveille entre les deux : le montant est le
+            # sien. « ...un point de marge brute en moins ramenerait
+            # l'excedent brut d'exploitation a 34 800 euros » — 34 800 est
+            # l'EBE, et l'EBE est deja surveille pour lui-meme.
+            #
+            # Regle 4 : viser la CLASSE. Enumerer les concepts voisins serait
+            # sans fin, alors que la liste de ce qui est surveille EST la
+            # liste de ce qui peut se confondre — et elle se tient a jour
+            # toute seule (regle 5).
+            if any(
+                autre != cle and re.search(motif_autre, entre, re.IGNORECASE)
+                for autre, motif_autre in _LIBELLES_SURVEILLES.items()
+            ):
                 continue
 
             base = to_base_units(

@@ -873,6 +873,26 @@ def detecter_demandes_contredites(
     return defauts
 
 
+#: Distance sous laquelle deux mots appartiennent encore a la meme locution.
+#: « canaux d'acquisition des concurrents » tient en moins de cent caracteres ;
+#: deux verbes pris a deux paragraphes d'ecart, non.
+_VOISINAGE_D_UN_SUJET = 100
+
+
+def _se_touchent(mots: list[str], texte: str) -> bool:
+    """Vrai si deux de ces mots se retrouvent cote a cote dans ce chapitre."""
+    positions: list[tuple[int, str]] = [
+        (occurrence.start(), mot)
+        for mot in mots
+        for occurrence in re.finditer(re.escape(mot), texte)
+    ]
+    positions.sort()
+    return any(
+        suivant[0] - courant[0] <= _VOISINAGE_D_UN_SUJET and suivant[1] != courant[1]
+        for courant, suivant in zip(positions, positions[1:], strict=False)
+    )
+
+
 def _contradictions_de_la_section(
     numero: int,
     corps: str,
@@ -915,6 +935,21 @@ def _contradictions_de_la_section(
             if 0 < sum(1 for _, texte in autres if mot in texte) <= plafond
         )
         if len(communs) < _MOTS_COMMUNS_MIN:
+            continue
+        # VOISINS, et pas seulement presents. Un sujet est une LOCUTION :
+        # « canaux d'acquisition » se retrouve ailleurs cote a cote. Des mots
+        # epars qui se croisent aux quatre coins d'un chapitre ne prouvent
+        # rien.
+        #
+        # Business plan 73dde3ab (17/08/2026) : le controle a conclu a une
+        # contradiction au chapitre 20 sur « indique, initial, partiellement,
+        # reprend ». Quatre mots assez longs, assez rares — et pourtant aucun
+        # sujet : deux verbes, un adjectif, un adverbe, ramasses dans une
+        # phrase de justification. La distinctivite seule ne les separait pas
+        # d'un vrai sujet ; leur DISPERSION, si.
+        if not any(
+            _se_touchent(communs, texte) for _, texte in autres
+        ):
             continue
         defauts.append(DemandeContredite(
             chapitre=numero,
