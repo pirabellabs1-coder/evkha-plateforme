@@ -652,6 +652,43 @@ def valider_socle(socle: Socle, deliverable_type: str) -> list[str]:
     return motifs
 
 
+def reparer_les_filiations(socle: Socle) -> list[str]:
+    """Retire les filiations qui pointent vers une donnée absente.
+
+    ## Le défaut, mesuré
+
+    17/08/2026, étude de concurrence `8cc1be56` : « Socle non recevable après
+    3 tentative(s) : `marche_regional_taille` déclare dériver de
+    `ca_moyen_concurrent`, absent du socle. » Zéro chapitre, zéro centime, et
+    un livrable perdu avant d'exister.
+
+    Les deux données sont FACULTATIVES au référentiel. Le modèle a produit la
+    première en annotant sa provenance, sans fournir la seconde — et il a
+    refait le même geste aux trois tentatives.
+
+    ## Pourquoi réparer plutôt que refuser
+
+    `derivee_de` est une annotation de PROVENANCE, pas une valeur. Quand elle
+    pointe vers rien, c'est l'annotation qui est fausse, pas le chiffre : le
+    refuser revient à jeter tout un socle pour une note de bas de page.
+
+    Retirer le lien laisse la donnée debout, avec sa source propre, et sans
+    prétendre à une filiation invérifiable — une affirmation fausse en moins.
+    C'est le même arbitrage que `reparer_la_grille`, et pour la même raison :
+    à la dernière tentative, le refus ne fait plus corriger le modèle, il tue
+    l'étude.
+    """
+    orphelines: list[str] = []
+    presents = socle.identifiants
+    for item in socle.donnees:
+        absentes = [parent for parent in item.derivee_de if parent not in presents]
+        if not absentes:
+            continue
+        item.derivee_de = [p for p in item.derivee_de if p in presents]
+        orphelines.extend(f"{item.id} ← {parent}" for parent in absentes)
+    return orphelines
+
+
 def reparer_la_grille(socle: Socle) -> list[str]:
     """Rend la grille recevable en retirant ce qui ne compare rien.
 

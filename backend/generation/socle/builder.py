@@ -14,7 +14,12 @@ from pydantic import ValidationError
 
 from .prompt import construire_prompt_socle
 from .referentiel import identifiants_pour, livrable_couvert
-from .schema import Socle, reparer_la_grille, valider_socle
+from .schema import (
+    Socle,
+    reparer_la_grille,
+    reparer_les_filiations,
+    valider_socle,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -120,6 +125,13 @@ def _analyser(
         return None, motifs
 
     if dernier_recours:
+        orphelines = reparer_les_filiations(socle)
+        if orphelines:
+            _log.warning(
+                "Socle : filiations retirees faute de parent — %s. La donnee "
+                "reste, sa provenance declaree ne pointait vers rien.",
+                ", ".join(orphelines),
+            )
         retires = reparer_la_grille(socle)
         if retires:
             _log.warning(
