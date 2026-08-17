@@ -99,7 +99,7 @@ DEMANDES: list[tuple[str, str, str, str]] = [
     ("V3", "Balisage interdit", "AUCUN FORMAT DE DONNÉES", "S"),
     ("V3", "Données brutes bannies", "points-virgules", "S"),
     ("V3", "SWOT conclusive", "CROISEMENT des cases", "P"),
-    ("V3", "Unités lisibles dans le socle", "1.2 Md€", "P"),
+    ("V3", "Unités lisibles dans le socle", "1,2 Md€", "P"),
     ("V3", "Quatre questions par chapitre", "QUATRE questions", "P"),
     ("V3", "Échelle de notation 1-5", "5 référence du secteur", "P"),
     ("V3", "Verdict de clôture (dernier chapitre)", "VERDICT DE CLÔTURE", "D"),

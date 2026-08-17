@@ -185,11 +185,16 @@ def test_chaque_identifiant_porte_sa_nature(socle: Socle) -> None:
     # `Md€`, pas `MdEUR`. Le modèle recopie ce qu'il lit : lui montrer la
     # notation de stockage, c'est la retrouver dans la prose du client
     # (retour cliente du 09/08/2026, « remplacer MEUR par 6,8 Md€ »).
-    assert "`tam` = 1.2 Md€ [monetaire]" in prompt
-    assert "`nombre_entreprises` = 4200.0  [effectif]" in prompt
-    assert "`croissance` = 3.4 % [pourcentage]" in prompt
-    assert "`delai_moyen` = 8.0 mois [duree]" in prompt
-    assert "`note_maturite` = 3.5 /5 [ratio]" in prompt
+    # La VALEUR est écrite comme le document l'écrira, elle aussi : virgule
+    # décimale française, séparateur de milliers, et pas de « ,0 » sur un
+    # entier. La demande de la cliente portait sur le couple valeur+unité
+    # (« 6,8 Md€ », « 1,02 Md€ », « 600 k€ ») ; seule l'unité avait suivi, et
+    # un business plan livré le 17/08/2026 portait « 16 500 000 000 euros ».
+    assert "`tam` = 1,2 Md€ [monetaire]" in prompt
+    assert "`nombre_entreprises` = 4 200 [effectif]" in prompt
+    assert "`croissance` = 3,4 % [pourcentage]" in prompt
+    assert "`delai_moyen` = 8 mois [duree]" in prompt
+    assert "`note_maturite` = 3,5 /5 [ratio]" in prompt
 
 
 @pytest.mark.django_db
@@ -214,5 +219,5 @@ def test_une_unite_inconnue_ne_se_tait_pas(socle: Socle) -> None:
 
     prompt = _prompt(DeliverableType.MARKET_STUDY, socle)
 
-    assert "`grandeur_exotique` = 42.0 parsec [inconnue]" in prompt
+    assert "`grandeur_exotique` = 42 parsec [inconnue]" in prompt
     assert "[]" not in prompt

@@ -89,6 +89,71 @@ def unite_lisible(unite: str) -> str:
     return _UNITE_LISIBLE.get(unite, unite)
 
 
+#: Les échelles qu'un business plan écrit, de la plus grande à la plus petite.
+_ECHELLES: tuple[tuple[float, str], ...] = ((1e9, "Md"), (1e6, "M"))
+
+
+def _nombre_francais(valeur: float) -> str:
+    """« 16.5 » → « 16,5 » ; « 320000.0 » → « 320 000 » ; « 1.02 » → « 1,02 ».
+
+    La précision du nombre est CELLE QU'IL PORTE, jamais un arrondi imposé :
+    la cliente cite « 1,02 Md€ » parmi les formats qu'elle attend, et une
+    version qui forçait une décimale l'aurait écrit « 1,0 Md€ ».
+    """
+    if valeur == int(valeur):
+        return f"{int(valeur):,}".replace(",", " ")
+    texte = f"{valeur:,.3f}".rstrip("0").rstrip(".")
+    return texte.replace(",", " ").replace(".", ",")
+
+
+def montant_lisible(valeur: float, unite: str) -> str:
+    """La valeur ET son unité telles qu'elles doivent APPARAÎTRE.
+
+    ## Le défaut, mesuré
+
+    `unite_lisible` traduisait déjà `MdEUR` en `Md€`, à la demande de la
+    cliente du 09/08/2026 : « remplacer les unités techniques comme MEUR par
+    des formats plus simples : 6,8 Md€, 1,02 Md€, 600 k€ ». L'unité a été
+    traduite ; **la valeur, elle, n'a jamais été mise à l'échelle**.
+
+    Le socle écrivait donc au modèle `= 16500000000.0 €`, et le modèle
+    recopiait consciencieusement. Le business plan 73dde3ab du 17/08/2026
+    portait « un secteur qui pèse 16 500 000 000 euros » — cinq fois. Aucun
+    document financier n'écrit un nombre à dix chiffres ; il écrit 16,5 Md€.
+    Personne ne l'avait signalé parce que le chiffre était JUSTE : seule sa
+    forme était illisible, et aucun contrôle ne juge la forme d'un nombre.
+
+    ## Pourquoi on ne convertit pas toujours
+
+    Une conversion qui arrondit change la donnée. « 3 287 400 € » deviendrait
+    « 3,3 M€ », et un chapitre qui recalcule à partir de là diverge de celui
+    qui a lu la valeur exacte — c'est un défaut d'incohérence fabriqué par le
+    confort de lecture.
+
+    On ne convertit donc que si la valeur s'écrit EXACTEMENT à la nouvelle
+    échelle avec au plus une décimale. 16,5 Md€ oui ; 3 287 400 € reste tel
+    quel. Rien ne se perd, et ce qui reste long est long parce qu'il le doit.
+    """
+    decompose = _decomposer_unite_monetaire(unite)
+    if decompose is None:
+        lisible = unite_lisible(unite)
+        return f"{_nombre_francais(valeur)} {lisible}".strip()
+
+    magnitude, devise = decompose
+    symbole = _SYMBOLE_DEVISE.get(devise, devise)
+    if magnitude:
+        # Déjà exprimée à une échelle (`MdEUR`) : la valeur lui correspond.
+        return f"{_nombre_francais(valeur)} {magnitude}{symbole}"
+
+    for seuil, prefixe in _ECHELLES:
+        if abs(valeur) < seuil:
+            continue
+        reduit = round(valeur / seuil, 1)
+        if abs(reduit * seuil - valeur) < 1.0:
+            return f"{_nombre_francais(reduit)} {prefixe}{symbole}"
+    return f"{_nombre_francais(valeur)} {symbole}"
+
+
 def unites_autorisees(famille: FamilleUnite) -> tuple[str, ...]:
     if famille is FamilleUnite.MONETAIRE:
         return unites_monetaires()

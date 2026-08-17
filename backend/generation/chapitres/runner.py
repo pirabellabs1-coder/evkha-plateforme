@@ -18,7 +18,7 @@ from integrations.claude import SYSTEM_CACHE_BREAK
 
 from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, ChapterStatus, GenerationJob
-from ..socle.schema import Socle, famille_de_l_unite, unite_lisible
+from ..socle.schema import Socle, famille_de_l_unite, montant_lisible
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
@@ -364,7 +364,7 @@ def _bloc_socle(socle: Socle) -> str:
     # notation de stockage, c'est la retrouver dans la prose du client, et
     # aucun rendu ne la rattrape a ce stade (retour cliente du 09/08/2026).
     lignes = [
-        f"- `{d.id}` = {d.valeur} {unite_lisible(d.unite)} [{_nature(d.unite)}]"
+        f"- `{d.id}` = {montant_lisible(d.valeur, d.unite)} [{_nature(d.unite)}]"
         f" ({d.annee}, {d.perimetre}, {d.fiabilite})"
         + (f" — {d.libelle}" if d.libelle else "")
         + (f" — source : {d.source}" if d.source else "")

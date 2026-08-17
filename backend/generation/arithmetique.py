@@ -413,6 +413,21 @@ def _cellules(ligne: str) -> list[str]:
     return [c.strip() for c in trouve.group("cellules").split("|")] if trouve else []
 
 
+#: Les écritures d'une même monnaie. « 20 000 € » et « 20 000 euros » sont la
+#: même unité ; « 3 personnes » n'en est pas une.
+_MEME_MONNAIE = frozenset({"€", "euro", "euros", "eur"})
+
+
+def _unite_de_cellule(cellule: str) -> str:
+    """Ce qui reste d'une cellule quand on lui retire son nombre.
+
+    « 20 000 euros » → « € ». « 3 personnes » → « personnes ». « 12 » → « ».
+    Sert à refuser d'additionner deux grandeurs qui ne se comparent pas.
+    """
+    reste = re.sub(r"[\d.,\s  ]", "", cellule).strip().lower()
+    return "€" if reste in _MEME_MONNAIE else reste
+
+
 def totaux_faux(texte: str) -> list[TotalFaux]:
     """Les totaux annoncés qu'un tableau ne vérifie pas.
 
@@ -460,18 +475,40 @@ def totaux_faux(texte: str) -> list[TotalFaux]:
             continue
 
         entetes, corps = table[0], table[1:]
-        totaux = [r for r in corps if r and _INTITULE_TOTAL.search(r[0])]
-        termes = [
-            r for r in corps
-            if r and not _INTITULE_TOTAL.search(r[0]) and not _INTITULE_PARTIEL.search(r[0])
-        ]
-        if len(totaux) != 1 or not termes:
+        # Un total est la DERNIÈRE ligne, pas n'importe quelle ligne qui porte
+        # le mot. Sans cette condition, « Investissement total (aménagement,
+        # matériel, droit au bail) | 180 000 € » — première ligne d'un plan de
+        # financement — passait pour la somme des cinq lignes suivantes, et le
+        # contrôle annonçait 405 000 contre 180 000 sur un tableau juste. Même
+        # mécanique avec « Effectif total exercice 1 | 3 personnes », comparé à
+        # 70 000 euros de masse salariale. Mesuré sur le business plan 73dde3ab
+        # du 17/08/2026, deux motifs faux sur trois.
+        #
+        # Les lignes partielles (« dont », « soit », « sous-total ») ne comptent
+        # pas dans cette position : un tableau qui détaille son total après
+        # l'avoir posé reste lisible.
+        principaux = [r for r in corps if r and not _INTITULE_PARTIEL.search(r[0])]
+        if len(principaux) < 2 or not _INTITULE_TOTAL.search(principaux[-1][0]):
             continue
-        total = totaux[0]
+        total = principaux[-1]
+        termes = [r for r in principaux[:-1] if not _INTITULE_TOTAL.search(r[0])]
+        if len(termes) != len(principaux) - 1 or not termes:
+            continue
 
         for colonne in range(1, min(len(entetes), len(total))):
             annonce = _valeur(re.sub(r"[^\d,.\s ]", "", total[colonne]))
             if annonce is None:
+                continue
+            # Un total ne s'exprime pas dans une autre unité que ses termes.
+            # « Effectif total exercice 1 | 3 personnes » clôt un tableau dont
+            # les lignes valent « 20 000 euros » : c'est un effectif, pas une
+            # somme d'argent, et le contrôle annonçait « total de 3,00 contre
+            # 70 000 ». Deux grandeurs différentes ne s'additionnent pas — on
+            # s'abstient plutôt que d'accuser.
+            unites = {
+                _unite_de_cellule(r[colonne]) for r in termes if colonne < len(r)
+            }
+            if len(unites) == 1 and _unite_de_cellule(total[colonne]) not in unites:
                 continue
             valeurs = [
                 _valeur(re.sub(r"[^\d,.\s ]", "", r[colonne]))
