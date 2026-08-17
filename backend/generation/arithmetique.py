@@ -315,6 +315,30 @@ _MONTANT_SOURCE = re.compile(
     re.IGNORECASE,
 )
 
+#: Un nom d'organisme porte au plus un nombre — son millésime.
+#:
+#: Le motif de source lit « un montant, une parenthèse, puis l'origine ». Il
+#: prenait donc pour source le CALCUL qui suit un résultat. Mesuré sur le
+#: business plan 73dde3ab du 17/08/2026 :
+#:
+#:     Le montant 34,4 % est attribué à 3 sources différentes : « 320 000 € à
+#:     430 000 € » ; « (430 000 - 320 000 » ; « 430 000 moins 320 000,
+#:     rapportés à 320 000 ».
+#:
+#: Aucune des trois n'est une source. Ce sont les trois écritures d'une même
+#: division, et le document avait raison de les poser.
+#:
+#: Le discriminant tient en une phrase : « Insee, 2025 » porte un nombre,
+#: « 430 000 moins 320 000 » en porte trois. Chercher des mots ne marcherait
+#: pas — « moins », « rapportés à » en sont.
+_DEUX_NOMBRES = re.compile(rf"{_NOMBRE}\D+{_NOMBRE}")
+
+
+def _est_un_calcul(candidat: str) -> bool:
+    """Vrai si ce qu'on prend pour une source est en réalité une opération."""
+    return bool(_DEUX_NOMBRES.search(candidat))
+
+
 #: Ce qui n'est pas une source mais une précision : « (2025) », « (estimation) ».
 _PAS_UNE_SOURCE = re.compile(
     r"^\s*(?:\d{4}|estimation|estimé\w*|prévision\w*|hypothèse|projection)\s*$",
@@ -362,7 +386,7 @@ def sources_divergentes(textes: list[str]) -> list[SourceDivergente]:
     for texte in textes:
         for m in _MONTANT_SOURCE.finditer(texte):
             source = " ".join(m.group("source").split()).strip(" ,;")
-            if not source or _PAS_UNE_SOURCE.match(source):
+            if not source or _PAS_UNE_SOURCE.match(source) or _est_un_calcul(source):
                 continue
             cle = f"{re.sub(r'[    ]', '', m.group('montant'))} {m.group('unite')}"
             connues = par_montant.setdefault(cle, [])
