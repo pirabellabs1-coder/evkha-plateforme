@@ -14,11 +14,48 @@ from pydantic import ValidationError
 
 from .prompt import construire_prompt_socle
 from .referentiel import identifiants_pour, livrable_couvert
-from .schema import Socle, valider_socle
+from .schema import (
+    Socle,
+    reparer_la_grille,
+    reparer_les_filiations,
+    valider_socle,
+)
 
 _log = logging.getLogger(__name__)
 
 OUTIL_NOM = "produire_socle"
+
+#: Plafond de SORTIE de l'appel qui produit le socle.
+#:
+#: ## Le défaut mesuré
+#:
+#: 12/08/2026, reprise `779862a5` : « Socle non recevable après 3 tentatives :
+#: le modèle n'a produit aucun appel d'outil exploitable. » Zéro chapitre, là
+#: où le dossier d'origine en produisait vingt-et-un.
+#:
+#: La charge revenait VIDE. Le client cherche un bloc `tool_use` dans la
+#: réponse ; quand elle est coupée en plein appel d'outil, il n'en trouve
+#: aucun et rend `{}` — un motif qui accuse le modèle alors que c'est la
+#: fenêtre qui manquait.
+#:
+#: Ce qui a changé le même jour : le socle d'un business plan réclame
+#: désormais la base concurrents (onze acteurs à neuf champs, une grille et ses
+#: cinquante-cinq notes) EN PLUS de son prévisionnel financier. Son prompt est
+#: passé de 11 000 à 15 000 signes, et sa charge de sortie a grossi d'autant.
+#: L'étude concurrentielle tenait dans 8 192 jetons parce qu'elle n'a pas le
+#: prévisionnel ; le business plan porte les deux.
+#:
+#: ## Pourquoi élargir plutôt que rogner
+#:
+#: Rogner la demande — moins de concurrents pour un business plan — est
+#: probablement la bonne réponse de fond, mais elle exige un CHIFFRE, et ce
+#: chiffre appartient à la cliente (voir le commentaire de
+#: `_BASE_CONCURRENTS` dans `socle/prompt.py`). Une fenêtre trop étroite, elle,
+#: n'est la réponse à aucune question : elle coupe le travail au milieu.
+#:
+#: Le plafond ne coûte rien en soi — seuls les jetons RÉELLEMENT produits sont
+#: facturés. Il autorise, il ne dépense pas.
+_PLAFOND_DE_SORTIE_SOCLE = 16384
 OUTIL_DESCRIPTION = (
     "Enregistre le socle de données chiffrées de l'étude. Chaque donnée porte "
     "un identifiant du référentiel imposé, une valeur numérique, une unité, "
@@ -65,8 +102,16 @@ def schema_outil(deliverable_type: str) -> dict[str, Any]:
     return schema
 
 
-def _analyser(charge: dict[str, Any], deliverable_type: str) -> tuple[Socle | None, list[str]]:
-    """Valide la charge utile. Retourne (socle, motifs). Socle non nul = accepté."""
+def _analyser(
+    charge: dict[str, Any], deliverable_type: str, *, dernier_recours: bool = False
+) -> tuple[Socle | None, list[str]]:
+    """Valide la charge utile. Retourne (socle, motifs). Socle non nul = accepté.
+
+    `dernier_recours` répare la grille de notation au lieu de la refuser. Voir
+    `reparer_la_grille` : sur les premières tentatives le refus fait corriger
+    le modèle, mais à la dernière il tuerait l'étude avant son premier
+    chapitre — ce qui est arrivé à `6a44baff` le 10/08/2026.
+    """
     if not charge:
         return None, ["Le modèle n'a produit aucun appel d'outil exploitable."]
 
@@ -78,6 +123,22 @@ def _analyser(charge: dict[str, Any], deliverable_type: str) -> tuple[Socle | No
             for item in erreur.errors()[:12]
         ]
         return None, motifs
+
+    if dernier_recours:
+        orphelines = reparer_les_filiations(socle)
+        if orphelines:
+            _log.warning(
+                "Socle : filiations retirees faute de parent — %s. La donnee "
+                "reste, sa provenance declaree ne pointait vers rien.",
+                ", ".join(orphelines),
+            )
+        retires = reparer_la_grille(socle)
+        if retires:
+            _log.warning(
+                "Socle : critères retirés faute d'acteurs notés — %s. "
+                "Les figures qui les citaient seront abandonnées avec un motif.",
+                ", ".join(retires),
+            )
 
     motifs = valider_socle(socle, deliverable_type)
     if motifs:
@@ -93,7 +154,7 @@ def produire_socle(
     deliverable_type: str,
     variables: Mapping[str, object],
     brief_recherche: str = "",
-    max_tokens: int = 8192,
+    max_tokens: int = _PLAFOND_DE_SORTIE_SOCLE,
 ) -> tuple[Socle, dict[str, int], int]:
     """Produit et valide le socle.
 
@@ -132,7 +193,11 @@ def produire_socle(
         consommation["input_tokens"] += resultat.input_tokens
         consommation["output_tokens"] += resultat.output_tokens
 
-        socle, motifs = _analyser(dict(resultat.payload), deliverable_type)
+        socle, motifs = _analyser(
+            dict(resultat.payload),
+            deliverable_type,
+            dernier_recours=tentative == MAX_TENTATIVES,
+        )
         if socle is not None:
             return socle, consommation, tentative
 

@@ -366,7 +366,7 @@ def test_gate_bloque_troncature(bp_submission: IntakeSubmission) -> None:
 
 
 @pytest.mark.django_db
-def test_task_bloque_la_livraison_si_gate_echoue(
+def test_task_livre_et_trace_si_le_gate_ne_passe_pas(
     bp_submission: IntakeSubmission, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Integration tasks.py : gate KO -> qa BLOCKED + incident + PAS d'email."""
@@ -398,11 +398,26 @@ def test_task_bloque_la_livraison_si_gate_echoue(
     generation_tasks.run_generation_job_task(str(job.id))
     job.refresh_from_db()
 
+    # LE DOCUMENT PART QUAND MÊME depuis le 13/08/2026 — décision cliente :
+    # « l'envoi du document doit être auto et sans aucune action de ma part ».
+    #
+    # Sur les quatre motifs qu'elle a relevés ce jour-là, TROIS étaient faux :
+    # un identifiant refusé alors que notre propre consigne demande de
+    # l'écrire, un mot de son métier pris pour du jargon interne, un titre en
+    # gras compté comme phrase tronquée. Retenir un livrable payé sur des
+    # motifs que nous inventons, puis lui demander de trancher, revenait à lui
+    # faire porter nos défauts.
+    #
+    # Ce que ce test garde : la TRACE. L'incident reste, en HIGH, et le statut
+    # reste BLOCKED — ce qui n'a pas pu être fermé doit se voir. Seule l'attente
+    # disparaît.
     assert job.qa_status == QAStatus.BLOCKED
     assert OperationalIncident.objects.filter(
         title__startswith="Gate qualité", job=job
     ).exists()
-    assert not DeliveryBatch.objects.filter(order=job.order).exists()
+    assert DeliveryBatch.objects.filter(order=job.order).exists(), (
+        "le document doit partir malgré les points non résolus"
+    )
 
 
 @pytest.mark.django_db

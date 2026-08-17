@@ -51,6 +51,32 @@ _STRUCTURES_STRUCTURELLES = (
     re.compile(r"[|+-]\s*$"),                                    # fin de tableau
     re.compile(r"</?[a-zA-Z][^>]*>\s*$"),                        # balise HTML
     re.compile(r"```\s*$"),                                       # fin de code fence
+    # Marqueur graphique du moteur structuré : un `BlocGraphique` sérialisé
+    # par `payload_vers_markdown`, résolu en figure au rendu. Un chapitre a le
+    # DROIT de se fermer sur une figure — le contrat le permet — et le job
+    # réel `026fecea` (10/08/2026) s'est fait compter « tronqué » pour avoir
+    # terminé « Sources et méthodologie » sur son graphique tarifaire. Motif
+    # faux : rien n'était perdu, le rendu allait dessiner la figure.
+    re.compile(r"-->\s*$"),                                       # fin de commentaire
+    # Une ligne qui se termine par une URL complète est une ligne complète :
+    # « … rachat bijoux Paris depuis 1977 — https://www.interor.fr/ » est une
+    # référence de source, pas une phrase coupée. Le même recontrôle l'a
+    # comptée « perte probable de contenu client ». Le risque résiduel — une
+    # troncature qui tomberait PILE à la fin d'une URL valide — est accepté :
+    # l'inverse condamne chaque liste de sources du contrat.
+    re.compile(r"https?://\S+/?\s*$"),                            # référence sourcée
+    # Une ligne ENTIÈREMENT en gras est un TITRE, et un titre ne prend pas de
+    # point final. Le nettoyage des fioritures retirait les astérisques puis
+    # jugeait « Lecture de la fiche projet » comme une phrase inachevée.
+    #
+    # Relevé par la cliente le 13/08/2026, sur un chapitre retenu pour ce seul
+    # motif : « pourquoi c'est à nous de corriger ? ». Elle a raison — faire
+    # relire « il manque un point » à quelqu'un qui a payé un livrable est
+    # l'inverse d'un service, et le motif était FAUX en plus d'être trivial.
+    #
+    # La distinction tient : une vraie troncature — « auprès des prospects
+    # grandes mar » — n'est jamais encadrée par des astérisques.
+    re.compile(r"^\s*\*{2}[^*]+\*{2}\s*$"),                       # titre en gras
 )
 
 
@@ -724,3 +750,217 @@ __all__ = [
 # Deduplique le type d'import — evite l'avertissement sur `defaultdict`
 # quand un check en aurait besoin plus tard.
 _ = defaultdict
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 7. UNE DEMANDE DÉCLARÉE « NON TRAITÉE » QUI EST POURTANT TRAITÉE
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@dataclass(frozen=True)
+class DemandeContredite:
+    """Le document se contredit sur le sort d'une demande du client."""
+
+    chapitre: int
+    demande: str
+    ailleurs: int
+    detail: str
+
+
+#: Mots trop courants pour distinguer un sujet d'un autre. Sans ce filtre, la
+#: moindre demande partagerait ses mots avec tout le document et chaque statut
+#: « non traité » serait signalé — un contrôle qui crie toujours ne contrôle
+#: plus rien.
+_MOTS_TROP_COURANTS = frozenset({
+    "client", "clients", "marche", "marché", "projet", "etude", "étude",
+    "donnees", "données", "analyse", "analyser", "chapitre", "document",
+    "secteur", "France", "france", "entreprise", "entreprises", "acteurs",
+    "concurrents", "concurrent", "demande", "demandes", "information",
+    "informations", "elements", "éléments", "point", "points", "partie",
+})
+
+#: Une ligne qui statue « non traitée » sur une demande.
+_NON_TRAITE_RE = re.compile(r"non\s+trait[ée]e?s?\b", re.IGNORECASE)
+
+#: Un mot assez long pour porter un sujet. « canaux », « acquisition »,
+#: « fidélité » — pas « des », « pour », « avec ».
+_MOT_PORTEUR_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]{6,}")
+
+#: Combien de mots porteurs doivent se retrouver ailleurs pour conclure à la
+#: contradiction. DEUX, et non un : un seul mot commun arrive par hasard,
+#: deux mots longs d'une même demande, non.
+_MOTS_COMMUNS_MIN = 2
+
+#: Ce qui SÉPARE deux demandes écrites sur une même ligne.
+#:
+#: Une fenêtre en nombre de signes ne suffit pas : la doublure de la
+#: répétition à blanc empile trois demandes sur une ligne, et cent-vingt
+#: signes avant « non traitée » ramassaient la précédente — « la comparaison
+#: tarifaire couvre trois acteurs, voie de complément proposée en annexe ».
+#: Quatre mots, aucun du sujet jugé, et les quatre livrables signalés à tort.
+#:
+#: Le deux-points est ABSENT de la liste, volontairement : c'est lui qui
+#: introduit le plus souvent le statut — « analyser les canaux d'acquisition
+#: des concurrents : non traitée » — et couper dessus effacerait le sujet
+#: qu'on cherche.
+_FRONTIERES_DE_DEMANDE = (". ", " — ", " – ", "; ", "• ", "\t")
+
+
+def detecter_demandes_contredites(
+    sections: list[tuple[int, str, str]],
+) -> list[DemandeContredite]:
+    """Un sujet déclaré « non traité » alors que le document le traite.
+
+    ## Le défaut, signalé sur une étude notée 8,5/10
+
+    Cliente, 11/08/2026 : « les canaux d'acquisition sont bien analysés au
+    chapitre 3 puis déclarés "non traités" au chapitre 8 ; on dirait que ça ne
+    l'a pas pris en compte, et avoir un point non traité n'est pas très
+    acceptable dans une étude qui dit qu'elle va le faire ».
+
+    Elle a raison sur le fond : un point annoncé puis déclaré non traité est
+    pire qu'un point absent — il fait douter de tout le reste.
+
+    ## Pourquoi ce contrôle vaut pour les QUATRE livrables
+
+    Le chapitre de validation des demandes existe partout : étude
+    concurrentielle 8, stratégie 19, étude de marché 22, business plan 20. Le
+    contrôle des statuts, lui, ne vivait que dans la strategy EC, et il
+    vérifiait seulement qu'UN statut existe — jamais qu'il soit vrai. La
+    contradiction est une classe, pas un cas (règle 4).
+
+    ## Comment il évite de crier à tort
+
+    Une ligne « non traitée » livre ses mots PORTEURS — six lettres au moins,
+    hors vocabulaire commun à toute étude. Il en faut DEUX retrouvés dans un
+    autre chapitre pour conclure : un mot isolé se croise par hasard, deux
+    mots longs d'une même demande, non.
+
+    Le contrôle ne lit pas le SENS : il ne saura jamais qu'un sujet a été
+    survolé plutôt que traité. Il attrape la contradiction franche, celle que
+    la cliente a vue — et il le dit, plutôt que de laisser croire à une
+    garantie plus large (règle 1 dans l'autre sens).
+    """
+    # Le texte de chaque section, replié une seule fois. Le reconstruire à
+    # chaque tour rejoignait tout le document autant de fois qu'il a de
+    # chapitres — et surtout, on a besoin du DÉCOUPAGE pour compter dans
+    # combien de chapitres un mot apparaît, pas seulement s'il apparaît.
+    replies = [(numero, corps.casefold()) for numero, _titre, corps in sections]
+
+    defauts: list[DemandeContredite] = []
+    for numero, _titre, corps in sections:
+        autres = [(n, texte) for n, texte in replies if n != numero]
+        if not autres:
+            continue
+
+        # Un mot présent dans la MOITIÉ des autres chapitres ne désigne aucun
+        # sujet : c'est un mot de liaison.
+        #
+        # Business plan `5c5e91b9` (12/08/2026) : le contrôle a conclu à une
+        # contradiction au chapitre 20 sur « chaque, chiffrée, explicite,
+        # manque ». Quatre mots de six lettres ou plus, absents de la liste des
+        # mots trop courants — et présents dans presque tous les chapitres d'un
+        # document de vingt-deux. Le motif était faux.
+        #
+        # Rallonger la liste aurait été réparer l'instance : on ne connaît pas
+        # les quatre mots suivants. La DISTINCTIVITÉ, elle, se mesure — et un
+        # sujet réellement traité ailleurs ne sature pas le document entier,
+        # là où un mot de liaison le fait toujours (règle 4).
+        plafond = max(1, len(autres) // 2)
+        defauts.extend(
+            _contradictions_de_la_section(numero, corps, autres, plafond)
+        )
+    return defauts
+
+
+#: Distance sous laquelle deux mots appartiennent encore a la meme locution.
+#: « canaux d'acquisition des concurrents » tient en moins de cent caracteres ;
+#: deux verbes pris a deux paragraphes d'ecart, non.
+_VOISINAGE_D_UN_SUJET = 100
+
+
+def _se_touchent(mots: list[str], texte: str) -> bool:
+    """Vrai si deux de ces mots se retrouvent cote a cote dans ce chapitre."""
+    positions: list[tuple[int, str]] = [
+        (occurrence.start(), mot)
+        for mot in mots
+        for occurrence in re.finditer(re.escape(mot), texte)
+    ]
+    positions.sort()
+    return any(
+        suivant[0] - courant[0] <= _VOISINAGE_D_UN_SUJET and suivant[1] != courant[1]
+        for courant, suivant in zip(positions, positions[1:], strict=False)
+    )
+
+
+def _contradictions_de_la_section(
+    numero: int,
+    corps: str,
+    autres: list[tuple[int, str]],
+    plafond: int,
+) -> list[DemandeContredite]:
+    """Les demandes de CE chapitre que le reste du document contredit."""
+    defauts: list[DemandeContredite] = []
+    for ligne in corps.splitlines():
+        trouve = _NON_TRAITE_RE.search(ligne)
+        if trouve is None:
+            continue
+        # Le SUJET précède le statut : « Analyser les canaux d'acquisition
+        # des concurrents : non traitée ». Prendre la ligne entière ramasse
+        # la justification qui SUIT — « la donnée n'est pas publiée,
+        # méthode d'estimation documentée » — et, quand plusieurs demandes
+        # partagent une ligne, les mots des AUTRES demandes.
+        #
+        # Mesuré à la première exécution : la répétition à blanc a signalé
+        # les quatre livrables sur « annexe, comparaison, complément,
+        # couvre », mots venus d'une demande voisine et de la mécanique du
+        # statut. Un contrôle qui lit trop large accuse à tort (règle 2).
+        sujet = ligne[: trouve.start()]
+        coupe = max(
+            (sujet.rfind(frontiere) + len(frontiere)
+             for frontiere in _FRONTIERES_DE_DEMANDE
+             if frontiere in sujet),
+            default=0,
+        )
+        sujet = sujet[coupe:]
+        porteurs = {
+            mot.casefold()
+            for mot in _MOT_PORTEUR_RE.findall(sujet)
+            if mot.casefold() not in _MOTS_TROP_COURANTS
+        }
+        # DISTINCTIF, et pas seulement present : un mot de liaison figure
+        # dans tous les chapitres et ne designe aucun sujet.
+        communs = sorted(
+            mot for mot in porteurs
+            if 0 < sum(1 for _, texte in autres if mot in texte) <= plafond
+        )
+        if len(communs) < _MOTS_COMMUNS_MIN:
+            continue
+        # VOISINS, et pas seulement presents. Un sujet est une LOCUTION :
+        # « canaux d'acquisition » se retrouve ailleurs cote a cote. Des mots
+        # epars qui se croisent aux quatre coins d'un chapitre ne prouvent
+        # rien.
+        #
+        # Business plan 73dde3ab (17/08/2026) : le controle a conclu a une
+        # contradiction au chapitre 20 sur « indique, initial, partiellement,
+        # reprend ». Quatre mots assez longs, assez rares — et pourtant aucun
+        # sujet : deux verbes, un adjectif, un adverbe, ramasses dans une
+        # phrase de justification. La distinctivite seule ne les separait pas
+        # d'un vrai sujet ; leur DISPERSION, si.
+        if not any(
+            _se_touchent(communs, texte) for _, texte in autres
+        ):
+            continue
+        defauts.append(DemandeContredite(
+            chapitre=numero,
+            demande=ligne.strip()[:160],
+            ailleurs=len(communs),
+            detail=(
+                f"Chapitre {numero} declare « non traite » un sujet que le "
+                f"document traite ailleurs : {', '.join(communs[:4])}. "
+                "Un point annonce puis declare non traite est pire qu'un "
+                "point absent — il fait douter de tout le reste. Reprends "
+                "le statut, ou nomme ce qui manque vraiment."
+            ),
+        ))
+    return defauts

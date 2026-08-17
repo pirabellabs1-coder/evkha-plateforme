@@ -69,6 +69,22 @@ function ActionsOrganisation({
     onError: echec,
   });
 
+  /**
+   * Résiliation depuis l'administration, sans passer par une demande client.
+   *
+   * Le 09/08/2026, le tableau de bord annonçait 189 € de revenu récurrent alors
+   * qu'aucun client ne payait : un compte d'essai du début du projet avait
+   * gardé son abonnement. Le montant était juste — il additionne les
+   * abonnements actifs — mais aucun écran ne permettait de le corriger. Il
+   * fallait ouvrir l'administration Django et changer un statut à la main.
+   */
+  const resiliation = useMutation({
+    mutationFn: () =>
+      adminApi.resilierAbonnement(organisation.id, { motif: motif.trim() }),
+    onSuccess: reussite,
+    onError: echec,
+  });
+
   if (!ouvert) {
     return (
       <button
@@ -127,6 +143,36 @@ function ActionsOrganisation({
       >
         {active ? "Suspendre" : "Réactiver"}
       </button>
+      {/* Seulement s'il y a quelque chose à résilier : un bouton qui ne peut
+          rien faire invite à cliquer pour découvrir qu'il ne fait rien. */}
+      {organisation.formule ? (
+        <button
+          type="button"
+          className="bouton bouton-contour bouton-sm"
+          disabled={resiliation.isPending || !motifSaisi}
+          title={
+            motifSaisi
+              ? `Met fin à la formule ${organisation.formule}. Aucun crédit repris.`
+              : "Indiquez le motif de la résiliation."
+          }
+          onClick={() => {
+            const somme = (organisation.prix_mensuel_cents / 100).toFixed(2);
+            if (
+              window.confirm(
+                `Résilier l'abonnement ${organisation.formule} de ` +
+                  `${organisation.raison_sociale} ?\n\n` +
+                  `Le revenu récurrent baissera de ${somme} €/mois. ` +
+                  `Les ${organisation.solde} crédits déjà au solde sont ` +
+                  `conservés : le mois en cours est payé.`,
+              )
+            ) {
+              resiliation.mutate();
+            }
+          }}
+        >
+          Résilier l'abonnement
+        </button>
+      ) : null}
       <button
         type="button"
         className="bouton bouton-discret bouton-sm"

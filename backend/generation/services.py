@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
+
+from django.utils import timezone
 
 from catalog.models import DeliverableType
 from intake.models import IntakeStatus, IntakeSubmission
 
 from .blueprints import chapters_for_deliverable
+from .cost import PLAFOND_PAR_LIVRABLE
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, JobStatus
 
 # Livrables couverts par le moteur de generation (phases 2-5).
@@ -83,15 +87,38 @@ _SUPPORTED_DELIVERABLES = frozenset(
 # On separe donc les deux roles. Le RYTHME reste dimensionne sur le travail a
 # faire ; le PLAFOND DE DEPENSE, lui, est une decision commerciale et il
 # s'applique en dur (voir `cost.enforce_budget`).
-_BUDGET_EUR_BY_TYPE: dict[str, Decimal] = {
-    # Ramene de 6,00 : les deux etudes COMPLETES mesurees ont coute 3,12 et
-    # 3,32 EUR, et 4,00 laisse au throttle la marge qu'il lui faut pour ne pas
-    # raboter (seuil mesure : 3,80).
-    DeliverableType.MARKET_STUDY:      Decimal("4.0000"),  # 30 appels + reflexion + CHECKs
-    DeliverableType.BUSINESS_PLAN:     Decimal("3.6500"),  # 20 chapitres, ~24 appels chunked
-    DeliverableType.BUSINESS_STRATEGY: Decimal("3.3500"),  # 21 appels (+ conclusion)
-    DeliverableType.COMPETITOR_STUDY:  Decimal("2.6000"),  # 12 appels (sans SWOT)
-}
+#: Rythme du throttle, par livrable. **Ce n'est PAS une seconde table** : c'est
+#: `cost.PLAFOND_PAR_LIVRABLE`, relue ici. Deux tables aux memes nombres
+#: auraient diverge au premier ajustement, et c'est la regle 5.
+#:
+#: Rythme et plafond valent la meme valeur, et c'est voulu. Ils ont differe
+#: jusqu'au 08/08/2026 — rythme 4,00, plafond 3,10 — et le throttle cadencait
+#: alors vers un montant que le frein n'autorisait pas : allocation genereuse,
+#: puis coupure nette avant la fin du dossier.
+#:
+#: Plafonds arretes par la cliente le 08/08/2026 : etude de marche 6,00,
+#: business plan 4,00, strategie 4,00, etude concurrentielle 3,50. Ce sont des
+#: PLAFONDS, pas des cibles — les deux seules etudes de marche completes
+#: mesurees ont coute 3,12 et 3,32 EUR, et rien ne pousse le moteur a depenser
+#: davantage parce qu'on lui en laisse la place.
+#:
+#: Ce que la hausse achete : le throttle cesse de raboter les chapitres (sous
+#: 3,80 EUR sur une etude de marche, chaque appel etait deja borne au plancher —
+#: le defaut meme que la cliente avait signale), et `_has_budget_headroom`
+#: autorise plus de rondes de correction avant de refuser une regeneration.
+#:
+#: Ce qu'elle n'achete PAS, et il faut le dire : aucun graphique de plus. Les
+#: figures sont rendues par matplotlib depuis le socle
+#: (`rendu_word/donnees_graphiques.py`), sans le moindre appel API. Une figure
+#: abandonnee l'est parce que le socle ne peut pas l'alimenter — identifiants
+#: absents, unites heterogenes, un seul chiffre — jamais faute de budget.
+#:
+#: AVERTISSEMENT sur les deux mesures citees : elles datent d'avant le correctif
+#: de comptabilisation du 08/08/2026, qui ecrasait le cout des chapitres
+#: regeneres. Elles SOUS-ESTIMENT la depense reelle, d'autant plus que le
+#: dossier a subi des reprises. Le prochain dossier reel donnera le premier
+#: chiffre honnete.
+_BUDGET_EUR_BY_TYPE: dict[str, Decimal] = PLAFOND_PAR_LIVRABLE
 
 
 class GenerationBootstrapError(ValueError):
@@ -133,6 +160,64 @@ def bootstrap_generation_job(submission: IntakeSubmission) -> GenerationJob:
         )
 
     return job
+
+
+#: Au-delà de ce silence, un dossier « en cours » ne l'est plus vraiment.
+#:
+#: Le chapitre le plus lent jamais mesuré sur ce projet a pris 10,2 minutes —
+#: étude de marché `b561c2d6`, avant que le contrôle de ressemblance ne soit
+#: rendu consultatif. On double, et on arrondit : vingt minutes sans qu'aucun
+#: chapitre ne bouge ne s'expliquent plus par la lenteur.
+DELAI_SANS_PROGRESSION = timedelta(minutes=20)
+
+
+def duree_sans_progression(job: GenerationJob) -> timedelta | None:
+    """Depuis combien de temps ce dossier n'a-t-il plus rien produit ?
+
+    `None` s'il n'est pas en cours — la question ne se pose pas pour un dossier
+    terminé, échoué ou en attente.
+
+    On regarde la date du dernier CHAPITRE touché, pas celle du job : le job est
+    enregistré au lancement puis plus jamais tant qu'il tourne, sa date ne dit
+    donc rien de son avancement. Les chapitres, eux, sont écrits à chaque coût
+    enregistré.
+    """
+    if job.status != JobStatus.RUNNING:
+        return None
+    dernier = job.chapters.order_by("-updated_at").values_list("updated_at", flat=True).first()
+    repere = dernier or job.started_at
+    if repere is None:
+        return None
+    return timezone.now() - repere
+
+
+def generation_interrompue(job: GenerationJob) -> bool:
+    """Le dossier se dit « en cours » alors que plus personne ne travaille dessus.
+
+    ## Le cas réel qui a créé cette fonction
+
+    Le 09/08/2026, une cliente lance une étude depuis son espace à 06:22:59.
+    Trois minutes plus tard, un déploiement redémarre les conteneurs et tue le
+    processus qui produisait ses chapitres. Deux autres déploiements suivent.
+
+    Le dossier reste `running` en base pendant **soixante-seize minutes**, avec
+    deux chapitres sur vingt-trois et pas un centime de mouvement. Aucun
+    incident ouvert, aucun délai de garde, aucune reprise. La cliente rafraîchit
+    sa page — les journaux du serveur ne montrent qu'elle — et attend un
+    document que rien ne fabrique.
+
+    C'est le silence que la règle 1 condamne, appliqué à un dossier entier : un
+    état qui n'a rien à comparer et qui, faute de mieux, se déclare vivant.
+
+    ## Ce qui l'a rendu possible
+
+    Un déploiement tue les générations en cours, et rien ne le rattrape : ni
+    l'ordonnanceur qui a perdu sa tâche, ni le dossier qui garde son statut, ni
+    la relance du tableau de bord — qui n'acceptait que `failed` et `cancelled`,
+    c'est-à-dire tous les états SAUF celui où l'on se retrouve.
+    """
+    duree = duree_sans_progression(job)
+    return duree is not None and duree > DELAI_SANS_PROGRESSION
 
 
 def relaunch_generation_job(job: GenerationJob) -> None:

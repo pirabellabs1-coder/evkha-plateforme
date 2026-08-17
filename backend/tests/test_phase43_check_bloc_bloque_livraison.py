@@ -84,11 +84,14 @@ def test_check_bloc_ouvert_bloque_la_livraison() -> None:
 
     failures = _check_blocs_evangeline(job)
 
-    assert len(failures) == 1
-    assert failures[0].check == "check_bloc_non_resolu"
-    # La note du relecteur doit remonter a l'admin.
-    assert "TCAC" in failures[0].detail
-    assert "bloc A" in failures[0].detail
+    # UNE entree par chapitre nomme depuis le 11/08/2026 : sans numero, la
+    # note du relecteur ne pouvait rien reparer, meme sur decision humaine
+    # (`cc0dfe14`, sept CHECK bloquants, sept chapitres cites, zero routable).
+    assert sorted(f.chapter_number for f in failures) == [1, 2]
+    assert all(f.check == "check_bloc_non_resolu" for f in failures)
+    # La note du relecteur doit remonter a l'admin, sur chaque entree.
+    assert all("TCAC" in f.detail for f in failures)
+    assert all("bloc A" in f.detail for f in failures)
 
 
 @pytest.mark.django_db

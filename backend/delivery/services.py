@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from html import escape
@@ -30,6 +31,39 @@ from .gamma_fidelite import RapportFidelite, controler_fidelite, extraire_texte_
 from .models import DeliveryBatch, DeliveryEvent, DeliveryStatus
 
 _log = logging.getLogger(__name__)
+
+#: Un manque de figures retient-il ce livrable, et rien d'autre ?
+#:
+#: La verification protege deux choses tres differentes sous le meme verrou :
+#: un document AMPUTE (compte de resultat vide, lignes de tableau perdues —
+#: regle 3 du depot, et elle a coute un vrai document a la cliente), et un
+#: document simplement PAUVRE en figures.
+#:
+#: Le premier ne doit jamais partir. Le second doit partir : etude `c7c6ba96`
+#: du 17/08/2026, dix chapitres ecrits, 2,42 EUR payes, PDF et Word prets —
+#: retenus pour trois figures manquantes sur dix-sept.
+_MANQUE_DE_FIGURES = re.compile(
+    r"figures?\s+dans\s+le\s+document.*?plancher", re.IGNORECASE | re.DOTALL
+)
+
+
+def _seulement_un_manque_de_figures(motif: str) -> bool:
+    """Vrai si la retenue ne porte QUE sur le compte de figures.
+
+    SEULEMENT — le mot porte tout le poids. Les anomalies bloquantes sont
+    jointes par « | », et une premiere version cherchait le manque de figures
+    n'importe ou dans la chaine : « tableau du compte de resultat vide |
+    14 figures dans le document » aurait donc laisse partir un document
+    ampute. C'est le test qui l'a trouve, pas la relecture.
+
+    Chaque anomalie doit etre un manque de figures. Une seule qui n'en est pas
+    retient le document.
+    """
+    parties = [p for p in str(motif).split("|") if p.strip()]
+    if not parties:
+        return False
+    return all(_MANQUE_DE_FIGURES.search(p) for p in parties)
+
 
 #: Intitulés lus PAR LE CLIENT — objet du courriel et corps du message.
 #:
@@ -658,11 +692,51 @@ def deliver_job(
         # --- I/O externe (pas de transaction ouverte) ---
         # Les deux chaînes sont idempotentes via update_or_create.
         assemblage = _assembler_livrable(job, pdf_client=pdf_client)
-        if assemblage.retenu:
-            # Avant tout envoi. Un document que la vérification bloque ne part
-            # pas, et l'incident dit pourquoi (règle 1 : échouer bruyamment).
+        if assemblage.retenu and not _seulement_un_manque_de_figures(assemblage.retenu):
+            # Ce qui reste bloquant : un document AMPUTÉ. Le compte de résultat
+            # vide, les lignes de tableau perdues, la prose disparue au rendu —
+            # règle 3 du dépôt, et elle a coûté un vrai document à la cliente.
+            # Un livrable qu'on envoie mutilé est pire que pas de livrable.
             msg = f"Livrable retenu à la vérification : {assemblage.retenu}"
             raise LivrableRetenuError(msg)
+
+        if assemblage.retenu:
+            # LE DOCUMENT PART QUAND MÊME — deuxième verrou, même décision.
+            #
+            # Le 13/08/2026 la cliente a tranché : « l'envoi du document doit
+            # être auto et sans aucune action de ma part ». Le gate qualité a
+            # été rendu non bloquant ce jour-là. Celui-ci ne l'a pas été, et
+            # personne ne l'a vu jusqu'à l'étude `c7c6ba96` du 17/08/2026 :
+            #
+            #     Livrable retenu à la vérification : 14 figures dans le
+            #     document, pour un plancher de 17 (17 à 25 attendues).
+            #
+            # Dix chapitres écrits, 2,42 € payés, PDF et Word assemblés et
+            # prêts — retenus pour trois figures manquantes. Le même incident
+            # disait pourtant, deux lignes plus haut, que le gate qualité avait
+            # laissé partir le document. Débloquer UN verrou et croire le
+            # travail fait : c'est l'erreur, et elle a été trouvée sur une
+            # capture d'écran de la cliente.
+            #
+            # Un livrable un peu pauvre en figures reste un livrable. Un
+            # livrable qui n'arrive pas n'est rien. L'incident RESTE, en HIGH :
+            # ce qui manque doit se voir. Ce qui disparaît, c'est l'attente.
+            _log.warning(
+                "Job %s : livrable sous le seuil de vérification (%s) — "
+                "il part quand même, l'incident garde la trace.",
+                job.id,
+                assemblage.retenu,
+            )
+            OperationalIncident.objects.create(
+                title=f"Livrable sous le seuil de verification (job {job.id})",
+                severity=IncidentSeverity.HIGH,
+                job=job,
+                order=job.order,
+                details={
+                    "type": "livrable_sous_le_seuil",
+                    "motif": str(assemblage.retenu),
+                },
+            )
 
         gamma_artifacts = ensure_gamma_artifacts(job, gamma_client=gamma_client)
         all_artifacts: tuple[DocumentArtifact, ...] = (

@@ -6,6 +6,7 @@ déclarés dans le référentiel : c'est ce qui rend la sortie contrôlable.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from datetime import date
 
@@ -39,7 +40,62 @@ _BASE_CONCURRENTS = (
     "- `fiabilite` : `haute`, `moyenne` ou `faible`, selon la qualité de la "
     "source ou de la méthode.\n"
     "Un acteur que tu ne peux pas situer et sourcer n'entre pas dans la liste : "
-    "mieux vaut le remplacer par un acteur vérifiable."
+    "mieux vaut le remplacer par un acteur vérifiable.\n"
+    "\n"
+    # L'ENTREPRISE ÉTUDIÉE EST UN ACTEUR DE LA BASE.
+    #
+    # Retour de la cliente du 13/08/2026 : « dans plusieurs graphiques de
+    # concurrence, les concurrents apparaissent mais l'entreprise elle-même
+    # n'est pas représentée. Le lecteur doit immédiatement pouvoir voir : où se
+    # situe mon entreprise par rapport à ses concurrents ? »
+    #
+    # Elle a raison, et la cause est ici : `concurrents` ne contenait QUE des
+    # concurrents. Un radar ne pouvait donc pas la placer, et lui demander de
+    # l'ajouter au moment de la figure reviendrait à lui faire inventer des
+    # notes — le défaut qu'on passe la journée à combattre.
+    #
+    # Elle est donc notée à la source, sur la MÊME grille, ce qui rend la
+    # comparaison honnête : ses notes se défendent avec les mêmes barreaux que
+    # celles de ses concurrents.
+    "AJOUTE UN DOUZIÈME ACTEUR : l'entreprise du dossier client elle-même, "
+    "avec `type` valant exactement `projet`.\n"
+    "- son `nom` est celui de l'entreprise ou du projet tel qu'il figure dans "
+    "le dossier ;\n"
+    "- ses champs se remplissent depuis le dossier client, pas depuis le web : "
+    "`ca_connu` porte le chiffre d'affaires qu'il annonce, ou « non publié » "
+    "pour un projet en création ;\n"
+    "- elle reçoit une note sur CHAQUE critère de la grille, au même titre que "
+    "les autres. Note-la avec la même sévérité : une entreprise qui obtient 5 "
+    "partout produit un graphique que personne ne croit, et qui dessert le "
+    "dossier devant un financeur.\n"
+    "Elle ne compte NI dans les 8 directs NI dans les 3 indirects : c'est le "
+    "point de référence du lecteur, pas un concurrent de lui-même.\n"
+    "\n"
+    "GRILLE DE NOTATION (obligatoire, et c'est elle qui rend les figures "
+    "possibles).\n"
+    "Renseigne `grille_notation` avec 4 à 6 critères d'évaluation adaptés au "
+    "secteur — par exemple accessibilité tarifaire, étendue de l'offre, "
+    "notoriété, qualité de service, présence en ligne. Pour chacun :\n"
+    "- `code` : identifiant court en minuscules (`prix`, `notoriete`) ;\n"
+    "- `intitule` : le nom lisible, qui s'affichera sur les figures ;\n"
+    "- `note_1` et `note_5` : ce que valent CONCRÈTEMENT la note la plus basse "
+    "et la plus haute pour ce critère. C'est le barème, et il doit permettre à "
+    "un lecteur de refaire la notation lui-même. « Faible » et « fort » ne sont "
+    "pas des définitions : dis à quoi on les reconnaît.\n"
+    "LES CRITÈRES NE SERVENT À RIEN SANS LES NOTES. Une grille sans notes ne "
+    "produit aucune figure : c'est la moitié du travail, et c'est la moitié "
+    "inutile. Note donc CHAQUE concurrent sur CHACUN des critères, dans son "
+    "champ `notes`, une entrée par critère :\n"
+    "`\"notes\": [{\"critere\": \"prix\", \"note\": 4}, "
+    "{\"critere\": \"notoriete\", \"note\": 2}]`\n"
+    "Onze acteurs et cinq critères font cinquante-cinq entrées : c'est "
+    "attendu, ne les abrège pas. Un entier de 1 à 5, jamais une fourchette, "
+    "jamais un vide.\n"
+    "Ces notes sont des appréciations argumentées à partir de ce que tu as "
+    "observé — offre affichée, tarifs publics, avis clients, couverture — et "
+    "non des chiffres de source : c'est le seul endroit du socle où tu juges. "
+    "Un critère noté sur un seul acteur ne compare rien et fait refuser le "
+    "socle ; un acteur non noté disparaît de toutes les figures."
 )
 
 # Règles du prévisionnel — business plan uniquement. Le pendant de
@@ -114,15 +170,81 @@ _REGLES = (
     "   - `declaree` : valeur fournie par le porteur de projet dans son brief.\n"
     "6. N'invente JAMAIS de source ni d'URL. Si tu ne connais pas la source "
     "exacte, passe la donnée en `estimee` et laisse `source` vide.\n"
+    "6 bis. HIÉRARCHIE DES SOURCES. À chiffre égal, prends toujours la plus "
+    "PRIMAIRE et la plus RÉCENTE, dans cet ordre : (1) statistiques publiques "
+    "et organismes officiels — Insee, Banque de France, ministères, Eurostat ; "
+    "(2) fédérations et syndicats professionnels du secteur ; (3) sites "
+    "OFFICIELS des acteurs concernés — comptes publiés, tarifs affichés ; "
+    "(4) études sectorielles et cabinets ; (5) presse et blogs, en dernier "
+    "recours et JAMAIS pour un chiffre qu'une source des quatre premiers rangs "
+    "pourrait donner. Un chiffre de 2023 cité par un article de 2026 reste un "
+    "chiffre de 2023 : c'est l'année de la MESURE qui compte, pas celle de "
+    "l'article, et c'est elle qui va dans `annee`.\n"
+    "6 ter. LA SOURCE DOIT PORTER CE CHIFFRE-LÀ. Avant de l'inscrire, "
+    "demande-toi : cette source donne-t-elle EXACTEMENT cette valeur, pour ce "
+    "périmètre et cette année ? Une source qui traite du même sujet sans porter "
+    "le chiffre n'est pas une source : c'est une lecture, et la citer "
+    "transformerait ton estimation en fait publié. Dans ce cas la donnée passe "
+    "en `estimee`, tu expliques dans `libelle` d'où part le raisonnement, et "
+    "`source` reste VIDE.\n"
     "7. Une fourchette n'est pas une valeur. Si ta donnée est une fourchette, "
     "retiens la médiane dans `valeur` et indique la fourchette dans `libelle`.\n"
     "8. Emboîtement obligatoire : TAM ≥ SAM ≥ SOM, dans la même devise. Le "
     "SOM se calcule par le bas : transactions annuelles × panier moyen.\n"
+    "8 bis. LE CALCUL PART DU MOTEUR ÉCONOMIQUE RÉEL, PAS D'UNE PART DE "
+    "MARCHÉ. Identifie d'abord ce qui fait entrer l'argent dans CETTE "
+    "activité, puis chiffre sur cette base :\n"
+    "   - commerce ou lieu physique : zone de chalandise, population qui y "
+    "vit ou y passe, taux de captation réaliste, panier moyen, fréquence de "
+    "visite. Une part d'un marché NATIONAL ne dit rien d'une boutique de "
+    "quartier : c'est la zone qui décide, et un point de vente ne s'adresse "
+    "qu'à ceux qui peuvent s'y rendre ;\n"
+    "   - commerce en ligne : trafic atteignable, taux de conversion, panier "
+    "moyen, taux de réachat, coût d'acquisition. La zone compte peu, "
+    "l'audience et la concurrence sur les mêmes requêtes décident ;\n"
+    "   - services et conseil : nombre de missions réalisables compte tenu du "
+    "temps disponible, prix moyen d'une mission, taux de remplissage, part "
+    "récurrente. La CAPACITÉ est le plafond : une personne seule ne vend pas "
+    "plus d'heures qu'elle n'en a ;\n"
+    "   - abonnement : abonnés atteignables, prix mensuel, durée de vie "
+    "moyenne d'un abonné, taux d'attrition. Le chiffre d'affaires se construit "
+    "en STOCK qui s'accumule, pas en ventes indépendantes ;\n"
+    "   - capacité d'accueil — restaurant, hébergement, salle : nombre de "
+    "places, taux d'occupation, rotation, ticket moyen, saisonnalité.\n"
+    "Si l'activité en combine plusieurs, chiffre chaque verticale avec SON "
+    "moteur et additionne : un même taux appliqué à tout écrase ce qui les "
+    "distingue. Explique le moteur retenu dans `libelle` — c'est lui qui rend "
+    "l'estimation discutable, donc utile.\n"
     "9. `derivee_de` liste les identifiants dont un chiffre découle. Un SOM "
     "calculé à partir du panier moyen déclare `[\"panier_moyen\", "
     "\"transactions_annuelles_cible\"]`. Une donnée primaire laisse la liste vide.\n"
     "10. Toute donnée facultative que tu ne peux pas établir sérieusement doit "
-    "être OMISE. Un socle court et juste vaut mieux qu'un socle complet et faux."
+    "être OMISE. Un socle court et juste vaut mieux qu'un socle complet et faux.\n"
+    # Retour de la cliente du 09/08/2026 sur l'etude e-commerce animalier :
+    # « eviter qu'une source secondaire devienne la source principale d'un
+    # chiffre structurant lorsqu'une source officielle plus fiable existe ».
+    # L'ordre n'INTERDIT pas les sources secondaires — il interdit qu'elles
+    # priment quand mieux existe.
+    "11. HIÉRARCHIE DES SOURCES. Quand plusieurs sources donnent le même "
+    "chiffre, retiens TOUJOURS la plus haute de cet ordre : (1) organismes "
+    "publics et statistique officielle — Insee, ministères, data.gouv.fr, "
+    "EUR-Lex, Service-public, DGCCRF ; (2) fédérations et syndicats "
+    "professionnels du secteur — Fevad, Facco, Fediaf, Francéclat et leurs "
+    "équivalents ; (3) cabinets d'études reconnus ; (4) presse spécialisée et "
+    "publications d'acteurs. Les niveaux 3 et 4 restent utiles quand rien "
+    "au-dessus ne publie la donnée — ils ne doivent simplement jamais porter "
+    "seuls un chiffre structurant qu'un organisme officiel publie.\n"
+    # Meme retour : « un panier moyen du e-commerce francais tous secteurs
+    # confondus ne doit pas devenir automatiquement le panier moyen du
+    # e-commerce animalier ».
+    "12. UN BENCHMARK GÉNÉRAL N'EST PAS UNE DONNÉE SECTORIELLE. Un chiffre "
+    "mesuré sur un périmètre plus large que celui demandé ne peut pas être "
+    "recopié comme s'il valait pour le secteur : le panier moyen de "
+    "l'e-commerce français tous secteurs confondus n'est pas celui de "
+    "l'e-commerce animalier. Deux options, jamais une troisième : soit tu "
+    "trouves la donnée SUR LE BON PÉRIMÈTRE et elle est `observee`, soit tu la "
+    "transposes et elle devient `estimee`, avec la méthode et le périmètre "
+    "d'origine écrits dans `libelle`."
 )
 
 
@@ -138,6 +260,32 @@ def _ligne_referentiel(item: DefinitionDonnee) -> str:
     if item.commentaire:
         ligne += f"\n    note : {item.commentaire}"
     return ligne
+
+
+#: Un chapitre qui parle de concurrence se reconnaît à son intitulé. La
+#: recherche est volontairement large — « concurrent », « concurrentiel »,
+#: « concurrence » — et sur la RACINE, pas sur une liste de titres exacts : le
+#: chapitrage évolue, et une liste fermée redeviendrait fausse en silence
+#: (règle 4).
+_CHAPITRE_DE_CONCURRENCE = re.compile(r"concurren", re.IGNORECASE)
+
+
+def _le_livrable_analyse_la_concurrence(deliverable_type: str) -> bool:
+    """Le chapitrage de ce livrable consacre-t-il un chapitre à la concurrence ?
+
+    On le DÉDUIT du blueprint plutôt que de le déclarer une seconde fois : le
+    blueprint est la seule source de ce que contient un livrable, et une liste
+    de types recopiée ici aurait divergé du jour où le chapitrage change
+    (règle 5). C'est d'ailleurs par une telle liste que le business plan s'est
+    retrouvé avec un chapitre « Analyse concurrentielle » et un socle sans
+    concurrents.
+    """
+    from generation.blueprints import chapters_for_deliverable  # noqa: PLC0415
+
+    return any(
+        _CHAPITRE_DE_CONCURRENCE.search(blueprint.title)
+        for blueprint in chapters_for_deliverable(deliverable_type)
+    )
 
 
 def bloc_referentiel(deliverable_type: str) -> str:
@@ -187,15 +335,48 @@ def construire_prompt_socle(
     # demandait : ce prompt ne contenait aucune occurrence du mot concurrent.
     # La liste partait donc vide à chaque étude, et le chapitre 6 — estimation
     # des chiffres d'affaires et parts de marché — n'avait aucune matière.
-    if deliverable_type == DeliverableType.COMPETITOR_STUDY:
+    # La condition portait sur le TYPE de livrable, et elle avait tort d'un
+    # livrable.
+    #
+    # Business plan `2a8872d0` (12/08/2026) : le chapitre 7 « Analyse
+    # concurrentielle » est mort CINQ fois, pour 4,19 €, sur des identifiants
+    # que le modèle inventait — `critere_accessibilite_evkha`, puis `ACC` et
+    # `TAR`. Il n'avait rien à recopier : le socle d'un business plan ne
+    # portait ni concurrents ni grille de notation, parce que ce bloc-ci ne
+    # partait que pour l'étude concurrentielle. Un chapitre réclamait une
+    # matière que personne n'avait demandée.
+    #
+    # C'est le défaut décrit six lignes plus haut, un livrable plus loin. La
+    # condition se déduit donc du CHAPITRAGE, seule source de ce que contient
+    # un livrable : celui qui consacre un chapitre à la concurrence a besoin
+    # d'une base de concurrents. Vérifié sur les quatre — étude
+    # concurrentielle et business plan oui, étude de marché et stratégie non,
+    # qui n'en ont aucun chapitre et dont le socle ne s'alourdit pas.
+    # À ROUVRIR AVEC LA CLIENTE : ce bloc impose « EXACTEMENT 8 directs et 3
+    # indirects », cardinaux figés par le cahier des charges de l'ÉTUDE
+    # CONCURRENTIELLE. Rien ne dit qu'un business plan en demande autant, et
+    # onze acteurs alourdissent son socle. On ne devine pas un chiffre à sa
+    # place : le business plan reçoit donc la même exigence que l'étude
+    # concurrentielle jusqu'à ce qu'elle en arrête une autre. Mieux vaut un
+    # socle trop riche qu'un chapitre mort — c'est ce qui vient de coûter
+    # 4,19 €.
+    if _le_livrable_analyse_la_concurrence(deliverable_type):
         blocs.append(_BASE_CONCURRENTS)
-    # Même mécanisme pour les deux livrables suivants : un bloc d'exigences
-    # propres au métier du document, à côté du référentiel qui liste les
-    # emplacements. Sans lui, la leçon de `_BASE_CONCURRENTS` se répéterait —
-    # un schéma déclaré que rien ne demande part vide à chaque étude.
-    elif deliverable_type == DeliverableType.BUSINESS_PLAN:
+
+    # Des `if` INDÉPENDANTS, et la nuance a un coût mesuré : la chaîne `elif`
+    # d'origine supposait qu'un livrable n'a qu'un seul besoin. Dès que le
+    # business plan a rejoint la première branche, il a PERDU son prévisionnel
+    # financier — attrapé par `test_le_prompt_socle_bp_exige_le_previsionnel`
+    # à la minute où le correctif ci-dessus a été écrit. Un business plan
+    # réclame les deux : des concurrents pour son chapitre 7, un prévisionnel
+    # pour tout le reste.
+    #
+    # Même mécanisme que `_BASE_CONCURRENTS` : un bloc d'exigences propres au
+    # métier du document, à côté du référentiel qui liste les emplacements.
+    # Sans lui, un schéma déclaré que rien ne demande part vide à chaque étude.
+    if deliverable_type == DeliverableType.BUSINESS_PLAN:
         blocs.append(_PREVISIONNEL_BP)
-    elif deliverable_type == DeliverableType.BUSINESS_STRATEGY:
+    if deliverable_type == DeliverableType.BUSINESS_STRATEGY:
         blocs.append(_CADRAGE_STR)
 
     blocs.append(_REGLES)

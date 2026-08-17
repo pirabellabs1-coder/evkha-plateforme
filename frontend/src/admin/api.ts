@@ -218,6 +218,20 @@ export const adminApi = {
       `/supervision/organisations/${organisationId}/statut/`,
       corps,
     ),
+  /**
+   * Met fin à l'abonnement d'une organisation.
+   *
+   * Aucun crédit n'est repris : le mois en cours est payé. La réserve expirera
+   * à la bascule de période.
+   */
+  resilierAbonnement: (
+    organisationId: string,
+    corps: { motif: string; auteur?: string },
+  ) =>
+    post<{ id: string; abonnements_resilies: number }>(
+      `/supervision/organisations/${organisationId}/resilier/`,
+      corps,
+    ),
   traiterDemande: (
     demandeId: string,
     corps: { decision: "accorder" | "refuser"; reponse?: string; auteur?: string },

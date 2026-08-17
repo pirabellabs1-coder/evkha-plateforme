@@ -218,3 +218,34 @@ docker logs <nom_conteneur_worker> -f
 - [ ] Email Brevo fonctionnel (test depuis Admin Django ou pipeline)
 - [ ] Certificat HTTPS valide (Let's Encrypt via Traefik/Coolify)
 - [ ] Uptime Kuma actif sur les 3 endpoints
+
+---
+
+## L'interface Coolify elle-même est en HTTP clair — à traiter
+
+Vérifié le 08/08/2026 : `https://82.165.31.105:8000` refuse la connexion TLS,
+`http://82.165.31.105:8000/api/v1/version` répond `200`. Le panneau
+d'administration **et son API** ne sont donc joignables qu'en clair.
+
+Ce n'est pas le même sujet que les certificats des applications : Traefik pose
+bien du HTTPS sur `api2.evkha.fr` et `app2.evkha.fr`. C'est Coolify lui-même,
+sur le port 8000, qui est en dehors de ce dispositif.
+
+**Ce que cela expose.** Chaque appel à cette API transporte un jeton porteur qui
+donne le droit de déclencher un déploiement, de lire et d'écrire toutes les
+variables d'environnement — donc les clés Anthropic et Stripe, le mot de passe
+PostgreSQL, les secrets de webhook. En clair sur le réseau, ce jeton est lisible
+par quiconque se trouve sur le chemin.
+
+**Ce qu'il faut faire, et c'est côté serveur — pas côté dépôt :**
+
+1. Poser un nom de domaine sur l'instance Coolify (par exemple
+   `coolify.evkha.fr`) dans ses propres réglages : Coolify sait alors demander
+   son certificat Let's Encrypt comme il le fait pour les applications.
+2. Fermer le port `8000` au monde une fois le domaine en service — le laisser
+   ouvert annule le bénéfice, puisque l'accès clair reste possible.
+3. Faire tourner le jeton d'API après la bascule : celui en service a circulé
+   en clair, il doit être considéré comme connu.
+
+Tant que ce n'est pas fait, ne pas appeler cette API depuis un réseau qu'on ne
+maîtrise pas.

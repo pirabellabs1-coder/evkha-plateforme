@@ -51,24 +51,45 @@ def variables_du_job(job: GenerationJob) -> dict[str, object]:
     return dict(soumission.normalized_variables) if soumission else {}
 
 
-#: Préfixes de `error_message` sur un chapitre TERMINÉ. Ils ne signalent pas un
-#: échec : ils disent ce que la passe de conformité a laissé passer, ou n'a pas
-#: pu juger. Distincts de `[contrat] `, qui porte un refus et se relit dans le
-#: prompt de la tentative suivante.
+#: Préfixe conservé pour les écarts RÉELLEMENT constatés sur un chapitre.
+#: Il dit quelque chose de ce chapitre-là — un dosage qui s'écarte du modèle —
+#: et il n'apparaît que lorsqu'il y a matière.
 PREFIXE_ECARTS = "[écarts acceptés] "
+
+#: RETIRÉ le 09/08/2026. Conservé pour les imports existants ; plus jamais écrit.
+#:
+#: `[non contrôlé] type de livrable non décrit par le modèle` s'inscrivait sur
+#: CHAQUE chapitre d'un business plan, d'une stratégie ou d'une étude
+#: concurrentielle — vingt-deux fois la même phrase, en rouge sous chaque titre
+#: de l'écran d'administration, puisque `error_message` est le champ des
+#: erreurs.
+#:
+#: Trois défauts en un :
+#:
+#: - **Ce n'est pas une erreur.** Le chapitre est bon ; c'est le référentiel de
+#:   forme qui n'existe pas pour ce livrable. Le ranger dans `error_message` le
+#:   fait afficher comme une panne (règle 2 : un motif faux est pire qu'absent).
+#: - **Ce n'est pas propre au chapitre.** L'information est vraie du LIVRABLE
+#:   entier, et la répéter par chapitre la transforme en bruit — celui qu'on
+#:   finit par ne plus lire, y compris le jour où il dit quelque chose.
+#: - **Elle est déjà connue ailleurs.** `MODELES_PAR_LIVRABLE` dit quels
+#:   livrables ont un modèle ; l'écrire vingt-deux fois n'ajoute rien.
 PREFIXE_NON_CONTROLE = "[non contrôlé] "
 
 
 def _mention_arbitrage(arbitrage: Arbitrage | None) -> str:
     """Trace lisible de la passe de conformité sur un chapitre accepté.
 
-    Vide quand tout est conforme : une mention systématique se lirait comme du
-    bruit et finirait ignorée, y compris le jour où elle dit quelque chose.
+    Vide quand tout est conforme, et vide aussi quand rien n'a pu être
+    contrôlé : une mention systématique se lit comme du bruit et finit ignorée,
+    y compris le jour où elle dit quelque chose.
+
+    Ne subsiste ici que ce qui parle de CE chapitre : un écart de forme
+    réellement mesuré. L'absence de modèle pour un type de livrable n'est pas un
+    fait du chapitre — voir `PREFIXE_NON_CONTROLE`.
     """
     if arbitrage is None:
         return ""
-    if arbitrage.non_controle:
-        return (PREFIXE_NON_CONTROLE + arbitrage.non_controle)[:2000]
     if arbitrage.acceptes:
         return (PREFIXE_ECARTS + " ; ".join(arbitrage.acceptes))[:2000]
     return ""
@@ -110,6 +131,8 @@ def enregistrer_chapitre(
         input_tokens=consommation.get("input_tokens", 0),
         output_tokens=consommation.get("output_tokens", 0),
         model=model,
+        cache_write_tokens=consommation.get("cache_write_tokens", 0),
+        cache_read_tokens=consommation.get("cache_read_tokens", 0),
     )
     return chapter
 
@@ -221,6 +244,55 @@ def regenerer_chapitre(
         raise
 
 
+def _compter_la_tentative_perdue(
+    job: GenerationJob, numero: int, erreur: BaseException
+) -> None:
+    """Porte au grand livre le coût d'une tentative refusée, quand il est connu.
+
+    ## Ce que cette fonction ne fait PAS, et pourquoi
+
+    Elle n'invente pas de coût. Seule `ChapitreInvalideError` transporte une
+    consommation, parce que seule elle survient APRÈS que le modèle a répondu.
+    Une panne réseau, une clé refusée, un dépassement de budget n'ont rien
+    coûté : leur prêter un montant serait un chiffre faux, et un chiffre faux
+    est pire qu'un chiffre absent (règle 2).
+
+    ## Pourquoi elle ne laisse pas remonter ses propres erreurs
+
+    Sauf une : `CostBudgetExceededError`. Comptabiliser la tentative peut faire
+    franchir le plafond, et cet arrêt-là doit se propager — c'est précisément le
+    cas qu'on veut voir. Tout autre incident d'écriture est journalisé sans
+    masquer l'erreur d'origine : le motif du chapitre vaut mieux qu'un défaut
+    survenu en le consignant.
+    """
+    from ..cost import CostBudgetExceededError, record_tentative_perdue  # noqa: PLC0415
+    from .runner import ChapitreInvalideError  # noqa: PLC0415
+
+    if not isinstance(erreur, ChapitreInvalideError):
+        return
+    consommation = erreur.consommation
+    if not consommation:
+        return
+
+    chapitre = job.chapters.filter(chapter_number=numero).first()
+    if chapitre is None:
+        return
+
+    try:
+        record_tentative_perdue(
+            chapter=chapitre,
+            input_tokens=int(consommation.get("input_tokens", 0)),
+            output_tokens=int(consommation.get("output_tokens", 0)),
+        )
+    except CostBudgetExceededError:
+        raise
+    except Exception:
+        _log.exception(
+            "Job %s chapitre %s : le coût de la tentative perdue n'a pas pu "
+            "être enregistré.", job.id, numero,
+        )
+
+
 def produire_avec_reprises(
     job: GenerationJob,
     numero: int,
@@ -274,6 +346,11 @@ def produire_avec_reprises(
             raise
         except Exception as erreur:  # noqa: BLE001 — on rejoue tout le reste
             derniere_erreur = erreur
+            # La tentative a ete FACTUREE. Elle l'etait deja avant, mais elle
+            # disparaissait ici : le `raise` emportait la consommation avec lui.
+            # Six appels perdus sur le seul chapitre 19 de `b561c2d6`, jamais
+            # comptes — donc un plafond qui portait sur moins que la facture.
+            _compter_la_tentative_perdue(job, numero, erreur)
             if tentative < document.tentatives_max:
                 _log.warning(
                     "Job %s chapitre %s : tentative %s/%s échouée (%s). On rejoue.",

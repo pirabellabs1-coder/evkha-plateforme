@@ -37,6 +37,19 @@ def _rapport(*ecarts: Ecart, controles: list[str] | None = None) -> RapportConfo
 
 
 def _forme() -> Ecart:
+    """Un ecart qui fait REJOUER : le plancher de figures.
+
+    C'etait `dosage_tableaux` jusqu'au 08/08/2026. Ce jour-la, la cliente a
+    tranche que le modele sert a l'ENTRAINEMENT et non de gabarit : les ecarts
+    de ressemblance — volume, ordre des blocs, dosages — sont desormais
+    consignes sans etre rejoues. `graphiques_min` reste le cas qui fait
+    recommencer, parce que c'est un PLANCHER et non une ressemblance.
+    """
+    return Ecart("graphiques_min", Gravite.BLOQUANTE, "1 figure au lieu de 3")
+
+
+def _ressemblance() -> Ecart:
+    """Un ecart de gabarit pur : constate, consigne, jamais rejoue."""
     return Ecart("dosage_tableaux", Gravite.BLOQUANTE, "3 tableaux au lieu de 5")
 
 
@@ -52,8 +65,20 @@ def _redhibitoire() -> Ecart:
 def test_un_ecart_de_forme_fait_recommencer_tant_qu_il_reste_une_tentative() -> None:
     arbitrage = arbitrer(_rapport(_forme()), derniere_tentative=False)
     assert arbitrage.bloque
-    assert "3 tableaux au lieu de 5" in arbitrage.refus[0]
+    assert "1 figure au lieu de 3" in arbitrage.refus[0]
     assert not arbitrage.acceptes
+
+
+def test_un_ecart_de_ressemblance_ne_fait_JAMAIS_recommencer() -> None:
+    """Decision du 08/08/2026 : le modele entraine, il n'impose pas.
+
+    Mesure a l'appui — l'etude de marche reelle `b561c2d6` consommait 3,14 EUR
+    pour 14 chapitres sur 23, contre 2,28 EUR pour les 22 du business plan, qui
+    n'a pas de modele. Le controle coutait plus cher que le document.
+    """
+    arbitrage = arbitrer(_rapport(_ressemblance()), derniere_tentative=False)
+    assert not arbitrage.bloque
+    assert arbitrage.acceptes == ["dosage_tableaux : 3 tableaux au lieu de 5"]
 
 
 def test_un_ecart_redhibitoire_refuse_meme_a_la_derniere_tentative() -> None:
@@ -89,7 +114,7 @@ def test_un_ecart_de_forme_est_accepte_a_la_derniere_tentative() -> None:
     """Un chapitre un peu hors dosage reste lisible ; une étude bloquée n'est rien."""
     arbitrage = arbitrer(_rapport(_forme()), derniere_tentative=True)
     assert not arbitrage.bloque
-    assert arbitrage.acceptes == ["dosage_tableaux : 3 tableaux au lieu de 5"]
+    assert arbitrage.acceptes == ["graphiques_min : 1 figure au lieu de 3"]
 
 
 def test_un_chapitre_conforme_ne_laisse_aucune_mention() -> None:
@@ -129,7 +154,16 @@ def test_l_ecart_accepte_est_ecrit_sur_le_chapitre() -> None:
 
     mention = _mention_arbitrage(arbitrer(_rapport(_forme()), derniere_tentative=True))
     assert mention.startswith(PREFIXE_ECARTS)
-    assert "dosage_tableaux" in mention
+    assert "graphiques_min" in mention
+
+    # Un ecart de RESSEMBLANCE laisse la meme trace, et des la premiere
+    # tentative : c'est la seule chose qui distingue << accepte >> de
+    # << passe inapercu >> depuis qu'il n'est plus rejoue.
+    consigne = _mention_arbitrage(
+        arbitrer(_rapport(_ressemblance()), derniere_tentative=False)
+    )
+    assert consigne.startswith(PREFIXE_ECARTS)
+    assert "dosage_tableaux" in consigne
 
 
 def test_la_mention_ne_se_confond_pas_avec_un_refus() -> None:
@@ -328,7 +362,7 @@ def test_sans_reprise_un_ecart_de_forme_n_arrete_pas_l_etude(
 
     monkeypatch.setattr(
         "generation.modele.conformite.verifier_chapitre",
-        lambda *a, **k: _rapport_hors_dosage("volume"),
+        lambda *a, **k: _rapport_hors_dosage("graphiques_min"),
     )
     chapitre = job_conformite.chapters.get(chapter_number=1)
     document = SimpleNamespace(tentatives_max=3)
@@ -352,7 +386,7 @@ def test_avec_reprise_un_ecart_de_forme_fait_toujours_recommencer(
 
     monkeypatch.setattr(
         "generation.modele.conformite.verifier_chapitre",
-        lambda *a, **k: _rapport_hors_dosage("volume"),
+        lambda *a, **k: _rapport_hors_dosage("graphiques_min"),
     )
     chapitre = job_conformite.chapters.get(chapter_number=1)
 

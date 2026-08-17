@@ -11,9 +11,28 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Presente la logique economique globale : comment l'entreprise cree de la valeur, comment elle genere du chiffre d'affaires, structure des couts principaux, marge brute estimee, point mort. Puis genere le Business Model Canvas en HTML inline (sans <html>/<body>) sous forme de grille visuelle a 9 blocs. IMPORTANT : remplace les exemples par le contenu reel du projet, 2 a 3 elements concrets par bloc.
-<table style="border-collapse:collapse;width:100%;margin:4mm 0;font-size:8.5pt;table-layout:fixed">
-<tr><td rowspan="2" style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><strong style="color:#1A1A1A">Partenaires cles</strong><ul><li>Element 1</li><li>Element 2</li></ul></td><td style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><strong style="color:#1A1A1A">Activites cles</strong><ul><li>Element 1</li><li>Element 2</li></ul></td><td rowspan="2" style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#C9A22733"><strong style="color:#1A1A1A">Proposition de valeur</strong><ul><li>Element 1</li><li>Element 2</li></ul></td><td style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><strong style="color:#1A1A1A">Relation client</strong><ul><li>Element 1</li></ul></td><td rowspan="2" style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><strong style="color:#1A1A1A">Segments clients</strong><ul><li>Element 1</li><li>Element 2</li></ul></td></tr>
-<tr><td style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><strong style="color:#1A1A1A">Ressources cles</strong><ul><li>Element 1</li></ul></td><td style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#FBF8EF"><strong style="color:#1A1A1A">Canaux</strong><ul><li>Element 1</li></ul></td></tr>
-<tr><td colspan="2" style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#1A1A1A;color:#fff"><strong>Structure de couts</strong><ul><li>Element 1</li><li>Element 2</li></ul></td><td colspan="3" style="vertical-align:top;padding:2mm;border:0.5pt solid #EFEAD8;background:#1A1A1A;color:#fff"><strong>Sources de revenus</strong><ul><li>Element 1</li><li>Element 2</li></ul></td></tr>
-</table>
+Presente la logique economique globale : comment l'entreprise cree de la valeur, comment elle genere du chiffre d'affaires, structure des couts principaux, marge brute estimee, point mort. Puis presente le Business Model Canvas en bloc `canvas` — PAS en bloc `tableau`.
+
+Le bloc `canvas` contient un objet `canvas`, et c'est cet OBJET qui porte les
+neuf briques :
+
+    {"type": "canvas", "canvas": {"partenaires_cles": [...], "activites_cles": [...]}}
+
+Les neuf champs vont DANS `canvas`, jamais a cote de `type`. Les voici :
+`partenaires_cles`,
+`activites_cles`, `ressources_cles`, `proposition_valeur`, `relation_client`,
+`canaux`, `segments_clientele`, `structure_couts`, `sources_revenus`. Chacun
+recoit une liste de 2 a 4 elements COURTS — une ligne chacun, pas un
+paragraphe : ils s'affichent dans une case, et une phrase longue rend la carte
+illisible.
+
+Le rendu les dessine dans la disposition d'origine d'Osterwalder, celle que
+tout lecteur de business plan reconnait : ce que l'entreprise mobilise a
+gauche, ce que le client recoit a droite, l'argent en bas. C'est pour cela que
+neuf lignes empilees ne conviennent pas — elles donnent une liste la ou le
+canvas est une carte, et le lecteur perd la lecture d'un coup d'oeil.
+
+IMPORTANT : le contenu REEL du projet, jamais les exemples du modele. Une
+brique que le dossier client ne permet pas de remplir reste VIDE — un modele
+economique sans partenaires cles est une information utile, l'inventer pour
+remplir la case ne l'est pas.

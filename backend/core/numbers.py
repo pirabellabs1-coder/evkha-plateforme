@@ -48,7 +48,18 @@ SPACE_CLASS = r"[^\S\r\n]"
 # decimale optionnelle. Le lookbehind evite de capturer le « 1 » de « An1 » ou
 # le « 4 » de « M4 » : un chiffre colle a une lettre est un indice d'annee ou de
 # mois, pas un montant.
-NUMBER_BODY = rf"-?\d(?:\d|{SPACE_CLASS})*(?:[.,]\d+)?"
+#
+# L'espace n'est un separateur de MILLIERS que devant un groupe de TROIS
+# chiffres. Sans cette exigence, toute espace entre deux chiffres collait les
+# deux nombres : mesure du 12/08/2026 sur le business plan `2a8872d0`, la
+# reponse « pour s1 2027 20 abonnes » a produit 202720, et la plage de
+# reference du gate est devenue [8 ; 202735]. Le document annoncait 348 890 € :
+# declare incoherent avec une reference fabriquee de toutes pieces (regle 2).
+#
+# LIMITE ASSUMEE : « 2027 200 » reste colle. Un groupe de trois chiffres est
+# indiscernable d'un groupe de milliers, et aucune expression reguliere ne
+# tranchera cela — il faudrait comprendre la phrase.
+NUMBER_BODY = rf"-?\d+(?:{SPACE_CLASS}\d{{3}})*(?:[.,]\d+)?"
 _NUMBER_START = r"(?<![A-Za-z\d])"
 
 # Fin de mot, cote DROIT d'une unite. Sans elle, « euro » se reconnaissait au

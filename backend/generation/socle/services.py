@@ -58,6 +58,87 @@ def socle_verrouille(job: GenerationJob) -> Socle | None:
     return socle
 
 
+def _journaliser_les_calculs(
+    job: GenerationJob, calculees: list[Any], contradictions: list[Any]
+) -> None:
+    """Trace ce que le calcul a comblé, et ce qu'il a trouvé de contradictoire.
+
+    Un chiffre AJOUTÉ ne fait pas d'incident : c'est le fonctionnement normal,
+    et sa formule part avec lui dans `libelle`, donc elle est lisible par le
+    client. Un journal qui parle quand tout va bien cesse d'être lu.
+
+    Une CONTRADICTION en fait un, et il est haut : le socle affirme un chiffre
+    que ses propres termes démentent. Tant qu'il n'est pas corrigé, chaque
+    chapitre qui le cite propage l'erreur — et un lecteur qui refait l'addition
+    la trouvera. C'est exactement ce que la cliente a vu le 12/08/2026.
+
+    On ne BLOQUE pas pour autant : la leçon du CHECK INITIAL, le même jour, est
+    qu'un arrêt sur un défaut que le rédacteur ne peut pas réparer ne laisse
+    rien au client. Le gate tranchera sur le document.
+    """
+    import logging  # noqa: PLC0415
+
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    if calculees:
+        logging.getLogger(__name__).info(
+            "Job %s : %s chiffre(s) déduits par calcul — %s",
+            job.id, len(calculees), ", ".join(d.id for d in calculees),
+        )
+
+    if not contradictions:
+        return
+
+    OperationalIncident.objects.create(
+        title=f"Socle : {len(contradictions)} chiffre(s) que leurs termes démentent "
+              f"(job {job.id})",
+        severity=IncidentSeverity.HIGH,
+        job=job,
+        order=job.order,
+        details={"contradictions": [str(c) for c in contradictions]},
+    )
+
+
+def _journaliser_la_verification(job: GenerationJob, rapport: Any) -> None:
+    """Porte le résultat de la vérification au journal des incidents.
+
+    Un socle vérifié et un socle non vérifié ne doivent pas se ressembler. Trois
+    cas, trois traces distinctes :
+
+    - la passe n'a PAS pu tourner → incident MOYEN. Les chiffres ne sont pas
+      faux pour autant, mais personne ne les a confrontés, et l'ignorer
+      laisserait un socle non contrôlé passer pour contrôlé (règle 1) ;
+    - des chiffres ont été déclassés → incident MOYEN, avec la liste. C'est
+      l'information la plus utile du dossier : elle dit où l'étude s'appuie sur
+      une estimation plutôt que sur une donnée publiée ;
+    - tout est confirmé → rien. Un journal qui parle quand tout va bien cesse
+      d'être lu.
+    """
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    if not rapport.passe_executee:
+        OperationalIncident.objects.create(
+            title=f"Socle NON vérifié (job {job.id})",
+            severity=IncidentSeverity.MEDIUM,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+        return
+
+    if rapport.total_declassees:
+        OperationalIncident.objects.create(
+            title=(
+                f"Socle : {rapport.total_declassees} chiffre(s) déclassé(s) en "
+                f"estimation (job {job.id})"
+            ),
+            severity=IncidentSeverity.MEDIUM,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+
+
 @transaction.atomic
 def etablir_socle(
     job: GenerationJob,
@@ -98,6 +179,45 @@ def etablir_socle(
             },
         )
         raise
+
+    # ── Vérification AVANT verrouillage ──────────────────────────────────────
+    #
+    # Le socle est le point unique de vérité de l'étude : ses chiffres sont
+    # repris dans les vingt-trois chapitres. C'est sa force, et c'est ce qui
+    # rend une erreur initiale si chère — retour de la cliente du 09/08/2026 :
+    # « si un chiffre initial est errone, date, issu d'un mauvais perimetre ou
+    # mal interprete, il est actuellement repete dans toute l'etude ».
+    #
+    # Rien ne le regardait : le socle etait scelle VALIDE des sa production.
+    # Ce qui n'est pas confirme par les sources collectees passe desormais en
+    # `estimee`, motif inscrit dans son libelle — donc lisible par le client.
+    from .verification import verifier_le_socle  # noqa: PLC0415
+
+    rapport_verif = verifier_le_socle(
+        socle, client=client, brief_recherche=brief_recherche
+    )
+    _journaliser_la_verification(job, rapport_verif)
+
+    # ── Ce qui se DÉDUIT est calculé, pas rédigé ────────────────────────────
+    #
+    # Un seuil de rentabilité est une division. Le laisser au modèle, c'est le
+    # lui faire refaire à chaque chapitre : mesuré le 12/08/2026 sur un
+    # business plan réel, douze mentions et six valeurs différentes, dont
+    # 18 667 €, 35 609 €, 101 772 €. Le contrôle les attrapait après coup et
+    # les passes de correction réécrivaient les chapitres — 3,50 € devenus 5 €.
+    #
+    # Ici, avant le premier chapitre : le calcul comble ce qui manque, et
+    # signale ce qui se contredit. Une contradiction ne BLOQUE pas — elle est
+    # inscrite dans le rapport, comme le reste de la vérification. Un socle
+    # arrêté sur une division serait le défaut du CHECK INITIAL répété.
+    from .calculs import appliquer  # noqa: PLC0415
+
+    calculees, contradictions = appliquer(socle, str(job.deliverable_type))
+    if calculees:
+        socle = socle.model_copy(
+            update={"donnees": [*socle.donnees, *calculees]}
+        )
+    _journaliser_les_calculs(job, calculees, contradictions)
 
     from ..cost import estimate_call_cost_eur  # noqa: PLC0415 — évite un cycle
 

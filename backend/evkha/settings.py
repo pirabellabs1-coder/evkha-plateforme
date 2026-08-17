@@ -143,6 +143,29 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # En production : monter un volume persistant sur MEDIA_ROOT et servir /media/ via nginx.
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
+
+# ── Taille des dépôts de fichiers ────────────────────────────────────────────
+#
+# DEUX PLAFONDS SE CONTREDISAIENT, et le plus bas n'était écrit nulle part.
+#
+# `organisations.fichiers.TAILLE_MAX_DOCUMENT` accepte 10 Mo — le plafond du
+# formulaire Tally, repris à l'octet près. Mais Django refuse tout corps de
+# requête au-delà de `DATA_UPLOAD_MAX_MEMORY_SIZE`, dont le défaut vaut
+# 2,5 Mo, et il le refuse AVANT que la vue ne s'exécute : la validation
+# applicative n'était jamais atteinte.
+#
+# Constaté le 09/08/2026 : un fichier de 3,5 Mo « ne s'ajoutait pas », sans
+# message exploitable. L'application annonçait 10 Mo, le cadre coupait à 2,5.
+#
+# On dérive donc les deux réglages de la MÊME constante (règle 5), avec une
+# marge pour l'enveloppe multipart — les en-têtes et les frontières de parties
+# s'ajoutent au fichier lui-même, et un fichier de 10,0 Mo pile serait refusé
+# sans elle.
+from organisations.fichiers import TAILLE_MAX_DOCUMENT  # noqa: E402
+
+_MARGE_MULTIPART = 1 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = TAILLE_MAX_DOCUMENT + _MARGE_MULTIPART
+FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
@@ -292,11 +315,18 @@ EVKHA_THINKING_BUDGET_TOKENS = env.int("EVKHA_THINKING_BUDGET_TOKENS", default=1
 # actionner avant de couper la reflexion tout court.
 EVKHA_CLAUDE_EFFORT = env("EVKHA_CLAUDE_EFFORT", default="high")
 
-# Ce qu'une generation ne doit JAMAIS depasser, quel que soit le livrable.
-# Contrainte COMMERCIALE, distincte du budget de rythme de chaque livrable :
-# baisser celui-ci ne fait pas baisser la depense, il retrecit les chapitres
-# (voir generation/cost.py, PLAFOND_DEPENSE_EUR). Reglable sans redeploiement.
-EVKHA_PLAFOND_DEPENSE_EUR = env("EVKHA_PLAFOND_DEPENSE_EUR", default="3.10")
+# FREIN D'URGENCE GLOBAL, vide par defaut. Pose, il plafonne TOUS les livrables
+# a la meme valeur, sans redeploiement — on le tire sans se demander quel type
+# de dossier tourne.
+#
+# Il portait un defaut de « 3.10 » jusqu'au 08/08/2026, et ce defaut le rendait
+# TOUJOURS actif : le plafond par livrable de `cost.PLAFOND_PAR_LIVRABLE`
+# n'etait jamais atteint, et une etude de marche annoncee a 4,00 EUR etait en
+# realite coupee a 3,10. Un frein d'urgence serre en permanence n'est plus un
+# frein d'urgence, c'est le plafond — et il masquait celui qu'on croyait lire.
+#
+# Vide = la table par livrable s'applique. C'est elle qui fait foi.
+EVKHA_PLAFOND_DEPENSE_EUR = env("EVKHA_PLAFOND_DEPENSE_EUR", default="")
 
 # Plafond de mots par section a l'assemblage du Word. 0 = aucune coupe.
 # Au-dela, la prose de la section est ramenee a une amorce, sur une frontiere
@@ -412,8 +442,26 @@ EVKHA_SOCLE_ENABLED = env.bool("EVKHA_SOCLE_ENABLED", default=False)
 
 # Boucle d'auto-correction (concept loopy) : nombre de rondes de régénération
 # ciblée des chapitres fautifs avant blocage du gate. 0 = désactivé (le gate
-# bloque directement, comportement historique). Défaut 1 (borne le coût API).
-EVKHA_CORRECTION_ROUNDS = env.int("EVKHA_CORRECTION_ROUNDS", default=1)
+# bloque directement, comportement historique).
+#
+# TROIS depuis le 12/08/2026, décision cliente, sur une mesure.
+#
+# Une seule ronde laissait sur la table ce qui était réparable. Business plan
+# `5c5e91b9` : neuf motifs restants, dont six libellés financiers qui se
+# contredisent d'un chapitre à l'autre — un investissement total à 68 000,
+# 1 400 puis 85 000 €. Choisir une valeur et la propager est exactement ce que
+# cette boucle sait faire ; elle n'en avait pas le droit.
+#
+# Le coût reste borné par le PLAFOND du livrable (`cost.plafond_de_depense`),
+# pas par ce nombre : une ronde qui ferait dépasser s'arrête d'elle-même. Ce
+# réglage autorise, il ne dépense pas.
+#
+# CE QU'AUCUNE RONDE NE RÉPARERA : `reference_client_illisible`. Quand le brief
+# ne donne aucun montant, le rédacteur invente — et trois rondes de plus le
+# feraient inventer de façon COHÉRENTE, ce qui est pire : un dossier bancaire
+# plausible et invérifiable au lieu d'un dossier qui signale son propre
+# problème. Ce motif désigne une action humaine, et il reste bloquant.
+EVKHA_CORRECTION_ROUNDS = env.int("EVKHA_CORRECTION_ROUNDS", default=3)
 
 # Gamma — moteur de mise en page du livrable (Generations API v1.0).
 # En prod : EVKHA_USE_STUB_GAMMA=false + GAMMA_API_KEY (+ GAMMA_THEME_ID
@@ -447,6 +495,14 @@ EVKHA_APP_URL = env("EVKHA_APP_URL", default="")
 # TODO: remplacer par JWT Better Auth quand BETTER_AUTH_SECRET est configure.
 EVKHA_DASHBOARD_AUTH_DISABLED = env("EVKHA_DASHBOARD_AUTH_DISABLED")
 EVKHA_DASHBOARD_TOKEN = env("EVKHA_DASHBOARD_TOKEN", default="")
+# Jeton PRECEDENT, accepte le temps d'une rotation. Un secret qu'on ne peut pas
+# changer sans coupure ne se change jamais : avec un jeton unique, tourner la
+# cle casse tous les appelants a la seconde du deploiement, donc on repousse.
+# Manoeuvre : poser l'ancienne valeur ici, la nouvelle au-dessus, deployer,
+# mettre les appelants a jour, puis VIDER cette variable. `evkha.W007` la
+# rappelle tant qu'elle est posee, pour qu'une fenetre de rotation ne devienne
+# pas un etat permanent.
+EVKHA_DASHBOARD_TOKEN_PRECEDENT = env("EVKHA_DASHBOARD_TOKEN_PRECEDENT", default="")
 
 # ── Cache ────────────────────────────────────────────────────────────────────
 #

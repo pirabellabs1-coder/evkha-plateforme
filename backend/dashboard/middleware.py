@@ -60,6 +60,39 @@ def contournement_actif() -> bool:
     return True
 
 
+#: Longueur en dessous de laquelle un jeton d'administration n'en est pas un.
+#: 32 signes hexadecimaux = 128 bits, le minimum defendable pour un secret que
+#: rien ne limite en debit et qui ouvre les clients, les couts et les dossiers.
+LONGUEUR_MINIMALE_JETON = 32
+
+
+def jetons_acceptes() -> tuple[str, ...]:
+    """Les jetons valides : celui en service, et le PRÉCÉDENT s'il est déclaré.
+
+    ## Pourquoi deux, alors qu'un seul suffit à ouvrir
+
+    Parce qu'un secret qu'on ne peut pas changer sans coupure ne se change
+    jamais. Avec un jeton unique, tourner la clé signifie casser tous les
+    appelants à la seconde du déploiement — donc on repousse, et le même secret
+    reste en place indéfiniment. C'est la rotation qui protège un jeton
+    statique, pas sa longueur.
+
+    La manœuvre devient : poser `EVKHA_DASHBOARD_TOKEN_PRECEDENT` à l'ancienne
+    valeur, `EVKHA_DASHBOARD_TOKEN` à la nouvelle, déployer, mettre les
+    appelants à jour, puis retirer le précédent. Aucune fenêtre d'indisponibilité,
+    et la fenêtre d'acceptation double est explicite et bornée par une variable
+    qu'on voit.
+
+    Le précédent n'ouvre RIEN de plus que le courant : mêmes droits, même garde.
+    Il est simplement destiné à être retiré.
+    """
+    valeurs = (
+        str(getattr(settings, "EVKHA_DASHBOARD_TOKEN", "") or ""),
+        str(getattr(settings, "EVKHA_DASHBOARD_TOKEN_PRECEDENT", "") or ""),
+    )
+    return tuple(jeton for jeton in (v.strip() for v in valeurs) if jeton)
+
+
 class DashboardAuthMiddleware:
     """Protège `/api/dashboard/` par un jeton partagé.
 
@@ -84,8 +117,8 @@ class DashboardAuthMiddleware:
         if contournement_actif():
             return True
 
-        jeton = str(getattr(settings, "EVKHA_DASHBOARD_TOKEN", "") or "")
-        if not jeton:
+        acceptes = jetons_acceptes()
+        if not acceptes:
             # Aucun secret configure : on REFUSE. Ouvrir « puisqu'il n'y a rien
             # a comparer » serait exactement le defaut de la regle 1.
             return False
@@ -94,7 +127,12 @@ class DashboardAuthMiddleware:
         if not presente:
             return False
 
-        return hmac.compare_digest(jeton.encode("utf-8"), presente.encode("utf-8"))
+        offert = presente.encode("utf-8")
+        # `any` sur des comparaisons TOUTES en temps constant : ce qui fuiterait
+        # dans une comparaison ordinaire, c'est le contenu du jeton signe par
+        # signe. Savoir LEQUEL des deux jetons valides a repondu ne renseigne
+        # sur aucun des deux.
+        return any(hmac.compare_digest(j.encode("utf-8"), offert) for j in acceptes)
 
 
 def _jeton_presente(request: HttpRequest) -> str:

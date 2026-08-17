@@ -29,6 +29,26 @@ def _prose(signes: int) -> str:
     return (motif * (signes // len(motif) + 1))[:signes].strip() or motif.strip()
 
 
+def _adapte(intitule: str) -> str:
+    """Réécrit un intitulé de référence pour le secteur de CETTE étude.
+
+    Ajouté le 09/08/2026, et ce n'est pas un contournement du contrôle : c'est
+    la doublure qui devait changer. Un chapitre conforme ne recopie plus les
+    intitulés du document de référence — il les adapte, puisqu'ils sont écrits
+    avec les mots de la joaillerie sur laquelle le modèle a été mesuré.
+
+    La cliente l'a constaté sur une étude d'e-commerce animalier : « FOCUS —
+    Approfondissement demandé : marché international des galeries et du
+    sur-mesure », en page 52. Une doublure qui reproduit ce défaut décrit un
+    chapitre que le produit refuse désormais de livrer (règle 7).
+    """
+    from generation.modele.conformite import _porte_le_secteur_de_reference
+
+    if not _porte_le_secteur_de_reference(intitule):
+        return intitule
+    return f"{intitule} [adapté au secteur de l'étude]"
+
+
 def _payload(numero: int = 1, **surcharges: Any) -> ChapitrePayload:
     """Chapitre CONFORME au modèle, sauf ce qu'on surcharge.
 
@@ -36,6 +56,10 @@ def _payload(numero: int = 1, **surcharges: Any) -> ChapitrePayload:
     chapitre d'essai « à peu près » ferait échouer les contrôles pour de
     mauvaises raisons, et on croirait à un validateur trop strict alors que
     c'est l'essai qui est faux.
+
+    Les intitulés qui nomment le secteur du document de référence sont ADAPTÉS
+    (voir `_adapte`) : les recopier tels quels est précisément ce que le
+    contrôle de contamination refuse.
     """
     modele = chapitre_du_modele(numero)
     assert modele is not None, f"le modèle n'a pas de chapitre {numero:02d}"
@@ -47,7 +71,7 @@ def _payload(numero: int = 1, **surcharges: Any) -> ChapitrePayload:
             blocs.append({
                 "type": "titre_sous_section",
                 "numero": bloc["numero"],
-                "intitule": bloc["intitule_reference"],
+                "intitule": _adapte(bloc["intitule_reference"]),
             })
         elif type_bloc == "paragraphe":
             blocs.append({
@@ -64,7 +88,7 @@ def _payload(numero: int = 1, **surcharges: Any) -> ChapitrePayload:
             }})
         elif type_bloc == "encadre":
             blocs.append({"type": "encadre", "encadre": {
-                "intitule": bloc["etiquette"] or "Lecture du chapitre",
+                "intitule": _adapte(bloc["etiquette"]) or "Lecture du chapitre",
                 "lignes": ["Opportunité.", "Limite."],
             }})
         elif type_bloc == "grille_kpi":

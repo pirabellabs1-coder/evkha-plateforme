@@ -537,19 +537,97 @@ def run_generation_job(
             )
             raise
         except Exception as exc:  # noqa: BLE001 - tout echec doit etre trace + incident
+            # UN CHAPITRE QUI COINCE NE TUE PLUS L'ETUDE.
+            #
+            # Jusqu'ici cette ligne levait, et le dossier entier mourait. Le
+            # 09/08/2026, l'etude concurrentielle `5892daa5` est morte deux fois
+            # de suite — une fois sur une cellule de tableau manquante, une fois
+            # sur un controle trop large — apres avoir ecrit ses premiers
+            # chapitres et depense 2,07 EUR. La cliente n'a rien recu.
+            #
+            # Le calcul est sans appel : perdre vingt-deux chapitres corrects
+            # parce que le vingt-troisieme resiste coute infiniment plus cher que
+            # de livrer un document avec un trou nomme. Un chapitre manquant se
+            # regenere seul (`regenerate_chapter`) ; une etude morte se
+            # recommande.
+            #
+            # On NE SE TAIT PAS pour autant : le chapitre reste FAILED, son
+            # motif est enregistre, l'incident HIGH est ouvert par `_fail`, et
+            # le gate de livraison verra le trou. C'est la difference entre
+            # « continuer » et « ignorer » (regle 1).
             _fail(job, chapter, exc, title=f"Echec generation chapitre {chapter.chapter_number}")
-            msg = f"Generation failed on chapter {chapter.chapter_number}: {exc}"
-            raise GenerationRunError(msg) from exc
+            _log.warning(
+                "Job %s : chapitre %s abandonne (%s). L'etude CONTINUE.",
+                job.id, chapter.chapter_number, exc,
+            )
+            continue
 
     # Ne pas écraser une annulation demandée pendant la dernière génération
     job.refresh_from_db(fields=["status"])
     if job.status == JobStatus.CANCELLED:
         return job
 
+    # Un dossier dont AUCUN chapitre n'aboutit n'est pas un dossier avec un
+    # trou : c'est un echec. Le distinguer evite de livrer une coquille vide en
+    # la declarant terminee (regle 1).
+    ecrits = job.chapters.filter(status=ChapterStatus.DONE).count()
+    if not ecrits:
+        GenerationJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.FAILED,
+            error_message="Aucun chapitre n'a pu etre produit."[:2000],
+        )
+        msg = f"Generation failed: aucun chapitre produit (job {job.id})."
+        raise GenerationRunError(msg)
+
+    fermer_les_chapitres_inacheves(job)
+
     job.status = JobStatus.DONE
     job.completed_at = timezone.now()
     job.save(update_fields=["status", "completed_at", "updated_at"])
     return job
+
+
+def fermer_les_chapitres_inacheves(job: GenerationJob) -> list[int]:
+    """Passe en ÉCHEC tout chapitre resté en attente ou en cours. Rend leurs numéros.
+
+    ## Le défaut mesuré
+
+    Business plan `2a8872d0` (12/08/2026) : le chapitre 6 est resté « en cours »
+    sur un dossier « terminé » à 20 chapitres sur 22. Deux conséquences, et la
+    seconde est la pire :
+
+    - le tableau de bord affiche 20/22 indéfiniment, sans que rien n'explique
+      ce qui manque ;
+    - le rattrapage (`job_relaunch`, mode `trou_a_combler`) ne reconnaît que
+      les chapitres en ÉCHEC. Le seul recours était donc de repayer le dossier
+      entier — 3,27 € pour deux chapitres manquants.
+
+    Un état intermédiaire qui survit à la fin du traitement n'est pas un état :
+    c'est un échec qui ne dit pas son nom (règle 1).
+
+    Le motif EXISTANT est conservé et préfixé, jamais remplacé : sur
+    `2a8872d0`, le chapitre 6 portait le retour du contrôle qualité, la seule
+    explication du trou. L'écraser aurait effacé la cause en signalant l'effet.
+    """
+    inacheves = list(job.chapters.filter(
+        status__in=[ChapterStatus.PENDING, ChapterStatus.RUNNING]
+    ))
+    for chapitre in inacheves:
+        ancien = (chapitre.error_message or "").strip()
+        chapitre.status = ChapterStatus.FAILED
+        chapitre.error_message = (
+            f"Chapitre inachevé à la fin de la génération. {ancien}".strip()[:2000]
+        )
+        chapitre.save(update_fields=["status", "error_message", "updated_at"])
+
+    numeros = [c.chapter_number for c in inacheves]
+    if numeros:
+        _log.warning(
+            "Job %s termine avec %s chapitre(s) inacheve(s) : %s. Marques en "
+            "echec pour rester rattrapables.",
+            job.id, len(numeros), ", ".join(str(n) for n in numeros),
+        )
+    return numeros
 
 
 def regenerate_chapter(
@@ -867,6 +945,28 @@ def _generate_chapter(
 # validation, on prefere loguer et continuer.
 _MAX_CHECK_RETRIES = 1
 
+#: L'issue que le relecteur laisse implicite, et sans laquelle sa demande est
+#: impossible à satisfaire.
+#:
+#: Business plan `2b6cc7d6` (12/08/2026) : le relecteur refuse la fiche parce
+#: qu'elle avance 65 000 €, 1 400 € et 62 000 € absents du brief, et demande
+#: « soit retirer les montants, soit ajouter le détail du calcul ». Le rédacteur
+#: a tenté la seconde voie — la seule qui ne le fasse pas revenir les mains
+#: vides — et il ne pouvait pas : on ne justifie pas un chiffre qu'on n'a pas.
+#:
+#: On lui dit donc explicitement que retirer est une réponse VALIDE, et même la
+#: bonne. Une fiche qui nomme ce qui manque est utilisable ; une fiche qui
+#: invente un calcul pour tenir debout ne l'est pas — elle contamine ensuite
+#: chaque chapitre qui s'appuie dessus.
+_ISSUE_DU_CHIFFRE_ABSENT = (
+    "\n\nSI UN MONTANT NE PEUT PAS ÊTRE JUSTIFIÉ à partir du dossier client : "
+    "RETIRE-le. N'invente jamais le calcul qui le rendrait acceptable. Écris à "
+    "la place, en une ligne, quelle donnée manque et à qui la demander — "
+    "« chiffre d'affaires prévisionnel non fourni par le client ». Une fiche "
+    "qui nomme ce qui manque est exploitable ; une fiche qui habille un chiffre "
+    "inventé contamine tous les chapitres qui s'appuieront dessus."
+)
+
 
 def _after_chapter_hook(
     job: GenerationJob,
@@ -978,21 +1078,51 @@ def _executer_check_avec_retry(
         if fiche is not None:
             for _ in range(_MAX_CHECK_RETRIES):
                 regenerate_chapter(
-                    job, fiche, corrective_note=result.note_corrective, client=client,
+                    job, fiche,
+                    corrective_note=result.note_corrective + _ISSUE_DU_CHIFFRE_ABSENT,
+                    client=client,
                 )
                 fiche.refresh_from_db()
                 result = check_bloc(job, bloc, [fiche], client=client)
                 if result.est_ok:
                     return
-        # La fiche reste refusee apres correction : la cause est bien en amont
-        # (brief contradictoire, demande illisible). La generation s'arrete,
-        # comme avant, et un humain tranche.
+        # LA FICHE REFUSEE NE TUE PLUS L'ETUDE.
+        #
+        # Decision cliente du 12/08/2026 : « quand il s'agit d'une incoherence,
+        # au lieu de mettre en echec, il faut plutot corriger et mettre de la
+        # logique dedans ».
+        #
+        # Mesure qui la motive — business plan `2b6cc7d6` : le relecteur refuse
+        # la fiche parce qu'elle avance 65 000 €, 1 400 € et 62 000 € que le
+        # brief ne contient pas. Il a raison. Mais la correction qu'il reclame
+        # est IMPOSSIBLE : on ne justifie pas un chiffre absent du brief. La
+        # generation s'arretait donc a 10 centimes, et la cliente n'avait RIEN
+        # — ni document, ni diagnostic exploitable.
+        #
+        # C'est la classe de defaut deja corrigee deux fois sur ce depot : « un
+        # chapitre qui coince ne tue plus l'etude » (02/08), puis la fiche qui
+        # gagne une reprise (05/08). Le refus FINAL, lui, restait fatal.
+        #
+        # Tension assumee avec le manuel p.2 — « on ne continue jamais par
+        # automatisme ». On ne continue pas par automatisme : on continue apres
+        # avoir tente la correction, en laissant une trace HIGH, et le document
+        # reste juge par le gate a la fin. Un dossier livre avec un defaut nomme
+        # vaut mieux qu'un dossier inexistant : le premier se corrige, le second
+        # ne s'analyse meme pas.
         _log_incident_check(
             job, bloc, result.note_corrective,
-            titre="CHECK INITIAL echoue (fiche projet a corriger) — generation stoppee",
+            titre=(
+                "CHECK INITIAL non resolu (fiche projet) — redaction poursuivie, "
+                "gate a la fin"
+            ),
             severity=IncidentSeverity.HIGH,
         )
-        raise CheckInitialBlockedError(result.note_corrective)
+        _log.warning(
+            "Job %s : CHECK INITIAL non resolu apres %s reprise(s). La redaction "
+            "continue ; le gate tranchera sur le document. Note : %s",
+            job.id, _MAX_CHECK_RETRIES, result.note_corrective[:300],
+        )
+        return
 
     retries = 0
     while retries < _MAX_CHECK_RETRIES and not result.est_ok:
@@ -1089,10 +1219,23 @@ def _fail(
         status=ChapterStatus.FAILED,
         error_message=str(exc),
     )
-    GenerationJob.objects.filter(pk=job.pk).update(
-        status=JobStatus.FAILED,
-        error_message=str(exc),
-    )
+    # LE JOB N'EST PAS MARQUE FAILED ICI.
+    #
+    # Il l'etait, et c'etait le reliquat du temps ou un chapitre rate tuait
+    # l'etude. L'appelant `continue` desormais : le dossier travaille encore, et
+    # seule la fin de boucle sait s'il a produit quelque chose. Ecrire FAILED au
+    # milieu, c'est affirmer une chose fausse sur un dossier vivant — le contraire
+    # de la regle 1, qui refuse les etats qui ne correspondent a rien.
+    #
+    # Mesure du 10/08/2026 sur `d326557e`, et les trois consequences se sont
+    # enchainees : le tableau de bord annonçait « echec » pendant que les
+    # chapitres s'ecrivaient ; le suivi l'a cru et s'est arrete ; et surtout
+    # `job_cancel` a REFUSE d'agir — « ce job ne peut pas etre annule (statut :
+    # failed) » — sur une generation qui tournait vraiment. Un statut faux ne
+    # trompe pas seulement le lecteur : il desarme les commandes.
+    #
+    # Le motif n'est pas perdu pour autant : il vit sur le chapitre, dans
+    # l'incident HIGH ci-dessous, et le gate de livraison verra le trou.
     OperationalIncident.objects.create(
         title=title,
         severity=IncidentSeverity.HIGH,

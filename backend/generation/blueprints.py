@@ -403,7 +403,7 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         8,
         "Proposition de valeur et différenciation",
         "str.08.valeur_differenciation",
-        max_words=1600,
+        max_words=1800,
     ),
     ChapterBlueprint(
         9,
@@ -411,7 +411,7 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         "str.09.offres_actuelles",
         max_words=1600,
     ),
-    ChapterBlueprint(10, "Architecture d'offre cible", "str.10.architecture_offre", max_words=1600),
+    ChapterBlueprint(10, "Architecture d'offre cible", "str.10.architecture_offre", max_words=1800),
     ChapterBlueprint(
         11,
         "Logique de montée en gamme et valeur perçue",
@@ -428,13 +428,13 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         13,
         "Stratégie de visibilité et acquisition cohérente",
         "str.13.strategie_visibilite",
-        max_words=1600,
+        max_words=2000,
     ),
     ChapterBlueprint(
         14,
         "Lecture économique et rentabilité du modèle",
         "str.14.rentabilite_modele",
-        max_words=1600,
+        max_words=1800,
     ),
     ChapterBlueprint(
         15,
@@ -452,7 +452,7 @@ BUSINESS_STRATEGY_CHAPTERS: tuple[ChapterBlueprint, ...] = (
         17,
         "Feuille de route stratégique et priorisation",
         "str.17.feuille_route",
-        max_words=1600,
+        max_words=2200,
     ),
     # AJOUT du chapitre 18, Conclusion strategique generale (05/08/2026).
     #

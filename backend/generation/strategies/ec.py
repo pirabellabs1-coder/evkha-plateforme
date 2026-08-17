@@ -51,18 +51,69 @@ _TABLE_RE = re.compile(r"<table\b[^>]*>(.*?)</table>", re.IGNORECASE | re.DOTALL
 _TR_RE = re.compile(r"<tr\b[^>]*>", re.IGNORECASE)
 
 
+def _matrice_dans_le_payload(job: GenerationJob | None) -> tuple[bool | None, str]:
+    """Verdict depuis le payload STRUCTURÉ du chapitre 5. `None` = hors sujet.
+
+    Le moteur structuré ne produit JAMAIS de HTML : sa matrice est un bloc
+    `tableau` ou une figure `matrice_positionnement`, rendus par le moteur
+    Word. Chercher `<table>` dans son corpus, c'est exiger du modèle ce que
+    `_SYSTEME` lui interdit dans le même prompt — et le document `6cb0fab3`
+    (10/08/2026) a été bloqué exactement là-dessus : chapitre 5 présent,
+    matrice présente en bloc `tableau`, contrôle aveugle au contrat qu'il
+    était censé servir.
+    """
+    if job is None:
+        return None, ""
+    chapitre = job.chapters.filter(chapter_number=_CHAPITRE_MATRICE).first()
+    if chapitre is None or not chapitre.payload:
+        return None, ""  # Moteur hérité, ou chapitre non produit : au corpus de juger.
+
+    # Import paresseux : cycle strategies -> chapitres -> models -> strategies.
+    from generation.chapitres.schema import ChapitrePayload  # noqa: PLC0415
+
+    try:
+        payload = ChapitrePayload.model_validate(chapitre.payload)
+    except Exception:  # noqa: BLE001 — un payload illisible se juge au corpus
+        return None, ""
+
+    if any(g.type == "matrice_positionnement" for g in payload.graphiques):
+        return True, ""
+    for bloc in payload.blocs:
+        tableau = getattr(bloc, "tableau", None)
+        if tableau is not None and 1 + len(tableau.lignes) >= _MIN_LIGNES_MATRICE:
+            return True, ""
+
+    return False, (
+        f"Matrice de positionnement absente du chapitre {_CHAPITRE_MATRICE} : "
+        "ni figure `matrice_positionnement` (deux codes de la grille de "
+        "notation en axes), ni bloc `tableau` d'au moins "
+        f"{_MIN_LIGNES_MATRICE} lignes. Une description en prose n'est pas "
+        "une matrice — un banquier lit la grille, pas le paragraphe."
+    )
+
+
 def verifier_matrice_positionnement(
     corpus_par_chapitre: dict[int, str],
+    *,
+    job: GenerationJob | None = None,
 ) -> list[str]:
-    """Le chapitre matrice doit contenir un `<table>` avec >= 3 `<tr>`.
+    """Le chapitre matrice doit porter une matrice — dans le CONTRAT du moteur.
+
+    Moteur structuré (payload présent) : un bloc `tableau` d'au moins 3
+    lignes, ou une figure `matrice_positionnement`. Moteur hérité : un
+    `<table>` d'au moins 3 `<tr>` dans le corpus, comme à l'origine.
 
     Trois branches, toutes signalantes :
       - Chapitre absent : on ne peut rien juger, donc on echoue (regle 1).
-      - Chapitre present, aucun `<table>` : matrice decrite en prose,
-        signal (cas defaut le plus frequent).
-      - Chapitre present, `<table>` avec < 3 `<tr>` : pastille, pas
-        matrice — signal (le prompt exige une grille 3x3).
+      - Chapitre present, aucune matrice : decrite en prose, signal.
+      - Tableau trop court : pastille, pas matrice — signal.
     """
+    verdict, motif = _matrice_dans_le_payload(job)
+    if verdict is True:
+        return []
+    if verdict is False:
+        return [motif]
+
     corps = corpus_par_chapitre.get(_CHAPITRE_MATRICE)
     if corps is None:
         # Le chapitre manque. Rendre [] ici, c'etait conclure au succes faute
@@ -80,9 +131,8 @@ def verifier_matrice_positionnement(
     if not tables:
         return [
             "Matrice de positionnement concurrentiel absente du chapitre "
-            f"{_CHAPITRE_MATRICE}. Le prompt exige explicitement un tableau "
-            "HTML (« ETAPE OBLIGATOIRE : le tableau HTML DOIT apparaitre »). "
-            "Une description en prose n'est pas une matrice — un banquier "
+            f"{_CHAPITRE_MATRICE} : aucun tableau dans le corpus. Une "
+            "description en prose n'est pas une matrice — un banquier "
             "lit la grille, pas le paragraphe."
         ]
 
@@ -127,8 +177,34 @@ _ANNEXES_MAX = 4
 #: marche, radar des 11 acteurs, repartition des canaux.
 _VISUELS_ATTENDUS = 4
 
-_TITRE_ANNEXE_RE = re.compile(r"^#{2,4}\s*annexe\b", re.IGNORECASE | re.MULTILINE)
-_VISUEL_RE = re.compile(r"<table\b|```chart\b|!\[", re.IGNORECASE)
+#: Le préfixe de numérotation est optionnel : le moteur structuré rend chaque
+#: sous-titre en `## {numero} {intitule}` — « ## 4.1 Annexe A — Grille » — et
+#: l'ancien motif exigeait « annexe » collé aux dièses. Un modèle qui titrait
+#: ses annexes DANS la numérotation du contrat ne pouvait jamais être compté
+#: (job réel `026fecea`, 10/08/2026 : « 0 annexe(s) titrée(s) » sur un
+#: chapitre qui en portait).
+_TITRE_ANNEXE_RE = re.compile(
+    r"^#{2,4}\s*(?:\d[\w.]*\s+)?annexe\b", re.IGNORECASE | re.MULTILINE
+)
+#: Ce qui compte comme UN visuel, dans les deux moteurs.
+#:
+#: `<!-- graphique:` est le visuel du moteur structuré : un `BlocGraphique`
+#: sérialisé par `payload_vers_markdown`, résolu en figure au rendu. Ne pas le
+#: compter, c'était exiger du chapitre 7 des visuels dans un format que le
+#: moteur ne produit jamais — la même cécité que la matrice HTML.
+#:
+#: Le SÉPARATEUR de tableau markdown (`| --- | --- |`) est arrivé ensuite, et
+#: pour la même raison. La fiche du chapitre 7 demande explicitement deux de
+#: ses quatre visuels « sous forme de tableau structuré » — la carte des
+#: implantations, la répartition des canaux — et le moteur structuré rend un
+#: `BlocTableau` en markdown, jamais en `<table>`. Le job réel `026fecea`
+#: portait ses quatre visuels et n'en faisait compter que trois : sa carte
+#: était un tableau, donc invisible. Le séparateur apparaît UNE fois par
+#: tableau, ce qui compte des blocs et non des lignes.
+_VISUEL_RE = re.compile(
+    r"<table\b|```chart\b|!\[|<!--\s*graphique:|^\s*\|[\s:|-]*-{3,}[\s:|-]*\|",
+    re.IGNORECASE | re.MULTILINE,
+)
 #: Etape 8.2 : chaque demande porte un statut sur trois.
 _STATUT_RE = re.compile(
     r"\b(?:traitée?|traitee?|partiellement\s+traitée?|partiellement\s+traitee?"
@@ -251,8 +327,8 @@ class ECStrategy:
                 valeur_trouvee=str(c.trouves),
             ))
 
-        # 2. Matrice HTML au chapitre 5.
-        for detail in verifier_matrice_positionnement(corpus_par_chapitre):
+        # 2. Matrice au chapitre 5 — payload structuré d'abord, corpus sinon.
+        for detail in verifier_matrice_positionnement(corpus_par_chapitre, job=job):
             problemes.append(ProblemeCoherence(
                 categorie="matrice_absente",
                 chapitre=_CHAPITRE_MATRICE,

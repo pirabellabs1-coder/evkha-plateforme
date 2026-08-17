@@ -128,6 +128,11 @@ def produire_docx(
         marque=marque,
     )
 
+    # Le type de livrable décide de la recommandation de clôture : proposer une
+    # étude de la concurrence à la fin d'une étude de la concurrence perdrait en
+    # une phrase la crédibilité que trente pages ont construite.
+    etude["type_livrable"] = str(job.deliverable_type)
+
     cible = destination or _repertoire_de_sortie() / f"{job.id}.docx"
     rendre_etude(etude, cible)
 

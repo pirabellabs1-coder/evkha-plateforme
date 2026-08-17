@@ -14,6 +14,11 @@ from typing import Any
 _BRIEF = re.compile(r"^BRIEF_CLIENT :\n(\{.*?\n\})", re.MULTILINE | re.DOTALL)
 
 
+def _notes(**par_critere: int) -> list[dict[str, Any]]:
+    """Notes d'un acteur, au format du contrat : une entrée par critère."""
+    return [{"critere": code, "note": note} for code, note in par_critere.items()]
+
+
 def _brief_client(prompt: str) -> dict[str, str]:
     """Variables du brief, relues dans le prompt.
 
@@ -173,9 +178,50 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
                 "part_estimee": 60.0,
             }
         ],
+        # QUATRE acteurs NOTÉS sur QUATRE critères, pour la même raison que les
+        # quatre risques ci-dessous. `_radar_des_acteurs` exige trois axes, et
+        # `_matrice` deux acteurs notés sur les deux mêmes critères : avec deux
+        # acteurs sans notes, le radar et la carte de positionnement étaient
+        # refusés à chaque chapitre — le défaut mesuré sur `5892daa5`, où onze
+        # figures sur quinze sont tombées faute de coordonnées.
         "concurrents": [
-            {"nom": "Acteur A", "type": "direct", "positionnement": "généraliste", "source": ""},
-            {"nom": "Acteur B", "type": "indirect", "positionnement": "spécialiste", "source": ""},
+            {"nom": "Acteur A", "type": "direct", "positionnement": "généraliste",
+             "source": "", "notes": _notes(prix=4, offre=3, notoriete=4, service=3)},
+            {"nom": "Acteur B", "type": "indirect", "positionnement": "spécialiste",
+             "source": "", "notes": _notes(prix=2, offre=5, notoriete=3, service=4)},
+            {"nom": "Acteur C", "type": "direct", "positionnement": "discount",
+             "source": "", "notes": _notes(prix=5, offre=2, notoriete=2, service=2)},
+            {"nom": "Acteur D", "type": "direct", "positionnement": "premium",
+             "source": "", "notes": _notes(prix=1, offre=4, notoriete=5, service=5)},
+            # L'ENTREPRISE DU DOSSIER, type `projet`, notée comme les autres.
+            #
+            # Sans elle, la doublure ne rencontrait JAMAIS la forme réelle de la
+            # base. Deux défauts introduits le 13/08/2026 lui ont échappé pour
+            # cette seule raison : le comptage des indirects par soustraction,
+            # qui faisait du projet un quatrième indirect, et la sélection
+            # d'acteurs d'une figure, qui l'omettait dès qu'un chapitre
+            # demandait « les directs ». Tous deux trouvés à la lecture, aucun
+            # par la répétition à blanc.
+            #
+            # Une doublure qui ne ressemble pas au réel valide une chaîne qui
+            # n'existe pas (règle 3).
+            {"nom": "Projet du dossier", "type": "projet",
+             "positionnement": "l'entreprise étudiée",
+             "source": "", "notes": _notes(prix=3, offre=3, notoriete=2, service=4)},
+        ],
+        "grille_notation": [
+            {"code": "prix", "intitule": "Accessibilité tarifaire",
+             "note_1": "tarifs très supérieurs au marché",
+             "note_5": "tarifs parmi les plus bas du marché"},
+            {"code": "offre", "intitule": "Étendue de l'offre",
+             "note_1": "une seule prestation",
+             "note_5": "gamme complète et services associés"},
+            {"code": "notoriete", "intitule": "Notoriété",
+             "note_1": "inconnu hors de sa zone immédiate",
+             "note_5": "référence citée du secteur"},
+            {"code": "service", "intitule": "Qualité de service",
+             "note_1": "aucun accompagnement",
+             "note_5": "accompagnement personnalisé et suivi"},
         ],
         # QUATRE tendances DATÉES. `_frise` refuse en dessous de deux horizons :
         # « une frise sans date n'est pas une frise ». Avec une seule tendance,

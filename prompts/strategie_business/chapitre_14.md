@@ -32,6 +32,6 @@ Sors d'une lecture emotionnelle ou uniquement commerciale : analyse directionnel
 
 Termine par une synthese de la logique economique du business, une lecture des forces et fragilites financieres du modele, puis une transition vers le chapitre Arbitrages strategiques & allocation des ressources.
 
-Graphique obligatoire : genere en HTML inline (sans <html>/<body>) un graphique barres comparant la rentabilite reelle des activites ou offres du business : titre H3, tableau, barre #C9A227 pour les activites rentables, barre #B73E3E pour celles qui ne le sont pas, valeurs reelles en % ou en euros, legende courte en italique.
+Graphique obligatoire : demande un graphique en barres comparant la rentabilite des activites ou offres, en citant les identifiants du socle correspondants ; commente quelles activites portent la marge et lesquelles la consomment.
 
 Interdits : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile.

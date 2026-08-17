@@ -1,8 +1,31 @@
 """Une generation ne depasse jamais le plafond fixe par la cliente.
 
-Decision du 05/08/2026, releve de la console Anthropic a l'appui — 44,26 $US de
-credits restants, rechargement automatique actif : « on ne doit pas depasser
-3 euros pour une generation, ou 3,1 au max ».
+**Decision du 08/08/2026**, qui remplace le plafond unique de 3,10 EUR arrete le
+05/08 : le prix d'un livrable depend de ce qu'il demande. Etude de marche 8,00,
+business plan 4,00, strategie 4,00, etude concurrentielle 3,50.
+
+L'etude de marche est passee de 6,00 a 8,00 le meme jour, sur MESURE : le
+dossier reel `b561c2d6` a ete coupe par ce garde-fou a 22 chapitres sur 23,
+pour 5,94 EUR. Le plafond a bien fonctionne — il a stoppe net — mais il etait
+pose trop bas d'un chapitre.
+
+## Ce que la revision a mis au jour
+
+Le plafond unique etait porte par QUATRE endroits, et deux se contredisaient :
+
+  - `cost.PLAFOND_DEPENSE_EUR`, a 3,10 ;
+  - `settings.EVKHA_PLAFOND_DEPENSE_EUR`, avec un DEFAUT a « 3.10 » — donc le
+    << frein d'urgence >> etait serre en permanence, et le plafond par livrable
+    n'etait jamais atteint ;
+  - `services._BUDGET_EUR_BY_TYPE`, le rythme, a 4,00 pour l'etude de marche ;
+  - ce test, qui verrouillait 3,10.
+
+Le regulateur cadencait donc vers 4,00 pendant que le frein coupait a 3,10 : il
+allouait genereusement, puis le dossier etait tranche avant la fin. Et qui
+lisait la table des rythmes croyait qu'une etude de marche pouvait couter 4,00.
+
+Une seule table porte desormais les deux roles : `cost.PLAFOND_PAR_LIVRABLE`,
+que `services._BUDGET_EUR_BY_TYPE` RELIT au lieu de la recopier.
 
 ## Le piege, et il a failli me faire livrer l'inverse
 
@@ -37,14 +60,28 @@ import pytest
 
 from catalog.models import DeliverableType
 from generation.cost import (
-    PLAFOND_DEPENSE_EUR,
+    PLAFOND_PAR_LIVRABLE,
+    PLAFOND_REPLI_EUR,
     CostBudgetExceededError,
     enforce_budget,
     plafond_de_depense,
 )
 from generation.services import _BUDGET_EUR_BY_TYPE
 
-_MAXIMUM_TOLERE = Decimal("3.1000")
+#: Les quatre montants arretes par la cliente le 08/08/2026, RECOPIES a dessein.
+#: Un test qui relit la table qu'il verifie ne verifie rien : c'est le seul
+#: doublon voulu du depot, et c'est sa raison d'etre.
+# Relevés le 13/08/2026, sur décision cliente et sur trois mesures réelles :
+# deux dossiers arrêtés à UN chapitre de la fin après avoir engagé son coût
+# (3,63 € > 3,50 € ; 5,58 € > 5,50 €) et une stratégie finie au ras (5,45 €).
+# Un plafond sous le coût réel sacrifie le dernier chapitre — celui qui conclut
+# — et fait payer la tentative.
+DECISION_CLIENTE = {
+    DeliverableType.MARKET_STUDY: Decimal("8.00"),
+    DeliverableType.BUSINESS_PLAN: Decimal("6.50"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("6.50"),
+    DeliverableType.COMPETITOR_STUDY: Decimal("4.50"),
+}
 
 
 @pytest.fixture
@@ -68,37 +105,77 @@ def job_em() -> Any:
     )
 
 
-def test_le_plafond_respecte_la_consigne() -> None:
-    assert PLAFOND_DEPENSE_EUR <= _MAXIMUM_TOLERE
+@pytest.mark.parametrize(("livrable", "montant"), sorted(DECISION_CLIENTE.items()))
+def test_la_table_porte_la_decision_de_la_cliente(
+    livrable: str, montant: Decimal
+) -> None:
+    assert PLAFOND_PAR_LIVRABLE[livrable] == montant
+
+
+def test_le_rythme_et_le_plafond_sont_la_meme_table() -> None:
+    """Deux tables aux memes nombres auraient diverge au premier ajustement.
+
+    On verifie l'IDENTITE, pas l'egalite : deux dictionnaires egaux aujourd'hui
+    peuvent cesser de l'etre demain sans qu'aucun test ne tombe.
+    """
+    assert _BUDGET_EUR_BY_TYPE is PLAFOND_PAR_LIVRABLE
 
 
 @pytest.mark.django_db
-def test_une_etude_est_stoppee_au_plafond(job_em: Any) -> None:
-    """Sur le code d'avant, l'arret n'avait lieu qu'a 6,00 EUR.
+@pytest.mark.parametrize(("livrable", "montant"), sorted(DECISION_CLIENTE.items()))
+def test_le_plafond_applique_est_celui_du_livrable(
+    livrable: str, montant: Decimal, job_em: Any
+) -> None:
+    """Ce que le garde-fou applique vraiment, et non ce que la table declare.
 
-    Le budget de rythme vaut 4,00 : sans plafond distinct, une etude aurait pu
-    depenser 4,00 EUR sans que rien ne l'arrete.
+    C'est `plafond_de_depense` que `enforce_budget` interroge. Verifier la table
+    seule laisserait passer une regression entre les deux — et c'est exactement
+    ce qui s'etait produit : la table disait 4,00 et le frein coupait a 3,10.
     """
-    assert job_em.budget_eur > _MAXIMUM_TOLERE
+    job_em.deliverable_type = livrable
+    job_em.budget_eur = montant
 
-    enforce_budget(job_em, current_total=Decimal("3.0000"))  # ne doit pas lever
+    assert plafond_de_depense(job_em) == montant
+
+
+@pytest.mark.django_db
+def test_une_etude_est_stoppee_a_son_plafond(job_em: Any) -> None:
+    """L'arret est net, et il tombe au bon montant."""
+    plafond = DECISION_CLIENTE[DeliverableType.MARKET_STUDY]
+    job_em.budget_eur = plafond
+
+    enforce_budget(job_em, current_total=plafond - Decimal("0.10"))  # ne leve pas
 
     with pytest.raises(CostBudgetExceededError, match="Plafond de depense"):
-        enforce_budget(job_em, current_total=Decimal("3.2000"))
+        enforce_budget(job_em, current_total=plafond + Decimal("0.10"))
 
 
 @pytest.mark.django_db
 def test_le_plus_contraignant_des_deux_l_emporte(job_em: Any) -> None:
-    """L'etude concurrentielle a un rythme de 2,60 : c'est LUI qui doit primer.
+    """Un budget de job abaisse a la main ne doit pas etre releve par la table.
 
-    Contre-epreuve : un plafond commercial a 3,10 ne doit pas AUTORISER a
-    depenser davantage sur le livrable le plus sobre.
+    Contre-epreuve : le plafond d'un livrable ne doit jamais AUTORISER a
+    depenser davantage que ce que le dossier lui-meme s'est vu accorder —
+    reprise partielle, dossier de test.
     """
     job_em.budget_eur = Decimal("2.6000")
     assert plafond_de_depense(job_em) == Decimal("2.6000")
 
     with pytest.raises(CostBudgetExceededError):
         enforce_budget(job_em, current_total=Decimal("2.7000"))
+
+
+@pytest.mark.django_db
+def test_un_livrable_inconnu_tombe_sur_le_plafond_le_plus_BAS(job_em: Any) -> None:
+    """Un livrable non budgete ne doit pas heriter du plafond le plus genereux.
+
+    Il s'arrete tot, ouvre un incident, et le manque se voit. L'inverse
+    depenserait en silence — et c'est le silence qu'on refuse (regle 1).
+    """
+    job_em.deliverable_type = "livrable_qui_n_existe_pas"
+
+    assert plafond_de_depense(job_em) == PLAFOND_REPLI_EUR
+    assert PLAFOND_REPLI_EUR == min(DECISION_CLIENTE.values())
 
 
 @pytest.mark.django_db

@@ -41,11 +41,36 @@ def charger_modele(chemin: str | None = None) -> dict[str, Any]:
         raise ModeleIntrouvableError(msg) from erreur
 
 
-#: Le modèle ne décrit QU'UN type de document. Soumettre un business plan à la
-#: forme de l'étude de marché lui imposerait un plan qui n'est pas le sien —
-#: et le validateur de conformité le refuserait pour un défaut qu'on aurait
-#: nous-mêmes provoqué.
-TYPE_LIVRABLE_MODELE = "market_study"
+#: Livrables décrits par un modèle de forme, et le `type_document` que leur
+#: fichier doit déclarer.
+#:
+#: **Une table, et non plus une constante scalaire.** Le jour où un second
+#: modèle arrive, il se pose ici : une ligne de données, aucun code à changer.
+#: Tant qu'elle n'a qu'une entrée, elle se comporte exactement comme la
+#: constante qu'elle remplace.
+#:
+#: ## Ce qu'il faut pour y ajouter le business plan, et pourquoi ce n'est pas
+#: ## un travail de code
+#:
+#: Le modèle de l'étude de marché n'a pas été écrit : il a été MESURÉ sur
+#: `references/joalie_2026.docx`, une étude réelle livrée à la cliente, via
+#: `references/structurer.py` puis `references/modeliser.py`. Longueurs de
+#: paragraphes, en-têtes et hauteurs de tableaux, séquence des blocs : tout
+#: vient du document.
+#:
+#: Le dériver d'un business plan que NOUS avons produit n'apprendrait rien —
+#: il encoderait ce que le moteur fait déjà et le déclarerait conforme. Une
+#: boucle qui valide contre sa propre mesure se donne raison toute seule
+#: (règle 9). Il faut donc un business plan validé par la cliente, écrit
+#: hors de cette chaîne, et refaire le passage `structurer` → `modeliser` avec
+#: des constantes propres au BP (`GRAPHIQUES_MIN`, `VISUEL_ATTENDU`,
+#: `VOLUME_PAGES` sont spécifiques à l'étude de marché).
+#:
+#: En attendant, un livrable non décrit reçoit `_bloc_forme(code)` — une forme
+#: PROPRE à son type, et non plus la même consigne pour tout le monde.
+MODELES_PAR_LIVRABLE: dict[str, str] = {
+    "market_study": "etude_de_marche",
+}
 
 
 def modele_couvre(code_livrable: str, *, chemin: str | None = None) -> bool:
@@ -56,9 +81,10 @@ def modele_couvre(code_livrable: str, *, chemin: str | None = None) -> bool:
     change de type sans que ce code bouge, la consigne ne partira pas quand
     même — elle s'éteindra.
     """
-    if code_livrable != TYPE_LIVRABLE_MODELE:
+    attendu = MODELES_PAR_LIVRABLE.get(code_livrable)
+    if attendu is None:
         return False
-    return charger_modele(chemin).get("type_document") == "etude_de_marche"
+    return charger_modele(chemin).get("type_document") == attendu
 
 
 def chapitre_du_modele(numero: int, *, chemin: str | None = None) -> dict[str, Any] | None:

@@ -10,10 +10,17 @@ urlpatterns = [
     path("overview/", views.overview, name="overview"),
     # Jobs
     path("jobs/", views.jobs_list, name="jobs-list"),
+    # AVANT `jobs/<job_id>/` : Django prend la première route qui correspond,
+    # et `<str:job_id>` avalerait « <id>/brief » comme un identifiant.
+    path("jobs/<str:job_id>/brief/", views.job_brief, name="job-brief"),
+    path("jobs/<str:job_id>/regenerer/", views.job_regenerer, name="job-regenerer"),
+    path("jobs/<str:job_id>/assembler/", views.job_assembler, name="job-assembler"),
+    path("jobs/<str:job_id>/supprimer/", views.job_supprimer, name="job-supprimer"),
     path("jobs/<str:job_id>/", views.job_detail, name="job-detail"),
     path("jobs/<str:job_id>/cancel/", views.job_cancel, name="job-cancel"),
     path("jobs/<str:job_id>/relaunch/", views.job_relaunch, name="job-relaunch"),
     path("jobs/<str:job_id>/redeliver/", views.job_redeliver, name="job-redeliver"),
+    path("jobs/<str:job_id>/reverifier/", views.job_reverifier, name="job-reverifier"),
     path("jobs/<str:job_id>/send-email/", views.job_send_email, name="job-send-email"),
     # Incidents
     path("incidents/", views.incidents_list, name="incidents-list"),
@@ -66,6 +73,11 @@ urlpatterns = [
         "supervision/organisations/<str:organisation_id>/statut/",
         actions.basculer_statut,
         name="supervision-statut",
+    ),
+    path(
+        "supervision/organisations/<str:organisation_id>/resilier/",
+        actions.resilier_abonnement,
+        name="supervision-resilier",
     ),
     path(
         "supervision/demandes/<str:demande_id>/traiter/",

@@ -27,9 +27,11 @@ from typing import Any
 
 from ..socle.referentiel import FamilleUnite
 from ..socle.schema import (
+    SELECTEURS_D_ACTEURS,
     DonneeSocle,
     Socle,
     famille_de_l_unite,
+    unite_lisible,
     valeur_en_unites_de_base,
 )
 
@@ -217,7 +219,16 @@ def _harmoniser(
 
 
 def _suffixe(unite: str) -> str:
-    return "" if unite == "%" else f" {unite}"
+    """Unité accolée à une valeur, écrite POUR LE LECTEUR.
+
+    `unite_lisible` est la source unique : `MdEUR` devient `Md€` ici comme dans
+    la ligne du socle injectée au prompt. Deux traductions de la même notation
+    auraient fini par diverger, et le document aurait porté les deux (règle 5).
+    """
+    if unite == "%":
+        return ""
+    lisible = unite_lisible(unite)
+    return f" {lisible}" if lisible else ""
 
 
 def _valeur_lisible(valeur: float, unite: str) -> str:
@@ -237,8 +248,8 @@ def _valeur_lisible(valeur: float, unite: str) -> str:
     base = valeur * dict(_MAGNITUDES_AFFICHAGE)[magnitude_source]
     for prefixe, facteur in _MAGNITUDES_AFFICHAGE:
         if abs(base) >= facteur:
-            return f"{base / facteur:g} {prefixe}{devise}"
-    return f"{base:g} {devise}"
+            return f"{base / facteur:g} {unite_lisible(f'{prefixe}{devise}')}"
+    return f"{base:g} {unite_lisible(devise)}"
 
 
 def _decomposer(unite: str) -> tuple[str, str] | None:
@@ -510,7 +521,20 @@ def _groupees(
 def _notes(
     socle: Socle, type_demande: str, identifiants: Sequence[str]
 ) -> Resolution:
-    """Radar : plusieurs critères notés sur une même échelle."""
+    """Radar : plusieurs critères notés sur une même échelle.
+
+    Deux matières possibles, et la grille passe en premier. Un chapitre qui
+    cite des critères compare des ACTEURS sur ces axes — c'est la figure que
+    six abandons de `5892daa5` réclamaient sans pouvoir l'obtenir, faute de
+    notes dans le socle. À défaut, on retombe sur des identifiants chiffrés
+    notés, qui décrivent un seul profil.
+    """
+    criteres = _criteres_cites(socle, identifiants)
+    if criteres:
+        return _radar_des_acteurs(
+            socle, type_demande, criteres, _acteurs_cites(socle, identifiants)
+        )
+
     donnees, motif = _resoudre_ids(socle, identifiants)
     if motif:
         return Resolution(motif=motif)
@@ -536,6 +560,50 @@ def _notes(
     )
 
 
+def _radar_des_acteurs(
+    socle: Socle,
+    type_demande: str,
+    criteres: Sequence[Any],
+    acteurs: Sequence[str] | None = None,
+) -> Resolution:
+    """Un axe par critère, une série par concurrent noté sur tous.
+
+    `acteurs` dit LESQUELS. Sans lui, quatre radars de chapitres différents —
+    les huit directs, puis les trois indirects — rendaient exactement la même
+    image, et celui qui s'annonçait « indirects » affichait des directs.
+    """
+    if len(criteres) < 3:
+        return Resolution(
+            motif="un radar exige au moins trois axes ; "
+            f"{len(criteres)} critère(s) cité(s)"
+        )
+    codes = [critere.code for critere in criteres]
+    notes = socle.notes_sur(codes, acteurs=acteurs)
+    if not notes:
+        intitules = ", ".join(f"« {c.intitule} »" for c in criteres)
+        precision = f" parmi {', '.join(acteurs)}" if acteurs else ""
+        return Resolution(
+            motif=f"aucun acteur{precision} n'est noté sur TOUS ces critères : "
+            f"{intitules}"
+        )
+
+    retenus, motif = notes[:_SERIES_RADAR_MAX], ""
+    if len(notes) > _SERIES_RADAR_MAX:
+        ecartes = ", ".join(nom for nom, _ in notes[_SERIES_RADAR_MAX:])
+        motif = (
+            f"{len(notes)} acteurs notés, {_SERIES_RADAR_MAX} tracés : un radar "
+            f"plus chargé ne se lit plus. Non tracés — {ecartes}."
+        )
+
+    return Resolution(
+        type_demande,
+        {"axes_noms": [critere.intitule for critere in criteres],
+         "series": [(nom, valeurs) for nom, valeurs in retenus],
+         "maximum": 5.0},
+        motif=motif,
+    )
+
+
 # ── Résolveurs alimentés par les collections du socle ────────────────────────
 # Ces types ne se nourrissent pas d'identifiants chiffrés : leur matière est
 # ailleurs dans le socle — les risques portent un couple probabilité/impact,
@@ -550,7 +618,140 @@ def _risques_notes(socle: Socle) -> list[Any]:
     ]
 
 
-def _matrice(socle: Socle, type_demande: str, _: Sequence[str]) -> Resolution:
+#: Séries au-delà desquelles un radar devient un plat de spaghettis.
+#:
+#: Onze concurrents superposés sur cinq axes ne se lisent pas. La borne est
+#: basse volontairement : au-delà, la comparaison qui justifie le radar
+#: disparaît sous les traits.
+_SERIES_RADAR_MAX = 5
+
+
+#: Sélecteurs d'acteurs qu'un chapitre peut citer parmi ses identifiants.
+#: Écrits comme les codes de critères, ils disent QUELS concurrents la figure
+#: compare — sans obliger le chapitre à recopier onze noms.
+#: Repris du socle, jamais recopié : c'est lui qui décide de ce qu'un chapitre
+#: a le droit d'écrire, et deux tables auraient divergé — elles l'ont fait le
+#: 13/08/2026, quand `projet` est entré dans le vocabulaire d'un côté seulement.
+_SELECTEURS_D_ACTEURS = SELECTEURS_D_ACTEURS
+
+
+def _acteurs_cites(socle: Socle, identifiants: Sequence[str]) -> list[str] | None:
+    """Les acteurs que la figure doit comparer, ou `None` pour tous.
+
+    ## Le défaut que cette fonction répare
+
+    Rien ne permettait à un chapitre de dire QUELS concurrents sa figure
+    compare. Toute figure d'acteurs prenait donc la liste entière et gardait
+    les premiers : quatre radars — chapitres 1, 2.3, 7.6, 7.7 — rendaient la
+    MÊME image, et celui qui s'annonçait « concurrents indirects » affichait
+    des directs. Signalé par la cliente le 11/08/2026 ; le résolveur écrit le
+    matin même n'avait aucun moyen de faire autrement.
+
+    Deux écritures acceptées, parce que les deux sont naturelles : un
+    sélecteur (`directs`, `indirects`) ou les NOMS des acteurs voulus. Un nom
+    inconnu du socle est ignoré — le chapitre ne peut pas inventer un
+    concurrent par ce chemin.
+    """
+    voulus: list[str] = []
+    designe = False
+    connus = {a.nom.casefold(): a.nom for a in socle.concurrents}
+    codes = {c.code.casefold() for c in socle.grille_notation}
+    for identifiant in identifiants:
+        cle = identifiant.strip().casefold()
+        type_ = _SELECTEURS_D_ACTEURS.get(cle)
+        if type_ is not None:
+            designe = True
+            voulus.extend(socle.acteurs_du_type(type_))
+            continue
+        if cle in connus:
+            designe = True
+            voulus.append(connus[cle])
+            continue
+        # Ni sélecteur, ni acteur connu, ni code de critère, ni donnée du
+        # socle : le chapitre DÉSIGNAIT quelqu'un — un nom mal orthographié,
+        # un acteur absent de la base. On le retient comme une intention.
+        if cle not in codes and cle not in {i.casefold() for i in socle.identifiants}:
+            designe = True
+
+    retenus = list(dict.fromkeys(voulus))
+    if retenus:
+        # L'ENTREPRISE DU DOSSIER S'AJOUTE TOUJOURS.
+        #
+        # Demande de la cliente du 13/08/2026 : « tout graphique de benchmark,
+        # positionnement, matrice concurrentielle ou radar destiné à comparer
+        # les acteurs doit obligatoirement intégrer l'entreprise étudiée comme
+        # point de référence ».
+        #
+        # La consigne le dit au rédacteur, et ce n'est pas suffisant : `directs`
+        # rend les huit directs, un point c'est tout. La figure ne porterait
+        # l'entreprise que les fois où le modèle pense à la nommer — c'est-à-dire
+        # la plupart des fois, et pas toutes. On le fait ici, où c'est
+        # mécanique : un lecteur qui regarde un benchmark cherche d'abord où il
+        # se trouve, et une figure sur deux qui l'oublie est un défaut de plus à
+        # relire.
+        projet = socle.acteurs_du_type("projet")
+        retenus.extend(nom for nom in projet if nom not in retenus)
+        return retenus
+    # Distinguer « aucun sélecteur » de « sélecteurs tous inconnus » : le
+    # premier veut tous les acteurs, le second ne veut sûrement pas ceux
+    # qu'on lui donnerait. Rendre la liste entière à un chapitre qui a
+    # nommé quelqu'un, c'est produire la figure au titre menteur — le
+    # défaut même qu'on répare.
+    return [] if designe else None
+
+
+def _criteres_cites(socle: Socle, identifiants: Sequence[str]) -> list[Any]:
+    """Les critères de la grille cités par le chapitre, dans l'ordre donné.
+
+    L'ordre compte : sur une carte de positionnement, le premier critère est
+    l'abscisse et le second l'ordonnée. C'est le chapitre qui décide de la
+    lecture, pas l'ordre de déclaration du socle.
+    """
+    trouves = [socle.critere(code) for code in identifiants]
+    return [critere for critere in trouves if critere is not None]
+
+
+def _matrice(
+    socle: Socle, type_demande: str, identifiants: Sequence[str]
+) -> Resolution:
+    """Carte de positionnement : des concurrents notés, ou des risques.
+
+    Le premier cas est arrivé après coup. Ce résolveur ne savait placer QUE des
+    risques, sur des axes « Probabilité » et « Impact » écrits en dur — alors
+    qu'une étude concurrentielle demande naturellement de positionner ses
+    acteurs. Sur `5892daa5` (10/08/2026), cinq figures ont été abandonnées pour
+    « le socle ne porte pas deux risques notés » : le modèle demandait de
+    placer huit concurrents, et on lui répondait qu'il manquait des risques.
+
+    Un chapitre qui cite des critères de la grille est donc en mode
+    concurrents, et n'y échappe plus : se rabattre sur les risques dessinerait
+    une figure juste répondant à une autre question, ce que le lecteur ne peut
+    pas deviner (règle 3).
+    """
+    criteres = _criteres_cites(socle, identifiants)
+    if criteres:
+        if len(criteres) < 2:
+            return Resolution(
+                motif="une carte de positionnement demande DEUX critères de la "
+                f"grille ; un seul est cité : « {criteres[0].intitule} »"
+            )
+        abscisse, ordonnee = criteres[0], criteres[1]
+        notes = socle.notes_sur(
+            [abscisse.code, ordonnee.code],
+            acteurs=_acteurs_cites(socle, identifiants),
+        )
+        if len(notes) < 2:
+            return Resolution(
+                motif="moins de deux acteurs sont notés à la fois sur "
+                f"« {abscisse.intitule} » et « {ordonnee.intitule} » ; "
+                "aucune comparaison à dessiner"
+            )
+        return Resolution(
+            type_demande,
+            {"points": [(nom, valeurs[0], valeurs[1]) for nom, valeurs in notes],
+             "axe_x": abscisse.intitule, "axe_y": ordonnee.intitule},
+        )
+
     risques = _risques_notes(socle)
     if len(risques) < 2:
         return Resolution(
@@ -567,7 +768,34 @@ def _matrice(socle: Socle, type_demande: str, _: Sequence[str]) -> Resolution:
     )
 
 
-def _chaleur(socle: Socle, type_demande: str, _: Sequence[str]) -> Resolution:
+def _chaleur(
+    socle: Socle, type_demande: str, identifiants: Sequence[str]
+) -> Resolution:
+    """Carte de chaleur : des acteurs notés par critère, ou des risques.
+
+    Le premier mode manquait, et c'est le correctif du matin qui l'a montré :
+    j'avais étendu la carte de positionnement et le radar aux critères de la
+    grille, PAS la carte de chaleur — l'exemple, pas la classe (règle 4,
+    troisième résolveur sur trois). Le chapitre 3 de `6cb0fab3` a perdu sa
+    « criticité concurrentielle par critère noté » sur le motif des risques,
+    alors que le socle portait onze acteurs notés sur cinq critères.
+    """
+    criteres = _criteres_cites(socle, identifiants)
+    if len(criteres) >= 2:
+        codes = [critere.code for critere in criteres]
+        notes = socle.notes_sur(codes, acteurs=_acteurs_cites(socle, identifiants))
+        if len(notes) < 2:
+            return Resolution(
+                motif="moins de deux acteurs sont notés sur tous les critères "
+                "cités ; une carte de chaleur à une ligne ne compare rien"
+            )
+        return Resolution(
+            type_demande,
+            {"lignes": [nom for nom, _ in notes],
+             "colonnes": [critere.intitule for critere in criteres],
+             "valeurs": [valeurs for _, valeurs in notes]},
+        )
+
     risques = _risques_notes(socle)
     if len(risques) < 2:
         return Resolution(

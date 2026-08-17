@@ -190,6 +190,69 @@ OBJECTIF_FIGURES_TEXTE = (
     "et une etude ou l'on a colle une image par section."
 )
 
+#: Regles de SELECTION des identifiants d'une figure — le seul texte qui dit au
+#: modele ce qui fait abandonner une figure au rendu.
+#:
+#: **Extrait ici parce qu'il n'atteignait pas le moteur qui rend les figures.**
+#: Il vivait dans `_GRAPHIQUES_MOTEUR_STRUCTURE`, donc dans `build_system_prompt`,
+#: que seul le moteur HERITE envoie. Le moteur structure — celui de la
+#: production, `EVKHA_SOCLE_ENABLED=true` — passe `_SYSTEME` et n'a jamais vu ces
+#: regles. Exactement le motif deja corrige pour `OBJECTIF_FIGURES_TEXTE` : ecrit,
+#: teste, jamais transmis (regle 8).
+#:
+#: Mesure sur le dossier reel `b561c2d6` : dix-huit figures abandonnees, dont la
+#: quasi-totalite pour « unites heterogenes » — `MEUR, million`, `EUR, MEUR,
+#: unite`, `%, MEUR`. Un montant et un decompte sur le meme axe. Ce n'etait pas
+#: de la desobeissance : la consigne etait muette.
+#:
+#: `chapitres/runner._bloc_visuels` le reinjecte desormais. Une seule source
+#: (regle 5) : les deux moteurs lisent CETTE constante.
+REGLES_IDENTIFIANTS_FIGURES = (
+    "Un graphique ne porte aucune valeur : il porte des identifiants du socle. "
+    "Deux consequences pratiques — cite au moins DEUX identifiants (une figure "
+    "a une seule barre n'apprend rien), et cite des grandeurs de MEME NATURE "
+    "(des montants entre eux, des taux entre eux). Chaque ligne du socle porte "
+    "sa nature entre crochets : `[monetaire]`, `[effectif]`, `[pourcentage]`, "
+    "`[duree]`, `[ratio]`. DEUX NATURES DIFFERENTES SUR UNE MEME FIGURE LA FONT "
+    "ABANDONNER — un montant en euros et un nombre d'entreprises ne se tracent "
+    "pas ensemble, quelle que soit la pertinence du propos. Verifie les "
+    "crochets avant de citer.\n"
+    # Fuite mesuree des la premiere generation qui a recu cette notation
+    # (`2490c7cf`) : un commentaire de figure disait « deux taux de meme nature
+    # [pourcentage] ». Le modele n'a rien fait de mal — on lui a montre cette
+    # ecriture, il l'a employee. Toute aide ajoutee au prompt peut ressortir
+    # dans le document ; elle arrive donc avec son interdiction, le meme jour.
+    "CES CROCHETS SONT POUR TOI SEUL. Ils ne s'ecrivent JAMAIS dans le "
+    "document — ni dans un titre, ni dans un commentaire de figure, ni dans une "
+    "cellule. Le client lit une etude, pas la consigne qui l'a produite. Ne "
+    "commente pas non plus ton choix d'identifiants : la figure se suffit.\n"
+    "Les echelles, elles, se melangent librement : euros, milliers, millions et "
+    "milliards d'une meme monnaie sont ramenes a une echelle commune au rendu. "
+    "Deux DEVISES differentes, en revanche, font abandonner la figure : sans "
+    "taux de change, des euros et des dollars sur un meme axe produisent une "
+    "figure fausse dont chaque chiffre est juste.\n"
+    "Trois formes reclament une donnee particuliere, et un identifiant qui ne "
+    "la porte pas fait abandonner la figure :\n"
+    "- RADAR et JAUGES : des NOTES sur une echelle commune (par exemple sur 10 "
+    "ou sur 100), donc `[ratio]`, jamais des montants ni des pourcentages de "
+    "repartition. Pour comparer des euros entre eux, prends des barres.\n"
+    "- RADAR : trois axes au minimum, et les memes axes pour toutes les "
+    "series.\n"
+    "- COURBES et AIRES : chaque serie couvre TOUTES les periodes de l'axe. "
+    "Une annee manquante n'est pas interpolee, la figure est abandonnee.\n"
+    # Onze figures sur quinze perdues sur `5892daa5` (10/08/2026) : le modele
+    # demandait de positionner huit concurrents, et le resolveur repondait
+    # qu'il manquait des RISQUES notes. Les deux formes qui comparent des
+    # acteurs n'avaient aucune matiere, et rien ne disait ou la prendre.
+    "- RADAR et CARTE DE POSITIONNEMENT peuvent aussi comparer des ACTEURS. "
+    "Ils citent alors les CODES DE LA GRILLE DE NOTATION donnee avec le socle, "
+    "et non des identifiants chiffres : deux codes pour une carte (abscisse "
+    "puis ordonnee), trois ou plus pour un radar. Ne melange jamais un code de "
+    "critere et un identifiant chiffre dans la meme figure.\n"
+    "Choisis donc la forme d'apres les identifiants dont tu disposes, et non "
+    "l'inverse."
+)
+
 _GRAPHIQUES_MOTEUR_STRUCTURE = (
     "\n\nGRAPHIQUES : le catalogue complet et les types pertinents pour CE "
     "secteur te sont donnes avec la consigne du chapitre.\n"
@@ -201,12 +264,7 @@ _GRAPHIQUES_MOTEUR_STRUCTURE = (
     "La consigne du chapitre te dit quelles formes l'etude a DEJA employees : "
     "prends-en une autre des que le propos s'y prete. Reprendre une forme est "
     "permis — deux entonnoirs de suite, non.\n"
-    "Un graphique ne porte aucune valeur : il porte des identifiants du socle. "
-    "Deux consequences pratiques — cite au moins DEUX identifiants (une figure "
-    "a une seule barre n'apprend rien), et cite des grandeurs de MEME NATURE "
-    "(des montants entre eux, des taux entre eux). Les echelles, elles, se "
-    "melangent librement : euros, milliers, millions et milliards d'une meme "
-    "monnaie sont ramenes a une echelle commune au rendu."
+    + REGLES_IDENTIFIANTS_FIGURES
 )
 
 _EM_ROLE = (
@@ -278,6 +336,7 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
     from .checks_evangeline import (  # noqa: PLC0415
         ATTENDUS_CONCURRENTS,
         CRITERES_TRI_CONCURRENTS,
+        DECISIONS_STRATEGIE,
         PILIERS_STRATEGIE,
     )
 
@@ -349,6 +408,15 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             f"{intitule} ({cle})"
             for cle, (intitule, _motif) in PILIERS_STRATEGIE.items()
         )
+        # La colonne vertebrale de decisions, lue de la MEME declaration que
+        # le controle du gate (regle 5). Ecrire la demande ici et le controle
+        # ailleurs, c'est la contradiction interne qui a coute 5,22 € le
+        # 10/08/2026 — une consigne qui ordonne ce qu'un controle ignore.
+        colonne_vertebrale = "\n".join(
+            f"{bloc.intitule} — le document doit poser :\n"
+            + "".join(f"  - {d.libelle} ;\n" for d in bloc.decisions)
+            for bloc in DECISIONS_STRATEGIE
+        )
         # Reprise verbatim du document methodologique EVKHA envoye par la
         # cliente (« Systeme EVKHA — Strategies Business Automatisees »,
         # juillet 2026). Le prompt STR precedent posait les 4 piliers mais
@@ -393,6 +461,31 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             "prix au hasard, vendre avec confiance.\n"
             "La conclusion doit livrer une vision strategique ET un plan "
             "d'action operationnel.\n"
+            # ── Le centre de gravite du livrable ──────────────────────────
+            # Cliente, 12/08/2026, sur une strategie notee 7,5/10 : « le
+            # document est encore trop proche d'un audit / diagnostic
+            # strategique : il analyse beaucoup, explique beaucoup et repete
+            # parfois les constats ». Elle ne demande pas de refaire la
+            # pipeline — elle demande de deplacer son centre de gravite.
+            "CENTRE DE GRAVITE (regle qui prime sur le ton) : moins AUDITER, "
+            "davantage DECIDER. Moins EXPLIQUER, davantage RECOMMANDER. Moins "
+            "CONSTATER, davantage CONSTRUIRE. Moins de theorie, davantage de "
+            "methodes et d'actions. Une analyse qui ne debouche sur aucune "
+            "decision n'a pas sa place : coupe-la, ou termine-la. A la fin de "
+            "sa lecture, le dirigeant ne doit pas se dire « je comprends mieux "
+            "mon entreprise » mais « je sais exactement ce que je dois faire "
+            "maintenant, dans quel ordre, comment, et avec quels indicateurs "
+            "pour savoir si cela fonctionne ».\n"
+            "COLONNE VERTEBRALE OBLIGATOIRE — chaque analyse se termine par sa "
+            "decision, et le document entier doit poser les elements suivants. "
+            "Ce ne sont pas des suggestions : leur absence est un defaut de "
+            "livrable, verifie au controle qualite.\n"
+            f"{colonne_vertebrale}"
+            "Quand une donnee manque pour trancher, tu tranches quand meme et "
+            "tu DIS a quelle condition la decision change. « Les donnees "
+            "disponibles ne permettent pas de recommander un prix » n'est pas "
+            "une reponse acceptable : donne une fourchette de travail, nomme "
+            "l'hypothese qui la sous-tend, et l'indicateur qui la confirmera.\n"
             "INTERPRETATION DU BRIEF (le desordre du dirigeant est normal) : "
             "aucun brief client n'arrive parfaitement structure. Les "
             "informations peuvent etre incompletes, desorganisees, "

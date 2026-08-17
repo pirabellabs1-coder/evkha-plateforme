@@ -82,11 +82,31 @@ def _job_summary(
     pdf_download_url: str | None = None,
     delivery_status: str | None = None,
 ) -> dict[str, Any]:
+    from generation.services import (  # noqa: PLC0415
+        duree_sans_progression,
+        generation_interrompue,
+    )
+
     chapters_qs = list(job.chapters.all())
     done = sum(1 for c in chapters_qs if c.status == ChapterStatus.DONE)
+    # `interrompue` est CALCULEE ICI et non deduite par le front. La regle « un
+    # dossier sans progression depuis vingt minutes n'est plus en cours » vit
+    # dans `generation.services` ; la recalculer en TypeScript ferait deux
+    # sources pour la meme verite, et elles auraient diverge (regle 5).
+    #
+    # C'est deja arrive sur ce meme bouton : le front decidait `failed ||
+    # cancelled` pendant que le backend acceptait davantage, et le bouton etait
+    # donc cache exactement dans le cas qui l'a fait ecrire — la generation
+    # d'une cliente tuee par un deploiement le 09/08/2026, restee « en cours »
+    # soixante-seize minutes.
+    silence = duree_sans_progression(job)
     return {
         "id": str(job.id),
         "deliverable_type": job.deliverable_type,
+        "interrompue": generation_interrompue(job),
+        "minutes_sans_progression": (
+            int(silence.total_seconds() // 60) if silence is not None else None
+        ),
         "status": job.status,
         # "blocked" = gate qualite KO : le document n'est PAS parti chez le
         # client ; livraison manuelle possible via redeliver (decision admin).
@@ -224,6 +244,363 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
     return _json(items)
 
 
+@require_http_methods(["POST"])
+@csrf_exempt
+def job_assembler(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Assemble le document d'un dossier DEJA en echec, sans rien regenerer.
+
+    Depuis le 13/08/2026, un dossier qui s'arrete assemble ce qu'il a ecrit,
+    au moment ou il s'arrete. Les dossiers tombes AVANT ce correctif n'ont
+    jamais eu ce moment : leurs chapitres sont en base, payes, et sans
+    document.
+
+    Cette route rattrape ces cas-la, et servira a chaque fois qu'un assemblage
+    aura echoue pour une raison qui lui est propre — disque plein, gabarit
+    momentanement illisible. Elle ne coute RIEN au modele : c'est de la mise en
+    page sur du texte deja produit.
+
+    Aucun email : le document devient telechargeable, son envoi reste une
+    decision.
+    """
+    from generation.tasks import _assembler_ce_qui_est_ecrit  # noqa: PLC0415
+
+    try:
+        job = GenerationJob.objects.select_related("order").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    ecrits = job.chapters.filter(status=ChapterStatus.DONE).count()
+    if not ecrits:
+        return _json(
+            {
+                "error": (
+                    "Ce dossier n'a aucun chapitre ecrit : il n'y a rien a "
+                    "assembler. Un document de couverture seule ferait croire "
+                    "a un livrable."
+                ),
+                "job_id": str(job.id),
+            },
+            status=409,
+        )
+
+    _assembler_ce_qui_est_ecrit(job)
+
+    from documents.models import ArtifactStatus  # noqa: PLC0415
+
+    pret = job.artifacts.filter(status=ArtifactStatus.READY).count()
+    return _json({
+        "job_id": str(job.id),
+        "chapitres_assembles": ecrits,
+        "artefacts_prets": pret,
+    })
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def job_supprimer(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Efface un dossier RATÉ, et écrit dans le journal ce qu'il emporte.
+
+    ## Ce que la suppression touche, et ce qu'elle ne touche pas
+
+    Partent avec le dossier : ses chapitres, son socle, ses faits de cohérence,
+    ses documents. Restent : la COMMANDE et le BRIEF du client — ils ne
+    dépendent pas du dossier, c'est lui qui pointe vers eux — ainsi que les
+    incidents, qui se détachent au lieu de disparaître. Un dossier supprimé ne
+    fait donc perdre ni les réponses du client ni la trace de ce qui a échoué.
+
+    ## Pourquoi seulement les dossiers ratés
+
+    Un dossier abouti porte le livrable payé par un client. Cette route refuse
+    donc tout ce qui n'est pas en échec : la commodité de faire le ménage ne
+    justifie pas de pouvoir effacer une commande honorée d'un appel.
+
+    ## Le coût part au journal AVANT de disparaître
+
+    `total_cost_eur` EST la comptabilité de ce projet — il n'existe aucun
+    registre séparé. Supprimer un dossier qui a dépensé 4,29 € fait donc
+    disparaître ces 4,29 € de partout. On les écrit en WARNING avant l'effacement :
+    la dépense a eu lieu, elle doit rester lisible quelque part.
+    """
+    try:
+        job = GenerationJob.objects.select_related("order__customer").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    if job.status != JobStatus.FAILED:
+        return _json(
+            {
+                "error": (
+                    "Seul un dossier en échec peut être supprimé. Celui-ci est "
+                    f"« {job.status} » : annulez-le d'abord si c'est voulu."
+                ),
+                "status": str(job.status),
+            },
+            status=409,
+        )
+
+    trace = {
+        "job_id": str(job.id),
+        "deliverable_type": str(job.deliverable_type),
+        "customer_email": job.order.customer.email,
+        "total_cost_eur": str(job.total_cost_eur),
+        "chapitres": job.chapters.count(),
+        "error_message": (job.error_message or "")[:300],
+    }
+
+    import logging  # noqa: PLC0415
+
+    logging.getLogger(__name__).warning(
+        "SUPPRESSION dossier %s (%s, client %s) : %s EUR reellement depenses "
+        "sortent du grand livre, %s chapitre(s) effaces. Motif d'echec : %s",
+        trace["job_id"], trace["deliverable_type"], trace["customer_email"],
+        trace["total_cost_eur"], trace["chapitres"], trace["error_message"],
+    )
+
+    trace["fichiers_effaces"] = _effacer_les_fichiers(job)
+    job.delete()
+    return _json({"supprime": trace}, status=200)
+
+
+def _effacer_les_fichiers(job: GenerationJob) -> int:
+    """Efface du DISQUE les documents du dossier. Retourne le nombre effacé.
+
+    ## Pourquoi ce n'est pas automatique
+
+    Supprimer un `GenerationJob` efface en cascade la LIGNE de chaque
+    `DocumentArtifact`, pas le fichier qu'elle décrit : Django ne touche jamais
+    au disque. Le `.docx` et le `.pdf` restaient donc sous
+    `MEDIA_ROOT/livrables/`, et leur lien signé continuait de répondre jusqu'à
+    son échéance.
+
+    Signalé par la cliente le 12/08/2026, sur les dossiers effacés le matin
+    même : « les anciens docs téléchargés restaient encore intègres alors que
+    cela correspondait à d'anciens livrables ». Un document qu'on croit
+    supprimé et qui se télécharge encore n'est pas un détail de ménage — c'est
+    la promesse de la suppression qui est fausse.
+
+    ## Pourquoi un échec d'effacement ne fait pas échouer la suppression
+
+    Le dossier DOIT disparaître, même si un fichier est verrouillé par un autre
+    processus ou déjà absent. On journalise et on continue : laisser le dossier
+    en base au motif qu'un fichier résiste rendrait la suppression impossible
+    au moment précis où elle est demandée.
+    """
+    import logging  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    from django.conf import settings  # noqa: PLC0415
+
+    racine = Path(str(getattr(settings, "MEDIA_ROOT", "") or "media"))
+    journal = logging.getLogger(__name__)
+    effaces = 0
+
+    for artefact in job.artifacts.all():
+        cle = (artefact.storage_key or "").strip()
+        if not cle:
+            continue
+        chemin = racine / cle
+        try:
+            chemin.unlink(missing_ok=True)
+            effaces += 1
+        except OSError:
+            journal.warning(
+                "Suppression %s : fichier %s non efface (il reste sur le disque).",
+                job.id, chemin, exc_info=True,
+            )
+    return effaces
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Refait un dossier À L'IDENTIQUE : même brief, socle neuf, budget neuf.
+
+    ## Pourquoi la relance ordinaire ne suffisait pas
+
+    `job_relaunch` réécrit les chapitres en échec d'un dossier EXISTANT. Elle
+    ne reconstruit jamais le socle, et elle ne recale le budget que si aucun
+    chapitre n'est terminé. Un dossier qui a consommé son plafond sur un socle
+    défectueux est donc définitivement clos : le plafond appliqué est
+    `min(budget du dossier, table du livrable)`, un minimum qu'aucune valeur
+    saisie ne franchit.
+
+    Mesuré le 12/08/2026 sur le business plan `2a8872d0` : socle sans
+    concurrents, chapitre 7 mort cinq fois, 4,19 € dépensés sur 5,50 €.
+
+    ## Pourquoi pas `create_generation`
+
+    Elle FILTRE le brief sur `_REQUIRED_VARS + _OPTIONAL_VARS`. Sur le brief
+    réel de ce dossier, dix variables sur vingt-huit disparaissaient — près de
+    6 600 signes de réponses client, dont `RESUME_EXECUTIF`,
+    `PARCOURS_PORTEUR` et `OFFRE`. Pour un business plan dont le chapitre 1
+    s'appelle « Résumé exécutif » et le chapitre 2 « Présentation du porteur de
+    projet », c'est rédhibitoire — et le filtre est SILENCIEUX : on aurait payé
+    une génération pour un document plus pauvre que celui qu'on répare.
+
+    Les deux listes ont divergé parce qu'aucun chemin ne les confrontait : le
+    questionnaire de l'espace client est bien plus riche que ce que la
+    génération manuelle accepte. On ne les réconcilie pas ici — on RECOPIE le
+    brief tel quel, ce qui rend la question sans objet (règle 5 : la
+    soumission d'origine est la seule source de ce que la cliente a répondu).
+
+    ## Ce que la reprise ne fait pas
+
+    Elle ne touche NI au dossier d'origine, ni aux crédits du client : la
+    reprise passe par l'offre manuelle, comme toute reprise à nos frais. Le
+    coût déjà engagé reste inscrit là où il a eu lieu — c'est la vérité
+    comptable, et le nouveau dossier repart de zéro avec le plafond de son
+    livrable.
+    """
+    try:
+        job = GenerationJob.objects.select_related("order__customer").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    from generation.services import generation_interrompue  # noqa: PLC0415
+
+    # Un dossier qui travaille VRAIMENT ne se refait pas : on paierait deux
+    # générations pour le même client. L'exception se MESURE — un dossier tué
+    # par un déploiement reste « en cours » sans que rien ne le fabrique.
+    if job.status == JobStatus.RUNNING and not generation_interrompue(job):
+        return _json(
+            {"error": "Ce dossier tourne encore. Annulez-le avant de le refaire."},
+            status=409,
+        )
+
+    soumission = IntakeSubmission.objects.filter(order=job.order).first()
+    if soumission is None or not soumission.normalized_variables:
+        # Sans brief, une reprise « à l'identique » n'a aucun sens : elle
+        # produirait un document sur des réponses vides en le présentant comme
+        # une reprise. Règle 1 — on refuse bruyamment.
+        return _json(
+            {
+                "error": (
+                    "Aucun brief exploitable pour ce dossier : impossible de le "
+                    "refaire à l'identique."
+                ),
+                "job_id": str(job.id),
+            },
+            status=409,
+        )
+
+    offre, _ = Offer.objects.get_or_create(
+        slug=f"manuel-{job.deliverable_type.replace('_', '-')}",
+        defaults={
+            "name": _MANUAL_OFFER_NAMES[str(job.deliverable_type)],
+            "deliverable_type": job.deliverable_type,
+            "is_active": True,
+        },
+    )
+
+    commande = Order.objects.create(
+        customer=job.order.customer,
+        offer=offre,
+        # L'identifiant PORTE la filiation : sans elle, un dossier repris est
+        # indiscernable d'une commande manuelle ordinaire, et personne ne
+        # saura dans six mois pourquoi ce client a deux business plans.
+        systeme_order_id=f"reprise-{str(job.id)[:8]}-{_uuid.uuid4().hex[:8]}",
+        status=OrderStatus.WAITING_INTAKE,
+        raw_payload={"reprise_de": str(job.id)},
+    )
+
+    reprise = IntakeSubmission.objects.create(
+        order=commande,
+        source=IntakeSource.MANUAL,
+        status=IntakeStatus.NORMALIZED,
+        raw_payload={"reprise_de": str(job.id)},
+        # VERBATIM. Aucun filtre, aucune normalisation, aucune valeur par
+        # défaut : ce que la cliente a répondu, et rien d'autre.
+        normalized_variables=dict(soumission.normalized_variables),
+        missing_fields=list(soumission.missing_fields or []),
+    )
+
+    try:
+        nouveau = bootstrap_generation_job(reprise)
+        run_generation_job_task.delay(str(nouveau.id))
+    except Exception:
+        import logging  # noqa: PLC0415
+        logging.getLogger(__name__).exception("job_regenerer failed")
+        return _json(
+            {"error": "Erreur interne lors du bootstrap de la reprise."}, status=500
+        )
+
+    return _json(
+        {
+            "job_id": str(nouveau.id),
+            "reprise_de": str(job.id),
+            "status": nouveau.status,
+            "budget_eur": str(nouveau.budget_eur),
+            "variables_reprises": len(reprise.normalized_variables),
+        },
+        status=202,
+    )
+
+
+@require_GET
+@csrf_exempt
+def job_brief(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Le BRIEF client d'un dossier — les réponses qui ont produit le livrable.
+
+    ## Pourquoi cette route existe
+
+    Le 12/08/2026, le business plan `2a8872d0` s'est terminé sans son analyse
+    concurrentielle. Le refaire proprement demandait un dossier neuf, et un
+    dossier neuf demande le brief. Or les réponses vivent dans
+    `IntakeSubmission.normalized_variables`, qu'AUCUNE route n'exposait : le
+    seul recours était de les recopier à la main depuis l'administration
+    Django, une vingtaine de champs, avec le risque de ne pas reproduire à
+    l'identique le brief d'une cliente.
+
+    Refaire un livrable est une opération normale — un défaut corrigé, un
+    dossier à reprendre. Elle ne doit pas dépendre d'un copier-coller.
+
+    ## Ce qu'elle ne fait pas
+
+    Elle ne rend PAS `raw_payload` : la charge brute du formulaire porte des
+    métadonnées de collecte (identifiants de champs, horodatages, parfois
+    l'adresse de l'envoyeur) dont personne n'a besoin pour relancer une
+    génération. On expose ce qui sert, pas tout ce qu'on a.
+    """
+    try:
+        job = GenerationJob.objects.select_related("order").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    soumission = IntakeSubmission.objects.filter(order=job.order).first()
+    if soumission is None:
+        # Règle 1 : on ne rend pas un brief vide en faisant croire qu'il l'est.
+        # Un dossier sans soumission existe (génération manuelle d'avant la
+        # traçabilité) et le dire est plus utile qu'un `{}`.
+        return _json(
+            {
+                "error": "Aucune soumission d'intake pour ce dossier.",
+                "job_id": str(job.id),
+            },
+            status=404,
+        )
+
+    return _json({
+        "job_id": str(job.id),
+        "deliverable_type": job.deliverable_type,
+        "customer_email": job.order.customer.email,
+        "source": soumission.source,
+        "status": soumission.status,
+        "submitted_at": (
+            soumission.submitted_at.isoformat() if soumission.submitted_at else None
+        ),
+        "missing_fields": list(soumission.missing_fields or []),
+        "variables": dict(soumission.normalized_variables or {}),
+    })
+
+
 @require_GET
 @csrf_exempt
 def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
@@ -292,7 +669,136 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
     data["offer_name"] = job.order.offer.name
     data["delivery"] = delivery_data
     data["phase0_plan"]["content"] = job.phase0_plan or ""
+    data["qa_motifs"] = _motifs_du_dernier_controle(job)
     return _json(data)
+
+
+def _motifs_du_dernier_controle(job: GenerationJob) -> list[dict[str, Any]]:
+    """Ce que le dernier contrôle qualité a REPROCHÉ au document.
+
+    ## Pourquoi le statut ne suffisait pas
+
+    L'écran affichait « En attente de relecture » et rien d'autre. Cliente,
+    12/08/2026 : « ça dit en attente de relecture pourtant rien ne se passe ».
+    Elle avait doublement raison — aucune relecture n'était programmée, et
+    surtout aucun écran ne disait POURQUOI le document était retenu. Pour lire
+    les neuf motifs de son business plan, il a fallu interroger un incident
+    par l'API.
+
+    Un statut sans raison ne se corrige pas. C'est la règle 2 du dépôt vue de
+    l'autre côté : un motif que le lecteur ne peut pas trouver ne vaut pas
+    mieux qu'un silence — ici il n'y avait même pas de motif à trouver.
+
+    On relit l'incident du dernier contrôle plutôt que de rejouer le gate :
+    rejouer coûterait un rendu complet du document à chaque ouverture de la
+    page, pour un verdict déjà calculé.
+    """
+    incident = (
+        OperationalIncident.objects.filter(job=job, details__has_key="failures")
+        .order_by("-created_at")
+        .first()
+    )
+    if incident is None:
+        return []
+
+    echecs = incident.details.get("failures") or []
+    return [
+        {
+            "check": str(echec.get("check", "")),
+            "chapitre": echec.get("chapitre"),
+            "detail": str(echec.get("detail", "")),
+        }
+        for echec in echecs
+        if isinstance(echec, dict)
+    ]
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def job_reverifier(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Rejoue le gate de livraison et met le verdict à jour. Zéro appel IA.
+
+    ## Pourquoi ce recontrôle existe
+
+    Le 10/08/2026, le dossier `026fecea` — dix chapitres propres, 1,94 € — a
+    été bloqué par TROIS contrôles qui jugeaient le contrat structuré avec
+    les yeux de l'ancien moteur : un chapitre fermé sur sa figure compté
+    « tronqué », les cardinaux de concurrents ADDITIONNÉS entre chapitres
+    (« 20 trouvés » que personne n'avait écrits), des annexes titrées dans la
+    numérotation du contrat comptées zéro. Les contrôles ont été réparés —
+    mais le verdict, lui, restait écrit en base, et le tableau de bord
+    continuait d'afficher un blocage que plus rien ne justifiait.
+
+    Un verdict doit pouvoir être rejoué quand le JUGE a changé : c'est la
+    seule issue honnête entre livrer sous dérogation (assumer un blocage
+    faux) et repayer une génération entière (3,50 €) pour un document déjà
+    produit. Lecture seule sur le document ; seule l'étiquette change, dans
+    les deux sens — un recontrôle peut aussi CONFIRMER un blocage, avec des
+    motifs frais.
+    """
+    try:
+        job = GenerationJob.objects.get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    if job.status != JobStatus.DONE:
+        return _json(
+            {"error": f"Recontrôle impossible : job {job.status}, DONE attendu."},
+            status=400,
+        )
+
+    from generation.gate import run_delivery_gate  # noqa: PLC0415
+    from generation.models import QAStatus  # noqa: PLC0415
+
+    rapport = run_delivery_gate(job)
+
+    # `{"corriger": true}` : si le gate échoue encore, la boucle de correction
+    # part en TÂCHE DE FOND — les chapitres fautifs se régénèrent avec leurs
+    # motifs, sous le plafond du dossier, et le verdict s'écrit à la fin.
+    # JAMAIS dans la requête : la première version y a laissé un 500 et un
+    # chapitre fantôme en `running` quand le serveur a tué le worker à son
+    # délai de garde (10/08/2026, `026fecea`). Une régénération est une
+    # génération : elle vit là où vivent les générations.
+    if not rapport.passed:
+        corriger = False
+        try:
+            corps = json.loads(request.body.decode("utf-8") or "{}")
+            corriger = bool(corps.get("corriger"))
+        except (json.JSONDecodeError, ValueError):
+            corriger = False
+        if corriger:
+            from generation.tasks import recontroler_et_corriger_task  # noqa: PLC0415
+
+            recontroler_et_corriger_task.delay(str(job.id))
+            return _json(
+                {"job_id": str(job.id), "statut": "correction_en_fond",
+                 "echecs_avant": len(getattr(rapport, "failures", ()) or ())},
+                status=202,
+            )
+
+    verdict = QAStatus.PASSED if rapport.passed else QAStatus.BLOCKED
+    GenerationJob.objects.filter(pk=job.pk).update(qa_status=verdict)
+
+    if not rapport.passed:
+        # Motifs FRAIS : laisser l'ancien incident raconter d'anciens échecs
+        # ferait relire un blocage périmé (règle 2 — un motif doit être
+        # trouvable dans le document tel qu'il est).
+        OperationalIncident.objects.create(
+            title=f"Gate qualité (recontrôle) : toujours bloqué (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details=rapport.as_details(),
+        )
+
+    return _json({
+        "job_id": str(job.id),
+        "qa_status": str(verdict),
+        "passed": rapport.passed,
+        "echecs": len(getattr(rapport, "failures", ()) or ()),
+    })
 
 
 @csrf_exempt
@@ -381,8 +887,80 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
     except Exception:
         return _json({"error": "Invalid job id."}, status=400)
 
-    if job.status not in (JobStatus.FAILED, JobStatus.CANCELLED):
-        msg = f"Seuls les jobs échoués ou annulés peuvent être relancés (statut : {job.status})."
+    # Un dossier `running` est relançable À UNE CONDITION : qu'il ne progresse
+    # plus. C'est le cas qu'aucun état ne couvrait, et c'est celui qui est
+    # arrive le 09/08/2026 — une generation tuee par un deploiement, laissee
+    # « en cours » soixante-seize minutes, avec la cliente qui rafraichit sa
+    # page devant un document que plus rien ne fabrique.
+    #
+    # La condition n'est pas decorative : relancer un dossier qui travaille
+    # VRAIMENT ferait tourner deux generations sur le meme job, donc payer deux
+    # fois et ecrire deux fois les memes chapitres. Le refus reste donc la
+    # regle, et l'exception se mesure (`generation_interrompue`) au lieu de se
+    # decreter.
+    #
+    # Un dossier TERMINÉ avec un chapitre en échec est relançable, lui aussi.
+    #
+    # `run_generation_job` ne marque plus FAILED un dossier dont un chapitre a
+    # coincé : il livre le reste avec un trou nommé, ce qui vaut infiniment
+    # mieux que de perdre vingt-deux chapitres corrects. Mais la relance, elle,
+    # n'a jamais appris cette nuance : elle n'acceptait que `failed` et
+    # `cancelled`, si bien que le trou devenait DÉFINITIF.
+    #
+    # Mesuré sur la stratégie `0f9fb13a` (11/08/2026, cliente) : chapitre 0 —
+    # la fiche projet — perdu sur un encadré d'une ligne de trop, vingt
+    # chapitres livrés, et aucun moyen de récupérer le vingt-et-unième.
+    #
+    # La relance ne réécrit QUE les chapitres FAILED ou SKIPPED
+    # (`relaunch_generation_job`) : les vingt autres sont conservés, et la
+    # dépense se limite au trou.
+    #
+    # Avant de décider, on NORMALISE. Un chapitre resté « en cours » sur un
+    # dossier terminé n'est ni fini ni en échec : il n'est rien, et le trou
+    # devenait invisible ET définitif — la condition ci-dessous ne regarde que
+    # les chapitres FAILED.
+    #
+    # Mesuré sur le business plan `2a8872d0` (12/08/2026) : chapitre 6 laissé
+    # `running` par une boucle de correction qui n'est pas allée au bout,
+    # dossier « terminé » à 20/22, et pour seul recours repayer 3,27 €.
+    # `run_generation_job` ferme désormais ces états à la fin d'une génération ;
+    # on le refait ici pour les dossiers DÉJÀ terminés avant le correctif, et
+    # pour tout chemin qui aboutirait au même trou (règle 4 : la classe, pas le
+    # cas). Sans effet sur un dossier sain.
+    from generation.runner import fermer_les_chapitres_inacheves  # noqa: PLC0415
+    from generation.services import (  # noqa: PLC0415
+        DELAI_SANS_PROGRESSION,
+        duree_sans_progression,
+        generation_interrompue,
+    )
+
+    if job.status == JobStatus.DONE:
+        fermer_les_chapitres_inacheves(job)
+
+    trou_a_combler = (
+        job.status == JobStatus.DONE
+        and job.chapters.filter(status=ChapterStatus.FAILED).exists()
+    )
+    relancable = (JobStatus.FAILED, JobStatus.CANCELLED)
+    if (
+        job.status not in relancable
+        and not trou_a_combler
+        and not generation_interrompue(job)
+    ):
+        silence = duree_sans_progression(job)
+        if job.status == JobStatus.RUNNING and silence is not None:
+            msg = (
+                f"Ce dossier progresse encore (dernier chapitre il y a "
+                f"{int(silence.total_seconds() // 60)} min). Le relancer ferait "
+                "tourner deux générations sur le même dossier. Seuil "
+                f"d'interruption : {int(DELAI_SANS_PROGRESSION.total_seconds() // 60)} min."
+            )
+        else:
+            msg = (
+                "Seuls les dossiers échoués, annulés, interrompus, ou terminés "
+                "avec un chapitre en échec peuvent être relancés "
+                f"(statut : {job.status})."
+            )
         return _json({"error": msg}, status=400)
 
     # Une annulation REMBOURSE, et un job rembourse ne repart pas : le debit

@@ -31,11 +31,7 @@ Structure obligatoire du chapitre :
 - Securisation financiere du projet : ce qui absorbe un retard de chiffre d'affaires.
 - Lecture strategique du plan de financement.
 
-Puis genere en HTML inline (sans <html>/<body>) un graphique barres de la repartition des ressources de financement, avec les donnees reelles du projet, sur ce patron :
-<h3 style="font-size:14pt;margin:4mm 0 2mm">Repartition des ressources de financement</h3>
-<table style="border-collapse:collapse;width:100%;margin:3mm 0;font-size:9.5pt">
-<tr><td style="padding:1.5mm 3mm;border-bottom:0.5pt solid #EFEAD8;width:35%">Apport personnel</td><td style="padding:1.5mm 2mm;width:55%"><div style="background:#C9A227;height:5mm;width:40%;display:inline-block"></div></td><td style="padding:1.5mm 2mm;font-weight:bold;color:#1A1A1A;width:10%">40 %</td></tr>
-</table>
+Puis demande un graphique en barres de la repartition des ressources de financement, en citant les identifiants du socle correspondants (apport, emprunt, subventions...) — jamais de valeurs en clair dans la figure.
 Une ligne par source de financement reelle du projet, legende courte en italique sous le tableau.
 
 Coherence a verifier : le total des ressources de ce chapitre est EGAL au total des besoins du chapitre 14. Si les deux different, le plan ne tient pas et il faut le dire, pas l'arrondir.

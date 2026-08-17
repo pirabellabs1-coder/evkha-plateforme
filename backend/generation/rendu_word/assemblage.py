@@ -291,6 +291,7 @@ def blocs_du_chapitre(
     # vingt-et-un chapitres, et trois listes séparées ne pouvaient produire
     # qu'une forme unique, répétée partout.
     from ..chapitres.schema import (  # noqa: PLC0415 — évite un cycle d'import
+        BlocCanvas,
         BlocEncadre,
         BlocGraphique,
         BlocGrilleKpi,
@@ -316,6 +317,17 @@ def blocs_du_chapitre(
                 "entetes": bloc.tableau.entetes,
                 "lignes": bloc.tableau.lignes,
                 "source": bloc.tableau.source,
+            })
+        elif isinstance(bloc, BlocCanvas):
+            # Le canvas passe ses NEUF briques telles quelles : c'est le
+            # composant Word qui connaît la disposition d'Osterwalder, pas
+            # l'assemblage. Séparer les deux permet de corriger la grille sans
+            # toucher au contrat du modèle.
+            rapport.tableaux += 1
+            blocs.append({
+                "type": "canvas",
+                "canvas": bloc.canvas.model_dump(),
+                "source": bloc.source,
             })
         elif isinstance(bloc, BlocEncadre):
             blocs.append({

@@ -9,6 +9,7 @@ Types de blocs : `bandeau`, `sous_titre`, `paragraphe`, `encadre`, `tableau`,
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -49,14 +50,45 @@ def pour_le_client(chapitre: dict[str, Any]) -> bool:
     return int(chapitre["numero"]) > 0
 
 
+def substituer_reperes(gabarit: str, valeurs: dict[str, str]) -> str:
+    """Substitue les repères, et fait disparaître les séparateurs orphelins.
+
+    L'en-tête du gabarit vaut `{{ client }}  /  {{ titre_document }}`. Quand le
+    client ne remplit pas `NOM_ENTREPRISE` — le champ est optionnel et
+    `extract_branding` rend alors `""` — la substitution naïve laissait
+    « ` /  Étude de marché` » **sur chacune des soixante-dix pages**. Mesuré sur
+    le dossier réel `b561c2d6`.
+
+    Le repli qui aurait dû l'éviter, `marque.get("nom", "—")`, n'a jamais servi :
+    la clé EXISTE, avec une valeur vide, et `dict.get` ne regarde que l'absence.
+    Un défaut de la classe « valeur par défaut qui ne se déclenche jamais ».
+
+    La correction vise la CLASSE (règle 4) : tout repère vide emporte le
+    séparateur qui le borde, quel que soit le repère et de quel côté. Elle ne
+    touche RIEN quand la valeur est renseignée — un titre contenant lui-même une
+    barre oblique (« Étude B2B/B2C ») traverse intact, ce que vérifie la
+    contre-épreuve de `test_l_entete_ne_garde_pas_de_separateur_orphelin`.
+    """
+    texte = gabarit
+    for repere, valeur in valeurs.items():
+        if valeur:
+            continue
+        echappe = re.escape(repere)
+        texte = re.sub(rf"{echappe}\s*/\s*", "", texte)
+        texte = re.sub(rf"\s*/\s*{echappe}", "", texte)
+        texte = texte.replace(repere, "")
+    for repere, valeur in valeurs.items():
+        texte = texte.replace(repere, valeur)
+    return texte.strip()
+
+
 def _remplacer_reperes(document: DocumentWord, valeurs: dict[str, str]) -> None:
     for section in document.sections:
         for zone in (section.header, section.footer):
             for paragraphe in zone.paragraphs:
                 for run in paragraphe.runs:
-                    for repere, valeur in valeurs.items():
-                        if repere in run.text:
-                            run.text = run.text.replace(repere, valeur)
+                    if any(repere in run.text for repere in valeurs):
+                        run.text = substituer_reperes(run.text, valeurs)
 
 
 def _rendre_bloc(
@@ -109,11 +141,118 @@ def _rendre_bloc(
             palette, bloc["graphique"], bloc["donnees"], titre=bloc.get("titre", "")
         )
         composants.graphique(document, palette, png, "", bloc.get("source", ""))
+    elif type_bloc == "canvas":
+        # Le canvas d'Osterwalder dans sa disposition d'origine — demande de la
+        # cliente du 13/08/2026, modèle AFE à l'appui. Neuf lignes empilées
+        # donnaient une liste ; la carte, elle, se lit d'un coup d'œil.
+        composants.business_model_canvas(
+            document, palette, bloc["canvas"], bloc.get("source", ""),
+        )
     elif type_bloc == "saut":
         composants.saut_de_page(document)
     else:
         msg = f"Type de bloc inconnu : {type_bloc!r}."
         raise BlocInconnuError(msg)
+
+
+#: Intitulé de l'encadré de clôture. Neutre : il annonce une suite d'analyse,
+#: pas une offre.
+INTITULE_RECOMMANDATION = "Pour aller plus loin"
+
+#: Recommandation de clôture, demandée par la cliente le 09/08/2026 : « à la
+#: toute fin de l'étude, après la conclusion, un petit encadré standard, discret
+#: et non commercial ».
+#:
+#: `{marque}` est remplacé par le nom de L'ABONNÉ, jamais par celui de la
+#: plateforme. Le document est remis en marque blanche : c'est l'abonné qui le
+#: signe et qui vend la suite. Nommer la plateforme ici lui ferait recommander
+#: son propre fournisseur à son client.
+#: Ce que chaque livrable recommande d'aller chercher ENSUITE.
+#:
+#: Une seule ligne suffisait tant qu'on ne pensait qu'à l'étude de marché. Elle
+#: aurait recommandé une étude de la concurrence **à la fin d'une étude de la
+#: concurrence** — le genre de détail qui fait perdre en une phrase la crédibilité
+#: que trente pages ont construite.
+#:
+#: `{marque}` est remplacé par le nom de L'ABONNÉ, jamais par celui de la
+#: plateforme : le document est remis en marque blanche, c'est l'abonné qui le
+#: signe et qui vend la suite.
+RECOMMANDATION_PAR_LIVRABLE: dict[str, tuple[str, ...]] = {
+    "market_study": (
+        "Pour compléter cette étude de marché et approfondir le positionnement "
+        "du projet face aux acteurs déjà présents, la réalisation d'une étude "
+        "de la concurrence en parallèle est recommandée.",
+        "Une étude de la concurrence personnalisée et réalisée sur mesure est "
+        "disponible auprès de {marque}.",
+    ),
+    "competitor_study": (
+        "Pour transformer cette lecture de la concurrence en trajectoire "
+        "chiffrée, un business plan permet d'en tirer les conséquences "
+        "financières et le calendrier.",
+        "Un business plan personnalisé et réalisé sur mesure est disponible "
+        "auprès de {marque}.",
+    ),
+    # LE BUSINESS PLAN N'EN A PAS, ET C'EST DÉLIBÉRÉ.
+    #
+    # Retour cliente du 12/08/2026 : « un CTA commercial automatique, qui peut
+    # être présent sur les autres livrables mais pas sur le business plan (car
+    # présenté à une banque comme si vous l'aviez écrit) ».
+    #
+    # Les trois autres livrables se lisent en interne : leur destinataire est
+    # le dirigeant qui les a commandés, et lui proposer la suite est un service.
+    # Un business plan, lui, part chez un banquier ou un investisseur. Une
+    # dernière page qui vend une prestation y détruit ce que le document
+    # construit : elle dit au lecteur que le plan qu'il évalue a été acheté, et
+    # que son auteur n'est pas celui qui le présente.
+    #
+    # `_recommandation_finale` n'écrit rien pour un livrable absent de cette
+    # table — l'omission est le mécanisme, il n'y a pas d'exception à coder.
+    "business_strategy": (
+        "Pour mesurer l'écart entre cette stratégie et les acteurs déjà en "
+        "place, une étude de la concurrence en donne les repères.",
+        "Une étude de la concurrence personnalisée et réalisée sur mesure est "
+        "disponible auprès de {marque}.",
+    ),
+}
+
+
+def _recommandation_finale(
+    document: DocumentWord,
+    palette: Palette,
+    marque: dict[str, Any],
+    livrable: str = "market_study",
+) -> None:
+    """Un encadré de clôture, UNE seule fois, à la toute fin de l'étude.
+
+    ## Pourquoi le rendu et non le modèle de langage
+
+    Demandé « uniquement à la fin, et pas répété dans les chapitres ». Confié au
+    modèle, cette consigne serait tenue vingt-trois fois sur vingt-trois — ou
+    zéro. Ce projet l'a déjà mesuré sur les budgets de mots : une consigne sans
+    contrainte physique est un vœu. Ici, le rendu le pose une fois, à un endroit
+    qui ne dépend de personne.
+
+    ## Pourquoi il disparaît si l'abonné n'a pas de nom
+
+    La phrase recommande d'aller voir QUELQU'UN. Sans nom, elle recommanderait
+    d'aller nulle part — et écrire le nom de la plateforme à la place ferait
+    signer au client de l'abonné une publicité pour le fournisseur de son
+    fournisseur. Le document est remis en marque blanche : mieux vaut pas
+    d'encadré qu'un encadré qui nomme la mauvaise personne.
+    """
+    nom = str(marque.get("nom", "")).strip()
+    lignes = RECOMMANDATION_PAR_LIVRABLE.get(livrable)
+    if not nom or not lignes:
+        # Pas de nom, ou livrable dont on n'a pas décidé la suite : on n'écrit
+        # rien. Une recommandation qui ne mène nulle part vaut moins que son
+        # absence.
+        return
+    composants.encadre(
+        document,
+        palette,
+        INTITULE_RECOMMANDATION,
+        [ligne.format(marque=nom) for ligne in lignes],
+    )
 
 
 def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
@@ -129,7 +268,10 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
     _remplacer_reperes(
         document,
         {
-            "{{ client }}": marque.get("nom", "—"),
+            # Pas de repli « — » : il n'a jamais pu se declencher, la cle etant
+            # toujours posee par `marque_du_job`, et il aurait imprime un tiret
+            # a la place du nom. Un nom vide efface desormais son separateur.
+            "{{ client }}": marque.get("nom", ""),
             "{{ titre_document }}": etude.get("titre", ""),
             # Repli NEUTRE : « EVKHA · Document confidentiel » y figurait, et
             # un document en marque blanche ne doit nommer que son abonné.
@@ -166,6 +308,10 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
             _rendre_bloc(document, palette, bloc)
         if index < len(chapitres) - 1:
             composants.saut_de_page(document)
+
+    _recommandation_finale(
+        document, palette, marque, str(etude.get("type_livrable", "market_study"))
+    )
 
     composants.quatrieme_couverture(
         document, palette,

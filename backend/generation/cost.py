@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.conf import settings
 
+from catalog.models import DeliverableType
 from integrations.claude import _MAX_CONTINUATIONS, _provision_reflexion
 from monitoring.models import IncidentSeverity, OperationalIncident
 
@@ -84,8 +85,61 @@ def current_job_cost_eur(job: GenerationJob) -> Decimal:
     Ne jamais lire job.total_cost_eur directement pour une decision en cours
     de generation : ce champ n'est mis a jour qu'en base (queryset.update),
     l'instance Python en memoire peut etre perimee au sein d'une meme boucle.
+
+    **Inclut les tentatives PERDUES.** Anthropic les facture ; un total qui les
+    ignore n'est pas le cout du dossier, c'est le cout de ce qu'on en a garde.
+    Le plafond doit porter sur la facture, pas sur le resultat — sinon un
+    dossier qui echoue beaucoup depasse son plafond sans que rien ne le dise,
+    ce qui est exactement ce qui s'est produit sur `b561c2d6`.
     """
-    return sum((item.cost_eur for item in job.chapters.all()), Decimal("0"))
+    return sum(
+        (item.cost_eur + item.cost_perdu_eur for item in job.chapters.all()),
+        Decimal("0"),
+    )
+
+
+def record_tentative_perdue(
+    *,
+    chapter: ChapterGeneration,
+    input_tokens: int,
+    output_tokens: int,
+    model: str | None = None,
+) -> Decimal:
+    """Enregistre le cout d'une tentative REFUSEE. Toujours cumulatif.
+
+    Anthropic facture un appel dont la reponse est rejetee — schema invalide,
+    troncature, refus de conformite — exactement comme un appel reussi. Ce cout
+    n'etait compte nulle part : le chapitre 19 du dossier reel `b561c2d6` a
+    consomme six appels de ce genre, tous absents du grand livre.
+
+    ## Pourquoi un champ SEPARE et non un ajout a `cost_eur`
+
+    Les deux chiffres repondent a deux questions differentes. `cost_eur` dit ce
+    que le travail RETENU a coute — c'est lui qu'on compare au prix de vente.
+    `cost_perdu_eur` dit ce que les reprises ont coute, et c'est la mesure qui
+    dira si une consigne s'ameliore. Fondus dans un seul champ, on perdrait la
+    seconde sans jamais s'en apercevoir.
+
+    ## Le plafond, lui, porte sur la SOMME
+
+    `enforce_budget` est appele ici aussi, sur le total des deux. Un dossier qui
+    brulerait son budget en tentatives refusees doit s'arreter — c'est
+    exactement le cas que l'ancien comptage laissait filer, puisqu'il ne voyait
+    pas la depense.
+    """
+    if input_tokens <= 0 and output_tokens <= 0:
+        return Decimal("0")
+
+    perdu = estimate_call_cost_eur(input_tokens, output_tokens, model)
+    chapter.cost_perdu_eur += perdu
+    chapter.save(update_fields=["cost_perdu_eur", "updated_at"])
+
+    job = chapter.job
+    total = current_job_cost_eur(job)
+    GenerationJob.objects.filter(pk=job.pk).update(total_cost_eur=total)
+
+    enforce_budget(job, current_total=total)
+    return perdu
 
 
 def record_chapter_cost(
@@ -94,6 +148,8 @@ def record_chapter_cost(
     input_tokens: int,
     output_tokens: int,
     model: str | None = None,
+    cache_write_tokens: int = 0,
+    cache_read_tokens: int = 0,
 ) -> Decimal:
     """Enregistre le cout d'une passe de generation. **Cumulatif.**
 
@@ -122,7 +178,20 @@ def record_chapter_cost(
     chapter.input_tokens = (chapter.input_tokens + input_tokens) if reprise else input_tokens
     chapter.output_tokens = (chapter.output_tokens + output_tokens) if reprise else output_tokens
     chapter.cost_eur = (chapter.cost_eur + cost) if reprise else cost
-    chapter.save(update_fields=["input_tokens", "output_tokens", "cost_eur", "updated_at"])
+    # Les compteurs de cache suivent la MEME regle de cumul que les jetons
+    # qu'ils accompagnent. Les ecrire toujours en absolu ferait mentir le taux
+    # de succes des qu'un chapitre est repris — precisement les chapitres ou le
+    # cache travaille le plus, puisque le prompt y est deja chaud.
+    chapter.cache_write_tokens = (
+        (chapter.cache_write_tokens + cache_write_tokens) if reprise else cache_write_tokens
+    )
+    chapter.cache_read_tokens = (
+        (chapter.cache_read_tokens + cache_read_tokens) if reprise else cache_read_tokens
+    )
+    chapter.save(update_fields=[
+        "input_tokens", "output_tokens", "cost_eur",
+        "cache_write_tokens", "cache_read_tokens", "updated_at",
+    ])
 
     job = chapter.job
     total = current_job_cost_eur(job)
@@ -275,27 +344,87 @@ def max_tokens_for_job(
     return max(_MIN_MAX_TOKENS, min(default_max_tokens, allowed))
 
 
-#: Ce qu'une generation ne doit JAMAIS depasser, quel que soit le livrable et
-#: quel que soit son budget de rythme. Decision de la cliente du 05/08/2026,
-#: releve de la console Anthropic a l'appui — 44,26 $US de credits restants,
-#: rechargement automatique actif : « on ne doit pas depasser 3 euros pour une
-#: generation, ou 3,1 au max ».
+#: Ce qu'une generation ne doit JAMAIS depasser. **Decision de la cliente du
+#: 08/08/2026**, qui remplace le plafond unique de 3,10 EUR arrete le 05/08 :
+#: le prix d'un livrable depend de ce qu'il demande, et un plafond unique
+#: rationnait l'etude de marche pour rien pendant qu'il laissait de l'air a
+#: l'etude concurrentielle.
 #:
-#: Pourquoi un nombre DISTINCT de `budget_eur`. Celui-ci sert de denominateur au
-#: throttle : il repartit le restant sur les appels a venir. Le baisser ne fait
-#: pas baisser la depense, il RETRECIT chaque chapitre — mesure le 05/08/2026,
-#: sous 3,80 EUR chaque appel d'une etude de marche est deja borne au plancher.
-#: Confondre les deux revenait a croire qu'on plafonnait une facture alors qu'on
-#: rabotait un document.
+#: C'EST LA SEULE TABLE. `services._BUDGET_EUR_BY_TYPE` la relit au lieu de la
+#: recopier : deux tables aux memes nombres auraient diverge, et c'est
+#: exactement ce que la regle 5 condamne.
 #:
-#: Reglable sans redeploiement : la contrainte est commerciale, elle bougera.
-PLAFOND_DEPENSE_EUR = Decimal("3.1000")
+#: Le rythme et le plafond valent desormais LA MEME valeur, et ce n'est pas une
+#: economie de ligne. `budget_eur` sert de denominateur au throttle : il
+#: repartit le restant sur les appels a venir. Quand il depassait le plafond —
+#: 4,00 contre 3,10 jusqu'a aujourd'hui — le throttle cadencait vers un montant
+#: que le frein n'autorisait pas : il allouait genereusement, puis le dossier
+#: etait coupe net avant la fin. Les egaliser supprime cette contradiction.
+#:
+#: Baisser ces nombres ne fait PAS baisser la depense : cela retrecit chaque
+#: chapitre. Mesure le 05/08/2026 : sous 3,80 EUR, chaque appel d'une etude de
+#: marche est deja borne au plancher. Confondre les deux revient a croire qu'on
+#: plafonne une facture alors qu'on rabote un document.
+#: L'etude de marche est passee de 6,00 a 8,00 le 08/08/2026, sur mesure et non
+#: sur estimation : le dossier reel `b561c2d6` a ete COUPE par ce garde-fou a
+#: 22 chapitres sur 23, pour 5,94 EUR. Le plafond a fonctionne — il a stoppe
+#: net plutot que de depasser — mais il etait pose trop bas d'un chapitre.
+#:
+#: Ce chiffre de 5,94 n'est PAS le prix d'une etude de marche, et il ne faut pas
+#: le lire ainsi : ce dossier a paye deux changements de regime en cours de
+#: route (le controle de ressemblance rendu consultatif) et six appels tronques
+#: sur le chapitre 19, avant que la borne de sortie ne soit corrigee. Une etude
+#: produite d'un trait sous les regles actuelles coutera moins. Le prochain run
+#: complet donnera ce chiffre-la, et c'est lui qu'il faudra inscrire ici.
+#:
+#: 8,00 laisse donc la marge d'un dossier difficile sans pretendre mesurer un
+#: dossier normal.
+#: RELEVES LE 13/08/2026, sur decision cliente et sur trois mesures reelles.
+#:
+#: Deux dossiers se sont arretes a UN chapitre de la fin, apres avoir engage le
+#: cout de ce chapitre :
+#:
+#:   etude concurrentielle `1489271e` : 3,63 € > 3,50 €  (9 chapitres sur 10)
+#:   business plan        `6efaf48b` : 5,58 € > 5,50 €  (21 sur 22)
+#:   strategie            `d667fbb4` : 5,45 € sur 5,50 € (21 sur 21, au ras)
+#:
+#: Les plafonds dataient de livrables plus legers. Depuis, un socle porte douze
+#: acteurs avec grille de notation, et trois passes de correction tournent
+#: (12/08). Un plafond sous le cout reel ne protege de rien : il sacrifie le
+#: DERNIER chapitre — celui qui conclut — apres avoir paye la tentative.
+#:
+#: Marge d'environ 15 % au-dessus du cout observe : assez pour les passes de
+#: correction, pas assez pour qu'une derive passe inapercue. L'etude de marche
+#: garde 8,00 € : la seule mesuree tres en dessous de sa borne (7,44 €).
+PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
+    DeliverableType.MARKET_STUDY:      Decimal("8.0000"),
+    DeliverableType.BUSINESS_PLAN:     Decimal("6.5000"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("6.5000"),
+    DeliverableType.COMPETITOR_STUDY:  Decimal("4.5000"),
+}
+
+#: Repli pour un type de livrable inconnu de la table — le plus BAS, jamais le
+#: plus haut. Un livrable qu'on n'a pas budgete ne doit pas heriter du plafond
+#: le plus genereux : il s'arretera tot, ouvrira un incident, et le manque se
+#: verra. L'inverse depenserait en silence.
+PLAFOND_REPLI_EUR = min(PLAFOND_PAR_LIVRABLE.values())
 
 
 def plafond_de_depense(job: GenerationJob) -> Decimal:
-    """Le plus contraignant des deux : le rythme du job, ou le plafond commercial."""
-    plafond = getattr(settings, "EVKHA_PLAFOND_DEPENSE_EUR", None)
-    absolu = Decimal(str(plafond)) if plafond is not None else PLAFOND_DEPENSE_EUR
+    """Le plus contraignant : le rythme du job, ou le plafond de son livrable.
+
+    `EVKHA_PLAFOND_DEPENSE_EUR` reste un frein d'urgence GLOBAL, reglable sans
+    redeploiement : pose, il s'applique a tous les livrables. C'est ce qu'on
+    veut d'un frein — on le tire sans se demander quel type de dossier tourne.
+    """
+    # `str(...).strip()` et non `is not None` : le reglage vient de
+    # l'environnement, ou « absent » s'ecrit chaine vide. Tester la non-nullite
+    # laissait le frein serre en permanence sur sa valeur par defaut, et la
+    # table par livrable n'etait jamais atteinte.
+    surcharge = str(getattr(settings, "EVKHA_PLAFOND_DEPENSE_EUR", "") or "").strip()
+    if surcharge:
+        return min(job.budget_eur, Decimal(surcharge))
+    absolu = PLAFOND_PAR_LIVRABLE.get(str(job.deliverable_type), PLAFOND_REPLI_EUR)
     return min(job.budget_eur, absolu)
 
 

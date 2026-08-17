@@ -129,7 +129,7 @@ Inspiré de `karpathy/autoresearch` : un chercheur autonome ne progresse
 que s'il tient un journal de ses expériences. Chaque tentative qui n'est
 pas enregistrée est une leçon perdue.
 
-Ici : **chaque dossier généré** est une expérience à **2,60 € à 4,00 €** selon
+Ici : **chaque dossier généré** est une expérience à **plusieurs euros** selon
 le livrable — plafond appliqué par `_BUDGET_EUR_BY_TYPE`
 (`generation/services.py`), et deux études de marché complètes ont réellement
 coûté 3,12 € et 3,32 €. Ce fichier annonçait « ~2 € » jusqu'au 08/08/2026 :
@@ -167,6 +167,27 @@ Les quatre. La CI a été **rouge sur `main` pendant des mois** sans que
 personne ne s'en serve : elle n'installait que `[dev]`, donc mypy ne voyait ni
 `anthropic`, ni `httpx`, ni `bs4`.
 
+### Et avant tout déploiement, la répétition à blanc
+
+```bash
+python manage.py repetition_a_blanc
+```
+
+**Depuis la RACINE du dépôt** — `manage.py` n'est pas dans `backend/`, et le
+chercher là rend un `No such file or directory` qu'on peut prendre pour un
+détail. Le 12/08/2026, cette commande n'a donc pas tourné avant un
+déploiement : le rapport était vert, mais il a été lu APRÈS coup.
+
+La chaîne entière — socle, chapitres, gate — jouée sur la doublure pour les
+quatre livrables. Zéro appel d'API, zéro centime. Le 10/08/2026, **trois
+défauts sur cinq étaient des contradictions internes** (une consigne qui
+ordonne ce qu'un contrôle interdit, une liste que l'autre moitié du code
+ignore) et chacun a été découvert en payant une génération réelle — 5,22 €
+d'essais pour voir ce que cette commande montre gratuitement en deux minutes.
+`pytest` la rejoue aussi (`test_repetition_a_blanc.py`), mais l'exécuter
+nommément avant de déployer force à en LIRE le rapport — y compris les échecs
+de gate attendus sur la doublure, qui disent où le contenu réel sera jugé.
+
 ### Et pour le front, `tsc -b` — jamais `tsc --noEmit`
 
 ```bash
@@ -193,8 +214,30 @@ journée.
 - **Manipuler une clé d'API.** Elles vivent dans Coolify et dans le `.env`
   local, jamais dans le code, jamais dans une conversation.
 - **Lancer une génération réelle sans accord.** Le plafond appliqué va de
-  2,60 € (étude concurrentielle) à 4,00 € (étude de marché) selon le livrable,
-  et deux études complètes ont coûté 3,12 € et 3,32 €. La liste qui fait foi est
-  `_BUDGET_EUR_BY_TYPE` — ne pas recopier ces montants ailleurs.
+  quelques euros à plusieurs selon le livrable, et une étude de marché
+  complète a coûté 7,43 €. La liste qui fait foi est `_BUDGET_EUR_BY_TYPE`
+  (`cost.PLAFOND_PAR_LIVRABLE`) — ne recopiez ces montants NULLE PART, pas
+  même ici : les deux chiffres qui figuraient dans cette phrase étaient faux
+  depuis le 08/08/2026, dans le fichier qui interdit de les recopier.
 - **Livrer par e-mail depuis un environnement de test** : les dossiers portent
   de vraies adresses client.
+- **Déployer sans avoir vérifié qu'aucune génération ne tourne.** Un
+  déploiement redémarre les conteneurs et TUE le processus qui produit les
+  chapitres. Le dossier garde son statut `running` et n'est repris par
+  personne.
+
+  Constaté le 09/08/2026 : une cliente lance une étude à 06:22:59, un
+  déploiement part à 06:25:56, deux autres suivent. Son dossier est resté
+  « en cours » **soixante-seize minutes** à 2 chapitres sur 23, pendant qu'elle
+  rafraîchissait sa page. Les journaux du serveur ne montraient qu'elle.
+
+  La vérification tient en une requête, et elle est obligatoire avant tout
+  déploiement :
+
+  ```bash
+  curl -s -H "Authorization: Bearer $EVKHA_DASHBOARD_TOKEN" https://api2.evkha.fr/api/dashboard/jobs/
+  ```
+
+  Aucun `"status": "running"` — on déploie. Sinon, on attend, ou on prévient.
+  `generation.services.generation_interrompue` détecte après coup ; elle ne
+  dispense pas de regarder avant.

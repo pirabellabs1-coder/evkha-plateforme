@@ -19,6 +19,7 @@ noir) ; aucune puce en dur.
 from __future__ import annotations
 
 import io
+import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -435,6 +436,58 @@ def grille_chiffres(
 # ── 5. Tableau de données ────────────────────────────────────────────────────
 
 
+#: Part minimale et maximale d'une colonne, en fraction de la largeur utile.
+#:
+#: Le plancher empêche qu'une colonne « Oui / Non » soit réduite à un filet
+#: illisible ; le plafond empêche qu'une colonne de commentaire mange tout et
+#: écrase les autres. Entre les deux, la place suit le contenu.
+_PART_MIN = 0.07
+_PART_MAX = 0.34
+
+
+def _largeurs(
+    entetes: Sequence[str], lignes: Sequence[Sequence[str]], colonnes: int
+) -> list[int]:
+    """Largeur de chaque colonne, PROPORTIONNELLE à ce qu'elle porte.
+
+    ## Le défaut corrigé
+
+    La largeur était `LARGEUR_UTILE_DXA // colonnes` : parts strictement
+    égales. Un tableau à neuf colonnes — le modèle de référence en porte un au
+    chapitre 19 — donnait donc neuf colonnes d'un neuvième, quelle que soit leur
+    matière. Une colonne « Priorité » contenant « Haute » recevait autant de
+    place qu'une colonne « Recommandation » de deux lignes, qui se retrouvait
+    coupée en accordéon.
+
+    Signalé par la cliente le 09/08/2026 : « problème de tableaux trop étroits,
+    pages 10-11 ».
+
+    ## La règle
+
+    Le poids d'une colonne est la longueur de son texte le plus long — en-tête
+    compris, car un en-tête long élargit la colonne autant qu'une cellule. On
+    borne ensuite chaque part entre un plancher et un plafond, puis on
+    renormalise pour que la somme fasse exactement la largeur utile : sans cette
+    dernière étape, les bornes feraient déborder ou rétrécir le tableau.
+    """
+    textes: list[int] = []
+    for index in range(colonnes):
+        candidats = [len(entetes[index]) if index < len(entetes) else 0]
+        candidats += [
+            len(ligne[index]) for ligne in lignes if index < len(ligne)
+        ]
+        # Une colonne vide vaut 1 et non 0 : à zéro partout, la division qui
+        # suit n'aurait pas de sens.
+        textes.append(max(max(candidats, default=1), 1))
+
+    total = sum(textes)
+    parts = [
+        min(max(poids / total, _PART_MIN), _PART_MAX) for poids in textes
+    ]
+    somme = sum(parts)
+    return [max(int(LARGEUR_UTILE_DXA * part / somme), 1) for part in parts]
+
+
 def tableau(
     document: DocumentWord,
     palette: Palette,
@@ -444,8 +497,9 @@ def tableau(
 ) -> None:
     """En-tête prune sur texte blanc, corps crème, bordures fines."""
     colonnes = max(len(entetes), 1)
-    largeur = LARGEUR_UTILE_DXA // colonnes
-    table = _table(document, 1 + len(lignes), colonnes, [largeur] * colonnes)
+    table = _table(
+        document, 1 + len(lignes), colonnes, _largeurs(entetes, lignes, colonnes)
+    )
     _bordures(table, palette.fond_clair_alt, epaisseur=4)
     marges_cellules(table, haut=90, cote=140)
     # Seul le tableau de DONNÉES a une ligne d'en-tête à redonner : les autres
@@ -579,9 +633,52 @@ def paragraphe(document: DocumentWord, palette: Palette, texte: str) -> None:
     run.font.color.rgb = _rgb(palette.texte_corps)
 
 
+#: Une URL complète dans le texte. Le motif est large à dessein : on veut
+#: l'attraper qu'elle porte ou non son protocole.
+_URL = re.compile(r"(?:https?://|www\.)[^\s,;)\]]+", re.IGNORECASE)
+
+#: Sous-domaines qui ne disent rien du nom de la source.
+_PREFIXES_INUTILES = ("www.", "fr.", "en.", "m.")
+
+
+def source_lisible(texte: str) -> str:
+    """Remplace une URL par le NOM de la source qu'elle désigne.
+
+    « https://www.fevad.com/wp-content/uploads/2025/06/chiffres-cles-2025.pdf »
+    devient « fevad.com ».
+
+    ## Pourquoi
+
+    Signalé par la cliente le 09/08/2026 : « à la page 40, les sources sont
+    écrites sous forme d'URL longues, parfois avec des caractères parasites.
+    Visuellement, il vaut mieux utiliser des noms de source propres. »
+
+    Elle a raison, et pas seulement pour l'esthétique : une URL de cent
+    cinquante signes déborde de la colonne, force un retour à la ligne au milieu
+    d'un mot, et n'apprend rien au lecteur que le nom du site ne lui dise mieux.
+    Personne ne recopie une URL depuis un PDF.
+
+    ## Ce qu'on ne fait pas
+
+    On ne supprime pas la source : « Fevad, 2025 » reste « Fevad, 2025 ». Seule
+    l'adresse est remplacée par son domaine, et le reste de la phrase traverse
+    intact. Retirer la source entière ferait perdre l'information au nom de la
+    mise en page — l'inverse de ce qui est demandé.
+    """
+    def _domaine(correspondance: re.Match[str]) -> str:
+        url = correspondance.group(0)
+        hote = url.split("//", 1)[-1].split("/", 1)[0].lower()
+        for prefixe in _PREFIXES_INUTILES:
+            if hote.startswith(prefixe):
+                hote = hote[len(prefixe):]
+        return hote or url
+
+    return _URL.sub(_domaine, texte)
+
+
 def note_source(document: DocumentWord, palette: Palette, texte: str) -> None:
     p = document.add_paragraph(style=STYLE_SOURCE)
-    run = p.add_run(texte)
+    run = p.add_run(source_lisible(texte))
     _poser_police(run, STYLE_SOURCE)
     run.font.color.rgb = _rgb(palette.texte_legende)
 
@@ -702,3 +799,83 @@ def liste(document: DocumentWord, palette: Palette, elements: Sequence[str]) -> 
         run = p.add_run(element)
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.texte_corps)
+
+
+# ── 9. Business Model Canvas ─────────────────────────────────────────────────
+
+#: La disposition d'Osterwalder, telle que l'AFE la distribue.
+#:
+#: Demande de la cliente le 13/08/2026, modèle à l'appui : « il serait plus
+#: intéressant de mettre un business model canvas complété dans sa forme
+#: originale qu'un tableau ».
+#:
+#: Elle a raison, et ce n'est pas une question d'esthétique. Le canvas se LIT
+#: par blocs : ce que l'entreprise fait est à gauche, ce que le client reçoit
+#: à droite, l'argent en bas. Neuf lignes empilées perdent cette lecture — on
+#: obtient une liste, pas une carte, et le lecteur ne voit plus d'un coup d'œil
+#: qu'une proposition de valeur sans canal pour l'atteindre est un modèle qui
+#: ne tient pas.
+#:
+#: Grille : cinq colonnes, trois rangées. Les blocs pleine hauteur occupent
+#: leurs deux premières rangées, les colonnes 1 et 3 se coupent en deux, et la
+#: rangée du bas se partage entre coûts et revenus.
+_CASES_DU_CANVAS: tuple[tuple[str, str, int, int, int, int], ...] = (
+    # (champ, intitulé, ligne, colonne, hauteur, largeur)
+    ("partenaires_cles",    "Partenaires clés",       0, 0, 2, 1),
+    ("activites_cles",      "Activités clés",         0, 1, 1, 1),
+    ("ressources_cles",     "Ressources clés",        1, 1, 1, 1),
+    ("proposition_valeur",  "Proposition de valeur",  0, 2, 2, 1),
+    ("relation_client",     "Relation client",        0, 3, 1, 1),
+    ("canaux",              "Canaux",                 1, 3, 1, 1),
+    ("segments_clientele",  "Segments de clientèle",  0, 4, 2, 1),
+    ("structure_couts",     "Structure de coûts",     2, 0, 1, 2),
+    ("sources_revenus",     "Sources de revenus",     2, 2, 1, 3),
+)
+
+
+def business_model_canvas(
+    document: DocumentWord,
+    palette: Palette,
+    blocs: dict[str, Sequence[str]],
+    source: str = "",
+) -> None:
+    """Dessine le canvas dans sa disposition d'origine, cases fusionnées.
+
+    `blocs` associe chaque champ du canvas à ses éléments. Un bloc vide garde
+    sa case : un canvas amputé d'une case cesse d'être un canvas, et le trou
+    DIT quelque chose — un modèle sans partenaires clés est une information,
+    pas une omission de mise en page.
+    """
+    largeur = LARGEUR_UTILE_DXA // 5
+    table = _table(document, 3, 5, [largeur] * 5)
+    _bordures(table, palette.fond_clair_alt, epaisseur=4)
+    marges_cellules(table, haut=90, cote=120)
+
+    for champ, intitule, ligne, colonne, hauteur, largeur_cases in _CASES_DU_CANVAS:
+        cellule = table.rows[ligne].cells[colonne]
+        if hauteur > 1 or largeur_cases > 1:
+            cellule = cellule.merge(
+                table.rows[ligne + hauteur - 1].cells[colonne + largeur_cases - 1]
+            )
+        fond_cellule(cellule, palette.fond_clair)
+
+        # L'intitulé de la case, puis ses éléments en puces. On passe par
+        # `_ecrire` plutôt que de poser le style à la main : lui seul connaît
+        # la police du gabarit, et un style appliqué sans elle rend un texte
+        # qui détonne au milieu du document.
+        _ecrire(
+            cellule, intitule, STYLE_TABLEAU_ENTETE,
+            couleur=palette.primaire, gras=True,
+        )
+        for element in blocs.get(champ) or ():
+            texte = str(element).strip()
+            if texte:
+                _ecrire(
+                    cellule, f"• {texte}", STYLE_TABLEAU_CELLULE,
+                    couleur=palette.texte_corps, premier=False,
+                )
+
+    if source:
+        note_source(document, palette, source)
+    else:
+        document.add_paragraph()

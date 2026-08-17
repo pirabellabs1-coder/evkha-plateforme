@@ -6,7 +6,10 @@ extrait ce qu'il peut de la prose et se tait sur le reste.
 """
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Sequence
 from datetime import date
+from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -45,6 +48,110 @@ def unites_monetaires() -> tuple[str, ...]:
         for devise in _DEVISES
         for magnitude in ("", "k", "M", "Md")
     )
+
+
+#: Symbole d'affichage d'une devise. Seules celles qui en ont un y figurent :
+#: le franc CFA s'écrit « FCFA », pas avec un signe, et inventer un symbole
+#: serait pire que garder le code.
+_SYMBOLE_DEVISE: dict[str, str] = {
+    "EUR": "€", "USD": "$", "GBP": "£", "XOF": "FCFA", "XAF": "FCFA",
+}
+
+#: Unités non monétaires telles qu'un lecteur les lit.
+_UNITE_LISIBLE: dict[str, str] = {
+    "unite": "", "millier": "milliers", "million": "millions",
+    "annees": "ans", "note_sur_5": "/5", "note_sur_10": "/10", "ratio": "",
+}
+
+
+def unite_lisible(unite: str) -> str:
+    """L'unité telle qu'elle doit APPARAÎTRE dans le document.
+
+    `MdEUR` → `Md€`, `MEUR` → `M€`, `kEUR` → `k€`, `annees` → `ans`.
+
+    ## Pourquoi cette fonction existe
+
+    Retour de la cliente du 09/08/2026 : « remplacer les unités techniques comme
+    MEUR par des formats plus simples : 6,8 Md€, 1,02 Md€, 600 k€ ».
+
+    `MdEUR` est une notation de STOCKAGE : elle sépare la magnitude de la devise
+    pour que les conversions soient possibles sans ambiguïté. Elle n'a aucune
+    raison d'atteindre le lecteur — pas plus que le nom d'un identifiant.
+
+    Elle vit ICI, à côté des unités qu'elle traduit, et pas dans le rendu Word :
+    la ligne du socle injectée dans le prompt en a besoin AUSSI, sinon le modèle
+    recopie `MEUR` dans sa prose et aucun rendu ne le rattrape (règle 5).
+    """
+    decompose = _decomposer_unite_monetaire(unite)
+    if decompose is not None:
+        magnitude, devise = decompose
+        return f"{magnitude}{_SYMBOLE_DEVISE.get(devise, devise)}"
+    return _UNITE_LISIBLE.get(unite, unite)
+
+
+#: Les échelles qu'un business plan écrit, de la plus grande à la plus petite.
+_ECHELLES: tuple[tuple[float, str], ...] = ((1e9, "Md"), (1e6, "M"))
+
+
+def _nombre_francais(valeur: float) -> str:
+    """« 16.5 » → « 16,5 » ; « 320000.0 » → « 320 000 » ; « 1.02 » → « 1,02 ».
+
+    La précision du nombre est CELLE QU'IL PORTE, jamais un arrondi imposé :
+    la cliente cite « 1,02 Md€ » parmi les formats qu'elle attend, et une
+    version qui forçait une décimale l'aurait écrit « 1,0 Md€ ».
+    """
+    if valeur == int(valeur):
+        return f"{int(valeur):,}".replace(",", " ")
+    texte = f"{valeur:,.3f}".rstrip("0").rstrip(".")
+    return texte.replace(",", " ").replace(".", ",")
+
+
+def montant_lisible(valeur: float, unite: str) -> str:
+    """La valeur ET son unité telles qu'elles doivent APPARAÎTRE.
+
+    ## Le défaut, mesuré
+
+    `unite_lisible` traduisait déjà `MdEUR` en `Md€`, à la demande de la
+    cliente du 09/08/2026 : « remplacer les unités techniques comme MEUR par
+    des formats plus simples : 6,8 Md€, 1,02 Md€, 600 k€ ». L'unité a été
+    traduite ; **la valeur, elle, n'a jamais été mise à l'échelle**.
+
+    Le socle écrivait donc au modèle `= 16500000000.0 €`, et le modèle
+    recopiait consciencieusement. Le business plan 73dde3ab du 17/08/2026
+    portait « un secteur qui pèse 16 500 000 000 euros » — cinq fois. Aucun
+    document financier n'écrit un nombre à dix chiffres ; il écrit 16,5 Md€.
+    Personne ne l'avait signalé parce que le chiffre était JUSTE : seule sa
+    forme était illisible, et aucun contrôle ne juge la forme d'un nombre.
+
+    ## Pourquoi on ne convertit pas toujours
+
+    Une conversion qui arrondit change la donnée. « 3 287 400 € » deviendrait
+    « 3,3 M€ », et un chapitre qui recalcule à partir de là diverge de celui
+    qui a lu la valeur exacte — c'est un défaut d'incohérence fabriqué par le
+    confort de lecture.
+
+    On ne convertit donc que si la valeur s'écrit EXACTEMENT à la nouvelle
+    échelle avec au plus une décimale. 16,5 Md€ oui ; 3 287 400 € reste tel
+    quel. Rien ne se perd, et ce qui reste long est long parce qu'il le doit.
+    """
+    decompose = _decomposer_unite_monetaire(unite)
+    if decompose is None:
+        lisible = unite_lisible(unite)
+        return f"{_nombre_francais(valeur)} {lisible}".strip()
+
+    magnitude, devise = decompose
+    symbole = _SYMBOLE_DEVISE.get(devise, devise)
+    if magnitude:
+        # Déjà exprimée à une échelle (`MdEUR`) : la valeur lui correspond.
+        return f"{_nombre_francais(valeur)} {magnitude}{symbole}"
+
+    for seuil, prefixe in _ECHELLES:
+        if abs(valeur) < seuil:
+            continue
+        reduit = round(valeur / seuil, 1)
+        if abs(reduit * seuil - valeur) < 1.0:
+            return f"{_nombre_francais(reduit)} {prefixe}{symbole}"
+    return f"{_nombre_francais(valeur)} {symbole}"
 
 
 def unites_autorisees(famille: FamilleUnite) -> tuple[str, ...]:
@@ -140,6 +247,47 @@ class DonneeSocle(BaseModel):
     #: hallucination.
     derivee_de: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _un_denombrement_s_ecrit_en_unites(cls, valeurs: Any) -> Any:
+        """Ramène un effectif exprimé en `millier`/`million` à son compte réel.
+
+        ## Le défaut, mesuré sur un business plan livré
+
+        13/08/2026, retour de la cliente : « le document écrit à de très
+        nombreuses reprises 50 000 milliers de cibles, puis interprète cela
+        comme 50 000 000, et calcule 102 / 50 000 000 = 0,000204 % ». Répété
+        DOUZE fois, pages 11, 12, 15, 20, 22, 38, 41, 43, 46.
+
+        Il n'y a pas cinquante millions de créateurs d'entreprise en France. Le
+        modèle voulait dire 50 000 cibles ; il a choisi l'unité `millier` en
+        gardant le compte entier, et l'affichage a multiplié par mille.
+
+        ## Pourquoi convertir plutôt que refuser
+
+        L'unité `millier` pour un DÉNOMBREMENT est un piège que nous avons
+        tendu : « 50 000 » est aussi lisible que « 50 milliers », et proposer
+        les deux écritures invite exactement cette confusion. Un refus ferait
+        perdre un chapitre là où la valeur réelle est connue sans ambiguïté —
+        le compte est le nombre, quelle que soit l'échelle choisie pour le dire.
+
+        Un effectif se stocke donc TOUJOURS en unités absolues. Les magnitudes
+        restent acceptées à l'entrée pour ne pas casser les socles existants,
+        et sont converties ici, une fois pour toutes.
+        """
+        if not isinstance(valeurs, dict):
+            return valeurs
+        unite = str(valeurs.get("unite", "")).strip()
+        facteur = {"millier": 1_000.0, "million": 1_000_000.0}.get(unite)
+        if facteur is None:
+            return valeurs
+        try:
+            valeurs["valeur"] = float(valeurs.get("valeur", 0)) * facteur
+        except (TypeError, ValueError):
+            return valeurs
+        valeurs["unite"] = "unite"
+        return valeurs
+
     @model_validator(mode="after")
     def _controler_source(self) -> DonneeSocle:
         if self.fiabilite is Fiabilite.OBSERVEE and not self.source.strip():
@@ -161,6 +309,42 @@ class SegmentClientele(BaseModel):
     description: str = ""
     besoin_dominant: str = ""
     part_estimee: float | None = Field(default=None, ge=0, le=100)
+
+
+class Critere(BaseModel):
+    """Un axe de notation, défini UNE FOIS pour toute l'étude.
+
+    ## Pourquoi la définition des bornes est obligatoire
+
+    La cliente a demandé « une échelle de notation reproductible de 1 à 5 ».
+    Reproductible veut dire qu'un lecteur qui reprend la grille retrouve les
+    mêmes notes. Une note sans barème n'est pas une mesure, c'est une opinion
+    chiffrée — exactement le « chiffre inventé » que le socle entier existe
+    pour empêcher.
+
+    `note_1` et `note_5` sont donc exigés, et un socle qui note sans définir
+    est refusé. C'est un coût de reprise assumé : une grille absente rend
+    ininterprétables les quarante notes qui en dépendent.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    #: Code court cité par les figures (`prix`, `couverture_service`).
+    code: str = Field(min_length=1, pattern=r"^[a-z][a-z0-9_]{1,39}$")
+    intitule: str = Field(min_length=1)
+    #: Ce que vaut la note la plus basse, puis la plus haute. Le barème.
+    note_1: str = Field(min_length=1)
+    note_5: str = Field(min_length=1)
+
+
+class NoteConcurrent(BaseModel):
+    """La note d'un acteur sur UN critère. Bornes tenues par le contrat."""
+
+    model_config = {"extra": "forbid"}
+
+    #: `code` d'un critère de `Socle.grille_notation`.
+    critere: str = Field(min_length=1)
+    note: int = Field(ge=1, le=5)
 
 
 class Concurrent(BaseModel):
@@ -194,6 +378,44 @@ class Concurrent(BaseModel):
     methode_estimation: str = ""
     fiabilite: str = ""
     source: str = ""
+    #: Notes de cet acteur, une par critère de `Socle.grille_notation`.
+    #:
+    #: C'est CE champ qui alimente les radars et les cartes de positionnement.
+    #: Sans lui, `donnees_graphiques` n'a aucune coordonnée à placer : le
+    #: dossier `5892daa5` (10/08/2026) a perdu onze figures sur quinze pour
+    #: cette seule raison, et s'est fait bloquer au plancher de figures avec
+    #: quatre visuels pour dix-sept attendus.
+    #:
+    #: ## Pourquoi une LISTE et non un dictionnaire
+    #:
+    #: La première version portait `dict[str, int]`. Le schéma d'outil la rend
+    #: en `additionalProperties`, c'est-à-dire un objet sans forme annoncée — et
+    #: le modèle ne l'a pas remplie. Mesuré sur `6a44baff` (10/08/2026) : les
+    #: QUATRE critères de la grille étaient produits, corrects et définis, et
+    #: pas un seul acteur n'était noté. Le socle a été refusé trois fois, et
+    #: l'étude est morte avant son premier chapitre.
+    #:
+    #: Une liste d'objets nommés se voit dans le schéma, donc se remplit.
+    notes: list[NoteConcurrent] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _controler_notes(self) -> Concurrent:
+        vus = Counter(note.critere for note in self.notes)
+        doublons = sorted(code for code, n in vus.items() if n > 1)
+        if doublons:
+            msg = f"{self.nom} : {', '.join(doublons)} noté(s) plusieurs fois."
+            raise ValueError(msg)
+        return self
+
+    @property
+    def codes_notes(self) -> set[str]:
+        return {note.critere for note in self.notes}
+
+    def note_sur(self, code: str) -> int | None:
+        for note in self.notes:
+            if note.critere == code:
+                return note.note
+        return None
 
 
 class Tendance(BaseModel):
@@ -227,6 +449,9 @@ class Socle(BaseModel):
     concurrents: list[Concurrent] = Field(default_factory=list)
     tendances: list[Tendance] = Field(default_factory=list)
     risques: list[Risque] = Field(default_factory=list)
+    #: Barème commun aux notes portées par les concurrents. Déclaré une fois,
+    #: cité par code : c'est la source unique du sens des notes (règle 5).
+    grille_notation: list[Critere] = Field(default_factory=list)
 
     # Champ de travail, non produit par le modèle : renseigné par le validateur
     # pour que les contrôles croisés connaissent le référentiel applicable.
@@ -241,6 +466,117 @@ class Socle(BaseModel):
     @property
     def identifiants(self) -> set[str]:
         return {item.id for item in self.donnees}
+
+    @property
+    def identifiants_citables(self) -> set[str]:
+        """Tout ce qu'un chapitre a le DROIT de citer : données ET critères.
+
+        ## Ce qui a rendu cette propriété nécessaire
+
+        Le 10/08/2026, quelques heures après avoir donné au modèle une grille de
+        notation et lui avoir dit d'en citer les codes comme identifiants de
+        figure, le dossier `d326557e` est mort au chapitre 1 :
+
+            `offre` ne figure pas dans le socle verrouillé.
+            `service` ne figure pas dans le socle verrouillé.
+
+        Le modèle avait obéi. La validation, elle, ne connaissait que
+        `socle.donnees` — et j'avais créé DEUX SOURCES pour « ce qui peut être
+        cité » le jour même où je tranchais un conflit de règle 5 sur l'échelle
+        de notation. Vue d'un côté, pas de l'autre.
+
+        Une seule propriété répond désormais à la question, et les deux
+        contrôles l'interrogent. Un code de critère est une chose que le socle
+        porte : le citer n'est pas inventer.
+        """
+        return (
+            self.identifiants
+            | {c.code for c in self.grille_notation}
+            # Les SÉLECTEURS d'acteurs et les NOMS des acteurs.
+            #
+            # 13/08/2026, étude concurrentielle en cours : le chapitre 7 est
+            # mort sur « `directs` ne figure pas dans le socle verrouillé ;
+            # `indirects` ne figure pas ; `projet` ne figure pas ».
+            #
+            # Le modèle avait obéi — c'est NOTRE consigne de figures qui lui
+            # dit « ajoute `directs` ou `indirects` à tes identifiants, ou
+            # cite leurs NOMS exacts ». Le contrôle, lui, ne connaissait que
+            # les données et les critères. Exactement le défaut décrit
+            # ci-dessus pour les codes de grille, trois jours plus tard, sur le
+            # vocabulaire ajouté entre-temps.
+            #
+            # Un sélecteur désigne des acteurs QUE LE SOCLE PORTE : l'employer
+            # n'est pas inventer, c'est nommer un groupe au lieu d'une liste.
+            | set(SELECTEURS_D_ACTEURS)
+            | {a.nom for a in self.concurrents}
+        )
+
+    def critere(self, code: str) -> Critere | None:
+        for item in self.grille_notation:
+            if item.code == code:
+                return item
+        return None
+
+    def notes_sur(
+        self, codes: Sequence[str], *, acteurs: Sequence[str] | None = None
+    ) -> list[tuple[str, list[float]]]:
+        """Les concurrents notés sur TOUS ces critères, dans l'ordre demandé.
+
+        Un acteur noté sur trois critères et muet sur le quatrième est écarté :
+        le placer avec une coordonnée manquante produirait une figure fausse
+        dont chaque note est juste — le défaut que `_harmoniser` évite déjà sur
+        les unités.
+
+        `acteurs` restreint la sélection à des NOMS précis. Sans lui, toute
+        figure d'acteurs rendait la même liste : quatre radars de chapitres
+        différents — les 8 directs, puis les 3 indirects — produisaient
+        exactement la même image, et le radar « indirects » affichait des
+        directs. Signalé par la cliente le 11/08/2026 sur une étude notée
+        8,5/10 ; le défaut vient du résolveur écrit le matin même, qui n'avait
+        aucun moyen de savoir QUELS acteurs le chapitre demandait.
+        """
+        # `acteurs is None` = aucune restriction ; une liste VIDE en est une,
+        # et elle ne retient personne. La nuance porte tout le correctif :
+        # rendre tout le monde à un chapitre qui a désigné quelqu'un produit
+        # la figure au titre menteur.
+        voulus = (
+            None if acteurs is None else {nom.casefold() for nom in acteurs}
+        )
+        retenus: list[tuple[str, list[float]]] = []
+        for acteur in self.concurrents:
+            if voulus is not None and acteur.nom.casefold() not in voulus:
+                continue
+            valeurs = [acteur.note_sur(code) for code in codes]
+            if all(valeur is not None for valeur in valeurs):
+                retenus.append(
+                    (acteur.nom, [float(valeur) for valeur in valeurs if valeur])
+                )
+        return retenus
+
+    def acteurs_du_type(self, type_: str) -> list[str]:
+        """Les noms des concurrents `direct` ou `indirect`.
+
+        C'est ce qui permet à un chapitre de demander « le radar des trois
+        indirects » sans recopier leurs noms — et donc d'obtenir une figure
+        qui porte réellement ce que son titre annonce.
+        """
+        return [a.nom for a in self.concurrents if a.type == type_]
+
+
+#: Les groupes d'acteurs qu'un chapitre peut désigner dans une figure, au lieu
+#: d'en recopier les noms.
+#:
+#: Définis ICI et importés par le rendu : deux tables auraient divergé au
+#: premier groupe ajouté, et c'est précisément ce qui est arrivé le 13/08/2026
+#: avec `projet`, ajouté au vocabulaire sans l'être à la table (règle 5).
+SELECTEURS_D_ACTEURS: dict[str, str] = {
+    "directs": "direct",
+    "concurrents_directs": "direct",
+    "indirects": "indirect",
+    "concurrents_indirects": "indirect",
+    "projet": "projet",
+    "entreprise_etudiee": "projet",
+}
 
 
 class SocleInvalideError(ValueError):
@@ -312,6 +648,134 @@ def valider_socle(socle: Socle, deliverable_type: str) -> list[str]:
 
     motifs.extend(_controler_emboitement_marche(socle))
     motifs.extend(_controler_equilibre_financier(socle))
+    motifs.extend(_controler_grille_notation(socle))
+    return motifs
+
+
+def reparer_les_filiations(socle: Socle) -> list[str]:
+    """Retire les filiations qui pointent vers une donnée absente.
+
+    ## Le défaut, mesuré
+
+    17/08/2026, étude de concurrence `8cc1be56` : « Socle non recevable après
+    3 tentative(s) : `marche_regional_taille` déclare dériver de
+    `ca_moyen_concurrent`, absent du socle. » Zéro chapitre, zéro centime, et
+    un livrable perdu avant d'exister.
+
+    Les deux données sont FACULTATIVES au référentiel. Le modèle a produit la
+    première en annotant sa provenance, sans fournir la seconde — et il a
+    refait le même geste aux trois tentatives.
+
+    ## Pourquoi réparer plutôt que refuser
+
+    `derivee_de` est une annotation de PROVENANCE, pas une valeur. Quand elle
+    pointe vers rien, c'est l'annotation qui est fausse, pas le chiffre : le
+    refuser revient à jeter tout un socle pour une note de bas de page.
+
+    Retirer le lien laisse la donnée debout, avec sa source propre, et sans
+    prétendre à une filiation invérifiable — une affirmation fausse en moins.
+    C'est le même arbitrage que `reparer_la_grille`, et pour la même raison :
+    à la dernière tentative, le refus ne fait plus corriger le modèle, il tue
+    l'étude.
+    """
+    orphelines: list[str] = []
+    presents = socle.identifiants
+    for item in socle.donnees:
+        absentes = [parent for parent in item.derivee_de if parent not in presents]
+        if not absentes:
+            continue
+        item.derivee_de = [p for p in item.derivee_de if p in presents]
+        orphelines.extend(f"{item.id} ← {parent}" for parent in absentes)
+    return orphelines
+
+
+def reparer_la_grille(socle: Socle) -> list[str]:
+    """Rend la grille recevable en retirant ce qui ne compare rien.
+
+    ## Pourquoi une réparation, et pas seulement un refus
+
+    Le refus est juste : un critère que personne ne note n'a pas d'axe. Mais
+    appliqué à la dernière tentative, il tue l'étude AVANT son premier
+    chapitre — mesuré sur `6a44baff` (10/08/2026), mort à 0 € et 0 chapitre
+    parce que le modèle avait produit quatre critères impeccables sans noter
+    un seul acteur.
+
+    Ce dépôt a déjà tranché ce genre d'arbitrage trois fois aujourd'hui, dans
+    le même sens : la typographie se répare, une ligne de tableau trop courte
+    se complète, un résumé trop long se raccourcit. Un défaut de FORME ne doit
+    pas coûter un livrable.
+
+    Le refus garde donc tout son rôle sur les premières tentatives — c'est lui
+    qui fait corriger le modèle. En dernier recours, on retire les critères
+    orphelins : l'étude perd des figures, avec un motif nommé au rendu, au lieu
+    de ne pas exister.
+
+    Retourne ce qui a été retiré, pour que le journal le dise.
+    """
+    codes = {critere.code for critere in socle.grille_notation}
+    utiles = {
+        code for code in codes
+        if sum(1 for a in socle.concurrents if code in a.codes_notes) >= 2
+    }
+    retires = sorted(codes - utiles)
+    if not retires:
+        return []
+
+    socle.grille_notation = [c for c in socle.grille_notation if c.code in utiles]
+    for acteur in socle.concurrents:
+        acteur.notes = [n for n in acteur.notes if n.critere in utiles]
+    return retires
+
+
+def _controler_grille_notation(socle: Socle) -> list[str]:
+    """Une note n'a de sens que rattachée à un barème déclaré.
+
+    ## Ce qui a rendu ce contrôle nécessaire
+
+    Le dossier `5892daa5` (étude concurrentielle, 10/08/2026) a été bloqué au
+    plancher de figures : quatre visuels pour dix-sept attendus, onze abandons
+    sur quinze pour « le socle ne porte pas deux [grandeurs] notées » ou « un
+    radar exige au moins trois axes ». Le socle décrivait ses onze concurrents
+    en texte libre — positionnement, structure, méthode d'estimation — et pas
+    une note. Les radars et les cartes de positionnement n'avaient aucune
+    coordonnée à placer.
+
+    ## Trois motifs, et pourquoi chacun bloque
+
+    Une note dont le critère n'existe pas est une coordonnée sans axe. Une
+    grille sans aucune note est une promesse non tenue, et le lecteur y verrait
+    un barème qui ne sert à rien. Un critère noté sur un seul acteur ne compare
+    rien : c'est la règle 1 — un contrôle, ou ici une figure, qui n'a rien à
+    comparer n'est pas un succès.
+    """
+    if not socle.grille_notation and not any(a.notes for a in socle.concurrents):
+        return []  # Livrable sans notation : rien à contrôler, pas un défaut.
+
+    motifs: list[str] = []
+    codes = {critere.code for critere in socle.grille_notation}
+
+    comptes = Counter(critere.code for critere in socle.grille_notation)
+    for code in sorted(code for code, n in comptes.items() if n > 1):
+        motifs.append(f"Le critère `{code}` est déclaré plusieurs fois dans la grille.")
+
+    for acteur in socle.concurrents:
+        inconnus = sorted(acteur.codes_notes - codes)
+        if inconnus:
+            motifs.append(
+                f"{acteur.nom} est noté sur {', '.join(f'`{c}`' for c in inconnus)}, "
+                "absent de `grille_notation`. Une note sans critère déclaré ne "
+                "peut pas être placée sur une figure ni relue par le client."
+            )
+
+    for critere in socle.grille_notation:
+        notes = sum(1 for a in socle.concurrents if critere.code in a.codes_notes)
+        if notes < 2:
+            motifs.append(
+                f"Le critère `{critere.code}` ne note que {notes} acteur(s) : "
+                "un axe qui ne compare rien n'a pas sa place dans la grille. "
+                "Note-le sur tous les concurrents, ou retire-le."
+            )
+
     return motifs
 
 

@@ -442,6 +442,35 @@ def _verticale_present(needle: str, full_text: str) -> bool:
     return all(_mot_present(mot, full_text) for mot in mots)
 
 
+#: Un montant qui porte SON unité. `amounts_in` la rend facultative — c'est
+#: juste pour lire « 55 % An1 -> 85 % An5 », et faux pour décider si une
+#: réponse client contient un montant.
+_MONTANT_AVEC_DEVISE = re.compile(MONEY_CAPTURED, re.IGNORECASE)
+
+
+def _exige_une_devise(patterns: tuple[re.Pattern[str], ...]) -> bool:
+    """Le fait se cherche-t-il dans le document avec une unité monétaire ?
+
+    Déduit des motifs eux-mêmes, et non d'une seconde liste de clés à tenir à
+    jour : ajouter un fait monétaire à `_CLIENT_FACT_PATTERNS` suffit, le
+    contrôle suit (règle 5).
+    """
+    return any(_MONEY in motif.pattern for motif in patterns)
+
+
+def _extrait(valeur: str, largeur: int = 90) -> str:
+    """Le début d'une réponse client, entre guillemets, pour un motif lisible.
+
+    Le message reproduisait la réponse ENTIÈRE — sur le business plan
+    `2a8872d0`, un paragraphe de mille signes dans un motif d'échec. Un motif
+    qu'on ne peut pas lire ne se corrige pas (règle 2).
+    """
+    aplati = " ".join(valeur.split())
+    if len(aplati) <= largeur:
+        return f"« {aplati} »"
+    return f"« {aplati[:largeur].rstrip()}… »"
+
+
 def _client_numbers(value: str) -> list[float]:
     """Montants d'une valeur de fait client, normalises en unites de base.
 
@@ -558,8 +587,8 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
                 check="brief_non_lu",
                 detail=(
                     f"Le brief mentionne « {_FACT_LABELS.get(key, key)} » avec un "
-                    f"montant ({match.group(0).strip()!r}), mais le pipeline n'a "
-                    "pas su l'extraire : cette valeur n'est donc verifiee nulle "
+                    f"montant ({match.group(0).strip()!r}), mais la lecture automatique "
+                    "ne l'a pas retenu : cette valeur n'est donc verifiee nulle "
                     "part. Reformuler la ligne du brief ou saisir la valeur en "
                     "clair avant relance."
                 ),
@@ -569,8 +598,8 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
         failures.append(GateFailure(
             check="brief_non_lu",
             detail=(
-                "Le brief donne un taux d'occupation que le pipeline n'a pas su "
-                "extraire : il n'est verifie nulle part."
+                "Le brief donne un taux d'occupation que la lecture automatique "
+                "n'a pas retenu : il n'est verifie nulle part."
             ),
         ))
 
@@ -578,8 +607,8 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
         failures.append(GateFailure(
             check="brief_non_lu",
             detail=(
-                "Le brief liste des verticales d'activite que le pipeline n'a pas "
-                "su extraire : rien ne garantit qu'elles figurent dans le "
+                "Le brief liste des verticales d'activite que la lecture automatique "
+                "n'a pas retenues : rien ne garantit qu'elles figurent dans le "
                 "livrable. C'est le defaut SYNAPSES — trois verticales effacees "
                 "au profit d'un modele generique."
             ),
@@ -665,6 +694,18 @@ def _check_contamination(
     return failures
 
 
+#: Ce qui designe une grandeur de MARCHE, sans rapport avec la taille du projet.
+#:
+#: Un marche national, un secteur, une filiere se chiffrent en milliards la ou
+#: une entreprise se chiffre en centaines de milliers. Les comparer produit un
+#: refus qu'aucune reecriture ne peut satisfaire.
+_MONTANT_DE_MARCHE = re.compile(
+    r"\bmarch[ée]|\bsecteur|\bfili[èe]re|\bnational|\bmondial"
+    r"|\beurop[ée]en|\bTAM\b|\bSAM\b|\bSOM\b",
+    re.IGNORECASE,
+)
+
+
 def _check_ordres_de_grandeur(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -689,9 +730,29 @@ def _check_ordres_de_grandeur(
     # alors que l'erreur « millions/milliers » est une faute de redaction, pas
     # une specificite du BP. Une etude de marche qui fournit un CA client est
     # desormais couverte.
+    # L'échelle se construit sur des MONTANTS, pas sur des nombres.
+    #
+    # Reprise `5c5e91b9` (12/08/2026) : la cliente avait répondu « pour s1 2027
+    # 20 abonnés » à la question du chiffre d'affaires prévisionnel. Le lecteur
+    # y voyait l'année, 2027, et le contrôle en faisait une référence de
+    # 2 027 € — puis reprochait au document ses « 260 000 €, plus de 100× la
+    # référence client », en suggérant une erreur d'unité qui n'existait pas.
+    #
+    # C'est le défaut réparé le matin même dans `_check_numeric_coherence`, et
+    # laissé intact ici : deux contrôles, la même lecture, une seule réparée.
+    # Règle 9 du dépôt — ce qu'un contrôle ne regarde pas est exactement là où
+    # sa réparation ne cherche pas non plus.
+    #
+    # Une unité monétaire est donc EXIGÉE côté brief, comme elle l'est déjà
+    # côté document (`_PROJECT_MONEY_RE`). Sans elle, il n'y a pas d'échelle —
+    # et l'absence de chiffre exploitable est signalée par
+    # `reference_client_illisible`, qui nomme le vrai problème.
     reference = 0.0
     for key in _MONETARY_FACT_KEYS:
-        numbers = _client_numbers(client_facts.get(key, ""))
+        valeur = client_facts.get(key, "")
+        if not _MONTANT_AVEC_DEVISE.search(valeur):
+            continue
+        numbers = _client_numbers(valeur)
         if numbers:
             reference = max(reference, max(numbers))
     if reference <= 0:
@@ -711,6 +772,26 @@ def _check_ordres_de_grandeur(
             # montant. Un parsing local reintroduirait la divergence.
             absolute = _amount_from_match(match)
             if absolute is None:
+                continue
+            # UN MARCHÉ N'EST PAS BORNÉ PAR LE CHIFFRE D'AFFAIRES DU CLIENT.
+            #
+            # Business plan `b8da2640`, 13/08/2026 : le chapitre 6 refusé en
+            # boucle sur « chiffre d'affaires annuel du secteur : 16,5 Md€ =
+            # plus de 100× la référence client (430 000 €) ». La phrase est
+            # JUSTE — un marché national est évidemment mille fois plus grand
+            # qu'une boulangerie de quartier.
+            #
+            # La référence est le chiffre d'affaires du PROJET : elle borne les
+            # montants du projet, pas ceux du marché qui l'entoure. Le contrôle
+            # comparait deux grandeurs sans rapport, et son refus ne pouvait
+            # jamais être satisfait : la cliente l'a dit en une phrase — « la
+            # correction ne va jamais terminer ».
+            #
+            # On écarte donc les montants dont la PHRASE parle du marché, du
+            # secteur ou de la filière. Le contrôle garde tout son sens là où
+            # il sert : un montant du projet écrit en millions au lieu de
+            # milliers.
+            if _MONTANT_DE_MARCHE.search(_phrase_autour(section.body, match.start())):
                 continue
             if absolute > ceiling:
                 failures.append(GateFailure(
@@ -863,6 +944,31 @@ def _check_numeric_coherence(
         if not expected:
             continue  # pas de donnée client structurée pour cette clé
 
+        # Le document est cherché avec `_MONEY` : une unité monétaire est
+        # OBLIGATOIRE de ce côté. Le brief, lui, était lu par `amounts_in`, où
+        # l'unité est facultative — d'où la comparaison d'un montant à des
+        # nombres qui n'en sont pas. On ne juge pas sans référence opposable.
+        if _exige_une_devise(patterns) and not _MONTANT_AVEC_DEVISE.search(client_value):
+            failures.append(GateFailure(
+                check="reference_client_illisible",
+                # `None` et non `0` : un échec à zéro est routé vers le
+                # chapitre 1 pour réécriture (`correction.py`), et aucune
+                # réécriture ne fera apparaître un chiffre que le client n'a
+                # pas donné. On paierait une reprise pour rien. Sans chapitre,
+                # l'échec bloque la livraison et remonte au rapport — ce qui
+                # est exactement ce qu'on veut : une action humaine.
+                chapter_number=None,
+                detail=(
+                    f"{key} : le brief client ne donne aucun montant "
+                    f"exploitable — sa réponse est en texte libre "
+                    f"({_extrait(client_value)}). Le document ne peut donc pas "
+                    "être confronté à une référence, et ce n'est pas au "
+                    "rédacteur de la deviner : il faut obtenir le chiffre "
+                    "auprès du client."
+                ),
+            ))
+            continue
+
         is_trajectory = key in _TRAJECTORY_FACT_KEYS
         lo, hi = min(expected), max(expected)
         for section in sections:
@@ -899,6 +1005,65 @@ def _check_numeric_coherence(
                             ),
                         ))
     return failures
+
+
+def _check_arithmetique(
+    sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Refait les opérations que le document POSE lui-même.
+
+    Demande de la cliente, 13/08/2026 : « vérifier automatiquement tous les
+    calculs simples : pourcentages, ratios, taux de conversion, marges,
+    évolutions, parts de marché, additions, moyennes et projections ».
+
+    Le déclencheur est mesuré : « 102 / 50 000 000 = 0,000204 % », écrit douze
+    fois dans un business plan. L'unité fautive est réparée à la source ; ce
+    contrôle attrape la classe entière — un résultat qui ne découle pas de ses
+    propres termes, quelle qu'en soit la cause.
+
+    Ne juge QUE les opérations explicites, celles dont le texte donne les deux
+    termes et le résultat. Deviner un terme manquant produirait des motifs
+    faux, et ce projet a mesuré ce qu'ils coûtent.
+    """
+    from .arithmetique import totaux_faux, verifier  # noqa: PLC0415
+
+    failures: list[GateFailure] = []
+    for section in sections:
+        for faute in verifier(section.body):
+            failures.append(GateFailure(
+                check="calcul_faux",
+                chapter_number=section.number,
+                detail=str(faute),
+            ))
+        # Les tableaux qui ANNONCENT un total : la somme se refait, elle aussi.
+        for total in totaux_faux(section.body):
+            failures.append(GateFailure(
+                check="calcul_faux",
+                chapter_number=section.number,
+                detail=str(total),
+            ))
+    return failures
+
+
+def _check_sources_coherentes(
+    sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Une meme donnee ne peut pas venir de deux sources differentes.
+
+    Demande de la cliente, 13/08/2026 : « tester les coherences interchapitres
+    toujours niveau chiffres ET sources ». La coherence des CHIFFRES etait
+    controlee depuis longtemps ; celle des SOURCES ne l'etait pas.
+
+    Le motif porte sur le DOCUMENT, pas sur un chapitre : la divergence n'existe
+    qu'entre deux endroits, et l'accrocher a l'un des deux enverrait corriger
+    au hasard.
+    """
+    from .arithmetique import sources_divergentes  # noqa: PLC0415
+
+    return [
+        GateFailure(check="source_divergente", detail=str(divergence))
+        for divergence in sources_divergentes([s.body for s in sections])
+    ]
 
 
 def _check_verticales(
@@ -1012,6 +1177,7 @@ def _check_post_rendu(
     Pour BP/EC/STR : tous les checks restent actifs (manuel ne les couvre pas).
     """
     from .checks_post_rendu import (  # noqa: PLC0415
+        detecter_demandes_contredites,
         detecter_desaccords_numeriques,
         detecter_doublons_titres,
         detecter_prudence_juridique,
@@ -1046,6 +1212,23 @@ def _check_post_rendu(
             check=f"sources_non_tracables_{s.motif}",
             chapter_number=s.chapitre,
             detail=s.detail,
+        ))
+
+    # AVANT le retour anticipé de l'étude de marché : la contradiction vaut
+    # pour les QUATRE livrables. Le chapitre de validation des demandes existe
+    # partout — EC 8, stratégie 19, étude de marché 22, business plan 20 — et
+    # le contrôle des statuts ne vivait que dans la strategy EC, où il
+    # vérifiait seulement qu'UN statut existe, jamais qu'il soit vrai.
+    #
+    # « Les canaux d'acquisition sont bien analysés au chapitre 3 puis
+    # déclarés non traités au chapitre 8 » (cliente, 11/08/2026, sur une étude
+    # notée 8,5/10). Un point annoncé puis déclaré non traité est pire qu'un
+    # point absent : il fait douter de tout le reste.
+    for contradiction in detecter_demandes_contredites(triplets):
+        failures.append(GateFailure(
+            check="demande_contredite",
+            chapter_number=contradiction.chapitre,
+            detail=contradiction.detail,
         ))
 
     if is_em:
@@ -1220,20 +1403,35 @@ def _check_blocs_evangeline(job: GenerationJob) -> list[GateFailure]:
     for incident in ouverts:
         details = incident.details or {}
         chapitres = details.get("chapitres") or []
-        failures.append(GateFailure(
-            check="check_bloc_non_resolu",
-            # Volontairement sans chapter_number : la boucle de correction a
-            # deja rejoue le bloc sans succes. Re-regenerer en boucle couterait
-            # sans rien garantir — le manuel demande une reprise humaine.
-            detail=(
-                f"CHECK {details.get('check', '?')} (bloc "
-                f"{details.get('bloc', '?')} — {details.get('intitule', '')}) "
-                f"non valide sur les chapitres {chapitres}. "
-                f"Note du relecteur : {str(details.get('note_corrective', ''))[:400]} "
-                "Livraison bloquee tant que le controle n'est pas valide "
-                "(manuel EVKHA, « Livraison autorisee »)."
-            ),
-        ))
+        detail = (
+            f"CHECK {details.get('check', '?')} (bloc "
+            f"{details.get('bloc', '?')} — {details.get('intitule', '')}) "
+            f"non valide sur les chapitres {chapitres}. "
+            f"Note du relecteur : {str(details.get('note_corrective', ''))[:400]} "
+            "Livraison bloquee tant que le controle n'est pas valide "
+            "(manuel EVKHA, « Livraison autorisee »)."
+        )
+        # UNE entree par chapitre nomme, et le numero est PORTE.
+        #
+        # Il ne l'etait pas, volontairement : « la boucle a deja rejoue le bloc
+        # sans succes, le manuel demande une reprise humaine ». Le raisonnement
+        # tient pour le chemin AUTOMATIQUE, et `_is_regenerable` l'y maintient
+        # — ce check reste hors de la whitelist, donc la generation ne rejoue
+        # rien d'elle-meme.
+        #
+        # Mais la reprise humaine EXISTE desormais : c'est le bouton
+        # « corriger » du recontrole, ou l'admin decide apres avoir lu la note.
+        # Sans numero de chapitre, cette reprise ne savait rien regenerer et la
+        # note du relecteur — « dedupliquer les deux entrees Xerfi du tableau
+        # 21.2 », precise et actionnable — restait lettre morte. Mesure sur
+        # `cc0dfe14` (11/08/2026) : sept CHECK bloquants, sept chapitres
+        # nommes dans le texte, zero routable.
+        for numero in chapitres or [None]:
+            failures.append(GateFailure(
+                check="check_bloc_non_resolu",
+                chapter_number=numero,
+                detail=detail,
+            ))
     return failures
 
 
@@ -1289,6 +1487,8 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_verticales(job, sections))
     failures.extend(_check_truncation(sections))
     failures.extend(_check_ordres_de_grandeur(job, sections))
+    failures.extend(_check_arithmetique(sections))
+    failures.extend(_check_sources_coherentes(sections))
     failures.extend(_check_arithmetique_marche(job))
     # Checks ajoutes suite a la relecture d'Evangeline (juillet 2026) : ils
     # verifient DEUX regles qu'aucun check precedent n'imposait sur le document

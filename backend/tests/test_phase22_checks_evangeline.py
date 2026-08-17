@@ -281,13 +281,19 @@ def test_un_blueprint_sans_sous_section_concurrents_ne_leve_rien() -> None:
 
 def test_le_compte_ignore_les_lignes_qui_ne_sont_pas_des_puces() -> None:
     """Contre-epreuve : un paragraphe qui contient le mot « concurrent » ne
-    doit pas etre compte comme un concurrent."""
+    doit pas etre compte comme un concurrent.
+
+    Le contrat s'est durci le 10/08/2026 : une section sans puce ne rend plus
+    une entree a zero, elle ne rend RIEN. L'entree « 0 trouve » devenait un
+    faux motif des que la divergence s'est jugee par chapitre — quarante-sept
+    fois sur le recontrole de `026fecea`, pour des sections listant leurs
+    acteurs en tableau, invisibles au compteur de puces (regle 2)."""
     corps = (
         "## Concurrents directs\n\n"
         "Ce paragraphe evoque plusieurs acteurs sans les lister formellement."
     )
 
-    assert compter_concurrents(1, corps)[0].trouves == 0
+    assert compter_concurrents(1, corps) == []
 
 
 # ── 6. Piliers de la strategie ──────────────────────────────────────────────

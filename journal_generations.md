@@ -179,6 +179,214 @@ ligne comme une génération fausserait le coût cumulé du projet.
   et une facture qui double. C'est la seule vérification à faire après un
   changement de modèle.
 
+### 2026-08-08 Joalie BP — `09f32041` — **keep**
+
+**Premier livrable complet et livrable depuis le début du projet.** Le dernier
+run complet (`90cbb3d9`, 05/08) avait été bloqué par le gate sur 23 motifs et
+n'était jamais parti. Celui-ci passe, sans un seul incident.
+
+| | |
+|---|---|
+| Chapitres | **22 / 22**, aucun en échec, aucune reprise |
+| Incidents | **0** |
+| Verdict | `livrable = True`, aucun motif de contrôle |
+| Coût réel | **2,2848 €** — plafond 4,00 €, marge 1,72 € |
+| Jetons | 329 337 en entrée, 103 375 en sortie |
+| Rendu | 22 chapitres, 100 tableaux, **32 figures sur 48** |
+| Document | 1 585 Ko |
+
+- **Le coût est le premier chiffre honnête du projet.** Il est mesuré après le
+  correctif de comptabilisation du même jour, qui écrasait le coût des
+  chapitres régénérés au lieu de l'additionner. Les 3,12 € et 3,32 € des deux
+  études antérieures, eux, sous-estiment. Mon estimation au prorata des appels
+  annonçait 2,57 € : la mesure donne 2,28 €, soit 11 % de moins.
+- **Les 16 figures refusées ont une cause unique**, et c'est un défaut de
+  CONSIGNE, pas de données : le chapitre déclare un type de visuel que ses
+  propres chiffres ne peuvent pas alimenter. Cinq fois « unités hétérogènes :
+  %, EUR », quatre fois un radar demandé avec des montants au lieu de notes,
+  quatre fois « un seul chiffre : un graphique à une barre n'apprend rien »,
+  deux jauges dans le même cas, une série incomplète. Le moteur refuse au lieu
+  d'inventer une échelle — c'est le bon comportement, et c'est ce qui protège
+  d'un graphique faux, indétectable à la lecture.
+  **Aucun budget supplémentaire n'aurait ajouté une seule figure** : elles
+  sortent de matplotlib, sans appel API.
+- **Le business plan n'a pas de garde-fou de forme.** Chaque chapitre porte
+  `[non contrôlé] type de livrable non décrit par le modèle` : `modele_couvre`
+  ne rend vrai que pour l'étude de marché, seul livrable doté d'un modèle de
+  référence. Le système le DIT plutôt que de laisser croire qu'il a vérifié
+  (règle 1), mais le manque est réel — un modèle BP reste à écrire.
+- **Deux échecs avant celui-ci, aucun imputable au moteur.** Le premier : la
+  base locale avait quatre migrations de retard (`formule_pressentie_id`
+  absente) — tombé avant tout appel, zéro euro. Le second : une erreur
+  d'écriture SQLite transitoire après 16 chapitres, avec 13,5 Go libres et une
+  base de 11 Mo ; intégrité vérifiée `ok` juste après. Le dossier a été REPRIS
+  et non relancé, ce qui a préservé les 1,55 € déjà engagés.
+- **Non vérifié, et il ne faut pas le croire acquis** : la conversion PDF. Ni
+  LibreOffice ni WeasyPrint ne sont installés sur le poste, le convertisseur
+  est tombé sur son bouchon. Le `.docx` est réel, le PDF ne l'est pas. Les
+  polices Carlito et Aptos manquent aussi en local — matplotlib a replié, donc
+  le rendu du conteneur peut différer.
+
+### 2026-08-08 Maison Lorel EM — `b561c2d6` — **keep**
+
+**Première étude de marché complète VALIDÉE.** Prêt-à-porter de créateurs,
+Paris. Le business plan du même jour était le premier livrable ; celui-ci est le
+premier que la cliente juge bon.
+
+| | |
+|---|---|
+| Chapitres | **23 / 23**, aucun en échec |
+| Verdict | `livrable = True` |
+| Coût | **6,2600 €** — plafond porté à 8,00 € |
+| Jetons | 982 206 en entrée, 267 242 en sortie |
+| Rendu | 23 chapitres, 49 tableaux, **17 figures sur 35** |
+| Document | 849 Ko |
+
+**Ce que ces 6,26 € ne mesurent pas.** Ce dossier a payé deux changements de
+régime en cours de route et six appels tronqués sur le chapitre 19, avant que
+la borne de sortie ne soit corrigée. Une étude produite d'un trait sous les
+règles actuelles coûtera nettement moins. **Le chiffre à retenir viendra du
+prochain run complet, pas de celui-ci.**
+
+**Trois défauts trouvés, tous invisibles en test :**
+
+- **Le contrôle de ressemblance coûtait plus cher que le document.** Cinq
+  règles — volume, ordre des blocs, dosages — faisaient rejouer le chapitre
+  jusqu'à ce qu'il ressemble au modèle. Rythme mesuré : 10,2 min/chapitre
+  contre 6,5 une fois la règle rendue consultative, et 6,1 sur le business plan
+  qui n'a pas de modèle. Décision de la cliente : « le modèle est pour
+  l'entraînement et c'est tout. » Commit `cd1d113`.
+- **Les chapitres étaient coupés à 8 192 jetons de sortie**, sans que rien ne le
+  dise. `complete_structured` ne fait qu'un seul appel — pas de continuation —
+  donc l'appel d'outil arrivait tronqué et perdait ses derniers champs. Le motif
+  rendu accusait le schéma : six tentatives passées à chercher un défaut
+  inexistant. `stop_reason` était capturé et lu par personne. Commit `1e1732a`.
+- **Le plafond de 6,00 € coupait à 22 chapitres sur 23.** Le garde-fou a
+  fonctionné — arrêt net, aucun dépassement — mais il était posé trop bas d'un
+  chapitre. Porté à 8,00 € sur mesure. Commit `6af8d7c`.
+
+**Les 18 figures refusées ont une cause dominante, et elle n'est PAS le
+moteur.** Vérifié : le rendu normalise déjà les échelles monétaires
+(`MdEUR` → magnitude + devise). Les motifs sont `MEUR, million`, `EUR, MEUR,
+unite`, `%, MEUR` — le modèle met un MONTANT et un DÉCOMPTE sur le même axe. La
+règle « cite des grandeurs de même nature » existe dans la consigne depuis le
+matin même et n'est pas suivie. Le rappeler plus fort ne marchera pas : il
+faudra donner au modèle la NATURE de chaque identifiant du socle au moment où
+il choisit sa figure.
+
+**Deux défauts de plus, trouvés APRÈS la validation, en ouvrant le fichier.**
+La cliente a demandé si les couleurs et le logo étaient pris en compte. Y
+répondre a demandé de lire le `.docx` lui-même, pas le code :
+
+- **Un séparateur orphelin sur les soixante-dix pages.** L'en-tête portait
+  « ` /  Étude de marché` » : `NOM_ENTREPRISE` est optionnel, et laissé vide il
+  ne laissait pas un blanc mais sa ponctuation. Le repli censé l'éviter,
+  `marque.get("nom", "—")`, n'a jamais pu se déclencher — la clé existe
+  toujours, avec une valeur vide, et `dict.get` ne regarde que l'absence.
+  Corrigé pour la classe : tout repère vide emporte le séparateur qui le borde.
+  Commit `61c8bc2`.
+- **Six figures sur dix-sept en noir et blanc intégral**, comptées au pixel.
+  Mécanique : l'ordre des séries est `principale, or, crème, rosé`, donc une
+  figure à série unique s'arrêtait au rang 0. L'or passe en tête pour les
+  figures simples — décision de la cliente — avec le trait épaissi, l'or valant
+  2,96 de contraste sur le fond des figures contre 15,51 pour la principale,
+  sous le seuil de 3:1. Commit `dc464b2`.
+
+**La chaîne PDF est désormais éprouvée**, et ce n'est plus une promesse :
+LibreOffice installé sur le poste, `LibreOfficeConvertisseurDocx` — le chemin
+de code exact du conteneur — a rendu **67 pages, 2,0 Mo**. Contrôle d'amputation
+passé (règle 3) : 21 678 mots dans le PDF contre 21 104 dans le `.docx`, l'écart
+venant de l'en-tête répété, et 1 139 / 67 = exactement 17 figures référencées
+par page. Word, à titre de comparaison, rend 70 pages — l'écart tient aux
+polices Carlito et Aptos, absentes du poste mais **présentes dans l'image**
+(`fonts-crosextra-carlito`, Dockerfile).
+
+**Reste non vérifié** : le rendu des figures avec les vraies polices — matplotlib
+a replié ici, pas dans le conteneur.
+
+### Ce que la RELECTURE des deux documents a trouvé, après validation
+
+La cliente a demandé si les couleurs et le logo étaient pris en compte, puis a
+signalé « des lignes de code » dans les deux fichiers. Répondre a demandé de les
+ouvrir. Quatre défauts, dont un qu'elle a vu avant nous.
+
+- **Du HTML imprimé en toutes lettres.** `<table style="border-collapse:…">` en
+  pleine page : **10 occurrences** dans `b561c2d6`, **44** dans `09f32041`. Les
+  fichiers d'instruction montrent des exemples de tableaux écrits en HTML,
+  hérités du moteur précédent où ils étaient justes ; le modèle fait ce qu'on
+  lui montre. **Aucun contrôle ne regardait le texte** — le gate lit le
+  markdown, la conformité juge les volumes, la validation croise les
+  identifiants : personne ne se demandait s'il contenait du balisage (règle 9).
+  La consigne l'interdit désormais, `motifs_de_balisage` refuse le chapitre.
+- **Les règles de figures n'atteignaient pas le modèle.** Elles vivaient dans
+  `build_system_prompt`, que seul le moteur HÉRITÉ envoie. Les dix-huit figures
+  abandonnées ci-dessus **n'étaient pas de la désobéissance : la consigne était
+  muette.** Ce journal affirmait le contraire — corrigé. Chaque ligne du socle
+  porte maintenant sa nature entre crochets, avec les mots exacts de
+  `famille_de_l_unite`, la fonction qui décide du refus au rendu.
+- **Un séparateur orphelin** sur les soixante-dix pages, déjà décrit plus haut.
+- **Six figures sur dix-sept en noir et blanc**, déjà décrites plus haut.
+
+**Leçon commune aux quatre : ils ont tous été trouvés en OUVRANT le fichier.**
+Aucun n'était visible depuis le code, aucune suite de tests ne les voyait, et
+deux d'entre eux ont été signalés par la cliente. C'est la règle 7 sous sa forme
+la plus coûteuse — et la relecture d'un document livré devrait être une étape,
+pas un hasard.
+
+### 2026-08-09 Maison Lorel EC — `2490c7cf` — **keep**
+
+**Première étude concurrentielle du projet**, et le premier dossier lancé pour
+PROUVER des correctifs plutôt que pour produire un document. Prêt-à-porter de
+créateurs, Paris, cinq concurrents nommés.
+
+| | EM `b561c2d6` | **EC `2490c7cf`** |
+|---|---|---|
+| Chapitres | 23 / 23 | **10 / 10**, 0 en échec |
+| Durée | ~4 h | **24 min** |
+| Coût retenu | 6,26 € | **1,2651 €** (plafond 3,50) |
+| Tentatives perdues | invisibles | **0,1172 €** |
+| Cache | non mesuré | **24 % de l'entrée** |
+| Figures | 17 / 35 — **49 %** | **17 / 24 — 71 %** |
+| Balises HTML | 10 | **0** |
+| Styles CSS | 26 | **0** |
+
+`livrable = True`, 47 tableaux, 831 Ko. PDF produit **dans le pipeline** par
+LibreOffice (2,0 Mo) et non à côté : `EVKHA_USE_STUB_PDF=false`.
+
+**Ce que ce dossier tranche.**
+
+- **Le balisage HTML est éteint.** Zéro balise, zéro style, zéro couleur
+  hexadécimale, là où les deux livrables précédents en portaient 10 et 44.
+- **Les figures : 49 % → 71 %.** Le diagnostic était bon — les règles de
+  sélection n'atteignaient pas le modèle, elles vivaient dans un prompt que le
+  moteur de production n'envoie jamais. Ce n'était pas de la désobéissance.
+- **Le coût réel d'un dossier produit d'un trait**, pour la première fois avec
+  les tentatives perdues comptées : 1,38 € tout compris, pour un plafond de
+  3,50 €. À rapprocher des 6,26 € de l'étude de marché, qui payait deux
+  changements de régime en cours de route.
+
+**Ce que ce dossier a introduit, et qui a été trouvé par le scan.** Une
+occurrence de la notation interne dans un commentaire de figure : « deux taux
+de même nature `[pourcentage]` ». Les crochets de nature, ajoutés le jour même
+pour aider le modèle, sont ressortis dans le document. Il n'a rien fait de mal :
+on lui a montré cette écriture, il l'a employée — **exactement la cause des
+tableaux HTML**, mêmes causes, même semaine.
+
+**La leçon dépasse le cas : toute aide ajoutée au prompt peut ressortir dans le
+document, et doit donc arriver AVEC son interdiction de la recopier, le même
+jour.** Sans quoi on ferme une fuite en en ouvrant une autre.
+
+**Premier dossier scanné AVANT d'être remis** à la cliente, et c'est ce qui a
+permis de le dire. Les trois précédents ont été relus après coup, deux de leurs
+défauts signalés par elle. Le scan devient une étape.
+
+**Sept figures refusées, et elles se rangent en trois familles :** trois
+demandent des notes pour un radar ou une jauge (règle connue, désormais dans la
+consigne transmise), trois mêlent encore des natures (`%, unite` ; `%, annees` ;
+`%, EUR, MEUR, annees, unite`) malgré les crochets, une réclame une structure
+démographique que le socle ne porte pas — refus légitime. Le mélange des natures
+recule mais ne disparaît pas : c'est le prochain palier.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.

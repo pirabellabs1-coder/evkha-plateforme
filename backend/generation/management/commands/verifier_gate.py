@@ -86,6 +86,10 @@ class Command(BaseCommand):
         labels = {
             "contamination": "Contamination pipeline (token interne dans le texte)",
             "coherence_chiffree": "Incohérence chiffrée vs brief client",
+            "reference_client_illisible": (
+                "Le brief ne donne aucun montant : rien à comparer (action "
+                "humaine, pas une réécriture)"
+            ),
             "verticales": "Verticale d'activité manquante",
             "troncature": "Chapitre tronqué / incomplet",
         }

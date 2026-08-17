@@ -4,7 +4,8 @@ Inspiré du principe des boucles agentiques (Forward-Future/loopy) : plutôt que
 de BLOQUER dès qu'un défaut subsiste, le système « apprend du résultat et fait
 le pas utile suivant » — il régénère UNIQUEMENT les chapitres fautifs avec la
 liste exacte des problèmes en consigne, puis repasse le gate. Répété au plus
-`EVKHA_CORRECTION_ROUNDS` fois (défaut 1) pour borner strictement le coût.
+`EVKHA_CORRECTION_ROUNDS` fois (défaut 3) ; le coût reste borné par le
+plafond du livrable, pas par ce nombre.
 
 Objectif : réduire les omissions/erreurs qui obligeaient Evangeline à relancer
 manuellement, SANS dépasser le budget strict PAR DOSSIER (règle d'or #1 :
@@ -14,7 +15,7 @@ EM 3,20 € / BP 2,80 € / STR 2,40 € / EC 2,00 € max ; cible cadrage §3 :
 historique s'applique : le gate bloque la livraison (décision admin).
 
 Bornes de sécurité :
-- nombre de rondes plafonné (défaut 1) ;
+- nombre de rondes plafonné (défaut 3) ;
 - seuls les chapitres directement désignés par un échec sont régénérés ;
 - AUCUNE régénération n'est lancée s'il ne reste plus de budget sur le dossier
   (on ne démarre pas un appel qu'on ne peut pas payer) ;
@@ -64,6 +65,20 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
         "coherence_chiffree",
         "troncature",
         "ordre_de_grandeur",
+        # Un calcul faux se corrige DANS le chapitre qui l'a ecrit : il suffit
+        # de refaire l'operation. Ajoute le 13/08/2026 avec le controle
+        # lui-meme — un motif que la boucle ne sait pas reparer bloque sans
+        # jamais aboutir, et c'est le defaut qu'on repare toute la journee.
+        "calcul_faux",
+        # Un chapitre qui declare « non traite » un sujet traite ailleurs se
+        # repare en le REECRIVANT : le motif nomme les mots concernes, et c'est
+        # exactement ce dont le redacteur a besoin.
+        #
+        # Ajoute le 13/08/2026 apres un audit des motifs non corrigeables :
+        # depuis que la livraison ne s'arrete plus, un motif que la boucle ne
+        # sait pas traiter part chez le client SANS avoir ete retente. Le
+        # laisser dehors, c'etait garantir qu'il arrive tel quel.
+        "demande_contredite",
         # Nouveaux checks transverses (checks_post_rendu).
         "troncature_rendu",
         "doublon_titre",
@@ -88,6 +103,10 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
 # nommes categorie=... par la strategy (EM/BP/EC/STR) sont tous chapitre-level
 # quand chapter_number > 0 (le cas 0 = transverse, non regenerable au chapitre).
 _STRATEGY_CHECK_PREFIX = "strategy_"
+
+#: Le CHECK de bloc — hors whitelist automatique, réparable sur décision.
+#: Voir `_feedback_by_chapter` et `run_correction_loop(inclure_les_checks=)`.
+_CHECK_BLOC = "check_bloc_non_resolu"
 
 
 # Priorite des categories de check pour le tri quand on cape a
@@ -124,6 +143,8 @@ def _priorite_check(check: str) -> int:
 _CHECK_LABELS = {
     "contamination": "Marqueur technique interne présent dans le texte (interdit)",
     "coherence_chiffree": "Chiffre incohérent avec le prévisionnel client",
+    "calcul_faux": "Calcul dont le résultat ne découle pas de ses termes",
+    "demande_contredite": "Sujet déclaré « non traité » alors qu'il l'est ailleurs",
     "troncature": "Chapitre coupé / phrase ou structure non terminée",
     "ordre_de_grandeur": "Erreur d'unité : montant hors d'échelle (millions/milliers)",
     "troncature_rendu": "Chapitre tronqué : la dernière phrase n'a pas de ponctuation forte",
@@ -186,6 +207,7 @@ def _feedback_by_chapter(
     failures: tuple[GateFailure, ...],
     *,
     cap: int | None = None,
+    inclure_les_checks: bool = False,
 ) -> dict[int, str]:
     """Regroupe les échecs réparables par numéro de chapitre → consigne texte.
 
@@ -202,7 +224,14 @@ def _feedback_by_chapter(
     grouped: dict[int, list[str]] = {}
     grouped_priorite: dict[int, int] = {}
     for failure in failures:
-        if not _is_regenerable(failure.check):
+        # Les CHECK de bloc ne sont JAMAIS rejoués par le chemin automatique :
+        # la génération les a déjà retentés une fois, et boucler dessus
+        # dépenserait sans rien garantir. Ils ne deviennent réparables que sur
+        # décision explicite — le bouton « corriger » du recontrôle, qui EST
+        # la reprise humaine que le manuel demande.
+        if failure.check == _CHECK_BLOC and not inclure_les_checks:
+            continue
+        if failure.check != _CHECK_BLOC and not _is_regenerable(failure.check):
             continue
         if failure.chapter_number is None:
             continue
@@ -230,12 +259,22 @@ def run_correction_loop(
     *,
     client: object | None = None,
     max_rounds: int | None = None,
+    inclure_les_checks: bool = False,
 ) -> GateReport:
     """Exécute le gate, régénère les chapitres fautifs, repasse le gate (borné).
 
     Retourne le rapport final du gate (passé ou non). Ne livre rien : c'est
     l'appelant (tasks.py) qui décide, sur report.passed, de livrer ou de
     marquer le job BLOCKED.
+
+    `inclure_les_checks` ouvre la régénération aux CHECK de bloc, dont la note
+    du relecteur est souvent la plus actionnable de toutes (« dédupliquer les
+    deux entrées Xerfi du tableau 21.2 »).
+
+    Faux par DÉFAUT, mais les deux appelants passent désormais vrai. Le motif
+    d'origine — « le manuel demande alors une reprise humaine » — est tombé le
+    13/08/2026 : il n'y a plus de reprise humaine, l'envoi est automatique.
+    Garder ces notes pour un geste qui n'existe plus, c'était les perdre.
     """
     from integrations.claude import ClaudeClient, get_claude_client  # noqa: PLC0415
 
@@ -247,7 +286,11 @@ def run_correction_loop(
     report = _gate.run_delivery_gate(job)
     attempt = 0
     while not report.passed and attempt < rounds:
-        feedback = _feedback_by_chapter(report.failures, cap=_MAX_REGEN_PAR_ROUND)
+        feedback = _feedback_by_chapter(
+            report.failures,
+            cap=_MAX_REGEN_PAR_ROUND,
+            inclure_les_checks=inclure_les_checks,
+        )
         if not feedback:
             # Aucun échec réparable au niveau chapitre (ex. verticale manquante
             # au niveau document) : la régénération ciblée n'aiderait pas.

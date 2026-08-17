@@ -257,6 +257,65 @@ def basculer_statut(request: HttpRequest, organisation_id: str) -> HttpResponse:
     )
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+@transaction.atomic
+def resilier_abonnement(request: HttpRequest, organisation_id: str) -> HttpResponse:
+    """Met fin à l'abonnement d'une organisation, depuis l'administration.
+
+    ## Pourquoi cette route existe
+
+    `services.resilier` existait déjà, mais n'était atteignable que par le
+    traitement d'une DEMANDE venue de l'espace client. Un opérateur qui devait
+    retirer un abonnement sans demande — un compte d'essai, une souscription
+    posée par erreur — n'avait aucun geste : il fallait ouvrir l'administration
+    Django et changer un statut à la main.
+
+    Constaté le 09/08/2026 : le tableau de bord annonçait **189 € de revenu
+    récurrent** alors qu'aucun client ne payait. Le montant était juste — il
+    additionne les abonnements actifs — mais il venait d'un compte d'essai créé
+    au début du projet. Le chiffre le plus regardé de l'écran était donc faux
+    pour une raison qu'aucun écran ne permettait de corriger.
+
+    C'est le même manque que le bouton « Relancer » du même jour : l'action
+    existe en base, pas dans l'interface.
+
+    ## Ce qu'elle ne fait pas
+
+    Elle ne reprend AUCUN crédit. Le mois en cours est payé ; les retirer au
+    clic serait prendre au client ce qu'il a acheté. La réserve expirera à la
+    bascule de période, par `organisations.tasks.appliquer_echeances`.
+
+    Le motif est OBLIGATOIRE, comme pour la suspension : une résiliation sans
+    raison écrite est une décision qu'on ne peut plus expliquer trois mois plus
+    tard.
+    """
+    organisation = _organisation(organisation_id)
+    if organisation is None:
+        return _refus("Organisation introuvable.", "introuvable", 404)
+
+    charge = _corps(request)
+    motif = str(charge.get("motif", "")).strip()
+    if not motif:
+        return _refus("Indiquez le motif de la résiliation.", "motif_manquant", 400)
+
+    resilies = services.resilier(
+        organisation, motif=f"{_auteur(request, charge)} — {motif}"
+    )
+    if not resilies:
+        # Ne PAS se taire : sans abonnement actif, le clic n'a rien fait, et
+        # rendre 200 laisserait croire le contraire (règle 1).
+        return _refus(
+            "Cette organisation n'a aucun abonnement actif à résilier.",
+            "aucun_abonnement_actif",
+            409,
+        )
+
+    return JsonResponse(
+        {"id": str(organisation.id), "abonnements_resilies": resilies}
+    )
+
+
 # ── Demandes commerciales ────────────────────────────────────────────────────
 
 

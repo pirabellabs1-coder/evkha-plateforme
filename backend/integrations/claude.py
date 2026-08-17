@@ -413,6 +413,14 @@ class StructuredResult:
     output_tokens: int
     model: str
     stop_reason: str = "end_turn"
+    # Cache de prompt. `ClaudeResult` les porte depuis le debut ; ce resultat-ci
+    # ne les portait PAS, alors que c'est lui que rend le moteur structure —
+    # celui de la production. Le cache travaillait donc sans qu'aucun chiffre
+    # n'en sorte, et une regression se serait vue seulement par une facture qui
+    # monte. Separes a dessein : une ECRITURE coute 25 % de plus qu'un jeton
+    # normal, une LECTURE 90 % de moins ; leur somme ne veut rien dire.
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
 
 
 @runtime_checkable
@@ -741,6 +749,12 @@ class AnthropicClaudeClient:
             output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
             model=effective_alias,
             stop_reason=str(getattr(message, "stop_reason", "") or ""),
+            cache_creation_input_tokens=int(
+                getattr(usage, "cache_creation_input_tokens", 0) or 0
+            ),
+            cache_read_input_tokens=int(
+                getattr(usage, "cache_read_input_tokens", 0) or 0
+            ),
         )
 
 
@@ -891,17 +905,24 @@ class StubClaudeClient:
         lieu a l'execution, uniquement sur le chemin bouchon, et seulement
         pour l'outil du socle.
         """
+        # La doublure lit le CONTEXTE COMPLET, comme le vrai modele. Le socle
+        # et la base concurrents vivent desormais dans le bloc systeme (part
+        # cachee du prompt, voir `PromptChapitre`) : une doublure qui ne
+        # scannerait que le message utilisateur n'y verrait plus un seul
+        # identifiant et ne demanderait plus une seule figure — trois tests
+        # l'ont mesure a l'instant meme du deplacement (`graphiques_min : 0`).
+        contexte = f"{system}\n\n{prompt}" if system else prompt
         charge: dict[str, object] = {}
         if outil_nom == "produire_socle":
             from generation.socle.stub import socle_de_demonstration  # noqa: PLC0415
 
-            charge = socle_de_demonstration(prompt)
+            charge = socle_de_demonstration(contexte)
         elif outil_nom == "rendre_chapitre":
             from generation.chapitres.stub import (  # noqa: PLC0415
                 chapitre_de_demonstration,
             )
 
-            charge = chapitre_de_demonstration(prompt)
+            charge = chapitre_de_demonstration(contexte)
 
         return StructuredResult(
             payload=charge,

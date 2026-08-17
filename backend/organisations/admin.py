@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django import forms
 from django.contrib import admin, messages
 from django.http import HttpRequest
 
@@ -67,8 +68,96 @@ class OrganisationAdmin(admin.ModelAdmin):
         self.message_user(request, f"{queryset.count()} organisation(s) réactivée(s).")
 
 
+class FormuleForm(forms.ModelForm):
+    """Vérifie l'identifiant de tarif Stripe AU MOMENT où on le colle.
+
+    Le champ était saisissable sans aucun contrôle. Trois façons de se tromper,
+    et les trois ne se manifestaient qu'au clic du client :
+
+    - un identifiant qui n'existe pas — faute de frappe, ou tarif supprimé ;
+    - un tarif PONCTUEL là où l'abonnement attend un tarif récurrent : Stripe
+      accepte la session, puis rien ne se renouvelle jamais ;
+    - un tarif dont le MONTANT ne correspond pas au prix affiché sur la page
+      partenaires. C'est le pire des trois : personne ne le remarque sur notre
+      écran, et l'abonné le découvre sur son relevé bancaire.
+
+    On interroge donc Stripe ici. Un identifiant refusé ne s'enregistre pas, et
+    le motif dit quoi corriger (règle 2). Sans clé Stripe configurée, on laisse
+    passer en le disant : bloquer la saisie sur une plateforme de recette
+    empêcherait de préparer la configuration.
+    """
+
+    class Meta:
+        model = Formule
+        #: Enumeres, jamais `__all__` : un champ ajoute au modele demain serait
+        #: sinon expose dans l'administration sans que personne ne l'ait decide.
+        #: L'oubli inverse — un champ absent de cette liste — se voit tout de
+        #: suite a l'ecran, alors qu'un champ expose par megarde ne se voit pas.
+        fields = (
+            "libelle",
+            "code",
+            "credits_par_echeance",
+            "prix_mensuel_cents",
+            "devise",
+            "report_credits",
+            "plafond_report",
+            "regenerations_offertes",
+            "validation_socle_par_client",
+            "controle_qualite_avant_envoi",
+            "prix_credit_supplementaire_cents",
+            "reference_paiement",
+            "avantages",
+            "rang",
+            "mise_en_avant",
+            "active",
+        )
+
+    def clean_reference_paiement(self) -> str:
+        reference = str(self.cleaned_data.get("reference_paiement") or "").strip()
+        if not reference:
+            return reference
+
+        from paiement.stripe_api import PaiementIndisponible, cle_secrete  # noqa: PLC0415
+
+        try:
+            cle = cle_secrete()
+        except PaiementIndisponible:
+            return reference
+
+        import stripe  # noqa: PLC0415
+
+        try:
+            tarif = stripe.Price.retrieve(reference, api_key=cle)
+        except Exception as erreur:  # noqa: BLE001 — toute erreur Stripe vaut refus
+            msg = (
+                f"Stripe ne reconnaît pas « {reference} ». Vérifier l'identifiant "
+                f"dans le tableau de bord Stripe, section Tarifs. ({erreur})"
+            )
+            raise forms.ValidationError(msg) from erreur
+
+        if not tarif.get("recurring"):
+            msg = (
+                f"« {reference} » est un tarif PONCTUEL. Un abonnement mensuel "
+                "exige un tarif récurrent, sinon rien ne se renouvelle."
+            )
+            raise forms.ValidationError(msg)
+
+        attendu = int(self.cleaned_data.get("prix_mensuel_cents") or 0)
+        montant = int(tarif.get("unit_amount") or 0)
+        if attendu and montant != attendu:
+            msg = (
+                f"Le montant ne correspond pas : ce tarif Stripe facture "
+                f"{montant / 100:.2f}, la formule annonce {attendu / 100:.2f}. "
+                "L'abonné verrait la différence sur son relevé, pas sur nos écrans."
+            )
+            raise forms.ValidationError(msg)
+
+        return reference
+
+
 @admin.register(Formule)
 class FormuleAdmin(admin.ModelAdmin):
+    form = FormuleForm
     list_display = (
         "libelle", "code", "credits_par_echeance", "prix_affiche",
         "cout_par_livrable", "tarif_stripe", "report_credits", "active",

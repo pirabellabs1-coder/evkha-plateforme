@@ -32,12 +32,7 @@ Questions a reprendre OBLIGATOIREMENT :
 REGLE ABSOLUE — aucune nouveaute :
 Aucune donnee, conclusion ou recommandation ne doit apparaitre UNIQUEMENT dans cette annexe. Chaque ligne reprend, aux memes chiffres, aux memes unites et aux memes dates, ce qui est deja etabli dans les chapitres. Si une reponse te semble manquer, c'est un defaut de l'etude : signale-le dans la colonne « Ou approfondir » en renvoyant au chapitre concerne, n'invente pas la reponse ici.
 
-Format : produis un tableau HTML inline (sans <html>/<body>), une ligne par question. Structure exacte — remplace les exemples par les vraies questions et reponses du dossier :
-<table style="border-collapse:collapse;width:100%;margin:4mm 0;font-size:9pt">
-<thead><tr><th style="background:#1A1A1A;color:#fff;padding:2mm 3mm;text-align:left;width:20%">Question du client</th><th style="background:#1A1A1A;color:#fff;padding:2mm 3mm;text-align:left;width:28%">Reponse directe</th><th style="background:#1A1A1A;color:#fff;padding:2mm 3mm;text-align:left;width:20%">Preuve cle</th><th style="background:#1A1A1A;color:#fff;padding:2mm 3mm;text-align:left;width:22%">Consequence ou recommandation</th><th style="background:#1A1A1A;color:#fff;padding:2mm 3mm;text-align:center;width:10%">Ou approfondir</th></tr></thead>
-<tbody>
-<tr><td style="padding:2mm 3mm;border:0.5pt solid #EFEAD8;font-weight:bold">Le marche est-il porteur ?</td><td style="padding:2mm 3mm;border:0.5pt solid #EFEAD8">Reponse claire et nuancee en 2 a 4 phrases.</td><td style="padding:2mm 3mm;border:0.5pt solid #EFEAD8">Taille, croissance et horizon.</td><td style="padding:2mm 3mm;border:0.5pt solid #EFEAD8">Decision ou vigilance principale.</td><td style="padding:2mm 3mm;text-align:center;border:0.5pt solid #EFEAD8">Ch. 1, 2 et 8</td></tr>
-</tbody></table>
+Format : un bloc `tableau`, une ligne par question du client — colonnes question, reponse apportee, chapitre ou le detail se trouve.
 
 Correspondance des renvois, a respecter : marche porteur -> ch. 1, 2 et 8 ; pertinence de la zone -> ch. 2 et 17 ; qui cibler -> ch. 3, 10 et 11 ; prix et usages -> ch. 9 et 10 ; risques -> ch. 12 et 13 ; viabilite -> ch. 14 et 20 ; que faire maintenant -> ch. 18 et 19. Les questions propres au client renvoient au chapitre qui les traite reellement.
 

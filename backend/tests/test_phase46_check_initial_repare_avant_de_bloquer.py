@@ -32,9 +32,10 @@ effet sur la cause (regle 1 : un controle qui ne peut pas etre satisfait).
 Le manuel p.3 ouvre pourtant deux voies : « corriger la fiche OU demander la
 precision necessaire ». Seule la seconde etait codee.
 
-Contre-epreuve, verifiee ci-dessous : la protection n'est pas emoussee. Une
-fiche qui reste refusee APRES correction stoppe toujours l'etude, avec le meme
-incident HIGH.
+Contre-epreuve, verifiee ci-dessous : la trace n'est pas emoussee. Une fiche
+qui reste refusee APRES correction ouvre toujours le meme incident HIGH — seule
+la mort de l'etude a disparu, le 12/08/2026, sur decision cliente et sur une
+mesure (`2b6cc7d6`, arrete a dix centimes pour une correction impossible).
 """
 from __future__ import annotations
 
@@ -45,7 +46,7 @@ import pytest
 
 from generation.checks_blocs import CheckResult
 from generation.models import ChapterStatus
-from generation.runner import CheckInitialBlockedError, _after_chapter_hook
+from generation.runner import _after_chapter_hook
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 _NOTE = "Fiche a completer : devise et lecteur final absents."
@@ -105,20 +106,40 @@ def test_la_fiche_refusee_est_regeneree_avec_la_note_du_relecteur() -> None:
          patch("generation.runner.regenerate_chapter", side_effect=_regenerer):
         _after_chapter_hook(job, fiche, client=object())  # ne doit PAS lever
 
-    assert regenerations == [(0, _NOTE)], (
-        "La fiche doit etre regeneree une fois, avec la note du relecteur en consigne."
-    )
+    # La note du relecteur, SUIVIE de l'issue qu'il laisse implicite : retirer
+    # un montant injustifiable est une reponse valide. Sans elle, le redacteur
+    # tente la seule autre voie — inventer le calcul — et revient les mains
+    # vides (business plan `2b6cc7d6`, 12/08/2026).
+    assert len(regenerations) == 1
+    assert regenerations[0][0] == 0
+    assert regenerations[0][1].startswith(_NOTE)
+    assert "RETIRE-le" in regenerations[0][1]
     assert not OperationalIncident.objects.filter(job=job).exists(), (
         "Une correction qui aboutit n'ouvre aucun incident."
     )
 
 
 @pytest.mark.django_db
-def test_une_fiche_toujours_refusee_stoppe_encore_l_etude() -> None:
-    """Contre-epreuve : la protection du manuel tient toujours.
+def test_une_fiche_toujours_refusee_laisse_la_redaction_continuer() -> None:
+    """La fiche refusée ne tue plus l'étude.
 
-    Si la correction ne suffit pas, la cause est bien en amont — brief
-    contradictoire, demande illisible — et un humain doit trancher.
+    ## Ce que ce test verrouillait, et pourquoi il a changé
+
+    Il gardait la protection du manuel p.2 — « on ne continue jamais par
+    automatisme ». Décision cliente du 12/08/2026 : « quand il s'agit d'une
+    incohérence, au lieu de mettre en échec, il faut plutôt corriger et mettre
+    de la logique dedans ».
+
+    La mesure qui la motive — business plan `2b6cc7d6` : le relecteur refuse la
+    fiche parce qu'elle avance des montants absents du brief. Il a raison, et
+    la correction qu'il réclame est IMPOSSIBLE : on ne justifie pas un chiffre
+    qu'on n'a pas. La génération s'arrêtait à dix centimes, et la cliente
+    n'avait rien — ni document, ni diagnostic exploitable.
+
+    On ne continue pas par automatisme : on continue APRÈS avoir tenté la
+    correction, en laissant une trace HIGH, et le gate juge le document à la
+    fin. Un dossier livré avec un défaut nommé se corrige ; un dossier
+    inexistant ne s'analyse même pas.
     """
     job, fiche = _job_avec_fiche()
     tentatives: list[int] = []
@@ -127,8 +148,7 @@ def test_une_fiche_toujours_refusee_stoppe_encore_l_etude() -> None:
         tentatives.append(chapitre_.chapter_number)
 
     with patch("generation.runner.check_bloc", return_value=_fix()), \
-         patch("generation.runner.regenerate_chapter", side_effect=_regenerer), \
-         pytest.raises(CheckInitialBlockedError):
+         patch("generation.runner.regenerate_chapter", side_effect=_regenerer):
         _after_chapter_hook(job, fiche, client=object())
 
     assert tentatives == [0], "Une seule tentative de correction, pas une boucle."

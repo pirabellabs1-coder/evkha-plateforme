@@ -1,0 +1,478 @@
+"""Le premier business plan réel, et les trois défauts qu'il a trouvés.
+
+`2a8872d0`, 12/08/2026, compte cliente. Vingt chapitres sur vingt-deux,
+3,27 € dépensés, aucun document produit — le gate a refusé de livrer un
+business plan amputé, et il a eu raison. Les manquants sont les chapitres 6
+(Analyse de marché) et 7 (Analyse concurrentielle).
+
+Trois défauts distincts, un par section ci-dessous. Aucun n'était visible sur
+la doublure : c'est la règle 7 du dépôt, mesurée une fois de plus — le vert
+des tests ne prouve rien sur le document livré, et le premier vrai dossier
+trouve ce que trois relectures n'avaient pas vu.
+"""
+from __future__ import annotations
+
+import pytest
+
+# ══════════════════════════════════════════════════════════════════════════
+# 1. Un chapitre meurt d'un préfixe
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Chapitre 7, trois tentatives, zéro centime de contenu utile, trois motifs :
+#
+#     `critere_accessibilite_evkha` ne figure pas dans le socle verrouillé.
+#
+# Le modèle n'avait rien inventé. Il avait DÉCORÉ : un préfixe qui dit la
+# nature, un suffixe qui dit la maison — au passage le nom de la marque dans
+# un livrable en marque blanche.
+
+CONNUS = frozenset({
+    "accessibilite", "rapidite", "structuration", "prix", "prix_median",
+    "taille_marche",
+})
+
+
+@pytest.mark.parametrize(
+    ("declare", "attendu"),
+    [
+        # Les trois codes EXACTS qui ont tué le chapitre 7.
+        ("critere_accessibilite_evkha", "accessibilite"),
+        ("critere_rapidite_evkha", "rapidite"),
+        ("critere_structuration_evkha", "structuration"),
+        # La même classe, sous d'autres décorations.
+        ("donnee_taille_marche", "taille_marche"),
+        ("critere_accessibilité", "accessibilite"),
+        ("CRITERE-PRIX-MEDIAN", "prix_median"),
+        # Et l'identifiant nu, qui doit continuer de passer.
+        ("accessibilite", "accessibilite"),
+    ],
+)
+def test_un_identifiant_decore_est_ramene_au_socle(
+    declare: str, attendu: str
+) -> None:
+    from generation.chapitres.schema import resoudre_identifiant
+
+    assert resoudre_identifiant(declare, CONNUS) == attendu
+
+
+def test_le_plus_long_gagne() -> None:
+    """`prix_median` prime sur `prix` : deux jetons valent mieux qu'un.
+
+    Sans cette préférence, `critere_prix_median` deviendrait ambigu et le
+    chapitre serait refusé pour une raison qui n'en est pas une.
+    """
+    from generation.chapitres.schema import resoudre_identifiant
+
+    assert resoudre_identifiant("critere_prix_median", CONNUS) == "prix_median"
+
+
+def test_un_identifiant_invente_reste_refuse() -> None:
+    """CONTRE-ÉPREUVE, et c'est la plus importante.
+
+    La règle absolue du moteur — « un chapitre n'a jamais le droit de produire
+    un chiffre » — tient à ce refus. Une résolution trop généreuse la
+    dissoudrait en silence, ce qui serait bien pire que le défaut réparé.
+    """
+    from generation.chapitres.schema import resoudre_identifiant
+
+    assert resoudre_identifiant("part_de_marche_estimee_maison", CONNUS) is None
+    assert resoudre_identifiant("", CONNUS) is None
+
+
+def test_deux_candidats_de_meme_longueur_ne_se_devinent_pas() -> None:
+    """On ne tranche pas à pile ou face : mieux vaut redemander que deviner."""
+    from generation.chapitres.schema import resoudre_identifiant
+
+    ambigu = frozenset({"cout", "prix"})
+
+    assert resoudre_identifiant("critere_prix_ou_cout", ambigu) is None
+
+
+# ── La cause, trouvée à la relance : il n'y avait RIEN à citer ──────────────
+#
+# Après le correctif ci-dessus, le chapitre 7 est reparti et il est mort deux
+# fois de plus — sur `ACC` et `TAR`. Des abréviations, cette fois, et non des
+# décorations : le modèle n'inventait pas la même chose deux fois, il
+# inventait tout court.
+#
+# Le chapitrage donne la réponse. Le business plan porte un chapitre 7
+# « Analyse concurrentielle », et le socle d'un business plan ne demandait ni
+# concurrents ni grille de notation — ce bloc-là ne partait que pour l'étude
+# concurrentielle. Un chapitre réclamait une matière que personne n'avait
+# demandée.
+
+
+def test_un_livrable_qui_analyse_la_concurrence_recoit_une_base() -> None:
+    """Le business plan a un chapitre « Analyse concurrentielle » : il lui faut
+    des concurrents. Déduit du chapitrage, pas d'une liste de types."""
+    from catalog.models import DeliverableType
+    from generation.socle.prompt import _le_livrable_analyse_la_concurrence
+
+    assert _le_livrable_analyse_la_concurrence(DeliverableType.BUSINESS_PLAN)
+    assert _le_livrable_analyse_la_concurrence(DeliverableType.COMPETITOR_STUDY)
+
+
+def test_un_livrable_sans_chapitre_concurrence_ne_s_alourdit_pas() -> None:
+    """CONTRE-ÉPREUVE : l'étude de marché et la stratégie n'en ont aucun.
+
+    Leur envoyer la base concurrents gonflerait le socle, donc le coût, pour
+    une matière qu'aucun de leurs chapitres n'exploite.
+    """
+    from catalog.models import DeliverableType
+    from generation.socle.prompt import _le_livrable_analyse_la_concurrence
+
+    assert not _le_livrable_analyse_la_concurrence(DeliverableType.MARKET_STUDY)
+    assert not _le_livrable_analyse_la_concurrence(
+        DeliverableType.BUSINESS_STRATEGY
+    )
+
+
+def test_le_prompt_du_socle_bp_reclame_bien_la_grille() -> None:
+    """La cause, pas seulement le prédicat : il pourrait être vrai sans servir."""
+    from catalog.models import DeliverableType
+    from generation.socle.prompt import construire_prompt_socle
+
+    prompt = construire_prompt_socle(
+        deliverable_type=DeliverableType.BUSINESS_PLAN,
+        variables={"SECTEUR": "conseil", "PAYS": "France", "ZONE": "Lyon"},
+    )
+
+    assert "grille_notation" in prompt
+    assert "concurrents" in prompt
+
+
+# ── Et la facture de ce correctif : le socle ne tenait plus dans sa fenêtre ──
+#
+# Reprise `779862a5`, le même jour : « Socle non recevable après 3 tentatives :
+# le modèle n'a produit aucun appel d'outil exploitable. » Zéro chapitre, là où
+# le dossier d'origine en produisait vingt-et-un.
+#
+# La charge revenait VIDE : le client cherche un bloc `tool_use`, et une
+# réponse coupée en plein appel d'outil n'en contient aucun. Le business plan
+# porte désormais la base concurrents ET son prévisionnel — son prompt est
+# passé de 11 000 à 15 000 signes, sa charge de sortie a grossi d'autant, et
+# 8 192 jetons ne suffisaient plus.
+#
+# CE QU'AUCUN TEST NE PROUVE : la doublure ne consomme pas de jetons. Cette
+# classe de défaut ne se voit que sur une génération réelle (règle 7). Les deux
+# tests ci-dessous verrouillent ce qui EST vérifiable — que la valeur ne
+# redevienne pas un littéral oublié.
+
+
+def test_le_plafond_de_sortie_du_socle_est_nomme() -> None:
+    """Une constante commentée, pas un nombre au milieu d'une signature.
+
+    `max_tokens: int = 8192` ne disait pas d'où venait 8192 ni ce qu'il fallait
+    regarder pour le changer. Le prochain qui élargit une demande de socle doit
+    tomber sur l'explication.
+    """
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "generation" / "socle" / "builder.py"
+    ).read_text(encoding="utf-8")
+
+    assert "max_tokens: int = _PLAFOND_DE_SORTIE_SOCLE" in source
+    assert "779862a5" in source, "le défaut qui l'a fait bouger doit rester nommé"
+
+
+def test_le_plafond_depasse_ce_qui_a_coince() -> None:
+    """8 192 jetons ne suffisaient plus au socle le plus lourd."""
+    from generation.socle.builder import _PLAFOND_DE_SORTIE_SOCLE
+
+    assert _PLAFOND_DE_SORTIE_SOCLE > 8192
+
+
+def test_le_socle_du_business_plan_est_le_plus_lourd() -> None:
+    """La mesure qui explique le reste : il porte DEUX blocs métier.
+
+    Si un jour l'étude concurrentielle repassait devant, c'est que le business
+    plan aurait perdu l'un des deux — et son chapitre 7 remourrait.
+    """
+    from catalog.models import DeliverableType
+    from generation.socle.prompt import construire_prompt_socle
+
+    tailles = {
+        livrable: len(construire_prompt_socle(
+            deliverable_type=livrable,
+            variables={"SECTEUR": "x", "PAYS": "France", "ZONE": "y"},
+        ))
+        for livrable in DeliverableType.values
+    }
+
+    assert tailles[DeliverableType.BUSINESS_PLAN] == max(tailles.values())
+    assert (
+        tailles[DeliverableType.BUSINESS_PLAN]
+        > tailles[DeliverableType.COMPETITOR_STUDY]
+    )
+
+
+# ── Le filet : un chapitre ne meurt pas d'une métadonnée ────────────────────
+
+
+def _payload_avec(identifiants: list[str]):  # type: ignore[no-untyped-def]
+    from generation.chapitres.schema import ChapitrePayload
+
+    return ChapitrePayload(
+        chapitre=7,
+        titre="Analyse concurrentielle",
+        resume=" ".join(["mot"] * 60),
+        donnees_utilisees=identifiants,
+        blocs=[{
+            "type": "paragraphe",
+            "texte": "Le marché local compte plusieurs acteurs comparables.",
+        }],
+    )
+
+
+def _valider(identifiants: list[str], *, derniere: bool):  # type: ignore[no-untyped-def]
+    from generation.chapitres.schema import valider_chapitre
+
+    payload = _payload_avec(identifiants)
+    motifs = valider_chapitre(
+        payload,
+        numero_attendu=7,
+        identifiants_socle=frozenset({"accessibilite"}),
+        resume_mots_min=10,
+        resume_mots_max=200,
+        derniere_tentative=derniere,
+    )
+    return [m for m in motifs if "socle" in m], payload.donnees_utilisees
+
+
+def test_un_identifiant_inconnu_refuse_le_chapitre_tant_qu_il_reste_des_essais() -> None:
+    """CONTRE-ÉPREUVE : le refus reste la règle. Le modèle a ses chances."""
+    motifs, _ = _valider(["ACC", "TAR"], derniere=False)
+
+    assert len(motifs) == 2
+
+
+def test_au_dernier_essai_on_jette_la_declaration_pas_le_chapitre() -> None:
+    """4,19 € et deux fois aucune analyse concurrentielle : le mauvais prix.
+
+    `donnees_utilisees` trace et résout les figures ; elle ne porte pas le
+    texte. Perdre un chapitre entier pour une métadonnée coûte un trou dans le
+    document livré.
+    """
+    motifs, restants = _valider(
+        ["ACC", "TAR", "critere_accessibilite_evkha"], derniere=True
+    )
+
+    assert motifs == []
+    assert restants == ["accessibilite"], "l'inconnu part, le résolu reste"
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2. Un contrôle qui compare un montant à de la prose
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Chapitre 6. Motif rendu par le gate :
+#
+#     ca_previsionnel : le document dit "chiffre d'affaires prévisionnel de
+#     348 890 euros" (soit 348,890), le brief client dit "pour année ( des
+#     sept 26 à janvier 27 , je vise 8 abonnés// puis pour s1 2027 20
+#     abonnés […] calcul à faire stp"
+#
+# La cliente a répondu en texte libre là où le système attend un montant. Le
+# lecteur de nombres y a trouvé [26, 27, 8, 202720, 202735, 50] — dont un
+# 202720 fabriqué en collant « 2027 » et « 20 » — et a comparé 348 890 € à
+# cette plage. C'est la règle 2, mot pour mot : un contrôle qui compare à une
+# donnée MAL EXTRAITE est PIRE qu'absent.
+
+REPONSE_EN_TEXTE_LIBRE = (
+    "pour année ( des sept 26 à janvier 27 , je vise 8 abonnés// puis pour "
+    "s1 2027 20 abonnés / puis pour S2 2027 35 abonnés . calcul à faire stp"
+)
+
+
+def test_une_reponse_sans_montant_ne_sert_pas_de_reference() -> None:
+    from generation.gate import _MONTANT_AVEC_DEVISE
+
+    assert _MONTANT_AVEC_DEVISE.search(REPONSE_EN_TEXTE_LIBRE) is None
+
+
+def test_une_reponse_chiffree_reste_une_reference() -> None:
+    """CONTRE-ÉPREUVE : le contrôle doit continuer de juger ce qui est jugeable.
+
+    Sans elle, on aurait débranché la vérification chiffrée en croyant la
+    réparer — et c'est elle qui attrape les vraies incohérences.
+    """
+    from generation.gate import _MONTANT_AVEC_DEVISE
+
+    for reponse in ("120 000 €", "1,25 M€", "85 000 euros", "60 kEUR"):
+        assert _MONTANT_AVEC_DEVISE.search(reponse) is not None, reponse
+
+
+def test_le_caractere_monetaire_se_deduit_des_motifs() -> None:
+    """Pas de seconde liste de clés à tenir à jour (règle 5).
+
+    Ajouter un fait monétaire à `_CLIENT_FACT_PATTERNS` doit suffire : si le
+    caractère monétaire était recopié ailleurs, les deux divergeraient — c'est
+    l'histoire des trois listes de labels de ce dépôt.
+    """
+    from generation.gate import _CLIENT_FACT_PATTERNS, _exige_une_devise
+
+    assert _exige_une_devise(_CLIENT_FACT_PATTERNS["ca_previsionnel"])
+    assert _exige_une_devise(_CLIENT_FACT_PATTERNS["investissement_total"])
+    # Un taux n'est pas un montant : la règle ne doit pas déborder sur lui.
+    assert not _exige_une_devise(_CLIENT_FACT_PATTERNS["taux_occupation"])
+
+
+def test_l_echelle_des_ordres_de_grandeur_exige_aussi_un_montant() -> None:
+    """LE défaut que la première réparation avait laissé passer.
+
+    Reprise `5c5e91b9`, quelques heures après avoir réparé
+    `_check_numeric_coherence` : le contrôle des ordres de grandeur construit
+    SA propre échelle, à partir de la même lecture. La réponse « pour s1 2027
+    20 abonnés » lui donnait une référence de 2 027 € — l'année prise pour un
+    montant — et il reprochait au document ses « 260 000 €, plus de 100× la
+    référence client », en suggérant une erreur d'unité qui n'existait pas.
+
+    Deux contrôles, la même lecture, une seule réparée. Règle 9 : ce qu'un
+    contrôle ne regarde pas est exactement là où sa réparation ne cherche pas
+    non plus.
+    """
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1] / "generation" / "gate.py"
+    ).read_text(encoding="utf-8")
+
+    # L'échelle se construit APRÈS le filtre monétaire, pas avant.
+    filtre = source.index("if not _MONTANT_AVEC_DEVISE.search(valeur):")
+    lecture = source.index("numbers = _client_numbers(valeur)")
+    assert filtre < lecture, (
+        "la référence se construit encore sur des nombres nus : une année "
+        "redeviendrait un montant"
+    )
+
+
+def test_le_motif_ne_recopie_pas_le_paragraphe_entier() -> None:
+    """Un motif d'échec illisible ne se corrige pas (règle 2).
+
+    Celui du 12/08 reproduisait mille signes de réponse client.
+    """
+    from generation.gate import _extrait
+
+    court = _extrait(REPONSE_EN_TEXTE_LIBRE)
+
+    assert len(court) < 120
+    assert court.startswith("« ") and court.endswith(" »")
+    assert "\n" not in court
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 3. Un chapitre laissé « en cours » sur un dossier « terminé »
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Le chapitre 6 est resté en `running`. Personne ne le reprendra jamais : le
+# tableau de bord affiche 20/22 pour toujours, et le rattrapage ne reconnaît
+# que les chapitres en ÉCHEC. Le seul recours était de repayer le dossier
+# entier pour deux chapitres manquants.
+
+
+@pytest.fixture
+def job_avec_un_chapitre_en_cours():  # type: ignore[no-untyped-def]
+    from catalog.models import DeliverableType, Offer
+    from customers.models import Customer
+    from generation.models import ChapterGeneration, ChapterStatus, GenerationJob
+    from orders.models import Order
+
+    offre = Offer.objects.create(
+        name="BP", slug="test-inacheve",
+        deliverable_type=DeliverableType.BUSINESS_PLAN,
+    )
+    client = Customer.objects.create(email="inacheve@test.local")
+    commande = Order.objects.create(
+        systeme_order_id="cmd-inacheve", customer=client, offer=offre,
+    )
+    job = GenerationJob.objects.create(
+        order=commande, deliverable_type=DeliverableType.BUSINESS_PLAN,
+    )
+    ChapterGeneration.objects.create(
+        job=job, chapter_number=5, chapter_title="Fini",
+        prompt_key="bp.05.positionnement_concept", status=ChapterStatus.DONE,
+        content="Un chapitre abouti.",
+    )
+    ChapterGeneration.objects.create(
+        job=job, chapter_number=6, chapter_title="Analyse de marché",
+        prompt_key="bp.06.analyse_marche", status=ChapterStatus.RUNNING,
+        error_message="[contrat] - Chiffre incohérent avec le prévisionnel client",
+    )
+    ChapterGeneration.objects.create(
+        job=job, chapter_number=7, chapter_title="Analyse concurrentielle",
+        prompt_key="bp.07.analyse_concurrentielle",
+        status=ChapterStatus.PENDING,
+    )
+    return job
+
+
+@pytest.mark.django_db
+def test_un_chapitre_en_cours_devient_un_echec_rattrapable(
+    job_avec_un_chapitre_en_cours,  # type: ignore[no-untyped-def]
+) -> None:
+    from generation.models import ChapterStatus
+    from generation.runner import fermer_les_chapitres_inacheves
+
+    fermes = fermer_les_chapitres_inacheves(job_avec_un_chapitre_en_cours)
+
+    assert sorted(fermes) == [6, 7]
+    statuts = {
+        c.chapter_number: c.status
+        for c in job_avec_un_chapitre_en_cours.chapters.all()
+    }
+    assert statuts[5] == ChapterStatus.DONE, "un chapitre abouti n'est pas touché"
+    assert statuts[6] == ChapterStatus.FAILED
+    assert statuts[7] == ChapterStatus.FAILED
+
+
+@pytest.mark.django_db
+def test_le_motif_d_origine_survit(
+    job_avec_un_chapitre_en_cours,  # type: ignore[no-untyped-def]
+) -> None:
+    """L'écraser effacerait la CAUSE en signalant l'effet.
+
+    Sur `2a8872d0`, le message du chapitre 6 portait le retour du contrôle
+    qualité — la seule explication du trou.
+    """
+    from generation.runner import fermer_les_chapitres_inacheves
+
+    fermer_les_chapitres_inacheves(job_avec_un_chapitre_en_cours)
+    six = job_avec_un_chapitre_en_cours.chapters.get(chapter_number=6)
+
+    assert "inachevé" in six.error_message
+    assert "Chiffre incohérent" in six.error_message
+
+
+@pytest.mark.django_db
+def test_rejouer_la_fermeture_ne_change_rien(
+    job_avec_un_chapitre_en_cours,  # type: ignore[no-untyped-def]
+) -> None:
+    """CONTRE-ÉPREUVE : idempotente, sinon le motif s'empilerait à chaque passage."""
+    from generation.runner import fermer_les_chapitres_inacheves
+
+    fermer_les_chapitres_inacheves(job_avec_un_chapitre_en_cours)
+    avant = job_avec_un_chapitre_en_cours.chapters.get(chapter_number=6).error_message
+
+    assert fermer_les_chapitres_inacheves(job_avec_un_chapitre_en_cours) == []
+    apres = job_avec_un_chapitre_en_cours.chapters.get(chapter_number=6).error_message
+    assert apres == avant
+
+
+def test_la_fermeture_precede_le_passage_en_termine() -> None:
+    """La cause, pas seulement la fonction.
+
+    Elle pourrait exister sans être appelée — défaut mesuré sept fois sur ce
+    projet. Et elle doit être appelée AVANT que le dossier ne passe `DONE`,
+    sinon le trou existe encore au moment où le gate juge.
+    """
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1] / "generation" / "runner.py"
+    ).read_text(encoding="utf-8")
+
+    appel = source.index("fermer_les_chapitres_inacheves(job)")
+    passage = source.index("job.status = JobStatus.DONE")
+    assert appel < passage

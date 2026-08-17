@@ -254,9 +254,32 @@ _MOTS_DE_RUPTURE = re.compile(
     r"\b(?:mais|toutefois|cependant|contre|au\s+lieu\s+de|superieur\s+a|"
     r"inferieur\s+a|annuit[eé]|salaire|charges?|amortissement|"
     r"remboursement|loyer|prix|tarif|cout|budget|"
-    r"subvention|remuneration)\b",
+    r"subvention|remuneration"
+    # Mesures du business plan 73dde3ab, 17/08/2026. « Part de l'apport dans
+    # le besoin total de 195 000 EUR » liait 195 000 a l'apport : le montant
+    # appartient a l'agregat que la preposition vient de nommer.
+    r"|besoin\s+total|besoin\s+de\s+financement|financement\s+global"
+    r"|masse\s+salariale|chiffre\s+d['’]affaires"
+    # « marge brute unitaire de 4,68 EUR » face a « la marge brute de
+    # l'exercice 1 s'eleve a 230 400 EUR » : ce n'est pas la meme grandeur,
+    # et les opposer produisait une divergence sur un document juste.
+    r"|unitaire|par\s+unit[eé]|par\s+ticket|par\s+client)\b",
     re.IGNORECASE,
 )
+
+#: Une phrase qui se termine emporte son sujet avec elle.
+#:
+#: « ...et du taux de marge brute. La masse salariale prevsionnelle represente
+#: a elle seule 70 000 euros » : 70 000 ne dit rien de la marge brute, il
+#: appartient a la phrase suivante. La fenetre de 100 caracteres traversait
+#: les points sans les voir.
+_FIN_DE_PHRASE = re.compile(r"[.!?]\s")
+
+#: Au-dela d'une cellule franchie, le montant est ailleurs dans le tableau.
+#:
+#: « Seuil de rentabilite annuel | donnees du projet | 195 000 EUR » : une
+#: barre separe un libelle de SA valeur, deux barres separent deux lignes.
+_CELLULES_MAX_FRANCHIES = 1
 
 # Ecart relatif tolere entre deux mentions du meme libelle et de la meme annee.
 # Zero est trop strict : 168 622 arrondi a 168 600 n'est pas une incoherence.
@@ -339,6 +362,24 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             if not _CONNECTEURS_VALEUR.search(entre):
                 continue
             if _MOTS_DE_RUPTURE.search(entre):
+                continue
+            if _FIN_DE_PHRASE.search(entre):
+                continue
+            if entre.count("|") > _CELLULES_MAX_FRANCHIES:
+                continue
+            # Un AUTRE libelle surveille entre les deux : le montant est le
+            # sien. « ...un point de marge brute en moins ramenerait
+            # l'excedent brut d'exploitation a 34 800 euros » — 34 800 est
+            # l'EBE, et l'EBE est deja surveille pour lui-meme.
+            #
+            # Regle 4 : viser la CLASSE. Enumerer les concepts voisins serait
+            # sans fin, alors que la liste de ce qui est surveille EST la
+            # liste de ce qui peut se confondre — et elle se tient a jour
+            # toute seule (regle 5).
+            if any(
+                autre != cle and re.search(motif_autre, entre, re.IGNORECASE)
+                for autre, motif_autre in _LIBELLES_SURVEILLES.items()
+            ):
                 continue
 
             base = to_base_units(
@@ -501,9 +542,22 @@ CRITERES_TRI_CONCURRENTS: tuple[str, ...] = (
     "Potentiel d'enseignement strategique pour le projet",
 )
 
+#: Un TITRE de section, pas une mention. L'ancien motif attrapait la phrase
+#: « concurrents directs » n'importe où — prose, cellule de tableau, rappel de
+#: consigne. Tant qu'un seul chapitre parlait des concurrents, l'écart passait
+#: inaperçu ; la base consolidée transmise partout (10/08/2026) a mis la
+#: phrase dans chaque chapitre, et le recontrôle de `026fecea` a rendu
+#: QUARANTE-SEPT « sections » à zéro concurrent — quarante-sept motifs
+#: introuvables dans le document (règle 2).
 _SOUS_SECTIONS_CONCURRENTS: dict[str, re.Pattern[str]] = {
-    "directs":   re.compile(r"concurrent[s]?\s+direct[s]?", re.IGNORECASE),
-    "indirects": re.compile(r"concurrent[s]?\s+indirect[s]?", re.IGNORECASE),
+    "directs": re.compile(
+        r"^#{2,4}\s+(?:\d[\w.]*\s+)?.{0,40}concurrent[s]?\s+direct[s]?",
+        re.IGNORECASE | re.MULTILINE,
+    ),
+    "indirects": re.compile(
+        r"^#{2,4}\s+(?:\d[\w.]*\s+)?.{0,40}concurrent[s]?\s+indirect[s]?",
+        re.IGNORECASE | re.MULTILINE,
+    ),
 }
 _LIGNE_LISTE = re.compile(r"^\s*(?:[-•*]|\d+\.)\s+\S", re.MULTILINE)
 
@@ -541,6 +595,14 @@ def compter_concurrents(
             break
         bloc = corps[fin_titre:fin_bloc]
         trouves = len(_LIGNE_LISTE.findall(bloc))
+        # Le compteur ne sait compter que des PUCES. Une section qui liste ses
+        # acteurs en TABLEAU — la forme normale du contrat structuré — lui est
+        # invisible : zéro puce n'y signifie pas zéro concurrent, mais une
+        # matière qu'il ne sait pas lire. Juger « 0 trouvé » là-dessus, c'est
+        # comparer à une extraction fausse — pire qu'un contrôle absent
+        # (règle 2). On ne juge que ce qu'on a su compter.
+        if trouves == 0:
+            continue
         resultats.append(CompteConcurrents(
             type_=type_,
             trouves=trouves,
@@ -553,30 +615,28 @@ def compter_concurrents(
 def verifier_concurrents_dans_ec(
     sections: list[tuple[int, str]],
 ) -> list[CompteConcurrents]:
-    """Compte les concurrents sur l'ensemble des chapitres d'une EC.
+    """Chaque section « Concurrents » presente les cardinaux exacts — PAR CHAPITRE.
 
-    Retourne UNIQUEMENT les comptes qui divergent des attendus. Aucun compte
-    trouve = aucune sous-section detectee : on ne signale rien plutot que
-    d'inventer un defaut sur un chapitre qui n'a jamais eu vocation a les
-    lister (structure du blueprint qui aurait change).
+    La version d'origine ADDITIONNAIT les comptes de tous les chapitres. Elle
+    etait juste tant qu'un seul chapitre listait les acteurs. Depuis que la
+    base consolidee est transmise a chaque chapitre (10/08/2026), plusieurs
+    chapitres la reprennent legitimement — c'est meme la consigne (« liste
+    figee du chapitre 1 »). Le job reel `026fecea` a ete bloque sur
+    « 20 trouves, 8 attendus » : 8 au chapitre 1, 8 au chapitre 2, 4 en
+    synthese. Vingt concurrents que personne n'a ecrits — le motif etait
+    introuvable dans le document (regle 2).
+
+    Le compte se juge donc la ou il se fait : toute section qui liste doit
+    lister juste, et un document qui reprend deux fois ses huit directs est
+    plus conforme, pas moins. Aucune sous-section detectee = silence — on ne
+    signale rien plutot que d'inventer un defaut sur un chapitre qui n'a
+    jamais eu vocation a lister (regle 4).
     """
-    par_type: dict[str, int] = {"directs": 0, "indirects": 0}
-    dernier_chapitre: dict[str, int] = {}
+    divergents: list[CompteConcurrents] = []
     for numero, corps in sections:
         for c in compter_concurrents(numero, corps):
-            par_type[c.type_] += c.trouves
-            dernier_chapitre[c.type_] = numero
-    divergents: list[CompteConcurrents] = []
-    for type_, attendus in ATTENDUS_CONCURRENTS.items():
-        trouves = par_type[type_]
-        if type_ not in dernier_chapitre or trouves == attendus:
-            continue
-        divergents.append(CompteConcurrents(
-            type_=type_,
-            trouves=trouves,
-            attendus=attendus,
-            chapitre=dernier_chapitre[type_],
-        ))
+            if c.trouves != c.attendus:
+                divergents.append(c)
     return divergents
 
 
@@ -647,6 +707,250 @@ def verifier_piliers_strategie(corpus: str) -> list[PilierManquant]:
                 motif=motif,
             ))
     return manquants
+
+
+# ── Les DECISIONS que chaque pilier doit livrer ────────────────────────────
+#
+# Cliente, 12/08/2026, sur une strategie notee 7,5/10 :
+#
+#   « le document est encore trop proche d'un audit / diagnostic strategique :
+#   il analyse beaucoup, explique beaucoup et repete parfois les constats. Je
+#   souhaite que la strategie apporte davantage de solutions, methodes,
+#   decisions et actions directement applicables. […] Mes 4 piliers doivent
+#   devenir la colonne vertebrale OBLIGATOIRE du livrable. […] A la fin, le
+#   client ne doit pas simplement se dire "je comprends mieux mon entreprise",
+#   mais "je sais exactement ce que je dois faire maintenant, dans quel ordre,
+#   comment et avec quels indicateurs". »
+#
+# Le controle des piliers ci-dessus verifiait qu'un AXE est traite. Il rendait
+# donc `passed` sur un chapitre qui analyse le positionnement pendant mille
+# six cents mots sans jamais dire lequel est retenu — exactement le document
+# qu'elle decrit. Un axe traite n'est pas une decision prise.
+#
+# ## Une seule liste, deux lecteurs (regle 5)
+#
+# `prompts.py` construit la consigne a partir de cette declaration, et la
+# strategy STR juge le document sur la meme. Ecrire la demande d'un cote et le
+# controle de l'autre, c'est la contradiction interne qui a coute 5,22 € le
+# 10/08 : une consigne qui ordonne ce qu'un controle ignore, ou l'inverse.
+#
+# ## Verrouillee ou seulement demandee
+#
+# Une decision porte un `motif` quand elle a une formulation francaise stable
+# — « cible prioritaire », « planning editorial », « 90 jours ». Elle n'en
+# porte pas quand sa presence ne se lit pas sans interpreter : « montrer le
+# parcours logique du client entre les offres » est une exigence de fond, pas
+# une chaine de caracteres. Pretendre la controler produirait un motif faux,
+# pire qu'un controle absent (regle 2). Ces demandes-la vivent dans la
+# consigne et se jugent a la relecture — le champ vide le DIT, au lieu de
+# laisser croire que tout est verrouille.
+#
+# ## Pourquoi le document entier, mais un chapitre nomme
+#
+# Le jugement porte sur le corpus COMPLET : rien ne garantit que le modele
+# pose la cible prioritaire au chapitre 8 plutot qu'au 6, et bloquer sur son
+# emplacement punirait un document juste. Le chapitre porteur ne sert qu'a
+# router la reparation vers celui qui doit l'accueillir.
+
+
+@dataclass(frozen=True)
+class DecisionAttendue:
+    """Une decision que le livrable doit prendre, pas seulement eclairer."""
+
+    libelle: str
+    #: Vide = demandee par la consigne, non verrouillee par le gate.
+    motif: str = ""
+
+
+@dataclass(frozen=True)
+class BlocDeDecisions:
+    """Un pilier — ou la feuille de route — et ce qu'il doit trancher."""
+
+    cle: str
+    intitule: str
+    #: Chapitre qui accueille naturellement ces decisions, pour router la
+    #: reparation. Le controle, lui, lit tout le document.
+    chapitre_porteur: int
+    decisions: tuple[DecisionAttendue, ...]
+
+
+_D = DecisionAttendue
+
+#: Espace SOUPLE : elle accepte le retour a la ligne, contrairement a `_S`.
+#:
+#: `_S` a raison ailleurs — un libelle financier ne se coupe pas en deux
+#: paragraphes. Ici il a tort : un document markdown coupe ses lignes ou il
+#: veut, et « les canaux \n a eviter » est le meme francais que « les canaux a
+#: eviter ». Mesure du 12/08/2026 : deux decisions sur vingt-quatre echouaient
+#: sur un document qui les prend, uniquement a cause d'un retour a la ligne.
+#: Un controle qui depend de la LARGEUR DE COLONNE juge autre chose que ce
+#: qu'il prétend juger (regle 2).
+_E = r"\s"
+
+DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
+    BlocDeDecisions(
+        cle="positionnement",
+        intitule="PILIER 1 — Positionnement & spécialisation",
+        chapitre_porteur=8,
+        decisions=(
+            _D("la cible prioritaire, nommée",
+               rf"(?:cible|client[èe]le|segment)s?{_E}+"
+               rf"(?:prioritaires?|principa(?:l|le|ux|les))"),
+            _D("la cible secondaire",
+               rf"(?:cible|client[èe]le|segment)s?{_E}+"
+               rf"(?:secondaires?|compl[ée]mentaires?)"),
+            _D("le positionnement retenu",
+               rf"positionnement{_E}+"
+               rf"(?:retenu|recommand[ée]|choisi|cible|d[ée]fendu"
+               rf"|propos[ée]|pr[ée]conis[ée])"),
+            _D("la spécialisation recommandée"),
+            _D("le produit ou service à pousser en priorité",
+               rf"(?:offre|produit|service|prestation)s?{_E}+"
+               rf"(?:phares?|locomotives?|[àa]{_E}+pousser)"),
+            _D("la proposition de valeur", rf"proposition{_E}+de{_E}+valeur"),
+            _D("les éléments concrets de différenciation"),
+            _D("le message commercial principal",
+               rf"(?:message|discours|accroche|promesse)s?{_E}+"
+               rf"(?:commercial|commerciale|principal|principale|cl[ée])"),
+            _D("ce qu'il faut volontairement abandonner ou repousser",
+               r"(?:abandonner|abandonn[ée]e?s?|renoncer|renonc[ée]e?s?"
+               r"|[ée]carter|[ée]cart[ée]e?s?|repousser|repouss[ée]e?s?"
+               r"|non-?priorit[ée]s?)"),
+        ),
+    ),
+    BlocDeDecisions(
+        cle="offre",
+        intitule="PILIER 2 — Structuration de l'offre",
+        chapitre_porteur=10,
+        decisions=(
+            _D("les offres à conserver, modifier, supprimer ou reporter",
+               rf"[àa]{_E}+(?:conserver|maintenir|supprimer|arr[êe]ter"
+               rf"|reporter|retravailler)"),
+            _D("l'offre d'entrée de gamme",
+               rf"(?:entr[ée]e{_E}+de{_E}+gamme"
+               rf"|offre{_E}+d['’](?:appel|entr[ée]e))"),
+            _D("l'offre premium",
+               rf"premium|haut{_E}+de{_E}+gamme|gamme{_E}+sup[ée]rieure"
+               rf"|offre{_E}+haute"),
+            _D("les possibilités d'upsell et de cross-sell",
+               rf"up-?sell|cross-?sell|vente{_E}+(?:additionnelle|crois[ée]e)"
+               rf"|mont[ée]e{_E}+en{_E}+gamme"),
+            _D("le parcours du client entre les offres",
+               rf"parcours{_E}+(?:client|d['’]achat|utilisateur)"),
+            _D("le rôle de chaque offre : acquisition, marge, "
+               "récurrence ou fidélisation"),
+        ),
+    ),
+    BlocDeDecisions(
+        cle="visibilite",
+        intitule="PILIER 3 — Visibilité, acquisition & planning éditorial",
+        chapitre_porteur=13,
+        decisions=(
+            _D("les canaux prioritaires",
+               rf"(?:canaux|leviers|r[ée]seaux){_E}+"
+               rf"(?:prioritaires|principaux|majeurs|structurants"
+               rf"|de{_E}+premier{_E}+plan)"),
+            _D("les canaux secondaires",
+               rf"(?:canaux|leviers|r[ée]seaux){_E}+"
+               rf"(?:secondaires|compl[ée]mentaires|d['’]appoint"
+               rf"|de{_E}+soutien)"),
+            _D("les canaux à éviter",
+               rf"(?:canaux|leviers|r[ée]seaux|plateformes|supports){_E}+"
+               rf"(?:[àa]{_E}+(?:[ée]viter|proscrire|exclure|abandonner"
+               rf"|ne{_E}+pas{_E}+(?:investir|privil[ée]gier))"
+               rf"|d[ée]conseill[ée]s?|non{_E}+retenus?)"),
+            _D("les thématiques et types de contenus recommandés"),
+            _D("la fréquence de publication",
+               rf"(?:fr[ée]quence|rythme|cadence){_E}+(?:de{_E}+)?"
+               rf"(?:publication|parution|diffusion|contenus?)"
+               rf"|\d+{_E}*(?:publications?|posts?|contenus?|articles?){_E}*"
+               rf"(?:par|\/){_E}*(?:semaine|mois)"),
+            _D("un planning éditorial concret, sur un mois au minimum",
+               rf"(?:planning|calendrier|programme){_E}+[ée]ditorial"),
+            _D("l'acquisition hors réseaux sociaux : prospection, "
+               "partenariats, référencement, prescription, événements, emailing",
+               r"prospection|partenariats?|r[ée]f[ée]rencement|emailing"
+               r"|prescription|[ée]v[ée]nements?"),
+            _D("les outils pratiques pour mettre tout cela en œuvre"),
+        ),
+    ),
+    BlocDeDecisions(
+        cle="rentabilite",
+        intitule="PILIER 4 — Tarification & rentabilité",
+        chapitre_porteur=14,
+        decisions=(
+            _D("une recommandation tarifaire concrète : fourchette ou prix cible",
+               rf"(?:prix|tarif)s?{_E}+"
+               rf"(?:cibles?|recommand[ée]s?|conseill[ée]s?|pr[ée]conis[ée]s?)"
+               rf"|(?:recommandation|proposition|strat[ée]gie|grille)s?{_E}+"
+               rf"(?:tarifaires?|de{_E}+prix)"
+               rf"|fourchette{_E}+(?:tarifaire|de{_E}+prix)"),
+            _D("le prix par niveau d'offre"),
+            _D("la logique de montée en gamme"),
+            _D("l'impact attendu sur la marge",
+               rf"(?:impact|effet|cons[ée]quence)[^.]{{0,60}}marge"
+               rf"|marges?{_E}+(?:attendues?|cibles?|projet[ée]es?"
+               rf"|suppl[ée]mentaires?)"),
+            _D("la distinction explicite entre les prix issus du dossier "
+               "et les prix recommandés par l'analyse"),
+        ),
+    ),
+    BlocDeDecisions(
+        cle="feuille_de_route",
+        intitule="FEUILLE DE ROUTE OPÉRATIONNELLE",
+        chapitre_porteur=17,
+        decisions=(
+            _D("les actions à 30, 60 et 90 jours",
+               rf"\b(?:30|60|90){_E}*jours"),
+            _D("les actions à 6 et 12 mois",
+               rf"\b(?:6|12|six|douze){_E}*mois"),
+            _D("ce qui est prioritaire et ce qui est secondaire"),
+            _D("les indicateurs à suivre",
+               rf"\bKPI\b|indicateurs?{_E}+(?:cl[ée]s?|de{_E}+"
+               rf"(?:suivi|performance|pilotage|r[ée]ussite))"),
+            _D("le seuil à partir duquel poursuivre, modifier ou arrêter "
+               "une action",
+               rf"seuils?{_E}+(?:de{_E}+)?(?:d[ée]cision|d[ée]clenchement|alerte)"
+               rf"|crit[èe]re{_E}+d['’]arr[êe]t|point{_E}+de{_E}+bascule"
+               rf"|r[èe]gle{_E}+d['’]arbitrage"
+               rf"|(?:poursuivre|maintenir|continuer)[^.]{{0,90}}"
+               rf"(?:modifier|ajuster)[^.]{{0,90}}"
+               rf"(?:arr[êe]ter|abandonner|stopper)"),
+        ),
+    ),
+)
+
+
+@dataclass(frozen=True)
+class DecisionManquante:
+    """Une decision attendue que le document ne prend nulle part."""
+
+    cle_bloc: str
+    intitule_bloc: str
+    chapitre_porteur: int
+    libelle: str
+
+
+def verifier_decisions_strategie(corpus: str) -> list[DecisionManquante]:
+    """Les decisions VERROUILLEES que le document ne prend pas.
+
+    Les autres — celles sans motif — sont demandees par la consigne et ne
+    sont pas jugees ici : voir le commentaire de `DECISIONS_STRATEGIE`.
+    """
+    manquantes: list[DecisionManquante] = []
+    for bloc in DECISIONS_STRATEGIE:
+        for decision in bloc.decisions:
+            if not decision.motif:
+                continue
+            if re.search(decision.motif, corpus, re.IGNORECASE):
+                continue
+            manquantes.append(DecisionManquante(
+                cle_bloc=bloc.cle,
+                intitule_bloc=bloc.intitule,
+                chapitre_porteur=bloc.chapitre_porteur,
+                libelle=decision.libelle,
+            ))
+    return manquantes
 
 
 def detecter_chapitres_avortes(

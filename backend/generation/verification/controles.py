@@ -29,7 +29,10 @@ cherchera pas non plus :
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Sequence
+
+from core.numbers import amounts_in
 
 from ..prompts import PLAFOND_FIGURES, PLANCHER_FIGURES
 from ..socle.referentiel import identifiants_obligatoires
@@ -72,22 +75,139 @@ def _valeurs_de_reference(socle: Socle) -> list[tuple[float, str]]:
             # La valeur telle qu'écrite compte aussi : le document affiche
             # « 381,5 Md€ », pas « 381 500 000 000 ».
             references.append((donnee.valeur, "brut"))
+
+    # Les CA de la base consolidée concurrents sont du socle au même titre
+    # que ses données : le chapitre 6 d'une étude concurrentielle les reprend
+    # et les compare — c'est sa raison d'être. Ils étaient pourtant absents de
+    # cette référence : sur `6cb0fab3` (10/08/2026), des montants parfaitement
+    # sourcés dans `ca_connu` sont partis en réserve « hors socle » par
+    # dizaines. Un contrôle qui compare à une référence incomplète fabrique
+    # des motifs faux (règle 2), et un rapport à trente-cinq réserves noie la
+    # seule qui compte.
+    for acteur in socle.concurrents:
+        for montant in amounts_in(acteur.ca_connu):
+            references.append((montant, "monetaire"))
+            references.append((montant, "brut"))
     return references
 
 
-def _proche(mesure: float, reference: float) -> bool:
+def _proche(
+    mesure: float, reference: float, tolerance: float = TOLERANCE
+) -> bool:
     if abs(mesure - reference) <= EPSILON:
         return True
     echelle = max(abs(mesure), abs(reference))
-    return echelle > 0 and abs(mesure - reference) / echelle <= TOLERANCE
+    return echelle > 0 and abs(mesure - reference) / echelle <= tolerance
 
 
-def _justifiee(mesure: Mesure, references: Sequence[tuple[float, str]]) -> bool:
+#: Au-delà, on ne calcule plus les combinaisons deux à deux : un socle de
+#: quarante données produit déjà 1 600 couples, chacun donnant quatre
+#: dérivations. C'est instantané ; à quatre cents données ce ne le serait plus.
+#: Le plafond protège le temps de contrôle, pas la justesse.
+_MAX_DONNEES_POUR_DERIVATIONS = 80
+
+#: Tolérance appliquée aux valeurs CALCULÉES, cent fois plus serrée que celle
+#: des valeurs lues du socle.
+#:
+#: ## Pourquoi elle ne peut pas être la même
+#:
+#: `TOLERANCE` vaut 1 %, pour absorber l'arrondi d'affichage d'un chiffre
+#: RECOPIÉ (« 381,5 Md€ » écrit « 382 Md€ »). Appliquée aux dérivations, elle
+#: fait s'effondrer le contrôle : un socle de vingt-neuf données produit près de
+#: trois mille combinaisons, et chacune couvre une bande de ±1 %. Ensemble,
+#: elles couvrent presque tout l'espace des nombres plausibles.
+#:
+#: **Mesuré, et par un test qui existait déjà** :
+#: `test_la_passe_voit_un_chiffre_invente_dans_un_vrai_fichier` glisse « 777 M€ »
+#: dans un document. Avec la tolérance à 1 %, il cessait d'être détecté — une
+#: dérivation valant 781 250 000 passait à 0,55 % de lui. Le garde-fou existant
+#: a attrapé ma propre régression, exactement là où je prévenais du risque pour
+#: trois termes : il se produisait déjà à deux.
+#:
+#: ## Pourquoi 0,01 % est le bon ordre de grandeur
+#:
+#: Un chiffre CALCULÉ n'est pas approché : il EST le résultat. Quand un chapitre
+#: écrit « SOM = 1,0 Md€ × 0,05 % = 0,5 M€ », la valeur tombe juste, au bit
+#: près. La marge ne sert qu'à absorber la représentation décimale, pas un
+#: arrondi éditorial — celui-là appartient aux valeurs recopiées, et il a déjà
+#: sa tolérance.
+TOLERANCE_DERIVATION = 0.0001
+
+
+def _derivations(references: Sequence[tuple[float, str]]) -> set[float]:
+    """Ce qu'un chapitre peut légitimement CALCULER à partir du socle.
+
+    ## Pourquoi cette fonction existe
+
+    Le contrôle des chiffres hors socle était volontairement un simple
+    avertissement, et sa docstring disait pourquoi : « le contrôle ne recalcule
+    pas l'arithmétique interne des chapitres, si bien qu'une somme légitime de
+    deux valeurs du socle apparaît ici comme hors socle ».
+
+    C'était juste, et c'était la bonne décision tant que rien ne calculait. Mais
+    cela laissait le contrôle incapable de distinguer les deux seules choses qui
+    comptent :
+
+        « SOM = 1,0 Md€ × 0,05 % = 0,5 M€ »   — un calcul, parfaitement légitime
+        « 26,3 millions de chiens et chats »  — un chiffre de marché INVENTÉ
+
+    Les deux sortaient pareil. Sur le dossier réel `c8b4e60a`, quatorze réserves
+    mélangeaient les unes et les autres, et il fallait les relire à la main pour
+    savoir lesquelles comptaient.
+
+    ## Ce qu'on calcule, et pourquoi on s'arrête là
+
+    Les combinaisons DEUX À DEUX : produit, quotient, somme, différence, et
+    l'application d'un taux (a × b/100). C'est la famille qui couvre
+    l'écrasante majorité des dérivations réelles d'une étude — un SOM tiré d'un
+    SAM et d'un taux de capture, un total tiré de deux segments.
+
+    On ne va pas à trois termes, et c'est délibéré : le nombre de combinaisons
+    explose, et surtout la probabilité qu'un chiffre INVENTÉ tombe par hasard
+    sur l'une d'elles devient réelle. Un contrôle qui justifie tout ne justifie
+    plus rien — ce serait remplacer un bruit par un silence.
+    """
+    valeurs = [valeur for valeur, _ in references]
+    if len(valeurs) > _MAX_DONNEES_POUR_DERIVATIONS:
+        valeurs = valeurs[:_MAX_DONNEES_POUR_DERIVATIONS]
+
+    calculees: set[float] = set()
+    for index, gauche in enumerate(valeurs):
+        for droite in valeurs[index + 1:]:
+            calculees.add(gauche + droite)
+            calculees.add(abs(gauche - droite))
+            calculees.add(gauche * droite)
+            # Un taux s'applique en pourcentage : « 1,0 Md€ × 0,05 % ».
+            calculees.add(gauche * droite / 100)
+            calculees.add(droite * gauche / 100)
+            for a, b in ((gauche, droite), (droite, gauche)):
+                if abs(b) > EPSILON:
+                    calculees.add(a / b)
+                    # Une part exprimée en pourcentage : « 12 sur 48 = 25 % ».
+                    calculees.add(a / b * 100)
+    return calculees
+
+
+def _justifiee(
+    mesure: Mesure,
+    references: Sequence[tuple[float, str]],
+    derivations: Sequence[float] = (),
+) -> bool:
     famille = "monetaire" if mesure.est_monetaire else "brut"
-    return any(
+    if any(
         _proche(mesure.valeur, valeur)
         for valeur, nature in references
         if nature == famille or famille == "brut"
+    ):
+        return True
+    # Un chiffre CALCULÉ à partir du socle n'est pas un chiffre hors socle : il
+    # est exactement ce que le chapitre a le droit de faire avec ses données.
+    # Tolérance BEAUCOUP plus serrée — voir `TOLERANCE_DERIVATION` : à 1 %, les
+    # trois mille combinaisons d'un socle ordinaire justifient à peu près
+    # n'importe quel nombre.
+    return any(
+        _proche(mesure.valeur, valeur, TOLERANCE_DERIVATION)
+        for valeur in derivations
     )
 
 
@@ -128,10 +248,16 @@ def controler_chiffres_hors_socle(
         *((valeur, "monetaire") for valeur in chiffres_du_brief),
     ]
 
+    # Les dérivations sont calculées UNE fois pour tout le document : elles ne
+    # dépendent que du socle, et les recalculer par mesure coûterait le carré
+    # du socle multiplié par le nombre de grandeurs relevées — quatre cent
+    # trente-cinq sur le dossier `c8b4e60a`.
+    derivations = sorted(_derivations(references))
+
     anomalies: list[Anomalie] = []
     deja_vues: set[str] = set()
     for mesure in document.mesures:
-        if _justifiee(mesure, references):
+        if _justifiee(mesure, references, derivations):
             continue
         if mesure.texte in deja_vues:
             continue
@@ -424,4 +550,118 @@ def controler_visuels(
         Anomalie("visuels", Gravite.INFORMATION, f"Graphique converti — {motif}")
         for motif in convertis
     )
+    return anomalies
+
+
+# ── Contrôle 7 : les calculs annoncés sont-ils justes ? ──────────────────────
+
+#: « 130 000 € sur 1,36 Md€, soit 0,0096 % » — un calcul que le document POSE.
+#:
+#: Le motif exige les trois pièces dans l'ordre : la part, le tout, le
+#: pourcentage. C'est ce qui le rend vérifiable, et c'est aussi ce que la
+#: consigne demande désormais d'écrire (« tout chiffre calculé montre son
+#: calcul »). On ne devine jamais un calcul qui n'est pas écrit.
+_CALCUL_ANNONCE = re.compile(
+    r"([\d][\d\s\u202f\u00a0.,]*)\s*"
+    r"(k€|M€|Md€|€|k EUR|MEUR|MdEUR|EUR|%)?\s*"
+    r"(?:sur|/|rapport[ée]s? à|par rapport à)\s*"
+    r"([\d][\d\s\u202f\u00a0.,]*)\s*"
+    r"(k€|M€|Md€|€|k EUR|MEUR|MdEUR|EUR|%)?\s*"
+    r"[,;:]?\s*(?:soit|c'est-à-dire|=)\s*"
+    r"([\d][\d\s\u202f\u00a0.,]*)\s*%",
+    re.IGNORECASE,
+)
+
+#: Facteurs d'échelle, écrits ici parce que le contrôle lit du TEXTE et non
+#: des `DonneeSocle`. Ils sont dérivés du même vocabulaire que
+#: `socle.schema.unites_monetaires` — jamais une seconde liste de devises.
+_ECHELLES: dict[str, float] = {
+    "": 1.0, "€": 1.0, "eur": 1.0, "%": 1.0,
+    "k€": 1e3, "k eur": 1e3,
+    "m€": 1e6, "meur": 1e6,
+    "md€": 1e9, "mdeur": 1e9,
+}
+
+
+def _nombre(brut: str) -> float | None:
+    """Un nombre écrit à la française, ramené à un flottant."""
+    nettoye = (
+        brut.replace("\u202f", "").replace("\u00a0", "")
+        .replace(" ", "").replace(".", "").replace(",", ".")
+    )
+    try:
+        return float(nettoye)
+    except ValueError:
+        return None
+
+
+def _decimales(brut: str) -> int:
+    _, virgule, apres = brut.strip().partition(",")
+    return len(apres) if virgule else 0
+
+
+def controler_les_calculs_annonces(document: DocumentLu) -> list[Anomalie]:
+    """Un pourcentage que le document CALCULE doit tomber juste.
+
+    ## Pourquoi ce contrôle existe
+
+    Cliente, 11/08/2026 : « bien vérifier la cohérence des chiffres… il y a
+    des erreurs dans les calculs et pourcentages ». Une extrapolation est
+    légitime — le manuel l'autorise et elle est souvent nécessaire — mais une
+    extrapolation FAUSSE ruine la crédibilité de tout le document : un
+    pourcentage qui ne tombe pas juste se repère au premier coup d'œil et
+    fait douter de chaque autre chiffre.
+
+    ## Ce qu'il vérifie, et ce qu'il ne devine pas
+
+    Uniquement les calculs que le document POSE lui-même, dans l'ordre part,
+    tout, résultat : « 130 000 € sur 1,36 Md€, soit 0,0096 % ». C'est
+    exactement la forme que la consigne demande d'écrire. Un pourcentage
+    isolé n'est pas jugé : il n'y a rien à quoi le comparer, et inventer
+    l'opération produirait des motifs faux (règle 2).
+
+    ## La tolérance suit l'ÉCRITURE, pas un seuil choisi
+
+    « 0,0096 % » est arrondi au dix-millième : l'écart admissible est la
+    moitié de cette décimale. Un seuil fixe serait soit trop lâche pour les
+    petits pourcentages — 0,05 accepterait n'importe quoi face à 0,0096 —
+    soit trop serré pour les grands. On y ajoute un pour cent relatif, pour
+    les arrondis faits sur les OPÉRANDES plutôt que sur le résultat.
+
+    Gravité : **avertissement**. Le lecteur juge ; le contrôle nomme.
+    """
+    anomalies: list[Anomalie] = []
+    deja_vues: set[str] = set()
+
+    for texte in (*document.paragraphes, *document.cellules):
+        for trouve in _CALCUL_ANNONCE.finditer(texte):
+            part_brut, unite_part, tout_brut, unite_tout, resultat_brut = (
+                trouve.groups()
+            )
+            part = _nombre(part_brut)
+            tout = _nombre(tout_brut)
+            annonce = _nombre(resultat_brut)
+            if part is None or tout is None or annonce is None:
+                continue
+
+            part *= _ECHELLES.get((unite_part or "").strip().lower(), 1.0)
+            tout *= _ECHELLES.get((unite_tout or "").strip().lower(), 1.0)
+            if abs(tout) < EPSILON:
+                continue
+
+            calcule = part / tout * 100
+            tolerance = 0.5 * 10 ** (-_decimales(resultat_brut)) + abs(calcule) * 0.01
+            if abs(calcule - annonce) <= tolerance:
+                continue
+
+            extrait = trouve.group(0).strip()
+            if extrait in deja_vues:
+                continue
+            deja_vues.add(extrait)
+            anomalies.append(Anomalie(
+                "calcul_faux", Gravite.AVERTISSEMENT,
+                f"« {extrait} » : le calcul donne {calcule:.4g} %, "
+                f"le document annonce {annonce:g} %.",
+                extrait=extrait,
+            ))
     return anomalies

@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import {
   Box, Flex, Badge, Table, Progress, Text, Select, Spinner, Button,
 } from "@radix-ui/themes";
-import { api, type JobSummary } from "../api";
+import { api, estRelancable, livraisonBloquee, type JobSummary } from "../api";
 
 const DELIVERABLE_LABELS: Record<string, string> = {
   market_study: "Étude de marché",
@@ -30,6 +30,62 @@ function statusColor(status: string): RadixColor {
   return map[status] ?? "gray";
 }
 
+/**
+ * Bouton « Relancer » posé sur la LIGNE, et pas seulement sur la fiche.
+ *
+ * Le 09/08/2026, la génération d'une cliente a été tuée par un déploiement et
+ * son dossier est resté « en cours » soixante-seize minutes, à deux chapitres
+ * sur vingt-trois. La relancer a demandé une requête HTTP écrite à la main :
+ * le bouton existait sur la fiche, mais sa condition d'affichage
+ * (`failed || cancelled`) était plus stricte que ce que le backend accepte, et
+ * il était donc caché exactement dans ce cas-là.
+ *
+ * Ici, la condition vient du backend (`job.interrompue`) — voir `estRelancable`.
+ */
+function BoutonRelancer({ job }: { job: JobSummary }) {
+  const queryClient = useQueryClient();
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => api.jobRelaunch(job.id),
+    onSuccess: () => {
+      setErreur(null);
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["job", job.id] });
+    },
+    // Le message vient du backend : « ce dossier progresse encore », « les
+    // crédits ont été restitués ». L'écraser par un « Erreur » générique
+    // priverait de la seule information qui dit quoi faire ensuite.
+    onError: (err: Error) => setErreur(err.message),
+  });
+
+  const silence = job.minutes_sans_progression;
+  const titre =
+    job.status === "running" && silence !== null
+      ? `Aucun chapitre depuis ${silence} min — relancer au dernier chapitre écrit`
+      : "Relancer la génération";
+
+  return (
+    <Flex direction="column" align="start" gap="1">
+      <Button
+        size="1"
+        variant="soft"
+        color="orange"
+        loading={mutation.isPending}
+        onClick={() => mutation.mutate()}
+        title={titre}
+      >
+        ↻ Relancer
+      </Button>
+      {erreur && (
+        <Text size="1" color="red" style={{ maxWidth: 260 }}>
+          {erreur}
+        </Text>
+      )}
+    </Flex>
+  );
+}
+
 function JobRowActions({ job }: { job: JobSummary }) {
   const queryClient = useQueryClient();
   const [emailQueued, setEmailQueued] = useState(false);
@@ -49,6 +105,14 @@ function JobRowActions({ job }: { job: JobSummary }) {
   const deliverySent = job.delivery_status === "sent";
   const pendingConfirmation = emailQueued && !deliverySent;
 
+  // La MÊME dérogation qu'en page de détail, pour la même raison. Ne garder
+  // l'avertissement que sur une des deux pages en ferait une décoration :
+  // l'autre bouton envoie le même document, au même client, en un clic
+  // (règle 4 — viser la classe, pas l'endroit observé).
+  const bloque = livraisonBloquee(job);
+  const [derogation, setDerogation] = useState(false);
+  const armer = bloque && !derogation && !deliverySent;
+
   return (
     <Flex gap="1" align="center">
       {hasPdf ? (
@@ -65,13 +129,25 @@ function JobRowActions({ job }: { job: JobSummary }) {
       <Button
         size="1"
         variant="ghost"
-        color={deliverySent && !pendingConfirmation ? "green" : "blue"}
+        color={
+          deliverySent && !pendingConfirmation ? "green" : bloque ? "amber" : "blue"
+        }
         disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
         loading={emailMutation.isPending}
-        onClick={() => emailMutation.mutate()}
-        title={deliverySent ? "Email envoyé — renvoyer ?" : "Envoyer par email"}
+        onClick={() => (armer ? setDerogation(true) : emailMutation.mutate())}
+        title={
+          armer
+            // Plus de « retenu pour relecture » : la cliente n'a rien à relire,
+            // son geste est l'envoi (13/08/2026). On dit l'état, pas une tâche.
+            ? "Des points sont restés non résolus. Un second clic envoie quand même."
+            : bloque
+            ? "Confirmer l'envoi"
+            : deliverySent
+            ? "Email envoyé — renvoyer ?"
+            : "Envoyer par email"
+        }
       >
-        {pendingConfirmation ? "…" : deliverySent ? "✓" : "✉"}
+        {pendingConfirmation ? "…" : armer ? "⚠" : bloque ? "⚠ !" : deliverySent ? "✓" : "✉"}
       </Button>
     </Flex>
   );
@@ -126,9 +202,34 @@ export function Jobs() {
                   <Text size="2">{DELIVERABLE_LABELS[job.deliverable_type] ?? job.deliverable_type}</Text>
                 </Table.Cell>
                 <Table.Cell>
-                  <Badge color={statusColor(job.status)} variant="soft">
-                    {STATUS_LABELS[job.status] ?? job.status}
-                  </Badge>
+                  <Flex direction="column" align="start" gap="1">
+                    <Badge color={statusColor(job.status)} variant="soft">
+                      {STATUS_LABELS[job.status] ?? job.status}
+                    </Badge>
+                    {/* Un dossier « en cours » qui ne l'est plus doit se VOIR.
+                        C'est ce qui manquait le 09/08/2026 : rien ne distinguait
+                        une génération qui travaille d'une génération morte. */}
+                    {job.interrompue && (
+                      <Badge color="amber" variant="soft" title="Aucun chapitre produit depuis longtemps">
+                        interrompu
+                        {job.minutes_sans_progression !== null
+                          ? ` · ${job.minutes_sans_progression} min`
+                          : ""}
+                      </Badge>
+                    )}
+                    {/* Même raison : sur la liste, un dossier retenu serait
+                        indiscernable d'un dossier validé. Il disparaît dès
+                        l'envoi — voir `livraisonBloquee`. */}
+                    {livraisonBloquee(job) && (
+                      <Badge
+                        color="amber"
+                        variant="soft"
+                        title="La correction automatique n'a pas tout fermé. Le document est prêt ; il attend votre envoi."
+                      >
+                        non envoyé
+                      </Badge>
+                    )}
+                  </Flex>
                 </Table.Cell>
                 <Table.Cell>
                   <Flex align="center" gap="2">
@@ -157,7 +258,23 @@ export function Jobs() {
                   </Text>
                 </Table.Cell>
                 <Table.Cell>
-                  {job.status === "done" && <JobRowActions job={job} />}
+                  {/* UN DOCUMENT PRODUIT SE TÉLÉCHARGE, MÊME SI LE DOSSIER
+                      A ÉCHOUÉ.
+
+                      « Les documents échoués ne sont pas téléchargeables et
+                      restent rouges, pourtant je les ai reçus par mail »
+                      (cliente, 13/08/2026). Elle a raison : un dossier arrêté
+                      au dernier chapitre a bel et bien produit son PDF, et
+                      l'email est parti. Le cacher ici oblige à rouvrir le
+                      détail, ou à retrouver le mail.
+
+                      Le critère devient donc « le PDF EXISTE-t-il ? », et non
+                      « le dossier s'est-il terminé ? ». Le statut rouge reste :
+                      il dit la vérité sur la génération, pas sur le document. */}
+                  {(job.status === "done" || job.pdf_download_url) && (
+                    <JobRowActions job={job} />
+                  )}
+                  {estRelancable(job) && <BoutonRelancer job={job} />}
                 </Table.Cell>
                 <Table.Cell>
                   <Link to="/admin/jobs/$jobId" params={{ jobId: job.id }}

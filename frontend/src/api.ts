@@ -77,6 +77,31 @@ export interface JobSummary {
   id: string;
   deliverable_type: string;
   status: string;
+  /**
+   * Le dossier se dit « en cours » alors que plus personne ne travaille dessus.
+   *
+   * Calculé par le backend, jamais déduit ici : la règle (aucun chapitre touché
+   * depuis vingt minutes) vit dans `generation.services`. La redécider en
+   * TypeScript ferait deux sources pour la même vérité — et c'est exactement ce
+   * qui s'était produit sur le bouton « Relancer », dont la condition front
+   * `failed || cancelled` était plus stricte que le backend. Il était donc
+   * caché précisément dans le cas qui l'a fait écrire.
+   */
+  interrompue: boolean;
+  /** Minutes écoulées depuis le dernier chapitre touché. `null` hors « en cours ». */
+  minutes_sans_progression: number | null;
+  /**
+   * Verdict du gate qualité : `pending`, `running`, `passed`, `failed`, `blocked`.
+   *
+   * `blocked` veut dire que le document n'est PAS parti automatiquement. La
+   * livraison reste possible à la main — c'est une dérogation prévue, « décision
+   * humaine assumée » selon `generation/gate.py`. Encore faut-il que l'humain
+   * la voie : le backend sérialisait ce champ depuis toujours et AUCUN écran ne
+   * le lisait. Trois dossiers bloqués sont partis chez la cliente le
+   * 10/08/2026, étude de marché comprise, avec le même bouton et aucun
+   * avertissement. On n'assume pas une décision qu'on ne voit pas.
+   */
+  qa_status: string;
   total_cost_eur: string;
   budget_eur: string;
   chapters_done: number;
@@ -87,6 +112,57 @@ export interface JobSummary {
   error_message: string | null;
   pdf_download_url: string | null;
   delivery_status: string | null;
+}
+
+/**
+ * Une livraison RETENUE : le gate a refusé, et le document n'est pas parti.
+ *
+ * ## Pourquoi la livraison entre dans la condition
+ *
+ * Un dossier déjà envoyé n'est plus « bloqué » : la décision est prise, le
+ * client a son document. Continuer à l'afficher en rouge, c'est alarmer sur
+ * une chose qu'aucun geste ne peut changer — et c'était contradictoire à
+ * lire : « Qualité : bloqué » à côté de « ✓ Email envoyé ».
+ *
+ * L'avertissement ne vaut que là où il est ACTIONNABLE : avant l'envoi, quand
+ * on peut encore relire, recontrôler ou renoncer. C'est aussi ce qui lui rend
+ * son sens — un badge qui crie sur des dossiers réglés finit ignoré, et le
+ * jour où il dit vrai personne ne le regarde.
+ *
+ * La règle vit ici et nulle part ailleurs, pour la raison qui a déjà piégé le
+ * bouton « Relancer » : deux conditions écrites à deux endroits finissent par
+ * diverger, et celle du front était plus stricte que celle du back exactement
+ * dans le cas qu'elle devait couvrir.
+ */
+export function livraisonBloquee(
+  job: Pick<JobSummary, "qa_status" | "delivery_status">,
+): boolean {
+  return job.qa_status === "blocked" && job.delivery_status !== "sent";
+}
+
+/**
+ * Un dossier relançable : échoué, annulé, interrompu — ou TERMINÉ avec un trou.
+ *
+ * Le dernier cas est arrivé après les autres. Un chapitre qui coince ne tue
+ * plus l'étude : le dossier se termine avec un trou nommé, ce qui vaut mieux
+ * que de perdre vingt-deux chapitres corrects. Mais sans ce bouton, le trou
+ * devenait DÉFINITIF — stratégie `0f9fb13a` (11/08/2026), chapitre 0 perdu
+ * sur un encadré d'une ligne de trop, vingt chapitres livrés, rien à faire.
+ *
+ * La relance ne réécrit que les chapitres en échec : la dépense se limite au
+ * trou.
+ */
+export function estRelancable(
+  job: Pick<JobSummary, "status" | "interrompue" | "chapters_done" | "chapters_total">,
+): boolean {
+  const trouAcombler =
+    job.status === "done" && job.chapters_done < job.chapters_total;
+  return (
+    job.status === "failed" ||
+    job.status === "cancelled" ||
+    job.interrompue ||
+    trouAcombler
+  );
 }
 
 export interface Chapter {
@@ -118,6 +194,11 @@ export interface JobDetail extends JobSummary {
     status: string;
     sent_at: string | null;
   } | null;
+  /** Ce que le dernier contrôle qualité a reproché au document.
+   *
+   * Vide quand rien n'a été retenu. Sans cette liste, l'écran affichait un
+   * statut sans raison — et un statut sans raison ne se corrige pas. */
+  qa_motifs?: { check: string; chapitre: number | null; detail: string }[];
 }
 
 export interface Incident {
@@ -238,6 +319,7 @@ export const api = {
   jobCancel:          (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/cancel/`, {}),
   jobRelaunch:        (id: string) => post<GenerateResponse>(`/jobs/${id}/relaunch/`, {}),
   jobRedeliver:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/redeliver/`, {}),
+  jobReverifier:      (id: string) => post<{ job_id: string; qa_status: string; passed: boolean; echecs: number }>(`/jobs/${id}/reverifier/`, {}),
   jobSendEmail:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/send-email/`, {}),
   incidents:          () => get<Incident[]>("/incidents/"),
   incidentResolve:    (id: string) => post<{ id: string; status: string }>(`/incidents/${id}/resolve/`, {}),

@@ -34,4 +34,4 @@ Prends du recul : hierarchise les fondations reelles du modele, nomme les conseq
 
 Termine par une synthese des forces reelles du business, une lecture globale des leviers de developpement, et une transition vers le chapitre Analyse des contraintes et fragilites structurelles.
 
-Apres l'analyse redigee, insere un encadre HTML inline (sans <html>/<body>) : un tableau a 3 colonnes listant les 4 a 5 forces principales, chacune suivie d'une barre CSS de solidite (div background #2E7D4F, height 5mm, largeur proportionnelle) et d'un niveau en gras.
+Apres l'analyse redigee, un bloc `tableau` a trois colonnes : les 4 a 5 forces principales, leur niveau de solidite (Solide / Etablie / A consolider), et la preuve qui justifie ce niveau.

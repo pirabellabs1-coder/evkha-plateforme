@@ -8,11 +8,36 @@ from django.http import HttpRequest
 from .models import ChapterGeneration, CoherenceFact, GenerationJob, SocleDonnees
 
 
+@admin.display(description="Cache")
+def taux_de_cache(chapitre: ChapterGeneration) -> str:
+    """Part de l'entrée servie par le cache, et ce qu'elle a évité de payer.
+
+    Ces deux compteurs ont longtemps existé sur le résultat d'appel sans jamais
+    atteindre la base ; les afficher est la seule façon qu'une régression du
+    cache se voie autrement que par une facture qui monte sans raison.
+
+    Une LECTURE de cache coûte 10 % d'un jeton d'entrée. L'économie affichée est
+    donc la part lue × 0,9 — approximative à dessein, et libellée comme telle :
+    le chiffre exact dépend du tarif du modèle, et le prétendre exact ici
+    créerait une seconde source de vérité sur le prix (règle 5).
+    """
+    lues = chapitre.cache_read_tokens
+    ecrites = chapitre.cache_write_tokens
+    if not lues and not ecrites:
+        return "—"
+    total = chapitre.input_tokens + lues
+    part = (100 * lues / total) if total else 0
+    return f"{part:.0f} % lus (~{lues * 0.9 / 1000:.0f} k jetons évités)"
+
+
 class ChapterGenerationInline(admin.TabularInline):
     model = ChapterGeneration
     extra = 0
-    fields = ("chapter_number", "chapter_title", "status", "cost_eur", "retry_count")
-    readonly_fields = ("cost_eur",)
+    fields = (
+        "chapter_number", "chapter_title", "status",
+        "cost_eur", "cost_perdu_eur", taux_de_cache, "retry_count",
+    )
+    readonly_fields = ("cost_eur", "cost_perdu_eur", taux_de_cache)
 
 
 class CoherenceFactInline(admin.TabularInline):
@@ -32,7 +57,10 @@ class GenerationJobAdmin(admin.ModelAdmin):
 
 @admin.register(ChapterGeneration)
 class ChapterGenerationAdmin(admin.ModelAdmin):
-    list_display = ("job", "chapter_number", "chapter_title", "status", "cost_eur", "retry_count")
+    list_display = (
+        "job", "chapter_number", "chapter_title", "status",
+        "cost_eur", "cost_perdu_eur", taux_de_cache, "retry_count",
+    )
     list_filter = ("status",)
     search_fields = ("chapter_title", "prompt_key", "job__order__systeme_order_id")
     autocomplete_fields = ("job",)

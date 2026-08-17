@@ -319,7 +319,44 @@ IMPOSSIBLES: dict[str, str] = {}
 #: Un `{{client.nom}}` imprimé tel quel ou un chiffre qui ne vient pas du socle
 #: se voient à la première lecture et discréditent l'étude entière. Ceux-là ne
 #: partent jamais, quel que soit le nombre de tentatives déjà brûlées.
-REGLES_REDHIBITOIRES = frozenset({"variable_non_resolue", "data_refs_inconnus"})
+REGLES_REDHIBITOIRES = frozenset({
+    "variable_non_resolue",
+    "data_refs_inconnus",
+    # Un intitulé du document de référence recopié tel quel place le sujet d'un
+    # AUTRE secteur dans l'étude du client. Ce n'est pas un écart de forme :
+    # c'est une erreur de fond, visible du premier coup d'œil, et elle ne
+    # s'améliore pas en étant tolérée sur la dernière tentative.
+    "contamination_du_modele",
+})
+
+#: Règles qui mesurent une RESSEMBLANCE AU MODÈLE, et rien d'autre.
+#:
+#: Décision du 08/08/2026 : « on n'a pas besoin de suivre exactement le modèle,
+#: le modèle est pour l'entraînement et c'est tout. » Elles étaient traitées
+#: comme un refus tant qu'il restait une tentative, ce qui faisait rejouer le
+#: chapitre jusqu'à ce qu'il ressemble au gabarit.
+#:
+#: Mesuré sur l'étude de marché réelle `b561c2d6` : le rythme est passé de 6,1 à
+#: 10,2 minutes par chapitre à mesure que l'étude avançait, parce que les
+#: chapitres tardifs — les plus longs et les plus chiffrés — s'écartaient le plus
+#: du volume du modèle. 3,14 EUR consommés pour 14 chapitres sur 23, contre
+#: 2,28 EUR pour les 22 chapitres du business plan, qui n'a PAS de modèle.
+#: Le contrôle coûtait donc davantage que le document lui-même.
+#:
+#: L'écart n'est pas tu pour autant : il est consigné dans `acceptes`, et c'est
+#: la différence entre « vérifié » et « pas de nouvelle » (règle 1). Ce qui
+#: change, c'est qu'on ne repaye plus un appel pour le corriger.
+#:
+#: `graphiques_min` n'y figure PAS, et c'est délibéré : ce n'est pas une
+#: ressemblance au modèle mais un PLANCHER de figures. Le rendre consultatif
+#: réduirait le nombre de graphiques, alors que la cliente en demande davantage.
+REGLES_DE_RESSEMBLANCE = frozenset({
+    "volume",
+    "sequence_des_blocs",
+    "dosage_tableaux",
+    "dosage_paragraphes",
+    "dosage_encadres",
+})
 
 #: Un chapitre que le modèle ne décrit pas — la fiche projet, numérotée 00. Le
 #: rapport le déclare bloquant, à juste titre : il ne peut RIEN vérifier, et un
@@ -377,17 +414,152 @@ def arbitrer(rapport: RapportConformite, *, derniere_tentative: bool) -> Arbitra
         for e in rapport.bloquantes
         if e.regle in REGLES_REDHIBITOIRES
     ]
+    # Ressemblance au modèle : constatée et consignée, jamais rejouée.
+    ressemblance = [
+        f"{e.regle} : {e.detail}"
+        for e in rapport.bloquantes
+        if e.regle in REGLES_DE_RESSEMBLANCE
+    ]
+    # Ce qui reste : ni faux, ni simple ressemblance — `graphiques_min`
+    # aujourd'hui. Un plancher se rattrape en rejouant, donc on rejoue.
     forme = [
         f"{e.regle} : {e.detail}"
         for e in rapport.bloquantes
         if e.regle not in REGLES_REDHIBITOIRES
+        and e.regle not in REGLES_DE_RESSEMBLANCE
     ]
 
     if redhibitoires:
-        return Arbitrage(refus=redhibitoires + forme)
+        return Arbitrage(refus=redhibitoires + forme, acceptes=ressemblance)
     if forme and not derniere_tentative:
-        return Arbitrage(refus=forme)
-    return Arbitrage(acceptes=forme)
+        return Arbitrage(refus=forme, acceptes=ressemblance)
+    return Arbitrage(acceptes=forme + ressemblance)
+
+
+#: Le secteur sur lequel le modèle de forme a été MESURÉ.
+#:
+#: Le modèle vient d'une étude de joaillerie (`references/joalie_2026.docx`).
+#: Ses intitulés portent donc les mots de ce secteur-là, et ce sont EUX qui
+#: contaminent une étude sur un autre sujet — pas les intitulés de méthode.
+#:
+#: ## Pourquoi une liste, alors que la règle 4 les condamne
+#:
+#: Parce qu'elle ne décrit pas une classe de défauts, mais un FAIT : le secteur
+#: d'un document précis. Elle ne s'allongera pas à chaque découverte ; elle
+#: changera le jour où le modèle sera mesuré sur un autre document, et ce
+#: jour-là c'est tout le modèle qu'on remplace.
+#:
+#: ## Pourquoi ce filtre existe
+#:
+#: La première version condamnait TOUT intitulé de référence recopié. Elle
+#: refusait « Positionnement recommandé » et « Sources principales » — des mots
+#: de méthode qu'une étude sur n'importe quel sujet emploie légitimement.
+#: Chaque refus coûte une reprise, et un garde-fou qui bloque du bon travail est
+#: exactement le défaut corrigé le même jour sur le gate de livraison (règle 2).
+_SECTEUR_DE_REFERENCE = frozenset({
+    "joaillerie", "joaillier", "bijou", "bijoux", "bijouterie",
+    "galerie", "galeries", "sur-mesure", "vintage", "orfèvrerie",
+    "gemme", "gemmologie", "lingot", "once", "carat", "sertissage",
+})
+
+#: Longueur à partir de laquelle un intitulé recopié n'est plus une coïncidence.
+#:
+#: « Synthèse » ou « À retenir » se retrouvent légitimement dans deux études :
+#: ce sont des mots de méthode. « FOCUS — Approfondissement demandé : marché
+#: international des galeries et du sur-mesure » ne se retrouve nulle part par
+#: hasard. Le seuil sépare les deux.
+_LONGUEUR_CONTAMINANTE = 25
+
+
+def _porte_le_secteur_de_reference(texte: str) -> bool:
+    """Ce libellé nomme-t-il le secteur du document de référence ?
+
+    C'est le seul signal qui distingue une contamination d'une reprise
+    légitime. « Positionnement recommandé » ne dit rien de la joaillerie ;
+    « … galeries et du sur-mesure » ne parle que d'elle.
+    """
+    mots = set(re.findall(r"[\w-]+", texte.casefold()))
+    return bool(mots & _SECTEUR_DE_REFERENCE)
+
+
+def _intitules_du_modele(chapitre_modele: dict[str, Any]) -> list[str]:
+    """Libellés du chapitre qui nomment le secteur d'origine, et eux seuls."""
+    sortie: list[str] = []
+    for bloc in chapitre_modele.get("blocs", []):
+        for cle in ("etiquette", "intitule_reference"):
+            valeur = str(bloc.get(cle, "") or "").strip()
+            if (
+                len(valeur) >= _LONGUEUR_CONTAMINANTE
+                and _porte_le_secteur_de_reference(valeur)
+            ):
+                sortie.append(valeur)
+    return sortie
+
+
+def _controler_contamination(
+    payload: Any, chapitre_modele: dict[str, Any]
+) -> list[Ecart]:
+    """Refuse un intitulé du document de référence recopié tel quel.
+
+    ## Le cas réel
+
+    Le modèle de forme a été mesuré sur une étude de JOAILLERIE. Ses intitulés
+    sont donc écrits avec les mots de ce secteur, et le plan les montre au
+    modèle pour qu'il en reprenne la FONCTION — pas le sujet.
+
+    Sur le dossier `c8b4e60a`, une étude consacrée à l'e-commerce pour animaux,
+    le lecteur trouvait en page 52 : **« FOCUS — Approfondissement demandé :
+    marché international des galeries et du sur-mesure »**. Signalé par la
+    cliente. Le modèle n'a rien inventé — on lui avait remis cette étiquette
+    telle quelle, sans lui dire de la réécrire.
+
+    ## Pourquoi rédhibitoire et non consultatif
+
+    Les écarts de RESSEMBLANCE sont consultatifs depuis le 08/08/2026 : ils
+    mesurent une distance au gabarit, et la cliente a tranché que le modèle
+    entraîne sans imposer. Celui-ci est d'une autre nature. Ce n'est pas une
+    forme qui s'écarte, c'est le sujet d'une AUTRE étude qui entre dans
+    celle-ci. Toléré sur la dernière tentative, il partirait chez le client.
+
+    ## Ce qu'il ne condamne pas
+
+    Les intitulés courts — « Synthèse », « À retenir », « Ce qu'il faut
+    retenir » — sont des mots de méthode, communs à toutes les études par
+    construction. Seuls les libellés assez longs pour porter un sujet sont
+    comparés : au-delà de vingt-cinq signes, une reprise mot pour mot n'est plus
+    une coïncidence.
+    """
+    references = _intitules_du_modele(chapitre_modele)
+    if not references:
+        return []
+
+    produits: list[str] = []
+    for bloc in getattr(payload, "blocs", ()) or ():
+        for champ in ("intitule", "etiquette", "titre"):
+            valeur = getattr(bloc, champ, None)
+            if isinstance(valeur, str):
+                produits.append(valeur)
+        for imbrique in ("encadre", "tableau", "graphique"):
+            interne = getattr(bloc, imbrique, None)
+            for champ in ("intitule", "titre"):
+                valeur = getattr(interne, champ, None)
+                if isinstance(valeur, str):
+                    produits.append(valeur)
+
+    ecarts: list[Ecart] = []
+    for reference in references:
+        normalisee = reference.casefold().strip()
+        for produit in produits:
+            if produit.casefold().strip() == normalisee:
+                ecarts.append(Ecart(
+                    "contamination_du_modele", Gravite.BLOQUANTE,
+                    f"« {reference} » est l'intitulé du document de référence, "
+                    "écrit pour un AUTRE secteur. Il décrit la fonction du "
+                    "bloc, pas son sujet : réécris-le pour le secteur de cette "
+                    "étude.",
+                ))
+                break
+    return ecarts
 
 
 def verifier_chapitre(
@@ -426,6 +598,7 @@ def verifier_chapitre(
     ecarts += _controler_volume(payload, attendu)
     ecarts += _controler_data_refs(payload, identifiants)
     ecarts += _controler_variables(payload)
+    ecarts += _controler_contamination(payload, modele)
 
     return RapportConformite(
         chapitre=numero,

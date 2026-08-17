@@ -199,11 +199,14 @@ def test_current_job_cost_eur_sums_all_chapters(
 def test_max_tokens_for_job_throttles_from_first_chapter(
     normalized_market_submission: IntakeSubmission,
 ) -> None:
-    # Le throttle se declenche quand le budget restant est faible.
-    # A 2.20 EUR depense sur 2.40 EUR de budget EM (92%), max_tokens doit etre < 3500.
+    # Le throttle se declenche quand le budget restant est faible. La depense
+    # est exprimee en PART du budget et non en euros : ces tests figeaient
+    # << 2,20 sur 2,40 >>, puis << 99 % du budget EM 3,20 >>, et sont tombes a
+    # chaque ajustement du plafond — trois fois le 08/08/2026. Le comportement
+    # teste est un RATIO, pas un montant (regle 5).
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("2.2000")
+    chapter.cost_eur = job.budget_eur * Decimal("0.92")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     result = max_tokens_for_job(job, default_max_tokens=3500)
@@ -216,7 +219,7 @@ def test_max_tokens_for_job_throttles_above_threshold(
 ) -> None:
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("2.3000")
+    chapter.cost_eur = job.budget_eur * Decimal("0.96")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     result = max_tokens_for_job(job, default_max_tokens=3500)
@@ -230,7 +233,7 @@ def test_max_tokens_for_job_worst_case_never_reaches_budget(
 ) -> None:
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("1.2000")
+    chapter.cost_eur = job.budget_eur * Decimal("0.50")
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     result = max_tokens_for_job(job, default_max_tokens=3500)
@@ -249,7 +252,7 @@ def test_max_tokens_for_job_floors_at_minimum_when_budget_nearly_exhausted(
     # CostBudgetExceededError (fail-fast) — jamais de contenu mutile livre.
     job = bootstrap_generation_job(normalized_market_submission)
     chapter = job.chapters.get(chapter_number=1)
-    chapter.cost_eur = Decimal("3.1810")  # 99% du budget EM 3.20
+    chapter.cost_eur = job.budget_eur * Decimal("0.995")  # budget quasi epuise
     chapter.save(update_fields=["cost_eur", "updated_at"])
 
     assert max_tokens_for_job(job, default_max_tokens=3500) == _MIN_MAX_TOKENS
