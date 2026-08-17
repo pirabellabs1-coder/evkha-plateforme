@@ -38,6 +38,7 @@ from generation.models import (
     SocleDonnees,
     SocleStatut,
 )
+from generation.services import production_engagee
 
 
 @dataclass(frozen=True)
@@ -96,7 +97,10 @@ DUREE_MINUTES = (20, 45)
 def _etat_socle(job: GenerationJob) -> tuple[str, str]:
     enregistrement = SocleDonnees.objects.filter(job=job).first()
     if enregistrement is None:
-        return ("en_cours" if job.status == JobStatus.RUNNING else "attente", "")
+        # Même lecture qu'ailleurs : ce qui compte est que le dossier PRODUISE,
+        # pas l'étiquette qu'il porte.
+        travaille = job.status == JobStatus.RUNNING or production_engagee(job)
+        return ("en_cours" if travaille else "attente", "")
     if enregistrement.statut == SocleStatut.VALIDE:
         nombre = len(enregistrement.contenu.get("donnees", []))
         return "fait", f"{nombre} données de référence établies"
@@ -198,8 +202,22 @@ def progression(job: GenerationJob) -> int:
 
 
 def message_client(job: GenerationJob) -> str:
-    """Phrase destinée au client. Le message technique reste côté administration."""
-    return MESSAGES.get(str(job.status), "Votre étude est en cours de traitement.")
+    """Phrase destinée au client. Le message technique reste côté administration.
+
+    Un dossier qui a DÉJÀ produit ne dit plus « elle démarre dans quelques
+    instants », même si sa ligne porte encore `pending` : les étapes affichées
+    juste en dessous montrent, elles, les chapitres en cours d'écriture — c'est
+    lisible depuis les chapitres, pas depuis le statut. Deux avis sur le même
+    écran, dont l'un contredit l'autre, et c'est le plus visible qui était faux
+    (règle 5).
+
+    Mesuré sur le business plan `256e63d8` du 17/08/2026 : dix-sept chapitres
+    écrits, 2,24 € dépensés, et cette phrase à l'écran de la cliente.
+    """
+    statut = str(job.status)
+    if statut == JobStatus.PENDING and production_engagee(job):
+        statut = JobStatus.RUNNING
+    return MESSAGES.get(statut, "Votre étude est en cours de traitement.")
 
 
 #: En deçà de cet avancement, on refuse d'extrapoler.

@@ -473,6 +473,33 @@ def run_generation_job(
         job.refresh_from_db(fields=["status"])
         if job.status == JobStatus.CANCELLED:
             return job
+        # ── Un dossier qui écrit le DIT, à chaque chapitre ──────────────────
+        #
+        # Le statut n'était posé qu'UNE fois, au lancement. Tout ce qui réécrit
+        # la ligne ensuite — la relance du tableau de bord remet `pending` et
+        # efface `started_at` — le fait sous les pieds de la tâche qui produit,
+        # et plus rien ne le rétablit : le dossier écrit ses vingt-deux
+        # chapitres en se déclarant « en attente ».
+        #
+        # Business plan `256e63d8`, 17/08/2026 : `pending`, `started_at` vide,
+        # et dix-sept chapitres écrits pour 2,24 € pendant que la cliente lisait
+        # « votre étude est dans la file de production, elle démarre dans
+        # quelques instants ».
+        #
+        # Le coût de cette assurance est d'un UPDATE par chapitre, et seulement
+        # quand la ligne a menti. Le bénéfice ne s'arrête pas à l'affichage :
+        # `duree_sans_progression` et le gardien des dossiers bloqués ne
+        # regardent QUE les dossiers `running`. Un dossier coincé dans cet état
+        # était invisible aux deux — c'est le silence de la règle 1, et il a
+        # déjà coûté soixante-seize minutes à une cliente le 09/08/2026.
+        from .services import reaffirmer_en_cours  # noqa: PLC0415 — cycle d'import
+
+        statut_annonce = job.status
+        if reaffirmer_en_cours(job):
+            _log.warning(
+                "Job %s : la ligne disait « %s » alors que la génération "
+                "travaille — statut rétabli.", job.id, statut_annonce,
+            )
 
         try:
             if moteur_structure:

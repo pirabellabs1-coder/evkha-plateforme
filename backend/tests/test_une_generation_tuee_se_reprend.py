@@ -118,7 +118,7 @@ def test_le_seuil_laisse_passer_le_chapitre_le_plus_lent_jamais_mesure(
 
 @pytest.mark.parametrize(
     "statut",
-    [JobStatus.DONE, JobStatus.FAILED, JobStatus.PENDING, JobStatus.CANCELLED],
+    [JobStatus.DONE, JobStatus.FAILED, JobStatus.CANCELLED],
 )
 def test_la_question_ne_se_pose_que_pour_un_dossier_en_cours(
     job: GenerationJob, statut: str
@@ -130,6 +130,34 @@ def test_la_question_ne_se_pose_que_pour_un_dossier_en_cours(
 
     assert duree_sans_progression(job) is None
     assert not generation_interrompue(job)
+
+
+def test_un_dossier_en_attente_qui_a_DEJA_produit_est_bien_interrompu(
+    job: GenerationJob,
+) -> None:
+    """`pending` était dans la liste ci-dessus. Il en sort, et volontairement.
+
+    Le raisonnement d'origine — « la question ne se pose pas pour un dossier en
+    attente » — vaut pour une étude qui attend son tour sans avoir rien produit.
+    Il ne vaut pas pour celle-ci : deux chapitres écrits, plus une trace depuis
+    cinq heures, et l'étiquette « en attente ». Ce dossier ne démarre pas, il
+    est ORPHELIN.
+
+    Mesuré le 17/08/2026 sur le business plan `256e63d8`, qui a écrit
+    dix-sept chapitres en portant ce statut. Tant qu'il l'a porté, ni ce
+    gardien-ci ni `reset_stuck_generation_jobs` ne pouvaient le voir : tous
+    deux ne regardent que `running`. C'est le silence de la règle 1, et il a
+    déjà coûté soixante-seize minutes à une cliente le 09/08/2026.
+
+    La contre-épreuve d'à côté — une étude qui attend VRAIMENT — reste dans
+    `test_dossier_qui_ecrit_le_dit`.
+    """
+    job.status = JobStatus.PENDING
+    job.save(update_fields=["status"])
+    _vieillir(job, 300)
+
+    assert duree_sans_progression(job) is not None
+    assert generation_interrompue(job)
 
 
 @pytest.fixture

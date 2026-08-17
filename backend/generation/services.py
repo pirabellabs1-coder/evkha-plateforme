@@ -170,19 +170,71 @@ def bootstrap_generation_job(submission: IntakeSubmission) -> GenerationJob:
 #: chapitre ne bouge ne s'expliquent plus par la lenteur.
 DELAI_SANS_PROGRESSION = timedelta(minutes=20)
 
+def production_engagee(job: GenerationJob) -> bool:
+    """Ce dossier a-t-il DÉJÀ produit quelque chose ?
+
+    La question se pose parce que le statut peut mentir. Il n'est écrit qu'une
+    fois, au lancement, et la relance du tableau de bord le remet à `pending`
+    en effaçant `started_at` — y compris sous une tâche qui travaille. Le
+    dossier `256e63d8` du 17/08/2026 a ainsi écrit dix-sept chapitres en se
+    déclarant « en attente ».
+
+    Ce que la production laisse comme trace, elle, ne se réécrit pas : un
+    chapitre sorti de `pending`, ou un centime dépensé. On lit donc les FAITS
+    plutôt que l'étiquette — c'est la règle 1 (un contrôle qui n'a rien à
+    comparer échoue) appliquée à l'état d'un dossier.
+    """
+    if job.total_cost_eur > 0:
+        return True
+    return job.chapters.exclude(status=ChapterStatus.PENDING).exists()
+
+
+def reaffirmer_en_cours(job: GenerationJob) -> bool:
+    """Remet la ligne d'accord avec la réalité : ce dossier travaille.
+
+    Rend `True` si elle mentait. Appelée par le runner entre deux chapitres —
+    voir là-bas pourquoi une seule écriture au lancement ne suffit pas.
+
+    Ne touche PAS à un dossier annulé : l'annulation est une décision, et le
+    runner la lit juste avant pour s'arrêter. L'écraser ferait produire un
+    dossier que quelqu'un a explicitement arrêté.
+    """
+    if job.status in (JobStatus.RUNNING, JobStatus.CANCELLED):
+        return False
+    job.status = JobStatus.RUNNING
+    if job.started_at is None:
+        job.started_at = timezone.now()
+    job.save(update_fields=["status", "started_at", "updated_at"])
+    return True
+
 
 def duree_sans_progression(job: GenerationJob) -> timedelta | None:
     """Depuis combien de temps ce dossier n'a-t-il plus rien produit ?
 
     `None` s'il n'est pas en cours — la question ne se pose pas pour un dossier
-    terminé, échoué ou en attente.
+    terminé, échoué ou annulé.
 
     On regarde la date du dernier CHAPITRE touché, pas celle du job : le job est
     enregistré au lancement puis plus jamais tant qu'il tourne, sa date ne dit
     donc rien de son avancement. Les chapitres, eux, sont écrits à chaque coût
     enregistré.
+
+    ## Le trou : « en attente » avec des chapitres déjà écrits
+
+    La question était refusée à tout dossier non-`running`, « en attente »
+    compris. Or un dossier PEUT porter cette étiquette en ayant déjà produit :
+    il suffit qu'on ait réécrit sa ligne pendant qu'il travaillait. Il devenait
+    alors invisible aux DEUX gardiens — celui-ci et
+    `reset_stuck_generation_jobs`, qui ne filtre lui aussi que sur `running`.
+
+    Un dossier en file d'attente qui n'a RIEN produit reste hors sujet : il
+    attend son tour, c'est normal, et le déclarer interrompu offrirait un
+    bouton « relancer » qui ferait tourner deux générations.
     """
-    if job.status != JobStatus.RUNNING:
+    en_cours = job.status == JobStatus.RUNNING or (
+        job.status == JobStatus.PENDING and production_engagee(job)
+    )
+    if not en_cours:
         return None
     dernier = job.chapters.order_by("-updated_at").values_list("updated_at", flat=True).first()
     repere = dernier or job.started_at
