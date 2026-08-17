@@ -24,6 +24,7 @@ Bornes de sécurité :
 """
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 
 from django.conf import settings
@@ -32,6 +33,8 @@ from . import gate as _gate
 from .cost import CostBudgetExceededError, current_job_cost_eur
 from .gate import GateFailure, GateReport
 from .models import GenerationJob
+
+_log = logging.getLogger(__name__)
 
 # Réserve minimale de budget avant de tenter une régénération : sous ce seuil,
 # un nouvel appel Claude dépasserait le plafond du dossier — on s'abstient.
@@ -221,8 +224,32 @@ def _feedback_by_chapter(
     prioritaires selon `_CHECK_PRIORITY`. Un chapitre est priorise par la
     plus urgente de ses failures.
     """
-    grouped: dict[int, list[str]] = {}
-    grouped_priorite: dict[int, int] = {}
+    groupes = _motifs_par_chapitre(
+        failures, cap=cap, inclure_les_checks=inclure_les_checks
+    )
+    return {
+        numero: "\n".join(
+            f"- {_CHECK_LABELS.get(f.check, f.check)} : {f.detail}" for f in motifs
+        )
+        for numero, motifs in groupes.items()
+    }
+
+
+def _motifs_par_chapitre(
+    failures: tuple[GateFailure, ...],
+    *,
+    cap: int | None = None,
+    inclure_les_checks: bool = False,
+) -> dict[int, list[GateFailure]]:
+    """Quels motifs partent vers quel chapitre — la répartition, pas le texte.
+
+    Séparée de `_feedback_by_chapter` pour que la boucle sache exactement ce
+    qu'elle a VISÉ à chaque ronde. Sans cette liste, elle ne peut pas comparer
+    ce qu'elle a demandé à ce qu'elle a obtenu, et c'est précisément ce qui lui
+    manquait pour s'arrêter (règle 9).
+    """
+    groupes: dict[int, list[GateFailure]] = {}
+    priorites: dict[int, int] = {}
     for failure in failures:
         # Les CHECK de bloc ne sont JAMAIS rejoués par le chemin automatique :
         # la génération les a déjà retentés une fois, et boucler dessus
@@ -236,22 +263,28 @@ def _feedback_by_chapter(
         if failure.chapter_number is None:
             continue
         target = failure.chapter_number if failure.chapter_number > 0 else 1
-        label = _CHECK_LABELS.get(failure.check, failure.check)
-        grouped.setdefault(target, []).append(f"- {label} : {failure.detail}")
+        groupes.setdefault(target, []).append(failure)
         # Priorite du chapitre = la plus urgente de ses failures.
         p = _priorite_check(failure.check)
-        grouped_priorite[target] = min(grouped_priorite.get(target, p), p)
+        priorites[target] = min(priorites.get(target, p), p)
 
-    if cap is not None and len(grouped) > cap:
+    if cap is not None and len(groupes) > cap:
         # Tri par priorite (index bas = plus urgent), puis par numero de
         # chapitre pour stabilite.
-        chapitres_tries = sorted(
-            grouped.keys(),
-            key=lambda n: (grouped_priorite[n], n),
-        )[:cap]
-        grouped = {n: grouped[n] for n in chapitres_tries}
+        chapitres_tries = sorted(groupes.keys(), key=lambda n: (priorites[n], n))[:cap]
+        groupes = {n: groupes[n] for n in chapitres_tries}
 
-    return {num: "\n".join(items) for num, items in grouped.items()}
+    return groupes
+
+
+def _signature(failure: GateFailure) -> tuple[str, int | None, str]:
+    """Ce qui fait qu'un motif est LE MÊME d'une ronde à l'autre.
+
+    Le libellé compte : « le tableau annonce 30 000, ses lignes font 2 400 »
+    devenu « ... font 2 500 » est un motif qui a BOUGÉ, donc une correction qui
+    a produit un effet, même incomplet.
+    """
+    return (failure.check, failure.chapter_number, failure.detail)
 
 
 def run_correction_loop(
@@ -285,9 +318,40 @@ def run_correction_loop(
 
     report = _gate.run_delivery_gate(job)
     attempt = 0
+    # Les motifs déjà VISÉS par une régénération et revenus IDENTIQUES.
+    #
+    # ## Pourquoi cette mémoire existe
+    #
+    # Un motif FAUX ne peut pas être fermé : le chapitre est correct, on le
+    # réécrit, le contrôle le redit, et les trois rondes se consomment sans
+    # rien corriger. Mesuré le 17/08/2026 sur l'étude `f0064333` — 23 motifs,
+    # dont un titre en gras compté comme phrase coupée, une colonne de marchés
+    # emboîtés sommée comme un total, et quatre libellés pris pour des sources.
+    # Chaque ronde régénère jusqu'à huit chapitres, et chaque régénération se
+    # paie.
+    #
+    # Le rempart amont, c'est la justesse des contrôles — trois d'entre eux
+    # sont réparés le même jour. Mais aucun jeu de contrôles ne sera jamais
+    # juste à coup sûr, et une boucle qui insiste sur ce qu'elle ne déplace pas
+    # se donne raison toute seule : c'est la grille du *Loop Doctor* de la
+    # règle 9. Elle doit MESURER son effet, et se taire quand elle n'en a pas.
+    #
+    # Ce qui n'est PAS abandonné : un motif qui a bougé, même sans se fermer,
+    # reste retenté — la correction a produit un effet, elle peut en produire
+    # un second.
+    sourds: set[tuple[str, int | None, str]] = set()
     while not report.passed and attempt < rounds:
+        a_retenter = tuple(
+            f for f in report.failures if _signature(f) not in sourds
+        )
+        groupes = _motifs_par_chapitre(
+            a_retenter,
+            cap=_MAX_REGEN_PAR_ROUND,
+            inclure_les_checks=inclure_les_checks,
+        )
+        vises = {_signature(f) for motifs in groupes.values() for f in motifs}
         feedback = _feedback_by_chapter(
-            report.failures,
+            a_retenter,
             cap=_MAX_REGEN_PAR_ROUND,
             inclure_les_checks=inclure_les_checks,
         )
@@ -332,7 +396,25 @@ def run_correction_loop(
                 chapter.status = statut_original
                 chapter.save(update_fields=["content", "status"])
                 continue
+
+        avant = {_signature(f) for f in report.failures}
         report = _gate.run_delivery_gate(job)
+        apres = {_signature(f) for f in report.failures}
+
+        # Ce qu'on a visé et qui est revenu mot pour mot ne se refermera pas :
+        # on ne le repaie pas une troisième fois.
+        sourds |= vises & apres
+        if not avant - apres:
+            # La ronde n'a fermé AUCUN motif. Les suivantes referaient le même
+            # geste sur le même texte, pour le même prix. On rend le rapport
+            # tel qu'il est : l'incident dira ce qui reste, et le document part
+            # — c'est la décision du 13/08/2026, elle n'a pas à être repayée.
+            _log.info(
+                "Job %s : ronde de correction %s sans effet (%s motif(s) "
+                "inchangé(s)) — les rondes restantes sont abandonnées.",
+                job.id, attempt, len(apres),
+            )
+            break
 
     return report
 

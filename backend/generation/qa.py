@@ -34,7 +34,7 @@ import re
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from .checks_post_rendu import sans_fioritures_finales
+from .checks_post_rendu import TITRE_EN_GRAS, sans_emphase, sans_fioritures_finales
 
 # ── Constantes de détection ───────────────────────────────────────────────────
 
@@ -208,11 +208,36 @@ class QAResult(NamedTuple):
 #:
 #: `_last_prose_line` écartait déjà les titres Markdown, les tableaux, les
 #: puces. Il lui manquait ces trois formes, et elles ont suffi.
+#:
+#: ## Ce que ce correctif avait laissé passer, et qui est revenu
+#:
+#: Étude de marché `f0064333` du 17/08/2026 — la même cliente, le même
+#: chapitre 3, la MÊME ligne :
+#:
+#:     sentence_cut: Dernière phrase sans ponctuation finale :
+#:     …'**CRITÈRE DE SÉLECTION BTOB'
+#:
+#: L'expression ci-dessous accepte les astérisques OUVRANTES (`^\**`) et pas
+#: les FERMANTES : ancrée sur `$`, elle ne matche donc jamais la ligne
+#: complète « **CRITÈRE DE SÉLECTION BTOB** » telle qu'elle est écrite. Le
+#: motif du 09/08 avait été relevé APRÈS le passage de `sans_fioritures_finales`,
+#: qui avait déjà retiré la queue — on a corrigé sur la trace, pas sur la ligne.
+#:
+#: C'est la règle 4 dans sa forme la plus exacte : le correctif énumérait un
+#: délimiteur et oubliait son symétrique. La réponse n'est donc pas d'ajouter
+#: `\**$` — ce serait énumérer encore — mais de RETIRER l'emphase une fois pour
+#: toutes avant de juger, de sorte qu'aucun de ces motifs n'ait plus à
+#: connaître les astérisques.
 _NON_PROSE_RES = (
-    # Intitulé en capitales, éventuellement en gras : « **CRITÈRE DE SÉLECTION ».
+    # Intitulé en capitales : « CRITÈRE DE SÉLECTION BTOB ».
     # Au moins deux mots capitalisés d'affilée — un sigle isolé dans une phrase
     # (« le CA progresse ») n'en fait pas un titre.
-    re.compile(r"^\**\s*[A-ZÀ-Ý][A-ZÀ-Ý0-9\s'’\-]{6,}$"),
+    re.compile(r"^[A-ZÀ-Ý][A-ZÀ-Ý0-9\s'’\-]{6,}$"),
+    # Un titre en gras, quelle que soit sa casse. Même règle que
+    # `checks_post_rendu`, et c'est SA règle qu'on importe : les deux modules
+    # jugeaient « cette ligne est-elle une phrase ? » séparément, et ils
+    # n'étaient pas d'accord (règle 5).
+    TITRE_EN_GRAS,
     # Ligne de source : le rendu les écrit en italique, elles finissent sans
     # point. « *Source : Insee, 2025* », « *EVKHA, à partir du socle verrouillé* ».
     re.compile(r"^\**\s*(?:sources?\s*[:—-]|.*\bà partir du socle\b)", re.IGNORECASE),
@@ -228,8 +253,17 @@ def _est_de_la_prose(ligne: str) -> bool:
     Séparée de `_last_prose_line` pour être testable seule : c'est elle qui a
     bloqué une livraison réelle, et une fonction qu'on ne peut pas interroger
     directement se corrige à l'aveugle.
+
+    Jugée sur la ligne TELLE QU'ÉCRITE **et** sur son texte nu : un titre en
+    gras a besoin de ses astérisques pour être reconnu comme tel, un intitulé
+    en capitales a besoin qu'on les lui retire. Les deux lectures, plutôt
+    qu'une expression par délimiteur — c'est le défaut qui a fait revenir le
+    même motif faux deux fois sur le même chapitre (règle 4).
     """
-    return not any(motif.match(ligne) for motif in _NON_PROSE_RES)
+    nu = sans_emphase(ligne)
+    return not any(
+        motif.match(ligne) or motif.match(nu) for motif in _NON_PROSE_RES
+    )
 
 
 def _last_prose_line(text: str) -> str:

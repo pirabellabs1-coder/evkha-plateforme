@@ -74,6 +74,21 @@ _CONTINENT_LABELS: dict[str, str] = {
 }
 
 
+#: Le vocabulaire géographique du dépôt, sans accents et en minuscules.
+#:
+#: EXPORTÉ pour que d'autres contrôles puissent reconnaître une portée
+#: géographique sans recopier la liste (règle 5) — `arithmetique` s'en sert
+#: pour ne plus prendre « (France) » ou « (2026, France) » pour une source.
+NOMS_GEOGRAPHIQUES: frozenset[str] = frozenset(
+    set(_CONTINENT_BY_COUNTRY)
+    | set(_CONTINENT_BY_COUNTRY.values())
+    | set(_CONTINENT_LABELS)
+    # Les portées que le dépôt écrit sans qu'elles soient des pays.
+    | {"monde", "mondial", "mondiale", "international", "internationale",
+       "europe", "union europeenne", "ue", "national", "nationale"}
+)
+
+
 def _strip_accents(s: str) -> str:
     import unicodedata  # noqa: PLC0415
     return "".join(

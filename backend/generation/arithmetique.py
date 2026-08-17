@@ -304,13 +304,53 @@ def verifier(texte: str) -> list[CalculFaux]:
 
 # ── Une même donnée, une seule source ────────────────────────────────────────
 
-#: « 1,4 M€ (Insee, 2025) » ou « 1,4 M€ — source : Xerfi 2026 ».
+#: Ce qui ANNONCE une origine. Le document doit le DIRE : « (source : Insee) »,
+#: « — source : Xerfi 2026 », « (d'après l'Insee, 2025) », « (selon Xerfi) ».
+_ATTRIBUTION = r"sources?\s*:|d[’']apr[èe]s|selon"
+
+#: « 1,4 M€ (source : Insee, 2025) » ou « 1,4 M€ — source : Xerfi 2026 ».
 #:
-#: Le montant PUIS sa source, dans la parenthèse ou après un tiret. C'est la
-#: forme que produisent les tableaux et les notes de figure.
+#: ## Une parenthèse n'est pas une attribution
+#:
+#: Ce motif lisait « un montant, une parenthèse, donc l'origine ». C'est un
+#: PARI sur ce que la parenthèse contient, et l'étude de marché `f0064333` du
+#: 17/08/2026 dit ce qu'elle contient vraiment — cinq motifs, cinq faux :
+#:
+#:     30 000 M€ attribué à « TAM » ; « 2026, France » ; « France » ;
+#:                            « France, +6 %/an »
+#:     2 400 M€  attribué à « SAM » ; « 2026, France » ; « France »
+#:     0,48 M€   attribué à « SOM An1 » ; « 2026, entreprise »
+#:     7 %       attribué à « monde » ; « chapitres 1, 2 et 9 »
+#:
+#: Pas une seule source dans le lot. Un sigle de dimensionnement, une
+#: géographie, une période, un renvoi à d'autres chapitres : la parenthèse dit
+#: ce que le chiffre COUVRE, pas d'où il vient. Le lecteur qu'on invoque —
+#: « il ira à la première et n'y trouvera pas le chiffre » — ne va nulle part,
+#: parce qu'on ne lui a jamais montré une source.
+#:
+#: Allonger la liste des exceptions (`_PAS_UNE_SOURCE`) était la réponse
+#: tentante, et elle est fausse : « TAM », « France », « An1, prévisionnel »,
+#: « chapitres 1, 2 et 9 » n'ont rien en commun qu'on puisse énumérer — sinon
+#: de n'être pas des sources (règle 4).
+#:
+#: ## Deux façons pour un document de nommer une origine
+#:
+#: Il le DIT — « (source : Insee) », « — d'après Xerfi » : on le croit sur
+#: parole, quelle que soit la suite.
+#:
+#: Ou il ne le dit pas, et alors la parenthèse doit au moins NOMMER quelqu'un
+#: (`_nomme_une_origine`). « Insee, 2025 » nomme ; « TAM » et « France » non.
+#: Le contrôle du 30/07 dépendait de cette forme-là — deux organismes pour un
+#: même montant, sans le mot « source » — et une contre-épreuve du dépôt la
+#: verrouille. L'exiger explicitement aurait désarmé le contrôle au lieu de le
+#: corriger : c'est la règle 1, un contrôle qui ne compare plus rien n'est pas
+#: un succès.
 _MONTANT_SOURCE = re.compile(
     rf"(?P<montant>{_NOMBRE})\s*(?P<unite>M€|Md€|k€|€|%)\s*"
-    rf"(?:\(|—\s*source\s*:\s*|-\s*source\s*:\s*)"
+    rf"(?:"
+    rf"\(\s*(?:(?P<dite>{_ATTRIBUTION})\s*)?"      # parenthèse, attribution facultative
+    rf"|[—-]\s*(?P<dite_tiret>{_ATTRIBUTION})\s*"  # tiret : le mot est exigé
+    rf")"
     rf"(?P<source>[^)\n.;]{{3,60}})",
     re.IGNORECASE,
 )
@@ -344,6 +384,41 @@ _PAS_UNE_SOURCE = re.compile(
     r"^\s*(?:\d{4}|estimation|estimé\w*|prévision\w*|hypothèse|projection)\s*$",
     re.IGNORECASE,
 )
+
+#: Un mot qui peut NOMMER une origine : une majuscule, quatre lettres au moins,
+#: aucun chiffre.
+#:
+#: C'est le discriminant qui manquait, et il est de forme, pas de vocabulaire.
+#: Comparez ce que le dossier `f0064333` a produit :
+#:
+#:     Insee · Xerfi · Fédération · Institute      → des noms propres
+#:     TAM · SAM · SOM · An1 · monde · chapitres   → des étiquettes
+#:
+#: Un sigle de dimensionnement tient en trois lettres ; une période porte un
+#: chiffre ; une portée générique s'écrit en minuscules. Un organisme, non.
+#: On ne liste donc pas ce qui n'est pas une source — liste qu'il faudrait
+#: rallonger sans fin (règle 4) — on demande la forme d'un nom d'organisme.
+_NOM_PROPRE = re.compile(r"\b[A-ZÀ-Ý][^\W\d_]{3,}", re.UNICODE)
+
+
+def _nomme_une_origine(candidat: str) -> bool:
+    """Ce texte nomme-t-il quelqu'un chez qui le lecteur pourrait aller ?
+
+    Les noms géographiques sont écartés : « France » a la forme d'un nom propre
+    et ne dit pourtant rien de l'origine du chiffre — il dit ce qu'il couvre.
+    La liste vient de `geography`, qui la tient déjà (règle 5).
+
+    Risque résiduel, et il faut le nommer : une portée écrite comme un nom
+    propre et absente de cette liste — « Segment Premium » — produirait encore
+    un motif faux. C'est beaucoup plus étroit qu'une parenthèse quelconque, ce
+    n'est pas nul.
+    """
+    from .geography import NOMS_GEOGRAPHIQUES, _strip_accents  # noqa: PLC0415
+
+    for mot in _NOM_PROPRE.findall(candidat):
+        if _strip_accents(mot).lower() not in NOMS_GEOGRAPHIQUES:
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -388,6 +463,11 @@ def sources_divergentes(textes: list[str]) -> list[SourceDivergente]:
             source = " ".join(m.group("source").split()).strip(" ,;")
             if not source or _PAS_UNE_SOURCE.match(source) or _est_un_calcul(source):
                 continue
+            dite = bool(m.group("dite") or m.group("dite_tiret"))
+            if not dite and not _nomme_une_origine(source):
+                # Une parenthèse qui ne nomme personne dit ce que le chiffre
+                # COUVRE, pas d'où il vient.
+                continue
             cle = f"{re.sub(r'[    ]', '', m.group('montant'))} {m.group('unite')}"
             connues = par_montant.setdefault(cle, [])
             if source.casefold() not in {s.casefold() for s in connues}:
@@ -409,7 +489,38 @@ _LIGNE_TABLEAU = re.compile(r"^\s*\|(?P<cellules>.+)\|\s*$")
 _SEPARATEUR = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
 
 #: L'intitulé qui ANNONCE une somme. C'est le seul cas vérifiable sans deviner.
-_INTITULE_TOTAL = re.compile(r"\btotal\b|\bcumul\b|\bensemble\b", re.IGNORECASE)
+#:
+#: ## « total » le nom, et « total » l'adjectif
+#:
+#: L'intitulé doit COMMENCER par le mot. Une ligne « Total », « Total général »,
+#: « Cumul », « Ensemble des charges » annonce une somme : le mot est le sujet.
+#: Une ligne « Marché total », « Investissement total », « Effectif total » n'en
+#: annonce aucune : le mot y qualifie autre chose, et ce qu'elle nomme est une
+#: grandeur parmi d'autres.
+#:
+#: Mesuré sur l'étude de marché `f0064333` du 17/08/2026, chapitre 2 :
+#:
+#:     Colonne « Ordre de grandeur » : le tableau annonce un total de
+#:     30,000.00, mais ses lignes font 2,400.48.
+#:
+#: Le tableau était un TAM/SAM/SOM, et sa dernière ligne « Marché total (TAM) »
+#: valait bien 30 000 M€. Les deux autres — SAM 2 400, SOM 0,48 — ne s'y
+#: ajoutent pas : elles y sont CONTENUES. Trois marchés emboîtés ne s'additionnent
+#: jamais, et le document avait entièrement raison.
+#:
+#: Le correctif du même jour visait déjà ce mot sous une autre forme
+#: (« Investissement total » en PREMIÈRE ligne d'un plan de financement) et
+#: l'avait traité par la POSITION — un total est la dernière ligne. La position
+#: ne suffisait pas : ici l'intitulé fautif EST la dernière ligne. C'est la
+#: règle 4 — le correctif visait l'exemple, la classe est grammaticale.
+#:
+#: Limite assumée : « Coût total », dernière ligne d'un tableau de charges, est
+#: une vraie somme et n'est plus vérifiée. On perd une détection ; on ne perd
+#: pas un livrable. La règle 2 tranche dans ce sens — un motif faux est pire
+#: qu'un motif absent, et celui-ci coûtait trois passes de correction payées.
+_INTITULE_TOTAL = re.compile(
+    r"^\W*(?:totaux|total|cumuls?|cumulé\w*|ensemble)\b", re.IGNORECASE
+)
 
 #: Un intitulé qui porte DÉJÀ une somme partielle : l'additionner double-compte.
 _INTITULE_PARTIEL = re.compile(r"sous[- ]total|\bdont\b|\bsoit\b", re.IGNORECASE)

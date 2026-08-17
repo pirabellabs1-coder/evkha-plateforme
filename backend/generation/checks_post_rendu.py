@@ -47,6 +47,16 @@ _PONCTUATION_FIN_VALIDE = frozenset(".!?»…:)]}")
 # « - **Justification :** ... aupres des prospects grandes mar », une
 # vraie troncature. Le fait d'etre dans une puce n'exempte pas de finir
 # proprement (soit par une ponctuation, soit par une puce suivante).
+#: Une ligne ENTIEREMENT en gras est un TITRE, et un titre ne prend pas de
+#: ponctuation finale.
+#:
+#: EXPORTEE, et c'est le point : `qa.py` jugeait la meme question de son cote,
+#: avec une expression qui acceptait les asterisques OUVRANTES et pas les
+#: FERMANTES. « **CRITERE DE SELECTION BTOB** » passait donc pour de la prose
+#: la-bas et pour un titre ici — deux avis sur la meme ligne (regle 5), et
+#: c'est le mauvais qui bloquait la livraison.
+TITRE_EN_GRAS = re.compile(r"^\s*\*{2}[^*]+\*{2}\s*$")
+
 _STRUCTURES_STRUCTURELLES = (
     re.compile(r"[|+-]\s*$"),                                    # fin de tableau
     re.compile(r"</?[a-zA-Z][^>]*>\s*$"),                        # balise HTML
@@ -69,6 +79,9 @@ _STRUCTURES_STRUCTURELLES = (
     # point final. Le nettoyage des fioritures retirait les astérisques puis
     # jugeait « Lecture de la fiche projet » comme une phrase inachevée.
     #
+    # Cette règle vit désormais dans `TITRE_EN_GRAS`, plus bas : `qa.py` la
+    # cherchait de son côté et ne la trouvait pas (règle 5).
+    #
     # Relevé par la cliente le 13/08/2026, sur un chapitre retenu pour ce seul
     # motif : « pourquoi c'est à nous de corriger ? ». Elle a raison — faire
     # relire « il manque un point » à quelqu'un qui a payé un livrable est
@@ -76,7 +89,7 @@ _STRUCTURES_STRUCTURELLES = (
     #
     # La distinction tient : une vraie troncature — « auprès des prospects
     # grandes mar » — n'est jamais encadrée par des astérisques.
-    re.compile(r"^\s*\*{2}[^*]+\*{2}\s*$"),                       # titre en gras
+    TITRE_EN_GRAS,                                                # titre en gras
 )
 
 
@@ -94,6 +107,22 @@ def sans_fioritures_finales(texte: str) -> str:
     Ne touche pas aux ponctuations : « » et … restent des fins valides.
     """
     return texte.rstrip().rstrip(_FIORITURES_FINALES).rstrip()
+
+
+def sans_emphase(texte: str) -> str:
+    """Le TEXTE d'une ligne, debarrasse de ses delimiteurs aux DEUX bouts.
+
+    `sans_fioritures_finales` ne nettoie que la queue, ce qui suffit pour juger
+    d'une ponctuation finale. Pour juger de la NATURE d'une ligne — titre,
+    source, phrase — il faut la lire entiere : une expression ancree sur `$` ne
+    reconnait pas « **CRITERE DE SELECTION BTOB** » si elle n'a prevu que
+    l'asterisque de gauche. C'est ce qui a bloque l'etude `f0064333` du
+    17/08/2026.
+
+    Meme liste de delimiteurs que ci-dessus, et deliberement : deux listes
+    d'asterisques finiraient par diverger (regle 5).
+    """
+    return texte.strip().strip(_FIORITURES_FINALES).strip()
 
 
 def _dernier_mot_est_tronque(dernier_mot: str) -> bool:
