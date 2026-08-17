@@ -205,6 +205,44 @@ C'est la règle 1 appliquée à l'outillage — un contrôle qui n'a rien à com
 n'est pas un succès, et celui-là s'était fait passer pour tel toute une
 journée.
 
+### Et déployer, c'est fusionner dans `main` — pas pousser sa branche
+
+`evkha-api`, l'application qui sert `api2.evkha.fr`, se construit depuis
+**`main`**. Une branche de travail poussée puis « déployée » ne met rien en
+ligne : la construction réussit, `/healthz/` rend 200, et c'est du code
+d'avant qui tourne.
+
+Mesuré le 17/08/2026, et le mot juste est *perdu* : **84 commits** attendaient
+sur `espace-client-et-credits`, dont une journée entière de correctifs. Ils
+ont été « déployés » huit fois, chaque fois vérifiés par un `/healthz/` 200 —
+celui de `evkha-plateforme`, qui est le **frontend, dans un autre dépôt**
+(`pirabellabs1-coder/evkha-plateforme`). Toutes les mesures de la journée
+portaient donc sur du code qui ne tournait pas : sept correctifs déclarés
+actifs et jamais exécutés, un motif « inexplicable » qui s'expliquait très
+bien, une réparation de socle créditée d'un succès qui n'était qu'un hasard.
+
+La vérification tient en une requête, et elle précède toute annonce de
+déploiement :
+
+```bash
+curl -s -H "Authorization: Bearer $COOLIFY_TOKEN" \
+  http://82.165.31.105:8000/api/v1/applications/zuai4axswqlebjukcnxt3jfa \
+  | python -c "import json,sys; a=json.load(sys.stdin); print(a['name'], a['git_branch'], a['git_repository'])"
+```
+
+Deux applications, deux dépôts, deux branches — ne les confondez pas :
+
+| Application | Dépôt | Branche | Sert |
+|---|---|---|---|
+| `evkha-api` | `Systeme-EVKHA-` | **`main`** | l'API, les générations, la livraison |
+| `evkha-plateforme` | `evkha-plateforme` | `espace-client-et-credits` | l'espace client |
+
+**Un `200` ne prouve jamais qu'un correctif est en ligne.** Il prouve qu'un
+conteneur répond. La preuve, c'est un comportement qui change : la livraison
+du dossier `c7c6ba96` a refusé trois fois avec le même message, puis est
+partie au premier essai après la fusion. C'est la règle 1 appliquée au
+déploiement — un contrôle qui n'a rien à comparer n'est pas un succès.
+
 ## Ne jamais faire
 
 - **Contourner un hook** (`--no-verify`) ou masquer une erreur par un

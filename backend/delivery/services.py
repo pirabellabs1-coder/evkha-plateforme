@@ -797,15 +797,34 @@ def deliver_job(
         # et garantir que l'incident + le batch FAILED sont toujours persistes.
         try:
             with transaction.atomic():
-                DeliveryBatch.objects.update_or_create(
-                    order=job.order,
-                    defaults={
-                        "status": DeliveryStatus.FAILED,
-                        "email_provider": "brevo",
-                        "recipient_email": job.order.customer.email,
-                        "error_message": str(exc),
-                    },
-                )
+                # UN ENVOI REUSSI NE SE RETROGRADE JAMAIS.
+                #
+                # Etude `c7c6ba96`, 17/08/2026 : l'e-mail part a 13:29:30 et
+                # `sent_at` est ecrit. Quatre-vingts secondes plus tard une
+                # SECONDE tentative rejoue la verification, echoue, et reecrit
+                # le lot en FAILED. Le tableau de bord affiche « non envoye »
+                # sur un dossier que la cliente a deja recu dans sa boite.
+                #
+                # `sent_at` survivait — il n'est pas dans les `defaults` — mais
+                # personne ne le lisait : le badge suit `status`. Un dossier
+                # qui ment sur son propre etat est pire qu'un dossier en
+                # echec ; on ne sait plus lequel croire.
+                #
+                # L'echec est toujours journalise en incident. Ce qui ne se
+                # fait plus, c'est effacer la preuve d'un succes.
+                deja_envoye = DeliveryBatch.objects.filter(
+                    order=job.order, status=DeliveryStatus.SENT
+                ).exists()
+                if not deja_envoye:
+                    DeliveryBatch.objects.update_or_create(
+                        order=job.order,
+                        defaults={
+                            "status": DeliveryStatus.FAILED,
+                            "email_provider": "brevo",
+                            "recipient_email": job.order.customer.email,
+                            "error_message": str(exc),
+                        },
+                    )
                 OperationalIncident.objects.create(
                     title="Echec livraison livrable",
                     severity=IncidentSeverity.HIGH,
