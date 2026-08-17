@@ -74,6 +74,44 @@ services:
       - factstore:/app/fact_store
     restart: unless-stopped
 
+  # ── La livraison a sa propre file, et son propre ouvrier ──────────────────
+  #
+  # Le 17/08/2026, une cliente commande ses quatre études en une fois. Le
+  # worker ci-dessus tient DEUX créneaux ; les quatre générations les occupent
+  # pendant une heure. Les tâches de livraison — assembler le Word et le PDF,
+  # envoyer l'e-mail — partent dans la même file et attendent derrière.
+  #
+  # Mesuré : l'étude de concurrence finit à 16:32, sa livraison part à 17:27.
+  # Cinquante-cinq minutes pendant lesquelles un document TERMINÉ et PAYÉ
+  # existait en base sans que rien ne l'envoie, et sans qu'aucun écran ne
+  # puisse le dire — le dossier affichait « terminé ».
+  #
+  # Les deux travaux n'ont rien de comparable. Une génération dure quarante
+  # minutes et coûte plusieurs euros ; un assemblage dure une minute et ne
+  # coûte rien. Les faire patienter dans la même file revient à faire attendre
+  # ce qui est déjà payé derrière ce qui n'est pas encore écrit.
+  #
+  # Concurrence 2 ici aussi : deux livraisons simultanées suffisent largement,
+  # et LibreOffice consomme du processeur pendant la conversion PDF.
+  #
+  # ATTENTION si vous touchez à ceci : le routage vit dans
+  # `CELERY_TASK_ROUTES` (`evkha/settings.py`), et les deux DOIVENT bouger
+  # ensemble. Une file sans ouvrier, c'est zéro livraison — le défaut qu'on
+  # répare, en pire.
+  worker-livraison:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A evkha worker --loglevel=INFO --concurrency=2 -Q livraison
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - media:/app/media
+      - factstore:/app/fact_store
+    restart: unless-stopped
+
   beat:
     build:
       context: .

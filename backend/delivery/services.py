@@ -32,6 +32,29 @@ from .models import DeliveryBatch, DeliveryEvent, DeliveryStatus
 
 _log = logging.getLogger(__name__)
 
+#: Ce qu'un e-mail de livraison emporte. UNE liste, pour TOUS les chemins.
+#:
+#: Le Word en fait partie, et ce n'est pas un detail : c'est le document que la
+#: cliente retravaille, le PDF n'en est que la photographie.
+#:
+#: ## Les deux listes qui n'etaient pas d'accord
+#:
+#: `deliver_job` joignait le Word ; `send_email_for_job` — la route « renvoyer
+#: l'e-mail » du tableau de bord — ne joignait que les PDF. Deux listes pour la
+#: meme question, ecrites a trois semaines d'ecart, et personne ne les avait
+#: relues ensemble (regle 5).
+#:
+#: Le 17/08/2026 la difference est devenue visible : la livraison normale des
+#: quatre dossiers d'une cliente echouait sur le plancher de figures, et c'est
+#: par la route de secours que ses documents sont partis. Elle a donc recu
+#: quatre PDF et aucun Word — sur un chemin cense etre equivalent.
+PIECES_JOINTES_LIVREES = frozenset({
+    ArtifactKind.DOCX,
+    ArtifactKind.PDF,
+    ArtifactKind.GAMMA_PDF,
+    ArtifactKind.GAMMA_PPTX,
+})
+
 #: Un manque de figures retient-il ce livrable, et rien d'autre ?
 #:
 #: La verification protege deux choses tres differentes sous le meme verrou :
@@ -744,22 +767,13 @@ def deliver_job(
             *gamma_artifacts,
         )
 
-        # Le Word est joint lui aussi : c'est le document que la cliente
-        # retravaille, le PDF n'en est que la photographie.
         attachments = tuple(
             EmailAttachment(
                 filename=_attachment_filename(artifact, job.order.systeme_order_id),
                 url=artifact.download_url,
             )
             for artifact in all_artifacts
-            if artifact.download_url
-            and artifact.kind
-            in {
-                ArtifactKind.DOCX,
-                ArtifactKind.PDF,
-                ArtifactKind.GAMMA_PDF,
-                ArtifactKind.GAMMA_PPTX,
-            }
+            if artifact.download_url and artifact.kind in PIECES_JOINTES_LIVREES
         )
         result = email_client.send_delivery_email(
             recipient_email=job.order.customer.email,
@@ -866,8 +880,7 @@ def send_email_for_job(
             url=artifact.download_url,
         )
         for artifact in artifacts
-        if artifact.kind in {ArtifactKind.PDF, ArtifactKind.GAMMA_PDF, ArtifactKind.GAMMA_PPTX}
-        and artifact.download_url
+        if artifact.kind in PIECES_JOINTES_LIVREES and artifact.download_url
     )
 
     try:

@@ -174,6 +174,38 @@ CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://localhost:
 # (execution synchrone). False par defaut : aucun impact en production.
 CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
 
+#: La livraison ne fait plus la queue derrière les générations.
+#:
+#: ## Ce qui a été mesuré
+#:
+#: 17/08/2026. Une cliente commande ses quatre études d'un coup. Le worker
+#: tient deux créneaux, les générations les occupent une heure. Les tâches de
+#: livraison partaient dans la MÊME file : l'étude de concurrence a fini à
+#: 16:32 et son document est parti à 17:27. Cinquante-cinq minutes d'attente
+#: pour un assemblage qui dure une minute et ne coûte rien.
+#:
+#: Rien ne le signalait, et c'est le pire : le dossier affichait « terminé »,
+#: le document existait, et aucun écran ne pouvait dire qu'il attendait un
+#: créneau. Ce n'est pas une lenteur, c'est un silence (règle 1).
+#:
+#: ## Pourquoi une file séparée plutôt qu'un worker plus large
+#:
+#: Augmenter la concurrence repousse le seuil sans le supprimer : il suffit
+#: d'une commande de plus pour le retrouver. Ce qui est structurel, c'est que
+#: deux travaux de nature opposée se partagent une file — quarante minutes et
+#: plusieurs euros d'un côté, une minute et zéro centime de l'autre. Un
+#: document déjà payé ne doit jamais attendre derrière un document pas encore
+#: écrit.
+#:
+#: ## Le couple à ne pas casser
+#:
+#: `worker-livraison` (`docker-compose.prod.yml`) consomme cette file, et lui
+#: seul. Les deux se déploient ENSEMBLE : une file sans ouvrier ne livre plus
+#: rien du tout.
+CELERY_TASK_ROUTES = {
+    "delivery.*": {"queue": "livraison"},
+}
+
 # Tâches périodiques (service beat du compose prod).
 # Purge horaire des artefacts expirés — rétention 7 jours (D5).
 CELERY_BEAT_SCHEDULE = {
