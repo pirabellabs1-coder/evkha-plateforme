@@ -19,8 +19,11 @@ EM v1 (retour 21/07/2026) :
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import Counter, defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 # ══════════════════════════════════════════════════════════════════════════
 # 1. TRONCATURE
@@ -993,3 +996,202 @@ def _contradictions_de_la_section(
             ),
         ))
     return defauts
+
+
+# ── Le texte lui-même est-il du français ? ───────────────────────────────────
+
+
+@dataclass(frozen=True)
+class CaractereEtranger:
+    """Un caractère qui n'appartient à aucune écriture du document."""
+
+    chapitre: int
+    titre: str
+    caractere: str
+    nom_unicode: str
+    contexte: str
+
+    def __str__(self) -> str:
+        return (
+            f"Caractère « {self.caractere} » (U+{ord(self.caractere):04X}, "
+            f"{self.nom_unicode}) dans le chapitre « {self.titre} » : "
+            f"…{self.contexte}… Ce signe n'appartient à aucune écriture de ce "
+            "document ; retire-le et rétablis le mot."
+        )
+
+
+#: Les seules lettres non latines qu'un livrable français peut porter.
+#:
+#: Le grec sert aux notations (α, β, σ) et le micro à une unité. Tout le reste
+#: — idéogrammes, cyrillique, arabe, hébreu — est un accident de génération.
+_ECRITURES_ADMISES = ("LATIN", "GREEK")
+_LETTRES_ADMISES = {"µ", "μ", "Ω", "°"}
+
+#: Les LETTRES MODIFICATIVES (catégorie Unicode `Lm`) sont admises.
+#:
+#: Ce sont les exposants de la typographie française : « 1ᵉʳ », « 4ᵉ trimestre »,
+#: « 2ᵈ ». Leur nom Unicode ne commence pas par LATIN — « MODIFIER LETTER SMALL
+#: E » — et la première version de ce contrôle les a donc toutes signalées :
+#: QUARANTE motifs sur la stratégie `f8a29b66`, un document correct. Le
+#: contrôle écrit pour supprimer un caractère parasite en aurait produit
+#: quarante faux le jour de sa mise en service (règle 2).
+#:
+#: La catégorie est le bon niveau : une lettre modificative est une MARQUE
+#: typographique, pas une écriture. Un idéogramme est `Lo`, un caractère
+#: cyrillique est `Ll` — tous deux restent signalés.
+_CATEGORIE_MODIFICATIVE = "Lm"
+
+
+def detecter_caracteres_etrangers(
+    sections: Sequence[Any],
+) -> list[CaractereEtranger]:
+    """Les caractères d'une autre écriture, glissés dans la prose.
+
+    ## Le défaut, mesuré
+
+    Étude de marché `f0064333`, 17/08/2026, chapitre 4 :
+
+        …les prochaines années verront probablement l'émergence de標 repères
+        de prix et de qualité…
+
+    U+6A19, un idéogramme, au milieu d'une phrase, collé au mot précédent. Le
+    modèle a produit là un jeton hors sujet — 標 signifie « marque, étalon » —
+    et rien dans la chaîne ne l'a vu. La cliente, elle, l'a vu : « présence
+    notamment du caractère 「標」, qui ne doit évidemment pas apparaître dans le
+    document final ».
+
+    ## Pourquoi la règle est POSITIVE
+
+    Énumérer les écritures interdites — CJK, cyrillique, arabe… — serait une
+    liste ouverte, donc incomplète par construction (règle 4). On énumère au
+    contraire ce qu'un livrable français a le DROIT de porter : l'alphabet
+    latin, le grec des notations, et quelques signes d'unité.
+    """
+    trouves: list[CaractereEtranger] = []
+    for section in sections:
+        corps = getattr(section, "body", "") or ""
+        for position, caractere in enumerate(corps):
+            if not caractere.isalpha() or caractere in _LETTRES_ADMISES:
+                continue
+            if unicodedata.category(caractere) == _CATEGORIE_MODIFICATIVE:
+                continue
+            nom = unicodedata.name(caractere, "")
+            if nom.startswith(_ECRITURES_ADMISES):
+                continue
+            debut = max(0, position - 30)
+            trouves.append(CaractereEtranger(
+                chapitre=getattr(section, "number", 0),
+                titre=getattr(section, "title", ""),
+                caractere=caractere,
+                nom_unicode=nom or "inconnu",
+                contexte=" ".join(corps[debut:position + 30].split()),
+            ))
+    return trouves
+
+
+@dataclass(frozen=True)
+class ChapitreDesaccentue:
+    """Un chapitre écrit sans ses accents, dans un document qui en porte."""
+
+    chapitre: int
+    titre: str
+    mots: tuple[str, ...]
+
+    def __str__(self) -> str:
+        echantillon = ", ".join(self.mots[:8])
+        return (
+            f"Chapitre « {self.titre} » écrit sans accents : {len(self.mots)} "
+            f"mots que le reste du document accentue — {echantillon}. "
+            "Réécris ce chapitre avec les accents français."
+        )
+
+
+#: En deçà, ce n'est pas un chapitre désaccentué, c'est du hasard.
+#:
+#: Mesuré sur les quatre livrables du 17/08/2026 : le chapitre fautif du
+#: business plan en porte TRENTE-TROIS ; le maximum de tous les autres
+#: chapitres des quatre documents, chapitres Sources exclus, est de TROIS.
+#: Le seuil est posé au milieu de cet écart, très loin des deux bords.
+SEUIL_MOTS_DESACCENTUES = 8
+
+
+def _sans_accents(mot: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFD", mot.casefold())
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def _accent_interne(mot: str) -> bool:
+    """L'accent porte-t-il ailleurs que sur la dernière lettre ?
+
+    « adressé » et « adresse » sont deux mots français différents, et les
+    compter ferait crier sur chaque participe passé du document. « année » et
+    « annee » ne sont pas deux mots : le second n'existe pas.
+    """
+    return any(
+        _sans_accents(c) != c.casefold() and i < len(mot) - 1
+        for i, c in enumerate(mot)
+    )
+
+
+_MOT = re.compile(r"[A-Za-zÀ-ÿ]{4,}")
+
+
+def detecter_chapitres_desaccentues(
+    sections: Sequence[Any],
+) -> list[ChapitreDesaccentue]:
+    """Les chapitres produits en ASCII, dans un document qui écrit le français.
+
+    ## Le défaut, mesuré
+
+    Business plan `256e63d8`, 17/08/2026, chapitre 18 « Politique de
+    rémunération » :
+
+        | Remuneration modeste et progressive, indexee sur la montee en charge
+        | du chiffre d'affaires | Coherente avec un chiffre d'affaires…
+
+    Trente-trois mots que le reste du document accentue. La même zone écrit
+    « 1500 EUR/mois » là où le document écrit « € » partout ailleurs : un
+    chapitre entier produit en ASCII.
+
+    ## Le document se juge sur LUI-MÊME
+
+    Aucun dictionnaire n'est nécessaire, et c'est ce qui rend le contrôle sûr :
+    on ne cherche pas les mots mal orthographiés, on cherche ceux que CE
+    document écrit des deux façons. « Rémunération » au titre du chapitre et
+    « Remuneration » dans son tableau — la contradiction est interne, donc
+    démontrable, donc trouvable par le lecteur (règle 2).
+
+    Les chapitres de sources sont écartés : ils portent des titres anglais, des
+    noms propres et des URL, et leur faible taux d'accents est normal.
+    """
+    corpus = "\n".join(getattr(s, "body", "") or "" for s in sections)
+    formes: dict[str, set[str]] = {}
+    for mot in _MOT.findall(corpus):
+        formes.setdefault(_sans_accents(mot), set()).add(mot)
+
+    # Les mots que le document écrit accentués, l'accent tombant à l'intérieur.
+    accentues = {
+        cle for cle, vues in formes.items()
+        if any(_sans_accents(m) != m.casefold() and _accent_interne(m) for m in vues)
+    }
+
+    trouves: list[ChapitreDesaccentue] = []
+    for section in sections:
+        titre = getattr(section, "title", "") or ""
+        if "source" in titre.casefold():
+            continue
+        corps = getattr(section, "body", "") or ""
+        nus = sorted({
+            mot for mot in _MOT.findall(corps)
+            if _sans_accents(mot) == mot.casefold()
+            and _sans_accents(mot) in accentues
+        })
+        if len(nus) >= SEUIL_MOTS_DESACCENTUES:
+            trouves.append(ChapitreDesaccentue(
+                chapitre=getattr(section, "number", 0),
+                titre=titre,
+                mots=tuple(nus),
+            ))
+    return trouves

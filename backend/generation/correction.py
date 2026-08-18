@@ -96,6 +96,11 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
         "sources_non_tracables_url_bidon",
         # Fourchettes et cardinaux TCAC (EM/BP/EC/STR — checks_evangeline).
         "fourchette_interdite",
+        # Le texte lui-meme (18/08/2026, retour cliente). Les deux se
+        # reparent en REECRIVANT le chapitre : le motif nomme le caractere ou
+        # les mots, et c'est exactement ce dont le redacteur a besoin.
+        "caractere_etranger",
+        "chapitre_desaccentue",
         # Nouveaux checks par livrable via _check_strategie_livrable.
         # Ils portent tous le prefixe `strategy_<deliverable>_<categorie>`.
         # On les ajoute dynamiquement au frozenset au chargement.
@@ -147,6 +152,10 @@ _CHECK_LABELS = {
     "contamination": "Marqueur technique interne présent dans le texte (interdit)",
     "coherence_chiffree": "Chiffre incohérent avec le prévisionnel client",
     "calcul_faux": "Calcul dont le résultat ne découle pas de ses termes",
+    "caractere_etranger": "Caractère d'une autre écriture dans le texte",
+    "chapitre_desaccentue": (
+        "Chapitre écrit sans accents — le rédiger en français accentué"
+    ),
     "demande_contredite": "Sujet déclaré « non traité » alors qu'il l'est ailleurs",
     "troncature": "Chapitre coupé / phrase ou structure non terminée",
     "ordre_de_grandeur": "Erreur d'unité : montant hors d'échelle (millions/milliers)",

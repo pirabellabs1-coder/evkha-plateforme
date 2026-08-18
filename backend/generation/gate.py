@@ -1459,6 +1459,53 @@ def _check_arithmetique_marche(job: GenerationJob) -> list[GateFailure]:
     ]
 
 
+def _check_texte_francais(
+    sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Le document est-il écrit en français, partout ?
+
+    Deux défauts relevés par la cliente le 18/08/2026, sur deux documents
+    différents, et qui ont la même nature : le TEXTE lui-même est abîmé.
+
+    - Étude de marché `f0064333` : « présence notamment du caractère 「標」,
+      qui ne doit évidemment pas apparaître dans le document final ». Un
+      idéogramme, au milieu d'une phrase, collé au mot précédent.
+    - Business plan `256e63d8` : « beaucoup de texte dépourvu d'accents dans
+      le chapitre rémunération — Remuneration, annee, securite, coherence,
+      elevee ». Un chapitre entier produit en ASCII.
+
+    Aucun contrôle ne regardait le texte à ce niveau : ils jugeaient sa
+    structure, ses chiffres, ses sources et sa longueur — jamais ses lettres
+    (règle 9 : ce que le contrôle ne regarde pas est exactement là où la
+    réparation ne cherchera pas).
+
+    Mesuré sur les quatre livrables du 17/08 : un motif sur l'étude de marché,
+    un sur le business plan, zéro sur les deux autres.
+    """
+    from .checks_post_rendu import (  # noqa: PLC0415
+        detecter_caracteres_etrangers,
+        detecter_chapitres_desaccentues,
+    )
+
+    failures = [
+        GateFailure(
+            check="caractere_etranger",
+            chapter_number=trouve.chapitre,
+            detail=str(trouve),
+        )
+        for trouve in detecter_caracteres_etrangers(sections)
+    ]
+    failures.extend(
+        GateFailure(
+            check="chapitre_desaccentue",
+            chapter_number=trouve.chapitre,
+            detail=str(trouve),
+        )
+        for trouve in detecter_chapitres_desaccentues(sections)
+    )
+    return failures
+
+
 def run_delivery_gate(job: GenerationJob) -> GateReport:
     """Exécute les quatre checks bloquants sur le document tel que livré.
 
@@ -1500,6 +1547,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_chapitres_avortes(job, sections))
     failures.extend(_check_strategie_livrable(job, sections))
     failures.extend(_check_post_rendu(sections, deliverable_type=str(job.deliverable_type)))
+    failures.extend(_check_texte_francais(sections))
     # Manuel EVKHA p.17 : livraison possible UNIQUEMENT si tous les controles
     # sont valides. Un CHECK de bloc encore en echec bloque l'envoi.
     failures.extend(_check_blocs_evangeline(job))
