@@ -18,7 +18,12 @@ from integrations.claude import SYSTEM_CACHE_BREAK
 
 from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, ChapterStatus, GenerationJob
-from ..socle.schema import Socle, famille_de_l_unite, montant_lisible
+from ..socle.schema import (
+    Socle,
+    famille_de_l_unite,
+    montant_lisible,
+    offres_du_meme_groupe,
+)
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
@@ -411,11 +416,55 @@ def _bloc_concurrents(socle: Socle) -> str:
     directs = sum(1 for a in socle.concurrents if a.type == "direct")
     indirects = sum(1 for a in socle.concurrents if a.type == "indirect")
     projet = next((a for a in socle.concurrents if a.type == "projet"), None)
+    # Un acteur SANS identité vérifiable ne reçoit aucune consigne chiffrée.
+    #
+    # ## Le défaut, mesuré
+    #
+    # Étude de concurrence `3a4df56c`, 17/08/2026. Six des onze « concurrents »
+    # sont des catégories de marché — « Agence IA générique (Lyon) »,
+    # « Cabinet de conseil IA packagé pour PME (Nantes) », « ESN de taille
+    # intermédiaire (Lille) ». Leur propre colonne source le dit : « non
+    # communiqué (recherche par catégorie) ».
+    #
+    # Ce bloc leur envoyait pourtant, mot pour mot, la même consigne qu'à EY :
+    #
+    #     CA non publié — à estimer par : {methode_estimation}
+    #
+    # Le modèle a obéi. Le document livré porte donc :
+    #
+    #     | Agence IA générique (Lyon) | 130 000 | 0,015 % |
+    #     | Agence IA générique (Lyon) | 95 000 | 130 000 | +37 % |
+    #
+    # Un chiffre d'affaires, une croissance et une part de marché sur une
+    # entreprise qui n'existe pas. La cliente, le 18/08/2026 : « en réalité,
+    # l'étude ne compare pas 11 concurrents identifiés ».
+    #
+    # ## Ce qui change, et ce qui ne change pas
+    #
+    # Le profil-type RESTE dans la liste : il décrit une zone réelle du marché,
+    # et l'écarter appauvrirait l'analyse. Ce qu'il perd, c'est le droit de
+    # porter une donnée qu'on ne peut pas observer sur lui. On n'observe pas
+    # une catégorie.
+    #
+    # La consigne le dit au modèle plutôt que de compter sur son bon sens :
+    # c'est ici que la phrase fautive était écrite, c'est ici qu'elle se
+    # répare (règle 5 — la liste des acteurs n'a qu'une source).
+    identifies = [a for a in socle.concurrents if a.type != "projet" and a.est_identifie]
+    profils = [a for a in socle.concurrents if a.type != "projet" and not a.est_identifie]
+    groupes = offres_du_meme_groupe(socle.concurrents)
+
     lignes = []
     for a in socle.concurrents:
         tete = f"- {a.nom} ({a.type}" + (f", {a.emplacement}" if a.emplacement else "") + ")"
         morceaux = [tete]
-        if a.ca_connu:
+        if a.type != "projet" and not a.est_identifie:
+            morceaux.append(
+                "TYPE D'ACTEUR, pas une entreprise : aucun site officiel. "
+                "Ne lui attribue NI chiffre d'affaires, NI croissance, NI part "
+                "de marché, NI aucune donnée observée. Décris-le comme une "
+                "catégorie d'acteurs, au pluriel"
+            )
+        elif a.ca_connu:
             morceaux.append(f"CA : {a.ca_connu}")
         elif a.methode_estimation:
             morceaux.append(f"CA non publié — à estimer par : {a.methode_estimation}")
@@ -436,6 +485,31 @@ def _bloc_concurrents(socle: Socle) -> str:
             "apparaît sur toute figure qui compare des acteurs, pour que le "
             "lecteur voie où elle se situe.\n"
             if projet is not None else ""
+        )
+        + (
+            f"\nSur ces acteurs, {len(identifies)} "
+            + ("est une ENTREPRISE identifiée" if len(identifies) == 1
+               else "sont des ENTREPRISES identifiées")
+            + f" (site officiel vérifiable) et {len(profils)} "
+            + ("est un TYPE D'ACTEUR issu" if len(profils) == 1
+               else "sont des TYPES D'ACTEURS issus")
+            + " d'une recherche par catégorie. Tout compte, tout classement "
+            "et tout chiffre ne portent que sur les entreprises identifiées. "
+            "Une phrase qui annonce un nombre de concurrents COMPTE les "
+            "entreprises, pas les catégories.\n"
+            if profils else ""
+        )
+        + (
+            "\n"
+            + "\n".join(
+                f"ATTENTION : {' et '.join(noms)} sont plusieurs offres d'une "
+                f"MÊME entreprise ({domaine}). Compte-les pour UN concurrent, "
+                "n'additionne jamais leurs parts de marché, et présente-les "
+                "comme deux offres d'un même groupe."
+                for domaine, noms in groupes
+            )
+            + "\n"
+            if groupes else ""
         )
         + "\n".join(lignes)
     )

@@ -27,7 +27,27 @@ _BASE_CONCURRENTS = (
     "Renseigne `concurrents` avec EXACTEMENT 8 acteurs de type `direct` et "
     "3 de type `indirect`, soit 11. Pour chacun :\n"
     "- `nom`, `emplacement` (adresse ou ville précise), `structure` "
-    "(indépendant, chaîne, franchise, groupe...), `positionnement`, `site_web` ;\n"
+    "(indépendant, chaîne, franchise, groupe...), `positionnement` ;\n"
+    # `site_web` porte désormais une DÉCISION, et pas seulement une commodité.
+    #
+    # Étude `3a4df56c`, 17/08/2026 : six « concurrents » sur onze étaient des
+    # catégories — « Agence IA générique (Lyon) », « ESN de taille intermédiaire
+    # (Lille) » — et recevaient un chiffre d'affaires, une croissance et une part
+    # de marché comme s'ils avaient été observés.
+    #
+    # Le code sait maintenant les reconnaître à l'absence de domaine
+    # (`Concurrent.est_identifie`). Encore faut-il que cette absence VEUILLE dire
+    # quelque chose : le champ n'était que « demandé », donc un vrai concurrent
+    # mal renseigné se serait fait déclasser en catégorie — un motif faux, et ce
+    # dépôt sait ce qu'ils coûtent (règle 2). La consigne le rend délibéré.
+    "- `site_web` : l'URL OFFICIELLE de l'acteur. C'est ce qui fait la "
+    "différence entre une entreprise et une catégorie. Si tu ne peux pas citer "
+    "d'adresse officielle vérifiable, alors cet acteur n'est PAS une entreprise "
+    "identifiée : laisse `site_web` vide, nomme-le comme un TYPE d'acteur "
+    "(« agences d'automatisation no-code », au pluriel) et n'invente ni son "
+    "chiffre d'affaires, ni sa part de marché ;\n"
+    "- deux offres d'un MÊME groupe (même domaine) ne comptent que pour un "
+    "acteur : ne les inscris pas deux fois ;\n"
     "- `ca_connu` : le chiffre d'affaires PUBLIÉ avec son année "
     "(« 1,4 M€ (2024) »), ou la mention exacte « non publié ». Ne devine "
     "jamais un montant ici ;\n"

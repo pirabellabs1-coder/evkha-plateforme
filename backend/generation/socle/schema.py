@@ -6,6 +6,7 @@ extrait ce qu'il peut de la prose et se tait sur le reste.
 """
 from __future__ import annotations
 
+import re
 from collections import Counter
 from collections.abc import Sequence
 from datetime import date
@@ -347,6 +348,16 @@ class NoteConcurrent(BaseModel):
     note: int = Field(ge=1, le=5)
 
 
+#: Ce qui distingue une ENTREPRISE d'un TYPE d'acteur : un domaine.
+#:
+#: Au niveau du MODULE, et pas dans le corps du modele : pydantic traite un
+#: attribut de classe prefixe d'un souligne comme un attribut prive, et la
+#: recherche rendait alors faux sur « ey.com » comme sur « non communique ».
+#: Un controle qui repond toujours non ne controle rien (regle 1) — celui-ci
+#: a ete pris en defaut par sa propre contre-epreuve avant d'exister.
+_DOMAINE_WEB = re.compile(r"[a-z0-9][a-z0-9-]+\.(?:[a-z]{2,})", re.IGNORECASE)
+
+
 class Concurrent(BaseModel):
     """Un acteur de la base consolidée concurrents.
 
@@ -408,6 +419,62 @@ class Concurrent(BaseModel):
         return self
 
     @property
+    def est_identifie(self) -> bool:
+        """Cet acteur est-il une entreprise qu'un lecteur peut aller voir ?
+
+        ## Le défaut mesuré
+
+        Étude de concurrence `3a4df56c`, 17/08/2026. Sur onze « concurrents »,
+        SIX sont des catégories de marché : « Agence IA générique (Lyon) »,
+        « Cabinet de conseil IA packagé pour PME (Nantes) », « Consultant
+        indépendant IA/no-code »… Leur colonne source le dit sans détour —
+        « non communiqué (recherche par catégorie) » — et le chapitre Sources
+        l'écrit noir sur blanc : « faute de nom individuel vérifiable ».
+
+        Ils reçoivent pourtant tout ce qu'on donne à une entreprise observée :
+
+            | Agence IA générique (Lyon) | 130 000 | 0,015 % |
+            | Agence IA générique (Lyon) | 95 000 | 130 000 | +37 % |
+
+        Un chiffre d'affaires, une croissance, une part de marché. Sur une
+        entreprise qui n'existe pas. La cliente : « en réalité, l'étude ne
+        compare pas 11 concurrents identifiés ».
+
+        ## Ce que cette propriété permet, et ce qu'elle n'interdit pas
+
+        Un type d'acteur a sa place dans une étude de concurrence : il décrit
+        une zone du marché. Ce qu'il ne peut pas porter, c'est une donnée
+        OBSERVÉE — on n'observe pas une catégorie. Voir `_bloc_concurrents`,
+        qui cesse de lui demander une estimation de chiffre d'affaires.
+        """
+        return bool(_DOMAINE_WEB.search(self.site_web or ""))
+
+    @property
+    def domaine(self) -> str:
+        """Le domaine RACINE de cet acteur, ou la chaîne vide.
+
+        Sert à reconnaître deux OFFRES d'une même entreprise
+        (`offres_du_meme_groupe`), et c'est pour cela qu'il faut la RACINE.
+
+        La première version rendait la première correspondance trouvée. Elle
+        lisait donc « www.ey » dans « https://www.ey.com/fr_fr/… » et « ey.com »
+        dans « ey.com, page conseil » — deux clés différentes pour un même
+        cabinet, écrit de deux façons dans la même base. Le regroupement aurait
+        échoué exactement sur le cas qui l'a fait écrire. Sa contre-épreuve l'a
+        montrée avant la production, cette fois-ci.
+
+        On prend donc l'hôte, puis ses deux derniers segments :
+        « www2.deloitte.com/fr » → « deloitte.com ».
+        """
+        trouve = _DOMAINE_WEB.search(self.site_web or "")
+        if not trouve:
+            return ""
+        # L'hôte s'arrête au premier séparateur : chemin, espace, virgule.
+        hote = re.split(r"[/\s,;)]", self.site_web[trouve.start():], maxsplit=1)[0]
+        segments = [s for s in hote.lower().strip(".").split(".") if s]
+        return ".".join(segments[-2:]) if len(segments) >= 2 else ""
+
+    @property
     def codes_notes(self) -> set[str]:
         return {note.critere for note in self.notes}
 
@@ -416,6 +483,50 @@ class Concurrent(BaseModel):
             if note.critere == code:
                 return note.note
         return None
+
+
+def offres_du_meme_groupe(
+    concurrents: Sequence[Concurrent],
+) -> list[tuple[str, list[str]]]:
+    """Les acteurs qui sont en réalité plusieurs offres d'une même entreprise.
+
+    ## Le défaut, mesuré
+
+    Étude de concurrence `3a4df56c`, 17/08/2026. La base compte onze
+    « concurrents », dont deux sont :
+
+        EY France - Conseil en Intelligence Artificielle
+        EY France - Conseil en Intelligent Automation
+
+    Deux offres d'un même cabinet, comptées comme deux concurrents distincts,
+    notées séparément, et dont les parts de marché — 0,065 % et 0,071 % — sont
+    additionnées comme si elles venaient de deux entreprises.
+
+    Le document SAVAIT. Dans sa colonne chiffre d'affaires, il écrit lui-même :
+    « Non publié (même entité juridique qu'EY Conseil en IA) ». L'information
+    était là, personne ne la lisait.
+
+    ## Le discriminant
+
+    Le domaine. Deux acteurs qui renvoient à `ey.com` sont le même cabinet,
+    quelle que soit la façon dont leurs offres s'intitulent. Comparer les NOMS
+    ne marcherait pas : « EY France - Conseil en IA » et « EY France -
+    Intelligent Automation » n'ont en commun que deux mots, autant que deux
+    vrais concurrents français du même secteur.
+
+    Rend une liste `(domaine, [noms])`, uniquement pour les domaines portés par
+    au moins deux acteurs. Vide quand la base est saine.
+    """
+    par_domaine: dict[str, list[str]] = {}
+    for acteur in concurrents:
+        if acteur.type == "projet" or not acteur.domaine:
+            continue
+        par_domaine.setdefault(acteur.domaine, []).append(acteur.nom)
+    return [
+        (domaine, noms)
+        for domaine, noms in sorted(par_domaine.items())
+        if len(noms) > 1
+    ]
 
 
 class Tendance(BaseModel):

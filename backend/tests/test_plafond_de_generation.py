@@ -76,9 +76,14 @@ from generation.services import _BUDGET_EUR_BY_TYPE
 # (3,63 € > 3,50 € ; 5,58 € > 5,50 €) et une stratégie finie au ras (5,45 €).
 # Un plafond sous le coût réel sacrifie le dernier chapitre — celui qui conclut
 # — et fait payer la tentative.
+# Business plan relevé de 6,50 à 8,00 € le 18/08/2026, sur décision de la
+# cliente, après une quatrième mesure : le dossier `256e63d8` s'est arrêté à
+# 21 chapitres sur 22 et le sommaire livré passe de « 01 Résumé exécutif » à
+# « 03 Genèse du projet ». Le plafond n'a pas failli — c'est sa valeur qui
+# était sous le coût réel du livrable.
 DECISION_CLIENTE = {
     DeliverableType.MARKET_STUDY: Decimal("8.00"),
-    DeliverableType.BUSINESS_PLAN: Decimal("6.50"),
+    DeliverableType.BUSINESS_PLAN: Decimal("8.00"),
     DeliverableType.BUSINESS_STRATEGY: Decimal("6.50"),
     DeliverableType.COMPETITOR_STUDY: Decimal("4.50"),
 }

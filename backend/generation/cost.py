@@ -398,7 +398,19 @@ def max_tokens_for_job(
 #: garde 8,00 € : la seule mesuree tres en dessous de sa borne (7,44 €).
 PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
     DeliverableType.MARKET_STUDY:      Decimal("8.0000"),
-    DeliverableType.BUSINESS_PLAN:     Decimal("6.5000"),
+    # Relevé de 6,50 à 8,00 € le 18/08/2026, sur décision de la cliente.
+    #
+    # Le business plan `256e63d8` s'est arrêté à 21 chapitres sur 22 : le
+    # chapitre 02 n'a jamais été écrit, et le sommaire livré passe de « 01
+    # Résumé exécutif » à « 03 Genèse du projet ». Le plafond n'a pas failli —
+    # il a fait exactement son travail, au centime près. C'est sa VALEUR qui
+    # était en dessous de ce que ce livrable coûte réellement.
+    #
+    # Un plafond trop bas ne fait pas économiser : il livre un document
+    # amputé, déjà payé, que personne ne peut vendre. Le montant reste la
+    # décision de la cliente et de personne d'autre — ce fichier ne fait que
+    # l'appliquer.
+    DeliverableType.BUSINESS_PLAN:     Decimal("8.0000"),
     DeliverableType.BUSINESS_STRATEGY: Decimal("6.5000"),
     DeliverableType.COMPETITOR_STUDY:  Decimal("4.5000"),
 }

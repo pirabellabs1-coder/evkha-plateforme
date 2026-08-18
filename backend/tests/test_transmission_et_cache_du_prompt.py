@@ -59,9 +59,9 @@ CRITERES = [
 ]
 
 
-def _acteur(nom: str, ca: str = "", **notes: int) -> Concurrent:
+def _acteur(nom: str, ca: str = "", site: str = "", **notes: int) -> Concurrent:
     return Concurrent(
-        nom=nom, ca_connu=ca,
+        nom=nom, ca_connu=ca, site_web=site,
         notes=[NoteConcurrent(critere=c, note=n) for c, n in notes.items()],
     )
 
@@ -103,9 +103,14 @@ def test_sans_part_job_le_prompt_est_la_part_chapitre() -> None:
 
 
 def test_le_chapitre_recoit_la_base_concurrents_et_ses_comptes() -> None:
+    # Les deux acteurs portent désormais leur site : depuis le 18/08/2026, un
+    # acteur SANS domaine vérifiable est traité comme un TYPE d'acteur et ne
+    # reçoit plus de consigne chiffrée (`Concurrent.est_identifie`). VeraCash et
+    # AuCOFFRE sont deux entreprises réelles ; leur fiche de test datait d'avant
+    # que ce champ veuille dire quelque chose.
     socle = _socle(concurrents=[
-        _acteur("VeraCash", ca="1,4 M€ (2024)"),
-        Concurrent(nom="AuCOFFRE", type="indirect",
+        _acteur("VeraCash", ca="1,4 M€ (2024)", site="veracash.com"),
+        Concurrent(nom="AuCOFFRE", type="indirect", site_web="aucoffre.com",
                    methode_estimation="trafic et panier moyen"),
     ])
 
