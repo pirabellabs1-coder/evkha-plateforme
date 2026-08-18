@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,64 @@ def pour_le_client(chapitre: dict[str, Any]) -> bool:
     réclamerait un chapitre qu'on vient de ne plus écrire (règle 3).
     """
     return int(chapitre["numero"]) > 0
+
+
+#: Ce qu'un sommaire écrit à la place d'un chapitre qui n'a pas été produit.
+#:
+#: Formulé pour le LECTEUR, pas pour l'exploitation : il n'a pas à connaître le
+#: plafond de dépense d'un dossier, il a à savoir que ce chapitre n'est pas là.
+MENTION_CHAPITRE_ABSENT = "Chapitre non produit dans cette version"
+
+
+def entrees_du_sommaire(
+    chapitres: Sequence[dict[str, Any]]
+) -> list[tuple[str, str, str]]:
+    """Les entrées du sommaire — Y COMPRIS les chapitres qui manquent.
+
+    ## Le défaut, mesuré
+
+    Business plan `256e63d8`, 17/08/2026. Le dossier s'arrête à 21 chapitres
+    sur 22 : le plafond de dépense est atteint avant le dernier. Le sommaire
+    livré à la cliente écrit alors :
+
+        | 01 | Résumé exécutif |
+        | 03 | Genèse du projet |
+
+    Le chapitre 02 ne manque pas : il n'existe pas. Aucune ligne, aucune
+    mention, nulle part dans le document. La cliente l'a vu — « il manque le
+    chapitre 02 dans le sommaire, c'est le premier défaut de forme évident » —
+    et a dû deviner elle-même la cause.
+
+    ## Pourquoi le trou doit se VOIR
+
+    Le dépôt a déjà tranché ce principe pour la génération : un dossier qui
+    coince « livre le reste avec un trou nommé », plutôt que de tout perdre.
+    Le rendu n'avait jamais appris la seconde moitié de la phrase — il livrait
+    le reste, sans nommer le trou.
+
+    Un document qui saute un numéro sans le dire laisse son lecteur devant
+    deux hypothèses, dont l'une est bien pire que la vérité : soit un chapitre
+    manque, soit la numérotation est fausse — et alors c'est tout le document
+    qui devient suspect. C'est la règle 1 appliquée au sommaire : se taire
+    n'est pas une option.
+
+    ## Comment le trou est reconnu
+
+    Par la numérotation elle-même, sans rien consulter d'autre. Les numéros
+    produits vont de 1 à N ; tout entier absent de cet intervalle est un
+    chapitre qui n'a pas été écrit. Le chapitre 0 — la fiche projet interne —
+    est déjà écarté en amont par `pour_le_client`, et l'intervalle commence au
+    premier numéro réellement présent : un document qui démarre au chapitre 1
+    ne se voit pas reprocher un chapitre 0.
+    """
+    numeros = sorted(int(c["numero"]) for c in chapitres)
+    if not numeros:
+        return []
+    titres = {int(c["numero"]): c["titre"] for c in chapitres}
+    return [
+        (f"{numero:02d}", titres.get(numero, MENTION_CHAPITRE_ABSENT), "")
+        for numero in range(numeros[0], numeros[-1] + 1)
+    ]
 
 
 def substituer_reperes(gabarit: str, valeurs: dict[str, str]) -> str:
@@ -298,7 +357,7 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
 
     chapitres = [c for c in etude.get("chapitres", []) if pour_le_client(c)]
 
-    entrees = [(f"{c['numero']:02d}", c["titre"], "") for c in chapitres]
+    entrees = entrees_du_sommaire(chapitres)
     if entrees:
         composants.sommaire(document, palette, entrees)
         composants.saut_de_page(document)

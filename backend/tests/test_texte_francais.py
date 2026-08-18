@@ -189,3 +189,60 @@ def test_les_deux_motifs_sont_reparables_par_la_boucle() -> None:
     for check in ("caractere_etranger", "chapitre_desaccentue"):
         assert check in _CHAPTER_LEVEL_CHECKS
         assert check in _CHECK_LABELS
+
+
+# ── 3. Une coquille que le document sait corriger lui-meme ───────────────────
+
+
+def test_la_lettre_doublee_de_la_page_7_est_signalee() -> None:
+    """« chiffrage du marche nnational » — strategie `f8a29b66`, page 7.
+
+    Echoue sur le code d'avant : aucun controle ne lisait l'orthographe.
+    """
+    from generation.checks_post_rendu import detecter_lettres_doublees
+
+    trouves = detecter_lettres_doublees([
+        Section(1, "Introduction", "Le marché national progresse. Le cadre "
+                                   "national reste stable, le marché national "
+                                   "français aussi."),
+        Section(7, "Positionnement",
+                "chiffrage du marché nnational estimé par triangulation."),
+    ])
+    assert len(trouves) == 1
+    assert trouves[0].faute == "nnational"
+    assert trouves[0].correction == "national"
+    assert trouves[0].chapitre == 7
+
+
+def test_un_mot_correct_repete_ne_declenche_rien() -> None:
+    """Contre-epreuve : un document sain ne produit aucun motif."""
+    from generation.checks_post_rendu import detecter_lettres_doublees
+
+    assert detecter_lettres_doublees([
+        Section(1, "Chapitre", "Le marché national progresse. Le plan national "
+                               "et la stratégie nationale sont alignés."),
+    ]) == []
+
+
+def test_un_doublement_en_MILIEU_de_mot_n_est_pas_juge() -> None:
+    """Contre-epreuve, et elle vient d'une mesure.
+
+    Le detecteur generalise — retirer n'importe quelle lettre doublee — voulait
+    corriger « limitee » en « limite ». Or « limitée » est un mot ; il figurait
+    sans accent parce qu'il appartenait au chapitre desaccentue, que l'autre
+    controle signale deja. Un vrai motif, un faux : la regle se restreint donc
+    au debut de mot, ou le doublement n'existe pas en francais.
+    """
+    from generation.checks_post_rendu import detecter_lettres_doublees
+
+    assert detecter_lettres_doublees([
+        Section(1, "Chapitre", "La limite est atteinte. Cette limite reste une "
+                               "limite. La portee limitee du dispositif."),
+    ]) == []
+
+
+def test_la_coquille_est_reparable_par_la_boucle() -> None:
+    from generation.correction import _CHAPTER_LEVEL_CHECKS, _CHECK_LABELS
+
+    assert "lettre_doublee" in _CHAPTER_LEVEL_CHECKS
+    assert "lettre_doublee" in _CHECK_LABELS

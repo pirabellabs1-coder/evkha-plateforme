@@ -101,6 +101,7 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
         # les mots, et c'est exactement ce dont le redacteur a besoin.
         "caractere_etranger",
         "chapitre_desaccentue",
+        "lettre_doublee",
         # Nouveaux checks par livrable via _check_strategie_livrable.
         # Ils portent tous le prefixe `strategy_<deliverable>_<categorie>`.
         # On les ajoute dynamiquement au frozenset au chargement.
@@ -153,6 +154,7 @@ _CHECK_LABELS = {
     "coherence_chiffree": "Chiffre incohérent avec le prévisionnel client",
     "calcul_faux": "Calcul dont le résultat ne découle pas de ses termes",
     "caractere_etranger": "Caractère d'une autre écriture dans le texte",
+    "lettre_doublee": "Coquille : lettre doublée en début de mot",
     "chapitre_desaccentue": (
         "Chapitre écrit sans accents — le rédiger en français accentué"
     ),

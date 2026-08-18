@@ -1485,6 +1485,7 @@ def _check_texte_francais(
     from .checks_post_rendu import (  # noqa: PLC0415
         detecter_caracteres_etrangers,
         detecter_chapitres_desaccentues,
+        detecter_lettres_doublees,
     )
 
     failures = [
@@ -1502,6 +1503,14 @@ def _check_texte_francais(
             detail=str(trouve),
         )
         for trouve in detecter_chapitres_desaccentues(sections)
+    )
+    failures.extend(
+        GateFailure(
+            check="lettre_doublee",
+            chapter_number=trouve.chapitre,
+            detail=str(trouve),
+        )
+        for trouve in detecter_lettres_doublees(sections)
     )
     return failures
 

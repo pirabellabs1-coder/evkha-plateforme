@@ -1090,6 +1090,76 @@ def detecter_caracteres_etrangers(
 
 
 @dataclass(frozen=True)
+class LettreDoublee:
+    """Un mot qui commence par une lettre doublée, et que le document sait écrire."""
+
+    chapitre: int
+    titre: str
+    faute: str
+    correction: str
+    vues: int
+
+    def __str__(self) -> str:
+        return (
+            f"Coquille « {self.faute} » dans le chapitre « {self.titre} » : ce "
+            f"document écrit « {self.correction} » {self.vues} fois ailleurs. "
+            "Corrige la lettre doublée."
+        )
+
+
+def detecter_lettres_doublees(sections: Sequence[Any]) -> list[LettreDoublee]:
+    """Les coquilles par doublement de la PREMIÈRE lettre.
+
+    ## Le défaut, relevé par la cliente le 18/08/2026
+
+    Stratégie `f8a29b66`, page 7 : « chiffrage du marché **nnational** estimé
+    par triangulation ». Le même document écrit « national » vingt-six fois.
+
+    ## Pourquoi seulement la première lettre
+
+    Le détecteur généralisé — retirer n'importe quelle lettre doublée et voir
+    si le mot obtenu existe ailleurs — a été essayé et mesuré sur les quatre
+    livrables : il trouvait « nnational », et aussi « limitee », qu'il voulait
+    corriger en « limite ». Or « limitée » est un mot ; il figurait sans accent
+    parce qu'il appartenait au chapitre désaccentué, que l'autre contrôle
+    signale déjà. Un vrai motif, un faux.
+
+    Le doublement en DÉBUT de mot, lui, n'existe pas en français. La règle
+    devient sûre, au prix d'être étroite : une coquille au milieu d'un mot
+    n'est pas vue. C'est l'arbitrage de la règle 2 — un motif faux coûte une
+    régénération payée, un motif manquant coûte une coquille.
+
+    Mesuré sur les quatre documents du 17/08 : un motif, le bon, aucun faux.
+    """
+    corpus = "\n".join(getattr(s, "body", "") or "" for s in sections)
+    vus = Counter(mot.casefold() for mot in _MOT.findall(corpus))
+    trouves: list[LettreDoublee] = []
+    for section in sections:
+        for mot in _MOT.findall(getattr(section, "body", "") or ""):
+            bas = mot.casefold()
+            corrige = bas[1:]
+            if (
+                vus[bas] == 1
+                and bas[0] == bas[1]
+                and vus.get(corrige, 0) >= _CORRECTION_MINIMALE
+            ):
+                trouves.append(LettreDoublee(
+                    chapitre=getattr(section, "number", 0),
+                    titre=getattr(section, "title", ""),
+                    faute=mot,
+                    correction=corrige,
+                    vues=vus[corrige],
+                ))
+    return trouves
+
+
+#: Combien de fois le document doit écrire le mot CORRECT pour qu'on ose parler
+#: de coquille. Trois : en dessous, ce n'est pas une habitude du document, c'est
+#: une coïncidence.
+_CORRECTION_MINIMALE = 3
+
+
+@dataclass(frozen=True)
 class ChapitreDesaccentue:
     """Un chapitre écrit sans ses accents, dans un document qui en porte."""
 

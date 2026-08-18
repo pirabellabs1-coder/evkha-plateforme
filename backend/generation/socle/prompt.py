@@ -48,6 +48,24 @@ _BASE_CONCURRENTS = (
     "chiffre d'affaires, ni sa part de marché ;\n"
     "- deux offres d'un MÊME groupe (même domaine) ne comptent que pour un "
     "acteur : ne les inscris pas deux fois ;\n"
+    # La devise d'une source ne se réétiquette pas en silence.
+    #
+    # Étude de marché `f0064333`, relue par la cliente le 18/08/2026 : « ne pas
+    # mélanger euros et dollars selon les chapitres. Une donnée source doit
+    # conserver la même devise partout ou être convertie clairement une seule
+    # fois. »
+    #
+    # Le document écrit « 6 800 000 M€ » pour le marché mondial du bien-être,
+    # et l'attribue au Global Wellness Institute — qui publie en DOLLARS. Le
+    # chiffre a donc changé de devise entre la source et le document, sans un
+    # mot, sans un taux. Aucun contrôle ne pouvait le voir : le document ne
+    # contient pas un seul « $ ». Ce n'est pas un mélange visible, c'est une
+    # conversion muette, et c'est plus grave.
+    "- la DEVISE d'un chiffre est celle de sa source. Si la source publie en "
+    "dollars, écris la valeur en dollars, ou convertis-la en indiquant le taux "
+    "et l'année dans `libelle` — jamais l'un pour l'autre en silence. Un "
+    "montant du Global Wellness Institute, de la Banque mondiale ou de l'OCDE "
+    "n'est pas en euros parce que l'étude est française ;\n"
     "- `ca_connu` : le chiffre d'affaires PUBLIÉ avec son année "
     "(« 1,4 M€ (2024) »), ou la mention exacte « non publié ». Ne devine "
     "jamais un montant ici ;\n"
