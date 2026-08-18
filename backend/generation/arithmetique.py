@@ -659,3 +659,114 @@ def totaux_faux(texte: str) -> list[TotalFaux]:
                 ))
 
     return fautes
+
+
+# ── Un agrégat énoncé et la somme de ses parts ───────────────────────────────
+
+
+#: Ce qui ANNONCE un agrégat sur un ensemble d'acteurs.
+#:
+#: « 2,7 % capté par les onze concurrents recensés » : un pourcentage, un verbe
+#: de captation, un collectif. Les trois ensemble, dans la même phrase.
+_AGREGAT_ACTEURS = re.compile(
+    rf"(?P<part>{_NOMBRE})\s*%[^.;|\n]{{0,70}}?"
+    r"(?:capt|détenu|represent|représent|réuni|cumul|pèse)\w*"
+    r"[^.;|\n]{0,50}?(?:concurrents|acteurs)",
+    re.IGNORECASE,
+)
+
+#: Une cellule de tableau qui ne contient qu'un pourcentage.
+_CELLULE_POURCENT = re.compile(rf"\s*({_NOMBRE})\s*%\s*")
+
+#: En dessous, une colonne de pourcentages n'est pas une répartition par acteur.
+_LIGNES_MINIMALES_PARTS = 3
+
+
+@dataclass(frozen=True)
+class AgregatFaux:
+    """Un total annoncé sur un ensemble, que ses propres parts démentent."""
+
+    annonce: float
+    somme: float
+    lignes: int
+    phrase: str
+
+    def __str__(self) -> str:
+        return (
+            f"Le document annonce {self.annonce:g} % pour l'ensemble des "
+            f"acteurs — « {self.phrase} » — alors que les {self.lignes} parts "
+            f"qu'il détaille font {self.somme:g} %. Un lecteur qui additionne "
+            "la colonne verra l'écart ; corrige l'un des deux."
+        )
+
+
+def _colonnes_de_parts(texte: str) -> list[list[float]]:
+    """Les colonnes de tableau faites uniquement de pourcentages."""
+    colonnes: dict[int, list[float]] = {}
+    for ligne in texte.split("\n"):
+        if not ligne.strip().startswith("|"):
+            continue
+        for rang, cellule in enumerate(ligne.strip().strip("|").split("|")):
+            trouve = _CELLULE_POURCENT.fullmatch(cellule)
+            if trouve:
+                valeur = _valeur(trouve.group(1))
+                if valeur is not None:
+                    colonnes.setdefault(rang, []).append(valeur)
+    return [v for v in colonnes.values() if len(v) >= _LIGNES_MINIMALES_PARTS]
+
+
+def agregats_faux(textes: list[str]) -> list[AgregatFaux]:
+    """Les agrégats que le document énonce et que ses propres parts démentent.
+
+    ## Le défaut, mesuré
+
+    Étude de concurrence `3a4df56c`, relue par la cliente le 18/08/2026. Le
+    document écrit :
+
+        Marché national estimé à 850 000 000 € en 2025, avec seulement 2,7 %
+        capté par les onze concurrents recensés
+
+    et détaille ailleurs les onze parts :
+
+        0,065 + 0,065 + 0,082 + 0,047 + 0,071 + 0,015 + 0,029 + 0,024 + 0,008
+        + 0,032 + 0,041 = 0,479 %
+
+    Elle a refait l'addition au millième près : « la somme donne environ
+    0,479 %, donc ≈ 0,48 % ».
+
+    ## Pourquoi `totaux_faux` ne pouvait pas le voir
+
+    Ce n'est pas une ligne « Total » de tableau. C'est une phrase de synthèse,
+    dans un chapitre, à distance de la colonne qu'elle contredit. Le contrôle
+    des totaux ne juge que ce qu'un tableau ANNONCE dans sa dernière ligne ; il
+    ne pouvait structurellement pas atteindre ce cas (règle 9 — ce que le
+    contrôle ne regarde pas est là où la réparation ne cherche pas).
+
+    ## Ce que ce contrôle ne fait pas
+
+    Il ne cherche pas les colonnes qui « devraient » faire 100 %. Il ne compare
+    QUE lorsque le document pose lui-même l'agrégat — un pourcentage, un verbe
+    de captation, un collectif d'acteurs, dans la même phrase. Mesuré sur les
+    quatre livrables du 17/08 : deux motifs sur l'étude de concurrence, qui
+    énonce son 2,7 % deux fois, et AUCUN sur les trois autres — dont un
+    business plan portant trois colonnes de pourcentages sommant à 339 %, 264 %
+    et 480 %, parfaitement légitimes puisqu'il n'en tire aucun total.
+    """
+    corpus = "\n".join(textes)
+    colonnes = _colonnes_de_parts(corpus)
+    if not colonnes:
+        return []
+
+    fautes: list[AgregatFaux] = []
+    for trouve in _AGREGAT_ACTEURS.finditer(corpus):
+        annonce = _valeur(trouve.group("part"))
+        if annonce is None:
+            continue
+        for parts in colonnes:
+            somme = sum(parts)
+            if _ecart_trop_grand(annonce, somme, _decimales(trouve.group("part"))):
+                fautes.append(AgregatFaux(
+                    annonce=annonce, somme=somme, lignes=len(parts),
+                    phrase=" ".join(trouve.group(0).split()),
+                ))
+    return fautes

@@ -1066,6 +1066,27 @@ def _check_sources_coherentes(
     ]
 
 
+def _check_agregats(
+    sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Un total annoncé sur un ensemble d'acteurs, contre la somme de ses parts.
+
+    Étude de concurrence `3a4df56c`, relevée par la cliente le 18/08/2026 :
+    « 2,7 % capté par les onze concurrents recensés », alors que les onze parts
+    détaillées ailleurs font 0,479 %. Elle a refait l'addition au millième près.
+
+    Le motif porte sur le DOCUMENT et non sur un chapitre : la contradiction
+    n'existe qu'entre la phrase et la colonne, qui vivent dans deux chapitres
+    différents.
+    """
+    from .arithmetique import agregats_faux  # noqa: PLC0415
+
+    return [
+        GateFailure(check="agregat_faux", detail=str(faute))
+        for faute in agregats_faux([s.body for s in sections])
+    ]
+
+
 def _check_verticales(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1545,6 +1566,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_ordres_de_grandeur(job, sections))
     failures.extend(_check_arithmetique(sections))
     failures.extend(_check_sources_coherentes(sections))
+    failures.extend(_check_agregats(sections))
     failures.extend(_check_arithmetique_marche(job))
     # Checks ajoutes suite a la relecture d'Evangeline (juillet 2026) : ils
     # verifient DEUX regles qu'aucun check precedent n'imposait sur le document
