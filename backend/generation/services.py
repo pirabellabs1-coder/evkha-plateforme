@@ -282,11 +282,32 @@ def relaunch_generation_job(job: GenerationJob) -> None:
     job.error_message = ""
     job.started_at = None
     job.completed_at = None
-    # Recale le budget uniquement si aucun chapitre n'est déjà DONE (job vierge).
-    # Pour un job partiellement généré, le coût cumulé est déjà fixé — on ne touche
-    # pas au budget afin d'éviter un faux incident dès le redémarrage.
-    if not job.chapters.filter(status=ChapterStatus.DONE).exists():
-        job.budget_eur = _BUDGET_EUR_BY_TYPE.get(job.deliverable_type, job.budget_eur)
+    # ── Le budget se recale, et il ne DESCEND jamais ──────────────────────────
+    #
+    # Règle d'origine : recaler seulement si aucun chapitre n'est DONE. Elle
+    # protégeait un dossier partiellement écrit contre un budget rabaissé sous
+    # sa dépense déjà engagée — un faux incident dès le redémarrage.
+    #
+    # Elle avait un angle mort exact, et il s'est refermé sur un livrable payé.
+    # Business plan `256e63d8` : arrêté à 21 chapitres sur 22 le 17/08/2026 au
+    # plafond de 6,50 €, chapitre 02 jamais écrit, sommaire livré avec un trou.
+    # La cliente a relevé le plafond à 8,00 € le lendemain — mais le montant est
+    # gravé dans la LIGNE du dossier à sa création, et cette fonction refusait de
+    # le relever parce que le dossier avait justement écrit des chapitres. Le
+    # dossier ne pouvait donc plus JAMAIS finir : une relance échouait dans la
+    # seconde, 6,66 € dépensés contre 6,50 € autorisés.
+    #
+    # Autrement dit, la seule catégorie de dossiers qu'un relèvement de plafond
+    # devait sauver était précisément celle qu'il n'atteignait pas.
+    #
+    # La règle devient asymétrique, et c'est ce qui la rend juste : on relève
+    # toujours vers la table, on ne rabaisse que sur un dossier vierge. Les deux
+    # protections tiennent ensemble.
+    plafond = _BUDGET_EUR_BY_TYPE.get(job.deliverable_type)
+    if plafond is not None:
+        vierge = not job.chapters.filter(status=ChapterStatus.DONE).exists()
+        if vierge or plafond > job.budget_eur:
+            job.budget_eur = plafond
     job.save(update_fields=["status", "error_message", "started_at", "completed_at", "budget_eur"])
 
     job.chapters.filter(
