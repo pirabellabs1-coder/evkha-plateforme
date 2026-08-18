@@ -128,6 +128,13 @@ def _resoudre_ids(
     return trouvees, ""
 
 
+#: Écart toléré entre la somme des parts d'un camembert et 100 %.
+#:
+#: Un document arrondit ses pourcentages : trois parts écrites 33 % font 99.
+#: Deux points suffisent à absorber l'arrondi, et laissent très loin le cas
+#: réel qui a motivé ce contrôle — 45 % et 65 %, soit 110.
+_TOLERANCE_PARTS_POURCENT = 2.0
+
 #: Magnitudes d'affichage, de la plus grande à la plus petite. Le préfixe se
 #: recolle à la devise (`Md` + `EUR`), comme `socle.schema.unites_monetaires`
 #: les fabrique : la correspondance magnitude → facteur n'est pas redéclarée
@@ -289,11 +296,52 @@ def _scalaires(
     valeurs, unite = harmonise
 
     etiquettes = [etiquette_de(donnee) for donnee in donnees]
+    familles = {_famille(donnee) for donnee in donnees}
 
     if type_demande in ("camembert", "anneau"):
         if any(valeur < 0 for valeur in valeurs):
             return Resolution(
                 motif="valeur négative : une part d'un tout ne peut pas être négative"
+            )
+        # ── Des pourcentages qui ne font pas 100 % ne sont PAS des parts ─────
+        #
+        # Stratégie `f8a29b66`, page 59, relevée par la cliente le 18/08/2026 :
+        # le camembert réunit un taux d'activation (45 %) et une part de chiffre
+        # d'affaires récurrent (65 %). Deux indicateurs sans rapport, dont la
+        # somme fait 110.
+        #
+        # `matplotlib.pie` NORMALISE : son `autopct` calcule chaque part sur la
+        # somme des valeurs. Le lecteur voit donc 41 % et 59 %, deux chiffres
+        # qui n'existent nulle part dans le dossier. Sa lecture technique était
+        # juste au premier coup : « 45 / (45 + 65) ≈ 41 % ».
+        #
+        # C'est la pire forme d'erreur : la figure est TOUJOURS cohérente en
+        # apparence, quelles que soient les données. Rien ne dépasse, rien ne
+        # manque, et le total fait 100 par construction. Le contrôle ne pouvait
+        # donc pas venir du dessin — il vient d'ici, avant lui.
+        #
+        # Le contrôle ne porte QUE sur les pourcentages : des montants n'ont pas
+        # à sommer à quoi que ce soit, leur tout EST leur somme. Un écart de
+        # deux points est admis — un document arrondit ses parts.
+        somme = sum(valeurs)
+        if (
+            familles == {FamilleUnite.POURCENTAGE}
+            and abs(somme - 100.0) > _TOLERANCE_PARTS_POURCENT
+        ):
+            # Reconversion honnête plutôt qu'abandon : les chiffres sont bons,
+            # c'est la FORME qui ment. Deux indicateurs sans rapport font des
+            # barres parfaitement lisibles — et la cliente y lira 45 % et 65 %,
+            # les valeurs de son dossier, au lieu de 41 % et 59 %.
+            return Resolution(
+                "barres",
+                {"etiquettes": etiquettes, "valeurs": valeurs,
+                 "unite": _suffixe(unite)},
+                motif=(
+                    f"ces {len(valeurs)} pourcentages font {somme:g} % et non "
+                    "100 % : ce ne sont pas les parts d'un même tout — rendu en "
+                    "barres, qui les montre à leur vraie valeur"
+                ),
+                converti=True,
             )
         contenu: dict[str, Any] = {"etiquettes": etiquettes, "valeurs": valeurs}
         if type_demande == "anneau":
@@ -319,7 +367,6 @@ def _scalaires(
         )
 
     if type_demande == "jauges":
-        familles = {_famille(donnee) for donnee in donnees}
         if familles != {FamilleUnite.RATIO}:
             return Resolution(
                 motif="les jauges exigent des notes ; ces données ne sont pas "
