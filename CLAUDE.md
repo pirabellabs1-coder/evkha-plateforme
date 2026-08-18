@@ -207,10 +207,15 @@ journée.
 
 ### Et déployer, c'est fusionner dans `main` — pas pousser sa branche
 
-`evkha-api`, l'application qui sert `api2.evkha.fr`, se construit depuis
-**`main`**. Une branche de travail poussée puis « déployée » ne met rien en
-ligne : la construction réussit, `/healthz/` rend 200, et c'est du code
-d'avant qui tourne.
+La production — `api2.evkha.fr` ET `app2.evkha.fr` — est servie par
+l'application **`evkha-plateforme`** (`zft1wslml9mp2dlwuvttjbxw`), qui
+construit la branche **`espace-client-et-credits`** du dépôt
+`pirabellabs1-coder/evkha-plateforme`. Voir plus bas : le nom `evkha-api` est
+un leurre, et la façon de ne plus s'y tromper.
+
+Une branche poussée mais pas fusionnée dans celle que l'application construit
+ne met rien en ligne : la construction réussit, `/healthz/` rend 200, et c'est
+du code d'avant qui tourne.
 
 Mesuré le 17/08/2026, et le mot juste est *perdu* : **84 commits** attendaient
 sur `espace-client-et-credits`, dont une journée entière de correctifs. Ils
@@ -234,8 +239,49 @@ Deux applications, deux dépôts, deux branches — ne les confondez pas :
 
 | Application | Dépôt | Branche | Sert |
 |---|---|---|---|
-| `evkha-api` | `Systeme-EVKHA-` | **`main`** | l'API, les générations, la livraison |
-| `evkha-plateforme` | `evkha-plateforme` | `espace-client-et-credits` | l'espace client |
+| **`evkha-plateforme`** `zft1wsl…` | `pirabellabs1-coder/evkha-plateforme` | **`espace-client-et-credits`** | **TOUT** — `api2.evkha.fr`, `app2.evkha.fr`, générations, livraison |
+| `evkha-api` `zuai4ax…` | idem | `main` | rien de public — `evkha.82-165-31-105.nip.io` |
+
+### Le nom `evkha-api` est un LEURRE, et il a coûté deux jours
+
+Ce tableau disait l'inverse jusqu'au 18/08/2026. On y lisait que `evkha-api`
+servait `api2.evkha.fr` et que `evkha-plateforme` était « l'espace client,
+dans un autre dépôt ». **Les deux affirmations étaient fausses**, et comme
+elles portaient les noms qu'on attendait, personne ne les a vérifiées.
+
+La seule requête qui tranche ne regarde ni le nom, ni le dépôt : elle regarde
+qui porte le DOMAINE.
+
+```bash
+curl -s -H "Authorization: Bearer $COOLIFY_TOKEN" \
+  http://82.165.31.105:8000/api/v1/applications/<uuid>/envs \
+  | python -c "import json,sys; [print(e['key'],'=',e['value']) for e in json.load(sys.stdin) if 'DOMAIN' in e['key'] or 'FQDN' in e['key']]"
+```
+
+    evkha-api          →  (aucun API_DOMAIN)     SERVICE_FQDN_API = evkha.82-165-31-105.nip.io
+    evkha-plateforme   →  API_DOMAIN = api2.evkha.fr   SERVICE_FQDN_API = api2.evkha.fr
+
+Les deux applications construisent le MÊME `docker-compose.prod.yml`, qui
+contient le service `api` et ses étiquettes Traefik. Déployer `evkha-api`
+fabrique donc une pile complète, parfaitement fonctionnelle — et que rien ne
+route. La construction réussit, les conteneurs démarrent, `/healthz/` rend
+200 : tout dit « déployé », et rien ne l'est.
+
+Ce qu'il en a coûté, mesuré : le 17/08, une journée entière de correctifs a été
+« déployée » sur `evkha-api`, vérifiée par un `/healthz/` 200, et déclarée en
+ligne. Le 18/08 au matin, le gate rejoué sur l'étude de marché `f0064333`
+rendait exactement les mêmes 23 motifs, à l'unité près, que la veille. C'est ce
+tableau-ci qui l'a permis.
+
+**La preuve d'un déploiement n'est jamais un `200`, ni un journal de
+construction, ni même le bon commit dans ce journal** — `evkha-api` a
+correctement construit `342d2e3` sans que rien ne change. La preuve, c'est un
+comportement mesuré sur la production :
+
+    gate rejoué sur f0064333, avant :  troncature 2, calcul_faux 1,
+                                        source_divergente 5  → 23 motifs
+    gate rejoué après le VRAI déploiement :        0, 0, 0,
+                                        + caractere_etranger 1 → 16 motifs
 
 **Un `200` ne prouve jamais qu'un correctif est en ligne.** Il prouve qu'un
 conteneur répond. La preuve, c'est un comportement qui change : la livraison
