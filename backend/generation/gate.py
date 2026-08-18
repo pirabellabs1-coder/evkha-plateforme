@@ -1087,6 +1087,36 @@ def _check_agregats(
     ]
 
 
+def _check_trajectoires(
+    sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Une trajectoire ne change pas d'arrivée en cours de document.
+
+    Étude de marché `f0064333`, relevée par la cliente le 18/08/2026 : « il y a
+    une incohérence importante entre 600 et 800 adhérents en année 3. Il faut
+    choisir une seule trajectoire et la reprendre partout de manière
+    identique. »
+
+    Le motif désigne le chapitre de la mention ISOLÉE — c'est elle qu'il faut
+    réécrire, et la boucle de correction régénère le chapitre qu'on lui nomme.
+    """
+    from .arithmetique import trajectoires_divergentes  # noqa: PLC0415
+
+    divergentes = trajectoires_divergentes([s.body for s in sections])
+    return [
+        GateFailure(
+            check="trajectoire_divergente",
+            chapter_number=(
+                sections[d.chapitre].number
+                if d.chapitre is not None and d.chapitre < len(sections)
+                else None
+            ),
+            detail=str(d),
+        )
+        for d in divergentes
+    ]
+
+
 def _check_verticales(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1567,6 +1597,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_arithmetique(sections))
     failures.extend(_check_sources_coherentes(sections))
     failures.extend(_check_agregats(sections))
+    failures.extend(_check_trajectoires(sections))
     failures.extend(_check_arithmetique_marche(job))
     # Checks ajoutes suite a la relecture d'Evangeline (juillet 2026) : ils
     # verifient DEUX regles qu'aucun check precedent n'imposait sur le document

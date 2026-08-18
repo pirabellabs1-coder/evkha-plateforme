@@ -770,3 +770,112 @@ def agregats_faux(textes: list[str]) -> list[AgregatFaux]:
                     phrase=" ".join(trouve.group(0).split()),
                 ))
     return fautes
+
+
+# ── Une trajectoire ne change pas d'arrivée en cours de document ─────────────
+
+
+#: « 400 puis 600 adhérents » — l'idiome de trajectoire, et lui seul.
+#:
+#: `puis` est le seul connecteur retenu, et c'est mesuré. En y ajoutant « à » et
+#: « vers », la stratégie `f8a29b66` produisait deux motifs faux — « 30 premiers
+#: … 50 / 90 » et « 90 avocats … 200 / 2000 » — parce que ces deux mots relient
+#: aussi des bornes de fourchette et des grandeurs sans rapport. « puis » ne
+#: relie qu'une chose : un avant et un après.
+_TRAJECTOIRE = re.compile(
+    rf"(?P<depart>{_NOMBRE})\s*puis\s*(?:environ\s+|près\s+de\s+)?"
+    rf"(?P<arrivee>{_NOMBRE})\s+(?P<quoi>[a-zà-ÿ]{{5,}})",
+    re.IGNORECASE,
+)
+
+#: En deçà, ce ne sont pas des effectifs mais des rangs ou des pourcentages.
+_TRAJECTOIRE_MINIMALE = 10
+
+
+@dataclass(frozen=True)
+class TrajectoireDivergente:
+    """Un même départ mène à deux arrivées différentes dans le document."""
+
+    depart: int
+    quoi: str
+    dominante: int
+    dominante_vue: int
+    intruse: int
+    chapitre: int | None
+
+    def __str__(self) -> str:
+        return (
+            f"Le document annonce deux trajectoires différentes : « {self.depart} "
+            f"puis {self.dominante} {self.quoi} » {self.dominante_vue} fois, et "
+            f"« {self.depart} puis {self.intruse} {self.quoi} » une fois. Un "
+            "lecteur ne peut pas savoir laquelle tient ; garde la même partout."
+        )
+
+
+def trajectoires_divergentes(
+    textes: list[str],
+) -> list[TrajectoireDivergente]:
+    """Les trajectoires que le document se contredit à lui-même.
+
+    ## Le défaut, relevé par la cliente le 18/08/2026
+
+    Étude de marché `f0064333` : « il y a une incohérence importante entre 600
+    et 800 adhérents en année 3. Il faut choisir une seule trajectoire et la
+    reprendre partout de manière identique. »
+
+    Mesuré : « 400 puis 600 adhérents » huit fois, « 400 puis 800 adhérents »
+    UNE fois, dans un encadré LECTURE du chapitre 14. Un intrus isolé contre
+    une trajectoire cohérente partout ailleurs.
+
+    ## Ce qui a été essayé avant, et pourquoi c'était faux
+
+    Première approche : repérer une valeur RARE contre une valeur dominante
+    pour un même nom. Mesurée sur les quatre livrables, elle rendait TROIS faux
+    pour un vrai — « Moins de 300 adhérents actifs », « 100 à 150 adhérents
+    recrutés », « Au-delà de 500 avocats actifs ». Ce sont des seuils et des
+    fourchettes, pas des trajectoires, et les distinguer d'une affirmation
+    demandait une analyse grammaticale hors de portée d'une expression
+    régulière. Un filtre sur les comparateurs n'en a rattrapé qu'un.
+
+    ## Ce qui marche, et pourquoi
+
+    On n'oppose plus un nombre à un autre : on oppose une PAIRE à une paire.
+    Deux trajectoires qui partent du même chiffre doivent arriver au même.
+
+    Un seuil (« moins de 300 ») n'a pas de paire. Une fourchette (« 100 à
+    150 ») n'a pas le mot « puis ». Aucun des deux ne peut donc entrer, sans
+    qu'on ait eu à les reconnaître.
+
+    Mesuré sur les quatre livrables du 17/08 : une contradiction, la bonne,
+    aucune fausse.
+
+    ## Le motif désigne le chapitre de l'INTRUS
+
+    Pas celui de la majorité : c'est la mention isolée qu'il faut réécrire, et
+    la boucle de correction régénère le chapitre qu'on lui nomme.
+    """
+    vues: dict[tuple[str, int], dict[int, list[int | None]]] = {}
+    for numero, texte in enumerate(textes):
+        for m in _TRAJECTOIRE.finditer(texte):
+            depart = _valeur(m.group("depart"))
+            arrivee = _valeur(m.group("arrivee"))
+            if depart is None or arrivee is None:
+                continue
+            if depart == arrivee or min(depart, arrivee) < _TRAJECTOIRE_MINIMALE:
+                continue
+            cle = (m.group("quoi").casefold(), int(depart))
+            vues.setdefault(cle, {}).setdefault(int(arrivee), []).append(numero)
+
+    divergentes: list[TrajectoireDivergente] = []
+    for (quoi, depart), arrivees in vues.items():
+        if len(arrivees) < 2:
+            continue
+        classees = sorted(arrivees.items(), key=lambda p: (-len(p[1]), p[0]))
+        (dominante, ou_dominante), *reste = classees
+        for intruse, ou_intruse in reste:
+            divergentes.append(TrajectoireDivergente(
+                depart=depart, quoi=quoi,
+                dominante=dominante, dominante_vue=len(ou_dominante),
+                intruse=intruse, chapitre=ou_intruse[0],
+            ))
+    return divergentes
