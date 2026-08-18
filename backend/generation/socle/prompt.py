@@ -347,9 +347,28 @@ def construire_prompt_socle(
     """
     blocs = [
         _ROLE,
-        f"DATE_DU_JOUR : {date.today().isoformat()}. Les chiffres doivent être "
-        "les plus récents disponibles à cette date ; ne traite jamais une année "
-        "antérieure comme l'année en cours.",
+        # La récence ne se souhaite pas, elle se CHERCHE puis se JUSTIFIE.
+        #
+        # Relevé par la cliente le 18/08/2026 : « je vois 2024, or je sais que
+        # 2025 existe et est publié ». La consigne disait déjà « les plus
+        # récents disponibles » — un vœu, que rien n'obligeait à vérifier.
+        #
+        # Un institut publie une édition par an, et la précédente reste en ligne :
+        # se contenter du premier résultat trouvé donne un millésime périmé sans
+        # que rien ne le signale. On demande donc deux choses vérifiables :
+        # chercher l'édition la plus récente AVANT de retenir un chiffre, et
+        # écrire noir sur blanc, quand le millésime retenu n'est pas l'un des
+        # deux derniers, que c'est la publication la plus récente qui existe.
+        # Un chiffre daté devient alors une décision assumée, pas un oubli.
+        f"DATE_DU_JOUR : {date.today().isoformat()}.\n"
+        "RÉCENCE — obligatoire. Pour CHAQUE chiffre, cherche d'abord l'édition "
+        "la plus récente de la source avant d'en retenir une : la plupart des "
+        "instituts publient chaque année et laissent les éditions antérieures "
+        "en ligne. Le premier résultat trouvé n'est pas le plus récent.\n"
+        "Si le millésime que tu retiens n'est ni l'année en cours ni la "
+        "précédente, écris-le dans le `libelle` : « donnée 2024, publication la "
+        "plus récente disponible ». Ne traite jamais une année antérieure comme "
+        "l'année en cours.",
         f"BRIEF_CLIENT :\n{json.dumps(variables, ensure_ascii=False, sort_keys=True, indent=2)}",
     ]
 
