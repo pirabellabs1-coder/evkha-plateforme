@@ -487,16 +487,46 @@ def _bloc_concurrents(socle: Socle) -> str:
             if projet is not None else ""
         )
         + (
-            f"\nSur ces acteurs, {len(identifies)} "
-            + ("est une ENTREPRISE identifiée" if len(identifies) == 1
-               else "sont des ENTREPRISES identifiées")
+            # ── UN SEUL DÉCOMPTE, ET IL EST DONNÉ ────────────────────────────
+            #
+            # La version précédente posait deux règles justes — une catégorie
+            # n'est pas une entreprise, deux offres d'un même opérateur comptent
+            # pour une — et laissait chaque chapitre en tirer son propre total.
+            #
+            # Mesuré sur l'étude `743e6a2b` du 18/08/2026, dans le même
+            # document :
+            #
+            #     chapitre 1 : « Onze acteurs : huit directs et trois indirects »
+            #                  « figée pour la suite : aucun chapitre n'y ajoute »
+            #     ailleurs   : « Neuf acteurs identifiés avec un site officiel »
+            #     ailleurs   : « un marché à sept acteurs directs réellement actifs »
+            #
+            # Onze, dix, sept. Chaque compte est juste au regard de la règle que
+            # SON chapitre applique, et les trois se contredisent. La cliente :
+            # « un même nombre de concurrents doit rester identique du début à
+            # la conclusion ».
+            #
+            # On ne demande donc plus au modèle de compter : on lui DONNE les
+            # nombres, et on lui interdit d'en calculer d'autres. C'est la même
+            # leçon que le socle a apprise pour les chiffres de marché — une
+            # valeur qu'on laisse recalculer diverge (règle 5).
+            "\nDÉCOMPTE DE RÉFÉRENCE — les seuls nombres autorisés dans tout "
+            "le document :\n"
+            f"- {len(identifies) + len(profils)} acteurs au total, dont "
+            f"{directs} directs et {indirects} indirects ;\n"
+            f"- parmi eux, {len(identifies)} "
+            + ("entreprise identifiée" if len(identifies) == 1
+               else "entreprises identifiées")
             + f" (site officiel vérifiable) et {len(profils)} "
-            + ("est un TYPE D'ACTEUR issu" if len(profils) == 1
-               else "sont des TYPES D'ACTEURS issus")
-            + " d'une recherche par catégorie. Tout compte, tout classement "
-            "et tout chiffre ne portent que sur les entreprises identifiées. "
-            "Une phrase qui annonce un nombre de concurrents COMPTE les "
-            "entreprises, pas les catégories.\n"
+            + ("catégorie d'acteurs" if len(profils) == 1
+               else "catégories d'acteurs")
+            + ".\n"
+            "Toute phrase qui annonce un nombre d'acteurs ou de concurrents "
+            "reprend CES nombres, à l'identique, du premier chapitre à la "
+            "conclusion. N'en calcule aucun autre : ni un sous-total, ni un "
+            "compte « réellement actifs », ni un décompte propre à un chapitre. "
+            "Les chiffres et les classements, eux, ne portent que sur les "
+            "entreprises identifiées.\n"
             if profils else ""
         )
         + (
