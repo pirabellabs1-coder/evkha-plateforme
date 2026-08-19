@@ -6,6 +6,7 @@ import * as f from "../format";
 import { useMoi } from "../useMoi";
 import { Bandeau, Carte, Chiffre, Squelette, Vide } from "../composants/Interface";
 import { Autonomie } from "../composants/Autonomie";
+import { AutresEtudes } from "../composants/AutresEtudes";
 import { telechargerJournal } from "../journal";
 import { Colonnes } from "../../viz/Graphiques";
 
@@ -145,6 +146,11 @@ export function Credits() {
           </div>
         </Carte>
       )}
+
+      {/* Le pendant du bloc ci-dessus pour qui n'a pas de formule. La page
+          Crédits est celle où l'on va quand on se demande « et maintenant ? »,
+          et un acheteur à l'unité n'y trouvait aucune réponse. */}
+      {!abonne && <AutresEtudes />}
 
       {conso && (conso.total_recu > 0 || conso.total_consomme > 0) && (
         <Carte

@@ -273,7 +273,9 @@ def creer_paiement_de_credits(
     )
 
 
-def creer_paiement_de_livrable(*, offre: Any, email: str = "") -> SessionOuverte:
+def creer_paiement_de_livrable(
+    *, offre: Any, email: str = "", organisation: Any = None
+) -> SessionOuverte:
     """Ouvre un paiement PONCTUEL pour UN livrable, sans compte prealable.
 
     C'est la porte d'entree du public direct : quelqu'un lit une page de vente,
@@ -296,6 +298,18 @@ def creer_paiement_de_livrable(*, offre: Any, email: str = "") -> SessionOuverte
     tarif Stripe preenregistre par livrable ferait quatre produits de plus a
     tenir a jour a cote du catalogue, et la modification d'un prix en
     administration cesserait d'avoir le moindre effet (regle 5).
+
+    ## `organisation` : le rachat depuis l'espace
+
+    Quand la personne est DEJA connectee — elle rachete une etude depuis son
+    tableau de bord —, son organisation voyage dans les metadonnees, et c'est
+    elle qui sera creditee.
+
+    Sans cela, le rattachement se ferait par l'adresse collectee par Stripe.
+    Or Stripe la laisse modifier sur sa propre page : quelqu'un qui la corrige,
+    ou qui paie avec l'adresse de sa societe, se verrait ouvrir un SECOND
+    espace. Il aurait paye, tout serait en regle, et son credit l'attendrait
+    dans un compte ou il ne se connectera jamais.
     """
     prix = int(getattr(offre, "prix_unitaire_cents", 0) or 0)
     if prix <= 0:
@@ -332,6 +346,11 @@ def creer_paiement_de_livrable(*, offre: Any, email: str = "") -> SessionOuverte
                 # de credits au webhook.
                 "achat": "livrable",
                 "offre_slug": offre.slug,
+                **(
+                    {"organisation_id": str(organisation.id)}
+                    if organisation is not None
+                    else {}
+                ),
             },
             **facultatifs,
         )

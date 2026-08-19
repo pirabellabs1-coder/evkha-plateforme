@@ -459,3 +459,91 @@ def test_le_paiement_credite_le_compte_deja_ouvert_par_l_inscription() -> None:
     assert achat.organisation.type_de_compte == TypeDeCompte.A_L_UNITE
     assert credits.solde(achat.organisation) == 1
     assert Organisation.objects.count() == 1
+
+
+# ── 8. Racheter une etude depuis son espace ──────────────────────────────────
+#
+# Un acheteur a l'unite n'a ni formule ni credits a racheter : les cinq routes
+# d'abonnement lui sont fermees. Sans ce chemin-ci, son espace ne lui
+# proposerait RIEN — alors que reprendre une etude est le parcours le plus
+# frequent du public direct : l'etude de marche, puis le business plan au
+# moment d'aller voir la banque.
+
+
+def test_l_espace_propose_les_etudes_a_l_unite() -> None:
+    offre = offre_a_l_unite()
+    client, _ = _espace_de(TypeDeCompte.A_L_UNITE)
+
+    charge = client.get("/api/espace/etudes/").json()
+
+    assert [e["slug"] for e in charge["etudes"]] == [offre.slug]
+    assert charge["etudes"][0]["prix_cents"] == offre.prix_unitaire_cents
+
+
+def test_une_offre_sans_tarif_n_est_pas_proposee_au_rachat() -> None:
+    """Une offre a zero euro ouvrirait un paiement de zero euro.
+
+    Accepte par Stripe, il produirait un credit et livrerait une etude a
+    plusieurs euros de cout de production sans contrepartie.
+    """
+    Offer.objects.create(
+        name="Étude sans tarif", slug="sans-tarif-espace",
+        deliverable_type=DeliverableType.MARKET_STUDY, prix_unitaire_cents=0,
+    )
+    client, _ = _espace_de(TypeDeCompte.A_L_UNITE)
+
+    charge = client.get("/api/espace/etudes/").json()
+
+    assert charge["etudes"] == []
+
+
+def test_racheter_une_etude_inconnue_est_refuse() -> None:
+    client, _ = _espace_de(TypeDeCompte.A_L_UNITE)
+
+    reponse = client.post(
+        "/api/espace/etudes/acheter/",
+        data={"etude": "etude-qui-n-existe-pas"},
+        content_type="application/json",
+    )
+
+    assert reponse.status_code == 404
+    assert reponse.json()["code"] == "etude_inconnue"
+
+
+def test_le_rachat_credite_l_organisation_designee_et_non_l_adresse() -> None:
+    """L'organisation voyage dans les metadonnees, et elle l'emporte.
+
+    Stripe laisse MODIFIER l'adresse sur sa page de paiement. Un acheteur
+    connecte qui la corrige, ou qui paie avec celle de sa societe, verrait
+    sinon s'ouvrir un second espace : il aurait paye, tout serait en regle, et
+    son credit l'attendrait la ou il ne se connectera jamais.
+    """
+    offre = offre_a_l_unite()
+    _, organisation = _espace_de(TypeDeCompte.A_L_UNITE)
+    avant = Organisation.objects.count()
+
+    session = session_stripe(offre, email="adresse.tapee.chez.stripe@example.com")
+    session["metadata"]["organisation_id"] = str(organisation.id)
+    achat = achats.livrer_l_achat(session)
+
+    assert achat.organisation.id == organisation.id
+    assert credits.solde(organisation) == 1
+    assert Organisation.objects.count() == avant, (
+        "aucun second espace ne doit s'ouvrir quand l'organisation est designee"
+    )
+
+
+def test_une_organisation_designee_mais_disparue_retombe_sur_l_adresse() -> None:
+    """Elle a ete supprimee entre l'ouverture du paiement et l'encaissement.
+
+    On ne perd pas l'achat pour autant : le rattachement par adresse reprend
+    la main, et le motif part au journal (regle 1 — le dire, pas se taire).
+    """
+    offre = offre_a_l_unite()
+    session = session_stripe(offre)
+    session["metadata"]["organisation_id"] = str(uuid.uuid4())
+
+    achat = achats.livrer_l_achat(session)
+
+    assert achat.nouveau is True
+    assert credits.solde(achat.organisation) == 1

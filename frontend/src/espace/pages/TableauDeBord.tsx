@@ -7,6 +7,7 @@ import { useMoi } from "../useMoi";
 import { Carte, Chiffre, Pastille, Squelette, Vide } from "../composants/Interface";
 import { Colonnes } from "../../viz/Graphiques";
 import { Autonomie } from "../composants/Autonomie";
+import { AutresEtudes } from "../composants/AutresEtudes";
 
 export function TableauDeBord() {
   const { data: moi, isPending: chargeMoi } = useMoi();
@@ -29,6 +30,12 @@ export function TableauDeBord() {
   const enCours = livrables.filter((l) => l.statut === "running").length;
   const termines = livrables.filter((l) => l.statut === "done").length;
   const recents = livrables.slice(0, 5);
+
+  // Un acheteur a l'unite n'a ni formule ni credits a racheter : les deux
+  // blocs qui servent aux abonnes lui sont fermes. Sans celui-ci, son espace
+  // ne lui proposerait RIEN, alors que reprendre une etude est le parcours le
+  // plus frequent du public direct.
+  const aLUnite = moi?.organisation.type_de_compte === "a_l_unite";
 
   if (chargeMoi) return <Squelette lignes={4} />;
 
@@ -93,6 +100,8 @@ export function TableauDeBord() {
           calcul qui finirait par contredire le solde affiché plus haut. */}
       {/* Placée avant le graphique : le graphique montre le passé, celle-ci
           dit ce qu'il implique. C'est la seconde qui appelle une décision. */}
+      {aLUnite && <AutresEtudes />}
+
       {conso && <Autonomie rythme={conso.rythme} />}
 
       {aDeLHistorique && conso && (

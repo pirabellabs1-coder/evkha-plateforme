@@ -232,6 +232,15 @@ export interface Mouvement {
   auteur: string;
 }
 
+/** Une etude vendue seule, telle que l'espace la propose au rachat. */
+export interface EtudeALUnite {
+  slug: string;
+  libelle: string;
+  /** `market_study`, `competitor_study`, `business_plan`, `business_strategy`. */
+  type: string;
+  prix_cents: number;
+}
+
 export interface ClientFinal {
   id: string;
   raison_sociale: string;
@@ -501,6 +510,21 @@ export const espaceApi = {
     appel<{ url: string }>("/credits/acheter/", {
       method: "POST",
       body: JSON.stringify({ quantite }),
+    }),
+  /** Les etudes achetables une par une, avec leur tarif.
+   *
+   *  Meme source que la page publique : la table `Offer`. Un second endroit
+   *  qui deciderait des prix finirait par contredire le premier. */
+  etudesALUnite: () => appel<{ etudes: EtudeALUnite[] }>("/etudes/"),
+  /** Ouvre le paiement d'une etude supplementaire et rend l'adresse Stripe.
+   *
+   *  On n'envoie qu'un slug : le tarif est celui du catalogue. Transmettre un
+   *  montant depuis le navigateur reviendrait a laisser choisir combien
+   *  payer. */
+  acheterUneEtude: (etude: string) =>
+    appel<{ adresse: string }>("/etudes/acheter/", {
+      method: "POST",
+      body: JSON.stringify({ etude }),
     }),
   reprendreAbonnement: () =>
     appel<{ renouvellement_actif: boolean }>("/abonnement/reprendre/", {

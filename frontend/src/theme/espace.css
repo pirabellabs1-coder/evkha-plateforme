@@ -2281,3 +2281,49 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* ── Racheter une étude à l'unité ───────────────────────────────────────── */
+/*
+ * Une ligne par étude : le nom et son tarif à gauche, le bouton à droite.
+ * Pas une grille de cartes — ce bloc vit à l'intérieur d'une carte, dans un
+ * espace de travail, et quatre vignettes commerciales y auraient l'air d'une
+ * publicité posée au milieu du tableau de bord.
+ */
+.autres-etudes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.autres-etudes li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  padding: var(--e-3) 0;
+  border-bottom: 1px solid var(--evkha-bordure);
+}
+
+.autres-etudes li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.autres-etudes-nom {
+  margin: 0;
+  font-weight: 600;
+  color: var(--texte-fort);
+}
+
+.autres-etudes .carte-note {
+  margin: 2px 0 0;
+}
+
+@media (max-width: 560px) {
+  .autres-etudes li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

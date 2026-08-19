@@ -62,6 +62,11 @@ urlpatterns = [
     ),
     path("livrables/", vues.livrables, name="livrables"),
     path("formules/", vues.formules, name="formules"),
+    # Racheter une etude a l'unite depuis son espace. Le parcours le plus
+    # frequent du public direct : l'etude de marche, puis le business plan au
+    # moment d'aller voir la banque.
+    path("etudes/", vues.etudes_a_l_unite, name="etudes"),
+    path("etudes/acheter/", vues.acheter_une_etude, name="etudes-acheter"),
     # Ouvre le paiement de la formule choisie. POST : elle a un effet chez
     # Stripe, et une adresse de paiement ne doit pas se retrouver dans un
     # historique de navigation ni dans un journal d'accès.

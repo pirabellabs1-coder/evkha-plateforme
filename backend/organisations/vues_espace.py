@@ -1134,6 +1134,94 @@ def ouvrir_le_paiement(
     return JsonResponse({"adresse": session.adresse}, status=200)
 
 
+@require_http_methods(["GET"])
+@espace()
+def etudes_a_l_unite(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Les études achetables une par une, avec leur tarif.
+
+    Sert le client qui a payé UNE étude et veut la suivante : il n'a ni
+    formule, ni crédits à racheter, mais il a parfaitement le droit d'acheter
+    une seconde étude — et c'est même le parcours le plus fréquent, l'étude de
+    marché puis le business plan au moment d'aller voir la banque.
+
+    Même source que la page publique : la table `Offer`. Un second endroit qui
+    déciderait des prix finirait par contredire le premier (règle 5).
+    """
+    from catalog.models import Offer  # noqa: PLC0415 — evite un cycle a l'import
+
+    offres = (
+        Offer.objects.filter(is_active=True, prix_unitaire_cents__gt=0)
+        .exclude(deliverable_type="")
+        .order_by("prix_unitaire_cents")
+    )
+    return JsonResponse({
+        "etudes": [
+            {
+                "slug": o.slug,
+                "libelle": o.name,
+                "type": o.deliverable_type,
+                "prix_cents": o.prix_unitaire_cents,
+            }
+            for o in offres
+        ],
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("commander", ecriture="commander")
+def acheter_une_etude(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Ouvre le paiement d'une étude supplémentaire, depuis l'espace.
+
+    **Rien de ce que le navigateur envoie ne fixe un prix** : on ne lit qu'un
+    slug, et le tarif est celui du catalogue. C'est la même règle que l'achat
+    de crédits, et pour la même raison.
+
+    Ouvert aux DEUX types de compte, et ce n'est pas un oubli. Un acheteur à
+    l'unité y revient pour sa deuxième étude ; une abonnée peut vouloir une
+    étude de plus sans toucher à sa dotation du mois. Dans les deux cas le
+    crédit tombe dans le portefeuille existant.
+
+    L'organisation voyage jusqu'à Stripe et revient par les métadonnées. Sans
+    elle, le rattachement se ferait sur l'adresse collectée par Stripe — que la
+    personne peut modifier sur sa page de paiement, ce qui lui ouvrirait un
+    second espace où son crédit l'attendrait en vain.
+    """
+    from catalog.models import Offer  # noqa: PLC0415
+
+    slug = str(_corps(request).get("etude") or "").strip()
+    offre = Offer.objects.filter(
+        slug=slug, is_active=True, prix_unitaire_cents__gt=0
+    ).first()
+    if offre is None:
+        return _refus("Cette étude n'est pas disponible.", "etude_inconnue", 404)
+
+    try:
+        session = paiement_stripe.creer_paiement_de_livrable(
+            offre=offre,
+            email=membre.customer.email,
+            organisation=organisation,
+        )
+    except paiement_stripe.PaiementIndisponible as exc:
+        _log.error(
+            "Achat de l'etude %s impossible pour l'organisation %s : %s",
+            slug, organisation.id, exc,
+        )
+        return _refus(str(exc), "paiement_indisponible", 503)
+
+    _noter_la_tentative(
+        organisation=organisation,
+        objet=ObjetTentative.LIVRABLE,
+        reference=session.identifiant,
+        montant_cents=offre.prix_unitaire_cents,
+    )
+    return JsonResponse({"adresse": session.adresse}, status=200)
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 @espace()

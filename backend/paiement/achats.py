@@ -100,7 +100,9 @@ def _raison_sociale(email: str, session: dict[str, Any]) -> str:
     return (nom or email.split("@", 1)[0] or "Mon espace")[:200]
 
 
-def _organisation_existante(contact: Customer) -> Organisation | None:
+def _organisation_existante(
+    contact: Customer, session: dict[str, Any]
+) -> Organisation | None:
     """L'espace que cette personne possède déjà, s'il y en a un.
 
     Un second achat ne doit PAS ouvrir un second espace : la personne se
@@ -108,7 +110,32 @@ def _organisation_existante(contact: Customer) -> Organisation | None:
     celui où elle n'est pas connectée. On crédite l'espace existant — y compris
     celui d'une abonnée, qui a parfaitement le droit d'acheter une étude à
     l'unité en plus de sa dotation.
+
+    **Deux façons de le retrouver, dans cet ordre.**
+
+    1. L'identifiant posé dans les métadonnées, quand l'achat part de l'espace
+       client : la personne est connectée, on SAIT qui elle est.
+    2. À défaut, son adresse — le seul lien disponible pour un achat public.
+
+    L'ordre compte. Stripe laisse modifier l'adresse sur sa propre page : un
+    acheteur connecté qui la corrige, ou qui paie avec celle de sa société,
+    ferait échouer la reconnaissance par adresse. Il aurait payé, tout serait
+    en règle, et son crédit l'attendrait dans un espace où il ne se connectera
+    jamais.
     """
+    identifiant = str((session.get("metadata") or {}).get("organisation_id") or "").strip()
+    if identifiant:
+        connue = Organisation.objects.filter(id=identifiant).first()
+        if connue is not None:
+            return connue
+        # Elle a disparu entre l'ouverture du paiement et son encaissement.
+        # On ne se rabat PAS silencieusement sur l'adresse : le dire fort vaut
+        # mieux que créditer un espace que personne n'a désigné (règle 1).
+        _log.warning(
+            "Achat rattaché à l'organisation %s, introuvable ; "
+            "on retombe sur l'adresse.", identifiant,
+        )
+
     appartenance = (
         MembreOrganisation.objects.select_related("organisation")
         .filter(customer=contact, revoque_le__isnull=True)
@@ -185,7 +212,7 @@ def livrer_l_achat(session: dict[str, Any]) -> Achat:
         },
     )
 
-    organisation = _organisation_existante(contact)
+    organisation = _organisation_existante(contact, session)
     if organisation is None:
         organisation = services.creer_organisation(
             raison_sociale=_raison_sociale(email, session), contact=contact

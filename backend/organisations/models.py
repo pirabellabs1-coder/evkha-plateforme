@@ -686,6 +686,9 @@ class EtatTentative(models.TextChoices):
 class ObjetTentative(models.TextChoices):
     ABONNEMENT = "abonnement", "Souscription à une formule"
     CREDITS = "credits", "Achat de crédits supplémentaires"
+    #: Achat d'une étude à l'unité, depuis la page publique ou depuis l'espace
+    #: d'un client qui en rachète une seconde.
+    LIVRABLE = "livrable", "Achat d'une étude à l'unité"
 
 
 class TentativePaiement(UUIDModel):
