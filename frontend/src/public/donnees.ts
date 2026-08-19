@@ -56,6 +56,10 @@ export type Inscription = {
   prenom?: string;
   nom?: string;
   formule?: string;
+  /** Slug de l'étude achetée à l'unité, quand le visiteur vient de
+   *  `/etudes`. Le compte est alors ouvert « à l'unité » et le paiement
+   *  s'enchaîne aussitôt. */
+  livrable?: string;
 };
 
 export type CompteOuvert = {
@@ -68,6 +72,10 @@ export type CompteOuvert = {
    *  `true`. */
   abonnement_actif: boolean;
   demande_id: string | null;
+  /** L'étude à payer, s'il y en a une. Rendue par le serveur plutôt que
+   *  relue dans l'adresse : deux lectures de la même intention finissent
+   *  toujours par diverger. */
+  livrable_demande: string | null;
 };
 
 /** Refus du serveur, avec son code.
@@ -201,4 +209,102 @@ export async function confirmerLAdresse(jetonDuLien: string): Promise<string> {
     );
   }
   return charge.email ?? "";
+}
+
+// ── Achat d'un livrable à l'unité ───────────────────────────────────────────
+
+export type LivrablePublic = {
+  slug: string;
+  libelle: string;
+  /** `market_study`, `competitor_study`, `business_plan`, `business_strategy`. */
+  type: string;
+  prix_cents: number;
+};
+
+/** Catalogue des études achetables une par une, avec leur tarif.
+ *
+ *  Le prix vient du serveur, jamais d'une constante écrite ici. Une page qui
+ *  annonce 149 € et un paiement qui en prélève 189 est le pire défaut possible
+ *  sur un parcours d'achat, et c'est exactement ce que produit une seconde
+ *  source (règle 5).
+ */
+export async function chargerLivrables(): Promise<LivrablePublic[]> {
+  const reponse = await fetch(`${BASE}/api/public/livrables/`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!reponse.ok) {
+    throw new Error(`Catalogue indisponible (${reponse.status})`);
+  }
+  const charge = (await reponse.json()) as { livrables: LivrablePublic[] };
+  return charge.livrables ?? [];
+}
+
+/** Ouvre le paiement et rend l'adresse Stripe où envoyer la personne.
+ *
+ *  L'adresse e-mail est facultative : Stripe la collecte de toute façon sur sa
+ *  propre page, et c'est celle-là qui fait foi au retour. La demander avant ne
+ *  sert qu'à pré-remplir.
+ */
+export async function ouvrirLePaiement(
+  livrable: string,
+  email = "",
+): Promise<string> {
+  const reponse = await fetch(`${BASE}/api/public/acheter/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ livrable, email }),
+  });
+  const charge = (await reponse.json().catch(() => ({}))) as {
+    adresse?: string;
+    erreur?: string;
+    code?: string;
+  };
+  if (!reponse.ok) {
+    throw new RefusInscription(
+      charge.erreur ?? `Paiement impossible (${reponse.status})`,
+      charge.code ?? "",
+    );
+  }
+  return charge.adresse ?? "";
+}
+
+export type AchatConfirme = {
+  jeton: string;
+  /** Type de livrable, pour pré-sélectionner le bon formulaire de commande. */
+  livrable: string;
+  libelle: string;
+};
+
+/** Confirme le paiement au retour de Stripe et ouvre la session.
+ *
+ *  On n'attend PAS le webhook : Stripe redirige le navigateur et poste son
+ *  événement en parallèle, sans ordre garanti. Le serveur traite les deux de
+ *  façon idempotente — celui qui arrive d'abord livre, l'autre ne fait rien.
+ */
+export async function confirmerLePaiement(
+  session: string,
+): Promise<AchatConfirme> {
+  const reponse = await fetch(`${BASE}/api/public/acheter/retour/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ session }),
+  });
+  const charge = (await reponse.json().catch(() => ({}))) as {
+    jeton?: string;
+    livrable?: string;
+    libelle?: string;
+    erreur?: string;
+    code?: string;
+  };
+  if (!reponse.ok) {
+    throw new RefusInscription(
+      charge.erreur ?? `Confirmation impossible (${reponse.status})`,
+      charge.code ?? "",
+    );
+  }
+  return {
+    jeton: charge.jeton ?? "",
+    livrable: charge.livrable ?? "",
+    libelle: charge.libelle ?? "",
+  };
 }

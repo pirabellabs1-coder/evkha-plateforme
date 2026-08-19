@@ -196,6 +196,36 @@ def inviter_un_collaborateur(
     )
 
 
+def souhaiter_la_bienvenue(*, destinataire: str, livrable: str, lien: str) -> bool:
+    """Confirme un achat à l'unité et donne l'accès à l'espace.
+
+    Ce n'est PAS une invitation : personne n'a invité cette personne, elle a
+    payé. `inviter_un_collaborateur` lui aurait écrit « vous faites désormais
+    partie de l'espace de … » — une phrase qui laisse croire qu'on l'a ajoutée
+    quelque part, quand elle vient d'ouvrir le sien.
+
+    Le lien mène au choix du mot de passe, et pas à la connexion : elle n'en a
+    pas encore. Elle est déjà entrée par la page de retour de Stripe ; ce
+    courriel est ce qui lui permettra de REVENIR, demain, depuis un autre
+    appareil.
+    """
+    return _envoyer(
+        destinataire=destinataire,
+        sujet=f"Votre {livrable} — votre espace est prêt",
+        corps_html=_gabarit(
+            titre="Votre paiement est bien reçu",
+            phrases=[
+                f"Votre espace EVKHA est ouvert, avec votre {livrable} à "
+                "lancer quand vous le souhaitez.",
+                "Choisissez votre mot de passe pour y revenir à tout moment : "
+                "vous y suivrez la production et y retrouverez votre document.",
+            ],
+            lien=lien,
+            bouton="Choisir mon mot de passe",
+        ),
+    )
+
+
 def reinitialiser_le_mot_de_passe(*, destinataire: str, lien: str) -> bool:
     return _envoyer(
         destinataire=destinataire,

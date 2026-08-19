@@ -21,9 +21,12 @@ import { Login } from "./pages/Login";
 import { isAuthenticated } from "./auth";
 import { routesEspace } from "./espace/routes";
 import { Partenaires } from "./public/Partenaires";
+import { NosEtudes } from "./public/NosEtudes";
 import { Inscription } from "./public/Inscription";
 import { DefinirMotDePasse, MotDePasseOublie } from "./public/MotDePasse";
 import { ConfirmerAdresse } from "./public/ConfirmerAdresse";
+import { Acheter } from "./public/Acheter";
+import { RetourPaiement } from "./public/RetourPaiement";
 
 // --- Racine ------------------------------------------------------------------
 // Le gabarit vit dans `GabaritRacine.tsx` : il appelle un crochet React, ce
@@ -51,6 +54,15 @@ const partenairesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/partenaires",
   component: Partenaires,
+});
+
+// Les etudes vendues a l'unite. Jumelle de `/partenaires` : meme menu, meme
+// charte, meme role dans le tunnel de vente. Elle remplace
+// `evkha.fr/etudedemarche`, dont le menu du site pointe desormais ici.
+const etudesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/etudes",
+  component: NosEtudes,
 });
 
 // Creation de compte, publique elle aussi : celui qui souscrit n'a pas encore
@@ -88,6 +100,37 @@ const confirmerAdresseRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/confirmer-adresse",
   component: ConfirmerAdresse,
+});
+
+// --- Achat d'une etude a l'unite (PUBLIQUE) ----------------------------------
+// Achat DIRECT, sans creation de compte prealable : la personne paie, et son
+// espace s'ouvre au retour de Stripe.
+//
+// Ce n'est PAS le chemin des cartes de `/etudes`, qui passent par
+// `/inscription?livrable=…` — meme porte que la page partenaires. Celui-ci
+// sert le client qui REVIENT : il a deja un compte, l'inscription le
+// refuserait (« deja membre »), et `livrer_l_achat` credite l'espace qu'il
+// possede au lieu d'en ouvrir un second.
+//
+// Aucun lien de l'application n'y mene aujourd'hui : le rachat depuis l'espace
+// reste a poser. La route existe pour qu'il n'y ait pas deux mecaniques de
+// paiement le jour ou on le posera.
+//
+// Le segment est le SLUG de l'offre en base, pas un identifiant invente ici :
+// c'est lui que le serveur retrouve pour appliquer le bon tarif.
+const acheterRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/acheter/$livrable",
+  component: Acheter,
+});
+
+// Adresse de retour de Stripe, figée : elle est écrite dans la `success_url`
+// de chaque session de paiement (`paiement/stripe_api.py`). La renommer
+// laisserait sur le carreau tous les paiements déjà ouverts.
+const retourPaiementRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/acheter/retour",
+  component: RetourPaiement,
 });
 
 // --- Connexion ---------------------------------------------------------------
@@ -202,10 +245,13 @@ const racine = createRoute({
 
 const routeTree = rootRoute.addChildren([
   partenairesRoute,
+  etudesRoute,
   inscriptionRoute,
   definirMotDePasseRoute,
   motDePasseOublieRoute,
   confirmerAdresseRoute,
+  retourPaiementRoute,
+  acheterRoute,
   loginRoute,
   racine,
   adminRoute.addChildren([

@@ -20,7 +20,11 @@ const ENTREES = [
   { vers: "/espace/livrables", libelle: "Livrables", icone: "▤" },
   { vers: "/espace/ma-marque", libelle: "Ma marque", icone: "◉" },
   { vers: "/espace/credits", libelle: "Crédits", icone: "◐" },
-  { vers: "/espace/abonnement", libelle: "Abonnement", icone: "◎" },
+  // Réservée aux abonnés : elle propose de souscrire, de changer de formule et
+  // d'acheter des crédits au tarif d'une formule. Un acheteur à l'unité n'en a
+  // aucune, donc aucun tarif à appliquer — le serveur refuse ces routes, et
+  // l'afficher reviendrait à montrer une porte qui se ferme.
+  { vers: "/espace/abonnement", libelle: "Abonnement", icone: "◎", abonnesSeuls: true },
   { vers: "/espace/equipe", libelle: "Équipe", icone: "◍" },
   // En dernier, contre le bouton de déconnexion : « Mon compte » n'est pas une
   // section de travail comme les précédentes mais une action personnelle, et
@@ -79,6 +83,13 @@ export function Coquille() {
       : ENTETES["/espace"]);
   const solde = moi?.credits.solde ?? 0;
   const alerte = moi?.credits.alerte ?? false;
+  // Abonné par défaut TANT QUE `moi` n'est pas chargé : c'est le cas de la
+  // quasi-totalité des comptes, et faire disparaître puis réapparaître une
+  // entrée de menu au chargement se voit. Le sens du défaut compte : masquer
+  // par défaut clignoterait chez tout le monde, afficher par défaut ne
+  // clignote que chez ceux à l'unité — et la porte qu'ils verraient une
+  // fraction de seconde leur est de toute façon refusée par le serveur.
+  const estAbonne = (moi?.organisation.type_de_compte ?? "abonne") === "abonne";
 
   async function deconnecter() {
     // On tente la révocation côté serveur, mais on efface le jeton local dans
@@ -110,7 +121,10 @@ export function Coquille() {
         </div>
 
         <ul className="espace-nav">
-          {ENTREES.map((entree) => (
+          {ENTREES.filter(
+            (entree) =>
+              !("abonnesSeuls" in entree && entree.abonnesSeuls) || estAbonne,
+          ).map((entree) => (
             <li key={entree.vers}>
               <Link
                 to={entree.vers}
@@ -189,7 +203,11 @@ export function Coquille() {
               reste consultable — ses documents, son journal, son équipe. Seule
               la commande est retenue, parce qu'elle seule engage une
               production. */}
-          {moi && !moi.acces_ouvert && (
+          {/* Le bandeau ne s'adresse qu'aux abonnés. Un acheteur à l'unité a
+              payé son étude : lui dire d'« activer son abonnement » lui
+              annoncerait un manquement qui n'existe pas, et le renverrait vers
+              une page que le serveur lui refuse. */}
+          {moi && !moi.acces_ouvert && estAbonne && (
             <Bandeau titre="Abonnement à activer">
               Vous pouvez consulter votre espace, mais pas encore commander de
               document.{" "}
@@ -201,7 +219,14 @@ export function Coquille() {
           {/* « Solde bas » n'a rien à dire de plus au compte qui n'a pas encore
               activé son abonnement : le bandeau ci-dessus le couvre, et les
               empiler ferait deux alertes pour une seule situation. */}
+          {/* Et rien non plus pour un compte a l'unite. Le seuil d'alerte vaut
+              1 par defaut : quelqu'un qui vient de payer SON etude, et qui
+              detient donc exactement le credit qu'il a achete, lisait « solde
+              bas » trente secondes apres son paiement. L'alerte invite a
+              recharger — un geste qui n'existe pas pour lui. Un avertissement
+              sur lequel le lecteur ne peut rien est pire qu'aucun (regle 2). */}
           {alerte &&
+            estAbonne &&
             moi?.acces_ouvert &&
             moi?.organisation.statut !== "suspendue" && (
               <Bandeau titre="Solde bas">

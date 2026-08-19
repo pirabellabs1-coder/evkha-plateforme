@@ -1,0 +1,183 @@
+/* Page d'achat d'une étude à l'unité.
+ *
+ * Les couleurs viennent de `.pp` (`Partenaires.css`) : or, vert, noir, crème.
+ * Aucune n'est redéclarée ici — la charte du site vitrine vit à un seul
+ * endroit, et une seconde palette finirait par diverger de la première.
+ *
+ * La feuille est volontairement courte. Cette page n'a qu'un travail : dire ce
+ * qu'on achète, à quel prix, et mener au paiement. Tout ce qui s'y ajoute
+ * éloigne du bouton.
+ */
+
+.ach-corps {
+  width: min(560px, 92vw);
+  margin-inline: auto;
+  padding: 3rem 0 5rem;
+}
+
+.ach-attente {
+  text-align: center;
+  color: var(--gris);
+}
+
+.ach-carte {
+  border: 1px solid #e4e0d6;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 2.25rem 2rem 2rem;
+}
+
+.ach-retour {
+  text-align: center;
+}
+
+.ach-surtitre {
+  font-family: var(--serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--or-fonce);
+  margin: 0 0 0.35rem;
+}
+
+.ach-carte h1 {
+  font-family: var(--serif);
+  font-size: 1.7rem;
+  line-height: 1.2;
+  margin: 0 0 0.75rem;
+  text-wrap: balance;
+}
+
+.ach-accroche {
+  color: var(--gris);
+  margin: 0 0 1.5rem;
+}
+
+.ach-prix {
+  font-family: var(--serif);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 1.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--or);
+}
+
+.ach-prix span {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--gris);
+  letter-spacing: 0.01em;
+}
+
+/* Les étapes sont numérotées parce que c'en est vraiment une séquence : payer,
+   entrer, décrire, recevoir. L'ordre porte l'information. */
+.ach-etapes {
+  margin: 0 0 2rem;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--gris);
+  font-size: 0.94rem;
+}
+
+.ach-champ {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.ach-facultatif {
+  font-weight: 400;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+
+.ach-corps input {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #d5d0c4;
+  border-radius: 3px;
+  font: inherit;
+  background: #ffffff;
+}
+
+.ach-corps input:focus-visible {
+  outline: 2px solid var(--or-fonce);
+  outline-offset: 1px;
+}
+
+.ach-aide {
+  font-size: 0.82rem;
+  color: var(--gris);
+  margin: 0.4rem 0 1.5rem;
+}
+
+.ach-bouton {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: none;
+  border-radius: 3px;
+  background: var(--noir);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.ach-bouton:hover:not(:disabled) {
+  background: var(--vert);
+}
+
+.ach-bouton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.ach-bouton:focus-visible {
+  outline: 2px solid var(--or-fonce);
+  outline-offset: 2px;
+}
+
+.ach-rassurance {
+  font-size: 0.8rem;
+  color: var(--gris);
+  text-align: center;
+  margin: 0.9rem 0 0;
+}
+
+.ach-avis,
+.ach-erreur {
+  border-left: 3px solid var(--or);
+  background: var(--creme-clair);
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+}
+
+.ach-erreur {
+  border-left-color: #a4342a;
+  background: #fdf1ef;
+  color: #7d2820;
+}
+
+@media (max-width: 600px) {
+  .ach-corps {
+    padding-top: 1.5rem;
+  }
+
+  .ach-carte {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .ach-prix {
+    font-size: 1.7rem;
+  }
+}

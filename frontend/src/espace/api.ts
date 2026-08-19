@@ -120,6 +120,13 @@ export interface Moi {
     statut: "active" | "suspendue";
     marque_blanche: boolean;
     validation_socle_par_client: boolean;
+    /** Abonne mensuel, ou acheteur d'une etude a l'unite sur evkha.fr.
+     *
+     *  Sert a ne pas PROPOSER d'abonnement a qui n'en a pas. Ce n'est pas une
+     *  mesure de securite : le serveur refuse de toute facon les routes
+     *  d'abonnement pour un compte a l'unite (`espace(reserve_aux_abonnes)`).
+     *  Un menu n'est pas un controle. */
+    type_de_compte: "abonne" | "a_l_unite";
   };
   credits: { solde: number; seuil_alerte: number; alerte: boolean };
   abonnement: {

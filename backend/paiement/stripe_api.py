@@ -273,6 +273,109 @@ def creer_paiement_de_credits(
     )
 
 
+def creer_paiement_de_livrable(*, offre: Any, email: str = "") -> SessionOuverte:
+    """Ouvre un paiement PONCTUEL pour UN livrable, sans compte prealable.
+
+    C'est la porte d'entree du public direct : quelqu'un lit une page de vente,
+    clique, paie, et se retrouve dans son espace avec de quoi lancer son etude.
+    Il n'a ni organisation, ni formule, ni mot de passe — rien n'existe encore
+    de lui au moment ou cette session s'ouvre.
+
+    D'ou les deux differences avec `creer_paiement_de_credits`, qui part d'une
+    organisation deja connue :
+
+    - **Aucun `client_reference_id`.** Il n'y a personne a referencer. Ce qui
+      identifie l'achat, c'est le slug de l'offre dans les metadonnees, et
+      l'adresse que Stripe collecte lui-meme.
+    - **L'adresse est OBLIGATOIRE cote Stripe** (`customer_creation`), parce
+      que c'est le seul lien entre le paiement et la personne. Sans elle, un
+      paiement encaisse ne pourrait etre rattache a aucun compte, et l'argent
+      serait pris sans que rien ne puisse etre livre.
+
+    Le montant vient de `offre.prix_unitaire_cents`, transmis a la volee. Un
+    tarif Stripe preenregistre par livrable ferait quatre produits de plus a
+    tenir a jour a cote du catalogue, et la modification d'un prix en
+    administration cesserait d'avoir le moindre effet (regle 5).
+    """
+    prix = int(getattr(offre, "prix_unitaire_cents", 0) or 0)
+    if prix <= 0:
+        raise PaiementIndisponible(
+            f"L'offre « {getattr(offre, 'name', '')} » n'a pas de tarif à "
+            "l'unité. Renseignez-le en administration."
+        )
+
+    facultatifs: dict[str, Any] = {}
+    if email:
+        facultatifs["customer_email"] = email
+
+    try:
+        session: Any = stripe.checkout.Session.create(
+            api_key=cle_secrete(),
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": "eur",
+                    "unit_amount": prix,
+                    "product_data": {"name": f"EVKHA — {offre.name}"},
+                },
+                "quantity": 1,
+            }],
+            # Stripe rend l'identifiant de session dans l'adresse de retour :
+            # c'est lui qui permet a la page d'arrivee de reconnaitre l'achat
+            # et d'ouvrir la session, sans attendre le webhook.
+            success_url=_adresse_de_retour(
+                "/acheter/retour?session={CHECKOUT_SESSION_ID}"
+            ),
+            cancel_url=_adresse_de_retour(f"/acheter/{offre.slug}?paiement=abandon"),
+            metadata={
+                # Ce qui distingue cet achat d'une souscription et d'un achat
+                # de credits au webhook.
+                "achat": "livrable",
+                "offre_slug": offre.slug,
+            },
+            **facultatifs,
+        )
+    except stripe.StripeError as exc:
+        _log.error(
+            "Stripe a refuse l'achat du livrable %s : %s", offre.slug, exc
+        )
+        raise PaiementIndisponible(
+            "Le paiement est momentanément indisponible. Réessayez dans "
+            "quelques minutes."
+        ) from exc
+
+    adresse = str(session.get("url") or "")
+    if not adresse:
+        raise PaiementIndisponible(
+            "Le paiement est momentanément indisponible. Réessayez dans "
+            "quelques minutes."
+        )
+    return SessionOuverte(
+        identifiant=str(session.get("id") or ""), adresse=adresse
+    )
+
+
+def relire_la_session(identifiant: str) -> dict[str, Any]:
+    """Relit une session Checkout chez Stripe, pour la page de retour.
+
+    **Le navigateur ne prouve rien.** L'identifiant de session arrive par
+    l'adresse de retour, donc de l'exterieur : le croire sur parole
+    reviendrait a livrer une etude a quiconque devine une chaine commencant
+    par `cs_`. C'est Stripe qui dit si elle est payee, et lui seul.
+    """
+    try:
+        session: Any = stripe.checkout.Session.retrieve(
+            identifiant, api_key=cle_secrete()
+        )
+    except stripe.StripeError as exc:
+        _log.warning("Session Stripe %s illisible : %s", identifiant, exc)
+        raise PaiementIndisponible(
+            "Ce paiement n'a pas pu être vérifié. Réessayez dans quelques "
+            "minutes, ou écrivez-nous."
+        ) from exc
+    return dict(session)
+
+
 def arreter_le_renouvellement(reference_stripe: str) -> str:
     """Demande à Stripe de ne plus reconduire cet abonnement.
 

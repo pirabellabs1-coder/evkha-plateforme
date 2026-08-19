@@ -210,6 +210,13 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
     if str((session.get("metadata") or {}).get("achat") or "") == "credits":
         return _crediter_l_achat(session)
 
+    # Un achat A L'UNITE emprunte lui aussi cet evenement, et il n'a NI
+    # organisation NI formule : tout est a creer. Sans cet aiguillage,
+    # `_identite` chercherait une organisation qui n'existe pas encore et
+    # ouvrirait un incident sur un paiement pourtant parfaitement valide.
+    if str((session.get("metadata") or {}).get("achat") or "") == "livrable":
+        return _livrer_un_achat_a_l_unite(session)
+
     abonnement_stripe = str(session.get("subscription") or "")
     organisation_id, formule_code = _identite(session, abonnement_stripe)
     _, cree = assurer_abonnement(
@@ -245,6 +252,35 @@ def _marquer_la_tentative_payee(reference: str) -> None:
         )
     except Exception:  # noqa: BLE001
         _log.exception("Tentative de paiement non marquee payee (%s)", reference)
+
+
+def _livrer_un_achat_a_l_unite(session: dict[str, Any]) -> str:
+    """Ouvre l'espace de l'acheteur direct et lui verse son crédit.
+
+    Le courriel part APRES la transaction, jamais dedans : un envoi suivi d'un
+    retour arriere donnerait a quelqu'un le lien d'un espace qui n'existe pas.
+
+    Un echec ici est un incident de gravite haute, et le mot n'est pas trop
+    fort : l'argent a ete pris. La page de retour rattrapera peut-etre — elle
+    appelle le meme code — mais on ne parie pas la-dessus pour dormir.
+    """
+    from . import achats  # noqa: PLC0415 — evite un cycle a l'import
+
+    try:
+        achat = achats.livrer_l_achat(session)
+    except achats.AchatInexploitable as exc:
+        _incident(
+            "Achat a l'unite inexploitable",
+            IncidentSeverity.HIGH,
+            session=str(session.get("id") or ""),
+            motif=str(exc),
+        )
+        return "achat a l'unite inexploitable"
+
+    if achat.nouveau:
+        achats.prevenir_l_acheteur(achat)
+        return f"achat a l'unite livre ({achat.offre.slug})"
+    return "achat a l'unite deja livre"
 
 
 def _crediter_l_achat(session: dict[str, Any]) -> str:

@@ -14,6 +14,12 @@ app_name = "public"
 
 urlpatterns = [
     path("formules/", vues.formules_publiques, name="formules"),
+    # Achat a l'unite : le catalogue avec ses tarifs, l'ouverture du paiement,
+    # et le retour de Stripe. Trois routes PUBLIQUES par necessite — au moment
+    # ou la personne clique, elle n'a ni compte ni jeton.
+    path("livrables/", vues.livrables_publics, name="livrables"),
+    path("acheter/", vues.acheter, name="acheter"),
+    path("acheter/retour/", vues.retour_de_paiement, name="acheter-retour"),
     path("inscription/", vues.inscrire, name="inscription"),
     path("reglages/", vues.reglages_publics, name="reglages"),
     # Un seul point d'entree pour la connexion ET l'inscription par Google : au

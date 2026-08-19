@@ -54,6 +54,15 @@ export function MenuSite() {
   const entrees = MENU_SITE.filter((e) => !e.appel);
   const appel = MENU_SITE.find((e) => e.appel);
 
+  // L'entrée courante se DÉDUIT du chemin, elle n'est plus écrite dans les
+  // données. Deux pages publiques partagent ce menu — partenaires et nos
+  // études — et un drapeau figé annonçait « vous êtes ici » sur celle où
+  // l'on n'était pas. Seuls les liens internes peuvent être courants : une
+  // adresse du site vitrine ne désigne jamais la page affichée.
+  const ici = window.location.pathname.replace(/\/+$/, "") || "/";
+  const estCourante = (lien: string) =>
+    lien.startsWith("/") && lien.replace(/\/+$/, "") === ici;
+
   return (
     <nav className="pp-menu" aria-label="Navigation du site EVKHA" ref={barre}>
       <div className="pp-menu-barre">
@@ -85,8 +94,10 @@ export function MenuSite() {
                 <li key={entree.lien}>
                   <a
                     href={entree.lien}
-                    className={entree.courant ? "pp-menu-courant" : undefined}
-                    aria-current={entree.courant ? "page" : undefined}
+                    className={
+                      estCourante(entree.lien) ? "pp-menu-courant" : undefined
+                    }
+                    aria-current={estCourante(entree.lien) ? "page" : undefined}
                   >
                     {entree.libelle}
                   </a>
@@ -95,10 +106,19 @@ export function MenuSite() {
             }
 
             const deplie = ouvert === entree.libelle;
+            // Un déroulant est courant si l'on est sur SON lien ou sur celui
+            // d'une de ses sous-entrées. Ne regarder que le lien du parent
+            // laissait « Etude de marché & Livrables » non signalé sur la page
+            // même où il mène — le seul cas où le repère sert vraiment.
+            const courant =
+              estCourante(entree.lien) ||
+              entree.enfants.some((enfant) => estCourante(enfant.lien));
             return (
               <li key={entree.lien} className="pp-menu-deroulant">
                 <button
                   type="button"
+                  className={courant ? "pp-menu-courant" : undefined}
+                  aria-current={courant ? "page" : undefined}
                   aria-expanded={deplie}
                   onClick={() => setOuvert(deplie ? null : entree.libelle)}
                 >

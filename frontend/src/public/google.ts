@@ -22,6 +22,9 @@ export type SessionGoogle = {
   champs_completes?: string[];
   organisation?: { id: string; raison_sociale: string };
   formule_demandee?: string | null;
+  /** Étude à payer, quand le compte vient d'être ouvert depuis `/etudes`.
+   *  Absent sur une simple connexion : on ne fait payer personne qui revient. */
+  livrable_demande?: string | null;
   abonnement_actif?: boolean;
 };
 
@@ -120,7 +123,7 @@ export async function brancherBouton(
  */
 export async function ouvrirSessionGoogle(
   jetonGoogle: string,
-  extras: { raison_sociale?: string; formule?: string } = {},
+  extras: { raison_sociale?: string; formule?: string; livrable?: string } = {},
 ): Promise<SessionGoogle> {
   const reponse = await fetch(`${BASE}/api/public/google/`, {
     method: "POST",

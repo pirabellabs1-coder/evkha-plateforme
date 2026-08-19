@@ -30,6 +30,17 @@ class Offer(UUIDModel):
     credits_per_month = models.PositiveSmallIntegerField(default=0)
     is_subscription = models.BooleanField(default=False)
     is_extra_credit = models.BooleanField(default=False)
+    #: Prix d'un achat A L'UNITE, en centimes. Zero = l'offre ne se vend pas
+    #: seule (abonnements, credits supplementaires, dont le tarif vit sur la
+    #: `Formule`).
+    #:
+    #: Stocke ICI et nulle part ailleurs. Le montant est transmis a Stripe a la
+    #: volee, comme pour les credits supplementaires : un tarif preenregistre
+    #: chez le prestataire ferait deux verites pour un meme prix (regle 5), et
+    #: celle de Stripe gagnerait sans que personne ne l'ait decide. Le champ est
+    #: modifiable en administration : changer un prix ne demande pas de
+    #: deploiement, exigence deja tenue pour les formules.
+    prix_unitaire_cents = models.PositiveIntegerField(default=0)
     # Nom exact du produit dans Systeme.io (physicalProduct.name dans le payload
     # SALE_NEW du webhook global). Permet de router une vente vers la bonne offre
     # sans passer par un parametre offer_slug dans l'URL de l'automatisation.

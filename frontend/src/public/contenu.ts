@@ -187,8 +187,9 @@ export const CONTACT_EMAIL = "contact@evkha.fr";
 export type EntreeMenu = {
   libelle: string;
   lien: string;
-  /** Page où l'on se trouve : signalée, mais toujours cliquable. */
-  courant?: boolean;
+  /** Plus de drapeau `courant` écrit à la main : deux pages publiques
+   *  partagent ce menu, et un drapeau figé annoncerait « vous êtes ici » sur
+   *  la mauvaise. `MenuSite` le DÉDUIT de l'adresse courante. */
   /** Bouton d'appel, à droite et détaché du reste. */
   appel?: boolean;
   /** Sous-entrées d'un menu déroulant. */
@@ -199,12 +200,13 @@ export const MENU_SITE: EntreeMenu[] = [
   { libelle: "Accueil", lien: "https://www.evkha.fr/" },
   {
     libelle: "Etude de marché & Livrables",
-    lien: "https://www.evkha.fr/etudedemarche",
+    lien: "/etudes",
     enfants: [
-      {
-        libelle: "Générer votre étude ou livrable",
-        lien: "https://www.evkha.fr/etudedemarche",
-      },
+      // Cette page-ci a remplacé `evkha.fr/etudedemarche` dans le tunnel : le
+      // lien est donc interne, comme celui des partenaires. Les études prêtes
+      // à télécharger restent sur le site vitrine, elles ne passent pas par
+      // la plateforme.
+      { libelle: "Générer votre étude ou livrable", lien: "/etudes" },
       {
         libelle: "Études en téléchargement immédiat",
         lien: "https://www.evkha.fr/etude-achat-immediat",
@@ -212,11 +214,7 @@ export const MENU_SITE: EntreeMenu[] = [
     ],
   },
   { libelle: "Nos packs accompagnement", lien: "https://www.evkha.fr/packs" },
-  {
-    libelle: "Partenariats PRO et abonnements",
-    lien: "https://app2.evkha.fr/partenaires/",
-    courant: true,
-  },
+  { libelle: "Partenariats PRO et abonnements", lien: "/partenaires" },
   { libelle: "Nos Formations", lien: "https://www.evkha.fr/formation" },
   { libelle: "Boîte à outils", lien: "https://www.evkha.fr/boite-a-outil" },
   {
@@ -227,3 +225,121 @@ export const MENU_SITE: EntreeMenu[] = [
 ];
 
 export const LOGO_SITE = "/partenaires/logo-evkha.png";
+
+// ── Nos études : la page des livrables à l'unité ────────────────────────────
+
+/** Argumentaire de chaque étude vendue seule, repris de `evkha.fr/etudedemarche`.
+ *
+ *  **Éditorial uniquement.** Le libellé, le PRIX et le NOMBRE DE CHAPITRES
+ *  viennent du serveur (`/api/public/livrables/`) : les recopier ici ferait de
+ *  cette page une seconde vérité, qui contredirait le paiement le jour d'un
+ *  changement de tarif ou d'un chapitre ajouté au plan (règle 5). C'est
+ *  exactement le partage retenu pour la page partenaires.
+ *
+ *  La clé est le SLUG de l'offre en base — le même que dans l'adresse
+ *  (`/inscription?livrable=etude-marche`). Une offre sans entrée ici s'affiche
+ *  quand même, avec son prix : mieux vaut une carte sobre qu'une offre
+ *  invisible parce qu'un texte manque.
+ */
+export type ArgumentaireEtude = {
+  /** Le bénéfice, en capitales au-dessus du titre. */
+  surtitre: string;
+  /** Nombre de chapitres ANNONCÉ, tel qu'il figure sur `evkha.fr`.
+   *
+   *  Ce n'est PAS le nombre d'entrées du plan de production, et l'écart est
+   *  voulu : le plan porte 23 entrées pour l'étude de marché quand la page en
+   *  annonce 22, parce que la fiche projet d'ouverture et l'annexe ne sont pas
+   *  vendues comme des chapitres. Deux vérités distinctes — ce qu'on produit,
+   *  ce qu'on annonce — et lire la première ici réécrirait l'argumentaire
+   *  commercial sans que personne l'ait décidé. */
+  chapitres: number;
+  /** Première puce, en gras : ce que contient le livrable. */
+  chapeau: string;
+  /** Les puces secondaires, en retrait. */
+  details: string[];
+  /** Paragraphe de clôture, sous les puces. */
+  pied: string;
+  /** Libellé du bouton. « Commander mon business plan » n'est pas
+   *  « Commander mon étude » — le mot compte sur un bouton d'achat. */
+  bouton: string;
+};
+
+export const ETUDES: Record<string, ArgumentaireEtude> = {
+  "etude-marche": {
+    chapitres: 22,
+    surtitre: "POUR VALIDER VOTRE IDÉE",
+    chapeau: "chapitres clairs et structurés comprenant :",
+    details: [
+      "Votre marché est-il vraiment porteur ? On vous le dit, chiffres en main.",
+      "La taille de votre marché, en euros et en clients potentiels",
+      "S'il est en croissance, stable ou en déclin (avec les chiffres)",
+      "Vos clients types : qui ils sont, ce qu'ils veulent, combien ils dépensent",
+      "Les risques de votre projet et comment les anticiper",
+      "Une étude prête à présenter à la banque, la BGE, Pôle Emploi",
+    ],
+    pied: "Vous répondrez enfin aux questions : est-ce un marché saturé ? Viable ? Rentable ? Prometteur ?",
+    bouton: "Commander mon étude",
+  },
+  "etude-concurrence": {
+    chapitres: 9,
+    surtitre: "POUR CONNAÎTRE VOS CONCURRENTS",
+    chapeau: "chapitres clairs et structurés comprenant :",
+    details: [
+      "Qui sont-ils, ce qu'ils font, comment vous différencier d'eux",
+      "8 concurrents directs + 3 concurrents indirects analysés un par un",
+      "Leurs prix, leurs services, leurs points forts et leurs faiblesses",
+      "Une carte claire pour vous positionner sur le marché",
+      "Vos angles de différenciation pour vous rendre incontournable",
+    ],
+    pied: "Chaque projet est unique, votre étude aussi. Après votre commande, vous répondez à un questionnaire rapide et la production démarre.",
+    bouton: "Commander mon étude",
+  },
+  "business-plan": {
+    chapitres: 21,
+    surtitre: "POUR CONVAINCRE VOTRE BANQUE",
+    chapeau: "chapitres, présentés comme une banque aime les lire :",
+    details: [
+      "Votre projet expliqué simplement, du début à la fin",
+      "Construit selon les attentes des banques et des financeurs, avec graphiques et matrices",
+      "Marché, clients, prix, plan d'action, prévisions financières",
+      "Rédigé dans un français clair — comme si vous l'aviez écrit vous-même",
+    ],
+    pied: "Le dossier que vous posez sur la table, sans avoir à l'expliquer avant qu'on le lise.",
+    bouton: "Commander mon business plan",
+  },
+  "strategie-business": {
+    chapitres: 20,
+    surtitre: "POUR PASSER À L'ACTION",
+    chapeau: "chapitres pour structurer votre business :",
+    details: [
+      "Un rapport stratégique complet en 4 piliers, personnalisé et orienté résultats",
+      "Adapté à vos contraintes et à votre vision",
+      "Sortir de la confusion, clarifier votre direction, affirmer ce qui vous rend unique",
+      "Un plan pour structurer votre visibilité et parler à votre cible, sans vous éparpiller",
+      "Des recommandations concrètes, activables sans connaissance technique",
+    ],
+    pied: "Stop au flou : une stratégie claire et rentable, que vous pouvez appliquer dès la semaine suivante.",
+    bouton: "Commander ma stratégie",
+  },
+};
+
+export const ETUDES_PAGE = {
+  surtitre: "NOS ÉTUDES",
+  titre: "EVKHA répond aux questions de TOUT porteur de projet",
+  chapeau:
+    "Des livrables complets, produits sur votre projet et livrés en Word et en PDF. Payés une fois, sans abonnement.",
+  /** Sous les cartes : ce qui se passe après le paiement.
+   *  Une séquence réelle — payer, entrer, décrire, recevoir —, d'où la
+   *  numérotation : l'ordre porte l'information. */
+  etapes: [
+    "Vous choisissez votre étude et vous la payez.",
+    "Votre espace s'ouvre : vous y répondez au questionnaire de votre projet.",
+    "La production démarre et vous la suivez étape par étape.",
+    "Vous téléchargez votre document, en Word et en PDF.",
+  ],
+  appel: {
+    titre: "Vous accompagnez plusieurs porteurs de projet ?",
+    corps: "Les formules partenaires donnent des crédits chaque mois, sous votre marque, à un coût par livrable bien inférieur.",
+    lien: "Voir les formules partenaires",
+  },
+};

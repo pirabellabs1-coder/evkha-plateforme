@@ -20,6 +20,7 @@ active quand le paiement est confirmé, pas quand le formulaire est envoyé.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -28,12 +29,17 @@ from django.db import transaction
 from customers.models import Customer, CustomerType
 
 from . import authentification, services
+
+if TYPE_CHECKING:  # pragma: no cover — import de typage seulement
+    from catalog.models import Offer
+
 from .models import (
     AbonnementOrganisation,
     DemandeCommerciale,
     Formule,
     MembreOrganisation,
     Organisation,
+    TypeDeCompte,
 )
 
 
@@ -76,6 +82,33 @@ def formule_ou_refus(code: str) -> Formule | None:
         msg = f"Aucune formule active ne porte le code « {code} »."
         raise InscriptionRefuseeError(msg, "formule_introuvable", 404)
     return formule
+
+
+def livrable_ou_refus(slug: str) -> Offer | None:
+    """Etude achetable a l'unite portant ce slug. Vide = aucune, sans erreur.
+
+    Jumeau exact de `formule_ou_refus`, et pour la meme raison : le visiteur
+    arrive avec son choix dans l'adresse, et une adresse se retouche a la main.
+    Un slug inconnu doit produire un refus lisible, pas un compte ouvert sur
+    rien.
+
+    Le filtre `prix_unitaire_cents__gt=0` n'est pas cosmetique : une offre a
+    zero euro ouvrirait un paiement de zero euro, accepte par Stripe, qui
+    livrerait une etude a plusieurs euros de cout de production sans
+    contrepartie.
+    """
+    from catalog.models import Offer  # noqa: PLC0415 — evite un cycle a l'import
+
+    slug = (slug or "").strip()
+    if not slug:
+        return None
+    offre = Offer.objects.filter(
+        slug=slug, is_active=True, prix_unitaire_cents__gt=0
+    ).first()
+    if offre is None:
+        msg = f"Aucune etude disponible ne porte la reference « {slug} »."
+        raise InscriptionRefuseeError(msg, "livrable_introuvable", 404)
+    return offre
 
 
 def controler_saisie(*, raison_sociale: str, email: str, mot_de_passe: str) -> None:
@@ -155,6 +188,7 @@ def ouvrir_compte(
     nom: str = "",
     formule: Formule | None = None,
     activer_abonnement: bool,
+    a_l_unite: bool = False,
     message: str = "",
 ) -> Ouverture:
     """Crée l'organisation, son propriétaire et ses identifiants.
@@ -179,6 +213,12 @@ def ouvrir_compte(
     organisation = services.creer_organisation(
         raison_sociale=raison_sociale, contact=contact
     )
+    if a_l_unite:
+        # Pose des la creation, et pas apres le paiement : entre les deux, la
+        # personne est deja dans son espace, et elle y verrait un menu
+        # « Abonnement » qui ne la concerne pas et que le serveur lui refuse.
+        organisation.type_de_compte = TypeDeCompte.A_L_UNITE
+        organisation.save(update_fields=["type_de_compte", "updated_at"])
     authentification.creer_compte(contact, mot_de_passe=mot_de_passe)
 
     abonnement = None

@@ -89,7 +89,19 @@ export function Commander() {
   const cache = useQueryClient();
   const naviguer = useNavigate();
 
-  const [choisi, setChoisi] = useState<string | null>(null);
+  // Pré-sélection depuis l'adresse (`/espace/commander?livrable=market_study`).
+  //
+  // C'est par là qu'arrive quelqu'un qui vient d'acheter UNE étude précise sur
+  // `evkha.fr` : lui redemander laquelle, trente secondes après l'avoir payée,
+  // c'est lui redemander ce qu'il vient de dire — et lui ouvrir la porte pour
+  // se tromper de document.
+  //
+  // `URLSearchParams` plutôt que `useSearch` du routeur : le paramètre doit
+  // être lu même quand la navigation vient de l'extérieur (retour de Stripe),
+  // et non d'une transition interne typée.
+  const [choisi, setChoisi] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get("livrable") || null,
+  );
   const [reponses, setReponses] = useState<Record<string, string>>({});
   const [erreur, setErreur] = useState("");
   const [manquants, setManquants] = useState<string[]>([]);

@@ -88,6 +88,175 @@ def _refus(message: str, code: str, statut: int = 400) -> HttpResponse:
     return JsonResponse({"erreur": message, "code": code}, status=statut)
 
 
+#: Ouvertures de paiement autorisées par adresse IP et par heure.
+#:
+#: Plus large que les inscriptions : quelqu'un qui hésite entre deux livrables
+#: ouvre légitimement deux ou trois paiements, et en abandonne. Le plafond ne
+#: protège que d'un script qui ouvrirait des sessions Stripe en boucle.
+PAIEMENTS_PAR_HEURE = limitation.Plafond("achat", maximum=20, fenetre_s=3600)
+
+
+@require_GET
+def livrables_publics(request: HttpRequest) -> HttpResponse:
+    """Les livrables achetables à l'unité, avec leur tarif.
+
+    Même principe que `formules_publiques` : le prix vient de la table, jamais
+    d'une constante recopiée dans le React. Une page de vente qui annonce
+    149 EUR et un paiement qui en prélève 189 est le pire défaut possible sur
+    ce parcours, et c'est exactement ce que produit une seconde source (règle 5).
+
+    Les offres sans tarif à l'unité — abonnements, crédits supplémentaires — ne
+    sortent pas d'ici : elles ne se vendent pas seules.
+
+    **Le nombre de chapitres n'est PAS rendu ici, et c'est délibéré.** J'avais
+    commencé par le lire du plan de production, au nom de la règle 5. Mesuré :
+    le plan compte 23 entrées pour l'étude de marché et 10 pour l'étude de
+    concurrence, quand `evkha.fr` en annonce 22 et 9. L'écart n'est pas une
+    erreur — le plan porte une fiche projet en ouverture et une annexe, qui ne
+    sont pas vendues comme des chapitres.
+
+    Ce sont donc deux vérités différentes : ce qu'on PRODUIT, et ce qu'on
+    ANNONCE. Les confondre aurait réécrit l'argumentaire commercial de la
+    cliente au premier chargement de page, sans que personne l'ait décidé. Le
+    nombre annoncé vit avec le reste de l'argumentaire, dans `contenu.ts`.
+    """
+    from catalog.models import Offer  # noqa: PLC0415 — evite un cycle a l'import
+
+    offres = (
+        Offer.objects.filter(is_active=True, prix_unitaire_cents__gt=0)
+        .exclude(deliverable_type="")
+        .order_by("prix_unitaire_cents")
+    )
+    return JsonResponse({
+        "livrables": [
+            {
+                "slug": o.slug,
+                "libelle": o.name,
+                "type": o.deliverable_type,
+                "prix_cents": o.prix_unitaire_cents,
+            }
+            for o in offres
+        ],
+    })
+
+
+@csrf_exempt
+@require_POST
+def acheter(request: HttpRequest) -> HttpResponse:
+    """Ouvre le paiement d'UN livrable, sans compte préalable.
+
+    Rien de ce que le navigateur envoie ne fixe un prix : on ne lit qu'un slug,
+    et le tarif est celui du catalogue. Accepter un montant depuis le client
+    reviendrait à laisser choisir combien payer — la même règle que l'achat de
+    crédits, et pour la même raison.
+
+    L'adresse est facultative ici : Stripe la collecte de toute façon sur sa
+    propre page, et c'est celle-là qui fait foi au retour. La demander avant
+    sert seulement à pré-remplir, pour épargner une saisie.
+    """
+    from paiement import stripe_api  # noqa: PLC0415
+
+    from catalog.models import Offer  # noqa: PLC0415
+
+    try:
+        charge = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return _refus("Requête illisible.", "corps_invalide")
+    if not isinstance(charge, dict):
+        return _refus("Requête illisible.", "corps_invalide")
+
+    adresse_ip = limitation.adresse_client(request)
+    if limitation.depasse(PAIEMENTS_PAR_HEURE, adresse_ip):
+        return _refus(
+            "Trop de paiements ouverts depuis cette connexion. Réessayez dans "
+            "une heure, ou écrivez-nous à contact@evkha.fr.",
+            "trop_de_tentatives",
+            429,
+        )
+
+    slug = str(charge.get("livrable") or "").strip()
+    offre = Offer.objects.filter(
+        slug=slug, is_active=True, prix_unitaire_cents__gt=0
+    ).first()
+    if offre is None:
+        return _refus(
+            "Ce livrable n'est pas disponible à l'achat.", "livrable_inconnu", 404
+        )
+
+    try:
+        session = stripe_api.creer_paiement_de_livrable(
+            offre=offre, email=str(charge.get("email") or "").strip()
+        )
+    except stripe_api.PaiementIndisponible as refus:
+        _log.error("Achat de %s impossible : %s", slug, refus)
+        return _refus(str(refus), "paiement_indisponible", 503)
+
+    return JsonResponse({"adresse": session.adresse})
+
+
+@csrf_exempt
+@require_POST
+def retour_de_paiement(request: HttpRequest) -> HttpResponse:
+    """L'acheteur revient de Stripe : on vérifie, on livre, on ouvre la session.
+
+    **On n'attend pas le webhook.** Stripe redirige le navigateur et poste son
+    événement en parallèle, sans ordre garanti. Faire patienter quelqu'un qui
+    vient de payer devant un écran de chargement, en espérant qu'un serveur
+    tiers se manifeste, serait le pire moment du parcours pour lui demander de
+    la confiance. Le traitement est idempotent : celui des deux qui arrive
+    d'abord livre, l'autre ne fait rien.
+
+    **L'identifiant de session ne prouve rien par lui-même** — il arrive par
+    l'adresse de retour, donc de l'extérieur. C'est Stripe qui dit si la
+    session est payée, et `livrer_l_achat` refuse tout ce qui ne l'est pas.
+    """
+    from paiement import achats, stripe_api  # noqa: PLC0415
+
+    try:
+        charge = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return _refus("Requête illisible.", "corps_invalide")
+    if not isinstance(charge, dict):
+        return _refus("Requête illisible.", "corps_invalide")
+
+    identifiant = str(charge.get("session") or "").strip()
+    if not identifiant:
+        return _refus("Paiement introuvable.", "session_absente")
+
+    try:
+        session = stripe_api.relire_la_session(identifiant)
+    except stripe_api.PaiementIndisponible as refus:
+        return _refus(str(refus), "session_illisible", 503)
+
+    if not achats.est_un_achat_de_livrable(session):
+        return _refus("Ce paiement ne concerne pas un livrable.", "achat_autre", 409)
+
+    try:
+        achat = achats.livrer_l_achat(session)
+    except achats.AchatInexploitable as refus:
+        _log.error("Retour de paiement inexploitable (%s) : %s", identifiant, refus)
+        return _refus(
+            "Votre paiement a bien été reçu, mais votre espace n'a pas pu être "
+            "ouvert. Écrivez-nous à contact@evkha.fr, nous le faisons "
+            "immédiatement.",
+            "achat_inexploitable",
+            409,
+        )
+
+    if achat.nouveau:
+        achats.prevenir_l_acheteur(achat)
+
+    # C'est Stripe qui a prouvé l'identité — il a encaissé une carte et
+    # collecté l'adresse. La personne n'a pas de mot de passe et n'en a pas
+    # besoin pour entrer ; elle en choisira un depuis le courriel.
+    jeton_clair = authentification.ouvrir_session_sans_mot_de_passe(achat.compte)
+    return JsonResponse({
+        "jeton": jeton_clair,
+        "livrable": achat.offre.deliverable_type,
+        "libelle": achat.offre.name,
+    })
+
+
 @csrf_exempt
 @require_POST
 def inscrire(request: HttpRequest) -> HttpResponse:
@@ -128,6 +297,7 @@ def inscrire(request: HttpRequest) -> HttpResponse:
         )
         inscription.refuser_si_deja_membre(email, nommer_organisation=False)
         formule = inscription.formule_ou_refus(str(charge.get("formule", "")))
+        offre = inscription.livrable_ou_refus(str(charge.get("livrable", "")))
         ouverture = inscription.ouvrir_compte(
             raison_sociale=raison_sociale,
             email=email,
@@ -137,6 +307,9 @@ def inscrire(request: HttpRequest) -> HttpResponse:
             formule=formule,
             # Rien n'est encaisse : on enregistre l'intention, on n'active pas.
             activer_abonnement=False,
+            # Un compte ouvert pour acheter UNE etude n'est pas un compte
+            # d'abonne : il ne verra ni formules, ni achat de credits.
+            a_l_unite=offre is not None,
         )
     except inscription.InscriptionRefuseeError as refus:
         return _refus(str(refus), refus.code, refus.statut)
@@ -160,6 +333,12 @@ def inscrire(request: HttpRequest) -> HttpResponse:
                 "raison_sociale": ouverture.organisation.raison_sociale,
             },
             "formule_demandee": formule.code if formule else None,
+            # L'etude a payer, s'il y en a une. L'interface enchaine dessus :
+            # le compte est ouvert, le paiement s'ouvre dans la foulee. On rend
+            # le slug plutot qu'un booleen pour que la page n'ait pas a relire
+            # son adresse — deux lectures de la meme intention finissent
+            # toujours par diverger.
+            "livrable_demande": offre.slug if offre else None,
             # Dit explicitement ce qui n'a PAS eu lieu : l'interface doit
             # pouvoir annoncer « souscription en cours de validation » plutot
             # que laisser croire a un abonnement actif.
@@ -272,6 +451,11 @@ def google_session(request: HttpRequest) -> HttpResponse:
             identite.email, nommer_organisation=False
         )
         formule = inscription.formule_ou_refus(str(charge.get("formule", "")))
+        # Le livrable traverse ce chemin comme la formule. Sans cela, quelqu'un
+        # qui clique « Continuer avec Google » depuis une page d'achat obtenait
+        # un compte d'ABONNE, sans paiement et sans etude : le parcours le plus
+        # rapide etait aussi le seul qui ne menait nulle part.
+        offre = inscription.livrable_ou_refus(str(charge.get("livrable", "")))
         ouverture = inscription.ouvrir_compte(
             raison_sociale=raison_sociale,
             email=identite.email,
@@ -281,6 +465,7 @@ def google_session(request: HttpRequest) -> HttpResponse:
             nom=identite.nom,
             formule=formule,
             activer_abonnement=False,
+            a_l_unite=offre is not None,
             message="Souscription demandée depuis la page partenaires (compte Google).",
         )
     except inscription.InscriptionRefuseeError as refus:
@@ -305,6 +490,7 @@ def google_session(request: HttpRequest) -> HttpResponse:
                 "raison_sociale": ouverture.organisation.raison_sociale,
             },
             "formule_demandee": formule.code if formule else None,
+            "livrable_demande": offre.slug if offre else None,
             "abonnement_actif": False,
             # Plus aucune demande n'est ouverte a l'inscription : le
             # visiteur paie lui-meme. La cle reste, a `null`, pour ne pas

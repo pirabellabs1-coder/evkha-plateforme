@@ -65,6 +65,7 @@ from .models import (
     StatutAbonnement,
     StatutDemande,
     TentativePaiement,
+    TypeDeCompte,
     TypeDemande,
     TypeMouvement,
 )
@@ -186,7 +187,11 @@ def acces_ouvert(organisation: Organisation) -> bool:
 
 
 def espace(
-    action: str = "", *, ecriture: str = "", exige_abonnement: bool = False
+    action: str = "",
+    *,
+    ecriture: str = "",
+    exige_abonnement: bool = False,
+    reserve_aux_abonnes: bool = False,
 ) -> Callable[..., Any]:
     """Résout le membre et son organisation depuis le jeton, puis vérifie le droit.
 
@@ -236,6 +241,20 @@ def espace(
     La déclaration reste **au point d'usage** : une liste centrale s'oublie au
     moment où l'on ajoute une route. `test_barriere_de_paiement` vérifie
     qu'exactement les vues qui engagent une production la portent.
+
+    **`reserve_aux_abonnes` ferme ce qui n'a aucun sens sans formule.**
+
+    Un acheteur à l'unité paie un livrable sur `evkha.fr` et n'a pas d'abonnement
+    — il n'en a même pas la notion. Souscrire, changer de formule, arrêter,
+    reprendre, acheter des crédits : cinq gestes qui supposent tous une formule,
+    donc un tarif. Sans elle, il n'y a rien à appliquer, et en inventer un par
+    défaut ferait payer à quelqu'un un prix que personne ne lui a annoncé.
+
+    Le drapeau est porté par le DÉCORATEUR et non recopié dans cinq vues, pour
+    la raison de toujours : un correctif qui énumère des cas est incomplet
+    (règle 4). Et il vit ici, pas dans le menu de l'interface — masquer une
+    entrée de navigation n'empêche personne de taper l'adresse. Un menu n'est
+    pas un contrôle.
     """
 
     def decorateur(vue: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
@@ -275,11 +294,26 @@ def espace(
                     "souscription_requise",
                     402,
                 )
+
+            # 409 et non 403 : ce n'est ni un droit manquant ni un paiement à
+            # faire, c'est un geste qui n'existe pas pour ce compte. Le message
+            # ne propose donc pas de souscrire — il dit où racheter une étude.
+            if (
+                reserve_aux_abonnes
+                and membre.organisation.type_de_compte == TypeDeCompte.A_L_UNITE
+            ):
+                return _refus(
+                    "Votre compte fonctionne à l'étude, sans abonnement. Pour "
+                    "une nouvelle étude, repassez par la page de commande.",
+                    "compte_a_l_unite",
+                    409,
+                )
             return vue(request, membre, membre.organisation, *args, **kwargs)
 
         enveloppe.action_lecture = action  # type: ignore[attr-defined]
         enveloppe.action_ecriture = ecriture  # type: ignore[attr-defined]
         enveloppe.exige_abonnement = exige_abonnement  # type: ignore[attr-defined]
+        enveloppe.reserve_aux_abonnes = reserve_aux_abonnes  # type: ignore[attr-defined]
         return enveloppe
 
     return decorateur
@@ -485,6 +519,11 @@ def moi(
             "statut": organisation.statut,
             "marque_blanche": organisation.marque_blanche,
             "validation_socle_par_client": organisation.validation_socle_par_client,
+            # Abonné ou acheteur à l'unité. L'interface s'en sert pour ne pas
+            # proposer un abonnement à qui n'en a pas — mais c'est le
+            # décorateur `espace(reserve_aux_abonnes=True)` qui REFUSE. Ce
+            # champ ne fait qu'éviter d'afficher une porte qui se ferme.
+            "type_de_compte": organisation.type_de_compte,
         },
         "credits": {
             "solde": disponible,
@@ -1039,7 +1078,9 @@ def formules(
 # test Django n'applique pas la vérification CSRF, un navigateur si (règle 7).
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("gerer_abonnement", ecriture="gerer_abonnement")
+@espace(
+    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+)
 def ouvrir_le_paiement(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -1230,7 +1271,9 @@ ACHAT_CREDITS_MAX = 50
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("gerer_abonnement", ecriture="gerer_abonnement")
+@espace(
+    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+)
 def acheter_des_credits(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -1303,7 +1346,9 @@ def acheter_des_credits(
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("gerer_abonnement", ecriture="gerer_abonnement")
+@espace(
+    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+)
 def arreter_l_abonnement(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -1397,7 +1442,9 @@ def _arret_automatique_retire(
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("gerer_abonnement", ecriture="gerer_abonnement")
+@espace(
+    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+)
 def reprendre_l_abonnement(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -1433,7 +1480,9 @@ def reprendre_l_abonnement(
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("gerer_abonnement", ecriture="gerer_abonnement")
+@espace(
+    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+)
 def changer_de_formule(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:

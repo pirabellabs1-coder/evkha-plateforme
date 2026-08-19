@@ -55,6 +55,27 @@ class StatutOrganisation(models.TextChoices):
     SUSPENDUE = "suspendue", "Suspendue"
 
 
+class TypeDeCompte(models.TextChoices):
+    """Ce que la personne a acheté — et donc ce qu'elle a le droit de voir.
+
+    Deux publics, deux économies, un seul espace client :
+
+    - **abonné** : une formule mensuelle, une dotation de crédits à chaque
+      échéance, la possibilité d'en racheter au tarif de sa formule.
+    - **à l'unité** : un livrable payé une fois, sur `evkha.fr`. Pas de
+      formule, donc pas de tarif de crédit supplémentaire à appliquer, donc
+      aucun achat de crédits possible — la restriction n'est pas commerciale,
+      elle est arithmétique.
+
+    Le champ commande d'abord des REFUS côté serveur, et seulement ensuite un
+    affichage. Masquer « Abonnement » dans un menu n'empêche personne de taper
+    l'adresse : un menu n'est pas un contrôle.
+    """
+
+    ABONNE = "abonne", "Abonné"
+    A_L_UNITE = "a_l_unite", "À l'unité"
+
+
 class Organisation(UUIDModel):
     """Agence partenaire ou client direct. Porte l'abonnement et les crédits."""
 
@@ -68,6 +89,14 @@ class Organisation(UUIDModel):
     statut = models.CharField(
         max_length=12, choices=StatutOrganisation.choices,
         default=StatutOrganisation.ACTIVE,
+    )
+    #: Abonné ou acheteur à l'unité. Voir `TypeDeCompte`.
+    #:
+    #: Le défaut est `ABONNE`, et c'est le bon sens de la migration : toutes les
+    #: organisations existantes sont des partenaires. Un compte à l'unité ne
+    #: naît que d'un paiement de livrable, qui pose le type explicitement.
+    type_de_compte = models.CharField(
+        max_length=12, choices=TypeDeCompte.choices, default=TypeDeCompte.ABONNE
     )
     #: Marque blanche : aucune mention d'EVKHA sur les documents produits (§07).
     marque_blanche = models.BooleanField(default=True)

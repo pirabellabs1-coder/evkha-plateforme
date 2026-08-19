@@ -21,10 +21,13 @@ import { BoutonGoogle } from "./BoutonGoogle";
 import { Portail } from "./Portail";
 import {
   chargerFormules,
+  chargerLivrables,
   euros,
   inscrire,
+  ouvrirLePaiement,
   RefusInscription,
   type FormulePublique,
+  type LivrablePublic,
 } from "./donnees";
 
 /** Formule visée, lue dans l'adresse.
@@ -37,10 +40,26 @@ function formuleDemandee(): string {
   return new URLSearchParams(window.location.search).get("formule") ?? "";
 }
 
+/** Étude achetée à l'unité, lue dans l'adresse (`/inscription?livrable=…`).
+ *
+ * Jumelle de `formuleDemandee`, et lue de la même façon : la page est atteinte
+ * depuis un lien de la page `/etudes`, et le paramètre doit valoir même quand
+ * la navigation ne vient pas du routeur.
+ *
+ * Les deux ne coexistent jamais : on souscrit une formule OU on achète une
+ * étude. Si les deux figurent dans l'adresse, l'étude gagne — c'est le
+ * parcours le plus court et celui où l'argent est le plus proche.
+ */
+function livrableDemande(): string {
+  return new URLSearchParams(window.location.search).get("livrable") ?? "";
+}
+
 export function Inscription() {
   const naviguer = useNavigate();
   const [code] = useState(formuleDemandee);
+  const [slugEtude] = useState(livrableDemande);
   const [formules, setFormules] = useState<FormulePublique[] | null>(null);
+  const [etudes, setEtudes] = useState<LivrablePublic[] | null>(null);
 
   const [raisonSociale, setRaisonSociale] = useState("");
   const [prenom, setPrenom] = useState("");
@@ -65,7 +84,23 @@ export function Inscription() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!slugEtude) return;
+    let vivant = true;
+    chargerLivrables()
+      // Même tolérance que pour les formules : le catalogue n'est qu'un
+      // RAPPEL. Bloquer la création de compte parce qu'un prix n'a pas pu
+      // s'afficher serait disproportionné — et le tarif appliqué au paiement
+      // vient du serveur, pas de cet affichage.
+      .then((liste) => vivant && setEtudes(liste))
+      .catch(() => vivant && setEtudes([]));
+    return () => {
+      vivant = false;
+    };
+  }, [slugEtude]);
+
   const formule = (formules ?? []).find((f) => f.code === code);
+  const etude = (etudes ?? []).find((e) => e.slug === slugEtude);
 
   function entrer(jetonSession: string) {
     jeton.ecrire(jetonSession);
@@ -85,7 +120,24 @@ export function Inscription() {
         prenom,
         nom,
         formule: code,
+        livrable: slugEtude,
       });
+
+      // Achat d'une étude : le compte existe, on enchaîne sur le paiement sans
+      // passer par l'espace. L'y déposer d'abord donnerait un écran de plus,
+      // et un espace vide au moment précis où la personne veut payer.
+      //
+      // Le jeton est écrit AVANT de partir chez Stripe : au retour, la page de
+      // confirmation en délivrera un neuf, mais si la personne renonce et
+      // revient par un lien, elle retrouve sa session au lieu d'un écran de
+      // connexion pour un compte qu'elle vient de créer.
+      if (ouvert.livrable_demande) {
+        jeton.ecrire(ouvert.jeton);
+        const adresse = await ouvrirLePaiement(ouvert.livrable_demande, email);
+        window.location.href = adresse;
+        return;
+      }
+
       // La session est ouverte par le serveur : on entre directement dans
       // l'espace, sans redemander les identifiants qu'on vient de choisir.
       entrer(ouvert.jeton);
@@ -103,10 +155,15 @@ export function Inscription() {
 
   return (
     <Portail
-      titre="Créer votre espace partenaire"
+      titre={slugEtude ? "Créer votre espace" : "Créer votre espace partenaire"}
       onglet="inscription"
       sousTitre={
-        formule ? (
+        etude ? (
+          <p className="prt-sous-titre">
+            <b>{etude.libelle}</b> — {euros(etude.prix_cents)} TTC, paiement
+            unique. <a href="/etudes">Changer d'étude</a>
+          </p>
+        ) : formule ? (
           <p className="prt-sous-titre">
             Formule <b>{formule.libelle}</b> —{" "}
             {euros(formule.prix_mensuel_cents)} / mois,{" "}
@@ -120,23 +177,58 @@ export function Inscription() {
           </p>
         )
       }
-      panneau={{
-        image: "/partenaires/reunion.jpg",
-        alt: "",
-        titre: "Vos études, sous votre marque, sans y passer vos soirées.",
-        arguments: [
-          "Vos couleurs et votre logo sur chaque document",
-          "Réception rapide sous 24 h : PDF + version éditable",
-          "Vous restez l'interlocuteur de votre client",
-        ],
-      }}
+      // Le panneau parle au visiteur qu'on a en face. Celui qui achète UNE
+      // étude n'a ni clients à servir, ni marque à appliquer : lui promettre
+      // « vos couleurs sur chaque document » lui vendrait ce qu'il n'a pas
+      // acheté, et lui ferait douter d'être au bon endroit.
+      panneau={
+        slugEtude
+          ? {
+              image: "/partenaires/reunion.jpg",
+              alt: "",
+              titre: "Votre étude, produite sur votre projet.",
+              arguments: [
+                "Un questionnaire, et la production démarre",
+                "Vous suivez l'avancement étape par étape",
+                "Livrée en Word et en PDF, prête à présenter",
+              ],
+            }
+          : {
+              image: "/partenaires/reunion.jpg",
+              alt: "",
+              titre: "Vos études, sous votre marque, sans y passer vos soirées.",
+              arguments: [
+                "Vos couleurs et votre logo sur chaque document",
+                "Réception rapide sous 24 h : PDF + version éditable",
+                "Vous restez l'interlocuteur de votre client",
+              ],
+            }
+      }
       enfants={
         <>
           <BoutonGoogle
             // La raison sociale est lue AU CLIC : elle change pendant que la
             // personne tape, et une valeur figée à l'affichage serait vide.
-            extras={() => ({ raison_sociale: raisonSociale, formule: code })}
-            onSession={(session) => entrer(session.jeton)}
+            extras={() => ({
+              raison_sociale: raisonSociale,
+              formule: code,
+              livrable: slugEtude,
+            })}
+            onSession={(session) => {
+              // Même enchaînement que le formulaire : un compte ouvert pour
+              // acheter une étude part payer, il n'atterrit pas dans un espace
+              // vide. Deux portes, un seul parcours.
+              if (session.livrable_demande) {
+                jeton.ecrire(session.jeton);
+                void ouvrirLePaiement(session.livrable_demande, email).then(
+                  (adresse) => {
+                    window.location.href = adresse;
+                  },
+                );
+                return;
+              }
+              entrer(session.jeton);
+            }}
             onErreur={(message, codeErreur) => {
               setErreur(message);
               setChampFautif(codeErreur);
@@ -217,8 +309,19 @@ export function Inscription() {
               </p>
             )}
 
+            {/* Le bouton dit ce qui va se passer. « Créer mon compte » sur un
+                parcours d'achat cacherait que le clic suivant est un paiement
+                — et une personne surprise par une page de carte bancaire
+                abandonne. Le montant y figure, comme sur la carte qu'elle
+                vient de cliquer. */}
             <button type="submit" disabled={envoi}>
-              {envoi ? "Création en cours…" : "Créer mon compte"}
+              {envoi
+                ? etude
+                  ? "Ouverture du paiement…"
+                  : "Création en cours…"
+                : etude
+                  ? `Créer mon compte et payer ${euros(etude.prix_cents)}`
+                  : "Créer mon compte"}
             </button>
           </form>
         </>
