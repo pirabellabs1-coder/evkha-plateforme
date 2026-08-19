@@ -4,17 +4,18 @@
  * Jumelle de `Partenaires` : même menu, même charte, même partage des rôles.
  * L'une s'adresse aux professionnels qui s'abonnent, l'autre aux porteurs de
  * projet qui achètent une étude. Elles se répondent — chacune renvoie vers
- * l'autre en bas de page, parce qu'un visiteur arrive rarement sur la bonne du
- * premier coup.
+ * l'autre, parce qu'un visiteur arrive rarement sur la bonne du premier coup.
  *
  * ## Deux principes de construction, repris à l'identique
  *
- * 1. **Le prix vient du serveur.** Il est lu dans `/api/public/livrables/`,
- *    qui le tient de la table `Offer`. Écrire « 149 € » dans ce fichier en
- *    ferait une seconde source, qui contredirait le paiement au premier
- *    changement de tarif (règle 5). Le texte éditorial, lui, vit dans
- *    `contenu.ts` — y compris le nombre de chapitres ANNONCÉ, qui n'est pas
- *    celui du plan de production et n'a pas à l'être : voir `ArgumentaireEtude`.
+ * 1. **Les prix viennent du serveur.** Ils sont lus dans
+ *    `/api/public/livrables/`, qui les tient de la table `Offer` — y compris
+ *    la fourchette du bandeau noir, calculée sur le catalogue et non écrite.
+ *    « 149 € » posé dans ce fichier ferait une seconde source, qui
+ *    contredirait le paiement au premier changement de tarif (règle 5). Le
+ *    texte éditorial, lui, vit dans `contenu.ts` — y compris le nombre de
+ *    chapitres ANNONCÉ, qui n'est pas celui du plan de production et n'a pas à
+ *    l'être : voir `ArgumentaireEtude`.
  *
  * 2. **Aucun tarif n'est affiché tant qu'il n'est pas chargé.** Un prix de
  *    repli en attendant l'API afficherait un prix faux à qui a une connexion
@@ -46,20 +47,6 @@ function lienCommande(slug: string): string {
   return `/inscription?livrable=${encodeURIComponent(slug)}`;
 }
 
-/** Puce à coche dorée, comme sur la page partenaires. La coche est décorative :
- *  elle double une information déjà portée par le texte, et un lecteur d'écran
- *  qui l'annoncerait dirait « coche » avant chaque ligne sans rien apporter. */
-function Puce({ children }: { children: React.ReactNode }) {
-  return (
-    <li>
-      <span className="pp-coche" aria-hidden="true">
-        ✓
-      </span>
-      <span>{children}</span>
-    </li>
-  );
-}
-
 /** L'ordre de la page de vente, et non celui du serveur.
  *
  * L'API trie par prix croissant — un ordre juste pour un catalogue, faux pour
@@ -79,6 +66,33 @@ function ordonnees(etudes: LivrablePublic[]): LivrablePublic[] {
     return index === -1 ? rang.length : index;
   };
   return [...etudes].sort((a, b) => place(a.slug) - place(b.slug));
+}
+
+/** « 89–195 € », calculé sur le catalogue chargé.
+ *
+ * Le bandeau noir annonce une fourchette de prix. L'écrire dans le contenu en
+ * ferait le seul endroit de la page où un tarif ne vient pas du serveur — et
+ * le premier à mentir le jour d'un changement.
+ */
+function fourchette(etudes: LivrablePublic[]): string {
+  const prix = etudes.map((e) => e.prix_cents);
+  const bas = Math.min(...prix);
+  const haut = Math.max(...prix);
+  return bas === haut ? euros(bas) : `${euros(bas)} – ${euros(haut)}`;
+}
+
+/** Puce à coche dorée, comme sur la page partenaires. La coche est décorative :
+ *  elle double une information déjà portée par le texte, et un lecteur d'écran
+ *  qui l'annoncerait dirait « coche » avant chaque ligne sans rien apporter. */
+function Puce({ children }: { children: React.ReactNode }) {
+  return (
+    <li>
+      <span className="pp-coche" aria-hidden="true">
+        ✓
+      </span>
+      <span>{children}</span>
+    </li>
+  );
 }
 
 function Carte({ etude }: { etude: LivrablePublic }) {
@@ -153,51 +167,198 @@ export function NosEtudes() {
     };
   }, []);
 
+  const p = ETUDES_PAGE;
+  // Le premier bouton du catalogue, pour l'appel final. Sans catalogue chargé,
+  // on renvoie vers les cartes plutôt que vers un lien mort.
+  const premiere = etudes && etudes.length ? ordonnees(etudes)[0] : null;
+
   return (
     <div className="pp ne">
       <MenuSite />
 
-      <header className="pp-large ne-entete">
-        <p className="ne-eyebrow">{ETUDES_PAGE.surtitre}</p>
-        <h1>{ETUDES_PAGE.titre}</h1>
-        <p className="ne-chapeau">{ETUDES_PAGE.chapeau}</p>
+      {/* ── Ouverture ──────────────────────────────────────────────────── */}
+      <header className="pp-large ne-hero">
+        <div>
+          <h1>{p.hero.titre}</h1>
+          <p className="ne-hero-accroche">{p.hero.accroche}</p>
+          <p className="ne-hero-corps">{p.hero.corps}</p>
+          <ul className="ne-hero-questions">
+            {p.hero.questions.map((question) => (
+              <li key={question}>{question}</li>
+            ))}
+          </ul>
+        </div>
+        <img className="ne-hero-image" src={p.hero.image} alt={p.hero.alt} />
       </header>
 
-      <main className="pp-large">
-        {erreur && (
-          <p className="ne-erreur" role="alert">
-            {erreur} Écrivez-nous à{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+      {/* ── Bandeau de preuves ─────────────────────────────────────────── */}
+      <div className="pp-large">
+        <div className="ne-preuves">
+          {p.preuves.map((preuve) => (
+            <div key={preuve.libelle}>
+              <div className="ne-preuve-valeur">
+                {/* `valeur: null` = la fourchette, calculée sur le catalogue.
+                    Une insécable pendant le chargement plutôt qu'un tiret :
+                    la ligne ne bouge pas quand le chiffre arrive. */}
+                {preuve.valeur ?? (etudes?.length ? fourchette(etudes) : " ")}
+              </div>
+              <div className="ne-preuve-libelle">{preuve.libelle}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <main>
+        {/* ── Comment ça marche ────────────────────────────────────────── */}
+        <section className="pp-large ne-section ne-methode">
+          <p className="ne-eyebrow">
+            {p.methode.surtitre} <span>{p.methode.titre}</span>
           </p>
-        )}
+          <p className="ne-sous">{p.methode.sous}</p>
+          {p.methode.corps.map((paragraphe) => (
+            <p className="ne-centre" key={paragraphe}>
+              {paragraphe}
+            </p>
+          ))}
 
-        {etudes === null && !erreur && (
-          <p className="ne-attente">Chargement du catalogue…</p>
-        )}
-
-        {etudes !== null && (
-          <div className="ne-grille">
-            {ordonnees(etudes).map((etude) => (
-              <Carte key={etude.slug} etude={etude} />
-            ))}
-          </div>
-        )}
-
-        <section className="ne-etapes" aria-labelledby="ne-etapes-titre">
-          <h2 id="ne-etapes-titre">Comment ça se passe</h2>
-          <ol>
-            {ETUDES_PAGE.etapes.map((etape) => (
-              <li key={etape}>{etape}</li>
+          <ol className="ne-etapes">
+            {p.etapes.map((etape, index) => (
+              <li key={etape.titre}>
+                <span className="ne-etape-numero" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <h3>{etape.titre}</h3>
+                <p>{etape.corps}</p>
+              </li>
             ))}
           </ol>
         </section>
 
-        <section className="ne-appel">
-          <h2>{ETUDES_PAGE.appel.titre}</h2>
-          <p>{ETUDES_PAGE.appel.corps}</p>
-          <a href="/partenaires">{ETUDES_PAGE.appel.lien}</a>
+        {/* ── Quatre études au choix ───────────────────────────────────── */}
+        <section className="ne-choix">
+          <div className="pp-large">
+            <p className="ne-eyebrow">{p.choix.surtitre}</p>
+            <h2>{p.choix.titre}</h2>
+            <p className="ne-centre">{p.choix.corps}</p>
+          </div>
+        </section>
+
+        {/* ── Les cartes ───────────────────────────────────────────────── */}
+        <section className="pp-large ne-section" id="nos-etudes">
+          <h2 className="ne-titre-cartes">{p.cartes.titre}</h2>
+
+          {erreur && (
+            <p className="ne-erreur" role="alert">
+              {erreur} Écrivez-nous à{" "}
+              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+            </p>
+          )}
+          {etudes === null && !erreur && (
+            <p className="ne-attente">Chargement du catalogue…</p>
+          )}
+          {etudes !== null && (
+            <div className="ne-grille">
+              {ordonnees(etudes).map((etude) => (
+                <Carte key={etude.slug} etude={etude} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── Les questions du porteur ─────────────────────────────────── */}
+        <section className="pp-large ne-section">
+          <h2 className="ne-titre-cartes">{p.interrogations.titre}</h2>
+          <ul className="ne-interrogations">
+            {p.interrogations.liste.map((question) => (
+              <li key={question}>
+                <span className="pp-coche" aria-hidden="true">
+                  ✓
+                </span>
+                <span>{question}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="ne-centre ne-interrogations-pied">
+            {p.interrogations.pied}
+          </p>
+
+          <p className="ne-liseret">
+            {p.liseret.avant} <a href="/partenaires">{p.liseret.lien}</a>{" "}
+            {p.liseret.apres}
+          </p>
+        </section>
+
+        {/* ── Ce n'est pas une étude générique ─────────────────────────── */}
+        <section className="ne-comparatif">
+          <div className="pp-large">
+            <p className="ne-eyebrow ne-eyebrow-clair">{p.comparatif.surtitre}</p>
+            <h2>{p.comparatif.titre}</h2>
+            <hr className="ne-filet" />
+            <p className="ne-centre">{p.comparatif.corps}</p>
+
+            <div className="ne-colonnes">
+              <div className="ne-colonne ne-colonne-sombre">
+                <h3>{p.comparatif.generique.titre}</h3>
+                <ul>
+                  {p.comparatif.generique.points.map((point) => (
+                    <li key={point}>
+                      <span className="ne-croix" aria-hidden="true">
+                        ✕
+                      </span>
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="ne-colonne ne-colonne-claire">
+                <h3>{p.comparatif.evkha.titre}</h3>
+                <ul>
+                  {p.comparatif.evkha.points.map((point) => (
+                    <li key={point}>
+                      <span className="pp-coche" aria-hidden="true">
+                        ✓
+                      </span>
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <p className="ne-centre ne-comparatif-pied">{p.comparatif.pied}</p>
+          </div>
+        </section>
+
+        {/* ── Vos questions ────────────────────────────────────────────── */}
+        <section className="pp-large ne-section">
+          <p className="ne-eyebrow">{p.faq.surtitre}</p>
+          <h2 className="ne-titre-cartes">{p.faq.titre}</h2>
+          <div className="pp-faq">
+            {p.faq.questions.map((question) => (
+              <div className="pp-question" key={question.q}>
+                <span className="pp-question-chevron" aria-hidden="true">
+                  »
+                </span>
+                <h3>{question.q}</h3>
+                <p>{question.r}</p>
+              </div>
+            ))}
+          </div>
         </section>
       </main>
+
+      {/* ── Appel final ────────────────────────────────────────────────── */}
+      <section className="ne-appel">
+        <h2>{p.appel.titre}</h2>
+        <p>{p.appel.sous}</p>
+        <a
+          className="ne-appel-bouton"
+          href={premiere ? lienCommande(premiere.slug) : "#nos-etudes"}
+        >
+          {p.appel.bouton}
+        </a>
+      </section>
     </div>
   );
 }

@@ -323,23 +323,166 @@ export const ETUDES: Record<string, ArgumentaireEtude> = {
   },
 };
 
+/** Toute la page `/etudes`, section par section, dans l'ordre de la maquette.
+ *
+ *  Reprise de `evkha.fr/etudedemarche`. Éditorial uniquement : aucun prix ici,
+ *  ils viennent de la table `Offer` par `/api/public/livrables/`.
+ */
 export const ETUDES_PAGE = {
-  surtitre: "NOS ÉTUDES",
-  titre: "EVKHA répond aux questions de TOUT porteur de projet",
-  chapeau:
-    "Des livrables complets, produits sur votre projet et livrés en Word et en PDF. Payés une fois, sans abonnement.",
-  /** Sous les cartes : ce qui se passe après le paiement.
-   *  Une séquence réelle — payer, entrer, décrire, recevoir —, d'où la
-   *  numérotation : l'ordre porte l'information. */
-  etapes: [
-    "Vous choisissez votre étude et vous la payez.",
-    "Votre espace s'ouvre : vous y répondez au questionnaire de votre projet.",
-    "La production démarre et vous la suivez étape par étape.",
-    "Vous téléchargez votre document, en Word et en PDF.",
+  hero: {
+    titre: "Votre marché est-il rentable et viable ?",
+    accroche: "Vous avez une idée d'entreprise.",
+    corps: "Avant de vous lancer, de présenter votre dossier à la BGE, à Pôle Emploi ou à votre banque, obtenez une étude claire qui répond aux questions que vous vous posez vraiment :",
+    questions: [
+      "Marché saturé ou en croissance ?",
+      "Y a-t-il assez de clients ?",
+      "Quels risques ?",
+      "Comment vous démarquer ?",
+    ],
+    image: "/partenaires/reunion.jpg",
+    alt: "",
+  },
+
+  /** Bandeau noir. La fourchette de prix vaut `null` : elle est remplie À
+   *  L'EXÉCUTION depuis le catalogue. Écrire « 89–195 € » ici serait faux dès
+   *  le premier changement de tarif — sur la ligne même qui annonce les prix. */
+  preuves: [
+    { valeur: "500+", libelle: "porteurs accompagnés" },
+    { valeur: "100 %", libelle: "de notes 5 étoiles" },
+    { valeur: null, libelle: "par étude" },
   ],
+
+  methode: {
+    surtitre: "LES ÉTUDES EVKHA",
+    titre: "Comment ça marche ?",
+    sous: "SIMPLE ET RAPIDE",
+    corps: [
+      "Créer son entreprise, c'est parier sur un projet — mais un bon pari se prépare. Notre étude répond à toutes les questions, chiffres à l'appui, sur votre secteur et dans votre zone.",
+      "Pas besoin d'être expert. Vous commandez en ligne, vous nous parlez de votre projet, vous recevez votre étude. À vos couleurs et avec votre logo. C'est tout.",
+    ],
+  },
+
+  /** Quatre étapes numérotées. La numérotation encode une vraie séquence —
+   *  choisir, payer, décrire, recevoir — et non une décoration. */
+  etapes: [
+    {
+      titre: "Choisissez votre étude",
+      corps: "Étude de marché, étude des concurrents, business plan ou stratégie — selon où vous en êtes de votre projet.",
+    },
+    {
+      titre: "Réglez en ligne",
+      corps: "Paiement sécurisé par carte. Vous recevez tout de suite la confirmation et la suite des opérations.",
+    },
+    {
+      titre: "Parlez-nous de vous",
+      corps: "Un questionnaire de 15 à 20 minutes : votre idée, votre zone, vos objectifs. Pas de jargon, pas de questions pièges.",
+    },
+    {
+      titre: "Recevez votre étude",
+      corps: "Votre étude complète arrive par e-mail, en PDF clair, prête à présenter — et facile à lire pour vous d'abord.",
+    },
+  ],
+
+  choix: {
+    surtitre: "QUATRE ÉTUDES AU CHOIX",
+    titre: "Choisissez l'étude qui correspond à votre besoin",
+    corps: "Chaque étude est rédigée pour vous. Avec des chiffres réels de votre marché, dans un français clair, accepté par les banques, la BGE, Pôle Emploi et tout organisme qui vous demande un dossier.",
+  },
+
+  cartes: { titre: "NOS ÉTUDES" },
+
+  /** Les questions que se pose un porteur de projet, en deux colonnes. */
+  interrogations: {
+    titre: "EVKHA répond aux questions de TOUT porteur de projet",
+    liste: [
+      "Mon marché est-il saturé ou y a-t-il encore de la place pour moi ?",
+      "Combien de clients potentiels dans ma zone géographique ?",
+      "Mon marché est-il en croissance, stable ou en déclin ?",
+      "Combien pèse mon marché en euros ? Combien puis-je espérer gagner ?",
+      "Qui sont mes vrais concurrents et comment me démarquer d'eux ?",
+      "Quels prix pratiquer pour rester compétitif et rentable ?",
+      "Quels risques je prends en me lançant — et comment les éviter ?",
+      "Mon dossier sera-t-il convaincant pour la banque ou la BGE ?",
+    ],
+    pied: "Une étude Evkha, c'est exactement ça : des réponses claires, vérifiées, écrites dans un français clair — pas du jargon de cabinet.",
+  },
+
+  liseret: {
+    avant: "Vous êtes coach, consultant, agence ou BGE, et accompagnez plusieurs porteurs ?",
+    lien: "Découvrez nos formules pro",
+    apres: "avec abonnement mensuel.",
+  },
+
+  /** Section sombre : ce que l'étude n'est pas. */
+  comparatif: {
+    surtitre: "CE N'EST PAS UNE ÉTUDE GÉNÉRIQUE",
+    titre: "L'étude trouvée sur Google ne sera pas la vôtre.",
+    corps: "Une étude générique ou bidouillée avec ChatGPT, ça se voit. Et ça ne passe pas devant une banque ou la BGE. Voici la différence.",
+    generique: {
+      titre: "Étude générique ou faite à l'IA",
+      points: [
+        "Du texte joli mais aucun chiffre vérifié sur votre marché",
+        "Du jargon que vous ne comprenez pas vous-même",
+        "Aucun risque, aucun client type, aucune analyse réelle",
+        "Rejetée par les banques et les organismes d'accompagnement",
+        "Vous restez avec autant de doutes qu'avant",
+      ],
+    },
+    evkha: {
+      titre: "Une étude Evkha",
+      points: [
+        "De vrais chiffres sur votre marché, dans votre zone",
+        "Un français clair, sans jargon : vous comprenez tout",
+        "Risques, clients, concurrents, opportunités — tout y est",
+        "Acceptée par les banques, la BGE, Pôle Emploi",
+        "Vous repartez avec des réponses, pas des questions",
+      ],
+    },
+    pied: "Chaque étude est relue avant envoi par Evangeline elle-même. Vous lisez une étude claire, faite pour vous — jamais un texte généré à la chaîne.",
+  },
+
+  faq: {
+    surtitre: "VOS QUESTIONS",
+    titre: "Ce qu'on nous demande le plus souvent",
+    questions: [
+      {
+        q: "Je n'ai jamais fait d'étude de marché, est-ce que c'est fait pour moi ?",
+        r: "Oui, c'est même fait pour ça. Vous n'avez pas besoin d'y connaître quoi que ce soit : vous répondez à un questionnaire sur votre projet, en français simple, et nous faisons le travail. Vous recevez l'étude, claire, à lire comme vous lisez un article.",
+      },
+      {
+        q: "Quand est-ce que je vais recevoir mon étude ?",
+        r: "Sous 24 heures ouvrées après l'envoi de votre questionnaire de cadrage. Pas de mauvaise surprise, pas de délai qui s'étire.",
+      },
+      {
+        q: "Mon étude sera-t-elle acceptée par la BGE, Pôle Emploi ou ma banque ?",
+        r: "Oui. Plus de 500 porteurs sont passés par nous et ont monté leur dossier avec nos études — auprès de la BGE, des CCI, des banques, de Pôle Emploi pour l'ARCE, de chambres des métiers. Tout y est : taille du marché, chiffres vérifiés, risques, clients, concurrents, prévisions. C'est exactement ce qu'on vous demande.",
+      },
+      {
+        q: "Et si mon idée est très spécifique, ou que je suis dans un petit village ?",
+        r: "Aucun souci. Nous travaillons sur tous les secteurs — artisanat, services, commerce, restauration, tech — et sur toutes les zones, des grandes villes jusqu'aux villages. L'étude est faite pour vous, pas reprise d'un modèle.",
+      },
+      {
+        q: "Sous quelle forme je reçois mon étude ?",
+        r: "Un PDF propre, prêt à imprimer ou à envoyer à votre conseiller, avec vos couleurs et votre logo. Et une version Word éditable, au cas où vous voudriez la personnaliser.",
+      },
+      {
+        q: "Mes informations restent-elles confidentielles ?",
+        r: "Totalement. Ce que vous nous dites sur votre projet ne sert qu'à produire votre étude. Aucune diffusion, aucun partage. Votre étude porte d'ailleurs une mention de confidentialité.",
+      },
+      {
+        q: "Et si après lecture j'ai des questions ?",
+        r: "Écrivez-nous à contact@evkha.fr. Nous répondons à toutes les questions de compréhension sur votre étude, pour que vous puissiez la défendre devant qui vous voulez.",
+      },
+      {
+        q: "Puis-je commander plusieurs études ?",
+        r: "Bien sûr. Beaucoup de porteurs commencent par l'étude de marché, puis ajoutent le business plan quand ils vont voir leur banquier. Certains finissent par la stratégie business, pour passer à l'action et se développer.",
+      },
+    ],
+  },
+
   appel: {
-    titre: "Vous accompagnez plusieurs porteurs de projet ?",
-    corps: "Les formules partenaires donnent des crédits chaque mois, sous votre marque, à un coût par livrable bien inférieur.",
-    lien: "Voir les formules partenaires",
+    titre: "Votre projet mérite des réponses claires.",
+    sous: "Lancez-vous dès maintenant !",
+    bouton: "Commander mon étude",
   },
 };
