@@ -107,6 +107,10 @@ export function Commander() {
   const [manquants, setManquants] = useState<string[]>([]);
 
   const peutCommander = peut(moi, "commander");
+  // Le type de compte, et non l'absence d'abonnement : un acheteur à l'unité
+  // n'en a pas et n'en aura jamais, ce qui rend `!moi?.abonnement` incapable
+  // de les distinguer l'un de l'autre.
+  const aLUnite = moi?.organisation.type_de_compte === "a_l_unite";
 
   // Une saisie en cours vaut 24 réponses de texte long : elle doit survivre à
   // un rechargement, à un clic dans la barre latérale, à un onglet fermé.
@@ -222,40 +226,45 @@ export function Commander() {
             la commande.
           </Bandeau>
         )}
-        {/* Deux situations distinctes derrière un même solde à zéro, et deux
-            gestes différents. Le bandeau disait « Rendez-vous dans Abonnement
-            pour DEMANDER des crédits » dans les deux cas : il envoyait
-            attendre un appel quelqu'un dont l'abonnement se règle en un clic. */}
-        {solde === 0 && !moi?.abonnement && (
-          <Bandeau ton="echec" titre="Abonnement à activer">
-            Vos crédits sont déposés dès le règlement.{" "}
-            <Link to="/espace/souscription" className="bandeau-lien">
-              Activer mon abonnement
-            </Link>
-          </Bandeau>
-        )}
-        {/* Le pendant du bandeau ci-dessous pour un acheteur à l'unité : lui
-            parler d'échéance ou de formule n'aurait aucun sens, il n'en a pas.
-            Ce qu'il peut faire, c'est choisir une étude. */}
-        {solde === 0 && !moi?.abonnement && (
-          <Bandeau ton="echec" titre="Aucune étude en attente">
-            Choisissez l'étude que vous voulez produire depuis{" "}
-            <Link to="/espace" className="bandeau-lien">
-              votre tableau de bord
-            </Link>
-            . Elle sera disponible ici aussitôt réglée.
-          </Bandeau>
-        )}
-        {solde === 0 && moi?.abonnement && (
-          <Bandeau ton="echec" titre="Aucun crédit disponible">
-            Aucun découvert n'est possible. Vos prochains crédits arrivent à la
-            prochaine échéance, ou{" "}
-            <Link to="/espace/abonnement" className="bandeau-lien">
-              changez de formule
-            </Link>
-            .
-          </Bandeau>
-        )}
+        {/* UN solde à zéro, TROIS situations, trois gestes différents — et une
+            seule phrase à afficher.
+
+            Les conditions formaient un chevauchement : « Abonnement à activer »
+            et « Aucune étude en attente » testaient toutes deux
+            `!moi?.abonnement`, si bien qu'un acheteur à l'unité voyait les
+            deux, dont une qui lui demandait d'activer un abonnement qu'il n'a
+            pas et ne veut pas.
+
+            Elles sont désormais une PARTITION sur le type de compte : chaque
+            client tombe dans un cas et un seul. Ce qui empêche le défaut de
+            revenir n'est pas d'avoir corrigé une condition, c'est que les trois
+            branches se lisent ensemble et se répondent (règle 4). */}
+        {solde === 0 &&
+          (aLUnite ? (
+            <Bandeau ton="echec" titre="Aucune étude en attente">
+              Choisissez l'étude que vous voulez produire depuis{" "}
+              <Link to="/espace" className="bandeau-lien">
+                votre tableau de bord
+              </Link>
+              . Elle sera disponible ici aussitôt réglée.
+            </Bandeau>
+          ) : moi?.abonnement ? (
+            <Bandeau ton="echec" titre="Aucun crédit disponible">
+              Aucun découvert n'est possible. Vos prochains crédits arrivent à
+              la prochaine échéance, ou{" "}
+              <Link to="/espace/abonnement" className="bandeau-lien">
+                changez de formule
+              </Link>
+              .
+            </Bandeau>
+          ) : (
+            <Bandeau ton="echec" titre="Abonnement à activer">
+              Vos crédits sont déposés dès le règlement.{" "}
+              <Link to="/espace/souscription" className="bandeau-lien">
+                Activer mon abonnement
+              </Link>
+            </Bandeau>
+          ))}
 
         <Carte
           titre="Que souhaitez-vous produire ?"
