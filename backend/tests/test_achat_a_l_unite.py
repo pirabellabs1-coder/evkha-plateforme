@@ -547,3 +547,204 @@ def test_une_organisation_designee_mais_disparue_retombe_sur_l_adresse() -> None
 
     assert achat.nouveau is True
     assert credits.solde(achat.organisation) == 1
+
+
+# ── 9. Un credit paye pour UNE etude ne sert qu'a celle-la ───────────────────
+#
+# Le prix affiche sur la page de vente cesserait de vouloir dire quoi que ce
+# soit si 89 EUR verses pour une etude de concurrence ouvraient une strategie
+# a 195 EUR. La regle porte sur le CREDIT et non sur le type de compte : un
+# credit type ne sert qu'a son etude, un credit fongible sert a tout.
+
+
+def _offre(type_livrable: str, prix: int = 14_900) -> Offer:
+    return Offer.objects.create(
+        name=f"Offre {type_livrable}",
+        slug=f"{type_livrable}-{uuid.uuid4().hex[:8]}",
+        deliverable_type=type_livrable,
+        prix_unitaire_cents=prix,
+        is_active=True,
+    )
+
+
+def test_le_credit_achete_porte_l_etude_payee() -> None:
+    achat = achats.livrer_l_achat(
+        session_stripe(_offre(DeliverableType.COMPETITOR_STUDY, 8_900))
+    )
+
+    mouvement = MouvementCredit.objects.get(
+        portefeuille__organisation=achat.organisation
+    )
+    assert mouvement.livrable == DeliverableType.COMPETITOR_STUDY
+
+
+def test_une_etude_payee_n_en_ouvre_pas_une_autre() -> None:
+    """Le defaut que ce verrou existe pour fermer."""
+    achat = achats.livrer_l_achat(
+        session_stripe(_offre(DeliverableType.COMPETITOR_STUDY, 8_900))
+    )
+
+    autorise, motif = credits.peut_commander_ce_livrable(
+        achat.organisation, DeliverableType.BUSINESS_STRATEGY
+    )
+
+    assert autorise is False
+    # Le message NOMME ce qui est commandable : un refus qui ne dit pas quoi
+    # faire ensuite envoie chercher un administrateur (regle 2).
+    assert "concurrence" in motif.lower()
+
+
+def test_contre_epreuve_l_etude_payee_reste_commandable() -> None:
+    """Sans elle, un verrou qui refuse tout passerait le test precedent."""
+    achat = achats.livrer_l_achat(
+        session_stripe(_offre(DeliverableType.COMPETITOR_STUDY, 8_900))
+    )
+
+    autorise, _ = credits.peut_commander_ce_livrable(
+        achat.organisation, DeliverableType.COMPETITOR_STUDY
+    )
+
+    assert autorise is True
+
+
+def test_contre_epreuve_une_abonnee_commande_ce_qu_elle_veut() -> None:
+    """Ses dotations sont FONGIBLES : les typer lui reprendrait la souplesse
+    qu'elle paie tous les mois.
+    """
+    contact = Customer.objects.create(email=f"{uuid.uuid4().hex[:8]}@example.com")
+    from organisations import services  # noqa: PLC0415
+
+    organisation = services.creer_organisation(
+        raison_sociale="Agence", contact=contact
+    )
+    abonner(organisation)
+    credits.crediter(organisation, 3, motif="Dotation du mois")
+
+    for type_livrable in DeliverableType.values:
+        autorise, motif = credits.peut_commander_ce_livrable(
+            organisation, type_livrable
+        )
+        assert autorise is True, f"{type_livrable} refuse a une abonnee : {motif}"
+
+
+def test_un_credit_verse_avant_le_marquage_n_est_pas_bloque() -> None:
+    """Il ne dit pas quelle etude il a payee.
+
+    Le traiter comme un droit nul reviendrait a reprendre a quelqu'un ce qu'il
+    a regle, sur la foi d'une information que nous n'avons pas conservee.
+    """
+    contact = Customer.objects.create(email=f"{uuid.uuid4().hex[:8]}@example.com")
+    from organisations import services  # noqa: PLC0415
+
+    organisation = services.creer_organisation(
+        raison_sociale="Compte ancien", contact=contact
+    )
+    organisation.type_de_compte = TypeDeCompte.A_L_UNITE
+    organisation.save(update_fields=["type_de_compte"])
+    # Un credit sans `livrable`, comme ceux d'avant.
+    credits.crediter(
+        organisation, 1, motif="Achat", type_mouvement=TypeMouvement.ACHAT
+    )
+
+    autorise, _ = credits.peut_commander_ce_livrable(
+        organisation, DeliverableType.BUSINESS_PLAN
+    )
+
+    assert autorise is True
+
+
+def test_deux_etudes_payees_donnent_deux_droits_distincts() -> None:
+    marche = _offre(DeliverableType.MARKET_STUDY, 14_900)
+    plan = _offre(DeliverableType.BUSINESS_PLAN, 18_500)
+
+    achat = achats.livrer_l_achat(session_stripe(marche))
+    achats.livrer_l_achat(session_stripe(plan))
+
+    droits = credits.droits_par_livrable(achat.organisation)
+    assert droits == {
+        DeliverableType.MARKET_STUDY: 1,
+        DeliverableType.BUSINESS_PLAN: 1,
+    }
+    for vise in (DeliverableType.MARKET_STUDY, DeliverableType.BUSINESS_PLAN):
+        assert credits.peut_commander_ce_livrable(achat.organisation, vise)[0]
+    assert not credits.peut_commander_ce_livrable(
+        achat.organisation, DeliverableType.BUSINESS_STRATEGY
+    )[0]
+
+
+def test_le_droit_s_epuise_quand_l_etude_est_lancee() -> None:
+    """Sans soustraction du debit, un meme credit ouvrirait deux etudes.
+
+    Le droit disparait, et c'est ensuite le SOLDE qui refuse — pas le verrou
+    par livrable, qui n'a plus rien a arbitrer. Les deux controles disent des
+    choses differentes et ne doivent pas se marcher dessus : « solde
+    insuffisant » est la phrase juste pour un portefeuille vide.
+    """
+    achat = achats.livrer_l_achat(
+        session_stripe(_offre(DeliverableType.MARKET_STUDY))
+    )
+
+    credits.debiter(
+        achat.organisation, 1,
+        reference=f"job-{uuid.uuid4().hex[:8]}",
+        motif="Génération",
+        livrable=DeliverableType.MARKET_STUDY,
+    )
+
+    assert credits.droits_par_livrable(achat.organisation) == {}
+    assert credits.solde(achat.organisation) == 0
+    possible, raison = credits.peut_commander(achat.organisation, 1)
+    assert possible is False
+    assert "insuffisant" in raison
+
+
+def test_le_verrou_se_tait_sur_un_portefeuille_vide() -> None:
+    """Il arbitre entre des credits TYPES. Sans droit en reserve, rien a dire.
+
+    Repondre « choisissez une etude depuis votre espace » a une abonnee a court
+    de credits en milieu de mois decrirait une situation qui n'est pas la
+    sienne, et l'enverrait au mauvais endroit (regle 2).
+    """
+    contact = Customer.objects.create(email=f"{uuid.uuid4().hex[:8]}@example.com")
+    from organisations import services  # noqa: PLC0415
+
+    organisation = services.creer_organisation(
+        raison_sociale="Portefeuille vide", contact=contact
+    )
+
+    autorise, motif = credits.peut_commander_ce_livrable(
+        organisation, DeliverableType.MARKET_STUDY
+    )
+
+    assert autorise is True
+    assert motif == ''
+
+
+def test_le_catalogue_de_l_espace_ne_couvre_que_l_etude_payee() -> None:
+    """L'ecran de commande proposait quatre etudes a qui n'en avait paye
+    qu'une : il choisissait, remplissait le questionnaire, et se faisait
+    refuser a la fin.
+    """
+    offre = _offre(DeliverableType.COMPETITOR_STUDY, 8_900)
+    contact = Customer.objects.create(email="catalogue.essai@example.com")
+    from organisations import services  # noqa: PLC0415
+
+    organisation = services.creer_organisation(
+        raison_sociale="Catalogue", contact=contact
+    )
+    organisation.type_de_compte = TypeDeCompte.A_L_UNITE
+    organisation.save(update_fields=["type_de_compte"])
+    creer_compte(contact, mot_de_passe=MOT_DE_PASSE)
+    jeton, _ = ouvrir_session(contact.email, MOT_DE_PASSE)
+    client = Client(HTTP_AUTHORIZATION=f"Bearer {jeton}")
+
+    session = session_stripe(offre, email=contact.email)
+    session["metadata"]["organisation_id"] = str(organisation.id)
+    achats.livrer_l_achat(session)
+
+    charge = client.get("/api/espace/catalogue/").json()
+    couverture = {d["type"]: d["couvert"] for d in charge["documents"]}
+
+    assert couverture[DeliverableType.COMPETITOR_STUDY] is True
+    assert couverture[DeliverableType.MARKET_STUDY] is False
+    assert couverture[DeliverableType.BUSINESS_PLAN] is False

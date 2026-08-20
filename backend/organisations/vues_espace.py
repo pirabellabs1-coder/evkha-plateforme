@@ -1737,13 +1737,34 @@ def demandes(
 def catalogue(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
-    """Types commandables, coût, et ce que le solde permet (§9.3)."""
+    """Types commandables, coût, et ce que le solde permet (§9.3).
+
+    `couvert` répond à « puis-je commander CECI, maintenant ». Deux conditions,
+    et il faut les deux :
+
+    - le solde couvre le coût — vrai pour tout le monde ;
+    - le DROIT existe pour ce type d'étude, pour un compte à l'unité dont
+      chaque crédit est payé pour une étude précise.
+
+    Sans la seconde, l'écran de commande proposait quatre études à quelqu'un
+    qui n'en avait payé qu'une : il choisissait, remplissait le questionnaire,
+    et se faisait refuser à la fin. Un contrôle qui ne se voit qu'après l'effort
+    est un contrôle qui arrive trop tard.
+    """
     disponible = credits.solde(organisation)
     return JsonResponse({
         "solde": disponible,
         "peut_commander": services.peut(membre, "commander"),
         "documents": [
-            {**entree, "couvert": disponible >= entree["cout_credits"]}
+            {
+                **entree,
+                "couvert": (
+                    disponible >= entree["cout_credits"]
+                    and credits.peut_commander_ce_livrable(
+                        organisation, str(entree["type"])
+                    )[0]
+                ),
+            }
             for entree in commandes.catalogue()
         ],
     })

@@ -234,6 +234,18 @@ export function Commander() {
             </Link>
           </Bandeau>
         )}
+        {/* Le pendant du bandeau ci-dessous pour un acheteur à l'unité : lui
+            parler d'échéance ou de formule n'aurait aucun sens, il n'en a pas.
+            Ce qu'il peut faire, c'est choisir une étude. */}
+        {solde === 0 && !moi?.abonnement && (
+          <Bandeau ton="echec" titre="Aucune étude en attente">
+            Choisissez l'étude que vous voulez produire depuis{" "}
+            <Link to="/espace" className="bandeau-lien">
+              votre tableau de bord
+            </Link>
+            . Elle sera disponible ici aussitôt réglée.
+          </Bandeau>
+        )}
         {solde === 0 && moi?.abonnement && (
           <Bandeau ton="echec" titre="Aucun crédit disponible">
             Aucun découvert n'est possible. Vos prochains crédits arrivent à la
@@ -273,8 +285,19 @@ export function Commander() {
                   <span className="carte-document-titre">{doc.libelle}</span>
                   <span className="carte-document-texte">{doc.description}</span>
                   <span className="carte-document-pied">
-                    <span className="pastille pastille-neutre">
-                      {doc.cout_credits} crédit
+                    {/* Une carte fermée doit DIRE pourquoi. Grisée sans un mot,
+                        elle se lit comme une panne — et l'acheteur à l'unité en
+                        voit trois d'un coup, celles qu'il n'a pas payées. */}
+                    <span
+                      className={
+                        indisponible && peutCommander
+                          ? "pastille pastille-alerte"
+                          : "pastille pastille-neutre"
+                      }
+                    >
+                      {indisponible && peutCommander
+                        ? "À acheter"
+                        : `${doc.cout_credits} crédit`}
                     </span>
                     <span className="carte-note">
                       {doc.questions} questions

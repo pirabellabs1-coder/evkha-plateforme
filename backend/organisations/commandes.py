@@ -259,6 +259,17 @@ def creer_commande(
     if not possible:
         raise CommandeRefuseeError(raison)
 
+    # Le droit par livrable se verifie ICI AUSSI, et pas seulement au debit.
+    #
+    # `debiter_pour_job` fait autorite — c'est lui qui tient l'argent, et c'est
+    # la que le controle doit vivre pour resister a une seconde porte d'appel
+    # (regle 4). Mais s'y arreter voudrait dire creer la commande, ecrire le
+    # brief, lancer le job, et n'echouer qu'a la derniere seconde. Le client
+    # aurait rempli vingt-quatre questions pour rien.
+    autorise, motif = credits.peut_commander_ce_livrable(organisation, type_document)
+    if not autorise:
+        raise CommandeRefuseeError(motif)
+
     # DOUBLE ENVOI. Chaque POST fabriquait un `systeme_order_id` neuf, donc une
     # commande neuve, donc un job neuf — et le debit est idempotent par JOB.
     # Deux clics sur « Commander », un navigateur qui rejoue la requete, un

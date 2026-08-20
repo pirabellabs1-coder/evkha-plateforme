@@ -140,12 +140,26 @@ def debiter_pour_job(job: GenerationJob) -> tuple[bool, str]:
             "être relancée. Passez une nouvelle commande."
         )
 
+    # Le droit se verifie AVANT le debit, et dans la couche qui tient l'argent
+    # — pas dans la vue de commande. Une seconde porte d'appel apparaitra un
+    # jour, et elle n'y penserait pas (regle 4).
+    autorise, motif = credits.peut_commander_ce_livrable(
+        organisation, str(job.deliverable_type)
+    )
+    if not autorise:
+        return False, motif
+
     cout = cout_en_credits(job)
     try:
         credits.debiter(
             organisation, cout,
             reference=reference_de_debit(job),
             motif=f"Génération {job.deliverable_type} · commande {job.order.systeme_order_id}",
+            # Le debit porte le meme marquage que l'achat : c'est ce qui rend
+            # la soustraction possible etude par etude. Un debit anonyme
+            # laisserait le droit intact et permettrait d'en commander une
+            # seconde avec le meme credit.
+            livrable=str(job.deliverable_type),
         )
     except credits.MouvementDejaEnregistreError:
         return True, "Débit déjà passé pour cette étude : relance sans nouveau débit."

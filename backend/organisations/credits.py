@@ -173,6 +173,7 @@ def _enregistrer(
     motif: str,
     reference: str = "",
     auteur: str = "",
+    livrable: str = "",
 ) -> MouvementCredit:
     try:
         return MouvementCredit.objects.create(
@@ -182,6 +183,7 @@ def _enregistrer(
             motif=motif,
             reference=reference,
             auteur=auteur,
+            livrable=livrable,
         )
     except IntegrityError as erreur:
         msg = (
@@ -203,6 +205,7 @@ def crediter(
     type_mouvement: str = TypeMouvement.GESTE,
     reference: str = "",
     auteur: str = "",
+    livrable: str = "",
 ) -> MouvementCredit:
     """Ajoute des crédits. Toute entrée passe par ici, quelle que soit son origine.
 
@@ -223,6 +226,7 @@ def crediter(
         motif=motif,
         reference=reference,
         auteur=auteur,
+        livrable=livrable,
     )
 
 
@@ -295,6 +299,7 @@ def debiter(
     *,
     reference: str,
     motif: str,
+    livrable: str = "",
 ) -> MouvementCredit:
     """Débite le portefeuille pour une génération. Refuse tout découvert.
 
@@ -358,6 +363,7 @@ def debiter(
         quantite=-quantite,
         motif=motif,
         reference=reference,
+        livrable=livrable,
     )
 
 
@@ -443,4 +449,110 @@ def expirer_solde(
         quantite=-a_purger,
         motif=f"Crédits non consommés de la période {periode}",
         reference=f"expiration:{periode}",
+    )
+
+
+# ── Droits par livrable ──────────────────────────────────────────────────────
+
+
+def droits_par_livrable(organisation: Organisation) -> dict[str, int]:
+    """Ce qui reste dû, étude par étude, pour un achat à l'unité.
+
+    Un crédit d'abonnement vaut pour n'importe quel livrable : c'est l'intérêt
+    d'une formule, et ces mouvements-là ne portent aucun `livrable`. Ils
+    n'apparaissent donc pas ici.
+
+    Un crédit ACHETÉ À L'UNITÉ, lui, est payé pour une étude précise. Sans
+    cette comptabilité, quelqu'un qui règle 89 EUR pour une étude de
+    concurrence pourrait commander une stratégie à 195 EUR — et le prix affiché
+    sur la page de vente cesserait de vouloir dire quoi que ce soit.
+
+    Le calcul est une SOMME du journal, comme le solde, et pour la même raison :
+    un compteur dérive dès la première écriture interrompue, et plus rien ne dit
+    lequel des deux chiffres est vrai. Les entrées sont positives, les débits
+    négatifs — l'addition suffit, aucun signe n'est à replacer à la main.
+
+    Les remboursements se recomptent d'eux-mêmes : `rembourser` relit le débit
+    d'origine, donc restitue le même livrable, et la ligne repasse au crédit.
+    """
+    lignes = (
+        MouvementCredit.objects.filter(portefeuille__organisation=organisation)
+        .exclude(livrable="")
+        .values("livrable")
+        .annotate(reste=Sum("quantite"))
+    )
+    return {
+        str(ligne["livrable"]): int(ligne["reste"] or 0)
+        for ligne in lignes
+        if int(ligne["reste"] or 0) > 0
+    }
+
+
+def credits_fongibles(organisation: Organisation) -> int:
+    """Les crédits qui valent pour N'IMPORTE QUELLE étude.
+
+    Une dotation d'abonnement, un geste commercial, un achat de crédits au
+    tarif d'une formule : aucun de ces mouvements ne porte de `livrable`, et
+    c'est l'intérêt même d'une formule — on choisit après.
+
+    C'est aussi le repli des crédits versés AVANT que le marquage n'existe.
+    Ils ne disent pas quelle étude ils ont payée ; les traiter comme un droit
+    nul reviendrait à reprendre à quelqu'un ce qu'il a réglé, sur la foi d'une
+    information que nous n'avons simplement pas conservée.
+    """
+    total = (
+        MouvementCredit.objects.filter(
+            portefeuille__organisation=organisation, livrable=""
+        ).aggregate(reste=Sum("quantite"))["reste"]
+        or 0
+    )
+    return max(int(total), 0)
+
+
+def peut_commander_ce_livrable(
+    organisation: Organisation, livrable: str
+) -> tuple[bool, str]:
+    """Cette organisation a-t-elle de quoi payer CE type d'étude ?
+
+    La règle porte sur le CRÉDIT, pas sur le type de compte, et c'est
+    volontaire : viser la classe et non l'exemple (règle 4). Un crédit typé ne
+    sert qu'à son étude, un crédit fongible sert à tout — quel que soit le
+    compte qui les détient.
+
+    Conséquences, toutes voulues :
+
+    - une abonnée n'est jamais gênée : ses dotations sont fongibles ;
+    - un acheteur à l'unité ne peut commander que ce qu'il a payé — 89 EUR
+      versés pour une étude de concurrence n'ouvrent pas une stratégie à
+      195 EUR ;
+    - une abonnée qui achète en plus une étude à l'unité garde les deux
+      libertés, chacune sur son propre crédit ;
+    - un compte crédité avant l'existence du marquage passe par les crédits
+      fongibles, donc n'est pas bloqué rétroactivement.
+
+    **Un portefeuille vide ne le regarde pas.** Ce contrôle arbitre entre des
+    crédits TYPÉS ; sans aucun droit en réserve, il n'a rien à arbitrer et se
+    tait. C'est alors `debiter` qui refuse, avec « solde insuffisant » — la
+    phrase juste, et celle que le client connaît depuis toujours.
+
+    Sans cette réserve, il répondait « choisissez une étude depuis votre
+    espace » à une abonnée à court de crédits en milieu de mois : un message
+    qui ne décrit pas sa situation et l'envoie au mauvais endroit (règle 2).
+
+    Le message est écrit POUR LE CLIENT et nomme ce qu'il PEUT commander :
+    « vous n'avez pas le droit » enverrait chercher un administrateur, quand la
+    réponse est simplement d'acheter l'étude voulue.
+    """
+    droits = droits_par_livrable(organisation)
+    if not droits:
+        return True, ""
+    if droits.get(livrable, 0) > 0 or credits_fongibles(organisation) > 0:
+        return True, ""
+
+    from catalog.models import DeliverableType  # noqa: PLC0415
+
+    noms = ", ".join(sorted(str(DeliverableType(cle).label) for cle in droits))
+    return False, (
+        "Le crédit qu'il vous reste ne couvre pas cette étude. Vous pouvez "
+        f"commander : {noms}. Pour celle-ci, achetez-la depuis votre espace."
     )

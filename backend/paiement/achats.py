@@ -239,6 +239,11 @@ def livrer_l_achat(session: dict[str, Any]) -> Achat:
         type_mouvement=TypeMouvement.ACHAT,
         reference=reference,
         auteur="stripe",
+        # Le credit est paye POUR CETTE ETUDE. Sans ce marquage, 89 EUR verses
+        # pour une etude de concurrence ouvriraient une strategie a 195 EUR :
+        # le prix affiche sur la page de vente cesserait de vouloir dire quoi
+        # que ce soit.
+        livrable=offre.deliverable_type,
     )
     _enregistrer_l_encaissement(organisation, offre, session, reference)
 

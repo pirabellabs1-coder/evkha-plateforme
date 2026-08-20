@@ -364,6 +364,22 @@ class MouvementCredit(UUIDModel):
         PortefeuilleCredits, on_delete=models.CASCADE, related_name="mouvements"
     )
     type = models.CharField(max_length=16, choices=TypeMouvement.choices)
+    #: L'etude a laquelle ce mouvement est LIE, quand il l'est.
+    #:
+    #: Vide pour une dotation d'abonnement, un geste commercial ou un achat de
+    #: credits : ces credits-la valent pour n'importe quel livrable, et c'est
+    #: tout l'interet d'une formule.
+    #:
+    #: Renseigne sur un achat A L'UNITE et sur le debit qui le consomme. Sans
+    #: lui, quelqu'un qui paie 89 EUR pour une etude de concurrence pourrait
+    #: commander une strategie a 195 EUR : le credit etant fongible, le prix
+    #: affiche sur la page de vente cesserait de vouloir dire quoi que ce soit.
+    #:
+    #: Le lien n'est pas une cle etrangere vers `Offer` : ce qui compte est le
+    #: TYPE DE LIVRABLE, pas l'offre commerciale qui l'a vendu. Une offre
+    #: renommee, dupliquee ou desactivee ne doit pas rendre inutilisable un
+    #: credit deja paye.
+    livrable = models.CharField(max_length=32, blank=True, default="")
     quantite = models.IntegerField()
     motif = models.CharField(max_length=300)
     #: Référence fonctionnelle : identifiant de job, de commande, de facture.
