@@ -13,6 +13,12 @@
 #   étape manuelle revient à l'oublier au prochain déploiement neuf. Sans
 #   `--forcer`, il crée ce qui manque et ne touche jamais une formule ajustée
 #   depuis l'administration.
+# - `seed_boutique` suit la même logique : il crée les neuf fiches du catalogue
+#   HORS LIGNE, prêtes à recevoir leur fichier. Aucune n'est vendable tant que
+#   le document n'est pas déposé — `ProduitBoutique.est_publiable` le refuse.
+#   Relancer la commande ne touche pas aux fiches déjà créées. En faire une
+#   étape manuelle, c'est l'oublier, et l'API de Coolify n'expose aucune
+#   exécution de commande dans le conteneur pour la rattraper.
 
 services:
   api:
@@ -29,6 +35,7 @@ services:
       && python manage.py migrate --noinput
       && python manage.py seed_offers
       && python manage.py seed_formules
+      && python manage.py seed_boutique
       && python manage.py assurer_admin
       && python manage.py reinitialiser_la_plateforme
       && python manage.py collectstatic --noinput
