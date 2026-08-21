@@ -207,10 +207,9 @@ export const MENU_SITE: EntreeMenu[] = [
       // à télécharger restent sur le site vitrine, elles ne passent pas par
       // la plateforme.
       { libelle: "Générer votre étude ou livrable", lien: "/etudes" },
-      {
-        libelle: "Études en téléchargement immédiat",
-        lien: "https://www.evkha.fr/etude-achat-immediat",
-      },
+      // La boutique a remplace `evkha.fr/etude-achat-immediat` : le lien est
+      // donc interne, comme celui des etudes sur mesure.
+      { libelle: "Études en téléchargement immédiat", lien: "/boutique" },
     ],
   },
   { libelle: "Nos packs accompagnement", lien: "https://www.evkha.fr/packs" },

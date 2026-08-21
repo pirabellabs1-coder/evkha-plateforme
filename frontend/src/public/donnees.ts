@@ -20,7 +20,9 @@ export type FormulePublique = {
   mise_en_avant: boolean;
 };
 
-const BASE = import.meta.env.VITE_API_URL ?? "";
+/** Racine de l'API. Exportee : la boutique s'y adosse plutot que d'en
+ *  redeclarer une, ce qui ferait deux adresses du meme serveur. */
+export const BASE = import.meta.env.VITE_API_URL ?? "";
 
 export async function chargerFormules(): Promise<FormulePublique[]> {
   const reponse = await fetch(`${BASE}/api/public/formules/`, {

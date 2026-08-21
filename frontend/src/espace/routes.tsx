@@ -16,6 +16,7 @@ import { Connexion } from "../public/Connexion";
 import { Credits } from "./pages/Credits";
 import { Equipe } from "./pages/Equipe";
 import { Livrables } from "./pages/Livrables";
+import { MesAchats } from "./pages/MesAchats";
 import { MonCompte } from "./pages/MonCompte";
 import { Souscription } from "./pages/Souscription";
 import { SuiviLivrable } from "./pages/SuiviLivrable";
@@ -80,6 +81,13 @@ export function routesEspace(racine: AnyRoute) {
       getParentRoute: () => coquille,
       path: "credits",
       component: Credits,
+    }),
+    // Les etudes de boutique. Distinctes des livrables : un fichier achete
+    // une fois n'a ni questionnaire, ni progression, ni controle.
+    createRoute({
+      getParentRoute: () => coquille,
+      path: "achats",
+      component: MesAchats,
     }),
     createRoute({
       getParentRoute: () => coquille,

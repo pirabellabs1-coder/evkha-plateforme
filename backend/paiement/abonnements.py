@@ -210,6 +210,12 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
     if str((session.get("metadata") or {}).get("achat") or "") == "credits":
         return _crediter_l_achat(session)
 
+    # Un produit de boutique n'est pas un livrable a produire : il ouvre un
+    # ACCES a un fichier deja ecrit. Le traitement est donc distinct, et non
+    # une branche de plus dans la livraison d'un livrable.
+    if str((session.get("metadata") or {}).get("achat") or "") == "produit":
+        return _livrer_un_produit_de_boutique(session)
+
     # Un achat A L'UNITE emprunte lui aussi cet evenement, et il n'a NI
     # organisation NI formule : tout est a creer. Sans cet aiguillage,
     # `_identite` chercherait une organisation qui n'existe pas encore et
@@ -281,6 +287,35 @@ def _livrer_un_achat_a_l_unite(session: dict[str, Any]) -> str:
         achats.prevenir_l_acheteur(achat)
         return f"achat a l'unite livre ({achat.offre.slug})"
     return "achat a l'unite deja livre"
+
+
+def _livrer_un_produit_de_boutique(session: dict[str, Any]) -> str:
+    """Ouvre l'acces au fichier achete, et l'espace s'il n'existe pas encore.
+
+    Le courriel part APRES la transaction, jamais dedans : un envoi suivi d'un
+    retour arriere donnerait a quelqu'un le lien d'un achat qui n'existe pas.
+
+    Un echec ici est un incident de gravite haute — l'argent a ete pris. La
+    page de retour appelle le meme code et rattrapera peut-etre, mais on ne
+    parie pas la-dessus.
+    """
+    from . import boutique  # noqa: PLC0415 — evite un cycle a l'import
+
+    try:
+        resultat = boutique.livrer_le_produit(session)
+    except boutique.AchatInexploitable as exc:
+        _incident(
+            "Achat de boutique inexploitable",
+            IncidentSeverity.HIGH,
+            session=str(session.get("id") or ""),
+            motif=str(exc),
+        )
+        return "achat de boutique inexploitable"
+
+    if resultat.nouveau:
+        boutique.prevenir_l_acheteur(resultat)
+        return f"produit de boutique livre ({resultat.produit.slug})"
+    return "produit de boutique deja livre"
 
 
 def _crediter_l_achat(session: dict[str, Any]) -> str:

@@ -374,6 +374,87 @@ def creer_paiement_de_livrable(
     )
 
 
+def creer_paiement_de_produit(
+    *, produit: Any, email: str = "", organisation: Any = None
+) -> SessionOuverte:
+    """Ouvre un paiement PONCTUEL pour un produit de boutique.
+
+    Un produit de boutique est une etude DEJA REDIGEE : le paiement ne
+    declenche aucune production, il ouvre un acces a un fichier. La session
+    porte donc `achat="produit"`, que le webhook et la page de retour
+    distinguent de l'achat d'un livrable a produire.
+
+    **Rien de ce que le navigateur envoie ne fixe le prix.** Le montant est lu
+    sur le produit, et transmis a la volee. Un tarif preenregistre chez le
+    prestataire ferait deux verites pour un meme prix, et celle du prestataire
+    l'emporterait sans que personne ne l'ait decide.
+
+    `organisation` est fournie quand l'achat part de l'espace client. Le
+    rattachement se fait alors sur elle, et non sur l'adresse : le prestataire
+    laisse modifier cette adresse sur sa propre page, et un acheteur connecte
+    qui la corrige se verrait sinon ouvrir un second espace.
+    """
+    prix = int(getattr(produit, "prix_cents", 0) or 0)
+    if prix <= 0 or not getattr(produit, "fichier", None):
+        raise PaiementIndisponible(
+            "Cette étude n'est pas disponible à la vente pour le moment."
+        )
+
+    facultatifs: dict[str, Any] = {}
+    if email:
+        facultatifs["customer_email"] = email
+
+    try:
+        session: Any = stripe.checkout.Session.create(
+            api_key=cle_secrete(),
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": str(getattr(produit, "devise", "EUR") or "EUR").lower(),
+                    "unit_amount": prix,
+                    "product_data": {"name": str(produit.titre)},
+                },
+                "quantity": 1,
+            }],
+            success_url=_adresse_de_retour(
+                "/boutique/retour?session={CHECKOUT_SESSION_ID}"
+            ),
+            cancel_url=_adresse_de_retour(
+                f"/boutique/{produit.slug}?paiement=abandon"
+            ),
+            metadata={
+                # Ce qui distingue cet achat d'une souscription, d'un achat de
+                # credits et d'un livrable a produire.
+                "achat": "produit",
+                "produit_slug": str(produit.slug),
+                **(
+                    {"organisation_id": str(organisation.id)}
+                    if organisation is not None
+                    else {}
+                ),
+            },
+            **facultatifs,
+        )
+    except stripe.StripeError as exc:
+        _log.error(
+            "Stripe a refuse l'achat du produit %s : %s", produit.slug, exc
+        )
+        raise PaiementIndisponible(
+            "Le paiement est momentanément indisponible. Réessayez dans "
+            "quelques minutes."
+        ) from exc
+
+    adresse = str(session.get("url") or "")
+    if not adresse:
+        raise PaiementIndisponible(
+            "Le paiement est momentanément indisponible. Réessayez dans "
+            "quelques minutes."
+        )
+    return SessionOuverte(
+        identifiant=str(session.get("id") or ""), adresse=adresse
+    )
+
+
 def relire_la_session(identifiant: str) -> dict[str, Any]:
     """Relit une session Checkout chez Stripe, pour la page de retour.
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from . import actions, supervision, views
+from . import actions, boutique, supervision, views
 
 app_name = "dashboard"
 
@@ -53,6 +53,16 @@ urlpatterns = [
     ),
     # Actions d'administration : elles remplacent l'usage de /admin/ Django.
     path("supervision/formules/", actions.formules, name="supervision-formules"),
+    # La boutique : ajouter, modifier, retirer un produit, et voir ses
+    # ventes. Le catalogue s'elargit chaque mois et ne doit jamais
+    # repasser par un developpeur.
+    path("boutique/", boutique.produits, name="boutique"),
+    path("boutique/ventes/", boutique.ventes, name="boutique-ventes"),
+    # `avis/` AVANT le motif a parametre : sans cela, « avis » serait lu comme
+    # l'identifiant d'un produit.
+    path("boutique/avis/<str:avis_id>/", boutique.avis_un, name="boutique-avis-un"),
+    path("boutique/<str:produit_id>/", boutique.produit, name="boutique-produit"),
+    path("boutique/<str:produit_id>/avis/", boutique.avis, name="boutique-avis"),
     # Ce qui fabrique chaque livrable, en lecture seule.
     path(
         "supervision/livrables/",

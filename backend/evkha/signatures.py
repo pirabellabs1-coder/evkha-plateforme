@@ -109,9 +109,52 @@ def signer(chemin: str, duree_s: int | None = None) -> str:
 
 
 def lien(chemin: str, duree_s: int | None = None) -> str:
-    """Chemin d'accès complet, signature comprise, relatif au domaine."""
+    """Chemin d'accès complet, signature comprise, relatif au domaine.
+
+    **Relatif** : il ne vaut donc que pour un lecteur déjà sur le domaine de
+    l'API. Tout ce qui part vers un navigateur posé ailleurs — l'espace client
+    et les pages publiques sont servis par `app2.evkha.fr`, l'API par
+    `api2.evkha.fr` — doit passer par `lien_absolu`.
+    """
     propre = chemin.lstrip("/")
     return f"/media/{propre}?{PARAMETRE}={signer(propre, duree_s)}"
+
+
+def lien_absolu(chemin: str, duree_s: int | None = None) -> str:
+    """Le même lien, précédé du domaine de l'API.
+
+    Un lien relatif remis au navigateur de l'acheteur est résolu sur le
+    domaine de la PAGE, pas sur celui de l'API. Or `frontend/nginx.conf` ne
+    proxifie que `/api/` : `/media/...` y tombe sur `try_files $uri
+    /index.html`, et le navigateur reçoit **200 text/html** — la page de
+    l'application à la place du document acheté. Rien ne signale l'erreur, ni
+    au client, ni dans les journaux.
+
+    Mesuré le 21/08/2026 sur le parcours de boutique : le bouton « Télécharger
+    le PDF » rendait 1 585 octets de HTML. C'est la règle 1 appliquée à un
+    lien — un 200 qui ne compare rien n'est pas un succès.
+    """
+    base = str(getattr(settings, "EVKHA_BASE_URL", "")).rstrip("/")
+    return f"{base}{lien(chemin, duree_s)}"
+
+
+def absolu(chemin_ou_url: str) -> str:
+    """Prefixe une adresse de media par le domaine de l'API.
+
+    Pour les fichiers NON signes — couverture, extrait — dont l'adresse vient
+    de `FileField.url`. Le besoin est le meme que pour `lien_absolu` : la page
+    qui les affiche est servie par `app2.evkha.fr`, `/media/` par
+    `api2.evkha.fr`, et `frontend/nginx.conf` ne proxifie que `/api/`. Une
+    couverture en chemin relatif y recoit `index.html` — donc une image cassee,
+    en 200, sans une ligne dans les journaux.
+
+    Une adresse deja absolue est rendue telle quelle : le stockage pourra un
+    jour etre un service externe, qui donne des URL completes.
+    """
+    if not chemin_ou_url or chemin_ou_url.startswith(("http://", "https://")):
+        return chemin_ou_url
+    base = str(getattr(settings, "EVKHA_BASE_URL", "")).rstrip("/")
+    return f"{base}{chemin_ou_url}"
 
 
 def _duree_portee(presentee: str) -> int | None:

@@ -79,8 +79,13 @@ export interface TransactionSupervision {
   organisation: string;
   organisation_id: string;
   contact: string;
-  objet: "abonnement" | "credits";
+  /** « livrable » = une étude à produire, « produit » = une étude déjà rédigée
+   *  achetée en boutique. Les deux manquaient : le type n'énumérait que les
+   *  deux objets du temps où l'espace ne vendait que de l'abonnement. */
+  objet: "abonnement" | "credits" | "livrable" | "produit";
   objet_libelle: string;
+  /** L'étude visée, pour un achat de boutique. Vide sinon. */
+  produit: string;
   formule: string;
   quantite: number;
   montant_cents: number;
@@ -163,7 +168,124 @@ async function post<T>(chemin: string, corps: unknown): Promise<T> {
   return (await reponse.json()) as T;
 }
 
+/** Une etude de boutique, vue de l'administration. */
+export interface ProduitBoutique {
+  id: string;
+  slug: string;
+  titre: string;
+  description: string;
+  sommaire: string;
+  theme: string;
+  prix_cents: number;
+  devise: string;
+  pages: number;
+  mise_a_jour: string;
+  en_ligne: boolean;
+  rang: number;
+  fichier: string;
+  fichier_editable: string;
+  extrait: string;
+  image: string;
+  /** Faux tant qu'il manque un prix ou le fichier a remettre. */
+  publiable: boolean;
+  /** Ce qui manque, en clair. Un bouton qui refuse sans expliquer se lit
+   *  comme une panne. */
+  manque: string[];
+  ventes: number;
+  recette_cents: number;
+  /** Moyenne des avis publiés, 0 s'il n'y en a aucun. */
+  note: number;
+  avis: AvisBoutique[];
+}
+
+export interface AvisBoutique {
+  id: string;
+  auteur: string;
+  qualite: string;
+  note: number;
+  texte: string;
+  publie: boolean;
+  date: string;
+}
+
+/** Envoi multipart : le meme formulaire porte les textes ET les fichiers.
+ *  En faire deux envois obligerait a decider lequel gagne quand le second
+ *  echoue. */
+async function envoyer<T>(chemin: string, donnees: FormData): Promise<T> {
+  const reponse = await fetch(`${BASE}/api/dashboard${chemin}`, {
+    method: "POST",
+    // Pas de `Content-Type` : le navigateur pose lui-meme la frontiere du
+    // multipart, et l'ecrire a la main la rendrait fausse.
+    headers: {
+      Accept: "application/json",
+      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+    },
+    body: donnees,
+  });
+  if (!reponse.ok) {
+    const charge = (await reponse.json().catch(() => ({}))) as {
+      erreur?: string;
+      error?: string;
+    };
+    throw new Error(charge.erreur ?? charge.error ?? `Erreur ${reponse.status}`);
+  }
+  return (await reponse.json()) as T;
+}
+
 export const adminApi = {
+  produitsBoutique: () =>
+    get<{ produits: ProduitBoutique[] }>("/boutique/"),
+  ventesBoutique: () =>
+    get<{
+      ventes: {
+        id: string;
+        produit: string;
+        slug: string;
+        organisation: string;
+        email: string;
+        montant_cents: number;
+        achete_le: string;
+      }[];
+    }>("/boutique/ventes/"),
+  creerUnProduit: (donnees: FormData) =>
+    envoyer<{ produit: ProduitBoutique }>("/boutique/", donnees),
+  modifierLeProduit: (id: string, donnees: FormData) =>
+    envoyer<{ produit: ProduitBoutique }>(`/boutique/${id}/`, donnees),
+  supprimerLeProduit: async (id: string) => {
+    const reponse = await fetch(`${BASE}/api/dashboard/boutique/${id}/`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
+    });
+    if (!reponse.ok) {
+      const charge = (await reponse.json().catch(() => ({}))) as { erreur?: string };
+      throw new Error(charge.erreur ?? `Erreur ${reponse.status}`);
+    }
+    return (await reponse.json()) as { supprime: string };
+  },
+  ajouterUnAvis: (produitId: string, donnees: FormData) =>
+    envoyer<{ produit: ProduitBoutique }>(`/boutique/${produitId}/avis/`, donnees),
+  publierUnAvis: (avisId: string, publie: boolean) => {
+    const donnees = new FormData();
+    donnees.set("publie", publie ? "true" : "false");
+    return envoyer<{ produit: ProduitBoutique }>(`/boutique/avis/${avisId}/`, donnees);
+  },
+  supprimerUnAvis: async (avisId: string) => {
+    const reponse = await fetch(`${BASE}/api/dashboard/boutique/avis/${avisId}/`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
+    });
+    if (!reponse.ok) {
+      const charge = (await reponse.json().catch(() => ({}))) as { erreur?: string };
+      throw new Error(charge.erreur ?? `Erreur ${reponse.status}`);
+    }
+    return (await reponse.json()) as { produit: ProduitBoutique };
+  },
   synthese: (jours = 30) => get<Synthese>("/supervision/synthese/", { jours: String(jours) }),
   evolution: (mois = 12) =>
     get<Evolution>("/supervision/evolution/", { mois: String(mois) }),

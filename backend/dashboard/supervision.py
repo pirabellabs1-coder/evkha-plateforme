@@ -440,7 +440,7 @@ def transactions(request: HttpRequest) -> JsonResponse:
 
     filtre = str(request.GET.get("etat", "")).strip()
     lignes = TentativePaiement.objects.select_related(
-        "organisation", "organisation__contact", "formule"
+        "organisation", "organisation__contact", "formule", "produit"
     )[:400]
 
     resultat: list[dict[str, Any]] = []
@@ -450,13 +450,23 @@ def transactions(request: HttpRequest) -> JsonResponse:
         )
         if filtre and etat != filtre:
             continue
-        contact = tentative.organisation.contact
+        # Une tentative de BOUTIQUE ouverte depuis la page publique n'a pas
+        # d'organisation : le compte nait de l'encaissement. Elle ne porte
+        # qu'une adresse, et c'est le panier abandonne le plus frequent — le
+        # cacher parce qu'il n'a pas d'organisation reviendrait a masquer
+        # exactement ce que cet ecran doit montrer.
+        organisation = tentative.organisation
         resultat.append({
             "id": str(tentative.id),
             "ouverte_le": tentative.created_at.isoformat(),
-            "organisation": tentative.organisation.raison_sociale,
-            "organisation_id": str(tentative.organisation_id),
-            "contact": contact.email if contact else "",
+            "organisation": (
+                organisation.raison_sociale if organisation else "Visiteur"
+            ),
+            "organisation_id": str(tentative.organisation_id or ""),
+            "contact": tentative.adresse_de_relance,
+            # L'etude visee, pour un achat de boutique : « quelqu'un a
+            # abandonne » vaut moins que « quelqu'un a abandonne LAQUELLE ».
+            "produit": tentative.produit.titre if tentative.produit else "",
             "objet": tentative.objet,
             "objet_libelle": tentative.get_objet_display(),
             "formule": tentative.formule.libelle if tentative.formule else "",
@@ -515,7 +525,7 @@ def relancer_la_transaction(
     from organisations.models import EtatTentative, TentativePaiement
 
     tentative = (
-        TentativePaiement.objects.select_related("organisation__contact")
+        TentativePaiement.objects.select_related("organisation__contact", "produit")
         .filter(id=transaction_id)
         .first()
     )
@@ -526,15 +536,26 @@ def relancer_la_transaction(
             {"error": "Ce paiement est abouti : il n'y a rien à relancer."}, 409
         )
 
-    contact = tentative.organisation.contact
-    if contact is None or not contact.email:
+    # L'adresse du contact de l'organisation, ou celle saisie avant le paiement
+    # quand il n'y a pas encore d'organisation — c'est le cas de tout achat de
+    # boutique ouvert depuis la page publique.
+    destinataire = tentative.adresse_de_relance
+    if not destinataire:
         return _json(
-            {"error": "Cette organisation n'a aucune adresse de contact."}, 409
+            {
+                "error": "Ce paiement ne porte aucune adresse : personne à "
+                "relancer."
+            },
+            409,
         )
 
     envoye = courriels.relancer_un_paiement(
-        destinataire=contact.email,
-        organisation=tentative.organisation.raison_sociale,
+        destinataire=destinataire,
+        organisation=(
+            tentative.organisation.raison_sociale
+            if tentative.organisation
+            else destinataire
+        ),
         objet=tentative.get_objet_display(),
         montant_cents=tentative.montant_cents,
         devise=tentative.devise,

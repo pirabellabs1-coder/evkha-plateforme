@@ -232,6 +232,35 @@ export interface Mouvement {
   auteur: string;
 }
 
+/** Une etude de boutique achetee. Les liens de telechargement sont calcules
+ *  a chaque affichage, jamais stockes : un lien conserve finirait par etre
+ *  transmis, et resterait valable aussi longtemps qu'on le garderait. */
+export interface AchatDeBoutique {
+  id: string;
+  titre: string;
+  slug: string;
+  pages: number;
+  achete_le: string;
+  montant_cents: number;
+  theme: string;
+  /** Couverture de l'étude, ou chaîne vide. */
+  image: string;
+  telechargement: string;
+  editable: string;
+}
+
+/** Une etude de boutique proposee a l'achat depuis l'espace. */
+export interface ProduitDeBoutique {
+  slug: string;
+  titre: string;
+  theme: string;
+  prix_cents: number;
+  devise: string;
+  pages: number;
+  mise_a_jour: string;
+  image: string;
+}
+
 /** Une etude vendue seule, telle que l'espace la propose au rachat. */
 export interface EtudeALUnite {
   slug: string;
@@ -525,6 +554,19 @@ export const espaceApi = {
     appel<{ adresse: string }>("/etudes/acheter/", {
       method: "POST",
       body: JSON.stringify({ etude }),
+    }),
+  /** Les etudes de boutique achetees, et le reste du catalogue. */
+  mesAchats: () =>
+    appel<{ achats: AchatDeBoutique[]; catalogue: ProduitDeBoutique[] }>(
+      "/achats/",
+    ),
+  /** Ouvre le paiement d'une etude de boutique depuis l'espace.
+   *
+   *  On n'envoie qu'un slug : le tarif est celui du catalogue. */
+  acheterUnProduit: (produit: string) =>
+    appel<{ adresse: string }>("/achats/acheter/", {
+      method: "POST",
+      body: JSON.stringify({ produit }),
     }),
   reprendreAbonnement: () =>
     appel<{ renouvellement_actif: boolean }>("/abonnement/reprendre/", {

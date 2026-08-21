@@ -68,8 +68,7 @@ def _url(cle: str, duree_s: int | None = None) -> str:
     """
     from evkha import signatures  # noqa: PLC0415 — evite un cycle a l'import
 
-    base = str(getattr(settings, "EVKHA_BASE_URL", "")).rstrip("/")
-    return f"{base}{signatures.lien(cle, duree_s)}"
+    return signatures.lien_absolu(cle, duree_s)
 
 
 def _retention(job: GenerationJob) -> timedelta:

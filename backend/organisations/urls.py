@@ -66,6 +66,9 @@ urlpatterns = [
     # frequent du public direct : l'etude de marche, puis le business plan au
     # moment d'aller voir la banque.
     path("etudes/", vues.etudes_a_l_unite, name="etudes"),
+    # Boutique : ce que le client a achete, et ce qu'il peut acheter.
+    path("achats/", vues.mes_achats, name="achats"),
+    path("achats/acheter/", vues.acheter_un_produit, name="achats-acheter"),
     path("etudes/acheter/", vues.acheter_une_etude, name="etudes-acheter"),
     # Ouvre le paiement de la formule choisie. POST : elle a un effet chez
     # Stripe, et une adresse de paiement ne doit pas se retrouver dans un

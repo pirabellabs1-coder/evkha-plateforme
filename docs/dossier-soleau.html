@@ -1,0 +1,1267 @@
+<title>Dossier technique EVKHA</title>
+<style>
+  /* Charte relevee sur evkha.fr : jaune #F8C51C, noir, blanc dominant. */
+  :root {
+    --blanc:   #FFFFFF;
+    --doux:    #FAF9F6;
+    --creme:   #FDF6DF;
+    --jaune:   #F8C51C;
+    --jaune-f: #B8890A;
+    --noir:    #000000;
+    --encre:   #17171A;
+    --gris:    #5F5F63;
+    --trait:   #E8E5DC;
+    --titre: "Century Gothic", "Futura", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --texte: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+    --mono: Consolas, "Cascadia Mono", "SF Mono", "Liberation Mono", monospace;
+  }
+
+  body {
+    background: var(--blanc);
+    color: var(--encre);
+    font-family: var(--texte);
+    font-size: 17px;
+    line-height: 1.68;
+    margin: 0;
+    padding: 0 2.5rem 6rem;
+  }
+  .doc { max-width: 76rem; margin: 0 auto; }
+  p { max-width: 52rem; }
+  b, strong { font-weight: 650; color: var(--noir); }
+
+  .tete {
+    background: var(--jaune);
+    border-radius: 30px;
+    margin: 1.75rem auto 3rem;
+    max-width: 76rem;
+    padding: 3.5rem 3rem 3rem;
+  }
+  .surtitre {
+    font-family: var(--titre);
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--noir); opacity: 0.6;
+    margin: 0 0 1rem;
+  }
+  .tete h1 {
+    font-family: var(--titre); color: var(--noir);
+    font-size: clamp(2rem, 5.5vw, 2.9rem);
+    font-weight: 800; line-height: 1.1;
+    margin: 0 0 1rem; text-wrap: balance;
+  }
+  .tete p { color: #3A3A2E; margin: 0; max-width: 46rem; font-size: 1.06rem; }
+
+  /* Cartouche d'identification */
+  .identite {
+    display: grid; gap: 0;
+    border: 2px solid var(--noir); border-radius: 10px;
+    overflow: hidden; margin: 0 0 3.5rem; max-width: 62rem;
+  }
+  .identite div {
+    display: grid; grid-template-columns: 16rem 1fr;
+    border-bottom: 1px solid var(--trait);
+  }
+  .identite div:last-child { border-bottom: none; }
+  .identite dt {
+    font-family: var(--titre); font-weight: 700; font-size: 0.82rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    background: var(--doux); padding: 0.85rem 1.1rem; margin: 0;
+  }
+  .identite dd {
+    padding: 0.85rem 1.1rem; margin: 0;
+    font-family: var(--mono); font-size: 0.88rem; word-break: break-all;
+  }
+  @media (max-width: 44rem) { .identite div { grid-template-columns: 1fr; } }
+
+  section { margin-bottom: 4.5rem; }
+  .num {
+    display: inline-block;
+    background: var(--jaune); color: var(--noir);
+    font-family: var(--titre); font-weight: 800; font-size: 0.85rem;
+    border-radius: 999px; padding: 0.3rem 0.95rem;
+    margin-bottom: 0.9rem;
+  }
+  h2 {
+    font-family: var(--titre); font-weight: 800; color: var(--noir);
+    font-size: clamp(1.55rem, 4vw, 2.05rem);
+    line-height: 1.15; margin: 0 0 0.7rem; text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--titre); font-weight: 700; color: var(--noir);
+    font-size: 1.16rem; margin: 2.4rem 0 0.5rem;
+  }
+  .intro { font-size: 1.12rem; color: var(--gris); margin: 0 0 1.9rem; max-width: 52rem; }
+
+  figure {
+    margin: 2.25rem 0;
+    padding: 1.75rem 1.5rem;
+    background: var(--doux);
+    border: 1px solid var(--trait);
+    border-radius: 10px;
+    /* Sur un ecran etroit, le schema DEFILE au lieu de retrecir : reduit a la
+       largeur d'un telephone, son texte tombait a trois pixels. */
+    overflow-x: auto;
+  }
+  figure svg {
+    display: block; height: auto; margin: 0 auto;
+    width: 100%; min-width: 40rem; max-width: 56rem;
+  }
+  figcaption {
+    margin: 1.35rem auto 0; padding-top: 1.05rem;
+    border-top: 1px solid var(--trait);
+    font-size: 0.95rem; color: var(--gris); max-width: 56rem;
+  }
+
+  .cadre { overflow-x: auto; margin: 1.75rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.94rem; }
+  th, td { text-align: left; padding: 0.72rem 0.9rem; vertical-align: top; }
+  thead th {
+    font-family: var(--titre); font-weight: 700;
+    background: var(--jaune); color: var(--noir);
+    font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  thead th:first-child { border-radius: 10px 0 0 0; }
+  thead th:last-child { border-radius: 0 10px 0 0; }
+  tbody td { border-bottom: 1px solid var(--trait); }
+  tbody tr:nth-child(even) { background: var(--doux); }
+  td code, p code, li code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--creme); padding: 0.08em 0.35em; border-radius: 4px;
+  }
+
+  pre {
+    font-family: var(--mono); font-size: 0.84rem; line-height: 1.55;
+    background: var(--doux); border: 1px solid var(--trait);
+    border-left: 4px solid var(--jaune); border-radius: 10px;
+    padding: 1.1rem 1.3rem; overflow-x: auto; margin: 1.1rem 0 1.75rem;
+    max-width: 62rem;
+  }
+
+  .encadre {
+    background: var(--creme); border-radius: 10px;
+    padding: 1.5rem 1.8rem; margin: 2rem 0; max-width: 56rem;
+  }
+  .encadre p { margin: 0; }
+  .encadre p + p { margin-top: 0.75rem; }
+  .encadre .etiquette {
+    font-family: var(--titre); font-weight: 700;
+    font-size: 0.74rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--jaune-f); margin-bottom: 0.5rem;
+  }
+  /* Encadre "en clair" : la meme chose dite sans vocabulaire technique.
+     Le dossier est lu par des personnes qui ne developpent pas. */
+  .clair {
+    background: var(--blanc);
+    border: 2px solid var(--jaune);
+    border-radius: 10px;
+    padding: 1.4rem 1.7rem;
+    margin: 1.9rem 0;
+    max-width: 56rem;
+  }
+  .clair .etiquette {
+    font-family: var(--titre); font-weight: 800;
+    font-size: 0.74rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--jaune-f); margin-bottom: 0.5rem;
+  }
+  .clair p { margin: 0; }
+  .clair p + p { margin-top: 0.7rem; }
+
+  /* Glossaire */
+  .glossaire { display: grid; gap: 0; margin: 1.75rem 0; max-width: 62rem; }
+  .glossaire > div {
+    display: grid; grid-template-columns: 15rem 1fr;
+    gap: 1rem; padding: 0.85rem 0;
+    border-bottom: 1px solid var(--trait);
+  }
+  .glossaire dt { font-weight: 700; color: var(--noir); margin: 0; }
+  .glossaire dd { margin: 0; color: var(--gris); }
+  @media (max-width: 44rem) {
+    .glossaire > div { grid-template-columns: 1fr; gap: 0.2rem; }
+  }
+
+  ul.puces { list-style: none; padding: 0; margin: 1.25rem 0; }
+  /* La puce est POSITIONNEE, pas mise en grille.
+     En grille, un element de liste contenant a la fois du gras et du texte
+     produisait plusieurs cases : chaque mot tombait sur sa propre ligne.
+     Un element de liste reste donc un bloc ordinaire, et son texte coule. */
+  ul.puces li {
+    position: relative;
+    padding-left: 1.6rem;
+    margin-bottom: 0.75rem;
+    max-width: 54rem;
+  }
+  ul.puces li::before {
+    content: "";
+    position: absolute; left: 0; top: 0.62rem;
+    width: 9px; height: 9px; border-radius: 999px;
+    background: var(--jaune);
+  }
+
+  .sommaire {
+    background: var(--doux); border: 1px solid var(--trait);
+    border-radius: 10px; padding: 1.6rem 1.9rem; margin-bottom: 3.5rem;
+  }
+  .sommaire h2 { font-size: 1.05rem; margin-bottom: 1rem; }
+  .sommaire ol { margin: 0; padding-left: 1.35rem; display: grid; gap: 0.42rem; font-size: 0.96rem; }
+  @media (min-width: 50rem) { .sommaire ol { grid-template-columns: 1fr 1fr; column-gap: 2.5rem; } }
+  .sommaire a { color: var(--encre); text-decoration: none; border-bottom: 2px solid var(--jaune); }
+</style>
+
+<header class="tete">
+  <p class="surtitre">Dépôt d'enveloppe Soleau — INPI</p>
+  <h1>Pipeline automatisée EVKHA</h1>
+  <p>Dossier technique : architecture, développement et datation de la plateforme. Ce document porte exclusivement sur les éléments relevant du développement et de l'architecture technique.</p>
+</header>
+
+<div class="doc">
+
+<dl class="identite">
+  <div><dt>Titulaire</dt><dd>EVKHA BUSINESS ET FORMATIONS</dd></div>
+  <div><dt>Date de la version</dt><dd>21 août 2026</dd></div>
+  <div><dt>Référence de version</dt><dd>2c03f4d5e293e93535c8f65d860351cbbf1cf355</dd></div>
+  <div><dt>Archive figée</dt><dd>EVKHA-code-2c03f4d.zip — 6 991 950 octets</dd></div>
+  <div><dt>Empreinte SHA-256</dt><dd>52e37da62804e395af03a331f811750cd788a2238a5d9eb75b47e10608152891</dd></div>
+  <div><dt>Premier commit</dt><dd>1er juin 2026</dd></div>
+  <div><dt>Commits à ce jour</dt><dd>390</dd></div>
+</dl>
+
+<div class="encadre">
+  <p class="etiquette">Confidentialité</p>
+  <p>Aucune clé d'API, aucun secret d'authentification et aucune donnée personnelle de client ne figure dans ce dossier ni dans l'archive déposée. Les secrets sont stockés hors dépôt, dans les variables d'environnement de l'hébergeur.</p>
+</div>
+
+<nav class="sommaire" aria-label="Sommaire">
+  <h2>Sommaire</h2>
+  <ol>
+    <li><a href="#lecture">Comment lire ce dossier</a></li>
+    <li><a href="#architecture">Architecture technique générale</a></li>
+    <li><a href="#pipeline">Fonctionnement de la pipeline</a></li>
+    <li><a href="#workflows">Workflows et automatisations</a></li>
+    <li><a href="#donnees">Architecture des données</a></li>
+    <li><a href="#interfaces">Interfaces développées</a></li>
+    <li><a href="#moteur">Moteur de génération</a></li>
+    <li><a href="#prompts">Prompts et configurations</a></li>
+    <li><a href="#erreurs">Gestion des erreurs</a></li>
+    <li><a href="#securite">Sécurité technique</a></li>
+    <li><a href="#paiement">Paiement, abonnements et crédits</a></li>
+    <li><a href="#propre">Éléments propres et composants tiers</a></li>
+    <li><a href="#code">Extraits de code</a></li>
+    <li><a href="#chronologie">Chronologie du développement</a></li>
+    <li><a href="#extension">Extension à de nouveaux livrables</a></li>
+    <li><a href="#export">Volumétrie et export figé</a></li>
+  </ol>
+</nav>
+
+<section id="lecture">
+  <span class="num">00</span>
+  <h2>Comment lire ce dossier</h2>
+  <p class="intro">Ce dossier décrit une chaîne logicielle qui produit automatiquement des documents d'analyse d'entreprise. Il est écrit pour être compris sans connaissance technique préalable.</p>
+
+  <h3>Ce que fait la plateforme, en une page</h3>
+  <p>Un client décrit son projet en répondant à un questionnaire. À partir de ces réponses, la plateforme recherche des données de marché, les vérifie, rédige un document de plusieurs dizaines de pages, contrôle ce qu'elle a écrit, corrige ce qui doit l'être, met en forme le résultat et l'envoie au client. L'opération dure environ quarante minutes et ne demande aucune intervention humaine.</p>
+  <p>Quatre types de documents sont produits aujourd'hui : étude de marché, étude de concurrence, business plan et stratégie business. Le système est conçu pour en accueillir d'autres sans être reconstruit.</p>
+
+  <h3>Trois principes qui structurent l'ensemble</h3>
+  <ul class="puces">
+    <li><b>Les chiffres viennent d'un endroit unique.</b> Avant d'écrire le moindre chapitre, la plateforme constitue un ensemble de données de référence — taille du marché, croissance, prix moyens, nombre d'acteurs. Chaque chapitre cite ensuite ces données au lieu d'en produire de nouvelles. C'est ce qui garantit qu'un même chiffre est identique du début à la fin du document.</li>
+    <li><b>Rien n'est inventé pour combler un vide.</b> Lorsqu'une donnée manque, le système le signale et adapte le document. Il ne remplace jamais une valeur absente par une valeur plausible.</li>
+    <li><b>Le document existe toujours.</b> Si une étape échoue, ce qui a déjà été produit est conservé, mis en forme et livré. Un chapitre manquant est signalé dans le sommaire plutôt que dissimulé.</li>
+  </ul>
+
+  <h3>Vocabulaire employé dans ce dossier</h3>
+  <dl class="glossaire">
+    <div><dt>Pipeline</dt><dd>La suite d'étapes automatiques qui transforme les réponses d'un client en document livré.</dd></div>
+    <div><dt>Socle de données</dt><dd>L'ensemble des chiffres de référence établis au début d'une production, que tous les chapitres réutilisent.</dd></div>
+    <div><dt>Livrable</dt><dd>Le document final remis au client : étude de marché, business plan, etc.</dd></div>
+    <div><dt>Modèle de langage</dt><dd>Le service d'intelligence artificielle qui rédige les textes à partir des instructions et des données fournies.</dd></div>
+    <div><dt>Prompt</dt><dd>L'instruction écrite transmise au modèle de langage : ce qu'il doit produire, avec quelles données et selon quelles règles.</dd></div>
+    <div><dt>Tâche asynchrone</dt><dd>Un traitement lancé en arrière-plan, qui se poursuit sans que l'utilisateur attende devant son écran.</dd></div>
+    <div><dt>Webhook</dt><dd>Un message automatique envoyé par un service extérieur pour signaler un événement — par exemple qu'un paiement a été accepté.</dd></div>
+    <div><dt>Idempotence</dt><dd>La propriété d'un traitement qui, exécuté deux fois, produit le même résultat qu'une seule fois. Elle évite les doubles débits et les doubles envois.</dd></div>
+    <div><dt>Conteneur</dt><dd>Un programme isolé qui tourne sur le serveur avec ses propres dépendances. La plateforme en compte sept.</dd></div>
+    <div><dt>Migration</dt><dd>Une modification datée de la structure de la base de données. Leur suite constitue l'historique du modèle de données.</dd></div>
+    <div><dt>Commit</dt><dd>Un enregistrement daté d'un ensemble de modifications du code, identifié par une empreinte cryptographique.</dd></div>
+    <div><dt>Empreinte SHA-256</dt><dd>Une signature numérique calculée sur un fichier. Deux fichiers identiques ont la même empreinte ; la moindre différence la change entièrement.</dd></div>
+  </dl>
+
+  <div class="clair">
+    <p class="etiquette">Objet du dépôt</p>
+    <p>Ce dossier a pour objet de matérialiser et de dater le développement technique réalisé. Il décrit l'architecture, les traitements, les données et les interfaces, et s'accompagne d'une copie figée du code identifiée par son empreinte.</p>
+    <p>Il ne couvre ni la méthodologie métier, ni les questionnaires, ni les contenus rédactionnels, ni la structure éditoriale des livrables, qui relèvent d'un autre périmètre.</p>
+  </div>
+</section>
+
+<!-- ═══ 01 ═══════════════════════════════════════════════════════ -->
+<section id="architecture">
+  <span class="num">01</span>
+  <h2>Architecture technique générale</h2>
+  <p class="intro">Une application Python/Django associée à une file de tâches asynchrones, déployée en conteneurs sur serveur dédié.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 400" role="img" aria-label="Sept conteneurs composent la plateforme : l'API, deux travailleurs, l'ordonnanceur, l'interface compilee, la base de donnees et le courtier de messages.">
+      <text x="0" y="16" font-size="14" font-weight="700" fill="#B8890A">ENTRÉES</text>
+      <rect x="0" y="28" width="150" height="106" rx="10" fill="#FDF6DF"/>
+      <text x="14" y="52" font-size="13" fill="#000000">Navigateur client</text>
+      <text x="14" y="76" font-size="13" fill="#000000">Navigateur admin</text>
+      <text x="14" y="100" font-size="13" fill="#000000">Webhooks paiement</text>
+      <text x="14" y="124" font-size="13" fill="#000000">Webhooks formulaire</text>
+
+      <line x1="150" y1="80" x2="188" y2="80" stroke="#000000" stroke-width="1.5"/>
+      <polygon points="188,74 200,80 188,86" fill="#000000"/>
+
+      <text x="210" y="16" font-size="14" font-weight="700" fill="#B8890A">TRAITEMENT</text>
+      <rect x="206" y="28" width="228" height="46" rx="10" fill="#F8C51C"/>
+      <text x="320" y="49" font-size="14" text-anchor="middle" font-weight="700" fill="#000000">api</text>
+      <text x="320" y="66" font-size="12" text-anchor="middle" fill="#000000">Django 5.2, Gunicorn</text>
+
+      <rect x="206" y="84" width="228" height="46" rx="10" fill="#F8C51C"/>
+      <text x="320" y="105" font-size="14" text-anchor="middle" font-weight="700" fill="#000000">worker</text>
+      <text x="320" y="122" font-size="12" text-anchor="middle" fill="#000000">Celery — production des livrables</text>
+
+      <rect x="206" y="140" width="228" height="46" rx="10" fill="#F8C51C"/>
+      <text x="320" y="161" font-size="14" text-anchor="middle" font-weight="700" fill="#000000">worker-livraison</text>
+      <text x="320" y="178" font-size="12" text-anchor="middle" fill="#000000">Celery — file dédiée</text>
+
+      <rect x="206" y="196" width="228" height="46" rx="10" fill="#F8C51C"/>
+      <text x="320" y="217" font-size="14" text-anchor="middle" font-weight="700" fill="#000000">beat</text>
+      <text x="320" y="234" font-size="12" text-anchor="middle" fill="#000000">tâches périodiques</text>
+
+      <rect x="206" y="252" width="228" height="46" rx="10" fill="#F8C51C"/>
+      <text x="320" y="273" font-size="14" text-anchor="middle" font-weight="700" fill="#000000">dashboard</text>
+      <text x="320" y="290" font-size="12" text-anchor="middle" fill="#000000">React 19, Vite</text>
+
+      <line x1="434" y1="160" x2="472" y2="160" stroke="#000000" stroke-width="1.5"/>
+      <polygon points="472,154 484,160 472,166" fill="#000000"/>
+
+      <text x="494" y="16" font-size="14" font-weight="700" fill="#B8890A">STOCKAGE</text>
+      <rect x="490" y="28" width="150" height="46" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="565" y="56" font-size="13" text-anchor="middle" fill="#000000">postgres</text>
+      <rect x="490" y="84" width="150" height="46" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="565" y="112" font-size="13" text-anchor="middle" fill="#000000">redis</text>
+      <rect x="490" y="140" width="150" height="46" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="565" y="162" font-size="13" text-anchor="middle" fill="#000000">media</text>
+      <text x="565" y="178" font-size="11" text-anchor="middle" fill="#5F5F63">Word et PDF produits</text>
+      <rect x="490" y="196" width="150" height="46" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="565" y="218" font-size="13" text-anchor="middle" fill="#000000">factstore</text>
+      <text x="565" y="234" font-size="11" text-anchor="middle" fill="#5F5F63">faits validés</text>
+
+      <text x="0" y="340" font-size="14" font-weight="700" fill="#000000">SERVICES EXTERNES APPELÉS</text>
+      <text x="0" y="364" font-size="13" fill="#000000">Modèle de langage · Recherche web · Paiement · Envoi transactionnel</text>
+      <text x="0" y="388" font-size="13" fill="#5F5F63">Chacun est appelé par un module dédié, jamais depuis plusieurs endroits.</text>
+    </svg>
+    <figcaption>Chaque conteneur porte une responsabilité distincte. Ils partagent la base de données et le courtier de messages.</figcaption>
+  </figure>
+
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Service</th><th>Rôle</th><th>Technologie</th></tr></thead>
+      <tbody>
+        <tr><td><code>api</code></td><td>API HTTP, webhooks entrants, espace client, administration</td><td>Django 5.2, Gunicorn</td></tr>
+        <tr><td><code>worker</code></td><td>Production des livrables : socle, chapitres, contrôles, correction</td><td>Celery 5.4</td></tr>
+        <tr><td><code>worker-livraison</code></td><td>Assemblage des documents et envoi au client, file séparée</td><td>Celery</td></tr>
+        <tr><td><code>beat</code></td><td>Tâches périodiques : purges, échéances, reprise des dossiers figés</td><td>Celery Beat</td></tr>
+        <tr><td><code>dashboard</code></td><td>Interfaces compilées</td><td>React 19, Vite, TypeScript</td></tr>
+        <tr><td><code>postgres</code></td><td>Base de données relationnelle</td><td>PostgreSQL</td></tr>
+        <tr><td><code>redis</code></td><td>Courtier de messages et cache</td><td>Redis</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="clair">
+    <p class="etiquette">En clair</p>
+    <p>La plateforme n'est pas un programme unique, mais sept programmes qui travaillent ensemble sur le même serveur. Cette séparation permet qu'une production longue n'empêche pas les autres opérations de se dérouler.</p>
+    <p>Le premier, <b>api</b>, répond aux navigateurs : c'est lui qui affiche les pages et enregistre les commandes. Les deuxième et troisième, les <b>travailleurs</b>, effectuent les tâches longues en arrière-plan — produire un document, l'assembler, l'envoyer. Le quatrième, <b>beat</b>, déclenche les opérations récurrentes à heure fixe. Les trois derniers stockent les données, les messages en attente et les fichiers produits.</p>
+  </div>
+
+  <h3>Hébergement</h3>
+  <p>Déploiement par Coolify sur serveur dédié. Terminaison TLS et routage par Traefik, certificats Let's Encrypt. L'API et les interfaces sont exposées sur deux sous-domaines distincts, paramétrés par variables d'environnement.</p>
+
+  <h3>Séparation des files de traitement</h3>
+  <p>Les tâches de livraison sont routées vers une file distincte de celle des générations. Une génération dure environ quarante minutes et engage des appels facturés ; un assemblage dure une minute. La séparation évite qu'un document déjà payé attende derrière un document en cours de production.</p>
+
+  <h3>Volumes persistants</h3>
+  <ul class="puces">
+    <li><code>pgdata</code> — la base de données.</li>
+    <li><code>redisdata</code> — la file de messages.</li>
+    <li><code>media</code> — les livrables produits, Word et PDF.</li>
+    <li><code>factstore</code> — la mémoire des faits validés, réutilisés d'une génération à l'autre.</li>
+  </ul>
+</section>
+
+<!-- ═══ 02 ═══════════════════════════════════════════════════════ -->
+<section id="pipeline">
+  <span class="num">02</span>
+  <h2>Fonctionnement de la pipeline</h2>
+  <p class="intro">Dix étapes, de l'action de l'utilisateur à la livraison du document. Les étapes 3 à 9 s'exécutent sans intervention humaine.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 640" role="img" aria-label="Les dix etapes de la pipeline : saisie, commande, recherche, socle, verification, chapitres, correction QA, gate de livraison, assemblage, livraison.">
+      <defs>
+        <marker id="p1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <polygon points="0,0 10,5 0,10" fill="#000000"/>
+        </marker>
+      </defs>
+
+      <line x1="30" y1="46" x2="30" y2="596" stroke="#E8E5DC" stroke-width="3"/>
+
+      <g font-size="13.5">
+        <circle cx="30" cy="46" r="19" fill="#F8C51C"/>
+        <text x="30" y="53" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">1</text>
+        <text x="66" y="42" font-size="15" font-weight="700" fill="#000000">Saisie</text>
+        <text x="66" y="62" fill="#5F5F63">Espace client ou webhook de formulaire &#8594; brief normalisé</text>
+
+        <circle cx="30" cy="106" r="19" fill="#F8C51C"/>
+        <text x="30" y="113" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">2</text>
+        <text x="66" y="102" font-size="15" font-weight="700" fill="#000000">Commande</text>
+        <text x="66" y="122" fill="#5F5F63">Création du dossier, débit des crédits &#8594; mise en file</text>
+
+        <circle cx="30" cy="166" r="19" fill="#F8C51C"/>
+        <text x="30" y="173" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">3</text>
+        <text x="66" y="162" font-size="15" font-weight="700" fill="#000000">Recherche</text>
+        <text x="66" y="182" fill="#5F5F63">Collecte web de sources datées, une fois par dossier</text>
+
+        <circle cx="30" cy="226" r="19" fill="#F8C51C"/>
+        <text x="30" y="233" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">4</text>
+        <text x="66" y="222" font-size="15" font-weight="700" fill="#000000">Socle de données</text>
+        <text x="66" y="242" fill="#5F5F63">Passe 1 : chiffres de référence, validés par schéma typé</text>
+
+        <circle cx="30" cy="286" r="19" fill="#F8C51C"/>
+        <text x="30" y="293" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">5</text>
+        <text x="66" y="282" font-size="15" font-weight="700" fill="#000000">Vérification du socle</text>
+        <text x="66" y="302" fill="#5F5F63">Passe 2 : déclassement des données non confirmées</text>
+
+        <circle cx="30" cy="346" r="19" fill="#F8C51C"/>
+        <text x="30" y="353" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">6</text>
+        <text x="66" y="342" font-size="15" font-weight="700" fill="#000000">Chapitres</text>
+        <text x="66" y="362" fill="#5F5F63">Production séquentielle citant les identifiants du socle</text>
+
+        <circle cx="30" cy="406" r="19" fill="#F8C51C"/>
+        <text x="30" y="413" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">7</text>
+        <text x="66" y="402" font-size="15" font-weight="700" fill="#000000">Passe corrective</text>
+        <text x="66" y="422" fill="#5F5F63">Corrections déterministes sur le texte produit</text>
+
+        <circle cx="30" cy="466" r="19" fill="#F8C51C"/>
+        <text x="30" y="473" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">8</text>
+        <text x="66" y="462" font-size="15" font-weight="700" fill="#000000">Contrôle de livraison</text>
+        <text x="66" y="482" fill="#5F5F63">Une vingtaine de contrôles, régénération ciblée, contrôle rejoué</text>
+
+        <circle cx="30" cy="526" r="19" fill="#F8C51C"/>
+        <text x="30" y="533" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">9</text>
+        <text x="66" y="522" font-size="15" font-weight="700" fill="#000000">Assemblage</text>
+        <text x="66" y="542" fill="#5F5F63">Rendu Word, figures, conversion PDF, contrôle de fidélité</text>
+
+        <circle cx="30" cy="586" r="19" fill="#F8C51C"/>
+        <text x="30" y="593" font-size="14" font-weight="700" text-anchor="middle" fill="#000000">10</text>
+        <text x="66" y="582" font-size="15" font-weight="700" fill="#000000">Livraison</text>
+        <text x="66" y="602" fill="#5F5F63">E-mail transactionnel, dépôt dans l'espace client</text>
+      </g>
+
+      <rect x="440" y="150" width="200" height="200" rx="10" fill="#FDF6DF"/>
+      <text x="540" y="178" font-size="13.5" text-anchor="middle" font-weight="700" fill="#000000">SANS INTERVENTION</text>
+      <text x="540" y="200" font-size="13" text-anchor="middle" fill="#000000">Étapes 3 à 9</text>
+      <text x="540" y="230" font-size="13" text-anchor="middle" fill="#5F5F63">Durée moyenne</text>
+      <text x="540" y="252" font-size="13" text-anchor="middle" fill="#5F5F63">environ 40 minutes</text>
+      <text x="540" y="282" font-size="13" text-anchor="middle" fill="#5F5F63">22 chapitres produits</text>
+      <text x="540" y="304" font-size="13" text-anchor="middle" fill="#5F5F63">et contrôlés</text>
+    </svg>
+    <figcaption>Un dossier interrompu assemble ce qui a été produit. Un chapitre en échec n'empêche pas la livraison des autres, et le sommaire indique le chapitre absent.</figcaption>
+  </figure>
+
+  <div class="clair">
+    <p class="etiquette">En clair</p>
+    <p>Le client remplit un questionnaire, puis n'a plus rien à faire. La plateforme cherche les données du marché concerné, les organise, écrit le document chapitre par chapitre, relit ce qu'elle a produit, corrige les incohérences qu'elle détecte, met le tout en forme et l'envoie.</p>
+    <p>Chaque étape est enregistrée : à tout moment, l'administration sait où en est un dossier, combien il a coûté et pourquoi il s'est arrêté s'il s'est arrêté.</p>
+  </div>
+
+  <h3>Détail des étapes</h3>
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Étape</th><th>Entrée</th><th>Traitement</th><th>Sortie</th></tr></thead>
+      <tbody>
+        <tr><td>1. Saisie</td><td>Réponses du client</td><td>Normalisation des champs, contrôle de complétude</td><td>Brief structuré</td></tr>
+        <tr><td>2. Commande</td><td>Brief structuré</td><td>Création du dossier, contrôle et débit des crédits</td><td>Dossier en file d'attente</td></tr>
+        <tr><td>3. Recherche</td><td>Secteur et zone géographique</td><td>Collecte de sources datées sur le web, une seule fois par dossier</td><td>Brief de recherche</td></tr>
+        <tr><td>4. Socle</td><td>Brief et recherche</td><td>Un appel au modèle produit les chiffres de référence, validés par un schéma typé</td><td>Socle de données</td></tr>
+        <tr><td>5. Vérification</td><td>Socle</td><td>Contrôles automatiques puis relecture par le modèle ; les données non confirmées sont déclassées</td><td>Socle vérifié</td></tr>
+        <tr><td>6. Chapitres</td><td>Socle vérifié, brief, résumés précédents</td><td>Production séquentielle, chaque chapitre citant les identifiants du socle</td><td>Chapitres structurés</td></tr>
+        <tr><td>7. Passe corrective</td><td>Chapitres</td><td>Corrections déterministes : ponctuation, unités, marqueurs internes</td><td>Chapitres corrigés</td></tr>
+        <tr><td>8. Contrôle de livraison</td><td>Chapitres corrigés</td><td>Une vingtaine de vérifications ; les chapitres en défaut sont régénérés puis recontrôlés</td><td>Verdict qualité</td></tr>
+        <tr><td>9. Assemblage</td><td>Chapitres validés, socle</td><td>Composition Word, tracé des figures, conversion PDF, contrôle de fidélité</td><td>Word et PDF</td></tr>
+        <tr><td>10. Livraison</td><td>Fichiers produits</td><td>Envoi de l'e-mail, dépôt dans l'espace client, lien signé</td><td>Document remis</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Ce qui se passe en cas d'interruption</h3>
+  <p>La production est <b>reprenable</b>. Si elle s'arrête à l'étape 6 après quinze chapitres, une relance repart du seizième : les quinze premiers sont conservés et ne sont pas produits une seconde fois. Le débit de crédits porte une clé d'identification stable, ce qui garantit qu'une relance ne débite jamais à nouveau.</p>
+  <p>Si l'arrêt est définitif, le document est tout de même assemblé avec les chapitres disponibles. Le sommaire indique alors explicitement les chapitres absents, plutôt que de laisser un trou dans la numérotation.</p>
+</section>
+
+<!-- ═══ 03 ═══════════════════════════════════════════════════════ -->
+<section id="workflows">
+  <span class="num">03</span>
+  <h2>Workflows et automatisations</h2>
+  <p class="intro">Treize tâches asynchrones nommées, déclenchées par événement ou par l'ordonnanceur.</p>
+
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Tâche</th><th>Déclencheur</th><th>Sortie</th></tr></thead>
+      <tbody>
+        <tr><td><code>generation.run_generation_job</code></td><td>Commande validée</td><td>Dossier complet, puis mise en file de la livraison</td></tr>
+        <tr><td><code>generation.chapitres.produire</code></td><td>Orchestrateur</td><td>Un chapitre, avec reprises temporisées</td></tr>
+        <tr><td><code>generation.chapitres.orchestrer</code></td><td>Reprise</td><td>Chaîne ordonnée des chapitres restants</td></tr>
+        <tr><td><code>generation.recontroler_et_corriger</code></td><td>Action administrateur</td><td>Contrôle rejoué, correction en arrière-plan</td></tr>
+        <tr><td><code>generation.reset_stuck_generation_jobs</code></td><td>Horaire</td><td>Reprise des dossiers figés, incident ouvert</td></tr>
+        <tr><td><code>delivery.deliver_job</code></td><td>Fin de génération</td><td>Assemblage et e-mail client</td></tr>
+        <tr><td><code>delivery.send_email_for_job</code></td><td>Action administrateur</td><td>Renvoi de l'e-mail</td></tr>
+        <tr><td><code>delivery.generate_pdf_for_failed_job</code></td><td>Action administrateur</td><td>PDF seul, sans envoi</td></tr>
+        <tr><td><code>delivery.purge_expired_artifacts</code></td><td>Horaire</td><td>Expiration des liens de téléchargement</td></tr>
+        <tr><td><code>integrations.process_webhook_event</code></td><td>Webhook entrant</td><td>Traitement idempotent</td></tr>
+        <tr><td><code>customers.refresh_monthly_credits</code></td><td>Horaire</td><td>Crédits mensuels</td></tr>
+        <tr><td><code>organisations.appliquer_echeances</code></td><td>Horaire</td><td>Dotation des abonnements</td></tr>
+        <tr><td><code>organisations.purger_les_pieces_jointes</code></td><td>Horaire</td><td>Purge des dépôts clients, rétention 12 mois</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Échanges de données</h3>
+  <ul class="puces">
+    <li><b>Entrants</b> — webhooks de formulaire, de commande et de paiement. Chacun est authentifié par signature et traité de manière idempotente via un journal d'événements.</li>
+    <li><b>Sortants</b> — appels au modèle de langage, à la recherche web, à l'API d'envoi transactionnel et à l'API de paiement.</li>
+  </ul>
+
+  <h3>Conditions de reprise</h3>
+  <p>Chaque tâche de production est reprenable. Les chapitres déjà écrits sont conservés lors d'une relance et ne sont pas produits une seconde fois. Le débit de crédits porte une clé d'idempotence stable sur la vie du dossier : une relance ne débite jamais à nouveau.</p>
+</section>
+
+<!-- ═══ 04 ═══════════════════════════════════════════════════════ -->
+<section id="donnees">
+  <span class="num">04</span>
+  <h2>Architecture des données</h2>
+  <p class="intro">Quinze applications, trente modèles persistants, soixante-deux migrations. Toute entité porte un identifiant unique et un horodatage de création et de modification.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 380" role="img" aria-label="Les domaines de donnees : clients et organisations, commandes, generation, documents, livraison, integrations et supervision.">
+      <text x="0" y="16" font-size="14" font-weight="700" fill="#B8890A">CLIENTS ET COMMERCE</text>
+      <rect x="0" y="28" width="200" height="150" rx="10" fill="#FDF6DF"/>
+      <text x="14" y="52" font-size="13" fill="#000000">Organisation, Membre</text>
+      <text x="14" y="74" font-size="13" fill="#000000">Formule, Abonnement</text>
+      <text x="14" y="96" font-size="13" fill="#000000">PortefeuilleCredits</text>
+      <text x="14" y="118" font-size="13" fill="#000000">MouvementCredit</text>
+      <text x="14" y="140" font-size="13" fill="#000000">Encaissement</text>
+      <text x="14" y="162" font-size="13" fill="#000000">TentativePaiement</text>
+
+      <text x="220" y="16" font-size="14" font-weight="700" fill="#B8890A">PRODUCTION</text>
+      <rect x="220" y="28" width="200" height="150" rx="10" fill="#F8C51C"/>
+      <text x="234" y="52" font-size="13" fill="#000000">GenerationJob</text>
+      <text x="234" y="74" font-size="13" fill="#000000">ChapterGeneration</text>
+      <text x="234" y="96" font-size="13" fill="#000000">SocleDonnees</text>
+      <text x="234" y="118" font-size="13" fill="#000000">CoherenceFact</text>
+      <text x="234" y="140" font-size="13" fill="#000000">Order, IntakeSubmission</text>
+      <text x="234" y="162" font-size="13" fill="#000000">Offer</text>
+
+      <text x="440" y="16" font-size="14" font-weight="700" fill="#B8890A">SORTIES ET JOURNAUX</text>
+      <rect x="440" y="28" width="200" height="150" rx="10" fill="#FDF6DF"/>
+      <text x="454" y="52" font-size="13" fill="#000000">DocumentArtifact</text>
+      <text x="454" y="74" font-size="13" fill="#000000">DeliveryBatch</text>
+      <text x="454" y="96" font-size="13" fill="#000000">DeliveryEvent</text>
+      <text x="454" y="118" font-size="13" fill="#000000">WebhookEvent</text>
+      <text x="454" y="140" font-size="13" fill="#000000">OperationalIncident</text>
+      <text x="454" y="162" font-size="13" fill="#000000">JetonAcces</text>
+
+      <rect x="0" y="206" width="640" height="120" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="2"/>
+      <text x="18" y="234" font-size="15" font-weight="700" fill="#000000">LE SOCLE DE DONNÉES</text>
+      <text x="18" y="260" font-size="13.5" fill="#000000">Chaque chiffre du document est enregistré avec : identifiant, valeur, unité,</text>
+      <text x="18" y="282" font-size="13.5" fill="#000000">année, périmètre géographique, source et niveau de fiabilité.</text>
+      <text x="18" y="308" font-size="13.5" fill="#5F5F63">Les chapitres citent les identifiants du socle. Les figures utilisent les mêmes.</text>
+
+      <text x="0" y="364" font-size="13.5" fill="#5F5F63">Les mouvements de crédits, les événements de livraison et les webhooks constituent les journaux.</text>
+    </svg>
+    <figcaption>Le solde d'un portefeuille est calculé comme la somme de ses mouvements. Aucun compteur n'est stocké.</figcaption>
+  </figure>
+
+  <div class="clair">
+    <p class="etiquette">En clair</p>
+    <p>Toutes les informations sont rangées dans des tables, comme les onglets
+    d'un classeur : une table pour les clients, une pour les commandes, une pour
+    les mouvements de crédits, une pour les documents produits.</p>
+    <p>Le point important est le <b>socle de données</b>. Avant d'écrire quoi que
+    ce soit, la plateforme constitue la liste des chiffres du dossier, chacun avec
+    sa source, son année et son degré de fiabilité. Les chapitres ne créent pas de
+    chiffres : ils citent ceux du socle. C'est ce mécanisme qui empêche qu'un même
+    chiffre apparaisse différemment page 12 et page 40.</p>
+  </div>
+
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Domaine</th><th>Entités principales</th></tr></thead>
+      <tbody>
+        <tr><td><code>organisations</code></td><td>Organisation, MembreOrganisation, Formule, AbonnementOrganisation, PortefeuilleCredits, MouvementCredit, CompteClient, PieceJointe, JetonAcces, Encaissement, TentativePaiement</td></tr>
+        <tr><td><code>generation</code></td><td>GenerationJob, ChapterGeneration, SocleDonnees, CoherenceFact</td></tr>
+        <tr><td><code>orders</code>, <code>intake</code></td><td>Order, IntakeSubmission — commande et brief normalisé</td></tr>
+        <tr><td><code>catalog</code></td><td>Offer — catalogue et tarifs</td></tr>
+        <tr><td><code>customers</code></td><td>Customer, Subscription</td></tr>
+        <tr><td><code>documents</code></td><td>DocumentArtifact — fichiers produits, état, expiration, empreinte</td></tr>
+        <tr><td><code>delivery</code></td><td>DeliveryBatch, DeliveryEvent</td></tr>
+        <tr><td><code>integrations</code></td><td>WebhookEvent, ExternalCredentialRef</td></tr>
+        <tr><td><code>monitoring</code></td><td>OperationalIncident</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══ 05 ═══════════════════════════════════════════════════════ -->
+<section id="interfaces">
+  <span class="num">05</span>
+  <h2>Interfaces développées</h2>
+  <p class="intro">Trois interfaces : les pages publiques, l'espace client et l'espace d'administration. Environ 14 100 lignes de TypeScript.</p>
+
+  <h3>Pages publiques</h3>
+  <ul class="puces">
+    <li>Présentation des formules d'abonnement, tarifs lus de la base de données.</li>
+    <li>Catalogue des livrables vendus à l'unité, avec leur tarif.</li>
+    <li>Création de compte, connexion, définition et réinitialisation du mot de passe.</li>
+    <li>Ouverture d'un paiement et page de retour après paiement.</li>
+  </ul>
+
+  <h3>Espace client</h3>
+  <ul class="puces">
+    <li>Authentification par compte d'organisation, avec rôles et révocation.</li>
+    <li>Commande d'une étude : formulaire propre à chaque type de livrable, dépôt de pièces jointes, reprise d'un brouillon.</li>
+    <li>Suivi de production en quatre étapes, avec estimation de fin calculée sur l'avancement réel.</li>
+    <li>Historique des études et téléchargement par lien signé et horodaté.</li>
+    <li>Portefeuille de crédits : solde, mouvements, achat, souscription.</li>
+    <li>Fiche de marque : logo, couleurs, mention de confidentialité appliqués aux documents.</li>
+    <li>Gestion de l'équipe : invitations, rôles, révocation.</li>
+  </ul>
+
+  <h3>Espace d'administration</h3>
+  <ul class="puces">
+    <li>Supervision des dossiers : statut, coût engagé, avancement, plan de génération.</li>
+    <li>Actions d'exploitation : relance, recontrôle qualité, assemblage sans envoi, renvoi de l'e-mail, annulation.</li>
+    <li>Incidents d'exploitation, avec sévérité et résolution.</li>
+    <li>Suivi commercial : organisations, transactions, paniers abandonnés, demandes entrantes, dotation manuelle de crédits.</li>
+    <li>Supervision de la production : synthèse, évolution mensuelle, couverture des demandes client.</li>
+  </ul>
+
+  <div class="encadre">
+    <p class="etiquette">Captures d'écran</p>
+    <p>Les captures des écrans en service peuvent être ajoutées à ce dossier avant le dépôt. Les pages publiques sont accessibles sans authentification ; les espaces client et administrateur nécessitent une session ouverte.</p>
+  </div>
+</section>
+
+<!-- ═══ 06 ═══════════════════════════════════════════════════════ -->
+<section id="moteur">
+  <span class="num">06</span>
+  <h2>Moteur de génération</h2>
+  <p class="intro">Quatre traitements enchaînés, chacun avec son propre contrat de validation.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 420" role="img" aria-label="Les quatre passes du moteur : production du socle, verification du socle, production des chapitres, puis rendu du document.">
+      <defs>
+        <marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <polygon points="0,0 10,5 0,10" fill="#000000"/>
+        </marker>
+      </defs>
+
+      <rect x="0" y="20" width="640" height="76" rx="10" fill="#F8C51C"/>
+      <text x="18" y="46" font-size="15" font-weight="700" fill="#000000">PASSE 1 — LE SOCLE</text>
+      <text x="18" y="68" font-size="13" fill="#000000">Un appel au modèle produit tous les chiffres de référence du dossier.</text>
+      <text x="18" y="88" font-size="13" fill="#000000">Réponse validée par schéma typé ; une réponse invalide déclenche une nouvelle tentative.</text>
+
+      <line x1="320" y1="96" x2="320" y2="116" stroke="#000000" stroke-width="1.5" marker-end="url(#m1)"/>
+
+      <rect x="0" y="122" width="640" height="76" rx="10" fill="#FDF6DF"/>
+      <text x="18" y="148" font-size="15" font-weight="700" fill="#000000">PASSE 2 — VÉRIFICATION</text>
+      <text x="18" y="170" font-size="13" fill="#000000">Contrôles déterministes, puis contrôle par le modèle.</text>
+      <text x="18" y="190" font-size="13" fill="#000000">Une donnée non confirmée est déclassée en estimée ; le motif est journalisé.</text>
+
+      <line x1="320" y1="198" x2="320" y2="218" stroke="#000000" stroke-width="1.5" marker-end="url(#m1)"/>
+
+      <rect x="0" y="224" width="640" height="96" rx="10" fill="#F8C51C"/>
+      <text x="18" y="250" font-size="15" font-weight="700" fill="#000000">PASSE 3 — LES CHAPITRES</text>
+      <text x="18" y="272" font-size="13" fill="#000000">Production séquentielle et reprenable. Chaque chapitre reçoit le socle, la base</text>
+      <text x="18" y="292" font-size="13" fill="#000000">des concurrents, la grille de notation, le brief client et les résumés précédents.</text>
+      <text x="18" y="312" font-size="13" fill="#000000">Sortie structurée : sections, données utilisées, graphiques déclarés, résumé.</text>
+
+      <line x1="320" y1="320" x2="320" y2="340" stroke="#000000" stroke-width="1.5" marker-end="url(#m1)"/>
+
+      <rect x="0" y="346" width="640" height="76" rx="10" fill="#FDF6DF"/>
+      <text x="18" y="372" font-size="15" font-weight="700" fill="#000000">PASSE 4 — LE RENDU</text>
+      <text x="18" y="394" font-size="13" fill="#000000">Composition Word programmatique, figures tracées depuis le socle, conversion PDF.</text>
+      <text x="18" y="414" font-size="13" fill="#000000">Un contrôle de fidélité compare le rendu final au contenu validé.</text>
+    </svg>
+    <figcaption>Les chapitres ne produisent pas de chiffres : ils citent les identifiants du socle. Les figures utilisent les mêmes identifiants.</figcaption>
+  </figure>
+
+  <div class="clair">
+    <p class="etiquette">En clair</p>
+    <p>Le moteur travaille en quatre temps : il établit les chiffres, il les
+    vérifie, il rédige les chapitres à partir de ces chiffres, puis il met le
+    document en forme.</p>
+    <p>Cet ordre n'est pas arbitraire. Faire rédiger les chapitres avant d'avoir
+    arrêté les chiffres reviendrait à laisser chaque chapitre produire ses propres
+    données : le document serait complet en apparence, mais ses chiffres se
+    contrediraient d'une page à l'autre.</p>
+  </div>
+
+  <h3>Les figures</h3>
+  <p>Quinze types sont implémentés : barres, barres horizontales, barres groupées, barres empilées, courbes, aires, camembert, anneau, entonnoir, jauges, radar, matrice de positionnement, chronologie, cascade, carte de chaleur. Chacun dispose de son résolveur de données et de ses règles de refus.</p>
+  <p>Si le socle ne peut pas alimenter le type demandé, la figure est convertie vers un type compatible ou abandonnée, avec le motif enregistré. Aucune valeur n'est produite pour les besoins d'un graphique.</p>
+
+  <h3>Exports</h3>
+  <p>Le document est produit en Word puis converti en PDF. Les deux fichiers sont enregistrés avec leur empreinte SHA-256 et une date d'expiration du lien de téléchargement.</p>
+</section>
+
+<!-- ═══ 07 ═══════════════════════════════════════════════════════ -->
+<section id="prompts">
+  <span class="num">07</span>
+  <h2>Prompts et configurations techniques</h2>
+  <p class="intro">Les instructions transmises au modèle sont centralisées et versionnées. Aucune n'est dispersée dans le code applicatif.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 300" role="img" aria-label="Emplacement des prompts dans le workflow : le prompt du socle intervient aux passes 1 et 2, la bibliotheque de prompts a la passe 3, les consignes de conformite au controle.">
+      <defs>
+        <marker id="pr1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <polygon points="0,0 10,5 0,10" fill="#000000"/>
+        </marker>
+      </defs>
+
+      <rect x="0" y="24" width="180" height="56" rx="10" fill="#FDF6DF"/>
+      <text x="90" y="48" font-size="13" text-anchor="middle" font-weight="700" fill="#000000">socle/prompt.py</text>
+      <text x="90" y="68" font-size="12" text-anchor="middle" fill="#5F5F63">référentiel des données</text>
+      <line x1="180" y1="52" x2="228" y2="52" stroke="#000000" stroke-width="1.5" marker-end="url(#pr1)"/>
+      <rect x="236" y="24" width="200" height="56" rx="10" fill="#F8C51C"/>
+      <text x="336" y="56" font-size="14" text-anchor="middle" font-weight="700" fill="#000000">Passes 1 et 2</text>
+
+      <rect x="0" y="104" width="180" height="56" rx="10" fill="#FDF6DF"/>
+      <text x="90" y="128" font-size="13" text-anchor="middle" font-weight="700" fill="#000000">prompt_library.py</text>
+      <text x="90" y="148" font-size="12" text-anchor="middle" fill="#5F5F63">3 032 lignes</text>
+      <line x1="180" y1="132" x2="228" y2="132" stroke="#000000" stroke-width="1.5" marker-end="url(#pr1)"/>
+      <rect x="236" y="104" width="200" height="56" rx="10" fill="#F8C51C"/>
+      <text x="336" y="136" font-size="14" text-anchor="middle" font-weight="700" fill="#000000">Passe 3 — chapitres</text>
+
+      <rect x="0" y="184" width="180" height="56" rx="10" fill="#FDF6DF"/>
+      <text x="90" y="208" font-size="13" text-anchor="middle" font-weight="700" fill="#000000">prompts.py</text>
+      <text x="90" y="228" font-size="12" text-anchor="middle" fill="#5F5F63">charte de voix, sourçage</text>
+      <line x1="180" y1="212" x2="228" y2="212" stroke="#000000" stroke-width="1.5" marker-end="url(#pr1)"/>
+      <rect x="236" y="184" width="200" height="56" rx="10" fill="#F8C51C"/>
+      <text x="336" y="216" font-size="14" text-anchor="middle" font-weight="700" fill="#000000">Tous les appels</text>
+
+      <line x1="436" y1="132" x2="484" y2="132" stroke="#000000" stroke-width="1.5" marker-end="url(#pr1)"/>
+      <rect x="492" y="104" width="148" height="56" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="566" y="130" font-size="13" text-anchor="middle" fill="#000000">Modèle</text>
+      <text x="566" y="148" font-size="13" text-anchor="middle" fill="#000000">de langage</text>
+
+      <text x="0" y="278" font-size="13.5" fill="#5F5F63">Les clés d'accès au modèle sont lues des variables d'environnement, jamais du code.</text>
+    </svg>
+    <figcaption>Chaque emplacement correspond à une étape précise du workflow.</figcaption>
+  </figure>
+
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Emplacement</th><th>Contenu</th><th>Volume</th></tr></thead>
+      <tbody>
+        <tr><td><code>generation/prompt_library.py</code></td><td>Instruction éditoriale de chaque chapitre, par type de livrable</td><td>3 032 lignes</td></tr>
+        <tr><td><code>generation/prompts.py</code></td><td>Prompt système, charte de voix, règles de sourçage et d'écriture des nombres</td><td>—</td></tr>
+        <tr><td><code>generation/socle/prompt.py</code></td><td>Prompt des passes 1 et 2, référentiel des données attendues</td><td>—</td></tr>
+        <tr><td><code>generation/modele/</code></td><td>Consignes de conformité et arbitrage des écarts de forme</td><td>—</td></tr>
+        <tr><td><code>prompts/</code></td><td>Fichiers de prompts externalisés, chargés au démarrage</td><td>—</td></tr>
+        <tr><td><code>generation/blueprints.py</code></td><td>Plan de chaque livrable : chapitres, ordre, cibles de volume</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Les paramètres d'exploitation — modèle utilisé, nombre de rondes de correction, plafonds de dépense, seuils de contrôle — sont déclarés dans les réglages de l'application et surchargeables par variables d'environnement.</p>
+</section>
+
+<!-- ═══ 08 ═══════════════════════════════════════════════════════ -->
+<section id="erreurs">
+  <span class="num">08</span>
+  <h2>Gestion des erreurs</h2>
+  <p class="intro">Chaque situation d'échec a un traitement défini. Aucune ne détruit ce qui a déjà été produit.</p>
+
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Situation</th><th>Traitement</th></tr></thead>
+      <tbody>
+        <tr><td>Échec d'appel au modèle</td><td>Reprises temporisées et bornées. Au-delà, le chapitre est marqué et le dossier se poursuit.</td></tr>
+        <tr><td>Plafond de dépense atteint</td><td>Arrêt avant tout nouvel appel. Le document est assemblé et livré en l'état.</td></tr>
+        <tr><td>Crédits insuffisants</td><td>Refus au lancement, avant le premier appel facturé. Aucun débit.</td></tr>
+        <tr><td>Génération interrompue</td><td>Détectée sur l'absence de progression. Relance sans repayer les chapitres déjà écrits.</td></tr>
+        <tr><td>Dossier figé</td><td>Tâche horaire de reprise, incident de sévérité haute ouvert.</td></tr>
+        <tr><td>Donnée manquante au socle</td><td>Figure ou chapitre abandonné avec son motif. Aucune valeur de remplacement.</td></tr>
+        <tr><td>Échec d'assemblage ou d'envoi</td><td>Lot marqué en échec et incident ouvert, dans une transaction séparée.</td></tr>
+        <tr><td>Paiement refusé</td><td>Incident ouvert, accès maintenu. La décision du prestataire fait foi.</td></tr>
+        <tr><td>Webhook rejoué</td><td>Traitement idempotent. Un même événement ne produit pas deux effets.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="clair">
+    <p class="etiquette">En clair</p>
+    <p>Une panne ne fait jamais perdre le travail déjà accompli. Si le service
+    d'intelligence artificielle ne répond pas, la plateforme réessaie ; si elle n'y
+    parvient pas, elle poursuit sans ce chapitre et le signale. Si le budget prévu
+    pour un dossier est atteint, elle s'arrête et livre ce qui existe.</p>
+    <p>Chaque incident est enregistré avec sa gravité et son contexte, et reste
+    consultable depuis l'administration.</p>
+  </div>
+
+  <h3>Contrôles sur le document livré</h3>
+  <p>Une vingtaine de contrôles déterministes s'exécutent sur le document tel qu'il sera lu :</p>
+  <ul class="puces">
+    <li>Cohérence des chiffres avec le brief client.</li>
+    <li>Présence de marqueurs internes, troncature de chapitre.</li>
+    <li>Ordres de grandeur, arithmétique des opérations, totaux de tableaux.</li>
+    <li>Unicité des sources d'une même donnée, agrégats confrontés à la somme de leurs parts.</li>
+    <li>Cohérence des trajectoires chiffrées d'un chapitre à l'autre.</li>
+    <li>Caractères étrangers à l'alphabet latin, chapitres produits sans accents, lettres doublées.</li>
+    <li>Complétude des verticales d'activité, traçabilité des sources.</li>
+  </ul>
+  <p>Chaque contrôle en échec ouvre une boucle de correction ciblée, bornée par le budget du dossier et interrompue dès qu'une ronde ne produit plus d'effet mesurable.</p>
+
+  <h3>Journaux et alertes</h3>
+  <p>Les incidents d'exploitation sont enregistrés avec leur sévérité, leur contexte et leur état de résolution. Ils sont consultables depuis l'espace d'administration. Les événements de webhook conservent leur charge utile et leur statut de traitement.</p>
+</section>
+
+<!-- ═══ 09 ═══════════════════════════════════════════════════════ -->
+<section id="securite">
+  <span class="num">09</span>
+  <h2>Sécurité technique</h2>
+  <p class="intro">Authentification, cloisonnement des accès, protection des secrets et rétention des données.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 300" role="img" aria-label="Quatre niveaux de protection : l'authentification, le cloisonnement par organisation, les liens signes et la protection des secrets.">
+      <rect x="0" y="20" width="310" height="120" rx="10" fill="#FDF6DF"/>
+      <text x="18" y="46" font-size="14" font-weight="700" fill="#000000">AUTHENTIFICATION</text>
+      <text x="18" y="70" font-size="13" fill="#000000">Comptes d'organisation, rôles, révocation</text>
+      <text x="18" y="92" font-size="13" fill="#000000">Jetons de session à durée limitée</text>
+      <text x="18" y="114" font-size="13" fill="#000000">Jeton porteur pour l'API d'administration,</text>
+      <text x="18" y="132" font-size="13" fill="#000000">avec rotation supportée</text>
+
+      <rect x="330" y="20" width="310" height="120" rx="10" fill="#FDF6DF"/>
+      <text x="348" y="46" font-size="14" font-weight="700" fill="#000000">CLOISONNEMENT</text>
+      <text x="348" y="70" font-size="13" fill="#000000">Toute requête est filtrée par l'organisation</text>
+      <text x="348" y="92" font-size="13" fill="#000000">du demandeur</text>
+      <text x="348" y="114" font-size="13" fill="#000000">Un dossier n'est lisible que par</text>
+      <text x="348" y="132" font-size="13" fill="#000000">l'organisation qui l'a commandé</text>
+
+      <rect x="0" y="152" width="310" height="120" rx="10" fill="#F8C51C"/>
+      <text x="18" y="178" font-size="14" font-weight="700" fill="#000000">TÉLÉCHARGEMENTS</text>
+      <text x="18" y="202" font-size="13" fill="#000000">Liens signés et horodatés</text>
+      <text x="18" y="224" font-size="13" fill="#000000">Durée de validité portée par le jeton</text>
+      <text x="18" y="246" font-size="13" fill="#000000">Un lien ne peut être ni deviné,</text>
+      <text x="18" y="264" font-size="13" fill="#000000">ni utilisé indéfiniment</text>
+
+      <rect x="330" y="152" width="310" height="120" rx="10" fill="#F8C51C"/>
+      <text x="348" y="178" font-size="14" font-weight="700" fill="#000000">SECRETS</text>
+      <text x="348" y="202" font-size="13" fill="#000000">Aucune clé dans le dépôt</text>
+      <text x="348" y="224" font-size="13" fill="#000000">Variables d'environnement de l'hébergeur</text>
+      <text x="348" y="246" font-size="13" fill="#000000">Analyse automatique anti-fuite et</text>
+      <text x="348" y="264" font-size="13" fill="#000000">crochets de pré-commit</text>
+    </svg>
+    <figcaption>Les webhooks entrants sont vérifiés par signature pour chacun des trois fournisseurs.</figcaption>
+  </figure>
+
+  <div class="clair">
+    <p class="etiquette">En clair</p>
+    <p>Un client ne voit que ses propres dossiers : chaque requête est filtrée par
+    son organisation avant même d'atteindre la base de données. Les liens de
+    téléchargement sont signés et expirent, ce qui les rend impossibles à deviner
+    et inutilisables passé un délai.</p>
+    <p>Les clés d'accès aux services extérieurs ne figurent nulle part dans le
+    code. Elles vivent dans la configuration du serveur, et un contrôle automatique
+    refuse tout envoi de code qui en contiendrait une par inadvertance.</p>
+  </div>
+
+  <h3>Rétention et sauvegardes</h3>
+  <ul class="puces">
+    <li>Les livrables expirent selon une durée paramétrée par offre.</li>
+    <li>Les fichiers déposés par les clients sont purgés après douze mois.</li>
+    <li>Volumes persistants distincts pour la base de données, les livrables et la mémoire de faits.</li>
+    <li>Les mots de passe sont stockés sous forme de condensat, jamais en clair.</li>
+    <li>Les jetons de session sont conservés sous forme de condensat : une lecture de la base ne fournit aucun jeton utilisable.</li>
+  </ul>
+</section>
+
+<!-- ═══ 10 ═══════════════════════════════════════════════════════ -->
+<section id="paiement">
+  <span class="num">10</span>
+  <h2>Paiement, abonnements et crédits</h2>
+  <p class="intro">Deux modes de règlement coexistent : l'abonnement mensuel et l'achat à l'unité.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 340" role="img" aria-label="Deux modes de reglement : l'abonnement mensuel qui dote des credits fongibles, et l'achat a l'unite qui verse un credit lie au livrable paye.">
+      <defs>
+        <marker id="pa1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <polygon points="0,0 10,5 0,10" fill="#000000"/>
+        </marker>
+      </defs>
+
+      <text x="0" y="16" font-size="14" font-weight="700" fill="#B8890A">ABONNEMENT MENSUEL</text>
+      <rect x="0" y="28" width="170" height="52" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="85" y="59" font-size="13" text-anchor="middle" fill="#000000">Souscription</text>
+      <line x1="170" y1="54" x2="204" y2="54" stroke="#000000" stroke-width="1.5" marker-end="url(#pa1)"/>
+      <rect x="212" y="28" width="200" height="52" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="312" y="52" font-size="13" text-anchor="middle" fill="#000000">Échéance appliquée</text>
+      <text x="312" y="70" font-size="12" text-anchor="middle" fill="#5F5F63">tâche horaire, idempotente</text>
+      <line x1="412" y1="54" x2="446" y2="54" stroke="#000000" stroke-width="1.5" marker-end="url(#pa1)"/>
+      <rect x="454" y="28" width="186" height="52" rx="10" fill="#F8C51C"/>
+      <text x="547" y="52" font-size="13" text-anchor="middle" font-weight="700" fill="#000000">Crédits fongibles</text>
+      <text x="547" y="70" font-size="12" text-anchor="middle" fill="#000000">valables pour tout livrable</text>
+
+      <line x1="0" y1="110" x2="640" y2="110" stroke="#E8E5DC" stroke-width="2"/>
+
+      <text x="0" y="146" font-size="14" font-weight="700" fill="#B8890A">ACHAT À L'UNITÉ</text>
+      <rect x="0" y="158" width="170" height="52" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="85" y="189" font-size="13" text-anchor="middle" fill="#000000">Paiement unique</text>
+      <line x1="170" y1="184" x2="204" y2="184" stroke="#000000" stroke-width="1.5" marker-end="url(#pa1)"/>
+      <rect x="212" y="158" width="200" height="52" rx="10" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+      <text x="312" y="182" font-size="13" text-anchor="middle" fill="#000000">Compte et espace créés</text>
+      <text x="312" y="200" font-size="12" text-anchor="middle" fill="#5F5F63">par l'encaissement</text>
+      <line x1="412" y1="184" x2="446" y2="184" stroke="#000000" stroke-width="1.5" marker-end="url(#pa1)"/>
+      <rect x="454" y="158" width="186" height="52" rx="10" fill="#F8C51C"/>
+      <text x="547" y="182" font-size="13" text-anchor="middle" font-weight="700" fill="#000000">Crédit lié au livrable</text>
+      <text x="547" y="200" font-size="12" text-anchor="middle" fill="#000000">valable pour lui seul</text>
+
+      <rect x="0" y="238" width="640" height="88" rx="10" fill="#FDF6DF"/>
+      <text x="18" y="264" font-size="14" font-weight="700" fill="#000000">CONSOMMATION</text>
+      <text x="18" y="288" font-size="13" fill="#000000">Le débit intervient au lancement de la génération, avant le premier appel facturé.</text>
+      <text x="18" y="310" font-size="13" fill="#000000">Il porte une clé d'idempotence stable : une relance ne débite jamais à nouveau.</text>
+    </svg>
+    <figcaption>Le solde est la somme des mouvements du journal. Aucun compteur n'est stocké.</figcaption>
+  </figure>
+
+  <div class="clair">
+    <p class="etiquette">En clair</p>
+    <p>Le portefeuille de crédits fonctionne comme un relevé bancaire : il n'y a
+    pas de compteur, mais une suite de lignes — crédits reçus, crédits dépensés. Le
+    solde est la somme de ces lignes, ce qui rend toute opération traçable et
+    réversible.</p>
+    <p>Un crédit obtenu par abonnement vaut pour n'importe quel document. Un crédit
+    acheté pour une étude précise ne vaut que pour elle : sans cette distinction,
+    une somme versée pour le document le moins cher permettrait d'obtenir le plus
+    cher.</p>
+  </div>
+
+  <h3>Formules</h3>
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Formule</th><th>Crédits par échéance</th><th>Prix mensuel</th></tr></thead>
+      <tbody>
+        <tr><td>Solo</td><td>2</td><td>129 €</td></tr>
+        <tr><td>Pro</td><td>3</td><td>189 €</td></tr>
+        <tr><td>Pro Plus</td><td>5</td><td>249 €</td></tr>
+        <tr><td>Structure</td><td>10</td><td>429 €</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Webhooks de paiement</h3>
+  <p>Cinq événements sont traités, chacun avec sa signature vérifiée : session de paiement aboutie, échéance payée, prélèvement refusé, abonnement modifié, abonnement résilié. Chaque session ouverte est enregistrée, y compris lorsqu'elle est abandonnée.</p>
+
+  <h3>Idempotence de la remise</h3>
+  <p>La remise d'un achat à l'unité est appelée par deux chemins concurrents : le webhook du prestataire et la page de retour du navigateur, sans ordre garanti. Deux verrous indépendants empêchent un double crédit — la référence de session portée par le mouvement de crédit, et l'unicité de la référence de facture.</p>
+</section>
+
+<!-- ═══ 11 ═══════════════════════════════════════════════════════ -->
+<section id="propre">
+  <span class="num">11</span>
+  <h2>Éléments propres et composants tiers</h2>
+  <p class="intro">Distinction entre ce qui a été développé spécifiquement pour EVKHA et les briques réutilisées.</p>
+
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Composant</th><th>Nature</th></tr></thead>
+      <tbody>
+        <tr><td>Socle de données typé, référentiel par livrable, vérification et déclassement</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Moteur de chapitres structurés, contrats de sortie, contrôles inter-blocs</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Contrôle de livraison et sa vingtaine de vérifications déterministes</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Boucle de correction bornée par budget et par effet mesuré</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Résolveur de figures depuis le socle, quinze types, règles de conversion</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Composition Word programmatique et charte typographique</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Bibliothèque de prompts par livrable et par chapitre</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Portefeuille de crédits en journal de mouvements, idempotence du débit</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Crédit lié au livrable payé, droit calculé par soustraction</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Espace client marque blanche, clients finaux, jetons d'accès</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Répétition à blanc : rejeu complet de la chaîne sans appel facturé</td><td>Développé pour EVKHA</td></tr>
+        <tr><td>Django, Celery, PostgreSQL, Redis, Gunicorn</td><td>Brique tierce</td></tr>
+        <tr><td>python-docx, matplotlib, WeasyPrint, LibreOffice, pypdf, BeautifulSoup</td><td>Brique tierce</td></tr>
+        <tr><td>React, Vite, TanStack Router et Query, Radix Themes</td><td>Brique tierce</td></tr>
+        <tr><td>Docker, Traefik, Coolify</td><td>Brique tierce</td></tr>
+        <tr><td>API de modèle de langage, de paiement et d'envoi transactionnel</td><td>Service tiers</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══ 12 ═══════════════════════════════════════════════════════ -->
+<section id="code">
+  <span class="num">12</span>
+  <h2>Extraits de code</h2>
+  <p class="intro">Six extraits matérialisant les décisions d'ingénierie propres à la plateforme.</p>
+
+  <div class="clair">
+    <p class="etiquette">Comment lire ces extraits</p>
+    <p>Chaque extrait ci-dessous est reproduit tel qu'il figure dans le code
+    déposé. Un paragraphe le précède pour en expliquer l'objet : il n'est pas
+    nécessaire de savoir lire du code pour comprendre ce que la règle décide.</p>
+  </div>
+
+  <h3>12.1 — Plafond de dépense appliqué avant tout nouvel appel</h3>
+  <p>Chaque dossier dispose d'un budget maximal d'appels au modèle de langage.
+  Cette fonction retient le plus contraignant des deux plafonds applicables — celui
+  du dossier ou celui du type de document — et l'applique avant chaque nouvel
+  appel, jamais après.</p>
+<pre>def plafond_de_depense(job: GenerationJob) -&gt; Decimal:
+    """Le plus contraignant : le rythme du job, ou le plafond du livrable."""
+    surcharge = str(getattr(settings, "EVKHA_PLAFOND_DEPENSE_EUR", "") or "").strip()
+    if surcharge:
+        return min(job.budget_eur, Decimal(surcharge))
+    absolu = PLAFOND_PAR_LIVRABLE.get(str(job.deliverable_type), PLAFOND_REPLI_EUR)
+    return min(job.budget_eur, absolu)</pre>
+
+  <h3>12.2 — Une figure n'est pas complétée par une valeur de remplacement</h3>
+  <p>Un graphique en camembert représente la répartition d'un tout : ses parts
+  doivent totaliser cent pour cent. Lorsque ce n'est pas le cas, le système ne
+  comble pas l'écart. Il convertit le graphique vers un type qui ne fait pas cette
+  promesse, ou l'abandonne en enregistrant le motif.</p>
+<pre>if type_demande in ("camembert", "anneau"):
+    if any(valeur &lt; 0 for valeur in valeurs):
+        return Resolution(motif="valeur negative : une part d'un tout "
+                                "ne peut pas etre negative")
+    somme = sum(valeurs)
+    if (familles == {FamilleUnite.POURCENTAGE}
+            and abs(somme - 100.0) &gt; _TOLERANCE_PARTS_POURCENT):
+        # Les chiffres sont exacts, c'est la FORME qui ne convient pas :
+        # on convertit vers un type compatible plutot que d'abandonner.
+        return Resolution("barres", {...}, converti=True)</pre>
+
+  <h3>12.3 — Détection d'un chapitre produit sans accents</h3>
+  <p>Il arrive qu'un chapitre soit rédigé sans accents alors que le reste du
+  document en comporte. Le contrôle compare le chapitre au vocabulaire employé
+  ailleurs dans le même document, et le signale au-delà d'un seuil de mots
+  concernés.</p>
+<pre>accentues = {
+    cle for cle, vues in formes.items()
+    if any(_sans_accents(m) != m.casefold() and _accent_interne(m) for m in vues)
+}
+for section in sections:
+    nus = sorted({mot for mot in _MOT.findall(corps)
+                  if _sans_accents(mot) == mot.casefold()
+                  and _sans_accents(mot) in accentues})
+    if len(nus) &gt;= SEUIL_MOTS_DESACCENTUES:
+        trouves.append(ChapitreDesaccentue(...))</pre>
+
+  <h3>12.4 — La boucle de correction mesure son effet et s'arrête</h3>
+  <p>Après chaque tour de correction, le système compare la liste des défauts
+  avant et après. Si un tour n'en a résolu aucun, il s'arrête : insister
+  consommerait du budget sans améliorer le document.</p>
+<pre>avant = {_signature(f) for f in report.failures}
+report = _gate.run_delivery_gate(job)
+apres = {_signature(f) for f in report.failures}
+
+sourds |= vises &amp; apres      # motif vise et revenu identique
+if not avant - apres:        # la ronde n'a referme aucun motif
+    break</pre>
+
+  <h3>12.5 — Un identifiant de figure est résolu contre le socle</h3>
+  <p>Un graphique ne contient jamais de valeurs écrites en dur : il désigne des
+  identifiants du socle. Si l'un d'eux est introuvable, la figure est abandonnée
+  avec la liste des identifiants manquants, plutôt que tracée avec des données
+  partielles.</p>
+<pre>def _resoudre_ids(socle, identifiants) -&gt; tuple[list[DonneeSocle], str]:
+    trouvees, manquantes = [], []
+    for identifiant in identifiants:
+        donnee = socle.donnee(identifiant)
+        if donnee is None:
+            manquantes.append(identifiant)
+        else:
+            trouvees.append(donnee)
+    if manquantes:
+        return [], "identifiants absents du socle : " + ", ".join(sorted(manquantes))
+    return trouvees, ""</pre>
+
+  <h3>12.6 — Droit d'usage calculé par étude</h3>
+  <p>Pour un achat à l'unité, le droit restant se calcule en additionnant les
+  lignes du journal des crédits rattachées à ce type de document. Les entrées sont
+  positives, les consommations négatives : l'addition donne directement ce qui
+  reste dû.</p>
+<pre>def droits_par_livrable(organisation: Organisation) -&gt; dict[str, int]:
+    """Ce qui reste du, etude par etude, pour un achat a l'unite.
+
+    Entrees positives, debits negatifs : l'addition suffit. Un credit
+    d'abonnement ne porte aucun livrable et reste donc fongible.
+    """
+    lignes = (
+        MouvementCredit.objects.filter(portefeuille__organisation=organisation)
+        .exclude(livrable="")
+        .values("livrable")
+        .annotate(reste=Sum("quantite"))
+    )
+    return {
+        str(l["livrable"]): int(l["reste"] or 0)
+        for l in lignes if int(l["reste"] or 0) &gt; 0
+    }</pre>
+</section>
+
+<!-- ═══ 13 ═══════════════════════════════════════════════════════ -->
+<section id="chronologie">
+  <span class="num">13</span>
+  <h2>Chronologie du développement</h2>
+  <p class="intro">Du premier commit le 1er juin 2026 à la version déposée le 21 août 2026.</p>
+
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Période</th><th>Commits</th><th>Développements</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Juin 2026</td><td>47</td>
+          <td>Modèles de données, commande et brief, moteur de génération initial pour l'étude de marché et l'étude de concurrence, intégration du modèle de langage.</td>
+        </tr>
+        <tr>
+          <td>Juillet 2026</td><td>138</td>
+          <td>Business plan et stratégie business. Chaîne de rendu Word et PDF. Contrôles post-rendu. Livraison par e-mail. Espace d'administration.</td>
+        </tr>
+        <tr>
+          <td>Août 2026</td><td>205</td>
+          <td>Socle de données typé et sa vérification. Moteur de chapitres structurés. Résolveur de figures. Espace client et portefeuille de crédits. Abonnements et paiements. Boucle de correction. Répétition à blanc. File de livraison dédiée. Contrôles de cohérence documentaire. Vente à l'unité de bout en bout : catalogue tarifé, paiement, création de compte par l'encaissement, pages publiques, rachat depuis l'espace, crédit lié au livrable payé.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>L'historique complet, commit par commit, est conservé dans l'archive déposée.</p>
+</section>
+
+<section id="extension">
+  <span class="num">13b</span>
+  <h2>Extension &#224; de nouveaux livrables</h2>
+  <p class="intro">La cha&#238;ne produit aujourd'hui quatre types de documents. Elle est con&#231;ue pour en accueillir d'autres sans modification de son architecture.</p>
+
+  <div class="clair">
+    <p class="etiquette">En clair</p>
+    <p>Ajouter un nouveau type de document — un pr&#233;visionnel financier, un dossier de subvention, une &#233;tude d'implantation — ne demande pas de reconstruire la plateforme. Il faut d&#233;crire ce que le document doit contenir, quelles questions poser au client et quels chiffres sont n&#233;cessaires. Le reste de la cha&#238;ne fonctionne &#224; l'identique.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 640 320" role="img" aria-label="Ajouter un livrable demande quatre declarations : le plan des chapitres, le questionnaire, le referentiel de donnees et le tarif. Le reste de la chaine est commun.">
+      <text x="0" y="16" font-size="14" font-weight="700" fill="#B8890A">&#192; D&#201;CLARER POUR UN NOUVEAU LIVRABLE</text>
+      <rect x="0" y="28" width="290" height="196" rx="10" fill="#F8C51C"/>
+      <text x="18" y="58" font-size="14" font-weight="700" fill="#000000">1. Le plan des chapitres</text>
+      <text x="18" y="78" font-size="12.5" fill="#000000">Titres, ordre, volume attendu</text>
+      <text x="18" y="108" font-size="14" font-weight="700" fill="#000000">2. Le questionnaire</text>
+      <text x="18" y="128" font-size="12.5" fill="#000000">Questions pos&#233;es au client</text>
+      <text x="18" y="158" font-size="14" font-weight="700" fill="#000000">3. Le r&#233;f&#233;rentiel de donn&#233;es</text>
+      <text x="18" y="178" font-size="12.5" fill="#000000">Chiffres attendus, unit&#233;s, p&#233;rim&#232;tres</text>
+      <text x="18" y="208" font-size="14" font-weight="700" fill="#000000">4. Le tarif</text>
+
+      <text x="330" y="16" font-size="14" font-weight="700" fill="#B8890A">D&#201;J&#192; EN PLACE, COMMUN</text>
+      <rect x="330" y="28" width="310" height="196" rx="10" fill="#FDF6DF"/>
+      <text x="348" y="56" font-size="13" fill="#000000">Recherche de sources</text>
+      <text x="348" y="82" font-size="13" fill="#000000">Production et v&#233;rification du socle</text>
+      <text x="348" y="108" font-size="13" fill="#000000">Moteur de chapitres</text>
+      <text x="348" y="134" font-size="13" fill="#000000">Contr&#244;les de coh&#233;rence</text>
+      <text x="348" y="160" font-size="13" fill="#000000">Boucle de correction</text>
+      <text x="348" y="186" font-size="13" fill="#000000">Composition Word et PDF</text>
+      <text x="348" y="212" font-size="13" fill="#000000">Paiement, cr&#233;dits, livraison</text>
+
+      <text x="0" y="268" font-size="14" font-weight="700" fill="#000000">Les quatre livrables actuels partagent d&#233;j&#224; cette m&#234;me cha&#238;ne.</text>
+      <text x="0" y="292" font-size="13" fill="#5F5F63">Un correctif apport&#233; &#224; l'un b&#233;n&#233;ficie imm&#233;diatement aux autres.</text>
+    </svg>
+    <figcaption>Le plan, le questionnaire, le r&#233;f&#233;rentiel et le tarif sont des d&#233;clarations. Le traitement, lui, est commun.</figcaption>
+  </figure>
+
+  <h3>Ce qui rend l'extension possible</h3>
+  <ul class="puces">
+    <li><b>Le plan de chaque livrable est une donn&#233;e, pas du code.</b> Les chapitres, leur ordre et leurs cibles de volume sont d&#233;clar&#233;s dans un fichier de configuration. Le moteur les lit ; il ne les conna&#238;t pas &#224; l'avance.</li>
+    <li><b>Le r&#233;f&#233;rentiel de donn&#233;es est d&#233;clar&#233; par type.</b> Chaque livrable indique les chiffres dont il a besoin, avec leur famille d'unit&#233; et leur p&#233;rim&#232;tre. Le socle est produit et valid&#233; contre cette d&#233;claration.</li>
+    <li><b>Les contr&#244;les sont ind&#233;pendants du type.</b> Coh&#233;rence des chiffres, arithm&#233;tique, totaux de tableaux, unicit&#233; des sources : ces v&#233;rifications s'appliquent &#224; tout document, quel qu'il soit.</li>
+    <li><b>Le rendu est ind&#233;pendant du contenu.</b> Couverture, sommaire, bandeaux, tableaux, encadr&#233;s, figures : ces composants sont appel&#233;s dans l'ordre d&#233;crit par le document, sans conna&#238;tre sa nature.</li>
+    <li><b>Le tarif vit en base de donn&#233;es.</b> Un nouveau livrable devient vendable d&#232;s que son prix est renseign&#233; dans l'administration, sans mise en ligne.</li>
+  </ul>
+
+  <h3>Ce qu'un nouveau livrable r&#233;utilise sans modification</h3>
+  <div class="cadre">
+    <table>
+      <thead><tr><th>&#201;l&#233;ment</th><th>R&#233;utilis&#233; tel quel</th></tr></thead>
+      <tbody>
+        <tr><td>Recherche de sources dat&#233;es</td><td>Oui</td></tr>
+        <tr><td>Production et v&#233;rification du socle</td><td>Oui — seul le r&#233;f&#233;rentiel change</td></tr>
+        <tr><td>Moteur de production des chapitres</td><td>Oui — seul le plan change</td></tr>
+        <tr><td>Contr&#244;les de coh&#233;rence et boucle de correction</td><td>Oui</td></tr>
+        <tr><td>R&#233;solveur de figures, quinze types</td><td>Oui</td></tr>
+        <tr><td>Composition Word, conversion PDF, contr&#244;le de fid&#233;lit&#233;</td><td>Oui</td></tr>
+        <tr><td>Commande, paiement, cr&#233;dits, livraison, espace client</td><td>Oui</td></tr>
+        <tr><td>Supervision, incidents, relance, recontr&#244;le</td><td>Oui</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Cette conception a d&#233;j&#224; &#233;t&#233; &#233;prouv&#233;e : les quatre livrables actuels n'ont pas &#233;t&#233; d&#233;velopp&#233;s s&#233;par&#233;ment. L'&#233;tude de march&#233; et l'&#233;tude de concurrence ont &#233;t&#233; produites les premi&#232;res, puis le business plan et la strat&#233;gie business ont &#233;t&#233; ajout&#233;s en d&#233;clarant leur plan, leur questionnaire et leur r&#233;f&#233;rentiel — la cha&#238;ne, elle, n'a pas &#233;t&#233; touch&#233;e.</p>
+
+  <div class="encadre">
+    <p class="etiquette">Propagation des corrections</p>
+    <p>Un d&#233;faut corrig&#233; sur un livrable est corrig&#233; pour tous. Les contr&#244;les de coh&#233;rence, les r&#232;gles d'&#233;criture des nombres et les v&#233;rifications de rendu sont communs : ils s'appliquent au nouveau livrable d&#232;s sa premi&#232;re production, sans travail suppl&#233;mentaire.</p>
+  </div>
+</section>
+
+<!-- ═══ 14 ═══════════════════════════════════════════════════════ -->
+<section id="export">
+  <span class="num">14</span>
+  <h2>Volumétrie et export figé</h2>
+  <p class="intro">Mesure du développement réalisé et identification cryptographique de la version déposée.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 250" role="img" aria-label="Volumetrie du projet : 62 493 lignes de code applicatif, 52 695 lignes de tests, 14 114 lignes d'interface, 3 032 lignes de prompts, 62 migrations, 30 modeles, 390 commits.">
+      <g font-size="14">
+        <text x="0" y="30" font-weight="700" fill="#000000">Code applicatif Python</text>
+        <rect x="290" y="16" width="350" height="22" rx="11" fill="#EFEDE6"/>
+        <rect x="290" y="16" width="350" height="22" rx="11" fill="#F8C51C"/>
+        <text x="304" y="32" font-size="13" font-weight="700" fill="#000000">62 493 lignes</text>
+
+        <text x="0" y="76" font-weight="700" fill="#000000">Tests automatisés</text>
+        <rect x="290" y="62" width="350" height="22" rx="11" fill="#EFEDE6"/>
+        <rect x="290" y="62" width="295" height="22" rx="11" fill="#F8C51C"/>
+        <text x="304" y="78" font-size="13" font-weight="700" fill="#000000">52 695 lignes</text>
+
+        <text x="0" y="122" font-weight="700" fill="#000000">Interfaces TypeScript</text>
+        <rect x="290" y="108" width="350" height="22" rx="11" fill="#EFEDE6"/>
+        <rect x="290" y="108" width="79" height="22" rx="11" fill="#F8C51C"/>
+        <text x="383" y="124" font-size="13" font-weight="700" fill="#000000">14 114 lignes</text>
+
+        <text x="0" y="168" font-weight="700" fill="#000000">Bibliothèque de prompts</text>
+        <rect x="290" y="154" width="350" height="22" rx="11" fill="#EFEDE6"/>
+        <rect x="290" y="154" width="17" height="22" rx="11" fill="#F8C51C"/>
+        <text x="321" y="170" font-size="13" font-weight="700" fill="#000000">3 032 lignes</text>
+      </g>
+
+      <text x="0" y="214" font-size="14" font-weight="700" fill="#000000">62 migrations · 30 modèles persistants · 390 commits</text>
+      <text x="0" y="238" font-size="13" fill="#5F5F63">Mesure réalisée le 21 août 2026 sur la version déposée.</text>
+    </svg>
+    <figcaption>Les tests représentent 84 % du volume du code applicatif.</figcaption>
+  </figure>
+
+  <h3>Export figé</h3>
+  <div class="cadre">
+    <table>
+      <thead><tr><th>Élément</th><th>Valeur</th></tr></thead>
+      <tbody>
+        <tr><td>Archive</td><td><code>EVKHA-code-2c03f4d.zip</code></td></tr>
+        <tr><td>Taille</td><td>6 991 950 octets</td></tr>
+        <tr><td>Empreinte SHA-256</td><td><code>52e37da62804e395af03a331f811750cd788a2238a5d9eb75b47e10608152891</code></td></tr>
+        <tr><td>Référence de version</td><td><code>2c03f4d5e293e93535c8f65d860351cbbf1cf355</code></td></tr>
+        <tr><td>Date</td><td>21 août 2026</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>L'archive contient l'intégralité des fichiers techniques dans leur état du 21 août 2026, historique de développement compris, à l'exclusion de tout secret.</p>
+
+  <div class="encadre">
+    <p class="etiquette">Datation</p>
+    <p>La référence de version est l'empreinte cryptographique du commit. Elle est calculée sur l'ensemble de l'arbre des fichiers et sur la chaîne des 390 commits qui le précèdent. La datation porte donc sur chaque étape depuis le 1er juin 2026, et non seulement sur l'état final.</p>
+    <p>L'empreinte SHA-256 de l'archive permet de vérifier à tout moment qu'un exemplaire produit ultérieurement est bien celui qui a été déposé.</p>
+  </div>
+</section>
+
+</div>

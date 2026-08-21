@@ -19,6 +19,7 @@ const ENTREES = [
   { vers: "/espace/commander", libelle: "Commander", icone: "＋" },
   { vers: "/espace/livrables", libelle: "Livrables", icone: "▤" },
   { vers: "/espace/ma-marque", libelle: "Ma marque", icone: "◉" },
+  { vers: "/espace/achats", libelle: "Mes achats", icone: "▣" },
   { vers: "/espace/credits", libelle: "Crédits", icone: "◐" },
   // Réservée aux abonnés : elle propose de souscrire, de changer de formule et
   // d'acheter des crédits au tarif d'une formule. Un acheteur à l'unité n'en a
@@ -50,6 +51,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/espace/ma-marque": {
     titre: "Ma marque",
     sous: "Votre entreprise et la charte appliquée à vos documents.",
+  },
+  "/espace/achats": {
+    titre: "Mes achats",
+    sous: "Vos études achetées en téléchargement immédiat.",
   },
   "/espace/credits": {
     titre: "Crédits et abonnement",

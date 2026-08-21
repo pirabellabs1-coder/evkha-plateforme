@@ -2187,3 +2187,115 @@ def equipe(
             {"code": role.value, "libelle": role.label} for role in RoleOrganisation
         ],
     })
+
+
+# ── Boutique : les achats du client ──────────────────────────────────────────
+
+
+@require_http_methods(["GET"])
+@espace()
+def mes_achats(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Les etudes de boutique achetees, et le reste du catalogue.
+
+    Une page distincte des livrables : une etude sur mesure a un
+    questionnaire, une progression et des controles ; une etude de boutique
+    est un fichier achete une fois. Les meler ferait une liste ou « en cours
+    de production » cotoie « telecharge », sans qu'on sache lequel attend quoi.
+
+    Les liens de telechargement sont CALCULES a chaque affichage, jamais
+    stockes : un lien conserve en base finirait par etre transmis, et resterait
+    valable aussi longtemps qu'on le garderait.
+    """
+    from paiement import boutique as remise  # noqa: PLC0415
+
+    from catalog.models import AchatProduit  # noqa: PLC0415
+
+    from .vues_boutique import _en_ligne, _resume  # noqa: PLC0415
+    from .vues_boutique import _url as _url_vitrine  # noqa: PLC0415
+
+    achats = (
+        AchatProduit.objects.filter(organisation=organisation)
+        .select_related("produit")
+        .order_by("-created_at")
+    )
+    possedes = {a.produit_id for a in achats}
+
+    return JsonResponse({
+        "achats": [
+            {
+                "id": str(a.id),
+                "titre": a.produit.titre,
+                "slug": a.produit.slug,
+                "pages": a.produit.nombre_de_pages,
+                "achete_le": a.created_at.isoformat(),
+                "montant_cents": a.montant_cents,
+                "theme": a.produit.theme,
+                # La couverture : « Mes etudes » est une bibliotheque, et une
+                # bibliotheque se parcourt des yeux. Elle vient de `_resume`
+                # pour le reste du catalogue, elle doit venir d'ici pour ce
+                # qui est deja achete.
+                "image": _url_vitrine(a.produit.image),
+                "telechargement": remise.lien_de_telechargement(a),
+                "editable": remise.lien_de_telechargement(a, editable=True),
+            }
+            for a in achats
+        ],
+        # Le reste du catalogue, pour racheter sans quitter son espace. Les
+        # etudes deja possedees en sont retirees : les reproposer a l'achat
+        # serait au mieux inutile, au pire un double paiement.
+        "catalogue": [
+            _resume(p) for p in _en_ligne() if p.pk not in possedes
+        ],
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("commander", ecriture="commander")
+def acheter_un_produit(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Ouvre le paiement d'une etude de boutique, depuis l'espace.
+
+    L'organisation voyage jusqu'au prestataire et revient par les
+    metadonnees : le rattachement se fait sur elle et non sur l'adresse, que
+    le prestataire laisse modifier sur sa page de paiement.
+    """
+    from paiement import stripe_api  # noqa: PLC0415
+
+    from .vues_boutique import _en_ligne  # noqa: PLC0415
+
+    slug = str(_corps(request).get("produit") or "").strip()
+    produit = _en_ligne().filter(slug=slug).first()
+    if produit is None:
+        return _refus("Cette étude n'est pas disponible.", "produit_inconnu", 404)
+
+    try:
+        session = stripe_api.creer_paiement_de_produit(
+            produit=produit,
+            email=membre.customer.email,
+            organisation=organisation,
+        )
+    except stripe_api.PaiementIndisponible as exc:
+        _log.error(
+            "Achat du produit %s impossible pour l'organisation %s : %s",
+            slug, organisation.id, exc,
+        )
+        return _refus(str(exc), "paiement_indisponible", 503)
+
+    # La MEME fonction que l'achat depuis la page publique. Elle notait ici
+    # `LIVRABLE` — l'achat d'une etude a PRODUIRE — et n'attachait pas le
+    # produit : le suivi commercial melait donc deux paniers qui ne se
+    # relancent pas de la meme facon, et ne disait pas laquelle des neuf etudes
+    # avait ete abandonnee (regle 5).
+    from paiement import boutique as remise  # noqa: PLC0415
+
+    remise.noter_la_tentative(
+        session=session,
+        produit=produit,
+        email=membre.customer.email,
+        organisation=organisation,
+    )
+    return JsonResponse({"adresse": session.adresse}, status=200)

@@ -705,6 +705,11 @@ class ObjetTentative(models.TextChoices):
     #: Achat d'une étude à l'unité, depuis la page publique ou depuis l'espace
     #: d'un client qui en rachète une seconde.
     LIVRABLE = "livrable", "Achat d'une étude à l'unité"
+    #: Achat d'une etude DEJA REDIGEE dans la boutique. Distinct de LIVRABLE :
+    #: celui-ci ouvre une production sur le projet du client, celui-la remet un
+    #: fichier ecrit il y a des mois. Les confondre dans le suivi commercial
+    #: melerait deux paniers qui ne se relancent pas de la meme facon.
+    PRODUIT = "produit", "Achat d'une étude en boutique"
 
 
 class TentativePaiement(UUIDModel):
@@ -724,8 +729,28 @@ class TentativePaiement(UUIDModel):
     paniers abandonnés dans le chiffre d'affaires.
     """
 
+    #: NULLE pour un achat de boutique ouvert depuis la page publique : le
+    #: compte n'existe pas encore, il naitra de l'encaissement. C'est
+    #: precisement ce panier-la qu'on veut voir quand il est abandonne — sans
+    #: ce champ nullable, l'abandon le plus frequent serait le seul invisible.
     organisation = models.ForeignKey(
-        Organisation, on_delete=models.CASCADE, related_name="tentatives_paiement"
+        Organisation,
+        on_delete=models.CASCADE,
+        related_name="tentatives_paiement",
+        null=True,
+        blank=True,
+    )
+    #: L'adresse saisie avant le paiement, quand il n'y a pas encore
+    #: d'organisation. C'est le seul point de contact pour relancer.
+    email = models.EmailField(blank=True)
+    #: L'etude de boutique visee, pour un achat de boutique. `SET_NULL` : le
+    #: retrait d'un produit ne doit pas effacer l'historique commercial.
+    produit = models.ForeignKey(
+        "catalog.ProduitBoutique",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tentatives",
     )
     objet = models.CharField(max_length=16, choices=ObjetTentative.choices)
     etat = models.CharField(
@@ -755,7 +780,21 @@ class TentativePaiement(UUIDModel):
         indexes = [models.Index(fields=["etat", "-created_at"])]
 
     def __str__(self) -> str:
-        return f"{self.get_objet_display()} — {self.organisation} ({self.etat})"
+        qui = self.organisation or self.email or "visiteur"
+        return f"{self.get_objet_display()} — {qui} ({self.etat})"
+
+    @property
+    def adresse_de_relance(self) -> str:
+        """L'adresse a qui ecrire, quel que soit le chemin d'achat.
+
+        Le contact de l'organisation d'abord — c'est lui qui recevra le reste —
+        et a defaut l'adresse saisie avant le paiement. Une tentative de
+        boutique n'a que la seconde.
+        """
+        contact = getattr(self.organisation, "contact", None)
+        if contact is not None and contact.email:
+            return str(contact.email)
+        return str(self.email or "")
 
     @property
     def abandonnee(self) -> bool:

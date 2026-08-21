@@ -1,0 +1,637 @@
+/* La boutique publique.
+ *
+ * Charte du site EVKHA : blanc dominant, jaune #F8C51C en accent, noir pour le
+ * texte, pastilles a fort rayon. Le menu, les polices et `.pp-large` viennent
+ * de `Partenaires.css` : les pages publiques partagent une charte, et une
+ * seconde palette finirait par diverger de la premiere.
+ */
+
+.bq {
+  --bq-jaune: #f8c51c;
+  --bq-jaune-f: #b8890a;
+  --bq-noir: #000000;
+  --bq-doux: #faf9f6;
+  --bq-creme: #fdf6df;
+  --bq-trait: #e8e5dc;
+  --bq-gris: #5f5f63;
+}
+
+/* ── En-tête ─────────────────────────────────────────────────────────────── */
+
+.bq-entete {
+  padding: 3rem 0 2rem;
+}
+
+.bq-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--bq-jaune-f);
+  margin: 0 0 0.7rem;
+}
+
+.bq-entete h1 {
+  font-size: clamp(1.9rem, 4.5vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.12;
+  margin: 0 0 0.9rem;
+  max-width: 24ch;
+  text-wrap: balance;
+}
+
+.bq-chapeau {
+  color: var(--bq-gris);
+  max-width: 62ch;
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+/* ── Filtres par thème ───────────────────────────────────────────────────── */
+
+.bq-filtres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 2rem 0 2.25rem;
+}
+
+.bq-filtre {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid var(--bq-trait);
+  background: #ffffff;
+  color: var(--bq-noir);
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  cursor: pointer;
+}
+
+.bq-filtre:hover {
+  border-color: var(--bq-jaune);
+}
+
+.bq-filtre[aria-pressed="true"] {
+  background: var(--bq-jaune);
+  border-color: var(--bq-jaune);
+}
+
+.bq-filtre:focus-visible {
+  outline: 2px solid var(--bq-jaune-f);
+  outline-offset: 2px;
+}
+
+/* ── La grille ───────────────────────────────────────────────────────────── */
+
+.bq-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 4rem;
+}
+
+.bq-carte {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid var(--bq-trait);
+  border-radius: 12px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.bq-carte:hover {
+  border-color: var(--bq-jaune);
+}
+
+.bq-carte:focus-visible {
+  outline: 2px solid var(--bq-jaune-f);
+  outline-offset: 2px;
+}
+
+/* Une couverture absente ne doit pas faire sauter la grille : le bloc garde
+   sa hauteur et affiche un aplat de la charte. */
+.bq-couverture {
+  aspect-ratio: 4 / 3;
+  background: var(--bq-creme);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.bq-couverture img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bq-couverture {
+  position: relative;
+}
+
+.bq-couverture-vide {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--bq-jaune);
+  letter-spacing: -0.02em;
+}
+
+/* Le theme est POSE SUR l'image et non sous le titre : dans une grille, il
+   sert a balayer — « lequel me concerne ? » — avant de lire les titres. */
+.bq-fanion {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--bq-trait);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bq-noir);
+}
+
+.bq-corps {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 1.1rem 1.15rem 1.15rem;
+}
+
+.bq-theme {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bq-jaune-f);
+  margin: 0 0 0.45rem;
+}
+
+.bq-carte h2 {
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 0.5rem;
+}
+
+.bq-meta {
+  font-size: 0.82rem;
+  color: var(--bq-gris);
+  margin: 0 0 0.7rem;
+}
+
+.bq-note {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.9rem;
+  font-size: 0.82rem;
+  color: var(--bq-gris);
+}
+
+.bq-etoiles {
+  color: var(--bq-jaune-f);
+  letter-spacing: 0.06em;
+  font-size: 0.9rem;
+}
+
+.bq-note a {
+  color: inherit;
+}
+
+/* Colle le prix au bas de la carte : des titres de longueurs différentes
+   alignent quand même leurs prix, et l'œil les compare d'un seul mouvement. */
+.bq-pied {
+  margin-top: auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bq-prix {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.bq-voir {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--bq-jaune-f);
+}
+
+/* ── Fiche produit ───────────────────────────────────────────────────────── */
+
+.bq-retour {
+  display: inline-block;
+  margin: 1.75rem 0 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--bq-gris);
+  text-decoration: none;
+}
+
+.bq-retour:hover {
+  color: var(--bq-noir);
+}
+
+.bq-fiche {
+  display: grid;
+  gap: 2.5rem;
+  margin-bottom: 3.5rem;
+}
+
+@media (min-width: 56rem) {
+  .bq-fiche {
+    grid-template-columns: 1fr 20rem;
+    align-items: start;
+  }
+}
+
+.bq-fiche h1 {
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+  font-weight: 800;
+  line-height: 1.14;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+
+.bq-description {
+  font-size: 1.05rem;
+  color: var(--bq-gris);
+  white-space: pre-line;
+  margin: 0 0 2rem;
+  max-width: 60ch;
+}
+
+.bq-fiche-corps {
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+  min-width: 0;
+}
+
+/* La couverture en grand. C'est la premiere chose regardee, et la seule qui
+   donne une idee du document tant que l'extrait n'est pas ouvert. */
+.bq-visuel {
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bq-creme);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bq-visuel img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bq-visuel-vide {
+  font-size: clamp(3rem, 12vw, 6rem);
+  font-weight: 800;
+  color: var(--bq-jaune);
+}
+
+.bq-titraille {
+  display: flex;
+  flex-direction: column;
+}
+
+.bq-titraille .bq-meta {
+  margin-bottom: 0.5rem;
+}
+
+.bq-bloc h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin: 0 0 0.9rem;
+}
+
+.bq-bloc {
+  padding-top: 2rem;
+  border-top: 1px solid var(--bq-trait);
+}
+
+.bq-bloc .bq-description:last-child {
+  margin-bottom: 0;
+}
+
+/* Les trois temps de l'achat, numerotes. La numerotation encode ici une
+   sequence reelle : on regle, on telecharge, on retrouve. */
+.bq-etapes {
+  list-style: none;
+  counter-reset: temps;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1rem;
+  max-width: 60ch;
+}
+
+.bq-etapes li {
+  counter-increment: temps;
+  position: relative;
+  padding-left: 2.6rem;
+  font-size: 0.96rem;
+  color: var(--bq-gris);
+  line-height: 1.55;
+}
+
+.bq-etapes li b {
+  color: var(--bq-noir);
+}
+
+.bq-etapes li::before {
+  content: counter(temps);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--bq-jaune);
+  color: var(--bq-noir);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+/* ── Les avis ────────────────────────────────────────────────────────────── */
+
+.bq-avis-liste {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+
+.bq-avis {
+  background: var(--bq-doux);
+  border: 1px solid var(--bq-trait);
+  border-radius: 12px;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.bq-avis-tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.bq-avis-date {
+  font-size: 0.75rem;
+  color: var(--bq-gris);
+}
+
+.bq-avis-texte {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: var(--bq-noir);
+}
+
+.bq-avis-signature {
+  margin: auto 0 0;
+  font-size: 0.82rem;
+  color: var(--bq-gris);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.bq-avis-signature b {
+  color: var(--bq-noir);
+}
+
+.bq-avis-signature span::before {
+  content: "· ";
+}
+
+.bq-sommaire {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+  max-width: 56ch;
+}
+
+.bq-sommaire li {
+  position: relative;
+  padding-left: 1.6rem;
+  font-size: 0.96rem;
+}
+
+.bq-sommaire {
+  counter-reset: chapitre;
+}
+
+.bq-sommaire li {
+  counter-increment: chapitre;
+  padding-left: 2.2rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--bq-trait);
+}
+
+.bq-sommaire li:last-child {
+  border-bottom: none;
+}
+
+.bq-sommaire li::before {
+  content: counter(chapitre, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--bq-jaune-f);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Le bloc d'achat ─────────────────────────────────────────────────────── */
+
+.bq-achat {
+  background: var(--bq-doux);
+  border: 1px solid var(--bq-trait);
+  border-radius: 12px;
+  padding: 1.5rem 1.4rem;
+  position: sticky;
+  top: 1.5rem;
+}
+
+.bq-achat-prix {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.bq-achat-mention {
+  font-size: 0.85rem;
+  color: var(--bq-gris);
+  margin: 0.2rem 0 1.2rem;
+}
+
+.bq-achat label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.bq-achat input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--bq-trait);
+  border-radius: 8px;
+  background: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.bq-achat input:focus-visible {
+  outline: none;
+  border-color: var(--bq-jaune);
+  box-shadow: 0 0 0 3px rgba(248, 197, 28, 0.35);
+}
+
+.bq-bouton {
+  display: block;
+  width: 100%;
+  font: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  text-align: center;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--bq-noir);
+  color: #ffffff;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.bq-bouton:hover:not(:disabled) {
+  background: var(--bq-jaune);
+  color: var(--bq-noir);
+}
+
+.bq-bouton:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.bq-bouton:focus-visible {
+  outline: 2px solid var(--bq-jaune-f);
+  outline-offset: 3px;
+}
+
+.bq-extrait {
+  display: block;
+  text-align: center;
+  margin-top: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--bq-jaune-f);
+}
+
+.bq-rassurance {
+  list-style: none;
+  padding: 1.1rem 0 0;
+  margin: 1.1rem 0 0;
+  border-top: 1px solid var(--bq-trait);
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--bq-gris);
+}
+
+/* ── États et sections annexes ───────────────────────────────────────────── */
+
+.bq-attente,
+.bq-erreur,
+.bq-vide {
+  text-align: center;
+  color: var(--bq-gris);
+  padding: 3rem 0;
+}
+
+.bq-erreur {
+  color: #7d2820;
+}
+
+.bq-erreur-achat {
+  padding: 0 0 1rem;
+  text-align: left;
+  font-size: 0.88rem;
+}
+
+.bq-proches {
+  border-top: 1px solid var(--bq-trait);
+  padding-top: 2.5rem;
+  margin-bottom: 4rem;
+}
+
+.bq-proches h2 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin: 0 0 1.25rem;
+}
+
+/* ── Retour de paiement ──────────────────────────────────────────────────── */
+
+.bq-retour-paiement {
+  max-width: 34rem;
+  margin: 4rem auto 6rem;
+  text-align: center;
+}
+
+.bq-pastille {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  background: var(--bq-jaune);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  margin: 0 auto 1.25rem;
+}
+
+.bq-retour-paiement h1 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 0 0 0.75rem;
+}
+
+.bq-retour-paiement p {
+  color: var(--bq-gris);
+  margin: 0 0 1.75rem;
+}
+
+.bq-liens {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 22rem;
+  margin: 0 auto;
+}

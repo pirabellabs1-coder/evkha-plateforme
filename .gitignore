@@ -68,3 +68,14 @@ env-coolify.txt
 # on fait `git commit -F`, puis on l'efface. Un `git add -A` l'a embarque une
 # fois — l'ignorer vaut mieux que s'en souvenir.
 message_commit.txt
+
+# Livrables engendres par `backend/scripts/dossier_soleau.py` et son
+# convertisseur de schemas. La SOURCE est `docs/dossier-soleau.html` ; le
+# .docx, le .pdf et les images en sont des sorties, refaites a chaque
+# execution. Les versionner ferait autant de copies a tenir d'accord.
+EVKHA-dossier-technique-Soleau*.docx
+EVKHA-dossier-technique-Soleau*.pdf
+EVKHA-code-*.zip
+docs/schemas/
+# Fichiers de verrou de Word, crees quand le document est ouvert.
+~$*

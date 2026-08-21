@@ -149,10 +149,21 @@ export function TransactionsAdmin() {
                     <td>{f.date(ligne.ouverte_le)}</td>
                     <td>
                       <strong>{ligne.organisation}</strong>
-                      <div className="carte-note">{ligne.contact}</div>
+                      {/* Un achat de boutique ouvert depuis la page publique
+                          n'a pas encore d'organisation — le compte naît de
+                          l'encaissement. Il ne porte qu'une adresse, et c'est
+                          elle qui sert à relancer. */}
+                      <div className="carte-note">{ligne.contact || "—"}</div>
                     </td>
                     <td>
                       {ligne.objet_libelle}
+                      {/* L'étude visée : « quelqu'un a abandonné » vaut moins
+                          que « quelqu'un a abandonné LAQUELLE » — c'est ce qui
+                          permet d'écrire une relance qui parle du bon
+                          document. */}
+                      {ligne.produit && (
+                        <div className="carte-note">{ligne.produit}</div>
+                      )}
                       {ligne.formule && (
                         <div className="carte-note">{ligne.formule}</div>
                       )}

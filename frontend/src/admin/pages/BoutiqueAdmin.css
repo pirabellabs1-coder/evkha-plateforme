@@ -1,0 +1,834 @@
+/* La boutique en administration.
+ *
+ * Les classes `boutique-*` de la première version n'avaient AUCUNE règle : la
+ * page s'affichait avec la mise en forme par défaut du navigateur — libellés
+ * collés aux champs, zones de texte les unes sur les autres, boutons en file.
+ * Ce fichier existe pour que cela ne puisse plus arriver en silence : il porte
+ * toutes les classes de `BoutiqueAdmin.tsx`, et la page l'importe elle-même.
+ *
+ * Les couleurs viennent de `theme/tokens.css` — jamais d'hexadécimal écrit
+ * ici : la charte se règle à un seul endroit.
+ */
+
+.bqa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+}
+
+/* ── En-tête : les quatre chiffres qui disent où en est la boutique ──────── */
+
+.bqa-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-6);
+  flex-wrap: wrap;
+}
+
+/* Quatre TUILES, et non quatre libelles poses cote a cote. Les chiffres
+ * n'avaient aucune surface a eux : ils flottaient sur le fond de la page,
+ * a la meme distance du titre que du catalogue, et rien ne disait qu'ils
+ * formaient un groupe. */
+.bqa-chiffres {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--e-3);
+  margin: 0;
+  flex: 1;
+  min-width: 320px;
+}
+
+.bqa-chiffres div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  padding: var(--e-4) var(--e-4) var(--e-3);
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  /* Le filet d'or en tete : il rattache le bloc a la charte sans repeindre
+   * quatre aplats jaunes, qui prendraient le pas sur les cartes du
+   * catalogue juste en dessous. */
+  border-top: 3px solid var(--evkha-or);
+}
+
+.bqa-chiffres dt {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-forte);
+}
+
+.bqa-chiffres dd {
+  margin: 0;
+  font-size: var(--t-xl);
+  line-height: 1.05;
+  font-weight: var(--graisse-affiche);
+  color: var(--texte-fort);
+  font-variant-numeric: tabular-nums;
+}
+
+.bqa-chiffres-detail {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+}
+
+.bqa-erreur {
+  margin: 0;
+  padding: var(--e-3) var(--e-4);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-echec-voile);
+  border: 1px solid var(--evkha-echec);
+  color: var(--evkha-echec);
+  font-size: var(--t-sm);
+}
+
+/* ── Filtres ─────────────────────────────────────────────────────────────── */
+
+.bqa-filtres {
+  display: flex;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+}
+
+.bqa-filtre {
+  border: 1px solid var(--evkha-bordure);
+  background: var(--fond-carte);
+  color: var(--texte);
+  border-radius: var(--rayon-pilule);
+  padding: var(--e-2) var(--e-4);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-moyenne);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.bqa-filtre:hover {
+  border-color: var(--evkha-or);
+}
+
+.bqa-filtre-actif {
+  background: var(--evkha-or);
+  border-color: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+/* ── Le parcours d'ajout ─────────────────────────────────────────────────── */
+
+.bqa-assistant {
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  padding: var(--e-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+}
+
+.bqa-assistant-entete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-4);
+}
+
+.bqa-assistant-entete h3 {
+  margin: 0;
+  font-size: var(--t-lg);
+  color: var(--texte-fort);
+}
+
+.bqa-assistant-sous {
+  margin: 4px 0 0;
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+}
+
+.bqa-fermer {
+  border: none;
+  background: transparent;
+  font-size: var(--t-md);
+  color: var(--texte-tenu);
+  cursor: pointer;
+  padding: var(--e-1) var(--e-2);
+  border-radius: var(--rayon-xs);
+  line-height: 1;
+}
+
+.bqa-fermer:hover {
+  background: var(--fond-enfonce);
+  color: var(--texte-fort);
+}
+
+/* Le fil des étapes. Un trait les relie : sans lui, quatre pastilles
+ * numérotées se lisent comme quatre onglets — or l'ordre compte. */
+.bqa-pipeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--e-2);
+}
+
+.bqa-etape {
+  position: relative;
+}
+
+.bqa-etape::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--evkha-bordure);
+}
+
+.bqa-etape:first-child::before {
+  display: none;
+}
+
+.bqa-etape-faite::before,
+.bqa-etape-courante::before {
+  background: var(--evkha-or);
+}
+
+.bqa-etape button {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-2);
+  background: transparent;
+  border: none;
+  padding: var(--e-2) var(--e-1);
+  cursor: pointer;
+  text-align: center;
+  border-radius: var(--rayon-sm);
+}
+
+.bqa-etape button:disabled {
+  cursor: default;
+}
+
+.bqa-etape button:not(:disabled):hover .bqa-etape-titre {
+  color: var(--texte-fort);
+}
+
+.bqa-etape-puce {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: var(--graisse-titre);
+  font-size: var(--t-sm);
+  background: var(--fond-carte);
+  border: 2px solid var(--evkha-bordure);
+  color: var(--texte-tenu);
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+}
+
+.bqa-etape-faite .bqa-etape-puce {
+  background: var(--evkha-or);
+  border-color: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.bqa-etape-courante .bqa-etape-puce {
+  background: var(--texte-fort);
+  border-color: var(--texte-fort);
+  color: var(--texte-sur-noir);
+  box-shadow: 0 0 0 4px rgba(248, 197, 28, 0.28);
+}
+
+.bqa-etape-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bqa-etape-titre {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-tenu);
+}
+
+.bqa-etape-courante .bqa-etape-titre,
+.bqa-etape-faite .bqa-etape-titre {
+  color: var(--texte-fort);
+}
+
+.bqa-etape-aide {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+  line-height: 1.35;
+}
+
+/* Le panneau de l'étape courante. Hauteur minimale : sans elle, passer d'une
+ * étape courte à une longue fait sauter les boutons sous le curseur. */
+.bqa-panneau {
+  min-height: 300px;
+}
+
+.bqa-champs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e-4);
+}
+
+.bqa-large {
+  grid-column: 1 / -1;
+}
+
+.bqa-champ {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.bqa-champ > span {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.bqa-champ input,
+.bqa-champ textarea,
+.bqa-avis-formulaire input,
+.bqa-avis-formulaire select {
+  font: inherit;
+  font-size: var(--t-base);
+  color: var(--texte);
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  padding: var(--e-3) var(--e-3);
+  width: 100%;
+}
+
+.bqa-champ textarea {
+  resize: vertical;
+  line-height: var(--interligne);
+}
+
+.bqa-champ input:focus,
+.bqa-champ textarea:focus,
+.bqa-avis-formulaire input:focus,
+.bqa-avis-formulaire select:focus {
+  outline: 2px solid var(--evkha-or);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.bqa-champ small {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+}
+
+/* ── Étape des fichiers ──────────────────────────────────────────────────── */
+
+.bqa-fichiers {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--e-6);
+  align-items: start;
+}
+
+.bqa-couverture {
+  aspect-ratio: 3 / 2;
+  border-radius: var(--rayon-md);
+  background: var(--fond-enfonce);
+  border: 1px dashed var(--evkha-bordure);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.bqa-couverture img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bqa-couverture-vide {
+  font-size: var(--t-3xl);
+  font-weight: var(--graisse-affiche);
+  color: var(--evkha-or);
+}
+
+.bqa-depots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.bqa-depot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "titre etat"
+    "aide  aide"
+    "champ champ";
+  gap: var(--e-1) var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  background: var(--fond-page);
+}
+
+.bqa-depot-titre {
+  grid-area: titre;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.bqa-depot-aide {
+  grid-area: aide;
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+  line-height: 1.4;
+}
+
+.bqa-depot input[type="file"] {
+  grid-area: champ;
+  margin-top: var(--e-2);
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+  max-width: 100%;
+}
+
+.bqa-depot-etat {
+  grid-area: etat;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-tenu);
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bqa-depot-neuf {
+  color: var(--evkha-succes);
+}
+
+.bqa-depot-vide {
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-normale);
+}
+
+/* ── Récapitulatif ───────────────────────────────────────────────────────── */
+
+.bqa-recap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+}
+
+.bqa-recap-carte {
+  display: flex;
+  gap: var(--e-4);
+  align-items: center;
+  padding: var(--e-4);
+  border-radius: var(--rayon-md);
+  background: var(--fond-page);
+  border: 1px solid var(--evkha-bordure);
+}
+
+.bqa-recap-image {
+  width: 120px;
+  height: 80px;
+  flex-shrink: 0;
+  border-radius: var(--rayon-sm);
+  overflow: hidden;
+  background: var(--fond-enfonce);
+  display: grid;
+  place-items: center;
+  font-size: var(--t-xl);
+  font-weight: var(--graisse-affiche);
+  color: var(--evkha-or);
+}
+
+.bqa-recap-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bqa-recap-titre {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+}
+
+.bqa-recap-note {
+  margin: 4px 0 0;
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+}
+
+.bqa-recap-liste {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--e-3) var(--e-5);
+}
+
+.bqa-recap-liste div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: var(--e-2);
+  border-bottom: 1px solid var(--evkha-bordure);
+}
+
+.bqa-recap-liste dt {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--texte-tenu);
+}
+
+.bqa-recap-liste dd {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-moyenne);
+  color: var(--texte-fort);
+}
+
+.bqa-manque {
+  margin: 0;
+  padding: var(--e-3) var(--e-4);
+  border-radius: var(--rayon-sm);
+  background: rgba(248, 197, 28, 0.16);
+  border-left: 3px solid var(--evkha-or);
+  font-size: var(--t-sm);
+  color: var(--texte);
+}
+
+.bqa-assistant-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+.bqa-final {
+  display: flex;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+}
+
+/* ── La grille des études ────────────────────────────────────────────────── */
+
+.bqa-grille {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--e-5);
+}
+
+.bqa-carte {
+  display: flex;
+  flex-direction: column;
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  overflow: hidden;
+  transition: box-shadow 0.18s, transform 0.18s;
+}
+
+.bqa-carte:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Hors ligne : la carte s'efface sans disparaître. La cliente doit voir d'un
+ * coup d'œil ce qui est publié et ce qui ne l'est pas. */
+.bqa-carte-hors-ligne {
+  opacity: 0.72;
+}
+
+.bqa-carte-image {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  background: var(--fond-enfonce);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.bqa-carte-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bqa-carte-initiale {
+  font-size: var(--t-3xl);
+  font-weight: var(--graisse-affiche);
+  color: var(--evkha-or);
+}
+
+.bqa-fanion {
+  position: absolute;
+  top: var(--e-3);
+  right: var(--e-3);
+  padding: 3px var(--e-3);
+  border-radius: var(--rayon-pilule);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--fond-carte);
+  color: var(--texte-tenu);
+  border: 1px solid var(--evkha-bordure);
+}
+
+.bqa-fanion-vif {
+  background: var(--evkha-or);
+  border-color: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.bqa-carte-corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  flex: 1;
+}
+
+.bqa-carte-corps h3 {
+  margin: 0;
+  font-size: var(--t-md);
+  line-height: 1.3;
+  color: var(--texte-fort);
+  text-wrap: balance;
+}
+
+.bqa-carte-meta {
+  margin: 0;
+  display: flex;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+}
+
+.bqa-carte-meta b {
+  color: var(--texte-fort);
+  font-size: var(--t-base);
+}
+
+.bqa-carte-meta span::before {
+  content: "· ";
+}
+
+.bqa-mesures {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--e-2);
+  padding: var(--e-3) 0;
+  border-top: 1px solid var(--evkha-bordure);
+  border-bottom: 1px solid var(--evkha-bordure);
+}
+
+.bqa-mesures div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bqa-mesures dt {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--texte-tenu);
+}
+
+.bqa-mesures dd {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+  font-variant-numeric: tabular-nums;
+}
+
+.bqa-carte-manque {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--evkha-echec);
+  line-height: 1.4;
+}
+
+.bqa-carte-boutons {
+  display: flex;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: var(--e-2);
+}
+
+/* ── Les avis ────────────────────────────────────────────────────────────── */
+
+.bqa-avis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  padding-top: var(--e-3);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+.bqa-avis-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.bqa-avis-liste > li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-3);
+}
+
+.bqa-avis-cache {
+  opacity: 0.55;
+}
+
+.bqa-avis-vide {
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+  line-height: 1.45;
+}
+
+.bqa-avis-tete {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+  font-size: var(--t-sm);
+  color: var(--texte-fort);
+}
+
+.bqa-avis-etoiles {
+  color: var(--evkha-or);
+  letter-spacing: 0.05em;
+}
+
+.bqa-avis-qualite,
+.bqa-avis-etat {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-normale);
+}
+
+.bqa-avis-etat {
+  padding: 1px var(--e-2);
+  border-radius: var(--rayon-pilule);
+  background: var(--fond-enfonce);
+}
+
+.bqa-avis-texte {
+  margin: 2px 0 0;
+  font-size: var(--t-sm);
+  color: var(--texte);
+  line-height: var(--interligne);
+}
+
+.bqa-avis-actions {
+  display: flex;
+  gap: var(--e-1);
+  flex-shrink: 0;
+}
+
+.bqa-avis-formulaire {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: var(--e-2);
+  align-items: center;
+  padding: var(--e-3);
+  border-radius: var(--rayon-md);
+  background: var(--fond-page);
+}
+
+.bqa-avis-formulaire .bqa-avis-texte-champ {
+  grid-column: 1 / 3;
+}
+
+.bqa-avis-formulaire button {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  height: 100%;
+}
+
+/* ── Écrans étroits ──────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .bqa-chiffres {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bqa-champs,
+  .bqa-fichiers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bqa-pipeline {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--e-3);
+  }
+
+  .bqa-etape::before {
+    display: none;
+  }
+
+  .bqa-etape button {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+  }
+
+  .bqa-couverture {
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 600px) {
+  .bqa-avis-formulaire {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bqa-avis-formulaire .bqa-avis-texte-champ,
+  .bqa-avis-formulaire button {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .bqa-assistant-pied {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .bqa-final {
+    flex-direction: column;
+  }
+}

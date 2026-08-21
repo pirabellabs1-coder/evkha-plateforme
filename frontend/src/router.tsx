@@ -9,6 +9,7 @@ import { CoquilleAdmin } from "./admin/Coquille";
 import { TableauDeBordAdmin } from "./admin/pages/TableauDeBord";
 import { OrganisationsAdmin } from "./admin/pages/Organisations";
 import { LivrablesAdmin } from "./admin/pages/Livrables";
+import { BoutiqueAdmin } from "./admin/pages/BoutiqueAdmin";
 import { TransactionsAdmin } from "./admin/pages/Transactions";
 import { DemandesAdmin } from "./admin/pages/Demandes";
 import { Jobs } from "./pages/Jobs";
@@ -22,6 +23,9 @@ import { isAuthenticated } from "./auth";
 import { routesEspace } from "./espace/routes";
 import { Partenaires } from "./public/Partenaires";
 import { NosEtudes } from "./public/NosEtudes";
+import { Boutique } from "./public/Boutique";
+import { FicheProduit } from "./public/FicheProduit";
+import { RetourBoutique } from "./public/RetourBoutique";
 import { Inscription } from "./public/Inscription";
 import { DefinirMotDePasse, MotDePasseOublie } from "./public/MotDePasse";
 import { ConfirmerAdresse } from "./public/ConfirmerAdresse";
@@ -63,6 +67,32 @@ const etudesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/etudes",
   component: NosEtudes,
+});
+
+// La boutique : les etudes DEJA REDIGEES, vendues telles quelles. Distincte de
+// `/etudes`, qui vend des etudes a produire sur le projet du client — le
+// paiement n'y declenche aucune production, il ouvre un acces a un fichier.
+//
+// Aucune garde : le visiteur n'a par definition pas de compte, et n'en a pas
+// besoin pour acheter. Le sien est ouvert par l'encaissement.
+const boutiqueRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/boutique",
+  component: Boutique,
+});
+
+// Le retour de paiement AVANT la fiche : sans cela, `/boutique/retour` serait
+// lu comme la fiche d'un produit dont le slug serait « retour ».
+const retourBoutiqueRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/boutique/retour",
+  component: RetourBoutique,
+});
+
+const ficheProduitRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/boutique/$slug",
+  component: FicheProduit,
 });
 
 // Creation de compte, publique elle aussi : celui qui souscrit n'a pas encore
@@ -175,6 +205,15 @@ const adminLivrables = createRoute({
   component: LivrablesAdmin,
 });
 
+// La boutique : le catalogue des etudes deja redigees. Le seul chemin pour
+// ajouter, modifier ou retirer un produit — il ne repasse ni par un
+// developpeur ni par une mise en ligne.
+const adminBoutique = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "boutique",
+  component: BoutiqueAdmin,
+});
+
 const adminTransactions = createRoute({
   getParentRoute: () => adminRoute,
   path: "transactions",
@@ -246,6 +285,9 @@ const racine = createRoute({
 const routeTree = rootRoute.addChildren([
   partenairesRoute,
   etudesRoute,
+  boutiqueRoute,
+  retourBoutiqueRoute,
+  ficheProduitRoute,
   inscriptionRoute,
   definirMotDePasseRoute,
   motDePasseOublieRoute,
@@ -257,6 +299,7 @@ const routeTree = rootRoute.addChildren([
   adminRoute.addChildren([
     adminIndex,
     adminOrganisations,
+    adminBoutique,
     adminTransactions,
     adminLivrables,
     adminDemandes,

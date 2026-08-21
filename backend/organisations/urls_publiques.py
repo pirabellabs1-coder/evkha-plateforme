@@ -8,12 +8,19 @@ from __future__ import annotations
 
 from django.urls import path
 
+from . import vues_boutique
 from . import vues_publiques as vues
 
 app_name = "public"
 
 urlpatterns = [
     path("formules/", vues.formules_publiques, name="formules"),
+    # La boutique : catalogue des etudes deja redigees, vendues telles
+    # quelles. Aucun compte n'est requis pour la consulter.
+    path("boutique/", vues_boutique.catalogue, name="boutique"),
+    path("boutique/acheter/", vues_boutique.acheter, name="boutique-acheter"),
+    path("boutique/retour/", vues_boutique.retour, name="boutique-retour"),
+    path("boutique/<slug:slug>/", vues_boutique.fiche, name="boutique-fiche"),
     # Achat a l'unite : le catalogue avec ses tarifs, l'ouverture du paiement,
     # et le retour de Stripe. Trois routes PUBLIQUES par necessite — au moment
     # ou la personne clique, elle n'a ni compte ni jeton.
