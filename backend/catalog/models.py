@@ -213,18 +213,34 @@ class ProduitBoutique(UUIDModel):
 class AvisProduit(UUIDModel):
     """L'avis d'une lectrice sur une etude de la boutique.
 
-    Ces avis sont SAISIS PAR LA CLIENTE depuis l'administration, et non
-    deposes librement par les acheteurs. C'est un choix, et il tient a ce
-    qu'un avis publie engage : ouvrir le depot en ligne demanderait une
-    moderation, un controle d'achat reel et un recours en cas d'abus — trois
-    chantiers pour une boutique qui compte neuf etudes.
+    Un avis vient de deux endroits, et la difference porte a consequence :
 
-    `publie` porte donc la moderation : un avis saisi n'apparait qu'une fois
-    coche, ce qui laisse le temps de le relire.
+    - **l'administration**, quand la cliente reporte un retour recu par
+      courriel ou en rendez-vous. Il est publie d'emblee : c'est elle qui
+      l'ecrit, elle l'a donc deja relu ;
+    - **l'espace client**, quand une acheteuse depose le sien. Il arrive NON
+      PUBLIE, et attend d'etre relu. Un texte ecrit par un tiers s'affiche
+      sinon sur une page publique sans que personne l'ait lu.
+
+    `achat` porte les deux garde-fous d'un avis depose en ligne, sans un seul
+    controle a ecrire : il n'existe que si le paiement a eu lieu — on ne peut
+    donc pas commenter une etude qu'on n'a pas achetee — et il est UNIQUE, donc
+    personne ne depose deux fois sur le meme achat. Un avis saisi en
+    administration le laisse vide.
     """
 
     produit = models.ForeignKey(
         ProduitBoutique, on_delete=models.CASCADE, related_name="avis"
+    )
+    #: L'achat qui donne le droit de temoigner. Vide pour un avis saisi en
+    #: administration. `SET_NULL` et non `CASCADE` : un achat efface ne doit
+    #: pas emporter le temoignage, qui a ete lu et publie.
+    achat = models.OneToOneField(
+        "catalog.AchatProduit",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="avis",
     )
     auteur = models.CharField(max_length=120)
     #: Metier ou ville — « Restauratrice, Lyon ». Facultatif : un avis sans
@@ -268,6 +284,10 @@ class AchatProduit(UUIDModel):
     #: empeche le webhook et la page de retour de compter deux fois le meme
     #: achat, chacun ignorant que l'autre est passe.
     reference_paiement = models.CharField(max_length=200, unique=True)
+    #: Date d'envoi de la demande d'avis. Elle EMPECHE le second envoi : sans
+    #: elle, la tache horaire redemanderait son avis a la meme personne toutes
+    #: les heures, indefiniment.
+    avis_demande_le = models.DateTimeField(null=True, blank=True)
     montant_cents = models.PositiveIntegerField(default=0)
     devise = models.CharField(max_length=3, default="EUR")
     #: Adresse a laquelle le lien a ete envoye. Conservee telle quelle : elle

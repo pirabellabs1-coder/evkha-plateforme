@@ -247,6 +247,8 @@ export interface AchatDeBoutique {
   image: string;
   telechargement: string;
   editable: string;
+  /** L'avis déjà déposé sur cet achat, ou `null` s'il n'y en a pas. */
+  avis: { note: number; texte: string; publie: boolean } | null;
 }
 
 /** Une etude de boutique proposee a l'achat depuis l'espace. */
@@ -563,6 +565,18 @@ export const espaceApi = {
   /** Ouvre le paiement d'une etude de boutique depuis l'espace.
    *
    *  On n'envoie qu'un slug : le tarif est celui du catalogue. */
+  /** Dépose un avis sur une étude achetée.
+   *
+   *  L'achat porte le droit d'écrire : c'est lui qu'on adresse, pas l'étude.
+   *  Un avis arrive NON PUBLIÉ — la relecture précède l'affichage. */
+  deposerUnAvis: (
+    achatId: string,
+    avis: { note: number; texte: string; auteur?: string; qualite?: string },
+  ) =>
+    appel<{ recu: boolean; message: string }>(`/achats/${achatId}/avis/`, {
+      method: "POST",
+      body: JSON.stringify(avis),
+    }),
   acheterUnProduit: (produit: string) =>
     appel<{ adresse: string }>("/achats/acheter/", {
       method: "POST",

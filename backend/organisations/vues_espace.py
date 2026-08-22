@@ -2192,6 +2192,117 @@ def equipe(
 # ── Boutique : les achats du client ──────────────────────────────────────────
 
 
+def _nom_du_membre(membre: MembreOrganisation) -> str:
+    """Le nom sous lequel signer un avis public.
+
+    Prenom et nom quand ils existent, prenom seul sinon. JAMAIS l'adresse
+    electronique en repli : elle se retrouverait affichee sur la fiche
+    publique de l'etude. Faute de nom, « Cliente EVKHA » — anonyme, mais pas
+    au prix d'une adresse divulguee.
+    """
+    prenom = str(getattr(membre.customer, "first_name", "") or "").strip()
+    nom = str(getattr(membre.customer, "last_name", "") or "").strip()
+    return " ".join(morceau for morceau in (prenom, nom) if morceau) or "Cliente EVKHA"
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+# `ecriture="commander"` : un avis est PUBLIE au nom de l'organisation, sur une
+# page que tout le monde voit. Un compte en lecture seule consulte les
+# livrables ; il ne parle pas au nom de la maison. C'est le droit qui gouverne
+# deja l'achat de l'etude dont il est question.
+@espace("consulter_livrables", ecriture="commander")
+def deposer_un_avis(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    achat_id: str,
+) -> HttpResponse:
+    """Depose l'avis d'une acheteuse sur une etude qu'elle a payee.
+
+    ## Ce qui donne le droit d'ecrire ici
+
+    L'achat, et lui seul. On le cherche DANS l'organisation du membre : un
+    identifiant recopie d'ailleurs ne trouve rien, et rend le meme 404 qu'un
+    achat inexistant. Dire « cet achat ne vous appartient pas » confirmerait
+    au passage qu'il existe.
+
+    ## L'avis n'est PAS publie en arrivant
+
+    Il est ecrit par un tiers et s'afficherait sur une page publique sans que
+    personne l'ait lu. La cliente le relit depuis l'administration et le publie
+    — ou non. La reponse le dit franchement a son auteure plutot que de la
+    laisser chercher son texte sur la fiche.
+
+    ## Un seul avis par achat
+
+    Garanti par le modele (`OneToOneField`), pas par un compte fait ici : deux
+    envois simultanes passeraient les deux le meme controle en Python. On
+    ECRIT, et on rattrape le refus de la base.
+    """
+    from django.db import IntegrityError, transaction  # noqa: PLC0415
+
+    from catalog.models import AchatProduit, AvisProduit  # noqa: PLC0415
+
+    achat = (
+        AchatProduit.objects.filter(id=achat_id, organisation=organisation)
+        .select_related("produit")
+        .first()
+    )
+    if achat is None:
+        return _refus("Cet achat est introuvable.", "achat_inconnu", 404)
+
+    charge = _corps(request)
+    texte = str(charge.get("texte") or "").strip()
+    if not texte:
+        return _refus(
+            "Écrivez une phrase : une note seule n'apprend rien à celle qui "
+            "hésite.",
+            "texte_manquant",
+            400,
+        )
+
+    try:
+        note = int(charge.get("note") or 5)
+    except (TypeError, ValueError):
+        note = 5
+    note = min(5, max(1, note))
+
+    # Le nom affiche : celui que la personne donne, ou le sien a defaut. Jamais
+    # son adresse — elle se retrouverait sur une page publique.
+    auteur = str(charge.get("auteur") or "").strip() or _nom_du_membre(membre)
+
+    # `atomic` AUTOUR de l'ecriture, et pas seulement le `try` : une
+    # `IntegrityError` attrapee sans point de reprise laisse la transaction
+    # courante cassee, et TOUTE requete suivante echoue avec
+    # `TransactionManagementError` — y compris celle qui voudrait rendre le
+    # refus. Le point de reprise annule la seule ecriture fautive.
+    try:
+        with transaction.atomic():
+            AvisProduit.objects.create(
+                produit=achat.produit,
+                achat=achat,
+                auteur=auteur[:120],
+                qualite=str(charge.get("qualite") or "").strip()[:120],
+                note=note,
+                texte=texte,
+                publie=False,
+            )
+    except IntegrityError:
+        return _refus(
+            "Vous avez déjà donné votre avis sur cette étude.", "avis_deja_donne", 409
+        )
+
+    _log.info("Avis depose sur %s par l'organisation %s.", achat.produit.slug, organisation.id)
+    return JsonResponse({
+        "recu": True,
+        "message": (
+            "Merci. Votre avis est enregistré : il apparaîtra sur la fiche de "
+            "l'étude après relecture."
+        ),
+    }, status=201)
+
+
 @require_http_methods(["GET"])
 @espace()
 def mes_achats(
@@ -2217,7 +2328,7 @@ def mes_achats(
 
     achats = (
         AchatProduit.objects.filter(organisation=organisation)
-        .select_related("produit")
+        .select_related("produit", "avis")
         .order_by("-created_at")
     )
     possedes = {a.produit_id for a in achats}
@@ -2232,6 +2343,18 @@ def mes_achats(
                 "achete_le": a.created_at.isoformat(),
                 "montant_cents": a.montant_cents,
                 "theme": a.produit.theme,
+                # L'avis DEJA depose, pour que la page propose de le lire
+                # plutot que d'en redemander un. `achat` est unique cote
+                # modele : il y en a zero ou un, jamais deux.
+                "avis": (
+                    {
+                        "note": a.avis.note,
+                        "texte": a.avis.texte,
+                        "publie": a.avis.publie,
+                    }
+                    if getattr(a, "avis", None)
+                    else None
+                ),
                 # La couverture : « Mes etudes » est une bibliotheque, et une
                 # bibliotheque se parcourt des yeux. Elle vient de `_resume`
                 # pour le reste du catalogue, elle doit venir d'ici pour ce

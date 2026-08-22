@@ -200,3 +200,63 @@ def purger_les_pieces_jointes_task() -> int:
     # `purger_les_pieces_jointes --simulation`. Le brancher ici donnerait une
     # tâche planifiée qui journalise un travail qu'elle ne fait pas.
     return purger_les_pieces_jointes().compte
+
+
+@shared_task(name="organisations.demander_les_avis")  # type: ignore[untyped-decorator]
+def demander_les_avis() -> int:
+    """Demande son avis a qui a achete une etude il y a plus de deux jours.
+
+    Deux jours, et pas le lendemain : le delai laisse le temps de lire. Ecrire
+    le jour meme reviendrait a demander un avis sur un document qu'on vient de
+    telecharger.
+
+    ## Trois conditions, et chacune ferme une porte
+
+    - **`avis_demande_le` vide** : sans ce marqueur, cette tache horaire
+      redemanderait son avis a la meme personne toutes les heures.
+    - **aucun avis deja depose** : celle qui a repondu n'a rien a faire de la
+      demande.
+    - **une adresse** : un achat sans courriel ne mene nulle part.
+
+    Le marqueur est pose AVANT l'envoi, et il est pose meme quand l'envoi
+    echoue. C'est delibere : `courriels._envoyer` ouvre deja un incident sur
+    echec, et laisser le marqueur vide ferait reessayer a l'heure suivante,
+    puis toutes les heures — une adresse invalide produirait une relance
+    perpetuelle et un incident par heure.
+    """
+    from datetime import timedelta  # noqa: PLC0415
+
+    from django.conf import settings  # noqa: PLC0415
+    from django.utils import timezone  # noqa: PLC0415
+
+    from catalog.models import AchatProduit  # noqa: PLC0415
+
+    from . import courriels  # noqa: PLC0415
+
+    delai = timedelta(hours=int(getattr(settings, "EVKHA_DELAI_DEMANDE_AVIS_H", 48)))
+    limite = timezone.now() - delai
+
+    achats = (
+        AchatProduit.objects.filter(
+            created_at__lte=limite, avis_demande_le__isnull=True
+        )
+        .exclude(email="")
+        .filter(avis__isnull=True)
+        .select_related("produit")
+    )
+
+    base = str(getattr(settings, "EVKHA_APP_URL", "") or "").rstrip("/")
+    envoyes = 0
+    for achat in achats:
+        achat.avis_demande_le = timezone.now()
+        achat.save(update_fields=["avis_demande_le", "updated_at"])
+        if courriels.demander_un_avis(
+            destinataire=achat.email,
+            etude=achat.produit.titre,
+            lien=f"{base}/espace/achats",
+        ):
+            envoyes += 1
+
+    if envoyes:
+        _log.info("Demandes d'avis envoyees : %s", envoyes)
+    return envoyes

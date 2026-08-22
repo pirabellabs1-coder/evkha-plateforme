@@ -17,9 +17,104 @@
 }
 
 /* ── En-tête ─────────────────────────────────────────────────────────────── */
-
+/*
+ * Un aplat crème derrière le titre. Le blanc dominant reste la charte, mais un
+ * en-tête sur le même fond que la grille ne se distingue pas d'elle : la page
+ * commençait par du texte posé nulle part.
+ */
 .bq-entete {
-  padding: 3rem 0 2rem;
+  background: linear-gradient(180deg, var(--bq-creme) 0%, #ffffff 100%);
+  border-bottom: 1px solid var(--bq-trait);
+  padding: 3.5rem 0 3rem;
+  margin-bottom: 0;
+}
+
+.bq-entete-grille {
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+@media (min-width: 62rem) {
+  .bq-entete-grille {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 3.5rem;
+  }
+}
+
+.bq-entete-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-top: 1.75rem;
+}
+
+.bq-entete-prix {
+  font-size: 0.92rem;
+  color: var(--bq-gris);
+}
+
+.bq-entete-prix b {
+  color: var(--bq-noir);
+  font-size: 1.05rem;
+}
+
+/* Trois couvertures en éventail. Décoratif, et assumé comme tel : une vitrine
+   montre ce qu'elle vend avant de l'expliquer. `aria-hidden` côté React — la
+   grille juste dessous porte la même information, en cliquable. */
+.bq-eventail {
+  position: relative;
+  height: 17rem;
+  display: none;
+}
+
+@media (min-width: 62rem) {
+  .bq-eventail {
+    display: block;
+  }
+}
+
+.bq-eventail-carte {
+  position: absolute;
+  width: 11rem;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bq-noir);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bq-jaune);
+  font-size: 2.5rem;
+  font-weight: 800;
+}
+
+.bq-eventail-carte img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bq-eventail-0 {
+  left: 2%;
+  top: 2.5rem;
+  transform: rotate(-8deg);
+  z-index: 1;
+}
+
+.bq-eventail-1 {
+  left: 32%;
+  top: 0.5rem;
+  z-index: 3;
+}
+
+.bq-eventail-2 {
+  left: 62%;
+  top: 2.5rem;
+  transform: rotate(8deg);
+  z-index: 2;
 }
 
 .bq-eyebrow {
@@ -31,7 +126,7 @@
   margin: 0 0 0.7rem;
 }
 
-.bq-entete h1 {
+.bq-entete-grille h1 {
   font-size: clamp(1.9rem, 4.5vw, 2.8rem);
   font-weight: 800;
   line-height: 1.12;
@@ -47,13 +142,79 @@
   font-size: 1.05rem;
 }
 
+/* ── Les quatre promesses ────────────────────────────────────────────────── */
+
+.bq-promesses {
+  background: var(--bq-noir);
+  color: #ffffff;
+  padding: 1.6rem 0;
+}
+
+.bq-promesses-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1.5rem 2rem;
+}
+
+.bq-promesse {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.bq-promesse-signe {
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  background: var(--bq-jaune);
+  color: var(--bq-noir);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.bq-promesse-titre {
+  margin: 0 0 0.15rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.bq-promesse-texte {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ── Têtes de section ────────────────────────────────────────────────────── */
+
+.bq-section-tete {
+  margin: 3.5rem 0 1.5rem;
+}
+
+.bq-section-tete h2 {
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  font-weight: 800;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.bq-section-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  color: var(--bq-gris);
+}
+
 /* ── Filtres par thème ───────────────────────────────────────────────────── */
 
 .bq-filtres {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-  margin: 2rem 0 2.25rem;
+  margin: 0 0 1.75rem;
 }
 
 .bq-filtre {
@@ -173,7 +334,7 @@
   margin: 0 0 0.45rem;
 }
 
-.bq-carte h2 {
+.bq-carte h3 {
   font-size: 1.02rem;
   font-weight: 700;
   line-height: 1.3;
@@ -634,4 +795,203 @@
   gap: 0.7rem;
   max-width: 22rem;
   margin: 0 auto;
+}
+
+/* ── La pastille de prix, sur la couverture ──────────────────────────────── */
+/*
+ * Le prix était en bas de carte, sous le titre et la note. Sur une grille, il
+ * se cherchait. Posé sur l'image, il se lit en même temps que la couverture —
+ * et c'est la première chose qu'on veut savoir dans une boutique.
+ */
+.bq-prix-pastille {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: var(--bq-jaune);
+  color: var(--bq-noir);
+  font-size: 0.95rem;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.bq-carte {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s;
+}
+
+.bq-carte:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.1);
+}
+
+.bq-carte .bq-voir {
+  margin-top: auto;
+  padding-top: 0.6rem;
+}
+
+/* ── Les témoignages de la boutique ──────────────────────────────────────── */
+
+.bq-temoignages-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1.25rem;
+}
+
+.bq-temoignage {
+  margin: 0;
+  padding: 1.5rem 1.4rem 1.3rem;
+  background: var(--bq-creme);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.bq-temoignage blockquote {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--bq-noir);
+}
+
+/* Les guillemets français, posés par le style : les écrire dans la donnée
+   obligerait chaque avis saisi à les porter, et le premier oubli se verrait. */
+.bq-temoignage blockquote::before {
+  content: "« ";
+}
+
+.bq-temoignage blockquote::after {
+  content: " »";
+}
+
+.bq-temoignage figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+  color: var(--bq-gris);
+  margin-top: auto;
+}
+
+.bq-temoignage figcaption b {
+  color: var(--bq-noir);
+  font-size: 0.9rem;
+}
+
+.bq-temoignage figcaption a {
+  color: var(--bq-jaune-f);
+  font-weight: 600;
+  text-decoration: none;
+  margin-top: 0.3rem;
+}
+
+.bq-temoignage figcaption a:hover {
+  text-decoration: underline;
+}
+
+/* ── Bon à savoir ────────────────────────────────────────────────────────── */
+/*
+ * Des `<details>` natifs, et non un accordéon en JavaScript : le navigateur
+ * sait déjà ouvrir, fermer, donner le focus et laisser Ctrl+F trouver le texte
+ * replié. Un accordéon maison perd ce dernier point sans rien apporter.
+ */
+.bq-reperes-liste {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 52rem;
+}
+
+.bq-repere {
+  border: 1px solid var(--bq-trait);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.bq-repere summary {
+  cursor: pointer;
+  padding: 1rem 1.2rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bq-repere summary::-webkit-details-marker {
+  display: none;
+}
+
+.bq-repere summary::after {
+  content: "+";
+  flex-shrink: 0;
+  font-size: 1.3rem;
+  font-weight: 400;
+  color: var(--bq-jaune-f);
+  line-height: 1;
+}
+
+.bq-repere[open] summary::after {
+  content: "−";
+}
+
+.bq-repere summary:hover {
+  background: var(--bq-doux);
+}
+
+.bq-repere summary:focus-visible {
+  outline: 2px solid var(--bq-jaune-f);
+  outline-offset: -2px;
+}
+
+.bq-repere p {
+  margin: 0;
+  padding: 0 1.2rem 1.2rem;
+  font-size: 0.94rem;
+  line-height: 1.6;
+  color: var(--bq-gris);
+  max-width: 62ch;
+}
+
+.bq-repere p a {
+  color: var(--bq-jaune-f);
+  font-weight: 600;
+}
+
+/* ── L'appel final ───────────────────────────────────────────────────────── */
+
+.bq-appel {
+  margin: 4rem 0 5rem;
+  padding: 2.5rem 2rem;
+  border-radius: 18px;
+  background: var(--bq-creme);
+  text-align: center;
+}
+
+.bq-appel h2 {
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+  font-weight: 800;
+  margin: 0 0 0.6rem;
+}
+
+.bq-appel p {
+  margin: 0 auto 1.5rem;
+  max-width: 46ch;
+  color: var(--bq-gris);
+}
+
+.bq-bouton-large {
+  display: inline-block;
+  width: auto;
+  padding: 0.9rem 2rem;
+  font-size: 1.02rem;
+}
+
+/* Le catalogue commence sous le bandeau noir : sans cette marge, la première
+   tête de section se collait au bandeau. */
+.bq-catalogue .bq-section-tete {
+  margin-top: 3rem;
 }

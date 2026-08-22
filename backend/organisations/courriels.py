@@ -226,6 +226,36 @@ def souhaiter_la_bienvenue(*, destinataire: str, livrable: str, lien: str) -> bo
     )
 
 
+def demander_un_avis(*, destinataire: str, etude: str, lien: str) -> bool:
+    """Demande son avis à qui a acheté une étude, deux jours plus tôt.
+
+    Deux jours, et pas le lendemain : le délai laisse le temps de lire. Écrire
+    le jour même reviendrait à demander un avis sur un document qu'on vient de
+    télécharger — la réponse ne porterait que sur la rapidité de la remise.
+
+    Envoyé UNE FOIS. `AchatProduit.avis_demande_le` porte cette garantie : sans
+    lui, la tâche horaire redemanderait son avis à la même personne toutes les
+    heures. On ne relance pas non plus celle qui ne répond pas : un avis
+    réclamé deux fois n'est plus un avis, c'est une corvée.
+    """
+    return _envoyer(
+        destinataire=destinataire,
+        sujet=f"Votre avis sur « {etude} » ?",
+        corps_html=_gabarit(
+            titre="Qu'avez-vous pensé de votre étude ?",
+            phrases=[
+                f"Vous avez téléchargé « {etude} » il y a deux jours. Si vous "
+                "avez eu le temps de la parcourir, votre avis aidera celles "
+                "qui hésitent encore.",
+                "Deux minutes suffisent : une note, une phrase. Il apparaîtra "
+                "sur la fiche de l'étude après relecture.",
+            ],
+            lien=lien,
+            bouton="Donner mon avis",
+        ),
+    )
+
+
 def reinitialiser_le_mot_de_passe(*, destinataire: str, lien: str) -> bool:
     return _envoyer(
         destinataire=destinataire,

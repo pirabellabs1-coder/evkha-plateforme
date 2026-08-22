@@ -68,6 +68,12 @@ urlpatterns = [
     path("etudes/", vues.etudes_a_l_unite, name="etudes"),
     # Boutique : ce que le client a achete, et ce qu'il peut acheter.
     path("achats/", vues.mes_achats, name="achats"),
+    # Le depot d'un avis, rattache a l'achat qui en donne le droit.
+    path(
+        "achats/<str:achat_id>/avis/",
+        vues.deposer_un_avis,
+        name="espace-avis",
+    ),
     path("achats/acheter/", vues.acheter_un_produit, name="achats-acheter"),
     path("etudes/acheter/", vues.acheter_une_etude, name="etudes-acheter"),
     # Ouvre le paiement de la formule choisie. POST : elle a un effet chez

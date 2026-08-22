@@ -66,8 +66,15 @@ async function lire<T>(chemin: string, init?: RequestInit): Promise<T> {
   return charge as T;
 }
 
+export type AvisALaUne = Avis & {
+  /** Le titre de l'étude dont parle l'avis. Un témoignage sans son objet ne
+   *  veut rien dire sur une page qui en présente plusieurs. */
+  etude: string;
+  slug: string;
+};
+
 export const chargerCatalogue = () =>
-  lire<{ produits: ProduitResume[]; themes: string[] }>("");
+  lire<{ produits: ProduitResume[]; themes: string[]; avis: AvisALaUne[] }>("");
 
 export const chargerFiche = (slug: string) =>
   lire<{ produit: ProduitFiche; proches: ProduitResume[] }>(

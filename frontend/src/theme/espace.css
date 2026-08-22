@@ -2403,3 +2403,126 @@
   margin-top: auto;
   padding-top: var(--e-2);
 }
+
+/* ── Donner son avis, depuis « Mes achats » ──────────────────────────────── */
+/*
+ * Le formulaire vit sous l'étude concernée, jamais sur une page à part : le
+ * courriel envoyé deux jours après l'achat mène ici, et voir la couverture
+ * sous les yeux évite d'écrire sur la mauvaise étude.
+ */
+.achat-avis {
+  margin-top: var(--e-3);
+  padding-top: var(--e-3);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+.avis-donne {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+  line-height: 1.45;
+}
+
+.avis-donne-etoiles {
+  color: var(--evkha-or);
+  letter-spacing: 0.05em;
+}
+
+.avis-formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.avis-titre {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+/* Cinq étoiles cliquables plutôt qu'une liste déroulante : la note se donne
+   d'un geste, et c'est la première chose qu'on donne. */
+.avis-notes {
+  display: flex;
+  gap: 2px;
+}
+
+.avis-etoile {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--t-lg);
+  line-height: 1;
+  padding: 2px;
+  /* Gris et non transparent : une étoile éteinte doit rester visible, sinon
+     on ne sait pas qu'il y en a cinq. */
+  color: var(--evkha-bordure-forte);
+  transition: color 0.12s, transform 0.12s;
+}
+
+.avis-etoile:hover {
+  transform: scale(1.12);
+}
+
+.avis-etoile-pleine {
+  color: var(--evkha-or);
+}
+
+.avis-etoile:focus-visible {
+  outline: 2px solid var(--evkha-or);
+  outline-offset: 2px;
+  border-radius: var(--rayon-xs);
+}
+
+.avis-formulaire textarea,
+.avis-formulaire input {
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--texte);
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  padding: var(--e-2) var(--e-3);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.avis-formulaire textarea {
+  resize: vertical;
+  line-height: var(--interligne);
+}
+
+.avis-formulaire textarea:focus,
+.avis-formulaire input:focus {
+  outline: 2px solid var(--evkha-or);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.avis-mention {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+  line-height: 1.4;
+}
+
+.avis-erreur {
+  margin: 0;
+  font-size: var(--t-xs);
+  color: var(--evkha-echec);
+}
+
+.avis-boutons {
+  display: flex;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+}
+
+.achat-vers-boutique {
+  margin: var(--e-3) 0 0;
+}

@@ -121,14 +121,68 @@ def _en_ligne() -> Any:
     )
 
 
+#: Avis mis en avant sur la page de la boutique, toutes etudes confondues.
+AVIS_A_LA_UNE = 3
+
+
 @require_GET
 def catalogue(request: HttpRequest) -> HttpResponse:
-    """La grille de la boutique, avec ses themes pour le filtre."""
+    """La grille de la boutique, ses themes, et quelques avis.
+
+    Les avis remontent ICI et pas seulement sur les fiches : le visiteur qui
+    arrive sur la boutique n'a encore choisi aucune etude, et c'est a ce
+    moment-la qu'il decide si la maison est serieuse. Les lui reserver pour
+    apres le clic, c'est les montrer a qui est deja convaincu.
+
+    Ils sont pris sur l'ensemble du catalogue en ligne, du plus recent au plus
+    ancien, et chacun porte le titre de l'etude dont il parle — un temoignage
+    sans son objet ne veut rien dire.
+    """
     produits = list(_en_ligne())
     themes = sorted({p.theme for p in produits if p.theme})
+
+    # UN SEUL avis par etude. Sans cette contrainte, trois cartes cote a cote
+    # parlaient deux fois de la meme etude — le lecteur en deduit qu'il n'y a
+    # que celle-la, ce qui est l'inverse de l'effet cherche. Le plus recent de
+    # chaque etude, puis les plus recents de l'ensemble.
+    meilleurs = []
+    for produit in produits:
+        lisibles = [
+            avis
+            for avis in produit.avis.all()
+            # Un avis sans texte ne temoigne de rien : il ne porte qu'une note,
+            # deja comptee dans la moyenne de sa carte.
+            if avis.publie and avis.texte.strip()
+        ]
+        if not lisibles:
+            continue
+        # Le MIEUX NOTE de l'etude, le plus recent a egalite. C'est un choix
+        # editorial, et il s'assume : ce bloc est une vitrine, pas la liste des
+        # avis. La liste complete — bonnes notes ET moins bonnes — est sur la
+        # fiche de chaque etude, ou elle decide de l'achat.
+        meilleurs.append(
+            max(lisibles, key=lambda avis: (avis.note, avis.created_at))
+        )
+
+    a_la_une = [
+        {
+            "auteur": avis.auteur,
+            "qualite": avis.qualite,
+            "note": avis.note,
+            "texte": avis.texte,
+            "date": avis.created_at.date().isoformat(),
+            "etude": avis.produit.titre,
+            "slug": avis.produit.slug,
+        }
+        for avis in sorted(
+            meilleurs, key=lambda avis: (avis.note, avis.created_at), reverse=True
+        )[:AVIS_A_LA_UNE]
+    ]
+
     return JsonResponse({
         "produits": [_resume(p) for p in produits],
         "themes": themes,
+        "avis": a_la_une,
     })
 
 

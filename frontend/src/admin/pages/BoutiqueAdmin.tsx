@@ -17,6 +17,13 @@
  * partir du formulaire perdrait tout ce qui n'est pas à l'écran. Les fichiers
  * choisis sont retenus de la même façon, dans l'état.
  *
+ * Le NOMBRE DE PAGES n'est plus ni demandé ni affiché. Il se lisait comme une
+ * mesure de la valeur, et il la mesure mal : trente-cinq pages utiles valent
+ * mieux que soixante délayées, et deux acheteuses qui comparent deux nombres
+ * comparent exactement ce qui ne compte pas. Le sommaire et l'extrait disent
+ * ce que le document contient. La colonne reste en base — la retirer
+ * demanderait une migration pour une donnée que plus personne ne lit.
+ *
  * Un produit ne se supprime plus dès qu'il a été vendu. Le retirer se fait par
  * « hors ligne », qui préserve l'historique des ventes et l'accès de ceux qui
  * l'ont payé — ce qu'ils ont acheté reste à eux.
@@ -162,7 +169,6 @@ function Assistant({
   const [titre, setTitre] = useState(produit?.titre ?? "");
   const [prix, setPrix] = useState(produit ? String(produit.prix_cents / 100) : "");
   const [theme, setTheme] = useState(produit?.theme ?? "");
-  const [pages, setPages] = useState(produit?.pages ? String(produit.pages) : "");
   const [miseAJour, setMiseAJour] = useState(produit?.mise_a_jour ?? "");
   const [description, setDescription] = useState(produit?.description ?? "");
   const [sommaire, setSommaire] = useState(produit?.sommaire ?? "");
@@ -200,7 +206,6 @@ function Assistant({
       donnees.set("titre", titre.trim());
       donnees.set("prix_euros", prix.replace(",", "."));
       donnees.set("theme", theme.trim());
-      donnees.set("nombre_de_pages", pages || "0");
       donnees.set("mise_a_jour", miseAJour);
       donnees.set("description", description);
       donnees.set("sommaire", sommaire);
@@ -303,16 +308,6 @@ function Assistant({
               <small>Il regroupe les études proches sur la fiche.</small>
             </label>
             <label className="bqa-champ">
-              <span>Nombre de pages</span>
-              <input
-                type="number"
-                min={0}
-                value={pages}
-                onChange={(e) => setPages(e.currentTarget.value)}
-                placeholder="42"
-              />
-            </label>
-            <label className="bqa-champ">
               <span>Dernière mise à jour</span>
               <input
                 type="date"
@@ -413,7 +408,6 @@ function Assistant({
                 <p className="bqa-recap-note">
                   {montant(prixCents)}
                   {theme ? ` · ${theme}` : ""}
-                  {pages ? ` · ${pages} pages` : ""}
                 </p>
               </div>
             </div>
@@ -685,7 +679,6 @@ function Carte({
         <p className="bqa-carte-meta">
           <b>{montant(produit.prix_cents)}</b>
           {produit.theme && <span>{produit.theme}</span>}
-          {produit.pages > 0 && <span>{produit.pages} pages</span>}
         </p>
 
         <dl className="bqa-mesures">

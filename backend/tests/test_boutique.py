@@ -537,6 +537,214 @@ def test_un_avis_se_retire_sans_se_supprimer(client_admin: Any) -> None:
     assert AvisProduit.objects.filter(id=ligne.id).exists()
 
 
+# ── 3 quater. L'avis depose par l'acheteuse ─────────────────────────────────
+
+
+def _espace_de(resultat: Any) -> tuple[Client, Any]:
+    """Un client HTTP authentifie sur l'espace ouvert par un achat."""
+    from organisations import authentification  # noqa: PLC0415
+
+    jeton = authentification.ouvrir_session_sans_mot_de_passe(resultat.compte)
+    return Client(HTTP_AUTHORIZATION=f"Bearer {jeton}"), resultat.achat
+
+
+def test_l_acheteuse_depose_son_avis_NON_PUBLIE() -> None:
+    """Un texte ecrit par un tiers ne s'affiche pas avant d'avoir ete relu.
+
+    Il est enregistre, et la reponse le dit franchement — sinon son auteure
+    cherche son texte sur la fiche et croit qu'il s'est perdu.
+    """
+    produit = produit_en_ligne()
+    resultat = boutique.livrer_le_produit(session_stripe(produit))
+    client, achat = _espace_de(resultat)
+
+    reponse = client.post(
+        f"/api/espace/achats/{achat.id}/avis/",
+        data={"note": 5, "texte": "Le montage financier vaut a lui seul le prix."},
+        content_type="application/json",
+    )
+
+    assert reponse.status_code == 201, reponse.content
+    avis = produit.avis.get()
+    assert avis.publie is False
+    assert avis.achat_id == achat.id
+    # Rien de la fiche publique ne le montre tant qu'il n'est pas relu.
+    fiche = Client().get(f"/api/public/boutique/{produit.slug}/").json()["produit"]
+    assert fiche["avis"] == []
+
+
+def test_on_ne_donne_PAS_son_avis_sur_l_achat_d_un_autre() -> None:
+    """L'achat porte le droit d'ecrire, et on le cherche DANS l'organisation.
+
+    La reponse est un 404, identique a celle d'un achat inexistant : dire
+    « cet achat ne vous appartient pas » confirmerait au passage qu'il existe.
+    """
+    mien = boutique.livrer_le_produit(session_stripe(produit_en_ligne()))
+    autre = boutique.livrer_le_produit(
+        session_stripe(
+            produit_en_ligne(slug="autre-etude"),
+            id="cs_test_autre_acheteuse",
+            customer_details={"email": "autre@example.com", "name": "Autre"},
+        )
+    )
+    client, _ = _espace_de(mien)
+
+    reponse = client.post(
+        f"/api/espace/achats/{autre.achat.id}/avis/",
+        data={"note": 1, "texte": "Je n'ai pas achete cette etude."},
+        content_type="application/json",
+    )
+
+    assert reponse.status_code == 404
+    assert AvisProduit.objects.count() == 0
+
+
+def test_un_second_avis_sur_le_meme_achat_est_refuse() -> None:
+    """`OneToOneField` porte la garantie, pas un comptage en Python : deux
+    envois simultanes passeraient tous deux un `if deja_donne`."""
+    produit = produit_en_ligne()
+    resultat = boutique.livrer_le_produit(session_stripe(produit))
+    client, achat = _espace_de(resultat)
+
+    premier = client.post(
+        f"/api/espace/achats/{achat.id}/avis/",
+        data={"note": 4, "texte": "Un premier avis."},
+        content_type="application/json",
+    )
+    second = client.post(
+        f"/api/espace/achats/{achat.id}/avis/",
+        data={"note": 1, "texte": "Un second avis."},
+        content_type="application/json",
+    )
+
+    assert premier.status_code == 201
+    assert second.status_code == 409
+    assert second.json()["code"] == "avis_deja_donne"
+    assert produit.avis.count() == 1
+
+
+def test_un_avis_sans_texte_est_refuse() -> None:
+    """Une note seule n'apprend rien a celle qui hesite."""
+    produit = produit_en_ligne()
+    resultat = boutique.livrer_le_produit(session_stripe(produit))
+    client, achat = _espace_de(resultat)
+
+    reponse = client.post(
+        f"/api/espace/achats/{achat.id}/avis/",
+        data={"note": 5, "texte": "   "},
+        content_type="application/json",
+    )
+
+    assert reponse.status_code == 400
+    assert reponse.json()["code"] == "texte_manquant"
+
+
+def test_l_adresse_electronique_ne_signe_JAMAIS_un_avis() -> None:
+    """Le repli du nom d'auteur ne doit pas etre l'adresse : elle finirait
+    affichee sur la fiche publique de l'etude."""
+    produit = produit_en_ligne()
+    resultat = boutique.livrer_le_produit(
+        session_stripe(
+            produit, customer_details={"email": "discrete@example.com", "name": ""}
+        )
+    )
+    client, achat = _espace_de(resultat)
+
+    client.post(
+        f"/api/espace/achats/{achat.id}/avis/",
+        data={"note": 5, "texte": "Tres bonne etude."},
+        content_type="application/json",
+    )
+
+    assert "@" not in produit.avis.get().auteur
+
+
+# ── 3 quater. La demande d'avis, deux jours apres ────────────────────────────
+
+
+def test_la_demande_d_avis_attend_le_delai() -> None:
+    """Ecrire le jour meme demanderait un avis sur un document a peine ouvert."""
+    from organisations.tasks import demander_les_avis  # noqa: PLC0415
+
+    boutique.livrer_le_produit(session_stripe(produit_en_ligne()))
+
+    assert demander_les_avis() == 0
+
+
+def test_la_demande_part_une_seule_fois(settings: Any) -> None:
+    """La tache tourne toutes les heures. Sans le marqueur, la meme personne
+    recevrait la meme demande toutes les heures, indefiniment."""
+    from datetime import timedelta  # noqa: PLC0415
+
+    from django.utils import timezone  # noqa: PLC0415
+
+    from organisations.tasks import demander_les_avis  # noqa: PLC0415
+
+    settings.EVKHA_DELAI_DEMANDE_AVIS_H = 48
+    resultat = boutique.livrer_le_produit(session_stripe(produit_en_ligne()))
+    AchatProduit.objects.filter(pk=resultat.achat.pk).update(
+        created_at=timezone.now() - timedelta(hours=49)
+    )
+
+    premier = demander_les_avis()
+    second = demander_les_avis()
+
+    assert premier == 1
+    assert second == 0
+    resultat.achat.refresh_from_db()
+    assert resultat.achat.avis_demande_le is not None
+
+
+def test_on_ne_redemande_pas_son_avis_a_qui_l_a_donne(settings: Any) -> None:
+    """Contre-epreuve : le delai atteint ne suffit pas a solliciter."""
+    from datetime import timedelta  # noqa: PLC0415
+
+    from django.utils import timezone  # noqa: PLC0415
+
+    from organisations.tasks import demander_les_avis  # noqa: PLC0415
+
+    settings.EVKHA_DELAI_DEMANDE_AVIS_H = 48
+    produit = produit_en_ligne()
+    resultat = boutique.livrer_le_produit(session_stripe(produit))
+    AchatProduit.objects.filter(pk=resultat.achat.pk).update(
+        created_at=timezone.now() - timedelta(hours=72)
+    )
+    AvisProduit.objects.create(
+        produit=produit, achat=resultat.achat, auteur="Deja dit", note=5, texte="Bien."
+    )
+
+    assert demander_les_avis() == 0
+
+
+# ── 3 quinquies. Les avis a la une de la boutique ────────────────────────────
+
+
+def test_la_boutique_ne_met_qu_UN_avis_par_etude_a_la_une() -> None:
+    """Trois cartes qui parlent deux fois de la meme etude font croire qu'il
+    n'y en a qu'une — l'inverse de l'effet cherche."""
+    bavarde = produit_en_ligne(slug="bavarde", titre="L'etude bavarde")
+    for numero in range(4):
+        AvisProduit.objects.create(
+            produit=bavarde, auteur=f"Lectrice {numero}", note=5, texte="Excellente."
+        )
+    discrete = produit_en_ligne(slug="discrete", titre="L'etude discrete")
+    AvisProduit.objects.create(
+        produit=discrete, auteur="Unique", note=4, texte="Tres bien."
+    )
+
+    avis = Client().get("/api/public/boutique/").json()["avis"]
+
+    assert sorted(a["slug"] for a in avis) == ["bavarde", "discrete"]
+
+
+def test_un_avis_sans_texte_ne_monte_pas_a_la_une() -> None:
+    """Il ne porte qu'une note, deja comptee dans la moyenne de sa carte."""
+    produit = produit_en_ligne()
+    AvisProduit.objects.create(produit=produit, auteur="Muette", note=5, texte="")
+
+    assert Client().get("/api/public/boutique/").json()["avis"] == []
+
+
 # ── 4. L'administration ──────────────────────────────────────────────────────
 
 

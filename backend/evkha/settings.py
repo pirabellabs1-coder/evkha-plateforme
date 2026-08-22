@@ -236,6 +236,13 @@ CELERY_BEAT_SCHEDULE = {
         "task": "organisations.purger_les_pieces_jointes",
         "schedule": 3600.0,
     },
+    # Demande d'avis, deux jours apres un achat de boutique. Verification
+    # horaire : la tache ne retient que les achats arrives a echeance, et
+    # `avis_demande_le` garantit qu'une personne n'est sollicitee qu'une fois.
+    "demander-les-avis-de-boutique": {
+        "task": "organisations.demander_les_avis",
+        "schedule": 3600.0,
+    },
     # Risque 6 — jobs bloques : reset automatique toutes les heures.
     # Un job RUNNING depuis plus de 2h est forcement bloque (crash worker, timeout reseau).
     # L'incident HIGH cree permet a l'admin de relancer manuellement depuis le dashboard.
@@ -244,6 +251,10 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 3600.0,
     },
 }
+
+#: Delai avant la demande d'avis, en heures. Reglable pour les essais — la
+#: tache elle-meme ne connait pas de valeur en dur.
+EVKHA_DELAI_DEMANDE_AVIS_H = env.int("EVKHA_DELAI_DEMANDE_AVIS_H", default=48)
 
 EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
 

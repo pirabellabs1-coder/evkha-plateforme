@@ -139,9 +139,10 @@ export function FicheProduit() {
   }
 
   const maj = moisEtAnnee(produit.mise_a_jour);
+  // Sans le nombre de pages : voir `Boutique.tsx`. Le sommaire et l'extrait
+  // disent ce que le document contient, ce qu'un nombre ne dit pas.
   const details = [
-    produit.pages > 0 ? `${produit.pages} pages` : "",
-    maj ? `mise à jour ${maj}` : "",
+    maj ? `Mise à jour ${maj}` : "",
     produit.editable ? "PDF et Word" : "PDF",
   ].filter(Boolean);
 

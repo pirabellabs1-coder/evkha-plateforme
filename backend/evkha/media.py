@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponseBase
 from django.views.static import serve as servir_statique
 
 from . import signatures
@@ -86,7 +86,9 @@ def _est_une_vitrine(chemin: str) -> bool:
     return PurePosixPath(propre).suffix.lower() in EXTENSIONS_EN_LIGNE
 
 
-def servir_media(request: HttpRequest, path: str, **kwargs: object) -> HttpResponse:
+def servir_media(
+    request: HttpRequest, path: str, **kwargs: object
+) -> HttpResponseBase:
     """Sert un fichier de `MEDIA_ROOT`, signature vérifiée, en téléchargement.
 
     Sauf sous un préfixe de vitrine, où le fichier est servi tel quel : ce sont
