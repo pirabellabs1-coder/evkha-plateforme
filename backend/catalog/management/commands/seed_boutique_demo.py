@@ -452,6 +452,32 @@ ETUDES: list[dict[str, Any]] = [
 ]
 
 
+def _meme_texte(un: str, autre: str) -> bool:
+    """Deux textes disent-ils la meme chose, aux blancs pres ?
+
+    Cette comparaison decide si une fiche est encore celle de la demonstration
+    — donc si on a le droit d'y toucher. Faite caractere pour caractere, elle a
+    echoue sur UN retour a la ligne : la base portait un retour Windows la ou le
+    code ecrit un retour Unix. La couverture illisible de
+    « marche-agences-nettoyage-2026 » est ainsi restee en production alors que
+    les huit autres etaient refaites.
+
+    Rien ne le signalait : la commande annoncait « INTACT », ce qui est
+    exactement ce qu'elle dit quand la cliente a fait sien le produit. Un
+    controle qui compare a une donnee mal normalisee est pire qu'absent — il
+    rend une reponse fausse avec l'assurance d'une reponse juste (regle 2).
+
+    On compare donc sur la SUBSTANCE : fins de ligne unifiees, blancs de bord
+    otes. Le sens du texte decide, pas son encodage.
+    """
+
+    def _propre(texte: str) -> str:
+        unifie = texte.replace("\r\n", "\n").replace("\r", "\n")
+        return "\n".join(ligne.strip() for ligne in unifie.split("\n")).strip()
+
+    return _propre(un) == _propre(autre)
+
+
 def _police(taille: int, grasse: bool = False) -> Any:
     """Une police VECTORIELLE a la taille demandee.
 
@@ -768,7 +794,7 @@ class Command(BaseCommand):
                 # que cette commande depose. Le jour ou elle ecrit sa propre
                 # description ou depose sa propre couverture, on ne touche plus
                 # a rien. Le document vendu, lui, n'est jamais remplace.
-                encore_demo = produit.description == etude["description"]
+                encore_demo = _meme_texte(produit.description, etude["description"])
                 notre_image = "-couverture" in (produit.image.name or "")
                 if encore_demo and notre_image:
                     produit.image.save(

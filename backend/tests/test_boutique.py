@@ -797,6 +797,25 @@ def test_le_jeu_de_demonstration_remplit_une_fiche_VIDE() -> None:
     assert vide.en_ligne is True
 
 
+def test_un_simple_retour_a_la_ligne_ne_fige_PAS_la_demonstration() -> None:
+    """Le garde-fou compare la description a celle du jeu de demonstration.
+
+    Compare caractere pour caractere, il a echoue sur un retour a la ligne
+    Windows contre Unix : la fiche a ete declaree « faite sienne par la
+    cliente » alors qu'elle etait intacte, et sa couverture illisible est
+    restee en production. Rien ne le signalait — le message affiche est le
+    meme dans les deux cas (regle 2).
+    """
+    from catalog.management.commands.seed_boutique_demo import _meme_texte
+
+    assert _meme_texte(
+        "Un texte.\r\n\r\nUn second.",
+        "Un texte.\n\nUn second.",
+    )
+    # Contre-epreuve : un texte reellement different reste different.
+    assert not _meme_texte("Un texte.", "Un autre texte.")
+
+
 def test_un_document_de_demonstration_se_DIT_de_demonstration() -> None:
     """Il est achetable tant qu'il est en ligne : sa page de garde doit le dire.
 
