@@ -653,6 +653,32 @@ class Command(BaseCommand):
             self._effacer()
             return
 
+        # Les deux bibliotheques qui fabriquent les fichiers sont verifiees
+        # AVANT d'ecrire quoi que ce soit, et leur absence rend un refus lisible
+        # plutot qu'une pile d'appels.
+        #
+        # Cette commande tourne au demarrage du conteneur. Le 22/08/2026,
+        # `reportlab` n'etait declare dans aucun extra : `ModuleNotFoundError`
+        # a arrete la chaine de demarrage et gunicorn n'a jamais demarre — la
+        # plateforme entiere a rendu 503 pour un jeu de donnees de
+        # demonstration. La dependance est declaree depuis, et le compose ne
+        # relie plus cette etape par un `&&` sec ; ce controle-ci est la
+        # troisieme ligne, celle qui NOMME ce qui manque.
+        for module, extra in (("reportlab", "word"), ("PIL", "word")):
+            try:
+                __import__(module)
+            except ImportError:
+                self.stderr.write(
+                    self.style.ERROR(
+                        f"{module} est absent : le jeu de demonstration n'a pas "
+                        f"ete depose. Installez l'extra « {extra} » "
+                        "(pip install -e \".[word]\"). Rien d'autre n'est "
+                        "affecte — la boutique fonctionne, elle est simplement "
+                        "vide."
+                    )
+                )
+                return
+
         en_ligne = not options.get("hors_ligne")
         aujourdhui = timezone.now().date()
         intacts = 0

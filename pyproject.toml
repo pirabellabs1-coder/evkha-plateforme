@@ -72,6 +72,21 @@ word = [
   # produit sur le serveur a echoue sur « No module named 'matplotlib' ».
   # Backend Agg impose dans le code : aucun serveur d'affichage sur le VPS.
   "matplotlib>=3.8,<4",
+  # reportlab compose les PDF du jeu de demonstration de la boutique
+  # (`seed_boutique_demo`) et rend les schemas du dossier technique.
+  #
+  # Il n'etait declare NULLE PART, exactement comme matplotlib avant lui, et
+  # avec la meme cause : il trainait dans l'environnement local. Le 22/08/2026,
+  # la commande a rejoint la chaine de demarrage du conteneur — chaine reliee
+  # par des `&&`. `ModuleNotFoundError: reportlab` a donc empeche gunicorn de
+  # demarrer : api2.evkha.fr et app2.evkha.fr ont rendu 503 pendant vingt
+  # minutes. La dependance manquante n'a pas degrade une fonction, elle a
+  # ferme la plateforme.
+  "reportlab>=4,<5",
+  # Pillow dessine les couvertures. Il arrivait transitivement par matplotlib :
+  # meme classe de defaut, une seule mise a jour de matplotlib suffirait a le
+  # faire disparaitre.
+  "pillow>=10,<13",
 ]
 dev = [
   "django-stubs[compatible-mypy]>=5.2,<6",

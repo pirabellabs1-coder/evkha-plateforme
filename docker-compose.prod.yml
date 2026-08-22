@@ -25,6 +25,20 @@
 #   document n'est jamais touchée : le jour où la cliente dépose sa vraie
 #   étude, la démonstration s'efface d'elle-même du chemin. Sans ce garde-fou,
 #   chaque déploiement écraserait son travail.
+#
+#   ELLE NE PEUT PAS FAIRE TOMBER LA PLATEFORME, et c'est pour cela qu'elle est
+#   la seule étape de cette chaîne à ne pas être reliée par un `&&` sec.
+#   Le 22/08/2026, `reportlab` n'était déclaré dans aucun extra : la commande a
+#   levé `ModuleNotFoundError`, le `&&` a arrêté la chaîne, gunicorn n'a jamais
+#   démarré. `api2.evkha.fr` ET `app2.evkha.fr` ont rendu 503 pendant vingt
+#   minutes — pour un jeu de données de démonstration.
+#
+#   La dépendance est désormais déclarée (`pyproject.toml`, extra `word`), mais
+#   ce n'est que la cause immédiate. La cause de fond est qu'une étape
+#   COSMÉTIQUE avait le pouvoir d'empêcher l'API de servir. Aucune ne doit
+#   l'avoir : les seeds qui suivent ce commentaire chargent des données, ils ne
+#   conditionnent pas la capacité du serveur à répondre (règle 4 — viser la
+#   classe, pas l'exemple).
 
 services:
   api:
@@ -42,7 +56,7 @@ services:
       && python manage.py seed_offers
       && python manage.py seed_formules
       && python manage.py seed_boutique
-      && python manage.py seed_boutique_demo
+      && (python manage.py seed_boutique_demo || echo "AVERTISSEMENT : le jeu de demonstration n'a pas pu etre depose. L'API demarre quand meme.")
       && python manage.py assurer_admin
       && python manage.py reinitialiser_la_plateforme
       && python manage.py collectstatic --noinput
