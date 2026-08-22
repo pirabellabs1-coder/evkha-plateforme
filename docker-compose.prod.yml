@@ -19,6 +19,12 @@
 #   Relancer la commande ne touche pas aux fiches déjà créées. En faire une
 #   étape manuelle, c'est l'oublier, et l'API de Coolify n'expose aucune
 #   exécution de commande dans le conteneur pour la rattraper.
+# - `seed_boutique_demo` remplit ces fiches de quoi MONTRER la boutique :
+#   description, sommaire, couverture, PDF, extrait et avis. C'est un jeu de
+#   DÉMONSTRATION, et sa page de garde le dit. Une fiche qui porte déjà un
+#   document n'est jamais touchée : le jour où la cliente dépose sa vraie
+#   étude, la démonstration s'efface d'elle-même du chemin. Sans ce garde-fou,
+#   chaque déploiement écraserait son travail.
 
 services:
   api:
@@ -36,6 +42,7 @@ services:
       && python manage.py seed_offers
       && python manage.py seed_formules
       && python manage.py seed_boutique
+      && python manage.py seed_boutique_demo
       && python manage.py assurer_admin
       && python manage.py reinitialiser_la_plateforme
       && python manage.py collectstatic --noinput

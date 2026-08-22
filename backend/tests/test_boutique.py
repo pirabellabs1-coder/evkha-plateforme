@@ -745,6 +745,84 @@ def test_un_avis_sans_texte_ne_monte_pas_a_la_une() -> None:
     assert Client().get("/api/public/boutique/").json()["avis"] == []
 
 
+# ── 3 sexies. Le jeu de demonstration ────────────────────────────────────────
+
+
+def test_le_jeu_de_demonstration_n_ECRASE_PAS_un_vrai_document() -> None:
+    """La commande tourne a CHAQUE demarrage du conteneur.
+
+    Sans garde-fou, chaque deploiement remplacerait le document depose par la
+    cliente par un PDF generique, et effacerait les avis qu'elle a saisis a la
+    main. C'est le meme raisonnement que `seed_boutique`, qui ne remplit que
+    les fiches absentes.
+    """
+    from django.core.management import call_command  # noqa: PLC0415
+
+    call_command("seed_boutique", verbosity=0)
+    vraie = ProduitBoutique.objects.get(slug="marche-foodtrucks-2026")
+    vraie.fichier.save(
+        "la-vraie-etude.pdf",
+        SimpleUploadedFile("la-vraie-etude.pdf", b"%PDF-1.4 le vrai travail", "application/pdf"),
+        save=True,
+    )
+    AvisProduit.objects.create(
+        produit=vraie, auteur="Retour recu par courriel", note=5, texte="Parfait."
+    )
+
+    call_command("seed_boutique_demo", verbosity=0)
+
+    vraie.refresh_from_db()
+    assert "la-vraie-etude" in vraie.fichier.name
+    assert vraie.fichier.read() == b"%PDF-1.4 le vrai travail"
+    assert [a.auteur for a in vraie.avis.all()] == ["Retour recu par courriel"]
+
+
+def test_le_jeu_de_demonstration_remplit_une_fiche_VIDE() -> None:
+    """Contre-epreuve : le garde-fou ne doit pas bloquer ce qu'il doit faire."""
+    from django.core.management import call_command  # noqa: PLC0415
+
+    call_command("seed_boutique", verbosity=0)
+    vide = ProduitBoutique.objects.get(slug="marche-micro-creches-2026")
+    assert not vide.fichier
+
+    call_command("seed_boutique_demo", verbosity=0)
+
+    vide.refresh_from_db()
+    assert vide.fichier
+    assert vide.extrait
+    assert vide.image
+    assert vide.description
+    assert vide.sommaire.count("\n") >= 5
+    assert vide.nombre_d_avis >= 1
+    assert vide.en_ligne is True
+
+
+def test_un_document_de_demonstration_se_DIT_de_demonstration() -> None:
+    """Il est achetable tant qu'il est en ligne : sa page de garde doit le dire.
+
+    Le controle porte sur le PDF REELLEMENT produit, pas sur la constante :
+    c'est ce que le lecteur ouvrira (regle 3).
+    """
+    from django.core.management import call_command  # noqa: PLC0415
+
+    from catalog.management.commands.seed_boutique_demo import MENTION_DEMO
+
+    call_command("seed_boutique", verbosity=0)
+    call_command("seed_boutique_demo", verbosity=0)
+
+    produit = ProduitBoutique.objects.get(slug="marche-foodtrucks-2026")
+    import pypdfium2  # noqa: PLC0415
+
+    document = pypdfium2.PdfDocument(produit.fichier.path)
+    garde = document[0].get_textpage().get_text_range()
+    document.close()
+
+    # Les premiers mots de la mention suffisent : le repli de ligne du PDF
+    # coupe la phrase, et exiger la chaine entiere verrouillerait la largeur de
+    # colonne plutot que la mention.
+    assert MENTION_DEMO.split(".")[0] in garde.replace("\r\n", " ").replace("\n", " ")
+
+
 # ── 4. L'administration ──────────────────────────────────────────────────────
 
 

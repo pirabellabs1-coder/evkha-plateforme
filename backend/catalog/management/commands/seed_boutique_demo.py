@@ -17,15 +17,25 @@ ACHETABLES. Tant que le lien de la boutique n'est pas dans le menu du site
 vitrine, personne n'y arrive par hasard ; le jour ou il y sera, ces documents
 doivent avoir ete remplaces par les vrais.
 
+## Rejouable sans rien casser
+
+Elle tourne a CHAQUE demarrage du conteneur, comme `seed_boutique`. Une fiche
+qui porte deja un document n'est donc plus touchee : le jour ou la cliente
+depose sa vraie etude, la demonstration s'efface d'elle-meme du chemin. Sans ce
+garde-fou, chaque deploiement remplacerait son document par un PDF generique et
+effacerait les avis qu'elle a saisis.
+
 `--hors-ligne` cree tout sans publier, pour preparer sans exposer.
+`--forcer` passe outre le garde-fou, pour refaire le jeu de demonstration.
 `--effacer` retire les etudes de demonstration qui n'ont jamais ete vendues —
 celles qui l'ont ete sont conservees, leur acheteur y a droit.
 
 ## Pourquoi generer les fichiers plutot que les livrer avec le depot
 
 Neuf PDF, neuf extraits et neuf images pesent quelques megaoctets, qui
-vivraient dans l'historique git pour toujours. Ils sont donc fabriques a l'execution, avec les
-memes bibliotheques que la production (reportlab, Pillow).
+vivraient dans l'historique git pour toujours. Ils sont donc fabriques a
+l'execution, avec les memes bibliotheques que la production (reportlab,
+Pillow).
 """
 from __future__ import annotations
 
@@ -622,6 +632,14 @@ class Command(BaseCommand):
             help="Cree tout sans publier : la boutique reste vide pour le public.",
         )
         parser.add_argument(
+            "--forcer",
+            action="store_true",
+            help=(
+                "Remplace meme les fiches qui portent deja un document. "
+                "A n'utiliser que pour refaire le jeu de demonstration."
+            ),
+        )
+        parser.add_argument(
             "--effacer",
             action="store_true",
             help=(
@@ -637,6 +655,7 @@ class Command(BaseCommand):
 
         en_ligne = not options.get("hors_ligne")
         aujourdhui = timezone.now().date()
+        intacts = 0
 
         for rang, etude in enumerate(ETUDES):
             produit = ProduitBoutique.objects.filter(slug=etude["slug"]).first()
@@ -645,6 +664,20 @@ class Command(BaseCommand):
                     self.style.WARNING(
                         f"  [ABSENT] {etude['slug']} — lancez d'abord seed_boutique."
                     )
+                )
+                continue
+
+            # UNE FICHE QUI PORTE DEJA UN DOCUMENT N'EST PLUS TOUCHEE. C'est ce
+            # qui rend la commande rejouable a chaque demarrage du conteneur
+            # sans jamais ecraser le vrai travail : le jour ou la cliente
+            # depose sa vraie etude, la demonstration s'efface d'elle-meme du
+            # chemin. Sans ce garde-fou, chaque deploiement remplacerait son
+            # document par un PDF generique et effacerait les avis qu'elle a
+            # saisis a la main.
+            if produit.fichier and not options.get("forcer"):
+                intacts += 1
+                self.stdout.write(
+                    f"  [INTACT] {produit.slug} — un document est deja depose."
                 )
                 continue
 
@@ -706,9 +739,15 @@ class Command(BaseCommand):
 
         publies = ProduitBoutique.objects.filter(en_ligne=True).count()
         self.stdout.write(
-            self.style.SUCCESS(f"\n{len(ETUDES)} etudes preparees, {publies} en ligne.")
+            self.style.SUCCESS(
+                f"\n{len(ETUDES) - intacts} etudes preparees, {intacts} laissees "
+                f"intactes, {publies} en ligne au total."
+            )
         )
-        if en_ligne:
+        # L'avertissement ne vaut que pour ce qui vient d'etre depose. Sur un
+        # rejeu ou tout est intact, il ferait croire que les documents en ligne
+        # sont generiques alors qu'ils sont ceux de la cliente.
+        if en_ligne and intacts < len(ETUDES):
             self.stdout.write(
                 self.style.WARNING(
                     "\nCes documents sont ACHETABLES et leur contenu est generique.\n"
