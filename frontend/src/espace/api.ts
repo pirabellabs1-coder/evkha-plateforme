@@ -235,6 +235,16 @@ export interface Mouvement {
 /** Une etude de boutique achetee. Les liens de telechargement sont calcules
  *  a chaque affichage, jamais stockes : un lien conserve finirait par etre
  *  transmis, et resterait valable aussi longtemps qu'on le garderait. */
+/** Une annonce d'EVKHA, affichée dans l'espace à la connexion. */
+export interface AnnonceClient {
+  id: string;
+  titre: string;
+  message: string;
+  lien_libelle: string;
+  lien_cible: string;
+  envoyee_le: string;
+}
+
 export interface AchatDeBoutique {
   id: string;
   titre: string;
@@ -558,6 +568,14 @@ export const espaceApi = {
       body: JSON.stringify({ etude }),
     }),
   /** Les etudes de boutique achetees, et le reste du catalogue. */
+  /** Les annonces d'EVKHA que ce membre n'a pas encore fermées. */
+  mesAnnonces: () => appel<{ annonces: AnnonceClient[] }>("/annonces/"),
+  /** Ferme une annonce : elle ne reviendra plus, sur aucun appareil. */
+  fermerUneAnnonce: (id: string) =>
+    appel<{ fermee: boolean }>(`/annonces/${id}/fermer/`, {
+      method: "POST",
+      body: "{}",
+    }),
   mesAchats: () =>
     appel<{ achats: AchatDeBoutique[]; catalogue: ProduitDeBoutique[] }>(
       "/achats/",

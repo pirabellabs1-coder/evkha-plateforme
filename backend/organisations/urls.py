@@ -66,6 +66,13 @@ urlpatterns = [
     # frequent du public direct : l'etude de marche, puis le business plan au
     # moment d'aller voir la banque.
     path("etudes/", vues.etudes_a_l_unite, name="etudes"),
+    # Les annonces d'EVKHA : ce qui s'affiche a la connexion.
+    path("annonces/", vues.annonces, name="annonces"),
+    path(
+        "annonces/<str:annonce_id>/fermer/",
+        vues.fermer_une_annonce,
+        name="annonce-fermer",
+    ),
     # Boutique : ce que le client a achete, et ce qu'il peut acheter.
     path("achats/", vues.mes_achats, name="achats"),
     # Le depot d'un avis, rattache a l'achat qui en donne le droit.

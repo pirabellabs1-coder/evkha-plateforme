@@ -204,6 +204,17 @@ def test_aucune_vue_de_l_espace_n_accepte_une_ecriture_sans_droit() -> None:
         # collaborateur déborde de ses droits, mais qu'un écran resté ouvert
         # serve à déplacer l'identifiant de connexion.
         "modifier_son_profil", "demander_une_nouvelle_adresse",
+        # Fermer une annonce, ajoutée le 22/08/2026. Ce que cette vue écrit
+        # n'est pas une donnée de l'organisation : c'est « CETTE personne a lu
+        # ce message ». La trace est nominative — deux collaborateurs se
+        # connectent séparément, et celui qui n'a pas lu doit voir la fenêtre.
+        #
+        # La soumettre à un rôle laisserait la fenêtre revenir à chaque
+        # connexion d'un compte « Lecture seule », sans qu'il puisse jamais
+        # s'en débarrasser. L'annonce, elle, ne s'écrit QUE depuis
+        # l'administration : rien de ce que le client envoie ici ne change son
+        # contenu, seulement le fait qu'il l'a vue.
+        "fermer_une_annonce",
     }
 
     manquants: list[str] = []

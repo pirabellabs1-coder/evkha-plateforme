@@ -808,3 +808,100 @@ class TentativePaiement(UUIDModel):
         if self.etat != EtatTentative.OUVERTE:
             return False
         return (timezone.now() - self.created_at) > timedelta(hours=24)
+
+
+class StatutAnnonce(models.TextChoices):
+    BROUILLON = "brouillon", "Brouillon"
+    ENVOYEE = "envoyee", "Envoyée"
+
+
+class Annonce(UUIDModel):
+    """Un message qu'EVKHA adresse à tous ses clients, d'un seul geste.
+
+    ## Le besoin
+
+    « Le business plan arrive le mois prochain », « l'étude de concurrence est
+    disponible ». Ce sont des nouvelles que la cliente veut annoncer elle-même,
+    quand elle le décide, sans passer par un développeur — exactement comme le
+    catalogue de la boutique.
+
+    ## Deux canaux, un seul texte
+
+    Le message part par **courriel** ET s'affiche **dans l'espace client** à la
+    connexion suivante. C'est le même texte, écrit une fois : deux champs
+    séparés auraient fini par ne plus dire la même chose, et le client aurait
+    lu deux versions de la même annonce (règle 5).
+
+    Le courriel touche ceux qui ne se connectent pas ; l'affichage dans
+    l'espace touche ceux qui ne lisent pas leurs courriels. Aucun des deux ne
+    suffit seul.
+
+    ## Le statut n'est pas décoratif
+
+    Une annonce se rédige, se relit, puis s'envoie. Tant qu'elle est en
+    brouillon, elle n'apparaît nulle part et aucun courriel n'est parti :
+    `envoyer` est un geste distinct, irréversible, et il est le seul à écrire
+    `envoyee_le`.
+    """
+
+    titre = models.CharField(max_length=160)
+    #: Le corps du message, écrit par la cliente. Affiché tel quel, sauts de
+    #: ligne compris.
+    message = models.TextField()
+    #: Le bouton de l'annonce. Vide, aucun bouton n'est affiché — toutes les
+    #: nouvelles ne mènent pas quelque part.
+    lien_libelle = models.CharField(max_length=60, blank=True)
+    #: Chemin INTERNE à l'espace client. Une adresse complète permettrait
+    #: d'envoyer les clients n'importe où depuis un champ de formulaire.
+    lien_cible = models.CharField(max_length=200, blank=True)
+
+    statut = models.CharField(
+        max_length=20, choices=StatutAnnonce.choices, default=StatutAnnonce.BROUILLON
+    )
+    envoyee_le = models.DateTimeField(null=True, blank=True)
+    #: Nombre de courriels réellement partis. Conservé parce que c'est la seule
+    #: trace : un envoi ne se rejoue pas pour être recompté.
+    courriels_envoyes = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "annonce"
+        verbose_name_plural = "annonces"
+
+    def __str__(self) -> str:
+        return self.titre
+
+    @property
+    def est_envoyee(self) -> bool:
+        return self.statut == StatutAnnonce.ENVOYEE
+
+
+class AnnonceVue(UUIDModel):
+    """Trace qu'un membre a vu — et fermé — une annonce.
+
+    C'est ce qui empêche la fenêtre de revenir à chaque page. Sans elle, il
+    faudrait la garder dans le navigateur : elle réapparaîtrait sur un autre
+    appareil, et disparaîtrait au premier vidage de cache.
+
+    Par MEMBRE et non par organisation : deux collaborateurs d'une même agence
+    se connectent séparément, et celui qui n'a pas lu l'annonce doit la voir.
+    """
+
+    annonce = models.ForeignKey(Annonce, on_delete=models.CASCADE, related_name="vues")
+    membre = models.ForeignKey(
+        MembreOrganisation, on_delete=models.CASCADE, related_name="annonces_vues"
+    )
+
+    class Meta:
+        # Le verrou vit dans la base : deux onglets qui ferment la fenêtre en
+        # même temps passeraient tous deux un contrôle écrit en Python.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["annonce", "membre"], name="annonce_vue_unique_par_membre"
+            )
+        ]
+        verbose_name = "annonce vue"
+        verbose_name_plural = "annonces vues"
+
+    def __str__(self) -> str:
+        return f"{self.membre_id} a vu {self.annonce_id}"

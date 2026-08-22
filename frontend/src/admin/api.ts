@@ -198,6 +198,21 @@ export interface ProduitBoutique {
   avis: AvisBoutique[];
 }
 
+export interface Annonce {
+  id: string;
+  titre: string;
+  message: string;
+  lien_libelle: string;
+  lien_cible: string;
+  statut: "brouillon" | "envoyee";
+  envoyee: boolean;
+  envoyee_le: string;
+  courriels_envoyes: number;
+  cree_le: string;
+  /** Combien de personnes l'ont ouverte dans leur espace. */
+  lue_par: number;
+}
+
 export interface AvisBoutique {
   id: string;
   auteur: string;
@@ -264,6 +279,46 @@ export const adminApi = {
       throw new Error(charge.erreur ?? `Erreur ${reponse.status}`);
     }
     return (await reponse.json()) as { supprime: string };
+  },
+  annonces: () =>
+    get<{
+      annonces: Annonce[];
+      destinations: { cible: string; libelle: string }[];
+      destinataires: number;
+    }>("/annonces/"),
+  redigerUneAnnonce: (annonce: {
+    titre: string;
+    message: string;
+    lien_libelle: string;
+    lien_cible: string;
+  }) => post<{ annonce: Annonce }>("/annonces/", annonce),
+  modifierUneAnnonce: (
+    id: string,
+    annonce: Partial<{
+      titre: string;
+      message: string;
+      lien_libelle: string;
+      lien_cible: string;
+    }>,
+  ) => post<{ annonce: Annonce }>(`/annonces/${id}/`, annonce),
+  envoyerUneAnnonce: (id: string) =>
+    post<{ annonce: Annonce; destinataires: number; courriels_envoyes: number }>(
+      `/annonces/${id}/envoyer/`,
+      {},
+    ),
+  supprimerUneAnnonce: async (id: string) => {
+    const reponse = await fetch(`${BASE}/api/dashboard/annonces/${id}/`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
+    });
+    if (!reponse.ok) {
+      const charge = (await reponse.json().catch(() => ({}))) as { erreur?: string };
+      throw new Error(charge.erreur ?? `Erreur ${reponse.status}`);
+    }
+    return (await reponse.json()) as { supprimee: string };
   },
   ajouterUnAvis: (produitId: string, donnees: FormData) =>
     envoyer<{ produit: ProduitBoutique }>(`/boutique/${produitId}/avis/`, donnees),

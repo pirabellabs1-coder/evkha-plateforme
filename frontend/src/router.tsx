@@ -10,6 +10,7 @@ import { TableauDeBordAdmin } from "./admin/pages/TableauDeBord";
 import { OrganisationsAdmin } from "./admin/pages/Organisations";
 import { LivrablesAdmin } from "./admin/pages/Livrables";
 import { BoutiqueAdmin } from "./admin/pages/BoutiqueAdmin";
+import { Annonces } from "./admin/pages/Annonces";
 import { TransactionsAdmin } from "./admin/pages/Transactions";
 import { DemandesAdmin } from "./admin/pages/Demandes";
 import { Jobs } from "./pages/Jobs";
@@ -214,6 +215,14 @@ const adminBoutique = createRoute({
   component: BoutiqueAdmin,
 });
 
+// Les annonces : le seul chemin pour prevenir tous les clients d'un coup, par
+// courriel ET dans leur espace. Il ne repasse pas par un developpeur.
+const adminAnnonces = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "annonces",
+  component: Annonces,
+});
+
 const adminTransactions = createRoute({
   getParentRoute: () => adminRoute,
   path: "transactions",
@@ -300,6 +309,7 @@ const routeTree = rootRoute.addChildren([
     adminIndex,
     adminOrganisations,
     adminBoutique,
+    adminAnnonces,
     adminTransactions,
     adminLivrables,
     adminDemandes,

@@ -2189,6 +2189,85 @@ def equipe(
     })
 
 
+# ── Annonces d'EVKHA ──────────────────────────────────────────────
+
+
+@require_http_methods(["GET"])
+@espace()
+def annonces(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Les annonces envoyees que CE membre n'a pas encore fermees.
+
+    Par membre et non par organisation : deux collaborateurs d'une meme agence
+    se connectent separement, et celui qui n'a pas lu l'annonce doit la voir.
+
+    Les brouillons n'apparaissent jamais — c'est tout l'interet du statut : la
+    cliente redige, relit, et decide quand cela devient public.
+    """
+    from .models import Annonce, StatutAnnonce  # noqa: PLC0415
+
+    ouvertes = (
+        Annonce.objects.filter(statut=StatutAnnonce.ENVOYEE)
+        .exclude(vues__membre=membre)
+        .order_by("-envoyee_le")
+    )
+    return JsonResponse({
+        "annonces": [
+            {
+                "id": str(a.id),
+                "titre": a.titre,
+                "message": a.message,
+                "lien_libelle": a.lien_libelle,
+                "lien_cible": a.lien_cible,
+                "envoyee_le": a.envoyee_le.isoformat() if a.envoyee_le else "",
+            }
+            for a in ouvertes
+        ],
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace()
+def fermer_une_annonce(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    annonce_id: str,
+) -> HttpResponse:
+    """Ferme une annonce pour ce membre : elle ne reviendra plus.
+
+    La trace vit en BASE et non dans le navigateur : rangee cote client, la
+    fenetre reapparaitrait sur un autre appareil et disparaitrait au premier
+    vidage de cache.
+
+    Fermer deux fois est sans effet. Le doublon est rattrape par la contrainte
+    d'unicite plutot que par un comptage en Python : deux onglets qui ferment
+    la fenetre au meme instant passeraient tous deux un `if deja_vue`.
+    """
+    from django.db import IntegrityError, transaction  # noqa: PLC0415
+
+    from .models import Annonce, AnnonceVue, StatutAnnonce  # noqa: PLC0415
+
+    cible = Annonce.objects.filter(
+        id=annonce_id, statut=StatutAnnonce.ENVOYEE
+    ).first()
+    if cible is None:
+        return _refus("Cette annonce n'existe pas.", "annonce_inconnue", 404)
+
+    try:
+        # `atomic` autour de l'ecriture : une `IntegrityError` attrapee sans
+        # point de reprise laisse la transaction cassee, et la reponse elle-meme
+        # echouerait.
+        with transaction.atomic():
+            AnnonceVue.objects.create(annonce=cible, membre=membre)
+    except IntegrityError:
+        pass  # Deja fermee : c'est le resultat voulu.
+
+    return JsonResponse({"fermee": True})
+
+
 # ── Boutique : les achats du client ──────────────────────────────────────────
 
 

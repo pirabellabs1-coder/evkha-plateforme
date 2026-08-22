@@ -256,6 +256,33 @@ def demander_un_avis(*, destinataire: str, etude: str, lien: str) -> bool:
     )
 
 
+def annoncer(
+    *, destinataire: str, titre: str, message: str, lien: str, bouton: str
+) -> bool:
+    """Porte une annonce d'EVKHA a un client, par courriel.
+
+    Le SUJET est le titre de l'annonce, tel que la cliente l'a ecrit. Un sujet
+    generique — « Nouvelle information EVKHA » — se ferait ignorer, et rendrait
+    l'annonce invisible pour ceux qui ne se connectent pas.
+
+    Le meme texte s'affiche dans l'espace client a la connexion suivante. Deux
+    formulations pour une meme nouvelle finiraient par diverger (regle 5) :
+    l'appelant passe ici le texte qu'il affiche la-bas.
+    """
+    return _envoyer(
+        destinataire=destinataire,
+        sujet=titre,
+        corps_html=_gabarit(
+            titre=titre,
+            # Les paragraphes sont ceux de la cliente : on decoupe sur les
+            # lignes vides plutot que de recomposer son texte.
+            phrases=[p.strip() for p in message.split("\n\n") if p.strip()],
+            lien=lien,
+            bouton=bouton,
+        ),
+    )
+
+
 def reinitialiser_le_mot_de_passe(*, destinataire: str, lien: str) -> bool:
     return _envoyer(
         destinataire=destinataire,

@@ -1,0 +1,370 @@
+/* Les annonces en administration.
+ *
+ * Les couleurs viennent de `theme/tokens.css` — jamais d'hexadécimal ici : la
+ * charte se règle à un seul endroit.
+ */
+
+.ann {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+}
+
+/* ── En-tête ─────────────────────────────────────────────────────────────── */
+
+.ann-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-6);
+  flex-wrap: wrap;
+}
+
+.ann-chiffres {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e-3);
+  margin: 0;
+  flex: 1;
+  min-width: 260px;
+}
+
+.ann-chiffres div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  padding: var(--e-4) var(--e-4) var(--e-3);
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-top: 3px solid var(--evkha-or);
+  border-radius: var(--rayon-md);
+}
+
+.ann-chiffres dt {
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-forte);
+}
+
+.ann-chiffres dd {
+  margin: 0;
+  font-size: var(--t-xl);
+  line-height: 1.05;
+  font-weight: var(--graisse-affiche);
+  color: var(--texte-fort);
+  font-variant-numeric: tabular-nums;
+}
+
+.ann-erreur,
+.ann-succes {
+  margin: 0;
+  padding: var(--e-3) var(--e-4);
+  border-radius: var(--rayon-sm);
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+}
+
+.ann-erreur {
+  background: var(--evkha-echec-voile);
+  border: 1px solid var(--evkha-echec);
+  color: var(--evkha-echec);
+}
+
+.ann-succes {
+  background: var(--evkha-succes-voile);
+  border: 1px solid var(--evkha-succes);
+  color: var(--evkha-succes);
+}
+
+/* ── Rédaction ───────────────────────────────────────────────────────────── */
+
+.ann-redaction {
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  padding: var(--e-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+}
+
+.ann-redaction-tete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-4);
+}
+
+.ann-redaction-tete h3 {
+  margin: 0;
+  font-size: var(--t-lg);
+  color: var(--texte-fort);
+}
+
+.ann-fermer {
+  border: none;
+  background: transparent;
+  font-size: var(--t-md);
+  color: var(--texte-tenu);
+  cursor: pointer;
+  padding: var(--e-1) var(--e-2);
+  border-radius: var(--rayon-xs);
+  line-height: 1;
+}
+
+.ann-fermer:hover {
+  background: var(--fond-enfonce);
+  color: var(--texte-fort);
+}
+
+.ann-champ {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.ann-champ > span {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.ann-champ input,
+.ann-champ textarea,
+.ann-champ select {
+  font: inherit;
+  font-size: var(--t-base);
+  color: var(--texte);
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  padding: var(--e-3);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ann-champ textarea {
+  resize: vertical;
+  line-height: var(--interligne);
+}
+
+.ann-champ input:focus,
+.ann-champ textarea:focus,
+.ann-champ select:focus {
+  outline: 2px solid var(--evkha-or);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.ann-champ small {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+}
+
+.ann-duo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e-4);
+}
+
+/* ── Aperçu ──────────────────────────────────────────────────────────────── */
+
+.ann-apercu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.ann-apercu-mention {
+  margin: 0;
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--texte-tenu);
+  font-weight: var(--graisse-forte);
+}
+
+.ann-apercu-fenetre {
+  border: 1px solid var(--evkha-bordure);
+  border-left: 4px solid var(--evkha-or);
+  border-radius: var(--rayon-md);
+  background: var(--fond-page);
+  padding: var(--e-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.ann-apercu-titre {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+}
+
+.ann-apercu-texte {
+  margin: 0;
+  font-size: var(--t-sm);
+  line-height: var(--interligne);
+  color: var(--texte);
+  white-space: pre-line;
+}
+
+.ann-apercu-bouton {
+  align-self: flex-start;
+  padding: var(--e-2) var(--e-5);
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+}
+
+.ann-redaction-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-4);
+  flex-wrap: wrap;
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+.ann-portee {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+}
+
+.ann-boutons {
+  display: flex;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+}
+
+/* ── Confirmation d'envoi ────────────────────────────────────────────────── */
+/*
+ * Encadrée en or et non en rouge : ce n'est pas une erreur, c'est un geste
+ * important. Le rouge dirait « quelque chose ne va pas » alors que tout va
+ * bien — il ne resterait plus de couleur pour les vraies alertes.
+ */
+.ann-confirmation {
+  border: 2px solid var(--evkha-or);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-or-brume);
+  padding: var(--e-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.ann-confirmation p {
+  margin: 0;
+  font-size: var(--t-base);
+  color: var(--texte-fort);
+}
+
+.ann-confirmation-note {
+  font-size: var(--t-sm) !important;
+  color: var(--texte-tenu) !important;
+  line-height: var(--interligne);
+}
+
+/* ── La liste ────────────────────────────────────────────────────────────── */
+
+.ann-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.ann-carte {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-4);
+  padding: var(--e-4) var(--e-5);
+  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+}
+
+/* Envoyée : la carte s'efface un peu. Ce qui demande une action — les
+   brouillons — doit ressortir de ce qui est fait. */
+.ann-carte-envoyee {
+  opacity: 0.78;
+}
+
+.ann-carte-corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  min-width: 0;
+}
+
+.ann-carte-titre {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  flex-wrap: wrap;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+}
+
+.ann-carte-message {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texte);
+  line-height: var(--interligne);
+  /* Trois lignes suffisent à reconnaître l'annonce ; le texte entier est dans
+     l'aperçu de la rédaction et dans le courriel. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+.ann-fanion {
+  padding: 2px var(--e-3);
+  border-radius: var(--rayon-pilule);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--fond-enfonce);
+  color: var(--texte-tenu);
+  border: 1px solid var(--evkha-bordure);
+}
+
+.ann-fanion-vif {
+  background: var(--evkha-or);
+  border-color: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.ann-carte-boutons {
+  display: flex;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 800px) {
+  .ann-duo,
+  .ann-chiffres {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ann-carte {
+    flex-direction: column;
+  }
+}

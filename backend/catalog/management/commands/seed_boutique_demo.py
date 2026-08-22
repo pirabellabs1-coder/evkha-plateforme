@@ -40,6 +40,7 @@ Pillow).
 from __future__ import annotations
 
 import io
+from pathlib import Path
 from typing import Any
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -59,6 +60,9 @@ MENTION_DEMO = (
 #: La charte, reprise de `theme/tokens.css`. Ces valeurs ne sont pas
 #: importables depuis du CSS ; elles sont recopiees ici et nulle part ailleurs.
 OR = (0.973, 0.773, 0.110)
+#: La meme couleur, en composantes 0-255 pour Pillow. Derivee de `OR` plutot
+#: que reecrite : deux ecritures d'une meme couleur finissent par diverger.
+OR_RVB = tuple(round(c * 255) for c in OR)
 NOIR = (0.043, 0.043, 0.043)
 BLANC = (1, 1, 1)
 
@@ -448,43 +452,91 @@ ETUDES: list[dict[str, Any]] = [
 ]
 
 
-def _couverture(titre: str, fond: tuple[int, int, int]) -> bytes:
-    """Une couverture 1200x800, au format des cartes de la boutique."""
-    from PIL import Image, ImageDraw, ImageFont  # noqa: PLC0415
+def _police(taille: int, grasse: bool = False) -> Any:
+    """Une police VECTORIELLE a la taille demandee.
+
+    ## Pourquoi ce n'est pas une ligne
+
+    La premiere version demandait `arialbd.ttf`, et retombait sur
+    `ImageFont.load_default()` en cas d'echec. Sur mon poste, Arial existe ; le
+    conteneur Linux ne l'a pas. Le repli est une police BITMAP de onze pixels
+    que Pillow ne sait pas agrandir : les couvertures deployees portaient donc
+    leur titre en corps 11 sur une image de 1200 pixels de large — un filet de
+    texte illisible, la ou le code demandait du 62.
+
+    Rien n'echouait. Le fichier etait valide, la commande rendait « OK », et
+    seul un oeil sur l'image le voyait. C'est la regle 3 : verifier ce que le
+    lecteur va REGARDER, pas ce que la fonction a rendu.
+
+    DejaVu est cherche dans les donnees de matplotlib, qui est une dependance
+    DECLAREE de ce projet (extra `word`) : la police voyage donc avec
+    l'installation, sur n'importe quel systeme. Les polices du systeme restent
+    essayees d'abord, parce qu'elles sont plus jolies quand elles existent.
+    """
+    from PIL import ImageFont  # noqa: PLC0415
+
+    candidates = ["arialbd.ttf", "Arial.ttf"] if grasse else ["arial.ttf", "Arial.ttf"]
+    for nom in candidates:
+        try:
+            return ImageFont.truetype(nom, taille)
+        except OSError:
+            continue
+
+    import matplotlib  # noqa: PLC0415
+
+    fichier = "DejaVuSans-Bold.ttf" if grasse else "DejaVuSans.ttf"
+    chemin = Path(matplotlib.get_data_path()) / "fonts" / "ttf" / fichier
+    # Pas de repli silencieux vers `load_default()` : une police absente doit
+    # se voir ici, pas sur l'image livree (regle 1).
+    return ImageFont.truetype(str(chemin), taille)
+
+
+def _couverture(titre: str, theme: str, fond: tuple[int, int, int]) -> bytes:
+    """Une couverture 1200x800, au format des cartes de la boutique.
+
+    Elle porte ce qui identifie l'etude : son theme, son titre en grand, et la
+    collection. Une couverture qui ne porte qu'un aplat de couleur ne dit rien
+    de plus qu'un cadre vide.
+    """
+    from PIL import Image, ImageDraw  # noqa: PLC0415
 
     image = Image.new("RGB", (1200, 800), fond)
     dessin = ImageDraw.Draw(image)
-    dessin.rectangle([0, 720, 1200, 800], fill=(248, 197, 28))
+    dessin.rectangle([0, 726, 1200, 800], fill=OR_RVB)
 
-    # Le repli ne rend pas le meme type que `truetype` : l'annotation dit les
-    # deux, sinon mypy fige la variable sur le premier et refuse le second.
-    grande: ImageFont.FreeTypeFont | ImageFont.ImageFont
-    petite: ImageFont.FreeTypeFont | ImageFont.ImageFont
-    try:
-        grande = ImageFont.truetype("arialbd.ttf", 62)
-        petite = ImageFont.truetype("arial.ttf", 30)
-    except OSError:  # pragma: no cover — depend des polices du systeme
-        grande = petite = ImageFont.load_default()
+    titre_police = _police(66, grasse=True)
+    theme_police = _police(28, grasse=True)
+    pied_police = _police(26)
+
+    # Le theme, en haut, sur un filet d'or : il situe l'etude avant qu'on lise
+    # le titre, comme le fanion de la carte en boutique.
+    if theme:
+        dessin.rectangle([84, 96, 92, 130], fill=OR_RVB)
+        dessin.text((110, 98), theme.upper(), font=theme_police, fill=OR_RVB)
 
     lignes: list[str] = []
     courante = ""
     for mot in titre.split():
         essai = f"{courante} {mot}".strip()
-        if dessin.textlength(essai, font=grande) > 1000:
+        if dessin.textlength(essai, font=titre_police) > 1010:
             lignes.append(courante)
             courante = mot
         else:
             courante = essai
     lignes.append(courante)
 
-    y = 300 - len(lignes) * 40
+    # Bloc de titre centre verticalement dans la zone sombre : deux lignes ou
+    # quatre, il reste a sa place.
+    hauteur = len(lignes) * 84
+    y = 380 - hauteur // 2
     for ligne in lignes:
-        dessin.text((90, y), ligne, font=grande, fill=(255, 255, 255))
-        y += 78
-    dessin.text((90, 640), "ETUDE DE MARCHE - EVKHA", font=petite, fill=(248, 197, 28))
+        dessin.text((84, y), ligne, font=titre_police, fill=(255, 255, 255))
+        y += 84
+
+    dessin.text((84, 648), "ÉTUDE DE MARCHÉ · EVKHA", font=pied_police, fill=OR_RVB)
 
     tampon = io.BytesIO()
-    image.save(tampon, format="JPEG", quality=88)
+    image.save(tampon, format="JPEG", quality=90)
     return tampon.getvalue()
 
 
@@ -701,10 +753,45 @@ class Command(BaseCommand):
             # document par un PDF generique et effacerait les avis qu'elle a
             # saisis a la main.
             if produit.fichier and not options.get("forcer"):
+                # ... a une exception pres : la COUVERTURE d'une fiche restee
+                # entierement de demonstration.
+                #
+                # Les premieres couvertures deployees portaient leur titre en
+                # corps 11 sur 1200 pixels, faute d'une police vectorielle dans
+                # le conteneur (voir `_police`). Elles sont illisibles, et sans
+                # ce rattrapage elles le resteraient pour toujours : la fiche
+                # porte un fichier, donc elle est protegee.
+                #
+                # DEUX conditions, et il faut les deux : la description doit
+                # etre encore MOT POUR MOT celle de la demonstration — la
+                # cliente n'y a donc pas touche —, et l'image doit etre celle
+                # que cette commande depose. Le jour ou elle ecrit sa propre
+                # description ou depose sa propre couverture, on ne touche plus
+                # a rien. Le document vendu, lui, n'est jamais remplace.
+                encore_demo = produit.description == etude["description"]
+                notre_image = "-couverture" in (produit.image.name or "")
+                if encore_demo and notre_image:
+                    produit.image.save(
+                        f"{produit.slug}-couverture.jpg",
+                        SimpleUploadedFile(
+                            "couverture.jpg",
+                            _couverture(
+                                produit.titre,
+                                produit.theme,
+                                FONDS[rang % len(FONDS)],
+                            ),
+                            "image/jpeg",
+                        ),
+                        save=True,
+                    )
+                    self.stdout.write(
+                        f"  [COUVERTURE] {produit.slug} — refaite, le reste intact."
+                    )
+                else:
+                    self.stdout.write(
+                        f"  [INTACT] {produit.slug} — un document est deja depose."
+                    )
                 intacts += 1
-                self.stdout.write(
-                    f"  [INTACT] {produit.slug} — un document est deja depose."
-                )
                 continue
 
             produit.description = etude["description"]
@@ -715,7 +802,7 @@ class Command(BaseCommand):
             produit.image.save(
                 f"{produit.slug}-couverture.jpg",
                 SimpleUploadedFile(
-                    "couverture.jpg", _couverture(produit.titre, fond), "image/jpeg"
+                    "couverture.jpg", _couverture(produit.titre, produit.theme, fond), "image/jpeg"
                 ),
                 save=False,
             )

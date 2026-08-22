@@ -13,6 +13,7 @@ import { espaceApi, jeton } from "./api";
 import * as f from "./format";
 import { useMoi } from "./useMoi";
 import { Bandeau } from "./composants/Interface";
+import { FenetreAnnonce } from "./composants/Annonce";
 
 const ENTREES = [
   { vers: "/espace", libelle: "Tableau de bord", icone: "◈", exact: true },
@@ -110,6 +111,9 @@ export function Coquille() {
 
   return (
     <div className={barre.visible ? "espace" : "espace barre-repliee"}>
+      {/* L'annonce se pose au-dessus de tout l'espace, et non d'une page :
+          elle doit se voir quelle que soit celle sur laquelle on arrive. */}
+      <FenetreAnnonce />
       <nav
         id="navigation-espace"
         className={barre.visible ? "espace-barre ouverte" : "espace-barre"}

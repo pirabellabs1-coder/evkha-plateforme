@@ -900,6 +900,62 @@ def test_deposer_le_SEUL_fichier_ne_casse_pas(client_admin: Any) -> None:
     assert produit.est_publiable
 
 
+def test_enregistrer_une_DATE_de_mise_a_jour_ne_casse_pas(client_admin: Any) -> None:
+    """Le geste le plus banal de l'administration rendait 500.
+
+    Django accepte d'ecrire une CHAINE dans un champ date : la ligne partait en
+    base sans broncher. Mais l'objet en memoire gardait la chaine, et la
+    reponse appelait `.isoformat()` dessus — `AttributeError`, erreur 500.
+
+    Le pire etait l'ambiguite : la modification etait bien enregistree, et la
+    cliente lisait « Erreur 500 » sans pouvoir savoir si son travail etait
+    perdu.
+    """
+    produit = produit_en_ligne()
+
+    reponse = client_admin.post(
+        f"/api/dashboard/boutique/{produit.id}/", {"mise_a_jour": "2026-08-22"}
+    )
+
+    assert reponse.status_code == 200, reponse.content
+    assert reponse.json()["produit"]["mise_a_jour"] == "2026-08-22"
+    produit.refresh_from_db()
+    assert produit.mise_a_jour_le is not None
+    assert produit.mise_a_jour_le.isoformat() == "2026-08-22"
+
+
+def test_une_date_ILLISIBLE_laisse_la_precedente(client_admin: Any) -> None:
+    """Meme regle que pour le prix : une saisie fautive n'efface pas une
+    donnee juste."""
+    from datetime import date  # noqa: PLC0415
+
+    produit = produit_en_ligne()
+    produit.mise_a_jour_le = date(2026, 3, 1)
+    produit.save(update_fields=["mise_a_jour_le"])
+
+    reponse = client_admin.post(
+        f"/api/dashboard/boutique/{produit.id}/", {"mise_a_jour": "le mois dernier"}
+    )
+
+    assert reponse.status_code == 200
+    produit.refresh_from_db()
+    assert produit.mise_a_jour_le == date(2026, 3, 1)
+
+
+def test_une_date_VIDE_efface_la_precedente(client_admin: Any) -> None:
+    """Contre-epreuve : le champ doit rester effacable."""
+    from datetime import date  # noqa: PLC0415
+
+    produit = produit_en_ligne()
+    produit.mise_a_jour_le = date(2026, 3, 1)
+    produit.save(update_fields=["mise_a_jour_le"])
+
+    client_admin.post(f"/api/dashboard/boutique/{produit.id}/", {"mise_a_jour": ""})
+
+    produit.refresh_from_db()
+    assert produit.mise_a_jour_le is None
+
+
 def test_le_prix_se_saisit_en_euros(client_admin: Any) -> None:
     """La conversion vit au serveur : la faire dans le navigateur donnerait
     deux endroits ou l'arrondi peut differer.

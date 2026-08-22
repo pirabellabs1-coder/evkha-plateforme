@@ -13,6 +13,7 @@ from typing import Any
 
 from django.db.models import Count, Sum
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.utils.dateparse import parse_date
 from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -160,9 +161,27 @@ def _appliquer(produit: ProduitBoutique, donnees: Any, fichiers: Any) -> list[st
                 _log.warning("Prix illisible (%r) : valeur ignoree.", brut)
 
     if "mise_a_jour" in donnees:
-        valeur = str(donnees["mise_a_jour"]).strip()
-        produit.mise_a_jour_le = valeur or None
-        modifies.append("mise_a_jour_le")
+        # La date est CONVERTIE, pas recopiee telle quelle. Django accepte
+        # d'ecrire une chaine dans un champ date — la ligne partait donc en
+        # base sans broncher — mais l'objet en memoire gardait la chaine, et
+        # la reponse appelait `.isoformat()` dessus : `AttributeError`, 500.
+        #
+        # Mesure du 22/08/2026 : la cliente enregistrait une etude avec sa
+        # date de mise a jour, voyait « Erreur 500 », et ne pouvait pas savoir
+        # que la modification avait pourtant ete enregistree.
+        brut = str(donnees["mise_a_jour"]).strip()
+        if not brut:
+            produit.mise_a_jour_le = None
+            modifies.append("mise_a_jour_le")
+        else:
+            jour = parse_date(brut)
+            if jour is None:
+                # Comme pour le prix : une saisie illisible laisse la valeur
+                # precedente plutot que d'effacer une date juste.
+                _log.warning("Date de mise a jour illisible (%r) : ignoree.", brut)
+            else:
+                produit.mise_a_jour_le = jour
+                modifies.append("mise_a_jour_le")
 
     if "en_ligne" in donnees:
         produit.en_ligne = str(donnees["en_ligne"]).lower() in ("1", "true", "oui")
@@ -201,6 +220,7 @@ def produits(request: HttpRequest) -> HttpResponse:
     _appliquer(produit, donnees, request.FILES)
     produit.titre = titre
     produit.save()
+    produit.refresh_from_db()  # meme raison qu'a la modification.
     _log.info("Produit de boutique cree : %s", produit.slug)
     return JsonResponse({"produit": _vue(produit, _ventes_par_produit())}, status=201)
 
@@ -242,6 +262,15 @@ def produit(request: HttpRequest, produit_id: str) -> HttpResponse:
         )
 
     cible.save()
+    # RELECTURE avant de repondre. Django convertit certaines valeurs au moment
+    # d'ecrire — une date, un decimal — sans toucher a l'objet en memoire :
+    # celui-ci peut donc porter une chaine la ou la base porte une date, et la
+    # reponse decrirait alors autre chose que ce qui est enregistre.
+    #
+    # C'est la classe du defaut du 22/08/2026, pas seulement son exemple : le
+    # champ `mise_a_jour` est corrige a l'entree, et cette relecture couvre
+    # tous ceux qui viendront apres lui (regle 4).
+    cible.refresh_from_db()
     _log.info("Produit %s modifie (%s).", cible.slug, ", ".join(modifies) or "rien")
     return JsonResponse({"produit": _vue(cible, _ventes_par_produit())})
 

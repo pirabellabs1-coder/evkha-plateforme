@@ -26,6 +26,7 @@ const ENTREES = [
   { vers: "/admin/organisations", libelle: "Organisations", icone: "◍" },
   { vers: "/admin/livrables", libelle: "Livrables", icone: "▣" },
   { vers: "/admin/boutique", libelle: "Boutique", icone: "▤" },
+  { vers: "/admin/annonces", libelle: "Annonces", icone: "◆" },
   { vers: "/admin/transactions", libelle: "Transactions", icone: "◈" },
   { vers: "/admin/demandes", libelle: "Demandes", icone: "◇" },
   { vers: "/admin/jobs", libelle: "Générations", icone: "▤" },
@@ -50,6 +51,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/admin/boutique": {
     titre: "Boutique",
     sous: "Les études déjà rédigées : fiche, fichier, prix et mise en ligne.",
+  },
+  "/admin/annonces": {
+    titre: "Annonces",
+    sous: "Prévenir tous vos clients d'un livrable à venir ou disponible.",
   },
   "/admin/transactions": {
     titre: "Transactions",

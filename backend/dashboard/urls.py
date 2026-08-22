@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from . import actions, boutique, supervision, views
+from . import actions, annonces, boutique, supervision, views
 
 app_name = "dashboard"
 
@@ -53,6 +53,20 @@ urlpatterns = [
     ),
     # Actions d'administration : elles remplacent l'usage de /admin/ Django.
     path("supervision/formules/", actions.formules, name="supervision-formules"),
+    # Les annonces : redigees ici, envoyees par courriel ET affichees dans les
+    # espaces clients a la connexion suivante.
+    path("annonces/", annonces.annonces, name="annonces"),
+    path("annonces/<str:annonce_id>/", annonces.annonce, name="annonce"),
+    path(
+        "annonces/<str:annonce_id>/envoyer/",
+        annonces.envoyer,
+        name="annonce-envoyer",
+    ),
+    path(
+        "annonces/<str:annonce_id>/lecteurs/",
+        annonces.lecteurs,
+        name="annonce-lecteurs",
+    ),
     # La boutique : ajouter, modifier, retirer un produit, et voir ses
     # ventes. Le catalogue s'elargit chaque mois et ne doit jamais
     # repasser par un developpeur.
