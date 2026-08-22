@@ -39,6 +39,14 @@
 #   l'avoir : les seeds qui suivent ce commentaire chargent des données, ils ne
 #   conditionnent pas la capacité du serveur à répondre (règle 4 — viser la
 #   classe, pas l'exemple).
+#
+#   ATTENTION AUX GUILLEMETS. Toute cette chaîne est UN SEUL argument de
+#   `sh -c "…"`, entre guillemets doubles. Un `echo "…"` à l'intérieur ferme
+#   donc la chaîne au milieu, et le conteneur redémarre en boucle sans qu'un
+#   seul message n'explique pourquoi : le premier correctif de la panne du
+#   22/08/2026 a fait exactement cela, et a prolongé la coupure de vingt
+#   minutes. Les messages internes se citent avec des guillemets SIMPLES, et
+#   sans apostrophe.
 
 services:
   api:
@@ -56,7 +64,7 @@ services:
       && python manage.py seed_offers
       && python manage.py seed_formules
       && python manage.py seed_boutique
-      && (python manage.py seed_boutique_demo || echo "AVERTISSEMENT : le jeu de demonstration n'a pas pu etre depose. L'API demarre quand meme.")
+      && (python manage.py seed_boutique_demo || echo 'AVERTISSEMENT - jeu de demonstration non depose, la boutique demarre vide')
       && python manage.py assurer_admin
       && python manage.py reinitialiser_la_plateforme
       && python manage.py collectstatic --noinput
