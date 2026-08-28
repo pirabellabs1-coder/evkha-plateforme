@@ -783,6 +783,35 @@ def test_le_jeu_de_demonstration_n_ECRASE_PAS_un_vrai_document() -> None:
     assert [a.auteur for a in vraie.avis.all()] == ["Retour recu par courriel"]
 
 
+def test_le_rattrapage_active_l_apercu_sans_toucher_au_document() -> None:
+    """L'apercu est arrive APRES le premier deploiement du jeu de
+    demonstration.
+
+    Les fiches deja remplies ne repassent jamais par le chemin qui l'active —
+    elles portent un document, donc elles sont protegees. Sans ce rattrapage,
+    les neuf etudes de la boutique resteraient sans apercu pour toujours, et
+    la fonction serait invisible la ou elle devait se voir.
+
+    Il ne s'applique qu'aux fiches restees ENTIEREMENT de demonstration, et il
+    ne remplace jamais le document vendu.
+    """
+    from django.core.management import call_command  # noqa: PLC0415
+
+    call_command('seed_boutique', verbosity=0)
+    call_command('seed_boutique_demo', verbosity=0)
+    produit = ProduitBoutique.objects.get(slug='marche-foodtrucks-2026')
+    # On simule l'etat d'AVANT : le document est la, l'apercu ne l'est pas.
+    empreinte = produit.fichier.name
+    produit.apercu_actif = False
+    produit.save(update_fields=['apercu_actif'])
+
+    call_command('seed_boutique_demo', verbosity=0)
+
+    produit.refresh_from_db()
+    assert produit.apercu_actif is True
+    assert produit.fichier.name == empreinte, 'le document a ete remplace'
+
+
 def test_le_jeu_de_demonstration_remplit_une_fiche_VIDE() -> None:
     """Contre-epreuve : le garde-fou ne doit pas bloquer ce qu'il doit faire."""
     from django.core.management import call_command  # noqa: PLC0415

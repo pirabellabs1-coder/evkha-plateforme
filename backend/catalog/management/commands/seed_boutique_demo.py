@@ -808,10 +808,20 @@ class Command(BaseCommand):
                             ),
                             "image/jpeg",
                         ),
-                        save=True,
+                        save=False,
                     )
+                    # L'apercu suit la meme regle, et pour la meme raison : il
+                    # est arrive APRES le premier deploiement du jeu de
+                    # demonstration, et les fiches deja remplies ne repasseraient
+                    # jamais par le chemin qui l'active. Sur une fiche restee
+                    # entierement de demonstration, l'activer est sans risque —
+                    # c'est nous qui avons depose le document.
+                    produit.apercu_actif = True
+                    produit.apercu_pages = 3
+                    produit.save()
                     self.stdout.write(
-                        f"  [COUVERTURE] {produit.slug} — refaite, le reste intact."
+                        f"  [RATTRAPAGE] {produit.slug} — couverture et aperçu "
+                        "refaits, le reste intact."
                     )
                 else:
                     self.stdout.write(
