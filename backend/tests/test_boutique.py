@@ -333,14 +333,20 @@ def test_un_html_depose_en_vitrine_reste_une_piece_jointe() -> None:
     rendues en ligne est FERMÉE, et ce qui n'y figure pas retombe en pièce
     jointe quel que soit son emplacement (règle 4 : viser la classe).
     """
-    produit = produit_en_ligne()
-    produit.extrait.save(
-        "piege.html",
-        SimpleUploadedFile("piege.html", b"<script>alert(1)</script>", "text/html"),
-        save=True,
-    )
+    from catalog.models import PREFIXE_VITRINE  # noqa: PLC0415
 
-    reponse = Client().get(f"/media/{produit.extrait.name}")
+    produit = produit_en_ligne()
+    # Ecrit DIRECTEMENT sous le prefixe public : c'est la situation qu'on
+    # verrouille — un fichier deja range dans la vitrine, quel que soit le
+    # champ ou le chemin par lequel il y est arrive.
+    from django.conf import settings  # noqa: PLC0415
+
+    chemin = f"{PREFIXE_VITRINE}/{produit.slug}/piege.html"
+    cible = settings.MEDIA_ROOT / chemin
+    cible.parent.mkdir(parents=True, exist_ok=True)
+    cible.write_bytes(b"<script>alert(1)</script>")
+
+    reponse = Client().get(f"/media/{chemin}")
 
     # Pas de signature, et l'extension n'ouvre pas la voie en ligne : refuse.
     assert reponse.status_code == 404
@@ -789,8 +795,8 @@ def test_le_jeu_de_demonstration_remplit_une_fiche_VIDE() -> None:
 
     vide.refresh_from_db()
     assert vide.fichier
-    assert vide.extrait
     assert vide.image
+    assert vide.apercu_actif is True
     assert vide.description
     assert vide.sommaire.count("\n") >= 5
     assert vide.nombre_d_avis >= 1
@@ -840,6 +846,160 @@ def test_un_document_de_demonstration_se_DIT_de_demonstration() -> None:
     # coupe la phrase, et exiger la chaine entiere verrouillerait la largeur de
     # colonne plutot que la mention.
     assert MENTION_DEMO.split(".")[0] in garde.replace("\r\n", " ").replace("\n", " ")
+
+
+# ── 3 septies. L'apercu, decoupe du document vendu ───────────────────────────
+
+
+def _pdf(pages: int) -> bytes:
+    """Un PDF de `pages` pages, chacune numerotee."""
+    from io import BytesIO  # noqa: PLC0415
+
+    from pypdf import PdfWriter  # noqa: PLC0415
+
+    redacteur = PdfWriter()
+    for _ in range(pages):
+        redacteur.add_blank_page(width=200, height=200)
+    tampon = BytesIO()
+    redacteur.write(tampon)
+    return tampon.getvalue()
+
+
+def _produit_avec_apercu(pages_du_document: int = 20, **surcharges: Any) -> ProduitBoutique:
+    produit = produit_en_ligne(**surcharges)
+    produit.fichier.save(
+        "etude.pdf",
+        SimpleUploadedFile("etude.pdf", _pdf(pages_du_document), "application/pdf"),
+        save=False,
+    )
+    produit.apercu_actif = True
+    produit.save()
+    return produit
+
+
+def _pages_rendues(contenu: bytes) -> int:
+    from io import BytesIO  # noqa: PLC0415
+
+    from pypdf import PdfReader  # noqa: PLC0415
+
+    return len(PdfReader(BytesIO(contenu)).pages)
+
+
+def test_l_apercu_est_DESACTIVE_par_defaut() -> None:
+    """Montrer le debut d'une etude est une decision commerciale.
+
+    Un apercu actif par defaut publierait les premieres pages de chaque etude
+    du catalogue sans que personne l'ait voulu.
+    """
+    produit = produit_en_ligne()
+
+    assert produit.apercu_actif is False
+    fiche = Client().get(f"/api/public/boutique/{produit.slug}/").json()["produit"]
+    assert fiche["apercu"] is None
+    assert Client().get(f"/api/public/boutique/{produit.slug}/apercu/").status_code == 404
+
+
+def test_l_apercu_actif_rend_les_premieres_pages() -> None:
+    """Contre-epreuve : une fois active, il doit vraiment servir le document."""
+    produit = _produit_avec_apercu(pages_du_document=20)
+    produit.apercu_pages = 3
+    produit.save(update_fields=["apercu_pages"])
+
+    reponse = Client().get(f"/api/public/boutique/{produit.slug}/apercu/")
+
+    assert reponse.status_code == 200
+    assert reponse["Content-Type"] == "application/pdf"
+    assert reponse["Content-Disposition"].startswith("inline")
+    assert _pages_rendues(reponse.content) == 3
+
+
+def test_l_apercu_ne_rend_JAMAIS_le_document_entier() -> None:
+    """LE risque de cette fonction : servir l'etude au lieu de son debut.
+
+    La cliente peut taper n'importe quel nombre. Deux bornes l'en empechent —
+    un plafond absolu, et une part du document — et c'est la seconde qui compte
+    vraiment : dix pages d'une etude de douze, c'est l'etude.
+    """
+    produit = _produit_avec_apercu(pages_du_document=12)
+    produit.apercu_pages = 999
+    produit.save(update_fields=["apercu_pages"])
+
+    reponse = Client().get(f"/api/public/boutique/{produit.slug}/apercu/")
+
+    rendues = _pages_rendues(reponse.content)
+    assert rendues <= 4, f"{rendues} pages sur 12 : ce n'est plus un apercu"
+    assert rendues >= 1
+
+
+def test_le_plafond_absolu_s_applique_aux_gros_documents() -> None:
+    """Sur un document de 200 pages, 40 % ferait 80 pages d'apercu."""
+    produit = _produit_avec_apercu(pages_du_document=200)
+    produit.apercu_pages = 999
+    produit.save(update_fields=["apercu_pages"])
+
+    reponse = Client().get(f"/api/public/boutique/{produit.slug}/apercu/")
+
+    assert _pages_rendues(reponse.content) == 10
+
+
+def test_un_document_illisible_refuse_au_lieu_de_tout_rendre() -> None:
+    """Rendre le fichier entier « faute de mieux » donnerait l'etude a qui
+    demande l'apercu. On refuse (regle 1)."""
+    produit = produit_en_ligne()
+    produit.fichier.save(
+        "pas-un-pdf.pdf",
+        SimpleUploadedFile("pas-un-pdf.pdf", b"ceci n'est pas un PDF", "application/pdf"),
+        save=False,
+    )
+    produit.apercu_actif = True
+    produit.save()
+
+    reponse = Client().get(f"/api/public/boutique/{produit.slug}/apercu/")
+
+    assert reponse.status_code == 404
+    assert b"ceci n'est pas un PDF" not in reponse.content
+
+
+def test_l_apercu_d_une_etude_HORS_LIGNE_est_introuvable() -> None:
+    """Une etude retiree de la boutique ne laisse pas une porte ouverte sur
+    ses premieres pages."""
+    produit = _produit_avec_apercu()
+    produit.en_ligne = False
+    produit.save(update_fields=["en_ligne"])
+
+    assert Client().get(f"/api/public/boutique/{produit.slug}/apercu/").status_code == 404
+
+
+def test_la_fiche_annonce_le_nombre_de_pages_de_l_apercu() -> None:
+    """La page publique doit pouvoir ecrire « les 3 premieres pages »."""
+    produit = _produit_avec_apercu()
+    produit.apercu_pages = 4
+    produit.save(update_fields=["apercu_pages"])
+
+    fiche = Client().get(f"/api/public/boutique/{produit.slug}/").json()["produit"]
+
+    assert fiche["apercu"] == {
+        "pages": 4,
+        "adresse": f"/api/public/boutique/{produit.slug}/apercu/",
+    }
+
+
+def test_l_administration_active_l_apercu(client_admin: Any) -> None:
+    """Le seul chemin pour l'activer, et il ne demande aucun fichier."""
+    produit = _produit_avec_apercu()
+    produit.apercu_actif = False
+    produit.save(update_fields=["apercu_actif"])
+
+    reponse = client_admin.post(
+        f"/api/dashboard/boutique/{produit.id}/",
+        {"apercu_actif": "true", "apercu_pages": "5"},
+    )
+
+    assert reponse.status_code == 200
+    assert reponse.json()["produit"]["apercu_actif"] is True
+    assert reponse.json()["produit"]["apercu_pages"] == 5
+    produit.refresh_from_db()
+    assert produit.apercu_actif is True
 
 
 # ── 4. L'administration ──────────────────────────────────────────────────────

@@ -20,7 +20,7 @@
  * Le NOMBRE DE PAGES n'est plus ni demandé ni affiché. Il se lisait comme une
  * mesure de la valeur, et il la mesure mal : trente-cinq pages utiles valent
  * mieux que soixante délayées, et deux acheteuses qui comparent deux nombres
- * comparent exactement ce qui ne compte pas. Le sommaire et l'extrait disent
+ * comparent exactement ce qui ne compte pas. Le sommaire et l'aperçu disent
  * ce que le document contient. La colonne reste en base — la retirer
  * demanderait une migration pour une donnée que plus personne ne lit.
  *
@@ -60,7 +60,7 @@ const ETAPES = [
   },
   {
     titre: "Les fichiers",
-    aide: "La couverture, le document remis et l'extrait.",
+    aide: "La couverture, le document remis et l'aperçu.",
   },
   {
     titre: "Vérification",
@@ -71,7 +71,6 @@ const ETAPES = [
 type ChampsFichiers = {
   fichier: File | null;
   fichier_editable: File | null;
-  extrait: File | null;
   image: File | null;
 };
 
@@ -175,9 +174,12 @@ function Assistant({
   const [fichiers, setFichiers] = useState<ChampsFichiers>({
     fichier: null,
     fichier_editable: null,
-    extrait: null,
     image: null,
   });
+  const [apercuActif, setApercuActif] = useState(produit?.apercu_actif ?? false);
+  const [apercuPages, setApercuPages] = useState(
+    String(produit?.apercu_pages ?? 3),
+  );
 
   // L'aperçu de la couverture. DÉRIVÉ du fichier choisi, et non posé dans un
   // état depuis un effet : l'adresse est une pure fonction du fichier, et la
@@ -212,6 +214,8 @@ function Assistant({
       for (const [champ, valeur] of Object.entries(fichiers)) {
         if (valeur) donnees.set(champ, valeur);
       }
+      donnees.set("apercu_actif", apercuActif ? "true" : "false");
+      donnees.set("apercu_pages", apercuPages || "3");
       if (enLigne !== null) donnees.set("en_ligne", enLigne ? "true" : "false");
 
       return produit
@@ -381,15 +385,47 @@ function Assistant({
                 deja={produit?.fichier_editable}
                 onChange={(f) => setFichiers((v) => ({ ...v, fichier_editable: f }))}
               />
-              <ChampFichier
-                libelle="Extrait consultable (facultatif)"
-                aide="Quelques pages ouvertes avant l'achat. C'est ce qui rassure le plus."
-                accept=".pdf"
-                fichier={fichiers.extrait}
-                deja={produit?.extrait}
-                onChange={(f) => setFichiers((v) => ({ ...v, extrait: f }))}
-              />
             </div>
+
+            {/* L'aperçu ne se téléverse pas : il se découpe du document remis.
+                Un second fichier à fabriquer était un fichier à re-déposer à
+                chaque mise à jour de l'étude — et à oublier, ce qui laissait
+                un extrait qui ment sans que rien ne le signale. */}
+            <fieldset className="bqa-apercu">
+              <legend>Aperçu avant achat</legend>
+              <label className="bqa-bascule">
+                <input
+                  type="checkbox"
+                  checked={apercuActif}
+                  onChange={(e) => setApercuActif(e.currentTarget.checked)}
+                />
+                <span>
+                  <b>Laisser feuilleter les premières pages</b>
+                  <small>
+                    Découpées du document ci-dessus, à la demande. Désactivé par
+                    défaut : montrer le début d'une étude est une décision
+                    commerciale.
+                  </small>
+                </span>
+              </label>
+
+              {apercuActif && (
+                <label className="bqa-champ bqa-apercu-nombre">
+                  <span>Nombre de pages visibles</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={apercuPages}
+                    onChange={(e) => setApercuPages(e.currentTarget.value)}
+                  />
+                  <small>
+                    Dix au maximum, et jamais plus de 40 % du document — le
+                    serveur applique les deux bornes.
+                  </small>
+                </label>
+              )}
+            </fieldset>
           </div>
         )}
 
@@ -432,8 +468,12 @@ function Assistant({
                 <dd>{aUnFichier ? "déposé" : "manquant"}</dd>
               </div>
               <div>
-                <dt>Extrait</dt>
-                <dd>{fichiers.extrait || produit?.extrait ? "déposé" : "aucun"}</dd>
+                <dt>Aperçu</dt>
+                <dd>
+                  {apercuActif
+                    ? `${apercuPages || 3} page(s) visibles`
+                    : "désactivé"}
+                </dd>
               </div>
               <div>
                 <dt>Version Word</dt>

@@ -58,7 +58,7 @@ EXTENSIONS_EN_LIGNE: frozenset[str] = frozenset(
 def _prefixes_publics() -> tuple[str, ...]:
     """Prefixes servis SANS signature et EN LIGNE.
 
-    Un seul aujourd'hui : la vitrine de la boutique — couverture et extrait.
+    Un seul aujourd'hui : la vitrine de la boutique — les couvertures.
     Ce sont des supports de vente, et les deux protections qui couvrent les
     livrables les rendraient inutilisables : une image en
     `Content-Disposition: attachment` ne s'affiche pas dans une balise `<img>`,
@@ -92,7 +92,7 @@ def servir_media(
     """Sert un fichier de `MEDIA_ROOT`, signature vérifiée, en téléchargement.
 
     Sauf sous un préfixe de vitrine, où le fichier est servi tel quel : ce sont
-    les images et extraits de la boutique, dont le rôle EST d'être vus par des
+    les images de la boutique, dont le rôle EST d'être vues par des
     visiteurs sans compte.
     """
     if _est_une_vitrine(path):

@@ -1,7 +1,7 @@
 """python manage.py seed_boutique_demo
 
 Remplit les fiches creees par `seed_boutique` avec de quoi MONTRER la boutique :
-description, sommaire, couverture, document, extrait et avis. Les neuf etudes
+description, sommaire, couverture, document, apercu et avis. Les neuf etudes
 du catalogue.
 
 ## Ce que cette commande est, et ce qu'elle n'est pas
@@ -32,7 +32,7 @@ celles qui l'ont ete sont conservees, leur acheteur y a droit.
 
 ## Pourquoi generer les fichiers plutot que les livrer avec le depot
 
-Neuf PDF, neuf extraits et neuf images pesent quelques megaoctets, qui
+Neuf PDF et neuf images pesent quelques megaoctets, qui
 vivraient dans l'historique git pour toujours. Ils sont donc fabriques a
 l'execution, avec les memes bibliotheques que la production (reportlab,
 Pillow).
@@ -841,15 +841,11 @@ class Command(BaseCommand):
                 ),
                 save=False,
             )
-            produit.extrait.save(
-                f"{produit.slug}-extrait.pdf",
-                SimpleUploadedFile(
-                    "extrait.pdf",
-                    _document(produit.titre, etude["sommaire"], extrait=True),
-                    "application/pdf",
-                ),
-                save=False,
-            )
+            # L'apercu est ACTIF sur le jeu de demonstration : c'est ce qu'on
+            # vient montrer. Sur une vraie etude, il reste desactive tant que la
+            # cliente ne l'a pas voulu.
+            produit.apercu_actif = True
+            produit.apercu_pages = 3
             produit.en_ligne = en_ligne and produit.est_publiable
             produit.save()
 
@@ -911,7 +907,6 @@ class Command(BaseCommand):
             produit.avis.all().delete()
             produit.image.delete(save=False)
             produit.fichier.delete(save=False)
-            produit.extrait.delete(save=False)
             produit.description = ""
             produit.sommaire = ""
             produit.en_ligne = False

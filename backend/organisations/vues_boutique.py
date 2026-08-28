@@ -86,7 +86,17 @@ def _fiche(produit: ProduitBoutique) -> dict[str, Any]:
             for ligne in produit.sommaire.splitlines()
             if ligne.strip()
         ],
-        "extrait": _url(produit.extrait),
+        # L'apercu est FABRIQUE a la demande depuis le document vendu : il n'y
+        # a pas de fichier a televerser, donc pas d'adresse a stocker. La page
+        # recoit l'adresse de la vue qui le decoupe.
+        "apercu": (
+            {
+                "pages": produit.apercu_pages,
+                "adresse": f"/api/public/boutique/{produit.slug}/apercu/",
+            }
+            if produit.apercu_actif and produit.fichier
+            else None
+        ),
         "editable": bool(produit.fichier_editable),
         "avis": [
             {
@@ -217,6 +227,78 @@ def fiche(request: HttpRequest, slug: str) -> HttpResponse:
         "produit": _fiche(produit),
         "proches": [_resume(p) for p in memes[:PRODUITS_PROCHES]],
     })
+
+
+#: Plafond du decoupage. Un apercu qui montrerait vingt pages d'une etude qui
+#: en compte trente ne serait plus un apercu — et le plafond doit vivre dans le
+#: code, pas dans une saisie : personne ne se releve la nuit pour verifier que
+#: la cliente n'a pas tape 200.
+APERCU_PAGES_MAX = 10
+
+#: Part maximale du document qu'un apercu peut montrer. La borne qui compte
+#: vraiment : dix pages d'une etude de douze, c'est l'etude.
+APERCU_PART_MAX = 0.4
+
+
+@require_GET
+def apercu(request: HttpRequest, slug: str) -> HttpResponse:
+    """Les premieres pages du document vendu, decoupees a la demande.
+
+    ## Pourquoi decouper plutot que televerser
+
+    Un extrait a deposer est un fichier a fabriquer, a nommer, a re-deposer a
+    chaque mise a jour de l'etude — et a oublier. Le jour ou l'etude est
+    corrigee, l'extrait ment sans que rien ne le signale. Ici l'apercu SUIT le
+    document : il n'existe pas independamment de lui.
+
+    ## Ce que cette vue ne doit surtout pas faire
+
+    Servir le document entier. Le fichier vendu est lu ICI, cote serveur, et
+    seules les premieres pages repartent. Le navigateur ne recoit jamais
+    l'adresse du document complet, qui reste sous `/media/boutique/`, signee.
+
+    Le nombre de pages est borne DEUX FOIS : un plafond absolu, et une part du
+    document. Dix pages sur douze ne seraient plus un apercu.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    produit = _en_ligne().filter(slug=slug).first()
+    if produit is None or not produit.apercu_actif or not produit.fichier:
+        return _refus("Aucun aperçu n'est disponible.", "apercu_indisponible", 404)
+
+    try:
+        from pypdf import PdfReader, PdfWriter  # noqa: PLC0415
+
+        with produit.fichier.open("rb") as source:
+            lecteur = PdfReader(BytesIO(source.read()))
+        total = len(lecteur.pages)
+        if total == 0:
+            raise ValueError("document sans page")
+
+        combien = min(
+            int(produit.apercu_pages or 1),
+            APERCU_PAGES_MAX,
+            max(1, int(total * APERCU_PART_MAX)),
+            total,
+        )
+        redacteur = PdfWriter()
+        for numero in range(combien):
+            redacteur.add_page(lecteur.pages[numero])
+        tampon = BytesIO()
+        redacteur.write(tampon)
+    except Exception:
+        # Un document illisible ou qui n'est pas un PDF : on refuse, et on le
+        # dit dans les journaux. Rendre le fichier entier « faute de mieux »
+        # donnerait l'etude a qui demande l'apercu.
+        _log.exception("Apercu impossible pour %s", slug)
+        return _refus("Aucun aperçu n'est disponible.", "apercu_indisponible", 404)
+
+    reponse = HttpResponse(tampon.getvalue(), content_type="application/pdf")
+    # `inline` : un apercu se feuillette dans l'onglet, il ne se telecharge pas.
+    reponse["Content-Disposition"] = f'inline; filename="apercu-{produit.slug}.pdf"'
+    reponse["X-Content-Type-Options"] = "nosniff"
+    reponse["X-Apercu-Pages"] = str(combien)
+    return reponse
 
 
 @csrf_exempt

@@ -27,9 +27,10 @@ CHAMPS_TEXTE = ("titre", "description", "sommaire", "theme", "devise")
 #: Champs numeriques. Un envoi illisible laisse la valeur precedente plutot
 #: que de remettre le prix a zero — un produit gratuit se vendrait sans
 #: contrepartie.
-CHAMPS_ENTIERS = ("prix_cents", "nombre_de_pages", "rang")
-#: Fichiers acceptes, et leur champ.
-CHAMPS_FICHIERS = ("fichier", "fichier_editable", "extrait", "image")
+CHAMPS_ENTIERS = ("prix_cents", "nombre_de_pages", "rang", "apercu_pages")
+#: Fichiers acceptes, et leur champ. L'apercu n'y figure PAS : il se decoupe
+#: du document vendu a la demande, il ne se televerse pas.
+CHAMPS_FICHIERS = ("fichier", "fichier_editable", "image")
 
 
 def _refus(message: str, code: str, statut: int = 400) -> HttpResponse:
@@ -70,8 +71,9 @@ def _vue(produit: ProduitBoutique, ventes: dict[Any, dict[str, int]]) -> dict[st
         "rang": produit.rang,
         "fichier": _url(produit.fichier),
         "fichier_editable": _url(produit.fichier_editable),
-        "extrait": _url(produit.extrait),
         "image": _url(produit.image),
+        "apercu_actif": produit.apercu_actif,
+        "apercu_pages": produit.apercu_pages,
         # Ce qui manque pour publier, dit explicitement. Un bouton « en ligne »
         # qui refuse sans expliquer se lit comme une panne.
         "publiable": produit.est_publiable,
@@ -186,6 +188,12 @@ def _appliquer(produit: ProduitBoutique, donnees: Any, fichiers: Any) -> list[st
     if "en_ligne" in donnees:
         produit.en_ligne = str(donnees["en_ligne"]).lower() in ("1", "true", "oui")
         modifies.append("en_ligne")
+
+    if "apercu_actif" in donnees:
+        produit.apercu_actif = str(donnees["apercu_actif"]).lower() in (
+            "1", "true", "oui",
+        )
+        modifies.append("apercu_actif")
 
     for champ in CHAMPS_FICHIERS:
         televerse = fichiers.get(champ) if fichiers else None

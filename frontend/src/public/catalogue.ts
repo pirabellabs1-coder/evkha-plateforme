@@ -36,8 +36,12 @@ export type ProduitFiche = ProduitResume & {
   description: string;
   /** Une entrée par ligne, découpée côté serveur. */
   sommaire: string[];
-  /** Les pages consultables avant achat, ou chaîne vide. */
-  extrait: string;
+  /** L'aperçu, quand la cliente l'a activé. `null` sinon.
+   *
+   *  Il n'y a pas de fichier : le serveur découpe les premières pages du
+   *  document vendu à la demande, et `adresse` pointe sur la vue qui le fait.
+   */
+  apercu: { pages: number; adresse: string } | null;
   editable: boolean;
   /** Les avis publiés, du plus récent au plus ancien. */
   avis: Avis[];

@@ -832,3 +832,64 @@
     flex-direction: column;
   }
 }
+
+/* ── Le réglage d'aperçu ─────────────────────────────────────────────────── */
+/*
+ * Il vit avec les fichiers parce que c'est là qu'on l'attend — mais ce n'en
+ * est pas un : l'aperçu se découpe du document remis, il ne se téléverse pas.
+ */
+.bqa-apercu {
+  grid-column: 1 / -1;
+  margin: 0;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  padding: var(--e-4) var(--e-5) var(--e-5);
+  background: var(--fond-page);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.bqa-apercu legend {
+  padding: 0 var(--e-2);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.bqa-bascule {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e-3);
+  cursor: pointer;
+}
+
+.bqa-bascule input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--evkha-or);
+  cursor: pointer;
+}
+
+.bqa-bascule > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bqa-bascule b {
+  font-size: var(--t-sm);
+  color: var(--texte-fort);
+}
+
+.bqa-bascule small {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+  line-height: 1.45;
+}
+
+.bqa-apercu-nombre {
+  max-width: 16rem;
+}

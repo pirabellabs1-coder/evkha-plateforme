@@ -995,3 +995,46 @@
 .bq-catalogue .bq-section-tete {
   margin-top: 3rem;
 }
+
+/* ── Le bloc d'aperçu ────────────────────────────────────────────────────── */
+/*
+ * Il est mis en avant plutôt que relégué dans un lien : c'est l'élément qui
+ * décide de la vente. Un fichier ne se feuillette pas, et sans pages visibles
+ * le visiteur engage son argent sur la foi d'un titre.
+ */
+.bq-apercu {
+  background: var(--bq-creme);
+  border-radius: 16px;
+  padding: 1.75rem;
+  border-top: none;
+}
+
+.bq-apercu h2 {
+  margin-bottom: 0.6rem;
+}
+
+.bq-apercu .bq-description {
+  margin-bottom: 1.25rem;
+  max-width: 54ch;
+}
+
+.bq-apercu-bouton {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.98rem;
+  padding: 0.8rem 1.8rem;
+  border-radius: 999px;
+  background: var(--bq-noir);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.bq-apercu-bouton:hover {
+  background: var(--bq-jaune);
+  color: var(--bq-noir);
+}
+
+.bq-apercu-bouton:focus-visible {
+  outline: 2px solid var(--bq-jaune-f);
+  outline-offset: 3px;
+}

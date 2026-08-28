@@ -1,9 +1,14 @@
 /** La fiche d'une étude de boutique, et son achat.
  *
- * L'extrait consultable est l'élément qui décide de la vente : un fichier ne
- * se feuillette pas, et sans quelques pages visibles le visiteur engage son
- * argent sur la foi d'un titre. La couverture et les avis jouent le même rôle
- * — ils montrent, là où une description affirme.
+ * L'aperçu est l'élément qui décide de la vente : un fichier ne se feuillette
+ * pas, et sans quelques pages visibles le visiteur engage son argent sur la foi
+ * d'un titre. La couverture et les avis jouent le même rôle — ils montrent, là
+ * où une description affirme.
+ *
+ * Il n'y a PAS de fichier d'extrait : le serveur découpe les premières pages du
+ * document vendu à la demande. Un extrait à téléverser était un fichier à
+ * refaire à chaque mise à jour de l'étude, donc un extrait qui finit par mentir
+ * sans que rien ne le signale.
  *
  * L'achat ne demande PAS de créer un compte au préalable. Le compte est ouvert
  * par l'encaissement, et l'acheteur arrive directement sur son téléchargement :
@@ -139,7 +144,7 @@ export function FicheProduit() {
   }
 
   const maj = moisEtAnnee(produit.mise_a_jour);
-  // Sans le nombre de pages : voir `Boutique.tsx`. Le sommaire et l'extrait
+  // Sans le nombre de pages : voir `Boutique.tsx`. Le sommaire et l'aperçu
   // disent ce que le document contient, ce qu'un nombre ne dit pas.
   const details = [
     maj ? `Mise à jour ${maj}` : "",
@@ -159,7 +164,7 @@ export function FicheProduit() {
           <div className="bq-fiche-corps">
             {/* La couverture EN PREMIER, en grand : c'est ce qu'on regarde
                 avant de lire, et c'est la seule chose qui donne une idée du
-                document tant qu'on n'a pas ouvert l'extrait. */}
+                document tant qu'on n'a pas ouvert l'aperçu. */}
             <div className="bq-visuel">
               {produit.image ? (
                 <img src={produit.image} alt={`Couverture — ${produit.titre}`} />
@@ -213,6 +218,25 @@ export function FicheProduit() {
                     <li key={ligne}>{ligne}</li>
                   ))}
                 </ol>
+              </section>
+            )}
+
+            {produit.apercu && (
+              <section className="bq-bloc bq-apercu">
+                <h2>Feuilleter avant d'acheter</h2>
+                <p className="bq-description">
+                  Les {produit.apercu.pages} premières pages de l'étude sont
+                  ouvertes, telles qu'elles figurent dans le document. Aucune
+                  inscription n'est demandée.
+                </p>
+                <a
+                  className="bq-apercu-bouton"
+                  href={produit.apercu.adresse}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Ouvrir l'aperçu ({produit.apercu.pages} pages)
+                </a>
               </section>
             )}
 
@@ -279,14 +303,14 @@ export function FicheProduit() {
                 : `Acheter — ${prix(produit.prix_cents, produit.devise)}`}
             </button>
 
-            {produit.extrait && (
+            {produit.apercu && (
               <a
                 className="bq-extrait"
-                href={produit.extrait}
+                href={produit.apercu.adresse}
                 target="_blank"
                 rel="noreferrer"
               >
-                Consulter un extrait
+                Feuilleter les {produit.apercu.pages} premières pages
               </a>
             )}
 

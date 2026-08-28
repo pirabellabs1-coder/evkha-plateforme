@@ -79,11 +79,10 @@ class Offer(UUIDModel):
         return self.name
 
 
-#: Prefixe des fichiers de VITRINE — couverture et extrait. Il est repris
+#: Prefixe des fichiers de VITRINE — la couverture. Il est repris
 #: tel quel par `evkha.media.PREFIXES_PUBLICS` : ce qui est range dessous est
 #: servi SANS signature et EN LIGNE, parce qu'une couverture doit s'afficher
-#: dans une balise `<img>` et qu'un extrait sert justement a etre lu avant
-#: l'achat.
+#: dans une balise `<img>`.
 #:
 #: Le nom est defini ici, dans le modele qui y range les fichiers, et importe
 #: la-bas. Deux chaines identiques ecrites dans deux modules finiraient par
@@ -153,9 +152,20 @@ class ProduitBoutique(UUIDModel):
     fichier = models.FileField(upload_to=_chemin_produit, blank=True)
     #: Version editable, facultative.
     fichier_editable = models.FileField(upload_to=_chemin_produit, blank=True)
-    #: Les quelques pages consultables avant achat. VITRINE : servi sans
-    #: signature, parce qu'un extrait qu'il faut demander n'est plus un extrait.
-    extrait = models.FileField(upload_to=_chemin_vitrine, blank=True)
+    #: L'apercu est FABRIQUE a partir du document vendu, il ne se televerse
+    #: pas. Un second fichier a deposer etait un fichier a fabriquer, a nommer,
+    #: a re-deposer a chaque mise a jour de l'etude — et a oublier. Un nombre
+    #: de pages suffit : le serveur decoupe les premieres pages du PDF a la
+    #: demande, et l'apercu suit automatiquement le document.
+    #:
+    #: DESACTIVE par defaut. Publier un apercu est une decision commerciale —
+    #: on ne montre pas gratuitement les premieres pages d'une etude sans
+    #: l'avoir voulu.
+    apercu_actif = models.BooleanField(default=False)
+    #: Nombre de pages montrees quand l'apercu est actif. La borne haute est
+    #: appliquee au decoupage, pas ici : le document peut changer, et une
+    #: contrainte figee en base deviendrait fausse a la premiere mise a jour.
+    apercu_pages = models.PositiveSmallIntegerField(default=3)
     #: La couverture. VITRINE elle aussi : une image signee expirerait, et une
     #: image servie en piece jointe ne s'affiche pas dans une balise `<img>`.
     image = models.ImageField(upload_to=_chemin_vitrine, blank=True)

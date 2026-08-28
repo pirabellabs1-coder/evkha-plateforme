@@ -325,3 +325,12 @@ déploiement — un contrôle qui n'a rien à comparer n'est pas un succès.
   Aucun `"status": "running"` — on déploie. Sinon, on attend, ou on prévient.
   `generation.services.generation_interrompue` détecte après coup ; elle ne
   dispense pas de regarder avant.
+
+
+---
+
+## 🧰 Fleet Claude global
+Ce projet bénéficie de mon arsenal global (`~/.claude/`) : **74 skills** + **42 agents** (dev, frameworks, data, devops, animation, marketing, contrôle qualité). Catalogue complet : `~/.claude/skills/INDEX.md`.
+- Utiliser proactivement le skill / l'agent adapté à la tâche (ne pas repartir de zéro).
+- **Boucle de contrôle avant livraison** : auto-revue `code-review-self` → agent `code-reviewer` (+ `security-auditor` si auth/entrées/données) → `quality-gatekeeper` (verdict GO/NO-GO).
+- House style : réponses en français, a11y/perf/sécurité par défaut, vérifier avant d'affirmer « c'est fait ».

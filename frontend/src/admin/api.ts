@@ -184,7 +184,9 @@ export interface ProduitBoutique {
   rang: number;
   fichier: string;
   fichier_editable: string;
-  extrait: string;
+  /** Aperçu : découpé du document remis, jamais téléversé. */
+  apercu_actif: boolean;
+  apercu_pages: number;
   image: string;
   /** Faux tant qu'il manque un prix ou le fichier a remettre. */
   publiable: boolean;

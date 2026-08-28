@@ -141,7 +141,7 @@ def lien_absolu(chemin: str, duree_s: int | None = None) -> str:
 def absolu(chemin_ou_url: str) -> str:
     """Prefixe une adresse de media par le domaine de l'API.
 
-    Pour les fichiers NON signes — couverture, extrait — dont l'adresse vient
+    Pour les fichiers NON signes — la couverture — dont l'adresse vient
     de `FileField.url`. Le besoin est le meme que pour `lien_absolu` : la page
     qui les affiche est servie par `app2.evkha.fr`, `/media/` par
     `api2.evkha.fr`, et `frontend/nginx.conf` ne proxifie que `/api/`. Une

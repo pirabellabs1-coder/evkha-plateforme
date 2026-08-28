@@ -21,6 +21,13 @@ urlpatterns = [
     path("boutique/acheter/", vues_boutique.acheter, name="boutique-acheter"),
     path("boutique/retour/", vues_boutique.retour, name="boutique-retour"),
     path("boutique/<slug:slug>/", vues_boutique.fiche, name="boutique-fiche"),
+    # L'apercu : les premieres pages du document vendu, decoupees a la demande.
+    # Public et sans signature — c'est un support de vente, comme la couverture.
+    path(
+        "boutique/<slug:slug>/apercu/",
+        vues_boutique.apercu,
+        name="boutique-apercu",
+    ),
     # Achat a l'unite : le catalogue avec ses tarifs, l'ouverture du paiement,
     # et le retour de Stripe. Trois routes PUBLIQUES par necessite — au moment
     # ou la personne clique, elle n'a ni compte ni jeton.
