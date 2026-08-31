@@ -185,7 +185,7 @@ export function Partenaires() {
               Découvrir les formules
             </a>
             <a className="pp-hero-connexion" href="/espace/connexion">
-              Se connecter
+              Créer son espace client
             </a>
           </div>
         </div>

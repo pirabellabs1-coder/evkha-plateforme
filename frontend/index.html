@@ -2,13 +2,39 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b0b0b" />
     <meta
       name="description"
       content="Espace client EVKHA : suivez vos générations, gérez vos clients finaux et téléchargez vos livrables."
     />
+
+    <!-- Favicon EVKHA — jeu complet.
+         Le SVG seul ne suffisait pas : Google et la plupart des robots (IA
+         comprise) réclament un `favicon.ico` classique, et nginx renvoyait
+         `index.html` faute de fichier. On sert donc l'icône dans tous les
+         formats attendus, plus l'aperçu de partage (Open Graph). -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Aperçu quand un lien EVKHA est partagé ou lu par un robot / une IA. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="EVKHA" />
+    <meta property="og:title" content="EVKHA — Business et formations" />
+    <meta
+      property="og:description"
+      content="Études de marché, business plans et stratégies produits par la méthode EVKHA."
+    />
+    <meta property="og:image" content="https://app2.evkha.fr/og-evkha.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="EVKHA — Business et formations" />
+    <meta name="twitter:image" content="https://app2.evkha.fr/og-evkha.png" />
     <!-- Montserrat : la police du site evkha.fr, relevée dans les styles
          calculés du navigateur. `preconnect` avant la feuille, sinon la
          résolution DNS et la négociation TLS s'ajoutent au premier rendu.

@@ -142,6 +142,84 @@
   font-size: 1.05rem;
 }
 
+/* Ce que contient l'étude, listé sous le chapeau. Deux colonnes dès qu'il y a
+   la place ; une seule sur téléphone, où deux colonnes serreraient le texte. */
+.bq-hero-liste {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 0;
+  display: grid;
+  gap: 0.55rem 1.5rem;
+}
+
+@media (min-width: 34rem) {
+  .bq-hero-liste {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.bq-hero-liste li {
+  position: relative;
+  padding-left: 1.7rem;
+  font-size: 0.96rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* La coche reprend le doux foncé de la charte : lisible sur le crème du hero,
+   contrastée pour l'accessibilité là où le jaune vif ne le serait pas. */
+.bq-hero-liste li::before,
+.bq-questions-liste li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-weight: 800;
+  color: var(--bq-jaune-f);
+}
+
+/* ── Une étude qui répond à vos questions ────────────────────────────────── */
+/*
+ * Un aplat crème, entre le hero et le bandeau noir des promesses : il porte
+ * les six questions qu'une étude tranche, dites comme le porteur se les pose.
+ */
+.bq-questions {
+  background: var(--bq-creme);
+  border-bottom: 1px solid var(--bq-trait);
+  padding: 3rem 0;
+}
+
+.bq-questions h2 {
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  font-weight: 800;
+  margin: 0 0 1.75rem;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.bq-questions-liste {
+  list-style: none;
+  padding: 0;
+  margin: 0 auto;
+  max-width: 54rem;
+  display: grid;
+  gap: 0.85rem 2.5rem;
+}
+
+@media (min-width: 46rem) {
+  .bq-questions-liste {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.bq-questions-liste li {
+  position: relative;
+  padding-left: 1.8rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 /* ── Les quatre promesses ────────────────────────────────────────────────── */
 
 .bq-promesses {

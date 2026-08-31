@@ -105,7 +105,7 @@ const PROMESSES = [
   {
     signe: "↓",
     titre: "Disponible tout de suite",
-    texte: "Le document se télécharge sur la page qui suit le paiement.",
+    texte: "Téléchargement en quelques minutes après paiement.",
   },
   {
     signe: "€",
@@ -114,14 +114,40 @@ const PROMESSES = [
   },
   {
     signe: "▤",
-    titre: "PDF prêt à imprimer",
-    texte: "Et la version Word quand elle existe, pour reprendre le document.",
+    titre: "PDF + Word",
+    texte:
+      "Le PDF prêt à imprimer, et la version Word quand elle existe, pour l'adapter vous-même.",
   },
   {
     signe: "◈",
-    titre: "Gardée dans votre espace",
-    texte: "Un espace s'ouvre à votre nom. L'étude y reste, retéléchargeable.",
+    titre: "Toujours accessible",
+    texte:
+      "Un espace personnel à votre nom : l'étude y reste, téléchargeable à volonté.",
   },
+] as const;
+
+/** Ce que contient chaque étude, listé dans le hero. Dit ce qu'on ACHÈTE —
+ *  pas une promesse commerciale, les cinq lignes d'un sommaire résumé. Le
+ *  « 22 chapitres » est le nombre ANNONCÉ (cf. `ETUDES` dans `contenu.ts`),
+ *  pas le nombre d'entrées du plan de production. */
+const HERO_INCLUS = [
+  "La taille du marché et son évolution",
+  "Le profil et le budget de vos clients",
+  "Les prix pratiqués et les charges du secteur",
+  "Les risques à anticiper et la rentabilité réelle",
+  "Etc. — 22 chapitres par étude",
+] as const;
+
+/** Les questions qu'une étude tranche, en deux colonnes. Écrites comme le
+ *  porteur se les pose — la même intention que la section « interrogations »
+ *  de la page des études sur mesure, resserrée sur six lignes. */
+const QUESTIONS = [
+  "Ce marché est-il rentable ?",
+  "Est-il saturé, ou y a-t-il encore de la place ?",
+  "Comment orienter ma création d'entreprise ?",
+  "Combien de clients potentiels dans ma zone ?",
+  "Quels prix pratiquer pour rester compétitif ?",
+  "Quels risques dois-je anticiper avant de me lancer ?",
 ] as const;
 
 /** Les questions qu'on se pose avant de payer quatre-vingt-neuf euros.
@@ -250,15 +276,19 @@ export function Boutique() {
           <div>
             <p className="bq-eyebrow">Téléchargement immédiat</p>
             <h1>
-              Des études de marché déjà écrites,
+              Le marché de votre secteur,
               <br />
-              disponibles dans la minute
+              déjà étudié et chiffré
             </h1>
             <p className="bq-chapeau">
-              Chaque étude couvre un secteur : sa taille, ses clients, ses
-              règles, ses coûts et sa rentabilité. Vous réglez une fois, vous
-              téléchargez, c'est à vous.
+              De nouvelles études ajoutées chaque mois, mises à jour tous les six
+              mois. Vous réglez une fois, vous téléchargez, l'étude est à vous.
             </p>
+            <ul className="bq-hero-liste">
+              {HERO_INCLUS.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
             <div className="bq-entete-actions">
               <a className="bq-bouton bq-bouton-large" href="#catalogue">
                 Voir le catalogue
@@ -287,6 +317,17 @@ export function Boutique() {
           </div>
         </div>
       </header>
+
+      <section className="bq-questions" aria-label="Ce qu'une étude vous répond">
+        <div className="pp-large">
+          <h2>Une étude qui répond enfin à vos questions</h2>
+          <ul className="bq-questions-liste">
+            {QUESTIONS.map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       <section className="bq-promesses" aria-label="Ce qui est compris">
         <div className="pp-large bq-promesses-grille">
