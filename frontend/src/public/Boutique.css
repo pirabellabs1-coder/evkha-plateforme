@@ -60,12 +60,32 @@
   font-size: 1.05rem;
 }
 
-/* Trois couvertures en éventail. Décoratif, et assumé comme tel : une vitrine
-   montre ce qu'elle vend avant de l'expliquer. `aria-hidden` côté React — la
-   grille juste dessous porte la même information, en cliquable. */
+/* Trois couvertures, posées en escalier. Décoratif, et assumé comme tel : une
+   vitrine montre ce qu'elle vend avant de l'expliquer. `aria-hidden` côté
+   React — la grille juste dessous porte la même information, en cliquable.
+
+   Décoratif ne veut pas dire illisible, et la version précédente l'était.
+
+   1. Elle posait les couvertures dans un cadre 3/4, en PORTRAIT, alors
+      qu'elles sont produites en 1200 × 800 — du 3/2, en paysage. Avec
+      `object-fit: cover`, la moitié de leur largeur partait au rognage et le
+      titre sortait par les deux bords : « rché des foodtru ».
+   2. Les trois cartes se chevauchaient horizontalement, chacune mangeant le
+      titre de sa voisine.
+
+   Le cadre reprend donc le format exact des couvertures — plus rien n'est
+   rogné — et les cartes descendent : chacune ne recouvre que le BAS de la
+   précédente, jamais son titre, qui occupe le tiers haut de l'image. */
 .bq-eventail {
+  /* Le titre d'une couverture se termine vers 44 % de sa hauteur. Le décalage
+     vertical passe DESSOUS : c'est lui qui garantit que les trois titres
+     restent entiers, et il ne se réduit pas sans les recouper. */
+  --bq-couv-l: 19.5rem;
+  --bq-couv-h: 13rem;
+  --bq-couv-dy: 6.9rem;
+  --bq-couv-dx: 1.6rem;
   position: relative;
-  height: 17rem;
+  height: calc(var(--bq-couv-h) + 2 * var(--bq-couv-dy));
   display: none;
 }
 
@@ -77,8 +97,9 @@
 
 .bq-eventail-carte {
   position: absolute;
-  width: 11rem;
-  aspect-ratio: 3 / 4;
+  width: var(--bq-couv-l);
+  height: var(--bq-couv-h);
+  max-width: 100%;
   border-radius: 14px;
   overflow: hidden;
   background: var(--bq-noir);
@@ -97,24 +118,26 @@
   object-fit: cover;
 }
 
+/* La rotation reste sous deux degrés. Au-delà, un coin remonte assez haut pour
+   entamer le titre de la couverture du dessous — ce qu'on vient de corriger. */
 .bq-eventail-0 {
-  left: 2%;
-  top: 2.5rem;
-  transform: rotate(-8deg);
+  left: 0;
+  top: 0;
+  transform: rotate(-1.5deg);
   z-index: 1;
 }
 
 .bq-eventail-1 {
-  left: 32%;
-  top: 0.5rem;
-  z-index: 3;
+  left: var(--bq-couv-dx);
+  top: var(--bq-couv-dy);
+  z-index: 2;
 }
 
 .bq-eventail-2 {
-  left: 62%;
-  top: 2.5rem;
-  transform: rotate(8deg);
-  z-index: 2;
+  left: calc(2 * var(--bq-couv-dx));
+  top: calc(2 * var(--bq-couv-dy));
+  transform: rotate(1.5deg);
+  z-index: 3;
 }
 
 .bq-eyebrow {

@@ -13,7 +13,7 @@
  *
  * Elle répond désormais, dans l'ordre où les questions viennent : ce que c'est
  * (bandeau), ce qu'il y a (catalogue), en quoi ça diffère d'une étude sur
- * mesure (comparaison), ce qu'en disent celles qui l'ont lue (avis), et le
+ * mesure (comparaison), ce qu'en disent nos clients (avis), et le
  * reste des questions (repères). Chaque bloc existe parce qu'une question
  * existe — aucun n'est là pour remplir.
  *
@@ -166,10 +166,11 @@ const REPERES: Repere[] = [
   {
     question: "Ces études sont-elles faites sur mon projet ?",
     reponse:
-      "Non, et c'est ce qui permet ce prix. Ce sont des études de secteur, " +
-      "écrites une fois puis vendues telles quelles : le marché, les clients, " +
-      "la réglementation, les coûts. Pour une étude bâtie sur VOTRE projet, " +
-      "avec votre zone et vos chiffres, ce sont nos études sur mesure.",
+      "Les études ne sont pas personnalisées. En revanche, elles sont " +
+      "construites secteur par secteur, avec des chiffres récents : des " +
+      "études écrites et mises à jour sur un marché précis. Pour une étude " +
+      "bâtie sur votre projet, avec votre propre zone de chalandise et vos " +
+      "propres chiffres, consultez nos études sur mesure.",
     lien: { vers: "/etudes", libelle: "Voir les études sur mesure" },
   },
   {
@@ -180,22 +181,30 @@ const REPERES: Repere[] = [
       "est consultable avant l'achat quand il est disponible.",
   },
   {
+    // La réponse dit OUI — il y a bien un espace client — sans mentir sur
+    // l'ordre des étapes : le parcours d'achat n'ouvre AUCUN formulaire de
+    // compte avant le paiement (cf. `FicheProduit`, un champ e-mail puis
+    // Stripe). Écrire « créez votre compte, puis commandez » décrirait un
+    // écran qui n'existe pas, et la première acheteuse le verrait.
     question: "Dois-je créer un compte avant de payer ?",
     reponse:
-      "Non. Vous réglez, et votre espace s'ouvre tout seul avec l'étude " +
-      "dedans. Vous y choisirez un mot de passe depuis le courriel reçu.",
+      "Oui, un espace client est ouvert à votre nom : c'est là que vos " +
+      "études restent, téléchargeables à volonté. Vous n'avez aucun " +
+      "formulaire à remplir avant : vous indiquez votre adresse e-mail, vous " +
+      "passez votre commande, et votre espace s'ouvre aussitôt avec l'étude " +
+      "dedans. Vous y choisissez votre mot de passe depuis le courriel reçu.",
   },
   {
     question: "Les études sont-elles à jour ?",
     reponse:
-      "Chaque fiche affiche la date de sa dernière mise à jour. Le catalogue " +
-      "s'élargit et se met à jour régulièrement.",
+      "Les études sont mises à jour tous les six mois. La date de la " +
+      "dernière mise à jour est affichée sur chaque fiche.",
   },
   {
-    question: "Et si je me trompe d'étude ?",
+    question: "Et si j'ai fait une erreur dans ma commande ?",
     reponse:
-      "Écrivez-nous à contact@evkha.fr. Un document remis immédiatement ne se " +
-      "reprend pas, mais nous trouvons toujours une solution.",
+      "Écrivez-nous à contact@evkha.fr. Sachez qu'un document téléchargé ne " +
+      "peut pas être repris, mais nous pouvons trouver une solution.",
   },
 ];
 
@@ -412,7 +421,7 @@ export function Boutique() {
         {avis.length > 0 && (
           <section className="bq-temoignages">
             <div className="bq-section-tete">
-              <h2>Ce qu'en disent celles qui les ont lues</h2>
+              <h2>Ce qu'en disent nos clients</h2>
             </div>
             <div className="bq-temoignages-grille">
               {avis.map((a) => (
@@ -447,8 +456,7 @@ export function Boutique() {
         <section className="bq-appel">
           <h2>Une question avant d'acheter ?</h2>
           <p>
-            Écrivez-nous, nous répondons nous-mêmes — et nous vous dirons
-            franchement si l'étude que vous visez répond à votre besoin.
+            N'hésitez pas à nous contacter. Nous répondons dans les 48 heures.
           </p>
           <a className="bq-bouton bq-bouton-large" href="mailto:contact@evkha.fr">
             contact@evkha.fr

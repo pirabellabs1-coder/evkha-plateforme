@@ -837,8 +837,14 @@
 
 /* La page ou l'on se trouve : en BLANC, comme sur le site — c'est ainsi que
    « Accueil » se distingue sur leur page d'accueil. Elle reste cliquable : un
-   lien mort dans un menu laisse croire a une page cassee. */
-.pp-menu-entrees a.pp-menu-courant {
+   lien mort dans un menu laisse croire a une page cassee.
+
+   Le selecteur vise `a` ET `button`. Une entree a deroulant est un bouton, pas
+   un lien : ne peindre que les liens laissait « Etude de marche & Livrables »
+   en noir sur la boutique et sur nos etudes, alors que la classe y etait bien
+   posee. Le repere ne servait donc jamais la ou il sert le plus. */
+.pp-menu-entrees a.pp-menu-courant,
+.pp-menu-entrees button.pp-menu-courant {
   color: #ffffff;
 }
 
