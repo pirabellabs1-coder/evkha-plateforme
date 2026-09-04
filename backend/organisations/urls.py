@@ -66,6 +66,11 @@ urlpatterns = [
     # frequent du public direct : l'etude de marche, puis le business plan au
     # moment d'aller voir la banque.
     path("etudes/", vues.etudes_a_l_unite, name="etudes"),
+    # Les signalements : ce qu'un client remonte quand quelque chose ne va
+    # pas. GET liste les siens, POST en depose un. Aucun droit particulier —
+    # voir la vue : celui qui voit le probleme n'est pas toujours celui qui
+    # gere l'abonnement.
+    path("signalements/", vues.signalements, name="signalements"),
     # Les annonces d'EVKHA : ce qui s'affiche a la connexion.
     path("annonces/", vues.annonces, name="annonces"),
     path(

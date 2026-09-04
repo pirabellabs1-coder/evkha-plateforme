@@ -396,6 +396,96 @@ def relancer_un_paiement(
     )
 
 
+def _adresse_de_la_console() -> str:
+    """L'adresse de la console d'administration, telle que la configuration la dit.
+
+    Même raison qu'en dessous : un domaine écrit en dur survit aux
+    déménagements et envoie sur une adresse morte.
+    """
+    from django.conf import settings  # noqa: PLC0415
+
+    base = str(getattr(settings, "EVKHA_APP_URL", "") or "").rstrip("/")
+    return f"{base}/signalements" if base else "https://app2.evkha.fr/signalements"
+
+
+def _gabarit_interne(*, titre: str, phrases: list[str], lien: str, bouton: str) -> str:
+    """Comme `_gabarit`, mais pour un message qu'EVKHA s'envoie à elle-même.
+
+    Le pied de `_gabarit` promet « Ce lien est valable trois jours et ne sert
+    qu'une fois » — vrai d'une invitation ou d'un mot de passe, faux d'une
+    alerte interne dont le lien est une simple adresse de console. Recopier ce
+    gabarit-là aurait mis un mensonge de trois lignes dans chaque alerte, et
+    entraîné à ne plus lire les pieds de page.
+    """
+    paragraphes = "".join(
+        f'<p style="margin:0 0 14px;font-size:15px;line-height:1.6;'
+        f'color:{_GRIS};">{escape(p)}</p>'
+        for p in phrases
+    )
+    return (
+        f'<div style="font-family:Segoe UI,Helvetica,Arial,sans-serif;'
+        f'background:{_COQUILLE};padding:28px 16px;">'
+        f'<div style="max-width:520px;margin:0 auto;background:#ffffff;'
+        f'border:1px solid {_BORDURE};border-radius:14px;overflow:hidden;">'
+        f'<div style="height:4px;background:{_OR};"></div>'
+        f'<div style="padding:26px 28px 30px;">'
+        f'<h1 style="font-size:19px;line-height:1.3;margin:0 0 16px;'
+        f'color:{_ENCRE};font-weight:700;">{escape(titre)}</h1>'
+        f"{paragraphes}"
+        f'<p style="margin:24px 0 0;">'
+        f'<a href="{escape(lien)}" style="background:{_OR};color:{_NOIR};'
+        f"padding:12px 22px;text-decoration:none;border-radius:6px;"
+        f'font-size:14px;font-weight:700;display:inline-block;">'
+        f"{escape(bouton)}</a></p>"
+        f"</div></div></div>"
+    )
+
+
+def prevenir_d_un_signalement(
+    *, organisation: str, auteur: str, sujet: str, message: str
+) -> bool:
+    """Prévient EVKHA qu'un client vient de signaler un problème.
+
+    Le destinataire est l'adresse d'expédition configurée — celle qui reçoit
+    déjà le courrier de la maison. L'écrire en dur ici en ferait une seconde
+    vérité, qui resterait sur l'ancienne boîte le jour d'un changement.
+
+    **Le message du client est repris en entier dans le courriel**, et pas
+    seulement annoncé. Une alerte qui dit « un signalement est arrivé » sans
+    dire lequel oblige à ouvrir la console pour savoir s'il y a urgence : elle
+    fait perdre le temps qu'elle prétend faire gagner.
+
+    Ne lève jamais, comme tout ce module : un signalement enregistré ne doit pas
+    être perdu parce que la messagerie est indisponible. Il reste visible dans
+    la console, qui est la source.
+    """
+    from django.conf import settings  # noqa: PLC0415
+
+    destinataire = str(getattr(settings, "EVKHA_SENDER_EMAIL", "") or "").strip()
+    if not destinataire:
+        _log.warning("Aucune adresse EVKHA configuree : signalement non notifie")
+        return False
+
+    # Le corps est borné : un client peut coller beaucoup, et une alerte
+    # illisible ne se lit pas. La console porte le texte entier.
+    extrait = message if len(message) <= 1200 else message[:1200] + " […]"
+    return _envoyer(
+        destinataire=destinataire,
+        sujet=f"Signalement — {organisation}",
+        corps_html=_gabarit_interne(
+            titre="Un client vient de signaler un problème",
+            phrases=[
+                f"Organisation : {organisation}",
+                f"Déposé par : {auteur}",
+                f"Sujet : {sujet}",
+                extrait,
+            ],
+            lien=_adresse_de_la_console(),
+            bouton="Ouvrir les signalements",
+        ),
+    )
+
+
 def _adresse_de_l_espace() -> str:
     """L'adresse publique de l'espace client, telle que la configuration la dit.
 

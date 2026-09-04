@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from . import actions, annonces, boutique, supervision, views
+from . import actions, annonces, boutique, signalements, supervision, views
 
 app_name = "dashboard"
 
@@ -22,6 +22,36 @@ urlpatterns = [
     path("jobs/<str:job_id>/redeliver/", views.job_redeliver, name="job-redeliver"),
     path("jobs/<str:job_id>/reverifier/", views.job_reverifier, name="job-reverifier"),
     path("jobs/<str:job_id>/send-email/", views.job_send_email, name="job-send-email"),
+    # Signalements clients, et l'assistance qui va avec.
+    #
+    # `assistances/` AVANT `<str:signalement_id>/` : Django prend la premiere
+    # route qui correspond, et un motif attrape-tout avalerait le mot.
+    # `<uuid:…>` et non `<str:…>` : ces vues filtrent un `UUIDField`, et une
+    # valeur mal formee y leve `ValidationError` — donc une erreur 500 sur une
+    # adresse tapee de travers. Le convertisseur rend un 404 propre avant meme
+    # d'entrer dans la vue. Le reste de ce fichier utilise `<str:…>` et porte
+    # le meme defaut ; on ne le reproduit pas ici.
+    path("signalements/", signalements.liste, name="signalements"),
+    path(
+        "signalements/assistances/",
+        signalements.assistances,
+        name="signalements-assistances",
+    ),
+    path(
+        "signalements/assistances/<uuid:jeton_id>/fermer/",
+        signalements.fermer_une_assistance,
+        name="signalements-assistance-fermer",
+    ),
+    path(
+        "signalements/<uuid:signalement_id>/traiter/",
+        signalements.traiter,
+        name="signalement-traiter",
+    ),
+    path(
+        "organisations/<uuid:organisation_id>/assistance/",
+        signalements.ouvrir_assistance,
+        name="organisation-assistance",
+    ),
     # Incidents
     path("incidents/", views.incidents_list, name="incidents-list"),
     path("incidents/<str:incident_id>/resolve/", views.incident_resolve, name="incident-resolve"),

@@ -80,6 +80,12 @@ const TON_PAR_STATUT: Record<string, Ton> = {
   failed: "echec",
   cancelled: "neutre",
   expired: "neutre",
+  // Signalements. « Nouveau » est en alerte et non en neutre : c'est ce qui
+  // attend quelqu'un, et un signalement qui se fond dans le gris se lit comme
+  // une ligne d'historique.
+  nouveau: "alerte",
+  en_cours: "info",
+  traite: "succes",
 };
 
 const LIBELLE_PAR_STATUT: Record<string, string> = {
@@ -96,6 +102,9 @@ const LIBELLE_PAR_STATUT: Record<string, string> = {
   failed: "Échec",
   cancelled: "Annulé",
   expired: "Expiré",
+  nouveau: "Nouveau",
+  en_cours: "En cours de traitement",
+  traite: "Traité",
 };
 
 export function Pastille({ statut, texte }: { statut: string; texte?: string }) {

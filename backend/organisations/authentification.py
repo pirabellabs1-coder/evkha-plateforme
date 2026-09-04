@@ -142,8 +142,52 @@ def ouvrir_session_sans_mot_de_passe(compte: CompteClient) -> str:
     return jeton_clair
 
 
-def compte_du_jeton(jeton_clair: str) -> CompteClient | None:
-    """Compte associé à un jeton, ou None s'il est inutilisable.
+def ouvrir_une_assistance(compte: CompteClient, *, par: str) -> str:
+    """Délivre à EVKHA un jeton MARQUÉ pour porter secours à ce compte.
+
+    **Cette fonction ne vérifie rien du côté du client** — c'est tout son
+    objet : la personne assistée ne saisit pas son mot de passe, et EVKHA n'en
+    connaît pas le condensat. L'appelant, et lui seul, doit avoir prouvé qu'il
+    parle depuis la console d'administration. Elle porte donc un nom qui le dit,
+    comme `ouvrir_session_sans_mot_de_passe`.
+
+    Le jeton a la **même durée qu'une session ordinaire**. C'est un choix
+    explicite de la cliente le 04/09/2026 : une minuterie courte éjectait
+    l'agent en pleine investigation, ce qui est exactement le moment où l'on a
+    besoin de rester. Ce qui protège n'est donc pas l'horloge, ce sont trois
+    autres choses, et elles existent toutes :
+
+    - le drapeau `assistance`, qui fait **refuser** au serveur tout geste
+      engageant l'argent du client (`vues_espace.espace`) ;
+    - la révocation explicite, par le bouton « Quitter l'assistance » et par la
+      console, qui listent et ferment ces sessions ;
+    - la trace : `ouvert_par`, `created_at` et `derniere_utilisation`.
+
+    `derniere_connexion` n'est PAS touchée. Elle répond à « quand cette
+    personne s'est-elle connectée ? », et y écrire le passage d'un agent
+    d'EVKHA rendrait faux le seul champ qui dit si un compte est vivant.
+    """
+    jeton_clair = secrets.token_hex(OCTETS_JETON)
+    JetonAcces.objects.create(
+        compte=compte,
+        condensat=_condenser(jeton_clair),
+        expire_le=timezone.now() + DUREE_VALIDITE,
+        assistance=True,
+        ouvert_par=par[:120],
+    )
+    _log.info(
+        "assistance ouverte sur le compte %s par %s", compte.pk, par
+    )
+    return jeton_clair
+
+
+def session_du_jeton(jeton_clair: str) -> JetonAcces | None:
+    """Le JETON lui-même, ou None s'il est inutilisable.
+
+    `compte_du_jeton` ne rendait que le compte, et perdait au passage la seule
+    information qui distingue une visite de la personne d'une visite d'EVKHA
+    venue l'aider. Le décorateur de l'espace a besoin des deux : il refuse
+    d'après le drapeau, il cloisonne d'après le compte.
 
     Ne lève pas : l'appelant décide du code de réponse. Met à jour la date
     d'utilisation, ce qui permet de repérer un jeton actif après un départ.
@@ -157,10 +201,21 @@ def compte_du_jeton(jeton_clair: str) -> CompteClient | None:
     )
     if jeton is None or not jeton.valide or not jeton.compte.actif:
         return None
-    JetonAcces.objects.filter(pk=jeton.pk).update(
-        derniere_utilisation=timezone.now()
-    )
-    return jeton.compte
+    maintenant = timezone.now()
+    JetonAcces.objects.filter(pk=jeton.pk).update(derniere_utilisation=maintenant)
+    jeton.derniere_utilisation = maintenant
+    return jeton
+
+
+def compte_du_jeton(jeton_clair: str) -> CompteClient | None:
+    """Compte associé à un jeton, ou None s'il est inutilisable.
+
+    Enveloppe de `session_du_jeton`, gardée pour les appelants qui n'ont que
+    faire du drapeau d'assistance. Une seconde lecture du jeton écrite à côté
+    finirait par diverger sur ce qui compte : la validité (règle 5).
+    """
+    jeton = session_du_jeton(jeton_clair)
+    return jeton.compte if jeton is not None else None
 
 
 def fermer_session(jeton_clair: str) -> bool:

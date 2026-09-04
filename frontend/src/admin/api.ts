@@ -28,6 +28,25 @@ async function get<T>(chemin: string, params?: Record<string, string>): Promise<
 
 // ── Types de supervision ────────────────────────────────────────────────────
 
+export type StatutSignalement = "nouveau" | "en_cours" | "traite";
+
+/** Un problème remonté depuis un espace client, vu de l'administration. */
+export interface SignalementAdmin {
+  id: string;
+  organisation: string;
+  organisation_id: string;
+  auteur: string;
+  sujet: string;
+  sujet_libelle: string;
+  message: string;
+  statut: StatutSignalement;
+  statut_libelle: string;
+  reponse: string;
+  livrable_id: string | null;
+  cree_le: string;
+  traite_le: string | null;
+}
+
 export interface Synthese {
   periode: { debut: string; fin: string; jours: number };
   organisations: { total: number; actives: number; suspendues: number };
@@ -418,5 +437,42 @@ export const adminApi = {
     post<{ id: string; statut: string; solde: number }>(
       `/supervision/demandes/${demandeId}/traiter/`,
       corps,
+    ),
+
+  // ── Signalements et assistance ──────────────────────────────────────────
+  signalements: () =>
+    get<{
+      signalements: SignalementAdmin[];
+      a_traiter: number;
+      statuts: { code: string; libelle: string }[];
+    }>("/signalements/"),
+  traiterSignalement: (
+    signalementId: string,
+    corps: { statut?: StatutSignalement; reponse?: string },
+  ) => post<SignalementAdmin>(`/signalements/${signalementId}/traiter/`, corps),
+  /** Ouvre une session sur l'espace de ce client, et rend le jeton.
+   *
+   *  Le jeton est marqué « assistance » côté serveur : il refuse toute route
+   *  qui engage une dépense. Ce n'est pas l'interface qui protège — masquer un
+   *  bouton n'empêche personne d'appeler la route. */
+  ouvrirAssistance: (organisationId: string) =>
+    post<{ jeton: string; organisation: string; compte: string }>(
+      `/organisations/${organisationId}/assistance/`,
+      {},
+    ),
+  assistances: () =>
+    get<{
+      assistances: {
+        id: string;
+        compte: string;
+        ouvert_par: string;
+        ouvert_le: string;
+        derniere_utilisation: string | null;
+      }[];
+    }>("/signalements/assistances/"),
+  fermerAssistance: (jetonId: string) =>
+    post<{ ferme: boolean }>(
+      `/signalements/assistances/${jetonId}/fermer/`,
+      {},
     ),
 };

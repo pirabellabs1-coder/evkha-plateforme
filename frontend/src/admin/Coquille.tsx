@@ -29,6 +29,7 @@ const ENTREES = [
   { vers: "/admin/annonces", libelle: "Annonces", icone: "◆" },
   { vers: "/admin/transactions", libelle: "Transactions", icone: "◈" },
   { vers: "/admin/demandes", libelle: "Demandes", icone: "◇" },
+  { vers: "/admin/signalements", libelle: "Signalements", icone: "⚑" },
   { vers: "/admin/jobs", libelle: "Générations", icone: "▤" },
   { vers: "/admin/incidents", libelle: "Incidents", icone: "⚠" },
   { vers: "/admin/orders", libelle: "Commandes", icone: "◐" },
@@ -63,6 +64,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/admin/demandes": {
     titre: "Demandes à traiter",
     sous: "Changements de formule et achats de crédits venus des espaces clients.",
+  },
+  "/admin/signalements": {
+    titre: "Signalements",
+    sous: "Les problèmes remontés depuis les espaces clients, et l'accès d'assistance.",
   },
   "/admin/jobs": {
     titre: "Générations",
@@ -112,6 +117,17 @@ export function CoquilleAdmin() {
   });
   const aTraiter = demandes?.ouvertes ?? 0;
 
+  // Meme role pour les signalements : une pastille dit qu'il y a quelqu'un qui
+  // attend. Elle compte les NOUVEAUX ET les EN COURS — n'afficher que les
+  // nouveaux la ferait tomber a zero des qu'on prend un dossier en charge, et
+  // laisserait croire qu'il n'y a plus rien a faire.
+  const { data: signalements } = useQuery({
+    queryKey: ["admin", "signalements"],
+    queryFn: adminApi.signalements,
+    staleTime: 60_000,
+  });
+  const signalementsATraiter = signalements?.a_traiter ?? 0;
+
 
   function deconnecter() {
     clearToken();
@@ -152,6 +168,12 @@ export function CoquilleAdmin() {
                 {entree.vers === "/admin/demandes" && aTraiter > 0 && (
                   <span className="espace-compteur">{aTraiter}</span>
                 )}
+                {entree.vers === "/admin/signalements" &&
+                  signalementsATraiter > 0 && (
+                    <span className="espace-compteur">
+                      {signalementsATraiter}
+                    </span>
+                  )}
               </Link>
             </li>
           ))}

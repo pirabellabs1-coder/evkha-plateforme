@@ -18,6 +18,7 @@ import { Equipe } from "./pages/Equipe";
 import { Livrables } from "./pages/Livrables";
 import { MesAchats } from "./pages/MesAchats";
 import { MonCompte } from "./pages/MonCompte";
+import { Signalements } from "./pages/Signalements";
 import { Souscription } from "./pages/Souscription";
 import { SuiviLivrable } from "./pages/SuiviLivrable";
 import { TableauDeBord } from "./pages/TableauDeBord";
@@ -105,6 +106,14 @@ export function routesEspace(racine: AnyRoute) {
       getParentRoute: () => coquille,
       path: "equipe",
       component: Equipe,
+    }),
+    // Signaler un probleme. Aucun droit particulier n'est exige cote serveur :
+    // celui qui voit qu'un document ne va pas n'est pas toujours celui qui
+    // gere l'abonnement.
+    createRoute({
+      getParentRoute: () => coquille,
+      path: "signalements",
+      component: Signalements,
     }),
     // Identité et mot de passe. Enfant de la coquille comme les autres : le
     // changement de mot de passe exige une session, et c'est `beforeLoad` du

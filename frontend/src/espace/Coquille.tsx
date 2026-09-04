@@ -28,6 +28,7 @@ const ENTREES = [
   // l'afficher reviendrait à montrer une porte qui se ferme.
   { vers: "/espace/abonnement", libelle: "Abonnement", icone: "◎", abonnesSeuls: true },
   { vers: "/espace/equipe", libelle: "Équipe", icone: "◍" },
+  { vers: "/espace/signalements", libelle: "Signaler un problème", icone: "⚑" },
   // En dernier, contre le bouton de déconnexion : « Mon compte » n'est pas une
   // section de travail comme les précédentes mais une action personnelle, et
   // c'est là qu'on la cherche.
@@ -68,6 +69,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/espace/equipe": {
     titre: "Équipe",
     sous: "Les collaborateurs qui partagent votre portefeuille de crédits.",
+  },
+  "/espace/signalements": {
+    titre: "Signaler un problème",
+    sous: "Décrivez ce qui ne va pas, nous prenons la main et vous suivez l'avancement ici.",
   },
   "/espace/mon-compte": {
     titre: "Mon compte",
@@ -171,6 +176,34 @@ export function Coquille() {
       />
 
       <div className="espace-corps">
+        {/* EVKHA est entrée pour porter secours. Le bandeau est collé en haut
+            de la colonne de contenu et il y reste au défilement : un encart
+            discret serait oublié au bout de deux écrans, et c'est précisément
+            là qu'un agent commence à agir en croyant être chez lui.
+
+            Il est DANS `.espace-corps` et non avant `.espace` : cette dernière
+            est une grille à deux colonnes, et un enfant posé devant la barre
+            latérale s'y installait comme une troisième colonne, sur toute la
+            hauteur. Vu à l'écran, pas déduit.
+
+            Ce n'est pas ce qui protège — le serveur refuse déjà toute dépense
+            sur une session d'assistance. */}
+        {moi?.assistance && (
+          <div className="assistance-bandeau" role="alert">
+            <span>
+              Session d'assistance EVKHA sur l'espace de{" "}
+              <strong>{moi.organisation.raison_sociale}</strong>. Aucune dépense
+              n'est possible depuis ici.
+            </span>
+            <button
+              type="button"
+              className="assistance-quitter"
+              onClick={deconnecter}
+            >
+              Quitter l'assistance
+            </button>
+          </div>
+        )}
         <header className="espace-entete">
           <button
             type="button"

@@ -2653,3 +2653,115 @@
     }
   }
 }
+
+/* ── Signalements ────────────────────────────────────────────────────────── */
+/*
+ * Une pile de blocs, pas un tableau. Un signalement porte un texte libre de
+ * plusieurs lignes et parfois une réponse : en colonne de tableau, il serait
+ * tronqué ou ferait défiler la page latéralement. Ce que l'on vient lire ici,
+ * c'est justement le texte.
+ */
+.signalements {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+}
+
+.signalement {
+  padding: var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-carte);
+}
+
+.signalement-tete {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+}
+
+.signalement-sujet {
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.signalement-date {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+}
+
+/* `pre-wrap` : le client écrit des retours à la ligne, et les écraser colle en
+   un pavé un récit qu'il a pris la peine d'aérer. */
+.signalement-message {
+  margin: var(--e-2) 0 0;
+  white-space: pre-wrap;
+}
+
+.signalement-reponse {
+  margin-top: var(--e-3);
+  padding: var(--e-3);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-or-voile);
+}
+
+.signalement-reponse-titre {
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-tenu);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Bandeau d'assistance ────────────────────────────────────────────────── */
+/*
+ * EVKHA est entrée dans l'espace de quelqu'un d'autre. Le bandeau est en haut,
+ * pleine largeur, au-dessus de la barre latérale ET du contenu — un encart
+ * discret dans un coin serait oublié au bout de deux écrans, et c'est
+ * exactement le moment où l'agent commence à agir en croyant être chez lui.
+ *
+ * Le rouge n'est pas décoratif : cette barre ne signale pas une information,
+ * elle signale qu'on n'est pas chez soi.
+ */
+.assistance-bandeau {
+  /* Collé en haut de la colonne de contenu. L'en-tête de page ne l'est qu'en
+     dessous de 900 px ; celui-ci l'est toujours, parce que c'est la seule
+     chose de l'écran qu'on ne doit jamais perdre de vue. */
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-3);
+  flex-wrap: wrap;
+  padding: 10px var(--e-4);
+  background: #7f1d1d;
+  color: #ffffff;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  text-align: center;
+}
+
+.assistance-bandeau strong {
+  color: #ffffff;
+}
+
+.assistance-quitter {
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: transparent;
+  color: #ffffff;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  cursor: pointer;
+}
+
+.assistance-quitter:hover,
+.assistance-quitter:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+}

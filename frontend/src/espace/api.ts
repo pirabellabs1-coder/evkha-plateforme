@@ -99,6 +99,29 @@ async function appel<T>(chemin: string, options: RequestInit = {}): Promise<T> {
 
 export type Role = "proprietaire" | "membre" | "lecture";
 
+/** Un problème remonté depuis l'espace, et ce qu'EVKHA en a fait. */
+export interface Signalement {
+  id: string;
+  sujet: string;
+  sujet_libelle: string;
+  message: string;
+  statut: "nouveau" | "en_cours" | "traite";
+  statut_libelle: string;
+  /** Ce qu'EVKHA répond. Vide tant que personne n'a écrit — l'écran affiche
+   *  alors l'attente, jamais un blanc. */
+  reponse: string;
+  livrable_id: string | null;
+  cree_le: string;
+  traite_le: string | null;
+}
+
+export interface Signalements {
+  signalements: Signalement[];
+  /** Les sujets viennent du SERVEUR. Les recopier ici en ferait une seconde
+   *  liste, qui refuserait un sujet ajouté en base sans que rien ne le dise. */
+  sujets: { code: string; libelle: string }[];
+}
+
 export interface Moi {
   /** La porte est-elle ouverte ? Décision du SERVEUR, jamais recalculée ici.
    *
@@ -107,6 +130,14 @@ export interface Moi {
    *  garde pourtant l'accès, ces crédits étant pérennes. L'interface lui aurait
    *  présenté un mur de paiement pour un service déjà payé. */
   acces_ouvert: boolean;
+  /** EVKHA est entrée pour porter secours, ce n'est pas la personne elle-même.
+   *
+   *  L'interface pose alors un bandeau permanent : sans lui, un agent finit par
+   *  écrire à la place du client sans s'en rendre compte. Ce n'est PAS ce qui
+   *  protège — le serveur refuse déjà toute dépense sur une telle session
+   *  (`espace(interdit_en_assistance=True)`). Un bandeau n'est pas un contrôle,
+   *  c'est un repère. */
+  assistance: boolean;
   utilisateur: {
     email: string;
     prenom: string;
@@ -448,6 +479,16 @@ export const espaceApi = {
       body: JSON.stringify({ email, mot_de_passe }),
     }),
   deconnexion: () => appel<void>("/deconnexion/", { method: "POST" }),
+  signalements: () => appel<Signalements>("/signalements/"),
+  signaler: (corps: {
+    sujet: string;
+    message: string;
+    livrable_id?: string;
+  }) =>
+    appel<Signalement>("/signalements/", {
+      method: "POST",
+      body: JSON.stringify(corps),
+    }),
   /** Change son mot de passe, et rattrape la session au passage.
    *
    *  Le serveur révoque TOUS les jetons du compte — celui qui porte cette

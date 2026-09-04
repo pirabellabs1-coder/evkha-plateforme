@@ -20,6 +20,7 @@ from functools import wraps
 from typing import Any
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.db.models import Sum
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -49,6 +50,7 @@ from .authentification import (
     fermer_session,
     ouvrir_session,
     revoquer_tous_les_jetons,
+    session_du_jeton,
 )
 from .models import (
     AbonnementOrganisation,  # noqa: F401 — type de retour de `abonnement_actif`
@@ -62,8 +64,11 @@ from .models import (
     Organisation,
     PieceJointe,
     RoleOrganisation,
+    Signalement,
     StatutAbonnement,
     StatutDemande,
+    StatutSignalement,
+    SujetSignalement,
     TentativePaiement,
     TypeDeCompte,
     TypeDemande,
@@ -192,6 +197,7 @@ def espace(
     ecriture: str = "",
     exige_abonnement: bool = False,
     reserve_aux_abonnes: bool = False,
+    interdit_en_assistance: bool = False,
 ) -> Callable[..., Any]:
     """Résout le membre et son organisation depuis le jeton, puis vérifie le droit.
 
@@ -255,14 +261,69 @@ def espace(
     (règle 4). Et il vit ici, pas dans le menu de l'interface — masquer une
     entrée de navigation n'empêche personne de taper l'adresse. Un menu n'est
     pas un contrôle.
+
+    **`interdit_en_assistance` interdit à EVKHA de dépenser l'argent d'autrui.**
+
+    La console d'administration peut ouvrir une session sur l'espace d'un client
+    pour voir son problème de près (`ouvrir_une_assistance`). Cette session est
+    une vraie session : sans garde, elle pourrait ouvrir un paiement Stripe au
+    nom de la personne, avec sa carte au bout. C'est la seule chose qu'un agent
+    d'EVKHA ne doit jamais pouvoir faire, et la cliente l'a posée comme une
+    limite, pas comme une préférence.
+
+    La ligne de partage est **l'argent et les droits d'accès, pas l'écriture**.
+    Assister sans pouvoir rien changer ne servirait à rien : relancer une
+    génération, corriger une charte, dépenser des crédits DÉJÀ acquis restent
+    possibles — ce sont des gestes de réparation, et les crédits sont déjà
+    payés.
+
+    Sont refusés :
+
+    - **tout ce qui parle d'argent au prestataire de paiement** : souscrire,
+      acheter une étude, acheter des crédits, acheter une étude de boutique,
+      reprendre un abonnement, changer de formule. Les deux dernières ne sont
+      pas des achats et déplacent pourtant de l'argent — l'une rallume un
+      prélèvement mensuel, l'autre en change le montant ;
+    - **l'octroi et le retrait d'accès** : inviter, révoquer. L'assistance
+      s'exécute sur le compte du propriétaire, donc avec `gerer_membres`. Une
+      invitation créée depuis une session d'assistance SURVIT à sa fermeture,
+      à l'expiration du jeton et à une rotation du jeton d'administration : ce
+      serait le seul geste d'ici qui laisse une porte ouverte derrière lui.
+      Un agent qui doit vraiment ajouter un collaborateur le fait depuis la
+      console, sous la trace de la console.
+
+    403 et non 402 : ce n'est pas un paiement à faire, c'est un geste que cette
+    session n'aura jamais le droit de faire. L'interface doit dire « sortez de
+    l'assistance », pas « payez ».
+
+    `test_assistance_et_signalements` verrouille la propriété par la STRUCTURE
+    et non par une liste : il instrumente le module de paiement et regarde
+    quelles vues le touchent réellement. La première version cherchait la
+    chaîne `paiement_stripe.` dans le source — elle ratait `acheter_un_produit`,
+    qui importe `stripe_api` en local. Le contrôle se donnait raison tout seul
+    (règle 1) et énumérait des cas (règle 4).
     """
 
     def decorateur(vue: Callable[..., HttpResponse]) -> Callable[..., HttpResponse]:
         @wraps(vue)
         def enveloppe(request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
-            compte = compte_du_jeton(_jeton(request))
-            if compte is None:
+            session = session_du_jeton(_jeton(request))
+            if session is None:
                 return _refus("Authentification requise.", "unauthorized", 401)
+            compte = session.compte
+            # Posé sur la requête pour que `moi` puisse le dire à l'interface,
+            # qui doit afficher le bandeau d'assistance. C'est un fait de la
+            # session, pas un droit : rien ne s'ouvre en le lisant.
+            request.assistance = session.assistance  # type: ignore[attr-defined]
+
+            if session.assistance and interdit_en_assistance:
+                return _refus(
+                    "Une session d'assistance ne peut engager aucune dépense "
+                    "au nom du client. Quittez l'assistance pour agir depuis "
+                    "votre propre compte.",
+                    "assistance_sans_depense",
+                    403,
+                )
 
             membre = (
                 MembreOrganisation.objects.select_related("organisation", "customer")
@@ -314,6 +375,7 @@ def espace(
         enveloppe.action_ecriture = ecriture  # type: ignore[attr-defined]
         enveloppe.exige_abonnement = exige_abonnement  # type: ignore[attr-defined]
         enveloppe.reserve_aux_abonnes = reserve_aux_abonnes  # type: ignore[attr-defined]
+        enveloppe.interdit_en_assistance = interdit_en_assistance  # type: ignore[attr-defined]
         return enveloppe
 
     return decorateur
@@ -506,6 +568,12 @@ def moi(
         # finissent toujours par diverger (règle 5) ; celle-ci décide de ce que
         # le client voit, donc elle vient d'un seul endroit.
         "acces_ouvert": acces_ouvert(organisation),
+        # Vrai quand EVKHA est entrée pour porter secours, et non la personne
+        # elle-même. L'interface s'en sert pour poser un bandeau qu'on ne peut
+        # pas manquer : un agent qui oublie où il est finit par écrire à la
+        # place du client. Ce n'est PAS ce qui protège — le serveur refuse déjà
+        # les dépenses (`espace(interdit_en_assistance=True)`).
+        "assistance": bool(getattr(request, "assistance", False)),
         "utilisateur": {
             "email": membre.customer.email,
             "prenom": membre.customer.first_name,
@@ -1025,6 +1093,171 @@ def livrables(
     })
 
 
+# ── Signalements ─────────────────────────────────────────────────────────────
+
+
+#: Plafond de dépôt d'un signalement.
+#:
+#: Aucun droit n'est exigé pour signaler — c'est voulu, le compte « Lecture
+#: seule » est le premier à voir qu'un document ne va pas. Mais sans plafond,
+#: une boucle sur cette route écrit une ligne ET envoie un courriel à EVKHA à
+#: chaque tour : on noie la boîte qui sert précisément d'alerte, et on paie
+#: chaque envoi. Ouvrir l'accès et limiter le débit sont deux questions
+#: distinctes ; la seconde restait sans réponse.
+#:
+#: Dix par heure et par organisation : très au-dessus de ce qu'un client
+#: rencontre en une journée, très en dessous de ce qu'il faut pour nuire.
+DEPOTS_PAR_ORGANISATION = limitation.Plafond(
+    "signalement-organisation", maximum=10, fenetre_s=3600
+)
+
+#: Longueur maximale d'un signalement.
+#:
+#: Assez pour raconter ce qui s'est passé, assez peu pour qu'un collage
+#: accidentel de trente pages ne remplisse pas la base. Le refus est explicite :
+#: tronquer en silence ferait disparaître la fin du récit sans que personne le
+#: sache — et c'est souvent la fin qui dit ce qui a échoué.
+MESSAGE_SIGNALEMENT_MAX = 4000
+
+
+def _signalement_en_dict(signalement: Signalement) -> dict[str, Any]:
+    """Ce qu'un signalement montre à celui qui l'a déposé.
+
+    L'organisation n'y figure pas : la personne la connaît, et la vue est déjà
+    cloisonnée. La réponse d'EVKHA, elle, y figure toujours — un statut qui
+    passe à « traité » sans un mot n'apprend rien à qui attend.
+    """
+    return {
+        "id": str(signalement.id),
+        "sujet": signalement.sujet,
+        "sujet_libelle": SujetSignalement(signalement.sujet).label,
+        "message": signalement.message,
+        "statut": signalement.statut,
+        "statut_libelle": StatutSignalement(signalement.statut).label,
+        "reponse": signalement.reponse,
+        "livrable_id": str(signalement.livrable_id) if signalement.livrable_id else None,
+        "cree_le": signalement.created_at.isoformat(),
+        "traite_le": (
+            signalement.traite_le.isoformat() if signalement.traite_le else None
+        ),
+    }
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+@espace()
+def signalements(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Les problèmes remontés par cette organisation, et le dépôt d'un nouveau.
+
+    **Aucun droit particulier n'est exigé, et c'est délibéré.** Signaler un
+    ennui n'est pas un acte de gestion : le collaborateur en « Lecture seule »
+    est précisément celui qui consulte les documents, donc celui qui voit le
+    premier qu'un document ne va pas. Lui fermer ce chemin ferait remonter le
+    problème par un autre — ou pas du tout.
+
+    Le **livrable visé est vérifié contre l'organisation**. Sans cela, un
+    identifiant deviné ou recopié rattacherait un signalement au dossier d'une
+    autre agence, et la console d'administration l'afficherait à côté du nom du
+    signalant : une fuite par jointure, sans qu'aucune vue de lecture ait été
+    forcée. Un identifiant inconnu est refusé, pas ignoré en silence — on ne
+    laisse pas partir un signalement en croyant qu'il désigne un dossier.
+    """
+    if request.method == "GET":
+        lot = (
+            Signalement.objects.filter(organisation=organisation)
+            .order_by("-created_at")[:100]
+        )
+        return JsonResponse({
+            "signalements": [_signalement_en_dict(s) for s in lot],
+            "sujets": [
+                {"code": c.value, "libelle": c.label} for c in SujetSignalement
+            ],
+        })
+
+    if limitation.depasse(DEPOTS_PAR_ORGANISATION, str(organisation.pk)):
+        return _refus(
+            "Vous avez déposé beaucoup de signalements coup sur coup. "
+            "Réessayez dans une heure, ou écrivez-nous à contact@evkha.fr.",
+            "trop_de_signalements",
+            429,
+        )
+
+    charge = _corps(request)
+    message = str(charge.get("message", "")).strip()
+    if not message:
+        return _refus(
+            "Décrivez le problème en quelques lignes.", "message_vide", 400
+        )
+    if len(message) > MESSAGE_SIGNALEMENT_MAX:
+        return _refus(
+            f"Le message dépasse {MESSAGE_SIGNALEMENT_MAX} caractères. "
+            "Résumez, ou écrivez-nous à contact@evkha.fr.",
+            "message_trop_long",
+            400,
+        )
+
+    sujet = str(charge.get("sujet", "")).strip() or SujetSignalement.AUTRE
+    if sujet not in SujetSignalement.values:
+        return _refus("Sujet inconnu.", "sujet_inconnu", 400)
+
+    livrable = None
+    livrable_id = str(charge.get("livrable_id", "")).strip()
+    if livrable_id:
+        # `ValidationError` est attrapée au même titre qu'une absence : le
+        # champ est un UUID, et une valeur mal formée la lève au lieu de rendre
+        # une file vide. Sans cela, « pas-un-uuid » faisait une erreur 500 sur
+        # une route dont la documentation promet un refus explicite — un motif
+        # que son lecteur ne peut pas trouver (règle 2).
+        try:
+            livrable = GenerationJob.objects.filter(
+                id=livrable_id, order__organisation=organisation
+            ).first()
+        except (ValidationError, ValueError):
+            livrable = None
+        if livrable is None:
+            return _refus(
+                "Ce document n'existe pas dans votre espace.",
+                "livrable_inconnu",
+                404,
+            )
+
+    signalement = Signalement.objects.create(
+        organisation=organisation,
+        auteur=membre.customer,
+        sujet=sujet,
+        message=message,
+        livrable=livrable,
+    )
+    # Compté APRÈS l'enregistrement : un dépôt refusé pour message vide ne doit
+    # pas consommer le quota de quelqu'un qui a juste cliqué trop vite.
+    limitation.enregistrer(DEPOTS_PAR_ORGANISATION, str(organisation.pk))
+
+    # Le courriel part APRÈS l'enregistrement, et son échec ne perd rien : le
+    # signalement est en base et visible dans la console. Prévenir d'abord puis
+    # échouer à enregistrer serait l'ordre exactement inverse de ce qu'il faut.
+    #
+    # Et l'échec ne remonte pas non plus à la personne. `courriels` promet de
+    # ne jamais lever, mais une promesse tenue ailleurs n'est pas une garantie
+    # ici : si elle cédait, le client verrait une erreur sur un signalement
+    # POURTANT enregistré, et le redéposerait. On ouvrirait deux dossiers pour
+    # un problème, à cause d'une panne de messagerie.
+    try:
+        courriels.prevenir_d_un_signalement(
+            organisation=organisation.raison_sociale,
+            auteur=membre.customer.email,
+            sujet=SujetSignalement(sujet).label,
+            message=message,
+        )
+    except Exception:  # noqa: BLE001 — voir l'arbitrage juste au-dessus
+        _log.exception(
+            "Signalement %s enregistre, alerte non partie", signalement.pk
+        )
+
+    return JsonResponse(_signalement_en_dict(signalement), status=201)
+
+
 # ── Formules et demandes commerciales ────────────────────────────────────────
 
 
@@ -1079,7 +1312,10 @@ def formules(
 @csrf_exempt
 @require_http_methods(["POST"])
 @espace(
-    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+    "gerer_abonnement",
+    ecriture="gerer_abonnement",
+    reserve_aux_abonnes=True,
+    interdit_en_assistance=True,
 )
 def ouvrir_le_paiement(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
@@ -1171,7 +1407,7 @@ def etudes_a_l_unite(
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("commander", ecriture="commander")
+@espace("commander", ecriture="commander", interdit_en_assistance=True)
 def acheter_une_etude(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -1360,7 +1596,10 @@ ACHAT_CREDITS_MAX = 50
 @csrf_exempt
 @require_http_methods(["POST"])
 @espace(
-    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+    "gerer_abonnement",
+    ecriture="gerer_abonnement",
+    reserve_aux_abonnes=True,
+    interdit_en_assistance=True,
 )
 def acheter_des_credits(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
@@ -1531,7 +1770,10 @@ def _arret_automatique_retire(
 @csrf_exempt
 @require_http_methods(["POST"])
 @espace(
-    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+    "gerer_abonnement",
+    ecriture="gerer_abonnement",
+    reserve_aux_abonnes=True,
+    interdit_en_assistance=True,
 )
 def reprendre_l_abonnement(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
@@ -1569,7 +1811,10 @@ def reprendre_l_abonnement(
 @csrf_exempt
 @require_http_methods(["POST"])
 @espace(
-    "gerer_abonnement", ecriture="gerer_abonnement", reserve_aux_abonnes=True
+    "gerer_abonnement",
+    ecriture="gerer_abonnement",
+    reserve_aux_abonnes=True,
+    interdit_en_assistance=True,
 )
 def changer_de_formule(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
@@ -2053,7 +2298,7 @@ def abandonner_livrable(
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("gerer_membres")
+@espace("gerer_membres", interdit_en_assistance=True)
 def inviter(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
@@ -2135,7 +2380,7 @@ def inviter(
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("gerer_membres")
+@espace("gerer_membres", interdit_en_assistance=True)
 def revoquer(
     request: HttpRequest,
     membre: MembreOrganisation,
@@ -2455,7 +2700,7 @@ def mes_achats(
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@espace("commander", ecriture="commander")
+@espace("commander", ecriture="commander", interdit_en_assistance=True)
 def acheter_un_produit(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:

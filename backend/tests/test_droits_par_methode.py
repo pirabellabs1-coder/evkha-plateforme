@@ -215,6 +215,19 @@ def test_aucune_vue_de_l_espace_n_accepte_une_ecriture_sans_droit() -> None:
         # l'administration : rien de ce que le client envoie ici ne change son
         # contenu, seulement le fait qu'il l'a vue.
         "fermer_une_annonce",
+        # Signaler un problème, ajouté le 04/09/2026. Même famille que les
+        # précédentes : ce que cette vue écrit n'est pas une donnée de
+        # l'organisation, c'est un message adressé à EVKHA.
+        #
+        # Le compte « Lecture seule » est précisément celui qui CONSULTE les
+        # documents — donc le premier à voir qu'un document ne va pas. Lui
+        # fermer ce chemin ferait remonter le problème par quelqu'un d'autre,
+        # de seconde main, ou pas du tout.
+        #
+        # Ce que l'on risque en l'ouvrant est borné et connu : des lignes de
+        # texte, plafonnées à 4 000 caractères, dans une liste qu'EVKHA relit.
+        # Ce que l'on risque en le fermant, c'est de ne pas être prévenu.
+        "signalements",
     }
 
     manquants: list[str] = []

@@ -13,6 +13,7 @@ import { BoutiqueAdmin } from "./admin/pages/BoutiqueAdmin";
 import { Annonces } from "./admin/pages/Annonces";
 import { TransactionsAdmin } from "./admin/pages/Transactions";
 import { DemandesAdmin } from "./admin/pages/Demandes";
+import { SignalementsAdmin } from "./admin/pages/Signalements";
 import { Jobs } from "./pages/Jobs";
 import { JobDetail } from "./pages/JobDetail";
 import { Incidents } from "./pages/Incidents";
@@ -235,6 +236,13 @@ const adminDemandes = createRoute({
   component: DemandesAdmin,
 });
 
+// Les signalements venus des espaces clients, et l'assistance qui va avec.
+const adminSignalements = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "signalements",
+  component: SignalementsAdmin,
+});
+
 const adminJobs = createRoute({
   getParentRoute: () => adminRoute,
   path: "jobs",
@@ -313,6 +321,7 @@ const routeTree = rootRoute.addChildren([
     adminTransactions,
     adminLivrables,
     adminDemandes,
+    adminSignalements,
     adminJobs,
     adminJobDetail,
     adminIncidents,

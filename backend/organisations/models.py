@@ -619,6 +619,97 @@ class DemandeCommerciale(UUIDModel):
         return f"{self.organisation} · {self.type} · {self.statut}"
 
 
+class SujetSignalement(models.TextChoices):
+    """De quoi parle un signalement.
+
+    Le sujet n'est PAS une gravité. Il sert à orienter la lecture — un document
+    raté ne se traite pas comme une question de facturation — et il est choisi
+    par la personne qui signale, qui est la seule à savoir de quoi elle parle.
+    """
+
+    DOCUMENT = "document", "Un document produit ne va pas"
+    GENERATION = "generation", "Une génération a échoué ou reste bloquée"
+    FACTURATION = "facturation", "Facturation, crédits ou abonnement"
+    ACCES = "acces", "Connexion ou accès à l'espace"
+    AUTRE = "autre", "Autre chose"
+
+
+class StatutSignalement(models.TextChoices):
+    NOUVEAU = "nouveau", "Nouveau"
+    EN_COURS = "en_cours", "En cours de traitement"
+    TRAITE = "traite", "Traité"
+
+
+class Signalement(UUIDModel):
+    """Un problème remonté par un client depuis son espace (§9.10).
+
+    ## Pourquoi un modèle de plus, à côté de `DemandeCommerciale`
+
+    `DemandeCommerciale` porte une intention commerciale — changer de formule,
+    acheter des crédits, résilier — et une contrainte l'accompagne : *une seule
+    demande ouverte par type et par organisation*, pour qu'un double clic
+    n'ouvre pas deux dossiers à traiter. C'est juste pour du commerce ; c'est
+    faux pour un problème. Quelqu'un dont deux études ont échoué doit pouvoir
+    signaler les deux, et ses verbes ne sont pas « accorder » et « refuser »
+    mais « prendre en charge » et « traiter ». Réutiliser le modèle aurait
+    imposé sa contrainte au premier client qui rencontre deux ennuis.
+
+    ## Ce que le signalement porte, et pourquoi
+
+    Le **livrable concerné** est facultatif et pointe vers `GenerationJob` :
+    c'est ce qui permet à EVKHA d'ouvrir le dossier plutôt que de le chercher.
+    `SET_NULL` et non `CASCADE` : un dossier purgé ne doit pas effacer le
+    signalement, qui reste la trace de ce qui s'est passé.
+
+    Le statut ne remonte jamais tout seul. `traite_le` est posée quand on
+    atteint « traité » et effacée si l'on rouvre — sans quoi la date dirait
+    qu'un dossier rouvert est réglé.
+    """
+
+    organisation = models.ForeignKey(
+        Organisation, on_delete=models.CASCADE, related_name="signalements"
+    )
+    #: Qui a signalé. `SET_NULL`, comme pour une demande : le départ d'un
+    #: collaborateur ne doit pas effacer un problème en cours de traitement.
+    auteur = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="signalements",
+    )
+    sujet = models.CharField(
+        max_length=16, choices=SujetSignalement.choices, default=SujetSignalement.AUTRE
+    )
+    message = models.TextField()
+    #: Le dossier visé, quand il y en a un.
+    livrable = models.ForeignKey(
+        "generation.GenerationJob",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="signalements",
+    )
+    statut = models.CharField(
+        max_length=12,
+        choices=StatutSignalement.choices,
+        default=StatutSignalement.NOUVEAU,
+    )
+    #: Ce qu'EVKHA répond. Visible par le client dans son espace : un statut qui
+    #: passe à « traité » sans un mot n'apprend rien à qui attend.
+    reponse = models.TextField(blank=True)
+    traite_le = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["statut", "-created_at"])]
+        verbose_name = "signalement"
+        verbose_name_plural = "signalements"
+
+    def __str__(self) -> str:
+        return f"{self.organisation} · {self.sujet} · {self.statut}"
+
+
 class JetonAcces(UUIDModel):
     """Jeton de session de l'espace client.
 
@@ -634,6 +725,20 @@ class JetonAcces(UUIDModel):
     revoque_le = models.DateTimeField(null=True, blank=True)
     #: Trace d'usage : permet de repérer un jeton encore actif après un départ.
     derniere_utilisation = models.DateTimeField(null=True, blank=True)
+    #: Session ouverte par EVKHA pour porter secours, et non par la personne
+    #: elle-même. Le drapeau vit sur le JETON et non sur le compte : la même
+    #: personne peut être connectée pendant qu'on l'assiste, et ce qui est
+    #: interdit l'est à la session d'assistance, pas au compte.
+    #:
+    #: Il ne sert qu'à REFUSER. Aucune vue ne l'utilise pour ouvrir quoi que ce
+    #: soit — voir `vues_espace.espace(interdit_en_assistance=...)`.
+    assistance = models.BooleanField(default=False)
+    #: Qui a ouvert cette assistance, en clair. La console d'administration est
+    #: protégée par un jeton PARTAGÉ : elle ne connaît pas de nom d'agent. On
+    #: écrit donc ce qu'on sait — « console d'administration » — plutôt qu'un
+    #: identifiant inventé qui donnerait une fausse impression de traçabilité
+    #: nominative.
+    ouvert_par = models.CharField(max_length=120, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
