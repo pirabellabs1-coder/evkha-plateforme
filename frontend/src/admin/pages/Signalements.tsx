@@ -102,6 +102,15 @@ export function SignalementsAdmin() {
     onError: () => setErreur("Cette session d'assistance n'a pas pu être fermée."),
   });
 
+  const suppression = useMutation({
+    mutationFn: (id: string) => adminApi.supprimerSignalement(id),
+    onSuccess: () => {
+      setErreur("");
+      void cache.invalidateQueries({ queryKey: ["admin", "signalements"] });
+    },
+    onError: () => setErreur("Ce signalement n'a pas pu être supprimé."),
+  });
+
   const assistance = useMutation({
     mutationFn: (organisationId: string) =>
       adminApi.ouvrirAssistance(organisationId),
@@ -131,6 +140,19 @@ export function SignalementsAdmin() {
         "sera remplacée.",
     );
     if (confirme) assistance.mutate(signalement.organisation_id);
+  }
+
+  function supprimerApresConfirmation(signalement: SignalementAdmin) {
+    // Une confirmation qui RÉCITE ce qu'on efface, et non un « êtes-vous
+    // sûr ? » que personne ne lit. C'est la parole d'un client sur un
+    // problème : le seul garde-fou est de la relire avant.
+    const confirme = window.confirm(
+      `Supprimer définitivement ce signalement de ${signalement.organisation} ?\n\n` +
+        `« ${signalement.message.slice(0, 200)} »\n\n` +
+        "Cette action est irréversible. Le client ne le verra plus dans son " +
+        "espace, et vous ne pourrez plus le retrouver.",
+    );
+    if (confirme) suppression.mutate(signalement.id);
   }
 
   const liste = (data?.signalements ?? []).filter(
@@ -288,6 +310,17 @@ export function SignalementsAdmin() {
                         Rouvrir
                       </button>
                     )}
+                    {/* En dernier, et en discret : c'est l'action qu'on ne veut
+                        pas atteindre par erreur en visant « Prendre en
+                        charge ». */}
+                    <button
+                      type="button"
+                      className="bouton bouton-discret bouton-sm"
+                      disabled={suppression.isPending}
+                      onClick={() => supprimerApresConfirmation(signalement)}
+                    >
+                      Supprimer
+                    </button>
                   </div>
 
                   <label className="champ" style={{ marginTop: "var(--e-3)" }}>

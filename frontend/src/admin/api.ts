@@ -450,6 +450,10 @@ export const adminApi = {
     signalementId: string,
     corps: { statut?: StatutSignalement; reponse?: string },
   ) => post<SignalementAdmin>(`/signalements/${signalementId}/traiter/`, corps),
+  /** Efface un signalement. Irréversible — le contenu part au journal du
+   *  serveur avant l'effacement, et c'est la seule trace qui en reste. */
+  supprimerSignalement: (signalementId: string) =>
+    post<{ supprime: boolean }>(`/signalements/${signalementId}/supprimer/`, {}),
   /** Ouvre une session sur l'espace de ce client, et rend le jeton.
    *
    *  Le jeton est marqué « assistance » côté serveur : il refuse toute route

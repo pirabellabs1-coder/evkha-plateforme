@@ -48,6 +48,11 @@ urlpatterns = [
         name="signalement-traiter",
     ),
     path(
+        "signalements/<uuid:signalement_id>/supprimer/",
+        signalements.supprimer,
+        name="signalement-supprimer",
+    ),
+    path(
         "organisations/<uuid:organisation_id>/assistance/",
         signalements.ouvrir_assistance,
         name="organisation-assistance",

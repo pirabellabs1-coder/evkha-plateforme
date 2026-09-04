@@ -716,3 +716,52 @@ def test_une_messagerie_en_panne_n_empeche_pas_l_assistance(
     )
     assert reponse.status_code == 200
     assert session_du_jeton(reponse.json()["jeton"]) is not None
+
+
+# ── La suppression depuis la console ─────────────────────────────────────────
+
+
+def test_un_signalement_se_supprime(client_admin: Any, caplog: Any) -> None:
+    """Et son contenu part au journal AVANT de disparaître.
+
+    Un signalement est la parole d'un client sur un problème. L'effacer sans
+    trace donnerait le moyen de faire disparaître une réclamation sans que rien
+    n'en reste — même raisonnement que `job_supprimer`, qui écrit le coût d'un
+    dossier avant de le perdre.
+    """
+    import logging
+
+    abonne = Abonne()
+    signalement = Signalement.objects.create(
+        organisation=abonne.organisation,
+        auteur=abonne.contact,
+        sujet=SujetSignalement.DOCUMENT,
+        message="Un essai qu'on veut retirer de la liste",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="dashboard.signalements"):
+        reponse = client_admin.post(
+            f"/api/dashboard/signalements/{signalement.id}/supprimer/",
+            content_type="application/json",
+        )
+
+    assert reponse.status_code == 200
+    assert reponse.json() == {"supprime": True}
+    assert not Signalement.objects.filter(pk=signalement.pk).exists()
+    assert "Un essai qu'on veut retirer de la liste" in caplog.text
+
+
+def test_supprimer_un_signalement_absent_rend_404(client_admin: Any) -> None:
+    """Et un identifiant mal formé aussi, par le convertisseur d'URL."""
+    import uuid
+
+    inconnu = client_admin.post(
+        f"/api/dashboard/signalements/{uuid.uuid4()}/supprimer/",
+        content_type="application/json",
+    )
+    assert inconnu.status_code == 404
+    malforme = client_admin.post(
+        "/api/dashboard/signalements/pas-un-uuid/supprimer/",
+        content_type="application/json",
+    )
+    assert malforme.status_code == 404

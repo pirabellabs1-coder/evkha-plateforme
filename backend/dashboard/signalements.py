@@ -199,6 +199,51 @@ def traiter(request: HttpRequest, signalement_id: str) -> HttpResponse:
     return JsonResponse(_en_dict(signalement))
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def supprimer(request: HttpRequest, signalement_id: str) -> HttpResponse:
+    """Efface un signalement. Irréversible, et volontairement peu accessible.
+
+    ## Pourquoi cette route existe
+
+    Un essai, un doublon né d'un double clic, un message déposé par erreur : la
+    liste doit pouvoir se nettoyer, sinon elle se remplit de bruit et cesse
+    d'être lue. C'est ce qui la rend utile, et c'est aussi ce qui la rend
+    dangereuse.
+
+    ## Ce qu'on écrit avant d'effacer
+
+    Le contenu part au journal en WARNING **avant** la suppression. Un
+    signalement est la parole d'un client sur un problème ; l'effacer sans
+    trace, c'est se donner le moyen de faire disparaître une réclamation sans
+    que rien n'en reste. Même raisonnement que `job_supprimer`, qui écrit le
+    coût d'un dossier avant de le perdre : ce qui a eu lieu doit rester lisible
+    quelque part.
+
+    Aucun filtre sur le statut, contrairement aux dossiers de génération. Un
+    signalement « traité » est justement celui qu'on veut pouvoir ranger, et un
+    « nouveau » déposé par erreur celui qu'on veut retirer tout de suite : il
+    n'existe pas ici d'équivalent du livrable payé qu'il faudrait protéger.
+    """
+    signalement = Signalement.objects.select_related("organisation", "auteur").filter(
+        id=signalement_id
+    ).first()
+    if signalement is None:
+        return _refus("Signalement introuvable.", "introuvable", 404)
+
+    _log.warning(
+        "Suppression du signalement %s — %s, %s, depose le %s par %s : %r",
+        signalement.pk,
+        signalement.organisation.raison_sociale,
+        signalement.statut,
+        signalement.created_at.isoformat(),
+        signalement.auteur.email if signalement.auteur else "auteur inconnu",
+        signalement.message[:500],
+    )
+    signalement.delete()
+    return JsonResponse({"supprime": True})
+
+
 def _compte_a_assister(organisation: Organisation) -> CompteClient | None:
     """Le compte depuis lequel on verra ce que le client voit.
 
