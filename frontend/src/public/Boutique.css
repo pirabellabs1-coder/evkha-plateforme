@@ -374,9 +374,15 @@
 }
 
 /* Une couverture absente ne doit pas faire sauter la grille : le bloc garde
-   sa hauteur et affiche un aplat de la charte. */
+   sa hauteur et affiche un aplat de la charte.
+
+   Le cadre est au format des couvertures — 1200 x 800, soit du 3/2 — et non
+   au 4/3 d'avant. `object-fit: cover` rognait sinon un vingtieme de la largeur
+   de chaque cote : les titres actuels passaient de justesse, un titre plus
+   long serait entre dans le bord. Meme correction que l'eventail de l'en-tete,
+   meme cause. */
 .bq-couverture {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 2;
   background: var(--bq-creme);
   display: flex;
   align-items: center;
