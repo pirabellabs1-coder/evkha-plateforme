@@ -547,9 +547,16 @@
 }
 
 /* La couverture en grand. C'est la premiere chose regardee, et la seule qui
-   donne une idee du document tant que l'extrait n'est pas ouvert. */
+   donne une idee du document tant que l'extrait n'est pas ouvert.
+
+   Au format des couvertures — 1200 x 800 — et non en 16/9. Mesure avant
+   correction sur la fiche des foodtrucks : boite 1,778 contre 1,500 pour
+   l'image, soit 15,6 % de la HAUTEUR coupee, huit pour cent en haut et huit en
+   bas. Le bandeau jaune du pied disparaissait et le cadrage mentait sur le
+   document. C'est la meme cause que l'eventail et que la grille, sur la seule
+   image que l'acheteuse regarde en grand avant de payer. */
 .bq-visuel {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 3 / 2;
   border-radius: 16px;
   overflow: hidden;
   background: var(--bq-creme);
