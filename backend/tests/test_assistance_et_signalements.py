@@ -23,10 +23,12 @@ avec de l'argent » du client. Ces tests sont ce qui la tient.
 from __future__ import annotations
 
 import inspect
+from datetime import timedelta
 from typing import Any
 
 import pytest
 from django.test import Client
+from django.utils import timezone
 
 from catalog.models import Offer
 from customers.models import Customer
@@ -34,6 +36,7 @@ from generation.models import GenerationJob
 from orders.models import Order
 from organisations import courriels, services, vues_espace
 from organisations.authentification import (
+    INACTIVITE_ASSISTANCE,
     creer_compte,
     ouvrir_session,
     ouvrir_une_assistance,
@@ -42,6 +45,7 @@ from organisations.authentification import (
 from organisations.models import (
     CompteClient,
     Formule,
+    JetonAcces,
     Signalement,
     StatutSignalement,
     SujetSignalement,
@@ -586,3 +590,129 @@ def test_un_depot_refuse_ne_consomme_pas_le_quota(
         headers=abonne.entetes,
     )
     assert reponse.status_code == 201
+
+
+# ── La fermeture après inactivité, et le courriel au titulaire ───────────────
+
+
+def test_une_assistance_silencieuse_se_ferme() -> None:
+    """Ce n'est pas la minuterie que la cliente a écartée.
+
+    Une minuterie compte depuis l'OUVERTURE et éjecte l'agent en pleine
+    investigation. Celle-ci compte depuis le DERNIER GESTE : elle ne se
+    déclenche jamais tant qu'on travaille, et ferme l'onglet qu'on a oublié —
+    le seul risque que « pas de limite de temps » laissait ouvert.
+    """
+    abonne = Abonne()
+    jeton_clair = ouvrir_une_assistance(abonne.compte, par="console de test")
+    assert session_du_jeton(jeton_clair) is not None
+
+    # On recule le dernier signe de vie au-delà du silence toléré.
+    jeton = JetonAcces.objects.get(condensat__isnull=False, assistance=True)
+    trop_vieux = timezone.now() - INACTIVITE_ASSISTANCE - timedelta(minutes=1)
+    JetonAcces.objects.filter(pk=jeton.pk).update(derniere_utilisation=trop_vieux)
+
+    assert session_du_jeton(jeton_clair) is None
+    # Révoquée en BASE, et pas seulement déduite : sans cela, la console
+    # annoncerait « ouverte » une session que le serveur refuse déjà.
+    jeton.refresh_from_db()
+    assert jeton.revoque_le is not None
+
+
+def test_une_assistance_active_ne_se_ferme_pas() -> None:
+    """La contre-épreuve, sans laquelle le test précédent ne prouve rien.
+
+    Un correctif qui ferme aussi ce qui travaille serait pire que le défaut :
+    il rendrait l'assistance inutilisable, donc contournée.
+    """
+    abonne = Abonne()
+    jeton_clair = ouvrir_une_assistance(abonne.compte, par="console de test")
+    jeton = JetonAcces.objects.get(assistance=True)
+    presque = timezone.now() - INACTIVITE_ASSISTANCE + timedelta(minutes=30)
+    JetonAcces.objects.filter(pk=jeton.pk).update(derniere_utilisation=presque)
+
+    assert session_du_jeton(jeton_clair) is not None
+
+
+def test_une_session_ordinaire_n_est_jamais_fermee_pour_silence() -> None:
+    """Le client n'a rien demandé.
+
+    Lui appliquer ce délai le sortirait de son espace au milieu d'un
+    questionnaire. Le prédicat rend donc toujours faux hors assistance.
+    """
+    abonne = Abonne()
+    jeton = JetonAcces.objects.filter(assistance=False).first()
+    assert jeton is not None
+    trop_vieux = timezone.now() - INACTIVITE_ASSISTANCE - timedelta(days=3)
+    JetonAcces.objects.filter(pk=jeton.pk).update(derniere_utilisation=trop_vieux)
+
+    assert session_du_jeton(abonne.jeton) is not None
+
+
+def test_la_console_ne_liste_pas_une_assistance_endormie(client_admin: Any) -> None:
+    """L'écran et le serveur doivent dire la même chose.
+
+    Une session listée « ouverte » que le serveur refuse déjà est le genre de
+    repère sur lequel on s'appuie pour conclure de travers (règle 5).
+    """
+    abonne = Abonne()
+    ouvrir_une_assistance(abonne.compte, par="console de test")
+    ouvertes = client_admin.get("/api/dashboard/signalements/assistances/")
+    assert len(ouvertes.json()["assistances"]) == 1
+
+    jeton = JetonAcces.objects.get(assistance=True)
+    trop_vieux = timezone.now() - INACTIVITE_ASSISTANCE - timedelta(minutes=1)
+    JetonAcces.objects.filter(pk=jeton.pk).update(derniere_utilisation=trop_vieux)
+
+    lot = client_admin.get("/api/dashboard/signalements/assistances/").json()
+    assert lot["assistances"] == []
+
+
+def test_le_titulaire_est_prevenu_de_l_assistance(
+    monkeypatch: pytest.MonkeyPatch, client_admin: Any
+) -> None:
+    """Demandé par la cliente le 04/09/2026.
+
+    Un accès dont le titulaire n'est jamais informé est un accès qu'il ne peut
+    pas contester — et c'est ce changement qui, le premier, donne à EVKHA le
+    pouvoir d'entrer chez quelqu'un.
+    """
+    envoyes: list[dict[str, str]] = []
+
+    def capter(**kwargs: str) -> bool:
+        envoyes.append(kwargs)
+        return True
+
+    monkeypatch.setattr(courriels, "prevenir_d_une_assistance", capter)
+
+    abonne = Abonne(nom="Agence Prevenue", email="prevenue@exemple.fr")
+    reponse = client_admin.post(
+        f"/api/dashboard/organisations/{abonne.organisation.id}/assistance/",
+        content_type="application/json",
+    )
+    assert reponse.status_code == 200
+    assert envoyes == [
+        {"destinataire": "prevenue@exemple.fr", "organisation": "Agence Prevenue"}
+    ]
+
+
+def test_une_messagerie_en_panne_n_empeche_pas_l_assistance(
+    monkeypatch: pytest.MonkeyPatch, client_admin: Any
+) -> None:
+    """L'assistance existe déjà quand le courriel part.
+
+    Faire échouer l'ouverture sur une panne de messagerie laisserait un agent
+    devant une erreur, avec une session pourtant ouverte derrière.
+    """
+    def tombe(**_: object) -> bool:
+        raise RuntimeError("messagerie indisponible")
+
+    monkeypatch.setattr(courriels, "prevenir_d_une_assistance", tombe)
+
+    abonne = Abonne(nom="Agence Muette", email="muette@exemple.fr")
+    reponse = client_admin.post(
+        f"/api/dashboard/organisations/{abonne.organisation.id}/assistance/",
+        content_type="application/json",
+    )
+    assert reponse.status_code == 200
+    assert session_du_jeton(reponse.json()["jeton"]) is not None

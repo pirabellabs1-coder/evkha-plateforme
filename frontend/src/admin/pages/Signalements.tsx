@@ -123,8 +123,10 @@ export function SignalementsAdmin() {
     const confirme = window.confirm(
       `Ouvrir l'espace de ${signalement.organisation} ?\n\n` +
         "Vous arriverez dans son espace comme si vous étiez lui. Aucune " +
-        "dépense n'y sera possible : le serveur refuse tout paiement depuis " +
-        "une session d'assistance.\n\n" +
+        "dépense n'y sera possible, et aucun accès ne pourra y être donné : " +
+        "le serveur les refuse depuis une session d'assistance.\n\n" +
+        "Le client en est averti par courriel, et la session se ferme d'elle-" +
+        "même après quelques heures sans activité.\n\n" +
         "Votre propre session cliente sur ce navigateur, si vous en avez une, " +
         "sera remplacée.",
     );
@@ -142,7 +144,7 @@ export function SignalementsAdmin() {
       {(ouvertes?.assistances.length ?? 0) > 0 && (
         <Carte
           titre="Sessions d'assistance ouvertes"
-          note="Elles n'expirent pas d'elles-mêmes. Fermez celles dont vous n'avez plus besoin."
+          note="Elles se ferment après quelques heures sans activité, jamais pendant que vous travaillez. Fermez celles dont vous n'avez plus besoin."
         >
           <ul className="signalements">
             {(ouvertes?.assistances ?? []).map((session) => (

@@ -408,19 +408,39 @@ def _adresse_de_la_console() -> str:
     return f"{base}/signalements" if base else "https://app2.evkha.fr/signalements"
 
 
-def _gabarit_interne(*, titre: str, phrases: list[str], lien: str, bouton: str) -> str:
-    """Comme `_gabarit`, mais pour un message qu'EVKHA s'envoie à elle-même.
+def _gabarit_simple(
+    *, titre: str, phrases: list[str], lien: str, bouton: str, marque: bool = False
+) -> str:
+    """Un message SANS pied de page conditionnel, avec ou sans en-tête de marque.
 
     Le pied de `_gabarit` promet « Ce lien est valable trois jours et ne sert
     qu'une fois » — vrai d'une invitation ou d'un mot de passe, faux d'une
-    alerte interne dont le lien est une simple adresse de console. Recopier ce
-    gabarit-là aurait mis un mensonge de trois lignes dans chaque alerte, et
-    entraîné à ne plus lire les pieds de page.
+    alerte dont le lien est une simple adresse. Recopier ce gabarit-là aurait
+    mis un mensonge de trois lignes dans chaque message, et entraîné à ne plus
+    lire les pieds de page.
+
+    `marque` est la seule différence entre les deux usages : une alerte
+    qu'EVKHA s'envoie à elle-même n'a pas besoin qu'on lui rappelle de qui elle
+    vient ; un message adressé à une cliente, si. Un second gabarit pour cette
+    seule ligne aurait fait deux sources pour une même mise en page (règle 5).
     """
     paragraphes = "".join(
         f'<p style="margin:0 0 14px;font-size:15px;line-height:1.6;'
         f'color:{_GRIS};">{escape(p)}</p>'
         for p in phrases
+    )
+    entete = (
+        (
+            f'<div style="margin-bottom:22px;">'
+            f'<span style="display:inline-block;background:{_OR};color:{_NOIR};'
+            f"width:30px;height:30px;line-height:30px;text-align:center;"
+            f'border-radius:8px;font-weight:800;font-size:15px;">E</span>'
+            f'<span style="display:inline-block;margin-left:10px;font-weight:800;'
+            f'font-size:15px;color:{_NOIR};letter-spacing:0.04em;">EVKHA</span>'
+            f"</div>"
+        )
+        if marque
+        else ""
     )
     return (
         f'<div style="font-family:Segoe UI,Helvetica,Arial,sans-serif;'
@@ -429,6 +449,7 @@ def _gabarit_interne(*, titre: str, phrases: list[str], lien: str, bouton: str) 
         f'border:1px solid {_BORDURE};border-radius:14px;overflow:hidden;">'
         f'<div style="height:4px;background:{_OR};"></div>'
         f'<div style="padding:26px 28px 30px;">'
+        f"{entete}"
         f'<h1 style="font-size:19px;line-height:1.3;margin:0 0 16px;'
         f'color:{_ENCRE};font-weight:700;">{escape(titre)}</h1>'
         f"{paragraphes}"
@@ -438,6 +459,46 @@ def _gabarit_interne(*, titre: str, phrases: list[str], lien: str, bouton: str) 
         f'font-size:14px;font-weight:700;display:inline-block;">'
         f"{escape(bouton)}</a></p>"
         f"</div></div></div>"
+    )
+
+
+def prevenir_d_une_assistance(*, destinataire: str, organisation: str) -> bool:
+    """Prévient la cliente qu'EVKHA vient d'ouvrir une session sur son espace.
+
+    **Demandé par la cliente le 04/09/2026**, et c'est elle que ça protège en
+    premier : la plateforme sait désormais ouvrir une vraie session sur le
+    compte de quelqu'un, et jusqu'ici rien ne le disait à ce quelqu'un. Un accès
+    dont le titulaire n'est jamais informé est un accès qu'on ne peut pas
+    contester.
+
+    Le message dit aussi ce que l'assistance NE PEUT PAS faire. Annoncer
+    « quelqu'un est entré sur votre compte » sans plus inquiéterait pour rien :
+    ce qui rassure n'est pas le silence, c'est la limite, et elle est réelle —
+    le serveur refuse toute dépense et tout octroi d'accès depuis cette session.
+
+    Ne lève jamais, comme tout ce module : l'assistance est déjà ouverte quand
+    on appelle, et une messagerie en panne ne doit pas la faire échouer.
+    """
+    return _envoyer(
+        destinataire=destinataire,
+        sujet="Une session d'assistance a été ouverte sur votre espace",
+        corps_html=_gabarit_simple(
+            marque=True,
+            titre="EVKHA est intervenue sur votre espace",
+            phrases=[
+                f"Un membre de l'équipe EVKHA vient d'ouvrir une session "
+                f"d'assistance sur l'espace de {organisation}, afin de regarder "
+                f"de plus près un problème signalé.",
+                "Cette session ne peut engager aucune dépense en votre nom : "
+                "ni abonnement, ni achat, ni crédits. Elle ne peut pas non plus "
+                "ajouter ou retirer un collaborateur.",
+                "Si vous n'avez signalé aucun problème et que cette "
+                "intervention vous surprend, écrivez-nous : nous vous "
+                "répondrons et la session sera fermée.",
+            ],
+            lien=_adresse_de_l_espace(),
+            bouton="Ouvrir mon espace",
+        ),
     )
 
 
@@ -472,7 +533,7 @@ def prevenir_d_un_signalement(
     return _envoyer(
         destinataire=destinataire,
         sujet=f"Signalement — {organisation}",
-        corps_html=_gabarit_interne(
+        corps_html=_gabarit_simple(
             titre="Un client vient de signaler un problème",
             phrases=[
                 f"Organisation : {organisation}",

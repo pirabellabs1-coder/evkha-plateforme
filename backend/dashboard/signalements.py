@@ -26,12 +26,22 @@ sur lequel la relecture suivante se serait appuyée.
 
 ## Sur la durée
 
-La session d'assistance a la durée d'une session ordinaire. La cliente a
-explicitement écarté une minuterie courte : elle éjectait l'agent au moment
-précis où il enquête. Ce qui la borne est donc ailleurs — la révocation
-explicite (`fermer_une_assistance`), la liste des assistances ouvertes, et la
-trace laissée sur chaque jeton (`ouvert_par`, `created_at`,
-`derniere_utilisation`).
+La cliente a écarté une minuterie courte : elle éjectait l'agent au moment
+précis où il enquête. Ce qui ferme une session, c'est donc le **silence** et
+non l'horloge — `INACTIVITE_ASSISTANCE`, appliqué depuis le dernier geste et
+jamais depuis l'ouverture. Tant qu'on travaille, rien ne se ferme ; l'onglet
+oublié, lui, ne reste pas une clé ouverte pendant quatorze jours.
+
+Le reste tient par la révocation explicite (`fermer_une_assistance`), la liste
+des assistances ouvertes, et la trace laissée sur chaque jeton (`ouvert_par`,
+`created_at`, `derniere_utilisation`).
+
+## Le titulaire est prévenu
+
+Un courriel part vers le compte assisté à chaque ouverture. Un accès dont le
+titulaire n'est jamais informé est un accès qu'il ne peut pas contester — et
+c'est ce changement qui, le premier, donne à EVKHA le pouvoir d'entrer chez
+quelqu'un.
 
 ## Sur le compte choisi
 
@@ -47,12 +57,17 @@ import json
 import logging
 from typing import Any
 
+from django.db.models.functions import Coalesce
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from organisations.authentification import ouvrir_une_assistance
+from organisations import courriels
+from organisations.authentification import (
+    limite_d_inactivite,
+    ouvrir_une_assistance,
+)
 from organisations.models import (
     CompteClient,
     JetonAcces,
@@ -262,6 +277,20 @@ def ouvrir_assistance(request: HttpRequest, organisation_id: str) -> HttpRespons
         organisation.raison_sociale,
         organisation.pk,
     )
+
+    # Le titulaire est prévenu, et son courriel ne conditionne PAS l'ouverture :
+    # l'assistance existe déjà quand on arrive ici, et une messagerie en panne
+    # laisserait sinon un agent devant une erreur sur une session pourtant
+    # ouverte. L'échec est journalisé, pas remonté.
+    try:
+        courriels.prevenir_d_une_assistance(
+            destinataire=compte.customer.email,
+            organisation=organisation.raison_sociale,
+        )
+    except Exception:  # noqa: BLE001 — voir l'arbitrage juste au-dessus
+        _log.exception(
+            "Assistance ouverte sur %s, titulaire NON prevenu", organisation.pk
+        )
     return JsonResponse({
         "jeton": jeton,
         "organisation": organisation.raison_sociale,
@@ -273,13 +302,21 @@ def ouvrir_assistance(request: HttpRequest, organisation_id: str) -> HttpRespons
 def assistances(request: HttpRequest) -> HttpResponse:
     """Les sessions d'assistance encore ouvertes.
 
-    Elles n'ont pas de minuterie : sans cet écran, une session oubliée serait
-    invisible, et c'est précisément ce qui rendrait la durée illimitée
-    dangereuse. La liste est la contrepartie du choix.
+    Le filtre d'inactivité est le MÊME que celui du serveur, et il vient de
+    `limite_d_inactivite()` plutôt que d'une soustraction écrite ici : sans
+    cela, cet écran annoncerait « ouverte » une session que le serveur refuse
+    déjà, ce qui est précisément le genre de repère sur lequel on s'appuie pour
+    conclure de travers (règle 5).
+
+    `Coalesce` reprend la règle du prédicat : une session ouverte puis jamais
+    utilisée n'a pas de `derniere_utilisation`, et c'est son ouverture qui
+    compte alors.
     """
     lot = (
         JetonAcces.objects.select_related("compte", "compte__customer")
         .filter(assistance=True, revoque_le__isnull=True, expire_le__gt=timezone.now())
+        .annotate(dernier_signe=Coalesce("derniere_utilisation", "created_at"))
+        .filter(dernier_signe__gte=limite_d_inactivite())
         .order_by("-created_at")[:100]
     )
     return JsonResponse({

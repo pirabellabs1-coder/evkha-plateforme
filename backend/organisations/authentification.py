@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import User
@@ -50,6 +50,50 @@ DUREE_VALIDITE = timedelta(days=14)
 #: 32 octets d'entropie, rendus en hexadécimal. `secrets` et non `random` :
 #: le second est prévisible et n'a rien à faire dans un contexte de sécurité.
 OCTETS_JETON = 32
+
+#: Silence au-delà duquel une session d'ASSISTANCE se ferme d'elle-même.
+#:
+#: Ce n'est pas la minuterie que la cliente a écartée le 04/09/2026, et la
+#: différence est tout l'objet de ce réglage : une minuterie compte depuis
+#: l'ouverture et éjecte l'agent en pleine investigation, celui-ci compte
+#: depuis le DERNIER GESTE et ne se déclenche jamais tant qu'on travaille.
+#:
+#: Il répond au seul risque que « pas de limite de temps » laissait ouvert :
+#: l'onglet fermé sans cliquer « Quitter l'assistance », qui laissait une
+#: session pleinement valide sur le compte d'une cliente pendant quatorze
+#: jours, en base comme dans le navigateur de l'agent.
+#:
+#: Quatre heures : bien au-delà d'une pause déjeuner ou d'une réunion, bien en
+#: deçà d'une nuit. Rouvrir coûte un clic dans la console.
+INACTIVITE_ASSISTANCE = timedelta(hours=4)
+
+
+def limite_d_inactivite() -> datetime:
+    """L'instant avant lequel une assistance silencieuse est considérée close.
+
+    Exposée plutôt que recalculée : la console filtre sa liste des sessions
+    ouvertes avec, et deux soustractions écrites séparément finiraient par
+    diverger — l'écran montrerait « ouverte » une session que le serveur
+    refuse déjà (règle 5).
+    """
+    return timezone.now() - INACTIVITE_ASSISTANCE
+
+
+def assistance_endormie(jeton: JetonAcces) -> bool:
+    """Cette session d'assistance est-elle silencieuse depuis trop longtemps ?
+
+    `created_at` sert de repli : une session ouverte puis jamais utilisée n'a
+    pas de `derniere_utilisation`, et la traiter comme éternellement fraîche
+    serait exactement le contraire du but.
+
+    Rend toujours faux pour une session ordinaire : le client n'a pas demandé
+    à être déconnecté, et lui appliquer ce délai le ferait sortir de son espace
+    au milieu d'un questionnaire.
+    """
+    if not jeton.assistance:
+        return False
+    dernier_signe = jeton.derniere_utilisation or jeton.created_at
+    return dernier_signe < limite_d_inactivite()
 
 
 def _condenser(jeton: str) -> str:
@@ -158,7 +202,10 @@ def ouvrir_une_assistance(compte: CompteClient, *, par: str) -> str:
     autres choses, et elles existent toutes :
 
     - le drapeau `assistance`, qui fait **refuser** au serveur tout geste
-      engageant l'argent du client (`vues_espace.espace`) ;
+      engageant l'argent du client ou lui donnant un accès (`vues_espace.espace`) ;
+    - la **fermeture après inactivité** (`INACTIVITE_ASSISTANCE`), qui ne compte
+      pas depuis l'ouverture mais depuis le dernier geste : elle ne se déclenche
+      jamais pendant qu'on travaille, et ferme l'onglet qu'on a oublié ;
     - la révocation explicite, par le bouton « Quitter l'assistance » et par la
       console, qui listent et ferment ces sessions ;
     - la trace : `ouvert_par`, `created_at` et `derniere_utilisation`.
@@ -201,6 +248,18 @@ def session_du_jeton(jeton_clair: str) -> JetonAcces | None:
     )
     if jeton is None or not jeton.valide or not jeton.compte.actif:
         return None
+
+    # Le contrôle est ICI, au seul endroit qui transforme un jeton en identité :
+    # aucune route ne peut l'oublier, et une route ajoutée demain l'hérite. La
+    # révocation est écrite en base plutôt que seulement déduite, pour que la
+    # console cesse d'annoncer « ouverte » une session que le serveur refuse.
+    if assistance_endormie(jeton):
+        JetonAcces.objects.filter(pk=jeton.pk, revoque_le__isnull=True).update(
+            revoque_le=timezone.now()
+        )
+        _log.info("assistance fermee apres inactivite (compte %s)", jeton.compte_id)
+        return None
+
     maintenant = timezone.now()
     JetonAcces.objects.filter(pk=jeton.pk).update(derniere_utilisation=maintenant)
     jeton.derniere_utilisation = maintenant
