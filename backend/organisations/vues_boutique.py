@@ -19,7 +19,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from catalog.models import ProduitBoutique
 
-from . import authentification, limitation
+from . import authentification, filigrane, limitation
 
 _log = logging.getLogger(__name__)
 
@@ -259,6 +259,17 @@ def apercu(request: HttpRequest, slug: str) -> HttpResponse:
 
     Le nombre de pages est borne DEUX FOIS : un plafond absolu, et une part du
     document. Dix pages sur douze ne seraient plus un apercu.
+
+    ## Le filigrane, et pourquoi son echec ferme l'apercu
+
+    Chaque page repart marquee (`filigrane.poser`). Sans marque, ces pages sont
+    un extrait propre, indiscernable du document achete : elles se transmettent
+    et rien n'y dit d'ou elles viennent ni qu'il en manque le reste.
+
+    Si la composition echoue, on REFUSE l'apercu. Servir des pages nues
+    « faute de mieux » serait exactement la faute que cette vue refuse deja
+    plus haut sur le document entier — et la seule ou personne ne s'en
+    apercevrait, puisque le resultat aurait l'air normal.
     """
     from io import BytesIO  # noqa: PLC0415
 
@@ -284,8 +295,18 @@ def apercu(request: HttpRequest, slug: str) -> HttpResponse:
         redacteur = PdfWriter()
         for numero in range(combien):
             redacteur.add_page(lecteur.pages[numero])
+        # Sur les pages du REDACTEUR et non sur celles du lecteur : ce sont
+        # celles qui partent, et marquer la source laisserait le document
+        # d'origine modifie en memoire pour la suite de la requete.
+        filigrane.poser(list(redacteur.pages))
         tampon = BytesIO()
         redacteur.write(tampon)
+    except filigrane.FiligraneImpossible:
+        # Distingue de la lecture ratee : le document, lui, est bon. Refuser
+        # quand meme — un apercu sans filigrane est precisement ce qu'on ne
+        # veut pas laisser sortir, et il aurait l'air normal.
+        _log.exception("Filigrane impossible, apercu refuse pour %s", slug)
+        return _refus("Aucun aperçu n'est disponible.", "apercu_indisponible", 404)
     except Exception:
         # Un document illisible ou qui n'est pas un PDF : on refuse, et on le
         # dit dans les journaux. Rendre le fichier entier « faute de mieux »

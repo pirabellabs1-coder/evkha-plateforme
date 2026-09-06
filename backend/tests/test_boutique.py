@@ -1210,3 +1210,147 @@ def test_le_slug_ne_change_pas_quand_le_titre_change(client_admin: Any) -> None:
     produit.refresh_from_db()
     assert produit.titre == "Un tout autre titre"
     assert produit.slug == slug
+
+
+# ── Le filigrane de l'apercu ─────────────────────────────────────────────────
+
+
+def _texte_des_pages(contenu: bytes) -> str:
+    from io import BytesIO  # noqa: PLC0415
+
+    from pypdf import PdfReader  # noqa: PLC0415
+
+    lecteur = PdfReader(BytesIO(contenu))
+    return "\n".join((page.extract_text() or "") for page in lecteur.pages)
+
+
+def test_chaque_page_de_l_apercu_porte_le_filigrane() -> None:
+    """Sans marque, ces pages sont un extrait propre du document achete.
+
+    Elles se transmettent, et rien n'y dit d'ou elles viennent ni qu'il en
+    manque le reste. Le filigrane porte l'adresse ou l'etude complete s'achete.
+
+    Le controle porte sur CHAQUE page et non sur la premiere : marquer la
+    couverture et oublier les suivantes serait le defaut le plus probable, et
+    le plus invisible.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from pypdf import PdfReader  # noqa: PLC0415
+
+    from organisations import filigrane  # noqa: PLC0415
+
+    produit = _produit_avec_apercu(pages_du_document=20)
+    produit.apercu_pages = 4
+    produit.save(update_fields=["apercu_pages"])
+
+    reponse = Client().get(f"/api/public/boutique/{produit.slug}/apercu/")
+
+    assert reponse.status_code == 200
+    lecteur = PdfReader(BytesIO(reponse.content))
+    assert len(lecteur.pages) == 4
+    for numero, page in enumerate(lecteur.pages):
+        texte = page.extract_text() or ""
+        assert filigrane.TEXTE in texte, f"page {numero + 1} sans filigrane"
+
+
+def test_le_filigrane_ne_touche_pas_le_document_vendu() -> None:
+    """Le calque est pose sur ce qui PART, jamais sur la source.
+
+    Marquer les pages du lecteur laisserait le document d'origine modifie en
+    memoire pour la suite de la requete — et, le jour ou quelqu'un ecrirait
+    cette memoire sur le disque, l'etude vendue partirait filigranee.
+    """
+    produit = _produit_avec_apercu(pages_du_document=20)
+    produit.apercu_pages = 2
+    produit.save(update_fields=["apercu_pages"])
+
+    Client().get(f"/api/public/boutique/{produit.slug}/apercu/")
+
+    produit.refresh_from_db()
+    with produit.fichier.open("rb") as source:
+        assert "EXTRAIT" not in _texte_des_pages(source.read())
+
+
+def test_un_filigrane_impossible_REFUSE_l_apercu(monkeypatch: Any) -> None:
+    """La propriete qui compte, et la seule ou personne ne verrait rien.
+
+    Si la composition echoue et qu'on sert les pages quand meme, le resultat a
+    l'air parfaitement normal : un extrait propre, sans marque, servi par une
+    route qui promet le contraire. C'est exactement la faute que cette vue
+    refuse deja plus haut en ne rendant jamais le document entier « faute de
+    mieux » (regle 1 : si l'on ne peut pas tenir la garantie, echouer
+    bruyamment).
+    """
+    from organisations import filigrane  # noqa: PLC0415
+
+    def tombe(*_: Any, **__: Any) -> None:
+        raise filigrane.FiligraneImpossible("essai")
+
+    # On remplace l'attribut du MODULE : `vues_boutique` fait `from . import
+    # filigrane` et resout `poser` a l'appel, donc il voit la doublure. Passer
+    # par `vues_boutique.filigrane` marcherait aussi, mais mypy refuse un
+    # attribut que le module ne reexporte pas explicitement.
+    monkeypatch.setattr(filigrane, "poser", tombe)
+
+    produit = _produit_avec_apercu(pages_du_document=20)
+    produit.apercu_pages = 3
+    produit.save(update_fields=["apercu_pages"])
+
+    reponse = Client().get(f"/api/public/boutique/{produit.slug}/apercu/")
+
+    assert reponse.status_code == 404
+    assert reponse.json()["code"] == "apercu_indisponible"
+    assert b"%PDF" not in reponse.content
+
+
+def test_le_filigrane_deborde_la_page_dans_les_deux_sens() -> None:
+    """Ce qui garantit que les coins ne restent pas nus.
+
+    Une fois incline de trente degres, un pave de la largeur de la page laisse
+    deux coins vides — et les coins sont precisement ce qu'on recadre pour
+    faire disparaitre une marque. Le calque est donc dessine sur la DIAGONALE :
+    ses lignes commencent avant le bord gauche et s'etendent au-dela du haut et
+    du bas.
+
+    Le controle porte sur cette propriete-la, et pas sur « il y a du texte dans
+    les quatre quadrants » : le visiteur de pypdf rend le point de DEPART de
+    chaque chaine, pas son etendue, et une chaine centree tres longue demarre
+    toujours a gauche. Compter les quadrants de depart aurait donc mesure autre
+    chose que ce qu'on croit — un controle qui n'a rien a comparer (regle 1).
+
+    Le rendu, lui, a ete regarde a l'ecran sur une page d'etude reelle : c'est
+    la contrepartie de ce test, et elle ne s'automatise pas ici sans ajouter un
+    moteur de rendu aux dependances.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from pypdf import PdfReader, PdfWriter  # noqa: PLC0415
+
+    from organisations import filigrane  # noqa: PLC0415
+
+    largeur, hauteur = 595.0, 842.0  # A4
+    redacteur = PdfWriter()
+    redacteur.add_blank_page(width=largeur, height=hauteur)
+    filigrane.poser(list(redacteur.pages))
+    tampon = BytesIO()
+    redacteur.write(tampon)
+
+    points: list[tuple[float, float]] = []
+
+    def visiteur(texte: str, cm: Any, tm: Any, _police: Any, _taille: Any) -> None:
+        if "EXTRAIT" not in texte:
+            return
+        # Position reelle = matrice de texte composee avec la transformation
+        # courante, qui porte la rotation et le centrage du calque.
+        points.append((
+            tm[4] * cm[0] + tm[5] * cm[2] + cm[4],
+            tm[4] * cm[1] + tm[5] * cm[3] + cm[5],
+        ))
+
+    PdfReader(BytesIO(tampon.getvalue())).pages[0].extract_text(visitor_text=visiteur)
+
+    assert len(points) >= 5, f"seulement {len(points)} lignes de filigrane"
+    assert min(x for x, _ in points) < 0, "les lignes ne debordent pas a gauche"
+    assert min(y for _, y in points) < 0, "les lignes ne descendent pas sous la page"
+    assert max(y for _, y in points) > hauteur, "les lignes ne montent pas au-dessus"
