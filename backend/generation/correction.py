@@ -65,6 +65,9 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
     {
         # Legacy — anciens checks du gate.
         "contamination",
+        # Un commentaire de révision se répare en réécrivant le chapitre, avec
+        # une consigne qui ne parle plus de version précédente (11/09/2026).
+        "meta_discours",
         "coherence_chiffree",
         "troncature",
         "ordre_de_grandeur",
@@ -133,6 +136,7 @@ _CHECK_PRIORITY = (
     "troncature_rendu",
     "desaccord_numerique",
     "contamination",
+    "meta_discours",
     "ordre_de_grandeur",
     "troncature",
     "ton_publicitaire",
@@ -152,6 +156,13 @@ def _priorite_check(check: str) -> int:
 # Libellés lisibles injectés dans la consigne de correction.
 _CHECK_LABELS = {
     "contamination": "Marqueur technique interne présent dans le texte (interdit)",
+    # La consigne ne dit pas « supprime le passage » : elle dit « reformule ».
+    # Le passage porte souvent une idée juste, mal adressée ; l'effacer ferait
+    # perdre le fond pour corriger la forme.
+    "meta_discours": (
+        "Passage où le chapitre parle de sa propre rédaction — le reformuler "
+        "pour qu'il s'adresse au client"
+    ),
     "coherence_chiffree": "Chiffre incohérent avec le prévisionnel client",
     "calcul_faux": "Calcul dont le résultat ne découle pas de ses termes",
     "caractere_etranger": "Caractère d'une autre écriture dans le texte",

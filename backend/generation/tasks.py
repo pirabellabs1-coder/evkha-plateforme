@@ -90,12 +90,15 @@ def _controler_les_demandes_du_client(job: GenerationJob) -> None:
         )
         return
 
-    if rapport.insuffisantes:
+    if rapport.insuffisantes or rapport.non_examinees:
+        # Deux comptes, jamais additionnés. Sur le dossier `f7f2fad9`, 87 passages que le
+        # contrôle n'avait pas lus sortaient titrés « demandes insuffisamment
+        # traitées » : un verdict sur le document que personne n'avait rendu.
+        titre = f"{len(rapport.insuffisantes)} demande(s) client insuffisamment traitée(s)"
+        if rapport.non_examinees:
+            titre += f", {len(rapport.non_examinees)} passage(s) non examiné(s)"
         OperationalIncident.objects.create(
-            title=(
-                f"{len(rapport.insuffisantes)} demande(s) client "
-                f"insuffisamment traitée(s) (job {job.id})"
-            ),
+            title=f"{titre} (job {job.id})",
             severity=IncidentSeverity.MEDIUM,
             job=job,
             order=job.order,

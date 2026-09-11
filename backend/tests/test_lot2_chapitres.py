@@ -378,7 +378,14 @@ def test_la_reprise_transmet_les_motifs_du_refus(job_em: GenerationJob) -> None:
         document=type_document(EM),
         motifs_precedents=["motif de test"],
     )
-    assert "TENTATIVE PRÉCÉDENTE REFUSÉE" in prompt
+    # Le MOTIF arrive au modèle, en exigence impérative : c'est ce que ce test
+    # protège. Il vérifiait jusqu'au 11/09/2026 la présence de « TENTATIVE
+    # PRÉCÉDENTE REFUSÉE » — la formulation même qui faisait écrire au client
+    # « la version précédente affirmait que… » (stratégie `f7f2fad9`). Il
+    # verrouillait donc le défaut avec le motif (règle 6).
+    assert "motif de test" in prompt
+    assert "EXIGENCES IMPÉRATIVES" in prompt
+    assert "TENTATIVE PRÉCÉDENTE" not in prompt
 
 
 @pytest.mark.django_db

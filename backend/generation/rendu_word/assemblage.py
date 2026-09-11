@@ -160,6 +160,11 @@ class RapportAssemblage:
     #: omission : le lecteur du rapport doit pouvoir distinguer une figure
     #: voulue par le modèle d'une figure ajoutée pour tenir le plancher.
     graphiques_completes: list[str] = field(default_factory=list)
+    #: Commentaires de graphique écartés parce qu'ils étaient le brief du dessin
+    #: (« Illustre l'écart… ») et non une phrase pour le client. Tracés ici
+    #: plutôt que perdus : c'est aussi le signal que le modèle confond encore
+    #: le champ, et qu'il faut regarder sa consigne.
+    consignes_de_dessin_retirees: list[str] = field(default_factory=list)
 
     @property
     def complet(self) -> bool:
@@ -177,6 +182,11 @@ class RapportAssemblage:
             parties.append(f"{len(self.graphiques_convertis)} convertis")
         if self.graphiques_abandonnes:
             parties.append(f"{len(self.graphiques_abandonnes)} abandonnés")
+        if self.consignes_de_dessin_retirees:
+            parties.append(
+                f"{len(self.consignes_de_dessin_retirees)} consigne(s) de dessin "
+                "retirée(s) sous les graphiques"
+            )
         if self.paragraphes_tronques:
             parties.append(
                 f"{self.paragraphes_tronques} paragraphe(s) tronqué(s), "
@@ -261,11 +271,24 @@ def _blocs_graphique(
             )
         rapport.graphiques_rendus += 1
         rapport.identifiants_rendus.update(demande.donnees_ids)
+        # Le commentaire est imprimé À LA PLACE DE LA SOURCE. Quand le modèle y
+        # a écrit le brief du dessin, on ne l'imprime pas : un graphique sans
+        # légende ne perd rien, un graphique sous lequel on lit « Illustre
+        # l'écart… » montre au client la cuisine de sa fabrication. Le
+        # commentaire écarté est tracé, pas perdu en silence (règle 1).
+        from ..meta_discours import est_une_consigne_de_dessin  # noqa: PLC0415
+
+        source = demande.commentaire
+        if est_une_consigne_de_dessin(source):
+            rapport.consignes_de_dessin_retirees.append(
+                f"{reference} · {demande.titre} : {source[:160]}"
+            )
+            source = ""
         blocs.append({
             "type": "graphique",
             "graphique": resolution.type_graphique,
             "titre": demande.titre,
-            "source": demande.commentaire,
+            "source": source,
             "donnees": resolution.donnees,
         })
     return blocs

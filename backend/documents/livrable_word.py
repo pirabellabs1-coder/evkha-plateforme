@@ -22,6 +22,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from generation.models import GenerationJob
+from generation.rendu_word import proprietes
 from generation.rendu_word.assemblage import RapportAssemblage
 from generation.rendu_word.services import produire_docx
 from generation.verification import RapportControle, verifier_livrable
@@ -132,6 +133,27 @@ def _consigner_les_visuels_abandonnes(
     )
 
 
+def _corriger_les_proprietes(
+    job: GenerationJob, chemin: Path, *, pages: int | None
+) -> bool:
+    """Réécrit les propriétés du Word livré. Vrai si le fichier a été modifié.
+
+    **Ne lève jamais.** Une métadonnée fausse est un défaut d'aperçu ; perdre
+    le livrable pour elle serait disproportionné. `proprietes.corriger` écrit
+    dans un fichier voisin et ne remplace l'original qu'après avoir prouvé que
+    le contenu n'a pas bougé : en cas d'échec, le Word reste celui qu'on a
+    produit, contrôlé, et on le dit au journal.
+    """
+    try:
+        proprietes.corriger(chemin, pages=pages, maintenant=timezone.now())
+    except Exception:  # noqa: BLE001 — voir la docstring
+        _log.exception(
+            "Job %s : propriétés du Word non corrigées (pages=%s)", job.id, pages
+        )
+        return False
+    return True
+
+
 def chaine_word_active(job: GenerationJob) -> bool:
     """La chaîne Word peut-elle servir CE dossier ?
 
@@ -205,6 +227,12 @@ def assembler_livrable_word(
     cle_pdf = f"livrables/{job.id}.pdf"
 
     livrable = produire_docx(job, destination=racine / cle_docx)
+    # Les propriétés du gabarit — « 1 page », « 0 mot », créé en 2013, miniature
+    # blanche — partaient telles quelles dans chaque livrable, et c'est ce que
+    # montre un aperçu de fichier avant ouverture (Stratégie `f7f2fad9`, 08/09/2026).
+    # Corrigées AVANT le contrôle et le calcul de l'empreinte : aucune version
+    # aux propriétés fausses ne doit exister ne serait-ce qu'un instant en base.
+    _corriger_les_proprietes(job, livrable.chemin, pages=None)
     octets = livrable.chemin.read_bytes()
     expire_le = timezone.now() + _retention(job)
     # Un seul nombre pour les deux : la date de purge du fichier et l'echeance
@@ -272,6 +300,17 @@ def assembler_livrable_word(
             "expires_at": expire_le,
         },
     )
+
+    # Le nombre de pages n'est connu qu'ICI : c'est la pagination du PDF tiré
+    # de ce même Word, la seule mesure réelle. Il était déjà calculé, et
+    # seulement écrit au journal ; le Word, lui, continuait d'annoncer une page.
+    if conversion.pages and _corriger_les_proprietes(
+        job, livrable.chemin, pages=conversion.pages
+    ):
+        artefact_docx.checksum_sha256 = hashlib.sha256(
+            livrable.chemin.read_bytes()
+        ).hexdigest()
+        artefact_docx.save(update_fields=["checksum_sha256", "updated_at"])
     _log.info(
         "Job %s : livrable Word et PDF prêts (%s, %s pages).",
         job.id, livrable.rapport.resume(), conversion.pages or "inconnu",

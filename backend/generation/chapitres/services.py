@@ -201,8 +201,10 @@ def regenerer_chapitre(
 
     `note_corrective` : ce que le gate de livraison ou un CHECK inter-bloc
     reproche au chapitre. Elle est déposée sous le préfixe `[contrat] `, que
-    `construire_prompt_chapitre` relit et rend au modèle sous « TENTATIVE
-    PRÉCÉDENTE REFUSÉE ». On ne redemande pas « fais mieux » : on redonne la
+    `construire_prompt_chapitre` relit et rend au modèle comme exigences de la
+    réécriture — sans jamais lui parler d'une « tentative précédente », ce qui
+    lui faisait écrire pour le client « la version précédente affirmait »
+    (11/09/2026). On ne redemande pas « fais mieux » : on redonne la
     liste exacte de ce qui a été refusé — le canal existait déjà pour les
     refus de contrat, on ne lui en ajoute pas un second (règle 5).
 

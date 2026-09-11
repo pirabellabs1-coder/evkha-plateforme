@@ -687,3 +687,192 @@ def test_une_source_absente_echoue_au_lieu_de_produire_un_pdf_vide(
         BouchonConvertisseurDocx().convertir(
             tmp_path / "absent.docx", tmp_path / "o.pdf"
         )
+
+
+# ── Ce que l'aperçu du fichier dit avant de l'ouvrir ─────────────────────────
+#
+# Stratégie `f7f2fad9`, 08/09/2026 : 112 pages, et un Word qui déclarait `Pages=1`,
+# `Words=0`, une création en 2013 et une miniature de page blanche — les
+# propriétés du gabarit, recopiées dans chaque livrable. Word les recalcule à
+# l'ouverture ; le Finder, Coup d'œil et le volet de Mail, non. Le client voyait
+# une page blanche marquée « 1 page » et croyait le document tronqué.
+
+
+class _ConvertisseurPagine:
+    """Doublure qui annonce une pagination connue, comme le fait LibreOffice."""
+
+    def __init__(self, pages: int) -> None:
+        self.pages = pages
+
+    def convertir(self, source: Path, destination: Path) -> Any:
+        from integrations.docx_pdf import ConversionPdf
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"%PDF-1.4\n%%EOF\n")
+        return ConversionPdf(
+            chemin=destination, octets=destination.stat().st_size, pages=self.pages
+        )
+
+
+def _word_livre(job: Any) -> Path:
+    from documents.models import ArtifactKind, DocumentArtifact
+
+    artefact = DocumentArtifact.objects.get(job=job, kind=ArtifactKind.DOCX)
+    from django.conf import settings
+
+    return Path(str(settings.MEDIA_ROOT)) / artefact.storage_key
+
+
+def test_le_word_livre_annonce_ses_vraies_pages(
+    job_rendu: Any, settings: Any, tmp_path: Path
+) -> None:
+    """Le nombre de pages vient du PDF tiré de ce même Word — la seule mesure
+    réelle. Il était déjà calculé, et seulement écrit au journal."""
+    import hashlib
+
+    from documents.livrable_word import assembler_livrable_word
+    from documents.models import ArtifactKind, DocumentArtifact
+    from generation.rendu_word import proprietes
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    assembler_livrable_word(
+        job_rendu, convertisseur=_ConvertisseurPagine(37), verifier=False
+    )
+
+    chemin = _word_livre(job_rendu)
+    lu = proprietes.lire(chemin)
+    assert lu["Pages"] == "37"
+    assert int(lu["Words"]) > 0
+    assert int(lu["Characters"]) > 0
+    assert lu["miniature"] == "non", "la miniature blanche du gabarit est partie"
+    assert not lu["cree_le"].startswith("2013"), lu["cree_le"]
+
+    # L'empreinte enregistrée est celle du fichier FINAL, pas d'une version
+    # intermédiaire : sinon tout contrôle d'intégrité en aval échouerait.
+    artefact = DocumentArtifact.objects.get(job=job_rendu, kind=ArtifactKind.DOCX)
+    assert artefact.checksum_sha256 == hashlib.sha256(chemin.read_bytes()).hexdigest()
+
+
+def test_sans_pagination_connue_le_nombre_de_pages_est_retire(
+    job_rendu: Any, settings: Any, tmp_path: Path
+) -> None:
+    """Une absence ne ment pas ; « 1 page » pour un document de cent pages, si.
+
+    La doublure habituelle de la conversion rend `pages=0` : c'est aussi ce qui
+    arrive quand le vrai convertisseur ne sait pas compter. Dans ce cas la
+    balise disparaît au lieu de garder la valeur du gabarit.
+    """
+    from documents.livrable_word import assembler_livrable_word
+    from generation.rendu_word import proprietes
+    from integrations.docx_pdf import BouchonConvertisseurDocx
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    assembler_livrable_word(
+        job_rendu, convertisseur=BouchonConvertisseurDocx(), verifier=False
+    )
+
+    lu = proprietes.lire(_word_livre(job_rendu))
+    assert lu["Pages"] == "", f"Pages={lu['Pages']!r} alors qu'elle est inconnue"
+    assert lu["miniature"] == "non"
+
+
+def test_la_correction_ne_touche_jamais_au_contenu(tmp_path: Path) -> None:
+    """Ce qui permet de l'appliquer APRÈS le contrôle sans rouvrir la règle 3.
+
+    Toute partie du paquet autre que les propriétés est recopiée octet pour
+    octet — et `corriger` le vérifie lui-même avant de remplacer le fichier.
+    """
+    import shutil
+    import zipfile
+    from datetime import UTC, datetime
+
+    from generation.rendu_word import proprietes
+
+    gabarit = Path(__file__).resolve().parents[2] / "gabarits" / "livrable_evkha.docx"
+    copie = tmp_path / "copie.docx"
+    shutil.copy(gabarit, copie)
+
+    proprietes.corriger(copie, pages=12, maintenant=datetime(2026, 9, 11, tzinfo=UTC))
+
+    with zipfile.ZipFile(gabarit) as avant, zipfile.ZipFile(copie) as apres:
+        for nom in avant.namelist():
+            if nom in proprietes.PARTIES_REECRITES or nom == proprietes.MINIATURE:
+                continue
+            assert avant.read(nom) == apres.read(nom), f"{nom} a changé"
+        # Et la relation vers la miniature a suivi la miniature : un paquet qui
+        # désigne une partie absente est déclaré « endommagé » par Word.
+        assert proprietes.REL_MINIATURE not in apres.read("_rels/.rels").decode()
+
+
+def test_une_correction_impossible_n_emporte_pas_le_livrable(
+    job_rendu: Any, settings: Any, tmp_path: Path, monkeypatch: Any
+) -> None:
+    """Une métadonnée fausse est un défaut d'aperçu ; perdre le Word pour elle
+    serait disproportionné. L'échec est journalisé, le livrable part."""
+    from documents.livrable_word import assembler_livrable_word
+    from generation.rendu_word import proprietes
+
+    def tombe(*_: Any, **__: Any) -> None:
+        raise proprietes.ProprietesIncorrigibles("essai")
+
+    monkeypatch.setattr(proprietes, "corriger", tombe)
+    settings.MEDIA_ROOT = str(tmp_path)
+
+    resultat = assembler_livrable_word(
+        job_rendu, convertisseur=_ConvertisseurPagine(9), verifier=False
+    )
+    assert resultat.docx is not None
+    assert _word_livre(job_rendu).is_file()
+
+
+
+def test_une_relation_a_guillemets_simples_suit_la_miniature(tmp_path: Path) -> None:
+    """Un paquet écrit par un autre outil peut employer des guillemets simples.
+
+    La relation vers la miniature restait alors en place, la miniature étant
+    retirée : Word déclare un tel fichier « endommagé ».
+    """
+    import zipfile
+    from datetime import UTC, datetime
+
+    from generation.rendu_word import proprietes
+
+    gabarit = Path(__file__).resolve().parents[2] / "gabarits" / "livrable_evkha.docx"
+    copie = tmp_path / "guillemets.docx"
+    with zipfile.ZipFile(gabarit) as source, zipfile.ZipFile(copie, "w") as cible:
+        for info in source.infolist():
+            donnees = source.read(info.filename)
+            if info.filename == "_rels/.rels":
+                donnees = donnees.decode().replace('"', "'").encode()
+            cible.writestr(info, donnees)
+
+    proprietes.corriger(copie, pages=3, maintenant=datetime(2026, 9, 11, tzinfo=UTC))
+
+    with zipfile.ZipFile(copie) as paquet:
+        assert proprietes.REL_MINIATURE not in paquet.read("_rels/.rels").decode()
+        assert proprietes.MINIATURE not in paquet.namelist()
+
+
+def test_un_echec_ne_laisse_aucune_copie_du_document(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    """La copie provisoire contient tout le document du client ; laissée sur le
+    disque, elle échapperait à la purge de rétention."""
+    import shutil
+    from datetime import UTC, datetime
+
+    from generation.rendu_word import proprietes
+
+    gabarit = Path(__file__).resolve().parents[2] / "gabarits" / "livrable_evkha.docx"
+    copie = tmp_path / "echec.docx"
+    shutil.copy(gabarit, copie)
+
+    def tombe(*_: Any, **__: Any) -> None:
+        raise KeyError("partie absente")
+
+    monkeypatch.setattr(proprietes, "_prouver", tombe)
+    with pytest.raises(KeyError):
+        proprietes.corriger(copie, pages=3, maintenant=datetime(2026, 9, 11, tzinfo=UTC))
+
+    assert list(tmp_path.glob("*.proprietes")) == []
+    assert copie.read_bytes() == gabarit.read_bytes(), "l'original doit être intact"

@@ -92,6 +92,9 @@ def verifier_document(
     rapport.controles_executes.append("densite")
     rapport.ajouter(*controles.controler_densite(document))
 
+    rapport.controles_executes.append("meta_discours")
+    rapport.ajouter(*controles.controler_meta_discours(document))
+
     if assemblage is not None:
         rapport.controles_executes.append("visuels")
         rapport.ajouter(*controles.controler_visuels(
@@ -144,6 +147,9 @@ def verifier_document_sans_socle(document: DocumentLu) -> RapportControle:
 
     rapport.controles_executes.append("densite")
     rapport.ajouter(*controles.controler_densite(document))
+
+    rapport.controles_executes.append("meta_discours")
+    rapport.ajouter(*controles.controler_meta_discours(document))
     return rapport
 
 

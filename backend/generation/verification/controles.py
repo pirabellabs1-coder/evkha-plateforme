@@ -464,6 +464,33 @@ def controler_integrite_du_document(
     return anomalies
 
 
+# ── Le document ne parle pas de sa propre fabrication ───────────────────────
+
+
+def controler_meta_discours(document: DocumentLu) -> list[Anomalie]:
+    """Le livrable commente-t-il sa propre rédaction ?
+
+    Dernier filet derrière le gate, qui fait réécrire le chapitre en amont. Il
+    regarde le FICHIER que le client ouvrira, pas le texte validé (règle 3).
+
+    **Avertissement, jamais blocage.** Décision cliente du 13/08/2026 : le
+    document part sans action de sa part. Retenir un livrable payé pour une
+    phrase serait lui faire porter notre défaut ; le signaler, avec l'extrait
+    exact, lui permet de la retirer avant de remettre l'étude à son client.
+    """
+    from ..meta_discours import trouver  # noqa: PLC0415
+
+    return [
+        Anomalie(
+            "meta_discours", Gravite.AVERTISSEMENT,
+            "Passage qui semble parler de la rédaction du document plutôt que "
+            "de l'affaire du client — à relire avant de remettre l'étude.",
+            extrait=extrait,
+        )
+        for extrait in trouver(document.texte_integral)
+    ]
+
+
 # ── Contrôle 5 : la densité validée par la cliente ───────────────────────────
 
 

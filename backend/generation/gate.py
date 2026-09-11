@@ -694,6 +694,41 @@ def _check_contamination(
     return failures
 
 
+def _check_meta_discours(job: GenerationJob) -> list[GateFailure]:
+    """Le chapitre commente-t-il sa propre rédaction ?
+
+    Son propre check, et non `contamination` : un label interne et un
+    commentaire de révision sont deux classes de défaut, à mesurer séparément
+    (règle 10), et le libellé envoyé au modèle doit dire lequel des deux il
+    corrige.
+
+    Seules les fuites CERTAINES sont retenues (`trouver_au_gate`) : chaque échec
+    ici fait réécrire le chapitre à nos frais, avec l'ordre d'en retirer le
+    passage. Un faux positif détruirait du contenu juste sans laisser de trace
+    une fois le gate repassé vert. Les formes seulement probables partent en
+    avertissement au contrôle final, qui ne coûte rien.
+
+    Le motif cite l'extrait : il doit être retrouvable dans le chapitre
+    (règle 2).
+    """
+    from .meta_discours import trouver_au_gate  # noqa: PLC0415
+
+    failures: list[GateFailure] = []
+    for chapter in job.chapters.filter(status=ChapterStatus.DONE):
+        for extrait in trouver_au_gate(chapter.content or "")[:3]:
+            failures.append(GateFailure(
+                check="meta_discours",
+                chapter_number=chapter.chapter_number,
+                detail=(
+                    f"« {extrait} ». Le lecteur ne doit jamais apprendre qu'un "
+                    "chapitre a été révisé : reformule ce passage pour qu'il "
+                    "parle de l'affaire du client, sans mention de correction "
+                    "ni de version."
+                ),
+            ))
+    return failures
+
+
 #: Ce qui designe une grandeur de MARCHE, sans rapport avec la taille du projet.
 #:
 #: Un marche national, un secteur, une filiere se chiffrent en milliards la ou
@@ -1590,6 +1625,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_brief_lu(job))
     failures.extend(_check_completude_chapitres(job, sections))
     failures.extend(_check_contamination(job, sections))
+    failures.extend(_check_meta_discours(job))
     failures.extend(_check_numeric_coherence(job, sections))
     failures.extend(_check_verticales(job, sections))
     failures.extend(_check_truncation(sections))

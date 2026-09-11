@@ -304,8 +304,12 @@ def test_corrective_note_injectee_dans_le_prompt(bp_job: GenerationJob) -> None:
 
     ch = bp_job.chapters.get(chapter_number=1)
     prompt = build_chapter_prompt(ch, corrective_note="- Chiffre incohérent : emprunt")
-    assert "CORRECTION IMPERATIVE" in prompt
+    # La note arrive, en exigence impérative. L'ancien intitulé — « CORRECTION
+    # IMPERATIVE … Ta version precedente a ete REJETEE » — faisait écrire au
+    # modèle, pour le client, « la version précédente affirmait » (11/09/2026).
+    assert "EXIGENCES IMPÉRATIVES" in prompt
     assert "emprunt" in prompt
+    assert "version precedente" not in prompt.lower()
 
 
 @pytest.mark.django_db
@@ -336,5 +340,5 @@ def test_regenerate_chapter_passe_la_note(bp_job: GenerationJob) -> None:
     regenerate_chapter(
         bp_job, ch, corrective_note="- Marqueur interne présent", client=_CaptureClient()
     )
-    assert "CORRECTION IMPERATIVE" in captured["prompt"]
+    assert "EXIGENCES IMPÉRATIVES" in captured["prompt"]
     assert "Marqueur interne" in captured["prompt"]

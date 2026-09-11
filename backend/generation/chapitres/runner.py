@@ -209,8 +209,9 @@ def _motif_de_validation(item: Mapping[str, Any]) -> str:
     """Motif de refus qui dit ce qui est ATTENDU, pas seulement ce qui est refusé.
 
     Pydantic écrit « intitulo : Extra inputs are not permitted ». Ce motif part
-    au modèle sous « TENTATIVE PRÉCÉDENTE REFUSÉE » et lui demande de deviner le
-    nom qu'il aurait dû écrire.
+    au modèle parmi les exigences de la réécriture
+    (`meta_discours.consigne_de_correction`) et, tel quel, lui demandait de
+    deviner le nom qu'il aurait dû écrire.
 
     Mesuré le 05/08/2026, génération réelle `5ed4f03f` : le modèle a répété la
     même faute de frappe TROIS fois de suite, et l'étude est morte au chapitre
@@ -1320,10 +1321,14 @@ def construire_prompt_chapitre(
     ]
 
     if motifs_precedents:
-        motifs = "\n".join(f"- {motif}" for motif in motifs_precedents)
-        blocs.append(
-            "TENTATIVE PRÉCÉDENTE REFUSÉE. Corrige EXACTEMENT ces points :\n" + motifs
-        )
+        # La même consigne que la chaîne HTML, écrite une seule fois
+        # (`meta_discours`). Elle annonçait ici « TENTATIVE PRÉCÉDENTE
+        # REFUSÉE » : un rédacteur à qui l'on parle de sa version précédente
+        # écrit en fonction d'elle, et le client lisait « la version précédente
+        # affirmait que… ». Les motifs, eux, restent donnés à la lettre.
+        from ..meta_discours import consigne_de_correction  # noqa: PLC0415
+
+        blocs.append(consigne_de_correction(list(motifs_precedents)))
 
     return PromptChapitre(par_job, "\n\n".join(blocs)), manquantes
 

@@ -312,7 +312,18 @@ class Graphique(SortieDeChapitre):
     type: TypeGraphique = Field(alias="type_graphique")
     titre: str = Field(min_length=1, max_length=220)
     donnees_ids: list[str] = Field(min_length=1)
-    commentaire: str = ""
+    #: La phrase imprimée SOUS le graphique, lue par le client : ce que le
+    #: graphique lui apprend, ou d'où viennent ses chiffres. Jamais le brief du
+    #: dessin — « Illustre l'écart… », « Compare le chiffre d'affaires… » sont
+    #: des ordres adressés à quelqu'un d'autre, et le client les lisait tels
+    #: quels sous quatre graphiques de la stratégie `f7f2fad9` (08/09/2026).
+    commentaire: str = Field(
+        default="",
+        description=(
+            "Phrase lue par le client sous le graphique : ce qu'il montre, ou "
+            "d'où viennent ses chiffres. Jamais une consigne de dessin."
+        ),
+    )
 
 
 class Encadre(SortieDeChapitre):
@@ -326,9 +337,24 @@ class Encadre(SortieDeChapitre):
     L'intitulé était décrit ici comme « LECTURE EVKHA ». Cette docstring part
     dans le schéma de l'outil, donc dans la consigne du modèle : chaque vrai
     document aurait reproduit le nom de la plateforme, alors que le livrable est
-    remis en marque blanche. L'intitulé reste libre — « Lecture du chapitre »,
-    « À retenir », « Verdict » —, il ne nomme simplement personne.
+    remis en marque blanche. L'intitulé reste libre — « À retenir »,
+    « Verdict », « La décision » —, il ne nomme simplement personne.
+
+    Il parle au lecteur de SON affaire, jamais du chapitre lui-même.
     """
+
+    # Pourquoi la dernière phrase de la docstring, et pourquoi l'histoire est
+    # ICI et non dans la docstring (11/09/2026).
+    #
+    # L'exemple d'intitulé « Lecture du chapitre » figurait dans la docstring ;
+    # sur une stratégie livrée le 08/09/2026, le modèle en a tiré un intitulé
+    # qui commentait le chapitre lui-même au lieu de conclure pour le
+    # dirigeant. Le premier correctif racontait cet incident dans la docstring
+    # — donc dans le schéma de l'outil, envoyé au modèle pour CHAQUE chapitre
+    # de CHAQUE client : il lui montrait l'intitulé à ne pas écrire, et
+    # transmettait le nom d'un client à tous les autres dossiers, remis en
+    # marque blanche. Une relecture l'a vu. La docstring ne porte plus que la
+    # règle ; le récit reste lisible ici, où le modèle ne le voit pas.
 
     model_config = {"extra": "forbid"}
 

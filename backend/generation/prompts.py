@@ -641,18 +641,17 @@ def _word_limit_footer(max_words: int) -> str:
 def _corrective_footer(corrective_note: str) -> str:
     """Bloc de correction injecte lors d'une regeneration (boucle d'auto-correction).
 
-    Place en fin de prompt pour maximiser sa priorite : ce sont les defauts
-    exacts detectes par le gate sur la version precedente, a corriger sans faute.
+    Place en fin de prompt pour maximiser sa priorite. Le texte vient de
+    `meta_discours.consigne_de_correction`, commun aux deux chaines : il disait
+    ici « Ta version precedente de ce chapitre a ete REJETEE par le controle
+    qualite », et le modele le repetait au client — « la version precedente
+    affirmait que… » (stratégie `f7f2fad9`, 11/09/2026).
     """
     if not corrective_note:
         return ""
-    return (
-        "\n\n[CORRECTION IMPERATIVE, PRIORITE ABSOLUE]\n"
-        "Ta version precedente de ce chapitre a ete REJETEE par le controle "
-        "qualite pour les raisons ci-dessous. Reprends integralement le chapitre "
-        "en corrigeant CHACUN de ces points, sans en introduire de nouveaux :\n"
-        f"{corrective_note}"
-    )
+    from .meta_discours import consigne_de_correction  # noqa: PLC0415
+
+    return "\n\n" + consigne_de_correction([corrective_note])
 
 
 def build_chapter_prompt(chapter: ChapterGeneration, corrective_note: str = "") -> str:
