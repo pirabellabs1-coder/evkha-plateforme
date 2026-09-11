@@ -21,10 +21,11 @@ Chaque champ porte l'identifiant de la **variable de prompt** qu'il alimente
 interpolent ; un champ dont l'identifiant ne correspond à rien n'atteindrait
 jamais le modèle.
 
-Les pièces jointes ne sont pas gérées ici : les questionnaires Tally demandent
-déjà de **résumer** les documents en texte (« Merci de résumer vos études de
-marché ou tout autre document »), et c'est ce résumé que le moteur exploite. Le
-dépôt de fichiers reste à faire.
+Les pièces jointes ne sont pas gérées ici : elles se déposent dans la
+bibliothèque de l'organisation (`PieceJointe`), et la génération les lit au
+lancement de chaque dossier depuis le 11/09/2026
+(`generation/documents_client.py`). Le champ `ELEMENTS_A_RETENIR` ne demande
+donc plus de les résumer à la main — seulement ce qu'il faut en retenir.
 """
 from __future__ import annotations
 
@@ -101,7 +102,8 @@ _DOCUMENTS = Champ(
     "réalisées, présentation…)",
     obligatoire=True,
     type="zone",
-    aide="Si oui, merci de résumer ici le contenu de ces documents.",
+    aide="Déposez-les dans « Vos documents » plus bas : ils seront lus. "
+    "Indiquez ici ce qu'il faut en retenir en priorité.",
 )
 
 
@@ -540,8 +542,9 @@ BUSINESS_PLAN = Formulaire(
                     "BGE…) ? D'autres éléments à faire figurer ?",
                     obligatoire=True,
                     type="zone",
-                    aide="Merci de résumer vos études de marché ou tout autre "
-                    "document si vous en avez.",
+                    aide="Déposez vos études et tableaux dans « Vos "
+                    "documents » plus bas : ils seront lus. Indiquez ici ce "
+                    "qu'il faut en retenir en priorité.",
                 ),
             ),
         ),

@@ -48,6 +48,12 @@ INTERNAL_LABEL_NAMES: tuple[str, ...] = (
     "CONSIGNE_DU_CHAPITRE",
     "DATE_DU_JOUR",
     "CONTEXTE_ETUDE_PRECEDENTE",
+    # Intitulés du prompt de la chaîne Word (`chapitres/runner.py`,
+    # `socle/prompt.py`). `BRIEF_CLIENT` y circulait depuis le lot 2 sans être
+    # listé ; `DOCUMENTS_DU_CLIENT` arrive le 11/09/2026 avec la lecture des
+    # pièces jointes. Relevé par la relecture du même jour.
+    "BRIEF_CLIENT",
+    "DOCUMENTS_DU_CLIENT",
     # Marqueur de coupure de cache du system prompt
     # (integrations.claude.SYSTEM_CACHE_BREAK). Il est normalement consomme par
     # `_cacheable_system` avant l'appel API et n'atteint donc jamais le modele,

@@ -852,6 +852,56 @@ def deliver_job(
         raise DeliveryError(str(exc)) from exc
 
 
+def assembler_sans_envoyer(job: GenerationJob) -> Assemblage | None:
+    """Assemble ET contrôle le livrable, sans courriel. Pour une reprise de validation.
+
+    Même assemblage, même verrou que `deliver_job` — seul l'envoi manque. La
+    première version passait par l'assemblage des dossiers en échec, qui ne
+    regarde pas la vérification : un document amputé serait devenu
+    téléchargeable, puis envoyable d'un clic par « Renvoyer », sans que rien
+    ne l'ait contrôlé (règle 3 ; relecture du 11/09/2026).
+
+    Ne lève pas : un échec devient un incident, visible là où l'on attend le
+    document.
+    """
+    try:
+        assemblage = _assembler_livrable(job, pdf_client=get_pdf_client())
+    except Exception as exc:  # noqa: BLE001 — l'incident est la réponse
+        _log.exception("Assemblage sans envoi impossible (job %s)", job.id)
+        OperationalIncident.objects.create(
+            title=f"Assemblage impossible, reprise sans envoi (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={"erreur": f"{type(exc).__name__} : {exc}"},
+        )
+        return None
+
+    if assemblage.retenu and not _seulement_un_manque_de_figures(assemblage.retenu):
+        # Exactement ce que fait la livraison : produit, mais aucun envoi
+        # possible — `send_email_for_job` exige un dossier DONE.
+        GenerationJob.objects.filter(pk=job.pk).update(
+            status=JobStatus.INTERVENTION_REQUISE,
+            error_message=f"Livrable retenu à la vérification : {assemblage.retenu}"[:2000],
+        )
+        OperationalIncident.objects.create(
+            title=f"Livrable retenu a la verification (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={"motif": assemblage.retenu, "reprise_sans_envoi": True},
+        )
+    elif assemblage.retenu:
+        OperationalIncident.objects.create(
+            title=f"Livrable sous le seuil de verification (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={"type": "livrable_sous_le_seuil", "motif": str(assemblage.retenu)},
+        )
+    return assemblage
+
+
 def send_email_for_job(
     job: GenerationJob,
     *,

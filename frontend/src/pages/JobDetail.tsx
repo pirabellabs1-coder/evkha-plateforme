@@ -522,6 +522,45 @@ export function JobDetail() {
         </Flex>
       </Card>
 
+      {/* Ce que la génération a lu des documents déposés. Jusqu'au 11/09/2026
+          elle n'en lisait aucun, et rien ne permettait de le voir : la cliente
+          l'a découvert en lisant un chiffre inventé à la place de celui de son
+          prévisionnel. Un document écarté s'affiche avec sa raison. */}
+      {(data.documents_client?.length ?? 0) > 0 && (
+        <Card mb="4">
+          <Text size="2" weight="bold">
+            Documents du client lus pour ce dossier
+          </Text>
+          <Flex direction="column" gap="1" mt="2">
+            {data.documents_client!.map((doc, index) => (
+              <Flex key={`${doc.nom}-${index}`} gap="2" align="start" wrap="wrap">
+                <Badge
+                  size="1"
+                  variant="soft"
+                  color={
+                    doc.statut === "lu" ? "green" : doc.statut === "tronque" ? "amber" : "red"
+                  }
+                >
+                  {doc.statut_libelle}
+                </Badge>
+                <Text size="1" weight="medium">{doc.nom}</Text>
+                {doc.caracteres_retenus > 0 && (
+                  <Text size="1" color="gray">
+                    {doc.caracteres_retenus.toLocaleString("fr-FR")} caractères transmis
+                  </Text>
+                )}
+                {doc.motif && <Text size="1" color="gray">— {doc.motif}</Text>}
+                {doc.texte_efface && (
+                  <Text size="1" color="gray">
+                    — fichier supprimé depuis, texte effacé
+                  </Text>
+                )}
+              </Flex>
+            ))}
+          </Flex>
+        </Card>
+      )}
+
       {data.error_message && (
         <Callout.Root color="red" mb="4">
           <Callout.Text>{data.error_message}</Callout.Text>

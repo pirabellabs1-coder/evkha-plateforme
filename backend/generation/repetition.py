@@ -43,6 +43,16 @@ from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
 from integrations.claude import StubClaudeClient
 from orders.models import Order, OrderStatus
 
+#: Le texte d'un document client tel que l'extraction le rend : feuille de
+#: tableur, colonnes séparées, pourcentage et date déjà mis en forme.
+DOCUMENT_DE_REPETITION = (
+    "### Feuille « Prévisionnel »\n"
+    "Poste | 2026 | 2027 | 2028\n"
+    "Chiffre d'affaires | 45 000 € | 62 000 € | 80 000 €\n"
+    "Marge brute | 38 % | 40 % | 41 %\n"
+    "Date de mise à jour | 01/09/2026"
+)
+
 #: Brief minimal mais complet : les quatre variables requises, plus ce que
 #: les livrables riches (EC, BP) exploitent quand c'est présent.
 VARIABLES_DE_REPETITION: dict[str, str] = {
@@ -140,6 +150,20 @@ def jouer_a_blanc(deliverable_type: str) -> RapportRepetition:
 
     job = bootstrap_generation_job(soumission)
     rapport.job_id = str(job.id)
+
+    # Un document du client, posé comme s'il avait été lu au lancement. La
+    # répétition ne jouait AUCUN document : le chemin qui porte leur texte
+    # au socle, à sa vérification, aux chapitres et au contrôle du Word
+    # restait hors répétition (relecture du 11/09/2026). La doublure n'en
+    # tient pas compte pour rédiger ; on joue la TUYAUTERIE, gratuitement.
+    from .models import DocumentClientLu, StatutLecture  # noqa: PLC0415
+
+    DocumentClientLu.objects.create(
+        job=job, ordre=0, nom="previsionnel.xlsx", statut=StatutLecture.LU,
+        caracteres_extraits=len(DOCUMENT_DE_REPETITION),
+        caracteres_retenus=len(DOCUMENT_DE_REPETITION),
+        texte=DOCUMENT_DE_REPETITION,
+    )
 
     # Le client est INJECTÉ : la répétition ne dépend pas d'un réglage
     # d'environnement pour être gratuite. Quoi qu'il y ait dans le `.env`,

@@ -30,6 +30,7 @@ ce que le client a répondu (règle 5).
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 
@@ -223,3 +224,117 @@ def test_la_lecture_seule_ne_declenche_rien(
     assert client_admin.get(
         f"/api/dashboard/jobs/{dossier_epuise.id}/regenerer/"
     ).status_code == 405
+
+
+# ── Une reprise à nos frais ne coûte rien à la cliente ───────────────────────
+
+
+@pytest.mark.django_db
+def test_une_reprise_ne_debite_aucun_credit_a_la_cliente(
+    client_admin: Any, dossier_epuise: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """La promesse de `job_regenerer`, tenue là où l'argent se débite.
+
+    La commande de reprise n'a pas d'organisation, mais `organisation_du_job`
+    la retrouve par le CONTACT : sur le code d'avant, refaire le dossier d'une
+    cliente lui débitait un crédit (ou refusait la reprise, faute de solde).
+    Constaté le 11/09/2026 en préparant la reprise du dossier `f7f2fad9`.
+    """
+    from generation import tasks
+    from generation.models import GenerationJob
+    from organisations import credits, services
+    from organisations.liaison import debiter_pour_job
+    from organisations.models import MouvementCredit
+
+    organisation = services.creer_organisation(
+        raison_sociale="Cliente Reprise", contact=dossier_epuise.order.customer
+    )
+    credits.crediter(organisation, 2, motif="test", livrable="business_plan")
+    avant = credits.solde(organisation)
+    mouvements = MouvementCredit.objects.count()
+
+    monkeypatch.setattr(tasks.run_generation_job_task, "delay", lambda *a, **k: None)
+    reponse = client_admin.post(f"/api/dashboard/jobs/{dossier_epuise.id}/regenerer/")
+    nouveau = GenerationJob.objects.get(id=json.loads(reponse.content)["job_id"])
+
+    autorise, raison = debiter_pour_job(nouveau)
+
+    assert autorise, raison
+    assert "nos frais" in raison
+    assert credits.solde(organisation) == avant
+    assert MouvementCredit.objects.count() == mouvements
+
+
+@pytest.mark.django_db
+def test_une_commande_ordinaire_du_meme_contact_reste_debitee(
+    dossier_epuise: Any,
+) -> None:
+    """CONTRE-ÉPREUVE : l'exemption ne vaut que pour la reprise marquée.
+
+    Un identifiant qui commence par `reprise-` sans la filiation posée par le
+    serveur ne suffit pas : un identifiant de commande externe peut commencer
+    par n'importe quoi.
+    """
+    from organisations.liaison import est_une_reprise_a_nos_frais
+
+    commande = dossier_epuise.order
+    assert not est_une_reprise_a_nos_frais(dossier_epuise)
+    commande.systeme_order_id = "reprise-imitee"
+    commande.save(update_fields=["systeme_order_id"])
+    assert not est_une_reprise_a_nos_frais(dossier_epuise)
+
+
+# ── Une reprise de validation se lit avant de partir ─────────────────────────
+
+
+@pytest.mark.django_db
+def test_une_reprise_sans_envoi_s_assemble_sans_courriel(
+    client_admin: Any, dossier_epuise: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`{"sans_envoi": true}` : le document se télécharge, aucun courriel ne part."""
+    from delivery import tasks as livraison
+    from generation import tasks
+    from generation.models import GenerationJob
+
+    monkeypatch.setattr(tasks.run_generation_job_task, "delay", lambda *a, **k: None)
+    reponse = client_admin.post(
+        f"/api/dashboard/jobs/{dossier_epuise.id}/regenerer/",
+        data=json.dumps({"sans_envoi": True}), content_type="application/json",
+    )
+    assert json.loads(reponse.content)["sans_envoi"] is True
+    nouveau = GenerationJob.objects.get(id=json.loads(reponse.content)["job_id"])
+
+    envois: list[str] = []
+    assemblages: list[str] = []
+    monkeypatch.setattr(livraison.deliver_job_task, "delay", envois.append)
+    from delivery import services as livraison_services
+
+    monkeypatch.setattr(
+        livraison_services, "assembler_sans_envoyer", lambda j: assemblages.append(j.id)
+    )
+
+    tasks._livrer(nouveau)
+
+    assert envois == [], "aucun courriel pour une reprise de validation"
+    assert assemblages == [nouveau.id]
+
+
+@pytest.mark.django_db
+def test_une_reprise_ordinaire_livre_comme_avant(
+    client_admin: Any, dossier_epuise: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CONTRE-ÉPREUVE : sans le drapeau, le document part au client."""
+    from delivery import tasks as livraison
+    from generation import tasks
+    from generation.models import GenerationJob
+
+    monkeypatch.setattr(tasks.run_generation_job_task, "delay", lambda *a, **k: None)
+    reponse = client_admin.post(f"/api/dashboard/jobs/{dossier_epuise.id}/regenerer/")
+    nouveau = GenerationJob.objects.get(id=json.loads(reponse.content)["job_id"])
+
+    envois: list[str] = []
+    monkeypatch.setattr(livraison.deliver_job_task, "delay", envois.append)
+
+    tasks._livrer(nouveau)
+
+    assert envois == [str(nouveau.id)]

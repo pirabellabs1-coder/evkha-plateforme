@@ -195,6 +195,7 @@ def run_generation_job_task(job_id: str) -> str:
         # prevu qui produit le silence (regle 4).
         marquer_echec(job, erreur, etape="generation")
         _assembler_ce_qui_est_ecrit(job)
+        _effacer_les_textes_orphelins()
         raise
 
     if job.status == JobStatus.DONE:
@@ -334,10 +335,53 @@ def run_generation_job_task(job_id: str) -> str:
                 "fact_store: export non bloquant échoué pour le job %s", job.id
             )
 
-        from delivery.tasks import deliver_job_task  # noqa: PLC0415
-        deliver_job_task.delay(job_id)
+        _livrer(job)
 
+    _effacer_les_textes_orphelins()
     return str(job.id)
+
+
+def _effacer_les_textes_orphelins() -> None:
+    """Le dossier a fini : le texte des pièces retirées pendant qu'il tournait part.
+
+    Ne lève jamais — c'est du ménage de rétention, pas une étape du dossier ;
+    la purge des pièces jointes le refait de toute façon.
+    """
+    try:
+        from .documents_client import effacer_les_textes_orphelins  # noqa: PLC0415
+
+        effacer_les_textes_orphelins()
+    except Exception:  # noqa: BLE001
+        import logging  # noqa: PLC0415
+
+        logging.getLogger(__name__).exception("Effacement des textes orphelins impossible")
+
+
+def _livrer(job: GenerationJob) -> None:
+    """Envoie le document terminé — sauf reprise de validation « sans envoi ».
+
+    Une reprise lancée avec `sans_envoi` (`job_regenerer`) s'assemble et
+    devient téléchargeable dans la console, mais aucun courriel ne part :
+    on la lit avant que le client la reçoive, et l'envoi se fait ensuite par
+    « Renvoyer ». Tout autre dossier livre comme avant.
+
+    Le drapeau ne vaut QUE sur une reprise prouvée : le `raw_payload` d'une
+    commande Systeme.io est le webhook brut, et une clé `sans_envoi` venue de
+    là suffirait sinon à priver un client de son document (audit du
+    11/09/2026).
+    """
+    from organisations.liaison import est_une_reprise_a_nos_frais  # noqa: PLC0415
+
+    brut = job.order.raw_payload if isinstance(job.order.raw_payload, dict) else {}
+    if brut.get("sans_envoi") is True and est_une_reprise_a_nos_frais(job):
+        from delivery.services import assembler_sans_envoyer  # noqa: PLC0415
+
+        assembler_sans_envoyer(job)
+        return
+
+    from delivery.tasks import deliver_job_task  # noqa: PLC0415
+
+    deliver_job_task.delay(str(job.id))
 
 
 @shared_task(name="generation.recontroler_et_corriger")  # type: ignore[untyped-decorator]

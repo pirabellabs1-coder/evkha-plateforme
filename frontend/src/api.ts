@@ -199,6 +199,22 @@ export interface JobDetail extends JobSummary {
    * Vide quand rien n'a été retenu. Sans cette liste, l'écran affichait un
    * statut sans raison — et un statut sans raison ne se corrige pas. */
   qa_motifs?: { check: string; chapitre: number | null; detail: string }[];
+  /** Les documents déposés par le client, tels que la génération les a lus.
+   *
+   * Vide pour un dossier sans document — ou lancé avant le 11/09/2026, date
+   * à laquelle la génération a commencé à les lire. */
+  documents_client?: DocumentClientLu[];
+}
+
+export interface DocumentClientLu {
+  nom: string;
+  statut: "lu" | "tronque" | "illisible" | "non_lu";
+  statut_libelle: string;
+  caracteres_extraits: number;
+  caracteres_retenus: number;
+  motif: string;
+  depose_le: string | null;
+  texte_efface: boolean;
 }
 
 export interface Incident {

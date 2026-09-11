@@ -58,7 +58,7 @@ from datetime import datetime
 from typing import Any
 
 from django.core.files.storage import default_storage
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -89,6 +89,32 @@ def _effacer_le_fichier(sender: Any, instance: PieceJointe, **kwargs: Any) -> No
             "Pièce jointe %s : suppression du fichier impossible (%s)",
             instance.pk, instance.fichier.name,
         )
+
+
+@receiver(pre_delete, sender=PieceJointe, dispatch_uid="piece_jointe_efface_son_texte")
+def _effacer_le_texte_lu(sender: Any, instance: PieceJointe, **kwargs: Any) -> None:
+    """Le texte qu'une génération a lu dans ce fichier part avec lui.
+
+    Depuis le 11/09/2026, la génération lit les documents déposés et en garde
+    le texte sur le dossier (`generation.DocumentClientLu`). Sans ce récepteur,
+    la purge de douze mois effacerait le fichier et laisserait son contenu
+    entier en base : la rétention n'aurait plus porté que sur l'enveloppe.
+
+    `pre_delete`, pas `post_delete` : la clé vers la pièce passe à NULL pendant
+    la suppression, et après, plus rien ne relie la ligne à son fichier. La
+    ligne reste — nom, statut, volume lu — parce qu'elle dit ce qu'un livrable
+    a lu ; seul le contenu s'efface.
+
+    Sauf pour un dossier qui TRAVAILLE : ses chapitres restants perdraient en
+    route la matière que les premiers ont lue. Son texte part dès qu'il a
+    fini (`generation.documents_client.effacer_les_textes_orphelins`, appelée
+    en fin de génération et par la purge ci-dessous, toutes les heures).
+    """
+    from generation.documents_client import textes_effacables  # noqa: PLC0415 — cycle d'apps
+
+    textes_effacables().filter(piece=instance).update(
+        texte="", texte_efface_le=timezone.now()
+    )
 
 
 @dataclass(frozen=True)
@@ -218,6 +244,15 @@ def purger_les_pieces_jointes(
         )
         if not simulation:
             piece.delete()  # `post_delete` efface le fichier
+
+    if not simulation:
+        # Le texte lu par un dossier alors en cours, et dont la pièce a été
+        # retirée depuis : il n'attendait que la fin de ce dossier.
+        from generation.documents_client import (  # noqa: PLC0415
+            effacer_les_textes_orphelins,
+        )
+
+        effacer_les_textes_orphelins()
 
     rapport = RapportPurge(
         simulation=simulation, echeance=echeance, depots=tuple(depots)

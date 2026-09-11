@@ -146,6 +146,7 @@ def etablir_socle(
     client: Any,
     variables: Mapping[str, object],
     brief_recherche: str = "",
+    documents_client: str = "",
     forcer: bool = False,
 ) -> SocleDonnees:
     """Produit le socle du job et le persiste.
@@ -166,6 +167,7 @@ def etablir_socle(
             deliverable_type=str(job.deliverable_type),
             variables=variables,
             brief_recherche=brief_recherche,
+            documents_client=documents_client,
         )
     except SocleGenerationError as erreur:
         enregistrement, _ = SocleDonnees.objects.update_or_create(
@@ -194,7 +196,8 @@ def etablir_socle(
     from .verification import verifier_le_socle  # noqa: PLC0415
 
     rapport_verif = verifier_le_socle(
-        socle, client=client, brief_recherche=brief_recherche
+        socle, client=client, brief_recherche=brief_recherche,
+        documents_client=documents_client,
     )
     _journaliser_la_verification(job, rapport_verif)
 

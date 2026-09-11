@@ -434,9 +434,18 @@ export function Commander() {
           fichiers={pieces?.pieces ?? []}
           onSupprimer={(id) => suppression.mutate(id)}
         />
+        {/* Cette note disait « c'est ce résumé que le moteur exploite » — vrai
+            jusqu'au 11/09/2026, date à laquelle les documents ont commencé à
+            être lus. Elle dit maintenant ce qui est lu, ce qui ne l'est pas, et
+            la conséquence du pool partagé : TOUT ce qui est dans la
+            bibliothèque est lu pour cette commande. */}
         <p className="carte-note" style={{ marginTop: "var(--e-4)" }}>
-          Résumez tout de même l'essentiel dans la question dédiée : c'est ce
-          résumé que le moteur exploite pour rédiger.
+          Tous les documents de cette bibliothèque sont lus au lancement de
+          l'étude : PDF, Word, Excel et PowerPoint. Les images, les PDF
+          scannés et les anciens formats (.doc, .xls, .ppt) ne sont pas lus :
+          enregistrez-les dans un format récent. Retirez avant de commander un
+          document qui ne concerne pas cette étude, et indiquez dans la
+          question dédiée ce qu'il faut en retenir en priorité.
         </p>
       </Carte>
 

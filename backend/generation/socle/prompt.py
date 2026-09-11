@@ -205,7 +205,8 @@ _REGLES = (
     "   - `estimee` : ordre de grandeur construit par triangulation. Explique "
     "la méthode dans `libelle`.\n"
     "   - `scenario` : hypothèse explicite, pas une prévision.\n"
-    "   - `declaree` : valeur fournie par le porteur de projet dans son brief.\n"
+    "   - `declaree` : valeur fournie par le porteur de projet, dans son brief "
+    "ou dans les documents qu'il a déposés.\n"
     "6. N'invente JAMAIS de source ni d'URL. Si tu ne connais pas la source "
     "exacte, passe la donnée en `estimee` et laisse `source` vide.\n"
     "6 bis. HIÉRARCHIE DES SOURCES. À chiffre égal, prends toujours la plus "
@@ -286,6 +287,45 @@ _REGLES = (
 )
 
 
+# Documents déposés par le client. Dossier `f7f2fad9` (08/09/2026) : faute de
+# les lire, le socle a posé un marché national sans source et pris le chiffre
+# d'affaires actuel pour un objectif, alors que le prévisionnel et une étude
+# régionale portaient les vraies valeurs. Deux natures de chiffres s'y
+# côtoient, et elles n'ont pas la même fiabilité : ce que l'entreprise dit
+# d'elle-même est DÉCLARÉ ; ce qu'un organisme publie, et que le document
+# reproduit, est OBSERVÉ — à condition que le document nomme cet organisme.
+CONSIGNE_DOCUMENTS_SOCLE = (
+    "UTILISATION DES DOCUMENTS DU CLIENT — obligatoire.\n"
+    "- Ils PRIMENT sur toute estimation. Avant d'estimer une valeur du "
+    "référentiel, cherche-la dans ces documents : si elle y figure, c'est "
+    "celle-là qu'on retient.\n"
+    "- Chiffre propre à l'entreprise — chiffre d'affaires, nombre de clients "
+    "ou d'abonnés, prix, marges, charges, objectifs, prévisionnel : "
+    "`declaree`, avec pour `source` « données du projet ».\n"
+    "- Chiffre publié par un organisme tiers et reproduit dans un document "
+    "— étude de marché, statistique, rapport sectoriel : `observee`, avec pour "
+    "`source` l'organisme et l'année que le document indique. S'il ne les "
+    "indique pas, `estimee`, source vide.\n"
+    "- Un objectif n'est pas un chiffre actuel, et un chiffre actuel n'est pas "
+    "un objectif : lis ce que le document dit de la valeur — réalisé, en "
+    "cours, visé, à quelle échéance — avant de la ranger.\n"
+    "- Une étude sur la zone réelle de l'activité vaut mieux qu'un chiffre "
+    "national transposé : ne remplace jamais la première par le second.\n"
+    # Relecture du 11/09/2026 : cette ligne disait « retiens la plus
+    # récente ». Or chaque valeur du brief est un fait VERROUILLÉ que le gate
+    # exige à l'identique (`_check_numeric_coherence`) : suivre la consigne
+    # déclenchait trois corrections payantes qui ne pouvaient pas converger.
+    "- Si le brief donne une valeur, c'est ELLE que tu retiens, même si un "
+    "document en donne une autre : le brief est la version que le porteur de "
+    "projet a validée pour cette étude. Mentionne la valeur du document dans "
+    "`libelle`, sans la substituer.\n"
+    "- Un document qui ne concerne manifestement pas ce projet s'ignore.\n"
+    "- Ni `libelle` ni `source` ne nomment un fichier, ni ne disent qu'un "
+    "document a été reçu, lu ou coupé : ils parlent de l'entreprise et de son "
+    "marché, pas de la façon dont le dossier a été constitué."
+)
+
+
 def _ligne_referentiel(item: DefinitionDonnee) -> str:
     marque = "OBLIGATOIRE" if item.obligatoire else "facultatif"
     ligne = (
@@ -337,9 +377,13 @@ def construire_prompt_socle(
     deliverable_type: str,
     variables: Mapping[str, object],
     brief_recherche: str = "",
+    documents_client: str = "",
     motifs_precedents: list[str] | None = None,
 ) -> str:
     """Prompt utilisateur de la passe 1.
+
+    `documents_client` : le texte des documents déposés par le client
+    (`generation.documents_client.bloc_documents`), vide s'il n'y en a pas.
 
     `motifs_precedents` : en cas de nouvelle tentative, les motifs exacts du
     refus précédent. On ne redemande pas « fais mieux » — on dit ce qui a été
@@ -371,6 +415,9 @@ def construire_prompt_socle(
         "l'année en cours.",
         f"BRIEF_CLIENT :\n{json.dumps(variables, ensure_ascii=False, sort_keys=True, indent=2)}",
     ]
+
+    if documents_client.strip():
+        blocs.append(f"{documents_client}\n\n{CONSIGNE_DOCUMENTS_SOCLE}")
 
     if brief_recherche.strip():
         blocs.append(

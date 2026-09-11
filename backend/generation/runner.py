@@ -405,6 +405,33 @@ def run_generation_job(
             job.research_brief = brief
             job.save(update_fields=["research_brief", "updated_at"])
 
+    # Documents déposés par le client, lus AVANT le socle, qui en tire ses
+    # chiffres. Jusqu'au 11/09/2026 aucun livrable ne les lisait (dossier
+    # `f7f2fad9` : un prévisionnel et une étude régionale jamais vus, un marché
+    # national sans source à leur place). Une panne de lecture ne tue pas le
+    # dossier — mais elle ne se tait pas non plus : un incident la nomme.
+    #
+    # Seul le moteur structuré transmet ce texte au modèle. Lire les documents
+    # sous l'ancien moteur les afficherait « lus » dans la console sans
+    # qu'aucun prompt ne les reçoive.
+    try:
+        from .documents_client import lire_les_documents  # noqa: PLC0415
+
+        if _moteur_structure(job):
+            lire_les_documents(job)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("Lecture des documents du client impossible (job %s)", job.id)
+        OperationalIncident.objects.create(
+            title=f"Documents du client non lus : lecture en échec (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={"type": "documents_client", "erreur": f"{type(exc).__name__} : {exc}"},
+        )
+    from .documents_client import bloc_documents  # noqa: PLC0415
+
+    documents_du_client = bloc_documents(job)
+
     # ── Socle verrouillé (lot 1) ─────────────────────────────────────────────
     #
     # `etablir_socle` existait depuis le lot 1 et n'était appelée QUE par une
@@ -431,6 +458,7 @@ def run_generation_job(
                 client=client,
                 variables=variables,
                 brief_recherche=job.research_brief or "",
+                documents_client=documents_du_client,
             )
         except SocleGenerationError as exc:
             GenerationJob.objects.filter(pk=job.pk).update(

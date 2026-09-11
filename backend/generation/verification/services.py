@@ -32,10 +32,32 @@ def chiffres_du_brief(job: GenerationJob) -> list[float]:
     Ils sont légitimes dans le livrable sans figurer au socle : le client a le
     droit de citer son propre chiffre d'affaires. On réutilise l'extraction du
     dépôt plutôt que d'en écrire une seconde (règle 5).
+
+    Les documents qu'il a déposés en font partie depuis qu'ils sont lus : un
+    chiffre de son prévisionnel est aussi légitime qu'un chiffre de son brief,
+    et le signaler « sans équivalent » ferait relire ce qui n'est pas faux
+    (règle 2). Ils ne passent PAS par `_brief_free_text`, que le gate lit pour
+    exiger que chaque montant du brief soit repris : un document de trente
+    pages n'est pas une liste de valeurs à retrouver dans le livrable.
     """
+    #
+    # Des documents, on ne retient que les montants qui PORTENT une unité
+    # monétaire. Quarante mille caractères de prévisionnel contiennent des
+    # milliers de nombres nus — années, numéros, quantités : les admettre tous
+    # donnait à un chiffre inventé de bonnes chances de tomber juste à 1 % près
+    # (relecture du 11/09/2026).
+    from core.numbers import AMOUNT_WITH_UNIT_RE, parse_amount  # noqa: PLC0415
+
+    from ..documents_client import texte_des_documents  # noqa: PLC0415
     from ..gate import _brief_free_text  # noqa: PLC0415
 
-    return amounts_in(_brief_free_text(job))
+    des_documents = [
+        montant
+        for trouve in AMOUNT_WITH_UNIT_RE.finditer(texte_des_documents(job))
+        if trouve.group(2)
+        and (montant := parse_amount(trouve.group(1), trouve.group(2))) is not None
+    ]
+    return [*amounts_in(_brief_free_text(job)), *des_documents]
 
 
 def verifier_document(

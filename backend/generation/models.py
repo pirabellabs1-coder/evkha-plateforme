@@ -247,3 +247,53 @@ class CoherenceFact(UUIDModel):
 
     def __str__(self) -> str:
         return f"{self.kind}:{self.key}"
+
+
+class StatutLecture(models.TextChoices):
+    LU = "lu", "Lu en entier"
+    TRONQUE = "tronque", "Lu en partie"
+    ILLISIBLE = "illisible", "Illisible"
+    NON_LU = "non_lu", "Format non lu"
+
+
+class DocumentClientLu(UUIDModel):
+    """Un document déposé par le client, tel que la génération l'a lu.
+
+    Dossier `f7f2fad9` (08/09/2026) : la cliente avait joint son prévisionnel
+    et une étude de marché régionale. Aucun livrable ne lisait les pièces
+    jointes ; le modèle a comblé le vide avec un marché national « estimé à
+    900 millions d'euros », sans source, et un objectif qui était en fait le
+    chiffre d'affaires actuel. Ce modèle est la trace de ce qui a été lu, et de
+    ce qui ne l'a PAS été — un document écarté se voit, il ne disparaît pas.
+
+    Le texte vit ici pour qu'une relance relise exactement la même matière que
+    le premier passage. Il s'efface avec la pièce jointe (`organisations/purge`)
+    : la rétention de douze mois vaut pour le contenu, pas seulement pour le
+    fichier. La ligne, elle, reste — elle dit ce qui a été lu.
+    """
+
+    job = models.ForeignKey(
+        GenerationJob, on_delete=models.CASCADE, related_name="documents_client"
+    )
+    piece = models.ForeignKey(
+        "organisations.PieceJointe", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="+",
+    )
+    ordre = models.PositiveSmallIntegerField(default=0)
+    nom = models.CharField(max_length=200)
+    depose_le = models.DateTimeField(null=True, blank=True)
+    statut = models.CharField(max_length=12, choices=StatutLecture.choices)
+    #: Ce que l'extraction a produit, et ce qui en a été gardé pour le modèle.
+    caracteres_extraits = models.PositiveIntegerField(default=0)
+    caracteres_retenus = models.PositiveIntegerField(default=0)
+    #: Pourquoi un document n'est pas lu, ou pas en entier. Lu par un humain.
+    motif = models.CharField(max_length=300, blank=True)
+    texte = models.TextField(blank=True)
+    #: La pièce jointe a été supprimée : son texte est parti avec elle.
+    texte_efface_le = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["job", "ordre"]
+
+    def __str__(self) -> str:
+        return f"{self.nom} ({self.statut})"

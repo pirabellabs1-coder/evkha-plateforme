@@ -60,7 +60,7 @@ pdf = [
   # pypdf : relit le PDF rendu par Gamma pour verifier qu'il n'a pas ampute le
   # document (delivery/gamma_fidelite.py). Gamma REECRIT le contenu — mesure
   # sur le BP SYNAPSES : 38 752 mots -> 3 835, 5 verticales sur 10 effacees.
-  "pypdf>=4,<7",
+  "pypdf>=6,<7",
 ]
 word = [
   # Lot 3 : le livrable client est un Word produit a partir d'un gabarit, puis

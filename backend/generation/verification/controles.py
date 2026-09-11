@@ -264,8 +264,8 @@ def controler_chiffres_hors_socle(
         deja_vues.add(mesure.texte)
         anomalies.append(Anomalie(
             "chiffres_hors_socle", Gravite.AVERTISSEMENT,
-            f"« {mesure.texte} » n'a pas d'équivalent dans le socle ni dans "
-            "le brief client.",
+            f"« {mesure.texte} » n'a pas d'équivalent dans le socle, ni dans "
+            "le brief, ni dans les documents du client.",
             extrait=mesure.contexte,
         ))
     return anomalies

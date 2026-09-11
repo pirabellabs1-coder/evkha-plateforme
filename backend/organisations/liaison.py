@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import logging
 
+from django.core.exceptions import ValidationError
+
 from generation.models import GenerationJob
 
 from . import credits
@@ -103,6 +105,36 @@ def cout_en_credits(job: GenerationJob) -> int:
     return 1
 
 
+def est_une_reprise_a_nos_frais(job: GenerationJob) -> bool:
+    """La commande a-t-elle été créée par `job_regenerer` ?
+
+    Ni l'identifiant préfixé `reprise-` ni la clé `reprise_de` ne prouvent
+    rien seuls : une commande Systeme.io reçoit son identifiant ET son
+    `raw_payload` du webhook, qui pourrait porter les deux (audit du
+    11/09/2026). On exige donc un fait que la base seule peut confirmer : le
+    dossier d'origine EXISTE et appartient au même client. L'identifiant de
+    ce dossier n'est pas secret — le client le voit dans l'adresse de ses
+    livrables. Ce qui protège, c'est qu'il faudrait en plus maîtriser le
+    contenu d'un webhook Systeme.io, authentifié par son secret ; et l'enjeu
+    se borne alors à une génération à nos frais pour ce même client.
+    """
+    commande = job.order
+    brut = commande.raw_payload if isinstance(commande.raw_payload, dict) else {}
+    origine = str(brut.get("reprise_de") or "")
+    if not origine or not str(commande.systeme_order_id).startswith(
+        f"reprise-{origine[:8]}-"
+    ):
+        return False
+    try:
+        return (
+            GenerationJob.objects.filter(id=origine, order__customer_id=commande.customer_id)
+            .exclude(order=commande)
+            .exists()
+        )
+    except (ValueError, ValidationError):
+        return False
+
+
 def reference_de_debit(job: GenerationJob) -> str:
     """Clé d'idempotence d'un débit. Stable sur toute la vie du job."""
     return f"job:{job.id}"
@@ -122,6 +154,16 @@ def debiter_pour_job(job: GenerationJob) -> tuple[bool, str]:
     - **solde insuffisant ou organisation suspendue** → refusé. « Commande
       bloquée, aucun découvert. »
     """
+    # Une reprise « à l'identique » lancée depuis la console est À NOS FRAIS :
+    # c'est ce que `job_regenerer` promet. Mais sa commande n'a pas
+    # d'organisation, et `organisation_du_job` la retrouve par le CONTACT — si
+    # bien que refaire le dossier d'une cliente lui aurait débité un crédit
+    # (constaté le 11/09/2026, en préparant la reprise du dossier `f7f2fad9`).
+    # Le garde-fou est ici, dans la couche qui tient l'argent : c'est elle qui
+    # débite, quelle que soit la porte d'appel (règle 4).
+    if est_une_reprise_a_nos_frais(job):
+        return True, "Reprise à nos frais : aucun crédit débité."
+
     organisation = organisation_du_job(job)
     if organisation is None:
         return True, "Commande sans organisation : aucun crédit débité."

@@ -212,6 +212,7 @@ def verifier_le_socle(
     *,
     client: Any,
     brief_recherche: str = "",
+    documents_client: str = "",
 ) -> RapportVerification:
     """Confronte les données `observee` aux sources collectées. Modifie le socle.
 
@@ -235,7 +236,7 @@ def verifier_le_socle(
         rapport.passe_executee = True
         return rapport
 
-    if not brief_recherche.strip():
+    if not brief_recherche.strip() and not documents_client.strip():
         # Aucune source collectée : il n'y a RIEN à quoi comparer. On ne
         # confirme donc rien — et on le dit. Laisser passer « puisqu'on ne
         # peut pas juger » est exactement le défaut de la règle 1.
@@ -254,8 +255,20 @@ def verifier_le_socle(
         + (f" / {socle.zone.ville}" if socle.zone.ville else "")
         + "\n\n"
         "SOURCES COLLECTÉES — la seule matière dont tu disposes :\n"
-        f"{brief_recherche}\n\n"
-        "CHIFFRES À VÉRIFIER :\n"
+        f"{brief_recherche or '(aucune source web collectée)'}\n\n"
+        # Une étude régionale jointe par le client est une source réelle : la
+        # taire ici déclasserait en estimation le chiffre même qu'elle publie.
+        # Mais un document du client ne confirme que ce qu'il ATTRIBUE à
+        # l'organisme cité — sinon l'affirmation du client deviendrait, par
+        # ce détour, une donnée publiée.
+        + (
+            f"{documents_client}\n\n"
+            "Un document du client confirme un chiffre SEULEMENT s'il "
+            "l'attribue lui-même à l'organisme cité en source, pour la même "
+            "année et la même zone.\n\n"
+            if documents_client.strip() else ""
+        )
+        + "CHIFFRES À VÉRIFIER :\n"
         f"{a_verifier}\n\n"
         "Rends un verdict pour CHACUN, sans en omettre."
     )

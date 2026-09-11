@@ -344,6 +344,35 @@ _CE_QUI_NE_SE_RECOPIE_PAS = (
 )
 
 
+#: Ce que le rédacteur fait des documents du client. Le socle en a déjà tiré
+#: les chiffres de référence ; le chapitre y trouve le reste — la répartition
+#: des clients, le détail d'une offre, l'objectif que le dirigeant s'est fixé.
+CONSIGNE_DOCUMENTS_CHAPITRE = (
+    "UTILISATION DES DOCUMENTS DU CLIENT.\n"
+    "- Quand une valeur figure à la fois dans les données de référence et "
+    "dans un document, reprends celle des données de référence : elles ont "
+    "été arrêtées pour tout le document.\n"
+    "- Un chiffre propre à l'entreprise qui ne figure QUE dans un document — "
+    "répartition des clients, détail d'une offre, objectif chiffré — peut être "
+    "cité tel que le document l'écrit, avec « données du projet » pour source. "
+    "Ne le transforme pas : un objectif reste un objectif, une valeur réalisée "
+    "reste réalisée.\n"
+    # Relecture du 11/09/2026 : sans cette ligne, un chiffre d'étude régionale
+    # présent dans un document mais absent du socle était soit déclaré
+    # « manquant » — la plainte d'origine sous une autre forme —, soit cité
+    # « données du projet », ce qui attribuait au client le chiffre d'un
+    # organisme. La règle absolue sur les chiffres de marché reste entière.
+    "- Un chiffre de MARCHÉ publié par un organisme, que tu ne trouves que "
+    "dans un document et pas dans les données de référence, ne s'emploie pas "
+    "comme un chiffre de l'étude. Ne le cite pas, et n'écris pas non plus "
+    "qu'il manque : appuie-toi sur ce que les données de référence établissent.\n"
+    "- Un document qui ne concerne manifestement pas ce projet s'ignore.\n"
+    "- Parle de l'affaire du client, jamais des fichiers : ne nomme aucun "
+    "fichier, et n'écris pas qu'un document a été reçu, lu, analysé ou qu'il "
+    "en manque une partie."
+)
+
+
 def _bloc_socle(socle: Socle) -> str:
     """Socle sérialisé, lisible et exhaustif.
 
@@ -1288,10 +1317,17 @@ def construire_prompt_chapitre(
     # le socle est verrouillé, la consigne de livrable est une constante, le
     # brief est figé à l'intake. C'est la condition du cache : un octet qui
     # varie invalide tout le préfixe.
+    #
+    # Les documents du client y vont aussi : lus une fois au lancement, figés
+    # sur le dossier, ils sont identiques d'un chapitre à l'autre.
+    from ..documents_client import bloc_documents  # noqa: PLC0415
+
+    documents = bloc_documents(chapter.job)
     par_job = "\n\n".join([
         _bloc_socle(socle),
         *([consigne_livrable] if consigne_livrable else []),
         f"BRIEF_CLIENT :\n{json.dumps(dict(variables), ensure_ascii=False, sort_keys=True)}",
+        *([f"{documents}\n\n{CONSIGNE_DOCUMENTS_CHAPITRE}"] if documents else []),
     ])
 
     # PAR_CHAPITRE : tout ce qui change d'un appel à l'autre — les sources

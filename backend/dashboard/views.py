@@ -498,6 +498,17 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
         },
     )
 
+    # `{"sans_envoi": true}` : le document est assemblé et téléchargeable,
+    # mais AUCUN courriel ne part. Pour une reprise de validation, dont on veut
+    # lire le résultat avant que le client le reçoive — l'envoi se fait ensuite
+    # par « Renvoyer », qui est une décision. Sans ce drapeau, la reprise livre
+    # comme n'importe quel dossier : c'est le comportement d'avant.
+    try:
+        corps_requete = json.loads(request.body.decode("utf-8") or "{}")
+    except (json.JSONDecodeError, ValueError):
+        corps_requete = {}
+    sans_envoi = isinstance(corps_requete, dict) and corps_requete.get("sans_envoi") is True
+
     commande = Order.objects.create(
         customer=job.order.customer,
         offer=offre,
@@ -506,7 +517,7 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
         # saura dans six mois pourquoi ce client a deux business plans.
         systeme_order_id=f"reprise-{str(job.id)[:8]}-{_uuid.uuid4().hex[:8]}",
         status=OrderStatus.WAITING_INTAKE,
-        raw_payload={"reprise_de": str(job.id)},
+        raw_payload={"reprise_de": str(job.id), **({"sans_envoi": True} if sans_envoi else {})},
     )
 
     reprise = IntakeSubmission.objects.create(
@@ -537,6 +548,7 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
             "status": nouveau.status,
             "budget_eur": str(nouveau.budget_eur),
             "variables_reprises": len(reprise.normalized_variables),
+            "sans_envoi": sans_envoi,
         },
         status=202,
     )
@@ -670,6 +682,22 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
     data["delivery"] = delivery_data
     data["phase0_plan"]["content"] = job.phase0_plan or ""
     data["qa_motifs"] = _motifs_du_dernier_controle(job)
+    # Ce que la génération a lu des documents déposés — et ce qu'elle n'a pas
+    # lu, avec la raison. Le texte lui-même ne sort pas : l'écran dit QUOI a
+    # été lu, pas le bilan du client.
+    data["documents_client"] = [
+        {
+            "nom": d.nom,
+            "statut": d.statut,
+            "statut_libelle": d.get_statut_display(),
+            "caracteres_extraits": d.caracteres_extraits,
+            "caracteres_retenus": d.caracteres_retenus,
+            "motif": d.motif,
+            "depose_le": d.depose_le.isoformat() if d.depose_le else None,
+            "texte_efface": d.texte_efface_le is not None,
+        }
+        for d in job.documents_client.defer("texte")
+    ]
     return _json(data)
 
 
