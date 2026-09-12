@@ -13,6 +13,7 @@ urlpatterns = [
     # AVANT `jobs/<job_id>/` : Django prend la première route qui correspond,
     # et `<str:job_id>` avalerait « <id>/brief » comme un identifiant.
     path("jobs/<str:job_id>/brief/", views.job_brief, name="job-brief"),
+    path("jobs/<str:job_id>/mesure/", views.job_mesure, name="job-mesure"),
     path("jobs/<str:job_id>/regenerer/", views.job_regenerer, name="job-regenerer"),
     path("jobs/<str:job_id>/assembler/", views.job_assembler, name="job-assembler"),
     path("jobs/<str:job_id>/supprimer/", views.job_supprimer, name="job-supprimer"),

@@ -556,6 +556,49 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
 
 @require_GET
 @csrf_exempt
+def job_mesure(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Les trois nombres du livrable : figures, sources, chiffres hors socle.
+
+    ## Pourquoi cette route existe
+
+    « On doit atteindre le score de dix sur dix partout » (12/09/2026). Une
+    promesse ne se vérifie pas ; trois nombres, si. Le comptage existait déjà
+    en commande de gestion — mais une commande tourne sur la machine du
+    développeur, et les dossiers du client vivent ICI. Une mesure qu'on ne
+    peut pas prendre là où sont les documents ne sert à rien.
+
+    ## Ce qu'elle coûte
+
+    Rien en appels d'IA : elle re-rend le `.docx` depuis les chapitres déjà
+    payés, le relit, et compte. Elle consomme en revanche du CPU pendant
+    quelques secondes — c'est pourquoi elle est appelée à la demande, dossier
+    par dossier, et jamais depuis une liste.
+
+    ## Ce qu'elle n'écrit pas
+
+    Rien. Ni artefact, ni verdict, ni incident : `verifier_livrable` est
+    appelé avec `ouvrir_incident=False`. Mesurer ne doit pas changer ce qu'on
+    mesure.
+    """
+    try:
+        job = GenerationJob.objects.get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    from generation.mesure import mesurer
+
+    mesure = mesurer(job)
+    return _json({
+        "job_id": str(job.id),
+        "deliverable_type": job.deliverable_type,
+        **mesure.en_dict(),
+    })
+
+
+@require_GET
+@csrf_exempt
 def job_brief(request: HttpRequest, job_id: str) -> JsonResponse:
     """Le BRIEF client d'un dossier — les réponses qui ont produit le livrable.
 

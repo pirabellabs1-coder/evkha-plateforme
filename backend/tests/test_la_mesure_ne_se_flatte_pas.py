@@ -21,7 +21,17 @@ Ces tests échouent sur cette première version.
 """
 from __future__ import annotations
 
-from generation.management.commands.mesurer_livrable import _mesurer_les_sources
+import json
+from typing import Any
+
+import pytest
+from django.test import Client
+
+from catalog.models import DeliverableType, Offer
+from customers.models import Customer
+from generation.mesure import mesurer_les_sources
+from generation.models import GenerationJob
+from orders.models import Order
 
 _AVEC_TABLEAU = """# Sources
 
@@ -45,7 +55,7 @@ def test_un_chapitre_sources_absent_ne_rend_pas_zero() -> None:
     Confondre les deux ferait passer un document sans aucune traçabilité pour
     un document irréprochable — exactement à l'envers.
     """
-    assert _mesurer_les_sources("# Analyse\n\nDu texte, aucun chapitre Sources.") is None
+    assert mesurer_les_sources("# Analyse\n\nDu texte, aucun chapitre Sources.") is None
 
 
 def test_les_sources_du_client_sont_comptees_a_part() -> None:
@@ -54,11 +64,10 @@ def test_les_sources_du_client_sont_comptees_a_part() -> None:
     Les compter comme « sans adresse » accuserait le document d'un défaut
     qu'il n'a pas — et un contrôle qui crie faux finit débranché.
     """
-    mesure = _mesurer_les_sources(_AVEC_TABLEAU)
+    mesure = mesurer_les_sources(_AVEC_TABLEAU)
     assert mesure is not None
-    exterieures, sans_adresse, du_client = mesure
-    assert (exterieures, du_client) == (2, 1)
-    assert sans_adresse == 1, "Numeum est cité sans son adresse"
+    assert (mesure.exterieures, mesure.du_client) == (2, 1)
+    assert mesure.sans_adresse == 1, "Numeum est cité sans son adresse"
 
 
 def test_une_adresse_inventee_compte_comme_une_absence() -> None:
@@ -67,8 +76,58 @@ def test_une_adresse_inventee_compte_comme_une_absence() -> None:
     Une URL en `example.com` a l'apparence du sérieux : le lecteur la suit,
     et ne trouve rien. La mesure ne doit pas la créditer.
     """
-    mesure = _mesurer_les_sources(_ADRESSE_INVENTEE)
+    mesure = mesurer_les_sources(_ADRESSE_INVENTEE)
     assert mesure is not None
-    exterieures, sans_adresse, _ = mesure
+    exterieures, sans_adresse = mesure.exterieures, mesure.sans_adresse
     assert exterieures == 2
     assert sans_adresse == 1, "l'adresse en example.com ne vaut pas une source"
+
+
+# ── La mesure doit être prenable LÀ OÙ SONT LES DOCUMENTS ────────────────────
+
+
+JETON = "m" * 64
+
+
+@pytest.fixture
+def api(settings: Any) -> Client:
+    settings.DEBUG = False
+    settings.EVKHA_DASHBOARD_AUTH_DISABLED = False
+    settings.EVKHA_DASHBOARD_TOKEN = JETON
+    settings.EVKHA_DASHBOARD_TOKEN_PRECEDENT = ""
+    return Client(HTTP_AUTHORIZATION=f"Bearer {JETON}")
+
+
+@pytest.mark.django_db
+def test_la_mesure_se_prend_par_l_api(api: Client) -> None:
+    """Une commande de gestion tourne sur la machine du développeur.
+
+    Les dossiers du client, eux, vivent en production : sans cette route, les
+    trois nombres seraient inatteignables exactement là où ils comptent.
+    """
+    offre = Offer.objects.create(
+        name="EM", slug="mesure-api", deliverable_type=DeliverableType.MARKET_STUDY,
+    )
+    client = Customer.objects.create(email="mesure@test.local")
+    commande = Order.objects.create(
+        systeme_order_id="cmd-mesure", customer=client, offer=offre,
+    )
+    dossier = GenerationJob.objects.create(
+        order=commande, deliverable_type=DeliverableType.MARKET_STUDY,
+    )
+
+    reponse = api.get(f"/api/dashboard/jobs/{dossier.id}/mesure/")
+    assert reponse.status_code == 200, reponse.content
+    charge = json.loads(reponse.content)
+
+    assert charge["job_id"] == str(dossier.id)
+    # Ce dossier n'a ni socle ni chapitre : la mesure est IMPOSSIBLE, et elle
+    # le dit au lieu de rendre des zéros qui passeraient pour un sans-faute.
+    assert charge["echec"], "un dossier vide doit rendre un échec, pas des zéros"
+
+
+@pytest.mark.django_db
+def test_la_mesure_ne_s_ouvre_pas_sans_jeton() -> None:
+    """Elle lit le contenu de dossiers clients : elle est derrière la garde."""
+    reponse = Client().get("/api/dashboard/jobs/00000000-0000-0000-0000-000000000000/mesure/")
+    assert reponse.status_code in (401, 403), reponse.status_code
