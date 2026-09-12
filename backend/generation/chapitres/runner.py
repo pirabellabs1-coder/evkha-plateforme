@@ -437,6 +437,56 @@ COHERENCE_DES_CHIFFRES = (
 )
 
 
+#: Les SOURCES, écrites là où elles servent : dans le prompt système, mis en
+#: cache, donc quasiment gratuit.
+#:
+#: Trois défauts mesurés, tous sur des documents livrés :
+#:   - étude WAOME : la moitié des sources n'étaient pas vérifiables, et deux
+#:     URL étaient inventées (`example.com`) ;
+#:   - stratégie Zenitek, 12/09/2026 : « 0 URL vérifiable pour 3 sources
+#:     extérieures » — Insee et Numeum cités sans leur adresse ;
+#:   - même dossier : un marché national « estimé à 900 M€ » sans source, alors
+#:     que l'étude du client, déposée, portait le chiffre régional.
+SOURCES_ET_TRACABILITE = """SOURCES — ce qui distingue une étude d'une opinion.
+
+1. UNE SOURCE EST VÉRIFIABLE, ou ce n'en est pas une. Pour un chiffre publié,
+cite l'organisme, l'année, et l'ADRESSE WEB fournie dans les sources collectées
+de ce chapitre. Sans adresse disponible, cite l'organisme et l'année, et
+présente la valeur comme une estimation — jamais comme une donnée publiée.
+
+2. N'INVENTE JAMAIS UNE ADRESSE. Pas d'`example.com`, pas de `source.fr`, pas
+d'adresse reconstruite « à partir du nom de l'institut ». Une adresse fausse
+est pire qu'une absence : elle donne l'apparence du sérieux à ce qui n'a pas
+été vérifié, et le lecteur la suivra.
+
+3. LA SOURCE DOIT PORTER CE CHIFFRE-LÀ. Avant d'écrire « Insee, 2025 »,
+demande-toi si cette publication donne EXACTEMENT cette valeur, pour ce
+périmètre et cette année. Une source qui traite du sujet sans porter le chiffre
+n'est pas une source : c'est une lecture.
+
+4. LES DONNÉES DU CLIENT SE CITENT « données du projet ». Son chiffre
+d'affaires, ses prix, ses clients, son prévisionnel : ils n'ont pas d'adresse
+web, ils n'en auront jamais, et c'est normal. Ne leur invente pas un institut.
+Ne les présente pas non plus comme publiés.
+
+5. UN CHIFFRE DU CLIENT PRIME SUR UN CHIFFRE DE MARCHÉ. S'il a mesuré son
+panier moyen, c'est le sien qui vaut pour son dossier — la moyenne sectorielle
+sert à le SITUER, jamais à le remplacer.
+
+6. LE CHAPITRE DES SOURCES RECENSE CE QUE LE DOCUMENT A VRAIMENT EMPLOYÉ, avec
+pour chacune : l'organisme ou le document, ce qu'elle apporte, son année, et
+son adresse quand elle en a une. Une source citée nulle part ailleurs n'a rien
+à y faire ; un chiffre du document dont la source manque à cette liste non plus.
+
+7. UNE ANNÉE EST CELLE DE LA MESURE, pas celle de l'article qui la reprend. Un
+chiffre de 2023 cité par une publication de 2026 reste un chiffre de 2023, et
+se présente comme tel.
+
+8. CES RÈGLES NE SE CITENT PAS DANS LE TEXTE. Le lecteur ne doit trouver ni
+« source vérifiable », ni « conformément à la méthode » : il doit trouver des
+sources, et pouvoir les ouvrir."""
+
+
 def _bloc_socle(socle: Socle) -> str:
     """Socle sérialisé, lisible et exhaustif.
 
@@ -1571,6 +1621,8 @@ def generer_chapitre(
             _SYSTEME
             + "\n\n"
             + COHERENCE_DES_CHIFFRES
+            + "\n\n"
+            + SOURCES_ET_TRACABILITE
             + SYSTEM_CACHE_BREAK
             + prompt.par_job
         ),

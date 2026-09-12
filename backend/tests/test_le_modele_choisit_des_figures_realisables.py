@@ -151,3 +151,26 @@ def test_le_prompt_du_chapitre_porte_le_catalogue_et_la_coherence() -> None:
     # les chapitres et mis en cache une seule fois.
     for attendu in ("UN CHIFFRE, UNE SOURCE", "JAMAIS DE ZÉRO NU", "UN CALCUL SE MONTRE"):
         assert attendu in COHERENCE_DES_CHIFFRES
+
+
+def test_le_prompt_systeme_porte_les_regles_de_sources() -> None:
+    """Trois défauts mesurés, une seule réponse : les sources sont enseignées.
+
+    Étude WAOME (la moitié des sources non vérifiables, deux URL inventées),
+    stratégie Zenitek du 12/09/2026 (« 0 URL vérifiable pour 3 sources
+    extérieures »), et le marché « 900 M€ » sans source alors que l'étude du
+    client portait le chiffre.
+    """
+    from generation.chapitres.runner import SOURCES_ET_TRACABILITE
+
+    for attendu in (
+        "N'INVENTE JAMAIS UNE ADRESSE",
+        "LA SOURCE DOIT PORTER CE CHIFFRE-LÀ",
+        "données du projet",
+        "UN CHIFFRE DU CLIENT PRIME",
+        "UNE ANNÉE EST CELLE DE LA MESURE",
+    ):
+        assert attendu in SOURCES_ET_TRACABILITE, attendu
+    # Et la leçon de WAOME v4 : des règles récitées DANS le document sont un
+    # défaut de plus. Elles se suivent, elles ne se citent pas.
+    assert "CES RÈGLES NE SE CITENT PAS DANS LE TEXTE" in SOURCES_ET_TRACABILITE
