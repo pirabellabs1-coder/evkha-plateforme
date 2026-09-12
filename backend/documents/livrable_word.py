@@ -212,6 +212,7 @@ def assembler_livrable_word(
     convertisseur: ConvertisseurDocx | None = None,
     verifier: bool = True,
     ouvrir_incident: bool = True,
+    convertir: bool = True,
 ) -> LivrableAssemble:
     """Produit le `.docx`, le convertit en PDF, et enregistre les deux artefacts.
 
@@ -275,6 +276,20 @@ def assembler_livrable_word(
             "expires_at": expire_le,
         },
     )
+
+    if not convertir:
+        # La relecture finale assemble plusieurs fois le MEME dossier pour
+        # vérifier ses corrections sur le fichier. Convertir en PDF à chaque
+        # passe fait tourner LibreOffice sur deux cents pages pour un fichier
+        # que personne ne lira : du temps, et surtout de la mémoire, dans le
+        # worker partagé. Le PDF déjà enregistré n'est pas touché — la
+        # livraison, elle, assemble et convertit pour de bon.
+        return LivrableAssemble(
+            docx=artefact_docx,
+            pdf=job.artifacts.filter(kind=ArtifactKind.PDF).first(),
+            rapport=livrable.rapport,
+            controle=controle,
+        )
 
     convertisseur = convertisseur or get_convertisseur_docx()
     try:

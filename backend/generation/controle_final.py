@@ -163,6 +163,13 @@ def relire_et_corriger(
     from .runner import regenerate_chapter  # noqa: PLC0415
 
     rapport = RapportRelecture()
+    # La trace s'ouvre AVANT la première passe. Si le processus meurt en cours
+    # — worker tué, mémoire épuisée —, le dossier garde la preuve qu'une
+    # relecture avait commencé, au lieu de ressembler à un dossier jamais relu
+    # (règle 1 : ce qui échoue ne doit pas se taire). Mesuré le 12/09/2026 :
+    # une tâche morte pendant cette étape ne laissait ni trace, ni incident,
+    # ni document envoyé.
+    _inscrire(job, {**rapport.as_details(), "motif_d_arret": "en cours"})
     if not chaine_word_active(job):
         rapport.motif_d_arret = "ce dossier n'est pas produit par la chaîne Word"
         return rapport
@@ -174,7 +181,14 @@ def relire_et_corriger(
             # vraiment ; en ouvrir un par passe donnerait trois incidents pour
             # un seul document, dont deux décrivant des fichiers qui n'existent
             # plus. Ce que la relecture a FAIT, elle le consigne à part.
-            livrable = assembler_livrable_word(job, ouvrir_incident=False)
+            # Sans conversion PDF : ces passes vérifient le CONTENU du
+            # fichier. Faire tourner LibreOffice sur deux cents pages à chaque
+            # passe coûtait des minutes et de la mémoire dans le worker
+            # partagé — et le 12/09/2026 la tâche est morte là, sans rien
+            # livrer ni rien laisser. La livraison convertit, elle.
+            livrable = assembler_livrable_word(
+                job, ouvrir_incident=False, convertir=False
+            )
         except Exception as erreur:  # noqa: BLE001 — un assemblage raté n'est pas une panne de relecture
             _log.exception("Relecture finale : assemblage impossible (job %s)", job.id)
             rapport.motif_d_arret = f"assemblage impossible ({type(erreur).__name__})"
@@ -248,12 +262,7 @@ def relire_avant_envoi(job: GenerationJob, *, client: Any = None) -> RapportRele
             motif_d_arret=f"relecture impossible ({type(erreur).__name__} : {erreur})"
         )
 
-    # La trace vit sur le DOSSIER, pas seulement dans un incident : c'est elle
-    # que le tableau de bord affiche entre l'assemblage et l'envoi. Une étape
-    # qui n'existe que dans le code n'existe pas pour qui regarde le dossier.
-    from .models import GenerationJob as Dossier  # noqa: PLC0415
-
-    Dossier.objects.filter(pk=job.pk).update(controle_final=rapport.as_details())
+    _inscrire(job, rapport.as_details())
 
     if rapport.a_corrige or not rapport.passes:
         OperationalIncident.objects.create(
@@ -265,3 +274,18 @@ def relire_avant_envoi(job: GenerationJob, *, client: Any = None) -> RapportRele
         )
     _log.info("Job %s — %s", job.id, rapport.resume())
     return rapport
+
+
+def _inscrire(job: GenerationJob, details: dict[str, Any]) -> None:
+    """Écrit la trace sur le dossier. Ne lève jamais — c'est une trace.
+
+    La trace vit sur le DOSSIER, pas seulement dans un incident : c'est elle
+    que le tableau de bord affiche entre l'assemblage et l'envoi. Une étape qui
+    n'existe que dans le code n'existe pas pour qui regarde le dossier.
+    """
+    from .models import GenerationJob as Dossier  # noqa: PLC0415
+
+    try:
+        Dossier.objects.filter(pk=job.pk).update(controle_final=details)
+    except Exception:  # noqa: BLE001 — une trace manquante ne retient pas un livrable
+        _log.exception("Trace du contrôle final non écrite (job %s)", job.id)

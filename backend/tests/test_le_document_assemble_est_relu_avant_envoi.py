@@ -349,3 +349,96 @@ def test_un_dossier_jamais_relu_ne_montre_rien(job: Any, client_admin: Any) -> N
     """CONTRE-ÉPREUVE : un dossier d'avant n'affiche pas une étape qu'il n'a pas eue."""
     reponse = client_admin.get(f"/api/dashboard/jobs/{job.id}/")
     assert reponse.json()["controle_final"] is None
+
+
+# ── Ce que le premier vrai dossier a appris (12/09/2026) ─────────────────────
+
+
+def test_les_passes_n_emploient_pas_libreoffice(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Convertir en PDF à chaque passe faisait tourner LibreOffice pour rien.
+
+    Sur la reprise `655b0908` — deux cents pages — la tâche est morte à cette
+    étape : ni document envoyé, ni trace, ni incident. Les passes vérifient le
+    CONTENU ; c'est la livraison qui convertit.
+    """
+    from documents import livrable_word
+    from generation import runner as moteur
+
+    conversions: list[bool] = []
+
+    def _assembler(job: Any, **kwargs: Any) -> _Livrable:
+        conversions.append(bool(kwargs.get("convertir", True)))
+        return _Livrable(_controle())
+
+    monkeypatch.setattr(livrable_word, "assembler_livrable_word", _assembler)
+    monkeypatch.setattr(livrable_word, "chaine_word_active", lambda job: True)
+    monkeypatch.setattr(moteur, "regenerate_chapter", lambda *a, **k: None)
+
+    controle_final.relire_et_corriger(job)
+
+    assert conversions == [False]
+
+
+def test_une_relecture_morte_en_cours_laisse_sa_trace(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Règle 1 : ce qui échoue ne se tait pas.
+
+    Un worker tué pendant la relecture laissait un dossier identique à un
+    dossier jamais relu. La trace s'ouvre donc AVANT la première passe.
+    """
+    from documents import livrable_word
+    from generation.models import GenerationJob
+
+    def _mourir(job: Any, **kwargs: Any) -> None:
+        raise MemoryError
+
+    monkeypatch.setattr(livrable_word, "assembler_livrable_word", _mourir)
+    monkeypatch.setattr(livrable_word, "chaine_word_active", lambda job: True)
+
+    controle_final.relire_et_corriger(job)
+
+    assert GenerationJob.objects.get(pk=job.pk).controle_final["motif_d_arret"] == "en cours"
+
+
+def test_une_relecture_qui_meurt_n_empeche_pas_la_livraison(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un perfectionnement qui emporte la livraison est pire que son absence.
+
+    Le client a payé un document : une panne de relecture ne le lui retire pas.
+    """
+    from generation import controle_final as relecture
+    from generation import runner as moteur
+    from generation import tasks
+    from generation.models import JobStatus
+    from monitoring.models import OperationalIncident
+
+    ordre: list[str] = []
+    job.status = JobStatus.DONE
+    job.save(update_fields=["status"])
+
+    def _mourir(j: Any, **kw: Any) -> None:
+        msg = "worker tué"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(moteur, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(tasks, "run_qa_pass", lambda j: None, raising=False)
+    monkeypatch.setattr(tasks, "_controler_les_demandes_du_client", lambda j: None)
+    monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
+    monkeypatch.setattr(
+        tasks, "run_correction_loop",
+        lambda j, **kw: type("R", (), {"passed": True, "failures": []})(),
+        raising=False,
+    )
+    monkeypatch.setattr(relecture, "relire_avant_envoi", _mourir)
+    monkeypatch.setattr(tasks, "_livrer", lambda j: ordre.append("envoi"))
+
+    tasks.run_generation_job_task(str(job.id))
+
+    assert ordre == ["envoi"], "le document part malgré la panne"
+    assert OperationalIncident.objects.filter(
+        job=job, title__contains="Controle final"
+    ).exists(), "et la panne se voit"

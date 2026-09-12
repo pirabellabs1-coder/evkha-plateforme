@@ -343,9 +343,36 @@ def run_generation_job_task(job_id: str) -> str:
         #
         # Ici, le document est assemble, RELU, ses chapitres fautifs reecrits,
         # puis refait — et c'est le document relu qui part.
-        from .controle_final import relire_avant_envoi  # noqa: PLC0415
+        #
+        # Elle ne peut PAS retenir la livraison : le client a paye un document.
+        # Le 12/09/2026, la tache est morte pendant cette etape sur un dossier
+        # de deux cents pages — ni document envoye, ni trace, ni incident. Un
+        # perfectionnement qui emporte la livraison est pire que son absence.
+        try:
+            from .controle_final import relire_avant_envoi  # noqa: PLC0415
 
-        relire_avant_envoi(job)
+            relire_avant_envoi(job)
+        except Exception as exc:  # noqa: BLE001 — la livraison prime toujours
+            import logging  # noqa: PLC0415
+
+            logging.getLogger(__name__).exception(
+                "Controle final impossible pour le job %s : le document part tel quel",
+                job.id,
+            )
+            OperationalIncident.objects.create(
+                title=f"Controle final du document impossible (job {job.id})",
+                severity=IncidentSeverity.HIGH,
+                job=job,
+                order=job.order,
+                details={
+                    "type": "controle_final",
+                    "erreur": f"{type(exc).__name__} : {exc}",
+                    "consigne": (
+                        "Le document est parti sans cette relecture. "
+                        "Le relire avant de le remettre au client final."
+                    ),
+                },
+            )
 
         _livrer(job)
 
