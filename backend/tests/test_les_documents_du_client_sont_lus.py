@@ -1099,3 +1099,29 @@ def test_une_correction_en_cours_garde_la_matiere_de_ses_chapitres(
     chapitre.save(update_fields=["status"])
     dc.effacer_les_textes_orphelins()
     assert dc.bloc_documents(job) == ""
+
+
+def test_les_cellules_sans_valeur_se_comptent_pour_tout_le_classeur() -> None:
+    """Prévisionnel réel du 11/09/2026 : « 3 cellules… ; 51 cellules… », une par feuille."""
+    tampon = BytesIO()
+    with zipfile.ZipFile(tampon, "w") as z:
+        z.writestr("xl/workbook.xml", (
+            f"<workbook {_S} {_R}><sheets>"
+            '<sheet name="A" sheetId="1" r:id="rId1"/><sheet name="B" sheetId="2" r:id="rId2"/>'
+            "</sheets></workbook>"
+        ))
+        z.writestr("xl/_rels/workbook.xml.rels", (
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="x" Target="worksheets/sheet1.xml"/>'
+            '<Relationship Id="rId2" Type="x" Target="worksheets/sheet2.xml"/>'
+            "</Relationships>"
+        ))
+        for numero in (1, 2):
+            z.writestr(f"xl/worksheets/sheet{numero}.xml", (
+                f"<worksheet {_S}><sheetData><row r=\"1\">"
+                '<c r="A1" t="inlineStr"><is><t>Total</t></is></c>'
+                '<c r="B1"><f>SUM(A1)</f></c></row></sheetData></worksheet>'
+            ))
+    lu = dc.extraire("p.xlsx", tampon.getvalue())
+    assert lu.motif.count("cellule(s) calculée(s)") == 1, lu.motif
+    assert "2 cellule(s) calculée(s)" in lu.motif

@@ -606,6 +606,7 @@ def _xlsx(contenu: bytes, pertes: list[str]) -> str:
         }
         sorties: list[str] = []
         taille = 0
+        sans_valeur = 0
         for feuille in (e for e in classeur.iter() if _local(e.tag) == "sheet"):
             nom = feuille.get("name", "")
             identifiant = next(
@@ -615,16 +616,25 @@ def _xlsx(contenu: bytes, pertes: list[str]) -> str:
             if chemin not in archive.noms:
                 _perdre(pertes, f"feuille « {nom} » introuvable dans le classeur")
                 continue
-            lignes = _lignes_de_feuille(
+            lignes, vides = _lignes_de_feuille(
                 archive, chemin, partagees, styles, pertes,
                 reste=PLAFOND_EXTRACTION - taille,
             )
+            sans_valeur += vides
             if lignes:
                 bloc = f"### Feuille « {nom} »\n" + "\n".join(lignes)
                 sorties.append(bloc)
                 taille += len(bloc)
             if _plafond_atteint(taille, pertes):
                 break
+    # UN total pour le classeur : sur le prévisionnel réel du 11/09/2026, la
+    # perte sortait une fois par feuille (« 3 cellules… ; 51 cellules… »).
+    if sans_valeur:
+        _perdre(
+            pertes,
+            f"{sans_valeur} cellule(s) calculée(s) sans valeur enregistrée — "
+            "ouvrir et réenregistrer le fichier dans Excel",
+        )
     return "\n\n".join(sorties)
 
 
@@ -647,8 +657,8 @@ def _lignes_de_feuille(
     pertes: list[str],
     *,
     reste: int,
-) -> list[str]:
-    """Les lignes d'une feuille, lues au fil de l'eau.
+) -> tuple[list[str], int]:
+    """Les lignes d'une feuille, lues au fil de l'eau, et ses cellules sans valeur.
 
     `iterparse` + `clear()` : l'arbre complet d'une feuille de 42 Mo pesait
     807 Mo en mémoire (relecture du 11/09/2026), pour n'en garder que quarante
@@ -659,13 +669,7 @@ def _lignes_de_feuille(
         lignes, sans_valeur = _parcourir_la_feuille(flux, partagees, styles, pertes, reste)
     finally:
         flux.close()
-    if sans_valeur:
-        _perdre(
-            pertes,
-            f"{sans_valeur} cellule(s) calculée(s) sans valeur enregistrée — "
-            "ouvrir et réenregistrer le fichier dans Excel",
-        )
-    return lignes
+    return lignes, sans_valeur
 
 
 def _parcourir_la_feuille(

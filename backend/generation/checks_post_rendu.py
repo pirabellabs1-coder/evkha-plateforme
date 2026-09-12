@@ -388,6 +388,22 @@ _TITRE_SOURCES_RE = re.compile(r"^\s*sources?\b", re.IGNORECASE)
 # Une puce de source markdown : `- `, `* `, `• `, ou numerotee.
 _PUCE_SOURCE_RE = re.compile(r"^\s*(?:[-•*]|\d+\.)\s+\S", re.MULTILINE)
 
+# La MEME puce, avec son texte : c'est lui qui dit si la source est extérieure
+# ou vient du dossier du client.
+_LIGNE_SOURCE_RE = re.compile(r"^[ \t]*(?:[-•*]|\d+\.)[ \t]+(\S.*)$", re.MULTILINE)
+
+# Une source qui vient du client n'a pas d'URL, et n'en aura jamais : son
+# prévisionnel n'est pas publié. Depuis que la génération lit les documents
+# déposés (11/09/2026), ces sources sont devenues MAJORITAIRES sur une
+# stratégie — et le contrôle du ratio se déclenchait alors sur un document
+# irréprochable (reprise `8ad03a60`, 0 URL pour 3 sources dont 2 du client).
+# Un contrôle qui crie faux finit débranché (règle 2) : on ne compte donc le
+# ratio que sur les sources EXTÉRIEURES, qui, elles, doivent être vérifiables.
+_SOURCE_DU_CLIENT_RE = re.compile(
+    r"(?i)donn[ée]es du projet|dossier client|brief client|"
+    r"documents? (?:client|transmis|fourni|du client|de l'entreprise)"
+)
+
 # URL http(s) trouvee dans la puce.
 _URL_RE = re.compile(r"https?://[^\s\)\]\<\>»,]+", re.IGNORECASE)
 
@@ -496,21 +512,30 @@ def detecter_sources_non_tracables(
             ),
         ))
 
-    n_puces = len(puces)
+    n_puces = len(
+        [ligne for ligne in _LIGNE_SOURCE_RE.findall(corps)
+         if not _SOURCE_DU_CLIENT_RE.search(ligne)]
+    )
     n_urls_valides = len(urls_valides)
-    ratio = n_urls_valides / n_puces if n_puces else 0.0
+    ratio = n_urls_valides / n_puces if n_puces else 1.0
 
-    if ratio < _RATIO_URL_MINIMAL or n_urls_valides < _MIN_URLS_ABSOLUES:
+    # Aucune source extérieure : le document s'appuie sur les seules données du
+    # client. C'est légitime pour une stratégie bâtie sur son prévisionnel, et
+    # il n'y a alors aucun lien à exiger.
+    if n_puces and (
+        ratio < _RATIO_URL_MINIMAL or n_urls_valides < min(_MIN_URLS_ABSOLUES, n_puces)
+    ):
         defauts.append(SourceNonTracable(
             chapitre=numero,
             motif="ratio_faible",
             detail=(
                 f"Chapitre « {titre} » : {n_urls_valides} URL(s) verifiable(s) "
-                f"pour {n_puces} source(s) listee(s) (ratio "
+                f"pour {n_puces} source(s) EXTERIEURE(s) listee(s) (ratio "
                 f"{ratio:.0%}). Un banquier attend au moins la moitie des "
-                "sources avec un lien reel (documents client sans URL "
-                "acceptes, mais pas comme majorite). Cas WAOME : Evangeline "
-                "a signale que la moitie des sources n'etaient pas verifiables."
+                "sources exterieures avec un lien reel ; les donnees du "
+                "dossier client ne sont pas comptees ici, elles n'ont pas "
+                "d'URL par nature. Cas WAOME : Evangeline a signale que la "
+                "moitie des sources n'etaient pas verifiables."
             ),
         ))
 
