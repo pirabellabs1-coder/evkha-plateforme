@@ -210,3 +210,38 @@ def _ecran_sans_commentaires(fichier: str) -> str:
         ligne for ligne in sans_blocs.split("\n")
         if not ligne.strip().startswith("//")
     )
+
+
+def test_aucun_ecran_ne_raconte_la_fabrication_du_document() -> None:
+    """« Rien ne doit être visible du tout, ça n'a aucune importance » (12/09/2026).
+
+    Trois blocs disaient comment le document avait été fabriqué : le détail du
+    contrôle, la liste des fichiers lus, le motif de retenue. Celui qui regarde
+    un dossier ne le fabrique pas — il attend un document. Ce qu'il peut faire
+    tient en deux gestes : télécharger, et réessayer un envoi qui a échoué.
+
+    Rien n'est perdu : tout cela vit dans les incidents et dans
+    `GenerationJob.controle_final`, lus par l'API. C'est notre matière, pas la
+    sienne. Ce test échoue sur le code d'avant.
+    """
+    for fichier in ("JobDetail.tsx", "Jobs.tsx"):
+        ecran = _ecran_sans_commentaires(fichier)
+        for interdit in (
+            "Contrôle du document assemblé",
+            "Documents du client lus",
+            "point(s) restant(s)",
+            "non envoyé",
+            "Envoyer quand même",
+            "Confirmer l'envoi",
+        ):
+            assert interdit not in ecran, f"{fichier} : « {interdit} »"
+
+
+def test_l_etape_du_controle_reste_dans_le_fil() -> None:
+    """CONTRE-ÉPREUVE : « on doit voir l'agent contrôleur ici » (12/09/2026).
+
+    Ce qui disparaît, c'est le DÉTAIL — pas l'étape. Le fil du dossier montre
+    toujours que le document est contrôlé entre l'assemblage et l'envoi.
+    """
+    ecran = _ecran_sans_commentaires("JobDetail.tsx")
+    assert "Contrôle du document" in ecran

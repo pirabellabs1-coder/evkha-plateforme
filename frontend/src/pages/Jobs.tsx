@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import {
   Box, Flex, Badge, Table, Progress, Text, Select, Spinner, Button,
 } from "@radix-ui/themes";
-import { api, estRelancable, livraisonBloquee, type JobSummary } from "../api";
+import { api, estRelancable, type JobSummary } from "../api";
 
 const DELIVERABLE_LABELS: Record<string, string> = {
   market_study: "Étude de marché",
@@ -105,13 +105,13 @@ function JobRowActions({ job }: { job: JobSummary }) {
   const deliverySent = job.delivery_status === "sent";
   const pendingConfirmation = emailQueued && !deliverySent;
 
-  // La MÊME dérogation qu'en page de détail, pour la même raison. Ne garder
-  // l'avertissement que sur une des deux pages en ferait une décoration :
+  // L'envoi est AUTOMATIQUE depuis le 12/09/2026, ici comme en page de détail
+  // — ne le changer que sur une des deux pages en ferait une décoration :
   // l'autre bouton envoie le même document, au même client, en un clic
   // (règle 4 — viser la classe, pas l'endroit observé).
-  const bloque = livraisonBloquee(job);
-  const [derogation, setDerogation] = useState(false);
-  const armer = bloque && !derogation && !deliverySent;
+  //
+  // Le bouton ne sert donc plus qu'à RÉPARER un envoi qui a échoué.
+  const envoiEnEchec = job.delivery_status === "failed";
 
   return (
     <Flex gap="1" align="center">
@@ -126,29 +126,19 @@ function JobRowActions({ job }: { job: JobSummary }) {
           ↓ PDF
         </Button>
       )}
-      <Button
-        size="1"
-        variant="ghost"
-        color={
-          deliverySent && !pendingConfirmation ? "green" : bloque ? "amber" : "blue"
-        }
-        disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
-        loading={emailMutation.isPending}
-        onClick={() => (armer ? setDerogation(true) : emailMutation.mutate())}
-        title={
-          armer
-            // Plus de « retenu pour relecture » : la cliente n'a rien à relire,
-            // son geste est l'envoi (13/08/2026). On dit l'état, pas une tâche.
-            ? "Des points sont restés non résolus. Un second clic envoie quand même."
-            : bloque
-            ? "Confirmer l'envoi"
-            : deliverySent
-            ? "Email envoyé — renvoyer ?"
-            : "Envoyer par email"
-        }
-      >
-        {pendingConfirmation ? "…" : armer ? "⚠" : bloque ? "⚠ !" : deliverySent ? "✓" : "✉"}
-      </Button>
+      {envoiEnEchec && (
+        <Button
+          size="1"
+          variant="ghost"
+          color="amber"
+          disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
+          loading={emailMutation.isPending}
+          onClick={() => emailMutation.mutate()}
+          title="L'envoi a échoué : réessayer."
+        >
+          {pendingConfirmation ? "…" : "✉ !"}
+        </Button>
+      )}
     </Flex>
   );
 }
@@ -217,18 +207,11 @@ export function Jobs() {
                           : ""}
                       </Badge>
                     )}
-                    {/* Même raison : sur la liste, un dossier retenu serait
-                        indiscernable d'un dossier validé. Il disparaît dès
-                        l'envoi — voir `livraisonBloquee`. */}
-                    {livraisonBloquee(job) && (
-                      <Badge
-                        color="amber"
-                        variant="soft"
-                        title="La correction automatique n'a pas tout fermé. Le document est prêt ; il attend votre envoi."
-                      >
-                        non envoyé
-                      </Badge>
-                    )}
+                    {/* Le badge « non envoyé » a disparu le 12/09/2026 avec
+                        tout ce qui racontait la fabrication : l'envoi est
+                        automatique, et un dossier terminé n'attend plus rien.
+                        S'il reste un envoi en échec, le bouton de la colonne
+                        d'actions le dit et le répare. */}
                   </Flex>
                 </Table.Cell>
                 <Table.Cell>

@@ -3,7 +3,7 @@ import { useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner, Button,
+  Box, Flex, Heading, Badge, Card, Table, Text, Spinner, Button,
 } from "@radix-ui/themes";
 import {
   api, estRelancable,
@@ -454,83 +454,22 @@ export function JobDetail() {
         </Flex>
       </Card>
 
-      {/* Ce que la relecture finale a lu dans le document ASSEMBLÉ — le
-          fichier que le client ouvre — et ce qu'elle a fait réécrire. */}
-      {data.controle_final && (
-        <Card mb="4">
-          <Text size="2" weight="bold">Contrôle du document assemblé</Text>
-          <Text size="1" color="gray" as="p" mb="2">
-            Le document est contrôlé tel que le client l'ouvrira, ses chapitres
-            fautifs sont réécrits, puis il est refait. Ce qui suit est le
-            résultat de la dernière lecture.
-          </Text>
-          <Flex gap="3" wrap="wrap" mb="2">
-            <Badge size="1" variant="soft" color={
-              data.controle_final.anomalies_restantes ? "amber" : "green"
-            }>
-              {data.controle_final.anomalies_restantes} point(s) restant(s)
-            </Badge>
-            <Text size="1" color="gray">
-              {data.controle_final.anomalies_au_depart} au départ ·{" "}
-              {data.controle_final.chapitres_reecrits.length} chapitre(s) réécrit(s)
-              {data.controle_final.chapitres_reecrits.length
-                ? ` (${data.controle_final.chapitres_reecrits.join(", ")})`
-                : ""}{" "}
-              · {data.controle_final.motif_d_arret}
-            </Text>
-          </Flex>
-          <Flex direction="column" gap="1">
-            {data.controle_final.restantes.map((ligne, index) => (
-              <Text key={`${ligne}-${index}`} size="1">{ligne}</Text>
-            ))}
-          </Flex>
-        </Card>
-      )}
+      {/* NI LE DÉTAIL DU CONTRÔLE, NI LES DOCUMENTS LUS, NI LE MOTIF DE
+          RETENUE ne s'affichent ici. Décision du 12/09/2026 : « rien ne doit
+          être visible du tout, ça n'a aucune importance ».
 
-      {/* Ce que la génération a lu des documents déposés. Jusqu'au 11/09/2026
-          elle n'en lisait aucun, et rien ne permettait de le voir : la cliente
-          l'a découvert en lisant un chiffre inventé à la place de celui de son
-          prévisionnel. Un document écarté s'affiche avec sa raison. */}
-      {(data.documents_client?.length ?? 0) > 0 && (
-        <Card mb="4">
-          <Text size="2" weight="bold">
-            Documents du client lus pour ce dossier
-          </Text>
-          <Flex direction="column" gap="1" mt="2">
-            {data.documents_client!.map((doc, index) => (
-              <Flex key={`${doc.nom}-${index}`} gap="2" align="start" wrap="wrap">
-                <Badge
-                  size="1"
-                  variant="soft"
-                  color={
-                    doc.statut === "lu" ? "green" : doc.statut === "tronque" ? "amber" : "red"
-                  }
-                >
-                  {doc.statut_libelle}
-                </Badge>
-                <Text size="1" weight="medium">{doc.nom}</Text>
-                {doc.caracteres_retenus > 0 && (
-                  <Text size="1" color="gray">
-                    {doc.caracteres_retenus.toLocaleString("fr-FR")} caractères transmis
-                  </Text>
-                )}
-                {doc.motif && <Text size="1" color="gray">— {doc.motif}</Text>}
-                {doc.texte_efface && (
-                  <Text size="1" color="gray">
-                    — fichier supprimé depuis, texte effacé
-                  </Text>
-                )}
-              </Flex>
-            ))}
-          </Flex>
-        </Card>
-      )}
+          Elle est cohérente avec tout ce que cet écran a désappris cette
+          semaine. Ces trois blocs racontaient la FABRICATION du document —
+          combien de points restaient, quels fichiers avaient été lus, pourquoi
+          un livrable avait été retenu. Or celui qui regarde ce dossier ne
+          fabrique pas : il attend un document. Ce qu'il peut faire tient en
+          deux gestes, et ils sont plus haut — télécharger, réessayer un envoi
+          qui a échoué.
 
-      {data.error_message && (
-        <Callout.Root color="red" mb="4">
-          <Callout.Text>{data.error_message}</Callout.Text>
-        </Callout.Root>
-      )}
+          Rien n'est perdu pour autant : le contrôle du document, les documents
+          lus et les motifs de retenue vivent dans les incidents et dans
+          `GenerationJob.controle_final`, lus par l'API. C'est notre matière de
+          travail, pas la sienne. */}
 
       <Heading size="4" mb="3">
         Chapitres — {data.chapters_done}/{data.chapters_total} terminés
