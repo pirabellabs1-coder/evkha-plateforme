@@ -487,6 +487,90 @@ se présente comme tel.
 sources, et pouvoir les ouvrir."""
 
 
+#: Les PRIX, le defaut que le client a nomme en premier : « surtout au niveau
+#: de coherence des prix, il y a beaucoup d'erreurs » (12/09/2026).
+#:
+#: Erreurs mesurees, toutes sur des documents livres :
+#:   - Zenitek : les 120 000 EUR de chiffre d'affaires REALISE presentes comme
+#:     un OBJECTIF, et un « objectif de 3 000 EUR » qui n'existait nulle part ;
+#:   - meme dossier : trois paliers d'abonnement (12, 19, 29 EUR) dont aucun
+#:     chapitre ne disait la marge, ni ce que le palier suivant ajoutait ;
+#:   - WAOME : un prix rendu en fourchette « 60-65 EUR » la ou le dirigeant
+#:     attendait une decision.
+#:
+#: Comme les deux blocs precedents, il vit dans la partie CACHEE du prompt
+#: systeme : il est ecrit une fois, paye une fois, et lu par tous les
+#: chapitres des quatre livrables.
+PRIX_ET_MODELE_ECONOMIQUE = """PRIX ET MODELE ECONOMIQUE — c'est ici que le
+lecteur engage son argent. Une incoherence de prix ne se pardonne pas : elle se
+voit a la premiere lecture, et elle disqualifie le reste du document.
+
+1. UN PRIX EST UN NOMBRE, PAS UNE PLAGE. « entre 60 et 65 € » n'est pas une
+recommandation, c'est un renvoi de la decision au lecteur — or c'est
+exactement ce qu'il a paye pour ne pas avoir a faire. Tranche sur une valeur,
+et donne en une phrase la raison de CE niveau-la.
+
+2. UN PRIX DIT S'IL EST HT OU TTC, et le meme document ne melange pas les deux
+sans le dire. Entre professionnels, raisonne en HT et precise-le une fois.
+
+3. LE MEME PRIX PARTOUT. La grille tarifaire est la reference unique du
+dossier : tout chapitre qui reprend un tarif recopie cette valeur, au centime.
+Un prix qui varie d'un chapitre a l'autre est lu comme une erreur de travail,
+et c'en est une.
+
+4. UN PALIER SE JUSTIFIE PAR CE QU'IL AJOUTE. Si tu proposes trois formules,
+dis pour chacune ce qu'elle contient de plus que la precedente, et a qui elle
+s'adresse. Un ecart de prix sans contrepartie nommee ne se vend pas.
+
+5. CHIFFRE D'AFFAIRES = PRIX x VOLUME, ET LE PRODUIT TOMBE JUSTE. Avant
+d'ecrire un objectif de recettes, pose l'operation et verifie-la. Si 250
+abonnes a 19 € par mois donnent 57 000 € par an, n'annonce pas 60 000 €
+parce que le chiffre est plus rond : ecris 57 000 €.
+
+6. UN MONTANT MENSUEL ET UN MONTANT ANNUEL NE SE COMPARENT JAMAIS
+DIRECTEMENT. Un abonnement se dit au mois ET a l'annee quand les deux servent
+(19 € par mois, soit 228 € par an). Un revenu recurrent annonce sans sa
+periode est inexploitable.
+
+7. REALISE ET VISE NE SE CONFONDENT JAMAIS. Le chiffre d'affaires que le
+client a fait l'an dernier n'est pas son objectif, et son objectif n'est pas un
+acquis. Chaque montant porte son annee et son statut — realise, en cours,
+vise. Confondre les deux est la faute la plus grave de ce document : elle
+transforme un diagnostic en promesse, et le client s'en apercoit
+immediatement puisqu'il s'agit de SON entreprise.
+
+8. LE COUT PRECEDE LE PRIX. Avant d'annoncer un tarif, sache ce qu'il doit
+couvrir : cout de production ou de service, temps passe, part des charges
+fixes. Un prix qui ne laisse pas de marge est une perte organisee, et le dire
+vaut mieux que de le taire.
+
+9. UNE MARGE DIT LAQUELLE. Brute, nette, ou sur cout variable : ce ne sont pas
+les memes nombres, et l'ecart entre elles se compte en dizaines de points.
+Nomme celle que tu emploies, et la base sur laquelle tu la calcules.
+
+10. UN SEUIL DE RENTABILITE SE POSE ET SE CONFRONTE AU REEL. Charges fixes
+divisees par la marge unitaire : cela donne un volume. Dis-le, puis dis si ce
+volume est atteignable avec la capacite decrite dans le dossier. Un seuil qui
+exige trois fois la capacite du client doit etre signale, pas presente comme
+un plan.
+
+11. UNE HAUSSE DE PRIX A UN EFFET SUR LE VOLUME. N'ecris jamais qu'augmenter
+les tarifs de 20 % augmente les recettes de 20 % : dis quelle part de clients
+tu supposes perdue, et recalcule avec cette hypothese.
+
+12. UN PANIER MOYEN SE RECALCULE QUAND LA GRILLE CHANGE. Si tu proposes une
+repartition entre formules, le panier moyen est la moyenne PONDEREE de ces
+formules, pas la valeur du milieu. Pose la ponderation que tu retiens.
+
+13. LES PRIX DU CLIENT SONT LE POINT DE DEPART. S'il facture deja, pars de ses
+tarifs reels : tu les ajustes, tu les defends ou tu les contestes, mais tu ne
+les ignores pas, et tu ne les remplaces pas par une moyenne de marche sans
+dire pourquoi.
+
+14. CES REGLES NE SE CITENT PAS DANS LE TEXTE. Le lecteur doit trouver des
+prix justes et tenus, jamais la mention de la methode qui les a produits."""
+
+
 def _bloc_socle(socle: Socle) -> str:
     """Socle sérialisé, lisible et exhaustif.
 
@@ -1623,6 +1707,8 @@ def generer_chapitre(
             + COHERENCE_DES_CHIFFRES
             + "\n\n"
             + SOURCES_ET_TRACABILITE
+            + "\n\n"
+            + PRIX_ET_MODELE_ECONOMIQUE
             + SYSTEM_CACHE_BREAK
             + prompt.par_job
         ),
