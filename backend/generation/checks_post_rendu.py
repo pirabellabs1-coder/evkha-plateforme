@@ -392,6 +392,14 @@ _PUCE_SOURCE_RE = re.compile(r"^\s*(?:[-•*]|\d+\.)\s+\S", re.MULTILINE)
 # ou vient du dossier du client.
 _LIGNE_SOURCE_RE = re.compile(r"^[ \t]*(?:[-•*]|\d+\.)[ \t]+(\S.*)$", re.MULTILINE)
 
+# En-tête d'un TABLEAU de sources. La chaîne Word rend le chapitre « Sources »
+# en tableau, pas en liste à puces : le contrôle comptait donc trois puces de
+# méthodologie et ignorait les cinq sources réellement listées (reprise
+# `8ad03a60`, 11/09/2026). Il jugeait sur ce qu'il savait lire, pas sur ce que
+# le lecteur lit (règle 3).
+_ENTETE_DE_SOURCES_RE = re.compile(r"(?i)^(?:sources?|r[ée]f[ée]rences?)$")
+_SEPARATEUR_DE_TABLEAU_RE = re.compile(r"^[\s:|-]+$")
+
 # Une source qui vient du client n'a pas d'URL, et n'en aura jamais : son
 # prévisionnel n'est pas publié. Depuis que la génération lit les documents
 # déposés (11/09/2026), ces sources sont devenues MAJORITAIRES sur une
@@ -428,6 +436,36 @@ _RATIO_URL_MINIMAL = 0.5
 # En-dessous de ce nombre absolu d'URLs reelles, un livrable n'est pas
 # credible cote source, meme si le ratio est bon (peu de puces au total).
 _MIN_URLS_ABSOLUES = 2
+
+
+def _sources_listees(corps: str) -> list[str]:
+    """Les sources du chapitre, puces ET lignes de tableau de sources.
+
+    Un tableau n'est retenu que si son en-tête porte une colonne « Source » ou
+    « Référence » : les autres tableaux d'un chapitre — méthodologie, calendrier
+    — ne sont pas des sources, et les compter gonflerait le dénominateur.
+
+    Quand un tel tableau existe, c'est LUI la liste des sources : les puces du
+    chapitre sont alors de la prose — les étapes de la démarche, les réserves
+    de méthode. Les compter revenait à juger la traçabilité sur des phrases qui
+    ne prétendent rien sourcer.
+    """
+    du_tableau: list[str] = []
+    dans_un_tableau_de_sources = False
+    for ligne in corps.splitlines():
+        nue = ligne.strip()
+        if not nue.startswith("|"):
+            dans_un_tableau_de_sources = False
+            continue
+        if _SEPARATEUR_DE_TABLEAU_RE.fullmatch(nue):
+            continue
+        cellules = [c.strip() for c in nue.strip("|").split("|")]
+        if any(_ENTETE_DE_SOURCES_RE.match(c) for c in cellules):
+            dans_un_tableau_de_sources = True
+            continue
+        if dans_un_tableau_de_sources:
+            du_tableau.append(" ".join(cellules))
+    return du_tableau or list(_LIGNE_SOURCE_RE.findall(corps))
 
 
 def _trouver_chapitre_sources(
@@ -482,7 +520,7 @@ def detecter_sources_non_tracables(
         return defauts
 
     numero, titre, corps = sources_section
-    puces = _PUCE_SOURCE_RE.findall(corps)
+    puces = _sources_listees(corps)
     if not puces:
         defauts.append(SourceNonTracable(
             chapitre=numero,
@@ -512,10 +550,7 @@ def detecter_sources_non_tracables(
             ),
         ))
 
-    n_puces = len(
-        [ligne for ligne in _LIGNE_SOURCE_RE.findall(corps)
-         if not _SOURCE_DU_CLIENT_RE.search(ligne)]
-    )
+    n_puces = len([ligne for ligne in puces if not _SOURCE_DU_CLIENT_RE.search(ligne)])
     n_urls_valides = len(urls_valides)
     ratio = n_urls_valides / n_puces if n_puces else 1.0
 

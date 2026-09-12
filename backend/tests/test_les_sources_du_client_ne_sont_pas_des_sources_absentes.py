@@ -56,3 +56,58 @@ def test_un_document_fonde_uniquement_sur_le_dossier_client_passe() -> None:
         "- Document client : relevé des abonnements en cours\n"
     )
     assert _motifs(corps) == []
+
+
+# ── Les sources vivent dans un TABLEAU, pas dans une liste ───────────────────
+
+#: Le chapitre 20 de la reprise `8ad03a60` (11/09/2026), réduit à sa forme :
+#: un tableau de sources, puis des puces qui décrivent la démarche.
+CHAPITRE_REEL = """Trois familles de sources fondent l'étude.
+
+| Thématique | Source | Nature de la donnée | Année |
+| --- | --- | --- | --- |
+| Données marché | Insee, activités informatiques | Taille de marché | 2022 |
+| Données marché | Numeum, panorama du numérique | Croissance annuelle | 2025 |
+| Documents client | Analyse interne de rentabilité | Marge (données du projet) | 2026 |
+| Documents client | Prévisionnel de l'ensemble | Chiffre d'affaires (données du projet) | 2025 |
+| Documents client | Fichier commercial | Abonnés (données du projet) | 2025 |
+
+Démarche suivie :
+- Lecture du dossier, puis entretien avec le dirigeant.
+- Chiffrage du coût de revient par abonné.
+- Hiérarchisation des décisions à trente jours.
+"""
+
+
+def test_les_sources_d_un_tableau_sont_comptees() -> None:
+    """La chaîne Word rend les sources en TABLEAU.
+
+    Le contrôle ne savait lire que des puces : sur le dossier réel il a compté
+    trois puces de méthodologie — qui ne sourcent rien — et ignoré les cinq
+    sources listées juste au-dessus. Il jugeait sur ce qu'il savait lire, pas
+    sur ce que le lecteur lit (règle 3), et son motif nommait un ensemble
+    introuvable dans le document (règle 2).
+    """
+    from generation.checks_post_rendu import _sources_listees
+
+    sources = _sources_listees(CHAPITRE_REEL)
+    assert len(sources) == 5
+    assert all("Démarche" not in s and "Lecture du dossier" not in s for s in sources)
+
+
+def test_deux_sources_publiques_sans_lien_restent_signalees() -> None:
+    """Et le motif devient VRAI : Insee et Numeum doivent porter leur adresse."""
+    motifs = _motifs(CHAPITRE_REEL)
+    assert "ratio_faible" in motifs
+
+
+def test_les_memes_sources_publiques_avec_leur_lien_passent() -> None:
+    """CONTRE-ÉPREUVE : avec les liens, plus rien à redire."""
+    avec_liens = CHAPITRE_REEL.replace(
+        "Insee, activités informatiques",
+        "Insee, activités informatiques — https://www.insee.fr/fr/statistiques/1234",
+    ).replace(
+        "Numeum, panorama du numérique",
+        "Numeum, panorama du numérique — https://numeum.fr/etudes/panorama",
+    )
+    assert _motifs(avec_liens) == []
