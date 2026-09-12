@@ -576,6 +576,22 @@ def assembler_etude(
     # le réparer ne laisse le choix qu'entre bloquer et se taire.
     _completer_les_figures(blocs_par_chapitre, ordonnes, socle, profil, rapport)
 
+    # L'annexe qui dit d'où vient chaque chiffre — vérifié, déclaré, estimé,
+    # hypothèse — et qui montre les calculs. Demande de la cliente du
+    # 08/09/2026. Construite depuis le socle verrouillé, sans aucun appel au
+    # modèle : elle ne peut donc ni inventer, ni diverger du document.
+    from .annexe_chiffres import blocs_annexe  # noqa: PLC0415
+
+    numero_annexe = (ordonnes[-1].chapitre + 1) if ordonnes else 1
+    annexe = blocs_annexe(socle, numero=numero_annexe)
+    if annexe:
+        blocs_par_chapitre.append({
+            "numero": numero_annexe,
+            "titre": annexe[0]["titre"],
+            "blocs": annexe,
+        })
+        rapport.tableaux += 1
+
     etude = {
         "titre": titre,
         "sous_titre": sous_titre or socle.secteur,

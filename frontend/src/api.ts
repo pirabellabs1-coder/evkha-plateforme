@@ -204,6 +204,20 @@ export interface JobDetail extends JobSummary {
    * Vide pour un dossier sans document — ou lancé avant le 11/09/2026, date
    * à laquelle la génération a commencé à les lire. */
   documents_client?: DocumentClientLu[];
+  /** Ce que la relecture finale a lu dans le document ASSEMBLÉ, et fait réécrire.
+   *
+   * Vide pour un dossier d'avant le 12/09/2026, ou qui n'est pas encore
+   * arrivé à cette étape. */
+  controle_final?: ControleFinal | null;
+}
+
+export interface ControleFinal {
+  passes: number;
+  anomalies_au_depart: number;
+  anomalies_restantes: number;
+  chapitres_reecrits: number[];
+  restantes: string[];
+  motif_d_arret: string;
 }
 
 export interface DocumentClientLu {

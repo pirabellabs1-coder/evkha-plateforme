@@ -83,6 +83,13 @@ class GenerationJob(UUIDModel):
     # de VRAIES références (anti-hallucination §6 cadrage). Vide si la
     # recherche web est désactivée (stub) ou n'a rien remonté.
     research_brief = models.TextField(blank=True)
+    #: Ce que la relecture finale a lu dans le document ASSEMBLÉ, et ce qu'elle
+    #: a fait réécrire (`generation.controle_final.RapportRelecture`). Vide tant
+    #: qu'elle n'a pas tourné — un dossier d'avant le 12/09/2026, ou un dossier
+    #: qui n'est pas encore arrivé au bout. C'est cette trace que le tableau de
+    #: bord affiche entre l'assemblage et l'envoi : sans elle, l'étape existe
+    #: dans le code et nulle part pour celui qui regarde le dossier.
+    controle_final = models.JSONField(default=dict, blank=True)
     error_message = models.TextField(blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)

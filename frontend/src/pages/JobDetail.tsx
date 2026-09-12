@@ -67,6 +67,15 @@ function Pipeline({ job }: { job: JobDetailType }) {
     : "pending";
   const pdfIcon = pdfPret ? "✓" : deliveryFailed ? "✗" : genDone ? "⚡" : "○";
 
+  // Relecture du document assemblé : elle a tourné dès qu'elle a laissé sa
+  // trace. « Aucun chapitre réécrit » est un résultat, pas une absence.
+  const controle = job.controle_final ?? null;
+  const controleStatus = controle ? (controle.passes ? "done" : "failed")
+    : pdfPret ? "running"
+    : "pending";
+  const controleIcon = controle ? (controle.passes ? "✓" : "✗")
+    : pdfPret ? "⚡" : "○";
+
   // Email envoyé : uniquement quand le batch est confirmé SENT
   const emailStatus = deliverySent ? "done" : deliveryFailed ? "failed" : "pending";
   const emailIcon   = deliverySent ? "✓" : deliveryFailed ? "✗" : "○";
@@ -87,6 +96,21 @@ function Pipeline({ job }: { job: JobDetailType }) {
       key: "pdf", label: "Assemblage PDF", sub: null,
       status: pdfStatus as "done" | "running" | "failed" | "pending",
       icon: pdfIcon,
+    },
+    {
+      // « On doit voir l'agent contrôleur ici » (12/09/2026). L'étape tournait
+      // déjà entre l'assemblage et l'envoi, sans rien montrer : un document
+      // relu et corrigé se présentait comme un document jamais relu.
+      key: "controle", label: "Contrôle du document",
+      sub: controle
+        ? (controle.chapitres_reecrits.length
+            ? `${controle.chapitres_reecrits.length} chapitre(s) corrigé(s)`
+            : controle.anomalies_restantes
+              ? `${controle.anomalies_restantes} point(s) signalé(s)`
+              : "document propre")
+        : null,
+      status: controleStatus as "done" | "running" | "failed" | "pending",
+      icon: controleIcon,
     },
     {
       key: "email", label: "Email envoyé",
@@ -521,6 +545,39 @@ export function JobDetail() {
           )}
         </Flex>
       </Card>
+
+      {/* Ce que la relecture finale a lu dans le document ASSEMBLÉ — le
+          fichier que le client ouvre — et ce qu'elle a fait réécrire. */}
+      {data.controle_final && (
+        <Card mb="4">
+          <Text size="2" weight="bold">Contrôle du document assemblé</Text>
+          <Text size="1" color="gray" as="p" mb="2">
+            Le document est contrôlé tel que le client l'ouvrira, ses chapitres
+            fautifs sont réécrits, puis il est refait. Ce qui suit est le
+            résultat de la dernière lecture.
+          </Text>
+          <Flex gap="3" wrap="wrap" mb="2">
+            <Badge size="1" variant="soft" color={
+              data.controle_final.anomalies_restantes ? "amber" : "green"
+            }>
+              {data.controle_final.anomalies_restantes} point(s) restant(s)
+            </Badge>
+            <Text size="1" color="gray">
+              {data.controle_final.anomalies_au_depart} au départ ·{" "}
+              {data.controle_final.chapitres_reecrits.length} chapitre(s) réécrit(s)
+              {data.controle_final.chapitres_reecrits.length
+                ? ` (${data.controle_final.chapitres_reecrits.join(", ")})`
+                : ""}{" "}
+              · {data.controle_final.motif_d_arret}
+            </Text>
+          </Flex>
+          <Flex direction="column" gap="1">
+            {data.controle_final.restantes.map((ligne, index) => (
+              <Text key={`${ligne}-${index}`} size="1">{ligne}</Text>
+            ))}
+          </Flex>
+        </Card>
+      )}
 
       {/* Ce que la génération a lu des documents déposés. Jusqu'au 11/09/2026
           elle n'en lisait aucun, et rien ne permettait de le voir : la cliente

@@ -2700,6 +2700,22 @@ BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
             "activites a forte valeur et celles qui sont peu rentables ou trop "
             "energivores.\n"
             "\n"
+            # Point 3 de la cliente, 08/09/2026 : « il manque la rentabilite
+            # reelle de chaque abonnement ». Le chapitre parlait des ACTIVITES
+            # sans jamais descendre au PALIER, alors que c'est la que se decide
+            # une grille tarifaire — et que le document affichait par ailleurs
+            # les trois prix cote a cote.
+            "## Rentabilite de chaque formule\n"
+            "Si l'entreprise vend plusieurs formules, paliers ou forfaits, un "
+            "TABLEAU les prend une par une : prix, nombre de clients sur ce "
+            "palier, ce que le palier sert concretement, cout de service "
+            "estime, marge par client, part du chiffre d'affaires. Conclus en "
+            "nommant le palier qui porte la marge et celui qui la detruit. Les "
+            "chiffres viennent des donnees de reference et du dossier client ; "
+            "si la repartition des clients par palier n'est pas connue, "
+            "ecris-le et raisonne en marge unitaire — n'invente aucune "
+            "repartition.\n"
+            "\n"
             "## Dépendance au temps dirigeant\n"
             "Mesure la dependance au temps humain : revenus directement lies au temps, "
             "limites de capacite, risques de saturation, activites difficilement "
@@ -2723,8 +2739,10 @@ BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
             "## Décisions tarifaires\n"
             "Sous ce titre : les tarifs actuels et leur coherence avec le "
             "positionnement et le marche ; la coherence prix / couts / valeur "
-            "percue ; puis la RECOMMANDATION — une fourchette ou un prix "
-            "cible, chiffre, et un prix par niveau d'offre ; une strategie de "
+            "percue ; puis la RECOMMANDATION — un prix cible CHIFFRE ET "
+            "UNIQUE, jamais une fourchette : ce livrable exige un chiffre "
+            "decide, et une plage y est refusee au controle. Puis un prix par "
+            "niveau d'offre ; une strategie de "
             "lancement si le projet demarre ; la logique de montee en gamme ; "
             "la tarification psychologique quand elle est pertinente ; et "
             "l'impact attendu sur la marge. Distingue TOUJOURS, sans "

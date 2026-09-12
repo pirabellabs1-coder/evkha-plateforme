@@ -308,3 +308,44 @@ def test_un_document_sans_numeros_de_chapitre_reste_controle() -> None:
 
     assert len(anomalies) == 1
     assert anomalies[0].chapitre is None
+
+
+# ── L'étape doit se VOIR ─────────────────────────────────────────────────────
+
+
+def test_la_relecture_laisse_sa_trace_sur_le_dossier(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """« On doit voir l'agent contrôleur ici » (12/09/2026).
+
+    L'étape tournait entre l'assemblage et l'envoi sans rien montrer : un
+    document relu et corrigé se présentait comme un document jamais relu.
+    """
+    from generation.models import GenerationJob
+
+    _monter(monkeypatch, [_controle(_chiffre_hors_socle(7)), _controle()])
+
+    controle_final.relire_avant_envoi(job)
+
+    trace = GenerationJob.objects.get(pk=job.pk).controle_final
+    assert trace["chapitres_reecrits"] == [7]
+    assert trace["anomalies_au_depart"] == 1
+    assert trace["anomalies_restantes"] == 0
+
+
+def test_la_console_montre_la_relecture(
+    job: Any, client_admin: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _monter(monkeypatch, [_controle(_chiffre_hors_socle(7)), _controle()])
+    controle_final.relire_avant_envoi(job)
+
+    reponse = client_admin.get(f"/api/dashboard/jobs/{job.id}/")
+
+    assert reponse.status_code == 200
+    assert reponse.json()["controle_final"]["chapitres_reecrits"] == [7]
+
+
+def test_un_dossier_jamais_relu_ne_montre_rien(job: Any, client_admin: Any) -> None:
+    """CONTRE-ÉPREUVE : un dossier d'avant n'affiche pas une étape qu'il n'a pas eue."""
+    reponse = client_admin.get(f"/api/dashboard/jobs/{job.id}/")
+    assert reponse.json()["controle_final"] is None

@@ -287,7 +287,10 @@ def test_les_chapitres_sont_rendus_dans_l_ordre_de_lecture(socle: Socle) -> None
         chapitres=[_chapitre(7), _chapitre(2), _chapitre(4)],
         titre="Étude de marché",
     )
-    assert [c["numero"] for c in etude["chapitres"]] == [2, 4, 7]
+    # 8 ferme la liste : l'annexe « d'où viennent les chiffres », ajoutée le
+    # 12/09/2026, prend le numéro suivant le dernier chapitre.
+    assert [c["numero"] for c in etude["chapitres"]] == [2, 4, 7, 8]
+    assert etude["chapitres"][-1]["titre"].startswith("D'où viennent")
 
 
 def test_un_graphique_abandonne_est_trace_et_le_document_reste_produit(

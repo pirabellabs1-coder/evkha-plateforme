@@ -248,6 +248,13 @@ def relire_avant_envoi(job: GenerationJob, *, client: Any = None) -> RapportRele
             motif_d_arret=f"relecture impossible ({type(erreur).__name__} : {erreur})"
         )
 
+    # La trace vit sur le DOSSIER, pas seulement dans un incident : c'est elle
+    # que le tableau de bord affiche entre l'assemblage et l'envoi. Une étape
+    # qui n'existe que dans le code n'existe pas pour qui regarde le dossier.
+    from .models import GenerationJob as Dossier  # noqa: PLC0415
+
+    Dossier.objects.filter(pk=job.pk).update(controle_final=rapport.as_details())
+
     if rapport.a_corrige or not rapport.passes:
         OperationalIncident.objects.create(
             title=f"Relecture finale du livrable (job {job.id})",

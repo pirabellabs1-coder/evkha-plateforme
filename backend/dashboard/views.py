@@ -682,6 +682,10 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
     data["delivery"] = delivery_data
     data["phase0_plan"]["content"] = job.phase0_plan or ""
     data["qa_motifs"] = _motifs_du_dernier_controle(job)
+    # Ce que la relecture finale a lu dans le document assemblé et fait
+    # réécrire. L'étape existait dans le pipeline sans exister à l'écran :
+    # « on doit voir l'agent contrôleur ici » (12/09/2026).
+    data["controle_final"] = job.controle_final or None
     # Ce que la génération a lu des documents déposés — et ce qu'elle n'a pas
     # lu, avec la raison. Le texte lui-même ne sort pas : l'écran dit QUOI a
     # été lu, pas le bilan du client.
