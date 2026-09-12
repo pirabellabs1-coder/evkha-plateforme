@@ -326,6 +326,51 @@ CONSIGNE_DOCUMENTS_SOCLE = (
 )
 
 
+#: La relecture que le socle se fait à LUI-MÊME avant de rendre ses chiffres.
+#:
+#: Demande du 12/09/2026 : « les chiffres et incohérences doivent être évités à
+#: tout prix ; un document plus que parfait ». Le socle est le seul endroit où
+#: cette exigence se tient à moindre coût : ses chiffres sont repris par tous
+#: les chapitres, et une erreur corrigée ici évite vingt réécritures.
+#:
+#: Chaque point vient d'un défaut constaté sur un livrable réel.
+RELECTURE_DU_SOCLE = """AVANT DE RENDRE — relis tes propres chiffres, un par un.
+Ce socle sera verrouillé : ce que tu laisses passer ici, vingt chapitres le
+répéteront, et le lecteur le lira comme une vérité de son dossier.
+
+a. CHAQUE VALEUR EST-ELLE PLAUSIBLE À SON ÉCHELLE ? Un chiffre d'affaires de
+particulier à sept chiffres, un panier moyen supérieur au chiffre d'affaires,
+un effectif décimal : relis l'ordre de grandeur avant l'unité.
+
+b. LES EMBOÎTEMENTS TIENNENT-ILS ? Une part ne dépasse jamais son tout, un
+objectif se compare à un existant de même périmètre, une somme de parts fait
+cent pour cent. Si deux valeurs se contredisent, corrige-les avant de rendre :
+ne laisse pas les chapitres arbitrer entre deux chiffres que tu as donnés.
+
+c. CHAQUE UNITÉ EST-ELLE CELLE DU RÉFÉRENTIEL ? Un taux en pourcentage, un
+montant dans la devise du dossier, un effectif sans unité monétaire. Une unité
+fausse ne se voit pas dans le socle : elle se voit dans une figure qui ne peut
+plus être dessinée, et cette figure disparaît du document sans que personne ne
+le sache.
+
+d. DEUX VALEURS COMPARABLES PARTAGENT-ELLES LEUR UNITÉ ? Les chapitres
+comparent ce que tu rends — un existant et sa cible, une charge et une marge,
+un prix et un panier. Rendus dans deux unités différentes, ils ne se comparent
+plus, et la comparaison attendue par le lecteur n'existera pas.
+
+e. AS-TU OMIS CE QUE TU NE SAIS PAS ? Une valeur devinée est pire qu'une valeur
+absente : absente, le chapitre raisonne autrement ; devinée, il bâtit dessus.
+Omets, et ne remplis jamais par zéro — un zéro se lit comme une mesure.
+
+f. CHAQUE `source` PORTE-T-ELLE VRAIMENT SON CHIFFRE ? Une source qui traite du
+sujet sans donner la valeur n'est pas une source. Dans le doute : `estimee`,
+source vide, et la méthode écrite dans le `libelle`.
+
+g. LES CHIFFRES DU CLIENT SONT-ILS REPRIS À L'IDENTIQUE ? Ce qu'il a écrit dans
+son brief ou déposé dans ses documents ne s'arrondit pas, ne se convertit pas,
+ne se remplace pas par une moyenne de marché. C'est son dossier."""
+
+
 def _ligne_referentiel(item: DefinitionDonnee) -> str:
     marque = "OBLIGATOIRE" if item.obligatoire else "facultatif"
     ligne = (
@@ -484,6 +529,7 @@ def construire_prompt_socle(
         blocs.append(_CADRAGE_STR)
 
     blocs.append(_REGLES)
+    blocs.append(RELECTURE_DU_SOCLE)
 
     if motifs_precedents:
         motifs = "\n".join(f"- {motif}" for motif in motifs_precedents)

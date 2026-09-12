@@ -141,6 +141,9 @@ class RapportAssemblage:
     graphiques_demandes: int = 0
     graphiques_rendus: int = 0
     graphiques_convertis: list[str] = field(default_factory=list)
+    #: Figures refusées au dessin, imprimées en TABLEAU : l'information reste
+    #: dans le document, et le lecteur ne perd que la forme.
+    graphiques_en_tableau: list[str] = field(default_factory=list)
     graphiques_abandonnes: list[str] = field(default_factory=list)
     chapitres: int = 0
     tableaux: int = 0
@@ -238,6 +241,34 @@ def _amorce(texte: str, rapport: RapportAssemblage | None = None) -> str:
     return resultat
 
 
+def _tableau_de_repli(socle: Socle, demande: Graphique) -> dict[str, Any] | None:
+    """Les données d'un graphique refusé, imprimées en tableau.
+
+    Rend `None` quand le socle ne porte aucun des identifiants demandés : un
+    tableau vide serait pire que pas de tableau.
+    """
+    par_id = {donnee.id: donnee for donnee in socle.donnees}
+    lignes = [
+        [
+            (par_id[identifiant].libelle or identifiant).split(".")[0][:110],
+            f"{par_id[identifiant].valeur:,.2f}".rstrip("0").rstrip(".")
+            .replace(",", " ").replace(".", ","),
+            par_id[identifiant].unite,
+            str(par_id[identifiant].annee or "—"),
+        ]
+        for identifiant in demande.donnees_ids
+        if identifiant in par_id
+    ]
+    if not lignes:
+        return None
+    return {
+        "type": "tableau",
+        "entetes": ["Donnée", "Valeur", "Unité", "Année"],
+        "lignes": lignes,
+        "source": demande.titre,
+    }
+
+
 def _blocs_graphique(
     socle: Socle,
     graphiques: Sequence[Graphique],
@@ -262,6 +293,19 @@ def _blocs_graphique(
             rapport.graphiques_abandonnes.append(
                 f"{reference} · {demande.titre} : {resolution.motif}"
             )
+            # Le dessin est refusé — unités mélangées, radar sans notes, un
+            # seul point. Les DONNÉES, elles, sont bonnes : elles viennent du
+            # socle. Les jeter laissait un document sans une seule figure
+            # (stratégie Zenitek, 12/09/2026 : 31 demandées, 31 abandonnées,
+            # zéro rendue). On les imprime donc en tableau : le lecteur garde
+            # l'information, et c'est tout ce qu'un graphique lui apportait.
+            repli = _tableau_de_repli(socle, demande)
+            if repli is not None:
+                rapport.graphiques_en_tableau.append(
+                    f"{reference} · {demande.titre} : {resolution.motif}"
+                )
+                rapport.tableaux += 1
+                blocs.append(repli)
             continue
 
         if resolution.converti:

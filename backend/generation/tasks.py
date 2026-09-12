@@ -5,6 +5,7 @@ from datetime import timedelta
 from celery import shared_task
 from django.utils import timezone
 
+from delivery.models import DeliveryBatch
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .echecs import marquer_echec
@@ -47,6 +48,56 @@ def reset_stuck_generation_jobs() -> int:
             },
         )
     return len(stuck_jobs)
+
+
+#: Au-dela, un controle final « en cours » ne l'est plus : il est mort.
+#: L'assemblage le plus lourd mesure quelques minutes ; vingt, c'est un
+#: processus tue.
+_CONTROLE_FINAL_PERDU_MINUTES = 20
+
+
+@shared_task(name="generation.livrer_les_dossiers_oublies")  # type: ignore[untyped-decorator]
+def livrer_les_dossiers_oublies() -> int:
+    """Livre les dossiers qu'un controle final mort a laisses en plan.
+
+    ## Pourquoi ce gardien existe
+
+    Le 12/09/2026, la tache de controle final a ete TUEE deux fois sur un
+    dossier de deux cents pages — sans exception, donc sans incident. Le
+    document etait pret, paye, et personne ne l'envoyait : le dossier gardait
+    seulement une trace « en cours ».
+
+    Sortir le controle dans sa propre tache reduit le risque ; il ne le
+    supprime pas, puisqu'un processus tue n'execute aucun `except`. Ce gardien
+    est le filet : ce qui meurt en silence finit par se voir et par partir
+    (regle 1).
+    """
+    echeance = timezone.now() - timedelta(minutes=_CONTROLE_FINAL_PERDU_MINUTES)
+    oublies = [
+        job
+        for job in GenerationJob.objects.filter(
+            status=JobStatus.DONE, updated_at__lt=echeance
+        ).select_related("order")
+        if (job.controle_final or {}).get("motif_d_arret") == "en cours"
+        and not DeliveryBatch.objects.filter(order=job.order).exists()
+    ]
+    for job in oublies:
+        OperationalIncident.objects.create(
+            title=f"Controle final interrompu, document livre par le gardien (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={
+                "type": "controle_final",
+                "consigne": (
+                    "Le controle du document assemble ne s'est jamais termine "
+                    "(processus interrompu). Le document part tel qu'il est : "
+                    "le relire avant de le remettre au client final."
+                ),
+            },
+        )
+        _livrer(job)
+    return len(oublies)
 
 
 def _controler_les_demandes_du_client(job: GenerationJob) -> None:
@@ -344,38 +395,58 @@ def run_generation_job_task(job_id: str) -> str:
         # Ici, le document est assemble, RELU, ses chapitres fautifs reecrits,
         # puis refait — et c'est le document relu qui part.
         #
-        # Elle ne peut PAS retenir la livraison : le client a paye un document.
-        # Le 12/09/2026, la tache est morte pendant cette etape sur un dossier
-        # de deux cents pages — ni document envoye, ni trace, ni incident. Un
-        # perfectionnement qui emporte la livraison est pire que son absence.
-        try:
-            from .controle_final import relire_avant_envoi  # noqa: PLC0415
+        # Elle tourne dans SA PROPRE TACHE, et c'est la lecon du 12/09/2026 :
+        # lancee ici, dans le processus qui vient d'ecrire vingt-et-un
+        # chapitres, elle a ete TUEE deux fois sur un dossier de deux cents
+        # pages — sans exception, donc sans incident, sans trace et sans
+        # document envoye. Elle refait l'assemblage complet alors que la
+        # memoire de la generation est encore occupee.
+        #
+        # Une tache separee repart sur une memoire liberee, et surtout la
+        # livraison ne depend plus de sa survie.
+        controler_puis_livrer_task.delay(job_id)
 
-            relire_avant_envoi(job)
-        except Exception as exc:  # noqa: BLE001 — la livraison prime toujours
-            import logging  # noqa: PLC0415
+    _effacer_les_textes_orphelins()
+    return str(job.id)
 
-            logging.getLogger(__name__).exception(
-                "Controle final impossible pour le job %s : le document part tel quel",
-                job.id,
-            )
-            OperationalIncident.objects.create(
-                title=f"Controle final du document impossible (job {job.id})",
-                severity=IncidentSeverity.HIGH,
-                job=job,
-                order=job.order,
-                details={
-                    "type": "controle_final",
-                    "erreur": f"{type(exc).__name__} : {exc}",
-                    "consigne": (
-                        "Le document est parti sans cette relecture. "
-                        "Le relire avant de le remettre au client final."
-                    ),
-                },
-            )
 
-        _livrer(job)
+@shared_task(name="generation.controler_puis_livrer")  # type: ignore[untyped-decorator]
+def controler_puis_livrer_task(job_id: str) -> str:
+    """Relit le document assemble, le fait corriger, PUIS le livre.
 
+    La livraison ne depend jamais de la relecture : une panne devient un
+    incident et le document part tel quel. Le client a paye un document ; un
+    perfectionnement qui l'emporte est pire que son absence.
+    """
+    job = GenerationJob.objects.get(id=job_id)
+    try:
+        from .controle_final import relire_avant_envoi  # noqa: PLC0415
+
+        relire_avant_envoi(job)
+    except Exception as exc:  # noqa: BLE001 — la livraison prime toujours
+        import logging  # noqa: PLC0415
+
+        logging.getLogger(__name__).exception(
+            "Controle final impossible pour le job %s : le document part tel quel",
+            job.id,
+        )
+        OperationalIncident.objects.create(
+            title=f"Controle final du document impossible (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={
+                "type": "controle_final",
+                "erreur": f"{type(exc).__name__} : {exc}",
+                "consigne": (
+                    "Le document est parti sans cette relecture. "
+                    "Le relire avant de le remettre au client final."
+                ),
+            },
+        )
+
+    job.refresh_from_db()
+    _livrer(job)
     _effacer_les_textes_orphelins()
     return str(job.id)
 

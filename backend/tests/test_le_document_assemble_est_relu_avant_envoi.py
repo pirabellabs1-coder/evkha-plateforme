@@ -442,3 +442,78 @@ def test_une_relecture_qui_meurt_n_empeche_pas_la_livraison(
     assert OperationalIncident.objects.filter(
         job=job, title__contains="Controle final"
     ).exists(), "et la panne se voit"
+
+
+# ── Le gardien : ce qui meurt en silence finit par partir ────────────────────
+
+
+def _vieillir(job: Any, minutes: int) -> None:
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from generation.models import GenerationJob
+
+    GenerationJob.objects.filter(pk=job.pk).update(
+        updated_at=timezone.now() - timedelta(minutes=minutes)
+    )
+
+
+def test_un_controle_tue_en_cours_finit_par_livrer(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le document était prêt, payé, et personne ne l'envoyait (12/09/2026).
+
+    Un processus tué n'exécute aucun `except` : sortir le contrôle dans sa
+    propre tâche réduit le risque, ce gardien le ferme.
+    """
+    from generation import tasks
+    from generation.models import GenerationJob, JobStatus
+    from monitoring.models import OperationalIncident
+
+    envois: list[Any] = []
+    GenerationJob.objects.filter(pk=job.pk).update(
+        status=JobStatus.DONE, controle_final={"motif_d_arret": "en cours"}
+    )
+    _vieillir(job, 30)
+    monkeypatch.setattr(tasks, "_livrer", lambda j: envois.append(j.id))
+
+    assert tasks.livrer_les_dossiers_oublies() == 1
+    assert envois == [job.id]
+    assert OperationalIncident.objects.filter(job=job, title__contains="interrompu").exists()
+
+
+def test_un_controle_termine_n_est_pas_relivre(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CONTRE-ÉPREUVE : un dossier relu jusqu'au bout ne repart pas."""
+    from generation import tasks
+    from generation.models import GenerationJob, JobStatus
+
+    envois: list[Any] = []
+    GenerationJob.objects.filter(pk=job.pk).update(
+        status=JobStatus.DONE,
+        controle_final={"motif_d_arret": "aucune anomalie réparable", "passes": 1},
+    )
+    _vieillir(job, 30)
+    monkeypatch.setattr(tasks, "_livrer", lambda j: envois.append(j.id))
+
+    assert tasks.livrer_les_dossiers_oublies() == 0
+    assert envois == []
+
+
+def test_un_controle_en_cours_depuis_deux_minutes_est_laisse_tranquille(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CONTRE-ÉPREUVE : une relecture qui travaille encore n'est pas doublée."""
+    from generation import tasks
+    from generation.models import GenerationJob, JobStatus
+
+    envois: list[Any] = []
+    GenerationJob.objects.filter(pk=job.pk).update(
+        status=JobStatus.DONE, controle_final={"motif_d_arret": "en cours"}
+    )
+    _vieillir(job, 2)
+    monkeypatch.setattr(tasks, "_livrer", lambda j: envois.append(j.id))
+
+    assert tasks.livrer_les_dossiers_oublies() == 0

@@ -923,7 +923,11 @@ def test_une_reprise_sans_envoi_passe_le_verrou_du_document(
     monkeypatch.setattr(
         livraison, "_assembler_livrable",
         lambda j, pdf_client: livraison.Assemblage(
-            artefacts=(), url_principale="", retenu="tableau du compte de résultat vide"
+            artefacts=(), url_principale="",
+            retenu="tableau du compte de résultat vide",
+            # Le NOM du contrôle décide, pas la phrase : depuis le 12/09/2026,
+            # seule une mutilation retient un document.
+            controles_bloquants=("integrite",),
         ),
     )
 
@@ -1125,3 +1129,95 @@ def test_les_cellules_sans_valeur_se_comptent_pour_tout_le_classeur() -> None:
     lu = dc.extraire("p.xlsx", tampon.getvalue())
     assert lu.motif.count("cellule(s) calculée(s)") == 1, lu.motif
     assert "2 cellule(s) calculée(s)" in lu.motif
+
+
+# ── Un prévisionnel sans ses résultats (12/09/2026) ──────────────────────────
+
+
+def _classeur_de_formules(nombre: int) -> bytes:
+    """Un classeur qui porte ses formules SANS leurs résultats.
+
+    C'est l'état réel du prévisionnel du dossier Zenitek : 54 cellules
+    calculées, aucune valeur enregistrée. Certains outils écrivent les xlsx
+    ainsi ; Excel, lui, met les résultats en cache.
+    """
+    cellules = "".join(
+        f'<c r="B{ligne}"><f>SUM(A{ligne}:A9)</f></c>' for ligne in range(1, nombre + 1)
+    )
+    tampon = BytesIO()
+    with zipfile.ZipFile(tampon, "w") as z:
+        z.writestr("xl/workbook.xml", (
+            f"<workbook {_S} {_R}><sheets>"
+            '<sheet name="Prévisionnel" sheetId="1" r:id="rId1"/></sheets></workbook>'
+        ))
+        z.writestr("xl/_rels/workbook.xml.rels", (
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="x" Target="worksheets/sheet1.xml"/></Relationships>'
+        ))
+        z.writestr("xl/worksheets/sheet1.xml", (
+            f'<worksheet {_S}><sheetData><row r="1">'
+            '<c r="A1" t="inlineStr"><is><t>Chiffre d\'affaires</t></is></c>'
+            f"{cellules}</row></sheetData></worksheet>"
+        ))
+    return tampon.getvalue()
+
+
+def test_un_classeur_sans_resultats_est_recalcule(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LE test : le fichier porte ses formules, on lui fait rendre ses chiffres.
+
+    Sans ce recalcul, l'étude se bâtissait sur un prévisionnel vide de ses
+    valeurs — et le client ne pouvait rien y faire sans rouvrir son fichier.
+    """
+    appels: list[bytes] = []
+
+    def _recalculer(contenu: bytes) -> bytes:
+        appels.append(contenu)
+        # Ce que Calc rend : les mêmes cellules, avec leurs valeurs.
+        tampon = BytesIO()
+        with zipfile.ZipFile(tampon, "w") as z:
+            z.writestr("xl/workbook.xml", (
+                f"<workbook {_S} {_R}><sheets>"
+                '<sheet name="Prévisionnel" sheetId="1" r:id="rId1"/></sheets></workbook>'
+            ))
+            z.writestr("xl/_rels/workbook.xml.rels", (
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="x" Target="worksheets/sheet1.xml"/></Relationships>'
+            ))
+            z.writestr("xl/worksheets/sheet1.xml", (
+                f'<worksheet {_S}><sheetData><row r="1">'
+                '<c r="A1" t="inlineStr"><is><t>Chiffre d\'affaires</t></is></c>'
+                '<c r="B1"><f>SUM(A1:A9)</f><v>45000</v></c>'
+                "</row></sheetData></worksheet>"
+            ))
+        return tampon.getvalue()
+
+    monkeypatch.setattr(dc, "_xlsx_recalcule", _recalculer)
+
+    lu = dc.extraire("previsionnel.xlsx", _classeur_de_formules(10))
+
+    assert appels, "le classeur devait être envoyé au recalcul"
+    assert "45000" in lu.texte
+    assert lu.statut == StatutLecture.LU
+
+
+def test_un_recalcul_impossible_se_dit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CONTRE-ÉPREUVE (règle 1) : ce qui n'a pas pu être lu ne se tait pas."""
+    monkeypatch.setattr(dc, "_xlsx_recalcule", lambda contenu: None)
+
+    lu = dc.extraire("previsionnel.xlsx", _classeur_de_formules(10))
+
+    assert lu.statut == StatutLecture.TRONQUE
+    assert "recalcul automatique n'a pas abouti" in lu.motif
+
+
+def test_deux_ou_trois_formules_vides_ne_declenchent_pas_de_recalcul(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CONTRE-ÉPREUVE : lancer LibreOffice pour trois cellules coûterait plus
+    que ce qu'il rapporte."""
+    appels: list[bytes] = []
+    monkeypatch.setattr(dc, "_xlsx_recalcule", lambda contenu: appels.append(contenu))
+
+    dc.extraire("previsionnel.xlsx", _classeur_de_formules(2))
+
+    assert appels == []

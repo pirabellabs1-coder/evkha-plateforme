@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from html import escape
@@ -70,6 +71,27 @@ _MANQUE_DE_FIGURES = re.compile(
 )
 
 
+#: Les contrôles dont un échec dit que le document est AMPUTÉ. Eux seuls
+#: retiennent encore un livrable : le compte de résultat vidé de ses lignes, la
+#: prose disparue au rendu, un chapitre absent. Envoyer cela est pire que de ne
+#: rien envoyer — c'est la règle 3 du dépôt, et elle a coûté un vrai document.
+_CONTROLES_QUI_RETIENNENT = frozenset({"integrite"})
+
+
+def document_ampute(controles_bloquants: Sequence[str]) -> bool:
+    """Le document est-il MUTILÉ, ou seulement imparfait ?
+
+    Décision du 12/09/2026 : « tout doit être clean avant que le document soit
+    envoyé, et quand le contrôle du document est fini, le document doit
+    partir ». Un dossier retenu attendait un geste que personne ne pouvait
+    faire — l'administrateur ne réécrit pas un document. Tout ce qui n'est pas
+    une mutilation part donc, avec son incident : figures manquantes, chiffres
+    hors socle, densité, zéros. La relecture finale a déjà tenté de les
+    corriger ; ce qui reste se signale, il n'attend plus.
+    """
+    return any(controle in _CONTROLES_QUI_RETIENNENT for controle in controles_bloquants)
+
+
 def _seulement_un_manque_de_figures(motif: str) -> bool:
     """Vrai si la retenue ne porte QUE sur le compte de figures.
 
@@ -126,6 +148,11 @@ class Assemblage:
     url_principale: str
     #: Motif de blocage, vide si le document est livrable.
     retenu: str = ""
+    #: Les CONTRÔLES qui ont bloqué, par leur nom. Le motif est une phrase pour
+    #: un humain ; c'est cette liste qui décide si le document part (voir
+    #: `document_ampute`) — lire une décision dans une phrase revenait à la
+    #: chercher par expression régulière, et à la manquer d'un mot.
+    controles_bloquants: tuple[str, ...] = ()
 
 
 def _assembler_livrable(
@@ -156,6 +183,10 @@ def _assembler_livrable(
             artefacts=(ancien.link, ancien.pdf),
             url_principale=ancien.link.download_url,
             retenu=retenu_ancien,
+            # La chaîne héritée ne contrôle QUE l'intégrité du rendu — c'est
+            # tout son objet : des lignes de tableau perdues, de la prose
+            # disparue. Sa retenue reste donc une retenue.
+            controles_bloquants=("integrite",) if retenu_ancien else (),
         )
 
     livrable = assembler_livrable_word(job)
@@ -177,7 +208,8 @@ def _assembler_livrable(
         or "vérification non exécutée"
     )
     return Assemblage(
-        artefacts=artefacts, url_principale=principale, retenu=retenu
+        artefacts=artefacts, url_principale=principale, retenu=retenu,
+        controles_bloquants=tuple(anomalie.controle for anomalie in bloquantes),
     )
 
 
@@ -715,7 +747,7 @@ def deliver_job(
         # --- I/O externe (pas de transaction ouverte) ---
         # Les deux chaînes sont idempotentes via update_or_create.
         assemblage = _assembler_livrable(job, pdf_client=pdf_client)
-        if assemblage.retenu and not _seulement_un_manque_de_figures(assemblage.retenu):
+        if assemblage.retenu and document_ampute(assemblage.controles_bloquants):
             # Ce qui reste bloquant : un document AMPUTÉ. Le compte de résultat
             # vide, les lignes de tableau perdues, la prose disparue au rendu —
             # règle 3 du dépôt, et elle a coûté un vrai document à la cliente.
@@ -877,7 +909,7 @@ def assembler_sans_envoyer(job: GenerationJob) -> Assemblage | None:
         )
         return None
 
-    if assemblage.retenu and not _seulement_un_manque_de_figures(assemblage.retenu):
+    if assemblage.retenu and document_ampute(assemblage.controles_bloquants):
         # Exactement ce que fait la livraison : produit, mais aucun envoi
         # possible — `send_email_for_job` exige un dossier DONE.
         GenerationJob.objects.filter(pk=job.pk).update(

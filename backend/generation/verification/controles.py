@@ -626,12 +626,19 @@ def controler_visuels(
     abandonnées faute de données passerait pour complet : l'information existe
     au lot 3, elle doit remonter là où quelqu'un la lit.
     """
+    # AVERTISSEMENT, plus blocage — décision du 12/09/2026, et elle prolonge
+    # celle du 13/08 sur le gate : « tout doit être clean avant que le document
+    # soit envoyé, et quand le contrôle est fini le document doit partir ».
+    # Retenir un livrable payé pour un manque de figures n'appelait aucun geste
+    # réparateur : l'administrateur ne réécrit pas le document. Les figures
+    # refusées sont désormais imprimées en TABLEAU par l'assemblage
+    # (`_tableau_de_repli`) : l'information reste, la forme seule est perdue.
     anomalies: list[Anomalie] = []
     if graphiques_demandes and graphiques_rendus == 0:
         anomalies.append(Anomalie(
-            "visuels", Gravite.BLOQUANTE,
+            "visuels", Gravite.AVERTISSEMENT,
             f"Aucun des {graphiques_demandes} graphiques demandés n'a pu être "
-            "alimenté par le socle.",
+            "dessiné ; leurs données sont imprimées en tableau.",
         ))
     elif graphiques_rendus < PLANCHER_FIGURES:
         # Le quota vient de la cliente : « au moins 17 à 25 graphes par
@@ -644,7 +651,7 @@ def controler_visuels(
         # compte n'y est toujours pas, le document ne tient pas la promesse
         # faite au client, et le livrer en silence serait le pire des deux.
         anomalies.append(Anomalie(
-            "visuels", Gravite.BLOQUANTE,
+            "visuels", Gravite.AVERTISSEMENT,
             f"{graphiques_rendus} figures dans le document, pour un plancher "
             f"de {PLANCHER_FIGURES} ({PLANCHER_FIGURES} à {PLAFOND_FIGURES} "
             "attendues). Le socle n'a pas pu en alimenter davantage.",

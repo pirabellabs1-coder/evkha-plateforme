@@ -6,7 +6,7 @@ import {
   Box, Flex, Heading, Badge, Card, Table, Text, Callout, Spinner, Button,
 } from "@radix-ui/themes";
 import {
-  api, estRelancable, livraisonBloquee,
+  api, estRelancable,
   type Chapter, type JobDetail as JobDetailType,
 } from "../api";
 
@@ -221,18 +221,9 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
     onError: (err: Error) => setEmailError(err.message),
   });
 
-  // Recontrôle : le gate rejoué sur le document existant, zéro appel IA.
-  // Un blocage peut devenir faux quand le CONTRÔLE était le défaut — trois
-  // contrôles réparés le 10/08/2026 après le blocage de `026fecea`. Sans ce
-  // bouton, le seul choix était d'assumer une dérogation sur un verdict
-  // périmé, ou de repayer 3,50 € pour un document déjà produit.
-  const reverifierMutation = useMutation({
-    mutationFn: () => api.jobReverifier(jobId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["job", jobId] });
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
-    },
-  });
+  // Le bouton « Recontrôler » a disparu le 12/09/2026 avec le panneau des
+  // motifs : le contrôle du document tourne en arrière-plan et corrige de
+  // lui-même. La route `jobReverifier` reste, pour nous, hors de l'écran.
 
   const emailSent = job.delivery?.status === "sent";
   const pendingConfirmation = emailQueued && !emailSent;
@@ -242,49 +233,18 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
   // bouton était identique à celui d'un dossier validé : trois documents
   // bloqués sont partis chez la cliente le 10/08/2026 sans que personne ne le
   // sache. Un premier clic arme, un second envoie.
-  const bloque = livraisonBloquee(job);
-  const [derogation, setDerogation] = useState(false);
-  const armer = bloque && !derogation && !emailSent;
-
-  const emailLabel = emailMutation.isPending
-    ? "Envoi…"
-    : pendingConfirmation
-    ? "Email en cours…"
-    : emailSent
-    ? "✓ Email envoyé"
-    : armer
-    // « La mention à relire doit être enlevée, je n'ai rien à faire dans le
-    // document jusqu'à envoi au client » (cliente, 13/08/2026). Son seul geste
-    // est d'envoyer : le bouton le dit, sans lui reprocher de ne pas avoir
-    // relu.
-    ? "Envoyer quand même"
-    : bloque
-    ? "Confirmer l'envoi"
-    : "Envoyer par email";
+  // L'envoi est AUTOMATIQUE depuis le 12/09/2026 : « lorsque le contrôle du
+  // document est terminé, le mail doit être envoyé automatiquement ; je ne
+  // veux plus voir les boutons envoyer ». Le bouton ne reparaît donc que
+  // lorsque l'envoi a ÉCHOUÉ — là, il ne demande pas une décision, il répare.
+  const envoiEnEchec = job.delivery?.status === "failed";
 
   return (
     <Flex direction="column" align="end" gap="2">
       {pdfOnly && (
         <Text size="1" color="orange">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</Text>
       )}
-      {bloque && (
-        <Flex align="center" gap="2" justify="end">
-          <Text size="1" color="gray">
-            Retenu par le contrôle qualité — rien ne partira sans votre décision.
-          </Text>
-          <Button
-            size="1"
-            variant="soft"
-            color="gray"
-            loading={reverifierMutation.isPending}
-            disabled={reverifierMutation.isPending}
-            onClick={() => reverifierMutation.mutate()}
-            title="Rejoue le contrôle qualité sur ce document, sans appel IA ni dépense."
-          >
-            ↻ Recontrôler
-          </Button>
-        </Flex>
-      )}
+
       <Flex gap="2" wrap="wrap" justify="end">
         {!hasPdf && (
           <Button
@@ -309,18 +269,16 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
             Télécharger le PDF
           </Button>
         )}
-        {!pdfOnly && (
+        {!pdfOnly && envoiEnEchec && (
           <Button
             size="2"
             variant="soft"
-            color={
-              emailSent && !pendingConfirmation ? "green" : bloque ? "amber" : "blue"
-            }
+            color="amber"
             loading={emailMutation.isPending}
             disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
-            onClick={() => (armer ? setDerogation(true) : emailMutation.mutate())}
+            onClick={() => emailMutation.mutate()}
           >
-            {emailLabel}
+            {emailMutation.isPending ? "Envoi…" : "Réessayer l'envoi"}
           </Button>
         )}
       </Flex>
@@ -438,28 +396,9 @@ export function JobDetail() {
               validé. Mais il disparaît dès l'envoi — un document parti n'est
               plus retenu, et l'afficher en rouge à côté de « ✓ Email envoyé »
               alarmait sur ce qu'aucun geste ne pouvait changer. */}
-          {/* « Ça dit en attente de relecture pourtant rien ne se passe »
-              (cliente, 12/08/2026). Elle avait raison deux fois : aucune
-              relecture n'est programmée — rien ne relit, rien n'arrivera — et
-              l'écran ne disait pas POURQUOI le document était retenu.
-
-              Un libellé qui annonce une étape inexistante fait attendre. On dit
-              donc ce qui est vrai : le contrôle a trouvé N points, et c'est à
-              un humain de décider. Les motifs sont listés plus bas. */}
-          {livraisonBloquee(data) && (
-            <Badge
-              color="amber"
-              variant="soft"
-              size="2"
-              title="La correction automatique n'a pas pu tout fermer. Le document est prêt ; rien ne part sans votre envoi."
-            >
-              {data.qa_motifs?.length
-                ? `Contrôle qualité : ${data.qa_motifs.length} point${
-                    data.qa_motifs.length > 1 ? "s" : ""
-                  } non résolu${data.qa_motifs.length > 1 ? "s" : ""}`
-                : "Prêt, non envoyé"}
-            </Badge>
-          )}
+          {/* Le badge « N points non résolus » a disparu le 12/09/2026, avec
+              le panneau des motifs : il annonçait un travail que personne ne
+              pouvait faire. L'état d'un dossier terminé, c'est son document. */}
         </Flex>
         {canCancel && <CancelButton jobId={jobId} />}
         {canRelaunch && <RelaunchButton jobId={jobId} />}
@@ -469,47 +408,16 @@ export function JobDetail() {
 
       <Pipeline job={data} />
 
-      {/* LES MOTIFS. Le statut seul faisait attendre une relecture qui
-          n'arrivait jamais ; pour connaître les neuf points d'un business plan,
-          il fallait interroger un incident par l'API. Ce qui est reproché au
-          document se lit désormais là où on décide de l'envoyer ou non. */}
-      {livraisonBloquee(data) && (data.qa_motifs?.length ?? 0) > 0 && (
-        <Card mb="4">
-          <Text size="2" weight="bold">
-            Ce que le contrôle qualité a retenu
-          </Text>
-          {/* Cette phrase disait « aucune relecture automatique n'est
-              programmée : c'est à vous de corriger ». Elle a été écrite pour
-              remplacer un « En attente de relecture » qui laissait espérer une
-              étape inexistante — et elle a corrigé le mensonge en confiant le
-              travail au lecteur.
+      {/* LES MOTIFS NE S'AFFICHENT PLUS ICI. Décision du 12/09/2026 :
+          « ce que le contrôle qualité a retenu, on ne veut plus avoir ça ;
+          ce sont des choses qui doivent tourner en arrière-plan uniquement.
+          S'il y a des erreurs, tout doit être corrigé, et quand ça se termine
+          le mail doit être envoyé automatiquement. »
 
-              Retour de la cliente du 13/08/2026 : « pourquoi c'est à nous de
-              corriger ? ». Elle avait raison deux fois. La phrase était aussi
-              devenue FAUSSE : trois passes de correction tournent depuis le
-              12/08, et ce qui reste ici est ce qu'elles n'ont pas su fermer.
-
-              On dit donc ce qui s'est réellement passé, et ce qui reste
-              possible — sans désigner un responsable. */}
-          <Text size="1" color="gray" as="p" mb="2">
-            La correction automatique est déjà passée : voici ce qu'elle n'a pas
-            pu fermer seule. Vous pouvez relancer une passe, corriger le dossier
-            client si un chiffre manque, ou envoyer malgré tout.
-          </Text>
-          <Flex direction="column" gap="1">
-            {data.qa_motifs!.map((motif, index) => (
-              <Flex key={`${motif.check}-${index}`} gap="2" align="start">
-                <Badge size="1" variant="soft" color="gray">
-                  {motif.chapitre === null || motif.chapitre === undefined
-                    ? "document"
-                    : `ch. ${motif.chapitre}`}
-                </Badge>
-                <Text size="1">{motif.detail}</Text>
-              </Flex>
-            ))}
-          </Flex>
-        </Card>
-      )}
+          Le raisonnement tient : l'administrateur ne réécrit pas un document.
+          Lui présenter une liste de points qu'il ne peut pas corriger ne
+          produisait qu'une attente. Ce qui reste après le contrôle du document
+          vit dans les incidents, pour nous, et le document part. */}
 
       <Card mb="4">
         <Flex wrap="wrap" gap="4">

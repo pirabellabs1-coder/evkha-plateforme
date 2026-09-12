@@ -232,6 +232,14 @@ CELERY_BEAT_SCHEDULE = {
     # Distincte de la purge des artefacts : celle-ci ne touchait que ce que
     # NOUS produisons, et les depots des clients n'expiraient jamais.
     # Retention 12 mois, comptee depuis le depot ; les logos sont exclus.
+    # Un controle final tue en cours laisse un document pret que personne
+    # n'envoie (12/09/2026). Toutes les dix minutes, le gardien livre ces
+    # dossiers-la et ouvre un incident : ce qui meurt en silence finit par se
+    # voir et par partir.
+    "livrer-les-dossiers-oublies": {
+        "task": "generation.livrer_les_dossiers_oublies",
+        "schedule": 600.0,
+    },
     "purger-les-pieces-jointes": {
         "task": "organisations.purger_les_pieces_jointes",
         "schedule": 3600.0,

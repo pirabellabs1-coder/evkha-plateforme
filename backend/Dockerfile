@@ -15,9 +15,17 @@ WORKDIR /app
 # la police EXIGÉE par le Bloc 6 des Consignes EVKHA. Sans lui, WeasyPrint
 # retombait sur Liberation Sans et la charte typographique n'était pas tenue.
 # ── LibreOffice : conversion Word vers PDF (lot 3) ───────────────────────────
-# `libreoffice-writer` et NON `libreoffice` : le paquet complet embarque le
-# tableur, la présentation et la base, soit environ un gigaoctet pour une
-# fonction qu'on n'utilise pas. Writer seul suffit à `--convert-to pdf`.
+# `libreoffice-writer` et NON `libreoffice` : le paquet complet embarque la
+# présentation et la base, soit plusieurs centaines de mégaoctets pour des
+# fonctions qu'on n'utilise pas. Writer suffit à `--convert-to pdf`.
+#
+# `libreoffice-calc` s'y ajoute le 12/09/2026, et pour une raison mesurée : le
+# prévisionnel Excel du dossier Zenitek portait 54 cellules calculées SANS
+# valeur enregistrée. Le fichier contenait les formules, pas leurs résultats —
+# la génération lisait donc un tableau vide de ses chiffres, et le client ne
+# pouvait rien y faire sans rouvrir son fichier. Calc les recalcule
+# (`documents_client._xlsx_recalcule`), et c'est le seul moyen de lire un
+# prévisionnel tel que son auteur le voit.
 #
 # Pas de `default-jre` non plus : Java n'est requis que pour Base et les
 # macros. La conversion d'un `.docx` en PDF s'en passe, et l'ajouter coûterait
@@ -49,6 +57,7 @@ RUN apt-get update \
         libcairo2 \
         libreoffice-writer \
         libreoffice-core \
+        libreoffice-calc \
     && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 

@@ -336,9 +336,19 @@ def test_un_document_dense_ne_declenche_rien() -> None:
 # ── Contrôle 6 : visuels ─────────────────────────────────────────────────────
 
 
-def test_tous_les_graphiques_abandonnes_bloquent() -> None:
+def test_tous_les_graphiques_abandonnes_sont_signales_sans_bloquer() -> None:
+    """Ils bloquaient ; ils ne bloquent plus, et leurs données restent.
+
+    Décision du 12/09/2026, après la stratégie Zenitek — 31 figures demandées,
+    31 impossibles à dessiner, document retenu et « intervention requise »
+    alors que personne ne pouvait intervenir. Deux réponses, prises ensemble :
+    l'assemblage imprime désormais les données d'une figure impossible en
+    TABLEAU, et le contrôle se contente de signaler.
+    """
     anomalies = controles.controler_visuels(5, 0, ["motif"] * 5)
-    assert any(a.gravite is Gravite.BLOQUANTE for a in anomalies)
+
+    assert not [a for a in anomalies if a.gravite is Gravite.BLOQUANTE]
+    assert any("tableau" in a.detail for a in anomalies)
 
 
 def test_un_abandon_isole_avertit_seulement() -> None:

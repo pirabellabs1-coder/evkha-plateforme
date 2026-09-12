@@ -66,11 +66,16 @@ _log = logging.getLogger(__name__)
 #: chacun — l'étude de marché du client n'était lue que sur son premier
 #: cinquième, et c'est justement d'une étude non lue que venait la plainte.
 #:
-#: 120 000 caractères, soit environ 33 000 jetons : le socle les lit une fois
+#: 120 000 au deuxième jour, et c'était encore trop peu : sur le même dossier,
+#: l'étude de marché du client fait 101 606 caractères et n'était lue qu'au
+#: tiers (29 656). Or c'est exactement le document dont le chiffre manquait.
+#:
+#: 240 000 caractères, soit environ 65 000 jetons : le socle les lit une fois
 #: (trois au plus s'il est refusé), les chapitres les relisent depuis le cache,
-#: à un dixième du prix. Environ 1 € de plus par dossier, sur un plafond de
-#: 6,50 € pour une stratégie — le prix de lire ce que le client a déposé.
-LIMITE_TOTALE = 120_000
+#: à un dixième du prix. De l'ordre de 0,50 € de plus par dossier, sur un
+#: plafond de 6,50 € pour une stratégie — le prix de lire ce que le client a
+#: déposé, plutôt que d'estimer ce qu'il avait déjà mesuré.
+LIMITE_TOTALE = 240_000
 
 #: Au-delà, les documents suivants ne sont pas lus — et le disent.
 MAX_DOCUMENTS = 12
@@ -597,7 +602,55 @@ def _styles(archive: _Archive, classeur: ElementTree.Element) -> _Styles:
     return _Styles(natures, base_1904)
 
 
-def _xlsx(contenu: bytes, pertes: list[str]) -> str:
+#: Au-delà, un classeur ne porte plus ses résultats : il porte ses formules.
+#: Le lire tel quel donnerait un prévisionnel sans un chiffre calculé — mesuré
+#: le 12/09/2026 sur le dossier Zenitek, 54 cellules dans ce cas.
+_FORMULES_SANS_VALEUR_MAX = 5
+
+
+def _xlsx_recalcule(contenu: bytes) -> bytes | None:
+    """Le même classeur, RECALCULÉ par LibreOffice Calc. `None` si impossible.
+
+    Un tableur écrit par un outil qui ne met pas les résultats en cache ne
+    contient que des formules. Calc les évalue et réenregistre le fichier :
+    c'est le seul moyen de lire le prévisionnel tel que son auteur le voit,
+    sans lui demander de rouvrir son fichier.
+
+    Ne lève jamais : si Calc manque ou échoue, on garde la lecture directe et
+    la perte est déclarée.
+    """
+    import subprocess  # noqa: PLC0415, S404
+    import tempfile  # noqa: PLC0415
+    from pathlib import Path as Chemin  # noqa: PLC0415
+
+    from integrations.docx_pdf import executable_libreoffice  # noqa: PLC0415
+
+    binaire = executable_libreoffice()
+    if binaire is None:
+        return None
+    with tempfile.TemporaryDirectory(prefix="recalcul-") as dossier:
+        racine = Chemin(dossier)
+        source = racine / "classeur.xlsx"
+        source.write_bytes(contenu)
+        profil = racine / "profil"
+        try:
+            subprocess.run(  # noqa: S603
+                [
+                    binaire,
+                    f"-env:UserInstallation=file:///{profil.as_posix()}",
+                    "--headless", "--norestore", "--convert-to", "xlsx:Calc MS Excel 2007 XML",
+                    "--outdir", str(racine / "sortie"), str(source),
+                ],
+                check=True, capture_output=True, timeout=120,
+            )
+        except (OSError, subprocess.SubprocessError):
+            _log.warning("Recalcul du classeur impossible", exc_info=True)
+            return None
+        produits = list((racine / "sortie").glob("*.xlsx"))
+        return produits[0].read_bytes() if produits else None
+
+
+def _xlsx(contenu: bytes, pertes: list[str], *, deja_recalcule: bool = False) -> str:
     with _Archive(contenu, pertes) as archive:
         try:
             classeur = archive.arbre("xl/workbook.xml")
@@ -637,7 +690,20 @@ def _xlsx(contenu: bytes, pertes: list[str]) -> str:
                 break
     # UN total pour le classeur : sur le prévisionnel réel du 11/09/2026, la
     # perte sortait une fois par feuille (« 3 cellules… ; 51 cellules… »).
-    if sans_valeur:
+    if sans_valeur > _FORMULES_SANS_VALEUR_MAX and not deja_recalcule:
+        # Le classeur porte ses formules et pas ses résultats. On le fait
+        # recalculer, puis on le relit : c'est cela ou livrer une étude bâtie
+        # sur un prévisionnel vide de ses chiffres.
+        recalcule = _xlsx_recalcule(contenu)
+        if recalcule is not None:
+            return _xlsx(recalcule, pertes, deja_recalcule=True)
+        _perdre(
+            pertes,
+            f"{sans_valeur} cellule(s) calculée(s) sans valeur enregistrée, et "
+            "le recalcul automatique n'a pas abouti — ouvrir et réenregistrer "
+            "le fichier dans Excel",
+        )
+    elif sans_valeur:
         _perdre(
             pertes,
             f"{sans_valeur} cellule(s) calculée(s) sans valeur enregistrée — "

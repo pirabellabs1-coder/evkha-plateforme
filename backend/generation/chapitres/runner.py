@@ -373,6 +373,70 @@ CONSIGNE_DOCUMENTS_CHAPITRE = (
 )
 
 
+#: La cohérence chiffrée, écrite là où elle sert : dans le prompt SYSTÈME, lu
+#: par chaque chapitre, et mis en cache — donc quasiment gratuit.
+#:
+#: Chaque règle ci-dessous vient d'un défaut MESURÉ sur un document livré à une
+#: cliente, jamais d'un principe général. Demande du 12/09/2026 : « les
+#: chiffres et incohérences doivent être évités à tout prix ; un document plus
+#: que parfait ». Un contrôle qui rattrape après coup coûte une réécriture ;
+#: une consigne qui empêche l'erreur ne coûte rien.
+COHERENCE_DES_CHIFFRES = (
+    "COHÉRENCE DES CHIFFRES — la partie du travail qui ne souffre AUCUNE "
+    "approximation. Un lecteur qui trouve un chiffre faux cesse de croire tous "
+    "les autres, et il a raison.\n"
+    "\n"
+    "1. UN CHIFFRE, UNE SOURCE. Tout nombre que tu écris vient des données de "
+    "référence ci-dessus, du dossier du client, ou d'un calcul que tu POSES "
+    "dans la phrase. Il n'y a pas de quatrième origine. Un ordre de grandeur "
+    "« de mémoire » est une invention, même s'il est plausible.\n"
+    "\n"
+    "2. LA MÊME VALEUR S'ÉCRIT PARTOUT PAREIL. Si les données de référence "
+    "disent 120 000 €, n'écris jamais « environ 120 k€ » dans un chapitre et "
+    "« 0,12 M€ » dans un autre : le lecteur croit lire trois chiffres. Reprends "
+    "l'écriture de la donnée, y compris ses décimales.\n"
+    "\n"
+    "3. UN POURCENTAGE DIT DE QUOI IL EST LE POURCENTAGE. « 38 % » ne veut rien "
+    "dire ; « 38 % du chiffre d'affaires 2026 » se vérifie. Même exigence pour "
+    "une croissance : sur quelle période, par rapport à quelle valeur.\n"
+    "\n"
+    "4. UN CALCUL SE MONTRE. Quand tu poses une opération, écris ses deux "
+    "termes et son résultat dans la même phrase : « 45 000 € sur 120 000 €, "
+    "soit 37,5 % ». Un résultat seul ne se vérifie pas, et un contrôle "
+    "automatique le refusera s'il ne tombe pas juste. Vérifie l'arithmétique "
+    "AVANT d'écrire : une division fausse dans un document payé est la faute "
+    "la plus visible qui soit.\n"
+    "\n"
+    "5. JAMAIS DE ZÉRO NU. Un « 0 € » ou un « 0 % » au milieu d'un tableau se "
+    "lit comme une donnée manquante. Si la valeur est réellement nulle, "
+    "écris-le en toutes lettres — « aucun emprunt », « pas de subvention ». Si "
+    "tu ne connais pas la valeur, ne mets pas zéro : construis la phrase sans "
+    "elle.\n"
+    "\n"
+    "6. UNE SEULE UNITÉ PAR COMPARAISON. Des euros se comparent à des euros. "
+    "Ne mets jamais un effectif et un montant dans le même total, la même "
+    "colonne ou la même figure.\n"
+    "\n"
+    "7. AUCUNE FOURCHETTE quand le livrable l'interdit. Une plage « 60-65 € » "
+    "n'est pas une décision : le dirigeant te demande un prix, pas un débat. "
+    "Tranche, et explique en une phrase pourquoi ce niveau-là.\n"
+    "\n"
+    "8. LES ORDRES DE GRANDEUR S'EMBOÎTENT. Une part ne dépasse pas son tout, "
+    "un résultat net ne dépasse pas le chiffre d'affaires, une somme de parts "
+    "fait cent pour cent. Relis tes tableaux dans ce sens avant de les rendre : "
+    "c'est là que se logent les incohérences qu'un lecteur voit en premier.\n"
+    "\n"
+    "9. UN CHIFFRE DU CLIENT PRIME SUR UNE ESTIMATION. S'il a donné son chiffre "
+    "d'affaires, son nombre de clients ou ses prix, ce sont les siens qui vont "
+    "dans le document — jamais une moyenne de marché à leur place.\n"
+    "\n"
+    "10. CE QUI MANQUE SE DIT SANS SE PLAINDRE. Si une donnée n'existe pas, "
+    "raisonne avec ce que tu as et dis ce que cela implique. N'écris jamais "
+    "« donnée à définir », « à vérifier », « non communiqué » : le lecteur a "
+    "payé des réponses, pas la liste de ce qui vous manque."
+)
+
+
 def _bloc_socle(socle: Socle) -> str:
     """Socle sérialisé, lisible et exhaustif.
 
@@ -1323,11 +1387,19 @@ def construire_prompt_chapitre(
     from ..documents_client import bloc_documents  # noqa: PLC0415
 
     documents = bloc_documents(chapter.job)
+    # Le catalogue des figures RÉALISABLES, calculé par le moteur qui dessine.
+    # Stratégie Zenitek (12/09/2026) : 31 figures demandées, 31 refusées, zéro
+    # rendue — le modèle devinait quelles combinaisons le rendu accepterait. Il
+    # choisit désormais dans une liste vérifiée d'avance.
+    from ..rendu_word.catalogue_figures import bloc_figures_possibles  # noqa: PLC0415
+
+    figures = bloc_figures_possibles(socle)
     par_job = "\n\n".join([
         _bloc_socle(socle),
         *([consigne_livrable] if consigne_livrable else []),
         f"BRIEF_CLIENT :\n{json.dumps(dict(variables), ensure_ascii=False, sort_keys=True)}",
         *([f"{documents}\n\n{CONSIGNE_DOCUMENTS_CHAPITRE}"] if documents else []),
+        *([figures] if figures else []),
     ])
 
     # PAR_CHAPITRE : tout ce qui change d'un appel à l'autre — les sources
@@ -1495,7 +1567,13 @@ def generer_chapitre(
     # écrit au premier chapitre, relu à un dixième du prix par les suivants.
     # Voir `PromptChapitre` pour la mesure qui a motivé ce découpage.
     resultat = client.complete_structured(
-        system=_SYSTEME + SYSTEM_CACHE_BREAK + prompt.par_job,
+        system=(
+            _SYSTEME
+            + "\n\n"
+            + COHERENCE_DES_CHIFFRES
+            + SYSTEM_CACHE_BREAK
+            + prompt.par_job
+        ),
         prompt=prompt.par_chapitre,
         outil_nom=OUTIL_NOM,
         outil_description=OUTIL_DESCRIPTION,
@@ -1575,6 +1653,16 @@ def generer_chapitre(
         # une métadonnée est le mauvais prix (business plan `2a8872d0`).
         derniere_tentative=derniere_tentative,
     )
+    # Les FIGURES sont validées ici, avant que le chapitre ne soit accepté —
+    # et non au montage, où il est trop tard.
+    #
+    # Stratégie Zenitek (12/09/2026) : 31 figures demandées, 31 impossibles à
+    # dessiner, découvertes à l'assemblage, donc simplement disparues. Le
+    # chapitre, lui, avait été accepté et payé. Le contrôle du document n'y
+    # pouvait plus rien : une figure ne se rattrape pas après coup, elle se
+    # redemande. C'est la règle du dépôt — ce qui refait le document après le
+    # contrôle doit être contrôlé à son tour —, prise à l'endroit.
+    motifs.extend(_motifs_de_figure(payload, socle, derniere_tentative=derniere_tentative))
     if motifs:
         raise ChapitreInvalideError(motifs, consommation)
 
@@ -1585,6 +1673,50 @@ def generer_chapitre(
         raise ChapitreInvalideError(arbitrage.refus, consommation)
 
     return payload, consommation, arbitrage
+
+
+def _motifs_de_figure(
+    payload: ChapitrePayload,
+    socle: Socle,
+    *,
+    derniere_tentative: bool | None = None,
+) -> list[str]:
+    """Ce qui empêcherait une figure demandée d'être DESSINÉE.
+
+    Jugé par le moteur de rendu lui-même (`resoudre`), jamais par une seconde
+    description de ses règles : deux descriptions divergent, et c'est la
+    seconde qui ment (règle 5).
+
+    À la DERNIÈRE tentative, on n'échoue plus : le chapitre est écrit, son
+    texte est bon, et le perdre pour une figure coûterait plus qu'il ne
+    rapporte. L'assemblage imprimera alors les données en tableau. Le motif
+    part quand même au journal : ce qui ne va pas ne se tait pas (règle 1).
+    """
+    from ..rendu_word.donnees_graphiques import resoudre  # noqa: PLC0415
+
+    motifs: list[str] = []
+    for bloc in payload.blocs:
+        graphique = getattr(bloc, "graphique", None)
+        if graphique is None:
+            continue
+        resolution = resoudre(
+            socle, str(graphique.type), list(graphique.donnees_ids)
+        )
+        if resolution.retenu:
+            continue
+        motifs.append(
+            f"figure « {graphique.titre} » impossible à dessiner : "
+            f"{resolution.motif}. Choisis une combinaison de la liste des "
+            "figures réalisables, ou remplace la figure par un tableau."
+        )
+    if derniere_tentative and motifs:
+        _log.warning(
+            "Chapitre %s : %s figure(s) impossible(s) acceptée(s) au dernier "
+            "essai, leurs données partiront en tableau — %s",
+            payload.chapitre, len(motifs), " | ".join(motifs)[:400],
+        )
+        return []
+    return motifs
 
 
 def _arbitrer_conformite(

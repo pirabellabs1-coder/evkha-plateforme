@@ -154,8 +154,22 @@ def test_l_ecran_ne_promet_plus_une_relecture_inexistante() -> None:
     ecran = _ecran_sans_commentaires("JobDetail.tsx")
 
     assert "En attente de relecture" not in ecran
-    assert "qa_motifs" in ecran, "les motifs ne sont pas affichés"
-    assert "Ce que le contrôle qualité a retenu" in ecran
+    # LES MOTIFS NE S'AFFICHENT PLUS — décision du 12/09/2026 : « ce que le
+    # contrôle qualité a retenu, on ne veut plus avoir ça ; ce sont des choses
+    # qui doivent tourner en arrière-plan uniquement ».
+    #
+    # Le raisonnement clôt une histoire de trois mois. Le panneau avait été
+    # écrit pour remplacer un « En attente de relecture » qui faisait attendre
+    # une étape inexistante : il disait POURQUOI un document était retenu. Mais
+    # un administrateur ne réécrit pas un document — lui lister des points qu'il
+    # ne peut pas corriger ne produisait qu'une autre forme d'attente.
+    #
+    # Ce qui a changé entre-temps rend le panneau inutile plutôt que faux : le
+    # document assemblé est désormais relu et CORRIGÉ avant l'envoi
+    # (`generation/controle_final.py`), et ce qui résiste part en incident,
+    # pour nous. L'écran d'un dossier terminé montre son document.
+    assert "qa_motifs" not in ecran
+    assert "Ce que le contrôle qualité a retenu" not in ecran
 
 
 def test_aucun_ecran_ne_demande_une_relecture() -> None:

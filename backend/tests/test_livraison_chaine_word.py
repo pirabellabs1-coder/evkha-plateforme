@@ -43,6 +43,10 @@ class _Artefact:
 @dataclass
 class _Anomalie:
     detail: str
+    #: Le NOM du contrôle qui a bloqué. C'est lui qui décide si le document
+    #: part : depuis le 12/09/2026, seule une MUTILATION le retient — un
+    #: tableau vidé, de la prose disparue —, jamais une imperfection.
+    controle: str = "integrite"
 
 
 @dataclass
@@ -65,11 +69,15 @@ class _LivrableAssemble:
         return self.controle is not None and not self.controle.bloquantes
 
 
-def _livrable_word(*, bloquantes: list[str] | None = None) -> _LivrableAssemble:
+def _livrable_word(
+    *, bloquantes: list[str] | None = None, controle_bloquant: str = "integrite"
+) -> _LivrableAssemble:
     return _LivrableAssemble(
         docx=_Artefact(ArtifactKind.DOCX, "https://exemple.fr/etude.docx"),
         pdf=_Artefact(ArtifactKind.PDF, "https://exemple.fr/etude.pdf"),
-        controle=_Controle([_Anomalie(d) for d in (bloquantes or [])]),
+        controle=_Controle(
+            [_Anomalie(d, controle_bloquant) for d in (bloquantes or [])]
+        ),
     )
 
 
@@ -420,3 +428,55 @@ def test_un_document_retenu_ne_part_jamais_chez_le_client(
     assert lot.status == DeliveryStatus.FAILED
     assert "tableau du compte de résultat vide" in lot.error_message
     assert OperationalIncident.objects.filter(job=job_livrable).exists()
+
+
+# ── Ce qui retient un document, et ce qui ne le retient plus ─────────────────
+
+
+def test_un_document_imparfait_mais_entier_part_quand_meme(
+    monkeypatch: pytest.MonkeyPatch, job_livrable: Any
+) -> None:
+    """« Quand le contrôle du document est fini, le document doit partir. »
+
+    Décision du 12/09/2026, après la stratégie Zenitek : 31 figures refusées au
+    dessin, document retenu, statut « intervention requise » — et personne ne
+    pouvait intervenir, puisque l'administrateur ne réécrit pas un document. Le
+    dossier attendait une main qui ne viendrait jamais.
+
+    Seule une MUTILATION retient encore : un tableau vidé, de la prose perdue.
+    Une imperfection — figures manquantes, chiffre hors socle, densité — part
+    avec son incident. Ce test échoue sur le code d'avant.
+    """
+    from integrations.gamma import StubGammaClient
+
+    docx, pdf = _artefacts_reels(job_livrable)
+    monkeypatch.setattr(
+        "documents.livrable_word.assembler_livrable_word",
+        lambda job: _LivrableAssemble(
+            docx=docx,
+            pdf=pdf,
+            controle=_Controle([
+                _Anomalie("Aucun des 31 graphiques n'a pu être dessiné", "visuels")
+            ]),
+        ),
+        raising=False,
+    )
+    courriel = _EmailEnregistreur()
+
+    livraison.deliver_job(
+        job_livrable, email_client=courriel, gamma_client=StubGammaClient()
+    )
+
+    assert len(courriel.envois) == 1, "le document part"
+
+
+def test_le_verdict_se_lit_sur_le_controle_pas_sur_la_phrase() -> None:
+    """Règle 5 : une décision ne se cherche pas par expression régulière.
+
+    Le premier verrou lisait le MOTIF — une phrase écrite pour un humain — et
+    décidait d'envoyer ou non selon les mots qu'il y trouvait. Un mot changé
+    dans un message, et le verdict basculait sans que personne ne le voie.
+    """
+    assert livraison.document_ampute(["integrite"])
+    assert not livraison.document_ampute(["visuels", "chiffres_hors_socle"])
+    assert not livraison.document_ampute([])

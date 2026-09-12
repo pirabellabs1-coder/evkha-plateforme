@@ -69,16 +69,30 @@ def test_la_charte_recopie_les_constantes_au_lieu_de_les_redire() -> None:
 # ── 2. Le contrôle ───────────────────────────────────────────────────────────
 
 
-def test_un_document_sous_le_plancher_est_bloque() -> None:
-    """Sur le code d'avant, ces seize figures ne produisaient AUCUNE anomalie."""
+def test_un_document_sous_le_plancher_est_signale_sans_etre_retenu() -> None:
+    """Le manque de figures se SIGNALE, il ne retient plus le document.
+
+    Décision du 12/09/2026, qui prolonge celle du 13/08 sur le gate : « tout
+    doit être clean avant que le document soit envoyé, et quand le contrôle du
+    document est fini, le document doit partir ». Retenir un livrable payé pour
+    un manque de figures n'appelait aucun geste réparateur — l'administrateur
+    ne réécrit pas le document, et le dossier attendait une main qui ne pouvait
+    rien. Les figures refusées au dessin sont désormais imprimées en TABLEAU
+    par l'assemblage : l'information reste, seule la forme est perdue.
+
+    Sur le code d'avant, ces seize figures ne produisaient aucune anomalie ;
+    puis elles en produisaient une BLOQUANTE. Elles produisent maintenant un
+    avertissement, et le document part.
+    """
     anomalies = controles.controler_visuels(20, PLANCHER_FIGURES - 1, [], [])
 
-    bloquantes = [a for a in anomalies if a.gravite is Gravite.BLOQUANTE]
-    assert len(bloquantes) == 1
+    assert not [a for a in anomalies if a.gravite is Gravite.BLOQUANTE]
+    signalees = [a for a in anomalies if a.gravite is Gravite.AVERTISSEMENT]
+    assert len(signalees) == 1
     # Règle 2 : le motif doit être vérifiable par son lecteur. Les deux nombres
     # y figurent, donc le constat se recompte.
-    assert str(PLANCHER_FIGURES - 1) in bloquantes[0].detail
-    assert str(PLANCHER_FIGURES) in bloquantes[0].detail
+    assert str(PLANCHER_FIGURES - 1) in signalees[0].detail
+    assert str(PLANCHER_FIGURES) in signalees[0].detail
 
 
 def test_un_document_au_plancher_passe() -> None:
@@ -89,16 +103,20 @@ def test_un_document_au_plancher_passe() -> None:
 
 
 def test_un_document_sans_aucune_figure_garde_son_motif_d_origine() -> None:
-    """L'ancien cas reste distinct : « aucune n'a pu être alimentée ».
+    """L'ancien cas reste distinct : « aucune n'a pu être dessinée ».
 
     C'est un autre défaut — le socle ne nourrit rien — et il mérite son propre
-    motif. Le fondre dans le plancher ferait perdre l'information.
+    motif. Le fondre dans le plancher ferait perdre l'information. Mesuré sur
+    la stratégie Zenitek (12/09/2026) : 31 figures demandées, 31 refusées au
+    dessin, zéro rendue. Le motif dit aussi ce qui a été fait de leurs données.
     """
     anomalies = controles.controler_visuels(20, 0, [], [])
 
-    bloquantes = [a for a in anomalies if a.gravite is Gravite.BLOQUANTE]
-    assert len(bloquantes) == 1
-    assert "Aucun des 20" in bloquantes[0].detail
+    assert not [a for a in anomalies if a.gravite is Gravite.BLOQUANTE]
+    signalees = [a for a in anomalies if a.gravite is Gravite.AVERTISSEMENT]
+    assert len(signalees) == 1
+    assert "Aucun des 20" in signalees[0].detail
+    assert "tableau" in signalees[0].detail
 
 
 # ── 3. La complétion ─────────────────────────────────────────────────────────
