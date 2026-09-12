@@ -211,6 +211,7 @@ def assembler_livrable_word(
     *,
     convertisseur: ConvertisseurDocx | None = None,
     verifier: bool = True,
+    ouvrir_incident: bool = True,
 ) -> LivrableAssemble:
     """Produit le `.docx`, le convertit en PDF, et enregistre les deux artefacts.
 
@@ -245,8 +246,15 @@ def assembler_livrable_word(
     # La vérification porte sur le FICHIER, et elle passe avant l'enregistrement
     # des artefacts : ce qui refait le document après le contrôle doit être
     # contrôlé à son tour (règle 3). Ici plus rien ne le refait.
+    # `ouvrir_incident=False` : la relecture finale (`generation.controle_final`)
+    # assemble plusieurs fois le même dossier pour vérifier ses corrections sur
+    # le FICHIER. Un incident par passe noierait celui qui compte — le dernier,
+    # ouvert par la livraison sur le document réellement envoyé.
     controle = (
-        verifier_livrable(job, livrable.chemin, assemblage=livrable.rapport)
+        verifier_livrable(
+            job, livrable.chemin, assemblage=livrable.rapport,
+            ouvrir_incident=ouvrir_incident,
+        )
         if verifier
         else None
     )

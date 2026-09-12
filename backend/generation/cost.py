@@ -440,6 +440,16 @@ def plafond_de_depense(job: GenerationJob) -> Decimal:
     return min(job.budget_eur, absolu)
 
 
+def budget_restant(job: GenerationJob) -> Decimal:
+    """Ce qu'il reste a depenser sur ce dossier, plafond du livrable compris.
+
+    Une seule source pour la question « peut-on encore payer une reecriture ? »
+    (regle 5) : la relecture finale la pose autant que la boucle de correction,
+    et deux expressions differentes du meme calcul auraient diverge.
+    """
+    return plafond_de_depense(job) - current_job_cost_eur(job)
+
+
 def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) -> None:
     """Arret immediat des que la depense passe le plafond. STRICT, SANS TOLERANCE.
 

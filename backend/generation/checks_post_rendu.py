@@ -874,6 +874,20 @@ _MOTS_TROP_COURANTS = frozenset({
 #: Une ligne qui statue « non traitée » sur une demande.
 _NON_TRAITE_RE = re.compile(r"non\s+trait[ée]e?s?\b", re.IGNORECASE)
 
+#: « Risque SI non traité » n'est pas un statut : c'est une CONDITION, et même
+#: le contraire d'un aveu — la ligne dit ce qui arriverait faute d'agir.
+#:
+#: Stratégie Zenitek (reprise `8ad03a60`, 11/09/2026) : « Risque si non
+#: traité » est l'en-tête d'une colonne, répété sur chaque ligne du tableau.
+#: Le contrôle y lisait un sujet abandonné et prenait les cellules voisines
+#: pour ses mots porteurs — « constaté, fragilité, organisationnelle » —, puis
+#: les retrouvait ailleurs, forcément. Motif introuvable dans le document par
+#: sa lectrice (règle 2), sur un document par ailleurs juste.
+_CONDITION_AVANT_LE_STATUT_RE = re.compile(
+    r"(?i)(?:\bsi|\bs'il(?:s)?|\blorsqu[e’']|\bquand|\ben cas de|\bfaute d[e’'])"
+    r"\s+(?:n(?:e|'|’)\s*(?:est|sont|sera|seront)?\s*(?:pas\s+)?)?$"
+)
+
 #: Un mot assez long pour porter un sujet. « canaux », « acquisition »,
 #: « fidélité » — pas « des », « pour », « avec ».
 _MOT_PORTEUR_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]{6,}")
@@ -996,6 +1010,8 @@ def _contradictions_de_la_section(
     for ligne in corps.splitlines():
         trouve = _NON_TRAITE_RE.search(ligne)
         if trouve is None:
+            continue
+        if _CONDITION_AVANT_LE_STATUT_RE.search(ligne[: trouve.start()]):
             continue
         # Le SUJET précède le statut : « Analyser les canaux d'acquisition
         # des concurrents : non traitée ». Prendre la ligne entière ramasse

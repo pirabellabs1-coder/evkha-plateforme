@@ -335,6 +335,18 @@ def run_generation_job_task(job_id: str) -> str:
                 "fact_store: export non bloquant échoué pour le job %s", job.id
             )
 
+        # ── Relecture FINALE, sur le fichier lui-même ───────────────────
+        #
+        # Tout ce qui precede juge la MATIERE du document : chapitres valides,
+        # markdown rendu. Le `.docx` que le client ouvre n'etait relu par
+        # personne avant l'envoi, et ses reserves partaient avec lui.
+        #
+        # Ici, le document est assemble, RELU, ses chapitres fautifs reecrits,
+        # puis refait — et c'est le document relu qui part.
+        from .controle_final import relire_avant_envoi  # noqa: PLC0415
+
+        relire_avant_envoi(job)
+
         _livrer(job)
 
     _effacer_les_textes_orphelins()

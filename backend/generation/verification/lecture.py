@@ -17,6 +17,7 @@ import statistics
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from core.numbers import (
     CURRENCY_ALTERNATION,
@@ -57,6 +58,12 @@ class Mesure:
     contexte: str
     """La phrase autour, pour situer le fragment."""
     dans_un_tableau: bool = False
+    chapitre: int | None = None
+    """Le chapitre où la grandeur a été relevée, quand le bandeau le dit.
+
+    C'est lui qui rend une anomalie RÉPARABLE : sans numéro de chapitre, la
+    boucle de correction ne sait pas quoi réécrire et laisse le défaut dans le
+    document livré."""
 
     @property
     def est_un_pourcentage(self) -> bool:
@@ -84,6 +91,11 @@ class DocumentLu:
     tableaux_vides: int = 0
     images: int = 0
     mesures: list[Mesure] = field(default_factory=list)
+    #: Le chapitre de chaque paragraphe et de chaque cellule, dans le même
+    #: ordre que `paragraphes` et `cellules`. `None` avant le premier bandeau
+    #: — couverture, sommaire — et pour un document lu sans bandeaux.
+    chapitre_du_paragraphe: list[int | None] = field(default_factory=list)
+    chapitre_de_la_cellule: list[int | None] = field(default_factory=list)
 
     @property
     def texte_integral(self) -> str:
@@ -119,7 +131,9 @@ def _contexte(texte: str, debut: int, fin: int) -> str:
     return " ".join(extrait.split())
 
 
-def mesures_dans(texte: str, *, dans_un_tableau: bool = False) -> list[Mesure]:
+def mesures_dans(
+    texte: str, *, dans_un_tableau: bool = False, chapitre: int | None = None
+) -> list[Mesure]:
     """Toutes les grandeurs chiffrées d'un texte, avec leur contexte.
 
     Ne relève QUE les nombres portant une unité. C'est une restriction
@@ -144,6 +158,7 @@ def mesures_dans(texte: str, *, dans_un_tableau: bool = False) -> list[Mesure]:
                 texte=correspondance.group(0).strip(),
                 contexte=_contexte(texte, *correspondance.span()),
                 dans_un_tableau=dans_un_tableau,
+                chapitre=chapitre,
             )
         )
     return relevees
@@ -164,13 +179,56 @@ def lire_livrable(chemin: Path) -> DocumentLu:
 
     document = Document(str(chemin))
     lu = DocumentLu(chemin=chemin)
+    _parcourir_le_corps(document, lu)
 
-    for paragraphe in document.paragraphs:
-        texte = paragraphe.text.strip()
-        if texte:
-            lu.paragraphes.append(texte)
+    with zipfile.ZipFile(chemin) as archive:
+        lu.images = sum(
+            1 for nom in archive.namelist() if nom.startswith("word/media/")
+        )
 
-    for table in document.tables:
+    for prose, chapitre in zip(lu.paragraphes, lu.chapitre_du_paragraphe, strict=True):
+        lu.mesures.extend(mesures_dans(prose, chapitre=chapitre))
+    for contenu, chapitre in zip(lu.cellules, lu.chapitre_de_la_cellule, strict=True):
+        lu.mesures.extend(
+            mesures_dans(contenu, dans_un_tableau=True, chapitre=chapitre)
+        )
+
+    return lu
+
+
+#: Le bandeau qui ouvre un chapitre dans le `.docx`. Son texte vient de
+#: `rendu_word.composants.marqueur_de_chapitre` — une seule source (règle 5) ;
+#: ici on le RELIT, donc on décrit sa forme, pas son contenu.
+_BANDEAU_RE = re.compile(r"^\s*CHAPITRE\s+(\d{1,3})\b", re.IGNORECASE)
+
+
+def _parcourir_le_corps(document: Any, lu: DocumentLu) -> None:
+    """Lit le document DANS SON ORDRE, en retenant le chapitre courant.
+
+    `document.paragraphs` et `document.tables` sont deux flux séparés : lus
+    l'un après l'autre, ils perdent l'entrelacement, donc le chapitre auquel
+    chaque passage appartient. Or c'est ce numéro qui rend un défaut
+    réparable — la boucle de correction réécrit un CHAPITRE, pas un document.
+    On parcourt donc le corps lui-même, élément par élément.
+
+    Le bandeau de chapitre est un tableau 1×1 (`composants.bandeau_chapitre`) :
+    c'est sa première cellule qui porte « CHAPITRE 07 ».
+    """
+    from docx.table import Table  # noqa: PLC0415
+    from docx.text.paragraph import Paragraph  # noqa: PLC0415
+
+    courant: int | None = None
+    for element in document.element.body.iterchildren():
+        balise = element.tag.rsplit("}", 1)[-1]
+        if balise == "p":
+            texte = Paragraph(element, document).text.strip()
+            if texte:
+                lu.paragraphes.append(texte)
+                lu.chapitre_du_paragraphe.append(courant)
+            continue
+        if balise != "tbl":
+            continue
+        table = Table(element, document)
         lu.tableaux += 1
         contenu_table: list[str] = []
         for ligne in table.rows:
@@ -182,19 +240,11 @@ def lire_livrable(chemin: Path) -> DocumentLu:
             # Un tableau sans une seule cellule remplie est le symptôme exact
             # de la perte de lignes déjà constatée sur ce projet.
             lu.tableaux_vides += 1
+        bandeau = _BANDEAU_RE.match(contenu_table[0]) if contenu_table else None
+        if bandeau is not None:
+            courant = int(bandeau.group(1))
         lu.cellules.extend(contenu_table)
-
-    with zipfile.ZipFile(chemin) as archive:
-        lu.images = sum(
-            1 for nom in archive.namelist() if nom.startswith("word/media/")
-        )
-
-    for prose in lu.paragraphes:
-        lu.mesures.extend(mesures_dans(prose))
-    for contenu in lu.cellules:
-        lu.mesures.extend(mesures_dans(contenu, dans_un_tableau=True))
-
-    return lu
+        lu.chapitre_de_la_cellule.extend([courant] * len(contenu_table))
 
 
 #: Balises dont le texte est de la PROSE. Les titres en font partie : le

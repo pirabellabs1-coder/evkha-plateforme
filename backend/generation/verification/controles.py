@@ -30,7 +30,9 @@ cherchera pas non plus :
 from __future__ import annotations
 
 import re
+import statistics
 from collections.abc import Iterable, Sequence
+from itertools import zip_longest
 
 from core.numbers import amounts_in
 
@@ -267,6 +269,7 @@ def controler_chiffres_hors_socle(
             f"« {mesure.texte} » n'a pas d'équivalent dans le socle, ni dans "
             "le brief, ni dans les documents du client.",
             extrait=mesure.contexte,
+            chapitre=mesure.chapitre,
         ))
     return anomalies
 
@@ -486,9 +489,42 @@ def controler_meta_discours(document: DocumentLu) -> list[Anomalie]:
             "Passage qui semble parler de la rédaction du document plutôt que "
             "de l'affaire du client — à relire avant de remettre l'étude.",
             extrait=extrait,
+            chapitre=_chapitre_du_passage(document, extrait),
         )
         for extrait in trouver(document.texte_integral)
     ]
+
+
+def _chapitre_du_passage(document: DocumentLu, extrait: str) -> int | None:
+    """Le chapitre du passage, quand on le retrouve dans le document.
+
+    Sans numéro, une anomalie se lit mais ne se répare pas : la relecture
+    finale réécrit un CHAPITRE, jamais un document.
+    """
+    reference = " ".join(extrait.split())[:80]
+    if not reference:
+        return None
+    for texte, chapitre in _passages(document):
+        if reference in " ".join(texte.split()):
+            return chapitre
+    return None
+
+
+def _passages(document: DocumentLu) -> list[tuple[str, int | None]]:
+    """Chaque passage du document avec SON chapitre, quand il est connu.
+
+    `zip` strict ou non n'irait pas : un `DocumentLu` construit sans numéros de
+    chapitre — une doublure de test, la chaîne HTML héritée — a des listes de
+    chapitres VIDES, et l'appariement rendait alors zéro passage. Le contrôle
+    des calculs annoncés cessait silencieusement de regarder quoi que ce soit,
+    et trois tests l'ont vu. Un contrôle qui n'a rien à comparer doit échouer
+    bruyamment, jamais se vider (règle 1).
+    """
+    apparies = [
+        *zip_longest(document.paragraphes, document.chapitre_du_paragraphe),
+        *zip_longest(document.cellules, document.chapitre_de_la_cellule),
+    ]
+    return [(texte, chapitre) for texte, chapitre in apparies if texte is not None]
 
 
 # ── Contrôle 5 : la densité validée par la cliente ───────────────────────────
@@ -528,7 +564,51 @@ def controler_densite(document: DocumentLu) -> list[Anomalie]:
             f"{document.part_paragraphes_longs:.0%} des paragraphes dépassent "
             f"60 mots (plafond {PART_PARAGRAPHES_LONGS_MAX:.0%}).",
         ))
+    if anomalies:
+        anomalies.extend(_chapitres_les_plus_denses(document))
     return anomalies
+
+
+#: Combien de chapitres on renvoie à la réécriture quand le document redevient
+#: un mur de texte. Trois : ce sont eux qui font la médiane, et réécrire tout
+#: un document pour une question de forme coûterait plus qu'il ne rapporte.
+_CHAPITRES_DENSES_MAX = 3
+
+
+def _chapitres_les_plus_denses(document: DocumentLu) -> list[Anomalie]:
+    """Les chapitres qui portent le mur de texte, nommés un par un.
+
+    Un constat de densité vaut pour tout le document : il n'a donc pas de
+    chapitre, et la relecture finale ne peut rien en faire — « 32 % des
+    paragraphes dépassent 60 mots » ne dit pas lesquels réécrire (mesuré sur
+    la stratégie Zenitek, 11/09/2026).
+
+    Le même calcul, chapitre par chapitre, le dit. On ne renvoie que les plus
+    denses : réécrire un chapitre déjà aéré coûterait sans rien gagner.
+    """
+    par_chapitre: dict[int, list[int]] = {}
+    for texte, chapitre in zip(
+        document.paragraphes, document.chapitre_du_paragraphe, strict=False
+    ):
+        if chapitre and texte.strip():
+            par_chapitre.setdefault(chapitre, []).append(len(texte.split()))
+
+    denses = [
+        (numero, statistics.median(longueurs))
+        for numero, longueurs in par_chapitre.items()
+        if len(longueurs) >= 3 and statistics.median(longueurs) > MEDIANE_PARAGRAPHE_MAX
+    ]
+    denses.sort(key=lambda couple: couple[1], reverse=True)
+    return [
+        Anomalie(
+            "densite", Gravite.AVERTISSEMENT,
+            f"Chapitre {numero} : paragraphe médian de {mediane:.0f} mots "
+            f"(plafond {MEDIANE_PARAGRAPHE_MAX}). Le livrable doit rester des "
+            "tableaux reliés par de la prose courte, pas un texte suivi.",
+            chapitre=numero,
+        )
+        for numero, mediane in denses[:_CHAPITRES_DENSES_MAX]
+    ]
 
 
 # ── Contrôle 6 : les visuels abandonnés à l'assemblage ───────────────────────
@@ -660,7 +740,7 @@ def controler_les_calculs_annonces(document: DocumentLu) -> list[Anomalie]:
     anomalies: list[Anomalie] = []
     deja_vues: set[str] = set()
 
-    for texte in (*document.paragraphes, *document.cellules):
+    for texte, chapitre in _passages(document):
         for trouve in _CALCUL_ANNONCE.finditer(texte):
             part_brut, unite_part, tout_brut, unite_tout, resultat_brut = (
                 trouve.groups()
@@ -690,5 +770,71 @@ def controler_les_calculs_annonces(document: DocumentLu) -> list[Anomalie]:
                 f"« {extrait} » : le calcul donne {calcule:.4g} %, "
                 f"le document annonce {annonce:g} %.",
                 extrait=extrait,
+                chapitre=chapitre,
             ))
+    return anomalies
+
+
+# ── Contrôle 8 : un chiffre à zéro dans un document payé ─────────────────────
+
+
+#: Un zéro peut être VRAI — « aucun emprunt », « 0 € d'apport ». Ce qui ne
+#: l'est jamais, c'est un zéro qu'aucune phrase n'assume : le document affiche
+#: alors un calcul non fait, une donnée manquante rendue en « 0 € », et le
+#: lecteur croit lire une valeur.
+_ZERO_ASSUME = re.compile(
+    r"(?i)aucun|aucune|nul|nulle|z[ée]ro|pas d[e’']|ni\b|sans\b|"
+    r"n[e’']a (?:pas|aucun)|absence"
+)
+
+#: Un zéro qui BORNE un intervalle est assumé lui aussi : « entre −20 % et
+#: 0 % » annonce une fourchette, pas une donnée manquante. Relevé sur le
+#: premier document réel passé au contrôle (Zenitek, 11/09/2026) : c'était son
+#: unique zéro, et le signaler aurait fait réécrire un chapitre juste.
+_BORNE_D_INTERVALLE = re.compile(
+    r"(?i)(?:entre|de|entre\s+environ)\s+[-–+]?[\d\s.,]+\s*(?:%|€|M€|k€|Md€)?\s*"
+    r"(?:et|[àa]|–|—|-)\s*[-–+]?\s*$"
+)
+
+
+def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
+    """Un montant ou un taux à zéro que rien n'assume dans la phrase.
+
+    Demande du 12/09/2026 : « s'il y a des zéros ou des incohérences dedans,
+    l'agent va corriger ». Aucun contrôle ne les voyait — pire, un zéro
+    trouvait toujours son équivalent dans le socle (`abs(0 - 0) <= EPSILON`)
+    et passait donc pour justifié.
+
+    Un zéro ASSUMÉ reste accepté : « aucun emprunt : 0 € » est une
+    information, pas un défaut. C'est le zéro nu — dans une cellule de
+    tableau, au milieu d'un calcul — qui signale une donnée manquante rendue
+    comme une valeur. Gravité : avertissement, et le chapitre est nommé pour
+    que la relecture finale le fasse réécrire.
+    """
+    anomalies: list[Anomalie] = []
+    deja_vues: set[str] = set()
+    for mesure in document.mesures:
+        if abs(mesure.valeur) > EPSILON:
+            continue
+        if _ZERO_ASSUME.search(mesure.contexte):
+            continue
+        # L'occurrence CHERCHÉE, pas la première : « 0 % » se trouve aussi à
+        # l'intérieur de « -20 % », et le texte d'avant devenait « Entre -2 ».
+        trouve = re.search(
+            r"(?<![\d,.])" + re.escape(mesure.texte), mesure.contexte
+        )
+        avant = mesure.contexte[: trouve.start()] if trouve else ""
+        if _BORNE_D_INTERVALLE.search(avant):
+            continue
+        if mesure.texte in deja_vues:
+            continue
+        deja_vues.add(mesure.texte)
+        anomalies.append(Anomalie(
+            "valeur_nulle", Gravite.AVERTISSEMENT,
+            f"« {mesure.texte} » : un zéro que la phrase n'assume pas. Si la "
+            "valeur est réellement nulle, écris-le en toutes lettres ; sinon "
+            "c'est une donnée manquante rendue comme un chiffre.",
+            extrait=mesure.contexte,
+            chapitre=mesure.chapitre,
+        ))
     return anomalies

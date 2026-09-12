@@ -59,10 +59,18 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger(__name__)
 
-#: Caractères de documents transmis au modèle, tous documents confondus. Environ
-#: 11 000 jetons : le socle les lit une fois (trois au plus s'il est refusé), les
-#: chapitres les relisent depuis le cache, à un dixième du prix.
-LIMITE_TOTALE = 40_000
+#: Caractères de documents transmis au modèle, tous documents confondus.
+#:
+#: 40 000 au premier jour. Mesuré sur le premier dossier réel (Zenitek,
+#: reprise `8ad03a60`) : CINQ documents déposés, donc ~8 000 caractères
+#: chacun — l'étude de marché du client n'était lue que sur son premier
+#: cinquième, et c'est justement d'une étude non lue que venait la plainte.
+#:
+#: 120 000 caractères, soit environ 33 000 jetons : le socle les lit une fois
+#: (trois au plus s'il est refusé), les chapitres les relisent depuis le cache,
+#: à un dixième du prix. Environ 1 € de plus par dossier, sur un plafond de
+#: 6,50 € pour une stratégie — le prix de lire ce que le client a déposé.
+LIMITE_TOTALE = 120_000
 
 #: Au-delà, les documents suivants ne sont pas lus — et le disent.
 MAX_DOCUMENTS = 12
