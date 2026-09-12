@@ -105,36 +105,33 @@ class Mesure:
         }
 
 
-def _corps_markdown(job: GenerationJob) -> str:
-    """La prose des chapitres terminés, dans l'ordre de lecture."""
-    from generation.chapitres import payload_vers_markdown
-    from generation.rendu_word.services import payloads_du_job
+def sections_du_dossier(job: GenerationJob) -> list[tuple[int, str, str]]:
+    """Les (numéro, titre, corps) du document, comme le gate les voit.
 
-    return "\n\n".join(payload_vers_markdown(p) for p in payloads_du_job(job))
+    ## Pourquoi on ne redécoupe pas le markdown soi-même
 
+    La première version de cette mesure le faisait, en coupant sur les titres
+    `#` du markdown assemblé. Elle n'a jamais trouvé le chapitre Sources d'une
+    stratégie — et annonçait donc `sources: null` sur QUATRE dossiers Zenitek
+    qui en avaient un (`str.20.sources`).
 
-def _sections(corps: str) -> list[tuple[int, str, str]]:
-    """Découpe en (numéro, titre, corps), pour retrouver le chapitre Sources."""
-    sections: list[tuple[int, str, str]] = []
-    lignes: list[str] = []
-    numero, titre = 0, ""
-    for ligne in corps.splitlines():
-        if ligne.startswith("# ") or ligne.startswith("## "):
-            if titre:
-                sections.append((numero, titre, "\n".join(lignes)))
-            numero += 1
-            titre = ligne.lstrip("# ").strip()
-            lignes = []
-        else:
-            lignes.append(ligne)
-    if titre:
-        sections.append((numero, titre, "\n".join(lignes)))
-    return sections
+    La cause : le titre ainsi reconstruit portait son numéro (« 20. Sources »),
+    alors que `_trouver_chapitre_sources` attend un titre qui COMMENCE par
+    « sources ». Deux découpages du même document, pas d'accord entre eux —
+    exactement le défaut que la règle 5 condamne. `render_client_document`
+    rend le titre propre, et c'est lui que le gate emploie.
+    """
+    from generation.rendering import render_client_document
+
+    document = render_client_document(job)
+    return [(s.number, s.title, s.body) for s in document.sections]
 
 
-def mesurer_les_sources(corps: str) -> MesureDesSources | None:
+def mesurer_les_sources(
+    sections: list[tuple[int, str, str]],
+) -> MesureDesSources | None:
     """None quand le document n'a pas de chapitre Sources — pas zéro."""
-    section = _trouver_chapitre_sources(_sections(corps))
+    section = _trouver_chapitre_sources(sections)
     if section is None:
         return None
     mesure = MesureDesSources()
@@ -174,7 +171,7 @@ def mesurer(job: GenerationJob) -> Mesure:
         figures_completees=completees,
         figures_en_tableau=len(rapport.graphiques_en_tableau),
         figures_perdues=len(rapport.graphiques_abandonnes),
-        sources=mesurer_les_sources(_corps_markdown(job)),
+        sources=mesurer_les_sources(sections_du_dossier(job)),
         chiffres_hors_socle=hors_socle,
         autres_anomalies=len(controle.anomalies) - len(hors_socle),
     )
