@@ -88,6 +88,14 @@ class RapportRelecture:
     anomalies_au_depart: int = 0
     anomalies_restantes: int = 0
     chapitres_reecrits: list[int] = field(default_factory=list)
+    #: Chapitres ABSENTS du livrable qu'on a refaits avant de relire. Comptés à
+    #: part des réécritures : un chapitre rattrapé et un chapitre corrigé ne
+    #: disent pas la même chose de la génération qui précède.
+    chapitres_rattrapes: list[int] = field(default_factory=list)
+    #: Ceux qui ont résisté. Le document partira amputé, et le dire est le
+    #: minimum (règle 1) : un rattrapage silencieusement raté ressemblerait à
+    #: un dossier qui n'en a jamais eu besoin.
+    chapitres_perdus: list[int] = field(default_factory=list)
     #: Ce qui reste, dit en clair : un humain doit pouvoir le retrouver dans le
     #: document (règle 2).
     restantes: list[str] = field(default_factory=list)
@@ -95,7 +103,7 @@ class RapportRelecture:
 
     @property
     def a_corrige(self) -> bool:
-        return bool(self.chapitres_reecrits)
+        return bool(self.chapitres_reecrits or self.chapitres_rattrapes)
 
     def as_details(self) -> dict[str, Any]:
         return {
@@ -104,6 +112,8 @@ class RapportRelecture:
             "anomalies_au_depart": self.anomalies_au_depart,
             "anomalies_restantes": self.anomalies_restantes,
             "chapitres_reecrits": self.chapitres_reecrits,
+            "chapitres_rattrapes": self.chapitres_rattrapes,
+            "chapitres_perdus": self.chapitres_perdus,
             "restantes": self.restantes[:40],
             "motif_d_arret": self.motif_d_arret,
         }
@@ -144,6 +154,61 @@ def _motifs_par_chapitre(anomalies: list[Anomalie]) -> dict[int, list[str]]:
     return par_chapitre
 
 
+def _refaire_les_chapitres_manquants(
+    job: GenerationJob, rapport: RapportRelecture, *, client: Any = None,
+) -> None:
+    """Produit les chapitres qui ne sont pas terminés. Ne lève jamais.
+
+    ## Le défaut mesuré
+
+    12/09/2026, reprise Zenitek `db0d9508` : deux chapitres meurent en cours de
+    génération, le livrable part donc sans eux, le contrôle d'intégrité le
+    retient, et le dossier s'arrête en « intervention requise ». La cliente :
+    « je ne sais pas pourquoi ça, alors qu'on ne peut rien faire sur le
+    document, nous ». Elle a raison — personne ne réécrit un chapitre à la
+    main, et le dossier attendait donc indéfiniment.
+
+    ## Pourquoi ici, et pas à la génération
+
+    La génération a déjà retenté ce chapitre autant de fois qu'elle le devait,
+    et a renoncé. Ce qui change ICI, c'est le temps : une cause transitoire —
+    une réponse tronquée, un contrôle qui a mordu sur une tournure — ne se
+    reproduit pas forcément à la tentative suivante. Un essai de plus coûte un
+    chapitre ; un document amputé coûte le dossier entier.
+
+    ## Ce qu'elle ne fait pas
+
+    Elle n'insiste pas. Un seul essai par chapitre, et le budget garde la main :
+    un dossier qui a brûlé son plafond ne le dépasse pas pour un rattrapage.
+    Ce qui reste perdu est NOMMÉ dans le rapport — un rattrapage raté en
+    silence ressemblerait à un dossier qui n'en avait pas besoin.
+    """
+    from .chapitres import produire_chapitre  # noqa: PLC0415
+    from .cost import budget_restant  # noqa: PLC0415
+    from .models import ChapterStatus  # noqa: PLC0415
+
+    manquants = list(
+        job.chapters.exclude(status=ChapterStatus.DONE)
+        .order_by("chapter_number")
+        .values_list("chapter_number", flat=True)
+    )
+    for numero in manquants[:MAX_CHAPITRES_PAR_PASSE]:
+        if budget_restant(job) < MARGE_DE_BUDGET:
+            rapport.chapitres_perdus.append(numero)
+            continue
+        try:
+            produire_chapitre(job, numero, client=client)
+        except Exception:  # noqa: BLE001 — un chapitre qui résiste n'arrête pas la relecture
+            _log.exception(
+                "Relecture finale : chapitre %s non rattrapé (job %s)", numero, job.id
+            )
+            rapport.chapitres_perdus.append(numero)
+            continue
+        rapport.chapitres_rattrapes.append(numero)
+    # Ceux qu'on n'a même pas tentés, faute de place dans la passe.
+    rapport.chapitres_perdus.extend(manquants[MAX_CHAPITRES_PAR_PASSE:])
+
+
 def relire_et_corriger(
     job: GenerationJob,
     *,
@@ -173,6 +238,21 @@ def relire_et_corriger(
     if not chaine_word_active(job):
         rapport.motif_d_arret = "ce dossier n'est pas produit par la chaîne Word"
         return rapport
+
+    # Un chapitre MANQUANT se refait ; il ne s'attend pas.
+    #
+    # Jusqu'ici, un chapitre mort en cours de génération amputait le livrable,
+    # le contrôle d'intégrité le retenait, et le dossier passait en
+    # « intervention requise » — c'est-à-dire qu'il attendait une main qui ne
+    # pouvait rien : personne ne réécrit un chapitre à la main, et la cliente
+    # l'a dit en ces termes le 12/09/2026 (« on ne peut rien faire sur le
+    # document, nous »).
+    #
+    # Or la boucle ci-dessous sait déjà réécrire des chapitres. Elle ne
+    # s'appliquait qu'aux chapitres PRÉSENTS et fautifs — le cas le plus grave,
+    # celui du chapitre absent, était le seul qu'elle ne traitait pas
+    # (règle 9 : le contrôle et sa réparation ne regardaient pas la même chose).
+    _refaire_les_chapitres_manquants(job, rapport, client=client)
 
     for passe in range(1, max_passes + 1):
         try:

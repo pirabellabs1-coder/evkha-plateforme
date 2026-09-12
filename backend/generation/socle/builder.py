@@ -57,7 +57,12 @@ OUTIL_NOM = "produire_socle"
 #: facturés. Il autorise, il ne dépense pas.
 _PLAFOND_DE_SORTIE_SOCLE = 16384
 OUTIL_DESCRIPTION = (
-    "Enregistre le socle de données chiffrées de l'étude. Chaque donnée porte "
+    # « données chiffrées » et non « socle de données » : cette description
+    # part au modèle avec le schéma de l'outil, et `_VOCABULAIRE_INTERNE`
+    # punit la seconde formule dans le texte livré. Un prompt ne doit jamais
+    # écrire ce qu'un contrôle interdit (règle 5) — deux chapitres perdus sur
+    # ce mécanisme le 12/09/2026, reprise Zenitek `db0d9508`.
+    "Enregistre les données chiffrées de référence de l'étude. Chaque donnée porte "
     "un identifiant du référentiel imposé, une valeur numérique, une unité, "
     "une année, un périmètre et un statut de fiabilité."
 )

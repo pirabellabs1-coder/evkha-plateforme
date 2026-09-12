@@ -125,7 +125,7 @@ def test_le_prompt_transmis_est_bien_construit(socle: Socle) -> None:
     """Garde-fou : sans lui, un prompt vide ferait passer tout le reste."""
     prompt = _prompt(DeliverableType.MARKET_STUDY, socle)
 
-    assert "SOCLE VERROUILLÉ" in prompt
+    assert "DONNÉES DE RÉFÉRENCE" in prompt
     assert "VISUELS" in prompt
     assert len(prompt) > 2000
 

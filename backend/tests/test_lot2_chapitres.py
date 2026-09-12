@@ -260,7 +260,7 @@ def test_le_socle_est_injecte_dans_le_prompt_du_chapitre(job_em: GenerationJob) 
         variables=_VARIABLES,
         document=type_document(EM),
     )
-    assert "SOCLE VERROUILLÉ" in prompt
+    assert "DONNÉES DE RÉFÉRENCE" in prompt
     assert "`tam` =" in prompt
     assert manquantes == []
 
@@ -439,7 +439,7 @@ def test_un_chapitre_de_l_ancien_moteur_ne_compte_pas_comme_fait(
 
 def test_le_bouchon_ne_declare_que_des_donnees_presentes_dans_le_prompt() -> None:
     prompt = (
-        "SOCLE VERROUILLÉ — test\n"
+        "DONNÉES DE RÉFÉRENCE — test\n"
         "- `tam` = 4.0 MdEUR (2025, national, observee)\n"
         "- `sam` = 0.25 MdEUR (2025, national, observee)\n"
         "\nCHAPITRE À RÉDIGER : 7 — Tendances\n"

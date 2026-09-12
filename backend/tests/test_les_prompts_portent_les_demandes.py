@@ -256,7 +256,7 @@ DEMANDES_V2: list[tuple[str, str, str]] = [
     ("Les onze questions de clôture", "ai-je une vraie chance", "E"),
     ("Le calcul se montre", "montre son calcul", "P"),
     ("Hypothèse : trois conditions", "elle se dit hypothèse", "P"),
-    ("Vocabulaire du dispositif banni", "Ne nomme JAMAIS nos rouages", "S"),
+    ("Vocabulaire du dispositif banni", "Ne nomme JAMAIS les rouages", "S"),
 ]
 
 

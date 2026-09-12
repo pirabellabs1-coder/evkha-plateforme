@@ -140,10 +140,10 @@ def test_le_socle_reste_l_autorite_sur_les_chiffres(job_em: GenerationJob) -> No
     job_em.save(update_fields=["research_brief"])
 
     prompt = _prompt(job_em, 6)
-    assert "SOCLE VERROUILLÉ" in prompt
+    assert "DONNÉES DE RÉFÉRENCE" in prompt
     assert "le socle gagne" in prompt
     # Le socle est annoncé AVANT les sources : l'ordre de lecture compte.
-    assert prompt.index("SOCLE VERROUILLÉ") < prompt.index("SOURCES WEB RÉELLES")
+    assert prompt.index("DONNÉES DE RÉFÉRENCE") < prompt.index("SOURCES WEB RÉELLES")
 
 
 @pytest.mark.django_db

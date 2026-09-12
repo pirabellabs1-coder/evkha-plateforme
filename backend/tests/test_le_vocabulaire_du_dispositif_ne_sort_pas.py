@@ -81,9 +81,18 @@ def test_le_francais_de_metier_traverse_intact(texte: str) -> None:
 
 
 def test_la_consigne_nomme_les_rouages_a_taire() -> None:
-    """La cause, pas seulement le garde-fou : chaque refus coûte une reprise."""
+    """La cause, pas seulement le garde-fou : chaque refus coûte une reprise.
+
+    La consigne existe toujours — mais depuis le 12/09/2026 elle interdit SANS
+    CITER. L'ancienne version écrivait « pipeline système », « gate qualité »,
+    « socle verrouillé » en toutes lettres pour les défendre, et ce test
+    l'exigeait. La reprise Zenitek `db0d9508` a perdu deux chapitres sur ce
+    vocabulaire : une interdiction qui donne l'exemple l'enseigne. La
+    vérification inverse vit dans
+    `test_le_prompt_n_ecrit_pas_ce_que_le_controle_punit.py`.
+    """
     from generation.chapitres.runner import _SYSTEME
 
-    assert "Ne nomme JAMAIS nos rouages" in _SYSTEME
-    assert "pipeline système" in _SYSTEME
-    assert "gate qualité" in _SYSTEME
+    assert "Ne nomme JAMAIS les rouages qui produisent ce document" in _SYSTEME
+    assert "pipeline système" not in _SYSTEME
+    assert "gate qualité" not in _SYSTEME

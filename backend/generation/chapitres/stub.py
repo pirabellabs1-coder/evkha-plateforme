@@ -83,7 +83,7 @@ def _donnees_citees(prompt: str) -> list[str]:
     return cites[:_CITATIONS_PAR_CHAPITRE] or _ID_SOCLE.findall(prompt)[:2]
 _NUMERO = re.compile(r"^CHAPITRE À RÉDIGER : (\d+) — (.+)$", re.MULTILINE)
 
-_SECTEUR = re.compile(r"^SOCLE VERROUILLÉ — (.+?),", re.MULTILINE)
+_SECTEUR = re.compile(r"^DONNÉES DE RÉFÉRENCE — (.+?),", re.MULTILINE)
 
 
 def _type_graphique(prompt: str, numero: int) -> str:
@@ -125,7 +125,7 @@ def _tableau(numero: int, intitule: str) -> dict[str, object]:
     lignes = [
         [
             f"{intitule} {rang}",
-            "Repère issu du socle verrouillé",
+            "Repère issu des données de référence",
             "Effet sur le périmètre accessible",
             "Arbitrage à porter au plan",
         ]

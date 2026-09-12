@@ -58,7 +58,8 @@ _SYSTEME = (
     "marque. `accessibilite` reste `accessibilite`.\n"
     "\n"
     "Les graphiques que tu demandes ne portent AUCUNE valeur : seulement des "
-    "identifiants du socle. Le rendu résout les valeurs lui-même, ce qui rend "
+    "identifiants des données de référence. Le rendu résout les valeurs "
+    "lui-même, ce qui rend "
     "impossible qu'un graphique contredise le texte qui l'entoure.\n"
     "\n"
     # Les fichiers d'instruction montrent des exemples de tableaux HTML. Ils
@@ -135,19 +136,27 @@ _SYSTEME = (
     "distingue ce qui est observé de ce qui est estimé — sers-t'en pour "
     "calibrer ta prudence, jamais pour t'abriter derrière.\n"
     "\n"
-    "AUCUNE TRACE DE FABRICATION dans le document. Les identifiants du socle "
+    "AUCUNE TRACE DE FABRICATION dans le document. Les identifiants des "
+    "données de référence "
     "(`tam`, `sam`, `som`, `marche_national_taille`…) sont des noms internes : "
     "écris « le marché national », « le marché adressable », jamais leur "
-    "identifiant. Pas davantage de « analyse à dire d'expert », de « socle "
-    "verrouillé », ni d'aucune mention du dispositif qui produit l'étude.\n"
-    # Retour cliente du 11/08/2026 : « socle bloqué / pipeline système » sont
-    # ressortis dans un document livré. La regle vaut pour la CLASSE.
-    "Ne nomme JAMAIS nos rouages : ni socle verrouillé ou bloqué, ni hors "
-    "socle, ni pipeline système, ni gate qualité, ni prompt système, ni "
-    "chapitre 0, ni livrable bloqué. Le client lit une étude de marché, pas "
-    "le journal de la machine qui l'a écrite. Si une donnée manque, dis ce "
-    "qui manque et ce que tu retiens à la place — jamais « le socle ne la "
-    "porte pas ».\n"
+    "identifiant. Pas davantage de « analyse à dire d'expert », ni d'aucune "
+    "mention du dispositif qui produit l'étude.\n"
+    # Retour cliente du 11/08/2026 : le vocabulaire de nos rouages est ressorti
+    # dans un document livré. La règle vaut pour la CLASSE.
+    #
+    # Et elle s'énonce SANS ÉCRIRE les locutions punies. L'ancienne version les
+    # citait toutes, en toutes lettres — « ni socle verrouillé ou bloqué, ni
+    # hors socle… » — c'est-à-dire qu'elle fournissait au modèle le lexique
+    # exact que `_VOCABULAIRE_INTERNE` refuse. Le 12/09/2026, la reprise
+    # Zenitek `db0d9508` a perdu deux chapitres sur ce motif. Une interdiction
+    # qui donne l'exemple de ce qu'elle interdit l'enseigne (règle 5).
+    "Ne nomme JAMAIS les rouages qui produisent ce document : ni la mécanique "
+    "qui rassemble les chiffres, ni les étapes de sa fabrication, ni ses "
+    "contrôles internes, ni ses numérotations de travail. Le client lit une "
+    "étude, pas le journal de la machine qui l'a écrite. Si une donnée manque, "
+    "dis ce qui manque et ce que tu retiens à la place — jamais qu'elle "
+    "n'était pas disponible dans nos données.\n"
     "\n"
     "ÉCRIT POUR QUELQU'UN QUI DÉCOUVRE. Ton lecteur porte un projet, il n'est "
     "pas analyste. La PREMIÈRE fois qu'un terme technique apparaît dans "
@@ -604,8 +613,23 @@ def _bloc_socle(socle: Socle) -> str:
         + (f" — dérivé de {', '.join(d.derivee_de)}" if d.derivee_de else "")
         for d in socle.donnees
     ]
+    # « DONNÉES DE RÉFÉRENCE » et non « SOCLE VERROUILLÉ ».
+    #
+    # Ce titre montrait au modèle, en majuscules et en tête du bloc de
+    # chiffres, la locution EXACTE que `_VOCABULAIRE_INTERNE` punit. Le dépôt
+    # avait déjà mesuré ce mécanisme — vingt-deux occurrences d'un nom de
+    # plateforme recopiées depuis une simple docstring : le modèle reprend ce
+    # qu'on lui montre, surtout écrit en capitales.
+    #
+    # 12/09/2026, reprise Zenitek `db0d9508` : DEUX chapitres tués sur ce
+    # motif, dont `str.20.sources` — le chapitre même qui devait montrer si
+    # les nouvelles règles de traçabilité servaient. Les quatre générations
+    # précédentes du même dossier en perdaient zéro ou un.
+    #
+    # C'est le défaut que la règle 5 condamne, ici entre un prompt et un
+    # contrôle : l'un écrit ce que l'autre interdit.
     entete = (
-        f"SOCLE VERROUILLÉ — {socle.secteur}, {socle.zone.pays}"
+        f"DONNÉES DE RÉFÉRENCE — {socle.secteur}, {socle.zone.pays}"
         + (f" / {socle.zone.region}" if socle.zone.region else "")
         + (f" / {socle.zone.ville}" if socle.zone.ville else "")
         + f" (arrêté au {socle.date_socle.isoformat()})"
@@ -1421,7 +1445,7 @@ def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
 
     return (
         "VISUELS — un graphique ne porte AUCUNE valeur : il porte des "
-        "identifiants du socle, résolus au rendu. Un identifiant absent du "
+        "identifiants des données de référence, résolus au rendu. Un identifiant absent des "
         "socle fait abandonner la figure entière.\n\n"
         + OBJECTIF_FIGURES_TEXTE + "\n\n"
         + REGLES_IDENTIFIANTS_FIGURES + "\n\n"
