@@ -85,7 +85,9 @@ def test_la_requete_emploie_l_outil_serveur_et_le_modele_du_projet() -> None:
 
     appel = sdk.appels[0]
     assert appel["model"] == "claude-sonnet-4-6"
-    assert appel["tools"] == [{"type": "web_search_20260209", "name": "web_search", "max_uses": 1}]
+    # La variante BASIQUE : la dynamique rendait zéro citation, en 105 s
+    # depuis la production (mesure du 13/09/2026, voir `TYPE_OUTIL`).
+    assert appel["tools"] == [{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}]
 
 
 def test_une_erreur_de_l_outil_n_est_pas_un_resultat_vide() -> None:

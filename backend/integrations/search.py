@@ -248,8 +248,20 @@ class ClaudeWebSearchClient:
     la nomme — sinon elle passerait pour « aucun résultat ».
     """
 
-    #: Version de l'outil avec filtrage dynamique (modèles 4.6 et suivants).
-    TYPE_OUTIL = "web_search_20260209"
+    #: La variante BASIQUE, et non celle à filtrage dynamique.
+    #:
+    #: Mesuré le 13/09/2026, même requête Zenitek, `claude-sonnet-5` :
+    #:
+    #:     basique    13 s    6-8 résultats   6-8 citations   ~12 000 jetons
+    #:     dynamique  36 s    6 résultats     0 citation      ~60 000 jetons
+    #:                (105 s depuis la production)
+    #:
+    #: La variante dynamique filtre les pages par exécution de code avant de
+    #: répondre : trois fois plus lente, cinq fois plus chère, et SANS AUCUNE
+    #: citation — donc sans aucun extrait à donner aux chapitres. Seize
+    #: requêtes à 105 s font une demi-heure de recherche, au-delà du délai de
+    #: vingt minutes après lequel un dossier est déclaré interrompu.
+    TYPE_OUTIL = "web_search_20250305"
 
     def __init__(
         self, *, api_key: str | None = None, model_id: str | None = None,
