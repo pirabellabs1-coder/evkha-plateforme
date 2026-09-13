@@ -1815,18 +1815,40 @@ def generer_chapitre(
         # une métadonnée est le mauvais prix (business plan `2a8872d0`).
         derniere_tentative=derniere_tentative,
     )
-    # Les FIGURES sont validées ici, avant que le chapitre ne soit accepté —
-    # et non au montage, où il est trop tard.
+    # Les FIGURES sont jugées ici, par le moteur qui dessine — mais une figure
+    # impossible ne paie JAMAIS une reprise à elle seule.
     #
-    # Stratégie Zenitek (12/09/2026) : 31 figures demandées, 31 impossibles à
-    # dessiner, découvertes à l'assemblage, donc simplement disparues. Le
-    # chapitre, lui, avait été accepté et payé. Le contrôle du document n'y
-    # pouvait plus rien : une figure ne se rattrape pas après coup, elle se
-    # redemande. C'est la règle du dépôt — ce qui refait le document après le
-    # contrôle doit être contrôlé à son tour —, prise à l'endroit.
-    motifs.extend(_motifs_de_figure(payload, socle, derniere_tentative=derniere_tentative))
+    # Première version (12/09/2026) : toute figure impossible faisait refaire
+    # le chapitre. Mesuré sur la même stratégie Zenitek, même socle, mêmes
+    # documents :
+    #
+    #     655b0908  avant   4 reprises   4,33 €   10/32 figures dessinées
+    #     db0d9508  après  34 reprises   6,51 €   11/18
+    #     db228221  après  34 reprises   6,52 €    7/17
+    #
+    # Huit fois plus de reprises, près de QUATRE euros de tentatives jetées par
+    # dossier — et au dernier essai la figure passait quand même, donc on
+    # payait pour perdre les mêmes figures. Pire : le budget vidé, la relecture
+    # finale s'arrêtait sur « budget du dossier épuisé » sans corriger un seul
+    # des défauts réparables qu'elle avait trouvés.
+    #
+    # Désormais le motif de figure VOYAGE avec une reprise déjà décidée pour
+    # une autre raison — il ne coûte alors rien de plus. Seul, il est journalisé
+    # et le chapitre est accepté : l'assemblage imprime les données de la figure
+    # en tableau, et le lecteur ne perd que la forme.
+    motifs_de_figure = _motifs_de_figure(
+        payload, socle, derniere_tentative=derniere_tentative
+    )
     if motifs:
+        motifs.extend(motifs_de_figure)
         raise ChapitreInvalideError(motifs, consommation)
+    if motifs_de_figure:
+        _log.info(
+            "Chapitre %s : %s figure(s) impossible(s), acceptée(s) sans reprise "
+            "— leurs données partiront en tableau. %s",
+            payload.chapitre, len(motifs_de_figure),
+            " | ".join(motifs_de_figure)[:400],
+        )
 
     arbitrage = _arbitrer_conformite(
         chapter, payload, document, derniere_tentative=derniere_tentative

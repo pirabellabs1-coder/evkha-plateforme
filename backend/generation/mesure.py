@@ -72,6 +72,12 @@ class Mesure:
     sources: MesureDesSources | None = None
     chiffres_hors_socle: list[str] = field(default_factory=list)
     autres_anomalies: int = 0
+    #: Adresses DISTINCTES que la recherche web a rapportées au dossier. C'est
+    #: le dénominateur qui manquait à la mesure des sources : « 0 adresse
+    #: vérifiable » ne dit pas la même chose selon que le modèle en avait
+    #: quarante sous les yeux ou aucune. Dans le premier cas il désobéit ; dans
+    #: le second, aucune règle de prompt n'y peut rien (13/09/2026).
+    adresses_collectees: int = 0
     #: Renseigné quand le document n'a pas pu être rendu. Ne pas pouvoir
     #: mesurer EST la mesure : on le dit, on ne rend pas des zéros.
     echec: str = ""
@@ -102,6 +108,7 @@ class Mesure:
             },
             "chiffres_hors_socle": self.chiffres_hors_socle,
             "autres_anomalies": self.autres_anomalies,
+            "adresses_collectees": self.adresses_collectees,
         }
 
 
@@ -146,6 +153,11 @@ def mesurer_les_sources(
     return mesure
 
 
+def adresses_collectees(job: GenerationJob) -> int:
+    """Les URL distinctes du brief de recherche : ce que le modèle POUVAIT citer."""
+    return len(set(_URL_RE.findall(job.research_brief or "")))
+
+
 def mesurer(job: GenerationJob) -> Mesure:
     """Compte les trois défauts sur le livrable du dossier. N'écrit rien."""
     from generation.rendu_word.services import produire_docx
@@ -155,7 +167,7 @@ def mesurer(job: GenerationJob) -> Mesure:
         try:
             livrable = produire_docx(job, destination=Path(dossier) / "mesure.docx")
         except Exception as exc:  # noqa: BLE001
-            return Mesure(echec=str(exc))
+            return Mesure(echec=str(exc), adresses_collectees=adresses_collectees(job))
         rapport = livrable.rapport
         controle = verifier_livrable(
             job, livrable.chemin, assemblage=rapport, ouvrir_incident=False,
@@ -174,4 +186,5 @@ def mesurer(job: GenerationJob) -> Mesure:
         sources=mesurer_les_sources(sections_du_dossier(job)),
         chiffres_hors_socle=hors_socle,
         autres_anomalies=len(controle.anomalies) - len(hors_socle),
+        adresses_collectees=adresses_collectees(job),
     )

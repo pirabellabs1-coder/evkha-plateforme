@@ -149,3 +149,24 @@ def test_la_mesure_ne_s_ouvre_pas_sans_jeton() -> None:
     """Elle lit le contenu de dossiers clients : elle est derrière la garde."""
     reponse = Client().get("/api/dashboard/jobs/00000000-0000-0000-0000-000000000000/mesure/")
     assert reponse.status_code in (401, 403), reponse.status_code
+
+
+def test_la_mesure_dit_ce_que_le_modele_POUVAIT_citer() -> None:
+    """Le dénominateur des sources.
+
+    « 0 adresse vérifiable » sur six stratégies Zenitek de suite : sans savoir
+    combien d'adresses la recherche avait rapportées, impossible de dire si le
+    modèle désobéissait ou s'il n'avait rien à citer.
+    """
+    from types import SimpleNamespace
+
+    from generation.mesure import adresses_collectees
+
+    brief = (
+        "## axe [chapitres: 3] — marché\n"
+        "- Insee https://www.insee.fr/a (2025)\n"
+        "- Insee encore https://www.insee.fr/a (2025)\n"
+        "- Numeum https://numeum.fr/b\n"
+    )
+    assert adresses_collectees(SimpleNamespace(research_brief=brief)) == 2  # type: ignore[arg-type]
+    assert adresses_collectees(SimpleNamespace(research_brief="")) == 0  # type: ignore[arg-type]

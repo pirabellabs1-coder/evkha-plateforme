@@ -84,6 +84,10 @@ class Command(BaseCommand):
                 f"{sources.sans_adresse} SANS adresse utilisable · "
                 f"{sources.du_client} venant du client"
             )
+        self.stdout.write(
+            f"            {mesure.adresses_collectees} adresse(s) rapportée(s) "
+            "par la recherche web — ce que le modèle pouvait citer"
+        )
 
         self.stdout.write(f"  CHIFFRES  {len(mesure.chiffres_hors_socle)} hors socle")
         for detail in mesure.chiffres_hors_socle[:5]:
