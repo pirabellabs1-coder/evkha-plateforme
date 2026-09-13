@@ -379,6 +379,12 @@ class ResultatRecherche:
     #: Les premières erreurs DISTINCTES, type et message : c'est ce qui dit si
     #: le fournisseur limite le débit, bloque l'adresse, ou n'est pas installé.
     erreurs: list[str] = field(default_factory=list)
+    #: Ce que la recherche a consommé quand son fournisseur est PAYANT. Zéro
+    #: pour les fournisseurs gratuits ; l'appelant l'inscrit au budget.
+    input_tokens: int = 0
+    output_tokens: int = 0
+    recherches_facturees: int = 0
+    modele: str = ""
 
     @property
     def muette(self) -> bool:
@@ -481,6 +487,11 @@ def collecter_la_recherche(
 
     resultat.echecs = echecs
     resultat.retenues = retenues
+    resultat.input_tokens = int(getattr(client, "input_tokens", 0) or 0)
+    resultat.output_tokens = int(getattr(client, "output_tokens", 0) or 0)
+    resultat.recherches_facturees = int(getattr(client, "recherches", 0) or 0)
+    if resultat.recherches_facturees or resultat.input_tokens:
+        resultat.modele = str(getattr(client, "modele", "") or "")
     if not sections:
         return resultat
 

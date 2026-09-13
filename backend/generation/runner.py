@@ -405,6 +405,16 @@ def run_generation_job(
                 erreurs=[f"{type(erreur).__name__} : {str(erreur)[:160]}"],
             )
         brief = recherche.brief
+        if recherche.recherches_facturees or recherche.input_tokens:
+            from .cost import record_recherche_web  # noqa: PLC0415
+
+            record_recherche_web(
+                job,
+                input_tokens=recherche.input_tokens,
+                output_tokens=recherche.output_tokens,
+                recherches=recherche.recherches_facturees,
+                model=recherche.modele or None,
+            )
         if recherche.muette:
             # Le dossier continue — mais il part SANS aucune source web, et ses
             # chapitres ne pourront citer aucune adresse vérifiable. Quatre

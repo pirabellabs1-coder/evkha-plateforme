@@ -229,3 +229,26 @@ def test_une_recherche_saine_n_ouvre_rien(monkeypatch: pytest.MonkeyPatch) -> No
     assert not OperationalIncident.objects.filter(job=job).exists()
     job.refresh_from_db()
     assert "insee.fr" in job.research_brief
+
+
+@pytest.mark.django_db
+def test_une_recherche_payante_est_inscrite_au_budget_des_le_lancement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La recherche de Claude se paie (13/09/2026) : le plafond doit la voir."""
+    from generation.models import GenerationJob
+    from generation.research import ResultatRecherche
+
+    monkeypatch.setattr(
+        "generation.research.collecter_la_recherche",
+        lambda *a, **k: ResultatRecherche(
+            brief="SOURCES WEB COLLECTÉES — https://www.insee.fr/a",
+            requetes=16, retenues=40, fournisseur="ClaudeWebSearchClient",
+            input_tokens=192000, output_tokens=4800, recherches_facturees=16,
+            modele="claude-sonnet-4-6",
+        ),
+    )
+    job = _dossier()
+    _lancer_jusqu_apres_la_recherche(job, monkeypatch)
+
+    assert GenerationJob.objects.get(pk=job.pk).total_cost_eur > 0

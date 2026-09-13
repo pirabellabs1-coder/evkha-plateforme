@@ -212,6 +212,150 @@ class DuckDuckGoWebSearchClient:
         return SearchResponse(query=query, results=results, answer="")
 
 
+class ClaudeWebSearchClient:
+    """Recherche web exécutée par l'outil serveur `web_search` de Claude.
+
+    ## Pourquoi ce fournisseur
+
+    Le fournisseur gratuit (DuckDuckGo) a rendu ZÉRO adresse sur six dossiers
+    de suite, les 11 et 12 septembre 2026, sans que rien ne le dise. Le même
+    serveur rapportait cinq résultats par requête le lendemain : un blocage
+    passager, typique d'un moteur gratuit interrogé depuis un centre de
+    données. La recherche de Claude s'exécute chez Anthropic — elle ne dépend
+    pas de l'adresse de notre serveur. Décision du client, 13/09/2026.
+
+    ## Ce qu'elle rend, et pourquoi pas davantage
+
+    Le texte des pages trouvées arrive CHIFFRÉ (`encrypted_content`) : il n'est
+    pas lisible hors de l'API. On demande donc au modèle de citer, pour chaque
+    source, le fait qu'elle porte ; les CITATIONS de sa réponse donnent le
+    passage exact (`cited_text`) rattaché à son adresse. Une source trouvée
+    mais jamais citée garde son titre et son adresse, sans extrait : on ne
+    fabrique pas d'extrait à sa place.
+
+    ## Ce qu'elle coûte
+
+    Une recherche est facturée (10 $ les 1 000) EN PLUS des jetons du modèle.
+    Les compteurs `input_tokens`, `output_tokens` et `recherches` s'accumulent
+    sur l'instance : l'appelant les inscrit au budget du dossier. Un coût
+    qu'on ne compte pas est un plafond qui ment (voir `generation/cost.py`).
+
+    ## Ce qu'elle refuse
+
+    Une erreur de l'outil n'est PAS une exception de l'API : elle revient en
+    HTTP 200, sous forme d'objet à la place de la liste de résultats. On la
+    transforme en exception, pour que la collecte la compte comme un échec et
+    la nomme — sinon elle passerait pour « aucun résultat ».
+    """
+
+    #: Version de l'outil avec filtrage dynamique (modèles 4.6 et suivants).
+    TYPE_OUTIL = "web_search_20260209"
+
+    def __init__(
+        self, *, api_key: str | None = None, model_id: str | None = None,
+        sdk_client: object | None = None,
+    ) -> None:
+        self._api_key = api_key
+        self._model_id = model_id
+        self._sdk_client = sdk_client
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self.recherches = 0
+
+    @property
+    def modele(self) -> str:
+        if self._model_id:
+            return self._model_id
+        from integrations.claude import (  # noqa: PLC0415
+            _resolve_anthropic_model_id,
+            _resolve_model_alias,
+        )
+
+        return _resolve_anthropic_model_id(_resolve_model_alias())
+
+    def _sdk(self) -> object:
+        if self._sdk_client is not None:
+            return self._sdk_client
+        import os
+
+        import anthropic  # import paresseux : jamais chargé en CI
+
+        api_key = self._api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            msg = "ANTHROPIC_API_KEY manquante pour ClaudeWebSearchClient."
+            raise RuntimeError(msg)
+        self._sdk_client = anthropic.Anthropic(api_key=api_key)
+        return self._sdk_client
+
+    def search(
+        self,
+        *,
+        query: str,
+        max_results: int = _DEFAULT_MAX_RESULTS,
+        topic: str = "general",
+        time_range: str = "",
+    ) -> SearchResponse:
+        plafond = max(1, min(max_results, 10))
+        consigne = (
+            f"Recherche sur le web : « {query} ».\n\n"
+            f"Retiens au plus {plafond} sources parmi les plus fiables — "
+            "statistiques publiques, organismes officiels, fédérations "
+            "professionnelles d'abord. Pour chacune, cite en une ou deux "
+            "phrases le fait chiffré ou daté qu'elle apporte, en t'appuyant "
+            "uniquement sur les résultats de la recherche. N'ajoute rien qui "
+            "n'y figure pas."
+        )
+        reponse = self._sdk().messages.create(  # type: ignore[attr-defined]
+            model=self.modele,
+            max_tokens=4096,
+            tools=[{"type": self.TYPE_OUTIL, "name": "web_search", "max_uses": 1}],
+            messages=[{"role": "user", "content": consigne}],
+        )
+
+        usage = getattr(reponse, "usage", None)
+        self.input_tokens += int(getattr(usage, "input_tokens", 0) or 0)
+        self.output_tokens += int(getattr(usage, "output_tokens", 0) or 0)
+        serveur = getattr(usage, "server_tool_use", None)
+        self.recherches += int(getattr(serveur, "web_search_requests", 0) or 0)
+
+        trouvees: list[object] = []
+        extraits: dict[str, list[str]] = {}
+        for bloc in getattr(reponse, "content", []) or []:
+            genre = getattr(bloc, "type", "")
+            if genre == "web_search_tool_result":
+                contenu = getattr(bloc, "content", None)
+                if not isinstance(contenu, list):
+                    code = getattr(contenu, "error_code", "inconnue")
+                    msg = f"Recherche Claude en erreur : {code}"
+                    raise RuntimeError(msg)
+                trouvees.extend(contenu)
+            elif genre == "text":
+                for citation in getattr(bloc, "citations", None) or []:
+                    if getattr(citation, "type", "") != "web_search_result_location":
+                        continue
+                    passage = str(getattr(citation, "cited_text", "") or "").strip()
+                    if passage:
+                        extraits.setdefault(str(citation.url), []).append(passage)
+
+        vues: set[str] = set()
+        resultats: list[SearchResult] = []
+        for trouvee in trouvees:
+            url = str(getattr(trouvee, "url", "") or "").strip()
+            if not url or url in vues:
+                continue
+            vues.add(url)
+            resultats.append(SearchResult(
+                title=str(getattr(trouvee, "title", "") or "").strip(),
+                url=url,
+                content=" ".join(extraits.get(url, []))[:1500],
+                score=0.0,
+                published_date=str(getattr(trouvee, "page_age", "") or "").strip(),
+            ))
+        # Les sources CITÉES d'abord : ce sont celles dont on a un extrait.
+        resultats.sort(key=lambda r: not r.content)
+        return SearchResponse(query=query, results=tuple(resultats[:plafond]))
+
+
 def get_search_client() -> WebSearchClient:
     """Stub par défaut ; sinon fournisseur réel selon EVKHA_SEARCH_PROVIDER.
 
@@ -220,6 +364,8 @@ def get_search_client() -> WebSearchClient:
         * "duckduckgo" (défaut) -> gratuit, sans clé.
         * "tavily" -> uniquement si TAVILY_API_KEY présente, sinon repli
           DuckDuckGo (jamais de blocage faute de clé payante).
+        * "claude" -> outil `web_search` de Claude, si ANTHROPIC_API_KEY est
+          présente ; sinon repli DuckDuckGo. Payant (13/09/2026).
     Aucune brique payante n'est jamais activée implicitement.
     """
     import os
@@ -229,6 +375,12 @@ def get_search_client() -> WebSearchClient:
         return StubWebSearchClient()
 
     provider = str(getattr(settings, "EVKHA_SEARCH_PROVIDER", "duckduckgo")).lower()
+    if provider == "claude":
+        # Payant : activé seulement par ce réglage explicite. Sans clé
+        # d'API, repli gratuit — une recherche ne bloque jamais un dossier.
+        if os.environ.get("ANTHROPIC_API_KEY", ""):
+            return ClaudeWebSearchClient()
+        return DuckDuckGoWebSearchClient()
     if provider == "tavily":
         has_key = bool(
             os.environ.get("TAVILY_API_KEY", "")

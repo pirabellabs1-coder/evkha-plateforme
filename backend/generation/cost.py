@@ -231,6 +231,47 @@ def record_additional_cost(
     return extra
 
 
+#: Une recherche de l'outil `web_search` de Claude : 10 $ les 1 000, convertis
+#: au meme taux que `MODEL_PRICING_EUR` (0,90 EUR le dollar).
+COUT_RECHERCHE_WEB_EUR = Decimal("0.009")
+
+
+def record_recherche_web(
+    job: GenerationJob,
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    recherches: int,
+    model: str | None = None,
+) -> Decimal:
+    """Inscrit au dossier le cout de la recherche web, quand elle est payante.
+
+    La recherche precede l'ecriture : aucun chapitre n'a encore de cout. Elle
+    est rattachee au PREMIER chapitre, parce que le total du dossier se calcule
+    depuis les chapitres (`current_job_cost_eur`) — un cout range ailleurs
+    serait un cout que le plafond ne voit pas.
+
+    Pas de `enforce_budget` ici : quelques centimes, au lancement, ne doivent
+    pas arreter un dossier qui n'a encore rien ecrit.
+    """
+    if input_tokens <= 0 and output_tokens <= 0 and recherches <= 0:
+        return Decimal("0")
+    premier = job.chapters.order_by("chapter_number").first()
+    if premier is None:
+        return Decimal("0")
+    montant = estimate_call_cost_eur(input_tokens, output_tokens, model) + (
+        COUT_RECHERCHE_WEB_EUR * recherches
+    )
+    premier.input_tokens += input_tokens
+    premier.output_tokens += output_tokens
+    premier.cost_eur += montant
+    premier.save(update_fields=["input_tokens", "output_tokens", "cost_eur", "updated_at"])
+    GenerationJob.objects.filter(pk=job.pk).update(
+        total_cost_eur=current_job_cost_eur(job)
+    )
+    return montant
+
+
 # Un mot francais coute ~1,6 token. La marge absorbe le balisage (tableaux
 # HTML, titres) qui consomme des tokens sans etre du texte lisible.
 _TOKENS_PAR_MOT = 1.6
