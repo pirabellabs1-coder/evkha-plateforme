@@ -208,7 +208,7 @@ OBJECTIF_FIGURES_TEXTE = (
 #: `chapitres/runner._bloc_visuels` le reinjecte desormais. Une seule source
 #: (regle 5) : les deux moteurs lisent CETTE constante.
 REGLES_IDENTIFIANTS_FIGURES = (
-    "Un graphique ne porte aucune valeur : il porte des identifiants du socle. "
+    "Un graphique ne porte aucune valeur : il porte des identifiants des données de référence. "
     "Deux consequences pratiques — cite au moins DEUX identifiants (une figure "
     "a une seule barre n'apprend rien), et cite des grandeurs de MEME NATURE "
     "(des montants entre eux, des taux entre eux). Chaque ligne du socle porte "

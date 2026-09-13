@@ -27,7 +27,7 @@ Contenu obligatoire :
 - Hypotheses et signaux soutenant chaque scenario.
 - Risques structurels et leviers durables.
 Rappel : perspectives presentees comme projections ou scenarios, jamais comme certitudes.
-CONTRAINTE ABSOLUE — coherence chiffres-fondations : toutes les tailles de marche (TAM mondial, continental, national) et tous les TCAC que tu mentionnes dans ce chapitre DOIVENT etre exactement ceux du bloc SOCLE VERROUILLE de ton contexte. Ne recalcule pas, ne re-derive pas, ne cite pas de chiffre de memoire. Si un scenario chiffre s'ecarte d'une valeur fondation, exprime l'ecart en % relatif a la valeur fondation.
-Distinction critique : `marche_mondial_taille` et `marche_continental_taille` sont deux valeurs DIFFERENTES dans le SOCLE VERROUILLE. La valeur continentale n'est jamais le marche mondial — labellise chaque chiffre avec son perimetre exact.
+CONTRAINTE ABSOLUE — coherence chiffres-fondations : toutes les tailles de marche (TAM mondial, continental, national) et tous les TCAC que tu mentionnes dans ce chapitre DOIVENT etre exactement ceux du bloc DONNÉES DE RÉFÉRENCE de ton contexte. Ne recalcule pas, ne re-derive pas, ne cite pas de chiffre de memoire. Si un scenario chiffre s'ecarte d'une valeur fondation, exprime l'ecart en % relatif a la valeur fondation.
+Distinction critique : `marche_mondial_taille` et `marche_continental_taille` sont deux valeurs DIFFERENTES dans le bloc DONNÉES DE RÉFÉRENCE. La valeur continentale n'est jamais le marche mondial — labellise chaque chiffre avec son perimetre exact.
 
 Lecture strategique attendue : Proposer des decisions robustes a 2030 et les indicateurs qui permettront de reconnaitre le scenario en train de se realiser.

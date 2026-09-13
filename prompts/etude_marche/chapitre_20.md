@@ -29,6 +29,6 @@ Contenu obligatoire :
 Rappel : la conclusion ne doit ajouter aucun chiffre, risque ou conseil qui n'apparait pas deja dans un chapitre precedent.
 
 CONTRAINTE — chiffres de marche dans ce chapitre :
-Toutes les tailles de marche citees DOIVENT etre les valeurs exactes du bloc SOCLE VERROUILLE. Distinction critique : `marche_mondial_taille` (marche total mondial) et `marche_continental_taille` (part continentale) sont deux chiffres differents avec deux perimetres differents. Labellise chacun explicitement (ex. 'marche europeen IA X MEUR', 'marche mondial Y Md EUR'). Ne substitue jamais l'un a l'autre.
+Toutes les tailles de marche citees DOIVENT etre les valeurs exactes du bloc DONNÉES DE RÉFÉRENCE. Distinction critique : `marche_mondial_taille` (marche total mondial) et `marche_continental_taille` (part continentale) sont deux chiffres differents avec deux perimetres differents. Labellise chacun explicitement (ex. 'marche europeen IA X M€', 'marche mondial Y Md€'). Ne substitue jamais l'un a l'autre.
 
 Lecture strategique attendue : Formuler un avis final clair sur le potentiel du projet, ses conditions de reussite et les decisions immediates du porteur.

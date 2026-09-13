@@ -58,6 +58,13 @@ class Mesure:
     contexte: str
     """La phrase autour, pour situer le fragment."""
     dans_un_tableau: bool = False
+    #: La PHRASE entière qui porte la grandeur, et la position de celle-ci dans
+    #: la phrase. `contexte` (soixante caractères de part et d'autre) suffit à
+    #: retrouver le fragment, pas à voir le calcul qui l'a produit : dans
+    #: « 244 296 divisé par 269 721 donne 0,906, soit 90,6 % », les opérandes
+    #: sont hors de la fenêtre (corpus de production, 13/09/2026).
+    phrase: str = ""
+    debut_dans_la_phrase: int = -1
     chapitre: int | None = None
     """Le chapitre où la grandeur a été relevée, quand le bandeau le dit.
 
@@ -126,6 +133,29 @@ class DocumentLu:
         return sum(1 for n in longueurs if n > 60) / len(longueurs)
 
 
+#: Fin de phrase : ponctuation forte suivie d'une espace ou de la fin du texte.
+#: La virgule décimale française n'y est pas prise — « 0,906. » termine bien.
+_FIN_DE_PHRASE = re.compile(r"[.!?…](?=\s|$)")
+
+#: Au-delà, une « phrase » est un bloc sans ponctuation (une cellule, une liste
+#: écrite d'un trait) : on la borne pour ne pas combiner des nombres sans lien.
+_PHRASE_MAX = 400
+
+
+def _phrase(texte: str, debut: int, fin: int) -> tuple[str, int]:
+    """La phrase qui contient [debut, fin[, et la position du début dedans."""
+    ouverture = 0
+    for correspondance in _FIN_DE_PHRASE.finditer(texte, 0, debut):
+        ouverture = correspondance.end()
+    suite = _FIN_DE_PHRASE.search(texte, fin)
+    fermeture = suite.end() if suite else len(texte)
+    ouverture = max(ouverture, debut - _PHRASE_MAX)
+    fermeture = min(fermeture, fin + _PHRASE_MAX)
+    phrase = texte[ouverture:fermeture]
+    retrait = len(phrase) - len(phrase.lstrip())
+    return phrase.strip(), debut - ouverture - retrait
+
+
 def _contexte(texte: str, debut: int, fin: int) -> str:
     extrait = texte[max(debut - CONTEXTE, 0) : fin + CONTEXTE]
     return " ".join(extrait.split())
@@ -151,6 +181,7 @@ def mesures_dans(
             valeur = parse_amount(brut, unite)
         if valeur is None:
             continue
+        phrase, position = _phrase(texte, *correspondance.span())
         relevees.append(
             Mesure(
                 valeur=valeur,
@@ -158,6 +189,8 @@ def mesures_dans(
                 texte=correspondance.group(0).strip(),
                 contexte=_contexte(texte, *correspondance.span()),
                 dans_un_tableau=dans_un_tableau,
+                phrase=phrase,
+                debut_dans_la_phrase=position,
                 chapitre=chapitre,
             )
         )

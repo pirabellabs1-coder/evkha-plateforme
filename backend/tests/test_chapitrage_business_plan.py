@@ -107,10 +107,15 @@ def test_les_deux_chapitres_defusionnes_gardent_leur_contenu() -> None:
     assert "tresorerie de securite" in investissements.lower()
     # Le graphique de répartition des ressources vivait dans la section : il
     # doit survivre à la promotion en chapitre. Depuis le 10/08/2026 il se
-    # demande au contrat structuré (identifiants du socle), plus en patron
-    # HTML — le marqueur suit la phrase de la fiche, pas l'ancien <h3>.
+    # demande au contrat structuré (par identifiants), plus en patron HTML — le
+    # marqueur suit la phrase de la fiche, pas l'ancien <h3>.
+    #
+    # Ce test exigeait « identifiants du socle » mot pour mot : la locution
+    # même que `_VOCABULAIRE_INTERNE` refuse dans le document. Il verrouillait
+    # le défaut (audit du 14/09/2026, règle 6) ; il vérifie désormais la
+    # consigne, pas son ancienne formulation.
     assert "repartition des ressources de financement" in financement.lower()
-    assert "identifiants du socle" in financement
+    assert "identifiants des données de référence" in financement
     assert "apport personnel" in financement.lower()
     assert "emprunt" in financement.lower() or "financements externes" in financement.lower()
 

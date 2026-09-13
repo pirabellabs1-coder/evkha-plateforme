@@ -36,6 +36,7 @@ Il échoue sur le code d'avant, sur les deux emplacements à la fois.
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 from generation.chapitres.schema import _VOCABULAIRE_INTERNE
 from generation.socle.builder import OUTIL_DESCRIPTION
@@ -132,3 +133,80 @@ def test_la_garde_sait_encore_mordre() -> None:
     vert — un contrôle qui n'a rien à comparer n'est pas un succès (règle 1).
     """
     assert _fautes("Le socle verrouillé du dossier, et les chiffres hors socle.")
+
+
+
+# ── Tout ce qui part au modèle, pas seulement le prompt système ──────────────
+#
+# Audit du 14/09/2026 : le correctif du 12/09 avait retiré « SOCLE VERROUILLÉ »
+# du prompt système — et la même faute restait AILLEURS dans ce qui est envoyé :
+# « Aucun chiffre hors socle. » 135 fois dans le plan de l'étude de marché
+# (injecté sous chaque paragraphe), « bloc SOCLE VERROUILLE » dans six fichiers
+# de prompt, « identifiants du socle » dans la règle des figures envoyée à
+# chaque chapitre. Ce test ne regardait que le prompt système : il vise
+# désormais chaque source de consigne (règle 4).
+
+
+def _fichiers_de_prompt() -> list[Any]:
+    from generation.chapitres.configuration import RACINE_PROMPTS
+
+    fichiers = sorted(RACINE_PROMPTS.rglob("*.md"))
+    assert fichiers, "aucun fichier de prompt trouvé : le test ne jugerait rien (règle 1)"
+    return fichiers
+
+
+def test_aucun_fichier_de_prompt_n_ecrit_une_locution_punie() -> None:
+    """Le fichier TEL QU'IL PART : sans son bandeau de documentation.
+
+    Le bandeau (« Prompt du chapitre 0 — Fiche projet ») est retiré par le
+    chargeur avant l'envoi ; le juger ferait crier le test à tort. Le retrait
+    est celui du chargeur lui-même, importé (règle 5).
+    """
+    from generation.chapitres.fichiers_prompts import _BANDEAU
+
+    fautes = {
+        f.relative_to(f.parents[1]).as_posix():
+            _fautes(_BANDEAU.sub("", f.read_text(encoding="utf-8")))
+        for f in _fichiers_de_prompt()
+    }
+    assert {nom: liste for nom, liste in fautes.items() if liste} == {}
+
+
+def test_le_plan_de_l_etude_de_marche_n_ecrit_aucune_locution_punie() -> None:
+    """135 lignes « Aucun chiffre hors socle. », une sous chaque paragraphe."""
+    from generation.modele.consigne import plan_du_chapitre
+
+    plans = {numero: plan_du_chapitre(numero) for numero in range(0, 30)}
+    assert any(plans.values()), "aucun plan lu : le test ne jugerait rien (règle 1)"
+    assert {n: _fautes(t) for n, t in plans.items() if _fautes(t)} == {}
+
+
+def test_la_regle_des_figures_envoyee_a_chaque_chapitre_est_saine() -> None:
+    from generation.prompts import REGLES_IDENTIFIANTS_FIGURES
+
+    assert _fautes(REGLES_IDENTIFIANTS_FIGURES) == []
+
+
+def test_chaque_type_de_figure_nomme_dans_un_prompt_existe() -> None:
+    """Un type inconnu fait refuser le chapitre par le contrat, et le repayer.
+
+    Audit du 14/09/2026 : l'étude concurrentielle, chapitre 7, demandait une
+    figure « de type `barres_verticales` ». Ce type n'existe pas dans
+    `TypeGraphique` : la validation Pydantic refuse le chapitre avant tout
+    arbitrage, et ce refus ne s'assouplit pas au dernier essai. La liste qui
+    fait foi est l'énumération elle-même, importée (règle 5).
+    """
+    import re
+
+    from generation.chapitres.fichiers_prompts import _BANDEAU
+    from generation.chapitres.schema import TypeGraphique
+
+    connus = {t.value for t in TypeGraphique}
+    demande = re.compile(r"(?:figure|graphique)(?: de type)?\s+`([a-z_]+)`")
+    inconnus = {
+        f"{f.parent.name}/{f.name}": nom
+        for f in _fichiers_de_prompt()
+        for nom in demande.findall(_BANDEAU.sub("", f.read_text(encoding="utf-8")))
+        if nom not in connus
+    }
+    assert inconnus == {}

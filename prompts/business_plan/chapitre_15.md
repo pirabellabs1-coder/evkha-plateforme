@@ -31,7 +31,7 @@ Structure obligatoire du chapitre :
 - Securisation financiere du projet : ce qui absorbe un retard de chiffre d'affaires.
 - Lecture strategique du plan de financement.
 
-Puis demande un graphique en barres de la repartition des ressources de financement, en citant les identifiants du socle correspondants (apport, emprunt, subventions...) — jamais de valeurs en clair dans la figure.
+Puis demande un graphique en barres de la repartition des ressources de financement, en citant les identifiants des données de référence correspondants (apport, emprunt, subventions...) — jamais de valeurs en clair dans la figure.
 Une ligne par source de financement reelle du projet, legende courte en italique sous le tableau.
 
 Coherence a verifier : le total des ressources de ce chapitre est EGAL au total des besoins du chapitre 14. Si les deux different, le plan ne tient pas et il faut le dire, pas l'arrondir.

@@ -39,7 +39,7 @@ from core.numbers import amounts_in
 from ..prompts import PLAFOND_FIGURES, PLANCHER_FIGURES
 from ..socle.referentiel import identifiants_obligatoires
 from ..socle.schema import Socle, valeur_en_unites_de_base
-from .lecture import DocumentLu, Mesure
+from .lecture import DocumentLu, Mesure, mesures_dans
 from .rapport import Anomalie, Gravite
 
 #: Écart relatif toléré entre une grandeur du document et une valeur du socle.
@@ -169,7 +169,12 @@ def _derivations(references: Sequence[tuple[float, str]]) -> set[float]:
     sur l'une d'elles devient réelle. Un contrôle qui justifie tout ne justifie
     plus rien — ce serait remplacer un bruit par un silence.
     """
-    valeurs = [valeur for valeur, _ in references]
+    # DÉDOUBLONNÉES avant la coupe. Chaque montant figure deux fois dans
+    # `references` (famille « monetaire » et « brut ») : les 80 premières
+    # places étaient prises par des doublons du socle, et les chiffres du BRIEF,
+    # rangés après, n'entraient jamais dans une dérivation (audit du
+    # 14/09/2026).
+    valeurs = list(dict.fromkeys(valeur for valeur, _ in references))
     if len(valeurs) > _MAX_DONNEES_POUR_DERIVATIONS:
         valeurs = valeurs[:_MAX_DONNEES_POUR_DERIVATIONS]
 
@@ -211,6 +216,140 @@ def _justifiee(
         _proche(mesure.valeur, valeur, TOLERANCE_DERIVATION)
         for valeur in derivations
     )
+
+
+# ── Ce que la phrase elle-même justifie ──────────────────────────────────────
+#
+# Corpus de production mesuré le 13/09/2026 : 883 « chiffres hors socle » sur
+# 37 dossiers — 393 sur sept business plans, 409 sur onze études
+# concurrentielles. Relus un par un, presque aucun n'était une invention :
+#
+#   « 244 296 divisé par 269 721 donne 0,906, soit 90,6 % »   un calcul POSÉ
+#   « 87,5 %, calculée comme (101 772 - 54 276) / 54 276 »     idem
+#   « 18,65 % du marché local (6,25 + 7,40 + 5,00) »           une somme posée
+#   « 273 000 euros HT, Crisalid 2025 »                         un chiffre SOURCÉ
+#
+# Or c'est la consigne elle-même — « UN CALCUL SE MONTRE », dans
+# `COHERENCE_DES_CHIFFRES` — qui fait écrire le calcul dans la phrase : le
+# prompt l'exigeait et le contrôle le punissait, la contradiction de la règle 5.
+# Et ce contrôle fait partie des défauts que le contrôleur final RÉÉCRIT : il
+# faisait repayer des chapitres justes.
+#
+# Deux justifications nouvelles, et leurs bornes :
+#
+# - un CALCUL POSÉ : la grandeur résulte de deux nombres de sa phrase, à
+#   l'arrondi près de son écriture. Pour un MONTANT, les opérandes doivent le
+#   PRÉCÉDER — ou suivre entre parenthèses (« 172,5 M€ (150 × 1,15) ») : sans
+#   cette borne, trois chiffres inventés mais cohérents entre eux se
+#   justifieraient mutuellement. La base d'un calcul (« un marché de
+#   1 600 M€ ») n'a rien avant elle : elle reste signalée si le socle l'ignore.
+#   Un POURCENTAGE, lui, est toujours un rapport : il peut citer ses
+#   opérandes après lui. Qu'il tombe JUSTE est l'affaire de `calcul_faux`.
+# - un chiffre SOURCÉ dans sa phrase (« selon », « d'après », « source : »,
+#   ou une parenthèse qui nomme un organisme et une année). Il n'est pas « sans
+#   source » : il en cite une. Que cette source porte vraiment le chiffre ne se
+#   vérifie pas ici — c'est le rôle du contrôle des sources.
+
+_NOMBRE_NU = re.compile(r"(?<![\w,.])-?\d+(?:[^\S\r\n]\d{3})*(?:,\d+)?(?![\w])")
+
+_SOURCE_DANS_LA_PHRASE = re.compile(
+    r"\b(?:selon|d['’]apr[èe]s|source\s*:|sources\s*:)"
+    r"|\([^()]*\b[A-ZÉ][\w&'’.\-]{2,}[^()]*\b(?:19|20)\d{2}\b[^()]*\)",
+)
+
+#: Écart relatif toléré entre le calcul refait et la grandeur écrite, en plus
+#: de l'arrondi de son écriture : les OPÉRANDES aussi sont arrondis.
+_TOLERANCE_CALCUL_POSE = 0.005
+
+
+def _nombres_de_la_phrase(phrase: str) -> list[tuple[int, float]]:
+    """(position, valeur) de chaque nombre de la phrase, unités ramenées à la base."""
+    trouves: list[tuple[int, float]] = []
+    couverts: list[tuple[int, int]] = []
+    for grandeur in mesures_dans(phrase):
+        position = phrase.find(grandeur.texte)
+        if position >= 0:
+            trouves.append((position, grandeur.valeur))
+            couverts.append((position, position + len(grandeur.texte)))
+    for nu in _NOMBRE_NU.finditer(phrase):
+        if any(debut <= nu.start() < fin for debut, fin in couverts):
+            continue
+        valeur = _nombre(nu.group(0))
+        if valeur is not None:
+            trouves.append((nu.start(), valeur))
+    return trouves
+
+
+def _resultats(a: float, b: float) -> list[float]:
+    calcules = [a + b, abs(a - b), a * b, a * b / 100]
+    if abs(b) > EPSILON:
+        calcules += [a / b, a / b * 100, (a - b) / b * 100, abs(a - b) / b * 100]
+    if abs(a) > EPSILON:
+        calcules += [b / a, b / a * 100, (b - a) / a * 100, abs(b - a) / a * 100]
+    return calcules
+
+
+def _calculee_dans_sa_phrase(mesure: Mesure) -> bool:
+    """La grandeur est-elle le RÉSULTAT d'un calcul écrit dans sa phrase ?"""
+    if not mesure.phrase or mesure.debut_dans_la_phrase < 0:
+        return False
+    position = mesure.debut_dans_la_phrase
+    fin = position + len(mesure.texte)
+    nombres = [(p, v) for p, v in _nombres_de_la_phrase(mesure.phrase) if p != position]
+
+    # La parenthèse du calcul suit le résultat, pas forcément collée :
+    # « 172,5 M€ un an plus tard (150 x 1,15) ». Bornée pour ne pas aller
+    # chercher une parenthèse qui parle d'autre chose.
+    parenthese = re.match(r"[^()]{0,40}?\(([^()]*)\)", mesure.phrase[fin:])
+    dans_la_parenthese = []
+    if parenthese:
+        debut_p = fin + parenthese.start(1)
+        fin_p = fin + parenthese.end(1)
+        dans_la_parenthese = [(p, v) for p, v in nombres if debut_p <= p < fin_p]
+    if mesure.est_un_pourcentage:
+        operandes = nombres
+    else:
+        operandes = [(p, v) for p, v in nombres if p < position] + dans_la_parenthese
+    valeurs = [v for _, v in operandes]
+
+    # Les décimales du NOMBRE écrit (« 90,6 % » → 1), lues par `_decimales`,
+    # la même fonction que le contrôle des calculs annoncés (règle 5). Une
+    # première version redéfinissait `_decimales` sous le même nom : la
+    # définition du bas l'emportait, et « 90,6 % » comptait trois décimales.
+    nombre_ecrit = re.match(r"-?[\d\s]+(?:,\d+)?", mesure.texte.strip())
+    ecart_ecrit = (
+        0.5 * 10 ** -_decimales(nombre_ecrit.group(0) if nombre_ecrit else "")
+        if mesure.est_un_pourcentage else 0.0
+    )
+
+    # L'ÉCHELLE écrite du résultat : dans « 172,5 M€ (150 x 1,15) », 150 veut
+    # dire 150 millions. Le calcul refait sur les nombres nus se compare donc
+    # aussi au nombre ÉCRIT, avant sa conversion en unités de base.
+    ecrit = _nombre(re.sub(r"[^\d,\s-].*$", "", mesure.texte).strip())
+
+    def tombe_juste(calcul: float) -> bool:
+        return (
+            abs(calcul - mesure.valeur) <= ecart_ecrit + EPSILON
+            or _proche(calcul, mesure.valeur, _TOLERANCE_CALCUL_POSE)
+            or (
+                not mesure.est_un_pourcentage
+                and ecrit is not None
+                and _proche(calcul, ecrit, _TOLERANCE_CALCUL_POSE)
+            )
+        )
+
+    for index, a in enumerate(valeurs):
+        for b in valeurs[index + 1:]:
+            if any(tombe_juste(calcul) for calcul in _resultats(a, b)):
+                return True
+    # Une somme posée entre parenthèses : « 18,65 % (6,25 + 7,40 + 5,00) ».
+    if parenthese and "+" in parenthese.group(1) and len(dans_la_parenthese) >= 2:
+        return tombe_juste(sum(v for _, v in dans_la_parenthese))
+    return False
+
+
+def _sourcee_dans_sa_phrase(mesure: Mesure) -> bool:
+    return bool(mesure.phrase) and bool(_SOURCE_DANS_LA_PHRASE.search(mesure.phrase))
 
 
 # ── Contrôle 1 : aucune valeur hors socle ────────────────────────────────────
@@ -260,6 +399,9 @@ def controler_chiffres_hors_socle(
     deja_vues: set[str] = set()
     for mesure in document.mesures:
         if _justifiee(mesure, references, derivations):
+            continue
+        # Voir « Ce que la phrase elle-même justifie », plus haut.
+        if _calculee_dans_sa_phrase(mesure) or _sourcee_dans_sa_phrase(mesure):
             continue
         if mesure.texte in deja_vues:
             continue

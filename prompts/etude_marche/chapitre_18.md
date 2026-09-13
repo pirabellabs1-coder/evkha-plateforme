@@ -33,7 +33,7 @@ Commence par 1 paragraphe d'introduction. Puis le SWOT en bloc `tableau` : quatr
 Remplis chaque cellule avec 3 a 5 points reels (manuel §6, p. 16 : 3-5 forces, faiblesses, opportunites et menaces), specifiques au projet, pas generiques. Chaque point indique sa source dans l'etude. Apres le tableau, ajoute un paragraphe de lecture croisee : comment les forces compensent les faiblesses, comment les opportunites repondent aux menaces.
 
 CONTRAINTE — chiffres de marche dans ce chapitre :
-Quand tu mentionnes une taille de marche dans les opportunites ou menaces, utilise EXACTEMENT les valeurs du bloc SOCLE VERROUILLE. Distinction critique : `marche_mondial_taille` (marche total mondial) et `marche_continental_taille` (part continentale, ex. Europe IA strict) sont deux chiffres differents. Labellise chacun avec son perimetre exact (ex. 'marche europeen IA 407 MEUR', jamais 'marche mondial 407 MEUR' si 407 MEUR est la valeur continentale).
+Quand tu mentionnes une taille de marche dans les opportunites ou menaces, utilise EXACTEMENT les valeurs du bloc DONNÉES DE RÉFÉRENCE. Distinction critique : `marche_mondial_taille` (marche total mondial) et `marche_continental_taille` (part continentale, ex. Europe IA strict) sont deux chiffres differents. Labellise chacun avec son perimetre exact (ex. 'marche europeen IA 407 M€', jamais 'marche mondial 407 M€' si 407 M€ est la valeur continentale).
 
 Approfondissement obligatoire (manuel) :
 - Conserver une SWOT lisible avec 3 a 5 elements solides par cadran, tous relies a des preuves deja presentees.

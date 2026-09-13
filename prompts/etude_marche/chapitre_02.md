@@ -28,7 +28,7 @@ Contenu obligatoire, dans cet ordre :
 Ne repete pas les chiffres mondiaux et continentaux du chapitre 1 : tu les reprends comme point de depart, tu ne les re-estimes pas.
 
 DISTINCTION CRITIQUE mondial / continental (erreur fatale de coherence) :
-Le bloc SOCLE VERROUILLE contient DEUX valeurs separees et differentes :
+Le bloc DONNÉES DE RÉFÉRENCE contient DEUX valeurs separees et differentes :
   - `marche_mondial_taille` = taille totale du marche mondial (toutes geographies, toutes technologies pertinentes au projet)
   - `marche_continental_taille` = part de ce marche a l'echelle du continent pertinent (ex. Europe IA strict pour un projet francais)
 Ces deux valeurs sont differentes. Si tu ouvres ce chapitre avec une phrase du type 'Le chapitre 1 a etabli que le marche mondial represente X', X doit etre EXACTEMENT `marche_mondial_taille`, jamais `marche_continental_taille`. Confondre les deux dans la phrase d'ouverture propage l'erreur dans tous les chapitres suivants qui s'appuient sur ce chapitre comme reference.
@@ -61,9 +61,9 @@ Immediatement apres avoir annonce le SOM An1, insere un paragraphe intitule en g
 3. La justification du taux de capture retenu (une phrase)
 4. La meme derivation pour le SOM An3
 5. La verification de l'emboitement : TAM > SAM > SOM An3 > SOM An1 en euros sur une seule ligne
-Ce paragraphe est non-negociable : sans lui, le chapitre est rejete par le CHECK 1 (bloc A — Fondations du marche).
+Ce paragraphe est non-negociable : sans lui, le chapitre est rejete a la relecture des fondations du marche.
 
-Visuel utile (manuel) : graphique national/local + schema TAM/SAM/SOM. En fin de chapitre, demande UN graphique en barres montrant la repartition ou la dynamique du marche local, en citant des identifiants du socle de meme nature.
+Visuel utile (manuel) : graphique national/local + schema TAM/SAM/SOM. En fin de chapitre, demande UN graphique en barres montrant la repartition ou la dynamique du marche local, en citant des identifiants des données de référence de meme nature.
 Remplace Segment A/B/C et XX par les vraies donnees etablies dans l'analyse.
 
 Lecture strategique attendue : Dire si la zone est pertinente, quelle part du marche est reellement accessible et quelles hypotheses doivent etre testees en priorite.
