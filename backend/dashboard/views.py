@@ -1327,6 +1327,54 @@ def orders_list(request: HttpRequest) -> JsonResponse:
 
 @require_GET
 @csrf_exempt
+def system_recherche(request: HttpRequest) -> JsonResponse:
+    """Lance UNE requête de recherche web depuis la production, et dit ce qui revient.
+
+    ## Pourquoi cette route existe
+
+    Du 17/08 au 12/09/2026, la recherche web s'est éteinte en production sans
+    que rien ne le dise : zéro adresse sur six dossiers de suite, pendant que
+    les mêmes requêtes trouvaient cinq résultats chacune depuis un poste de
+    travail. Savoir si elle fonctionne coûtait donc une génération entière —
+    plusieurs euros et une heure — pour lire un nombre à la fin.
+
+    Cette route répond en quelques secondes et ne coûte rien : le fournisseur
+    par défaut est gratuit, et elle ne lance qu'une requête. Elle n'écrit rien.
+
+    `?q=` permet de rejouer la requête exacte d'un dossier ; par défaut, une
+    requête neutre et publique.
+    """
+    import time as _time  # noqa: PLC0415
+
+    from integrations.search import get_search_client  # noqa: PLC0415
+
+    requete = (request.GET.get("q") or "").strip()[:200] or (
+        "Insee nombre d'entreprises en France"
+    )
+    client = get_search_client()
+    debut = _time.monotonic()
+    try:
+        reponse = client.search(query=requete, max_results=5)
+    except Exception as erreur:  # noqa: BLE001 — le diagnostic EST l'erreur
+        return _json({
+            "fournisseur": type(client).__name__,
+            "requete": requete,
+            "resultats": 0,
+            "erreur": f"{type(erreur).__name__} : {str(erreur)[:300]}",
+            "duree_s": round(_time.monotonic() - debut, 2),
+        })
+    return _json({
+        "fournisseur": type(client).__name__,
+        "requete": requete,
+        "resultats": len(reponse.results),
+        "adresses": [r.url for r in reponse.results][:5],
+        "erreur": "",
+        "duree_s": round(_time.monotonic() - debut, 2),
+    })
+
+
+@require_GET
+@csrf_exempt
 def system_status(request: HttpRequest) -> JsonResponse:
     """Etat de la configuration : stubs actifs, intégrations."""
     from django.conf import settings  # noqa: PLC0415

@@ -395,12 +395,41 @@ def run_generation_job(
     # les requêtes (coût + cohérence entre chapitres restants). Vide en mode
     # stub — le pipeline continue sans ancrage, comme avant.
     if not job.research_brief:
-        try:
-            from .research import collect_research_brief  # noqa: PLC0415
+        from .research import ResultatRecherche, collecter_la_recherche  # noqa: PLC0415
 
-            brief = collect_research_brief(job.deliverable_type, variables)
-        except Exception:  # noqa: BLE001 — la recherche ne doit jamais bloquer un job
-            brief = ""
+        try:
+            recherche = collecter_la_recherche(job.deliverable_type, variables)
+        except Exception as erreur:  # noqa: BLE001 — la recherche ne doit jamais bloquer un job
+            recherche = ResultatRecherche(
+                requetes=1, echecs=1, fournisseur="(inconnu)",
+                erreurs=[f"{type(erreur).__name__} : {str(erreur)[:160]}"],
+            )
+        brief = recherche.brief
+        if recherche.muette:
+            # Le dossier continue — mais il part SANS aucune source web, et ses
+            # chapitres ne pourront citer aucune adresse vérifiable. Quatre
+            # semaines de dossiers sont partis ainsi sans que rien ne le dise
+            # (17/08 → 12/09/2026). Voir `ResultatRecherche`.
+            OperationalIncident.objects.create(
+                title=(
+                    f"Recherche web VIDE : {recherche.requetes} requête(s), "
+                    f"aucune source rapportée (job {job.id})"
+                ),
+                severity=IncidentSeverity.HIGH,
+                job=job,
+                order=job.order,
+                details={
+                    "type": "recherche_web_muette",
+                    "fournisseur": recherche.fournisseur,
+                    "requetes": recherche.requetes,
+                    "echecs": recherche.echecs,
+                    "erreurs": recherche.erreurs,
+                    "consequence": (
+                        "Aucune adresse web ne sera fournie aux chapitres : le "
+                        "document ne pourra citer aucune source vérifiable."
+                    ),
+                },
+            )
         if brief:
             job.research_brief = brief
             job.save(update_fields=["research_brief", "updated_at"])

@@ -146,6 +146,7 @@ urlpatterns = [
     ),
     # Système
     path("system/", views.system_status, name="system-status"),
+    path("system/recherche/", views.system_recherche, name="system-recherche"),
     # Génération manuelle
     path("generate/", views.create_generation, name="generate"),
 ]

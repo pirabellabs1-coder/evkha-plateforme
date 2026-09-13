@@ -350,6 +350,46 @@ def _format_result(result: SearchResult, pays: str = "") -> str:
     return ligne
 
 
+@dataclass
+class ResultatRecherche:
+    """Le brief ET ce qu'il a coûté d'obtenir — y compris quand il est vide.
+
+    ## Pourquoi cet objet existe
+
+    Du 17/08 au 12/09/2026, la recherche web de la production s'est éteinte
+    progressivement : 6 à 70 adresses par dossier jusqu'au 17 août, puis 0 à
+    22, puis ZÉRO sur les six stratégies Zenitek des 11 et 12 septembre. Les
+    mêmes seize requêtes, rejouées depuis un poste de travail, trouvaient cinq
+    résultats chacune : le serveur était bloqué, pas les requêtes.
+
+    Personne ne l'a su pendant quatre semaines. Les échecs étaient pourtant
+    comptés — mais écrits dans l'EN-TÊTE du brief, et quand toutes les
+    requêtes tombaient il n'y avait plus de brief, donc plus d'en-tête. Le cas
+    partiel parlait ; le cas total, le seul grave, se taisait (règles 1 et 9).
+
+    `collect_research_brief` garde sa signature — elle rend le texte. Qui doit
+    savoir POURQUOI le texte est vide lit cet objet.
+    """
+
+    brief: str = ""
+    requetes: int = 0
+    echecs: int = 0
+    retenues: int = 0
+    fournisseur: str = ""
+    #: Les premières erreurs DISTINCTES, type et message : c'est ce qui dit si
+    #: le fournisseur limite le débit, bloque l'adresse, ou n'est pas installé.
+    erreurs: list[str] = field(default_factory=list)
+
+    @property
+    def muette(self) -> bool:
+        """Des requêtes sont parties, et rien n'est revenu — hors doublure."""
+        return (
+            self.requetes > 0
+            and self.retenues == 0
+            and self.fournisseur != StubWebSearchClient.__name__
+        )
+
+
 def collect_research_brief(
     deliverable_type: str,
     variables: dict[str, object],
@@ -357,6 +397,19 @@ def collect_research_brief(
     client: WebSearchClient | None = None,
     pause_s: float | None = None,
 ) -> str:
+    """Le texte du brief (voir `collecter_la_recherche` pour le diagnostic)."""
+    return collecter_la_recherche(
+        deliverable_type, variables, client=client, pause_s=pause_s
+    ).brief
+
+
+def collecter_la_recherche(
+    deliverable_type: str,
+    variables: dict[str, object],
+    *,
+    client: WebSearchClient | None = None,
+    pause_s: float | None = None,
+) -> ResultatRecherche:
     """Lance les recherches et renvoie un brief textuel prêt à injecter.
 
     Renvoie "" si la recherche est désactivée (stub sans résultats réels), si le
@@ -374,8 +427,11 @@ def collect_research_brief(
         pause_s = 0.0 if isinstance(client, StubWebSearchClient) else _PAUSE_ENTRE_REQUETES_S
     variables = {**variables, "DELIVERABLE_TYPE": deliverable_type}
     couples = axes_et_requetes(variables)
+    resultat = ResultatRecherche(
+        requetes=len(couples), fournisseur=type(client).__name__
+    )
     if not couples:
-        return ""
+        return resultat
 
     # Le pays de l'étude sert à MARQUER les sources d'un périmètre plus large :
     # une source mondiale n'est pas écartée, elle est signalée comme telle au
@@ -392,9 +448,12 @@ def collect_research_brief(
             response = client.search(
                 query=requete, max_results=_RESULTS_PER_QUERY, topic="general"
             )
-        except Exception:  # noqa: BLE001 — la recherche ne doit jamais casser le job
+        except Exception as erreur:  # noqa: BLE001 — la recherche ne doit jamais casser le job
             echecs += 1
             _log.warning("Recherche tombée pour l'axe %s : %s", axe.cle, requete)
+            trace = f"{type(erreur).__name__} : {str(erreur)[:160]}"
+            if trace not in resultat.erreurs and len(resultat.erreurs) < 3:
+                resultat.erreurs.append(trace)
             continue
         gardees: list[str] = []
         for result in response.results:
@@ -420,8 +479,10 @@ def collect_research_brief(
                 + "\n".join(gardees)
             )
 
+    resultat.echecs = echecs
+    resultat.retenues = retenues
     if not sections:
-        return ""
+        return resultat
 
     # Un brief amputé doit se voir. La cible du manuel est écrite ici pour que
     # le modèle sache ce qui lui manque, plutôt que de combler au jugé.
@@ -438,7 +499,8 @@ def collect_research_brief(
         "section Sources à partir d'elles. Ne cite JAMAIS une URL absente de "
         "cette liste.\n\n"
     )
-    return header + "\n\n".join(sections)
+    resultat.brief = header + "\n\n".join(sections)
+    return resultat
 
 
 def _chapitre_des_sources(deliverable_type: str) -> int | None:
