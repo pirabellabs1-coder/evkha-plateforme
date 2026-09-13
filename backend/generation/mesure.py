@@ -81,6 +81,16 @@ class Mesure:
     #: quarante sous les yeux ou aucune. Dans le premier cas il désobéit ; dans
     #: le second, aucune règle de prompt n'y peut rien (13/09/2026).
     adresses_collectees: int = 0
+    #: CHAQUE défaut, par contrôle, avec des exemples — du fichier Word
+    #: (`anomalies`) et du gate de livraison (`gate`).
+    #:
+    #: Trois nombres ne suffisent pas à conduire un travail de plusieurs jours :
+    #: sans le détail, on corrige au hasard et on ne peut pas prouver qu'on
+    #: avance (13/09/2026). Le corpus des dossiers déjà écrits se re-mesure à
+    #: zéro centime ; c'est ce détail, agrégé, qui dit quelle CLASSE de défaut
+    #: attaquer d'abord (règle 4).
+    anomalies: dict[str, list[dict[str, object]]] = field(default_factory=dict)
+    gate: dict[str, list[dict[str, object]]] = field(default_factory=dict)
     #: Renseigné quand le document n'a pas pu être rendu. Ne pas pouvoir
     #: mesurer EST la mesure : on le dit, on ne rend pas des zéros.
     echec: str = ""
@@ -113,6 +123,8 @@ class Mesure:
             "chiffres_hors_socle": self.chiffres_hors_socle,
             "autres_anomalies": self.autres_anomalies,
             "adresses_collectees": self.adresses_collectees,
+            "anomalies": self.anomalies,
+            "gate": self.gate,
         }
 
 
@@ -162,6 +174,44 @@ def adresses_collectees(job: GenerationJob) -> int:
     return len(set(_URL_RE.findall(job.research_brief or "")))
 
 
+#: Exemples gardés par contrôle : assez pour juger si le motif est VRAI en le
+#: retrouvant dans le document (règle 2), trop peu pour noyer le rapport.
+_EXEMPLES_PAR_CONTROLE = 4
+
+
+def _regrouper(
+    elements: list[tuple[str, int | None, str, str]],
+) -> dict[str, list[dict[str, object]]]:
+    """(contrôle, chapitre, détail, extrait) → {contrôle: [exemples]}, avec le total."""
+    groupes: dict[str, list[dict[str, object]]] = {}
+    totaux: dict[str, int] = {}
+    for controle, chapitre, detail, extrait in elements:
+        totaux[controle] = totaux.get(controle, 0) + 1
+        exemples = groupes.setdefault(controle, [])
+        if len(exemples) < _EXEMPLES_PAR_CONTROLE:
+            exemples.append({
+                "chapitre": chapitre, "detail": detail[:300], "extrait": extrait[:200],
+            })
+    for controle, exemples in groupes.items():
+        exemples.insert(0, {"total": totaux[controle]})
+    return groupes
+
+
+def _echecs_du_gate(job: GenerationJob) -> dict[str, list[dict[str, object]]]:
+    """Le gate, en lecture seule. Une panne se DIT, elle ne rend pas un vide."""
+    from generation.gate import run_delivery_gate
+
+    try:
+        rapport = run_delivery_gate(job)
+    except Exception as exc:  # noqa: BLE001
+        return {"gate_illisible": [{"total": 1}, {
+            "chapitre": None, "detail": f"{type(exc).__name__} : {exc}"[:300], "extrait": "",
+        }]}
+    return _regrouper([
+        (e.check, e.chapter_number, e.detail, "") for e in rapport.failures
+    ])
+
+
 def mesurer(job: GenerationJob) -> Mesure:
     """Compte les trois défauts sur le livrable du dossier. N'écrit rien."""
     from generation.rendu_word.services import produire_docx
@@ -193,4 +243,8 @@ def mesurer(job: GenerationJob) -> Mesure:
         chiffres_hors_socle=hors_socle,
         autres_anomalies=len(controle.anomalies) - len(hors_socle),
         adresses_collectees=adresses_collectees(job),
+        anomalies=_regrouper([
+            (a.controle, a.chapitre, a.detail, a.extrait) for a in controle.anomalies
+        ]),
+        gate=_echecs_du_gate(job),
     )

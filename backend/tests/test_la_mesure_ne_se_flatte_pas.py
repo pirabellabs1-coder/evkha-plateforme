@@ -170,3 +170,24 @@ def test_la_mesure_dit_ce_que_le_modele_POUVAIT_citer() -> None:
     )
     assert adresses_collectees(SimpleNamespace(research_brief=brief)) == 2  # type: ignore[arg-type]
     assert adresses_collectees(SimpleNamespace(research_brief="")) == 0  # type: ignore[arg-type]
+
+
+def test_la_mesure_rend_chaque_defaut_par_controle_avec_son_total() -> None:
+    """Trois nombres ne conduisent pas un travail de plusieurs jours.
+
+    Le détail par contrôle, avec le TOTAL et quelques exemples retrouvables dans
+    le document, est ce qui dit quelle classe de défaut attaquer d'abord.
+    """
+    from generation.mesure import _regrouper
+
+    groupes = _regrouper([
+        ("densite", 1, "Chapitre 1 : paragraphe médian de 57 mots.", ""),
+        ("densite", 13, "Chapitre 13 : paragraphe médian de 59 mots.", ""),
+        ("chiffres_hors_socle", 4, "« 6,63 % » n'a pas d'équivalent.", "ne pèse que 6,63 %"),
+    ] + [("visuels", None, f"figure {i}", "") for i in range(10)])
+
+    assert groupes["densite"][0] == {"total": 2}
+    assert groupes["chiffres_hors_socle"][1]["extrait"] == "ne pèse que 6,63 %"
+    # Le total reste juste quand les exemples sont plafonnés.
+    assert groupes["visuels"][0] == {"total": 10}
+    assert len(groupes["visuels"]) == 1 + 4
