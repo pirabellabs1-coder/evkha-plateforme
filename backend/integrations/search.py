@@ -331,15 +331,20 @@ class ClaudeWebSearchClient:
         self.recherches += int(getattr(serveur, "web_search_requests", 0) or 0)
 
         trouvees: list[object] = []
+        erreurs: list[str] = []
         extraits: dict[str, list[str]] = {}
         for bloc in getattr(reponse, "content", []) or []:
             genre = getattr(bloc, "type", "")
             if genre == "web_search_tool_result":
                 contenu = getattr(bloc, "content", None)
                 if not isinstance(contenu, list):
-                    code = getattr(contenu, "error_code", "inconnue")
-                    msg = f"Recherche Claude en erreur : {code}"
-                    raise RuntimeError(msg)
+                    # Une erreur d'UNE recherche n'annule pas les autres. Mesuré
+                    # le 13/09/2026 depuis la production : le modèle tente une
+                    # seconde recherche au-delà de `max_uses`, l'outil rend
+                    # `max_uses_exceeded` À CÔTÉ des résultats de la première —
+                    # et rejeter toute la réponse jetait des résultats valides.
+                    erreurs.append(str(getattr(contenu, "error_code", "inconnue")))
+                    continue
                 trouvees.extend(contenu)
             elif genre == "text":
                 for citation in getattr(bloc, "citations", None) or []:
@@ -348,6 +353,11 @@ class ClaudeWebSearchClient:
                     passage = str(getattr(citation, "cited_text", "") or "").strip()
                     if passage:
                         extraits.setdefault(str(citation.url), []).append(passage)
+
+        if not trouvees and erreurs:
+            # Rien d'exploitable ET une erreur : c'est une panne, pas un vide.
+            msg = f"Recherche Claude en erreur : {', '.join(erreurs)}"
+            raise RuntimeError(msg)
 
         vues: set[str] = set()
         resultats: list[SearchResult] = []

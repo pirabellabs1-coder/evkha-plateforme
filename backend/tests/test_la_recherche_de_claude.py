@@ -110,6 +110,25 @@ def test_une_erreur_de_l_outil_n_est_pas_un_resultat_vide() -> None:
     assert any("too_many_requests" in e for e in resultat.erreurs), resultat.erreurs
 
 
+def test_une_seconde_recherche_refusee_ne_jette_pas_la_premiere() -> None:
+    """Le défaut de la première requête réelle en production (13/09/2026).
+
+    Le modèle a tenté une seconde recherche au-delà de `max_uses` : l'outil a
+    rendu les résultats de la première ET un bloc `max_uses_exceeded`. Rejeter
+    toute la réponse dès la première erreur rendait zéro résultat.
+    """
+    reponse = _reponse(resultats=[_INSEE, _NUMEUM])
+    reponse.content.append(NS(
+        type="web_search_tool_result",
+        content=NS(type="web_search_tool_result_error", error_code="max_uses_exceeded"),
+    ))
+    client = ClaudeWebSearchClient(sdk_client=_Sdk(reponse), model_id="m")
+
+    resultats = client.search(query="q").results
+
+    assert [r.url for r in resultats] == ["https://www.insee.fr/a", "https://numeum.fr/b"]
+
+
 def test_la_collecte_rapporte_ce_que_la_recherche_a_consomme() -> None:
     sdk = _Sdk(_reponse(resultats=[_INSEE], recherches=1))
     client = ClaudeWebSearchClient(sdk_client=sdk, model_id="claude-sonnet-4-6")
