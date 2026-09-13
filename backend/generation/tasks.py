@@ -96,7 +96,11 @@ def livrer_les_dossiers_oublies() -> int:
                 ),
             },
         )
+        # Le verdict du gate n'est plus rendu par la génération : sans cette
+        # ligne, un dossier dont le contrôle a été tué partirait sans verdict
+        # du tout, `qa_status` resté à sa valeur initiale.
         _livrer(job)
+        _verdict_sans_risque(job)
     return len(oublies)
 
 
@@ -222,15 +226,17 @@ def run_generation_job_task(job_id: str) -> str:
     1. Génération de tous les chapitres (runner)
     2. Passe QA post-génération (correction code fence, tables coupées,
        complétion IA des troncatures sévères)
-    3. GATE DE LIVRAISON — NON BLOQUANT depuis le 13/08/2026 : contamination,
-       cohérence chiffrée vs brief, complétude des verticales, troncature. Ce
-       qui reste après les trois passes de correction ouvre un incident HIGH
-       et marque `qa_status` BLOCKED, mais N'ARRÊTE PLUS l'envoi.
-       Décision cliente : « l'envoi du document doit être auto et sans aucune
-       action de ma part ». Sur les quatre motifs qu'elle a relevés ce jour-là,
-       trois étaient FAUX — retenir un livrable payé sur nos propres défauts,
-       puis lui demander de trancher, lui faisait porter nos erreurs.
-    4. Livraison (assemblage PDF + email client) — TOUJOURS.
+    3. Contrôle de couverture des demandes du client (il nomme, il ne corrige
+       pas).
+    4. `controler_puis_livrer_task`, dans sa propre tâche : le contrôleur final
+       — UN SEUL agent correcteur depuis le 13/09/2026, qui lit le fichier Word
+       ET les motifs du gate —, puis la livraison, TOUJOURS, puis le verdict du
+       gate sur le document qui est parti. Le verdict n'arrête pas l'envoi :
+       décision cliente du 13/08/2026, « l'envoi du document doit être auto et
+       sans aucune action de ma part ».
+
+    Exception : un dossier HORS chaîne Word n'a pas de contrôleur final ; la
+    boucle de correction du gate reste son seul correcteur.
     """
     job = GenerationJob.objects.get(id=job_id)
     try:
@@ -261,7 +267,7 @@ def run_generation_job_task(job_id: str) -> str:
         #
         # Le correctif precedent protegeait la seule boucle de correction. Le
         # principe etait juste, applique un cran trop bas : c'est la SEQUENCE
-        # entiere d'amelioration — QA, controle de couverture, correction —
+        # entiere d'amelioration — QA, controle de couverture —
         # qui doit pouvoir echouer sans detruire ce qui est ecrit.
         #
         # Chaque etape journalise son echec ; aucune ne decide plus si le
@@ -278,10 +284,6 @@ def run_generation_job_task(job_id: str) -> str:
                 "Passe QA interrompue pour le job %s : la suite continue.", job.id
             )
 
-        # ── Boucle d'auto-correction + gate de livraison (bloquant) ─────────
-        # Avant de bloquer, on régénère les chapitres fautifs (contamination,
-        # incohérence chiffrée, troncature) avec les défauts en consigne, puis
-        # on repasse le gate. Borné par EVKHA_CORRECTION_ROUNDS (défaut 3).
         # ── Les questions du client ont-elles reçu une réponse ? ────────────
         #
         # Angle mort exact, signalé par la cliente le 09/08/2026 : « éviter
@@ -301,79 +303,37 @@ def run_generation_job_task(job_id: str) -> str:
                 "Controle de couverture interrompu pour le job %s.", job.id
             )
 
-        # `inclure_les_checks=True` : la boucle automatique corrige AUTANT que
-        # la reprise manuelle. Décision cliente du 13/08/2026 — « les points
-        # relevés par le contrôle doivent être corrigés en même temps et
-        # automatiquement ».
-        #
-        # Ces motifs étaient exclus « parce que le manuel demande alors une
-        # reprise humaine ». Il n'y a plus de reprise humaine : les exclure
-        # revenait à garder pour un geste qui n'existe plus les notes les plus
-        # actionnables de toutes — « dédupliquer les deux entrées Xerfi du
-        # tableau 21.2 » se corrige mieux que « incohérence détectée ».
-        from .correction import run_correction_loop  # noqa: PLC0415
-
-        # LA CORRECTION NE DOIT PAS EMPORTER LA LIVRAISON AVEC ELLE.
-        #
-        # Etude concurrentielle `b6cb8076`, 13/08/2026 : dix chapitres sur dix,
-        # 1,96 € payes, et RIEN — ni assemblage, ni email. La boucle de
-        # correction avait bute sur le chapitre 8, son exception a traverse, et
-        # tout ce qui suit — assemblage, livraison — n'a jamais ete atteint.
-        #
-        # La correction est une AMELIORATION du document, pas sa condition
-        # d'existence. Un document imparfait mais complet vaut infiniment mieux
-        # qu'un document parfait qui n'arrive jamais : c'est la meme lecon que
-        # « un chapitre qui coince ne tue plus l'etude » (02/08) et que le CHECK
-        # INITIAL cesse d'etre fatal (12/08), appliquee un cran plus loin.
-        #
-        # L'echec est journalise et le gate rejoue sur le document tel qu'il
-        # est : le rapport dira ce qui n'a pas pu etre corrige, et la suite
-        # s'execute normalement.
+        # Hors chaîne Word, pas de contrôleur final : la boucle du gate reste
+        # le SEUL correcteur de ces dossiers. La supprimer pour eux aussi les
+        # laissait partir sans qu'aucun motif ait été retenté (relecture du
+        # 13/09/2026). Elle ne double rien : le contrôleur sort aussitôt.
         try:
-            report = run_correction_loop(job, inclure_les_checks=True)
+            from documents.livrable_word import chaine_word_active  # noqa: PLC0415
+
+            if not chaine_word_active(job):
+                from .correction import run_correction_loop  # noqa: PLC0415
+
+                run_correction_loop(job, inclure_les_checks=True)
         except Exception:  # noqa: BLE001 — la correction n'est pas la livraison
-            import logging  # noqa: PLC0415
-
-            logging.getLogger(__name__).exception(
-                "Boucle de correction interrompue pour le job %s : le document "
-                "part tel quel, le gate tranche sur son etat reel.", job.id,
+            _journal.exception(
+                "Correction hors chaîne Word interrompue pour le job %s.", job.id
             )
-            from .gate import run_delivery_gate  # noqa: PLC0415
-            report = run_delivery_gate(job)
 
-        if not report.passed:
-            # LE DOCUMENT PART QUAND MÊME. Décision cliente du 13/08/2026 :
-            # « l'envoi du document doit être auto et sans aucune action de ma
-            # part ».
-            #
-            # Ce qu'elle a mesuré ce jour-là : sur les quatre motifs qu'elle a
-            # relevés, TROIS étaient faux — un identifiant refusé alors que
-            # notre propre consigne demande de l'écrire, un mot de son métier
-            # pris pour du jargon interne, un titre en gras compté comme phrase
-            # tronquée. Retenir un livrable payé sur des motifs que nous
-            # inventons, puis lui demander de trancher, revenait à lui faire
-            # porter nos défauts.
-            #
-            # L'incident RESTE, en HIGH : ce qui n'a pas pu être fermé après
-            # trois passes de correction doit se voir. Ce qui disparaît, c'est
-            # l'attente — pas la trace.
-            #
-            # RISQUE ASSUMÉ, et il est réel : un motif VRAI part désormais chez
-            # le client final. Le rempart n'est plus le blocage, ce sont les
-            # trois passes de correction et la justesse des contrôles — c'est
-            # pourquoi un contrôle qui crie faux coûte maintenant plus cher
-            # qu'avant, et doit être réparé le jour où il se voit.
-            GenerationJob.objects.filter(pk=job.pk).update(qa_status=QAStatus.BLOCKED)
-            OperationalIncident.objects.create(
-                title=(
-                    f"Gate qualité : {len(report.failures)} point(s) non résolu(s), "
-                    f"document livré quand même (job {job.id})"
-                ),
-                severity=IncidentSeverity.HIGH,
-                job=job,
-                order=job.order,
-                details=report.as_details(),
-            )
+        # PLUS DE BOUCLE DE CORRECTION ICI pour la chaîne Word, et plus de
+        # verdict du gate non plus.
+        #
+        # Jusqu'au 13/09/2026, cette tâche réécrivait les chapitres fautifs aux
+        # yeux du gate, puis confiait le document à la relecture finale, qui
+        # réécrivait ceux qui l'étaient aux siens. Deux correcteurs en série :
+        # sur la stratégie `a678b10a`, le premier a dépensé près de deux euros
+        # sans fermer ses motifs, et le second a trouvé le budget vide. Le
+        # contrôleur final lit désormais les motifs du gate lui-même.
+        #
+        # Le VERDICT du gate — `qa_status` et l'incident — est rendu après la
+        # correction, sur le document qui part (`_rendre_le_verdict_du_gate`).
+        # Le rendre ici annonçait des points « non résolus » qu'on n'avait pas
+        # encore essayé de résoudre (règle 2 : un motif doit être vrai du
+        # document que le lecteur reçoit).
 
         # Mémorise les faits de marché validés pour les futurs runs
         # sur le même secteur/pays (fact store inter-runs).
@@ -408,6 +368,68 @@ def run_generation_job_task(job_id: str) -> str:
 
     _effacer_les_textes_orphelins()
     return str(job.id)
+
+
+def _rendre_le_verdict_du_gate(job: GenerationJob) -> None:
+    """Le gate juge le document TEL QU'IL PART : après la correction.
+
+    LE DOCUMENT PART QUAND MÊME. Décision cliente du 13/08/2026 : « l'envoi du
+    document doit être auto et sans aucune action de ma part ». Sur les quatre
+    motifs qu'elle avait relevés ce jour-là, trois étaient faux — retenir un
+    livrable payé sur des motifs que nous inventons revenait à lui faire porter
+    nos défauts.
+
+    L'incident RESTE, en HIGH : ce que la correction n'a pas pu fermer doit se
+    voir. Ce qui disparaît, c'est l'attente — pas la trace.
+    """
+    from .gate import run_delivery_gate  # noqa: PLC0415
+
+    job.refresh_from_db()
+    report = run_delivery_gate(job)
+    if report.passed:
+        # Sans effacer un `failed` posé par la passe QA : le gate ne juge pas
+        # ce qu'elle a jugé, et son vert ne vaut pas pour elle.
+        GenerationJob.objects.filter(pk=job.pk).exclude(
+            qa_status=QAStatus.FAILED
+        ).update(qa_status=QAStatus.PASSED)
+        return
+    GenerationJob.objects.filter(pk=job.pk).update(qa_status=QAStatus.BLOCKED)
+    OperationalIncident.objects.create(
+        title=(
+            f"Gate qualité : {len(report.failures)} point(s) non résolu(s), "
+            f"document livré quand même (job {job.id})"
+        ),
+        severity=IncidentSeverity.HIGH,
+        job=job,
+        order=job.order,
+        details=report.as_details(),
+    )
+
+
+def _verdict_sans_risque(job: GenerationJob) -> None:
+    """Le verdict ne doit jamais emporter la livraison — ni se taire en panne.
+
+    Un gate qui plante laissait `qa_status` à la valeur de la passe QA, souvent
+    « passed », et aucun incident : un document parti sans juge ressemblait à
+    un document jugé sain (règle 1, relecture du 13/09/2026).
+    """
+    try:
+        _rendre_le_verdict_du_gate(job)
+    except Exception as erreur:  # noqa: BLE001 — un verdict n'est pas la livraison
+        import logging  # noqa: PLC0415
+
+        logging.getLogger(__name__).exception(
+            "Verdict du gate impossible pour le job %s : le document part tel quel.",
+            job.id,
+        )
+        GenerationJob.objects.filter(pk=job.pk).update(qa_status=QAStatus.BLOCKED)
+        OperationalIncident.objects.create(
+            title=f"Verdict du gate impossible, document livré sans verdict (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={"type": "verdict_gate", "erreur": f"{type(erreur).__name__} : {erreur}"},
+        )
 
 
 @shared_task(name="generation.controler_puis_livrer")  # type: ignore[untyped-decorator]
@@ -446,7 +468,12 @@ def controler_puis_livrer_task(job_id: str) -> str:
         )
 
     job.refresh_from_db()
+    # L'envoi AVANT le verdict. Une fois la relecture terminée, le gardien ne
+    # rattrape plus ce dossier : un worker tué pendant le rendu du gate — deux
+    # cents pages — le priverait de son envoi pour de bon. Le verdict, lui,
+    # n'est qu'une étiquette et un incident (relecture du 13/09/2026).
     _livrer(job)
+    _verdict_sans_risque(job)
     _effacer_les_textes_orphelins()
     return str(job.id)
 

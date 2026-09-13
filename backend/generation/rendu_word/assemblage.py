@@ -145,6 +145,11 @@ class RapportAssemblage:
     #: dans le document, et le lecteur ne perd que la forme.
     graphiques_en_tableau: list[str] = field(default_factory=list)
     graphiques_abandonnes: list[str] = field(default_factory=list)
+    #: Figures impossibles telles que demandées, DESSINÉES avec une partie de
+    #: leurs propres données (`reparation_figures`). Comptées dans les rendues
+    #: — elles sont dans le document — mais jamais parmi ce que le modèle a
+    #: obtenu : la mesure les soustrait et les nomme.
+    graphiques_repares: list[str] = field(default_factory=list)
     chapitres: int = 0
     tableaux: int = 0
     #: Identifiants du socle effectivement portés par une figure rendue.
@@ -183,6 +188,8 @@ class RapportAssemblage:
             parties.append(f"{len(self.graphiques_completes)} complétés")
         if self.graphiques_convertis:
             parties.append(f"{len(self.graphiques_convertis)} convertis")
+        if self.graphiques_repares:
+            parties.append(f"{len(self.graphiques_repares)} réparés")
         if self.graphiques_abandonnes:
             parties.append(f"{len(self.graphiques_abandonnes)} abandonnés")
         if self.consignes_de_dessin_retirees:
@@ -289,6 +296,26 @@ def _blocs_graphique(
             continue
 
         resolution = resoudre(socle, type_demande, demande.donnees_ids)
+        identifiants_traces: list[str] = list(demande.donnees_ids)
+        ecartes: tuple[str, ...] = ()
+        repare = False
+        if not resolution.retenu:
+            # Avant le tableau : la figure valide la plus proche, avec les
+            # données de la demande. Voir `reparation_figures` — 23 figures sur
+            # 29 imprimées en tableau sur la stratégie `a678b10a`.
+            from .reparation_figures import reparer_la_figure  # noqa: PLC0415
+
+            reparee = reparer_la_figure(socle, type_demande, demande.donnees_ids)
+            if reparee is not None:
+                rapport.graphiques_repares.append(
+                    f"{reference} · {demande.titre} : {type_demande} → "
+                    f"{reparee.resolution.type_graphique} sur "
+                    f"{len(reparee.identifiants)} donnée(s) ({resolution.motif})"
+                )
+                resolution = reparee.resolution
+                identifiants_traces = list(reparee.identifiants)
+                ecartes = reparee.ecartes
+                repare = True
         if not resolution.retenu:
             rapport.graphiques_abandonnes.append(
                 f"{reference} · {demande.titre} : {resolution.motif}"
@@ -308,13 +335,13 @@ def _blocs_graphique(
                 blocs.append(repli)
             continue
 
-        if resolution.converti:
+        if resolution.converti and not repare:
             rapport.graphiques_convertis.append(
                 f"{reference} · {demande.titre} : {type_demande} → "
                 f"{resolution.type_graphique} ({resolution.motif})"
             )
         rapport.graphiques_rendus += 1
-        rapport.identifiants_rendus.update(demande.donnees_ids)
+        rapport.identifiants_rendus.update(identifiants_traces)
         # Le commentaire est imprimé À LA PLACE DE LA SOURCE. Quand le modèle y
         # a écrit le brief du dessin, on ne l'imprime pas : un graphique sans
         # légende ne perd rien, un graphique sous lequel on lit « Illustre
@@ -323,7 +350,11 @@ def _blocs_graphique(
         from ..meta_discours import est_une_consigne_de_dessin  # noqa: PLC0415
 
         source = demande.commentaire
-        if est_une_consigne_de_dessin(source):
+        if repare:
+            # La légende a été écrite pour la figure DEMANDÉE — elle peut parler
+            # de données que la réparation a laissées hors du dessin.
+            source = ""
+        elif est_une_consigne_de_dessin(source):
             rapport.consignes_de_dessin_retirees.append(
                 f"{reference} · {demande.titre} : {source[:160]}"
             )
@@ -335,6 +366,15 @@ def _blocs_graphique(
             "source": source,
             "donnees": resolution.donnees,
         })
+        if ecartes:
+            # Les données laissées hors de la figure réparée restent sous les
+            # yeux du lecteur : la réparation retire une forme, jamais un chiffre.
+            reste = _tableau_de_repli(
+                socle, demande.model_copy(update={"donnees_ids": list(ecartes)}),
+            )
+            if reste is not None:
+                rapport.tableaux += 1
+                blocs.append(reste)
     return blocs
 
 

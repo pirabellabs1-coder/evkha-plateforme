@@ -308,18 +308,29 @@ class ClaudeWebSearchClient:
         time_range: str = "",
     ) -> SearchResponse:
         plafond = max(1, min(max_results, 10))
+        # Consigne COURTE et effort BAS. Mesuré le 13/09/2026, même requête,
+        # `claude-sonnet-5`, variante basique de l'outil :
+        #
+        #     consigne longue, effort par défaut  22,6 s   8 citations  1 888 jetons
+        #     consigne courte, effort bas          7,9 s   5 citations    515 jetons
+        #
+        # Sur la stratégie `a678b10a`, la recherche avait produit ~2 100 jetons
+        # de sortie par requête — réflexion comprise — pour une tâche qui n'en
+        # demande pas : trouver, puis citer. Chaque source garde sa citation,
+        # donc son extrait. La réflexion n'est pas désactivée : la documentation
+        # de Claude recommande de baisser l'effort plutôt que de l'éteindre.
         consigne = (
             f"Recherche sur le web : « {query} ».\n\n"
-            f"Retiens au plus {plafond} sources parmi les plus fiables — "
-            "statistiques publiques, organismes officiels, fédérations "
-            "professionnelles d'abord. Pour chacune, cite en une ou deux "
-            "phrases le fait chiffré ou daté qu'elle apporte, en t'appuyant "
-            "uniquement sur les résultats de la recherche. N'ajoute rien qui "
-            "n'y figure pas."
+            f"Retiens au plus {plafond} sources, les plus fiables d'abord "
+            "(statistiques publiques, organismes officiels, fédérations "
+            "professionnelles). Pour chacune, UNE phrase courte qui cite le fait "
+            "chiffré ou daté qu'elle apporte. Aucune introduction, aucune "
+            "conclusion, aucun commentaire : seulement ces phrases."
         )
         reponse = self._sdk().messages.create(  # type: ignore[attr-defined]
             model=self.modele,
             max_tokens=4096,
+            output_config={"effort": "low"},
             tools=[{"type": self.TYPE_OUTIL, "name": "web_search", "max_uses": 1}],
             messages=[{"role": "user", "content": consigne}],
         )
@@ -357,6 +368,16 @@ class ClaudeWebSearchClient:
         if not trouvees and erreurs:
             # Rien d'exploitable ET une erreur : c'est une panne, pas un vide.
             msg = f"Recherche Claude en erreur : {', '.join(erreurs)}"
+            raise RuntimeError(msg)
+        if not trouvees and not any(
+            getattr(bloc, "type", "") == "web_search_tool_result"
+            for bloc in getattr(reponse, "content", []) or []
+        ):
+            # Le modèle a répondu SANS chercher. Avec un effort bas, rien ne
+            # l'y oblige ; forcer l'outil est incompatible avec la réflexion
+            # adaptative. Rendre un vide ferait passer « pas cherché » pour
+            # « rien trouvé » (relecture du 13/09/2026).
+            msg = "Recherche Claude non exécutée : le modèle n'a pas appelé l'outil"
             raise RuntimeError(msg)
 
         vues: set[str] = set()

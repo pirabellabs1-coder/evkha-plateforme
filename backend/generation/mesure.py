@@ -67,6 +67,9 @@ class Mesure:
     #: c'est-à-dire un motif faux — pire qu'absent (règle 2).
     figures_obtenues: int = 0
     figures_completees: int = 0
+    #: Dessinées APRÈS réparation (`rendu_word.reparation_figures`) : dans le
+    #: document, mais pas obtenues telles que le modèle les a demandées.
+    figures_reparees: int = 0
     figures_en_tableau: int = 0
     figures_perdues: int = 0
     sources: MesureDesSources | None = None
@@ -97,6 +100,7 @@ class Mesure:
                 "obtenues": self.figures_obtenues,
                 "part": self.part_des_figures,
                 "completees": self.figures_completees,
+                "reparees": self.figures_reparees,
                 "en_tableau": self.figures_en_tableau,
                 "perdues": self.figures_perdues,
             },
@@ -174,13 +178,15 @@ def mesurer(job: GenerationJob) -> Mesure:
         )
 
     completees = len(rapport.graphiques_completes)
+    reparees = len(rapport.graphiques_repares)
     hors_socle = [
         a.detail for a in controle.anomalies if a.controle == MOTIF_HORS_SOCLE
     ]
     return Mesure(
         figures_demandees=rapport.graphiques_demandes,
-        figures_obtenues=max(rapport.graphiques_rendus - completees, 0),
+        figures_obtenues=max(rapport.graphiques_rendus - completees - reparees, 0),
         figures_completees=completees,
+        figures_reparees=reparees,
         figures_en_tableau=len(rapport.graphiques_en_tableau),
         figures_perdues=len(rapport.graphiques_abandonnes),
         sources=mesurer_les_sources(sections_du_dossier(job)),

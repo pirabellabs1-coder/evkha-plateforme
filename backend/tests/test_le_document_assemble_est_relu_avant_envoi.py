@@ -75,7 +75,9 @@ def _chiffre_hors_socle(chapitre: int | None = 7) -> Anomalie:
 
 
 def _monter(
-    monkeypatch: pytest.MonkeyPatch, controles: list[RapportControle]
+    monkeypatch: pytest.MonkeyPatch,
+    controles: list[RapportControle],
+    echecs_du_gate: tuple[Any, ...] = (),
 ) -> tuple[list[bool], list[tuple[int, str]]]:
     """Remplace l'assemblage et la réécriture. Rend (assemblages, réécritures)."""
     from documents import livrable_word
@@ -95,6 +97,9 @@ def _monter(
     monkeypatch.setattr(livrable_word, "assembler_livrable_word", _assembler)
     monkeypatch.setattr(livrable_word, "chaine_word_active", lambda job: True)
     monkeypatch.setattr(moteur, "regenerate_chapter", _reecrire)
+    # Le gate de livraison est relu par le contrôleur depuis le 13/09/2026. Ici
+    # on le FIXE : ces tests jugent la lecture du fichier, pas le gate.
+    monkeypatch.setattr(controle_final, "_echecs_du_gate", lambda job: echecs_du_gate)
     return assemblages, reecritures
 
 
@@ -517,3 +522,250 @@ def test_un_controle_en_cours_depuis_deux_minutes_est_laisse_tranquille(
     monkeypatch.setattr(tasks, "_livrer", lambda j: envois.append(j.id))
 
     assert tasks.livrer_les_dossiers_oublies() == 0
+
+
+# ── Un SEUL agent corrige (13/09/2026) ───────────────────────────────────────
+#
+# Jusqu'au 13/09/2026, deux correcteurs se suivaient : la boucle de correction
+# du gate, dans la tâche de génération, puis cette relecture finale. Sur la
+# stratégie Zenitek `a678b10a`, la première a réécrit cinq chapitres pendant
+# dix-huit minutes pour près de deux euros — sans fermer ses propres motifs —
+# et la seconde a trouvé le budget vide : « budget du dossier épuisé », zéro
+# chapitre corrigé, trente anomalies laissées. Le client avait demandé UN agent.
+
+
+def _fourchette(chapitre: int) -> Any:
+    from generation.gate import GateFailure
+
+    return GateFailure(
+        check="fourchette_interdite",
+        detail="Fourchette detectee : « 60-75 € ». Le document doit citer un chiffre unique.",
+        chapter_number=chapitre,
+    )
+
+
+def test_un_motif_du_gate_fait_reecrire_son_chapitre_par_le_controleur(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LE test : le contrôleur traite ce que la boucle du gate traitait.
+
+    Sur le code d'avant, il ignorait le gate — la boucle supprimée, ces motifs
+    seraient partis chez le client sans avoir été retentés.
+    """
+    _, reecritures = _monter(
+        monkeypatch, [_controle(), _controle()], echecs_du_gate=(_fourchette(10),),
+    )
+
+    rapport = controle_final.relire_et_corriger(job)
+
+    assert [n for n, _ in reecritures] == [10]
+    assert "60-75 €" in reecritures[0][1]
+    assert any("fourchette_interdite" in ligne for ligne in rapport.restantes)
+
+
+def test_un_chapitre_n_est_reecrit_qu_une_fois_avec_TOUS_ses_motifs(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Deux listes de motifs, un seul appel au modèle par chapitre.
+
+    Deux réécritures du même chapitre — une par correcteur — payaient deux fois
+    pour un texte dont la seconde version ignorait la première consigne.
+    """
+    _, reecritures = _monter(
+        monkeypatch,
+        [_controle(_chiffre_hors_socle(10)), _controle()],
+        echecs_du_gate=(_fourchette(10),),
+    )
+
+    controle_final.relire_et_corriger(job)
+
+    assert [n for n, _ in reecritures] == [10], reecritures
+    consigne = reecritures[0][1]
+    assert "900 M€" in consigne and "60-75 €" in consigne
+
+
+def test_la_generation_ne_lance_plus_de_boucle_de_correction(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le premier correcteur affamait le second : il ne tourne plus.
+
+    L'appel est COMPTÉ et non piégé par une exception : l'ancien pipeline
+    avalait toute exception de la boucle, un piège n'aurait rien prouvé.
+    """
+    from documents import livrable_word
+    from generation import correction, tasks
+    from generation import runner as moteur
+    from generation.models import JobStatus
+
+    appels: list[str] = []
+    job.status = JobStatus.DONE
+    job.save(update_fields=["status"])
+    monkeypatch.setattr(moteur, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(tasks, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(tasks, "_controler_les_demandes_du_client", lambda j: None)
+    monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
+    monkeypatch.setattr("generation.qa.run_qa_pass", lambda j: None)
+    # Chaîne Word ACTIVE : c'est là que le contrôleur final corrige. Hors chaîne
+    # Word, la boucle reste le seul correcteur (test plus bas).
+    monkeypatch.setattr(livrable_word, "chaine_word_active", lambda j: True)
+    monkeypatch.setattr(
+        correction, "run_correction_loop", lambda j, **kw: appels.append("boucle"),
+    )
+    monkeypatch.setattr(tasks.controler_puis_livrer_task, "delay", lambda *a, **k: None)
+
+    tasks.run_generation_job_task(str(job.id))
+
+    assert appels == []
+
+
+def test_le_verdict_du_gate_est_rendu_APRES_la_correction(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un point « non résolu » doit l'être sur le document qui part.
+
+    Rendu avant la correction, l'incident annonçait non résolus des motifs
+    qu'on n'avait pas encore essayé de résoudre (règle 2).
+    """
+    from generation import tasks
+
+    ordre: list[str] = []
+
+    def _relire(j: Any, **kw: Any) -> controle_final.RapportRelecture:
+        ordre.append("correction")
+        return controle_final.RapportRelecture()
+
+    monkeypatch.setattr(controle_final, "relire_avant_envoi", _relire)
+    monkeypatch.setattr(tasks, "_rendre_le_verdict_du_gate", lambda j: ordre.append("verdict"))
+    monkeypatch.setattr(tasks, "_livrer", lambda j: ordre.append("envoi"))
+    monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
+
+    tasks.controler_puis_livrer_task(str(job.id))
+
+    # L'envoi AVANT le verdict : un worker tué pendant le rendu du gate ne doit
+    # pas priver le client de son document (relecture du 13/09/2026).
+    assert ordre == ["correction", "envoi", "verdict"]
+
+
+def test_un_verdict_en_panne_n_emporte_pas_l_envoi(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CONTRE-ÉPREUVE : un verdict n'est pas la livraison."""
+    from generation import tasks
+
+    def _panne(j: Any) -> None:
+        raise RuntimeError("gate illisible")
+
+    envois: list[str] = []
+    monkeypatch.setattr(
+        controle_final, "relire_avant_envoi", lambda j, **kw: controle_final.RapportRelecture(),
+    )
+    monkeypatch.setattr(tasks, "_rendre_le_verdict_du_gate", _panne)
+    monkeypatch.setattr(tasks, "_livrer", lambda j: envois.append("envoi"))
+    monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
+
+    tasks.controler_puis_livrer_task(str(job.id))
+
+    assert envois == ["envoi"]
+    # Et la panne ne se TAIT pas : sans verdict, le dossier ne peut pas
+    # afficher le « passed » laissé par la passe QA (règle 1).
+    from generation.models import GenerationJob, QAStatus
+    from monitoring.models import IncidentSeverity, OperationalIncident
+
+    assert GenerationJob.objects.get(pk=job.pk).qa_status == QAStatus.BLOCKED
+    incident = OperationalIncident.objects.get(
+        job=job, title__startswith="Verdict du gate impossible",
+    )
+    assert incident.severity == IncidentSeverity.HIGH
+
+
+def _densite(chapitre: int) -> Anomalie:
+    return Anomalie(
+        "densite", Gravite.AVERTISSEMENT,
+        f"Chapitre {chapitre} : paragraphe médian de 60 mots (plafond 25).",
+        chapitre=chapitre,
+    )
+
+
+def test_le_plafond_de_chapitres_coupe_par_GRAVITE_pas_par_numero(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Neuf chapitres fautifs, huit places : l'incohérence chiffrée passe d'abord.
+
+    Trié par numéro, le chapitre 9 — une incohérence chiffrée — n'était jamais
+    réécrit, au profit de huit densités. Relecture du 13/09/2026.
+    """
+    from generation.gate import GateFailure
+
+    incoherence = GateFailure(
+        check="coherence_chiffree",
+        detail="Le chapitre annonce 120 000 € quand le brief dit 250 000 €.",
+        chapter_number=9,
+    )
+    _, reecritures = _monter(
+        monkeypatch,
+        [_controle(*(_densite(n) for n in range(1, 9))), _controle()],
+        echecs_du_gate=(incoherence,),
+    )
+
+    controle_final.relire_et_corriger(job)
+
+    reecrits = [n for n, _ in reecritures]
+    assert reecrits[0] == 9, reecrits
+    assert len(reecrits) == controle_final.MAX_CHAPITRES_PAR_PASSE
+
+
+def test_un_gate_illisible_ne_passe_pas_pour_rien_a_reparer(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """« Impossible de savoir » n'est pas « rien à réparer » (règle 1)."""
+    _monter(monkeypatch, [_controle()])
+    monkeypatch.setattr(controle_final, "_echecs_du_gate", lambda job: None)
+
+    rapport = controle_final.relire_et_corriger(job)
+
+    assert "gate illisible" in rapport.motif_d_arret
+    assert any("gate illisible" in ligne for ligne in rapport.restantes)
+
+
+def test_hors_chaine_word_la_boucle_du_gate_reste_le_seul_correcteur(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sans contrôleur final, supprimer la boucle laissait partir le dossier
+    sans qu'aucun motif ait été retenté (relecture du 13/09/2026)."""
+    from documents import livrable_word
+    from generation import correction, tasks
+    from generation import runner as moteur
+    from generation.models import JobStatus
+
+    appels: list[str] = []
+    job.status = JobStatus.DONE
+    job.save(update_fields=["status"])
+    monkeypatch.setattr(moteur, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(tasks, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(tasks, "_controler_les_demandes_du_client", lambda j: None)
+    monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
+    monkeypatch.setattr("generation.qa.run_qa_pass", lambda j: None)
+    monkeypatch.setattr(livrable_word, "chaine_word_active", lambda j: False)
+    monkeypatch.setattr(
+        correction, "run_correction_loop", lambda j, **kw: appels.append("boucle"),
+    )
+    monkeypatch.setattr(tasks.controler_puis_livrer_task, "delay", lambda *a, **k: None)
+
+    tasks.run_generation_job_task(str(job.id))
+
+    assert appels == ["boucle"]
+
+
+def test_le_vert_du_gate_n_efface_pas_l_echec_de_la_passe_qa(job: Any) -> None:
+    """Le gate ne juge pas ce que la passe QA a jugé : son vert ne vaut pas pour elle."""
+    from unittest.mock import patch
+
+    from generation import tasks
+    from generation.models import GenerationJob, QAStatus
+
+    GenerationJob.objects.filter(pk=job.pk).update(qa_status=QAStatus.FAILED)
+    rapport_vert = type("R", (), {"passed": True, "failures": ()})()
+    with patch("generation.gate.run_delivery_gate", return_value=rapport_vert):
+        tasks._rendre_le_verdict_du_gate(job)
+
+    assert GenerationJob.objects.get(pk=job.pk).qa_status == QAStatus.FAILED

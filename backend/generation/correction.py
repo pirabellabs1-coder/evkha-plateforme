@@ -330,7 +330,9 @@ def run_correction_loop(
     du relecteur est souvent la plus actionnable de toutes (« dédupliquer les
     deux entrées Xerfi du tableau 21.2 »).
 
-    Faux par DÉFAUT, mais les deux appelants passent désormais vrai. Le motif
+    Faux par DÉFAUT, mais ses appelants passent vrai : la reprise manuelle
+    (`recontroler_et_corriger_task`) et les dossiers HORS chaîne Word. Pour la
+    chaîne Word, le contrôleur final a remplacé cette boucle le 13/09/2026. Le motif
     d'origine — « le manuel demande alors une reprise humaine » — est tombé le
     13/08/2026 : il n'y a plus de reprise humaine, l'envoi est automatique.
     Garder ces notes pour un geste qui n'existe plus, c'était les perdre.

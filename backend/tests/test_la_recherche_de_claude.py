@@ -88,6 +88,10 @@ def test_la_requete_emploie_l_outil_serveur_et_le_modele_du_projet() -> None:
     # La variante BASIQUE : la dynamique rendait zéro citation, en 105 s
     # depuis la production (mesure du 13/09/2026, voir `TYPE_OUTIL`).
     assert appel["tools"] == [{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}]
+    # Effort BAS : trouver et citer ne demande pas de réflexion. Sur le dossier
+    # `a678b10a`, ~2 100 jetons de sortie par requête ; 515 avec ce réglage.
+    assert appel["output_config"] == {"effort": "low"}
+    assert "UNE phrase courte" in appel["messages"][0]["content"]
 
 
 def test_une_erreur_de_l_outil_n_est_pas_un_resultat_vide() -> None:
@@ -127,6 +131,23 @@ def test_une_seconde_recherche_refusee_ne_jette_pas_la_premiere() -> None:
     resultats = client.search(query="q").results
 
     assert [r.url for r in resultats] == ["https://www.insee.fr/a", "https://numeum.fr/b"]
+
+
+def test_une_reponse_sans_recherche_n_est_pas_un_vide() -> None:
+    """Avec un effort bas, rien n'oblige le modèle à appeler l'outil.
+
+    Une réponse sans bloc de recherche rendue comme une liste vide ferait passer
+    « pas cherché » pour « rien trouvé » (relecture du 13/09/2026).
+    """
+    reponse = NS(
+        content=[NS(type="text", text="Voici ce que je sais.", citations=[])],
+        usage=NS(input_tokens=100, output_tokens=20,
+                 server_tool_use=NS(web_search_requests=0, web_fetch_requests=0)),
+    )
+    client = ClaudeWebSearchClient(sdk_client=_Sdk(reponse), model_id="m")
+
+    with pytest.raises(RuntimeError, match="non exécutée"):
+        client.search(query="q")
 
 
 def test_la_collecte_rapporte_ce_que_la_recherche_a_consomme() -> None:

@@ -69,6 +69,7 @@ class Command(BaseCommand):
             f"demandées par le modèle et obtenues "
             f"({'—' if part is None else f'{part} %'}) · "
             f"{mesure.figures_completees} ajoutées par complétion · "
+            f"{mesure.figures_reparees} réparées · "
             f"{mesure.figures_en_tableau} repliées en tableau · "
             f"{mesure.figures_perdues} perdues"
         )

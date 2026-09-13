@@ -154,6 +154,72 @@ def _motifs_par_chapitre(anomalies: list[Anomalie]) -> dict[int, list[str]]:
     return par_chapitre
 
 
+def _echecs_du_gate(job: GenerationJob) -> tuple[Any, ...] | None:
+    """Les échecs du gate de livraison — lecture seule, aucun appel d'IA.
+
+    `None` quand le gate n'a PAS PU juger, et non une liste vide : « rien à
+    réparer » et « impossible de savoir » ne sont pas le même constat, et les
+    confondre ferait conclure le contrôleur sans juge (règle 1).
+    """
+    from .gate import run_delivery_gate  # noqa: PLC0415
+
+    try:
+        return tuple(run_delivery_gate(job).failures)
+    except Exception:  # noqa: BLE001 — le gate n'est pas la relecture
+        _log.exception("Relecture finale : gate illisible (job %s)", job.id)
+        return None
+
+
+def _priorites_du_gate(echecs: tuple[Any, ...]) -> dict[int, int]:
+    """La gravité du motif le plus urgent de chaque chapitre, selon le gate.
+
+    Le plafond de chapitres par passe doit couper par GRAVITÉ, jamais par
+    numéro : trié par numéro, une densité au chapitre 3 passait devant une
+    incohérence chiffrée au chapitre 18, et les derniers chapitres — la
+    feuille de route, les sources — n'étaient jamais réécrits. Relecture du
+    13/09/2026 ; l'ordre est celui de `correction._CHECK_PRIORITY`, importé.
+    """
+    from .correction import _motifs_par_chapitre as repartir  # noqa: PLC0415
+    from .correction import _priorite_check  # noqa: PLC0415
+
+    return {
+        numero: min(_priorite_check(e.check) for e in liste)
+        for numero, liste in repartir(echecs, inclure_les_checks=True).items()
+    }
+
+
+def _motifs_du_gate(echecs: tuple[Any, ...]) -> dict[int, list[str]]:
+    """Ce que le gate reproche à chaque chapitre, rédigé comme une exigence.
+
+    ## Pourquoi le contrôleur les prend
+
+    Jusqu'au 13/09/2026, DEUX correcteurs se suivaient. La boucle de
+    correction du gate réécrivait d'abord les chapitres fautifs à ses yeux ;
+    la relecture finale réécrivait ensuite les chapitres fautifs aux siens.
+
+    Mesuré sur la stratégie Zenitek `a678b10a` : la boucle du gate a réécrit
+    les chapitres 8, 10, 13, 19 et 20 pendant dix-huit minutes, pour près de
+    deux euros — sans fermer ses trois motifs (la fourchette « 60-75 € » était
+    toujours là). La relecture finale a trouvé ensuite le budget vide et s'est
+    arrêtée sans rien corriger : trente anomalies laissées.
+
+    Deux agents pour une même tâche, et le premier affamait le second — la
+    règle 5 du dépôt. Il n'y a désormais qu'un correcteur : il lit les deux
+    listes, et réécrit chaque chapitre UNE fois avec tous ses motifs.
+
+    La répartition par chapitre est celle de la boucle du gate, importée et
+    non recopiée : ce qu'elle jugeait réparable reste réparable, et ce
+    qu'elle écartait (échecs sans chapitre) reste écarté.
+    """
+    from .correction import _CHECK_LABELS  # noqa: PLC0415
+    from .correction import _motifs_par_chapitre as repartir  # noqa: PLC0415
+
+    return {
+        numero: [f"{_CHECK_LABELS.get(e.check, e.check)} : {e.detail}" for e in liste]
+        for numero, liste in repartir(echecs, inclure_les_checks=True).items()
+    }
+
+
 def _refaire_les_chapitres_manquants(
     job: GenerationJob, rapport: RapportRelecture, *, client: Any = None,
 ) -> None:
@@ -275,18 +341,34 @@ def relire_et_corriger(
             return rapport
 
         anomalies = list(livrable.controle.anomalies) if livrable.controle else []
+        # Le gate de livraison est relu ICI, à chaque passe, et non plus par
+        # une boucle à part. Voir `_motifs_du_gate`.
+        lus = _echecs_du_gate(job)
+        gate_illisible = lus is None
+        echecs_du_gate: tuple[Any, ...] = lus or ()
         if passe == 1:
-            rapport.anomalies_au_depart = len(anomalies)
+            rapport.anomalies_au_depart = len(anomalies) + len(echecs_du_gate)
         rapport.passes = passe
-        rapport.anomalies_restantes = len(anomalies)
+        rapport.anomalies_restantes = len(anomalies) + len(echecs_du_gate)
         rapport.restantes = [
             f"ch. {a.chapitre or '—'} · {a.controle} : {a.detail}" for a in anomalies
+        ] + [
+            f"ch. {e.chapter_number or '—'} · {e.check} : {e.detail}"
+            for e in echecs_du_gate
         ]
+        if gate_illisible:
+            rapport.restantes.append(
+                "gate illisible : ses motifs n'ont pas pu être lus à cette passe"
+            )
 
-        a_reparer = _reparables(anomalies)
-        if not a_reparer:
+        par_chapitre = _motifs_par_chapitre(_reparables(anomalies))
+        for numero, motifs in _motifs_du_gate(echecs_du_gate).items():
+            par_chapitre.setdefault(numero, []).extend(motifs)
+        if not par_chapitre:
             rapport.motif_d_arret = (
-                "aucune anomalie réparable par une réécriture de chapitre"
+                "gate illisible — aucune anomalie réparable parmi celles lues"
+                if gate_illisible
+                else "aucune anomalie réparable par une réécriture de chapitre"
             )
             return rapport
         if passe == max_passes:
@@ -296,8 +378,12 @@ def relire_et_corriger(
             rapport.motif_d_arret = "budget du dossier épuisé"
             return rapport
 
-        par_chapitre = _motifs_par_chapitre(a_reparer)
-        for numero in sorted(par_chapitre)[:MAX_CHAPITRES_PAR_PASSE]:
+        # Par GRAVITÉ, puis par numéro : les chapitres désignés par le gate
+        # passent dans l'ordre de `_CHECK_PRIORITY`, avant ceux que seule la
+        # lecture du fichier désigne. Voir `_priorites_du_gate`.
+        priorites = _priorites_du_gate(echecs_du_gate)
+        ordre = sorted(par_chapitre, key=lambda n: (priorites.get(n, 10_000), n))
+        for numero in ordre[:MAX_CHAPITRES_PAR_PASSE]:
             if budget_restant(job) < MARGE_DE_BUDGET:
                 rapport.motif_d_arret = "budget du dossier épuisé"
                 return rapport
