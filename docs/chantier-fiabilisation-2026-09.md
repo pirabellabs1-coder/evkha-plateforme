@@ -239,3 +239,24 @@ le document.
 
 Aucune génération. Chaque baisse vient d'un faux motif lu dans les documents et
 corrigé par classe, avec contre-épreuve ; chaque hausse est expliquée.
+
+## Faux motifs de contrôle — 14/09/2026, nuit (`5441ed4` et suivant)
+
+Mesure prise avec les nouveaux diagnostics : lignes retenues comme sources,
+fin du chapitre pour une troncature, tableau qui produit un total faux. Sans
+eux, on ne pouvait pas dire si le document ou la mesure se trompait.
+
+| Classe | Constat dans le corpus | Correctif | Effet mesuré (`1247` → `1400`) |
+|---|---|---|---|
+| `calcul_faux` (totaux) | signe perdu (« +15 000 € » + « −15 000 € » = 30 000 contre un écart nul), cellule de prose lue comme un nombre, deux nombres collés | une grandeur = UN nombre et son signe ; une colonne ne s'additionne que si ses unités concordent | BP 4 → 2 |
+| `calcul_faux` (durées) | « 6 mois » sur chaque réserve et au total : même période, pas une somme | lignes toutes égales au total = valeur commune | à mesurer (lot suivant) |
+| `valeur_nulle` | évolution nulle entre deux CA égaux, écart nommé par la ligne, zéro commenté dans sa cellule | résultat par en-tête OU libellé ; commentaire DANS la cellule (trouvée par position), manque et compléments d'unité exclus | BP 7 → 3, STR 8 → 5, EC 5 → 0 |
+| `troncature` | légende en italique sous un tableau final prise pour une phrase coupée | règle de `detecter_troncatures` importée dans `qa` | EM 4 → 0, STR 1 → 0 |
+| `chiffres_hors_socle` | « 1 824 M€ × 0,03 % ≈ 0,55 M€ » (0,51 % d'écart), « -6 600 € (20 400 - 27 000) », ligne du total à 100 % | arrondi écrit du montant (plafonné à 2 %), différence signée, 100 % pour la seule ligne du total | BP 222 → 216 ; STR 19 → 21 : « Toujours sous -20 % » est désormais jugé dans SA cellule, et non plus dans la voisine « entre -20 % et 0 % » qui le justifiait par accident |
+| sources EM (mesure et gate) | « 3 sources, 3 sans adresse » sur les six études : les lignes lues étaient la méthodologie ; le modèle impose « Organisme \| Publication \| Lien » | un tableau de sources se reconnaît à une colonne qui nomme l'origine ou porte l'adresse, sur sa seule ligne d'en-tête | à mesurer (lot suivant) |
+| `chiffres_hors_socle` EC | le prompt du chapitre 6 prescrivait « CA de référence, CA actuel » : le contrôle ne voyait aucune estimation déclarée | en-têtes « … estimé » dans le prompt ; milieu de fourchette et projection reconnus comme estimations (« médian » seul non) | à mesurer (lot suivant) |
+
+Relecture de code sur le premier lot : cinq règles trop larges (commentaire =
+n'importe quel mot, cellule trouvée par son texte, 100 % pour toute référence,
+tolérance d'arrondi à 0 décimale, plafond de mots) corrigées avant commit,
+chacune avec sa contre-épreuve.

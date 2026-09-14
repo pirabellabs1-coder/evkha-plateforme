@@ -105,3 +105,24 @@ def test_des_lignes_signees_sous_un_total_nu_se_comparent() -> None:
 """
     fautes = totaux_faux(tableau)
     assert [f.somme for f in fautes] == [20000]
+
+
+DUREES = """
+| Ligne de sécurisation | Montant | Durée couverte |
+| --- | --- | --- |
+| Avance charges fixes | 1 200 € | 6 mois |
+| Provision coûts variables | 1 000 € | 6 mois |
+| Avance rémunération et cotisations | 8 000 € | 6 mois |
+| Total du besoin en fonds de roulement | 10 200 € | 6 mois |
+"""
+
+
+def test_une_duree_commune_n_est_pas_une_somme() -> None:
+    """Business plans `9f8f144a`, `256e63d8` : trois réserves pour la même période."""
+    assert totaux_faux(DUREES) == []
+
+
+def test_un_montant_faux_reste_accuse_a_cote_d_une_duree_commune() -> None:
+    """CONTRE-ÉPREUVE : la colonne des montants se vérifie toujours."""
+    fautes = totaux_faux(DUREES.replace("| 10 200 € |", "| 12 200 € |"))
+    assert [f.colonne for f in fautes] == ["Montant"]

@@ -453,7 +453,18 @@ _LIGNE_SOURCE_RE = re.compile(r"^[ \t]*(?:[-•*]|\d+\.)[ \t]+(\S.*)$", re.MULTI
 # méthodologie et ignorait les cinq sources réellement listées (reprise
 # `8ad03a60`, 11/09/2026). Il jugeait sur ce qu'il savait lire, pas sur ce que
 # le lecteur lit (règle 3).
-_ENTETE_DE_SOURCES_RE = re.compile(r"(?i)^(?:sources?|r[ée]f[ée]rences?)$")
+#
+# Et l'en-tête ne s'écrit pas toujours « Source ». Le modèle validé de l'étude
+# de marché impose « Organisme | Publication | Lien » et « Acteur | Usage dans
+# l'étude | Lien » : aucun des deux n'était reconnu, la mesure retombait sur
+# les trois puces de la méthodologie, et les six études du corpus du 14/09/2026
+# rendaient « 3 sources, 3 sans adresse » pour 19 à 70 adresses collectées. Ce
+# qui fait un tableau de sources, c'est une colonne qui NOMME l'origine ou qui
+# porte son ADRESSE — pas un mot unique.
+_ENTETE_DE_SOURCES_RE = re.compile(
+    r"(?i)^(?:sources?|r[ée]f[ée]rences?|organismes?|publications?|"
+    r"liens?|url|adresses?(?:\s+web)?|sites?(?:\s+web)?)\b"
+)
 _SEPARATEUR_DE_TABLEAU_RE = re.compile(r"^[\s:|-]+$")
 
 # Une source qui vient du client n'a pas d'URL, et n'en aura jamais : son
@@ -508,16 +519,21 @@ def _sources_listees(corps: str) -> list[str]:
     """
     du_tableau: list[str] = []
     dans_un_tableau_de_sources = False
+    en_tete_attendu = True
     for ligne in corps.splitlines():
         nue = ligne.strip()
         if not nue.startswith("|"):
             dans_un_tableau_de_sources = False
+            en_tete_attendu = True
             continue
         if _SEPARATEUR_DE_TABLEAU_RE.fullmatch(nue):
             continue
         cellules = [c.strip() for c in nue.strip("|").split("|")]
-        if any(_ENTETE_DE_SOURCES_RE.match(c) for c in cellules):
-            dans_un_tableau_de_sources = True
+        # Seule la PREMIÈRE ligne d'un tableau est son en-tête : une cellule
+        # « Lien avec le projet » plus bas ne fait pas un tableau de sources.
+        if en_tete_attendu:
+            en_tete_attendu = False
+            dans_un_tableau_de_sources = any(_ENTETE_DE_SOURCES_RE.match(c) for c in cellules)
             continue
         if dans_un_tableau_de_sources:
             du_tableau.append(" ".join(cellules))

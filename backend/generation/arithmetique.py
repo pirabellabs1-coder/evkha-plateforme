@@ -737,6 +737,14 @@ def totaux_faux(texte: str) -> list[TotalFaux]:
             valeurs = [_valeur_de_cellule(r[colonne]) for r in termes if colonne < len(r)]
             if not valeurs or any(v is None for v in valeurs):
                 continue
+            # Chaque ligne VAUT le total : c'est une valeur commune, pas une
+            # somme. « Avance charges fixes | 6 mois », « Provision | 6 mois »,
+            # « Total du besoin | 6 mois » — trois réserves couvrant la même
+            # période (business plans `9f8f144a` et `256e63d8`, corpus du
+            # 14/09/2026). Une vraie somme de plusieurs termes non nuls ne
+            # vaut jamais chacun d'eux.
+            if len(valeurs) >= 2 and annonce and all(v == annonce for v in valeurs):
+                continue
             somme = sum(v for v in valeurs if v is not None)
             if _ecart_trop_grand(annonce, somme, _decimales(total[colonne])):
                 fautes.append(TotalFaux(

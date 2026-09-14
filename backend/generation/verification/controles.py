@@ -517,8 +517,13 @@ def _sourcee_dans_sa_phrase(mesure: Mesure) -> bool:
 # - un POURCENTAGE estimé est admis (une part se déduit), SAUF une croissance,
 #   un TCAC ou une pénétration, qui sont des faits de marché.
 
+#: Le MILIEU d'une fourchette et une PROJECTION sont des estimations qui disent
+#: leur méthode : « CA de référence (2024, milieu de fourchette) », « CA projeté
+#: 2026 » (études concurrentielles du corpus du 14/09/2026). « Médian » seul
+#: n'en est pas une — « la médiane nationale de 4,25 € » est un fait à sourcer.
 _ESTIMATION = re.compile(
-    r"\b(?:estim[ée]e?s?|estimation|hypoth[èe]ses?|de\s+l['’]ordre\s+de)\b",
+    r"\b(?:estim[ée]e?s?|estimation|hypoth[èe]ses?|de\s+l['’]ordre\s+de|"
+    r"milieu\s+de\s+(?:la\s+)?fourchette|projet[ée]e?s?|projections?)\b",
     re.IGNORECASE,
 )
 #: Le mot de décision, au plus trois mots, puis un CONNECTEUR juste avant le
