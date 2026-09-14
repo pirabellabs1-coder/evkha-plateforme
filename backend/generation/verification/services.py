@@ -10,6 +10,7 @@ produit est un constat, destiné à un humain et au blocage de l'envoi.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -46,7 +47,7 @@ def chiffres_du_brief(job: GenerationJob) -> list[float]:
     # milliers de nombres nus — années, numéros, quantités : les admettre tous
     # donnait à un chiffre inventé de bonnes chances de tomber juste à 1 % près
     # (relecture du 11/09/2026).
-    from core.numbers import AMOUNT_WITH_UNIT_RE, parse_amount  # noqa: PLC0415
+    from core.numbers import AMOUNT_WITH_UNIT_RE, parse_amount, parse_number  # noqa: PLC0415
 
     from ..documents_client import texte_des_documents  # noqa: PLC0415
     from ..gate import _brief_free_text  # noqa: PLC0415
@@ -57,7 +58,38 @@ def chiffres_du_brief(job: GenerationJob) -> list[float]:
         if trouve.group(2)
         and (montant := parse_amount(trouve.group(1), trouve.group(2))) is not None
     ]
-    return [*amounts_in(_brief_free_text(job)), *des_documents]
+    # Les champs STRUCTURÉS du brief — `INVESTISSEMENT_TOTAL : 180 000 euros`,
+    # `CA_PREVISIONNEL : An1 : 320 000 euros`. `_brief_free_text` ne lit que les
+    # champs de texte libre, pour un autre usage (le gate exige d'y retrouver
+    # chaque montant) : le contrôle disait donc « ni dans le brief » d'un
+    # chiffre que la cliente avait écrit en toutes lettres (corpus du
+    # 14/09/2026, étude `c7c6ba96`). Comme pour les documents, on ne retient ici
+    # que les montants à unité, et les pourcentages.
+    des_champs = [
+        montant
+        for trouve in AMOUNT_WITH_UNIT_RE.finditer(_brief_complet(job))
+        if trouve.group(2)
+        and (montant := parse_amount(trouve.group(1), trouve.group(2))) is not None
+    ] + [
+        valeur
+        for trouve in _POURCENTAGE_DU_BRIEF.finditer(_brief_complet(job))
+        if (valeur := parse_number(trouve.group(1))) is not None
+    ]
+    return [*amounts_in(_brief_free_text(job)), *des_documents, *des_champs]
+
+
+_POURCENTAGE_DU_BRIEF = re.compile(r"(-?\d[\d\s\u00a0\u202f]*(?:[.,]\d+)?)\s*%")
+
+
+def _brief_complet(job: GenerationJob) -> str:
+    """Toutes les réponses du brief, champs structurés compris."""
+    from intake.models import IntakeSubmission  # noqa: PLC0415
+
+    submission = IntakeSubmission.objects.filter(order=job.order).first()
+    if submission is None:
+        return ""
+    variables = submission.normalized_variables or {}
+    return "\n".join(str(valeur) for valeur in variables.values() if valeur)
 
 
 def verifier_document(

@@ -1221,3 +1221,32 @@ def test_deux_ou_trois_formules_vides_ne_declenchent_pas_de_recalcul(
     dc.extraire("previsionnel.xlsx", _classeur_de_formules(2))
 
     assert appels == []
+
+
+@pytest.mark.django_db
+def test_les_champs_structures_du_brief_justifient_leurs_chiffres(
+    job_avec_organisation: Any,
+) -> None:
+    """Étude `c7c6ba96` : « investissement de 180 000 euros » accusé « ni dans le brief ».
+
+    La cliente l'avait écrit dans `INVESTISSEMENT_TOTAL` — un champ que le
+    contrôle ne lisait pas, seuls les champs de texte libre l'étaient.
+    """
+    from generation.verification.services import chiffres_du_brief
+    from intake.models import IntakeSubmission
+
+    job = job_avec_organisation
+    soumission = IntakeSubmission.objects.get(order=job.order)
+    soumission.normalized_variables = {
+        **soumission.normalized_variables,
+        "INVESTISSEMENT_TOTAL": "180 000 euros",
+        "CA_PREVISIONNEL": "An1 : 320 000 euros ; An2 : 385 000 euros",
+        "OFFRE": "marge contributive de –60,6 % ; 14 abonnés en 2026",
+    }
+    soumission.save(update_fields=["normalized_variables"])
+
+    admis = chiffres_du_brief(job)
+    assert {180000.0, 320000.0, 385000.0} <= set(admis)
+    assert 60.6 in {abs(a) for a in admis}
+    # CONTRE-ÉPREUVE : un nombre nu d'un champ structuré n'est pas un montant.
+    assert 2026.0 not in admis and 14.0 not in admis

@@ -100,6 +100,7 @@ class Mesure:
     #: quel que soit le socle (14/09/2026).
     catalogue_figures: int = 0
     catalogue_formes: int = 0
+    chiffres_hors_socle_en_contexte: list[dict[str, object]] = field(default_factory=list)
     #: Renseigné quand le document n'a pas pu être rendu. Ne pas pouvoir
     #: mesurer EST la mesure : on le dit, on ne rend pas des zéros.
     echec: str = ""
@@ -135,6 +136,7 @@ class Mesure:
             "anomalies": self.anomalies,
             "gate": self.gate,
             "figures_abandonnees": self.figures_abandonnees,
+            "chiffres_hors_socle_en_contexte": self.chiffres_hors_socle_en_contexte,
             "catalogue": {
                 "figures": self.catalogue_figures, "formes": self.catalogue_formes,
             },
@@ -250,6 +252,12 @@ def mesurer(job: GenerationJob) -> Mesure:
     hors_socle = [
         a.detail for a in controle.anomalies if a.controle == MOTIF_HORS_SOCLE
     ]
+    # Avec leur phrase : 757 motifs sur le corpus, et quatre exemples par
+    # dossier ne permettaient pas de séparer les calculs posés des inventions.
+    hors_socle_en_contexte: list[dict[str, object]] = [
+        {"chapitre": a.chapitre, "detail": a.detail[:160], "extrait": a.extrait[:240]}
+        for a in controle.anomalies if a.controle == MOTIF_HORS_SOCLE
+    ]
     return Mesure(
         figures_demandees=rapport.graphiques_demandes,
         figures_obtenues=max(rapport.graphiques_rendus - completees - reparees, 0),
@@ -266,6 +274,7 @@ def mesurer(job: GenerationJob) -> Mesure:
         ]),
         gate=_echecs_du_gate(job),
         figures_abandonnees=list(rapport.diagnostic_des_abandons),
+        chiffres_hors_socle_en_contexte=hors_socle_en_contexte,
         catalogue_figures=len(catalogue),
         catalogue_formes=len({proposition.type_graphique for proposition in catalogue}),
     )
