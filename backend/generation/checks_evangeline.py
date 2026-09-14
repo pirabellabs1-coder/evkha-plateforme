@@ -29,7 +29,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 
-from core.numbers import MONEY_CAPTURED, SPACE_CLASS, parse_number, to_base_units
+from core.numbers import MONEY, MONEY_CAPTURED, SPACE_CLASS, parse_number, to_base_units
 
 # ── 1. Fourchettes ───────────────────────────────────────────────────────────
 
@@ -485,6 +485,20 @@ _COMPLEMENT_DE_GRANDEUR = re.compile(
     r"\s*(?:HT|TTC)?\s*(?:de|d['’])\s*(?:l['’]\s*|la\s+|le\s+|les\s+)?", re.IGNORECASE,
 )
 
+#: Un montant puis « de » juste avant le libellé : la valeur précède son libellé.
+_VALEUR_AVANT_LIBELLE = re.compile(
+    rf"{MONEY}{SPACE_CLASS}*(?:HT|TTC)?{SPACE_CLASS}*(?:de|d['’])"
+    rf"{SPACE_CLASS}*(?:l['’]{SPACE_CLASS}*|la{SPACE_CLASS}+|le{SPACE_CLASS}+|les{SPACE_CLASS}+)?$",
+    re.IGNORECASE,
+)
+
+#: Une COORDINATION entre le libellé et le montant : « intégrée au calcul du
+#: seuil de rentabilité et au compte de résultat du chapitre 16 : 12 000 euros ».
+#: Le montant appartient au dernier terme coordonné.
+_COORDINATION = re.compile(
+    r"\bet\s+(?:au|aux|à\s+la|à\s+l['’]|du|de\s+la|des|le|la|les|l['’])\b", re.IGNORECASE,
+)
+
 #: Un opérateur dans une parenthèse : « (18 667 €/54 276 €) », « (54 276 €
 #: moins 18 667 €) ». Le montant qu'elle contient est un OPÉRANDE.
 _OPERATEUR = re.compile(r"/|÷|\bmoins\b|\bplus\b|\s[-−×x*+]\s", re.IGNORECASE)
@@ -555,11 +569,19 @@ class DivergenceChiffree:
         return f"{self.libelle}{suffixe} : {' ; '.join(parties)}"
 
 
-def _annee_proche(texte: str) -> int | None:
-    """Extrait l'annee mentionnee dans la fenetre de contexte, si presente."""
-    match = _ANNEE_RE.search(texte)
-    if not match:
+def _annee_proche(texte: str, pres_de: int | None = None) -> int | None:
+    """L'annee mentionnee dans la fenetre de contexte, la plus PROCHE du montant.
+
+    La premiere venue ne suffit pas : « la trajectoire devient positive dès
+    l'année 2 et solide en année 3 (résultat net de 42 000 €) » rangeait
+    42 000 € dans l'année 2 (business plan `5c5e91b9`, corpus du 14/09/2026).
+    """
+    trouvees = list(_ANNEE_RE.finditer(texte))
+    if not trouvees:
         return None
+    match = trouvees[0] if pres_de is None else min(
+        trouvees, key=lambda m: min(abs(m.start() - pres_de), abs(m.end() - pres_de)),
+    )
     valeur = match.group(1) or match.group(2) or match.group(3)
     if valeur is None:
         return _RANG_ORDINAL.get(match.group(4).casefold())
@@ -614,7 +636,13 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             debut_phrase_libelle = max(
                 texte.rfind(c, 0, occurrence.start()) for c in ".!?\n"
             ) + 1
-            if _COMPARAISON_AVANT.search(texte[debut_phrase_libelle:occurrence.start()]):
+            avant_libelle = texte[debut_phrase_libelle:occurrence.start()]
+            if _COMPARAISON_AVANT.search(avant_libelle):
+                continue
+            # La valeur est écrite AVANT le libellé : « les 54 276 € de chiffre
+            # d'affaires prévisionnel de l'année 1 et même les 269 721 € projetés
+            # en année 3 ». Le premier montant qui suit appartient à la suite.
+            if _VALEUR_AVANT_LIBELLE.search(avant_libelle):
                 continue
             if entre.rfind("(") > entre.rfind(")"):
                 fermeture = fenetre.find(")", montant.start())
@@ -622,6 +650,8 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
                 if _OPERATEUR.search(interieur):
                     continue
             if _FIN_DE_TRAJECTOIRE.search(entre):
+                continue
+            if _COORDINATION.search(entre):
                 continue
             # Un AUTRE libelle surveille entre les deux : le montant est le
             # sien. « ...un point de marge brute en moins ramenerait
@@ -681,7 +711,9 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             if cle in _LIBELLES_ANNUELS:
                 debut_ctx = max(0, occurrence.start() - 40)
                 fin_ctx = min(len(texte), fin_libelle + montant.end() + 40)
-                annee = _annee_proche(texte[debut_ctx:fin_ctx])
+                annee = _annee_proche(
+                    texte[debut_ctx:fin_ctx], pres_de=fin_libelle + montant.start() - debut_ctx,
+                )
                 if annee is None:
                     continue
             else:

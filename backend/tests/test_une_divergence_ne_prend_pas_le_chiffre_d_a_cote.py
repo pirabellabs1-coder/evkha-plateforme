@@ -138,3 +138,44 @@ def test_une_vraie_divergence_de_chiffre_d_affaires_reste_attrapee() -> None:
         4: "Le chiffre d'affaires prévisionnel de l'année 1 atteint 40 716 €.",
     })
     assert len(divs) == 1
+
+
+# ── Les quatre motifs restants (mesure `corpus-20260914-1518`) ───────────────
+
+
+def test_une_valeur_ecrite_avant_son_libelle_ne_prend_pas_la_suivante() -> None:
+    assert _divergences({
+        7: "Le chiffre d'affaires prévisionnel de l'année 1 est de 54 276 €.",
+        13: (
+            "Le plafond couvre largement les 54 276 € de chiffre d'affaires prévisionnel "
+            "de l'année 1 et même les 269 721 € projetés en année 3."
+        ),
+    }) == []
+
+
+def test_un_montant_coordonne_appartient_au_dernier_terme() -> None:
+    assert _divergences({
+        9: "Le seuil de rentabilité est de 18 667 €.",
+        18: (
+            "Elle est déjà intégrée au calcul du seuil de rentabilité et au compte de "
+            "résultat prévisionnel du chapitre 16 : 12 000 euros annuels."
+        ),
+    }) == []
+
+
+_TRAJECTOIRE = (
+    "La trajectoire devient positive dès l'année 2 et solide en année 3 "
+    "(résultat net de 42 000 euros)."
+)
+
+
+def test_l_annee_retenue_est_la_plus_proche_du_montant() -> None:
+    assert _divergences({
+        1: "Le résultat net de l'année 2 est de 8 000 €.",
+        21: _TRAJECTOIRE,
+    }) == []
+    divs = _divergences({
+        1: "Le résultat net de l'année 3 est de 8 000 €.",
+        21: _TRAJECTOIRE,
+    })
+    assert len(divs) == 1, "CONTRE-ÉPREUVE : deux résultats nets de l'année 3 s'opposent"
