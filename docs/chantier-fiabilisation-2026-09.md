@@ -315,3 +315,16 @@ dirigeant, environ 30 minutes ») et une hypothèse « à confirmer ».
 Deux fois de suite, la relecture ligne à ligne des motifs disparus a trouvé
 une règle trop large que les tests ne voyaient pas — chaque fois corrigée au
 lot suivant, avec la phrase fautive en contre-épreuve.
+
+## Estimations reprises, adresses de sources, et deux regex mortes — 14/09/2026, 18 h
+
+| Lot | Constat | Correctif | Mesure et relecture |
+|---|---|---|---|
+| `8f8e2ed` | les reprises en prose d'une estimation de concurrent (« cabinet de Nantes (250 000 euros, 0,029 %) ») accusées d'invention | valeur établie en tableau reprise à l'identique | **trop large** : 84 chiffres blanchis (BP 210 → 167, EC 121 → 90), dont « 9,4 % en année 3 », « 3 300 000 € » — toute valeur acceptée en tableau, pour n'importe quelle raison, se propageait au document |
+| `a3a6d20` | — | méthode dite par l'EN-TÊTE (« estimé ») ou refaite dans la ligne ; reprise en PROSE qui nomme l'acteur de la ligne | réarmé : BP 204, EC 113 — les 14 disparitions relues nomment chacune leur acteur (Koïno, Zooplus, Nova-IA, « emprunt »…) |
+| `909b79e` | « gold.fr/vente-or », « annuaire-entreprises.data.gouv.fr » (sans https://), « Article L221-18 du code de la consommation » comptés sans adresse ; ratio calculé sur les URL du chapitre entier | `adresse_de_la_source` : URL, domaine ou référence juridique, par ligne de source ; même expression juridique que le contrôle des chiffres sourcés | sources sans adresse BP 21 → 3, EC 54 → 19, STR 22 → 17 ; `ratio_faible` BP 2 → 0, EC 3 → 1 |
+| `9cb1580` | deux regex de `79ad8d3` (en production) contenaient U+0008 à la place de `\b` — écrites par un script shell — et ne correspondaient jamais ; la doublure remplissait la colonne « Lien » de « À arbitrer » | regex réparées, deux tests qui les font correspondre ; doublure : une colonne de lien porte un lien ; dépôt entier relu pour les caractères de contrôle | vérification complète verte, dont la répétition à blanc qui bloquait le business plan |
+
+Une vérification rouge (répétition à blanc bloquée) a été vue avant tout
+déploiement : les commits locaux n'ont été poussés qu'après correction et une
+vérification entièrement verte, contrôlée par script avant le `push`.
