@@ -139,3 +139,9 @@ variante en « de X à Y ».
 dossiers restent tronqués à 500 signes (la migration ne les répare pas), et
 une réponse libre qui ne donne pas l'apport est désormais dite illisible au
 lieu d'accuser le document.
+
+Après déploiement de `88fc431` : `fourchette_interdite` BP 67 → 66, STR 65 → 62,
+EC 24 inchangé. La classe « valeurs reliées » était petite ; les ~150 motifs
+restants sont de vraies plages dans des documents anciens. Leur correctif est
+à la source (consigne des prix par variante) et ne se prouvera que sur le
+prochain dossier réel.
