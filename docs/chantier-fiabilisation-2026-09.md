@@ -328,3 +328,18 @@ lot suivant, avec la phrase fautive en contre-épreuve.
 Une vérification rouge (répétition à blanc bloquée) a été vue avant tout
 déploiement : les commits locaux n'ont été poussés qu'après correction et une
 vérification entièrement verte, contrôlée par script avant le `push`.
+
+## Figures de concurrents et décisions de stratégie — 14/09/2026, soirée
+
+| Lot | Constat | Correctif | Mesure |
+|---|---|---|---|
+| `05227fb` | barres groupées et horizontales perdues sur « identifiants absents du socle : prix, offre, directs » — les codes de la grille de notes, que le radar lisait déjà | un critère : classement des acteurs notés ; plusieurs : un groupe par critère ; demande empilée rendue groupée. Agit au RENDU, donc sur les documents existants | figures perdues EC 35 → 31, visuels EC 56 → 45 |
+| `e9a967c` | « le blog reste un canal secondaire » : les décisions de canaux n'étaient lues qu'au pluriel ; la mesure ne montrait pas les phrases du sujet d'une décision absente | singulier par la forme verbale (négation et tiers écartés) ; mesure : phrases du chapitre porteur qui parlent du sujet | diagnostic : six stratégies sur sept classaient leurs canaux secondaires EN TABLEAU |
+| `dabd5a2` | « \| Campagnes e-mail/SMS \| Secondaire, phase 2 \| » : le nom du canal tient lieu de sujet ; et la forme au singulier de e9a967c traversait les cellules d'en-tête | classement en tableau de canaux (en-tête ou introduction qui parle de canaux, case de données qui commence par le classement) ; la barre de cellule arrête la fenêtre | `decision_absente` STR 17 → 14 |
+
+Restent 14 décisions absentes : « produit ou service à pousser en priorité »
+(5 dossiers, les phrases rendues ne montrent pas de priorité d'offre), des
+canaux secondaires écrits « 3 - différée … mais secondaire tant que… » ou hors
+des quatre phrases rendues, une cible secondaire, une fréquence de publication
+et un impact sur la marge — à relire document par document avant d'élargir
+quoi que ce soit.
