@@ -41,7 +41,7 @@ from core.numbers import amounts_in
 from ..checks_post_rendu import REFERENCE_JURIDIQUE
 from ..prompts import PLAFOND_FIGURES, PLANCHER_FIGURES
 from ..socle.referentiel import identifiants_obligatoires
-from ..socle.schema import Socle, valeur_en_unites_de_base
+from ..socle.schema import DONNEE_MANQUANTE, Socle, valeur_en_unites_de_base
 from .lecture import DocumentLu, Mesure, mesures_dans
 from .rapport import Anomalie, Gravite
 
@@ -1599,10 +1599,7 @@ def _zero_commente_dans_sa_cellule(mesure: Mesure) -> bool:
 #: Ce qui dit qu'une donnée MANQUE : le zéro qui l'accompagne est une valeur
 #: fabriquée, même si la phrase contient « aucun » par ailleurs. « Coût
 #: d'acquisition : non mesuré à ce jour… | 0 EUR » passait-il ? Il ne doit pas.
-_DONNEE_MANQUANTE = re.compile(
-    r"(?i)[àa]\s+pr[ée]ciser|[àa]\s+d[ée]finir|[àa]\s+confirmer|non\s+mesur|"
-    r"non\s+disponible|non\s+renseign|non\s+communiqu|inconnu|n\.?\s?c\.?\b"
-)
+_DONNEE_MANQUANTE = DONNEE_MANQUANTE
 
 #: Un zéro qui BORNE un intervalle est assumé lui aussi : « entre −20 % et
 #: 0 % » annonce une fourchette, pas une donnée manquante. Relevé sur le

@@ -228,6 +228,14 @@ class Zone(BaseModel):
     ville: str = ""
 
 
+#: Ce qui dit qu'une donnée MANQUE. Source unique : le contrôle des valeurs
+#: nulles du livrable (`verification.controles`) l'importe d'ici.
+DONNEE_MANQUANTE = re.compile(
+    r"(?i)[àa]\s+pr[ée]ciser|[àa]\s+d[ée]finir|[àa]\s+confirmer|non\s+mesur|"
+    r"non\s+disponible|non\s+renseign|non\s+communiqu|inconnu|n\.?\s?c\.?\b"
+)
+
+
 class DonneeSocle(BaseModel):
     """Un chiffre de référence, adressable par son identifiant."""
 
@@ -757,10 +765,43 @@ def valider_socle(socle: Socle, deliverable_type: str) -> list[str]:
                     f"`{item.id}` déclare dériver de `{parent}`, absent du socle."
                 )
 
+    # 6. Une donnée qui MANQUE ne s'écrit pas 0. Corpus du 14/09/2026 : trois
+    # stratégies portaient « Coût d'acquisition d'un abonné — non mesuré à ce
+    # jour | 0 EUR », un business plan « Masse salariale | 0 € | à préciser » ;
+    # le livrable affichait un zéro, et le contrôle des valeurs nulles le
+    # signalait trop tard, sur le document. Une donnée inconnue se TAIT.
+    for item in _zeros_qui_manquent(socle):
+        motifs.append(
+            f"`{item.id}` vaut 0 alors que son libellé dit que la donnée manque "
+            f"(« {item.libelle[:80]} »). Une donnée inconnue ne s'écrit pas 0 : "
+            "retire-la du socle, ou donne sa valeur estimée avec sa méthode."
+        )
+
     motifs.extend(_controler_emboitement_marche(socle))
     motifs.extend(_controler_equilibre_financier(socle))
     motifs.extend(_controler_grille_notation(socle))
     return motifs
+
+
+def _zeros_qui_manquent(socle: Socle) -> list[DonneeSocle]:
+    return [
+        item for item in socle.donnees
+        if item.valeur == 0 and DONNEE_MANQUANTE.search(f"{item.libelle} {item.source}")
+    ]
+
+
+def retirer_les_zeros_qui_manquent(socle: Socle, deliverable_type: str) -> list[str]:
+    """En dernier recours, retire les données facultatives inconnues écrites 0.
+
+    Même arbitrage que `reparer_la_grille` : le refus fait corriger le modèle
+    aux premières tentatives ; à la dernière, retirer une donnée FACULTATIVE
+    qui n'a pas de valeur vaut mieux que perdre l'étude. Une donnée
+    obligatoire reste, et le refus avec elle.
+    """
+    obligatoires = identifiants_obligatoires(deliverable_type)
+    retires = [item.id for item in _zeros_qui_manquent(socle) if item.id not in obligatoires]
+    socle.donnees = [item for item in socle.donnees if item.id not in retires]
+    return retires
 
 
 def reparer_les_filiations(socle: Socle) -> list[str]:

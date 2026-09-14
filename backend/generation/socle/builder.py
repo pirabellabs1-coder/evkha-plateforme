@@ -18,6 +18,7 @@ from .schema import (
     Socle,
     reparer_la_grille,
     reparer_les_filiations,
+    retirer_les_zeros_qui_manquent,
     valider_socle,
 )
 
@@ -136,6 +137,11 @@ def _analyser(
                 "Socle : filiations retirees faute de parent — %s. La donnee "
                 "reste, sa provenance declaree ne pointait vers rien.",
                 ", ".join(orphelines),
+            )
+        inconnues = retirer_les_zeros_qui_manquent(socle, deliverable_type)
+        if inconnues:
+            _log.warning(
+                "Socle : données inconnues écrites 0 retirées — %s.", ", ".join(inconnues),
             )
         retires = reparer_la_grille(socle)
         if retires:
