@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 import statistics
 import zipfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -103,6 +103,15 @@ class DocumentLu:
     #: — couverture, sommaire — et pour un document lu sans bandeaux.
     chapitre_du_paragraphe: list[int | None] = field(default_factory=list)
     chapitre_de_la_cellule: list[int | None] = field(default_factory=list)
+    #: Ce que le lecteur voit AVEC chaque cellule : l'en-tête de sa colonne, puis
+    #: sa ligne entière. Même ordre que `cellules` ; vide pour les documents lus
+    #: sans structure de tableau.
+    #:
+    #: Corpus du 14/09/2026 : 212 des 382 « chiffres hors socle » d'une étude
+    #: concurrentielle étaient des cellules du chapitre 6 jugées seules —
+    #: « 250 000 € », « 0,029 % » — sous un en-tête « CA estimé » que le
+    #: contrôle ne voyait pas. Le lecteur, lui, lit les deux ensemble.
+    contexte_de_la_cellule: list[str] = field(default_factory=list)
 
     @property
     def texte_integral(self) -> str:
@@ -197,6 +206,25 @@ def mesures_dans(
     return relevees
 
 
+def _dans_son_tableau(mesure: Mesure, contexte: str) -> Mesure:
+    """La grandeur d'une cellule, jugée avec ce que le lecteur voit autour.
+
+    La « phrase » devient `en-tête : ligne entière`, et la position de la
+    grandeur y est recalculée : les règles de la prose — estimation déclarée,
+    source nommée, calcul posé — s'appliquent alors telles quelles, sans
+    exception propre aux tableaux.
+    """
+    if not contexte:
+        return mesure
+    position = contexte.find(mesure.texte, contexte.find(" : ") + 3)
+    if position < 0:
+        return mesure
+    return replace(
+        mesure, phrase=contexte, debut_dans_la_phrase=position,
+        contexte=" ".join(contexte.split())[:240],
+    )
+
+
 def lire_livrable(chemin: Path) -> DocumentLu:
     """Ouvre le `.docx` livré et en extrait la matière vérifiable.
 
@@ -221,9 +249,13 @@ def lire_livrable(chemin: Path) -> DocumentLu:
 
     for prose, chapitre in zip(lu.paragraphes, lu.chapitre_du_paragraphe, strict=True):
         lu.mesures.extend(mesures_dans(prose, chapitre=chapitre))
-    for contenu, chapitre in zip(lu.cellules, lu.chapitre_de_la_cellule, strict=True):
+    contextes = lu.contexte_de_la_cellule or [""] * len(lu.cellules)
+    for contenu, chapitre, contexte in zip(
+        lu.cellules, lu.chapitre_de_la_cellule, contextes, strict=True,
+    ):
         lu.mesures.extend(
-            mesures_dans(contenu, dans_un_tableau=True, chapitre=chapitre)
+            _dans_son_tableau(mesure, contexte)
+            for mesure in mesures_dans(contenu, dans_un_tableau=True, chapitre=chapitre)
         )
 
     return lu
@@ -264,11 +296,17 @@ def _parcourir_le_corps(document: Any, lu: DocumentLu) -> None:
         table = Table(element, document)
         lu.tableaux += 1
         contenu_table: list[str] = []
-        for ligne in table.rows:
-            for cellule in ligne.cells:
-                texte = cellule.text.strip()
-                if texte:
-                    contenu_table.append(texte)
+        contextes_table: list[str] = []
+        lignes = [[cellule.text.strip() for cellule in ligne.cells] for ligne in table.rows]
+        entetes = lignes[0] if len(lignes) > 1 else []
+        for rang, cellules in enumerate(lignes):
+            texte_de_la_ligne = " | ".join(c for c in cellules if c)
+            for colonne, texte in enumerate(cellules):
+                if not texte:
+                    continue
+                contenu_table.append(texte)
+                en_tete = entetes[colonne] if rang and colonne < len(entetes) else ""
+                contextes_table.append(f"{en_tete} : {texte_de_la_ligne}" if en_tete else "")
         if not contenu_table:
             # Un tableau sans une seule cellule remplie est le symptôme exact
             # de la perte de lignes déjà constatée sur ce projet.
@@ -278,6 +316,7 @@ def _parcourir_le_corps(document: Any, lu: DocumentLu) -> None:
             courant = int(bandeau.group(1))
         lu.cellules.extend(contenu_table)
         lu.chapitre_de_la_cellule.extend([courant] * len(contenu_table))
+        lu.contexte_de_la_cellule.extend(contextes_table)
 
 
 #: Balises dont le texte est de la PROSE. Les titres en font partie : le
