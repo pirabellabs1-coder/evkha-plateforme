@@ -136,3 +136,23 @@ def test_deux_marges_du_meme_exercice_divergent_toujours() -> None:
         (16, "La marge brute de l'exercice 1 est de 188 150 euros."),
     ]
     assert detecter_divergences(_mentions(document))
+
+
+def test_une_valeur_de_scenario_n_est_pas_la_valeur_retenue() -> None:
+    """« Dans le scénario pessimiste, l'EBE de l'année 1 tombe à 34 800 € » : une sensibilité."""
+    document = [
+        (9, "L'EBE de l'année 1 atteint 38 000 euros."),
+        (16, "Dans le scénario pessimiste, l'EBE de l'année 1 tombe à 34 800 euros."),
+        (18, "Une baisse de 10 % du chiffre d'affaires ramènerait l'EBE de l'année 1 "
+              "à 30 000 euros."),
+    ]
+    assert detecter_divergences(_mentions(document)) == []
+
+
+def test_une_contradiction_affirmee_reste_une_contradiction() -> None:
+    """CONTRE-ÉPREUVE : deux affirmations au présent, sans scénario, divergent."""
+    document = [
+        (9, "L'EBE de l'année 1 atteint 38 000 euros."),
+        (16, "L'EBE de l'année 1 s'établit à 34 800 euros."),
+    ]
+    assert detecter_divergences(_mentions(document))

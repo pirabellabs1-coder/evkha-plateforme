@@ -417,6 +417,18 @@ _MOTS_DE_RUPTURE = re.compile(
     re.IGNORECASE,
 )
 
+#: Une phrase qui présente une variante, pas la valeur retenue : condition,
+#: scénario nommé, sensibilité, ou verbe au conditionnel.
+_PHRASE_DE_SCENARIO = re.compile(
+    # « Scénario » SEUL n'en fait pas partie : « le seuil de rentabilité pour ce
+    # scénario est de 180 000 € » était l'une des trois valeurs concurrentes
+    # que la cliente a signalées (SYNAPSES). Il faut une variante NOMMÉE.
+    r"\b(?:si|pessimiste|optimiste|d[ée]grad[ée]e?|sensibilit[ée]|"
+    r"stress|variante|en\s+cas\s+d|hypoth[èe]se\s+(?:basse|haute))\b"
+    r"|\b\w{3,}(?:rait|raient)\b",
+    re.IGNORECASE,
+)
+
 #: Ce qui, juste après un montant, en fait une grandeur PAR unité ou par période.
 _PAR_UNITE_APRES = re.compile(
     r"\s*(?:HT|TTC)?\s*(?:par|/)\s*(?:mois|an|ann[ée]e|semaine|jour|trimestre|abonn[ée]s?|"
@@ -547,6 +559,14 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             # produisait une divergence sur un document juste. Le cas AVANT le
             # montant (« marge brute unitaire ») est déjà dans les mots de rupture.
             if _PAR_UNITE_APRES.match(fenetre[montant.end():]):
+                continue
+            # Une valeur de SCÉNARIO n'est pas la valeur retenue : « un point de
+            # marge en moins ramènerait l'EBE à 34 800 € », « dans le scénario
+            # pessimiste, le résultat net tombe à 42 500 € ». Opposée à la valeur
+            # centrale, elle faisait accuser un prévisionnel qui présente sa
+            # sensibilité — ce qu'un banquier attend (corpus du 14/09/2026).
+            debut_phrase = max(texte.rfind(c, 0, occurrence.start()) for c in ".!?\n") + 1
+            if _PHRASE_DE_SCENARIO.search(texte[debut_phrase:fin_libelle + montant.end()]):
                 continue
             base = to_base_units(
                 _lire_nombre(montant.group(1)), montant.group(2)
