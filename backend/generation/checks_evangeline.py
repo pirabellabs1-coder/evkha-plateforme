@@ -1248,7 +1248,12 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                    # 14/09/2026, phrases du sujet).
                    r"|\b(?:offre|produit|service|prestation|formule|palier|abonnement)s?\s+"
                    r"(?:pouss[ée]e?s?|mise?s?\s+en\s+avant|privil[ée]gi[ée]e?s?)\s+en\s+priorit[ée]"
-                   r"|\bpriorit[ée]\s+commerciale\b"
+                   # « La priorité commerciale » seule ne décide rien — « rien
+                   # n'indique quelle est la priorité commerciale ». Il faut la
+                   # RÉPONSE : après deux-points ou dans une case suivante de la
+                   # même ligne, une offre nommée.
+                   r"|\bpriorit[ée]\s+commerciale\b[^.!?\n]{0,120}?(?::|\|)[^\n]{0,160}?"
+                   r"\b(?:offres?|formules?|abonnements?|produits?|services?|paliers?|packs?)\b"
                )),
             _D("la proposition de valeur", rf"proposition{_E}+de{_E}+valeur",
                etiquette="Proposition de valeur"),
@@ -1494,14 +1499,17 @@ def _classe_en_tableau(classement: str, corpus: str) -> bool:
             rang += 1
         tableau = lignes[debut:rang]
         avant = "\n".join(lignes[:debut])[-_INTRODUCTION_DU_TABLEAU:]
-        # Le tableau parle de canaux par son en-tête, son introduction ou ses
-        # lignes : « | Secondaire (à préparer) | Cadrage du contenu SEO et
-        # LinkedIn | Canaux à faible charge | » (`0ad5155b`, chapitre 17) porte
-        # le classement en PREMIÈRE colonne et le mot « canaux » en troisième.
-        if not (_SUJET_CANAUX.search("\n".join(tableau)) or _SUJET_CANAUX.search(avant)):
-            continue
+        # Le tableau parle de canaux par son en-tête ou son introduction — ou
+        # c'est la LIGNE classée qui le dit : « | Secondaire (à préparer) |
+        # Cadrage du contenu SEO et LinkedIn | Canaux à faible charge | »
+        # (`0ad5155b`, chapitre 17). Une autre ligne du tableau ne suffit pas :
+        # un tableau de cibles qui cite « un canal de prescription » ailleurs
+        # ne classe aucun canal (mesure de c50b0d8, `b098ded3`).
+        tableau_de_canaux = bool(_SUJET_CANAUX.search(tableau[0]) or _SUJET_CANAUX.search(avant))
         for ligne in tableau[1:]:
             if re.fullmatch(r"[\s|:-]+", ligne):
+                continue
+            if not (tableau_de_canaux or _SUJET_CANAUX.search(ligne)):
                 continue
             cellules = [c.strip() for c in ligne.strip().strip("|").split("|")]
             if any(re.search(classement, cellule, re.IGNORECASE) for cellule in cellules):

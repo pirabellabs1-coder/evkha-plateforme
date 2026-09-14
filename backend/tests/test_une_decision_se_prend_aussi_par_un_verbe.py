@@ -315,3 +315,22 @@ def test_un_service_d_appoint_dans_un_tableau_de_canaux_n_est_pas_un_classement(
 | Multiplication des canaux | Dilue le temps | Perçu comme un service d'appoint |
 """
     assert "les canaux secondaires" in _manquantes(texte)
+
+
+def test_une_autre_ligne_qui_cite_un_canal_ne_fait_pas_un_tableau_de_canaux() -> None:
+    """CONTRE-ÉPREUVE : un tableau de cibles qui cite ailleurs un canal de prescription."""
+    texte = """## 3.2 Cibles
+
+| Profil | Rang | Accès |
+| --- | --- | --- |
+| Seniors isolés | Secondaire | Budget contraint |
+| Proches aidants | Prioritaire | Canal de prescription : les pharmacies |
+"""
+    assert "les canaux secondaires" in _manquantes(texte)
+
+
+def test_la_priorite_commerciale_sans_reponse_ne_decide_rien() -> None:
+    """CONTRE-ÉPREUVE : la question posée n'est pas la décision prise."""
+    assert "le produit ou service à pousser en priorité" in _manquantes(
+        "Rien n'indique aujourd'hui quelle est la priorité commerciale de Zenitek."
+    )
