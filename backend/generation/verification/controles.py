@@ -38,6 +38,7 @@ from itertools import zip_longest
 
 from core.numbers import amounts_in
 
+from ..checks_post_rendu import REFERENCE_JURIDIQUE
 from ..prompts import PLAFOND_FIGURES, PLANCHER_FIGURES
 from ..socle.referentiel import identifiants_obligatoires
 from ..socle.schema import Socle, valeur_en_unites_de_base
@@ -348,8 +349,8 @@ _SOURCE_DANS_LA_PHRASE = re.compile(
     # 50-0 du code général des impôts) », la ligne du chapitre Sources qui
     # porte son URL (corpus du 14/09/2026).
     r"|https?://\S"
-    r"|\b(?i:article)\s+[LRD]?\.?\s*\d"
-    r"|\b(?i:code\s+g[ée]n[ée]ral|journal\s+officiel|d[ée]cret\s+n)"
+    # La même expression que la traçabilité du chapitre Sources (règle 5).
+    rf"|{REFERENCE_JURIDIQUE}"
     r"|\((?![^()]*\b(?i:sc[ée]nario|ann[ée]e|hypoth))"
     r"[^()]*\b[A-ZÉ][\w&'’.\-]{2,}[^()]*\b(?:19|20)\d{2}\b[^()]*\)",
 )
@@ -832,37 +833,55 @@ def _chiffres_significatifs(texte: str) -> int:
 
 def _estimations_etablies_en_tableau(
     document: DocumentLu, references: Sequence[tuple[float, str]],
-) -> list[tuple[float, bool]]:
-    """Les valeurs qu'un TABLEAU du document établit avec leur méthode déclarée.
+) -> list[tuple[float, bool, frozenset[str]]]:
+    """Les valeurs qu'un TABLEAU établit avec leur méthode, et les mots de leur ligne.
 
     Le chapitre 6 d'une étude concurrentielle estime le chiffre d'affaires et
     la part de chaque acteur sous un en-tête qui le dit ; les chapitres suivants
     les REPRENNENT en prose — « le cabinet de Nantes (250 000 euros, 0,029 %) ».
-    Jugées seules, ces reprises étaient accusées d'invention alors que la valeur
-    est établie, et vérifiable, quelques pages plus haut (corpus du 14/09/2026).
-    Seules les valeurs d'au moins deux chiffres significatifs comptent.
+
+    Deux bornes, apprises en production le jour même (8f8e2ed : 84 chiffres
+    blanchis, dont « 9,4 % en année 3 » et « 3 300 000 € ») :
+
+    - la méthode doit être DITE par l'en-tête (« estimé », « hypothèse ») ou
+      refaite dans la ligne — pas une décision, pas un choc de scénario, qui
+      ne valent que là où ils sont écrits ;
+    - la reprise doit nommer l'ACTEUR de la ligne : une même valeur ailleurs,
+      à propos d'autre chose, reste jugée pour elle-même.
     """
-    etablies: list[tuple[float, bool]] = []
+    etablies: list[tuple[float, bool, frozenset[str]]] = []
     for mesure in document.mesures:
-        if not mesure.dans_un_tableau:
+        if not mesure.dans_un_tableau or " : " not in mesure.phrase:
             continue
         if _chiffres_significatifs(mesure.texte) < _CHIFFRES_SIGNIFICATIFS_MIN:
             continue
-        if _estimation_declaree(mesure) or _part_calculee_dans_sa_ligne(mesure, references):
-            etablies.append((mesure.valeur, mesure.est_monetaire))
+        en_tete, _, ligne = mesure.phrase.partition(" : ")
+        if not (
+            _ESTIMATION.search(en_tete) or _part_calculee_dans_sa_ligne(mesure, references)
+        ):
+            continue
+        mots = frozenset(
+            mot for mot in re.findall(r"[^\W\d_]{5,}", ligne.split(" | ")[0].casefold())
+        )
+        if mots:
+            etablies.append((mesure.valeur, mesure.est_monetaire, mots))
     return etablies
 
 
 def _reprend_une_estimation_etablie(
-    mesure: Mesure, etablies: Sequence[tuple[float, bool]],
+    mesure: Mesure, etablies: Sequence[tuple[float, bool, frozenset[str]]],
 ) -> bool:
-    """La grandeur reprend, à l'identique, une estimation établie en tableau."""
+    """La prose reprend à l'identique une estimation établie, EN NOMMANT son acteur."""
+    if mesure.dans_un_tableau or not mesure.phrase:
+        return False
     if _chiffres_significatifs(mesure.texte) < _CHIFFRES_SIGNIFICATIFS_MIN:
         return False
+    mots_de_la_phrase = set(re.findall(r"[^\W\d_]{5,}", mesure.phrase.casefold()))
     return any(
         monetaire == mesure.est_monetaire
         and abs(valeur - mesure.valeur) <= EPSILON + abs(valeur) * 1e-3
-        for valeur, monetaire in etablies
+        and mots & mots_de_la_phrase
+        for valeur, monetaire, mots in etablies
     )
 
 

@@ -350,3 +350,20 @@ def test_une_valeur_voisine_ou_non_etablie_reste_signalee(tmp_path: Path) -> Non
     # La PART reste établie : elle tombe juste sur 250 000 / 850 M€ du socle.
     # Le chiffre d'affaires, lui, n'a jamais été déclaré estimé.
     assert "250 000 euros" in _signales(non_declare)
+
+
+def test_une_valeur_egale_a_propos_d_autre_chose_reste_signalee(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE (mesure de 8f8e2ed) : la reprise doit nommer l'acteur de la ligne,
+    et une DÉCISION de tableau (« Valeur retenue ») ne s'étend pas au document."""
+    chemin = _tableau_puis_prose(
+        tmp_path, ["Concurrent", "CA estimé", "Part de marché estimée"],
+        ["Cabinet de Nantes", "250 000 €", "0,029 %"],
+        "Le budget de travaux du local atteint 250 000 euros.",
+    )
+    assert "250 000 euros" in _signales(chemin)
+    decision = _tableau_puis_prose(
+        tmp_path, ["Indicateur", "Valeur retenue : poids"],
+        ["Marché accessible de la zone", "3 300 000 €"],
+        "Le marché accessible de la zone représente environ 3 300 000 euros par an.",
+    )
+    assert "3 300 000 euros" in _signales(decision)
