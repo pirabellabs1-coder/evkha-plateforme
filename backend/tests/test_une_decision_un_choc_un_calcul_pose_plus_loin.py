@@ -154,3 +154,19 @@ def test_des_bornes_qui_font_cent_ne_sont_pas_une_repartition(tmp_path: Path) ->
         "sur la période, contre 8 % à 17 % pour les cinq grands cabinets.",
     ])
     assert {"32 %", "43 %", "8 %", "17 %"} <= signales
+
+
+def test_une_repartition_dont_la_derniere_part_suit_et(tmp_path: Path) -> None:
+    signales = _signales(tmp_path, [
+        "La structure d'offre proposée (45 % pain, 30 % viennoiserie et 25 % snacking) "
+        "doit générer ce volume.",
+    ])
+    assert not signales & {"45 %", "30 %", "25 %"}, signales
+
+
+def test_des_bornes_separees_par_des_virgules_ne_sont_pas_une_repartition(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : les virgules ne suffisent pas quand « à » ou « contre » font des bornes."""
+    signales = _signales(tmp_path, [
+        "Les marges vont de 20 %, à 30 %, contre 50 % pour le leader.",
+    ])
+    assert {"20 %", "30 %", "50 %"} <= signales

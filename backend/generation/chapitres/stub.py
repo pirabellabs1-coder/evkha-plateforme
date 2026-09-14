@@ -695,6 +695,15 @@ def _tableau_du_modele(bloc: dict[str, Any]) -> dict[str, object]:
                               for c in range(len(entetes) - 1)]]
         for rang in range(1, lignes_voulues + 1)
     ]
+    # Une colonne « Lien » porte un lien. Le modèle du chapitre Sources impose
+    # « Organisme | Publication | Lien » : rempli de « À arbitrer », le tableau
+    # de la doublure était un chapitre de sources sans une adresse — que le
+    # contrôle, qui compte désormais les adresses PAR ligne de source, refuse
+    # à juste titre.
+    for colonne, entete in enumerate(entetes):
+        if re.match(r"(?i)\s*(?:liens?|url|adresses?)\b", entete):
+            for ligne in lignes:
+                ligne[colonne] = "https://www.insee.fr/fr/statistiques"
     # La source porte une URL : `sources_non_tracables_ratio_faible` exige
     # qu'au moins la moitié des sources listées soient vérifiables, et les
     # tableaux de la doublure formaient l'essentiel des sources comptées.

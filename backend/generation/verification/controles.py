@@ -695,7 +695,7 @@ def _choc_de_scenario(avant: str) -> bool:
 _REPARTITION_TOLERANCE = 1.0
 
 #: Ce qui, entre deux pourcentages, en fait des BORNES ou une opposition.
-_ENTRE_DEUX_BORNES = re.compile(r"(?i)(?:entre|contre|jusqu|[àa]u?|versus|vs)")
+_ENTRE_DEUX_BORNES = re.compile(r"(?i)\b(?:entre|contre|jusqu|[àa]u?|versus|vs)\b")
 
 
 def _part_d_une_repartition(mesure: Mesure) -> bool:
@@ -725,7 +725,7 @@ def _part_d_une_repartition(mesure: Mesure) -> bool:
         # suivante par une virgule — un « et » n'est admis que pour la dernière.
         ecarts = [bloc[a.position:b.position] for a, b in zip(parts, parts[1:], strict=False)]
         enumeree = all(
-            ("," in ecart or (rang == len(ecarts) - 1 and re.search(r"et", ecart)))
+            ("," in ecart or (rang == len(ecarts) - 1 and re.search(r"\bet\b", ecart)))
             and not _ENTRE_DEUX_BORNES.search(ecart)
             for rang, ecart in enumerate(ecarts)
         )
