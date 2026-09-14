@@ -127,15 +127,35 @@ def _valeurs_de_reference(socle: Socle) -> list[tuple[float, str]]:
         for montant in amounts_in(acteur.ca_connu):
             references.append((montant, "monetaire"))
             references.append((montant, "brut"))
-    # Les nombres que le LIBELLÉ d'une donnée porte sont du socle eux aussi :
-    # « Prix moyen d'une baguette (fourchette observée 1,30 - 1,60 €, médiane
-    # retenue) | 1,45 EUR ». Le document qui recopie la donnée avec son libellé
-    # recopiait des bornes que la référence ignorait (corpus du 14/09/2026).
-    for donnee in socle.donnees:
-        for nombre in amounts_in(donnee.libelle):
-            references.append((nombre, "monetaire"))
-            references.append((nombre, "brut"))
     return references
+
+
+#: Longueur du début de libellé qu'une phrase doit recopier pour CITER la donnée.
+_DEBUT_DE_LIBELLE = 30
+
+
+def _cite_un_libelle_du_socle(mesure: Mesure, socle: Socle) -> bool:
+    """Le nombre est écrit dans le libellé d'une donnée que la phrase CITE.
+
+    « Donnée : Prix moyen d'une baguette (fourchette observée 1,30 - 1,60 €,
+    médiane retenue) | 1,45 EUR » recopie la donnée du socle avec son libellé,
+    bornes comprises (corpus du 14/09/2026).
+
+    Pas en référence générale : versés dans les références, les nombres des
+    libellés — « 15 % », « 4 % », « 10 ans » — justifiaient la même valeur
+    PARTOUT et alimentaient les dérivations. Mesuré en production le jour
+    même : 113 chiffres blanchis d'un coup, dont « 9,4 % en année 3 » et
+    « 10,5 % » de marge nette. Le nombre ne vaut que dans la phrase qui cite
+    son libellé.
+    """
+    phrase = " ".join(mesure.phrase.casefold().split())
+    for donnee in socle.donnees:
+        libelle = " ".join(donnee.libelle.casefold().split())
+        if len(libelle) < _DEBUT_DE_LIBELLE or libelle[:_DEBUT_DE_LIBELLE] not in phrase:
+            continue
+        if any(_proche(mesure.valeur, nombre) for nombre in amounts_in(donnee.libelle)):
+            return True
+    return False
 
 
 def _proche(
@@ -744,6 +764,7 @@ def controler_chiffres_hors_socle(
             or _sourcee_dans_sa_phrase(mesure)
             or _estimation_declaree(mesure)
             or _part_calculee_dans_sa_ligne(mesure, references)
+            or _cite_un_libelle_du_socle(mesure, socle)
         ):
             continue
         if mesure.texte in deja_vues:

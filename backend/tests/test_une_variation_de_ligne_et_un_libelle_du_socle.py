@@ -79,8 +79,8 @@ def test_sans_en_tete_de_resultat_deux_nombres_nus_ne_posent_rien(tmp_path: Path
 def test_les_bornes_ecrites_dans_le_libelle_du_socle_sont_du_socle(tmp_path: Path) -> None:
     signales = _signales(tmp_path, [
         ["Donnée", "Valeur", "Année"],
-        ["Prix moyen d'une baguette (fourchette observée 1,30 - 1,60 €, médiane retenue)",
-         "1,45 EUR", "2025"],
+        ["Prix moyen d'une baguette tradition sur la zone (fourchette observée 1,30 - 1,60 €, "
+         "médiane retenue)", "1,45 EUR", "2025"],
     ])
     assert "1,60 €" not in signales
 
@@ -89,6 +89,17 @@ def test_une_borne_absente_du_libelle_reste_signalee(tmp_path: Path) -> None:
     """CONTRE-ÉPREUVE : 1,90 € n'est écrit nulle part dans le socle."""
     signales = _signales(tmp_path, [
         ["Donnée", "Valeur", "Année"],
-        ["Prix moyen d'une baguette (fourchette observée 1,30 - 1,90 €)", "1,45 EUR", "2025"],
+        ["Prix moyen d'une baguette tradition sur la zone (fourchette observée 1,30 - 1,90 €)",
+         "1,45 EUR", "2025"],
     ])
     assert "1,90 €" in signales
+
+
+def test_un_nombre_du_libelle_ne_vaut_que_dans_la_phrase_qui_le_cite(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : versés dans les références, les nombres des libellés
+    blanchissaient la même valeur partout — 113 chiffres en production."""
+    signales = _signales(
+        tmp_path,
+        [["Concurrent", "Prix de la baguette"], ["Maison Martin", "1,60 €"]],
+    )
+    assert "1,60 €" in signales
