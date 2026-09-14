@@ -91,6 +91,9 @@ class Mesure:
     #: attaquer d'abord (règle 4).
     anomalies: dict[str, list[dict[str, object]]] = field(default_factory=dict)
     gate: dict[str, list[dict[str, object]]] = field(default_factory=dict)
+    #: Chaque figure perdue, ses données et la raison de l'échec de sa
+    #: réparation (`RapportAssemblage.diagnostic_des_abandons`).
+    figures_abandonnees: list[dict[str, object]] = field(default_factory=list)
     #: Renseigné quand le document n'a pas pu être rendu. Ne pas pouvoir
     #: mesurer EST la mesure : on le dit, on ne rend pas des zéros.
     echec: str = ""
@@ -125,6 +128,7 @@ class Mesure:
             "adresses_collectees": self.adresses_collectees,
             "anomalies": self.anomalies,
             "gate": self.gate,
+            "figures_abandonnees": self.figures_abandonnees,
         }
 
 
@@ -247,4 +251,5 @@ def mesurer(job: GenerationJob) -> Mesure:
             (a.controle, a.chapitre, a.detail, a.extrait) for a in controle.anomalies
         ]),
         gate=_echecs_du_gate(job),
+        figures_abandonnees=list(rapport.diagnostic_des_abandons),
     )

@@ -107,6 +107,31 @@ def _groupes_de_meme_nature(socle: Socle, identifiants: Sequence[str]) -> list[l
     )
 
 
+def pourquoi_irreparable(socle: Socle, type_demande: str, identifiants: Sequence[str]) -> str:
+    """La raison pour laquelle `reparer_la_figure` rend `None` — pour la mesure.
+
+    Sans elle, le rapport ne gardait que le motif de la figure DEMANDÉE
+    (« unités hétérogènes ») et jamais celui de la réparation : 188 figures
+    perdues sur les stratégies du corpus, et aucun moyen de savoir laquelle des
+    deux étapes refusait (14/09/2026).
+    """
+    if type_demande in _FORMES_NON_REPARABLES:
+        return f"forme `{type_demande}` non réparable"
+    groupes = _groupes_de_meme_nature(socle, identifiants)
+    if not groupes:
+        return "aucun groupe de deux données de même nature dans la demande"
+    formes = (
+        [_FORME_NEUTRE]
+        if type_demande in _FORMES_REPAREES_EN_BARRES
+        else list(dict.fromkeys([type_demande, _FORME_NEUTRE]))
+    )
+    motifs = [
+        f"{forme} sur {', '.join(groupe)} : {resoudre(socle, forme, groupe).motif}"
+        for groupe in groupes for forme in formes
+    ]
+    return " | ".join(motifs)
+
+
 def reparer_la_figure(
     socle: Socle, type_demande: str, identifiants: Sequence[str],
 ) -> FigureReparee | None:

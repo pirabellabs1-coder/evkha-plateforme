@@ -148,3 +148,19 @@ def test_une_figure_reparee_n_est_pas_creditee_au_modele(monkeypatch: Any) -> No
     resultat = mesure.mesurer(SimpleNamespace(research_brief=""))  # type: ignore[arg-type]
 
     assert (resultat.figures_obtenues, resultat.figures_reparees) == (1, 2)
+
+
+def test_une_figure_perdue_dit_pourquoi_sa_reparation_a_echoue() -> None:
+    """La mesure doit dire QUELLE étape refuse : la demande, ou la réparation."""
+    blocs, rapport = _rendre(Graphique(
+        type_graphique=TypeGraphique.BARRES,
+        titre="Chiffre d'affaires et abonnés",
+        donnees_ids=["ca_actuel", "abonnes"],
+    ))
+
+    assert len(rapport.diagnostic_des_abandons) == 1
+    diagnostic = rapport.diagnostic_des_abandons[0]
+    assert diagnostic["donnees"] == [
+        {"id": "ca_actuel", "unite": "EUR"}, {"id": "abonnes", "unite": "unite"},
+    ]
+    assert "aucun groupe" in str(diagnostic["reparation"])

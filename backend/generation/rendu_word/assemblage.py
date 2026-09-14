@@ -145,6 +145,10 @@ class RapportAssemblage:
     #: dans le document, et le lecteur ne perd que la forme.
     graphiques_en_tableau: list[str] = field(default_factory=list)
     graphiques_abandonnes: list[str] = field(default_factory=list)
+    #: Pour la MESURE seulement (jamais montré au client) : chaque figure
+    #: perdue, ses données demandées avec leur unité, et pourquoi la réparation
+    #: a échoué. Le motif seul ne permettait pas de corriger la classe.
+    diagnostic_des_abandons: list[dict[str, object]] = field(default_factory=list)
     #: Figures impossibles telles que demandées, DESSINÉES avec une partie de
     #: leurs propres données (`reparation_figures`). Comptées dans les rendues
     #: — elles sont dans le document — mais jamais parmi ce que le modèle a
@@ -320,6 +324,22 @@ def _blocs_graphique(
             rapport.graphiques_abandonnes.append(
                 f"{reference} · {demande.titre} : {resolution.motif}"
             )
+            from .reparation_figures import pourquoi_irreparable  # noqa: PLC0415
+
+            rapport.diagnostic_des_abandons.append({
+                "chapitre": reference,
+                "type": type_demande,
+                "motif": resolution.motif,
+                "donnees": [
+                    {
+                        "id": identifiant,
+                        "unite": str(donnee.unite) if donnee else None,
+                    }
+                    for identifiant in demande.donnees_ids
+                    for donnee in [socle.donnee(identifiant)]
+                ],
+                "reparation": pourquoi_irreparable(socle, type_demande, demande.donnees_ids),
+            })
             # Le dessin est refusé — unités mélangées, radar sans notes, un
             # seul point. Les DONNÉES, elles, sont bonnes : elles viennent du
             # socle. Les jeter laissait un document sans une seule figure
