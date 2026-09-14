@@ -170,3 +170,28 @@ def test_des_bornes_separees_par_des_virgules_ne_sont_pas_une_repartition(tmp_pa
         "Les marges vont de 20 %, à 30 %, contre 50 % pour le leader.",
     ])
     assert {"20 %", "30 %", "50 %"} <= signales
+
+
+# ── Le complément à 100 % (corpus-20260914-2204) ─────────────────────────────
+
+
+def test_le_reste_d_une_part_ecrite_juste_avant(tmp_path: Path) -> None:
+    signales = _signales(tmp_path, [
+        "Le canal en ligne pèse 15 % selon Les Échos Études. Le reste, soit 85 % de la "
+        "dépense des foyers, échappe encore au commerce en ligne.",
+    ])
+    assert "85 %" not in signales
+
+
+def test_un_pourcentage_qui_ne_complete_rien_reste_signale(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVES : 15 + 80 ≠ 100 ; et sans mot de complément, 85 % n'est pas un reste."""
+    faux = _signales(tmp_path, [
+        "Le canal en ligne pèse 15 % selon Les Échos Études. Le reste, soit 80 % de la "
+        "dépense des foyers, échappe encore au commerce en ligne.",
+    ])
+    assert "80 %" in faux
+    sans_mot = _signales(tmp_path, [
+        "Le canal en ligne pèse 15 % selon Les Échos Études. La fidélité atteint 85 % "
+        "chez les clients abonnés.",
+    ])
+    assert "85 %" in sans_mot

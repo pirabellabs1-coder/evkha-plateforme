@@ -719,6 +719,39 @@ _REPARTITION_TOLERANCE = 1.0
 _ENTRE_DEUX_BORNES = re.compile(r"(?i)\b(?:entre|contre|jusqu|[àa]u?|versus|vs)\b")
 
 
+#: Ce qui annonce le COMPLÉMENT d'une part : « le reste », « l'espace restant ».
+_COMPLEMENT = re.compile(r"(?i)\b(?:reste|restant\w*|solde|compl[ée]ment\w*|surplus)\b")
+
+
+def _complement_a_cent(mesure: Mesure) -> bool:
+    """Le pourcentage est le complément à 100 % d'une part écrite juste avant.
+
+    « le canal en ligne (15 %, Les Échos Études). Le reste, soit 85 % de la
+    dépense », « les onze parts atteignent environ 40,8 % du marché : l'espace
+    restant, environ 59,2 % » (corpus du 14/09/2026). Le lecteur fait la
+    soustraction ; 85 % n'avance rien que 15 % n'ait déjà dit — et si 15 % est
+    faux, c'est lui que le contrôle signale.
+
+    Le mot du complément doit précéder la valeur de près, et la part doit
+    tomber juste à l'arrondi des deux écritures.
+    """
+    if not mesure.est_un_pourcentage or not mesure.contexte:
+        return False
+    position = mesure.contexte.rfind(mesure.texte)
+    if position < 0:
+        return False
+    avant = mesure.contexte[:position]
+    if not _COMPLEMENT.search(avant[-40:]):
+        return False
+    demi = 0.5 * 10 ** -_decimales(mesure.texte.replace("%", ""))
+    for n in _nombres_de_la_phrase(avant):
+        if not n.pourcentage:
+            continue
+        if abs(100 - n.valeur - mesure.valeur) <= demi + 0.05:
+            return True
+    return False
+
+
 def _part_d_une_repartition(mesure: Mesure) -> bool:
     """Le pourcentage est une part d'une répartition COMPLÈTE posée dans sa phrase.
 
@@ -974,6 +1007,7 @@ def controler_chiffres_hors_socle(
             or _estimation_declaree(mesure)
             or _part_calculee_dans_sa_ligne(mesure, references)
             or _part_d_une_repartition(mesure)
+            or _complement_a_cent(mesure)
             or _cite_un_libelle_du_socle(mesure, socle)
         ):
             continue
