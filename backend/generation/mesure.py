@@ -213,7 +213,7 @@ def _regrouper(
         exemples = groupes.setdefault(controle, [])
         if len(exemples) < _EXEMPLES_PAR_CONTROLE:
             exemples.append({
-                "chapitre": chapitre, "detail": detail[:300], "extrait": extrait[:400],
+                "chapitre": chapitre, "detail": detail[:300], "extrait": extrait[:1400],
             })
     for controle, exemples in groupes.items():
         exemples.insert(0, {"total": totaux[controle]})
@@ -248,25 +248,30 @@ def _tableau_de_la_colonne(corps: str, detail: str) -> str:
     return ""
 
 
-def _phrases_du_sujet(corps: str, detail: str) -> str:
-    """Les phrases du chapitre porteur qui parlent du sujet de la décision absente.
+def _phrases_du_sujet(sections: list[tuple[int, str, str]], detail: str) -> str:
+    """Les phrases du DOCUMENT qui parlent le plus du sujet de la décision absente.
 
     « le document ne pose nulle part les canaux secondaires » : sans les
     phrases qui parlent de canaux, on ne peut pas dire si la décision manque
-    ou si elle est écrite sous une forme que le contrôle ne lit pas.
+    ou si elle est écrite sous une forme que le contrôle ne lit pas. Le
+    contrôle lit tout le document ; la mesure aussi. Les phrases qui portent
+    le plus de mots du sujet passent en premier — les quatre premières du
+    chapitre porteur ne suffisaient pas (corpus du 14/09/2026).
     """
     sujet = re.search(r"nulle part (.+?)\.", detail)
     if sujet is None:
         return ""
-    racines = [mot[:5].casefold() for mot in re.findall(r"[^\W\d_]{5,}", sujet.group(1))]
+    racines = {mot[:5].casefold() for mot in re.findall(r"[^\W\d_]{5,}", sujet.group(1))}
     if not racines:
         return ""
-    phrases = re.split(r"(?<=[.!?])\s+|\n+", corps)
-    retenues = [
-        " ".join(phrase.split())[:180] for phrase in phrases
-        if any(racine in phrase.casefold() for racine in racines)
-    ]
-    return " / ".join(retenues[:4])
+    candidates: list[tuple[int, int, str]] = []
+    for numero, _titre, corps in sections:
+        for phrase in re.split(r"(?<=[.!?])\s+|\n+", corps):
+            touchees = sum(1 for racine in racines if racine in phrase.casefold())
+            if touchees:
+                candidates.append((touchees, numero, " ".join(phrase.split())[:200]))
+    candidates.sort(key=lambda c: -c[0])
+    return " / ".join(f"[ch. {numero}] {phrase}" for _, numero, phrase in candidates[:6])
 
 
 def _echecs_du_gate(
@@ -292,7 +297,7 @@ def _echecs_du_gate(
         if check == "calcul_faux":
             return _tableau_de_la_colonne(corps, detail)
         if check.endswith("decision_absente"):
-            return _phrases_du_sujet(corps, detail)
+            return _phrases_du_sujet(sections or [], detail)
         return ""
 
     return _regrouper([
