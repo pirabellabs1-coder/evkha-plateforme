@@ -1101,6 +1101,10 @@ class DecisionAttendue:
     #: negation pres du verbe, ni tiers qui agit a la place du projet. Voir
     #: `_forme_qui_decide`.
     forme_verbale: str = ""
+    #: La même décision posée en CLASSEMENT dans un tableau de canaux : une
+    #: ligne par canal, une case « Secondaire, phase 2 ». Voir
+    #: `_classe_en_tableau`.
+    classement: str = ""
 
 
 @dataclass(frozen=True)
@@ -1304,7 +1308,7 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                rf"(?:prioritaires|principaux|majeurs|structurants"
                rf"|de{_E}+premier{_E}+plan)",
                forme_verbale=(
-                   r"\b(?:canal|levier)\b[^.!?\n]{0,30}?\b(?:prioritaire|principal|majeur)\b"
+                   r"\b(?:canal|levier)\b[^.!?\n|]{0,30}?\b(?:prioritaire|principal|majeur)\b"
                ),
                etiquette="Canaux prioritaires"),
             _D("les canaux secondaires",
@@ -1312,10 +1316,11 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                rf"(?:secondaires|compl[ée]mentaires|d['’]appoint"
                rf"|de{_E}+soutien)",
                etiquette="Canaux secondaires",
+               classement=r"^\W*secondaires?\b|\bd['’]appoint\b",
                forme_verbale=(
                    r"\b(?:canaux|leviers|r[ée]seaux|plateformes|supports|m[ée]dias)\b"
                    r"[^.!?\n]{0,60}?\b(?:secondaires|d['’]appoint|en\s+second\s+rang)\b"
-                   r"|\b(?:canal|levier)\b[^.!?\n]{0,30}?\b(?:secondaire|d['’]appoint)\b"
+                   r"|\b(?:canal|levier)\b[^.!?\n|]{0,30}?\b(?:secondaire|d['’]appoint)\b"
                )),
             _D("les canaux à éviter",
                rf"(?:canaux|leviers|r[ée]seaux|plateformes|supports){_E}+"
@@ -1440,6 +1445,52 @@ _AVANT = 15
 _AUTOUR = 40
 
 
+#: Ce qui fait d'un tableau un tableau de CANAUX : son en-tête, ou le titre ou
+#: la phrase qui l'introduit.
+_SUJET_CANAUX = re.compile(r"\b(?:canal|canaux|leviers?|r[ée]seaux|actions?\s+d['’]acquisition)\b",
+                           re.IGNORECASE)
+
+#: Ce qu'on lit avant un tableau pour savoir de quoi il parle.
+_INTRODUCTION_DU_TABLEAU = 400
+
+
+def _classe_en_tableau(classement: str, corpus: str) -> bool:
+    """Un tableau de canaux classe-t-il au moins une ligne ainsi ?
+
+    Mesure du 14/09/2026 (phrases du sujet rendues par la mesure) : six
+    stratégies sur sept accusées de ne poser « nulle part les canaux
+    secondaires » les posaient en tableau, une ligne par canal — « | Campagnes
+    e-mail/SMS vers anciens clients | Secondaire, phase 2 | … | »,
+    « | Contenus experts / SEO | … | Secondaire — à construire | ». Le nom du
+    canal y tient lieu de sujet, le mot « canal » n'y figure pas : ni le motif
+    nominal ni la forme verbale ne pouvaient le lire.
+
+    Le tableau doit parler de canaux — par son en-tête ou par le titre et la
+    phrase qui l'introduisent — et une case de DONNÉES (pas l'en-tête) doit
+    porter le classement.
+    """
+    lignes = corpus.splitlines()
+    rang = 0
+    while rang < len(lignes):
+        if not lignes[rang].lstrip().startswith("|"):
+            rang += 1
+            continue
+        debut = rang
+        while rang < len(lignes) and lignes[rang].lstrip().startswith("|"):
+            rang += 1
+        tableau = lignes[debut:rang]
+        avant = "\n".join(lignes[:debut])[-_INTRODUCTION_DU_TABLEAU:]
+        if not (_SUJET_CANAUX.search(tableau[0]) or _SUJET_CANAUX.search(avant)):
+            continue
+        for ligne in tableau[1:]:
+            if re.fullmatch(r"[\s|:-]+", ligne):
+                continue
+            cellules = [c.strip() for c in ligne.strip().strip("|").split("|")]
+            if any(re.search(classement, cellule, re.IGNORECASE) for cellule in cellules[1:]):
+                return True
+    return False
+
+
 def _forme_qui_decide(forme: str, corpus: str) -> bool:
     """Une occurrence de la forme verbale decide-t-elle pour le projet ?"""
     for trouve in re.finditer(forme, corpus, re.IGNORECASE):
@@ -1515,6 +1566,8 @@ def verifier_decisions_strategie(corpus: str) -> list[DecisionManquante]:
             if re.search(decision.motif, corpus, re.IGNORECASE):
                 continue
             if decision.forme_verbale and _forme_qui_decide(decision.forme_verbale, corpus):
+                continue
+            if decision.classement and _classe_en_tableau(decision.classement, corpus):
                 continue
             manquantes.append(DecisionManquante(
                 cle_bloc=bloc.cle,

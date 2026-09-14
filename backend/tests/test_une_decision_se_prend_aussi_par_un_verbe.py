@@ -235,3 +235,40 @@ def test_un_canal_au_singulier_est_une_decision(phrase: str, libelle: str) -> No
 def test_un_canal_qu_on_ne_classe_pas_reste_signale() -> None:
     """CONTRE-ÉPREUVE : nommer un canal n'est pas le classer."""
     assert "les canaux secondaires" in _manquantes("Le blog est un canal utile.")
+
+
+# ── Un classement de canaux en tableau (corpus-20260914-1904) ────────────────
+
+
+_CANAUX_EN_TABLEAU = """## 13.1 Canaux prioritaires à développer
+
+Ce tableau hiérarchise les canaux selon leur coût en temps.
+
+| Action | Priorité | Justification | Décision |
+| --- | --- | --- | --- |
+| Partenariats avec les pharmacies | Prioritaire | Prescription de proximité | Activer au mois 1 |
+| Campagnes e-mail vers anciens clients | Secondaire, phase 2 | Fichier à nettoyer | Mois 4 |
+"""
+
+
+def test_un_canal_classe_secondaire_en_tableau_est_une_decision() -> None:
+    """Stratégie `f7f2fad9` : la ligne du canal porte « Secondaire, phase 2 »."""
+    assert "les canaux secondaires" not in _manquantes(_CANAUX_EN_TABLEAU)
+
+
+def test_un_classement_hors_tableau_de_canaux_ou_en_en_tete_reste_signale() -> None:
+    """CONTRE-ÉPREUVE : un tableau de CIBLES, et un « Secondaire » d'en-tête."""
+    cibles = """## 8.2 Cibles
+
+| Profil | Rang | Motif |
+| --- | --- | --- |
+| Seniors isolés | Secondaire | Budget contraint |
+"""
+    assert "les canaux secondaires" in _manquantes(cibles)
+    en_tete = """## 13.1 Canaux
+
+| Canal | Secondaire | Prioritaire |
+| --- | --- | --- |
+| Blog | non | non |
+"""
+    assert "les canaux secondaires" in _manquantes(en_tete)
