@@ -23,10 +23,10 @@ Traite dans cet ordre, en paragraphes rediges :
 - Méthodologie utilisée : logique de la démarche, principe de la lecture stratégique, contextualisation de l'approche appliquee a ce projet. Ne cite aucun nom de marque ni de méthode propriétaire.
 
 ## Questions a traiter
-Réponds explicitement, dans le fil du texte : pourquoi une stratégie business est-elle nécessaire, quels problèmes ce document doit-il résoudre, qu'est-ce qui separe stratégie et operationnel, pourquoi le pilotage stratégique devient indispensable a ce stade, quels sont les enjeux specifiques de ce projet.
+Réponds explicitement, dans le fil du texte : pourquoi une stratégie business est-elle nécessaire, quels problèmes la stratégie doit-elle résoudre, qu'est-ce qui separe stratégie et operationnel, pourquoi le pilotage stratégique devient indispensable a ce stade, quels sont les enjeux specifiques de ce projet.
 
 ## A retenir
-Bloc court de recul : ce que ce document change dans la façon de décider, les conséquences futures d'un pilotage non structure, et le lien entre les constats a venir et les décisions du dirigeant.
+Bloc court de recul : ce qu'un pilotage stratégique change dans la façon dont le dirigeant décide, les conséquences futures d'un pilotage non structure, et le lien entre les constats a venir et les décisions du dirigeant.
 
 ## Synthèse et transition
 Termine par une synthèse stratégique et une transition vers le chapitre suivant : la lecture stratégique du projet, qui ouvre le diagnostic.
