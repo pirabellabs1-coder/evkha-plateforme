@@ -171,7 +171,15 @@ _CADRAGE_STR = (
     "- `ca_objectif_horizon` est un `scenario`, jamais une promesse, et "
     "`horizon_feuille_de_route` dit à quelle échéance il s'entend.\n"
     "- Renseigne `segments_clientele` avec les verticales du projet : nom, "
-    "besoin dominant, part estimée. C'est la matière des chapitres 7 à 11."
+    "besoin dominant, part estimée. C'est la matière des chapitres 7 à 11.\n"
+    "- Quand le dossier LISTE des chiffres comparables — prix par formule, "
+    "tarif par type d'intervention, chiffre d'affaires par activité, clients "
+    "par segment, charges par poste, chiffre d'affaires visé année par année "
+    "—, porte-les dans les séries `prix_offre_1`, `tarif_prestation_1`, "
+    "`ca_activite_1`, `clients_segment_1`, `charge_poste_1`, `ca_objectif_an1`… "
+    "une entrée par élément, son nom dans `libelle`. Ce sont eux qui rendent "
+    "les figures d'une stratégie possibles. Une série ne se remplit qu'avec "
+    "des chiffres du dossier : une entrée inventée est pire qu'une série vide."
 )
 
 _ROLE = (

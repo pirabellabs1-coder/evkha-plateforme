@@ -144,6 +144,7 @@ def test_une_figure_reparee_n_est_pas_creditee_au_modele(monkeypatch: Any) -> No
         lambda *a, **k: SimpleNamespace(anomalies=[]),
     )
     monkeypatch.setattr(mesure, "sections_du_dossier", lambda job: [])
+    monkeypatch.setattr("generation.socle.services.socle_verrouille", lambda job: None)
 
     resultat = mesure.mesurer(SimpleNamespace(research_brief=""))  # type: ignore[arg-type]
 

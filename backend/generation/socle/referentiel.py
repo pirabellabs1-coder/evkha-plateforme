@@ -554,6 +554,51 @@ _BP: tuple[DefinitionDonnee, ...] = (
 # référentiel reste donc court, et presque tout y est `declaree` : ce sont les
 # chiffres du client, pas ceux du marché.
 
+def _serie(
+    prefixe: str,
+    libelle: str,
+    famille: FamilleUnite,
+    nombre: int,
+    chapitres: tuple[int, ...],
+    commentaire: str,
+    *,
+    suffixe: str = "_",
+) -> tuple[DefinitionDonnee, ...]:
+    """`prefixe_1` … `prefixe_n` : une entrée par élément que le BRIEF liste.
+
+    ## Pourquoi des séries dans un référentiel fermé
+
+    Corpus du 14/09/2026 : les stratégies obtiennent 6 figures pour 29
+    demandées. Leur référentiel portait treize données, une par notion — un
+    chiffre d'affaires, un panier, un taux de marge —, soit trois ou quatre
+    figures justes au plus, pour un plancher de dix-sept exigé par la cliente.
+    Le modèle comblait en inventant des figures impossibles (65 entonnoirs
+    « abonnés + chiffre d'affaires »).
+
+    Or le brief d'une stratégie LISTE : les prix par formule, les tarifs par
+    type d'intervention, les charges par poste. Ce sont des chiffres du client,
+    comparables entre eux, qui font des figures justes. Le référentiel leur
+    donne une place, sur le modèle `_an1` / `_an2` / `_an3` du business plan ;
+    le nom de chaque élément va dans `libelle`. Aucune n'est obligatoire.
+    """
+    return tuple(
+        DefinitionDonnee(
+            f"{prefixe}{suffixe}{rang}", libelle.format(rang=rang),
+            Perimetre.ENTREPRISE, famille, chapitres=chapitres,
+            # La consigne une fois, sur le premier élément : répétée sur chaque
+            # rang, elle alourdissait le prompt du socle de vingt-six copies.
+            commentaire=commentaire if rang == 1 else f"Suite de `{prefixe}{suffixe}1`.",
+        )
+        for rang in range(1, nombre + 1)
+    )
+
+
+_DU_BRIEF = (
+    "Une entrée par élément que le brief ou les documents du client listent, "
+    "son nom dans `libelle` ; fiabilité `declaree`. N'en crée pas plus que le "
+    "dossier n'en donne, et n'en invente aucun."
+)
+
 _STR: tuple[DefinitionDonnee, ...] = (
     DefinitionDonnee(
         "marche_national_taille", "Taille du marché national",
@@ -611,6 +656,36 @@ _STR: tuple[DefinitionDonnee, ...] = (
     DefinitionDonnee(
         "horizon_feuille_de_route", "Horizon de la feuille de route",
         Perimetre.ENTREPRISE, FamilleUnite.DUREE, chapitres=(17,),
+    ),
+    *_serie(
+        "prix_offre", "Prix de l'offre ou formule {rang}", FamilleUnite.MONETAIRE, 5,
+        (9, 10, 11, 14),
+        _DU_BRIEF + " Même périodicité pour toute la série (tout par mois, ou tout "
+        "par prestation).",
+    ),
+    *_serie(
+        "tarif_prestation", "Tarif de la prestation ponctuelle {rang}",
+        FamilleUnite.MONETAIRE, 4, (9, 10, 14),
+        _DU_BRIEF + " Par exemple un tarif horaire par mode d'intervention.",
+    ),
+    *_serie(
+        "ca_activite", "Chiffre d'affaires de l'activité {rang}", FamilleUnite.MONETAIRE, 4,
+        (3, 7, 14), _DU_BRIEF,
+    ),
+    *_serie(
+        "clients_segment", "Clients du segment {rang}", FamilleUnite.EFFECTIF, 4,
+        (7, 8, 12), _DU_BRIEF,
+    ),
+    *_serie(
+        "charge_poste", "Charge du poste {rang}", FamilleUnite.MONETAIRE, 6, (14, 15),
+        _DU_BRIEF + " Même période pour toute la série (mensuelle ou annuelle).",
+    ),
+    *_serie(
+        "ca_objectif", "Chiffre d'affaires visé — année {rang}", FamilleUnite.MONETAIRE, 3,
+        (14, 17),
+        "Trajectoire du chiffre d'affaires visé, en `scenario` : une hypothèse "
+        "explicite, jamais une promesse.",
+        suffixe="_an",
     ),
 )
 

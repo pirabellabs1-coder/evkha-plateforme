@@ -37,6 +37,7 @@ explose avec la taille du socle.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -51,6 +52,35 @@ if TYPE_CHECKING:
 _FORMES_SCALAIRES = (
     "barres", "barres_horizontales", "anneau", "camembert", "entonnoir", "jauges",
 )
+
+#: Le rang final d'une série : `prix_offre_2`, `ca_objectif_an3`.
+_RACINE_DE_SERIE = re.compile(r"_(?:an)?\d+$")
+
+#: Les formes qu'une SÉRIE admet, selon ce qu'elle est. La rotation des formes
+#: ignorait le sens : la trajectoire du chiffre d'affaires année par année
+#: sortait en camembert — des parts d'un total qui n'existe pas (14/09/2026).
+#:
+#: - une trajectoire (`_an1`, `_an2`…) se lit dans le temps ;
+#: - les composantes d'un total (charges par poste, chiffre d'affaires par
+#:   activité, clients par segment) admettent les parts ;
+#: - toute autre série (prix des formules, tarifs) se compare, sans parts.
+_FORMES_DE_PARTS = frozenset({"anneau", "camembert"})
+_FORMES_TRAJECTOIRE = ("courbes", "barres")
+_FORMES_COMPOSANTES = ("anneau", "barres_horizontales", "barres")
+_FORMES_COMPARAISON = ("barres", "barres_horizontales")
+_RACINES_DE_COMPOSANTES = re.compile(r"^(?:charge_poste|ca_activite|clients_segment)$")
+
+
+def _formes_de_la_serie(identifiants: tuple[str, ...]) -> tuple[str, ...] | None:
+    """Les formes admises pour ce groupe s'il est une série ; `None` sinon."""
+    racines = {_RACINE_DE_SERIE.sub("", i) for i in identifiants}
+    if len(racines) != 1 or next(iter(racines)) == identifiants[0]:
+        return None
+    if all(re.search(r"_an\d+$", i) for i in identifiants):
+        return _FORMES_TRAJECTOIRE
+    if _RACINES_DE_COMPOSANTES.match(next(iter(racines))):
+        return _FORMES_COMPOSANTES
+    return _FORMES_COMPARAISON
 
 #: Au-delà, les étiquettes se chevauchent (mesuré sur le dossier `90cbb3d9`).
 _DONNEES_PAR_FIGURE_MAX = 4
@@ -91,12 +121,29 @@ def _groupes_compatibles(socle: Socle) -> list[tuple[str, ...]]:
     autres natures de données. Un socle riche en euros écraserait alors les
     pourcentages et les effectifs.
     """
+    # Une SÉRIE d'abord — `prix_offre_1`, `prix_offre_2`… ou `ca_an1`, `ca_an2` :
+    # ses éléments se comparent entre eux. Mêlés au reste de leur unité, les
+    # prix de trois formules (12, 19, 29 €) partaient sur le même axe qu'un
+    # chiffre d'affaires de 120 000 € — une figure où ils ne se voyaient plus
+    # (14/09/2026).
+    par_serie: dict[tuple[str, str], list[str]] = {}
+    for donnee in socle.donnees:
+        racine = _RACINE_DE_SERIE.sub("", donnee.id)
+        if racine != donnee.id:
+            par_serie.setdefault((str(donnee.unite), racine), []).append(donnee.id)
+    en_serie = {
+        identifiant
+        for identifiants in par_serie.values() if len(identifiants) >= _DONNEES_PAR_FIGURE_MIN
+        for identifiant in identifiants
+    }
+
     par_unite: dict[str, list[str]] = {}
     for donnee in socle.donnees:
-        par_unite.setdefault(str(donnee.unite), []).append(donnee.id)
+        if donnee.id not in en_serie:
+            par_unite.setdefault(str(donnee.unite), []).append(donnee.id)
 
     groupes: list[tuple[str, ...]] = []
-    for identifiants in par_unite.values():
+    for identifiants in [*par_serie.values(), *par_unite.values()]:
         if len(identifiants) < _DONNEES_PAR_FIGURE_MIN:
             continue
         # Par paquets de quatre : un socle de dix montants donne deux figures
@@ -130,8 +177,17 @@ def figures_possibles(socle: Socle, *, limite: int = MAX_PROPOSITIONS) -> list[P
     # entonnoirs de suite tiendraient le compte en trahissant la demande —
     # « les graphes ne seront pas toujours les mêmes » (cliente).
     for rang, groupe in enumerate(_groupes_compatibles(socle)):
-        for decalage in range(len(_FORMES_SCALAIRES)):
-            forme = _FORMES_SCALAIRES[(rang + decalage) % len(_FORMES_SCALAIRES)]
+        formes_de_serie = _formes_de_la_serie(groupe)
+        # Un regroupement LIBRE — des montants qui partagent une unité sans
+        # former un tout — n'admet pas les parts : « chiffre d'affaires, panier
+        # moyen » en camembert inventait un total qui n'existe nulle part.
+        formes = formes_de_serie or tuple(
+            forme
+            for decalage in range(len(_FORMES_SCALAIRES))
+            if (forme := _FORMES_SCALAIRES[(rang + decalage) % len(_FORMES_SCALAIRES)])
+            not in _FORMES_DE_PARTS
+        )
+        for forme in formes:
             resolution = resoudre(socle, forme, list(groupe))
             if resolution.retenu:
                 propositions.append(Proposition(

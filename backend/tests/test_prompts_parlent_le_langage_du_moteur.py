@@ -67,8 +67,13 @@ def test_les_intentions_de_figures_ont_survecu_a_la_reformulation() -> None:
         encoding="utf-8"
     )
 
-    assert "`radar`" in str_03
+    # Le positionnement noté survit — en TABLEAU depuis le 14/09/2026 : le socle
+    # d'une stratégie ne porte pas de grille de notation, et le radar demandé
+    # ici n'a jamais pu se dessiner (voir
+    # `test_aucun_prompt_ne_demande_une_figure_notee_sans_grille_de_notation`).
+    assert "`radar`" not in str_03
     assert "Positionnement du projet" in str_03
+    assert "`tableau`" in str_03
     assert "`radar`" in ec_07
     assert "`barres_horizontales`" in ec_07 or "`camembert`" in ec_07
 

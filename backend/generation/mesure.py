@@ -94,6 +94,12 @@ class Mesure:
     #: Chaque figure perdue, ses données et la raison de l'échec de sa
     #: réparation (`RapportAssemblage.diagnostic_des_abandons`).
     figures_abandonnees: list[dict[str, object]] = field(default_factory=list)
+    #: Ce que le socle du dossier permet réellement de dessiner : nombre de
+    #: figures du catalogue et formes distinctes. Le dénominateur de
+    #: `figures_demandees` — la consigne en exigeait au moins 22 et 12 formes
+    #: quel que soit le socle (14/09/2026).
+    catalogue_figures: int = 0
+    catalogue_formes: int = 0
     #: Renseigné quand le document n'a pas pu être rendu. Ne pas pouvoir
     #: mesurer EST la mesure : on le dit, on ne rend pas des zéros.
     echec: str = ""
@@ -129,6 +135,9 @@ class Mesure:
             "anomalies": self.anomalies,
             "gate": self.gate,
             "figures_abandonnees": self.figures_abandonnees,
+            "catalogue": {
+                "figures": self.catalogue_figures, "formes": self.catalogue_formes,
+            },
         }
 
 
@@ -231,6 +240,11 @@ def mesurer(job: GenerationJob) -> Mesure:
             job, livrable.chemin, assemblage=rapport, ouvrir_incident=False,
         )
 
+    from generation.rendu_word.catalogue_figures import figures_possibles
+    from generation.socle.services import socle_verrouille
+
+    socle = socle_verrouille(job)
+    catalogue = figures_possibles(socle) if socle is not None else []
     completees = len(rapport.graphiques_completes)
     reparees = len(rapport.graphiques_repares)
     hors_socle = [
@@ -252,4 +266,6 @@ def mesurer(job: GenerationJob) -> Mesure:
         ]),
         gate=_echecs_du_gate(job),
         figures_abandonnees=list(rapport.diagnostic_des_abandons),
+        catalogue_figures=len(catalogue),
+        catalogue_formes=len({proposition.type_graphique for proposition in catalogue}),
     )

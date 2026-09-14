@@ -174,3 +174,91 @@ def test_le_prompt_systeme_porte_les_regles_de_sources() -> None:
     # Et la leçon de WAOME v4 : des règles récitées DANS le document sont un
     # défaut de plus. Elles se suivent, elles ne se citent pas.
     assert "CES RÈGLES NE SE CITENT PAS DANS LE TEXTE" in SOURCES_ET_TRACABILITE
+
+
+# ── 14/09/2026 : le socle d'une stratégie porte les séries du brief ──────────
+#
+# Corpus : 6 figures obtenues pour 29 demandées sur les stratégies. Le
+# référentiel (13 données, une par notion) ne permettait que trois figures
+# justes ; le modèle comblait le plancher de dix-sept en inventant.
+
+
+def _d(identifiant: str, libelle: str, valeur: float, unite: str) -> DonneeSocle:
+    return DonneeSocle(
+        id=identifiant, libelle=libelle, valeur=valeur, unite=unite, annee=2026,
+        perimetre=Perimetre.ENTREPRISE, fiabilite=Fiabilite.DECLAREE,
+    )
+
+
+def _socle_zenitek_avec_series() -> Socle:
+    """Les chiffres que le brief Zenitek LISTE réellement."""
+    return Socle(
+        secteur="assistance informatique", zone=Zone(pays="France"),
+        date_socle=date(2026, 9, 14),
+        donnees=[
+            _d("ca_actuel", "Chiffre d'affaires", 120000, "EUR"),
+            _d("panier_moyen", "Panier moyen", 17.86, "EUR"),
+            _d("prix_offre_1", "Maintenance", 12, "EUR"),
+            _d("prix_offre_2", "Maintenance + antivirus", 19, "EUR"),
+            _d("prix_offre_3", "Full", 29, "EUR"),
+            _d("tarif_prestation_1", "Intervention à distance", 60, "EUR"),
+            _d("tarif_prestation_2", "Intervention en atelier", 65, "EUR"),
+            _d("tarif_prestation_3", "Intervention à domicile", 75, "EUR"),
+            _d("charge_poste_1", "Logiciels et abonnements", 200, "EUR"),
+            _d("charge_poste_2", "Expert-comptable", 200, "EUR"),
+            _d("ca_objectif_an1", "Année 1", 130000, "EUR"),
+            _d("ca_objectif_an2", "Année 2", 145000, "EUR"),
+            _d("ca_objectif_an3", "Année 3", 157500, "EUR"),
+        ],
+    )
+
+
+def test_le_referentiel_de_la_strategie_accueille_les_series_du_brief() -> None:
+    from generation.socle.referentiel import definitions_pour
+
+    identifiants = {d.identifiant: d for d in definitions_pour("business_strategy")}
+    for serie in ("prix_offre_1", "tarif_prestation_1", "ca_activite_1",
+                  "clients_segment_1", "charge_poste_1", "ca_objectif_an1"):
+        assert serie in identifiants, serie
+        assert not identifiants[serie].obligatoire, "un projet en création n'en a pas"
+
+
+def test_un_socle_de_strategie_avec_ses_series_est_recevable() -> None:
+    from generation.socle.schema import valider_socle
+
+    socle = _socle_zenitek_avec_series()
+    socle.donnees.append(DonneeSocle(
+        id="marche_national_taille", libelle="Marché national", valeur=96000,
+        unite="MEUR", annee=2022, perimetre=Perimetre.NATIONAL,
+        fiabilite=Fiabilite.OBSERVEE, source="Insee",
+    ))
+    assert valider_socle(socle, "business_strategy") == []
+
+
+def test_les_series_multiplient_les_figures_justes() -> None:
+    """3 figures avant (dont CA et panier sur un même axe), une par série après."""
+    propositions = figures_possibles(_socle_zenitek_avec_series())
+    groupes = {p.identifiants for p in propositions}
+
+    assert ("prix_offre_1", "prix_offre_2", "prix_offre_3") in groupes
+    assert ("tarif_prestation_1", "tarif_prestation_2", "tarif_prestation_3") in groupes
+    assert ("charge_poste_1", "charge_poste_2") in groupes
+    assert ("ca_objectif_an1", "ca_objectif_an2", "ca_objectif_an3") in groupes
+    assert len(propositions) >= 5
+
+
+def test_une_forme_de_parts_ne_sert_qu_un_vrai_total() -> None:
+    """Une trajectoire en camembert, « CA + panier » en anneau : des totaux inventés."""
+    parts = {"anneau", "camembert"}
+    for proposition in figures_possibles(_socle_zenitek_avec_series()):
+        if proposition.type_graphique in parts:
+            assert all(i.startswith("charge_poste") for i in proposition.identifiants), proposition
+
+
+def test_la_consigne_du_socle_de_strategie_demande_les_series() -> None:
+    from generation.socle.prompt import construire_prompt_socle
+
+    prompt = construire_prompt_socle(
+        deliverable_type="business_strategy", variables={"SECTEUR": "x"},
+    )
+    assert "prix_offre_1" in prompt and "une entrée inventée est pire" in prompt

@@ -25,8 +25,8 @@ Comment l'entreprise est-elle réellement perçue, ce positionnement est-il coh�
 ## A retenir
 Bloc de recul : ce que le positionnement actuel rend possible ou impossible pour l'offre, les clients, les canaux et la rentabilité, et les arbitrages de spécialisation qu'il prepare.
 
-## Graphique obligatoire
-Après l'analyse rédigée, demande une figure de type `radar` intitulee « Positionnement du projet », sur six axes : clarte de l'offre, notoriété, prix perçu, différenciation, cohérence de marque, digital. Une série « Aujourd'hui » notee de 0 à 5 sur l'état RÉEL du business, jamais idéal ni projete ; si un positionnement cible clair ressort de l'analyse, une seconde série « Cible » donne la lecture immédiate des écarts a combler.
+## Tableau obligatoire — « Positionnement du projet »
+Après l'analyse rédigée, produis un bloc `tableau` à quatre colonnes — Axe, Aujourd'hui, Cible, Écart à combler — sur six axes : clarté de l'offre, notoriété, prix perçu, différenciation, cohérence de marque, digital. « Aujourd'hui » est une note de 0 à 5 sur l'état RÉEL du business, jamais idéal ni projeté, suivie de sa justification en quelques mots ; « Cible » n'est rempli que si un positionnement cible clair ressort de l'analyse. Ce tableau n'est pas une figure : le socle d'une stratégie ne porte pas de grille de notation, et un radar demandé ici ne se dessinerait pas.
 
 ## Synthèse et transition
 Termine par une synthèse stratégique, une clarification des enjeux de positionnement, et une transition vers l'analyse des forces structurelles du business.

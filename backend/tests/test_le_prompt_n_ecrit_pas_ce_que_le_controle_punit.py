@@ -241,3 +241,33 @@ def test_les_autres_sources_de_consigne_n_ecrivent_aucune_locution_punie() -> No
         },
     }
     assert {nom: _fautes(texte) for nom, texte in sources.items() if _fautes(texte)} == {}
+
+
+def test_aucun_prompt_ne_demande_une_figure_notee_sans_grille_de_notation() -> None:
+    """Stratégie, chapitre 3 : un radar « Positionnement du projet » OBLIGATOIRE.
+
+    Le radar et les jauges se nourrissent de la grille de notation du socle,
+    qui n'est demandée qu'aux livrables analysant la concurrence. Le socle
+    d'une stratégie n'en porte pas : la figure ne pouvait JAMAIS se dessiner,
+    et le modèle en inventait les axes (corpus du 14/09/2026 : 8 radars et 7
+    jauges abandonnés sur les stratégies).
+    """
+    import re
+
+    from generation.chapitres.configuration import RACINE_PROMPTS
+    from generation.chapitres.fichiers_prompts import _BANDEAU
+    from generation.socle.prompt import _le_livrable_analyse_la_concurrence
+
+    dossiers = {
+        "business_plan": "business_plan", "strategie_business": "business_strategy",
+        "etude_concurrence": "competitor_study", "etude_marche": "market_study",
+    }
+    figure_notee = re.compile(r"`(?:radar|jauges)`")
+    fautes = [
+        f"{dossier}/{f.name}"
+        for dossier, livrable in dossiers.items()
+        if not _le_livrable_analyse_la_concurrence(livrable)
+        for f in sorted((RACINE_PROMPTS / dossier).glob("*.md"))
+        if figure_notee.search(_BANDEAU.sub("", f.read_text(encoding="utf-8")))
+    ]
+    assert fautes == []

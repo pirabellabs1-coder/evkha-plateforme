@@ -145,3 +145,33 @@ EC 24 inchangé. La classe « valeurs reliées » était petite ; les ~150 motif
 restants sont de vraies plages dans des documents anciens. Leur correctif est
 à la source (consigne des prix par variante) et ne se prouvera que sur le
 prochain dossier réel.
+
+## Figures des stratégies — 14/09/2026
+
+Mesure : 188 figures perdues sur les 12 stratégies (6 obtenues pour 29
+demandées sur `a678b10a`). La mesure dit désormais, par figure perdue, ses
+données, leurs unités et la raison de l'échec de la réparation.
+
+Ce n'étaient pas des erreurs de réparation. Le modèle demandait des figures
+sur des données qui ne se tracent pas ensemble : 65 entonnoirs sur
+[abonnés, chiffre d'affaires visé], 22 frises sans date, 8 radars et 7 jauges
+sans grille de notes. Deux contradictions en amont :
+
+1. **Le plancher de 17 figures** (exigence de la cliente, 06/08) face à un
+   référentiel STR fermé à 13 données, une par notion : trois ou quatre figures
+   justes au plus. → Le référentiel accueille les SÉRIES que le brief liste
+   (prix par formule, tarif par prestation, CA par activité, clients par
+   segment, charges par poste, CA visé année par année), facultatives,
+   déclarées, jamais inventées. Socle Zenitek type : 3 figures → 6, chacune
+   dans la forme de ce qu'elle est (trajectoire en barres/courbes, composantes
+   d'un total en anneau, prix comparés en barres). Le catalogue ne propose plus
+   de parts pour un regroupement sans total (« CA + panier » en camembert).
+2. **Le radar obligatoire du chapitre 3 STR** : aucune grille de notation dans
+   le socle d'une stratégie, donc jamais dessinable. → Tableau de positionnement
+   noté ; test de classe : aucun prompt ne demande radar ou jauges si le socle
+   de son livrable n'a pas de grille.
+
+Limite : les socles existants n'ont pas ces séries ; l'effet se verra sur le
+prochain dossier de stratégie. Le plancher de 17 reste hors d'atteinte pour un
+projet dont le brief ne liste presque aucun chiffre — c'est à dire à la
+cliente, pas à contourner.
