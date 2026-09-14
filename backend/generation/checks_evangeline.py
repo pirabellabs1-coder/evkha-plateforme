@@ -467,6 +467,8 @@ class Mention:
     annee: int | None
     montant_lu: str
     montant_base: float  # normalise en unite de base (euros, pas M€)
+    #: La phrase qui porte la valeur, telle que le lecteur la trouvera.
+    extrait: str = ""
 
 
 @dataclass(frozen=True)
@@ -479,7 +481,28 @@ class DivergenceChiffree:
 
     @property
     def resume(self) -> str:
-        parties = [f"{m.montant_lu} au ch. {m.chapitre}" for m in self.mentions]
+        """Chaque valeur UNE fois, avec ses chapitres ; la phrase des minoritaires.
+
+        Le motif énumérait chaque mention : « 27 600 € au ch. 0 ; 27 600 € au
+        ch. 13 ; … (huit fois) … ; 1 600 € au ch. 20 ». La valeur qui diverge
+        était la dernière d'une liste tronquée à la lecture, sans la phrase qui
+        la porte — introuvable par le lecteur comme par la correction (règle 2,
+        corpus du 14/09/2026 : seize motifs de ce type).
+        """
+        par_valeur: dict[float, list[Mention]] = {}
+        for mention in self.mentions:
+            par_valeur.setdefault(mention.montant_base, []).append(mention)
+        groupes = sorted(par_valeur.values(), key=len, reverse=True)
+        # La valeur la plus fréquente, si elle l'est strictement, se passe de
+        # phrase : c'est la divergente que le lecteur doit retrouver.
+        majoritaire = len(groupes) > 1 and len(groupes[0]) > len(groupes[1])
+        parties = []
+        for rang, groupe in enumerate(groupes):
+            chapitres = ", ".join(str(n) for n in dict.fromkeys(m.chapitre for m in groupe))
+            partie = f"{groupe[0].montant_lu} (ch. {chapitres})"
+            if not (rang == 0 and majoritaire) and groupe[0].extrait:
+                partie += f" — « {groupe[0].extrait} »"
+            parties.append(partie)
         suffixe = f" (annee {self.annee})" if self.annee is not None else ""
         return f"{self.libelle}{suffixe} : {' ; '.join(parties)}"
 
@@ -588,6 +611,9 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             else:
                 annee = None
 
+            phrase = " ".join(
+                texte[debut_phrase:fin_libelle + montant.end() + 40].split()
+            )
             mentions.append(
                 Mention(
                     chapitre=chapitre_numero,
@@ -595,6 +621,7 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
                     annee=annee,
                     montant_lu=montant.group(0).strip(),
                     montant_base=base,
+                    extrait=phrase[:180],
                 )
             )
     return mentions
