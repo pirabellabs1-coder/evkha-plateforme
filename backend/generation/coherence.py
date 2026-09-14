@@ -424,6 +424,23 @@ def seed_locked_facts_from_variables(
     Inclut l'etat chiffre client (Brique 1) : previsionnel financier et
     verticales d'activite, intangibles pour toute la generation.
     """
+    # L'etat chiffre ecrit en TEXTE LIBRE (« apport 24 000 € + subvention
+    # Bpifrance 27 500 € ; CA an 1 = 51 030 € ») n'etait extrait que par la
+    # normalisation du formulaire Tally. Les trois autres portes — commande de
+    # l'espace client, commande manuelle du tableau de bord, reprise d'un
+    # dossier — creaient la soumission sans cette lecture : aucun fait CLIENT
+    # verrouille, une coherence chiffree qui n'avait rien a comparer (regle 1),
+    # et un gate bloque sur `brief_non_lu` (corpus du 14/09/2026 : 5 dossiers).
+    # La lecture se fait donc ICI, au seul point par lequel passent toutes les
+    # portes. Idempotente : sur un brief Tally deja enrichi, elle ne change rien.
+    from intake.financials import (  # noqa: PLC0415
+        enrich_variables_from_free_text,
+        raffiner_champs_financiers,
+    )
+
+    variables = dict(variables)
+    enrich_variables_from_free_text(variables)
+    raffiner_champs_financiers(variables)
 
     def _seed(kind: FactKind, key: str, value: str) -> None:
         upsert_locked_fact(

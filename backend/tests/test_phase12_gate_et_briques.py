@@ -634,3 +634,32 @@ def test_intake_expose_les_variables_etat_chiffre() -> None:
         assert var in OPTIONAL_VARIABLES
     assert _ALIASES["investissement total"] == "INVESTISSEMENT_TOTAL"
     assert _ALIASES["verticales d'activite"] == "VERTICALES"
+
+
+@pytest.mark.django_db
+def test_l_etat_chiffre_en_texte_libre_est_verrouille_quelle_que_soit_la_porte(
+    bp_submission: IntakeSubmission,
+) -> None:
+    """Corpus du 14/09/2026 : « apport 24 000 € + subvention Bpifrance 27 500 € ».
+
+    L'extraction n'existait que dans la normalisation Tally ; une commande de
+    l'espace client, du tableau de bord ou une reprise arrivait sans elle, et
+    le gate bloquait sur `brief_non_lu`. Le verrouillage lit désormais le texte
+    libre lui-même.
+    """
+    job = bootstrap_generation_job(bp_submission)
+    variables = {
+        "SECTEUR": "legaltech", "PAYS": "France",
+        "ELEMENTS_A_RETENIR": (
+            "Chiffres clés : besoin de financement 226 500 € (apport 24 000 € + "
+            "subvention Bpifrance 27 500 € + levée 175 000 €) ; CA an 1 = 51 030 €."
+        ),
+    }
+    seed_locked_facts_from_variables(job, variables)
+
+    facts = {f.key: f.value for f in job.coherence_facts.filter(provenance=FactProvenance.CLIENT)}
+    assert facts.get("apport") == "24 000 €"
+    assert facts.get("subventions") == "27 500 €"
+    assert "51 030 €" in facts.get("ca_previsionnel", "")
+    # La soumission elle-même n'est pas réécrite : on lit, on ne modifie pas le brief.
+    assert "APPORT" not in variables
