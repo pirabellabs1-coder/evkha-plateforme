@@ -190,3 +190,23 @@ Le catalogue ne compte que les groupes de valeurs scalaires : l'étude de march�
 dessine bien plus (séries temporelles, grilles), il la sous-estime. Pour la
 stratégie il est juste : deux figures possibles, trente demandées — l'écart
 que les séries du brief doivent combler.
+
+## Chiffres hors socle — 14/09/2026, après-midi
+
+La mesure rend désormais chaque motif avec sa phrase (757 au départ de l'étape).
+Classes fausses trouvées en les lisant, chacune corrigée, testée, déployée et
+re-mesurée :
+
+| Classe | Correctif | Effet mesuré |
+|---|---|---|
+| Champs STRUCTURÉS du brief jamais lus (`INVESTISSEMENT_TOTAL : 180 000 euros`) | montants à unité et pourcentages de tous les champs | BP 305 → 270, STR 32 → 21 |
+| Cellule de tableau jugée seule, sous un en-tête « CA estimé » | la cellule se lit « en-tête : ligne » ; règles de la prose inchangées | EC 382 → 211, BP 270 → 243 |
+| Garde « taille de marché » déclenchée par le commentaire d'une autre colonne ; part calculée dans sa ligne (200 000 / 850 M€) ; URL et article de loi comme sources | portée = en-tête + libellé + cellule jugée ; part exigeant un en-tête de part et un rapport exact | EC 211 → 153, BP 243 → 222 |
+
+Bilan sur les mêmes 37 dossiers depuis la mesure de référence du matin :
+**756 → 424** (BP 294 → 222, EC 388 → 153, EM 39 → 30, STR 35 → 19).
+
+Restent surtout des vrais motifs : croissances de concurrents sans source
+(« +16 % »), fourchettes de CA estimé, prix unitaires sans base (« baguette à
+1,09 € »), et des opérandes de calculs posés dont l'origine est plus haut dans
+le document.
