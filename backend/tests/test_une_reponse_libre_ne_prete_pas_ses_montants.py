@@ -164,3 +164,37 @@ def test_une_longue_reponse_du_client_est_verrouillee_entiere(db: Any) -> None:
     seed_locked_facts_from_variables(job, {"APPORT": longue})
 
     assert job.coherence_facts.get(key="apport").value.endswith("investis dans la plateforme.")
+
+
+# ── L'apport écrit AILLEURS dans le brief (corpus du 14/09/2026, `9f8f144a`) ─
+
+
+def _brief(job: Any, **variables: str) -> None:
+    from intake.models import IntakeSubmission
+
+    IntakeSubmission.objects.create(order=job.order, normalized_variables=variables)
+
+
+@pytest.mark.django_db
+def test_l_apport_ecrit_dans_un_autre_champ_du_brief_est_la_reference(db: Any) -> None:
+    """« Apport personnel : à définir » d'un côté ; « 1600e investi dans le dev du
+    MVP SaaS déjà par Evangeline » dans le modèle de revenus."""
+    job = _job(db, "Apport personnel : à définir. " + REPONSE_LIBRE)
+    _brief(job, MODELE_REVENUS=(
+        "Abonnement à 49,95 € par mois. 1600e investi dans le dev du mvp saas deja "
+        "par evangeline. les 8000e ne sont pas un apport mais un besoin aussi."
+    ))
+    assert _motifs(job, "L'apport personnel de 1 600 € finance le prototype.") == []
+
+
+@pytest.mark.django_db
+def test_un_montant_que_le_brief_nie_etre_un_apport_n_en_est_pas_la_reference(db: Any) -> None:
+    """CONTRE-ÉPREUVE : « les 8000e ne sont pas un apport » ne fait pas de 8 000 € l'apport."""
+    job = _job(db, "Apport personnel : à définir. " + REPONSE_LIBRE)
+    _brief(job, MODELE_REVENUS=(
+        "Abonnement à 49,95 € par mois. 1600e investi dans le dev du mvp saas deja "
+        "par evangeline. les 8000e ne sont pas un apport mais un besoin aussi."
+    ))
+    assert _motifs(job, "L'apport personnel de 8 000 € finance le prototype.") == [
+        ("coherence_chiffree", 15),
+    ]

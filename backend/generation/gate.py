@@ -524,9 +524,17 @@ def _reference_libre(cle: str, valeur: str) -> list[float] | None:
         montant
         for phrase in phrases
         if vocabulaire.search(phrase)
+        and not _PHRASE_NIEE.search(phrase)
         and not (autre and autre[0].search(phrase) and not autre[1].search(phrase))
         for montant in _client_numbers(phrase)
     ]
+
+
+#: Une phrase qui NIE le fait : « les 8000e ne sont pas un apport mais un
+#: besoin ». Son montant n'est pas la référence du fait qu'elle écarte.
+_PHRASE_NIEE = re.compile(
+    r"(?i)\bne\s+\S+(?:\s+\S+)?\s+pas\b|\bn['’]\S+\s+pas\b|\bpas\s+(?:un|une|de|d['’])\b"
+)
 
 
 def _extrait(valeur: str, largeur: int = 90) -> str:
@@ -1076,6 +1084,17 @@ def _check_numeric_coherence(
             continue
 
         libre = _reference_libre(key, client_value)
+        if libre is not None and not libre:
+            # La réponse à la question ne donne pas le fait — mais le client
+            # peut l'avoir écrit AILLEURS dans son brief : « Apport personnel :
+            # à définir » d'un côté, « 1600e investi dans le dev du MVP SaaS
+            # déjà par Evangeline » dans son modèle de revenus (business plan
+            # `9f8f144a`, corpus du 14/09/2026). Le gate accusait alors le
+            # document d'un apport « que le client ne donne pas » — il le
+            # donnait, deux champs plus loin (règle 2).
+            ailleurs = _reference_libre(key, _brief_free_text(job))
+            if ailleurs:
+                libre = ailleurs
         if libre:
             expected = libre
         is_trajectory = key in _TRAJECTORY_FACT_KEYS
