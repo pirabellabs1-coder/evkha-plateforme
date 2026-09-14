@@ -1401,6 +1401,58 @@ def _bloc_verdict(job: GenerationJob, numero: int) -> str:
     )
 
 
+def _bloc_decisions(job: GenerationJob, numero: int) -> str:
+    """Les décisions que CE chapitre tranche, sous leur intitulé exact — STR seulement.
+
+    ## Le défaut mesuré
+
+    14/09/2026, les douze stratégies du corpus : `decision_absente` sur toutes,
+    40 motifs. Deux causes, et aucune n'était le document :
+
+    - la liste des décisions n'arrivait qu'en bloc global, pour tout le
+      dossier ; le prompt du chapitre 13 ne demandait ni les canaux à éviter
+      ni la fréquence de publication, celui du chapitre 8 ni la cible
+      secondaire ni l'offre à pousser — et le chapitre 13 disait même que
+      « la fréquence se déduit du tableau » ;
+    - le contrôle attendait une locution que le modèle n'avait aucune raison
+      d'écrire.
+
+    Le chapitre porteur reçoit donc ses décisions, sous l'intitulé que le
+    contrôle reconnaît, lu de la MÊME déclaration (règle 5).
+    """
+    from catalog.models import DeliverableType  # noqa: PLC0415
+
+    from ..checks_evangeline import DECISIONS_STRATEGIE  # noqa: PLC0415
+
+    if str(job.deliverable_type) != DeliverableType.BUSINESS_STRATEGY:
+        return ""
+    blocs = [
+        b for b in DECISIONS_STRATEGIE
+        if b.chapitre_porteur == numero and b.tableau_de_decisions
+    ]
+    if not blocs:
+        return ""
+    lignes = "\n".join(
+        f"- {d.etiquette or d.libelle}" for b in blocs for d in b.decisions
+    )
+    return (
+        "DÉCISIONS QUE CE CHAPITRE TRANCHE — "
+        + " ; ".join(b.intitule for b in blocs) + ".\n"
+        "Avant la lecture stratégique, produis un bloc `tableau` intitulé "
+        "« Décisions retenues », à trois colonnes — Décision, Ce qui est "
+        "retenu, Pourquoi — portant EXACTEMENT ces lignes, dans cet ordre, la "
+        "colonne Décision reprenant l'intitulé mot pour mot :\n"
+        f"{lignes}\n"
+        "« Ce qui est retenu » NOMME le choix — le canal, l'offre, le segment, "
+        "le rythme — au lieu de le décrire ; « Pourquoi » tient en une phrase "
+        "appuyée sur ce que le document a établi. Quand le dossier ne permet "
+        "pas de trancher, écris-le dans la colonne et nomme l'information qui "
+        "manque : une décision inventée est pire qu'une décision reportée. Le "
+        "texte du chapitre développe ces choix ; le tableau les rend lisibles "
+        "d'un coup d'œil."
+    )
+
+
 def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
     """Catalogue des visuels, consigne sectorielle, et MÉMOIRE des formes.
 
@@ -1573,6 +1625,12 @@ def construire_prompt_chapitre(
         f"CHAPITRE À RÉDIGER : {chapter.chapter_number} — {chapter.chapter_title}",
         f"INSTRUCTION DU CHAPITRE :\n{instruction}",
         *_blocs_du_modele(str(chapter.job.deliverable_type), chapter.chapter_number),
+        # Vide hors stratégie et hors chapitres porteurs d'un pilier.
+        *(
+            [decisions]
+            if (decisions := _bloc_decisions(chapter.job, chapter.chapter_number))
+            else []
+        ),
         # Vide pour tous les chapitres sauf le dernier : un verdict repete
         # vingt-trois fois ne serait plus un verdict.
         *(

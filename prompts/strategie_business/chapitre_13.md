@@ -48,10 +48,11 @@ ces colonnes : semaine, canal, format, sujet concret, objectif visé.
   tarification que font les cabinets à leur première année », pas « publier un
   contenu d'expertise ». Un intitulé qui vaudrait pour n'importe quelle
   entreprise n'a aucune valeur.
-- **La fréquence se déduit du tableau** et doit être tenable par la personne
-  qui porte le projet, seule et en plus de son activité. Mieux vaut deux
-  publications par semaine réellement faites que cinq abandonnées au bout d'un
-  mois — dis-le si le rythme proposé est déjà ambitieux.
+- **La fréquence de publication est écrite en toutes lettres**, pas laissée à
+  déduire du tableau, et doit être tenable par la personne qui porte le projet,
+  seule et en plus de son activité. Mieux vaut deux publications par semaine
+  réellement faites que cinq abandonnées au bout d'un mois — dis-le si le
+  rythme proposé est déjà ambitieux.
 - **L'objectif est nommé pour chaque ligne** : notoriété, preuve d'expertise,
   acquisition directe, fidélisation, ou recrutement de partenaires. Une
   publication sans objectif est une publication qu'on arrêtera la première

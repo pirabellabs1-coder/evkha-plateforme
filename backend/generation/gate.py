@@ -458,6 +458,71 @@ def _exige_une_devise(patterns: tuple[re.Pattern[str], ...]) -> bool:
     return any(_MONEY in motif.pattern for motif in patterns)
 
 
+#: Les mots qui désignent un fait dans une réponse LIBRE du client.
+#:
+#: ## Le défaut mesuré
+#:
+#: Business plans `256e63d8`, `1fdc457b`, `9f8f144a` (corpus du 14/09/2026) : à
+#: la question « apport », la cliente a répondu par un paragraphe — financements
+#: recherchés, charges fixes (200 €, 400 €), rémunération (1 000 €, 1 300 €,
+#: 1 800 €), enveloppe de 8 000 €, et « 1600e ont déjà été investis dans la
+#: plateforme ». Le contrôle prenait TOUS ces montants pour l'apport. Le
+#: document écrivait « apport personnel de 1 600 € » — exactement ce qu'elle a
+#: dit — et recevait « le brief client dit … » suivi du paragraphe entier : un
+#: motif introuvable par la lectrice (règle 2), routé vers une réécriture payée
+#: qui ne pouvait pas le fermer.
+#:
+#: Dans une réponse libre, seules les phrases qui PARLENT du fait portent sa
+#: valeur. Les clés absentes d'ici gardent la lecture d'avant : leur réponse est
+#: un montant ou une trajectoire, pas un paragraphe.
+_VOCABULAIRE_DU_FAIT: dict[str, re.Pattern[str]] = {
+    cle: re.compile(motif, re.IGNORECASE)
+    for cle, motif in {
+        "apport": r"\bapports?\b|\binvestie?s?\b|\bfonds\s+propres\b"
+                  r"|\bautofinanc\w*",
+        "emprunt": r"\bemprunts?\b|\bpr[êe]ts?\b|\bcr[ée]dits?\b",
+        "subventions": r"\bsubventions?\b|\baides?\b",
+        "investissement_total": r"\binvestissements?\b|\btotal\b|\bbesoins?\b",
+    }.items()
+}
+
+_FIN_DE_PHRASE_CLIENT = re.compile(r"(?<=[.;!?])\s+|[\n\u2028\u2029]+")
+
+
+@dataclass(frozen=True)
+class _ReferenceLibre:
+    """Ce qu'une réponse libre permet d'opposer au document pour UN fait."""
+
+    #: Les montants des phrases qui parlent du fait — la seule référence stricte.
+    propres: list[float]
+    #: Tous les montants de la réponse : un chiffre du document qui en fait
+    #: partie vient du client, même si sa phrase n'emploie pas le mot attendu
+    #: (« evkha a déjà invetsi 1600e »).
+    tous: list[float]
+
+
+def _reference_libre(cle: str, valeur: str) -> _ReferenceLibre | None:
+    """La référence d'un fait lue dans une réponse libre ; None si la réponse est simple.
+
+    Simple = une seule phrase, ou un seul montant : « 25 000 € », « 55 % An1 ->
+    85 % An5 ». Ces réponses restent jugées en tolérance zéro, comme avant.
+    """
+    vocabulaire = _VOCABULAIRE_DU_FAIT.get(cle)
+    if vocabulaire is None:
+        return None
+    phrases = [x for x in _FIN_DE_PHRASE_CLIENT.split(valeur) if x.strip()]
+    tous = _client_numbers(valeur)
+    if len(phrases) < 2 or len(tous) < 2:
+        return None
+    propres = [
+        montant
+        for phrase in phrases
+        if vocabulaire.search(phrase)
+        for montant in _client_numbers(phrase)
+    ]
+    return _ReferenceLibre(propres=propres, tous=tous)
+
+
 def _extrait(valeur: str, largeur: int = 90) -> str:
     """Le début d'une réponse client, entre guillemets, pour un motif lisible.
 
@@ -1004,8 +1069,12 @@ def _check_numeric_coherence(
             ))
             continue
 
+        libre = _reference_libre(key, client_value)
+        if libre is not None and libre.propres:
+            expected = libre.propres
         is_trajectory = key in _TRAJECTORY_FACT_KEYS
         lo, hi = min(expected), max(expected)
+        sans_reference_signale = False
         for section in sections:
             for pattern in patterns:
                 for m in pattern.finditer(section.body):
@@ -1016,7 +1085,7 @@ def _check_numeric_coherence(
                     # pas la valeur de l'emprunt. Rien a comparer.
                     if _est_un_delta(section.body, m.start()):
                         continue
-                    if not _mention_est_conforme(
+                    if _mention_est_conforme(
                         found=found,
                         mention=m.group(0),
                         expected=expected,
@@ -1025,20 +1094,41 @@ def _check_numeric_coherence(
                         hi=hi,
                         phrase=_phrase_autour(section.body, m.start()),
                     ):
+                        continue
+                    if libre is not None and not libre.propres:
+                        # Aucune phrase de la réponse ne parle du fait : rien
+                        # d'opposable. Un montant que le client a écrit reste
+                        # le sien ; un autre ne CONTREDIT rien — il manque la
+                        # référence, et c'est ce qu'on dit, une fois, sans
+                        # chapitre à réécrire (voir plus haut).
+                        if found in libre.tous or sans_reference_signale:
+                            continue
+                        sans_reference_signale = True
                         failures.append(GateFailure(
-                            check="coherence_chiffree",
-                            chapter_number=section.number,
+                            check="reference_client_illisible",
+                            chapter_number=None,
                             detail=(
-                                # `m.group(0)` et non `m.group(1)` : le groupe 1
-                                # ne porte que les chiffres, sans l'unite. Le
-                                # message annoncait « document dit '3' » pour un
-                                # document disant « 3 M€ » — un motif introuvable
-                                # dans le texte, qui envoie chercher a cote.
-                                f"{key} : le document dit {m.group(0).strip()!r} "
-                                f"(soit {found:,.0f}), le brief client dit "
-                                f"{client_value!r}"
+                                f"{key} : le document dit {m.group(0).strip()!r}, "
+                                "et la réponse du client à cette question ne "
+                                f"donne aucun montant de {key} ({_extrait(client_value)}). "
+                                "Il faut obtenir le chiffre auprès du client."
                             ),
                         ))
+                        continue
+                    failures.append(GateFailure(
+                        check="coherence_chiffree",
+                        chapter_number=section.number,
+                        detail=(
+                            # `m.group(0)` et non `m.group(1)` : le groupe 1
+                            # ne porte que les chiffres, sans l'unite. Le
+                            # message annoncait « document dit '3' » pour un
+                            # document disant « 3 M€ » — un motif introuvable
+                            # dans le texte, qui envoie chercher a cote.
+                            f"{key} : le document dit {m.group(0).strip()!r} "
+                            f"(soit {found:,.0f}), le brief client dit "
+                            f"{_extrait(client_value)}"
+                        ),
+                    ))
     return failures
 
 

@@ -58,10 +58,13 @@ des contrôles sur des phrases). Statut : ✅ corrigé, 🔧 en cours, ⏳ à fa
 | A12 | Tableau de sources reconnu seulement par un en-tête exact « Source(s) »/« Référence(s) » ; « Organisme \| Publication \| Lien » → « vide » | tous | ⏳ |
 | A13 | Même source écrite deux fois (« (Eurostat, 2024) » / « (Eurostat 2024) ») → `sources_divergentes` bloquant, sans chapitre routable | tous | ⏳ |
 | A14 | STR : structure « à retenir / lecture stratégique » exigée aussi des chapitres Sources, Annexe, fiche projet | STR | ⏳ |
-| A15 | STR : décision exigée sous « offre phare / locomotive / à pousser », jamais demandée par le prompt ch 08 ; horizons 30-60-90 j contre 0-3 mois / 3-12 mois / 1-3 ans au ch 17 | STR | ⏳ |
+| A15 | STR : décision exigée sous « offre phare / locomotive / à pousser », jamais demandée par le prompt ch 08 ; horizons 30-60-90 j contre 0-3 mois / 3-12 mois / 1-3 ans au ch 17 | STR | ✅ horizons du ch 17 alignés (30/60/90 jours, 6 et 12 mois) ; chaque chapitre porteur reçoit ses décisions sous l'intitulé que le contrôle reconnaît (voir A19) |
 | A16 | EC : décompte des concurrents dépendant de la forme (encadré coupé à six lignes, puces de forces/faiblesses) | EC | ⏳ |
 | A17 | STR : « paragraphes développés » dans tous les prompts contre le plafond de densité (médiane 25 mots) | STR | ⏳ |
 | A18 | « un segment » + encadré de 3 puces → `desaccord_numerique` | BP EC STR | ⏳ |
+| A19 | STR `decision_absente` 12/12 : le contrôle attendait une locution collée (« canaux à éviter ») ; les documents décident par un verbe (« Nous excluons Facebook Ads… », « deux publications par semaine ») ; les prompts des chapitres porteurs ne demandaient pas ces décisions, le ch 13 disait « la fréquence se déduit du tableau ». Le contrôleur réécrivait (payait) les ch 8, 10, 13 sans fermer les motifs | STR | ✅ formes verbales de décision reconnues (contre-épreuves : négation, « Reportez-vous », cadence de prospection) ; tableau « Décisions retenues » injecté au chapitre porteur depuis la même déclaration. Word des 8 stratégies lisibles : 23 → 5 motifs, les 5 restants vrais |
+| A20 | BP `coherence_chiffree` « apport » (3 dossiers, 10 motifs) : réponse LIBRE du client (charges, rémunération, enveloppe, « 1600e investis ») ; tous ses montants pris pour l'apport, motif « le brief client dit » + paragraphe entier ; et faux négatif inverse (un apport de 8 000 € accepté parce que l'enveloppe valait 8 000 €) | BP | ✅ seules les phrases qui parlent du fait font référence ; sans elles, un montant écrit par le client est conforme, sinon `reference_client_illisible` une fois, sans réécriture payée |
+| A21 | `demande_contredite` (7 dossiers) accuse sur « reprend, statut, suivant, traitée » : mots de la ligne de statut, pas un sujet ; le motif ne citait pas la ligne, introuvable par la lectrice | tous | 🔧 la ligne accusée est citée dans le motif ; correctif de classe après re-mesure (les Word de ces dossiers ont expiré) |
 
 Suspicions et incohérences internes aux prompts (non encore prouvées ou sans
 contrôle qui les attrape) : catalogue de figures sans matrice ni chronologie
@@ -69,4 +72,4 @@ alors que des prompts les demandent ; « non communiqué » imposé en EC, inter
 par COHERENCE ; marque « EVKHA » dans trois prompts ; notation `MEUR` ;
 « points à confirmer par un professionnel » contre `_SYSTEME` ; URL de pages
 d'accueil fournies en EM ch 21 ; le prévisionnel du BP (ch 16) et EC ch 03
-reçoivent « Ne pas utiliser ce prompt directement » comme seule instruction.
+reçoivent « Ne pas utiliser ce prompt directement » comme seule instruction. Faits CLIENT verrouillés à la création : une réponse complétée ensuite dans le brief (« 1600e investis ») ne remplacerait pas la valeur verrouillée — à vérifier.

@@ -1066,6 +1066,9 @@ def _contradictions_de_la_section(
             detail=(
                 f"Chapitre {numero} declare « non traite » un sujet que le "
                 f"document traite ailleurs : {', '.join(communs[:4])}. "
+                # La ligne accusée, telle qu'écrite : quatre mots ne se
+                # retrouvent pas dans un document de vingt chapitres (règle 2).
+                f"Ligne concernee : « {' '.join(ligne.split())[:160]} ». "
                 "Un point annonce puis declare non traite est pire qu'un "
                 "point absent — il fait douter de tout le reste. Reprends "
                 "le statut, ou nomme ce qui manque vraiment."

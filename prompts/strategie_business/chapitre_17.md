@@ -13,7 +13,7 @@ Une variable inconnue est laissée telle quelle et signalée à la génération.
 
 Feuille de route strategique et priorisation : transforme l'ensemble des analyses precedentes en plan d'action coherent, hierarchise les priorites et construit une trajectoire claire de developpement. Le dirigeant doit ressortir en sachant ce qui doit etre fait maintenant, ce qui doit etre differe et ce qui ne doit pas devenir prioritaire — sortir de l'urgence permanente pour une progression structuree, realiste et soutenable.
 
-Ouvre par un bloc `tableau` a trois colonnes — « Court terme (0-3 mois) », « Moyen terme (3-12 mois) », « Long terme (1-3 ans) » — avec 2 a 3 actions reelles du projet par colonne.
+Ouvre par un bloc `tableau` a trois colonnes — Horizon, Actions, Indicateur de réussite — portant cinq lignes dans cet ordre : « 30 jours », « 60 jours », « 90 jours », « 6 mois », « 12 mois », avec 1 a 3 actions reelles du projet par ligne. La trajectoire au-dela de douze mois se traite dans sa sous-partie, pas dans ce tableau.
 
 ## Priorités stratégiques immédiates
 Identifie les actions prioritaires et hierarchise les urgences strategiques. Distingue explicitement priorites critiques, optimisations secondaires et projets prematures.
@@ -46,8 +46,9 @@ indicateurs ; il ne dit pas QUOI FAIRE du chiffre une fois qu'on l'a lu. Un
 indicateur sans règle de décision est un chiffre qu'on regarde et qu'on oublie.
 
 Produis un TABLEAU, une ligne par action de la feuille de route, avec ces
-colonnes : action, indicateur suivi, échéance, seuil GO, seuil ADJUST, seuil
-STOP, et la décision correspondante.
+colonnes : action, indicateur de suivi, échéance, seuil GO, seuil ADJUST,
+seuil STOP, et la décision correspondante. Ces trois seuils forment le
+seuil de décision de l'action : poursuivre, ajuster ou arrêter.
 
 - **Les trois seuils sont CHIFFRÉS et ne se recouvrent pas.** « GO : plus de
   15 rendez-vous qualifiés en 90 jours ; ADJUST : entre 8 et 15 ; STOP : moins

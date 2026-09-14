@@ -871,6 +871,10 @@ class DecisionAttendue:
     libelle: str
     #: Vide = demandee par la consigne, non verrouillee par le gate.
     motif: str = ""
+    #: L'intitule que le chapitre porteur ecrit en tete de ligne de son
+    #: tableau « Decisions retenues ». Il satisfait le `motif` (un test le
+    #: verifie) : la consigne fait ecrire ce que le controle reconnait.
+    etiquette: str = ""
 
 
 @dataclass(frozen=True)
@@ -883,6 +887,10 @@ class BlocDeDecisions:
     #: reparation. Le controle, lui, lit tout le document.
     chapitre_porteur: int
     decisions: tuple[DecisionAttendue, ...]
+    #: Le chapitre porteur recoit-il le tableau « Decisions retenues » ? Non
+    #: pour la feuille de route : son prompt pose deja ses horizons et ses
+    #: indicateurs dans deux tableaux, et un troisieme les repeterait.
+    tableau_de_decisions: bool = True
 
 
 _D = DecisionAttendue
@@ -898,6 +906,70 @@ _D = DecisionAttendue
 #: qu'il prétend juger (regle 2).
 _E = r"\s"
 
+
+def _meme_phrase(a: str, b: str, portee: int = 100) -> str:
+    """Les deux elements d'une decision, dans une meme phrase, dans un ordre quelconque."""
+    return (
+        rf"(?:{a})[^.!?\n]{{0,{portee}}}(?:{b})"
+        rf"|(?:{b})[^.!?\n]{{0,{portee}}}(?:{a})"
+    )
+
+
+# ## Une decision se prend aussi par un VERBE
+#
+# Les motifs ci-dessous attendaient une locution collee : « canaux a eviter »,
+# « offre phare », « frequence de publication ». Les documents, eux, decident
+# comme un consultant ecrit. Mesure du 14/09/2026 sur les douze strategies du
+# corpus (12 sur 12 bloquees, 40 motifs) — phrases relevees dans les Word
+# livres :
+#
+#     « Nous excluons Facebook Ads, Google Ads et les flyers non cibles »
+#     « Toute action publicitaire (Facebook, Google) est reportee »
+#     « deux publications par semaine sur les canaux prioritaires »
+#     « nous resserrons le positionnement sur l'ancrage local »
+#
+# Toutes accusees de ne rien decider. Et le controleur final reecrivait — donc
+# payait — les chapitres 8, 10 et 13 sur ces motifs, sans jamais les fermer :
+# la reecriture decidait de nouveau avec un verbe (`a678b10a`, trois passes).
+#
+# La forme reconnue est celle d'une DECISION : premiere personne du pluriel,
+# imperatif, « a + infinitif », ou participe attribut (« est reportee »).
+# « Ce tableau exclut des indicateurs » et « aucun canal n'est valide ni
+# ecarte » ne decident rien, et ne passent pas (contre-epreuves en test).
+
+#: Ce qu'une decision de visibilite peut viser.
+_CANAL = (
+    r"\b(?:canal|canaux|leviers?|r[ée]seaux?|plateformes?|publicit[ée]s?"
+    r"|publicitaires?|ads|campagnes?|flyers?|prospection|salons?|e-?mailing"
+    r"|affichage|presse|radio|annuaires?|marketplaces?)\b"
+)
+
+#: « Est » suivi d'au plus un mot qui n'est pas une negation, puis le participe.
+_ATTRIBUT = (
+    r"\b(?:est|sont|reste|restent|sera|seront|demeure|demeurent)\s+"
+    r"(?!(?:pas|ni|jamais|plus)\b)(?:\w+\s+)?"
+)
+
+_ECARTER = (
+    r"\b(?:excluons|[ée]cartons|reportons|renon[çc]ons|abandonnons|proscrivons"
+    r"|[ée]vitons|suspendons|gelons|diff[ée]rons|arr[êe]tons)\b"
+    r"|\b(?:excluez|[ée]cartez|reportez|renoncez|abandonnez|proscrivez|[ée]vitez"
+    r"|suspendez|arr[êe]tez)\b(?!-)"
+    r"|\b[àa]\s+(?:[ée]viter|exclure|proscrire|[ée]carter|abandonner|reporter"
+    r"|diff[ée]rer)\b"
+    rf"|{_ATTRIBUT}(?:exclue?s?|[ée]cart[ée]e?s?|report[ée]e?s?|abandonn[ée]e?s?"
+    r"|proscrite?s?|suspendue?s?|gel[ée]e?s?|diff[ée]r[ée]e?s?)\b"
+    r"|\bd[ée]conseill[ée]e?s?\b|\bnon\s+retenue?s?\b"
+)
+
+_OFFRE = r"\b(?:offres?|formules?|paliers?|prestations?|abonnements?|gammes?)\b"
+
+_COMPTE = r"(?:\d+|une?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix)"
+_PUBLICATION = (
+    r"(?:publications?|posts?|contenus?|articles?|vid[ée]os?|newsletters?"
+    r"|stories|reels?|envois?)"
+)
+
 DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
     BlocDeDecisions(
         cle="positionnement",
@@ -906,27 +978,47 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
         decisions=(
             _D("la cible prioritaire, nommée",
                rf"(?:cible|client[èe]le|segment)s?{_E}+"
-               rf"(?:prioritaires?|principa(?:l|le|ux|les))"),
+               rf"(?:prioritaires?|principa(?:l|le|ux|les))",
+               etiquette="Cible prioritaire"),
             _D("la cible secondaire",
                rf"(?:cible|client[èe]le|segment)s?{_E}+"
-               rf"(?:secondaires?|compl[ée]mentaires?)"),
+               rf"(?:secondaires?|compl[ée]mentaires?)"
+               + "|" + _meme_phrase(
+                   r"\b(?:cibles?|segments?|client[èe]les?|publics?|profils?)\b",
+                   r"\bsecondaires?\b|\ben\s+second\s+(?:rang|plan)\b"
+                   r"|\bdans\s+un\s+second\s+temps\b",
+                   60,
+               ),
+               etiquette="Cible secondaire"),
             _D("le positionnement retenu",
                rf"positionnement{_E}+"
                rf"(?:retenu|recommand[ée]|choisi|cible|d[ée]fendu"
-               rf"|propos[ée]|pr[ée]conis[ée])"),
-            _D("la spécialisation recommandée"),
+               rf"|propos[ée]|pr[ée]conis[ée])"
+               r"|\b(?:retenons|choisissons|resserrons|recentrons|assumons"
+               r"|adoptons|d[ée]fendons|arbitrons)\b[^.!?\n]{0,60}positionnement"
+               r"|\b(?:positionnons|repositionnons)\b",
+               etiquette="Positionnement retenu"),
+            _D("la spécialisation recommandée",
+               etiquette="Spécialisation recommandée"),
             _D("le produit ou service à pousser en priorité",
-               rf"(?:offre|produit|service|prestation)s?{_E}+"
-               rf"(?:phares?|locomotives?|[àa]{_E}+pousser)"),
-            _D("la proposition de valeur", rf"proposition{_E}+de{_E}+valeur"),
-            _D("les éléments concrets de différenciation"),
+               rf"(?:offre|produit|service|prestation|formule|palier|abonnement)s?"
+               rf"(?:{_E}+\S+)?{_E}+"
+               rf"(?:phares?|locomotives?|prioritaires?|[àa]{_E}+pousser"
+               rf"|[àa]{_E}+mettre{_E}+en{_E}+avant)",
+               etiquette="Offre à pousser en priorité"),
+            _D("la proposition de valeur", rf"proposition{_E}+de{_E}+valeur",
+               etiquette="Proposition de valeur"),
+            _D("les éléments concrets de différenciation",
+               etiquette="Éléments de différenciation"),
             _D("le message commercial principal",
                rf"(?:message|discours|accroche|promesse)s?{_E}+"
-               rf"(?:commercial|commerciale|principal|principale|cl[ée])"),
+               rf"(?:commercial|commerciale|principal|principale|cl[ée])",
+               etiquette="Message commercial principal"),
             _D("ce qu'il faut volontairement abandonner ou repousser",
                r"(?:abandonner|abandonn[ée]e?s?|renoncer|renonc[ée]e?s?"
                r"|[ée]carter|[ée]cart[ée]e?s?|repousser|repouss[ée]e?s?"
-               r"|non-?priorit[ée]s?)"),
+               r"|non-?priorit[ée]s?)",
+               etiquette="À abandonner ou repousser"),
         ),
     ),
     BlocDeDecisions(
@@ -936,20 +1028,33 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
         decisions=(
             _D("les offres à conserver, modifier, supprimer ou reporter",
                rf"[àa]{_E}+(?:conserver|maintenir|supprimer|arr[êe]ter"
-               rf"|reporter|retravailler)"),
+               rf"|reporter|retravailler)"
+               r"|\b(?:conservons|maintenons|supprimons|arr[êe]tons|reportons"
+               r"|suspendons|gelons|retirons|abandonnons|gardons)\b"
+               rf"[^.!?\n]{{0,60}}{_OFFRE}"
+               rf"|{_OFFRE}[^.!?\n]{{0,120}}{_ATTRIBUT}"
+               r"(?:conserv[ée]e?s?|maintenue?s?|supprim[ée]e?s?|arr[êe]t[ée]e?s?"
+               r"|report[ée]e?s?|suspendue?s?|gel[ée]e?s?|retir[ée]e?s?"
+               r"|abandonn[ée]e?s?)\b",
+               etiquette="Offres à conserver, modifier, supprimer ou reporter"),
             _D("l'offre d'entrée de gamme",
                rf"(?:entr[ée]e{_E}+de{_E}+gamme"
-               rf"|offre{_E}+d['’](?:appel|entr[ée]e))"),
+               rf"|offre{_E}+d['’](?:appel|entr[ée]e))",
+               etiquette="Offre d'entrée de gamme"),
             _D("l'offre premium",
                rf"premium|haut{_E}+de{_E}+gamme|gamme{_E}+sup[ée]rieure"
-               rf"|offre{_E}+haute"),
+               rf"|offre{_E}+haute",
+               etiquette="Offre premium"),
             _D("les possibilités d'upsell et de cross-sell",
                rf"up-?sell|cross-?sell|vente{_E}+(?:additionnelle|crois[ée]e)"
-               rf"|mont[ée]e{_E}+en{_E}+gamme"),
+               rf"|mont[ée]e{_E}+en{_E}+gamme",
+               etiquette="Vente additionnelle et montée en gamme"),
             _D("le parcours du client entre les offres",
-               rf"parcours{_E}+(?:client|d['’]achat|utilisateur)"),
+               rf"parcours{_E}+(?:client|d['’]achat|utilisateur)",
+               etiquette="Parcours client entre les offres"),
             _D("le rôle de chaque offre : acquisition, marge, "
-               "récurrence ou fidélisation"),
+               "récurrence ou fidélisation",
+               etiquette="Rôle de chaque offre"),
         ),
     ),
     BlocDeDecisions(
@@ -960,29 +1065,47 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
             _D("les canaux prioritaires",
                rf"(?:canaux|leviers|r[ée]seaux){_E}+"
                rf"(?:prioritaires|principaux|majeurs|structurants"
-               rf"|de{_E}+premier{_E}+plan)"),
+               rf"|de{_E}+premier{_E}+plan)",
+               etiquette="Canaux prioritaires"),
             _D("les canaux secondaires",
                rf"(?:canaux|leviers|r[ée]seaux){_E}+"
                rf"(?:secondaires|compl[ée]mentaires|d['’]appoint"
-               rf"|de{_E}+soutien)"),
+               rf"|de{_E}+soutien)"
+               + "|" + _meme_phrase(
+                   _CANAL,
+                   r"\bsecondaires?\b|\bd['’]appoint\b|\bde\s+soutien\b"
+                   r"|\ben\s+second\s+(?:rang|plan)\b",
+                   60,
+               ),
+               etiquette="Canaux secondaires"),
             _D("les canaux à éviter",
                rf"(?:canaux|leviers|r[ée]seaux|plateformes|supports){_E}+"
                rf"(?:[àa]{_E}+(?:[ée]viter|proscrire|exclure|abandonner"
                rf"|ne{_E}+pas{_E}+(?:investir|privil[ée]gier))"
-               rf"|d[ée]conseill[ée]s?|non{_E}+retenus?)"),
-            _D("les thématiques et types de contenus recommandés"),
+               rf"|d[ée]conseill[ée]s?|non{_E}+retenus?)"
+               + "|" + _meme_phrase(_CANAL, _ECARTER),
+               etiquette="Canaux à éviter"),
+            _D("les thématiques et types de contenus recommandés",
+               etiquette="Thématiques et contenus recommandés"),
             _D("la fréquence de publication",
                rf"(?:fr[ée]quence|rythme|cadence){_E}+(?:de{_E}+)?"
                rf"(?:publication|parution|diffusion|contenus?)"
-               rf"|\d+{_E}*(?:publications?|posts?|contenus?|articles?){_E}*"
-               rf"(?:par|\/){_E}*(?:semaine|mois)"),
+               rf"|\b{_COMPTE}{_E}+{_PUBLICATION}{_E}+(?:\S+{_E}+){{0,3}}?"
+               rf"(?:par|chaque|\/){_E}*(?:jour|semaine|quinzaine|mois)"
+               rf"|\d+{_E}*{_PUBLICATION}{_E}*\/{_E}*(?:semaine|mois)"
+               rf"|{_PUBLICATION}{_E}+(?:hebdomadaires?|mensuel(?:le)?s?"
+               rf"|quotidien(?:ne)?s?|bimensuel(?:le)?s?)",
+               etiquette="Fréquence de publication"),
             _D("un planning éditorial concret, sur un mois au minimum",
-               rf"(?:planning|calendrier|programme){_E}+[ée]ditorial"),
+               rf"(?:planning|calendrier|programme){_E}+[ée]ditorial",
+               etiquette="Planning éditorial du premier mois"),
             _D("l'acquisition hors réseaux sociaux : prospection, "
                "partenariats, référencement, prescription, événements, emailing",
                r"prospection|partenariats?|r[ée]f[ée]rencement|emailing"
-               r"|prescription|[ée]v[ée]nements?"),
-            _D("les outils pratiques pour mettre tout cela en œuvre"),
+               r"|prescription|[ée]v[ée]nements?",
+               etiquette="Prospection, partenariats et prescription"),
+            _D("les outils pratiques pour mettre tout cela en œuvre",
+               etiquette="Outils de mise en œuvre"),
         ),
     ),
     BlocDeDecisions(
@@ -995,30 +1118,36 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                rf"(?:cibles?|recommand[ée]s?|conseill[ée]s?|pr[ée]conis[ée]s?)"
                rf"|(?:recommandation|proposition|strat[ée]gie|grille)s?{_E}+"
                rf"(?:tarifaires?|de{_E}+prix)"
-               rf"|fourchette{_E}+(?:tarifaire|de{_E}+prix)"),
-            _D("le prix par niveau d'offre"),
-            _D("la logique de montée en gamme"),
+               rf"|fourchette{_E}+(?:tarifaire|de{_E}+prix)",
+               etiquette="Prix cible recommandé"),
+            _D("le prix par niveau d'offre", etiquette="Prix par niveau d'offre"),
+            _D("la logique de montée en gamme",
+               etiquette="Logique de montée en gamme"),
             _D("l'impact attendu sur la marge",
                rf"(?:impact|effet|cons[ée]quence)[^.]{{0,60}}marge"
                rf"|marges?{_E}+(?:attendues?|cibles?|projet[ée]es?"
-               rf"|suppl[ée]mentaires?)"),
+               rf"|suppl[ée]mentaires?)",
+               etiquette="Impact attendu sur la marge"),
             _D("la distinction explicite entre les prix issus du dossier "
-               "et les prix recommandés par l'analyse"),
+               "et les prix recommandés par l'analyse",
+               etiquette="Prix du dossier et prix recommandés"),
         ),
     ),
     BlocDeDecisions(
         cle="feuille_de_route",
         intitule="FEUILLE DE ROUTE OPÉRATIONNELLE",
         chapitre_porteur=17,
+        tableau_de_decisions=False,
         decisions=(
             _D("les actions à 30, 60 et 90 jours",
-               rf"\b(?:30|60|90){_E}*jours"),
+               rf"\b(?:30|60|90){_E}*jours", etiquette="30 jours"),
             _D("les actions à 6 et 12 mois",
-               rf"\b(?:6|12|six|douze){_E}*mois"),
+               rf"\b(?:6|12|six|douze){_E}*mois", etiquette="6 mois"),
             _D("ce qui est prioritaire et ce qui est secondaire"),
             _D("les indicateurs à suivre",
                rf"\bKPI\b|indicateurs?{_E}+(?:cl[ée]s?|de{_E}+"
-               rf"(?:suivi|performance|pilotage|r[ée]ussite))"),
+               rf"(?:suivi|performance|pilotage|r[ée]ussite))",
+               etiquette="Indicateur de réussite"),
             _D("le seuil à partir duquel poursuivre, modifier ou arrêter "
                "une action",
                rf"seuils?{_E}+(?:de{_E}+)?(?:d[ée]cision|d[ée]clenchement|alerte)"
@@ -1026,7 +1155,8 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                rf"|r[èe]gle{_E}+d['’]arbitrage"
                rf"|(?:poursuivre|maintenir|continuer)[^.]{{0,90}}"
                rf"(?:modifier|ajuster)[^.]{{0,90}}"
-               rf"(?:arr[êe]ter|abandonner|stopper)"),
+               rf"(?:arr[êe]ter|abandonner|stopper)",
+               etiquette="Seuil de décision"),
         ),
     ),
 )
