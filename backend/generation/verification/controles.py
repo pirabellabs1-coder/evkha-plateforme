@@ -281,6 +281,12 @@ _MARQUE_DE_CALCUL = re.compile(
 _SOURCE_DANS_LA_PHRASE = re.compile(
     r"\b(?i:selon|d['’]apr[èe]s)\s+(?:l['’]\s*|la\s+|le\s+|les\s+|du\s+|des\s+)?[A-ZÉÈÀ]"
     r"|\b(?i:sources?)\s*:"
+    # Une adresse, ou un texte de loi cité par son article : « 77 700 € (article
+    # 50-0 du code général des impôts) », la ligne du chapitre Sources qui
+    # porte son URL (corpus du 14/09/2026).
+    r"|https?://\S"
+    r"|\b(?i:article)\s+[LRD]?\.?\s*\d"
+    r"|\b(?i:code\s+g[ée]n[ée]ral|journal\s+officiel|d[ée]cret\s+n)"
     r"|\((?![^()]*\b(?i:sc[ée]nario|ann[ée]e|hypoth))"
     r"[^()]*\b[A-ZÉ][\w&'’.\-]{2,}[^()]*\b(?:19|20)\d{2}\b[^()]*\)",
 )
@@ -487,29 +493,89 @@ _FAIT_DE_CROISSANCE = re.compile(
 )
 
 
+def _portee_du_jugement(mesure: Mesure) -> str:
+    """Ce qui QUALIFIE la grandeur : la phrase en prose ; en tableau, l'en-tête
+    de sa colonne et le libellé de sa ligne.
+
+    Corpus du 14/09/2026 : « CA médian 2026 (estimé) : France d'Or | 7,3 M€ |
+    8,5 M€ | Croissance proche du marché » — la garde « taille de marché »
+    lisait le commentaire de la dernière colonne et annulait l'estimation que
+    l'en-tête déclarait. Une autre cellule ne qualifie pas celle-ci.
+    """
+    phrase = mesure.phrase
+    if not mesure.dans_un_tableau or " : " not in phrase:
+        return phrase
+    en_tete, _, ligne = phrase.partition(" : ")
+    return f"{en_tete} : {ligne.split(' | ')[0]}"
+
+
 def _estimation_declaree(mesure: Mesure) -> bool:
     """Une valeur présentée comme estimation fondée, ou comme décision du projet."""
     phrase = mesure.phrase
     if not phrase or mesure.debut_dans_la_phrase < 0:
         return False
     avant = phrase[: mesure.debut_dans_la_phrase]
+    portee = _portee_du_jugement(mesure)
 
     if mesure.est_un_pourcentage:
-        if _FAIT_DE_CROISSANCE.search(phrase):
+        if _FAIT_DE_CROISSANCE.search(portee):
             return False
-        return bool(_ESTIMATION.search(phrase) or _DECISION_JUSTE_AVANT.search(avant))
+        return bool(_ESTIMATION.search(portee) or _DECISION_JUSTE_AVANT.search(avant))
 
-    if _TAILLE_DE_MARCHE.search(phrase):
+    if _TAILLE_DE_MARCHE.search(portee):
         return False
     if _DECISION_JUSTE_AVANT.search(avant):
         return True
-    if not _ESTIMATION.search(phrase):
+    if not _ESTIMATION.search(portee):
         return False
     autres = [
         n for n in _nombres_de_la_phrase(phrase)
         if n.position != mesure.debut_dans_la_phrase
     ]
     return bool(_BASE_MONTREE.search(phrase) or autres)
+
+
+def _part_calculee_dans_sa_ligne(
+    mesure: Mesure, references: Sequence[tuple[float, str]],
+) -> bool:
+    """Un pourcentage de tableau qui vaut un nombre de SA LIGNE rapporté à une référence.
+
+    « Intégrateur IA | 200 000 | 0,024 % » sous « Part du marché national » :
+    200 000 / 850 M€ du socle. « Emprunt bancaire | 120 000 € | 67 % » sous
+    « Part du total » : 120 000 / 180 000 € du brief. Le calcul est juste, et le
+    lecteur le refait ; il était compté comme un chiffre inventé (corpus du
+    14/09/2026). La concordance doit tomber juste à l'arrondi de l'écriture :
+    un pourcentage quelconque ne coïncide pas par hasard avec un rapport exact.
+    """
+    if not (mesure.dans_un_tableau and mesure.est_un_pourcentage and mesure.phrase):
+        return False
+    ecrit = mesure.valeur
+    en_tete = mesure.phrase.partition(" : ")[0]
+    if ecrit <= 0 or not _EN_TETE_DE_PART.search(en_tete):
+        return False
+    decimales = _decimales(mesure.texte.replace("%", ""))
+    tolerance = max(0.5 * 10 ** -decimales, ecrit * _TOLERANCE_CALCUL_POSE)
+    ligne = mesure.phrase.partition(" : ")[2] or mesure.phrase
+    numerateurs = [
+        n for n in _nombres_de_la_phrase(ligne) if not n.pourcentage and n.valeur > 0
+    ]
+    # Des euros se rapportent à des euros ; un nombre nu (effectif, volume) à
+    # une référence brute. Sans cette garde, cent références du socle offraient
+    # à un pourcentage quelconque trop d'occasions de tomber juste.
+    return any(
+        abs(numerateur.valeur / reference * 100 - ecrit) <= tolerance
+        for numerateur in numerateurs
+        for reference, famille in references
+        if numerateur.valeur < reference
+        and famille == ("monetaire" if numerateur.unite else "brut")
+    )
+
+
+#: L'en-tête d'une colonne de PARTS : ce qu'elle rapporte, dit en clair.
+_EN_TETE_DE_PART = re.compile(
+    r"\b(?:part|parts|poids|r[ée]partition|rapport)\b|%\s*d[ue]s?\b|en\s*%\s*d",
+    re.IGNORECASE,
+)
 
 
 # ── Contrôle 1 : aucune valeur hors socle ────────────────────────────────────
@@ -572,6 +638,7 @@ def controler_chiffres_hors_socle(
             )
             or _sourcee_dans_sa_phrase(mesure)
             or _estimation_declaree(mesure)
+            or _part_calculee_dans_sa_ligne(mesure, references)
         ):
             continue
         if mesure.texte in deja_vues:

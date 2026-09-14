@@ -94,3 +94,69 @@ def test_le_motif_montre_l_en_tete_et_la_ligne(tmp_path: Path) -> None:
     anomalies = controler_chiffres_hors_socle(lire_livrable(chemin), _socle())
     assert any("Chiffre d'affaires" in a.extrait and "Cabinet de Nantes" in a.extrait
                for a in anomalies)
+
+
+# ── Re-mesure après déploiement : quatre classes de plus ────────────────────
+
+
+def test_le_commentaire_d_une_autre_colonne_n_annule_pas_l_estimation(tmp_path: Path) -> None:
+    """« Croissance proche du marché » en dernière colonne ne qualifie pas le CA estimé."""
+    chemin = _docx(
+        tmp_path,
+        ["Acteur", "CA 2025 (estimé)", "CA médian 2026 (estimé)", "Lecture"],
+        [["France d'Or", "7,3 M€", "8,5 M€", "Croissance proche du marché"]],
+    )
+    assert _signales(chemin) == set()
+
+
+def test_une_part_calculee_dans_sa_ligne_n_est_pas_inventee(tmp_path: Path) -> None:
+    """200 000 € / 850 M€ du socle = 0,024 %."""
+    chemin = _docx(
+        tmp_path,
+        ["Acteur", "CA estimé", "Part du marché national (%)"],
+        [["Intégrateur IA", "200 000 €", "0,024 %"]],
+    )
+    assert "0,024 %" not in _signales(chemin)
+
+
+def test_une_part_qui_ne_tombe_pas_juste_reste_signalee(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : 200 000 € / 850 M€ ne fait pas 3,7 %."""
+    chemin = _docx(
+        tmp_path,
+        ["Acteur", "CA estimé", "Part du marché national (%)"],
+        [["Intégrateur IA", "200 000 €", "3,7 %"]],
+    )
+    assert "3,7 %" in _signales(chemin)
+
+
+def test_sans_en_tete_de_part_un_rapport_juste_ne_suffit_pas(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : un taux quelconque ne devient pas une part par coïncidence."""
+    chemin = _docx(
+        tmp_path,
+        ["Acteur", "CA estimé", "Taux de marge"],
+        [["Intégrateur IA", "200 000 €", "0,024 %"]],
+    )
+    assert "0,024 %" in _signales(chemin)
+
+
+def test_une_ligne_qui_porte_son_adresse_est_sourcee(tmp_path: Path) -> None:
+    chemin = _docx(
+        tmp_path,
+        ["Organisme", "Adresse", "Donnée retenue"],
+        [["Service Public Entreprendre", "https://entreprendre.service-public.gouv.fr/F38497",
+          "Seuil de régime simplifié : 83 600 €"]],
+    )
+    assert "83 600 €" not in _signales(chemin)
+
+
+def test_un_seuil_legal_cite_par_son_article_est_source(tmp_path: Path) -> None:
+    from docx import Document
+
+    document = Document()
+    document.add_paragraph(
+        "Le plafond de la micro-entreprise est de 77 700 € pour les prestations de "
+        "services (article 50-0 du code général des impôts)."
+    )
+    chemin = tmp_path / "loi.docx"
+    document.save(str(chemin))
+    assert "77 700 €" not in _signales(chemin)
