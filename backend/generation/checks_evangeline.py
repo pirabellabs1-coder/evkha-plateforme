@@ -350,9 +350,20 @@ _LIBELLES_ANNUELS: frozenset[str] = frozenset({
 _ANNEE_RE = re.compile(
     rf"\ban{SPACE_CLASS}*n?[ée]?e?{SPACE_CLASS}*(\d{{1,2}})\b|\bAN{SPACE_CLASS}*(\d{{1,2}})\b"
     # « l'exercice 1 » : le prévisionnel parle en EXERCICES autant qu'en années.
-    rf"|\bexercice{SPACE_CLASS}*(\d{{1,2}})\b",
+    rf"|\bexercice{SPACE_CLASS}*(\d{{1,2}})\b"
+    # « la première année », « le troisième exercice » : sans eux, « le résultat
+    # net de la première année, 9 000 euros » prenait l'année d'une phrase
+    # voisine (business plan `73dde3ab`, corpus du 14/09/2026).
+    r"|\b(premi[èe]re?|deuxi[èe]me|seconde?|troisi[èe]me|quatri[èe]me|cinqui[èe]me)"
+    rf"{SPACE_CLASS}+(?:ann[ée]e|exercice)\b",
     re.IGNORECASE,
 )
+
+_RANG_ORDINAL = {
+    "premier": 1, "premiere": 1, "première": 1, "deuxieme": 2, "deuxième": 2,
+    "second": 2, "seconde": 2, "troisieme": 3, "troisième": 3,
+    "quatrieme": 4, "quatrième": 4, "cinquieme": 5, "cinquième": 5,
+}
 
 _MONTANT_CAPTURE_RE = re.compile(MONEY_CAPTURED)
 
@@ -401,10 +412,12 @@ _CONNECTEURS_VALEUR = re.compile(
 # s'auto-bloquent. Les vrais dangers sont les concepts VOISINS non
 # surveilles : annuite, marge, salaire, loyer, prix, cout.
 _MOTS_DE_RUPTURE = re.compile(
-    r"\b(?:mais|toutefois|cependant|contre|au\s+lieu\s+de|superieur\s+a|"
-    r"inferieur\s+a|annuit[eé]|salaire|charges?|amortissement|"
-    r"remboursement|loyer|prix|tarif|cout|budget|"
-    r"subvention|remuneration"
+    r"\b(?:mais|toutefois|cependant|contre|au\s+lieu\s+de|sup[ée]rieur\w*\s+[àa]|"
+    r"inf[ée]rieur\w*\s+[àa]|annuit[eé]|salaire|charges?|amortissement|"
+    # Accents : le texte n'est pas désaccentué avant cette recherche, et
+    # « coût », « rémunération », « supérieur à » n'étaient jamais reconnus.
+    r"remboursement|loyer|prix|tarif|co[uû]ts?|budget|"
+    r"subvention|r[ée]mun[ée]ration"
     # Mesures du business plan 73dde3ab, 17/08/2026. « Part de l'apport dans
     # le besoin total de 195 000 EUR » liait 195 000 a l'apport : le montant
     # appartient a l'agregat que la preposition vient de nommer.
@@ -444,7 +457,31 @@ _PAR_UNITE_APRES = re.compile(
 #: a elle seule 70 000 euros » : 70 000 ne dit rien de la marge brute, il
 #: appartient a la phrase suivante. La fenetre de 100 caracteres traversait
 #: les points sans les voir.
-_FIN_DE_PHRASE = re.compile(r"[.!?]\s")
+#: Un saut de ligne coupe aussi : une grille « **27 600 €** — Investissement
+#: total » écrit la valeur AVANT son libellé, et le libellé allait prendre la
+#: valeur de la ligne suivante (« **1 600 €** — Apport personnel »). Un titre
+#: sans point faisait de même avec le paragraphe qu'il annonce (corpus du
+#: 14/09/2026, six motifs).
+_FIN_DE_PHRASE = re.compile(r"[.!?]\s|\n")
+
+#: Juste AVANT le libellé, une comparaison : le montant qui suit est un ÉCART,
+#: pas la grandeur. « dépasse le seuil de rentabilité de 35 609 € », « ne
+#: dépasse le seuil de rentabilité que de 4 000 € ».
+_COMPARAISON_AVANT = re.compile(
+    r"(?:d[ée]pass\w*|exc[èe]d\w*|sup[ée]rieure?s?\s+[àa]u?|inf[ée]rieure?s?\s+[àa]u?|"
+    r"au-dessus\s+d[ue]?|en\s+dessous\s+d[ue]?)"
+    r"(?:\s+(?:le|la|les|l['’]|du|des|de\s+la|son|sa|ses|leur|leurs))?\s*$",
+    re.IGNORECASE,
+)
+
+#: Un opérateur dans une parenthèse : « (18 667 €/54 276 €) », « (54 276 €
+#: moins 18 667 €) ». Le montant qu'elle contient est un OPÉRANDE.
+_OPERATEUR = re.compile(r"/|÷|\bmoins\b|\bplus\b|\s[-−×x*+]\s", re.IGNORECASE)
+
+#: Un nombre puis « à » juste avant le montant : « de 9 000 à 45 000 euros
+#: entre l'année 1 et l'année 3 ». Le montant est la FIN d'une trajectoire,
+#: et l'année la plus proche n'est pas forcément la sienne.
+_FIN_DE_TRAJECTOIRE = re.compile(r"\d[\d\s\u00a0\u202f,.]*\s*(?:€|euros?)?\s+[àa]\s*$")
 
 #: Au-dela d'une cellule franchie, le montant est ailleurs dans le tableau.
 #:
@@ -513,6 +550,8 @@ def _annee_proche(texte: str) -> int | None:
     if not match:
         return None
     valeur = match.group(1) or match.group(2) or match.group(3)
+    if valeur is None:
+        return _RANG_ORDINAL.get(match.group(4).casefold())
     return int(valeur)
 
 
@@ -560,6 +599,18 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             if _FIN_DE_PHRASE.search(entre):
                 continue
             if entre.count("|") > _CELLULES_MAX_FRANCHIES:
+                continue
+            debut_phrase_libelle = max(
+                texte.rfind(c, 0, occurrence.start()) for c in ".!?\n"
+            ) + 1
+            if _COMPARAISON_AVANT.search(texte[debut_phrase_libelle:occurrence.start()]):
+                continue
+            if entre.rfind("(") > entre.rfind(")"):
+                fermeture = fenetre.find(")", montant.start())
+                interieur = fenetre[entre.rfind("(") + 1:fermeture if fermeture >= 0 else None]
+                if _OPERATEUR.search(interieur):
+                    continue
+            if _FIN_DE_TRAJECTOIRE.search(entre):
                 continue
             # Un AUTRE libelle surveille entre les deux : le montant est le
             # sien. « ...un point de marge brute en moins ramenerait
