@@ -601,8 +601,15 @@ def _check_completude_chapitres(
     ]
 
 
-def _brief_free_text(job: GenerationJob) -> str:
-    """Le texte libre du brief, tel que le client l'a ecrit."""
+def _brief_free_text(job: GenerationJob, avec: str = "") -> str:
+    """Le texte libre du brief, tel que le client l'a ecrit.
+
+    `avec` ajoute la réponse ENTIÈRE à la question de ce fait (« apport » →
+    `APPORT`), telle qu'elle est dans la soumission. Le fait verrouillé des
+    dossiers anciens était coupé à 500 signes (migration 0017) : sur
+    `256e63d8`, « 1600e ont déjà été investis » tombait après la coupe, et le
+    gate disait que le client ne donnait aucun apport.
+    """
     from intake.financials import _FREE_TEXT_SOURCES  # noqa: PLC0415
     from intake.models import IntakeSubmission  # noqa: PLC0415
 
@@ -610,7 +617,8 @@ def _brief_free_text(job: GenerationJob) -> str:
     if submission is None:
         return ""
     variables = submission.normalized_variables or {}
-    return "\n".join(str(variables.get(key) or "") for key in _FREE_TEXT_SOURCES)
+    cles = [*_FREE_TEXT_SOURCES, *([avec.upper()] if avec else [])]
+    return "\n".join(str(variables.get(key) or "") for key in cles)
 
 
 def _client_fact_keys(job: GenerationJob) -> set[str]:
@@ -1092,7 +1100,7 @@ def _check_numeric_coherence(
             # `9f8f144a`, corpus du 14/09/2026). Le gate accusait alors le
             # document d'un apport « que le client ne donne pas » — il le
             # donnait, deux champs plus loin (règle 2).
-            ailleurs = _reference_libre(key, _brief_free_text(job))
+            ailleurs = _reference_libre(key, _brief_free_text(job, avec=key))
             if ailleurs:
                 libre = ailleurs
         if libre:

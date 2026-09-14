@@ -198,3 +198,21 @@ def test_un_montant_que_le_brief_nie_etre_un_apport_n_en_est_pas_la_reference(db
     assert _motifs(job, "L'apport personnel de 8 000 € finance le prototype.") == [
         ("coherence_chiffree", 15),
     ]
+
+
+@pytest.mark.django_db
+def test_la_reponse_entiere_de_la_soumission_supplee_un_fait_tronque(db: Any) -> None:
+    """`256e63d8` : le fait ancien est coupé avant « 1600e ont déjà été investis »."""
+    job = _job(db, REPONSE_LIBRE)
+    _brief(job, APPORT=REPONSE_LIBRE + " 1600e ont déjà été investis dans la plateforme.")
+    assert _motifs(job, "L'apport de 1 600 € finance le prototype.") == []
+
+
+@pytest.mark.django_db
+def test_une_faute_de_frappe_dans_la_reponse_entiere_ne_fabrique_toujours_rien(db: Any) -> None:
+    """CONTRE-ÉPREUVE (`1fdc457b`) : « invetsi » ne dit pas que ces 1 600 € sont l'apport."""
+    job = _job(db, REPONSE_LIBRE)
+    _brief(job, APPORT=REPONSE_LIBRE + " la société a déjà invetsi 1600e dans le saas.")
+    assert _motifs(job, "L'apport de 1 600 € finance le prototype.") == [
+        ("reference_client_illisible", None),
+    ]
