@@ -1390,9 +1390,14 @@ def _check_fourchettes(
 #: « 129 € à 429 € » : l'unité répétée après la borne basse. Le détecteur ne
 #: lit l'unité qu'en fin de plage ; on la retire de la borne basse pour qu'il
 #: voie ce que le client a écrit, sans rien changer d'autre.
+#:
+#: Devant « à » et « et » seulement, jamais devant un tiret : « 12 € - 19 € -
+#: 29 € » est une LISTE de prix, et, l'unité retirée, le détecteur y lisait une
+#: plage « 19 - 29 € » que le client n'a pas écrite (mesure du 15/09/2026,
+#: `db0d9508`). « 100-300 € » n'a pas d'unité à retirer.
 _UNITE_DE_LA_BORNE_BASSE = re.compile(
     rf"(\d)(?:{SPACE_CLASS})*(?:Mds€|Md€|M€|k€|€|euros?\b|EUR\b|%)"
-    rf"(?=(?:{SPACE_CLASS})*(?:[aà]|-|–|—|et)(?:{SPACE_CLASS})*\d)",
+    rf"(?=(?:{SPACE_CLASS})*(?:[aà]|et)(?:{SPACE_CLASS})+\d)",
     re.IGNORECASE,
 )
 

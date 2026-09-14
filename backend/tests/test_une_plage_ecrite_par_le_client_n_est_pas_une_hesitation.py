@@ -121,6 +121,8 @@ def test_une_grille_de_prix_distincts_resumee_reste_une_fourchette(db: Any) -> N
     ),
     # Une énumération n'est pas une plage.
     ("Les abonnements à 12 € et 29 € par mois.", "Trois paliers de 12 à 29 € par mois."),
+    # Une liste de prix au tiret non plus (`db0d9508`, mesure du 15/09/2026).
+    ("Abonnements : 12 € - 19 € - 29 € par mois.", "Deux paliers de 19 à 29 € par mois."),
     # Une étiquette suivie d'un montant n'est pas une plage.
     ("Trésorerie : Mois 1 - 1 500 €.", "un besoin de 1 à 1 500 € selon le mois"),
 ])
