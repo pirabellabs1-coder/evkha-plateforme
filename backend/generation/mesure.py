@@ -33,10 +33,10 @@ from pathlib import Path
 
 from generation.checks_post_rendu import (
     _SOURCE_DU_CLIENT_RE,
-    _URL_BIDON_RE,
     _URL_RE,
     _sources_listees,
     _trouver_chapitre_sources,
+    adresse_de_la_source,
 )
 from generation.models import GenerationJob
 
@@ -186,8 +186,7 @@ def mesurer_les_sources(
             mesure.du_client += 1
             continue
         mesure.exterieures += 1
-        url = _URL_RE.search(ligne)
-        if url is None or _URL_BIDON_RE.search(url.group(0)):
+        if adresse_de_la_source(ligne) is None:
             mesure.sans_adresse += 1
     return mesure
 

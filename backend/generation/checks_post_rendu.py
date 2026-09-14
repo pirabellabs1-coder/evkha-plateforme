@@ -494,6 +494,44 @@ _URL_BIDON_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Un NOM DE DOMAINE sans « https:// » est une adresse que le lecteur tape :
+# « gold.fr/vente-or », « annuaire-entreprises.data.gouv.fr ». Deux études
+# concurrentielles du corpus du 14/09/2026 citaient ainsi 12 et 25 sources, et
+# la mesure les déclarait toutes « sans adresse ».
+_DOMAINE_RE = re.compile(
+    r"(?<![@\w.])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+"
+    r"(?:fr|com|org|net|eu|io|info|de|be|ch|lu|co|uk|int|gouv)\b(?:/[^\s)\]<>»,]*)?",
+    re.IGNORECASE,
+)
+
+#: Un texte de loi cité par sa référence se retrouve sans lien : « Article
+#: L221-18 du code de la consommation », « Règlement UE 2016/679 ». Même
+#: expression que le contrôle des chiffres sourcés (`verification.controles`).
+REFERENCE_JURIDIQUE = (
+    r"\b(?i:article)\s+[LRD]?\.?\s*\d"
+    r"|\b(?i:code\s+g[ée]n[ée]ral|code\s+de\s+la\s+\w+|code\s+du\s+\w+|journal\s+officiel|d[ée]cret\s+n)"
+    r"|\b(?i:r[èe]glement|directive)\s+\(?(?:UE|CE|EU)\)?\s*(?:n[°o]\s*)?\d{2,4}/\d+"
+)
+_REFERENCE_JURIDIQUE_RE = re.compile(REFERENCE_JURIDIQUE)
+
+
+def adresse_de_la_source(ligne: str) -> str | None:
+    """Ce qui permet au lecteur de RETROUVER la source, ou None.
+
+    Une URL, un nom de domaine, ou la référence d'un texte de loi. Une adresse
+    inventée (`example.com`, crochets de gabarit) n'en est pas une : elle a
+    l'apparence du sérieux et ne mène nulle part.
+    """
+    url = _URL_RE.search(ligne)
+    if url is not None:
+        return None if _URL_BIDON_RE.search(url.group(0)) else url.group(0)
+    domaine = _DOMAINE_RE.search(ligne)
+    if domaine is not None and not _URL_BIDON_RE.search("://" + domaine.group(0)):
+        return domaine.group(0)
+    juridique = _REFERENCE_JURIDIQUE_RE.search(ligne)
+    return juridique.group(0) if juridique else None
+
+
 # Seuil minimal de tracabilite. Un chapitre Sources avec moins de la moitie
 # de ses puces liees a une URL est majoritairement non verifiable.
 # Regle 4 : viser la classe, pas l'exemple — un ratio strict (100 % URL)
@@ -606,7 +644,6 @@ def detecter_sources_non_tracables(
 
     urls = _URL_RE.findall(corps)
     urls_bidon = [u for u in urls if _URL_BIDON_RE.search(u)]
-    urls_valides = [u for u in urls if not _URL_BIDON_RE.search(u)]
 
     if urls_bidon:
         exemples = ", ".join(urls_bidon[:3])
@@ -622,8 +659,12 @@ def detecter_sources_non_tracables(
             ),
         ))
 
-    n_puces = len([ligne for ligne in puces if not _SOURCE_DU_CLIENT_RE.search(ligne)])
-    n_urls_valides = len(urls_valides)
+    exterieures = [ligne for ligne in puces if not _SOURCE_DU_CLIENT_RE.search(ligne)]
+    n_puces = len(exterieures)
+    # Par LIGNE de source, et toute adresse retrouvable : une URL, un domaine,
+    # un texte de loi. Compter les URL du chapitre entier mêlait celles de la
+    # méthodologie, et ignorait « gold.fr/vente-or » (corpus du 14/09/2026).
+    n_urls_valides = sum(1 for ligne in exterieures if adresse_de_la_source(ligne))
     ratio = n_urls_valides / n_puces if n_puces else 1.0
 
     # Aucune source extérieure : le document s'appuie sur les seules données du

@@ -85,3 +85,38 @@ def test_des_sources_tracees_en_tableau_ne_sont_pas_non_tracables() -> None:
 """
     motifs = [d.motif for d in detecter_sources_non_tracables([(20, "Sources", corps)])]
     assert "ratio_faible" not in motifs
+
+
+# ── Une adresse sans « https:// », un texte de loi (corpus-20260914-1717) ────
+
+
+def test_un_nom_de_domaine_et_un_texte_de_loi_sont_des_adresses() -> None:
+    corps = """| Organisme | Publication | Lien |
+| --- | --- | --- |
+| Comptoir National de l'Or | Tarifs de rachat | gold.fr/vente-or |
+| Annuaire des Entreprises | Fiche SIREN | annuaire-entreprises.data.gouv.fr |
+| Code de la consommation | Droit de rétractation | Article L221-18 |
+| Règlement général sur la protection des données | Collecte | Règlement UE 2016/679 |
+"""
+    mesure = mesurer_les_sources([(9, "Sources", corps)])
+    assert mesure is not None
+    assert (mesure.exterieures, mesure.sans_adresse) == (4, 0)
+    assert "ratio_faible" not in [
+        d.motif for d in detecter_sources_non_tracables([(9, "Sources", corps)])
+    ]
+
+
+def test_un_nom_d_organisme_ou_une_adresse_inventee_ne_sont_pas_des_adresses() -> None:
+    """CONTRE-ÉPREUVE : « Xerfi, 2025 » ne se retrouve pas ; « example.com » ne mène nulle part."""
+    corps = """| Organisme | Publication | Lien |
+| --- | --- | --- |
+| Xerfi | Le marché du conseil, 2025 | |
+| Institut fictif | Étude | example.com/etude |
+| Insee | Démographie | https://www.insee.fr/a |
+"""
+    mesure = mesurer_les_sources([(9, "Sources", corps)])
+    assert mesure is not None
+    assert (mesure.exterieures, mesure.sans_adresse) == (3, 2)
+    assert "ratio_faible" in [
+        d.motif for d in detecter_sources_non_tracables([(9, "Sources", corps)])
+    ]
