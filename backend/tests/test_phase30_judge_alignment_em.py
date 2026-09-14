@@ -99,8 +99,18 @@ def test_la_fourchette_reste_interdite_en_bp() -> None:
     )
 
 
-def test_la_fourchette_reste_interdite_en_ec() -> None:
-    """Meme regle pour l'etude de concurrence : parts de marche uniques."""
+def test_en_ec_une_part_estimee_suivie_de_sa_valeur_retenue_est_admise() -> None:
+    """Decision du 14/09/2026 (audit A1) : ce test verrouillait l'inverse.
+
+    Il exigeait qu'en etude de concurrence une part de marche « entre 15 et
+    25 %, mediane 20 % » soit REFUSEE. Or le cahier des charges EC (etape 6.2)
+    impose une borne basse et une borne haute pour une estimation, et le prompt
+    les rendait obligatoires : chaque chapitre 6 violait l'une des deux regles
+    et etait repaye. La forme admise en EM — la plage IMMEDIATEMENT suivie de
+    sa valeur retenue — satisfait le cahier des charges ET la cliente, qui veut
+    un chiffre decide. Sans valeur retenue, la plage reste refusee
+    (`test_les_consignes_ne_fabriquent_pas_de_fourchettes`).
+    """
     texte = "Le concurrent detient une part de marche entre 15 et 25 %, mediane 20 %."
 
     trouvees = detecter_fourchettes(
@@ -109,7 +119,7 @@ def test_la_fourchette_reste_interdite_en_ec() -> None:
         deliverable_type=DeliverableType.COMPETITOR_STUDY,
     )
 
-    assert len(trouvees) == 1
+    assert trouvees == []
 
 
 def test_la_fourchette_reste_interdite_en_str() -> None:

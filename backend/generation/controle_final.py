@@ -53,7 +53,13 @@ _log = logging.getLogger(__name__)
 #: socle : les envoyer à la correction ferait repayer un chapitre sans rien
 #: changer, et ferait croire que le défaut est traité.
 REPARABLES_PAR_CHAPITRE = frozenset({
-    "chiffres_hors_socle",
+    # `chiffres_hors_socle` n'y est PLUS (14/09/2026). Mesuré sur le corpus de
+    # production : 883 signalements sur 37 dossiers, dont l'écrasante majorité
+    # des calculs posés, des chiffres sourcés, des estimations déclarées ou des
+    # valeurs de tableau que le socle n'a pas à porter. Même corrigé, le
+    # contrôle reste trop peu précis en BP et en EC pour que son seul avis
+    # fasse réécrire — et payer — un chapitre. Il continue de SIGNALER ; la
+    # réécriture est réservée aux défauts qu'on sait juger.
     "calcul_faux",
     "meta_discours",
     "valeur_nulle",

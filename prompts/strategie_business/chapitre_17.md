@@ -76,7 +76,7 @@ tâches et organisation, création et programmation de contenus, facturation et
 comptabilité, automatisation, mesure d'audience.
 
 - **Deux options par besoin au maximum**, avec en une phrase ce qui les
-  distingue et l'ordre de grandeur du coût mensuel. Une liste de douze outils
+  distingue et le coût mensuel retenu. Une liste de douze outils
   ne se tranche pas.
 - **Adapte au stade réel du projet.** Une personne seule qui démarre n'a pas
   besoin du même outillage qu'une structure de dix personnes : proposer une

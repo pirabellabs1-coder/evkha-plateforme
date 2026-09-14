@@ -125,9 +125,9 @@ _SYSTEME = (
     "« cette donnée ne peut pas être utilisée », « hypothèse à tester ».\n"
     "\n"
     "Quand un chiffre manque ou reste fragile, tu ne le signales pas : tu "
-    "PRENDS POSITION, prudemment. Une fourchette assumée, un ordre de grandeur "
+    "PRENDS POSITION, prudemment. Une valeur assumée, un ordre de grandeur "
     "raisonné, un scénario central — et tu dis sur quoi tu t'appuies. Écris "
-    "« nous retenons une hypothèse prudente comprise entre X et Y », « au vu "
+    "« nous retenons une hypothèse prudente de X, parce que… », « au vu "
     "des éléments disponibles, le marché apparaît favorable sous conditions », "
     "« le scénario central paraît aujourd'hui le plus cohérent ». Jamais « la "
     "donnée n'est pas disponible ».\n"
@@ -426,8 +426,9 @@ COHERENCE_DES_CHIFFRES = (
     "Ne mets jamais un effectif et un montant dans le même total, la même "
     "colonne ou la même figure.\n"
     "\n"
-    "7. AUCUNE FOURCHETTE quand le livrable l'interdit. Une plage « 60-65 € » "
-    "n'est pas une décision : le dirigeant te demande un prix, pas un débat. "
+    "7. AUCUNE FOURCHETTE quand le livrable l'interdit. Deux bornes à la place "
+    "d'un chiffre ne sont pas une décision : le dirigeant te demande un prix, "
+    "pas un débat. "
     "Tranche, et explique en une phrase pourquoi ce niveau-là.\n"
     "\n"
     "8. LES ORDRES DE GRANDEUR S'EMBOÎTENT. Une part ne dépasse pas son tout, "
@@ -514,7 +515,7 @@ PRIX_ET_MODELE_ECONOMIQUE = """PRIX ET MODELE ECONOMIQUE — c'est ici que le
 lecteur engage son argent. Une incoherence de prix ne se pardonne pas : elle se
 voit a la premiere lecture, et elle disqualifie le reste du document.
 
-1. UN PRIX EST UN NOMBRE, PAS UNE PLAGE. « entre 60 et 65 € » n'est pas une
+1. UN PRIX EST UN NOMBRE, PAS UNE PLAGE. Deux bornes ne sont pas une
 recommandation, c'est un renvoi de la decision au lecteur — or c'est
 exactement ce qu'il a paye pour ne pas avoir a faire. Tranche sur une valeur,
 et donne en une phrase la raison de CE niveau-la.
@@ -589,9 +590,11 @@ def _bloc_socle(socle: Socle) -> str:
     `libelle` MANQUAIT, et c'était une perte sèche. Le prompt du socle y loge
     expressément deux choses (`socle/prompt.py`, règles 5 et 7) : la MÉTHODE
     d'une valeur `estimee` — « explique la méthode dans `libelle` » — et la
-    FOURCHETTE quand la donnée en est une, dont seule la médiane part dans
-    `valeur`. Le champ est obligatoire au contrat, il est produit, il est
-    stocké, et il était jeté avant le premier chapitre.
+    FOURCHETTE quand la donnée en est une — en étude de marché seulement
+    depuis le 14/09/2026 ; ailleurs le libellé dit la valeur retenue sans
+    recopier les bornes —, dont seule la médiane part dans `valeur`. Le champ
+    est obligatoire au contrat, il est produit, il est stocké, et il était jeté
+    avant le premier chapitre.
 
     Le manuel demande l'inverse : « construire une estimation prudente et
     expliquer clairement la méthode » (p. 4), « donner une fourchette lorsque
@@ -980,9 +983,9 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         # Le gate `fourchette_interdite` punissait ce que la consigne ne disait
         # pas : « 3-5 % » au chapitre 7 de `6cb0fab3`, corrigé deux fois, revenu
         # deux fois — le modèle ne savait pas que c'était interdit.
-        "- Un montant se DÉCIDE : jamais de fourchette (« 100-120 k€ », "
-        "« 3-5 % »). Un chiffre unique, et l'hypothèse qui le porte. La plage "
-        "appartient à l'étude de marché ; un prévisionnel tranche."
+        "- Un montant se DÉCIDE : jamais deux bornes à la place d'une valeur. "
+        "Un chiffre unique, et l'hypothèse qui le porte. Un prévisionnel "
+        "tranche."
     ),
     "competitor_study": (
         "- Les concurrents se comparent sur des CRITÈRES CONSTANTS : les mêmes "
@@ -1020,9 +1023,9 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         "faut-il être meilleur ? quelles pratiques reprendre, quelles erreurs "
         "éviter ? quel concurrent peut neutraliser rapidement l'avantage ? "
         "quelles priorités avant le lancement ?\n"
-        "- Un chiffre se DÉCIDE : jamais de fourchette nue (« 3-5 % »). Quand "
-        "une source donne une plage, écris le chiffre retenu et dis pourquoi "
-        "celui-là.\n"
+        "- Un chiffre se DÉCIDE : jamais deux bornes sans valeur retenue. Quand "
+        "une source donne deux bornes, écris la valeur retenue et dis pourquoi "
+        "celle-là.\n"
         # Retours de la cliente du 11/08/2026, apres analyse de la V2.
         "- Une part de marché ne se compare qu'à PÉRIMÈTRE IDENTIQUE : même "
         "pays, même année, même secteur, même canal, même périmètre de "
@@ -1067,9 +1070,9 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         "faudrait pour qu'ils le deviennent. Trois scénarios présentés à "
         "égalité ne sont pas une stratégie : c'est un renvoi de la décision au "
         "lecteur.\n"
-        "- Un objectif chiffré se DÉCIDE : jamais de fourchette nue "
-        "(« 3-5 % »). Une stratégie qui vise « entre 100 et 150 k€ » n'a pas "
-        "choisi — écris le chiffre visé et l'hypothèse qui le porte.\n"
+        "- Un objectif chiffré se DÉCIDE : jamais deux bornes à la place d'un "
+        "chiffre. Une stratégie qui vise un intervalle n'a pas choisi — écris "
+        "le chiffre visé et l'hypothèse qui le porte.\n"
         # Le gate STR verifie ces trois structures (structure_chapitre,
         # lecture_strategique_absente, pilier_manquant) et la consigne ne les
         # disait pas : la meme surdite que la fourchette, mesuree sur la
@@ -1445,8 +1448,8 @@ def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
 
     return (
         "VISUELS — un graphique ne porte AUCUNE valeur : il porte des "
-        "identifiants des données de référence, résolus au rendu. Un identifiant absent des "
-        "socle fait abandonner la figure entière.\n\n"
+        "identifiants des données de référence, résolus au rendu. Un identifiant "
+        "absent des données de référence fait abandonner la figure entière.\n\n"
         + OBJECTIF_FIGURES_TEXTE + "\n\n"
         + REGLES_IDENTIFIANTS_FIGURES + "\n\n"
         "Types disponibles :\n" + resume_catalogue() + "\n\n"

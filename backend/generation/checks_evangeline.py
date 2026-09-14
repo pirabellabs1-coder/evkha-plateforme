@@ -28,7 +28,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 
-from core.numbers import MONEY_CAPTURED, SPACE_CLASS, to_base_units
+from core.numbers import MONEY_CAPTURED, SPACE_CLASS, parse_number, to_base_units
 
 # ── 1. Fourchettes ───────────────────────────────────────────────────────────
 
@@ -40,7 +40,9 @@ _POURCENTAGE = r"%"
 # Connecteur simple entre deux nombres. « et » est traite par le prefixe
 # optionnel « entre » qui suit, sinon « et » seul matcherait tout et n'importe
 # quoi (« 3 emplois et 5 recrutements »).
-_CONNECTEUR_NU = rf"{SPACE_CLASS}*(?:a(?:{SPACE_CLASS}+environ)?|-|—|–){SPACE_CLASS}*"
+# « à » ACCENTUÉ compris : « de 60 à 65 € » passait inaperçu, seul « 60 a 65 € »
+# était vu (audit du 14/09/2026, A3).
+_CONNECTEUR_NU = rf"{SPACE_CLASS}*(?:[aà](?:{SPACE_CLASS}+environ)?|-|—|–){SPACE_CLASS}*"
 _CONNECTEUR_ENTRE = rf"{SPACE_CLASS}*et{SPACE_CLASS}*"
 
 # Deux motifs : monetaire et pourcentage. Chacun accepte deux formes :
@@ -60,6 +62,83 @@ def _construire_motif(unite: str) -> re.Pattern[str]:
 
 _FOURCHETTE_MONETAIRE = _construire_motif(_UNITE_MONETAIRE)
 _FOURCHETTE_POURCENTAGE = _construire_motif(_POURCENTAGE)
+
+
+# Un ÉTIQUETTE devant la « borne basse » : « An 1 — 120 000 € », « Scénario 2 -
+# 40 % », « N+1 - 250 000 € ». Le 1, le 2 ne sont pas des bornes, ce sont des
+# numéros : le motif les prenait pour une plage de 1 à 120 000, et le motif
+# rendu au client était faux (audit du 14/09/2026, A3 ; règle 2).
+# ── Ce qui ressemble à une plage et n'en est pas une ─────────────────────────
+#
+# Relecture du 14/09/2026. Trois formes, chacune mesurée, et une borne à chaque
+# garde — la première version écartait aussi de VRAIES plages de prix :
+#
+# 1. Une TRAJECTOIRE datée : « le CA passe de 120 000 € en 2026 à 180 000 € en
+#    2027 ». Avec « à » accentué, « 2026 à 180 000 € » devenait une fourchette,
+#    motif faux sur la forme même d'un prévisionnel — et réécrit, donc payé.
+#    Une borne basse qui est une ANNÉE écrite en clair, ou qu'un repère de
+#    période précède (« au mois 18 à 42 000 € »), n'est pas une borne.
+# 2. Une ÉTIQUETTE suivie d'un montant, au TIRET ESPACÉ seulement : « An 1 —
+#    120 000 € », « Scénario 2 - 40 % ». Un trait d'union collé entre deux
+#    nombres (« 49-59 € ») est une plage en typographie française, et « entre
+#    X et Y » / « de X à Y » le disent en toutes lettres.
+# 3. Un NUMÉRO suivi d'un montant, au tiret : borne basse entière ≤ 12 et borne
+#    haute ≥ 1 000 (« Mois 1 - 1 500 € »). La première version écartait tout
+#    rapport supérieur à 20, donc « 5-150 € » et « 1,5-40 M€ » — les plages
+#    les plus larges, c'est-à-dire les pires.
+
+_ANNEE = re.compile(r"^(?:19|20)\d{2}$")
+
+_REPERE_DE_PERIODE_AVANT = re.compile(
+    r"\b(?:mois|semaine|trimestre|ann[ée]e|an|en|fin|d[ée]but|au|du)\s*$",
+    re.IGNORECASE,
+)
+
+_ETIQUETTE_AVANT = re.compile(
+    r"\b(?:an|ann[ée]e|sc[ée]nario|palier|phase|[ée]tape|horizon|axe|pilier|"
+    r"tableau|figure|chapitre|version|lot|top|n\s*\+|t|q)\s*$",
+    re.IGNORECASE,
+)
+
+_NUMERO_MAX = 12
+_MONTANT_MIN_APRES_UN_NUMERO = 1000
+
+
+def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
+    """Trajectoire datée, étiquette ou numéro — pas une fourchette."""
+    brute_basse = (match.group(1) or match.group(3) or "").strip()
+    avant = texte[max(0, match.start() - 20) : match.start()]
+
+    # 1. Trajectoire : la « borne basse » est une année, ou suit un repère.
+    if _ANNEE.match(brute_basse):
+        return True
+    if match.group(3) is not None and _REPERE_DE_PERIODE_AVANT.search(avant):
+        connecteur = texte[match.end(3) : match.start(4)].strip()
+        if connecteur in ("à", "a"):
+            return True
+
+    if match.group(3) is None:  # « entre X et Y » : c'est une plage, dite
+        return False
+    connecteur_brut = texte[match.end(3) : match.start(4)]
+    connecteur = connecteur_brut.strip()
+    if connecteur not in ("-", "—", "–"):
+        return False
+    tiret_espace = connecteur_brut != connecteur
+
+    # 2. Étiquette, au tiret espacé seulement.
+    if tiret_espace and _ETIQUETTE_AVANT.search(avant):
+        return True
+
+    # 3. Numéro suivi d'un montant.
+    basse, haute = parse_number(match.group(3)), parse_number(match.group(4))
+    if basse is None or haute is None:
+        return False
+    return (
+        float(basse).is_integer()
+        and "," not in match.group(3) and "." not in match.group(3)
+        and 0 < basse <= _NUMERO_MAX
+        and haute >= _MONTANT_MIN_APRES_UN_NUMERO
+    )
 
 
 @dataclass(frozen=True)
@@ -82,10 +161,21 @@ class FourchetteTrouvee:
 _MEDIANE_ANNONCEE_RE = re.compile(
     r"m[eé]diane(?:\s+retenue)?"
     r"|valeur\s+retenue"
-    r"|retenu[e]?\s*(?:a|:)"
-    r"|(?:on\s+)?retient",
+    r"|retenu[e]?\s*(?:[aà]|:)"
+    r"|(?:on|nous)\s+retien(?:t|dr)",
     re.IGNORECASE,
 )
+
+# La fenêtre s'arrête à la fin de la phrase, de la cellule ou de la ligne : sans
+# cette borne, « Dupont : CA entre 600 000 et 800 000 €. Martin : …, valeur
+# retenue 1,35 M€ » admettait la plage de Dupont avec la valeur de Martin
+# (relecture du 14/09/2026).
+_FIN_DE_LA_PLAGE = re.compile(r"[.;\n|]")
+
+# En EC, l'admission vaut pour un CA ou une part ESTIMÉS — jamais pour une
+# croissance : la consigne dit « taux de croissance et TCAC restent des valeurs
+# uniques », le contrôle doit dire la même chose (règle 5).
+_CROISSANCE = re.compile(r"croissance|TCAC|CAGR|[ée]volution\s+annuelle", re.IGNORECASE)
 _MEDIANE_FENETRE = 120
 
 # Types de livrable ou la fourchette sourcee avec mediane annoncee est LEGITIME
@@ -93,6 +183,12 @@ _MEDIANE_FENETRE = 120
 # strictement interdits : chaque valeur unique.
 _LIVRABLES_FOURCHETTE_SOURCEE_OK: frozenset[str] = frozenset({
     "market_study",  # DeliverableType.MARKET_STUDY.value
+    # Le cahier des charges EC exige une borne basse et une borne haute pour
+    # le CA ESTIMÉ d'un concurrent (étape 6.2) ; la cliente exige un chiffre
+    # décidé. Une plage IMMÉDIATEMENT suivie de sa valeur retenue satisfait
+    # les deux. Sans cette admission, le prompt imposait ce que le gate
+    # refusait, et chaque chapitre 6 était repayé (audit du 14/09/2026, A1).
+    "competitor_study",  # DeliverableType.COMPETITOR_STUDY.value
 })
 
 
@@ -106,8 +202,9 @@ def detecter_fourchettes(
     Regle EM (WAOME) : une fourchette suivie dans les 120 caracteres d'une
     mention « mediane retenue X » ou equivalent est un registre
     « estimations sectorielles » legitime, elle N'EST PAS retenue comme
-    defaut. Les autres livrables (BP, EC, STR) gardent la regle stricte :
-    aucune fourchette, meme sourcee.
+    defaut. L'etude concurrentielle suit la meme forme pour un CA ou une part
+    ESTIMES — jamais pour une croissance (14/09/2026, audit A1). BP et STR
+    gardent la regle stricte : aucune fourchette, meme suivie d'une valeur.
 
     Par defaut (sans deliverable_type), le comportement est strict — c'est
     la retro-compatibilite avec les appels existants qui ne passaient pas
@@ -125,9 +222,23 @@ def detecter_fourchettes(
             # le dernier groupe.
             borne_basse = match.group(1) or match.group(3)
             borne_haute = match.group(2) or match.group(4)
+            if _n_est_pas_une_plage(texte, match):
+                continue
             if fourchette_sourcee_ok:
                 fenetre = texte[match.end() : match.end() + _MEDIANE_FENETRE]
-                if _MEDIANE_ANNONCEE_RE.search(fenetre):
+                coupure = _FIN_DE_LA_PLAGE.search(fenetre)
+                if coupure:
+                    fenetre = fenetre[: coupure.start()]
+                debut_phrase = max(
+                    texte.rfind(".", 0, match.start()),
+                    texte.rfind("\n", 0, match.start()),
+                )
+                phrase = texte[debut_phrase + 1 : match.end() + len(fenetre)]
+                croissance = (
+                    deliverable_type == "competitor_study"
+                    and bool(_CROISSANCE.search(phrase))
+                )
+                if _MEDIANE_ANNONCEE_RE.search(fenetre) and not croissance:
                     # La mediane est annoncee IMMEDIATEMENT apres : registre
                     # « estimations sectorielles » d'Evangeline, on laisse.
                     continue
@@ -879,7 +990,7 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
         intitule="PILIER 4 — Tarification & rentabilité",
         chapitre_porteur=14,
         decisions=(
-            _D("une recommandation tarifaire concrète : fourchette ou prix cible",
+            _D("une recommandation tarifaire concrète : un prix cible chiffré",
                rf"(?:prix|tarif)s?{_E}+"
                rf"(?:cibles?|recommand[ée]s?|conseill[ée]s?|pr[ée]conis[ée]s?)"
                rf"|(?:recommandation|proposition|strat[ée]gie|grille)s?{_E}+"

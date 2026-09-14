@@ -1203,7 +1203,10 @@ def _check_fourchettes(
 ) -> list[GateFailure]:
     """Aucune fourchette monetaire ni de pourcentage dans le livrable.
 
-    Regle stricte pour BP / EC / STR : chaque valeur est unique. En EM
+    Regle stricte pour BP / STR : chaque valeur est unique. En EC, une plage
+    n'est admise que pour un CA ou une part ESTIMES, avec sa valeur retenue
+    dans la meme phrase ou en trois colonnes de tableau (cahier des charges
+    6.2 — audit du 14/09/2026, A1). En EM
     (manuel Evangeline juillet 2026, §3), une fourchette serree et
     coherente est autorisee (« entre 1 000 et 1 400 »), les taux/% sont
     en valeur fixe unique. Cette nuance ne se detecte pas fiablement en

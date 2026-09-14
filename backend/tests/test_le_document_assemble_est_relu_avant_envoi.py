@@ -66,10 +66,13 @@ def _controle(*anomalies: Anomalie) -> RapportControle:
     return rapport
 
 
-def _chiffre_hors_socle(chapitre: int | None = 7) -> Anomalie:
+def _calcul_faux(chapitre: int | None = 7) -> Anomalie:
+    # Un défaut RÉPARABLE. Ces tests utilisaient « chiffre hors socle », qui ne
+    # fait plus réécrire depuis le 14/09/2026 (trop peu précis, mesuré sur le
+    # corpus) : ils jugent le mécanisme de réécriture, pas ce contrôle-là.
     return Anomalie(
-        "chiffres_hors_socle", Gravite.AVERTISSEMENT,
-        "« 900 M€ » n'a pas d'équivalent dans le socle.",
+        "calcul_faux", Gravite.AVERTISSEMENT,
+        "« 900 M€ » : le calcul annoncé donne 90 M€.",
         chapitre=chapitre, extrait="un marché national estimé à 900 M€",
     )
 
@@ -108,7 +111,7 @@ def test_un_defaut_du_fichier_fait_reecrire_son_chapitre_puis_refaire_le_documen
 ) -> None:
     """LE test : lire le fichier, corriger le chapitre, REFAIRE le document."""
     assemblages, reecritures = _monter(
-        monkeypatch, [_controle(_chiffre_hors_socle(7)), _controle()]
+        monkeypatch, [_controle(_calcul_faux(7)), _controle()]
     )
 
     rapport = controle_final.relire_et_corriger(job)
@@ -124,7 +127,7 @@ def test_la_consigne_donne_le_passage_a_corriger(
     job: Any, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Un motif doit être trouvable dans le document par qui doit le corriger."""
-    _, reecritures = _monter(monkeypatch, [_controle(_chiffre_hors_socle(7))])
+    _, reecritures = _monter(monkeypatch, [_controle(_calcul_faux(7))])
 
     controle_final.relire_et_corriger(job)
 
@@ -170,7 +173,7 @@ def test_un_budget_epuise_n_entame_pas_une_reecriture(
     """Une réécriture interrompue en cours laisserait un chapitre à moitié refait."""
     from generation import cost
 
-    _, reecritures = _monter(monkeypatch, [_controle(_chiffre_hors_socle(7))])
+    _, reecritures = _monter(monkeypatch, [_controle(_calcul_faux(7))])
     monkeypatch.setattr(cost, "budget_restant", lambda job: Decimal("0.05"))
 
     rapport = controle_final.relire_et_corriger(job)
@@ -183,7 +186,7 @@ def test_une_anomalie_sans_chapitre_ne_fait_rien_reecrire(
     job: Any, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Sans numéro, on ne sait pas quoi réécrire — et on ne devine pas."""
-    _, reecritures = _monter(monkeypatch, [_controle(_chiffre_hors_socle(None))])
+    _, reecritures = _monter(monkeypatch, [_controle(_calcul_faux(None))])
 
     rapport = controle_final.relire_et_corriger(job)
 
@@ -200,7 +203,7 @@ def test_la_relecture_n_ouvre_aucun_incident_de_reserves(
     décrivant des fichiers qui n'existent plus.
     """
     assemblages, _ = _monter(
-        monkeypatch, [_controle(_chiffre_hors_socle(7)), _controle(_chiffre_hors_socle(7))]
+        monkeypatch, [_controle(_calcul_faux(7)), _controle(_calcul_faux(7))]
     )
 
     controle_final.relire_et_corriger(job)
@@ -328,7 +331,7 @@ def test_la_relecture_laisse_sa_trace_sur_le_dossier(
     """
     from generation.models import GenerationJob
 
-    _monter(monkeypatch, [_controle(_chiffre_hors_socle(7)), _controle()])
+    _monter(monkeypatch, [_controle(_calcul_faux(7)), _controle()])
 
     controle_final.relire_avant_envoi(job)
 
@@ -341,7 +344,7 @@ def test_la_relecture_laisse_sa_trace_sur_le_dossier(
 def test_la_console_montre_la_relecture(
     job: Any, client_admin: Any, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _monter(monkeypatch, [_controle(_chiffre_hors_socle(7)), _controle()])
+    _monter(monkeypatch, [_controle(_calcul_faux(7)), _controle()])
     controle_final.relire_avant_envoi(job)
 
     reponse = client_admin.get(f"/api/dashboard/jobs/{job.id}/")
@@ -573,7 +576,7 @@ def test_un_chapitre_n_est_reecrit_qu_une_fois_avec_TOUS_ses_motifs(
     """
     _, reecritures = _monter(
         monkeypatch,
-        [_controle(_chiffre_hors_socle(10)), _controle()],
+        [_controle(_calcul_faux(10)), _controle()],
         echecs_du_gate=(_fourchette(10),),
     )
 

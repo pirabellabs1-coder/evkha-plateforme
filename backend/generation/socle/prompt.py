@@ -226,8 +226,8 @@ _REGLES = (
     "transformerait ton estimation en fait publié. Dans ce cas la donnée passe "
     "en `estimee`, tu expliques dans `libelle` d'où part le raisonnement, et "
     "`source` reste VIDE.\n"
-    "7. Une fourchette n'est pas une valeur. Si ta donnée est une fourchette, "
-    "retiens la médiane dans `valeur` et indique la fourchette dans `libelle`.\n"
+    "7. Deux bornes ne sont pas une valeur. Si ta donnée en donne deux, "
+    "retiens la valeur du milieu dans `valeur`.{bornes}\n"
     "8. Emboîtement obligatoire : TAM ≥ SAM ≥ SOM, dans la même devise. Le "
     "SOM se calcule par le bas : transactions annuelles × panier moyen.\n"
     "8 bis. LE CALCUL PART DU MOTEUR ÉCONOMIQUE RÉEL, PAS D'UNE PART DE "
@@ -528,7 +528,13 @@ def construire_prompt_socle(
     if deliverable_type == DeliverableType.BUSINESS_STRATEGY:
         blocs.append(_CADRAGE_STR)
 
-    blocs.append(_REGLES)
+    blocs.append(_REGLES.replace("{bornes}", (
+        " Indique les deux bornes dans `libelle` : elles disent la fiabilité "
+        "de l'estimation, et l'étude de marché les expose."
+        if deliverable_type == DeliverableType.MARKET_STUDY
+        else " Dis dans `libelle` qu'elle est retenue au milieu de l'estimation "
+        "publiée — sans recopier les bornes."
+    )))
     blocs.append(RELECTURE_DU_SOCLE)
 
     if motifs_precedents:

@@ -210,3 +210,34 @@ def test_chaque_type_de_figure_nomme_dans_un_prompt_existe() -> None:
         if nom not in connus
     }
     assert inconnus == {}
+
+
+def test_les_autres_sources_de_consigne_n_ecrivent_aucune_locution_punie() -> None:
+    """Relecture du 14/09/2026 : sources que ce fichier ne lisait pas encore.
+
+    Aucune faute trouvée à ce jour — c'était un trou de couverture, pas un
+    défaut en ligne. Le trou se ferme ici.
+    """
+    from generation.chapitres.runner import (
+        _FORME_PAR_LIVRABLE,
+        CONSIGNE_DOCUMENTS_CHAPITRE,
+        REGLES_DE_FOND,
+        _forme_commune,
+    )
+    from generation.correction import _CHECK_LABELS
+    from generation.prompts import _consigne_specifique_livrable
+    from generation.socle.prompt import RELECTURE_DU_SOCLE
+
+    sources = {
+        "fond": REGLES_DE_FOND,
+        "forme commune": _forme_commune(),
+        "documents": CONSIGNE_DOCUMENTS_CHAPITRE,
+        "relecture du socle": RELECTURE_DU_SOCLE,
+        "consignes de réécriture": "\n".join(_CHECK_LABELS.values()),
+        **{f"forme {k}": v for k, v in _FORME_PAR_LIVRABLE.items()},
+        **{
+            f"consigne {k}": _consigne_specifique_livrable(k)
+            for k in ("market_study", "competitor_study", "business_plan", "business_strategy")
+        },
+    }
+    assert {nom: _fautes(texte) for nom, texte in sources.items() if _fautes(texte)} == {}

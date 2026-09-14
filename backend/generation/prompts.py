@@ -342,15 +342,12 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
 
     consigne_fourchettes_stricte = (
         "FOURCHETTES DU BRIEF (regle absolue) : chaque valeur du document est "
-        "un chiffre unique, jamais une plage. Tu ne recopies JAMAIS une "
-        "fourchette (« 180-280 kEUR », « entre 3 et 5 M€ », « 14-16 % ») : tu "
-        "ne la recopies jamais, ni celles du brief, ni celles que tu serais "
-        "tente de produire. Quand une "
-        "donnee source est en fourchette, tu dois TRANCHER : mediane par "
-        "defaut (« 14-16 % » -> « 15 % retenu »), ou borne conservatrice pour "
-        "un usage bancaire (borne basse pour un revenu, borne haute pour un "
-        "cout). Documente le choix dans l'encadre Methodologie du chapitre "
-        "Sources.\n"
+        "un chiffre unique, jamais une plage de deux bornes — ni recopiee du "
+        "brief, ni produite par toi. Quand une donnee source donne deux "
+        "bornes, tu TRANCHES : la valeur du milieu par defaut, ecrite seule "
+        "avec le mot « retenu », ou la borne prudente pour un usage bancaire "
+        "(la plus basse pour un revenu, la plus haute pour un cout). Documente "
+        "le choix dans l'encadre Methodologie du chapitre Sources.\n"
     )
 
     if deliverable_type == DeliverableType.MARKET_STUDY:
@@ -372,16 +369,22 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         # Le prompt systeme bloquait donc le format de sortie impose par le
         # chapitre : quoi qu'ecrive le modele, il violait l'une des deux
         # consignes. On leve l'interdiction sur ce seul cas — un chiffre
-        # d'affaires ESTIME, faute d'etre publie — et nulle part ailleurs : les
-        # taux, pourcentages et TCAC restent des valeurs uniques.
+        # d'affaires ESTIME, faute d'etre publie, et la part de marche qui en
+        # decoule — et nulle part ailleurs : les taux de croissance et TCAC
+        # restent des valeurs uniques. Depuis le 14/09/2026, la plage n'est
+        # admise que SUIVIE de sa valeur retenue (audit A1).
         exception_ca_estime = (
             "EXCEPTION, et elle est etroite : le CHIFFRE D'AFFAIRES ESTIME d'un "
-            "concurrent non reference se rend OBLIGATOIREMENT en fourchette "
-            "basse / haute, accompagnee des hypotheses retenues, de la methode "
-            "d'estimation et du niveau de fiabilite. Une part de marche estimee "
-            "peut l'etre aussi. Un CA PUBLIE, lui, reste un chiffre unique avec "
-            "son annee et sa source. Cette exception ne s'etend a rien d'autre : "
-            "taux, pourcentages et TCAC restent des valeurs uniques.\n"
+            "concurrent non reference donne sa borne basse, sa borne haute et "
+            "sa valeur retenue. Dans un TABLEAU, ce sont TROIS colonnes "
+            "distinctes (borne basse | borne haute | valeur retenue) ; dans une "
+            "phrase, les deux bornes sont SUIVIES IMMEDIATEMENT des mots « valeur "
+            "retenue » et du chiffre, dans la meme phrase. Puis les hypotheses, "
+            "la methode et le niveau de fiabilite. Une part de marche estimee "
+            "suit la meme forme. "
+            "Une plage sans valeur retenue juste apres est refusee. Un CA PUBLIE "
+            "reste un chiffre unique avec son annee et sa source. Taux de "
+            "croissance et TCAC restent des valeurs uniques.\n"
         )
         return (
             consigne_fourchettes_stricte +
@@ -484,7 +487,7 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             "Quand une donnee manque pour trancher, tu tranches quand meme et "
             "tu DIS a quelle condition la decision change. « Les donnees "
             "disponibles ne permettent pas de recommander un prix » n'est pas "
-            "une reponse acceptable : donne une fourchette de travail, nomme "
+            "une reponse acceptable : donne une valeur de travail, nomme "
             "l'hypothese qui la sous-tend, et l'indicateur qui la confirmera.\n"
             "INTERPRETATION DU BRIEF (le desordre du dirigeant est normal) : "
             "aucun brief client n'arrive parfaitement structure. Les "

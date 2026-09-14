@@ -153,9 +153,13 @@ def test_le_prompt_ordonne_de_trancher_les_fourchettes_du_brief() -> None:
 
     prompt = build_system_prompt(DeliverableType.BUSINESS_PLAN, country="France")
 
-    assert "fourchettes du brief" in prompt.lower()
-    assert "trancher" in prompt.lower() or "mediane" in prompt.lower()
-    assert "recopie jamais" in prompt.lower() or "recopies jamais" in prompt.lower()
+    # Depuis le 14/09/2026 la consigne n'ECRIT plus de plage en exemple (le
+    # modele reprend ce qu'on lui montre, audit A2) : on verifie son intention
+    # — interdire la recopie, imposer de trancher — pas son ancienne tournure.
+    consigne = prompt.lower()
+    assert "fourchettes du brief" in consigne
+    assert "tranches" in consigne
+    assert "ni recopiee du brief" in consigne
 
 
 # ── SYNAPSES v2 : les niveaux de marche verrouilles par PROSE NATURELLE ─────

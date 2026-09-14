@@ -90,7 +90,8 @@ DEMANDES: list[tuple[str, str, str, str]] = [
     ("V3", "« aucune donnée disponible » banni", "aucune donnée disponible", "S"),
     ("V3", "« reste à vérifier » banni", "reste à vérifier", "S"),
     ("V3", "« à confirmer avec un professionnel » banni", "professionnel", "S"),
-    ("V3", "Remplacement : fourchette assumée", "hypothèse prudente comprise", "S"),
+    # « comprise entre X et Y » fabriquait des plages (audit A2, 14/09/2026).
+    ("V3", "Remplacement : valeur assumée", "hypothèse prudente de X", "S"),
     ("V3", "Chaîne donnée → décision", "ordre de grandeur à retenir", "S"),
     ("V3", "Identifiants internes bannis", "`tam`", "S"),
     ("V3", "« à dire d'expert » banni", "dire d'expert", "S"),
@@ -117,7 +118,7 @@ DEMANDES: list[tuple[str, str, str, str]] = [
     ("EC", "Zones saturées", "saturé", "E"),
     ("EC", "Erreurs à éviter", "erreurs", "E"),
     ("EC", "Priorités avant lancement", "priorités avant le lancement", "E"),
-    ("EC", "Fourchette nue interdite (EC)", "jamais de fourchette nue", "E"),
+    ("EC", "Fourchette nue interdite (EC)", "jamais deux bornes sans valeur retenue", "E"),
     # --- Figures ---
     ("FIG", "Radar/carte peuvent comparer des acteurs", "CODES DE LA GRILLE", "P"),
     ("FIG", "Nature des identifiants", "[monetaire]", "P"),

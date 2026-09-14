@@ -207,8 +207,10 @@ _CHECK_LABELS = {
         "substitués) — remplacer par une source réelle"
     ),
     "fourchette_interdite": (
-        "Fourchette nue sans médiane annoncée dans la même phrase — écrire "
-        "« X à Y, médiane retenue Z »"
+        "Deux bornes à la place d'une valeur — écrire la seule valeur retenue "
+        "et la raison de ce niveau. En étude concurrentielle seulement, pour un "
+        "chiffre d'affaires ou une part ESTIMÉS : borne basse, borne haute et "
+        "valeur retenue en trois colonnes distinctes d'un tableau"
     ),
 }
 
