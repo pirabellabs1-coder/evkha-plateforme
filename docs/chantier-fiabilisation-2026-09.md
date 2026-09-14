@@ -361,3 +361,43 @@ priorité (`db228221`, `f7f2fad9`, `f8a29b66`), les canaux secondaires
 à 30, 60 et 90 jours (`0f9fb13a`). Pour les stratégies à venir, le tableau
 « Décisions retenues » injecté au chapitre porteur (`_bloc_decisions`) les fait
 écrire sous l'étiquette que le contrôle reconnaît.
+
+## Bilan du 14/09/2026 — mêmes 37 dossiers, `corpus-0829` → `corpus-2204`
+
+Dernier lot du jour : `cdd1bda` (un résultat posé par la case suivante de sa
+ligne) — une seule disparition à la re-mesure, celle visée.
+
+| Contrôle | 08 h 29 | 22 h 04 |
+|---|---|---|
+| chiffres hors socle BP / EC / EM / STR | 305 / 386 / 34 / 32 | 203 / 113 / 27 / 17 |
+| densité EC / STR | 3 / 44 | 0 / 0 |
+| valeurs nulles BP / EC / STR | 13 / 5 / 10 | 2 / 0 / 5 |
+| gate `coherence_chiffree` BP | 20 | **0** |
+| gate `calcul_faux` BP | 4 | **0** |
+| gate `troncature` EM / STR | 4 / 1 | **0 / 0** |
+| gate `demande_contredite` BP | 5 | 1 |
+| gate `decision_absente` STR | 17 | 10 (vrais manques relus) |
+| gate `sources_non_tracables_ratio_faible` BP / EC | 2 / 3 | 0 / 1 |
+| sources sans adresse BP / EC / EM / STR | 15 / 54 / 21 / 22 | 3 / 19 / 4 / 17 |
+| visuels EC | 56 | 45 |
+
+Ce qui reste, et pourquoi on ne le « corrige » pas au contrôle :
+
+- **fourchettes** (BP 66, STR 62, EC 24) : de vraies plages (« 60 à 75 € ») que
+  la règle du chiffre unique interdit ;
+- **check_bloc_non_resolu** EM 88 : verdicts de relecture déjà stockés ;
+- **chiffres hors socle** restants : surtout des projections sur trois ans
+  absentes des socles anciens (le référentiel du business plan les porte
+  depuis `d885998`), des ratios arrondis que la tolérance des dérivations
+  refuse volontairement, des constantes légales non citées ;
+- **figures perdues** : demandes impossibles des documents anciens (unités
+  hétérogènes, frises sans horizon) — le catalogue des figures réalisables
+  vaut pour les prochains ;
+- `brief_non_lu` STR 10, `chapitre_desaccentue`, `caractere_etranger` : défauts
+  réels des textes déjà écrits.
+
+Méthode tenue toute la journée : aucune génération ; chaque lot vérifié (ruff,
+mypy, tests, migrations, répétition à blanc), déployé seulement si tout est
+vert et qu'aucune génération ne tourne, puis re-mesuré — et chaque disparition
+relue avec sa phrase. Quatre lots trop larges ont été vus ainsi et resserrés
+dans l'heure (`5131f89`, `8f8e2ed`, `055519e`/`e6f9fa5`, `c50b0d8`).
