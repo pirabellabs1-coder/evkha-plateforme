@@ -33,7 +33,7 @@ import re
 import statistics
 from bisect import bisect_left
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import zip_longest
 
 from core.numbers import amounts_in
@@ -527,6 +527,28 @@ def _calculee_dans_sa_phrase(
     return False
 
 
+def _posee_plus_loin_dans_sa_phrase(
+    mesure: Mesure, dans_le_socle: Callable[[float], bool],
+) -> bool:
+    """La MÊME valeur, écrite plus loin dans la phrase comme résultat d'un calcul.
+
+    « Scénario dégradé : CA année 1 | 54 276 € | 37 993 € | 54 276 € moins 30 %,
+    soit 54 276 € × 0,70 = 37 993 € » : la cellule est jugée à sa première
+    occurrence, où ses opérandes ne la précèdent pas encore ; le calcul qui la
+    pose est dans la colonne suivante (business plan `9f8f144a`, corpus du
+    14/09/2026). Chaque autre occurrence du même texte est éprouvée à son tour.
+    """
+    if not mesure.phrase:
+        return False
+    for autre in re.finditer(r"(?<![\d,.])" + re.escape(mesure.texte), mesure.phrase):
+        if autre.start() <= mesure.debut_dans_la_phrase:
+            continue
+        ailleurs = replace(mesure, debut_dans_la_phrase=autre.start())
+        if _calculee_dans_sa_phrase(ailleurs, dans_le_socle):
+            return True
+    return False
+
+
 def _sourcee_dans_sa_phrase(mesure: Mesure) -> bool:
     return bool(mesure.phrase) and bool(_SOURCE_DANS_LA_PHRASE.search(mesure.phrase))
 
@@ -627,6 +649,26 @@ def _portee_du_jugement(mesure: Mesure) -> str:
     return f"{en_tete} : {libelle}" + (f" | {cellule}" if cellule and cellule != libelle else "")
 
 
+#: L'en-tête d'une colonne de DÉCISIONS : « Seuil STOP », « Seuil ADJUST »,
+#: « Objectif », « Indicateur de réussite ». La valeur y est fixée par le
+#: projet ; la juger comme un fait de marché accusait les tableaux GO /
+#: AJUSTER / STOP que le manuel impose (stratégies du corpus du 14/09/2026).
+_EN_TETE_DE_DECISION = re.compile(
+    # « Seuil » seul non : « Seuil de rentabilité | 18 667 € » est un CALCUL du
+    # prévisionnel, que ce contrôle doit continuer de juger.
+    r"(?i)^\s*(?:seuils?\s+(?:go|stop|adjust|ajust\w*|d['’]alerte|de\s+d[ée]clenchement|"
+    r"de\s+d[ée]cision)|objectifs?|cibles?|crit[èe]res?|indicateurs?\s+de\s+r[ée]ussite|"
+    r"niveau\s+vis[ée]|valeur\s+cible|budget)\b"
+)
+
+#: Le vocabulaire d'un scénario de SENSIBILITÉ. Un pourcentage qui y figure est
+#: le choc que l'on applique, choisi pour éprouver le plan.
+_PARAMETRE_DE_SCENARIO = re.compile(
+    r"(?i)\bsc[ée]nario\s+(?:d[ée]grad[ée]|pessimiste|optimiste|favorable|prudent|"
+    r"de\s+stress|bas|haut)|\bchoc\b|\bstress\b|\bsensibilit[ée]\b"
+)
+
+
 def _estimation_declaree(mesure: Mesure) -> bool:
     """Une valeur présentée comme estimation fondée, ou comme décision du projet."""
     phrase = mesure.phrase
@@ -635,14 +677,25 @@ def _estimation_declaree(mesure: Mesure) -> bool:
     avant = phrase[: mesure.debut_dans_la_phrase]
     portee = _portee_du_jugement(mesure)
 
+    decidee_par_l_en_tete = mesure.dans_un_tableau and bool(
+        _EN_TETE_DE_DECISION.search(phrase.partition(" : ")[0])
+    )
+
     if mesure.est_un_pourcentage:
+        # Un choc de SCÉNARIO est un paramètre choisi, pas un fait avancé :
+        # « Scénario dégradé (-30 %) », « absorbe un choc jusqu'à -66 % ».
+        if _PARAMETRE_DE_SCENARIO.search(portee):
+            return True
         if _FAIT_DE_CROISSANCE.search(portee):
             return False
-        return bool(_ESTIMATION.search(portee) or _DECISION_JUSTE_AVANT.search(avant))
+        return bool(
+            _ESTIMATION.search(portee) or _DECISION_JUSTE_AVANT.search(avant)
+            or decidee_par_l_en_tete
+        )
 
     if _TAILLE_DE_MARCHE.search(portee):
         return False
-    if _DECISION_JUSTE_AVANT.search(avant):
+    if _DECISION_JUSTE_AVANT.search(avant) or decidee_par_l_en_tete:
         return True
     if not _ESTIMATION.search(portee):
         return False
@@ -749,6 +802,11 @@ def controler_chiffres_hors_socle(
     # trente-cinq sur le dossier `c8b4e60a`.
     derivations = sorted(_derivations(references))
 
+    def dans_le_socle(valeur: float) -> bool:
+        return any(_proche(valeur, r) for r, _ in references) or _dans_les_derivations(
+            valeur, derivations,
+        )
+
     anomalies: list[Anomalie] = []
     deja_vues: set[str] = set()
     for mesure in document.mesures:
@@ -756,11 +814,8 @@ def controler_chiffres_hors_socle(
             continue
         # Voir « Ce que la phrase elle-même justifie », plus haut.
         if (
-            _calculee_dans_sa_phrase(
-                mesure,
-                lambda valeur: any(_proche(valeur, r) for r, _ in references)
-                or _dans_les_derivations(valeur, derivations),
-            )
+            _calculee_dans_sa_phrase(mesure, dans_le_socle)
+            or _posee_plus_loin_dans_sa_phrase(mesure, dans_le_socle)
             or _sourcee_dans_sa_phrase(mesure)
             or _estimation_declaree(mesure)
             or _part_calculee_dans_sa_ligne(mesure, references)
