@@ -1582,6 +1582,17 @@ def _check_strategie_livrable(
     ]
 
 
+def _part_de_la_mediane() -> str:
+    """La fraction de la médiane qui fait le plancher, lue dans le détecteur.
+
+    Le motif ne peut pas annoncer une autre fraction que celle qui a jugé
+    (règle 5).
+    """
+    from .checks_evangeline import _PLANCHER_RATIO_VOISINS  # noqa: PLC0415
+
+    return f"{_PLANCHER_RATIO_VOISINS:.0%}".replace("%", " %")
+
+
 def _check_chapitres_avortes(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1610,11 +1621,18 @@ def _check_chapitres_avortes(
         failures.append(GateFailure(
             check="chapitre_avorte",
             chapter_number=a.chapitre,
+            # « 644 mots pour un plafond de 671 (soit 96 %). Contenu indigent »
+            # (étude `5892daa5`, corpus du 15/09/2026) : 671 est un PLANCHER,
+            # 40 % de la médiane du document, et le motif le nommait plafond —
+            # un lecteur y lisait un chapitre presque complet déclaré vide. Un
+            # motif qu'on ne peut pas vérifier en le lisant ne se corrige pas
+            # (règle 2).
             detail=(
-                f"Chapitre {a.chapitre} ({a.titre}) : {a.mots_rendus} mots "
-                f"pour un plafond de {a.mots_attendus} (soit {a.ratio:.0%}). "
-                "Contenu indigent — le chapitre a ete declare fini alors qu'il "
-                "n'a pas ete produit."
+                f"Chapitre {a.chapitre} ({a.titre}) : {a.mots_rendus} mots, sous "
+                f"le plancher de {a.mots_attendus} — {_part_de_la_mediane()} de la "
+                f"médiane des chapitres de ce document ({a.mediane} mots). Il est "
+                "nettement plus court que ses voisins : développe-le au niveau "
+                "des autres chapitres."
             ),
         ))
     return failures

@@ -798,7 +798,10 @@ class ChapitreAvorte:
     titre: str
     mots_rendus: int
     mots_attendus: int
+    """Le PLANCHER : une fraction de la médiane, jamais un plafond."""
     ratio: float
+    mediane: int = 0
+    """La médiane des chapitres du document, d'où le plancher est tiré."""
 
 
 def _compter_mots(texte: str) -> int:
@@ -1654,6 +1657,7 @@ def detecter_chapitres_avortes(
             mots_rendus=mots,
             mots_attendus=seuil,
             ratio=mots / seuil if seuil else 0.0,
+            mediane=mediane,
         )
         for numero, titre, mots, _max_words in mesures
         if mots < seuil
