@@ -110,3 +110,32 @@ par une phrase concrète. Corrigés avant tout commit :
 Limite à dire : la migration 0017 ne répare pas les faits déjà tronqués. Un
 dossier ancien rejoué garde sa référence amputée ; l'effet ne se verra que sur
 un nouveau dossier.
+
+## Mesure après déploiement de `428d3ab` — 14/09/2026, mêmes 37 dossiers
+
+Preuve du déploiement par le comportement (règle du dépôt : un 200 ne prouve rien).
+
+| Contrôle (gate) | Avant | Après |
+|---|---|---|
+| `desaccord_numerique` | 13 | 0 |
+| `troncature_rendu` | 8 | 0 |
+| `strategy_…_decision_absente` | 40 | 17 |
+| `coherence_chiffree` (BP) | 32 | 20 |
+| `agregat_faux` (EC) | 9 | 5 |
+| `fourchette_interdite` | 12 | **156** |
+| `reference_client_illisible` (BP) | 1 | 4 |
+
+**`fourchette_interdite` 12 → 156**, lu dans les Word : la plupart sont VRAIS.
+L'ancien détecteur ne voyait pas « à ». « Interventions de 60 à 75 € de
+l'heure » efface les trois prix du brief (60 € à distance, 65 € en atelier,
+75 € à domicile), « trois paliers de 12 à 29 € » efface le 19 €. Une classe
+était fausse : deux valeurs RELIÉES (« le saut de 19 € à 29 € », « basculé
+de 19 à 29 € », « l'écart entre 19 et 29 € »). Correctif : ces formes ne sont
+plus des plages ; « une hausse de 3 à 5 % » en reste une. À la source, la
+consigne des livrables BP/EC/STR interdit désormais de résumer des prix par
+variante en « de X à Y ».
+
+`reference_client_illisible` 1 → 4 : attendu. Les faits de ces anciens
+dossiers restent tronqués à 500 signes (la migration ne les répare pas), et
+une réponse libre qui ne donne pas l'apport est désormais dite illisible au
+lieu d'accuser le document.

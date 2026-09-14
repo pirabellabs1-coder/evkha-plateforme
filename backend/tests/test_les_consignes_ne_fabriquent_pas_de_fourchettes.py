@@ -230,3 +230,43 @@ def test_les_autres_sources_de_consigne_ne_montrent_aucune_plage() -> None:
         ("relecture du socle", RELECTURE_DU_SOCLE),
     ):
         assert _plages(texte, BP) == [], nom
+
+
+# ── Corpus re-mesuré après déploiement (14/09/2026) : 12 → 156 motifs ───────
+#
+# Lu dans les Word : la plupart étaient VRAIS — « Interventions de 60 à 75 €
+# de l'heure » efface les trois prix du brief (60 € à distance, 65 € en
+# atelier, 75 € à domicile). Restait une classe fausse : deux valeurs RELIÉES,
+# pas une valeur hésitante.
+
+
+@pytest.mark.parametrize("texte", [
+    "Aucune justification du saut de 19 à 29 € par mois.",
+    "Nombre d'abonnés ayant basculé de 19 à 29 €.",
+    "Porter le chiffre d'affaires de 120 000 à 157 500 €.",
+    "La confusion actuelle entre 19 et 29 euros persistera.",
+    "L'écart entre 19 et 29 euros n'est pas justifié.",
+])
+def test_deux_valeurs_reliees_ne_sont_pas_une_plage(texte: str) -> None:
+    assert detecter_fourchettes(9, texte, STR) == []
+
+
+@pytest.mark.parametrize("texte", [
+    "Interventions ponctuelles (60 à 75 € de l'heure).",
+    "Trois paliers d'abonnement de 12 à 29 € par mois.",
+    "Des frais de mise en service de 25 à 35 € sur toute nouvelle souscription.",
+    "Une hausse de 3 à 5 % de la marge.",
+])
+def test_une_valeur_non_tranchee_reste_une_plage(texte: str) -> None:
+    """CONTRE-ÉPREUVE : une plage qui efface des prix distincts, ou une grandeur hésitante."""
+    assert detecter_fourchettes(9, texte, STR)
+
+
+@pytest.mark.parametrize("livrable", [BP, EC, STR])
+def test_la_consigne_interdit_de_resumer_des_prix_distincts_en_plage(livrable: str) -> None:
+    """La cause des « 60 à 75 € de l'heure » : trois prix du brief résumés en une plage."""
+    from generation.prompts import _consigne_specifique_livrable
+
+    consigne = _consigne_specifique_livrable(livrable)
+    assert "UN prix par variante" in consigne
+    assert _plages(consigne, livrable) == []

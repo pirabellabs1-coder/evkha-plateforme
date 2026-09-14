@@ -347,7 +347,10 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         "bornes, tu TRANCHES : la valeur du milieu par défaut, écrite seule "
         "avec le mot « retenu », ou la borne prudente pour un usage bancaire "
         "(la plus basse pour un revenu, la plus haute pour un coût). Documente "
-        "le choix dans l'encadre Méthodologie du chapitre Sources.\n"
+        "le choix dans l'encadre Méthodologie du chapitre Sources. Quand le "
+        "brief donne UN prix par variante (à distance, en atelier, à domicile ; "
+        "une formule par palier), écris chaque prix avec sa variante : un "
+        "résumé « de X à Y » efface les prix du milieu et devient une plage.\n"
     )
 
     if deliverable_type == DeliverableType.MARKET_STUDY:

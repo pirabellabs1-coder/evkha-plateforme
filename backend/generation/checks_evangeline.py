@@ -101,6 +101,27 @@ _ETIQUETTE_AVANT = re.compile(
     re.IGNORECASE,
 )
 
+#: 4. Un MOUVEMENT entre deux valeurs, ou l'ÉCART entre elles — deux valeurs
+#:    décidées, pas une valeur hésitante. Corpus re-mesuré le 14/09/2026 après
+#:    déploiement : « le saut de 19 € à 29 € », « basculé de 19 € à 29 € »,
+#:    « passer de 120 000 € à 157 500 € », « la confusion entre 19 et 29
+#:    euros » étaient comptés comme fourchettes. « Interventions de 60 à 75 €
+#:    de l'heure » reste une plage : le brief donnait trois prix distincts, et
+#:    la plage les efface.
+_MOUVEMENT_AVANT = re.compile(
+    # Seuls les mots qui relient DEUX ÉTATS. « Une hausse de 3 à 5 % » dit une
+    # hausse comprise entre 3 et 5 % : c'est une plage, et elle reste vue.
+    r"\b(?:saut|passage|pass(?:e|er|ent|ant|é|ée|és)|bascul\w*|migr\w*"
+    r"|port(?:e|er|ant|é)|glissement|transition|rel[èe]vement|revaloris\w*)\b"
+    r"[^.;:\d]{0,30}?\b(?:de|d['’])\s*[+]?\s*$",
+    re.IGNORECASE,
+)
+_ECART_AVANT = re.compile(
+    r"\b(?:[ée]cart|diff[ée]rence|confusion|saut|choix|arbitrage|comparaison"
+    r"|h[ée]sitation)\b[^.;:\d]{0,25}?\bentre\s*$",
+    re.IGNORECASE,
+)
+
 _NUMERO_MAX = 12
 _MONTANT_MIN_APRES_UN_NUMERO = 1000
 
@@ -109,6 +130,16 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     """Trajectoire datée, étiquette ou numéro — pas une fourchette."""
     brute_basse = (match.group(1) or match.group(3) or "").strip()
     avant = texte[max(0, match.start() - 20) : match.start()]
+
+    # 4. Mouvement ou écart : deux valeurs, pas une hésitation.
+    debut_basse = match.start(1) if match.group(1) is not None else match.start(3)
+    avant_long = texte[max(0, debut_basse - 60) : debut_basse]
+    if match.group(1) is not None and _ECART_AVANT.search(avant_long):
+        return True
+    if match.group(3) is not None and _MOUVEMENT_AVANT.search(avant_long):
+        connecteur = texte[match.end(3) : match.start(4)].strip()
+        if connecteur in ("à", "a"):
+            return True
 
     # 1. Trajectoire : la « borne basse » est une année, ou suit un repère.
     if _ANNEE.match(brute_basse):
