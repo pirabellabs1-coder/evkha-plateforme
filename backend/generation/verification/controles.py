@@ -506,7 +506,18 @@ def _portee_du_jugement(mesure: Mesure) -> str:
     if not mesure.dans_un_tableau or " : " not in phrase:
         return phrase
     en_tete, _, ligne = phrase.partition(" : ")
-    return f"{en_tete} : {ligne.split(' | ')[0]}"
+    # La cellule JUGÉE compte aussi : elle est souvent une phrase entière
+    # (« le marché est estimé à 150 M€ … 0,46 % de ce total »). Seules les
+    # AUTRES cellules sont écartées.
+    debut_ligne = len(en_tete) + 3
+    cellule, curseur = "", debut_ligne
+    for morceau in ligne.split(" | "):
+        if curseur <= mesure.debut_dans_la_phrase < curseur + len(morceau):
+            cellule = morceau
+            break
+        curseur += len(morceau) + 3
+    libelle = ligne.split(" | ")[0]
+    return f"{en_tete} : {libelle}" + (f" | {cellule}" if cellule and cellule != libelle else "")
 
 
 def _estimation_declaree(mesure: Mesure) -> bool:

@@ -160,3 +160,15 @@ def test_un_seuil_legal_cite_par_son_article_est_source(tmp_path: Path) -> None:
     chemin = tmp_path / "loi.docx"
     document.save(str(chemin))
     assert "77 700 €" not in _signales(chemin)
+
+
+def test_une_cellule_qui_est_une_phrase_se_juge_aussi_par_elle_meme(tmp_path: Path) -> None:
+    """Stratégie `0ad5155b` : l'estimation déclarée DANS la cellule compte."""
+    chemin = _docx(
+        tmp_path,
+        ["Critère", "Verdict", "Pourquoi"],
+        [["Marché porteur", "Modérément",
+          "le marché national est estimé à 150 M€ sans source dédiée, et l'objectif "
+          "à trois ans ne représente que 0,46 % de ce total"]],
+    )
+    assert "0,46 %" not in _signales(chemin)
