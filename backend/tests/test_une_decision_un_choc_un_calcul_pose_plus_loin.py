@@ -107,3 +107,41 @@ def test_un_calcul_faux_pose_plus_loin_reste_signale(tmp_path: Path) -> None:
          "54 276 € moins 30 %, soit 54 276 € × 0,70 = 39 993 €"],
     ])
     assert "39 993 €" in signales
+
+
+# ── Répartitions et scénarios en tableau (corpus-20260914-1550, `b8da2640`) ──
+
+
+def test_une_repartition_complete_est_le_mix_du_projet(tmp_path: Path) -> None:
+    signales = _signales(tmp_path, [
+        "La structure d'offre proposée (45 % pain, 30 % viennoiserie, 25 % snacking) "
+        "doit générer ce volume.",
+    ])
+    assert not signales & {"45 %", "30 %", "25 %"}, signales
+
+
+def test_une_enumeration_qui_ne_fait_pas_cent_reste_signalee(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : 45 + 30 + 15 = 90 %, ce n'est pas une répartition."""
+    signales = _signales(tmp_path, [
+        "La structure d'offre proposée (45 % pain, 30 % viennoiserie, 15 % snacking) "
+        "doit générer ce volume.",
+    ])
+    assert {"45 %", "15 %"} <= signales
+
+
+def test_le_choc_d_un_scenario_en_tableau(tmp_path: Path) -> None:
+    signales = _signales(tmp_path, ["Sensibilité."], [
+        ["Scénario", "Chiffre d'affaires retenu"],
+        ["Prudent (-10 % de fréquentation)", "Voir chapitre 16"],
+    ])
+    assert "-10 %" not in signales
+
+
+def test_le_resultat_d_un_scenario_n_est_pas_son_choc(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE (mesure de 055519e) : la marge de sécurité est un résultat."""
+    signales = _signales(tmp_path, [
+        "Le scénario prudent (-10 % de fréquentation) laisse une marge de sécurité "
+        "réduite à 8,7 % au-dessus du seuil de rentabilité.",
+    ])
+    assert "-10 %" not in signales
+    assert "8,7 %" in signales

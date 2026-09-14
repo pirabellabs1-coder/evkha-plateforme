@@ -664,9 +664,58 @@ _EN_TETE_DE_DECISION = re.compile(
 #: Le vocabulaire d'un scénario de SENSIBILITÉ. Un pourcentage qui y figure est
 #: le choc que l'on applique, choisi pour éprouver le plan.
 _PARAMETRE_DE_SCENARIO = re.compile(
-    r"(?i)\bsc[ée]nario\s+(?:d[ée]grad[ée]|pessimiste|optimiste|favorable|prudent|"
+    # « Scénario : Prudent (-10 % de fréquentation) » : l'en-tête et la ligne
+    # sont séparés par la ponctuation de la lecture en tableau.
+    r"(?i)\bsc[ée]nario\W{1,4}(?:d[ée]grad[ée]|pessimiste|optimiste|favorable|prudent|"
     r"de\s+stress|bas|haut)|\bchoc\b|\bstress\b|\bsensibilit[ée]\b"
 )
+
+
+#: Distance maximale entre le mot du scénario et le choc qu'il annonce.
+_PORTEE_DU_SCENARIO = 80
+
+
+def _choc_de_scenario(avant: str) -> bool:
+    """Le pourcentage est-il le CHOC qu'annonce un scénario juste avant lui ?
+
+    Le premier pourcentage après « scénario dégradé », « choc », « stress » —
+    pas n'importe lequel de la phrase. Mesuré en production (055519e) : « le
+    scénario prudent (-10 % de fréquentation) laisse une marge de sécurité
+    réduite à 8,7 % » passait en entier, alors que 8,7 % est un RÉSULTAT du
+    scénario, que ce contrôle doit juger.
+    """
+    fenetre = avant[-_PORTEE_DU_SCENARIO:]
+    termes = list(_PARAMETRE_DE_SCENARIO.finditer(fenetre))
+    return bool(termes) and "%" not in fenetre[termes[-1].end():]
+
+
+#: Écart toléré sur une répartition : trois parts arrondies à l'unité peuvent
+#: faire 99 ou 101 %.
+_REPARTITION_TOLERANCE = 1.0
+
+
+def _part_d_une_repartition(mesure: Mesure) -> bool:
+    """Le pourcentage est une part d'une répartition COMPLÈTE posée dans sa phrase.
+
+    « La structure d'offre proposée (45 % pain, 30 % viennoiserie, 25 %
+    snacking) », « résidents 50 %, actifs de bureaux 35 %, restaurants 15 % » :
+    trois parts qui font 100 %, que le lecteur additionne d'un coup d'œil. C'est
+    le mix que le projet se donne, pas un fait avancé (business plan
+    `b8da2640`, corpus du 14/09/2026).
+
+    Au moins trois parts, dans la même parenthèse ou la même énumération, qui
+    tombent sur 100 % : deux pourcentages quelconques n'y arrivent pas par
+    hasard, et une énumération qui fait 90 % reste accusée.
+    """
+    if not mesure.est_un_pourcentage or not mesure.phrase:
+        return False
+    for bloc in re.split(r"[.;:()\n|]", mesure.phrase):
+        parts = [n for n in _nombres_de_la_phrase(bloc) if n.pourcentage]
+        if len(parts) < 3 or not any(abs(n.valeur - mesure.valeur) < EPSILON for n in parts):
+            continue
+        if abs(sum(n.valeur for n in parts) - 100) <= _REPARTITION_TOLERANCE:
+            return True
+    return False
 
 
 def _estimation_declaree(mesure: Mesure) -> bool:
@@ -684,7 +733,7 @@ def _estimation_declaree(mesure: Mesure) -> bool:
     if mesure.est_un_pourcentage:
         # Un choc de SCÉNARIO est un paramètre choisi, pas un fait avancé :
         # « Scénario dégradé (-30 %) », « absorbe un choc jusqu'à -66 % ».
-        if _PARAMETRE_DE_SCENARIO.search(portee):
+        if _choc_de_scenario(avant):
             return True
         if _FAIT_DE_CROISSANCE.search(portee):
             return False
@@ -819,6 +868,7 @@ def controler_chiffres_hors_socle(
             or _sourcee_dans_sa_phrase(mesure)
             or _estimation_declaree(mesure)
             or _part_calculee_dans_sa_ligne(mesure, references)
+            or _part_d_une_repartition(mesure)
             or _cite_un_libelle_du_socle(mesure, socle)
         ):
             continue
