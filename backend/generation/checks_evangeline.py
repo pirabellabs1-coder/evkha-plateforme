@@ -418,6 +418,11 @@ _MOTS_DE_RUPTURE = re.compile(
     # « coût », « rémunération », « supérieur à » n'étaient jamais reconnus.
     r"remboursement|loyer|prix|tarif|co[uû]ts?|budget|"
     r"subvention|r[ée]mun[ée]ration"
+    # Une comparaison ou une DÉCOMPOSITION après le libellé : « dont le chiffre
+    # d'affaires ne dépasse pas 10 millions… », « le chiffre d'affaires se
+    # décompose en 40 716 € issus des abonnements » — le montant est un seuil
+    # légal ou une composante (corpus du 14/09/2026).
+    r"|d[ée]pass\w*|exc[èe]d\w*|se\s+d[ée]compos\w*|dont|r[ée]parti\w*|ventil\w*"
     # Mesures du business plan 73dde3ab, 17/08/2026. « Part de l'apport dans
     # le besoin total de 195 000 EUR » liait 195 000 a l'apport : le montant
     # appartient a l'agregat que la preposition vient de nommer.
@@ -472,6 +477,12 @@ _COMPARAISON_AVANT = re.compile(
     r"au-dessus\s+d[ue]?|en\s+dessous\s+d[ue]?)"
     r"(?:\s+(?:le|la|les|l['’]|du|des|de\s+la|son|sa|ses|leur|leurs))?\s*$",
     re.IGNORECASE,
+)
+
+#: « 54 276 euros DE chiffre d'affaires » : ce qui introduit, après un montant,
+#: la grandeur qu'il mesure.
+_COMPLEMENT_DE_GRANDEUR = re.compile(
+    r"\s*(?:HT|TTC)?\s*(?:de|d['’])\s*(?:l['’]\s*|la\s+|le\s+|les\s+)?", re.IGNORECASE,
 )
 
 #: Un opérateur dans une parenthèse : « (18 667 €/54 276 €) », « (54 276 €
@@ -634,6 +645,20 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             # montant (« marge brute unitaire ») est déjà dans les mots de rupture.
             if _PAR_UNITE_APRES.match(fenetre[montant.end():]):
                 continue
+            # Un AUTRE libellé nommé juste APRÈS le montant : « seuil de
+            # rentabilité déjà établis : 54 276 euros de chiffre d'affaires ».
+            # Le montant est le sien — symétrique du libellé glissé avant.
+            apres = texte[fin_libelle + montant.end():fin_libelle + montant.end() + 40]
+            complement = _COMPLEMENT_DE_GRANDEUR.match(apres)
+            if complement and (
+                _MOTS_DE_RUPTURE.match(apres, complement.end())
+                or any(
+                    autre != cle
+                    and re.compile(motif_autre, re.IGNORECASE).match(apres, complement.end())
+                    for autre, motif_autre in _LIBELLES_SURVEILLES.items()
+                )
+            ):
+                continue
             # Une valeur de SCÉNARIO n'est pas la valeur retenue : « un point de
             # marge en moins ramènerait l'EBE à 34 800 € », « dans le scénario
             # pessimiste, le résultat net tombe à 42 500 € ». Opposée à la valeur
@@ -662,8 +687,12 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             else:
                 annee = None
 
+            # Centrée sur le LIBELLÉ : partir du début d'une longue phrase montrait
+            # souvent une autre valeur que celle retenue (« le résultat net de la
+            # première année, 9 000 euros… » pour une mention à 45 000 €).
             phrase = " ".join(
-                texte[debut_phrase:fin_libelle + montant.end() + 40].split()
+                texte[max(debut_phrase, occurrence.start() - 60):fin_libelle + montant.end() + 40]
+                .split()
             )
             mentions.append(
                 Mention(

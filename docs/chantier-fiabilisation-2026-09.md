@@ -268,3 +268,18 @@ lieu de 18).
 Lot suivant : le motif `coherence_chiffree` montre chaque valeur une fois, ses
 chapitres, et la phrase de la valeur minoritaire — il énumérait jusqu'à douze
 mentions identiques avant la valeur fautive, sans la phrase (règle 2).
+
+## Valeurs divergentes et justifications — 14/09/2026, fin de soirée
+
+| Lot | Constat | Correctif | Effet mesuré |
+|---|---|---|---|
+| `fad39d3` | le motif `coherence_chiffree` énumérait jusqu'à douze mentions identiques avant la valeur fautive, sans sa phrase | chaque valeur une fois, ses chapitres, la phrase de la minoritaire | motifs lisibles ; c'est ce qui a permis les deux lots suivants |
+| `5131f89` | « Évolution : EY France \| 480 000 \| 550 000 \| +15 % » non reconnu comme calcul ; bornes écrites dans le libellé d'une donnée du socle | en-tête de résultat = calcul marqué ; nombres de libellé en référence | **trop large** : 113 chiffres blanchis d'un coup (BP 216 → 165, EC 128 → 81), dont « 9,4 % en année 3 » |
+| `6ca1ef7` | les nombres des libellés, versés dans les références, justifiaient la même valeur partout et nourrissaient les dérivations | un nombre de libellé ne vaut que dans la phrase qui recopie ce libellé | contrôle réarmé : BP 212, EC 121, EM 28, STR 21 — seuls les 13 cas visés disparaissent |
+| `62508b7` | douze motifs sur seize étaient des lectures fausses : grille valeur-avant-libellé, « dépasse le seuil de… », opérande « (18 667 €/54 276 €) », « première année », fin de trajectoire ; mots de rupture sans accent jamais reconnus | ligne franchie, comparaison avant le libellé, parenthèse de calcul, ordinaux, trajectoire ; accents | `coherence_chiffree` BP 16 → 7 |
+| suivant | composante (« se décompose en 40 716 € issus de… »), seuil légal (« ne dépasse pas »), montant suivi d'une autre grandeur (« 54 276 euros de chiffre d'affaires ») ; phrase du motif centrée sur le libellé | mots de rupture étendus ; complément de grandeur après le montant | à mesurer |
+
+Leçon du lot `5131f89`, à garder : **une baisse trop belle se relit comme une
+hausse**. La mesure a dit 113 ; la lecture des 113 a dit qu'une centaine
+n'avait rien à voir avec le correctif. Sans le détail par phrase, ce lot
+serait resté en production comme un succès.

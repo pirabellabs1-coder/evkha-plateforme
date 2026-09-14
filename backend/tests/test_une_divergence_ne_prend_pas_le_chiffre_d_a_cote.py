@@ -95,3 +95,46 @@ def test_la_divergence_synapses_reste_attrapee() -> None:
         15: "Le seuil de rentabilité atteint 180 000 €.",
     })
     assert len(divs) == 1
+
+
+# ── Relecture des sept motifs restants (mesure `corpus-20260914-1502`) ───────
+
+
+def test_une_composante_du_chiffre_d_affaires_n_est_pas_le_chiffre_d_affaires() -> None:
+    assert _divergences({
+        3: "Le chiffre d'affaires prévisionnel de l'année 1 est de 54 276 euros.",
+        4: (
+            "Le chiffre d'affaires prévisionnel de l'année 1 se décompose en 40 716 € "
+            "issus des abonnements B2B et 13 560 € issus des ventes."
+        ),
+    }) == []
+
+
+def test_un_seuil_legal_n_est_pas_le_chiffre_d_affaires_du_projet() -> None:
+    assert _divergences({
+        7: "Le chiffre d'affaires de l'année 1 est de 54 276 €.",
+        13: (
+            "Le taux réduit s'applique aux petites entreprises dont le chiffre "
+            "d'affaires ne dépasse pas 10 millions d'euros, ce qui reste le cas avec "
+            "269 721 € en année 1."
+        ),
+    }) == []
+
+
+def test_un_montant_suivi_d_un_autre_libelle_est_le_sien() -> None:
+    assert _divergences({
+        2: "Le seuil de rentabilité est de 18 667 euros.",
+        15: (
+            "L'emprunt s'apprécie au regard du seuil de rentabilité déjà établi : "
+            "54 276 euros de chiffre d'affaires en année 1."
+        ),
+    }) == []
+
+
+def test_une_vraie_divergence_de_chiffre_d_affaires_reste_attrapee() -> None:
+    """CONTRE-ÉPREUVE : sans composante ni seuil, deux CA de l'année 1 s'opposent."""
+    divs = _divergences({
+        3: "Le chiffre d'affaires prévisionnel de l'année 1 est de 54 276 euros.",
+        4: "Le chiffre d'affaires prévisionnel de l'année 1 atteint 40 716 €.",
+    })
+    assert len(divs) == 1
