@@ -521,9 +521,20 @@ _BP: tuple[DefinitionDonnee, ...] = (
         "dette_residuelle_an3", "Dette résiduelle — fin d'exercice 3",
         Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
     ),
-    DefinitionDonnee(
-        "charges_fixes_an1", "Charges fixes — exercice 1",
-        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+    # Charges fixes, rémunération, masse salariale et effectif sur les TROIS
+    # exercices. Seul l'exercice 1 avait sa place, « l'exercice 1 suffit au
+    # chapitre qui les exploite » — mais le chapitre 18 exige « l'évolution
+    # progressive de la rémunération » et le chapitre 16 un prévisionnel sur
+    # trois ans. Les exercices 2 et 3 s'écrivaient donc hors socle : « Charges
+    # fixes | 188 150 € | 211 350 € | 220 300 € », « Rémunération brute
+    # mensuelle | 1 200 € | 1 800 € | 2 300 € » (business plans du corpus du
+    # 14/09/2026), sans rien pour les tenir d'un chapitre à l'autre.
+    *(
+        DefinitionDonnee(
+            f"charges_fixes_an{n}", f"Charges fixes — exercice {n}",
+            Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16,),
+        )
+        for n in (1, 2, 3)
     ),
     DefinitionDonnee(
         "seuil_rentabilite", "Seuil de rentabilité (point mort)",
@@ -533,17 +544,26 @@ _BP: tuple[DefinitionDonnee, ...] = (
                     "des charges fixes et du taux de marge.",
     ),
     # Chapitre 18 — rémunération
-    DefinitionDonnee(
-        "remuneration_dirigeant_an1", "Rémunération du dirigeant — exercice 1",
-        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16, 18),
+    *(
+        DefinitionDonnee(
+            f"remuneration_dirigeant_an{n}", f"Rémunération du dirigeant — exercice {n}",
+            Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16, 18),
+        )
+        for n in (1, 2, 3)
     ),
-    DefinitionDonnee(
-        "masse_salariale_an1", "Masse salariale — exercice 1",
-        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(12, 16, 18),
+    *(
+        DefinitionDonnee(
+            f"masse_salariale_an{n}", f"Masse salariale — exercice {n}",
+            Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(12, 16, 18),
+        )
+        for n in (1, 2, 3)
     ),
-    DefinitionDonnee(
-        "effectif_an1", "Effectif — exercice 1",
-        Perimetre.ENTREPRISE, FamilleUnite.EFFECTIF, chapitres=(12, 18),
+    *(
+        DefinitionDonnee(
+            f"effectif_an{n}", f"Effectif — exercice {n}",
+            Perimetre.ENTREPRISE, FamilleUnite.EFFECTIF, chapitres=(12, 18),
+        )
+        for n in (1, 2, 3)
     ),
 )
 

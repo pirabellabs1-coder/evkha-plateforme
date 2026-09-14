@@ -119,12 +119,13 @@ def test_les_series_annuelles_suivent_la_convention_de_radical() -> None:
     annuels = [d.identifiant for d in _BP if d.identifiant[-4:] in ("_an1", "_an2", "_an3")]
     assert len(annuels) >= 15
     radicaux = {i[:-4] for i in annuels}
-    # Chaque radical decline ses trois exercices, ou seulement l'exercice 1
-    # (charges fixes, remuneration, masse salariale, effectif — l'exercice 1
-    # suffit au chapitre qui les exploite).
+    # Chaque radical decline ses TROIS exercices. L'exception « l'exercice 1
+    # suffit » (charges fixes, remuneration, masse salariale, effectif) etait
+    # fausse : les chapitres 16 et 18 projettent ces postes sur trois ans, et
+    # les exercices 2 et 3 s'ecrivaient hors socle (corpus du 14/09/2026).
     for radical in radicaux:
         exercices = sorted(i[-1] for i in annuels if i.startswith(radical + "_an"))
-        assert exercices in (["1"], ["1", "2", "3"]), (radical, exercices)
+        assert exercices == ["1", "2", "3"], (radical, exercices)
 
 
 def test_les_libelles_surveilles_par_le_gate_ont_leur_emplacement() -> None:

@@ -277,9 +277,29 @@ mentions identiques avant la valeur fautive, sans la phrase (règle 2).
 | `5131f89` | « Évolution : EY France \| 480 000 \| 550 000 \| +15 % » non reconnu comme calcul ; bornes écrites dans le libellé d'une donnée du socle | en-tête de résultat = calcul marqué ; nombres de libellé en référence | **trop large** : 113 chiffres blanchis d'un coup (BP 216 → 165, EC 128 → 81), dont « 9,4 % en année 3 » |
 | `6ca1ef7` | les nombres des libellés, versés dans les références, justifiaient la même valeur partout et nourrissaient les dérivations | un nombre de libellé ne vaut que dans la phrase qui recopie ce libellé | contrôle réarmé : BP 212, EC 121, EM 28, STR 21 — seuls les 13 cas visés disparaissent |
 | `62508b7` | douze motifs sur seize étaient des lectures fausses : grille valeur-avant-libellé, « dépasse le seuil de… », opérande « (18 667 €/54 276 €) », « première année », fin de trajectoire ; mots de rupture sans accent jamais reconnus | ligne franchie, comparaison avant le libellé, parenthèse de calcul, ordinaux, trajectoire ; accents | `coherence_chiffree` BP 16 → 7 |
-| suivant | composante (« se décompose en 40 716 € issus de… »), seuil légal (« ne dépasse pas »), montant suivi d'une autre grandeur (« 54 276 euros de chiffre d'affaires ») ; phrase du motif centrée sur le libellé | mots de rupture étendus ; complément de grandeur après le montant | à mesurer |
+| `6527799` | composante (« se décompose en 40 716 € issus de… »), seuil légal (« ne dépasse pas »), montant suivi d'une autre grandeur (« 54 276 euros de chiffre d'affaires ») ; phrase du motif centrée sur le libellé | mots de rupture étendus ; complément de grandeur après le montant | BP 7 → 4 |
+| `82ac17c` | valeur écrite avant son libellé ; montant d'un terme coordonné ; année prise au début du contexte au lieu de la plus proche | valeur avant libellé ; coordination ; année la plus proche du montant | BP 4 → 1 |
+| `701385f` | début de trajectoire « passe de 54 276 € à 269 721 € » ; « Absent du projet \| 0 € » (l'expression corrigée pour « absences » avait perdu « absent ») | début de trajectoire ; `absen(?:ces?\|te?s?)` | `coherence_chiffree` BP 1 → **0** ; valeurs nulles BP 3 → 2 |
+| suivant | les exercices 2 et 3 des charges fixes, de la rémunération, de la masse salariale et de l'effectif s'écrivaient hors socle : le référentiel ne leur donnait que l'exercice 1, alors que les chapitres 16 et 18 les projettent sur trois ans | trois exercices par série au référentiel du business plan | effet sur les prochains dossiers (socles anciens déjà verrouillés) |
 
 Leçon du lot `5131f89`, à garder : **une baisse trop belle se relit comme une
 hausse**. La mesure a dit 113 ; la lecture des 113 a dit qu'une centaine
 n'avait rien à voir avec le correctif. Sans le détail par phrase, ce lot
 serait resté en production comme un succès.
+
+## Bilan du 14/09/2026, nuit — mêmes 37 dossiers, `corpus-1247` → `corpus-1550`
+
+| Contrôle | 12 h 47 | 15 h 50 |
+|---|---|---|
+| chiffres hors socle BP / EC / EM / STR | 222 / 153 / 30 / 19 | 212 / 121 / 28 / 21 |
+| valeurs nulles BP / EC / STR | 7 / 5 / 8 | 2 / 0 / 5 |
+| gate `coherence_chiffree` BP | 16 | **0** |
+| gate `calcul_faux` BP | 4 | **0** |
+| gate `troncature` EM / STR | 4 / 1 | **0 / 0** |
+| sources sans adresse EM | 21 (sur 18 lignes lues, la méthodologie) | 5 (sur 176 sources réelles) |
+| sources sans adresse BP | 15 | 21 — vrais, tableaux de sources désormais lus |
+
+Les valeurs nulles restantes sont vraies (coût d'acquisition « non mesuré »
+rendu « 0 € », masse salariale « à préciser » rendue « 0 € »), sauf deux cas
+défendables laissés signalés : un zéro expliqué dans une AUTRE cellule (« Temps
+dirigeant, environ 30 minutes ») et une hypothèse « à confirmer ».
