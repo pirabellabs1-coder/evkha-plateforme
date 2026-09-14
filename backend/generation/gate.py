@@ -45,6 +45,7 @@ from core.numbers import (
     SPACE_CLASS,
     amounts_in,
     parse_amount,
+    parse_number,
 )
 
 from .internal_labels import callout_alternation, forbidden_words_alternation
@@ -1340,12 +1341,17 @@ def _check_fourchettes(
 
     from .checks_evangeline import detecter_fourchettes  # noqa: PLC0415
 
+    plages_du_client: frozenset[tuple[float, float, str]] | None = None
     failures: list[GateFailure] = []
     for section in sections:
         for f in detecter_fourchettes(
             section.number, section.body,
             deliverable_type=str(job.deliverable_type),
         ):
+            if plages_du_client is None:
+                plages_du_client = _plages_du_client(job)
+            if _cle_de_plage(f.borne_basse, f.borne_haute, f.unite) in plages_du_client:
+                continue
             failures.append(GateFailure(
                 check="fourchette_interdite",
                 chapter_number=f.chapitre,
@@ -1355,6 +1361,66 @@ def _check_fourchettes(
                 ),
             ))
     return failures
+
+
+# ── Une plage que le client a écrite ─────────────────────────────────────────
+#
+# Corpus du 15/09/2026. La cliente écrit elle-même « le modèle B2B fonctionne par
+# abonnement et crédits, actuellement de 129 € à 429 €/mois, selon le nombre de
+# livrables inclus » (`5c5e91b9`), ou « budget de consultation 100-300 € »
+# (`f8a29b66`). Le document qui reprend « de 129 à 429 € par mois » cite le
+# client ; lui imposer une valeur unique, c'est faire inventer au correcteur un
+# chiffre que personne n'a donné — et le motif était routé vers une réécriture
+# payée (règle 2).
+#
+# Ce qui n'est PAS exempté, et c'est la décision du 14/09/2026 : trois prix
+# DISTINCTS du brief (60 € à distance, 65 € en atelier, 75 € à domicile)
+# résumés par le rédacteur en « 60 à 75 €/h ». La plage efface les prix, et la
+# consigne exige « UN prix par variante » (voir
+# `test_les_consignes_ne_fabriquent_pas_de_fourchettes.py`). Une première
+# version de ce correctif admettait deux montants du client VOISINS : elle
+# rouvrait ce cas, et laissait passer « de 15 à 2 500 euros » dès que le client
+# citait un panier à 15 € près d'un forfait à 2 500 € (relecture du 15/09).
+#
+# La plage du client est donc lue par le MÊME détecteur que celle du document
+# (règle 5) : une forme qu'il ne tiendrait pas pour une plage dans le livrable
+# — « Mois 1 - 1 500 € », « passer de 120 000 € à 157 500 € », « 12 € et 29 € »
+# — n'en est pas une chez le client non plus.
+
+#: « 129 € à 429 € » : l'unité répétée après la borne basse. Le détecteur ne
+#: lit l'unité qu'en fin de plage ; on la retire de la borne basse pour qu'il
+#: voie ce que le client a écrit, sans rien changer d'autre.
+_UNITE_DE_LA_BORNE_BASSE = re.compile(
+    rf"(\d)(?:{SPACE_CLASS})*(?:Mds€|Md€|M€|k€|€|euros?\b|EUR\b|%)"
+    rf"(?=(?:{SPACE_CLASS})*(?:[aà]|-|–|—|et)(?:{SPACE_CLASS})*\d)",
+    re.IGNORECASE,
+)
+
+_MEME_UNITE = {"€": "eur", "euro": "eur", "euros": "eur", "eur": "eur"}
+
+
+def _cle_de_plage(basse: str, haute: str, unite: str) -> tuple[float, float, str] | None:
+    bas, haut = parse_number(basse), parse_number(haute)
+    if bas is None or haut is None:
+        return None
+    forme = unite.casefold()
+    return round(bas, 2), round(haut, 2), _MEME_UNITE.get(forme, forme)
+
+
+def _plages_du_client(job: GenerationJob) -> frozenset[tuple[float, float, str]]:
+    """Les plages que le client a écrites, dans son brief ou ses documents."""
+    from .checks_evangeline import detecter_fourchettes  # noqa: PLC0415
+    from .documents_client import texte_des_documents  # noqa: PLC0415
+    from .verification.services import _brief_complet  # noqa: PLC0415
+
+    texte = _UNITE_DE_LA_BORNE_BASSE.sub(
+        r"\1", f"{_brief_complet(job)}\n\n{texte_des_documents(job)}"
+    )
+    return frozenset(
+        cle
+        for plage in detecter_fourchettes(0, texte)
+        if (cle := _cle_de_plage(plage.borne_basse, plage.borne_haute, plage.unite))
+    )
 
 
 # _check_concurrents_ec : migre dans `strategies/ec.py` (etape 6).

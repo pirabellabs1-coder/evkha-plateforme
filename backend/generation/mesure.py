@@ -274,6 +274,22 @@ def _phrases_du_sujet(sections: list[tuple[int, str, str]], detail: str) -> str:
     return " / ".join(f"[ch. {numero}] {phrase}" for _, numero, phrase in candidates[:6])
 
 
+def _phrase_de_la_plage(corps: str, detail: str) -> str:
+    """Le passage où la plage est écrite : « Fourchette detectee : « 60 à 75 € » ».
+
+    Sans lui, on ne distingue pas une hésitation du rédacteur (« de 15 à 2 500
+    euros selon le secteur ») d'une grille du client résumée (« interventions
+    ponctuelles (60 à 75 €/h) ») — corpus du 15/09/2026.
+    """
+    plage = re.search(r"« (.+?) »", detail)
+    if plage is None:
+        return ""
+    position = corps.find(plage.group(1))
+    if position < 0:
+        return ""
+    return " ".join(corps[max(0, position - 220) : position + 140].split())
+
+
 def _echecs_du_gate(
     job: GenerationJob, sections: list[tuple[int, str, str]] | None = None,
 ) -> dict[str, list[dict[str, object]]]:
@@ -298,6 +314,8 @@ def _echecs_du_gate(
             return _tableau_de_la_colonne(corps, detail)
         if check.endswith("decision_absente"):
             return _phrases_du_sujet(sections or [], detail)
+        if check == "fourchette_interdite":
+            return _phrase_de_la_plage(corps, detail)
         return ""
 
     return _regrouper([
