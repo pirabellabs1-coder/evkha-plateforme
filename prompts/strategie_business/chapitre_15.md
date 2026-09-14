@@ -11,25 +11,25 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Transforme les analyses precedentes en arbitrages strategiques clairs : identifie les priorites du business, optimise l'allocation des ressources et structure les decisions a venir. Une entreprise ne peut pas tout developper, tout lancer, tout prioriser ni tout absorber simultanement. Ecris comme un directeur strategique qui hierarchise, arbitre et priorise.
+Transforme les analyses précédentes en arbitrages stratégiques clairs : identifie les priorités du business, optimise l'allocation des ressources et structure les décisions a venir. Une entreprise ne peut pas tout développer, tout lancer, tout prioriser ni tout absorber simultanément. Écris comme un directeur stratégique qui hierarchise, arbitre et priorise.
 
 ## Identification des priorités stratégiques
-Nomme les activites a forte valeur, les leviers prioritaires et les axes de developpement les plus coherents. Relie rentabilite, positionnement, charge dirigeant, potentiel de croissance et coherence strategique pour justifier chaque priorite.
+Nomme les activités a forte valeur, les leviers prioritaires et les axes de développement les plus cohérents. Relie rentabilité, positionnement, charge dirigeant, potentiel de croissance et cohérence stratégique pour justifier chaque priorité.
 
 ## Activités à limiter ou à repositionner
-Identifie les activites peu coherentes, les prestations energivores et ce qui freine la structuration, la rentabilite ou la montee en gamme. Produis une lecture lucide de ce qui doit etre reduit, differe, repositionne ou eventuellement abandonne.
+Identifie les activités peu cohérentes, les prestations energivores et ce qui freine la structuration, la rentabilité ou la montée en gamme. Produis une lecture lucide de ce qui doit être réduit, differe, repositionne ou éventuellement abandonne.
 
 ## Allocation stratégique des ressources
-Analyse l'utilisation actuelle des ressources, identifie les desequilibres et propose une logique d'allocation plus coherente : temps dirigeant, budget, energie, visibilite, developpement commercial, structuration, outils, investissements futurs.
+Analyse l'utilisation actuelle des ressources, identifie les desequilibres et propose une logique d'allocation plus cohérente : temps dirigeant, budget, énergie, visibilité, développement commercial, structuration, outils, investissements futurs.
 
 ## Arbitrages de croissance & soutenabilité
-Evalue la capacite reelle du business a absorber la croissance et les risques lies a une acceleration mal structuree : rythme de croissance, charge mentale, soutenabilite humaine, stabilite financiere, capacite organisationnelle.
+Évalue la capacité réelle du business a absorber la croissance et les risques lies a une accélération mal structuree : rythme de croissance, charge mentale, soutenabilité humaine, stabilité financière, capacité organisationnelle.
 
-Traite : quelles activites doivent devenir prioritaires, lesquelles consomment trop de ressources, quels arbitrages faire, quels leviers renforcer, quelles ressources sont mal allouees, quelles decisions differer, quels developpements sont prematures, comment ameliorer la coherence globale du business.
+Traite : quelles activités doivent devenir prioritaires, lesquelles consomment trop de ressources, quels arbitrages faire, quels leviers renforcer, quelles ressources sont mal allouees, quelles décisions différer, quels developpements sont prematures, comment améliorer la cohérence globale du business.
 
 ## Lecture stratégique
-Prends du recul : analyse directionnelle, consequences futures de chaque arbitrage, lien explicite entre les constats des chapitres precedents et les decisions retenues. Reduis les logiques opportunistes et les risques de dispersion. Les arbitrages doivent respecter les ressources reelles du dirigeant, le rythme de developpement doit rester realiste et la croissance proposee soutenable.
+Prends du recul : analyse directionnelle, conséquences futures de chaque arbitrage, lien explicite entre les constats des chapitres précédents et les décisions retenues. Reduis les logiques opportunistes et les risques de dispersion. Les arbitrages doivent respecter les ressources réelles du dirigeant, le rythme de développement doit rester réaliste et la croissance proposee soutenable.
 
-Termine par une synthese des arbitrages majeurs, une clarification des priorites reelles du business, puis une transition vers le chapitre Pilotage strategique & soutenabilite du business.
+Termine par une synthèse des arbitrages majeurs, une clarification des priorités réelles du business, puis une transition vers le chapitre Pilotage stratégique & soutenabilité du business.
 
-Interdits : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile.
+Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.

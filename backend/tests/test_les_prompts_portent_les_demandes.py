@@ -31,6 +31,7 @@ from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from generation.chapitres.configuration import type_document
 from generation.chapitres.runner import _SYSTEME, construire_prompt_chapitre
+from generation.geography import _strip_accents as _plat
 from generation.services import bootstrap_generation_job
 from generation.socle.prompt import construire_prompt_socle
 from generation.socle.referentiel import Fiabilite, Perimetre
@@ -44,6 +45,9 @@ from generation.socle.schema import (
 )
 from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
 from orders.models import Order
+
+#: Les prompts ont retrouvé leurs accents le 14/09/2026 (audit A22) : ces
+#: tests vérifient qu'une EXIGENCE est présente, pas son orthographe.
 
 VARIABLES: dict[str, str] = {
     "SECTEUR": "torréfaction artisanale de café",
@@ -182,7 +186,7 @@ def textes(django_db_setup: object, django_db_blocker: object) -> dict[str, str]
 def test_la_demande_est_dans_le_prompt_reellement_envoye(
     textes: dict[str, str], libelle: str, fragment: str, ou: str
 ) -> None:
-    assert fragment in textes[ou], (
+    assert _plat(fragment) in _plat(textes[ou]), (
         f"« {libelle} » ne part plus : fragment « {fragment} » absent du "
         f"prompt {ou}. Écrit ne veut pas dire transmis (règle 8)."
     )
@@ -210,7 +214,7 @@ def test_les_regles_de_fond_atteignent_chaque_livrable(
     with django_db_blocker.unblock():  # type: ignore[attr-defined]
         texte = _prompt(livrable) + "\n" + _SYSTEME
     manquantes = [
-        libelle for libelle, fragment in UNIVERSELLES if fragment not in texte
+        libelle for libelle, fragment in UNIVERSELLES if _plat(fragment) not in _plat(texte)
     ]
     assert manquantes == [], f"{livrable} ne reçoit pas : {', '.join(manquantes)}"
 
@@ -269,7 +273,7 @@ DEMANDES_V2: list[tuple[str, str, str]] = [
 def test_la_demande_v2_est_dans_le_prompt_reellement_envoye(
     textes: dict[str, str], libelle: str, fragment: str, ou: str
 ) -> None:
-    assert fragment in textes[ou], (
+    assert _plat(fragment) in _plat(textes[ou]), (
         f"« {libelle} » ne part plus : fragment « {fragment} » absent du "
         f"prompt {ou}."
     )
@@ -292,4 +296,4 @@ def test_les_fiches_ec_envoient_chercher_les_sources_officielles() -> None:
 
     for attendu in ("site du concurrent", "conditions generales de vente",
                     "page tarifs", "page livraison", "fidelite"):
-        assert attendu in fiche, attendu
+        assert _plat(attendu) in _plat(fiche), attendu

@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Resume executif (1 page maximum) : presentation synthetique du projet et de son activite, historique et contexte du demarrage, objectifs de creation ou de structuration, chiffres cles previsionnels sur 3 ans, vision globale et message central. Percutant et clair, ecrit comme si le porteur s'exprimait.
+Resume exécutif (1 page maximum) : présentation synthétique du projet et de son activité, historique et contexte du démarrage, objectifs de création ou de structuration, chiffres clés previsionnels sur 3 ans, vision globale et message central. Percutant et clair, écrit comme si le porteur s'exprimait.

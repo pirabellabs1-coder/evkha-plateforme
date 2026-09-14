@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Organisation humaine et moyens materiels : role du dirigeant, equipe actuelle et recrutements envisages, moyens materiels existants et a acquerir, locaux et equipements, fournisseurs strategiques. Coherent avec le stade de developpement du projet.
+Organisation humaine et moyens materiels : rôle du dirigeant, équipe actuelle et recrutements envisages, moyens materiels existants et a acquerir, locaux et equipements, fournisseurs stratégiques. Cohérent avec le stade de développement du projet.

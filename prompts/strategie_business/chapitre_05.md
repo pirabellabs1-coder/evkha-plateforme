@@ -11,30 +11,30 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Rends visibles les fragilites reelles, les risques structurels, les dependances critiques et les limites actuelles du modele. Lecture lucide, sans dramatisation mais sans complaisance : l'objectif est de nommer ce qui peut freiner la croissance, la rentabilite, la soutenabilite ou la structuration future.
+Rends visibles les fragilités réelles, les risques structurels, les dépendances critiques et les limites actuelles du modèle. Lecture lucide, sans dramatisation mais sans complaisance : l'objectif est de nommer ce qui peut freiner la croissance, la rentabilité, la soutenabilité ou la structuration future.
 
 ## Dépendance au dirigeant
-Analyse le niveau de centralisation du business et les dependances critiques : operationnelle, commerciale, technique, relationnelle, decisionnelle, surcharge mentale. Identifie surtout les limites de croissance liees au temps humain disponible.
+Analyse le niveau de centralisation du business et les dépendances critiques : opérationnelle, commerciale, technique, relationnelle, decisionnelle, surcharge mentale. Identifie surtout les limites de croissance liees au temps humain disponible.
 
 ## Fragilités organisationnelles
-Analyse les limites de structuration et les risques operationnels futurs : absence de process, manque de priorisation, organisation intuitive, manque d'outils, surcharge operationnelle, difficultes de delegation.
+Analyse les limites de structuration et les risques operationnels futurs : absence de process, manque de priorisation, organisation intuitive, manque d'outils, surcharge opérationnelle, difficultes de délégation.
 
 ## Contraintes économiques & financières
-Identifie les fragilites economiques et les risques de soutenabilite : faibles marges, irregularite des revenus, saisonnalite, pression tresorerie, dependance a certains clients, logique temps contre argent, fragilite du modele economique.
+Identifie les fragilités économiques et les risques de soutenabilité : faibles marges, irregularite des revenus, saisonnalité, pression trésorerie, dépendance a certains clients, logique temps contre argent, fragilité du modèle économique.
 
 ## Risques stratégiques & commerciaux
-Analyse les risques de dilution et les incoherences potentielles : dispersion commerciale, offres trop nombreuses, absence de specialisation, problemes de lisibilite, acquisition non coherente, dependance excessive a certains canaux.
+Analyse les risques de dilution et les incohérences potentielles : dispersion commerciale, offres trop nombreuses, absence de spécialisation, problèmes de lisibilité, acquisition non cohérente, dépendance excessive a certains canaux.
 
 ## Risques liés à la croissance future
-Anticipe les limites du modele en cas de croissance et les points de saturation : surcharge dirigeant, perte de qualite, desorganisation, tensions financieres, croissance non soutenable, incapacite a absorber la demande.
+Anticipe les limites du modèle en cas de croissance et les points de saturation : surcharge dirigeant, perte de qualité, desorganisation, tensions financières, croissance non soutenable, incapacite a absorber la demande.
 
-Traite explicitement : fragilites qui freinent le developpement, degre de dependance au dirigeant, risques structurels, soutenabilite du modele, elements qui fragilisent la rentabilite, problemes que la croissance fera apparaitre, risques de dispersion, limites a traiter rapidement.
+Traite explicitement : fragilités qui freinent le développement, degre de dépendance au dirigeant, risques structurels, soutenabilité du modèle, éléments qui fragilisent la rentabilité, problèmes que la croissance fera apparaître, risques de dispersion, limites a traiter rapidement.
 
-Contextualise chaque fragilite : verifie sa coherence avec le niveau de maturite du business et avec les ambitions du dirigeant. Interdits : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile, risques enonces sans consequence business.
+Contextualise chaque fragilité : verifie sa cohérence avec le niveau de maturité du business et avec les ambitions du dirigeant. Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile, risques enonces sans conséquence business.
 
 ## A retenir
-Prends du recul : transforme les fragilites implicites en problematiques strategiques identifiees, nomme les consequences futures de chaque dependance et relie ces constats aux arbitrages a preparer.
+Prends du recul : transforme les fragilités implicites en problematiques stratégiques identifiées, nomme les conséquences futures de chaque dépendance et relie ces constats aux arbitrages a préparer.
 
-Termine par une synthese des fragilites majeures, une lecture des priorites structurelles, et une transition vers la clarification du positionnement strategique et des verticales prioritaires, traitee au chapitre Enjeux strategiques du positionnement.
+Termine par une synthèse des fragilités majeures, une lecture des priorités structurelles, et une transition vers la clarification du positionnement stratégique et des verticales prioritaires, traitee au chapitre Enjeux stratégiques du positionnement.
 
-Apres l'analyse redigee, un bloc `tableau` a trois colonnes : les 4 a 5 fragilites principales, leur criticite (Critique / Elevee / Moderee), et le fait qui la justifie.
+Après l'analyse rédigée, un bloc `tableau` a trois colonnes : les 4 à 5 fragilités principales, leur criticité (Critique / Élevée / Modérée), et le fait qui la justifie.

@@ -11,9 +11,9 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Liste les sources utilisees pour construire cette strategie, regroupees par thematique (Donnees marche, Benchmarks sectoriels, Reglementation, Documents client). Reprends en PRIORITE les URLs reelles du bloc SOURCES_WEB du contexte ; n'invente aucune URL absente de ce bloc. Format simple :
-## Donnees marche
+Liste les sources utilisées pour construire cette stratégie, regroupees par thématique (Données marche, Benchmarks sectoriels, Réglementation, Documents client). Reprends en PRIORITÉ les URLs réelles du bloc SOURCES_WEB du contexte ; n'invente aucune URL absente de ce bloc. Format simple :
+## Données marche
 - Nom - URL si disponible
 ## Benchmarks sectoriels
 - ...
-Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe '## Methodologie' (3-4 lignes) precisant la demarche (croisement diagnostic / arbitrages / feuille de route). Rester concis et structure.
+Pas plus de 4-6 sources par thématique. Ajoute un court paragraphe '## Méthodologie' (3-4 lignes) precisant la démarche (croisement diagnostic / arbitrages / feuille de route). Rester concis et structure.

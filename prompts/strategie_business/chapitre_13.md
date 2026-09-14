@@ -11,28 +11,28 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Construis la strategie de visibilite et d'acquisition du business : hierarchise les leviers, organise l'acquisition future et aligne le developpement commercial sur le positionnement, les offres, les verticales et les ambitions. Objectif : etre visible intelligemment, pas massivement.
+Construis la stratégie de visibilité et d'acquisition du business : hierarchise les leviers, organise l'acquisition future et aligne le développement commercial sur le positionnement, les offres, les verticales et les ambitions. Objectif : être visible intelligemment, pas massivement.
 
 ## Canaux prioritaires à développer
-Identifie les canaux les plus coherents, hierarchise les priorites et explique pourquoi certains leviers doivent devenir centraux. Contextualise la logique des choix, les benefices attendus et les impacts business possibles.
+Identifie les canaux les plus cohérents, hierarchise les priorités et explique pourquoi certains leviers doivent devenir centraux. Contextualise la logique des choix, les benefices attendus et les impacts business possibles.
 
 ## Stratégie d'autorité & crédibilité
-Analyse les leviers qui renforcent la credibilite, la perception d'expertise et l'autorite du business : LinkedIn, partenariats, interventions, visibilite institutionnelle, contenus experts, referencement, recommandations, logique reseau.
+Analyse les leviers qui renforcent la crédibilité, la perception d'expertise et l'autorité du business : LinkedIn, partenariats, interventions, visibilité institutionnelle, contenus experts, référencement, recommandations, logique réseau.
 
 ## Stratégie relationnelle & acquisition qualitative
-Structure une logique d'acquisition coherente qui privilegie la qualite a la quantite, et aligne visibilite, clients cibles et modele economique : acquisition premium, locale, B2B, relationnelle ou communautaire.
+Structure une logique d'acquisition cohérente qui privilegie la qualité a la quantite, et aligne visibilité, clients cibles et modèle économique : acquisition premium, locale, B2B, relationnelle ou communautaire.
 
 ## Cohérence globale de la stratégie de visibilité
-Verifie l'alignement entre visibilite, image, offres et ambitions du business. Detecte les incoherences potentielles, les risques de dispersion et les leviers trop energivores au regard de leur valeur reelle.
+Vérifie l'alignement entre visibilité, image, offres et ambitions du business. Détecte les incohérences potentielles, les risques de dispersion et les leviers trop energivores au regard de leur valeur réelle.
 
-Traite explicitement : quels canaux doivent devenir prioritaires, quels leviers sont reellement coherents avec le positionnement, quelle visibilite soutient la strategie, quels canaux generent de l'autorite, de la credibilite ou des clients premium, quels leviers doivent rester secondaires, quels canaux peuvent devenir des leviers long terme, quelle strategie permet une croissance coherente et soutenable.
+Traite explicitement : quels canaux doivent devenir prioritaires, quels leviers sont réellement cohérents avec le positionnement, quelle visibilité soutient la stratégie, quels canaux generent de l'autorité, de la crédibilité ou des clients premium, quels leviers doivent rester secondaires, quels canaux peuvent devenir des leviers long terme, quelle stratégie permet une croissance cohérente et soutenable.
 
 ## Lecture stratégique
-Prends du recul : produis une analyse directionnelle, nomme les consequences futures de chaque choix de canal, relie les constats aux decisions commerciales a prendre et evalue la reduction des dependances commerciales. Produis une logique de developpement business, pas une simple strategie social media.
+Prends du recul : produis une analyse directionnelle, nomme les conséquences futures de chaque choix de canal, relie les constats aux décisions commerciales a prendre et evalue la réduction des dépendances commerciales. Produis une logique de développement business, pas une simple stratégie social media.
 
-Termine par une synthese des leviers de visibilite prioritaires, une lecture des futurs axes de developpement commercial, puis une transition vers le chapitre Lecture economique & rentabilite du modele.
+Termine par une synthèse des leviers de visibilité prioritaires, une lecture des futurs axes de développement commercial, puis une transition vers le chapitre Lecture économique & rentabilité du modèle.
 
-Interdits : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile, recommandations non contextualisees du type « il faut poster plus » ou « il faut etre present sur tous les reseaux ».
+Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile, recommandations non contextualisees du type « il faut poster plus » ou « il faut être présent sur tous les réseaux ».
 
 ## SOUS-CHAPITRE OBLIGATOIRE — « Planning éditorial opérationnel »
 

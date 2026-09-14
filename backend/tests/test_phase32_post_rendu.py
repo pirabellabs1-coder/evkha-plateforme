@@ -219,3 +219,65 @@ def test_les_ratios_numeriques_ne_sont_pas_pris_pour_des_annonces_de_liste() -> 
     section = "Le marche pese 3 M€ en 2024, avec une croissance de 5 % par an."
 
     assert detecter_desaccords_numeriques([(1, "Ch", section)]) == []
+
+
+# ── Corpus du 14/09/2026 : sept dossiers accusés sur un article ─────────────
+
+
+def test_un_article_n_annonce_pas_un_compte() -> None:
+    """« Un segment : » suivi des deux puces qui le décrivent n'est pas « 1 annoncé, 2 vus »."""
+    from generation.checks_post_rendu import detecter_desaccords_numeriques
+
+    section = (
+        "Le projet cible en priorité un segment :\n\n"
+        "- les particuliers de plus de 65 ans ;\n"
+        "- équipés d'un ordinateur mais peu à l'aise.\n"
+    )
+
+    assert detecter_desaccords_numeriques([(6, "Ch6", section)]) == []
+
+
+def test_seule_la_liste_qui_suit_l_annonce_est_comptee() -> None:
+    """Sous-puces et liste d'après un paragraphe ne sont pas les items annoncés."""
+    from generation.checks_post_rendu import detecter_desaccords_numeriques
+
+    section = (
+        "La montée en charge suit deux phases :\n\n"
+        "- consolidation locale\n"
+        "  - relance des anciens clients\n"
+        "  - partenariats de proximité\n"
+        "- extension régionale\n\n"
+        "Les indicateurs retenus sont suivis chaque mois.\n\n"
+        "- abonnés actifs\n"
+        "- marge contributive\n"
+    )
+
+    assert detecter_desaccords_numeriques([(11, "Ch11", section)]) == []
+
+
+def test_une_liste_contigue_au_mauvais_compte_reste_signalee() -> None:
+    """CONTRE-ÉPREUVE : sous-puces écartées, le vrai écart de compte reste vu."""
+    from generation.checks_post_rendu import detecter_desaccords_numeriques
+
+    section = (
+        "Le modèle repose sur quatre piliers :\n\n"
+        "- la proximité\n"
+        "  - avis Google\n"
+        "- l'abonnement\n"
+    )
+
+    assert len(detecter_desaccords_numeriques([(8, "Ch8", section)])) == 1
+
+
+def test_une_puce_qui_continue_a_la_ligne_reste_un_seul_item() -> None:
+    """Relecture du 14/09/2026 : la suite d'un item ne ferme pas la liste."""
+    from generation.checks_post_rendu import detecter_desaccords_numeriques
+
+    section = (
+        "Nous retenons trois axes :\n"
+        "- Axe un, qui porte\nsur la proximité.\n"
+        "- Axe deux.\n"
+        "- Axe trois.\n"
+    )
+
+    assert detecter_desaccords_numeriques([(9, "Ch9", section)]) == []

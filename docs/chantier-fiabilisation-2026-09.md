@@ -61,10 +61,14 @@ des contrôles sur des phrases). Statut : ✅ corrigé, 🔧 en cours, ⏳ à fa
 | A15 | STR : décision exigée sous « offre phare / locomotive / à pousser », jamais demandée par le prompt ch 08 ; horizons 30-60-90 j contre 0-3 mois / 3-12 mois / 1-3 ans au ch 17 | STR | ✅ horizons du ch 17 alignés (30/60/90 jours, 6 et 12 mois) ; chaque chapitre porteur reçoit ses décisions sous l'intitulé que le contrôle reconnaît (voir A19) |
 | A16 | EC : décompte des concurrents dépendant de la forme (encadré coupé à six lignes, puces de forces/faiblesses) | EC | ⏳ |
 | A17 | STR : « paragraphes développés » dans tous les prompts contre le plafond de densité (médiane 25 mots) | STR | ⏳ |
-| A18 | « un segment » + encadré de 3 puces → `desaccord_numerique` | BP EC STR | ⏳ |
+| A18 | « un segment » + encadré de 3 puces → `desaccord_numerique` (7 dossiers : « un axe », « une phase », « deux phases » + puce d'une autre liste) | BP EC STR | ✅ un article n'annonce pas de compte ; l'annonce se ferme sur « : » ; seule la liste contiguë, au premier niveau, est comptée |
 | A19 | STR `decision_absente` 12/12 : le contrôle attendait une locution collée (« canaux à éviter ») ; les documents décident par un verbe (« Nous excluons Facebook Ads… », « deux publications par semaine ») ; les prompts des chapitres porteurs ne demandaient pas ces décisions, le ch 13 disait « la fréquence se déduit du tableau ». Le contrôleur réécrivait (payait) les ch 8, 10, 13 sans fermer les motifs | STR | ✅ formes verbales de décision reconnues (contre-épreuves : négation, « Reportez-vous », cadence de prospection) ; tableau « Décisions retenues » injecté au chapitre porteur depuis la même déclaration. Word des 8 stratégies lisibles : 23 → 5 motifs, les 5 restants vrais |
 | A20 | BP `coherence_chiffree` « apport » (3 dossiers, 10 motifs) : réponse LIBRE du client (charges, rémunération, enveloppe, « 1600e investis ») ; tous ses montants pris pour l'apport, motif « le brief client dit » + paragraphe entier ; et faux négatif inverse (un apport de 8 000 € accepté parce que l'enveloppe valait 8 000 €) | BP | ✅ seules les phrases qui parlent du fait font référence ; sans elles, un montant écrit par le client est conforme, sinon `reference_client_illisible` une fois, sans réécriture payée |
 | A21 | `demande_contredite` (7 dossiers) accuse sur « reprend, statut, suivant, traitée » : mots de la ligne de statut, pas un sujet ; le motif ne citait pas la ligne, introuvable par la lectrice | tous | 🔧 la ligne accusée est citée dans le motif ; correctif de classe après re-mesure (les Word de ces dossiers ont expiré) |
+| A22 | `chapitre_desaccentue` (5 dossiers) : les PROMPTS eux-mêmes écrivaient sans accents — 1 067 mots désaccentués dans 76 fichiers, mesurés avec le détecteur du gate ; le modèle reprend la forme montrée | tous | ✅ fichiers `.md` : ~2 170 accents rétablis (mot remplacé seulement s'il n'a qu'une forme accentuée, même terminaison, hors homographes ; impératifs ambigus seulement en tête de consigne) ; test de classe avec le détecteur du gate. ✅ constantes Python envoyées à chaque chapitre (règles des prix — 36 mots —, de fond, des figures, consignes EC/STR, critères de tri EC) : même traitement, jugées avec les prompts comme un seul document ; la doublure reconnaît les consignes sans tenir compte des accents |
+| A23 | `troncature_rendu` (6 dossiers) : notre rendu écrit la source en italique sous chaque tableau ; un chapitre fermé sur un tableau finissait sur « *données du projet* » → « perte probable de contenu » | tous | ✅ ligne en italique qui suit une ligne de tableau = légende ; la prose en italique reste jugée |
+| A24 | Faits CLIENT tronqués à 500 signes : la réponse « apport » perdait sa dernière phrase (« 1600e ont déjà été investis »), le gate jugeait sur une référence amputée | BP | ✅ `CoherenceFact.value` en texte (migration 0017) |
+| A25 | EC `agregat_faux` (4 dossiers) : « 15 % et le cumul des cinq premiers acteurs » confronté à une colonne de ONZE parts ; « le reste des 60 acteurs » à celle des 11 ; colonne nulle comparée | EC | ✅ une phrase qui compte ses acteurs ne se confronte qu'à une colonne de ce nombre de lignes ; colonne à somme nulle ignorée ; le cas de la cliente (« onze concurrents », 11 parts, 2,7 % contre 0,479 %) reste signalé |
 
 Suspicions et incohérences internes aux prompts (non encore prouvées ou sans
 contrôle qui les attrape) : catalogue de figures sans matrice ni chronologie
@@ -72,4 +76,37 @@ alors que des prompts les demandent ; « non communiqué » imposé en EC, inter
 par COHERENCE ; marque « EVKHA » dans trois prompts ; notation `MEUR` ;
 « points à confirmer par un professionnel » contre `_SYSTEME` ; URL de pages
 d'accueil fournies en EM ch 21 ; le prévisionnel du BP (ch 16) et EC ch 03
-reçoivent « Ne pas utiliser ce prompt directement » comme seule instruction. Faits CLIENT verrouillés à la création : une réponse complétée ensuite dans le brief (« 1600e investis ») ne remplacerait pas la valeur verrouillée — à vérifier.
+reçoivent « Ne pas utiliser ce prompt directement » comme seule instruction.
+
+## Relecture indépendante du 14/09/2026 (lot décisions, réponse libre, accents)
+
+Une relecture a trouvé un bloquant et sept points importants, tous vérifiés
+par une phrase concrète. Corrigés avant tout commit :
+
+- **Clé JSON accentuée** : la restauration avait écrit `"activités_cles"` dans
+  l'exemple du canvas (BP ch. 9), refusé par le schéma → chapitre repayé.
+  Revenu en arrière ; test : aucun identifiant ni clé JSON accentué.
+- **Tableau « Décisions retenues »** : l'étiquette seule fermait le motif, même
+  avec « À définir » dans la case, et la consigne disait « écris que tu ne
+  tranches pas » contre la règle STR « tu tranches quand même ». La case
+  « Ce qui est retenu » juge désormais ; la consigne est alignée.
+- **Formes verbales** : « Nous n'excluons aucun canal », « Aucun réseau n'est
+  encore exclu », « les concurrents publient une vidéo par semaine »
+  passaient. Locution et forme verbale sont séparées ; la forme verbale doit
+  décider (ni négation près du verbe, ni tiers dans la phrase), et les
+  plateformes nommées (Facebook, Instagram…) sont des canaux. Word réels :
+  23 → 7 motifs, les 7 restants vrais.
+- **Réponse libre (apport)** : un montant de la réponse n'est plus l'apport
+  pour autant (8 000 € d'enveloppe, 1 800 € de rémunération) ; « j'apporte »,
+  « économies », « épargne » sont reconnus ; « investis » dans une phrase de
+  prêt ne porte plus l'apport.
+- **Agrégats** : une ligne « Total » ne compte plus comme une part (elle
+  cachait de nouveau le cas de la cliente).
+- **Accents** : « est génère », « non références », « a-t-il évolue » corrigés ;
+  144 homographes sûrs traités (« liste à puces », « du marché », « 3 à 5 »).
+- **Mineurs** : la ligne qui continue une puce ne ferme plus la liste ; une
+  légende de tableau contenant `_` reste une légende.
+
+Limite à dire : la migration 0017 ne répare pas les faits déjà tronqués. Un
+dossier ancien rejoué garde sa référence amputée ; l'effet ne se verra que sur
+un nouveau dossier.

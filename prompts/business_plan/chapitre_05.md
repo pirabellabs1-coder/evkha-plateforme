@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Definit clairement le positionnement strategique : quelle place le projet occupe sur son marche, a quels besoins precis il repond, pourquoi des clients choisiraient cette offre plutot qu'une autre, comment le projet se distingue concretement de la concurrence.
+Définit clairement le positionnement stratégique : quelle place le projet occupe sur son marché, a quels besoins précis il répond, pourquoi des clients choisiraient cette offre plutôt qu'une autre, comment le projet se distingue concrètement de la concurrence.

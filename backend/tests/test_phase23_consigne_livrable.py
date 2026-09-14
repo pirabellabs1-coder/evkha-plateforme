@@ -24,6 +24,7 @@ from generation.checks_evangeline import (
     verifier_concurrents_dans_ec,
     verifier_piliers_strategie,
 )
+from generation.geography import _strip_accents as _plat
 from generation.prompts import build_system_prompt
 
 # ── 1. EC : la consigne 8 + 3 est bien injectee au prompt ────────────────────
@@ -96,8 +97,8 @@ def test_le_prompt_strategie_impose_la_vision_et_le_plan_d_action() -> None:
     d'action opérationnel »."""
     prompt = build_system_prompt(DeliverableType.BUSINESS_STRATEGY)
 
-    assert "vision strategique" in prompt.lower()
-    assert "plan d'action operationnel" in prompt.lower()
+    assert "vision strategique" in _plat(prompt).lower()
+    assert "plan d'action operationnel" in _plat(prompt).lower()
 
 
 def test_un_output_strategie_pose_les_4_piliers_apres_ce_prompt() -> None:

@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Synthese strategique du marche cible : taille et dynamique, segments prioritaires, tendances favorables au projet, clientele cible et ses besoins. Produit une lecture business claire, pas une etude exhaustive. Relie systematiquement les donnees au projet concret.
+Synthèse stratégique du marché cible : taille et dynamique, segments prioritaires, tendances favorables au projet, clientèle cible et ses besoins. Produit une lecture business claire, pas une étude exhaustive. Relie systématiquement les données au projet concret.

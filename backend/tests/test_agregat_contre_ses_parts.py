@@ -92,3 +92,52 @@ def test_un_agregat_sans_colonne_de_parts_ne_declenche_rien() -> None:
         "Le marché national est capté à 2,7 % par les onze concurrents "
         "recensés, selon notre estimation.",
     ]) == []
+
+
+# ── Corpus du 14/09/2026 : la phrase qui COMPTE ses acteurs ─────────────────
+
+
+def test_le_cumul_des_cinq_premiers_ne_se_confronte_pas_a_onze_parts() -> None:
+    """`6cb0fab3` : « 15 % et le cumul des cinq premiers acteurs » contre onze parts."""
+    fautes = agregats_faux([
+        TABLEAU,
+        "Le leader détient 15 % et le cumul des cinq premiers acteurs reste modeste.",
+    ])
+    assert fautes == []
+
+
+def test_le_reste_des_soixante_acteurs_n_est_pas_la_colonne_des_onze() -> None:
+    """`026fecea` : « 5,1 %, contre 94,9 % détenus par le reste des 60 acteurs »."""
+    fautes = agregats_faux([
+        TABLEAU,
+        "Les onze concurrents étudiés pèsent 5,1 %, contre 94,9 % détenus par "
+        "le reste des 60 acteurs.",
+    ])
+    assert fautes == []
+
+
+def test_une_colonne_nulle_ne_repartit_rien() -> None:
+    zeros = (
+        "| Acteur | Part |\n| --- | --- |\n"
+        "| A | 0 % |\n| B | 0 % |\n| C | 0 % |\n"
+    )
+    assert agregats_faux([zeros, "Soit 3 % de part cumulée sur les trois acteurs."]) == []
+
+
+def test_le_compte_juste_reste_juge() -> None:
+    """CONTRE-ÉPREUVE : « onze concurrents » face à onze parts reste le cas de la cliente."""
+    fautes = agregats_faux([
+        TABLEAU, "Soit 2,7 % de part cumulée par les onze concurrents recensés.",
+    ])
+    assert len(fautes) == 1
+
+
+def test_une_ligne_total_n_est_pas_une_part() -> None:
+    """Relecture du 14/09/2026 (I6) : une ligne « Total » cachait le cas de la cliente."""
+    avec_total = TABLEAU + "| Total | 6 100 000 € | 0,479 % |\n"
+    fautes = agregats_faux([
+        avec_total, "Soit 2,7 % capté par les onze concurrents recensés.",
+    ])
+    assert len(fautes) == 1
+    assert fautes[0].lignes == 11
+    assert round(fautes[0].somme, 3) == 0.479

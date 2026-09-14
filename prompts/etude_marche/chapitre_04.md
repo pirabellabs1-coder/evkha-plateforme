@@ -12,22 +12,22 @@ Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
 CHAPITRE 4 — Avantages et contraintes structurelles du secteur (manuel §6, p. 10).
-Objectif : presenter les facteurs favorables deja installes et les contraintes durables du secteur.
+Objectif : présenter les facteurs favorables déjà installes et les contraintes durables du secteur.
 
-Questions auxquelles ce chapitre doit repondre :
-- Quels elements rendent le secteur attractif aujourd'hui et sur quelles preuves reposent-ils ?
-- Quelles contraintes durables influencent l'entree, les couts, les delais, la marge ou la confiance ?
-- Quelles contraintes sont communes au secteur et lesquelles sont particulierement importantes pour ce projet ?
-- Quels avantages peuvent etre reellement exploites des le lancement ?
-- Quelles conditions doivent etre reunies pour reduire l'effet des contraintes principales ?
+Questions auxquelles ce chapitre doit répondre :
+- Quels éléments rendent le secteur attractif aujourd'hui et sur quelles preuves reposent-ils ?
+- Quelles contraintes durables influencent l'entree, les coûts, les délais, la marge ou la confiance ?
+- Quelles contraintes sont communes au secteur et lesquelles sont particulièrement importantes pour ce projet ?
+- Quels avantages peuvent être réellement exploites des le lancement ?
+- Quelles conditions doivent être réunies pour réduire l'effet des contraintes principales ?
 
 Contenu obligatoire :
-- Au moins 5 avantages structurants et 5 contraintes reellement distinctes.
-- Donnees, exemples ou faits observables pour chaque point important.
-- Impact sur l'entree, les couts, la demande, la marge, la confiance ou les operations.
-- Effet specifique sur le projet.
-- Hierarchisation par importance, pas simple inventaire.
+- Au moins 5 avantages structurants et 5 contraintes réellement distinctes.
+- Données, exemples ou faits observables pour chaque point important.
+- Impact sur l'entree, les coûts, la demande, la marge, la confiance ou les opérations.
+- Effet spécifique sur le projet.
+- Hiérarchisation par importance, pas simple inventaire.
 Visuel obligatoire : en fin de chapitre, un bloc `tableau` comparatif a deux colonnes — avantages structurants / contraintes durables — avec les vrais points du projet.
 Remplace chaque item par les vrais avantages et contraintes identifies dans l'analyse. Ce tableau est obligatoire — sans lui le visuel manquant invalide le chapitre.
 
-Lecture strategique attendue : Identifier les avantages exploitables immediatement et les contraintes qui exigent une adaptation du projet.
+Lecture stratégique attendue : Identifier les avantages exploitables immédiatement et les contraintes qui exigent une adaptation du projet.

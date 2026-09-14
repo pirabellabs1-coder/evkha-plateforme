@@ -17,4 +17,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Ce chapitre est genere en trois sections distinctes. Ne pas utiliser ce prompt directement.
+Ce chapitre est généré en trois sections distinctes. Ne pas utiliser ce prompt directement.

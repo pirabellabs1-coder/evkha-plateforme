@@ -67,10 +67,51 @@ def test_le_montant_que_la_cliente_a_ecrit_n_est_pas_une_contradiction(db: Any) 
 
 
 @pytest.mark.django_db
-def test_une_faute_de_frappe_ne_fait_pas_accuser_le_document(db: Any) -> None:
-    """`1fdc457b` : « evkha a déjà invetsi 1600e » — le mot attendu manque."""
+def test_une_faute_de_frappe_ne_fabrique_pas_de_reference(db: Any) -> None:
+    """`1fdc457b` : « la société a déjà invetsi 1600e ». Le mot du fait manque.
+
+    Rien ne dit que ces 1 600 € sont l'apport : on ne l'invente pas, on le dit
+    (relecture du 14/09/2026, I4) — une fois, sans réécriture payée.
+    """
     job = _job(db, REPONSE_LIBRE + " La société a déjà invetsi 1600e dans le logiciel.")
-    assert _motifs(job, "L'apport personnel de 1 600 € finance le prototype.") == []
+    assert _motifs(job, "L'apport personnel de 1 600 € finance le prototype.") == [
+        ("reference_client_illisible", None),
+    ]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("montant", ["8 000", "1 800"])
+def test_un_montant_de_la_reponse_n_est_pas_pour_autant_l_apport(db: Any, montant: str) -> None:
+    """I4 : 8 000 € est l'enveloppe, 1 800 € la rémunération de l'année 3."""
+    job = _job(db, REPONSE_LIBRE)
+    assert _motifs(job, f"L'apport personnel de {montant} € finance le prototype.") == [
+        ("reference_client_illisible", None),
+    ]
+
+
+@pytest.mark.django_db
+def test_j_apporte_est_une_phrase_d_apport(db: Any) -> None:
+    job = _job(db, "J'apporte 10 000 € de mes économies. Le prêt bancaire sera de 40 000 €.")
+    assert _motifs(job, "L'apport personnel de 40 000 € finance le projet.") == [
+        ("coherence_chiffree", 15),
+    ]
+    assert _motifs(job, "L'apport personnel de 10 000 € finance le projet.") == []
+
+
+@pytest.mark.django_db
+def test_une_reponse_qui_nie_l_apport_n_en_donne_aucun(db: Any) -> None:
+    job = _job(db, "Je n'ai pas d'apport personnel. Le prêt sera de 30 000 € sur 5 ans.")
+    assert _motifs(job, "L'apport de 30 000 € finance le projet.") == [
+        ("reference_client_illisible", None),
+    ]
+
+
+@pytest.mark.django_db
+def test_investis_dans_une_phrase_de_pret_ne_porte_pas_l_apport(db: Any) -> None:
+    """I5 : le document dit exactement ce que le client a écrit, il n'est pas accusé."""
+    job = _job(db, "Le matériel, soit 20 000 € investis, sera financé par un prêt. "
+                   "J'apporte 5 000 € personnellement.")
+    assert _motifs(job, "L'apport personnel de 5 000 € complète le financement.") == []
 
 
 @pytest.mark.django_db
@@ -105,3 +146,21 @@ def test_une_reponse_simple_reste_jugee_comme_avant(db: Any) -> None:
     assert _motifs(job, "L'apport personnel de 20 000 € finance le prototype.") == [
         ("coherence_chiffree", 15),
     ]
+
+
+@pytest.mark.django_db
+def test_une_longue_reponse_du_client_est_verrouillee_entiere(db: Any) -> None:
+    """La cause racine de `256e63d8` : le fait était coupé à 500 signes.
+
+    « 1600e ont déjà été investis » tenait en fin de réponse ; le gate
+    comparait le document à une référence amputée de sa seule phrase utile.
+    """
+    from generation.coherence import seed_locked_facts_from_variables
+
+    job = _job(db, "provisoire")
+    job.coherence_facts.all().delete()
+    longue = REPONSE_LIBRE * 3 + " 1600e ont déjà été investis dans la plateforme."
+    assert len(longue) > 500
+    seed_locked_facts_from_variables(job, {"APPORT": longue})
+
+    assert job.coherence_facts.get(key="apport").value.endswith("investis dans la plateforme.")

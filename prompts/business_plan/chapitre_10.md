@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Strategie d'acquisition et de developpement commercial : canaux d'acquisition actuels et envisages, politique de prix assumee, plan de visibilite (reseaux, partenariats, bouche-a-oreille), objectifs commerciaux par annee, logique de fidelisation.
+Stratégie d'acquisition et de développement commercial : canaux d'acquisition actuels et envisages, politique de prix assumee, plan de visibilité (réseaux, partenariats, bouche-a-oreille), objectifs commerciaux par année, logique de fidélisation.

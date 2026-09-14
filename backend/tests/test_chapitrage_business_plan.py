@@ -34,7 +34,11 @@ from generation.blueprints import (
 )
 from generation.chapitres.configuration import type_document
 from generation.chapitres.fichiers_prompts import chapitres_sans_prompt, charger_prompt
+from generation.geography import _strip_accents as _plat
 from generation.prompt_library import prompt_instruction
+
+#: Les prompts ont retrouvé leurs accents le 14/09/2026 (audit A22) : ces
+#: tests vérifient qu'une EXIGENCE est présente, pas son orthographe.
 
 BP = str(DeliverableType.BUSINESS_PLAN)
 
@@ -95,7 +99,7 @@ def test_la_politique_de_remuneration_existe_et_est_complete() -> None:
         "calendrier",
         "securisation financiere",
     ):
-        assert attendu in prompt, f"exigence absente du chapitre 18 : {attendu}"
+        assert _plat(attendu) in _plat(prompt), f"exigence absente du chapitre 18 : {attendu}"
 
 
 def test_les_deux_chapitres_defusionnes_gardent_leur_contenu() -> None:
@@ -104,7 +108,7 @@ def test_les_deux_chapitres_defusionnes_gardent_leur_contenu() -> None:
     financement = charger_prompt(BP, 15)
 
     assert "besoin en fonds de roulement" in investissements.lower()
-    assert "tresorerie de securite" in investissements.lower()
+    assert "tresorerie de securite" in _plat(investissements).lower()
     # Le graphique de répartition des ressources vivait dans la section : il
     # doit survivre à la promotion en chapitre. Depuis le 10/08/2026 il se
     # demande au contrat structuré (par identifiants), plus en patron HTML — le
@@ -114,7 +118,7 @@ def test_les_deux_chapitres_defusionnes_gardent_leur_contenu() -> None:
     # même que `_VOCABULAIRE_INTERNE` refuse dans le document. Il verrouillait
     # le défaut (audit du 14/09/2026, règle 6) ; il vérifie désormais la
     # consigne, pas son ancienne formulation.
-    assert "repartition des ressources de financement" in financement.lower()
+    assert "repartition des ressources de financement" in _plat(financement).lower()
     assert "identifiants des données de référence" in financement
     assert "apport personnel" in financement.lower()
     assert "emprunt" in financement.lower() or "financements externes" in financement.lower()
@@ -129,7 +133,7 @@ def test_les_deux_totaux_financiers_sont_declares_egaux() -> None:
     """
     for numero in (14, 15):
         prompt = charger_prompt(BP, numero)
-        assert "coherence a verifier" in prompt.lower(), (
+        assert "coherence a verifier" in _plat(prompt).lower(), (
             f"le chapitre {numero} ne déclare aucun point de cohérence"
         )
         assert "chapitre 1" in prompt.lower()

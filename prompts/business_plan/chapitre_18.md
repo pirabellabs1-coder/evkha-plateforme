@@ -19,22 +19,22 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-CHAPITRE 18 — Politique de remuneration.
-Objectif : presenter la politique de remuneration du dirigeant et, le cas echeant, de l'equipe, afin de demontrer la coherence entre remuneration et capacite financiere du projet, la prudence du porteur en phase de lancement, l'impact de la remuneration sur la tresorerie, la soutenabilite des charges sociales et la logique d'evolution progressive.
+CHAPITRE 18 — Politique de rémunération.
+Objectif : présenter la politique de rémunération du dirigeant et, le cas échéant, de l'équipe, afin de démontrer la cohérence entre rémunération et capacité financière du projet, la prudence du porteur en phase de lancement, l'impact de la rémunération sur la trésorerie, la soutenabilité des charges sociales et la logique d'evolution progressive.
 
-Principe fondamental : la remuneration ne doit JAMAIS etre traitee comme un simple choix personnel. C'est une decision strategique liee a la tresorerie, au statut juridique, au stade de developpement et aux objectifs du projet.
+Principe fondamental : la rémunération ne doit JAMAIS être traitee comme un simple choix personnel. C'est une décision stratégique liee a la trésorerie, au statut juridique, au stade de développement et aux objectifs du projet.
 
 Structure obligatoire du chapitre :
-- Vision globale de la politique de remuneration : remuneration immediate, absence temporaire, progressive, maintien ARE, arbitrage salaire/dividendes, recours a des prestataires, embauche future. Demontrer que la politique retenue est coherente avec le stade du projet.
-- Remuneration du dirigeant : montant prevu, calendrier, justification du choix, impact sur la tresorerie, lien avec le statut social retenu au chapitre 13.
-- Charges sociales et impact financier : charges liees a la remuneration, leur poids dans le previsionnel, leur evolution, leur effet sur la rentabilite, leur soutenabilite.
-- Remuneration de l'equipe ou recours a des renforts : salaries permanents, prestataires, intermittents, freelances, sous-traitants, renforts ponctuels. Distinguer besoins humains immediats et futurs, charges fixes et charges variables.
-- Evolution progressive de la remuneration, avec les conditions qui la declenchent.
-- Coherence avec la tresorerie et la rentabilite du chapitre 16.
-- Lecture strategique de la politique de remuneration.
+- Vision globale de la politique de rémunération : rémunération immédiate, absence temporaire, progressive, maintien ARE, arbitrage salaire/dividendes, recours à des prestataires, embauche future. Démontrer que la politique retenue est cohérente avec le stade du projet.
+- Rémunération du dirigeant : montant prévu, calendrier, justification du choix, impact sur la trésorerie, lien avec le statut social retenu au chapitre 13.
+- Charges sociales et impact financier : charges liees a la rémunération, leur poids dans le prévisionnel, leur évolution, leur effet sur la rentabilité, leur soutenabilité.
+- Rémunération de l'équipe ou recours à des renforts : salaries permanents, prestataires, intermittents, freelances, sous-traitants, renforts ponctuels. Distinguer besoins humains immédiats et futurs, charges fixes et charges variables.
+- Évolution progressive de la rémunération, avec les conditions qui la declenchent.
+- Cohérence avec la trésorerie et la rentabilité du chapitre 16.
+- Lecture stratégique de la politique de rémunération.
 
-Si le dirigeant ne se remunere PAS au demarrage, expliquer cette decision comme un choix de securisation financiere, et non comme une fragilite. C'est une position frequente et defendable ; la presenter comme un manque desservirait le dossier.
+Si le dirigeant ne se remunere PAS au démarrage, expliquer cette décision comme un choix de sécurisation financière, et non comme une fragilité. C'est une position frequente et défendable ; la présenter comme un manque desservirait le dossier.
 
-Principe EVKHA : une remuneration n'est credible que si son COUT COMPLET — brut et charges sociales — est integre dans le modele financier. Une remuneration annoncee sans ses charges est une remuneration fausse.
+Principe EVKHA : une rémunération n'est crédible que si son COÛT COMPLET — brut et charges sociales — est integre dans le modèle financier. Une rémunération annoncee sans ses charges est une rémunération fausse.
 
-Coherence a verifier : les montants de ce chapitre sont EXACTEMENT ceux qui figurent en charges de personnel au chapitre 16. S'ils different, c'est le previsionnel qui a raison, et il faut aligner ce chapitre — jamais l'inverse.
+Cohérence a vérifier : les montants de ce chapitre sont EXACTEMENT ceux qui figurent en charges de personnel au chapitre 16. S'ils different, c'est le prévisionnel qui a raison, et il faut aligner ce chapitre — jamais l'inverse.

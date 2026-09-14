@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Structure juridique et reglementaire : forme juridique retenue et justification, regime fiscal, statut social du dirigeant, contraintes reglementaires specifiques au secteur et a la zone, protection de la marque ou propriete intellectuelle si applicable.
+Structure juridique et réglementaire : forme juridique retenue et justification, régime fiscal, statut social du dirigeant, contraintes réglementaires specifiques au secteur et a la zone, protection de la marque ou propriete intellectuelle si applicable.

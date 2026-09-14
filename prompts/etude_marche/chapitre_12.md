@@ -12,30 +12,30 @@ Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
 CHAPITRE 12 — Risques et plan de maitrise (manuel §6, p. 14).
-Objectif : identifier les vulnerabilites du marche et du projet, puis proposer des mesures concretes.
+Objectif : identifier les vulnerabilites du marché et du projet, puis proposer des mesures concrètes.
 
-Questions auxquelles ce chapitre doit repondre :
-- Quels risques precis peuvent empecher le projet d'atteindre son marche ou de fonctionner durablement ?
-- Quelle est la cause de chaque risque, sa probabilite, son impact et son signal d'alerte ?
-- Quels risques doivent etre traites avant le lancement et lesquels peuvent etre surveilles ensuite ?
-- Quelle action preventive, corrective ou de securisation est realiste pour le porteur ?
-- Quel risque subsiste apres la mise en place de ces mesures ?
-- Quels risques peuvent se declencher ensemble ou aggraver les autres ?
-- Comment le projet reagirait-il si deux hypotheses essentielles se degradaient en meme temps ?
+Questions auxquelles ce chapitre doit répondre :
+- Quels risques précis peuvent empêcher le projet d'atteindre son marché ou de fonctionner durablement ?
+- Quelle est la cause de chaque risque, sa probabilité, son impact et son signal d'alerte ?
+- Quels risques doivent être traites avant le lancement et lesquels peuvent être surveilles ensuite ?
+- Quelle action preventive, corrective ou de sécurisation est réaliste pour le porteur ?
+- Quel risque subsiste après la mise en place de ces mesures ?
+- Quels risques peuvent se déclencher ensemble ou aggraver les autres ?
+- Comment le projet reagirait-il si deux hypothèses essentielles se degradaient en même temps ?
 
 Contenu obligatoire :
-- Risques marche, reglementaires, commerciaux, financiers, operationnels, technologiques et reputationnels.
-- Cause, probabilite, impact, horizon et signal d'alerte.
+- Risques marche, réglementaires, commerciaux, financiers, operationnels, technologiques et reputationnels.
+- Cause, probabilité, impact, horizon et signal d'alerte.
 - Mesure preventive, action corrective et responsable recommande.
-- Risque residuel apres action.
-- Priorites de traitement.
+- Risque résiduel après action.
+- Priorités de traitement.
 
 Approfondissement obligatoire (manuel) :
-- Construire un registre de 8 a 12 risques reellement specifiques au projet, repartis entre marche, reglementation, finances, operations, technologie, reputation, ressources humaines et dependances externes.
-- Pour chaque risque : decrire l'evenement, sa cause, les consequences, la probabilite, l'impact, l'horizon, le signal precoce, la prevention, la reponse si le risque survient et le risque residuel.
-- Identifier les trois risques critiques et expliquer pourquoi ils peuvent modifier la decision de lancement, le calendrier, le financement ou le positionnement.
-- Analyser les effets en chaine : un risque peut-il en declencher un autre, augmenter les couts ou reduire la demande ?
-- Ajouter un mini-test de resistance portant sur au moins deux hypotheses defavorables simultanees, sans inventer de previsionnel financier.
-- Distinguer ce qui peut etre evite, reduit, transfere, accepte ou simplement surveille.
+- Construire un registre de 8 à 12 risques réellement specifiques au projet, répartis entre marche, réglementation, finances, opérations, technologie, réputation, ressources humaines et dépendances externes.
+- Pour chaque risque : décrire l'evenement, sa cause, les conséquences, la probabilité, l'impact, l'horizon, le signal precoce, la prévention, la réponse si le risque survient et le risque résiduel.
+- Identifier les trois risques critiques et expliquer pourquoi ils peuvent modifier la décision de lancement, le calendrier, le financement ou le positionnement.
+- Analyser les effets en chaîne : un risque peut-il en déclencher un autre, augmenter les coûts ou réduire la demande ?
+- Ajouter un mini-test de resistance portant sur au moins deux hypothèses defavorables simultanées, sans inventer de prévisionnel financier.
+- Distinguer ce qui peut être evite, réduit, transfere, accepte ou simplement surveille.
 
-Lecture strategique attendue : Prioriser les risques, montrer leurs interactions et proposer pour chacun une prevention, un plan de reponse, un signal d'alerte et un niveau de risque residuel.
+Lecture stratégique attendue : Prioriser les risques, montrer leurs interactions et proposer pour chacun une prévention, un plan de réponse, un signal d'alerte et un niveau de risque résiduel.

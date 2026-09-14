@@ -11,21 +11,21 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-CHAPITRE 6 — Reglementation, normes et conformite (manuel §6, p. 11).
-Objectif : traduire les obligations applicables en consequences concretes pour le lancement et l'exploitation.
+CHAPITRE 6 — Réglementation, normes et conformité (manuel §6, p. 11).
+Objectif : traduire les obligations applicables en conséquences concrètes pour le lancement et l'exploitation.
 
-Questions auxquelles ce chapitre doit repondre :
+Questions auxquelles ce chapitre doit répondre :
 - Quelles autorisations, licences, normes, assurances, obligations fiscales ou demarches sont applicables ?
-- Quel organisme intervient, dans quel ordre, avec quels delais et quels couts lorsqu'ils sont connus ?
-- Quelles regles sont obligatoires et lesquelles constituent seulement de bonnes pratiques ?
+- Quel organisme intervient, dans quel ordre, avec quels délais et quels coûts lorsqu'ils sont connus ?
+- Quelles règles sont obligatoires et lesquelles constituent seulement de bonnes pratiques ?
 - Quels points peuvent bloquer, retarder ou rencherir le lancement ?
-- Quels sujets doivent imperativement etre confirmes par un professionnel competent ?
+- Quels sujets doivent imperativement être confirmes par un professionnel compétent ?
 
 Contenu obligatoire :
 - Textes, licences, agrements, statuts, obligations fiscales, douanieres ou environnementales pertinents.
 - Distinction obligatoire/recommande et national/international.
-- Organisme competent et date de verification.
-- Cout, delai, sequence ou risque de non-conformite lorsque documente.
-Rappel : aucune affirmation ne remplace l'avis d'un professionnel du droit, de la fiscalite ou de la conformite.
+- Organisme compétent et date de vérification.
+- Coût, délai, séquence ou risque de non-conformité lorsque documente.
+Rappel : aucune affirmation ne remplace l'avis d'un professionnel du droit, de la fiscalité ou de la conformité.
 
-Lecture strategique attendue : Transformer les regles en feuille de route de conformite : demarches, ordre, delais, couts, responsables et points a confirmer.
+Lecture stratégique attendue : Transformer les règles en feuille de route de conformité : demarches, ordre, délais, coûts, responsables et points a confirmer.

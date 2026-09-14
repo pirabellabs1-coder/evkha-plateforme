@@ -15,18 +15,18 @@ Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
 CHAPITRE 14 — Investissements et besoins.
-Objectif : presenter de maniere structuree et argumentee l'ensemble des investissements et besoins necessaires au lancement, a la structuration, au developpement, a la securisation operationnelle et a la montee en charge progressive du projet.
+Objectif : présenter de manière structuree et argumentee l'ensemble des investissements et besoins nécessaires au lancement, a la structuration, au développement, a la sécurisation opérationnelle et a la montée en charge progressive du projet.
 
-Principe fondamental : les investissements ne doivent JAMAIS apparaitre comme une simple liste d'achats. Ils sont des outils strategiques necessaires au fonctionnement, a la croissance, a la securisation et a la credibilite du projet. Le chapitre doit demontrer la coherence entre les ambitions, les moyens et les besoins financiers.
+Principe fondamental : les investissements ne doivent JAMAIS apparaître comme une simple liste d'achats. Ils sont des outils stratégiques nécessaires au fonctionnement, a la croissance, a la sécurisation et a la crédibilité du projet. Le chapitre doit démontrer la cohérence entre les ambitions, les moyens et les besoins financiers.
 
 Contenu obligatoire :
 - Nature et montant des investissements initiaux, poste par poste.
 - Apports en nature eventuels, valorises et justifies.
 - Besoin en fonds de roulement : ce qu'il finance, comment il a ete evalue.
-- Tresorerie de securite minimale requise, et ce qu'elle couvre.
-- Pour chaque besoin : pourquoi il est necessaire, comment il a ete evalue, ce qu'il change pour la viabilite.
-- Distinction entre les besoins du lancement, ceux de la structuration et ceux de la montee en charge.
+- Trésorerie de sécurité minimale requise, et ce qu'elle couvre.
+- Pour chaque besoin : pourquoi il est nécessaire, comment il a ete evalue, ce qu'il change pour la viabilité.
+- Distinction entre les besoins du lancement, ceux de la structuration et ceux de la montée en charge.
 
-Chiffres argumentes et coherents avec l'activite decrite aux chapitres 4 et 8. Le lecteur doit comprendre pourquoi chaque financement est necessaire, pas seulement combien il coute.
+Chiffres argumentes et cohérents avec l'activité décrite aux chapitres 4 et 8. Le lecteur doit comprendre pourquoi chaque financement est nécessaire, pas seulement combien il coute.
 
-Coherence a verifier : le total des besoins de ce chapitre est repris a l'identique comme total des ressources au chapitre 15. Les deux montants doivent etre egaux, au chiffre pres.
+Cohérence a vérifier : le total des besoins de ce chapitre est repris a l'identique comme total des ressources au chapitre 15. Les deux montants doivent être egaux, au chiffre pres.

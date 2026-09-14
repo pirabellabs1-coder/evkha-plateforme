@@ -230,7 +230,12 @@ class CoherenceFact(UUIDModel):
     job = models.ForeignKey(GenerationJob, on_delete=models.CASCADE, related_name="coherence_facts")
     kind = models.CharField(max_length=32, choices=FactKind.choices)
     key = models.CharField(max_length=120)
-    value = models.CharField(max_length=500)
+    # Texte, et non 500 signes : une réponse libre du client (« apport ») fait
+    # souvent davantage, et la troncature coupait la phrase qui portait le
+    # montant — « 1600e ont déjà été investis », en fin de réponse. Le gate
+    # comparait alors le document à une référence amputée (BP `256e63d8`,
+    # corpus du 14/09/2026 ; règle 3 appliquée aux données).
+    value = models.TextField()
     source_chapter_number = models.PositiveSmallIntegerField(null=True, blank=True)
     is_locked = models.BooleanField(default=True)
     provenance = models.CharField(

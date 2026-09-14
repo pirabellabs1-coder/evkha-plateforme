@@ -209,47 +209,47 @@ OBJECTIF_FIGURES_TEXTE = (
 #: (regle 5) : les deux moteurs lisent CETTE constante.
 REGLES_IDENTIFIANTS_FIGURES = (
     "Un graphique ne porte aucune valeur : il porte des identifiants des données de référence. "
-    "Deux consequences pratiques — cite au moins DEUX identifiants (une figure "
-    "a une seule barre n'apprend rien), et cite des grandeurs de MEME NATURE "
+    "Deux conséquences pratiques — cite au moins DEUX identifiants (une figure "
+    "a une seule barre n'apprend rien), et cite des grandeurs de MÊME NATURE "
     "(des montants entre eux, des taux entre eux). Chaque ligne du socle porte "
     "sa nature entre crochets : `[monetaire]`, `[effectif]`, `[pourcentage]`, "
-    "`[duree]`, `[ratio]`. DEUX NATURES DIFFERENTES SUR UNE MEME FIGURE LA FONT "
+    "`[duree]`, `[ratio]`. DEUX NATURES DIFFÉRENTES SUR UNE MÊME FIGURE LA FONT "
     "ABANDONNER — un montant en euros et un nombre d'entreprises ne se tracent "
-    "pas ensemble, quelle que soit la pertinence du propos. Verifie les "
+    "pas ensemble, quelle que soit la pertinence du propos. Vérifie les "
     "crochets avant de citer.\n"
     # Fuite mesuree des la premiere generation qui a recu cette notation
     # (`2490c7cf`) : un commentaire de figure disait « deux taux de meme nature
     # [pourcentage] ». Le modele n'a rien fait de mal — on lui a montre cette
     # ecriture, il l'a employee. Toute aide ajoutee au prompt peut ressortir
     # dans le document ; elle arrive donc avec son interdiction, le meme jour.
-    "CES CROCHETS SONT POUR TOI SEUL. Ils ne s'ecrivent JAMAIS dans le "
+    "CES CROCHETS SONT POUR TOI SEUL. Ils ne s'écrivent JAMAIS dans le "
     "document — ni dans un titre, ni dans un commentaire de figure, ni dans une "
-    "cellule. Le client lit une etude, pas la consigne qui l'a produite. Ne "
+    "cellule. Le client lit une étude, pas la consigne qui l'a produite. Ne "
     "commente pas non plus ton choix d'identifiants : la figure se suffit.\n"
-    "Les echelles, elles, se melangent librement : euros, milliers, millions et "
-    "milliards d'une meme monnaie sont ramenes a une echelle commune au rendu. "
-    "Deux DEVISES differentes, en revanche, font abandonner la figure : sans "
-    "taux de change, des euros et des dollars sur un meme axe produisent une "
+    "Les échelles, elles, se melangent librement : euros, milliers, millions et "
+    "milliards d'une même monnaie sont ramenes a une échelle commune au rendu. "
+    "Deux DEVISES différentes, en revanche, font abandonner la figure : sans "
+    "taux de change, des euros et des dollars sur un même axe produisent une "
     "figure fausse dont chaque chiffre est juste.\n"
-    "Trois formes reclament une donnee particuliere, et un identifiant qui ne "
+    "Trois formes reclament une donnée particuliere, et un identifiant qui ne "
     "la porte pas fait abandonner la figure :\n"
-    "- RADAR et JAUGES : des NOTES sur une echelle commune (par exemple sur 10 "
+    "- RADAR et JAUGES : des NOTES sur une échelle commune (par exemple sur 10 "
     "ou sur 100), donc `[ratio]`, jamais des montants ni des pourcentages de "
-    "repartition. Pour comparer des euros entre eux, prends des barres.\n"
-    "- RADAR : trois axes au minimum, et les memes axes pour toutes les "
-    "series.\n"
-    "- COURBES et AIRES : chaque serie couvre TOUTES les periodes de l'axe. "
-    "Une annee manquante n'est pas interpolee, la figure est abandonnee.\n"
+    "répartition. Pour comparer des euros entre eux, prends des barres.\n"
+    "- RADAR : trois axes au minimum, et les mêmes axes pour toutes les "
+    "séries.\n"
+    "- COURBES et AIRES : chaque série couvre TOUTES les périodes de l'axe. "
+    "Une année manquante n'est pas interpolee, la figure est abandonnee.\n"
     # Onze figures sur quinze perdues sur `5892daa5` (10/08/2026) : le modele
     # demandait de positionner huit concurrents, et le resolveur repondait
     # qu'il manquait des RISQUES notes. Les deux formes qui comparent des
     # acteurs n'avaient aucune matiere, et rien ne disait ou la prendre.
     "- RADAR et CARTE DE POSITIONNEMENT peuvent aussi comparer des ACTEURS. "
-    "Ils citent alors les CODES DE LA GRILLE DE NOTATION donnee avec le socle, "
+    "Ils citent alors les CODES DE LA GRILLE DE NOTATION donnée avec le socle, "
     "et non des identifiants chiffres : deux codes pour une carte (abscisse "
-    "puis ordonnee), trois ou plus pour un radar. Ne melange jamais un code de "
-    "critere et un identifiant chiffre dans la meme figure.\n"
-    "Choisis donc la forme d'apres les identifiants dont tu disposes, et non "
+    "puis ordonnee), trois ou plus pour un radar. Ne mélange jamais un code de "
+    "critère et un identifiant chiffre dans la même figure.\n"
+    "Choisis donc la forme d'après les identifiants dont tu disposes, et non "
     "l'inverse."
 )
 
@@ -320,17 +320,17 @@ _ROLES: dict[str, str] = {
 
 
 def _consigne_specifique_livrable(deliverable_type: str) -> str:
-    """Consigne specifique injectee au prompt selon le livrable.
+    """Consigne spécifique injectee au prompt selon le livrable.
 
-    EM : reduit a zero — la voix, les regles de sources et la coherence sont
-    portees par `_CHARTER` (§3-4 du manuel Evangeline 07/2026). Tout le reste
-    (les 21 chapitres, la fiche projet enrichie, les CHECK 1 a 9 + INITIAL +
+    EM : réduit a zéro — la voix, les règles de sources et la cohérence sont
+    portées par `_CHARTER` (§3-4 du manuel Evangeline 07/2026). Tout le reste
+    (les 21 chapitres, la fiche projet enrichie, les CHECK 1 à 9 + INITIAL +
     FINAL) est porte hors prompt : par le blueprint, `coherence.py` et
-    `checks_blocs.py`. Empiler des regles dans le prompt a produit WAOME v4
-    (style robotique, regles regurgitees dans le texte livre) — retour du
+    `checks_blocs.py`. Empiler des règles dans le prompt a produit WAOME v4
+    (style robotique, règles regurgitees dans le texte livre) — retour du
     22/07/2026.
 
-    BP/EC/STR : conservent leurs regles historiques (le manuel Evangeline
+    BP/EC/STR : conservent leurs règles historiques (le manuel Evangeline
     juillet 2026 ne couvre que l'EM).
     """
     from .checks_evangeline import (  # noqa: PLC0415
@@ -341,13 +341,13 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
     )
 
     consigne_fourchettes_stricte = (
-        "FOURCHETTES DU BRIEF (regle absolue) : chaque valeur du document est "
+        "FOURCHETTES DU BRIEF (règle absolue) : chaque valeur du document est "
         "un chiffre unique, jamais une plage de deux bornes — ni recopiee du "
-        "brief, ni produite par toi. Quand une donnee source donne deux "
-        "bornes, tu TRANCHES : la valeur du milieu par defaut, ecrite seule "
+        "brief, ni produite par toi. Quand une donnée source donne deux "
+        "bornes, tu TRANCHES : la valeur du milieu par défaut, écrite seule "
         "avec le mot « retenu », ou la borne prudente pour un usage bancaire "
-        "(la plus basse pour un revenu, la plus haute pour un cout). Documente "
-        "le choix dans l'encadre Methodologie du chapitre Sources.\n"
+        "(la plus basse pour un revenu, la plus haute pour un coût). Documente "
+        "le choix dans l'encadre Méthodologie du chapitre Sources.\n"
     )
 
     if deliverable_type == DeliverableType.MARKET_STUDY:
@@ -374,36 +374,36 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         # restent des valeurs uniques. Depuis le 14/09/2026, la plage n'est
         # admise que SUIVIE de sa valeur retenue (audit A1).
         exception_ca_estime = (
-            "EXCEPTION, et elle est etroite : le CHIFFRE D'AFFAIRES ESTIME d'un "
-            "concurrent non reference donne sa borne basse, sa borne haute et "
+            "EXCEPTION, et elle est étroite : le CHIFFRE D'AFFAIRES ESTIME d'un "
+            "concurrent non référencé donne sa borne basse, sa borne haute et "
             "sa valeur retenue. Dans un TABLEAU, ce sont TROIS colonnes "
             "distinctes (borne basse | borne haute | valeur retenue) ; dans une "
-            "phrase, les deux bornes sont SUIVIES IMMEDIATEMENT des mots « valeur "
-            "retenue » et du chiffre, dans la meme phrase. Puis les hypotheses, "
-            "la methode et le niveau de fiabilite. Une part de marche estimee "
-            "suit la meme forme. "
-            "Une plage sans valeur retenue juste apres est refusee. Un CA PUBLIE "
-            "reste un chiffre unique avec son annee et sa source. Taux de "
+            "phrase, les deux bornes sont SUIVIES IMMÉDIATEMENT des mots « valeur "
+            "retenue » et du chiffre, dans la même phrase. Puis les hypothèses, "
+            "la méthode et le niveau de fiabilité. Une part de marché estimee "
+            "suit la même forme. "
+            "Une plage sans valeur retenue juste après est refusee. Un CA PUBLIE "
+            "reste un chiffre unique avec son année et sa source. Taux de "
             "croissance et TCAC restent des valeurs uniques.\n"
         )
         return (
             consigne_fourchettes_stricte +
             exception_ca_estime +
-            f"CONSIGNE STRUCTURELLE (regle absolue) : le livrable doit contenir "
+            f"CONSIGNE STRUCTURELLE (règle absolue) : le livrable doit contenir "
             f"EXACTEMENT {nd} concurrents directs et EXACTEMENT {ni} concurrents "
-            f"indirects, ni plus, ni moins. Sous-sections dediees, listees comme :\n"
+            f"indirects, ni plus, ni moins. Sous-sections dediees, listées comme :\n"
             f"## Concurrents directs\n- <Nom> — <analyse>\n(x{nd} entrees)\n"
             f"## Concurrents indirects\n- <Nom> — <analyse>\n(x{ni} entrees)\n"
-            f"Le systeme est MAITRE de la selection. Si le client ne fournit "
+            f"Le système est MAITRE de la sélection. Si le client ne fournit "
             f"aucun concurrent, tu en cherches. Si le client fournit une liste "
             f"que tu juges inadequate, tu la corriges. Si tu n'en trouves que "
             f"{nd - 2}, tu completes avec les {nd - (nd - 2)} acteurs les plus "
             f"proches. Si tu en trouves {nd + 4}, tu retiens les {nd} plus "
             f"pertinents. Le nombre n'est jamais negociable.\n"
-            f"CRITERES DE TRI (ordre imperatif) pour arbitrer entre "
+            f"CRITÈRES DE TRI (ordre impératif) pour arbitrer entre "
             f"concurrents pertinents :\n{criteres}\n"
-            f"Le premier critere prime toujours. On descend au suivant en cas "
-            f"d'egalite."
+            f"Le premier critère prime toujours. On descend au suivant en cas "
+            f"d'égalité."
         )
 
     if deliverable_type == DeliverableType.BUSINESS_STRATEGY:
@@ -439,30 +439,30 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         #    creuses, conseils generiques.
         return (
             consigne_fourchettes_stricte +
-            "POSTURE (methode EVKHA Strategies) : tu es un consultant senior, "
-            "posture cabinet de conseil / DAF / direction generale. Tu produis "
-            "une analyse lucide, meme inconfortable. Tu refuses la complaisance : "
+            "POSTURE (méthode EVKHA Stratégies) : tu es un consultant senior, "
+            "posture cabinet de conseil / DAF / direction générale. Tu produis "
+            "une analyse lucide, même inconfortable. Tu refuses la complaisance : "
             "si une orientation semble incoherente, tu la signales et l'expliques. "
             "L'objectif n'est pas de rassurer, c'est de piloter.\n"
-            "CINQ OBJECTIFS transversaux de toute strategie EVKHA : "
+            "CINQ OBJECTIFS transversaux de toute stratégie EVKHA : "
             "clarification (positionnement, offres, verticales, vision), "
-            "structuration (modele economique, priorites, croissance, decisions), "
-            "rentabilite (valeur creee, marges, activites peu rentables), "
-            "pilotage (arbitrages, dispersion, ressources, soutenabilite), "
-            "developpement (croissance securisee, differenciation, trajectoire "
+            "structuration (modèle économique, priorités, croissance, décisions), "
+            "rentabilité (valeur creee, marges, activités peu rentables), "
+            "pilotage (arbitrages, dispersion, ressources, soutenabilité), "
+            "développement (croissance securisee, différenciation, trajectoire "
             "long terme). Chaque analyse doit se rattacher a au moins un de "
             "ces cinq axes.\n"
-            "CONSIGNE STRUCTURELLE (regle absolue) : la strategie repose sur "
+            "CONSIGNE STRUCTURELLE (règle absolue) : la stratégie repose sur "
             f"QUATRE PILIERS, TOUS traites, dans cet ordre : {piliers}.\n"
-            "- PILIER 1 (Positionnement & Specialisation) : sortir de la "
+            "- PILIER 1 (Positionnement & Spécialisation) : sortir de la "
             "confusion, clarifier la direction, affirmer ce qui rend unique.\n"
             "- PILIER 2 (Structuration de l'offre) : organiser le catalogue "
             "pour vendre mieux sans s'eparpiller.\n"
-            "- PILIER 3 (Planning editorial) : creer une presence qui attire "
+            "- PILIER 3 (Planning éditorial) : créer une présence qui attire "
             "les bons clients.\n"
-            "- PILIER 4 (Analyse de la tarification) : arreter de fixer les "
+            "- PILIER 4 (Analyse de la tarification) : arrêter de fixer les "
             "prix au hasard, vendre avec confiance.\n"
-            "La conclusion doit livrer une vision strategique ET un plan "
+            "La conclusion doit livrer une vision stratégique ET un plan "
             "d'action operationnel.\n"
             # ── Le centre de gravite du livrable ──────────────────────────
             # Cliente, 12/08/2026, sur une strategie notee 7,5/10 : « le
@@ -470,43 +470,43 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             # strategique : il analyse beaucoup, explique beaucoup et repete
             # parfois les constats ». Elle ne demande pas de refaire la
             # pipeline — elle demande de deplacer son centre de gravite.
-            "CENTRE DE GRAVITE (regle qui prime sur le ton) : moins AUDITER, "
-            "davantage DECIDER. Moins EXPLIQUER, davantage RECOMMANDER. Moins "
+            "CENTRE DE GRAVITÉ (règle qui prime sur le ton) : moins AUDITER, "
+            "davantage DÉCIDER. Moins EXPLIQUER, davantage RECOMMANDER. Moins "
             "CONSTATER, davantage CONSTRUIRE. Moins de theorie, davantage de "
-            "methodes et d'actions. Une analyse qui ne debouche sur aucune "
-            "decision n'a pas sa place : coupe-la, ou termine-la. A la fin de "
+            "méthodes et d'actions. Une analyse qui ne débouche sur aucune "
+            "décision n'a pas sa place : coupe-la, ou termine-la. A la fin de "
             "sa lecture, le dirigeant ne doit pas se dire « je comprends mieux "
             "mon entreprise » mais « je sais exactement ce que je dois faire "
             "maintenant, dans quel ordre, comment, et avec quels indicateurs "
             "pour savoir si cela fonctionne ».\n"
-            "COLONNE VERTEBRALE OBLIGATOIRE — chaque analyse se termine par sa "
-            "decision, et le document entier doit poser les elements suivants. "
-            "Ce ne sont pas des suggestions : leur absence est un defaut de "
-            "livrable, verifie au controle qualite.\n"
+            "COLONNE VERTÉBRALE OBLIGATOIRE — chaque analyse se termine par sa "
+            "décision, et le document entier doit poser les éléments suivants. "
+            "Ce ne sont pas des suggestions : leur absence est un défaut de "
+            "livrable, vérifié au contrôle qualité.\n"
             f"{colonne_vertebrale}"
-            "Quand une donnee manque pour trancher, tu tranches quand meme et "
-            "tu DIS a quelle condition la decision change. « Les donnees "
+            "Quand une donnée manque pour trancher, tu tranches quand même et "
+            "tu DIS a quelle condition la décision change. « Les données "
             "disponibles ne permettent pas de recommander un prix » n'est pas "
-            "une reponse acceptable : donne une valeur de travail, nomme "
-            "l'hypothese qui la sous-tend, et l'indicateur qui la confirmera.\n"
-            "INTERPRETATION DU BRIEF (le desordre du dirigeant est normal) : "
+            "une réponse acceptable : donne une valeur de travail, nomme "
+            "l'hypothèse qui la sous-tend, et l'indicateur qui la confirmera.\n"
+            "INTERPRÉTATION DU BRIEF (le désordre du dirigeant est normal) : "
             "aucun brief client n'arrive parfaitement structure. Les "
-            "informations peuvent etre incompletes, desorganisees, "
-            "emotionnelles, contradictoires. Ta tache : identifier les "
+            "informations peuvent être incompletes, desorganisees, "
+            "émotionnelles, contradictoires. Ta tache : identifier les "
             "problematiques implicites, regrouper les informations similaires, "
-            "reconstituer les intentions reelles du dirigeant, distinguer les "
-            "vraies priorites des idees secondaires. Ne JAMAIS demander un "
+            "reconstituer les intentions réelles du dirigeant, distinguer les "
+            "vraies priorités des idées secondaires. Ne JAMAIS demander un "
             "brief plus complet ; toujours travailler avec ce qui est fourni.\n"
-            "REDACTION (methode EVKHA) : paragraphes developpes qui expliquent "
-            "les implications de chaque decision, PAS d'accumulation de listes. "
-            "Les listes a puces sont reservees aux synthese, arbitrages, "
-            "feuilles de route, tableaux de priorites, indicateurs.\n"
-            "INTERDICTIONS VERBATIM du systeme EVKHA : ne JAMAIS ecrire "
-            "« il faut poster plus sur Instagram », « il faut etre present sur "
-            "tous les reseaux », « le marche est tres porteur » sans analyse, "
-            "« l'entreprise doit se demarquer » sans explication, « la strategie "
-            "semble coherente » sans demonstration. Ces formules signalent un "
-            "conseil generique deconnecte du projet reel du client."
+            "RÉDACTION (méthode EVKHA) : paragraphes developpes qui expliquent "
+            "les implications de chaque décision, PAS d'accumulation de listes. "
+            "Les listes à puces sont réservées aux synthèse, arbitrages, "
+            "feuilles de route, tableaux de priorités, indicateurs.\n"
+            "INTERDICTIONS VERBATIM du système EVKHA : ne JAMAIS écrire "
+            "« il faut poster plus sur Instagram », « il faut être présent sur "
+            "tous les réseaux », « le marché est très porteur » sans analyse, "
+            "« l'entreprise doit se demarquer » sans explication, « la stratégie "
+            "semble cohérente » sans démonstration. Ces formules signalent un "
+            "conseil générique deconnecte du projet réel du client."
         )
 
     if deliverable_type == DeliverableType.BUSINESS_PLAN:

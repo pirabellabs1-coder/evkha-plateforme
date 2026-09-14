@@ -11,21 +11,21 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-CHAPITRE 14 — Potentiel de viabilite (manuel §6, p. 14).
-Objectif : evaluer si le projet peut etre durable au regard du marche, sans remplacer le previsionnel financier.
+CHAPITRE 14 — Potentiel de viabilité (manuel §6, p. 14).
+Objectif : évaluer si le projet peut être durable au regard du marché, sans remplacer le prévisionnel financier.
 
-Questions auxquelles ce chapitre doit repondre :
-- Le besoin identifie est-il suffisamment reel, frequent et solvable pour soutenir le projet ?
-- Le SOM est-il compatible avec les ressources, le prix, la capacite de production et le cycle de vente ?
-- Quels elements renforcent ou fragilisent la viabilite commerciale du projet ?
+Questions auxquelles ce chapitre doit répondre :
+- Le besoin identifie est-il suffisamment réel, fréquent et solvable pour soutenir le projet ?
+- Le SOM est-il compatible avec les ressources, le prix, la capacité de production et le cycle de vente ?
+- Quels éléments renforcent ou fragilisent la viabilité commerciale du projet ?
 - A quelles conditions precises le projet peut-il trouver sa place et durer ?
-- L'avis final doit-il etre favorable, favorable sous conditions, fragile ou defavorable, et pourquoi ?
+- L'avis final doit-il être favorable, favorable sous conditions, fragile ou défavorable, et pourquoi ?
 
 Contenu obligatoire :
-- Adequation besoin/offre, accessibilite de la cible et capacite de differenciation.
-- Compatibilite entre SOM, ressources, cycle de vente et modele economique.
-- Facteurs de resilience et dependances critiques.
-- Seuils ou conditions de vigilance lorsque defendables.
-Rappel : aucun previsionnel financier ou resultat de rentabilite ne doit etre invente ; ce chapitre ne remplace pas un business plan.
+- Adequation besoin/offre, accessibilité de la cible et capacité de différenciation.
+- Compatibilité entre SOM, ressources, cycle de vente et modèle économique.
+- Facteurs de resilience et dépendances critiques.
+- Seuils ou conditions de vigilance lorsque défendables.
+Rappel : aucun prévisionnel financier ou résultat de rentabilité ne doit être invente ; ce chapitre ne remplace pas un business plan.
 
-Lecture strategique attendue : Donner un avis professionnel et nuance sur la viabilite, avec les conditions a remplir avant d'accelerer ou d'investir.
+Lecture stratégique attendue : Donner un avis professionnel et nuance sur la viabilité, avec les conditions a remplir avant d'accelerer ou d'investir.

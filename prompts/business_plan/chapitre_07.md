@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Lecture strategique du paysage concurrentiel : acteurs directs et indirects identifies et analyses, positionnement du projet par rapport a la concurrence, espaces strategiques disponibles, avantage differenciant defendable du projet. Nombre limite de concurrents (8 directs + 3 indirects maximum), traites avec rigueur.
+Lecture stratégique du paysage concurrentiel : acteurs directs et indirects identifies et analyses, positionnement du projet par rapport a la concurrence, espaces stratégiques disponibles, avantage différenciant défendable du projet. Nombre limite de concurrents (8 directs + 3 indirects maximum), traites avec rigueur.

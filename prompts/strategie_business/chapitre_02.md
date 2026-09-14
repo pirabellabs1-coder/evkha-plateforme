@@ -11,21 +11,21 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Lecture strategique du projet. Produis le diagnostic de depart : situation reelle du business, niveau de maturite, logique economique, enjeux prioritaires. Ce chapitre est le socle analytique du document et la base des arbitrages a venir ; il doit sortir du declaratif et objectiver la situation.
+Lecture stratégique du projet. Produis le diagnostic de départ : situation réelle du business, niveau de maturité, logique économique, enjeux prioritaires. Ce chapitre est le socle analytique du document et la base des arbitrages a venir ; il doit sortir du déclaratif et objectiver la situation.
 
 ## Structure obligatoire
-- Lecture stratégique du projet : nature reelle du projet, phase business actuelle (lancement, validation, structuration, croissance ou transition), trajectoire, enjeux specifiques lies a cette phase et cadrage des decisions qui en decoulent.
-- Niveau de maturité du business : ce qui est deja structure, ce qui reste fragile ou incomplet — historique client, validation du marche, stabilite des revenus, structuration commerciale, lisibilite des offres, dependance au dirigeant, capacite de developpement.
-- Logique économique actuelle : comment le business genere reellement de la valeur — revenus principaux et secondaires, activites rentables, activites energivores, logique de marge, dependance au temps dirigeant, leviers de scalabilite eventuels, coherence globale du modele.
-- Phase de développement stratégique : position dans le cycle de developpement, ce qui doit etre structure maintenant, ce qui releve de plus tard, ce qui ne doit pas devenir prioritaire trop tot. Lecture realiste, sans sur-structuration prematuree.
+- Lecture stratégique du projet : nature réelle du projet, phase business actuelle (lancement, validation, structuration, croissance ou transition), trajectoire, enjeux specifiques lies a cette phase et cadrage des décisions qui en decoulent.
+- Niveau de maturité du business : ce qui est déjà structure, ce qui reste fragile ou incomplet — historique client, validation du marché, stabilité des revenus, structuration commerciale, lisibilité des offres, dépendance au dirigeant, capacité de développement.
+- Logique économique actuelle : comment le business génère réellement de la valeur — revenus principaux et secondaires, activités rentables, activités energivores, logique de marge, dépendance au temps dirigeant, leviers de scalabilité eventuels, cohérence globale du modèle.
+- Phase de développement stratégique : position dans le cycle de développement, ce qui doit être structure maintenant, ce qui releve de plus tard, ce qui ne doit pas devenir prioritaire trop tôt. Lecture réaliste, sans sur-structuration prématurée.
 
 ## Questions a traiter
-Le projet est-il encore en validation ou deja en structuration, le modele economique est-il coherent, quels sont les vrais leviers du business, quelles dependances le fragilisent, est-il pilote ou conduit au feeling, quels risques peuvent freiner la croissance, quel est son potentiel reel de developpement, les ressources actuelles sont-elles coherentes avec les ambitions.
+Le projet est-il encore en validation ou déjà en structuration, le modèle économique est-il cohérent, quels sont les vrais leviers du business, quelles dépendances le fragilisent, est-il pilote ou conduit au feeling, quels risques peuvent freiner la croissance, quel est son potentiel réel de développement, les ressources actuelles sont-elles cohérentes avec les ambitions.
 
 ## A retenir
-Bloc de recul : dependances critiques, limites du modele, risques de trajectoire, et ce que chacun implique concretement pour les decisions du dirigeant.
+Bloc de recul : dépendances critiques, limites du modèle, risques de trajectoire, et ce que chacun implique concrètement pour les décisions du dirigeant.
 
-## Synthese et transition
-Termine par une synthese strategique, une lecture globale du niveau actuel du business, puis une transition vers la problematique suivante : le positionnement reel de l'entreprise sur son marche.
+## Synthèse et transition
+Termine par une synthèse stratégique, une lecture globale du niveau actuel du business, puis une transition vers la problématique suivante : le positionnement réel de l'entreprise sur son marché.
 
-Agis en consultant strategique senior. Paragraphes developpes, logique fluide, analyses systematiquement contextualisees ; chaque analyse produit une implication strategique, une consequence ou un arbitrage. Interdits : descriptions superficielles, constats generiques, analyses purement descriptives, listes a puces sans analyse, complaisance, jargon inutile.
+Agis en consultant stratégique senior. Paragraphes developpes, logique fluide, analyses systématiquement contextualisees ; chaque analyse produit une implication stratégique, une conséquence ou un arbitrage. Interdits : descriptions superficielles, constats génériques, analyses purement descriptives, listes à puces sans analyse, complaisance, jargon inutile.

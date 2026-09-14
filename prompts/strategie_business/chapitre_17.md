@@ -11,33 +11,33 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Feuille de route strategique et priorisation : transforme l'ensemble des analyses precedentes en plan d'action coherent, hierarchise les priorites et construit une trajectoire claire de developpement. Le dirigeant doit ressortir en sachant ce qui doit etre fait maintenant, ce qui doit etre differe et ce qui ne doit pas devenir prioritaire — sortir de l'urgence permanente pour une progression structuree, realiste et soutenable.
+Feuille de route stratégique et priorisation : transforme l'ensemble des analyses précédentes en plan d'action cohérent, hierarchise les priorités et construit une trajectoire claire de développement. Le dirigeant doit ressortir en sachant ce qui doit être fait maintenant, ce qui doit être différé et ce qui ne doit pas devenir prioritaire — sortir de l'urgence permanente pour une progression structuree, réaliste et soutenable.
 
-Ouvre par un bloc `tableau` a trois colonnes — Horizon, Actions, Indicateur de réussite — portant cinq lignes dans cet ordre : « 30 jours », « 60 jours », « 90 jours », « 6 mois », « 12 mois », avec 1 a 3 actions reelles du projet par ligne. La trajectoire au-dela de douze mois se traite dans sa sous-partie, pas dans ce tableau.
+Ouvre par un bloc `tableau` a trois colonnes — Horizon, Actions, Indicateur de réussite — portant cinq lignes dans cet ordre : « 30 jours », « 60 jours », « 90 jours », « 6 mois », « 12 mois », avec 1 à 3 actions réelles du projet par ligne. La trajectoire au-delà de douze mois se traite dans sa sous-partie, pas dans ce tableau.
 
 ## Priorités stratégiques immédiates
-Identifie les actions prioritaires et hierarchise les urgences strategiques. Distingue explicitement priorites critiques, optimisations secondaires et projets prematures.
+Identifie les actions prioritaires et hierarchise les urgences stratégiques. Distingue explicitement priorités critiques, optimisations secondaires et projets prematures.
 
 ## Feuille de route court terme
-Structure les chantiers des prochains mois et contextualise les objectifs prioritaires : structuration de l'offre, clarification du positionnement, acquisition, organisation, rentabilite, visibilite, outils de pilotage.
+Structure les chantiers des prochains mois et contextualise les objectifs prioritaires : structuration de l'offre, clarification du positionnement, acquisition, organisation, rentabilité, visibilité, outils de pilotage.
 
 ## Feuille de route moyen terme
-Organise les phases suivantes et prepare la croissance progressive : montee en gamme, automatisation, structuration de l'equipe, developpement commercial, diversification maitrisee, recurrence.
+Organise les phases suivantes et prepare la croissance progressive : montée en gamme, automatisation, structuration de l'équipe, développement commercial, diversification maîtrisée, récurrence.
 
 ## Vision long terme & trajectoire cible
-Contextualise la trajectoire ideale, relie la vision du dirigeant a la strategie : soutenabilite, stabilite, rentabilite long terme, logique scalable, maturite future du business.
+Contextualise la trajectoire ideale, relie la vision du dirigeant a la stratégie : soutenabilité, stabilité, rentabilité long terme, logique scalable, maturité future du business.
 
 ## Arbitrages & éléments à limiter
-Rappelle les risques de dispersion et nomme les non-priorites : projets prematures, developpements incoherents, activites energivores, leviers a faible valeur strategique.
+Rappelle les risques de dispersion et nomme les non-priorités : projets prematures, developpements incohérents, activités energivores, leviers a faible valeur stratégique.
 
-Pour chaque action : ce qu'il faut faire, pourquoi, et l'indicateur qui prouvera sa reussite. Traite au passage : quelles sont les priorites absolues, que traiter immediatement, quels projets differer, quels axes deviennent centraux, quels leviers auront le plus d'impact, quelle trajectoire est reellement soutenable, que faut-il abandonner ou limiter.
+Pour chaque action : ce qu'il faut faire, pourquoi, et l'indicateur qui prouvera sa réussite. Traite au passage : quelles sont les priorités absolues, que traiter immédiatement, quels projets différer, quels axes deviennent centraux, quels leviers auront le plus d'impact, quelle trajectoire est réellement soutenable, que faut-il abandonner ou limiter.
 
 ## A retenir
-Prends du recul : analyse directionnelle, consequences futures, lien explicite entre les constats et les decisions. Verifie que les arbitrages sont coherents, que le rythme propose est realiste, que la trajectoire respecte les ressources disponibles et que les non-priorites restent visibles.
+Prends du recul : analyse directionnelle, conséquences futures, lien explicite entre les constats et les décisions. Vérifie que les arbitrages sont cohérents, que le rythme propose est réaliste, que la trajectoire respecte les ressources disponibles et que les non-priorités restent visibles.
 
-Termine par une synthese globale de la trajectoire strategique, une clarification des priorites de developpement, puis une ouverture vers la conclusion strategique generale du document.
+Termine par une synthèse globale de la trajectoire stratégique, une clarification des priorités de développement, puis une ouverture vers la conclusion stratégique générale du document.
 
-INTERDIT : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile.
+INTERDIT : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.
 
 ## SOUS-CHAPITRE OBLIGATOIRE — « Tableau de pilotage GO / ADJUST / STOP »
 

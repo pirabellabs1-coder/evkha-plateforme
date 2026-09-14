@@ -37,6 +37,7 @@ from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from generation.chapitres.configuration import type_document
 from generation.chapitres.runner import construire_prompt_chapitre
+from generation.geography import _strip_accents as _plat
 from generation.services import bootstrap_generation_job
 from generation.socle.schema import (
     DonneeSocle,
@@ -141,7 +142,7 @@ def test_chaque_motif_de_refus_est_annonce_au_modele(
     c'est cette différence qui a coûté dix-huit figures.
     """
     prompt = _prompt(DeliverableType.MARKET_STUDY, socle)
-    manquants = [f for f in fragments if f.lower() not in prompt.lower()]
+    manquants = [f for f in fragments if _plat(f).lower() not in _plat(prompt).lower()]
 
     assert not manquants, (
         f"Le prompt transmis ne dit rien de : {motif}. Absents : {manquants}. "
@@ -165,7 +166,7 @@ def test_les_quatre_livrables_recoivent_les_regles(livrable: str, socle: Socle) 
     """Vérifier le seul livrable phare laisserait le trou ouvert sur les trois autres."""
     prompt = _prompt(livrable, socle)
 
-    assert "MEME NATURE" in prompt, livrable
+    assert "MEME NATURE" in _plat(prompt), livrable
     assert "notes" in prompt.lower(), livrable
 
 

@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Conclusion strategique : synthese des points forts du projet, coherence economique et viabilite, adequation avec les objectifs du porteur, message final donnant confiance au lecteur. Ton positif et credible, pas commercial.
+Conclusion stratégique : synthèse des points forts du projet, cohérence économique et viabilité, adequation avec les objectifs du porteur, message final donnant confiance au lecteur. Ton positif et crédible, pas commercial.

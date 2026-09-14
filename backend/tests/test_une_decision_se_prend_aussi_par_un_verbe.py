@@ -102,7 +102,9 @@ def test_chaque_etiquette_satisfait_son_propre_controle() -> None:
         d.libelle
         for bloc in DECISIONS_STRATEGIE
         for d in bloc.decisions
-        if d.motif and d.libelle in _manquantes(f"| {d.etiquette} | le choix | la raison |")
+        if d.motif and d.libelle in _manquantes(
+            f"| {d.etiquette} | Facebook Ads, retenu | la raison |"
+        )
     ]
     assert fautes == []
 
@@ -155,3 +157,64 @@ def test_le_chapitre_13_ne_laisse_plus_la_frequence_a_deduire() -> None:
 
     texte = (RACINE_PROMPTS / "strategie_business" / "chapitre_13.md").read_text(encoding="utf-8")
     assert "se déduit du tableau" not in texte
+
+
+# ── Relecture du 14/09/2026 : un verbe nié, ou porté par un tiers, ne décide rien ──
+
+
+@pytest.mark.parametrize(("phrase", "libelle"), [
+    ("Nous n'excluons aucun canal à ce stade.", "les canaux à éviter"),
+    ("Aucun canal n'est à exclure à ce stade.", "les canaux à éviter"),
+    ("Il n'y a pas de canal à éviter.", "les canaux à éviter"),
+    ("Aucun réseau n'est encore exclu.", "les canaux à éviter"),
+    ("Les campagnes Google Ads sont souvent reportées par les TPE du secteur.",
+     "les canaux à éviter"),
+    ("Évitez les erreurs de facturation, puis lancez la campagne Instagram.",
+     "les canaux à éviter"),
+    ("La radio est déconseillée par certains experts, mais nous ne tranchons pas.",
+     "les canaux à éviter"),
+    ("Les effets secondaires de la publicité sont mal connus.", "les canaux secondaires"),
+    ("Dans ce secteur, la radio reste un média secondaire selon Médiamétrie.",
+     "les canaux secondaires"),
+    ("Dans un second temps, nous présenterons les segments du marché.", "la cible secondaire"),
+    ("Nous ne retenons aucun positionnement tant que l'enquête n'est pas faite.",
+     "le positionnement retenu"),
+    ("Nous ne positionnons pas encore l'offre.", "le positionnement retenu"),
+    ("Les offres du marché sont maintenues à des prix élevés.",
+     "les offres à conserver, modifier, supprimer ou reporter"),
+    ("Nous ne conservons aucune donnée sur les offres.",
+     "les offres à conserver, modifier, supprimer ou reporter"),
+    ("Les concurrents publient une vidéo par semaine en moyenne.", "la fréquence de publication"),
+    ("Une newsletter mensuelle existe chez le concurrent B.", "la fréquence de publication"),
+])
+def test_un_verbe_nie_ou_porte_par_un_tiers_ne_decide_rien(phrase: str, libelle: str) -> None:
+    assert libelle in _manquantes(phrase)
+
+
+@pytest.mark.parametrize(("phrase", "libelle"), [
+    ("Nous excluons TikTok et LinkedIn.", "les canaux à éviter"),
+    ("Instagram est exclu.", "les canaux à éviter"),
+    ("On exclut Facebook Ads.", "les canaux à éviter"),
+    ("Publier trois fois par semaine sur Instagram.", "la fréquence de publication"),
+])
+def test_une_plateforme_nommee_est_un_canal(phrase: str, libelle: str) -> None:
+    assert libelle not in _manquantes(phrase)
+
+
+@pytest.mark.parametrize("case", [
+    "", "—", "À définir", "Non tranchée.", "Le dossier ne permet pas de trancher.",
+    "Données insuffisantes", "À préciser avec le dirigeant",
+])
+def test_une_etiquette_sans_decision_dans_sa_case_reste_signalee(case: str) -> None:
+    """L'étiquette seule ne décide rien : la case « Ce qui est retenu » juge (règle 9)."""
+    ligne = f"| Canaux à éviter | {case} | Il manque le coût par contact. |"
+    assert "les canaux à éviter" in _manquantes(ligne)
+
+
+def test_la_consigne_du_tableau_ne_permet_pas_de_laisser_la_case_ouverte() -> None:
+    """La consigne STR dit « tu tranches quand même » : le tableau ne dit plus l'inverse."""
+    from generation.chapitres.runner import _bloc_decisions
+
+    consigne = _bloc_decisions(_job("business_strategy"), 13)
+    assert "décision reportée" not in consigne
+    assert "tranche quand même" in consigne

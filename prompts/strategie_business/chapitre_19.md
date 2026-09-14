@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Annexe finale (format identique aux annexes EM) : pour chaque demande specifique du brief client, fournis une reponse synthetique de 1-2 paragraphes suivie d'un encadre intitule 'Strategie bonus' contenant 2-3 pistes operationnelles concretes. Numerotation A.1, A.2, A.3... Ton plus direct que les chapitres : conversation finale avec le dirigeant.
+Annexe finale (format identique aux annexes EM) : pour chaque demande spécifique du brief client, fournis une réponse synthétique de 1-2 paragraphes suivie d'un encadre intitule 'Stratégie bonus' contenant 2-3 pistes operationnelles concrètes. Numérotation A.1, A.2, A.3... Ton plus direct que les chapitres : conversation finale avec le dirigeant.

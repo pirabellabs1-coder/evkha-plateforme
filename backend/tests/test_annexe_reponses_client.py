@@ -16,6 +16,10 @@ from __future__ import annotations
 
 from catalog.models import DeliverableType
 from generation.blueprints import MARKET_STUDY_CHAPTERS, SectionKind, get_blueprint
+from generation.geography import _strip_accents as _plat
+
+#: Les prompts ont retrouvé leurs accents le 14/09/2026 (audit A22) : ces
+#: tests vérifient qu'une EXIGENCE est présente, pas son orthographe.
 
 NUMERO_ANNEXE = 22
 
@@ -60,7 +64,7 @@ def test_l_annexe_a_un_prompt_et_il_porte_les_questions_du_manuel() -> None:
         "Le projet parait-il viable",
         "actions prioritaires a engager",
     ):
-        assert attendu in prompt, f"question absente de l'annexe : {attendu}"
+        assert _plat(attendu) in _plat(prompt), f"question absente de l'annexe : {attendu}"
 
 
 def test_l_annexe_interdit_toute_donnee_nouvelle() -> None:
@@ -73,8 +77,8 @@ def test_l_annexe_interdit_toute_donnee_nouvelle() -> None:
     from generation.chapitres.fichiers_prompts import charger_prompt
 
     prompt = charger_prompt(str(DeliverableType.MARKET_STUDY), NUMERO_ANNEXE)
-    assert "aucune nouveaute" in prompt.lower()
-    assert "n'invente pas la reponse ici" in prompt
+    assert "aucune nouveaute" in _plat(prompt).lower()
+    assert "n'invente pas la reponse ici" in _plat(prompt)
 
 
 def test_l_annexe_renvoie_vers_des_chapitres_qui_existent() -> None:

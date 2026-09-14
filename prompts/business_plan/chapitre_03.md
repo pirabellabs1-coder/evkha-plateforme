@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Raconte l'histoire du projet depuis son origine : pourquoi ce projet existe, comment il s'est construit dans le temps, quelles etapes ont valide la demarche, pourquoi ce moment est le bon pour franchir l'etape actuelle. Cree une trajectoire credible et assumee.
+Raconte l'histoire du projet depuis son origine : pourquoi ce projet existe, comment il s'est construit dans le temps, quelles étapes ont valide la démarche, pourquoi ce moment est le bon pour franchir l'étape actuelle. Cree une trajectoire crédible et assumee.

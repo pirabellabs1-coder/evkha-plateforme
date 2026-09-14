@@ -11,9 +11,9 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Liste les sources reellement utilisees pour cette etude concurrentielle, regroupees par thematique (Concurrents identifies, Donnees de marche, Avis clients, Publications sectorielles). Reprends en PRIORITE les URLs reelles du bloc SOURCES_WEB du contexte ; n'invente aucune URL absente de ce bloc. Format simple :
+Liste les sources réellement utilisées pour cette étude concurrentielle, regroupees par thématique (Concurrents identifies, Données de marché, Avis clients, Publications sectorielles). Reprends en PRIORITÉ les URLs réelles du bloc SOURCES_WEB du contexte ; n'invente aucune URL absente de ce bloc. Format simple :
 ## Concurrents identifies
 - Nom - URL si disponible
-## Donnees de marche
+## Données de marché
 - ...
-Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe '## Methodologie' (3-4 lignes) expliquant la demarche de benchmark (perimetre, critere de selection des concurrents, periode des avis). Rester concis et structure.
+Pas plus de 4-6 sources par thématique. Ajoute un court paragraphe '## Méthodologie' (3-4 lignes) expliquant la démarche de benchmark (périmètre, critère de sélection des concurrents, période des avis). Rester concis et structure.

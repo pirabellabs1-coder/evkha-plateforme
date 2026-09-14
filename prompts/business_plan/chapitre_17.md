@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Risques identifies et facteurs de securisation : principaux risques (saisonnalite, dependance, concurrence, reglementation), leur probabilite et impact, leviers de securisation concrets pour chacun. Lecture lucide sans dramatisation.
+Risques identifies et facteurs de sécurisation : principaux risques (saisonnalité, dépendance, concurrence, réglementation), leur probabilité et impact, leviers de sécurisation concrets pour chacun. Lecture lucide sans dramatisation.

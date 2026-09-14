@@ -11,35 +11,35 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-CHAPITRE 18 — SWOT de synthese (manuel §6, p. 16).
-Objectif : resumer les enseignements etablis, sans inventer de nouveaux elements.
+CHAPITRE 18 — SWOT de synthèse (manuel §6, p. 16).
+Objectif : resumer les enseignements établis, sans inventer de nouveaux éléments.
 
-Questions auxquelles ce chapitre doit repondre :
-- Quelles forces et faiblesses internes ressortent reellement du projet et de son modele ?
-- Quelles opportunites et menaces externes ont ete etablies dans les chapitres precedents ?
-- Quels croisements SWOT font apparaitre les priorites les plus importantes ?
-- Quelles forces permettent de saisir une opportunite et quelles faiblesses aggravent une menace ?
-- Quels arbitrages strategiques decoulent de cette synthese ?
+Questions auxquelles ce chapitre doit répondre :
+- Quelles forces et faiblesses internes ressortent réellement du projet et de son modèle ?
+- Quelles opportunités et menaces externes ont ete établies dans les chapitres précédents ?
+- Quels croisements SWOT font apparaître les priorités les plus importantes ?
+- Quelles forces permettent de saisir une opportunité et quelles faiblesses aggravent une menace ?
+- Quels arbitrages stratégiques decoulent de cette synthèse ?
 - Quelles informations essentielles restent invisibles dans les quatre cases de la SWOT ?
-- Quels sujets exigent une analyse complementaire avant de prendre une decision definitive ?
+- Quels sujets exigent une analyse complémentaire avant de prendre une décision définitive ?
 
 Contenu obligatoire :
-- 3 a 5 forces, faiblesses, opportunites et menaces.
-- Origine tracable de chaque point dans un chapitre precedent.
+- 3 à 5 forces, faiblesses, opportunités et menaces.
+- Origine traçable de chaque point dans un chapitre précédent.
 - Distinction interne/externe respectee.
-- Lecture croisee : forces pour saisir les opportunites, faiblesses face aux menaces.
+- Lecture croisee : forces pour saisir les opportunités, faiblesses face aux menaces.
 
-Commence par 1 paragraphe d'introduction. Puis le SWOT en bloc `tableau` : quatre lignes (forces, faiblesses, opportunites, menaces), chaque cellule 1 a 2 phrases concretes et chiffrees — les vrais elements du projet. Ferme sur deux ou trois priorites tirees du CROISEMENT des cases, comme la regle de fond l'exige.
-Remplis chaque cellule avec 3 a 5 points reels (manuel §6, p. 16 : 3-5 forces, faiblesses, opportunites et menaces), specifiques au projet, pas generiques. Chaque point indique sa source dans l'etude. Apres le tableau, ajoute un paragraphe de lecture croisee : comment les forces compensent les faiblesses, comment les opportunites repondent aux menaces.
+Commence par 1 paragraphe d'introduction. Puis le SWOT en bloc `tableau` : quatre lignes (forces, faiblesses, opportunités, menaces), chaque cellule 1 à 2 phrases concrètes et chiffrées — les vrais éléments du projet. Ferme sur deux ou trois priorités tirées du CROISEMENT des cases, comme la règle de fond l'exige.
+Remplis chaque cellule avec 3 à 5 points réels (manuel §6, p. 16 : 3-5 forces, faiblesses, opportunités et menaces), specifiques au projet, pas génériques. Chaque point indique sa source dans l'étude. Après le tableau, ajoute un paragraphe de lecture croisee : comment les forces compensent les faiblesses, comment les opportunités répondent aux menaces.
 
-CONTRAINTE — chiffres de marche dans ce chapitre :
-Quand tu mentionnes une taille de marche dans les opportunites ou menaces, utilise EXACTEMENT les valeurs du bloc DONNÉES DE RÉFÉRENCE. Distinction critique : `marche_mondial_taille` (marche total mondial) et `marche_continental_taille` (part continentale, ex. Europe IA strict) sont deux chiffres differents. Labellise chacun avec son perimetre exact (ex. 'marche europeen IA 407 M€', jamais 'marche mondial 407 M€' si 407 M€ est la valeur continentale).
+CONTRAINTE — chiffres de marché dans ce chapitre :
+Quand tu mentionnes une taille de marché dans les opportunités ou menaces, utilise EXACTEMENT les valeurs du bloc DONNÉES DE RÉFÉRENCE. Distinction critique : `marche_mondial_taille` (marche total mondial) et `marche_continental_taille` (part continentale, ex. Europe IA strict) sont deux chiffres différents. Labellise chacun avec son périmètre exact (ex. 'marché européen IA 407 M€', jamais 'marché mondial 407 M€' si 407 M€ est la valeur continentale).
 
 Approfondissement obligatoire (manuel) :
-- Conserver une SWOT lisible avec 3 a 5 elements solides par cadran, tous relies a des preuves deja presentees.
-- Apres la matrice, ajouter OBLIGATOIREMENT une section redigee intitulee « Ce que la SWOT ne dit pas ».
-- Cette section traite les dependances entre facteurs, la chronologie, la capacite reelle d'execution, les arbitrages de ressources, les hypotheses encore fragiles et les signaux faibles.
-- Preciser ce qui ne peut pas etre conclu a partir de la seule SWOT : rentabilite, vitesse de conversion, reaction du marche, capacite operationnelle ou efficacite future des recommandations.
-- Terminer par 3 a 5 decisions a approfondir dans le chapitre 19, sans transformer la SWOT en liste de recommandations generiques.
+- Conserver une SWOT lisible avec 3 à 5 éléments solides par cadran, tous relies a des preuves déjà presentees.
+- Après la matrice, ajouter OBLIGATOIREMENT une section rédigée intitulee « Ce que la SWOT ne dit pas ».
+- Cette section traite les dépendances entre facteurs, la chronologie, la capacité réelle d'exécution, les arbitrages de ressources, les hypothèses encore fragiles et les signaux faibles.
+- Préciser ce qui ne peut pas être conclu a partir de la seule SWOT : rentabilité, vitesse de conversion, réaction du marché, capacité opérationnelle ou efficacité future des recommandations.
+- Terminer par 3 à 5 décisions a approfondir dans le chapitre 19, sans transformer la SWOT en liste de recommandations génériques.
 
-Lecture strategique attendue : Faire emerger des priorites par croisement des quatre cadrans, puis exposer honnetement ce que la SWOT ne permet pas de conclure.
+Lecture stratégique attendue : Faire emerger des priorités par croisement des quatre cadrans, puis exposer honnetement ce que la SWOT ne permet pas de conclure.

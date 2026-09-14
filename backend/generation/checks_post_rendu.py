@@ -60,6 +60,10 @@ _PONCTUATION_FIN_VALIDE = frozenset(".!?»…:)]}")
 #: c'est le mauvais qui bloquait la livraison.
 TITRE_EN_GRAS = re.compile(r"^\s*\*{2}[^*]+\*{2}\s*$")
 
+#: Une ligne entière en italique : « *Source : Insee, 2025* ».
+_LEGENDE_EN_ITALIQUE = re.compile(r"^\s*\*(?!\*)(.+?)(?<!\*)\*\s*$")
+_FIN_DE_TABLEAU = re.compile(r"\|\s*$")
+
 _STRUCTURES_STRUCTURELLES = (
     re.compile(r"[|+-]\s*$"),                                    # fin de tableau
     re.compile(r"</?[a-zA-Z][^>]*>\s*$"),                        # balise HTML
@@ -172,8 +176,22 @@ def detecter_troncatures(
             continue
 
         # Structure en fin (tableau, liste, code, HTML) ? On accepte.
-        derniere_ligne = corps_nettoye.split("\n")[-1].rstrip()
+        lignes = [x.rstrip() for x in corps_nettoye.split("\n") if x.strip()]
+        derniere_ligne = lignes[-1]
         if any(m.search(derniere_ligne) for m in _STRUCTURES_STRUCTURELLES):
+            continue
+        # La LÉGENDE d'un tableau : `payload_vers_markdown` écrit la source en
+        # italique sous chaque tableau, sans point. Un chapitre qui se ferme sur
+        # un tableau se fermait donc sur « *données du projet* », compté
+        # « perte probable de contenu client » — six dossiers du corpus du
+        # 14/09/2026, dont `f8a29b66` et `d667fbb4`. Motif fabriqué par notre
+        # propre rendu (règle 9). Seule la ligne en italique qui SUIT une ligne
+        # de tableau est une légende : de la prose en italique reste jugée.
+        if (
+            len(lignes) >= 2
+            and _LEGENDE_EN_ITALIQUE.match(derniere_ligne)
+            and _FIN_DE_TABLEAU.search(lignes[-2])
+        ):
             continue
 
         # Un encadre en italique ou une citation ferme APRES la ponctuation :
@@ -275,8 +293,12 @@ class DesaccordNumerique:
 
 
 # Nombres en toutes lettres qu'on reconnait pour verifier le compte.
+#:
+#: « un » et « une » n'en sont PAS : ce sont d'abord des articles. « Un
+#: segment : » suivi des deux puces qui le décrivent était compté « annonce 1,
+#: 2 items » — sept dossiers du corpus du 14/09/2026 accusés sur « un axe »,
+#: « une phase », « un chapitre ». Une annonce de compte commence à deux.
 _NOMBRES_LETTRES: dict[str, int] = {
-    "un": 1, "une": 1,
     "deux": 2,
     "trois": 3,
     "quatre": 4,
@@ -311,14 +333,54 @@ _NOMS_STRUCTURELS = (
 def _construire_motif_annonce() -> re.Pattern[str]:
     nombres = "|".join(_NOMBRES_LETTRES.keys())
     noms = "|".join(re.escape(n) for n in _NOMS_STRUCTURELS)
+    # L'annonce INTRODUIT la liste : elle se ferme sur un deux-points. « Trois
+    # piliers. » suivi d'un paragraphe puis d'une liste sans rapport n'annonce
+    # rien de ce qu'on compterait.
     return re.compile(
-        rf"\b({nombres})\s+({noms})\b[^:.\n]{{0,60}}[:.]",
-        re.IGNORECASE,
+        rf"\b({nombres})\s+({noms})\b[^:.\n]{{0,60}}:[ \t]*$",
+        re.IGNORECASE | re.MULTILINE,
     )
 
 
 _ANNONCE_RE = _construire_motif_annonce()
 _ITEM_LISTE_RE = re.compile(r"^\s*(?:[-*+]|\d+\.)\s+\S", re.MULTILINE)
+
+
+def _items_de_la_liste_qui_suit(suite: str) -> int:
+    """Les puces de PREMIER niveau de la liste qui commence juste après l'annonce.
+
+    Compter toutes les puces des 500 signes suivants prenait les sous-puces
+    d'un item, et la liste d'après un paragraphe, pour des items annoncés
+    (« deux phases » suivies d'une puce : la liste des phases était un
+    tableau). La liste doit suivre l'annonce, lignes vides seules entre les
+    deux, et elle s'arrête à la première ligne qui n'en fait plus partie.
+    """
+    items = 0
+    retrait: int | None = None
+    apres_une_ligne_vide = False
+    for ligne in suite.splitlines():
+        if not ligne.strip():
+            apres_une_ligne_vide = True
+            continue
+        puce = _ITEM_LISTE_RE.match(ligne)
+        if puce is None:
+            if retrait is None:
+                return 0
+            # Collée à l'item, sans ligne vide : c'est sa suite (« - Axe un, qui
+            # porte\nsur la proximité. »). Après une ligne vide, au même
+            # retrait ou moins : la liste est finie.
+            if not apres_une_ligne_vide or len(ligne) - len(ligne.lstrip()) > retrait:
+                continue
+            break
+        apres_une_ligne_vide = False
+        decalage = len(ligne) - len(ligne.lstrip())
+        if retrait is None:
+            retrait = decalage
+        if decalage == retrait:
+            items += 1
+        elif decalage < retrait:
+            break
+    return items
 
 
 def detecter_desaccords_numeriques(
@@ -336,13 +398,7 @@ def detecter_desaccords_numeriques(
             nom = m.group(2).lower()
             # Fenetre : depuis la fin du match jusqu'au prochain double
             # saut de ligne suivi d'un non-item, ou 500 chars max.
-            fenetre = corps[m.end() : m.end() + 500]
-            # On s'arrete au prochain titre H1/H2/H3 pour ne pas compter
-            # les items du chapitre suivant.
-            fin_titre = re.search(r"\n#{1,6}\s", fenetre)
-            if fin_titre:
-                fenetre = fenetre[: fin_titre.start()]
-            n_items = len(_ITEM_LISTE_RE.findall(fenetre))
+            n_items = _items_de_la_liste_qui_suit(corps[m.end():])
             if n_items == 0 or n_items == nombre_annonce:
                 continue
             desaccords.append(DesaccordNumerique(

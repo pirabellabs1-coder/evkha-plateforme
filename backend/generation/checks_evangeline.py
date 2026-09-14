@@ -25,6 +25,7 @@ sont ici et NULLE PART AILLEURS. Chaque module qui en aurait besoin importe.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -644,13 +645,13 @@ REGISTRES_METHODO: dict[str, tuple[str, str]] = {
 # le marche », n'apparait NULLE PART dans les 33 pages. Le systeme retenait donc
 # ses onze acteurs sur une grille qui n'etait pas celle de la cliente.
 CRITERES_TRI_CONCURRENTS: tuple[str, ...] = (
-    "Influence sur le marche (notoriete, parts de marche percues)",
-    "Proximite avec l'offre du projet",
-    "Proximite avec la clientele cible",
-    "Presence sur la zone ou accessibilite depuis cette zone",
-    "Visibilite digitale et terrain",
-    "Intensite concurrentielle observee",
-    "Potentiel d'enseignement strategique pour le projet",
+    "Influence sur le marché (notoriété, parts de marché perçues)",
+    "Proximité avec l'offre du projet",
+    "Proximité avec la clientèle cible",
+    "Présence sur la zone ou accessibilité depuis cette zone",
+    "Visibilité digitale et terrain",
+    "Intensité concurrentielle observée",
+    "Potentiel d'enseignement stratégique pour le projet",
 )
 
 #: Un TITRE de section, pas une mention. L'ancien motif attrapait la phrase
@@ -869,12 +870,18 @@ class DecisionAttendue:
     """Une decision que le livrable doit prendre, pas seulement eclairer."""
 
     libelle: str
-    #: Vide = demandee par la consigne, non verrouillee par le gate.
+    #: Vide = demandee par la consigne, non verrouillee par le gate. Une
+    #: LOCUTION (« canaux a eviter ») : sa presence suffit.
     motif: str = ""
     #: L'intitule que le chapitre porteur ecrit en tete de ligne de son
     #: tableau « Decisions retenues ». Il satisfait le `motif` (un test le
     #: verifie) : la consigne fait ecrire ce que le controle reconnait.
     etiquette: str = ""
+    #: La meme decision prise par un VERBE (« Nous excluons Facebook Ads »).
+    #: Jugee plus severement que la locution : la phrase doit DECIDER — ni
+    #: negation pres du verbe, ni tiers qui agit a la place du projet. Voir
+    #: `_forme_qui_decide`.
+    forme_verbale: str = ""
 
 
 @dataclass(frozen=True)
@@ -907,21 +914,12 @@ _D = DecisionAttendue
 _E = r"\s"
 
 
-def _meme_phrase(a: str, b: str, portee: int = 100) -> str:
-    """Les deux elements d'une decision, dans une meme phrase, dans un ordre quelconque."""
-    return (
-        rf"(?:{a})[^.!?\n]{{0,{portee}}}(?:{b})"
-        rf"|(?:{b})[^.!?\n]{{0,{portee}}}(?:{a})"
-    )
-
-
 # ## Une decision se prend aussi par un VERBE
 #
-# Les motifs ci-dessous attendaient une locution collee : « canaux a eviter »,
-# « offre phare », « frequence de publication ». Les documents, eux, decident
-# comme un consultant ecrit. Mesure du 14/09/2026 sur les douze strategies du
-# corpus (12 sur 12 bloquees, 40 motifs) — phrases relevees dans les Word
-# livres :
+# Les motifs attendaient une locution collee : « canaux a eviter », « offre
+# phare », « frequence de publication ». Les documents, eux, decident comme un
+# consultant ecrit. Mesure du 14/09/2026 sur les douze strategies du corpus
+# (12 sur 12 bloquees, 40 motifs) — phrases relevees dans les Word livres :
 #
 #     « Nous excluons Facebook Ads, Google Ads et les flyers non cibles »
 #     « Toute action publicitaire (Facebook, Google) est reportee »
@@ -929,38 +927,49 @@ def _meme_phrase(a: str, b: str, portee: int = 100) -> str:
 #     « nous resserrons le positionnement sur l'ancrage local »
 #
 # Toutes accusees de ne rien decider. Et le controleur final reecrivait — donc
-# payait — les chapitres 8, 10 et 13 sur ces motifs, sans jamais les fermer :
-# la reecriture decidait de nouveau avec un verbe (`a678b10a`, trois passes).
+# payait — les chapitres 8, 10 et 13 sur ces motifs, sans jamais les fermer.
 #
-# La forme reconnue est celle d'une DECISION : premiere personne du pluriel,
-# imperatif, « a + infinitif », ou participe attribut (« est reportee »).
-# « Ce tableau exclut des indicateurs » et « aucun canal n'est valide ni
-# ecarte » ne decident rien, et ne passent pas (contre-epreuves en test).
+# ## Mais un verbe ne decide pas toujours
+#
+# Relecture du meme jour : la premiere version acceptait « Nous n'excluons
+# aucun canal », « Aucun reseau n'est encore exclu », « Les concurrents
+# publient une video par semaine », « La radio est deconseillee par certains
+# experts ». Un verbe de decision nie, ou porte par un tiers, ne decide rien
+# pour le projet. D'ou deux champs : la LOCUTION (`motif`), jugee comme avant,
+# et la FORME VERBALE (`forme_verbale`), acceptee seulement si elle decide.
 
-#: Ce qu'une decision de visibilite peut viser.
+#: Ce qu'une decision de visibilite peut viser, plateformes nommees comprises.
 _CANAL = (
     r"\b(?:canal|canaux|leviers?|r[ée]seaux?|plateformes?|publicit[ée]s?"
     r"|publicitaires?|ads|campagnes?|flyers?|prospection|salons?|e-?mailing"
-    r"|affichage|presse|radio|annuaires?|marketplaces?)\b"
+    r"|affichage|presse|radio|annuaires?|marketplaces?|facebook|instagram"
+    r"|linkedin|tiktok|youtube|pinterest|snapchat|google|meta)\b"
 )
 
-#: « Est » suivi d'au plus un mot qui n'est pas une negation, puis le participe.
-_ATTRIBUT = (
-    r"\b(?:est|sont|reste|restent|sera|seront|demeure|demeurent)\s+"
-    r"(?!(?:pas|ni|jamais|plus)\b)(?:\w+\s+)?"
-)
+#: « Est » suivi d'au plus un mot, puis le participe.
+_ATTRIBUT = r"\b(?:est|sont|reste|restent|sera|seront|demeure|demeurent)\s+(?:\w+\s+)?"
 
-_ECARTER = (
+#: Le verbe qui ECARTE, conjugue comme une decision du projet.
+_VERBE_QUI_ECARTE = (
     r"\b(?:excluons|[ée]cartons|reportons|renon[çc]ons|abandonnons|proscrivons"
     r"|[ée]vitons|suspendons|gelons|diff[ée]rons|arr[êe]tons)\b"
     r"|\b(?:excluez|[ée]cartez|reportez|renoncez|abandonnez|proscrivez|[ée]vitez"
     r"|suspendez|arr[êe]tez)\b(?!-)"
-    r"|\b[àa]\s+(?:[ée]viter|exclure|proscrire|[ée]carter|abandonner|reporter"
-    r"|diff[ée]rer)\b"
-    rf"|{_ATTRIBUT}(?:exclue?s?|[ée]cart[ée]e?s?|report[ée]e?s?|abandonn[ée]e?s?"
-    r"|proscrite?s?|suspendue?s?|gel[ée]e?s?|diff[ée]r[ée]e?s?)\b"
-    r"|\bd[ée]conseill[ée]e?s?\b|\bnon\s+retenue?s?\b"
+    r"|\bon\s+(?:exclut|[ée]carte|reporte|[ée]vite|abandonne|renonce\s+[àa])\b"
 )
+_A_ECARTER = (
+    r"\b[àa]\s+(?:[ée]viter|exclure|proscrire|[ée]carter|abandonner|reporter"
+    r"|diff[ée]rer)\b"
+)
+_PARTICIPE_QUI_ECARTE = (
+    r"(?:exclue?s?|[ée]cart[ée]e?s?|report[ée]e?s?|abandonn[ée]e?s?|proscrite?s?"
+    r"|suspendue?s?|gel[ée]e?s?|diff[ée]r[ée]e?s?|d[ée]conseill[ée]e?s?)\b"
+)
+
+#: Entre le verbe et ce qu'il vise : pas de virgule ni de nouvelle proposition.
+#: « Évitez les erreurs de facturation, puis lancez la campagne » n'écarte pas
+#: la campagne.
+_ECART = r"[^.!?\n,;:]{0,50}?"
 
 _OFFRE = r"\b(?:offres?|formules?|paliers?|prestations?|abonnements?|gammes?)\b"
 
@@ -982,30 +991,32 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                etiquette="Cible prioritaire"),
             _D("la cible secondaire",
                rf"(?:cible|client[èe]le|segment)s?{_E}+"
-               rf"(?:secondaires?|compl[ée]mentaires?)"
-               + "|" + _meme_phrase(
-                   r"\b(?:cibles?|segments?|client[èe]les?|publics?|profils?)\b",
-                   r"\bsecondaires?\b|\ben\s+second\s+(?:rang|plan)\b"
-                   r"|\bdans\s+un\s+second\s+temps\b",
-                   60,
-               ),
-               etiquette="Cible secondaire"),
+               rf"(?:secondaires?|compl[ée]mentaires?)",
+               etiquette="Cible secondaire",
+               forme_verbale=(
+                   r"\b(?:cibles|segments|publics|profils|client[èe]les)\b"
+                   r"[^.!?\n]{0,60}?\b(?:secondaires|en\s+second\s+rang)\b"
+               )),
             _D("le positionnement retenu",
                rf"positionnement{_E}+"
                rf"(?:retenu|recommand[ée]|choisi|cible|d[ée]fendu"
-               rf"|propos[ée]|pr[ée]conis[ée])"
-               r"|\b(?:retenons|choisissons|resserrons|recentrons|assumons"
-               r"|adoptons|d[ée]fendons|arbitrons)\b[^.!?\n]{0,60}positionnement"
-               r"|\b(?:positionnons|repositionnons)\b",
-               etiquette="Positionnement retenu"),
+               rf"|propos[ée]|pr[ée]conis[ée])",
+               etiquette="Positionnement retenu",
+               forme_verbale=(
+                   r"\b(?:retenons|choisissons|resserrons|recentrons|assumons"
+                   r"|adoptons|d[ée]fendons|arbitrons)\b[^.!?\n]{0,60}?positionnement"
+                   r"|\b(?:positionnons|repositionnons)\b"
+               )),
             _D("la spécialisation recommandée",
                etiquette="Spécialisation recommandée"),
             _D("le produit ou service à pousser en priorité",
-               rf"(?:offre|produit|service|prestation|formule|palier|abonnement)s?"
-               rf"(?:{_E}+\S+)?{_E}+"
-               rf"(?:phares?|locomotives?|prioritaires?|[àa]{_E}+pousser"
-               rf"|[àa]{_E}+mettre{_E}+en{_E}+avant)",
-               etiquette="Offre à pousser en priorité"),
+               rf"(?:offre|produit|service|prestation|formule|palier|abonnement)s?{_E}+"
+               rf"(?:phares?|locomotives?|[àa]{_E}+pousser)",
+               etiquette="Offre à pousser en priorité",
+               forme_verbale=(
+                   r"\b(?:offre|produit|service|prestation|formule|palier|abonnement)s?"
+                   r"(?:\s+\S+)?\s+(?:prioritaires?|[àa]\s+pousser|[àa]\s+mettre\s+en\s+avant)"
+               )),
             _D("la proposition de valeur", rf"proposition{_E}+de{_E}+valeur",
                etiquette="Proposition de valeur"),
             _D("les éléments concrets de différenciation",
@@ -1028,15 +1039,17 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
         decisions=(
             _D("les offres à conserver, modifier, supprimer ou reporter",
                rf"[àa]{_E}+(?:conserver|maintenir|supprimer|arr[êe]ter"
-               rf"|reporter|retravailler)"
-               r"|\b(?:conservons|maintenons|supprimons|arr[êe]tons|reportons"
-               r"|suspendons|gelons|retirons|abandonnons|gardons)\b"
-               rf"[^.!?\n]{{0,60}}{_OFFRE}"
-               rf"|{_OFFRE}[^.!?\n]{{0,120}}{_ATTRIBUT}"
-               r"(?:conserv[ée]e?s?|maintenue?s?|supprim[ée]e?s?|arr[êe]t[ée]e?s?"
-               r"|report[ée]e?s?|suspendue?s?|gel[ée]e?s?|retir[ée]e?s?"
-               r"|abandonn[ée]e?s?)\b",
-               etiquette="Offres à conserver, modifier, supprimer ou reporter"),
+               rf"|reporter|retravailler)",
+               etiquette="Offres à conserver, modifier, supprimer ou reporter",
+               forme_verbale=(
+                   r"\b(?:conservons|maintenons|supprimons|arr[êe]tons|reportons"
+                   r"|suspendons|gelons|retirons|abandonnons|gardons)\b"
+                   rf"{_ECART}{_OFFRE}"
+                   rf"|{_OFFRE}[^.!?\n]{{0,120}}?{_ATTRIBUT}"
+                   r"(?:conserv[ée]e?s?|maintenue?s?|supprim[ée]e?s?|arr[êe]t[ée]e?s?"
+                   r"|report[ée]e?s?|suspendue?s?|gel[ée]e?s?|retir[ée]e?s?"
+                   r"|abandonn[ée]e?s?)\b"
+               )),
             _D("l'offre d'entrée de gamme",
                rf"(?:entr[ée]e{_E}+de{_E}+gamme"
                rf"|offre{_E}+d['’](?:appel|entr[ée]e))",
@@ -1070,32 +1083,37 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
             _D("les canaux secondaires",
                rf"(?:canaux|leviers|r[ée]seaux){_E}+"
                rf"(?:secondaires|compl[ée]mentaires|d['’]appoint"
-               rf"|de{_E}+soutien)"
-               + "|" + _meme_phrase(
-                   _CANAL,
-                   r"\bsecondaires?\b|\bd['’]appoint\b|\bde\s+soutien\b"
-                   r"|\ben\s+second\s+(?:rang|plan)\b",
-                   60,
-               ),
-               etiquette="Canaux secondaires"),
+               rf"|de{_E}+soutien)",
+               etiquette="Canaux secondaires",
+               forme_verbale=(
+                   r"\b(?:canaux|leviers|r[ée]seaux|plateformes|supports|m[ée]dias)\b"
+                   r"[^.!?\n]{0,60}?\b(?:secondaires|d['’]appoint|en\s+second\s+rang)\b"
+               )),
             _D("les canaux à éviter",
                rf"(?:canaux|leviers|r[ée]seaux|plateformes|supports){_E}+"
                rf"(?:[àa]{_E}+(?:[ée]viter|proscrire|exclure|abandonner"
                rf"|ne{_E}+pas{_E}+(?:investir|privil[ée]gier))"
-               rf"|d[ée]conseill[ée]s?|non{_E}+retenus?)"
-               + "|" + _meme_phrase(_CANAL, _ECARTER),
-               etiquette="Canaux à éviter"),
+               rf"|d[ée]conseill[ée]s?|non{_E}+retenus?)",
+               etiquette="Canaux à éviter",
+               forme_verbale=(
+                   rf"(?:{_VERBE_QUI_ECARTE}){_ECART}{_CANAL}"
+                   rf"|{_CANAL}{_ECART}(?:{_A_ECARTER}|{_ATTRIBUT}{_PARTICIPE_QUI_ECARTE})"
+                   rf"|{_A_ECARTER}{_ECART}{_CANAL}"
+               )),
             _D("les thématiques et types de contenus recommandés",
                etiquette="Thématiques et contenus recommandés"),
             _D("la fréquence de publication",
                rf"(?:fr[ée]quence|rythme|cadence){_E}+(?:de{_E}+)?"
-               rf"(?:publication|parution|diffusion|contenus?)"
-               rf"|\b{_COMPTE}{_E}+{_PUBLICATION}{_E}+(?:\S+{_E}+){{0,3}}?"
-               rf"(?:par|chaque|\/){_E}*(?:jour|semaine|quinzaine|mois)"
-               rf"|\d+{_E}*{_PUBLICATION}{_E}*\/{_E}*(?:semaine|mois)"
-               rf"|{_PUBLICATION}{_E}+(?:hebdomadaires?|mensuel(?:le)?s?"
-               rf"|quotidien(?:ne)?s?|bimensuel(?:le)?s?)",
-               etiquette="Fréquence de publication"),
+               rf"(?:publication|parution|diffusion|contenus?)",
+               etiquette="Fréquence de publication",
+               forme_verbale=(
+                   rf"\b{_COMPTE}\s+{_PUBLICATION}\s+(?:\S+\s+){{0,3}}?"
+                   r"(?:par|chaque|/)\s*(?:jour|semaine|quinzaine|mois)"
+                   rf"|\d+\s*{_PUBLICATION}\s*/\s*(?:semaine|mois)"
+                   rf"|{_PUBLICATION}\s+(?:hebdomadaires?|mensuel(?:le)?s?"
+                   r"|quotidien(?:ne)?s?|bimensuel(?:le)?s?)"
+                   rf"|\bpubli\w*\s+(?:\S+\s+){{0,3}}?{_COMPTE}\s+fois\s+par\s+(?:jour|semaine|mois)"
+               )),
             _D("un planning éditorial concret, sur un mois au minimum",
                rf"(?:planning|calendrier|programme){_E}+[ée]ditorial",
                etiquette="Planning éditorial du premier mois"),
@@ -1172,18 +1190,103 @@ class DecisionManquante:
     libelle: str
 
 
+#: Une negation PRES du verbe : « Nous n'excluons aucun canal », « Aucun reseau
+#: n'est encore exclu ». Cherchee dans la forme trouvee et juste avant elle —
+#: pas dans toute la phrase, ou « Nous excluons Facebook Ads tant que le seuil
+#: n'est pas atteint » serait refusee pour sa subordonnee.
+_NEGATION = re.compile(
+    r"\bn['’]|\bne\b|\baucune?s?\b|\bpas\s+(?:de|d['’]|encore)\b|\bsans\b|\bni\b",
+    re.IGNORECASE,
+)
+
+#: Un tiers qui agit ou juge a la place du projet : « les concurrents
+#: publient », « deconseillee par certains experts », « souvent reportees par
+#: les TPE », « les offres du marche sont maintenues ».
+_TIERS = re.compile(
+    r"\b(?:concurrents?|TPE|PME|experts?|certains|certaines|la\s+plupart|souvent"
+    r"|en\s+moyenne|(?:du|le|au|sur\s+le)\s+march[ée]|chez\s+(?:le|la|les|l['’]))\b",
+    re.IGNORECASE,
+)
+
+_AVANT = 15
+_AUTOUR = 40
+
+
+def _forme_qui_decide(forme: str, corpus: str) -> bool:
+    """Une occurrence de la forme verbale decide-t-elle pour le projet ?"""
+    for trouve in re.finditer(forme, corpus, re.IGNORECASE):
+        debut, fin = trouve.start(), trouve.end()
+        # Les fenetres s'arretent a la phrase : un tiers ou une negation de la
+        # phrase voisine ne retire rien a celle-ci.
+        phrase_debut = max(corpus.rfind(c, 0, debut) for c in ".!?\n") + 1
+        fins = [i for i in (corpus.find(c, fin) for c in ".!?\n") if i != -1]
+        phrase_fin = min(fins) if fins else len(corpus)
+        pres = corpus[max(phrase_debut, debut - _AVANT):fin]
+        autour = corpus[max(phrase_debut, debut - _AUTOUR):min(phrase_fin, fin + _AUTOUR)]
+        if _NEGATION.search(pres) or _TIERS.search(autour):
+            continue
+        return True
+    return False
+
+
+#: Une case « Ce qui est retenu » qui ne retient rien.
+_CASE_VIDE = re.compile(r"^\s*(?:[—–-]|n\s*/?\s*a)?[\s.]*$", re.IGNORECASE)
+_CASE_SANS_DECISION = re.compile(
+    r"[àa]\s+(?:d[ée]finir|pr[ée]ciser|d[ée]terminer|confirmer|trancher)"
+    r"|non\s+(?:tranch|d[ée]fini|renseign|d[ée]cid)\w*|ind[ée]termin\w*|\binconnu\w*"
+    r"|\bne\s+permet\w*\s+pas|insuffisant\w*|pas\s+de\s+donn[ée]es",
+    re.IGNORECASE,
+)
+
+
+def _sans_decisions_non_tranchees(corpus: str) -> str:
+    """Retire du corpus les lignes « Decisions retenues » dont la case est vide.
+
+    Relecture du 14/09/2026 : le tableau injecte au chapitre porteur ecrit
+    l'etiquette que le motif reconnait. Sans ce filtre, « | Canaux a eviter |
+    A definir | … | » fermait le motif sans que rien ne soit decide — le
+    controle et sa reparation jugeaient sur la meme evidence (regle 9).
+    """
+    etiquettes = {
+        _plat(d.etiquette)
+        for bloc in DECISIONS_STRATEGIE for d in bloc.decisions if d.etiquette
+    }
+    lignes = []
+    for ligne in corpus.splitlines():
+        cellules = [c.strip() for c in ligne.strip().strip("|").split("|")]
+        if (
+            ligne.lstrip().startswith("|")
+            and len(cellules) >= 2
+            and _plat(cellules[0].strip("*")) in etiquettes
+            and (_CASE_VIDE.match(cellules[1]) or _CASE_SANS_DECISION.search(cellules[1]))
+        ):
+            continue
+        lignes.append(ligne)
+    return "\n".join(lignes)
+
+
+def _plat(texte: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texte.casefold())
+        if unicodedata.category(c) != "Mn"
+    ).strip()
+
+
 def verifier_decisions_strategie(corpus: str) -> list[DecisionManquante]:
     """Les decisions VERROUILLEES que le document ne prend pas.
 
     Les autres — celles sans motif — sont demandees par la consigne et ne
     sont pas jugees ici : voir le commentaire de `DECISIONS_STRATEGIE`.
     """
+    corpus = _sans_decisions_non_tranchees(corpus)
     manquantes: list[DecisionManquante] = []
     for bloc in DECISIONS_STRATEGIE:
         for decision in bloc.decisions:
             if not decision.motif:
                 continue
             if re.search(decision.motif, corpus, re.IGNORECASE):
+                continue
+            if decision.forme_verbale and _forme_qui_decide(decision.forme_verbale, corpus):
                 continue
             manquantes.append(DecisionManquante(
                 cle_bloc=bloc.cle,

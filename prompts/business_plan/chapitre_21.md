@@ -11,9 +11,9 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Liste les sources utilisees pour construire ce business plan, regroupees par thematique (Donnees sectorielles, Reglementation, Financements et aides, Concurrence, Documents fournis par le porteur). Reprends en PRIORITE les URLs reelles du bloc SOURCES_WEB du contexte ; n'invente aucune URL absente de ce bloc. Format simple :
-## Donnees sectorielles
+Liste les sources utilisées pour construire ce business plan, regroupees par thématique (Données sectorielles, Réglementation, Financements et aides, Concurrence, Documents fournis par le porteur). Reprends en PRIORITÉ les URLs réelles du bloc SOURCES_WEB du contexte ; n'invente aucune URL absente de ce bloc. Format simple :
+## Données sectorielles
 - Nom - URL si disponible
-## Reglementation
+## Réglementation
 - ...
-Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe '## Methodologie' (3-4 lignes) precisant la demarche (periode des donnees, hypotheses financieres assumees). Rester concis et structure.
+Pas plus de 4-6 sources par thématique. Ajoute un court paragraphe '## Méthodologie' (3-4 lignes) precisant la démarche (période des données, hypothèses financières assumées). Rester concis et structure.

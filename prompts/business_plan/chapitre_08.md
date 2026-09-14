@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Presente concretement l'offre : ce qui est vendu, comment l'offre est structuree (niveaux, gammes, options), politique tarifaire et logique de prix moyen, coherence entre l'offre et le positionnement. Demontre que l'offre a ete pensee et economiquement reflechie.
+Présente concrètement l'offre : ce qui est vendu, comment l'offre est structuree (niveaux, gammes, options), politique tarifaire et logique de prix moyen, cohérence entre l'offre et le positionnement. Démontre que l'offre a ete pensee et economiquement reflechie.

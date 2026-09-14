@@ -11,25 +11,25 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Analyse les offres actuellement proposees par le business, evalue leur coherence strategique, mesure leur lisibilite et identifie les problemes de structuration commerciale. Comprends ce que l'entreprise vend reellement, comment les offres sont percues et si elles soutiennent le positionnement, la rentabilite et la strategie globale. L'objectif n'est pas d'accumuler des prestations mais de construire une architecture d'offres coherente.
+Analyse les offres actuellement proposees par le business, evalue leur cohérence stratégique, mesure leur lisibilité et identifie les problèmes de structuration commerciale. Comprends ce que l'entreprise vend réellement, comment les offres sont perçues et si elles soutiennent le positionnement, la rentabilité et la stratégie globale. L'objectif n'est pas d'accumuler des prestations mais de construire une architecture d'offres cohérente.
 
 ## Cartographie des offres existantes
-Identifie les offres actuelles, comprends leur role et analyse leur place dans le modele economique. Distingue offres principales, secondaires, historiques, opportunistes, prestations premium, prestations low value et offres complementaires.
+Identifie les offres actuelles, comprends leur rôle et analyse leur place dans le modèle économique. Distingue offres principales, secondaires, historiques, opportunistes, prestations premium, prestations low value et offres complémentaires.
 
 ## Analyse stratégique des offres
-Analyse chaque offre selon sa coherence strategique, sa rentabilite, sa lisibilite, sa charge operationnelle et sa capacite a soutenir le positionnement. Identifie celles qui renforcent le business et celles qui creent de la dispersion ou degradent l'image.
+Analyse chaque offre selon sa cohérence stratégique, sa rentabilité, sa lisibilité, sa charge opérationnelle et sa capacité a soutenir le positionnement. Identifie celles qui renforcent le business et celles qui créent de la dispersion ou dégradent l'image.
 
 ## Lisibilité commerciale du catalogue
-Evalue la comprehension globale des offres et la clarte du parcours client. Verifie si le client comprend rapidement ce qui est vendu, a qui cela s'adresse et pourquoi cela possede de la valeur.
+Évalue la compréhension globale des offres et la clarte du parcours client. Vérifie si le client comprend rapidement ce qui est vendu, a qui cela s'adresse et pourquoi cela possède de la valeur.
 
 ## Cohérence globale des offres
-Analyse la coherence entre les offres, le positionnement, les verticales, la cible et la strategie globale. Detecte les incoherences, les chevauchements, les offres peu alignees et les risques de dilution commerciale.
+Analyse la cohérence entre les offres, le positionnement, les verticales, la cible et la stratégie globale. Détecte les incohérences, les chevauchements, les offres peu alignees et les risques de dilution commerciale.
 
-Traite explicitement : les offres actuelles sont-elles lisibles, l'entreprise vend-elle trop de choses, certaines prestations nuisent-elles a la coherence du business, quelles offres soutiennent reellement le positionnement, lesquelles creent reellement de la valeur, existe-t-il une logique de gamme coherente, les offres permettent-elles une montee en gamme naturelle, le catalogue est-il structure ou opportuniste.
+Traite explicitement : les offres actuelles sont-elles lisibles, l'entreprise vend-elle trop de choses, certaines prestations nuisent-elles a la cohérence du business, quelles offres soutiennent réellement le positionnement, lesquelles créent réellement de la valeur, existe-t-il une logique de gamme cohérente, les offres permettent-elles une montée en gamme naturelle, le catalogue est-il structure ou opportuniste.
 
 ## A retenir
-Fonctionne comme un consultant en structuration d'offre : transforme un catalogue de prestations en architecture strategique coherente. Prends du recul, nomme les consequences futures et relie chaque constat aux arbitrages de montee en gamme et de rentabilite a venir. Verifie que le catalogue est structure, que les prestations a forte valeur sont visibles et que les offres problematiques sont identifiees.
+Fonctionne comme un consultant en structuration d'offre : transforme un catalogue de prestations en architecture stratégique cohérente. Prends du recul, nomme les conséquences futures et relie chaque constat aux arbitrages de montée en gamme et de rentabilité a venir. Vérifie que le catalogue est structure, que les prestations a forte valeur sont visibles et que les offres problematiques sont identifiées.
 
-Termine par une synthese des forces et limites du catalogue actuel, une lecture des priorites de structuration et une transition vers le chapitre Architecture d'offre cible.
+Termine par une synthèse des forces et limites du catalogue actuel, une lecture des priorités de structuration et une transition vers le chapitre Architecture d'offre cible.
 
-Redige en paragraphes developpes, ton cabinet de conseil. Interdits : listes a puces sans analyse, paragraphes generiques, complaisance, jargon inutile.
+Rédige en paragraphes developpes, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.

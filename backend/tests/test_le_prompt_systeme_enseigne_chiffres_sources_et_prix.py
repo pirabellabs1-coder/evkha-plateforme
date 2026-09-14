@@ -31,6 +31,7 @@ from generation.chapitres.runner import (
     PRIX_ET_MODELE_ECONOMIQUE,
     SOURCES_ET_TRACABILITE,
 )
+from generation.geography import _strip_accents as _plat
 from generation.services import bootstrap_generation_job
 from generation.socle import etablir_socle
 from intake.models import IntakeStatus, IntakeSubmission
@@ -138,7 +139,7 @@ def test_les_prix_repondent_aux_defauts_nommes() -> None:
         "LE MEME PRIX PARTOUT",
         "UNE MARGE DIT LAQUELLE",
     ):
-        assert attendu in PRIX_ET_MODELE_ECONOMIQUE, attendu
+        assert _plat(attendu) in _plat(PRIX_ET_MODELE_ECONOMIQUE), attendu
 
 
 def test_aucun_bloc_ne_se_cite_dans_le_document() -> None:

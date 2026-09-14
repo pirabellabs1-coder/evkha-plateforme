@@ -719,6 +719,33 @@ _AGREGAT_ACTEURS = re.compile(
     re.IGNORECASE,
 )
 
+#: Le NOMBRE d'acteurs que la phrase agrège : « les onze concurrents »,
+#: « le cumul des cinq premiers acteurs », « le reste des 60 acteurs ».
+#:
+#: Corpus du 14/09/2026 : « 15 % et le cumul des cinq premiers acteurs » était
+#: confronté à une colonne de ONZE parts (50 %), « 3 % de part cumulée sur les
+#: trois acteurs » à une colonne de douze. Une phrase qui compte ses acteurs ne
+#: parle que d'une colonne de ce nombre de lignes (règle 2).
+_COMPTE_EN_LETTRES = {
+    "deux": 2, "trois": 3, "quatre": 4, "cinq": 5, "six": 6, "sept": 7, "huit": 8,
+    "neuf": 9, "dix": 10, "onze": 11, "douze": 12, "treize": 13, "quatorze": 14,
+    "quinze": 15, "seize": 16, "vingt": 20,
+}
+_COMPTE_D_ACTEURS = re.compile(
+    r"\b(?P<compte>\d+|" + "|".join(_COMPTE_EN_LETTRES) + r")\s+"
+    r"(?:(?:premiers|principaux|plus\s+grands|grands)\s+)?(?:concurrents|acteurs)\b",
+    re.IGNORECASE,
+)
+
+
+def _compte_annonce(phrase: str) -> int | None:
+    trouve = _COMPTE_D_ACTEURS.search(phrase)
+    if trouve is None:
+        return None
+    brut = trouve.group("compte").casefold()
+    return int(brut) if brut.isdigit() else _COMPTE_EN_LETTRES[brut]
+
+
 #: Une cellule de tableau qui ne contient qu'un pourcentage.
 _CELLULE_POURCENT = re.compile(rf"\s*({_NOMBRE})\s*%\s*")
 
@@ -750,7 +777,14 @@ def _colonnes_de_parts(texte: str) -> list[list[float]]:
     for ligne in texte.split("\n"):
         if not ligne.strip().startswith("|"):
             continue
-        for rang, cellule in enumerate(ligne.strip().strip("|").split("|")):
+        cellules = ligne.strip().strip("|").split("|")
+        # Une ligne « Total » ou « Sous-total » n'est pas une part : la compter
+        # doublait la somme et, depuis que la phrase compte ses acteurs, faisait
+        # passer la colonne des onze parts à douze lignes — le cas de la
+        # cliente redevenait invisible (relecture du 14/09/2026, I6).
+        if _INTITULE_TOTAL.match(cellules[0]) or _INTITULE_PARTIEL.search(cellules[0]):
+            continue
+        for rang, cellule in enumerate(cellules):
             trouve = _CELLULE_POURCENT.fullmatch(cellule)
             if trouve:
                 valeur = _valeur(trouve.group(1))
@@ -806,8 +840,16 @@ def agregats_faux(textes: list[str]) -> list[AgregatFaux]:
         annonce = _valeur(trouve.group("part"))
         if annonce is None:
             continue
+        compte = _compte_annonce(trouve.group(0))
         for parts in colonnes:
             somme = sum(parts)
+            # « Le cumul des cinq premiers » face à onze parts : on ne compare
+            # pas, plutôt que d'additionner les cinq plus grandes — un motif
+            # manqué vaut mieux qu'un motif deviné (règle 2).
+            if compte is not None and len(parts) != compte:
+                continue
+            if somme == 0:
+                continue  # une colonne nulle ne répartit rien : rien à confronter
             if _ecart_trop_grand(annonce, somme, _decimales(trouve.group("part"))):
                 fautes.append(AgregatFaux(
                     annonce=annonce, somme=somme, lignes=len(parts),

@@ -511,74 +511,74 @@ sources, et pouvoir les ouvrir."""
 #: Comme les deux blocs precedents, il vit dans la partie CACHEE du prompt
 #: systeme : il est ecrit une fois, paye une fois, et lu par tous les
 #: chapitres des quatre livrables.
-PRIX_ET_MODELE_ECONOMIQUE = """PRIX ET MODELE ECONOMIQUE — c'est ici que le
-lecteur engage son argent. Une incoherence de prix ne se pardonne pas : elle se
-voit a la premiere lecture, et elle disqualifie le reste du document.
+PRIX_ET_MODELE_ECONOMIQUE = """PRIX ET MODÈLE ÉCONOMIQUE — c'est ici que le
+lecteur engage son argent. Une incohérence de prix ne se pardonne pas : elle se
+voit a la première lecture, et elle disqualifie le reste du document.
 
 1. UN PRIX EST UN NOMBRE, PAS UNE PLAGE. Deux bornes ne sont pas une
-recommandation, c'est un renvoi de la decision au lecteur — or c'est
+recommandation, c'est un renvoi de la décision au lecteur — or c'est
 exactement ce qu'il a paye pour ne pas avoir a faire. Tranche sur une valeur,
 et donne en une phrase la raison de CE niveau-la.
 
-2. UN PRIX DIT S'IL EST HT OU TTC, et le meme document ne melange pas les deux
-sans le dire. Entre professionnels, raisonne en HT et precise-le une fois.
+2. UN PRIX DIT S'IL EST HT OU TTC, et le même document ne mélange pas les deux
+sans le dire. Entre professionnels, raisonne en HT et précise-le une fois.
 
-3. LE MEME PRIX PARTOUT. La grille tarifaire est la reference unique du
+3. LE MÊME PRIX PARTOUT. La grille tarifaire est la référence unique du
 dossier : tout chapitre qui reprend un tarif recopie cette valeur, au centime.
 Un prix qui varie d'un chapitre a l'autre est lu comme une erreur de travail,
 et c'en est une.
 
 4. UN PALIER SE JUSTIFIE PAR CE QU'IL AJOUTE. Si tu proposes trois formules,
-dis pour chacune ce qu'elle contient de plus que la precedente, et a qui elle
-s'adresse. Un ecart de prix sans contrepartie nommee ne se vend pas.
+dis pour chacune ce qu'elle contient de plus que la précédente, et a qui elle
+s'adresse. Un écart de prix sans contrepartie nommée ne se vend pas.
 
 5. CHIFFRE D'AFFAIRES = PRIX x VOLUME, ET LE PRODUIT TOMBE JUSTE. Avant
-d'ecrire un objectif de recettes, pose l'operation et verifie-la. Si 250
-abonnes a 19 € par mois donnent 57 000 € par an, n'annonce pas 60 000 €
-parce que le chiffre est plus rond : ecris 57 000 €.
+d'écrire un objectif de recettes, pose l'opération et vérifie-la. Si 250
+abonnés à 19 € par mois donnent 57 000 € par an, n'annonce pas 60 000 €
+parce que le chiffre est plus rond : écris 57 000 €.
 
 6. UN MONTANT MENSUEL ET UN MONTANT ANNUEL NE SE COMPARENT JAMAIS
-DIRECTEMENT. Un abonnement se dit au mois ET a l'annee quand les deux servent
-(19 € par mois, soit 228 € par an). Un revenu recurrent annonce sans sa
-periode est inexploitable.
+DIRECTEMENT. Un abonnement se dit au mois ET a l'année quand les deux servent
+(19 € par mois, soit 228 € par an). Un revenu récurrent annonce sans sa
+période est inexploitable.
 
 7. REALISE ET VISE NE SE CONFONDENT JAMAIS. Le chiffre d'affaires que le
 client a fait l'an dernier n'est pas son objectif, et son objectif n'est pas un
-acquis. Chaque montant porte son annee et son statut — realise, en cours,
+acquis. Chaque montant porte son année et son statut — realise, en cours,
 vise. Confondre les deux est la faute la plus grave de ce document : elle
 transforme un diagnostic en promesse, et le client s'en apercoit
-immediatement puisqu'il s'agit de SON entreprise.
+immédiatement puisqu'il s'agit de SON entreprise.
 
-8. LE COUT PRECEDE LE PRIX. Avant d'annoncer un tarif, sache ce qu'il doit
-couvrir : cout de production ou de service, temps passe, part des charges
+8. LE COÛT PRÉCÈDE LE PRIX. Avant d'annoncer un tarif, sache ce qu'il doit
+couvrir : coût de production ou de service, temps passe, part des charges
 fixes. Un prix qui ne laisse pas de marge est une perte organisee, et le dire
 vaut mieux que de le taire.
 
-9. UNE MARGE DIT LAQUELLE. Brute, nette, ou sur cout variable : ce ne sont pas
-les memes nombres, et l'ecart entre elles se compte en dizaines de points.
+9. UNE MARGE DIT LAQUELLE. Brute, nette, ou sur coût variable : ce ne sont pas
+les mêmes nombres, et l'écart entre elles se compte en dizaines de points.
 Nomme celle que tu emploies, et la base sur laquelle tu la calcules.
 
-10. UN SEUIL DE RENTABILITE SE POSE ET SE CONFRONTE AU REEL. Charges fixes
+10. UN SEUIL DE RENTABILITÉ SE POSE ET SE CONFRONTE AU RÉEL. Charges fixes
 divisees par la marge unitaire : cela donne un volume. Dis-le, puis dis si ce
-volume est atteignable avec la capacite decrite dans le dossier. Un seuil qui
-exige trois fois la capacite du client doit etre signale, pas presente comme
+volume est atteignable avec la capacité décrite dans le dossier. Un seuil qui
+exige trois fois la capacité du client doit être signalé, pas présenté comme
 un plan.
 
-11. UNE HAUSSE DE PRIX A UN EFFET SUR LE VOLUME. N'ecris jamais qu'augmenter
+11. UNE HAUSSE DE PRIX A UN EFFET SUR LE VOLUME. N'écris jamais qu'augmenter
 les tarifs de 20 % augmente les recettes de 20 % : dis quelle part de clients
-tu supposes perdue, et recalcule avec cette hypothese.
+tu supposes perdue, et recalcule avec cette hypothèse.
 
 12. UN PANIER MOYEN SE RECALCULE QUAND LA GRILLE CHANGE. Si tu proposes une
-repartition entre formules, le panier moyen est la moyenne PONDEREE de ces
-formules, pas la valeur du milieu. Pose la ponderation que tu retiens.
+répartition entre formules, le panier moyen est la moyenne PONDEREE de ces
+formules, pas la valeur du milieu. Pose la pondération que tu retiens.
 
-13. LES PRIX DU CLIENT SONT LE POINT DE DEPART. S'il facture deja, pars de ses
-tarifs reels : tu les ajustes, tu les defends ou tu les contestes, mais tu ne
-les ignores pas, et tu ne les remplaces pas par une moyenne de marche sans
+13. LES PRIX DU CLIENT SONT LE POINT DE DÉPART. S'il facture déjà, pars de ses
+tarifs réels : tu les ajustes, tu les defends ou tu les contestes, mais tu ne
+les ignores pas, et tu ne les remplaces pas par une moyenne de marché sans
 dire pourquoi.
 
-14. CES REGLES NE SE CITENT PAS DANS LE TEXTE. Le lecteur doit trouver des
-prix justes et tenus, jamais la mention de la methode qui les a produits."""
+14. CES RÈGLES NE SE CITENT PAS DANS LE TEXTE. Le lecteur doit trouver des
+prix justes et tenus, jamais la mention de la méthode qui les a produits."""
 
 
 def _bloc_socle(socle: Socle) -> str:
@@ -1129,40 +1129,40 @@ REGLES_DE_FOND = (
     # taux de capture », « boucler l'emboitement », « trancher le scenario
     # central ». Le relecteur redemandait la meme chose a quatre chapitres
     # differents, et chaque demande coutait une reprise.
-    "- Un marche atteignable se DEDUIT, il ne se justifie pas apres coup. "
-    "Ecris toujours dans cet ordre : un taux de capture du marche accessible, "
-    "puis le montant qui en decoule, puis sa traduction concrete. « Un taux "
-    "de capture de 0,01 % du marche accessible donne 130 000 €, soit environ "
-    "2 000 commandes a 65 € » — jamais l'inverse. Ce taux se REPETE dans le "
-    "verdict de viabilite : c'est lui qui rend l'objectif discutable.\n"
+    "- Un marché atteignable se DÉDUIT, il ne se justifie pas après coup. "
+    "Écris toujours dans cet ordre : un taux de capture du marché accessible, "
+    "puis le montant qui en découle, puis sa traduction concrète. « Un taux "
+    "de capture de 0,01 % du marché accessible donne 130 000 €, soit environ "
+    "2 000 commandes a 65 € » — jamais l'inverse. Ce taux se RÉPÈTE dans le "
+    "verdict de viabilité : c'est lui qui rend l'objectif discutable.\n"
     # « Preciser explicitement si le taux compare est celui du marche francais
     # ou du marche mondial. » Un taux nu oblige le lecteur a deviner.
-    "- Tout taux et tout montant nomme SON PERIMETRE a chaque occurrence : "
+    "- Tout taux et tout montant nomme SON PÉRIMÈTRE a chaque occurrence : "
     "« 3,4 % par an (France) », jamais « 3,4 % » seul quand le document porte "
-    "aussi un chiffre mondial. Deux perimetres compares dans la meme phrase "
+    "aussi un chiffre mondial. Deux périmètres compares dans la même phrase "
     "se nomment tous les deux.\n"
     # « Ne pas enoncer de nouveau les chiffres presents tels quels, mais
     # expliquer en quoi ces contraintes se transforment a horizon 2026-2030. »
-    "- Une section sur l'AVENIR ne redit pas les chiffres du present : elle "
-    "dit ce qu'ils deviennent. Un defi se projette — s'aggrave, s'attenue, "
-    "sature — avec l'horizon et le mecanisme. Reciter le present sous un "
-    "titre d'avenir ne repond pas a la question posee.\n"
+    "- Une section sur l'AVENIR ne redit pas les chiffres du présent : elle "
+    "dit ce qu'ils deviennent. Un défi se projette — s'aggrave, s'attenue, "
+    "sature — avec l'horizon et le mécanisme. Reciter le présent sous un "
+    "titre d'avenir ne répond pas a la question posee.\n"
     # « Citer les references precises des textes evoques. »
-    "- Une regle de droit se cite avec SA REFERENCE : numero de reglement, "
-    "de directive ou article de code. « Le delai de retractation de 14 jours "
+    "- Une règle de droit se cite avec SA RÉFÉRENCE : numero de règlement, "
+    "de directive ou article de code. « Le délai de rétractation de 14 jours "
     "(article L221-18 du code de la consommation) » — une obligation sans "
-    "reference n'est pas verifiable, donc pas opposable.\n"
+    "référence n'est pas vérifiable, donc pas opposable.\n"
     # « Dedupliquer les deux entrees Xerfi, memes lien et code d'etude, titres
     # differents. » Une source citee deux fois gonfle le compte sans rien
     # ajouter, et fait douter des autres.
     "- Une SOURCE n'apparait qu'UNE FOIS dans la bibliographie. Deux entrees "
-    "au meme lien ou au meme numero d'etude se fondent en une, sous le titre "
+    "au même lien ou au même numero d'étude se fondent en une, sous le titre "
     "exact de l'editeur.\n"
     # Deux troncatures sur le meme dossier : un chapitre fini sur un intitule
     # en gras, un autre sur une cellule de tableau. Le lecteur y voit une
     # coupure, et le controle aussi.
     "- Un chapitre se termine par une PHRASE, jamais par un titre, une "
-    "etiquette en gras, une cellule de tableau ou une figure. La derniere "
+    "etiquette en gras, une cellule de tableau ou une figure. La dernière "
     "ligne porte un point final.\n"
     # « Il y a des erreurs dans les calculs et pourcentages » (cliente,
     # 11/08/2026). Une extrapolation est legitime ; une extrapolation FAUSSE
@@ -1445,9 +1445,10 @@ def _bloc_decisions(job: GenerationJob, numero: int) -> str:
         f"{lignes}\n"
         "« Ce qui est retenu » NOMME le choix — le canal, l'offre, le segment, "
         "le rythme — au lieu de le décrire ; « Pourquoi » tient en une phrase "
-        "appuyée sur ce que le document a établi. Quand le dossier ne permet "
-        "pas de trancher, écris-le dans la colonne et nomme l'information qui "
-        "manque : une décision inventée est pire qu'une décision reportée. Le "
+        "appuyée sur ce que le document a établi. Quand une donnée manque, "
+        "tranche quand même sur une valeur de travail, et écris dans « Pourquoi » "
+        "la condition qui ferait changer ce choix : une case « à définir » vaut "
+        "une décision absente. Le "
         "texte du chapitre développe ces choix ; le tableau les rend lisibles "
         "d'un coup d'œil."
     )

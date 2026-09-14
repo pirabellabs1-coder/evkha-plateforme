@@ -21,6 +21,7 @@ import pytest
 
 from catalog.models import DeliverableType
 from generation.checks_evangeline import CRITERES_TRI_CONCURRENTS
+from generation.geography import _strip_accents as _plat
 from generation.prompts import build_system_prompt
 
 # ── Q1 : les trois niveaux du marche sont verrouilles separement ────────────
@@ -208,7 +209,7 @@ def test_le_prompt_strategie_reprend_les_5_objectifs_transversaux() -> None:
 
     for objectif in ("clarification", "structuration", "rentabilite",
                      "pilotage", "developpement"):
-        assert objectif in prompt.lower(), f"{objectif} absent"
+        assert _plat(objectif) in _plat(prompt).lower(), f"{objectif} absent"
 
 
 def test_le_prompt_strategie_ancre_l_interpretation_du_brief_imparfait() -> None:
@@ -217,8 +218,8 @@ def test_le_prompt_strategie_ancre_l_interpretation_du_brief_imparfait() -> None
     un brief plus complet."""
     prompt = build_system_prompt(DeliverableType.BUSINESS_STRATEGY)
 
-    assert "desordre" in prompt.lower()
-    assert "reconstitu" in prompt.lower() or "reconstruire" in prompt.lower()
+    assert "desordre" in _plat(prompt).lower()
+    assert "reconstitu" in _plat(prompt).lower() or "reconstruire" in prompt.lower()
 
 
 def test_le_prompt_strategie_interdit_les_conseils_generiques_verbatim() -> None:
@@ -234,4 +235,4 @@ def test_le_prompt_strategie_impose_les_paragraphes_developpes() -> None:
     """Le PDF EVKHA : « paragraphes developpes, pas d'accumulation de listes »."""
     prompt = build_system_prompt(DeliverableType.BUSINESS_STRATEGY)
 
-    assert "paragraphes developpes" in prompt.lower()
+    assert "paragraphes developpes" in _plat(prompt).lower()

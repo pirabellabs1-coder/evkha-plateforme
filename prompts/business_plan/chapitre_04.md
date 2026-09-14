@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Presente l'activite de maniere claire et structuree : ce que vend reellement l'entreprise, comment fonctionne l'activite, a quels besoins elle repond, a qui elle s'adresse, comment elle genere ses revenus. Le lecteur doit comprendre sans connaissance prealable du secteur.
+Présente l'activité de manière claire et structuree : ce que vend réellement l'entreprise, comment fonctionne l'activité, a quels besoins elle répond, a qui elle s'adresse, comment elle génère ses revenus. Le lecteur doit comprendre sans connaissance prealable du secteur.

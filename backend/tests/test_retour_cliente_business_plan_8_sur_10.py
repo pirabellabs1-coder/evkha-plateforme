@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from generation.geography import _strip_accents as _plat
+
 # ── 1. Les traces techniques sous les tableaux ──────────────────────────────
 
 
@@ -261,7 +263,7 @@ def _chapitre_11() -> str:
 
 def test_le_chapitre_11_reclame_la_vision_a_l_avenir() -> None:
     """Les trois points demandés, chacun explicitement."""
-    texte = _chapitre_11().lower()
+    texte = _plat(_chapitre_11()).lower()
 
     assert "vision du projet a l'avenir" in texte
     assert "indicateurs" in texte          # les KPI suivis
@@ -275,7 +277,7 @@ def test_la_traction_ne_s_invente_pas() -> None:
     Une preuve de traction inventée est vérifiable en un appel, et sa
     découverte décrédibilise le plan entier — pas seulement le paragraphe.
     """
-    texte = _chapitre_11()
+    texte = _plat(_chapitre_11())
 
     assert "n'en invente pas" in texte
     assert "aucune traction chiffree n'est" in texte

@@ -174,7 +174,13 @@ def _garanties_structurelles(
     l'autre moitié est que ces exigences soient DITES au vrai modèle (formes
     par livrable, fiches), et les tests de prompts la verrouillent.
     """
-    consigne = prompt.casefold()
+    # Sans accents : la doublure reconnaît une consigne à ses mots, et les
+    # consignes ont retrouvé leurs accents le 14/09/2026 (audit A22). Une
+    # « colonne vertébrale » que la doublure ne reconnaîtrait plus ferait
+    # échouer la répétition à blanc sur un défaut qui n'existe pas.
+    from ..geography import _strip_accents  # noqa: PLC0415
+
+    consigne = _strip_accents(prompt.casefold())
 
     # Un chapitre qui SUIT LE MODÈLE de référence (étude de marché) ne reçoit
     # que la phrase de clôture : la passe de conformité compare sa forme au

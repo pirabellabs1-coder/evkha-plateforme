@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Annexes : reponses explicites a chaque demande specifique du client (traitee / partiellement / non traitee + explication). Documents justificatifs et simulations complementaires si demandes.
+Annexes : réponses explicites a chaque demande spécifique du client (traitee / partiellement / non traitee + explication). Documents justificatifs et simulations complémentaires si demandes.

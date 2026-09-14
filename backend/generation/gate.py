@@ -478,31 +478,36 @@ def _exige_une_devise(patterns: tuple[re.Pattern[str], ...]) -> bool:
 _VOCABULAIRE_DU_FAIT: dict[str, re.Pattern[str]] = {
     cle: re.compile(motif, re.IGNORECASE)
     for cle, motif in {
-        "apport": r"\bapports?\b|\binvestie?s?\b|\bfonds\s+propres\b"
-                  r"|\bautofinanc\w*",
+        "apport": r"\bapport\w*|\bj['’]apporte\b|\b[ée]conomies\b|\b[ée]pargne\b"
+                  r"|\bmise\s+de\s+fonds\b|\bfonds\s+propres\b|\bautofinanc\w*"
+                  r"|\binvestie?s?\b",
         "emprunt": r"\bemprunts?\b|\bpr[êe]ts?\b|\bcr[ée]dits?\b",
         "subventions": r"\bsubventions?\b|\baides?\b",
         "investissement_total": r"\binvestissements?\b|\btotal\b|\bbesoins?\b",
     }.items()
 }
 
+#: Une phrase qui parle d'un AUTRE financement ne porte pas l'apport, même si
+#: elle emploie « investis » : « Le matériel, soit 20 000 € investis, sera
+#: financé par un prêt » (relecture du 14/09/2026, I5). Le mot propre au fait
+#: — « apport », « j'apporte » — l'emporte.
+_AUTRE_FINANCEMENT: dict[str, tuple[re.Pattern[str], re.Pattern[str]]] = {
+    "apport": (
+        re.compile(r"\bpr[êe]ts?\b|\bemprunt\w*|\bcr[ée]dits?\b|financ[ée]e?s?\s+par"
+                   r"|\bsubventions?\b", re.IGNORECASE),
+        re.compile(r"\bapport\w*|\bj['’]apporte\b", re.IGNORECASE),
+    ),
+}
+
 _FIN_DE_PHRASE_CLIENT = re.compile(r"(?<=[.;!?])\s+|[\n\u2028\u2029]+")
 
 
-@dataclass(frozen=True)
-class _ReferenceLibre:
-    """Ce qu'une réponse libre permet d'opposer au document pour UN fait."""
+def _reference_libre(cle: str, valeur: str) -> list[float] | None:
+    """Les montants des phrases qui parlent du fait ; None si la réponse est simple.
 
-    #: Les montants des phrases qui parlent du fait — la seule référence stricte.
-    propres: list[float]
-    #: Tous les montants de la réponse : un chiffre du document qui en fait
-    #: partie vient du client, même si sa phrase n'emploie pas le mot attendu
-    #: (« evkha a déjà invetsi 1600e »).
-    tous: list[float]
-
-
-def _reference_libre(cle: str, valeur: str) -> _ReferenceLibre | None:
-    """La référence d'un fait lue dans une réponse libre ; None si la réponse est simple.
+    Une liste VIDE dit « la réponse ne donne pas ce fait » : aucun montant de
+    la réponse ne vaut alors référence — ni l'enveloppe de 8 000 €, ni la
+    rémunération de 1 800 € (relecture du 14/09/2026, I4).
 
     Simple = une seule phrase, ou un seul montant : « 25 000 € », « 55 % An1 ->
     85 % An5 ». Ces réponses restent jugées en tolérance zéro, comme avant.
@@ -514,13 +519,14 @@ def _reference_libre(cle: str, valeur: str) -> _ReferenceLibre | None:
     tous = _client_numbers(valeur)
     if len(phrases) < 2 or len(tous) < 2:
         return None
-    propres = [
+    autre = _AUTRE_FINANCEMENT.get(cle)
+    return [
         montant
         for phrase in phrases
         if vocabulaire.search(phrase)
+        and not (autre and autre[0].search(phrase) and not autre[1].search(phrase))
         for montant in _client_numbers(phrase)
     ]
-    return _ReferenceLibre(propres=propres, tous=tous)
 
 
 def _extrait(valeur: str, largeur: int = 90) -> str:
@@ -1070,8 +1076,8 @@ def _check_numeric_coherence(
             continue
 
         libre = _reference_libre(key, client_value)
-        if libre is not None and libre.propres:
-            expected = libre.propres
+        if libre:
+            expected = libre
         is_trajectory = key in _TRAJECTORY_FACT_KEYS
         lo, hi = min(expected), max(expected)
         sans_reference_signale = False
@@ -1085,6 +1091,25 @@ def _check_numeric_coherence(
                     # pas la valeur de l'emprunt. Rien a comparer.
                     if _est_un_delta(section.body, m.start()):
                         continue
+                    if libre is not None and not libre:
+                        # La réponse libre ne donne pas ce fait : rien
+                        # d'opposable, y compris un montant qu'elle contient
+                        # pour autre chose. On dit ce qui manque, une fois,
+                        # sans chapitre à réécrire.
+                        if not sans_reference_signale:
+                            sans_reference_signale = True
+                            failures.append(GateFailure(
+                                check="reference_client_illisible",
+                                chapter_number=None,
+                                detail=(
+                                    f"{key} : le document dit {m.group(0).strip()!r}, "
+                                    "et la réponse du client à cette question ne "
+                                    f"donne aucun montant de {key} "
+                                    f"({_extrait(client_value)}). "
+                                    "Il faut obtenir le chiffre auprès du client."
+                                ),
+                            ))
+                        continue
                     if _mention_est_conforme(
                         found=found,
                         mention=m.group(0),
@@ -1094,26 +1119,6 @@ def _check_numeric_coherence(
                         hi=hi,
                         phrase=_phrase_autour(section.body, m.start()),
                     ):
-                        continue
-                    if libre is not None and not libre.propres:
-                        # Aucune phrase de la réponse ne parle du fait : rien
-                        # d'opposable. Un montant que le client a écrit reste
-                        # le sien ; un autre ne CONTREDIT rien — il manque la
-                        # référence, et c'est ce qu'on dit, une fois, sans
-                        # chapitre à réécrire (voir plus haut).
-                        if found in libre.tous or sans_reference_signale:
-                            continue
-                        sans_reference_signale = True
-                        failures.append(GateFailure(
-                            check="reference_client_illisible",
-                            chapter_number=None,
-                            detail=(
-                                f"{key} : le document dit {m.group(0).strip()!r}, "
-                                "et la réponse du client à cette question ne "
-                                f"donne aucun montant de {key} ({_extrait(client_value)}). "
-                                "Il faut obtenir le chiffre auprès du client."
-                            ),
-                        ))
                         continue
                     failures.append(GateFailure(
                         check="coherence_chiffree",

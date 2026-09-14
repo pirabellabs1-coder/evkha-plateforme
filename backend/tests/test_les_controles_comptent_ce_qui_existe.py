@@ -95,6 +95,35 @@ def test_une_phrase_reellement_coupee_est_toujours_signalee() -> None:
     assert detecter_troncatures([(3, "Analyse", corps)]) != []
 
 
+def test_un_chapitre_ferme_sur_son_tableau_et_sa_legende_est_complet() -> None:
+    """Corpus du 14/09/2026 : la légende de source que NOTRE rendu écrit sous le tableau."""
+    corps = (
+        "Le tableau suivant récapitule les fragilités.\n\n"
+        "| Fragilité | Constat |\n| --- | --- |\n"
+        "| Prospection | Aucune activation commerciale engagée à date |\n"
+        "*données du projet*"
+    )
+
+    assert detecter_troncatures([(5, "Contraintes", corps)]) == []
+
+
+def test_une_legende_qui_contient_un_souligne_est_une_legende() -> None:
+    """Le format exact de `payload_vers_markdown` : `*{source}*`, quelle que soit la source."""
+    corps = (
+        "| Indicateur | Valeur |\n| --- | --- |\n| Abonnés | 14 |\n"
+        "*Données Insee_2024, fichier client*"
+    )
+
+    assert detecter_troncatures([(5, "Contraintes", corps)]) == []
+
+
+def test_de_la_prose_en_italique_coupee_reste_signalee() -> None:
+    """CONTRE-ÉPREUVE : l'italique n'est une légende que sous un tableau."""
+    corps = "Le marché progresse.\n\n*Les acteurs principaux se partagent le march*"
+
+    assert detecter_troncatures([(3, "Analyse", corps)]) != []
+
+
 # ── Le compteur de visuels du chapitre 7 ─────────────────────────────────────
 
 

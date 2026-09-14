@@ -11,4 +11,4 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Presente le porteur de projet de maniere a construire sa legitimite entrepreneuriale, professionnelle et humaine : parcours, experience metier dans le secteur, competences techniques et operationnelles, vision entrepreneuriale, implication personnelle. Redigez comme un dirigeant en construction, pas comme un CV.
+Présente le porteur de projet de manière a construire sa légitimité entrepreneuriale, professionnelle et humaine : parcours, expérience métier dans le secteur, compétences techniques et operationnelles, vision entrepreneuriale, implication personnelle. Redigez comme un dirigeant en construction, pas comme un CV.

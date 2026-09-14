@@ -45,9 +45,13 @@ from unittest.mock import patch
 import pytest
 
 from generation.checks_blocs import CheckResult
+from generation.geography import _strip_accents as _plat
 from generation.models import ChapterStatus
 from generation.runner import _after_chapter_hook
 from monitoring.models import IncidentSeverity, OperationalIncident
+
+#: Les prompts ont retrouvé leurs accents le 14/09/2026 (audit A22) : ces
+#: tests vérifient qu'une EXIGENCE est présente, pas son orthographe.
 
 _NOTE = "Fiche a completer : devise et lecteur final absents."
 
@@ -203,8 +207,10 @@ def test_les_deux_sources_du_prompt_de_la_fiche_restent_d_accord() -> None:
     from generation.prompt_library import prompt_instruction
 
     def _normaliser(texte: str) -> str:
+        # Accents retirés : le `.md` a retrouvé les siens (audit A22), le
+        # miroir hérité non. Ce test garde l'accord sur le CONTENU.
         sans_bandeau = texte.split("-->", maxsplit=1)[-1]
-        return " ".join(sans_bandeau.split())
+        return " ".join(_plat(sans_bandeau).split())
 
     vivant = _normaliser(
         (RACINE_PROMPTS / "etude_marche" / "chapitre_00.md").read_text(encoding="utf-8")
