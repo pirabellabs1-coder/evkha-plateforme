@@ -179,3 +179,14 @@ def test_l_annee_retenue_est_la_plus_proche_du_montant() -> None:
         21: _TRAJECTOIRE,
     })
     assert len(divs) == 1, "CONTRE-ÉPREUVE : deux résultats nets de l'année 3 s'opposent"
+
+
+def test_le_debut_d_une_trajectoire_n_est_pas_rangee_dans_l_annee_d_arrivee() -> None:
+    """Business plan `256e63d8` : « passe de 54 276 € à 269 721 € »."""
+    assert _divergences({
+        7: (
+            "Le chiffre d'affaires prévisionnel de 269 721 € en année 3 représente 0,18 % "
+            "du marché. Entre l'année 1 et l'année 3, le chiffre d'affaires prévisionnel "
+            "passe de 54 276 € à 269 721 €."
+        ),
+    }) == []

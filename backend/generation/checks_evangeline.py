@@ -506,6 +506,7 @@ _OPERATEUR = re.compile(r"/|÷|\bmoins\b|\bplus\b|\s[-−×x*+]\s", re.IGNORECAS
 #: Un nombre puis « à » juste avant le montant : « de 9 000 à 45 000 euros
 #: entre l'année 1 et l'année 3 ». Le montant est la FIN d'une trajectoire,
 #: et l'année la plus proche n'est pas forcément la sienne.
+_DEBUT_DE_TRAJECTOIRE = re.compile(r"\s*(?:HT|TTC)?\s*[àa]\s+\d")
 _FIN_DE_TRAJECTOIRE = re.compile(r"\d[\d\s\u00a0\u202f,.]*\s*(?:€|euros?)?\s+[àa]\s*$")
 
 #: Au-dela d'une cellule franchie, le montant est ailleurs dans le tableau.
@@ -650,6 +651,11 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
                 if _OPERATEUR.search(interieur):
                     continue
             if _FIN_DE_TRAJECTOIRE.search(entre):
+                continue
+            # Et son DÉBUT : « passe de 54 276 € à 269 721 € entre l'année 1 et
+            # l'année 3 ». Aucun des deux montants n'a d'année propre dans la
+            # phrase — l'année la plus proche est celle de l'autre.
+            if _DEBUT_DE_TRAJECTOIRE.match(fenetre[montant.end():]):
                 continue
             if _COORDINATION.search(entre):
                 continue

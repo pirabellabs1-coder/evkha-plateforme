@@ -1300,7 +1300,7 @@ def controler_les_calculs_annonces(document: DocumentLu) -> list[Anomalie]:
 #: lecteur croit lire une valeur.
 _ZERO_ASSUME = re.compile(
     r"(?i)aucun|aucune|nul|nulle|z[ée]ro|pas d[e’']|ni\b|sans\b|"
-    r"n[e’']a (?:pas|aucun)|absen(?:ces?|tes?)\b|"
+    r"n[e’']a (?:pas|aucun)|absen(?:ces?|te?s?)\b|"
     # Un financement ou une ligne ÉCARTÉS par décision : « Emprunt bancaire |
     # 0 € | 0 % | Non priorisé dans le scénario central » (corpus du 14/09/2026).
     # « Recrutement salarié | Non engagé à ce stade | 0 € » dit la même chose.

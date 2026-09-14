@@ -292,3 +292,13 @@ def test_des_absences_couvertes_assument_leur_zero(tmp_path: Path) -> None:
         tmp_path, ["Poste", "Montant", "Note"], [["Remplacement", "0 €", "absences couvertes"]],
     )
     assert _zeros(chemin) == set()
+
+
+def test_un_poste_absent_du_projet_assume_son_zero(tmp_path: Path) -> None:
+    """Business plan `b8da2640` : « Absent du projet | 0 € » — « absences » ne
+    devait pas faire perdre « absent »."""
+    chemin = _docx(
+        tmp_path, ["Poste", "Situation", "Valorisation retenue"],
+        [["Local ou droit au bail personnel", "Absent du projet", "0 €"]],
+    )
+    assert _zeros(chemin) == set()
