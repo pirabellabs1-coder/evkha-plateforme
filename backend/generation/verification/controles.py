@@ -405,6 +405,13 @@ def _resultats(a: float, b: float) -> list[float]:
     return calcules
 
 
+#: Une case qui écrit un calcul : deux nombres liés par un opérateur.
+_FORMULE_DANS_LA_CASE = re.compile(
+    r"\d\s*[\u2212×x*/+=-]\s*\d|\d\s+(?:moins|plus|divis[ée]\w*\s+par|fois)\s+\d",
+    re.IGNORECASE,
+)
+
+
 def _calculee_dans_sa_phrase(
     mesure: Mesure,
     dans_le_socle: Callable[[float], bool] = lambda _valeur: False,
@@ -449,6 +456,20 @@ def _calculee_dans_sa_phrase(
         debut_p = fin + parenthese.start(1)
         fin_p = fin + parenthese.end(1)
         dans_la_parenthese = [n for n in nombres if debut_p <= n.position < fin_p]
+    elif mesure.dans_un_tableau:
+        # En tableau, la « parenthèse » est la case suivante qui POSE le calcul :
+        # « Marge brute unitaire moyenne | 163,75 € | 169,5 − 5,75, soit 96,6 %
+        # du prix de vente » (business plan `9f8f144a`, corpus du 14/09/2026).
+        # Les opérandes suivent le résultat ; seuls ceux d'une case qui porte un
+        # opérateur comptent, jamais les nombres d'une case quelconque.
+        curseur = fin
+        for case in mesure.phrase[fin:].split(" | ")[1:]:
+            curseur = mesure.phrase.find(case, curseur)
+            if _FORMULE_DANS_LA_CASE.search(case):
+                dans_la_parenthese = [
+                    n for n in nombres if curseur <= n.position < curseur + len(case)
+                ]
+                break
 
     def admis(n: _Nombre) -> bool:
         if not n.unite or dans_le_socle(n.valeur):

@@ -127,3 +127,30 @@ def test_un_nombre_ecrit_sans_decimale_n_ouvre_pas_une_tolerance_geante(tmp_path
         "Sur 2 600 000 habitants, 12 % achètent, soit 3 M€ de ventes.",
     ])
     assert "3 M€" in _signales(chemin)
+
+
+# ── Le calcul posé dans la case SUIVANTE (corpus-20260914-2004, `9f8f144a`) ──
+
+
+def test_un_resultat_pose_par_la_case_suivante_est_un_calcul(tmp_path: Path) -> None:
+    chemin = _document(tmp_path, ["Marges."], [
+        ["Indicateur", "Valeur", "Calcul"],
+        ["Marge brute unitaire moyenne", "163,75 €", "169,5 − 5,75, soit 96,6 % du prix de vente"],
+    ])
+    assert "163,75 €" not in _signales(chemin)
+
+
+def test_une_case_suivante_sans_operateur_ou_un_resultat_faux_restent_signales(
+    tmp_path: Path,
+) -> None:
+    """CONTRE-ÉPREUVES : les nombres d'une case quelconque ne posent aucun calcul."""
+    faux = _document(tmp_path, ["Marges."], [
+        ["Indicateur", "Valeur", "Calcul"],
+        ["Marge brute unitaire moyenne", "173,75 €", "169,5 − 5,75"],
+    ])
+    assert "173,75 €" in _signales(faux)
+    sans_operateur = _document(tmp_path, ["Marges."], [
+        ["Indicateur", "Valeur", "Repères"],
+        ["Marge brute unitaire moyenne", "163,75 €", "prix 169,5 et coût 5,75"],
+    ])
+    assert "163,75 €" in _signales(sans_operateur)
