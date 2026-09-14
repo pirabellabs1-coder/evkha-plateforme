@@ -603,8 +603,48 @@ def _unite_de_cellule(cellule: str) -> str:
     « 20 000 euros » → « € ». « 3 personnes » → « personnes ». « 12 » → « ».
     Sert à refuser d'additionner deux grandeurs qui ne se comparent pas.
     """
-    reste = re.sub(r"[\d.,\s  ]", "", cellule).strip().lower()
+    # Le signe et l'emphase ne sont pas une unité : « +15 000 € » est en euros
+    # comme « 30 000 € » (relecture du 14/09/2026).
+    reste = re.sub(r"[\d.,\s  +\-\u2212\u2013*]", "", cellule).strip().lower()
     return "€" if reste in _MEME_MONNAIE else reste
+
+
+#: Un SIGNE : rien d'autre avant le nombre. « Charges – 5 000 € » porte un
+#: tiret de séparation, pas un montant négatif.
+_SIGNE_SEUL = re.compile(r"^\s*([+\-\u2212\u2013])\s*$")
+
+
+def _valeur_de_cellule(cellule: str) -> float | None:
+    """La valeur d'une cellule qui EST une grandeur, None sinon.
+
+    L'ancienne lecture retirait de la cellule tout ce qui n'était pas chiffre
+    ou séparateur, puis lisait le reste. Trois motifs faux en venaient sur le
+    corpus du 14/09/2026 :
+
+    - le SIGNE partait avec les lettres : « +15 000 € » et « −15 000 € »
+      s'additionnaient en 30 000 contre un écart total de 0 € annoncé ;
+    - une cellule de PROSE devenait un nombre — « Comparaison avec les ventes
+      2025 » valait 2025, et une colonne « Méthode d'évaluation » était
+      additionnée ;
+    - une cellule à DEUX nombres (« mois 1 à 6 ») collait ses chiffres en un
+      seul.
+
+    Une cellule n'est donc une grandeur que si elle porte UN nombre, et son
+    signe s'il est seul devant lui. Ce qui distingue une colonne de PROSE
+    d'une colonne de grandeurs n'est pas le nombre de mots (« 1 200 € HT par
+    mois » en a trois) mais l'unité : `totaux_faux` exige la même à chaque
+    ligne, et des phrases n'en partagent jamais.
+    """
+    nue = cellule.replace("*", "").strip()
+    nombres = list(re.finditer(_NOMBRE, nue))
+    if len(nombres) != 1:
+        return None
+    nombre = nombres[0]
+    valeur = _valeur(nombre.group(0).strip())
+    if valeur is None:
+        return None
+    signe = _SIGNE_SEUL.match(nue[: nombre.start()])
+    return -valeur if signe and signe.group(1) != "+" else valeur
 
 
 def totaux_faux(texte: str) -> list[TotalFaux]:
@@ -675,7 +715,7 @@ def totaux_faux(texte: str) -> list[TotalFaux]:
             continue
 
         for colonne in range(1, min(len(entetes), len(total))):
-            annonce = _valeur(re.sub(r"[^\d,.\s ]", "", total[colonne]))
+            annonce = _valeur_de_cellule(total[colonne])
             if annonce is None:
                 continue
             # Un total ne s'exprime pas dans une autre unité que ses termes.
@@ -689,10 +729,12 @@ def totaux_faux(texte: str) -> list[TotalFaux]:
             }
             if len(unites) == 1 and _unite_de_cellule(total[colonne]) not in unites:
                 continue
-            valeurs = [
-                _valeur(re.sub(r"[^\d,.\s ]", "", r[colonne]))
-                for r in termes if colonne < len(r)
-            ]
+            # Des cellules de prose ont chacune leur « unité » : « Coût d'achat
+            # constaté sur les factures 2025 », « Valeur nette comptable au… ».
+            # Une colonne de grandeurs n'en porte qu'une, écrite ou non.
+            if len({u for u in unites | {_unite_de_cellule(total[colonne])} if u}) > 1:
+                continue
+            valeurs = [_valeur_de_cellule(r[colonne]) for r in termes if colonne < len(r)]
             if not valeurs or any(v is None for v in valeurs):
                 continue
             somme = sum(v for v in valeurs if v is not None)

@@ -61,8 +61,8 @@ _PONCTUATION_FIN_VALIDE = frozenset(".!?»…:)]}")
 TITRE_EN_GRAS = re.compile(r"^\s*\*{2}[^*]+\*{2}\s*$")
 
 #: Une ligne entière en italique : « *Source : Insee, 2025* ».
-_LEGENDE_EN_ITALIQUE = re.compile(r"^\s*\*(?!\*)(.+?)(?<!\*)\*\s*$")
-_FIN_DE_TABLEAU = re.compile(r"\|\s*$")
+LEGENDE_EN_ITALIQUE = re.compile(r"^\s*\*(?!\*)(.+?)(?<!\*)\*\s*$")
+FIN_DE_TABLEAU = re.compile(r"\|\s*$")
 
 _STRUCTURES_STRUCTURELLES = (
     re.compile(r"[|+-]\s*$"),                                    # fin de tableau
@@ -189,8 +189,8 @@ def detecter_troncatures(
         # de tableau est une légende : de la prose en italique reste jugée.
         if (
             len(lignes) >= 2
-            and _LEGENDE_EN_ITALIQUE.match(derniere_ligne)
-            and _FIN_DE_TABLEAU.search(lignes[-2])
+            and LEGENDE_EN_ITALIQUE.match(derniere_ligne)
+            and FIN_DE_TABLEAU.search(lignes[-2])
         ):
             continue
 

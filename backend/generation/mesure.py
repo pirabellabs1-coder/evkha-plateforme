@@ -55,6 +55,12 @@ class MesureDesSources:
     #: compter comme « sans adresse » accuserait le document d'un défaut qu'il
     #: n'a pas — et un contrôle qui crie faux finit débranché (règle 2).
     du_client: int = 0
+    #: Les lignes RETENUES comme sources, telles que la mesure les a lues. Les
+    #: six études de marché du corpus rendaient toutes « 3 extérieures, 3 sans
+    #: adresse » pour 19 à 70 adresses collectées : sans les lignes, impossible
+    #: de dire si le document omet ses liens ou si la mesure lit le mauvais
+    #: tableau (14/09/2026).
+    lignes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -129,6 +135,7 @@ class Mesure:
                 "exterieures": sources.exterieures,
                 "sans_adresse": sources.sans_adresse,
                 "du_client": sources.du_client,
+                "lignes": [ligne[:160] for ligne in sources.lignes[:12]],
             },
             "chiffres_hors_socle": self.chiffres_hors_socle,
             "autres_anomalies": self.autres_anomalies,
@@ -174,6 +181,7 @@ def mesurer_les_sources(
         return None
     mesure = MesureDesSources()
     for ligne in _sources_listees(section[2]):
+        mesure.lignes.append(ligne)
         if _SOURCE_DU_CLIENT_RE.search(ligne):
             mesure.du_client += 1
             continue
@@ -205,14 +213,44 @@ def _regrouper(
         exemples = groupes.setdefault(controle, [])
         if len(exemples) < _EXEMPLES_PAR_CONTROLE:
             exemples.append({
-                "chapitre": chapitre, "detail": detail[:300], "extrait": extrait[:200],
+                "chapitre": chapitre, "detail": detail[:300], "extrait": extrait[:400],
             })
     for controle, exemples in groupes.items():
         exemples.insert(0, {"total": totaux[controle]})
     return groupes
 
 
-def _echecs_du_gate(job: GenerationJob) -> dict[str, list[dict[str, object]]]:
+#: Les contrôles du gate qui jugent la FIN d'un chapitre : sans elle, leur
+#: motif ne dit pas si la phrase est coupée ou si c'est une étiquette qu'on a
+#: prise pour une phrase (trois études de marché, 14/09/2026).
+_JUGENT_LA_FIN = frozenset({"troncature"})
+
+
+def _tableau_de_la_colonne(corps: str, detail: str) -> str:
+    """Le tableau dont le motif nomme la colonne : « Colonne « Écart » : … ».
+
+    Un total faux ne se juge pas sur son seul motif : il faut les lignes que le
+    contrôle a additionnées pour dire s'il fallait les additionner.
+    """
+    from generation.arithmetique import totaux_faux
+
+    blocs: list[list[str]] = [[]]
+    for ligne in corps.splitlines():
+        if ligne.lstrip().startswith("|"):
+            blocs[-1].append(ligne.strip())
+        elif blocs[-1]:
+            blocs.append([])
+    # Le bloc qui produit CE motif, pas le premier qui nomme la colonne : un
+    # chapitre porte souvent plusieurs colonnes « Montant ».
+    for bloc in blocs:
+        if bloc and any(str(faute) == detail for faute in totaux_faux("\n".join(bloc))):
+            return " / ".join(bloc)
+    return ""
+
+
+def _echecs_du_gate(
+    job: GenerationJob, sections: list[tuple[int, str, str]] | None = None,
+) -> dict[str, list[dict[str, object]]]:
     """Le gate, en lecture seule. Une panne se DIT, elle ne rend pas un vide."""
     from generation.gate import run_delivery_gate
 
@@ -222,8 +260,20 @@ def _echecs_du_gate(job: GenerationJob) -> dict[str, list[dict[str, object]]]:
         return {"gate_illisible": [{"total": 1}, {
             "chapitre": None, "detail": f"{type(exc).__name__} : {exc}"[:300], "extrait": "",
         }]}
+    corps_par_numero = {numero: corps for numero, _, corps in sections or []}
+
+    def extrait(echec: object) -> str:
+        numero = getattr(echec, "chapter_number", None)
+        corps = corps_par_numero.get(numero, "") if numero is not None else ""
+        check, detail = getattr(echec, "check", ""), getattr(echec, "detail", "")
+        if check in _JUGENT_LA_FIN:
+            return corps.rstrip()[-200:]
+        if check == "calcul_faux":
+            return _tableau_de_la_colonne(corps, detail)
+        return ""
+
     return _regrouper([
-        (e.check, e.chapter_number, e.detail, "") for e in rapport.failures
+        (e.check, e.chapter_number, e.detail, extrait(e)) for e in rapport.failures
     ])
 
 
@@ -245,6 +295,7 @@ def mesurer(job: GenerationJob) -> Mesure:
     from generation.rendu_word.catalogue_figures import figures_possibles
     from generation.socle.services import socle_verrouille
 
+    sections = sections_du_dossier(job)
     socle = socle_verrouille(job)
     catalogue = figures_possibles(socle) if socle is not None else []
     completees = len(rapport.graphiques_completes)
@@ -265,14 +316,14 @@ def mesurer(job: GenerationJob) -> Mesure:
         figures_reparees=reparees,
         figures_en_tableau=len(rapport.graphiques_en_tableau),
         figures_perdues=len(rapport.graphiques_abandonnes),
-        sources=mesurer_les_sources(sections_du_dossier(job)),
+        sources=mesurer_les_sources(sections),
         chiffres_hors_socle=hors_socle,
         autres_anomalies=len(controle.anomalies) - len(hors_socle),
         adresses_collectees=adresses_collectees(job),
         anomalies=_regrouper([
             (a.controle, a.chapitre, a.detail, a.extrait) for a in controle.anomalies
         ]),
-        gate=_echecs_du_gate(job),
+        gate=_echecs_du_gate(job, sections),
         figures_abandonnees=list(rapport.diagnostic_des_abandons),
         chiffres_hors_socle_en_contexte=hors_socle_en_contexte,
         catalogue_figures=len(catalogue),

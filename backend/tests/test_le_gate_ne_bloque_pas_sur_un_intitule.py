@@ -154,3 +154,31 @@ def test_la_derniere_prose_est_bien_celle_qu_on_croit() -> None:
     )
 
     assert _last_prose_line(contenu).endswith("depuis 2022.")
+
+
+# ── La légende qu'écrit le rendu sous un tableau (corpus du 14/09/2026) ──────
+
+
+def test_la_legende_sous_un_tableau_final_n_est_pas_une_phrase_coupee() -> None:
+    """`payload_vers_markdown` écrit la source d'un tableau en italique, sans point.
+
+    Business plan `0f9fb13a`, chapitre 20 : « *Synthèse des chapitres 1 à 19,
+    étude Findrax* » fermait le chapitre, et le gate le déclarait tronqué.
+    """
+    contenu = (
+        "## 20.1 Synthèse\n\nLe projet tient sur trois conditions.\n\n"
+        "| Condition | Statut |\n| --- | --- |\n| Financement | Acquis |\n\n"
+        "*Synthèse des chapitres 1 à 19, étude Findrax*"
+    )
+
+    assert "sentence_cut" not in _motifs(contenu)
+
+
+def test_une_phrase_coupee_en_italique_hors_tableau_reste_detectee() -> None:
+    """CONTRE-ÉPREUVE : l'italique n'excuse que la légende d'un tableau."""
+    contenu = (
+        "## 20.1 Synthèse\n\nLe projet tient sur trois conditions.\n\n"
+        "*La trésorerie reste positive sur les trois exercices du prévisionnel*"
+    )
+
+    assert "sentence_cut" in _motifs(contenu)

@@ -17,6 +17,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from generation.socle.referentiel import Fiabilite, Perimetre
 from generation.socle.schema import DonneeSocle, Socle, Zone
 from generation.verification.controles import controler_chiffres_hors_socle
@@ -207,3 +209,86 @@ def test_un_zero_pose_sur_une_donnee_manquante_reste_signale(tmp_path: Path) -> 
         [["Coût d'acquisition", "0 €", "non mesuré à ce jour, aucun suivi commercial"]],
     )
     assert _zeros(chemin)
+
+
+def test_une_evolution_nulle_est_un_resultat(tmp_path: Path) -> None:
+    """Corpus du 14/09/2026 : six études concurrentielles, « 0 % (stable) »."""
+    chemin = _docx(
+        tmp_path, ["Concurrent", "CA 2024", "CA 2025", "Évolution"],
+        [["Boulangerie Bosc", "255 000 €", "255 000 €", "0,0 %"]],
+    )
+    assert _zeros(chemin) == set()
+
+
+def test_un_ecart_nomme_par_la_ligne_est_un_resultat(tmp_path: Path) -> None:
+    """« Montant : Écart | 0 € » : le mot nomme la ligne, pas la colonne."""
+    chemin = _docx(
+        tmp_path, ["Poste", "Montant"],
+        [["Besoins", "27 600 €"], ["Ressources", "27 600 €"], ["Écart", "0 €"]],
+    )
+    assert _zeros(chemin) == set()
+
+
+def test_un_zero_commente_dans_sa_cellule_est_assume(tmp_path: Path) -> None:
+    chemin = _docx(
+        tmp_path, ["Statut", "Chiffre d'affaires", "Budget associé", "Part récurrente"],
+        [
+            ["Micro-entreprise", "54 276 €", "0 € (déjà en place)", "0 % avant lancement"],
+            ["Recrutement salarié", "Non engagé à ce stade", "0 €", "Absent du projet"],
+        ],
+    )
+    assert _zeros(chemin) == set()
+
+
+def test_un_zero_nu_ou_commente_d_un_manque_reste_signale(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : un commentaire qui dit que la donnée MANQUE n'assume rien."""
+    chemin = _docx(
+        tmp_path, ["Indicateur", "Valeur", "Statut"],
+        [
+            ["Coût d'acquisition d'un abonné", "non mesuré (0 €)", "Estimée"],
+            ["Taux de conversion", "0 %", "Estimée"],
+        ],
+    )
+    assert len(_zeros(chemin)) == 2
+
+
+# ── Les frontières de la règle du zéro commenté (relecture du 14/09/2026) ────
+
+
+@pytest.mark.parametrize(
+    ("valeur", "commentaire"),
+    [
+        ("0 € (non chiffré)", "Statut"),
+        ("0 € (à déterminer)", "Statut"),
+        ("0 € par client", "Statut"),
+        ("0 % du CA", "Statut"),
+    ],
+)
+def test_un_complement_d_unite_ou_un_manque_n_est_pas_un_commentaire(
+    tmp_path: Path, valeur: str, commentaire: str,
+) -> None:
+    """CONTRE-ÉPREUVE : « par client », « du CA » complètent l'unité.
+
+    « non chiffré », « à déterminer » disent que la donnée manque.
+    """
+    chemin = _docx(tmp_path, ["Indicateur", "Valeur", "Note"], [["Coût", valeur, commentaire]])
+    assert _zeros(chemin)
+
+
+def test_la_cellule_du_zero_se_trouve_par_sa_position(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : « 0 % » est aussi dans « 40 % ».
+
+    L'autre cellule ne commente pas le zéro.
+    """
+    chemin = _docx(
+        tmp_path, ["Indicateur", "Objectif", "Valeur"],
+        [["Taux de transformation", "Conversion, objectif 40 %", "0 %"]],
+    )
+    assert _zeros(chemin)
+
+
+def test_des_absences_couvertes_assument_leur_zero(tmp_path: Path) -> None:
+    chemin = _docx(
+        tmp_path, ["Poste", "Montant", "Note"], [["Remplacement", "0 €", "absences couvertes"]],
+    )
+    assert _zeros(chemin) == set()

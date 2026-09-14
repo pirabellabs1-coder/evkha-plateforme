@@ -206,7 +206,7 @@ def mesures_dans(
     return relevees
 
 
-def _dans_son_tableau(mesure: Mesure, contexte: str) -> Mesure:
+def _dans_son_tableau(mesure: Mesure, contexte: str, contenu: str = "") -> Mesure:
     """La grandeur d'une cellule, jugée avec ce que le lecteur voit autour.
 
     La « phrase » devient `en-tête : ligne entière`, et la position de la
@@ -216,7 +216,22 @@ def _dans_son_tableau(mesure: Mesure, contexte: str) -> Mesure:
     """
     if not contexte:
         return mesure
-    position = contexte.find(mesure.texte, contexte.find(" : ") + 3)
+    # La position se cherche DANS SA CELLULE, et sur un nombre entier : « 0 % »
+    # est aussi la fin de « 40 % », et la première occurrence de la ligne
+    # plaçait le zéro dans la cellule voisine — qui le « commentait » alors
+    # (relecture du 14/09/2026).
+    debut_ligne = contexte.find(" : ") + 3
+    position = -1
+    curseur = debut_ligne
+    for morceau in contexte[debut_ligne:].split(" | "):
+        if contenu and morceau == contenu:
+            trouve = re.search(r"(?<![\d,.])" + re.escape(mesure.texte), morceau)
+            if trouve:
+                position = curseur + trouve.start()
+            break
+        curseur += len(morceau) + 3
+    if position < 0:
+        position = contexte.find(mesure.texte, debut_ligne)
     if position < 0:
         return mesure
     return replace(
@@ -254,7 +269,7 @@ def lire_livrable(chemin: Path) -> DocumentLu:
         lu.cellules, lu.chapitre_de_la_cellule, contextes, strict=True,
     ):
         lu.mesures.extend(
-            _dans_son_tableau(mesure, contexte)
+            _dans_son_tableau(mesure, contexte, contenu)
             for mesure in mesures_dans(contenu, dans_un_tableau=True, chapitre=chapitre)
         )
 

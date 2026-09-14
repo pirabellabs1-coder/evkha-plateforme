@@ -34,7 +34,13 @@ import re
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from .checks_post_rendu import TITRE_EN_GRAS, sans_emphase, sans_fioritures_finales
+from .checks_post_rendu import (
+    FIN_DE_TABLEAU,
+    LEGENDE_EN_ITALIQUE,
+    TITRE_EN_GRAS,
+    sans_emphase,
+    sans_fioritures_finales,
+)
 
 # ── Constantes de détection ───────────────────────────────────────────────────
 
@@ -274,8 +280,21 @@ def _last_prose_line(text: str) -> str:
     """
     plain = re.sub(r"<[^>]+>", " ", text)
     lines = [ln.strip() for ln in plain.splitlines() if ln.strip()]
-    for line in reversed(lines):
+    for rang in range(len(lines) - 1, -1, -1):
+        line = lines[rang]
         if not _est_de_la_prose(line):
+            continue
+        # La légende en italique qu'écrit le rendu SOUS un tableau
+        # (`payload_vers_markdown` : « *Synthèse des chapitres 1 à 19, étude
+        # Findrax* ») n'a pas de point et n'en réclame pas. Même règle que
+        # `detecter_troncatures`, importée plutôt que réécrite (règle 5) : le
+        # gate l'ignorait, et un chapitre fermé sur un tableau était « coupé »
+        # (corpus du 14/09/2026). De la prose en italique HORS tableau reste jugée.
+        if (
+            rang >= 1
+            and LEGENDE_EN_ITALIQUE.match(line)
+            and FIN_DE_TABLEAU.search(lines[rang - 1])
+        ):
             continue
         # Ignorer les titres Markdown, les lignes de tableau, les balises nues,
         # les listes, les délimiteurs de code.

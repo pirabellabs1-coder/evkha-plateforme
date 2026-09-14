@@ -363,7 +363,12 @@ def _nombres_de_la_phrase(phrase: str) -> list[_Nombre]:
 
 
 def _resultats(a: float, b: float) -> list[float]:
-    calcules = [a + b, abs(a - b), a * b, a * b / 100]
+    # La différence SIGNÉE aussi : « Dette résiduelle | 20 400 € | -6 600 €
+    # (20 400 - 27 000) », « Écart | 30 000 € | 15 000 € | -15 000 € ». Seule
+    # sa valeur absolue était essayée, et un écart négatif juste passait pour
+    # un chiffre inventé (corpus du 14/09/2026). Limite : le SENS n'est pas
+    # jugé — « +6 600 € » au lieu de « -6 600 € » passe, comme avant.
+    calcules = [a + b, abs(a - b), a - b, b - a, a * b, a * b / 100]
     if abs(b) > EPSILON:
         calcules += [a / b, a / b * 100, (a - b) / b * 100, abs(a - b) / b * 100]
     if abs(a) > EPSILON:
@@ -427,10 +432,24 @@ def _calculee_dans_sa_phrase(
     # première version redéfinissait `_decimales` sous le même nom : la
     # définition du bas l'emportait, et « 90,6 % » comptait trois décimales.
     nombre_ecrit = re.match(r"-?[\d\s]+(?:,\d+)?", mesure.texte.strip())
-    ecart_ecrit = (
-        0.5 * 10 ** -_decimales(nombre_ecrit.group(0) if nombre_ecrit else "")
-        if mesure.est_un_pourcentage else 0.0
-    )
+    demi_unite = 0.5 * 10 ** -_decimales(nombre_ecrit.group(0) if nombre_ecrit else "")
+    # Un MONTANT a lui aussi l'arrondi que le rédacteur a choisi, à son échelle :
+    # « SAM (1 824 M€) × 0,03 % ≈ 0,55 M€ » tombe à 547 200 €, et « 0,55 M€ »
+    # vaut à 5 000 € près. La tolérance fixe de 0,5 % le refusait pour 0,51 %
+    # (étude de marché `ef567688`, corpus du 14/09/2026) — deux lectures de
+    # l'arrondi, une pour les taux, une pour les montants (règle 5).
+    valeur_ecrite = _nombre(nombre_ecrit.group(0)) if nombre_ecrit else None
+    if mesure.est_un_pourcentage:
+        ecart_ecrit = demi_unite
+    elif valeur_ecrite:
+        # Plafonnée à 2 % : un nombre écrit sans décimale (« 3 M€ ») laisserait
+        # sinon ±500 000 €, et « 2 600 000 habitants, 12 % » tomberait juste
+        # par addition (relecture du 14/09/2026).
+        ecart_ecrit = min(
+            demi_unite * abs(mesure.valeur / valeur_ecrite), abs(mesure.valeur) * 0.02,
+        )
+    else:
+        ecart_ecrit = 0.0
     # L'ÉCHELLE écrite du résultat : dans « 172,5 M€ (150 x 1,15) », 150 veut
     # dire 150 millions. Comparaison au nombre ÉCRIT réservée à deux nombres
     # NUS dans un calcul marqué : sinon « 3 villes, 4 agences, 12 M€ » tombait
@@ -528,6 +547,25 @@ _FAIT_DE_CROISSANCE = re.compile(
 )
 
 
+def cellule_jugee(mesure: Mesure) -> str:
+    """La cellule qui porte la grandeur, trouvée par sa POSITION.
+
+    Pas par son texte : « 0 % » est aussi dans « 40 % », « 0 € » dans
+    « 1 500 € », et la première cellule qui le contenait était prise pour
+    celle du zéro (relecture du 14/09/2026). Vide hors tableau.
+    """
+    phrase = mesure.phrase
+    if not mesure.dans_un_tableau or " : " not in phrase:
+        return ""
+    en_tete, _, ligne = phrase.partition(" : ")
+    curseur = len(en_tete) + 3
+    for morceau in ligne.split(" | "):
+        if curseur <= mesure.debut_dans_la_phrase < curseur + len(morceau):
+            return morceau
+        curseur += len(morceau) + 3
+    return ""
+
+
 def _portee_du_jugement(mesure: Mesure) -> str:
     """Ce qui QUALIFIE la grandeur : la phrase en prose ; en tableau, l'en-tête
     de sa colonne et le libellé de sa ligne.
@@ -544,13 +582,7 @@ def _portee_du_jugement(mesure: Mesure) -> str:
     # La cellule JUGÉE compte aussi : elle est souvent une phrase entière
     # (« le marché est estimé à 150 M€ … 0,46 % de ce total »). Seules les
     # AUTRES cellules sont écartées.
-    debut_ligne = len(en_tete) + 3
-    cellule, curseur = "", debut_ligne
-    for morceau in ligne.split(" | "):
-        if curseur <= mesure.debut_dans_la_phrase < curseur + len(morceau):
-            cellule = morceau
-            break
-        curseur += len(morceau) + 3
+    cellule = cellule_jugee(mesure)
     libelle = ligne.split(" | ")[0]
     return f"{en_tete} : {libelle}" + (f" | {cellule}" if cellule and cellule != libelle else "")
 
@@ -608,13 +640,20 @@ def _part_calculee_dans_sa_ligne(
     # Des euros se rapportent à des euros ; un nombre nu (effectif, volume) à
     # une référence brute. Sans cette garde, cent références du socle offraient
     # à un pourcentage quelconque trop d'occasions de tomber juste.
+    # La ligne du TOTAL vaut 100 % d'elle-même — « Investissement total |
+    # 180 000 € | 100,0 % ». Elle seule : « Apport | 45 000 € | 100,0 % » reste
+    # faux même si 45 000 € figure au brief.
+    total = bool(_LIGNE_DE_TOTAL.search(ligne.split(" | ")[0]))
     return any(
         abs(numerateur.valeur / reference * 100 - ecrit) <= tolerance
         for numerateur in numerateurs
         for reference, famille in references
-        if numerateur.valeur < reference
+        if (numerateur.valeur < reference or (total and numerateur.valeur == reference))
         and famille == ("monetaire" if numerateur.unite else "brut")
     )
+
+
+_LIGNE_DE_TOTAL = re.compile(r"\b(?:total|totaux|ensemble|cumul\w*)\b", re.IGNORECASE)
 
 
 #: L'en-tête d'une colonne de PARTS : ce qu'elle rapporte, dit en clair.
@@ -1220,16 +1259,57 @@ def controler_les_calculs_annonces(document: DocumentLu) -> list[Anomalie]:
 #: lecteur croit lire une valeur.
 _ZERO_ASSUME = re.compile(
     r"(?i)aucun|aucune|nul|nulle|z[ée]ro|pas d[e’']|ni\b|sans\b|"
-    r"n[e’']a (?:pas|aucun)|absence|"
+    r"n[e’']a (?:pas|aucun)|absen(?:ces?|tes?)\b|"
     # Un financement ou une ligne ÉCARTÉS par décision : « Emprunt bancaire |
     # 0 € | 0 % | Non priorisé dans le scénario central » (corpus du 14/09/2026).
-    r"non\s+(?:retenu|prioris|mobilis|sollicit|activ)\w*"
+    # « Recrutement salarié | Non engagé à ce stade | 0 € » dit la même chose.
+    r"non\s+(?:retenu|prioris|mobilis|sollicit|activ|engag|lanc|appli)\w*"
 )
 
 #: Un zéro qui est un RÉSULTAT : l'écart entre deux montants égaux, un solde,
 #: une variation. « Écart : Total du plan | 27 600 € | 27 600 € | 0 € » vérifie
 #: l'équilibre du plan ; le signaler faisait réécrire un chapitre juste.
-_EN_TETE_DE_RESULTAT = re.compile(r"(?i)^\s*(?:[ée]cart|diff[ée]rence|variation|solde|reste)\b")
+#:
+#: Une ÉVOLUTION nulle est le même résultat : « Évolution : Boulangerie Bosc |
+#: 255 000 € | 255 000 € | 0 % (stable) » — six études concurrentielles du
+#: corpus du 14/09/2026. Et le mot peut nommer la LIGNE plutôt que la colonne :
+#: « Montant : Écart | 0 € ».
+_EN_TETE_DE_RESULTAT = re.compile(
+    r"(?i)^\s*(?:[ée]cart|diff[ée]rence|variation|[ée]volution|progression|solde|reste)\b"
+)
+
+#: Ce qui, dans la cellule d'un zéro, ne fait que COMPLÉTER son unité :
+#: « 0 € par client », « 0 % du CA », « 0 € HT ». Pas un commentaire.
+_COMPLEMENT_D_UNITE = re.compile(
+    r"(?i)(?:\b(?:par|du|de\s+la|des|de|sur|en)\s+|\bd['’]|/\s*)[^\W\d_]+"
+    r"|\b(?:HT|TTC|EUR|euros?|pts?|points?)\b"
+)
+
+#: Ce qui, DANS la cellule, dit que la donnée manque — au-delà de
+#: `_DONNEE_MANQUANTE` : « 0 € (non chiffré) », « 0 € (à déterminer) ». Une
+#: négation suivie d'un participe, sauf les décisions déjà assumées.
+_MANQUE_DANS_LA_CELLULE = re.compile(
+    r"(?i)[àa]\s+(?:d[ée]terminer|venir|chiffrer|estimer|compl[ée]ter)|"
+    r"en\s+(?:attente|cours)|"
+    r"non\s+(?!retenu|prioris|mobilis|sollicit|activ|engag|lanc|appli)\w+[ée]e?s?\b"
+)
+
+
+def _zero_commente_dans_sa_cellule(mesure: Mesure) -> bool:
+    """Le rédacteur a-t-il écrit, À CÔTÉ du zéro, ce qu'il signifie ?
+
+    « 0 € (déjà en place) », « 0 % avant lancement », « 0 % — revenu
+    transactionnel » : la cellule dit elle-même pourquoi la valeur est nulle.
+    C'est l'assomption que le contrôle réclame (« écris-le en toutes
+    lettres »), et la réclamer une seconde fois produisait un motif faux sur
+    onze tableaux du corpus du 14/09/2026. Le cas d'une donnée manquante
+    (« non mesuré (0 €) ») est tranché AVANT, par `_DONNEE_MANQUANTE`.
+    """
+    cellule = cellule_jugee(mesure)
+    if not cellule or _DONNEE_MANQUANTE.search(cellule) or _MANQUE_DANS_LA_CELLULE.search(cellule):
+        return False
+    reste = _COMPLEMENT_D_UNITE.sub(" ", cellule.replace(mesure.texte, " ", 1))
+    return bool(re.search(r"[^\W\d_]{2,}", reste))
 
 #: Ce qui dit qu'une donnée MANQUE : le zéro qui l'accompagne est une valeur
 #: fabriquée, même si la phrase contient « aucun » par ailleurs. « Coût
@@ -1271,12 +1351,12 @@ def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
         manquante = bool(_DONNEE_MANQUANTE.search(mesure.contexte))
         if not manquante and _ZERO_ASSUME.search(mesure.contexte):
             continue
-        if (
-            not manquante
-            and mesure.dans_un_tableau
-            and _EN_TETE_DE_RESULTAT.search(mesure.phrase.partition(" : ")[0])
-        ):
-            continue
+        if not manquante and mesure.dans_un_tableau:
+            en_tete, _, ligne = mesure.phrase.partition(" : ")
+            if _EN_TETE_DE_RESULTAT.search(en_tete) or _EN_TETE_DE_RESULTAT.search(ligne):
+                continue
+            if _zero_commente_dans_sa_cellule(mesure):
+                continue
         # L'occurrence CHERCHÉE, pas la première : « 0 % » se trouve aussi à
         # l'intérieur de « -20 % », et le texte d'avant devenait « Entre -2 ».
         trouve = re.search(
