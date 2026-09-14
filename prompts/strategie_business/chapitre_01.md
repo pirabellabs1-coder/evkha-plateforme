@@ -31,4 +31,4 @@ Bloc court de recul : ce que ce document change dans la façon de décider, les 
 ## Synthèse et transition
 Termine par une synthèse stratégique et une transition vers le chapitre suivant : la lecture stratégique du projet, qui ouvre le diagnostic.
 
-Ton cabinet de conseil, paragraphes developpes et fluides, pedagogie constante. Le chapitre doit installer la crédibilité et faire comprendre qu'il ne s'agit ni d'un document théorique ni d'un simple rapport, mais d'un outil de direction stratégique. Interdits : listes à puces sans analyse, paragraphes génériques ou vides, conseils génériques, complaisance, jargon inutile, formulations IA typiques, repetitions.
+Ton cabinet de conseil, paragraphes développés et fluides, pedagogie constante. Le chapitre doit installer la crédibilité et faire comprendre qu'il ne s'agit ni d'un document théorique ni d'un simple rapport, mais d'un outil de direction stratégique. Interdits : listes à puces sans analyse, paragraphes génériques ou vides, conseils génériques, complaisance, jargon inutile, formulations IA typiques, repetitions.

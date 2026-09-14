@@ -32,4 +32,4 @@ Prends du recul. Produis une lecture stratégique de la valeur creee, pas un dis
 
 Termine par une synthèse de la valeur stratégique du business, une clarification des différenciateurs clés et une transition vers la structuration stratégique des offres et du modèle commercial, traitee au chapitre Lecture stratégique des offres actuelles.
 
-Rédige en paragraphes developpes, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.
+Rédige en paragraphes développés, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.

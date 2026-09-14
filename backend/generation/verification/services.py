@@ -144,7 +144,7 @@ def verifier_document(
     rapport.ajouter(*controles.controler_les_calculs_annonces(document))
 
     rapport.controles_executes.append("densite")
-    rapport.ajouter(*controles.controler_densite(document))
+    rapport.ajouter(*controles.controler_densite(document, deliverable_type))
 
     rapport.controles_executes.append("meta_discours")
     rapport.ajouter(*controles.controler_meta_discours(document))

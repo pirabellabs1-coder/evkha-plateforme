@@ -30,6 +30,6 @@ Réponds explicitement a : quels canaux génèrent des clients réellement quali
 ## Lecture stratégique
 Prends du recul : analyse directionnelle, conséquences futures des dépendances constatees, lien explicite entre les constats et les décisions. Raisonne en consultant en développement stratégique : évalue les canaux selon leur valeur business réelle, jamais selon leur popularite, et sors d'une logique de visibilité opportuniste.
 
-Rédige en paragraphes developpes, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, conseils génériques, complaisance, jargon inutile.
+Rédige en paragraphes développés, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, conseils génériques, complaisance, jargon inutile.
 
 Termine par une synthèse des forces et limites du système d'acquisition actuel, une lecture des canaux réellement stratégiques, puis une transition vers le chapitre suivant : la construction d'une stratégie de visibilité cohérente et durable.

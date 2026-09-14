@@ -220,3 +220,44 @@ def test_la_justification_qui_suit_le_statut_n_est_pas_le_sujet() -> None:
     ]
 
     assert detecter_demandes_contredites(sections) == []
+
+
+def test_la_legende_des_statuts_n_est_pas_un_statut() -> None:
+    """Corpus du 14/09/2026 : cinq business plans accusés sur la phrase qui PRÉSENTE le tableau.
+
+    Échoue sur le code d'avant : « cahier, chaque, charges, indique » retrouvés
+    ailleurs faisaient conclure à une demande contredite.
+    """
+    from generation.checks_post_rendu import detecter_demandes_contredites
+
+    autres = [
+        (n, f"Chapitre {n}", texte) for n, texte in enumerate([
+            "Le cahier des charges de la porteuse reprend les attentes du marché.",
+            "Chaque rubrique indique la source ; le tableau suivant reprend les montants.",
+            "Le projet vise les indépendants.",
+            "Le prévisionnel reprend les charges et indique la trésorerie de la porteuse.",
+            "La concurrence est analysée.",
+            "La stratégie commerciale est détaillée.",
+        ], start=1)
+    ]
+    legende = (
+        "Le tableau suivant reprend chaque rubrique du cahier des charges transmis par "
+        "la porteuse de projet et indique son statut : traitée, partiellement traitée ou "
+        "non traitée."
+    )
+    assert detecter_demandes_contredites([*autres, (20, "Validation", legende)]) == []
+
+
+def test_un_vrai_statut_non_traite_reste_juge() -> None:
+    """CONTRE-ÉPREUVE : la ligne d'une demande reste confrontée au document."""
+    from generation.checks_post_rendu import detecter_demandes_contredites
+
+    autres = [
+        (n, f"Chapitre {n}", texte) for n, texte in enumerate([
+            "Les canaux d'acquisition des concurrents sont analysés un par un.",
+            "Le projet vise les indépendants.",
+            "La stratégie commerciale est détaillée.",
+        ], start=1)
+    ]
+    ligne = "Analyser les canaux d'acquisition des concurrents : non traitée."
+    assert detecter_demandes_contredites([*autres, (8, "Validation", ligne)])

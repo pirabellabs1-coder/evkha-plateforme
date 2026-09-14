@@ -30,6 +30,6 @@ Réponds explicitement a : comment améliorer la valeur perçue, comment constru
 ## Lecture stratégique
 Prends du recul : analyse directionnelle, conséquences futures de chaque levier retenu, lien explicite entre les constats et les décisions. Vérifie que la montée en gamme est cohérente, que les leviers de valeur sont credibles, que les prix soutiennent le positionnement, que les mécanismes proposes sont exploitables et la logique premium soutenable.
 
-Rédige en paragraphes developpes, ton cabinet de conseil. Interdits : raisonnement purement commercial, listes à puces sans analyse, paragraphes génériques, conseils génériques, complaisance, jargon inutile. Produis une lecture stratégique de la valeur.
+Rédige en paragraphes développés, ton cabinet de conseil. Interdits : raisonnement purement commercial, listes à puces sans analyse, paragraphes génériques, conseils génériques, complaisance, jargon inutile. Produis une lecture stratégique de la valeur.
 
 Termine par une synthèse des leviers de valeur du business, une lecture de la cohérence économique du modèle, puis une transition vers le chapitre suivant : la stratégie de visibilité et d'acquisition.

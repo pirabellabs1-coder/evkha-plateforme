@@ -512,3 +512,32 @@ def test_la_passe_voit_un_chiffre_invente_dans_un_vrai_fichier(tmp_path: Path) -
 def test_le_rapport_d_assemblage_expose_les_identifiants_rendus() -> None:
     """Le lot 3 doit transmettre au lot 4 de quoi lever son angle mort."""
     assert isinstance(RapportAssemblage().identifiants_rendus, set)
+
+
+def test_une_strategie_a_des_paragraphes_developpes_pas_un_mur_de_texte() -> None:
+    """Corpus du 14/09/2026 : 44 signalements de densité sur les 12 stratégies.
+
+    Les seuils viennent de l'étude de marché validée (paragraphe médian de douze
+    mots) ; la méthode de la cliente pour la stratégie exige des « paragraphes
+    développés ». Le même document ne peut pas être jugé sur les deux.
+    """
+    from generation.verification.controles import controler_densite
+    from generation.verification.lecture import DocumentLu
+
+    paragraphe = " ".join(["mot"] * 38)
+    document = DocumentLu(
+        chemin=Path("strategie.docx"),
+        paragraphes=[paragraphe] * 20,
+        cellules=[" ".join(["cellule"] * 30)] * 20,
+    )
+
+    assert controler_densite(document, "business_strategy") == []
+    # CONTRE-ÉPREUVE : le même texte reste trop dense pour une étude de marché…
+    assert controler_densite(document, "market_study")
+    # … et un vrai mur de texte reste signalé en stratégie.
+    mur = DocumentLu(
+        chemin=Path("mur.docx"),
+        paragraphes=[" ".join(["mot"] * 90)] * 20,
+        cellules=[" ".join(["cellule"] * 60)] * 20,
+    )
+    assert controler_densite(mur, "business_strategy")

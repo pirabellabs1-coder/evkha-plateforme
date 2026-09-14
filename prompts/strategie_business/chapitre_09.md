@@ -32,4 +32,4 @@ Fonctionne comme un consultant en structuration d'offre : transforme un catalogu
 
 Termine par une synthèse des forces et limites du catalogue actuel, une lecture des priorités de structuration et une transition vers le chapitre Architecture d'offre cible.
 
-Rédige en paragraphes developpes, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.
+Rédige en paragraphes développés, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.

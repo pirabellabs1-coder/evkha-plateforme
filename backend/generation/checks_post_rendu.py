@@ -944,6 +944,11 @@ _CONDITION_AVANT_LE_STATUT_RE = re.compile(
     r"\s+(?:n(?:e|'|’)\s*(?:est|sont|sera|seront)?\s*(?:pas\s+)?)?$"
 )
 
+#: Un statut « non traité » précédé d'un AUTRE statut dans une énumération.
+_LEGENDE_DES_STATUTS_RE = re.compile(
+    r"(?i)\btrait[ée]e?s?\b[^|.]*(?:,|\bou|/)\s*$"
+)
+
 #: Un mot assez long pour porter un sujet. « canaux », « acquisition »,
 #: « fidélité » — pas « des », « pour », « avec ».
 _MOT_PORTEUR_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]{6,}")
@@ -1068,6 +1073,12 @@ def _contradictions_de_la_section(
         if trouve is None:
             continue
         if _CONDITION_AVANT_LE_STATUT_RE.search(ligne[: trouve.start()]):
+            continue
+        # La LÉGENDE des statuts n'en est pas un : « indique son statut :
+        # traitée, partiellement traitée ou non traitée ». Cinq business plans
+        # du corpus accusés sur cette phrase d'introduction du tableau
+        # (14/09/2026), sur les mots « reprend, statut, suivant, indique ».
+        if _LEGENDE_DES_STATUTS_RE.search(ligne[: trouve.start()]):
             continue
         # Le SUJET précède le statut : « Analyser les canaux d'acquisition
         # des concurrents : non traitée ». Prendre la ligne entière ramasse

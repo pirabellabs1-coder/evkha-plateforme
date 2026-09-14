@@ -436,7 +436,7 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         # 3. INTERPRETATION du brief imparfait : « le desordre initial du
         #    dirigeant est normal ». Reconstruire la logique cohérente
         #    plutot que d'exiger un brief parfait.
-        # 4. REDACTION : paragraphes developpes, listes reservees aux
+        # 4. REDACTION : paragraphes développés, listes reservees aux
         #    synthese, arbitrages, feuilles de route.
         # 5. INTERDITS VERBATIM du PDF EVKHA : phrases motivationnelles
         #    creuses, conseils generiques.
@@ -500,7 +500,7 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             "reconstituer les intentions réelles du dirigeant, distinguer les "
             "vraies priorités des idées secondaires. Ne JAMAIS demander un "
             "brief plus complet ; toujours travailler avec ce qui est fourni.\n"
-            "RÉDACTION (méthode EVKHA) : paragraphes developpes qui expliquent "
+            "RÉDACTION (méthode EVKHA) : paragraphes développés qui expliquent "
             "les implications de chaque décision, PAS d'accumulation de listes. "
             "Les listes à puces sont réservées aux synthèse, arbitrages, "
             "feuilles de route, tableaux de priorités, indicateurs.\n"

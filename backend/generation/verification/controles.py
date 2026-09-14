@@ -61,6 +61,41 @@ MEDIANE_PARAGRAPHE_MAX = 25
 PART_PARAGRAPHES_LONGS_MAX = 0.25
 
 
+@dataclass(frozen=True)
+class SeuilsDeDensite:
+    part_tableaux_min: float
+    mediane_paragraphe_max: int
+    part_paragraphes_longs_max: float
+
+
+#: Les seuils ci-dessus viennent de l'ÉTUDE DE MARCHÉ validée par la cliente
+#: (Joalie : 52 % des mots en tableaux, paragraphe médian de douze mots) — le
+#: livrable sur lequel elle a refusé « un mur de texte ».
+#:
+#: La STRATÉGIE a une autre méthode, écrite par la cliente elle-même dans son
+#: document « Stratégies business automatisées » et reprise par chacun de ses
+#: prompts : « paragraphes développés qui expliquent les implications de chaque
+#: décision, listes réservées aux synthèses ». Lui appliquer les seuils de
+#: l'étude de marché, c'était comparer à la mauvaise référence (règle 2) :
+#: 44 signalements sur les 12 stratégies du corpus (14/09/2026), et comme la
+#: densité fait réécrire, des chapitres repayés pour raccourcir ce que leur
+#: prompt ordonne de développer — une réécriture qui ne pouvait pas converger.
+#:
+#: Faute de document de stratégie validé, seul le vrai mur de texte y reste
+#: signalé : un paragraphe médian au-delà de soixante mots, ou une majorité de
+#: paragraphes de plus de soixante mots.
+_SEUILS_PAR_LIVRABLE: dict[str, SeuilsDeDensite] = {
+    "business_strategy": SeuilsDeDensite(PART_TABLEAUX_MIN, 60, 0.60),
+}
+_SEUILS_PAR_DEFAUT = SeuilsDeDensite(
+    PART_TABLEAUX_MIN, MEDIANE_PARAGRAPHE_MAX, PART_PARAGRAPHES_LONGS_MAX,
+)
+
+
+def seuils_de_densite(deliverable_type: str = "") -> SeuilsDeDensite:
+    return _SEUILS_PAR_LIVRABLE.get(str(deliverable_type), _SEUILS_PAR_DEFAUT)
+
+
 def _valeurs_de_reference(socle: Socle) -> list[tuple[float, str]]:
     """Toutes les valeurs du socle, ramenées à une unité comparable.
 
@@ -921,7 +956,7 @@ def _passages(document: DocumentLu) -> list[tuple[str, int | None]]:
 # ── Contrôle 5 : la densité validée par la cliente ───────────────────────────
 
 
-def controler_densite(document: DocumentLu) -> list[Anomalie]:
+def controler_densite(document: DocumentLu, deliverable_type: str = "") -> list[Anomalie]:
     """Le document est-il resté « des tableaux reliés par de la prose courte » ?
 
     Ce contrôle ne porte pas sur l'exactitude mais sur la forme, et il a sa
@@ -935,28 +970,29 @@ def controler_densite(document: DocumentLu) -> list[Anomalie]:
     anomalies: list[Anomalie] = []
     if document.mots == 0:
         return [Anomalie("densite", Gravite.BLOQUANTE, "Document vide.")]
+    seuils = seuils_de_densite(deliverable_type)
 
-    if document.part_en_tableaux < PART_TABLEAUX_MIN:
+    if document.part_en_tableaux < seuils.part_tableaux_min:
         anomalies.append(Anomalie(
             "densite", Gravite.AVERTISSEMENT,
             f"{document.part_en_tableaux:.0%} des mots seulement sont dans des "
-            f"tableaux (plancher {PART_TABLEAUX_MIN:.0%}) : le livrable "
+            f"tableaux (plancher {seuils.part_tableaux_min:.0%}) : le livrable "
             "redevient un texte suivi.",
         ))
-    if document.mediane_paragraphe > MEDIANE_PARAGRAPHE_MAX:
+    if document.mediane_paragraphe > seuils.mediane_paragraphe_max:
         anomalies.append(Anomalie(
             "densite", Gravite.AVERTISSEMENT,
             f"Paragraphe médian de {document.mediane_paragraphe:.0f} mots "
-            f"(plafond {MEDIANE_PARAGRAPHE_MAX}).",
+            f"(plafond {seuils.mediane_paragraphe_max}).",
         ))
-    if document.part_paragraphes_longs > PART_PARAGRAPHES_LONGS_MAX:
+    if document.part_paragraphes_longs > seuils.part_paragraphes_longs_max:
         anomalies.append(Anomalie(
             "densite", Gravite.AVERTISSEMENT,
             f"{document.part_paragraphes_longs:.0%} des paragraphes dépassent "
-            f"60 mots (plafond {PART_PARAGRAPHES_LONGS_MAX:.0%}).",
+            f"60 mots (plafond {seuils.part_paragraphes_longs_max:.0%}).",
         ))
     if anomalies:
-        anomalies.extend(_chapitres_les_plus_denses(document))
+        anomalies.extend(_chapitres_les_plus_denses(document, seuils.mediane_paragraphe_max))
     return anomalies
 
 
@@ -966,7 +1002,9 @@ def controler_densite(document: DocumentLu) -> list[Anomalie]:
 _CHAPITRES_DENSES_MAX = 3
 
 
-def _chapitres_les_plus_denses(document: DocumentLu) -> list[Anomalie]:
+def _chapitres_les_plus_denses(
+    document: DocumentLu, mediane_max: int = MEDIANE_PARAGRAPHE_MAX,
+) -> list[Anomalie]:
     """Les chapitres qui portent le mur de texte, nommés un par un.
 
     Un constat de densité vaut pour tout le document : il n'a donc pas de
@@ -987,14 +1025,14 @@ def _chapitres_les_plus_denses(document: DocumentLu) -> list[Anomalie]:
     denses = [
         (numero, statistics.median(longueurs))
         for numero, longueurs in par_chapitre.items()
-        if len(longueurs) >= 3 and statistics.median(longueurs) > MEDIANE_PARAGRAPHE_MAX
+        if len(longueurs) >= 3 and statistics.median(longueurs) > mediane_max
     ]
     denses.sort(key=lambda couple: couple[1], reverse=True)
     return [
         Anomalie(
             "densite", Gravite.AVERTISSEMENT,
             f"Chapitre {numero} : paragraphe médian de {mediane:.0f} mots "
-            f"(plafond {MEDIANE_PARAGRAPHE_MAX}). Le livrable doit rester des "
+            f"(plafond {mediane_max}). Le livrable doit rester des "
             "tableaux reliés par de la prose courte, pas un texte suivi.",
             chapitre=numero,
         )
@@ -1182,7 +1220,23 @@ def controler_les_calculs_annonces(document: DocumentLu) -> list[Anomalie]:
 #: lecteur croit lire une valeur.
 _ZERO_ASSUME = re.compile(
     r"(?i)aucun|aucune|nul|nulle|z[ée]ro|pas d[e’']|ni\b|sans\b|"
-    r"n[e’']a (?:pas|aucun)|absence"
+    r"n[e’']a (?:pas|aucun)|absence|"
+    # Un financement ou une ligne ÉCARTÉS par décision : « Emprunt bancaire |
+    # 0 € | 0 % | Non priorisé dans le scénario central » (corpus du 14/09/2026).
+    r"non\s+(?:retenu|prioris|mobilis|sollicit|activ)\w*"
+)
+
+#: Un zéro qui est un RÉSULTAT : l'écart entre deux montants égaux, un solde,
+#: une variation. « Écart : Total du plan | 27 600 € | 27 600 € | 0 € » vérifie
+#: l'équilibre du plan ; le signaler faisait réécrire un chapitre juste.
+_EN_TETE_DE_RESULTAT = re.compile(r"(?i)^\s*(?:[ée]cart|diff[ée]rence|variation|solde|reste)\b")
+
+#: Ce qui dit qu'une donnée MANQUE : le zéro qui l'accompagne est une valeur
+#: fabriquée, même si la phrase contient « aucun » par ailleurs. « Coût
+#: d'acquisition : non mesuré à ce jour… | 0 EUR » passait-il ? Il ne doit pas.
+_DONNEE_MANQUANTE = re.compile(
+    r"(?i)[àa]\s+pr[ée]ciser|[àa]\s+d[ée]finir|[àa]\s+confirmer|non\s+mesur|"
+    r"non\s+disponible|non\s+renseign|non\s+communiqu|inconnu|n\.?\s?c\.?\b"
 )
 
 #: Un zéro qui BORNE un intervalle est assumé lui aussi : « entre −20 % et
@@ -1214,7 +1268,14 @@ def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
     for mesure in document.mesures:
         if abs(mesure.valeur) > EPSILON:
             continue
-        if _ZERO_ASSUME.search(mesure.contexte):
+        manquante = bool(_DONNEE_MANQUANTE.search(mesure.contexte))
+        if not manquante and _ZERO_ASSUME.search(mesure.contexte):
+            continue
+        if (
+            not manquante
+            and mesure.dans_un_tableau
+            and _EN_TETE_DE_RESULTAT.search(mesure.phrase.partition(" : ")[0])
+        ):
             continue
         # L'occurrence CHERCHÉE, pas la première : « 0 % » se trouve aussi à
         # l'intérieur de « -20 % », et le texte d'avant devenait « Entre -2 ».

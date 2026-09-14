@@ -172,3 +172,38 @@ def test_une_cellule_qui_est_une_phrase_se_juge_aussi_par_elle_meme(tmp_path: Pa
           "à trois ans ne représente que 0,46 % de ce total"]],
     )
     assert "0,46 %" not in _signales(chemin)
+
+
+# ── Les zéros d'un tableau ───────────────────────────────────────────────────
+
+
+def _zeros(chemin: Path) -> set[str]:
+    from generation.verification.controles import controler_les_valeurs_nulles
+
+    return {a.extrait for a in controler_les_valeurs_nulles(lire_livrable(chemin))}
+
+
+def test_un_ecart_nul_est_un_resultat_pas_une_donnee_manquante(tmp_path: Path) -> None:
+    """« Écart | 27 600 € | 27 600 € | 0 € » vérifie l'équilibre du plan."""
+    chemin = _docx(
+        tmp_path, ["Écart", "Besoins", "Ressources", "Solde"],
+        [["Total du plan", "27 600 €", "27 600 €", "0 €"]],
+    )
+    assert _zeros(chemin) == set()
+
+
+def test_un_financement_ecarte_par_decision_assume_son_zero(tmp_path: Path) -> None:
+    chemin = _docx(
+        tmp_path, ["Ressource", "Montant", "Part du total", "Commentaire"],
+        [["Emprunt bancaire", "0 €", "0 %", "Non priorisé dans le scénario central"]],
+    )
+    assert _zeros(chemin) == set()
+
+
+def test_un_zero_pose_sur_une_donnee_manquante_reste_signale(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : « non mesuré » ne devient pas « aucun » parce qu'un autre mot l'est."""
+    chemin = _docx(
+        tmp_path, ["Indicateur", "Valeur", "Commentaire"],
+        [["Coût d'acquisition", "0 €", "non mesuré à ce jour, aucun suivi commercial"]],
+    )
+    assert _zeros(chemin)

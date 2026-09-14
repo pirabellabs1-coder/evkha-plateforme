@@ -30,6 +30,6 @@ Réponds explicitement a : quelle architecture d'offre mettre en place, quelles 
 ## Lecture stratégique
 Prends du recul : produis une analyse directionnelle, identifie les conséquences futures de l'architecture retenue et relie chaque constat a une décision. Hierarchise, priorise, signale les incohérences et les risques.
 
-Rédige en paragraphes developpes, ton cabinet de conseil, logique pedagogique. Interdits : simple liste d'offres, listes à puces sans analyse, paragraphes génériques, conseils passe-partout, complaisance, jargon inutile. Produis une architecture stratégique, pas un catalogue.
+Rédige en paragraphes développés, ton cabinet de conseil, logique pedagogique. Interdits : simple liste d'offres, listes à puces sans analyse, paragraphes génériques, conseils passe-partout, complaisance, jargon inutile. Produis une architecture stratégique, pas un catalogue.
 
 Termine par une synthèse de l'architecture cible, une lecture de la cohérence commerciale globale, puis une transition vers le chapitre suivant : la logique de montée en gamme et de valeur perçue.

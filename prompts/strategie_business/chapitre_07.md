@@ -32,4 +32,4 @@ Prends du recul. Produis une analyse directionnelle et hierarchisee, jamais une 
 
 Termine par une synthèse des verticales prioritaires, une clarification des activités centrales et une transition vers le chapitre Proposition de valeur & différenciation.
 
-Rédige en paragraphes developpes, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.
+Rédige en paragraphes développés, ton cabinet de conseil. Interdits : listes à puces sans analyse, paragraphes génériques, complaisance, jargon inutile.
