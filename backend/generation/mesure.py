@@ -27,6 +27,7 @@ un échec, jamais un succès.
 """
 from __future__ import annotations
 
+import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -247,6 +248,27 @@ def _tableau_de_la_colonne(corps: str, detail: str) -> str:
     return ""
 
 
+def _phrases_du_sujet(corps: str, detail: str) -> str:
+    """Les phrases du chapitre porteur qui parlent du sujet de la décision absente.
+
+    « le document ne pose nulle part les canaux secondaires » : sans les
+    phrases qui parlent de canaux, on ne peut pas dire si la décision manque
+    ou si elle est écrite sous une forme que le contrôle ne lit pas.
+    """
+    sujet = re.search(r"nulle part (.+?)\.", detail)
+    if sujet is None:
+        return ""
+    racines = [mot[:5].casefold() for mot in re.findall(r"[^\W\d_]{5,}", sujet.group(1))]
+    if not racines:
+        return ""
+    phrases = re.split(r"(?<=[.!?])\s+|\n+", corps)
+    retenues = [
+        " ".join(phrase.split())[:180] for phrase in phrases
+        if any(racine in phrase.casefold() for racine in racines)
+    ]
+    return " / ".join(retenues[:4])
+
+
 def _echecs_du_gate(
     job: GenerationJob, sections: list[tuple[int, str, str]] | None = None,
 ) -> dict[str, list[dict[str, object]]]:
@@ -269,6 +291,8 @@ def _echecs_du_gate(
             return corps.rstrip()[-200:]
         if check == "calcul_faux":
             return _tableau_de_la_colonne(corps, detail)
+        if check.endswith("decision_absente"):
+            return _phrases_du_sujet(corps, detail)
         return ""
 
     return _regrouper([

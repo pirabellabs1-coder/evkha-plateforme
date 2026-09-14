@@ -1294,10 +1294,18 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
         intitule="PILIER 3 — Visibilité, acquisition & planning éditorial",
         chapitre_porteur=13,
         decisions=(
+            # Au SINGULIER aussi : « le blog reste un canal secondaire »,
+            # « LinkedIn est le canal prioritaire ». Seul le pluriel était lu.
+            # Le singulier passe par la FORME VERBALE, qui écarte la négation
+            # et le tiers (« il n'y a pas de canal à éviter », « un média
+            # secondaire selon Médiamétrie ») — le motif nominal ne le fait pas.
             _D("les canaux prioritaires",
                rf"(?:canaux|leviers|r[ée]seaux){_E}+"
                rf"(?:prioritaires|principaux|majeurs|structurants"
                rf"|de{_E}+premier{_E}+plan)",
+               forme_verbale=(
+                   r"\b(?:canal|levier)\b[^.!?\n]{0,30}?\b(?:prioritaire|principal|majeur)\b"
+               ),
                etiquette="Canaux prioritaires"),
             _D("les canaux secondaires",
                rf"(?:canaux|leviers|r[ée]seaux){_E}+"
@@ -1307,6 +1315,7 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                forme_verbale=(
                    r"\b(?:canaux|leviers|r[ée]seaux|plateformes|supports|m[ée]dias)\b"
                    r"[^.!?\n]{0,60}?\b(?:secondaires|d['’]appoint|en\s+second\s+rang)\b"
+                   r"|\b(?:canal|levier)\b[^.!?\n]{0,30}?\b(?:secondaire|d['’]appoint)\b"
                )),
             _D("les canaux à éviter",
                rf"(?:canaux|leviers|r[ée]seaux|plateformes|supports){_E}+"

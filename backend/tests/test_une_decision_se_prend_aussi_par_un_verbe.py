@@ -218,3 +218,20 @@ def test_la_consigne_du_tableau_ne_permet_pas_de_laisser_la_case_ouverte() -> No
     consigne = _bloc_decisions(_job("business_strategy"), 13)
     assert "décision reportée" not in consigne
     assert "tranche quand même" in consigne
+
+
+# ── Au singulier (14/09/2026) ────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(("phrase", "libelle"), [
+    ("Le blog reste un canal secondaire, alimenté une fois par mois.", "les canaux secondaires"),
+    ("LinkedIn est le canal prioritaire de la phase 1.", "les canaux prioritaires"),
+    ("Le salon local est un levier d'appoint pour la notoriété.", "les canaux secondaires"),
+])
+def test_un_canal_au_singulier_est_une_decision(phrase: str, libelle: str) -> None:
+    assert libelle not in _manquantes(phrase)
+
+
+def test_un_canal_qu_on_ne_classe_pas_reste_signale() -> None:
+    """CONTRE-ÉPREUVE : nommer un canal n'est pas le classer."""
+    assert "les canaux secondaires" in _manquantes("Le blog est un canal utile.")
