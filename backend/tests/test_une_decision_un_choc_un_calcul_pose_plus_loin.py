@@ -145,3 +145,12 @@ def test_le_resultat_d_un_scenario_n_est_pas_son_choc(tmp_path: Path) -> None:
     ])
     assert "-10 %" not in signales
     assert "8,7 %" in signales
+
+
+def test_des_bornes_qui_font_cent_ne_sont_pas_une_repartition(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE (mesure de e6f9fa5, `3a4df56c`) : 32 + 43 + 8 + 17 = 100 par hasard."""
+    signales = _signales(tmp_path, [
+        "Les indépendants affichent les évolutions les plus fortes, entre 32 % et 43 % "
+        "sur la période, contre 8 % à 17 % pour les cinq grands cabinets.",
+    ])
+    assert {"32 %", "43 %", "8 %", "17 %"} <= signales

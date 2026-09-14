@@ -693,6 +693,9 @@ def _choc_de_scenario(avant: str) -> bool:
 #: faire 99 ou 101 %.
 _REPARTITION_TOLERANCE = 1.0
 
+#: Ce qui, entre deux pourcentages, en fait des BORNES ou une opposition.
+_ENTRE_DEUX_BORNES = re.compile(r"(?i)(?:entre|contre|jusqu|[àa]u?|versus|vs)")
+
 
 def _part_d_une_repartition(mesure: Mesure) -> bool:
     """Le pourcentage est une part d'une répartition COMPLÈTE posée dans sa phrase.
@@ -710,10 +713,22 @@ def _part_d_une_repartition(mesure: Mesure) -> bool:
     if not mesure.est_un_pourcentage or not mesure.phrase:
         return False
     for bloc in re.split(r"[.;:()\n|]", mesure.phrase):
-        parts = [n for n in _nombres_de_la_phrase(bloc) if n.pourcentage]
+        parts = sorted(
+            (n for n in _nombres_de_la_phrase(bloc) if n.pourcentage), key=lambda n: n.position,
+        )
         if len(parts) < 3 or not any(abs(n.valeur - mesure.valeur) < EPSILON for n in parts):
             continue
-        if abs(sum(n.valeur for n in parts) - 100) <= _REPARTITION_TOLERANCE:
+        # Une ÉNUMÉRATION, pas des bornes : « entre 32 % et 43 % sur la période,
+        # contre 8 % à 17 % » fait 100 par hasard (étude concurrentielle
+        # `3a4df56c`, mesure de e6f9fa5). Chaque part est séparée de la
+        # suivante par une virgule — un « et » n'est admis que pour la dernière.
+        ecarts = [bloc[a.position:b.position] for a, b in zip(parts, parts[1:], strict=False)]
+        enumeree = all(
+            ("," in ecart or (rang == len(ecarts) - 1 and re.search(r"et", ecart)))
+            and not _ENTRE_DEUX_BORNES.search(ecart)
+            for rang, ecart in enumerate(ecarts)
+        )
+        if enumeree and abs(sum(n.valeur for n in parts) - 100) <= _REPARTITION_TOLERANCE:
             return True
     return False
 
