@@ -343,3 +343,21 @@ canaux secondaires écrits « 3 - différée … mais secondaire tant que… » 
 des quatre phrases rendues, une cible secondaire, une fréquence de publication
 et un impact sur la marge — à relire document par document avant d'élargir
 quoi que ce soit.
+
+## Décisions de stratégie : lire, puis resserrer — 14/09/2026, 20 h 46
+
+| Lot | Ce qui a été fait | Mesure (8 stratégies concernées) |
+|---|---|---|
+| `5e769a8` | la mesure rend les six phrases de TOUT le document qui portent le plus de mots de chaque décision absente | diagnostic |
+| `c50b0d8` | trois formes réelles relevées : « le produit poussé en priorité » (`a678b10a`), « Public secondaire » et « priorité commerciale » en tableau (`0f9fb13a`), classement en première colonne (`0ad5155b`) | 14 → 8 ; relecture : deux disparitions (`db228221`, `b098ded3`) sans phrase qui les tranche |
+| `3a0027a` | « d'appoint » ancré en tête de case ; les formes au pluriel ne traversent plus les cellules | 8 — les deux disparitions persistent |
+| `a890003` | un tableau n'est « de canaux » que par son en-tête, son introduction ou la ligne classée ; « priorité commerciale » exige sa réponse (une offre nommée) | **14 → 10** : exactement les quatre décisions lues dans les documents ; `db228221` et `b098ded3` de nouveau signalés |
+
+Les dix décisions restantes n'ont aucune phrase qui les prenne dans ce que la
+mesure rend : elles sont traitées comme de vrais manques — l'offre à pousser en
+priorité (`db228221`, `f7f2fad9`, `f8a29b66`), les canaux secondaires
+(`b098ded3`, `f8a29b66`, `d667fbb4`), les offres à conserver ou reporter
+(`f8a29b66`), la fréquence de publication, l'impact sur la marge et les actions
+à 30, 60 et 90 jours (`0f9fb13a`). Pour les stratégies à venir, le tableau
+« Décisions retenues » injecté au chapitre porteur (`_bloc_decisions`) les fait
+écrire sous l'étiquette que le contrôle reconnaît.
