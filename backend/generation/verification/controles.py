@@ -127,6 +127,14 @@ def _valeurs_de_reference(socle: Socle) -> list[tuple[float, str]]:
         for montant in amounts_in(acteur.ca_connu):
             references.append((montant, "monetaire"))
             references.append((montant, "brut"))
+    # Les nombres que le LIBELLÉ d'une donnée porte sont du socle eux aussi :
+    # « Prix moyen d'une baguette (fourchette observée 1,30 - 1,60 €, médiane
+    # retenue) | 1,45 EUR ». Le document qui recopie la donnée avec son libellé
+    # recopiait des bornes que la référence ignorait (corpus du 14/09/2026).
+    for donnee in socle.donnees:
+        for nombre in amounts_in(donnee.libelle):
+            references.append((nombre, "monetaire"))
+            references.append((nombre, "brut"))
     return references
 
 
@@ -402,7 +410,14 @@ def _calculee_dans_sa_phrase(
     position = mesure.debut_dans_la_phrase
     fin = position + len(mesure.texte)
     nombres = [n for n in _nombres_de_la_phrase(mesure.phrase) if n.position != position]
-    calcul_marque = bool(_MARQUE_DE_CALCUL.search(mesure.phrase))
+    # En tableau, l'en-tête d'un RÉSULTAT dit le calcul à la place de la
+    # phrase : « Évolution : EY France | 480 000 | 550 000 | +15 % » est une
+    # variation entre deux cellules de sa ligne, que le lecteur refait (sept
+    # motifs des études concurrentielles, corpus du 14/09/2026).
+    calcul_marque = bool(_MARQUE_DE_CALCUL.search(mesure.phrase)) or (
+        mesure.dans_un_tableau
+        and bool(_EN_TETE_DE_RESULTAT.search(mesure.phrase.partition(" : ")[0]))
+    )
 
     # La parenthèse du calcul suit le résultat, pas forcément collée :
     # « 172,5 M€ un an plus tard (150 x 1,15) ». Bornée pour ne pas aller
