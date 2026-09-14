@@ -107,3 +107,32 @@ def test_une_vraie_divergence_tombe_toujours() -> None:
     divergences = detecter_divergences(_mentions(contradictoire))
     assert len(divergences) == 1
     assert divergences[0].libelle == "apport"
+
+
+# ── Corpus du 14/09/2026 : « valeurs divergentes » sur des prévisionnels justes ──
+
+
+def test_la_marge_brute_change_d_un_exercice_a_l_autre() -> None:
+    """Rangée parmi les libellés globaux, elle opposait l'exercice 1 à l'exercice 3."""
+    document = [
+        (9, "La marge brute de l'exercice 1 s'élève à 227 200 euros."),
+        (9, "La marge brute de l'exercice 3 atteint 265 000 euros."),
+    ]
+    assert detecter_divergences(_mentions(document)) == []
+
+
+def test_une_marge_par_abonne_n_est_pas_la_marge_de_l_exercice() -> None:
+    document = [
+        (14, "Chaque formule dégage une marge brute de 4 € par abonné en année 1."),
+        (16, "La marge brute de l'année 1 atteint 54 276 euros."),
+    ]
+    assert detecter_divergences(_mentions(document)) == []
+
+
+def test_deux_marges_du_meme_exercice_divergent_toujours() -> None:
+    """CONTRE-ÉPREUVE : le même exercice, deux montants, reste une contradiction."""
+    document = [
+        (9, "La marge brute de l'exercice 1 s'élève à 227 200 euros."),
+        (16, "La marge brute de l'exercice 1 est de 188 150 euros."),
+    ]
+    assert detecter_divergences(_mentions(document))

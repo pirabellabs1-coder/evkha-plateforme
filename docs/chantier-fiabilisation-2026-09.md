@@ -60,7 +60,7 @@ des contrôles sur des phrases). Statut : ✅ corrigé, 🔧 en cours, ⏳ à fa
 | A14 | STR : structure « à retenir / lecture stratégique » exigée aussi des chapitres Sources, Annexe, fiche projet | STR | ⏳ |
 | A15 | STR : décision exigée sous « offre phare / locomotive / à pousser », jamais demandée par le prompt ch 08 ; horizons 30-60-90 j contre 0-3 mois / 3-12 mois / 1-3 ans au ch 17 | STR | ✅ horizons du ch 17 alignés (30/60/90 jours, 6 et 12 mois) ; chaque chapitre porteur reçoit ses décisions sous l'intitulé que le contrôle reconnaît (voir A19) |
 | A16 | EC : décompte des concurrents dépendant de la forme (encadré coupé à six lignes, puces de forces/faiblesses) | EC | ⏳ |
-| A17 | STR : « paragraphes développés » dans tous les prompts contre le plafond de densité (médiane 25 mots) | STR | ⏳ |
+| A17 | STR : « paragraphes développés » dans tous les prompts contre le plafond de densité (médiane 25 mots) | STR | ✅ seuils de densité par livrable ; ceux de l'étude de marché validée ne s'appliquent plus à la stratégie, dont seul le vrai mur de texte reste signalé. Corpus : 44 → 0 |
 | A18 | « un segment » + encadré de 3 puces → `desaccord_numerique` (7 dossiers : « un axe », « une phase », « deux phases » + puce d'une autre liste) | BP EC STR | ✅ un article n'annonce pas de compte ; l'annonce se ferme sur « : » ; seule la liste contiguë, au premier niveau, est comptée |
 | A19 | STR `decision_absente` 12/12 : le contrôle attendait une locution collée (« canaux à éviter ») ; les documents décident par un verbe (« Nous excluons Facebook Ads… », « deux publications par semaine ») ; les prompts des chapitres porteurs ne demandaient pas ces décisions, le ch 13 disait « la fréquence se déduit du tableau ». Le contrôleur réécrivait (payait) les ch 8, 10, 13 sans fermer les motifs | STR | ✅ formes verbales de décision reconnues (contre-épreuves : négation, « Reportez-vous », cadence de prospection) ; tableau « Décisions retenues » injecté au chapitre porteur depuis la même déclaration. Word des 8 stratégies lisibles : 23 → 5 motifs, les 5 restants vrais |
 | A20 | BP `coherence_chiffree` « apport » (3 dossiers, 10 motifs) : réponse LIBRE du client (charges, rémunération, enveloppe, « 1600e investis ») ; tous ses montants pris pour l'apport, motif « le brief client dit » + paragraphe entier ; et faux négatif inverse (un apport de 8 000 € accepté parce que l'enveloppe valait 8 000 €) | BP | ✅ seules les phrases qui parlent du fait font référence ; sans elles, un montant écrit par le client est conforme, sinon `reference_client_illisible` une fois, sans réécriture payée |
@@ -210,3 +210,13 @@ Restent surtout des vrais motifs : croissances de concurrents sans source
 (« +16 % »), fourchettes de CA estimé, prix unitaires sans base (« baguette à
 1,09 € »), et des opérandes de calculs posés dont l'origine est plus haut dans
 le document.
+
+## Autres classes — 14/09/2026, soir
+
+| Classe | Constat dans le corpus | Correctif | Effet mesuré |
+|---|---|---|---|
+| `densite` STR | seuils de l'étude de marché (médiane 12 mots validée) appliqués à la stratégie, qui exige des « paragraphes développés » ; réécritures payées impossibles | seuils par livrable | 44 → 0 |
+| `demande_contredite` | la légende « statut : traitée, partiellement traitée ou non traitée » prise pour un statut | légende reconnue ; un vrai « non traitée » reste jugé | BP 5 → 1 |
+| `valeur_nulle` | écarts nuls (« 27 600 € | 27 600 € | 0 € ») et financements « non priorisés » accusés ; à l'inverse « non mesuré… aucune donnée | 0 € » passait | en-tête Écart/Solde et « non retenu » assumés ; marqueur de donnée manquante prioritaire | BP 11 → 7 ; STR 6 → 8, les 2 nouveaux vrais (coût d'acquisition « non mesuré » rendu 0 €) |
+| `brief_non_lu` | l'état chiffré en texte libre n'était extrait que par la normalisation Tally ; espace client, commande manuelle et reprise arrivaient sans faits CLIENT | lecture au verrouillage des faits, point commun à toutes les portes | effet sur les prochains dossiers (les faits anciens sont déjà posés) |
+| `coherence_chiffree` (valeurs divergentes) | marge brute tenue pour une valeur unique alors qu'elle change par exercice ; « 4 € par abonné » opposé au total annuel | marge brute annuelle, « exercice N » lu comme année, périodicité après le montant écartée | à mesurer après déploiement |

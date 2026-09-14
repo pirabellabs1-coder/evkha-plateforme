@@ -330,6 +330,11 @@ _LIBELLES_SURVEILLES: dict[str, str] = {
 # rentabilite : 122 000, 180 000 a 280 000, 205 000 », elle n'a jamais laisse
 # entendre qu'il y avait plusieurs seuils par annee.
 _LIBELLES_ANNUELS: frozenset[str] = frozenset({
+    # La marge brute change d'un exercice à l'autre, comme l'EBE. Rangée parmi
+    # les libellés GLOBAUX, elle opposait « 227 200 € » (exercice 1) à
+    # « 265 000 € » (exercice 3) : 6 business plans du corpus accusés de
+    # « valeurs divergentes » sur leur propre prévisionnel (14/09/2026).
+    "marge_brute",
     "tresorerie",
     "resultat_net",
     "ebe",
@@ -343,7 +348,9 @@ _LIBELLES_ANNUELS: frozenset[str] = frozenset({
 # Annee discriminante : « an 1 », « annee 2 », « année N ». Sans annee, le
 # libelle est repute global — donc une valeur unique attendue.
 _ANNEE_RE = re.compile(
-    rf"\ban{SPACE_CLASS}*n?[ée]?e?{SPACE_CLASS}*(\d{{1,2}})\b|\bAN{SPACE_CLASS}*(\d{{1,2}})\b",
+    rf"\ban{SPACE_CLASS}*n?[ée]?e?{SPACE_CLASS}*(\d{{1,2}})\b|\bAN{SPACE_CLASS}*(\d{{1,2}})\b"
+    # « l'exercice 1 » : le prévisionnel parle en EXERCICES autant qu'en années.
+    rf"|\bexercice{SPACE_CLASS}*(\d{{1,2}})\b",
     re.IGNORECASE,
 )
 
@@ -410,6 +417,15 @@ _MOTS_DE_RUPTURE = re.compile(
     re.IGNORECASE,
 )
 
+#: Ce qui, juste après un montant, en fait une grandeur PAR unité ou par période.
+_PAR_UNITE_APRES = re.compile(
+    r"\s*(?:HT|TTC)?\s*(?:par|/)\s*(?:mois|an|ann[ée]e|semaine|jour|trimestre|abonn[ée]s?|"
+    r"clients?|unit[ée]s?|couverts?|tickets?|commandes?|heures?|personnes?|habitants?|"
+    r"utilisateurs?|licences?|adh[ée]rents?|m[²2]|mètres?)\b"
+    r"|\s*(?:mensuel(?:le)?s?|hebdomadaires?|unitaires?)\b",
+    re.IGNORECASE,
+)
+
 #: Une phrase qui se termine emporte son sujet avec elle.
 #:
 #: « ...et du taux de marge brute. La masse salariale prevsionnelle represente
@@ -461,7 +477,7 @@ def _annee_proche(texte: str) -> int | None:
     match = _ANNEE_RE.search(texte)
     if not match:
         return None
-    valeur = match.group(1) or match.group(2)
+    valeur = match.group(1) or match.group(2) or match.group(3)
     return int(valeur)
 
 
@@ -525,6 +541,13 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             ):
                 continue
 
+            # Une PÉRIODICITÉ ou une unité APRÈS le montant : « marge brute de
+            # 4 € par abonné », « trésorerie de 1 500 € par mois ». Ce n'est pas
+            # la grandeur du libellé, et l'opposer au total de l'exercice
+            # produisait une divergence sur un document juste. Le cas AVANT le
+            # montant (« marge brute unitaire ») est déjà dans les mots de rupture.
+            if _PAR_UNITE_APRES.match(fenetre[montant.end():]):
+                continue
             base = to_base_units(
                 _lire_nombre(montant.group(1)), montant.group(2)
             )
