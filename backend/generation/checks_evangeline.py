@@ -1219,6 +1219,9 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                forme_verbale=(
                    r"\b(?:cibles|segments|publics|profils|client[èe]les)\b"
                    r"[^.!?\n]{0,60}?\b(?:secondaires|en\s+second\s+rang)\b"
+                   # Au singulier, sans traverser une cellule : « Public
+                   # secondaire au sein de la demande » (`0f9fb13a`).
+                   r"|\b(?:public|profil)\b[^.!?\n|]{0,30}?\bsecondaire\b"
                )),
             _D("le positionnement retenu",
                rf"positionnement{_E}+"
@@ -1239,6 +1242,13 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                forme_verbale=(
                    r"\b(?:offre|produit|service|prestation|formule|palier|abonnement)s?"
                    r"(?:\s+\S+)?\s+(?:prioritaires?|[àa]\s+pousser|[àa]\s+mettre\s+en\s+avant)"
+                   # « le produit poussé en priorité (la formule à 19 euros) »,
+                   # stratégie `a678b10a` ; « quelle offre porte la priorité
+                   # commerciale | … | Abonnement CRM », `0f9fb13a` (mesure du
+                   # 14/09/2026, phrases du sujet).
+                   r"|\b(?:offre|produit|service|prestation|formule|palier|abonnement)s?\s+"
+                   r"(?:pouss[ée]e?s?|mise?s?\s+en\s+avant|privil[ée]gi[ée]e?s?)\s+en\s+priorit[ée]"
+                   r"|\bpriorit[ée]\s+commerciale\b"
                )),
             _D("la proposition de valeur", rf"proposition{_E}+de{_E}+valeur",
                etiquette="Proposition de valeur"),
@@ -1480,13 +1490,17 @@ def _classe_en_tableau(classement: str, corpus: str) -> bool:
             rang += 1
         tableau = lignes[debut:rang]
         avant = "\n".join(lignes[:debut])[-_INTRODUCTION_DU_TABLEAU:]
-        if not (_SUJET_CANAUX.search(tableau[0]) or _SUJET_CANAUX.search(avant)):
+        # Le tableau parle de canaux par son en-tête, son introduction ou ses
+        # lignes : « | Secondaire (à préparer) | Cadrage du contenu SEO et
+        # LinkedIn | Canaux à faible charge | » (`0ad5155b`, chapitre 17) porte
+        # le classement en PREMIÈRE colonne et le mot « canaux » en troisième.
+        if not (_SUJET_CANAUX.search("\n".join(tableau)) or _SUJET_CANAUX.search(avant)):
             continue
         for ligne in tableau[1:]:
             if re.fullmatch(r"[\s|:-]+", ligne):
                 continue
             cellules = [c.strip() for c in ligne.strip().strip("|").split("|")]
-            if any(re.search(classement, cellule, re.IGNORECASE) for cellule in cellules[1:]):
+            if any(re.search(classement, cellule, re.IGNORECASE) for cellule in cellules):
                 return True
     return False
 

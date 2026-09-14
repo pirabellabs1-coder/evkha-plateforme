@@ -272,3 +272,35 @@ def test_un_classement_hors_tableau_de_canaux_ou_en_en_tete_reste_signale() -> N
 | Blog | non | non |
 """
     assert "les canaux secondaires" in _manquantes(en_tete)
+
+
+# ── Phrases du sujet rendues par la mesure (5e769a8, corpus du 14/09/2026) ───
+
+
+@pytest.mark.parametrize(("dossier", "texte", "libelle"), [
+    ("a678b10a", "La visibilité s'aligne sur le produit poussé en priorité (la formule à "
+     "19 euros définie au chapitre 8).", "le produit ou service à pousser en priorité"),
+    ("0f9fb13a", "| Structuration de l'offre | Quelle offre porte la priorité commerciale | "
+     "Abonnement CRM à 49,95 €/mois |", "le produit ou service à pousser en priorité"),
+    ("0f9fb13a", "| Investisseurs | Mentionnés, non ciblés par une offre dédiée | Public "
+     "secondaire au sein de la demande |", "la cible secondaire"),
+    ("0ad5155b", "## 17.2 Séquence\n\n| Horizon | Action | Justification |\n| --- | --- | --- |\n"
+     "| Secondaire (à préparer, pas à lancer) | Cadrage du contenu SEO et LinkedIn | "
+     "Canaux à faible charge |", "les canaux secondaires"),
+])
+def test_la_decision_lue_dans_le_document_est_reconnue(
+    dossier: str, texte: str, libelle: str,
+) -> None:
+    assert libelle not in _manquantes(texte), dossier
+
+
+@pytest.mark.parametrize(("texte", "libelle"), [
+    ("Rien n'indique aujourd'hui quelle offre est poussée en priorité.",
+     "le produit ou service à pousser en priorité"),
+    ("Il n'y a pas de priorité commerciale entre les deux offres.",
+     "le produit ou service à pousser en priorité"),
+    ("| Public | Secondaire |\n| --- | --- |\n| Seniors | oui |", "la cible secondaire"),
+])
+def test_une_priorite_niee_ou_un_en_tete_ne_decident_rien(texte: str, libelle: str) -> None:
+    """CONTRE-ÉPREUVES : la négation, et un « Public | Secondaire » d'en-tête."""
+    assert libelle in _manquantes(texte)
