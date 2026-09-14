@@ -276,9 +276,60 @@ def _decomposer(unite: str) -> tuple[str, str] | None:
 # ── Résolveurs par forme de données ──────────────────────────────────────────
 
 
+#: Les formes à barres qui savent comparer des acteurs sur la grille de notes.
+_BARRES_DE_NOTES = frozenset({"barres", "barres_horizontales"})
+
+
+def _notes_en_barres(
+    socle: Socle, type_demande: str, criteres: Sequence[Any], acteurs: Sequence[str] | None,
+) -> Resolution:
+    """Les acteurs notés, en barres : un groupe par critère, ou un classement.
+
+    Corpus du 14/09/2026 : quatre études concurrentielles perdaient leurs
+    barres sur « identifiants absents du socle : prix, offre, directs » — les
+    codes de la GRILLE et le sélecteur d'acteurs, que le radar et la carte de
+    positionnement savaient déjà lire. La figure passait en tableau.
+
+    Un critère : une barre par acteur, son classement sur ce critère. Plusieurs :
+    un groupe par critère, une série par acteur noté sur TOUS.
+    """
+    codes = [critere.code for critere in criteres]
+    notes = socle.notes_sur(codes, acteurs=acteurs)
+    if len(notes) < 2:
+        intitules = ", ".join(f"« {c.intitule} »" for c in criteres)
+        return Resolution(
+            motif=f"moins de deux acteurs notés sur {intitules} : rien à comparer"
+        )
+    retenus = notes[:_SERIES_RADAR_MAX]
+    motif = ""
+    if len(notes) > _SERIES_RADAR_MAX:
+        motif = f"{len(notes)} acteurs notés, {_SERIES_RADAR_MAX} tracés."
+    if len(criteres) == 1 and type_demande in _BARRES_DE_NOTES:
+        return Resolution(
+            type_demande,
+            {"etiquettes": [nom for nom, _ in retenus],
+             "valeurs": [valeurs[0] for _, valeurs in retenus],
+             "unite": "/5"},
+            motif=motif,
+        )
+    return Resolution(
+        "barres_groupees",
+        {"etiquettes": [critere.intitule for critere in criteres],
+         "series": [(nom, valeurs) for nom, valeurs in retenus],
+         "unite": "note sur 5"},
+        motif=motif,
+        converti=type_demande != "barres_groupees",
+    )
+
+
 def _scalaires(
     socle: Socle, type_demande: str, identifiants: Sequence[str]
 ) -> Resolution:
+    criteres = _criteres_cites(socle, identifiants)
+    if criteres and type_demande in _BARRES_DE_NOTES:
+        return _notes_en_barres(
+            socle, type_demande, criteres, _acteurs_cites(socle, identifiants)
+        )
     donnees, motif = _resoudre_ids(socle, identifiants)
     if motif:
         return Resolution(motif=motif)
@@ -531,7 +582,16 @@ def _groupees(
     Même correction que les courbes : le regroupement par libellé rendait ces
     deux formes infaisables, puisqu'un périmètre suivi dans le temps s'exprime
     forcément avec plusieurs identifiants (voir `series_par_perimetre`).
+
+    Des critères de la grille : les acteurs comparés critère par critère. Des
+    notes ne s'EMPILENT pas — une pile « prix + offre » ne veut rien dire —,
+    la demande empilée est donc rendue groupée, et le rapport le dit.
     """
+    criteres = _criteres_cites(socle, identifiants)
+    if criteres:
+        return _notes_en_barres(
+            socle, type_demande, criteres, _acteurs_cites(socle, identifiants)
+        )
     donnees, motif = _resoudre_ids(socle, identifiants)
     if motif:
         return Resolution(motif=motif)
