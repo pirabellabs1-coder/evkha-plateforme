@@ -304,3 +304,14 @@ def test_la_decision_lue_dans_le_document_est_reconnue(
 def test_une_priorite_niee_ou_un_en_tete_ne_decident_rien(texte: str, libelle: str) -> None:
     """CONTRE-ÉPREUVES : la négation, et un « Public | Secondaire » d'en-tête."""
     assert libelle in _manquantes(texte)
+
+
+def test_un_service_d_appoint_dans_un_tableau_de_canaux_n_est_pas_un_classement() -> None:
+    """CONTRE-ÉPREUVE (mesure de c50b0d8) : « d'appoint » ne vaut qu'en tête de case."""
+    texte = """## 17.1 Risques
+
+| Risque | Effet | Parade |
+| --- | --- | --- |
+| Multiplication des canaux | Dilue le temps | Perçu comme un service d'appoint |
+"""
+    assert "les canaux secondaires" in _manquantes(texte)

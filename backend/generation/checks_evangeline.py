@@ -1218,7 +1218,7 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                etiquette="Cible secondaire",
                forme_verbale=(
                    r"\b(?:cibles|segments|publics|profils|client[èe]les)\b"
-                   r"[^.!?\n]{0,60}?\b(?:secondaires|en\s+second\s+rang)\b"
+                   r"[^.!?\n|]{0,60}?\b(?:secondaires|en\s+second\s+rang)\b"
                    # Au singulier, sans traverser une cellule : « Public
                    # secondaire au sein de la demande » (`0f9fb13a`).
                    r"|\b(?:public|profil)\b[^.!?\n|]{0,30}?\bsecondaire\b"
@@ -1326,10 +1326,14 @@ DECISIONS_STRATEGIE: tuple[BlocDeDecisions, ...] = (
                rf"(?:secondaires|compl[ée]mentaires|d['’]appoint"
                rf"|de{_E}+soutien)",
                etiquette="Canaux secondaires",
-               classement=r"^\W*secondaires?\b|\bd['’]appoint\b",
+               # Ancré en début de case, les DEUX formes : « un service d'appoint »
+               # dans une case de diagnostic n'est pas un canal classé, et la
+               # mesure de c50b0d8 a vu disparaître un motif sans phrase qui le
+               # tranche (`b098ded3`).
+               classement=r"^\W*(?:secondaires?|d['’]appoint)\b",
                forme_verbale=(
                    r"\b(?:canaux|leviers|r[ée]seaux|plateformes|supports|m[ée]dias)\b"
-                   r"[^.!?\n]{0,60}?\b(?:secondaires|d['’]appoint|en\s+second\s+rang)\b"
+                   r"[^.!?\n|]{0,60}?\b(?:secondaires|d['’]appoint|en\s+second\s+rang)\b"
                    r"|\b(?:canal|levier)\b[^.!?\n|]{0,30}?\b(?:secondaire|d['’]appoint)\b"
                )),
             _D("les canaux à éviter",
