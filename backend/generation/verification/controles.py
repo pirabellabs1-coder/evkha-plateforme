@@ -820,6 +820,52 @@ _EN_TETE_DE_PART = re.compile(
 )
 
 
+#: Chiffres significatifs minimaux pour qu'une valeur reprise soit reconnue :
+#: « 0,1 % » ou « 4 M€ » se croisent par hasard, « 0,029 % » ou « 250 000 € » non.
+_CHIFFRES_SIGNIFICATIFS_MIN = 2
+
+
+def _chiffres_significatifs(texte: str) -> int:
+    chiffres = re.sub(r"\D", "", texte.split("%")[0]).lstrip("0")
+    return len(chiffres.rstrip("0")) if "," not in texte and "." not in texte else len(chiffres)
+
+
+def _estimations_etablies_en_tableau(
+    document: DocumentLu, references: Sequence[tuple[float, str]],
+) -> list[tuple[float, bool]]:
+    """Les valeurs qu'un TABLEAU du document établit avec leur méthode déclarée.
+
+    Le chapitre 6 d'une étude concurrentielle estime le chiffre d'affaires et
+    la part de chaque acteur sous un en-tête qui le dit ; les chapitres suivants
+    les REPRENNENT en prose — « le cabinet de Nantes (250 000 euros, 0,029 %) ».
+    Jugées seules, ces reprises étaient accusées d'invention alors que la valeur
+    est établie, et vérifiable, quelques pages plus haut (corpus du 14/09/2026).
+    Seules les valeurs d'au moins deux chiffres significatifs comptent.
+    """
+    etablies: list[tuple[float, bool]] = []
+    for mesure in document.mesures:
+        if not mesure.dans_un_tableau:
+            continue
+        if _chiffres_significatifs(mesure.texte) < _CHIFFRES_SIGNIFICATIFS_MIN:
+            continue
+        if _estimation_declaree(mesure) or _part_calculee_dans_sa_ligne(mesure, references):
+            etablies.append((mesure.valeur, mesure.est_monetaire))
+    return etablies
+
+
+def _reprend_une_estimation_etablie(
+    mesure: Mesure, etablies: Sequence[tuple[float, bool]],
+) -> bool:
+    """La grandeur reprend, à l'identique, une estimation établie en tableau."""
+    if _chiffres_significatifs(mesure.texte) < _CHIFFRES_SIGNIFICATIFS_MIN:
+        return False
+    return any(
+        monetaire == mesure.est_monetaire
+        and abs(valeur - mesure.valeur) <= EPSILON + abs(valeur) * 1e-3
+        for valeur, monetaire in etablies
+    )
+
+
 # ── Contrôle 1 : aucune valeur hors socle ────────────────────────────────────
 
 
@@ -871,10 +917,14 @@ def controler_chiffres_hors_socle(
             valeur, derivations,
         )
 
+    etablies = _estimations_etablies_en_tableau(document, references)
+
     anomalies: list[Anomalie] = []
     deja_vues: set[str] = set()
     for mesure in document.mesures:
         if _justifiee(mesure, references, derivations):
+            continue
+        if _reprend_une_estimation_etablie(mesure, etablies):
             continue
         # Voir « Ce que la phrase elle-même justifie », plus haut.
         if (

@@ -302,3 +302,51 @@ def test_un_poste_absent_du_projet_assume_son_zero(tmp_path: Path) -> None:
         [["Local ou droit au bail personnel", "Absent du projet", "0 €"]],
     )
     assert _zeros(chemin) == set()
+
+
+# ── Une estimation établie en tableau, reprise en prose (corpus du 14/09/2026) ─
+
+
+def _tableau_puis_prose(
+    tmp_path: Path, entetes: list[str], ligne: list[str], prose: str,
+) -> Path:
+    from docx import Document
+
+    document = Document()
+    table = document.add_table(rows=2, cols=len(entetes))
+    for colonne, (entete, valeur) in enumerate(zip(entetes, ligne, strict=True)):
+        table.cell(0, colonne).text = entete
+        table.cell(1, colonne).text = valeur
+    document.add_paragraph(prose)
+    chemin = tmp_path / "reprise.docx"
+    document.save(str(chemin))
+    return chemin
+
+
+def test_une_estimation_etablie_en_tableau_peut_etre_reprise(tmp_path: Path) -> None:
+    chemin = _tableau_puis_prose(
+        tmp_path, ["Concurrent", "CA estimé", "Part de marché estimée"],
+        ["Cabinet de Nantes", "250 000 €", "0,029 %"],
+        "Le projet se placerait entre le cabinet de Nantes (250 000 euros, 0,029 %) "
+        "et les grands acteurs.",
+    )
+    assert not _signales(chemin) & {"250 000 euros", "0,029 %"}
+
+
+def test_une_valeur_voisine_ou_non_etablie_reste_signalee(tmp_path: Path) -> None:
+    """CONTRE-ÉPREUVE : une autre valeur, un tableau sans estimation déclarée, un
+    nombre à un chiffre significatif."""
+    chemin = _tableau_puis_prose(
+        tmp_path, ["Concurrent", "CA estimé", "Part de marché estimée"],
+        ["Cabinet de Nantes", "250 000 €", "0,1 %"],
+        "Un acteur à 260 000 euros détient 0,1 % du marché.",
+    )
+    assert {"260 000 euros", "0,1 %"} <= _signales(chemin)
+    non_declare = _tableau_puis_prose(
+        tmp_path, ["Concurrent", "CA", "Part de marché"],
+        ["Cabinet de Nantes", "250 000 €", "0,029 %"],
+        "Le cabinet de Nantes (250 000 euros) domine.",
+    )
+    # La PART reste établie : elle tombe juste sur 250 000 / 850 M€ du socle.
+    # Le chiffre d'affaires, lui, n'a jamais été déclaré estimé.
+    assert "250 000 euros" in _signales(non_declare)

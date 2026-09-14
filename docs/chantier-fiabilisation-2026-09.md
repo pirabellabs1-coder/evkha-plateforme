@@ -280,7 +280,7 @@ mentions identiques avant la valeur fautive, sans la phrase (règle 2).
 | `6527799` | composante (« se décompose en 40 716 € issus de… »), seuil légal (« ne dépasse pas »), montant suivi d'une autre grandeur (« 54 276 euros de chiffre d'affaires ») ; phrase du motif centrée sur le libellé | mots de rupture étendus ; complément de grandeur après le montant | BP 7 → 4 |
 | `82ac17c` | valeur écrite avant son libellé ; montant d'un terme coordonné ; année prise au début du contexte au lieu de la plus proche | valeur avant libellé ; coordination ; année la plus proche du montant | BP 4 → 1 |
 | `701385f` | début de trajectoire « passe de 54 276 € à 269 721 € » ; « Absent du projet \| 0 € » (l'expression corrigée pour « absences » avait perdu « absent ») | début de trajectoire ; `absen(?:ces?\|te?s?)` | `coherence_chiffree` BP 1 → **0** ; valeurs nulles BP 3 → 2 |
-| suivant | les exercices 2 et 3 des charges fixes, de la rémunération, de la masse salariale et de l'effectif s'écrivaient hors socle : le référentiel ne leur donnait que l'exercice 1, alors que les chapitres 16 et 18 les projettent sur trois ans | trois exercices par série au référentiel du business plan | effet sur les prochains dossiers (socles anciens déjà verrouillés) |
+| `d885998` | les exercices 2 et 3 des charges fixes, de la rémunération, de la masse salariale et de l'effectif s'écrivaient hors socle : le référentiel ne leur donnait que l'exercice 1, alors que les chapitres 16 et 18 les projettent sur trois ans | trois exercices par série au référentiel du business plan | effet sur les prochains dossiers (socles anciens déjà verrouillés) |
 
 Leçon du lot `5131f89`, à garder : **une baisse trop belle se relit comme une
 hausse**. La mesure a dit 113 ; la lecture des 113 a dit qu'une centaine
@@ -303,3 +303,15 @@ Les valeurs nulles restantes sont vraies (coût d'acquisition « non mesuré »
 rendu « 0 € », masse salariale « à préciser » rendue « 0 € »), sauf deux cas
 défendables laissés signalés : un zéro expliqué dans une AUTRE cellule (« Temps
 dirigeant, environ 30 minutes ») et une hypothèse « à confirmer ».
+
+## Hors socle des business plans — 14/09/2026, fin de nuit
+
+| Lot | Constat | Correctif | Mesure et relecture des motifs disparus |
+|---|---|---|---|
+| `055519e` | tableaux GO / AJUSTER / STOP (« Seuil STOP \| Toujours sous -20 % ») ; choc de scénario (« Scénario dégradé (-30 %) ») ; valeur posée par un calcul dans la colonne suivante | en-tête de décision (pas « seuil de rentabilité ») ; vocabulaire de scénario ; autres occurrences du même texte éprouvées | BP 212 → 209, STR 21 → 17, EM 28 → 27 ; relecture : « 8,7 % » et « 20,8 % » (résultats d'un scénario) blanchis à tort |
+| `e6f9fa5` | répartitions « (45 % pain, 30 % viennoiserie, 25 % snacking) » ; « Scénario : Prudent (-10 %) » en tableau | 3 parts ou plus qui font 100 % ; seul le PREMIER pourcentage après le mot du scénario est le choc | EC 121 → 117 ; relecture : « entre 32 % et 43 %… contre 8 % à 17 % » (bornes qui font 100 par hasard) blanchi à tort |
+| `79ad8d3` | — | une répartition est une énumération séparée par des virgules, sans « entre / à / contre » | seuls « -10 % » disparaît et « 8,7 % », « 20,8 % », les bornes de croissance restent signalés |
+
+Deux fois de suite, la relecture ligne à ligne des motifs disparus a trouvé
+une règle trop large que les tests ne voyaient pas — chaque fois corrigée au
+lot suivant, avec la phrase fautive en contre-épreuve.
