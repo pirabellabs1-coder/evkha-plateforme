@@ -175,3 +175,18 @@ Limite : les socles existants n'ont pas ces séries ; l'effet se verra sur le
 prochain dossier de stratégie. Le plancher de 17 reste hors d'atteinte pour un
 projet dont le brief ne liste presque aucun chiffre — c'est à dire à la
 cliente, pas à contourner.
+
+Mesuré après déploiement de `488c8ee` (catalogue des figures justes que le
+socle de chaque dossier permet, contre les figures demandées par le modèle) :
+
+| Livrable | Catalogue par dossier | Demandées (moyenne) |
+|---|---|---|
+| Stratégie | 2 (0 à 3) | 30 |
+| Business plan | 4 à 12 | 39 |
+| Étude concurrentielle | 1 à 5 | 17 |
+| Étude de marché | 3 à 6 | 19 |
+
+Le catalogue ne compte que les groupes de valeurs scalaires : l'étude de marché
+dessine bien plus (séries temporelles, grilles), il la sous-estime. Pour la
+stratégie il est juste : deux figures possibles, trente demandées — l'écart
+que les séries du brief doivent combler.
