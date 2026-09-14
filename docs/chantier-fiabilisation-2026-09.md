@@ -219,4 +219,23 @@ le document.
 | `demande_contredite` | la légende « statut : traitée, partiellement traitée ou non traitée » prise pour un statut | légende reconnue ; un vrai « non traitée » reste jugé | BP 5 → 1 |
 | `valeur_nulle` | écarts nuls (« 27 600 € | 27 600 € | 0 € ») et financements « non priorisés » accusés ; à l'inverse « non mesuré… aucune donnée | 0 € » passait | en-tête Écart/Solde et « non retenu » assumés ; marqueur de donnée manquante prioritaire | BP 11 → 7 ; STR 6 → 8, les 2 nouveaux vrais (coût d'acquisition « non mesuré » rendu 0 €) |
 | `brief_non_lu` | l'état chiffré en texte libre n'était extrait que par la normalisation Tally ; espace client, commande manuelle et reprise arrivaient sans faits CLIENT | lecture au verrouillage des faits, point commun à toutes les portes | effet sur les prochains dossiers (les faits anciens sont déjà posés) |
-| `coherence_chiffree` (valeurs divergentes) | marge brute tenue pour une valeur unique alors qu'elle change par exercice ; « 4 € par abonné » opposé au total annuel | marge brute annuelle, « exercice N » lu comme année, périodicité après le montant écartée | à mesurer après déploiement |
+| `coherence_chiffree` (valeurs divergentes) | marge brute tenue pour une valeur unique alors qu'elle change par exercice ; « 4 € par abonné » opposé au total annuel ; sensibilité (« ramènerait l'EBE à… ») opposée à la valeur centrale | marge brute annuelle, « exercice N » lu comme année, périodicité après le montant écartée ; variante nommée ou conditionnel écartés (« scénario » seul non : défaut SYNAPSES de la cliente) | BP 20 → 16 |
+
+## Bilan du 14/09/2026 — mêmes 37 dossiers, mesure du matin contre `28a6968`
+
+| Contrôle | Matin | Soir |
+|---|---|---|
+| chiffres hors socle (BP / EC / EM / STR) | 294 / 388 / 39 / 35 | 222 / 153 / 30 / 19 |
+| densité STR | 44 | 0 |
+| valeur nulle (BP / STR) | 13 / 10 | 7 / 8 |
+| gate `coherence_chiffree` BP | 32 | 16 |
+| gate `decision_absente` STR | 40 | 17 |
+| gate `desaccord_numerique` | 13 | 0 |
+| gate `troncature_rendu` | 8 | 0 |
+| gate `agregat_faux` EC | 9 | 5 |
+| gate `demande_contredite` BP | 5 | 1 |
+| gate `fourchette_interdite` | 12 | 152 — vraies plages que l'ancien détecteur ne voyait pas |
+| gate `reference_client_illisible` BP | 1 | 4 — réponses libres sans apport, dites au lieu d'accuser |
+
+Aucune génération. Chaque baisse vient d'un faux motif lu dans les documents et
+corrigé par classe, avec contre-épreuve ; chaque hausse est expliquée.
