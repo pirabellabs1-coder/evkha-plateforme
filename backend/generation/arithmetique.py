@@ -162,6 +162,48 @@ _PROJECTION_DUREE = re.compile(
 )
 
 
+#: Portée autour d'une projection où chercher l'EFFECTIF qui la multiplie.
+_PORTEE_EFFECTIF_AVANT = 80
+_PORTEE_EFFECTIF_APRES = 60
+
+
+def _multipliee_par_un_effectif(
+    texte: str, m: re.Match[str], res: float, calcule: float,
+) -> bool:
+    """Le résultat tombe-t-il juste une fois multiplié par un nombre voisin ?
+
+    ## Le faux motif
+
+    « 250 abonnés à 19 € par mois, soit 57 000 € par an » : la projection lisait
+    19 € × 12 = 228 € et déclarait le calcul faux. Or 250 × 19 × 12 = 57 000 :
+    la phrase est juste, et c'est exactement la forme que la règle 5 de
+    `PRIX_ET_MODELE_ECONOMIQUE` demande d'écrire (« CHIFFRE D'AFFAIRES = PRIX x
+    VOLUME »). Le prompt l'exigeait, le contrôle la punissait, et le chapitre
+    était réécrit (audit du 14/09/2026, A4 ; règle 5).
+
+    ## Ce qui ne change pas
+
+    Un effectif ne justifie le résultat que s'il le fait tomber JUSTE, avec la
+    tolérance de l'écriture. « 250 abonnés à 19 € par mois, soit 60 000 € par
+    an » reste faux : aucun nombre de la phrase ne donne 60 000.
+    """
+    debut = max(0, m.start() - _PORTEE_EFFECTIF_AVANT)
+    fin = min(len(texte), m.end() + _PORTEE_EFFECTIF_APRES)
+    decimales = _decimales(m.group("res"))
+    for candidat in re.finditer(_NOMBRE, texte[debut:fin]):
+        position = debut + candidat.start()
+        if m.start("unitaire") <= position < m.end("unitaire"):
+            continue
+        if m.start("res") <= position < m.end("res"):
+            continue
+        effectif = _valeur(candidat.group(0))
+        if effectif is None or effectif <= 1:
+            continue
+        if not _ecart_trop_grand(res, calcule * effectif, decimales):
+            return True
+    return False
+
+
 @dataclass(frozen=True)
 class CalculFaux:
     """Une opération dont le résultat écrit ne découle pas de ses termes."""
@@ -281,6 +323,8 @@ def verifier(texte: str) -> list[CalculFaux]:
         ramene = _meme_echelle(unitaire, m.group("u1"), m.group("u2"))  # type: ignore[arg-type]
         calcule = ramene * facteur
         if _ecart_trop_grand(res, calcule, _decimales(m.group("res"))):  # type: ignore[arg-type]
+            if _multipliee_par_un_effectif(texte, m, res, calcule):  # type: ignore[arg-type]
+                continue
             fautes.append(CalculFaux(
                 extrait=m.group(0), ecrit=res, calcule=calcule,  # type: ignore[arg-type]
                 nature="Projection",
