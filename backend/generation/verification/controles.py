@@ -955,7 +955,7 @@ def _chiffres_significatifs(texte: str) -> int:
 
 def _estimations_etablies_en_tableau(
     document: DocumentLu, references: Sequence[tuple[float, str]],
-) -> list[tuple[float, bool, frozenset[str]]]:
+) -> list[Etablie]:
     """Les valeurs qu'un TABLEAU établit avec leur méthode, et les mots de leur ligne.
 
     Le chapitre 6 d'une étude concurrentielle estime le chiffre d'affaires et
@@ -970,40 +970,126 @@ def _estimations_etablies_en_tableau(
       ne valent que là où ils sont écrits ;
     - la reprise doit nommer l'ACTEUR de la ligne : une même valeur ailleurs,
       à propos d'autre chose, reste jugée pour elle-même.
+
+    Une VARIATION que la ligne permet de refaire est établie aussi — voir
+    `_variation_refaite_dans_sa_ligne`. Elle porte les années de son en-tête,
+    que la reprise doit respecter.
     """
-    etablies: list[tuple[float, bool, frozenset[str]]] = []
+    etablies: list[Etablie] = []
     for mesure in document.mesures:
         if not mesure.dans_un_tableau or " : " not in mesure.phrase:
             continue
         if _chiffres_significatifs(mesure.texte) < _CHIFFRES_SIGNIFICATIFS_MIN:
             continue
         en_tete, _, ligne = mesure.phrase.partition(" : ")
-        if not (
-            _ESTIMATION.search(en_tete) or _part_calculee_dans_sa_ligne(mesure, references)
-        ):
-            continue
         mots = frozenset(
             mot for mot in re.findall(r"[^\W\d_]{5,}", ligne.split(" | ")[0].casefold())
         )
-        if mots:
-            etablies.append((mesure.valeur, mesure.est_monetaire, mots))
+        if _ESTIMATION.search(en_tete) or _part_calculee_dans_sa_ligne(mesure, references):
+            if mots:
+                etablies.append(Etablie(mesure.valeur, mesure.est_monetaire, mots))
+            continue
+        variation = _variation_refaite_dans_sa_ligne(mesure)
+        # L'ACTEUR, pas le vocabulaire commun à toutes les lignes : « Marché
+        # total », « Moyenne des acteurs » ne nomment personne (relecture du
+        # 15/09/2026).
+        acteur = frozenset(m for m in mots if _sans_accents(m) not in _MOTS_QUI_NE_NOMMENT_PERSONNE)
+        if variation is not None and acteur:
+            annees = frozenset(int(a) for a in _ANNEE_NOMMEE.findall(en_tete))
+            etablies.append(Etablie(variation, False, acteur, annees))
     return etablies
 
 
-def _reprend_une_estimation_etablie(
-    mesure: Mesure, etablies: Sequence[tuple[float, bool, frozenset[str]]],
-) -> bool:
-    """La prose reprend à l'identique une estimation établie, EN NOMMANT son acteur."""
+@dataclass(frozen=True)
+class Etablie:
+    """Une valeur qu'un tableau établit, les mots de son acteur, ses années."""
+
+    valeur: float
+    monetaire: bool
+    mots: frozenset[str]
+    annees: frozenset[int] = frozenset()
+
+
+#: Les mots d'un libellé de ligne qui ne désignent aucun acteur.
+_MOTS_QUI_NE_NOMMENT_PERSONNE = frozenset({
+    "marche", "marches", "total", "totale", "totaux", "moyenne", "moyennes", "ensemble",
+    "acteur", "acteurs", "secteur", "panel", "segment", "segments", "autres", "global",
+    "globale", "national", "nationale", "regional", "regionale", "concurrent",
+    "concurrents", "mediane", "reste", "cumul", "cumule", "cumules",
+})
+
+
+def _valeur_signee(mesure: Mesure) -> float:
+    """La valeur avec le signe écrit juste devant : « −3,2 % », « -3,2 % »."""
+    avant = mesure.phrase[: mesure.debut_dans_la_phrase] if mesure.debut_dans_la_phrase > 0 else ""
+    if mesure.valeur > 0 and avant.endswith(("-", "−")):
+        return -mesure.valeur
+    return mesure.valeur
+
+
+def _variation_refaite_dans_sa_ligne(mesure: Mesure) -> float | None:
+    """La variation SIGNÉE d'une case, si deux montants de sa ligne la refont.
+
+    « Évolution 2024-2026 : Zooplus | 5,0 M€ | 5,33 M€ | +6,6 % » : 5,0 → 5,33
+    fait +6,6 %. La prose la reprend — « les généralistes (Amazon +7,0 %,
+    Zooplus +6,6 %) croissent plus vite que le marché » (étude `1caf5b8a`,
+    corpus du 15/09/2026) — et la comptait comme inventée.
+
+    Le calcul général de la phrase (`_calculee_dans_sa_phrase`) essaie toutes
+    les opérations sur toutes les paires ; il suffit à juger la case, pas à
+    établir une valeur que la prose de tout le document pourra reprendre :
+    « 12 | 15 | 27 % » y tombait juste par addition (relecture du 15/09/2026).
+    Ici, une seule opération : (arrivée − départ) / départ, avec son SIGNE,
+    entre deux montants en euros qui précèdent la case, dans l'ordre.
+    """
+    if not (mesure.dans_un_tableau and mesure.est_un_pourcentage) or " : " not in mesure.phrase:
+        return None
+    en_tete, _, ligne = mesure.phrase.partition(" : ")
+    if not _EN_TETE_DE_RESULTAT.search(en_tete) or mesure.debut_dans_la_phrase < 0:
+        return None
+    ecrite = _valeur_signee(mesure)
+    decalage = len(en_tete) + 3
+    montants = [
+        n.valeur for n in _nombres_de_la_phrase(ligne)
+        if n.position + decalage < mesure.debut_dans_la_phrase
+        and _UNITE_EURO.fullmatch(n.unite.strip()) and n.valeur > 0
+    ]
+    tolerance = _tolerance_d_une_part(mesure)
+    for rang, depart in enumerate(montants):
+        for arrivee in montants[rang + 1:]:
+            if abs((arrivee - depart) / depart * 100 - ecrite) <= tolerance:
+                return ecrite
+    return None
+
+
+def _reprend_une_estimation_etablie(mesure: Mesure, etablies: Sequence[Etablie]) -> bool:
+    """La prose reprend à l'identique une estimation établie, EN NOMMANT son acteur.
+
+    Une valeur établie pour des ANNÉES ne se reprend pas pour d'autres : une
+    évolution 2024-2026 n'est ni une croissance « d'ici 2030 », ni un rythme
+    « par an » (relecture du 15/09/2026).
+    """
     if mesure.dans_un_tableau or not mesure.phrase:
         return False
     if _chiffres_significatifs(mesure.texte) < _CHIFFRES_SIGNIFICATIFS_MIN:
         return False
     mots_de_la_phrase = set(re.findall(r"[^\W\d_]{5,}", mesure.phrase.casefold()))
+    annees_de_la_phrase = {int(a) for a in _ANNEE_NOMMEE.findall(mesure.phrase)}
+    annuelle = bool(re.search(r"(?i)\bpar\s+an\b|\bannuel", mesure.phrase))
+
+    def meme_periode(etablie: Etablie) -> bool:
+        if not etablie.annees:
+            return True
+        return annees_de_la_phrase <= etablie.annees and not (
+            annuelle and len(etablie.annees) > 1
+        )
+
     return any(
-        monetaire == mesure.est_monetaire
-        and abs(valeur - mesure.valeur) <= EPSILON + abs(valeur) * 1e-3
-        and mots & mots_de_la_phrase
-        for valeur, monetaire, mots in etablies
+        etablie.monetaire == mesure.est_monetaire
+        and abs(etablie.valeur - _valeur_signee(mesure)) <= EPSILON + abs(etablie.valeur) * 1e-3
+        and bool(etablie.mots & mots_de_la_phrase)
+        and meme_periode(etablie)
+        for etablie in etablies
     )
 
 
