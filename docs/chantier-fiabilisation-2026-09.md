@@ -440,3 +440,19 @@ Restent, relus et jugés vrais : « 60 à 75 €/h » des stratégies Zenitek
 d'outils « 15 à 25 €/mois », des segments de prix de marché en étude
 concurrentielle, « coût variable de 4 à 7 € par livrable » (BNB), et
 « de 15 à 2 500 euros selon le secteur ». Et deux `demande_contredite` : `5892daa5`, où le document écrit lui-même que l'absence « prive l'étude d'une annexe explicitement demandée » (vrai manque), et `b8da2640` (« budget alloué à la présente étude », déclaré hors champ) — laissé tel quel : exempter les demandes « hors champ » rouvrirait le cas de la cliente du 11/08, des canaux analysés puis déclarés non traités.
+
+## Matinée du 15/09/2026 — câblage vérifié sur le prompt réellement envoyé
+
+| Lot | Ce qui a été fait | Mesure |
+|---|---|---|
+| `0c37b29` | une variation refaite dans sa ligne (« Évolution : Zooplus \| 5,0 M€ \| 5,33 M€ \| +6,6 % »), reprise en prose avec son acteur ; la relecture a imposé une seule opération signée, l'acteur sans mots génériques, la période respectée | hors socle EC 112 → 108 |
+| `f1816b6` | audit des 98 appels au modèle de la répétition : la consigne de fond LISTAIT les six superlatifs que le gate punit (« sans équivalent » bloque `8bda1173`) — elle dit désormais la classe ; le test des sources de consigne applique aussi ton publicitaire et discours de fabrication | — |
+| `f1816b6` → `4e751f0` → `482dd57` | **régression vue à la mesure** (EC 108 → 114) : la garde « pas de reprise par an » touchait aussi les estimations ; corrigée, puis lue autour de la valeur et non dans toute la phrase | EC revenu à 108, seul « 56 % par an » d'une évolution sans période est de nouveau jugé |
+| `a5be09a` | test permanent sur le prompt ASSEMBLÉ, par livrable : chaque correction de consigne des 13-15/09 arrive au modèle, aucune faute punie n'y est montrée ; échoue sur `0c37b29` | — |
+
+État à la fin de la matinée : les consignes de rédaction des quatre livrables
+ne montrent plus aucune faute que le gate punit, et toutes les corrections de
+consigne arrivent au modèle — vérifié sur ce qui part, pas sur les sources.
+Ce que rien de tout cela ne prouve : ce qu'un vrai modèle écrira avec ces
+consignes (règle 7). La preuve est une génération réelle, mesurée avec les
+mêmes contrôles — soumise à l'accord du client.
