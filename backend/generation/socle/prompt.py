@@ -390,6 +390,12 @@ def _ligne_referentiel(item: DefinitionDonnee) -> str:
         ligne += f"\n    exploité par les chapitres : {', '.join(map(str, item.chapitres))}"
     if item.commentaire:
         ligne += f"\n    note : {item.commentaire}"
+    if item.du_client:
+        ligne += (
+            "\n    DU CLIENT : renseigne-la seulement si le brief ou ses documents en "
+            "donnent le montant, à l'identique. Sinon ne la produis pas — ni "
+            "extrapolation, ni moyenne, ni interpolation entre deux années."
+        )
     return ligne
 
 

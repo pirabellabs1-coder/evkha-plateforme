@@ -92,6 +92,11 @@ class DefinitionDonnee:
     #: documentaire : sert à instruire le prompt et à tracer la couverture.
     chapitres: tuple[int, ...] = field(default_factory=tuple)
     commentaire: str = ""
+    #: Une donnée que SEUL le client peut fixer — ses objectifs de chiffre
+    #: d'affaires. Le socle ne la porte que si le brief ou ses documents en
+    #: donnent le montant ; sinon elle reste absente, jamais extrapolée
+    #: (`socle.builder._objectifs_inventes`).
+    du_client: bool = False
 
 
 # ── Étude de marché ──────────────────────────────────────────────────────────
@@ -583,6 +588,7 @@ def _serie(
     commentaire: str,
     *,
     suffixe: str = "_",
+    du_client: bool = False,
 ) -> tuple[DefinitionDonnee, ...]:
     """`prefixe_1` … `prefixe_n` : une entrée par élément que le BRIEF liste.
 
@@ -608,6 +614,7 @@ def _serie(
             # La consigne une fois, sur le premier élément : répétée sur chaque
             # rang, elle alourdissait le prompt du socle de vingt-six copies.
             commentaire=commentaire if rang == 1 else f"Suite de `{prefixe}{suffixe}1`.",
+            du_client=du_client,
         )
         for rang in range(1, nombre + 1)
     )
@@ -670,8 +677,12 @@ _STR: tuple[DefinitionDonnee, ...] = (
     DefinitionDonnee(
         "ca_objectif_horizon", "Chiffre d'affaires visé à l'horizon de la feuille de route",
         Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(17,),
-        commentaire="Scénario, jamais une promesse. L'horizon est celui du "
-                    "chapitre 17 (feuille de route).",
+        commentaire="L'objectif du CLIENT à l'horizon de la feuille de route "
+                    "(chapitre 17), tel que le brief le chiffre.",
+        # Génération test `6c9dc734` (15/09/2026) : le brief donnait 51 030 € en
+        # année 1 et 685 004 € en année 3 ; le socle a produit 1 070 000 € « à
+        # horizon 2031 », et le document l'a présenté comme la trajectoire visée.
+        du_client=True,
     ),
     DefinitionDonnee(
         "horizon_feuille_de_route", "Horizon de la feuille de route",
@@ -703,9 +714,10 @@ _STR: tuple[DefinitionDonnee, ...] = (
     *_serie(
         "ca_objectif", "Chiffre d'affaires visé — année {rang}", FamilleUnite.MONETAIRE, 3,
         (14, 17),
-        "Trajectoire du chiffre d'affaires visé, en `scenario` : une hypothèse "
-        "explicite, jamais une promesse.",
+        "Trajectoire du chiffre d'affaires visé PAR LE CLIENT, année par année, "
+        "telle que le brief la chiffre.",
         suffixe="_an",
+        du_client=True,
     ),
 )
 
@@ -747,6 +759,11 @@ def definitions_pour(deliverable_type: str) -> tuple[DefinitionDonnee, ...]:
     encore sur l'ancien moteur, et a proposé de refaire un travail déjà fait.
     """
     return _PAR_LIVRABLE.get(deliverable_type, ())
+
+
+def identifiants_du_client(deliverable_type: str) -> frozenset[str]:
+    """Les emplacements que seul le client peut chiffrer (`DefinitionDonnee.du_client`)."""
+    return frozenset(d.identifiant for d in definitions_pour(deliverable_type) if d.du_client)
 
 
 def identifiants_pour(deliverable_type: str) -> frozenset[str]:

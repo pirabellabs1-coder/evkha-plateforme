@@ -7,18 +7,22 @@ motifs exacts du refus ; jamais un passage en force.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from pydantic import ValidationError
 
+from core.numbers import amounts_in
+
 from .prompt import construire_prompt_socle
-from .referentiel import identifiants_pour, livrable_couvert
+from .referentiel import identifiants_du_client, identifiants_pour, livrable_couvert
 from .schema import (
+    DonneeSocle,
     Socle,
     reparer_la_grille,
     reparer_les_filiations,
     retirer_les_zeros_qui_manquent,
+    valeur_en_unites_de_base,
     valider_socle,
 )
 
@@ -115,8 +119,44 @@ def schema_outil(deliverable_type: str) -> dict[str, Any]:
     return schema
 
 
+#: Écart relatif toléré entre un objectif du socle et le montant écrit par le
+#: client : l'arrondi d'une recopie, pas une estimation.
+_ECART_OBJECTIF_CLIENT = 0.005
+
+
+def _objectifs_inventes(
+    socle: Socle, deliverable_type: str, montants_client: Collection[float],
+) -> list[DonneeSocle]:
+    """Les objectifs du client que le socle chiffre sans que le client les donne.
+
+    Génération test `6c9dc734` (stratégie, 15/09/2026) : le brief donnait
+    51 030 € en année 1 et 685 004 € en année 3 ; le socle a produit
+    `ca_objectif_horizon` = 1 070 000 € « à horizon 2031 », et le document l'a
+    présenté comme la trajectoire visée — un objectif que personne n'avait fixé,
+    dans un dossier qu'un banquier lira. Seul le client fixe ses objectifs : la
+    valeur doit être un montant qu'il a écrit.
+    """
+    du_client = identifiants_du_client(deliverable_type)
+    inventes: list[DonneeSocle] = []
+    for item in socle.donnees:
+        if item.id not in du_client:
+            continue
+        base = valeur_en_unites_de_base(item.valeur, item.unite)
+        valeur = base[0] if base else item.valeur
+        if not any(
+            abs(valeur - montant) <= abs(montant) * _ECART_OBJECTIF_CLIENT
+            for montant in montants_client
+        ):
+            inventes.append(item)
+    return inventes
+
+
 def _analyser(
-    charge: dict[str, Any], deliverable_type: str, *, dernier_recours: bool = False
+    charge: dict[str, Any],
+    deliverable_type: str,
+    *,
+    dernier_recours: bool = False,
+    montants_client: Collection[float] | None = None,
 ) -> tuple[Socle | None, list[str]]:
     """Valide la charge utile. Retourne (socle, motifs). Socle non nul = accepté.
 
@@ -136,6 +176,24 @@ def _analyser(
             for item in erreur.errors()[:12]
         ]
         return None, motifs
+
+    if montants_client is not None:
+        inventes = _objectifs_inventes(socle, deliverable_type, montants_client)
+        if inventes and not dernier_recours:
+            return None, [
+                f"`{item.id}` = {item.valeur:g} {item.unite} : un objectif que le brief ne "
+                "chiffre pas. Seul le client fixe ses objectifs — retire cette donnée."
+                for item in inventes
+            ]
+        if inventes:
+            objectifs_retires = {item.id for item in inventes}
+            socle.donnees = [
+                item for item in socle.donnees if item.id not in objectifs_retires
+            ]
+            _log.warning(
+                "Socle : objectifs non donnés par le client retirés — %s.",
+                ", ".join(sorted(objectifs_retires)),
+            )
 
     if dernier_recours:
         orphelines = reparer_les_filiations(socle)
@@ -194,6 +252,12 @@ def produire_socle(
         f"`{OUTIL_NOM}`."
     )
 
+    # Les montants que le client a écrits : ses réponses et ses documents.
+    montants_client = amounts_in(
+        "\n".join(str(valeur) for valeur in variables.values() if valeur)
+        + "\n" + documents_client
+    )
+
     for tentative in range(1, MAX_TENTATIVES + 1):
         prompt = construire_prompt_socle(
             deliverable_type=deliverable_type,
@@ -217,6 +281,7 @@ def produire_socle(
             dict(resultat.payload),
             deliverable_type,
             dernier_recours=tentative == MAX_TENTATIVES,
+            montants_client=montants_client,
         )
         if socle is not None:
             return socle, consommation, tentative

@@ -130,6 +130,14 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
     donnees: list[dict[str, object]] = []
     for correspondance in _LIGNE_ID.finditer(prompt):
         identifiant = correspondance.group("id")
+        # La doublure OBÉIT à la consigne, comme le chemin nominal : un
+        # emplacement « DU CLIENT » ne se renseigne que d'un montant du brief,
+        # que la doublure ne sait pas lire — elle le laisse vide. Sans cela, la
+        # répétition à blanc jouait deux refus de socle à chaque stratégie.
+        suivante = prompt.find("\n- `", correspondance.end())
+        bloc = prompt[correspondance.start(): suivante if suivante >= 0 else len(prompt)]
+        if "DU CLIENT :" in bloc:
+            continue
         valeur, unite = _unite_et_valeur(identifiant, correspondance.group("unite"))
         # Un identifiant annuel porte l'annee de SON exercice : trois points a
         # la meme annee ne font pas une serie, et la repetition a blanc ne
