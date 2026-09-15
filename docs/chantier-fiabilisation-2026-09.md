@@ -456,3 +456,23 @@ consigne arrivent au modèle — vérifié sur ce qui part, pas sur les sources.
 Ce que rien de tout cela ne prouve : ce qu'un vrai modèle écrira avec ces
 consignes (règle 7). La preuve est une génération réelle, mesurée avec les
 mêmes contrôles — soumise à l'accord du client.
+
+## Après-midi du 15/09/2026 — ce que le contrôle affirme à tort, et le brief mal lu
+
+Remesure gratuite des trois générations les plus récentes avec le code en ligne
+(`6c9dc734`, `cd639627`, `7567ca2f`), plutôt que du seul corpus historique.
+
+| Lot | Ce qui a été fait | Preuve |
+|---|---|---|
+| `b8a2210` | `demande_contredite` : une demande dont le VERBE est un chiffrage (« Chiffrer les revenus de crédits supplémentaires… | Non traitée ») n'est contredite que là où son sujet porte un chiffre, lu par bloc (rangée, tableau sous son en-tête, titre et sa liste), renvois exclus. Motif de fourchette : les valeurs du client portent leur famille d'unité, en unités de base (`verification.services.valeurs_du_client`) — « 60 à 75 % » ne reçoit plus « le client donne ces valeurs séparément » à cause de 60 € et 75 €. Relecture indépendante appliquée (lecture par ligne trop étroite, racines trop larges, clés d'unité divergentes). | `7567ca2f` rejoué en production : gate 6 → 5, la contradiction fausse disparaît, « 4 à 7 € » garde son motif utile |
+| `76fb7dc` | brief : un champ CA découpé en « Année N : montant » se lit exercice par exercice. `7567ca2f` avait verrouillé `ca_previsionnel` = 40 716 € (la part B2B citée dans une note « le CA sera inférieur à 40 716 € »), et le CHECK de la fiche projet exigeait de « corriger » 54 276 €, juste partout. | rejoué sur les 46 briefs de production avant déploiement : 15 valeurs changent, toutes des corrections ; une régression (« An1 : … ; An2 : … » sur une ligne) trouvée par ce rejeu et corrigée avant commit |
+
+Écart de mesure expliqué, sans lien avec le code : STR 50 → 53 fourchettes sur
+`db0d9508` et `b098ded3`. Le texte de leurs pièces jointes a été effacé par la
+rétention (`texte_efface`), et « 12 à 29 € » n'était admise que comme plage
+écrite par la cliente dans son brief Word. Une remesure d'un dossier ancien
+dépend donc aussi de la présence de ses documents.
+
+Ce qui n'est pas prouvé : l'effet du lot `76fb7dc` sur un document — les faits
+client des dossiers existants sont déjà verrouillés ; seule une nouvelle
+génération le lira.
