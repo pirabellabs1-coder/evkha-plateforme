@@ -73,11 +73,23 @@ _MATIERE_DU_PROMPT = frozenset({"identifiant technique"})
 
 
 def _fautes(texte: str) -> list[str]:
-    """Les locutions punies que ce texte contient — vide si le texte est sain."""
+    """Les locutions punies que ce texte contient — vide si le texte est sain.
+
+    Trois listes, celles du gate lui-même (règle 5) : le vocabulaire interne,
+    le ton publicitaire, et le discours sur la fabrication du document. Audit
+    des prompts envoyés du 15/09/2026 : la consigne de fond LISTAIT les six
+    superlatifs que `detecter_ton_publicitaire` refuse, et « sans équivalent »
+    a bloqué `8bda1173` mot pour mot.
+    """
+    from generation import meta_discours
+    from generation.checks_post_rendu import detecter_ton_publicitaire
+
     return [
         nom for nom, motif in _VOCABULAIRE_INTERNE
         if nom not in _MATIERE_DU_PROMPT and motif.search(texte)
-    ]
+    ] + [
+        f"ton publicitaire : {t.expression}" for t in detecter_ton_publicitaire({1: texte})
+    ] + [f"discours de fabrication : {e}" for e in meta_discours.trouver_au_gate(texte)]
 
 
 def test_le_bloc_des_chiffres_n_ecrit_aucune_locution_punie() -> None:

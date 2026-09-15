@@ -185,9 +185,11 @@ _CHECK_LABELS = {
         "Annonce chiffrée (« trois familles ») incompatible avec le nombre "
         "d'items suivants"
     ),
+    # Sans exemples : le motif cite déjà l'expression trouvée, et une liste
+    # d'autres superlatifs les montrerait au rédacteur (audit du 15/09/2026).
     "ton_publicitaire": (
-        "Expression au ton publicitaire ou superlatif interdit "
-        "(« leader incontestable », « révolutionnaire », etc.)"
+        "Expression au ton publicitaire ou superlatif interdit — la remplacer "
+        "par le fait chiffré qui la justifierait"
     ),
     "prudence_juridique_evenement_corporate": (
         "Événement corporate daté sans source vérifiable — ajouter une URL ou "

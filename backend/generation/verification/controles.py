@@ -996,8 +996,13 @@ def _estimations_etablies_en_tableau(
         acteur = frozenset(m for m in mots if _sans_accents(m) not in _MOTS_QUI_NE_NOMMENT_PERSONNE)
         if variation is not None and acteur:
             annees = frozenset(int(a) for a in _ANNEE_NOMMEE.findall(en_tete))
-            etablies.append(Etablie(variation, False, acteur, annees))
+            annuelle = bool(_EN_TETE_ANNUEL.search(en_tete))
+            etablies.append(Etablie(variation, False, acteur, annees, annuelle))
     return etablies
+
+
+#: Un en-tête qui dit un RYTHME annuel : « Croissance annuelle », « TCAC ».
+_EN_TETE_ANNUEL = re.compile(r"(?i)\bpar\s+an\b|\bannuel|/\s*an\b|\bTCAC\b|\bCAGR\b")
 
 
 @dataclass(frozen=True)
@@ -1008,6 +1013,8 @@ class Etablie:
     monetaire: bool
     mots: frozenset[str]
     annees: frozenset[int] = frozenset()
+    annuelle: bool = False
+    """L'en-tête dit un rythme annuel (« annuel », « par an », TCAC)."""
 
 
 #: Les mots d'un libellé de ligne qui ne désignent aucun acteur.
@@ -1079,7 +1086,11 @@ def _reprend_une_estimation_etablie(mesure: Mesure, etablies: Sequence[Etablie])
 
     def meme_periode(etablie: Etablie) -> bool:
         if not etablie.annees:
-            return True
+            # Sans années, la période n'est dite que par un en-tête ANNUEL : une
+            # « Évolution » sans période ne se reprend pas « par an » —
+            # « maintiennent une croissance de 56 % par an » (`9249e523`,
+            # mesure du 15/09/2026).
+            return not annuelle or etablie.annuelle
         return annees_de_la_phrase <= etablie.annees and not (
             annuelle and len(etablie.annees) > 1
         )

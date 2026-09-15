@@ -89,6 +89,9 @@ def test_la_variation_du_tableau_reprise_avec_son_acteur_est_admise() -> None:
     # La période du tableau n'est ni « d'ici 2030 », ni un rythme annuel.
     (LIGNE, "Zooplus devrait gagner 6,6 % d'ici 2030.", "6,6 %"),
     (LIGNE, "Zooplus croît de 6,6 % par an.", "6,6 %"),
+    # Sans période dans l'en-tête, pas de reprise « par an » (`9249e523`).
+    ("Évolution : Zooplus | 5,0 M€ | 5,33 M€ | +6,6 %",
+     "Zooplus maintient une croissance de 6,6 % par an.", "6,6 %"),
     # Une baisse écrite en hausse n'établit rien.
     ("Évolution : Zooplus | 5,33 M€ | 5,0 M€ | +6,2 %", "Zooplus progresse de +6,2 %.",
      "6,2 %"),
