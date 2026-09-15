@@ -997,7 +997,9 @@ def _estimations_etablies_en_tableau(
         if variation is not None and acteur:
             annees = frozenset(int(a) for a in _ANNEE_NOMMEE.findall(en_tete))
             annuelle = bool(_EN_TETE_ANNUEL.search(en_tete))
-            etablies.append(Etablie(variation, False, acteur, annees, annuelle))
+            etablies.append(Etablie(
+                variation, False, acteur, annees, variation=True, annuelle=annuelle,
+            ))
     return etablies
 
 
@@ -1013,6 +1015,8 @@ class Etablie:
     monetaire: bool
     mots: frozenset[str]
     annees: frozenset[int] = frozenset()
+    variation: bool = False
+    """Une variation refaite dans sa ligne — la seule que sa période borne."""
     annuelle: bool = False
     """L'en-tête dit un rythme annuel (« annuel », « par an », TCAC)."""
 
@@ -1085,6 +1089,12 @@ def _reprend_une_estimation_etablie(mesure: Mesure, etablies: Sequence[Etablie])
     annuelle = bool(re.search(r"(?i)\bpar\s+an\b|\bannuel", mesure.phrase))
 
     def meme_periode(etablie: Etablie) -> bool:
+        # La période ne borne que les VARIATIONS. Appliquée aux estimations,
+        # la garde « par an » rejetait toute reprise dans une phrase qui parle
+        # aussi d'un rythme annuel — « (250 000 euros, 0,029 %) » à côté d'un
+        # marché « à 3,4 % par an » : EC 108 → 114 à la mesure de f1816b6.
+        if not etablie.variation:
+            return True
         if not etablie.annees:
             # Sans années, la période n'est dite que par un en-tête ANNUEL : une
             # « Évolution » sans période ne se reprend pas « par an » —

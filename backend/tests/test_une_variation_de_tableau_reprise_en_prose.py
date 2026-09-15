@@ -68,6 +68,29 @@ def test_la_variation_du_tableau_reprise_avec_son_acteur_est_admise() -> None:
     assert not _prose_signalee(LIGNE, "+6,6 %", prose)
 
 
+def test_une_estimation_reprise_a_cote_d_un_rythme_annuel_reste_admise() -> None:
+    """La garde de période ne vaut que pour les variations.
+
+    Mesure de f1816b6 (15/09/2026) : EC 108 → 114. « le cabinet packagé de
+    Nantes (250 000 euros, 0,029 %) » redevenait inventé parce que la phrase
+    parlait aussi d'un marché « à 3,4 % par an ».
+    """
+    ligne = "Part de marché estimée : Cabinet packagé de Nantes | 250 000 € | 0,029 %"
+    prose = ("Entre le cabinet packagé de Nantes (0,029 %) et les autres, le marché "
+             "progresse de 3,4 % par an.")
+    document = DocumentLu(chemin=Path("corpus.docx"), paragraphes=[prose])
+    document.mesures.extend(mesures_dans(prose))
+    document.mesures.extend(
+        _dans_son_tableau(m, ligne, "0,029 %")
+        for m in mesures_dans("0,029 %", dans_un_tableau=True)
+    )
+    signales = [
+        a.extrait for a in controler_chiffres_hors_socle(document, _socle())
+        if a.controle == "chiffres_hors_socle" and "0,029" in a.detail
+    ]
+    assert signales == []
+
+
 @pytest.mark.parametrize(("ligne", "prose", "valeur"), [
     # La reprise ne nomme pas l'acteur.
     (LIGNE, "Un généraliste croît de +6,6 % par an.", "6,6 %"),
