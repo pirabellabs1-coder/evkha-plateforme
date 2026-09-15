@@ -150,7 +150,7 @@ observé quatre fois sur ce projet (« mêmes défauts qui reviennent »).
 **Chaque correction propage à tous les livrables, pas au seul cas
 observé** (règle 4). Un défaut sur un BP devient une correction qui vaut
 aussi pour EM / EC / STR, sauf si le type de livrable impose autre chose
-(cas des fourchettes : strict en BP/STR ; en EC, une plage n'est admise que pour un CA ou une part ESTIMÉS, suivie dans la même phrase de sa valeur retenue ou en trois colonnes de tableau ; en EM, fourchette sourcée admise, jugée par les CHECK de bloc).
+(cas des fourchettes : strict en BP/STR — sauf, en BP, un prix observé sur le marché cité avec sa source dans la même case ou phrase (décision du client, 15/09/2026) ; en EC, une plage n'est admise que pour un CA ou une part ESTIMÉS, suivie dans la même phrase de sa valeur retenue ou en trois colonnes de tableau ; en EM, fourchette sourcée admise, jugée par les CHECK de bloc).
 
 ---
 

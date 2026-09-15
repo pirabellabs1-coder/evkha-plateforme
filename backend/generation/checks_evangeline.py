@@ -202,6 +202,32 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     )
 
 
+def _prix_de_marche_source(texte: str, match: re.Match[str]) -> bool:
+    """La plage est un prix OBSERVÉ sur le marché, cité avec sa source.
+
+    Décision du client, 15/09/2026, après la génération de preuve `7567ca2f` :
+    « 20 à 50 € par mois pour un outil performant (Cabinet Osmose, 2026) » dans
+    le tableau comparatif d'un business plan reste une fourchette — c'est la
+    plage que la source publie, et la réduire à un chiffre la trahirait. Les
+    prix du PROJET restent un par variante : « Étude de marché EVKHA à
+    149-195 € HT », sans source, reste refusé.
+
+    La source doit être dans la MÊME case de tableau ou la même phrase que la
+    plage : une source posée dans une autre case ne vaut pas pour celle-ci. Sa
+    reconnaissance est celle du contrôle des chiffres hors socle (règle 5).
+    """
+    from .verification.controles import _SOURCE_DANS_LA_PHRASE  # noqa: PLC0415
+
+    debut = max(texte.rfind(c, 0, match.start()) for c in "|\n.;") + 1
+    fins = [i for i in (texte.find(c, match.end()) for c in "|\n;") if i >= 0]
+    # Le point final de la phrase, pas celui d'une décimale ni d'une abréviation.
+    point = re.search(r"\.(?:\s|$)", texte[match.end():])
+    if point:
+        fins.append(match.end() + point.start())
+    segment = texte[debut:min(fins) if fins else len(texte)]
+    return bool(_SOURCE_DANS_LA_PHRASE.search(segment))
+
+
 @dataclass(frozen=True)
 class FourchetteTrouvee:
     """Une fourchette detectee dans un chapitre."""
@@ -284,6 +310,8 @@ def detecter_fourchettes(
             borne_basse = match.group(1) or match.group(3)
             borne_haute = match.group(2) or match.group(4)
             if _n_est_pas_une_plage(texte, match):
+                continue
+            if deliverable_type == "business_plan" and _prix_de_marche_source(texte, match):
                 continue
             if fourchette_sourcee_ok:
                 fenetre = texte[match.end() : match.end() + _MEDIANE_FENETRE]

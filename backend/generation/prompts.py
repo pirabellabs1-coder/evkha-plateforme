@@ -513,11 +513,16 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         )
 
     if deliverable_type == DeliverableType.BUSINESS_PLAN:
-        # Le BP est un dossier BANCAIRE : chaque chiffre unique, aucune
-        # fourchette. La consigne stricte suffit (la structure du BP est
-        # imposee par le blueprint et les faits CLIENT verrouilles depuis
-        # le brief Tally).
-        return consigne_fourchettes_stricte
+        # Le BP est un dossier BANCAIRE : chaque chiffre unique. Une seule
+        # exception, décidée par le client le 15/09/2026 : le prix observé sur
+        # le marché, cité avec sa source, garde la plage que la source publie
+        # (`checks_evangeline._prix_de_marche_source`).
+        return consigne_fourchettes_stricte + (
+            "EXCEPTION, étroite : un prix OBSERVÉ sur le marché et cité avec sa "
+            "source dans la même case ou la même phrase — « (Organisme, année) » "
+            "— garde la plage que cette source publie. Les prix du PROJET ne "
+            "sont jamais concernés : un prix par variante, toujours.\n"
+        )
 
     return ""
 
