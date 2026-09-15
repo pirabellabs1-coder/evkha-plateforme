@@ -67,6 +67,7 @@ def test_une_vraie_plage_est_vue(texte: str) -> None:
     "avec un top 3 régional à 35 % de part de marché et un top 5 à 50 %",
     "L'EBE progresse de 38 000 euros en exercice 1 à 84 000 euros en exercice 3.",
     "elle passe de 27 000 € à la fin de l'exercice 1 à 20 400 € à la fin de l'exercice 2",
+    "un point de marge en moins ramènerait l'EBE de l'exercice 1 à environ 34 800 euros",
 ])
 def test_une_etiquette_suivie_d_un_montant_n_est_pas_une_plage(texte: str) -> None:
     """CONTRE-ÉPREUVE : le motif rendu au client était faux (règle 2)."""

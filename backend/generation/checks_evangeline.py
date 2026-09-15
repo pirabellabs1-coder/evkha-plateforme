@@ -126,6 +126,19 @@ _NUMERO_MAX = 12
 _MONTANT_MIN_APRES_UN_NUMERO = 1000
 
 
+def _connecteur_a_nu(texte: str, match: re.Match[str]) -> str:
+    """Le connecteur entre les deux nombres, délesté d'« environ ».
+
+    Le détecteur lit « 1 à environ 34 800 euros » comme une plage : les gardes
+    qui ne regardaient que « à » laissaient passer « l'excédent brut
+    d'exploitation de l'exercice 1 à environ 34 800 euros » (business plan
+    `73dde3ab`, mesure du 15/09/2026). « environ » porte sur la valeur, pas sur
+    le lien entre les deux nombres.
+    """
+    brut = texte[match.end(3) : match.start(4)]
+    return re.sub(rf"{SPACE_CLASS}+environ$", "", brut.strip(), flags=re.IGNORECASE)
+
+
 def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     """Trajectoire datée, étiquette ou numéro — pas une fourchette."""
     brute_basse = (match.group(1) or match.group(3) or "").strip()
@@ -137,7 +150,7 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     if match.group(1) is not None and _ECART_AVANT.search(avant_long):
         return True
     if match.group(3) is not None and _MOUVEMENT_AVANT.search(avant_long):
-        connecteur = texte[match.end(3) : match.start(4)].strip()
+        connecteur = _connecteur_a_nu(texte, match)
         if connecteur in ("à", "a"):
             return True
 
@@ -145,7 +158,7 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     if _ANNEE.match(brute_basse):
         return True
     if match.group(3) is not None and _REPERE_DE_PERIODE_AVANT.search(avant):
-        connecteur = texte[match.end(3) : match.start(4)].strip()
+        connecteur = _connecteur_a_nu(texte, match)
         if connecteur in ("à", "a"):
             return True
 
@@ -155,7 +168,7 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     #    tiret, la garde 2 ci-dessous le disait déjà ; « à » passait. Le numéro
     #    reste petit (≤ `_NUMERO_MAX`) : « le palier 29 à 49 € » est une plage.
     if match.group(3) is not None and _ETIQUETTE_AVANT.search(avant):
-        connecteur = texte[match.end(3) : match.start(4)].strip()
+        connecteur = _connecteur_a_nu(texte, match)
         numero = parse_number(brute_basse)
         if (
             connecteur in ("à", "a")
