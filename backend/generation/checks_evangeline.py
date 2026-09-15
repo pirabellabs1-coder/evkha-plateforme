@@ -91,12 +91,12 @@ _FOURCHETTE_POURCENTAGE = _construire_motif(_POURCENTAGE)
 _ANNEE = re.compile(r"^(?:19|20)\d{2}$")
 
 _REPERE_DE_PERIODE_AVANT = re.compile(
-    r"\b(?:mois|semaine|trimestre|ann[ée]e|an|en|fin|d[ée]but|au|du)\s*$",
+    r"\b(?:mois|semaine|trimestre|ann[ée]e|an|exercice|en|fin|d[ée]but|au|du)\s*$",
     re.IGNORECASE,
 )
 
 _ETIQUETTE_AVANT = re.compile(
-    r"\b(?:an|ann[ée]e|sc[ée]nario|palier|phase|[ée]tape|horizon|axe|pilier|"
+    r"\b(?:an|ann[ée]e|exercice|sc[ée]nario|palier|phase|[ée]tape|horizon|axe|pilier|"
     r"tableau|figure|chapitre|version|lot|top|n\s*\+|t|q)\s*$",
     re.IGNORECASE,
 )
@@ -147,6 +147,22 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     if match.group(3) is not None and _REPERE_DE_PERIODE_AVANT.search(avant):
         connecteur = texte[match.end(3) : match.start(4)].strip()
         if connecteur in ("à", "a"):
+            return True
+
+    # 1 bis. Le NUMÉRO d'une étiquette, suivi de « à » : « la concentration du
+    #    top 3 à 35 % », « un top 5 à 50 % » (étude `6cb0fab3`, corpus du
+    #    15/09/2026). Le 3 et le 5 numérotent le top ; ils ne bornent rien. Au
+    #    tiret, la garde 2 ci-dessous le disait déjà ; « à » passait. Le numéro
+    #    reste petit (≤ `_NUMERO_MAX`) : « le palier 29 à 49 € » est une plage.
+    if match.group(3) is not None and _ETIQUETTE_AVANT.search(avant):
+        connecteur = texte[match.end(3) : match.start(4)].strip()
+        numero = parse_number(brute_basse)
+        if (
+            connecteur in ("à", "a")
+            and brute_basse.isdigit()
+            and numero is not None
+            and 0 < numero <= _NUMERO_MAX
+        ):
             return True
 
     if match.group(3) is None:  # « entre X et Y » : c'est une plage, dite

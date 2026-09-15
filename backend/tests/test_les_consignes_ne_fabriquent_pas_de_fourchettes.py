@@ -63,6 +63,10 @@ def test_une_vraie_plage_est_vue(texte: str) -> None:
     "La marge nette progresse de 3 % en 2026 à 5 % en 2028.",
     "La trésorerie passe de 12 000 € au 31/12/2026 à 48 000 € au 31/12/2027.",
     "Le seuil est atteint au mois 18 à 42 000 € de chiffre d'affaires mensuel.",
+    # Corpus du 15/09/2026 : le numéro d'une étiquette devant « à ».
+    "avec un top 3 régional à 35 % de part de marché et un top 5 à 50 %",
+    "L'EBE progresse de 38 000 euros en exercice 1 à 84 000 euros en exercice 3.",
+    "elle passe de 27 000 € à la fin de l'exercice 1 à 20 400 € à la fin de l'exercice 2",
 ])
 def test_une_etiquette_suivie_d_un_montant_n_est_pas_une_plage(texte: str) -> None:
     """CONTRE-ÉPREUVE : le motif rendu au client était faux (règle 2)."""
@@ -256,6 +260,9 @@ def test_deux_valeurs_reliees_ne_sont_pas_une_plage(texte: str) -> None:
     "Trois paliers d'abonnement de 12 à 29 € par mois.",
     "Des frais de mise en service de 25 à 35 € sur toute nouvelle souscription.",
     "Une hausse de 3 à 5 % de la marge.",
+    # CONTRE-ÉPREUVE du numéro d'étiquette : un nombre qui n'est pas un numéro.
+    "Le palier 29 à 49 € par mois attire les indépendants.",
+    "Pour l'offre 3 à 5 € par mois.",
 ])
 def test_une_valeur_non_tranchee_reste_une_plage(texte: str) -> None:
     """CONTRE-ÉPREUVE : une plage qui efface des prix distincts, ou une grandeur hésitante."""
