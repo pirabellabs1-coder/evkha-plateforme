@@ -1003,6 +1003,12 @@ def _estimations_etablies_en_tableau(
     return etablies
 
 
+#: Le rythme annuel autour d'une valeur reprise : « 56 % par an », « croissance
+#: annuelle de 56 % ». Assez court pour ne pas atteindre le chiffre voisin.
+_RYTHME_ANNUEL = re.compile(r"(?i)\bpar\s+an\b|\bannuel\w*|/\s*an\b")
+_AVANT_LE_RYTHME = 30
+_APRES_LE_RYTHME = 12
+
 #: Un en-tête qui dit un RYTHME annuel : « Croissance annuelle », « TCAC ».
 _EN_TETE_ANNUEL = re.compile(r"(?i)\bpar\s+an\b|\bannuel|/\s*an\b|\bTCAC\b|\bCAGR\b")
 
@@ -1086,7 +1092,14 @@ def _reprend_une_estimation_etablie(mesure: Mesure, etablies: Sequence[Etablie])
         return False
     mots_de_la_phrase = set(re.findall(r"[^\W\d_]{5,}", mesure.phrase.casefold()))
     annees_de_la_phrase = {int(a) for a in _ANNEE_NOMMEE.findall(mesure.phrase)}
-    annuelle = bool(re.search(r"(?i)\bpar\s+an\b|\bannuel", mesure.phrase))
+    # Le rythme annuel qualifie LA VALEUR, pas la phrase : « Zooplus +6,6 %)
+    # croissent plus vite que le marché (3,4 % par an) » parle d'un rythme du
+    # marché ; « une croissance de 56 % par an » du chiffre (mesure de 4e751f0).
+    debut = max(mesure.debut_dans_la_phrase, 0)
+    autour = mesure.phrase[
+        max(0, debut - _AVANT_LE_RYTHME) : debut + len(mesure.texte) + _APRES_LE_RYTHME
+    ]
+    annuelle = bool(_RYTHME_ANNUEL.search(autour))
 
     def meme_periode(etablie: Etablie) -> bool:
         # La période ne borne que les VARIATIONS. Appliquée aux estimations,

@@ -43,7 +43,7 @@ def _socle() -> Socle:
     )
 
 
-def _prose_signalee(ligne: str, case: str, prose: str) -> bool:
+def _prose_signalee(ligne: str, case: str, prose: str, valeur: str) -> bool:
     """La phrase de PROSE est-elle signalée ? La prose passe en premier : le
     contrôle ne rapporte qu'une fois un même texte, et la case du tableau ne doit
     pas répondre à sa place."""
@@ -54,7 +54,7 @@ def _prose_signalee(ligne: str, case: str, prose: str) -> bool:
     )
     debut = " ".join(prose.split())[:20]
     return any(
-        debut in " ".join(a.extrait.split())
+        debut in " ".join(a.extrait.split()) and f"« {valeur} »" in a.detail
         for a in controler_chiffres_hors_socle(document, _socle())
         if a.controle == "chiffres_hors_socle"
     )
@@ -63,9 +63,14 @@ def _prose_signalee(ligne: str, case: str, prose: str) -> bool:
 LIGNE = "Évolution 2024-2026 : Zooplus | 5,0 M€ | 5,33 M€ | +6,6 %"
 
 
-def test_la_variation_du_tableau_reprise_avec_son_acteur_est_admise() -> None:
-    prose = "Les généralistes (Zooplus +6,6 %) croissent plus vite que le marché."
-    assert not _prose_signalee(LIGNE, "+6,6 %", prose)
+@pytest.mark.parametrize("prose", [
+    "Les généralistes (Zooplus +6,6 %) croissent plus vite que le marché.",
+    # Le « par an » est celui du marché, pas celui de Zooplus (mesure de 4e751f0).
+    "Les généralistes (Amazon +7,0 %, Zooplus +6,6 %) croissent plus vite que le "
+    "marché (3,4 % par an, France).",
+])
+def test_la_variation_du_tableau_reprise_avec_son_acteur_est_admise(prose: str) -> None:
+    assert not _prose_signalee(LIGNE, "+6,6 %", prose, "6,6 %")
 
 
 def test_une_estimation_reprise_a_cote_d_un_rythme_annuel_reste_admise() -> None:
@@ -125,4 +130,4 @@ def test_une_estimation_reprise_a_cote_d_un_rythme_annuel_reste_admise() -> None
 def test_ce_que_le_tableau_n_etablit_pas_reste_signale(
     ligne: str, prose: str, valeur: str,
 ) -> None:
-    assert _prose_signalee(ligne, ligne.rsplit(" | ", 1)[1], prose), valeur
+    assert _prose_signalee(ligne, ligne.rsplit(" | ", 1)[1], prose, valeur)
