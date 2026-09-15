@@ -25,6 +25,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from core.numbers import MAGNITUDE_WORDS, MONEY, NUMBER_BODY, SPACE_CLASS
+
 # ══════════════════════════════════════════════════════════════════════════
 # 1. TRONCATURE
 # ══════════════════════════════════════════════════════════════════════════
@@ -1115,6 +1117,111 @@ def detecter_demandes_contredites(
     return defauts
 
 
+#: Une demande qui RÉCLAME un chiffre : son VERBE est un chiffrage, en tête de
+#: la demande ou de sa case — « Chiffrer les revenus… », « | Estimer le
+#: besoin | ». Un NOM ne suffit pas : « Analyser la politique tarifaire des
+#: concurrents » est une analyse, jugée sur ses mots comme toute autre.
+_DEMANDE_DE_CHIFFRAGE_RE = re.compile(
+    r"(?i)(?:^|\|)[\s\-•*]*(?:chiffrer|quantifier|estimer|évaluer|evaluer|calculer"
+    r"|valoriser|budg[eé]ti?ser)\b"
+)
+
+#: Un chiffre porteur : un montant, un pourcentage, un nombre de quelque chose.
+#: Pas une année seule, pas un numéro de section, pas le « 2 » de « B2B ».
+_CHIFFRE_PORTEUR_RE = re.compile(
+    rf"(?i)(?<![\w.,])(?:{MONEY}|{NUMBER_BODY}{SPACE_CLASS}*(?:%|{MAGNITUDE_WORDS})"
+    rf"|(?!(?:19|20)\d\d\b)\d+(?:{SPACE_CLASS}\d{{3}})*{SPACE_CLASS}+[a-zà-ÿ]{{3,}})"
+)
+
+#: Ce qui fait d'un nombre un RENVOI et non un chiffre : « voir chapitre 4 pour
+#: les détails », « phase 2 », « année 3 ».
+_RENVOI_AVANT_RE = re.compile(
+    r"(?i)\b(?:chapitres?|chap\.|sections?|parties?|phases?|étapes?|etapes?|annexes?"
+    r"|années?|annees?|an|tableaux?|figures?|points?|pages?|p\.|n°)\s*$"
+)
+#: Le séparateur d'en-tête d'un tableau markdown : « | --- | :---: | ».
+_SEPARATEUR_DE_TABLEAU_RE = re.compile(r"^\|[\s:|\-]+\|?$")
+
+
+def _porte_un_chiffre(bloc: str) -> bool:
+    return any(
+        not _RENVOI_AVANT_RE.search(bloc[: trouve.start()])
+        for trouve in _CHIFFRE_PORTEUR_RE.finditer(bloc)
+    )
+
+
+def _blocs_de_preuve(texte: str) -> list[str]:
+    """Les unités de lecture d'un chapitre, pour y chercher un sujet ET son chiffre.
+
+    Relecture du lot 81 : la ligne seule taisait de vraies contradictions, parce
+    qu'un sujet chiffré se met en TABLEAU ou en LISTE — le sujet dans l'en-tête
+    ou le titre, les montants dans les rangées ou les puces. On lit donc :
+
+    - une rangée de tableau pour elle-même, et l'EN-TÊTE avec tout son tableau ;
+    - un titre avec le paragraphe ou la liste qui le suit ;
+    - un paragraphe ou une liste d'un seul tenant, jusqu'à la ligne vide.
+    """
+    lignes = texte.splitlines()
+    blocs: list[str] = []
+    i = 0
+    while i < len(lignes):
+        ligne = lignes[i].strip()
+        if not ligne:
+            i += 1
+            continue
+        if ligne.startswith("|"):
+            debut = i
+            while i < len(lignes) and lignes[i].strip().startswith("|"):
+                i += 1
+            rangees = [r.strip() for r in lignes[debut:i]]
+            blocs.append("\n".join(rangees))  # l'en-tête et tout son tableau
+            blocs.extend(
+                r for r in rangees[1:] if not _SEPARATEUR_DE_TABLEAU_RE.match(r)
+            )
+            continue
+        debut = i
+        titre = ligne.startswith("#")
+        i += 1
+        if titre:
+            while i < len(lignes) and not lignes[i].strip():
+                i += 1
+        while (
+            i < len(lignes)
+            and lignes[i].strip()
+            and not lignes[i].strip().startswith(("#", "|"))
+        ):
+            i += 1
+        blocs.append("\n".join(lignes[debut:i]))
+    return blocs
+
+
+def _chiffre_ailleurs(mots: list[str], texte: str) -> bool:
+    """Vrai si le sujet se retrouve ailleurs AVEC un chiffre sur sa ligne.
+
+    Business plan `7567ca2f` (15/09/2026), chapitre 20 : « Chiffrer les revenus
+    de crédits supplémentaires, grands comptes et nouvelles offres | Non
+    traitée ». Le contrôle a conclu à une contradiction sur « comptes, crédits,
+    grands, nouvelles » — retrouvés au chapitre 4, dans une ligne qui disait
+    « Vente de crédits supplémentaires | Envisagé, non chiffré », et au
+    chapitre 9, « Achats de crédits supplémentaires (développement futur) ».
+    Le document était d'accord avec lui-même ; le motif, lui, aurait envoyé la
+    correction inventer des revenus que la cliente n'a jamais chiffrés.
+
+    Une demande de CHIFFRAGE n'est pas traitée là où son sujet est nommé : elle
+    l'est là où il est chiffré. Le chiffre est cherché dans le BLOC du sujet
+    (`_blocs_de_preuve`) : une rangée, un tableau sous son en-tête, un titre et
+    sa liste.
+    """
+    # Pour une rangée de tableau, le tableau entier ne vaut preuve que si le
+    # sujet est dans son EN-TÊTE : une autre rangée chiffrée ne chiffre pas
+    # celle-ci.
+    return any(
+        _se_touchent(mots, bloc.split("\n", 1)[0] if bloc.startswith("|") else bloc)
+        and _porte_un_chiffre(bloc)
+        for bloc in _blocs_de_preuve(texte)
+    )
+
+
 #: Distance sous laquelle deux mots appartiennent encore a la meme locution.
 #: « canaux d'acquisition des concurrents » tient en moins de cent caracteres ;
 #: deux verbes pris a deux paragraphes d'ecart, non.
@@ -1203,6 +1310,10 @@ def _contradictions_de_la_section(
         # d'un vrai sujet ; leur DISPERSION, si.
         if not any(
             _se_touchent(communs, texte) for _, texte in autres
+        ):
+            continue
+        if _DEMANDE_DE_CHIFFRAGE_RE.search(sujet) and not any(
+            _chiffre_ailleurs(communs, texte) for _, texte in autres
         ):
             continue
         defauts.append(DemandeContredite(

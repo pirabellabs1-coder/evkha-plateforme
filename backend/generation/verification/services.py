@@ -14,7 +14,7 @@ import re
 from collections.abc import Sequence
 from pathlib import Path
 
-from core.numbers import amounts_in
+from core.numbers import NUMBER_BODY, SPACE_CLASS, amounts_in
 
 from ..models import GenerationJob
 from ..rendu_word.assemblage import RapportAssemblage
@@ -78,7 +78,55 @@ def chiffres_du_brief(job: GenerationJob) -> list[float]:
     return [*amounts_in(_brief_free_text(job)), *des_documents, *des_champs]
 
 
-_POURCENTAGE_DU_BRIEF = re.compile(r"(-?\d[\d\s\u00a0\u202f]*(?:[.,]\d+)?)\s*%")
+#: Un pourcentage écrit par le client. Le nombre suit la règle commune des
+#: milliers (`core.numbers`) : l'ancienne classe avalait les sauts de ligne, et
+#: « Objectif 2026\n60 % » se lisait 202 660 % (relecture du lot 81).
+_POURCENTAGE_DU_BRIEF = re.compile(
+    rf"(?<![A-Za-z\d])({NUMBER_BODY}){SPACE_CLASS}*%"
+)
+
+#: Les devises de la zone franc : un montant en francs CFA ne se compare pas à un
+#: montant en euros.
+_ZONE_FRANC = frozenset({"fcfa", "xof", "xaf", "cfa"})
+
+
+def famille_d_unite(unite: str) -> str:
+    """La famille d'une unité : `%`, `cfa` ou `eur` (euros et leurs multiples)."""
+    forme = unite.casefold().strip()
+    if "%" in forme:
+        return "%"
+    return "cfa" if forme in _ZONE_FRANC else "eur"
+
+
+def valeurs_du_client(job: GenerationJob) -> frozenset[tuple[float, str]]:
+    """Les valeurs que le client écrit AVEC leur unité, en unités de base.
+
+    Brief (texte libre et champs structurés) et documents déposés. Un nombre nu
+    n'y entre pas : il ne dit pas ce qu'il compte. Business plan `7567ca2f`
+    (15/09/2026) : « De l'ordre de 60 à 75 % de la rémunération nette » a reçu
+    le motif « Le client donne ces valeurs SÉPARÉMENT », parce que 60 € et 75 €
+    figuraient parmi les montants du client (règle 2).
+    """
+    from core.numbers import AMOUNT_WITH_UNIT_RE, parse_amount, parse_number  # noqa: PLC0415
+
+    from ..documents_client import texte_des_documents  # noqa: PLC0415
+    from ..gate import _brief_free_text  # noqa: PLC0415
+
+    texte = "\n\n".join(
+        (_brief_free_text(job), _brief_complet(job), texte_des_documents(job))
+    )
+    valeurs = {
+        (round(montant, 2), famille_d_unite(trouve.group(2)))
+        for trouve in AMOUNT_WITH_UNIT_RE.finditer(texte)
+        if trouve.group(2)
+        and (montant := parse_amount(trouve.group(1), trouve.group(2))) is not None
+    }
+    valeurs.update(
+        (round(valeur, 2), "%")
+        for trouve in _POURCENTAGE_DU_BRIEF.finditer(texte)
+        if (valeur := parse_number(trouve.group(1))) is not None
+    )
+    return frozenset(valeurs)
 
 
 def _brief_complet(job: GenerationJob) -> str:

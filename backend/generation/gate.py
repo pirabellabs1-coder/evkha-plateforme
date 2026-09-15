@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 from catalog.models import DeliverableType
@@ -1342,7 +1343,7 @@ def _check_fourchettes(
     from .checks_evangeline import detecter_fourchettes  # noqa: PLC0415
 
     admises: frozenset[tuple[float, float, str]] | None = None
-    du_client: set[float] | None = None
+    du_client: frozenset[tuple[float, str]] | None = None
     failures: list[GateFailure] = []
     for section in sections:
         for f in detecter_fourchettes(
@@ -1354,13 +1355,15 @@ def _check_fourchettes(
             if _cle_de_plage(f.borne_basse, f.borne_haute, f.unite) in admises:
                 continue
             if du_client is None:
-                from .verification.services import chiffres_du_brief  # noqa: PLC0415
+                from .verification.services import valeurs_du_client  # noqa: PLC0415
 
-                du_client = {round(v, 2) for v in chiffres_du_brief(job)}
+                du_client = valeurs_du_client(job)
             failures.append(GateFailure(
                 check="fourchette_interdite",
                 chapter_number=f.chapitre,
-                detail=_motif_de_fourchette(f.extrait, f.borne_basse, f.borne_haute, du_client),
+                detail=_motif_de_fourchette(
+                    f.extrait, f.borne_basse, f.borne_haute, f.unite, du_client
+                ),
             ))
     return failures
 
@@ -1430,7 +1433,13 @@ def _plages_du_client(job: GenerationJob) -> frozenset[tuple[float, float, str]]
     )
 
 
-def _motif_de_fourchette(extrait: str, basse: str, haute: str, du_client: set[float]) -> str:
+def _motif_de_fourchette(
+    extrait: str,
+    basse: str,
+    haute: str,
+    unite: str,
+    du_client: Collection[tuple[float, str]],
+) -> str:
     """Le motif d'une fourchette, qui dit COMMENT la corriger quand c'est connu.
 
     « Le document doit citer un chiffre unique » ne disait pas lequel. Quand
@@ -1441,9 +1450,17 @@ def _motif_de_fourchette(extrait: str, basse: str, haute: str, du_client: set[fl
     « 149-195 € ». Deux passes de relecture sans converger : la consigne de
     réécriture demandait un chiffre unique, que personne n'avait décidé.
     """
+    from .verification.services import famille_d_unite  # noqa: PLC0415
+
     motif = f"Fourchette detectee : « {extrait} ». "
+    famille = famille_d_unite(unite)
+    # En unités de base, comme les valeurs du client : « 4 à 7 k€ » face à
+    # « 7 000 € » (relecture du lot 81).
+    facteur = 1.0 if famille == "%" else (parse_amount("1", unite) or 1.0)
     bas, haut = parse_number(basse), parse_number(haute)
-    if bas is not None and haut is not None and {round(bas, 2), round(haut, 2)} <= du_client:
+    if bas is not None and haut is not None and {
+        (round(bas * facteur, 2), famille), (round(haut * facteur, 2), famille)
+    } <= set(du_client):
         return motif + (
             "Le client donne ces valeurs SÉPARÉMENT, chacune pour une variante : "
             "écris chaque valeur avec ce qu'elle désigne (une ligne ou une case "
