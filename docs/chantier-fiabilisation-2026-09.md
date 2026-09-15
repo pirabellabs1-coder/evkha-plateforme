@@ -415,6 +415,9 @@ relues une à une.
 | `89f1ec7` | le numéro d'une étiquette devant « à » : « top 3 à 35 % », « en exercice 1 à 84 000 euros » | fourchettes BP 58 → 53, EC 24 → 21 |
 | `eff80b9` | « 644 mots pour un plafond de 671 » : 671 est le plancher (40 % de la médiane) | libellé seul, jugement inchangé |
 | `0a6fca6`, `68d0cd7` | « Non traitée à ce stade » : l'état de l'entreprise, pas le statut d'une demande (`d667fbb4`) ; la mesure rend la ligne accusée entière | `demande_contredite` STR 1 → 0 |
+| `3faa65a` | deux exercices d'une même série du socle sont une trajectoire : « en progression de 320 000 à 430 000 euros entre la première et la troisième année » (`ca_previsionnel_an1` → `_an3`) | fourchettes BP 53 → 49 |
+| `21716c4` | « de l'exercice 1 à environ 34 800 euros » : « à environ » est le même lien que « à » pour les gardes | fourchettes BP 49 → 48 |
+| `64225d3` | une part rapportée à une donnée que la phrase NOMME : « 188 150 euros, 59 % du chiffre d'affaires prévisionnel de l'année 1 » ; la relecture a imposé cinq bornes (nom coupé à la ponctuation, exercice identique, dénominateur écrit exclu, euros, deux chiffres significatifs) | hors socle BP 203 → 201 — les trois disparitions refaites à la main ; le « 20,8 % » d'un autre chapitre, sans montant, apparaît et reste signalé |
 
 Deux leçons, écrites ici parce qu'elles valent pour la suite :
 
