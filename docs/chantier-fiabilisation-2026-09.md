@@ -401,3 +401,36 @@ mypy, tests, migrations, répétition à blanc), déployé seulement si tout est
 vert et qu'aucune génération ne tourne, puis re-mesuré — et chaque disparition
 relue avec sa phrase. Quatre lots trop larges ont été vus ainsi et resserrés
 dans l'heure (`5131f89`, `8f8e2ed`, `055519e`/`e6f9fa5`, `c50b0d8`).
+
+## Nuit du 14 au 15/09/2026 — motifs faux relus avec leur phrase
+
+Chaque lot : vérifié (ruff, mypy, tests, migrations, répétition à blanc),
+déployé sans génération en cours, re-mesuré sur les 37 dossiers, disparitions
+relues une à une.
+
+| Lot | Motif faux, relu dans le document ou le brief | Mesure |
+|---|---|---|
+| `3ac11dc`, `b81f9fb` | l'apport écrit ailleurs dans le brief, ou après la coupe à 500 signes des faits anciens (`9f8f144a`, `256e63d8`) | `reference_client_illisible` BP 4 → 2 ; `1fdc457b` (« invetsi 1600e », sans le mot du fait) reste, volontairement |
+| `9a45e56`, `f5c7544` | une plage que le client a écrite lui-même : « de 129 € à 429 €/mois » (`5c5e91b9`), « budget de consultation 100-300 € » (Findrax), « entre 150 000 et 165 000 euros » de ses documents | fourchettes BP 66 → 58, STR 62 → 51 |
+| `89f1ec7` | le numéro d'une étiquette devant « à » : « top 3 à 35 % », « en exercice 1 à 84 000 euros » | fourchettes BP 58 → 53, EC 24 → 21 |
+| `eff80b9` | « 644 mots pour un plafond de 671 » : 671 est le plancher (40 % de la médiane) | libellé seul, jugement inchangé |
+| `0a6fca6`, `68d0cd7` | « Non traitée à ce stade » : l'état de l'entreprise, pas le statut d'une demande (`d667fbb4`) ; la mesure rend la ligne accusée entière | `demande_contredite` STR 1 → 0 |
+
+Deux leçons, écrites ici parce qu'elles valent pour la suite :
+
+- **Une relecture de code a arrêté un lot qui rouvrait une décision de la
+  veille.** La première version de `9a45e56` exemptait deux montants du client
+  voisins de 300 signes : « 60 à 75 €/h » — trois prix distincts du brief
+  résumés, décision du 14/09 — redevenait admis, et « de 15 à 2 500 euros »
+  passait dès qu'un panier à 15 € voisinait un forfait à 2 500 €. La version
+  livrée lit la plage du client avec le MÊME détecteur que le document.
+- **Sonder la règle sur une forme voisine avant de conclure.** `db0d9508`
+  a montré qu'« 12 € - 19 € - 29 € », unité retirée, devenait une plage
+  « 19 - 29 € » : corrigé dans `f5c7544` avant qu'un motif ne disparaisse à
+  tort.
+
+Restent, relus et jugés vrais : « 60 à 75 €/h » des stratégies Zenitek
+(documents antérieurs à la consigne « UN prix par variante »), des coûts
+d'outils « 15 à 25 €/mois », des segments de prix de marché en étude
+concurrentielle, « coût variable de 4 à 7 € par livrable » (BNB), et
+« de 15 à 2 500 euros selon le secteur ». Et deux `demande_contredite` : `5892daa5`, où le document écrit lui-même que l'absence « prive l'étude d'une annexe explicitement demandée » (vrai manque), et `b8da2640` (« budget alloué à la présente étude », déclaré hors champ) — laissé tel quel : exempter les demandes « hors champ » rouvrirait le cas de la cliente du 11/08, des canaux analysés puis déclarés non traités.
