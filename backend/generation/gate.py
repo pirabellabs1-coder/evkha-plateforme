@@ -1870,6 +1870,17 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
 
     document = render_client_document(job)
     sections = document.sections
+    # Ce que le CLIENT lit. La fiche projet (chapitre 0) est une note interne
+    # que le Word n'imprime pas (`pour_le_client`) : génération de preuve
+    # `7567ca2f` (15/09/2026), le gate la déclarait « tronquée » sur sa ligne
+    # « Éléments futurs de revenus : montants non définis, provisoires », et
+    # le corpus y comptait des fourchettes (`b8da2640`, `5c5e91b9`, `d667fbb4`).
+    # Des motifs sur un texte que personne ne lira, réécrits à nos frais
+    # (règles 2 et 3). La complétude, elle, compte encore le chapitre 0 : il
+    # doit exister, puisque les autres chapitres le relisent.
+    from .rendu_word.depuis_json import pour_le_client  # noqa: PLC0415
+
+    livrees = tuple(s for s in sections if pour_le_client({"numero": s.number}))
 
     failures: list[GateFailure] = []
     # Check 0 EN PREMIER : sans état chiffré client, les checks 2 et 3 n'ont
@@ -1879,28 +1890,28 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     # qui ne couvre que le business plan.
     failures.extend(_check_brief_lu(job))
     failures.extend(_check_completude_chapitres(job, sections))
-    failures.extend(_check_contamination(job, sections))
+    failures.extend(_check_contamination(job, livrees))
     failures.extend(_check_meta_discours(job))
-    failures.extend(_check_numeric_coherence(job, sections))
-    failures.extend(_check_verticales(job, sections))
-    failures.extend(_check_truncation(sections))
-    failures.extend(_check_ordres_de_grandeur(job, sections))
-    failures.extend(_check_arithmetique(sections))
-    failures.extend(_check_sources_coherentes(sections))
-    failures.extend(_check_agregats(sections))
-    failures.extend(_check_trajectoires(sections))
+    failures.extend(_check_numeric_coherence(job, livrees))
+    failures.extend(_check_verticales(job, livrees))
+    failures.extend(_check_truncation(livrees))
+    failures.extend(_check_ordres_de_grandeur(job, livrees))
+    failures.extend(_check_arithmetique(livrees))
+    failures.extend(_check_sources_coherentes(livrees))
+    failures.extend(_check_agregats(livrees))
+    failures.extend(_check_trajectoires(livrees))
     failures.extend(_check_arithmetique_marche(job))
     # Checks ajoutes suite a la relecture d'Evangeline (juillet 2026) : ils
     # verifient DEUX regles qu'aucun check precedent n'imposait sur le document
     # livre. Independants du brief et du type de livrable, ils s'appliquent aux
     # quatre types (etude de marche, etude de concurrence, business plan,
     # strategie).
-    failures.extend(_check_fourchettes(job, sections))
-    failures.extend(_check_chiffre_contre_chiffre(sections))
-    failures.extend(_check_chapitres_avortes(job, sections))
-    failures.extend(_check_strategie_livrable(job, sections))
-    failures.extend(_check_post_rendu(sections, deliverable_type=str(job.deliverable_type)))
-    failures.extend(_check_texte_francais(sections))
+    failures.extend(_check_fourchettes(job, livrees))
+    failures.extend(_check_chiffre_contre_chiffre(livrees))
+    failures.extend(_check_chapitres_avortes(job, livrees))
+    failures.extend(_check_strategie_livrable(job, livrees))
+    failures.extend(_check_post_rendu(livrees, deliverable_type=str(job.deliverable_type)))
+    failures.extend(_check_texte_francais(livrees))
     # Manuel EVKHA p.17 : livraison possible UNIQUEMENT si tous les controles
     # sont valides. Un CHECK de bloc encore en echec bloque l'envoi.
     failures.extend(_check_blocs_evangeline(job))

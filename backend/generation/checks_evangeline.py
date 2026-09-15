@@ -530,7 +530,15 @@ _COORDINATION = re.compile(
 
 #: Un opérateur dans une parenthèse : « (18 667 €/54 276 €) », « (54 276 €
 #: moins 18 667 €) ». Le montant qu'elle contient est un OPÉRANDE.
-_OPERATEUR = re.compile(r"/|÷|\bmoins\b|\bplus\b|\s[-−×x*+]\s", re.IGNORECASE)
+#:
+#: « sur » et « divisé par » aussi : « les 4 800 € de charges fixes représentent
+#: 8,8 % du chiffre d'affaires prévisionnel de l'année 1 (4 800 € sur
+#: 54 276 €) » opposait 4 800 € au chiffre d'affaires (génération de preuve
+#: `7567ca2f`, 15/09/2026).
+_OPERATEUR = re.compile(
+    r"/|÷|\bmoins\b|\bplus\b|\bsur\b|\bdivis[ée]\w*\s+par\b|\bmultipli\w*|\s[-−×x*+]\s",
+    re.IGNORECASE,
+)
 
 #: Un nombre puis « à » juste avant le montant : « de 9 000 à 45 000 euros
 #: entre l'année 1 et l'année 3 ». Le montant est la FIN d'une trajectoire,

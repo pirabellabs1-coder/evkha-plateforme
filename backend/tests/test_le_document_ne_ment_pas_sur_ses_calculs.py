@@ -86,7 +86,11 @@ def test_le_gate_execute_ce_controle() -> None:
 
     source = Path(gate.__file__).read_text(encoding="utf-8")
 
-    assert "failures.extend(_check_arithmetique(sections))" in source
+    import re
+
+    # Le NOM de la variable ne compte pas : depuis le 15/09/2026, les contrôles
+    # de texte reçoivent les seules sections imprimées (`livrees`).
+    assert re.search(r"failures\.extend\(_check_arithmetique\(\w+\)\)", source)
 
 
 def test_un_calcul_faux_se_corrige_tout_seul() -> None:
