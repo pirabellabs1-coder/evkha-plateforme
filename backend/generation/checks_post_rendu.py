@@ -1001,6 +1001,23 @@ _CONDITION_AVANT_LE_STATUT_RE = re.compile(
     r"\s+(?:n(?:e|'|’)\s*(?:est|sont|sera|seront)?\s*(?:pas\s+)?)?$"
 )
 
+#: « Non traitée À CE JOUR » : l'état de l'AFFAIRE, pas celui du document.
+#:
+#: Stratégie `d667fbb4`, chapitre 5 (corpus du 15/09/2026), tableau des
+#: fragilités : « | Relation avec les prestataires techniques, comptables,
+#: juridiques | Ralentissement du développement… | Non traitée à ce jour | ».
+#: L'entreprise n'a pas encore réglé ce point ; le document, lui, l'analyse — il
+#: n'y a aucune contradiction. Le statut d'une demande dans l'annexe de
+#: validation ne se date pas : il dit ce que le DOCUMENT a fait. Un repère de
+#: temps, avant ou après, dit ce que l'entreprise a fait.
+_ETAT_DE_L_AFFAIRE_APRES_RE = re.compile(
+    r"(?i)^\s*(?:[àa]\s+ce\s+jour|pour\s+l['’]instant|pour\s+le\s+moment|actuellement"
+    r"|aujourd['’]hui|en\s+l['’][ée]tat|jusqu['’](?:ici|à\s+présent|a\s+present))\b"
+)
+_ETAT_DE_L_AFFAIRE_AVANT_RE = re.compile(
+    r"(?i)\b(?:encore|toujours|jusqu['’]ici|aujourd['’]hui|actuellement)\s*$"
+)
+
 #: Un statut « non traité » précédé d'un AUTRE statut dans une énumération.
 _LEGENDE_DES_STATUTS_RE = re.compile(
     r"(?i)\btrait[ée]e?s?\b[^|.]*(?:,|\bou|/)\s*$"
@@ -1130,6 +1147,10 @@ def _contradictions_de_la_section(
         if trouve is None:
             continue
         if _CONDITION_AVANT_LE_STATUT_RE.search(ligne[: trouve.start()]):
+            continue
+        if _ETAT_DE_L_AFFAIRE_APRES_RE.search(ligne[trouve.end():]) or (
+            _ETAT_DE_L_AFFAIRE_AVANT_RE.search(ligne[: trouve.start()])
+        ):
             continue
         # La LÉGENDE des statuts n'en est pas un : « indique son statut :
         # traitée, partiellement traitée ou non traitée ». Cinq business plans
