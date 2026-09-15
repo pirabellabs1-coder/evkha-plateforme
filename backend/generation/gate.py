@@ -1341,16 +1341,16 @@ def _check_fourchettes(
 
     from .checks_evangeline import detecter_fourchettes  # noqa: PLC0415
 
-    plages_du_client: frozenset[tuple[float, float, str]] | None = None
+    admises: frozenset[tuple[float, float, str]] | None = None
     failures: list[GateFailure] = []
     for section in sections:
         for f in detecter_fourchettes(
             section.number, section.body,
             deliverable_type=str(job.deliverable_type),
         ):
-            if plages_du_client is None:
-                plages_du_client = _plages_du_client(job)
-            if _cle_de_plage(f.borne_basse, f.borne_haute, f.unite) in plages_du_client:
+            if admises is None:
+                admises = _plages_du_client(job) | _trajectoires_du_socle(job)
+            if _cle_de_plage(f.borne_basse, f.borne_haute, f.unite) in admises:
                 continue
             failures.append(GateFailure(
                 check="fourchette_interdite",
@@ -1425,6 +1425,47 @@ def _plages_du_client(job: GenerationJob) -> frozenset[tuple[float, float, str]]
         cle
         for plage in detecter_fourchettes(0, texte)
         if (cle := _cle_de_plage(plage.borne_basse, plage.borne_haute, plage.unite))
+    )
+
+
+def _trajectoires_du_socle(job: GenerationJob) -> frozenset[tuple[float, float, str]]:
+    """Deux valeurs d'une MÊME série annuelle du socle, à deux exercices.
+
+    Corpus du 15/09/2026 : « le chiffre d'affaires prévisionnel en progression
+    de 320 000 à 430 000 euros entre la première et la troisième année »
+    (`b8da2640`), « la progression de 320 000 à 430 000 euros sur trois
+    exercices (soit 34,4 %) » (`73dde3ab`). 320 000 et 430 000 sont
+    `ca_previsionnel_an1` et `ca_previsionnel_an3` : un départ et une arrivée,
+    pas une valeur hésitante.
+
+    Le mot ne tranche pas — « une progression de 3 à 5 % » peut dire une plage,
+    et « une hausse de 3 à 5 % » en est une (décision du 14/09). La série, si :
+    deux exercices d'une même grandeur, verrouillés au socle. Le radical est lu
+    par la convention `<serie>_anN` du référentiel, celle du rendu (règle 5).
+    """
+    from .rendu_word.donnees_graphiques import _RADICAL_ANNUEL  # noqa: PLC0415
+    from .socle.services import socle_verrouille  # noqa: PLC0415
+
+    socle = socle_verrouille(job)
+    if socle is None:
+        return frozenset()
+    # Les exercices se distinguent par leur IDENTIFIANT (`_an1`, `_an3`), pas
+    # par `annee` : rien n'oblige un socle à dater différemment ses exercices.
+    series: dict[tuple[str, str], dict[str, float]] = {}
+    for donnee in socle.donnees:
+        serie = _RADICAL_ANNUEL.match(donnee.id)
+        if serie is None:
+            continue
+        unite = donnee.unite.casefold()
+        series.setdefault((serie.group("radical"), _MEME_UNITE.get(unite, unite)), {})[
+            donnee.id
+        ] = round(donnee.valeur, 2)
+    return frozenset(
+        (depart, arrivee, unite)
+        for (_radical, unite), points in series.items()
+        for exercice_a, depart in points.items()
+        for exercice_b, arrivee in points.items()
+        if exercice_a != exercice_b and depart != arrivee
     )
 
 
