@@ -219,13 +219,25 @@ def _prix_de_marche_source(texte: str, match: re.Match[str]) -> bool:
     from .verification.controles import _SOURCE_DANS_LA_PHRASE  # noqa: PLC0415
 
     debut = max(texte.rfind(c, 0, match.start()) for c in "|\n.;") + 1
-    fins = [i for i in (texte.find(c, match.end()) for c in "|\n;") if i >= 0]
-    # Le point final de la phrase, pas celui d'une décimale ni d'une abréviation.
-    point = re.search(r"\.(?:\s|$)", texte[match.end():])
-    if point:
-        fins.append(match.end() + point.start())
-    segment = texte[debut:min(fins) if fins else len(texte)]
-    return bool(_SOURCE_DANS_LA_PHRASE.search(segment))
+    # La fin : case, ligne, point-virgule ou point final — mais jamais DANS une
+    # parenthèse : « 50 à 300 € selon les outils (Cabinet Osmose, 2026 ;
+    # PropulseByCA, 2026) » coupait la source avant sa fermeture (mesure de
+    # 53807ff sur `7567ca2f`).
+    profondeur = 0
+    fin = len(texte)
+    for rang in range(match.end(), len(texte)):
+        signe = texte[rang]
+        if signe == "(":
+            profondeur += 1
+        elif signe == ")":
+            profondeur = max(0, profondeur - 1)
+        elif profondeur == 0 and (
+            signe in "|\n;"
+            or (signe == "." and (rang + 1 == len(texte) or texte[rang + 1].isspace()))
+        ):
+            fin = rang
+            break
+    return bool(_SOURCE_DANS_LA_PHRASE.search(texte[debut:fin]))
 
 
 @dataclass(frozen=True)

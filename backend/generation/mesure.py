@@ -274,7 +274,7 @@ def _phrases_du_sujet(sections: list[tuple[int, str, str]], detail: str) -> str:
     return " / ".join(f"[ch. {numero}] {phrase}" for _, numero, phrase in candidates[:6])
 
 
-def _phrase_de_la_plage(corps: str, detail: str) -> str:
+def _phrase_de_la_plage(corps: str, detail: str, rang: int = 0) -> str:
     """Le passage où la plage est écrite : « Fourchette detectee : « 60 à 75 € » ».
 
     Sans lui, on ne distingue pas une hésitation du rédacteur (« de 15 à 2 500
@@ -284,9 +284,14 @@ def _phrase_de_la_plage(corps: str, detail: str) -> str:
     plage = re.search(r"« (.+?) »", detail)
     if plage is None:
         return ""
-    position = corps.find(plage.group(1))
-    if position < 0:
-        return ""
+    # Le RANG de l'occurrence : deux motifs identiques d'un même chapitre ne
+    # montraient que la première, et une plage sourcée admise masquait la même
+    # plage refusée plus loin (mesure de 53807ff sur `7567ca2f`).
+    position = -1
+    for _ in range(rang + 1):
+        position = corps.find(plage.group(1), position + 1)
+        if position < 0:
+            return ""
     return " ".join(corps[max(0, position - 220) : position + 140].split())
 
 
@@ -319,6 +324,7 @@ def _echecs_du_gate(
             "chapitre": None, "detail": f"{type(exc).__name__} : {exc}"[:300], "extrait": "",
         }]}
     corps_par_numero = {numero: corps for numero, _, corps in sections or []}
+    rangs: dict[tuple[object, str], int] = {}
 
     def extrait(echec: object) -> str:
         numero = getattr(echec, "chapter_number", None)
@@ -331,7 +337,9 @@ def _echecs_du_gate(
         if check.endswith("decision_absente"):
             return _phrases_du_sujet(sections or [], detail)
         if check == "fourchette_interdite":
-            return _phrase_de_la_plage(corps, detail)
+            rang = rangs.get((numero, detail), 0)
+            rangs[(numero, detail)] = rang + 1
+            return _phrase_de_la_plage(corps, detail, rang)
         if check == "demande_contredite":
             return _ligne_accusee(corps, detail)
         return ""

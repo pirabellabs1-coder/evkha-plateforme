@@ -148,3 +148,18 @@ def test_la_mesure_montre_le_passage_de_la_plage() -> None:
     corps = "Début du chapitre. | Interventions ponctuelles (60 à 75 €/h) | Porte d'entrée |"
     detail = "Fourchette detectee : « 60 à 75 € ». Le document doit citer un chiffre unique."
     assert "Interventions ponctuelles (60 à 75 €/h)" in _phrase_de_la_plage(corps, detail)
+
+
+def test_la_mesure_montre_chaque_occurrence_de_la_plage() -> None:
+    """Deux motifs identiques d'un même chapitre : la première occurrence, sourcée
+    et admise, masquait la seconde, refusée (mesure de 53807ff sur `7567ca2f`)."""
+    from generation.mesure import _phrase_de_la_plage
+
+    corps = (
+        "Tableau : 20 à 50 € (Cabinet Osmose, 2026). "
+        "Plus loin, sans source : 20 à 50 € par mois."
+    )
+    detail = "Fourchette detectee : « 20 à 50 € ». Le document doit citer un chiffre unique."
+    assert "Osmose" in _phrase_de_la_plage(corps, detail, 0)
+    assert "sans source" in _phrase_de_la_plage(corps, detail, 1)
+    assert _phrase_de_la_plage(corps, detail, 2) == ""

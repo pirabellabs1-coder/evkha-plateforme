@@ -32,6 +32,9 @@ BP, STR = "business_plan", "business_strategy"
     "(Cabinet Osmose, 2026) | Palier Solo à 129 €/mois |",
     "| Étude de marché sur mesure par un cabinet | 3 000 à 8 000 € (PropulseByCA, 2026) | x |",
     "Selon l'Observatoire des TPE, une étude sur mesure coûte de 3 000 à 8 000 €.",
+    # Deux sources dans la parenthèse, séparées par un point-virgule (`7567ca2f`).
+    "| Modèle préformaté | 50 à 300 € selon les outils (Cabinet Osmose, 2026\u202f; "
+    "PropulseByCA, 2026) | Livrable EVKHA |",
 ])
 def test_un_prix_de_marche_source_garde_sa_plage(texte: str) -> None:
     assert detecter_fourchettes(8, texte, BP) == []
