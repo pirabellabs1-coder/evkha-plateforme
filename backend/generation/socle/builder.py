@@ -94,6 +94,13 @@ def schema_outil(deliverable_type: str) -> dict[str, Any]:
     """
     schema = Socle.model_json_schema()
 
+    # Le TITRE racine (« Socle ») ne sert à rien au contrat, et il nomme une
+    # enveloppe : trois fois de suite, le modèle a rangé toute la charge sous
+    # `{"socle": …}` (génération `44bbd696`, 15/09/2026). Le client retire
+    # désormais une telle enveloppe (`sans_enveloppe`) ; on cesse aussi de la
+    # suggérer.
+    schema.pop("title", None)
+
     # `deliverable_type` est un champ de travail interne, jamais rempli par le
     # modèle : il n'a rien à faire dans le contrat exposé.
     schema.get("properties", {}).pop("deliverable_type", None)

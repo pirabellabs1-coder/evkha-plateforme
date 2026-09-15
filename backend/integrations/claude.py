@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -739,7 +741,7 @@ class AnthropicClaudeClient:
         for bloc in message.content:
             if getattr(bloc, "type", "") == "tool_use" and getattr(bloc, "name", "") == outil_nom:
                 brut = getattr(bloc, "input", {})
-                charge = dict(brut) if isinstance(brut, dict) else {}
+                charge = sans_enveloppe(dict(brut), schema) if isinstance(brut, dict) else {}
                 break
 
         usage = getattr(message, "usage", None)
@@ -756,6 +758,50 @@ class AnthropicClaudeClient:
                 getattr(usage, "cache_read_input_tokens", 0) or 0
             ),
         )
+
+
+def sans_enveloppe(charge: dict[str, object], schema: Mapping[str, object]) -> dict[str, object]:
+    """La charge d'un appel d'outil, sortie de l'ENVELOPPE où le modèle l'a rangée.
+
+    ## Le défaut, mesuré
+
+    15/09/2026, génération de preuve `44bbd696` (reprise du business plan
+    `8bda1173`) : « Socle non recevable après 3 tentative(s) : secteur : Field
+    required ; zone : Field required ; date_socle : Field required ; socle :
+    Extra inputs are not permitted ». Trois fois de suite, le modèle a rendu
+    `{"socle": {secteur, zone, date_socle, donnees…}}` au lieu des champs à la
+    racine. Zéro chapitre, 1,12 € dépensés, et le motif de reprise — « socle :
+    Extra inputs » — ne lui disait rien de ce qu'il fallait changer.
+
+    Le schéma du socle du business plan venait de grossir (séries sur trois
+    exercices, 14/09/2026) ; la répétition à blanc ne pouvait pas le voir : la
+    doublure rend toujours la bonne forme.
+
+    ## Ce qu'on retire, et ce qu'on ne touche pas
+
+    Une enveloppe n'est pas un contenu : les données y sont, un niveau trop
+    bas. On la retire quand, et seulement quand :
+
+    - la charge a UNE seule clé, inconnue du schéma à la racine ;
+    - sa valeur est un objet qui porte AU MOINS UN champ requis du schéma.
+
+    Le contenu, lui, reste jugé par la validation habituelle : rien n'est
+    réparé, complété ni deviné. Vaut pour tous les appels structurés — socle,
+    vérification, chapitres — puisque tous passent ici (règle 5).
+    """
+    proprietes = schema.get("properties")
+    requis = schema.get("required")
+    if len(charge) != 1 or not isinstance(proprietes, Mapping):
+        return charge
+    ((cle, contenu),) = charge.items()
+    if cle in proprietes or not isinstance(contenu, dict):
+        return charge
+    if not isinstance(requis, list) or not any(champ in contenu for champ in requis):
+        return charge
+    logging.getLogger(__name__).warning(
+        "Appel d'outil : charge rangée sous l'enveloppe « %s », retirée avant validation.", cle,
+    )
+    return dict(contenu)
 
 
 def _cacheable_system(system: str) -> str | list[dict[str, object]]:
