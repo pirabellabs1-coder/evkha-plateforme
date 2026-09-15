@@ -675,13 +675,78 @@ def _portee_du_jugement(mesure: Mesure) -> str:
 #: « Objectif », « Indicateur de réussite ». La valeur y est fixée par le
 #: projet ; la juger comme un fait de marché accusait les tableaux GO /
 #: AJUSTER / STOP que le manuel impose (stratégies du corpus du 14/09/2026).
-_EN_TETE_DE_DECISION = re.compile(
-    # « Seuil » seul non : « Seuil de rentabilité | 18 667 € » est un CALCUL du
-    # prévisionnel, que ce contrôle doit continuer de juger.
-    r"(?i)^\s*(?:seuils?\s+(?:go|stop|adjust|ajust\w*|d['’]alerte|de\s+d[ée]clenchement|"
-    r"de\s+d[ée]cision)|objectifs?|cibles?|crit[èe]res?|indicateurs?\s+de\s+r[ée]ussite|"
-    r"niveau\s+vis[ée]|valeur\s+cible|budget)\b"
+#: Un seuil nommé comme tel : « seuil d'alerte », « seuil de déclenchement ».
+#: « Seuil » seul non : « Seuil de rentabilité | 18 667 € » est un CALCUL du
+#: prévisionnel, que ce contrôle doit continuer de juger.
+_SEUIL_D_ALERTE = (
+    r"seuils?\s+(?:d['’]alerte|de\s+d[ée]clenchement|de\s+d[ée]cision|de\s+vigilance)"
 )
+
+_EN_TETE_DE_DECISION = re.compile(
+    rf"(?i)^\s*(?:seuils?\s+(?:go|stop|adjust|ajust\w*)|{_SEUIL_D_ALERTE}|objectifs?|cibles?|"
+    r"crit[èe]res?|indicateurs?\s+de\s+r[ée]ussite|niveau\s+vis[ée]|valeur\s+cible|budget)\b"
+)
+
+#: Le franchissement d'un SEUIL, collé à la valeur : « sous 6 % », « passe
+#: au-dessus de 550 € ». Pas « plus de » ni « moins de » : « plus de 80 % du
+#: marché » est un fait, pas une règle.
+_OPERATEUR_DE_SEUIL = re.compile(
+    r"(?i)(?:\bsous|\bau[-\s]dessous\s+d[eu]|\ben\s+dessous\s+d[eu]"
+    r"|\bau[-\s]dessus\s+d[eu]|\bau[-\s]del[àa]\s+d[eu])"
+    r"(?:\s+(?:les?|la|l['’]|un|une))?\s*$"
+)
+
+#: L'ACTION qu'un seuil déclenche, à l'infinitif — la forme d'une règle. Le
+#: verbe conjugué (« ce qui déclenche une guerre des prix ») raconte un fait.
+_ACTION_DE_PILOTAGE = (
+    r"(?:revoir|r[ée]viser|suspendre|stopper|arr[êe]ter|ralentir|acc[ée]l[ée]rer|"
+    r"r[ée]agir|d[ée]clencher)"
+)
+_ALERTE = re.compile(rf"(?i)\balertes?\b|\b{_SEUIL_D_ALERTE}")
+_ACTION = re.compile(rf"(?i)\b{_ACTION_DE_PILOTAGE}\b")
+_CONDITION = re.compile(r"(?i)\bsi\b|\bd[èe]s\s+que?\b|\btant\s+que?\b|\blorsqu|\bquand\b")
+_CASE_D_ACTION = re.compile(rf"(?i)^\W*{_ACTION_DE_PILOTAGE}\b")
+
+
+def _seuil_de_declenchement(mesure: Mesure, portee: str) -> bool:
+    """La valeur est le SEUIL d'une règle de pilotage, fixé par le document.
+
+    Corpus du 15/09/2026, études de marché :
+
+    - « Ralentir si… : Marché adressable | La part de 8 % du marché national se
+      maintient ou progresse | Elle recule sous 6 % du marché national »
+      (`2cef0cbd`) ;
+    - « Situation : Panier moyen sous 1 000 € par adhérent trois mois de suite |
+      Revoir le mix abonnement/prestations avant tout nouvel investissement »
+      (`f0064333`).
+
+    6 % et 1 000 € disent QUAND agir, comme l'en-tête « Seuil STOP » d'un
+    tableau de décision. Appelée APRÈS les gardes des tailles de marché et des
+    croissances : un seuil ne fait pas d'un fait de marché une décision.
+
+    Bornes, après relecture (15/09/2026) — un « si » seul admettait « si l'on
+    en croit Xerfi, le marché est passé sous 25 Md€ » :
+
+    - un franchissement collé à la valeur ;
+    - en prose : « alerte » / « seuil d'alerte », ou une condition ET une action
+      à l'infinitif (« si … sous 1 000 €, revoir le mix ») ;
+    - en tableau : la même chose dans la PORTÉE de la case (en-tête, libellé,
+      case — « Ralentir si… »), ou une AUTRE case qui commence par l'action,
+      la colonne des réponses (« | Revoir le mix… »). Une case voisine qui ne
+      fait que mentionner une alerte ne qualifie pas celle-ci.
+    """
+    if not mesure.phrase or mesure.debut_dans_la_phrase < 0:
+        return False
+    if not _OPERATEUR_DE_SEUIL.search(mesure.phrase[: mesure.debut_dans_la_phrase]):
+        return False
+    if _ALERTE.search(portee):
+        return True
+    if not mesure.dans_un_tableau:
+        return bool(_CONDITION.search(portee) and _ACTION.search(portee))
+    if _ACTION.search(portee):
+        return True
+    ligne = mesure.phrase.partition(" : ")[2]
+    return any(_CASE_D_ACTION.match(case) for case in ligne.split(" | "))
 
 #: Le vocabulaire d'un scénario de SENSIBILITÉ. Un pourcentage qui y figure est
 #: le choc que l'on applique, choisi pour éprouver le plan.
@@ -807,6 +872,8 @@ def _estimation_declaree(mesure: Mesure) -> bool:
             return True
         if _FAIT_DE_CROISSANCE.search(portee):
             return False
+        if _seuil_de_declenchement(mesure, portee):
+            return True
         return bool(
             _ESTIMATION.search(portee) or _DECISION_JUSTE_AVANT.search(avant)
             or decidee_par_l_en_tete
@@ -814,6 +881,8 @@ def _estimation_declaree(mesure: Mesure) -> bool:
 
     if _TAILLE_DE_MARCHE.search(portee):
         return False
+    if _seuil_de_declenchement(mesure, portee):
+        return True
     if _DECISION_JUSTE_AVANT.search(avant) or decidee_par_l_en_tete:
         return True
     if not _ESTIMATION.search(portee):
