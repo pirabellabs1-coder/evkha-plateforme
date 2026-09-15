@@ -64,6 +64,24 @@ def test_la_consigne_du_business_plan_dit_l_exception_et_ses_bornes() -> None:
     assert detecter_fourchettes(0, consigne, BP) == []
 
 
+def test_la_reprise_d_une_plage_sourcee_dans_le_chapitre_est_admise() -> None:
+    """`7567ca2f`, chapitre 8 : la prose reprend la plage que le tableau source."""
+    texte = (
+        "| Logiciel en ligne | 20 à 50 € par mois (Cabinet Osmose, 2026) | Palier Solo |\n\n"
+        "EVKHA dépasse la simple mise à disposition d'un outil nu (20 à 50 € par mois)."
+    )
+    assert detecter_fourchettes(8, texte, BP) == []
+
+
+def test_une_plage_jamais_sourcee_dans_le_chapitre_reste_refusee() -> None:
+    """CONTRE-ÉPREUVE : la reprise d'une AUTRE plage n'hérite d'aucune source."""
+    texte = (
+        "| Logiciel en ligne | 20 à 50 € par mois (Cabinet Osmose, 2026) | Palier Solo |\n\n"
+        "Un outil complet coûte de 60 à 90 € par mois."
+    )
+    assert [f.extrait for f in detecter_fourchettes(8, texte, BP)] == ["60 à 90 €"]
+
+
 def test_une_case_qui_passe_a_la_ligne_garde_sa_source() -> None:
     """`7567ca2f` : la case du tableau passait à la ligne avant sa source."""
     texte = (

@@ -42,3 +42,33 @@ def test_la_forme_borne_les_blocs_paragraphe_au_seuil_du_controle() -> None:
         assert "champ `contenu` d'une section" not in forme
         plafond = seuils_de_densite(livrable).mediane_paragraphe_max
         assert f"Un bloc `paragraphe` tient en {plafond} mots au plus" in forme
+
+
+def test_un_catalogue_court_se_dit_sans_toucher_a_l_objectif() -> None:
+    """`cd639627` : quatre figures possibles, vingt-deux demandées, huit inventées."""
+    from datetime import date
+    from unittest.mock import MagicMock, patch
+
+    from generation.chapitres.runner import _bloc_visuels
+    from generation.prompts import CIBLE_FIGURES_DEMANDEES
+    from generation.socle.referentiel import Fiabilite, Perimetre
+    from generation.socle.schema import DonneeSocle, Socle, Zone
+
+    socle = Socle(
+        secteur="legaltech", zone=Zone(pays="France"), date_socle=date(2026, 9, 15),
+        donnees=[DonneeSocle(
+            id="ca_objectif_an1", libelle="CA", valeur=51030, unite="EUR", annee=2026,
+            perimetre=Perimetre.ENTREPRISE, fiabilite=Fiabilite.DECLAREE,
+        )],
+    )
+    job = MagicMock()
+    with patch("generation.chapitres.runner.formes_deja_employees", return_value=[]), \
+            patch("generation.rendu_word.catalogue_figures.figures_possibles",
+                  return_value=[object()] * 4):
+        bloc = _bloc_visuels(socle, job, 6)
+    assert "CE SOCLE NE PERMET QUE 4 FIGURE(S)" in bloc
+    assert str(CIBLE_FIGURES_DEMANDEES) in bloc  # l'objectif de la cliente reste écrit
+    with patch("generation.chapitres.runner.formes_deja_employees", return_value=[]), \
+            patch("generation.rendu_word.catalogue_figures.figures_possibles",
+                  return_value=[object()] * 24):
+        assert "CE SOCLE NE PERMET QUE" not in _bloc_visuels(socle, job, 6)

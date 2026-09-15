@@ -327,6 +327,18 @@ def detecter_fourchettes(
         and deliverable_type in _LIVRABLES_FOURCHETTE_SOURCEE_OK
     )
     trouvees: list[FourchetteTrouvee] = []
+    # Business plan : les plages de marché que le chapitre SOURCE quelque part.
+    # Leur reprise un peu plus loin — « un outil nu (20 à 50 € par mois) » après
+    # « 20 à 50 € par mois (Cabinet Osmose, 2026) » dans le tableau — cite la
+    # même observation ; exiger la source à chaque occurrence ferait recopier
+    # la parenthèse partout (génération `7567ca2f`, 15/09/2026). Une plage
+    # jamais sourcée dans le chapitre reste refusée.
+    sourcees: set[str] = set()
+    if deliverable_type == "business_plan":
+        for motif in (_FOURCHETTE_MONETAIRE, _FOURCHETTE_POURCENTAGE):
+            for match in motif.finditer(texte):
+                if not _n_est_pas_une_plage(texte, match) and _prix_de_marche_source(texte, match):
+                    sourcees.add(" ".join(match.group(0).split()))
     for motif in (_FOURCHETTE_MONETAIRE, _FOURCHETTE_POURCENTAGE):
         for match in motif.finditer(texte):
             # Le motif capture soit le premier couple de groupes (« entre X et
@@ -336,7 +348,9 @@ def detecter_fourchettes(
             borne_haute = match.group(2) or match.group(4)
             if _n_est_pas_une_plage(texte, match):
                 continue
-            if deliverable_type == "business_plan" and _prix_de_marche_source(texte, match):
+            if deliverable_type == "business_plan" and (
+                " ".join(match.group(0).split()) in sourcees
+            ):
                 continue
             if fourchette_sourcee_ok:
                 fenetre = texte[match.end() : match.end() + _MEDIANE_FENETRE]

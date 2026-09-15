@@ -1523,13 +1523,36 @@ def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
     # `build_system_prompt`. Dix-huit figures abandonnees sur `b561c2d6`, presque
     # toutes pour « unites heterogenes », parce que la consigne etait MUETTE et
     # non parce qu'elle etait ignoree.
-    from ..prompts import OBJECTIF_FIGURES_TEXTE, REGLES_IDENTIFIANTS_FIGURES  # noqa: PLC0415
+    from ..prompts import (  # noqa: PLC0415
+        CIBLE_FIGURES_DEMANDEES,
+        OBJECTIF_FIGURES_TEXTE,
+        REGLES_IDENTIFIANTS_FIGURES,
+    )
+    from ..rendu_word.catalogue_figures import figures_possibles  # noqa: PLC0415
+
+    # Un CATALOGUE COURT se dit. Génération test `cd639627` (stratégie,
+    # 15/09/2026) : le socle ne permettait que quatre figures, la consigne en
+    # demandait vingt-deux, et le modèle a inventé huit figures hors catalogue —
+    # un entonnoir mêlant un nombre de clients et un taux, une frise sans date —
+    # toutes abandonnées. L'objectif de la cliente reste écrit tel quel (« une
+    # obligation absolue ») ; on dit seulement que l'inventer ne l'atteint pas.
+    possibles = len(figures_possibles(socle)) if socle.donnees else 0
+    catalogue_court = (
+        f"CE SOCLE NE PERMET QUE {possibles} FIGURE(S) DISTINCTE(S), toutes dans "
+        "la liste des figures réalisables. Emploie-les là où elles servent le "
+        "propos, et n'en demande AUCUNE autre : une figure hors de cette liste est "
+        "abandonnée au rendu et ne compte pas dans l'objectif. Le tableau du "
+        "chapitre porte le reste.\n\n"
+        if possibles < CIBLE_FIGURES_DEMANDEES and socle.donnees
+        else ""
+    )
 
     return (
         "VISUELS — un graphique ne porte AUCUNE valeur : il porte des "
         "identifiants des données de référence, résolus au rendu. Un identifiant "
         "absent des données de référence fait abandonner la figure entière.\n\n"
         + OBJECTIF_FIGURES_TEXTE + "\n\n"
+        + catalogue_court
         + REGLES_IDENTIFIANTS_FIGURES + "\n\n"
         "Types disponibles :\n" + resume_catalogue() + "\n\n"
         + secteurs.consigne_visuelle(profil)
