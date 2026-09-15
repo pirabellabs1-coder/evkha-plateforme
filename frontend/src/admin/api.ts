@@ -382,10 +382,8 @@ export const adminApi = {
     get<{
       livrables: LivrableConfiguration[];
       figures: {
-        plancher: number;
-        plafond: number;
-        demandees_au_modele: number;
-        formes_minimum: number;
+        quota: number | null;
+        completion_jusqu_a: number;
       };
       modifiable: boolean;
       pourquoi: string;

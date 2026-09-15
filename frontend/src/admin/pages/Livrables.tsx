@@ -50,8 +50,8 @@ export function LivrablesAdmin() {
         />
         <Chiffre
           libelle="Figures par document"
-          valeur={`${data?.figures.plancher ?? 0} à ${data?.figures.plafond ?? 0}`}
-          detail={`${data?.figures.demandees_au_modele ?? 0} demandées au modèle, ${data?.figures.formes_minimum ?? 0} formes minimum`}
+          valeur="Aucun quota"
+          detail={`Illustrées selon les données ; complétion automatique jusqu'à ${data?.figures.completion_jusqu_a ?? 0} figures réelles`}
         />
         <Chiffre
           libelle="Données du socle"

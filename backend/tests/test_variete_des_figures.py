@@ -171,7 +171,10 @@ def test_l_objectif_chiffre_atteint_le_moteur_qui_rend_les_figures(job: Any) -> 
         numero=3,
     )
 
-    assert _figures_demandees(bloc) >= PLANCHER_CLIENTE
+    # Depuis le 15/09/2026, la consigne ne chiffre plus d'objectif (décision du
+    # client) : ce test vérifie que la consigne de figures ATTEINT toujours le
+    # moteur structuré, sans quota.
+    assert "pas de nombre à atteindre" in bloc
     assert "FORMES DIFFERENTES" in bloc
 
 
@@ -228,6 +231,7 @@ def test_l_objectif_chiffre_est_dit_au_modele() -> None:
 
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
 
-    assert _figures_demandees(prompt) >= PLANCHER_CLIENTE
+    # Décision du client du 15/09/2026 : plus de quota de figures.
+    assert "pas de nombre à atteindre" in prompt
     assert "FORMES DIFFERENTES" in prompt
-    assert "un chapitre sans figure doit etre l'exception" in prompt
+    assert "Un chapitre sans figure est normal" in prompt

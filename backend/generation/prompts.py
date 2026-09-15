@@ -170,24 +170,25 @@ _GRAPHIQUES_MOTEUR_HERITE = (
 #: « VINGT-DEUX » ne peut pas etre derive de `22`, et deux ecritures d'un meme
 #: nombre finissent toujours par se contredire.
 PLANCHER_FIGURES = 17
-PLAFOND_FIGURES = 25
-#: On en demande PLUS que le plancher : le rendu refuse legitimement les
-#: figures dont la donnee ne se prete pas (taux mesure sur le dossier reel
-#: 9be9a422 : onze rendues pour quinze demandees).
-CIBLE_FIGURES_DEMANDEES = 22
-#: Varier les formes est une exigence a part entiere : « des graphes de divers
-#: maniere », et « les graphes ne seront pas toujours les memes ».
-FORMES_DIFFERENTES_MINIMUM = 12
+#: PLUS DE QUOTA DEMANDÉ AU MODÈLE — décision du client, 15/09/2026 : « et si
+#: on enlève d'avoir un nombre exact de figures tout simplement, c'est très
+#: bloquant ». Mesuré le même jour sur la génération test `cd639627` : le socle
+#: de la stratégie ne permettait que quatre figures, la consigne en réclamait
+#: vingt-deux, et le modèle en a inventé huit, toutes abandonnées au rendu. Le
+#: quota ne produisait pas de figures : il produisait des demandes impossibles.
+#:
+#: `PLANCHER_FIGURES` ne sert plus qu'à la COMPLÉTION de l'assemblage, qui ajoute
+#: de vraies figures du socle aux chapitres qui n'en ont pas ; il n'est ni
+#: demandé au modèle, ni vérifié sur le document.
 
 OBJECTIF_FIGURES_TEXTE = (
-    f"OBJECTIF DE L'ETUDE ENTIERE : au moins {CIBLE_FIGURES_DEMANDEES} figures, "
-    f"et au moins {FORMES_DIFFERENTES_MINIMUM} FORMES DIFFERENTES. C'est une "
-    "etude illustree, pas un rapport de texte : un chapitre sans figure doit "
-    "etre l'exception, et il faut une raison — aucune donnee du socle ne s'y "
-    "prete.\n"
-    "Vise DEUX figures par chapitre des que deux idees distinctes s'y "
-    "illustrent : c'est ce qui fait la difference entre une etude illustree "
-    "et une etude ou l'on a colle une image par section."
+    "FIGURES — pas de nombre à atteindre. Illustre ce qui s'illustre : une "
+    "comparaison, une repartition, une progression dans le temps, un classement "
+    "ou le passage d'un perimetre a un autre appelle sa figure, prise dans la "
+    "liste des figures realisables. Varie les FORMES DIFFERENTES d'un chapitre a "
+    "l'autre. Un chapitre sans figure est normal quand aucune donnee ne s'y "
+    "prete : son tableau porte l'information. Une figure hors de cette liste est "
+    "abandonnee au rendu — n'en demande aucune pour remplir."
 )
 
 #: Regles de SELECTION des identifiants d'une figure — le seul texte qui dit au

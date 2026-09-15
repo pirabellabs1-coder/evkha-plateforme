@@ -1,105 +1,58 @@
-"""« Au moins 17 à 25 graphes par document, c'est une obligation absolue. »
+"""Les figures : plus de quota, une complétion qui reste, un seul motif d'absence.
 
-Exigence posée par la cliente le 06/08/2026. Elle était écrite dans la charte
-envoyée au modèle — et vérifiée nulle part : `controler_visuels` ne se plaignait
-que d'un document à **zéro** figure. Un livrable à cinq figures passait donc le
-contrôle, était livré, et personne ne pouvait dire qu'il avait manqué à la
-promesse. C'est la règle 1 : un contrôle qui n'a rien à comparer est un échec
-déguisé en succès.
+## L'histoire
 
-Mesuré à blanc aux drapeaux de production, avant correctif : quatorze figures
-pour le business plan, la stratégie et l'étude de marché, sept pour l'étude
-concurrentielle.
+06/08/2026, la cliente : « au moins 17 à 25 graphes par document, c'est une
+obligation absolue ». Le quota a été demandé au modèle, complété depuis le
+socle, puis vérifié sur le document livré.
 
-Trois pièces, et ces tests tiennent les trois :
+15/09/2026, le client : « et si on enlève d'avoir un nombre exact de figures
+tout simplement, c'est très bloquant ». Mesuré le même jour sur la génération
+test `cd639627` : le socle de la stratégie ne permettait que quatre figures, la
+consigne en réclamait vingt-deux, et le modèle en a inventé huit, toutes
+abandonnées au rendu. Le quota ne produisait pas de figures, il produisait des
+demandes impossibles.
 
-1. **Les nombres sont uniques** (règle 5). La charte et le contrôle lisent les
-   mêmes constantes. Deux écritures d'un même quota divergent toujours.
-2. **La complétion** tire du socle ce qui manque, en n'employant que les
-   données que le chapitre a lui-même citées, et en le déclarant.
-3. **Le contrôle bloque** si le compte n'y est toujours pas.
+## Ce que ces tests tiennent
 
-Le quatrième test est le plus important : il vérifie que le nombre annoncé au
-rapport est celui que le lecteur VOIT. Une première version comptait dix-sept
-figures pour seize dans le document — la dix-septième était posée sur la
-« Fiche projet », que le gabarit rend autrement. Un contrôle qui juge sur une
-évidence que le document ne porte pas, c'est la règle 9.
+1. **La consigne ne chiffre plus aucun objectif**, et dit qu'un chapitre sans
+   figure est normal quand aucune donnée ne s'y prête.
+2. **Le contrôle ne signale plus un plancher** ; il signale encore un document
+   où AUCUNE figure n'a pu être dessinée.
+3. **La complétion** tire toujours du socle de vraies figures pour les chapitres
+   qui n'en ont pas, et le nombre annoncé au rapport est celui que le lecteur
+   VOIT — la fiche projet, rendue autrement, n'en reçoit pas.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import pytest
 
-from generation.prompts import (
-    CIBLE_FIGURES_DEMANDEES,
-    FORMES_DIFFERENTES_MINIMUM,
-    PLAFOND_FIGURES,
-    PLANCHER_FIGURES,
-)
+from generation.prompts import PLANCHER_FIGURES
 from generation.rendu_word.assemblage import RapportAssemblage, _completer_les_figures
 from generation.verification import controles
 from generation.verification.rapport import Gravite
 
-# ── 1. Un seul jeu de nombres ────────────────────────────────────────────────
+# ── 1. La consigne ───────────────────────────────────────────────────────────
 
 
-def test_le_quota_de_la_cliente_est_celui_du_code() -> None:
-    """17 à 25 : ce sont ses mots, et ce doivent être les constantes."""
-    assert (PLANCHER_FIGURES, PLAFOND_FIGURES) == (17, 25)
-    # On demande PLUS que le plancher : le rendu écarte légitimement les
-    # figures dont la donnée ne se prête pas.
-    assert CIBLE_FIGURES_DEMANDEES > PLANCHER_FIGURES
-
-
-def test_la_charte_recopie_les_constantes_au_lieu_de_les_redire() -> None:
-    """Avant, la charte disait « VINGT-DEUX » en toutes lettres.
-
-    Un nombre écrit deux fois, dans deux orthographes, ne peut pas être tenu
-    d'accord : relever le quota d'un côté laissait l'autre en arrière — et
-    c'est précisément ce qui s'était produit (règle 5).
-    """
+def test_la_consigne_ne_chiffre_plus_aucun_objectif_de_figures() -> None:
     from generation.prompts import OBJECTIF_FIGURES_TEXTE
 
-    assert str(CIBLE_FIGURES_DEMANDEES) in OBJECTIF_FIGURES_TEXTE
-    assert str(FORMES_DIFFERENTES_MINIMUM) in OBJECTIF_FIGURES_TEXTE
-    assert "VINGT-DEUX" not in OBJECTIF_FIGURES_TEXTE
+    assert not re.search(r"\d+\s+figures", OBJECTIF_FIGURES_TEXTE)
+    assert "pas de nombre à atteindre" in OBJECTIF_FIGURES_TEXTE
+    assert "Un chapitre sans figure est normal" in OBJECTIF_FIGURES_TEXTE
 
 
 # ── 2. Le contrôle ───────────────────────────────────────────────────────────
 
 
-def test_un_document_sous_le_plancher_est_signale_sans_etre_retenu() -> None:
-    """Le manque de figures se SIGNALE, il ne retient plus le document.
-
-    Décision du 12/09/2026, qui prolonge celle du 13/08 sur le gate : « tout
-    doit être clean avant que le document soit envoyé, et quand le contrôle du
-    document est fini, le document doit partir ». Retenir un livrable payé pour
-    un manque de figures n'appelait aucun geste réparateur — l'administrateur
-    ne réécrit pas le document, et le dossier attendait une main qui ne pouvait
-    rien. Les figures refusées au dessin sont désormais imprimées en TABLEAU
-    par l'assemblage : l'information reste, seule la forme est perdue.
-
-    Sur le code d'avant, ces seize figures ne produisaient aucune anomalie ;
-    puis elles en produisaient une BLOQUANTE. Elles produisent maintenant un
-    avertissement, et le document part.
-    """
-    anomalies = controles.controler_visuels(20, PLANCHER_FIGURES - 1, [], [])
-
-    assert not [a for a in anomalies if a.gravite is Gravite.BLOQUANTE]
-    signalees = [a for a in anomalies if a.gravite is Gravite.AVERTISSEMENT]
-    assert len(signalees) == 1
-    # Règle 2 : le motif doit être vérifiable par son lecteur. Les deux nombres
-    # y figurent, donc le constat se recompte.
-    assert str(PLANCHER_FIGURES - 1) in signalees[0].detail
-    assert str(PLANCHER_FIGURES) in signalees[0].detail
-
-
-def test_un_document_au_plancher_passe() -> None:
-    """Contre-épreuve : le contrôle ne doit pas retenir un document conforme."""
-    anomalies = controles.controler_visuels(20, PLANCHER_FIGURES, [], [])
-
-    assert not [a for a in anomalies if a.gravite is Gravite.BLOQUANTE]
+@pytest.mark.parametrize("rendues", [1, 4, PLANCHER_FIGURES - 1, PLANCHER_FIGURES])
+def test_un_document_avec_peu_de_figures_n_est_plus_signale(rendues: int) -> None:
+    """Sur le code d'avant : « 4 figures dans le document, pour un plancher de 17 »."""
+    assert controles.controler_visuels(20, rendues, [], []) == []
 
 
 def test_un_document_sans_aucune_figure_garde_son_motif_d_origine() -> None:

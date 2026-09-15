@@ -50,7 +50,6 @@ def test_un_catalogue_court_se_dit_sans_toucher_a_l_objectif() -> None:
     from unittest.mock import MagicMock, patch
 
     from generation.chapitres.runner import _bloc_visuels
-    from generation.prompts import CIBLE_FIGURES_DEMANDEES
     from generation.socle.referentiel import Fiabilite, Perimetre
     from generation.socle.schema import DonneeSocle, Socle, Zone
 
@@ -67,7 +66,6 @@ def test_un_catalogue_court_se_dit_sans_toucher_a_l_objectif() -> None:
                   return_value=[object()] * 4):
         bloc = _bloc_visuels(socle, job, 6)
     assert "CE SOCLE NE PERMET QUE 4 FIGURE(S)" in bloc
-    assert str(CIBLE_FIGURES_DEMANDEES) in bloc  # l'objectif de la cliente reste écrit
     with patch("generation.chapitres.runner.formes_deja_employees", return_value=[]), \
             patch("generation.rendu_word.catalogue_figures.figures_possibles",
                   return_value=[object()] * 24):

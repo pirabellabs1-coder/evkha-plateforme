@@ -599,13 +599,7 @@ def livrables(request: HttpRequest) -> JsonResponse:
     """
     from catalog.models import DeliverableType
     from generation.blueprints import chapters_for_deliverable
-    from generation.prompts import (
-        CIBLE_FIGURES_DEMANDEES,
-        FORMES_DIFFERENTES_MINIMUM,
-        PLAFOND_FIGURES,
-        PLANCHER_FIGURES,
-        build_system_prompt,
-    )
+    from generation.prompts import PLANCHER_FIGURES, build_system_prompt
     from generation.socle.referentiel import _PAR_LIVRABLE
     from organisations.commandes import DESCRIPTIONS, LIBELLES
 
@@ -645,11 +639,12 @@ def livrables(request: HttpRequest) -> JsonResponse:
 
     return _json({
         "livrables": resultat,
+        # Plus de quota de figures : décision du client du 15/09/2026. Le seul
+        # nombre qui reste est celui de la complétion, qui ajoute de vraies
+        # figures du socle aux chapitres qui n'en ont pas.
         "figures": {
-            "plancher": PLANCHER_FIGURES,
-            "plafond": PLAFOND_FIGURES,
-            "demandees_au_modele": CIBLE_FIGURES_DEMANDEES,
-            "formes_minimum": FORMES_DIFFERENTES_MINIMUM,
+            "quota": None,
+            "completion_jusqu_a": PLANCHER_FIGURES,
         },
         # Dit a l'ecran, plutot que laisse a deviner devant l'absence de bouton.
         "modifiable": False,

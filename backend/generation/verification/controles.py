@@ -39,7 +39,6 @@ from itertools import zip_longest
 from core.numbers import amounts_in
 
 from ..checks_post_rendu import REFERENCE_JURIDIQUE, _sans_accents
-from ..prompts import PLAFOND_FIGURES, PLANCHER_FIGURES
 from ..socle.referentiel import identifiants_obligatoires
 from ..socle.schema import DONNEE_MANQUANTE, Socle, valeur_en_unites_de_base
 from .lecture import DocumentLu, Mesure, mesures_dans
@@ -1703,22 +1702,9 @@ def controler_visuels(
             f"Aucun des {graphiques_demandes} graphiques demandés n'a pu être "
             "dessiné ; leurs données sont imprimées en tableau.",
         ))
-    elif graphiques_rendus < PLANCHER_FIGURES:
-        # Le quota vient de la cliente : « au moins 17 à 25 graphes par
-        # document, c'est une obligation absolue ». Il était demandé au modèle
-        # et vérifié nulle part : ce contrôle ne se plaignait que d'un document
-        # à ZÉRO figure, si bien qu'un livrable à cinq passait pour complet.
-        #
-        # Bloquant, et à raison : la passe de complétion de l'assemblage a déjà
-        # eu l'occasion de tirer du socle tout ce qu'il pouvait donner. Si le
-        # compte n'y est toujours pas, le document ne tient pas la promesse
-        # faite au client, et le livrer en silence serait le pire des deux.
-        anomalies.append(Anomalie(
-            "visuels", Gravite.AVERTISSEMENT,
-            f"{graphiques_rendus} figures dans le document, pour un plancher "
-            f"de {PLANCHER_FIGURES} ({PLANCHER_FIGURES} à {PLAFOND_FIGURES} "
-            "attendues). Le socle n'a pas pu en alimenter davantage.",
-        ))
+    # Plus d'avertissement « N figures pour un plancher de 17 » : le quota est
+    # retiré, décision du client du 15/09/2026 (voir `prompts.py`). Un document
+    # juste avec les figures que ses données permettent n'a rien à signaler.
     anomalies.extend(
         Anomalie("visuels", Gravite.AVERTISSEMENT, f"Graphique abandonné — {motif}")
         for motif in abandonnes
