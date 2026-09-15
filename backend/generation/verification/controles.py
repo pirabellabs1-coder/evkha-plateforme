@@ -38,7 +38,7 @@ from itertools import zip_longest
 
 from core.numbers import amounts_in
 
-from ..checks_post_rendu import REFERENCE_JURIDIQUE
+from ..checks_post_rendu import REFERENCE_JURIDIQUE, _sans_accents
 from ..prompts import PLAFOND_FIGURES, PLANCHER_FIGURES
 from ..socle.referentiel import identifiants_obligatoires
 from ..socle.schema import DONNEE_MANQUANTE, Socle, valeur_en_unites_de_base
@@ -843,8 +843,7 @@ def _part_calculee_dans_sa_ligne(
     en_tete = mesure.phrase.partition(" : ")[0]
     if ecrit <= 0 or not _EN_TETE_DE_PART.search(en_tete):
         return False
-    decimales = _decimales(mesure.texte.replace("%", ""))
-    tolerance = max(0.5 * 10 ** -decimales, ecrit * _TOLERANCE_CALCUL_POSE)
+    tolerance = _tolerance_d_une_part(mesure)
     ligne = mesure.phrase.partition(" : ")[2] or mesure.phrase
     numerateurs = [
         n for n in _nombres_de_la_phrase(ligne) if not n.pourcentage and n.valeur > 0
@@ -942,6 +941,127 @@ def _reprend_une_estimation_etablie(
 # ── Contrôle 1 : aucune valeur hors socle ────────────────────────────────────
 
 
+#: Ce qui introduit la grandeur à laquelle une part se rapporte : « 36,3 % DU
+#: chiffre d'affaires », « 23 % DE LA dépense », « 68,4 % DE L'excédent ».
+_RAPPORTEE_A = re.compile(r"\s*(?:du|de\s+la|de\s+l['’]|des|d['’])\s*", re.IGNORECASE)
+
+#: Ce qui FERME le nom de la grandeur : une case, une ponctuation, un tiret.
+#: « 36 % des clients fidélisés, le chiffre d'affaires couvre… » ne nomme que
+#: les clients (relecture du 15/09/2026).
+_FIN_DU_NOM = re.compile(r"\s\|\s|[.;:,()]|\s[—–]\s")
+
+#: Le nom tient dans ses premiers mots : au-delà, on lit la suite de la phrase.
+_MOTS_DU_NOM = 4
+
+#: Les mots d'un libellé qui DATENT la grandeur sans la nommer.
+_MOTS_QUI_DATENT = frozenset({
+    "exercice", "exercices", "annee", "annees", "annuel", "annuels", "annuelle", "annuelles",
+})
+
+#: Le repère d'exercice écrit après le nom : « de l'année 1 », « exercice 2 ».
+_EXERCICE_NOMME = re.compile(r"\b(?:ann[ée]e|exercice|an)\s*(\d{1,2})\b", re.IGNORECASE)
+_ANNEE_NOMMEE = re.compile(r"\b((?:19|20)\d{2})\b")
+
+#: Les unités qui disent l'euro, et elles seules.
+_UNITE_EURO = re.compile(r"(?:Mds€|Md€|M€|k€|kEUR|€|euros?|EUR)", re.IGNORECASE)
+
+
+def _racines(mots: Iterable[str]) -> set[str]:
+    """Les mots qui nomment, ramenés à leurs cinq premières lettres sans accent."""
+    nus = (_sans_accents(mot) for mot in mots)
+    return {mot[:5] for mot in nus if len(mot) >= 5 and mot not in _MOTS_QUI_DATENT}
+
+
+def _tolerance_d_une_part(mesure: Mesure) -> float:
+    """L'arrondi qu'une part écrite admet : ses décimales, ou l'écart d'un calcul posé.
+
+    Une seule lecture pour les deux règles de parts (règle 5) : « 36,3 % » pour
+    36,25 %, « 23 % » pour 23,08 %.
+    """
+    decimales = _decimales(mesure.texte.replace("%", ""))
+    return max(0.5 * 10.0 ** -decimales, mesure.valeur * _TOLERANCE_CALCUL_POSE)
+
+
+def _part_d_une_donnee_nommee(mesure: Mesure, socle: Socle) -> bool:
+    """Un montant de la phrase rapporté à une donnée du socle que la phrase NOMME.
+
+    Business plans du corpus du 15/09/2026 :
+
+    - « le seuil de rentabilité (19 674 euros, 36,3 % du chiffre d'affaires de
+      l'année 1) » — 19 674 / 54 276 € (`ca_previsionnel_an1`) ;
+    - « une marge de sécurité de 55 000 euros représente environ 20,8 % du
+      seuil de rentabilité annuel » — 55 000 / 265 000 €.
+
+    Le dénominateur n'est pas écrit : il est NOMMÉ, et le socle le porte. Les
+    dérivations ne le voyaient pas : elles comparent au bit près, la part est
+    arrondie à l'écriture.
+
+    Les bornes, pour qu'une part fausse ne tombe pas juste par hasard
+    (relecture du 15/09/2026) :
+
+    - le NOM suit la part (« du », « de la »…) et s'arrête à la première case,
+      ponctuation ou incise ; ses quatre premiers mots portent au moins deux
+      mots du libellé — un seul si le libellé n'en a qu'un ;
+    - un montant écrit dans le nom (« du chiffre d'affaires de 385 000 euros »)
+      exclut la règle : le calcul posé se juge dans sa phrase, pas ici ;
+    - l'exercice ou l'année nommés doivent être ceux de la donnée ;
+    - le numérateur est un montant en EUROS de la même phrase, plus petit que
+      la donnée, et la part a au moins deux chiffres significatifs ;
+    - le rapport tombe juste à l'arrondi écrit.
+
+    Le numérateur reste jugé pour lui-même : cette règle ne justifie que la part.
+    """
+    if not (mesure.est_un_pourcentage and mesure.phrase) or mesure.debut_dans_la_phrase < 0:
+        return False
+    if _chiffres_significatifs(mesure.texte) < _CHIFFRES_SIGNIFICATIFS_MIN:
+        return False
+    fin = mesure.debut_dans_la_phrase + len(mesure.texte)
+    lien = _RAPPORTEE_A.match(mesure.phrase, fin)
+    if lien is None:
+        return False
+    suite = mesure.phrase[lien.end():]
+    coupure = _FIN_DU_NOM.search(suite)
+    groupe = suite[: coupure.start()] if coupure else suite
+    if any(n.unite and not n.pourcentage for n in _nombres_de_la_phrase(groupe)):
+        return False
+    nom = _racines(re.findall(r"[^\W\d_]+", groupe)[:_MOTS_DU_NOM])
+    if not nom:
+        return False
+    exercice = _EXERCICE_NOMME.search(groupe)
+    annee = _ANNEE_NOMMEE.search(groupe)
+
+    numerateurs = [
+        n.valeur for n in _nombres_de_la_phrase(mesure.phrase)
+        if n.valeur > 0 and n.position != mesure.debut_dans_la_phrase
+        and _UNITE_EURO.fullmatch(n.unite.strip())
+    ]
+    if not numerateurs:
+        return False
+    tolerance = _tolerance_d_une_part(mesure)
+    for donnee in socle.donnees:
+        racines = _racines(re.findall(r"[^\W\d_]+", donnee.libelle))
+        if not racines or len(racines & nom) < min(2, len(racines)):
+            continue
+        if exercice and not (
+            donnee.id.endswith(f"_an{exercice.group(1)}")
+            or re.search(rf"\b(?:ann[ée]e|exercice|an)\s*{exercice.group(1)}\b",
+                         donnee.libelle, re.IGNORECASE)
+        ):
+            continue
+        if annee and donnee.annee != int(annee.group(1)):
+            continue
+        base = valeur_en_unites_de_base(donnee.valeur, donnee.unite)
+        if base is None or base[1] != "EUR" or base[0] <= 0:
+            continue
+        if any(
+            numerateur < base[0]
+            and abs(numerateur / base[0] * 100 - mesure.valeur) <= tolerance
+            for numerateur in numerateurs
+        ):
+            return True
+    return False
+
+
 def controler_chiffres_hors_socle(
     document: DocumentLu, socle: Socle, chiffres_du_brief: Iterable[float] = ()
 ) -> list[Anomalie]:
@@ -1009,6 +1129,7 @@ def controler_chiffres_hors_socle(
             or _part_d_une_repartition(mesure)
             or _complement_a_cent(mesure)
             or _cite_un_libelle_du_socle(mesure, socle)
+            or _part_d_une_donnee_nommee(mesure, socle)
         ):
             continue
         if mesure.texte in deja_vues:
