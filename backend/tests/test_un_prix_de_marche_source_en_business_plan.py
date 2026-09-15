@@ -62,3 +62,18 @@ def test_la_consigne_du_business_plan_dit_l_exception_et_ses_bornes() -> None:
     assert "Les prix du PROJET ne sont jamais concernés" in consigne
     # La consigne ne montre elle-même aucune plage (règle des consignes).
     assert detecter_fourchettes(0, consigne, BP) == []
+
+
+def test_une_case_qui_passe_a_la_ligne_garde_sa_source() -> None:
+    """`7567ca2f` : la case du tableau passait à la ligne avant sa source."""
+    texte = (
+        "| Logiciel en ligne | 20 à 50 € par mois pour un outil performant\n"
+        "(Cabinet Osmose, 2026) | Palier Solo |"
+    )
+    assert detecter_fourchettes(8, texte, BP) == []
+
+
+def test_une_nouvelle_ligne_de_tableau_ferme_la_case() -> None:
+    """CONTRE-ÉPREUVE : la source d'une AUTRE ligne ne vaut pas pour celle-ci."""
+    texte = "| Offre EVKHA | 149 à 195 € |\n| Outil X | (Cabinet Osmose, 2026) |"
+    assert detecter_fourchettes(8, texte, BP)

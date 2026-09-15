@@ -38,6 +38,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
     DeliverableType.BUSINESS_PLAN: [
         "UN prix par variante",
         "Un montant se DÉCIDE",
+        "adresse web, recopiée telle quelle",
         "FIGURES RÉALISABLES AVEC CE SOCLE",
         "cité par 9 comparateurs",
     ],
@@ -45,6 +46,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
         "UN prix par variante",
         "CA de référence estimé",
         "CA actuel estimé",
+        "adresse web, recopiée telle quelle",
         "FIGURES RÉALISABLES AVEC CE SOCLE",
         "cité par 9 comparateurs",
     ],
@@ -53,6 +55,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
         "le coût mensuel retenu",
         "ce qu'un pilotage stratégique change",
         "Décisions retenues",
+        "adresse web, recopiée telle quelle",
         "FIGURES RÉALISABLES AVEC CE SOCLE",
         "cité par 9 comparateurs",
     ],

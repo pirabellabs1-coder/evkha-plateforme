@@ -288,8 +288,10 @@ def _phrase_de_la_plage(corps: str, detail: str) -> str:
     # pour le n-ième motif » — ne disait pas laquelle était refusée : une
     # occurrence sourcée ADMISE ne produit pas de motif, et décale le rang
     # (mesure de 7f7a5f3 sur `7567ca2f`, « 20 à 50 € » au chapitre 8).
+    # Les sauts de ligne restent VISIBLES (⏎) : les aplatir cachait une case de
+    # tableau passée à la ligne, qui coupait la source de sa plage.
     passages = [
-        " ".join(corps[max(0, trouve.start() - 180) : trouve.end() + 120].split())
+        corps[max(0, trouve.start() - 180) : trouve.end() + 120].replace("\n", " ⏎ ")
         for trouve in re.finditer(re.escape(plage.group(1)), corps)
     ]
     return " ⟂ ".join(passages)

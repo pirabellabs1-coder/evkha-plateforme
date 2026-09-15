@@ -1250,7 +1250,32 @@ def _bloc_forme(code_livrable: str = "") -> str:
     reçoit la partie commune seule — pas de silence, pas d'invention.
     """
     propre = _FORME_PAR_LIVRABLE.get(code_livrable, "")
-    return _forme_commune() + (f"\n{propre}" if propre else "")
+    return (
+        _forme_commune()
+        + f"\n{_longueur_des_paragraphes(code_livrable)}"
+        + (f"\n{propre}" if propre else "")
+    )
+
+
+def _longueur_des_paragraphes(code_livrable: str) -> str:
+    """La longueur d'un bloc `paragraphe`, au seuil que le contrôle applique.
+
+    La consigne disait « le champ `contenu` d'une section est une amorce : deux
+    à trois phrases » — le langage de l'ANCIEN format de chapitre. Le moteur
+    écrit des blocs `paragraphe`, et aucune consigne ne bornait leur longueur :
+    génération de preuve `7567ca2f` (15/09/2026), paragraphe médian de 37 à 41
+    mots aux chapitres 2, 17 et 19, pour un plafond de 25. Le seuil est lu dans
+    le contrôle de densité lui-même (règle 5) : la stratégie en a un autre.
+    """
+    from ..verification.controles import seuils_de_densite  # noqa: PLC0415
+
+    plafond = seuils_de_densite(code_livrable).mediane_paragraphe_max
+    return (
+        f"- Un bloc `paragraphe` tient en {plafond} mots au plus pour la plupart "
+        "d'entre eux : il annonce ou commente un tableau, il ne le remplace pas. "
+        "Une idée qui demande davantage se découpe en plusieurs paragraphes, ou "
+        "passe dans le tableau."
+    )
 
 
 def _forme_commune() -> str:
@@ -1260,9 +1285,8 @@ def _forme_commune() -> str:
         "- L'information vit dans les TABLEAUX. Chaque section porte un "
         "`tableau` de 3 à 5 colonnes ; ce sont ses lignes qui portent les "
         "chiffres, les critères et les comparaisons.\n"
-        "- Le champ `contenu` d'une section est une AMORCE, pas un "
-        "développement : deux à trois phrases qui annoncent ce que le tableau "
-        "montre. Au-delà, il sera tronqué au rendu.\n"
+        "- Les blocs `paragraphe` sont des AMORCES, pas un développement : "
+        "ils annoncent ce que le tableau montre et disent ce qu'il implique.\n"
         "- Un encadré au moins par chapitre, avec un verdict actionnable "
         "(opportunité, limite, décision) — jamais un résumé de ce qui précède."
     ) + "\n" + REGLES_DE_FOND

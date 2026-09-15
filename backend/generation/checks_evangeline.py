@@ -202,6 +202,18 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     )
 
 
+def _nouvelle_ligne_ferme(texte: str, rang: int) -> bool:
+    """Un saut de ligne ferme-t-il la case ou la phrase ?
+
+    Pas quand le texte continue sur la ligne suivante : une case de tableau
+    dont le texte passe à la ligne — « 20 à 50 € par mois pour un outil
+    performant⏎(Cabinet Osmose, 2026) | » — garde sa source. Une nouvelle
+    ligne de tableau, une ligne vide, un titre ou une puce ferment.
+    """
+    suite = texte[rang + 1 : rang + 3].lstrip(" \t")
+    return not suite or suite[0] in "|\n#-*"
+
+
 def _prix_de_marche_source(texte: str, match: re.Match[str]) -> bool:
     """La plage est un prix OBSERVÉ sur le marché, cité avec sa source.
 
@@ -232,7 +244,8 @@ def _prix_de_marche_source(texte: str, match: re.Match[str]) -> bool:
         elif signe == ")":
             profondeur = max(0, profondeur - 1)
         elif profondeur == 0 and (
-            signe in "|\n;"
+            signe in "|;"
+            or (signe == "\n" and _nouvelle_ligne_ferme(texte, rang))
             or (signe == "." and (rang + 1 == len(texte) or texte[rang + 1].isspace()))
         ):
             fin = rang

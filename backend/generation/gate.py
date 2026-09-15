@@ -1342,6 +1342,7 @@ def _check_fourchettes(
     from .checks_evangeline import detecter_fourchettes  # noqa: PLC0415
 
     admises: frozenset[tuple[float, float, str]] | None = None
+    du_client: set[float] | None = None
     failures: list[GateFailure] = []
     for section in sections:
         for f in detecter_fourchettes(
@@ -1352,13 +1353,14 @@ def _check_fourchettes(
                 admises = _plages_du_client(job) | _trajectoires_du_socle(job)
             if _cle_de_plage(f.borne_basse, f.borne_haute, f.unite) in admises:
                 continue
+            if du_client is None:
+                from .verification.services import chiffres_du_brief  # noqa: PLC0415
+
+                du_client = {round(v, 2) for v in chiffres_du_brief(job)}
             failures.append(GateFailure(
                 check="fourchette_interdite",
                 chapter_number=f.chapitre,
-                detail=(
-                    f"Fourchette detectee : « {f.extrait} ». Le document doit "
-                    "citer un chiffre unique, decide et source, pas une plage."
-                ),
+                detail=_motif_de_fourchette(f.extrait, f.borne_basse, f.borne_haute, du_client),
             ))
     return failures
 
@@ -1426,6 +1428,28 @@ def _plages_du_client(job: GenerationJob) -> frozenset[tuple[float, float, str]]
         for plage in detecter_fourchettes(0, texte)
         if (cle := _cle_de_plage(plage.borne_basse, plage.borne_haute, plage.unite))
     )
+
+
+def _motif_de_fourchette(extrait: str, basse: str, haute: str, du_client: set[float]) -> str:
+    """Le motif d'une fourchette, qui dit COMMENT la corriger quand c'est connu.
+
+    « Le document doit citer un chiffre unique » ne disait pas lequel. Quand
+    les deux bornes sont des valeurs que le client donne SÉPARÉMENT, la plage
+    résume des variantes : le brief du business plan `7567ca2f` (15/09/2026)
+    donne un coût variable par livrable — 7 €, 6 €, 6 €, 4 € — et un tarif par
+    offre — 149 €, 149 €, 185 €, 195 € — et le document écrivait « 4 à 7 € »,
+    « 149-195 € ». Deux passes de relecture sans converger : la consigne de
+    réécriture demandait un chiffre unique, que personne n'avait décidé.
+    """
+    motif = f"Fourchette detectee : « {extrait} ». "
+    bas, haut = parse_number(basse), parse_number(haute)
+    if bas is not None and haut is not None and {round(bas, 2), round(haut, 2)} <= du_client:
+        return motif + (
+            "Le client donne ces valeurs SÉPARÉMENT, chacune pour une variante : "
+            "écris chaque valeur avec ce qu'elle désigne (une ligne ou une case "
+            "par variante) au lieu de les résumer en plage."
+        )
+    return motif + "Le document doit citer un chiffre unique, decide et source, pas une plage."
 
 
 def _trajectoires_du_socle(job: GenerationJob) -> frozenset[tuple[float, float, str]]:
