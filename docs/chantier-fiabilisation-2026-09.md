@@ -418,6 +418,7 @@ relues une à une.
 | `3faa65a` | deux exercices d'une même série du socle sont une trajectoire : « en progression de 320 000 à 430 000 euros entre la première et la troisième année » (`ca_previsionnel_an1` → `_an3`) | fourchettes BP 53 → 49 |
 | `21716c4` | « de l'exercice 1 à environ 34 800 euros » : « à environ » est le même lien que « à » pour les gardes | fourchettes BP 49 → 48 |
 | `64225d3` | une part rapportée à une donnée que la phrase NOMME : « 188 150 euros, 59 % du chiffre d'affaires prévisionnel de l'année 1 » ; la relecture a imposé cinq bornes (nom coupé à la ponctuation, exercice identique, dénominateur écrit exclu, euros, deux chiffres significatifs) | hors socle BP 203 → 201 — les trois disparitions refaites à la main ; le « 20,8 % » d'un autre chapitre, sans montant, apparaît et reste signalé |
+| `05a327f` | le seuil d'une règle de pilotage : « Ralentir si… \| Elle recule sous 6 % », « Panier moyen sous 1 000 € \| Revoir le mix » ; logé après les gardes marché/croissance, action à l'infinitif exigée — la relecture a refusé un « si » seul et la ligne entière pour portée | hors socle EM 27 → 25, les deux lignes visées et elles seules |
 
 Deux leçons, écrites ici parce qu'elles valent pour la suite :
 
@@ -431,6 +432,8 @@ Deux leçons, écrites ici parce qu'elles valent pour la suite :
   a montré qu'« 12 € - 19 € - 29 € », unité retirée, devenait une plage
   « 19 - 29 € » : corrigé dans `f5c7544` avant qu'un motif ne disparaisse à
   tort.
+
+Écarté volontairement : le produit volume × panier d'une ligne de tableau (« 8 000 | 550 € | 4 400 000 € ») — l'admettre ferait d'un montant non justifié l'opérande d'un autre, ce que la relecture du 14/09 (I5) a exclu : trois chiffres inventés ne se justifient pas entre eux.
 
 Restent, relus et jugés vrais : « 60 à 75 €/h » des stratégies Zenitek
 (documents antérieurs à la consigne « UN prix par variante »), des coûts
