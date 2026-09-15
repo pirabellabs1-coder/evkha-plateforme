@@ -39,11 +39,30 @@ def _chapitres(ligne: str) -> list[tuple[int, str, str]]:
     "| Relation avec les prestataires techniques, comptables, juridiques | "
     "Ralentissement du développement | Non traitée à ce jour |",
     "| Relation avec les prestataires techniques | Retards | Non traitée pour l'instant |",
+    "| Relation avec les prestataires techniques | Retards | Non traitée à ce stade |",
     "La relation avec les prestataires techniques, encore non traitée, freine le projet.",
     "| Relation avec les prestataires techniques | Retards | Actuellement non traitée |",
 ])
 def test_un_etat_de_l_affaire_n_est_pas_une_demande_abandonnee(ligne: str) -> None:
     assert detecter_demandes_contredites(_chapitres(ligne)) == []
+
+
+def test_la_mesure_rend_la_ligne_accusee_entiere() -> None:
+    """Le motif coupe la ligne à 160 signes : « Non traitée à c… ». Sans la fin,
+    on ne sait pas quel repère de temps elle portait (mesure du 15/09/2026)."""
+    from generation.mesure import _ligne_accusee
+
+    ligne = (
+        "| Relation avec les prestataires techniques, comptables, juridiques | "
+        "Ralentissement du développement du CRM et des obligations légales | "
+        "Non traitée à ce stade, arbitrage prévu au trimestre suivant |"
+    )
+    corps = f"Introduction.\n\n{ligne}\n\nSuite."
+    detail = (
+        "Chapitre 5 declare « non traite » un sujet que le document traite "
+        f"ailleurs : comptables. Ligne concernee : « {ligne[:160]} ». Un point…"
+    )
+    assert _ligne_accusee(corps, detail) == ligne
 
 
 def test_une_demande_declaree_non_traitee_reste_signalee() -> None:

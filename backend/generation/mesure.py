@@ -290,6 +290,22 @@ def _phrase_de_la_plage(corps: str, detail: str) -> str:
     return " ".join(corps[max(0, position - 220) : position + 140].split())
 
 
+def _ligne_accusee(corps: str, detail: str) -> str:
+    """La ligne ENTIÈRE qu'un motif « non traite » coupe à 160 signes.
+
+    « | … | Non traitée à c » (stratégie `d667fbb4`, 15/09/2026) : la fin de la
+    ligne dit si elle parle du document ou de l'entreprise.
+    """
+    accusee = re.search(r"Ligne concernee : « (.+?) »\. ", detail)
+    if accusee is None:
+        return ""
+    debut = accusee.group(1)[:60]
+    for ligne in corps.splitlines():
+        if " ".join(ligne.split()).startswith(debut):
+            return " ".join(ligne.split())[:600]
+    return ""
+
+
 def _echecs_du_gate(
     job: GenerationJob, sections: list[tuple[int, str, str]] | None = None,
 ) -> dict[str, list[dict[str, object]]]:
@@ -316,6 +332,8 @@ def _echecs_du_gate(
             return _phrases_du_sujet(sections or [], detail)
         if check == "fourchette_interdite":
             return _phrase_de_la_plage(corps, detail)
+        if check == "demande_contredite":
+            return _ligne_accusee(corps, detail)
         return ""
 
     return _regrouper([

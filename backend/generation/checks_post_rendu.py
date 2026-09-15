@@ -1011,7 +1011,8 @@ _CONDITION_AVANT_LE_STATUT_RE = re.compile(
 #: validation ne se date pas : il dit ce que le DOCUMENT a fait. Un repère de
 #: temps, avant ou après, dit ce que l'entreprise a fait.
 _ETAT_DE_L_AFFAIRE_APRES_RE = re.compile(
-    r"(?i)^\s*(?:[àa]\s+ce\s+jour|pour\s+l['’]instant|pour\s+le\s+moment|actuellement"
+    r"(?i)^\s*(?:[àa]\s+ce\s+(?:jour|stade)|[àa]\s+date|[àa]\s+l['’]heure\s+actuelle"
+    r"|pour\s+l['’](?:instant|heure)|pour\s+le\s+moment|actuellement"
     r"|aujourd['’]hui|en\s+l['’][ée]tat|jusqu['’](?:ici|à\s+présent|a\s+present))\b"
 )
 _ETAT_DE_L_AFFAIRE_AVANT_RE = re.compile(
