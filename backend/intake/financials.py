@@ -375,6 +375,54 @@ _CLES_FINANCIERES: tuple[str, ...] = (
 )
 
 
+#: Une LIGNE d'un champ de trajectoire qui s'ouvre sur son exercice :
+#: « Année 1 : environ 54 276 €, comprenant… », « An 2 — 101 772 € », ou sur
+#: une seule ligne séparée par des points-virgules. Le
+#: premier montant de la ligne est celui de l'exercice ; les suivants le
+#: détaillent.
+_LIGNE_D_EXERCICE_RE = re.compile(
+    rf"(?:^|(?<=[;|]))(?:{_SP}|[\-•*])*(?:ann[ée]e|an){_SP}*(\d{{1,2}})\b[^\d\n]{{0,30}}?({_AMOUNT})",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _trajectoire_par_exercice(brut: str) -> str | None:
+    """« Année 1 : X € … / Année 2 : Y € … » -> « X € / Y € », dans l'ordre des exercices.
+
+    Business plan `7567ca2f` (15/09/2026). Le champ CA de la cliente :
+
+        Année 1 : environ 54 276 €, comprenant environ 40 716 € d'abonnements B2B…
+        Année 2 : environ 101 772 €, comprenant…
+        Si tu veux dire « atteindre 17 abonnés », le CA sera inférieur à 40 716 €.
+
+    Le champ ÉTAIT le libellé ; le mot « CA » n'y apparaissait que dans la note
+    finale. La relecture par libellé a donc verrouillé `ca_previsionnel` =
+    40 716 € — la part B2B, citée dans une hypothèse —, et le CHECK de la fiche
+    projet a demandé de « corriger » 54 276 €, juste dans tout le document.
+    """
+    exercices: dict[int, str] = {}
+    for trouve in _LIGNE_D_EXERCICE_RE.finditer(brut):
+        exercices.setdefault(int(trouve.group(1)), _clean(trouve.group(2)))
+    if not exercices:
+        return None
+    return " / ".join(exercices[n] for n in sorted(exercices))
+
+
+def _montant_avant_le_libelle(brut: str, cle: str) -> bool:
+    """Le champ chiffre-t-il AVANT de nommer son libellé ?
+
+    Alors la valeur du champ est ce montant-là, et ce qui suit le libellé n'en
+    est qu'un commentaire : « 54 276 € la première année (le CA B2B seul ferait
+    40 716 €) ». Remplacer le champ par la lecture du libellé en garderait le
+    commentaire et perdrait la valeur.
+    """
+    libelle = _TRAJECTORY_LABELS.get(cle)
+    if libelle is None:
+        return False
+    premier = re.search(rf"\b{libelle}", brut, re.IGNORECASE)
+    return premier is not None and _AMOUNT_RE.search(brut[: premier.start()]) is not None
+
+
 def raffiner_champs_financiers(variables: dict[str, object]) -> dict[str, str]:
     """Relit les champs financiers structures au lieu de les gober bruts.
 
@@ -406,8 +454,12 @@ def raffiner_champs_financiers(variables: dict[str, object]) -> dict[str, str]:
         brut = str(variables.get(cle) or "").strip()
         if not brut:
             continue
-        relu = extract_financials_from_text(brut).get(cle)
-        if relu and relu != brut:
+        relu = (
+            _trajectoire_par_exercice(brut) if cle in _TRAJECTORY_LABELS else None
+        ) or extract_financials_from_text(brut).get(cle)
+        if relu and relu != brut and not (
+            _montant_avant_le_libelle(brut, cle) and relu != _trajectoire_par_exercice(brut)
+        ):
             variables[cle] = relu
             corrigees[cle] = relu
     return corrigees
