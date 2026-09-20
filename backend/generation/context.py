@@ -11,6 +11,7 @@ from .coherence import (
     chiffres_fondations_as_table,
     client_facts_as_context,
     generated_facts_as_context,
+    registre_json_as_context,
 )
 from .models import ChapterGeneration, GenerationJob
 from .substitution import tokens_catalogue
@@ -25,7 +26,7 @@ ROLE_LINE = (
     "Tout intitule technique ecrit en MAJUSCULES_AVEC_UNDERSCORES dans ce "
     "contexte (VARIABLES_PROJET, DONNEES_CLIENT, REPERES_DEJA_ENONCES, "
     "FICHE_SECTORIELLE, SOURCES_WEB, RESUME_OPERATIONNEL_PRECEDENT, "
-    "FAITS_REFERENCES, CHAPITRE_CIBLE, PROMPT_KEY) est un repere interne : "
+    "FAITS_REFERENCES, REGISTRE_CHIFFRES, CHAPITRE_CIBLE, PROMPT_KEY) est un repere interne : "
     "il ne doit JAMAIS apparaitre dans ta redaction, ni entre "
     "parentheses, ni cite, ni reformule en 'faits verrouilles du dossier'. "
     "Si tu dois designer l'origine d'un chiffre client, ecris 'le "
@@ -159,6 +160,10 @@ def build_context(chapter: ChapterGeneration) -> str:
         "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
         "precedents, a reprendre a l'identique, jamais presentes comme "
         "'faits verrouilles'):\n" + generated_facts_as_context(job),
+        "REGISTRE_CHIFFRES (JSON, source unique — tout chiffre deja "
+        "pose dans un chapitre precedent ou fourni par le client. "
+        "Reprendre EXACTEMENT la valeur du registre, jamais "
+        "l'arrondir ni la recalculer) :\n" + registre_json_as_context(job),
     ]
 
     # Mémoire inter-runs : repères de marché validés d'une étude précédente

@@ -529,6 +529,81 @@ def locked_facts_as_context(job: GenerationJob) -> str:
         return "Aucun fait verrouille pour le moment."
     return "\n".join(f"- {fact.kind}:{fact.key} = {fact.value}" for fact in facts)
 
+def registre_json(job: GenerationJob) -> dict[str, Any]:
+    """Registre JSON de tous les chiffres verrouilles, organise par categorie.
+
+    Ce registre est la source unique de verite chiffree pour le dossier.
+    Il est injecte dans chaque chapitre de chaque livrable, au format JSON,
+    pour que le modele cite les cles exactes au lieu d'inventer ses propres
+    valeurs.
+    """
+    facts = list(
+        job.coherence_facts.filter(is_locked=True).order_by('kind', 'key')
+    )
+    if not facts:
+        return {}
+
+    registre: dict[str, Any] = {
+        'client': {},
+        'marche': {},
+        'croissance': {},
+        'financier': {},
+        'concurrence': {},
+        'hypotheses': {},
+    }
+
+    _CATEGORY_MAP: dict[str, str] = {
+        FactKind.CURRENCY: 'client',
+        FactKind.MARKET_SIZE: 'marche',
+        FactKind.GROWTH_RATE: 'croissance',
+        FactKind.COMPETITOR: 'concurrence',
+        FactKind.SOURCE: 'marche',
+        FactKind.ASSUMPTION: 'hypotheses',
+    }
+
+    _FINANCIAL_KEYS = {
+        'ca_previsionnel_an1', 'ca_previsionnel_an2', 'ca_previsionnel_an3',
+        'ca_previsionnel_an4', 'ca_previsionnel_an5',
+        'investissement_total', 'apport_personnel', 'emprunt_sollicite',
+        'taux_occupation', 'taux_marge_brute', 'seuil_rentabilite',
+        'panier_moyen', 'taille_clientele_cible',
+        'ca_cible', 'ca_cible_eur',
+    }
+
+    for fact in facts:
+        key = str(fact.key or '')
+        value = str(fact.value or '')
+        provenance = 'client' if fact.provenance == FactProvenance.CLIENT else 'genere'
+        ch = fact.source_chapter_number
+
+        entry: dict[str, str | int] = {
+            'valeur': value,
+            'provenance': provenance,
+        }
+        if ch:
+            entry['chapitre_source'] = ch
+
+        if key in _FINANCIAL_KEYS:
+            cat = 'financier'
+        else:
+            cat = _CATEGORY_MAP.get(str(fact.kind), 'hypotheses')
+
+        registre[cat][key] = entry
+
+    # Supprimer les categories vides
+    return {k: v for k, v in registre.items() if v}
+
+
+def registre_json_as_context(job: GenerationJob) -> str:
+    """Bloc JSON du registre, pret a injecter dans le contexte de chapitre."""
+    import json as _json  # noqa: PLC0415
+
+    reg = registre_json(job)
+    if not reg:
+        return 'Aucun chiffre verrouille pour le moment.'
+    return _json.dumps(reg, ensure_ascii=False, indent=2)
+
+
 
 # ── Enrichissement de la fiche projet apres un CHECK Sonnet (manuel §5-6) ──
 #

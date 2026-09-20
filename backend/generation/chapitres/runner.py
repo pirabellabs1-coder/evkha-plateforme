@@ -16,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 
 from integrations.claude import SYSTEM_CACHE_BREAK
 
+from ..coherence import registre_json_as_context
 from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, ChapterStatus, GenerationJob
 from ..socle.schema import (
@@ -1668,9 +1669,16 @@ def construire_prompt_chapitre(
     # collectées pour CE chapitre, les résumés qui s'accumulent, l'instruction,
     # les formes déjà employées, le verdict du dernier chapitre, les motifs
     # d'une reprise.
+    registre = registre_json_as_context(chapter.job)
     blocs = [
         _bloc_sources(chapter.job, chapter.chapter_number),
         _bloc_resumes(chapter.job, chapter.chapter_number),
+        (
+            "REGISTRE_CHIFFRES (JSON, source unique — tout chiffre deja "
+            "pose dans un chapitre precedent ou fourni par le client. "
+            "Reprendre EXACTEMENT la valeur du registre, jamais "
+            "l'arrondir ni la recalculer) :\n" + registre
+        ),
         f"CHAPITRE À RÉDIGER : {chapter.chapter_number} — {chapter.chapter_title}",
         f"INSTRUCTION DU CHAPITRE :\n{instruction}",
         *_blocs_du_modele(str(chapter.job.deliverable_type), chapter.chapter_number),

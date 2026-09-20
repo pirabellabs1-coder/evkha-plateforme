@@ -61,6 +61,9 @@ INTERNAL_LABEL_NAMES: tuple[str, ...] = (
     # s'applique sans exception, et le jour ou un appelant oublie de passer par
     # `_cacheable_system`, le gate l'attrape au lieu de le livrer.
     "EVKHA_CACHE_BREAK",
+    # Registre JSON de coherence inter-chapitres (lot 84, 20/09/2026).
+    # Injecte dans les deux chaines (context.py et chapitres/runner.py).
+    "REGISTRE_CHIFFRES",
 )
 
 # Marqueurs de placeholder jamais tolerables dans un livrable (brief client :
