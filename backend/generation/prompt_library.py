@@ -621,6 +621,13 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
         "Visuel utile : encadre final « Potentiel / Conditions / Vigilances ».\n"
         "Rappel : la conclusion ne doit ajouter aucun chiffre, risque ou conseil "
         "qui n'apparait pas deja dans un chapitre precedent.\n"
+        "Le chiffre d'affaires CIBLE du porteur n'est PAS une taille de marche : "
+        "ne jamais le presenter comme tel. Le marche est le marche ; le CA cible "
+        "est un objectif du porteur.\n"
+        "Ne pas conclure sur le positionnement concurrentiel si l'etude n'a pas "
+        "couvert la concurrence en profondeur (pas d'etude concurrentielle "
+        "separee). Un tarif releve chez un seul acteur est un repere, jamais "
+        "une preuve de prix accepte par le marche.\n"
         "\n"
         "CONTRAINTE — chiffres de marche dans ce chapitre :\n"
         "Toutes les tailles de marche citees DOIVENT etre les valeurs exactes du "
@@ -1562,7 +1569,8 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "Resume executif (1 page maximum) : presentation synthetique du "
         "projet et de son activite, historique et contexte du demarrage, "
         "objectifs de creation ou de structuration, chiffres cles "
-        "previsionnels sur 3 ans, vision globale et message central. "
+        "previsionnels sur l'horizon du plan (3 a 5 ans selon le brief), "
+        "vision globale et message central. "
         "Percutant et clair, ecrit comme si le porteur s'exprimait."
     ),
     "bp.02.porteur_projet": (
@@ -1667,7 +1675,7 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
     ),
     "bp.11.strategie_developpement": (
         "Trajectoire de developpement du projet : phasage strategique sur "
-        "3 ans (structuration / croissance maitrisee / consolidation), "
+        "l'horizon du plan (structuration / croissance maitrisee / consolidation), "
         "jalons cles par phase, logique de montee en charge progressive. "
         "La strategie doit etre financable et operationnellement realiste."
     ),
@@ -1678,10 +1686,28 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "strategiques. Coherent avec le stade de developpement du projet."
     ),
     "bp.13.structure_juridique": (
-        "Structure juridique et reglementaire : forme juridique retenue et "
-        "justification, regime fiscal, statut social du dirigeant, "
-        "contraintes reglementaires specifiques au secteur et a la zone, "
-        "protection de la marque ou propriete intellectuelle si applicable."
+        "Structure juridique et reglementaire. "
+        "1. Forme juridique retenue et justification : avantages et "
+        "inconvenients par rapport aux alternatives (EI, EURL, SARL, SAS, "
+        "SA...). Regles a respecter pour la forme choisie (une SAS a UN "
+        "president, pas deux ; une SARL a des gerants ; une micro-entreprise "
+        "ne peut pas depasser les seuils de CA et n'est pas adaptee a "
+        "toute activite B2B). Ne jamais recommander un statut sans verifier "
+        "sa compatibilite avec l'activite et le CA previsionnel. "
+        "2. Regime fiscal et TVA : regime d'imposition (IS, IR, micro), "
+        "regime de TVA applicable. Presenter la TVA en detail : taux, "
+        "franchise en base le cas echeant, obligations declaratives. "
+        "3. Statut social du dirigeant : regime de protection sociale "
+        "selon la forme juridique. "
+        "4. Contraintes reglementaires specifiques au secteur et a la zone : "
+        "autorisations, licences, diplomes, normes obligatoires. "
+        "Pour une activite liee aux animaux : regle des cinq animaux "
+        "(au-dela, obligation de declaration en tant qu'eleveur). "
+        "5. Protection de la propriete intellectuelle si applicable : "
+        "depot de marque a l'INPI (tarif actuel : 190 EUR pour une classe, "
+        "40 EUR par classe supplementaire, renouvellement tous les 10 ans). "
+        "Si le depot est PREVU, le presenter comme une demarche future ; "
+        "s'il est FAIT, indiquer la date et le numero."
     ),
     # `bp.14.besoin_financement` et `bp.15.previsionnel_tresorerie` ont ete
     # RETIRES : c'etaient les dispatchers des deux fusions de juillet 2026,
@@ -1725,8 +1751,12 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "Ne pas utiliser ce prompt directement."
     ),
     "bp.16.a.comptes_resultats": (
-        "Compte de resultat previsionnel sur 3 ans (annee 1, 2, 3). "
+        "Compte de resultat previsionnel sur tous les exercices fournis par le "
+        "client (au minimum 3 ans ; si le brief en fournit 4 ou 5, les "
+        "presenter tous — ne pas tronquer a 3). "
         "Declare d'abord les hypotheses cles (prix moyen, volume, charges fixes/variables). "
+        "Les hypotheses doivent CONSTRUIRE le CA : le lecteur doit pouvoir "
+        "verifier que clients x panier moyen x frequence = CA annonce. "
         "Puis un tableau HTML detaille par annee : "
         "CA, Charges variables, Marge brute, Charges fixes, EBITDA, Amortissements, "
         "Resultat avant IS, IS estime, Resultat net. "
@@ -1735,11 +1765,13 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
     ),
     "bp.16.b.bilan_projection": (
         "1) GRAPHIQUE OBLIGATOIRE : bloc ```chart de type 'bar' avec title "
-        "\"Evolution CA et EBITDA sur 3 ans\", labels [\"Annee 1\", \"Annee 2\", "
-        "\"Annee 3\"], DEUX series (\"CA\" et \"EBITDA\") avec les valeurs "
-        "reelles issues du compte de resultat previsionnel, unit \" k EUR\". "
+        "\"Evolution CA et EBITDA\", labels pour CHAQUE exercice fourni "
+        "(au minimum [\"Annee 1\", \"Annee 2\", \"Annee 3\"], et jusqu'a 5 "
+        "si le client les a donnes), DEUX series (\"CA\" et \"EBITDA\") avec "
+        "les valeurs reelles issues du compte de resultat previsionnel, "
+        "unit \" k EUR\". "
         "2) Genere ensuite en HTML inline (sans <html>/<body>) : "
-        "un bilan previsionnel simplifie annee 3 (actif / passif). "
+        "un bilan previsionnel simplifie du dernier exercice (actif / passif). "
         "3) Un tableau de financement du projet : apports propres, emprunts, aides. "
         "Conclure par une synthese 1 paragraphe sur la viabilite financiere globale."
     ),

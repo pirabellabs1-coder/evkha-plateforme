@@ -420,7 +420,7 @@ def _collect_raw_pairs(payload: dict[str, Any]) -> dict[str, Any]:
         for field in fields:
             if not isinstance(field, dict):
                 continue
-            value = _valeur_lisible(field)
+            value = _depouiller_fichier_tally(_valeur_lisible(field))
             if value in (None, "", []):
                 continue
             key = field.get("key")
@@ -431,6 +431,24 @@ def _collect_raw_pairs(payload: dict[str, Any]) -> dict[str, Any]:
                 pairs[str(label)] = value
 
     return pairs
+
+
+def _depouiller_fichier_tally(valeur: Any) -> Any:
+    """Extrait l'URL d'une reponse FILE_UPLOAD Tally.
+
+    Un champ fichier Tally arrive comme [{"url": "https://storage.tally.so/...",
+    "mimeType": "image/png", ...}]. On en extrait la premiere URL, qui est la
+    seule partie exploitable par ``charger_logo`` ou le moteur de rendu.
+    """
+    if not isinstance(valeur, list):
+        return valeur
+    urls: list[str] = []
+    for item in valeur:
+        if isinstance(item, dict) and isinstance(item.get("url"), str):
+            urls.append(item["url"])
+    if urls:
+        return urls[0] if len(urls) == 1 else urls
+    return valeur
 
 
 def _valeur_lisible(field: dict[str, Any]) -> Any:

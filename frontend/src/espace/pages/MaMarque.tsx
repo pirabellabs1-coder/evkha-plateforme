@@ -105,7 +105,11 @@ export function MaMarque() {
   });
 
   const envoi = useMutation({
-    mutationFn: () => espaceApi.enregistrerMarque(brouillon),
+    mutationFn: () => {
+      const { logo_url, ...sansLogo } = brouillon;
+      void logo_url;
+      return espaceApi.enregistrerMarque(sansLogo);
+    },
     onSuccess: (retour) => {
       setErreur("");
       setEnregistre(true);

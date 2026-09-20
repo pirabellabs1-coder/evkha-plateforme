@@ -1005,6 +1005,30 @@ def _controler_equilibre_financier(socle: Socle) -> list[str]:
             f"Vérifie les échelles, ou assume ce scénario dans le libellé."
         )
 
+    # 4. Les hypothèses commerciales doivent construire le chiffre d'affaires.
+    #    clientèle × panier moyen doit approcher le CA prévisionnel de
+    #    l'exercice 1. Tolérance de 30 % : la fréquence d'achat, la montée en
+    #    charge et les arrondis expliquent un écart modéré. Au-delà, le lecteur
+    #    ne peut pas reconstituer le CA depuis les hypothèses — c'est le défaut
+    #    qu'Evangéline a relevé sur FriendzyPet.
+    ca1 = montant("ca_previsionnel_an1")
+    panier = montant("panier_moyen")
+    clientele = montant("taille_clientele_cible")
+    if ca1 is not None and panier is not None and clientele is not None:
+        ca_reconstitue = clientele[0] * panier[0]
+        if ca1[0] > 0 and ca_reconstitue > 0:
+            ratio = ca_reconstitue / ca1[0]
+            if ratio < 0.3 or ratio > 3.0:
+                motifs.append(
+                    f"Les hypotheses commerciales ne construisent pas le CA : "
+                    f"`taille_clientele_cible` ({clientele[0]:,.0f}) "
+                    f"x `panier_moyen` ({panier[0]:,.0f} {panier[1]}) "
+                    f"= {ca_reconstitue:,.0f} {panier[1]}, "
+                    f"mais `ca_previsionnel_an1` = {ca1[0]:,.0f} {ca1[1]}. "
+                    f"Le lecteur ne peut pas reconstituer le chiffre d'affaires "
+                    f"depuis les hypotheses presentees dans le document."
+                )
+
     return motifs
 
 

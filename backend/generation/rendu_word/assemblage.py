@@ -696,10 +696,20 @@ def assembler_etude(
         })
         rapport.tableaux += 1
 
+    from datetime import date as _date  # noqa: PLC0415
+
+    _MOIS_FR = [
+        "", "janvier", "fevrier", "mars", "avril", "mai", "juin",
+        "juillet", "aout", "septembre", "octobre", "novembre", "decembre",
+    ]
+    aujourdhui = _date.today()
+    date_fr = f"{aujourdhui.day} {_MOIS_FR[aujourdhui.month]} {aujourdhui.year}"
+
     etude = {
         "titre": titre,
         "sous_titre": sous_titre or socle.secteur,
         "mention": mention,
+        "date": date_fr,
         "secteur": socle.secteur,
         "profil_sectoriel": profil.code,
         "marque": marque or {},

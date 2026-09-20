@@ -2093,7 +2093,7 @@ def _piece_en_dict(piece: PieceJointe) -> dict[str, Any]:
         # d'organisation>/<nom d'origine du client>` se devine, et `/media/`
         # servait sans rien verifier. Le bilan financier depose par une agence
         # etait donc telechargeable par qui avait vu passer le chemin.
-        "url": signatures.lien(piece.fichier.name) if piece.fichier else "",
+        "url": signatures.lien_absolu(piece.fichier.name) if piece.fichier else "",
     }
 
 

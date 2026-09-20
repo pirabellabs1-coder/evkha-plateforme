@@ -367,6 +367,22 @@ class BrandingContext:
     confidentiality_mention: str = ""
 
 
+def _depouiller_url_tally(valeur: str) -> str:
+    """Si la valeur ressemble a un dump de FILE_UPLOAD Tally, en extrait l'URL."""
+    if not valeur or valeur.startswith(("http://", "https://", "/")):
+        return valeur
+    import ast
+    try:
+        parsed = ast.literal_eval(valeur)
+    except (ValueError, SyntaxError):
+        return valeur
+    if isinstance(parsed, list):
+        for item in parsed:
+            if isinstance(item, dict) and isinstance(item.get("url"), str):
+                return str(item["url"])
+    return valeur
+
+
 def extract_branding(job: GenerationJob) -> BrandingContext:
     """Lit les variables de branding dans l'intake associé au job.
 
@@ -383,8 +399,10 @@ def extract_branding(job: GenerationJob) -> BrandingContext:
     except Exception:  # noqa: BLE001 – intake optionnel
         pass
 
+    logo_url = _depouiller_url_tally(variables.get("LOGO_URL", ""))
+
     return BrandingContext(
-        logo_url=variables.get("LOGO_URL", ""),
+        logo_url=logo_url,
         color_primary=variables.get("COULEUR_PRINCIPALE", _EVKHA_PRIMARY),
         color_secondary=variables.get("COULEUR_SECONDAIRE", _EVKHA_SECONDARY),
         company_name=variables.get("NOM_ENTREPRISE", ""),

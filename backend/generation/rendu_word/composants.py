@@ -233,6 +233,26 @@ def _fond_pleine_page(document: DocumentWord, couleur: str) -> None:
     run._r.append(parse_xml(xml))
 
 
+def _filet_horizontal(document: DocumentWord, couleur: str, largeur_emu: int = 3_000_000) -> None:
+    """Insere un filet horizontal centre, de couleur donnee."""
+    p = document.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pPr = p._p.get_or_add_pPr()
+    pBdr = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single")
+    bottom.set(qn("w:sz"), "6")
+    bottom.set(qn("w:space"), "1")
+    bottom.set(qn("w:color"), couleur.lstrip("#"))
+    pBdr.append(bottom)
+    pPr.append(pBdr)
+    pFmt = p.paragraph_format
+    left_indent = int((LARGEUR_UTILE_EMU - largeur_emu) / 2)
+    if left_indent > 0:
+        pFmt.left_indent = Emu(left_indent)
+        pFmt.right_indent = Emu(left_indent)
+
+
 def couverture(
     document: DocumentWord,
     palette: Palette,
@@ -242,22 +262,27 @@ def couverture(
     client: str = "",
     mention: str = "Document confidentiel",
     logo: bytes | None = None,
+    date: str = "",
 ) -> None:
     _fond_pleine_page(document, palette.primaire)
 
-    for _ in range(4):
+    for _ in range(3):
         document.add_paragraph()
 
     if logo:
         p = document.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.add_run().add_picture(io.BytesIO(logo), width=Emu(1_600_000))
+        document.add_paragraph()
 
     p = document.add_paragraph(style=STYLE_TITRE_DOCUMENT)
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run(titre.upper())
     _poser_police(run, STYLE_TITRE_DOCUMENT)
     run.font.color.rgb = _rgb(palette.texte_sur_primaire)
+    run.font.size = Pt(28)
+
+    _filet_horizontal(document, palette.texte_sur_primaire)
 
     if sous_titre:
         p = document.add_paragraph(style=STYLE_SOUS_TITRE)
@@ -265,15 +290,28 @@ def couverture(
         run = p.add_run(sous_titre)
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.rose_grise)
+        run.font.size = Pt(14)
+
+    for _ in range(6):
+        document.add_paragraph()
 
     if client:
         p = document.add_paragraph(style=STYLE_SOUS_TITRE)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run(client)
+        run = p.add_run(f"Prepare pour {client}")
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.texte_sur_primaire)
+        run.font.size = Pt(13)
 
-    for _ in range(10):
+    if date:
+        p = document.add_paragraph(style=STYLE_LEGENDE)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(date)
+        run.font.name = POLICE_CORPS
+        run.font.color.rgb = _rgb(palette.rose_grise)
+        run.font.size = Pt(11)
+
+    for _ in range(3):
         document.add_paragraph()
 
     p = document.add_paragraph(style=STYLE_LEGENDE)
@@ -281,6 +319,7 @@ def couverture(
     run = p.add_run(mention)
     run.font.name = POLICE_CORPS
     run.font.color.rgb = _rgb(palette.rose_grise)
+    run.font.size = Pt(9)
 
     saut_de_page(document)
 

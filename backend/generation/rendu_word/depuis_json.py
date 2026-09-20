@@ -353,6 +353,7 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
         client=marque.get("nom", ""),
         mention=etude.get("mention", "Document confidentiel"),
         logo=octets_logo,
+        date=etude.get("date", ""),
     )
 
     chapitres = [c for c in etude.get("chapitres", []) if pour_le_client(c)]

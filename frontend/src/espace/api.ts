@@ -528,7 +528,7 @@ export const espaceApi = {
   archiverClientFinal: (id: string) =>
     appel<ClientFinal>(`/clients-finaux/${id}/archiver/`, { method: "POST" }),
   marque: () => appel<Marque>("/marque/"),
-  enregistrerMarque: (donnees: Marque) =>
+  enregistrerMarque: (donnees: Partial<Marque>) =>
     appel<Marque>("/marque/", { method: "POST", body: JSON.stringify(donnees) }),
   catalogue: () =>
     appel<{
