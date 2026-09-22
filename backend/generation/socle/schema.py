@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from core.numbers import to_base_units
 
@@ -339,11 +339,29 @@ class Critere(BaseModel):
     model_config = {"extra": "forbid"}
 
     #: Code court cité par les figures (`prix`, `couverture_service`).
-    code: str = Field(min_length=1, pattern=r"^[a-z][a-z0-9_]{1,39}$")
+    code: str = Field(min_length=1)
     intitule: str = Field(min_length=1)
     #: Ce que vaut la note la plus basse, puis la plus haute. Le barème.
     note_1: str = Field(min_length=1)
     note_5: str = Field(min_length=1)
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def _normaliser_code(cls, v: Any) -> str:
+        """Le modèle produit parfois des codes avec majuscules ou espaces.
+
+        Lot 85 : plutôt que rejeter le socle entier (et gaspiller 3 tentatives),
+        on normalise automatiquement en snake_case ASCII.
+        """
+        import re as _re  # noqa: PLC0415
+        import unicodedata as _ud  # noqa: PLC0415
+
+        s = str(v).strip().lower()
+        s = _ud.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = _re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+        if not s or not s[0].isalpha():
+            s = "c_" + s
+        return s[:40]
 
 
 class NoteConcurrent(BaseModel):
