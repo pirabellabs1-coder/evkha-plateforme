@@ -376,6 +376,7 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
         document, palette,
         # Idem : aucune mention de la plateforme en repli.
         mentions=etude.get("mentions_finales", [MENTION_PAR_DEFAUT]),
+        logo=octets_logo,
     )
 
     _signer_le_document(

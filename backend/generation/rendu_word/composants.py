@@ -292,18 +292,28 @@ def couverture(
         run.font.color.rgb = _rgb(palette.rose_grise)
         run.font.size = Pt(14)
 
-    for _ in range(6):
+    for _ in range(4):
         document.add_paragraph()
 
     if client:
+        _filet_horizontal(document, palette.rose_grise)
+        document.add_paragraph()
         p = document.add_paragraph(style=STYLE_SOUS_TITRE)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run(f"Prepare pour {client}")
+        run = p.add_run("« Préparé pour »")
+        run.font.name = POLICE_CORPS
+        run.font.color.rgb = _rgb(palette.rose_grise)
+        run.font.size = Pt(11)
+        p = document.add_paragraph(style=STYLE_SOUS_TITRE)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(client)
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.texte_sur_primaire)
-        run.font.size = Pt(13)
+        run.font.size = Pt(16)
+        run.bold = True
 
     if date:
+        document.add_paragraph()
         p = document.add_paragraph(style=STYLE_LEGENDE)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run(date)
