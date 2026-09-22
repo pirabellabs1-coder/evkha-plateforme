@@ -233,7 +233,9 @@ def test_les_trois_autres_livrables_la_gardent() -> None:
     """
     from generation.rendu_word.depuis_json import RECOMMANDATION_PAR_LIVRABLE
 
-    for livrable in ("market_study", "competitor_study", "business_strategy"):
+    # competitor_study retiré (lot 85, retour cliente 22/09/2026) : l'EC est
+    # un livrable autonome, le CTA nuisait à sa neutralité.
+    for livrable in ("market_study", "business_strategy"):
         assert livrable in RECOMMANDATION_PAR_LIVRABLE, livrable
 
 

@@ -198,6 +198,8 @@ _AXES_PAR_TYPE: dict[str, tuple[Axe, ...]] = {
         Axe("concurrents", "principaux concurrents directs et indirects"),
         Axe("positionnement", "positionnement prix et offres des acteurs"),
         Axe("reputation", "avis clients réputation des acteurs"),
+        Axe("tarifs_publies", "tarifs prix publiés grille tarifaire catalogue"),
+        Axe("avis_notes", "avis Google Trustpilot note moyenne témoignages clients nombre"),
     ),
     DeliverableType.BUSINESS_PLAN: _AXES_BUSINESS_PLAN,
     DeliverableType.BUSINESS_STRATEGY: _AXES_STRATEGIE,

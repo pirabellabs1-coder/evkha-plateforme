@@ -244,13 +244,12 @@ RECOMMANDATION_PAR_LIVRABLE: dict[str, tuple[str, ...]] = {
         "Une étude de la concurrence personnalisée et réalisée sur mesure est "
         "disponible auprès de {marque}.",
     ),
-    "competitor_study": (
-        "Pour transformer cette lecture de la concurrence en trajectoire "
-        "chiffrée, un business plan permet d'en tirer les conséquences "
-        "financières et le calendrier.",
-        "Un business plan personnalisé et réalisé sur mesure est disponible "
-        "auprès de {marque}.",
-    ),
+    # L'ÉTUDE DE CONCURRENCE N'EN A PLUS, ET C'EST DÉLIBÉRÉ.
+    #
+    # Retour cliente du 22/09/2026 (lot 85) : « suppression du bloc "business
+    # plan disponible auprès d'ÉCLORE" ». L'EC est un livrable autonome qui se
+    # suffit à lui-même — y ajouter un CTA commercial nuit à la neutralité
+    # attendue d'une analyse concurrentielle.
     # LE BUSINESS PLAN N'EN A PAS, ET C'EST DÉLIBÉRÉ.
     #
     # Retour cliente du 12/08/2026 : « un CTA commercial automatique, qui peut
