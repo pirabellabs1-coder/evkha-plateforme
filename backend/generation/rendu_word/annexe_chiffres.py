@@ -85,7 +85,7 @@ def blocs_annexe(socle: Socle, *, numero: int) -> list[dict[str, Any]]:
         return []
     lignes = [
         [
-            donnee.libelle.split(".")[0][:120] if donnee.libelle else donnee.id,
+            donnee.libelle.split(".")[0] if donnee.libelle else donnee.id,
             _valeur(donnee),
             str(donnee.annee or "—"),
             _origine(donnee),

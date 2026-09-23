@@ -158,9 +158,24 @@ class Palette:
     fond_graphique: str = REF_FOND_GRAPHIQUE
 
     @property
-    def series_graphique(self) -> tuple[str, str, str, str]:
-        """Ordre des séries des figures, imposé par le lot 0."""
-        return (self.primaire, self.or_bronze, self.fond_clair_alt, self.rose_grise)
+    def series_graphique(self) -> tuple[str, ...]:
+        """Ordre des séries des figures, imposé par le lot 0.
+
+        Lot 86 : étendu de 4 à 8 couleurs. Avec seulement 4, deux concurrents
+        sur un radar à 5 séries recevaient la même couleur (retour Evangéline,
+        BP ENGLISH-4U, 23/09/2026). Les 4 nouvelles sont des variantes qui
+        restent lisibles sur fond clair comme sur fond sombre.
+        """
+        return (
+            self.primaire,
+            self.or_bronze,
+            self.fond_clair_alt,
+            self.rose_grise,
+            "#2E7D32",   # vert profond
+            "#6A1B9A",   # violet
+            "#C62828",   # rouge brique
+            "#00838F",   # cyan foncé
+        )
 
     @property
     def bandeau_ajuste(self) -> bool:

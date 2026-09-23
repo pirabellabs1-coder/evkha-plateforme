@@ -55,8 +55,12 @@ _SERIES_COLORS: tuple[str, ...] = (
     _PRIMARY,         # noir (concurrent principal ou reference)
     _SECONDARY_ALT,   # or clair (concurrent secondaire)
     _GRAY,            # gris (concurrent tertiaire)
-    "#8B6E1A",        # or fonce (variation supplementaire si besoin)
+    "#8B6E1A",        # or fonce
     "#3A3A3A",        # gris fonce
+    "#2E7D32",        # vert profond (lot 86)
+    "#6A1B9A",        # violet (lot 86)
+    "#C62828",        # rouge brique (lot 86)
+    "#00838F",        # cyan fonce (lot 86)
 )
 
 

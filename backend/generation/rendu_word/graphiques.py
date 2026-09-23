@@ -473,7 +473,8 @@ def radar(
     axes.spines["polar"].set_visible(False)
     if len(series) > 1:
         legende = axes.legend(
-            frameon=False, fontsize=9, loc="upper right", bbox_to_anchor=(1.28, 1.10)
+            frameon=False, fontsize=8, loc="upper center",
+            bbox_to_anchor=(0.5, -0.08), ncol=min(len(series), 4),
         )
         for texte in legende.get_texts():
             texte.set_color(palette.texte_corps)

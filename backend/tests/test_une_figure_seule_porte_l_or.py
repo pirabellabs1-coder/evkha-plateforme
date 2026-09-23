@@ -74,10 +74,10 @@ def test_l_ordre_du_lot_0_survit_des_deux_series(
 
 
 def test_le_cycle_reboucle_au_dela_de_la_charte(palette: Palette) -> None:
-    """Neuf séries ne doivent pas lever : la charte en compte quatre."""
+    """Neuf séries ne doivent pas lever : la charte en compte huit (lot 86)."""
     couleurs = _couleurs(palette, 9)
 
-    assert couleurs[4] == couleurs[0]
+    assert couleurs[8] == couleurs[0]
     assert set(couleurs) == set(palette.series_graphique)
 
 
