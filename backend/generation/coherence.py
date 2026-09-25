@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from core.numbers import parse_number
+
 from .models import ChapterGeneration, CoherenceFact, FactKind, FactProvenance, GenerationJob
 
 # Detection des chiffres cles dans le contenu genere (§5 cadrage : aucun chiffre
@@ -138,9 +140,8 @@ def _montant_en_euros(valeur: str) -> float | None:
     )
     if not match:
         return None
-    try:
-        nombre = float(match.group(1).replace(",", "."))
-    except ValueError:
+    nombre = parse_number(match.group(1))
+    if nombre is None:
         return None
     unite = match.group(2).strip()
     for pattern, facteur in _FACTEURS_UNITE:
@@ -258,7 +259,9 @@ class CoherenceConflictError(ValueError):
 _NUMERIC_CONFLICT_TOLERANCE = 0.20
 
 
-_NUMERIC_PREFIX_RE = re.compile(r"^\s*([\d\s\xa0]+(?:[.,]\d+)?)")
+_NUMERIC_PREFIX_RE = re.compile(
+    r"^\s*(-?\d[\d\s\xa0  ]*(?:[.,]\d+)?)"
+)
 
 
 def _numeric_gap(a: str, b: str) -> float | None:
@@ -273,8 +276,10 @@ def _numeric_gap(a: str, b: str) -> float | None:
         mb = _NUMERIC_PREFIX_RE.match(b)
         if not ma or not mb:
             return None
-        va = float(ma.group(1).replace(" ", "").replace("\xa0", "").replace(",", "."))
-        vb = float(mb.group(1).replace(" ", "").replace("\xa0", "").replace(",", "."))
+        va = parse_number(ma.group(1))
+        vb = parse_number(mb.group(1))
+        if va is None or vb is None:
+            return None
         denom = max(abs(va), abs(vb))
         if denom == 0:
             return 0.0

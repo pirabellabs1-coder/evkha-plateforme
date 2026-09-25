@@ -373,6 +373,11 @@ class NoteConcurrent(BaseModel):
     critere: str = Field(min_length=1)
     note: int = Field(ge=1, le=5)
 
+    @field_validator("critere", mode="before")
+    @classmethod
+    def _normaliser_critere(cls, v: Any) -> str:
+        return Critere._normaliser_code(v)
+
 
 #: Ce qui distingue une ENTREPRISE d'un TYPE d'acteur : un domaine.
 #:

@@ -195,11 +195,18 @@ _AXES_STRATEGIE: tuple[Axe, ...] = (
 _AXES_PAR_TYPE: dict[str, tuple[Axe, ...]] = {
     DeliverableType.MARKET_STUDY: _AXES_ETUDE_DE_MARCHE,
     DeliverableType.COMPETITOR_STUDY: (
-        Axe("concurrents", "principaux concurrents directs et indirects"),
-        Axe("positionnement", "positionnement prix et offres des acteurs"),
-        Axe("reputation", "avis clients réputation des acteurs"),
-        Axe("tarifs_publies", "tarifs prix publiés grille tarifaire catalogue"),
-        Axe("avis_notes", "avis Google Trustpilot note moyenne témoignages clients nombre"),
+        Axe("concurrents", "principaux concurrents directs et indirects", (1, 2)),
+        Axe("positionnement", "positionnement prix et offres des acteurs", (2, 4, 5)),
+        Axe("reputation", "avis clients réputation des acteurs", (3, 7)),
+        Axe("tarifs_publies", "tarifs prix publiés grille tarifaire catalogue", (2, 3, 4)),
+        Axe("avis_notes", "avis Google Trustpilot note moyenne témoignages clients nombre", (3, 7)),
+        Axe("parts_marche", "parts de marché chiffre d'affaires revenus effectifs", (5, 6)),
+        Axe(
+            "forces_faiblesses",
+            "forces faiblesses avantages concurrentiels différenciation",
+            (3, 4, 7),
+        ),
+        Axe("presence_digitale", "site web réseaux sociaux présence en ligne e-commerce", (1, 3)),
     ),
     DeliverableType.BUSINESS_PLAN: _AXES_BUSINESS_PLAN,
     DeliverableType.BUSINESS_STRATEGY: _AXES_STRATEGIE,
