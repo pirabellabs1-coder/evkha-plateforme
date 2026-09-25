@@ -84,11 +84,16 @@ CURRENCY_ALTERNATION = (
 MAGNITUDE_WORDS = rf"(?:millions?|milliards?){_FIN_D_UNITE}"
 
 # Montant SANS groupe capturant — a envelopper par l'appelant.
-MONEY = rf"{NUMBER_BODY}{SPACE_CLASS}*(?:{CURRENCY_ALTERNATION})"
+#
+# `_NUMBER_START` est indispensable ici comme sur AMOUNT_WITH_UNIT_RE : sans
+# lui, « CA An1 250 272 € » se lisait « 1 250 272 € » — le chiffre de l'indice
+# d'exercice collé au montant — et c'est CE montant faux qui etait verrouille
+# comme fait client, puis oppose au document (mesure du 26/09/2026).
+MONEY = rf"{_NUMBER_START}{NUMBER_BODY}{SPACE_CLASS}*(?:{CURRENCY_ALTERNATION})"
 
 # Montant AVEC groupes : (1) le nombre, (2) l'unite. L'unite est indispensable :
 # sans elle « 1,25 M€ » est lu 1.25 et compare a 1 250 000.
-MONEY_CAPTURED = rf"({NUMBER_BODY}){SPACE_CLASS}*({CURRENCY_ALTERNATION})"
+MONEY_CAPTURED = rf"{_NUMBER_START}({NUMBER_BODY}){SPACE_CLASS}*({CURRENCY_ALTERNATION})"
 
 # Nombre + unite optionnelle (devise OU mot de magnitude), pour lire une valeur
 # de fait client qui peut etre multiple : « 250 272 € / 296 000 € », « 55 % ».

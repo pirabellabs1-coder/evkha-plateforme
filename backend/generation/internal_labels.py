@@ -28,6 +28,8 @@ nulle part ailleurs.
 """
 from __future__ import annotations
 
+import re
+
 # Intitules injectes dans le contexte de generation (cf. `context.py`).
 # Le modele ne doit JAMAIS les recopier dans sa redaction.
 INTERNAL_LABEL_NAMES: tuple[str, ...] = (
@@ -70,6 +72,21 @@ INTERNAL_LABEL_NAMES: tuple[str, ...] = (
 # « grep des tokens interdits... Si un seul apparait -> rejet »).
 PLACEHOLDER_TOKENS: tuple[str, ...] = ("TODO", "PLACEHOLDER", "XXX")
 
+# Placeholders en clair que le prompt demande au modele de REMPLACER — lot 85
+# lui fait ecrire « prix non publie en ligne au [date du jour] » puis substituer
+# la date reelle. S'il oublie, la chaine part telle quelle chez le client. Ces
+# formes portent des crochets et des minuscules : elles ne passent pas par
+# l'alternation a `\b` de PLACEHOLDER_TOKENS, d'ou une liste et une
+# alternation ECHAPPEES a part. Comparaison insensible a la casse.
+PLACEHOLDER_PHRASES: tuple[str, ...] = (
+    "[date du jour]",
+    "[à compléter]",
+    "[a completer]",
+    "[à définir]",
+    "[a definir]",
+    "lorem ipsum",
+)
+
 # Marqueurs d'encadre mentor. LEGITIMES dans le contenu brut (le convertisseur
 # les transforme en encadres stylises), interdits dans le HTML final.
 CALLOUT_MARKERS: tuple[str, ...] = ("UNDERSTAND", "CONSIDER", "ATTENTION", "ACTION")
@@ -83,6 +100,11 @@ def labels_alternation() -> str:
 def forbidden_words_alternation() -> str:
     """Intitules internes + placeholders, en alternation regex."""
     return "|".join((*INTERNAL_LABEL_NAMES, *PLACEHOLDER_TOKENS))
+
+
+def placeholder_phrases_alternation() -> str:
+    """Placeholders en clair, ECHAPPES : a composer sans `\\b`, avec `(?i:...)`."""
+    return "|".join(re.escape(phrase) for phrase in PLACEHOLDER_PHRASES)
 
 
 def callout_alternation() -> str:

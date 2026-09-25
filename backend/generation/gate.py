@@ -49,7 +49,11 @@ from core.numbers import (
     parse_number,
 )
 
-from .internal_labels import callout_alternation, forbidden_words_alternation
+from .internal_labels import (
+    callout_alternation,
+    forbidden_words_alternation,
+    placeholder_phrases_alternation,
+)
 from .models import ChapterStatus, FactProvenance, GenerationJob
 from .rendering import RenderedSection, render_client_document
 
@@ -64,6 +68,7 @@ _FORBIDDEN_TOKEN_RE = re.compile(
     r"\b(?:" + forbidden_words_alternation() + r")\b"
     r"|\[\[/?(?:" + callout_alternation() + r")\]\]"
     r"|\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}"
+    r"|(?i:" + placeholder_phrases_alternation() + r")"
 )
 
 # Variante appliquee au contenu BRUT : les marqueurs [[UNDERSTAND]] y sont
@@ -72,6 +77,7 @@ _FORBIDDEN_TOKEN_RE = re.compile(
 _INTERNAL_LABEL_ONLY_RE = re.compile(
     r"\b(?:" + forbidden_words_alternation() + r")\b"
     r"|\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}"
+    r"|(?i:" + placeholder_phrases_alternation() + r")"
 )
 
 # ── Check 2 : cohérence chiffrée vs état client ──────────────────────────────

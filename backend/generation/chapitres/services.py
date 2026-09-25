@@ -95,7 +95,6 @@ def _mention_arbitrage(arbitrage: Arbitrage | None) -> str:
     return ""
 
 
-@transaction.atomic
 def enregistrer_chapitre(
     chapter: ChapterGeneration,
     payload: ChapitrePayload,
@@ -108,32 +107,54 @@ def enregistrer_chapitre(
     Les deux : la structure est la nouvelle source de vérité, le markdown
     permet à la chaîne de rendu actuelle de continuer à produire un document
     tant que le lot 3 n'est pas livré.
-    """
-    from ..cost import record_chapter_cost  # noqa: PLC0415 — évite un cycle
 
-    chapter.payload = payload.model_dump(mode="json")
-    chapter.content = payload_vers_markdown(payload)
-    chapter.operational_summary = payload.resume
-    chapter.status = ChapterStatus.DONE
-    # Un chapitre accepté malgré des écarts de forme reste DONE — mais ne passe
-    # pas pour parfait. Le préfixe le distingue de `[contrat] `, que la
-    # tentative suivante relit pour se corriger : celui-ci ne doit surtout pas
-    # être réinjecté dans un prompt, la décision est prise.
-    chapter.error_message = _mention_arbitrage(arbitrage)
-    chapter.save(
-        update_fields=[
-            "payload", "content", "operational_summary",
-            "status", "error_message", "updated_at",
-        ]
+    ## Le plafond s'applique APRÈS la transaction, pas dedans
+
+    Cette fonction était `@transaction.atomic` de bout en bout, et
+    `record_chapter_cost` levait `CostBudgetExceededError` à l'intérieur.
+    Django annulait alors tout : le chapitre repassait `RUNNING` sans payload,
+    son coût disparaissait du grand livre, et l'incident « Budget IA dépassé »
+    n'était jamais écrit. L'appel, lui, avait bien été facturé. À la relance,
+    le chapitre était regénéré — repayé — et annulé de nouveau.
+
+    La docstring d'`enforce_budget` promettait pourtant que « le chapitre qui
+    a déclenché le dépassement est déjà sauvegardé ». Ici, on tient cette
+    promesse : chapitre et coût sont validés ensemble, puis seulement le
+    plafond juge.
+    """
+    from ..cost import (  # noqa: PLC0415 — évite un cycle
+        current_job_cost_eur,
+        enforce_budget,
+        record_chapter_cost,
     )
-    record_chapter_cost(
-        chapter=chapter,
-        input_tokens=consommation.get("input_tokens", 0),
-        output_tokens=consommation.get("output_tokens", 0),
-        model=model,
-        cache_write_tokens=consommation.get("cache_write_tokens", 0),
-        cache_read_tokens=consommation.get("cache_read_tokens", 0),
-    )
+
+    with transaction.atomic():
+        chapter.payload = payload.model_dump(mode="json")
+        chapter.content = payload_vers_markdown(payload)
+        chapter.operational_summary = payload.resume
+        chapter.status = ChapterStatus.DONE
+        # Un chapitre accepté malgré des écarts de forme reste DONE — mais ne
+        # passe pas pour parfait. Le préfixe le distingue de `[contrat] `, que
+        # la tentative suivante relit pour se corriger : celui-ci ne doit
+        # surtout pas être réinjecté dans un prompt, la décision est prise.
+        chapter.error_message = _mention_arbitrage(arbitrage)
+        chapter.save(
+            update_fields=[
+                "payload", "content", "operational_summary",
+                "status", "error_message", "updated_at",
+            ]
+        )
+        record_chapter_cost(
+            chapter=chapter,
+            input_tokens=consommation.get("input_tokens", 0),
+            output_tokens=consommation.get("output_tokens", 0),
+            model=model,
+            cache_write_tokens=consommation.get("cache_write_tokens", 0),
+            cache_read_tokens=consommation.get("cache_read_tokens", 0),
+            enforce=False,
+        )
+
+    enforce_budget(chapter.job, current_total=current_job_cost_eur(chapter.job))
     return chapter
 
 

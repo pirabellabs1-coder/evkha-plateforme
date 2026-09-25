@@ -150,8 +150,14 @@ def record_chapter_cost(
     model: str | None = None,
     cache_write_tokens: int = 0,
     cache_read_tokens: int = 0,
+    enforce: bool = True,
 ) -> Decimal:
     """Enregistre le cout d'une passe de generation. **Cumulatif.**
+
+    `enforce=False` : l'appelant tient une transaction ouverte et appliquera
+    le plafond APRES l'avoir validee. Lever ici, DANS sa transaction, annulait
+    le chapitre, son cout et l'incident d'un seul coup (voir
+    `chapitres/services.enregistrer_chapitre`).
 
     Cette fonction ECRASAIT `chapter.cost_eur`. Une regeneration — CHECK de
     bloc, boucle de correction — repasse par `_generate_chapter`, donc par ici :
@@ -197,7 +203,8 @@ def record_chapter_cost(
     total = current_job_cost_eur(job)
     GenerationJob.objects.filter(pk=job.pk).update(total_cost_eur=total)
 
-    enforce_budget(job, current_total=total)
+    if enforce:
+        enforce_budget(job, current_total=total)
     return cost
 
 

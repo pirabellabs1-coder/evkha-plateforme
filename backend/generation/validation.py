@@ -13,6 +13,8 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
+from .internal_labels import callout_alternation, labels_alternation
+
 
 class ValidationSeverity:
     WARNING = "warning"
@@ -157,22 +159,19 @@ _PLACEHOLDER_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # Fuite des intitules techniques du contexte de generation (brief client
     # juillet 2026 : "FAITS_VERROUILLES" apparaissait litteralement dans le
     # PDF livre). Tout label interne dans le contenu = violation bloquante.
+    # La liste vient de `internal_labels.py` (source UNIQUE, regle 5) : la
+    # copie locale qui vivait ici ignorait CHIFFRES_A_CITER, BRIEF_CLIENT,
+    # DOCUMENTS_DU_CLIENT, EVKHA_CACHE_BREAK et REGISTRE_CHIFFRES.
     (
         "leaked_internal_label",
-        re.compile(
-            r"\b(?:FAITS_VERROUILLES|VARIABLES_PROJET|DONNEES_CLIENT"
-            r"|REPERES_DEJA_ENONCES|RESUME_OPERATIONNEL(?:_PRECEDENT)?"
-            r"|FICHE_SECTORIELLE|SOURCES_WEB|CHAPITRE_CIBLE|CHAPITRE_PARENT"
-            r"|SECTIONS_PRECEDENTES|PROMPT_KEY|SECTION_A_GENERER"
-            r"|CONSIGNE_DU_CHAPITRE|DATE_DU_JOUR|CONTEXTE_ETUDE_PRECEDENTE)\b"
-        ),
+        re.compile(r"\b(?:" + labels_alternation() + r")\b"),
     ),
 )
 
 
 # Marqueurs d'encadre mentor : `[[UNDERSTAND]] ... [[/UNDERSTAND]]`.
-_CALLOUT_OPEN_RE = re.compile(r"\[\[(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]")
-_CALLOUT_CLOSE_RE = re.compile(r"\[\[/(UNDERSTAND|CONSIDER|ATTENTION|ACTION)\]\]")
+_CALLOUT_OPEN_RE = re.compile(r"\[\[(" + callout_alternation() + r")\]\]")
+_CALLOUT_CLOSE_RE = re.compile(r"\[\[/(" + callout_alternation() + r")\]\]")
 
 
 def detect_unbalanced_callouts(content: str) -> list[ChapterValidationIssue]:
