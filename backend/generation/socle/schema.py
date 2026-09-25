@@ -102,9 +102,9 @@ def _nombre_francais(valeur: float) -> str:
     version qui forçait une décimale l'aurait écrit « 1,0 Md€ ».
     """
     if valeur == int(valeur):
-        return f"{int(valeur):,}".replace(",", " ")
+        return f"{int(valeur):,}".replace(",", " ")
     texte = f"{valeur:,.3f}".rstrip("0").rstrip(".")
-    return texte.replace(",", " ").replace(".", ",")
+    return texte.replace(",", " ").replace(".", ",")
 
 
 def montant_lisible(valeur: float, unite: str) -> str:

@@ -192,7 +192,7 @@ def test_chaque_identifiant_porte_sa_nature(socle: Socle) -> None:
     # (« 6,8 Md€ », « 1,02 Md€ », « 600 k€ ») ; seule l'unité avait suivi, et
     # un business plan livré le 17/08/2026 portait « 16 500 000 000 euros ».
     assert "`tam` = 1,2 Md€ [monetaire]" in prompt
-    assert "`nombre_entreprises` = 4 200 [effectif]" in prompt
+    assert "`nombre_entreprises` = 4 200 [effectif]" in prompt
     assert "`croissance` = 3,4 % [pourcentage]" in prompt
     assert "`delai_moyen` = 8 mois [duree]" in prompt
     assert "`note_maturite` = 3,5 /5 [ratio]" in prompt

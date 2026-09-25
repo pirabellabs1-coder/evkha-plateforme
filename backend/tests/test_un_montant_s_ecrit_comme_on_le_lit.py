@@ -39,7 +39,7 @@ LISIBLE = [
     pytest.param(16_500_000_000.0, "EUR", "16,5 Md€", id="le-cas-mesure"),
     pytest.param(3_300_000.0, "EUR", "3,3 M€", id="millions-exacts"),
     pytest.param(1_000_000.0, "EUR", "1 M€", id="pile-un-million"),
-    pytest.param(320_000.0, "EUR", "320 000 €", id="un-ca-reste-en-clair"),
+    pytest.param(320_000.0, "EUR", "320 000 €", id="un-ca-reste-en-clair"),
     pytest.param(6.5, "EUR", "6,5 €", id="un-panier-moyen"),
 ]
 
@@ -52,9 +52,9 @@ def test_un_grand_montant_s_ecrit_a_son_echelle(
 
 
 INCHANGES = [
-    pytest.param(3_287_400.0, "EUR", "3 287 400 €", id="arrondir-perdrait-de-l-info"),
+    pytest.param(3_287_400.0, "EUR", "3 287 400 €", id="arrondir-perdrait-de-l-info"),
     pytest.param(
-        16_512_345_678.0, "EUR", "16 512 345 678 €", id="milliards-non-ronds"
+        16_512_345_678.0, "EUR", "16 512 345 678 €", id="milliards-non-ronds"
     ),
 ]
 
@@ -82,7 +82,7 @@ def test_une_unite_deja_a_l_echelle_ne_se_convertit_pas_deux_fois(
 
 
 NON_MONETAIRES = [
-    pytest.param(15_000.0, "unite", "15 000", id="un-denombrement"),
+    pytest.param(15_000.0, "unite", "15 000", id="un-denombrement"),
     pytest.param(3.0, "annees", "3 ans", id="une-duree"),
 ]
 

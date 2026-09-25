@@ -79,6 +79,18 @@ _titre_courant: str = ""
 _TITRE_LARGEUR = 70
 
 
+def _fmt(valeur: float) -> str:
+    """Nombre formaté à la française pour les annotations de graphiques.
+
+    Même convention que le texte du document : virgule décimale, espace
+    insécable comme séparateur de milliers, pas de notation scientifique.
+    """
+    if valeur == int(valeur):
+        return f"{int(valeur):,}".replace(",", " ")
+    texte = f"{valeur:,.3f}".rstrip("0").rstrip(".")
+    return texte.replace(",", " ").replace(".", ",")
+
+
 def _figure(palette: Palette, hauteur_ratio: float = 0.42) -> tuple[Figure, Axes]:
     largeur_pouces = LARGEUR_PX / DPI
     figure, axes = plt.subplots(
@@ -194,7 +206,7 @@ def barres_verticales(
     axes.set_xticklabels(etiquettes, rotation=0)
     for index, valeur in enumerate(valeurs):
         axes.text(
-            index, valeur, f" {valeur:g}{unite}", ha="center", va="bottom",
+            index, valeur, f" {_fmt(valeur)}{unite}", ha="center", va="bottom",
             fontsize=9, color=palette.prune_fonce,
         )
     return _exporter(figure, palette)
@@ -216,7 +228,7 @@ def barres_horizontales(
     axes.set_axisbelow(True)
     for index, valeur in enumerate(valeurs):
         axes.text(
-            valeur, index, f" {valeur:g}{unite}", va="center",
+            valeur, index, f" {_fmt(valeur)}{unite}", va="center",
             fontsize=9, color=palette.prune_fonce,
         )
     return _exporter(figure, palette)
@@ -424,7 +436,7 @@ def entonnoir(
         montant = (
             valeurs_affichees[index]
             if valeurs_affichees is not None and index < len(valeurs_affichees)
-            else f"{valeur:g}{unite}"
+            else f"{_fmt(valeur)}{unite}"
         )
         axes.text(
             0.5, index, f"{nom}  ·  {montant}", ha="center", va="center",
@@ -498,7 +510,7 @@ def jauges(
     axes.set_xticks([])
     for index, (_, note) in enumerate(notes):
         axes.text(
-            note, index, f"  {note:g} / {maximum:g}", va="center",
+            note, index, f"  {_fmt(note)} / {_fmt(maximum)}", va="center",
             fontsize=9, color=palette.prune_fonce, fontweight="bold",
         )
     return _exporter(figure, palette)
@@ -621,7 +633,7 @@ def carte_chaleur(
                 else palette.prune_fonce
             )
             axes.text(
-                j, i, f"{valeur:g}", ha="center", va="center",
+                j, i, f"{_fmt(valeur)}", ha="center", va="center",
                 fontsize=9, color=couleur, fontweight="bold",
             )
     return _exporter(figure, palette)

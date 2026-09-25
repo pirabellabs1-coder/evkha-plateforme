@@ -36,23 +36,17 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from core.numbers import CURRENCY_ALTERNATION, to_base_units
+from core.numbers import CURRENCY_ALTERNATION, NUMBER_BODY, parse_number, to_base_units
 
 #: Écart relatif toléré entre le résultat écrit et le résultat recalculé.
 TOLERANCE = 0.01
 
-#: Un nombre français : « 50 000 », « 1 250,5 », « 0,204 ».
-#: Les espaces fines et insécables comptent comme séparateurs de milliers.
-_NOMBRE = r"\d[\d    ]*(?:[.,]\d+)?"
+_NOMBRE = NUMBER_BODY
 
 
 def _valeur(texte: str) -> float | None:
-    """« 50 000 » → 50000.0. None si ce n'est pas un nombre lisible."""
-    nu = re.sub(r"[    ]", "", texte).replace(",", ".")
-    try:
-        return float(nu)
-    except ValueError:
-        return None
+    """« 50 000 » → 50000.0. Délègue à core.numbers.parse_number."""  # noqa: RUF001
+    return parse_number(texte)
 
 
 #: « 102 sur 50 000, soit 0,2 % » — la forme qui a produit le défaut.
