@@ -75,7 +75,7 @@ def test_render_chart_svg_pie_shows_labels_with_percentages() -> None:
     })
     assert "<svg" in svg
     assert "Segment A" in svg
-    assert "70%" in svg or "70 %" in svg or "(70%)" in svg
+    assert "(70 %)" in svg
 
 
 def test_replace_chart_fences_inserts_svg_in_text() -> None:

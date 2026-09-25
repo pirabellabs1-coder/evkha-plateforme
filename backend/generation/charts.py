@@ -186,11 +186,11 @@ def _legend(series: list[tuple[str, list[float]]]) -> str:
 def _fmt(value: float, unit: str = "") -> str:
     """Formatage compact des valeurs d'axe / d'etiquette."""
     if abs(value) >= 1000:
-        text = f"{value:,.0f}".replace(",", " ")
+        text = f"{value:,.0f}".replace(",", " ")
     elif value == int(value):
         text = str(int(value))
     else:
-        text = f"{value:.1f}".rstrip("0").rstrip(".")
+        text = f"{value:.1f}".rstrip("0").rstrip(".").replace(".", ",")
     return f"{text}{unit}"
 
 
@@ -363,7 +363,7 @@ def _render_pie(labels: list[str], values: list[float], unit: str) -> str:
         parts.append(
             f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" '
             f'font-size="10" fill="{_PRIMARY}">{escape(label)} '
-            f'({pct:.0f}%)</text>'
+            f'({pct:.0f} %)</text>'
         )
         label_items.append(f"{label}: {_fmt(value, unit)}")
         angle = end
