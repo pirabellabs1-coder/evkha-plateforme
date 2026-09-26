@@ -18,6 +18,51 @@
   /* La largeur de colonne s'anime : un repliement instantané fait sauter tout
    * le contenu et on perd l'endroit où l'on lisait. */
   transition: grid-template-columns var(--transition);
+  /* Contexte d'empilement propre : le calque de fond ci-dessous se place en
+   * `z-index: -1` DANS ce contexte, donc au-dessus du fond de page et sous
+   * tout le contenu. Sans `isolation`, un -1 filerait sous le fond de page
+   * et le maillage n'apparaîtrait jamais. */
+  isolation: isolate;
+}
+
+/* ── Le maillage de fond ────────────────────────────────────────────────────
+ *
+ * Ce sur quoi le verre se lit. Un verre posé sur un aplat uni ressemble à un
+ * rectangle blanc ; posé sur un fond qui varie doucement, il se met à
+ * exister — la translucidité des cartes laisse passer ces halos.
+ *
+ * FIXE, et c'est la règle qui compte : le calque ne défile pas, il ne se
+ * repeint donc jamais au défilement. Un pseudo-élément plutôt qu'un `div`
+ * dans chaque coquille : les deux espaces (client, administration) le
+ * reçoivent d'un seul endroit. Un pseudo-élément `fixed` est hors flux, il
+ * n'occupe aucune cellule de la grille.
+ *
+ * Halos à 6–10 % : or en haut à gauche (la marque), crème en bas à droite,
+ * un troisième or très pâle au centre pour que la traversée ne soit pas
+ * plate. Au-delà, le fond concurrence les cartes. */
+.espace::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      52rem 38rem at 12% -6%,
+      var(--halo-or) 0%,
+      transparent 68%
+    ),
+    radial-gradient(
+      46rem 34rem at 108% 104%,
+      var(--halo-creme) 0%,
+      transparent 66%
+    ),
+    radial-gradient(
+      70rem 40rem at 62% 44%,
+      color-mix(in srgb, var(--halo-or) 45%, transparent) 0%,
+      transparent 70%
+    ),
+    var(--fond-page);
 }
 
 /* ── Barre repliée, sur grand écran ─────────────────────────────────────────
@@ -239,23 +284,44 @@
  * portable de 800 px de haut, cela prend un huitième de l'écran en permanence
  * pour redire à quelqu'un son propre nom.
  *
- * Il est désormais compact, et il ne reste collé que sur les petites largeurs
- * — là où le bouton de navigation qu'il porte est le seul accès au menu. Au
- * large, la navigation est visible en permanence dans la barre latérale :
- * l'en-tête peut défiler avec la page et rendre sa hauteur au contenu.
+ * Il est désormais compact — et c'est une BARRE DE VERRE FLOTTANTE, détachée
+ * du bord par des marges, arrondie en pilule, et collante à TOUTES les
+ * largeurs. Elle ne l'était qu'en dessous de 900 px ; au large elle défilait
+ * avec la page pour lui rendre sa hauteur. Le verre change la donne : un
+ * panneau translucide qui flotte au-dessus du contenu en défilement est
+ * précisément ce qui lui donne sa matière, et il ne coûte que 60 px.
  *
- * `position` n'est PAS redéclaré ici : la bascule en `sticky` vit déjà dans la
- * règle « ≤ 900 px » plus bas, avec le reste de l'adaptation aux petits
- * écrans. En poser une seconde copie ici, c'était deux endroits à corriger le
- * jour où le seuil bouge (règle 5). */
+ * `backdrop-filter` est autorisé ICI parce que l'élément est collant : il ne
+ * se déplace pas par rapport à la fenêtre, le flou n'est recalculé que quand
+ * le contenu passe dessous. Le même flou sur une carte qui défile serait
+ * recalculé à chaque image.
+ *
+ * `position`, `top` et `z-index` vivent désormais ici, pour toutes les
+ * largeurs. La règle « ≤ 900 px » plus bas n'ajuste plus que les marges. */
 .espace-entete {
+  position: sticky;
+  top: var(--e-3);
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--e-4);
-  padding: var(--e-3) var(--e-8);
-  background: var(--fond-carte);
-  border-bottom: 1px solid var(--evkha-bordure);
+  margin: var(--e-4) var(--e-8) 0;
+  padding: var(--e-2) var(--e-5) var(--e-2) var(--e-2);
+  border-radius: var(--rayon-pilule);
+  background: var(--verre-fond);
+  border: 1px solid var(--verre-bordure);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
+  -webkit-backdrop-filter: blur(var(--verre-flou)) saturate(1.35);
+  backdrop-filter: blur(var(--verre-flou)) saturate(1.35);
+}
+
+/* Sans prise en charge du flou, le verre s'épaissit : un panneau à 64 % de
+ * blanc sans flou laisse lire le texte qui passe dessous. */
+@supports not (backdrop-filter: blur(1px)) {
+  .espace-entete {
+    background: var(--verre-fond-fort);
+  }
 }
 
 .espace-titre {
@@ -761,10 +827,23 @@
   height: 44px;
   flex: 0 0 44px;
   border: 1px solid var(--evkha-bordure-forte);
-  border-radius: var(--rayon-sm);
-  background: var(--fond-carte);
+  /* Un disque : il est niché dans la pilule de l'en-tête, et un carré arrondi
+   * dans une pilule fait deux courbes qui ne se suivent pas. */
+  border-radius: var(--rayon-pilule);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
   cursor: pointer;
   padding: 0;
+  transition: background var(--duree-micro) var(--ease-doux),
+    transform var(--duree-micro) var(--ease-doux);
+}
+
+.espace-hamburger:hover {
+  background: var(--evkha-blanc);
+}
+
+.espace-hamburger:active {
+  transform: scale(0.96);
 }
 
 .espace-hamburger:focus-visible {
@@ -816,10 +895,14 @@
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: rgba(11, 11, 11, 0.5);
+  background: rgba(11, 11, 11, 0.4);
   border: 0;
   padding: 0;
   cursor: pointer;
+  /* Fixe, donc le flou est permis : la page s'estompe derrière le tiroir au
+   * lieu de s'assombrir seulement. */
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────────
@@ -881,16 +964,12 @@
 
   /* Sous 900 px, la barre latérale est repliée : ce bouton est le SEUL accès
    * à la navigation, l'en-tête doit donc rester atteignable au défilement.
-   * `top` et `z-index` sont ici, avec le `sticky` qu'ils servent — les laisser
-   * dans la règle de base, où plus rien ne colle, en faisait deux déclarations
-   * dont l'une ne s'appliquait jamais, et le jour où elle a disparu le
-   * `sticky` a continué d'exister sans plus rien coller. */
+   * Il est collant à toutes les largeurs depuis la barre de verre (voir la
+   * règle de base) ; ici, seules les marges se resserrent. */
   .espace-entete {
     gap: var(--e-3);
-    padding: var(--e-3) var(--e-4);
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    margin: var(--e-3) var(--e-4) 0;
+    padding: var(--e-2) var(--e-4) var(--e-2) var(--e-2);
   }
 
   /* L'identité de l'organisation passe sous le titre plutôt qu'à sa droite :
@@ -900,11 +979,15 @@
   }
 }
 
-/* Sur très petit écran, le titre et l'identité s'empilent franchement. */
+/* Sur très petit écran, le titre et l'identité s'empilent franchement. La
+ * pilule devient un galet : un rayon de 999 px sur une boîte de deux lignes
+ * dessine des demi-cercles, plus un bord arrondi. */
 @media (max-width: 560px) {
   .espace-entete {
     flex-direction: column;
     align-items: flex-start;
+    border-radius: var(--rayon-verre);
+    padding: var(--e-3) var(--e-4);
   }
 }
 
@@ -2536,7 +2619,7 @@
   position: fixed;
   inset: 0;
   z-index: 900;
-  background: rgba(11, 11, 11, 0.55);
+  background: rgba(11, 11, 11, 0.42);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2544,6 +2627,10 @@
   /* Le voile ne défile pas avec la page : la fenêtre reste centrée même si on
      arrive en bas d'un tableau de bord long. */
   overflow-y: auto;
+  /* Fixe : le flou est permis, et il fait de l'espace un arrière-plan au lieu
+     d'un contenu assombri qu'on essaierait encore de lire. */
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .annonce-fenetre {
@@ -2551,12 +2638,13 @@
   width: 100%;
   max-width: 34rem;
   background: var(--fond-carte);
-  border-radius: var(--rayon-lg);
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
   /* Le filet d'or à gauche, comme les encadrés de la charte : la fenêtre se
      rattache à la marque sans être un aplat jaune. */
   border-left: 5px solid var(--evkha-or);
   padding: var(--e-8) var(--e-8) var(--e-6);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante-lg);
   display: flex;
   flex-direction: column;
   gap: var(--e-3);
