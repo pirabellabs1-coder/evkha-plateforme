@@ -66,6 +66,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
     titre: "Abonnement et crédits",
     sous: "Votre formule, les autres formules, et l'achat de crédits additionnels.",
   },
+  "/espace/souscription": {
+    titre: "Souscrire à une formule",
+    sous: "Choisissez votre formule d'abonnement, puis réglez-la en ligne.",
+  },
   "/espace/equipe": {
     titre: "Équipe",
     sous: "Les collaborateurs qui partagent votre portefeuille de crédits.",
