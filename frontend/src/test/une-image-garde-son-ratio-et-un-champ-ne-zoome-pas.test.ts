@@ -9,10 +9,13 @@
  *    `<img>` publique qui porte `height=` doit donc avoir une classe, et
  *    cette classe une règle qui déclare `height`.
  *
- * 2. **Un champ de saisie public ne descend pas sous 16 px.** En dessous,
- *    Safari iOS zoome la page au focus et ne la dézoome pas. Les champs de
+ * 2. **Aucun champ de saisie ne descend sous 16 px.** En dessous, Safari
+ *    iOS zoome la page au focus et ne la dézoome pas. Les champs de
  *    connexion et d'inscription étaient à 0,85 rem (13,6 px) depuis avant la
- *    refonte ; ceux du tunnel d'achat sont passés à 15 px avec elle.
+ *    refonte, `.champ-saisie` à 15 px — le questionnaire de commande, le
+ *    tunnel d'achat, la porte du tableau de bord — et le formulaire d'avis à
+ *    13 px. Toutes les feuilles de l'application sont lues, pas seulement
+ *    les pages publiques : la classe du défaut, pas l'exemple (règle 4).
  *
  * jsdom ne calcule aucune mise en page : on lit les sources, comme
  * `un-bouton-ne-rogne-pas-son-libelle`.
@@ -23,6 +26,7 @@ import { describe, expect, it } from "vitest";
 
 const PUBLIC = join(process.cwd(), "src", "public");
 const THEME = join(process.cwd(), "src", "theme");
+const PAGES = join(process.cwd(), "src", "pages");
 
 interface Regle {
   feuille: string;
@@ -38,15 +42,15 @@ function sansCommentaires(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
-/** Toutes les règles `sélecteur { corps }` des feuilles publiques et de
- *  `espace.css`, @media compris (on ne garde que le bloc le plus intérieur). */
+/** Toutes les règles `sélecteur { corps }` des feuilles de l'application
+ *  (pages publiques, thème, anciennes pages), @media compris : on ne garde
+ *  que le bloc le plus intérieur. */
 function regles(): Regle[] {
-  const feuilles = [
-    ...readdirSync(PUBLIC)
+  const feuilles = [PUBLIC, THEME, PAGES].flatMap((dossier) =>
+    readdirSync(dossier)
       .filter((f) => f.endsWith(".css"))
-      .map((f) => join(PUBLIC, f)),
-    join(THEME, "espace.css"),
-  ];
+      .map((f) => join(dossier, f)),
+  );
   const sortie: Regle[] = [];
   for (const feuille of feuilles) {
     const css = sansCommentaires(lire(feuille));
@@ -117,11 +121,10 @@ describe("une image garde son ratio", () => {
   }
 });
 
-describe("un champ public ne fait pas zoomer iOS", () => {
-  it("aucune règle des feuilles publiques ne met un champ sous 16 px", () => {
+describe("un champ ne fait pas zoomer iOS", () => {
+  it("aucune règle de l'application ne met un champ sous 16 px", () => {
     const champs = REGLES.filter(
       (r) =>
-        r.feuille.startsWith(PUBLIC) &&
         /\b(input|textarea|select)\b|champ-saisie/.test(r.selecteur) &&
         /font-size\s*:/.test(r.corps),
     );
@@ -136,10 +139,18 @@ describe("un champ public ne fait pas zoomer iOS", () => {
     }
   });
 
-  it("les champs .champ-saisie des pages publiques sont relevés à 16 px", () => {
-    const releve = REGLES.find((r) => r.selecteur === ".pp .champ-saisie");
-    expect(releve, "règle .pp .champ-saisie absente").toBeDefined();
-    expect(enPixels(tailleDe(releve)) ?? 0).toBeGreaterThanOrEqual(16);
+  it("le champ de la charte (.champ-saisie) est lui-même à 16 px au moins", () => {
+    const regle = REGLES.find((r) => r.selecteur === ".champ-saisie");
+    expect(regle, "règle .champ-saisie absente").toBeDefined();
+    expect(enPixels(tailleDe(regle)) ?? 0).toBeGreaterThanOrEqual(16);
+  });
+
+  it("un plancher couvre les champs sans classe", () => {
+    const plancher = REGLES.find(
+      (r) => r.selecteur.replace(/\s+/g, "") === ":where(input,select,textarea)",
+    );
+    expect(plancher, "plancher :where(input, select, textarea) absent").toBeDefined();
+    expect(enPixels(tailleDe(plancher)) ?? 0).toBeGreaterThanOrEqual(16);
   });
 
   it("contre-épreuve : la lecture des tailles distingue 13,6 px de 16 px", () => {

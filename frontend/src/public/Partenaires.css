@@ -19,14 +19,6 @@
  * doit l'emporter sur `.bouton` est donc écrit à deux classes (`.pp .pp-x`).
  */
 
-/* Un champ de saisie sous 16 px fait zoomer Safari iOS au focus, et la page
- * reste zoomée ensuite. `.champ-saisie` (espace.css) est à `--t-base`, soit
- * 15 px : sur les pages publiques — tunnel d'achat compris — on relève le
- * plancher. Deux classes, pour l'emporter sur `.champ-saisie` seul. */
-.pp .champ-saisie {
-  font-size: max(1rem, var(--t-base));
-}
-
 .pp {
   /* ── Alias vers les jetons ─────────────────────────────────────────────
    * `--or-fonce` sert au petit texte doré (surtitres, valeurs, liens). Aucun

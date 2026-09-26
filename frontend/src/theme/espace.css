@@ -994,12 +994,23 @@
  * d'un pixel pour le creux, et le liseré fort de la charte pour que son
  * bord se voie — un champ qu'on ne trouve pas n'est pas premium, il est
  * caché. */
+/* Aucun champ de saisie sous 16 px, où qu'il soit. En dessous, Safari iOS
+ * zoome la page au focus et ne la dézoome pas : le questionnaire de commande
+ * — le formulaire le plus long de la plateforme, rempli sur téléphone —
+ * était à 15 px, le formulaire d'avis à 13 px (vu le 26/09/2026). `:where`
+ * ne pèse rien : c'est un plancher pour les champs sans classe, qu'une règle
+ * de composant peut préciser sans jamais descendre sous 16 px (verrou :
+ * `une-image-garde-son-ratio-et-un-champ-ne-zoome-pas`). */
+:where(input, select, textarea) {
+  font-size: max(1rem, 1em);
+}
+
 .champ-saisie {
   padding: var(--e-3) var(--e-4);
   border: 1px solid var(--evkha-bordure-forte);
   border-radius: var(--rayon-md);
   font-family: var(--police-corps);
-  font-size: var(--t-base);
+  font-size: max(1rem, var(--t-base));
   color: var(--texte);
   background: var(--verre-fond-fort);
   box-shadow: inset 0 1px 2px var(--verre-bordure);
@@ -3230,7 +3241,7 @@
 .avis-formulaire textarea,
 .avis-formulaire input {
   font: inherit;
-  font-size: var(--t-sm);
+  font-size: 1rem; /* 16 px : voir `:where(input, select, textarea)` */
   color: var(--texte);
   background: var(--fond-carte);
   border: 1px solid var(--evkha-bordure);

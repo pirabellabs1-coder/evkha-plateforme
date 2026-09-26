@@ -14,13 +14,14 @@
  * dans le fichier : sans clé, le bloc monté après coup n'est observé par
  * personne, et l'invariant le voit.
  *
- * Sans JSX : `src/test` est hors du `tsconfig`, le JSX y serait compilé en
- * `React.createElement` classique.
+ * `React` est importé nommément : `src/test` est hors du `tsconfig`, le JSX
+ * y est compilé en `React.createElement` classique, et sans l'import le
+ * rendu échoue sur « React is not defined ».
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { act, render } from "@testing-library/react";
-import { createElement, useRef } from "react";
+import React, { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useReveler } from "../public/reveler";
@@ -79,16 +80,18 @@ function mediaQuery(reduit: boolean) {
 function Page({ n, avecCle }: { n: number; avecCle: boolean }) {
   const racine = useRef<HTMLDivElement>(null);
   useReveler(racine, avecCle ? n : undefined);
-  return createElement(
-    "div",
-    { ref: racine },
-    Array.from({ length: n }, (_, i) =>
-      createElement("p", { key: i, "data-reveal": "" }, `bloc ${i}`),
-    ),
+  return (
+    <div ref={racine}>
+      {Array.from({ length: n }, (_, i) => (
+        <p key={i} data-reveal="">
+          bloc {i}
+        </p>
+      ))}
+    </div>
   );
 }
 
-const page = (n: number, avecCle: boolean) => createElement(Page, { n, avecCle });
+const page = (n: number, avecCle: boolean) => <Page n={n} avecCle={avecCle} />;
 
 /** Les blocs qui resteraient effacés pour toujours. */
 function oublies(conteneur: HTMLElement): Element[] {
