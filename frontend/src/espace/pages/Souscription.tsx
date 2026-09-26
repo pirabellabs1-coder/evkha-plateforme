@@ -175,40 +175,57 @@ export function Souscription() {
         titre="Activer votre abonnement"
         note="Vos crédits sont déposés dès le paiement accepté, sans attendre personne."
       >
-        <div className="souscription-formules">
-          {formules.map((formule) => (
-            <label
-              key={formule.code}
-              className={
-                formule.code === code
-                  ? "souscription-formule choisie"
-                  : "souscription-formule"
-              }
-            >
-              <input
-                type="radio"
-                name="formule"
-                value={formule.code}
-                checked={formule.code === code}
-                onChange={() => setChoisie(formule.code)}
-              />
-              <span className="souscription-formule-nom">{formule.libelle}</span>
-              <span className="souscription-formule-prix">
-                {f.montant(formule.prix_mensuel_cents)}
-                <small> / mois</small>
-              </span>
-              <span className="souscription-formule-credits">
-                {formule.credits_par_echeance} crédit
-                {formule.credits_par_echeance > 1 ? "s" : ""} par mois, soit{" "}
-                {f.montant(formule.cout_par_livrable_cents)} par livrable
-              </span>
-            </label>
-          ))}
-        </div>
+        {/* Un groupe radio NOMMÉ : sans `fieldset` ni légende, un lecteur
+            d'écran annonçait des boutons isolés, sans dire ce qu'on y
+            choisissait. La légende est masquée à l'œil — le titre de la
+            carte le dit déjà. */}
+        <fieldset className="souscription-formules">
+          <legend className="visuellement-cache">Formule d'abonnement</legend>
+          <div className="souscription-grille">
+            {formules.map((formule) => (
+              <label
+                key={formule.code}
+                className={
+                  formule.code === code
+                    ? "souscription-formule choisie"
+                    : "souscription-formule"
+                }
+              >
+                <input
+                  type="radio"
+                  name="formule"
+                  value={formule.code}
+                  checked={formule.code === code}
+                  onChange={() => setChoisie(formule.code)}
+                />
+                <span className="souscription-formule-nom">
+                  {formule.libelle}
+                </span>
+                <span className="souscription-formule-prix">
+                  {f.montant(formule.prix_mensuel_cents)}
+                  <small> / mois</small>
+                </span>
+                <span className="souscription-formule-credits">
+                  {formule.credits_par_echeance} crédit
+                  {formule.credits_par_echeance > 1 ? "s" : ""} par mois, soit{" "}
+                  {f.montant(formule.cout_par_livrable_cents)} par livrable
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
+        {/* Pendant l'ouverture du paiement, une lame de lumière traverse le
+            bouton (`.bouton-chargement`) : le texte dit « Ouverture… », le
+            balayage dit seulement que ça travaille. La flèche nichée n'est
+            là que quand le bouton mène quelque part. */}
         <button
           type="button"
-          className="souscription-payer"
+          className={
+            envoi
+              ? "bouton bouton-principal bouton-chargement souscription-payer"
+              : "bouton bouton-principal souscription-payer"
+          }
           onClick={payer}
           disabled={envoi || !code}
         >
@@ -217,6 +234,11 @@ export function Souscription() {
             : detail
               ? `Régler ${f.montant(detail.prix_mensuel_cents)} par mois`
               : "Choisissez une formule"}
+          {detail && !envoi && (
+            <span className="bouton__icone" aria-hidden="true">
+              ↗
+            </span>
+          )}
         </button>
 
         <p className="souscription-pied">

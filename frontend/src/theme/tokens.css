@@ -197,6 +197,9 @@
   --duree-micro: 180ms;
   --duree-reveal: 640ms;
   --decalage-reveal: 55ms;
+  /* Ce qui dit « on attend » respire, au même rythme partout : le halo du
+   * jalon en cours du suivi de production, le point de la souscription. */
+  --duree-respiration: 2.6s;
 
   /* ── Gabarit ──────────────────────────────────────────────────────────── */
   --largeur-barre: 264px;
@@ -213,5 +216,6 @@
     --duree-micro: 0ms;
     --duree-reveal: 0ms;
     --decalage-reveal: 0ms;
+    --duree-respiration: 0ms;
   }
 }

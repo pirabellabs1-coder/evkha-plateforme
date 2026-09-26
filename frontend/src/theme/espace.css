@@ -1976,213 +1976,293 @@
   color: var(--evkha-alerte);
 }
 
-/* ══ Souscription à régler ═══════════════════════════════════════════════════
+/* ══ Souscription ═════════════════════════════════════════════════════════════
  *
- * Cet écran remplace l'espace entier tant que l'abonnement n'est pas payé. Il
- * emprunte les jetons de la charte, sans en créer : un second jeu de couleurs
- * pour un seul écran finirait par diverger du reste (règle 5).
+ * La page d'activation vit DANS la coquille, comme les autres : elle est
+ * rendue dans une `Carte`, et la personne garde la navigation et l'accès à
+ * ses documents (voir `Souscription.tsx`). Cette section n'habille donc que ce
+ * que la carte contient — le choix de la formule, le règlement, l'attente du
+ * webhook — avec les jetons de `tokens.css`, sans en créer de couleur : un
+ * second jeu pour un seul écran finirait par diverger du reste (règle 5).
  *
- * Il ne porte NI barre latérale NI navigation, et c'est voulu. Offrir les
- * liens de l'espace mènerait à sept pages qui répondent 402 : la personne
- * découvrirait le refus sept fois au lieu de lire une fois ce qu'il faut faire.
+ * L'écran plein qui l'a précédée (`.souscription`, `.souscription-carte`, sa
+ * marque, ses notes et son lien de sortie) n'est plus rendu nulle part : ses
+ * règles sont retirées plutôt que laissées à mentir sur ce qui s'affiche.
  */
-.souscription {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem 1rem 3rem;
-  background: var(--fond-page);
-}
-
-.souscription-carte {
-  width: min(560px, 100%);
-  background: var(--fond-carte);
-  border: 1px solid var(--evkha-bordure);
-  border-radius: var(--rayon-md);
-  padding: 2.2rem 2rem 1.6rem;
-}
-
-.souscription-marque {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 1.6rem;
-}
-
-.souscription-carte h1 {
-  font-family: var(--police-titre);
-  font-size: var(--t-lg);
-  font-weight: var(--graisse-titre);
-  line-height: var(--interligne-serre);
-  color: var(--texte-fort);
-  margin: 0 0 0.5rem;
-}
-
-.souscription-sous {
-  font-size: var(--t-base);
-  line-height: var(--interligne);
-  color: var(--texte-doux);
-  margin: 0 0 1.5rem;
-}
-
-.souscription-note,
-.souscription-erreur {
-  font-size: var(--t-sm);
-  line-height: var(--interligne);
-  border-radius: var(--rayon-xs);
-  padding: 0.65rem 0.85rem;
-  margin: 0 0 1.2rem;
-}
-
-.souscription-note {
-  background: var(--evkha-info-voile);
-  color: var(--evkha-info);
-}
-
-.souscription-erreur {
-  background: var(--evkha-echec-voile);
-  color: var(--evkha-echec);
-}
 
 /* ── Le choix de la formule ───────────────────────────────────────────────── */
 
+/* Un `fieldset` : les boutons radio forment UN groupe, et sa légende — masquée
+   à l'œil, lue par le lecteur d'écran — le nomme. Remis à plat ici : ni
+   bordure, ni marge, ni la largeur minimale de contenu que le navigateur lui
+   donne par défaut et qui ferait déborder la grille sur mobile.
+
+   C'est aussi un CONTENEUR : la grille suit la largeur de la carte, pas celle
+   de l'écran. La barre latérale, repliée ou non, change la seconde sans que
+   la première le sache. */
 .souscription-formules {
-  display: grid;
-  gap: 0.6rem;
-  margin-bottom: 1.4rem;
+  margin: 0 0 var(--e-8);
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+  container-type: inline-size;
 }
 
-/* Une grille de deux colonnes : le nom et le prix sur la première ligne, la
-   dotation en dessous, sur toute la largeur. Le bouton radio reste dans le
-   flux plutôt que masqué — c'est lui que le clavier atteint, et le masquer
-   demanderait de réinventer son anneau de focus. */
+/* Une colonne, puis deux, puis toutes sur une ligne — jamais trois : quatre
+   formules en trois colonnes en laissent une orpheline, et une carte seule
+   sous les autres se lit comme une offre à part. Sans requêtes de conteneur,
+   la colonne unique reste : lisible partout. */
+.souscription-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--e-5);
+}
+
+@container (min-width: 30rem) {
+  .souscription-grille {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 54rem) {
+  .souscription-grille {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+}
+
+/* Une formule est une plaque de verre en DOUBLE BORDURE, comme `.carte` : la
+   coque translucide cernée d'un liseré, le cœur blanc plus dense en retrait
+   de `--verre-marge` (`::before`), des rayons concentriques. Le `label`
+   entier est la cible — un clic n'importe où sur la carte choisit la
+   formule — et le bouton radio reste dans le flux : c'est lui que le clavier
+   atteint, et le masquer demanderait de réinventer son anneau de focus.
+   Aucun `backdrop-filter` : ces cartes défilent. */
 .souscription-formule {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
   align-items: center;
-  gap: 0.2rem 0.7rem;
-  border: 1px solid var(--evkha-bordure);
-  border-radius: var(--rayon-sm);
-  padding: 0.8rem 1rem;
+  gap: var(--e-2) var(--e-3);
+  padding: calc(var(--e-5) + var(--verre-marge));
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--verre-fond);
+  box-shadow: var(--ombre-ambiante);
   cursor: pointer;
+  transition: transform var(--duree-micro) var(--ease-doux);
 }
 
-.souscription-formule:hover {
-  border-color: var(--evkha-bordure-forte);
+.souscription-formule::before {
+  content: "";
+  position: absolute;
+  inset: var(--verre-marge);
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--verre-reflet);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
 }
 
+/* Le halo de la formule choisie vit sur son propre calque, et c'est son
+   OPACITÉ qui s'anime : une ombre qu'on fait varier se repeint à chaque
+   image, un calque qu'on allume se compose. Il n'a pas de fond : son ombre
+   se dessine hors de sa boîte, le cœur de verre reste visible dessous. */
+.souscription-formule::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: 0 0 0 5px var(--halo-or-fort), var(--ombre-ambiante-lg);
+  opacity: 0;
+  transition: opacity var(--duree-micro) var(--ease-doux);
+}
+
+/* Au survol seulement là où le survol existe : sur un écran tactile, la carte
+   touchée resterait soulevée après le doigt. */
+@media (hover: hover) {
+  .souscription-formule:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* La formule choisie est celle que la page met en avant : liseré or, halo
+   or, et le voile d'or qui descend dans son cœur — la recette de la formule
+   mise en avant de la page Partenaires. La couleur n'est pas seule à le
+   dire : le bouton radio coché porte l'état, en noir. */
 .souscription-formule.choisie {
-  border-color: var(--evkha-or-profond);
-  background: var(--evkha-or-brume);
+  border-color: var(--evkha-or);
 }
 
+.souscription-formule.choisie::before {
+  background: linear-gradient(180deg, var(--verre-or), transparent 38%),
+    var(--verre-fond-fort);
+}
+
+.souscription-formule.choisie::after {
+  opacity: 1;
+}
+
+/* Le focus clavier se voit sur la carte entière, pas seulement sur le petit
+   disque du bouton radio. Noir et non or : l'or plafonne à 1,7:1 sur blanc.
+   Sans `:has()`, l'anneau natif du bouton radio reste. */
+.souscription-formule:has(input:focus-visible) {
+  outline: 2px solid var(--evkha-noir);
+  outline-offset: 3px;
+}
+
+/* NOIR, et non l'or d'avant : un disque or sur blanc plafonne à 1,9:1, sous
+   les 3:1 qu'exige un indicateur d'état (WCAG 1.4.11). Le noir signale, l'or
+   habille — c'est la carte qui porte l'or. */
 .souscription-formule input {
-  accent-color: var(--evkha-or-profond);
+  width: 1.05rem;
+  height: 1.05rem;
   margin: 0;
+  accent-color: var(--evkha-noir);
 }
 
 .souscription-formule-nom {
-  font-weight: var(--graisse-forte);
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
   color: var(--texte-fort);
 }
 
+/* Chiffres à largeur fixe : quatre prix côte à côte se comparent d'un seul
+   regard. Le montant ne se coupe jamais — `Intl` y pose des espaces
+   insécables — mais « / mois » passe dessous dans une carte étroite plutôt
+   que de la faire déborder. */
 .souscription-formule-prix {
+  grid-column: 1 / -1;
+  margin-top: var(--e-3);
   font-family: var(--police-chiffre);
-  font-weight: var(--graisse-titre);
+  font-size: var(--t-xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.03em;
+  line-height: var(--interligne-serre);
+  font-variant-numeric: tabular-nums;
   color: var(--texte-fort);
-  white-space: nowrap;
 }
 
 .souscription-formule-prix small {
+  font-size: var(--t-sm);
   font-weight: var(--graisse-normale);
-  color: var(--texte-tenu);
+  letter-spacing: 0;
+  color: var(--texte-doux);
+  white-space: nowrap;
 }
 
-/* La dotation part sous le bouton radio, pas sous le nom : elle appartient à
-   la formule entière, pas à son intitulé. */
+/* La dotation appartient à la formule entière, pas à son intitulé : elle
+   court sur toute la largeur de la carte. */
 .souscription-formule-credits {
-  grid-column: 2 / -1;
-  font-size: var(--t-xs);
+  grid-column: 1 / -1;
+  font-size: var(--t-sm);
+  line-height: 1.45;
   color: var(--texte-doux);
 }
 
 /* ── Le règlement ─────────────────────────────────────────────────────────── */
 
+/* Un bouton-îlot de la charte (`.bouton .bouton-principal`), élargi et centré
+   sous les formules ; pendant l'ouverture du paiement, le balayage de
+   `.bouton-chargement` dit « ça travaille ». Le libellé peut passer à la
+   ligne : « Régler 429,00 € par mois » ne tient pas sur une à 320 px, et un
+   `.bouton` ne se comprime jamais sous son texte — il déborderait de la
+   carte. */
 .souscription-payer {
-  width: 100%;
-  background: var(--evkha-or);
-  color: var(--texte-sur-or);
-  border: none;
-  border-radius: var(--rayon-xs);
-  padding: 0.85rem;
-  font-family: inherit;
-  font-size: var(--t-base);
-  font-weight: var(--graisse-titre);
-  cursor: pointer;
-}
-
-.souscription-payer:hover:not(:disabled) {
-  background: var(--evkha-or-profond);
-}
-
-.souscription-payer:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  display: flex;
+  width: min(100%, 26rem);
+  margin-inline: auto;
+  padding: var(--e-4) var(--e-6);
+  font-size: var(--t-md);
+  white-space: normal;
+  text-align: center;
 }
 
 .souscription-pied {
+  max-width: 68ch;
+  margin: var(--e-5) auto 0;
   font-size: var(--t-xs);
   line-height: var(--interligne);
   color: var(--texte-tenu);
-  margin: 1rem 0 0;
-}
-
-.souscription-sortir {
-  display: block;
-  margin: 1.2rem auto 0;
-  background: none;
-  border: none;
-  padding: 0.3rem;
-  font-family: inherit;
-  font-size: var(--t-xs);
-  color: var(--texte-doux);
-  text-decoration: underline;
-  cursor: pointer;
+  text-align: center;
 }
 
 /* ── L'attente du webhook ─────────────────────────────────────────────────── */
 
+/* Une pilule de verre : un point d'or qui respire, et le compteur en toutes
+   lettres. Chiffres à largeur fixe — « 9/20 » puis « 10/20 » ne font pas
+   sauter la pilule. Contexte d'empilement propre : le halo du point s'y glisse
+   SOUS le point, en `z-index: -1`, sans passer sous la pilule. */
 .souscription-attente {
-  display: flex;
+  isolation: isolate;
+  display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--e-3);
+  margin-top: var(--e-4);
+  padding: var(--e-2) var(--e-4) var(--e-2) var(--e-3);
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-pilule);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
   font-size: var(--t-sm);
   color: var(--texte-doux);
+  font-variant-numeric: tabular-nums;
 }
 
+/* Le point reste plein et immobile ; c'est son HALO qui respire — échelle et
+   opacité, rien d'autre, sur `--ease-doux`, et au rythme du halo du jalon en
+   cours dans le suivi de production (`--duree-respiration`) : les deux disent
+   « on attend », ils respirent ensemble. L'ancien battement clignotait en
+   `ease-in-out` à la seconde. Sans animation, le halo reste posé. */
 .souscription-point {
-  width: 9px;
-  height: 9px;
+  position: relative;
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--evkha-or-profond);
-  animation: souscription-battement 1s ease-in-out infinite;
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
 }
 
-@keyframes souscription-battement {
+.souscription-point::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--halo-or-fort) 0%, transparent 70%);
+  opacity: 0.7;
+  animation: souscription-respiration var(--duree-respiration)
+    var(--ease-doux) infinite;
+}
+
+@keyframes souscription-respiration {
   0%,
   100% {
-    opacity: 0.25;
+    transform: scale(0.86);
+    opacity: 0.45;
   }
   50% {
+    transform: scale(1.18);
     opacity: 1;
   }
 }
 
-/* Le battement est une commodité, jamais une information : le compteur de
+/* La respiration est une commodité, jamais une information : le compteur de
    tentatives dit la même chose en toutes lettres, et il est annoncé par
-   `aria-live`. Qui demande moins d'animation n'a donc rien à y perdre. */
+   `aria-live`. Qui demande moins d'animation n'a donc rien à y perdre. La
+   durée vaut déjà 0 ms sous ce réglage (`tokens.css`) ; cette règle est le
+   filet. */
 @media (prefers-reduced-motion: reduce) {
-  .souscription-point {
+  .souscription-point,
+  .souscription-point::before {
     animation: none;
   }
 }
