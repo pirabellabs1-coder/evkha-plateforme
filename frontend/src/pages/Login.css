@@ -11,9 +11,10 @@
  *
  * Deux contraintes d'intégration, qui expliquent la forme des sélecteurs :
  *
- * - Radix Themes enveloppe toujours l'application (`<Theme>`, `main.tsx`) :
- *   la page pose elle-même sa police, sa couleur et son fond, plutôt que
- *   d'hériter de ceux de Radix ;
+ * - la page pose elle-même sa police, sa couleur et son fond. Elle le
+ *   faisait quand Radix Themes enveloppait encore l'application, pour ne pas
+ *   hériter des siens ; l'enveloppe a été retirée le 26/09/2026, et la page
+ *   n'a plus à se défendre de rien, mais elle reste une racine complète ;
  * - cette feuille est importée par `Login.tsx`, donc via `./router`, que
  *   `main.tsx` importe AVANT `espace.css`. À spécificité égale, `.bouton`
  *   l'emporterait : ce qui ajuste un élément de l'espace est préfixé par

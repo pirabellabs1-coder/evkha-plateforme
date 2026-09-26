@@ -19,7 +19,7 @@ export const APRES_CONNEXION = "/admin";
  *
  * Elle était composée en Radix Themes (`Card`, `TextField`, `Button`) sur un
  * gris de Radix : la seule porte de la plateforme qui ne parlait pas la
- * charte. Radix reste dans l'application ; cette page lit désormais
+ * charte. Radix n'est plus dans l'application (26/09/2026) ; cette page lit
  * `tokens.css`, et son champ et son bouton sont ceux de l'espace
  * (`.champ-saisie`, `.bouton .bouton-principal`) — voir `Login.css`.
  */

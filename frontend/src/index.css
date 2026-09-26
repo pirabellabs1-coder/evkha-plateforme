@@ -1,118 +1,54 @@
-/* EVKHA — Radix UI Themes handles typography, colors, spacing.
-   Custom CSS: layout shell + pipeline visualization only. */
+/* EVKHA — base de l'application.
+ *
+ * Tout l'habillage vit dans `theme/tokens.css` (la charte) et
+ * `theme/espace.css` (ses composants) ; cette feuille ne pose que ce qui vaut
+ * pour TOUTE la page, quelle que soit la racine rendue.
+ *
+ * Radix Themes n'enveloppe plus l'application depuis le 26/09/2026. Son
+ * `<Theme>` donnait en héritage, à tout ce qui était rendu dedans : la police
+ * (sa pile système), l'encre (`--gray-12`), l'interligne (1,5), la taille de
+ * base (16 px), le fond (blanc), le retour à la ligne des mots trop longs et
+ * le lissage des glyphes. Les trois racines de l'application déclarent
+ * déjà presque tout elles-mêmes :
+ *
+ *   .espace           police, encre, interligne, taille, fond (espace client
+ *                     et administration) — `theme/espace.css`
+ *   .pp               police, encre, interligne, fond ; PAS de taille
+ *                     (pages publiques) — `public/Partenaires.css`
+ *   .connexion-admin  police, encre, interligne, taille, fond (`/login`) —
+ *                     `pages/Login.css`
+ *
+ * `body` fournit donc la taille de base qui manquait à `.pp`, et le reste
+ * pour tout ce qui s'afficherait hors de ces racines (page introuvable ou
+ * erreur du routeur). Uniquement des jetons.
+ */
 
 *, *::before, *::after { box-sizing: border-box; }
 
-/* ===== App shell ===== */
-.layout {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  min-height: 100vh;
+body {
+  font-family: var(--police-corps);
+  /* 1rem et non 16px : la même taille par défaut, mais qui suit le réglage
+   * de taille de police du navigateur au lieu de l'ignorer. */
+  font-size: 1rem;
+  line-height: var(--interligne);
+  color: var(--texte);
+  background: var(--fond-page);
+  /* Une adresse ou un identifiant sans espace passe à la ligne au lieu de
+   * déborder de sa carte — ce que faisait l'enveloppe Radix. */
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Pas de grossissement automatique du texte en paysage sur iOS ; `100%` et
+   * non `none`, qui empêcherait certains navigateurs de zoomer le texte. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-.sidebar {
-  background: var(--color-panel-solid);
-  border-right: 1px solid var(--gray-6);
-  padding: 20px 12px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
+/* La sélection prend l'or de la marque, comme elle prenait l'accent de
+ * l'enveloppe Radix. Halo translucide : le texte sélectionné garde son encre. */
+::selection {
+  background-color: var(--halo-or-fort);
 }
-
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 28px;
-  padding: 0 8px;
-}
-
-.sidebar-logo { font-size: 24px; color: var(--accent-9); }
-
-.sidebar-nav { list-style: none; padding: 0; margin: 0; }
-.sidebar-nav li { margin: 2px 0; }
-
-.sidebar-link {
-  display: block;
-  padding: 8px 12px;
-  border-radius: var(--radius-2);
-  text-decoration: none;
-  color: var(--gray-11);
-  font-size: 13.5px;
-  transition: background 0.12s;
-}
-.sidebar-link:hover { background: var(--gray-3); color: var(--gray-12); }
-.sidebar-link.active { background: var(--gray-12); color: var(--gray-1); }
-
-main.app-main {
-  padding: 36px 48px 80px;
-  min-width: 0;
-}
-
-.mono { font-family: var(--font-mono); font-size: 12.5px; }
-.text-right { text-align: right; }
-
-/* ===== Health badge (page top bar) ===== */
-.health-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-weight: 600;
-}
-.health-badge--ok   { background: var(--green-3); color: var(--green-11); }
-.health-badge--down { background: var(--red-3); color: var(--red-11); }
-.health-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-
-/* ===== Mini pipeline (recent jobs list) ===== */
-.mini-pipeline { display: flex; align-items: center; gap: 3px; }
-.mp-dot {
-  display: inline-block;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--gray-6);
-}
-.mp-dot--done    { background: var(--green-9); }
-.mp-dot--running { background: var(--blue-9); outline: 2px solid var(--blue-5); outline-offset: 1px; }
-.mp-dot--failed  { background: var(--red-9); }
-.mp-dot--pending { background: var(--gray-6); }
-.mp-arrow { font-size: 9px; color: var(--gray-8); line-height: 1; }
-
-/* ===== Visual pipeline (job detail) ===== */
-.pipeline {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 20px;
-}
-.pipeline-stage-wrapper { display: flex; align-items: center; flex: 1; }
-.pipeline-stage-wrapper:last-child { flex: 0 0 auto; }
-.pipeline-step {
-  display: flex; flex-direction: column;
-  align-items: center; text-align: center;
-  min-width: 90px;
-}
-.pipeline-circle {
-  width: 36px; height: 36px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 600; margin-bottom: 6px;
-}
-.pipeline-step--done    .pipeline-circle { background: var(--green-3); color: var(--green-11); }
-.pipeline-step--running .pipeline-circle { background: var(--blue-3); color: var(--blue-11); }
-.pipeline-step--failed  .pipeline-circle { background: var(--red-3); color: var(--red-11); }
-.pipeline-step--pending .pipeline-circle { background: var(--gray-3); color: var(--gray-9); }
-.pipeline-name { font-size: 11.5px; font-weight: 600; color: var(--gray-12); }
-.pipeline-sub  { font-size: 10px; color: var(--gray-10); margin-top: 2px; font-family: var(--font-mono); }
-.pipeline-connector {
-  flex: 1; height: 2px;
-  margin: 0 6px; margin-bottom: 20px;
-}
-.pipeline-connector--done    { background: var(--green-9); }
-.pipeline-connector--running { background: var(--blue-5); }
-.pipeline-connector--failed  { background: var(--red-5); }
-.pipeline-connector--pending { background: var(--gray-6); }
 
 /* ── Accessibilité ─────────────────────────────────────────────────────────
  * Texte réservé aux lecteurs d'écran. `display: none` le retirerait de

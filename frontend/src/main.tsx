@@ -2,8 +2,6 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
-import { Theme } from "@radix-ui/themes";
-import "@radix-ui/themes/styles.css";
 import { router } from "./router";
 import "./theme/tokens.css";
 import "./theme/espace.css";
@@ -22,9 +20,11 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <Theme accentColor="orange" grayColor="sand" radius="medium" panelBackground="solid">
-        <RouterProvider router={router} />
-      </Theme>
+      {/* Plus d'enveloppe `<Theme>` Radix : chaque écran porte la charte
+          (`theme/tokens.css`, `theme/espace.css`), et ce que l'enveloppe
+          donnait en héritage — police, encre, interligne, taille de base,
+          fond — est posé sur `body` par `index.css`. */}
+      <RouterProvider router={router} />
     </QueryClientProvider>
   </StrictMode>
 );
