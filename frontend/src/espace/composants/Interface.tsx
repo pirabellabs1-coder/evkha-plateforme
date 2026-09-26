@@ -175,6 +175,31 @@ export function Bandeau({
   );
 }
 
+/** Un chargement qui a échoué se DIT.
+ *
+ * Sans ce bandeau, un refus du serveur et une liste vide se ressemblaient :
+ * la console des incidents annonçait « Aucun incident ouvert ✓ » quand l'API
+ * ne répondait pas — un contrôle qui n'a rien à comparer et qui se déclare
+ * satisfait (règle 1 du dépôt). Un 401 renvoie déjà vers la connexion
+ * (`api.ts`) ; ce bandeau couvre tout le reste : erreur serveur, coupure
+ * réseau, réponse illisible. */
+export function ErreurDeChargement({
+  quoi,
+  erreur,
+}: {
+  quoi: string;
+  erreur: unknown;
+}) {
+  const detail = erreur instanceof Error && erreur.message ? erreur.message : "";
+  return (
+    <Bandeau ton="echec" titre={`Impossible de charger ${quoi}`}>
+      Rien n'est affiché parce que rien n'a été reçu, pas parce qu'il n'y a
+      rien. Rechargez la page ; si l'erreur persiste, transmettez ce détail :{" "}
+      <code>{detail || "erreur inconnue"}</code>
+    </Bandeau>
+  );
+}
+
 // ── Chargement ──────────────────────────────────────────────────────────────
 
 /** Squelette plutôt qu'un tourniquet : la page ne saute pas quand les données

@@ -4,13 +4,18 @@ import { Link } from "@tanstack/react-router";
 import { api, type CustomerSummary } from "../api";
 import { TIER_LABELS_SHORT, tierTon } from "../constants/tiers";
 import * as f from "../espace/format";
-import { Carte, Squelette, Vide } from "../espace/composants/Interface";
+import {
+  Carte,
+  ErreurDeChargement,
+  Squelette,
+  Vide,
+} from "../espace/composants/Interface";
 import "../admin/console.css";
 
 export function Clients() {
   const [typeFilter, setTypeFilter] = useState("all");
 
-  const { data, isLoading } = useQuery<CustomerSummary[]>({
+  const { data, isLoading, isError, error } = useQuery<CustomerSummary[]>({
     queryKey: ["customers", typeFilter],
     queryFn: () => api.customers(typeFilter === "all" ? undefined : typeFilter),
     refetchInterval: 30_000,
@@ -45,6 +50,7 @@ export function Clients() {
       }
     >
       {isLoading && <Squelette lignes={5} />}
+      {isError && <ErreurDeChargement quoi="les clients" erreur={error} />}
 
       {data?.length === 0 && (
         <Vide

@@ -2,7 +2,12 @@ import { useId, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, type Incident } from "../api";
-import { Bandeau, Carte, Squelette } from "../espace/composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  ErreurDeChargement,
+  Squelette,
+} from "../espace/composants/Interface";
 import "../admin/console.css";
 
 /** Sévérité → classes de pastille (`theme/espace.css`), comme `TONS` dans
@@ -181,7 +186,7 @@ function IncidentTable({ incidents, canResolve }: { incidents: Incident[]; canRe
 }
 
 export function Incidents() {
-  const { data, isLoading } = useQuery<Incident[]>({
+  const { data, isLoading, isError, error } = useQuery<Incident[]>({
     queryKey: ["incidents"],
     queryFn: api.incidents,
     refetchInterval: 30_000,
@@ -196,7 +201,11 @@ export function Incidents() {
       {/* Titre rendu par la coquille d'administration — voir Clients.tsx. */}
       {isLoading && <Squelette lignes={4} />}
 
-      {!isLoading && open.length === 0 && inProgress.length === 0 && (
+      {isError && <ErreurDeChargement quoi="les incidents" erreur={error} />}
+
+      {/* « Aucun incident » ne se dit que sur une réponse REÇUE : sans `data`,
+          on ne sait rien, et le dire serait mentir. */}
+      {data && open.length === 0 && inProgress.length === 0 && (
         <Bandeau ton="succes">Aucun incident ouvert ✓</Bandeau>
       )}
 

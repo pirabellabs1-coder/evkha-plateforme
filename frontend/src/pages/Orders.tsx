@@ -4,7 +4,13 @@ import { Link } from "@tanstack/react-router";
 import { api, type OrderSummary } from "../api";
 import { ORDER_STATUS_LABELS as STATUS_LABELS } from "../constants/orders";
 import * as f from "../espace/format";
-import { Carte, Pastille, Squelette, Vide } from "../espace/composants/Interface";
+import {
+  Carte,
+  ErreurDeChargement,
+  Pastille,
+  Squelette,
+  Vide,
+} from "../espace/composants/Interface";
 import "../admin/console.css";
 
 const KIND_LABELS: Record<string, string> = {
@@ -34,7 +40,7 @@ export function Orders() {
   if (statusFilter !== "all") params.status = statusFilter;
   if (kindFilter !== "all") params.kind = kindFilter;
 
-  const { data, isLoading } = useQuery<OrderSummary[]>({
+  const { data, isLoading, isError, error } = useQuery<OrderSummary[]>({
     queryKey: ["orders", statusFilter, kindFilter],
     queryFn: () => api.orders(Object.keys(params).length ? params : undefined),
     refetchInterval: 30_000,
@@ -80,6 +86,7 @@ export function Orders() {
       }
     >
       {isLoading && <Squelette lignes={5} />}
+      {isError && <ErreurDeChargement quoi="les commandes" erreur={error} />}
 
       {data?.length === 0 && (
         <Vide icone="◐" titre="Aucune commande pour ces filtres." />

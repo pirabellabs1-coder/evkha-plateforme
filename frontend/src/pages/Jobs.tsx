@@ -3,7 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, estRelancable, type JobSummary } from "../api";
 import * as f from "../espace/format";
-import { Carte, Pastille, Squelette, Vide } from "../espace/composants/Interface";
+import {
+  Carte,
+  ErreurDeChargement,
+  Pastille,
+  Squelette,
+  Vide,
+} from "../espace/composants/Interface";
 import "../admin/console.css";
 
 const DELIVERABLE_LABELS: Record<string, string> = {
@@ -153,7 +159,7 @@ function JobRowActions({ job }: { job: JobSummary }) {
 export function Jobs() {
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data, isLoading } = useQuery<JobSummary[]>({
+  const { data, isLoading, isError, error } = useQuery<JobSummary[]>({
     queryKey: ["jobs", statusFilter],
     queryFn: () => api.jobs(statusFilter === "all" ? undefined : statusFilter),
     refetchInterval: 15_000,
@@ -187,6 +193,7 @@ export function Jobs() {
       }
     >
       {isLoading && <Squelette lignes={5} />}
+      {isError && <ErreurDeChargement quoi="les générations" erreur={error} />}
 
       {data && data.length > 0 && (
         <div className="tableau-cadre tableau-defile">
