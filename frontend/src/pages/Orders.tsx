@@ -40,7 +40,7 @@ export function Orders() {
   if (statusFilter !== "all") params.status = statusFilter;
   if (kindFilter !== "all") params.kind = kindFilter;
 
-  const { data, isLoading, isError, error } = useQuery<OrderSummary[]>({
+  const { data, isLoading, isError, isRefetchError, error } = useQuery<OrderSummary[]>({
     queryKey: ["orders", statusFilter, kindFilter],
     queryFn: () => api.orders(Object.keys(params).length ? params : undefined),
     refetchInterval: 30_000,
@@ -86,7 +86,9 @@ export function Orders() {
       }
     >
       {isLoading && <Squelette lignes={5} />}
-      {isError && <ErreurDeChargement quoi="les commandes" erreur={error} />}
+      {isError && (
+        <ErreurDeChargement quoi="les commandes" erreur={error} perimees={isRefetchError} />
+      )}
 
       {data?.length === 0 && (
         <Vide icone="◐" titre="Aucune commande pour ces filtres." />

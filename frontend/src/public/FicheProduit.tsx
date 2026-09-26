@@ -163,7 +163,7 @@ export function FicheProduit() {
 
       <main className="pp-large">
         <Link className="bq-retour" to="/boutique">
-          ← Toutes les études
+          {"←\u00a0Toutes les études"}
         </Link>
 
         <div className="bq-fiche">

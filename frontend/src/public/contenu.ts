@@ -26,7 +26,7 @@ export const HERO = {
 export const PREUVES = [
   { valeur: "250+", libelle: "dossiers livrés" },
   { valeur: "100 %", libelle: "de notes 5 étoiles" },
-  { valeur: "0 €", libelle: "de droit d'entrée" },
+  { valeur: "0\u00a0€", libelle: "de droit d'entrée" },
 ];
 
 export const PRINCIPE = {
@@ -92,7 +92,7 @@ export const CALCUL = {
        *  premier changement de tarif. */
       valeur: null,
       titre: "Votre coût par livrable",
-      corps: "Un cabinet facture jusqu'à 800 € par livrable, en vendant votre journée de travail. Le même travail, sous votre marque, à ce coût-là.",
+      corps: "Un cabinet facture jusqu'à 800\u00a0€ par livrable, en vendant votre journée de travail. Le même travail, sous votre marque, à ce coût-là.",
     },
     {
       valeur: "< 20 min",

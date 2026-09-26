@@ -37,6 +37,7 @@ const SEVERITY_LABELS: Record<string, string> = {
  *  elle-même est donc un clic hors du corps. */
 function DetailsDialog({ details }: { details: Record<string, unknown> }) {
   const fenetre = useRef<HTMLDialogElement>(null);
+  const pressionSurVoile = useRef(false);
   const idTitre = useId();
   if (!details || Object.keys(details).length === 0) return null;
   return (
@@ -53,8 +54,17 @@ function DetailsDialog({ details }: { details: Record<string, unknown> }) {
         ref={fenetre}
         className="console-fenetre"
         aria-labelledby={idTitre}
+        // Fermer au clic sur le voile, mais seulement si la pression a
+        // COMMENCÉ sur le voile : sélectionner le JSON à la souris et relâcher
+        // hors du cadre envoie le clic au <dialog> lui-même, et fermait la
+        // fenêtre sous la main de qui copiait le détail.
+        onPointerDown={(evenement) => {
+          pressionSurVoile.current = evenement.target === evenement.currentTarget;
+        }}
         onClick={(evenement) => {
-          if (evenement.target === evenement.currentTarget) evenement.currentTarget.close();
+          if (pressionSurVoile.current && evenement.target === evenement.currentTarget) {
+            evenement.currentTarget.close();
+          }
         }}
       >
         <div className="console-fenetre-corps">
@@ -186,7 +196,7 @@ function IncidentTable({ incidents, canResolve }: { incidents: Incident[]; canRe
 }
 
 export function Incidents() {
-  const { data, isLoading, isError, error } = useQuery<Incident[]>({
+  const { data, isLoading, isError, isRefetchError, error } = useQuery<Incident[]>({
     queryKey: ["incidents"],
     queryFn: api.incidents,
     refetchInterval: 30_000,
@@ -201,11 +211,13 @@ export function Incidents() {
       {/* Titre rendu par la coquille d'administration — voir Clients.tsx. */}
       {isLoading && <Squelette lignes={4} />}
 
-      {isError && <ErreurDeChargement quoi="les incidents" erreur={error} />}
+      {isError && (
+        <ErreurDeChargement quoi="les incidents" erreur={error} perimees={isRefetchError} />
+      )}
 
       {/* « Aucun incident » ne se dit que sur une réponse REÇUE : sans `data`,
           on ne sait rien, et le dire serait mentir. */}
-      {data && open.length === 0 && inProgress.length === 0 && (
+      {data && !isError && open.length === 0 && inProgress.length === 0 && (
         <Bandeau ton="succes">Aucun incident ouvert ✓</Bandeau>
       )}
 

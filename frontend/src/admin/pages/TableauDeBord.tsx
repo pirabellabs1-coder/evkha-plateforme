@@ -196,7 +196,7 @@ export function TableauDeBordAdmin() {
           <Colonnes
             abscisses={evolution.mois}
             series={[serieEnEuros("encaisse"), serieEnEuros("cout")]}
-            unite=" €"
+            unite="\u00a0€"
           />
         ) : (
           <Squelette lignes={3} />

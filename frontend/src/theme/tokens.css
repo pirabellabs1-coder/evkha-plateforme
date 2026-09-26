@@ -243,8 +243,8 @@
    * chacun tombe à 0 ms sous mouvement réduit (bloc ci-dessous). Écrite en
    * dur, une durée échappait à ce bloc : seule une règle `animation: none`
    * nommée l'arrêtait, et une règle oubliée laissait tourner une boucle.
-   * Verrouillé par `les-mouvements-lisent-leurs-durees.test.ts`, qui nomme
-   * sa seule exemption (`index.css`, console admin sous Radix). */
+   * Verrouillé par `les-mouvements-lisent-leurs-durees.test.ts`, sans
+   * exemption depuis la sortie de Radix (26/09/2026). */
   --duree-balayage: 1.3s; /* lame de lumière d'un bouton qui charge */
   --duree-squelette: 1.6s; /* reflet d'un squelette de chargement */
   --duree-jauge: 2.8s; /* lame qui traverse la jauge de production */

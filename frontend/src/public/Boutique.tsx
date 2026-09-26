@@ -99,7 +99,7 @@ export function CarteProduit({ produit }: { produit: ProduitResume }) {
             </span>
           </p>
         )}
-        <span className="bq-voir">Voir l'étude →</span>
+        <span className="bq-voir">Voir l'étude{"\u00a0"}→</span>
       </div>
     </Link>
   );

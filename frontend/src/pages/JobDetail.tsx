@@ -6,16 +6,25 @@ import {
   api, estRelancable,
   type Chapter, type JobDetail as JobDetailType,
 } from "../api";
-import { Bandeau, Carte, Pastille, Squelette } from "../espace/composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  ErreurDeChargement,
+  Pastille,
+  Squelette,
+} from "../espace/composants/Interface";
 import "../admin/console.css";
 import * as f from "../espace/format";
 
 const STATUS_ICON: Record<string, string> = {
-  done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—",
+  done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—", cancelled: "⊘",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   done: "Terminé", running: "En cours", failed: "Échec", pending: "En attente", skipped: "Ignoré",
+  // Sans elle, juste après « Annuler le job », l'en-tête affichait
+  // « cancelled cancelled » (revue du 26/09/2026).
+  cancelled: "Annulé",
 };
 
 const DELIVERABLE_LABELS: Record<string, string> = {
@@ -359,14 +368,23 @@ function RelaunchButton({ jobId }: { jobId: string }) {
 
 export function JobDetail() {
   const { jobId } = useParams({ from: "/admin/jobs/$jobId" });
-  const { data, isLoading, error } = useQuery<JobDetailType>({
+  const { data, isLoading, error, isRefetchError } = useQuery<JobDetailType>({
     queryKey: ["job", jobId],
     queryFn: () => api.job(jobId),
     refetchInterval: (q) => (q.state.data === undefined || q.state.data.status === "running") ? 5_000 : false,
   });
 
   if (isLoading) return <Squelette lignes={6} />;
-  if (error || !data) return <Bandeau ton="echec">Job introuvable.</Bandeau>;
+  // Sans données : une erreur n'est pas « introuvable » (un 502 pendant un
+  // déploiement le disait, et masquait Annuler/Relancer). Avec des données,
+  // un rafraîchissement raté garde la fiche et le dit (plus bas).
+  if (!data) {
+    return error ? (
+      <ErreurDeChargement quoi="cette génération" erreur={error} />
+    ) : (
+      <Bandeau ton="echec">Génération introuvable.</Bandeau>
+    );
+  }
 
   const totalTokens = data.chapters.reduce(
     (acc, c) => acc + c.input_tokens + c.output_tokens, 0,
@@ -385,9 +403,12 @@ export function JobDetail() {
 
   return (
     <>
+      {isRefetchError && (
+        <ErreurDeChargement quoi="cette génération" erreur={error} perimees />
+      )}
       <div>
         <Link to="/admin/jobs" className="bouton bouton-discret bouton-sm">
-          <span aria-hidden="true">←</span> Générations
+          <span aria-hidden="true">←</span>{"\u00a0"}Générations
         </Link>
       </div>
 

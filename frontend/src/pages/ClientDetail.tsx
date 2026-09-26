@@ -4,7 +4,14 @@ import { Link } from "@tanstack/react-router";
 import { api, type CustomerDetail, type OrderSummary } from "../api";
 import { TIER_LABELS } from "../constants/tiers";
 import { ORDER_STATUS_LABELS } from "../constants/orders";
-import { Bandeau, Carte, Pastille, Squelette, Vide } from "../espace/composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  ErreurDeChargement,
+  Pastille,
+  Squelette,
+  Vide,
+} from "../espace/composants/Interface";
 import "../admin/console.css";
 
 function OrderRow({ order }: { order: OrderSummary }) {
@@ -36,14 +43,20 @@ function OrderRow({ order }: { order: OrderSummary }) {
 
 export function ClientDetail() {
   const { clientId } = useParams({ from: "/admin/clients/$clientId" });
-  const { data, isLoading, error } = useQuery<CustomerDetail>({
+  const { data, isLoading, error, isRefetchError } = useQuery<CustomerDetail>({
     queryKey: ["customer", clientId],
     queryFn: () => api.customer(clientId),
     refetchInterval: 30_000,
   });
 
   if (isLoading) return <Squelette lignes={6} />;
-  if (error || !data) return <Bandeau ton="echec">Client introuvable.</Bandeau>;
+  if (!data) {
+    return error ? (
+      <ErreurDeChargement quoi="ce client" erreur={error} />
+    ) : (
+      <Bandeau ton="echec">Client introuvable.</Bandeau>
+    );
+  }
 
   const activeSub = data.subscriptions.find((s) => s.status === "active");
   const parentOrders = data.orders.filter((o) => !o.parent_order_id);
@@ -51,9 +64,10 @@ export function ClientDetail() {
 
   return (
     <>
+      {isRefetchError && <ErreurDeChargement quoi="ce client" erreur={error} perimees />}
       <div>
         <Link to="/admin/clients" className="bouton bouton-discret bouton-sm">
-          <span aria-hidden="true">←</span> Clients
+          <span aria-hidden="true">←</span>{"\u00a0"}Clients
         </Link>
       </div>
 

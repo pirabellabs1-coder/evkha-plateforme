@@ -186,15 +186,29 @@ export function Bandeau({
 export function ErreurDeChargement({
   quoi,
   erreur,
+  perimees = false,
 }: {
   quoi: string;
   erreur: unknown;
+  /** Un chargement précédent a réussi et ses données restent à l'écran
+   *  (`isRefetchError` de TanStack Query) : c'est la MISE À JOUR qui a
+   *  échoué. Le dire autrement serait faux — la revue du 26/09/2026 a relevé
+   *  le bandeau « rien n'a été reçu » posé au-dessus d'un tableau plein, à
+   *  chaque redéploiement. */
+  perimees?: boolean;
 }) {
-  const detail = erreur instanceof Error && erreur.message ? erreur.message : "";
+  const brut = erreur instanceof Error && erreur.message ? erreur.message : "";
+  // Une page d'erreur HTML entière (502 du proxy) n'est pas un détail.
+  const detail = brut.length > 240 ? `${brut.slice(0, 240)}…` : brut;
   return (
-    <Bandeau ton="echec" titre={`Impossible de charger ${quoi}`}>
-      Rien n'est affiché parce que rien n'a été reçu, pas parce qu'il n'y a
-      rien. Rechargez la page ; si l'erreur persiste, transmettez ce détail :{" "}
+    <Bandeau
+      ton="echec"
+      titre={perimees ? `Mise à jour impossible : ${quoi}` : `Impossible de charger ${quoi}`}
+    >
+      {perimees
+        ? "Ce qui est affiché vient du dernier chargement réussi et peut être dépassé. "
+        : "Rien n'est affiché parce que rien n'a été reçu, pas parce qu'il n'y a rien. "}
+      Rechargez la page ; si l'erreur persiste, transmettez ce détail :{" "}
       <code>{detail || "erreur inconnue"}</code>
     </Bandeau>
   );

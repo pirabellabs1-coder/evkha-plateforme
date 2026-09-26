@@ -159,7 +159,7 @@ function JobRowActions({ job }: { job: JobSummary }) {
 export function Jobs() {
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data, isLoading, isError, error } = useQuery<JobSummary[]>({
+  const { data, isLoading, isError, isRefetchError, error } = useQuery<JobSummary[]>({
     queryKey: ["jobs", statusFilter],
     queryFn: () => api.jobs(statusFilter === "all" ? undefined : statusFilter),
     refetchInterval: 15_000,
@@ -193,7 +193,9 @@ export function Jobs() {
       }
     >
       {isLoading && <Squelette lignes={5} />}
-      {isError && <ErreurDeChargement quoi="les générations" erreur={error} />}
+      {isError && (
+        <ErreurDeChargement quoi="les générations" erreur={error} perimees={isRefetchError} />
+      )}
 
       {data && data.length > 0 && (
         <div className="tableau-cadre tableau-defile">

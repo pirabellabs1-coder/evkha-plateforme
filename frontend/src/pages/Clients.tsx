@@ -15,7 +15,7 @@ import "../admin/console.css";
 export function Clients() {
   const [typeFilter, setTypeFilter] = useState("all");
 
-  const { data, isLoading, isError, error } = useQuery<CustomerSummary[]>({
+  const { data, isLoading, isError, isRefetchError, error } = useQuery<CustomerSummary[]>({
     queryKey: ["customers", typeFilter],
     queryFn: () => api.customers(typeFilter === "all" ? undefined : typeFilter),
     refetchInterval: 30_000,
@@ -50,7 +50,9 @@ export function Clients() {
       }
     >
       {isLoading && <Squelette lignes={5} />}
-      {isError && <ErreurDeChargement quoi="les clients" erreur={error} />}
+      {isError && (
+        <ErreurDeChargement quoi="les clients" erreur={error} perimees={isRefetchError} />
+      )}
 
       {data?.length === 0 && (
         <Vide

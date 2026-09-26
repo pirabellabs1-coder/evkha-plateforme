@@ -161,7 +161,7 @@ function ActionsOrganisation({
               window.confirm(
                 `Résilier l'abonnement ${organisation.formule} de ` +
                   `${organisation.raison_sociale} ?\n\n` +
-                  `Le revenu récurrent baissera de ${somme} €/mois. ` +
+                  `Le revenu récurrent baissera de ${somme}\u00a0€/mois. ` +
                   `Les ${organisation.solde} crédits déjà au solde sont ` +
                   `conservés : le mois en cours est payé.`,
               )
