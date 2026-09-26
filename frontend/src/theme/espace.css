@@ -1551,6 +1551,83 @@
   width: 100%;
 }
 
+/* ── Les étapes de la commande ──────────────────────────────────────────────
+ *
+ * Le choix du document, puis le questionnaire : deux étapes, chacune dans son
+ * enveloppe, remontée à chaque passage (`key` côté React). L'enveloppe est
+ * l'enfant direct de `.espace-contenu`, elle hérite donc de la révélation
+ * commune — on ne change que sa TRAJECTOIRE : elle glisse depuis la droite en
+ * avançant, depuis la gauche en revenant. Le sens d'un mouvement dit d'où
+ * l'on vient ; une montée le tairait.
+ *
+ * Ses enfants, eux, ne montent pas : ils s'allument l'un après l'autre. Une
+ * glissade ET une montée sur les mêmes cartes feraient deux mouvements pour
+ * un seul effet.
+ *
+ * L'enveloppe est aussi ce qui ESPACE les cartes du questionnaire : le
+ * `<form>` était un seul enfant de la colonne, et ses cartes se touchaient. */
+.etape-commande {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+}
+
+.espace-contenu > .etape-commande {
+  animation-name: etape-glisse-avant;
+}
+
+.espace-contenu > .etape-commande-arriere {
+  animation-name: etape-glisse-arriere;
+}
+
+.etape-commande > * {
+  animation: verre-fondu var(--duree-reveal) var(--ease-sortie) backwards;
+  animation-delay: calc((var(--i, 0) + 1) * var(--decalage-reveal));
+}
+
+.etape-commande > :nth-child(2) {
+  --i: 1;
+}
+.etape-commande > :nth-child(3) {
+  --i: 2;
+}
+.etape-commande > :nth-child(4) {
+  --i: 3;
+}
+.etape-commande > :nth-child(5) {
+  --i: 4;
+}
+.etape-commande > :nth-child(n + 6) {
+  --i: 5;
+}
+
+@keyframes etape-glisse-avant {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+@keyframes etape-glisse-arriere {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+}
+
+@keyframes verre-fondu {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .espace-contenu > .etape-commande,
+  .etape-commande > * {
+    animation: none;
+  }
+}
+
 .questionnaire-note {
   white-space: pre-line;
   font-size: var(--t-sm);

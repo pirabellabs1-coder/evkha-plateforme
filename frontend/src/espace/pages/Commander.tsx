@@ -105,6 +105,11 @@ export function Commander() {
   const [reponses, setReponses] = useState<Record<string, string>>({});
   const [erreur, setErreur] = useState("");
   const [manquants, setManquants] = useState<string[]>([]);
+  // Le sens du dernier passage d'une étape à l'autre, pour que l'étape qui
+  // arrive glisse du bon côté : depuis la droite quand on avance vers le
+  // questionnaire, depuis la gauche quand on revient au choix. Présentation
+  // pure — aucune donnée n'en dépend.
+  const [sens, setSens] = useState<"avant" | "arriere">("avant");
 
   const peutCommander = peut(moi, "commander");
   // Le type de compte, et non l'absence d'abonnement : un acheteur à l'unité
@@ -219,7 +224,9 @@ export function Commander() {
     const solde = catalogue?.solde ?? 0;
 
     return (
-      <>
+      // Une enveloppe par étape, avec sa propre `key` : changer d'étape la
+      // remonte, et c'est le remontage qui joue le fondu-glissé.
+      <div className={`etape-commande etape-commande-${sens}`} key="choix">
         {!peutCommander && (
           <Bandeau titre="Votre rôle ne permet pas de commander">
             Demandez à un propriétaire ou à un membre de votre équipe de lancer
@@ -287,6 +294,7 @@ export function Commander() {
                       setChoisi(doc.type);
                       setReponses(lireBrouillon(doc.type));
                     }
+                    setSens("avant");
                     setErreur("");
                     setManquants([]);
                   }}
@@ -317,7 +325,7 @@ export function Commander() {
             })}
           </div>
         </Carte>
-      </>
+      </div>
     );
   }
 
@@ -326,7 +334,11 @@ export function Commander() {
   if (!questionnaire) return <Squelette lignes={6} />;
 
   return (
-    <form onSubmit={soumettre}>
+    <form
+      onSubmit={soumettre}
+      className={`etape-commande etape-commande-${sens}`}
+      key="questionnaire"
+    >
       <Carte
         titre={questionnaire.titre}
         note={`${tousLesChamps.length} questions · 1 crédit`}
@@ -334,7 +346,10 @@ export function Commander() {
           <button
             type="button"
             className="bouton bouton-contour bouton-sm"
-            onClick={() => setChoisi(null)}
+            onClick={() => {
+              setSens("arriere");
+              setChoisi(null);
+            }}
           >
             Changer de document
           </button>
@@ -491,9 +506,16 @@ export function Commander() {
             marginTop: "var(--e-5)",
           }}
         >
+          {/* Pendant l'envoi, la pilule est traversée d'un balayage or
+              (`.bouton-chargement`) : pas de tourniquet, le texte dit déjà
+              « Lancement… ». */}
           <button
             type="submit"
-            className="bouton bouton-principal"
+            className={
+              envoi.isPending
+                ? "bouton bouton-principal bouton-chargement"
+                : "bouton bouton-principal"
+            }
             disabled={envoi.isPending || !peutCommander}
           >
             {envoi.isPending ? "Lancement…" : "Lancer la génération"}
