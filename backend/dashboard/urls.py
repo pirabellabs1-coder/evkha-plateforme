@@ -60,6 +60,7 @@ urlpatterns = [
     ),
     # Incidents
     path("incidents/", views.incidents_list, name="incidents-list"),
+    path("incidents/resoudre-tout/", views.incidents_resoudre_tout, name="incidents-resoudre-tout"),
     path("incidents/<str:incident_id>/resolve/", views.incident_resolve, name="incident-resolve"),
     # Clients
     path("customers/", views.customers_list, name="customers-list"),

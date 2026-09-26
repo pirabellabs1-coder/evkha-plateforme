@@ -243,6 +243,17 @@ export interface Incident {
   details: Record<string, unknown>;
 }
 
+/** Réponse de `POST /incidents/resoudre-tout/` : ce qui a été (ou serait,
+ *  en simulation) soldé, et les verrous de livraison conservés. */
+export interface SoldeIncidents {
+  simulation: boolean;
+  a_resoudre: number;
+  resolus: number;
+  par_gravite: Record<string, number>;
+  verrous_conserves: { id: string; job_id: string | null; titre: string }[];
+  identifiants: string[];
+}
+
 export interface SystemStatus {
   api: string;
   email_stub: boolean;
@@ -353,6 +364,8 @@ export const api = {
   jobSendEmail:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/send-email/`, {}),
   incidents:          () => get<Incident[]>("/incidents/"),
   incidentResolve:    (id: string) => post<{ id: string; status: string }>(`/incidents/${id}/resolve/`, {}),
+  incidentsResoudreTout: (simulation = false) =>
+    post<SoldeIncidents>("/incidents/resoudre-tout/", { simulation }),
   system:             () => get<SystemStatus>("/system/"),
   generate:           (req: GenerateRequest) => post<GenerateResponse>("/generate/", req),
   customers:          (type?: string) => get<CustomerSummary[]>("/customers/", type ? { type } : undefined),

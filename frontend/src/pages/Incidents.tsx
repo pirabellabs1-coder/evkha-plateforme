@@ -195,6 +195,78 @@ function IncidentTable({ incidents, canResolve }: { incidents: Incident[]; canRe
   );
 }
 
+/** « Tout marquer résolu » : remet les compteurs à zéro sans rien effacer.
+ *
+ * Le 26/09/2026, 477 incidents ouverts dont 195 graves — des traces de
+ * rejeux, pour l'essentiel : un compteur qui ne redescend jamais ne signale
+ * plus rien. Le serveur conserve les verrous de livraison (un CHECK de bloc
+ * ouvert sur un dossier non livré), que ce bouton ne lève jamais. La
+ * confirmation annonce le vrai nombre, obtenu par une simulation : la liste
+ * ci-dessous n'en montre que les 50 derniers. */
+function SolderLesIncidents() {
+  const queryClient = useQueryClient();
+  const [message, setMessage] = useState<{ ton: "succes" | "echec"; texte: string } | null>(
+    null,
+  );
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const apercu = await api.incidentsResoudreTout(true);
+      if (apercu.a_resoudre === 0) return apercu;
+      const verrous = apercu.verrous_conserves.length;
+      const ok = window.confirm(
+        `Marquer comme résolus les ${apercu.a_resoudre} incidents non résolus ?` +
+          (verrous > 0
+            ? ` ${verrous} verrou(s) de livraison resteront ouverts.`
+            : "") +
+          " Rien n'est effacé : l'historique reste consultable.",
+      );
+      if (!ok) return null;
+      return api.incidentsResoudreTout(false);
+    },
+    onSuccess: (resultat) => {
+      if (resultat === null) return;
+      setMessage({
+        ton: "succes",
+        texte:
+          resultat.resolus > 0
+            ? `${resultat.resolus} incident(s) marqué(s) résolu(s).`
+            : "Aucun incident à résoudre.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      queryClient.invalidateQueries({ queryKey: ["overview"] });
+    },
+    onError: (err: Error) => setMessage({ ton: "echec", texte: err.message }),
+  });
+
+  return (
+    <div className="console-pile console-pile-fin">
+      <button
+        type="button"
+        className={
+          mutation.isPending
+            ? "bouton bouton-contour bouton-chargement"
+            : "bouton bouton-contour"
+        }
+        disabled={mutation.isPending}
+        onClick={() => {
+          setMessage(null);
+          mutation.mutate();
+        }}
+      >
+        Tout marquer résolu
+      </button>
+      {message && (
+        <p
+          className={`console-message console-message-${message.ton}`}
+          role={message.ton === "echec" ? "alert" : "status"}
+        >
+          {message.texte}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function Incidents() {
   const { data, isLoading, isError, isRefetchError, error } = useQuery<Incident[]>({
     queryKey: ["incidents"],
@@ -221,10 +293,17 @@ export function Incidents() {
         <Bandeau ton="succes">Aucun incident ouvert ✓</Bandeau>
       )}
 
+      {data && !isError && open.length + inProgress.length > 0 && <SolderLesIncidents />}
+
       {/* Les incidents ouverts sont ce qui demande une intervention : leur
-          carte prend le verre teinté d'échec, comme leur titre était rouge. */}
+          carte prend le verre teinté d'échec, comme leur titre était rouge.
+          La liste ne rend que les 50 derniers incidents : « Ouverts (50) »
+          se lisait comme un total alors qu'il y en avait 477. */}
       {open.length > 0 && (
-        <Carte titre={`Ouverts (${open.length})`} ton="echec">
+        <Carte
+          titre={`Ouverts (${open.length}${data && data.length >= 50 ? " parmi les 50 derniers" : ""})`}
+          ton="echec"
+        >
           <IncidentTable incidents={open} canResolve />
         </Carte>
       )}

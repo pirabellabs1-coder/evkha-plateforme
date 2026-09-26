@@ -1165,6 +1165,88 @@ def incident_resolve(request: HttpRequest, incident_id: str) -> JsonResponse:
     return _json({"id": str(incident.id), "status": incident.status})
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def incidents_resoudre_tout(request: HttpRequest) -> JsonResponse:
+    """Résout d'un coup tout ce qui n'est pas résolu — sauf un verrou de livraison.
+
+    ## Pourquoi
+
+    Le 26/09/2026, le tableau de bord comptait 477 incidents ouverts, dont 195
+    graves : pour l'essentiel les traces des rejeux de contrôle
+    (`reverifier/`) et d'anciennes générations. Un compteur qui ne descend
+    jamais ne signale plus rien — un vrai incident s'y noie. La résolution
+    unitaire ne suffisait pas : la liste ne montre que les 50 derniers.
+
+    ## Ce qu'il ne touche PAS
+
+    Un incident `check_bloc_non_resolu` OUVERT bloque la livraison de son
+    dossier (`gate._check_blocs_evangeline`) ; le résoudre, c'est AUTORISER
+    cette livraison. Il est donc conservé tant que la commande du dossier n'a
+    pas de livraison envoyée. Sur un dossier déjà livré, il ne verrouille plus
+    rien : il est résolu comme les autres.
+
+    ## Réversible
+
+    Rien n'est effacé : statut `resolved` et `resolved_at` posés, historique
+    intact. La réponse rend la liste des identifiants résolus, de quoi
+    rouvrir exactement ce lot si besoin. `{"simulation": true}` compte sans
+    rien écrire.
+    """
+    from delivery.models import DeliveryBatch, DeliveryStatus  # noqa: PLC0415
+    from generation.checks_blocs import INCIDENT_TYPE_CHECK_BLOC  # noqa: PLC0415
+
+    try:
+        corps = json.loads(request.body.decode("utf-8") or "{}")
+    except (ValueError, UnicodeDecodeError):
+        return _json({"error": "Corps JSON invalide."}, status=400)
+    simulation = bool(corps.get("simulation")) if isinstance(corps, dict) else False
+
+    non_resolus = OperationalIncident.objects.filter(
+        status__in=[IncidentStatus.OPEN, IncidentStatus.ACKNOWLEDGED]
+    )
+    commandes_livrees = DeliveryBatch.objects.filter(
+        status=DeliveryStatus.SENT
+    ).values("order_id")
+    verrous = (
+        non_resolus.filter(
+            status=IncidentStatus.OPEN,
+            details__type=INCIDENT_TYPE_CHECK_BLOC,
+        )
+        .exclude(job__order_id__in=commandes_livrees)
+        .select_related("job")
+    )
+    a_resoudre = non_resolus.exclude(id__in=verrous.values("id"))
+
+    par_gravite: dict[str, int] = {}
+    for gravite in a_resoudre.values_list("severity", flat=True):
+        par_gravite[gravite] = par_gravite.get(gravite, 0) + 1
+    identifiants = [str(i) for i in a_resoudre.values_list("id", flat=True)]
+
+    resolus = 0
+    if not simulation and identifiants:
+        resolus = OperationalIncident.objects.filter(id__in=identifiants).update(
+            status=IncidentStatus.RESOLVED,
+            resolved_at=timezone.now(),
+        )
+
+    return _json({
+        "simulation": simulation,
+        "a_resoudre": len(identifiants),
+        "resolus": resolus,
+        "par_gravite": par_gravite,
+        "verrous_conserves": [
+            {
+                "id": str(v.id),
+                "job_id": str(v.job_id) if v.job_id else None,
+                "titre": v.title,
+            }
+            for v in verrous
+        ],
+        "identifiants": identifiants,
+    })
+
+
 # ---------------------------------------------------------------------------
 # Clients (Customers)
 # ---------------------------------------------------------------------------
