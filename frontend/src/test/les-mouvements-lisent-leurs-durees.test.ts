@@ -45,15 +45,11 @@ import { describe, expect, it } from "vitest";
 import { feuillesSous, lireFeuille, sansCommentaires, SOURCE } from "./charte";
 
 /** Feuilles pas encore passées aux jetons de durée, et pourquoi. À vider,
- *  jamais à allonger sans une raison écrite ici. */
-const EN_ATTENTE = new Map([
-  [
-    "index.css",
-    "styles globaux de la console admin sous Radix (`.sidebar-link`, `0.12s`) : " +
-      "la console est convertie hors de Radix par un chantier parallèle (26/09/2026), " +
-      "qui possède ce fichier",
-  ],
-]);
+ *  jamais à allonger sans une raison écrite ici.
+ *
+ *  Vide depuis la sortie de Radix (26/09/2026) : `index.css`, seule
+ *  exemptée, a perdu son `.sidebar-link` et son `0.12s` avec la console. */
+const EN_ATTENTE = new Map<string, string>();
 
 const TOUTES = feuillesSous().filter((f) => f !== SOURCE);
 const VERROUILLEES = TOUTES.filter((f) => !EN_ATTENTE.has(f));
