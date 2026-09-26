@@ -62,12 +62,13 @@
    * Des couleurs qui ne sont PAS celles du site mesuré, mais que des feuilles
    * peignaient en dur. Elles sont déclarées ici telles quelles, et non
    * rapprochées d'une teinte voisine de la charte : les ramener à la source
-   * unique est un déplacement, pas une retouche — le rendu ne change pas d'un
-   * pixel. Les fondre dans la charte est une décision de design, à prendre à
-   * part, jeton par jeton.
+   * unique est un déplacement, pas une retouche — même valeur, même rendu.
+   * Les fondre dans la charte est une décision de design, à prendre à part,
+   * jeton par jeton.
    */
   /* Bouton « Se connecter avec Google » : le gris du texte et celui du liseré
-   * sont imposés par les consignes de marque de Google, pas par EVKHA. */
+   * sont ceux du bouton de Google Identity Services en thème clair — la
+   * marque de Google, pas la charte EVKHA. */
   --google-texte: #3c4043;
   --google-bordure: #dadce0;
   /* Son liseré au survol, un cran plus sombre : posé avec le bouton
@@ -242,7 +243,8 @@
    * chacun tombe à 0 ms sous mouvement réduit (bloc ci-dessous). Écrite en
    * dur, une durée échappait à ce bloc : seule une règle `animation: none`
    * nommée l'arrêtait, et une règle oubliée laissait tourner une boucle.
-   * Verrouillé par `les-mouvements-lisent-leurs-durees.test.ts`. */
+   * Verrouillé par `les-mouvements-lisent-leurs-durees.test.ts`, qui nomme
+   * sa seule exemption (`index.css`, console admin sous Radix). */
   --duree-balayage: 1.3s; /* lame de lumière d'un bouton qui charge */
   --duree-squelette: 1.6s; /* reflet d'un squelette de chargement */
   --duree-jauge: 2.8s; /* lame qui traverse la jauge de production */

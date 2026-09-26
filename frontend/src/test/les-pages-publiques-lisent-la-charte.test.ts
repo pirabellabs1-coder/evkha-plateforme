@@ -24,21 +24,17 @@
  * qui ne sont pas de la charte (bouton Google, rouges d'erreur, filets
  * crème) ont un jeton nommé dans `tokens.css`, à leur valeur exacte.
  *
- * Contre-épreuve (règle 6) en fin de fichier. Rejoué sur le CSS d'avant
- * (`ded4cdf`) : rouge sur les quatre feuilles refondues.
- *
- * jsdom ne calcule aucune mise en page : on lit les déclarations elles-mêmes,
- * comme `un-bouton-ne-rogne-pas-son-libelle`.
+ * Le verrou 2 couvre désormais TOUTES les feuilles de `src`, pas seulement
+ * les publiques : `la-charte-a-une-seule-source.test.ts`. La détection est
+ * partagée (`charte.ts`) ; sa contre-épreuve (règle 6) est dans ce test
+ * frère. Rejoué sur le CSS d'avant (`ded4cdf`) : rouge sur les quatre
+ * feuilles refondues ; sur celui de `4c88e22` : rouge sur `Portail.css`.
  */
-import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { couleursLitterales, feuillesSous, lireFeuille, sansCommentaires, SRC } from "./charte";
 
-const DOSSIER = join(process.cwd(), "src", "public");
-
-const FEUILLES = readdirSync(DOSSIER)
-  .filter((f) => f.endsWith(".css"))
-  .sort();
+const FEUILLES = feuillesSous(join(SRC, "public"));
 
 /** Les valeurs qui doublonnaient la charte, telles que trouvées dans le CSS
  *  d'avant. Comparées en minuscules et sans espaces. */
@@ -48,70 +44,8 @@ const DOUBLONS: Record<string, string[]> = {
   fond: ["#f8f4f4", "#f7f3e8", "#faf7f0", "#faf9f6", "#fdf6df"],
 };
 
-/** Les 148 noms de couleur de CSS Color 4 (sans `transparent` ni
- *  `currentColor`, qui ne sont pas des couleurs de marque). */
-const NOMS = `aliceblue antiquewhite aqua aquamarine azure beige bisque black
-blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate
-coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod
-darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange
-darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray
-darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey
-dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold
-goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory
-khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral
-lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink
-lightsalmon lightseagreen lightskyblue lightslategray lightslategrey
-lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine
-mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue
-mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream
-mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered
-orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff
-peru pink plum powderblue purple rebeccapurple red rosybrown royalblue
-saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue
-slategray slategrey snow springgreen steelblue tan teal thistle tomato
-turquoise violet wheat white whitesmoke yellow yellowgreen`.split(/\s+/);
-
-const NOM_DE_COULEUR = new RegExp(`(?<![\\w-])(?:${NOMS.join("|")})(?![\\w-])`, "i");
-const HEXA = /#[0-9a-f]{3,8}(?![\w-])/i;
-const FONCTION = /(?<![\w-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i;
-const HEXA_ENCODE = /%23[0-9a-f]{3,8}(?![\w-])/i;
-
-function lire(feuille: string): string {
-  return readFileSync(join(DOSSIER, feuille), "utf-8").replace(/\r\n/g, "\n");
-}
-
-/** Un commentaire qui CITE une couleur pour expliquer son retrait n'en écrit
- *  pas une. */
-function sansCommentaires(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, "");
-}
-
 function normalise(css: string): string {
   return sansCommentaires(css).toLowerCase().replace(/\s+/g, "");
-}
-
-/** Les couleurs écrites en dur dans les VALEURS de déclaration. Les
- *  sélecteurs (`#formules {`) et les `url(#forme)` ne sont pas des couleurs ;
- *  les chaînes (noms de police) et les noms de propriétés personnalisées
- *  (`--texte-white`) non plus. */
-function couleursLitterales(css: string): string[] {
-  const texte = sansCommentaires(css);
-  const trouvees: string[] = [];
-  for (const uri of texte.matchAll(/url\(\s*["']?data:[^)]*\)/gi)) {
-    const m = uri[0].match(HEXA_ENCODE);
-    if (m) trouvees.push(m[0]);
-  }
-  const sansUrl = texte.replace(/url\([^)]*\)/gi, "url()");
-  for (const decl of sansUrl.matchAll(/:\s*([^;{}]+)(?=[;}])/g)) {
-    const valeur = decl[1]
-      .replace(/"[^"]*"|'[^']*'/g, "")
-      .replace(/--[\w-]+/g, "");
-    for (const motif of [HEXA, FONCTION, NOM_DE_COULEUR]) {
-      const m = valeur.match(motif);
-      if (m) trouvees.push(m[0]);
-    }
-  }
-  return trouvees;
 }
 
 describe("les pages publiques lisent la charte", () => {
@@ -119,15 +53,15 @@ describe("les pages publiques lisent la charte", () => {
   // succès. Si le dossier était vide, chaque test ci-dessous passerait.
   it("trouve les feuilles publiques, Portail.css comprise, et aucune n'est vide", () => {
     expect(FEUILLES.length).toBeGreaterThanOrEqual(5);
-    expect(FEUILLES).toContain("Portail.css");
+    expect(FEUILLES).toContain("public/Portail.css");
     for (const feuille of FEUILLES) {
-      expect(sansCommentaires(lire(feuille)).trim().length, feuille).toBeGreaterThan(200);
+      expect(sansCommentaires(lireFeuille(feuille)).trim().length, feuille).toBeGreaterThan(200);
     }
   });
 
   for (const feuille of FEUILLES) {
     it(`${feuille} ne recopie ni l'or, ni le noir, ni le fond de la charte`, () => {
-      const css = normalise(lire(feuille));
+      const css = normalise(lireFeuille(feuille));
       for (const [famille, valeurs] of Object.entries(DOUBLONS)) {
         for (const valeur of valeurs) {
           expect(css, `${feuille} écrit ${famille} en dur : ${valeur}`).not.toContain(valeur);
@@ -136,39 +70,13 @@ describe("les pages publiques lisent la charte", () => {
     });
 
     it(`${feuille} n'écrit aucune couleur littérale`, () => {
-      expect(couleursLitterales(lire(feuille)), feuille).toEqual([]);
+      expect(couleursLitterales(lireFeuille(feuille)), feuille).toEqual([]);
     });
 
     it(`${feuille} lit les jetons de la charte`, () => {
-      expect(sansCommentaires(lire(feuille))).toMatch(/var\(--(evkha|verre|texte|halo|ombre)-/);
+      expect(sansCommentaires(lireFeuille(feuille))).toMatch(
+        /var\(--(evkha|verre|texte|halo|ombre)-/,
+      );
     });
   }
-
-  it("contre-épreuve : ce qui est une couleur est vu, ce qui n'en est pas une ne l'est pas", () => {
-    for (const faute of [
-      ".a { color: #F8C51C; }",
-      ".a { color: #111 }",
-      ".a { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); }",
-      ".a { background: white; }",
-      ".a { color: Black }",
-      ".a { color: hsl(45 90% 55%); }",
-      ".a { color: oklch(.8 .1 90); }",
-      ".a { background: url(\"data:image/svg+xml,%3Csvg fill='%23000'%3E\"); }",
-    ]) {
-      expect(couleursLitterales(faute), faute).not.toEqual([]);
-    }
-    for (const juste of [
-      ".a { color: var(--evkha-or); background: color-mix(in srgb, var(--evkha-noir) 8%, transparent); }",
-      "#faded { color: var(--evkha-or); }",
-      "#formules { scroll-margin-top: 6.5rem }",
-      ".a { mask: url(#forme); }",
-      ".a { border-color: currentColor; background: transparent; }",
-      ".a { font-family: \"Playfair Display\", serif; }",
-      ".a { color: var(--texte-white-ish); }",
-      ".a:hover { color: var(--texte); }",
-      "@media (max-width: 600px) { .a { color: var(--texte); } }",
-    ]) {
-      expect(couleursLitterales(juste), juste).toEqual([]);
-    }
-  });
 });
