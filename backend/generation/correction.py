@@ -110,6 +110,9 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
         # 26/09/2026) se repare en REECRIVANT le chapitre : le motif nomme le
         # montant et demande l'arrondi.
         "montant_non_arrondi",
+        # Une adresse dont le domaine n'existe pas se retire ou se remplace en
+        # réécrivant le chapitre : le motif nomme l'adresse (26/09/2026).
+        "domaine_inexistant",
         # Nouveaux checks par livrable via _check_strategie_livrable.
         # Ils portent tous le prefixe `strategy_<deliverable>_<categorie>`.
         # On les ajoute dynamiquement au frozenset au chargement.
@@ -135,6 +138,7 @@ _CHECK_PRIORITY = (
     "strategy_",              # tout defaut metier par livrable
     "prudence_juridique_",    # tout defaut juridique
     "sources_non_tracables_",
+    "domaine_inexistant",
     "fourchette_interdite",
     "montant_non_arrondi",
     "doublon_titre",
@@ -178,6 +182,10 @@ _CHECK_LABELS = {
     "montant_non_arrondi": (
         "Montant écrit avec trois décimales ou plus — arrondir au centime, ou "
         "à l'unité quand le contexte le permet"
+    ),
+    "domaine_inexistant": (
+        "Adresse dont le domaine n'existe pas — la retirer ou la remplacer par "
+        "une adresse des sources collectées"
     ),
     "chapitre_desaccentue": (
         "Chapitre écrit sans accents — le rédiger en français accentué"

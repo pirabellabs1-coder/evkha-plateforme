@@ -19,9 +19,10 @@ EM v1 (retour 21/07/2026) :
 from __future__ import annotations
 
 import re
+import socket
 import unicodedata
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -1679,4 +1680,124 @@ def detecter_chapitres_desaccentues(
                 titre=titre,
                 mots=tuple(nus),
             ))
+    return trouves
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 12. DOMAINES INEXISTANTS — une adresse qui ne mène nulle part
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Le brief de recherche dit au modèle « ne cite JAMAIS une URL absente de cette
+# liste ». Rien ne le vérifiait : `_URL_BIDON_RE` ne connaît que les gabarits
+# (example.com, source.fr), et une adresse plausible inventée de toutes pièces
+# passait (audit du 26/09/2026).
+#
+# Comparer chaque domaine au brief serait FAUX par construction : la charte
+# ordonne de remonter au PRODUCTEUR de la donnée (Insee, ministère, fédération)
+# même quand la recherche n'a rapporté que la presse qui le cite — son domaine
+# ne sera jamais dans le brief. On ne juge donc que ce qu'on peut prouver : un
+# domaine que rien ne nous a donné et qui N'EXISTE PAS (aucune résolution DNS)
+# est un lien mort, motif vrai et trouvable par le lecteur (règle 2). Une panne
+# DNS temporaire n'accuse personne. Un chemin inventé sur un domaine réel reste
+# hors de portée sans requête HTTP — limite assumée, nommée ici.
+
+
+@dataclass(frozen=True)
+class DomaineInexistant:
+    """Une adresse citée dont le domaine n'existe pas."""
+
+    chapitre: int
+    titre: str
+    adresse: str
+    hote: str
+
+    def __str__(self) -> str:
+        return (
+            f"Adresse « {self.adresse} » dans le chapitre « {self.titre} » : le "
+            f"domaine « {self.hote} » n'existe pas (aucune résolution DNS). Un "
+            "lecteur qui clique n'arrive nulle part. Retire cette adresse, ou "
+            "remplace-la par une adresse du bloc des sources collectées."
+        )
+
+
+_PORT_RE = re.compile(r":\d+$")
+
+
+def _hote(adresse: str) -> str:
+    """« https://www.Insee.fr:443/fr/stat » → « insee.fr »."""
+    sans_schema = re.sub(r"^[a-z][a-z0-9+.-]*://", "", adresse.strip(), flags=re.IGNORECASE)
+    hote = sans_schema.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    hote = _PORT_RE.sub("", hote).strip(".").lower()
+    return hote[4:] if hote.startswith("www.") else hote
+
+
+def hotes_cites(texte: str) -> dict[str, str]:
+    """Chaque domaine cité dans `texte`, avec une adresse qui le porte.
+
+    Une URL complète comme un domaine nu (« gold.fr/vente-or ») : les deux
+    formes que les livrables emploient (`adresse_de_la_source`).
+    """
+    trouves: dict[str, str] = {}
+    for motif in (_URL_RE, _DOMAINE_RE):
+        for m in motif.finditer(texte or ""):
+            adresse = m.group(0).rstrip(".,;:")
+            hote = _hote(adresse)
+            if "." in hote and hote not in trouves:
+                trouves[hote] = adresse
+    return trouves
+
+
+def _admis(hote: str, hotes_admis: Collection[str]) -> bool:
+    """Un sous-domaine d'un hôte admis est admis : « data.insee.fr » pour « insee.fr »."""
+    return any(hote == admis or hote.endswith("." + admis) for admis in hotes_admis)
+
+
+def resoudre_dns(hote: str) -> bool | None:
+    """True : le domaine existe ; False : il n'existe pas ; None : on ne sait pas.
+
+    Seul `EAI_NONAME` (nom inconnu) vaut « n'existe pas ». Toute autre erreur —
+    résolveur injoignable, délai — vaut « on ne sait pas » : ne pas savoir
+    n'autorise pas à accuser.
+    """
+    try:
+        socket.getaddrinfo(hote, None)
+    except socket.gaierror as erreur:
+        if erreur.errno == socket.EAI_NONAME:
+            return False
+        return None
+    except OSError:
+        return None
+    return True
+
+
+#: Au-delà, on cesse d'interroger le DNS : un document n'a pas cent domaines
+#: hors brief, et un gate ne doit pas devenir un scanner.
+_DOMAINES_VERIFIES_MAX = 60
+
+
+def detecter_domaines_inexistants(
+    sections: Sequence[Any],
+    hotes_admis: Collection[str],
+    *,
+    resoudre: Callable[[str], bool | None] = resoudre_dns,
+) -> list[DomaineInexistant]:
+    """Les adresses du document dont le domaine, inconnu de nous, n'existe pas."""
+    trouves: list[DomaineInexistant] = []
+    verdicts: dict[str, bool | None] = {}
+    for section in sections:
+        corps = getattr(section, "body", "") or ""
+        for hote, adresse in hotes_cites(corps).items():
+            if _admis(hote, hotes_admis):
+                continue
+            if hote not in verdicts:
+                if len(verdicts) >= _DOMAINES_VERIFIES_MAX:
+                    break
+                verdicts[hote] = resoudre(hote)
+            if verdicts[hote] is False:
+                trouves.append(DomaineInexistant(
+                    chapitre=getattr(section, "number", 0),
+                    titre=getattr(section, "title", ""),
+                    adresse=adresse,
+                    hote=hote,
+                ))
     return trouves

@@ -1873,6 +1873,74 @@ def _check_montants_non_arrondis(
     ]
 
 
+def _hotes_admis(job: GenerationJob) -> frozenset[str]:
+    """Les domaines que QUELQU'UN nous a donnés : ils ne sont jamais accusés.
+
+    Le brief de recherche, les réponses du client, ses documents, le socle
+    (sites des concurrents, sources) et les fichiers de prompts — ceux-ci
+    distribuent eux-mêmes des portails institutionnels au modèle.
+    """
+    import json  # noqa: PLC0415
+
+    from intake.models import IntakeSubmission  # noqa: PLC0415
+
+    from .chapitres.configuration import types_declares  # noqa: PLC0415
+    from .checks_post_rendu import hotes_cites  # noqa: PLC0415
+    from .documents_client import texte_des_documents  # noqa: PLC0415
+    from .socle import socle_verrouille  # noqa: PLC0415
+
+    textes: list[str] = [job.research_brief or ""]
+    soumission = IntakeSubmission.objects.filter(order=job.order).first()
+    if soumission is not None:
+        textes.append(json.dumps(soumission.normalized_variables or {}, ensure_ascii=False))
+    textes.append(texte_des_documents(job))
+    socle = socle_verrouille(job)
+    if socle is not None:
+        textes.extend(getattr(c, "site_web", "") or "" for c in socle.concurrents)
+        textes.extend(getattr(d, "source", "") or "" for d in socle.donnees)
+        textes.extend(getattr(t, "source", "") or "" for t in getattr(socle, "tendances", ()))
+    for document in _textes_des_prompts(types_declares()):
+        textes.append(document)
+    hotes: set[str] = set()
+    for texte in textes:
+        hotes.update(hotes_cites(texte))
+    return frozenset(hotes)
+
+
+def _textes_des_prompts(documents: Collection[object]) -> list[str]:
+    """Le texte de tous les fichiers de prompts, tous livrables confondus."""
+    textes: list[str] = []
+    for document in documents:
+        dossier = getattr(document, "chemin_prompts", None)
+        if dossier is None:
+            continue
+        for fichier in sorted(dossier.glob("*.md")):
+            textes.append(fichier.read_text(encoding="utf-8"))
+    return textes
+
+
+def _check_domaines_inexistants(
+    job: GenerationJob, sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Aucune adresse du document ne pointe vers un domaine qui n'existe pas.
+
+    Voir `checks_post_rendu.detecter_domaines_inexistants` : seuls les domaines
+    que rien ne nous a donnés sont interrogés, et seul un nom inconnu du DNS
+    fait un motif. Une adresse inventée « plausible » passait jusqu'au
+    26/09/2026.
+    """
+    from .checks_post_rendu import detecter_domaines_inexistants  # noqa: PLC0415
+
+    return [
+        GateFailure(
+            check="domaine_inexistant",
+            chapter_number=trouve.chapitre,
+            detail=str(trouve),
+        )
+        for trouve in detecter_domaines_inexistants(sections, _hotes_admis(job))
+    ]
+
+
 def _check_texte_francais(
     sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1986,6 +2054,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_post_rendu(livrees, deliverable_type=str(job.deliverable_type)))
     failures.extend(_check_texte_francais(livrees))
     failures.extend(_check_montants_non_arrondis(livrees))
+    failures.extend(_check_domaines_inexistants(job, livrees))
     # Manuel EVKHA p.17 : livraison possible UNIQUEMENT si tous les controles
     # sont valides. Un CHECK de bloc encore en echec bloque l'envoi.
     failures.extend(_check_blocs_evangeline(job))
