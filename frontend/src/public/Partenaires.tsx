@@ -22,8 +22,12 @@
  * 2. **Aucun tarif n'est affiché tant qu'il n'est pas chargé.** Une page qui
  *    montrerait des prix de repli en attendant l'API afficherait un prix faux
  *    à qui a une connexion lente — sur une page de vente, c'est inacceptable.
+ *
+ * Les blocs marqués `data-reveal` s'allument à l'entrée dans la fenêtre
+ * (`useReveler`, IntersectionObserver). Jamais sur un titre : le texte que
+ * les moteurs et le lecteur d'écran lisent en premier n'attend personne.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   APPEL_FINAL,
   CALCUL,
@@ -38,6 +42,7 @@ import {
 } from "./contenu";
 import { chargerFormules, euros, type FormulePublique } from "./donnees";
 import { MenuSite } from "./MenuSite";
+import { useReveler } from "./reveler";
 import "./Partenaires.css";
 
 /** Destination du bouton « Souscrire ».
@@ -69,6 +74,16 @@ function Puce({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** La flèche d'un bouton-îlot, nichée dans son disque (`.bouton__icone`,
+ *  espace.css). Décorative : le libellé dit déjà où l'on va. */
+function Fleche({ signe }: { signe: "→" | "↓" }) {
+  return (
+    <span className="bouton__icone" aria-hidden="true">
+      {signe}
+    </span>
+  );
+}
+
 function Formules({ formules }: { formules: FormulePublique[] }) {
   return (
     <div className="pp-formules">
@@ -78,9 +93,10 @@ function Formules({ formules }: { formules: FormulePublique[] }) {
           className={
             formule.mise_en_avant ? "pp-formule pp-avant" : "pp-formule"
           }
+          data-reveal=""
         >
           <div className="pp-formule-sous-titre">
-            {FORMULES_SOUS_TITRES[formule.code] ?? " "}
+            {FORMULES_SOUS_TITRES[formule.code] ?? "\u00a0"}
           </div>
           <h3>{formule.libelle}</h3>
           <div className="pp-formule-prix">
@@ -109,10 +125,11 @@ function Formules({ formules }: { formules: FormulePublique[] }) {
           </ul>
 
           <a
-            className="pp-formule-souscrire"
+            className="bouton bouton-noir pp-formule-souscrire"
             href={lienSouscription(formule.code)}
           >
-            Souscrire à {formule.libelle}
+            <span>Souscrire à {formule.libelle}</span>
+            <Fleche signe="→" />
           </a>
         </article>
       ))}
@@ -123,6 +140,11 @@ function Formules({ formules }: { formules: FormulePublique[] }) {
 export function Partenaires() {
   const [formules, setFormules] = useState<FormulePublique[] | null>(null);
   const [erreur, setErreur] = useState("");
+  const page = useRef<HTMLDivElement>(null);
+
+  // Les formules arrivent après le premier rendu : leur chargement rejoue
+  // l'observation, pour que leurs cartes soient révélées comme les autres.
+  useReveler(page, formules);
 
   // Le gabarit HTML annonce « EVKHA — Espace client » : juste pour les deux
   // espaces connectes, faux pour une page publique que l'on partage par lien
@@ -159,7 +181,7 @@ export function Partenaires() {
       : "";
 
   return (
-    <div className="pp">
+    <div className="pp" ref={page}>
       <MenuSite />
 
       {/* ── Ouverture ────────────────────────────────────────────────── */}
@@ -181,8 +203,9 @@ export function Partenaires() {
               Une ancre et non un défilement scripté : le lien marche aussi
               depuis un partage direct de l'URL. */}
           <div className="pp-hero-actions">
-            <a className="pp-hero-cta" href="#formules">
+            <a className="bouton bouton-principal pp-hero-cta" href="#formules">
               Découvrir les formules
+              <Fleche signe="↓" />
             </a>
             <a className="pp-hero-connexion" href="/espace/connexion">
               Créer son espace client
@@ -193,13 +216,15 @@ export function Partenaires() {
           className="pp-hero-image"
           src="/partenaires/reunion.jpg"
           alt="Trois personnes en réunion de travail autour d'un ordinateur portable"
+          width="1200"
+          height="800"
           loading="lazy"
         />
       </header>
 
       <div className="pp-large pp-preuves">
         {PREUVES.map((preuve) => (
-          <div key={preuve.libelle}>
+          <div key={preuve.libelle} data-reveal="">
             <div className="pp-preuve-valeur">{preuve.valeur}</div>
             <div className="pp-preuve-libelle">{preuve.libelle}</div>
           </div>
@@ -214,14 +239,16 @@ export function Partenaires() {
           <div className="pp-filet" />
           <div className="pp-etapes">
             {PRINCIPE.etapes.map((etape, rang) => (
-              <article className="pp-etape" key={etape.titre}>
-                <div className="pp-etape-rang">{rang + 1}</div>
+              <article className="pp-etape" key={etape.titre} data-reveal="">
+                <div className="pp-etape-rang" aria-hidden="true">
+                  {rang + 1}
+                </div>
                 <h3>{etape.titre}</h3>
                 <p>{etape.corps}</p>
               </article>
             ))}
           </div>
-          <p className="pp-bandeau-noir">
+          <p className="pp-bandeau-noir" data-reveal="">
             <strong>1 crédit = 1 livrable au choix</strong>
             {PRINCIPE.bandeau.replace("1 crédit = 1 livrable au choix", "")}
           </p>
@@ -265,7 +292,7 @@ export function Partenaires() {
           <h2 className="pp-titre pp-titre-serif">{POUR_QUI.titre}</h2>
           <div className="pp-cibles">
             {POUR_QUI.cibles.map((cible) => (
-              <article className="pp-cible" key={cible.titre}>
+              <article className="pp-cible" key={cible.titre} data-reveal="">
                 <h3>{cible.titre}</h3>
                 <p>{cible.corps}</p>
                 <p className="pp-cible-avec">{cible.avec}</p>
@@ -278,7 +305,7 @@ export function Partenaires() {
 
       {/* ── Le calcul ────────────────────────────────────────────────── */}
       <section className="pp-section">
-        <div className="pp-large pp-encadre-creme">
+        <div className="pp-large pp-encadre-creme" data-reveal="">
           <p className="pp-surtitre">{CALCUL.surtitre}</p>
           <h2 className="pp-titre">{CALCUL.titre}</h2>
           <div className="pp-filet" />
@@ -308,9 +335,12 @@ export function Partenaires() {
             className="pp-fondatrice-portrait"
             src="/partenaires/evangeline.jpg"
             alt="Evangeline Khaili, fondatrice d'Evkha"
+            width="900"
+            height="1200"
             loading="lazy"
+            data-reveal=""
           />
-          <div>
+          <div data-reveal="">
             <p className="pp-fondatrice-surtitre">{FONDATRICE.surtitre}</p>
             <h2>{FONDATRICE.titre}</h2>
             <div className="pp-fondatrice-trait" />
@@ -326,7 +356,7 @@ export function Partenaires() {
           <h2 className="pp-titre pp-titre-serif">{FAQ.titre}</h2>
           <div className="pp-faq">
             {FAQ.questions.map((question) => (
-              <div className="pp-question" key={question.q}>
+              <div className="pp-question" key={question.q} data-reveal="">
                 <span className="pp-question-chevron" aria-hidden="true">
                   »
                 </span>
@@ -347,9 +377,13 @@ export function Partenaires() {
         ))}
       </section>
 
-      <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
-        <a className="pp-appel-bouton" href={lienSouscription("pro")}>
+      <div className="pp-appel-action">
+        <a
+          className="bouton bouton-principal pp-appel-bouton"
+          href={lienSouscription("pro")}
+        >
           CHOISIR LA FORMULE PRO
+          <Fleche signe="→" />
         </a>
       </div>
 
