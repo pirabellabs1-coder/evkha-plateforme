@@ -113,6 +113,8 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
         # Une adresse dont le domaine n'existe pas se retire ou se remplace en
         # réécrivant le chapitre : le motif nomme l'adresse (26/09/2026).
         "domaine_inexistant",
+        # Une date ISO dans la prose se réécrit en toutes lettres (26/09/2026).
+        "date_iso",
         # Nouveaux checks par livrable via _check_strategie_livrable.
         # Ils portent tous le prefixe `strategy_<deliverable>_<categorie>`.
         # On les ajoute dynamiquement au frozenset au chargement.
@@ -140,6 +142,7 @@ _CHECK_PRIORITY = (
     "sources_non_tracables_",
     "domaine_inexistant",
     "fourchette_interdite",
+    "date_iso",
     "montant_non_arrondi",
     "doublon_titre",
     "troncature_rendu",
@@ -187,6 +190,7 @@ _CHECK_LABELS = {
         "Adresse dont le domaine n'existe pas — la retirer ou la remplacer par "
         "une adresse des sources collectées"
     ),
+    "date_iso": "Date écrite en ISO (2026-08-08) — l'écrire en toutes lettres",
     "chapitre_desaccentue": (
         "Chapitre écrit sans accents — le rédiger en français accentué"
     ),

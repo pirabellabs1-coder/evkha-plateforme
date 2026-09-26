@@ -1801,3 +1801,54 @@ def detecter_domaines_inexistants(
                     hote=hote,
                 ))
     return trouves
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 13. DATES ISO — « 2026-08-08 » n'a rien à faire dans un document français
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Jusqu'au lot 95, la ligne du socle injectée dans chaque prompt datait ses
+# chiffres « arrêté au 2026-08-08 », et le modèle recopie la forme qu'on lui
+# donne. La source est corrigée ; ce contrôle vérifie ce que le lecteur reçoit
+# (règle 3). Les adresses sont retirées avant la recherche : un chemin d'URL
+# porte souvent une date ISO, et elle y est légitime.
+
+_DATE_ISO_RE = re.compile(r"(?<![\w/.-])(20\d\d-\d\d-\d\d)(?![\w/-])")
+
+
+@dataclass(frozen=True)
+class DateIso:
+    """Une date écrite à la machine dans la prose."""
+
+    chapitre: int
+    titre: str
+    date: str
+    contexte: str
+
+    def __str__(self) -> str:
+        return (
+            f"Date « {self.date} » dans le chapitre « {self.titre} » : forme ISO "
+            "dans un document français. Écris-la en toutes lettres (« 8 août "
+            f"2026 »). Contexte : « …{self.contexte}… »."
+        )
+
+
+def detecter_dates_iso(sections: Sequence[Any]) -> list[DateIso]:
+    """Les dates ISO de la prose, adresses exclues ; une par (chapitre, date)."""
+    trouves: list[DateIso] = []
+    for section in sections:
+        corps = getattr(section, "body", "") or ""
+        sans_adresses = _DOMAINE_RE.sub(" ", _URL_RE.sub(" ", corps))
+        vues: set[str] = set()
+        for m in _DATE_ISO_RE.finditer(sans_adresses):
+            if m.group(1) in vues:
+                continue
+            vues.add(m.group(1))
+            debut = max(0, m.start() - 30)
+            trouves.append(DateIso(
+                chapitre=getattr(section, "number", 0),
+                titre=getattr(section, "title", ""),
+                date=m.group(1),
+                contexte=" ".join(sans_adresses[debut:m.end() + 30].split()),
+            ))
+    return trouves

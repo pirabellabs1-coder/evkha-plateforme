@@ -1941,6 +1941,16 @@ def _check_domaines_inexistants(
     ]
 
 
+def _check_dates_iso(sections: tuple[RenderedSection, ...]) -> list[GateFailure]:
+    """Aucune date ISO dans la prose livrée (voir `checks_post_rendu.detecter_dates_iso`)."""
+    from .checks_post_rendu import detecter_dates_iso  # noqa: PLC0415
+
+    return [
+        GateFailure(check="date_iso", chapter_number=trouve.chapitre, detail=str(trouve))
+        for trouve in detecter_dates_iso(sections)
+    ]
+
+
 def _check_texte_francais(
     sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -2055,6 +2065,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_texte_francais(livrees))
     failures.extend(_check_montants_non_arrondis(livrees))
     failures.extend(_check_domaines_inexistants(job, livrees))
+    failures.extend(_check_dates_iso(livrees))
     # Manuel EVKHA p.17 : livraison possible UNIQUEMENT si tous les controles
     # sont valides. Un CHECK de bloc encore en echec bloque l'envoi.
     failures.extend(_check_blocs_evangeline(job))
