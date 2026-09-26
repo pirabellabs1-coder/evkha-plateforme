@@ -664,6 +664,22 @@
   box-shadow: inset 0 1px 0 var(--verre-reflet);
 }
 
+/* Une action qui détruit ou interrompt (annuler une génération) se
+ * distingue AVANT le clic : contour et texte d'échec, voile d'échec au
+ * survol. Sous Radix, « Annuler le job » était rouge ; passé au verre, il
+ * était devenu un bouton comme les autres. La confirmation reste, elle, dans
+ * le code de l'action. */
+.bouton-echec {
+  background: var(--verre-fond);
+  border-color: var(--evkha-echec);
+  color: var(--evkha-echec);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
+}
+
+.bouton-echec:hover:not(:disabled) {
+  background: var(--evkha-echec-voile);
+}
+
 .bouton-contour:hover:not(:disabled) {
   border-color: var(--evkha-noir);
   background: var(--evkha-blanc);

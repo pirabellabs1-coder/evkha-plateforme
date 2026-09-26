@@ -315,7 +315,7 @@ function CancelButton({ jobId }: { jobId: string }) {
     <div className="console-pile console-pile-fin">
       <button
         type="button"
-        className={classeBouton("bouton-contour", mutation.isPending)}
+        className={classeBouton("bouton-echec", mutation.isPending)}
         disabled={mutation.isPending}
         onClick={handleClick}
       >
