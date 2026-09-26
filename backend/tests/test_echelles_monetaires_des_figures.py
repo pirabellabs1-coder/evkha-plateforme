@@ -107,7 +107,9 @@ def test_un_entonnoir_en_trois_echelles_d_euros_est_dessine() -> None:
     # devise pour rendre les conversions possibles — et n'a aucune raison
     # d'atteindre le document. Demande de la cliente : « remplacer les unités
     # techniques comme MEUR par 6,8 Md€, 1,02 Md€, 600 k€ ».
-    assert affichees == ["1.2 Md€", "240 M€", "1.8 M€"], affichees
+    # Depuis le lot 96, les marches d'entonnoir s'écrivent comme le reste du
+    # document : virgule décimale, espace insécable (« 1,2 Md€ »).
+    assert affichees == ["1,2 Md€", "240 M€", "1,8 M€"], affichees
     # Aucune notation scientifique nulle part.
     assert not any("e+" in texte or "e-" in texte for texte in affichees)
 
