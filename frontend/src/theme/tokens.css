@@ -200,6 +200,19 @@
   /* Ce qui dit « on attend » respire, au même rythme partout : le halo du
    * jalon en cours du suivi de production, le point de la souscription. */
   --duree-respiration: 2.6s;
+  /* Toute autre durée de mouvement de `espace.css` a son jeton, et chacun
+   * tombe à 0 ms sous mouvement réduit (bloc ci-dessous). Écrite en dur,
+   * une durée échappait à ce bloc : seule une règle `animation: none`
+   * nommée l'arrêtait, et une règle oubliée laissait tourner une boucle.
+   * Verrouillé par `les-mouvements-lisent-leurs-durees.test.ts`. */
+  --duree-balayage: 1.3s; /* lame de lumière d'un bouton qui charge */
+  --duree-squelette: 1.6s; /* reflet d'un squelette de chargement */
+  --duree-jauge: 2.8s; /* lame qui traverse la jauge de production */
+  --duree-coulee: 2.2s; /* remplissage qui coule d'un jalon au suivant */
+  --duree-rotation: 1.1s; /* un tour de l'arc du jalon en cours */
+  --duree-flash: 1.1s; /* pilule d'or derrière un nombre qui change */
+  --duree-increment: 520ms; /* un nombre remonté qui arrive */
+  --duree-annonce: 220ms; /* fenêtre d'annonce qui s'ouvre */
 
   /* ── Gabarit ──────────────────────────────────────────────────────────── */
   --largeur-barre: 264px;
@@ -217,5 +230,13 @@
     --duree-reveal: 0ms;
     --decalage-reveal: 0ms;
     --duree-respiration: 0ms;
+    --duree-balayage: 0ms;
+    --duree-squelette: 0ms;
+    --duree-jauge: 0ms;
+    --duree-coulee: 0ms;
+    --duree-rotation: 0ms;
+    --duree-flash: 0ms;
+    --duree-increment: 0ms;
+    --duree-annonce: 0ms;
   }
 }

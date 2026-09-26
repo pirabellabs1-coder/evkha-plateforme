@@ -397,8 +397,18 @@
  * La grille de chiffres clés est exclue au profit de SES enfants : quatre
  * cartes qui arrivent l'une après l'autre disent « voici vos chiffres » ;
  * une grille qui arrive d'un bloc, puis ses cartes une seconde fois, bougent
- * deux fois pour le même effet. */
-.espace-contenu > :not(.grille-chiffres),
+ * deux fois pour le même effet.
+ *
+ * Le squelette de chargement (`.squelette-groupe`, rendu par `Squelette`)
+ * est exclu lui aussi. Il arrivait en fondu, puis le contenu qui le
+ * remplace rejouait le sien : deux arrivées pour une. Il apparaît net ;
+ * c'est le contenu qui arrive.
+ *
+ * Un `:not()` à LISTE, et non deux `:not()` enchaînés : sa spécificité est
+ * celle de son argument le plus fort, et la règle reste à (0,2,0). À
+ * (0,3,0), elle écraserait `.espace-contenu > .etape-commande` (0,2,0, plus
+ * bas), et les étapes de la commande ne glisseraient plus. */
+.espace-contenu > :not(.grille-chiffres, .squelette-groupe),
 .espace-contenu > .grille-chiffres > * {
   animation: verre-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
   animation-delay: calc(var(--i, 0) * var(--decalage-reveal));
@@ -677,14 +687,14 @@
   flex: 0 0 26px;
   margin: -5px calc(-1 * var(--e-3)) -5px 0;
   border-radius: 50%;
-  background: rgba(11, 11, 11, 0.08);
+  background: color-mix(in srgb, var(--evkha-noir) 8%, transparent);
   font-size: 0.8em;
   line-height: 1;
   transition: transform var(--duree-micro) var(--ease-doux);
 }
 
 .bouton-noir .bouton__icone {
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--evkha-blanc) 14%, transparent);
 }
 
 .bouton:hover:not(:disabled) .bouton__icone {
@@ -719,7 +729,7 @@
     transparent 100%
   );
   transform: translateX(-100%);
-  animation: bouton-balayage 1.3s var(--ease-doux) infinite;
+  animation: bouton-balayage var(--duree-balayage) var(--ease-doux) infinite;
 }
 
 @keyframes bouton-balayage {
@@ -728,7 +738,9 @@
   }
 }
 
-/* La durée est littérale (1,3 s), les jetons à 0 ms ne la couvrent pas. */
+/* La durée passe par `--duree-balayage`, déjà à 0 ms sous ce réglage
+ * (`tokens.css`) ; cette règle est le filet, au cas où le jeton serait un
+ * jour redéfini sans le bloc de réduction. */
 @media (prefers-reduced-motion: reduce) {
   .bouton-chargement::after {
     animation: none;
@@ -1041,6 +1053,16 @@
 
 /* ── Squelette de chargement ────────────────────────────────────────────── */
 
+/* Le groupe de lignes que rend `Squelette`. Enfant direct de
+ * `.espace-contenu` quand une page entière charge, il n'est PAS révélé à
+ * l'arrivée (voir « Révélation à l'arrivée ») : il apparaît net, et c'est le
+ * contenu qui le remplace qui arrive. */
+.squelette-groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
 /* Un reflet or très doux traverse la barre, de gauche à droite. Il est porté
  * par un pseudo-élément déplacé en `transform` — l'ancienne version animait
  * `background-position`, qui repeint la barre à chaque image ; un
@@ -1068,7 +1090,8 @@
     transparent 100%
   );
   transform: translateX(-100%);
-  animation: squelette-balayage 1.6s var(--ease-doux) infinite;
+  animation: squelette-balayage var(--duree-squelette) var(--ease-doux)
+    infinite;
 }
 
 @keyframes squelette-balayage {
@@ -1812,7 +1835,7 @@
   background: linear-gradient(90deg, var(--evkha-or-fonce), var(--evkha-or));
   border-radius: var(--rayon-pilule);
   box-shadow: inset 0 1px 0 var(--verre-reflet);
-  transition: transform 600ms var(--ease-sortie);
+  transition: transform var(--duree-reveal) var(--ease-sortie);
 }
 
 /* Le balayage : une lame de lumière traverse l'or, lentement, tant que la
@@ -1836,7 +1859,7 @@
 }
 
 .frise-active .jauge-remplissage::after {
-  animation: jauge-balayage 2.8s var(--ease-doux) infinite;
+  animation: jauge-balayage var(--duree-jauge) var(--ease-doux) infinite;
 }
 
 @keyframes jauge-balayage {
@@ -2564,7 +2587,8 @@
 }
 
 .frise-active .frise-etape-en_cours .frise-jalon::before {
-  animation: frise-respiration 2.6s var(--ease-doux) infinite;
+  animation: frise-respiration var(--duree-respiration) var(--ease-doux)
+    infinite;
 }
 
 @keyframes frise-respiration {
@@ -2632,7 +2656,7 @@
 }
 
 .frise-active .frise-liaison-flux::before {
-  animation: frise-coulee 2.2s var(--ease-doux) infinite;
+  animation: frise-coulee var(--duree-coulee) var(--ease-doux) infinite;
 }
 
 @keyframes frise-coulee {
@@ -2700,7 +2724,7 @@
 }
 
 .frise-active .frise-arc {
-  animation: frise-rotation 1.1s linear infinite;
+  animation: frise-rotation var(--duree-rotation) linear infinite;
 }
 
 @keyframes frise-rotation {
@@ -2793,7 +2817,7 @@
 }
 
 .frise-active .frise-detail.frise-increment::before {
-  animation: frise-flash 1.1s var(--ease-sortie) both;
+  animation: frise-flash var(--duree-flash) var(--ease-sortie) both;
 }
 
 @keyframes frise-flash {
@@ -2808,7 +2832,8 @@
 /* Ce qui vient d'être remonté arrive : 6 px et un fondu. Porté par le chiffre
    d'avancement et par le détail des jalons, à chaque changement de valeur. */
 .frise-increment {
-  animation: frise-increment 520ms var(--ease-sortie) backwards;
+  animation: frise-increment var(--duree-increment) var(--ease-sortie)
+    backwards;
 }
 
 @keyframes frise-increment {
@@ -3184,7 +3209,8 @@
   /* Gris et non transparent : une étoile éteinte doit rester visible, sinon
      on ne sait pas qu'il y en a cinq. */
   color: var(--evkha-bordure-forte);
-  transition: color 0.12s, transform 0.12s;
+  transition: color var(--duree-micro) var(--ease-doux),
+    transform var(--duree-micro) var(--ease-doux);
 }
 
 .avis-etoile:hover {
@@ -3366,7 +3392,7 @@
    en fondu ; la fenêtre reste, elle, indispensable. */
 @media (prefers-reduced-motion: no-preference) {
   .annonce-fenetre {
-    animation: annonce-entree 0.22s ease-out;
+    animation: annonce-entree var(--duree-annonce) var(--ease-sortie);
   }
 
   @keyframes annonce-entree {

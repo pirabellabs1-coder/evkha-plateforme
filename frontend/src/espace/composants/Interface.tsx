@@ -178,14 +178,12 @@ export function Bandeau({
 // ── Chargement ──────────────────────────────────────────────────────────────
 
 /** Squelette plutôt qu'un tourniquet : la page ne saute pas quand les données
- *  arrivent, parce que la place est déjà prise. */
+ *  arrivent, parce que la place est déjà prise. Sa classe `squelette-groupe`
+ *  l'exclut de la révélation d'entrée (`espace.css`) : il apparaît net, c'est
+ *  le contenu qui le remplace qui arrive. */
 export function Squelette({ lignes = 3 }: { lignes?: number }) {
   return (
-    <div
-      style={{ display: "flex", flexDirection: "column", gap: "var(--e-3)" }}
-      aria-busy="true"
-      aria-live="polite"
-    >
+    <div className="squelette-groupe" aria-busy="true" aria-live="polite">
       <span className="visuellement-cache">Chargement…</span>
       {Array.from({ length: lignes }, (_, index) => (
         <div
