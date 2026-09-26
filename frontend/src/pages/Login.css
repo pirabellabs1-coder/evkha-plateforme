@@ -1,0 +1,228 @@
+/* Porte du tableau de bord (`/login`) — une carte de verre sur le maillage.
+ *
+ * La recette de la connexion de l'espace client (`public/Portail.css`) :
+ * maillage or et crème, carte en double bordure, champ en creux, bouton-îlot.
+ * Le champ et le bouton ne sont PAS redessinés ici : ce sont `.champ-saisie`
+ * et `.bouton .bouton-principal` de `theme/espace.css`, chargée pour toute
+ * l'application par `main.tsx`, comme les images clés `verre-arrivee` et
+ * `verre-fondu`. Cette feuille ne porte que ce qui tient à la page : le fond,
+ * la carte, l'en-tête, les textes. Aucune couleur écrite en dur — tout vient
+ * de `theme/tokens.css`.
+ *
+ * Deux contraintes d'intégration, qui expliquent la forme des sélecteurs :
+ *
+ * - Radix Themes enveloppe toujours l'application (`<Theme>`, `main.tsx`) :
+ *   la page pose elle-même sa police, sa couleur et son fond, plutôt que
+ *   d'hériter de ceux de Radix ;
+ * - cette feuille est importée par `Login.tsx`, donc via `./router`, que
+ *   `main.tsx` importe AVANT `espace.css`. À spécificité égale, `.bouton`
+ *   l'emporterait : ce qui ajuste un élément de l'espace est préfixé par
+ *   `.connexion-admin` (0,2,0), comme `.ach .ach-bouton` sur la page d'achat.
+ */
+
+/* Le maillage : la coquille de la charte et trois halos — or en haut à
+ * gauche, crème en bas à droite, un or très pâle au centre —, le fond de
+ * `.espace`. Peint sur la page et non sur un calque fixe : elle tient dans un
+ * écran, rien n'y défile sous un verre, donc aucun flou d'arrière-plan. */
+.connexion-admin {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--e-10) var(--e-4) var(--e-12);
+  background:
+    radial-gradient(40rem 32rem at 14% -4%, var(--halo-or) 0%, transparent 68%),
+    radial-gradient(
+      36rem 30rem at 104% 104%,
+      var(--halo-creme) 0%,
+      transparent 66%
+    ),
+    radial-gradient(
+      52rem 34rem at 60% 46%,
+      color-mix(in srgb, var(--halo-or) 45%, transparent) 0%,
+      transparent 70%
+    ),
+    var(--fond-page);
+  color: var(--texte);
+  font-family: var(--police-corps);
+  font-size: var(--t-base);
+  line-height: var(--interligne);
+}
+
+/* La carte de verre : coque translucide cernée d'un liseré, cœur blanc plus
+ * dense en retrait de `--verre-marge` (`::before`, sous le contenu dans le
+ * contexte isolé de la carte), rayons concentriques. Elle MONTE à l'arrivée ;
+ * son contenu, lui, s'allume ensuite — deux montées empilées bougeraient deux
+ * fois pour le même effet.
+ *
+ * Contraste calculé sur ce cœur (blanc à 78 % sur la coque, ≈ #FEFEFE) :
+ * texte tenu #6E6E6E à 5,1:1, texte doux #4A4A4A à 8,8:1, rouge d'échec
+ * #B3261E à 6,5:1, noir sur l'or du bouton à 11,5:1. */
+.connexion-admin-carte {
+  position: relative;
+  isolation: isolate;
+  width: min(420px, 100%);
+  padding: calc(var(--e-8) + var(--verre-marge));
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--verre-fond);
+  box-shadow: var(--ombre-ambiante-lg);
+  animation: verre-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
+}
+
+.connexion-admin-carte::before {
+  content: "";
+  position: absolute;
+  inset: var(--verre-marge);
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--verre-reflet);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
+}
+
+.connexion-admin-carte > * {
+  animation: verre-fondu var(--duree-reveal) var(--ease-sortie) backwards;
+  animation-delay: calc((var(--i, 0) + 2) * var(--decalage-reveal));
+}
+
+.connexion-admin-carte > :nth-child(2) {
+  --i: 1;
+}
+
+.connexion-admin-carte > :nth-child(n + 3) {
+  --i: 2;
+}
+
+/* ── En-tête ─────────────────────────────────────────────────────────────── */
+
+.connexion-admin-entete {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  margin-bottom: var(--e-8);
+}
+
+/* Le sceau du tableau de bord : l'hexagone, NOIR dans une pastille d'or —
+ * comme tout signe posé sur l'or de la charte, où le blanc plafonne à 1,9:1.
+ * Décoratif, donc masqué aux lecteurs d'écran : le titre nomme la page. */
+.connexion-admin-sceau {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rayon-md);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-size: 1.5rem;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
+}
+
+.connexion-admin-titre {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: 0.04em;
+  line-height: var(--interligne-serre);
+  color: var(--texte-fort);
+}
+
+.connexion-admin-sous-titre {
+  margin: 2px 0 0;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+/* ── Formulaire ──────────────────────────────────────────────────────────── */
+
+.connexion-admin-champ {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  margin-bottom: var(--e-6);
+}
+
+.connexion-admin-libelle {
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--texte-fort);
+}
+
+/* Le texte indicatif prend le gris « tenu » de la charte (5,1:1 sur blanc) :
+ * le gris par défaut du navigateur varie, et Firefox l'éclaircit par opacité
+ * jusque sous les 4,5:1. */
+.connexion-admin .champ-saisie::placeholder {
+  color: var(--texte-tenu);
+  opacity: 1;
+}
+
+.connexion-admin-erreur {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-moyenne);
+  color: var(--evkha-echec);
+}
+
+/* Le bouton-îlot de l'espace, sur toute la largeur de la carte. Son libellé
+ * peut passer à la ligne : à 320 px, « Accéder au dashboard » et son disque
+ * ne tiennent pas sur une, et un `.bouton` ne se comprime jamais sous son
+ * texte — il déborderait de la carte. */
+.connexion-admin .connexion-admin-bouton {
+  width: 100%;
+  padding: var(--e-4) var(--e-5);
+  font-size: var(--t-md);
+  white-space: normal;
+  text-align: center;
+}
+
+/* ── Aide ────────────────────────────────────────────────────────────────── */
+
+.connexion-admin-aide {
+  margin: var(--e-6) 0 0;
+  font-size: var(--t-xs);
+  line-height: var(--interligne);
+  color: var(--texte-tenu);
+  text-align: center;
+}
+
+/* Un nom de variable d'environnement se lit en chasse fixe, et se coupe
+ * n'importe où plutôt que de faire déborder la carte sur un petit écran. */
+.connexion-admin-code {
+  padding: 1px 6px;
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-xs);
+  background: var(--fond-enfonce);
+  font-family: var(--police-mono);
+  font-size: 0.95em;
+  color: var(--texte-fort);
+  overflow-wrap: anywhere;
+}
+
+/* ── Adaptations ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  .connexion-admin {
+    padding: var(--e-6) var(--e-4) var(--e-8);
+  }
+
+  .connexion-admin-carte {
+    padding: calc(var(--e-6) + var(--verre-marge));
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────── */
+
+/* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet : la carte
+ * et son contenu, dans leur état final, tout de suite. */
+@media (prefers-reduced-motion: reduce) {
+  .connexion-admin-carte,
+  .connexion-admin-carte > * {
+    animation: none;
+  }
+}

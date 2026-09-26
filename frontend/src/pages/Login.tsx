@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Card, Flex, Box, Text, Heading, TextField, Button } from "@radix-ui/themes";
 import { setToken } from "../auth";
+import "./Login.css";
 
 /** Où atterrit un administrateur qui vient de présenter son jeton.
  *
@@ -14,6 +14,15 @@ import { setToken } from "../auth";
  */
 export const APRES_CONNEXION = "/admin";
 
+/** La porte du tableau de bord : une carte de verre sur le maillage or et
+ * crème.
+ *
+ * Elle était composée en Radix Themes (`Card`, `TextField`, `Button`) sur un
+ * gris de Radix : la seule porte de la plateforme qui ne parlait pas la
+ * charte. Radix reste dans l'application ; cette page lit désormais
+ * `tokens.css`, et son champ et son bouton sont ceux de l'espace
+ * (`.champ-saisie`, `.bouton .bouton-principal`) — voir `Login.css`.
+ */
 export function Login() {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
@@ -32,45 +41,67 @@ export function Login() {
   }
 
   return (
-    <Flex align="center" justify="center" style={{ minHeight: "100vh", background: "var(--gray-2)" }}>
-      <Card size="4" style={{ width: "100%", maxWidth: 400 }}>
-        <Flex align="center" gap="3" mb="5">
-          <Text style={{ fontSize: 28, color: "var(--accent-9)" }}>⬡</Text>
-          <Box>
-            <Heading size="4" as="h1">EVKHA</Heading>
-            <Text size="1" color="gray">Dashboard · accès administrateur</Text>
-          </Box>
-        </Flex>
+    <main className="connexion-admin">
+      <div className="connexion-admin-carte">
+        <header className="connexion-admin-entete">
+          <span className="connexion-admin-sceau" aria-hidden="true">
+            ⬡
+          </span>
+          <div>
+            <h1 className="connexion-admin-titre">EVKHA</h1>
+            <p className="connexion-admin-sous-titre">
+              Dashboard · accès administrateur
+            </p>
+          </div>
+        </header>
 
         <form onSubmit={handleSubmit}>
-          <Box mb="4">
-            <Text as="label" htmlFor="token" size="1" weight="bold"
-              style={{ display: "block", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+          <div className="connexion-admin-champ">
+            <label htmlFor="token" className="connexion-admin-libelle">
               Token d'accès
-            </Text>
-            <TextField.Root
+            </label>
+            {/* Le message d'erreur est RELIÉ au champ (`aria-describedby`)
+                et le champ se dit invalide : entendu au moment où il
+                apparaît, et relu quand on revient sur le champ. */}
+            <input
               id="token"
+              className="champ-saisie"
               type="password"
               placeholder="Coller le token ici…"
               value={value}
-              onChange={(e) => { setValue(e.target.value); setError(""); }}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setError("");
+              }}
               autoFocus
-              size="3"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "token-erreur" : undefined}
             />
             {error && (
-              <Text size="1" color="red" as="p" mt="1">{error}</Text>
+              <p id="token-erreur" className="connexion-admin-erreur" role="alert">
+                {error}
+              </p>
             )}
-          </Box>
+          </div>
 
-          <Button type="submit" size="3" style={{ width: "100%" }} disabled={!value.trim()}>
+          <button
+            type="submit"
+            className="bouton bouton-principal connexion-admin-bouton"
+            disabled={!value.trim()}
+          >
             Accéder au dashboard
-          </Button>
+            <span className="bouton__icone" aria-hidden="true">
+              ↗
+            </span>
+          </button>
         </form>
 
-        <Text size="1" color="gray" as="p" mt="4" align="center">
-          Le token se trouve dans <Text as="span" style={{ fontFamily: "var(--font-mono)", background: "var(--gray-3)", padding: "1px 5px", borderRadius: "var(--radius-1)" }}>EVKHA_DASHBOARD_TOKEN</Text> (Coolify env vars).
-        </Text>
-      </Card>
-    </Flex>
+        <p className="connexion-admin-aide">
+          Le token se trouve dans{" "}
+          <code className="connexion-admin-code">EVKHA_DASHBOARD_TOKEN</code>{" "}
+          (Coolify env vars).
+        </p>
+      </div>
+    </main>
   );
 }
