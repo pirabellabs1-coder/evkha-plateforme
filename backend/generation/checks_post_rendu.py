@@ -1434,14 +1434,22 @@ class MontantNonArrondi:
     montant: str
     decimales: int
     contexte: str
+    #: Le même montant recopié plusieurs fois dans le chapitre est UN défaut :
+    #: le rejeu du 26/09/2026 rendait « 7 369 320,354 CHF » cinq fois au
+    #: chapitre 16 du BP `6c794b18` — onze motifs pour six montants.
+    occurrences: int = 1
 
     def __str__(self) -> str:
+        repetition = (
+            f" ({self.occurrences} occurrences dans le chapitre)"
+            if self.occurrences > 1 else ""
+        )
         return (
-            f"Montant « {self.montant} » dans le chapitre « {self.titre} » : "
-            f"{self.decimales} décimales pour une monnaie qui n'en a que deux. "
-            "C'est un calcul recopié brut, que personne n'a relu : arrondis au "
-            "centime, ou à l'unité quand le contexte le permet. Contexte : "
-            f"« …{self.contexte}… »."
+            f"Montant « {self.montant} » dans le chapitre « {self.titre} »"
+            f"{repetition} : {self.decimales} décimales pour une monnaie qui "
+            "n'en a que deux. C'est un calcul recopié brut, que personne n'a "
+            "relu : arrondis au centime, ou à l'unité quand le contexte le "
+            f"permet. Contexte : « …{self.contexte}… »."
         )
 
 
@@ -1469,18 +1477,29 @@ def detecter_montants_non_arrondis(sections: Sequence[Any]) -> list[MontantNonAr
     trouves: list[MontantNonArrondi] = []
     for section in sections:
         corps = getattr(section, "body", "") or ""
+        premiers: dict[str, tuple[int, str]] = {}
+        compte: dict[str, int] = {}
         for m in _MONTANT_CAPTURE_RE.finditer(corps):
             nombre, unite = m.group(1).strip(), m.group(2).strip()
             decimales = _DECIMALES_EXCESSIVES_RE.search(nombre)
             if not decimales or _UNITE_A_ECHELLE_RE.match(unite):
                 continue
-            debut = max(0, m.start() - 30)
+            montant = " ".join(m.group(0).split())
+            compte[montant] = compte.get(montant, 0) + 1
+            if montant not in premiers:
+                debut = max(0, m.start() - 30)
+                premiers[montant] = (
+                    len(decimales.group(1)),
+                    " ".join(corps[debut:m.end() + 30].split()),
+                )
+        for montant, (nb_decimales, contexte) in premiers.items():
             trouves.append(MontantNonArrondi(
                 chapitre=getattr(section, "number", 0),
                 titre=getattr(section, "title", ""),
-                montant=" ".join(m.group(0).split()),
-                decimales=len(decimales.group(1)),
-                contexte=" ".join(corps[debut:m.end() + 30].split()),
+                montant=montant,
+                decimales=nb_decimales,
+                contexte=contexte,
+                occurrences=compte[montant],
             ))
     return trouves
 

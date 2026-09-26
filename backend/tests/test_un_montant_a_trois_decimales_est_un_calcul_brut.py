@@ -50,6 +50,23 @@ def test_ce_qui_est_correct_n_est_pas_signale(texte: str) -> None:
     assert detecter_montants_non_arrondis([_section(3, texte)]) == [], texte
 
 
+def test_un_montant_repete_est_un_seul_defaut() -> None:
+    """Rejeu du 26/09/2026 : « 7 369 320,354 CHF » cinq fois = cinq motifs.
+
+    Un motif par défaut, avec le nombre d'occurrences ; un autre montant
+    dans le même chapitre reste un autre défaut."""
+    trouves = detecter_montants_non_arrondis([_section(
+        16,
+        "un seuil de 7 369 320,354 CHF, soit 7 369 320,354 CHF ; le seuil de "
+        "7 369 320,354 CHF est dépassé de 235 429,646 CHF.",
+    )])
+    assert [(t.montant, t.occurrences) for t in trouves] == [
+        ("7 369 320,354 CHF", 3), ("235 429,646 CHF", 1),
+    ]
+    assert "3 occurrences" in str(trouves[0])
+    assert "occurrences" not in str(trouves[1])
+
+
 def test_la_boucle_de_correction_sait_le_reparer() -> None:
     """Un motif que la boucle ne sait pas traiter part chez le client tel quel."""
     from generation.correction import _CHECK_LABELS, _is_regenerable
