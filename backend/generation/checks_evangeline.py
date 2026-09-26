@@ -170,6 +170,15 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     brute_basse = (match.group(1) or match.group(3) or "").strip()
     avant = texte[max(0, match.start() - 20) : match.start()]
 
+    # 0. Des bornes À L'ENVERS ne bornent rien : « de 45 % à 35 % » est une
+    #    BAISSE, deux états successifs. Une plage hésite entre un bas et un
+    #    haut ; elle n'a pas de sens décroissante. Stratégie `cd639627`,
+    #    rejeu du 26/09/2026, chapitre 5.
+    basse_lue = parse_number(brute_basse)
+    haute_lue = parse_number((match.group(2) or match.group(4) or "").strip())
+    if basse_lue is not None and haute_lue is not None and basse_lue > haute_lue:
+        return True
+
     # 4. Mouvement ou écart : deux valeurs, pas une hésitation.
     debut_basse = match.start(1) if match.group(1) is not None else match.start(3)
     avant_long = texte[max(0, debut_basse - 60) : debut_basse]
@@ -581,7 +590,16 @@ _MOTS_DE_RUPTURE = re.compile(
     # (mesure du 26/09/2026). « annuel » n'en fait pas partie : c'est la
     # grandeur par défaut de tous les libellés surveillés.
     r"|mensuel(?:le)?s?|hebdomadaires?|trimestriel(?:le)?s?|journalier(?:e)?s?"
-    r"|quotidien(?:ne)?s?|par\s+mois|par\s+semaine|par\s+trimestre|par\s+jour)\b",
+    r"|quotidien(?:ne)?s?|par\s+mois|par\s+semaine|par\s+trimestre|par\s+jour"
+    # Une FRACTION de la grandeur, qualifiée par son état ou son moment :
+    # « Apport personnel déjà engagé | 4 000 € » et « Apport personnel
+    # complémentaire à venir | 13 050 € » sont les deux parts d'un apport de
+    # 17 050 €, pas deux apports qui se contredisent (BP `eab58554`, rejeu du
+    # 26/09/2026). Et « seuil de rentabilité … avec marge de sécurité de
+    # 9 581 158,5 CHF » nomme la marge, pas le seuil (BP `6c794b18`).
+    r"|d[ée]j[àa]\s+(?:engag|vers|invest|d[ée]pens|r[ée]alis|re[çc]u|per[çc]u)\w*"
+    r"|compl[ée]mentaire\w*|[àa]\s+venir|restant\w*|reliquat|solde"
+    r"|marge\s+de\s+s[ée]curit[ée])\b",
     re.IGNORECASE,
 )
 

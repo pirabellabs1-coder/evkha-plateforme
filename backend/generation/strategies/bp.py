@@ -341,6 +341,18 @@ class BPStrategy:
             if job is not None
             else None
         )
+        if not devise and job is not None:
+            # Les dossiers verrouillés AVANT `devise_du_pays` n'ont aucun fait
+            # de devise quand le pays était écrit « Genève, Suisse » : au rejeu
+            # du 26/09/2026, le BP `6c794b18` restait soumis au CGI. Le brief,
+            # lui, dit toujours le pays.
+            from generation.coherence import devise_du_pays  # noqa: PLC0415
+            from intake.models import IntakeSubmission  # noqa: PLC0415
+
+            soumission = IntakeSubmission.objects.filter(order=job.order).first()
+            variables = (soumission.normalized_variables or {}) if soumission else {}
+            pays = str(variables.get("PAYS", ""))
+            devise = devise_du_pays(pays) if pays.strip() else None
         is_francais = devise in (None, "", "EUR")
 
         for detail in verifier_is_bracket(corpus_par_chapitre) if is_francais else ():

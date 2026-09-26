@@ -25,7 +25,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from core.numbers import MAGNITUDE_WORDS, MONEY, NUMBER_BODY, SPACE_CLASS
+from core.numbers import MAGNITUDE_WORDS, MONEY, MONEY_CAPTURED, NUMBER_BODY, SPACE_CLASS
 
 # ══════════════════════════════════════════════════════════════════════════
 # 1. TRONCATURE
@@ -1421,6 +1421,66 @@ def detecter_caracteres_etrangers(
                 caractere=caractere,
                 nom_unicode=nom or "inconnu",
                 contexte=" ".join(corps[debut:position + 30].split()),
+            ))
+    return trouves
+
+
+@dataclass(frozen=True)
+class MontantNonArrondi:
+    """Un montant en monnaie avec plus de deux décimales : un calcul recopié brut."""
+
+    chapitre: int
+    titre: str
+    montant: str
+    decimales: int
+    contexte: str
+
+    def __str__(self) -> str:
+        return (
+            f"Montant « {self.montant} » dans le chapitre « {self.titre} » : "
+            f"{self.decimales} décimales pour une monnaie qui n'en a que deux. "
+            "C'est un calcul recopié brut, que personne n'a relu : arrondis au "
+            "centime, ou à l'unité quand le contexte le permet. Contexte : "
+            f"« …{self.contexte}… »."
+        )
+
+
+_MONTANT_CAPTURE_RE = re.compile(MONEY_CAPTURED, re.IGNORECASE)
+#: La VIRGULE décimale française, suivie de trois chiffres ou plus. Le point
+#: n'est pas jugé ici : « 250.000 € » est un point de MILLIERS mal formé, un
+#: autre défaut, et le motif doit décrire le vrai (règle 2).
+_DECIMALES_EXCESSIVES_RE = re.compile(r",(\d{3,})$")
+#: Une unité à ÉCHELLE tolère la précision : « 1,234 M€ » vaut 1 234 000 €.
+_UNITE_A_ECHELLE_RE = re.compile(
+    rf"^(?:k€|kEUR|M€|Md€|Mds€|{MAGNITUDE_WORDS})$", re.IGNORECASE,
+)
+
+
+def detecter_montants_non_arrondis(sections: Sequence[Any]) -> list[MontantNonArrondi]:
+    """Les montants en monnaie de base écrits avec trois décimales ou plus.
+
+    Business plan `6c794b18`, rejeu du gate du 26/09/2026, chapitre 16 : « un
+    seuil de rentabilité de 7 369 320,354 CHF dépassé de 235 429,65 CHF ». Un
+    banquier y lit un chiffre que personne n'a arrondi — donc que personne n'a
+    relu. Le prompt impose depuis le lot 88 le format français des nombres ;
+    ce contrôle est ce qui le vérifie sur le document livré (règle 3 : ce qui
+    arrive au lecteur se contrôle, pas ce qu'on a demandé).
+    """
+    trouves: list[MontantNonArrondi] = []
+    for section in sections:
+        corps = getattr(section, "body", "") or ""
+        for m in _MONTANT_CAPTURE_RE.finditer(corps):
+            nombre, unite = m.group(1).strip(), m.group(2).strip()
+            decimales = _DECIMALES_EXCESSIVES_RE.search(nombre)
+            if not decimales or _UNITE_A_ECHELLE_RE.match(unite):
+                continue
+            debut = max(0, m.start() - 30)
+            trouves.append(MontantNonArrondi(
+                chapitre=getattr(section, "number", 0),
+                titre=getattr(section, "title", ""),
+                montant=" ".join(m.group(0).split()),
+                decimales=len(decimales.group(1)),
+                contexte=" ".join(corps[debut:m.end() + 30].split()),
             ))
     return trouves
 

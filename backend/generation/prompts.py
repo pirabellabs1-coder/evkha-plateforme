@@ -409,6 +409,15 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             "Une plage sans valeur retenue juste après est refusee. Un CA PUBLIE "
             "reste un chiffre unique avec son année et sa source. Taux de "
             "croissance et TCAC restent des valeurs uniques.\n"
+            # Même admission qu'en BP (décision du 15/09/2026), étendue à l'EC le
+            # 26/09/2026 : l'EC `e71fa43a` citait cinq tarifs de concurrents en
+            # plage sans source, tous refusés — la source dans la case les
+            # aurait rendus recevables (`checks_evangeline._prix_de_marche_source`).
+            "Un TARIF PUBLIÉ par un concurrent qui est lui-même une plage (« de "
+            "300 à 400 € selon la formule ») se cite avec sa source dans la MÊME "
+            "case ou la MÊME phrase — « (Organisme ou site, année) » — et garde "
+            "alors la plage que la source publie. Sans source à côté, tranche : "
+            "un chiffre.\n"
         )
         return (
             consigne_fourchettes_stricte +

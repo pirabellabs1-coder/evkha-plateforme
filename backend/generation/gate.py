@@ -1852,6 +1852,27 @@ def _check_arithmetique_marche(job: GenerationJob) -> list[GateFailure]:
     ]
 
 
+def _check_montants_non_arrondis(
+    sections: tuple[RenderedSection, ...]
+) -> list[GateFailure]:
+    """Aucun montant en monnaie n'a plus de deux décimales dans le document livré.
+
+    « 7 369 320,354 CHF » (BP `6c794b18`, ch. 16, rejeu du 26/09/2026) : le
+    format français des nombres est imposé au modèle depuis le lot 88, et rien
+    ne le vérifiait sur ce que le lecteur reçoit (règle 3).
+    """
+    from .checks_post_rendu import detecter_montants_non_arrondis  # noqa: PLC0415
+
+    return [
+        GateFailure(
+            check="montant_non_arrondi",
+            chapter_number=trouve.chapitre,
+            detail=str(trouve),
+        )
+        for trouve in detecter_montants_non_arrondis(sections)
+    ]
+
+
 def _check_texte_francais(
     sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1964,6 +1985,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_strategie_livrable(job, livrees))
     failures.extend(_check_post_rendu(livrees, deliverable_type=str(job.deliverable_type)))
     failures.extend(_check_texte_francais(livrees))
+    failures.extend(_check_montants_non_arrondis(livrees))
     # Manuel EVKHA p.17 : livraison possible UNIQUEMENT si tous les controles
     # sont valides. Un CHECK de bloc encore en echec bloque l'envoi.
     failures.extend(_check_blocs_evangeline(job))

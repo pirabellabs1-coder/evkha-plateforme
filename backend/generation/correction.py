@@ -106,6 +106,10 @@ _CHAPTER_LEVEL_CHECKS = frozenset(
         "chapitre_desaccentue",
         "lettre_doublee",
         "trajectoire_divergente",
+        # Un montant a trois decimales (« 7 369 320,354 CHF », BP 6c794b18,
+        # 26/09/2026) se repare en REECRIVANT le chapitre : le motif nomme le
+        # montant et demande l'arrondi.
+        "montant_non_arrondi",
         # Nouveaux checks par livrable via _check_strategie_livrable.
         # Ils portent tous le prefixe `strategy_<deliverable>_<categorie>`.
         # On les ajoute dynamiquement au frozenset au chargement.
@@ -132,6 +136,7 @@ _CHECK_PRIORITY = (
     "prudence_juridique_",    # tout defaut juridique
     "sources_non_tracables_",
     "fourchette_interdite",
+    "montant_non_arrondi",
     "doublon_titre",
     "troncature_rendu",
     "desaccord_numerique",
@@ -169,6 +174,10 @@ _CHECK_LABELS = {
     "lettre_doublee": "Coquille : lettre doublée en début de mot",
     "trajectoire_divergente": (
         "Trajectoire chiffrée contredite ailleurs dans le document"
+    ),
+    "montant_non_arrondi": (
+        "Montant écrit avec trois décimales ou plus — arrondir au centime, ou "
+        "à l'unité quand le contexte le permet"
     ),
     "chapitre_desaccentue": (
         "Chapitre écrit sans accents — le rédiger en français accentué"
