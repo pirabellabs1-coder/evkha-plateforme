@@ -137,6 +137,47 @@
   --ombre-lg: 0 8px 28px rgba(11, 11, 11, 0.08), 0 2px 6px rgba(11, 11, 11, 0.04);
   --ombre-or: 0 6px 20px rgba(248, 197, 28, 0.28);
 
+  /* ── Verre ────────────────────────────────────────────────────────────
+   * Verre DÉPOLI CLAIR, pas verre sombre : la charte est claire (coquille
+   * `#F8F4F4`, cartes blanches) et le rester est une demande de la cliente
+   * — « qui respecte le style et les couleurs du site ».
+   *
+   * Un panneau = un blanc translucide + un liseré fin + un reflet interne en
+   * haut + une ombre AMBIANTE (large, très diffuse, teintée du noir chaud de
+   * la charte). Jamais une ombre portée franche : sur un fond crème elle
+   * paraît sale, et c'est ce qui distingue un verre d'un rectangle gris.
+   *
+   * Contraste, mesuré et non estimé : `--texte-tenu` (#6E6E6E) sur le fond
+   * fort posé sur le halo or le plus dense (10 % de #F8C51C sur la coquille)
+   * donne #FDFCF9 sous le texte, soit 5,0:1 — au-dessus des 4,5:1 WCAG AA.
+   * En dessous de 0,62 de blanc, ce ratio tombe sous le seuil : si une
+   * surface doit s'éclaircir, ÉPAISSIR le blanc, jamais foncer le texte.
+   */
+  --verre-fond: rgba(255, 255, 255, 0.64);
+  --verre-fond-fort: rgba(255, 255, 255, 0.78);
+  --verre-bordure: rgba(11, 11, 11, 0.06);
+  --verre-reflet: rgba(255, 255, 255, 0.6);
+  /* Autorisé UNIQUEMENT sur ce qui est fixe ou collant (en-tête, calque de
+   * fond, modales). Un flou d'arrière-plan sur un conteneur qui défile se
+   * recalcule à chaque image et fait tomber le mobile sous 60 i/s. */
+  --verre-flou: 16px;
+  --verre-marge: 6px;
+  /* Teintes de verre : l'or et le rouge de la charte, très dilués. */
+  --verre-or: rgba(248, 197, 28, 0.12);
+  --verre-echec: rgba(179, 38, 30, 0.07);
+  --halo-or: rgba(248, 197, 28, 0.1);
+  --halo-or-fort: rgba(248, 197, 28, 0.32);
+  --halo-creme: rgba(253, 244, 214, 0.55);
+  --ombre-ambiante: 0 12px 32px -14px rgba(11, 11, 11, 0.12),
+    0 2px 8px -2px rgba(11, 11, 11, 0.04);
+  --ombre-ambiante-lg: 0 32px 72px -32px rgba(11, 11, 11, 0.18),
+    0 10px 28px -14px rgba(11, 11, 11, 0.07);
+  /* Rayon extérieur d'une coque de verre, et rayon intérieur de son cœur :
+   * concentriques, donc le second vaut le premier moins la marge. Deux rayons
+   * égaux sur deux boîtes emboîtées donnent des angles qui ne suivent pas. */
+  --rayon-verre: 28px;
+  --rayon-verre-interne: calc(var(--rayon-verre) - var(--verre-marge));
+
   /* ── Anneau de focus ──────────────────────────────────────────────────
    * L'or seul ne suffit pas à signaler le focus sur un bouton or : on ajoute
    * un liseré sombre, visible sur toutes les surfaces.
@@ -145,6 +186,17 @@
 
   /* ── Mouvement ────────────────────────────────────────────────────────── */
   --transition: 140ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Deux courbes, et pas une de plus. `--ease-sortie` pour ce qui ARRIVE
+   * (départ vif, longue pose), `--ease-doux` pour ce qui se DÉPLACE ou
+   * réagit sous la main. Ni `ease` ni `linear` : la première est molle, la
+   * seconde mécanique — et ce sont elles qui font « gabarit ». */
+  --ease-sortie: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-doux: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Micro-interaction (survol, appui) ; révélation à l'arrivée ; et le pas
+   * entre deux voisins révélés l'un après l'autre. */
+  --duree-micro: 180ms;
+  --duree-reveal: 640ms;
+  --decalage-reveal: 55ms;
 
   /* ── Gabarit ──────────────────────────────────────────────────────────── */
   --largeur-barre: 264px;
@@ -152,9 +204,14 @@
 }
 
 /* Respecter le réglage système : une animation imposée est un défaut
- * d'accessibilité, pas un raffinement. */
+ * d'accessibilité, pas un raffinement. Le décalage aussi passe à zéro : une
+ * révélation de 0 ms retardée de 400 ms laisserait la carte invisible
+ * pendant 400 ms, ce qui est pire qu'une animation. */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --transition: 0ms;
+    --duree-micro: 0ms;
+    --duree-reveal: 0ms;
+    --decalage-reveal: 0ms;
   }
 }
