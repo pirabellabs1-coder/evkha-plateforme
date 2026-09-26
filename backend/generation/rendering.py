@@ -6,6 +6,8 @@ from datetime import datetime
 
 from django.utils import timezone
 
+from core.dates import MOIS_FR
+
 from .blueprints import SectionKind, chapters_for_deliverable
 from .chapitres.typographie import purger_les_invisibles
 from .charts import replace_chart_fences
@@ -322,11 +324,9 @@ _EVKHA_GRAY           = "#5A5A5A"   # Gris (legendes, italiques)
 _EVKHA_CREAM          = "#FBF8EF"   # Creme (fonds encadres + lignes alternees)
 _EVKHA_CREAM_DARK     = "#EFEAD8"   # Creme foncee (lignes tableau)
 
-_MOIS_FR: dict[int, str] = {
-    1: "janvier", 2: "février", 3: "mars", 4: "avril",
-    5: "mai", 6: "juin", 7: "juillet", 8: "août",
-    9: "septembre", 10: "octobre", 11: "novembre", 12: "décembre",
-}
+# Une seule liste de mois dans le dépôt (`core/dates.py`) : celle-ci et celle
+# de la couverture Word divergeaient — la seconde sans accents (26/09/2026).
+_MOIS_FR: dict[int, str] = MOIS_FR
 
 
 #: Noms des variables de charte, dans l'intake. UNE seule liste.

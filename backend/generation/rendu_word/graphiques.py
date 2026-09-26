@@ -32,6 +32,7 @@ import numpy as np  # noqa: E402
 from matplotlib.axes import Axes  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
+from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 from .palette import Palette, texte_lisible_sur  # noqa: E402
 
@@ -110,6 +111,14 @@ def _figure(palette: Palette, hauteur_ratio: float = 0.42) -> tuple[Figure, Axes
     for cote in ("top", "right", "left", "bottom"):
         axes.spines[cote].set_visible(False)
     axes.tick_params(length=0, labelsize=9, colors=palette.texte_corps)
+    # Graduations à la française sur les axes NUMÉRIQUES : virgule décimale,
+    # espace insécable, jamais le décalage « 1e6 » ni les « 0.5 » du formateur
+    # par défaut de matplotlib — les seuls endroits du document où un nombre
+    # pouvait encore s'écrire à l'anglaise (26/09/2026). Un axe catégoriel
+    # (`set_xticklabels`) remplace ce formateur par le sien.
+    formateur = FuncFormatter(lambda valeur, _position: _fmt(valeur))
+    axes.xaxis.set_major_formatter(formateur)
+    axes.yaxis.set_major_formatter(formateur)
     plt.rcParams["font.family"] = POLICE
     return figure, axes
 

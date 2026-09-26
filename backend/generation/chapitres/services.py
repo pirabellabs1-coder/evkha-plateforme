@@ -244,8 +244,17 @@ def regenerer_chapitre(
         error_message=formater_motifs([note_corrective]) if note_corrective else "",
     )
     chapter.refresh_from_db()
+    # Les mêmes arrêts sans reprise qu'à la première rédaction (`runner.py`) :
+    # sans eux, un plafond franchi pendant une correction était retenté, le
+    # chapitre déjà sauvé revenait « terminé », l'exception n'atteignait
+    # jamais la boucle — qui passait au chapitre suivant, payé lui aussi
+    # (relecture du 26/09/2026).
+    from ..runner import ERREURS_SANS_REPRISE  # noqa: PLC0415 — évite un cycle
+
     try:
-        return produire_avec_reprises(job, numero, client=client)
+        return produire_avec_reprises(
+            job, numero, client=client, sans_reprise=ERREURS_SANS_REPRISE,
+        )
     except Exception:
         # La réparation a échoué. Le chapitre garde sa version précédente —
         # `payload` et `content` n'ont pas été effacés — mais son STATUT, lui,

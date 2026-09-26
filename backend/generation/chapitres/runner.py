@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from core.dates import date_francaise
 from integrations.claude import SYSTEM_CACHE_BREAK, motif_de_troncature
 
 from ..coherence import registre_json_as_context
@@ -638,7 +639,9 @@ def _bloc_socle(socle: Socle) -> str:
         f"DONNÉES DE RÉFÉRENCE — {socle.secteur}, {socle.zone.pays}"
         + (f" / {socle.zone.region}" if socle.zone.region else "")
         + (f" / {socle.zone.ville}" if socle.zone.ville else "")
-        + f" (arrêté au {socle.date_socle.isoformat()})"
+        # En français, pas en ISO : le modèle recopie la forme qu'on lui donne,
+        # et « 2026-08-08 » n'a rien à faire dans un document livré.
+        + f" (arrêté au {date_francaise(socle.date_socle)})"
         + _CE_QUI_NE_SE_RECOPIE_PAS
     )
     return (

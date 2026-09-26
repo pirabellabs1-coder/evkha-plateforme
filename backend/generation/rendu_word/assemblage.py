@@ -698,12 +698,11 @@ def assembler_etude(
 
     from datetime import date as _date  # noqa: PLC0415
 
-    _MOIS_FR = [
-        "", "janvier", "fevrier", "mars", "avril", "mai", "juin",
-        "juillet", "aout", "septembre", "octobre", "novembre", "decembre",
-    ]
-    aujourdhui = _date.today()
-    date_fr = f"{aujourdhui.day} {_MOIS_FR[aujourdhui.month]} {aujourdhui.year}"
+    from core.dates import date_francaise  # noqa: PLC0415
+
+    # La liste de mois qui vivait ici n'avait PAS d'accents : « 26 aout 2026 »
+    # en page de couverture de chaque document (relecture du 26/09/2026).
+    date_fr = date_francaise(_date.today())
 
     etude = {
         "titre": titre,
