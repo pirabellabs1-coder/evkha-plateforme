@@ -76,7 +76,7 @@ export function RetourBoutique() {
               <h1>Un instant</h1>
               <p role="alert">{erreur}</p>
               <div className="bq-liens">
-                <Link className="bq-bouton" to="/boutique">
+                <Link className="bouton bouton-noir bq-bouton" to="/boutique">
                   Revenir à la boutique
                 </Link>
               </div>
@@ -98,12 +98,12 @@ export function RetourBoutique() {
               </p>
               <div className="bq-liens">
                 {achat.telechargement && (
-                  <a className="bq-bouton" href={achat.telechargement}>
+                  <a className="bouton bouton-noir bq-bouton" href={achat.telechargement}>
                     Télécharger le PDF
                   </a>
                 )}
                 {achat.editable && (
-                  <a className="bq-bouton" href={achat.editable}>
+                  <a className="bouton bouton-noir bq-bouton" href={achat.editable}>
                     Télécharger la version Word
                   </a>
                 )}

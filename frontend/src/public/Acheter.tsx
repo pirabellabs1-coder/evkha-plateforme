@@ -143,15 +143,19 @@ export function Acheter() {
               Votre adresse e-mail
               <span className="ach-facultatif">facultatif</span>
             </label>
+            {/* `.champ-saisie` (espace.css) : verre en creux, anneau or au
+                focus autour d'un bord noir. */}
             <input
               id="ach-email"
+              className="champ-saisie"
               type="email"
               autoComplete="email"
               placeholder="vous@exemple.fr"
               value={email}
               onChange={(evenement) => setEmail(evenement.target.value)}
+              aria-describedby="ach-aide"
             />
-            <p className="ach-aide">
+            <p className="ach-aide" id="ach-aide">
               Pour pré-remplir la page de paiement. Vous pourrez la corriger.
             </p>
 
@@ -161,9 +165,16 @@ export function Acheter() {
               </p>
             )}
 
+            {/* Pendant l'ouverture du paiement, une lame de lumière traverse le
+                bouton (`.bouton-chargement`) : le texte dit « Ouverture… »,
+                le balayage dit seulement que ça travaille. */}
             <button
               type="button"
-              className="ach-bouton"
+              className={
+                envoi
+                  ? "bouton bouton-principal bouton-chargement ach-bouton"
+                  : "bouton bouton-principal ach-bouton"
+              }
               onClick={payer}
               disabled={envoi}
             >

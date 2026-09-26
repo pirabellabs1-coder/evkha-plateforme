@@ -1,8 +1,10 @@
 /* Page d'achat d'une étude à l'unité.
  *
- * Les couleurs viennent de `.pp` (`Partenaires.css`) : or, vert, noir, crème.
- * Aucune n'est redéclarée ici — la charte du site vitrine vit à un seul
- * endroit, et une seconde palette finirait par diverger de la première.
+ * Les couleurs viennent de `theme/tokens.css`, par les alias de `.pp`
+ * (`Partenaires.css`) : or, noir, gris. Aucune n'est redéclarée ici — la
+ * charte vit à un seul endroit, et une seconde palette finirait par diverger
+ * de la première. Le bouton est un `.bouton` (espace.css), le champ un
+ * `.champ-saisie` : le même langage que l'espace où la personne va entrer.
  *
  * La feuille est volontairement courte. Cette page n'a qu'un travail : dire ce
  * qu'on achète, à quel prix, et mener au paiement. Tout ce qui s'y ajoute
@@ -12,19 +14,39 @@
 .ach-corps {
   width: min(560px, 92vw);
   margin-inline: auto;
-  padding: 3rem 0 5rem;
+  padding: clamp(2.5rem, 6vw, 4rem) 0 5rem;
 }
 
 .ach-attente {
   text-align: center;
-  color: var(--gris);
+  color: var(--texte-doux);
 }
 
+/* La carte de verre, centrée sur le maillage : coque translucide, cœur blanc
+   en retrait, rayons concentriques — celle de la connexion (`Portail.css`).
+   Elle arrive au montage ; ce qu'elle contient est déjà là. */
 .ach-carte {
-  border: 1px solid #e4e0d6;
-  border-radius: 4px;
-  background: #ffffff;
-  padding: 2.25rem 2rem 2rem;
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--verre-fond);
+  box-shadow: var(--ombre-ambiante-lg);
+  padding: calc(2.25rem + var(--verre-marge)) calc(2rem + var(--verre-marge))
+    calc(2rem + var(--verre-marge));
+  animation: pp-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
+}
+
+.ach-carte::before {
+  content: "";
+  position: absolute;
+  inset: var(--verre-marge);
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--verre-reflet);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
 }
 
 .ach-retour {
@@ -33,7 +55,7 @@
 
 .ach-surtitre {
   font-family: var(--serif);
-  font-size: 0.78rem;
+  font-size: var(--t-sm);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--or-fonce);
@@ -44,30 +66,35 @@
   font-family: var(--serif);
   font-size: 1.7rem;
   line-height: 1.2;
+  color: var(--texte-fort);
   margin: 0 0 0.75rem;
   text-wrap: balance;
 }
 
 .ach-accroche {
-  color: var(--gris);
+  color: var(--texte-doux);
   margin: 0 0 1.5rem;
 }
 
+/* Chiffres à largeur fixe : un tarif qui change ne déplace pas le filet. */
 .ach-prix {
-  font-family: var(--serif);
-  font-size: 2rem;
-  font-weight: 700;
+  font-family: var(--police-chiffre);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-2xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.03em;
+  color: var(--texte-fort);
   margin: 0 0 1.75rem;
   padding-bottom: 1.5rem;
-  border-bottom: 2px solid var(--or);
+  border-bottom: 2px solid var(--evkha-or);
 }
 
 .ach-prix span {
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 400;
-  color: var(--gris);
+  font-family: var(--police-corps);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-normale);
   letter-spacing: 0.01em;
+  color: var(--texte-doux);
 }
 
 /* Les étapes sont numérotées parce que c'en est vraiment une séquence : payer,
@@ -78,94 +105,66 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  color: var(--gris);
-  font-size: 0.94rem;
+  color: var(--texte-doux);
+  font-size: var(--t-base);
 }
 
 .ach-champ {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
   margin-bottom: 0.4rem;
 }
 
 .ach-facultatif {
-  font-weight: 400;
-  font-size: 0.75rem;
+  font-weight: var(--graisse-normale);
+  font-size: var(--t-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--gris);
-}
-
-.ach-corps input {
-  width: 100%;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid #d5d0c4;
-  border-radius: 3px;
-  font: inherit;
-  background: #ffffff;
-}
-
-.ach-corps input:focus-visible {
-  outline: 2px solid var(--or-fonce);
-  outline-offset: 1px;
+  color: var(--texte-tenu);
 }
 
 .ach-aide {
-  font-size: 0.82rem;
-  color: var(--gris);
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
   margin: 0.4rem 0 1.5rem;
 }
 
-.ach-bouton {
+/* `.bouton .bouton-principal` (espace.css) ; ici, la pleine largeur. */
+.ach .ach-bouton {
   width: 100%;
-  padding: 0.95rem 1rem;
-  border: none;
-  border-radius: 3px;
-  background: var(--noir);
-  color: #ffffff;
-  font: inherit;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-
-.ach-bouton:hover:not(:disabled) {
-  background: var(--vert);
-}
-
-.ach-bouton:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.ach-bouton:focus-visible {
-  outline: 2px solid var(--or-fonce);
-  outline-offset: 2px;
+  padding: var(--e-4) var(--e-5);
+  font-size: var(--t-md);
 }
 
 .ach-rassurance {
-  font-size: 0.8rem;
-  color: var(--gris);
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
   text-align: center;
   margin: 0.9rem 0 0;
 }
 
+/* Un bandeau est une carte teintée, pas une bande de couleur : filet à
+   gauche, voile de sa couleur, reflet. Le rouge de l'erreur est celui de la
+   charte, mesuré à 4,5:1 sur son voile. */
 .ach-avis,
 .ach-erreur {
-  border-left: 3px solid var(--or);
-  background: var(--creme-clair);
-  padding: 0.7rem 0.9rem;
+  border-left: 3px solid var(--evkha-or);
+  border-radius: 0 var(--rayon-sm) var(--rayon-sm) 0;
+  background: var(--evkha-or-brume);
+  padding: 0.75rem 1rem;
   margin: 0 0 1.25rem;
-  font-size: 0.9rem;
+  font-size: var(--t-sm);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
 }
 
 .ach-erreur {
-  border-left-color: #a4342a;
-  background: #fdf1ef;
-  color: #7d2820;
+  border-left-color: var(--evkha-echec);
+  background: var(--evkha-echec-voile);
+  color: var(--evkha-echec);
 }
 
 @media (max-width: 600px) {
@@ -174,10 +173,17 @@
   }
 
   .ach-carte {
-    padding: 1.5rem 1.25rem;
+    padding: calc(1.5rem + var(--verre-marge)) calc(1.25rem + var(--verre-marge));
   }
 
   .ach-prix {
-    font-size: 1.7rem;
+    font-size: var(--t-xl);
+  }
+}
+
+/* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet. */
+@media (prefers-reduced-motion: reduce) {
+  .ach-carte {
+    animation: none;
   }
 }

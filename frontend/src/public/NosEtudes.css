@@ -1,10 +1,55 @@
 /* Page des études à l'unité, reprise de `evkha.fr/etudedemarche`.
  *
- * Les couleurs, les polices, `.pp-coche`, `.pp-faq` et `.pp-large` viennent de
- * `Partenaires.css` : les deux pages publiques partagent une charte, et une
- * seconde palette finirait par diverger de la première. Ce fichier ne pose que
- * ce qui est propre à cette page.
+ * Les couleurs, les polices, `.pp-coche`, `.pp-faq`, `.pp-large`, le maillage
+ * de fond et la révélation `data-reveal` viennent de `Partenaires.css` : les
+ * deux pages publiques partagent une charte, et une seconde palette finirait
+ * par diverger de la première. Ce fichier ne pose que ce qui est propre à
+ * cette page, et n'écrit aucune couleur : tout vient de `theme/tokens.css`.
  */
+
+/* ── La coque de verre ───────────────────────────────────────────────────────
+ *
+ * Même recette que `.carte` (espace.css) : coque translucide et cernée, cœur
+ * blanc en retrait de `--verre-marge`, rayons concentriques. */
+.ne-etapes li,
+.ne-carte,
+.ne-interrogations {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--verre-fond);
+  box-shadow: var(--ombre-ambiante);
+}
+
+.ne-etapes li::before,
+.ne-carte::before,
+.ne-interrogations::before {
+  content: "";
+  position: absolute;
+  inset: var(--verre-marge);
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--verre-reflet);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
+}
+
+/* Les voisins d'une grille se suivent de `--decalage-reveal`. */
+.ne-etapes > :nth-child(2),
+.ne-grille > :nth-child(2),
+.ne-colonnes > :nth-child(2) {
+  --i: 1;
+}
+.ne-etapes > :nth-child(3),
+.ne-grille > :nth-child(3) {
+  --i: 2;
+}
+.ne-etapes > :nth-child(4),
+.ne-grille > :nth-child(4) {
+  --i: 3;
+}
 
 /* ── Ouverture ───────────────────────────────────────────────────────────── */
 
@@ -13,27 +58,31 @@
   grid-template-columns: 1.1fr 1fr;
   gap: 2.5rem;
   align-items: center;
-  padding: 3rem 0 2rem;
+  padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(2rem, 5vw, 3.5rem);
+  animation: pp-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
 }
 
 .ne-hero h1 {
+  font-family: var(--police-titre);
   font-size: clamp(1.8rem, 3.6vw, 2.6rem);
-  font-weight: 800;
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.02em;
   line-height: 1.15;
+  color: var(--texte-fort);
   margin: 0 0 1.5rem;
   text-wrap: balance;
 }
 
 .ne-hero-accroche {
   color: var(--or-fonce);
-  font-weight: 600;
-  font-size: 0.92rem;
+  font-weight: var(--graisse-forte);
+  font-size: var(--t-base);
   margin: 0 0 0.7rem;
 }
 
 .ne-hero-corps {
-  color: var(--bleu-texte);
-  font-size: 0.94rem;
+  color: var(--texte-doux);
+  font-size: var(--t-base);
   margin: 0 0 1rem;
   max-width: 52ch;
 }
@@ -46,33 +95,41 @@
   flex-wrap: wrap;
   gap: 0.5rem 1.2rem;
   font-style: italic;
-  color: var(--bleu-texte);
-  font-size: 0.92rem;
+  color: var(--texte-doux);
+  font-size: var(--t-base);
 }
 
+/* La photo est une plaque de verre : liseré, rayon de coque, ombre ambiante
+   large. */
 .ne-hero-image {
   width: 100%;
   height: auto;
-  border-radius: 4px;
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  box-shadow: var(--ombre-ambiante-lg);
   object-fit: cover;
 }
 
 /* ── Bandeau noir de preuves ─────────────────────────────────────────────── */
 
+/* Le noir de la charte, en aplat : un verre clair posé sur du noir devient
+   du verre sombre, ce que la charte refuse. Le bandeau reste plein. */
 .ne-preuves {
-  background: var(--noir);
+  background: var(--evkha-noir);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
-  padding: 1.6rem 1.5rem;
+  padding: 1.8rem 1.5rem;
   text-align: center;
-  border-radius: 3px;
+  border-radius: var(--rayon-verre-interne);
+  box-shadow: var(--ombre-ambiante-lg);
 }
 
 .ne-preuve-valeur {
-  color: var(--or);
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-family: var(--police-chiffre);
+  color: var(--evkha-or);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-titre);
   line-height: 1.3;
   /* Les trois chiffres s'alignent même quand la fourchette arrive après
      coup : sans hauteur minimale, le bandeau sautait au chargement. */
@@ -82,21 +139,22 @@
 
 .ne-preuve-libelle {
   font-family: var(--serif);
-  color: #ffffff;
+  color: var(--texte-sur-noir);
   font-size: 1rem;
 }
 
 /* ── Sections ────────────────────────────────────────────────────────────── */
 
 .ne-section {
-  padding: 3.25rem 0;
+  padding: var(--pp-section) 0;
 }
 
 .ne-eyebrow {
   text-align: center;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
   letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--or-fonce);
   margin: 0 0 0.5rem;
 }
@@ -104,34 +162,37 @@
 .ne-eyebrow span {
   font-family: var(--serif);
   letter-spacing: 0;
+  text-transform: none;
   font-size: 1.35rem;
-  color: var(--noir);
+  color: var(--texte-fort);
 }
 
 .ne-eyebrow-clair {
-  color: var(--or);
+  color: var(--evkha-or);
 }
 
 .ne-sous {
   text-align: center;
   color: var(--or-fonce);
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
   letter-spacing: 0.12em;
+  text-transform: uppercase;
   margin: 0 0 1.5rem;
 }
 
 .ne-centre {
   text-align: center;
-  color: var(--gris);
+  color: var(--texte-doux);
   max-width: 74ch;
   margin: 0 auto 0.9rem;
-  font-size: 0.94rem;
+  font-size: var(--t-base);
 }
 
 .ne-titre-cartes {
   font-family: var(--serif);
   font-size: 1.5rem;
+  color: var(--texte-fort);
   text-align: center;
   margin: 0 0 2rem;
   text-wrap: balance;
@@ -140,12 +201,17 @@
 .ne-attente,
 .ne-erreur {
   text-align: center;
-  color: var(--gris);
+  color: var(--texte-doux);
   padding: 2rem 0;
 }
 
 .ne-erreur {
-  color: #7d2820;
+  color: var(--evkha-echec);
+}
+
+.ne-erreur a {
+  color: inherit;
+  font-weight: var(--graisse-titre);
 }
 
 /* ── Les quatre étapes ───────────────────────────────────────────────────── */
@@ -157,49 +223,62 @@
   margin: 2.5rem 0 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .ne-etapes li {
-  background: #ffffff;
-  border: 1px solid #e4e0d6;
-  border-top: 3px solid var(--or);
-  border-radius: 3px;
-  padding: 1.3rem 1.1rem;
+  padding: calc(1.4rem + var(--verre-marge)) calc(1.2rem + var(--verre-marge));
 }
 
+/* Le numéro coiffe un filet d'or : le filet qui bordait la carte romprait la
+   double bordure de la coque. */
 .ne-etape-numero {
   display: block;
   font-family: var(--serif);
   font-size: 1.6rem;
-  font-weight: 700;
+  font-weight: var(--graisse-titre);
   color: var(--or-fonce);
   line-height: 1;
   margin-bottom: 0.8rem;
 }
 
+.ne-etape-numero::after {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 3px;
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+  margin-top: 0.7rem;
+}
+
 .ne-etapes h3 {
-  font-size: 0.95rem;
+  font-family: var(--police-titre);
+  font-size: var(--t-base);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
   margin: 0 0 0.5rem;
 }
 
 .ne-etapes p {
-  font-size: 0.85rem;
-  color: var(--gris);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
   margin: 0;
 }
 
 /* ── Quatre études au choix ──────────────────────────────────────────────── */
 
+/* Un voile crème translucide, et non un aplat : le maillage passe dessous. */
 .ne-choix {
-  background: var(--creme);
-  padding: 2.75rem 0;
+  background: var(--halo-creme);
+  padding: clamp(2.75rem, 6vw, 4.5rem) 0;
   text-align: center;
 }
 
 .ne-choix h2 {
   font-family: var(--serif);
   font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+  color: var(--texte-fort);
   margin: 0 auto 1rem;
   max-width: 24ch;
   text-wrap: balance;
@@ -220,41 +299,49 @@
 .ne-carte {
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border: 1px solid #e4e0d6;
-  border-radius: 3px;
-  padding: 1.5rem 1.4rem 1.4rem;
+  padding: calc(1.6rem + var(--verre-marge)) calc(1.5rem + var(--verre-marge))
+    calc(1.5rem + var(--verre-marge));
 }
 
 .ne-surtitre {
-  font-size: 0.66rem;
-  font-weight: 700;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
   letter-spacing: 0.09em;
+  text-transform: uppercase;
   color: var(--or-fonce);
   margin-bottom: 0.7rem;
 }
 
 .ne-carte h3 {
   font-family: var(--serif);
-  font-size: 1.25rem;
+  font-size: 1.3rem;
+  color: var(--texte-fort);
   margin: 0 0 0.15rem;
 }
 
+/* Chiffres à largeur fixe : quatre prix se comparent d'un seul regard. */
 .ne-prix {
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-family: var(--police-chiffre);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--graisse-affiche);
+  font-size: var(--t-lg);
+  letter-spacing: -0.02em;
+  color: var(--texte-fort);
   margin: 0 0 1.3rem;
 }
 
 .ne-prix span {
-  font-size: 0.78rem;
-  font-weight: 400;
-  color: var(--gris);
+  font-family: var(--police-corps);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-normale);
+  letter-spacing: 0;
+  color: var(--texte-doux);
 }
 
 .ne-quoi {
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
   margin-bottom: 0.8rem;
 }
 
@@ -265,7 +352,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  font-size: 0.87rem;
+  font-size: var(--t-sm);
 }
 
 .ne-points li {
@@ -278,50 +365,38 @@
    sont pas au même niveau que lui. La hiérarchie se voit sans être écrite. */
 .ne-detail {
   padding-left: 1rem;
-  color: var(--gris);
+  color: var(--texte-doux);
 }
 
 .ne-pied {
-  font-size: 0.87rem;
-  color: var(--gris);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
   margin: 0 0 1.3rem;
 }
 
-.ne-bouton {
+/* `.bouton .bouton-noir` (espace.css). Poussé en bas de carte par
+   `margin-top: auto` : quatre cartes de hauteurs différentes alignent quand
+   même leurs boutons. Le libellé peut prendre deux lignes. */
+.ne .ne-bouton {
   margin-top: auto;
-  display: block;
-  text-align: center;
-  padding: 0.8rem 1rem;
-  background: var(--noir);
-  color: #ffffff;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.9rem;
-  border-radius: 3px;
-}
-
-.ne-bouton:hover {
-  background: var(--vert);
-}
-
-.ne-bouton:focus-visible {
-  outline: 2px solid var(--or-fonce);
-  outline-offset: 2px;
+  width: 100%;
+  justify-content: space-between;
+  white-space: normal;
+  text-align: left;
+  font-size: var(--t-sm);
+  line-height: 1.35;
 }
 
 /* ── Les questions du porteur ────────────────────────────────────────────── */
 
 .ne-interrogations {
   list-style: none;
-  padding: 1.8rem;
+  padding: calc(1.8rem + var(--verre-marge));
   margin: 0;
-  background: var(--creme-clair);
-  border: 1px solid #ece5d6;
-  border-radius: 3px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0.9rem 1.8rem;
-  font-size: 0.9rem;
+  font-size: var(--t-base);
 }
 
 .ne-interrogations li {
@@ -332,36 +407,38 @@
 
 .ne-interrogations-pied {
   margin-top: 1.5rem;
-  font-weight: 600;
-  color: var(--noir);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
 }
 
 .ne-liseret {
   text-align: center;
-  font-size: 0.88rem;
-  color: var(--gris);
-  border-top: 1px solid #e4e0d6;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  border-top: 1px solid var(--evkha-bordure);
   margin: 2.5rem 0 0;
   padding-top: 1.5rem;
 }
 
 .ne-liseret a {
   color: var(--or-fonce);
-  font-weight: 600;
+  font-weight: var(--graisse-forte);
 }
 
 /* ── Ce n'est pas une étude générique ────────────────────────────────────── */
 
 .ne-comparatif {
-  background: var(--noir);
-  color: #ffffff;
-  padding: 3.5rem 0;
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+  padding: var(--pp-section) 0;
   text-align: center;
 }
 
 .ne-comparatif h2 {
+  font-family: var(--police-titre);
   font-size: clamp(1.5rem, 3vw, 2.1rem);
-  font-weight: 800;
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.02em;
   margin: 0 auto 1rem;
   max-width: 22ch;
   text-wrap: balance;
@@ -370,12 +447,13 @@
 .ne-filet {
   width: 3rem;
   border: none;
-  border-top: 2px solid var(--or);
+  border-top: 3px solid var(--evkha-or);
+  border-radius: var(--rayon-pilule);
   margin: 0 auto 1.4rem;
 }
 
 .ne-comparatif .ne-centre {
-  color: #cfcfcf;
+  color: var(--evkha-nuage);
 }
 
 .ne-colonnes {
@@ -387,12 +465,14 @@
 }
 
 .ne-colonne {
-  border-radius: 4px;
+  border-radius: var(--rayon-verre-interne);
   padding: 1.75rem 1.6rem;
 }
 
 .ne-colonne h3 {
-  font-size: 1.1rem;
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
   margin: 0 0 1.2rem;
 }
 
@@ -403,7 +483,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  font-size: 0.92rem;
+  font-size: var(--t-base);
 }
 
 .ne-colonne li {
@@ -412,43 +492,51 @@
   align-items: baseline;
 }
 
+/* Sur le noir, l'encre de la charte et son gris pâle : 8:1, mesuré. */
 .ne-colonne-sombre {
-  background: #1c1c1c;
-  color: #b8b8b8;
+  background: var(--evkha-encre);
+  color: var(--evkha-gris-pale);
+  border: 1px solid color-mix(in srgb, var(--evkha-blanc) 8%, transparent);
 }
 
 .ne-colonne-sombre h3 {
-  color: #d8d8d8;
+  color: var(--evkha-nuage);
 }
 
 .ne-croix {
-  color: #7a7a7a;
+  color: var(--evkha-gris-doux);
 }
 
+/* La colonne claire est OPAQUE : un verre posé sur du noir serait sombre. */
 .ne-colonne-claire {
-  background: var(--creme-clair);
-  color: var(--noir);
-  border-top: 3px solid var(--or);
+  background: var(--evkha-blanc);
+  color: var(--texte);
+  border-top: 3px solid var(--evkha-or);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante-lg);
+}
+
+.ne-colonne-claire h3 {
+  color: var(--texte-fort);
 }
 
 .ne-comparatif-pied {
   margin-top: 2.25rem;
-  color: #b8b8b8 !important;
-  font-size: 0.9rem;
+  color: var(--evkha-gris-pale) !important;
+  font-size: var(--t-base);
 }
 
 /* ── Appel final ─────────────────────────────────────────────────────────── */
 
 .ne-appel {
-  background: var(--noir);
-  color: #ffffff;
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
   text-align: center;
-  padding: 3rem 1.5rem 3.5rem;
+  padding: clamp(3rem, 6vw, 4.5rem) 1.5rem;
 }
 
 .ne-appel h2 {
   font-family: var(--serif);
-  color: var(--or);
+  color: var(--evkha-or);
   font-size: clamp(1.2rem, 2.4vw, 1.6rem);
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -459,29 +547,20 @@
 .ne-appel p {
   font-family: var(--serif);
   font-size: 1.15rem;
-  font-weight: 700;
+  font-weight: var(--graisse-titre);
   margin: 0 0 1.8rem;
 }
 
-.ne-appel-bouton {
-  display: inline-block;
-  background: var(--or);
-  color: var(--noir);
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 1rem;
-  padding: 0.9rem 2.5rem;
-  border-radius: 999px;
+/* `.bouton .bouton-principal` (espace.css) : plus large, c'est le dernier
+   geste de la page. */
+.ne .ne-appel-bouton {
+  padding: var(--e-4) var(--e-8);
+  font-size: var(--t-md);
 }
 
-.ne-appel-bouton:hover {
-  background: var(--or-fonce);
-  color: #ffffff;
-}
-
-.ne-appel-bouton:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 3px;
+/* L'ancre de l'appel final atterrit sous le menu collant sans cette marge. */
+#nos-etudes {
+  scroll-margin-top: 6.5rem;
 }
 
 /* ── Écrans étroits ──────────────────────────────────────────────────────── */
@@ -508,5 +587,12 @@
   .ne-preuves {
     grid-template-columns: 1fr;
     gap: 1.25rem;
+  }
+}
+
+/* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet. */
+@media (prefers-reduced-motion: reduce) {
+  .ne-hero {
+    animation: none;
   }
 }

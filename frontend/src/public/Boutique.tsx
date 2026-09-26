@@ -26,7 +26,7 @@
  * 2. **Aucun prix n'est affiché tant qu'il n'est pas chargé.** Un prix de
  *    repli afficherait un montant faux à qui a une connexion lente.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { MenuSite } from "./MenuSite";
@@ -39,11 +39,13 @@ import {
   type AvisALaUne,
   type ProduitResume,
 } from "./catalogue";
+import { useReveler } from "./reveler";
 import "./Partenaires.css";
 import "./Boutique.css";
 
 /** Une carte du catalogue. Cliquable en entier — une cible de la taille de la
- *  carte se vise mieux qu'un lien de deux mots. */
+ *  carte se vise mieux qu'un lien de deux mots. Elle s'allume à l'entrée dans
+ *  la fenêtre (`data-reveal`). */
 export function CarteProduit({ produit }: { produit: ProduitResume }) {
   const maj = moisEtAnnee(produit.mise_a_jour);
   // Le nombre de pages n'est PAS affiché. Il se lit comme une mesure de la
@@ -58,10 +60,11 @@ export function CarteProduit({ produit }: { produit: ProduitResume }) {
       className="bq-carte"
       to="/boutique/$slug"
       params={{ slug: produit.slug }}
+      data-reveal=""
     >
       <div className="bq-couverture">
         {produit.image ? (
-          <img src={produit.image} alt="" loading="lazy" />
+          <img src={produit.image} alt="" width="1200" height="800" loading="lazy" />
         ) : (
           // Pas de cadre vide : une couverture absente affiche l'initiale de
           // l'étude, qui se lit comme un choix et non comme une image qui
@@ -210,7 +213,7 @@ const REPERES: Repere[] = [
 
 function AvisALaUneCarte({ avis }: { avis: AvisALaUne }) {
   return (
-    <figure className="bq-temoignage">
+    <figure className="bq-temoignage" data-reveal="">
       <span className="bq-etoiles" aria-label={`${avis.note} sur 5`}>
         {etoiles(avis.note)}
       </span>
@@ -232,6 +235,11 @@ export function Boutique() {
   const [avis, setAvis] = useState<AvisALaUne[]>([]);
   const [theme, setTheme] = useState("");
   const [erreur, setErreur] = useState("");
+  const page = useRef<HTMLDivElement>(null);
+
+  // Le catalogue arrive après le premier rendu, et le filtre remonte des
+  // cartes : chaque changement rejoue l'observation des blocs non révélés.
+  useReveler(page, `${produits?.length ?? -1}:${theme}`);
 
   useEffect(() => {
     const precedent = document.title;
@@ -277,7 +285,7 @@ export function Boutique() {
   );
 
   return (
-    <div className="pp bq">
+    <div className="pp bq" ref={page}>
       <MenuSite />
 
       <header className="bq-entete">
@@ -299,8 +307,14 @@ export function Boutique() {
               ))}
             </ul>
             <div className="bq-entete-actions">
-              <a className="bq-bouton bq-bouton-large" href="#catalogue">
+              <a
+                className="bouton bouton-noir bq-bouton bq-bouton-large"
+                href="#catalogue"
+              >
                 Voir le catalogue
+                <span className="bouton__icone" aria-hidden="true">
+                  ↓
+                </span>
               </a>
               {plancher !== null && (
                 <span className="bq-entete-prix">
@@ -341,7 +355,7 @@ export function Boutique() {
       <section className="bq-promesses" aria-label="Ce qui est compris">
         <div className="pp-large bq-promesses-grille">
           {PROMESSES.map((p) => (
-            <div key={p.titre} className="bq-promesse">
+            <div key={p.titre} className="bq-promesse" data-reveal="">
               <span className="bq-promesse-signe" aria-hidden="true">
                 {p.signe}
               </span>
@@ -437,7 +451,7 @@ export function Boutique() {
           </div>
           <div className="bq-reperes-liste">
             {REPERES.map((r) => (
-              <details key={r.question} className="bq-repere">
+              <details key={r.question} className="bq-repere" data-reveal="">
                 <summary>{r.question}</summary>
                 <p>
                   {r.reponse}
@@ -453,12 +467,15 @@ export function Boutique() {
           </div>
         </section>
 
-        <section className="bq-appel">
+        <section className="bq-appel" data-reveal="">
           <h2>Une question avant d'acheter ?</h2>
           <p>
             N'hésitez pas à nous contacter. Nous répondons dans les 48 heures.
           </p>
-          <a className="bq-bouton bq-bouton-large" href="mailto:contact@evkha.fr">
+          <a
+            className="bouton bouton-noir bq-bouton bq-bouton-large"
+            href="mailto:contact@evkha.fr"
+          >
             contact@evkha.fr
           </a>
         </section>

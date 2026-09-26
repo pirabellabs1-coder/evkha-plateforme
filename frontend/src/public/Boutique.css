@@ -1,32 +1,102 @@
 /* La boutique publique.
  *
- * Charte du site EVKHA : blanc dominant, jaune #F8C51C en accent, noir pour le
- * texte, pastilles a fort rayon. Le menu, les polices et `.pp-large` viennent
- * de `Partenaires.css` : les pages publiques partagent une charte, et une
- * seconde palette finirait par diverger de la premiere.
+ * Charte du site EVKHA : blanc dominant, or en accent, noir pour le texte,
+ * pastilles à fort rayon. Le menu, les polices, `.pp-large`, le maillage de
+ * fond et la révélation `data-reveal` viennent de `Partenaires.css` : les
+ * pages publiques partagent une charte, et une seconde palette finirait par
+ * diverger de la première.
+ *
+ * Cette feuille ne déclare AUCUNE couleur : le bloc `--bq-*` qui redisait
+ * l'or (#F8C51C), le noir (#000000) et trois crèmes a disparu, chaque règle
+ * lit `theme/tokens.css` ou les alias de `.pp`. Le test
+ * `les-pages-publiques-lisent-la-charte` le verrouille.
+ *
+ * Les boutons sont des `.bouton` (espace.css) ; `.bq-bouton` ne porte que ce
+ * qui tient à la page — la largeur, la taille. Les cartes sont des coques de
+ * verre à double bordure, l'image nichée dans le cœur.
  */
 
-.bq {
-  --bq-jaune: #f8c51c;
-  --bq-jaune-f: #b8890a;
-  --bq-noir: #000000;
-  --bq-doux: #faf9f6;
-  --bq-creme: #fdf6df;
-  --bq-trait: #e8e5dc;
-  --bq-gris: #5f5f63;
+/* ── La coque de verre ───────────────────────────────────────────────────────
+ *
+ * Même recette que `.carte` (espace.css) et que les cartes de la page
+ * partenaires : coque translucide et cernée, cœur blanc en retrait de
+ * `--verre-marge`, rayons concentriques. `.bq-carte` et `.bq-achat` la
+ * portent aussi ; leurs règles propres sont plus bas. */
+.bq-carte,
+.bq-achat,
+.bq-avis,
+.bq-temoignage,
+.bq-repere,
+.bq-appel,
+.bq-apercu {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--verre-fond);
+  box-shadow: var(--ombre-ambiante);
+}
+
+.bq-carte::before,
+.bq-achat::before,
+.bq-avis::before,
+.bq-temoignage::before,
+.bq-repere::before,
+.bq-appel::before,
+.bq-apercu::before {
+  content: "";
+  position: absolute;
+  inset: var(--verre-marge);
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--verre-reflet);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
+}
+
+/* Les voisins d'une grille se suivent de `--decalage-reveal`. */
+.bq-grille > :nth-child(2),
+.bq-temoignages-grille > :nth-child(2),
+.bq-avis-liste > :nth-child(2),
+.bq-reperes-liste > :nth-child(2),
+.bq-promesses-grille > :nth-child(2) {
+  --i: 1;
+}
+.bq-grille > :nth-child(3),
+.bq-temoignages-grille > :nth-child(3),
+.bq-avis-liste > :nth-child(3),
+.bq-reperes-liste > :nth-child(3),
+.bq-promesses-grille > :nth-child(3) {
+  --i: 2;
+}
+.bq-grille > :nth-child(4),
+.bq-temoignages-grille > :nth-child(4),
+.bq-avis-liste > :nth-child(4),
+.bq-reperes-liste > :nth-child(4),
+.bq-promesses-grille > :nth-child(4) {
+  --i: 3;
+}
+/* Au-delà, tout arrive ensemble : un cinquième bloc est sous la ligne de
+   flottaison, il sera révélé par son propre passage dans la fenêtre. */
+.bq-grille > :nth-child(n + 5),
+.bq-reperes-liste > :nth-child(n + 5) {
+  --i: 0;
 }
 
 /* ── En-tête ─────────────────────────────────────────────────────────────── */
 /*
- * Un aplat crème derrière le titre. Le blanc dominant reste la charte, mais un
- * en-tête sur le même fond que la grille ne se distingue pas d'elle : la page
- * commençait par du texte posé nulle part.
+ * Un voile crème translucide derrière le titre, et non plus un aplat : le
+ * maillage passe dessous. Le blanc dominant reste la charte, mais un en-tête
+ * sur le même fond que la grille ne se distingue pas d'elle. Il arrive au
+ * montage, comme le héros de la page partenaires — il est déjà dans la
+ * fenêtre, il n'attend pas d'y entrer.
  */
 .bq-entete {
-  background: linear-gradient(180deg, var(--bq-creme) 0%, #ffffff 100%);
-  border-bottom: 1px solid var(--bq-trait);
-  padding: 3.5rem 0 3rem;
+  background: linear-gradient(180deg, var(--halo-creme), transparent);
+  padding: clamp(3.5rem, 7vw, 5.5rem) 0 clamp(2.5rem, 5vw, 4rem);
   margin-bottom: 0;
+  animation: pp-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
 }
 
 .bq-entete-grille {
@@ -51,13 +121,15 @@
 }
 
 .bq-entete-prix {
-  font-size: 0.92rem;
-  color: var(--bq-gris);
+  font-size: var(--t-base);
+  color: var(--texte-doux);
 }
 
 .bq-entete-prix b {
-  color: var(--bq-noir);
-  font-size: 1.05rem;
+  font-family: var(--police-chiffre);
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-fort);
+  font-size: var(--t-md);
 }
 
 /* Trois couvertures, posées en escalier. Décoratif, et assumé comme tel : une
@@ -95,21 +167,24 @@
   }
 }
 
+/* Chaque couverture est une plaque de verre : liseré, rayon de coque, ombre
+   ambiante large — la même que la photo du héros partenaires. */
 .bq-eventail-carte {
   position: absolute;
   width: var(--bq-couv-l);
   height: var(--bq-couv-h);
   max-width: 100%;
-  border-radius: 14px;
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre-interne);
   overflow: hidden;
-  background: var(--bq-noir);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  background: var(--evkha-noir);
+  box-shadow: var(--ombre-ambiante-lg);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--bq-jaune);
+  color: var(--evkha-or);
   font-size: 2.5rem;
-  font-weight: 800;
+  font-weight: var(--graisse-affiche);
 }
 
 .bq-eventail-carte img {
@@ -141,28 +216,31 @@
 }
 
 .bq-eyebrow {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--bq-jaune-f);
+  color: var(--or-fonce);
   margin: 0 0 0.7rem;
 }
 
 .bq-entete-grille h1 {
+  font-family: var(--police-titre);
   font-size: clamp(1.9rem, 4.5vw, 2.8rem);
-  font-weight: 800;
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.02em;
   line-height: 1.12;
+  color: var(--texte-fort);
   margin: 0 0 0.9rem;
   max-width: 24ch;
   text-wrap: balance;
 }
 
 .bq-chapeau {
-  color: var(--bq-gris);
+  color: var(--texte-doux);
   max-width: 62ch;
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--t-md);
 }
 
 /* Ce que contient l'étude, listé sous le chapeau. Deux colonnes dès qu'il y a
@@ -184,37 +262,39 @@
 .bq-hero-liste li {
   position: relative;
   padding-left: 1.7rem;
-  font-size: 0.96rem;
-  font-weight: 600;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-forte);
   line-height: 1.4;
 }
 
-/* La coche reprend le doux foncé de la charte : lisible sur le crème du hero,
-   contrastée pour l'accessibilité là où le jaune vif ne le serait pas. */
+/* La coche reprend l'or assombri de `.pp` : lisible sur le crème du hero,
+   contrastée là où l'or vif ne le serait pas. */
 .bq-hero-liste li::before,
 .bq-questions-liste li::before {
   content: "✓";
   position: absolute;
   left: 0;
   top: 0;
-  font-weight: 800;
-  color: var(--bq-jaune-f);
+  font-weight: var(--graisse-affiche);
+  color: var(--or-fonce);
 }
 
 /* ── Une étude qui répond à vos questions ────────────────────────────────── */
 /*
- * Un aplat crème, entre le hero et le bandeau noir des promesses : il porte
+ * Un voile crème, entre le hero et le bandeau noir des promesses : il porte
  * les six questions qu'une étude tranche, dites comme le porteur se les pose.
  */
 .bq-questions {
-  background: var(--bq-creme);
-  border-bottom: 1px solid var(--bq-trait);
-  padding: 3rem 0;
+  background: var(--halo-creme);
+  padding: var(--pp-section) 0;
 }
 
 .bq-questions h2 {
+  font-family: var(--police-titre);
   font-size: clamp(1.4rem, 3vw, 1.9rem);
-  font-weight: 800;
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.015em;
+  color: var(--texte-fort);
   margin: 0 0 1.75rem;
   text-align: center;
   text-wrap: balance;
@@ -238,17 +318,18 @@
 .bq-questions-liste li {
   position: relative;
   padding-left: 1.8rem;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--t-md);
+  font-weight: var(--graisse-forte);
   line-height: 1.45;
 }
 
 /* ── Les quatre promesses ────────────────────────────────────────────────── */
 
+/* Le noir de la charte, en aplat : c'est le seul temps sombre de la page. */
 .bq-promesses {
-  background: var(--bq-noir);
-  color: #ffffff;
-  padding: 1.6rem 0;
+  background: var(--evkha-noir);
+  color: var(--texte-sur-noir);
+  padding: 2.25rem 0;
 }
 
 .bq-promesses-grille {
@@ -267,46 +348,50 @@
   flex-shrink: 0;
   width: 2.1rem;
   height: 2.1rem;
-  border-radius: 999px;
-  background: var(--bq-jaune);
-  color: var(--bq-noir);
+  border-radius: 50%;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-affiche);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
 }
 
 .bq-promesse-titre {
   margin: 0 0 0.15rem;
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-titre);
 }
 
 .bq-promesse-texte {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--t-sm);
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--evkha-nuage);
 }
 
 /* ── Têtes de section ────────────────────────────────────────────────────── */
 
 .bq-section-tete {
-  margin: 3.5rem 0 1.5rem;
+  margin: var(--pp-section) 0 1.75rem;
 }
 
 .bq-section-tete h2 {
+  font-family: var(--police-titre);
   font-size: clamp(1.4rem, 3vw, 1.9rem);
-  font-weight: 800;
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.015em;
+  color: var(--texte-fort);
   margin: 0;
   text-wrap: balance;
 }
 
 .bq-section-note {
   margin: 0.4rem 0 0;
-  font-size: 0.9rem;
-  color: var(--bq-gris);
+  font-size: var(--t-base);
+  color: var(--texte-doux);
 }
 
 /* ── Filtres par thème ───────────────────────────────────────────────────── */
@@ -318,30 +403,47 @@
   margin: 0 0 1.75rem;
 }
 
+/* Une pilule de verre par thème ; celle qui est enfoncée passe à l'or. L'état
+   ne repose pas sur la couleur seule : `aria-pressed` le dit, et la graisse
+   change. */
 .bq-filtre {
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  border: 1px solid var(--bq-trait);
-  background: #ffffff;
-  color: var(--bq-noir);
-  border-radius: 999px;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  border: 1px solid var(--evkha-bordure-forte);
+  background: var(--verre-fond-fort);
+  color: var(--texte-fort);
+  border-radius: var(--rayon-pilule);
   padding: 0.45rem 1.1rem;
   cursor: pointer;
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
+  transition: background var(--duree-micro) var(--ease-doux),
+    border-color var(--duree-micro) var(--ease-doux),
+    transform var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux);
 }
 
 .bq-filtre:hover {
-  border-color: var(--bq-jaune);
+  border-color: var(--evkha-noir);
+  background: var(--evkha-blanc);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
+}
+
+.bq-filtre:active {
+  transform: scale(0.98);
 }
 
 .bq-filtre[aria-pressed="true"] {
-  background: var(--bq-jaune);
-  border-color: var(--bq-jaune);
+  background: var(--evkha-or);
+  border-color: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-weight: var(--graisse-titre);
 }
 
 .bq-filtre:focus-visible {
-  outline: 2px solid var(--bq-jaune-f);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--anneau-focus);
 }
 
 /* ── La grille ───────────────────────────────────────────────────────────── */
@@ -353,37 +455,55 @@
   margin-bottom: 4rem;
 }
 
+/* Sous 768 px, une seule colonne : deux cartes de 15 rem côte à côte sur un
+   téléphone en paysage laissaient chaque titre sur quatre lignes. */
+@media (max-width: 768px) {
+  .bq-grille,
+  .bq-temoignages-grille,
+  .bq-avis-liste,
+  .bq-promesses-grille {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* La carte est la coque ; la couverture est nichée dans son cœur, au rayon
+   interne, donc concentrique avec le bord. Elle se soulève au survol, et la
+   coque prend un liseré d'or : `transform` et `box-shadow` seuls. */
 .bq-carte {
   display: flex;
   flex-direction: column;
-  background: #ffffff;
-  border: 1px solid var(--bq-trait);
-  border-radius: 12px;
-  overflow: hidden;
+  padding: var(--verre-marge);
   text-decoration: none;
   color: inherit;
+  transition: transform var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux),
+    border-color var(--duree-micro) var(--ease-doux);
 }
 
 .bq-carte:hover {
-  border-color: var(--bq-jaune);
+  border-color: color-mix(in srgb, var(--evkha-or) 55%, transparent);
+  transform: translateY(-3px);
+  box-shadow: var(--ombre-ambiante-lg);
 }
 
 .bq-carte:focus-visible {
-  outline: 2px solid var(--bq-jaune-f);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--anneau-focus);
 }
 
 /* Une couverture absente ne doit pas faire sauter la grille : le bloc garde
    sa hauteur et affiche un aplat de la charte.
 
    Le cadre est au format des couvertures — 1200 x 800, soit du 3/2 — et non
-   au 4/3 d'avant. `object-fit: cover` rognait sinon un vingtieme de la largeur
-   de chaque cote : les titres actuels passaient de justesse, un titre plus
-   long serait entre dans le bord. Meme correction que l'eventail de l'en-tete,
-   meme cause. */
+   au 4/3 d'avant. `object-fit: cover` rognait sinon un vingtième de la largeur
+   de chaque côté : les titres actuels passaient de justesse, un titre plus
+   long serait entré dans le bord. Même correction que l'éventail de l'en-tête,
+   même cause. */
 .bq-couverture {
+  position: relative;
   aspect-ratio: 3 / 2;
-  background: var(--bq-creme);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--evkha-or-voile);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -397,60 +517,59 @@
   display: block;
 }
 
-.bq-couverture {
-  position: relative;
-}
-
 .bq-couverture-vide {
   font-size: 3rem;
-  font-weight: 800;
-  color: var(--bq-jaune);
+  font-weight: var(--graisse-affiche);
+  color: var(--or-fonce);
   letter-spacing: -0.02em;
 }
 
-/* Le theme est POSE SUR l'image et non sous le titre : dans une grille, il
-   sert a balayer — « lequel me concerne ? » — avant de lire les titres. */
+/* Le thème est POSÉ SUR l'image et non sous le titre : dans une grille, il
+   sert à balayer — « lequel me concerne ? » — avant de lire les titres. */
 .bq-fanion {
   position: absolute;
   top: 0.7rem;
   left: 0.7rem;
   padding: 0.2rem 0.65rem;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid var(--bq-trait);
-  font-size: 0.68rem;
-  font-weight: 700;
+  border-radius: var(--rayon-pilule);
+  background: var(--verre-fond-fort);
+  border: 1px solid var(--verre-bordure);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--bq-noir);
+  color: var(--texte-fort);
 }
 
 .bq-corps {
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 1.1rem 1.15rem 1.15rem;
+  padding: 1.1rem 1.05rem 1.05rem;
 }
 
 .bq-theme {
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--bq-jaune-f);
+  color: var(--or-fonce);
   margin: 0 0 0.45rem;
 }
 
 .bq-carte h3 {
-  font-size: 1.02rem;
-  font-weight: 700;
+  font-family: var(--police-titre);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
   line-height: 1.3;
   margin: 0 0 0.5rem;
 }
 
 .bq-meta {
-  font-size: 0.82rem;
-  color: var(--bq-gris);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
   margin: 0 0 0.7rem;
 }
 
@@ -460,14 +579,14 @@
   gap: 0.45rem;
   flex-wrap: wrap;
   margin: 0 0 0.9rem;
-  font-size: 0.82rem;
-  color: var(--bq-gris);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
 }
 
 .bq-etoiles {
-  color: var(--bq-jaune-f);
+  color: var(--or-fonce);
   letter-spacing: 0.06em;
-  font-size: 0.9rem;
+  font-size: var(--t-base);
 }
 
 .bq-note a {
@@ -484,15 +603,48 @@
   gap: 0.75rem;
 }
 
+/* Chiffres à largeur fixe partout où un prix s'affiche : deux montants se
+   comparent colonne par colonne, et un tarif qui change ne déplace rien. */
+.bq-prix,
+.bq-prix-pastille,
+.bq-achat-prix {
+  font-family: var(--police-chiffre);
+  font-variant-numeric: tabular-nums;
+}
+
 .bq-prix {
-  font-size: 1.15rem;
-  font-weight: 800;
+  font-size: var(--t-md);
+  font-weight: var(--graisse-affiche);
 }
 
 .bq-voir {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--bq-jaune-f);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  color: var(--or-fonce);
+}
+
+.bq-carte .bq-voir {
+  margin-top: auto;
+  padding-top: 0.6rem;
+}
+
+/* ── La pastille de prix, sur la couverture ──────────────────────────────── */
+/*
+ * Le prix était en bas de carte, sous le titre et la note. Sur une grille, il
+ * se cherchait. Posé sur l'image, il se lit en même temps que la couverture —
+ * et c'est la première chose qu'on veut savoir dans une boutique.
+ */
+.bq-prix-pastille {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-size: var(--t-base);
+  font-weight: var(--graisse-affiche);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
 }
 
 /* ── Fiche produit ───────────────────────────────────────────────────────── */
@@ -500,20 +652,27 @@
 .bq-retour {
   display: inline-block;
   margin: 1.75rem 0 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--bq-gris);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-doux);
   text-decoration: none;
+  transition: color var(--duree-micro) var(--ease-doux);
 }
 
 .bq-retour:hover {
-  color: var(--bq-noir);
+  color: var(--texte-fort);
+}
+
+.bq-retour:focus-visible {
+  outline: none;
+  border-radius: var(--rayon-xs);
+  box-shadow: var(--anneau-focus);
 }
 
 .bq-fiche {
   display: grid;
   gap: 2.5rem;
-  margin-bottom: 3.5rem;
+  margin-bottom: var(--pp-section);
 }
 
 @media (min-width: 56rem) {
@@ -524,16 +683,19 @@
 }
 
 .bq-fiche h1 {
+  font-family: var(--police-titre);
   font-size: clamp(1.7rem, 4vw, 2.4rem);
-  font-weight: 800;
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.02em;
   line-height: 1.14;
+  color: var(--texte-fort);
   margin: 0 0 1rem;
   text-wrap: balance;
 }
 
 .bq-description {
-  font-size: 1.05rem;
-  color: var(--bq-gris);
+  font-size: var(--t-md);
+  color: var(--texte-doux);
   white-space: pre-line;
   margin: 0 0 2rem;
   max-width: 60ch;
@@ -546,36 +708,45 @@
   min-width: 0;
 }
 
-/* La couverture en grand. C'est la premiere chose regardee, et la seule qui
-   donne une idee du document tant que l'extrait n'est pas ouvert.
+/* La couverture en grand. C'est la première chose regardée, et la seule qui
+   donne une idée du document tant que l'extrait n'est pas ouvert.
 
-   Au format des couvertures — 1200 x 800 — et non en 16/9. Mesure avant
-   correction sur la fiche des foodtrucks : boite 1,778 contre 1,500 pour
-   l'image, soit 15,6 % de la HAUTEUR coupee, huit pour cent en haut et huit en
-   bas. Le bandeau jaune du pied disparaissait et le cadrage mentait sur le
-   document. C'est la meme cause que l'eventail et que la grille, sur la seule
-   image que l'acheteuse regarde en grand avant de payer. */
+   Au format des couvertures — 1200 x 800 — et non en 16/9. Mesuré avant
+   correction sur la fiche des foodtrucks : boîte 1,778 contre 1,500 pour
+   l'image, soit 15,6 % de la HAUTEUR coupée. Le format est porté par l'image
+   elle-même, pas par la coque : la coque a une marge, et un rapport posé sur
+   elle aurait rogné l'image de la largeur de cette marge.
+
+   Une coque de verre, l'image nichée au rayon interne. */
 .bq-visuel {
-  aspect-ratio: 3 / 2;
-  border-radius: 16px;
-  overflow: hidden;
-  background: var(--bq-creme);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  isolation: isolate;
+  padding: var(--verre-marge);
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--verre-fond);
+  box-shadow: var(--ombre-ambiante-lg);
+  display: grid;
 }
 
 .bq-visuel img {
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
   object-fit: cover;
   display: block;
+  border-radius: var(--rayon-verre-interne);
 }
 
 .bq-visuel-vide {
+  aspect-ratio: 3 / 2;
+  display: grid;
+  place-items: center;
+  border-radius: var(--rayon-verre-interne);
+  background: var(--evkha-or-voile);
   font-size: clamp(3rem, 12vw, 6rem);
-  font-weight: 800;
-  color: var(--bq-jaune);
+  font-weight: var(--graisse-affiche);
+  color: var(--or-fonce);
 }
 
 .bq-titraille {
@@ -588,22 +759,25 @@
 }
 
 .bq-bloc h2 {
-  font-size: 1.25rem;
-  font-weight: 800;
+  font-family: var(--police-titre);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.015em;
+  color: var(--texte-fort);
   margin: 0 0 0.9rem;
 }
 
 .bq-bloc {
   padding-top: 2rem;
-  border-top: 1px solid var(--bq-trait);
+  border-top: 1px solid var(--evkha-bordure);
 }
 
 .bq-bloc .bq-description:last-child {
   margin-bottom: 0;
 }
 
-/* Les trois temps de l'achat, numerotes. La numerotation encode ici une
-   sequence reelle : on regle, on telecharge, on retrouve. */
+/* Les trois temps de l'achat, numérotés. La numérotation encode ici une
+   séquence réelle : on règle, on télécharge, on retrouve. */
 .bq-etapes {
   list-style: none;
   counter-reset: temps;
@@ -618,13 +792,13 @@
   counter-increment: temps;
   position: relative;
   padding-left: 2.6rem;
-  font-size: 0.96rem;
-  color: var(--bq-gris);
+  font-size: var(--t-base);
+  color: var(--texte-doux);
   line-height: 1.55;
 }
 
 .bq-etapes li b {
-  color: var(--bq-noir);
+  color: var(--texte-fort);
 }
 
 .bq-etapes li::before {
@@ -634,14 +808,16 @@
   top: 0;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 999px;
-  background: var(--bq-jaune);
-  color: var(--bq-noir);
+  border-radius: 50%;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
-  font-weight: 800;
+  font-family: var(--police-chiffre);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-affiche);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
 }
 
 /* ── Les avis ────────────────────────────────────────────────────────────── */
@@ -656,10 +832,7 @@
 }
 
 .bq-avis {
-  background: var(--bq-doux);
-  border: 1px solid var(--bq-trait);
-  border-radius: 12px;
-  padding: 1.1rem 1.2rem;
+  padding: calc(1.1rem + var(--verre-marge)) calc(1.2rem + var(--verre-marge));
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -674,28 +847,28 @@
 }
 
 .bq-avis-date {
-  font-size: 0.75rem;
-  color: var(--bq-gris);
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
 }
 
 .bq-avis-texte {
   margin: 0;
-  font-size: 0.94rem;
+  font-size: var(--t-base);
   line-height: 1.55;
-  color: var(--bq-noir);
+  color: var(--texte);
 }
 
 .bq-avis-signature {
   margin: auto 0 0;
-  font-size: 0.82rem;
-  color: var(--bq-gris);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
 
 .bq-avis-signature b {
-  color: var(--bq-noir);
+  color: var(--texte-fort);
 }
 
 .bq-avis-signature span::before {
@@ -704,6 +877,7 @@
 
 .bq-sommaire {
   list-style: none;
+  counter-reset: chapitre;
   padding: 0;
   margin: 0;
   display: grid;
@@ -712,20 +886,12 @@
 }
 
 .bq-sommaire li {
-  position: relative;
-  padding-left: 1.6rem;
-  font-size: 0.96rem;
-}
-
-.bq-sommaire {
-  counter-reset: chapitre;
-}
-
-.bq-sommaire li {
   counter-increment: chapitre;
+  position: relative;
   padding-left: 2.2rem;
   padding-bottom: 0.55rem;
-  border-bottom: 1px solid var(--bq-trait);
+  font-size: var(--t-base);
+  border-bottom: 1px solid var(--evkha-bordure);
 }
 
 .bq-sommaire li:last-child {
@@ -737,108 +903,86 @@
   position: absolute;
   left: 0;
   top: 0;
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: var(--bq-jaune-f);
+  font-family: var(--police-chiffre);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-affiche);
+  color: var(--or-fonce);
   font-variant-numeric: tabular-nums;
 }
 
 /* ── Le bloc d'achat ─────────────────────────────────────────────────────── */
 
+/* Collant sous le menu — lui aussi collant, 6,5 rem de haut avec ses marges.
+   À `top: 1.5rem`, le bloc passait sous la barre et son prix disparaissait. */
 .bq-achat {
-  background: var(--bq-doux);
-  border: 1px solid var(--bq-trait);
-  border-radius: 12px;
-  padding: 1.5rem 1.4rem;
+  padding: calc(1.5rem + var(--verre-marge)) calc(1.4rem + var(--verre-marge));
   position: sticky;
-  top: 1.5rem;
+  top: 6.5rem;
 }
 
 .bq-achat-prix {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: var(--t-2xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.03em;
   line-height: 1.1;
+  color: var(--texte-fort);
 }
 
 .bq-achat-mention {
-  font-size: 0.85rem;
-  color: var(--bq-gris);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
   margin: 0.2rem 0 1.2rem;
 }
 
 .bq-achat label {
   display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
   margin-bottom: 0.35rem;
 }
 
-.bq-achat input {
-  width: 100%;
-  box-sizing: border-box;
-  font: inherit;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid var(--bq-trait);
-  border-radius: 8px;
-  background: #ffffff;
+/* Le champ est un `.champ-saisie` (espace.css) : verre en creux, anneau or
+   au focus autour d'un bord noir. Seule la marge est à lui. */
+.bq-achat .champ-saisie {
   margin-bottom: 1rem;
 }
 
-.bq-achat input:focus-visible {
-  outline: none;
-  border-color: var(--bq-jaune);
-  box-shadow: 0 0 0 3px rgba(248, 197, 28, 0.35);
-}
-
-.bq-bouton {
-  display: block;
+/* `.bouton` (espace.css) ; ici, la pleine largeur du bloc. */
+.bq .bq-bouton {
   width: 100%;
-  font: inherit;
-  font-weight: 700;
-  font-size: 1rem;
-  text-align: center;
-  padding: 0.85rem 1rem;
-  border: none;
-  border-radius: 999px;
-  background: var(--bq-noir);
-  color: #ffffff;
-  cursor: pointer;
-  text-decoration: none;
 }
 
-.bq-bouton:hover:not(:disabled) {
-  background: var(--bq-jaune);
-  color: var(--bq-noir);
-}
-
-.bq-bouton:disabled {
-  opacity: 0.55;
-  cursor: progress;
-}
-
-.bq-bouton:focus-visible {
-  outline: 2px solid var(--bq-jaune-f);
-  outline-offset: 3px;
+.bq .bq-bouton-large {
+  width: auto;
+  padding: var(--e-4) var(--e-8);
+  font-size: var(--t-md);
 }
 
 .bq-extrait {
   display: block;
   text-align: center;
   margin-top: 0.9rem;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--bq-jaune-f);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--or-fonce);
+}
+
+.bq-extrait:focus-visible {
+  outline: none;
+  border-radius: var(--rayon-xs);
+  box-shadow: var(--anneau-focus);
 }
 
 .bq-rassurance {
   list-style: none;
   padding: 1.1rem 0 0;
   margin: 1.1rem 0 0;
-  border-top: 1px solid var(--bq-trait);
+  border-top: 1px solid var(--evkha-bordure);
   display: grid;
   gap: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--bq-gris);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
 }
 
 /* ── États et sections annexes ───────────────────────────────────────────── */
@@ -847,29 +991,37 @@
 .bq-erreur,
 .bq-vide {
   text-align: center;
-  color: var(--bq-gris);
+  color: var(--texte-doux);
   padding: 3rem 0;
 }
 
 .bq-erreur {
-  color: #7d2820;
+  color: var(--evkha-echec);
+}
+
+.bq-erreur a {
+  color: inherit;
+  font-weight: var(--graisse-titre);
 }
 
 .bq-erreur-achat {
   padding: 0 0 1rem;
   text-align: left;
-  font-size: 0.88rem;
+  font-size: var(--t-sm);
 }
 
 .bq-proches {
-  border-top: 1px solid var(--bq-trait);
+  border-top: 1px solid var(--evkha-bordure);
   padding-top: 2.5rem;
   margin-bottom: 4rem;
 }
 
 .bq-proches h2 {
-  font-size: 1.3rem;
-  font-weight: 800;
+  font-family: var(--police-titre);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.015em;
+  color: var(--texte-fort);
   margin: 0 0 1.25rem;
 }
 
@@ -879,28 +1031,34 @@
   max-width: 34rem;
   margin: 4rem auto 6rem;
   text-align: center;
+  animation: pp-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
 }
 
 .bq-pastille {
   width: 3.5rem;
   height: 3.5rem;
-  border-radius: 999px;
-  background: var(--bq-jaune);
+  border-radius: 50%;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.6rem;
   margin: 0 auto 1.25rem;
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
 }
 
 .bq-retour-paiement h1 {
-  font-size: 1.8rem;
-  font-weight: 800;
+  font-family: var(--police-titre);
+  font-size: var(--t-xl);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.02em;
+  color: var(--texte-fort);
   margin: 0 0 0.75rem;
 }
 
 .bq-retour-paiement p {
-  color: var(--bq-gris);
+  color: var(--texte-doux);
   margin: 0 0 1.75rem;
 }
 
@@ -909,39 +1067,6 @@
   gap: 0.7rem;
   max-width: 22rem;
   margin: 0 auto;
-}
-
-/* ── La pastille de prix, sur la couverture ──────────────────────────────── */
-/*
- * Le prix était en bas de carte, sous le titre et la note. Sur une grille, il
- * se cherchait. Posé sur l'image, il se lit en même temps que la couverture —
- * et c'est la première chose qu'on veut savoir dans une boutique.
- */
-.bq-prix-pastille {
-  position: absolute;
-  right: 0.7rem;
-  bottom: 0.7rem;
-  padding: 0.3rem 0.8rem;
-  border-radius: 999px;
-  background: var(--bq-jaune);
-  color: var(--bq-noir);
-  font-size: 0.95rem;
-  font-weight: 800;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-.bq-carte {
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s;
-}
-
-.bq-carte:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.1);
-}
-
-.bq-carte .bq-voir {
-  margin-top: auto;
-  padding-top: 0.6rem;
 }
 
 /* ── Les témoignages de la boutique ──────────────────────────────────────── */
@@ -954,9 +1079,8 @@
 
 .bq-temoignage {
   margin: 0;
-  padding: 1.5rem 1.4rem 1.3rem;
-  background: var(--bq-creme);
-  border-radius: 14px;
+  padding: calc(1.5rem + var(--verre-marge)) calc(1.4rem + var(--verre-marge))
+    calc(1.3rem + var(--verre-marge));
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
@@ -964,9 +1088,9 @@
 
 .bq-temoignage blockquote {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--t-md);
   line-height: 1.6;
-  color: var(--bq-noir);
+  color: var(--texte);
 }
 
 /* Les guillemets français, posés par le style : les écrire dans la donnée
@@ -983,25 +1107,26 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  font-size: 0.82rem;
-  color: var(--bq-gris);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
   margin-top: auto;
 }
 
 .bq-temoignage figcaption b {
-  color: var(--bq-noir);
-  font-size: 0.9rem;
+  color: var(--texte-fort);
+  font-size: var(--t-base);
 }
 
 .bq-temoignage figcaption a {
-  color: var(--bq-jaune-f);
-  font-weight: 600;
+  color: var(--or-fonce);
+  font-weight: var(--graisse-forte);
   text-decoration: none;
   margin-top: 0.3rem;
 }
 
 .bq-temoignage figcaption a:hover {
   text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* ── Bon à savoir ────────────────────────────────────────────────────────── */
@@ -1012,39 +1137,43 @@
  */
 .bq-reperes-liste {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.7rem;
   max-width: 52rem;
-}
-
-.bq-repere {
-  border: 1px solid var(--bq-trait);
-  border-radius: 12px;
-  background: #ffffff;
-  overflow: hidden;
 }
 
 .bq-repere summary {
   cursor: pointer;
-  padding: 1rem 1.2rem;
-  font-size: 0.98rem;
-  font-weight: 700;
+  padding: calc(1rem + var(--verre-marge)) calc(1.2rem + var(--verre-marge));
+  font-family: var(--police-titre);
+  font-size: var(--t-base);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
   list-style: none;
+  border-radius: var(--rayon-verre-interne);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  transition: background var(--duree-micro) var(--ease-doux);
 }
 
 .bq-repere summary::-webkit-details-marker {
   display: none;
 }
 
+/* Le signe est niché dans son disque, comme l'icône d'un bouton-îlot. */
 .bq-repere summary::after {
   content: "+";
   flex-shrink: 0;
-  font-size: 1.3rem;
-  font-weight: 400;
-  color: var(--bq-jaune-f);
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--evkha-noir) 8%, transparent);
+  font-size: 1.1rem;
+  font-weight: var(--graisse-normale);
+  color: var(--texte-fort);
   line-height: 1;
 }
 
@@ -1053,61 +1182,64 @@
 }
 
 .bq-repere summary:hover {
-  background: var(--bq-doux);
+  background: var(--evkha-or-brume);
 }
 
 .bq-repere summary:focus-visible {
-  outline: 2px solid var(--bq-jaune-f);
-  outline-offset: -2px;
+  outline: none;
+  box-shadow: var(--anneau-focus);
 }
 
 .bq-repere p {
   margin: 0;
-  padding: 0 1.2rem 1.2rem;
-  font-size: 0.94rem;
+  padding: 0 calc(1.2rem + var(--verre-marge)) calc(1.2rem + var(--verre-marge));
+  font-size: var(--t-base);
   line-height: 1.6;
-  color: var(--bq-gris);
+  color: var(--texte-doux);
   max-width: 62ch;
 }
 
 .bq-repere p a {
-  color: var(--bq-jaune-f);
-  font-weight: 600;
+  color: var(--or-fonce);
+  font-weight: var(--graisse-forte);
 }
 
 /* ── L'appel final ───────────────────────────────────────────────────────── */
 
+/* Une coque de verre teintée d'or : le voile descend du haut et s'efface. */
 .bq-appel {
-  margin: 4rem 0 5rem;
-  padding: 2.5rem 2rem;
-  border-radius: 18px;
-  background: var(--bq-creme);
+  margin: var(--pp-section) 0 5rem;
+  padding: calc(2.5rem + var(--verre-marge)) calc(2rem + var(--verre-marge));
+  background: linear-gradient(180deg, var(--verre-or), transparent 45%),
+    var(--verre-fond);
   text-align: center;
 }
 
 .bq-appel h2 {
+  font-family: var(--police-titre);
   font-size: clamp(1.3rem, 3vw, 1.7rem);
-  font-weight: 800;
+  font-weight: var(--graisse-affiche);
+  letter-spacing: -0.015em;
+  color: var(--texte-fort);
   margin: 0 0 0.6rem;
 }
 
 .bq-appel p {
   margin: 0 auto 1.5rem;
   max-width: 46ch;
-  color: var(--bq-gris);
-}
-
-.bq-bouton-large {
-  display: inline-block;
-  width: auto;
-  padding: 0.9rem 2rem;
-  font-size: 1.02rem;
+  color: var(--texte-doux);
 }
 
 /* Le catalogue commence sous le bandeau noir : sans cette marge, la première
-   tête de section se collait au bandeau. */
+   tête de section se collait au bandeau. Et l'ancre du bouton du héros
+   atterrit sous le menu collant sans la marge de défilement. */
 .bq-catalogue .bq-section-tete {
-  margin-top: 3rem;
+  margin-top: clamp(3rem, 6vw, 4.5rem);
+}
+
+#catalogue,
+#avis {
+  scroll-margin-top: 6.5rem;
 }
 
 /* ── Le bloc d'aperçu ────────────────────────────────────────────────────── */
@@ -1117,10 +1249,10 @@
  * le visiteur engage son argent sur la foi d'un titre.
  */
 .bq-apercu {
-  background: var(--bq-creme);
-  border-radius: 16px;
-  padding: 1.75rem;
-  border-top: none;
+  padding: calc(1.75rem + var(--verre-marge));
+  border-top: 1px solid var(--verre-bordure);
+  background: linear-gradient(180deg, var(--verre-or), transparent 45%),
+    var(--verre-fond);
 }
 
 .bq-apercu h2 {
@@ -1132,23 +1264,20 @@
   max-width: 54ch;
 }
 
-.bq-apercu-bouton {
-  display: inline-block;
-  font-weight: 700;
-  font-size: 0.98rem;
-  padding: 0.8rem 1.8rem;
-  border-radius: 999px;
-  background: var(--bq-noir);
-  color: #ffffff;
-  text-decoration: none;
-}
+/* ── Mouvement réduit ────────────────────────────────────────────────────── */
 
-.bq-apercu-bouton:hover {
-  background: var(--bq-jaune);
-  color: var(--bq-noir);
-}
+/* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet : états
+   finaux tout de suite, pas de montée, pas de soulèvement. */
+@media (prefers-reduced-motion: reduce) {
+  .bq-entete,
+  .bq-retour-paiement {
+    animation: none;
+  }
 
-.bq-apercu-bouton:focus-visible {
-  outline: 2px solid var(--bq-jaune-f);
-  outline-offset: 3px;
+  .bq-carte,
+  .bq-filtre,
+  .bq-retour,
+  .bq-repere summary {
+    transition: none;
+  }
 }

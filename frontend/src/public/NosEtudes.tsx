@@ -30,11 +30,12 @@
  * formule sur la page partenaires. C'est l'inscription qui enchaîne ensuite
  * sur le paiement.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { CONTACT_EMAIL, ETUDES, ETUDES_PAGE } from "./contenu";
 import { chargerLivrables, euros, type LivrablePublic } from "./donnees";
 import { MenuSite } from "./MenuSite";
+import { useReveler } from "./reveler";
 import "./Partenaires.css";
 import "./NosEtudes.css";
 
@@ -95,11 +96,21 @@ function Puce({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** La flèche d'un bouton-îlot, nichée dans son disque (`.bouton__icone`,
+ *  espace.css). Décorative : le libellé dit déjà où l'on va. */
+function Fleche() {
+  return (
+    <span className="bouton__icone" aria-hidden="true">
+      →
+    </span>
+  );
+}
+
 function Carte({ etude }: { etude: LivrablePublic }) {
   const texte = ETUDES[etude.slug];
 
   return (
-    <article className="ne-carte">
+    <article className="ne-carte" data-reveal="">
       {texte && <div className="ne-surtitre">{texte.surtitre}</div>}
 
       <h3>{etude.libelle}</h3>
@@ -131,8 +142,9 @@ function Carte({ etude }: { etude: LivrablePublic }) {
       {/* Poussé en bas de carte par `margin-top: auto` : quatre cartes de
           hauteurs différentes alignent quand même leurs boutons, et l'œil les
           balaie d'un seul mouvement. */}
-      <a className="ne-bouton" href={lienCommande(etude.slug)}>
-        {texte?.bouton ?? `Commander ${etude.libelle.toLowerCase()}`}
+      <a className="bouton bouton-noir ne-bouton" href={lienCommande(etude.slug)}>
+        <span>{texte?.bouton ?? `Commander ${etude.libelle.toLowerCase()}`}</span>
+        <Fleche />
       </a>
     </article>
   );
@@ -141,6 +153,11 @@ function Carte({ etude }: { etude: LivrablePublic }) {
 export function NosEtudes() {
   const [etudes, setEtudes] = useState<LivrablePublic[] | null>(null);
   const [erreur, setErreur] = useState("");
+  const page = useRef<HTMLDivElement>(null);
+
+  // Les cartes d'étude arrivent après le premier rendu : leur chargement
+  // rejoue l'observation, pour qu'elles soient révélées comme les autres.
+  useReveler(page, etudes);
 
   // Le gabarit HTML annonce « EVKHA — Espace client » : juste pour les deux
   // espaces connectés, faux pour une page publique que l'on partage par lien
@@ -173,7 +190,7 @@ export function NosEtudes() {
   const premiere = etudes && etudes.length ? ordonnees(etudes)[0] : null;
 
   return (
-    <div className="pp ne">
+    <div className="pp ne" ref={page}>
       <MenuSite />
 
       {/* ── Ouverture ──────────────────────────────────────────────────── */}
@@ -193,14 +210,14 @@ export function NosEtudes() {
 
       {/* ── Bandeau de preuves ─────────────────────────────────────────── */}
       <div className="pp-large">
-        <div className="ne-preuves">
+        <div className="ne-preuves" data-reveal="">
           {p.preuves.map((preuve) => (
             <div key={preuve.libelle}>
               <div className="ne-preuve-valeur">
                 {/* `valeur: null` = la fourchette, calculée sur le catalogue.
                     Une insécable pendant le chargement plutôt qu'un tiret :
                     la ligne ne bouge pas quand le chiffre arrive. */}
-                {preuve.valeur ?? (etudes?.length ? fourchette(etudes) : " ")}
+                {preuve.valeur ?? (etudes?.length ? fourchette(etudes) : "\u00a0")}
               </div>
               <div className="ne-preuve-libelle">{preuve.libelle}</div>
             </div>
@@ -223,7 +240,7 @@ export function NosEtudes() {
 
           <ol className="ne-etapes">
             {p.etapes.map((etape, index) => (
-              <li key={etape.titre}>
+              <li key={etape.titre} data-reveal="">
                 <span className="ne-etape-numero" aria-hidden="true">
                   {index + 1}
                 </span>
@@ -268,7 +285,7 @@ export function NosEtudes() {
         {/* ── Les questions du porteur ─────────────────────────────────── */}
         <section className="pp-large ne-section">
           <h2 className="ne-titre-cartes">{p.interrogations.titre}</h2>
-          <ul className="ne-interrogations">
+          <ul className="ne-interrogations" data-reveal="">
             {p.interrogations.liste.map((question) => (
               <li key={question}>
                 <span className="pp-coche" aria-hidden="true">
@@ -297,7 +314,7 @@ export function NosEtudes() {
             <p className="ne-centre">{p.comparatif.corps}</p>
 
             <div className="ne-colonnes">
-              <div className="ne-colonne ne-colonne-sombre">
+              <div className="ne-colonne ne-colonne-sombre" data-reveal="">
                 <h3>{p.comparatif.generique.titre}</h3>
                 <ul>
                   {p.comparatif.generique.points.map((point) => (
@@ -311,7 +328,7 @@ export function NosEtudes() {
                 </ul>
               </div>
 
-              <div className="ne-colonne ne-colonne-claire">
+              <div className="ne-colonne ne-colonne-claire" data-reveal="">
                 <h3>{p.comparatif.evkha.titre}</h3>
                 <ul>
                   {p.comparatif.evkha.points.map((point) => (
@@ -336,7 +353,7 @@ export function NosEtudes() {
           <h2 className="ne-titre-cartes">{p.faq.titre}</h2>
           <div className="pp-faq">
             {p.faq.questions.map((question) => (
-              <div className="pp-question" key={question.q}>
+              <div className="pp-question" key={question.q} data-reveal="">
                 <span className="pp-question-chevron" aria-hidden="true">
                   »
                 </span>
@@ -353,10 +370,11 @@ export function NosEtudes() {
         <h2>{p.appel.titre}</h2>
         <p>{p.appel.sous}</p>
         <a
-          className="ne-appel-bouton"
+          className="bouton bouton-principal ne-appel-bouton"
           href={premiere ? lienCommande(premiere.slug) : "#nos-etudes"}
         >
           {p.appel.bouton}
+          <Fleche />
         </a>
       </section>
     </div>

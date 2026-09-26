@@ -15,7 +15,7 @@
  * pour un fichier remis immédiatement, un formulaire d'inscription avant le
  * paiement est une friction sans contrepartie.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 
 import { MenuSite } from "./MenuSite";
@@ -31,6 +31,7 @@ import {
   type ProduitFiche,
   type ProduitResume,
 } from "./catalogue";
+import { useReveler } from "./reveler";
 import "./Partenaires.css";
 import "./Boutique.css";
 
@@ -50,7 +51,7 @@ function jourEntier(iso: string): string {
 
 function CarteAvis({ avis }: { avis: Avis }) {
   return (
-    <li className="bq-avis">
+    <li className="bq-avis" data-reveal="">
       <p className="bq-avis-tete">
         <span className="bq-etoiles" aria-label={`${avis.note} sur 5`}>
           {etoiles(avis.note)}
@@ -74,6 +75,11 @@ export function FicheProduit() {
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState("");
   const [introuvable, setIntrouvable] = useState(false);
+  const page = useRef<HTMLDivElement>(null);
+
+  // La fiche arrive après le premier rendu, et change avec le slug : chaque
+  // nouvelle fiche rejoue l'observation de ses blocs.
+  useReveler(page, produit);
 
   useEffect(() => {
     let vivant = true;
@@ -152,7 +158,7 @@ export function FicheProduit() {
   ].filter(Boolean);
 
   return (
-    <div className="pp bq">
+    <div className="pp bq" ref={page}>
       <MenuSite />
 
       <main className="pp-large">
@@ -167,7 +173,12 @@ export function FicheProduit() {
                 document tant qu'on n'a pas ouvert l'aperçu. */}
             <div className="bq-visuel">
               {produit.image ? (
-                <img src={produit.image} alt={`Couverture — ${produit.titre}`} />
+                <img
+                  src={produit.image}
+                  alt={`Couverture — ${produit.titre}`}
+                  width="1200"
+                  height="800"
+                />
               ) : (
                 <span className="bq-visuel-vide" aria-hidden="true">
                   {initiale(produit.titre)}
@@ -195,7 +206,7 @@ export function FicheProduit() {
             </div>
 
             {produit.description && (
-              <section className="bq-bloc">
+              <section className="bq-bloc" data-reveal="">
                 <h2>Ce que vous achetez</h2>
                 {/* La description est saisie en texte libre : les paragraphes
                     sont ceux de la cliente, on ne les recompose pas. */}
@@ -211,7 +222,7 @@ export function FicheProduit() {
             )}
 
             {produit.sommaire.length > 0 && (
-              <section className="bq-bloc">
+              <section className="bq-bloc" data-reveal="">
                 <h2>Le sommaire</h2>
                 <ol className="bq-sommaire">
                   {produit.sommaire.map((ligne) => (
@@ -222,25 +233,30 @@ export function FicheProduit() {
             )}
 
             {produit.apercu && (
-              <section className="bq-bloc bq-apercu">
+              <section className="bq-bloc bq-apercu" data-reveal="">
                 <h2>Feuilleter avant d'acheter</h2>
                 <p className="bq-description">
                   Les {produit.apercu.pages} premières pages de l'étude sont
                   ouvertes, telles qu'elles figurent dans le document. Aucune
                   inscription n'est demandée.
                 </p>
+                {/* La flèche « ↗ » dit l'onglet qui s'ouvre ; nichée dans son
+                    disque, jamais posée nue à côté du texte. */}
                 <a
-                  className="bq-apercu-bouton"
+                  className="bouton bouton-noir"
                   href={produit.apercu.adresse}
                   target="_blank"
                   rel="noreferrer"
                 >
                   Ouvrir l'aperçu ({produit.apercu.pages} pages)
+                  <span className="bouton__icone" aria-hidden="true">
+                    ↗
+                  </span>
                 </a>
               </section>
             )}
 
-            <section className="bq-bloc">
+            <section className="bq-bloc" data-reveal="">
               <h2>Comment ça se passe</h2>
               <ol className="bq-etapes">
                 <li>
@@ -279,22 +295,31 @@ export function FicheProduit() {
             <label htmlFor="bq-email">Votre adresse e-mail</label>
             <input
               id="bq-email"
+              className="champ-saisie"
               type="email"
               autoComplete="email"
               placeholder="vous@exemple.fr"
               value={email}
               onChange={(evenement) => setEmail(evenement.target.value)}
+              aria-describedby={erreur ? "bq-achat-erreur" : undefined}
             />
 
             {erreur && (
-              <p className="bq-erreur bq-erreur-achat" role="alert">
+              <p className="bq-erreur bq-erreur-achat" id="bq-achat-erreur" role="alert">
                 {erreur}
               </p>
             )}
 
+            {/* Pendant l'ouverture du paiement, une lame de lumière traverse le
+                bouton (`.bouton-chargement`) : le texte dit « Ouverture… »,
+                le balayage dit seulement que ça travaille. */}
             <button
               type="button"
-              className="bq-bouton"
+              className={
+                envoi
+                  ? "bouton bouton-noir bouton-chargement bq-bouton"
+                  : "bouton bouton-noir bq-bouton"
+              }
               onClick={() => void acheter()}
               disabled={envoi}
             >
