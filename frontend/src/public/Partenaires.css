@@ -19,6 +19,14 @@
  * doit l'emporter sur `.bouton` est donc écrit à deux classes (`.pp .pp-x`).
  */
 
+/* Un champ de saisie sous 16 px fait zoomer Safari iOS au focus, et la page
+ * reste zoomée ensuite. `.champ-saisie` (espace.css) est à `--t-base`, soit
+ * 15 px : sur les pages publiques — tunnel d'achat compris — on relève le
+ * plancher. Deux classes, pour l'emporter sur `.champ-saisie` seul. */
+.pp .champ-saisie {
+  font-size: max(1rem, var(--t-base));
+}
+
 .pp {
   /* ── Alias vers les jetons ─────────────────────────────────────────────
    * `--or-fonce` sert au petit texte doré (surtitres, valeurs, liens). Aucun
@@ -31,7 +39,6 @@
   --or-fonce: color-mix(in srgb, var(--evkha-or) 52%, var(--evkha-noir));
   --noir: var(--evkha-noir);
   --creme: var(--evkha-or-voile);
-  --creme-clair: var(--evkha-or-brume);
   --gris: var(--texte-doux);
 
   /* Deux familles, comme la maquette : Montserrat pour l'essentiel, une serif
@@ -139,22 +146,35 @@
  *
  * Un bloc `data-reveal` naît 14 px plus bas et effacé ; `useReveler`
  * (IntersectionObserver) pose `est-revele` quand il entre dans la fenêtre.
- * `transform` et `opacity` seuls : rien qui déclenche une mise en page. Les
+ * `translate` et `opacity` seuls : rien qui déclenche une mise en page. Les
  * voisins d'une grille se suivent de `--decalage-reveal` via `--i`.
+ *
+ * `translate`, et non `transform` : l'état révélé écrivait `transform: none`
+ * à trois niveaux de spécificité, ce qui écrasait le `translateY(-3px)` du
+ * survol des cartes produit — elles ne se soulevaient plus. Les deux
+ * propriétés se composent ; chacune garde son rôle. Pour la même raison, la
+ * transition d'un bloc révélé porte AUSSI les propriétés de survol des
+ * composants (`transform`, ombre, liseré, fond), au pas de `--duree-micro`
+ * et sans le décalage de révélation : la liste d'un composant, moins
+ * spécifique, ne s'appliquerait jamais.
  *
  * Sous `prefers-reduced-motion`, l'état final tout de suite, sans dépendre du
  * script : un bloc qui resterait à `opacity: 0` serait une page cassée. */
 .pp [data-reveal] {
+  --delai-reveal: calc(var(--i, 0) * var(--decalage-reveal));
   opacity: 0;
-  transform: translateY(14px);
-  transition: opacity var(--duree-reveal) var(--ease-sortie),
-    transform var(--duree-reveal) var(--ease-sortie);
-  transition-delay: calc(var(--i, 0) * var(--decalage-reveal));
+  translate: 0 14px;
+  transition: opacity var(--duree-reveal) var(--ease-sortie) var(--delai-reveal),
+    translate var(--duree-reveal) var(--ease-sortie) var(--delai-reveal),
+    transform var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux),
+    border-color var(--duree-micro) var(--ease-doux),
+    background-color var(--duree-micro) var(--ease-doux);
 }
 
 .pp [data-reveal].est-revele {
   opacity: 1;
-  transform: none;
+  translate: none;
 }
 
 .pp-preuves > :nth-child(2),
@@ -199,7 +219,7 @@
 @media (prefers-reduced-motion: reduce) {
   .pp [data-reveal] {
     opacity: 1;
-    transform: none;
+    translate: none;
     transition: none;
   }
 
@@ -260,6 +280,11 @@
    arrive. */
 .pp-hero-image {
   width: 100%;
+  /* `width`/`height` en attributs réservent la place avant le chargement,
+   * mais l'attribut `height` devient `height: 800px` si rien ne le reprend :
+   * `aspect-ratio` était ignoré et la photo montait à 800 px sur téléphone
+   * (mesuré le 26/09/2026). `auto` rend la main au ratio. */
+  height: auto;
   border: 1px solid var(--verre-bordure);
   border-radius: var(--rayon-verre);
   box-shadow: var(--ombre-ambiante-lg);
@@ -747,6 +772,7 @@
 
 .pp-fondatrice-portrait {
   width: 100%;
+  height: auto; /* voir `.pp-hero-image` : sans lui, 1 200 px de haut */
   border: 1px solid var(--verre-bordure);
   border-radius: var(--rayon-verre);
   box-shadow: var(--ombre-ambiante-lg);
@@ -1366,5 +1392,27 @@
   .pp-menu-traits::after,
   .pp-formule {
     transition: none;
+  }
+}
+
+/* ── Impression ─────────────────────────────────────────────────────────────
+ * Un IntersectionObserver ne se déclenche pas pour la mise en page
+ * d'impression : sans cette règle, « Enregistrer en PDF » la page tarifs
+ * imprimait des cadres vides partout où l'on n'avait pas encore défilé. */
+@media print {
+  .pp [data-reveal] {
+    opacity: 1;
+    translate: none;
+    transition: none;
+  }
+
+  /* Deux classes : les feuilles de page arrivent dans un ordre qui dépend
+     des imports, la spécificité ne doit pas en dépendre. */
+  .pp .pp-hero,
+  .pp .bq-entete,
+  .pp .bq-retour-paiement,
+  .pp .ne-hero,
+  .pp .ach-carte {
+    animation: none;
   }
 }

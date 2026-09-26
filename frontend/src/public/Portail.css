@@ -365,7 +365,10 @@
   margin-top: 0.35rem;
   padding: 0.7rem 0.9rem;
   font-family: inherit;
-  font-size: 0.85rem;
+  /* 16 px au moins : en dessous, Safari iOS zoome la page au focus et ne la
+   * dézoome pas. Les champs étaient à 0,85 rem (13,6 px) sur la connexion,
+   * l'inscription et le mot de passe — vu le 26/09/2026. */
+  font-size: 1rem;
   color: var(--noir);
   background: var(--verre-fond-fort);
   border: 1px solid #d5cdb9;

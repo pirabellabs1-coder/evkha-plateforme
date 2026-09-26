@@ -64,7 +64,14 @@ export function CarteProduit({ produit }: { produit: ProduitResume }) {
     >
       <div className="bq-couverture">
         {produit.image ? (
-          <img src={produit.image} alt="" width="1200" height="800" loading="lazy" />
+          <img
+            className="bq-couverture-image"
+            src={produit.image}
+            alt=""
+            width="1200"
+            height="800"
+            loading="lazy"
+          />
         ) : (
           // Pas de cadre vide : une couverture absente affiche l'initiale de
           // l'étude, qui se lit comme un choix et non comme une image qui

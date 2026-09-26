@@ -153,14 +153,14 @@ export function Acheter() {
               placeholder="vous@exemple.fr"
               value={email}
               onChange={(evenement) => setEmail(evenement.target.value)}
-              aria-describedby="ach-aide"
+              aria-describedby={erreur ? "ach-aide ach-erreur" : "ach-aide"}
             />
             <p className="ach-aide" id="ach-aide">
               Pour pré-remplir la page de paiement. Vous pourrez la corriger.
             </p>
 
             {erreur && (
-              <p className="ach-erreur" role="alert">
+              <p className="ach-erreur" id="ach-erreur" role="alert">
                 {erreur}
               </p>
             )}

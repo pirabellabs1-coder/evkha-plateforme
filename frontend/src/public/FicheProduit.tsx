@@ -174,6 +174,7 @@ export function FicheProduit() {
             <div className="bq-visuel">
               {produit.image ? (
                 <img
+                  className="bq-visuel-image"
                   src={produit.image}
                   alt={`Couverture — ${produit.titre}`}
                   width="1200"

@@ -24,8 +24,9 @@
  *    à qui a une connexion lente — sur une page de vente, c'est inacceptable.
  *
  * Les blocs marqués `data-reveal` s'allument à l'entrée dans la fenêtre
- * (`useReveler`, IntersectionObserver). Jamais sur un titre : le texte que
- * les moteurs et le lecteur d'écran lisent en premier n'attend personne.
+ * (`useReveler`, IntersectionObserver). Jamais sur le héros ni sur le `h1` :
+ * le texte que les moteurs et le lecteur d'écran lisent en premier n'attend
+ * personne. Les titres de section et de carte, eux, arrivent avec leur bloc.
  */
 import { useEffect, useRef, useState } from "react";
 import {
@@ -216,9 +217,8 @@ export function Partenaires() {
           className="pp-hero-image"
           src="/partenaires/reunion.jpg"
           alt="Trois personnes en réunion de travail autour d'un ordinateur portable"
-          width="1200"
-          height="800"
-          loading="lazy"
+          width="1500"
+          height="1001"
         />
       </header>
 
@@ -240,9 +240,10 @@ export function Partenaires() {
           <div className="pp-etapes">
             {PRINCIPE.etapes.map((etape, rang) => (
               <article className="pp-etape" key={etape.titre} data-reveal="">
-                <div className="pp-etape-rang" aria-hidden="true">
-                  {rang + 1}
-                </div>
+                {/* Pas d'`aria-hidden` : les étapes sont des `article`, pas les
+                    `li` d'un `ol` — le numéro est la seule trace de l'ordre
+                    pour un lecteur d'écran (WCAG 1.3.1). */}
+                <div className="pp-etape-rang">{rang + 1}</div>
                 <h3>{etape.titre}</h3>
                 <p>{etape.corps}</p>
               </article>
@@ -335,7 +336,7 @@ export function Partenaires() {
             className="pp-fondatrice-portrait"
             src="/partenaires/evangeline.jpg"
             alt="Evangeline Khaili, fondatrice d'Evkha"
-            width="900"
+            width="798"
             height="1200"
             loading="lazy"
             data-reveal=""

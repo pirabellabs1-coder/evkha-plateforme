@@ -51,10 +51,12 @@ export function useReveler(
           observateur.unobserve(entree.target);
         }
       },
-      // Un bloc est « entré » quand un dixième en est visible, et six pour
-      // cent de la hauteur de fenêtre avant le bord bas : il s'allume en
-      // arrivant, pas une fois qu'on l'a déjà lu.
-      { threshold: 0.1, rootMargin: "0px 0px -6% 0px" },
+      // Un bloc est « entré » dès son premier pixel au-dessus d'une ligne
+      // placée à six pour cent de la hauteur de fenêtre avant le bord bas :
+      // il s'allume en arrivant, pas une fois qu'on l'a déjà lu. Seuil 0 et
+      // non 0,1 : un bloc plus haut que dix fenêtres (une description saisie
+      // en texte libre) n'atteindrait jamais un dixième visible.
+      { threshold: 0, rootMargin: "0px 0px -6% 0px" },
     );
     for (const bloc of blocs) observateur.observe(bloc);
     return () => observateur.disconnect();
