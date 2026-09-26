@@ -355,6 +355,16 @@ _FREE_TEXT_SOURCES: tuple[str, ...] = (
     "MODELE_ECONOMIQUE",
     "MODELE_REVENUS",
     "CONTEXTE_ETUDE_PRECEDENTE",
+    # Le formulaire de l'ESPACE CLIENT (`organisations/formulaires.py`) demande
+    # « copiez ici votre tableau previsionnel (compte de resultat, seuil de
+    # rentabilite) ». Le business plan reel `eab58554` (26/09/2026) y portait
+    # « VERTICALES D'ACTIVITES : B2C ; B2B ; B2G », le seuil et le resultat
+    # net, dans une forme que l'extracteur lit parfaitement — et le champ
+    # n'etait dans cette liste ni pour l'intake ni pour le gate, qui a bloque
+    # sur « verticales non retenues » en lisant le mot ailleurs. Meme classe
+    # que les deux encadres ci-dessous : un champ cree EXPRES pour l'etat
+    # chiffre, jamais lu.
+    "TABLEAUX_FINANCIERS",
     # Encadres que la cliente a ajoutes au formulaire BP en juillet 2026 et
     # qui portent le previsionnel : « Resultat net previsionnel- EBE- Taux
     # d'occupation- Seuil de rentabilite- Verticales » d'un cote, apports,

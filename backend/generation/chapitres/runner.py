@@ -14,7 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from integrations.claude import SYSTEM_CACHE_BREAK
+from integrations.claude import SYSTEM_CACHE_BREAK, motif_de_troncature
 
 from ..coherence import registre_json_as_context
 from ..modele.conformite import Arbitrage, arbitrer
@@ -1788,23 +1788,9 @@ def payload_vers_markdown(payload: ChapitrePayload) -> str:
 #: d'expirer avant de rendre sa reponse, et ce client n'utilise pas le flux.
 MAX_TOKENS_CHAPITRE = 16000
 
-
-def motif_de_troncature(stop_reason: str, max_tokens: int) -> list[str]:
-    """Rend le motif d'une reponse COUPEE, ou rien si elle s'est terminee.
-
-    Fonction a part, et non trois lignes dans `generer_chapitre` : c'est la
-    seule facon de l'eprouver sans monter tout le chemin d'appel — client,
-    socle, variables, prompt. Un test qui doit simuler cinq collaborateurs pour
-    verifier une condition finit par tester le montage, pas la condition.
-    """
-    if stop_reason != "max_tokens":
-        return []
-    return [
-        f"reponse tronquee a {max_tokens} jetons de sortie : le modele n'a pas "
-        "pu terminer son appel d'outil, les derniers champs du schema "
-        "manquent. Ce n'est PAS un defaut de schema — relever la borne de "
-        "sortie de ce chapitre, ou resserrer sa cible editoriale."
-    ]
+# `motif_de_troncature` vit désormais dans `integrations.claude`, à côté du
+# `stop_reason` qu'il lit : le socle et sa vérification en ont besoin autant
+# que ce runner. Importé ci-dessus ; les tests continuent de le prendre ici.
 
 
 def generer_chapitre(

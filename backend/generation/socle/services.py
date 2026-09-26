@@ -139,7 +139,6 @@ def _journaliser_la_verification(job: GenerationJob, rapport: Any) -> None:
         )
 
 
-@transaction.atomic
 def etablir_socle(
     job: GenerationJob,
     *,
@@ -154,6 +153,16 @@ def etablir_socle(
     Idempotent : si un socle validé existe déjà, il est renvoyé tel quel sans
     aucun appel au modèle. `forcer=True` déclenche une régénération explicite,
     qui invalide tous les chapitres (voir `regenerer_socle`).
+
+    ## Pourquoi cette fonction n'est plus `@transaction.atomic`
+
+    Elle l'était de bout en bout. Sur un échec, l'enregistrement INVALIDE
+    — les motifs des trois refus, le nombre de tentatives — était écrit puis
+    le `raise` qui suivait annulait la transaction : le tableau de bord ne
+    trouvait aucun socle et affichait « en attente » pour un dossier FAILED.
+    Et trois appels au modèle de 16 000 jetons s'exécutaient dans une
+    transaction ouverte. Seule l'écriture du socle VALIDE et de son coût
+    reste atomique : c'est elle qui doit être tout ou rien.
     """
     existant = socle_du_job(job)
     if existant is not None and existant.est_verrouille and not forcer:
@@ -228,25 +237,26 @@ def etablir_socle(
         consommation["input_tokens"], consommation["output_tokens"]
     )
 
-    enregistrement, _ = SocleDonnees.objects.update_or_create(
-        job=job,
-        defaults={
-            "version": version,
-            "statut": SocleStatut.VALIDE,
-            "contenu": socle.model_dump(mode="json"),
-            "motifs_rejet": [],
-            "tentatives": tentatives,
-            "corrige_manuellement": False,
-            "valide_at": timezone.now(),
-            "input_tokens": consommation["input_tokens"],
-            "output_tokens": consommation["output_tokens"],
-            "cost_eur": cout,
-        },
-    )
+    with transaction.atomic():
+        enregistrement, _ = SocleDonnees.objects.update_or_create(
+            job=job,
+            defaults={
+                "version": version,
+                "statut": SocleStatut.VALIDE,
+                "contenu": socle.model_dump(mode="json"),
+                "motifs_rejet": [],
+                "tentatives": tentatives,
+                "corrige_manuellement": False,
+                "valide_at": timezone.now(),
+                "input_tokens": consommation["input_tokens"],
+                "output_tokens": consommation["output_tokens"],
+                "cost_eur": cout,
+            },
+        )
 
-    GenerationJob.objects.filter(pk=job.pk).update(
-        total_cost_eur=job.total_cost_eur + cout
-    )
+        GenerationJob.objects.filter(pk=job.pk).update(
+            total_cost_eur=job.total_cost_eur + cout
+        )
     return enregistrement
 
 

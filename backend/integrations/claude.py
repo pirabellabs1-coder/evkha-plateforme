@@ -425,6 +425,30 @@ class StructuredResult:
     cache_read_input_tokens: int = 0
 
 
+def motif_de_troncature(stop_reason: str, max_tokens: int) -> list[str]:
+    """Rend le motif d'une reponse COUPEE, ou rien si elle s'est terminee.
+
+    Fonction a part, et non trois lignes dans chaque appelant : c'est la seule
+    facon de l'eprouver sans monter tout le chemin d'appel — client, socle,
+    variables, prompt. Un test qui doit simuler cinq collaborateurs pour
+    verifier une condition finit par tester le montage, pas la condition.
+
+    Elle vit ICI, a cote de `StructuredResult.stop_reason`, et non dans
+    `chapitres/runner.py` ou elle est nee : le socle et sa verification
+    recoivent le meme `stop_reason` et l'ignoraient tous deux (26/09/2026) —
+    un socle tronque etait refuse trois fois pour « aucun appel d'outil
+    exploitable », motif qui ne donnait rien a corriger au modele.
+    """
+    if stop_reason != "max_tokens":
+        return []
+    return [
+        f"reponse tronquee a {max_tokens} jetons de sortie : le modele n'a pas "
+        "pu terminer son appel d'outil, les derniers champs du schema "
+        "manquent. Ce n'est PAS un defaut de schema — relever la borne de "
+        "sortie de ce chapitre, ou resserrer sa cible editoriale."
+    ]
+
+
 @runtime_checkable
 class StructuredClaudeClient(Protocol):
     """Contrat des clients capables de rendre une sortie typee.

@@ -8,7 +8,7 @@ from catalog.models import DeliverableType
 from integrations.claude import _MAX_CONTINUATIONS, _provision_reflexion
 from monitoring.models import IncidentSeverity, OperationalIncident
 
-from .models import ChapterGeneration, ChapterStatus, GenerationJob
+from .models import ChapterGeneration, ChapterStatus, GenerationJob, SocleDonnees
 
 # Tarifs indicatifs EUR par token (input, output), configurables par modele (M4).
 # A verifier/ajuster avec la grille Anthropic en vigueur. Le modele actif est
@@ -91,11 +91,20 @@ def current_job_cost_eur(job: GenerationJob) -> Decimal:
     Le plafond doit porter sur la facture, pas sur le resultat — sinon un
     dossier qui echoue beaucoup depasse son plafond sans que rien ne le dise,
     ce qui est exactement ce qui s'est produit sur `b561c2d6`.
+
+    **Inclut le socle.** `etablir_socle` ajoutait son coût à `total_cost_eur`,
+    puis le premier `record_chapter_cost` ÉCRASAIT ce total par la somme des
+    seuls chapitres : le socle — le plus gros appel du dossier — sortait de la
+    facture et du plafond dès le premier chapitre (relecture du 26/09/2026).
     """
-    return sum(
+    chapitres = sum(
         (item.cost_eur + item.cost_perdu_eur for item in job.chapters.all()),
         Decimal("0"),
     )
+    socle = (
+        SocleDonnees.objects.filter(job=job).values_list("cost_eur", flat=True).first()
+    )
+    return chapitres + (socle or Decimal("0"))
 
 
 def record_tentative_perdue(

@@ -29,14 +29,28 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 
-from core.numbers import MONEY, MONEY_CAPTURED, SPACE_CLASS, parse_number, to_base_units
+from core.numbers import (
+    CURRENCY_ALTERNATION,
+    MAGNITUDE_WORDS,
+    MONEY,
+    MONEY_CAPTURED,
+    NUMBER_BODY,
+    SPACE_CLASS,
+    parse_number,
+    to_base_units,
+)
 
 # ── 1. Fourchettes ───────────────────────────────────────────────────────────
 
-# Un nombre francais « nu » : chiffres et espaces horizontales, decimale
-# optionnelle. Simplifie pour ne pas capturer « An1 ».
-_NOMBRE = rf"\d(?:\d|{SPACE_CLASS}|[.,]\d+)*"
-_UNITE_MONETAIRE = r"Mds€|Md€|M€|k€|kEUR|€|euros?|EUR|FCFA|XOF|XAF|CFA|millions?|milliards?"
+# Un nombre francais « nu » : celui de `core.numbers`, jamais un motif local.
+# La copie qui vivait ici (chiffres et espaces) ignorait l'apostrophe suisse
+# des milliers : « de 5'000 CHF à 8'000 CHF » n'était pas une fourchette
+# (26/09/2026, règle 5).
+_NOMBRE = NUMBER_BODY
+# Dérivée de `core.numbers`, jamais recopiée : la copie locale ignorait CHF et
+# toute devise ajoutée là-bas (règle 5 — « de 5'000 CHF à 8'000 CHF » n'était
+# pas une fourchette ici, alors que le gate savait lire CHF).
+_UNITE_MONETAIRE = rf"{CURRENCY_ALTERNATION}|{MAGNITUDE_WORDS}"
 _POURCENTAGE = r"%"
 # Connecteur simple entre deux nombres. « et » est traite par le prefixe
 # optionnel « entre » qui suit, sinon « et » seul matcherait tout et n'importe
@@ -53,9 +67,15 @@ _CONNECTEUR_ENTRE = rf"{SPACE_CLASS}*et{SPACE_CLASS}*"
 # numerotations (« annees 3 a 5 »), des dates (« 2020 a 2025 ») et des
 # enumerations non chiffrees.
 def _construire_motif(unite: str) -> re.Pattern[str]:
+    # L'unité peut être RÉPÉTÉE après la borne basse : « entre 120 000 € et
+    # 150 000 € », « de 15 % à 20 % ». Le motif ne l'attendait qu'après la
+    # borne haute, et ces deux formes — les plus courantes en prose — n'étaient
+    # jamais vues, dans aucun livrable (mesure du 26/09/2026). Groupe NON
+    # capturant : les appelants lisent les groupes 1 à 5 par leur numéro.
+    unite_repetee = rf"(?:{SPACE_CLASS}*(?:{unite}))?"
     return re.compile(
-        rf"\b(?:entre{SPACE_CLASS}+({_NOMBRE}){_CONNECTEUR_ENTRE}({_NOMBRE})"
-        rf"|({_NOMBRE}){_CONNECTEUR_NU}({_NOMBRE}))"
+        rf"\b(?:entre{SPACE_CLASS}+({_NOMBRE}){unite_repetee}{_CONNECTEUR_ENTRE}({_NOMBRE})"
+        rf"|({_NOMBRE}){unite_repetee}{_CONNECTEUR_NU}({_NOMBRE}))"
         rf"{SPACE_CLASS}*({unite})",
         re.IGNORECASE,
     )
@@ -136,6 +156,12 @@ def _connecteur_a_nu(texte: str, match: re.Match[str]) -> str:
     le lien entre les deux nombres.
     """
     brut = texte[match.end(3) : match.start(4)]
+    # L'unité répétée après la borne basse fait partie de ce segment depuis
+    # qu'elle est admise ; elle ne dit rien du lien entre les deux nombres.
+    brut = re.sub(
+        rf"^{SPACE_CLASS}*(?:{_UNITE_MONETAIRE}|{_POURCENTAGE}){SPACE_CLASS}*",
+        "", brut.strip(), flags=re.IGNORECASE,
+    )
     return re.sub(rf"{SPACE_CLASS}+environ$", "", brut.strip(), flags=re.IGNORECASE)
 
 
@@ -303,6 +329,15 @@ _LIVRABLES_FOURCHETTE_SOURCEE_OK: frozenset[str] = frozenset({
     "competitor_study",  # DeliverableType.COMPETITOR_STUDY.value
 })
 
+# Livrables où une plage de PRIX OBSERVÉ sur le marché, citée avec sa source
+# dans la même case ou la même phrase, est admise (décision du client du
+# 15/09/2026 pour le BP ; étendue à l'EC le 26/09/2026 — voir
+# `detecter_fourchettes`). Les prix du PROJET restent un par variante.
+_LIVRABLES_PRIX_OBSERVE_SOURCE: frozenset[str] = frozenset({
+    "business_plan",
+    "competitor_study",
+})
+
 
 def detecter_fourchettes(
     chapitre_numero: int,
@@ -333,8 +368,15 @@ def detecter_fourchettes(
     # même observation ; exiger la source à chaque occurrence ferait recopier
     # la parenthèse partout (génération `7567ca2f`, 15/09/2026). Une plage
     # jamais sourcée dans le chapitre reste refusée.
+    # L'étude concurrentielle cite les PRIX PUBLIÉS des concurrents (lot 85 :
+    # « cherche le tarif réel »), et un concurrent publie souvent une plage
+    # (« séjour de 300 à 400 € selon la formule »). Réduire cette plage à un
+    # chiffre trahirait la source — c'est exactement la décision du client du
+    # 15/09/2026 pour le BP, au même critère : la source dans la même case ou
+    # la même phrase. L'EC `e71fa43a` (26/09/2026) portait cinq motifs de ce
+    # genre, tous sur des tarifs de concurrents.
     sourcees: set[str] = set()
-    if deliverable_type == "business_plan":
+    if deliverable_type in _LIVRABLES_PRIX_OBSERVE_SOURCE:
         for motif in (_FOURCHETTE_MONETAIRE, _FOURCHETTE_POURCENTAGE):
             for match in motif.finditer(texte):
                 if not _n_est_pas_une_plage(texte, match) and _prix_de_marche_source(texte, match):
@@ -348,7 +390,7 @@ def detecter_fourchettes(
             borne_haute = match.group(2) or match.group(4)
             if _n_est_pas_une_plage(texte, match):
                 continue
-            if deliverable_type == "business_plan" and (
+            if deliverable_type in _LIVRABLES_PRIX_OBSERVE_SOURCE and (
                 " ".join(match.group(0).split()) in sourcees
             ):
                 continue
@@ -487,7 +529,12 @@ _FENETRE_APRES_LIBELLE = 100
 # adjacentes qui n'ont rien a voir se retrouvaient liees.
 _CONNECTEURS_VALEUR = re.compile(
     r"(?:"
-    r"[:=]"                                            # « CAF : X »
+    # « | Seuil de rentabilité | 90 000 € | » : la barre de cellule LIE le
+    # libellé à sa valeur autant qu'un deux-points. Sans elle, les tableaux
+    # financiers du business plan étaient invisibles au contrôle, alors que
+    # c'est là que les chiffres se contredisent le plus (mesure du 26/09/2026
+    # : 90 000 € contre 120 000 € dans deux tableaux, aucun motif).
+    r"[:=|]"                                           # « CAF : X », « CAF | X »
     r"|\b(?:de|d['’]|a|est\s+de|s['’]\s*[eé]l[eè]ve|"
     r"atteint|repr[eé]sente|s['’]\s*[eé]tablit|"
     r"se\s+situe|se\s+trouve|vaut|projet[eé]e?|"
@@ -527,7 +574,14 @@ _MOTS_DE_RUPTURE = re.compile(
     # « marge brute unitaire de 4,68 EUR » face a « la marge brute de
     # l'exercice 1 s'eleve a 230 400 EUR » : ce n'est pas la meme grandeur,
     # et les opposer produisait une divergence sur un document juste.
-    r"|unitaire|par\s+unit[eé]|par\s+ticket|par\s+client)\b",
+    r"|unitaire|par\s+unit[eé]|par\s+ticket|par\s+client"
+    # Une périodicité SOUS-annuelle glissée avant le montant : « seuil de
+    # rentabilité mensuel : 7 500 € » n'est pas le seuil de l'exercice
+    # (90 000 €), et `_PAR_UNITE_APRES` ne regarde qu'après le montant
+    # (mesure du 26/09/2026). « annuel » n'en fait pas partie : c'est la
+    # grandeur par défaut de tous les libellés surveillés.
+    r"|mensuel(?:le)?s?|hebdomadaires?|trimestriel(?:le)?s?|journalier(?:e)?s?"
+    r"|quotidien(?:ne)?s?|par\s+mois|par\s+semaine|par\s+trimestre|par\s+jour)\b",
     re.IGNORECASE,
 )
 

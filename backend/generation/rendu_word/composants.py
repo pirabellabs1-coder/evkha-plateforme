@@ -300,7 +300,7 @@ def couverture(
         document.add_paragraph()
         p = document.add_paragraph(style=STYLE_SOUS_TITRE)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run("« Préparé pour »")
+        run = p.add_run("Préparé pour")
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.rose_grise)
         run.font.size = Pt(11)

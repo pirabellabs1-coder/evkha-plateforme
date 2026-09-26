@@ -31,7 +31,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from catalog.models import DeliverableType
-from generation.models import ChapterGeneration, GenerationJob
+from core.numbers import MONEY
+from generation.models import ChapterGeneration, FactKind, GenerationJob
 from generation.strategies.base import (
     ContexteSupplementaire,
     ProblemeCoherence,
@@ -160,10 +161,15 @@ _MENTION_REMUNERATION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# La mention doit s'accompagner d'un chiffre (montant en EUR). Sinon, la
-# formulation reste qualitative et un banquier ne peut rien en faire.
+# La mention doit s'accompagner d'un chiffre. Sinon, la formulation reste
+# qualitative et un banquier ne peut rien en faire.
+#
+# Le montant se lit avec `core.numbers.MONEY` — toutes les devises, devise
+# avant ou apres le nombre. La liste locale (EUR, €, k€…) ne voyait pas
+# « CHF 6'500 par mois » : le BP suisse `6c794b18` (26/09/2026) a ete accuse
+# d'une remuneration « sans montant chiffre » qu'il chiffrait (regle 2).
 _MONTANT_PROCHE_RE = re.compile(
-    r"\d[\d\s.,]{0,10}\s*(?:EUR|€|kEUR|k€|milliers|k)",
+    rf"(?:{MONEY}|\d[\d\s.,]{{0,10}}\s*(?:milliers|k)\b)",
     re.IGNORECASE,
 )
 
@@ -322,7 +328,22 @@ class BPStrategy:
         """Deux checks fiscaux/financiers a l'issue de la generation."""
         problemes: list[ProblemeCoherence] = []
 
-        for detail in verifier_is_bracket(corpus_par_chapitre):
+        # L'IS a 15 % sur 42 500 € est le Code general des impots FRANCAIS.
+        # Applique a une societe suisse, le controle exigeait qu'un dossier en
+        # CHF cite un plafond qui ne le concerne pas (`6c794b18`, 26/09/2026).
+        # La devise verrouillee du dossier dit ou l'on est : hors euro, ce
+        # controle n'a rien a juger. (Un dossier en euros hors de France y
+        # reste soumis a tort : la devise est le seul repere porte par le job.)
+        devise = (
+            job.coherence_facts.filter(kind=FactKind.CURRENCY, key="currency")
+            .values_list("value", flat=True)
+            .first()
+            if job is not None
+            else None
+        )
+        is_francais = devise in (None, "", "EUR")
+
+        for detail in verifier_is_bracket(corpus_par_chapitre) if is_francais else ():
             # Le chapitre est cite au debut du detail.
             m = re.search(r"Chapitre (\d+)", detail)
             problemes.append(ProblemeCoherence(

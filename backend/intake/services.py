@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
@@ -7,6 +8,8 @@ from orders.models import Order
 
 from .financials import enrich_variables_from_free_text, raffiner_champs_financiers
 from .models import IntakeSource, IntakeStatus, IntakeSubmission
+
+_log = logging.getLogger(__name__)
 
 # Variables de cadrage imposees par la methode EVKHA (cahier des charges).
 # Ce sont des constantes du domaine, jamais inventees a la volee.
@@ -507,6 +510,14 @@ def normalize_intake_variables(payload: dict[str, Any]) -> tuple[dict[str, Any],
         # etait enregistree vide et echappait au controle des champs requis.
         if canonical and value not in (None, "", []):
             normalized[canonical] = value
+        elif not canonical and value not in (None, "", []):
+            # Une question Tally renommée disparaît ici SANS TRACE : la valeur
+            # financière manque ensuite, et le gate bloque sur une référence
+            # absente sans dire pourquoi (relecture du 26/09/2026). Le journal
+            # nomme le libellé, la valeur reste dans le payload brut.
+            _log.warning(
+                "Intake : libellé Tally non reconnu, réponse ignorée — %r.", raw_key[:120],
+            )
 
     if "DELIVERABLE_TYPE" in normalized:
         normalized["DELIVERABLE_TYPE"] = _normalize_deliverable_type(

@@ -59,7 +59,14 @@ SPACE_CLASS = r"[^\S\r\n]"
 # LIMITE ASSUMEE : « 2027 200 » reste colle. Un groupe de trois chiffres est
 # indiscernable d'un groupe de milliers, et aucune expression reguliere ne
 # tranchera cela — il faudrait comprendre la phrase.
-NUMBER_BODY = rf"-?\d+(?:{SPACE_CLASS}\d{{3}})*(?:[.,]\d+)?"
+#
+# L'apostrophe — droite ou typographique — est le separateur de milliers
+# SUISSE : « CHF 6'000'000 ». Le business plan reel `6c794b18` (26/09/2026)
+# a ete bloque sur « reference client illisible » avec ce montant ecrit dans
+# le brief. Un groupe de trois chiffres est exige derriere, comme pour
+# l'espace : « d'euros » ou « l'an 1 » n'ont pas de chiffre devant l'apostrophe.
+_SEPARATEUR_MILLIERS = rf"(?:{SPACE_CLASS}|['’])"
+NUMBER_BODY = rf"-?\d+(?:{_SEPARATEUR_MILLIERS}\d{{3}})*(?:[.,]\d+)?"
 _NUMBER_START = r"(?<![A-Za-z\d])"
 
 # Fin de mot, cote DROIT d'une unite. Sans elle, « euro » se reconnaissait au
@@ -76,8 +83,17 @@ _FIN_D_UNITE = r"(?![A-Za-zÀ-ÖØ-öø-ÿ])"
 # Devises reconnues, prefixes longs AVANT les courts (sinon « M€ » serait
 # tronque en « € »). Zone euro + zone franc CFA : la table `_COUNTRY_CURRENCY`
 # de generation/coherence.py mappe une douzaine de pays vers XOF/XAF.
+#
+# La liste couvre TOUTES les devises que `generation/coherence._COUNTRY_CURRENCY`
+# sait attribuer a un pays : ce module verrouillait « CHF » comme devise d'un
+# dossier suisse pendant que celui-ci ne savait pas lire « CHF » dans un
+# montant — deux modules en desaccord sur la meme verite (regle 5), et c'est le
+# motif faux du BP `6c794b18`.
 CURRENCY_ALTERNATION = (
-    rf"(?:Mds€|Md€|M€|k€|kEUR|€|euros?|EUR|FCFA|XOF|XAF|CFA){_FIN_D_UNITE}"
+    r"(?:Mds€|Md€|M€|k€|kEUR|€|euros?|EUR|FCFA|XOF|XAF|CFA"
+    rf"|CHF|francs?{SPACE_CLASS}+suisses?"
+    r"|MAD|TND|CAD|CDF|GNF|MGA|MRU|RWF|BIF|KES|ZAR|HTG|DJF|KMF|NGN|GHS)"
+    rf"{_FIN_D_UNITE}"
 )
 
 # Mots de magnitude ecrits en toutes lettres (« 420 millions d'euros »).
@@ -89,11 +105,40 @@ MAGNITUDE_WORDS = rf"(?:millions?|milliards?){_FIN_D_UNITE}"
 # lui, « CA An1 250 272 € » se lisait « 1 250 272 € » — le chiffre de l'indice
 # d'exercice collé au montant — et c'est CE montant faux qui etait verrouille
 # comme fait client, puis oppose au document (mesure du 26/09/2026).
-MONEY = rf"{_NUMBER_START}{NUMBER_BODY}{SPACE_CLASS}*(?:{CURRENCY_ALTERNATION})"
+#
+# « 1,2 million d'euros », « 420 millions d'euros » : la magnitude en toutes
+# lettres, puis la devise. Un brief ecrit ainsi n'etait lu par AUCUN des deux
+# motifs : l'intake ne verrouillait rien, et le gate declarait la reference
+# client « illisible » avec le montant sous les yeux (26/09/2026, regle 2). La
+# devise reste OBLIGATOIRE apres la magnitude : « 3 millions de clients »
+# n'est pas un montant.
+_MAGNITUDE_PUIS_DEVISE = (
+    rf"{MAGNITUDE_WORDS}{SPACE_CLASS}*(?:d['’]{SPACE_CLASS}*)?(?:{CURRENCY_ALTERNATION})"
+)
+#
+# Et la devise AVANT le nombre — « CHF 6'000'000 », « € 320 000 » —, forme
+# courante en Suisse et dans les documents comptables. Sans groupe : ce motif
+# sert a RECONNAITRE un montant (intake, presence d'une reference), pas a le
+# decomposer. `MONEY_CAPTURED` garde l'ordre francais, celui que le prompt
+# impose au document.
+MONEY = (
+    rf"(?:{_NUMBER_START}{NUMBER_BODY}{SPACE_CLASS}*"
+    rf"(?:{_MAGNITUDE_PUIS_DEVISE}|{CURRENCY_ALTERNATION})"
+    rf"|(?<![A-Za-z]){CURRENCY_ALTERNATION}{SPACE_CLASS}*{NUMBER_BODY}(?!\d))"
+)
 
 # Montant AVEC groupes : (1) le nombre, (2) l'unite. L'unite est indispensable :
 # sans elle « 1,25 M€ » est lu 1.25 et compare a 1 250 000.
-MONEY_CAPTURED = rf"{_NUMBER_START}({NUMBER_BODY}){SPACE_CLASS}*({CURRENCY_ALTERNATION})"
+#
+# Le groupe 2 est l'unite qui fixe l'ECHELLE : la magnitude quand elle est
+# ecrite (« million », que `to_base_units` connait), la devise sinon. La devise
+# qui suit une magnitude est exigee par un lookahead sans etre consommee : les
+# appelants lisent `group(2)` et `end()` exactement comme avant.
+MONEY_CAPTURED = (
+    rf"{_NUMBER_START}({NUMBER_BODY}){SPACE_CLASS}*"
+    rf"({MAGNITUDE_WORDS}(?={SPACE_CLASS}*(?:d['’]{SPACE_CLASS}*)?(?:{CURRENCY_ALTERNATION}))"
+    rf"|{CURRENCY_ALTERNATION})"
+)
 
 # Nombre + unite optionnelle (devise OU mot de magnitude), pour lire une valeur
 # de fait client qui peut etre multiple : « 250 272 € / 296 000 € », « 55 % ».
@@ -132,7 +177,8 @@ def parse_number(raw: str) -> float | None:
     """
     if not raw:
         return None
-    cleaned = _ALL_WHITESPACE_RE.sub("", raw).replace(",", ".")
+    cleaned = _ALL_WHITESPACE_RE.sub("", raw).replace("'", "").replace("’", "")
+    cleaned = cleaned.replace(",", ".")
     try:
         return float(cleaned)
     except ValueError:

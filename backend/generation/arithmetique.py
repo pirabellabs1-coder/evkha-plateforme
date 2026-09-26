@@ -459,6 +459,33 @@ def _nomme_une_origine(candidat: str) -> bool:
     return False
 
 
+def _organisme(source: str) -> frozenset[str]:
+    """Les noms propres qui identifient QUI est cité, hors géographie.
+
+    « Namastrip, référence testée », « référence Namastrip » et « Namastrip »
+    sont la même source écrite trois fois : l'étude concurrentielle `e71fa43a`
+    (26/09/2026) a été bloquée pour « 890 € attribué à 3 sources différentes »
+    sur ces trois graphies. Comparer les chaînes, c'est compter les mots
+    autour de l'organisme ; on compare l'organisme (règle 4 — la classe, pas
+    l'instance).
+    """
+    from .geography import NOMS_GEOGRAPHIQUES, _strip_accents  # noqa: PLC0415
+
+    return frozenset(
+        _strip_accents(mot).lower()
+        for mot in _NOM_PROPRE.findall(source)
+        if _strip_accents(mot).lower() not in NOMS_GEOGRAPHIQUES
+    )
+
+
+def _meme_source(a: str, b: str) -> bool:
+    """Deux mentions citent la même origine si elles nomment le même organisme."""
+    if a.casefold() == b.casefold():
+        return True
+    organisme_a, organisme_b = _organisme(a), _organisme(b)
+    return bool(organisme_a and organisme_b and organisme_a & organisme_b)
+
+
 @dataclass(frozen=True)
 class SourceDivergente:
     """Un même montant attribué à deux sources différentes."""
@@ -508,7 +535,7 @@ def sources_divergentes(textes: list[str]) -> list[SourceDivergente]:
                 continue
             cle = f"{re.sub(r'[    ]', '', m.group('montant'))} {m.group('unite')}"
             connues = par_montant.setdefault(cle, [])
-            if source.casefold() not in {s.casefold() for s in connues}:
+            if not any(_meme_source(source, connue) for connue in connues):
                 connues.append(source)
 
     return [

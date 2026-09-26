@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from core.numbers import amounts_in
+from integrations.claude import motif_de_troncature
 
 from .prompt import construire_prompt_socle
 from .referentiel import identifiants_du_client, identifiants_pour, livrable_couvert
@@ -276,6 +277,21 @@ def produire_socle(
         )
         consommation["input_tokens"] += resultat.input_tokens
         consommation["output_tokens"] += resultat.output_tokens
+
+        # Une réponse coupée par `max_tokens` arrive avec un `payload` vide ou
+        # amputé. Sans ce test, `_analyser` la refusait pour « aucun appel
+        # d'outil exploitable » — un motif qui ne dit pas au modèle ce qu'il
+        # doit changer, donc trois tentatives identiques et un dossier mort
+        # avant son premier chapitre (relecture du 26/09/2026).
+        motifs = motif_de_troncature(
+            str(getattr(resultat, "stop_reason", "end_turn")), max_tokens
+        )
+        if motifs:
+            _log.warning(
+                "Socle tronqué (tentative %s/%s) : %s",
+                tentative, MAX_TENTATIVES, motifs[0],
+            )
+            continue
 
         socle, motifs = _analyser(
             dict(resultat.payload),

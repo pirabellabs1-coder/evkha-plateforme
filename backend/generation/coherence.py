@@ -245,7 +245,28 @@ _COUNTRY_CURRENCY: dict[str, str] = {
     "suisse": "CHF",
     "nigeria": "NGN",
     "ghana": "GHS",
+    "guinee equatoriale": "XAF",
 }
+
+
+def devise_du_pays(pays: str) -> str | None:
+    """La devise d'un champ PAYS tel que le client l'écrit, ou None.
+
+    L'égalité stricte (`_COUNTRY_CURRENCY.get(pays)`) ne trouvait rien pour
+    « Cotonou, Bénin », « République du Sénégal » ni « Côte d’Ivoire » avec
+    l'apostrophe typographique — et un dossier ouest-africain partait alors
+    SANS devise verrouillée, ses montants en € jamais confrontés (relecture du
+    26/09/2026). On cherche chaque pays connu comme MOT ENTIER dans le champ
+    normalisé, le plus long d'abord : « république démocratique du congo »
+    (CDF) doit gagner sur « congo » (XAF).
+    """
+    from .geography import _strip_accents  # noqa: PLC0415
+
+    texte = _strip_accents(pays.lower()).replace("’", "'")
+    for nom in sorted(_COUNTRY_CURRENCY, key=len, reverse=True):
+        if re.search(rf"(?<![a-z]){re.escape(nom)}(?![a-z])", texte):
+            return _COUNTRY_CURRENCY[nom]
+    return None
 
 
 class CoherenceConflictError(ValueError):
@@ -463,10 +484,7 @@ def seed_locked_facts_from_variables(
 
     country = str(variables.get("PAYS", "")).strip()
     if country:
-        from .geography import _strip_accents  # noqa: PLC0415
-
-        # Accent-insensible : "Guinée" et "guinee" doivent matcher.
-        currency = _COUNTRY_CURRENCY.get(_strip_accents(country.lower()))
+        currency = devise_du_pays(country)
         if currency:
             _seed(FactKind.CURRENCY, "currency", currency)
 

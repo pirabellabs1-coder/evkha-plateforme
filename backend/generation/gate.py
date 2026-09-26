@@ -41,6 +41,7 @@ from catalog.models import DeliverableType
 from core.numbers import (
     CURRENCY_ALTERNATION,
     MAGNITUDE_WORDS,
+    MONEY,
     MONEY_CAPTURED,
     NUMBER_BODY,
     SPACE_CLASS,
@@ -453,7 +454,11 @@ def _verticale_present(needle: str, full_text: str) -> bool:
 #: Un montant qui porte SON unité. `amounts_in` la rend facultative — c'est
 #: juste pour lire « 55 % An1 -> 85 % An5 », et faux pour décider si une
 #: réponse client contient un montant.
-_MONTANT_AVEC_DEVISE = re.compile(MONEY_CAPTURED, re.IGNORECASE)
+# PRÉSENCE d'un montant, dans les deux ordres (« 6'000'000 CHF » comme
+# « CHF 6'000'000 ») : ce motif ne sert qu'à dire si une référence est lisible.
+# Avec `MONEY_CAPTURED` — devise APRÈS seulement — le BP suisse `6c794b18` a
+# été déclaré « référence client illisible » trois fois (26/09/2026).
+_MONTANT_AVEC_DEVISE = re.compile(MONEY, re.IGNORECASE)
 
 
 def _exige_une_devise(patterns: tuple[re.Pattern[str], ...]) -> bool:

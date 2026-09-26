@@ -57,7 +57,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .schema import Fiabilite, Socle
+from integrations.claude import motif_de_troncature
+
+from .referentiel import Fiabilite
+from .schema import Socle
 
 _log = logging.getLogger(__name__)
 
@@ -286,6 +289,21 @@ def verifier_le_socle(
     except Exception as erreur:  # noqa: BLE001 — une panne ici ne tue pas l'étude
         _log.exception("Vérification du socle impossible")
         rapport.motif_non_executee = f"{type(erreur).__name__} : {erreur}"
+        return rapport
+
+    # Une réponse coupée par `max_tokens` rend `{}`, qui se valide en
+    # `verdicts=[]` : chaque chiffre observé était alors déclassé « non examiné
+    # par la passe » pendant que le rapport disait la passe exécutée. C'est la
+    # règle 1 à l'envers — un contrôle qui n'a rien pu lire déclarait avoir
+    # tout jugé. Une passe sans verdict n'est pas une passe (26/09/2026).
+    tronquee = motif_de_troncature(
+        str(getattr(resultat, "stop_reason", "end_turn")), MAX_TOKENS
+    )
+    if tronquee or not rendu.verdicts:
+        rapport.motif_non_executee = (
+            tronquee[0] if tronquee else "le modèle n'a rendu aucun verdict"
+        )
+        _log.warning("Vérification du socle non exécutée : %s", rapport.motif_non_executee)
         return rapport
 
     rapport.passe_executee = True
