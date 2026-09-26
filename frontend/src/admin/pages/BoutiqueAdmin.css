@@ -302,7 +302,7 @@
 .bqa-avis-formulaire input,
 .bqa-avis-formulaire select {
   font: inherit;
-  font-size: var(--t-base);
+  font-size: max(1rem, var(--t-base)); /* 16 px : sous ce seuil, Safari iOS zoome au focus */
   color: var(--texte);
   background: var(--fond-carte);
   border: 1px solid var(--evkha-bordure);

@@ -24,9 +24,32 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const PUBLIC = join(process.cwd(), "src", "public");
-const THEME = join(process.cwd(), "src", "theme");
-const PAGES = join(process.cwd(), "src", "pages");
+const SRC = join(process.cwd(), "src");
+const PUBLIC = join(SRC, "public");
+
+/** Toutes les feuilles de `src`, sous-dossiers compris : la console admin
+ *  gardait deux règles à 15 px parce qu'une première version de ce test ne
+ *  lisait que trois dossiers (quality-gatekeeper, 26/09/2026). */
+function feuillesDe(dossier: string): string[] {
+  return readdirSync(dossier, { withFileTypes: true }).flatMap((entree) => {
+    const chemin = join(dossier, entree.name);
+    if (entree.isDirectory()) return feuillesDe(chemin);
+    return entree.name.endsWith(".css") ? [chemin] : [];
+  });
+}
+
+/** Un morceau de sélecteur qui vise un champ où l'on TAPE du texte. Un
+ *  `input[type="file"]`, une case à cocher ou un bouton radio n'ouvrent pas
+ *  de clavier : iOS ne zoome pas dessus. */
+function viseUnChampDeSaisie(selecteur: string): boolean {
+  return selecteur.split(",").some(
+    (morceau) =>
+      /\b(textarea|select)\b|champ-saisie/.test(morceau) ||
+      /\binput\b(?!\[type="?(file|checkbox|radio|range|color|submit|button|hidden)"?\])/.test(
+        morceau,
+      ),
+  );
+}
 
 interface Regle {
   feuille: string;
@@ -42,17 +65,11 @@ function sansCommentaires(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
-/** Toutes les règles `sélecteur { corps }` des feuilles de l'application
- *  (pages publiques, thème, anciennes pages), @media compris : on ne garde
- *  que le bloc le plus intérieur. */
+/** Toutes les règles `sélecteur { corps }` des feuilles de l'application,
+ *  @media compris : on ne garde que le bloc le plus intérieur. */
 function regles(): Regle[] {
-  const feuilles = [PUBLIC, THEME, PAGES].flatMap((dossier) =>
-    readdirSync(dossier)
-      .filter((f) => f.endsWith(".css"))
-      .map((f) => join(dossier, f)),
-  );
   const sortie: Regle[] = [];
-  for (const feuille of feuilles) {
+  for (const feuille of feuillesDe(SRC)) {
     const css = sansCommentaires(lire(feuille));
     for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       sortie.push({ feuille, selecteur: m[1].trim(), corps: m[2] });
@@ -124,11 +141,12 @@ describe("une image garde son ratio", () => {
 describe("un champ ne fait pas zoomer iOS", () => {
   it("aucune règle de l'application ne met un champ sous 16 px", () => {
     const champs = REGLES.filter(
-      (r) =>
-        /\b(input|textarea|select)\b|champ-saisie/.test(r.selecteur) &&
-        /font-size\s*:/.test(r.corps),
+      (r) => viseUnChampDeSaisie(r.selecteur) && /font-size\s*:/.test(r.corps),
     );
     expect(champs.length).toBeGreaterThan(0);
+    // Règle 1 : la console admin DOIT être lue, sinon le verrou se tait sur
+    // elle comme la première version.
+    expect(champs.some((r) => r.feuille.includes(join("src", "admin")))).toBe(true);
     for (const r of champs) {
       const valeur = tailleDe(r);
       const px = enPixels(valeur);
@@ -151,6 +169,14 @@ describe("un champ ne fait pas zoomer iOS", () => {
     );
     expect(plancher, "plancher :where(input, select, textarea) absent").toBeDefined();
     expect(enPixels(tailleDe(plancher)) ?? 0).toBeGreaterThanOrEqual(16);
+  });
+
+  it("contre-épreuve : un sélecteur de fichier n'est pas un champ de saisie", () => {
+    expect(viseUnChampDeSaisie('.bqa-depot input[type="file"]')).toBe(false);
+    expect(viseUnChampDeSaisie(".x input[type=checkbox]")).toBe(false);
+    expect(viseUnChampDeSaisie(".ann-champ input, .ann-champ select")).toBe(true);
+    expect(viseUnChampDeSaisie(".prt input")).toBe(true);
+    expect(viseUnChampDeSaisie(".champ-saisie")).toBe(true);
   });
 
   it("contre-épreuve : la lecture des tailles distingue 13,6 px de 16 px", () => {
