@@ -5,6 +5,11 @@
  * verre, lui, vient de `theme/tokens.css` (`--verre-*`, `--halo-*`,
  * `--ease-*`) : c'est le même langage que l'espace client, et la personne qui
  * franchit cette porte doit retrouver de l'autre côté ce qu'elle a vu ici.
+ *
+ * Aucune couleur n'est écrite ici, pas même celles qui ne sont pas de la
+ * charte : le bouton Google, les rouges du message d'erreur, les filets
+ * crème ont leur jeton nommé dans `tokens.css` (`--google-*`, `--portail-*`),
+ * à leur valeur exacte. Verrouillé par `les-pages-publiques-lisent-la-charte`.
  */
 
 .prt {
@@ -155,7 +160,7 @@
 .prt-onglets {
   display: flex;
   gap: 1.6rem;
-  border-bottom: 1px solid #e7e0cf;
+  border-bottom: 1px solid var(--portail-filet);
   margin-bottom: 1.8rem;
 }
 
@@ -220,15 +225,15 @@
   inset: 0;
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.88) 0%,
-    rgba(0, 0, 0, 0.55) 45%,
-    rgba(0, 0, 0, 0.25) 100%
+    color-mix(in srgb, var(--evkha-noir-pur) 88%, transparent) 0%,
+    color-mix(in srgb, var(--evkha-noir-pur) 55%, transparent) 45%,
+    color-mix(in srgb, var(--evkha-noir-pur) 25%, transparent) 100%
   );
 }
 
 .prt-panneau {
   position: relative;
-  color: #ffffff;
+  color: var(--evkha-blanc);
   padding: 2.5rem 2.8rem 3rem;
 }
 
@@ -256,7 +261,7 @@
   align-items: start;
   font-size: 0.82rem;
   line-height: 1.5;
-  color: #ececec;
+  color: var(--portail-panneau-texte);
 }
 
 /* ── Bouton Google ───────────────────────────────────────────────────────── */
@@ -268,8 +273,8 @@
   justify-content: center;
   gap: 0.6rem;
   background: var(--verre-fond-fort);
-  color: #3c4043;
-  border: 1px solid #dadce0;
+  color: var(--google-texte);
+  border: 1px solid var(--google-bordure);
   border-radius: 999px;
   padding: 0.75rem;
   font-family: inherit;
@@ -284,8 +289,8 @@
 }
 
 .prt-google:hover:not(:disabled) {
-  background: #ffffff;
-  border-color: #c9ccce;
+  background: var(--evkha-blanc);
+  border-color: var(--google-bordure-survol);
   box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
   transform: translateY(-1px);
 }
@@ -326,7 +331,7 @@
 .prt-ou::after {
   content: "";
   height: 1px;
-  background: #e7e0cf;
+  background: var(--portail-filet);
 }
 
 /* ── Adaptations ─────────────────────────────────────────────────────────── */
@@ -371,7 +376,7 @@
   font-size: 1rem;
   color: var(--noir);
   background: var(--verre-fond-fort);
-  border: 1px solid #d5cdb9;
+  border: 1px solid var(--portail-champ-bordure);
   border-radius: var(--rayon-md);
   box-shadow: inset 0 1px 2px var(--verre-bordure);
   transition: border-color var(--duree-micro) var(--ease-doux),
@@ -380,7 +385,7 @@
 }
 
 .prt input:hover:not(:focus) {
-  background: #ffffff;
+  background: var(--evkha-blanc);
 }
 
 /* Anneau or au focus, autour d'un bord NOIR : l'or seul plafonne à 1,7:1 sur
@@ -388,15 +393,15 @@
 .prt input:focus {
   outline: none;
   border-color: var(--noir);
-  background: #ffffff;
+  background: var(--evkha-blanc);
   box-shadow: 0 0 0 1px var(--noir), 0 0 0 5px var(--halo-or-fort);
 }
 
 /* Le champ fautif se voit AUSSI par la couleur, jamais seulement par elle :
    le message d'erreur nomme toujours ce qui ne va pas. */
 .prt input[aria-invalid="true"] {
-  border-color: #b3261e;
-  background: #fff8f7;
+  border-color: var(--evkha-echec);
+  background: var(--portail-champ-invalide);
 }
 
 .prt label small {
@@ -437,7 +442,7 @@
 }
 
 .prt button[type="submit"]:hover:not(:disabled) {
-  background: #f0c93a;
+  background: var(--portail-or-survol);
   box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
   transform: translateY(-1px);
 }
@@ -474,7 +479,7 @@
     transparent 100%
   );
   transform: translateX(-100%);
-  animation: prt-balayage 1.3s var(--ease-doux) infinite;
+  animation: prt-balayage var(--duree-balayage) var(--ease-doux) infinite;
 }
 
 @keyframes prt-balayage {
@@ -484,9 +489,9 @@
 }
 
 .prt .insc-erreur {
-  background: #fdecea;
-  border: 1px solid #f2b8b5;
-  color: #8c1d18;
+  background: var(--portail-erreur-voile);
+  border: 1px solid var(--portail-erreur-bordure);
+  color: var(--portail-erreur-texte);
   border-radius: var(--rayon-md);
   padding: 0.75rem 0.95rem;
   font-size: 0.75rem;
@@ -495,7 +500,7 @@
 }
 
 .prt .insc-erreur a {
-  color: #8c1d18;
+  color: var(--portail-erreur-texte);
   font-weight: 700;
 }
 
@@ -520,13 +525,13 @@
 }
 
 .prt-appoint a {
-  color: var(--prt-encre-tenue, #6b6a65);
+  color: var(--portail-appoint);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .prt-appoint a:hover {
-  color: var(--prt-encre, #21201c);
+  color: var(--portail-appoint-survol);
 }
 
 /* ── Mouvement réduit ────────────────────────────────────────────────────── */

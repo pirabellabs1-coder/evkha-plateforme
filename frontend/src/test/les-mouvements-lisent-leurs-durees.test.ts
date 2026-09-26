@@ -1,4 +1,4 @@
-/** Chaque mouvement de l'espace lit sa durée dans `tokens.css`.
+/** Chaque mouvement de `src` lit sa durée dans `tokens.css`.
  *
  * Le bloc `prefers-reduced-motion` de `tokens.css` remet les jetons de durée à
  * 0 ms : c'est ce qui arrête d'un coup toutes les animations qui les lisent.
@@ -9,17 +9,24 @@
  * une règle `animation: none` nommée — et la transition de `transform` des
  * étoiles d'avis n'en avait aucune.
  *
- * Trois verrous, de la feuille aux jetons :
+ * Le verrou ne lisait que `espace.css`. Le même jour, hors de lui, la lame de
+ * lumière du bouton de connexion (`public/Portail.css`, `1.3s`) et trois
+ * transitions de la boutique admin (`admin/pages/BoutiqueAdmin.css`, `0.15s`
+ * et `0.18s`) continuaient de tourner sous mouvement réduit. Les feuilles
+ * sont désormais DÉCOUVERTES sous `src`, sous-dossiers compris (`charte.ts`),
+ * `tokens.css` exclue.
  *
- * 1. aucune déclaration de mouvement de `espace.css` (`animation`,
+ * Trois verrous, des feuilles aux jetons :
+ *
+ * 1. aucune déclaration de mouvement d'aucune feuille (`animation`,
  *    `transition`, leurs `-duration` et `-delay`) n'écrit un temps littéral —
- *    la CLASSE du défaut (règle 4), pas la liste des onze valeurs ; et chaque
+ *    la CLASSE du défaut (règle 4), pas la liste des valeurs ; et chaque
  *    `animation`/`transition` active lit un jeton de durée ;
  * 2. chaque jeton `--duree-*` du `:root` de `tokens.css` — et tout autre jeton
  *    dont la valeur est un temps, `--transition` ou `--decalage-reveal` — est
  *    remis à 0 dans son bloc de mouvement réduit. Un jeton ajouté sans sa
  *    remise à zéro rouvrirait le défaut par l'autre bout ;
- * 3. chaque `var(--duree-…)` lu par `espace.css` est déclaré : un nom mal
+ * 3. chaque `var(--duree-…)` lu par une feuille est déclaré : un nom mal
  *    orthographié invalide la déclaration entière, et l'animation disparaît
  *    sans un mot.
  *
@@ -28,26 +35,28 @@
  * temps en dur ou un jeton oublié.
  *
  * Rejoué sur les feuilles de `bdbd6e5` (sauvegarde, `git show`, restauration) :
- * rouge ; sur celles-ci : vert.
+ * rouge ; puis, élargi, sur celles de `4c88e22` : rouge sur `Portail.css` et
+ * `BoutiqueAdmin.css` ; sur celles-ci : vert.
  *
  * jsdom ne calcule aucune mise en page ni aucune animation : on lit les
  * déclarations elles-mêmes, comme `un-bouton-ne-rogne-pas-son-libelle`.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { feuillesSous, lireFeuille, sansCommentaires, SOURCE } from "./charte";
 
-const THEME = join(process.cwd(), "src", "theme");
+/** Feuilles pas encore passées aux jetons de durée, et pourquoi. À vider,
+ *  jamais à allonger sans une raison écrite ici. */
+const EN_ATTENTE = new Map([
+  [
+    "index.css",
+    "styles globaux de la console admin sous Radix (`.sidebar-link`, `0.12s`) : " +
+      "la console est convertie hors de Radix par un chantier parallèle (26/09/2026), " +
+      "qui possède ce fichier",
+  ],
+]);
 
-function lire(feuille: string): string {
-  return readFileSync(join(THEME, feuille), "utf-8").replace(/\r\n/g, "\n");
-}
-
-/** Un commentaire qui CITE une durée pour raconter son retrait n'en écrit pas
- *  une. */
-function sansCommentaires(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, "");
-}
+const TOUTES = feuillesSous().filter((f) => f !== SOURCE);
+const VERROUILLEES = TOUTES.filter((f) => !EN_ATTENTE.has(f));
 
 /** Une déclaration de mouvement : `animation`, `transition`, et leurs
  *  `-duration` / `-delay`, préfixe `-webkit-` compris. `animation-name` n'en
@@ -77,6 +86,23 @@ function mouvements(css: string): Declaration[] {
 
 function tempsLitteraux(valeur: string): string[] {
   return valeur.match(TEMPS_LITTERAL) ?? [];
+}
+
+/** Les mouvements d'une feuille qui écrivent un temps en dur. */
+function mouvementsEnDur(css: string): string[] {
+  return mouvements(css)
+    .filter((d) => tempsLitteraux(d.valeur).length > 0)
+    .map((d) => `${d.propriete}: ${d.valeur}`);
+}
+
+/** Les `animation`/`transition` actives d'une feuille qui ne lisent aucun
+ *  jeton de durée. */
+function mouvementsSansJeton(css: string): string[] {
+  return mouvements(css)
+    .filter((d) => !d.propriete.endsWith("-delay"))
+    .filter((d) => d.valeur !== "none")
+    .filter((d) => !JETON_DE_DUREE.test(d.valeur))
+    .map((d) => `${d.propriete}: ${d.valeur}`);
 }
 
 /** Les jetons d'un bloc `:root`, nom → valeur. */
@@ -121,33 +147,49 @@ function jetonsNonRemisAZero(css: string): string[] {
   return fautifs;
 }
 
-describe("les mouvements de l'espace lisent leurs durées", () => {
-  const espace = lire("espace.css");
-  const tokens = lire("tokens.css");
-  const declarations = mouvements(espace);
+describe("les mouvements de src lisent leurs durées", () => {
+  const tokens = lireFeuille(SOURCE);
 
   // Règle 1 : un contrôle qui n'a rien à comparer est un échec, pas un
-  // succès. Si l'analyse ne trouvait aucune déclaration, tout passerait.
-  it("trouve les déclarations de mouvement et les jetons de durée", () => {
-    expect(declarations.length).toBeGreaterThan(20);
+  // succès. Si la découverte ou l'analyse ne trouvait rien, tout passerait.
+  it("trouve les feuilles, leurs déclarations de mouvement et les jetons de durée", () => {
+    expect(VERROUILLEES).toContain("theme/espace.css");
+    expect(VERROUILLEES).toContain("public/Portail.css");
+    expect(
+      VERROUILLEES.filter((f) => f.startsWith("admin/")),
+      "aucune feuille de admin/ découverte",
+    ).not.toEqual([]);
+    expect(mouvements(lireFeuille("theme/espace.css")).length).toBeGreaterThan(20);
+    const total = VERROUILLEES.reduce((n, f) => n + mouvements(lireFeuille(f)).length, 0);
+    expect(total).toBeGreaterThan(60);
     const duree = [...racine(tokens).keys()].filter((n) => n.startsWith("--duree-"));
     expect(duree.length).toBeGreaterThanOrEqual(3);
     expect(reduction(tokens).size).toBeGreaterThanOrEqual(duree.length);
   });
 
-  it("espace.css n'écrit aucun temps en dur dans un mouvement", () => {
-    const fautives = declarations
-      .filter((d) => tempsLitteraux(d.valeur).length > 0)
-      .map((d) => `${d.propriete}: ${d.valeur}`);
+  it("l'exemption ne couvre que des feuilles qui existent et en ont besoin", () => {
+    for (const [feuille, raison] of EN_ATTENTE) {
+      expect(raison.length, `${feuille} exemptée sans raison écrite`).toBeGreaterThan(20);
+      expect(TOUTES, `${feuille} exemptée mais absente`).toContain(feuille);
+      const css = lireFeuille(feuille);
+      expect(
+        mouvementsEnDur(css).length + mouvementsSansJeton(css).length,
+        `${feuille} lit ses durées dans les jetons : retirez-la de EN_ATTENTE`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("aucune feuille n'écrit de temps en dur dans un mouvement", () => {
+    const fautives = VERROUILLEES.flatMap((f) =>
+      mouvementsEnDur(lireFeuille(f)).map((d) => `${f} — ${d}`),
+    );
     expect(fautives).toEqual([]);
   });
 
   it("chaque animation et chaque transition active lit un jeton de durée", () => {
-    const sansJeton = declarations
-      .filter((d) => !d.propriete.endsWith("-delay"))
-      .filter((d) => d.valeur !== "none")
-      .filter((d) => !JETON_DE_DUREE.test(d.valeur))
-      .map((d) => `${d.propriete}: ${d.valeur}`);
+    const sansJeton = VERROUILLEES.flatMap((f) =>
+      mouvementsSansJeton(lireFeuille(f)).map((d) => `${f} — ${d}`),
+    );
     expect(sansJeton).toEqual([]);
   });
 
@@ -155,13 +197,20 @@ describe("les mouvements de l'espace lisent leurs durées", () => {
     expect(jetonsNonRemisAZero(tokens)).toEqual([]);
   });
 
-  it("chaque var(--duree-…) lu par espace.css est déclaré dans tokens.css", () => {
+  it("chaque var(--duree-…) lu par une feuille est déclaré dans tokens.css", () => {
     const declares = racine(tokens);
-    const lus = new Set(
-      [...sansCommentaires(espace).matchAll(/var\(\s*(--duree-[\w-]+)/g)].map((m) => m[1]),
-    );
-    expect(lus.size).toBeGreaterThan(0);
-    const inconnus = [...lus].filter((nom) => !declares.has(nom));
+    const inconnus: string[] = [];
+    let lus = 0;
+    for (const feuille of TOUTES) {
+      const noms = new Set(
+        [...sansCommentaires(lireFeuille(feuille)).matchAll(/var\(\s*(--duree-[\w-]+)/g)].map(
+          (m) => m[1],
+        ),
+      );
+      lus += noms.size;
+      for (const nom of noms) if (!declares.has(nom)) inconnus.push(`${feuille} : ${nom}`);
+    }
+    expect(lus).toBeGreaterThan(0);
     expect(inconnus).toEqual([]);
   });
 
@@ -184,6 +233,15 @@ describe("les mouvements de l'espace lisent leurs durées", () => {
       { propriete: "animation-delay", valeur: "400ms" },
       { propriete: "transition", valeur: "none" },
     ]);
+
+    // Au niveau d'une feuille : une transition en dur est nommée par les deux
+    // détecteurs, une transition sur jeton par aucun.
+    const feuille = `
+      .a { transition: background 0.15s, color 0.15s; }
+      .b { transition: box-shadow var(--duree-micro), transform var(--duree-micro); }
+      .c { animation: none; }`;
+    expect(mouvementsEnDur(feuille)).toEqual(["transition: background 0.15s, color 0.15s"]);
+    expect(mouvementsSansJeton(feuille)).toEqual(["transition: background 0.15s, color 0.15s"]);
 
     // Un jeton de durée oublié dans le bloc de réduction, ou remis à autre
     // chose que zéro, est nommé.
