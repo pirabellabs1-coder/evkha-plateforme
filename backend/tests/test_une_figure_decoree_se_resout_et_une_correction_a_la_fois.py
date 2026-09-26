@@ -21,6 +21,7 @@ from generation.chapitres.schema import (
     BlocParagraphe,
     ChapitrePayload,
     Graphique,
+    TypeGraphique,
     valider_chapitre,
 )
 from generation.tasks import (
@@ -37,7 +38,8 @@ def _payload(*identifiants: str) -> ChapitrePayload:
         blocs=[
             BlocParagraphe(texte="Un paragraphe suffisant pour tenir le contrat."),
             BlocGraphique(graphique=Graphique(
-                type="barres", titre="Une figure", donnees_ids=list(identifiants),
+                type_graphique=TypeGraphique("barres"), titre="Une figure",
+                donnees_ids=list(identifiants),
             )),
         ],
         resume="Un résumé d'essai suffisamment long pour tenir sa borne basse.",
