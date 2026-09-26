@@ -1,7 +1,10 @@
 /* Coquille commune connexion / inscription — charte de la page partenaires.
  *
  * Les variables de couleur viennent de `.pp` : c'est la même marque, et un
- * second jeu de couleurs finirait par diverger du premier (règle 5).
+ * second jeu de couleurs finirait par diverger du premier (règle 5). Le
+ * verre, lui, vient de `theme/tokens.css` (`--verre-*`, `--halo-*`,
+ * `--ease-*`) : c'est le même langage que l'espace client, et la personne qui
+ * franchit cette porte doit retrouver de l'autre côté ce qu'elle a vu ici.
  */
 
 .prt {
@@ -18,14 +21,14 @@
  *
  * Les planchers disent ce que chaque colonne exige, plutôt qu'une largeur
  * d'écran devinée : 240 px pour que la photo reste une photo et non un
- * liseré ; 448 px pour le formulaire, soit les 400 px de `.prt-contenu` plus
- * ses 2 × 1,5 rem de marge. Le premier plancher va à la colonne de gauche,
- * donc au visuel — l'ordre des pistes suit l'ordre d'affichage, pas l'ordre
- * du HTML.
+ * liseré ; 520 px pour le formulaire, soit les 472 px de la carte de verre
+ * `.prt-contenu` plus ses 2 × 1,5 rem de marge. Le premier plancher va à la
+ * colonne de gauche, donc au visuel — l'ordre des pistes suit l'ordre
+ * d'affichage, pas l'ordre du HTML.
  */
 .prt-grille {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(448px, 1fr);
+  grid-template-columns: minmax(240px, 1fr) minmax(520px, 1fr);
   min-height: 100vh;
 }
 
@@ -44,15 +47,85 @@
 
 /* ── Colonne du formulaire ───────────────────────────────────────────────── */
 
+/* La colonne porte le MAILLAGE — le même fond que l'espace client : la
+ * coquille de la charte et deux halos, or en haut, crème en bas. Peint sur la
+ * colonne et non sur un calque fixe : cette page tient dans un écran, rien
+ * n'y défile sous un verre. */
 .prt-formulaire {
-  background: #ffffff;
+  background:
+    radial-gradient(38rem 30rem at 18% 0%, var(--halo-or) 0%, transparent 68%),
+    radial-gradient(
+      34rem 28rem at 100% 100%,
+      var(--halo-creme) 0%,
+      transparent 66%
+    ),
+    var(--evkha-coquille);
   display: grid;
   place-items: center;
   padding: 2.5rem 1.5rem 3rem;
 }
 
+/* Le formulaire est une CARTE DE VERRE centrée sur le maillage : coque
+ * translucide, cœur blanc en retrait de `--verre-marge`, rayons
+ * concentriques — la même double bordure que les cartes de l'espace client.
+ * Le cœur est un pseudo-élément, sous le contenu (`z-index: -1` dans le
+ * contexte isolé de la carte). */
 .prt-contenu {
-  width: min(400px, 100%);
+  position: relative;
+  isolation: isolate;
+  width: min(472px, 100%);
+  padding: calc(2rem + var(--verre-marge));
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--verre-fond);
+  box-shadow: var(--ombre-ambiante-lg);
+  animation: prt-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
+}
+
+.prt-contenu::before {
+  content: "";
+  position: absolute;
+  inset: var(--verre-marge);
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--verre-reflet);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
+}
+
+/* Ce que la carte contient arrive après elle, en fondu seul et l'un après
+ * l'autre : la carte monte, son contenu s'allume. Deux montées empilées
+ * bougeraient deux fois pour le même effet. */
+.prt-contenu > * {
+  animation: prt-fondu var(--duree-reveal) var(--ease-sortie) backwards;
+  animation-delay: calc((var(--i, 0) + 2) * var(--decalage-reveal));
+}
+
+.prt-contenu > :nth-child(2) {
+  --i: 1;
+}
+.prt-contenu > :nth-child(3) {
+  --i: 2;
+}
+.prt-contenu > :nth-child(4) {
+  --i: 3;
+}
+.prt-contenu > :nth-child(n + 5) {
+  --i: 4;
+}
+
+@keyframes prt-arrivee {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes prt-fondu {
+  from {
+    opacity: 0;
+  }
 }
 
 .prt-logo {
@@ -194,20 +267,36 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  background: #ffffff;
+  background: var(--verre-fond-fort);
   color: #3c4043;
   border: 1px solid #dadce0;
-  border-radius: 3px;
-  padding: 0.65rem;
+  border-radius: 999px;
+  padding: 0.75rem;
   font-family: inherit;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
+  transition: background var(--duree-micro) var(--ease-doux),
+    border-color var(--duree-micro) var(--ease-doux),
+    transform var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux);
 }
 
 .prt-google:hover:not(:disabled) {
-  background: #f7f8f8;
+  background: #ffffff;
   border-color: #c9ccce;
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
+  transform: translateY(-1px);
+}
+
+.prt-google:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.prt-google:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
 }
 
 .prt-google:disabled {
@@ -242,9 +331,9 @@
 
 /* ── Adaptations ─────────────────────────────────────────────────────────── */
 
-/* 688 px = la somme des deux planchers. En dessous, une des deux colonnes
+/* 760 px = la somme des deux planchers. En dessous, une des deux colonnes
    mentirait sur sa largeur et la page déborderait horizontalement. */
-@media (max-width: 700px) {
+@media (max-width: 760px) {
   .prt-grille {
     grid-template-columns: 1fr;
   }
@@ -268,23 +357,36 @@
   margin-bottom: 1rem;
 }
 
+/* Un champ est un verre en creux, comme `.champ-saisie` dans l'espace client :
+   fond translucide, ombre intérieure d'un pixel, bord visible. */
 .prt input {
   display: block;
   width: 100%;
   margin-top: 0.35rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.7rem 0.9rem;
   font-family: inherit;
   font-size: 0.85rem;
   color: var(--noir);
-  background: #ffffff;
+  background: var(--verre-fond-fort);
   border: 1px solid #d5cdb9;
-  border-radius: 3px;
+  border-radius: var(--rayon-md);
+  box-shadow: inset 0 1px 2px var(--verre-bordure);
+  transition: border-color var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux),
+    background var(--duree-micro) var(--ease-doux);
 }
 
+.prt input:hover:not(:focus) {
+  background: #ffffff;
+}
+
+/* Anneau or au focus, autour d'un bord NOIR : l'or seul plafonne à 1,7:1 sur
+   blanc, et l'anneau de focus doit se voir de qui en a besoin. */
 .prt input:focus {
-  outline: 2px solid var(--or);
-  outline-offset: 1px;
-  border-color: var(--or);
+  outline: none;
+  border-color: var(--noir);
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--noir), 0 0 0 5px var(--halo-or-fort);
 }
 
 /* Le champ fautif se voit AUSSI par la couleur, jamais seulement par elle :
@@ -308,38 +410,85 @@
   gap: 0.9rem;
 }
 
+/* Le bouton est un îlot : une pilule qui se soulève au survol et s'enfonce à
+   l'appui. `position` et `overflow` servent au balayage de chargement. */
 .prt button[type="submit"] {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   background: var(--or);
   color: var(--noir);
   border: none;
-  border-radius: 3px;
-  padding: 0.75rem;
+  border-radius: 999px;
+  padding: 0.85rem;
   font-family: inherit;
   font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   cursor: pointer;
   margin-top: 0.4rem;
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
+  transition: background var(--duree-micro) var(--ease-doux),
+    transform var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux);
 }
 
 .prt button[type="submit"]:hover:not(:disabled) {
   background: #f0c93a;
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
+  transform: translateY(-1px);
 }
 
+.prt button[type="submit"]:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.prt button[type="submit"]:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+/* Fermé = en cours d'envoi, sur ces deux pages (`disabled={envoi}`). Le
+   texte dit déjà « Connexion en cours… » ; une lame de lumière traverse la
+   pilule pour dire que ça travaille, sans tourniquet. */
 .prt button[type="submit"]:disabled {
-  opacity: 0.6;
+  opacity: 0.85;
   cursor: progress;
+}
+
+.prt button[type="submit"]:disabled::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--verre-reflet) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: prt-balayage 1.3s var(--ease-doux) infinite;
+}
+
+@keyframes prt-balayage {
+  to {
+    transform: translateX(325%);
+  }
 }
 
 .prt .insc-erreur {
   background: #fdecea;
   border: 1px solid #f2b8b5;
   color: #8c1d18;
-  border-radius: 3px;
-  padding: 0.65rem 0.85rem;
+  border-radius: var(--rayon-md);
+  padding: 0.75rem 0.95rem;
   font-size: 0.75rem;
   margin: 0 0 1rem;
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
 }
 
 .prt .insc-erreur a {
@@ -375,4 +524,16 @@
 
 .prt-appoint a:hover {
   color: var(--prt-encre, #21201c);
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────── */
+
+/* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet : états
+   finaux, tout de suite, et pas de lame de lumière sur le bouton fermé. */
+@media (prefers-reduced-motion: reduce) {
+  .prt-contenu,
+  .prt-contenu > *,
+  .prt button[type="submit"]:disabled::after {
+    animation: none;
+  }
 }
