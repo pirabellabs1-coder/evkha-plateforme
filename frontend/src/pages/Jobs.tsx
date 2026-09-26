@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import {
-  Box, Flex, Badge, Table, Progress, Text, Select, Spinner, Button,
-} from "@radix-ui/themes";
 import { api, estRelancable, type JobSummary } from "../api";
+import * as f from "../espace/format";
+import { Carte, Pastille, Squelette, Vide } from "../espace/composants/Interface";
+import "../admin/console.css";
 
 const DELIVERABLE_LABELS: Record<string, string> = {
   market_study: "Étude de marché",
@@ -21,14 +21,10 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Annulé",
 };
 
-type RadixColor = "gray" | "blue" | "green" | "red";
-
-function statusColor(status: string): RadixColor {
-  const map: Record<string, RadixColor> = {
-    pending: "gray", running: "blue", done: "green", failed: "red", cancelled: "gray",
-  };
-  return map[status] ?? "gray";
-}
+// Le ton de chaque statut vient de la table unique de `Pastille`
+// (`espace/composants/Interface.tsx`) : pending et cancelled neutres, running
+// en information, done en succès, failed en échec — la correspondance exacte
+// des anciennes couleurs Radix (gray, blue, green, red, gray).
 
 /**
  * Bouton « Relancer » posé sur la LIGNE, et pas seulement sur la fiche.
@@ -65,24 +61,29 @@ function BoutonRelancer({ job }: { job: JobSummary }) {
       ? `Aucun chapitre depuis ${silence} min — relancer au dernier chapitre écrit`
       : "Relancer la génération";
 
+  // `disabled` suit l'envoi, comme le faisait le `loading` de Radix (qui
+  // désactivait le bouton tant qu'on ne lui passait pas `disabled`).
   return (
-    <Flex direction="column" align="start" gap="1">
-      <Button
-        size="1"
-        variant="soft"
-        color="orange"
-        loading={mutation.isPending}
+    <div className="console-pile">
+      <button
+        type="button"
+        className={
+          mutation.isPending
+            ? "bouton bouton-principal bouton-sm bouton-chargement"
+            : "bouton bouton-principal bouton-sm"
+        }
+        disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
         title={titre}
       >
         ↻ Relancer
-      </Button>
+      </button>
       {erreur && (
-        <Text size="1" color="red" style={{ maxWidth: 260 }}>
+        <p className="console-message console-message-echec" role="alert">
           {erreur}
-        </Text>
+        </p>
       )}
-    </Flex>
+    </div>
   );
 }
 
@@ -114,32 +115,38 @@ function JobRowActions({ job }: { job: JobSummary }) {
   const envoiEnEchec = job.delivery_status === "failed";
 
   return (
-    <Flex gap="1" align="center">
+    <div className="console-gestes">
       {hasPdf ? (
-        <Button asChild size="1" variant="ghost" color="green">
-          <a href={job.pdf_download_url!} target="_blank" rel="noreferrer">
-            ↓ PDF
-          </a>
-        </Button>
-      ) : (
-        <Button size="1" variant="ghost" color="green" disabled>
+        <a
+          className="bouton bouton-contour bouton-sm"
+          href={job.pdf_download_url!}
+          target="_blank"
+          rel="noreferrer"
+        >
           ↓ PDF
-        </Button>
+        </a>
+      ) : (
+        <button type="button" className="bouton bouton-contour bouton-sm" disabled>
+          ↓ PDF
+        </button>
       )}
       {envoiEnEchec && (
-        <Button
-          size="1"
-          variant="ghost"
-          color="amber"
+        <button
+          type="button"
+          className={
+            emailMutation.isPending
+              ? "bouton bouton-contour bouton-sm bouton-chargement"
+              : "bouton bouton-contour bouton-sm"
+          }
           disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
-          loading={emailMutation.isPending}
           onClick={() => emailMutation.mutate()}
           title="L'envoi a échoué : réessayer."
+          aria-label="L'envoi a échoué : réessayer l'envoi"
         >
           {pendingConfirmation ? "…" : "✉ !"}
-        </Button>
+        </button>
       )}
-    </Flex>
+    </div>
   );
 }
 
@@ -152,130 +159,164 @@ export function Jobs() {
     refetchInterval: 15_000,
   });
 
+  // Titre de page rendu par la coquille d'administration — voir Clients.tsx.
+  // La carte, elle, compte ce qu'elle montre.
   return (
-    <Box>
-      {/* Titre rendu par la coquille d'administration — voir Clients.tsx. */}
+    <Carte
+      titre={
+        data
+          ? `${f.nombre(data.length)} génération${data.length > 1 ? "s" : ""}`
+          : "Générations"
+      }
+      action={
+        <div className="console-filtres">
+          <label className="champ">
+            <span className="visuellement-cache">Filtrer par statut</span>
+            <select
+              className="champ-saisie"
+              value={statusFilter}
+              onChange={(evenement) => setStatusFilter(evenement.target.value)}
+            >
+              <option value="all">Tous les statuts</option>
+              {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      }
+    >
+      {isLoading && <Squelette lignes={5} />}
 
-      <Flex align="center" gap="3" mb="4">
-        <Select.Root value={statusFilter} onValueChange={setStatusFilter} size="2">
-          <Select.Trigger placeholder="Tous les statuts" />
-          <Select.Content>
-            <Select.Item value="all">Tous les statuts</Select.Item>
-            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-              <Select.Item key={k} value={k}>{v}</Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
-        {isLoading && <Spinner size="2" />}
-      </Flex>
+      {data && data.length > 0 && (
+        <div className="tableau-cadre tableau-defile">
+          <table className="tableau">
+            <thead>
+              <tr>
+                <th scope="col">Livrable</th>
+                <th scope="col">Statut</th>
+                <th scope="col">Progression</th>
+                <th scope="col" style={{ textAlign: "right" }}>Coût</th>
+                <th scope="col">Terminé le</th>
+                <th scope="col">Actions</th>
+                <th scope="col">
+                  <span className="visuellement-cache">Détail</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((job) => {
+                const pourcentage = job.chapters_total > 0
+                  ? Math.round((job.chapters_done / job.chapters_total) * 100)
+                  : 0;
+                return (
+                  <tr
+                    key={job.id}
+                    className={job.status === "failed" ? "console-ligne-echec" : undefined}
+                  >
+                    <td>{DELIVERABLE_LABELS[job.deliverable_type] ?? job.deliverable_type}</td>
+                    <td>
+                      <div className="console-pile">
+                        <Pastille
+                          statut={job.status}
+                          texte={STATUS_LABELS[job.status] ?? job.status}
+                        />
+                        {/* Un dossier « en cours » qui ne l'est plus doit se VOIR.
+                            C'est ce qui manquait le 09/08/2026 : rien ne distinguait
+                            une génération qui travaille d'une génération morte. */}
+                        {job.interrompue && (
+                          <span
+                            className="pastille pastille-alerte"
+                            title="Aucun chapitre produit depuis longtemps"
+                          >
+                            interrompu
+                            {job.minutes_sans_progression !== null
+                              ? ` · ${job.minutes_sans_progression} min`
+                              : ""}
+                          </span>
+                        )}
+                        {/* Le badge « non envoyé » a disparu le 12/09/2026 avec
+                            tout ce qui racontait la fabrication : l'envoi est
+                            automatique, et un dossier terminé n'attend plus rien.
+                            S'il reste un envoi en échec, le bouton de la colonne
+                            d'actions le dit et le répare. */}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="console-avancement">
+                        {/* La jauge de l'espace client : le remplissage fait
+                            toute la largeur et se décale de ce qui manque. */}
+                        <div
+                          className="jauge"
+                          role="progressbar"
+                          aria-valuenow={pourcentage}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuetext={`${job.chapters_done} chapitres sur ${job.chapters_total}`}
+                          aria-label="Chapitres rédigés"
+                        >
+                          <span
+                            className="jauge-remplissage"
+                            style={{ transform: `translateX(-${100 - pourcentage}%)` }}
+                          />
+                        </div>
+                        <span className="carte-note console-tabulaire">
+                          {job.chapters_done}/{job.chapters_total}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="nombre">
+                      {parseFloat(job.total_cost_eur).toFixed(4)} €
+                    </td>
+                    <td className="console-tabulaire">
+                      {job.completed_at
+                        ? new Date(job.completed_at).toLocaleDateString("fr-FR")
+                        : "—"}
+                    </td>
+                    <td>
+                      {/* UN DOCUMENT PRODUIT SE TÉLÉCHARGE, MÊME SI LE DOSSIER
+                          A ÉCHOUÉ.
 
-      {data && (
-        <Table.Root variant="surface">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeaderCell>Livrable</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Statut</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Progression</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Coût</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Terminé le</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell />
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {data.map((job) => (
-              <Table.Row
-                key={job.id}
-                style={job.status === "failed" ? { background: "var(--red-2)" } : undefined}
-              >
-                <Table.Cell>
-                  <Text size="2">{DELIVERABLE_LABELS[job.deliverable_type] ?? job.deliverable_type}</Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Flex direction="column" align="start" gap="1">
-                    <Badge color={statusColor(job.status)} variant="soft">
-                      {STATUS_LABELS[job.status] ?? job.status}
-                    </Badge>
-                    {/* Un dossier « en cours » qui ne l'est plus doit se VOIR.
-                        C'est ce qui manquait le 09/08/2026 : rien ne distinguait
-                        une génération qui travaille d'une génération morte. */}
-                    {job.interrompue && (
-                      <Badge color="amber" variant="soft" title="Aucun chapitre produit depuis longtemps">
-                        interrompu
-                        {job.minutes_sans_progression !== null
-                          ? ` · ${job.minutes_sans_progression} min`
-                          : ""}
-                      </Badge>
-                    )}
-                    {/* Le badge « non envoyé » a disparu le 12/09/2026 avec
-                        tout ce qui racontait la fabrication : l'envoi est
-                        automatique, et un dossier terminé n'attend plus rien.
-                        S'il reste un envoi en échec, le bouton de la colonne
-                        d'actions le dit et le répare. */}
-                  </Flex>
-                </Table.Cell>
-                <Table.Cell>
-                  <Flex align="center" gap="2">
-                    <Progress
-                      value={job.chapters_total > 0
-                        ? Math.round((job.chapters_done / job.chapters_total) * 100)
-                        : 0}
-                      size="1"
-                      style={{ width: 80 }}
-                    />
-                    <Text size="1" color="gray" className="mono">
-                      {job.chapters_done}/{job.chapters_total}
-                    </Text>
-                  </Flex>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text size="2" className="mono">
-                    {parseFloat(job.total_cost_eur).toFixed(4)} €
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text size="1" color="gray" className="mono">
-                    {job.completed_at
-                      ? new Date(job.completed_at).toLocaleDateString("fr-FR")
-                      : "—"}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>
-                  {/* UN DOCUMENT PRODUIT SE TÉLÉCHARGE, MÊME SI LE DOSSIER
-                      A ÉCHOUÉ.
+                          « Les documents échoués ne sont pas téléchargeables et
+                          restent rouges, pourtant je les ai reçus par mail »
+                          (cliente, 13/08/2026). Elle a raison : un dossier arrêté
+                          au dernier chapitre a bel et bien produit son PDF, et
+                          l'email est parti. Le cacher ici oblige à rouvrir le
+                          détail, ou à retrouver le mail.
 
-                      « Les documents échoués ne sont pas téléchargeables et
-                      restent rouges, pourtant je les ai reçus par mail »
-                      (cliente, 13/08/2026). Elle a raison : un dossier arrêté
-                      au dernier chapitre a bel et bien produit son PDF, et
-                      l'email est parti. Le cacher ici oblige à rouvrir le
-                      détail, ou à retrouver le mail.
-
-                      Le critère devient donc « le PDF EXISTE-t-il ? », et non
-                      « le dossier s'est-il terminé ? ». Le statut rouge reste :
-                      il dit la vérité sur la génération, pas sur le document. */}
-                  {(job.status === "done" || job.pdf_download_url) && (
-                    <JobRowActions job={job} />
-                  )}
-                  {estRelancable(job) && <BoutonRelancer job={job} />}
-                </Table.Cell>
-                <Table.Cell>
-                  <Link to="/admin/jobs/$jobId" params={{ jobId: job.id }}
-                    style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}>
-                    Détail →
-                  </Link>
-                </Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Root>
+                          Le critère devient donc « le PDF EXISTE-t-il ? », et non
+                          « le dossier s'est-il terminé ? ». Le statut rouge reste :
+                          il dit la vérité sur la génération, pas sur le document. */}
+                      <div className="console-pile">
+                        {(job.status === "done" || job.pdf_download_url) && (
+                          <JobRowActions job={job} />
+                        )}
+                        {estRelancable(job) && <BoutonRelancer job={job} />}
+                      </div>
+                    </td>
+                    <td>
+                      <Link
+                        to="/admin/jobs/$jobId"
+                        params={{ jobId: job.id }}
+                        className="console-lien"
+                      >
+                        Détail <span aria-hidden="true">→</span>
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {data?.length === 0 && (
-        <Text color="gray" size="2" style={{ fontStyle: "italic" }}>
-          Aucun livrable{statusFilter !== "all" ? " pour ce statut" : ""}.
-        </Text>
+        <Vide
+          icone="▤"
+          titre={`Aucun livrable${statusFilter !== "all" ? " pour ce statut" : ""}.`}
+        />
       )}
-    </Box>
+    </Carte>
   );
 }

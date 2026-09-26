@@ -1,0 +1,389 @@
+/* Console d'administration — ce qui manquait à `theme/espace.css` pour les
+ * écrans de supervision de la production : générations, incidents,
+ * commandes, clients.
+ *
+ * Ces six écrans étaient en Radix Themes, avec leurs gris, leurs verts et
+ * leurs rouges à eux : la seule partie de la plateforme qui ne parlait pas la
+ * charte. Ils réutilisent désormais `.carte`, `.tableau`, `.pastille`,
+ * `.bouton`, `.bandeau`, `.jauge`, `.compte-identite` tels quels ; cette
+ * feuille ne porte que ce qu'aucun écran de l'espace n'avait encore eu besoin
+ * de dire (une chaîne de production horizontale, une fenêtre native, une
+ * ligne en échec…).
+ *
+ * Aucune couleur, aucune durée, aucun rayon écrits en dur : uniquement des
+ * jetons de `theme/tokens.css`. Préfixe `console-` partout : rien ici ne
+ * redéfinit une classe de l'espace.
+ *
+ * Ordre de la cascade : importée par les pages, donc via `./router`, que
+ * `main.tsx` charge AVANT `espace.css`. Une règle qui doit l'emporter sur
+ * une classe de l'espace est donc écrite à deux classes, jamais à une.
+ */
+
+/* ── Filtres posés dans l'en-tête d'une carte ───────────────────────────── */
+
+.console-filtres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-3);
+}
+
+.console-filtres .champ {
+  min-width: 12.5rem;
+}
+
+/* ── Piles et rangées d'actions ─────────────────────────────────────────── */
+
+/* Une pastille et sa précision, un bouton et son message d'erreur : des
+ * éléments qui se lisent l'un sous l'autre, calés à gauche. */
+.console-pile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-1);
+}
+
+/* La même pile, calée à droite : les gestes de l'en-tête d'une fiche. */
+.console-pile.console-pile-fin {
+  align-items: flex-end;
+}
+
+.console-gestes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.console-gestes-fiche {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--e-3);
+}
+
+/* Titre de fiche suivi de sa pastille d'état, sur une ligne qui se replie. */
+.console-titre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-3);
+  min-width: 0;
+}
+
+/* Le contenu d'une carte qui empile plusieurs blocs (un bandeau, puis une
+ * fiche) : l'espacement appartient au conteneur, pas aux blocs. */
+.console-empile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+}
+
+/* ── Textes ─────────────────────────────────────────────────────────────── */
+
+/* Chiffres qui ne sont pas une colonne de montants — dates, « 3/23 »,
+ * numéros de chapitre : la largeur fixe de `.tableau .nombre`, sans son gras
+ * ni son alignement à droite. */
+.console-tabulaire {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Petits messages sous un geste ou une valeur. Couleurs de statut de la
+ * charte, choisies pour tenir 4,5:1 sur blanc ; sur la teinte d'une ligne en
+ * échec (plus bas), le rouge tient encore 5,89:1 (calculé). */
+.console-message {
+  margin: 0;
+  max-width: 36ch;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-moyenne);
+  line-height: var(--interligne);
+}
+
+.console-message-echec {
+  color: var(--evkha-echec);
+}
+
+.console-message-alerte {
+  color: var(--evkha-alerte);
+}
+
+.console-message-succes {
+  color: var(--evkha-succes);
+}
+
+/* Une valeur hors de son plafond (le coût d'une génération au-delà de son
+ * budget). Le texte le dit aussi (« ⚠ Dépassé ») : la couleur seule ne
+ * suffit pas. */
+.console-depasse {
+  color: var(--evkha-echec);
+  font-weight: var(--graisse-forte);
+}
+
+/* Lien de navigation dans un tableau ou une fiche. Souligné, et pas
+ * seulement coloré : un lien doit se reconnaître sans percevoir la teinte.
+ * Le soulignement porte l'or de la marque, le texte reste à l'encre forte. */
+.console-lien {
+  color: var(--texte-fort);
+  font-weight: var(--graisse-forte);
+  text-decoration: underline;
+  text-decoration-color: var(--evkha-or-profond);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  border-radius: var(--rayon-xs);
+  transition: text-decoration-color var(--duree-micro) var(--ease-doux);
+}
+
+.console-lien:hover {
+  text-decoration-color: currentColor;
+}
+
+.console-lien:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
+}
+
+/* ── Tableaux ───────────────────────────────────────────────────────────── */
+
+/* Ligne d'une génération, d'un chapitre ou d'une commande en échec : le verre
+ * teinté rouge de la charte, dilué encore de 30 %. Calculé sur le fond le
+ * plus sombre que peut prendre le cadre (#FDFCF9, `tokens.css`) : le texte
+ * tenu (#6E6E6E) garde 4,59:1 — à pleine teinte il tombait à 4,44:1, sous le
+ * seuil. Le survol de `.tableau` l'emporte encore (même poids, feuille
+ * chargée après) : la ligne reste repérable sous la souris. */
+.tableau tbody tr.console-ligne-echec {
+  background: color-mix(in srgb, var(--verre-echec) 70%, transparent);
+}
+
+/* L'avancement d'une génération dans sa cellule : la jauge de l'espace
+ * client, à largeur fixe, et le décompte des chapitres à côté. */
+.console-avancement {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.console-avancement .jauge {
+  flex: 0 0 5rem;
+  width: 5rem;
+}
+
+/* ── Pastilles ──────────────────────────────────────────────────────────── */
+
+/* Pastille PLEINE : l'incident critique. Critique et haute partagent le
+ * rouge ; la critique se distingue d'un coup d'œil sans qu'il faille lire.
+ * Blanc sur `--evkha-echec` : 6,54:1 (calculé). Deux classes, pour l'emporter sur
+ * `.pastille-echec` quel que soit l'ordre des feuilles. */
+.pastille.console-pastille-pleine {
+  background: var(--evkha-echec);
+  color: var(--evkha-blanc);
+}
+
+/* ── Bandeau neutre ─────────────────────────────────────────────────────── */
+
+/* Une information qui n'est ni une alerte, ni un échec, ni une réussite
+ * (« aucun abonnement actif » chez un client qui achète à l'unité). Même
+ * coque que `.bandeau`, dans les neutres de la charte : 7,80:1 (calculé). */
+.bandeau.console-bandeau-neutre {
+  background: var(--fond-enfonce);
+  border-color: var(--evkha-bordure);
+  color: var(--texte-doux);
+}
+
+/* ── Chaîne de production ───────────────────────────────────────────────── */
+
+/* Les cinq étapes d'une génération, de la commande à l'envoi, sur une ligne.
+ * Chaque étape porte une puce (son glyphe), un nom et une précision ; le
+ * trait qui la relie à la suivante prend la couleur de SON état. L'état est
+ * aussi écrit pour les lecteurs d'écran : la couleur et le glyphe seuls ne
+ * disent rien à qui ne les voit pas. */
+.console-chaine {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+
+.console-chaine-etape {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-2);
+  text-align: center;
+}
+
+.console-chaine-puce {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
+  background: var(--fond-enfonce);
+  /* Texte DOUX et non tenu : le tenu sur `--fond-enfonce` calcule à 4,49:1,
+   * sous le seuil ; le doux y tient 7,8:1. */
+  color: var(--texte-doux);
+  font-weight: var(--graisse-titre);
+  line-height: 1;
+}
+
+.console-chaine-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.console-chaine-nom {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.console-chaine-detail {
+  font-size: var(--t-xs);
+  color: var(--texte-tenu);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* Le trait vers l'étape suivante, du bord droit de cette puce au bord gauche
+ * de la suivante : les étapes ont la même largeur, leurs centres sont donc à
+ * 100 % l'un de l'autre. */
+.console-chaine-etape:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 17px;
+  left: calc(50% + 24px);
+  right: calc(-50% + 24px);
+  height: 2px;
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-bordure);
+}
+
+.console-chaine-done .console-chaine-puce {
+  background: var(--evkha-succes-voile);
+  color: var(--evkha-succes);
+}
+
+.console-chaine-running .console-chaine-puce {
+  background: var(--evkha-info-voile);
+  color: var(--evkha-info);
+}
+
+.console-chaine-failed .console-chaine-puce {
+  background: var(--evkha-echec-voile);
+  color: var(--evkha-echec);
+}
+
+.console-chaine-done:not(:last-child)::after {
+  background: var(--evkha-succes);
+}
+
+.console-chaine-running:not(:last-child)::after {
+  background: color-mix(in srgb, var(--evkha-info) 40%, transparent);
+}
+
+.console-chaine-failed:not(:last-child)::after {
+  background: color-mix(in srgb, var(--evkha-echec) 40%, transparent);
+}
+
+/* Sur téléphone, cinq étapes côte à côte tiendraient dans 70 px chacune :
+ * les noms passeraient sur trois lignes. La chaîne se lit alors de haut en
+ * bas, puce à gauche, et les traits horizontaux n'ont plus de sens. */
+@media (max-width: 600px) {
+  .console-chaine {
+    flex-direction: column;
+    gap: var(--e-3);
+  }
+
+  .console-chaine-etape {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--e-3);
+    text-align: left;
+  }
+
+  .console-chaine-etape:not(:last-child)::after {
+    display: none;
+  }
+}
+
+/* ── Fenêtre native ─────────────────────────────────────────────────────── */
+
+/* Un `<dialog>` ouvert par `showModal()` : le navigateur rend le reste de la
+ * page inerte, ferme sur Échap et rend le focus au bouton qui l'a ouvert. Le
+ * rembourrage vit sur le corps et non sur la fenêtre : un clic hors du corps
+ * tombe ainsi sur le voile, et ferme. */
+.console-fenetre {
+  width: min(37.5rem, calc(100% - 2 * var(--e-5)));
+  max-height: calc(100% - 2 * var(--e-8));
+  padding: 0;
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--fond-carte);
+  color: var(--texte);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante-lg);
+}
+
+.console-fenetre[open] {
+  animation: console-fenetre-entree var(--duree-annonce) var(--ease-sortie);
+}
+
+/* Fixe, donc le flou est permis (`tokens.css`, « Verre »). */
+.console-fenetre::backdrop {
+  background: color-mix(in srgb, var(--evkha-noir) 42%, transparent);
+  -webkit-backdrop-filter: blur(var(--verre-flou));
+  backdrop-filter: blur(var(--verre-flou));
+}
+
+.console-fenetre-corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  padding: var(--e-6);
+}
+
+.console-fenetre-pied {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@keyframes console-fenetre-entree {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* La durée vaut déjà 0 ms sous ce réglage (`tokens.css`) ; ceci est le
+ * filet, comme dans `espace.css`. */
+@media (prefers-reduced-motion: reduce) {
+  .console-fenetre[open] {
+    animation: none;
+  }
+}
+
+/* Contenu brut (le détail JSON d'un incident) : chasse fixe, retour à la
+ * ligne plutôt que troncature, hauteur bornée et défilement propre. */
+.console-code {
+  margin: 0;
+  max-height: 25rem;
+  overflow: auto;
+  padding: var(--e-4);
+  background: var(--fond-enfonce);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  font-family: var(--police-mono);
+  font-size: var(--t-xs);
+  line-height: 1.65;
+  color: var(--texte);
+  white-space: pre-wrap;
+  word-break: break-all;
+}

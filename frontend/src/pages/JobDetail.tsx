@@ -3,12 +3,11 @@ import { useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  Box, Flex, Heading, Badge, Card, Table, Text, Spinner, Button,
-} from "@radix-ui/themes";
-import {
   api, estRelancable,
   type Chapter, type JobDetail as JobDetailType,
 } from "../api";
+import { Bandeau, Carte, Pastille, Squelette } from "../espace/composants/Interface";
+import "../admin/console.css";
 
 const STATUS_ICON: Record<string, string> = {
   done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—",
@@ -25,14 +24,18 @@ const DELIVERABLE_LABELS: Record<string, string> = {
   business_strategy: "Stratégie Business",
 };
 
-type RadixColor = "gray" | "blue" | "green" | "red";
+// Le ton de chaque statut (génération ET chapitre) vient de la table unique de
+// `Pastille` : pending et skipped neutres, running en information, done en
+// succès, failed en échec — la correspondance des anciennes couleurs Radix.
 
-function statusColor(status: string): RadixColor {
-  const map: Record<string, RadixColor> = {
-    pending: "gray", running: "blue", done: "green", failed: "red", skipped: "gray",
-  };
-  return map[status] ?? "gray";
-}
+/** L'état d'une étape de la chaîne, dit en toutes lettres aux lecteurs
+ *  d'écran : la puce n'en montre que la couleur et le glyphe. */
+const ETAT_ETAPE: Record<"done" | "running" | "failed" | "pending", string> = {
+  done: "terminée",
+  running: "en cours",
+  failed: "en échec",
+  pending: "en attente",
+};
 
 function Pipeline({ job }: { job: JobDetailType }) {
   const genStatus =
@@ -121,53 +124,46 @@ function Pipeline({ job }: { job: JobDetailType }) {
   ];
 
   return (
-    <Card mb="4">
-      <div className="pipeline">
-        {stages.map((stage, i) => (
-          <div key={stage.key} className="pipeline-stage-wrapper">
-            <div className={`pipeline-step pipeline-step--${stage.status}`}>
-              <div className="pipeline-circle">{stage.icon}</div>
-              <div className="pipeline-name">{stage.label}</div>
-              {stage.sub && <div className="pipeline-sub">{stage.sub}</div>}
-            </div>
-            {i < stages.length - 1 && (
-              <div className={`pipeline-connector pipeline-connector--${stage.status}`} />
-            )}
-          </div>
-        ))}
-      </div>
-    </Card>
+    <ol className="console-chaine" aria-label="Chaîne de production">
+      {stages.map((stage) => (
+        <li
+          key={stage.key}
+          className={`console-chaine-etape console-chaine-${stage.status}`}
+        >
+          <span className="console-chaine-puce" aria-hidden="true">{stage.icon}</span>
+          <span className="console-chaine-texte">
+            <span className="console-chaine-nom">
+              {stage.label}
+              <span className="visuellement-cache"> : {ETAT_ETAPE[stage.status]}</span>
+            </span>
+            {stage.sub && <span className="console-chaine-detail">{stage.sub}</span>}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
 function ChapterRow({ chapter }: { chapter: Chapter }) {
   return (
-    <Table.Row style={chapter.status === "failed" ? { background: "var(--red-2)" } : undefined}>
-      <Table.Cell>
-        <Text size="1" className="mono">{String(chapter.number).padStart(2, "0")}</Text>
-      </Table.Cell>
-      <Table.Cell>
-        <Text size="2">{chapter.title}</Text>
+    <tr className={chapter.status === "failed" ? "console-ligne-echec" : undefined}>
+      <td className="console-tabulaire">{String(chapter.number).padStart(2, "0")}</td>
+      <td>
+        {chapter.title}
         {chapter.error_message && (
-          <Text size="1" color="red" as="p">{chapter.error_message}</Text>
+          <p className="console-message console-message-echec">{chapter.error_message}</p>
         )}
-      </Table.Cell>
-      <Table.Cell>
-        <Badge color={statusColor(chapter.status)} variant="soft" size="1">
-          {STATUS_ICON[chapter.status] ?? chapter.status}{" "}
-          {STATUS_LABELS[chapter.status] ?? chapter.status}
-        </Badge>
-      </Table.Cell>
-      <Table.Cell>
-        <Text size="1" className="mono">{chapter.input_tokens.toLocaleString()}</Text>
-      </Table.Cell>
-      <Table.Cell>
-        <Text size="1" className="mono">{chapter.output_tokens.toLocaleString()}</Text>
-      </Table.Cell>
-      <Table.Cell>
-        <Text size="1" className="mono">{parseFloat(chapter.cost_eur).toFixed(4)} €</Text>
-      </Table.Cell>
-    </Table.Row>
+      </td>
+      <td>
+        <Pastille
+          statut={chapter.status}
+          texte={`${STATUS_ICON[chapter.status] ?? chapter.status} ${STATUS_LABELS[chapter.status] ?? chapter.status}`}
+        />
+      </td>
+      <td className="nombre">{chapter.input_tokens.toLocaleString()}</td>
+      <td className="nombre">{chapter.output_tokens.toLocaleString()}</td>
+      <td className="nombre">{parseFloat(chapter.cost_eur).toFixed(4)} €</td>
+    </tr>
   );
 }
 
@@ -179,6 +175,13 @@ function duration(start: string | null, end: string | null): string {
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   return `${m}min ${s % 60}s`;
+}
+
+/** Classe d'un bouton de la charte, avec le balayage de chargement pendant
+ *  l'envoi. Le balayage ne décide RIEN : `disabled` reste écrit à la main sur
+ *  chaque bouton, exactement comme il l'était. */
+function classeBouton(variante: string, enCours: boolean): string {
+  return enCours ? `bouton ${variante} bouton-chargement` : `bouton ${variante}`;
 }
 
 function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId: string; pdfOnly?: boolean }) {
@@ -240,51 +243,50 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
   const envoiEnEchec = job.delivery?.status === "failed";
 
   return (
-    <Flex direction="column" align="end" gap="2">
+    <div className="console-pile console-pile-fin">
       {pdfOnly && (
-        <Text size="1" color="orange">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</Text>
+        <p className="console-message console-message-alerte">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</p>
       )}
 
-      <Flex gap="2" wrap="wrap" justify="end">
+      <div className="console-gestes-fiche">
         {!hasPdf && (
-          <Button
-            size="2"
-            variant="soft"
-            color="orange"
-            loading={redeliverMutation.isPending || redeliverQueued}
+          <button
+            type="button"
+            className={classeBouton("bouton-principal", redeliverMutation.isPending || redeliverQueued)}
             disabled={redeliverMutation.isPending || redeliverQueued}
             onClick={() => redeliverMutation.mutate()}
           >
             {redeliverQueued ? "Génération en cours…" : "Générer le PDF"}
-          </Button>
+          </button>
         )}
         {hasPdf ? (
-          <Button asChild size="2" variant="soft" color="green">
-            <a href={readyPdf.download_url} target="_blank" rel="noreferrer">
-              Télécharger le PDF
-            </a>
-          </Button>
-        ) : (
-          <Button size="2" variant="soft" color="green" disabled>
+          <a
+            className="bouton bouton-contour"
+            href={readyPdf.download_url}
+            target="_blank"
+            rel="noreferrer"
+          >
             Télécharger le PDF
-          </Button>
+          </a>
+        ) : (
+          <button type="button" className="bouton bouton-contour" disabled>
+            Télécharger le PDF
+          </button>
         )}
         {!pdfOnly && envoiEnEchec && (
-          <Button
-            size="2"
-            variant="soft"
-            color="amber"
-            loading={emailMutation.isPending}
+          <button
+            type="button"
+            className={classeBouton("bouton-contour", emailMutation.isPending)}
             disabled={!hasPdf || emailMutation.isPending || pendingConfirmation}
             onClick={() => emailMutation.mutate()}
           >
             {emailMutation.isPending ? "Envoi…" : "Réessayer l'envoi"}
-          </Button>
+          </button>
         )}
-      </Flex>
-      {redeliverError && <Text size="1" color="red">{redeliverError}</Text>}
-      {emailError && <Text size="1" color="red">{emailError}</Text>}
-    </Flex>
+      </div>
+      {redeliverError && <p className="console-message console-message-echec" role="alert">{redeliverError}</p>}
+      {emailError && <p className="console-message console-message-echec" role="alert">{emailError}</p>}
+    </div>
   );
 }
 
@@ -307,13 +309,20 @@ function CancelButton({ jobId }: { jobId: string }) {
     mutation.mutate();
   };
 
+  // `disabled` suit l'envoi, comme le faisait le `loading` de Radix (qui
+  // désactivait le bouton tant qu'on ne lui passait pas `disabled`).
   return (
-    <Flex direction="column" align="end" gap="1">
-      <Button size="2" variant="soft" color="red" loading={mutation.isPending} onClick={handleClick}>
+    <div className="console-pile console-pile-fin">
+      <button
+        type="button"
+        className={classeBouton("bouton-contour", mutation.isPending)}
+        disabled={mutation.isPending}
+        onClick={handleClick}
+      >
         Annuler le job
-      </Button>
-      {error && <Text size="1" color="red">{error}</Text>}
-    </Flex>
+      </button>
+      {error && <p className="console-message console-message-echec" role="alert">{error}</p>}
+    </div>
   );
 }
 
@@ -332,12 +341,17 @@ function RelaunchButton({ jobId }: { jobId: string }) {
   });
 
   return (
-    <Flex direction="column" align="end" gap="1">
-      <Button size="2" variant="soft" color="orange" loading={mutation.isPending} onClick={() => mutation.mutate()}>
+    <div className="console-pile console-pile-fin">
+      <button
+        type="button"
+        className={classeBouton("bouton-principal", mutation.isPending)}
+        disabled={mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
         Relancer la génération
-      </Button>
-      {error && <Text size="1" color="red">{error}</Text>}
-    </Flex>
+      </button>
+      {error && <p className="console-message console-message-echec" role="alert">{error}</p>}
+    </div>
   );
 }
 
@@ -350,13 +364,8 @@ export function JobDetail() {
     refetchInterval: (q) => (q.state.data === undefined || q.state.data.status === "running") ? 5_000 : false,
   });
 
-  if (isLoading) return (
-    <Flex align="center" gap="2">
-      <Spinner size="2" />
-      <Text color="gray">Chargement…</Text>
-    </Flex>
-  );
-  if (error || !data) return <Text color="red">Job introuvable.</Text>;
+  if (isLoading) return <Squelette lignes={6} />;
+  if (error || !data) return <Bandeau ton="echec">Job introuvable.</Bandeau>;
 
   const totalTokens = data.chapters.reduce(
     (acc, c) => acc + c.input_tokens + c.output_tokens, 0,
@@ -374,39 +383,45 @@ export function JobDetail() {
   const showPdfOnly = data.status === "failed" && hasAnyDoneChapter;
 
   return (
-    <Box>
-      <Flex align="center" gap="2" mb="3">
-        <Link
-          to="/admin/jobs"
-          style={{ color: "var(--gray-9)", textDecoration: "none", fontSize: 13 }}
-        >
-          ← Livrables
+    <>
+      <div>
+        <Link to="/admin/jobs" className="bouton bouton-discret bouton-sm">
+          <span aria-hidden="true">←</span> Générations
         </Link>
-      </Flex>
+      </div>
 
-      <Flex align="center" justify="between" gap="3" mb="5" wrap="wrap">
-        <Flex align="center" gap="3">
-          <Heading size="6">{data.offer_name}</Heading>
-          <Badge color={statusColor(data.status)} variant="soft" size="2">
-            {STATUS_ICON[data.status] ?? data.status}{" "}
-            {STATUS_LABELS[data.status] ?? data.status}
-          </Badge>
-          {/* Un dossier RETENU doit se voir, au même endroit que son statut :
-              sans ce badge il serait en tous points identique à un dossier
-              validé. Mais il disparaît dès l'envoi — un document parti n'est
-              plus retenu, et l'afficher en rouge à côté de « ✓ Email envoyé »
-              alarmait sur ce qu'aucun geste ne pouvait changer. */}
-          {/* Le badge « N points non résolus » a disparu le 12/09/2026, avec
-              le panneau des motifs : il annonçait un travail que personne ne
-              pouvait faire. L'état d'un dossier terminé, c'est son document. */}
-        </Flex>
-        {canCancel && <CancelButton jobId={jobId} />}
-        {canRelaunch && <RelaunchButton jobId={jobId} />}
-        {data.status === "done" && <JobActions job={data} jobId={jobId} />}
-        {showPdfOnly && <JobActions job={data} jobId={jobId} pdfOnly />}
-      </Flex>
+      {/* La carte d'en-tête porte le nom de l'offre, son état, les gestes
+          possibles et la chaîne de production : tout ce qui dit où en est le
+          dossier, d'un seul regard. Écrite à la main plutôt que par `Carte`,
+          dont le titre n'accepte que du texte : la pastille d'état doit se
+          lire à côté du nom. */}
+      <section className="carte">
+        <header className="carte-entete">
+          <div className="console-titre">
+            <h2 className="carte-titre">{data.offer_name}</h2>
+            <Pastille
+              statut={data.status}
+              texte={`${STATUS_ICON[data.status] ?? data.status} ${STATUS_LABELS[data.status] ?? data.status}`}
+            />
+            {/* Un dossier RETENU doit se voir, au même endroit que son statut :
+                sans ce badge il serait en tous points identique à un dossier
+                validé. Mais il disparaît dès l'envoi — un document parti n'est
+                plus retenu, et l'afficher en rouge à côté de « ✓ Email envoyé »
+                alarmait sur ce qu'aucun geste ne pouvait changer. */}
+            {/* Le badge « N points non résolus » a disparu le 12/09/2026, avec
+                le panneau des motifs : il annonçait un travail que personne ne
+                pouvait faire. L'état d'un dossier terminé, c'est son document. */}
+          </div>
+          <div className="console-gestes-fiche">
+            {canCancel && <CancelButton jobId={jobId} />}
+            {canRelaunch && <RelaunchButton jobId={jobId} />}
+            {data.status === "done" && <JobActions job={data} jobId={jobId} />}
+            {showPdfOnly && <JobActions job={data} jobId={jobId} pdfOnly />}
+          </div>
+        </header>
 
-      <Pipeline job={data} />
+        <Pipeline job={data} />
+      </section>
 
       {/* LES MOTIFS NE S'AFFICHENT PLUS ICI. Décision du 12/09/2026 :
           « ce que le contrôle qualité a retenu, on ne veut plus avoir ça ;
@@ -419,40 +434,56 @@ export function JobDetail() {
           produisait qu'une attente. Ce qui reste après le contrôle du document
           vit dans les incidents, pour nous, et le document part. */}
 
-      <Card mb="4">
-        <Flex wrap="wrap" gap="4">
-          <Text size="2" color="gray">
-            Client :{" "}
-            <Link
-              to="/admin/clients/$clientId"
-              params={{ clientId: data.customer_id }}
-              style={{ color: "var(--accent-9)", textDecoration: "none" }}
-            >
-              {data.customer_email}
-            </Link>
-          </Text>
-          <Text size="2" color="gray">
-            Livrable :{" "}
-            <Text as="span" style={{ color: "var(--gray-12)" }}>
-              {DELIVERABLE_LABELS[data.deliverable_type] ?? data.deliverable_type}
-            </Text>
-          </Text>
-          <Text size="2" color="gray">Durée : <Text as="span" style={{ color: "var(--gray-12)" }}>{duration(data.started_at, data.completed_at)}</Text></Text>
-          <Text size="2" color="gray">
-            Coût : <Text as="span" style={{ color: overBudget ? "var(--red-11)" : "var(--gray-12)" }}>
+      <Carte titre="Dossier">
+        <dl className="compte-identite">
+          <div>
+            <dt>Client</dt>
+            <dd>
+              <Link
+                to="/admin/clients/$clientId"
+                params={{ clientId: data.customer_id }}
+                className="console-lien"
+              >
+                {data.customer_email}
+              </Link>
+            </dd>
+          </div>
+          <div>
+            <dt>Livrable</dt>
+            <dd>{DELIVERABLE_LABELS[data.deliverable_type] ?? data.deliverable_type}</dd>
+          </div>
+          <div>
+            <dt>Durée</dt>
+            <dd className="console-tabulaire">{duration(data.started_at, data.completed_at)}</dd>
+          </div>
+          <div>
+            <dt>Coût</dt>
+            <dd className={overBudget ? "console-tabulaire console-depasse" : "console-tabulaire"}>
               {parseFloat(data.total_cost_eur).toFixed(4)} €{overBudget ? " ⚠ Dépassé" : ""}
-            </Text>
-          </Text>
-          <Text size="2" color="gray">Budget : <Text as="span" style={{ color: "var(--gray-12)" }}>{parseFloat(data.budget_eur).toFixed(2)} €</Text></Text>
-          <Text size="2" color="gray">Tokens : <Text as="span" style={{ color: "var(--gray-12)" }}>{totalTokens.toLocaleString()}</Text></Text>
+            </dd>
+          </div>
+          <div>
+            <dt>Budget</dt>
+            <dd className="console-tabulaire">{parseFloat(data.budget_eur).toFixed(2)} €</dd>
+          </div>
+          <div>
+            <dt>Tokens</dt>
+            <dd className="console-tabulaire">{totalTokens.toLocaleString()}</dd>
+          </div>
           {data.started_at && (
-            <Text size="2" color="gray">Démarré : <Text as="span" style={{ color: "var(--gray-12)" }}>{new Date(data.started_at).toLocaleString("fr-FR")}</Text></Text>
+            <div>
+              <dt>Démarré</dt>
+              <dd className="console-tabulaire">{new Date(data.started_at).toLocaleString("fr-FR")}</dd>
+            </div>
           )}
           {data.completed_at && (
-            <Text size="2" color="gray">Terminé : <Text as="span" style={{ color: "var(--gray-12)" }}>{new Date(data.completed_at).toLocaleString("fr-FR")}</Text></Text>
+            <div>
+              <dt>Terminé</dt>
+              <dd className="console-tabulaire">{new Date(data.completed_at).toLocaleString("fr-FR")}</dd>
+            </div>
           )}
-        </Flex>
-      </Card>
+        </dl>
+      </Carte>
 
       {/* NI LE DÉTAIL DU CONTRÔLE, NI LES DOCUMENTS LUS, NI LE MOTIF DE
           RETENUE ne s'affichent ici. Décision du 12/09/2026 : « rien ne doit
@@ -471,37 +502,33 @@ export function JobDetail() {
           `GenerationJob.controle_final`, lus par l'API. C'est notre matière de
           travail, pas la sienne. */}
 
-      <Heading size="4" mb="3">
-        Chapitres — {data.chapters_done}/{data.chapters_total} terminés
-      </Heading>
-
-      <Table.Root variant="surface">
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeaderCell>#</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Titre</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Statut</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Tokens in</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Tokens out</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Coût</Table.ColumnHeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {data.chapters.map((c) => (
-            <ChapterRow key={c.number} chapter={c} />
-          ))}
-          <Table.Row>
-            <Table.Cell colSpan={5}>
-              <Text size="2" weight="bold" className="text-right">Total</Text>
-            </Table.Cell>
-            <Table.Cell>
-              <Text size="2" weight="bold" className="mono">
-                {parseFloat(data.total_cost_eur).toFixed(4)} €
-              </Text>
-            </Table.Cell>
-          </Table.Row>
-        </Table.Body>
-      </Table.Root>
-    </Box>
+      <Carte titre={`Chapitres — ${data.chapters_done}/${data.chapters_total} terminés`}>
+        <div className="tableau-cadre tableau-defile">
+          <table className="tableau">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Titre</th>
+                <th scope="col">Statut</th>
+                <th scope="col" style={{ textAlign: "right" }}>Tokens in</th>
+                <th scope="col" style={{ textAlign: "right" }}>Tokens out</th>
+                <th scope="col" style={{ textAlign: "right" }}>Coût</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.chapters.map((c) => (
+                <ChapterRow key={c.number} chapter={c} />
+              ))}
+              <tr>
+                <td colSpan={5} className="nombre">Total</td>
+                <td className="nombre">
+                  {parseFloat(data.total_cost_eur).toFixed(4)} €
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Carte>
+    </>
   );
 }
