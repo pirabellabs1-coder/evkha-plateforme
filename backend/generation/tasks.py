@@ -620,6 +620,16 @@ def _corriger_et_juger(job: GenerationJob) -> str:
     verdict = QAStatus.PASSED if rapport.passed else QAStatus.BLOCKED
     GenerationJob.objects.filter(pk=job.pk).update(qa_status=verdict)
 
+    # Ce que le client télécharge doit être le document CORRIGÉ. Les chapitres
+    # réécrits ne réassemblaient pas les artefacts : l'espace client servait
+    # l'ancien Word et l'ancien PDF sous un verdict vert (règle 3 — ce qui est
+    # refait après le contrôle se contrôle ; audit du 26/09/2026). Même
+    # assemblage et même contrôle du fichier que la livraison, sans courriel :
+    # « Renvoyer » reste une décision humaine.
+    from delivery.services import assembler_sans_envoyer  # noqa: PLC0415
+
+    assembler_sans_envoyer(job)
+
     if not rapport.passed:
         OperationalIncident.objects.create(
             title=f"Gate qualité (correction) : toujours bloqué (job {job.id})",
