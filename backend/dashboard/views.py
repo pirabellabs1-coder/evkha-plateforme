@@ -844,8 +844,18 @@ def job_reverifier(request: HttpRequest, job_id: str) -> JsonResponse:
         except (json.JSONDecodeError, ValueError):
             corriger = False
         if corriger:
-            from generation.tasks import recontroler_et_corriger_task  # noqa: PLC0415
+            from generation.tasks import (  # noqa: PLC0415
+                correction_en_cours,
+                recontroler_et_corriger_task,
+            )
 
+            if correction_en_cours(str(job.id)):
+                # Un second clic pendant la boucle en lançait une seconde,
+                # payée elle aussi (audit du 26/09/2026).
+                return _json(
+                    {"job_id": str(job.id), "statut": "correction_deja_en_cours"},
+                    status=409,
+                )
             recontroler_et_corriger_task.delay(str(job.id))
             return _json(
                 {"job_id": str(job.id), "statut": "correction_en_fond",

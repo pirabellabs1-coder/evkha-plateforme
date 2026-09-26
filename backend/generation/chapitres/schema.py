@@ -947,6 +947,16 @@ def valider_chapitre(
         resolus.append(vrai)
     payload.donnees_utilisees = resolus
 
+    # La même résolution pour les FIGURES. Un identifiant décoré y restait
+    # tel quel : la déclaration était ramenée au socle, la figure non, et elle
+    # était abandonnée au rendu pour « identifiants absents » — un radar
+    # citant `critere_prix_evkha` mourait pour un préfixe (audit du 26/09/2026).
+    for graphique in payload.graphiques:
+        graphique.donnees_ids = [
+            resoudre_identifiant(identifiant, identifiants_socle) or identifiant
+            for identifiant in graphique.donnees_ids
+        ]
+
     if inconnues and derniere_tentative:
         # DERNIER essai : on garde le chapitre, on jette la DÉCLARATION.
         #

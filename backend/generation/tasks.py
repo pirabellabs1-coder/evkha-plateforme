@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from celery import shared_task
+from django.core.cache import cache
 from django.utils import timezone
 
 from delivery.models import DeliveryBatch
@@ -11,6 +13,8 @@ from monitoring.models import IncidentSeverity, OperationalIncident
 from .echecs import marquer_echec
 from .models import GenerationJob, JobStatus, QAStatus
 from .runner import run_generation_job
+
+_log = logging.getLogger(__name__)
 
 # Un job RUNNING depuis plus de 2h est considere bloque (crash worker, timeout reseau).
 _STUCK_JOB_TIMEOUT_HOURS = 2
@@ -521,6 +525,34 @@ def _livrer(job: GenerationJob) -> None:
     deliver_job_task.delay(str(job.id))
 
 
+#: Deux heures : au-delà, une boucle de correction est morte avec son worker,
+#: et le verrou ne doit pas empêcher la suivante pour toujours.
+_VERROU_CORRECTION_S = 2 * 3600
+
+
+def _cle_de_verrou(job_id: str) -> str:
+    return f"evkha:correction:{job_id}"
+
+
+def verrou_de_correction(job_id: str) -> bool:
+    """Vrai si CETTE boucle de correction obtient le dossier, faux si une autre l'a.
+
+    Rien ne l'empêchait : deux clics sur « corriger » lançaient deux boucles
+    sur le même dossier, chacune sous le plafond, chacune payée (audit du
+    26/09/2026). `cache.add` est atomique sur Redis — le cache de production —
+    comme sur le cache local des tests.
+    """
+    return bool(cache.add(_cle_de_verrou(job_id), 1, _VERROU_CORRECTION_S))
+
+
+def liberer_verrou_de_correction(job_id: str) -> None:
+    cache.delete(_cle_de_verrou(job_id))
+
+
+def correction_en_cours(job_id: str) -> bool:
+    return cache.get(_cle_de_verrou(job_id)) is not None
+
+
 @shared_task(name="generation.recontroler_et_corriger")  # type: ignore[untyped-decorator]
 def recontroler_et_corriger_task(job_id: str) -> str:
     """Boucle de correction en TACHE DE FOND, puis verdict — jamais en requête.
@@ -537,7 +569,29 @@ def recontroler_et_corriger_task(job_id: str) -> str:
     change, et l'incident porte les motifs frais si le blocage tient.
     """
     job = GenerationJob.objects.select_related("order").get(id=job_id)
+    if not verrou_de_correction(job_id):
+        _log.warning("Job %s : une correction est déjà en cours, appel ignoré.", job_id)
+        return f"{job.id}:deja_en_cours"
+    try:
+        return _corriger_et_juger(job)
+    except Exception as erreur:
+        # Sans ceci, un plantage laissait l'ancien `qa_status` en place et
+        # aucune trace : le tableau de bord montrait un dossier « en
+        # correction » qui ne l'était plus (audit du 26/09/2026).
+        OperationalIncident.objects.create(
+            title=f"Correction interrompue par une erreur (job {job.id})",
+            severity=IncidentSeverity.HIGH,
+            job=job,
+            order=job.order,
+            details={"erreur": f"{type(erreur).__name__} : {str(erreur)[:400]}"},
+        )
+        raise
+    finally:
+        liberer_verrou_de_correction(job_id)
 
+
+def _corriger_et_juger(job: GenerationJob) -> str:
+    """La boucle de correction puis le verdict — le corps de la tâche ci-dessus."""
     from .checks_blocs import rejouer_les_checks_ouverts  # noqa: PLC0415
     from .correction import run_correction_loop  # noqa: PLC0415
     from .gate import run_delivery_gate  # noqa: PLC0415
