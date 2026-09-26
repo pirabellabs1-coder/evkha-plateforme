@@ -92,6 +92,9 @@
    * repli était donc toujours la couleur rendue. */
   --portail-appoint: #6b6a65;
   --portail-appoint-survol: #21201c;
+  /* Bandeau « mode assistance » (`bb4ffbc`) : un rouge sombre délibérément
+   * étranger à la charte, pour signaler qu'on n'est pas chez soi. */
+  --assistance-fond: #7f1d1d;
 
   /* ── Texte ──────────────────────────────────────────────────────────── */
   --texte-fort: var(--evkha-noir);

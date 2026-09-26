@@ -204,7 +204,7 @@
 }
 
 .espace-lien:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--evkha-blanc) 7%, transparent);
   color: var(--evkha-blanc);
 }
 
@@ -212,7 +212,7 @@
  * le signale aussi. Une distinction chromatique seule disparaît pour un
  * daltonien et sur un écran mal calibré. */
 .espace-lien.actif {
-  background: rgba(248, 197, 28, 0.14);
+  background: color-mix(in srgb, var(--evkha-or) 14%, transparent);
   color: var(--evkha-blanc);
   font-weight: var(--graisse-forte);
 }
@@ -237,8 +237,8 @@
 
 /* Bloc de solde, en pied de barre */
 .espace-solde {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: color-mix(in srgb, var(--evkha-blanc) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--evkha-blanc) 9%, transparent);
   border-radius: var(--rayon-md);
   padding: var(--e-4);
 }
@@ -777,7 +777,7 @@
 }
 
 .espace-barre .bouton-discret:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--evkha-blanc) 10%, transparent);
   color: var(--evkha-blanc);
 }
 
@@ -1205,7 +1205,7 @@
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: rgba(11, 11, 11, 0.4);
+  background: color-mix(in srgb, var(--evkha-noir) 40%, transparent);
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -1484,7 +1484,7 @@
    * choisit noir ou blanc selon la luminance réelle de la couleur saisie
    * (`palette.texte_lisible_sur`). L'aperçu ne rejoue pas ce calcul — il
    * montre la forme, pas la décision de contraste. */
-  color: #ffffff;
+  color: var(--evkha-blanc);
 }
 
 .apercu-numero {
@@ -1515,7 +1515,7 @@
   height: 6px;
   width: 62%;
   border-radius: var(--rayon-pilule);
-  background: rgba(11, 11, 11, 0.16);
+  background: color-mix(in srgb, var(--evkha-noir) 16%, transparent);
 }
 
 .apercu-ligne.longue {
@@ -3295,7 +3295,7 @@
   position: fixed;
   inset: 0;
   z-index: 900;
-  background: rgba(11, 11, 11, 0.42);
+  background: color-mix(in srgb, var(--evkha-noir) 42%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3509,21 +3509,21 @@
   gap: var(--e-3);
   flex-wrap: wrap;
   padding: 10px var(--e-4);
-  background: #7f1d1d;
-  color: #ffffff;
+  background: var(--assistance-fond);
+  color: var(--evkha-blanc);
   font-size: var(--t-sm);
   font-weight: var(--graisse-forte);
   text-align: center;
 }
 
 .assistance-bandeau strong {
-  color: #ffffff;
+  color: var(--evkha-blanc);
 }
 
 .assistance-quitter {
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  border: 1px solid color-mix(in srgb, var(--evkha-blanc) 55%, transparent);
   background: transparent;
-  color: #ffffff;
+  color: var(--evkha-blanc);
   padding: 5px 14px;
   border-radius: 999px;
   font-size: var(--t-xs);
@@ -3533,5 +3533,5 @@
 
 .assistance-quitter:hover,
 .assistance-quitter:focus-visible {
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--evkha-blanc) 16%, transparent);
 }
