@@ -413,11 +413,12 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
             # 26/09/2026 : l'EC `e71fa43a` citait cinq tarifs de concurrents en
             # plage sans source, tous refusés — la source dans la case les
             # aurait rendus recevables (`checks_evangeline._prix_de_marche_source`).
-            "Un TARIF PUBLIÉ par un concurrent qui est lui-même une plage (« de "
-            "300 à 400 € selon la formule ») se cite avec sa source dans la MÊME "
-            "case ou la MÊME phrase — « (Organisme ou site, année) » — et garde "
-            "alors la plage que la source publie. Sans source à côté, tranche : "
-            "un chiffre.\n"
+            # Sans exemple chiffré : une consigne qui MONTRE une plage la fait
+            # recopier (`test_les_consignes_ne_fabriquent_pas_de_fourchettes`).
+            "Un TARIF PUBLIÉ par un concurrent qui est lui-même une plage se cite "
+            "avec sa source dans la MÊME case ou la MÊME phrase — « (Organisme ou "
+            "site, année) » — et garde alors la plage que la source publie. Sans "
+            "source à côté, tranche : un chiffre.\n"
         )
         return (
             consigne_fourchettes_stricte +
