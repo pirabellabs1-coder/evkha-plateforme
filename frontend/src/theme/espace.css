@@ -378,14 +378,122 @@
   gap: var(--e-6);
 }
 
+/* ── Révélation à l'arrivée ─────────────────────────────────────────────────
+ *
+ * Chaque bloc de contenu arrive UNE fois, au montage : 12 px vers le haut et
+ * un fondu, décalés de 55 ms par voisin pour que l'écran se compose au lieu
+ * de tomber d'un bloc. Pas au défilement : ce sont des outils de travail, pas
+ * une page d'atterrissage, et un tableau de bord dont les cartes rejouent
+ * leur entrée à chaque coup de molette fatigue.
+ *
+ * `backwards` et non `both` : une fois l'animation finie, l'élément revient à
+ * son style naturel, sans `transform` résiduel. Un `translateY(0)` conservé
+ * ferait de chaque carte un bloc conteneur pour tout `position: fixed`
+ * qu'elle abriterait, et un contexte d'empilement de plus.
+ *
+ * La grille de chiffres clés est exclue au profit de SES enfants : quatre
+ * cartes qui arrivent l'une après l'autre disent « voici vos chiffres » ;
+ * une grille qui arrive d'un bloc, puis ses cartes une seconde fois, bougent
+ * deux fois pour le même effet. */
+.espace-contenu > :not(.grille-chiffres),
+.espace-contenu > .grille-chiffres > * {
+  animation: verre-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
+  animation-delay: calc(var(--i, 0) * var(--decalage-reveal));
+}
+
+/* Le premier chiffre repart de zéro : sans cette règle il HÉRITE du `--i`
+ * de sa grille, qui n'est pas forcément le premier bloc de la page. */
+.espace-contenu > .grille-chiffres > :nth-child(1) {
+  --i: 0;
+}
+.espace-contenu > :nth-child(2),
+.espace-contenu > .grille-chiffres > :nth-child(2) {
+  --i: 1;
+}
+.espace-contenu > :nth-child(3),
+.espace-contenu > .grille-chiffres > :nth-child(3) {
+  --i: 2;
+}
+.espace-contenu > :nth-child(4),
+.espace-contenu > .grille-chiffres > :nth-child(4) {
+  --i: 3;
+}
+.espace-contenu > :nth-child(5),
+.espace-contenu > .grille-chiffres > :nth-child(5) {
+  --i: 4;
+}
+.espace-contenu > :nth-child(6),
+.espace-contenu > .grille-chiffres > :nth-child(6) {
+  --i: 5;
+}
+/* Au-delà, tout arrive ensemble : un septième bloc est sous la ligne de
+ * flottaison, et personne n'attend 400 ms qu'il veuille bien paraître. */
+.espace-contenu > :nth-child(n + 7),
+.espace-contenu > .grille-chiffres > :nth-child(n + 7) {
+  --i: 6;
+}
+
+@keyframes verre-arrivee {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+/* Mouvement réduit : les états finaux, tout de suite. Les durées valent déjà
+ * 0 ms (`tokens.css`) ; cette règle est le filet, au cas où un jeton serait
+ * un jour redéfini sans le bloc de réduction. */
+@media (prefers-reduced-motion: reduce) {
+  .espace-contenu > :not(.grille-chiffres),
+  .espace-contenu > .grille-chiffres > * {
+    animation: none;
+  }
+}
+
 /* ── Cartes ─────────────────────────────────────────────────────────────── */
 
+/* Une carte est une plaque de verre posée dans un plateau : DEUX bordures
+ * concentriques. La coque (l'élément) est translucide, à peine plus claire
+ * que le fond, cernée d'un liseré ; le cœur (`::before`) est un blanc plus
+ * dense, en retrait de `--verre-marge`, avec son propre reflet en haut et un
+ * rayon calculé pour que les deux courbes se suivent. Posée à plat sur le
+ * fond, une seule bordure fait un rectangle ; les deux font un objet.
+ *
+ * Le cœur est un pseudo-élément et non un `div` : toutes les cartes du dépôt
+ * — le composant `Carte` comme les quelques `className="carte"` directs —
+ * gagnent la double bordure sans qu'un seul fichier TSX ne change.
+ *
+ * Aucun `backdrop-filter` : une carte défile, le flou serait recalculé à
+ * chaque image. La translucidité seule suffit — elle laisse passer les halos
+ * du maillage de fond, et c'est ce qu'on lit comme du verre. */
 .carte {
-  background: var(--fond-carte);
-  border: 1px solid var(--evkha-bordure);
-  border-radius: var(--rayon-lg);
-  padding: var(--e-6);
-  box-shadow: var(--ombre-sm);
+  position: relative;
+  isolation: isolate;
+  padding: calc(var(--e-6) + var(--verre-marge));
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre);
+  background: var(--verre-fond);
+  box-shadow: var(--ombre-ambiante);
+}
+
+.carte::before {
+  content: "";
+  position: absolute;
+  inset: var(--verre-marge);
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid var(--verre-reflet);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
+}
+
+/* Verre teinté rouge, pour une production interrompue : la coque prend la
+ * teinte, le cœur reste blanc pour que le texte garde son contraste. */
+.carte-echec {
+  background: linear-gradient(180deg, var(--verre-echec), transparent 40%),
+    var(--verre-fond);
+  border-color: color-mix(in srgb, var(--evkha-echec) 22%, transparent);
 }
 
 .carte-entete {
@@ -418,18 +526,22 @@
 }
 
 .chiffre {
-  background: var(--fond-carte);
-  border: 1px solid var(--evkha-bordure);
-  border-radius: var(--rayon-lg);
+  background: var(--verre-fond-fort);
+  border: 1px solid var(--verre-bordure);
+  border-radius: var(--rayon-verre-interne);
   padding: var(--e-5);
   display: flex;
   flex-direction: column;
   gap: var(--e-1);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
 }
 
+/* Le chiffre mis en avant est un verre teinté d'or, pas un aplat : le voile
+ * descend du haut et s'efface, le liseré prend la couleur. */
 .chiffre.accent {
-  background: var(--evkha-or-brume);
-  border-color: var(--evkha-or);
+  background: linear-gradient(165deg, var(--verre-or), transparent 62%),
+    var(--verre-fond-fort);
+  border-color: color-mix(in srgb, var(--evkha-or) 55%, transparent);
 }
 
 .chiffre-libelle {
@@ -459,7 +571,18 @@
 
 /* ── Boutons ────────────────────────────────────────────────────────────── */
 
+/* Un bouton est un ÎLOT : une pilule pleine, qui s'enfonce sous le doigt
+ * (`scale(.98)` à l'appui) et se soulève d'un pixel au survol. La courbe est
+ * `--ease-doux`, jamais `ease` : c'est elle qui donne l'impression d'une
+ * masse, pas d'un changement d'état.
+ *
+ * `position: relative` et `overflow: hidden` servent au balayage de l'état de
+ * chargement (`.bouton-chargement`), qui traverse la pilule de l'intérieur.
+ * L'anneau de focus n'est pas coupé pour autant : l'ombre d'un élément n'est
+ * jamais rognée par son propre `overflow`. */
 .bouton {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -472,14 +595,16 @@
   font-weight: var(--graisse-forte);
   cursor: pointer;
   text-decoration: none;
-  transition: background var(--transition), border-color var(--transition),
-    transform var(--transition), box-shadow var(--transition);
+  transition: background var(--duree-micro) var(--ease-doux),
+    border-color var(--duree-micro) var(--ease-doux),
+    color var(--duree-micro) var(--ease-doux),
+    transform var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux);
   white-space: nowrap;
 }
 
-.bouton:focus-visible {
-  outline: none;
-  box-shadow: var(--anneau-focus);
+.bouton:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.98);
 }
 
 .bouton:disabled,
@@ -492,11 +617,13 @@
 .bouton-principal {
   background: var(--evkha-or);
   color: var(--texte-sur-or);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
 }
 
 .bouton-principal:hover:not(:disabled) {
   background: var(--evkha-or-profond);
-  box-shadow: var(--ombre-or);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
+  transform: translateY(-1px);
 }
 
 .bouton-noir {
@@ -506,18 +633,98 @@
 
 .bouton-noir:hover:not(:disabled) {
   background: var(--evkha-encre);
-  box-shadow: var(--ombre-md);
+  box-shadow: var(--ombre-ambiante);
+  transform: translateY(-1px);
 }
 
+/* Le contour est un verre : fond translucide, reflet, et le liseré FORT de la
+ * charte — pas le liseré de verre à 6 %, trop faible pour dessiner le bord
+ * d'un élément qu'on doit reconnaître comme actionnable. */
 .bouton-contour {
-  background: transparent;
+  background: var(--verre-fond);
   border-color: var(--evkha-bordure-forte);
   color: var(--texte-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
 }
 
 .bouton-contour:hover:not(:disabled) {
   border-color: var(--evkha-noir);
-  background: var(--evkha-nuage);
+  background: var(--evkha-blanc);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
+  transform: translateY(-1px);
+}
+
+/* L'icône d'un bouton — une flèche `↗`, rien d'autre — n'est jamais posée nue
+ * à côté du texte : elle est NICHÉE dans son propre disque, collé au bord
+ * intérieur droit de la pilule. Au survol, le disque part d'un pixel dans la
+ * direction de la flèche : c'est la tension interne qui fait le bouton.
+ *
+ * Les marges négatives rentrent le disque dans le rembourrage du bouton sans
+ * en changer la hauteur : la ligne de texte fixe cette hauteur, le disque se
+ * loge dedans. */
+.bouton__icone {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  margin: -5px calc(-1 * var(--e-3)) -5px 0;
+  border-radius: 50%;
+  background: rgba(11, 11, 11, 0.08);
+  font-size: 0.8em;
+  line-height: 1;
+  transition: transform var(--duree-micro) var(--ease-doux);
+}
+
+.bouton-noir .bouton__icone {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.bouton:hover:not(:disabled) .bouton__icone {
+  transform: translate(1px, -1px) scale(1.06);
+}
+
+/* État de chargement : un balayage or et lumière traverse la pilule. Pas de
+ * tourniquet — le texte dit déjà « Lancement… », le balayage dit seulement
+ * que ça travaille. Il est légèrement moins effacé qu'un bouton simplement
+ * fermé : « en cours » n'est pas « indisponible ». */
+.bouton-chargement:disabled {
+  opacity: 0.85;
+  cursor: progress;
+}
+
+.bouton-chargement::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--verre-reflet) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: bouton-balayage 1.3s var(--ease-doux) infinite;
+}
+
+@keyframes bouton-balayage {
+  to {
+    transform: translateX(325%);
+  }
+}
+
+/* Après les variantes, et avec le survol dans le sélecteur : sinon
+ * `.bouton-principal:hover:not(:disabled)` (0,3,0) l'emporte sur
+ * `.bouton:focus-visible` (0,2,0), et l'anneau disparaît dès qu'on survole
+ * le bouton qu'on vient d'atteindre au clavier. */
+.bouton:focus-visible,
+.bouton:hover:focus-visible {
+  outline: none;
+  box-shadow: var(--anneau-focus);
 }
 
 .bouton-discret {
@@ -549,6 +756,15 @@
   font-size: var(--t-sm);
 }
 
+/* Le disque suit la taille du bouton : à 26 px dans une pilule de 36 px, il
+ * toucherait le bord. */
+.bouton-sm .bouton__icone {
+  width: 22px;
+  height: 22px;
+  flex-basis: 22px;
+  margin: -4px calc(-1 * var(--e-2)) -4px 0;
+}
+
 /* ── Pastilles de statut ────────────────────────────────────────────────── */
 
 .pastille {
@@ -557,6 +773,12 @@
   gap: var(--e-2);
   padding: 3px var(--e-3);
   border-radius: var(--rayon-pilule);
+  /* Un liseré de sa propre couleur, dilué, et un reflet : la pastille devient
+   * une petite pilule de verre teinté. Les voiles de fond restent OPAQUES —
+   * leur contraste est mesuré, et un fond translucide sur le maillage le
+   * ferait varier d'un endroit de l'écran à l'autre. */
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
   font-size: var(--t-xs);
   font-weight: var(--graisse-forte);
   letter-spacing: 0.02em;
@@ -599,8 +821,9 @@
 
 .tableau-cadre {
   border: 1px solid var(--evkha-bordure);
-  border-radius: var(--rayon-lg);
-  background: var(--fond-carte);
+  border-radius: var(--rayon-md);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet);
   overflow: hidden;
 }
 
@@ -691,9 +914,13 @@
   align-items: flex-start;
   gap: var(--e-3);
   padding: var(--e-4) var(--e-5);
-  border-radius: var(--rayon-md);
+  border-radius: var(--rayon-verre-interne);
   border: 1px solid;
   font-size: var(--t-sm);
+  /* Même reflet et même ombre que les cartes : un bandeau est une carte
+   * teintée, pas une bande de couleur. Le fond reste le voile opaque de son
+   * ton — contraste mesuré, voir `tokens.css`. */
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
 }
 
 .bandeau-alerte {
@@ -733,22 +960,39 @@
   color: var(--texte-tenu);
 }
 
+/* Un champ est un verre en creux : fond translucide, une ombre intérieure
+ * d'un pixel pour le creux, et le liseré fort de la charte pour que son
+ * bord se voie — un champ qu'on ne trouve pas n'est pas premium, il est
+ * caché. */
 .champ-saisie {
   padding: var(--e-3) var(--e-4);
   border: 1px solid var(--evkha-bordure-forte);
-  border-radius: var(--rayon-sm);
+  border-radius: var(--rayon-md);
   font-family: var(--police-corps);
   font-size: var(--t-base);
   color: var(--texte);
-  background: var(--fond-carte);
-  transition: border-color var(--transition), box-shadow var(--transition);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 2px var(--verre-bordure);
+  transition: border-color var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux),
+    background var(--duree-micro) var(--ease-doux);
   width: 100%;
 }
 
+.champ-saisie:hover:not(:disabled):not(:focus) {
+  background: var(--evkha-blanc);
+}
+
+/* Anneau OR au focus — mais l'or seul plafonne à 1,7:1 sur blanc, invisible
+ * pour qui a besoin de le voir. Le bord passe donc au noir (deux pixels,
+ * 19:1) et l'or l'entoure d'un halo : le noir signale, l'or habille. Un
+ * champ de texte prend toujours `:focus-visible` quand il a le focus, la
+ * règle vaut donc au clavier comme à la souris. */
 .champ-saisie:focus {
   outline: none;
   border-color: var(--evkha-noir);
-  box-shadow: 0 0 0 3px var(--evkha-or-voile);
+  background: var(--evkha-blanc);
+  box-shadow: 0 0 0 1px var(--evkha-noir), 0 0 0 5px var(--halo-or-fort);
 }
 
 .champ-saisie[aria-invalid="true"] {
@@ -779,30 +1023,44 @@
 
 /* ── Squelette de chargement ────────────────────────────────────────────── */
 
+/* Un reflet or très doux traverse la barre, de gauche à droite. Il est porté
+ * par un pseudo-élément déplacé en `transform` — l'ancienne version animait
+ * `background-position`, qui repeint la barre à chaque image ; un
+ * `translateX` ne fait que composer. */
 .squelette {
-  background: linear-gradient(
-    90deg,
-    var(--evkha-nuage) 25%,
-    var(--evkha-coquille) 50%,
-    var(--evkha-nuage) 75%
-  );
-  background-size: 200% 100%;
-  animation: squelette-glisse 1.4s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+  background: var(--evkha-nuage);
   border-radius: var(--rayon-sm);
   height: 1em;
 }
 
-@keyframes squelette-glisse {
-  from {
-    background-position: 200% 0;
-  }
+.squelette::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 60%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--verre-reflet) 45%,
+    var(--verre-or) 60%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: squelette-balayage 1.6s var(--ease-doux) infinite;
+}
+
+@keyframes squelette-balayage {
   to {
-    background-position: -200% 0;
+    transform: translateX(220%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .squelette {
+  .squelette::after {
     animation: none;
   }
 }
@@ -1006,8 +1264,9 @@
   gap: var(--e-3);
   padding: var(--e-5);
   border: 1px solid var(--evkha-bordure);
-  border-radius: var(--rayon-lg);
-  background: var(--fond-carte);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
 }
 
 /* La formule en cours se distingue par une bordure or ET un ruban : la
@@ -1242,16 +1501,24 @@
   text-align: left;
   padding: var(--e-5);
   border: 1px solid var(--evkha-bordure);
-  border-radius: var(--rayon-lg);
-  background: var(--fond-carte);
+  border-radius: var(--rayon-verre-interne);
+  background: var(--verre-fond-fort);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
   cursor: pointer;
   font-family: var(--police-corps);
-  transition: border-color var(--transition), box-shadow var(--transition);
+  transition: border-color var(--duree-micro) var(--ease-doux),
+    box-shadow var(--duree-micro) var(--ease-doux),
+    transform var(--duree-micro) var(--ease-doux);
 }
 
 .carte-document:hover:not(:disabled) {
   border-color: var(--evkha-or);
-  box-shadow: var(--ombre-md);
+  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante-lg);
+  transform: translateY(-2px);
+}
+
+.carte-document:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
 }
 
 .carte-document:focus-visible {

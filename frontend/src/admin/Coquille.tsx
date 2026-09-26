@@ -217,7 +217,13 @@ export function CoquilleAdmin() {
             className="bouton bouton-contour bouton-sm"
             style={{ flex: "0 0 auto" }}
           >
-            Espace client ↗
+            Espace client
+            {/* La flèche est nichée dans son propre disque (`.bouton__icone`),
+                jamais posée nue à côté du texte. Décorative : le nom du lien
+                reste « Espace client ». */}
+            <span className="bouton__icone" aria-hidden="true">
+              ↗
+            </span>
           </a>
         </header>
 
