@@ -58,6 +58,41 @@
   --evkha-info: #1c5d99;
   --evkha-info-voile: #eaf2fa;
 
+  /* ── Hors charte, à leur valeur exacte ──────────────────────────────────
+   * Des couleurs qui ne sont PAS celles du site mesuré, mais que des feuilles
+   * peignaient en dur. Elles sont déclarées ici telles quelles, et non
+   * rapprochées d'une teinte voisine de la charte : les ramener à la source
+   * unique est un déplacement, pas une retouche — le rendu ne change pas d'un
+   * pixel. Les fondre dans la charte est une décision de design, à prendre à
+   * part, jeton par jeton.
+   */
+  /* Bouton « Se connecter avec Google » : le gris du texte et celui du liseré
+   * sont imposés par les consignes de marque de Google, pas par EVKHA. */
+  --google-texte: #3c4043;
+  --google-bordure: #dadce0;
+  /* Son liseré au survol, un cran plus sombre : posé avec le bouton
+   * (`ee73f8c`), hors consignes Google. */
+  --google-bordure-survol: #c9ccce;
+  /* Connexion, inscription, mot de passe (`public/Portail.css`) : valeurs de
+   * l'inscription (`7771bff`) et du portail commun (`ee73f8c`). Le filet et
+   * l'or de survol viennent de l'ancienne palette de la page partenaires
+   * (`0cffded`), retirée de `Partenaires.css` en `b2e1b4c`. */
+  --portail-filet: #e7e0cf; /* onglets, séparateur « ou » */
+  --portail-or-survol: #f0c93a; /* bouton d'envoi survolé */
+  --portail-champ-bordure: #d5cdb9; /* bord d'un champ au repos */
+  --portail-champ-invalide: #fff8f7; /* fond d'un champ refusé */
+  --portail-panneau-texte: #ececec; /* liste du visuel, sur voile noir */
+  /* Message d'erreur. Son voile est à UN cran de bleu de
+   * `--evkha-echec-voile` (#FDECEB) : les fusionner serait une retouche. */
+  --portail-erreur-voile: #fdecea;
+  --portail-erreur-bordure: #f2b8b5;
+  --portail-erreur-texte: #8c1d18;
+  /* Lien « mot de passe oublié » (`b3a5bbc`). Ces deux valeurs étaient les
+   * replis de `--prt-encre-tenue` et `--prt-encre`, déclarés nulle part : le
+   * repli était donc toujours la couleur rendue. */
+  --portail-appoint: #6b6a65;
+  --portail-appoint-survol: #21201c;
+
   /* ── Texte ──────────────────────────────────────────────────────────── */
   --texte-fort: var(--evkha-noir);
   --texte: var(--evkha-encre);
@@ -200,9 +235,9 @@
   /* Ce qui dit « on attend » respire, au même rythme partout : le halo du
    * jalon en cours du suivi de production, le point de la souscription. */
   --duree-respiration: 2.6s;
-  /* Toute autre durée de mouvement de `espace.css` a son jeton, et chacun
-   * tombe à 0 ms sous mouvement réduit (bloc ci-dessous). Écrite en dur,
-   * une durée échappait à ce bloc : seule une règle `animation: none`
+  /* Toute autre durée de mouvement des feuilles de `src` a son jeton, et
+   * chacun tombe à 0 ms sous mouvement réduit (bloc ci-dessous). Écrite en
+   * dur, une durée échappait à ce bloc : seule une règle `animation: none`
    * nommée l'arrêtait, et une règle oubliée laissait tourner une boucle.
    * Verrouillé par `les-mouvements-lisent-leurs-durees.test.ts`. */
   --duree-balayage: 1.3s; /* lame de lumière d'un bouton qui charge */

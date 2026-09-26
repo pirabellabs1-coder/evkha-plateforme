@@ -19,9 +19,10 @@
  *
  * Les feuilles sont DÉCOUVERTES dans `src/public`, pas énumérées : une liste
  * fermée laissait `Portail.css` — connexion, inscription, cible de chaque
- * « Souscrire » — hors du verrou (revue du 26/09/2026). Elle y est encore, en
- * exemption déclarée ; un test échoue le jour où elle n'a plus de couleur
- * littérale, pour que l'exemption rétrécisse au lieu de pourrir.
+ * « Souscrire » — hors du verrou (revue du 26/09/2026). Elle y est entrée le
+ * même jour, sans exemption : ses 23 couleurs lisent des jetons, et celles
+ * qui ne sont pas de la charte (bouton Google, rouges d'erreur, filets
+ * crème) ont un jeton nommé dans `tokens.css`, à leur valeur exacte.
  *
  * Contre-épreuve (règle 6) en fin de fichier. Rejoué sur le CSS d'avant
  * (`ded4cdf`) : rouge sur les quatre feuilles refondues.
@@ -35,14 +36,9 @@ import { describe, expect, it } from "vitest";
 
 const DOSSIER = join(process.cwd(), "src", "public");
 
-/** Feuilles publiques pas encore passées à la charte. À vider, jamais à
- *  allonger sans une raison écrite ici. */
-const EN_ATTENTE = new Set(["Portail.css"]);
-
 const FEUILLES = readdirSync(DOSSIER)
   .filter((f) => f.endsWith(".css"))
   .sort();
-const VERROUILLEES = FEUILLES.filter((f) => !EN_ATTENTE.has(f));
 
 /** Les valeurs qui doublonnaient la charte, telles que trouvées dans le CSS
  *  d'avant. Comparées en minuscules et sans espaces. */
@@ -121,24 +117,15 @@ function couleursLitterales(css: string): string[] {
 describe("les pages publiques lisent la charte", () => {
   // Règle 1 : un contrôle qui n'a rien à comparer est un échec, pas un
   // succès. Si le dossier était vide, chaque test ci-dessous passerait.
-  it("trouve les feuilles publiques, et aucune n'est vide", () => {
-    expect(VERROUILLEES.length).toBeGreaterThanOrEqual(4);
+  it("trouve les feuilles publiques, Portail.css comprise, et aucune n'est vide", () => {
+    expect(FEUILLES.length).toBeGreaterThanOrEqual(5);
+    expect(FEUILLES).toContain("Portail.css");
     for (const feuille of FEUILLES) {
       expect(sansCommentaires(lire(feuille)).trim().length, feuille).toBeGreaterThan(200);
     }
   });
 
-  it("l'exemption ne couvre que des feuilles qui existent et en ont besoin", () => {
-    for (const feuille of EN_ATTENTE) {
-      expect(FEUILLES, `${feuille} exemptée mais absente`).toContain(feuille);
-      expect(
-        couleursLitterales(lire(feuille)).length,
-        `${feuille} n'a plus de couleur littérale : retirez-la de EN_ATTENTE`,
-      ).toBeGreaterThan(0);
-    }
-  });
-
-  for (const feuille of VERROUILLEES) {
+  for (const feuille of FEUILLES) {
     it(`${feuille} ne recopie ni l'or, ni le noir, ni le fond de la charte`, () => {
       const css = normalise(lire(feuille));
       for (const [famille, valeurs] of Object.entries(DOUBLONS)) {
