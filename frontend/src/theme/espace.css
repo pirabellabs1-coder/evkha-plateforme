@@ -309,7 +309,10 @@
   margin: var(--e-4) var(--e-8) 0;
   padding: var(--e-2) var(--e-5) var(--e-2) var(--e-2);
   border-radius: var(--rayon-pilule);
-  background: var(--verre-fond);
+  /* Le verre FORT (78 %), pas le verre courant (64 %) : un bouton noir ou une
+   * infobulle qui défile sous la barre ramenait le sous-titre gris à 3,7:1 ;
+   * à 78 % de blanc il reste à 5,4:1. Le flou ne compte pas pour WCAG. */
+  background: var(--verre-fond-fort);
   border: 1px solid var(--verre-bordure);
   box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
   -webkit-backdrop-filter: blur(var(--verre-flou)) saturate(1.35);
@@ -498,6 +501,7 @@
 
 .carte-entete {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--e-4);
@@ -576,13 +580,16 @@
  * `--ease-doux`, jamais `ease` : c'est elle qui donne l'impression d'une
  * masse, pas d'un changement d'état.
  *
- * `position: relative` et `overflow: hidden` servent au balayage de l'état de
- * chargement (`.bouton-chargement`), qui traverse la pilule de l'intérieur.
- * L'anneau de focus n'est pas coupé pour autant : l'ombre d'un élément n'est
- * jamais rognée par son propre `overflow`. */
+ * `position: relative` sert au balayage de l'état de chargement
+ * (`.bouton-chargement`), qui traverse la pilule de l'intérieur. Le
+ * `overflow: hidden` qui le rogne vit SUR `.bouton-chargement`, jamais ici :
+ * posé sur tous les boutons, il ramenait leur `min-width: auto` à 0 dans un
+ * conteneur flex, le bouton se laissait comprimer et son libellé était coupé
+ * des deux côtés — vu sur « Tous mes livrables » à 375 px le 26/09/2026. Un
+ * bouton ne se comprime jamais sous son texte ; c'est l'en-tête de carte qui
+ * passe à la ligne (`.carte-entete`). */
 .bouton {
   position: relative;
-  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -688,6 +695,10 @@
  * tourniquet — le texte dit déjà « Lancement… », le balayage dit seulement
  * que ça travaille. Il est légèrement moins effacé qu'un bouton simplement
  * fermé : « en cours » n'est pas « indisponible ». */
+.bouton-chargement {
+  overflow: hidden;
+}
+
 .bouton-chargement:disabled {
   opacity: 0.85;
   cursor: progress;
@@ -714,6 +725,13 @@
 @keyframes bouton-balayage {
   to {
     transform: translateX(325%);
+  }
+}
+
+/* La durée est littérale (1,3 s), les jetons à 0 ms ne la couvrent pas. */
+@media (prefers-reduced-motion: reduce) {
+  .bouton-chargement::after {
+    animation: none;
   }
 }
 
@@ -1585,6 +1603,12 @@
   animation-delay: calc((var(--i, 0) + 1) * var(--decalage-reveal));
 }
 
+/* `--i` s'hérite : sans cette règle, le premier bloc prendrait le `--i` de
+   l'enveloppe (2 ou 3 selon les bandeaux qui précèdent) et arriverait APRÈS
+   le deuxième. */
+.etape-commande > :nth-child(1) {
+  --i: 0;
+}
 .etape-commande > :nth-child(2) {
   --i: 1;
 }
@@ -2728,6 +2752,10 @@
   animation-delay: calc((var(--i, 0) + 2) * var(--decalage-reveal));
 }
 
+.telechargements > :nth-child(1) {
+  --i: 0;
+}
+
 .telechargements > :nth-child(2) {
   --i: 1;
 }
@@ -3336,6 +3364,10 @@
 }
 
 /* ── Bandeau d'assistance ────────────────────────────────────────────────── */
+
+.assistance-bandeau + .espace-entete {
+  position: static;
+}
 /*
  * EVKHA est entrée dans l'espace de quelqu'un d'autre. Le bandeau est en haut,
  * pleine largeur, au-dessus de la barre latérale ET du contenu — un encart
@@ -3346,9 +3378,11 @@
  * elle signale qu'on n'est pas chez soi.
  */
 .assistance-bandeau {
-  /* Collé en haut de la colonne de contenu. L'en-tête de page ne l'est qu'en
-     dessous de 900 px ; celui-ci l'est toujours, parce que c'est la seule
-     chose de l'écran qu'on ne doit jamais perdre de vue. */
+  /* Collé en haut de la colonne de contenu, à toutes les largeurs : c'est la
+     seule chose de l'écran qu'on ne doit jamais perdre de vue. L'en-tête de
+     page, collant lui aussi depuis la charte verre, redevient ordinaire quand
+     ce bandeau le précède (règle ci-dessous) : deux barres collantes de
+     hauteurs inconnues se chevaucheraient. */
   position: sticky;
   top: 0;
   z-index: 40;
