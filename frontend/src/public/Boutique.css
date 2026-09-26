@@ -526,13 +526,16 @@
 
 /* Le thème est POSÉ SUR l'image et non sous le titre : dans une grille, il
    sert à balayer — « lequel me concerne ? » — avant de lire les titres. */
+/* Posé SUR la couverture : opaque, jamais du verre. Sans flou (interdit sur
+ * ce qui défile), un blanc à 78 % laisse transparaître le texte de l'image et
+ * brouille le thème — vu sur « Tech » le 26/09/2026. */
 .bq-fanion {
   position: absolute;
   top: 0.7rem;
   left: 0.7rem;
   padding: 0.2rem 0.65rem;
   border-radius: var(--rayon-pilule);
-  background: var(--verre-fond-fort);
+  background: var(--evkha-blanc);
   border: 1px solid var(--verre-bordure);
   box-shadow: inset 0 1px 0 var(--verre-reflet);
   font-size: var(--t-xs);
