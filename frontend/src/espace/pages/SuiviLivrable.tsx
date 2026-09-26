@@ -104,8 +104,15 @@ function Jalon({ etape, rang }: { etape: EtapeSuivi; rang: number }) {
         <p className="frise-libelle">{etape.libelle}</p>
         <p className="frise-etat">{LIBELLE_ETAT[etape.etat]}</p>
         {/* « 22 chapitres sur 22 » : le seul endroit où le client voit que
-            l'étude avance vraiment, pas juste qu'elle est « en cours ». */}
-        {etape.detail && <p className="frise-detail">{etape.detail}</p>}
+            l'étude avance vraiment, pas juste qu'elle est « en cours ».
+            `key` sur le texte : à chaque incrément le paragraphe est remonté
+            et rejoue sa courte arrivée — c'est le flash. Le nœud change, la
+            donnée et le sondage qui l'apporte ne changent pas. */}
+        {etape.detail && (
+          <p key={etape.detail} className="frise-detail frise-increment">
+            {etape.detail}
+          </p>
+        )}
       </div>
     </li>
   );
@@ -131,7 +138,10 @@ function Frise({ suivi }: { suivi: Suivi }) {
         // l'écran inutilisable au lecteur d'écran.
         <div className="frise-tete" aria-live="polite">
           {montrerAvancement && (
-            <p className="frise-chiffre">
+            // Même remontage par `key` que le détail des jalons : le chiffre
+            // arrive à chaque changement. Dans la région `aria-live`, un nœud
+            // ajouté est annoncé comme l'était un texte modifié.
+            <p key={suivi.progression} className="frise-chiffre frise-increment">
               {suivi.progression}
               <span className="frise-unite">%</span>
             </p>
@@ -156,9 +166,13 @@ function Frise({ suivi }: { suivi: Suivi }) {
           aria-valuemax={100}
           aria-label="Avancement de la production"
         >
+          {/* Le remplissage fait toute la largeur et se DÉCALE vers la gauche
+              de ce qui manque : un `transform` se compose sans repeindre,
+              là où animer `width` relançait la mise en page à chaque sondage.
+              Son bout droit arrondi est ce qu'on voit avancer. */}
           <span
             className="jauge-remplissage"
-            style={{ width: `${suivi.progression}%` }}
+            style={{ transform: `translateX(-${100 - suivi.progression}%)` }}
           />
         </div>
       )}
@@ -219,6 +233,7 @@ export function SuiviLivrable() {
       <Carte
         titre={f.typeLivrable(data.type)}
         note={`Commandée le ${f.dateHeure(data.cree_le)}`}
+        ton={echec ? "echec" : undefined}
         action={
           <Link to="/espace/livrables" className="bouton bouton-contour bouton-sm">
             Tous mes livrables
@@ -270,7 +285,9 @@ export function SuiviLivrable() {
 
       {data.fichiers.length > 0 && (
         <Carte titre="Votre document" note="Word et PDF, sans limite de téléchargement.">
-          <div style={{ display: "flex", gap: "var(--e-3)", flexWrap: "wrap" }}>
+          {/* Une classe et non un style en ligne : les boutons arrivent l'un
+              après l'autre en fondu-montée, et c'est la feuille qui le dit. */}
+          <div className="telechargements">
             {data.fichiers.map((fichier) => (
               <a
                 key={fichier.kind}

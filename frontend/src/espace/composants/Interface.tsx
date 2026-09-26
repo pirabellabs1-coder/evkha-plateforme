@@ -12,15 +12,19 @@ export function Carte({
   titre,
   note,
   action,
+  ton,
   children,
 }: {
   titre?: string;
   note?: string;
   action?: ReactNode;
+  /** Teinte de la coque de verre. `echec` pour une production interrompue :
+   *  la carte entière dit l'état, pas seulement le bandeau qu'elle contient. */
+  ton?: "echec";
   children: ReactNode;
 }) {
   return (
-    <section className="carte">
+    <section className={ton ? `carte carte-${ton}` : "carte"}>
       {(titre || action) && (
         <header className="carte-entete">
           <div>
