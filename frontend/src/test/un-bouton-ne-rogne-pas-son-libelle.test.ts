@@ -39,8 +39,9 @@ describe("un bouton ne rogne pas son libellé", () => {
   });
 
   it("le balayage de chargement s'arrête quand le mouvement est réduit", () => {
-    // La durée est littérale (1,3 s) : les jetons à 0 ms ne la couvrent pas,
-    // il faut une règle nommée dans un bloc `prefers-reduced-motion`.
+    // La durée passe par `--duree-balayage`, à 0 ms sous mouvement réduit
+    // (`les-mouvements-lisent-leurs-durees`) ; la règle nommée dans un bloc
+    // `prefers-reduced-motion` reste le filet, et ce test la garde.
     const blocs = css.match(
       /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/g,
     );
