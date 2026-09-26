@@ -1,4 +1,7 @@
-type RadixColor = "gray" | "blue" | "green" | "amber";
+/** Ton de pastille d'une formule (`.pastille-<ton>`, `theme/espace.css`).
+ *  Les anciennes couleurs Radix, ton pour ton : gray → neutre, blue →
+ *  information, green → succès, amber → alerte. */
+type TonFormule = "neutre" | "info" | "succes" | "alerte";
 
 export const TIER_LABELS: Record<string, string> = {
   solo: "Solo (2 crédits/mois)",
@@ -14,9 +17,9 @@ export const TIER_LABELS_SHORT: Record<string, string> = {
   structure: "Structure",
 };
 
-export function tierColor(tier: string): RadixColor {
-  const map: Record<string, RadixColor> = {
-    solo: "gray", pro: "blue", pro_plus: "green", structure: "amber",
+export function tierTon(tier: string): TonFormule {
+  const map: Record<string, TonFormule> = {
+    solo: "neutre", pro: "info", pro_plus: "succes", structure: "alerte",
   };
-  return map[tier] ?? "gray";
+  return map[tier] ?? "neutre";
 }
