@@ -38,6 +38,8 @@ class _Payload:
         self.chapitre = chapitre
         self.donnees_utilisees: list[str] = []
         self.sous_titres: list[object] = []
+        # Lot 98 : la validation résout aussi les identifiants des figures.
+        self.graphiques: list[object] = []
 
 
 def _mots(nombre: int) -> str:
