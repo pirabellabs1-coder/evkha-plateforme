@@ -1,53 +1,74 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import {
-  Box, Flex, Heading, Badge, Table, Text, Callout, Spinner, Button, Dialog, Code,
-} from "@radix-ui/themes";
 import { api, type Incident } from "../api";
+import { Bandeau, Carte, Squelette } from "../espace/composants/Interface";
+import "../admin/console.css";
 
-type RadixColor = "red" | "amber" | "green" | "gray";
-
-function severityColor(severity: string): RadixColor {
-  const map: Record<string, RadixColor> = {
-    critical: "red", high: "red", medium: "amber", low: "green",
-  };
-  return map[severity] ?? "gray";
-}
+/** Sévérité → classes de pastille (`theme/espace.css`), comme `TONS` dans
+ *  `admin/pages/Transactions.tsx` : une sévérité n'est pas un statut, elle n'a
+ *  pas sa place dans la table de `Pastille`.
+ *
+ *  Critique et haute partagent le rouge, comme avant ; la critique est PLEINE
+ *  (l'ancien `variant="solid"`) pour qu'on les distingue sans lire. Moyenne en
+ *  alerte, faible en succès ; toute sévérité inconnue retombe au neutre. */
+const PASTILLE_PAR_SEVERITE: Record<string, string> = {
+  critical: "pastille-echec console-pastille-pleine",
+  high: "pastille-echec",
+  medium: "pastille-alerte",
+  low: "pastille-succes",
+};
 
 const SEVERITY_LABELS: Record<string, string> = {
   critical: "Critique", high: "Haute", medium: "Moyenne", low: "Faible",
 };
 
+/** Le détail brut d'un incident, dans un `<dialog>` natif.
+ *
+ *  `showModal()` fait ce que faisait le `Dialog` de Radix : le reste de la page
+ *  devient inerte, Échap ferme, et le focus revient au bouton « Détails » à la
+ *  fermeture. Un clic sur le voile ferme aussi : le rembourrage vit sur le
+ *  corps de la fenêtre (`console.css`), un clic qui atteint la fenêtre
+ *  elle-même est donc un clic hors du corps. */
 function DetailsDialog({ details }: { details: Record<string, unknown> }) {
+  const fenetre = useRef<HTMLDialogElement>(null);
+  const idTitre = useId();
   if (!details || Object.keys(details).length === 0) return null;
   return (
-    <Dialog.Root>
-      <Dialog.Trigger>
-        <Button variant="ghost" size="1" color="gray">Détails</Button>
-      </Dialog.Trigger>
-      <Dialog.Content maxWidth="600px">
-        <Dialog.Title>Détails de l'incident</Dialog.Title>
-        <Box
-          style={{
-            background: "var(--gray-2)",
-            borderRadius: 6,
-            padding: 16,
-            maxHeight: 400,
-            overflow: "auto",
-          }}
-        >
-          <Code size="1" style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-            {JSON.stringify(details, null, 2)}
-          </Code>
-        </Box>
-        <Flex justify="end" mt="4">
-          <Dialog.Close>
-            <Button variant="soft" color="gray">Fermer</Button>
-          </Dialog.Close>
-        </Flex>
-      </Dialog.Content>
-    </Dialog.Root>
+    <>
+      <button
+        type="button"
+        className="bouton bouton-discret bouton-sm"
+        aria-haspopup="dialog"
+        onClick={() => fenetre.current?.showModal()}
+      >
+        Détails
+      </button>
+      <dialog
+        ref={fenetre}
+        className="console-fenetre"
+        aria-labelledby={idTitre}
+        onClick={(evenement) => {
+          if (evenement.target === evenement.currentTarget) evenement.currentTarget.close();
+        }}
+      >
+        <div className="console-fenetre-corps">
+          <h2 id={idTitre} className="carte-titre">Détails de l'incident</h2>
+          <pre className="console-code">
+            <code>{JSON.stringify(details, null, 2)}</code>
+          </pre>
+          <div className="console-fenetre-pied">
+            <button
+              type="button"
+              className="bouton bouton-contour"
+              onClick={() => fenetre.current?.close()}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </dialog>
+    </>
   );
 }
 
@@ -68,19 +89,24 @@ function ResolveButton({ incident, onResolved }: {
     },
   });
 
+  // `disabled` suit l'envoi, comme le faisait le `loading` de Radix (qui
+  // désactivait le bouton tant qu'on ne lui passait pas `disabled`).
   return (
-    <Flex direction="column" align="start" gap="1">
-      <Button
-        size="1"
-        variant="soft"
-        color="green"
-        loading={mutation.isPending}
+    <div className="console-pile">
+      <button
+        type="button"
+        className={
+          mutation.isPending
+            ? "bouton bouton-contour bouton-sm bouton-chargement"
+            : "bouton bouton-contour bouton-sm"
+        }
+        disabled={mutation.isPending}
         onClick={() => mutation.mutate()}
       >
         Résoudre
-      </Button>
-      {error && <Text size="1" color="red">{error}</Text>}
-    </Flex>
+      </button>
+      {error && <p className="console-message console-message-echec" role="alert">{error}</p>}
+    </div>
   );
 }
 
@@ -88,73 +114,69 @@ function IncidentTable({ incidents, canResolve }: { incidents: Incident[]; canRe
   const queryClient = useQueryClient();
 
   return (
-    <Table.Root variant="surface">
-      <Table.Header>
-        <Table.Row>
-          <Table.ColumnHeaderCell>Titre</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell>Sévérité</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell>Créé le</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell>Job</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell>Détails</Table.ColumnHeaderCell>
-          {canResolve && <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell>}
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
-        {incidents.map((inc) => (
-          <Table.Row key={inc.id}>
-            <Table.Cell>
-              <Text size="2" weight="medium">{inc.title}</Text>
-            </Table.Cell>
-            <Table.Cell>
-              <Badge
-                color={severityColor(inc.severity)}
-                variant={inc.severity === "critical" ? "solid" : "soft"}
-                size="1"
-              >
-                {SEVERITY_LABELS[inc.severity] ?? inc.severity}
-              </Badge>
-            </Table.Cell>
-            <Table.Cell>
-              <Text size="1" color="gray" className="mono">
+    <div className="tableau-cadre tableau-defile">
+      <table className="tableau">
+        <thead>
+          <tr>
+            <th scope="col">Titre</th>
+            <th scope="col">Sévérité</th>
+            <th scope="col">Créé le</th>
+            <th scope="col">Job</th>
+            <th scope="col">Détails</th>
+            {canResolve && <th scope="col">Action</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {incidents.map((inc) => (
+            <tr key={inc.id}>
+              <td>
+                <strong>{inc.title}</strong>
+              </td>
+              <td>
+                <span className={`pastille ${PASTILLE_PAR_SEVERITE[inc.severity] ?? "pastille-neutre"}`}>
+                  {SEVERITY_LABELS[inc.severity] ?? inc.severity}
+                </span>
+              </td>
+              <td className="console-tabulaire">
                 {new Date(inc.created_at).toLocaleString("fr-FR")}
-              </Text>
-              {inc.resolved_at && (
-                <Text size="1" color="green" as="p" className="mono">
-                  Résolu {new Date(inc.resolved_at).toLocaleString("fr-FR")}
-                </Text>
+                {inc.resolved_at && (
+                  <p className="console-message console-message-succes">
+                    Résolu {new Date(inc.resolved_at).toLocaleString("fr-FR")}
+                  </p>
+                )}
+              </td>
+              <td>
+                {inc.job_id ? (
+                  <Link
+                    to="/admin/jobs/$jobId"
+                    params={{ jobId: inc.job_id }}
+                    className="console-lien"
+                  >
+                    Voir <span aria-hidden="true">→</span>
+                  </Link>
+                ) : (
+                  <span className="carte-note">—</span>
+                )}
+              </td>
+              <td>
+                <DetailsDialog details={inc.details} />
+              </td>
+              {canResolve && (
+                <td>
+                  <ResolveButton
+                    incident={inc}
+                    onResolved={() => {
+                      queryClient.invalidateQueries({ queryKey: ["incidents"] });
+                      queryClient.invalidateQueries({ queryKey: ["overview"] });
+                    }}
+                  />
+                </td>
               )}
-            </Table.Cell>
-            <Table.Cell>
-              {inc.job_id ? (
-                <Link
-                  to="/admin/jobs/$jobId"
-                  params={{ jobId: inc.job_id }}
-                  style={{ color: "var(--accent-9)", textDecoration: "none", fontSize: 13 }}
-                >
-                  Voir →
-                </Link>
-              ) : (
-                <Text size="2" color="gray">—</Text>
-              )}
-            </Table.Cell>
-            <Table.Cell>
-              <DetailsDialog details={inc.details} />
-            </Table.Cell>
-            {canResolve && (
-              <Table.Cell>
-                <ResolveButton
-                  incident={inc}
-                  onResolved={() => {
-                    queryClient.invalidateQueries({ queryKey: ["incidents"] });
-                    queryClient.invalidateQueries({ queryKey: ["overview"] });
-                  }}
-                />
-              </Table.Cell>
-            )}
-          </Table.Row>
-        ))}
-      </Table.Body>
-    </Table.Root>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -170,44 +192,33 @@ export function Incidents() {
   const resolved = data?.filter((i) => i.status === "resolved") ?? [];
 
   return (
-    <Box>
+    <>
       {/* Titre rendu par la coquille d'administration — voir Clients.tsx. */}
-      {isLoading && (
-        <Flex justify="end" align="center" mb="4">
-          <Spinner size="2" />
-        </Flex>
-      )}
+      {isLoading && <Squelette lignes={4} />}
 
       {!isLoading && open.length === 0 && inProgress.length === 0 && (
-        <Callout.Root color="green" mb="5">
-          <Callout.Text>Aucun incident ouvert ✓</Callout.Text>
-        </Callout.Root>
+        <Bandeau ton="succes">Aucun incident ouvert ✓</Bandeau>
       )}
 
+      {/* Les incidents ouverts sont ce qui demande une intervention : leur
+          carte prend le verre teinté d'échec, comme leur titre était rouge. */}
       {open.length > 0 && (
-        <Box mb="6">
-          <Heading size="4" color="red" mb="3">
-            Ouverts ({open.length})
-          </Heading>
+        <Carte titre={`Ouverts (${open.length})`} ton="echec">
           <IncidentTable incidents={open} canResolve />
-        </Box>
+        </Carte>
       )}
 
       {inProgress.length > 0 && (
-        <Box mb="6">
-          <Heading size="4" color="amber" mb="3">
-            Pris en compte ({inProgress.length})
-          </Heading>
+        <Carte titre={`Pris en compte (${inProgress.length})`}>
           <IncidentTable incidents={inProgress} canResolve />
-        </Box>
+        </Carte>
       )}
 
       {resolved.length > 0 && (
-        <Box>
-          <Heading size="4" mb="3">Résolus récemment ({resolved.length})</Heading>
+        <Carte titre={`Résolus récemment (${resolved.length})`}>
           <IncidentTable incidents={resolved} />
-        </Box>
+        </Carte>
       )}
-    </Box>
+    </>
   );
 }
