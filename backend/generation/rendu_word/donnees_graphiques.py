@@ -31,6 +31,7 @@ from ..socle.schema import (
     DonneeSocle,
     Socle,
     famille_de_l_unite,
+    nombre_francais,
     unite_lisible,
     valeur_en_unites_de_base,
 )
@@ -233,7 +234,10 @@ def _suffixe(unite: str) -> str:
     auraient fini par diverger, et le document aurait porté les deux (règle 5).
     """
     if unite == "%":
-        return ""
+        # « 45 % » et non « 45 » : le suffixe vide faisait perdre le signe sur
+        # les barres de pourcentages, contrairement à la promesse du repli
+        # (relecture du 26/09/2026).
+        return " %"
     lisible = unite_lisible(unite)
     return f" {lisible}" if lisible else ""
 
@@ -249,14 +253,14 @@ def _valeur_lisible(valeur: float, unite: str) -> str:
     """
     decompose = _decomposer(unite)
     if decompose is None:
-        return f"{valeur:g}{_suffixe(unite)}"
+        return f"{nombre_francais(valeur)}{_suffixe(unite)}"
 
     magnitude_source, devise = decompose
     base = valeur * dict(_MAGNITUDES_AFFICHAGE)[magnitude_source]
     for prefixe, facteur in _MAGNITUDES_AFFICHAGE:
         if abs(base) >= facteur:
-            return f"{base / facteur:g} {unite_lisible(f'{prefixe}{devise}')}"
-    return f"{base:g} {unite_lisible(devise)}"
+            return f"{nombre_francais(base / facteur)} {unite_lisible(f'{prefixe}{devise}')}"
+    return f"{nombre_francais(base)} {unite_lisible(devise)}"
 
 
 def _decomposer(unite: str) -> tuple[str, str] | None:
@@ -388,7 +392,7 @@ def _scalaires(
                 {"etiquettes": etiquettes, "valeurs": valeurs,
                  "unite": _suffixe(unite)},
                 motif=(
-                    f"ces {len(valeurs)} pourcentages font {somme:g} % et non "
+                    f"ces {len(valeurs)} pourcentages font {nombre_francais(somme)} % et non "
                     "100 % : ce ne sont pas les parts d'un même tout — rendu en "
                     "barres, qui les montre à leur vraie valeur"
                 ),
@@ -396,7 +400,7 @@ def _scalaires(
             )
         contenu: dict[str, Any] = {"etiquettes": etiquettes, "valeurs": valeurs}
         if type_demande == "anneau":
-            contenu["centre"] = f"{sum(valeurs):g}{_suffixe(unite)}"
+            contenu["centre"] = f"{nombre_francais(sum(valeurs))}{_suffixe(unite)}"
         return Resolution(type_demande, contenu)
 
     if type_demande == "entonnoir":
@@ -562,7 +566,7 @@ def _temporel(
         return Resolution(
             "courbes",
             {"abscisses": [str(a) for a in annees], "series": series,
-             "unite": unite},
+             "unite": unite_lisible(unite)},
             motif="une seule série : rendu en courbe, une aire empilée n'aurait "
             "rien à empiler",
             converti=True,
@@ -570,7 +574,7 @@ def _temporel(
     return Resolution(
         type_demande,
         {"abscisses": [str(annee) for annee in annees], "series": series,
-         "unite": unite},
+         "unite": unite_lisible(unite)},
     )
 
 
@@ -621,7 +625,7 @@ def _groupees(
     return Resolution(
         type_demande,
         {"etiquettes": [str(annee) for annee in annees], "series": series,
-         "unite": unite},
+         "unite": unite_lisible(unite)},
     )
 
 

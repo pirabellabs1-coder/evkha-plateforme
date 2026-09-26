@@ -480,3 +480,32 @@ def test_le_verdict_se_lit_sur_le_controle_pas_sur_la_phrase() -> None:
     assert livraison.document_ampute(["integrite"])
     assert not livraison.document_ampute(["visuels", "chiffres_hors_socle"])
     assert not livraison.document_ampute([])
+
+
+# ── LibreOffice absent : le Word part, le PDF est en échec, l'incident existe ──
+
+
+@override_settings(EVKHA_LIVRABLE_WORD=True, EVKHA_USE_STUB_PDF=False)
+def test_libreoffice_absent_ne_prive_pas_du_word_et_se_signale(
+    monkeypatch: pytest.MonkeyPatch, job_livrable: Any
+) -> None:
+    """La fabrique du convertisseur levait HORS du `try` : toute la livraison
+    échouait, le Word avec, contrairement à la docstring. Et un PDF manquant
+    ne se lisait qu'au journal (relecture du 26/09/2026)."""
+    from documents import livrable_word
+    from integrations.docx_pdf import ConversionPdfError
+    from monitoring.models import OperationalIncident
+
+    def _pas_de_libreoffice() -> Any:
+        msg = "LibreOffice est requis et reste introuvable."
+        raise ConversionPdfError(msg)
+
+    monkeypatch.setattr(livrable_word, "get_convertisseur_docx", _pas_de_libreoffice)
+
+    assemble = livrable_word.assembler_livrable_word(job_livrable)
+
+    assert assemble.docx.status == ArtifactStatus.READY
+    assert assemble.pdf is not None and assemble.pdf.status == ArtifactStatus.FAILED
+    assert OperationalIncident.objects.filter(
+        job=job_livrable, title__startswith="PDF non produit"
+    ).exists()

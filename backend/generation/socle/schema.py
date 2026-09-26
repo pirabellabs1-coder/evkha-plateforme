@@ -107,6 +107,12 @@ def _nombre_francais(valeur: float) -> str:
     return texte.replace(",", " ").replace(".", ",")
 
 
+#: Le même formateur, exposé aux figures et aux tableaux de repli : ils
+#: écrivaient leurs nombres pour leur compte, en `:g` (« 1.5e+06 ») ou avec
+#: une espace sécable (relecture du 26/09/2026, règle 5).
+nombre_francais = _nombre_francais
+
+
 def montant_lisible(valeur: float, unite: str) -> str:
     """La valeur ET son unité telles qu'elles doivent APPARAÎTRE.
 
@@ -510,8 +516,13 @@ class Concurrent(BaseModel):
         return {note.critere for note in self.notes}
 
     def note_sur(self, code: str) -> int | None:
+        # Les codes sont NORMALISÉS à la validation (lot 85c) ; celui qu'une
+        # figure cite vient d'un autre appel du modèle et peut être « Prix ».
+        # Comparer à l'identique abandonnait le radar pour « identifiants
+        # absents » (relecture du 26/09/2026).
+        cherche = Critere._normaliser_code(code)
         for note in self.notes:
-            if note.critere == code:
+            if note.critere == cherche:
                 return note.note
         return None
 
@@ -654,8 +665,9 @@ class Socle(BaseModel):
         )
 
     def critere(self, code: str) -> Critere | None:
+        cherche = Critere._normaliser_code(code)
         for item in self.grille_notation:
-            if item.code == code:
+            if item.code == cherche:
                 return item
         return None
 

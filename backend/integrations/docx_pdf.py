@@ -56,6 +56,12 @@ class ConvertisseurDocx(Protocol):
     def convertir(self, source: Path, destination: Path) -> ConversionPdf: ...
 
 
+#: En deçà, ce n'est pas un document : un PDF d'une page vide fait ~1 Ko, un
+#: livrable EVKHA plusieurs centaines. Le bouchon, lui, n'est pas soumis à ce
+#: seuil — il ne prétend pas rendre.
+TAILLE_MINIMALE_PDF = 1024
+
+
 def executable_libreoffice() -> str | None:
     """Chemin de LibreOffice, ou None s'il n'est pas installé."""
     for nom in EXECUTABLES:
@@ -151,6 +157,15 @@ class LibreOfficeConvertisseurDocx:
                 raise ConversionPdfError(msg)
 
             octets = produit.read_bytes()
+            # Un code retour 0 et un fichier présent ne disent pas qu'un PDF
+            # existe : un fichier vide ou tronqué passait, et le client recevait
+            # une pièce jointe illisible (relecture du 26/09/2026, règle 1).
+            if len(octets) < TAILLE_MINIMALE_PDF or not octets.startswith(b"%PDF"):
+                msg = (
+                    f"LibreOffice a rendu un PDF vide ou illisible pour "
+                    f"{source.name} ({len(octets)} octets)."
+                )
+                raise ConversionPdfError(msg)
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(octets)
 

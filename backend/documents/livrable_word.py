@@ -206,6 +206,25 @@ def chaine_word_active(job: GenerationJob) -> bool:
     return True
 
 
+def _signaler_pdf_manquant(job: GenerationJob, erreur: BaseException) -> None:
+    """Un PDF qui manque se lit au tableau de bord, pas seulement au journal.
+
+    Le client reçoit alors le Word seul, sans un mot sur le PDF : c'est à
+    Evangéline de le savoir avant lui.
+    """
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    OperationalIncident.objects.update_or_create(
+        job=job,
+        title=f"PDF non produit — job {job.id}"[:200],
+        defaults={
+            "severity": IncidentSeverity.MEDIUM,
+            "order": job.order,
+            "details": {"erreur": f"{type(erreur).__name__} : {str(erreur)[:400]}"},
+        },
+    )
+
+
 def assembler_livrable_word(
     job: GenerationJob,
     *,
@@ -291,11 +310,15 @@ def assembler_livrable_word(
             controle=controle,
         )
 
-    convertisseur = convertisseur or get_convertisseur_docx()
     try:
+        # La fabrique DANS le `try` : LibreOffice absent levait ici, hors de
+        # toute protection, et toute la livraison échouait — le Word avec —
+        # contrairement à ce que promet la docstring (relecture du 26/09/2026).
+        convertisseur = convertisseur or get_convertisseur_docx()
         conversion = convertisseur.convertir(livrable.chemin, racine / cle_pdf)
-    except ConversionPdfError as erreur:
+    except (ConversionPdfError, OSError) as erreur:
         _log.error("Job %s : conversion PDF échouée — %s", job.id, erreur)
+        _signaler_pdf_manquant(job, erreur)
         artefact_pdf, _ = DocumentArtifact.objects.update_or_create(
             job=job,
             kind=ArtifactKind.PDF,

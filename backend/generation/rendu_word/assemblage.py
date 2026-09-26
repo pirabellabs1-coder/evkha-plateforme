@@ -30,7 +30,7 @@ from django.conf import settings
 
 from ..chapitres.schema import ChapitrePayload, Graphique
 from ..prompts import PLANCHER_FIGURES
-from ..socle.schema import Socle
+from ..socle.schema import Socle, nombre_francais, unite_lisible
 from . import secteurs
 from .donnees_graphiques import resoudre
 
@@ -262,9 +262,11 @@ def _tableau_de_repli(socle: Socle, demande: Graphique) -> dict[str, Any] | None
     lignes = [
         [
             (par_id[identifiant].libelle or identifiant).split(".")[0][:110],
-            f"{par_id[identifiant].valeur:,.2f}".rstrip("0").rstrip(".")
-            .replace(",", " ").replace(".", ","),
-            par_id[identifiant].unite,
+            # Le formateur du document, pas une recopie : le tableau écrivait
+            # ses milliers avec une espace sécable et son unité en code de
+            # stockage — « MEUR » sous les yeux du lecteur (26/09/2026).
+            nombre_francais(par_id[identifiant].valeur),
+            unite_lisible(par_id[identifiant].unite),
             str(par_id[identifiant].annee or "—"),
         ]
         for identifiant in demande.donnees_ids
