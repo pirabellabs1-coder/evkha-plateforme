@@ -102,7 +102,9 @@
   font-size: var(--t-sm);
   font-weight: var(--graisse-moyenne);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: background var(--duree-bascule),
+    border-color var(--duree-bascule),
+    color var(--duree-bascule);
 }
 
 .bqa-filtre:hover {
@@ -230,7 +232,9 @@
   background: var(--fond-carte);
   border: 2px solid var(--evkha-bordure);
   color: var(--texte-tenu);
-  transition: background 0.18s, border-color 0.18s, color 0.18s;
+  transition: background var(--duree-micro),
+    border-color var(--duree-micro),
+    color var(--duree-micro);
 }
 
 .bqa-etape-faite .bqa-etape-puce {
@@ -243,7 +247,7 @@
   background: var(--texte-fort);
   border-color: var(--texte-fort);
   color: var(--texte-sur-noir);
-  box-shadow: 0 0 0 4px rgba(248, 197, 28, 0.28);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--evkha-or) 28%, transparent);
 }
 
 .bqa-etape-texte {
@@ -507,7 +511,7 @@
   margin: 0;
   padding: var(--e-3) var(--e-4);
   border-radius: var(--rayon-sm);
-  background: rgba(248, 197, 28, 0.16);
+  background: color-mix(in srgb, var(--evkha-or) 16%, transparent);
   border-left: 3px solid var(--evkha-or);
   font-size: var(--t-sm);
   color: var(--texte);
@@ -546,11 +550,11 @@
   border: 1px solid var(--evkha-bordure);
   border-radius: var(--rayon-lg);
   overflow: hidden;
-  transition: box-shadow 0.18s, transform 0.18s;
+  transition: box-shadow var(--duree-micro), transform var(--duree-micro);
 }
 
 .bqa-carte:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--evkha-noir-pur) 8%, transparent);
   transform: translateY(-2px);
 }
 

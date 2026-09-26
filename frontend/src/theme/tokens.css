@@ -251,6 +251,7 @@
   --duree-flash: 1.1s; /* pilule d'or derrière un nombre qui change */
   --duree-increment: 520ms; /* un nombre remonté qui arrive */
   --duree-annonce: 220ms; /* fenêtre d'annonce qui s'ouvre */
+  --duree-bascule: 150ms; /* pilule de filtre qui change d'état (boutique admin) */
 
   /* ── Gabarit ──────────────────────────────────────────────────────────── */
   --largeur-barre: 264px;
@@ -276,5 +277,6 @@
     --duree-flash: 0ms;
     --duree-increment: 0ms;
     --duree-annonce: 0ms;
+    --duree-bascule: 0ms;
   }
 }
