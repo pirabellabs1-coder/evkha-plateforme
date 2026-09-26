@@ -125,6 +125,29 @@ def test_sans_rien_a_solder_rien_ne_bouge(client_admin: Any) -> None:
 
 
 @pytest.mark.django_db
+def test_un_verrou_sans_dossier_ne_verrouille_plus_rien(client_admin: Any) -> None:
+    """Le dossier supprimé laisse un incident `job` nul : le gate filtre
+    `job=job`, il ne bloque plus rien — il est soldé comme le reste."""
+    orphelin = _incident("CHECK B1 non validé (dossier supprimé)", verrou=True)
+
+    corps = client_admin.post(URL, data={}, content_type="application/json").json()
+
+    assert corps["verrous_conserves"] == []
+    orphelin.refresh_from_db()
+    assert orphelin.status == IncidentStatus.RESOLVED
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("corps", ["[]", "null", "123", "{pas du json"])
+def test_un_corps_qui_n_est_pas_un_objet_est_refuse(client_admin: Any, corps: str) -> None:
+    ouvert = _incident("Ouvert")
+    reponse = client_admin.post(URL, data=corps, content_type="application/json")
+    assert reponse.status_code == 400
+    ouvert.refresh_from_db()
+    assert ouvert.status == IncidentStatus.OPEN
+
+
+@pytest.mark.django_db
 def test_seul_un_post_authentifie_solde(client_admin: Any) -> None:
     _incident("Ouvert")
     assert client_admin.get(URL).status_code == 405

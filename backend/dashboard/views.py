@@ -1200,7 +1200,12 @@ def incidents_resoudre_tout(request: HttpRequest) -> JsonResponse:
         corps = json.loads(request.body.decode("utf-8") or "{}")
     except (ValueError, UnicodeDecodeError):
         return _json({"error": "Corps JSON invalide."}, status=400)
-    simulation = bool(corps.get("simulation")) if isinstance(corps, dict) else False
+    # Un corps qui n'est pas un objet (`[]`, `null`, `123`) est une erreur de
+    # l'appelant, pas une demande de solde réel : le refuser plutôt que
+    # d'écrire en production sur un malentendu.
+    if not isinstance(corps, dict):
+        return _json({"error": "Corps JSON attendu : un objet."}, status=400)
+    simulation = bool(corps.get("simulation"))
 
     non_resolus = OperationalIncident.objects.filter(
         status__in=[IncidentStatus.OPEN, IncidentStatus.ACKNOWLEDGED]
@@ -1208,10 +1213,14 @@ def incidents_resoudre_tout(request: HttpRequest) -> JsonResponse:
     commandes_livrees = DeliveryBatch.objects.filter(
         status=DeliveryStatus.SENT
     ).values("order_id")
+    # Un verrou n'existe que sur un dossier : le gate filtre `job=job`. Un
+    # incident dont le dossier a été supprimé (`job` nul) ne verrouille plus
+    # rien — le garder ferait mentir le compteur.
     verrous = (
         non_resolus.filter(
             status=IncidentStatus.OPEN,
             details__type=INCIDENT_TYPE_CHECK_BLOC,
+            job__isnull=False,
         )
         .exclude(job__order_id__in=commandes_livrees)
         .select_related("job")
