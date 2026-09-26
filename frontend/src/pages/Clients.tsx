@@ -116,7 +116,7 @@ export function Clients() {
                       params={{ clientId: c.id }}
                       className="console-lien"
                     >
-                      Voir <span aria-hidden="true">→</span>
+                      Voir{"\u00a0"}<span aria-hidden="true">→</span>
                     </Link>
                   </td>
                 </tr>

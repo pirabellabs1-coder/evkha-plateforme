@@ -8,6 +8,7 @@ import {
 } from "../api";
 import { Bandeau, Carte, Pastille, Squelette } from "../espace/composants/Interface";
 import "../admin/console.css";
+import * as f from "../espace/format";
 
 const STATUS_ICON: Record<string, string> = {
   done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—",
@@ -162,7 +163,7 @@ function ChapterRow({ chapter }: { chapter: Chapter }) {
       </td>
       <td className="nombre">{chapter.input_tokens.toLocaleString()}</td>
       <td className="nombre">{chapter.output_tokens.toLocaleString()}</td>
-      <td className="nombre">{parseFloat(chapter.cost_eur).toFixed(4)} €</td>
+      <td className="nombre">{f.coutApi(chapter.cost_eur)}</td>
     </tr>
   );
 }
@@ -459,12 +460,12 @@ export function JobDetail() {
           <div>
             <dt>Coût</dt>
             <dd className={overBudget ? "console-tabulaire console-depasse" : "console-tabulaire"}>
-              {parseFloat(data.total_cost_eur).toFixed(4)} €{overBudget ? " ⚠ Dépassé" : ""}
+              {f.coutApi(data.total_cost_eur)}{overBudget ? " ⚠ Dépassé" : ""}
             </dd>
           </div>
           <div>
             <dt>Budget</dt>
-            <dd className="console-tabulaire">{parseFloat(data.budget_eur).toFixed(2)} €</dd>
+            <dd className="console-tabulaire">{f.montant(Math.round(parseFloat(data.budget_eur) * 100))}</dd>
           </div>
           <div>
             <dt>Tokens</dt>
@@ -522,7 +523,7 @@ export function JobDetail() {
               <tr>
                 <td colSpan={5} className="nombre">Total</td>
                 <td className="nombre">
-                  {parseFloat(data.total_cost_eur).toFixed(4)} €
+                  {f.coutApi(data.total_cost_eur)}
                 </td>
               </tr>
             </tbody>

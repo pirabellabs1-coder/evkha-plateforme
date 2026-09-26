@@ -14,6 +14,21 @@ export const nombre = (valeur: number): string =>
 export const quantiteSignee = (valeur: number): string =>
   new Intl.NumberFormat(LOCALE, { signDisplay: "exceptZero" }).format(valeur);
 
+/** Coût d'API, en euros, à la précision du centime de centime.
+ *
+ * Les coûts de génération (quelques centimes par chapitre) se lisent à quatre
+ * décimales ; la console les écrivait `toFixed(4) + " €"` : point décimal à
+ * l'anglaise, et une espace SÉCABLE qui laissait « € » seul à la ligne dans la
+ * colonne Coût (vu le 26/09/2026). `Intl` pose la virgule et l'espace
+ * insécable. Reçoit la chaîne décimale de l'API (`"1.4724"`). */
+export const coutApi = (eur: string | number): string =>
+  new Intl.NumberFormat(LOCALE, {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  }).format(typeof eur === "number" ? eur : parseFloat(eur));
+
 export const montant = (cents: number, devise = "EUR"): string =>
   new Intl.NumberFormat(LOCALE, {
     style: "currency",

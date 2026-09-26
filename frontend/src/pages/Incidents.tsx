@@ -157,7 +157,7 @@ function IncidentTable({ incidents, canResolve }: { incidents: Incident[]; canRe
                     params={{ jobId: inc.job_id }}
                     className="console-lien"
                   >
-                    Voir <span aria-hidden="true">→</span>
+                    Voir{"\u00a0"}<span aria-hidden="true">→</span>
                   </Link>
                 ) : (
                   <span className="carte-note">—</span>

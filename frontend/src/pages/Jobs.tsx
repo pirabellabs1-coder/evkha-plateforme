@@ -273,7 +273,7 @@ export function Jobs() {
                       </div>
                     </td>
                     <td className="nombre">
-                      {parseFloat(job.total_cost_eur).toFixed(4)} €
+                      {f.coutApi(job.total_cost_eur)}
                     </td>
                     <td className="console-tabulaire">
                       {job.completed_at
@@ -307,7 +307,7 @@ export function Jobs() {
                         params={{ jobId: job.id }}
                         className="console-lien"
                       >
-                        Détail <span aria-hidden="true">→</span>
+                        Détail{"\u00a0"}<span aria-hidden="true">→</span>
                       </Link>
                     </td>
                   </tr>
