@@ -372,6 +372,22 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         "brief donne UN prix par variante (à distance, en atelier, à domicile ; "
         "une formule par palier), écris chaque prix avec sa variante : un "
         "résumé « de X à Y » efface les prix du milieu et devient une plage.\n"
+        # Décision de la cliente du 27/09/2026 (« cas 1 : A, cas 2 : A »),
+        # prise sur la dernière étude concurrentielle : « les tarifs du marché
+        # s'étalent entre … et … » et « Concurrent X : …-… € » étaient bloqués
+        # par le gate, mais aucune consigne ne disait quoi écrire à la place —
+        # et la règle ci-dessus (« la valeur du milieu par défaut ») aurait
+        # fabriqué, pour la grille d'un concurrent, un prix qu'il n'affiche
+        # nulle part.
+        "PRIX DES CONCURRENTS (décision de la cliente, 27/09/2026) : le prix "
+        "d'un concurrent est un FAIT publié, jamais une estimation — tu ne le "
+        "tranches jamais en « valeur du milieu ». La grille d'UN concurrent "
+        "s'écrit formule par formule : chaque formule avec son propre prix et "
+        "sa source, jamais résumée en « de X à Y ». Pour situer les prix de "
+        "tout le panel, écris TROIS valeurs séparées, jamais une étendue : le "
+        "prix le plus bas (concurrent, prix, source), le prix le plus haut "
+        "(concurrent, prix, source) et le prix médian du panel, en disant sur "
+        "combien de prix relevés dans le document il est calculé.\n"
     )
 
     if deliverable_type == DeliverableType.MARKET_STUDY:
