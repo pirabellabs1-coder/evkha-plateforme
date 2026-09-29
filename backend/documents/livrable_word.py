@@ -225,6 +225,52 @@ def _signaler_pdf_manquant(job: GenerationJob, erreur: BaseException) -> None:
     )
 
 
+def _controler_le_pdf_rendu(job: GenerationJob, chemin_pdf: Path, chemin_docx: Path) -> None:
+    """Relit le PDF final comme le client le lit, et consigne ce qui ne va pas.
+
+    29/09/2026, business plan ÉCLORE : en-tête de deux lignes sur 105 pages,
+    auteur du PDF égal à une phrase entière, 22 chapitres numérotés pour 21
+    annoncés — rien de cela n'était visible dans le XML du Word, seul relu
+    jusqu'ici. Lecture SEULE : l'envoi est automatique (décision du
+    13/08/2026) ; les constats vont dans `controle_final["rendu_pdf"]` et en
+    incident, pour que la cause se corrige à la source. Une erreur de lecture
+    ne fait jamais échouer la livraison.
+    """
+    from generation.verification.pdf import (  # noqa: PLC0415
+        chapitres_annonces,
+        controler_le_pdf,
+    )
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    try:
+        import docx  # noqa: PLC0415
+
+        auteur = docx.Document(str(chemin_docx)).core_properties.author or None
+        constats = controler_le_pdf(
+            chemin_pdf.read_bytes(),
+            chapitres_annonces=chapitres_annonces(str(job.deliverable_type)),
+            auteur_attendu=auteur,
+        )
+    except Exception:  # noqa: BLE001 — un contrôle de lecture ne tue pas une livraison
+        _log.exception("Job %s : relecture du PDF impossible.", job.id)
+        return
+
+    rapport = dict(job.controle_final or {})
+    rapport["rendu_pdf"] = [c.en_dict() for c in constats]
+    type(job).objects.filter(pk=job.pk).update(controle_final=rapport)
+    job.controle_final = rapport
+    if constats:
+        OperationalIncident.objects.update_or_create(
+            job=job,
+            title=f"Rendu PDF : {len(constats)} constat(s) — job {job.id}",
+            defaults={
+                "severity": IncidentSeverity.MEDIUM,
+                "order": job.order,
+                "details": {"constats": [c.en_dict() for c in constats]},
+            },
+        )
+
+
 def assembler_livrable_word(
     job: GenerationJob,
     *,
@@ -357,6 +403,7 @@ def assembler_livrable_word(
             livrable.chemin.read_bytes()
         ).hexdigest()
         artefact_docx.save(update_fields=["checksum_sha256", "updated_at"])
+    _controler_le_pdf_rendu(job, racine / cle_pdf, livrable.chemin)
     _log.info(
         "Job %s : livrable Word et PDF prêts (%s, %s pages).",
         job.id, livrable.rapport.resume(), conversion.pages or "inconnu",
