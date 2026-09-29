@@ -96,7 +96,7 @@ def rapport_qualite(request: HttpRequest) -> JsonResponse:
         for constat in (job.controle_final or {}).get("rendu_pdf") or []:
             par_constat[str(constat.get("controle") or "autre")] += 1
 
-    chapitres = []
+    chapitres: list[dict[str, Any]] = []
     for (livrable, numero), compte in par_chapitre.items():
         titre = next((k[6:] for k in compte if k.startswith("titre_")), "")
         chapitres.append({

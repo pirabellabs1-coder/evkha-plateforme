@@ -220,11 +220,11 @@ def _reparer_dans_la_borne(texte: str, *, prose: bool, borne: int | None) -> str
     complet = reparer_texte(texte, prose=prose)
     if borne is None or len(complet) <= borne:
         return complet
-    for replier in (
-        lambda: reparer_texte(texte, prose=prose, anglais=False),
-        lambda: reparer_texte(texte, prose=False),
-    ):
-        candidat = replier()
+    candidats = (
+        reparer_texte(texte, prose=prose, anglais=False),
+        reparer_texte(texte, prose=False),
+    )
+    for candidat in candidats:
         if len(candidat) <= borne:
             return candidat
     return purger_les_invisibles(texte)

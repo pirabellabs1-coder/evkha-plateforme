@@ -13,7 +13,7 @@ import io
 import pytest
 
 from catalog.models import DeliverableType
-from generation.verification.pdf import chapitres_annonces, controler_le_pdf
+from generation.verification.pdf import ConstatPdf, chapitres_annonces, controler_le_pdf
 
 reportlab = pytest.importorskip("reportlab")
 
@@ -58,8 +58,8 @@ def _document(chapitres: int) -> list[list[str]]:
     return pages
 
 
-def _controles(constats: list[object]) -> set[str]:
-    return {c.controle for c in constats}  # type: ignore[attr-defined]
+def _controles(constats: list[ConstatPdf]) -> set[str]:
+    return {c.controle for c in constats}
 
 
 def test_un_pdf_propre_ne_donne_aucun_constat() -> None:

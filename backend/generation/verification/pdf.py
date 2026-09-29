@@ -120,7 +120,7 @@ def controler_le_pdf(
         ))
 
     # Propriétés du PDF : l'auteur est le porteur de projet, sur une ligne.
-    auteur = str((lecteur.metadata or {}).get("/Author") or "").strip()
+    auteur = str(getattr(lecteur.metadata, "author", None) or "").strip()
     if auteur_attendu and auteur != auteur_attendu.strip():
         constats.append(ConstatPdf(
             "auteur_du_pdf", f"Auteur du PDF « {auteur[:80]} » au lieu de « {auteur_attendu} ».",
