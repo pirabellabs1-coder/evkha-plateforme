@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import unicodedata
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
@@ -22,7 +23,8 @@ from typing import Any
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
-from django.db.models import Sum
+from django.db import DataError
+from django.db.models import Field, Sum
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -31,6 +33,8 @@ from paiement import stripe_api as paiement_stripe
 
 from customers.models import Customer
 from generation.models import GenerationJob, JobStatus
+from generation.rendu_word.palette import est_une_couleur
+from generation.rendu_word.palette import normaliser as normaliser_couleur
 
 from . import (
     commandes,
@@ -1019,6 +1023,70 @@ def _marque_en_dict(organisation: Organisation) -> dict[str, Any]:
     return {champ: getattr(organisation, champ) for champ in CHAMPS_MARQUE}
 
 
+#: Les noms que le client lit à l'écran : un refus doit nommer le champ tel
+#: qu'il le voit, pas tel que la base le connaît.
+LIBELLES_MARQUE = {
+    "raison_sociale": "Raison sociale",
+    "secteur": "Secteur d'activité",
+    "pays": "Pays",
+    "region": "Région",
+    "ville": "Ville",
+    "logo_url": "Logo",
+    "couleur_principale": "Couleur principale",
+    "couleur_secondaire": "Couleur secondaire",
+    "couleur_fond": "Couleur de fond",
+    "mention_confidentialite": "Mention de confidentialité",
+}
+
+CHAMPS_COULEUR = ("couleur_principale", "couleur_secondaire", "couleur_fond")
+
+
+def _texte_propre(brut: object) -> str:
+    """La valeur saisie, sans espaces de bord ni caractères INVISIBLES.
+
+    Une couleur copiée depuis un outil de design ou une page web porte parfois
+    un caractère de mise en forme invisible (espace de largeur nulle, marque
+    d'ordre des octets) : « #3D568A » faisait alors huit caractères pour une
+    colonne de sept, et PostgreSQL refusait l'enregistrement en erreur 500 —
+    alors que SQLite, en local, l'acceptait sans rien dire.
+    """
+    texte = "".join(c for c in str(brut) if unicodedata.category(c) != "Cf")
+    return texte.strip()
+
+
+def _refus_de_marque(champ: str, valeur: str) -> JsonResponse | None:
+    """Le refus explicite d'une valeur qui ne tiendrait pas dans sa colonne.
+
+    Le 29/09/2026, la cliente préparait un business plan et changeait la marque
+    pour celle de son client : trois enregistrements de suite en « Erreur 500 »,
+    sans un mot sur le champ en cause. La base refusait une valeur plus longue
+    que sa colonne ; la vue n'avait rien vérifié avant d'écrire. Chaque champ
+    est désormais jugé AVANT l'écriture, à la longueur que la base impose
+    réellement (lue sur le modèle, pas recopiée ici — règle 5).
+    """
+    libelle = LIBELLES_MARQUE.get(champ, champ)
+    if champ in CHAMPS_COULEUR and valeur and not est_une_couleur(valeur):
+        # La règle du RENDU (`palette.normaliser`), pas une seconde : une
+        # couleur que le document ignorerait en silence — il retombe alors sur
+        # la palette EVKHA — est refusée ici, à la saisie (règle 5).
+        return _refus(
+            f"{libelle} : écrivez-la au format #RRGGBB, par exemple #3D568A "
+            f"(reçu : « {valeur[:20]} »).",
+            "couleur_invalide",
+            400,
+        )
+    champ_modele = Organisation._meta.get_field(champ)
+    longueur_max = champ_modele.max_length if isinstance(champ_modele, Field) else None
+    if longueur_max is not None and len(valeur) > longueur_max:
+        return _refus(
+            f"{libelle} : {longueur_max} caractères au plus "
+            f"(votre texte en compte {len(valeur)}).",
+            "trop_long",
+            400,
+        )
+    return None
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 @espace("consulter_livrables", ecriture="gerer_marque")
@@ -1038,15 +1106,40 @@ def marque(
             f"Champs non modifiables : {', '.join(inconnus)}.", "champ_interdit", 400
         )
 
-    raison = str(charge.get("raison_sociale", organisation.raison_sociale)).strip()
+    raison = _texte_propre(charge.get("raison_sociale", organisation.raison_sociale))
     if not raison:
         return _refus("La raison sociale est obligatoire.", "champ_manquant", 400)
 
+    valeurs: dict[str, str] = {}
     for champ in CHAMPS_MARQUE:
-        if champ in charge:
-            setattr(organisation, champ, str(charge[champ]).strip())
+        if champ not in charge:
+            continue
+        valeur = _texte_propre(charge[champ])
+        refus = _refus_de_marque(champ, valeur)
+        if refus is not None:
+            return refus
+        # « 3d568a » ou « 3D568A » : la forme que le rendu lit, `#3D568A`.
+        if champ in CHAMPS_COULEUR and valeur:
+            valeur = normaliser_couleur(valeur)
+        valeurs[champ] = valeur
+    refus = _refus_de_marque("raison_sociale", raison)
+    if refus is not None:
+        return refus
+
+    for champ, valeur in valeurs.items():
+        setattr(organisation, champ, valeur)
     organisation.raison_sociale = raison
-    organisation.save(update_fields=[*CHAMPS_MARQUE, "updated_at"])
+    try:
+        organisation.save(update_fields=[*CHAMPS_MARQUE, "updated_at"])
+    except DataError:
+        # Filet : tout ce que la base refuse encore se dit, sans erreur 500.
+        _log.exception("Marque refusée par la base (organisation %s)", organisation.id)
+        return _refus(
+            "Une des valeurs saisies ne peut pas être enregistrée telle quelle. "
+            "Vérifiez les couleurs (#RRGGBB) et la longueur des textes.",
+            "valeur_invalide",
+            400,
+        )
     return JsonResponse(_marque_en_dict(organisation))
 
 
