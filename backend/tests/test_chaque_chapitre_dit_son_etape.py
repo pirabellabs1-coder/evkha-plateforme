@@ -13,8 +13,7 @@ import pytest
 
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
-from generation.chapitres import services as chapitres_services
-from generation.chapitres.runner import ChapitreInvalideError
+from generation.chapitres.runner import ChapitreInvalideError, generer_chapitre
 from generation.chapitres.services import produire_avec_reprises
 from generation.models import ChapterGeneration, GenerationJob
 from generation.services import bootstrap_generation_job
@@ -53,7 +52,7 @@ def test_une_reprise_se_dit_ajustement_puis_valide(
     job: GenerationJob, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     vues: list[str] = []
-    vrai = chapitres_services.generer_chapitre
+    vrai = generer_chapitre
     appels = {"n": 0}
 
     def generer(**kwargs: Any) -> Any:
@@ -63,7 +62,7 @@ def test_une_reprise_se_dit_ajustement_puis_valide(
             raise ChapitreInvalideError(["motif de test"])
         return vrai(**kwargs)
 
-    monkeypatch.setattr(chapitres_services, "generer_chapitre", generer)
+    monkeypatch.setattr("generation.chapitres.services.generer_chapitre", generer)
 
     chapitre = produire_avec_reprises(job, 1, client=StubClaudeClient())
 

@@ -41,6 +41,7 @@ from generation.chapitres.schema import (
     ChapitrePayload,
     Graphique,
     Tableau,
+    TypeGraphique,
 )
 from generation.chapitres.typographie import reparer_texte, reparer_typographie
 
@@ -203,7 +204,7 @@ def _chapitre() -> ChapitrePayload:
                 CelluleKpi(valeur="12 000 unite", libelle="Séances vendues"),
             ]),
             BlocGraphique(graphique=Graphique(
-                type_graphique="barres",
+                type_graphique=TypeGraphique.BARRES,
                 titre="Évolution du chiffre d'affaires",
                 # Un nom de concurrent sert d'identifiant de figure : il se
                 # recopie tel quel, faute comprise, ou la figure ne le trouve
@@ -227,11 +228,15 @@ def test_le_chapitre_est_repare_partout_ou_le_lecteur_lit() -> None:
 
     assert retouches >= 6
     assert payload.accroche == "Un prévisionnel déjà équilibré."
-    assert payload.blocs[0].texte == "Le chiffre d'affaires s'accroît chaque année."
-    assert payload.blocs[1].tableau.lignes == [
+    paragraphe, tableau, grille = payload.blocs[0], payload.blocs[1], payload.blocs[2]
+    assert isinstance(paragraphe, BlocParagraphe)
+    assert isinstance(tableau, BlocTableau)
+    assert isinstance(grille, BlocGrilleKpi)
+    assert paragraphe.texte == "Le chiffre d'affaires s'accroît chaque année."
+    assert tableau.tableau.lignes == [
         ["Matériel", "12 M€"], ["Salaire", "1500 €/mois"],
     ]
-    assert [c.valeur for c in payload.blocs[2].cellules] == ["3,3 M€", "12 000 unités"]
+    assert [c.valeur for c in grille.cellules] == ["3,3 M€", "12 000 unités"]
     assert payload.resume == "Le financement est déjà bouclé."
 
 
@@ -243,7 +248,9 @@ def test_un_identifiant_de_figure_n_est_pas_de_la_prose() -> None:
     """
     payload = _chapitre()
     reparer_typographie(payload)
-    assert payload.blocs[3].graphique.donnees_ids == ["Atelier de hier", "ca_an1"]
+    figure = payload.blocs[3]
+    assert isinstance(figure, BlocGraphique)
+    assert figure.graphique.donnees_ids == ["Atelier de hier", "ca_an1"]
 
 
 # ── Le contrôle post-rendu : ce que la réparation ne tranche pas ─────────────

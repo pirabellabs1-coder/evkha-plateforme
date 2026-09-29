@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import contextlib
 import re
+from datetime import date
 from types import SimpleNamespace
 from typing import Any
 
@@ -146,7 +147,7 @@ def test_la_base_consolidee_attribue_au_client_son_propre_compte() -> None:
     from generation.socle.schema import Concurrent, Socle, Zone
 
     socle = Socle(
-        secteur="bien-être", zone=Zone(pays="France"), date_socle="2026-09-29",
+        secteur="bien-être", zone=Zone(pays="France"), date_socle=date(2026, 9, 29),
         concurrents=[
             Concurrent(nom="Studio A", type="direct", site_web="studio-a.fr"),
             Concurrent(nom="Studio B", type="indirect", site_web="studio-b.fr"),

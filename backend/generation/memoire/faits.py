@@ -324,7 +324,7 @@ def faits_de_l_etude(socle: Socle) -> dict[str, Fait]:
                 formule=f"{petit} ÷ {grand} × 100", unite="%",
             ))
 
-    for fait in derives:
-        if fait is not None and fait.id not in faits:
-            faits[fait.id] = fait
+    for derive in derives:
+        if derive is not None and derive.id not in faits:
+            faits[derive.id] = derive
     return faits
