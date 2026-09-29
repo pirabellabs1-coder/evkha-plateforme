@@ -249,4 +249,27 @@ def replis_de_derniere_tentative(payload: Any, faits: Mapping[str, Fait]) -> Any
                 gardees.append(phrase)
         return "".join(gardees).strip()
 
-    return _parcourir(payload, _nettoyer)
+    return _sans_blocs_vides(_parcourir(payload, _nettoyer))
+
+
+def _sans_blocs_vides(valeur: Any) -> Any:
+    """Retire un bloc dont le texte a été vidé par le repli.
+
+    Une phrase retirée pouvait être la SEULE d'un paragraphe : le bloc restait,
+    vide, et la validation le refusait — le chapitre échouait au dernier essai,
+    exactement ce que le repli doit empêcher (test du 29/09/2026). Un bloc vidé
+    part avec sa phrase ; une cellule de tableau vidée garde un tiret, pour que
+    le tableau reste rectangulaire.
+    """
+    if isinstance(valeur, list):
+        gardes = []
+        for element in valeur:
+            nettoye = _sans_blocs_vides(element)
+            vide = isinstance(nettoye, dict) and "texte" in nettoye
+            if vide and not str(nettoye["texte"]).strip():
+                continue
+            gardes.append("—" if nettoye == "" else nettoye)
+        return gardes
+    if isinstance(valeur, dict):
+        return {k: _sans_blocs_vides(v) for k, v in valeur.items()}
+    return valeur

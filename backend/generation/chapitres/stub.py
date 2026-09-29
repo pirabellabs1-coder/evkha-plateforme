@@ -408,6 +408,17 @@ def _garanties_structurelles(
     return blocs
 
 
+#: Une ligne du bloc « mémoire » : `- {{identifiant}} : valeur — libellé`.
+_LIGNE_DE_MEMOIRE = re.compile(r"^- \{\{([a-z][a-z0-9_]*)\}\} :", re.MULTILINE)
+
+
+def _reperes_de_la_memoire(prompt: str, combien: int = 3) -> list[str]:
+    """Quelques identifiants de la mémoire, s'il y en a une dans le prompt."""
+    if "MÉMOIRE DE L'ÉTUDE" not in prompt:
+        return []
+    return _LIGNE_DE_MEMOIRE.findall(prompt)[:combien]
+
+
 def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
     correspondance = _NUMERO.search(prompt)
     numero = int(correspondance.group(1)) if correspondance else 0
@@ -437,6 +448,18 @@ def chapitre_de_demonstration(prompt: str) -> dict[str, object]:
         suit_le_modele=est_em and chapitre_du_modele(numero) is not None,
     )
 
+    # La mémoire de l'étude (29/09/2026) : quand le prompt la porte, la
+    # doublure écrit comme le vrai modèle doit écrire — par repères, jamais en
+    # clair. Sans elle, la répétition à blanc n'exercerait pas le chemin des
+    # repères, et n'en prouverait rien (règle 7).
+    reperes = _reperes_de_la_memoire(prompt)
+    if reperes:
+        blocs = [*blocs, {
+            "type": "paragraphe",
+            "texte": "Repères de l'étude : " + " ; ".join(
+                "{{" + identifiant + "}}" for identifiant in reperes
+            ) + ".",
+        }]
     return {
         "chapitre": numero,
         "titre": titre,

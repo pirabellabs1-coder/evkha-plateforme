@@ -1788,8 +1788,16 @@ def construire_prompt_chapitre(
     from ..rendu_word.catalogue_figures import bloc_figures_possibles  # noqa: PLC0415
 
     figures = bloc_figures_possibles(socle)
+    # La MÉMOIRE DE L'ÉTUDE (29/09/2026) : faits dérivés calculés par le code,
+    # à citer par repère, et décisions à tenir. Constante pour tout le dossier,
+    # elle rejoint la partie mise en cache. Rien pour un dossier créé avant sa
+    # mise en service (`memoire_active` faux).
+    from ..memoire.services import memoire_du_job  # noqa: PLC0415
+
+    memoire = memoire_du_job(chapter.job)
     par_job = "\n\n".join([
         _bloc_socle(socle),
+        *([memoire.bloc_pour_le_redacteur()] if memoire is not None else []),
         *([consigne_livrable] if consigne_livrable else []),
         f"BRIEF_CLIENT :\n{json.dumps(dict(variables), ensure_ascii=False, sort_keys=True)}",
         *([f"{documents}\n\n{CONSIGNE_DOCUMENTS_CHAPITRE}"] if documents else []),
@@ -2009,8 +2017,23 @@ def generer_chapitre(
     if tronquee:
         raise ChapitreInvalideError(tronquee, consommation)
 
+    # La réponse est là : le chapitre passe en VÉRIFICATION, et le client le
+    # voit (`ChapterGeneration.etape`, suivi en direct du 29/09/2026).
+    ChapterGeneration.objects.filter(pk=chapter.pk).update(etape="verification")
+
+    brut: Any = dict(resultat.payload)
+    motifs_memoire: list[str] = []
+    from ..memoire.services import memoire_du_job  # noqa: PLC0415
+
+    memoire = memoire_du_job(job)
+    if memoire is not None:
+        brut, motifs_memoire = _passer_par_la_memoire(
+            brut, memoire, variables, chapter=chapter,
+            derniere_tentative=derniere_tentative,
+        )
+
     try:
-        payload = ChapitrePayload.model_validate(dict(resultat.payload))
+        payload = ChapitrePayload.model_validate(brut)
     except ValidationError as erreur:
         motifs = [_motif_de_validation(item) for item in erreur.errors()[:12]]
         raise ChapitreInvalideError(motifs, consommation) from erreur
@@ -2076,6 +2099,11 @@ def generer_chapitre(
     motifs_de_figure = _motifs_de_figure(
         payload, socle, derniere_tentative=derniere_tentative
     )
+    # Contrôle contre la mémoire : un motif fait reprendre le chapitre (niveau
+    # 2, la tentative suivante reçoit la consigne précise). Au dernier essai,
+    # `_passer_par_la_memoire` a déjà appliqué le repli et n'en rend aucun : le
+    # chapitre est TOUJOURS validé.
+    motifs.extend(motifs_memoire)
     if motifs:
         motifs.extend(motifs_de_figure)
         raise ChapitreInvalideError(motifs, consommation)
@@ -2094,6 +2122,66 @@ def generer_chapitre(
         raise ChapitreInvalideError(arbitrage.refus, consommation)
 
     return payload, consommation, arbitrage
+
+
+def _nombres_du_client(variables: Mapping[str, object]) -> list[float]:
+    """Les nombres que le client a écrits : ils peuvent être cités en clair."""
+    from ..memoire.controle import nombres_du_texte  # noqa: PLC0415
+
+    texte = "\n".join(str(v) for v in variables.values() if isinstance(v, str))
+    return [valeur for _, valeur, _ in nombres_du_texte(texte)]
+
+
+def _passer_par_la_memoire(
+    brut: Any,
+    memoire: Any,
+    variables: Mapping[str, object],
+    *,
+    chapter: ChapterGeneration,
+    derniere_tentative: bool | None,
+) -> tuple[Any, list[str]]:
+    """Contrôle un chapitre contre la mémoire, puis écrit ses repères en valeurs.
+
+    Rend le chapitre prêt à valider, et les motifs qui doivent le faire
+    reprendre. Au dernier essai (ou quand il n'y aura pas d'autre essai), le
+    repli s'applique — la phrase au repère inconnu est retirée — et aucun motif
+    n'est rendu : l'étude ne s'arrête jamais sur un chapitre (engagement du
+    29/09/2026). Ce qui reste est tracé dans la mémoire du dossier, pour le
+    rapport interne.
+    """
+    from ..memoire.controle import (  # noqa: PLC0415
+        appliquer_les_reperes,
+        controler_le_chapitre,
+        replis_de_derniere_tentative,
+    )
+
+    controle = controler_le_chapitre(brut, memoire, _nombres_du_client(variables))
+    dernier = derniere_tentative is not False
+    if dernier:
+        brut = replis_de_derniere_tentative(brut, memoire.faits)
+    rendu, utilises, inconnus = appliquer_les_reperes(brut, memoire.faits)
+
+    trace = dict(chapter.job.memoire_etude or {})
+    chapitres = dict(trace.get("chapitres") or {})
+    chapitres[str(chapter.chapter_number)] = {
+        "titre": chapter.chapter_title,
+        "reperes": sorted(set(utilises)),
+        "verifie": controle.verifie,
+        "motifs": controle.motifs,
+        "replie": dernier and bool(controle.motifs),
+    }
+    trace["chapitres"] = chapitres
+    type(chapter.job).objects.filter(pk=chapter.job.pk).update(memoire_etude=trace)
+    chapter.job.memoire_etude = trace
+
+    if dernier:
+        if controle.motifs:
+            _log.warning(
+                "Chapitre %s : validé au dernier essai malgré %s motif(s) de mémoire — %s",
+                chapter.chapter_number, len(controle.motifs), " | ".join(controle.motifs)[:400],
+            )
+        return rendu, []
+    return rendu, list(controle.motifs)
 
 
 def _motifs_de_figure(

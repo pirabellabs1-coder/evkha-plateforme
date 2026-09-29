@@ -139,3 +139,17 @@ def test_les_reperes_sont_remplaces_partout_dans_le_chapitre() -> None:
     assert rendu["tableaux"][0]["lignes"][0][1].replace("\u00a0", " ") == "24 852 €"
     assert rendu["graphiques"][0]["donnees_ids"] == ["ca_previsionnel_an1"]
     assert utilises == ["ca_previsionnel_an1", "ca_previsionnel_an1"] and inconnus == []
+
+
+def test_le_repli_retire_un_paragraphe_vide_sans_casser_le_chapitre() -> None:
+    """Une phrase retirée était la seule du paragraphe : le bloc part avec elle."""
+    memoire = _memoire()
+    chapitre = {"blocs": [
+        {"type": "paragraphe", "texte": "Le revenu vaut {{revenu_invente}}"},
+        {"type": "paragraphe", "texte": "Le CA vaut {{ca_previsionnel_an1}}."},
+        {"type": "tableau", "tableau": {"lignes": [["A", "{{revenu_invente}}"]]}},
+    ]}
+    replie = replis_de_derniere_tentative(chapitre, memoire.faits)
+    assert [b["type"] for b in replie["blocs"]] == ["paragraphe", "tableau"]
+    assert replie["blocs"][1]["tableau"]["lignes"] == [["A", "—"]]
+

@@ -50,7 +50,9 @@ def memoire_du_job(job: GenerationJob) -> MemoireEtude | None:
         _log.exception("Mémoire : socle illisible pour le dossier %s", job.id)
         return None
     memoire = MemoireEtude.construire(lu, _variables(job))
-    contenu = memoire.en_dict()
+    # La trace des chapitres (`chapitres`) est écrite au fil de la rédaction :
+    # reconstruire les faits et les décisions ne doit pas l'effacer.
+    contenu = {**(job.memoire_etude or {}), **memoire.en_dict()}
     if job.memoire_etude != contenu:
         job.memoire_etude = contenu
         type(job).objects.filter(pk=job.pk).update(memoire_etude=contenu)
