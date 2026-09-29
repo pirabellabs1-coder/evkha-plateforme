@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Collection, Mapping
+from datetime import date
 from typing import Any
 
 from pydantic import ValidationError
@@ -20,6 +21,9 @@ from .referentiel import identifiants_du_client, identifiants_pour, livrable_cou
 from .schema import (
     DonneeSocle,
     Socle,
+    accorder_notes_et_grille,
+    charge_toleree,
+    ecarter_les_donnees_facultatives_en_cause,
     reparer_la_grille,
     reparer_les_filiations,
     retirer_les_zeros_qui_manquent,
@@ -158,25 +162,50 @@ def _analyser(
     *,
     dernier_recours: bool = False,
     montants_client: Collection[float] | None = None,
+    brief: Mapping[str, object] | None = None,
 ) -> tuple[Socle | None, list[str]]:
     """Valide la charge utile. Retourne (socle, motifs). Socle non nul = accepté.
 
-    `dernier_recours` répare la grille de notation au lieu de la refuser. Voir
-    `reparer_la_grille` : sur les premières tentatives le refus fait corriger
-    le modèle, mais à la dernière il tuerait l'étude avant son premier
-    chapitre — ce qui est arrivé à `6a44baff` le 10/08/2026.
+    `dernier_recours` sauve ce qui peut l'être au lieu de tout refuser : la
+    grille de notation se répare (`reparer_la_grille`, mesuré sur `6a44baff`
+    le 10/08/2026), un élément de liste mal formé est écarté seul
+    (`charge_toleree`), une donnée FACULTATIVE en cause est retirée
+    (`ecarter_les_donnees_facultatives_en_cause`, business plan `cb59cede` du
+    29/09/2026). Sur les premières tentatives le refus fait corriger le
+    modèle ; à la dernière, il tuerait l'étude avant son premier chapitre.
+    Seule une donnée obligatoire absente ou fautive la tue encore.
+
+    `brief` : les réponses du client, d'où se reprennent le secteur et le pays
+    quand le modèle les omet.
     """
     if not charge:
         return None, ["Le modèle n'a produit aucun appel d'outil exploitable."]
 
+    # Ce que la lecture tolérante a écarté : si le socle reste refusé, le
+    # motif doit dire qu'une donnée « absente » a en fait été produite, mais
+    # mal formée (règle 2 — un motif qui ment envoie chercher ailleurs).
+    ecartes: list[str] = []
     try:
         socle = Socle.model_validate(charge)
     except ValidationError as erreur:
-        motifs = [
-            f"{'.'.join(str(p) for p in item['loc'])} : {item['msg']}"
-            for item in erreur.errors()[:12]
-        ]
-        return None, motifs
+        motifs = _motifs_de_validation(erreur)
+        if not dernier_recours:
+            return None, motifs
+        reponses = brief or {}
+        toleree, ecartes = charge_toleree(
+            charge,
+            secteur=str(reponses.get("SECTEUR") or ""),
+            pays=str(reponses.get("PAYS") or ""),
+            aujourd_hui=date.today(),
+        )
+        try:
+            socle = Socle.model_validate(toleree)
+        except ValidationError as seconde:
+            return None, _motifs_de_validation(seconde)
+        _log.warning(
+            "Socle : charge refusée en bloc (%s) ; éléments jugés un à un — %s.",
+            " ; ".join(motifs[:3]), " ; ".join(ecartes),
+        )
 
     if montants_client is not None:
         inventes = _objectifs_inventes(socle, deliverable_type, montants_client)
@@ -209,6 +238,11 @@ def _analyser(
             _log.warning(
                 "Socle : données inconnues écrites 0 retirées — %s.", ", ".join(inconnues),
             )
+        accordes = accorder_notes_et_grille(socle)
+        if accordes:
+            _log.warning(
+                "Socle : notes et grille accordées — %s.", ", ".join(accordes),
+            )
         retires = reparer_la_grille(socle)
         if retires:
             _log.warning(
@@ -218,11 +252,57 @@ def _analyser(
             )
 
     motifs = valider_socle(socle, deliverable_type)
+    if motifs and dernier_recours:
+        motifs = _ecarter_jusqu_a_recevable(socle, deliverable_type, motifs)
     if motifs:
+        if ecartes:
+            motifs.append("Écarté à la lecture, mal formé : " + " ; ".join(ecartes[:8]))
         return None, motifs
 
     socle.deliverable_type = deliverable_type
     return socle, []
+
+
+def _motifs_de_validation(erreur: ValidationError) -> list[str]:
+    return [
+        f"{'.'.join(str(p) for p in item['loc'])} : {item['msg']}"
+        for item in erreur.errors()[:12]
+    ]
+
+
+#: Retirer une donnée peut en rendre une autre orpheline, ou lever un contrôle
+#: qui la masquait : on recommence tant qu'un retrait fait avancer. Borné — un
+#: socle n'a que quelques dizaines de données, et chaque passe en retire.
+_PASSES_D_ECART = 5
+
+
+def _ecarter_jusqu_a_recevable(
+    socle: Socle, deliverable_type: str, motifs: list[str]
+) -> list[str]:
+    """Dernier recours : retire les données facultatives en cause, jusqu'à recevabilité.
+
+    Rend les motifs qui restent — ceux qui ne tiennent qu'à des données
+    OBLIGATOIRES, les seuls qui arrêtent encore un dossier.
+    """
+    for _ in range(_PASSES_D_ECART):
+        ecartees = ecarter_les_donnees_facultatives_en_cause(socle, deliverable_type, motifs)
+        if not ecartees:
+            break
+        _log.warning(
+            "Socle : données facultatives écartées plutôt que perdre l'étude — %s. "
+            "Motifs : %s",
+            ", ".join(ecartees), " ; ".join(motifs[:5]),
+        )
+        orphelines = reparer_les_filiations(socle)
+        if orphelines:
+            _log.warning(
+                "Socle : filiations retirées avec leur parent écarté — %s.",
+                ", ".join(orphelines),
+            )
+        motifs = valider_socle(socle, deliverable_type)
+        if not motifs:
+            break
+    return motifs
 
 
 def produire_socle(
@@ -298,6 +378,7 @@ def produire_socle(
             deliverable_type,
             dernier_recours=tentative == MAX_TENTATIVES,
             montants_client=montants_client,
+            brief=variables,
         )
         if socle is not None:
             return socle, consommation, tentative

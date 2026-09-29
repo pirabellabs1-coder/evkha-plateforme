@@ -209,6 +209,11 @@ export interface JobDetail extends JobSummary {
    * Vide pour un dossier d'avant le 12/09/2026, ou qui n'est pas encore
    * arrivé à cette étape. */
   controle_final?: ControleFinal | null;
+  /** Le crédit de cette étude a été rendu (lu dans le journal, pas le statut).
+   *
+   * Vrai : « Relancer » serait refusé au premier débit, seul « Rétablir » a
+   * un sens — c'est lui qui reprend le crédit. */
+  credits_restitues?: boolean;
 }
 
 export interface ControleFinal {
@@ -358,6 +363,7 @@ export const api = {
   jobs:               (status?: string) => get<JobSummary[]>("/jobs/", status ? { status } : undefined),
   job:                (id: string) => get<JobDetail>(`/jobs/${id}/`),
   jobCancel:          (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/cancel/`, {}),
+  jobRetablir:        (id: string) => post<{ job_id: string; status: string; message: string }>(`/jobs/${id}/retablir/`, {}),
   jobRelaunch:        (id: string) => post<GenerateResponse>(`/jobs/${id}/relaunch/`, {}),
   jobRedeliver:       (id: string) => post<{ job_id: string; status: string }>(`/jobs/${id}/redeliver/`, {}),
   jobReverifier:      (id: string) => post<{ job_id: string; qa_status: string; passed: boolean; echecs: number }>(`/jobs/${id}/reverifier/`, {}),

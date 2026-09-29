@@ -315,7 +315,11 @@ function CancelButton({ jobId }: { jobId: string }) {
   });
 
   const handleClick = () => {
-    if (!window.confirm("Annuler ce job ? Le chapitre en cours finira, puis la génération s'arrêtera.")) return;
+    if (!window.confirm(
+      "Annuler ce job ? Le chapitre en cours finira, puis la génération s'arrêtera. "
+      + "Si l'étude a été payée en crédits, le crédit sera rendu au client : pour la relancer "
+      + "ensuite, il faudra d'abord la rétablir.",
+    )) return;
     mutation.mutate();
   };
 
@@ -331,6 +335,53 @@ function CancelButton({ jobId }: { jobId: string }) {
       >
         Annuler le job
       </button>
+      {error && <p className="console-message console-message-echec" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+/** Défait une annulation faite par erreur (29/09/2026, business plan
+ *  `cb59cede`) : le serveur reprend le crédit rendu et remet le dossier en
+ *  échec, donc relançable. Le refus — crédit déjà dépensé, rien à reprendre —
+ *  s'affiche tel que le serveur l'écrit. */
+function RetablirButton({ jobId }: { jobId: string }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const [fait, setFait] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => api.jobRetablir(jobId),
+    onSuccess: (reponse) => {
+      setError(null);
+      setFait(reponse.message);
+      queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  // Le crédit a pu être rendu à la demande de la cliente elle-même (abandon
+  // depuis son espace) : la confirmation le rappelle, le geste n'est fait
+  // que pour réparer une erreur.
+  const handleClick = () => {
+    if (!window.confirm(
+      "Rétablir cette étude ? Le crédit rendu au client lui sera repris, puis la génération "
+      + "pourra être relancée. À n'utiliser que si l'annulation était une erreur.",
+    )) return;
+    mutation.mutate();
+  };
+
+  return (
+    <div className="console-pile console-pile-fin">
+      <button
+        type="button"
+        className={classeBouton("bouton-contour", mutation.isPending)}
+        disabled={mutation.isPending}
+        onClick={handleClick}
+      >
+        Rétablir (annulée par erreur)
+      </button>
+      {fait && <p className="console-message" role="status">{fait}</p>}
       {error && <p className="console-message console-message-echec" role="alert">{error}</p>}
     </div>
   );
@@ -395,7 +446,10 @@ export function JobDetail() {
   // regle plus stricte que celle du serveur, donc un bouton cache exactement
   // dans le cas ou l'on en a besoin : une generation tuee par un deploiement,
   // restee « en cours ». Le 09/08/2026, il a fallu une requete HTTP a la main.
-  const canRelaunch = estRelancable(data);
+  // Un crédit rendu ferme la relance (refusée au premier débit) et ouvre le
+  // rétablissement : la fiche suit le journal, pas le statut.
+  const aRetablir = data.credits_restitues === true;
+  const canRelaunch = estRelancable(data) && !aRetablir;
   const canCancel = data.status === "running" || data.status === "pending";
   // Job FAILED avec au moins un chapitre terminé : PDF admin téléchargeable, sans email
   const hasAnyDoneChapter = data.chapters.some((c) => c.status === "done");
@@ -436,6 +490,7 @@ export function JobDetail() {
           </div>
           <div className="console-gestes-fiche">
             {canCancel && <CancelButton jobId={jobId} />}
+            {aRetablir && <RetablirButton jobId={jobId} />}
             {canRelaunch && <RelaunchButton jobId={jobId} />}
             {data.status === "done" && <JobActions job={data} jobId={jobId} />}
             {showPdfOnly && <JobActions job={data} jobId={jobId} pdfOnly />}

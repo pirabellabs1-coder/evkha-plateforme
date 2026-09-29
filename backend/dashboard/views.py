@@ -745,6 +745,14 @@ def job_detail(request: HttpRequest, job_id: str) -> JsonResponse:
         }
         for d in job.documents_client.defer("texte")
     ]
+    # Le crédit de cette étude a-t-il été rendu ? Lu dans le JOURNAL, jamais
+    # déduit du statut : un dossier annulé en file d'attente peut repasser en
+    # échec quand sa tâche démarre, et rester remboursé. C'est ce fait qui
+    # décide à l'écran entre « Rétablir » et « Relancer » — une relance après
+    # remboursement serait refusée au premier débit.
+    from organisations.liaison import credits_restitues  # noqa: PLC0415
+
+    data["credits_restitues"] = credits_restitues(job)
     return _json(data)
 
 
@@ -1116,6 +1124,33 @@ def job_cancel(request: HttpRequest, job_id: str) -> JsonResponse:
         "status": "cancelled",
         "credits_restitues": restitue,
     })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def job_retablir(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Défait une annulation faite PAR ERREUR : le crédit rendu est repris.
+
+    L'annulation rend le crédit, et une étude remboursée ne se relance plus.
+    Le 29/09/2026, un business plan en attente de relance a été annulé par
+    erreur ; il ne restait qu'à tout recommander. Le rétablissement reprend le
+    crédit (une écriture de plus au journal, rien d'effacé) et remet le dossier
+    en échec : « Relancer » redevient possible, sans nouveau débit. La règle
+    d'argent vit dans `liaison.retablir_job`, pas ici (règle 4).
+    """
+    try:
+        job = GenerationJob.objects.select_related("order").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    from organisations.liaison import retablir_job  # noqa: PLC0415
+
+    fait, message = retablir_job(job, auteur="console")
+    if not fait:
+        return _json({"error": message, "job_id": str(job.id)}, status=409)
+    return _json({"job_id": str(job.id), "status": job.status, "message": message})
 
 
 # ---------------------------------------------------------------------------

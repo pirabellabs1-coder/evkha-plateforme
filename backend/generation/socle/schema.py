@@ -6,13 +6,21 @@ extrait ce qu'il peut de la prose et se tait sur le reste.
 """
 from __future__ import annotations
 
+import copy
 import re
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from core.numbers import to_base_units
 
@@ -1005,7 +1013,7 @@ def _controler_equilibre_financier(socle: Socle) -> list[str]:
             if total < investissement[0] * 0.98:
                 motifs.append(
                     f"Le plan de financement ne couvre pas l'investissement : "
-                    f"{total:,.0f} {investissement[1]} de ressources (apport + "
+                    f"{total:,.0f} {investissement[1]} de ressources (`apport` + "
                     f"emprunt + autres) pour {investissement[0]:,.0f} "
                     f"{investissement[1]} d'emplois. Ajuste l'un ou l'autre, ou "
                     f"déclare la ressource manquante dans `autres_ressources`."
@@ -1115,3 +1123,222 @@ def _controler_emboitement_marche(socle: Socle) -> list[str]:
                 "c'est la confusion que le socle doit précisément empêcher."
             )
     return motifs
+
+
+# ── Dernier recours : ce qui se sauve au lieu de tout perdre ─────────────────
+#
+# 29/09/2026, business plan `cb59cede` : « Socle non recevable après 3
+# tentative(s) : `taille_clientele_cible` : périmètre « regional » alors que le
+# référentiel impose « national ». » Zéro chapitre sur vingt-deux, plus d'une
+# heure d'attente, et la cliente devant un échec. La donnée en cause était
+# FACULTATIVE : le dossier est mort pour un chiffre dont il pouvait se passer.
+#
+# C'est la classe (règle 4), pas le cas : le socle était tout-ou-rien. Les
+# réparations de dernier recours déjà écrites (`reparer_les_filiations`,
+# `retirer_les_zeros_qui_manquent`, `reparer_la_grille`) traitaient chacune UN
+# défaut de forme, découvert par un dossier perdu. Celles-ci ferment la
+# classe : à la dernière tentative, un défaut qui ne touche qu'une donnée
+# facultative, un élément de liste ou une note écarte cet élément, jamais le
+# socle. Seule une donnée OBLIGATOIRE absente ou fautive arrête encore un
+# dossier — sans elle, aucun chapitre n'aurait de fondement.
+#
+# Aux premières tentatives, rien de tout cela ne s'applique : le refus fait
+# corriger le modèle, et une donnée corrigée vaut mieux qu'une donnée retirée.
+
+#: Un identifiant de donnée, tel que les motifs de `valider_socle` le citent.
+_IDENTIFIANT_CITE = re.compile(r"`([a-z0-9_]+)`")
+
+#: Les listes du socle, et le modèle qui juge chacun de leurs éléments.
+_LISTES_DU_SOCLE: dict[str, type[BaseModel]] = {
+    "donnees": DonneeSocle,
+    "segments_clientele": SegmentClientele,
+    "concurrents": Concurrent,
+    "tendances": Tendance,
+    "risques": Risque,
+    "grille_notation": Critere,
+}
+
+
+def _premier_motif(erreur: ValidationError) -> str:
+    item = erreur.errors()[0]
+    lieu = ".".join(str(p) for p in item["loc"])
+    return f"{lieu} : {item['msg']}" if lieu else str(item["msg"])
+
+
+def _notes_recevables(notes: Any, nom: str, ecartes: list[str]) -> list[Any]:
+    """Les notes d'un acteur qui tiennent seules ; un critère noté deux fois garde la première."""
+    if not isinstance(notes, list):
+        if notes is not None:
+            ecartes.append(f"{nom} : notes illisibles, écartées")
+        return []
+    retenues: list[Any] = []
+    vus: set[str] = set()
+    for note in notes:
+        try:
+            lue = NoteConcurrent.model_validate(copy.deepcopy(note))
+        except ValidationError as erreur:
+            ecartes.append(f"{nom} : note écartée ({_premier_motif(erreur)})")
+            continue
+        if lue.critere in vus:
+            ecartes.append(f"{nom} : `{lue.critere}` noté deux fois, seconde note écartée")
+            continue
+        vus.add(lue.critere)
+        retenues.append(note)
+    return retenues
+
+
+def charge_toleree(
+    charge: Mapping[str, Any],
+    *,
+    secteur: str,
+    pays: str,
+    aujourd_hui: date,
+) -> tuple[dict[str, Any], list[str]]:
+    """Ce qui est recevable dans une charge que la validation refuse EN BLOC.
+
+    Pydantic juge le socle d'un seul tenant : une note à 6 sur un acteur, une
+    année 1985 sur une donnée, une clé de trop à la racine, et les cent autres
+    éléments partent avec. Ici chaque élément de liste est jugé SEUL ; celui qui
+    ne tient pas est écarté avec son motif, les autres restent.
+
+    La racine se reprend du brief quand le modèle l'a omise — le secteur et le
+    pays SONT des réponses de la cliente, rien n'est deviné — et la date du
+    socle est celle du jour où il est établi.
+
+    Ne répare aucun contenu : une donnée écartée est absente, et si elle était
+    obligatoire, `valider_socle` le dira.
+    """
+    ecartes: list[str] = []
+    propre: dict[str, Any] = {}
+    for cle, valeur in charge.items():
+        if cle not in Socle.model_fields or cle == "deliverable_type":
+            ecartes.append(f"champ « {cle} » inconnu du contrat, écarté")
+            continue
+        propre[cle] = valeur
+
+    if not str(propre.get("secteur") or "").strip() and secteur.strip():
+        propre["secteur"] = secteur.strip()
+        ecartes.append("secteur absent, repris du brief")
+
+    zone_brute = propre.get("zone")
+    zone = dict(zone_brute) if isinstance(zone_brute, Mapping) else {}
+    zone = {cle: valeur for cle, valeur in zone.items() if cle in Zone.model_fields}
+    if not str(zone.get("pays") or "").strip() and pays.strip():
+        zone["pays"] = pays.strip()
+        ecartes.append("pays absent, repris du brief")
+    propre["zone"] = zone
+
+    try:
+        TypeAdapter(date).validate_python(propre.get("date_socle"))
+    except ValidationError:
+        propre["date_socle"] = aujourd_hui.isoformat()
+        ecartes.append("date du socle illisible, remplacée par celle du jour")
+
+    for cle, modele in _LISTES_DU_SOCLE.items():
+        elements = propre.get(cle)
+        if elements is None:
+            continue
+        if not isinstance(elements, list):
+            ecartes.append(f"{cle} n'est pas une liste, écarté")
+            propre.pop(cle)
+            continue
+        retenus: list[Any] = []
+        for rang, element in enumerate(elements):
+            candidat = copy.deepcopy(element)
+            if modele is Concurrent and isinstance(candidat, dict):
+                nom = str(candidat.get("nom") or f"acteur {rang + 1}")
+                candidat["notes"] = _notes_recevables(candidat.get("notes"), nom, ecartes)
+            try:
+                # Sur une COPIE : un validateur « before » réécrit l'entrée
+                # (`_un_denombrement_s_ecrit_en_unites`), et la validation du
+                # socle entier la relira.
+                modele.model_validate(copy.deepcopy(candidat))
+            except ValidationError as erreur:
+                ecartes.append(f"{cle}[{rang}] écarté ({_premier_motif(erreur)})")
+                continue
+            retenus.append(candidat)
+        propre[cle] = retenus
+
+    return propre, ecartes
+
+
+def accorder_notes_et_grille(socle: Socle) -> list[str]:
+    """Un critère déclaré deux fois garde sa première définition ; une note sans critère part.
+
+    Deux motifs de `_controler_grille_notation` que rien ne réparait : ils
+    tuaient le socle à la dernière tentative pour une note qu'aucune figure ne
+    pouvait placer. Une note sans barème n'est pas une mesure ; la retirer ne
+    retire rien au lecteur.
+    """
+    retires: list[str] = []
+    vus: set[str] = set()
+    grille: list[Critere] = []
+    for critere in socle.grille_notation:
+        if critere.code in vus:
+            retires.append(f"critère `{critere.code}` déclaré deux fois")
+            continue
+        vus.add(critere.code)
+        grille.append(critere)
+    socle.grille_notation = grille
+    notes_avant = sum(len(a.notes) for a in socle.concurrents)
+    for acteur in socle.concurrents:
+        orphelines = sorted(acteur.codes_notes - vus)
+        if orphelines:
+            acteur.notes = [n for n in acteur.notes if n.critere in vus]
+            retires.extend(f"{acteur.nom} ← `{code}`" for code in orphelines)
+    if not grille and notes_avant:
+        # Toutes les coordonnées de positionnement partent : les figures qui
+        # les citaient seront abandonnées avec un motif. Dit à part, pour que
+        # le journal ne le noie pas parmi des notes isolées.
+        retires.insert(0, f"GRILLE VIDE : les {notes_avant} notes des acteurs sont retirées")
+    return retires
+
+
+def ecarter_les_donnees_facultatives_en_cause(
+    socle: Socle, deliverable_type: str, motifs: Sequence[str]
+) -> list[str]:
+    """Retire les données FACULTATIVES que les motifs de refus mettent en cause.
+
+    Chaque motif de `valider_socle` cite entre accents graves les données qu'il
+    accuse. Celles qui sont facultatives sont retirées : leur absence se dit,
+    une valeur fausse se lit. Une donnée obligatoire n'est jamais retirée — son
+    motif reste, et le refus avec lui. Un doublon garde sa première occurrence.
+
+    Retourne ce qui a été retiré, pour le journal.
+    """
+    obligatoires = identifiants_obligatoires(deliverable_type)
+    en_cause: set[str] = set()
+    for motif in motifs:
+        cites = set(_IDENTIFIANT_CITE.findall(motif)) & socle.identifiants
+        # Un motif qui met en cause une donnée OBLIGATOIRE ne se sauve pas en
+        # retirant l'autre côté : l'erreur peut être sur l'obligatoire — un
+        # résultat « supérieur au CA » est le plus souvent un CA à la mauvaise
+        # échelle. Retirer le résultat installerait ce CA faux comme référence
+        # de tout le document (revue du 29/09/2026).
+        if cites & obligatoires:
+            continue
+        en_cause |= cites
+    gardees: list[DonneeSocle] = []
+    premieres: dict[str, DonneeSocle] = {}
+    doublons: list[str] = []
+    for item in socle.donnees:
+        if item.id in en_cause:
+            continue
+        premiere = premieres.get(item.id)
+        if premiere is None:
+            premieres[item.id] = item
+            gardees.append(item)
+            continue
+        # Un doublon d'obligatoire ne se fond que s'il est la MÊME donnée. Deux
+        # valeurs différentes : laquelle est juste, personne ne le sait ici —
+        # le motif reste, et le refus avec lui.
+        if _meme_donnee(item, premiere):
+            doublons.append(f"{item.id} (doublon identique)")
+            continue
+        gardees.append(item)
+    socle.donnees = gardees
+    return sorted(en_cause) + doublons
+
+
+def _meme_donnee(a: DonneeSocle, b: DonneeSocle) -> bool:
+    return (a.valeur, a.unite, a.annee, a.perimetre) == (b.valeur, b.unite, b.annee, b.perimetre)

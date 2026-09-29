@@ -27,6 +27,7 @@ et on le trace.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 from django.core.exceptions import ValidationError
 
@@ -140,6 +141,28 @@ def reference_de_debit(job: GenerationJob) -> str:
     return f"job:{job.id}"
 
 
+def reference_de_retablissement(job: GenerationJob) -> str:
+    """Clé du débit qui REPREND un crédit restitué par erreur (`retablir_job`)."""
+    return f"{reference_de_debit(job)}:retabli"
+
+
+def _reference_en_vigueur(job: GenerationJob, organisation: Organisation) -> str:
+    """La référence du débit qui paie AUJOURD'HUI cette étude.
+
+    Celle du débit d'origine, sauf après un rétablissement : c'est alors le
+    débit de reprise qui paie l'étude, et c'est lui qu'un remboursement
+    ultérieur doit viser. Sans cette distinction, une seconde annulation
+    butait sur le remboursement déjà écrit pour la référence d'origine et ne
+    rendait rien — le client aurait payé une étude annulée.
+    """
+    reprise = reference_de_retablissement(job)
+    if credits.portefeuille_de(organisation).mouvements.filter(
+        type=TypeMouvement.DEBIT, reference=reprise
+    ).exists():
+        return reprise
+    return reference_de_debit(job)
+
+
 def debiter_pour_job(job: GenerationJob) -> tuple[bool, str]:
     """Débite le portefeuille au lancement. Retourne (autorise, raison).
 
@@ -185,11 +208,23 @@ def debiter_pour_job(job: GenerationJob) -> tuple[bool, str]:
     # Le droit se verifie AVANT le debit, et dans la couche qui tient l'argent
     # — pas dans la vue de commande. Une seconde porte d'appel apparaitra un
     # jour, et elle n'y penserait pas (regle 4).
-    autorise, motif = credits.peut_commander_ce_livrable(
-        organisation, str(job.deliverable_type)
-    )
-    if not autorise:
-        return False, motif
+    #
+    # Mais seulement pour un débit NEUF. Une étude déjà payée ne se juge pas
+    # sur les crédits qu'il reste : une acheteuse à l'unité d'un business plan
+    # et d'une étude de concurrence voyait la relance de son business plan
+    # refusée — « Le crédit qu'il vous reste ne couvre pas cette étude » —
+    # parce que le seul droit restant était celui de l'autre étude (revue du
+    # 29/09/2026). Même principe que `credits.debiter` : l'idempotence se
+    # constate avant le solde.
+    deja_payee = credits.portefeuille_de(organisation).mouvements.filter(
+        type=TypeMouvement.DEBIT, reference=reference_de_debit(job)
+    ).exists()
+    if not deja_payee:
+        autorise, motif = credits.peut_commander_ce_livrable(
+            organisation, str(job.deliverable_type)
+        )
+        if not autorise:
+            return False, motif
 
     cout = cout_en_credits(job)
     try:
@@ -234,7 +269,8 @@ def credits_restitues(job: GenerationJob) -> bool:
     return (
         credits.portefeuille_de(organisation)
         .mouvements.filter(
-            type=TypeMouvement.REMBOURSEMENT, reference=reference_de_debit(job)
+            type=TypeMouvement.REMBOURSEMENT,
+            reference=_reference_en_vigueur(job, organisation),
         )
         .exists()
     )
@@ -260,7 +296,7 @@ def rembourser_job(job: GenerationJob, *, motif: str) -> bool:
         return False
     try:
         credits.rembourser(
-            organisation, reference=reference_de_debit(job), motif=motif
+            organisation, reference=_reference_en_vigueur(job, organisation), motif=motif
         )
     except credits.MouvementDejaEnregistreError as raison:
         # Soit rien n'a été débité, soit le remboursement est déjà passé. Dans
@@ -269,3 +305,107 @@ def rembourser_job(job: GenerationJob, *, motif: str) -> bool:
         return False
     _log.info("Job %s : crédits restitués à %s.", job.id, organisation)
     return True
+
+
+def retablir_job(job: GenerationJob, *, auteur: str) -> tuple[bool, str]:
+    """Défait l'annulation d'une étude annulée PAR ERREUR. Retourne (fait, message).
+
+    ## Le cas qui l'a rendue nécessaire
+
+    29/09/2026, business plan `cb59cede` : tombé en échec au socle, il
+    attendait sa relance une fois le défaut corrigé. Il a été annulé par
+    erreur ; l'annulation a rendu le crédit, et une étude remboursée ne se
+    relance plus (`debiter_pour_job`). Le seul recours restant était de
+    repasser commande — questionnaire et pièces jointes à refaire — ou une
+    reprise à nos frais, invisible dans l'espace de la cliente.
+
+    ## Ce que fait le rétablissement
+
+    Il REPREND le crédit rendu, par une écriture de plus : le journal ne se
+    corrige pas, il s'allonge. Le débit de reprise porte sa propre référence
+    (`reference_de_retablissement`) et reflète exactement le remboursement —
+    même quantité, même marquage, relus sur le journal, jamais fournis par
+    l'appelant. La relance redevient possible, et ne débite rien de plus : le
+    débit d'origine est toujours là.
+
+    ## Ce qu'il ne fait PAS : toucher au statut
+
+    Le runner ne s'arrête que sur `CANCELLED`. Rouvrir le dossier en `FAILED`
+    laisserait une tâche encore active — celle qui finit son chapitre après
+    l'annulation — reprendre sa route, et la relance en lancerait une seconde
+    (revue du 29/09/2026). L'état se décide donc sur le JOURNAL, pas sur
+    l'étiquette : un dossier annulé, ou repassé en échec par sa tâche après
+    l'annulation, se rétablit dès qu'un remboursement existe.
+
+    Refusé si le dossier a produit récemment (une tâche peut encore tourner),
+    si le crédit rendu a déjà été dépensé (aucun découvert, §11), si rien n'a
+    été rendu, ou si l'étude a déjà été rétablie une fois.
+    """
+    from django.utils import timezone  # noqa: PLC0415
+
+    from generation.models import JobStatus  # noqa: PLC0415
+    from generation.services import DELAI_SANS_PROGRESSION  # noqa: PLC0415
+
+    if job.status not in (JobStatus.CANCELLED, JobStatus.FAILED):
+        return False, "Seule une étude annulée ou en échec peut être rétablie."
+
+    organisation = organisation_du_job(job)
+    if organisation is None:
+        return False, "Cette étude ne dépend d'aucune organisation : aucun crédit à reprendre."
+
+    reprise = reference_de_retablissement(job)
+    portefeuille = credits.portefeuille_de(organisation)
+    if portefeuille.mouvements.filter(type=TypeMouvement.DEBIT, reference=reprise).exists():
+        return False, "Cette étude a déjà été rétablie une fois : repassez commande."
+
+    remboursement = portefeuille.mouvements.filter(
+        type=TypeMouvement.REMBOURSEMENT, reference=reference_de_debit(job)
+    ).first()
+    if remboursement is None:
+        return False, "Aucun crédit n'a été restitué pour cette étude : rien à rétablir."
+
+    derniere = _derniere_activite(job)
+    if derniere is not None and timezone.now() - derniere < DELAI_SANS_PROGRESSION:
+        minutes = int(DELAI_SANS_PROGRESSION.total_seconds() // 60)
+        return False, (
+            "Cette étude a travaillé il y a moins de "
+            f"{minutes} minutes : une tâche peut encore tourner. Réessayez plus tard."
+        )
+
+    try:
+        credits.debiter(
+            organisation,
+            remboursement.quantite,
+            reference=reprise,
+            motif=f"Annulation par erreur rétablie · étude {str(job.id)[:8]}",
+            # Le reflet exact du remboursement, marquage compris : un
+            # crédit rendu fongible se reprend fongible.
+            livrable=remboursement.livrable,
+            auteur=auteur,
+        )
+    except credits.MouvementDejaEnregistreError:
+        # Deux clics simultanés : le second arrive après le premier débit.
+        return False, "Cette étude a déjà été rétablie une fois : repassez commande."
+    except credits.SoldeInsuffisantError:
+        return False, (
+            "Le crédit restitué a déjà été utilisé pour une autre étude : "
+            "impossible de le reprendre sans découvert."
+        )
+    except credits.OrganisationSuspendueError as refus:
+        return False, str(refus)
+
+    _log.info("Job %s : annulation rétablie par %s.", job.id, auteur or "?")
+    return True, (
+        f"Étude rétablie : {remboursement.quantite} crédit(s) repris (remboursement "
+        f"« {remboursement.motif} » annulé), solde {credits.solde(organisation)}. "
+        "Elle peut être relancée."
+    )
+
+
+def _derniere_activite(job: GenerationJob) -> datetime | None:
+    """Le dernier signe de vie du dossier : un chapitre touché, ou son lancement."""
+    dernier = (
+        job.chapters.order_by("-updated_at").values_list("updated_at", flat=True).first()
+    )
+    reperes = [d for d in (dernier, job.started_at) if d is not None]
+    return max(reperes) if reperes else None

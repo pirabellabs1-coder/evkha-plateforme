@@ -300,6 +300,7 @@ def debiter(
     reference: str,
     motif: str,
     livrable: str = "",
+    auteur: str = "",
 ) -> MouvementCredit:
     """Débite le portefeuille pour une génération. Refuse tout découvert.
 
@@ -364,6 +365,7 @@ def debiter(
         motif=motif,
         reference=reference,
         livrable=livrable,
+        auteur=auteur,
     )
 
 
