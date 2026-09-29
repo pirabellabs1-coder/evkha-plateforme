@@ -499,6 +499,33 @@ def etat_des_fichiers(
     return {"etat": "mise_en_forme", "supprimes_le": None}
 
 
+def chapitres_en_direct(job: GenerationJob) -> list[dict[str, Any]]:
+    """Chaque chapitre annoncé, avec son étape telle que la production la pose.
+
+    29/09/2026 : le client ne voyait qu'une étape « Rédaction des chapitres ».
+    Il suit désormais chaque chapitre du plan — autant de lignes que l'offre en
+    annonce (22, 9, 21 ou 20). L'étape vient de `ChapterGeneration.etape`,
+    posée par la boucle de production ; un chapitre repris avant d'être validé
+    se dit « ajusté », jamais « en échec ». Un chapitre terminé par l'ancien
+    chemin (sans étape) se lit validé, un chapitre en cours se lit en rédaction.
+    """
+    lignes: list[dict[str, Any]] = []
+    for chapitre in chapitres_annonces(job).order_by("chapter_number"):
+        etape = chapitre.etape
+        if not etape:
+            if chapitre.status == ChapterStatus.DONE:
+                etape = "valide"
+            elif chapitre.status in (ChapterStatus.RUNNING, ChapterStatus.FAILED):
+                etape = "redaction"
+        lignes.append({
+            "numero": chapitre.chapter_number,
+            "titre": chapitre.chapter_title,
+            "etape": etape,
+            "ajuste": chapitre.retry_count > 0,
+        })
+    return lignes
+
+
 def en_dict(job: GenerationJob) -> dict[str, Any]:
     """Suivi complet d'une génération, pour l'espace client."""
     fichiers = fichiers_du_client(job)
@@ -531,4 +558,5 @@ def en_dict(job: GenerationJob) -> dict[str, Any]:
         ],
         "fichiers": fichiers,
         "fichiers_etat": etat_des_fichiers(job, fichiers),
+        "chapitres": chapitres_en_direct(job),
     }
