@@ -606,7 +606,7 @@ passage en société ») ne date plus l'événement.
 
 ## 11. État d'avancement (29/09/2026, 20 h 30)
 
-En production (`d0f9baa`, puis `dd8e365`), tout sous garde : la mémoire de
+En production (`d0f9baa`, `dd8e365`, puis `25366e7` le 29/09 au soir), tout sous garde : la mémoire de
 l'étude est **coupée** pour les commandes des clients (`EVKHA_MEMOIRE_ETUDE`
 faux) tant qu'une génération réelle ne l'a pas éprouvée.
 
@@ -632,7 +632,7 @@ sur le plafond de 8 € à 14 chapitres sur 22 ; aucun courriel.
 | Le modèle ignore les repères | 10 repères cités en 18 chapitres | rappel des repères en fin de consigne (`eab7535`) |
 | Les chiffres en clair font tout réécrire | 45 motifs sur 57, 2 à 3 essais par chapitre | le chiffre en clair devient un **signal** : il ne fait plus reprendre à lui seul (`eab7535`) |
 | Les motifs graves sont justes | séries confondues ×7, TVA « par choix » ×2, date contredite ×1 | inchangés : ils font toujours reprendre |
-| Quatre chapitres morts au dernier essai sur une métadonnée | ch. 3 résumé 148 mots / 150 ; ch. 15-16 identifiant déclaré deux fois ; ch. 17 « 37 500 € » (franchise de TVA) pris pour une invention | doublons dédoublonnés sans reprise ; résumé court gardé au dernier essai ; seuils légaux connus du contrôle |
+| Quatre chapitres morts au dernier essai sur une métadonnée | ch. 3 résumé 148 mots / 150 ; ch. 15-16 identifiant déclaré deux fois ; ch. 17 « 37 500 € » (franchise de TVA) pris pour une invention | doublons dédoublonnés sans reprise ; résumé court gardé au dernier essai, y compris au rattrapage final ; seuils légaux connus du contrôle (`62d35bf`, `1bdb99e`) |
 
 Les deux derniers correctifs valent aussi SANS la mémoire : un chapitre de
 cliente pouvait déjà mourir sur un résumé de 148 mots ou sur un doublon.
