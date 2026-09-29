@@ -434,6 +434,11 @@ def test_le_runner_declare_la_verite_sur_ses_reprises() -> None:
     acceptés dès le premier essai, alors qu'une reprise pourrait produire un
     meilleur chapitre. Figer `False` recréerait le défaut du run nº1 : l'étage
     « accepter puis consigner » ne serait jamais atteint.
+
+    29/09/2026 : sans surplus de budget, l'essai en cours est AUSSI déclaré
+    dernier (`cost.reprise_financable`). C'est encore la vérité : il n'y aura
+    pas de reprise. Le comportement est testé dans
+    `test_une_reprise_se_paie_sur_le_surplus`.
     """
     import inspect
 
@@ -441,7 +446,9 @@ def test_le_runner_declare_la_verite_sur_ses_reprises() -> None:
 
     source = inspect.getsource(services.produire_avec_reprises)
 
-    assert "derniere_tentative=(tentative == document.tentatives_max)" in source, (
+    assert "derniere = tentative == document.tentatives_max" in source and (
+        "derniere_tentative=derniere" in source
+    ), (
         "la boucle ne calcule pas sa derniere tentative : l'arbitrage sera "
         "renseigne a tort, dans un sens ou dans l'autre"
     )

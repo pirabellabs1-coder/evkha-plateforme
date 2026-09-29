@@ -371,10 +371,24 @@ def produire_avec_reprises(
     runner ; tout le reste est rejoué, y compris l'imprévu — c'est lui qui coûte
     le plus cher.
     """
+    from ..cost import reprise_financable  # noqa: PLC0415
+
     document = type_document(str(job.deliverable_type))
     derniere_erreur: Exception | None = None
 
     for tentative in range(1, document.tentatives_max + 1):
+        # Une reprise ne se paie que sur le SURPLUS du budget, une fois réservés
+        # les chapitres qui restent à écrire (`reprise_financable`). Sans
+        # surplus, cet essai est le dernier : accepté avec ses replis plutôt
+        # que réécrit — le dossier va au bout, sous son plafond.
+        derniere = tentative == document.tentatives_max
+        if not derniere and isinstance(job, GenerationJob) and not reprise_financable(job):
+            _log.warning(
+                "Job %s chapitre %s : pas de surplus de budget pour une reprise — "
+                "l'essai %s est le dernier.",
+                job.id, numero, tentative,
+            )
+            derniere = True
         try:
             if tentative > 1 and isinstance(job, GenerationJob):
                 ChapterGeneration.objects.filter(
@@ -382,7 +396,7 @@ def produire_avec_reprises(
                 ).update(etape="ajustement")
             chapitre = produire_chapitre(
                 job, numero, client=client, socle=socle,
-                derniere_tentative=(tentative == document.tentatives_max),
+                derniere_tentative=derniere,
             )
         except sans_reprise:
             raise

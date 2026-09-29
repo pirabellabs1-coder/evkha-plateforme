@@ -537,6 +537,50 @@ def budget_restant(job: GenerationJob) -> Decimal:
     return plafond_de_depense(job) - current_job_cost_eur(job)
 
 
+#: Un chapitre type, quand aucun n'est encore écrit : ~25 000 jetons lus,
+#: ~8 000 écrits. Mesuré sur ÉCLORE (29/09/2026) : 13 000 à 23 000 lus et
+#: 4 000 à 6 500 écrits par chapitre — l'estimation est prise large.
+_CHAPITRE_TYPE_TOKENS = (25_000, 8_000)
+#: Un chapitre financier coûte plus que la moyenne des chapitres déjà écrits.
+_MARGE_SUR_LE_CHAPITRE = Decimal("1.5")
+
+
+def cout_estime_d_un_chapitre(job: GenerationJob) -> Decimal:
+    """Ce qu'un chapitre de ce dossier coûtera, d'après ceux qui sont déjà écrits.
+
+    Le chapitre 0 est écarté : il porte la recherche web, sans commune mesure
+    avec un chapitre rédigé.
+    """
+    ecrits = list(
+        job.chapters.filter(status=ChapterStatus.DONE, chapter_number__gt=0)
+        .values_list("cost_eur", flat=True)
+    )
+    if ecrits:
+        moyenne = sum(ecrits, Decimal("0")) / len(ecrits)
+    else:
+        moyenne = estimate_call_cost_eur(*_CHAPITRE_TYPE_TOKENS)
+    return moyenne * _MARGE_SUR_LE_CHAPITRE
+
+
+def reprise_financable(job: GenerationJob) -> bool:
+    """Une reprise se paie-t-elle sur le SURPLUS du budget ?
+
+    Reprise ÉCLORE `bf98827c` (29/09/2026) : 32 reprises ont été payées sans
+    que rien ne demande s'il resterait de quoi écrire la suite, et le plafond a
+    coupé le dossier au chapitre 16 sur 22. Une reprise améliore un chapitre ;
+    un chapitre manquant ampute le document. La seconde passe donc avant.
+
+    Le surplus, c'est ce qui reste une fois réservé chaque chapitre encore à
+    écrire (le chapitre en cours compris) ET la reprise elle-même. Sans
+    surplus, l'essai en cours est déclaré DERNIER : le chapitre est accepté
+    avec ses replis au lieu d'être réécrit, et le dossier va au bout sous son
+    plafond.
+    """
+    a_ecrire = job.chapters.exclude(status=ChapterStatus.DONE).count()
+    reserve = cout_estime_d_un_chapitre(job) * (a_ecrire + 1)
+    return budget_restant(job) >= reserve
+
+
 def enforce_budget(job: GenerationJob, *, current_total: Decimal | None = None) -> None:
     """Arret immediat des que la depense passe le plafond. STRICT, SANS TOLERANCE.
 
