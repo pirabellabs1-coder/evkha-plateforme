@@ -268,7 +268,36 @@ async function envoyer<T>(chemin: string, donnees: FormData): Promise<T> {
   return (await reponse.json()) as T;
 }
 
+/** Rapport interne de qualité (`/api/dashboard/qualite/`, 29/09/2026). */
+export interface RapportQualite {
+  dossiers: {
+    id: string;
+    type: string;
+    statut: string;
+    qa_status: string;
+    cree_le: string;
+    memoire: boolean;
+    chapitres_controles: number;
+    motifs: number;
+    replis: number;
+    reperes: number;
+    constats_pdf: number;
+    cout_eur: string;
+  }[];
+  chapitres: {
+    type: string;
+    chapitre: number;
+    titre: string;
+    passages: number;
+    motifs: number;
+    replis: number;
+  }[];
+  familles_de_motifs: { famille: string; occurrences: number }[];
+  constats_pdf: { controle: string; occurrences: number }[];
+}
+
 export const adminApi = {
+  qualite: () => get<RapportQualite>("/qualite/"),
   produitsBoutique: () =>
     get<{ produits: ProduitBoutique[] }>("/boutique/"),
   ventesBoutique: () =>

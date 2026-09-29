@@ -9,6 +9,7 @@ import { CoquilleAdmin } from "./admin/Coquille";
 import { TableauDeBordAdmin } from "./admin/pages/TableauDeBord";
 import { OrganisationsAdmin } from "./admin/pages/Organisations";
 import { LivrablesAdmin } from "./admin/pages/Livrables";
+import { QualiteAdmin } from "./admin/pages/Qualite";
 import { BoutiqueAdmin } from "./admin/pages/BoutiqueAdmin";
 import { Annonces } from "./admin/pages/Annonces";
 import { TransactionsAdmin } from "./admin/pages/Transactions";
@@ -201,6 +202,12 @@ const adminOrganisations = createRoute({
   component: OrganisationsAdmin,
 });
 
+const adminQualite = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "qualite",
+  component: QualiteAdmin,
+});
+
 const adminLivrables = createRoute({
   getParentRoute: () => adminRoute,
   path: "livrables",
@@ -320,6 +327,7 @@ const routeTree = rootRoute.addChildren([
     adminAnnonces,
     adminTransactions,
     adminLivrables,
+    adminQualite,
     adminDemandes,
     adminSignalements,
     adminJobs,

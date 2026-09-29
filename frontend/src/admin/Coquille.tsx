@@ -32,6 +32,7 @@ const ENTREES = [
   { vers: "/admin/signalements", libelle: "Signalements", icone: "⚑" },
   { vers: "/admin/jobs", libelle: "Générations", icone: "▤" },
   { vers: "/admin/incidents", libelle: "Incidents", icone: "⚠" },
+  { vers: "/admin/qualite", libelle: "Qualité", icone: "◇" },
   { vers: "/admin/orders", libelle: "Commandes", icone: "◐" },
   { vers: "/admin/clients", libelle: "Clients", icone: "◉" },
 ] as const;
@@ -76,6 +77,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/admin/incidents": {
     titre: "Incidents",
     sous: "Ce qui demande une intervention.",
+  },
+  "/admin/qualite": {
+    titre: "Qualité",
+    sous: "Ce que la production a trouvé et corrigé, chapitre par chapitre. Interne.",
   },
   "/admin/orders": { titre: "Commandes", sous: "Les commandes reçues et leur état." },
   "/admin/clients": { titre: "Clients", sous: "Les contacts et leurs abonnements." },

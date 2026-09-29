@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from django.urls import path
 
-from . import actions, annonces, boutique, signalements, supervision, views
+from . import actions, annonces, boutique, qualite, signalements, supervision, views
 
 app_name = "dashboard"
 
 urlpatterns = [
     path("overview/", views.overview, name="overview"),
+    # Rapport interne de qualité : ce que la production a corrigé (29/09/2026).
+    path("qualite/", qualite.rapport_qualite, name="rapport-qualite"),
     # Jobs
     path("jobs/", views.jobs_list, name="jobs-list"),
     # AVANT `jobs/<job_id>/` : Django prend la première route qui correspond,
