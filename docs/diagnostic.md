@@ -640,3 +640,57 @@ cliente pouvait déjà mourir sur un résumé de 148 mots ou sur un doublon.
 Le client a demandé ensuite de ne plus relancer. La mémoire reste coupée pour
 les commandes (`EVKHA_MEMOIRE_ETUDE` faux) ; son ouverture est une décision à
 lui demander, avec ce tableau.
+
+---
+
+## 13. Coût d'un dossier (29/09/2026, soir)
+
+Demande du client : ne plus dépasser les plafonds, ne pas les relever, et plus
+aucune coupure. Mesuré sans aucune génération, sur les deux dossiers ÉCLORE
+en base et la grille officielle d'Anthropic.
+
+**Périmètre** : tous les appels de la génération (recherche, socle,
+chapitres, relecture finale), API Anthropic directe, modèle de production
+`claude-sonnet-5`, effort `medium`. **Qualité** : pas d'évaluation payante
+possible (« il ne faut plus relancer ») — les leviers qui échangent de la
+qualité contre du coût restent des propositions.
+
+### Le compteur se trompait de tarif
+
+`claude-sonnet-5` est facturé 2 $ / 10 $ par million de jetons (tarif
+définitif ; la hausse à 3 $ / 15 $ annoncée au 01/09/2026 n'a pas eu lieu).
+EVKHA le comptait 3 $ / 15 $ : **chaque dossier était compté 50 % au-dessus
+de sa facture**, et le plafond coupait sur ce compte.
+
+| Dossier | Affiché | Réel (≈ × 2/3) | Recherche (ch. 0) | Chapitres gardés | Socle, essais jetés, relecture |
+|---|---|---|---|---|---|
+| `cb59cede` (complet) | 5,98 € | ≈ 3,99 € | 0,87 € | 2,42 € | 0,70 € |
+| `bf98827c` (coupé à 16/22) | 8,12 € | ≈ 5,41 € | 0,84 € | 1,07 € | 3,51 € |
+
+Les montants déjà en base ne sont pas réécrits : pour un dossier Sonnet 5
+antérieur au correctif, le coût réel est d'environ deux tiers du montant
+affiché.
+
+### Ce qui est corrigé
+
+| Levier | Effet | Commit |
+|---|---|---|
+| Tarif par modèle, relevé sur la grille | le compte suit la facture (Sonnet 5 : − 33 %) ; un alias ou une version inconnue prend le tarif le plus cher de sa famille | `c6a5aec` |
+| Chiffre en clair = signal, pas reprise | la cause des 32 reprises de `bf98827c` (45 motifs sur 57) | `eab7535` |
+| Une reprise se paie sur le surplus | sans surplus une fois réservés les chapitres à écrire, l'essai est le dernier : le dossier va au bout sous son plafond | `ad029c8` |
+| Une métadonnée ne coûte plus un chapitre | 4 chapitres morts au dernier essai sur `bf98827c` | `62d35bf`, `1bdb99e` |
+
+Projection : un business plan complet coûte environ 4 € réels pour un
+plafond de 8 €, inchangé. Le frein reste en place ; le rythme l'empêche
+d'être atteint.
+
+### Propositions, non appliquées
+
+| Levier | Pourquoi pas maintenant |
+|---|---|
+| Recherche avec filtrage dynamique (`web_search_20260209`, accepté par Sonnet 5) : moins de pages brutes dans les 310 000 jetons lus du chapitre 0 (≈ 22 % d'un dossier) | change ce que la recherche rapporte : à valider sur un dossier réel |
+| Une seule passe de relecture finale au lieu de deux | échange de la qualité contre du coût ; elle ne dépense déjà que le surplus (`MARGE_DE_BUDGET`) |
+| Advisor des contrôles de blocs compté au tarif de l'exécuteur (Opus 4.7 facturé 5 $ / 25 $) | chemin hors de la génération en service (ancien moteur, bouton « corriger ») |
+
+Écartés : le traitement par lots (la cliente attend son dossier), Sonnet 5.5
+(même tarif), un modèle moins cher (qualité non mesurable sans génération).
