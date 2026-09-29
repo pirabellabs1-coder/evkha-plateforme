@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from generation.models import (
@@ -109,26 +110,57 @@ def _etat_socle(job: GenerationJob) -> tuple[str, str]:
     return "en_cours", "Recherche et vérification des chiffres"
 
 
+def chapitres_annonces(job: GenerationJob) -> QuerySet[ChapterGeneration]:
+    """Les chapitres VENDUS au client : ceux du plan, ouverture exclue.
+
+    Décision D9 du 29/09/2026. Le suivi comptait toutes les lignes de
+    production, « Fiche projet » comprise : « 22 chapitres sur 22 » pour un
+    business plan dont l'offre annonce 21. La fiche projet (chapitre 0,
+    `SectionKind.OPENING`) est la carte d'identité interne de la commande ; elle
+    ne part pas chez le client (`rendu_word.depuis_json.pour_le_client`). Même
+    lecture du plan que `verification.services._chapitres_attendus`.
+    """
+    from generation.blueprints import (  # noqa: PLC0415
+        SectionKind,
+        chapters_for_deliverable,
+    )
+
+    try:
+        plan = chapters_for_deliverable(str(job.deliverable_type))
+    except ValueError:
+        plan = ()
+    ouvertures = [bp.number for bp in plan if bp.section_kind == SectionKind.OPENING]
+    return ChapterGeneration.objects.filter(job=job).exclude(chapter_number__in=ouvertures)
+
+
 def etapes(job: GenerationJob) -> list[Etape]:
-    """Les quatre étapes du parcours, avec leur état réel."""
+    """Les quatre étapes du parcours, avec leur état réel.
+
+    L'ÉTAT de l'étape suit toute la production, fiche projet comprise : elle en
+    est le premier travail. Le COMPTE affiché au client — « 21 chapitres sur
+    21 » — ne porte que sur les chapitres annoncés (`chapitres_annonces`).
+    """
     chapitres = ChapterGeneration.objects.filter(job=job)
-    total = chapitres.count()
-    faits = chapitres.filter(status=ChapterStatus.DONE).count()
-    en_cours = chapitres.filter(status=ChapterStatus.RUNNING).first()
-    echoues = chapitres.filter(status=ChapterStatus.FAILED).count()
+    total_production = chapitres.count()
+    faits_production = chapitres.filter(status=ChapterStatus.DONE).count()
+    annonces = chapitres_annonces(job)
+    total = annonces.count()
+    faits = annonces.filter(status=ChapterStatus.DONE).count()
+    en_cours = annonces.filter(status=ChapterStatus.RUNNING).first()
+    echoues = annonces.filter(status=ChapterStatus.FAILED).count()
 
     etat_socle, detail_socle = _etat_socle(job)
 
     if job.status == JobStatus.DONE:
         etats = {"socle": "fait", "chapitres": "fait", "verification": "fait", "rendu": "fait"}
-    elif faits == 0:
+    elif faits_production == 0:
         etats = {
             "socle": etat_socle,
             "chapitres": "attente",
             "verification": "attente",
             "rendu": "attente",
         }
-    elif faits < total:
+    elif faits_production < total_production:
         etats = {
             "socle": "fait",
             "chapitres": "en_cours",

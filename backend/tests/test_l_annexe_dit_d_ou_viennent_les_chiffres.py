@@ -42,7 +42,7 @@ def _donnee(**kwargs: object) -> DonneeSocle:
 
 
 def _tableau(socle: Socle) -> list[list[str]]:
-    blocs = blocs_annexe(socle, numero=21)
+    blocs = blocs_annexe(socle)
     return next(b["lignes"] for b in blocs if b["type"] == "tableau")
 
 
@@ -78,18 +78,21 @@ def test_une_valeur_calculee_montre_son_calcul() -> None:
 def test_l_annexe_est_construite_depuis_le_socle_et_ne_coute_rien() -> None:
     """CONTRE-ÉPREUVE : aucun appel au modèle, et rien qui ne soit dans le socle."""
     socle = _socle(_donnee(), _donnee(id="panier_moyen", valeur=17.9, libelle="Panier moyen"))
-    blocs = blocs_annexe(socle, numero=21)
+    blocs = blocs_annexe(socle)
 
-    valeurs = {ligne[1] for ligne in _tableau(socle)}
-    assert valeurs == {"120 000 EUR", "17,9 EUR"}
-    assert blocs[0]["type"] == "bandeau"
-    assert [b["type"] for b in blocs] == ["bandeau", "paragraphe", "tableau"]
+    # « 120 000 EUR » jusqu'au 29/09/2026 : le code de stockage de l'unité,
+    # relevé par la cliente sur le business plan ÉCLORE. La valeur, elle, est
+    # toujours celle du socle — seule son écriture a changé.
+    valeurs = {ligne[1].replace(" ", " ") for ligne in _tableau(socle)}
+    assert valeurs == {"120 000 €", "17,9 €"}
+    # Un bandeau d'ANNEXE, sans numéro (décision D9, 29/09/2026).
+    assert [b["type"] for b in blocs] == ["bandeau_annexe", "paragraphe", "tableau"]
 
 
 def test_un_socle_vide_ne_produit_aucune_annexe() -> None:
     """Une annexe vide serait pire que pas d'annexe : elle promettrait une
     traçabilité qu'elle n'apporte pas."""
-    assert blocs_annexe(_socle(), numero=21) == []
+    assert blocs_annexe(_socle()) == []
 
 
 @pytest.mark.parametrize("fiabilite", list(Fiabilite))

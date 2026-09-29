@@ -282,6 +282,20 @@ def lire_livrable(chemin: Path) -> DocumentLu:
 _BANDEAU_RE = re.compile(r"^\s*CHAPITRE\s+(\d{1,3})\b", re.IGNORECASE)
 
 
+def _est_un_bandeau_d_annexe(table: Any, premiere_cellule: str) -> bool:
+    """Le bandeau d'une annexe : un tableau 1×1 qui s'ouvre sur « ANNEXE ».
+
+    Le marqueur vient de `rendu_word.composants.marqueur_d_annexe` (règle 5).
+    La forme 1×1 compte : un encadré intitulé « Annexe » est un tableau 1×2, et
+    sa première cellule porte aussi le mot en capitales.
+    """
+    from ..rendu_word.composants import marqueur_d_annexe  # noqa: PLC0415
+
+    if len(table.rows) != 1 or len(table.columns) != 1:
+        return False
+    return premiere_cellule.split("\n", 1)[0].strip() == marqueur_d_annexe()
+
+
 def _parcourir_le_corps(document: Any, lu: DocumentLu) -> None:
     """Lit le document DANS SON ORDRE, en retenant le chapitre courant.
 
@@ -329,6 +343,12 @@ def _parcourir_le_corps(document: Any, lu: DocumentLu) -> None:
         bandeau = _BANDEAU_RE.match(contenu_table[0]) if contenu_table else None
         if bandeau is not None:
             courant = int(bandeau.group(1))
+        elif contenu_table and _est_un_bandeau_d_annexe(table, contenu_table[0]):
+            # Une annexe n'est pas un chapitre (décision D9, 29/09/2026) : son
+            # bandeau ne porte plus de numéro. Sans cette lecture, ses tableaux
+            # seraient comptés au DERNIER chapitre, et un défaut trouvé dans
+            # l'annexe enverrait réécrire un chapitre qui n'y est pour rien.
+            courant = None
         lu.cellules.extend(contenu_table)
         lu.chapitre_de_la_cellule.extend([courant] * len(contenu_table))
         lu.contexte_de_la_cellule.extend(contextes_table)

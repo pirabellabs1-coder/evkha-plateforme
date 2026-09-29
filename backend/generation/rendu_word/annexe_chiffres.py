@@ -24,12 +24,22 @@ puisqu'il en cite les mêmes valeurs.
 Elle ne classe pas les chiffres qu'un chapitre a calculés au fil du texte — ils
 ne sont pas dans le socle. Elle dit ce dont elle répond : les chiffres de
 référence de l'étude, ceux que tous les chapitres reprennent.
+
+## Une annexe, pas un chapitre (décision D9, 29/09/2026)
+
+Elle était numérotée comme un chapitre — « 22 — D'où viennent les chiffres »
+au sommaire du business plan ÉCLORE, qui en annonçait 21. Le même +1 valait
+pour les quatre livrables. Elle est désormais une annexe NON NUMÉROTÉE : un
+bandeau « ANNEXE », une ligne au sommaire sans numéro, et elle ne compte plus
+parmi les chapitres (`assemblage.assembler_etude` la range dans `annexes`).
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
 from ..socle.referentiel import Fiabilite
+from ..socle.schema import montant_lisible
+from .texte import libelle_court
 
 if TYPE_CHECKING:
     from ..socle.schema import Socle
@@ -73,19 +83,52 @@ def _origine(donnee: Any) -> str:
     return " — ".join(m for m in morceaux if m)
 
 
+def a_son_echelle(valeur: float, unite: str) -> tuple[float, str]:
+    """La valeur et l'unité sous lesquelles un montant s'écrit SANS PERTE.
+
+    Un montant stocké à une grande échelle mais petit devant elle s'écrivait
+    ZÉRO : le SOM de démonstration, 0,0003 MdEUR, sortait « 0 Md€ » — le
+    formateur garde trois décimales. Mesuré le 29/09/2026 en corrigeant l'annexe
+    d'ÉCLORE : le contrôle des valeurs nulles l'a vu dès que le code « MdEUR »
+    a cessé de masquer le montant. Un tel montant est alors ramené à l'unité de
+    base de sa devise (300 000 €), et `montant_lisible` choisit l'échelle qui
+    ne perd rien. Une grandeur non monétaire traverse inchangée.
+    """
+    from ..socle.schema import valeur_en_unites_de_base  # noqa: PLC0415
+
+    en_base = valeur_en_unites_de_base(valeur, unite)
+    if en_base is None or valeur == 0:
+        return valeur, unite
+    if abs(valeur) < 1 or round(valeur, 3) != valeur:
+        return en_base
+    return valeur, unite
+
+
 def _valeur(donnee: Any) -> str:
-    valeur = donnee.valeur
-    ecrite = f"{valeur:,.2f}".rstrip("0").rstrip(".").replace(",", " ").replace(".", ",")
-    return f"{ecrite} {donnee.unite}".strip()
+    """La valeur ET son unité, écrites pour le lecteur.
+
+    29/09/2026, business plan ÉCLORE (pages 103 et 106) : « 2 000 000 unite »,
+    « 30 000 MEUR », « 23 223,86 EUR ». Cette fonction recopiait le CODE de
+    stockage de l'unité, alors que `montant_lisible` existait et avait été
+    appliqué au tableau de repli le 26/09 — l'exemple corrigé, pas la classe
+    (règle 4). Le formateur du socle est la seule source (règle 5).
+    """
+    return montant_lisible(*a_son_echelle(float(donnee.valeur), str(donnee.unite)))
 
 
-def blocs_annexe(socle: Socle, *, numero: int) -> list[dict[str, Any]]:
-    """L'annexe complète, prête à rendre. Vide si le socle ne porte rien."""
+def blocs_annexe(socle: Socle) -> list[dict[str, Any]]:
+    """L'annexe complète, prête à rendre. Vide si le socle ne porte rien.
+
+    Son bandeau est `bandeau_annexe` : il ne porte AUCUN numéro de chapitre
+    (décision D9).
+    """
     if not socle.donnees:
         return []
     lignes = [
         [
-            donnee.libelle.split(".")[0] if donnee.libelle else donnee.id,
+            # Coupé au mot, avec « … » s'il le faut : jamais au milieu d'un mot
+            # (29/09/2026, tableaux tronqués du business plan ÉCLORE).
+            libelle_court(donnee.libelle) if donnee.libelle else donnee.id,
             _valeur(donnee),
             str(donnee.annee or "—"),
             _origine(donnee),
@@ -93,7 +136,7 @@ def blocs_annexe(socle: Socle, *, numero: int) -> list[dict[str, Any]]:
         for donnee in socle.donnees
     ]
     return [
-        {"type": "bandeau", "numero": numero, "titre": TITRE, "accroche": ""},
+        {"type": "bandeau_annexe", "titre": TITRE, "accroche": ""},
         {
             "type": "paragraphe",
             "texte": (

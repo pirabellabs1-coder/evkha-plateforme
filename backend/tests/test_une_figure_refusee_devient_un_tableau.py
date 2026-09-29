@@ -72,13 +72,19 @@ def test_des_unites_heterogenes_donnent_un_tableau() -> None:
 
 
 def test_le_tableau_de_repli_porte_le_titre_de_la_figure() -> None:
-    """Le lecteur doit savoir ce qu'il regarde : le titre demandé reste."""
+    """Le lecteur doit savoir ce qu'il regarde : le titre demandé reste.
+
+    En LÉGENDE, au-dessus du tableau, depuis le 29/09/2026 : passé comme source,
+    il se serait lu « Source : Diagnostic de maturité » une fois les sources
+    annoncées comme telles.
+    """
     blocs, _ = _rendre(Graphique(
         type_graphique=TypeGraphique.RADAR,
         titre="Diagnostic de maturité",
         donnees_ids=["ca_actuel", "abonnes"],
     ))
-    assert blocs[0]["source"] == "Diagnostic de maturité"
+    assert blocs[0]["titre"] == "Diagnostic de maturité"
+    assert blocs[0]["source"] != "Diagnostic de maturité"
 
 
 def test_une_figure_dont_le_socle_ignore_tout_ne_laisse_rien() -> None:

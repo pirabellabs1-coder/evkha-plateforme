@@ -3,8 +3,13 @@
 Le générateur ne fait qu'appeler les composants dans l'ordre décrit par le
 JSON. Aucune logique éditoriale ici : un bloc porte son type et ses données.
 
-Types de blocs : `bandeau`, `sous_titre`, `paragraphe`, `encadre`, `tableau`,
-`graphique`, `kpi`, `liste`, `quadrants`, `repartition`, `saut`.
+Types de blocs : `bandeau`, `bandeau_annexe`, `sous_titre`, `paragraphe`,
+`encadre`, `tableau`, `graphique`, `kpi`, `liste`, `quadrants`, `repartition`,
+`saut`.
+
+Une étude porte ses `chapitres` NUMÉROTÉS et, à part, ses `annexes` : une
+annexe n'a pas de numéro et ne compte pas parmi les chapitres (décision D9 du
+29/09/2026).
 """
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ from .assemblage import MENTION_PAR_DEFAUT
 from .gabarit import charger_gabarit
 from .logo import charger_logo
 from .palette import Palette, construire_palette
+from .texte import est_coupe, nom_court
 
 
 class BlocInconnuError(ValueError):
@@ -58,8 +64,14 @@ def pour_le_client(chapitre: dict[str, Any]) -> bool:
 MENTION_CHAPITRE_ABSENT = "Chapitre non produit dans cette version"
 
 
+#: Ce que le sommaire écrit devant le titre d'une annexe, à la place d'un
+#: numéro de chapitre.
+PREFIXE_ANNEXE = "Annexe — "
+
+
 def entrees_du_sommaire(
-    chapitres: Sequence[dict[str, Any]]
+    chapitres: Sequence[dict[str, Any]],
+    annexes: Sequence[dict[str, Any]] = (),
 ) -> list[tuple[str, str, str]]:
     """Les entrées du sommaire — Y COMPRIS les chapitres qui manquent.
 
@@ -98,15 +110,22 @@ def entrees_du_sommaire(
     est déjà écarté en amont par `pour_le_client`, et l'intervalle commence au
     premier numéro réellement présent : un document qui démarre au chapitre 1
     ne se voit pas reprocher un chapitre 0.
+
+    ## Les annexes : au sommaire, sans numéro
+
+    Décision D9 du 29/09/2026. L'annexe des chiffres fermait la liste sous le
+    numéro 22 d'un business plan qui annonce 21 chapitres. Elle reste au
+    sommaire — le lecteur doit la trouver —, mais sans numéro, après les
+    chapitres, et elle n'entre pas dans l'intervalle qui repère les trous.
     """
     numeros = sorted(int(c["numero"]) for c in chapitres)
-    if not numeros:
-        return []
     titres = {int(c["numero"]): c["titre"] for c in chapitres}
-    return [
+    entrees = [
         (f"{numero:02d}", titres.get(numero, MENTION_CHAPITRE_ABSENT), "")
-        for numero in range(numeros[0], numeros[-1] + 1)
+        for numero in (range(numeros[0], numeros[-1] + 1) if numeros else ())
     ]
+    entrees.extend(("", f"{PREFIXE_ANNEXE}{annexe['titre']}", "") for annexe in annexes)
+    return entrees
 
 
 def substituer_reperes(gabarit: str, valeurs: dict[str, str]) -> str:
@@ -141,6 +160,48 @@ def substituer_reperes(gabarit: str, valeurs: dict[str, str]) -> str:
     return texte.strip()
 
 
+def nom_d_entete(etude: dict[str, Any], marque: dict[str, Any]) -> str:
+    """Le nom imprimé dans l'en-tête courant — sur UNE ligne, à chaque page.
+
+    ## Le défaut, mesuré
+
+    29/09/2026, business plan ÉCLORE : l'en-tête recopiait toute la raison
+    sociale saisie dans « Ma marque », « ÉCLORE (nom de projet provisoire),
+    avec pour signature « Expériences bien-être… » », sur 105 pages. L'en-tête
+    passait sur deux lignes et mangeait le haut de chaque page.
+
+    ## La règle
+
+    Le nom du PROJET d'abord (`PROJET`, « Nom du projet ou de l'entreprise »,
+    posé par `services.produire_docx`) : c'est le client final, celui que
+    l'en-tête nomme. Mais seulement s'il est un NOM — un texte qu'il faudrait
+    couper est une description (« Atelier de torréfaction avec vente directe et
+    abonnements »), pas un nom. À défaut, la raison sociale de la marque, par
+    sa tête (`nom_court`), coupée au mot s'il le faut.
+    """
+    projet = str(etude.get("projet", "") or "")
+    raison_sociale = str(marque.get("nom", "") or "")
+    for candidat in (projet, raison_sociale):
+        court = nom_court(candidat)
+        if court and not est_coupe(court):
+            return court
+    return nom_court(raison_sociale)
+
+
+def auteur_du_document(etude: dict[str, Any], marque: dict[str, Any]) -> str:
+    """L'auteur que Word et le PDF affichent dans leurs propriétés.
+
+    Il valait la raison sociale entière (29/09/2026, business plan ÉCLORE :
+    la phrase « ÉCLORE (nom de projet provisoire), avec pour signature… » en
+    auteur du PDF). Un business plan est présenté par son PORTEUR : son nom
+    (`PORTEUR_PROJET`, ou `NOM_PORTEUR` pour l'ancien formulaire) l'emporte ; à
+    défaut, le nom court de la marque. Rien n'est inventé : sans l'un ni
+    l'autre, l'auteur reste vide.
+    """
+    porteur = nom_court(str(etude.get("porteur", "") or ""))
+    return porteur or nom_court(str(marque.get("nom", "") or ""))
+
+
 def _remplacer_reperes(document: DocumentWord, valeurs: dict[str, str]) -> None:
     for section in document.sections:
         for zone in (section.header, section.footer):
@@ -160,6 +221,10 @@ def _rendre_bloc(
             document, palette, int(bloc["numero"]), bloc["titre"],
             bloc.get("accroche", ""),
         )
+    elif type_bloc == "bandeau_annexe":
+        composants.bandeau_annexe(
+            document, palette, bloc["titre"], bloc.get("accroche", ""),
+        )
     elif type_bloc == "sous_titre":
         composants.sous_titre(document, palette, bloc["texte"])
     elif type_bloc == "paragraphe":
@@ -172,7 +237,7 @@ def _rendre_bloc(
     elif type_bloc == "tableau":
         composants.tableau(
             document, palette, bloc["entetes"], bloc["lignes"],
-            bloc.get("source", ""),
+            bloc.get("source", ""), titre=bloc.get("titre", ""),
         )
     elif type_bloc == "kpi":
         composants.grille_chiffres(
@@ -329,7 +394,8 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
             # Pas de repli « — » : il n'a jamais pu se declencher, la cle etant
             # toujours posee par `marque_du_job`, et il aurait imprime un tiret
             # a la place du nom. Un nom vide efface desormais son separateur.
-            "{{ client }}": marque.get("nom", ""),
+            # Un nom COURT, sur une ligne : voir `nom_d_entete` (29/09/2026).
+            "{{ client }}": nom_d_entete(etude, marque),
             "{{ titre_document }}": etude.get("titre", ""),
             # Repli NEUTRE : « EVKHA · Document confidentiel » y figurait, et
             # un document en marque blanche ne doit nommer que son abonné.
@@ -356,32 +422,58 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
     )
 
     chapitres = [c for c in etude.get("chapitres", []) if pour_le_client(c)]
+    annexes = list(etude.get("annexes", []))
 
-    entrees = entrees_du_sommaire(chapitres)
+    entrees = entrees_du_sommaire(chapitres, annexes)
     if entrees:
         composants.sommaire(document, palette, entrees)
         composants.saut_de_page(document)
 
-    for index, chapitre in enumerate(chapitres):
-        for bloc in chapitre.get("blocs", []):
+    # Les annexes suivent les chapitres, chacune sur sa page, sans numéro.
+    sections = [*chapitres, *annexes]
+    for index, section in enumerate(sections):
+        for bloc in section.get("blocs", []):
             _rendre_bloc(document, palette, bloc)
-        if index < len(chapitres) - 1:
+        if index < len(sections) - 1:
             composants.saut_de_page(document)
 
     _recommandation_finale(
         document, palette, marque, str(etude.get("type_livrable", "market_study"))
     )
 
-    composants.quatrieme_couverture(
-        document, palette,
-        # Idem : aucune mention de la plateforme en repli.
-        mentions=etude.get("mentions_finales", [MENTION_PAR_DEFAUT]),
-        logo=octets_logo,
-    )
+    # Plus aucune ligne blanche après le dernier tableau : elle pouvait ouvrir à
+    # elle seule une page vide avant la quatrième de couverture (29/09/2026).
+    composants.retirer_les_lignes_blanches_finales(document)
+    nom = nom_court(str(marque.get("nom", "") or ""))
+    produite = False
+    # Sans nom ni logo, la dernière page ne porterait que la confidentialité,
+    # déjà au pied de chaque page : elle se lirait vide, comme la page 107
+    # d'ÉCLORE. Elle n'est alors pas produite.
+    if nom or octets_logo:
+        produite = composants.quatrieme_couverture(
+            document, palette,
+            nom=nom,
+            ligne_document=" · ".join(
+                partie for partie in (
+                    str(etude.get("titre", "")).strip(),
+                    str(etude.get("date", "")).strip(),
+                ) if partie
+            ),
+            # Idem : aucune mention de la plateforme en repli. Le nom, déjà en
+            # titre de la page, n'est pas répété en petit dessous.
+            mentions=[
+                mention
+                for mention in etude.get("mentions_finales", [MENTION_PAR_DEFAUT])
+                if mention and mention not in (nom, str(marque.get("nom", "")).strip())
+            ],
+            logo=octets_logo,
+        )
+    if not produite:
+        composants.clore_le_corps(document)
 
     _signer_le_document(
         document,
-        auteur=str(marque.get("nom", "")).strip(),
+        auteur=auteur_du_document(etude, marque),
         titre=str(etude.get("titre", "")).strip(),
     )
 

@@ -30,6 +30,7 @@ matplotlib.use("Agg")  # aucun serveur graphique sur le VPS
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.axes import Axes  # noqa: E402
+from matplotlib.axis import Axis  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
@@ -114,13 +115,34 @@ def _figure(palette: Palette, hauteur_ratio: float = 0.42) -> tuple[Figure, Axes
     # Graduations à la française sur les axes NUMÉRIQUES : virgule décimale,
     # espace insécable, jamais le décalage « 1e6 » ni les « 0.5 » du formateur
     # par défaut de matplotlib — les seuls endroits du document où un nombre
-    # pouvait encore s'écrire à l'anglaise (26/09/2026). Un axe catégoriel
-    # (`set_xticklabels`) remplace ce formateur par le sien.
-    formateur = FuncFormatter(lambda valeur, _position: _fmt(valeur))
-    axes.xaxis.set_major_formatter(formateur)
-    axes.yaxis.set_major_formatter(formateur)
+    # pouvait encore s'écrire à l'anglaise (26/09/2026).
+    for axe in (axes.xaxis, axes.yaxis):
+        _formateur_francais_par_defaut(axe)
     plt.rcParams["font.family"] = POLICE
     return figure, axes
+
+
+def _formateur_francais_par_defaut(axe: Axis) -> None:
+    """Pose le formateur français comme DÉFAUT de l'axe, pas comme imposition.
+
+    ## Le défaut, mesuré
+
+    29/09/2026, business plan ÉCLORE : les courbes, les aires et les barres
+    empilées graduaient leur axe des abscisses « 0, 1, 2 » au lieu de « 2027,
+    2028, 2029 ». Le formateur de nombres était posé sur les deux axes ; or
+    matplotlib n'installe son formateur de CATÉGORIES (les années, écrites en
+    texte) que si celui de l'axe est encore le défaut. Le nôtre ne l'était
+    plus : les années s'affichaient par leur rang. Seules les barres simples y
+    échappaient, grâce à `set_xticklabels`.
+
+    ## La correction vise la classe
+
+    Marquer notre formateur comme défaut laisse matplotlib le remplacer dès
+    qu'un axe reçoit des catégories — sur l'axe des x comme sur celui des y, et
+    pour toute forme future — sans qu'aucune forme n'ait à y penser.
+    """
+    axe.set_major_formatter(FuncFormatter(lambda valeur, _position: _fmt(valeur)))
+    axe.isDefault_majfmt = True
 
 
 def _exporter(figure: Figure, palette: Palette) -> bytes:

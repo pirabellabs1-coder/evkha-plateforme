@@ -21,7 +21,9 @@ Deux points structurent tout le module.
 """
 from __future__ import annotations
 
+import json
 import logging
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -32,7 +34,9 @@ from ..chapitres.schema import ChapitrePayload, Graphique
 from ..prompts import PLANCHER_FIGURES
 from ..socle.schema import Socle, nombre_francais, unite_lisible
 from . import secteurs
-from .donnees_graphiques import resoudre
+from .annexe_chiffres import a_son_echelle, blocs_annexe
+from .donnees_graphiques import Resolution, resoudre
+from .texte import libelle_court
 
 _log = logging.getLogger(__name__)
 
@@ -177,6 +181,18 @@ class RapportAssemblage:
     #: plutôt que perdus : c'est aussi le signal que le modèle confond encore
     #: le champ, et qu'il faut regarder sa consigne.
     consignes_de_dessin_retirees: list[str] = field(default_factory=list)
+    #: Figures ÉCARTÉES parce que le document portait déjà la même — même forme,
+    #: mêmes données résolues. Elles ne font rien perdre au lecteur : l'image est
+    #: plus haut. Elles ne rendent donc pas le livrable incomplet, mais elles se
+    #: disent (règle 1).
+    graphiques_en_double: list[str] = field(default_factory=list)
+    #: La MÉMOIRE du document : chaque figure dessinée, par sa forme et ses
+    #: données résolues (`_signature`). Rien ne s'en souvenait — business plan
+    #: ÉCLORE, 29/09/2026 : la même image deux fois (§ 3.11 du diagnostic).
+    signatures_dessinees: set[str] = field(default_factory=set, repr=False)
+    #: Idem pour les tableaux de repli : un repli ne remplace une figure en
+    #: double que s'il n'est pas lui-même déjà imprimé.
+    signatures_des_tableaux: set[str] = field(default_factory=set, repr=False)
 
     @property
     def complet(self) -> bool:
@@ -196,6 +212,8 @@ class RapportAssemblage:
             parties.append(f"{len(self.graphiques_repares)} réparés")
         if self.graphiques_abandonnes:
             parties.append(f"{len(self.graphiques_abandonnes)} abandonnés")
+        if self.graphiques_en_double:
+            parties.append(f"{len(self.graphiques_en_double)} en double écartés")
         if self.consignes_de_dessin_retirees:
             parties.append(
                 f"{len(self.consignes_de_dessin_retirees)} consigne(s) de dessin "
@@ -257,29 +275,79 @@ def _tableau_de_repli(socle: Socle, demande: Graphique) -> dict[str, Any] | None
 
     Rend `None` quand le socle ne porte aucun des identifiants demandés : un
     tableau vide serait pire que pas de tableau.
+
+    Le titre de la figure est la LÉGENDE du tableau, et sa source celle des
+    données. Le titre était passé comme source : depuis que les sources
+    s'annoncent (« Source : … », 29/09/2026), il se serait lu « Source :
+    Diagnostic de maturité ».
     """
     par_id = {donnee.id: donnee for donnee in socle.donnees}
-    lignes = [
-        [
-            (par_id[identifiant].libelle or identifiant).split(".")[0][:110],
+    donnees = [par_id[i] for i in dict.fromkeys(demande.donnees_ids) if i in par_id]
+    if not donnees:
+        return None
+    lignes: list[list[str]] = []
+    for donnee in donnees:
+        # À une échelle qui ne perd rien : 0,0003 MdEUR s'écrivait « 0 » (voir
+        # `annexe_chiffres.a_son_echelle`, 29/09/2026).
+        valeur, unite = a_son_echelle(float(donnee.valeur), str(donnee.unite))
+        lignes.append([
+            # Coupé AU MOT, avec « … » : la coupe dure à 110 signes tranchait
+            # un mot en deux, sans le dire (29/09/2026, business plan ÉCLORE).
+            libelle_court(donnee.libelle or donnee.id),
             # Le formateur du document, pas une recopie : le tableau écrivait
             # ses milliers avec une espace sécable et son unité en code de
             # stockage — « MEUR » sous les yeux du lecteur (26/09/2026).
-            nombre_francais(par_id[identifiant].valeur),
-            unite_lisible(par_id[identifiant].unite),
-            str(par_id[identifiant].annee or "—"),
-        ]
-        for identifiant in demande.donnees_ids
-        if identifiant in par_id
-    ]
-    if not lignes:
-        return None
+            nombre_francais(valeur),
+            unite_lisible(unite),
+            str(donnee.annee or "—"),
+        ])
+    sources = dict.fromkeys(donnee.source.strip() for donnee in donnees if donnee.source.strip())
     return {
         "type": "tableau",
         "entetes": ["Donnée", "Valeur", "Unité", "Année"],
         "lignes": lignes,
-        "source": demande.titre,
+        "titre": demande.titre,
+        "source": " ; ".join(sources),
     }
+
+
+#: Un titre qui annonce le CALENDRIER DU PROJET. La frise ne sait dessiner que
+#: les tendances de marché du socle (`donnees_graphiques._frise`), quels que
+#: soient les identifiants demandés : il n'existe aucune donnée « calendrier ».
+#: Business plan ÉCLORE, 29/09/2026 : un « rétroplanning » affichait des
+#: tendances de marché (§ 3.12 du diagnostic). Classe des mots du calendrier,
+#: pas le seul mot vu (règle 4).
+_ANNONCE_UN_CALENDRIER = re.compile(
+    r"planning|calendrier|\bjalons?\b|[ée]ch[ée]ancier|chronogramme|\bgantt\b|"
+    r"feuille\s+de\s+route|\broadmap\b|phasage|plan\s+d['’]actions?|"
+    r"[ée]tapes?\s+(?:du\s+projet|de\s+lancement|de\s+mise\s+en\s+(?:œuvre|oeuvre))",
+    re.IGNORECASE,
+)
+
+
+def _signature(resolution: Resolution) -> str:
+    """Ce qui fait qu'une figure est LA MÊME : sa forme et ses données résolues.
+
+    Le titre n'en fait pas partie : deux titres sur une même image restent une
+    image dessinée deux fois.
+    """
+    return json.dumps(
+        [resolution.type_graphique, resolution.donnees],
+        sort_keys=True, ensure_ascii=False, default=str,
+    )
+
+
+def _poser_le_repli(
+    repli: dict[str, Any], rapport: RapportAssemblage, blocs: list[dict[str, Any]],
+) -> bool:
+    """Pose un tableau de repli, sauf s'il est déjà imprimé. Rend vrai s'il l'est."""
+    signature = json.dumps([repli["entetes"], repli["lignes"]], ensure_ascii=False)
+    if signature in rapport.signatures_des_tableaux:
+        return False
+    rapport.signatures_des_tableaux.add(signature)
+    rapport.tableaux += 1
+    blocs.append(repli)
+    return True
 
 
 def _blocs_graphique(
@@ -304,7 +372,9 @@ def _blocs_graphique(
         resolution = resoudre(socle, type_demande, demande.donnees_ids)
         identifiants_traces: list[str] = list(demande.donnees_ids)
         ecartes: tuple[str, ...] = ()
-        repare = False
+        # La réparation n'est DÉCLARÉE qu'une fois la figure posée : une figure
+        # réparée puis écartée comme doublon n'est pas dans le document.
+        reparation = ""
         if not resolution.retenu:
             # Avant le tableau : la figure valide la plus proche, avec les
             # données de la demande. Voir `reparation_figures` — 23 figures sur
@@ -313,7 +383,7 @@ def _blocs_graphique(
 
             reparee = reparer_la_figure(socle, type_demande, demande.donnees_ids)
             if reparee is not None:
-                rapport.graphiques_repares.append(
+                reparation = (
                     f"{reference} · {demande.titre} : {type_demande} → "
                     f"{reparee.resolution.type_graphique} sur "
                     f"{len(reparee.identifiants)} donnée(s) ({resolution.motif})"
@@ -321,7 +391,25 @@ def _blocs_graphique(
                 resolution = reparee.resolution
                 identifiants_traces = list(reparee.identifiants)
                 ecartes = reparee.ecartes
-                repare = True
+        repare = bool(reparation)
+        titre_trahi = (
+            resolution.retenu
+            and resolution.type_graphique == "chronologie"
+            and bool(_ANNONCE_UN_CALENDRIER.search(demande.titre))
+        )
+        if titre_trahi:
+            # La frise dessinerait les TENDANCES DE MARCHÉ sous un titre qui
+            # promet le calendrier du projet : une figure juste qui répond à
+            # une autre question, ce que le lecteur ne peut pas deviner. Pas de
+            # tableau de repli non plus : sous ce titre, des chiffres qui ne
+            # sont pas un calendrier mentiraient de la même façon.
+            resolution = Resolution(
+                motif=(
+                    f"le titre annonce un calendrier du projet (« {demande.titre} ») "
+                    "et la frise ne sait dessiner que les tendances de marché du "
+                    "socle : rien n'est dessiné sous ce titre"
+                )
+            )
         if not resolution.retenu:
             rapport.graphiques_abandonnes.append(
                 f"{reference} · {demande.titre} : {resolution.motif}"
@@ -348,15 +436,43 @@ def _blocs_graphique(
             # (stratégie Zenitek, 12/09/2026 : 31 demandées, 31 abandonnées,
             # zéro rendue). On les imprime donc en tableau : le lecteur garde
             # l'information, et c'est tout ce qu'un graphique lui apportait.
-            repli = _tableau_de_repli(socle, demande)
+            repli = None if titre_trahi else _tableau_de_repli(socle, demande)
             if repli is not None:
-                rapport.graphiques_en_tableau.append(
-                    f"{reference} · {demande.titre} : {resolution.motif}"
-                )
-                rapport.tableaux += 1
-                blocs.append(repli)
+                if _poser_le_repli(repli, rapport, blocs):
+                    rapport.graphiques_en_tableau.append(
+                        f"{reference} · {demande.titre} : {resolution.motif}"
+                    )
+                else:
+                    rapport.graphiques_en_double.append(
+                        f"{reference} · {demande.titre} : ses données sont déjà "
+                        "imprimées en tableau plus haut"
+                    )
             continue
 
+        if _signature(resolution) in rapport.signatures_dessinees:
+            # La MÊME figure — même forme, mêmes données — est déjà dans le
+            # document. Business plan ÉCLORE, 29/09/2026 : une image dessinée
+            # deux fois (§ 3.11 du diagnostic). Les résolveurs qui ignorent
+            # les identifiants (frise, carte des risques, radar sans sélecteur)
+            # rendent la même image à chaque demande. On ne la redessine pas ;
+            # ses données passent en tableau seulement si le lecteur ne les a
+            # pas déjà sous les yeux.
+            repli = _tableau_de_repli(socle, demande)
+            deja_vues = set(demande.donnees_ids) <= rapport.identifiants_rendus
+            if repli is not None and not deja_vues and _poser_le_repli(repli, rapport, blocs):
+                devenir = "remplacée par le tableau de ses données"
+            else:
+                devenir = "écartée"
+            rapport.graphiques_en_double.append(
+                f"{reference} · {demande.titre} : même figure "
+                f"({resolution.type_graphique}, mêmes données) que plus haut "
+                f"dans le document — {devenir}"
+            )
+            continue
+        rapport.signatures_dessinees.add(_signature(resolution))
+
+        if repare:
+            rapport.graphiques_repares.append(reparation)
         if resolution.converti and not repare:
             rapport.graphiques_convertis.append(
                 f"{reference} · {demande.titre} : {type_demande} → "
@@ -395,8 +511,9 @@ def _blocs_graphique(
                 socle, demande.model_copy(update={"donnees_ids": list(ecartes)}),
             )
             if reste is not None:
-                rapport.tableaux += 1
-                blocs.append(reste)
+                # Il suit la figure, dont l'image porte déjà le titre.
+                reste["titre"] = ""
+                _poser_le_repli(reste, rapport, blocs)
     return blocs
 
 
@@ -604,7 +721,10 @@ def _completer_les_figures(
                     if type_graphique in profil.graphiques_a_eviter:
                         continue
                     essai = resoudre(socle, type_graphique, candidats)
-                    if essai.retenu:
+                    # Une figure déjà dans le document ne compte pas : elle
+                    # tiendrait le plancher en redessinant la même image
+                    # (29/09/2026, business plan ÉCLORE, § 3.11 du diagnostic).
+                    if essai.retenu and _signature(essai) not in rapport.signatures_dessinees:
                         resolution = essai
                         forme += decalage + 1
                         break
@@ -636,6 +756,7 @@ def _completer_les_figures(
             })
             deja_vus.update(candidats)
             progres = True
+            rapport.signatures_dessinees.add(_signature(resolution))
             rapport.graphiques_rendus += 1
             rapport.identifiants_rendus.update(candidats)
             rapport.graphiques_completes.append(
@@ -686,16 +807,15 @@ def assembler_etude(
     # hypothèse — et qui montre les calculs. Demande de la cliente du
     # 08/09/2026. Construite depuis le socle verrouillé, sans aucun appel au
     # modèle : elle ne peut donc ni inventer, ni diverger du document.
-    from .annexe_chiffres import blocs_annexe  # noqa: PLC0415
-
-    numero_annexe = (ordonnes[-1].chapitre + 1) if ordonnes else 1
-    annexe = blocs_annexe(socle, numero=numero_annexe)
+    #
+    # Rangée À PART des chapitres, sans numéro (décision D9, 29/09/2026). Elle
+    # prenait le numéro suivant le dernier chapitre : le business plan ÉCLORE
+    # affichait 22 chapitres numérotés pour 21 annoncés, et le même +1 valait
+    # sur les quatre livrables.
+    annexes: list[dict[str, Any]] = []
+    annexe = blocs_annexe(socle)
     if annexe:
-        blocs_par_chapitre.append({
-            "numero": numero_annexe,
-            "titre": annexe[0]["titre"],
-            "blocs": annexe,
-        })
+        annexes.append({"titre": annexe[0]["titre"], "blocs": annexe})
         rapport.tableaux += 1
 
     from datetime import date as _date  # noqa: PLC0415
@@ -720,5 +840,6 @@ def assembler_etude(
         # document réel, signant le travail d'un tiers au nom d'un autre.
         "mentions_finales": mentions_finales(marque),
         "chapitres": blocs_par_chapitre,
+        "annexes": annexes,
     }
     return etude, rapport

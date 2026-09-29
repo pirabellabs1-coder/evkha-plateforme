@@ -100,6 +100,33 @@ def marque_du_job(job: GenerationJob) -> dict[str, str]:
     }
 
 
+def identite_du_projet(job: GenerationJob) -> dict[str, str]:
+    """Le nom du projet et celui de son porteur, tels que le client les a saisis.
+
+    Ils étaient collectés et jamais lus par le rendu (29/09/2026, business plan
+    ÉCLORE) : l'en-tête courant et l'auteur du PDF prenaient à leur place la
+    raison sociale de « Ma marque », une phrase entière. `PORTEUR_PROJET` est le
+    champ du questionnaire du business plan ; `NOM_PORTEUR` celui de l'ancien
+    formulaire (`intake/services.py`). La lecture des variables du dossier
+    existe déjà — `variables_du_job` — et n'est pas refaite ici (règle 5).
+    """
+    from ..chapitres.services import variables_du_job  # noqa: PLC0415
+
+    variables = variables_du_job(job)
+
+    def _lire(*cles: str) -> str:
+        for cle in cles:
+            valeur = str(variables.get(cle) or "").strip()
+            if valeur:
+                return valeur
+        return ""
+
+    return {
+        "projet": _lire("PROJET"),
+        "porteur": _lire("PORTEUR_PROJET", "NOM_PORTEUR"),
+    }
+
+
 def produire_docx(
     job: GenerationJob, destination: Path | None = None
 ) -> LivrableWord:
@@ -132,6 +159,7 @@ def produire_docx(
     # étude de la concurrence à la fin d'une étude de la concurrence perdrait en
     # une phrase la crédibilité que trente pages ont construite.
     etude["type_livrable"] = str(job.deliverable_type)
+    etude.update(identite_du_projet(job))
 
     cible = destination or _repertoire_de_sortie() / f"{job.id}.docx"
     rendre_etude(etude, cible)

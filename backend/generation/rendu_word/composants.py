@@ -218,9 +218,14 @@ def saut_de_page(document: DocumentWord) -> None:
 # ── 1 et 7. Couverture et quatrième de couverture ────────────────────────────
 
 
-def _fond_pleine_page(document: DocumentWord, couleur: str) -> None:
-    """Rectangle pleine page ancré DERRIÈRE le texte, comme dans la référence."""
-    run = document.add_paragraph().add_run()
+def _fond_pleine_page(document: DocumentWord, couleur: str) -> Any:
+    """Rectangle pleine page ancré DERRIÈRE le texte, comme dans la référence.
+
+    Rend le paragraphe qui porte la forme : la quatrième de couverture y pose
+    son saut de page.
+    """
+    paragraphe = document.add_paragraph()
+    run = paragraphe.add_run()
     xml = (
         '<w:pict xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
         'xmlns:v="urn:schemas-microsoft-com:vml">'
@@ -231,6 +236,7 @@ def _fond_pleine_page(document: DocumentWord, couleur: str) -> None:
         f'fillcolor="{couleur}" stroked="f"/></w:pict>'
     )
     run._r.append(parse_xml(xml))
+    return paragraphe
 
 
 def _filet_horizontal(document: DocumentWord, couleur: str, largeur_emu: int = 3_000_000) -> None:
@@ -334,15 +340,90 @@ def couverture(
     saut_de_page(document)
 
 
+def _est_vide(element: Any) -> bool:
+    """Un paragraphe sans texte, sans image, sans saut : une ligne blanche."""
+    if element.tag != qn("w:p"):
+        return False
+    if "".join(element.itertext()).strip():
+        return False
+    return not any(
+        enfant.tag in (qn("w:drawing"), qn("w:pict"), qn("w:br"))
+        for enfant in element.iter()
+    )
+
+
+def retirer_les_lignes_blanches_finales(document: DocumentWord) -> int:
+    """Retire les paragraphes vides qui terminent le corps ; rend leur nombre.
+
+    Chaque tableau est suivi d'un paragraphe vide d'espacement. Après le
+    DERNIER tableau du document — celui de l'annexe des chiffres —, ce
+    paragraphe tombait en haut d'une nouvelle page dès que le tableau
+    remplissait la sienne, et le saut de la quatrième de couverture venait
+    après lui : une page blanche (29/09/2026, business plan ÉCLORE, § 3.15 du
+    diagnostic).
+    """
+    retires = 0
+    while (dernier := _dernier_element(document)) is not None and _est_vide(dernier):
+        dernier.getparent().remove(dernier)
+        retires += 1
+    return retires
+
+
+def clore_le_corps(document: DocumentWord) -> None:
+    """Termine un document qui s'arrête sur un tableau, sans risquer une page.
+
+    Word exige un paragraphe après un tableau final ; il l'ajoute lui-même,
+    en taille normale, et ce paragraphe peut à lui seul ouvrir une page. On en
+    pose un d'un point, sans espacement : il tient sous n'importe quel tableau.
+    """
+    dernier = _dernier_element(document)
+    if dernier is None or dernier.tag != qn("w:tbl"):
+        return
+    p = document.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(0)
+    p.paragraph_format.line_spacing = 1.0
+    p.add_run().font.size = Pt(1)
+
+
 def quatrieme_couverture(
     document: DocumentWord,
     palette: Palette,
     *,
     mentions: Sequence[str],
+    nom: str = "",
+    ligne_document: str = "",
     logo: bytes | None = None,
-) -> None:
-    saut_de_page(document)
-    _fond_pleine_page(document, palette.primaire)
+) -> bool:
+    """La dernière page, ou rien. Rend vrai si elle a été produite.
+
+    ## Le défaut, mesuré
+
+    29/09/2026, business plan ÉCLORE, page 107 : un aplat de couleur, douze
+    lignes vides, puis deux mentions en corps 8 — la page se lisait VIDE. Pour
+    un business plan, `mention_legale` n'est jamais fournie : il ne restait que
+    le nom et la confidentialité, en petit, au bas d'une page pleine.
+
+    ## Ce qu'elle porte désormais
+
+    Le nom EN TITRE, le document et sa date, puis les mentions. Sans rien de
+    tout cela, la page n'est pas produite. Décider qu'une page qui ne porterait
+    que la confidentialité — déjà au pied de chaque page — ne vaut pas d'être
+    imprimée revient à l'appelant, qui sait ce que ses mentions veulent dire
+    (`depuis_json.rendre_etude`).
+
+    ## Pas de paragraphe de saut
+
+    Le saut de page vit sur le premier paragraphe de la page
+    (`page_break_before`), plus dans un paragraphe à lui : un paragraphe de saut
+    qui tombe en haut d'une page en ouvre une seconde.
+    """
+    if not nom.strip() and not logo and not any(m.strip() for m in mentions):
+        return False
+
+    retirer_les_lignes_blanches_finales(document)
+    fond = _fond_pleine_page(document, palette.primaire)
+    fond.paragraph_format.page_break_before = True
 
     # Douze, comme relevé sur la référence. J'ai un temps ramené ce nombre à
     # huit en croyant que la quatrième de couverture débordait sur une page
@@ -358,12 +439,30 @@ def quatrieme_couverture(
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.add_run().add_picture(io.BytesIO(logo), width=Emu(1_200_000))
 
+    if nom.strip():
+        p = document.add_paragraph(style=STYLE_TITRE_DOCUMENT)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(nom.strip())
+        _poser_police(run, STYLE_TITRE_DOCUMENT)
+        run.font.color.rgb = _rgb(palette.texte_sur_primaire)
+        run.font.size = Pt(22)
+        _filet_horizontal(document, palette.rose_grise)
+
+    if ligne_document.strip():
+        p = document.add_paragraph(style=STYLE_SOUS_TITRE)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(ligne_document.strip())
+        run.font.name = POLICE_CORPS
+        run.font.color.rgb = _rgb(palette.rose_grise)
+        run.font.size = Pt(12)
+
     for mention in mentions:
         p = document.add_paragraph(style=STYLE_LEGENDE)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run(mention)
         run.font.name = POLICE_CORPS
         run.font.color.rgb = _rgb(palette.rose_grise)
+    return True
 
 
 # ── 2. Bandeau de chapitre ───────────────────────────────────────────────────
@@ -390,19 +489,45 @@ def marqueur_de_chapitre(numero: int) -> str:
     return f"CHAPITRE {numero:02d}"
 
 
+#: Le marqueur du bandeau d'une ANNEXE, à la place de « CHAPITRE 22 ».
+#:
+#: Décision D9 du 29/09/2026 : l'annexe « D'où viennent les chiffres de cette
+#: étude » était numérotée comme un chapitre, et le business plan ÉCLORE
+#: montrait 22 chapitres numérotés quand l'offre en annonce 21 — le même +1 sur
+#: les quatre livrables. Exporté pour la même raison que `marqueur_de_chapitre` :
+#: la lecture du document livré (`verification.lecture`) le reconnaît, et deux
+#: modules qui décrivent le même texte finissent par diverger (règle 5).
+MARQUEUR_ANNEXE = "ANNEXE"
+
+
+def marqueur_d_annexe() -> str:
+    """Texte exact du bandeau qui ouvre une annexe : aucun numéro."""
+    return MARQUEUR_ANNEXE
+
+
 def bandeau_chapitre(
     document: DocumentWord, palette: Palette, numero: int, titre: str, accroche: str = ""
 ) -> None:
     """Tableau 1×1 pleine largeur, fond prune, texte blanc en capitales."""
+    _bandeau(document, palette, marqueur_de_chapitre(numero), titre, accroche)
+
+
+def bandeau_annexe(
+    document: DocumentWord, palette: Palette, titre: str, accroche: str = ""
+) -> None:
+    """Le même bandeau, marqué « ANNEXE » : une annexe n'est pas un chapitre."""
+    _bandeau(document, palette, marqueur_d_annexe(), titre, accroche)
+
+
+def _bandeau(
+    document: DocumentWord, palette: Palette, marqueur: str, titre: str, accroche: str
+) -> None:
     table = _table(document, 1, 1, [LARGEUR_UTILE_DXA])
     marges_cellules(table, haut=280, cote=280)
     cellule = table.rows[0].cells[0]
     fond_cellule(cellule, palette.fond_bandeau)
 
-    _ecrire(
-        cellule, marqueur_de_chapitre(numero), STYLE_ENCADRE_TITRE,
-        couleur=palette.rose_grise,
-    )
+    _ecrire(cellule, marqueur, STYLE_ENCADRE_TITRE, couleur=palette.rose_grise)
     _ecrire(
         cellule, titre.upper(), STYLE_BANDEAU,
         couleur=palette.texte_sur_primaire, premier=False,
@@ -475,8 +600,11 @@ def grille_chiffres(
                 couleur=palette.prune_fonce, premier=False,
             )
             if source:
+                # « Source : données du projet », jamais le libellé seul : sous
+                # un chiffre clé, « données du projet » ne se lisait pas comme
+                # une source (29/09/2026, business plan ÉCLORE).
                 _ecrire(
-                    cellule, source, STYLE_CHIFFRE_LIBELLE,
+                    cellule, libelle_de_source(source), STYLE_CHIFFRE_LIBELLE,
                     couleur=palette.texte_legende, premier=False,
                 )
         document.add_paragraph()
@@ -543,8 +671,26 @@ def tableau(
     entetes: Sequence[str],
     lignes: Sequence[Sequence[str]],
     source: str = "",
+    titre: str = "",
 ) -> None:
-    """En-tête prune sur texte blanc, corps crème, bordures fines."""
+    """En-tête prune sur texte blanc, corps crème, bordures fines.
+
+    `titre` est une LÉGENDE posée au-dessus, attachée au tableau : c'est celui
+    d'une figure imprimée en tableau (`assemblage._tableau_de_repli`). Il était
+    passé comme SOURCE, et se serait lu « Source : Diagnostic de maturité »
+    depuis que les sources s'annoncent (29/09/2026).
+    """
+    if titre:
+        p = document.add_paragraph(style=STYLE_LEGENDE)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(titre)
+        run.font.name = POLICE_CORPS
+        run.font.color.rgb = _rgb(palette.primaire)
+        run.font.size = Pt(11)
+        run.font.bold = True
+        run.font.italic = False
+        garder_avec_la_suite(p)
+
     colonnes = max(len(entetes), 1)
     table = _table(
         document, 1 + len(lignes), colonnes, _largeurs(entetes, lignes, colonnes)
@@ -612,7 +758,11 @@ def graphique(
         garder_avec_la_suite(p)
 
     if source:
-        note_source(document, palette, source)
+        # Sous une figure, ce champ est le COMMENTAIRE du chapitre — ce que la
+        # figure apprend, ou d'où viennent ses chiffres (`Graphique.commentaire`).
+        # Le préfixer « Source : » ferait d'une phrase d'analyse une source : il
+        # est donc écrit tel quel, dans le même style.
+        _ecrire_note(document, palette, source_lisible(source))
 
 
 # ── 8. Sommaire ──────────────────────────────────────────────────────────────
@@ -725,11 +875,82 @@ def source_lisible(texte: str) -> str:
     return _URL.sub(_domaine, texte)
 
 
-def note_source(document: DocumentWord, palette: Palette, texte: str) -> None:
+#: Un texte qui s'annonce DÉJÀ comme une attribution : « Source : Insee »,
+#: « Sources en devises courantes… », « Selon la Fevad », « D'après Xerfi ». Le
+#: préfixer écrirait « Source : Source : Insee ».
+_ATTRIBUTION_ANNONCEE = re.compile(r"^\s*(?:sources?\b|selon\b|d['’]apr[èe]s\b)", re.IGNORECASE)
+
+
+def libelle_de_source(texte: str) -> str:
+    """Le texte d'une source tel que le lecteur doit le lire : « Source : … ».
+
+    29/09/2026, business plan ÉCLORE : « données du projet » imprimé SEUL, en
+    italique de 8 points, sous chaque tableau et chaque chiffre clé — sur 73
+    pages. Un libellé nu ne dit pas qu'il est une source ; le lecteur y voyait
+    une ligne orpheline. Une seule fonction pour les tableaux, les répartitions,
+    le canvas et les chiffres clés (règle 5).
+
+    L'espace avant le deux-points est la fine insécable du dépôt : le signe ne
+    passe jamais seul à la ligne.
+    """
+    from ..chapitres.typographie import FINE_INSECABLE  # noqa: PLC0415
+
+    propre = source_lisible(" ".join(str(texte or "").split()))
+    if not propre or _ATTRIBUTION_ANNONCEE.match(propre):
+        return propre
+    return f"Source{FINE_INSECABLE}: {propre}"
+
+
+def _dernier_element(document: DocumentWord) -> Any:
+    """Le dernier élément du corps, section exclue — ce que le lecteur voit en dernier."""
+    for element in reversed(list(document.element.body)):
+        if element.tag != qn("w:sectPr"):
+            return element
+    return None
+
+
+def _attacher_a_ce_qui_precede(document: DocumentWord) -> None:
+    """Lie l'élément précédent au paragraphe qui va suivre.
+
+    Un tableau se lie par les paragraphes de sa DERNIÈRE ligne : c'est ainsi
+    que Word garde un tableau avec le paragraphe qui le suit. Sans cela, la
+    source d'un tableau qui finit en bas de page partait seule en haut de la
+    suivante (29/09/2026, business plan ÉCLORE).
+    """
+    from docx.table import Table as TableWord  # noqa: PLC0415
+    from docx.text.paragraph import Paragraph  # noqa: PLC0415
+
+    precedent = _dernier_element(document)
+    if precedent is None:
+        return
+    if precedent.tag == qn("w:tbl"):
+        table = TableWord(precedent, document)
+        for cellule in table.rows[-1].cells:
+            for paragraphe in cellule.paragraphs:
+                paragraphe.paragraph_format.keep_with_next = True
+    elif precedent.tag == qn("w:p"):
+        Paragraph(precedent, document).paragraph_format.keep_with_next = True
+
+
+def _ecrire_note(document: DocumentWord, palette: Palette, texte: str) -> None:
     p = document.add_paragraph(style=STYLE_SOURCE)
-    run = p.add_run(source_lisible(texte))
+    run = p.add_run(texte)
     _poser_police(run, STYLE_SOURCE)
     run.font.color.rgb = _rgb(palette.texte_legende)
+
+
+def note_source(document: DocumentWord, palette: Palette, texte: str) -> None:
+    """La source d'un tableau, annoncée comme telle et liée à lui.
+
+    Elle ne peut plus finir seule en haut d'une page : la dernière ligne du
+    tableau la garde avec elle (`_attacher_a_ce_qui_precede`).
+    """
+    libelle = libelle_de_source(texte)
+    if not libelle:
+        document.add_paragraph()
+        return
+    _attacher_a_ce_qui_precede(document)
+    _ecrire_note(document, palette, libelle)
 
 
 def legende(document: DocumentWord, palette: Palette, texte: str) -> None:
