@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     DJANGO_ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1"]),
-    EVKHA_DEFAULT_RETENTION_DAYS=(int, 7),
+    EVKHA_DEFAULT_RETENTION_DAYS=(int, 365),
     EVKHA_PIECES_JOINTES_RETENTION_DAYS=(int, 365),
     EVKHA_USE_STUB_AI=(bool, True),
     EVKHA_USE_STUB_DOCS=(bool, True),
@@ -207,7 +207,7 @@ CELERY_TASK_ROUTES = {
 }
 
 # Tâches périodiques (service beat du compose prod).
-# Purge horaire des artefacts expirés — rétention 7 jours (D5).
+# Purge horaire des artefacts expirés — conservation 12 mois depuis le 29/09/2026.
 CELERY_BEAT_SCHEDULE = {
     "purge-expired-artifacts": {
         "task": "delivery.purge_expired_artifacts",

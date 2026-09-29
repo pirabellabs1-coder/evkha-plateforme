@@ -350,6 +350,15 @@ export interface Livrable {
   cree_le: string;
   termine_le: string | null;
   fichiers: { kind: string; statut: string; url: string }[];
+  /** Où en sont les fichiers, dit par le serveur (jamais déduit ici). */
+  fichiers_etat?: EtatDesFichiers;
+}
+
+/** `organisations.suivi.etat_des_fichiers` : une seule réponse pour trois écrans. */
+export interface EtatDesFichiers {
+  etat: "disponibles" | "en_preparation" | "mise_en_forme" | "supprimes" | "aucun";
+  /** Date de suppression, pour `supprimes` seulement. */
+  supprimes_le: string | null;
 }
 
 export interface FormuleOffre {
@@ -458,6 +467,7 @@ export interface Suivi {
   termine_le: string | null;
   etapes: EtapeSuivi[];
   fichiers: { kind: string; statut: string; url: string }[];
+  fichiers_etat?: EtatDesFichiers;
 }
 
 export interface Membre {
@@ -557,7 +567,8 @@ export const espaceApi = {
   },
   supprimerFichier: (id: string) =>
     appel<void>(`/fichiers/${id}/supprimer/`, { method: "POST" }),
-  livrables: () => appel<{ livrables: Livrable[] }>("/livrables/"),
+  livrables: () =>
+    appel<{ livrables: Livrable[]; conservation_jours?: number }>("/livrables/"),
   formules: () =>
     appel<{ code_actuel: string; formules: FormuleOffre[] }>("/formules/"),
   /** Ouvre le paiement d'une formule et rend l'adresse Stripe où aller payer.

@@ -41,6 +41,13 @@ export const date = (iso: string | null): string =>
     ? new Intl.DateTimeFormat(LOCALE, { dateStyle: "long" }).format(new Date(iso))
     : "—";
 
+/** « un an », « 30 jours »… La durée vient du serveur ; l'écran ne la recopie pas. */
+export const dureeDeConservation = (jours: number): string => {
+  if (jours >= 360 && jours <= 366) return "un an";
+  if (jours % 30 === 0 && jours >= 60) return `${jours / 30} mois`;
+  return `${jours} jours`;
+};
+
 export const dateHeure = (iso: string | null): string =>
   iso
     ? new Intl.DateTimeFormat(LOCALE, {

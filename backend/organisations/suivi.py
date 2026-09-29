@@ -359,18 +359,112 @@ def fichiers_du_client(job: GenerationJob) -> list[dict[str, str]]:
     chacune de leur côté, avec deux filtres différents — d'où ce prédicat
     unique, que les deux appellent.
     """
+    from django.db.models import Q  # noqa: PLC0415
+
     from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
 
     if job.status not in ETATS_LIVRABLES:
         return []
 
+    # Un fichier ÉCHU n'est plus proposé, même si la purge horaire ne l'a pas
+    # encore effacé : son bouton mènerait à une erreur dans l'heure.
     return [
-        {"kind": artefact.kind, "statut": artefact.status, "url": artefact.download_url}
+        {"kind": artefact.kind, "statut": artefact.status, "url": _lien_frais(artefact)}
         for artefact in DocumentArtifact.objects.filter(
-            job=job, kind__in=[ArtifactKind.DOCX, ArtifactKind.PDF]
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()),
+            job=job, kind__in=[ArtifactKind.DOCX, ArtifactKind.PDF],
         )
         if artefact.download_url and artefact.status == ArtifactStatus.READY
     ]
+
+
+#: Durée maximale d'un lien remis par l'espace. Le lien est signé à CHAQUE
+#: lecture : une longue durée ne sert à rien, et exposerait un an un lien copié
+#: ou gardé par un membre retiré de l'organisation. Sept jours : l'exposition
+#: d'avant la conservation de douze mois (revue du 29/09/2026).
+DUREE_LIEN_ESPACE_S = 7 * 24 * 3600
+
+
+def _lien_frais(artefact: Any) -> str:
+    """Un lien signé NEUF, valable jusqu'à l'échéance du fichier.
+
+    Le lien stocké sur l'artefact est celui du courriel de livraison : sa durée
+    est SIGNÉE dedans, calée sur la conservation en vigueur le jour de la
+    production. Le 29/09/2026, la conservation des livrables est passée de
+    sept jours à douze mois (décision de l'utilisateur) : prolonger l'échéance
+    des fichiers ne rallongeait pas ces liens, et l'espace aurait proposé au
+    huitième jour un bouton menant à une erreur, sur un fichier encore présent.
+
+    L'espace signe donc à chaque lecture, pour le temps qu'il reste au
+    fichier — jamais plus (un lien qui survit à son fichier mène à une
+    erreur), et au plus `DUREE_LIEN_ESPACE_S`. Sans clé de stockage, on rend
+    le lien stocké tel quel.
+    """
+    from evkha import signatures  # noqa: PLC0415 — evite un cycle a l'import
+
+    if not artefact.storage_key:
+        return str(artefact.download_url)
+    if artefact.expires_at is None:
+        return signatures.lien_absolu(artefact.storage_key, DUREE_LIEN_ESPACE_S)
+    restant = int((artefact.expires_at - timezone.now()).total_seconds())
+    return signatures.lien_absolu(
+        artefact.storage_key, max(1, min(restant, DUREE_LIEN_ESPACE_S))
+    )
+
+
+#: Ce que la colonne « Fichiers » peut dire d'une étude. UNE réponse, lue par
+#: la bibliothèque, le tableau de bord et la page de suivi (règle 5).
+#:
+#: Avant le 29/09/2026, les trois écrans n'avaient qu'un mot pour « aucun
+#: fichier » : « En préparation » — ou, sur la page de suivi, « les fichiers
+#: apparaîtront d'ici quelques minutes ». Il s'affichait pour une étude
+#: annulée, et pour des documents livrés six semaines plus tôt dont les
+#: fichiers avaient été supprimés au terme de leur conservation (capture de
+#: l'utilisateur, espace d'Evangéline). Un état qui ment envoie chercher une
+#: panne qui n'existe pas (règle 2).
+ETATS_DES_FICHIERS = ("disponibles", "en_preparation", "mise_en_forme", "supprimes", "aucun")
+
+
+def etat_des_fichiers(
+    job: GenerationJob, fichiers: list[dict[str, str]] | None = None
+) -> dict[str, Any]:
+    """Où en sont les fichiers de cette étude : `{"etat": …, "supprimes_le": …}`.
+
+    - `disponibles` : au moins un Word ou PDF téléchargeable ;
+    - `en_preparation` : l'étude est en production ;
+    - `mise_en_forme` : rédigée, fichiers pas encore prêts ;
+    - `supprimes` : les fichiers ont existé et ont été supprimés au terme de
+      leur conservation — `supprimes_le` porte la date ;
+    - `aucun` : étude en échec, annulée, ou retenue — rien à télécharger.
+    """
+    from django.db.models import Q  # noqa: PLC0415
+
+    from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
+
+    if fichiers is None:
+        fichiers = fichiers_du_client(job)
+    if fichiers:
+        return {"etat": "disponibles", "supprimes_le": None}
+    if job.status in EN_PRODUCTION:
+        return {"etat": "en_preparation", "supprimes_le": None}
+    if job.status not in ETATS_LIVRABLES:
+        return {"etat": "aucun", "supprimes_le": None}
+    # Supprimé, ou échu et en attente de la purge horaire : pour le lecteur,
+    # c'est la même chose — le fichier n'est plus là pour lui.
+    echu = (
+        DocumentArtifact.objects.filter(
+            Q(status=ArtifactStatus.EXPIRED)
+            | Q(status=ArtifactStatus.READY, expires_at__lte=timezone.now()),
+            job=job,
+            kind__in=[ArtifactKind.DOCX, ArtifactKind.PDF],
+        )
+        .order_by("-expires_at")
+        .values_list("expires_at", flat=True)
+        .first()
+    )
+    if echu is not None:
+        return {"etat": "supprimes", "supprimes_le": echu.isoformat()}
+    return {"etat": "mise_en_forme", "supprimes_le": None}
 
 
 def en_dict(job: GenerationJob) -> dict[str, Any]:
@@ -404,4 +498,5 @@ def en_dict(job: GenerationJob) -> dict[str, Any]:
             for etape in etapes(job)
         ],
         "fichiers": fichiers,
+        "fichiers_etat": etat_des_fichiers(job, fichiers),
     }

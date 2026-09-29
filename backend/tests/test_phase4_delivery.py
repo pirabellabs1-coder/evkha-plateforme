@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import pytest
 from django.test import override_settings
+from django.utils import timezone
 
 from catalog.models import DeliverableType, Offer
 from customers.models import Customer
@@ -160,7 +161,9 @@ def test_purge_expired_artifacts_marks_ready_links_expired(
     )
     artifact = batch.artifacts.get(kind=ArtifactKind.LINK)
     assert artifact.expires_at is not None
-    artifact.expires_at = artifact.expires_at - timedelta(days=8)
+    # Au-delà de la conservation, quelle qu'elle soit (douze mois depuis le
+    # 29/09/2026) : le test juge la purge, pas une durée recopiée.
+    artifact.expires_at = timezone.now() - timedelta(days=1)
     artifact.save(update_fields=["expires_at", "updated_at"])
 
     purged = purge_expired_artifacts()

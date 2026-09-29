@@ -32,6 +32,7 @@ from django.views.decorators.http import require_http_methods
 from paiement import stripe_api as paiement_stripe
 
 from customers.models import Customer
+from evkha import retention
 from generation.models import GenerationJob, JobStatus
 from generation.rendu_word.palette import est_une_couleur
 from generation.rendu_word.palette import normaliser as normaliser_couleur
@@ -1180,9 +1181,15 @@ def livrables(
                 "cree_le": job.created_at.isoformat(),
                 "termine_le": job.completed_at.isoformat() if job.completed_at else None,
                 "fichiers": artefacts_par_job.get(str(job.id), []),
+                "fichiers_etat": suivi.etat_des_fichiers(
+                    job, artefacts_par_job.get(str(job.id), [])
+                ),
             }
             for job in jobs
-        ]
+        ],
+        # La durée de conservation, dite par le serveur : l'écran ne la
+        # recopie pas (règle 5).
+        "conservation_jours": retention.jours_par_defaut(),
     })
 
 

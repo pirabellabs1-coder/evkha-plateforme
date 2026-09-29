@@ -8,6 +8,7 @@ import { Carte, Chiffre, Pastille, Squelette, Vide } from "../composants/Interfa
 import { Colonnes } from "../../viz/Graphiques";
 import { Autonomie } from "../composants/Autonomie";
 import { AutresEtudes } from "../composants/AutresEtudes";
+import { CelluleFichiers } from "../composants/EtatDesFichiers";
 
 export function TableauDeBord() {
   const { data: moi, isPending: chargeMoi } = useMoi();
@@ -243,19 +244,10 @@ export function TableauDeBord() {
                     </td>
                     <td>{f.date(livrable.cree_le)}</td>
                     <td>
-                      {livrable.fichiers.length === 0 ? (
-                        <span className="carte-note">En préparation</span>
-                      ) : (
-                        livrable.fichiers.map((fichier) => (
-                          <a
-                            key={fichier.kind}
-                            className="bouton bouton-discret bouton-sm"
-                            href={fichier.url}
-                          >
-                            {fichier.kind.toUpperCase()}
-                          </a>
-                        ))
-                      )}
+                      <CelluleFichiers
+                        livrable={livrable}
+                        classeBouton="bouton bouton-discret bouton-sm"
+                      />
                     </td>
                   </tr>
                 ))}

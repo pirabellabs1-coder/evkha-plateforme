@@ -10,7 +10,7 @@
       "deliverable_type": "market_study",
       "gamma_enabled": false,
       "delivery_mode": "link_and_pdf",
-      "retention_days": 7,
+      "retention_days": 365,
       "is_active": true
     }
   },
@@ -25,7 +25,7 @@
       "deliverable_type": "competitor_study",
       "gamma_enabled": false,
       "delivery_mode": "link_and_pdf",
-      "retention_days": 7,
+      "retention_days": 365,
       "is_active": true
     }
   },
@@ -40,7 +40,7 @@
       "deliverable_type": "business_plan",
       "gamma_enabled": false,
       "delivery_mode": "link_and_pdf",
-      "retention_days": 7,
+      "retention_days": 365,
       "is_active": true
     }
   },
@@ -55,7 +55,7 @@
       "deliverable_type": "business_strategy",
       "gamma_enabled": false,
       "delivery_mode": "link_and_pdf",
-      "retention_days": 7,
+      "retention_days": 365,
       "is_active": true
     }
   }

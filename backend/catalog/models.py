@@ -69,7 +69,9 @@ class Offer(UUIDModel):
         choices=DeliveryMode.choices,
         default=DeliveryMode.LINK_AND_PDF,
     )
-    retention_days = models.PositiveSmallIntegerField(default=7)
+    #: Conservation des livrables, en jours. Douze mois depuis le 29/09/2026
+    #: (décision de l'utilisateur) : voir `evkha/retention.py`.
+    retention_days = models.PositiveSmallIntegerField(default=365)
     is_active = models.BooleanField(default=True)
 
     class Meta:

@@ -6,7 +6,7 @@ La Phase 0 reprend les decisions gelees du `docs/master-plan.html` :
 
 - Gamma est pilote par un flag `gamma_enabled` au niveau de l'offre.
 - La livraison client se fait par lien + PDF.
-- La retention temporaire cible est de 7 jours.
+- La retention temporaire cible etait de 7 jours ; douze mois depuis le 29/09/2026 (ADR ci-dessous).
 - Les emails transactionnels passent par Brevo.
 
 ## ADR — Conservation des pieces jointes deposees par le client (08/08/2026)
@@ -62,3 +62,32 @@ manuelle le libere. Chaque changement de logo abandonnait donc deja un orphelin,
 sans attendre aucune retention. L'effacement est desormais porte par un unique
 `post_delete` dans `organisations/purge.py`, qui couvre tous les chemins — y
 compris la purge ajoutee ici, qui sans cela aurait reproduit le defaut.
+
+## ADR — Conservation des livrables : douze mois (29/09/2026)
+
+**Constat.** L'espace d'Evangeline affichait « En preparation » sur des etudes
+livrees en aout, et sur une etude annulee. Les fichiers avaient ete supprimes
+au bout de sept jours (`Offer.retention_days`, `EVKHA_DEFAULT_RETENTION_DAYS=7`
+en production) ; l'ecran n'avait qu'un mot pour « aucun fichier ». La
+bibliotheque de l'espace promettait des documents « telechargeables sans
+limite de nombre » qu'elle ne gardait qu'une semaine.
+
+**Decision (utilisateur).** Douze mois, comme les pieces jointes.
+
+- Offres a l'ancienne valeur (7) passees a 365 par migration ; une offre reglee
+  a la main garde sa duree. Defaut du modele et du reglage : 365. Variable
+  Coolify `EVKHA_DEFAULT_RETENTION_DAYS` passee a 365 (production et preview).
+- Fichiers encore presents : echeance prolongee a `created_at + 365 jours`.
+  Les fichiers deja supprimes ne reviennent pas.
+- L'espace signe un lien NEUF a chaque lecture, pour le temps qui reste au
+  fichier (`suivi._lien_frais`) : le lien stocke portait une duree signee de
+  sept jours. Les liens des courriels deja envoyes gardent la leur.
+- Un seul etat des fichiers, calcule par le serveur
+  (`suivi.etat_des_fichiers`) : disponibles, en preparation, mise en forme,
+  supprimes le …, aucun.
+
+**Contrepartie assumee.** Un lien de livraison envoye par courriel reste
+valable un an : qui le detient peut telecharger pendant ce temps. Les liens de
+l'espace, signes a chaque lecture, restent plafonnes a sept jours
+(`suivi.DUREE_LIEN_ESPACE_S`) ; les liens signes sans duree (boutique, pieces
+jointes) gardent leur repli de sept jours, decouple de la conservation.

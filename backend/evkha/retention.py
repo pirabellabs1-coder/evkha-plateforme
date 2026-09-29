@@ -19,11 +19,22 @@ de téléchargement est valable N jours », N venant de l'offre, pendant que la
 signature du lien expirait sur une durée **globale**. Une offre réglée à trente
 jours aurait donné un lien mort au huitième — et comme `/media/` répond 404
 sans distinguer une signature expirée d'un fichier absent, le client aurait
-conclu que son document avait été supprimé. Aujourd'hui toutes les offres sont à
+conclu que son document avait été supprimé. Toutes les offres étaient alors à
 sept jours : le défaut était **latent**, ce qui veut dire qu'il attendait qu'on
 touche à un nombre en administration.
 
 Tout passe désormais par ici, et la durée du lien se dérive de la même valeur.
+
+## Douze mois depuis le 29/09/2026 (décision de l'utilisateur)
+
+Sept jours faisaient de la bibliothèque de l'espace client une promesse
+creuse : ses documents d'août s'y affichaient sans fichier, et l'écran disait
+« En préparation » sur des études livrées six semaines plus tôt. La durée des
+livrables rejoint celle des pièces jointes : douze mois. Les fichiers restent
+protégés par une signature horodatée (`signatures.py`). Le lien du COURRIEL
+vit autant que le fichier (un an) ; celui de l'ESPACE est signé à chaque
+lecture et plafonné à sept jours (`organisations.suivi._lien_frais`) — pour
+l'espace, l'exposition d'un lien reste celle d'avant.
 """
 from __future__ import annotations
 
@@ -36,7 +47,7 @@ from django.utils import timezone
 
 def jours_par_defaut() -> int:
     """Repli quand l'offre ne dit rien — et il est enfin lisible dans un réglage."""
-    return int(getattr(settings, "EVKHA_DEFAULT_RETENTION_DAYS", 7) or 7)
+    return int(getattr(settings, "EVKHA_DEFAULT_RETENTION_DAYS", 365) or 365)
 
 
 def jours_pieces_jointes() -> int:
@@ -46,8 +57,8 @@ def jours_pieces_jointes() -> int:
     Les deux durées répondent à des questions différentes et il serait faux de
     les confondre :
 
-    - un **livrable** est produit par nous, réenvoyable, et sept jours suffisent
-      au client pour le télécharger ;
+    - un **livrable** est produit par nous et réenvoyable ; il reste douze mois
+      dans la bibliothèque de l'espace client (décision du 29/09/2026) ;
     - une **pièce jointe** est le bilan d'un tiers, déposé par l'abonné, que
       personne ne peut reconstituer s'il disparaît. L'abonné le réutilise d'une
       commande à l'autre — le pool est rattaché à l'organisation, jamais à une

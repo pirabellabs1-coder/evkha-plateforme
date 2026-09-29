@@ -301,11 +301,24 @@ export function SuiviLivrable() {
         </Carte>
       )}
 
-      {data.statut === "done" && data.fichiers.length === 0 && (
-        <Bandeau titre="Mise en forme en cours">
-          Votre étude est rédigée. Les fichiers Word et PDF apparaîtront ici
-          d'ici quelques minutes.
+      {/* L'état vient du serveur. Avant le 29/09/2026, tout document sans
+          fichier s'annonçait « d'ici quelques minutes » — y compris ceux dont
+          les fichiers avaient été supprimés au terme de leur conservation. */}
+      {data.fichiers_etat?.etat === "supprimes" ? (
+        <Bandeau titre="Fichiers supprimés">
+          Les fichiers Word et PDF de cette étude ont été supprimés le{" "}
+          {f.date(data.fichiers_etat.supprimes_le)}, au terme de leur durée de
+          conservation.
         </Bandeau>
+      ) : (
+        (data.fichiers_etat
+          ? data.fichiers_etat.etat === "mise_en_forme"
+          : data.statut === "done" && data.fichiers.length === 0) && (
+          <Bandeau titre="Mise en forme en cours">
+            Votre étude est rédigée. Les fichiers Word et PDF apparaîtront ici
+            d'ici quelques minutes.
+          </Bandeau>
+        )
       )}
     </>
   );

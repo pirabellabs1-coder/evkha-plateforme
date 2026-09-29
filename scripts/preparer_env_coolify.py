@@ -95,7 +95,7 @@ def construire(domaine_api: str, domaine_front: str) -> str:
         f"EVKHA_DASHBOARD_TOKEN={cle()}",
         "",
         "# ── Divers ──",
-        "EVKHA_DEFAULT_RETENTION_DAYS=7",
+        "EVKHA_DEFAULT_RETENTION_DAYS=365",
         "EVKHA_EMAIL_PROVIDER=brevo",
     ]
     return "\n".join(lignes) + "\n"

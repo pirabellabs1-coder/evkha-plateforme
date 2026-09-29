@@ -6,6 +6,7 @@ import { espaceApi } from "../api";
 import * as f from "../format";
 import { Carte, Pastille, Squelette, Vide } from "../composants/Interface";
 import { BarresClassement } from "../../viz/Graphiques";
+import { CelluleFichiers } from "../composants/EtatDesFichiers";
 
 export function Livrables() {
   const [filtre, setFiltre] = useState("");
@@ -62,7 +63,11 @@ export function Livrables() {
     
     <Carte
       titre={`${livrables.length} document${livrables.length > 1 ? "s" : ""}`}
-      note="Téléchargeables sans limite de nombre, en Word et en PDF."
+      note={
+        data?.conservation_jours
+          ? `Téléchargeables sans limite de nombre, en Word et en PDF, pendant ${f.dureeDeConservation(data.conservation_jours)} après leur production.`
+          : "Téléchargeables sans limite de nombre, en Word et en PDF."
+      }
       action={
         types.length > 1 ? (
           <label className="champ" style={{ minWidth: 220 }}>
@@ -132,21 +137,10 @@ export function Livrables() {
                     {f.date(livrable.termine_le)}
                   </td>
                   <td>
-                    {livrable.fichiers.length === 0 ? (
-                      <span className="carte-note">En préparation</span>
-                    ) : (
-                      <span style={{ display: "flex", gap: "var(--e-2)" }}>
-                        {livrable.fichiers.map((fichier) => (
-                          <a
-                            key={fichier.kind}
-                            className="bouton bouton-contour bouton-sm"
-                            href={fichier.url}
-                          >
-                            {fichier.kind.toUpperCase()}
-                          </a>
-                        ))}
-                      </span>
-                    )}
+                    <CelluleFichiers
+                      livrable={livrable}
+                      classeBouton="bouton bouton-contour bouton-sm"
+                    />
                   </td>
                 </tr>
               ))}

@@ -73,11 +73,11 @@ def duree_de_validite() -> int:
     `evkha/retention.py`. Une durée globale ne pouvait pas être juste : le
     courriel promet la rétention de l'offre, qui se règle offre par offre.
     """
-    from . import retention  # noqa: PLC0415 — evite un cycle a l'import
-
-    return int(getattr(
-        settings, "EVKHA_MEDIA_DUREE_LIEN_S", retention.jours_par_defaut() * 24 * 3600
-    ))
+    # Sept jours, FIXES : ce repli ne suit plus la conservation des livrables.
+    # Passée à douze mois le 29/09/2026, elle aurait allongé d'autant tout lien
+    # signé sans durée — boutique, pièces jointes, jetons de l'ancien format —
+    # alors qu'aucun d'eux n'a à vivre un an (revue du 29/09/2026).
+    return int(getattr(settings, "EVKHA_MEDIA_DUREE_LIEN_S", 7 * 24 * 3600))
 
 
 def signer(chemin: str, duree_s: int | None = None) -> str:

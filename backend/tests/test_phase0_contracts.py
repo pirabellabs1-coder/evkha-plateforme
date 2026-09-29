@@ -51,7 +51,9 @@ def test_offer_contract_freezes_gamma_delivery_and_retention_defaults() -> None:
 
     assert offer.gamma_enabled is False
     assert offer.delivery_mode == DeliveryMode.LINK_AND_PDF
-    assert offer.retention_days == 7
+    # Douze mois depuis le 29/09/2026 (décision de l'utilisateur) : sept jours
+    # vidaient la bibliothèque de l'espace client. Voir `evkha/retention.py`.
+    assert offer.retention_days == 365
 
 
 def test_generation_job_contract_freezes_cost_ceiling() -> None:
