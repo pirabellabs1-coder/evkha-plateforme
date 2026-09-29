@@ -32,9 +32,10 @@ donnait `passed: True` sur un document truffé d'incohérences.
 """
 from __future__ import annotations
 
+import math
 import re
 import unicodedata
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass, field
 
 from catalog.models import DeliverableType
@@ -93,6 +94,18 @@ _INTERNAL_LABEL_ONLY_RE = re.compile(
 # — l'etat chiffre etait alors verrouille puis jamais compare.
 _MONEY = MONEY_CAPTURED
 
+# « Résultat net 2029 : 23 835,86 € », « EBE de l'exercice 2029 : … », « CA en
+# 2029 de … » : l'année civile entre le libellé et le montant.
+#
+# 29/09/2026, business plan `cb59cede` (ÉCLORE) : le document datait ses
+# exercices en années civiles, et aucun motif ci-dessous n'admettait une année
+# entre le libellé et le montant — « Résultat net 2029 : 23 835,86 € » (la CAF
+# imprimée à la place du résultat net) n'était pas même LU par le gate.
+_ANNEE_CIVILE_ENTRE = (
+    r"(?:(?:en|de|pour|sur)\s+)?(?:l['’]\s*(?:ann[ée]e|exercice)\s+)?"
+    r"\(?(?:19|20)\d{2}\)?"
+)
+
 _CLIENT_FACT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
     "investissement_total": (
         re.compile(
@@ -138,6 +151,7 @@ _CLIENT_FACT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(
             r"r[ée]sultat\s+net\s*"
             r"(?:pr[ée]visionnel|projet[ée]|attendu|d[e']?ann[ée]e\s*\d)?\s*"
+            rf"(?:{_ANNEE_CIVILE_ENTRE}\s*)?"
             r"(?:de\s+|:\s*|est\s+de\s+|atteint\s+)?"
             + _MONEY,
             re.IGNORECASE,
@@ -147,6 +161,7 @@ _CLIENT_FACT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(
             r"(?:EBE|exc[ée]dent\s+brut\s+d['e]?exploitation)\s*"
             r"(?:pr[ée]visionnel|projet[ée]|d[e']?ann[ée]e\s*\d)?\s*"
+            rf"(?:{_ANNEE_CIVILE_ENTRE}\s*)?"
             r"(?:de\s+|:\s*|est\s+de\s+|atteint\s+)?"
             + _MONEY,
             re.IGNORECASE,
@@ -163,7 +178,7 @@ _CLIENT_FACT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
             # deux. Un groupe optionnel unique ne matchait que le premier et
             # laissait le montant hors de portee du gate.
             r"(?:\s*(?:pr[ée]visionnel|projet[ée]|cible|attendu"
-            r"|d[e']?\s*ann[ée]e\s*\d|an\s*\d))*\s*"
+            rf"|d[e']?\s*ann[ée]e\s*\d|an\s*\d|{_ANNEE_CIVILE_ENTRE}))*\s*"
             r"(?:de\s+|:\s*|est\s+de\s+|atteint\s+|s['’][ée]tablit\s+[àa]\s+)?"
             + _MONEY,
             re.IGNORECASE,
@@ -942,9 +957,73 @@ def _check_ordres_de_grandeur(
     return failures
 
 
-# « résultat net d'année 1 », « CA An2 », « EBE an 3 » : l'année que le
-# document attribue au montant qu'il cite.
-_YEAR_IN_MENTION_RE = re.compile(r"(?:ann[ée]e|an)\s*(\d)", re.IGNORECASE)
+# « résultat net d'année 1 », « CA An2 », « EBE an 3 », « Résultat net 2029 » :
+# l'année que le document attribue au montant qu'il cite.
+#
+# `_YEAR_IN_MENTION_RE` la lisait ici, et ne connaissait que « an N / année
+# N » — pas « 2029 » (29/09/2026, business plan `cb59cede`, ÉCLORE). Le
+# contrôle inter-chapitres avait SA lecture, aveugle au même endroit. Il n'en
+# reste qu'une : `checks_evangeline.annee_proche` (règle 5).
+
+
+def _exercice_de_la_mention(
+    mention: str, suite: str, premiere_annee: int | None
+) -> int | None:
+    """Le rang d'exercice que le document donne au montant qu'il cite.
+
+    Cherché d'abord ENTRE le libellé et le montant (« Résultat net 2029 : X »),
+    puis juste APRÈS le montant (« … de X en 2029 »). Une année civile n'est
+    rangée que si le premier exercice du prévisionnel est connu ; sinon None,
+    et la mention est jugée comme si elle ne datait rien — le comportement
+    d'avant.
+    """
+    from .checks_evangeline import annee_proche, rang_d_exercice  # noqa: PLC0415
+
+    annee = annee_proche(mention, pres_de=len(mention))
+    if annee is None:
+        annee = annee_proche(suite, pres_de=0)
+    if annee is None:
+        return None
+    return rang_d_exercice(annee, premiere_annee)
+
+
+#: Ce qui clôt la « suite » d'une mention : l'année qui date un montant le suit
+#: de près (« 23 835,86 € en 2029 »), dans la même proposition.
+_FIN_DE_SUITE = re.compile(r"[.;:!?|,\n]")
+_LONGUEUR_SUITE = 30
+
+
+def _suite_de_la_mention(texte: str, fin: int) -> str:
+    """Les quelques mots qui suivent le montant, jusqu'à la ponctuation."""
+    bout = texte[fin : fin + _LONGUEUR_SUITE]
+    coupure = _FIN_DE_SUITE.search(bout)
+    return bout[: coupure.start()] if coupure else bout
+
+
+def _arrondi_a_l_unite(montant: float) -> float:
+    """Arrondi commercial à l'unité — la moitié s'arrondit en s'éloignant de zéro.
+
+    `round()` arrondit au pair (`round(50.5) == 50`) : ce n'est pas l'arrondi
+    qu'écrit un prévisionnel.
+    """
+    return math.copysign(math.floor(abs(montant) + 0.5), montant)
+
+
+def _meme_montant(document: float, reference: float) -> bool:
+    """Le document dit-il le montant du brief, à l'arrondi à l'unité près ?
+
+    29/09/2026, business plan `cb59cede` (ÉCLORE) : le brief donne un résultat
+    net de « 50 € » (arrondi), le document « 49,96 € » (au centime). L'égalité
+    stricte a signalé six fois cette différence d'arrondi, et renvoyé les
+    chapitres 2, 11 et 19 en réécriture pour rien (règle 2). À l'inverse, la
+    tolérance ne va pas au-delà de l'unité : 23 835,86 € n'est pas 23 224 €.
+    """
+    if document == reference:
+        return True
+    return (
+        abs(document - reference) < 1
+        and _arrondi_a_l_unite(document) == _arrondi_a_l_unite(reference)
+    )
 
 
 # « Une AUGMENTATION DE L'emprunt de 59 000 € » : 59 000 n'est pas l'emprunt,
@@ -982,7 +1061,7 @@ def _est_un_scenario(phrase: str, expected: list[float]) -> bool:
     jamais mentionner la vraie valeur — et reste donc bloquée.
     """
     nombres = amounts_in(phrase)
-    return any(any(n == e for e in expected) for n in nombres)
+    return any(any(_meme_montant(n, e) for e in expected) for n in nombres)
 
 
 def _phrase_autour(texte: str, position: int) -> str:
@@ -1004,6 +1083,9 @@ def _mention_est_conforme(
     lo: float,
     hi: float,
     phrase: str = "",
+    suite: str = "",
+    premiere_annee: int | None = None,
+    autres_series: Collection[float] = (),
 ) -> bool:
     """Le montant cité par le document est-il conforme au brief ?
 
@@ -1024,13 +1106,33 @@ def _mention_est_conforme(
     Les valeurs du brief sont chronologiques : `_extract_trajectories` les
     collecte dans l'ordre d'apparition, qui est l'ordre des années dans un
     prévisionnel.
+
+    29/09/2026, business plan `cb59cede` (ÉCLORE), trois trous refermés :
+
+    - l'ARRONDI : « 49,96 € » pour « 50 € » est le même montant
+      (`_meme_montant`), et ne renvoie plus un chapitre en réécriture ;
+    - l'année CIVILE : « Résultat net 2029 » est rangé à son exercice dès que
+      `premiere_annee` est connue (`_premiere_annee_du_previsionnel`) ; la
+      phrase qui « compare au brief » ne l'exempte alors que si elle cite la
+      valeur de CET exercice — citer 8 040 € (2028) ne couvre pas 23 835,86 €
+      (2029) ;
+    - la FOURCHETTE : une mention sans année n'est plus admise au seul motif
+      qu'elle tombe dans [min ; max] quand elle vaut exactement une AUTRE série
+      connue (`autres_series` : EBE, CAF… du brief et du socle). « Résultat
+      net : 8 772 € », c'est l'EBE 2028 recopié, pas un résultat plausible.
     """
-    if any(found == e for e in expected):
+    if any(_meme_montant(found, e) for e in expected):
         return True
 
+    rang = _exercice_de_la_mention(mention, suite, premiere_annee) if is_trajectory else None
+    index = rang - 1 if rang is not None else None
+    annee_du_brief = index is not None and 0 <= index < len(expected)
+
     # Le document COMPARE-t-il au chiffre du brief ? Alors il ne le remplace
-    # pas : c'est un scenario, et un BP bancaire en exige.
-    if phrase and _est_un_scenario(phrase, expected):
+    # pas : c'est un scenario, et un BP bancaire en exige. Quand l'année est
+    # connue, c'est au chiffre de CETTE année qu'il doit se comparer.
+    references = [expected[index]] if annee_du_brief and index is not None else expected
+    if phrase and _est_un_scenario(phrase, references):
         return True
 
     # Un scalaire (investissement, emprunt) n'a qu'une valeur possible : toute
@@ -1038,22 +1140,172 @@ def _mention_est_conforme(
     if not is_trajectory:
         return False
 
-    year = _YEAR_IN_MENTION_RE.search(mention)
-    if year is not None:
-        index = int(year.group(1)) - 1
-        if 0 <= index < len(expected):
-            # Année connue du brief : comparaison exacte, tolérance zéro.
-            return found == expected[index]
+    if rang is not None:
+        if annee_du_brief and index is not None:
+            # Année connue du brief : même montant, à l'arrondi près.
+            return _meme_montant(found, expected[index])
         # Année hors du prévisionnel fourni : on ne sait pas juger, on n'accuse
         # pas. Ne pas savoir n'autorise pas à accuser.
         return True
 
-    # Mention sans année. Avec un seul point de référence, impossible de savoir
-    # de quelle année parle le document.
-    if len(expected) == 1:
+    # Mention sans année. La valeur exacte d'une AUTRE série n'est pas une
+    # valeur plausible de celle-ci, quelle que soit l'année.
+    if any(_meme_montant(found, autre) for autre in autres_series):
+        return False
+    # Avec un seul point de référence (ou une trajectoire plate), impossible de
+    # savoir de quelle année parle le document.
+    if len(set(expected)) == 1:
         return True
     # Avec une trajectoire, une valeur intermédiaire reste plausible.
     return lo <= found <= hi
+
+
+#: La série annuelle du socle (`<radical>_anN`) qui porte chaque fait client
+#: pluriannuel — pour l'EXCLURE des « autres séries » de ce fait.
+_SERIE_DU_SOCLE: dict[str, str] = {
+    "ca_previsionnel": "ca_previsionnel",
+    "ebe_previsionnel": "ebe",
+    "resultat_net_previsionnel": "resultat_net",
+    "taux_occupation": "taux_occupation",
+}
+
+#: Les faits client pluriannuels en MONNAIE : un montant de l'un peut être
+#: recopié à la place de l'autre. Le taux d'occupation, un pourcentage, n'a pas
+#: de voisin avec qui se confondre ; un scalaire (seuil, investissement) non
+#: plus — « CA de 90 000 €, soit le seuil de rentabilité » est une phrase juste.
+_TRAJECTOIRES_MONETAIRES: tuple[str, ...] = (
+    "ca_previsionnel", "ebe_previsionnel", "resultat_net_previsionnel",
+)
+
+#: « 2027 2028 2029 2030 2031 », « 2027 | 2028 | 2029 » : l'en-tête d'un
+#: prévisionnel écrit en années civiles. Trois années au moins : « saison
+#: 2025-2026 » n'est pas un en-tête de tableau.
+_SUITE_D_ANNEES = re.compile(
+    r"(?<![\d.,'’/])(?:19|20)\d{2}"
+    r"(?:[^\S\n]*[|/;,–—-]?[^\S\n]*(?:19|20)\d{2}){2,}(?![.,]?\d)"
+)
+_ANNEE_CIVILE = re.compile(r"(?:19|20)\d{2}")
+
+
+def _series_annuelles_du_socle(donnees: Iterable[object]) -> dict[str, list[float]]:
+    """Les séries annuelles MONÉTAIRES du socle, en unités de base, par radical."""
+    from .rendu_word.donnees_graphiques import _RADICAL_ANNUEL  # noqa: PLC0415
+    from .socle.schema import valeur_en_unites_de_base  # noqa: PLC0415
+
+    series: dict[str, list[float]] = {}
+    for donnee in donnees:
+        serie = _RADICAL_ANNUEL.match(str(getattr(donnee, "id", "")))
+        if serie is None:
+            continue
+        base = valeur_en_unites_de_base(
+            float(getattr(donnee, "valeur", 0.0)), str(getattr(donnee, "unite", ""))
+        )
+        if base is not None:
+            series.setdefault(serie.group("radical"), []).append(base[0])
+    return series
+
+
+def _premiere_annee_du_socle(donnees: Iterable[object]) -> int | None:
+    """L'année du premier exercice selon le socle, si ses séries le disent TOUTES.
+
+    `resultat_net_an3` daté 2029 dit que le plan part en 2027. Mais rien
+    n'oblige un socle à dater ses exercices (une donnée calculée porte l'année
+    du socle) : on n'en tire une année que si chaque donnée annuelle désigne la
+    MÊME, sur deux exercices au moins. Un désaccord rend None — ranger « 2029 »
+    à l'exercice d'à côté accuserait un chiffre juste (règle 2).
+    """
+    from .rendu_word.donnees_graphiques import _RADICAL_ANNUEL  # noqa: PLC0415
+
+    rangs: set[int] = set()
+    departs: set[int] = set()
+    for donnee in donnees:
+        identifiant = str(getattr(donnee, "id", ""))
+        serie = _RADICAL_ANNUEL.match(identifiant)
+        annee = getattr(donnee, "annee", None)
+        if serie is None or not isinstance(annee, int):
+            continue
+        rang = int(identifiant[serie.end("radical") + len("_an") :])
+        rangs.add(rang)
+        departs.add(annee - rang + 1)
+    if len(rangs) < 2 or len(departs) != 1:
+        return None
+    return departs.pop()
+
+
+def _premiere_annee_du_brief(texte: str) -> int | None:
+    """L'année du premier exercice selon l'en-tête du tableau du client.
+
+    Une seule suite d'années consécutives, ou plusieurs qui commencent la même
+    année ; deux débuts différents (un historique ET un prévisionnel), None.
+    """
+    departs: set[int] = set()
+    for suite in _SUITE_D_ANNEES.finditer(texte):
+        annees = [int(a) for a in _ANNEE_CIVILE.findall(suite.group(0))]
+        if all(b == a + 1 for a, b in zip(annees, annees[1:], strict=False)):
+            departs.add(annees[0])
+    return departs.pop() if len(departs) == 1 else None
+
+
+def _premiere_annee_du_previsionnel(
+    job: GenerationJob, donnees_du_socle: Iterable[object]
+) -> int | None:
+    """L'année civile du premier exercice : ce qui range « 2029 » à l'exercice 3.
+
+    Deux témoins, lus sans rien deviner : le socle (`resultat_net_an3` daté
+    2029) et l'en-tête du tableau du client (« 2027 2028 2029 … »). S'ils se
+    contredisent, None. Un plan ne part pas plus d'un an avant la commande :
+    une suite plus ancienne est un historique, pas le prévisionnel.
+    """
+    candidats = {
+        annee
+        for annee in (
+            _premiere_annee_du_socle(donnees_du_socle),
+            _premiere_annee_du_brief(_brief_free_text(job)),
+        )
+        if annee is not None
+    }
+    cree = getattr(job, "created_at", None)
+    if cree is not None:
+        candidats = {annee for annee in candidats if annee >= cree.year - 1}
+    return candidats.pop() if len(candidats) == 1 else None
+
+
+def _autres_series(
+    key: str, client_facts: dict[str, str], series_du_socle: dict[str, list[float]]
+) -> list[float]:
+    """Les montants des AUTRES séries annuelles connues, pour la clé `key`.
+
+    Celles du brief (EBE, CA, résultat net) et celles du socle (CAF, EBE…),
+    hors la série de `key` elle-même.
+    """
+    if key not in _TRAJECTOIRES_MONETAIRES:
+        return []
+    autres = [
+        montant
+        for autre in _TRAJECTOIRES_MONETAIRES
+        if autre != key
+        for montant in _client_numbers(client_facts.get(autre, ""))
+    ]
+    propre = _SERIE_DU_SOCLE.get(key)
+    autres.extend(
+        montant
+        for radical, montants in series_du_socle.items()
+        if radical != propre
+        for montant in montants
+    )
+    return autres
+
+
+def _contexte_des_series(job: GenerationJob) -> tuple[int | None, dict[str, list[float]]]:
+    """Premier exercice du prévisionnel et séries annuelles du socle, pour ce job."""
+    from .socle.services import socle_verrouille  # noqa: PLC0415
+
+    socle = socle_verrouille(job)
+    donnees: list[object] = list(socle.donnees) if socle is not None else []
+    return (
+        _premiere_annee_du_previsionnel(job, donnees),
+        _series_annuelles_du_socle(donnees),
+    )
 
 
 def _check_numeric_coherence(
@@ -1072,6 +1324,7 @@ def _check_numeric_coherence(
             is_locked=True, provenance=FactProvenance.CLIENT
         )
     }
+    contexte_des_series: tuple[int | None, dict[str, list[float]]] | None = None
 
     for key, patterns in _CLIENT_FACT_PATTERNS.items():
         client_value = client_facts.get(key, "")
@@ -1120,6 +1373,11 @@ def _check_numeric_coherence(
             expected = libre
         is_trajectory = key in _TRAJECTORY_FACT_KEYS
         lo, hi = min(expected), max(expected)
+        if is_trajectory and contexte_des_series is None:
+            # Lu une fois, et seulement si une trajectoire est à juger.
+            contexte_des_series = _contexte_des_series(job)
+        premiere_annee, series_du_socle = contexte_des_series or (None, {})
+        autres = _autres_series(key, client_facts, series_du_socle) if is_trajectory else []
         sans_reference_signale = False
         for section in sections:
             for pattern in patterns:
@@ -1158,6 +1416,9 @@ def _check_numeric_coherence(
                         lo=lo,
                         hi=hi,
                         phrase=_phrase_autour(section.body, m.start()),
+                        suite=_suite_de_la_mention(section.body, m.end()),
+                        premiere_annee=premiere_annee,
+                        autres_series=autres,
                     ):
                         continue
                     failures.append(GateFailure(

@@ -502,9 +502,36 @@ _ANNEE_RE = re.compile(
     # net de la première année, 9 000 euros » prenait l'année d'une phrase
     # voisine (business plan `73dde3ab`, corpus du 14/09/2026).
     r"|\b(premi[èe]re?|deuxi[èe]me|seconde?|troisi[èe]me|quatri[èe]me|cinqui[èe]me)"
-    rf"{SPACE_CLASS}+(?:ann[ée]e|exercice)\b",
+    rf"{SPACE_CLASS}+(?:ann[ée]e|exercice)\b"
+    # L'année CIVILE : « Résultat net 2029 : 23 223,86 € », « en 2029 ».
+    #
+    # 29/09/2026, business plan `cb59cede` (ÉCLORE) : le résultat net 2029 est
+    # imprimé 23 223,86 € sur seize pages et 23 835,86 € (la CAF) sur dix. Le
+    # document datait ses exercices en années civiles, et « 2029 » n'était pas
+    # une année pour ce contrôle : chaque mention était écartée faute d'année,
+    # la divergence n'a jamais été vue. Le gate avait le même angle mort
+    # (`_YEAR_IN_MENTION_RE`, « an N / année N » seulement) ; les deux lisent
+    # désormais l'année ICI, et nulle part ailleurs (règle 5).
+    #
+    # Ce qui n'est pas une année : un montant (« 2029 € », « 2000 millions »),
+    # un pourcentage, un nombre décimal, et le millésime d'une date chiffrée
+    # (« 31/12/2029 ») — une date nomme un jour, pas un exercice.
+    rf"|(?<![\d.,'’/\-])((?:19|20)\d{{2}})(?!\d|[.,]\d)"
+    rf"(?!{SPACE_CLASS}*(?:%|{CURRENCY_ALTERNATION}|{MAGNITUDE_WORDS}))",
     re.IGNORECASE,
 )
+
+#: Le mois juste avant une année civile en fait une DATE (« 31 décembre 2029 ») :
+#: un jour de l'exercice, pas l'exercice. Une trésorerie « au 1er janvier 2029 »
+#: et une autre « au 31 décembre 2029 » ne se contredisent pas.
+_MOIS_AVANT_L_ANNEE = re.compile(
+    r"\b(?:janv\w*|f[ée]vr\w*|mars|avr\w*|mai|juin|juil\w*|ao[ûu]t|sept\w*|oct\w*"
+    rf"|nov\w*|d[ée]c\w*)\.?{SPACE_CLASS}*$",
+    re.IGNORECASE,
+)
+
+#: En deçà, un rang d'exercice (« année 3 ») ; au-delà, une année civile (2029).
+_PREMIERE_ANNEE_CIVILE = 1900
 
 _RANG_ORDINAL = {
     "premier": 1, "premiere": 1, "première": 1, "deuxieme": 2, "deuxième": 2,
@@ -746,23 +773,49 @@ class DivergenceChiffree:
         return f"{self.libelle}{suffixe} : {' ; '.join(parties)}"
 
 
-def _annee_proche(texte: str, pres_de: int | None = None) -> int | None:
+def annee_proche(texte: str, pres_de: int | None = None) -> int | None:
     """L'annee mentionnee dans la fenetre de contexte, la plus PROCHE du montant.
 
     La premiere venue ne suffit pas : « la trajectoire devient positive dès
     l'année 2 et solide en année 3 (résultat net de 42 000 €) » rangeait
     42 000 € dans l'année 2 (business plan `5c5e91b9`, corpus du 14/09/2026).
+
+    Rend un RANG d'exercice (« année 3 » → 3) ou une année CIVILE (« 2029 » →
+    2029) ; `rang_d_exercice` les ramène l'un à l'autre quand le premier
+    exercice du prévisionnel est connu. Seule lecture de l'année d'une mention :
+    le gate (`_mention_est_conforme`) et le contrôle inter-chapitres
+    l'importent d'ici (règle 5).
     """
-    trouvees = list(_ANNEE_RE.finditer(texte))
+    trouvees = [
+        m for m in _ANNEE_RE.finditer(texte)
+        if m.group(5) is None
+        or not _MOIS_AVANT_L_ANNEE.search(texte[max(0, m.start() - 20) : m.start()])
+    ]
     if not trouvees:
         return None
     match = trouvees[0] if pres_de is None else min(
         trouvees, key=lambda m: min(abs(m.start() - pres_de), abs(m.end() - pres_de)),
     )
-    valeur = match.group(1) or match.group(2) or match.group(3)
+    valeur = match.group(1) or match.group(2) or match.group(3) or match.group(5)
     if valeur is None:
         return _RANG_ORDINAL.get(match.group(4).casefold())
     return int(valeur)
+
+
+def rang_d_exercice(annee: int, premiere_annee: int | None) -> int | None:
+    """Le rang d'exercice (1, 2, 3…) d'une année lue par `annee_proche`.
+
+    Un rang reste un rang. Une année civile n'en devient un que si l'on sait
+    quand commence le prévisionnel : 2029 est l'exercice 3 d'un plan qui part
+    en 2027, l'exercice 1 d'un plan qui part en 2029. Sans cette donnée, None —
+    deviner le décalage, c'est comparer une mention à l'année d'à côté et
+    accuser un chiffre juste (règle 2).
+    """
+    if annee < _PREMIERE_ANNEE_CIVILE:
+        return annee
+    if premiere_annee is None:
+        return None
+    return annee - premiere_annee + 1
 
 
 _MONTANT_CAPTURE_COMPILE = re.compile(MONEY_CAPTURED, re.IGNORECASE)
@@ -893,7 +946,12 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             if cle in _LIBELLES_ANNUELS:
                 debut_ctx = max(0, occurrence.start() - 40)
                 fin_ctx = min(len(texte), fin_libelle + montant.end() + 40)
-                annee = _annee_proche(
+                # Une année civile (« Résultat net 2029 ») reste civile ici : ce
+                # contrôle ne connaît pas le premier exercice. Deux mentions
+                # « 2029 » se comparent entre elles ; « 2029 » et « année 3 »
+                # ne se comparent pas — mieux vaut manquer ce rapprochement
+                # qu'en inventer un faux.
+                annee = annee_proche(
                     texte[debut_ctx:fin_ctx], pres_de=fin_libelle + montant.start() - debut_ctx,
                 )
                 if annee is None:

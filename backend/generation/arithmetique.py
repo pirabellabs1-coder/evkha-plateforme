@@ -127,12 +127,29 @@ _MOYENNE = re.compile(
 #: jour, soit 300 000 € par an » est JUSTE pour un commerce fermé le dimanche
 #: et en août, et un contrôle qui multiplierait par 365 crierait faux sur une
 #: phrase correcte. C'est la règle 2 du dépôt appliquée au calendrier.
-_PERIODES = {
+_PERIODES_VERS_LE_HAUT = {
     ("mois", "an"): 12.0,
     ("mois", "année"): 12.0,
     ("mois", "trimestre"): 3.0,
     ("trimestre", "an"): 4.0,
     ("trimestre", "année"): 4.0,
+}
+
+#: Et dans l'autre sens : « 23 835,86 € par an, soit 1 986,32 € par mois ».
+#:
+#: 29/09/2026, business plan `cb59cede` (ÉCLORE), p. 52 : un « revenu mensuel »
+#: de 1 986,32 € — la CAF annuelle divisée par douze, présentée à côté du
+#: résultat net. Seuls les passages vers une période plus LONGUE étaient
+#: refaits : l'annuel → mensuel, la même année de douze mois lue à l'envers,
+#: passait sans contrôle. Une
+#: conversion de calendrier vaut dans les deux sens ; la table se déduit donc
+#: de la première au lieu d'être recopiée à l'envers (règle 5).
+_PERIODES = {
+    **_PERIODES_VERS_LE_HAUT,
+    **{
+        (cible, source): 1.0 / facteur
+        for (source, cible), facteur in _PERIODES_VERS_LE_HAUT.items()
+    },
 }
 
 _PERIODE = r"mois|trimestre|an(?:née)?"
@@ -162,7 +179,7 @@ _PORTEE_EFFECTIF_APRES = 60
 
 
 def _multipliee_par_un_effectif(
-    texte: str, m: re.Match[str], res: float, calcule: float,
+    texte: str, m: re.Match[str], res: float, calcule: float, *, partage: bool = False,
 ) -> bool:
     """Le résultat tombe-t-il juste une fois multiplié par un nombre voisin ?
 
@@ -180,6 +197,10 @@ def _multipliee_par_un_effectif(
     Un effectif ne justifie le résultat que s'il le fait tomber JUSTE, avec la
     tolérance de l'écriture. « 250 abonnés à 19 € par mois, soit 60 000 € par
     an » reste faux : aucun nombre de la phrase ne donne 60 000.
+
+    `partage` : pour une conversion vers une période PLUS COURTE (an → mois),
+    l'effectif peut aussi DIVISER — « 60 000 € par an à partager entre 2
+    associés, soit 2 500 € par mois » est juste (29/09/2026).
     """
     debut = max(0, m.start() - _PORTEE_EFFECTIF_AVANT)
     fin = min(len(texte), m.end() + _PORTEE_EFFECTIF_APRES)
@@ -194,6 +215,8 @@ def _multipliee_par_un_effectif(
         if effectif is None or effectif <= 1:
             continue
         if not _ecart_trop_grand(res, calcule * effectif, decimales):
+            return True
+        if partage and not _ecart_trop_grand(res, calcule / effectif, decimales):
             return True
     return False
 
@@ -317,7 +340,7 @@ def verifier(texte: str) -> list[CalculFaux]:
         ramene = _meme_echelle(unitaire, m.group("u1"), m.group("u2"))  # type: ignore[arg-type]
         calcule = ramene * facteur
         if _ecart_trop_grand(res, calcule, _decimales(m.group("res"))):  # type: ignore[arg-type]
-            if _multipliee_par_un_effectif(texte, m, res, calcule):  # type: ignore[arg-type]
+            if _multipliee_par_un_effectif(texte, m, res, calcule, partage=facteur < 1):  # type: ignore[arg-type]
                 continue
             fautes.append(CalculFaux(
                 extrait=m.group(0), ecrit=res, calcule=calcule,  # type: ignore[arg-type]

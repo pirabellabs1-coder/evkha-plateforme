@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 
-from core.numbers import MONEY, SPACE_CLASS
+from core.numbers import CURRENCY_ALTERNATION, MONEY, SPACE_CLASS
 
 # Espaces et devises viennent de `core.numbers` — la source UNIQUE, partagee
 # avec le gate. Ce module avait ses propres copies : identiques a l'oeil, mais
@@ -194,8 +194,103 @@ _LIBELLES_FRONTIERE: tuple[str, ...] = (
     rf"apport{_SP}+(?:personnel|propre|initial)\b",
     rf"(?:emprunt|pr[êe]t){_SP}+(?:bancaire|professionnel)\b",
     r"subventions?\b",
+    # 29/09/2026, business plan `cb59cede` (ÉCLORE). Lignes d'un tableau
+    # financier que rien ne peut qualifier : aucune ne sert d'adjectif au CA, à
+    # l'EBE ou au résultat net, elles ferment donc le segment OÙ qu'elles
+    # soient. Les autres libellés de ligne (« Dotations aux amortissements »,
+    # « Charges externes »…) ne ferment qu'APRÈS une première valeur — voir
+    # `_ouvre_la_ligne_suivante` : « résultat net après amortissements : 50 € »
+    # est une façon d'écrire le résultat net, pas une autre ligne.
+    rf"\bcapacit[ée]{_SP}+d['’]{_SP}*autofinancement\b",
+    r"\bCAF\b",
+    rf"\bbesoin{_SP}+en{_SP}+fonds{_SP}+de{_SP}+roulement\b",
+    r"\bBFR\b",
+    rf"\bvaleur{_SP}+ajout[ée]e\b",
+    r"\btr[ée]sorerie\b",
 )
 _FRONTIERE_RE = re.compile("|".join(_LIBELLES_FRONTIERE), re.IGNORECASE)
+
+# Une ligne d'un tableau AUTRE que celle du libellé, une fois sa première
+# valeur lue.
+#
+# 29/09/2026, business plan `cb59cede` (ÉCLORE). La réponse « Tableaux
+# financiers » était le compte de résultat collé sur UNE ligne :
+#
+#     … EBE 782 € 8 772 € 23 956 € 23 956 € 23 956 € Dotations aux
+#     amortissements 612 € 612 € … Résultat net comptable 50 € 8 040 €
+#     23 224 € 23 224 € 23 224 € Capacité d'autofinancement 662 € 8 652 €
+#     23 836 € 23 836 € 23 836 € …
+#
+# `_LIBELLES_FRONTIERE` ne connaissait ni la CAF ni les dotations : le fait
+# CLIENT `resultat_net_previsionnel` est devenu « 50 € / 8 040 € / 23 224 € /
+# 662 € / 8 652 € / 23 836 € », imposé à chaque chapitre comme source unique.
+# Le document a imprimé le résultat net 2029 à 23 223,86 € ici et 23 835,86 €
+# (la CAF) là, et le gate a jugé les deux conformes : l'un et l'autre
+# tombaient dans la fourchette fusionnée.
+#
+# Ajouter « CAF » à la liste aurait réparé l'exemple (règle 4) : la ligne
+# suivante du tableau suivant s'appellera « Prélèvements de l'exploitant » ou
+# « Sous-traitance ». Ce qui ferme une ligne, ce n'est pas un libellé connu,
+# c'est le DÉBUT de la ligne suivante. Dans un tableau aplati, il se voit à
+# deux signes, après une première valeur :
+#   - un mot qui commence par une majuscule — le libellé d'une ligne en porte
+#     une, la prose d'une trajectoire non (« 250 272 € en An1, 296 000 € en
+#     An2 ») ; les repères de période (« An2 », « Année 3 ») et les unités
+#     (« HT », « EUR ») n'en sont pas ;
+#   - un nom de poste financier, en toute casse, pour le tableau collé en
+#     minuscules ou la phrase qui change de grandeur (« …, soit un total de
+#     550 000 € », « … avant remboursement de l'emprunt de 920 000 € »).
+_MOT_RE = re.compile(r"[^\W\d_]+")
+_MOTS_DE_PERIODE = re.compile(
+    r"an|ans|ann[ée]es?|exercices?|mois|semestres?|trimestres?"
+    r"|janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre"
+    r"|novembre|d[ée]cembre",
+    re.IGNORECASE,
+)
+_UNITES = re.compile(rf"{CURRENCY_ALTERNATION}|HT|TTC", re.IGNORECASE)
+_NOMS_DE_POSTE_FINANCIER = re.compile(
+    r"dotations?|amortissements?|provisions?|charges?|achats?|produits?|imp[ôo]ts?"
+    r"|taxes?|TVA|salaires?|r[ée]mun[ée]rations?|cotisations?|loyers?|int[ée]r[êe]ts?"
+    r"|frais|marges?|total|totaux|solde|cumul|encaissements?|d[ée]caissements?"
+    r"|remboursements?|annuit[ée]s?|emprunts?|apports?|subventions?|investissements?"
+    r"|capital|capitaux|stocks?|cr[ée]ances?|dettes?|r[ée]sultats?|exc[ée]dent"
+    r"|pr[ée]l[èe]vements?",
+    re.IGNORECASE,
+)
+#: Un libellé de ligne compte au moins quatre lettres : « En », « La », « HT »
+#: en tête de mot ne sont pas des lignes de tableau.
+_LONGUEUR_MIN_LIBELLE = 4
+
+
+def _ouvre_la_ligne_suivante(mot: str) -> bool:
+    """Ce mot, lu APRÈS une valeur, est-il le libellé de la ligne suivante ?"""
+    if _NOMS_DE_POSTE_FINANCIER.fullmatch(mot):
+        return True
+    return (
+        mot[0].isupper()
+        and len(mot) >= _LONGUEUR_MIN_LIBELLE
+        and not _MOTS_DE_PERIODE.fullmatch(mot)
+        and not _UNITES.fullmatch(mot)
+    )
+
+
+def _ligne_du_libelle(segment: str, value_re: re.Pattern[str]) -> str:
+    """Le segment, arrêté au début de la ligne suivante d'un tableau aplati.
+
+    Les valeurs elles-mêmes sont masquées avant la recherche : « 1,2 million
+    d'euros » ou « 50 Euros » ne sont pas des libellés.
+    """
+    valeurs = list(value_re.finditer(segment))
+    if not valeurs:
+        return segment
+    masque = list(segment)
+    for valeur in valeurs:
+        masque[valeur.start() : valeur.end()] = " " * (valeur.end() - valeur.start())
+    for mot in _MOT_RE.finditer("".join(masque), valeurs[0].end()):
+        if _ouvre_la_ligne_suivante(mot.group(0)):
+            return segment[: mot.start()]
+    return segment
+
 
 _AMOUNT_RE = re.compile(_AMOUNT, re.IGNORECASE)
 _PERCENT_RE = re.compile(rf"\d+(?:[.,]\d+)?{_SP}*%")
@@ -272,8 +367,13 @@ def _values_after_every_label(
     `_LIBELLES_FRONTIERE`). Sans elle, la consigne du formulaire Tally
     (« Resultat net previsionnel- EBE previsionnel- Seuil de rentabilite »)
     faisait avaler au resultat net les montants de ses deux voisins.
+
+    Quatrieme borne, 29/09/2026 (business plan `cb59cede`, ÉCLORE) : le DEBUT
+    de la ligne suivante d'un tableau colle sur une ligne, quel que soit son
+    libelle (`_ligne_du_libelle`). Sans elle, le resultat net avalait la
+    capacite d'autofinancement qui le suit.
     """
-    values: list[str] = []
+    series: list[list[str]] = []
     for match in re.finditer(rf"\b{label}", text, re.IGNORECASE):
         rest = text[match.end() :]
         segment = rest.split("\n", 1)[0]
@@ -281,8 +381,30 @@ def _values_after_every_label(
         suivant = _FRONTIERE_RE.search(segment)
         if suivant:
             segment = segment[: suivant.start()]
-        values.extend(_clean(m.group(0)) for m in value_re.finditer(segment))
-    return values
+        segment = _ligne_du_libelle(segment, value_re)
+        series.append([_clean(m.group(0)) for m in value_re.finditer(segment)])
+    return _fusionner_les_series(series)
+
+
+def _fusionner_les_series(series: list[list[str]]) -> list[str]:
+    """Les valeurs de chaque occurrence du libelle, bout a bout, sans redite.
+
+    La trajectoire entiere etait dedoublonnee (`dict.fromkeys`) pour qu'un
+    meme previsionnel cite dans deux champs du brief ne compte pas deux fois.
+    Mais une valeur qui se REPETE dans une meme ligne est une annee de plus :
+    « 50 € 8 040 € 23 224 € 23 224 € 23 224 € » (ÉCLORE, 29/09/2026) est un
+    resultat net sur CINQ exercices, et le dedoublonnage en faisait trois. Le
+    gate range chaque valeur a son exercice (« Résultat net 2031 » → 5ᵉ
+    valeur) : la position est une donnee, on ne la jette pas.
+
+    Regle : une occurrence n'ajoute que les valeurs que les occurrences
+    PRECEDENTES n'ont pas deja donnees ; ses propres repetitions restent.
+    """
+    valeurs: list[str] = []
+    for serie in series:
+        deja = set(valeurs)
+        valeurs.extend(valeur for valeur in serie if valeur not in deja)
+    return valeurs
 
 
 def _extract_trajectories(text: str) -> dict[str, str]:
@@ -290,9 +412,9 @@ def _extract_trajectories(text: str) -> dict[str, str]:
     for key, label in _TRAJECTORY_LABELS.items():
         amounts = _values_after_every_label(text, label, _AMOUNT_RE)
         if amounts:
-            # dict.fromkeys : dedoublonne en preservant l'ordre d'apparition,
-            # qui est l'ordre chronologique dans un previsionnel.
-            found[key] = " / ".join(dict.fromkeys(amounts))
+            # Dans l'ordre d'apparition, qui est l'ordre chronologique dans un
+            # previsionnel ; les redites entre occurrences sont deja retirees.
+            found[key] = " / ".join(amounts)
     return found
 
 
@@ -307,7 +429,7 @@ def _extract_occupation(text: str) -> dict[str, str]:
     )
     if not percents:
         return {}
-    return {"TAUX_OCCUPATION": " / ".join(dict.fromkeys(percents))}
+    return {"TAUX_OCCUPATION": " / ".join(percents)}
 
 
 def _extract_verticales(text: str) -> dict[str, str]:
