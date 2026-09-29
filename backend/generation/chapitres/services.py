@@ -207,7 +207,6 @@ def produire_chapitre(
         )
         raise
 
-    ChapterGeneration.objects.filter(pk=chapter.pk).update(etape="verification")
     enregistre = enregistrer_chapitre(chapter, payload, consommation, arbitrage=arbitrage)
     ChapterGeneration.objects.filter(pk=enregistre.pk).update(etape="valide")
     enregistre.etape = "valide"

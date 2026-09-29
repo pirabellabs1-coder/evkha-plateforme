@@ -64,3 +64,18 @@ def test_un_chapitre_de_l_ancien_chemin_se_lit_sans_echec() -> None:
     lignes = {c["numero"]: c for c in suivi.en_dict(job)["chapitres"]}
     assert lignes[1]["etape"] == "valide"
     assert lignes[2]["etape"] == "redaction"
+
+
+def test_un_dossier_arrete_se_dit_en_pause_et_un_chapitre_fini_valide() -> None:
+    """Revue du 29/09/2026 : « rédaction en cours » restait figé sur un dossier arrêté."""
+    from generation.models import JobStatus
+
+    job = _dossier(DeliverableType.BUSINESS_PLAN)
+    job.chapters.filter(chapter_number=1).update(status=ChapterStatus.DONE, etape="verification")
+    job.chapters.filter(chapter_number=2).update(status=ChapterStatus.FAILED, etape="redaction")
+    GenerationJob.objects.filter(pk=job.pk).update(status=JobStatus.FAILED)
+    job.refresh_from_db()
+    lignes = {c["numero"]: c for c in suivi.en_dict(job)["chapitres"]}
+    assert lignes[1]["etape"] == "valide"
+    assert lignes[2]["etape"] == "pause"
+

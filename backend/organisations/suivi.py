@@ -509,14 +509,23 @@ def chapitres_en_direct(job: GenerationJob) -> list[dict[str, Any]]:
     se dit « ajusté », jamais « en échec ». Un chapitre terminé par l'ancien
     chemin (sans étape) se lit validé, un chapitre en cours se lit en rédaction.
     """
+    arrete = job.status in (
+        JobStatus.FAILED, JobStatus.INTERVENTION_REQUISE, JobStatus.CANCELLED,
+    )
     lignes: list[dict[str, Any]] = []
     for chapitre in chapitres_annonces(job).order_by("chapter_number"):
         etape = chapitre.etape
-        if not etape:
-            if chapitre.status == ChapterStatus.DONE:
-                etape = "valide"
-            elif chapitre.status in (ChapterStatus.RUNNING, ChapterStatus.FAILED):
-                etape = "redaction"
+        if chapitre.status == ChapterStatus.DONE:
+            # Un chapitre enregistré est validé, quelle que soit l'étape restée
+            # posée (un budget qui lève après l'enregistrement la laissait en
+            # « verification », revue du 29/09/2026).
+            etape = "valide"
+        elif arrete:
+            # Le dossier ne travaille plus : « rédaction en cours » figé serait
+            # faux. « En pause » dit la vérité, sans le mot « échec ».
+            etape = "pause"
+        elif not etape and chapitre.status in (ChapterStatus.RUNNING, ChapterStatus.FAILED):
+            etape = "redaction"
         lignes.append({
             "numero": chapitre.chapter_number,
             "titre": chapitre.chapter_title,

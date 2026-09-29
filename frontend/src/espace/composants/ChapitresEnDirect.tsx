@@ -17,6 +17,7 @@ const LIBELLE_ETAPE_CHAPITRE: Record<string, string> = {
   verification: "Vérification en cours",
   ajustement: "Vérification et ajustement",
   valide: "Validé",
+  pause: "En pause",
 };
 
 export function ChapitresEnDirect({ chapitres }: { chapitres: ChapitreEnDirect[] }) {

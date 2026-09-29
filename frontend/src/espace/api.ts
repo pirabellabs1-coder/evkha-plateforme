@@ -477,7 +477,7 @@ export interface Suivi {
 export interface ChapitreEnDirect {
   numero: number;
   titre: string;
-  etape: "" | "redaction" | "verification" | "ajustement" | "valide";
+  etape: "" | "redaction" | "verification" | "ajustement" | "valide" | "pause";
   /** Le chapitre a été repris au moins une fois avant d'être validé. */
   ajuste: boolean;
 }
