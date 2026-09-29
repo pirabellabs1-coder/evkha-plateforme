@@ -1848,15 +1848,7 @@ def construire_prompt_chapitre(
         # Épreuve réelle du 29/09/2026 (`bf98827c`) : la mémoire n'était que
         # dans la partie du dossier, et le modèle a cité 10 repères en 18
         # chapitres, écrivant le reste en clair.
-        blocs.append(
-            "CHIFFRES — RAPPEL : écris chaque chiffre du projet par son repère de la "
-            "MÉMOIRE DE L'ÉTUDE, par exemple {{ca_previsionnel_an1}} ou "
-            "{{resultat_net_mensuel_an3}} ; le rendu posera la valeur exacte. Tu peux "
-            "citer en clair une réponse du client telle qu'il l'a écrite. Tout autre "
-            "chiffre (écart, part, moyenne, total) : prends le repère de la mémoire, "
-            "ne le calcule pas. Une série n'en remplace jamais une autre (le résultat "
-            "net n'est pas la CAF)."
-        )
+        blocs.append(rappel_des_reperes(memoire))
 
     if motifs_precedents:
         # La même consigne que la chaîne HTML, écrite une seule fois
@@ -2150,6 +2142,33 @@ def _nombres_du_client(variables: Mapping[str, object]) -> list[float]:
 
     texte = "\n".join(str(v) for v in variables.values() if isinstance(v, str))
     return [valeur for _, valeur, _ in nombres_du_texte(texte)]
+
+
+def rappel_des_reperes(memoire: Any) -> str:
+    """Le rappel de fin de consigne, avec des exemples pris dans CETTE mémoire.
+
+    Un exemple absent de la mémoire serait recopié par le modèle, puis puni
+    comme repère inconnu : une étude de marché n'a pas de résultat net, et
+    `{{resultat_net_mensuel_an3}}` n'y existe pas.
+    """
+    identifiants = list(memoire.faits)
+    exemples = [i for i in identifiants if i.startswith("ca_previsionnel_an")][:1]
+    exemples += [i for i in identifiants if "_mensuel_an" in i][:1]
+    if not exemples:
+        exemples = identifiants[:2]
+    par_exemple = (
+        ", par exemple " + " ou ".join("{{" + i + "}}" for i in exemples) if exemples else ""
+    )
+    series = "Une série n'en remplace jamais une autre"
+    if {"resultat_net_an1", "caf_an1"} <= set(identifiants):
+        series += " (le résultat net n'est pas la CAF)"
+    return (
+        "CHIFFRES — RAPPEL : écris chaque chiffre du projet par son repère de la "
+        f"MÉMOIRE DE L'ÉTUDE{par_exemple} ; le rendu posera la valeur exacte. Tu peux "
+        "citer en clair une réponse du client telle qu'il l'a écrite. Tout autre "
+        "chiffre (écart, part, moyenne, total) : prends le repère de la mémoire, "
+        f"ne le calcule pas. {series}."
+    )
 
 
 def _passer_par_la_memoire(
