@@ -517,7 +517,26 @@ _ANNEE_RE = re.compile(
     # un pourcentage, un nombre décimal, et le millésime d'une date chiffrée
     # (« 31/12/2029 ») — une date nomme un jour, pas un exercice.
     rf"|(?<![\d.,'’/\-])((?:19|20)\d{{2}})(?!\d|[.,]\d)"
-    rf"(?!{SPACE_CLASS}*(?:%|{CURRENCY_ALTERNATION}|{MAGNITUDE_WORDS}))",
+    rf"(?!{SPACE_CLASS}*(?:%|{CURRENCY_ALTERNATION}|{MAGNITUDE_WORDS}))"
+    # Le début d'une plage coupée (« 2027-20… » en fin de fenêtre) n'en est pas
+    # une non plus.
+    rf"(?!{SPACE_CLASS}*[-–—/]{SPACE_CLASS}*\d)",
+    re.IGNORECASE,
+)
+
+#: Une PLAGE d'années ne date rien : « résultat net cumulé 2027-2029 »,
+#: « en moyenne sur 2027-2031 », « de 2027 à 2029 », « des années 1 à 3 ».
+#:
+#: Revue du 29/09/2026 : « résultat net cumulé 2027-2029 : 31 314 € » était
+#: rangé en 2027 et opposé au résultat net de l'exercice 2027 ; « le résultat
+#: net de 15 000 € en moyenne sur 2027-2031 » était refusé par le gate comme un
+#: résultat 2027 faux. Une plage est masquée avant de lire les années.
+_PLAGE_D_ANNEES = re.compile(
+    rf"(?:19|20)\d{{2}}{SPACE_CLASS}*(?:[-–—/]|\b(?:à|a|au|et)\b){SPACE_CLASS}*(?:19|20)\d{{2}}"
+    rf"|\b(?:ann[ée]es|ans|exercices){SPACE_CLASS}*\d{{1,2}}{SPACE_CLASS}*"
+    rf"(?:[-–—]|\b(?:à|au|et)\b){SPACE_CLASS}*\d{{1,2}}\b(?!{SPACE_CLASS}*\d)"
+    rf"|\b(?:ann[ée]e|an|exercice){SPACE_CLASS}*\d{{1,2}}{SPACE_CLASS}*(?:[-–—]|\b(?:à|au|et)\b)"
+    rf"{SPACE_CLASS}*(?:l['’]{SPACE_CLASS}*)?(?:ann[ée]e|an|exercice){SPACE_CLASS}*\d{{1,2}}\b",
     re.IGNORECASE,
 )
 
@@ -626,7 +645,10 @@ _MOTS_DE_RUPTURE = re.compile(
     # 9 581 158,5 CHF » nomme la marge, pas le seuil (BP `6c794b18`).
     r"|d[ée]j[àa]\s+(?:engag|vers|invest|d[ée]pens|r[ée]alis|re[çc]u|per[çc]u)\w*"
     r"|compl[ée]mentaire\w*|[àa]\s+venir|restant\w*|reliquat|solde"
-    r"|marge\s+de\s+s[ée]curit[ée])\b",
+    r"|marge\s+de\s+s[ée]curit[ée]"
+    # Un CUMUL n'est pas la grandeur d'un exercice : « résultat net cumulé
+    # 2027-2029 : 31 314 € » (revue du 29/09/2026).
+    r"|cumul\w*)\b",
     re.IGNORECASE,
 )
 
@@ -638,7 +660,16 @@ _PHRASE_DE_SCENARIO = re.compile(
     # que la cliente a signalées (SYNAPSES). Il faut une variante NOMMÉE.
     r"\b(?:si|pessimiste|optimiste|d[ée]grad[ée]e?|sensibilit[ée]|"
     r"stress|variante|en\s+cas\s+d|hypoth[èe]se\s+(?:basse|haute))\b"
-    r"|\b\w{3,}(?:rait|raient)\b",
+    r"|\b\w{3,}(?:rait|raient)\b"
+    # Une VARIATION chiffrée d'une hypothèse : « avec un chiffre d'affaires
+    # inférieur de 10 % », « une baisse de 10 % du CA ». La consigne du
+    # prévisionnel (`prompts/business_plan/chapitre_16.md`) EXIGE cette
+    # lecture de sensibilité ; le gate la refusait comme un résultat faux et
+    # l'opposait au résultat central (revue du 29/09/2026). Source unique :
+    # le gate l'importe d'ici (règle 5).
+    r"|\b(?:inf[ée]rieure?s?|sup[ée]rieure?s?|baisse|hausse|recul|repli"
+    rf"|diminution|augmentation)(?:{SPACE_CLASS}+de)?{SPACE_CLASS}+[-−–+]?"
+    rf"{SPACE_CLASS}*\d+(?:[.,]\d+)?{SPACE_CLASS}*%",
     re.IGNORECASE,
 )
 
@@ -735,15 +766,19 @@ class Mention:
     montant_base: float  # normalise en unite de base (euros, pas M€)
     #: La phrase qui porte la valeur, telle que le lecteur la trouvera.
     extrait: str = ""
+    #: Pour un STOCK (trésorerie, BFR, dette) : le moment de l'exercice —
+    #: « debut », « fin », « point_bas », « point_haut » —, ou None.
+    moment: str | None = None
 
 
 @dataclass(frozen=True)
 class DivergenceChiffree:
-    """Deux valeurs distinctes pour le meme (libelle, annee)."""
+    """Deux valeurs distinctes pour le meme (libelle, annee, moment)."""
 
     libelle: str
     annee: int | None
     mentions: tuple[Mention, ...]
+    moment: str | None = None
 
     @property
     def resume(self) -> str:
@@ -770,6 +805,8 @@ class DivergenceChiffree:
                 partie += f" — « {groupe[0].extrait} »"
             parties.append(partie)
         suffixe = f" (annee {self.annee})" if self.annee is not None else ""
+        if self.moment is not None:
+            suffixe += f" ({self.moment.replace('_', ' ')})"
         return f"{self.libelle}{suffixe} : {' ; '.join(parties)}"
 
 
@@ -786,20 +823,33 @@ def annee_proche(texte: str, pres_de: int | None = None) -> int | None:
     le gate (`_mention_est_conforme`) et le contrôle inter-chapitres
     l'importent d'ici (règle 5).
     """
-    trouvees = [
-        m for m in _ANNEE_RE.finditer(texte)
-        if m.group(5) is None
-        or not _MOIS_AVANT_L_ANNEE.search(texte[max(0, m.start() - 20) : m.start()])
-    ]
-    if not trouvees:
+    lues = _annees_lues(texte)
+    if not lues:
         return None
-    match = trouvees[0] if pres_de is None else min(
-        trouvees, key=lambda m: min(abs(m.start() - pres_de), abs(m.end() - pres_de)),
-    )
-    valeur = match.group(1) or match.group(2) or match.group(3) or match.group(5)
-    if valeur is None:
-        return _RANG_ORDINAL.get(match.group(4).casefold())
-    return int(valeur)
+    if pres_de is None:
+        return lues[0][0]
+    return min(lues, key=lambda lue: min(abs(lue[1] - pres_de), abs(lue[2] - pres_de)))[0]
+
+
+def annees_citees(texte: str) -> list[int]:
+    """Toutes les années que le texte date, dans l'ordre : rangs et années civiles."""
+    return [annee for annee, _debut, _fin in _annees_lues(texte)]
+
+
+def _annees_lues(texte: str) -> list[tuple[int, int, int]]:
+    """(année, début, fin) de chaque année que le texte date — plages et dates exclues."""
+    masque = _PLAGE_D_ANNEES.sub(lambda plage: " " * len(plage.group(0)), texte)
+    lues: list[tuple[int, int, int]] = []
+    for m in _ANNEE_RE.finditer(masque):
+        if m.group(5) is not None and _MOIS_AVANT_L_ANNEE.search(
+            masque[max(0, m.start() - 20) : m.start()]
+        ):
+            continue
+        valeur = m.group(1) or m.group(2) or m.group(3) or m.group(5)
+        annee = int(valeur) if valeur is not None else _RANG_ORDINAL.get(m.group(4).casefold())
+        if annee is not None:
+            lues.append((annee, m.start(), m.end()))
+    return lues
 
 
 def rang_d_exercice(annee: int, premiere_annee: int | None) -> int | None:
@@ -819,6 +869,139 @@ def rang_d_exercice(annee: int, premiere_annee: int | None) -> int | None:
 
 
 _MONTANT_CAPTURE_COMPILE = re.compile(MONEY_CAPTURED, re.IGNORECASE)
+
+# ── Où chercher l'année d'une mention ───────────────────────────────────────
+#
+# Revue du 29/09/2026, sur le correctif du jour qui apprenait « 2029 » à ce
+# contrôle. La fenêtre de ±40 signes franchissait lignes et propositions :
+#
+#     | Indicateur   | 2027 | 2028    | 2029     |
+#     |---|---|---|---|
+#     | Résultat net | 50 € | 8 040 € | 23 224 € |
+#
+# rangeait 50 € en 2029 (l'en-tête était à moins de 40 signes) et l'opposait à
+# « Le résultat net 2029 atteint 23 224 € » — un motif qui poussait le modèle
+# à remplacer 50 € par 23 224 € dans un tableau JUSTE (règle 2).
+#
+# Désormais : dans un tableau, l'année d'une cellule est celle de l'en-tête
+# de SA colonne, sinon aucune ; dans une phrase, la fenêtre s'arrête à la
+# ligne, à la phrase et au point-virgule, et à droite à la virgule qui ouvre
+# une autre proposition.
+
+#: À gauche : la ligne, la phrase, le point-virgule.
+_BORNE_GAUCHE = re.compile(r"[.!?;](?=\s)|\n")
+#: À droite, en plus : la virgule de proposition et la barre de cellule.
+_BORNE_DROITE = re.compile(r"[.!?;,](?=\s)|[.!?]$|[\n|]")
+_PORTEE_DU_CONTEXTE = 40
+
+#: La ligne de séparation d'un tableau markdown : « |---|:---:| ».
+_SEPARATEUR_DE_TABLEAU = re.compile(r"^\s*\|?\s*:?-{3,}")
+
+#: Les STOCKS se lisent à un moment de l'exercice : une trésorerie « de
+#: départ » à 5 000 € et « de fin 2027 » à 12 000 € ne se contredisent pas,
+#: un « point bas » de 1 200 € et une « clôture 2027 » à 9 800 € non plus
+#: (revue du 29/09/2026). Les flux (résultat net, EBE, CA) n'ont pas de moment.
+_LIBELLES_DE_STOCK: frozenset[str] = frozenset({
+    "tresorerie", "bfr", "dette_residuelle", "excedent_tresorerie",
+})
+_MOMENTS_D_UN_STOCK: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("point_bas", re.compile(
+        rf"\bpoint{SPACE_CLASS}+bas\b|\bminim\w*|\bplus{SPACE_CLASS}+bas\w*|\bcreux\b",
+        re.IGNORECASE,
+    )),
+    ("point_haut", re.compile(
+        rf"\bpoint{SPACE_CLASS}+haut\b|\bmaxim\w*|\bplus{SPACE_CLASS}+haut\w*|\bpic\b",
+        re.IGNORECASE,
+    )),
+    ("debut", re.compile(
+        rf"\bd[ée]but\b|\bd[ée]part\b|\binitial\w*|\bouverture\b"
+        rf"|\b1(?:er)?{SPACE_CLASS}+janvier\b|\b0?1/0?1\b",
+        re.IGNORECASE,
+    )),
+    ("fin", re.compile(
+        rf"\bfin\b|\bcl[ôo]ture\b|\bfinal\w*|\bterminal\w*"
+        rf"|\b31{SPACE_CLASS}+d[ée]cembre\b|\b31/12\b",
+        re.IGNORECASE,
+    )),
+)
+
+
+def _moment_du_stock(contexte: str, pres_de: int) -> str | None:
+    """Le moment de l'exercice nommé le plus près du montant, s'il y en a un."""
+    trouves = [
+        (min(abs(m.start() - pres_de), abs(m.end() - pres_de)), nom)
+        for nom, motif in _MOMENTS_D_UN_STOCK
+        for m in motif.finditer(contexte)
+    ]
+    return min(trouves)[1] if trouves else None
+
+
+def _bornes_de_la_proposition(texte: str, debut: int, fin: int) -> tuple[int, int]:
+    """La fenêtre autour d'une mention, sans franchir la ligne ni la proposition."""
+    gauche = max(0, debut - _PORTEE_DU_CONTEXTE)
+    for borne in _BORNE_GAUCHE.finditer(texte, gauche, debut):
+        gauche = borne.end()
+    droite = min(len(texte), fin + _PORTEE_DU_CONTEXTE)
+    borne_droite = _BORNE_DROITE.search(texte, fin, droite)
+    if borne_droite is not None:
+        droite = borne_droite.start()
+    return gauche, droite
+
+
+def _cellule_d_en_tete(texte: str, position: int) -> tuple[str, str] | None:
+    """(en-tête de la colonne, début de la ligne jusqu'à la cellule) dans un tableau.
+
+    None si `position` n'est pas dans une ligne de tableau markdown. Une ligne
+    de tableau sans en-tête lisible rend un en-tête vide : pas d'année.
+    """
+    debut = texte.rfind("\n", 0, position) + 1
+    if not texte[debut:position].lstrip().startswith("|"):
+        return None
+    avant_la_cellule = texte[debut:position]
+    colonne = avant_la_cellule.count("|")
+    au_dessus: list[str] = []
+    while debut > 0:
+        fin_precedente = debut - 1
+        debut = texte.rfind("\n", 0, fin_precedente) + 1
+        precedente = texte[debut:fin_precedente].rstrip("\r")
+        if not precedente.lstrip().startswith("|"):
+            break
+        au_dessus.append(precedente)
+    # Du plus proche au plus lointain : l'en-tête est le dernier, le
+    # séparateur l'avant-dernier.
+    if len(au_dessus) < 2 or not _SEPARATEUR_DE_TABLEAU.match(au_dessus[-2]):
+        return "", avant_la_cellule
+    cellules = au_dessus[-1].split("|")
+    en_tete = cellules[colonne] if colonne < len(cellules) else ""
+    return en_tete, avant_la_cellule
+
+
+def _annee_de_l_en_tete(en_tete: str) -> int | None:
+    """L'année d'un en-tête de colonne : « 2027 », « An 1 », « Année 1 (2027) »."""
+    annees = annees_citees(en_tete)
+    civiles = [a for a in annees if a >= _PREMIERE_ANNEE_CIVILE]
+    rangs = [a for a in annees if a < _PREMIERE_ANNEE_CIVILE]
+    if len(civiles) == 1:
+        return civiles[0]
+    if not civiles and len(rangs) == 1:
+        return rangs[0]
+    return None
+
+
+def _date_de_la_mention(
+    texte: str, debut_libelle: int, debut_montant: int, fin_montant: int, *, stock: bool,
+) -> tuple[int | None, str | None]:
+    """(année, moment) d'une mention : l'en-tête de sa colonne, ou sa proposition."""
+    cellule = _cellule_d_en_tete(texte, debut_montant)
+    if cellule is not None:
+        en_tete, ligne = cellule
+        moment = _moment_du_stock(f"{ligne} {en_tete}", len(ligne)) if stock else None
+        return _annee_de_l_en_tete(en_tete), moment
+    gauche, droite = _bornes_de_la_proposition(texte, debut_libelle, fin_montant)
+    contexte = texte[gauche:droite]
+    annee = annee_proche(contexte, pres_de=debut_montant - gauche)
+    moment = _moment_du_stock(contexte, debut_montant - gauche) if stock else None
+    return annee, moment
 
 
 def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
@@ -944,20 +1127,19 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             # « en annee 2 ») seraient rangees dans des groupes distincts
             # et la divergence entre elles passerait inapercue.
             if cle in _LIBELLES_ANNUELS:
-                debut_ctx = max(0, occurrence.start() - 40)
-                fin_ctx = min(len(texte), fin_libelle + montant.end() + 40)
                 # Une année civile (« Résultat net 2029 ») reste civile ici : ce
                 # contrôle ne connaît pas le premier exercice. Deux mentions
                 # « 2029 » se comparent entre elles ; « 2029 » et « année 3 »
                 # ne se comparent pas — mieux vaut manquer ce rapprochement
                 # qu'en inventer un faux.
-                annee = annee_proche(
-                    texte[debut_ctx:fin_ctx], pres_de=fin_libelle + montant.start() - debut_ctx,
+                annee, moment = _date_de_la_mention(
+                    texte, occurrence.start(), fin_libelle + montant.start(),
+                    fin_libelle + montant.end(), stock=cle in _LIBELLES_DE_STOCK,
                 )
                 if annee is None:
                     continue
             else:
-                annee = None
+                annee, moment = None, None
 
             # Centrée sur le LIBELLÉ : partir du début d'une longue phrase montrait
             # souvent une autre valeur que celle retenue (« le résultat net de la
@@ -974,6 +1156,7 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
                     montant_lu=montant.group(0).strip(),
                     montant_base=base,
                     extrait=phrase[:180],
+                    moment=moment,
                 )
             )
     return mentions
@@ -1899,21 +2082,24 @@ def detecter_chapitres_avortes(
 
 
 def detecter_divergences(mentions: list[Mention]) -> list[DivergenceChiffree]:
-    """Regroupe par (libelle, annee) et signale les valeurs distinctes."""
-    par_cle: dict[tuple[str, int | None], list[Mention]] = defaultdict(list)
+    """Regroupe par (libelle, annee, moment) et signale les valeurs distinctes."""
+    par_cle: dict[tuple[str, int | None, str | None], list[Mention]] = defaultdict(list)
     for m in mentions:
-        par_cle[(m.libelle, m.annee)].append(m)
+        par_cle[(m.libelle, m.annee, m.moment)].append(m)
 
     divergences: list[DivergenceChiffree] = []
     # `sorted` compare les cles element par element. `annee` peut valoir None
     # (libelle global) ou un int (libelle annualise) ; il faut une clef de tri
-    # unique — d'ou -1 pour l'absence d'annee, place en tete.
-    for (libelle, annee), items in sorted(
-        par_cle.items(), key=lambda kv: (kv[0][0], -1 if kv[0][1] is None else kv[0][1])
+    # unique — d'ou -1 pour l'absence d'annee, place en tete. Idem du moment.
+    for (libelle, annee, moment), items in sorted(
+        par_cle.items(),
+        key=lambda kv: (kv[0][0], -1 if kv[0][1] is None else kv[0][1], kv[0][2] or ""),
     ):
         tuple_mentions = tuple(items)
         if _valeurs_distinctes(tuple_mentions):
             divergences.append(
-                DivergenceChiffree(libelle=libelle, annee=annee, mentions=tuple_mentions)
+                DivergenceChiffree(
+                    libelle=libelle, annee=annee, mentions=tuple_mentions, moment=moment,
+                )
             )
     return divergences

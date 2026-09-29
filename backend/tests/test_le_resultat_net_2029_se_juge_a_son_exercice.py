@@ -166,6 +166,61 @@ def test_sans_premier_exercice_connu_l_annee_civile_ne_juge_rien() -> None:
     assert _motifs_resultat_net(job, "Résultat net 2029 : 23 835,86 €.")
 
 
+# ── Revue du 29/09/2026 : ce que le premier correctif refusait à tort ───────
+#
+# La consigne du prévisionnel (`prompts/business_plan/chapitre_16.md`) exige
+# une lecture de sensibilité : « résultat net et CAF si le CA est inférieur de
+# 10 % ». Le gate la prenait pour un résultat 2029 faux.
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "texte",
+    [
+        pytest.param(
+            "Avec un chiffre d'affaires inférieur de 10 %, le résultat net de "
+            "15 900 € en 2029 reste positif.",
+            id="ca-inferieur-de-10",
+        ),
+        pytest.param(
+            "Sensibilité (CA −10 %) : résultat net 2029 : 15 900 €.",
+            id="sensibilite",
+        ),
+        pytest.param(
+            "Le résultat net de 15 000 € en moyenne sur 2027-2031 finance le "
+            "remboursement.",
+            id="moyenne-sur-une-plage",
+        ),
+    ],
+)
+def test_une_variante_ou_une_moyenne_n_est_pas_accusee(texte: str) -> None:
+    job = _job(TABLEAU_APLATI, "eclore_variante")
+
+    assert _motifs_resultat_net(job, texte) == []
+
+
+@pytest.mark.django_db
+def test_une_variante_n_exempte_pas_la_valeur_centrale() -> None:
+    """Contre-épreuve : la CAF imprimée pour le résultat net 2029 reste refusée."""
+    job = _job(TABLEAU_APLATI, "eclore_centrale")
+
+    assert _motifs_resultat_net(job, "Résultat net 2029 : 23 835,86 €.")
+
+
+@pytest.mark.django_db
+def test_une_perte_de_premiere_annee_n_est_pas_accusee() -> None:
+    """AVANT : le brief se verrouillait sans son signe, « 3 000 € »."""
+    job = _job(
+        "Prévisionnel 2027 2028 2029 — Résultat net : -3 000 € en 2027, "
+        "8 000 € en 2028, 15 000 € en 2029",
+        "perte_an1",
+    )
+
+    assert _motifs_resultat_net(job, "Résultat net 2027 : -3 000 €.") == []
+    # Contre-épreuve : un bénéfice de 3 000 € n'est pas la perte du brief.
+    assert _motifs_resultat_net(job, "Résultat net 2027 : 3 000 €.")
+
+
 # ── La règle, fonction pure ─────────────────────────────────────────────────
 
 ATTENDU = [50.0, 8_040.0, 23_224.0, 23_224.0, 23_224.0]

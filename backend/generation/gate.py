@@ -990,7 +990,9 @@ def _exercice_de_la_mention(
 #: Ce qui clôt la « suite » d'une mention : l'année qui date un montant le suit
 #: de près (« 23 835,86 € en 2029 »), dans la même proposition.
 _FIN_DE_SUITE = re.compile(r"[.;:!?|,\n]")
-_LONGUEUR_SUITE = 30
+#: Assez pour qu'une plage (« … en moyenne sur 2027-2031 ») ne soit pas coupée
+#: en deux et lue comme l'année 2027.
+_LONGUEUR_SUITE = 40
 
 
 def _suite_de_la_mention(texte: str, fin: int) -> str:
@@ -1122,6 +1124,17 @@ def _mention_est_conforme(
       net : 8 772 € », c'est l'EBE 2028 recopié, pas un résultat plausible.
     """
     if any(_meme_montant(found, e) for e in expected):
+        return True
+
+    # Une VARIANTE n'est pas la valeur retenue : « Avec un chiffre d'affaires
+    # inférieur de 10 %, le résultat net de 15 900 € en 2029 reste positif »,
+    # « Sensibilité (CA −10 %) : résultat net 2029 : 15 900 € ». La consigne du
+    # prévisionnel exige cette lecture ; le gate la refusait comme un résultat
+    # faux (revue du 29/09/2026). Même phrase de scénario que le contrôle
+    # inter-chapitres, lue au même endroit (règle 5).
+    from .checks_evangeline import _PHRASE_DE_SCENARIO  # noqa: PLC0415
+
+    if phrase and _PHRASE_DE_SCENARIO.search(phrase):
         return True
 
     rang = _exercice_de_la_mention(mention, suite, premiere_annee) if is_trajectory else None

@@ -154,6 +154,47 @@ _PERIODES = {
 
 _PERIODE = r"mois|trimestre|an(?:née)?"
 
+#: Une période QUALIFIÉE ne découpe pas l'année entière : « 15 000 € par mois
+#: d'ouverture », « 12 000 € par mois d'été », « par mois de saison ».
+#:
+#: Revue du 29/09/2026, sur la division an → mois ajoutée le jour même :
+#: « 48 000 € par an, soit 12 000 € par mois d'été » est JUSTE pour une
+#: activité de quatre mois, et le contrôle, qui divisait par douze, criait
+#: faux. Le calendrier ne vaut que pour une période nue ; qualifiée, elle porte
+#: une hypothèse d'exploitation que le texte ne chiffre pas — on s'abstient,
+#: dans les deux sens (« 2 500 € par mois d'ouverture, soit 15 000 € par an »).
+_PERIODE_QUALIFIEE = re.compile(
+    r"\s*(?:d['’]\s*[^\W\d_]+"
+    r"|de\s+(?:la\s+|haute\s+|basse\s+|pleine\s+)?saison\b"
+    r"|de\s+(?:fonctionnement|production|pr[ée]sence|location|vente|exploitation)\b"
+    r"|(?:ouvr[ée]s|ouvrables|travaill[ée]s|actifs|effectifs|pleins)\b)",
+    re.IGNORECASE,
+)
+
+#: Une durée dite en clair : « sur 13 mois », « sur la saison de 6 mois ».
+_SUR_N_PERIODES = re.compile(
+    r"\bsur\s+[^\d.;]{0,25}?(?P<combien>\d+)\s+(?P<periode>mois|trimestres?)\b", re.IGNORECASE,
+)
+#: Combien d'exemplaires de chaque période compte une année.
+_PAR_AN = {"mois": 12, "trimestre": 4, "trimestres": 4}
+
+
+def _periode_restreinte(texte: str, m: re.Match[str]) -> bool:
+    """La projection porte-t-elle sur une partie de l'année seulement ?
+
+    Qualifiée juste après l'une de ses deux périodes, ou bornée par « sur N
+    mois » avec N différent de douze (« 2 769 € par mois sur 13 mois »).
+    """
+    apres_source = texte[m.end("source") : m.start("res")]
+    apres_cible = re.split(r"[.;\n]", texte[m.end("cible") : m.end("cible") + 60], maxsplit=1)[0]
+    if _PERIODE_QUALIFIEE.match(apres_source) or _PERIODE_QUALIFIEE.match(apres_cible):
+        return True
+    return any(
+        int(duree.group("combien")) != _PAR_AN[duree.group("periode").lower()]
+        for bout in (apres_source, apres_cible)
+        for duree in _SUR_N_PERIODES.finditer(bout)
+    )
+
 #: « 26 000 € par mois, soit 312 000 € par an » — la projection de période.
 _PROJECTION = re.compile(
     rf"(?P<unitaire>{_NOMBRE})\s*(?P<u1>{_UNITE})?\s*(?:par|/)\s*"
@@ -332,7 +373,7 @@ def verifier(texte: str) -> list[CalculFaux]:
         facteur = _PERIODES.get(
             (m.group("source").lower(), m.group("cible").lower())
         )
-        if facteur is None:
+        if facteur is None or _periode_restreinte(texte, m):
             continue
         unitaire, res = (_valeur(m.group(n)) for n in ("unitaire", "res"))
         if None in (unitaire, res):

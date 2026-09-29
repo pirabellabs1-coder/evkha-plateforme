@@ -194,24 +194,15 @@ _LIBELLES_FRONTIERE: tuple[str, ...] = (
     rf"apport{_SP}+(?:personnel|propre|initial)\b",
     rf"(?:emprunt|pr[êe]t){_SP}+(?:bancaire|professionnel)\b",
     r"subventions?\b",
-    # 29/09/2026, business plan `cb59cede` (ÉCLORE). Lignes d'un tableau
-    # financier que rien ne peut qualifier : aucune ne sert d'adjectif au CA, à
-    # l'EBE ou au résultat net, elles ferment donc le segment OÙ qu'elles
-    # soient. Les autres libellés de ligne (« Dotations aux amortissements »,
-    # « Charges externes »…) ne ferment qu'APRÈS une première valeur — voir
-    # `_ouvre_la_ligne_suivante` : « résultat net après amortissements : 50 € »
-    # est une façon d'écrire le résultat net, pas une autre ligne.
-    rf"\bcapacit[ée]{_SP}+d['’]{_SP}*autofinancement\b",
-    r"\bCAF\b",
-    rf"\bbesoin{_SP}+en{_SP}+fonds{_SP}+de{_SP}+roulement\b",
-    r"\bBFR\b",
-    rf"\bvaleur{_SP}+ajout[ée]e\b",
-    r"\btr[ée]sorerie\b",
+    # La CAF, le BFR, la trésorerie N'Y SONT PAS, et c'est voulu : fermer
+    # partout sur « CAF » vidait « Chiffre d'affaires (financement CAF +
+    # familles) : 150 000 € en An1 … » — micro-crèche, la CAF y finance le CA
+    # (revue du 29/09/2026). Ils ne ferment qu'APRÈS une première valeur, par
+    # `_ligne_du_libelle`.
 )
 _FRONTIERE_RE = re.compile("|".join(_LIBELLES_FRONTIERE), re.IGNORECASE)
 
-# Une ligne d'un tableau AUTRE que celle du libellé, une fois sa première
-# valeur lue.
+# La ligne SUIVANTE d'un tableau aplati, une fois la première valeur lue.
 #
 # 29/09/2026, business plan `cb59cede` (ÉCLORE). La réponse « Tableaux
 # financiers » était le compte de résultat collé sur UNE ligne :
@@ -225,71 +216,98 @@ _FRONTIERE_RE = re.compile("|".join(_LIBELLES_FRONTIERE), re.IGNORECASE)
 # CLIENT `resultat_net_previsionnel` est devenu « 50 € / 8 040 € / 23 224 € /
 # 662 € / 8 652 € / 23 836 € », imposé à chaque chapitre comme source unique.
 # Le document a imprimé le résultat net 2029 à 23 223,86 € ici et 23 835,86 €
-# (la CAF) là, et le gate a jugé les deux conformes : l'un et l'autre
-# tombaient dans la fourchette fusionnée.
+# (la CAF) là, et le gate a jugé les deux conformes.
 #
-# Ajouter « CAF » à la liste aurait réparé l'exemple (règle 4) : la ligne
-# suivante du tableau suivant s'appellera « Prélèvements de l'exploitant » ou
-# « Sous-traitance ». Ce qui ferme une ligne, ce n'est pas un libellé connu,
-# c'est le DÉBUT de la ligne suivante. Dans un tableau aplati, il se voit à
-# deux signes, après une première valeur :
-#   - un mot qui commence par une majuscule — le libellé d'une ligne en porte
-#     une, la prose d'une trajectoire non (« 250 272 € en An1, 296 000 € en
-#     An2 ») ; les repères de période (« An2 », « Année 3 ») et les unités
-#     (« HT », « EUR ») n'en sont pas ;
-#   - un nom de poste financier, en toute casse, pour le tableau collé en
-#     minuscules ou la phrase qui change de grandeur (« …, soit un total de
-#     550 000 € », « … avant remboursement de l'emprunt de 920 000 € »).
-_MOT_RE = re.compile(r"[^\W\d_]+")
-_MOTS_DE_PERIODE = re.compile(
-    r"an|ans|ann[ée]es?|exercices?|mois|semestres?|trimestres?"
+# Premier correctif (même jour), trop large : couper au premier mot à
+# majuscule ou au premier nom de poste APRÈS une valeur. La revue a mesuré ce
+# qu'il amputait — « 45 000 € hors taxes en 2027, 60 000 € … » (une valeur au
+# lieu de trois), « 12 000 € avant impôts en 2027, … », « … (Lancement), … »,
+# « RÉSULTAT NET PRÉVISIONNEL : 12 000 € LA PREMIÈRE ANNÉE, … », le formulaire
+# BP lui-même demandant des majuscules. Un mot qui QUALIFIE la valeur n'ouvre
+# pas une ligne.
+#
+# Ce qui distingue une ligne d'un qualificatif, c'est sa PLACE, pas son mot :
+#   1. dans un tableau aplati, le libellé de la ligne suivante est COLLÉ aux
+#      valeurs, entre deux d'entre elles, sans ponctuation de phrase (« 23 956 €
+#      Dotations aux amortissements 612 € ») — et il commence par un nom de
+#      poste ou par une majuscule de libellé (pas « la », pas « HT », pas
+#      « Année ») ;
+#   2. dans une phrase, un poste financier suivi aussitôt de « de », « d' » ou
+#      « : » et d'une valeur prend CETTE valeur (« … avant remboursement de
+#      l'emprunt de 920 000 € », « soit un total de 550 000 € »).
+# « hors taxes », « avant impôts », « (Lancement) », « en année 1 (après
+# rémunération du dirigeant) » ne sont ni l'un ni l'autre : la trajectoire
+# continue.
+_POSTE_FINANCIER_RE = re.compile(
+    rf"\b(?:capacit[ée]{_SP}+d['’]{_SP}*autofinancement|CAF|BFR"
+    rf"|besoin{_SP}+en{_SP}+fonds{_SP}+de{_SP}+roulement|valeur{_SP}+ajout[ée]e"
+    r"|tr[ée]sorerie|dotations?|amortissements?|provisions?|charges?|achats?"
+    r"|produits?|imp[ôo]ts?|taxes?|TVA|salaires?|r[ée]mun[ée]rations?|cotisations?"
+    r"|loyers?|int[ée]r[êe]ts?|frais|marges?|total|totaux|sous-total|solde|cumul"
+    r"|encaissements?|d[ée]caissements?|remboursements?|annuit[ée]s?|emprunts?"
+    r"|apports?|subventions?|investissements?|capital|capitaux|stocks?|cr[ée]ances?"
+    r"|dettes?|r[ée]sultats?|exc[ée]dent|pr[ée]l[èe]vements?|sous-traitance)\b",
+    re.IGNORECASE,
+)
+
+#: Entre deux valeurs d'un tableau aplati : un libellé seul — des mots, sans
+#: chiffre ni ponctuation de phrase —, entouré de blancs ou de barres de cellule.
+_LIBELLE_ENTRE_DEUX_VALEURS = re.compile(
+    rf"(?P<avant>(?:{_SP}|[|;])*)(?P<libelle>[^\W\d_][^\d\n.,;|]*?)(?:{_SP}|[|;:])*"
+)
+
+#: Ce qu'un libellé de ligne n'est jamais : un repère de période, un rang
+#: (« Première année »), une unité.
+_NI_LIBELLE_NI_LIGNE = re.compile(
+    rf"(?:an|ans|ann[ée]es?|exercices?|mois|semestres?|trimestres?"
     r"|janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre"
-    r"|novembre|d[ée]cembre",
+    r"|novembre|d[ée]cembre|premi[èe]re?|seconde?|[^\W\d_]+i[èe]mes?"
+    rf"|{CURRENCY_ALTERNATION}|HT|TTC)",
     re.IGNORECASE,
 )
-_UNITES = re.compile(rf"{CURRENCY_ALTERNATION}|HT|TTC", re.IGNORECASE)
-_NOMS_DE_POSTE_FINANCIER = re.compile(
-    r"dotations?|amortissements?|provisions?|charges?|achats?|produits?|imp[ôo]ts?"
-    r"|taxes?|TVA|salaires?|r[ée]mun[ée]rations?|cotisations?|loyers?|int[ée]r[êe]ts?"
-    r"|frais|marges?|total|totaux|solde|cumul|encaissements?|d[ée]caissements?"
-    r"|remboursements?|annuit[ée]s?|emprunts?|apports?|subventions?|investissements?"
-    r"|capital|capitaux|stocks?|cr[ée]ances?|dettes?|r[ée]sultats?|exc[ée]dent"
-    r"|pr[ée]l[èe]vements?",
-    re.IGNORECASE,
-)
-#: Un libellé de ligne compte au moins quatre lettres : « En », « La », « HT »
-#: en tête de mot ne sont pas des lignes de tableau.
+_PREMIER_MOT_RE = re.compile(r"[^\W\d_]+")
+#: Une majuscule de libellé : « Dotations », « Capacité » — pas « LA », pas « En ».
 _LONGUEUR_MIN_LIBELLE = 4
 
+#: Ce qui relie un poste à SA valeur dans une phrase : « de », « d' », « : ».
+_LIAISON_POSTE_VALEUR = re.compile(rf"{_SP}*(?:de{_SP}+|d['’]{_SP}*|:{_SP}*)", re.IGNORECASE)
 
-def _ouvre_la_ligne_suivante(mot: str) -> bool:
-    """Ce mot, lu APRÈS une valeur, est-il le libellé de la ligne suivante ?"""
-    if _NOMS_DE_POSTE_FINANCIER.fullmatch(mot):
+
+def _libelle_de_ligne(libelle: str) -> bool:
+    """Ce texte, collé entre deux valeurs, est-il le libellé d'une autre ligne ?"""
+    if _POSTE_FINANCIER_RE.match(libelle):
         return True
+    mot = _PREMIER_MOT_RE.match(libelle)
+    if mot is None:
+        return False
+    premier = mot.group(0)
     return (
-        mot[0].isupper()
-        and len(mot) >= _LONGUEUR_MIN_LIBELLE
-        and not _MOTS_DE_PERIODE.fullmatch(mot)
-        and not _UNITES.fullmatch(mot)
+        len(premier) >= _LONGUEUR_MIN_LIBELLE
+        and premier[0].isupper()
+        and premier[1:].islower()
+        and not _NI_LIBELLE_NI_LIGNE.fullmatch(premier)
     )
 
 
 def _ligne_du_libelle(segment: str, value_re: re.Pattern[str]) -> str:
-    """Le segment, arrêté au début de la ligne suivante d'un tableau aplati.
-
-    Les valeurs elles-mêmes sont masquées avant la recherche : « 1,2 million
-    d'euros » ou « 50 Euros » ne sont pas des libellés.
-    """
+    """Le segment, arrêté au début de la ligne suivante, ou d'une autre grandeur."""
     valeurs = list(value_re.finditer(segment))
     if not valeurs:
         return segment
-    masque = list(segment)
-    for valeur in valeurs:
-        masque[valeur.start() : valeur.end()] = " " * (valeur.end() - valeur.start())
-    for mot in _MOT_RE.finditer("".join(masque), valeurs[0].end()):
-        if _ouvre_la_ligne_suivante(mot.group(0)):
-            return segment[: mot.start()]
-    return segment
+    coupures: list[int] = []
+    # 1. Un libellé collé entre deux valeurs : la ligne suivante du tableau.
+    for valeur, suivante in zip(valeurs, valeurs[1:], strict=False):
+        entre = _LIBELLE_ENTRE_DEUX_VALEURS.fullmatch(segment, valeur.end(), suivante.start())
+        if entre and _libelle_de_ligne(entre.group("libelle")):
+            coupures.append(entre.start("libelle"))
+            break
+    # 2. Un poste suivi de SA valeur, dans une phrase.
+    for poste in _POSTE_FINANCIER_RE.finditer(segment, valeurs[0].end()):
+        liaison = _LIAISON_POSTE_VALEUR.match(segment, poste.end())
+        if liaison and value_re.match(segment, liaison.end()):
+            coupures.append(poste.start())
+            break
+    return segment[: min(coupures)] if coupures else segment
 
 
 _AMOUNT_RE = re.compile(_AMOUNT, re.IGNORECASE)
@@ -304,9 +322,26 @@ _VERTICALES_RE = re.compile(
 )
 
 
+#: Un tiret qui n'est PAS un signe moins : en tete sans chiffre derriere (puce),
+#: ou en fin de valeur (« 145 000 €- EBE previsionnel… », formulaire Tally).
+_TIRET_DE_BORD = re.compile(r"^-(?!\d)|-$")
+
+
 def _clean(raw: str) -> str:
-    """Normalise les espaces d'une valeur sans en alterer le contenu."""
-    return re.sub(rf"{_SP}+", " ", raw).strip(" :;,-. ")
+    """Normalise les espaces d'une valeur sans en alterer le contenu.
+
+    Le signe moins en fait partie. `strip(" :;,-. ")` l'arrachait :
+    « Résultat net : -3 000 € en 2027 » se verrouillait « 3 000 € », et le
+    gate refusait ensuite la perte de premiere annee que le document
+    reprenait fidelement (revue du 29/09/2026). Un premier exercice en perte
+    est un scenario legitime (`socle/referentiel.py`, `resultat_net_an1`).
+    """
+    valeur = re.sub(rf"{_SP}+", " ", raw)
+    while True:
+        nette = _TIRET_DE_BORD.sub("", valeur.strip(" :;,. "))
+        if nette == valeur:
+            return nette
+        valeur = nette
 
 
 
@@ -373,7 +408,7 @@ def _values_after_every_label(
     libelle (`_ligne_du_libelle`). Sans elle, le resultat net avalait la
     capacite d'autofinancement qui le suit.
     """
-    series: list[list[str]] = []
+    occurrences: list[tuple[str, list[str]]] = []
     for match in re.finditer(rf"\b{label}", text, re.IGNORECASE):
         rest = text[match.end() :]
         segment = rest.split("\n", 1)[0]
@@ -382,26 +417,67 @@ def _values_after_every_label(
         if suivant:
             segment = segment[: suivant.start()]
         segment = _ligne_du_libelle(segment, value_re)
-        series.append([_clean(m.group(0)) for m in value_re.finditer(segment)])
-    return _fusionner_les_series(series)
+        occurrences.append((segment, [_clean(m.group(0)) for m in value_re.finditer(segment)]))
+    return _fusionner_les_series(occurrences)
 
 
-def _fusionner_les_series(series: list[list[str]]) -> list[str]:
+#: En deçà, un rang d'exercice ; au-delà, une année civile.
+_PREMIERE_ANNEE_CIVILE = 1900
+
+
+def _rang_de_l_occurrence(segment: str) -> int | None:
+    """L'exercice que nomme une occurrence : « An3 : 8 040 € » → 3 ; sinon None.
+
+    Un seul rang lu, et seulement un RANG (« An 3 », « année 3 », « la
+    troisième année ») : une année civile ne dit pas son rang sans le premier
+    exercice. La lecture de l'année est celle du gate et du contrôle
+    inter-chapitres (`checks_evangeline.annees_citees`, règle 5).
+    """
+    from generation.checks_evangeline import annees_citees  # noqa: PLC0415
+
+    rangs = [annee for annee in annees_citees(segment) if annee < _PREMIERE_ANNEE_CIVILE]
+    return rangs[0] if len(rangs) == 1 else None
+
+
+def _fusionner_les_series(occurrences: list[tuple[str, list[str]]]) -> list[str]:
     """Les valeurs de chaque occurrence du libelle, bout a bout, sans redite.
 
     La trajectoire entiere etait dedoublonnee (`dict.fromkeys`) pour qu'un
     meme previsionnel cite dans deux champs du brief ne compte pas deux fois.
-    Mais une valeur qui se REPETE dans une meme ligne est une annee de plus :
-    « 50 € 8 040 € 23 224 € 23 224 € 23 224 € » (ÉCLORE, 29/09/2026) est un
-    resultat net sur CINQ exercices, et le dedoublonnage en faisait trois. Le
-    gate range chaque valeur a son exercice (« Résultat net 2031 » → 5ᵉ
-    valeur) : la position est une donnee, on ne la jette pas.
+    Mais une valeur qui se REPETE est une annee de plus : « 50 € 8 040 €
+    23 224 € 23 224 € 23 224 € » (ÉCLORE, 29/09/2026) est un resultat net sur
+    CINQ exercices, et le dedoublonnage en faisait trois. Le gate range chaque
+    valeur a son exercice (« Résultat net 2031 » → 5ᵉ valeur) : la position
+    est une donnee, on ne la jette pas.
 
-    Regle : une occurrence n'ajoute que les valeurs que les occurrences
-    PRECEDENTES n'ont pas deja donnees ; ses propres repetitions restent.
+    Regles, dans l'ordre :
+    - une occurrence IDENTIQUE a une precedente (le meme texte recopie dans
+      un autre champ) ne compte pas ;
+    - une occurrence qui nomme SON exercice (« - Résultat net An3 : 8 040 € »)
+      prend la place de cet exercice : ajoutee s'il suit le dernier connu,
+      ignoree s'il est deja renseigne. En puces, « An2 : 8 040 € » puis « An3 :
+      8 040 € » donnent deux exercices — le dedoublonnage par valeur perdait
+      l'An3 (revue du 29/09/2026) ;
+    - sinon, l'occurrence n'ajoute que les valeurs que les precedentes n'ont
+      pas deja donnees ; ses propres repetitions restent. C'est ce qui garde
+      « un CA de 250 272 € la première année » (résumé du projet) et le
+      tableau « 250 272 € 296 000 € 318 400 € » à TROIS exercices, et non
+      quatre — un quatrième exercice inventé ferait juger « CA 2030 » contre
+      une valeur qui n'existe pas.
     """
     valeurs: list[str] = []
-    for serie in series:
+    vues: set[str] = set()
+    for segment, serie in occurrences:
+        identite = " ".join(segment.split()).casefold()
+        if not serie or identite in vues:
+            continue
+        vues.add(identite)
+        rang = _rang_de_l_occurrence(segment) if len(serie) == 1 else None
+        if rang is not None and rang <= len(valeurs):
+            continue
+        if rang is not None and rang == len(valeurs) + 1:
+            valeurs.append(serie[0])
+            continue
         deja = set(valeurs)
         valeurs.extend(valeur for valeur in serie if valeur not in deja)
     return valeurs

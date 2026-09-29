@@ -18,13 +18,23 @@ dix, et le gate a jugé les deux conformes.
 La classe visée (règle 4) : une trajectoire ne prend JAMAIS les valeurs d'une
 autre ligne du même tableau, quel que soit le libellé de cette ligne — pas
 seulement la CAF.
+
+Et sa contre-épreuve, apprise le jour même (revue du 29/09/2026) : le premier
+correctif coupait au premier mot à majuscule ou au premier nom de poste après
+une valeur, et amputait sept formes courantes d'une trajectoire en prose
+(« 45 000 € hors taxes en 2027, 60 000 € … »). Un mot qui QUALIFIE une valeur
+n'ouvre pas une ligne.
 """
 from __future__ import annotations
 
 import pytest
 
 from core.numbers import amounts_in
-from intake.financials import enrich_variables_from_free_text, extract_financials_from_text
+from intake.financials import (
+    enrich_variables_from_free_text,
+    extract_financials_from_text,
+    raffiner_champs_financiers,
+)
 
 #: La forme de la réponse réelle : les lignes du compte de résultat bout à bout.
 #: Les montants de la CAF, des dotations et de l'EBE sont ceux du dossier.
@@ -143,3 +153,140 @@ def test_une_autre_grandeur_citee_apres_la_valeur_n_est_pas_une_annee() -> None:
     )
 
     assert amounts_in(lu["RESULTAT_NET_PREVISIONNEL"]) == [44_245.0]
+
+
+# ── Revue du 29/09/2026 : un qualificatif n'ouvre pas une ligne ─────────────
+#
+# Mesurées avant le premier correctif (5d1161c) et après : chacune de ces
+# formes perdait toutes ses valeurs sauf la première — la dernière, TOUTES.
+
+QUALIFICATIFS = [
+    pytest.param(
+        "Chiffre d'affaires prévisionnel : 45 000 € hors taxes en 2027, "
+        "60 000 € hors taxes en 2028, 80 000 € hors taxes en 2029",
+        "CA_PREVISIONNEL", [45_000.0, 60_000.0, 80_000.0], id="hors-taxes",
+    ),
+    pytest.param(
+        "CA prévisionnel : 45 000 € hors TVA en 2027, 60 000 € hors TVA en 2028",
+        "CA_PREVISIONNEL", [45_000.0, 60_000.0], id="hors-tva",
+    ),
+    pytest.param(
+        "Résultat net : 12 000 € avant impôts en 2027, 18 000 € avant impôts en 2028",
+        "RESULTAT_NET_PREVISIONNEL", [12_000.0, 18_000.0], id="avant-impots",
+    ),
+    pytest.param(
+        "Résultat net : 5 000 € en année 1 (après rémunération du dirigeant), "
+        "15 000 € en année 2",
+        "RESULTAT_NET_PREVISIONNEL", [5_000.0, 15_000.0], id="apres-remuneration",
+    ),
+    pytest.param(
+        # Le formulaire du business plan demande lui-même les majuscules.
+        "RÉSULTAT NET PRÉVISIONNEL : 12 000 € LA PREMIÈRE ANNÉE, 25 000 € LA DEUXIÈME ANNÉE",
+        "RESULTAT_NET_PREVISIONNEL", [12_000.0, 25_000.0], id="tout-en-majuscules",
+    ),
+    pytest.param(
+        "CA : 45 000 € en 2027 (Lancement), 60 000 € en 2028 (Développement)",
+        "CA_PREVISIONNEL", [45_000.0, 60_000.0], id="phase-entre-parentheses",
+    ),
+    pytest.param(
+        # Micro-crèche : la CAF finance le chiffre d'affaires.
+        "Chiffre d'affaires (financement CAF + familles) : 150 000 € en An1, "
+        "180 000 € en An2",
+        "CA_PREVISIONNEL", [150_000.0, 180_000.0], id="caf-avant-la-valeur",
+    ),
+]
+
+
+@pytest.mark.parametrize(("texte", "cle", "attendu"), QUALIFICATIFS)
+def test_un_qualificatif_n_ouvre_pas_une_ligne(
+    texte: str, cle: str, attendu: list[float]
+) -> None:
+    assert amounts_in(extract_financials_from_text(texte).get(cle, "")) == attendu
+
+
+def test_le_champ_structure_n_est_pas_ampute_a_la_relecture() -> None:
+    """`raffiner_champs_financiers` remplaçait le champ par la lecture amputée."""
+    variables: dict[str, object] = {
+        "CA_PREVISIONNEL": (
+            "Chiffre d'affaires prévisionnel : 45 000 € hors taxes en 2027, "
+            "60 000 € hors taxes en 2028, 80 000 € hors taxes en 2029"
+        ),
+    }
+
+    raffiner_champs_financiers(variables)
+
+    assert amounts_in(str(variables["CA_PREVISIONNEL"])) == [45_000.0, 60_000.0, 80_000.0]
+
+
+def test_la_caf_ferme_encore_apres_une_valeur() -> None:
+    """Contre-épreuve : la CAF qui SUIT les valeurs reste une autre ligne."""
+    lu = extract_financials_from_text("Résultat net 50 € 8 040 € CAF 662 € 8 652 €")
+
+    assert amounts_in(lu["RESULTAT_NET_PREVISIONNEL"]) == [50.0, 8_040.0]
+
+
+def test_une_perte_de_premiere_annee_garde_son_signe() -> None:
+    """« -3 000 € » se verrouillait « 3 000 € » : le gate refusait la vraie perte."""
+    lu = extract_financials_from_text(
+        "Résultat net : -3 000 € en 2027, 8 000 € en 2028, 15 000 € en 2029"
+    )
+
+    assert lu["RESULTAT_NET_PREVISIONNEL"] == "-3 000 € / 8 000 € / 15 000 €"
+
+
+def test_le_tiret_du_formulaire_n_est_pas_un_signe() -> None:
+    """Contre-épreuve : « 145 000 €- EBE … » garde son montant positif."""
+    lu = extract_financials_from_text(
+        "Résultat net prévisionnel 145 000 €- EBE prévisionnel 310 000 €"
+    )
+
+    assert lu["RESULTAT_NET_PREVISIONNEL"] == "145 000 €"
+
+
+# ── Revue du 29/09/2026 : chaque exercice nommé garde sa place ──────────────
+
+
+def test_deux_exercices_de_meme_valeur_en_puces_restent_deux() -> None:
+    """AVANT : « An3 : 8 040 € » disparaissait, 8 040 € étant déjà l'An2."""
+    lu = extract_financials_from_text(
+        "- Résultat net An1 : 50 €\n"
+        "- Résultat net An2 : 8 040 €\n"
+        "- Résultat net An3 : 8 040 €"
+    )
+
+    assert amounts_in(lu["RESULTAT_NET_PREVISIONNEL"]) == [50.0, 8_040.0, 8_040.0]
+
+
+def test_les_puces_recopiees_dans_un_autre_champ_ne_comptent_pas_double() -> None:
+    puces = "- Résultat net An1 : 50 €\n- Résultat net An2 : 8 040 €\n- Résultat net An3 : 8 040 €"
+    variables: dict[str, object] = {"PROJET": puces, "TABLEAUX_FINANCIERS": puces}
+
+    ajoutees = enrich_variables_from_free_text(variables)
+
+    assert amounts_in(ajoutees["RESULTAT_NET_PREVISIONNEL"]) == [50.0, 8_040.0, 8_040.0]
+
+
+@pytest.mark.parametrize(
+    "texte",
+    [
+        pytest.param(
+            "Le projet vise un CA prévisionnel de 250 272 € la première année.\n"
+            "Chiffre d'affaires 250 272 € 296 000 € 318 400 €",
+            id="resume-puis-tableau",
+        ),
+        pytest.param(
+            "Chiffre d'affaires 250 272 € 296 000 € 318 400 €\n"
+            "Le projet vise un CA prévisionnel de 250 272 € la première année.",
+            id="tableau-puis-resume",
+        ),
+    ],
+)
+def test_le_resume_du_projet_n_ajoute_pas_un_exercice(texte: str) -> None:
+    """Contre-épreuve : trois exercices, pas quatre.
+
+    Un quatrième exercice inventé (250 272 € répété) ferait juger « CA 2030 »
+    contre une valeur que la cliente n'a jamais donnée.
+    """
+    lu = extract_financials_from_text(texte)
+
+    assert amounts_in(lu["CA_PREVISIONNEL"]) == [250_272.0, 296_000.0, 318_400.0]

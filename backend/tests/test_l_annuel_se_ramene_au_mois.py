@@ -67,3 +67,32 @@ def test_une_division_fausse_est_signalee(texte: str) -> None:
 def test_une_division_juste_passe(texte: str) -> None:
     """Contre-épreuve : le correctif ne bloque pas ce qui est correct."""
     assert verifier(texte) == []
+
+
+# ── Revue du 29/09/2026 : une partie de l'année n'est pas l'année ───────────
+
+
+@pytest.mark.parametrize(
+    "texte",
+    [
+        pytest.param(
+            "90 000 € par an, soit 15 000 € par mois d'ouverture sur la saison de 6 mois.",
+            id="mois-d-ouverture",
+        ),
+        pytest.param("48 000 € par an, soit 12 000 € par mois d'été.", id="mois-d-ete"),
+        pytest.param("36 000 € par an, soit 2 769 € par mois sur 13 mois.", id="treize-mois"),
+        pytest.param(
+            "2 500 € par mois d'ouverture, soit 15 000 € par an.", id="dans-l-autre-sens",
+        ),
+    ],
+)
+def test_une_periode_restreinte_ne_se_juge_pas_au_calendrier(texte: str) -> None:
+    """AVANT : « calcul faux » sur une saison de six mois divisée par douze."""
+    assert verifier(texte) == []
+
+
+def test_douze_mois_dits_en_clair_se_jugent_encore() -> None:
+    """Contre-épreuve : « sur 12 mois » est l'année entière — 36 000 ÷ 12 = 3 000."""
+    assert [f.nature for f in verifier("36 000 € par an, soit 2 000 € par mois sur 12 mois.")] == [
+        "Projection",
+    ]
