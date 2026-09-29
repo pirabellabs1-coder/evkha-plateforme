@@ -91,7 +91,7 @@ def rapport_qualite(request: HttpRequest) -> JsonResponse:
             compte["motifs"] += len(trace.get("motifs") or [])
             compte["replis"] += 1 if trace.get("replie") else 0
             compte["titre_" + str(trace.get("titre") or "")] = 1
-            for motif in trace.get("motifs") or []:
+            for motif in [*(trace.get("motifs") or []), *(trace.get("signaux") or [])]:
                 par_famille[famille_du_motif(str(motif))] += 1
         for constat in (job.controle_final or {}).get("rendu_pdf") or []:
             par_constat[str(constat.get("controle") or "autre")] += 1

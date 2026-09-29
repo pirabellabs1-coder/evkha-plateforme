@@ -97,6 +97,7 @@ def test_le_redacteur_recoit_la_memoire() -> None:
     )
     assert "MÉMOIRE DE L'ÉTUDE" in prompt.par_job, "dans la partie mise en cache"
     assert "{{resultat_net_mensuel_an3}}" in prompt.par_job
+    assert "CHIFFRES — RAPPEL" in str(prompt), "le rappel en fin de consigne du chapitre"
 
 
 def test_les_reperes_sortent_en_valeurs() -> None:
@@ -139,3 +140,33 @@ def test_un_dossier_sans_memoire_garde_son_chemin() -> None:
     assert all("MÉMOIRE DE L'ÉTUDE" not in p for p in client.prompts)
     job.refresh_from_db()
     assert job.memoire_etude == {}
+
+
+class ClientQuiEcritEnClair:
+    """Écrit un dérivé en clair, sans autre défaut : le vrai modèle du 29/09/2026."""
+
+    def __init__(self) -> None:
+        self.appels = 0
+
+    def complete_structured(self, **kwargs: Any) -> StructuredResult:
+        self.appels += 1
+        contexte = f"{kwargs.get('system', '')}\n\n{kwargs['prompt']}"
+        charge = chapitre_de_demonstration(contexte)
+        blocs = list(charge["blocs"])  # type: ignore[call-overload]
+        blocs.append({"type": "paragraphe", "texte": "L'écart atteint 8 576,08 € sur la période."})
+        charge["blocs"] = blocs
+        return StructuredResult(payload=charge, input_tokens=10, output_tokens=10, model="stub")
+
+
+def test_un_chiffre_en_clair_seul_ne_fait_pas_reecrire_le_chapitre() -> None:
+    """Épreuve réelle `bf98827c` : 45 chiffres en clair, un dossier arrêté à 8 €."""
+    job = _dossier("f", memoire=True)
+    client = ClientQuiEcritEnClair()
+    chapitre = produire_avec_reprises(job, 16, client=client)
+    assert client.appels == 1, "un chiffre en clair seul ne paie pas une réécriture"
+    assert chapitre.etape == "valide"
+    job.refresh_from_db()
+    trace = job.memoire_etude["chapitres"]["16"]
+    assert any("8 576,08" in s for s in trace["signaux"])
+    assert trace["motifs"] == []
+

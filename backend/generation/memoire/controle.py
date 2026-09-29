@@ -49,6 +49,18 @@ class Controle:
     """Le verdict sur un chapitre : les motifs de reprise, et ce qui a été vu."""
 
     motifs: list[str] = field(default_factory=list)
+    #: Ce qui ne fait PAS reprendre un chapitre à soi seul : un chiffre écrit
+    #: en clair. Il accompagne une reprise déjà décidée pour un motif grave.
+    #:
+    #: Épreuve réelle du 29/09/2026 (reprise ÉCLORE `bf98827c`, mémoire
+    #: active) : le modèle a cité 10 repères en 18 chapitres et écrit le reste
+    #: en clair ; 45 motifs « chiffre écrit en clair » ont fait réécrire presque
+    #: chaque chapitre deux ou trois fois, et le dossier s'est arrêté sur son
+    #: plafond de 8 € au chapitre 16. Les motifs graves du même dossier —
+    #: séries confondues (7), TVA « par choix » (2), date contredite (1) —
+    #: justifient une reprise ; un chiffre en clair, non. C'est l'arbitrage déjà
+    #: tranché pour les figures (`_motifs_de_figure`, 12/09/2026).
+    signaux: list[str] = field(default_factory=list)
     reperes_utilises: list[str] = field(default_factory=list)
     reperes_inconnus: list[str] = field(default_factory=list)
     #: Ce que le contrôle a examiné — jamais « rien à signaler » sans dire quoi
@@ -196,7 +208,7 @@ def controler_le_chapitre(
             continue
         libres.append(ecriture)
     for ecriture in sorted(set(libres)):
-        controle.motifs.append(
+        controle.signaux.append(
             f"Chiffre écrit en clair « {ecriture} » : ni un fait de la mémoire ni une "
             "réponse du client — c'est un calcul ou une invention. Cite le repère du fait "
             "voulu ({{…}}), ou retire le chiffre."

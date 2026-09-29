@@ -64,12 +64,17 @@ def test_un_chapitre_qui_cite_ses_reperes_passe() -> None:
     assert controle.verifie, "un contrôle dit toujours ce qu'il a examiné"
 
 
-def test_un_chiffre_calcule_par_le_modele_est_refuse() -> None:
-    """« 8 576,08 € » : un dérivé écrit en clair, ni fait ni réponse du client."""
+def test_un_chiffre_calcule_par_le_modele_est_signale_sans_faire_reprendre() -> None:
+    """« 8 576,08 € » : un dérivé écrit en clair — SIGNALÉ, pas un motif de reprise.
+
+    Épreuve réelle du 29/09/2026 (`bf98827c`) : faire reprendre chaque chapitre
+    pour ses chiffres en clair a épuisé le plafond de 8 € au chapitre 16.
+    """
     controle = controler_le_chapitre(
         _chapitre("L'écart atteint 8 576,08 € sur la période."), _memoire()
     )
-    assert any("8 576,08 €" in m for m in controle.motifs)
+    assert any("8 576,08 €" in m for m in controle.signaux)
+    assert controle.motifs == []
 
 
 def test_un_chiffre_juste_ecrit_en_clair_passe() -> None:

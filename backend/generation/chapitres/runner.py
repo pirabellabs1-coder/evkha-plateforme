@@ -1843,6 +1843,21 @@ def construire_prompt_chapitre(
         ),
     ]
 
+    if memoire is not None:
+        # Le rappel, EN FIN de consigne, là où le modèle le lit le mieux.
+        # Épreuve réelle du 29/09/2026 (`bf98827c`) : la mémoire n'était que
+        # dans la partie du dossier, et le modèle a cité 10 repères en 18
+        # chapitres, écrivant le reste en clair.
+        blocs.append(
+            "CHIFFRES — RAPPEL : écris chaque chiffre du projet par son repère de la "
+            "MÉMOIRE DE L'ÉTUDE, par exemple {{ca_previsionnel_an1}} ou "
+            "{{resultat_net_mensuel_an3}} ; le rendu posera la valeur exacte. Tu peux "
+            "citer en clair une réponse du client telle qu'il l'a écrite. Tout autre "
+            "chiffre (écart, part, moyenne, total) : prends le repère de la mémoire, "
+            "ne le calcule pas. Une série n'en remplace jamais une autre (le résultat "
+            "net n'est pas la CAF)."
+        )
+
     if motifs_precedents:
         # La même consigne que la chaîne HTML, écrite une seule fois
         # (`meta_discours`). Elle annonçait ici « TENTATIVE PRÉCÉDENTE
@@ -2023,11 +2038,12 @@ def generer_chapitre(
 
     brut: Any = dict(resultat.payload)
     motifs_memoire: list[str] = []
+    signaux_memoire: list[str] = []
     from ..memoire.services import memoire_du_job  # noqa: PLC0415
 
     memoire = memoire_du_job(job)
     if memoire is not None:
-        brut, motifs_memoire = _passer_par_la_memoire(
+        brut, motifs_memoire, signaux_memoire = _passer_par_la_memoire(
             brut, memoire, variables, chapter=chapter,
             derniere_tentative=derniere_tentative,
         )
@@ -2105,6 +2121,10 @@ def generer_chapitre(
     # chapitre est TOUJOURS validé.
     motifs.extend(motifs_memoire)
     if motifs:
+        # Les SIGNAUX de la mémoire (chiffres en clair) voyagent avec une
+        # reprise déjà décidée, comme les motifs de figure : ils ne coûtent
+        # alors rien de plus.
+        motifs.extend(signaux_memoire)
         motifs.extend(motifs_de_figure)
         raise ChapitreInvalideError(motifs, consommation)
     if motifs_de_figure:
@@ -2139,7 +2159,7 @@ def _passer_par_la_memoire(
     *,
     chapter: ChapterGeneration,
     derniere_tentative: bool | None,
-) -> tuple[Any, list[str]]:
+) -> tuple[Any, list[str], list[str]]:
     """Contrôle un chapitre contre la mémoire, puis écrit ses repères en valeurs.
 
     Rend le chapitre prêt à valider, et les motifs qui doivent le faire
@@ -2176,6 +2196,7 @@ def _passer_par_la_memoire(
         "reperes": sorted(set(utilises)),
         "verifie": controle.verifie,
         "motifs": controle.motifs,
+        "signaux": controle.signaux,
         "replie": dernier and bool(controle.motifs),
         # Les questions du client que ce chapitre exploite (mesure, pour le
         # rapport interne : une réponse qu'aucun chapitre n'exploite s'y voit).
@@ -2191,8 +2212,8 @@ def _passer_par_la_memoire(
                 "Chapitre %s : validé au dernier essai malgré %s motif(s) de mémoire — %s",
                 chapter.chapter_number, len(controle.motifs), " | ".join(controle.motifs)[:400],
             )
-        return rendu, []
-    return rendu, list(controle.motifs)
+        return rendu, [], []
+    return rendu, list(controle.motifs), list(controle.signaux)
 
 
 def _motifs_de_figure(
