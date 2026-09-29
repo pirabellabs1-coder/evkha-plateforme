@@ -468,6 +468,18 @@ export interface Suivi {
   etapes: EtapeSuivi[];
   fichiers: { kind: string; statut: string; url: string }[];
   fichiers_etat?: EtatDesFichiers;
+  /** Les chapitres ANNONCÉS du plan, avec leur étape en direct. Absent d'un
+   *  serveur d'avant le 29/09/2026 : l'écran se tait alors. */
+  chapitres?: ChapitreEnDirect[];
+}
+
+/** Un chapitre du plan et son étape, posée par la boucle de production. */
+export interface ChapitreEnDirect {
+  numero: number;
+  titre: string;
+  etape: "" | "redaction" | "verification" | "ajustement" | "valide";
+  /** Le chapitre a été repris au moins une fois avant d'être validé. */
+  ajuste: boolean;
 }
 
 export interface Membre {

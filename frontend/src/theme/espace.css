@@ -3551,3 +3551,92 @@
 .assistance-quitter:focus-visible {
   background: color-mix(in srgb, var(--evkha-blanc) 16%, transparent);
 }
+
+/* ── Chapitres en direct (29/09/2026) ─────────────────────────────────────
+ * Chaque chapitre du plan, avec son étape posée par la boucle de production.
+ * Jetons seulement : couleurs et durées viennent de tokens.css. */
+.chapitres-direct {
+  margin-top: var(--e-4);
+  border-top: 1px solid var(--evkha-bordure);
+  padding-top: var(--e-3);
+}
+
+.chapitres-direct-compte {
+  margin: 0 0 var(--e-2);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+}
+
+.chapitres-direct-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--e-1);
+}
+
+.chapitre-direct {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  align-items: center;
+  gap: var(--e-2);
+  padding: var(--e-1) var(--e-2);
+  border-radius: var(--rayon-pilule);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  transition: background-color var(--duree-micro) var(--ease-doux);
+}
+
+.chapitre-direct-numero {
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-tenu);
+  text-align: right;
+}
+
+.chapitre-direct-titre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.chapitre-direct-etape {
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texte-tenu);
+  white-space: nowrap;
+}
+
+.chapitre-direct-redaction,
+.chapitre-direct-verification,
+.chapitre-direct-ajustement {
+  background: var(--evkha-or-voile);
+  color: var(--texte-fort);
+}
+
+.chapitre-direct-redaction .chapitre-direct-etape,
+.chapitre-direct-verification .chapitre-direct-etape,
+.chapitre-direct-ajustement .chapitre-direct-etape {
+  color: var(--evkha-or-fonce);
+}
+
+.chapitre-direct-valide .chapitre-direct-etape {
+  color: var(--evkha-succes);
+}
+
+@media (max-width: 600px) {
+  .chapitre-direct {
+    grid-template-columns: 1.5rem 1fr;
+  }
+  .chapitre-direct-etape {
+    grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapitre-direct {
+    transition: none;
+  }
+}
+

@@ -37,6 +37,7 @@ import { espaceApi, type EtapeSuivi, type Suivi } from "../api";
 import * as f from "../format";
 import { LIBELLE_ETAT, delaiAnnonce, liaison } from "../suivi";
 import { Bandeau, Carte, Squelette } from "../composants/Interface";
+import { ChapitresEnDirect } from "../composants/ChapitresEnDirect";
 
 /** Le médaillon d'un jalon.
  *
@@ -193,9 +194,11 @@ export function SuiviLivrable() {
   const { data, isPending } = useQuery({
     queryKey: ["espace", "suivi", jobId],
     queryFn: () => espaceApi.suivi(jobId),
-    // Rafraîchissement uniquement tant que l'étude est en production.
+    // Rafraîchissement uniquement tant que l'étude est en production — toutes
+    // les quatre secondes : chaque chapitre passe par trois étapes, et dix
+    // secondes en laissaient filer (29/09/2026).
     refetchInterval: (requete) =>
-      requete.state.data?.en_production ? 10_000 : false,
+      requete.state.data?.en_production ? 4_000 : false,
   });
 
   const abandon = useMutation({
@@ -281,6 +284,9 @@ export function SuiviLivrable() {
           pendant que rien ne disait où en était réellement l'étude (règle 5). */}
       <Carte titre="Où en est votre étude">
         <Frise suivi={data} />
+        {data.chapitres && data.chapitres.length > 0 && (
+          <ChapitresEnDirect chapitres={data.chapitres} />
+        )}
       </Carte>
 
       {data.fichiers.length > 0 && (
