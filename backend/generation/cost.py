@@ -10,12 +10,38 @@ from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .models import ChapterGeneration, ChapterStatus, GenerationJob, SocleDonnees
 
-# Tarifs indicatifs EUR par token (input, output), configurables par modele (M4).
-# A verifier/ajuster avec la grille Anthropic en vigueur. Le modele actif est
-# choisi via EVKHA_CLAUDE_MODEL.
+#: Tarifs publics d'Anthropic, en USD par million de jetons (entrée, sortie),
+#: relevés sur https://platform.claude.com/docs/en/about-claude/pricing le
+#: 29/09/2026. LA SEULE TABLE : les tarifs en euros en dérivent.
+#:
+#: Elle ne connaissait que deux FAMILLES, « sonnet » à 3 $ / 15 $ et « opus » à
+#: 15 $ / 75 $ (le tarif d'Opus 4.1). Or la production tourne sur
+#: `claude-sonnet-5`, facturé 2 $ / 10 $ — tarif désormais définitif, la hausse
+#: annoncée au 01/09/2026 n'a pas eu lieu. Chaque dossier était donc compté
+#: 50 % au-dessus de sa facture, et le plafond coupait sur ce compte : la
+#: reprise ÉCLORE `bf98827c` s'est arrêtée à « 8,12 € » pour une dépense
+#: réelle d'environ 5,41 €. Un modèle Haiku, lui, faisait planter le calcul.
+_TARIFS_USD_PAR_MTOK: dict[str, tuple[Decimal, Decimal]] = {
+    "claude-sonnet-5-5": (Decimal("2"), Decimal("10")),
+    "claude-sonnet-5": (Decimal("2"), Decimal("10")),
+    "claude-sonnet-4-6": (Decimal("3"), Decimal("15")),
+    "claude-sonnet-4-5": (Decimal("3"), Decimal("15")),
+    "claude-opus-5-5": (Decimal("4"), Decimal("20")),
+    "claude-opus-5": (Decimal("5"), Decimal("25")),
+    "claude-opus-4-8": (Decimal("5"), Decimal("25")),
+    "claude-opus-4-7": (Decimal("5"), Decimal("25")),
+    "claude-opus-4-6": (Decimal("5"), Decimal("25")),
+    "claude-opus-4-5": (Decimal("5"), Decimal("25")),
+    "claude-haiku-4-5": (Decimal("1"), Decimal("5")),
+}
+#: Conversion retenue par le projet depuis juillet 2026 (2,70 € pour 3 $) : les
+#: plafonds sont en euros, la facture d'Anthropic en dollars.
+EUR_PAR_USD = Decimal("0.90")
+
+#: Tarifs en EUR PAR JETON (entrée, sortie), par identifiant de modèle.
 MODEL_PRICING_EUR: dict[str, tuple[Decimal, Decimal]] = {
-    "claude-sonnet": (Decimal("0.0000027"), Decimal("0.0000135")),
-    "claude-opus": (Decimal("0.0000135"), Decimal("0.0000675")),
+    modele: (entree * EUR_PAR_USD / 1_000_000, sortie * EUR_PAR_USD / 1_000_000)
+    for modele, (entree, sortie) in _TARIFS_USD_PAR_MTOK.items()
 }
 _FALLBACK_MODEL = "claude-sonnet"
 
@@ -59,14 +85,18 @@ def _pricing(model: str | None) -> tuple[Decimal, Decimal]:
         or getattr(settings, "EVKHA_ANTHROPIC_MODEL_ID", "")
         or getattr(settings, "EVKHA_CLAUDE_MODEL", _FALLBACK_MODEL)
     ).lower()
-    if key in MODEL_PRICING_EUR:
-        return MODEL_PRICING_EUR[key]
-    # Resolution par famille : le tarif le PLUS CHER qui correspond, pour ne
-    # jamais sous-estimer le cout reel.
+    # L'identifiant exact, ou suivi d'une date (« claude-sonnet-5-20260801 ») :
+    # le plus long connu d'abord, pour que `claude-sonnet-5-5` ne soit pas lu
+    # comme `claude-sonnet-5`.
+    for modele in sorted(MODEL_PRICING_EUR, key=len, reverse=True):
+        if key == modele or key.startswith(modele + "-"):
+            return MODEL_PRICING_EUR[modele]
+    # Alias (« claude-sonnet ») ou version inconnue : le tarif le PLUS CHER de
+    # la famille, pour ne jamais sous-estimer le cout reel.
     for family in ("opus", "sonnet", "haiku"):
         if family in key:
-            return MODEL_PRICING_EUR[f"claude-{family}"]
-    return MODEL_PRICING_EUR[_FALLBACK_MODEL]
+            return max(t for m, t in MODEL_PRICING_EUR.items() if family in m)
+    return max(MODEL_PRICING_EUR.values())
 
 
 def estimate_call_cost_eur(

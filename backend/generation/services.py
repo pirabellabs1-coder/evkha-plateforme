@@ -58,7 +58,9 @@ _SUPPORTED_DELIVERABLES = frozenset(
 # (-0,22), EVKHA_THINKING_BUDGET_TOKENS=0 (-0,41).
 #
 # Revision 05/08/2026 — les quatre budgets releves d'environ 30 % pour la
-# bascule vers claude-sonnet-5. Ce n'est PAS une hausse de tarif : Sonnet 5 est
+# bascule vers claude-sonnet-5. [Relevé du 29/09/2026 : Sonnet 5 est facturé
+# 2 $ / 10 $, pas 3 $ / 15 $ — le paragraphe qui suit se trompait de tarif ;
+# la seule table est `cost._TARIFS_USD_PAR_MTOK`.] Ce n'est PAS une hausse de tarif : Sonnet 5 est
 # facture au meme prix que Sonnet 4.6 (3 $ / 15 $ par million de tokens). C'est
 # un changement de TOKENIZER — le meme texte y compte environ 30 % de tokens en
 # plus. A budget inchange, le throttle aurait donc rabote max_tokens sur les
