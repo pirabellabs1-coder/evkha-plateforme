@@ -235,6 +235,7 @@ def controler_le_chapitre(
 
     _controler_les_series(brut, memoire, controle)
     _controler_les_dates(brut, memoire, controle)
+    _controler_les_tableaux(payload, controle)
     plan = set(chapitres_du_plan)
     if plan:
         controle.verifie.append("renvois confrontés au plan")
@@ -419,3 +420,107 @@ def _sans_blocs_vides(valeur: Any) -> Any:
     if isinstance(valeur, dict):
         return {k: _sans_blocs_vides(v) for k, v in valeur.items()}
     return valeur
+
+# ── Tableaux : les identités du compte de résultat, colonne par colonne ──────
+
+#: Les lignes qu'on sait reconnaître, et leur rôle dans les identités.
+_LIGNES_DU_COMPTE: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("ca", re.compile(r"(?i)^\s*(chiffre d.affaires|CA)\b(?!.*(cumul|mensuel|%))")),
+    ("charges", re.compile(r"(?i)^\s*(total des charges|charges d.exploitation|total charges)\b")),
+    ("ebe", re.compile(r"(?i)^\s*(EBE|exc[ée]dent brut d.exploitation)\b")),
+    ("dotations", re.compile(r"(?i)^\s*dotations?\b")),
+    ("impots", re.compile(r"(?i)^\s*(imp[ôo]ts?|IS\b|imp[ôo]t sur les soci[ée]t[ée]s)")),
+    ("resultat_net", re.compile(r"(?i)^\s*r[ée]sultat net\b")),
+    ("caf", re.compile(r"(?i)^\s*(CAF|capacit[ée] d.autofinancement)\b")),
+)
+
+
+def _tableaux(valeur: Any) -> Iterable[dict[str, Any]]:
+    if isinstance(valeur, dict):
+        if isinstance(valeur.get("lignes"), list) and isinstance(valeur.get("entetes"), list):
+            yield valeur
+        for v in valeur.values():
+            yield from _tableaux(v)
+    elif isinstance(valeur, list):
+        for v in valeur:
+            yield from _tableaux(v)
+
+
+def _montant_de_cellule(cellule: object) -> float | None:
+    trouves = nombres_du_texte(str(cellule))
+    if len(trouves) != 1 or trouves[0][2] not in ("€", "k€", "M€", "Md€", None):
+        return None
+    return trouves[0][1]
+
+
+def _egal(a: float, b: float) -> bool:
+    return abs(a - b) <= max(1.0, abs(b) * 0.005)
+
+
+def _controler_les_tableaux(payload: Any, controle: Controle) -> None:
+    """Un compte de résultat se vérifie ligne à ligne : ses identités tiennent, ou non.
+
+    29/09/2026, business plan ÉCLORE : « CA − charges ≠ résultat » en 2028 et
+    2029, dans un tableau écrit par le modèle. Aucun contrôle ne refaisait une
+    soustraction. On vérifie, pour chaque colonne où les lignes existent :
+    CAF = résultat net + dotations ; EBE = CA − total des charges ; résultat
+    net = EBE − dotations − impôts (seulement si la ligne d'impôt est là : sans
+    elle, on ne sait pas si l'impôt est nul ou omis).
+    """
+    controle.verifie.append("identités des comptes de résultat")
+    for tableau in _tableaux(payload):
+        lignes: dict[str, list[object]] = {}
+        for ligne in tableau["lignes"]:
+            if not isinstance(ligne, list) or not ligne:
+                continue
+            for role, motif in _LIGNES_DU_COMPTE:
+                if role not in lignes and motif.search(str(ligne[0])):
+                    lignes[role] = ligne[1:]
+                    break
+        if len(lignes) < 3:
+            continue
+        entetes = [str(e) for e in tableau["entetes"][1:]]
+        largeur = max(len(v) for v in lignes.values())
+        for colonne in range(largeur):
+            valeurs = {role: _cellule(lignes, role, colonne) for role, _ in _LIGNES_DU_COMPTE}
+            nom = entetes[colonne] if colonne < len(entetes) else f"colonne {colonne + 1}"
+            ecarts = _ecarts_d_identite(valeurs)
+            for ecart in ecarts:
+                controle.motifs.append(
+                    f"Compte de résultat qui ne boucle pas, {nom} : "
+                    f"{ecart.replace(',', ' ')}. Reprends les valeurs de la mémoire "
+                    "(repères) : elles bouclent par construction."
+                )
+
+
+def _cellule(lignes: dict[str, list[object]], role: str, colonne: int) -> float | None:
+    cellules = lignes.get(role)
+    if cellules is None or colonne >= len(cellules):
+        return None
+    return _montant_de_cellule(cellules[colonne])
+
+
+def _ecarts_d_identite(v: dict[str, float | None]) -> list[str]:
+    """Les identités du compte de résultat qui ne tiennent pas sur une colonne."""
+    ca, charges, ebe = v["ca"], v["charges"], v["ebe"]
+    dotations, impots = v["dotations"], v["impots"]
+    resultat, caf = v["resultat_net"], v["caf"]
+    ecarts = []
+    if caf is not None and resultat is not None and dotations is not None:
+        if not _egal(caf, resultat + dotations):
+            ecarts.append(
+                f"CAF ({caf:,.0f}) ≠ résultat net ({resultat:,.0f}) + dotations ({dotations:,.0f})"
+            )
+    if ca is not None and charges is not None and ebe is not None:
+        if not _egal(ebe, ca - charges):
+            ecarts.append(f"EBE ({ebe:,.0f}) ≠ CA ({ca:,.0f}) − charges ({charges:,.0f})")
+    if None not in (ebe, dotations, impots, resultat):
+        assert ebe is not None and dotations is not None
+        assert impots is not None and resultat is not None
+        if not _egal(resultat, ebe - dotations - impots):
+            ecarts.append(
+                f"résultat net ({resultat:,.0f}) ≠ EBE ({ebe:,.0f}) − dotations "
+                f"({dotations:,.0f}) − impôts ({impots:,.0f})"
+            )
+    return ecarts
+

@@ -230,3 +230,48 @@ def test_une_annee_de_l_autre_borne_ne_date_pas_l_evenement() -> None:
     phrase = "Le plan court du pilote de janvier 2027 au passage à temps plein."
     assert controler_le_chapitre(_chapitre(phrase), memoire).motifs == []
 
+
+
+# ── Tableaux : un compte de résultat qui ne boucle pas (ÉCLORE, défaut n° 3) ──
+
+
+def _compte(ca: str, charges: str, ebe: str, dot: str, rn: str, caf: str) -> dict[str, Any]:
+    return {"blocs": [{"type": "tableau", "tableau": {
+        "entetes": ["Poste", "2028"],
+        "lignes": [
+            ["Chiffre d'affaires", ca], ["Total des charges", charges], ["EBE", ebe],
+            ["Dotations aux amortissements", dot], ["Résultat net", rn],
+            ["Capacité d'autofinancement", caf],
+        ],
+    }}]}
+
+
+def test_un_compte_de_resultat_qui_ne_boucle_pas_est_refuse() -> None:
+    controle = controler_le_chapitre(
+        _compte("51 132 €", "42 000 €", "9 132 €", "612 €", "8 040 €", "9 500 €"), _memoire()
+    )
+    assert any("CAF" in m and "ne boucle pas" in m for m in controle.motifs)
+
+
+def test_un_ebe_faux_est_refuse() -> None:
+    controle = controler_le_chapitre(
+        _compte("51 132 €", "42 000 €", "12 000 €", "612 €", "11 388 €", "12 000 €"), _memoire()
+    )
+    assert any("EBE" in m and "ne boucle pas" in m for m in controle.motifs)
+
+
+def test_un_compte_de_resultat_juste_passe() -> None:
+    """Contre-épreuve : 51 132 − 42 000 = 9 132 ; 8 040 + 612 = 8 652."""
+    controle = controler_le_chapitre(
+        _compte("51 132 €", "42 000 €", "9 132 €", "612 €", "8 040 €", "8 652 €"), _memoire()
+    )
+    assert not [m for m in controle.motifs if "ne boucle pas" in m]
+
+
+def test_un_tableau_en_reperes_n_est_pas_recalcule() -> None:
+    """Des repères bouclent par construction : rien à refaire."""
+    controle = controler_le_chapitre(
+        _compte("{{ca_previsionnel_an2}}", "42 000 €", "9 132 €", "612 €",
+                "{{resultat_net_an2}}", "{{caf_an2}}"), _memoire(),
+    )
+    assert not [m for m in controle.motifs if "ne boucle pas" in m]
