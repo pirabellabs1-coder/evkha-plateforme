@@ -157,7 +157,16 @@ def montant_lisible(valeur: float, unite: str) -> str:
     magnitude, devise = decompose
     symbole = _SYMBOLE_DEVISE.get(devise, devise)
     if magnitude:
-        # Déjà exprimée à une échelle (`MdEUR`) : la valeur lui correspond.
+        # Déjà exprimée à une échelle (`MdEUR`) : la valeur lui correspond —
+        # sauf si elle est PETITE devant elle. 0,0003 MdEUR s'écrivait
+        # « 0 Md€ » (trois décimales au plus) : le modèle lisait « SOM = 0 Md€ »
+        # dans son prompt, et l'annexe imprimait un faux zéro (29/09/2026,
+        # rendu du business plan ÉCLORE). On repasse alors par l'unité de base,
+        # et la boucle ci-dessous choisit l'échelle qui ne perd rien.
+        if valeur != 0 and (abs(valeur) < 1 or round(valeur, 3) != valeur):
+            en_base = valeur_en_unites_de_base(valeur, unite)
+            if en_base is not None:
+                return montant_lisible(en_base[0], devise)
         return f"{_nombre_francais(valeur)} {magnitude}{symbole}"
 
     for seuil, prefixe in _ECHELLES:
