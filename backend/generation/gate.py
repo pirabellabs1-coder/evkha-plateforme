@@ -2239,6 +2239,7 @@ def _check_texte_francais(
         detecter_caracteres_etrangers,
         detecter_chapitres_desaccentues,
         detecter_lettres_doublees,
+        detecter_mots_anglais,
     )
 
     failures = [
@@ -2264,6 +2265,17 @@ def _check_texte_francais(
             detail=str(trouve),
         )
         for trouve in detecter_lettres_doublees(sections)
+    )
+    # « already financé » (business plan ÉCLORE, 29/09/2026, p. 67) : un mot
+    # anglais que la réparation n'a pas pu remplacer sans risque reste signalé
+    # ici, et la relecture finale fait réécrire son chapitre.
+    failures.extend(
+        GateFailure(
+            check="mot_anglais",
+            chapter_number=trouve.chapitre,
+            detail=str(trouve),
+        )
+        for trouve in detecter_mots_anglais(sections)
     )
     return failures
 
