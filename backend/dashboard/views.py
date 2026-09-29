@@ -508,6 +508,11 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
     except (json.JSONDecodeError, ValueError):
         corps_requete = {}
     sans_envoi = isinstance(corps_requete, dict) and corps_requete.get("sans_envoi") is True
+    # `{"memoire": true}` : la reprise passe par la mémoire de l'étude
+    # (`generation/memoire/`), même quand le réglage global est coupé. C'est
+    # l'épreuve réelle de la mémoire sur UN dossier, à nos frais, avant de
+    # l'ouvrir aux commandes des clients (29/09/2026).
+    avec_memoire = isinstance(corps_requete, dict) and corps_requete.get("memoire") is True
 
     commande = Order.objects.create(
         customer=job.order.customer,
@@ -533,6 +538,9 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
 
     try:
         nouveau = bootstrap_generation_job(reprise)
+        if avec_memoire and not nouveau.memoire_active:
+            GenerationJob.objects.filter(pk=nouveau.pk).update(memoire_active=True)
+            nouveau.memoire_active = True
         run_generation_job_task.delay(str(nouveau.id))
     except Exception:
         import logging  # noqa: PLC0415
@@ -549,6 +557,7 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
             "budget_eur": str(nouveau.budget_eur),
             "variables_reprises": len(reprise.normalized_variables),
             "sans_envoi": sans_envoi,
+            "memoire": nouveau.memoire_active,
         },
         status=202,
     )
