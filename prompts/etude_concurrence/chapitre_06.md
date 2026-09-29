@@ -11,7 +11,7 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Chiffrer le poids des 11 concurrents (8 directs, 3 indirects) : chiffres d'affaires ou volumes d'activité, parts de marché locales, positionnement du projet objective. Données fiables si elles existent, estimations argumentées sinon, lecture exploitable en business plan et dossier bancaire. Grille identique pour directs et indirects, liste figee du chapitre 1.
+Chiffrer le poids des 11 concurrents (8 directs, 3 indirects) : chiffres d'affaires ou volumes d'activité, parts de marché locales, positionnement du projet objective. Données fiables si elles existent, estimations argumentées sinon, lecture exploitable en business plan et dossier bancaire. Grille identique pour directs et indirects, liste figée du {{ renvoi_identification }}.
 
 ## Extraction des chiffres d'affaires connus
 Pour chaque acteur : CA publie ou estime, année, source (site officiel, base professionnelle, presse), fiabilité (certifie / estime / inconnu). Privilegie les sources officielles, distingue CA publies et estimes, signale les particularites de périmètre (groupe contre filiale). CA non public : indique-le, précise qu'il sera estime ensuite, sans inventer de chiffre ici.

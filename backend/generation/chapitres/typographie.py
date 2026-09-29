@@ -42,12 +42,35 @@ celle que `core/numbers.py` a appris à lire à ses dépens : une liste fermée
 d'espaces admises a déjà coûté un blocage sur un document juste. On écrit donc
 celle du traitement de texte, pas une espace ordinaire qui laisserait la
 ponctuation passer à la ligne seule.
+
+## La langue, depuis le 29/09/2026
+
+Business plan ÉCLORE (dossier `cb59cede`, 29/09/2026, moteur structuré) :
+« already financé » p. 67, « se accroît » p. 7, « MEUR » et « EUR » dans le
+texte. Aucun outil d'orthographe dans la chaîne, et la décision D4 du
+diagnostic écarte l'API publique : les contrôles sont internes, et RÉPARÉS au
+rendu. Trois familles, chacune restreinte à ses cas SÛRS — la règle 2 vaut
+pour une réparation comme pour un contrôle :
+
+1. l'élision (« se accroît » → « s'accroît »), seulement devant une voyelle
+   minuscule ou un h muet d'une liste close, jamais devant « ou », « et »,
+   « onze », « oui », et jamais « le un » ni « la une » ;
+2. les mots anglais qu'un modèle laisse filer (« already », « however »…),
+   remplacés quand l'équivalent est sans ambiguïté, et seulement hors d'une
+   phrase anglaise (un titre de publication cité reste intact) ;
+3. les codes d'unité de stockage (`MEUR`, `kEUR`, « 12 EUR », « unite »),
+   traduits par `socle.schema.unite_lisible` — la même fonction que le socle
+   et le rendu, pas une seconde table (règle 5).
+
+Ces réparations ne touchent jamais un champ d'identifiants (`donnees_ids`) :
+un identifiant n'est pas de la prose.
 """
 from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Any
+from functools import lru_cache
+from typing import Any, NamedTuple
 
 #: Espace fine insécable — celle de Word en français (U+202F).
 FINE_INSECABLE = " "
@@ -144,8 +167,13 @@ def purger_les_invisibles(texte: str) -> str:
 _TRAIT_EXOTIQUE = re.compile(r"(?<=[^\W\d_])[‐‑‒–](?=[^\W\d_])")
 
 
-def reparer_texte(texte: str) -> str:
-    """Texte aux espaces normalisées. Idempotente : la rejouer ne change rien."""
+def reparer_texte(texte: str, *, prose: bool = True) -> str:
+    """Texte aux espaces normalisées. Idempotente : la rejouer ne change rien.
+
+    `prose=False` s'arrête à la typographie : un identifiant n'a ni élision,
+    ni mot anglais, ni unité à traduire, et le toucher le rendrait introuvable
+    au rendu.
+    """
     if not texte:
         return texte
     corrige = purger_les_invisibles(texte)
@@ -153,7 +181,14 @@ def reparer_texte(texte: str) -> str:
     corrige = _ESPACES_MULTIPLES.sub(" ", corrige)
     corrige = _AVANT_SIMPLE.sub(r"\1", corrige)
     corrige = _DEJA_ESPACEE.sub(rf"{FINE_INSECABLE}\1", corrige)
-    return _AVANT_DOUBLE.sub(rf"\1{FINE_INSECABLE}\2", corrige)
+    corrige = _AVANT_DOUBLE.sub(rf"\1{FINE_INSECABLE}\2", corrige)
+    return reparer_langue(corrige) if prose else corrige
+
+
+#: Les champs du contrat qui portent des IDENTIFIANTS, pas de la prose. La
+#: typographie s'y applique (un caractère invisible dans un identifiant le rend
+#: introuvable), la langue jamais.
+_CHAMPS_IDENTIFIANTS = frozenset({"donnees_ids"})
 
 
 def reparer_typographie(payload: Any) -> int:
@@ -164,16 +199,21 @@ def reparer_typographie(payload: Any) -> int:
     l'entraînement du prompt sert à quelque chose ou si la réparation masque
     simplement le problème (règle 9 — ne pas juger et réparer sur la même
     évidence sans le dire).
+
+    L'accroche est réparée elle aussi depuis le 29/09/2026 : elle est imprimée
+    dans le bandeau du chapitre (`rendu_word.composants`), donc lue — et elle
+    était le seul texte du chapitre que cette passe ne voyait pas.
     """
     retouches = 0
     for bloc in getattr(payload, "blocs", ()) or ():
         retouches += _reparer_modele(bloc)
-    resume = getattr(payload, "resume", None)
-    if isinstance(resume, str):
-        corrige = reparer_texte(resume)
-        if corrige != resume:
-            payload.resume = corrige
-            retouches += 1
+    for champ in ("accroche", "resume"):
+        texte = getattr(payload, champ, None)
+        if isinstance(texte, str):
+            corrige = reparer_texte(texte)
+            if corrige != texte:
+                setattr(payload, champ, corrige)
+                retouches += 1
     return retouches
 
 
@@ -191,25 +231,410 @@ def _reparer_modele(modele: Any) -> int:
     retouches = 0
     for nom in champs:
         valeur = getattr(modele, nom, None)
-        corrige, compte = _reparer_valeur(valeur)
+        corrige, compte = _reparer_valeur(
+            valeur, prose=nom not in _CHAMPS_IDENTIFIANTS
+        )
         if compte:
             setattr(modele, nom, corrige)
             retouches += compte
     return retouches
 
 
-def _reparer_valeur(valeur: Any) -> tuple[Any, int]:
+def _reparer_valeur(valeur: Any, *, prose: bool = True) -> tuple[Any, int]:
     if isinstance(valeur, str):
-        corrige = reparer_texte(valeur)
+        corrige = reparer_texte(valeur, prose=prose)
         return corrige, int(corrige != valeur)
     if isinstance(valeur, list):
         retouches = 0
         sortie = []
         for element in valeur:
-            corrige, compte = _reparer_valeur(element)
+            corrige, compte = _reparer_valeur(element, prose=prose)
             sortie.append(corrige)
             retouches += compte
         return sortie, retouches
     if getattr(type(valeur), "model_fields", None):
         return valeur, _reparer_modele(valeur)
     return valeur, 0
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# LA LANGUE — élisions, mots anglais, codes d'unité (29/09/2026)
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def reparer_langue(texte: str) -> str:
+    """Mots anglais, élisions, codes d'unité. Idempotente.
+
+    L'ordre compte : les mots anglais d'abord, parce que leur équivalent peut
+    ouvrir sur une voyelle — « que furthermore » devient « que en outre », que
+    l'élision rend ensuite « qu'en outre ». Dans l'ordre inverse, la seconde
+    passe laisserait la faute qu'elle vient de créer.
+    """
+    if not texte:
+        return texte
+    corrige = remplacer_les_mots_anglais(texte)
+    corrige = reparer_les_elisions(corrige)
+    return normaliser_les_codes_d_unite(corrige)
+
+
+# ── Le garde-fou commun : une phrase ANGLAISE n'est pas une faute ────────────
+#
+# Un titre de publication cité (« The State of Fashion », « Wellness Economy
+# Monitor ») ou un slogan de marque est de l'anglais LÉGITIME. Le reconnaître
+# ne demande pas de dictionnaire : les mots-outils anglais qui n'existent pas
+# en français suffisent. « a », « an », « on », « as », « or », « but » et
+# « must » en sont exclus — ce sont aussi des mots français (« il a », « un
+# an », « on », « tu as », « or », « un but », « un must »), et les compter
+# ferait taire la réparation sur une phrase française.
+_ANGLAIS_SANS_AMBIGUITE = frozenset({
+    "the", "of", "and", "is", "are", "was", "were", "be", "been", "being",
+    "has", "have", "had", "to", "in", "for", "with", "this", "that", "these",
+    "those", "it", "its", "by", "from", "not", "than", "their", "they",
+    "which", "will", "would", "can", "could", "should", "may", "might", "at",
+    "about", "into", "upon", "our", "your", "you", "we", "he", "she", "his",
+    "her", "him", "them", "who", "what", "when", "where", "why", "how", "if",
+    "all", "any", "each", "every", "some", "such", "only", "just", "very",
+    "more", "most", "less", "much", "many", "other", "over", "under", "out",
+    "up", "after", "before", "because", "while", "then", "there", "here",
+    "so", "do", "does", "did", "my", "unless", "until", "yet", "done", "said",
+})
+
+_MOT_VOISIN_AVANT = re.compile(r"([^\W\d_]+)[^\w]*$")
+_MOT_VOISIN_APRES = re.compile(r"^[^\w]*([^\W\d_]+)")
+
+
+def _dans_une_phrase_anglaise(texte: str, debut: int, fin: int) -> bool:
+    """Le mot voisin, d'un côté ou de l'autre, est-il un mot-outil anglais ?"""
+    avant = _MOT_VOISIN_AVANT.search(texte[max(0, debut - 40):debut])
+    apres = _MOT_VOISIN_APRES.search(texte[fin:fin + 40])
+    return any(
+        m is not None and m.group(1).casefold() in _ANGLAIS_SANS_AMBIGUITE
+        for m in (avant, apres)
+    )
+
+
+def _apostrophe(texte: str) -> str:
+    """L'apostrophe que CE texte emploie déjà : on ne mélange pas les deux."""
+    return "’" if texte.count("’") > texte.count("'") else "'"
+
+
+def _majuscule_comme(modele: str, mot: str) -> str:
+    return mot[:1].upper() + mot[1:] if modele[:1].isupper() else mot
+
+
+# ── 1. Les élisions ──────────────────────────────────────────────────────────
+#
+# « se accroît », p. 7 du business plan ÉCLORE. La règle d'élision est simple ;
+# ses EXCEPTIONS ne le sont pas, et ce sont elles qui décident de ce qu'une
+# réparation automatique a le droit de toucher :
+#
+# - le h ASPIRÉ ne s'élide pas (« le haut », « la hausse », « le héros ») et
+#   aucune règle ne le distingue du h muet : seule une liste close de radicaux
+#   h-muets est réparée. Un mot absent de la liste reste tel quel — l'oubli
+#   coûte une faute laissée, jamais une faute créée ;
+# - « le un », « la une » (le chiffre, la première page) ne s'élident pas ;
+# - « onze », « oui », « ouate » non plus ;
+# - « le ou la bénéficiaire » : « ou » et « et » sont des conjonctions ;
+# - un nom propre (« la Isla », « Le Havre ») ou un sigle garde sa forme : seul
+#   un mot en MINUSCULE est visé ;
+# - « donne-le à » : un pronom derrière un trait d'union ne s'élide pas.
+_PARTICULES = r"[Jj]e|[Mm]e|[Tt]e|[Ss]e|[Ll]e|[Ll]a|[Nn]e|[Dd]e|[Qq]ue|[Ss]i"
+
+#: Le mot suivant est LU sans être consommé : dans « ne le ai », la particule
+#: « le » doit rester disponible pour la correspondance suivante, sans quoi
+#: la réparation cesserait d'être idempotente (une seconde passe corrigerait
+#: ce que la première a sauté).
+_ELISION = re.compile(
+    rf"(?<![\w'’-])(?P<particule>{_PARTICULES})"
+    r"[^\S\r\n]+(?=(?P<mot>[^\W\d_][\w'’-]*))"
+)
+
+_VOYELLE_MINUSCULE = frozenset("aeiouàâäéèêëîïôöùûüœæ")
+
+#: Radicaux à h MUET, liste close et délibérément prudente. « hér » n'y est pas
+#: (« le héros », « le hérisson » sont aspirés) : seul « hérit » l'est.
+_H_MUETS = (
+    "habill", "habit", "haleine", "hallucin", "haltère", "hameçon", "harmoni",
+    "hebdomadaire", "héberg", "hectare", "hégémon", "hélice", "hélicoptère",
+    "hémisph", "herb", "hérédit", "hérit", "hermétique", "héroïn", "hésit",
+    "heure", "heureu", "hexagon", "hier", "hippodrome", "hirondelle",
+    "histoir", "histori", "hiver", "hommage", "homme", "homogén", "homolog",
+    "honnête", "honneur", "honor", "hôpita", "horaire", "horizon", "horloge",
+    "hormone", "horreur", "horrible", "hortic", "hospital", "hostil", "hôte",
+    "huile", "huître", "humain", "humanit", "humble", "humeur", "humid",
+    "humili", "humour", "hydr", "hygièn", "hymne", "hyper", "hypno", "hypoth",
+    "hystér",
+)
+
+#: Mots commençant par une voyelle devant lesquels on n'élide JAMAIS.
+_SANS_ELISION = frozenset({
+    "ou", "où", "et", "onze", "onzième", "onzièmes", "oui", "ouistiti",
+    "ouate", "uhlan", "ululement", "ululements", "oh", "ah", "eh",
+})
+
+#: Et ceux-ci derrière « le » et « la » seulement. « Le un », « la une » ; et
+#: surtout le pronom d'un impératif privé de son trait d'union — « réservez
+#: la à l'avance », « mettez la en avant » : l'élider écrirait « réservez l'à
+#: l'avance », une faute pire que celle qu'on corrige. Derrière « de » ou
+#: « que », ces mots s'élident normalement (« d'après », « qu'à », « qu'en »).
+_SANS_ELISION_APRES_LE_LA = frozenset({
+    "un", "une", "à", "au", "aux", "avec", "après", "avant", "auprès",
+    "autour", "afin", "ainsi", "en", "entre", "envers", "outre", "ici", "il",
+    "ils", "elle", "elles", "on",
+})
+
+
+def _appelle_l_elision(particule: str, mot: str) -> bool:
+    bas = particule.casefold()
+    if bas == "si":
+        return mot in {"il", "ils"}
+    if not mot[:1].islower():
+        return False
+    if len(mot) > 1 and mot[1] in "-'’":
+        # « e-commerce », « e-mail » : l'usage garde « le ». Et « a' » n'est
+        # pas un mot.
+        return False
+    if mot in _SANS_ELISION:
+        return False
+    if bas in {"le", "la"} and mot in _SANS_ELISION_APRES_LE_LA:
+        return False
+    if mot[0] in _VOYELLE_MINUSCULE:
+        return True
+    return mot[0] == "h" and mot.startswith(_H_MUETS)
+
+
+def reparer_les_elisions(texte: str) -> str:
+    """« se accroît » → « s'accroît », « que il » → « qu'il ». Idempotente."""
+    if not texte:
+        return texte
+    apostrophe = _apostrophe(texte)
+
+    def _remplacer(m: re.Match[str]) -> str:
+        particule, mot = m.group("particule"), m.group("mot")
+        if not _appelle_l_elision(particule, mot):
+            return m.group(0)
+        # Le voisin d'après, c'est le mot lui-même : « tell me about ».
+        if _dans_une_phrase_anglaise(texte, m.start(), m.start("mot")):
+            return m.group(0)
+        return f"{particule[:-1]}{apostrophe}"
+
+    return _ELISION.sub(_remplacer, texte)
+
+
+# ── 2. Les mots anglais ──────────────────────────────────────────────────────
+#
+# « already financé », p. 67 du business plan ÉCLORE. La table d'anglicismes
+# de `rendering.py` ne s'applique qu'au markdown de l'ancienne chaîne : rien ne
+# la faisait jouer sur le texte que le Word imprime.
+#
+# LISTE CLOSE de mots-outils anglais — adverbes et conjonctions de liaison —
+# qu'un modèle laisse filer au milieu d'une phrase française, et qui n'ont
+# AUCUN homographe français. La valeur est l'équivalent quand il est sans
+# ambiguïté ; `None` quand il dépend de la phrase (« hence » vaut « donc » ou
+# « d'où », « overall » vaut « globalement » ou « global ») : le mot n'est
+# alors pas remplacé, et le contrôle post-rendu le signale.
+MOTS_ANGLAIS: dict[str, str | None] = {
+    "already": "déjà",
+    "however": "cependant",
+    "therefore": "par conséquent",
+    "consequently": "par conséquent",
+    "moreover": "de plus",
+    "furthermore": "en outre",
+    "additionally": "en outre",
+    "nevertheless": "néanmoins",
+    "nonetheless": "néanmoins",
+    "meanwhile": "entre-temps",
+    "indeed": "en effet",
+    "whereas": "alors que",
+    "whilst": "tandis que",
+    "although": "même si",
+    "thus": "ainsi",
+    "likewise": "de même",
+    "namely": "à savoir",
+    "despite": "malgré",
+    "regarding": "concernant",
+    "approximately": "environ",
+    "roughly": "environ",
+    "overall": None,
+    "hence": None,
+    "besides": None,
+    "otherwise": None,
+    "whether": None,
+    "within": None,
+    "instead": None,
+    "though": None,
+}
+
+#: Capitalisés, ces mots ne sont visés qu'en tête de phrase et suivis d'une
+#: virgule (« However, le marché… »). « Indeed » n'y est jamais : c'est aussi
+#: le nom d'une plateforme d'emploi, citée comme source dans les business plans.
+_JAMAIS_EN_MAJUSCULE = frozenset({"indeed"})
+
+_MOT_ANGLAIS = re.compile(
+    r"(?<![\w/@.'’-])("
+    + "|".join(sorted(MOTS_ANGLAIS, key=len, reverse=True))
+    + r")(?![\w/@'’-])(?!\.\w)",
+    re.IGNORECASE,
+)
+
+#: Ce qui ouvre une phrase, une cellule ou une puce.
+_OUVERTURE = frozenset(".!?:;|(«\"*-\n")
+
+
+class MotAnglais(NamedTuple):
+    """Une occurrence d'un mot anglais dans une phrase française."""
+
+    mot: str
+    debut: int
+    fin: int
+    #: L'équivalent sans ambiguïté, ou None si le mot se signale seulement.
+    equivalent: str | None
+
+
+def mots_anglais(texte: str) -> list[MotAnglais]:
+    """Les mots anglais de la liste close, hors phrase anglaise.
+
+    Source unique pour la réparation ET pour le contrôle post-rendu
+    (`checks_post_rendu.detecter_mots_anglais`) : deux lectures du même défaut
+    finiraient par diverger (règle 5).
+    """
+    trouves: list[MotAnglais] = []
+    for m in _MOT_ANGLAIS.finditer(texte or ""):
+        mot = m.group(1)
+        bas = mot.casefold()
+        if mot != bas:
+            if mot != bas.capitalize() or bas in _JAMAIS_EN_MAJUSCULE:
+                continue
+            precedent = re.sub(r"[^\S\r\n]+$", "", texte[:m.start()])
+            if precedent and precedent[-1] not in _OUVERTURE:
+                continue
+            if not re.match(r"[^\S\r\n]*,", texte[m.end():]):
+                continue
+        if _dans_une_phrase_anglaise(texte, m.start(), m.end()):
+            continue
+        trouves.append(MotAnglais(mot, m.start(), m.end(), MOTS_ANGLAIS[bas]))
+    return trouves
+
+
+def remplacer_les_mots_anglais(texte: str) -> str:
+    """« already financé » → « déjà financé ». Les mots ambigus restent."""
+    if not texte:
+        return texte
+    morceaux: list[str] = []
+    curseur = 0
+    for trouve in mots_anglais(texte):
+        if trouve.equivalent is None:
+            continue
+        morceaux.append(texte[curseur:trouve.debut])
+        morceaux.append(_majuscule_comme(trouve.mot, trouve.equivalent))
+        curseur = trouve.fin
+    morceaux.append(texte[curseur:])
+    return "".join(morceaux)
+
+
+# ── 3. Les codes d'unité ─────────────────────────────────────────────────────
+#
+# `MdEUR`, `MEUR`, `kEUR` sont des notations de STOCKAGE (voir
+# `socle.schema.unite_lisible`) : le lecteur lit « Md€ », « M€ », « k€ ». Le
+# modèle les recopie quand on les lui montre, et la cliente l'a signalé dès le
+# 09/08/2026. La traduction est celle du socle, importée — une seconde table
+# ici serait la troisième vérité sur les unités (règle 5).
+_ESPACE_H = r"[^\S\r\n]"
+#: Le nombre qui précède, séparateurs de milliers compris (« 1 250 »,
+#: « 0,5 »). Une espace n'appartient au nombre que si un chiffre la suit.
+_NOMBRE_AVANT = re.compile(
+    r"(\d(?:[\d.,]|[^\S\r\n](?=\d))*)[^\S\r\n]*$"
+)
+
+
+@lru_cache(maxsize=1)
+def _codes_d_unite() -> tuple[dict[str, str], re.Pattern[str], re.Pattern[str]]:
+    """(code → forme lisible, motif du code collé, motif « 3 M EUR »).
+
+    Construit à la première utilisation : `socle.schema` n'a pas à être chargé
+    pour réparer une double espace. Seuls les codes À MAGNITUDE sont visés
+    (`MEUR`, `kUSD`…) : aucun n'est un mot, dans aucune langue. Un code nu
+    comme `USD` est un usage français admis, il reste.
+    """
+    from ..socle.schema import unite_lisible, unites_monetaires  # noqa: PLC0415
+
+    lisibles: dict[str, str] = {}
+    for code in unites_monetaires():
+        if code[:1] in "kM" and unite_lisible(code) != code:
+            lisibles[code] = unite_lisible(code)
+            if code.startswith("Md"):
+                # « MdsEUR » : le pluriel qu'un rédacteur ajoute de lui-même.
+                lisibles["Mds" + code[2:]] = unite_lisible(code)
+    # `colle` est un groupe VIDE qui ne participe qu'après un chiffre : « 12MEUR »
+    # reçoit alors l'espace qui lui manquait.
+    colle = re.compile(
+        r"(?:(?P<colle>(?<=\d))|(?<![\w/@.-]))(?P<code>"
+        + "|".join(sorted(lisibles, key=len, reverse=True))
+        + r")(?![\w-])"
+    )
+    espace = re.compile(
+        rf"(?P<avant>\d{_ESPACE_H}*)(?P<magnitude>k|M|Mds|Md){_ESPACE_H}+"
+        r"(?P<devise>EUR|USD|GBP)(?![\w-])"
+    )
+    return lisibles, colle, espace
+
+
+#: « EUR » après un nombre. Jamais seul : « EUR-Lex », la base du droit
+#: européen, est une source citée dans les chapitres réglementaires.
+_EUR_APRES_UN_NOMBRE = re.compile(rf"(?P<nombre>\d)(?P<espace>{_ESPACE_H}*)EUR(?![\w-])")
+#: L'apostrophe AVANT est admise : « l'unite » est « l'unité » sans son accent.
+_UNITE_NUE = re.compile(r"(?<![\w/@.-])unite(?![\w'’-])")
+
+
+def _valeur(nombre: str) -> float | None:
+    brut = re.sub(r"[^\d,.]", "", nombre).replace(",", ".")
+    try:
+        return float(brut)
+    except ValueError:
+        return None
+
+
+def normaliser_les_codes_d_unite(texte: str) -> str:
+    """`12 MEUR` → `12 M€`, `1 500 EUR/mois` → `1 500 €/mois`. Idempotente."""
+    if not texte:
+        return texte
+    lisibles, colle, espace = _codes_d_unite()
+
+    def _colle(m: re.Match[str]) -> str:
+        espace_manquante = " " if m.group("colle") is not None else ""
+        return espace_manquante + lisibles[m.group("code")]
+
+    def _espace(m: re.Match[str]) -> str:
+        magnitude = "Md" if m.group("magnitude") == "Mds" else m.group("magnitude")
+        lisible = lisibles.get(magnitude + m.group("devise"))
+        if lisible is None:
+            return m.group(0)
+        avant = m.group("avant")
+        return (avant if avant[-1:].isspace() else avant + " ") + lisible
+
+    corrige = colle.sub(_colle, texte)
+    corrige = espace.sub(_espace, corrige)
+    corrige = _EUR_APRES_UN_NOMBRE.sub(
+        lambda m: f"{m.group('nombre')}{m.group('espace') or ' '}€", corrige
+    )
+    return _UNITE_NUE.sub(lambda m: _unite(corrige, m), corrige)
+
+
+def _unite(texte: str, m: re.Match[str]) -> str:
+    """« unite » : le code de l'effectif, ou « unité » privé de son accent.
+
+    Après un nombre, l'accord suit la règle française (singulier sous deux) ;
+    après « en », c'est l'unité de mesure d'un tableau ou d'une figure, au
+    pluriel ; ailleurs on rend l'accent et rien d'autre — « par unite »
+    devient « par unité », jamais « par unités ».
+    """
+    if _dans_une_phrase_anglaise(texte, m.start(), m.end()):
+        return m.group(0)
+    avant = texte[max(0, m.start() - 30):m.start()]
+    nombre = _NOMBRE_AVANT.search(avant)
+    if nombre is not None:
+        valeur = _valeur(nombre.group(1))
+        return "unité" if valeur is not None and abs(valeur) < 2 else "unités"
+    if re.search(rf"\ben{_ESPACE_H}+$", avant):
+        return "unités"
+    return "unité"

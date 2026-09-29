@@ -100,8 +100,9 @@ class Proposition:
 
     type_graphique: str
     identifiants: tuple[str, ...]
-    #: L'unité commune, telle que le rendu l'affichera. Elle dit au modèle ce
-    #: que la figure compare — des euros, des pourcentages, des effectifs.
+    #: L'unité commune, telle que le rendu l'affichera (`M€`, jamais `MEUR`).
+    #: Elle dit au modèle ce que la figure compare — des euros, des
+    #: pourcentages, des effectifs.
     unite: str
 
     def ligne(self) -> str:
@@ -212,10 +213,37 @@ def _groupes_radar(socle: Socle) -> list[tuple[str, ...]]:
 
 
 def _unite_commune(socle: Socle, identifiants: tuple[str, ...]) -> str:
+    """L'unité commune du groupe, telle que le LECTEUR l'écrit.
+
+    Elle partait en code de stockage — « (en MEUR) », « (en unite) » — dans
+    le prompt de chaque chapitre, et le modèle la recopiait : le business plan
+    ÉCLORE (29/09/2026) imprime « MEUR » et « unite » dans son texte. Le socle
+    la traduit déjà pour ses propres lignes (`unite_lisible`) ; le catalogue
+    était le seul endroit du prompt qui montrait encore le code brut.
+    """
     unites = {
         donnee.unite for donnee in socle.donnees if donnee.id in identifiants
     }
-    return unites.pop() if len(unites) == 1 else ""
+    return _unite_lisible(unites.pop()) if len(unites) == 1 else ""
+
+
+def _unite_lisible(code: str) -> str:
+    """`MEUR` → `M€`, `unite` → `unités`, `note_sur_5` → `notes /5`.
+
+    `unite_lisible` rend une chaîne VIDE pour l'effectif : après un nombre,
+    « 14 » se suffit. Mais « (en ) » ne dirait plus au modèle ce que la figure
+    compare, et c'est l'objet de cette parenthèse — la famille le dit à sa
+    place.
+    """
+    from ..socle.referentiel import FamilleUnite  # noqa: PLC0415
+    from ..socle.schema import famille_de_l_unite, unite_lisible  # noqa: PLC0415
+
+    lisible = unite_lisible(code)
+    if lisible.startswith("/"):
+        return f"notes {lisible}"
+    if lisible:
+        return lisible
+    return "unités" if famille_de_l_unite(code) is FamilleUnite.EFFECTIF else code
 
 
 def bloc_figures_possibles(socle: Socle) -> str:

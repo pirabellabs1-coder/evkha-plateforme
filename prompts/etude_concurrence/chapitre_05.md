@@ -11,7 +11,7 @@ Variables interpolées disponibles ({{ nom }}) :
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
-Cartographier les 11 concurrents (8 directs, 3 indirects) et le projet sur deux axes stratégiques, pour identifier zones saturees, niches disponibles et meilleure zone de différenciation. Il justifie le positionnement recommande au chapitre précédent et sert en pitch deck, dossier bancaire et présentation investisseurs. Grille identique pour directs et indirects, liste figee du chapitre 1.
+Cartographier les 11 concurrents (8 directs, 3 indirects) et le projet sur deux axes stratégiques, pour identifier zones saturees, niches disponibles et meilleure zone de différenciation. Il justifie le positionnement recommande au chapitre précédent et sert en pitch deck, dossier bancaire et présentation investisseurs. Grille identique pour directs et indirects, liste figée du {{ renvoi_identification }}.
 
 ## Définition des axes stratégiques pertinents
 Retiens les deux axes les plus discriminants. Explore plusieurs combinaisons : prix contre qualité perçue, innovation contre notoriété, niche ciblee contre marche de masse, ou toute autre combinaison pertinente au secteur. Justifie le choix et son pouvoir discriminant ; ecarte tout axe qui regrouperait tous les acteurs au même endroit. Le livrable ne montre que les deux axes retenus (X et Y) et leur justification synthétique.

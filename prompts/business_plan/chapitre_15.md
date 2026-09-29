@@ -8,9 +8,13 @@ Redevenu un CHAPITRE. Il était une section de l'ancien chapitre fusionné
 (§15.1 à §15.2.8). Le patron HTML du graphique est repris tel quel de la
 section : il est éprouvé par le rendu.
 
+Renvois vers d'autres chapitres : par `{{ renvoi_<clé> }}` depuis le
+29/09/2026, lus dans le plan du livrable — jamais un numéro en dur.
+
 Variables interpolées disponibles ({{ nom }}) :
   {{ secteur }}   {{ pays }}   {{ zone }}   {{ projet }}
   {{ titre_chapitre }}   {{ numero_chapitre }}   {{ cible_mots }}
+  {{ renvoi_<clé> }} : « chapitre N « Titre » », lu dans le plan du livrable
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
@@ -26,12 +30,12 @@ Structure obligatoire du chapitre :
 - Analyse des ressources financières, source par source.
 - Apport personnel et engagement du porteur : montant, origine, ce qu'il signale au financeur.
 - Financements externes et partenaires financiers : emprunts, subventions, investisseurs, conditions connues.
-- Équilibre financier global : le total des ressources couvre-t-il le total des besoins du chapitre 14 ?
-- Capacité de remboursement et soutenabilité, au regard du prévisionnel du chapitre 16.
+- Équilibre financier global : le total des ressources couvre-t-il le total des besoins du {{ renvoi_investissements }} ?
+- Capacité de remboursement et soutenabilité, au regard du {{ renvoi_previsionnel_financier }}.
 - Sécurisation financière du projet : ce qui absorbe un retard de chiffre d'affaires.
 - Lecture stratégique du plan de financement.
 
 Puis demande un graphique en barres de la répartition des ressources de financement, en citant les identifiants des données de référence correspondants (apport, emprunt, subventions...) — jamais de valeurs en clair dans la figure.
 Une ligne par source de financement réelle du projet, légende courte en italique sous le tableau.
 
-Cohérence a vérifier : le total des ressources de ce chapitre est ÉGAL au total des besoins du chapitre 14. Si les deux different, le plan ne tient pas et il faut le dire, pas l'arrondir.
+Cohérence a vérifier : le total des ressources de ce chapitre est ÉGAL au total des besoins du {{ renvoi_investissements }}. Si les deux different, le plan ne tient pas et il faut le dire, pas l'arrondir.

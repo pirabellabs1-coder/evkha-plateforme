@@ -25,21 +25,21 @@ Contenu obligatoire, dans cet ordre :
 1. Marche NATIONAL : taille et dynamique (valeur, volume, TCAC national), acteurs structurants sans benchmark concurrentiel detaille, maturité et structure (concentration, distribution), specificites nationales utiles (réglementation, habitudes de consommation), projection nationale lorsque défendable.
 2. Marche LOCAL sur la zone cible : démographie, revenus, emploi, flux, usages, densité et demande ; projection locale lorsque défendable, avec estimation argumentee si les données directes manquent.
 3. Marche ACCESSIBLE : TAM top-down, SAM filtre par zone/cible/offre, SOM bottom-up année 1 ET année 3.
-Ne répète pas les chiffres mondiaux et continentaux du chapitre 1 : tu les reprends comme point de départ, tu ne les re-estimes pas.
+Ne répète pas les chiffres mondiaux et continentaux du {{ renvoi_marche_mondial_europeen }} : tu les reprends comme point de départ, tu ne les re-estimes pas.
 
 DISTINCTION CRITIQUE mondial / continental (erreur fatale de cohérence) :
 Le bloc DONNÉES DE RÉFÉRENCE contient DEUX valeurs séparées et différentes :
   - `marche_mondial_taille` = taille totale du marché mondial (toutes géographies, toutes technologies pertinentes au projet)
   - `marche_continental_taille` = part de ce marché a l'échelle du continent pertinent (ex. Europe IA strict pour un projet français)
-Ces deux valeurs sont différentes. Si tu ouvres ce chapitre avec une phrase du type 'Le chapitre 1 a établi que le marché mondial represente X', X doit être EXACTEMENT `marche_mondial_taille`, jamais `marche_continental_taille`. Confondre les deux dans la phrase d'ouverture propage l'erreur dans tous les chapitres suivants qui s'appuient sur ce chapitre comme référence.
+Ces deux valeurs sont différentes. Si tu ouvres ce chapitre en rappelant la taille du marché mondial établie au {{ renvoi_marche_mondial_europeen }}, cette taille doit être EXACTEMENT `marche_mondial_taille`, jamais `marche_continental_taille`. Confondre les deux dans la phrase d'ouverture propage l'erreur dans tous les chapitres suivants qui s'appuient sur ce chapitre comme référence.
 
 RÈGLES DE CALCUL DU marché ACCESSIBLE (non negociables) :
 - Écris le calcul, pas seulement le résultat. Chaque étape nomme ses variables et leur valeur : population de la zone, taux de pénétration retenu, panier ou ticket moyen, fréquence annuelle, part de capture visee. Un lecteur doit pouvoir refaire le calcul et retrouver ton chiffre.
 - Un seul TAM, un seul SAM, un seul SOM par année. Si tu donnes une fourchette, elle sert partout ensuite a l'identique.
 - L'emboîtement TAM > SAM > SOM doit être vrai en euros compares. Vérifie-le avant d'écrire : convertis tout dans la même unité.
 - Le SOM année 1 depasse rarement quelques pour cent du SAM. Si ton calcul donne davantage, c'est que le SAM est sous-estime ou que le SOM est irrealiste : refais le calcul. Ne justifie JAMAIS un taux de capture eleve par un argument rédactionnel.
-- Ces trois valeurs sont reutilisees telles quelles aux chapitres 14 et 15 (manuel p. 6). Elles doivent être justes ici, elles ne seront plus recalculées.
-- Quand un outil d'exécution de code est a ta disposition, pose ces calculs dedans au lieu de les faire de tête : l'emboîtement TAM > SAM > SOM, les conversions d'unités et la montée en charge mensuelle sont des enchainements ou une erreur d'arrondi se propage jusqu'aux chapitres 14 et 15.
+- Ces trois valeurs sont réutilisées telles quelles au {{ renvoi_rentabilite_viabilite }} et au {{ renvoi_graphiques_tableaux }} (manuel p. 6). Elles doivent être justes ici, elles ne seront plus recalculées.
+- Quand un outil d'exécution de code est a ta disposition, pose ces calculs dedans au lieu de les faire de tête : l'emboîtement TAM > SAM > SOM, les conversions d'unités et la montée en charge mensuelle sont des enchainements ou une erreur d'arrondi se propage jusqu'au {{ renvoi_rentabilite_viabilite }} et au {{ renvoi_graphiques_tableaux }}.
 - Le livrable montre le calcul en langage MÉTIER : variables, valeurs, formule, hypothèses et sources, comme l'exige la colonne « Formule et sources » du manuel p. 6. Il ne montre RIEN de la technique : ni code, ni sortie de console, ni mention d'un script, d'un outil, d'un calcul « vérifié » ou d'une procédure. Tu écris pour un porteur de projet et son banquier, pas un journal de travail.
 
 [EXEMPLE DE NIVEAU — SOM pose variable par variable]

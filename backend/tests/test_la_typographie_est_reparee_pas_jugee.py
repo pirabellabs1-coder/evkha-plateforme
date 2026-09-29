@@ -177,11 +177,14 @@ def test_les_cellules_de_tableau_sont_reparees_aussi() -> None:
     Rester en surface laisserait toutes les cellules intactes — le contrôle du
     balisage a failli avoir ce défaut, il ne fallait pas le refaire ici.
     """
+    # « 12 k€ » et non plus « 12 kEUR » (29/09/2026) : le code de stockage
+    # est désormais traduit à la réparation (`normaliser_les_codes_d_unite`),
+    # et ce test ne compte que les retouches d'espacement.
     payload = _chapitre(
         BlocTableau(
             tableau=Tableau(
                 entetes=["Poste", "Montant"],
-                lignes=[["Loyer  annuel", "12 kEUR"], ["Charges ,总", "3 kEUR"]],
+                lignes=[["Loyer  annuel", "12 k€"], ["Charges ,总", "3 k€"]],
             )
         )
     )
@@ -222,10 +225,13 @@ def test_un_chapitre_deja_propre_ne_compte_aucune_retouche() -> None:
     C'est ce compte qui dira si l'entraînement de la consigne sert vraiment, ou
     si la réparation masque simplement le problème (règle 9).
     """
+    # « 12 kEUR » passait pour propre jusqu'au 29/09/2026 : c'est pourtant le
+    # code que la cliente demandait de ne plus voir dès le 09/08/2026 (« 600 k€
+    # et non MEUR »). Un chapitre propre écrit « 12 k€ ».
     payload = _chapitre(
         BlocParagraphe(texte="Le marché progresse de 3,4 % par an depuis 2022."),
         BlocTableau(
-            tableau=Tableau(entetes=["Poste", "Montant"], lignes=[["Loyer", "12 kEUR"]])
+            tableau=Tableau(entetes=["Poste", "Montant"], lignes=[["Loyer", "12 k€"]])
         ),
     )
 

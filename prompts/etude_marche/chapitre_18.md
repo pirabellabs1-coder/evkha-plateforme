@@ -40,6 +40,6 @@ Approfondissement obligatoire (manuel) :
 - Après la matrice, ajouter OBLIGATOIREMENT une section rédigée intitulee « Ce que la SWOT ne dit pas ».
 - Cette section traite les dépendances entre facteurs, la chronologie, la capacité réelle d'exécution, les arbitrages de ressources, les hypothèses encore fragiles et les signaux faibles.
 - Préciser ce qui ne peut pas être conclu a partir de la seule SWOT : rentabilité, vitesse de conversion, réaction du marché, capacité opérationnelle ou efficacité future des recommandations.
-- Terminer par 3 à 5 décisions a approfondir dans le chapitre 19, sans transformer la SWOT en liste de recommandations génériques.
+- Terminer par 3 à 5 décisions à approfondir dans le {{ renvoi_recommandations }}, sans transformer la SWOT en liste de recommandations génériques.
 
 Lecture stratégique attendue : Faire emerger des priorités par croisement des quatre cadrans, puis exposer honnetement ce que la SWOT ne permet pas de conclure.

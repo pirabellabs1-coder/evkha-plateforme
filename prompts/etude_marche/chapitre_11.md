@@ -24,7 +24,7 @@ Questions auxquelles ce chapitre doit répondre :
 Contenu obligatoire :
 - Persona 1 correspondant a la cible principale ; persona 2 réellement complémentaire. EXACTEMENT deux personas, ni plus, ni moins.
 - Contexte, objectifs, fréquence, budget, critères, canaux, freins et declencheurs.
-- Éléments relies aux chapitres 3 (segmentation) et 10 (clientèle).
+- Éléments reliés au {{ renvoi_segmentation }} et au {{ renvoi_clientele_cible }}.
 - Leviers de conversion et adaptations de l'offre.
 - Synthèse des points communs et differences entre les deux personas.
 

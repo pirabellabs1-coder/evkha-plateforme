@@ -585,6 +585,47 @@ dire pourquoi.
 prix justes et tenus, jamais la mention de la méthode qui les a produits."""
 
 
+#: La CHRONOLOGIE, qui n'atteignait que l'ancien moteur.
+#:
+#: « CHRONOLOGIE UNIQUE » et « ACTUEL vs OBJECTIF » vivent dans
+#: `generation/prompts.py`, que seul le moteur hérité envoie. Business plan
+#: ÉCLORE, 29/09/2026, moteur structuré : le brief dit « 2029, à temps plein,
+#: après avoir quitté son poste » ; le document écrit « courant 2029 » p. 52,
+#: « fin 2029 » p. 62, « 2029 … quitte son poste » p. 51 — la même décision
+#: sous plusieurs dates, parce que chaque chapitre la reformulait depuis le
+#: brief et les résumés (diagnostic, § 3.5). Comme les trois blocs précédents,
+#: elle vit dans la partie cachée du prompt système : écrite une fois, lue par
+#: tous les chapitres des quatre livrables.
+#:
+#: Elle ne cite AUCUNE des dates fautives : l'exemple d'une faute se recopie.
+CHRONOLOGIE_ET_DECISIONS = """CHRONOLOGIE — une date par événement, la même dans
+tout le document.
+
+1. CHAQUE ÉVÉNEMENT A UNE SEULE DATE, CELLE DU BRIEF. Création de l'entreprise,
+départ d'un poste salarié, changement de statut, premier recrutement, ouverture
+d'un local : la date est celle que le client a donnée, avec la précision qu'il
+lui a donnée — une année s'il a écrit une année, un mois s'il a écrit un mois.
+
+2. UNE DÉCISION DATÉE NE SE REFORMULE JAMAIS. N'y ajoute ni « début », ni
+« courant », ni « fin », et ne la déplace pas d'une année parce qu'un tableau ou
+un scénario s'y prêterait mieux : chaque chapitre qui en parle reprend la date
+du brief, à l'identique. Deux formulations d'une même date se lisent comme deux
+événements, ou comme une erreur.
+
+3. UN ÉVÉNEMENT QUE LE BRIEF NE DATE PAS reçoit une date retenue, présentée une
+fois comme une hypothèse, puis reprise telle quelle partout.
+
+4. CE QUI EXISTE ET CE QUI EST VISÉ NE SE CONFONDENT PAS. Ce qui existe s'écrit
+au présent ; ce qui est prévu, au futur, avec sa date. Un objectif n'est jamais
+présenté comme atteint.
+
+5. LA LIGNE DE TEMPS EST UNIQUE. La création précède le premier exercice, un
+investissement ne précède pas la création, et l'exercice 1 est le même dans
+tous les tableaux.
+
+6. CES RÈGLES NE SE CITENT PAS DANS LE TEXTE."""
+
+
 def _bloc_socle(socle: Socle) -> str:
     """Socle sérialisé, lisible et exhaustif.
 
@@ -739,6 +780,19 @@ def _bloc_concurrents(socle: Socle) -> str:
         "Tout chapitre qui compare, compte ou classe reprend CES acteurs et "
         "ces comptes tels quels. Personne d'autre n'entre, personne ne sort : "
         "ajouter un acteur ou en omettre un fait rejeter le document.\n"
+        # Business plan ÉCLORE (29/09/2026) : « 11 concurrents » aux pages 11,
+        # 28, 31, 100 et 101, « 13 acteurs analysés » page 6. Le 13 venait de
+        # l'étude de concurrence JOINTE par la cliente, présentée comme la
+        # nôtre. Deux vérités données au rédacteur, aucune règle de préséance
+        # (diagnostic, § 3.6) : la voici, dans le bloc que CHAQUE chapitre lit
+        # — le 13 n'était pas au chapitre de la concurrence.
+        "Ce décompte est celui de TOUT le document, du premier chapitre au "
+        "dernier : c'est le panel de cette étude. Si un document du client "
+        "annonce un autre nombre d'acteurs — sa propre étude de concurrence, "
+        "un tableau qu'il a joint —, ce nombre est le SIEN : attribue-le "
+        "explicitement à son document dans la même phrase, ne le présente "
+        "jamais comme le nombre d'acteurs analysés ici, et ne l'additionne "
+        "pas au décompte de la base.\n"
         + (
             f"L'entreprise du dossier, « {projet.nom} », figure dans la liste "
             "avec le type `projet`. Elle NE COMPTE PAS dans les deux nombres "
@@ -940,9 +994,9 @@ def _bloc_sources(job: GenerationJob, numero: int) -> str:
         "collectée pour lui.\n"
         "Préséance : sur tout CHIFFRE que le socle porte déjà, le socle gagne, "
         "toujours. Ces sources servent à ce que le socle ne porte pas — "
-        "obligations, comportements, prix observés, signaux de tendance — et à "
-        "la bibliographie du chapitre 21. Ne cite jamais une URL absente de "
-        "cette liste.\n"
+        "obligations, comportements, prix observés, signaux de tendance — et "
+        f"{_renvoi_bibliographie(str(job.deliverable_type), numero)}. Ne cite "
+        "jamais une URL absente de cette liste.\n"
         # La même exigence que le socle, à l'endroit où les sources sont
         # RÉELLEMENT citées. Demande de la cliente du 13/08/2026, posée pour
         # les quatre livrables ; la mettre dans le seul prompt du socle
@@ -960,6 +1014,29 @@ def _bloc_sources(job: GenerationJob, numero: int) -> str:
         "c'est une estimation et dis sur quoi elle s'appuie, ou ne cite "
         "rien.\n\n" + utile
     )
+
+
+def _renvoi_bibliographie(deliverable_type: str, numero: int) -> str:
+    """Où finissent les sources, selon le plan de CE livrable.
+
+    Le bloc disait « la bibliographie du chapitre 21 » aux quatre livrables.
+    Vrai pour l'étude de marché et le business plan, faux pour la stratégie
+    (20) et l'étude concurrentielle (9) : le modèle y renvoyait le lecteur à
+    un chapitre qui n'existe pas (diagnostic du 29/09/2026, § 3.9). Le numéro
+    se lit dans le plan, par la fonction qui le lit déjà pour le filtrage des
+    sources (règle 5).
+    """
+    from ..blueprints import get_blueprint  # noqa: PLC0415
+    from ..research import _chapitre_des_sources  # noqa: PLC0415
+
+    sources = _chapitre_des_sources(deliverable_type)
+    if sources is None:
+        return "à la bibliographie du document"
+    if sources == numero:
+        return "à la bibliographie de CE chapitre"
+    plan = get_blueprint(deliverable_type, sources)
+    titre = f" « {plan.title} »" if plan is not None else ""
+    return f"à la bibliographie du chapitre {sources}{titre}"
 
 
 #: Ce que chaque livrable NON DÉCRIT par le modèle doit porter en propre.
@@ -1198,12 +1275,22 @@ REGLES_DE_FOND = (
     "Si tu ne peux pas alimenter un visuel, ne le demande pas et dis en une "
     "phrase ce qui manquerait pour le produire. Une légende qui avoue son "
     "propre inachèvement décrédibilise tout le document.\n"
-    "- Ne déclare JAMAIS « non traité » un sujet que le document aborde "
-    "ailleurs. Avant de statuer sur une demande du client, relis les résumés "
-    "des chapitres précédents : s'ils la couvrent, le statut est « traitée » "
-    "et tu nommes le chapitre. « Non traité » ne se dit que d'un sujet absent "
-    "de tout le document, et s'accompagne alors de ce qui manque pour le "
-    "traiter.\n"
+    # Business plan ÉCLORE (29/09/2026) : l'annexe déclarait « traité » ce
+    # que le document ne traitait pas (diagnostic, § 3.10). Cette règle y
+    # poussait : elle ne gardait qu'un sens — ne pas dire « non traité » à
+    # tort — et faisait de « traitée » le statut par défaut, prouvé par un
+    # simple numéro de chapitre. Un « traitée » faux n'est contrôlé nulle
+    # part ; il doit donc se prouver à l'écriture.
+    "- Le statut d'une demande du client se PROUVE. « Traitée » exige de "
+    "nommer le chapitre ET la section qui y répondent en entier — numéro et "
+    "intitulé, tels que les résumés des chapitres précédents te les montrent ; "
+    "n'en invente aucun. Si tu ne peux pas nommer cette section, ou si elle "
+    "ne répond qu'à une partie de la demande, le statut est « partiellement "
+    "traitée », suivi de ce qui manque. Dans le doute, c'est « partiellement "
+    "traitée ». À l'inverse, ne déclare JAMAIS « non traitée » un sujet que "
+    "le document aborde ailleurs : relis les résumés avant de statuer. « Non "
+    "traitée » ne se dit que d'un sujet absent de tout le document, et "
+    "s'accompagne de ce qui manque pour le traiter.\n"
     "- Une hypothèse ou une extrapolation est PERMISE, à trois conditions : "
     "elle se dit hypothèse, elle nomme la donnée de départ et le raisonnement "
     "appliqué, et son résultat reste cohérent avec les autres chiffres du "
@@ -1577,6 +1664,47 @@ def _valeurs_interpolation(
         "titre_chapitre": chapter.chapter_title,
         "numero_chapitre": chapter.chapter_number,
         "cible_mots": (blueprint.max_words if blueprint else 0) or "non bornée",
+        **renvois_du_plan(str(chapter.job.deliverable_type)),
+    }
+
+
+def renvois_du_plan(deliverable_type: str) -> dict[str, str]:
+    """`{{ renvoi_<clé> }}` → « chapitre N « Titre » », lus dans le plan du livrable.
+
+    ## Le défaut, mesuré
+
+    Des prompts citaient des numéros de chapitre en dur — « lien avec le statut
+    retenu au chapitre 13 », « cohérence avec le chapitre 16 », « chapitres 14
+    et 15 » — et le rédacteur, qui ne connaît que les chapitres PRÉCÉDENTS,
+    devinait tout renvoi vers l'avant. Business plan ÉCLORE (29/09/2026) :
+    des renvois vers des chapitres inexistants (diagnostic, § 3.9). Un numéro
+    écrit dans un prompt vieillit au premier chapitre inséré dans le plan, sans
+    que rien ne le dise.
+
+    ## La clé, et pourquoi pas le numéro
+
+    La clé est celle du plan, privée de son préfixe : `bp.16.previsionnel_
+    financier` donne `renvoi_previsionnel_financier`. Elle dit ce que le
+    chapitre TRAITE, et le numéro comme le titre viennent du plan au moment où
+    le prompt part (règle 5). Un renvoi vers un chapitre que le livrable n'a
+    pas reste une variable inconnue : `interpoler` la laisse visible et
+    `generer_chapitre` la journalise — un trou qui se voit, jamais un faux
+    numéro.
+
+    La fiche projet n'en reçoit pas : elle n'est pas publiée, et un renvoi
+    vers elle enverrait le lecteur chercher un chapitre absent du sommaire.
+    """
+    from ..blueprints import SectionKind, chapters_for_deliverable  # noqa: PLC0415
+
+    try:
+        plan = chapters_for_deliverable(deliverable_type)
+    except ValueError:
+        return {}
+    return {
+        "renvoi_" + chapitre.prompt_key.split(".", 2)[-1]:
+            f"chapitre {chapitre.number} « {chapitre.title} »"
+        for chapitre in plan
+        if chapitre.section_kind != SectionKind.OPENING
     }
 
 
@@ -1840,6 +1968,8 @@ def generer_chapitre(
             + SOURCES_ET_TRACABILITE
             + "\n\n"
             + PRIX_ET_MODELE_ECONOMIQUE
+            + "\n\n"
+            + CHRONOLOGIE_ET_DECISIONS
             + SYSTEM_CACHE_BREAK
             + prompt.par_job
         ),

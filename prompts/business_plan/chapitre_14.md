@@ -8,9 +8,13 @@ Redevenu un CHAPITRE. Il était une section de l'ancien chapitre fusionné
 Le texte ci-dessous reprend celui de la section, enrichi des exigences du
 document (§14.1 et §14.2).
 
+Renvois vers d'autres chapitres : par `{{ renvoi_<clé> }}` depuis le
+29/09/2026, lus dans le plan du livrable — jamais un numéro en dur.
+
 Variables interpolées disponibles ({{ nom }}) :
   {{ secteur }}   {{ pays }}   {{ zone }}   {{ projet }}
   {{ titre_chapitre }}   {{ numero_chapitre }}   {{ cible_mots }}
+  {{ renvoi_<clé> }} : « chapitre N « Titre » », lu dans le plan du livrable
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
@@ -27,6 +31,6 @@ Contenu obligatoire :
 - Pour chaque besoin : pourquoi il est nécessaire, comment il a ete evalue, ce qu'il change pour la viabilité.
 - Distinction entre les besoins du lancement, ceux de la structuration et ceux de la montée en charge.
 
-Chiffres argumentes et cohérents avec l'activité décrite aux chapitres 4 et 8. Le lecteur doit comprendre pourquoi chaque financement est nécessaire, pas seulement combien il coute.
+Chiffres argumentés et cohérents avec l'activité décrite au {{ renvoi_activite }} et au {{ renvoi_offre_commerciale }}. Le lecteur doit comprendre pourquoi chaque financement est nécessaire, pas seulement combien il coûte.
 
-Cohérence a vérifier : le total des besoins de ce chapitre est repris a l'identique comme total des ressources au chapitre 15. Les deux montants doivent être egaux, au chiffre pres.
+Cohérence à vérifier : le total des besoins de ce chapitre est repris à l'identique comme total des ressources au {{ renvoi_plan_financement }}. Les deux montants doivent être égaux, au chiffre près.

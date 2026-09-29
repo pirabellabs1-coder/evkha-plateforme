@@ -23,7 +23,7 @@ import socket
 import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Callable, Collection, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from core.numbers import MAGNITUDE_WORDS, MONEY, MONEY_CAPTURED, NUMBER_BODY, SPACE_CLASS
@@ -1851,4 +1851,89 @@ def detecter_dates_iso(sections: Sequence[Any]) -> list[DateIso]:
                 date=m.group(1),
                 contexte=" ".join(sans_adresses[debut:m.end() + 30].split()),
             ))
+    return trouves
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 14. MOTS ANGLAIS — « already financé » dans un document français
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Business plan ÉCLORE (`cb59cede`, 29/09/2026), p. 67 : « already financé ».
+# Le moteur structuré répare désormais les mots de la liste close avant le
+# rendu (`chapitres.typographie.remplacer_les_mots_anglais`). Ce contrôle
+# vérifie ce que le lecteur REÇOIT (règle 3), et il voit deux choses que la
+# réparation ne règle pas :
+#
+# - les mots AMBIGUS (« overall », « hence »…), que la réparation ne tranche
+#   pas faute d'équivalent unique : ils se réécrivent au chapitre ;
+# - tout texte qui n'est pas passé par la réparation — un chapitre de
+#   l'ancienne chaîne markdown, un chapitre produit avant elle.
+#
+# La liste et la lecture sont celles de la réparation, importées : un mot que
+# l'une signale et que l'autre ignore serait un motif qu'aucune reprise ne
+# fermerait (règles 5 et 9).
+
+
+@dataclass(frozen=True)
+class MotAnglaisTrouve:
+    """Un mot anglais de la liste close, dans une phrase française."""
+
+    chapitre: int
+    titre: str
+    mot: str
+    equivalent: str | None
+    contexte: str
+    #: Le même mot répété dans le chapitre est UN défaut, comme pour les
+    #: montants non arrondis : un motif par mot, pas par occurrence.
+    occurrences: int = 1
+
+    def __str__(self) -> str:
+        repetition = (
+            f" ({self.occurrences} occurrences dans le chapitre)"
+            if self.occurrences > 1 else ""
+        )
+        remede = (
+            f"Écris « {self.equivalent} »."
+            if self.equivalent
+            else "Écris son équivalent français, selon le sens de la phrase."
+        )
+        return (
+            f"Mot anglais « {self.mot} » dans le chapitre « {self.titre} »"
+            f"{repetition}, au milieu d'une phrase française. {remede} "
+            f"Contexte : « …{self.contexte}… »."
+        )
+
+
+def detecter_mots_anglais(sections: Sequence[Any]) -> list[MotAnglaisTrouve]:
+    """Les mots anglais de la liste close restés dans la prose livrée.
+
+    Adresses retirées avant la lecture, comme pour les dates ISO : un domaine
+    ou un chemin d'URL porte des mots anglais légitimes. Une phrase anglaise —
+    un titre de publication cité — n'est pas signalée : c'est la lecture de la
+    réparation, qui l'épargne pour la même raison.
+    """
+    from .chapitres.typographie import mots_anglais  # noqa: PLC0415
+
+    trouves: list[MotAnglaisTrouve] = []
+    for section in sections:
+        corps = getattr(section, "body", "") or ""
+        sans_adresses = _DOMAINE_RE.sub(" ", _URL_RE.sub(" ", corps))
+        premiers: dict[str, MotAnglaisTrouve] = {}
+        compte: Counter[str] = Counter()
+        for trouve in mots_anglais(sans_adresses):
+            cle = trouve.mot.casefold()
+            compte[cle] += 1
+            if cle in premiers:
+                continue
+            debut = max(0, trouve.debut - 30)
+            premiers[cle] = MotAnglaisTrouve(
+                chapitre=getattr(section, "number", 0),
+                titre=getattr(section, "title", ""),
+                mot=trouve.mot,
+                equivalent=trouve.equivalent,
+                contexte=" ".join(sans_adresses[debut:trouve.fin + 30].split()),
+            )
+        trouves.extend(
+            replace(t, occurrences=compte[cle]) for cle, t in premiers.items()
+        )
     return trouves

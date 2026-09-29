@@ -13,9 +13,16 @@ Le document « Systeme EVKHA — Business Plans — V1 FINALE » y consacre un
 chapitre entier (§18.1 à §18.2.7), et la lecture bancaire en dépend : une
 rémunération absente du modèle financier rend le prévisionnel incomplet.
 
+29/09/2026 : les renvois passent par `{{ renvoi_<clé> }}`, lus dans le plan
+du livrable — jamais un numéro en dur ; et le revenu du dirigeant est DÉFINI
+selon le statut. Business plan ÉCLORE, p. 52 : « revenu mensuel de
+1 986,32 € », soit la capacité d'autofinancement divisée par douze, présentée
+comme le résultat net (diagnostic du 29/09/2026, § 3.2).
+
 Variables interpolées disponibles ({{ nom }}) :
   {{ secteur }}   {{ pays }}   {{ zone }}   {{ projet }}
   {{ titre_chapitre }}   {{ numero_chapitre }}   {{ cible_mots }}
+  {{ renvoi_<clé> }} : « chapitre N « Titre » », lu dans le plan du livrable
 Une variable inconnue est laissée telle quelle et signalée à la génération.
 -->
 
@@ -26,15 +33,16 @@ Principe fondamental : la rémunération ne doit JAMAIS être traitee comme un s
 
 Structure obligatoire du chapitre :
 - Vision globale de la politique de rémunération : rémunération immédiate, absence temporaire, progressive, maintien ARE, arbitrage salaire/dividendes, recours à des prestataires, embauche future. Démontrer que la politique retenue est cohérente avec le stade du projet.
-- Rémunération du dirigeant : montant prévu, calendrier, justification du choix, impact sur la trésorerie, lien avec le statut social retenu au chapitre 13.
+- Rémunération du dirigeant : montant prévu, calendrier, justification du choix, impact sur la trésorerie, lien avec le statut social retenu au {{ renvoi_structure_juridique }}.
+- Revenu du dirigeant, défini selon le statut de chaque année : en micro-entreprise, chiffre d'affaires − charges réellement décaissées − cotisations sociales ; en entreprise individuelle au réel, le résultat, cotisations déduites ; en société, la rémunération versée plus les dividendes. Un revenu mensuel est ce revenu annuel divisé par douze — jamais le résultat net ni la capacité d'autofinancement divisés par douze.
 - Charges sociales et impact financier : charges liees a la rémunération, leur poids dans le prévisionnel, leur évolution, leur effet sur la rentabilité, leur soutenabilité.
 - Rémunération de l'équipe ou recours à des renforts : salaries permanents, prestataires, intermittents, freelances, sous-traitants, renforts ponctuels. Distinguer besoins humains immédiats et futurs, charges fixes et charges variables.
 - Évolution progressive de la rémunération, avec les conditions qui la declenchent.
-- Cohérence avec la trésorerie et la rentabilité du chapitre 16.
+- Cohérence avec la trésorerie et la rentabilité du {{ renvoi_previsionnel_financier }}.
 - Lecture stratégique de la politique de rémunération.
 
 Si le dirigeant ne se remunere PAS au démarrage, expliquer cette décision comme un choix de sécurisation financière, et non comme une fragilité. C'est une position frequente et défendable ; la présenter comme un manque desservirait le dossier.
 
 Principe EVKHA : une rémunération n'est crédible que si son COÛT COMPLET — brut et charges sociales — est integre dans le modèle financier. Une rémunération annoncee sans ses charges est une rémunération fausse.
 
-Cohérence a vérifier : les montants de ce chapitre sont EXACTEMENT ceux qui figurent en charges de personnel au chapitre 16. S'ils different, c'est le prévisionnel qui a raison, et il faut aligner ce chapitre — jamais l'inverse.
+Cohérence a vérifier : les montants de ce chapitre sont EXACTEMENT ceux qui figurent en charges de personnel au {{ renvoi_previsionnel_financier }}. S'ils different, c'est le prévisionnel qui a raison, et il faut aligner ce chapitre — jamais l'inverse.
