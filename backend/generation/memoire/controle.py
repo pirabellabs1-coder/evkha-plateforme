@@ -306,6 +306,8 @@ _EVENEMENT = re.compile(
     r"passage en soci[ée]t[ée]|immatricul\w+|lancement)\b"
 )
 _ANNEE_SEULE = re.compile(r"\b(20[2-4]\d)\b")
+#: Signes autour du mot de l'événement où son année est cherchée.
+PORTEE_DATE = 25
 
 
 def _controler_les_dates(brut: str, memoire: MemoireEtude, controle: Controle) -> None:
@@ -329,8 +331,13 @@ def _controler_les_dates(brut: str, memoire: MemoireEtude, controle: Controle) -
         return
     for phrase in _PHRASE.findall(brut):
         evenement = _EVENEMENT.search(phrase)
-        annees = {int(a) for a in _ANNEE_SEULE.findall(phrase)}
-        if not evenement or len(annees) != 1:
+        if not evenement:
+            continue
+        # L'année doit être PROCHE du mot de l'événement : dans « du pilote de
+        # janvier 2027 au passage en société », 2027 date le pilote, pas le
+        # passage (faux positif mesuré sur le texte réel d'ÉCLORE, 29/09/2026).
+        annees = _annees_de_l_evenement(phrase, evenement)
+        if len(annees) != 1:
             continue
         attendues = reperes.get(_cle_d_evenement(evenement.group(0)))
         if attendues and not annees & attendues:
@@ -339,6 +346,26 @@ def _controler_les_dates(brut: str, memoire: MemoireEtude, controle: Controle) -
                 f"le client l'a fixé en {min(attendues)}. Reprends la date du client, "
                 "telle quelle."
             )
+
+
+#: Ce qui sépare les deux bornes d'un intervalle : une année placée AVANT
+#: l'un de ces mots date l'autre borne, pas l'événement (« du pilote de
+#: janvier 2027 au passage en société »).
+_BORNE = re.compile(r"(?i)\b(au|aux|à|jusqu\w*|puis|avant|vers)\b")
+
+
+def _annees_de_l_evenement(phrase: str, evenement: re.Match[str]) -> set[int]:
+    """Les années qui datent CET événement : proches, et pas de l'autre côté d'une borne."""
+    debut = max(0, evenement.start() - PORTEE_DATE)
+    annees: set[int] = set()
+    for m in _ANNEE_SEULE.finditer(phrase[debut:evenement.end() + PORTEE_DATE]):
+        position = debut + m.start()
+        if position < evenement.start():
+            entre = phrase[position + 4:evenement.start()]
+            if _BORNE.search(entre):
+                continue
+        annees.add(int(m.group(1)))
+    return annees
 
 
 def _cle_d_evenement(texte: str) -> str:

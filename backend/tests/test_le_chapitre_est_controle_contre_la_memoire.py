@@ -212,3 +212,21 @@ def test_un_renvoi_vers_un_chapitre_absent_est_refuse() -> None:
         _chapitre("Voir le chapitre 13 pour le détail."), _memoire(), chapitres_du_plan=plan
     )
     assert juste.motifs == []
+
+
+def test_l_annee_d_un_autre_evenement_ne_date_pas_le_depart() -> None:
+    """Faux positif mesuré sur ÉCLORE : 2027 date le pilote, pas le départ."""
+    memoire = _memoire_avec_calendrier()
+    phrase = (
+        "Chaque année porte son jalon, du pilote de janvier 2027 jusqu'à la bascule "
+        "où elle passe à temps plein."
+    )
+    assert controler_le_chapitre(_chapitre(phrase), memoire).motifs == []
+
+
+def test_une_annee_de_l_autre_borne_ne_date_pas_l_evenement() -> None:
+    """ÉCLORE : « du pilote de janvier 2027 au passage en société »."""
+    memoire = _memoire_avec_calendrier()
+    phrase = "Le plan court du pilote de janvier 2027 au passage à temps plein."
+    assert controler_le_chapitre(_chapitre(phrase), memoire).motifs == []
+

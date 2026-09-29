@@ -574,3 +574,30 @@ création des nouveaux dossiers. Rien ne touche aux études existantes.
 
 La phase 0 est lancée en premier : elle ne change pas l'architecture et supprime
 une partie des défauts visibles dès la prochaine étude.
+
+---
+
+## 10. Bilan de détection sur le texte réel d'ÉCLORE (29/09/2026, soir)
+
+Le texte du PDF livré (copie locale, lecture seule) passé dans les contrôles
+désormais en place — contrôle de chaque chapitre contre la mémoire, contrôle
+de la langue, relecture du PDF final :
+
+| Erreur signalée | Détectée | Par |
+|---|---|---|
+| Résultat net 2029 à deux valeurs (CAF citée comme résultat net) | oui | série nommée ≠ série de la valeur |
+| Revenu mensuel calculé sur la CAF | oui | idem (« 1 986 € » = CAF ÷ 12) |
+| Chiffres dérivés calculés par le modèle | oui | chiffre écrit en clair hors mémoire |
+| Nombre de concurrents (13 contre 11) | oui | compte de la base |
+| TVA présentée comme un choix | oui | règle datée du seuil de franchise |
+| « Taux » exprimé en euros | oui | unité d'un taux |
+| Renvoi vers un chapitre inexistant | oui | plan du type d'étude |
+| Mots anglais (« already ») | oui | langue (réparée avant le Word, sinon signalée) |
+| En-tête trop long, auteur du PDF, 22 chapitres pour 21 | oui | relecture du PDF |
+| Dates d'un même événement | partiel | une année contredite oui ; un glissement de précision (« courant 2029 » / « fin 2029 ») non — c'est la consigne « reprendre la phrase du client telle quelle » qui le traite |
+| Compte de résultat qui ne boucle pas, coût fixe faux dans un tableau | non | aucun recalcul de tableau encore ; avec la mémoire, ces chiffres viennent des repères, calculés par le code |
+| Source 21,2 % contre texte 21,3 % | non | les valeurs des sources ne sont pas encore dans la mémoire |
+
+Deux faux positifs trouvés par cette mesure et corrigés avant déploiement :
+une année d'une autre borne d'intervalle (« du pilote de janvier 2027 au
+passage en société ») ne date plus l'événement.
