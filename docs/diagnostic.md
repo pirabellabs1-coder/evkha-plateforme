@@ -511,22 +511,23 @@ contrôle post-rendu « nombre de chapitres numérotés = nombre annoncé ».
   l'annexe des chiffres ; chaque entrée du plan déclare les questions qu'elle
   utilise ; le rapport interne liste les questions jamais utilisées.
 
-## 8. Décisions à prendre avant de coder
+## 8. Décisions (tranchées le 29/09/2026, sur la structure existante)
 
-| # | Question | Mon avis |
-|---|---|---|
-| D1 | Si notre calcul diverge du prévisionnel du client, qui fait foi ? | Le calcul, qui boucle ; l'écart est signalé dans le rapport interne, jamais au client. Mais le client a écrit ses chiffres : il faut au moins garder sa série « déclarée » à part |
-| D2 | Définitions : statut juridique strict (micro = pas d'amortissements) ou choix du client ? | Le statut fixe les définitions ; un choix contraire du client devient une hypothèse nommée |
-| D3 | Placeholders pour **tous** les nombres, y compris ceux cités des sources de marché ? | Oui pour tout chiffre du projet et tout dérivé ; les chiffres de marché passent par `sources` avec identifiant |
-| D4 | Contrôle de langue : LanguageTool en conteneur (Java, ~300 Mo), API publique, ou Grammalecte (Python, hors ligne) ? | Grammalecte ou LanguageTool en conteneur privé ; pas d'API publique (confidentialité) |
-| D5 | Temps réel : SSE ou interrogation périodique rapide (2 s) ? | Interrogation périodique : déjà en place, robuste derrière Coolify/nginx, suffisante pour 3 états par chapitre |
-| D6 | Budget : quel surcoût par étude est acceptable pour le contrôle par chapitre ? | À fixer après mesure en phase 3 |
-| D7 | Le PDF ÉCLORE comme fixture : dans le dépôt, ou hors dépôt ? | Hors dépôt (chemin ignoré par git) ; les tests versionnés utilisent un extrait **anonymisé** |
-| D8 | Nouvelle architecture pour les quatre livrables d'un coup, ou business plan d'abord ? | Business plan d'abord (le plus chiffré), puis les autres par configuration |
-| D9 | Écart 22/21 : corriger le générateur (annexe des chiffres non numérotée, Fiche projet hors compte) ou la carte ? | Le générateur (voir § 7 bis) |
-| D10 | Hypothèse prudente sur une réponse vide : visible du client (annexe des chiffres) seulement, ou aussi dans le chapitre concerné ? | Dans l'annexe des chiffres, et une phrase dans le chapitre qui l'utilise (« hypothèse retenue faute de réponse ») |
+L'utilisateur a demandé que ces choix soient tranchés ici, en partant de ce qui
+existe déjà plutôt qu'en le remplaçant.
 
----
+| # | Question | Décision | Raison |
+|---|---|---|---|
+| D1 | Si notre calcul diverge du prévisionnel du client, qui fait foi ? | Les chiffres **déclarés** par le client font foi (c'est son projet) ; tout **dérivé** est calculé par le code à partir d'eux ; une incohérence interne de son prévisionnel est consignée au rapport interne, jamais « réparée » en silence | on ne réécrit pas les chiffres d'un client ; on cesse d'en inventer |
+| D2 | Définitions : statut juridique ou choix du client ? | Le statut juridique fixe les définitions (glossaire par statut) ; une ligne du client qui s'en écarte (ex. amortissements en micro) reste citée comme **sa** donnée déclarée, jamais recalculée autrement | cohérence du document sans trahir la cliente |
+| D3 | Repères `{{…}}` pour quels chiffres ? | Pour les chiffres du projet et tous les dérivés ; les chiffres de marché restent cités par identifiant du socle, comme les figures aujourd'hui | le mécanisme « par identifiant » existe déjà pour les figures |
+| D4 | Contrôle de la langue | Contrôles internes d'abord (élisions, anglicismes, codes d'unité, liste de mots interdits), réparés au rendu ; pas d'API publique ; LanguageTool en conteneur privé seulement si la mesure montre qu'il en faut plus | confidentialité, image sans Java |
+| D5 | Temps réel | Interrogation périodique existante, accélérée pendant la production | déjà en place, robuste derrière Coolify |
+| D6 | Surcoût du contrôle par chapitre | Rester dans le budget existant de chaque type (`budget_eur`) ; contrôle en code d'abord, appel au modèle seulement quand le code a trouvé quelque chose ou pour les chapitres chiffrés | les contrôles en code ne coûtent rien |
+| D7 | Fixture ÉCLORE | Hors dépôt (chemin ignoré par git) ; les tests versionnés portent des extraits anonymisés | document confidentiel d'une cliente |
+| D8 | Ordre des livrables | Business plan d'abord (le plus chiffré), le reste par configuration par type | là où sont les erreurs |
+| D9 | Écart 22/21 | **Le générateur** : l'annexe des chiffres devient une annexe non numérotée, et le suivi client ne compte que les chapitres annoncés | la carte reprend evkha.fr ; l'intention (« l'annexe n'est pas vendue comme un chapitre ») est déjà écrite dans `contenu.ts` |
+| D10 | Réponse vide ou incohérente | Hypothèse prudente, marquée « hypothèse » dans l'annexe des chiffres et nommée une fois dans le chapitre qui l'utilise | le client voit d'où vient le chiffre, l'étude ne s'arrête pas |
 
 ## 9. Plan par phases (proposé ; un commit et des tests verts par phase)
 
@@ -571,5 +572,5 @@ création des nouveaux dossiers. Rien ne touche aux études existantes.
    simulés, redémarrage) ; preuve qu'aucune étude existante n'a changé. Une
    génération réelle (payante) par type ne se fait qu'avec votre accord.
 
-La phase 0 peut être faite tout de suite si vous le souhaitez : elle ne change pas
-l'architecture et supprime une partie des défauts visibles dès la prochaine étude.
+La phase 0 est lancée en premier : elle ne change pas l'architecture et supprime
+une partie des défauts visibles dès la prochaine étude.
