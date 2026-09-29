@@ -151,6 +151,12 @@ class ChapterGeneration(UUIDModel):
     cost_perdu_eur = models.DecimalField(
         max_digits=10, decimal_places=4, default=Decimal("0.0000")
     )
+    #: Où en est le chapitre, en mots que le client peut lire en direct :
+    #: « redaction », « verification », « ajustement » (une reprise est en
+    #: cours), « valide ». Vide tant qu'il n'a pas commencé. Posé par la boucle
+    #: de production elle-même (`chapitres/services.py`), jamais déduit par
+    #: l'écran — l'écran déduisait, et il affichait « échec » (29/09/2026).
+    etape = models.CharField(max_length=16, blank=True, default="")
     retry_count = models.PositiveSmallIntegerField(default=0)
     error_message = models.TextField(blank=True)
 

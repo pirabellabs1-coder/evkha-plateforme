@@ -165,6 +165,7 @@ def produire_chapitre(
     client: Any,
     socle: Socle | None = None,
     derniere_tentative: bool | None = None,
+    reprise: bool = False,
 ) -> ChapterGeneration:
     """Produit et enregistre un chapitre. Idempotent : un chapitre DONE est rendu tel quel.
 
@@ -185,7 +186,8 @@ def produire_chapitre(
         raise SocleManquantError(msg)
 
     chapter.status = ChapterStatus.RUNNING
-    chapter.save(update_fields=["status", "updated_at"])
+    chapter.etape = "ajustement" if reprise else "redaction"
+    chapter.save(update_fields=["status", "etape", "updated_at"])
 
     try:
         payload, consommation, arbitrage = generer_chapitre(
@@ -204,7 +206,11 @@ def produire_chapitre(
         )
         raise
 
-    return enregistrer_chapitre(chapter, payload, consommation, arbitrage=arbitrage)
+    ChapterGeneration.objects.filter(pk=chapter.pk).update(etape="verification")
+    enregistre = enregistrer_chapitre(chapter, payload, consommation, arbitrage=arbitrage)
+    ChapterGeneration.objects.filter(pk=enregistre.pk).update(etape="valide")
+    enregistre.etape = "valide"
+    return enregistre
 
 
 def regenerer_chapitre(
@@ -373,6 +379,7 @@ def produire_avec_reprises(
             chapitre = produire_chapitre(
                 job, numero, client=client, socle=socle,
                 derniere_tentative=(tentative == document.tentatives_max),
+                reprise=tentative > 1,
             )
         except sans_reprise:
             raise
