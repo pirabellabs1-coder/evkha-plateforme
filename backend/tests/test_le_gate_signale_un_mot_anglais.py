@@ -17,10 +17,18 @@ def _section(corps: str) -> RenderedSection:
     return RenderedSection(number=4, title="Offre", kind="chapter", body=corps)
 
 
-def test_un_mot_anglais_ambigu_est_signale_au_chapitre() -> None:
-    echecs = _check_texte_francais((_section("Le bilan overall reste positif sur trois ans."),))
+def test_des_mots_anglais_ambigus_sont_signales_au_chapitre() -> None:
+    """Deux occurrences au moins : un seul « overall » ne paie pas une réécriture."""
+    corps = "Le bilan overall reste positif. La tendance overall se confirme sur trois ans."
+    echecs = _check_texte_francais((_section(corps),))
     anglais = [e for e in echecs if e.check == "mot_anglais"]
     assert anglais and anglais[0].chapter_number == 4
+
+
+def test_un_seul_mot_ambigu_ne_fait_pas_reecrire_le_chapitre() -> None:
+    """Contre-épreuve : le seuil du lot langue (revue du 29/09/2026)."""
+    echecs = _check_texte_francais((_section("Le bilan overall reste positif sur trois ans."),))
+    assert not [e for e in echecs if e.check == "mot_anglais"]
 
 
 def test_un_texte_francais_ne_l_est_pas() -> None:
