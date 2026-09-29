@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.utils import timezone
 
 from catalog.models import DeliverableType
@@ -146,6 +147,8 @@ def bootstrap_generation_job(submission: IntakeSubmission) -> GenerationJob:
             "deliverable_type": str(deliverable_type),
             "status": JobStatus.PENDING,
             "budget_eur": _BUDGET_EUR_BY_TYPE[deliverable_type],
+            # Figé à la création : un dossier ne change jamais de chemin.
+            "memoire_active": bool(getattr(settings, "EVKHA_MEMOIRE_ETUDE", False)),
         },
     )
 

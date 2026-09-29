@@ -90,6 +90,17 @@ class GenerationJob(UUIDModel):
     #: bord affiche entre l'assemblage et l'envoi : sans elle, l'étape existe
     #: dans le code et nulle part pour celui qui regarde le dossier.
     controle_final = models.JSONField(default=dict, blank=True)
+    #: La mémoire de l'étude (`generation.memoire`) guide-t-elle ce dossier ?
+    #:
+    #: Posé UNE FOIS, à la création du dossier, depuis le réglage
+    #: `EVKHA_MEMOIRE_ETUDE`. Faux pour tous les dossiers antérieurs : une étude
+    #: déjà produite — ou relancée — garde exactement le chemin qui l'a produite
+    #: (engagement du 29/09/2026 : aucune étude existante n'est modifiée).
+    memoire_active = models.BooleanField(default=False)
+    #: La mémoire construite pour ce dossier (faits, décisions), telle que les
+    #: chapitres l'ont reçue. Vide tant qu'elle n'est pas construite, et pour
+    #: tout dossier sans `memoire_active`.
+    memoire_etude = models.JSONField(default=dict, blank=True)
     error_message = models.TextField(blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)

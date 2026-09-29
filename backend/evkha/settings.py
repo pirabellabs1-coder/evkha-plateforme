@@ -491,6 +491,13 @@ TAVILY_API_KEY = env("TAVILY_API_KEY", default="")
 # le repasser à false rend le comportement d'avant, sans migration ni purge.
 EVKHA_SOCLE_ENABLED = env.bool("EVKHA_SOCLE_ENABLED", default=False)
 
+# Mémoire de l'étude (`generation/memoire/`, chantier du 29/09/2026) : faits
+# dérivés calculés par le code, repères {{…}}, registre des décisions, contrôle
+# de chaque chapitre. Lu à la CRÉATION d'un dossier seulement
+# (`GenerationJob.memoire_active`) : le basculer ne change rien aux dossiers
+# existants, ni à leurs relances.
+EVKHA_MEMOIRE_ETUDE = env.bool("EVKHA_MEMOIRE_ETUDE", default=False)
+
 # Boucle d'auto-correction (concept loopy) : nombre de rondes de régénération
 # ciblée des chapitres fautifs avant blocage du gate. 0 = désactivé (le gate
 # bloque directement, comportement historique).
