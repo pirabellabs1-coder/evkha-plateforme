@@ -911,7 +911,7 @@ def valider_chapitre(
     resume_mots_min: int,
     resume_mots_max: int,
     secteur: str = "",
-    derniere_tentative: bool = False,
+    derniere_tentative: bool | None = False,
 ) -> list[str]:
     """Contrôles croisés avec le socle et le chapitrage.
 

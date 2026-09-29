@@ -1843,12 +1843,13 @@ def construire_prompt_chapitre(
         ),
     ]
 
-    if memoire is not None:
+    rappel = rappel_des_reperes(memoire) if memoire is not None else ""
+    if rappel:
         # Le rappel, EN FIN de consigne, là où le modèle le lit le mieux.
         # Épreuve réelle du 29/09/2026 (`bf98827c`) : la mémoire n'était que
         # dans la partie du dossier, et le modèle a cité 10 repères en 18
         # chapitres, écrivant le reste en clair.
-        blocs.append(rappel_des_reperes(memoire))
+        blocs.append(rappel)
 
     if motifs_precedents:
         # La même consigne que la chaîne HTML, écrite une seule fois
@@ -2031,6 +2032,7 @@ def generer_chapitre(
     brut: Any = dict(resultat.payload)
     motifs_memoire: list[str] = []
     signaux_memoire: list[str] = []
+    from ..memoire.controle import motif_des_signaux  # noqa: PLC0415
     from ..memoire.services import memoire_du_job  # noqa: PLC0415
 
     memoire = memoire_du_job(job)
@@ -2114,9 +2116,14 @@ def generer_chapitre(
     motifs.extend(motifs_memoire)
     if motifs:
         # Les SIGNAUX de la mémoire (chiffres en clair) voyagent avec une
-        # reprise déjà décidée, comme les motifs de figure : ils ne coûtent
-        # alors rien de plus.
-        motifs.extend(signaux_memoire)
+        # reprise décidée ICI, par un motif de validation ou de mémoire, comme
+        # les motifs de figure : ils ne coûtent alors rien de plus. Ils ne
+        # suivent pas une reprise pour réponse invalide ou pour conformité,
+        # décidée ailleurs. Résumés en UN motif, pour ne pas évincer les autres
+        # de la limite de longueur.
+        resume_des_signaux = motif_des_signaux(signaux_memoire)
+        if resume_des_signaux:
+            motifs.append(resume_des_signaux)
         motifs.extend(motifs_de_figure)
         raise ChapitreInvalideError(motifs, consommation)
     if motifs_de_figure:
@@ -2152,6 +2159,10 @@ def rappel_des_reperes(memoire: Any) -> str:
     `{{resultat_net_mensuel_an3}}` n'y existe pas.
     """
     identifiants = list(memoire.faits)
+    if not identifiants:
+        # Une mémoire sans fait n'a aucun repère à citer : rappeler d'en citer
+        # pousserait à en inventer.
+        return ""
     exemples = [i for i in identifiants if i.startswith("ca_previsionnel_an")][:1]
     exemples += [i for i in identifiants if "_mensuel_an" in i][:1]
     if not exemples:
@@ -2167,7 +2178,8 @@ def rappel_des_reperes(memoire: Any) -> str:
         f"MÉMOIRE DE L'ÉTUDE{par_exemple} ; le rendu posera la valeur exacte. Tu peux "
         "citer en clair une réponse du client telle qu'il l'a écrite. Tout autre "
         "chiffre (écart, part, moyenne, total) : prends le repère de la mémoire, "
-        f"ne le calcule pas. {series}."
+        "ne le calcule pas. Si le repère voulu n'est pas dans la liste, n'écris pas "
+        f"ce chiffre : n'invente jamais un identifiant. {series}."
     )
 
 
@@ -2181,11 +2193,12 @@ def _passer_par_la_memoire(
 ) -> tuple[Any, list[str], list[str]]:
     """Contrôle un chapitre contre la mémoire, puis écrit ses repères en valeurs.
 
-    Rend le chapitre prêt à valider, et les motifs qui doivent le faire
-    reprendre. Au dernier essai (ou quand il n'y aura pas d'autre essai), le
-    repli s'applique — la phrase au repère inconnu est retirée — et aucun motif
-    n'est rendu : l'étude ne s'arrête jamais sur un chapitre (engagement du
-    29/09/2026). Ce qui reste est tracé dans la mémoire du dossier, pour le
+    Rend le chapitre prêt à valider, les motifs qui doivent le faire reprendre,
+    et les signaux (chiffres en clair) qui ne le font pas reprendre à eux
+    seuls mais accompagnent une reprise décidée. Au dernier essai (ou quand il
+    n'y aura pas d'autre essai), le repli s'applique — la phrase au repère
+    inconnu est retirée — et aucun motif n'est rendu : l'étude ne s'arrête
+    jamais sur un chapitre (engagement du 29/09/2026). Ce qui reste est tracé dans la mémoire du dossier, pour le
     rapport interne.
     """
     from ..blueprints import chapters_for_deliverable  # noqa: PLC0415

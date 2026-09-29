@@ -41,5 +41,11 @@ def test_un_business_plan_voit_ses_propres_reperes() -> None:
     assert "le résultat net n'est pas la CAF" in rappel
 
 
-def test_une_memoire_vide_ne_cite_aucun_repere() -> None:
-    assert REPERE.findall(rappel_des_reperes(_memoire())) == []
+def test_une_memoire_vide_n_a_pas_de_rappel() -> None:
+    """Rappeler de citer des repères quand il n'y en a aucun pousserait à en inventer."""
+    assert rappel_des_reperes(_memoire()) == ""
+
+
+def test_le_rappel_dit_quoi_faire_quand_le_repere_manque() -> None:
+    """Un repère inventé est un motif grave : le rappel dit de retirer le chiffre."""
+    assert "n'invente jamais un identifiant" in rappel_des_reperes(_memoire("panier_moyen"))

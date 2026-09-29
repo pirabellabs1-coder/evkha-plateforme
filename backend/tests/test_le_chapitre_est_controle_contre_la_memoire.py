@@ -83,6 +83,7 @@ def test_un_chiffre_juste_ecrit_en_clair_passe() -> None:
         _chapitre("Le chiffre d'affaires 2028 est de 51 132,5 €."), _memoire()
     )
     assert controle.motifs == []
+    assert controle.signaux == [], "la valeur d'un fait n'est pas même signalée"
 
 
 def test_une_reponse_du_client_ecrite_en_clair_passe() -> None:
@@ -91,6 +92,7 @@ def test_une_reponse_du_client_ecrite_en_clair_passe() -> None:
         nombres_du_client=[39.0],
     )
     assert controle.motifs == []
+    assert controle.signaux == [], "une réponse du client n'est pas même signalée"
 
 
 def test_la_tva_par_choix_au_dessus_du_seuil_est_refusee() -> None:

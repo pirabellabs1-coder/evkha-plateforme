@@ -7,7 +7,8 @@ la TVA « par choix ». Pour un dossier créé avec la mémoire
 
 1. reçoit la mémoire dans son prompt (faits à citer par repère, décisions) ;
 2. est contrôlé contre elle dès la réponse du modèle, et repris (niveau 2)
-   sur un chiffre inventé ou un repère inconnu ;
+   sur un repère inconnu ou un motif grave ; un chiffre écrit en clair est
+   un signal, qui accompagne la reprise sans la décider (`bf98827c`) ;
 3. sort avec ses repères écrits en valeurs, au format français ;
 4. est TOUJOURS validé au dernier essai (repli), jamais bloqué.
 
@@ -97,7 +98,10 @@ def test_le_redacteur_recoit_la_memoire() -> None:
     )
     assert "MÉMOIRE DE L'ÉTUDE" in prompt.par_job, "dans la partie mise en cache"
     assert "{{resultat_net_mensuel_an3}}" in prompt.par_job
-    assert "CHIFFRES — RAPPEL" in str(prompt), "le rappel en fin de consigne du chapitre"
+    dernier_bloc = prompt.par_chapitre.rstrip().split("\n\n")[-1]
+    assert dernier_bloc.startswith("CHIFFRES — RAPPEL"), (
+        "le rappel est le DERNIER bloc de la consigne du chapitre"
+    )
 
 
 def test_les_reperes_sortent_en_valeurs() -> None:
@@ -109,7 +113,7 @@ def test_les_reperes_sortent_en_valeurs() -> None:
     assert job.memoire_etude["chapitres"]["16"]["reperes"], "la mémoire trace les repères cités"
 
 
-def test_un_chiffre_invente_fait_reprendre_le_chapitre() -> None:
+def test_un_repere_inconnu_fait_reprendre_et_le_chiffre_en_clair_voyage_avec() -> None:
     job = _dossier("c", memoire=True)
     client = ClientQuiInvente(se_corrige=True)
     chapitre = produire_avec_reprises(job, 16, client=client)

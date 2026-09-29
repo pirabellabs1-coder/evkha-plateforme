@@ -31,6 +31,10 @@ from generation.models import GenerationJob
 MAX_DOSSIERS_LISTES = 100
 
 
+#: Les familles de signaux : relevés, sans reprise.
+PREFIXE_SIGNAL = "Signal, sans reprise — "
+
+
 def famille_du_motif(motif: str) -> str:
     """Le genre d'un motif, pour les compter ensemble (« Chiffre écrit en clair »)."""
     sans_citation = re.sub(r"«[^»]*»|\{\{.*?\}\}", " ", motif)
@@ -91,8 +95,13 @@ def rapport_qualite(request: HttpRequest) -> JsonResponse:
             compte["motifs"] += len(trace.get("motifs") or [])
             compte["replis"] += 1 if trace.get("replie") else 0
             compte["titre_" + str(trace.get("titre") or "")] = 1
-            for motif in [*(trace.get("motifs") or []), *(trace.get("signaux") or [])]:
+            for motif in trace.get("motifs") or []:
                 par_famille[famille_du_motif(str(motif))] += 1
+            # Un signal n'a pas fait reprendre le chapitre : il se compte à
+            # part, sans quoi « Chiffre écrit en clair » se lirait comme une
+            # cause de reprises (revue du 29/09/2026).
+            for signal in trace.get("signaux") or []:
+                par_famille[PREFIXE_SIGNAL + famille_du_motif(str(signal))] += 1
         for constat in (job.controle_final or {}).get("rendu_pdf") or []:
             par_constat[str(constat.get("controle") or "autre")] += 1
 

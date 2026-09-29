@@ -58,6 +58,10 @@ PLAFOND_MICRO: dict[Nature, Seuil] = {
                          "art. 50-0 CGI — autoentrepreneur.urssaf.fr"),
 }
 
+#: Tous les tableaux de seuils légaux datés. Le contrôle des chapitres les
+#: connaît comme chiffres sourcés : un nouveau tableau s'ajoute ICI.
+SEUILS_LEGAUX: tuple[dict[Nature, Seuil], ...] = (FRANCHISE_TVA, PLAFOND_MICRO)
+
 
 def _seuil(table: dict[Nature, Seuil], nature: Nature, annee: int) -> Seuil | None:
     seuil = table.get(nature)

@@ -269,7 +269,12 @@ def _refaire_les_chapitres_manquants(
             rapport.chapitres_perdus.append(numero)
             continue
         try:
-            produire_chapitre(job, numero, client=client)
+            # UN seul essai : c'est donc le dernier, et la validation doit le
+            # savoir (résumé un peu court gardé, identifiant hors socle
+            # abandonné). Sans quoi le chapitre rattrapé meurt sur une
+            # métadonnée — le cas du chapitre 3 de `bf98827c` (revue du
+            # 29/09/2026).
+            produire_chapitre(job, numero, client=client, derniere_tentative=True)
         except Exception:  # noqa: BLE001 — un chapitre qui résiste n'arrête pas la relecture
             _log.exception(
                 "Relecture finale : chapitre %s non rattrapé (job %s)", numero, job.id

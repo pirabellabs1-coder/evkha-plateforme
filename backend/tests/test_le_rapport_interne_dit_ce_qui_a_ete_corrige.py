@@ -64,6 +64,20 @@ def test_le_rapport_agrege_par_chapitre_et_par_motif(client_admin: Any) -> None:
     assert corps["constats_pdf"] == [{"controle": "entete_trop_long", "occurrences": 1}]
 
 
+def test_un_signal_se_compte_a_part_des_reprises(client_admin: Any) -> None:
+    """Un chiffre en clair SIGNALÉ n'a pas fait reprendre le chapitre (revue du 29/09/2026)."""
+    _dossier("s", memoire_active=True, memoire_etude={"chapitres": {"16": {
+        "titre": "Prévisionnel", "reperes": [], "verifie": ["x"], "motifs": [],
+        "signaux": ["Chiffre écrit en clair « 12 € » : …"], "replie": False,
+    }}})
+
+    corps = client_admin.get(URL).json()
+
+    familles = {f["famille"]: f["occurrences"] for f in corps["familles_de_motifs"]}
+    assert familles == {"Signal, sans reprise — Chiffre écrit en clair": 1}
+    assert corps["chapitres"][0]["motifs"] == 0
+
+
 def test_un_dossier_ancien_n_apparait_pas(client_admin: Any) -> None:
     """Contre-épreuve : sans mémoire ni contrôle final, rien à rapporter."""
     _dossier("c")

@@ -14,9 +14,12 @@ conformes — ou ajustés.
 1. `appliquer_les_reperes` remplace les `{{identifiant}}` d'un chapitre par
    leurs valeurs, dans toutes ses chaînes, et dit lesquels sont inconnus ;
 2. `controler_le_chapitre` rend les MOTIFS qui le font reprendre : repère
-   inconnu, chiffre écrit en clair qui n'est ni un fait ni une réponse du
-   client, TVA « par choix » quand la règle l'impose, compte de concurrents
-   différent de la base, « taux » exprimé en euros ;
+   inconnu, TVA « par choix » quand la règle l'impose, compte de concurrents
+   différent de la base, « taux » exprimé en euros, séries confondues, dates
+   contredites, renvois hors plan, comptes de résultat faux — et les SIGNAUX,
+   qui ne font pas reprendre à eux seuls : chiffre écrit en clair qui n'est ni
+   un fait, ni une réponse du client, ni un seuil légal (épreuve réelle
+   `bf98827c`, 29/09/2026) ;
 3. `replis_de_derniere_tentative` : à la dernière tentative, ce qui ne peut
    pas partir est retiré (la phrase qui porte un repère inconnu) — le chapitre
    est TOUJOURS validé, l'étude ne s'arrête jamais.
@@ -143,16 +146,16 @@ def _proche(valeur: float, references: Iterable[float]) -> bool:
 
 
 def _seuils_des_regles() -> list[float]:
-    """Les seuils légaux datés de la mémoire : des chiffres sourcés, pas des inventions.
+    """Les seuils légaux datés (`regles.SEUILS_LEGAUX`) : des chiffres sourcés.
 
     Reprise ÉCLORE `bf98827c` (29/09/2026) : « 37 500 € », la franchise de TVA
     des services (art. 293 B CGI), était signalé comme chiffre inventé au
     chapitre des risques.
     """
-    from .regles import FRANCHISE_TVA, PLAFOND_MICRO  # noqa: PLC0415
+    from .regles import SEUILS_LEGAUX  # noqa: PLC0415
 
     valeurs: list[float] = []
-    for table in (FRANCHISE_TVA, PLAFOND_MICRO):
+    for table in SEUILS_LEGAUX:
         for seuil in table.values():
             valeurs.append(seuil.valeur)
             if seuil.majore is not None:
@@ -406,6 +409,33 @@ def _cle_d_evenement(texte: str) -> str:
     if "société" in texte or "societe" in texte:
         return "societe"
     return texte.split()[0]
+
+
+#: L'écriture citée dans un signal : « 8 576,08 € ».
+_ECRITURE_CITEE = re.compile(r"«\s*(.+?)\s*»")
+#: Au-delà, la liste des chiffres en clair est résumée : elle accompagne une
+#: reprise, elle ne doit pas en évincer les autres motifs.
+MAX_CHIFFRES_CITES = 12
+
+
+def motif_des_signaux(signaux: Iterable[str]) -> str:
+    """Les signaux d'un chapitre en UN motif, quand ils accompagnent une reprise.
+
+    Un signal fait près de 190 caractères, et l'ensemble des motifs d'une
+    reprise est coupé à 2 000 : une dizaine de signaux un par un évinçaient
+    les motifs de figure qui les suivent (revue du 29/09/2026). La trace du
+    chapitre garde, elle, chaque signal.
+    """
+    ecritures = [m.group(1) for s in signaux if (m := _ECRITURE_CITEE.search(s))]
+    if not ecritures:
+        return ""
+    cites = ", ".join("« " + e + " »" for e in ecritures[:MAX_CHIFFRES_CITES])
+    reste = len(ecritures) - MAX_CHIFFRES_CITES
+    suite = f" (et {reste} autre(s))" if reste > 0 else ""
+    return (
+        "Chiffres écrits en clair hors de la mémoire : " + cites + suite + ". Cite le "
+        "repère du fait voulu ({{…}}) ; s'il n'existe pas, retire le chiffre."
+    )
 
 
 def replis_de_derniere_tentative(payload: Any, faits: Mapping[str, Fait]) -> Any:
