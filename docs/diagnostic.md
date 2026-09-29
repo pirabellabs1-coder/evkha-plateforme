@@ -601,3 +601,21 @@ de la langue, relecture du PDF final :
 Deux faux positifs trouvés par cette mesure et corrigés avant déploiement :
 une année d'une autre borne d'intervalle (« du pilote de janvier 2027 au
 passage en société ») ne date plus l'événement.
+
+---
+
+## 11. État d'avancement (29/09/2026, 20 h 30)
+
+En production (`d0f9baa`, puis `dd8e365`), tout sous garde : la mémoire de
+l'étude est **coupée** pour les commandes des clients (`EVKHA_MEMOIRE_ETUDE`
+faux) tant qu'une génération réelle ne l'a pas éprouvée.
+
+| Phase | Fait | Reste |
+|---|---|---|
+| 0. Réparations localisées | extracteur (résultat net ≠ CAF, qualificatifs), années civiles et arrondi au gate, sensibilité admise, annuel → mensuel, langue (élisions, anglais, unités), consignes BP 13 (TVA) et 16 (compte de résultat), renvois calculés, rendu Word (annexe non numérotée, unités, axes, en-tête, auteur, sources, coupes, 4ᵉ de couverture, doublons, rétroplanning) | — |
+| 1. Mémoire + calcul + repères | faits dérivés par identité, repères `{{…}}`, règles datées (TVA, micro), registre des décisions (règles, base, phrases du client mot pour mot), questionnaire (hypothèses prudentes, questions exploitées) ; branchée sur la rédaction ; drapeau figé à la création du dossier | ouverture aux clients après l'épreuve réelle (reprise ÉCLORE `bf98827c`, sans envoi) |
+| 2-3. Boucle par chapitre, correction | contrôle de chaque chapitre contre la mémoire (repères, chiffres en clair, séries confondues, TVA, concurrents, taux, dates, renvois, comptes de résultat) ; reprise ciblée avec motifs (niveau 2) ; repli garanti au dernier essai (niveau 3) ; étape visible par chapitre | contrôle par le modèle (JSON strict) sur les chapitres signalés — non fait, les contrôles en code couvrent les classes mesurées |
+| 4. Vérification d'ensemble, post-rendu | relecture du PDF final (en-tête, pages vides, sources orphelines, nombre de chapitres, auteur) | statuts de l'annexe calculés en code ; valeurs des sources dans la mémoire |
+| 5. Interface | liste des chapitres en direct, étapes positives, rafraîchissement 4 s | — |
+| 6. Rapport interne | page « Qualité » de la console : reprises par chapitre, replis, genres de motifs, constats PDF, questions non exploitées | — |
+| 7. Tests | ~4 500 tests backend, 172 frontend, répétition à blanc 4/4 (mémoire coupée et active), détection sur le texte réel d'ÉCLORE (§ 10) | génération de démonstration réelle par type (payante, sur accord) |
