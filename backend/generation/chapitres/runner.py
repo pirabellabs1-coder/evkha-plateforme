@@ -2198,8 +2198,8 @@ def _passer_par_la_memoire(
     seuls mais accompagnent une reprise décidée. Au dernier essai (ou quand il
     n'y aura pas d'autre essai), le repli s'applique — la phrase au repère
     inconnu est retirée — et aucun motif n'est rendu : l'étude ne s'arrête
-    jamais sur un chapitre (engagement du 29/09/2026). Ce qui reste est tracé dans la mémoire du dossier, pour le
-    rapport interne.
+    jamais sur un chapitre (engagement du 29/09/2026). Ce qui reste est tracé
+    dans la mémoire du dossier, pour le rapport interne.
     """
     from ..blueprints import chapters_for_deliverable  # noqa: PLC0415
     from ..memoire.controle import (  # noqa: PLC0415
