@@ -89,3 +89,21 @@ def test_un_dossier_sans_memoire_n_est_jamais_touche() -> None:
     assert memoire_du_job(job) is None
     job.refresh_from_db()
     assert job.memoire_etude == {}
+
+
+def test_une_memoire_impossible_a_construire_n_arrete_pas_l_etude(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le dossier retombe sur le chemin d'avant : jamais une étude arrêtée."""
+    from generation.memoire import etude
+
+    with override_settings(EVKHA_MEMOIRE_ETUDE=True):
+        job = _dossier("f")
+    etablir_socle(job, client=StubClaudeClient(), variables=VARIABLES)
+
+    def casse(*_: object, **__: object) -> None:
+        raise RuntimeError("panne simulée")
+
+    monkeypatch.setattr(etude.MemoireEtude, "construire", classmethod(casse))
+    assert memoire_du_job(job) is None
+

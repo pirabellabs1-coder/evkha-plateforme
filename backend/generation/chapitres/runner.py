@@ -2154,6 +2154,7 @@ def _passer_par_la_memoire(
         controler_le_chapitre,
         replis_de_derniere_tentative,
     )
+    from ..memoire.questionnaire import questions_utilisees  # noqa: PLC0415
 
     controle = controler_le_chapitre(brut, memoire, _nombres_du_client(variables))
     dernier = derniere_tentative is not False
@@ -2169,6 +2170,9 @@ def _passer_par_la_memoire(
         "verifie": controle.verifie,
         "motifs": controle.motifs,
         "replie": dernier and bool(controle.motifs),
+        # Les questions du client que ce chapitre exploite (mesure, pour le
+        # rapport interne : une réponse qu'aucun chapitre n'exploite s'y voit).
+        "questions": questions_utilisees(variables, str(rendu)),
     }
     trace["chapitres"] = chapitres
     type(chapter.job).objects.filter(pk=chapter.job.pk).update(memoire_etude=trace)

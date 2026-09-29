@@ -49,7 +49,15 @@ def memoire_du_job(job: GenerationJob) -> MemoireEtude | None:
     except ValidationError:
         _log.exception("Mémoire : socle illisible pour le dossier %s", job.id)
         return None
-    memoire = MemoireEtude.construire(lu, _variables(job))
+    try:
+        memoire = MemoireEtude.construire(lu, _variables(job), str(job.deliverable_type))
+    except Exception:  # noqa: BLE001 — la mémoire ne doit JAMAIS arrêter une étude
+        # Une erreur ici remonterait dans la rédaction de chaque chapitre. Le
+        # dossier retombe alors sur le chemin d'avant, sans mémoire : c'est un
+        # document moins contrôlé, jamais une étude arrêtée (engagement du
+        # 29/09/2026). La trace part au journal pour que la cause se corrige.
+        _log.exception("Mémoire : construction impossible pour le dossier %s", job.id)
+        return None
     # La trace des chapitres (`chapitres`) est écrite au fil de la rédaction :
     # reconstruire les faits et les décisions ne doit pas l'effacer.
     contenu = {**(job.memoire_etude or {}), **memoire.en_dict()}

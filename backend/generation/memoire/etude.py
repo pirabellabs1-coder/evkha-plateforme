@@ -14,6 +14,7 @@ from generation.socle.schema import Socle
 
 from .decisions import decisions_de_l_etude
 from .faits import Fait, faits_de_l_etude
+from .questionnaire import Reponse, etat_des_reponses, hypotheses_pour_les_vides
 from .regles import Decision
 from .reperes import valeur_affichee
 
@@ -22,11 +23,20 @@ from .reperes import valeur_affichee
 class MemoireEtude:
     faits: dict[str, Fait]
     decisions: list[Decision] = field(default_factory=list)
+    #: Les réponses du questionnaire, première source de la mémoire.
+    reponses: list[Reponse] = field(default_factory=list)
 
     @classmethod
-    def construire(cls, socle: Socle, variables: Mapping[str, object]) -> MemoireEtude:
+    def construire(
+        cls, socle: Socle, variables: Mapping[str, object], deliverable_type: str = "",
+    ) -> MemoireEtude:
         faits = faits_de_l_etude(socle)
-        return cls(faits=faits, decisions=decisions_de_l_etude(socle, variables, faits))
+        reponses = etat_des_reponses(variables, deliverable_type) if deliverable_type else []
+        decisions = [
+            *decisions_de_l_etude(socle, variables, faits),
+            *hypotheses_pour_les_vides(reponses),
+        ]
+        return cls(faits=faits, decisions=decisions, reponses=reponses)
 
     def en_dict(self) -> dict[str, object]:
         """La forme stockée et exposée au rapport interne."""
@@ -43,6 +53,11 @@ class MemoireEtude:
                 {"sujet": d.sujet, "valeur": d.valeur, "annee": d.annee,
                  "justification": d.justification, "source": d.source}
                 for d in self.decisions
+            ],
+            "reponses": [
+                {"code": r.code, "libelle": r.libelle, "obligatoire": r.obligatoire,
+                 "renseignee": r.renseignee}
+                for r in self.reponses
             ],
         }
 

@@ -46,6 +46,12 @@ def _resume_du_dossier(job: GenerationJob) -> dict[str, Any]:
     replis = sum(1 for c in chapitres.values() if c.get("replie"))
     reperes = sum(len(c.get("reperes") or []) for c in chapitres.values())
     rendu = (job.controle_final or {}).get("rendu_pdf") or []
+    utilisees = {code for c in chapitres.values() for code in (c.get("questions") or [])}
+    non_utilisees = [
+        r.get("libelle") or r.get("code")
+        for r in memoire.get("reponses") or []
+        if r.get("renseignee") and r.get("code") not in utilisees
+    ] if chapitres else []
     return {
         "id": str(job.id),
         "type": job.deliverable_type,
@@ -58,6 +64,7 @@ def _resume_du_dossier(job: GenerationJob) -> dict[str, Any]:
         "replis": replis,
         "reperes": reperes,
         "constats_pdf": len(rendu),
+        "questions_non_utilisees": non_utilisees,
         "cout_eur": str(job.total_cost_eur),
     }
 
