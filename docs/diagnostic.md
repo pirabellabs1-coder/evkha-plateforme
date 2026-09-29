@@ -613,9 +613,30 @@ faux) tant qu'une génération réelle ne l'a pas éprouvée.
 | Phase | Fait | Reste |
 |---|---|---|
 | 0. Réparations localisées | extracteur (résultat net ≠ CAF, qualificatifs), années civiles et arrondi au gate, sensibilité admise, annuel → mensuel, langue (élisions, anglais, unités), consignes BP 13 (TVA) et 16 (compte de résultat), renvois calculés, rendu Word (annexe non numérotée, unités, axes, en-tête, auteur, sources, coupes, 4ᵉ de couverture, doublons, rétroplanning) | — |
-| 1. Mémoire + calcul + repères | faits dérivés par identité, repères `{{…}}`, règles datées (TVA, micro), registre des décisions (règles, base, phrases du client mot pour mot), questionnaire (hypothèses prudentes, questions exploitées) ; branchée sur la rédaction ; drapeau figé à la création du dossier | ouverture aux clients après l'épreuve réelle (reprise ÉCLORE `bf98827c`, sans envoi) |
+| 1. Mémoire + calcul + repères | faits dérivés par identité, repères `{{…}}`, règles datées (TVA, micro), registre des décisions (règles, base, phrases du client mot pour mot), questionnaire (hypothèses prudentes, questions exploitées) ; branchée sur la rédaction ; drapeau figé à la création du dossier | ouverture aux clients : **décision à demander**. L'épreuve réelle (reprise ÉCLORE `bf98827c`, sans envoi) est morte sur le plafond de 8 € à 14/22 (§ 12) ; ses causes sont corrigées, et le client a dit « il ne faut plus relancer » |
 | 2-3. Boucle par chapitre, correction | contrôle de chaque chapitre contre la mémoire (repères, chiffres en clair, séries confondues, TVA, concurrents, taux, dates, renvois, comptes de résultat) ; reprise ciblée avec motifs (niveau 2) ; repli garanti au dernier essai (niveau 3) ; étape visible par chapitre | contrôle par le modèle (JSON strict) sur les chapitres signalés — non fait, les contrôles en code couvrent les classes mesurées |
 | 4. Vérification d'ensemble, post-rendu | relecture du PDF final (en-tête, pages vides, sources orphelines, nombre de chapitres, auteur) | statuts de l'annexe calculés en code ; valeurs des sources dans la mémoire |
 | 5. Interface | liste des chapitres en direct, étapes positives, rafraîchissement 4 s | — |
 | 6. Rapport interne | page « Qualité » de la console : reprises par chapitre, replis, genres de motifs, constats PDF, questions non exploitées | — |
 | 7. Tests | ~4 500 tests backend, 172 frontend, répétition à blanc 4/4 (mémoire coupée et active), détection sur le texte réel d'ÉCLORE (§ 10) | génération de démonstration réelle par type (payante, sur accord) |
+
+---
+
+## 12. L'épreuve réelle de la mémoire (`bf98827c`, 29/09/2026, soir)
+
+Reprise sans envoi du business plan ÉCLORE `cb59cede`, mémoire active. Morte
+sur le plafond de 8 € à 14 chapitres sur 22 ; aucun courriel.
+
+| Constat | Mesure | Réponse |
+|---|---|---|
+| Le modèle ignore les repères | 10 repères cités en 18 chapitres | rappel des repères en fin de consigne (`eab7535`) |
+| Les chiffres en clair font tout réécrire | 45 motifs sur 57, 2 à 3 essais par chapitre | le chiffre en clair devient un **signal** : il ne fait plus reprendre à lui seul (`eab7535`) |
+| Les motifs graves sont justes | séries confondues ×7, TVA « par choix » ×2, date contredite ×1 | inchangés : ils font toujours reprendre |
+| Quatre chapitres morts au dernier essai sur une métadonnée | ch. 3 résumé 148 mots / 150 ; ch. 15-16 identifiant déclaré deux fois ; ch. 17 « 37 500 € » (franchise de TVA) pris pour une invention | doublons dédoublonnés sans reprise ; résumé court gardé au dernier essai ; seuils légaux connus du contrôle |
+
+Les deux derniers correctifs valent aussi SANS la mémoire : un chapitre de
+cliente pouvait déjà mourir sur un résumé de 148 mots ou sur un doublon.
+
+Le client a demandé ensuite de ne plus relancer. La mémoire reste coupée pour
+les commandes (`EVKHA_MEMOIRE_ETUDE` faux) ; son ouverture est une décision à
+lui demander, avec ce tableau.

@@ -990,15 +990,33 @@ def valider_chapitre(
             "Un chapitre ne peut exploiter que des données du socle."
         )
 
-    doublons = {
-        i for i in payload.donnees_utilisees
-        if payload.donnees_utilisees.count(i) > 1
-    }
-    for identifiant in sorted(doublons):
-        motifs.append(f"`{identifiant}` est déclaré plusieurs fois dans `donnees_utilisees`.")
+    # Un identifiant déclaré deux fois ne dit rien de faux : la liste est
+    # déclarative. On garde la première occurrence, sans reprise.
+    #
+    # Reprise ÉCLORE `bf98827c` (29/09/2026) : le dernier essai des chapitres
+    # 15 et 16 est mort sur ce seul motif (`apport`, `ebe_an1` à `ebe_an3`
+    # déclarés deux fois) — deux chapitres financiers perdus pour une
+    # métadonnée.
+    payload.donnees_utilisees = list(dict.fromkeys(payload.donnees_utilisees))
 
     mots = compter_mots(payload.resume)
-    if mots < resume_mots_min or mots > resume_mots_max:
+    if derniere_tentative and mots < resume_mots_min:
+        # DERNIER essai : un résumé trop court est gardé tel quel. Il n'est
+        # jamais rendu dans le document ; il sert de contexte aux chapitres
+        # suivants. Perdre le chapitre pour deux mots manquants, c'est un trou
+        # dans le document au prix d'une métadonnée — la règle déjà suivie
+        # pour `donnees_utilisees` ci-dessus.
+        #
+        # Reprise ÉCLORE `bf98827c` (29/09/2026) : le chapitre 3 est mort sur
+        # un résumé de 148 mots pour 150 attendus.
+        #
+        # Avant le dernier essai, le refus reste la règle : on n'invente pas
+        # le contenu manquant (`test_resume_raccourci`).
+        _log.warning(
+            "Chapitre %s, dernier essai : résumé de %s mots gardé (minimum %s).",
+            numero_attendu, mots, resume_mots_min,
+        )
+    elif mots < resume_mots_min or mots > resume_mots_max:
         motifs.append(
             f"Le résumé fait {mots} mots ; attendu entre {resume_mots_min} et "
             f"{resume_mots_max}. Il est relu par tous les chapitres suivants : "

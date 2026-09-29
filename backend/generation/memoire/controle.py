@@ -142,6 +142,24 @@ def _proche(valeur: float, references: Iterable[float]) -> bool:
     return False
 
 
+def _seuils_des_regles() -> list[float]:
+    """Les seuils légaux datés de la mémoire : des chiffres sourcés, pas des inventions.
+
+    Reprise ÉCLORE `bf98827c` (29/09/2026) : « 37 500 € », la franchise de TVA
+    des services (art. 293 B CGI), était signalé comme chiffre inventé au
+    chapitre des risques.
+    """
+    from .regles import FRANCHISE_TVA, PLAFOND_MICRO  # noqa: PLC0415
+
+    valeurs: list[float] = []
+    for table in (FRANCHISE_TVA, PLAFOND_MICRO):
+        for seuil in table.values():
+            valeurs.append(seuil.valeur)
+            if seuil.majore is not None:
+                valeurs.append(seuil.majore)
+    return valeurs
+
+
 def _valeurs_des_faits(faits: Mapping[str, Fait]) -> list[float]:
     from generation.socle.schema import valeur_en_unites_de_base  # noqa: PLC0415
 
@@ -182,7 +200,7 @@ def controler_le_chapitre(
     """
     controle = Controle()
     brut = "\n".join(_chaines(payload))
-    references = _valeurs_des_faits(memoire.faits)
+    references = [*_valeurs_des_faits(memoire.faits), *_seuils_des_regles()]
     du_client = list(nombres_du_client)
 
     _, controle.reperes_utilises, controle.reperes_inconnus = appliquer_les_reperes(
