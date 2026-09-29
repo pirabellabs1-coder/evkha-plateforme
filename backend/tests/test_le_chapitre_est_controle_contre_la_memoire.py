@@ -153,3 +153,62 @@ def test_le_repli_retire_un_paragraphe_vide_sans_casser_le_chapitre() -> None:
     assert [b["type"] for b in replie["blocs"]] == ["paragraphe", "tableau"]
     assert replie["blocs"][1]["tableau"]["lignes"] == [["A", "—"]]
 
+
+
+# ── Séries, dates, renvois (ÉCLORE : défauts n° 1, 5 et 7) ───────────────────
+
+
+def _memoire_avec_calendrier() -> MemoireEtude:
+    memoire = _memoire()
+    variables = {**VARIABLES, "EQUIPE": "2029 : à temps plein, après avoir quitté son poste."}
+    return MemoireEtude(
+        faits=memoire.faits,
+        decisions=MemoireEtude.construire(
+            _socle_de(memoire), variables
+        ).decisions,
+    )
+
+
+def _socle_de(memoire: MemoireEtude) -> Any:
+    charge: dict[str, Any] = socle_de_demonstration(
+        construire_prompt_socle(deliverable_type=BP, variables={
+            "SECTEUR": "ateliers", "PAYS": "France", "ZONE": "IDF", "PROJET": "Projet test",
+        })
+    )
+    return Socle.model_validate(charge)
+
+
+def test_une_valeur_d_une_autre_serie_est_refusee() -> None:
+    """« Résultat net de 23 835,86 € » : c'est la CAF 2029 d'ÉCLORE."""
+    controle = controler_le_chapitre(
+        _chapitre("Le résultat net atteint 23 835,86 € en 2029."), _memoire()
+    )
+    assert any("capacit" not in m and "caf" in m.lower() for m in controle.motifs)
+
+
+def test_la_bonne_serie_passe() -> None:
+    """Contre-épreuve : la CAF nommée CAF, le résultat net nommé résultat net."""
+    memoire = _memoire()
+    for phrase in ("La CAF atteint 23 835,86 € en 2029.",
+                   "Le résultat net atteint 23 223,86 € en 2029."):
+        assert controler_le_chapitre(_chapitre(phrase), memoire).motifs == []
+
+
+def test_une_date_qui_contredit_le_client_est_refusee() -> None:
+    memoire = _memoire_avec_calendrier()
+    faux = controler_le_chapitre(_chapitre("Carine quitte son poste en 2028."), memoire)
+    assert any("2028" in m and "2029" in m for m in faux.motifs)
+    juste = controler_le_chapitre(_chapitre("Carine quitte son poste en 2029."), memoire)
+    assert juste.motifs == []
+
+
+def test_un_renvoi_vers_un_chapitre_absent_est_refuse() -> None:
+    plan = range(0, 22)
+    faux = controler_le_chapitre(
+        _chapitre("Voir le chapitre 23 pour le détail."), _memoire(), chapitres_du_plan=plan
+    )
+    assert any("chapitre 23" in m for m in faux.motifs)
+    juste = controler_le_chapitre(
+        _chapitre("Voir le chapitre 13 pour le détail."), _memoire(), chapitres_du_plan=plan
+    )
+    assert juste.motifs == []

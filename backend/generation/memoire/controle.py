@@ -157,7 +157,11 @@ _TAUX_EN_EUROS = re.compile(r"(?i)\btaux\b[^.%]{0,50}?\d[\d \u00a0\u202f,]*\s?�
 
 
 def controler_le_chapitre(
-    payload: Any, memoire: MemoireEtude, nombres_du_client: Iterable[float] = (),
+    payload: Any,
+    memoire: MemoireEtude,
+    nombres_du_client: Iterable[float] = (),
+    *,
+    chapitres_du_plan: Iterable[int] = (),
 ) -> Controle:
     """Les motifs qui empêchent de valider ce chapitre en l'état.
 
@@ -228,7 +232,122 @@ def controler_le_chapitre(
             f"« {m.group(0).strip()} » : un taux s'exprime en %, jamais en euros. "
             "Un montant par personne est un montant, pas un taux."
         )
+
+    _controler_les_series(brut, memoire, controle)
+    _controler_les_dates(brut, memoire, controle)
+    plan = set(chapitres_du_plan)
+    if plan:
+        controle.verifie.append("renvois confrontés au plan")
+        for m in _RENVOI.finditer(brut):
+            numero = int(m.group(1))
+            if numero not in plan:
+                controle.motifs.append(
+                    f"« {m.group(0)} » renvoie à un chapitre qui n'existe pas dans le plan "
+                    f"(chapitres {min(plan)} à {max(plan)}). Renvoie par le titre, ou retire."
+                )
     return controle
+
+
+# ── Séries, dates, renvois ───────────────────────────────────────────────────
+
+#: Le nom qu'une phrase donne à une série, et l'identifiant de la série.
+_NOMS_DE_SERIES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?i)\br[ée]sultat net\b"), "resultat_net"),
+    (re.compile(r"(?i)\b(capacit[ée] d.autofinancement|CAF)\b"), "caf"),
+    (re.compile(r"(?i)\b(EBE|exc[ée]dent brut d.exploitation)\b"), "ebe"),
+)
+_RENVOI = re.compile(r"(?i)\bchapitre\s+(\d{1,2})\b")
+
+
+def _series_du_fait(identifiant: str) -> str | None:
+    for _, serie in _NOMS_DE_SERIES:
+        if identifiant.startswith(serie + "_"):
+            return serie
+    return None
+
+
+def _controler_les_series(brut: str, memoire: MemoireEtude, controle: Controle) -> None:
+    """« Résultat net de 23 835,86 € » quand 23 835,86 € est la CAF : une série pour une autre.
+
+    Le défaut n° 1 d'ÉCLORE, écrit en clair : la valeur existe bien dans la
+    mémoire — mais sous un AUTRE nom. Le contrôle des chiffres en clair
+    l'acceptait, puisqu'il ne jugeait que la valeur.
+    """
+    controle.verifie.append("séries nommées confrontées à leurs valeurs")
+    par_serie: dict[str, list[float]] = {}
+    for fait in memoire.faits.values():
+        serie = _series_du_fait(fait.id)
+        if serie is not None and fait.unite not in ("%",):
+            par_serie.setdefault(serie, []).append(fait.valeur)
+    for phrase in _PHRASE.findall(REPERE.sub(" ", brut)):
+        nommees = [serie for motif, serie in _NOMS_DE_SERIES if motif.search(phrase)]
+        if len(nommees) != 1:
+            continue  # aucune série nommée, ou plusieurs : on ne sait pas attribuer
+        nommee = nommees[0]
+        for ecriture, valeur, unite in nombres_du_texte(phrase):
+            if unite not in ("€", "k€", "M€", "Md€"):
+                continue
+            if _proche(valeur, par_serie.get(nommee, [])):
+                continue
+            autres = [
+                s for s, valeurs in par_serie.items()
+                if s != nommee and _proche(valeur, valeurs)
+            ]
+            if autres:
+                controle.motifs.append(
+                    f"« {ecriture} » est présenté comme {nommee.replace('_', ' ')} alors que "
+                    f"c'est la valeur de la série « {autres[0].replace('_', ' ')} ». Cite le "
+                    f"repère de la bonne série ({{{{{nommee}_anN}}}})."
+                )
+
+
+_EVENEMENT = re.compile(
+    r"(?i)\b(quitt\w+ (son|mon|le) (poste|emploi)|d[ée]part du poste|temps plein|"
+    r"passage en soci[ée]t[ée]|immatricul\w+|lancement)\b"
+)
+_ANNEE_SEULE = re.compile(r"\b(20[2-4]\d)\b")
+
+
+def _controler_les_dates(brut: str, memoire: MemoireEtude, controle: Controle) -> None:
+    """Une date d'événement qui contredit la phrase du client (cinq dates pour un départ).
+
+    On ne compare que ce qui est comparable : le même événement (même mot
+    clé), une année seule de part et d'autre, dans une même phrase. Une
+    phrase qui porte plusieurs années ne date rien.
+    """
+    controle.verifie.append("dates d'événements confrontées aux décisions")
+    reperes: dict[str, set[int]] = {}
+    for decision in memoire.decisions:
+        if decision.source != "brief":
+            continue
+        for phrase in _PHRASE.findall(decision.valeur):
+            evenement = _EVENEMENT.search(phrase)
+            annees = {int(a) for a in _ANNEE_SEULE.findall(phrase)}
+            if evenement and len(annees) == 1:
+                reperes.setdefault(_cle_d_evenement(evenement.group(0)), set()).update(annees)
+    if not reperes:
+        return
+    for phrase in _PHRASE.findall(brut):
+        evenement = _EVENEMENT.search(phrase)
+        annees = {int(a) for a in _ANNEE_SEULE.findall(phrase)}
+        if not evenement or len(annees) != 1:
+            continue
+        attendues = reperes.get(_cle_d_evenement(evenement.group(0)))
+        if attendues and not annees & attendues:
+            controle.motifs.append(
+                f"« {phrase.strip()[:120]} » date l'événement en {annees.pop()} alors que "
+                f"le client l'a fixé en {min(attendues)}. Reprends la date du client, "
+                "telle quelle."
+            )
+
+
+def _cle_d_evenement(texte: str) -> str:
+    texte = texte.lower()
+    if "quitt" in texte or "départ" in texte or "depart" in texte or "temps plein" in texte:
+        return "depart"
+    if "société" in texte or "societe" in texte:
+        return "societe"
+    return texte.split()[0]
 
 
 def replis_de_derniere_tentative(payload: Any, faits: Mapping[str, Fait]) -> Any:

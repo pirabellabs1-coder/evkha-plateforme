@@ -2149,6 +2149,7 @@ def _passer_par_la_memoire(
     29/09/2026). Ce qui reste est tracé dans la mémoire du dossier, pour le
     rapport interne.
     """
+    from ..blueprints import chapters_for_deliverable  # noqa: PLC0415
     from ..memoire.controle import (  # noqa: PLC0415
         appliquer_les_reperes,
         controler_le_chapitre,
@@ -2156,7 +2157,13 @@ def _passer_par_la_memoire(
     )
     from ..memoire.questionnaire import questions_utilisees  # noqa: PLC0415
 
-    controle = controler_le_chapitre(brut, memoire, _nombres_du_client(variables))
+    try:
+        plan = [bp.number for bp in chapters_for_deliverable(str(chapter.job.deliverable_type))]
+    except ValueError:
+        plan = []
+    controle = controler_le_chapitre(
+        brut, memoire, _nombres_du_client(variables), chapitres_du_plan=plan,
+    )
     dernier = derniere_tentative is not False
     if dernier:
         brut = replis_de_derniere_tentative(brut, memoire.faits)
