@@ -32,18 +32,45 @@ NOM_COURT_MAX = 40
 #: dure qu'il remplace : seule la MANIÈRE de couper change.
 LIBELLE_MAX = 110
 
-#: Ce qui ouvre une apposition après un nom : « ÉCLORE (nom provisoire) »,
-#: « ÉCLORE, avec pour signature… », « ÉCLORE — bien-être », « ÉCLORE « … » ».
+#: Ce qui OUVRE une apposition après un nom : « ÉCLORE (nom provisoire) »,
+#: « ÉCLORE — bien-être », « ÉCLORE, avec pour signature… », « ÉCLORE avec
+#: pour signature « … » ».
 #:
-#: CLASSE, pas liste d'exemples (règle 4) : toute ponctuation qui ouvre une
-#: précision — parenthèse ou crochet, virgule, point-virgule, deux-points, tiret
-#: long ou moyen, trait d'union ENTOURÉ d'espaces, guillemet ouvrant. Un trait
-#: d'union collé (« Saint-Étienne ») et un point (« Atelier S. Martin ») n'en
-#: font pas partie : ils vivent à l'intérieur des noms.
-_APPOSITION = re.compile(r"\s*(?:[(\[,;:—–«“\"]|\s-\s)")
+#: La première version coupait à TOUTE ponctuation, et mutilait des raisons
+#: sociales parfaitement normales (revue du 29/09/2026) : « Martin, Durand &
+#: Associés » devenait « Martin », « SAS « Les Délices » » devenait « SAS ».
+#: Une virgule, un point-virgule, un deux-points ou un trait d'union espacé
+#: appartiennent à un nom quand la suite commence par une CAPITALE (d'autres
+#: noms) ; ils ouvrent une apposition quand elle commence par une minuscule
+#: (« , expériences bien-être », « , situé à Lyon »). Un guillemet appartient
+#: au nom ; une parenthèse, un crochet, un tiret long ou moyen et « avec
+#: pour » ouvrent toujours une précision.
+_APPOSITION = re.compile(
+    r"\s*[(\[—–]"
+    r"|\s*[,;:]\s+(?=[a-zà-ÿœ])"
+    r"|\s+-\s+(?=[a-zà-ÿœ])"
+    r"|\s+avec\s+pour\b"
+)
 
-#: Ce qui ne doit ni ouvrir ni fermer un nom ou une coupe.
+#: Ce qui ne doit ni ouvrir ni fermer une COUPE, qu'on signale par « … ».
 _BORDS = " ,;:.-–—/«»“”\"'()[]"
+
+#: Ce qui ne doit ni ouvrir ni fermer un NOM. Ni le point (« Dupont & Fils
+#: S.A. »), ni les guillemets (« SAS « Les Délices » »), ni les parenthèses :
+#: ils font partie du nom quand ils y sont.
+_SEPARATEURS = " ,;:-–—/"
+
+#: Guillemets qui enveloppent un nom ENTIER : « « ÉCLORE » » s'écrit ÉCLORE.
+_ENVELOPPE = re.compile(r"^[«“\"]\s*([^«»“”\"]+?)\s*[»”\"]$")
+
+#: Mots-outils du français : ils s'écrivent en minuscules DANS un nom propre
+#: (« Boulangerie du Parc », « L'Atelier de Saint-Étienne », « Dupont & Fils »).
+#: Classe grammaticale fermée — articles, prépositions, conjonctions —, pas une
+#: liste de cas.
+_MOTS_OUTILS = frozenset({
+    "à", "au", "aux", "chez", "d", "de", "des", "du", "en", "et", "l", "la",
+    "le", "les", "par", "pour", "sous", "sur", "y",
+})
 
 #: Une fin de phrase : un point suivi d'une espace et d'une majuscule. Un point
 #: décimal (« 2.5 ») ou une abréviation suivie d'une minuscule ne coupent pas.
@@ -74,16 +101,44 @@ def nom_court(texte: str, plafond: int = NOM_COURT_MAX) -> str:
     """La tête d'une dénomination, avant toute apposition, bornée à `plafond`.
 
     « ÉCLORE (nom de projet provisoire), avec pour signature « … » » devient
-    « ÉCLORE ». « Maison Lorel » traverse intact.
+    « ÉCLORE ». « Maison Lorel », « Martin, Durand & Associés », « SAS « Les
+    Délices » » et « Dupont & Fils S.A. » traversent intacts.
     """
-    propre = " ".join(str(texte or "").split()).lstrip(_BORDS)
-    tete = _APPOSITION.split(propre, maxsplit=1)[0].strip(_BORDS)
-    return couper_au_mot(tete or propre.strip(_BORDS), plafond)
+    propre = " ".join(str(texte or "").split()).strip(_SEPARATEURS)
+    tete = _APPOSITION.split(propre, maxsplit=1)[0].strip(_SEPARATEURS) or propre
+    enveloppe = _ENVELOPPE.match(tete)
+    if enveloppe:
+        tete = enveloppe.group(1)
+    return couper_au_mot(tete, plafond)
 
 
 def est_coupe(texte: str) -> bool:
     """Vrai si `couper_au_mot` a dû raccourcir ce texte."""
     return texte.endswith("…")
+
+
+def ressemble_a_un_nom(texte: str) -> bool:
+    """Ce texte est-il un NOM, et pas la description d'une activité ?
+
+    `PROJET` porte « le nom du projet ou de l'entreprise » dans le formulaire
+    de l'espace, mais le formulaire Tally y range la « description du projet ».
+    La première version prenait tout ce qui tenait sur la ligne : « Salon de
+    coiffure mixte, situé à Lyon… » donnait l'en-tête « Salon de coiffure
+    mixte » (revue du 29/09/2026).
+
+    La règle est celle de la typographie des noms propres : hors mots-outils,
+    chaque mot d'un nom commence par une capitale (« Boulangerie du Parc »,
+    « Éclore Nature », « Dupont & Fils »). Un nom commun en minuscules après le
+    premier mot — « coiffure », « torréfaction », « ouvrir » — dit une
+    description. Un nom trop long pour la ligne n'en est pas un non plus.
+    """
+    tete = nom_court(texte)
+    if not tete or est_coupe(tete):
+        return False
+    mots = re.findall(r"[^\W\d_]+", tete)
+    return all(
+        mot[0].isupper() or mot.casefold() in _MOTS_OUTILS for mot in mots[1:]
+    )
 
 
 def libelle_court(libelle: str, plafond: int = LIBELLE_MAX) -> str:

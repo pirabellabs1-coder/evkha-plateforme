@@ -187,9 +187,13 @@ class RapportAssemblage:
     #: disent (règle 1).
     graphiques_en_double: list[str] = field(default_factory=list)
     #: La MÉMOIRE du document : chaque figure dessinée, par sa forme et ses
-    #: données résolues (`_signature`). Rien ne s'en souvenait — business plan
-    #: ÉCLORE, 29/09/2026 : la même image deux fois (§ 3.11 du diagnostic).
-    signatures_dessinees: set[str] = field(default_factory=set, repr=False)
+    #: données résolues (`_signature`), avec le chapitre et le titre sous
+    #: lesquels elle est posée. Rien ne s'en souvenait — business plan ÉCLORE,
+    #: 29/09/2026 : la même image deux fois (§ 3.11 du diagnostic). Le lieu
+    #: sert au renvoi qui remplace le doublon.
+    signatures_dessinees: dict[str, tuple[str, str]] = field(
+        default_factory=dict, repr=False,
+    )
     #: Idem pour les tableaux de repli : un repli ne remplace une figure en
     #: double que s'il n'est pas lui-même déjà imprimé.
     signatures_des_tableaux: set[str] = field(default_factory=set, repr=False)
@@ -315,14 +319,48 @@ def _tableau_de_repli(socle: Socle, demande: Graphique) -> dict[str, Any] | None
 #: les tendances de marché du socle (`donnees_graphiques._frise`), quels que
 #: soient les identifiants demandés : il n'existe aucune donnée « calendrier ».
 #: Business plan ÉCLORE, 29/09/2026 : un « rétroplanning » affichait des
-#: tendances de marché (§ 3.12 du diagnostic). Classe des mots du calendrier,
-#: pas le seul mot vu (règle 4).
-_ANNONCE_UN_CALENDRIER = re.compile(
+#: tendances de marché (§ 3.12 du diagnostic).
+#:
+#: Le mot du calendrier SEUL ne suffit pas : « Calendrier des évolutions
+#: réglementaires », « Jalons du marché » sont des frises de tendances
+#: légitimes, et la première version les refusait sans repli (revue du
+#: 29/09/2026). Il faut une marque du PROJET : un mot qui n'existe que pour
+#: lui (rétroplanning, plan d'action), ou un mot du calendrier ET « du
+#: projet », « de lancement », « de mise en œuvre ».
+_CALENDRIER_DU_PROJET = re.compile(
+    r"r[ée]tro[-\s]?planning|\bplans?\s+d['’]actions?\b", re.IGNORECASE,
+)
+_MOT_DU_CALENDRIER = re.compile(
     r"planning|calendrier|\bjalons?\b|[ée]ch[ée]ancier|chronogramme|\bgantt\b|"
-    r"feuille\s+de\s+route|\broadmap\b|phasage|plan\s+d['’]actions?|"
-    r"[ée]tapes?\s+(?:du\s+projet|de\s+lancement|de\s+mise\s+en\s+(?:œuvre|oeuvre))",
+    r"feuille\s+de\s+route|\broadmap\b|phasage|\b[ée]tapes?\b",
     re.IGNORECASE,
 )
+_MARQUE_DU_PROJET = re.compile(
+    r"\bdu\s+projet\b|\bde\s+lancement\b|\bde\s+mise\s+en\s+(?:œuvre|oeuvre)\b",
+    re.IGNORECASE,
+)
+
+
+def annonce_un_calendrier_du_projet(titre: str) -> bool:
+    """Ce titre promet-il le calendrier DU PROJET, que la frise ne sait pas tracer ?"""
+    return bool(
+        _CALENDRIER_DU_PROJET.search(titre)
+        or (_MOT_DU_CALENDRIER.search(titre) and _MARQUE_DU_PROJET.search(titre))
+    )
+
+
+def _renvoi(lieu: tuple[str, str], reference: str) -> str:
+    """La ligne qui remplace une figure déjà posée ailleurs dans le document.
+
+    Revue du 29/09/2026 : le doublon écarté était souvent celui du chapitre de
+    fond (le premier exemplaire vit au résumé exécutif), et sa prose — « le
+    graphique ci-dessous » — ne renvoyait plus à rien. Elle renvoie désormais à
+    la figure, là où le lecteur la trouvera.
+    """
+    chapitre, titre = lieu
+    if chapitre == reference:
+        return f"Figure présentée plus haut dans ce chapitre — {titre}"
+    return f"Figure présentée au {chapitre[:1].lower()}{chapitre[1:]} — {titre}"
 
 
 def _signature(resolution: Resolution) -> str:
@@ -395,7 +433,7 @@ def _blocs_graphique(
         titre_trahi = (
             resolution.retenu
             and resolution.type_graphique == "chronologie"
-            and bool(_ANNONCE_UN_CALENDRIER.search(demande.titre))
+            and annonce_un_calendrier_du_projet(demande.titre)
         )
         if titre_trahi:
             # La frise dessinerait les TENDANCES DE MARCHÉ sous un titre qui
@@ -449,27 +487,30 @@ def _blocs_graphique(
                     )
             continue
 
-        if _signature(resolution) in rapport.signatures_dessinees:
+        deja_posee = rapport.signatures_dessinees.get(_signature(resolution))
+        if deja_posee is not None:
             # La MÊME figure — même forme, mêmes données — est déjà dans le
             # document. Business plan ÉCLORE, 29/09/2026 : une image dessinée
             # deux fois (§ 3.11 du diagnostic). Les résolveurs qui ignorent
             # les identifiants (frise, carte des risques, radar sans sélecteur)
-            # rendent la même image à chaque demande. On ne la redessine pas ;
-            # ses données passent en tableau seulement si le lecteur ne les a
-            # pas déjà sous les yeux.
+            # rendent la même image à chaque demande. On ne la redessine pas :
+            # une ligne RENVOIE à elle, là où la prose du chapitre l'annonce ;
+            # ses données passent en tableau si le lecteur ne les a pas déjà
+            # sous les yeux.
+            blocs.append({"type": "renvoi", "texte": _renvoi(deja_posee, reference)})
             repli = _tableau_de_repli(socle, demande)
             deja_vues = set(demande.donnees_ids) <= rapport.identifiants_rendus
             if repli is not None and not deja_vues and _poser_le_repli(repli, rapport, blocs):
-                devenir = "remplacée par le tableau de ses données"
+                devenir = "renvoi, et tableau de ses données"
             else:
-                devenir = "écartée"
+                devenir = "renvoi à la figure"
             rapport.graphiques_en_double.append(
                 f"{reference} · {demande.titre} : même figure "
                 f"({resolution.type_graphique}, mêmes données) que plus haut "
                 f"dans le document — {devenir}"
             )
             continue
-        rapport.signatures_dessinees.add(_signature(resolution))
+        rapport.signatures_dessinees[_signature(resolution)] = (reference, demande.titre)
 
         if repare:
             rapport.graphiques_repares.append(reparation)
@@ -756,7 +797,9 @@ def _completer_les_figures(
             })
             deja_vus.update(candidats)
             progres = True
-            rapport.signatures_dessinees.add(_signature(resolution))
+            rapport.signatures_dessinees[_signature(resolution)] = (
+                f"Chapitre {payload.chapitre}", titre,
+            )
             rapport.graphiques_rendus += 1
             rapport.identifiants_rendus.update(candidats)
             rapport.graphiques_completes.append(

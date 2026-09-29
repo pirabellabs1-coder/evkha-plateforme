@@ -4,8 +4,8 @@ Le générateur ne fait qu'appeler les composants dans l'ordre décrit par le
 JSON. Aucune logique éditoriale ici : un bloc porte son type et ses données.
 
 Types de blocs : `bandeau`, `bandeau_annexe`, `sous_titre`, `paragraphe`,
-`encadre`, `tableau`, `graphique`, `kpi`, `liste`, `quadrants`, `repartition`,
-`saut`.
+`encadre`, `tableau`, `graphique`, `renvoi`, `kpi`, `liste`, `quadrants`,
+`repartition`, `saut`.
 
 Une étude porte ses `chapitres` NUMÉROTÉS et, à part, ses `annexes` : une
 annexe n'a pas de numéro et ne compte pas parmi les chapitres (décision D9 du
@@ -26,7 +26,7 @@ from .assemblage import MENTION_PAR_DEFAUT
 from .gabarit import charger_gabarit
 from .logo import charger_logo
 from .palette import Palette, construire_palette
-from .texte import est_coupe, nom_court
+from .texte import nom_court, ressemble_a_un_nom
 
 
 class BlocInconnuError(ValueError):
@@ -174,18 +174,16 @@ def nom_d_entete(etude: dict[str, Any], marque: dict[str, Any]) -> str:
 
     Le nom du PROJET d'abord (`PROJET`, « Nom du projet ou de l'entreprise »,
     posé par `services.produire_docx`) : c'est le client final, celui que
-    l'en-tête nomme. Mais seulement s'il est un NOM — un texte qu'il faudrait
-    couper est une description (« Atelier de torréfaction avec vente directe et
-    abonnements »), pas un nom. À défaut, la raison sociale de la marque, par
-    sa tête (`nom_court`), coupée au mot s'il le faut.
+    l'en-tête nomme. Mais seulement s'il est un NOM (`ressemble_a_un_nom`) :
+    le formulaire Tally range dans `PROJET` la DESCRIPTION du projet, et
+    « Salon de coiffure mixte, situé à Lyon… » donnait l'en-tête « Salon de
+    coiffure mixte » (revue du 29/09/2026). À défaut, la raison sociale de la
+    marque — un nom par définition —, par sa tête (`nom_court`).
     """
     projet = str(etude.get("projet", "") or "")
-    raison_sociale = str(marque.get("nom", "") or "")
-    for candidat in (projet, raison_sociale):
-        court = nom_court(candidat)
-        if court and not est_coupe(court):
-            return court
-    return nom_court(raison_sociale)
+    if ressemble_a_un_nom(projet):
+        return nom_court(projet)
+    return nom_court(str(marque.get("nom", "") or ""))
 
 
 def auteur_du_document(etude: dict[str, Any], marque: dict[str, Any]) -> str:
@@ -272,6 +270,10 @@ def _rendre_bloc(
         composants.business_model_canvas(
             document, palette, bloc["canvas"], bloc.get("source", ""),
         )
+    elif type_bloc == "renvoi":
+        # La ligne qui tient la place d'une figure déjà posée plus haut
+        # (`assemblage._renvoi`) : la prose qui l'annonce trouve à qui parler.
+        composants.legende(document, palette, bloc["texte"])
     elif type_bloc == "saut":
         composants.saut_de_page(document)
     else:

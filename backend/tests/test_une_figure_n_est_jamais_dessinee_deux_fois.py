@@ -15,12 +15,21 @@ Tenu ici : une même forme sur les mêmes données résolues n'est posée qu'une
 fois dans le document, l'écart se dit au rapport, et une frise sous un titre de
 calendrier n'est pas dessinée. Les contre-épreuves : deux figures différentes
 passent toutes deux, et une frise titrée sur les tendances est dessinée.
+
+Revue du 29/09/2026, deux ajouts : le doublon écarté laisse à sa place un
+RENVOI à la figure (sa prose l'annonçait « ci-dessous »), et seul un titre
+qui nomme le calendrier DU PROJET refuse la frise — « Calendrier des
+évolutions réglementaires » est une frise de tendances légitime.
 """
 from __future__ import annotations
 
 import json
 from datetime import date
+from pathlib import Path
 from typing import Any
+
+import pytest
+from docx import Document
 
 from generation.chapitres.schema import ChapitrePayload
 from generation.rendu_word.assemblage import assembler_etude
@@ -167,3 +176,87 @@ def test_deux_figures_differentes_passent_toutes_deux() -> None:
     titres = {f["titre"] for f in _figures(etude)}
     assert {"Activités", "Séjours et charges", "Tendances à l'horizon 2030"} <= titres
     assert not rapport.graphiques_en_double
+
+
+# ── Revue du 29/09/2026 ──────────────────────────────────────────────────────
+
+
+def _doublon_au_chapitre_16() -> dict[str, Any]:
+    """Le même graphique au résumé (chapitre 1) et au chapitre de fond (16)."""
+    figure = {"type": "barres", "donnees_ids": ["ca_sejours", "ca_ateliers"]}
+    etude, _ = assembler_etude(
+        socle=_socle(),
+        chapitres=[
+            _chapitre(1, {**figure, "titre": "Deux activités, deux moteurs"}),
+            _chapitre(16, {**figure, "titre": "Chiffre d'affaires par activité"}),
+        ],
+        titre="Business plan",
+    )
+    return etude
+
+
+def test_le_doublon_ecarte_laisse_un_renvoi_a_la_figure() -> None:
+    """Sa prose annonçait « le graphique ci-dessous » : il pointait vers rien."""
+    etude = _doublon_au_chapitre_16()
+    chapitre_16 = next(c for c in etude["chapitres"] if c["numero"] == 16)
+    types = [b["type"] for b in chapitre_16["blocs"]]
+    renvois = [b["texte"] for b in chapitre_16["blocs"] if b["type"] == "renvoi"]
+    assert renvois == ["Figure présentée au chapitre 1 — Deux activités, deux moteurs"]
+    # À la place de la figure : juste après la prose qui l'annonce.
+    assert types[types.index("paragraphe") + 1] == "renvoi", types
+    signatures = _signatures(etude)
+    assert len(signatures) == len(set(signatures)), "la figure est redessinée"
+
+
+def test_le_renvoi_est_imprime_dans_le_document(tmp_path: Path) -> None:
+    from generation.rendu_word.depuis_json import rendre_etude
+
+    chemin = rendre_etude(_doublon_au_chapitre_16(), tmp_path / "renvoi.docx")
+    textes = [p.text for p in Document(str(chemin)).paragraphs]
+    assert "Figure présentée au chapitre 1 — Deux activités, deux moteurs" in textes
+
+
+@pytest.mark.parametrize(
+    "titre",
+    [
+        "Calendrier des évolutions réglementaires",
+        "Jalons du marché du bien-être",
+        "Feuille de route du secteur",
+        "Phasage des grandes tendances",
+    ],
+)
+def test_une_frise_de_tendances_titree_calendrier_reste_dessinee(titre: str) -> None:
+    """CONTRE-ÉPREUVE : le mot du calendrier seul ne dit pas « projet ».
+
+    La première version refusait ces frises, sans repli : le lecteur perdait une
+    figure juste parce que son titre employait « calendrier » ou « jalons ».
+    """
+    etude, rapport = assembler_etude(
+        socle=_socle(),
+        chapitres=[_chapitre(1, {"type": "chronologie", "titre": titre,
+                                 "donnees_ids": ["ca_sejours"]})],
+        titre="Business plan",
+    )
+    assert [f["titre"] for f in _figures(etude) if f["graphique"] == "chronologie"] == [titre]
+    assert not rapport.graphiques_abandonnes
+
+
+@pytest.mark.parametrize(
+    "titre",
+    [
+        "Rétroplanning du lancement",
+        "Calendrier du projet",
+        "Jalons de lancement",
+        "Étapes de mise en œuvre",
+        "Plan d'action à trois horizons",
+    ],
+)
+def test_une_frise_sous_le_calendrier_du_projet_n_est_pas_dessinee(titre: str) -> None:
+    etude, rapport = assembler_etude(
+        socle=_socle(),
+        chapitres=[_chapitre(1, {"type": "chronologie", "titre": titre,
+                                 "donnees_ids": ["ca_sejours"]})],
+        titre="Business plan",
+    )
+    assert not [f for f in _figures(etude) if f["graphique"] == "chronologie"]
+    assert any(titre in motif for motif in rapport.graphiques_abandonnes)

@@ -87,9 +87,10 @@ def test_un_nom_deja_court_traverse_intact(tmp_path: Path) -> None:
         (RAISON_SOCIALE_ECLORE, "ÉCLORE"),
         ("ÉCLORE, expériences bien-être", "ÉCLORE"),
         ("ÉCLORE — expériences bien-être", "ÉCLORE"),
-        ("ÉCLORE « Expériences bien-être »", "ÉCLORE"),
+        ("ÉCLORE avec pour signature « Expériences bien-être »", "ÉCLORE"),
         ("« ÉCLORE »", "ÉCLORE"),
         ("ÉCLORE - expériences", "ÉCLORE"),
+        ("Clémence Martin, fondatrice", "Clémence Martin"),
         ("Maison Lorel", "Maison Lorel"),
         ("", ""),
     ],
@@ -97,6 +98,49 @@ def test_un_nom_deja_court_traverse_intact(tmp_path: Path) -> None:
 def test_le_nom_court_s_arrete_a_la_premiere_apposition(brut: str, attendu: str) -> None:
     """La classe des appositions, pas le seul cas vu (règle 4)."""
     assert nom_court(brut) == attendu
+
+
+@pytest.mark.parametrize(
+    "raison_sociale",
+    [
+        "Martin, Durand & Associés",
+        "SAS « Les Délices »",
+        "Dupont & Fils S.A.",
+        "Martin, Clémence",
+        "ÉCLORE « Expériences bien-être »",
+    ],
+)
+def test_une_raison_sociale_legitime_n_est_pas_mutilee(raison_sociale: str) -> None:
+    """Revue du 29/09/2026 : « Martin », « SAS », « Dupont & Fils S.A ».
+
+    Une virgule suivie d'une CAPITALE joint des noms ; un guillemet et un point
+    appartiennent au nom. Seule une apposition OUVERTE — parenthèse, tiret long,
+    « avec pour », virgule suivie d'une minuscule — le termine.
+    """
+    assert nom_court(raison_sociale) == raison_sociale
+
+
+def test_une_description_courte_ne_passe_pas_pour_un_nom(tmp_path: Path) -> None:
+    """Revue du 29/09/2026 : le formulaire Tally range la DESCRIPTION dans `PROJET`.
+
+    « Salon de coiffure mixte, situé à Lyon… » donnait l'en-tête « Salon de
+    coiffure mixte », imprimé sur chaque page, au lieu de la marque.
+    """
+    chemin = _rendre(
+        tmp_path,
+        projet="Salon de coiffure mixte, situé à Lyon, proposant coupes et colorations",
+        marque={"nom": "Maison Lorel"},
+    )
+    assert _entete(chemin) == "Maison Lorel  /  Business plan"
+
+
+@pytest.mark.parametrize(
+    "projet", ["Boulangerie du Parc", "L'Atelier de Saint-Étienne", "ÉCLORE", "Éclore Nature"],
+)
+def test_un_nom_de_projet_reste_prefere_a_la_marque(tmp_path: Path, projet: str) -> None:
+    """CONTRE-ÉPREUVE : un vrai nom de projet l'emporte toujours sur la marque."""
+    chemin = _rendre(tmp_path, projet=projet, marque={"nom": "Maison Lorel"})
+    assert _entete(chemin) == f"{projet}  /  Business plan"
 
 
 def test_un_nom_sans_apposition_trop_long_se_coupe_au_mot() -> None:
