@@ -1865,7 +1865,10 @@ def detecter_dates_iso(sections: Sequence[Any]) -> list[DateIso]:
 # réparation ne règle pas :
 #
 # - les mots AMBIGUS (« overall », « hence »…), que la réparation ne tranche
-#   pas faute d'équivalent unique : ils se réécrivent au chapitre ;
+#   pas faute d'équivalent unique : ils se réécrivent au chapitre, à partir
+#   de deux occurrences (`SEUIL_MOTS_ANGLAIS_AMBIGUS`) ;
+# - un mot sans ambiguïté que la réparation a dû laisser, parce que son
+#   équivalent aurait fait dépasser la borne d'un champ ;
 # - tout texte qui n'est pas passé par la réparation — un chapitre de
 #   l'ancienne chaîne markdown, un chapitre produit avant elle.
 #
@@ -1911,6 +1914,10 @@ def detecter_mots_anglais(sections: Sequence[Any]) -> list[MotAnglaisTrouve]:
     ou un chemin d'URL porte des mots anglais légitimes. Une phrase anglaise —
     un titre de publication cité — n'est pas signalée : c'est la lecture de la
     réparation, qui l'épargne pour la même raison.
+
+    Un chapitre n'est signalé que pour un mot SANS ambiguïté resté en place,
+    ou pour au moins `SEUIL_MOTS_ANGLAIS_AMBIGUS` occurrences ambiguës : un
+    motif coûte une réécriture du chapitre entier.
     """
     from .chapitres.typographie import mots_anglais  # noqa: PLC0415
 
@@ -1933,7 +1940,31 @@ def detecter_mots_anglais(sections: Sequence[Any]) -> list[MotAnglaisTrouve]:
                 equivalent=trouve.equivalent,
                 contexte=" ".join(sans_adresses[debut:trouve.fin + 30].split()),
             )
+        ambigus = sum(
+            compte[cle] for cle, t in premiers.items() if t.equivalent is None
+        )
         trouves.extend(
-            replace(t, occurrences=compte[cle]) for cle, t in premiers.items()
+            replace(t, occurrences=compte[cle])
+            for cle, t in premiers.items()
+            # Un mot SANS ambiguïté encore là, c'est une réparation qui n'a pas
+            # pu le remplacer (champ borné, chapitre non réparé) : toujours
+            # signalé. Un mot ambigu ne l'est qu'à partir du seuil, voir
+            # `SEUIL_MOTS_ANGLAIS_AMBIGUS`.
+            if t.equivalent is not None or ambigus >= SEUIL_MOTS_ANGLAIS_AMBIGUS
         )
     return trouves
+
+
+#: Combien d'occurrences AMBIGUËS (« overall », « hence »…) il faut dans un
+#: chapitre pour le signaler.
+#:
+#: ## Pourquoi pas une seule
+#:
+#: Relecture du 29/09/2026 : le motif `mot_anglais` est réparable au chapitre,
+#: donc chaque motif renvoie le chapitre ENTIER en réécriture — un appel payé,
+#: plusieurs minutes, et un chapitre qui peut revenir avec d'autres défauts
+#: qu'il n'avait pas. Pour un seul « overall » isolé, le remède coûte plus que
+#: le mal. Deux occurrences ambiguës disent autre chose : une habitude du
+#: rédacteur, qui mérite la reprise. Un mot sans ambiguïté, lui, n'attend pas
+#: le seuil — la réparation aurait dû le remplacer, et ne l'a pas pu.
+SEUIL_MOTS_ANGLAIS_AMBIGUS = 2

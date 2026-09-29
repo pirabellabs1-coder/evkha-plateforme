@@ -167,12 +167,13 @@ def purger_les_invisibles(texte: str) -> str:
 _TRAIT_EXOTIQUE = re.compile(r"(?<=[^\W\d_])[‐‑‒–](?=[^\W\d_])")
 
 
-def reparer_texte(texte: str, *, prose: bool = True) -> str:
+def reparer_texte(texte: str, *, prose: bool = True, anglais: bool = True) -> str:
     """Texte aux espaces normalisées. Idempotente : la rejouer ne change rien.
 
     `prose=False` s'arrête à la typographie : un identifiant n'a ni élision,
     ni mot anglais, ni unité à traduire, et le toucher le rendrait introuvable
-    au rendu.
+    au rendu. `anglais=False` garde les mots anglais tels quels — le repli d'un
+    champ borné, voir `_reparer_dans_la_borne`.
     """
     if not texte:
         return texte
@@ -182,7 +183,51 @@ def reparer_texte(texte: str, *, prose: bool = True) -> str:
     corrige = _AVANT_SIMPLE.sub(r"\1", corrige)
     corrige = _DEJA_ESPACEE.sub(rf"{FINE_INSECABLE}\1", corrige)
     corrige = _AVANT_DOUBLE.sub(rf"\1{FINE_INSECABLE}\2", corrige)
-    return reparer_langue(corrige) if prose else corrige
+    return reparer_langue(corrige, anglais=anglais) if prose else corrige
+
+
+def _borne(modele: Any, nom: str) -> int | None:
+    """La longueur maximale que le contrat impose à ce champ texte, s'il en a une.
+
+    Lue dans le contrat lui-même (`Field(max_length=…)`), jamais recopiée :
+    une borne changée dans `schema.py` vaut ici sans que personne y pense.
+    """
+    info = getattr(type(modele), "model_fields", {}).get(nom)
+    for contrainte in getattr(info, "metadata", ()) or ():
+        maximum = getattr(contrainte, "max_length", None)
+        if isinstance(maximum, int):
+            return maximum
+    return None
+
+
+def _reparer_dans_la_borne(texte: str, *, prose: bool, borne: int | None) -> str:
+    """La réparation la plus complète qui tienne dans la borne du champ.
+
+    ## Le défaut, relevé en relecture (29/09/2026)
+
+    Un remplacement peut ALLONGER le texte — « however » devient « cependant »,
+    « therefore » « par conséquent » — et une accroche de 400 signes, un
+    intitulé de 120, une valeur d'indicateur de 40 ont une borne au contrat. Le
+    rendu Word revalide le chapitre : un champ réparé au-delà de sa borne
+    ferait échouer le DOCUMENT ENTIER, pour une retouche de style.
+
+    On essaie donc, dans l'ordre : tout ; tout sauf les mots anglais ; la
+    seule typographie ; la seule purge des invisibles, qui ne fait que
+    raccourcir. Un mot anglais laissé en place est signalé par le contrôle
+    post-rendu (`checks_post_rendu.detecter_mots_anglais`) : il se réécrit au
+    chapitre, il ne casse rien.
+    """
+    complet = reparer_texte(texte, prose=prose)
+    if borne is None or len(complet) <= borne:
+        return complet
+    for replier in (
+        lambda: reparer_texte(texte, prose=prose, anglais=False),
+        lambda: reparer_texte(texte, prose=False),
+    ):
+        candidat = replier()
+        if len(candidat) <= borne:
+            return candidat
+    return purger_les_invisibles(texte)
 
 
 #: Les champs du contrat qui portent des IDENTIFIANTS, pas de la prose. La
@@ -210,7 +255,9 @@ def reparer_typographie(payload: Any) -> int:
     for champ in ("accroche", "resume"):
         texte = getattr(payload, champ, None)
         if isinstance(texte, str):
-            corrige = reparer_texte(texte)
+            corrige = _reparer_dans_la_borne(
+                texte, prose=True, borne=_borne(payload, champ)
+            )
             if corrige != texte:
                 setattr(payload, champ, corrige)
                 retouches += 1
@@ -232,7 +279,9 @@ def _reparer_modele(modele: Any) -> int:
     for nom in champs:
         valeur = getattr(modele, nom, None)
         corrige, compte = _reparer_valeur(
-            valeur, prose=nom not in _CHAMPS_IDENTIFIANTS
+            valeur,
+            prose=nom not in _CHAMPS_IDENTIFIANTS,
+            borne=_borne(modele, nom),
         )
         if compte:
             setattr(modele, nom, corrige)
@@ -240,9 +289,13 @@ def _reparer_modele(modele: Any) -> int:
     return retouches
 
 
-def _reparer_valeur(valeur: Any, *, prose: bool = True) -> tuple[Any, int]:
+def _reparer_valeur(
+    valeur: Any, *, prose: bool = True, borne: int | None = None
+) -> tuple[Any, int]:
+    """`borne` ne vaut que pour une chaîne : sur une liste, `max_length`
+    compte des ÉLÉMENTS, pas des signes — elle ne descend donc pas."""
     if isinstance(valeur, str):
-        corrige = reparer_texte(valeur, prose=prose)
+        corrige = _reparer_dans_la_borne(valeur, prose=prose, borne=borne)
         return corrige, int(corrige != valeur)
     if isinstance(valeur, list):
         retouches = 0
@@ -262,7 +315,7 @@ def _reparer_valeur(valeur: Any, *, prose: bool = True) -> tuple[Any, int]:
 # ══════════════════════════════════════════════════════════════════════════
 
 
-def reparer_langue(texte: str) -> str:
+def reparer_langue(texte: str, *, anglais: bool = True) -> str:
     """Mots anglais, élisions, codes d'unité. Idempotente.
 
     L'ordre compte : les mots anglais d'abord, parce que leur équivalent peut
@@ -272,7 +325,7 @@ def reparer_langue(texte: str) -> str:
     """
     if not texte:
         return texte
-    corrige = remplacer_les_mots_anglais(texte)
+    corrige = remplacer_les_mots_anglais(texte) if anglais else texte
     corrige = reparer_les_elisions(corrige)
     return normaliser_les_codes_d_unite(corrige)
 
@@ -444,7 +497,12 @@ MOTS_ANGLAIS: dict[str, str | None] = {
     "nevertheless": "néanmoins",
     "nonetheless": "néanmoins",
     "meanwhile": "entre-temps",
-    "indeed": "en effet",
+    # « indeed » n'est PLUS remplacé (relecture du 29/09/2026) : c'est aussi le
+    # nom d'une plateforme d'emploi, que les business plans citent en
+    # minuscules — « offres publiées sur indeed » devenait « sur en effet ».
+    # Rien dans la phrase ne dit à coup sûr lequel des deux on lit : il se
+    # signale, il ne se remplace pas. Voir aussi `_AUSSI_UN_NOM`.
+    "indeed": None,
     "whereas": "alors que",
     "whilst": "tandis que",
     "although": "même si",
@@ -469,6 +527,37 @@ MOTS_ANGLAIS: dict[str, str | None] = {
 #: virgule (« However, le marché… »). « Indeed » n'y est jamais : c'est aussi
 #: le nom d'une plateforme d'emploi, citée comme source dans les business plans.
 _JAMAIS_EN_MAJUSCULE = frozenset({"indeed"})
+
+#: Les mots de la liste qui sont AUSSI un nom propre. Derrière une préposition
+#: ou un déterminant — « sur indeed », « via indeed », « et indeed » —, ce
+#: n'est pas un adverbe qui a fui : c'est la plateforme. Ni réparé, ni
+#: signalé : un motif faux coûterait une réécriture de chapitre (règle 2).
+_AUSSI_UN_NOM = frozenset({"indeed"})
+_INTRODUIT_UN_NOM = frozenset({
+    "sur", "via", "de", "du", "des", "le", "la", "les", "par", "chez", "avec",
+    "pour", "à", "au", "aux", "un", "une", "et", "ou", "comme", "site",
+    "plateforme",
+})
+
+#: Un mot ENTRE guillemets est cité, pas écrit : « le mot « already » » ne se
+#: traduit pas, pas plus qu'un titre de publication (relecture du 29/09/2026).
+_GUILLEMET_AVANT = re.compile(r"[«“\"‘][^\S\r\n]*$")
+_GUILLEMET_APRES = re.compile(r"[^\S\r\n]*[»”\"’]")
+
+
+def _entre_guillemets(texte: str, debut: int, fin: int) -> bool:
+    return bool(
+        _GUILLEMET_AVANT.search(texte[max(0, debut - 6):debut])
+        and _GUILLEMET_APRES.match(texte, fin)
+    )
+
+
+def _employe_comme_un_nom(texte: str, debut: int, bas: str) -> bool:
+    if bas not in _AUSSI_UN_NOM:
+        return False
+    avant = _MOT_VOISIN_AVANT.search(texte[max(0, debut - 40):debut])
+    return avant is not None and avant.group(1).casefold() in _INTRODUIT_UN_NOM
+
 
 _MOT_ANGLAIS = re.compile(
     r"(?<![\w/@.'’-])("
@@ -496,12 +585,17 @@ def mots_anglais(texte: str) -> list[MotAnglais]:
 
     Source unique pour la réparation ET pour le contrôle post-rendu
     (`checks_post_rendu.detecter_mots_anglais`) : deux lectures du même défaut
-    finiraient par diverger (règle 5).
+    finiraient par diverger (règle 5). Ni un mot CITÉ entre guillemets, ni un
+    nom propre derrière sa préposition (« sur indeed ») n'est une fuite.
     """
     trouves: list[MotAnglais] = []
     for m in _MOT_ANGLAIS.finditer(texte or ""):
         mot = m.group(1)
         bas = mot.casefold()
+        if _entre_guillemets(texte, m.start(), m.end()):
+            continue
+        if _employe_comme_un_nom(texte, m.start(), bas):
+            continue
         if mot != bas:
             if mot != bas.capitalize() or bas in _JAMAIS_EN_MAJUSCULE:
                 continue

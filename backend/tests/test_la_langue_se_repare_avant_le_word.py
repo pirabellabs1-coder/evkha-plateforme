@@ -272,12 +272,14 @@ def test_le_mot_anglais_reste_dans_le_document_est_signale() -> None:
     ])
 
     par_mot = {t.mot: t for t in trouves}
-    assert set(par_mot) == {"already", "overall"}
+    # Un seul « overall » ne vaut pas une réécriture du chapitre depuis la
+    # relecture du 29/09/2026 (`SEUIL_MOTS_ANGLAIS_AMBIGUS`) : voir
+    # `test_la_langue_apres_relecture.py`.
+    assert set(par_mot) == {"already"}
     # Le même mot répété est UN défaut, avec son compte.
     assert par_mot["already"].occurrences == 2
     assert "déjà" in str(par_mot["already"])
     assert "already financé" in str(par_mot["already"])
-    assert par_mot["overall"].equivalent is None
     assert par_mot["already"].chapitre == 7
 
 
@@ -304,7 +306,9 @@ def test_le_controle_lit_la_meme_liste_que_la_reparation() -> None:
     from generation.checks_post_rendu import detecter_mots_anglais
 
     for mot in MOTS_ANGLAIS:
-        trouves = detecter_mots_anglais([_section(f"Le projet est {mot} prêt.")])
+        # Deux occurrences : un mot ambigu n'est signalé qu'à partir de deux.
+        texte = f"Le projet est {mot} prêt ; il reste {mot} solide."
+        trouves = detecter_mots_anglais([_section(texte)])
         assert [t.mot for t in trouves] == [mot], mot
         # Et ce que la réparation remplace, elle le remplace vraiment.
         repare = reparer_texte(f"Le projet est {mot} prêt.")
