@@ -132,7 +132,7 @@ export function QualiteAdmin() {
                   <td className="nombre">{f.nombre(d.motifs)}</td>
                   <td className="nombre">{f.nombre(d.replis)}</td>
                   <td className="nombre">{f.nombre(d.constats_pdf)}</td>
-                  <td className="nombre">{d.cout_eur} €</td>
+                  <td className="nombre">{f.coutApi(d.cout_eur)}</td>
                 </tr>
               ))}
             </tbody>
