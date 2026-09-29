@@ -97,6 +97,20 @@ class DefinitionDonnee:
     #: donnent le montant ; sinon elle reste absente, jamais extrapolée
     #: (`socle.builder._objectifs_inventes`).
     du_client: bool = False
+    #: Échelles ADMISES quand la donnée suit la zone réelle du projet. Vide :
+    #: seul `perimetre` est admis. La première règle était une égalité stricte,
+    #: et elle a fait échouer un vrai business plan (`cb59cede`, 29/09/2026) :
+    #: une entreprise régionale a une clientèle cible régionale — le modèle
+    #: l'a répondu trois fois, le socle l'a refusé trois fois, le dossier est
+    #: tombé en échec à zéro chapitre. Pire, le contrôle de cohérence du BP
+    #: (clientèle × panier ≈ CA de l'an 1) exige cette échelle-là : les deux
+    #: règles se contredisaient.
+    perimetres_admis: tuple[Perimetre, ...] = ()
+
+    @property
+    def admis(self) -> tuple[Perimetre, ...]:
+        """Les périmètres que le socle accepte pour cette donnée."""
+        return self.perimetres_admis or (self.perimetre,)
 
 
 # ── Étude de marché ──────────────────────────────────────────────────────────
@@ -236,6 +250,10 @@ _EM: tuple[DefinitionDonnee, ...] = (
     DefinitionDonnee(
         "taille_clientele_cible", "Taille de la clientèle cible",
         Perimetre.NATIONAL, FamilleUnite.EFFECTIF, chapitres=(3, 10),
+        # Nationale ou régionale selon la zone du projet (voir
+        # `perimetres_admis`) : une étude de marché d'une activité locale
+        # dimensionne une clientèle locale.
+        perimetres_admis=(Perimetre.NATIONAL, Perimetre.REGIONAL),
     ),
 )
 
@@ -407,6 +425,10 @@ _BP: tuple[DefinitionDonnee, ...] = (
     DefinitionDonnee(
         "taille_clientele_cible", "Taille de la clientèle cible",
         Perimetre.NATIONAL, FamilleUnite.EFFECTIF, chapitres=(6, 10),
+        # La clientèle que l'entreprise vise, à l'échelle de SA zone : le
+        # contrôle « clientèle × panier ≈ CA an 1 » l'exige (voir
+        # `perimetres_admis`).
+        perimetres_admis=(Perimetre.NATIONAL, Perimetre.REGIONAL, Perimetre.ENTREPRISE),
     ),
     # Chapitres 8-10 — offre et économie unitaire
     DefinitionDonnee(

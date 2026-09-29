@@ -203,7 +203,9 @@ _REGLES = (
     "identifiant hors liste fait rejeter tout le socle.\n"
     "2. Un identifiant = une seule valeur. Jamais de doublon.\n"
     "3. Respecte le périmètre imposé par le référentiel pour chaque "
-    "identifiant. Le marché mondial et le marché continental sont deux "
+    "identifiant ; quand plusieurs sont admis, prends celui de la zone réelle "
+    "du projet (une activité régionale a une clientèle régionale). Le marché "
+    "mondial et le marché continental sont deux "
     "valeurs DIFFÉRENTES : ne mets jamais la même des deux côtés.\n"
     "4. Respecte la famille d'unité imposée. Un taux de croissance s'exprime "
     "en %, jamais en milliards.\n"
@@ -379,11 +381,19 @@ son brief ou déposé dans ses documents ne s'arrondit pas, ne se convertit pas,
 ne se remplace pas par une moyenne de marché. C'est son dossier."""
 
 
+def _perimetre_attendu(item: DefinitionDonnee) -> str:
+    """Ce que le contrôle ACCEPTE, dit au modèle dans les mêmes termes (règle 5)."""
+    if len(item.admis) == 1:
+        return f"périmètre imposé : {item.admis[0]}"
+    choix = " ou ".join(str(p) for p in item.admis)
+    return f"périmètre admis : {choix} (celui de la zone réelle du projet, selon le brief)"
+
+
 def _ligne_referentiel(item: DefinitionDonnee) -> str:
     marque = "OBLIGATOIRE" if item.obligatoire else "facultatif"
     ligne = (
         f"- `{item.identifiant}` — {item.libelle}\n"
-        f"    périmètre imposé : {item.perimetre} | unité : {unites_hint(item.famille_unite)}"
+        f"    {_perimetre_attendu(item)} | unité : {unites_hint(item.famille_unite)}"
         f" | {marque}"
     )
     if item.chapitres:

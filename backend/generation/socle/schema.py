@@ -779,10 +779,11 @@ def valider_socle(socle: Socle, deliverable_type: str) -> list[str]:
         attendue = definition(deliverable_type, item.id)
         if attendue is None:
             continue  # déjà signalé au point 1
-        if item.perimetre != attendue.perimetre:
+        if item.perimetre not in attendue.admis:
+            permis = " ou ".join(f"« {p} »" for p in attendue.admis)
             motifs.append(
                 f"`{item.id}` : périmètre « {item.perimetre} » alors que le "
-                f"référentiel impose « {attendue.perimetre} »."
+                f"référentiel admet {permis}."
             )
         admises = unites_autorisees(attendue.famille_unite)
         if item.unite not in admises:

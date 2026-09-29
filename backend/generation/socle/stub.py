@@ -39,7 +39,10 @@ def _brief_client(prompt: str) -> dict[str, str]:
 
 _LIGNE_ID = re.compile(
     r"^- `(?P<id>[a-z0-9_]+)` — (?P<libelle>.+)\n"
-    r"\s+périmètre imposé : (?P<perimetre>\w+) \| unité : (?P<unite>[^|]+)\|",
+    # « imposé » (une échelle) ou « admis » (plusieurs : la doublure prend la
+    # première). Sans « admis », une donnée à plusieurs échelles disparaissait
+    # de la doublure sans bruit.
+    r"\s+périmètre (?:imposé|admis) : (?P<perimetre>\w+)[^|]*\| unité : (?P<unite>[^|]+)\|",
     re.MULTILINE,
 )
 
