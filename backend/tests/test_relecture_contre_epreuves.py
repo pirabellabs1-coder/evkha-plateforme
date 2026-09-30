@@ -227,6 +227,69 @@ def test_un_compte_de_resultat_juste_ne_fait_rien_reprendre(
     assert _boucles(_compte(*charges)) == []
 
 
+@pytest.mark.parametrize("charges", [
+    # Porte finale du 30/09/2026, second passage : même classe que « Achats de
+    # produits » — une charge qui nomme des produits, une recette sans le mot.
+    (("Coût des produits vendus", "20 000 €"), ("Charges externes", "10 000 €"),
+     ("Salaires", "25 000 €")),
+    (("Consommation de produits", "20 000 €"), ("Fournitures et produits d'entretien", "10 000 €"),
+     ("Salaires", "25 000 €")),
+    (("Cotisations des adhérents", "5 000 €"), ("Dons", "2 000 €"),
+     ("Charges externes", "37 000 €"), ("Salaires", "25 000 €")),
+    (("Transfert de charges", "1 000 €"), ("Charges externes", "31 000 €"),
+     ("Salaires", "25 000 €")),
+    (("Charges externes", "30 000 €"), ("Salaires", "25 000 €"), ("Charges totales", "55 000 €")),
+    (("Charges externes", "30 000 €"), ("Salaires", "25 000 €"),
+     ("Charges d'exploitation", "55 000 €")),
+    (("Charges d'exploitation", "—"), ("Charges externes", "30 000 €"), ("Salaires", "25 000 €")),
+    (("Subvention d'exploitation", "—"), ("Charges externes", "30 000 €"),
+     ("Salaires", "25 000 €")),
+    (("Charges externes", "30 000 €"), ("Salaires", "25 000 €"),
+     ("Taux de marge sur coûts variables", "100 %"), ("Cotisations sociales au taux de 47 %", "—")),
+    (("Marge sur coûts variables", "80 000 €"), ("Charges externes", "30 000 €"),
+     ("Salaires", "25 000 €")),
+])
+def test_un_compte_juste_d_une_autre_forme_ne_fait_rien_reprendre(
+    charges: tuple[tuple[str, str], ...],
+) -> None:
+    assert _boucles(_compte(*charges)) == []
+
+
+def test_un_chiffre_d_affaires_ventile_se_lit_sur_son_total() -> None:
+    tableau = Tableau(entetes=("Poste", "2029"), lignes=(
+        ("Chiffre d'affaires cours", "50 000 €"), ("Chiffre d'affaires boutique", "30 000 €"),
+        ("Chiffre d'affaires total", "80 000 €"), ("Charges externes", "30 000 €"),
+        ("Salaires", "25 000 €"), ("Excédent brut d'exploitation", "25 000 €"),
+    ))
+    assert _boucles(tableau) == []
+
+
+@pytest.mark.parametrize(("charges", "ebe"), [
+    # K1 : le total est mal additionné (55 000 € réels), l'EBE calculé dessus.
+    ((("Achats", "10 000 €"), ("Charges externes", "20 000 €"), ("Salaires", "25 000 €"),
+      ("Total des charges", "50 000 €")), "30 000 €"),
+    # K4 : un total PARTIEL « sauve » un EBE qui oublie les charges variables.
+    ((("Charges variables", "30 000 €"), ("Loyer", "10 000 €"), ("Salaires", "15 000 €"),
+      ("Total charges fixes", "25 000 €")), "55 000 €"),
+    # K6 : un « — » sur une ligne ne coupe pas le contrôle de l'exercice.
+    ((("Subvention d'exploitation", "—"), ("Charges externes", "30 000 €"),
+      ("Salaires", "25 000 €")), "40 000 €"),
+    # Business plan ÉCLORE, 9.2 : un taux en % entre le CA et l'EBE ne coupe pas
+    # le contrôle de l'exercice.
+    ((("Charges fixes annuelles", "30 000 €"), ("Taux de marge sur coûts variables", "100 %")),
+     "782 €"),
+    # Une subvention oubliée dans l'EBE n'est pas sauvée par « les seules charges ».
+    ((("Subvention d'exploitation", "5 000 €"), ("Charges externes", "30 000 €"),
+      ("Salaires", "25 000 €")), "25 000 €"),
+])
+def test_un_compte_faux_n_est_pas_sauve_par_une_autre_lecture(
+    charges: tuple[tuple[str, str], ...], ebe: str,
+) -> None:
+    """Porte finale du 30/09/2026 (NO-GO sur `63be6a3`) : chacun passait sans constat."""
+    constats = _boucles(_compte(*charges, ebe=ebe))
+    assert len(constats) == 1 and constats[0].grave
+
+
 def test_un_compte_faux_qui_ne_porte_qu_un_total_reste_signale() -> None:
     """80 000 − 55 000 = 25 000 €, pas 31 000 € — et l'opération affichée est la vraie."""
     constats = _boucles(_compte(("Total des charges d'exploitation", "55 000 €"), ebe="31 000 €"))
@@ -454,3 +517,21 @@ def test_la_tolerance_suit_l_unite_ecrite() -> None:
 
     assert tolerance_ecrite(nombres("1,2 M€")[0]) == pytest.approx(50_000.0)
     assert tolerance_ecrite(nombres("16 %")[0]) == pytest.approx(0.5)
+
+
+def test_un_prix_apres_une_frequence_n_est_pas_une_remuneration_divisee() -> None:
+    """« 12 ateliers par mois à 110 € » : trois mots entre le compte et le prix."""
+    doc = Document(sections=[_section(
+        "12.2",
+        "Pour une rémunération de 1 320 € par mois, la dirigeante anime 12 ateliers par mois "
+        "à 110 €.",
+    )])
+    assert periodes(doc, _reference()) == []
+
+
+def test_une_annee_n_est_pas_un_compte_de_choses() -> None:
+    """Contre-épreuve : « en 2027 le revenu mensuel passe à 110 € » reste signalé."""
+    doc = Document(sections=[_section(
+        "12.2", "En 2027 le revenu mensuel de la dirigeante passe à 110 €.",
+    )])
+    assert [c.classe for c in periodes(doc, _reference())] == ["periode"]

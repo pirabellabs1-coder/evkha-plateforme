@@ -522,13 +522,28 @@ et l'EBE. Désormais chaque ligne a une NATURE (charge avant produit, détail
 « dont » ignoré, parenthèse ignorée, variation de stock signée, total de
 charges lu seul) et le motif affiche l'opération qui tombe juste.
 
+Second passage de la même porte (NO-GO sur `63be6a3`) : la lecture « par
+total » SAUVAIT des comptes faux — un total mal additionné sur lequel l'EBE
+était calculé, un total partiel, et un seul « — » (zéro) qui coupait tout
+l'exercice. Une lecture de rechange n'est admise que si elle ne peut pas
+blanchir un compte faux : un total seulement sans détail, un sous-total
+implicite seulement s'il vaut la somme des autres lignes, « les seules charges
+nommées » seulement à côté d'un libellé inconnu. « — » vaut zéro ; une cellule
+en % ou en effectif n'est pas un flux. Et la classe entière de « Achats de
+produits » : une recette se reconnaît à ce que son libellé la DIT (« Produits »
+en tête, dons, aides, cotisations des adhérents, transfert de charges), le nom
+en tête décide (« Taux de marge sur coûts variables » est un taux), un CA
+ventilé se lit sur son total. En le corrigeant, la régression a encore attrapé
+une perte : « coûts » ajouté aux mots de charge faisait de la ligne « Taux de
+marge sur coûts variables » (9.2) une charge.
+
 La même porte a relevé quatre pertes de détection, rétablies : « dans le
 scénario central » se juge comme le prévisionnel ; un tiret d'incise n'est pas
 une baisse ; « ressort à 110 € la première année » n'est pas un prix
 unitaire ; la tolérance d'un « 1,2 M€ » suit son unité. Et deux faux positifs
 d'avant : « charges fixes mensuelles de 1 500 € », « taux de marge nette ».
 
-40 contre-épreuves au total ; la régression reste à 43/43 avec, classe par
+Contre-épreuves : 58 ; la régression reste à 43/43 avec, classe par
 classe, les mêmes autres constats (67) qu'avant la revue.
 
 Aussi : seuil de rentabilité de la mémoire = charges fixes ÷ taux quand le socle

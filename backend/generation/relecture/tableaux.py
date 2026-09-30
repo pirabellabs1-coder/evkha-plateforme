@@ -35,26 +35,48 @@ def _euros(montant: float) -> str:
 
 _CHARGES = re.compile(
     r"(?i)charges|achats?|cotisations|salaires|loyers?|sous-traitance|frais|d[ée]penses|"
-    r"r[ée]mun[ée]ration|masse salariale|imp[ôo]ts et taxes|personnel"
+    r"r[ée]mun[ée]ration|masse salariale|imp[ôo]ts et taxes|personnel|"
+    r"co[ûu]ts?\b|consommations?|fournitures|mati[èe]res|marchandises"
+)
+#: Une recette que son libellé DIT : « produit » EN TÊTE (« Produits financiers »,
+#: « Autres produits » — « Coût des produits vendus » est une charge), une
+#: subvention, une reprise, des dons ou des aides, un crédit d'impôt, un
+#: transfert de charges, une production stockée, les cotisations des adhérents
+#: d'une association. Lue AVANT les charges : « transfert de charges » en est une.
+_RECETTE = re.compile(
+    r"(?i)^\W*(?:autres?\s+)?produits?\b|subvention|\breprises?\b|\bdons?\b|\baides?\b"
+    r"|cr[ée]dit d.imp[ôo]t|transferts? de charges|production (?:stock|immobilis)"
+    r"|cotisations? des (?:adh[ée]rents|membres)|\brecettes?\b"
 )
 #: Ni une charge ni un produit : un sous-total (« marge brute »), une dotation,
-#: un résultat, un stock de fin d'exercice ou un ratio. Un tableau d'INDICATEURS
-#: range « Résultat net » ou « Trésorerie » entre le CA et l'EBE sans prétendre
-#: boucler (business plan ÉCLORE, 11.3). Lu sur le libellé SANS sa parenthèse :
-#: « Cotisations sociales (taux de 47 %) » reste une charge (revue du 30/09/2026).
+#: un résultat, un stock de fin d'exercice, un ratio, un autre chiffre
+#: d'affaires. Un tableau d'INDICATEURS range « Résultat net » ou « Trésorerie »
+#: entre le CA et l'EBE sans prétendre boucler (business plan ÉCLORE, 11.3). Lu
+#: sur le libellé SANS sa parenthèse : « Cotisations sociales (taux de 47 %) »
+#: reste une charge (revue du 30/09/2026).
 _PAS_UNE_LIGNE_DE_FLUX = re.compile(
     r"(?i)\bmarge\b|valeur ajout|dotation|amortissement"
     r"|r[ée]sultat|tr[ée]sorerie|capacit[ée]|\bCAF\b|seuil|\btaux\b|\bBFR\b"
-    r"|fonds de roulement|point mort|effectif|nombre"
+    r"|fonds de roulement|point mort|effectif|nombre|chiffre d.affaires|\bCA\b"
 )
-_PRODUIT = re.compile(r"(?i)subvention|produits?\b|reprise")
-_TOTAL = re.compile(r"(?i)\btotal\b|sous-total")
+#: Le NOM EN TÊTE dit ce qu'est la ligne : « Marge sur coûts variables » est
+#: une marge, « Taux de marge sur coûts variables » un taux — même si « coûts »
+#: y figure ; « Cotisations sociales au taux de 47 % » reste une cotisation.
+_TETE_NON_FLUX = re.compile(
+    r"(?i)^\W*(?:marge|taux|r[ée]sultat|seuil|point mort|capacit[ée]|CAF|tr[ée]sorerie"
+    r"|valeur ajout[ée]e|BFR|besoin en fonds|nombre|effectif|panier|prix)\b"
+)
+_TOTAL = re.compile(r"(?i)\btota(?:l|ux|les?)\b|sous-total")
 #: « dont rémunération du dirigeant » détaille la ligne d'au-dessus : la compter
 #: la retrancherait deux fois.
 _DETAIL = re.compile(r"(?i)^\W*dont\b")
 #: Une variation de stock est une charge SIGNÉE, dont le signe écrit varie
 #: selon les usages : les deux lectures sont admises.
 _STOCK = re.compile(r"(?i)variation (?:des |de |du )?stocks?")
+#: « — », « – », une cellule vide ou « 0 » : zéro, écrit à la façon d'un compte
+#: de résultat. Il ne coupe pas le contrôle de l'exercice (porte finale du
+#: 30/09/2026 : un seul « — » sur une ligne de subvention faisait tout sauter).
+_ZERO = re.compile(r"^[\s—–-]*$|^\s*0(?:[,.]0+)?\s*€?\s*$")
 
 
 def _montant(cellule: str) -> float | None:
@@ -65,8 +87,9 @@ def _montant(cellule: str) -> float | None:
 def _nature(libelle: str) -> str | None:
     """« charge », « produit », « stock », « total », « autre » — ou None : pas une ligne de flux.
 
-    Une charge se reconnaît AVANT un produit : « Achats de produits » est un
-    achat. Un libellé inconnu (« Assurance », « Honoraires ») est une dépense.
+    Une recette se reconnaît à ce que son libellé la dit (`_RECETTE`), une
+    charge à ses mots, puis viennent les exclusions ; un libellé inconnu
+    (« Assurance », « Honoraires ») est une dépense.
     """
     if _DETAIL.search(libelle):
         return None
@@ -75,12 +98,14 @@ def _nature(libelle: str) -> str | None:
         return "total" if _CHARGES.search(nu) else None
     if _STOCK.search(nu):
         return "stock"
+    if _TETE_NON_FLUX.search(nu):
+        return None
+    if _RECETTE.search(nu):
+        return "produit"
     if _CHARGES.search(nu):
         return "charge"
     if _PAS_UNE_LIGNE_DE_FLUX.search(nu):
         return None
-    if _PRODUIT.search(nu):
-        return "produit"
     return "autre"
 
 
@@ -92,9 +117,18 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
     « Impôts et taxes » ; puis la règle inverse (« toute ligne est une charge »)
     prenait « Achats de produits » pour une recette, retranchait deux fois une
     ligne « dont … », et ignorait « Total des charges ». Chaque ligne a donc une
-    NATURE (`_nature`), les montants se lisent en valeur absolue, et le constat
-    ne tombe que si AUCUNE lecture honnête ne boucle : le détail des lignes, les
-    seules charges nommées, ou chaque total de charges.
+    NATURE (`_nature`), et les montants se lisent en valeur absolue.
+
+    Le constat ne tombe que si aucune lecture HONNÊTE ne boucle — et une lecture
+    n'est honnête que si elle ne peut pas blanchir un compte faux (porte finale
+    du 30/09/2026, NO-GO sur `63be6a3`) :
+    - le détail des lignes, toujours ;
+    - un sous-total sans le mot « total » (« Charges d'exploitation » sous son
+      détail), seulement s'il vaut la somme des autres lignes ;
+    - les seules charges nommées, seulement quand un libellé inconnu pourrait
+      n'être pas un flux ;
+    - un total de charges, seulement quand il n'y a AUCUN détail : à côté d'un
+      détail, un total faux ou partiel « sauverait » un EBE faux.
     """
     annees = [
         (j, m.group(0)) for j, e in enumerate(tableau.entetes)
@@ -104,59 +138,96 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
         return None
     lignes = {i: ligne for i, ligne in enumerate(tableau.lignes) if ligne}
     series = {i: serie_nommee(ligne[0], "€") for i, ligne in lignes.items()}
-    ca = next((i for i, s in series.items() if s == "ca_previsionnel"), None)
     ebe = next((i for i, s in series.items() if s == "ebe"), None)
-    if ca is None or ebe is None or ebe < ca:
+    if ebe is None:
         return None
-    natures = {i: n for i in lignes if ca < i < ebe and (n := _nature(lignes[i][0]))}
-    if not any(n in ("charge", "autre", "total", "stock") for n in natures.values()):
+    # Un chiffre d'affaires ventilé (« … cours », « … boutique », « … total ») :
+    # le total s'il est écrit, sinon la première ligne ou la somme.
+    lignes_ca = [i for i, s in series.items() if s == "ca_previsionnel" and i < ebe]
+    if not lignes_ca:
+        return None
+    ca_total = next((i for i in lignes_ca if _TOTAL.search(lignes[i][0])), None)
+    natures = {
+        i: n for i in lignes
+        if lignes_ca[0] < i < ebe and i not in lignes_ca and (n := _nature(lignes[i][0]))
+    }
+    details = [i for i, n in natures.items() if n in ("charge", "autre", "stock")]
+    totaux = [i for i, n in natures.items() if n == "total"]
+    if not details and not totaux:
         return None
     for j, annee in annees:
-        def lu(i: int, colonne: int = j) -> float | None:
+        def lu(i: int, colonne: int = j, flux: bool = True) -> float | None:
             ligne = lignes[i]
-            return _montant(ligne[colonne]) if colonne < len(ligne) else None
+            cellule = ligne[colonne] if colonne < len(ligne) else ""
+            if flux and _ZERO.match(cellule):
+                return 0.0
+            return _montant(cellule)
 
-        chiffre, excedent = lu(ca), lu(ebe)
-        valeurs = {i: lu(i) for i in natures}
-        if chiffre is None or excedent is None:
+        excedent = lu(ebe, flux=False)
+        chiffres_lus = [lu(i, flux=False) for i in lignes_ca]
+        if excedent is None or any(c is None for c in chiffres_lus):
             continue
+        valeurs: dict[int, float | None] = {}
+        for i in natures:
+            v = lu(i)
+            cellule = lignes[i][j] if j < len(lignes[i]) else ""
+            if v is None and nombres(cellule):
+                continue  # « 100 % », « 2 ETP » : un taux, un compte — pas un flux
+            valeurs[i] = v
         if any(v is None for v in valeurs.values()):
+            continue  # un montant illisible : l'exercice ne se juge pas
+        montants = {i: v for i, v in valeurs.items() if v is not None}
+        details_lus = [i for i in details if i in montants]
+        if not details_lus and not any(i in montants for i in totaux):
             continue
+        ventiles = [c for c in chiffres_lus if c is not None]
+        if ca_total is not None:
+            chiffres = [ventiles[lignes_ca.index(ca_total)]]
+        else:
+            chiffres = [ventiles[0], sum(ventiles)] if len(ventiles) > 1 else ventiles
 
-        def somme(*genres: str, lues: dict[int, float | None] = valeurs) -> float:
-            return sum(abs(v) for i, v in lues.items() if v is not None and natures[i] in genres)
+        def somme(*genres: str, lues: dict[int, float] = montants) -> float:
+            return sum(abs(v) for i, v in lues.items() if natures[i] in genres)
 
         produits = somme("produit")
-        stock = sum(v for i, v in valeurs.items() if v is not None and natures[i] == "stock")
-        lectures = [
-            chiffre + produits - somme("charge", "autre"),
-            chiffre - somme("charge"),
-            *(chiffre + p - abs(v) for i, v in valeurs.items()
-              if v is not None and natures[i] == "total" for p in (produits, 0.0)),
+        stock = sum(v for i, v in montants.items() if natures[i] == "stock")
+        detail_total = somme("charge", "autre")
+        retraits = [detail_total]
+        # Un sous-total implicite : une ligne qui vaut la somme des autres.
+        retraits += [
+            detail_total - abs(montants[i]) for i in details_lus
+            if natures[i] != "stock" and proche(
+                abs(montants[i]), detail_total - abs(montants[i]), relatif=0.01, absolu=2,
+            )
         ]
+        if any(natures[i] == "autre" for i in details_lus):
+            retraits.append(somme("charge"))
+        if not details_lus:
+            retraits += [abs(montants[i]) for i in totaux if i in montants]
         if any(
-            proche(base - signe * stock, excedent, relatif=0.01, absolu=2)
-            for base in lectures for signe in (1, -1)
+            proche(chiffre + produits - retrait - signe * stock, excedent,
+                   relatif=0.01, absolu=2)
+            for chiffre in chiffres for retrait in retraits for signe in (1, -1)
         ):
             continue
-        detail = " ".join([
-            _euros(chiffre),
-            *(f"{'+' if natures[i] == 'produit' else '−'} {_euros(abs(v))}"
-              for i, v in valeurs.items()
-              if v is not None and natures[i] in ("produit", "charge", "autre", "stock")),
-        ])
-        attendu = chiffre + produits - somme("charge", "autre", "stock")
-        if not any(n in ("charge", "autre", "stock") for n in natures.values()):
+        chiffre = chiffres[0]
+        if details_lus:
+            detail = " ".join([
+                _euros(chiffre),
+                *(f"{'+' if natures[i] == 'produit' else '−'} {_euros(abs(v))}"
+                  for i, v in montants.items() if natures[i] != "total"),
+            ])
+            attendu = chiffre + produits - somme("charge", "autre", "stock")
+        else:
             # Seul un total de charges : l'opération se lit sur lui.
-            total = next(
-                abs(v) for i, v in valeurs.items() if v is not None and natures[i] == "total"
-            )
+            total = next(abs(montants[i]) for i in totaux if i in montants)
             ajout = f" + {_euros(produits)}" if produits else ""
             detail = f"{_euros(chiffre)}{ajout} − {_euros(total)}"
             attendu = chiffre + produits - total
         return Constat(
             "tableau", section.numero,
-            f"{tableau.lignes[ca][0]} {_euros(chiffre)} · {tableau.lignes[ebe][0]} "
+            f"{tableau.lignes[ca_total if ca_total is not None else lignes_ca[0]][0]} "
+            f"{_euros(chiffre)} · {tableau.lignes[ebe][0]} "
             f"{_euros(excedent)}",
             f"Le compte de résultat ne boucle pas en {annee} : {detail} = "
             f"{_euros(attendu)}, mais l'EBE affiché est {_euros(excedent)}. Il manque des "
