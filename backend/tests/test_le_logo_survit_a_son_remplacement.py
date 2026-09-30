@@ -164,3 +164,40 @@ def test_la_console_dit_quel_logo_est_retenu(client_admin: Any, agence: Agence) 
 def test_la_route_exige_le_jeton(client: Any, agence: Agence) -> None:
     job = _commande(agence, "")
     assert client.get(f"/api/dashboard/jobs/{job.id}/logo/").status_code in (401, 403)
+
+
+# ── La cause réelle du 30/09/2026 : un nom de fichier accentué ───────────────
+
+
+def test_un_logo_au_nom_accentue_se_relit_sur_le_disque(agence: Agence) -> None:
+    """Diagnostic en production : commande et organisation désignaient le MÊME fichier,
+    illisible — parce que sa référence est une URL encodée (`%C3%89`), et que le
+    disque porte le nom en clair."""
+    from generation.rendu_word.logo import charger_logo
+
+    logo = _deposer_un_logo(agence, "Éclore logo.png")
+
+    assert "%C3%89" in logo.fichier.url, "la référence est une URL encodée"
+    assert charger_logo(logo.fichier.url) == PNG
+
+
+def test_la_console_le_dit_lisible(client_admin: Any, agence: Agence) -> None:
+    logo = _deposer_un_logo(agence, "Éclore logo.png")
+    job = _commande(agence, logo.fichier.url)
+
+    corps = client_admin.get(f"/api/dashboard/jobs/{job.id}/logo/").json()
+
+    assert corps["retenu"] == {"reference": logo.fichier.url, "source": "commande", "lisible": True}
+
+
+def test_un_chemin_encode_ne_sort_pas_des_medias(tmp_path: Path) -> None:
+    """Contre-épreuve : décoder AVANT le confinement — `%2E%2E` ne remonte pas."""
+    from generation.rendu_word.logo import charger_logo
+
+    dehors = tmp_path.parent / "secret.png"
+    dehors.write_bytes(PNG)
+    try:
+        assert charger_logo("/media/%2E%2E/secret.png") is None
+        assert charger_logo("/media/%2e%2e%2fsecret.png") is None
+    finally:
+        dehors.unlink()

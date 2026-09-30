@@ -65,14 +65,23 @@ def _depuis_le_disque(reference: str) -> bytes | None:
 
     La lecture est **confinée** au répertoire des médias : une référence
     contenant `..` ne peut pas remonter ailleurs sur le disque.
+
+    La référence est une URL (`FieldFile.url`), donc ENCODÉE : un fichier
+    `Éclore.png` est enregistré sous ce nom, mais sa référence porte
+    `%C3%89clore.png`. Lue telle quelle, elle désignait un fichier qui n'existe
+    pas — business plan ÉCLORE `28a257bf` (30/09/2026) et tous les documents de
+    l'abonnée avant lui : « ça fait plusieurs fois ». On la décode AVANT le
+    confinement, pour qu'un `%2E%2E` ne le contourne pas.
     """
     from pathlib import Path  # noqa: PLC0415
+    from urllib.parse import unquote  # noqa: PLC0415
 
     from django.conf import settings  # noqa: PLC0415
 
     racine = Path(str(getattr(settings, "MEDIA_ROOT", "") or "media")).resolve()
     prefixe = str(getattr(settings, "MEDIA_URL", "/media/"))
     relatif = reference[len(prefixe) :] if reference.startswith(prefixe) else reference
+    relatif = unquote(relatif)
 
     try:
         chemin = (racine / relatif.lstrip("/")).resolve()
