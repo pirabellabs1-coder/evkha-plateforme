@@ -564,13 +564,22 @@ montant « attendu » ; si aucune, un constat grave — chiffré seulement quand
 aucune ligne n'est ambiguë. Un bloc de têtes à double lecture juste sous le
 CA n'est une ventilation que si ses montants en font la somme.
 
+Cinquième passage (NO-GO sur `86ab31c`) : la faille symétrique. Quand la
+lecture par défaut d'une tête à double lecture bouclait, rien n'était dit —
+et un compte FAUX qui coïncidait avec elle (une sous-ligne « Recettes
+ateliers » comptée deux fois) passait en silence, là où la base le voyait.
+Désormais, si la lecture par défaut boucle grâce à une tête qui peut
+détailler le CA, la lecture « ventilation » doit boucler aussi ; sinon, un
+signal sans montant. « Aides … » n'est plus une recette sûre (« Aides à
+domicile » sont des salaires) ; « Prix de revient » est une charge.
+
 La même porte a relevé quatre pertes de détection, rétablies : « dans le
 scénario central » se juge comme le prévisionnel ; un tiret d'incise n'est pas
 une baisse ; « ressort à 110 € la première année » n'est pas un prix
 unitaire ; la tolérance d'un « 1,2 M€ » suit son unité. Et deux faux positifs
 d'avant : « charges fixes mensuelles de 1 500 € », « taux de marge nette ».
 
-Contre-épreuves : 82 ; la régression reste à 43/43 avec, classe par
+Contre-épreuves : 89 ; la régression reste à 43/43 avec, classe par
 classe, les mêmes autres constats (67) qu'avant la revue.
 
 Aussi : seuil de rentabilité de la mémoire = charges fixes ÷ taux quand le socle

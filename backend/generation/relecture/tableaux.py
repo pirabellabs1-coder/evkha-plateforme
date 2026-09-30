@@ -51,12 +51,13 @@ _CHARGES_EN_TETE = re.compile(rf"(?i)^(?:autres?\s+)?(?:{_MOTS_DE_CHARGE})\b")
 #: d'ingrédients pour les recettes » des recettes.
 #:
 #: Une recette SÛRE : « Autres produits », « Produits » catégorisés (financiers,
-#: exceptionnels…), subvention, reprise, dons, aides, crédit d'impôt, transfert
-#: de charges, production stockée, cotisations des adhérents.
+#: exceptionnels…), subvention, reprise, dons, crédit d'impôt, transfert de
+#: charges, production stockée, cotisations des adhérents. « Aides … » n'en est
+#: pas une sûrement : « Aides à domicile » sont des salaires.
 _RECETTE_EN_TETE = re.compile(
     r"(?i)^(?:autres?\s+produits?\b|produits?\s+(?:financiers|exceptionnels|divers|annexes"
     r"|d.exploitation|de\s+gestion)"
-    r"|subventions?\b|reprises?\b|dons?\b|aides?(?![\w-])"
+    r"|subventions?\b|reprises?\b|dons?\b"
     r"|cr[ée]dits?\s+d.imp[ôo]ts?\b|transferts?\s+de\s+charges|production\s+(?:stock|immobilis)"
     r"|cotisations?\s+des\s+(?:adh[ée]rents|membres))"
 )
@@ -65,7 +66,13 @@ _RECETTE_EN_TETE = re.compile(
 #: juste sous lui ; « Prestations de sous-traitance » parmi les charges est une
 #: charge ; « Produits d'entretien », un achat. Sa nature par défaut dépend de
 #: sa PLACE, et le constat n'est grave que si aucune autre lecture ne boucle.
-_DOUBLE_LECTURE = re.compile(r"(?i)^(?:recettes?|produits?|prestations?|ventes?)\b")
+_DOUBLE_LECTURE = re.compile(r"(?i)^(?:recettes?|produits?|prestations?|ventes?|aides?)\b")
+#: Parmi elles, celles qui peuvent DÉTAILLER un chiffre d'affaires : pas
+#: « Produits d'entretien », « Prestations extérieures » ni « Aide-comptable ».
+_VENTILATION_POSSIBLE = re.compile(
+    r"(?i)^(?:recettes?\b|ventes?\b|produits?(?:\s*$|\s+des\s+activit|\s+vendus?\b)"
+    r"|prestations?\s+(?:de\s+services?|vendues?|factur))"
+)
 #: Ni une charge ni une recette : un sous-total (« Marge brute »), un ratio, un
 #: résultat, un stock de fin d'exercice, un autre chiffre d'affaires. Un tableau
 #: d'INDICATEURS range « Résultat net » ou « Trésorerie » entre le CA et l'EBE
@@ -73,7 +80,8 @@ _DOUBLE_LECTURE = re.compile(r"(?i)^(?:recettes?|produits?|prestations?|ventes?)
 _NON_FLUX_EN_TETE = re.compile(
     r"(?i)^(?:marges?\b|taux\b|r[ée]sultats?\b|seuils?\b|point\s+mort|capacit[ée]|CAF\b"
     r"|tr[ée]sorerie|valeur\s+ajout|BFR\b|besoin\s+en\s+fonds|fonds\s+de\s+roulement"
-    r"|nombre|effectifs?\b|panier|prix\b(?!\s+d.achat)|chiffres?\s+d.affaires|CA\b"
+    r"|nombre|effectifs?\b|panier|prix\b(?!\s+(?:d.achat|de\s+revient))|chiffres?\s+d.affaires"
+    r"|CA\b"
     r"|dotations?\b|amortissements?\b|exc[ée]dent|EBE\b)"
 )
 #: Ailleurs dans le libellé, ces mots-là seulement disent encore « pas un flux » :
@@ -137,7 +145,7 @@ def _nature(libelle: str) -> tuple[str | None, bool]:
     if _DOUBLE_LECTURE.search(tete):
         if re.match(r"(?i)prestations?\b", tete):
             return "charge", True
-        if re.match(r"(?i)produits?\s*$|recettes?\b|ventes?\b", tete):
+        if re.match(r"(?i)produits?\s*$|recettes?\b|ventes?\b|aides?(?![\w-])", tete):
             return "produit", True
         return "autre", True  # « Produits d'entretien » : un achat
     if _NON_FLUX_EN_TETE.search(tete):
@@ -283,8 +291,33 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
             for c in chiffres
         ):
             par_defaut.update(dict.fromkeys(bloc))
+        chiffre = chiffres[0]
+        extrait = (
+            f"{tableau.lignes[ca_total if ca_total is not None else lignes_ca[0]][0]} "
+            f"{_euros(chiffre)} · {tableau.lignes[ebe][0]} {_euros(excedent)}"
+        )
         if _concorde(chiffres, montants, par_defaut, excedent):
-            continue
+            # La lecture par défaut boucle. Si elle compte une tête à double
+            # lecture juste sous le CA (« Recettes ateliers », « Prestations de
+            # services »), la lecture « ventilation » doit boucler aussi — sinon
+            # un compte faux passerait par la lecture incertaine (porte finale,
+            # NO-GO sur `86ab31c`) : un signal, sans montant attendu.
+            incertaines = [
+                i for i in bloc if i in montants and par_defaut.get(i) is not None
+                and _VENTILATION_POSSIBLE.search(_tete(lignes[i][0]))
+            ]
+            if not incertaines or _concorde(
+                chiffres, montants, {**par_defaut, **dict.fromkeys(incertaines)}, excedent,
+            ):
+                continue
+            douteuses = " ; ".join(f"« {lignes[i][0]} »" for i in incertaines[:4])
+            return Constat(
+                "tableau", section.numero, extrait,
+                f"L'EBE affiché ({_euros(excedent)}) ne se retrouve en {annee} qu'en "
+                f"comptant {douteuses} à part du chiffre d'affaires : si ces lignes le "
+                "détaillent, elles sont comptées deux fois. Vérifie leur nature.",
+                grave=False,
+            )
         a_lire = [i for i in ambigues if i in montants]
         autres_lectures = (
             itertools.product(("produit", "charge", None), repeat=len(a_lire))
@@ -296,11 +329,6 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
                 excedent,
             )
             for lecture in autres_lectures
-        )
-        chiffre = chiffres[0]
-        extrait = (
-            f"{tableau.lignes[ca_total if ca_total is not None else lignes_ca[0]][0]} "
-            f"{_euros(chiffre)} · {tableau.lignes[ebe][0]} {_euros(excedent)}"
         )
         consigne = (
             " Reprends chaque ligne depuis la mémoire, ou ne montre pas de compte de "

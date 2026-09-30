@@ -360,6 +360,47 @@ def test_une_ligne_a_double_lecture_donne_un_signal_sans_montant_attendu(
     assert "=" not in constats[0].detail
 
 
+def _sous_ligne(libelle: str, montant: str, ebe: str) -> Tableau:
+    """« Chiffre d'affaires HT » 80 000 €, une sous-ligne dessous, puis 55 000 € de charges."""
+    return Tableau(entetes=("Poste", "2029"), lignes=(
+        ("Chiffre d'affaires HT", "80 000 €"), (libelle, montant),
+        ("Achats", "10 000 €"), ("Charges externes", "20 000 €"), ("Salaires", "25 000 €"),
+        ("Excédent brut d'exploitation", ebe),
+    ))
+
+
+@pytest.mark.parametrize("tableau", [
+    # Porte finale, cinquième passage (NO-GO sur `86ab31c`) : la lecture par
+    # défaut de la sous-ligne donnait EXACTEMENT l'EBE faux — aucun constat.
+    _sous_ligne("Recettes ateliers", "50 000 €", "75 000 €"),        # Y1
+    _sous_ligne("Ventes de marchandises", "50 000 €", "75 000 €"),   # Y3
+    _sous_ligne("Produits", "50 000 €", "75 000 €"),                 # Y4
+    _sous_ligne("Prestations de services", "30 000 €", "−5 000 €"),  # Y9
+])
+def test_un_compte_faux_n_est_pas_valide_par_une_lecture_incertaine(tableau: Tableau) -> None:
+    constats = _boucles(tableau)
+    assert len(constats) == 1 and not constats[0].grave
+    assert "=" not in constats[0].detail
+
+
+def test_une_vraie_recette_annexe_sous_le_ca_n_est_qu_un_signal() -> None:
+    """Y8 : juste si « Recettes annexes » s'ajoute au CA ; jamais grave, au pire un signal."""
+    constats = _boucles(_sous_ligne("Recettes annexes", "5 000 €", "30 000 €"))
+    assert not any(c.grave for c in constats)
+
+
+@pytest.mark.parametrize("tableau", [
+    # Y6 : « Aides à domicile » (des salaires) n'est plus une recette sûre.
+    _compte(("Aides à domicile", "25 000 €"), ("Achats", "10 000 €"),
+            ("Charges externes", "20 000 €")),
+    # Y7 : « Prix de revient des prestations » est une charge, pas un prix.
+    _compte(("Prix de revient des prestations", "25 000 €"), ("Achats", "10 000 €"),
+            ("Charges externes", "20 000 €")),
+])
+def test_aucune_tete_incertaine_ne_rend_grave_un_compte_juste(tableau: Tableau) -> None:
+    assert not any(c.grave for c in _boucles(tableau))
+
+
 def test_un_compte_faux_sous_toutes_les_lectures_reste_grave_sans_attendu() -> None:
     """Aucune lecture de la ventilation ne donne 60 000 € : grave, mais sans chiffrer d'attendu."""
     constats = _boucles(_ventile("Recettes ateliers", "Recettes boutique", ebe="60 000 €"))
