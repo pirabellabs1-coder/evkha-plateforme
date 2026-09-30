@@ -29,7 +29,7 @@ Données fictives uniquement : un atelier de céramique, « Atelier Brume ».
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -361,7 +361,8 @@ def test_une_structure_par_gamme_sur_un_seul_chiffre_d_affaires_part_en_tableau(
     assert "découpage" in rapport.graphiques_en_tableau[0]
     # Là où le rapport interne lit les motifs de figures.
     diagnostic = rapport.diagnostic_des_abandons[0]
-    assert [e["regle"] for e in diagnostic["specification"]] == ["titre"]  # type: ignore[union-attr]
+    specification = cast(list[dict[str, str]], diagnostic["specification"])
+    assert [e["regle"] for e in specification] == ["titre"]
     from generation.verification import controles
 
     anomalies = controles.controler_visuels(

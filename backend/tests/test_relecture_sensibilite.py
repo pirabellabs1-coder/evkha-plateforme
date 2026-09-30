@@ -10,7 +10,14 @@ Textes et chiffres FICTIFS : le document de la cliente ne quitte jamais
 """
 from __future__ import annotations
 
-from generation.relecture import Document, Reference, Section, Tableau, sensibilite
+from generation.relecture import (
+    Constat,
+    Document,
+    Reference,
+    Section,
+    Tableau,
+    sensibilite,
+)
 
 BP_ENTIER = Reference(livrable="business_plan", document_entier=True)
 BP_CHAPITRE = Reference(livrable="business_plan")
@@ -28,7 +35,7 @@ def _section(numero: str, *paragraphes: str, titre: str = "",
                    paragraphes=list(paragraphes), tableaux=list(tableaux))
 
 
-def _constats(document: Document, reference: Reference) -> list:
+def _constats(document: Document, reference: Reference) -> list[Constat]:
     constats = sensibilite.controler(document, reference)
     assert all(c.classe == "sensibilite" for c in constats)
     return constats

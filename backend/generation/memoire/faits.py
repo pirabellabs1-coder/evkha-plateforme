@@ -273,6 +273,21 @@ def _seuil_et_marge_de_securite(
 BAISSES_DE_SENSIBILITE = (10, 20)
 
 
+def _chiffre_en_baisse(baisse: float) -> Callable[[list[float]], float | None]:
+    """Le chiffre d'affaires diminué de `baisse` (0,1 pour −10 %)."""
+    def calcul(valeurs: list[float]) -> float | None:
+        return valeurs[0] * (1 - baisse)
+    return calcul
+
+
+def _resultat_en_baisse(baisse: float, taux: float) -> Callable[[list[float]], float | None]:
+    """Le résultat quand le chiffre d'affaires baisse, charges fixes inchangées."""
+    def calcul(valeurs: list[float]) -> float | None:
+        chiffre, resultat = valeurs
+        return resultat - baisse * chiffre * taux
+    return calcul
+
+
 def faits_de_sensibilite(faits: dict[str, Fait]) -> dict[str, Fait]:
     """Le scénario à −10 % et à −20 % de chiffre d'affaires, calculé en code.
 
@@ -293,7 +308,7 @@ def faits_de_sensibilite(faits: dict[str, Fait]) -> dict[str, Fait]:
         for baisse in BAISSES_DE_SENSIBILITE:
             p = baisse / 100.0
             chiffre = _derive(
-                f"ca_moins_{baisse}_pc_an{rang}", (ca,), lambda v, p=p: v[0] * (1 - p),
+                f"ca_moins_{baisse}_pc_an{rang}", (ca,), _chiffre_en_baisse(p),
                 libelle=f"Chiffre d'affaires si −{baisse} %, exercice {rang}",
                 formule=f"ca_previsionnel_an{rang} × {1 - p:.2f}".replace(".", ","),
                 annee=ca.annee, periode="an",
@@ -304,7 +319,7 @@ def faits_de_sensibilite(faits: dict[str, Fait]) -> dict[str, Fait]:
                 continue
             baisse_resultat = _derive(
                 f"resultat_net_moins_{baisse}_pc_an{rang}", (ca, resultat),
-                lambda v, p=p: v[1] - p * v[0] * part,
+                _resultat_en_baisse(p, part),
                 libelle=(
                     f"Résultat net si le chiffre d'affaires baisse de {baisse} % "
                     f"(charges fixes inchangées), exercice {rang}"

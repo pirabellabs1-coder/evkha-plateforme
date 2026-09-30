@@ -17,7 +17,7 @@ chaque classe a sa contre-épreuve.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -381,9 +381,10 @@ def _legendes_de_completion(monkeypatch: pytest.MonkeyPatch, socle: Any) -> list
                           donnees={"valeurs": [(str(i), 1.0) for i in ids]})
 
     monkeypatch.setattr(assemblage, "resoudre", resoudre)
-    blocs = [{"numero": 2, "titre": "Offre", "blocs": []}]
+    blocs: list[dict[str, Any]] = [{"numero": 2, "titre": "Offre", "blocs": []}]
     assemblage._completer_les_figures(
-        blocs, [_Payload(2, "Offre", ["ca_sejours", "ca_ateliers"])], socle, _Profil(),
+        blocs, [cast(Any, _Payload(2, "Offre", ["ca_sejours", "ca_ateliers"]))],
+        socle, cast(Any, _Profil()),
         assemblage.RapportAssemblage(),
     )
     return [b["source"] for b in blocs[0]["blocs"] if b["type"] == "graphique"]

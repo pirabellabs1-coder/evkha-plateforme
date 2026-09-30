@@ -18,6 +18,7 @@ from docx import Document as DocumentWord
 from docx.oxml.ns import qn
 
 from generation.relecture import (
+    Constat,
     Document,
     Reference,
     Section,
@@ -41,7 +42,7 @@ def _section(numero: str, *tableaux: Tableau) -> Section:
                    tableaux=list(tableaux))
 
 
-def _constats(document: Document, reference: Reference = UN_CHAPITRE) -> list:
+def _constats(document: Document, reference: Reference = UN_CHAPITRE) -> list[Constat]:
     constats = mise_en_page.controler(document, reference)
     assert all(c.classe == "mise_en_page" for c in constats)
     return constats

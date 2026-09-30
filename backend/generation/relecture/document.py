@@ -91,7 +91,7 @@ def document_du_chapitre(payload: Any) -> Document:
         payload.model_dump(mode="json") if hasattr(payload, "model_dump") else payload
     )
     numero = donnees.get("chapitre")
-    chapitre = int(numero) if isinstance(numero, int) or str(numero).isdigit() else None
+    chapitre = int(str(numero)) if str(numero).isdigit() else None
     courante = Section(
         numero=f"ch. {chapitre}" if chapitre is not None else "ch. ?",
         titre=str(donnees.get("titre") or ""), chapitre=chapitre,
@@ -151,8 +151,10 @@ def _lignes_d_en_tete(pages: list[list[str]]) -> set[str]:
 
 def document_du_pdf(chemin: str | Path) -> Document:
     """Le PDF rendu, en sections : titres « N.M », paragraphes, tableaux reconstitués."""
-    import pymupdf  # noqa: PLC0415 — lourd, chargé à l'usage
+    import importlib  # noqa: PLC0415
 
+    # Lourd, chargé à l'usage ; bibliothèque sans annotations de types.
+    pymupdf: Any = importlib.import_module("pymupdf")
     pdf = pymupdf.open(str(chemin))
     pages_brutes = [pdf[i].get_text() for i in range(pdf.page_count)]
     en_tetes = _lignes_d_en_tete([p.splitlines() for p in pages_brutes])

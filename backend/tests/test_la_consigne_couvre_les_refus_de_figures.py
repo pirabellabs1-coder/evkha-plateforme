@@ -39,10 +39,9 @@ from generation.chapitres.configuration import type_document
 from generation.chapitres.runner import construire_prompt_chapitre
 from generation.geography import _strip_accents as _plat
 from generation.services import bootstrap_generation_job
+from generation.socle.referentiel import Fiabilite, Perimetre
 from generation.socle.schema import (
     DonneeSocle,
-    Fiabilite,
-    Perimetre,
     Socle,
     Zone,
 )

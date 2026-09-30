@@ -140,12 +140,12 @@ def _superlatifs(document: Document) -> list[Constat]:
         distinctes = {round(v) for _, _, v, _ in releves}
         if len(distinctes) < 2:
             continue
-        for section, ecriture, valeur, passage in releves:
+        for numero, ecriture, valeur, passage in releves:
             ailleurs = " ; ".join(
                 f"{e} en {s}" for s, e, v, _ in releves if round(v) != round(valeur)
             )
             constats.append(Constat(
-                "libelle_unique", section, passage,
+                "libelle_unique", numero, passage,
                 f"{nom[0].upper()}{nom[1:]} n'a qu'une valeur dans un document : ici "
                 f"« {ecriture} », ailleurs {ailleurs}. Garde celle du relevé retenu partout.",
             ))

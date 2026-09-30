@@ -12,7 +12,7 @@ de la cliente ne quitte jamais `tests/fixtures/` (jamais versionné).
 """
 from __future__ import annotations
 
-from generation.relecture import Document, Reference, Section, Tableau, sources
+from generation.relecture import Constat, Document, Reference, Section, Tableau, sources
 
 DOCUMENT_ENTIER = Reference(livrable="business_plan", document_entier=True)
 UN_CHAPITRE = Reference(livrable="business_plan")
@@ -31,7 +31,7 @@ def _tableau(entetes: tuple[str, ...], *lignes: tuple[str, ...]) -> Tableau:
     return Tableau(entetes=entetes, lignes=tuple(lignes))
 
 
-def _constats(document: Document, reference: Reference = DOCUMENT_ENTIER) -> list:
+def _constats(document: Document, reference: Reference = DOCUMENT_ENTIER) -> list[Constat]:
     constats = sources.controler(document, reference)
     assert all(c.classe == "source" for c in constats)
     return constats

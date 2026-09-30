@@ -796,15 +796,15 @@ def _blogs_et_chiffres_de_marche(document: Document, chapitre: int | None) -> li
         )
         #: Un constat par blog et par section : le rédacteur corrige la section.
         vus: set[str] = set()
-        for unite in unites(vue):
-            if _LIGNE_SOURCE.match(unite.texte) or _ESTIME.search(unite.contexte):
+        for lu in unites(vue):
+            if _LIGNE_SOURCE.match(lu.texte) or _ESTIME.search(lu.contexte):
                 continue
             # Le chiffre est dans CETTE cellule ; « marché » et la source peuvent
             # être dans la ligne.
-            chiffres = [n for n in _chiffre_de_marche(unite.contexte) if n[0] in unite.texte]
+            chiffres = [n for n in _chiffre_de_marche(lu.contexte) if n[0] in lu.texte]
             if not chiffres:
                 continue
-            blog = blog_de(unite.contexte)
+            blog = blog_de(lu.contexte)
             portes_ici = [
                 (ecriture, portes[(v, u)]) for ecriture, v, u in chiffres if (v, u) in portes
             ]
@@ -816,7 +816,7 @@ def _blogs_et_chiffres_de_marche(document: Document, chapitre: int | None) -> li
                 continue
             vus.add(nom_blog)
             constats.append(Constat(
-                CLASSE, section.numero, unite.extrait,
+                CLASSE, section.numero, lu.extrait,
                 f"« {' », « '.join(dict.fromkeys(ecrits))} » : chiffre de marché porté par "
                 f"{nom_blog}, un blog ou une newsletter, écrit comme un fait établi. Un blog ne "
                 "porte pas un chiffre de marché : écrire « estimé à … » avec sa source, ou "
