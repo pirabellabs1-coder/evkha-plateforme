@@ -79,10 +79,22 @@ class MemoireEtude:
                 f"{formule}{definition}"
             )
         if self.decisions:
+            # 30/09/2026, business plan ÉCLORE `28a257bf` : « à reprendre telles
+            # quelles » a été suivi à la lettre — une ligne de cette liste
+            # imprimée seule, avec son intitulé de prise de notes, et
+            # l'étiquette entre parenthèses imprimée dans une cellule. Et
+            # « DÉCISIONS DU DOSSIER » a appris au rédacteur à citer « le
+            # dossier » comme une source (« selon les termes du dossier »). Ce
+            # qui reste identique, c'est la décision ; la phrase s'écrit avec les
+            # mots du document (voir `decisions`, et `relecture.fuites` qui
+            # signale ce qui passerait encore).
             lignes += [
                 "",
-                "DÉCISIONS DU DOSSIER — à reprendre telles quelles, jamais contredites ni "
-                "reformulées (une date, un statut, un compte se citent à l'identique) :",
+                "DÉCISIONS DU PROJET — elles s'imposent à tout le document et ne se "
+                "contredisent jamais : une date garde son année et sa précision, un statut "
+                "son nom exact, un compte sa valeur. Chacune s'écrit en phrase complète, avec "
+                "les mots du document et son sujet : aucune ligne de cette liste ne se "
+                "recopie, ni l'en-tête qui l'ouvre, ni sa mention entre parenthèses.",
             ]
             for decision in self.decisions:
                 annee = f" [{decision.annee}]" if decision.annee else ""

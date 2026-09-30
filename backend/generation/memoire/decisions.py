@@ -1,4 +1,4 @@
-"""Le registre des décisions : ce que chaque chapitre reprend, sans le reformuler.
+"""Le registre des décisions : ce que chaque chapitre tient, sans jamais le contredire.
 
 ## Le défaut, mesuré
 
@@ -17,8 +17,24 @@ des chapitres précédents, que chacun reformulait à sa manière.
    discutent pas.
 2. **Le socle** : le nombre de concurrents analysés est celui de la base.
 3. **Le brief, mot pour mot** : les phrases du client qui fixent une date ou un
-   statut sont reprises TELLES QUELLES. On ne les résume pas : c'est la
-   reformulation qui a produit cinq dates pour un même départ.
+   statut sont GARDÉES telles quelles dans la mémoire. On ne les résume pas :
+   c'est la reformulation qui a produit cinq dates pour un même départ.
+
+## Tenir la décision, pas recopier la phrase (30/09/2026)
+
+Business plan ÉCLORE `28a257bf` : la consigne « phrase du client (EQUIPE), à
+reprendre telle quelle » a été suivie à la lettre. La phrase de calendrier du
+brief s'imprimait SEULE, avec son intitulé « AAAA : » de prise de notes, en
+12.1 et dans une cellule en 19.4 ; « phrase du client » s'imprimait
+dans une cellule en 11.4. La cliente : « toute phrase brute de la mémoire
+collée telle quelle » est une fuite.
+
+Ce qui doit rester identique, c'est la DÉCISION : l'année et sa précision, le
+statut, le compte. La phrase, elle, s'écrit avec les mots du document. La
+justification ne porte donc plus ni la clé du brief, ni l'ordre de recopier, ni
+une étiquette qu'on ne voudrait pas lire imprimée ; la consigne vit dans
+l'en-tête de la liste (`etude.bloc_pour_le_redacteur`). La relecture signale ce
+qui passerait encore (`relecture.fuites`).
 """
 from __future__ import annotations
 
@@ -48,6 +64,11 @@ _PHRASES = re.compile(r"(?<=[.;!?])\s+|\n+")
 #: mieux qu'un second brief.
 MAX_PHRASES_DU_BRIEF = 8
 
+#: La justification d'une décision du brief, telle que le rédacteur la lit.
+#: Courte, sans clé de variable ni consigne de recopie : si elle est recopiée,
+#: elle se lit encore comme du français (voir la docstring du module).
+JUSTIFICATION_DU_BRIEF = "choix déjà arrêté pour le projet"
+
 
 def nature_de_l_activite(variables: Mapping[str, object]) -> Nature:
     """Services ou ventes, au sens des seuils fiscaux. Services par défaut.
@@ -67,7 +88,7 @@ def nature_de_l_activite(variables: Mapping[str, object]) -> Nature:
 def _phrases_decisives(variables: Mapping[str, object]) -> list[Decision]:
     decisions: list[Decision] = []
     vues: set[str] = set()
-    for cle, valeur in variables.items():
+    for valeur in variables.values():
         if not isinstance(valeur, str) or not valeur.strip():
             continue
         for phrase in _PHRASES.split(re.sub(r"[ \t]+", " ", valeur)):
@@ -80,7 +101,7 @@ def _phrases_decisives(variables: Mapping[str, object]) -> list[Decision]:
                     annee = _ANNEE.search(phrase)
                     decisions.append(Decision(
                         sujet, phrase, int(annee.group(1)) if annee else None,
-                        f"phrase du client ({cle}), à reprendre telle quelle", source="brief",
+                        JUSTIFICATION_DU_BRIEF, source="brief",
                     ))
                     break
             if len(decisions) >= MAX_PHRASES_DU_BRIEF:
