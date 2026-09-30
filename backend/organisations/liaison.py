@@ -402,6 +402,53 @@ def retablir_job(job: GenerationJob, *, auteur: str) -> tuple[bool, str]:
     )
 
 
+def rendre_visible(job: GenerationJob) -> tuple[bool, str]:
+    """Range une reprise terminée dans l'espace de l'organisation d'origine.
+
+    ## Le cas qui l'a rendue nécessaire
+
+    30/09/2026, business plan ÉCLORE `28a257bf` : une reprise « sans envoi »
+    de `cb59cede`, faite à nos frais depuis la console. Le document était prêt
+    mais introuvable dans l'espace de la cliente : la bibliothèque ne liste que
+    les commandes RATTACHÉES à l'organisation (`order__organisation`), et
+    `job_regenerer` crée une commande neuve sans rattachement. Même
+    « Renvoyer » aurait envoyé le courriel sans que le document y apparaisse.
+
+    ## Ce que fait le rattachement
+
+    Il donne à la commande de la reprise l'organisation de la commande
+    d'origine — et rien d'autre : aucune génération, aucun courriel, aucun
+    crédit (la reprise reste à nos frais). L'envoi est une décision distincte.
+    Seule une reprise prouvée (`est_une_reprise_a_nos_frais`), terminée, dont
+    la commande d'origine est rattachée, peut être rangée : une organisation
+    devinée montrerait le document d'un client à un autre.
+    """
+    from generation.models import JobStatus  # noqa: PLC0415
+
+    commande = job.order
+    if getattr(commande, "organisation_id", None) is not None:
+        return True, "Déjà visible dans l'espace de son organisation."
+    if not est_une_reprise_a_nos_frais(job):
+        return False, "Ce dossier n'est pas une reprise faite depuis la console."
+    if job.status != JobStatus.DONE:
+        return False, f"Seule une reprise terminée se range (statut : {job.status})."
+    brut = commande.raw_payload if isinstance(commande.raw_payload, dict) else {}
+    origine = (
+        GenerationJob.objects.select_related("order__organisation")
+        .filter(id=str(brut.get("reprise_de") or ""), order__customer_id=commande.customer_id)
+        .first()
+    )
+    organisation = getattr(origine.order, "organisation", None) if origine else None
+    if organisation is None:
+        return False, (
+            "La commande d'origine n'est rattachée à aucune organisation : rien à deviner."
+        )
+    type(commande).objects.filter(pk=commande.pk).update(organisation=organisation)
+    commande.organisation = organisation
+    _log.info("Job %s : reprise rangée dans l'espace de %s.", job.id, organisation)
+    return True, "Reprise rangée dans l'espace de l'organisation d'origine."
+
+
 def _derniere_activite(job: GenerationJob) -> datetime | None:
     """Le dernier signe de vie du dossier : un chapitre touché, ou son lancement."""
     dernier = (

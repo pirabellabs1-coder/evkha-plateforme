@@ -22,6 +22,9 @@ urlpatterns = [
     path("jobs/<str:job_id>/", views.job_detail, name="job-detail"),
     path("jobs/<str:job_id>/cancel/", views.job_cancel, name="job-cancel"),
     path("jobs/<str:job_id>/retablir/", views.job_retablir, name="job-retablir"),
+    path(
+        "jobs/<str:job_id>/rendre-visible/", views.job_rendre_visible, name="job-rendre-visible"
+    ),
     path("jobs/<str:job_id>/relaunch/", views.job_relaunch, name="job-relaunch"),
     path("jobs/<str:job_id>/redeliver/", views.job_redeliver, name="job-redeliver"),
     path("jobs/<str:job_id>/reverifier/", views.job_reverifier, name="job-reverifier"),

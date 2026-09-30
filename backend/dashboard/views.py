@@ -1162,6 +1162,31 @@ def job_retablir(request: HttpRequest, job_id: str) -> JsonResponse:
     return _json({"job_id": str(job.id), "status": job.status, "message": message})
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def job_rendre_visible(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Range une reprise terminée dans l'espace client de l'organisation d'origine.
+
+    30/09/2026, business plan ÉCLORE `28a257bf` : une reprise faite depuis la
+    console n'apparaissait pas dans l'espace de la cliente. Aucun courriel ne
+    part d'ici — l'envoi reste « Envoyer l'email ». La règle vit dans
+    `liaison.rendre_visible` (règle 4).
+    """
+    try:
+        job = GenerationJob.objects.select_related("order").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    from organisations.liaison import rendre_visible  # noqa: PLC0415
+
+    fait, message = rendre_visible(job)
+    if not fait:
+        return _json({"error": message, "job_id": str(job.id)}, status=409)
+    return _json({"job_id": str(job.id), "visible": True, "message": message})
+
+
 # ---------------------------------------------------------------------------
 # Incidents
 # ---------------------------------------------------------------------------
