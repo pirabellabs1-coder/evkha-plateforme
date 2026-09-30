@@ -139,7 +139,7 @@ def test_un_champ_qui_a_la_place_est_repare_en_entier() -> None:
 
     grille = payload.blocs[1]
     assert isinstance(grille, BlocGrilleKpi)
-    assert [c.valeur for c in grille.cellules] == ["12 M€ cependant", "3 k€"]
+    assert [c.valeur for c in grille.cellules] == ["12\u00a0M€ cependant", "3\u00a0k€"]
     assert payload.accroche == "Un prévisionnel déjà équilibré."
 
 

@@ -84,9 +84,9 @@ def test_ce_qui_n_est_pas_une_ponctuation_reste_intact(texte: str) -> None:
 @pytest.mark.parametrize(
     "texte",
     [
-        "Un chiffre d'affaires de 1 250 000 €",
-        "Une croissance de 3,4 % par an",
-        "Le montant est de 12,5 M€ en 2026",
+        "Un chiffre d'affaires de 1 250 000\u00a0€",
+        "Une croissance de 3,4\u00a0% par an",
+        "Le montant est de 12,5\u00a0M€ en 2026",
         'Il a dit "non" au projet',
         "Trois options...",
         "État des lieux et Écarts constatés",
@@ -130,8 +130,8 @@ def test_les_traits_exotiques_et_invisibles_disparaissent(
     "texte",
     [
         "La période 2025–2026 marque un tournant",
-        "Le marché — et c'est notable — progresse de 3 %",
-        "Une fourchette de 10–15 % selon les segments",
+        "Le marché — et c'est notable — progresse de 3\u00a0%",
+        "Une fourchette de 10–15\u00a0% selon les segments",
     ],
 )
 def test_les_tirets_LEGITIMES_survivent(texte: str) -> None:
@@ -184,7 +184,7 @@ def test_les_cellules_de_tableau_sont_reparees_aussi() -> None:
         BlocTableau(
             tableau=Tableau(
                 entetes=["Poste", "Montant"],
-                lignes=[["Loyer  annuel", "12 k€"], ["Charges ,总", "3 k€"]],
+                lignes=[["Loyer  annuel", "12\u00a0k€"], ["Charges ,总", "3\u00a0k€"]],
             )
         )
     )
@@ -229,10 +229,29 @@ def test_un_chapitre_deja_propre_ne_compte_aucune_retouche() -> None:
     # code que la cliente demandait de ne plus voir dès le 09/08/2026 (« 600 k€
     # et non MEUR »). Un chapitre propre écrit « 12 k€ ».
     payload = _chapitre(
-        BlocParagraphe(texte="Le marché progresse de 3,4 % par an depuis 2022."),
+        BlocParagraphe(texte="Le marché progresse de 3,4\u00a0% par an depuis 2022."),
         BlocTableau(
-            tableau=Tableau(entetes=["Poste", "Montant"], lignes=[["Loyer", "12 k€"]])
+            tableau=Tableau(entetes=["Poste", "Montant"], lignes=[["Loyer", "12\u00a0k€"]])
         ),
     )
 
     assert reparer_typographie(payload) == 0
+
+
+def test_une_unite_ne_se_separe_jamais_de_son_nombre() -> None:
+    """Règle du client (30/09/2026) : espace insécable avant % et €.
+
+    Business plan ÉCLORE `28a257bf` : 712 espaces ordinaires avant € et % sur 81
+    pages — « 24 802 » en fin de ligne, « € » au début de la suivante.
+    """
+    assert reparer_texte("Il atteint 24 802 € et 5 % par an.") == (
+        "Il atteint 24 802\u00a0€ et 5\u00a0% par an."
+    )
+    assert reparer_texte("Soit 12 k€, 3 M€ et 1 Md€.") == (
+        "Soit 12\u00a0k€, 3\u00a0M€ et 1\u00a0Md€."
+    )
+
+
+def test_une_unite_sans_nombre_devant_reste_telle_quelle() -> None:
+    """Contre-épreuve : seul un CHIFFRE retient son unité."""
+    assert reparer_texte("Les prix en € et les taux en %.") == "Les prix en € et les taux en %."

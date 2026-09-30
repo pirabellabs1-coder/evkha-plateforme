@@ -183,7 +183,24 @@ def reparer_texte(texte: str, *, prose: bool = True, anglais: bool = True) -> st
     corrige = _AVANT_SIMPLE.sub(r"\1", corrige)
     corrige = _DEJA_ESPACEE.sub(rf"{FINE_INSECABLE}\1", corrige)
     corrige = _AVANT_DOUBLE.sub(rf"\1{FINE_INSECABLE}\2", corrige)
-    return reparer_langue(corrige, anglais=anglais) if prose else corrige
+    corrige = reparer_langue(corrige, anglais=anglais) if prose else corrige
+    # En dernier : la langue traduit « 12 MEUR » en « 12 M€ », avec une espace
+    # ordinaire — la poser avant elle ne serait pas idempotent.
+    return _espace_insecable_avant_l_unite(corrige)
+
+
+#: Une espace ordinaire entre un chiffre et son unité : « 24 802 € » peut alors
+#: couper « € » sur la ligne suivante. Business plan ÉCLORE `28a257bf`
+#: (30/09/2026) : 712 espaces ordinaires avant € et % sur 81 pages — la prose
+#: du modèle ; les montants posés par le code (`socle.schema.montant_lisible`)
+#: portent déjà l'insécable.
+_AVANT_L_UNITE = re.compile(r"(?<=\d)[ \t]+(?=(?:%|€|k€|M€|Md€)(?![\w]))")
+
+
+def _espace_insecable_avant_l_unite(texte: str) -> str:
+    from ..socle.schema import INSECABLE  # noqa: PLC0415 — la même insécable que le rendu
+
+    return _AVANT_L_UNITE.sub(INSECABLE, texte)
 
 
 def _borne(modele: Any, nom: str) -> int | None:

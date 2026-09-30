@@ -52,7 +52,7 @@ from generation.chapitres.typographie import reparer_texte, reparer_typographie
     ("avant", "apres"),
     [
         # p. 7 du business plan ÉCLORE.
-        ("Le marché se accroît de 5 % par an.", "Le marché s'accroît de 5 % par an."),
+        ("Le marché se accroît de 5 % par an.", "Le marché s'accroît de 5\u00a0% par an."),
         ("Elle ne a pas encore de local.", "Elle n'a pas encore de local."),
         ("Il faut que il signe.", "Il faut qu'il signe."),
         ("Je ne le ai pas prévu.", "Je ne l'ai pas prévu."),
@@ -130,13 +130,13 @@ def test_ce_qui_n_est_pas_une_fuite_anglaise_reste_intact(texte: str) -> None:
 @pytest.mark.parametrize(
     ("avant", "apres"),
     [
-        ("Un marché de 12 MEUR en 2026.", "Un marché de 12 M€ en 2026."),
-        ("Un marché de 16,5 MdEUR.", "Un marché de 16,5 Md€."),
-        ("Un budget de 600 kEUR.", "Un budget de 600 k€."),
-        ("Un marché de 3,3 M EUR.", "Un marché de 3,3 M€."),
-        ("Un marché de 12MEUR.", "Un marché de 12 M€."),
+        ("Un marché de 12 MEUR en 2026.", "Un marché de 12\u00a0M€ en 2026."),
+        ("Un marché de 16,5 MdEUR.", "Un marché de 16,5\u00a0Md€."),
+        ("Un budget de 600 kEUR.", "Un budget de 600\u00a0k€."),
+        ("Un marché de 3,3 M EUR.", "Un marché de 3,3\u00a0M€."),
+        ("Un marché de 12MEUR.", "Un marché de 12\u00a0M€."),
         ("Montants (en MEUR)", "Montants (en M€)"),
-        ("Une rémunération de 1500 EUR/mois.", "Une rémunération de 1500 €/mois."),
+        ("Une rémunération de 1500 EUR/mois.", "Une rémunération de 1500\u00a0€/mois."),
         ("12 000 unite vendues.", "12 000 unités vendues."),
         ("1 unite livrée.", "1 unité livrée."),
         ("Volumes (en unite)", "Volumes (en unités)"),
@@ -176,7 +176,7 @@ def test_la_reparation_est_idempotente() -> None:
     assert "s'accroît" in une_fois
     assert "déjà financé" in une_fois
     assert "l'ai" in une_fois
-    assert "12 M€" in une_fois
+    assert "12\u00a0M€" in une_fois
     assert "12 000 unités" in une_fois
 
 
@@ -234,9 +234,9 @@ def test_le_chapitre_est_repare_partout_ou_le_lecteur_lit() -> None:
     assert isinstance(grille, BlocGrilleKpi)
     assert paragraphe.texte == "Le chiffre d'affaires s'accroît chaque année."
     assert tableau.tableau.lignes == [
-        ["Matériel", "12 M€"], ["Salaire", "1500 €/mois"],
+        ["Matériel", "12\u00a0M€"], ["Salaire", "1500\u00a0€/mois"],
     ]
-    assert [c.valeur for c in grille.cellules] == ["3,3 M€", "12 000 unités"]
+    assert [c.valeur for c in grille.cellules] == ["3,3\u00a0M€", "12 000 unités"]
     assert payload.resume == "Le financement est déjà bouclé."
 
 
