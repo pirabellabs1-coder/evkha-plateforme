@@ -19,8 +19,10 @@ parfaitement honnêtes.
 """
 from __future__ import annotations
 
+import math
 import re
 import textwrap
+from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -93,12 +95,69 @@ def etiquette_de(donnee: DonneeSocle) -> str:
     Couper à « Marché parisien de la joaillerie… » fait perdre au lecteur
     précisément ce qui distingue cette barre de la suivante ; le repli garde
     tout, et matplotlib gère la hauteur.
+
+    Le repli était pourtant borné à DEUX lignes, avec « … » au-delà
+    (`max_lines=2, placeholder="…"`) : un libellé de plus de 68 signes restait
+    coupé, par notre code. Règle du client du 30/09/2026 : « libellés non
+    tronqués ». Une étiquette de trois lignes se lit ; une étiquette coupée se
+    devine. Le repli n'a donc plus de plafond — voir `replier`.
     """
-    tete = re.split(r"[,(—–:;]", donnee.libelle, maxsplit=1)[0].strip()
-    tete = tete or donnee.libelle.strip()
-    if len(tete) <= ETIQUETTE_MAX:
-        return tete
-    return "\n".join(textwrap.wrap(tete, ETIQUETTE_MAX, max_lines=2, placeholder="…"))
+    return replier(_tete(donnee.libelle))
+
+
+def _tete(libelle: str) -> str:
+    """Le segment de tête d'un libellé : ce qui précède virgule, parenthèse, tiret."""
+    tete = re.split(r"[,(—–:;]", libelle, maxsplit=1)[0].strip()
+    return tete or libelle.strip()
+
+
+def replier(texte: str, largeur: int = ETIQUETTE_MAX) -> str:
+    """Le texte sur autant de lignes qu'il en faut — JAMAIS coupé, jamais « … ».
+
+    `break_long_words` et `break_on_hyphens` sont coupés : `textwrap` tranche
+    sinon un mot plus long que la ligne, ou « Île-de-France » à son trait
+    d'union — un mot amputé se lit comme une faute de frappe (29/09/2026,
+    `texte.couper_au_mot`, même règle pour les tableaux).
+    """
+    texte = " ".join(str(texte).split())
+    if len(texte) <= largeur:
+        return texte
+    return "\n".join(textwrap.wrap(
+        texte, largeur, break_long_words=False, break_on_hyphens=False,
+    ))
+
+
+def _en_double(textes: Sequence[str]) -> set[str]:
+    return {texte for texte, nombre in Counter(textes).items() if nombre > 1}
+
+
+def etiquettes_de(donnees: Sequence[DonneeSocle]) -> list[str]:
+    """Les étiquettes d'UNE figure : courtes, et toutes DISTINCTES.
+
+    `etiquette_de` garde la tête du libellé, ce qui précède le premier tiret.
+    Seule, cette tête peut effacer ce qui distingue deux barres : « Chiffre
+    d'affaires prévisionnel — exercice 1 » et « — exercice 3 » donnaient deux
+    barres nommées « Chiffre d'affaires prévisionnel ». C'est la forme exacte
+    de la conversion relevée sur le business plan ÉCLORE `28a257bf`
+    (30/09/2026) : « barres_empilees → barres (une seule dimension) », dont les
+    deux barres, repliées sur la tête, portaient le même nom.
+
+    Quand deux têtes se confondent, ces données-là reprennent leur libellé
+    ENTIER — replié, jamais coupé. Si deux libellés entiers sont identiques,
+    l'année les départage. Les autres gardent leur tête courte.
+    """
+    tetes = [etiquette_de(donnee) for donnee in donnees]
+    confondues = _en_double(tetes)
+    etiquettes = [
+        replier(donnee.libelle) if tete in confondues else tete
+        for donnee, tete in zip(donnees, tetes, strict=True)
+    ]
+    confondues = _en_double(etiquettes)
+    return [
+        replier(f"{donnee.libelle} ({donnee.annee})") if etiquette in confondues
+        else etiquette
+        for donnee, etiquette in zip(donnees, etiquettes, strict=True)
+    ]
 
 
 def _famille(donnee: DonneeSocle) -> FamilleUnite | None:
@@ -109,6 +168,229 @@ def _famille(donnee: DonneeSocle) -> FamilleUnite | None:
     plus. L'unité, elle, est toujours là.
     """
     return famille_de_l_unite(donnee.unite)
+
+
+# ── Règles du client sur la spécification d'une figure (30/09/2026) ──────────
+#
+# « Toutes les séries d'un graphique ont la même unité et le même ordre de
+# grandeur », « pas d'aires empilées ni d'anneaux qui additionnent des
+# grandeurs non additives », « pas de graphique à 2 barres égales ». Ce sont
+# des règles sur les DONNÉES d'une forme : elles vivent ici, dans les
+# résolveurs, pour que tout ce qui passe par `resoudre` les applique — le
+# rendu, le jugement du chapitre (`runner._motifs_de_figure`), la réparation,
+# la complétion et le catalogue des figures proposées au modèle. Une seconde
+# description de ces règles ailleurs divergerait (règle 5). Les règles qui
+# lisent le TITRE vivent dans `specification_figures`.
+
+#: Au-delà de ce rapport entre la plus grande et la plus petite valeur, une
+#: figure à axe commun n'en montre qu'une : l'autre est un trait. Borne du
+#: client, 30/09/2026 : « rapport max/min inférieur à 1 000. Jamais un marché
+#: en milliards à côté d'un panier en euros. »
+RAPPORT_D_ECHELLE_MAX = 1_000.0
+
+
+def ecart_d_echelle(valeurs: Sequence[float], unite: str) -> str:
+    """Pourquoi ces valeurs ne partagent pas un axe, ou « » si elles le peuvent.
+
+    Les zéros ne comptent pas : un résultat nul se lit « 0 », il ne rend
+    aucune autre barre invisible. Le signe non plus : une perte de 20 000 €
+    à côté d'un chiffre d'affaires de 300 000 € se lit très bien.
+    """
+    non_nulles = [abs(valeur) for valeur in valeurs if valeur]
+    if len(non_nulles) < 2:
+        return ""
+    petite, grande = min(non_nulles), max(non_nulles)
+    rapport = grande / petite
+    if rapport < RAPPORT_D_ECHELLE_MAX:
+        return ""
+    return (
+        "ordres de grandeur trop éloignés pour un même axe : de "
+        f"{_valeur_lisible(petite, unite)} à {_valeur_lisible(grande, unite)}, "
+        f"un rapport de 1 à {nombre_francais(round(rapport))} (plafond : 1 000) — "
+        "la plus petite valeur n'y serait qu'un trait"
+    )
+
+
+def deux_valeurs_egales(
+    etiquettes: Sequence[str], valeurs: Sequence[float], unite: str,
+) -> str:
+    """« Budget 5 000 € contre apport 5 000 € » : une figure qui n'apprend rien.
+
+    Règle du client du 30/09/2026 : « pas de graphique à 2 barres égales qui
+    n'apporte rien ». Deux valeurs égales se disent en une phrase ; dessinées,
+    elles ne montrent qu'elles-mêmes. Au-delà de deux valeurs, une égalité
+    reste une information parmi d'autres.
+    """
+    if len(valeurs) != 2 or not math.isclose(valeurs[0], valeurs[1], rel_tol=1e-9):
+        return ""
+    noms = " et ".join(f"« {' '.join(etiquette.split())} »" for etiquette in etiquettes)
+    return (
+        f"deux valeurs égales : {noms} valent chacun {_valeur_lisible(valeurs[0], unite)} "
+        "— une figure à deux barres égales n'apprend rien que la phrase ne dise"
+    )
+
+
+#: La NATURE d'une grandeur, au sens de ce qu'on a le droit d'ADDITIONNER.
+#:
+#: Règle du client, 30/09/2026 : « pas d'aires empilées ni d'anneaux qui
+#: additionnent des grandeurs non additives (résultat + trésorerie, revenu
+#: mensuel + trésorerie cumulée, marché + apport) ». Un anneau, un camembert,
+#: des barres empilées et des aires empilées affichent une SOMME — l'anneau
+#: l'écrit même en son centre. Mêler un flux de l'exercice (un résultat) et un
+#: stock à une date (une trésorerie), c'est afficher un total qui n'existe pas.
+#:
+#: La nature se lit sur l'IDENTIFIANT, qui vient du référentiel fermé
+#: (`socle/referentiel.py`) : c'est le vocabulaire le plus stable du système.
+#: `test_une_figure_dit_ce_que_ses_donnees_disent` vérifie que CHAQUE
+#: identifiant des quatre référentiels reçoit une nature : un identifiant
+#: ajouté sans nature fait échouer ce test, il ne passe pas en silence.
+#: L'ordre compte — « cout_acquisition_client » est un coût UNITAIRE avant
+#: d'être une charge.
+_NATURES_MONETAIRES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("unitaire", re.compile(r"panier|prix|tarif|cout_acquisition|valeur_vie|moyen|median|seuil")),
+    ("marche", re.compile(r"^(?:marche|segment|production)_|^(?:tam|sam|som)$")),
+    ("solde", re.compile(r"resultat|^(?:ebe|caf)(?:_|$)|excedent|marge")),
+    ("position", re.compile(r"tresorerie|dette")),
+    ("ressource", re.compile(r"apport|emprunt|ressource|capital|subvention")),
+    ("emploi", re.compile(r"investissement|^bfr$|besoin")),
+    ("charge", re.compile(r"charge|masse_salariale|remuneration|cout|depense|loyer|salaire")),
+    ("produit", re.compile(r"^ca_|chiffre_affaires|vente|recette|revenu")),
+)
+
+#: Un flux compté AU MOIS ne s'additionne pas à un flux de l'exercice : « revenu
+#: mensuel + trésorerie cumulée » est le deuxième exemple du client.
+_AU_MOIS = re.compile(r"mensuel|par[_\s]+mois|/\s*mois", re.IGNORECASE)
+_FLUX_MONETAIRES = frozenset({"produit", "charge", "solde"})
+
+#: Ce qui s'additionne en un total, et ce qui ne s'additionne jamais :
+#:
+#: - des tailles de marché s'EMBOÎTENT (monde ⊃ national ⊃ zone, TAM ⊃ SAM ⊃
+#:   SOM) : leur somme compte plusieurs fois le même marché ;
+#: - un solde (résultat, EBE, CAF) est une DIFFÉRENCE, jamais une part ;
+#: - une position de fin d'exercice (trésorerie, dette) est un STOCK à une
+#:   date : ni une part d'un flux, ni une part d'une autre position ;
+#: - un prix, un panier, une moyenne, une note ou une durée se comparent, ils
+#:   ne se somment pas.
+#:
+#: Les pourcentages suivent leur propre règle, déjà en place : ils sont des
+#: parts s'ils font 100 % (voir `_scalaires`).
+_ADDITIVE: dict[str, bool] = {
+    "produit": True, "charge": True, "ressource": True, "emploi": True,
+    "effectif": True, "flux_d_unites": True, "taux": True,
+    "marche": False, "solde": False, "position": False, "unitaire": False,
+    "note": False, "duree": False,
+}
+
+_NOMS_DE_NATURE: dict[str, str] = {
+    "marche": "tailles de marché, qui s'emboîtent",
+    "produit": "chiffres d'affaires",
+    "charge": "charges",
+    "solde": "soldes (résultat, EBE, CAF), qui sont des différences",
+    "ressource": "ressources de financement",
+    "emploi": "besoins de financement",
+    "position": "positions de fin d'exercice (trésorerie, dette), qui sont des stocks",
+    "unitaire": "valeurs unitaires (prix, panier, moyennes)",
+    "effectif": "effectifs",
+    "flux_d_unites": "flux annuels d'unités (fréquentation, transactions)",
+    "taux": "pourcentages",
+    "note": "notes",
+    "duree": "durées",
+}
+
+
+def nature_de(donnee: DonneeSocle) -> str | None:
+    """La nature additive d'une donnée, ou `None` si rien ne permet de la dire.
+
+    `None` n'arrive pas en production : le socle n'admet que les identifiants
+    du référentiel, et chacun y reçoit une nature (vérifié par test).
+    """
+    famille = _famille(donnee)
+    identifiant = donnee.id.casefold()
+    if famille is FamilleUnite.POURCENTAGE:
+        return "taux"
+    if famille is FamilleUnite.RATIO:
+        return "note"
+    if famille is FamilleUnite.DUREE:
+        return "duree"
+    if famille is FamilleUnite.EFFECTIF:
+        if re.search(r"moyen|median", identifiant):
+            return "unitaire"
+        if re.search(r"frequentation|transaction|annuel", identifiant):
+            return "flux_d_unites"
+        return "effectif"
+    if famille is not FamilleUnite.MONETAIRE:
+        return None
+    nature = next(
+        (nom for nom, motif in _NATURES_MONETAIRES if motif.search(identifiant)), None,
+    )
+    if nature in _FLUX_MONETAIRES and (
+        _AU_MOIS.search(identifiant) or _AU_MOIS.search(donnee.libelle)
+    ):
+        return f"{nature}_mensuel"
+    return nature
+
+
+def _nom_de_nature(nature: str | None) -> str:
+    if nature is None:
+        return "grandeurs de nature inconnue"
+    base = nature.partition("_mensuel")[0]
+    nom = _NOMS_DE_NATURE.get(base, base)
+    return f"{nom}, comptés au mois" if nature.endswith("_mensuel") else nom
+
+
+def pourquoi_non_additif(
+    membres: Sequence[Sequence[DonneeSocle]], *, meme_date: bool,
+) -> str:
+    """Pourquoi ces membres ne s'additionnent pas en un total, ou « ».
+
+    Un MEMBRE est ce que la figure additionne : une donnée pour un anneau, une
+    série entière pour des aires ou des barres empilées. `meme_date` : les
+    parts d'un tout sont simultanées — trois exercices d'un même chiffre
+    d'affaires font une trajectoire, pas une répartition (la même confusion
+    que la rotation des formes du catalogue, 14/09/2026).
+    """
+    donnees = [donnee for membre in membres for donnee in membre]
+    natures = {nature_de(donnee) for donnee in donnees}
+    if len(natures) > 1:
+        noms = sorted(_nom_de_nature(nature) for nature in natures)
+        return (
+            "on n'additionne pas des grandeurs de natures différentes — "
+            + " ; ".join(noms) + " — : leur somme ne veut rien dire"
+        )
+    nature = next(iter(natures), None)
+    if nature is None or nature == "taux":
+        # Inconnue : rien ne permet de juger (n'arrive pas en production).
+        # Pourcentages : la règle des 100 % de `_scalaires` en décide.
+        return ""
+    if not _ADDITIVE.get(nature.partition("_mensuel")[0], False):
+        return f"on n'additionne pas des {_nom_de_nature(nature)}"
+    perimetres = sorted({str(donnee.perimetre) for donnee in donnees})
+    if len(perimetres) > 1:
+        return (
+            f"des périmètres différents ({', '.join(perimetres)}) ne forment pas "
+            "un même tout"
+        )
+    annees = sorted({donnee.annee for donnee in donnees})
+    if meme_date and len(annees) > 1:
+        return (
+            f"des valeurs de {', '.join(str(a) for a in annees)} ne sont pas les "
+            "parts d'un même tout : c'est une trajectoire"
+        )
+    for rang, membre in enumerate(membres):
+        autres = {
+            donnee.id: donnee
+            for place, voisin in enumerate(membres) if place != rang
+            for donnee in voisin
+        }
+        for donnee in membre:
+            contenues = [autres[i] for i in donnee.derivee_de if i in autres]
+            if contenues:
+                return (
+                    f"« {_tete(donnee.libelle)} » est calculé à partir de « "
+                    f"{_tete(contenues[0].libelle)} » : l'un contient l'autre, "
+                    "les additionner le compterait deux fois"
+                )
+    return ""
 
 
 def _resoudre_ids(
@@ -283,6 +565,23 @@ def _decomposer(unite: str) -> tuple[str, str] | None:
 #: Les formes à barres qui savent comparer des acteurs sur la grille de notes.
 _BARRES_DE_NOTES = frozenset({"barres", "barres_horizontales"})
 
+#: Les formes scalaires qui ne posent pas leurs valeurs sur une règle commune.
+_SANS_AXE_COMMUN = frozenset({"entonnoir", "jauges"})
+
+
+def _en_barres(socle: Socle, identifiants: Sequence[str], motif: str) -> Resolution:
+    """Les mêmes données en barres : la forme ment, pas les chiffres.
+
+    Les barres sont RÉSOLUES à leur tour, et jugées comme telles — même ordre
+    de grandeur, pas deux valeurs égales. Une conversion qui échapperait aux
+    règles de sa forme d'arrivée referait le document après le contrôle
+    (règle 3).
+    """
+    repli = _scalaires(socle, "barres", identifiants)
+    if repli.retenu:
+        return Resolution("barres", repli.donnees, motif=motif, converti=True)
+    return Resolution(motif=f"{motif} ; en barres non plus : {repli.motif}")
+
 
 def _notes_en_barres(
     socle: Socle, type_demande: str, criteres: Sequence[Any], acteurs: Sequence[str] | None,
@@ -304,16 +603,19 @@ def _notes_en_barres(
         return Resolution(
             motif=f"moins de deux acteurs notés sur {intitules} : rien à comparer"
         )
-    retenus = notes[:_SERIES_RADAR_MAX]
+    retenus, ecartes = _retenir_avec_le_projet(socle, notes)
     motif = ""
-    if len(notes) > _SERIES_RADAR_MAX:
+    if ecartes:
         motif = f"{len(notes)} acteurs notés, {_SERIES_RADAR_MAX} tracés."
     if len(criteres) == 1 and type_demande in _BARRES_DE_NOTES:
+        etiquettes = [nom for nom, _ in retenus]
+        valeurs_tracees = [valeurs[0] for _, valeurs in retenus]
+        egales = deux_valeurs_egales(etiquettes, valeurs_tracees, "note_sur_5")
+        if egales:
+            return Resolution(motif=egales)
         return Resolution(
             type_demande,
-            {"etiquettes": [nom for nom, _ in retenus],
-             "valeurs": [valeurs[0] for _, valeurs in retenus],
-             "unite": "/5"},
+            {"etiquettes": etiquettes, "valeurs": valeurs_tracees, "unite": "/5"},
             motif=motif,
         )
     return Resolution(
@@ -350,8 +652,24 @@ def _scalaires(
         )
     valeurs, unite = harmonise
 
-    etiquettes = [etiquette_de(donnee) for donnee in donnees]
+    etiquettes = etiquettes_de(donnees)
     familles = {_famille(donnee) for donnee in donnees}
+
+    # Un même ordre de grandeur sur un même axe (règle du client du 30/09/2026).
+    # L'entonnoir n'a pas d'axe commun — chaque marche porte sa propre échelle,
+    # et un TAM / SOM enjambe six ordres de grandeur par nature (livrable
+    # `4b827759`) —, les jauges se lisent chacune sur son barème : ni l'un ni
+    # les autres ne mettent deux valeurs côte à côte sur une même règle.
+    if type_demande not in _SANS_AXE_COMMUN:
+        ecart = ecart_d_echelle(valeurs, unite)
+        if ecart:
+            return Resolution(motif=ecart)
+    if type_demande != "jauges":
+        # Une jauge se lit contre son maximum, pas contre sa voisine : deux
+        # notes égales y disent encore « 4 sur 5 ».
+        egales = deux_valeurs_egales(etiquettes, valeurs, unite)
+        if egales:
+            return Resolution(motif=egales)
 
     if type_demande in ("camembert", "anneau"):
         if any(valeur < 0 for valeur in valeurs):
@@ -387,16 +705,21 @@ def _scalaires(
             # c'est la FORME qui ment. Deux indicateurs sans rapport font des
             # barres parfaitement lisibles — et la cliente y lira 45 % et 65 %,
             # les valeurs de son dossier, au lieu de 41 % et 59 %.
-            return Resolution(
-                "barres",
-                {"etiquettes": etiquettes, "valeurs": valeurs,
-                 "unite": _suffixe(unite)},
-                motif=(
-                    f"ces {len(valeurs)} pourcentages font {nombre_francais(somme)} % et non "
-                    "100 % : ce ne sont pas les parts d'un même tout — rendu en "
-                    "barres, qui les montre à leur vraie valeur"
-                ),
-                converti=True,
+            return _en_barres(
+                socle, identifiants,
+                f"ces {len(valeurs)} pourcentages font {nombre_francais(somme)} % et non "
+                "100 % : ce ne sont pas les parts d'un même tout — rendu en "
+                "barres, qui les montre à leur vraie valeur",
+            )
+        # Des parts d'un tout s'ADDITIONNENT : l'anneau écrit leur somme en son
+        # centre. Un résultat et une trésorerie, un marché et un apport n'ont
+        # pas de somme (règle du client du 30/09/2026). Même reconversion que
+        # les pourcentages : les chiffres sont bons, la forme ment.
+        non_additif = pourquoi_non_additif([[donnee] for donnee in donnees], meme_date=True)
+        if non_additif:
+            return _en_barres(
+                socle, identifiants,
+                f"{non_additif} — rendu en barres, qui les montrent sans les additionner",
             )
         contenu: dict[str, Any] = {"etiquettes": etiquettes, "valeurs": valeurs}
         if type_demande == "anneau":
@@ -404,6 +727,20 @@ def _scalaires(
         return Resolution(type_demande, contenu)
 
     if type_demande == "entonnoir":
+        # Un entonnoir resserre UNE grandeur, étape après étape : le marché
+        # total vers le marché atteignable, des visiteurs vers des clients. Un
+        # marché puis un panier n'en sont pas deux marches — la figure
+        # inventerait un emboîtement (« jamais un marché en milliards à côté
+        # d'un panier en euros », 30/09/2026).
+        natures = {nature_de(donnee) for donnee in donnees}
+        if len(natures) > 1:
+            return _en_barres(
+                socle, identifiants,
+                "un entonnoir resserre une seule grandeur, et celles-ci sont de "
+                "natures différentes ("
+                + " ; ".join(sorted(_nom_de_nature(n) for n in natures))
+                + ") — rendu en barres",
+            )
         # L'entonnoir se lit du plus large au plus étroit ; on trie plutôt que
         # d'exiger du modèle qu'il déclare ses identifiants dans le bon ordre.
         paires = sorted(zip(etiquettes, valeurs, strict=True), key=lambda p: -p[1])
@@ -492,22 +829,63 @@ def series_par_perimetre(
     périmètre, l'autre par radical.
     """
     groupes: dict[str, dict[int, float]] = {}
-    noms: dict[str, str] = {}
+    premieres: dict[str, DonneeSocle] = {}
     for donnee, valeur in zip(donnees, valeurs, strict=True):
-        serie = _RADICAL_ANNUEL.match(donnee.id)
-        cle = serie.group("radical") if serie else str(donnee.perimetre)
+        cle = cle_de_serie(donnee)
         groupes.setdefault(cle, {})[donnee.annee] = valeur
-        # Le nom de la série vient de sa première donnée — délestée de son
-        # « — exercice N » pour une série annuelle : la série couvre les trois
-        # exercices, son nom ne doit pas en désigner un seul.
-        noms.setdefault(cle, _SUFFIXE_EXERCICE.sub("", etiquette_de(donnee)))
+        premieres.setdefault(cle, donnee)
 
-    series: list[tuple[str, list[float]]] = []
-    for cle, points in groupes.items():
-        if len(points) != len(annees):
-            continue
-        series.append((noms[cle], [points[annee] for annee in annees]))
-    return series
+    completes = [cle for cle, points in groupes.items() if len(points) == len(annees)]
+    # Le nom de la série vient de sa première donnée — délesté de sa PÉRIODE
+    # (« — exercice N », « 2024 », « en 2024 ») : la série couvre plusieurs
+    # années, sa légende ne doit pas en désigner une seule. Seul « exercice N »
+    # était retiré ; « Taille du marché national 2024 » légendait une courbe
+    # 2024-2030 (règle du client du 30/09/2026 : « les légendes indiquent la
+    # bonne période »).
+    noms = {
+        cle: replier(_sans_periode(_tete(premieres[cle].libelle))) for cle in completes
+    }
+    # Deux séries au même nom ne se distinguent plus dans la légende : elles
+    # reprennent leur libellé entier, comme les étiquettes (`etiquettes_de`).
+    confondus = _en_double(list(noms.values()))
+    return [
+        (
+            replier(_sans_periode(premieres[cle].libelle))
+            if noms[cle] in confondus else noms[cle],
+            [groupes[cle][annee] for annee in annees],
+        )
+        for cle in completes
+    ]
+
+
+def cle_de_serie(donnee: DonneeSocle) -> str:
+    """Ce qui fait qu'une donnée appartient à une SÉRIE : son radical, ou son périmètre.
+
+    Voir `series_par_perimetre`. Exposé pour les règles qui comptent les
+    séries d'une figure (`specification_figures`) : les compter autrement que
+    le résolveur ne les forme serait une seconde vérité (règle 5).
+    """
+    serie = _RADICAL_ANNUEL.match(donnee.id)
+    return serie.group("radical") if serie else str(donnee.perimetre)
+
+
+def radical_de(identifiant: str) -> str:
+    """`ca_previsionnel_an3` → `ca_previsionnel` ; un identifiant sans exercice traverse."""
+    serie = _RADICAL_ANNUEL.match(identifiant)
+    return serie.group("radical") if serie else identifiant
+
+
+def membres_des_series(
+    donnees: Sequence[DonneeSocle], annees: Sequence[int],
+) -> list[list[DonneeSocle]]:
+    """Les données de chaque série COMPLÈTE, dans l'ordre de `series_par_perimetre`."""
+    groupes: dict[str, dict[int, DonneeSocle]] = {}
+    for donnee in donnees:
+        groupes.setdefault(cle_de_serie(donnee), {})[donnee.annee] = donnee
+    return [
+        [points[annee] for annee in annees]
+        for points in groupes.values() if len(points) == len(annees)
+    ]
 
 
 #: La convention d'identifiant des séries annuelles d'entreprise, déclarée au
@@ -516,9 +894,27 @@ def series_par_perimetre(
 #: (règle 5). Le motif accepte tout exercice à un ou deux chiffres.
 _RADICAL_ANNUEL = re.compile(r"^(?P<radical>.+)_an\d{1,2}$")
 
-#: « — exercice N » en fin d'étiquette, tiret cadratin ou simple, accents ou
-#: non : la classe entière plutôt que la forme exacte de nos libellés (règle 4).
-_SUFFIXE_EXERCICE = re.compile(r"\s*[—–-]\s*exercice\s+\d{1,2}\s*$", re.IGNORECASE)
+#: La PÉRIODE en fin de libellé : « — exercice N », « année 2 », « en 2024 »,
+#: « 2024 », « (2024) ». La classe entière plutôt que la forme exacte de nos
+#: libellés (règle 4) : ne retirer que « — exercice N » laissait « 2024 » dans
+#: la légende d'une série qui court sur six ans.
+_PERIODE_FINALE = re.compile(
+    r"\s*(?:[—–(,-]\s*|\b(?:en|au|à|pour|de|d['’])\s*)?"
+    r"(?:(?:l['’]\s*)?(?:exercice|ann[ée]e|an)\s+\d{1,2}|(?:19|20)\d{2})"
+    r"\s*\)?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _sans_periode(texte: str) -> str:
+    """Le libellé délesté de sa période finale — jamais vidé."""
+    propre = " ".join(texte.split())
+    for _ in range(3):
+        raccourci = _PERIODE_FINALE.sub("", propre).strip(" ,;:—–-")
+        if not raccourci or raccourci == propre:
+            break
+        propre = raccourci
+    return propre
 
 
 def _temporel(
@@ -562,6 +958,27 @@ def _temporel(
             motif="aucune série complète : chaque série doit couvrir toutes "
             "les années, et une valeur manquante ne s'interpole pas"
         )
+    # Sur les valeurs TRACÉES : une série trouée est écartée, elle ne
+    # s'affiche pas et ne rend donc aucune autre invisible.
+    ecart = ecart_d_echelle([v for _, points in series for v in points], unite)
+    if ecart:
+        return Resolution(motif=ecart)
+    if type_demande == "aires" and len(series) >= 2:
+        # Des aires EMPILÉES additionnent leurs séries à chaque date : le haut
+        # de la pile est un total. « Résultat + trésorerie » n'en a pas (règle
+        # du client du 30/09/2026). Les mêmes séries se lisent en courbes,
+        # côte à côte et non les unes sur les autres.
+        non_additif = pourquoi_non_additif(
+            membres_des_series(donnees, annees), meme_date=False,
+        )
+        if non_additif:
+            return Resolution(
+                "courbes",
+                {"abscisses": [str(a) for a in annees], "series": series,
+                 "unite": unite_lisible(unite)},
+                motif=f"{non_additif} — rendu en courbes, qui ne les empilent pas",
+                converti=True,
+            )
     if type_demande == "aires" and len(series) < 2:
         return Resolution(
             "courbes",
@@ -622,11 +1039,26 @@ def _groupees(
             )
         return Resolution(motif="pas de seconde dimension et " + repli.motif)
 
-    return Resolution(
-        type_demande,
-        {"etiquettes": [str(annee) for annee in annees], "series": series,
-         "unite": unite_lisible(unite)},
-    )
+    ecart = ecart_d_echelle([v for _, points in series for v in points], unite)
+    if ecart:
+        return Resolution(motif=ecart)
+    contenu = {
+        "etiquettes": [str(annee) for annee in annees], "series": series,
+        "unite": unite_lisible(unite),
+    }
+    if type_demande == "barres_empilees":
+        # Une pile est une somme, comme un anneau (règle du client du
+        # 30/09/2026) : des séries qui ne s'additionnent pas se groupent.
+        non_additif = pourquoi_non_additif(
+            membres_des_series(donnees, annees), meme_date=False,
+        )
+        if non_additif:
+            return Resolution(
+                "barres_groupees", contenu,
+                motif=f"{non_additif} — rendu en barres groupées, qui ne les empilent pas",
+                converti=True,
+            )
+    return Resolution(type_demande, contenu)
 
 
 def _notes(
@@ -665,7 +1097,7 @@ def _notes(
     unite = unites.pop()
     return Resolution(
         type_demande,
-        {"axes_noms": [etiquette_de(donnee) for donnee in donnees],
+        {"axes_noms": etiquettes_de(donnees),
          "series": [("Projet", [donnee.valeur for donnee in donnees])],
          "maximum": 10.0 if unite == "note_sur_10" else 5.0},
     )
@@ -698,12 +1130,13 @@ def _radar_des_acteurs(
             f"{intitules}"
         )
 
-    retenus, motif = notes[:_SERIES_RADAR_MAX], ""
-    if len(notes) > _SERIES_RADAR_MAX:
-        ecartes = ", ".join(nom for nom, _ in notes[_SERIES_RADAR_MAX:])
+    retenus, ecartes = _retenir_avec_le_projet(socle, notes)
+    motif = ""
+    if ecartes:
         motif = (
             f"{len(notes)} acteurs notés, {_SERIES_RADAR_MAX} tracés : un radar "
-            f"plus chargé ne se lit plus. Non tracés — {ecartes}."
+            f"plus chargé ne se lit plus. Non tracés — "
+            f"{', '.join(nom for nom, _ in ecartes)}."
         )
 
     return Resolution(
@@ -735,6 +1168,34 @@ def _risques_notes(socle: Socle) -> list[Any]:
 #: basse volontairement : au-delà, la comparaison qui justifie le radar
 #: disparaît sous les traits.
 _SERIES_RADAR_MAX = 5
+
+
+def _retenir_avec_le_projet(
+    socle: Socle, notes: Sequence[tuple[str, list[float]]],
+) -> tuple[list[tuple[str, list[float]]], list[tuple[str, list[float]]]]:
+    """Les séries tracées et les écartées — l'entreprise du dossier toujours tracée.
+
+    Le plafond gardait les CINQ PREMIERS acteurs dans l'ordre du socle. Or
+    `_acteurs_cites` ajoute l'entreprise du dossier EN DERNIER (demande de la
+    cliente du 13/08/2026 : elle est le point de référence de tout benchmark) :
+    avec six concurrents cités, elle était ajoutée puis coupée par le plafond,
+    sans que rien ne le dise — et le radar « ÉCLORE face aux directs »
+    comparait les directs entre eux. Règle du client du 30/09/2026 : « si le
+    projet figure dans le titre ou la légende, il est présent dans les séries ».
+
+    L'ordre du socle est conservé : seules les places changent de main.
+    """
+    if len(notes) <= _SERIES_RADAR_MAX:
+        return list(notes), []
+    projet = {nom.casefold() for nom in socle.acteurs_du_type("projet")}
+    du_projet = [rang for rang, (nom, _) in enumerate(notes) if nom.casefold() in projet]
+    autres = [rang for rang in range(len(notes)) if rang not in du_projet]
+    places = max(_SERIES_RADAR_MAX - len(du_projet), 0)
+    gardes = set(du_projet[:_SERIES_RADAR_MAX]) | set(autres[:places])
+    return (
+        [note for rang, note in enumerate(notes) if rang in gardes],
+        [note for rang, note in enumerate(notes) if rang not in gardes],
+    )
 
 
 #: Sélecteurs d'acteurs qu'un chapitre peut citer parmi ses identifiants.

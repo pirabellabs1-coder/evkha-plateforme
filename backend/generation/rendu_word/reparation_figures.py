@@ -51,8 +51,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ..socle.schema import Socle
-from .donnees_graphiques import Resolution, _famille, resoudre
+from ..socle.schema import DonneeSocle, Socle, valeur_en_unites_de_base
+from .donnees_graphiques import RAPPORT_D_ECHELLE_MAX, Resolution, _famille, resoudre
 
 #: Formes dont les données exigées ne se déduisent pas d'un groupe de valeurs.
 #: Les dessiner autrement ferait mentir leur titre.
@@ -91,7 +91,16 @@ class FigureReparee:
 
 
 def _groupes_de_meme_nature(socle: Socle, identifiants: Sequence[str]) -> list[list[str]]:
-    """Les identifiants présents dans le socle, groupés par nature, plus grands d'abord."""
+    """Les identifiants présents dans le socle, groupés par nature, plus grands d'abord.
+
+    Puis, dans chaque nature, par ORDRE DE GRANDEUR : un marché en milliards
+    et deux chiffres d'affaires en milliers d'euros sont tous des euros, mais
+    la règle du client du 30/09/2026 (« rapport max/min inférieur à 1 000 »)
+    refuse de les poser sur un même axe. Sans ce découpage, la réparation
+    reproposait le groupe entier, que `resoudre` refusait à nouveau : la
+    figure partait en tableau alors que les deux chiffres d'affaires se
+    dessinaient.
+    """
     groupes: dict[str, list[str]] = {}
     for identifiant in dict.fromkeys(identifiants):
         donnee = socle.donnee(identifiant)
@@ -101,10 +110,47 @@ def _groupes_de_meme_nature(socle: Socle, identifiants: Sequence[str]) -> list[l
         cle = f"famille:{famille}" if famille is not None else f"unite:{donnee.unite}"
         groupes.setdefault(cle, []).append(identifiant)
     return sorted(
-        (groupe for groupe in groupes.values() if len(groupe) >= _DONNEES_MIN),
+        (
+            paquet
+            for groupe in groupes.values()
+            for paquet in par_ordre_de_grandeur(socle, groupe)
+            if len(paquet) >= _DONNEES_MIN
+        ),
         key=len,
         reverse=True,
     )
+
+
+def _en_base(donnee: DonneeSocle) -> float:
+    """La valeur à l'unité de base de sa devise : 2 MdEUR et 300 kEUR se comparent."""
+    convertie = valeur_en_unites_de_base(donnee.valeur, donnee.unite)
+    return abs(convertie[0] if convertie is not None else donnee.valeur)
+
+
+def par_ordre_de_grandeur(socle: Socle, groupe: Sequence[str]) -> list[list[str]]:
+    """Le groupe découpé en paquets dont le rapport max/min reste sous le plafond.
+
+    Les valeurs sont parcourues de la plus petite à la plus grande ; un paquet
+    se ferme dès qu'une valeur atteint mille fois la plus petite (non nulle)
+    du paquet. Chaque paquet garde l'ordre de la demande.
+    """
+    valeurs: dict[str, float] = {}
+    for identifiant in groupe:
+        donnee = socle.donnee(identifiant)
+        if donnee is not None:
+            valeurs[identifiant] = _en_base(donnee)
+    paquets: list[list[str]] = [[]]
+    plancher = 0.0
+    for identifiant in sorted(valeurs, key=valeurs.__getitem__):
+        valeur = valeurs[identifiant]
+        if valeur and plancher and valeur / plancher >= RAPPORT_D_ECHELLE_MAX:
+            paquets.append([])
+            plancher = 0.0
+        paquets[-1].append(identifiant)
+        if valeur and not plancher:
+            plancher = valeur
+    rang = {identifiant: place for place, identifiant in enumerate(groupe)}
+    return [sorted(paquet, key=rang.__getitem__) for paquet in paquets if paquet]
 
 
 def pourquoi_irreparable(socle: Socle, type_demande: str, identifiants: Sequence[str]) -> str:

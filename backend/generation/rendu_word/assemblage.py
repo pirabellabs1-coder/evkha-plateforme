@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -36,6 +35,7 @@ from ..socle.schema import Socle, nombre_francais, unite_lisible
 from . import secteurs
 from .annexe_chiffres import a_son_echelle, blocs_annexe
 from .donnees_graphiques import Resolution, resoudre
+from .specification_figures import controler_la_figure
 from .texte import libelle_court
 
 _log = logging.getLogger(__name__)
@@ -315,38 +315,43 @@ def _tableau_de_repli(socle: Socle, demande: Graphique) -> dict[str, Any] | None
     }
 
 
-#: Un titre qui annonce le CALENDRIER DU PROJET. La frise ne sait dessiner que
-#: les tendances de marché du socle (`donnees_graphiques._frise`), quels que
-#: soient les identifiants demandés : il n'existe aucune donnée « calendrier ».
-#: Business plan ÉCLORE, 29/09/2026 : un « rétroplanning » affichait des
-#: tendances de marché (§ 3.12 du diagnostic).
-#:
-#: Le mot du calendrier SEUL ne suffit pas : « Calendrier des évolutions
-#: réglementaires », « Jalons du marché » sont des frises de tendances
-#: légitimes, et la première version les refusait sans repli (revue du
-#: 29/09/2026). Il faut une marque du PROJET : un mot qui n'existe que pour
-#: lui (rétroplanning, plan d'action), ou un mot du calendrier ET « du
-#: projet », « de lancement », « de mise en œuvre ».
-_CALENDRIER_DU_PROJET = re.compile(
-    r"r[ée]tro[-\s]?planning|\bplans?\s+d['’]actions?\b", re.IGNORECASE,
-)
-_MOT_DU_CALENDRIER = re.compile(
-    r"planning|calendrier|\bjalons?\b|[ée]ch[ée]ancier|chronogramme|\bgantt\b|"
-    r"feuille\s+de\s+route|\broadmap\b|phasage|\b[ée]tapes?\b",
-    re.IGNORECASE,
-)
-_MARQUE_DU_PROJET = re.compile(
-    r"\bdu\s+projet\b|\bde\s+lancement\b|\bde\s+mise\s+en\s+(?:œuvre|oeuvre)\b",
-    re.IGNORECASE,
-)
+def _tableau_des_notes(socle: Socle, demande: Graphique) -> dict[str, Any] | None:
+    """Les notes d'une figure d'ACTEURS refusée, imprimées en tableau.
 
+    `_tableau_de_repli` ne connaît que les données chiffrées : un radar, une
+    carte de positionnement ou des barres de notes citent des CRITÈRES de la
+    grille, et leur refus ne laissait rien — ni figure, ni tableau. Règle du
+    client du 30/09/2026 : « si un graphique échoue : régénération depuis la
+    spec, puis remplacement par un tableau ». Une ligne par acteur que la
+    figure visait, une colonne par critère ; une note absente se dit « — »,
+    elle ne s'invente pas.
+    """
+    from .donnees_graphiques import _acteurs_cites, _criteres_cites  # noqa: PLC0415
 
-def annonce_un_calendrier_du_projet(titre: str) -> bool:
-    """Ce titre promet-il le calendrier DU PROJET, que la frise ne sait pas tracer ?"""
-    return bool(
-        _CALENDRIER_DU_PROJET.search(titre)
-        or (_MOT_DU_CALENDRIER.search(titre) and _MARQUE_DU_PROJET.search(titre))
-    )
+    criteres = _criteres_cites(socle, demande.donnees_ids)
+    if not criteres:
+        return None
+    acteurs = _acteurs_cites(socle, demande.donnees_ids)
+    voulus = None if acteurs is None else {nom.casefold() for nom in acteurs}
+    lignes: list[list[str]] = []
+    for acteur in socle.concurrents:
+        if voulus is not None and acteur.nom.casefold() not in voulus:
+            continue
+        notes = [acteur.note_sur(critere.code) for critere in criteres]
+        if all(note is None for note in notes):
+            continue
+        lignes.append([
+            acteur.nom, *("—" if note is None else f"{note}/5" for note in notes),
+        ])
+    if not lignes:
+        return None
+    return {
+        "type": "tableau",
+        "entetes": ["Acteur", *(critere.intitule for critere in criteres)],
+        "lignes": lignes,
+        "titre": demande.titre,
+        "source": "",
+    }
 
 
 def _renvoi(lieu: tuple[str, str], reference: str) -> str:
@@ -430,24 +435,26 @@ def _blocs_graphique(
                 identifiants_traces = list(reparee.identifiants)
                 ecartes = reparee.ecartes
         repare = bool(reparation)
-        titre_trahi = (
-            resolution.retenu
-            and resolution.type_graphique == "chronologie"
-            and annonce_un_calendrier_du_projet(demande.titre)
+        # La SPÉCIFICATION de la figure — son titre, sa légende, ses libellés —
+        # contre ce qu'elle porte, APRÈS la réparation : une figure réparée est
+        # une figure refaite, elle se contrôle à son tour (règle 3). Voir
+        # `specification_figures` : la figure qui échoue est re-dérivée sous une
+        # autre forme quand une forme la fait tenir, sinon ses données passent
+        # en tableau. Business plan ÉCLORE `28a257bf` (30/09/2026) : « Structure
+        # du chiffre d'affaires par univers » dessinait le même chiffre
+        # d'affaires à deux dates.
+        controle = controler_la_figure(
+            socle, resolution,
+            identifiants=identifiants_traces,
+            titre=demande.titre,
+            legende=demande.commentaire,
         )
-        if titre_trahi:
-            # La frise dessinerait les TENDANCES DE MARCHÉ sous un titre qui
-            # promet le calendrier du projet : une figure juste qui répond à
-            # une autre question, ce que le lecteur ne peut pas deviner. Pas de
-            # tableau de repli non plus : sous ce titre, des chiffres qui ne
-            # sont pas un calendrier mentiraient de la même façon.
-            resolution = Resolution(
-                motif=(
-                    f"le titre annonce un calendrier du projet (« {demande.titre} ») "
-                    "et la frise ne sait dessiner que les tendances de marché du "
-                    "socle : rien n'est dessiné sous ce titre"
-                )
-            )
+        resolution = controle.resolution
+        # Une frise sous le calendrier du projet dessinerait les TENDANCES DE
+        # MARCHÉ : une figure juste qui répond à une autre question. Pas de
+        # tableau non plus : sous ce titre, des chiffres qui ne sont pas un
+        # calendrier mentiraient de la même façon (29/09/2026).
+        titre_trahi = controle.sans_tableau
         if not resolution.retenu:
             rapport.graphiques_abandonnes.append(
                 f"{reference} · {demande.titre} : {resolution.motif}"
@@ -466,7 +473,17 @@ def _blocs_graphique(
                     for identifiant in demande.donnees_ids
                     for donnee in [socle.donnee(identifiant)]
                 ],
-                "reparation": pourquoi_irreparable(socle, type_demande, demande.donnees_ids),
+                # Une figure refusée pour sa SPÉCIFICATION se dessinait : la
+                # réparation n'a rien à y dire, et `pourquoi_irreparable`
+                # rendrait des motifs vides. Le rapport dit la règle en cause.
+                "reparation": (
+                    "non tentée : la figure se dessinait, sa spécification ne tient pas"
+                    if controle.ecarts
+                    else pourquoi_irreparable(socle, type_demande, demande.donnees_ids)
+                ),
+                "specification": [
+                    {"regle": ecart.regle, "motif": ecart.motif} for ecart in controle.ecarts
+                ],
             })
             # Le dessin est refusé — unités mélangées, radar sans notes, un
             # seul point. Les DONNÉES, elles, sont bonnes : elles viennent du
@@ -474,7 +491,15 @@ def _blocs_graphique(
             # (stratégie Zenitek, 12/09/2026 : 31 demandées, 31 abandonnées,
             # zéro rendue). On les imprime donc en tableau : le lecteur garde
             # l'information, et c'est tout ce qu'un graphique lui apportait.
-            repli = None if titre_trahi else _tableau_de_repli(socle, demande)
+            repli = None if titre_trahi else (
+                _tableau_de_repli(socle, demande) or _tableau_des_notes(socle, demande)
+            )
+            if repli is not None and controle.titre_en_cause:
+                # Le titre a été jugé FAUX — un découpage qui n'existe pas, une
+                # année absente, un projet non comparé. En légende du tableau,
+                # il imprimerait la même promesse : le tableau paraît sans lui,
+                # comme ceux que les chapitres posent eux-mêmes.
+                repli["titre"] = ""
             if repli is not None:
                 if _poser_le_repli(repli, rapport, blocs):
                     rapport.graphiques_en_tableau.append(
@@ -514,7 +539,7 @@ def _blocs_graphique(
 
         if repare:
             rapport.graphiques_repares.append(reparation)
-        if resolution.converti and not repare:
+        if resolution.converti and (not repare or controle.rederivee):
             rapport.graphiques_convertis.append(
                 f"{reference} · {demande.titre} : {type_demande} → "
                 f"{resolution.type_graphique} ({resolution.motif})"

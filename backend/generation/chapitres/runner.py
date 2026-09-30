@@ -2271,6 +2271,7 @@ def _motifs_de_figure(
     part quand même au journal : ce qui ne va pas ne se tait pas (règle 1).
     """
     from ..rendu_word.donnees_graphiques import resoudre  # noqa: PLC0415
+    from ..rendu_word.specification_figures import controler_la_figure  # noqa: PLC0415
 
     motifs: list[str] = []
     for bloc in payload.blocs:
@@ -2281,6 +2282,24 @@ def _motifs_de_figure(
             socle, str(graphique.type), list(graphique.donnees_ids)
         )
         if resolution.retenu:
+            # Le TITRE aussi, par le même contrôle que l'assemblage (règle 5) :
+            # « Structure du chiffre d'affaires par univers » sur un seul
+            # chiffre d'affaires se dessinait, et partait donc sans un mot au
+            # modèle (business plan ÉCLORE `28a257bf`, 30/09/2026). Une figure
+            # que le contrôle re-dérive sous une autre forme ne reproche rien :
+            # c'est une conversion, comme celles des résolveurs.
+            controle = controler_la_figure(
+                socle, resolution,
+                identifiants=list(graphique.donnees_ids),
+                titre=graphique.titre,
+                legende=graphique.commentaire,
+            )
+            if not controle.resolution.retenu:
+                motifs.append(
+                    f"figure « {graphique.titre} » : son titre ne dit pas ce que "
+                    f"ses données montrent — {controle.motif}. Fais correspondre "
+                    "le titre aux données, ou remplace la figure par un tableau."
+                )
             continue
         motifs.append(
             f"figure « {graphique.titre} » impossible à dessiner : "

@@ -236,15 +236,24 @@ def test_un_socle_de_strategie_avec_ses_series_est_recevable() -> None:
 
 
 def test_les_series_multiplient_les_figures_justes() -> None:
-    """3 figures avant (dont CA et panier sur un même axe), une par série après."""
+    """3 figures avant (dont CA et panier sur un même axe), une par série après.
+
+    Règles du client du 30/09/2026 : deux figures que ce test comptait ne sont
+    plus justes. Les deux charges du brief valent 200 € chacune — « pas de
+    graphique à 2 barres égales qui n'apporte rien » —, et « chiffre
+    d'affaires, panier moyen » pose 120 000 € à côté de 17,86 € — « rapport
+    max/min inférieur à 1 000 ». Le catalogue ne les propose plus ; les trois
+    séries qui se comparent restent.
+    """
     propositions = figures_possibles(_socle_zenitek_avec_series())
     groupes = {p.identifiants for p in propositions}
 
     assert ("prix_offre_1", "prix_offre_2", "prix_offre_3") in groupes
     assert ("tarif_prestation_1", "tarif_prestation_2", "tarif_prestation_3") in groupes
-    assert ("charge_poste_1", "charge_poste_2") in groupes
     assert ("ca_objectif_an1", "ca_objectif_an2", "ca_objectif_an3") in groupes
-    assert len(propositions) >= 5
+    assert ("charge_poste_1", "charge_poste_2") not in groupes
+    assert ("ca_actuel", "panier_moyen") not in groupes
+    assert len(propositions) >= 3
 
 
 def test_une_forme_de_parts_ne_sert_qu_un_vrai_total() -> None:
