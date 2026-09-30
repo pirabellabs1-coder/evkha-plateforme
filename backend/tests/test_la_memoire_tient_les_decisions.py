@@ -82,7 +82,15 @@ def test_les_phrases_de_calendrier_et_de_statut_sont_reprises_mot_pour_mot() -> 
     trajectoire = "Trajectoire juridique : micro-entreprise de 2027 à 2029"
     assert any(t.startswith(trajectoire) for t in textes)
     assert any("après avoir quitté son poste" in t for t in textes)
-    assert all(d.justification.endswith("à reprendre telle quelle") for d in du_brief)
+    # La MÉMOIRE garde la phrase mot pour mot ; elle ne dit plus au rédacteur
+    # de la recopier (30/09/2026 : une ligne du brief imprimée seule, et
+    # l'étiquette « phrase du client » imprimée dans une cellule). Ni consigne
+    # de recopie, ni clé de variable dans ce que le rédacteur lit.
+    assert du_brief
+    for decision in du_brief:
+        assert "telle quelle" not in decision.justification
+        assert "client" not in decision.justification
+        assert not any(cle in decision.justification for cle in VARIABLES)
 
 
 def test_la_nature_de_l_activite_suit_le_brief() -> None:
@@ -105,7 +113,10 @@ def test_le_redacteur_recoit_les_reperes_et_les_decisions() -> None:
     assert "{{resultat_net_mensuel_an3}}" in bloc
     assert "N'effectue AUCUN calcul toi-même" in bloc
     assert "TVA obligatoire" in bloc
-    assert "jamais contredites ni reformulées" in bloc
+    # La décision se tient ; la phrase se rédige (30/09/2026, voir `decisions`).
+    assert "ne se contredisent jamais" in bloc
+    assert "aucune ligne de cette liste ne se recopie" in bloc
+    assert "telles quelles" not in bloc
 
 
 def test_la_memoire_se_stocke_en_json() -> None:

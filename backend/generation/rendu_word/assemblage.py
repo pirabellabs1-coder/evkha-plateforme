@@ -406,7 +406,14 @@ def _blocs_graphique(
     profil: secteurs.ProfilSectoriel,
     rapport: RapportAssemblage,
     reference: str,
+    sujets: Sequence[str] = (),
 ) -> list[dict[str, Any]]:
+    """Les blocs d'une figure demandée : dessinée, réparée, en tableau, ou renvoyée.
+
+    `sujets` dit de quoi parle la section qui la demande (son intitulé, les
+    en-têtes de ses tableaux) : un renvoi vers une figure déjà posée ailleurs
+    n'est écrit que s'il est à propos (voir la branche du doublon).
+    """
     blocs: list[dict[str, Any]] = []
     for demande in graphiques:
         rapport.graphiques_demandes += 1
@@ -531,13 +538,34 @@ def _blocs_graphique(
             # une ligne RENVOIE à elle, là où la prose du chapitre l'annonce ;
             # ses données passent en tableau si le lecteur ne les a pas déjà
             # sous les yeux.
-            blocs.append({"type": "renvoi", "texte": _renvoi(deja_posee, reference)})
+            #
+            # Le renvoi n'est écrit que s'il est À PROPOS. Business plan ÉCLORE
+            # `28a257bf` (30/09/2026, 6.1) : « Figure présentée au chapitre 1 —
+            # Repères financiers du lancement » sous « Taille et dynamique du
+            # marché ». Le radar et la frise ignorent les identifiants demandés :
+            # une figure de marché et une figure financière y rendent la même
+            # image, et le renvoi envoyait le lecteur vers une autre question.
+            # Le titre de la figure posée est jugé contre ce dont parle la
+            # section et contre ce que le chapitre demandait ici — par la
+            # fonction de la relecture, qui signale ceux qui restent (règle 5).
+            from ..relecture.fuites import renvoi_sur_le_sujet  # noqa: PLC0415
+
+            a_propos = renvoi_sur_le_sujet(deja_posee[1], [*sujets, demande.titre])
+            if a_propos:
+                blocs.append({"type": "renvoi", "texte": _renvoi(deja_posee, reference)})
             repli = _tableau_de_repli(socle, demande)
             deja_vues = set(demande.donnees_ids) <= rapport.identifiants_rendus
             if repli is not None and not deja_vues and _poser_le_repli(repli, rapport, blocs):
-                devenir = "renvoi, et tableau de ses données"
-            else:
+                devenir = "tableau de ses données" if not a_propos else (
+                    "renvoi, et tableau de ses données"
+                )
+            elif a_propos:
                 devenir = "renvoi à la figure"
+            else:
+                devenir = (
+                    f"ni renvoi ni figure : la figure posée (« {deja_posee[1]} ») ne porte "
+                    "pas sur le sujet de la section"
+                )
             rapport.graphiques_en_double.append(
                 f"{reference} · {demande.titre} : même figure "
                 f"({resolution.type_graphique}, mêmes données) que plus haut "
@@ -621,7 +649,19 @@ def blocs_du_chapitre(
         BlocTableau,
     )
 
+    # Ce dont parle chaque sous-section : son intitulé et les en-têtes de ses
+    # tableaux, lus d'avance — un tableau posé APRÈS la figure dit aussi le
+    # sujet. Sert à ne renvoyer qu'à une figure à propos (`_blocs_graphique`).
+    sujets_par_bloc: list[list[str]] = []
+    sujets_courants: list[str] = [payload.titre]
     for bloc in payload.blocs:
+        if isinstance(bloc, BlocSousTitre):
+            sujets_courants = [bloc.intitule]
+        elif isinstance(bloc, BlocTableau):
+            sujets_courants.extend(bloc.tableau.entetes)
+        sujets_par_bloc.append(sujets_courants)
+
+    for rang, bloc in enumerate(payload.blocs):
         if isinstance(bloc, BlocSousTitre):
             blocs.append({
                 "type": "sous_titre",
@@ -681,6 +721,7 @@ def blocs_du_chapitre(
             blocs.extend(_blocs_graphique(
                 socle, [bloc.graphique], profil, rapport,
                 reference=f"Chapitre {payload.chapitre}",
+                sujets=sujets_par_bloc[rang],
             ))
 
     return blocs
@@ -836,7 +877,7 @@ def _completer_les_figures(
                 "type": "graphique",
                 "graphique": resolution.type_graphique,
                 "titre": titre,
-                "source": "Données du socle vérifié",
+                "source": _legende_des_sources(socle, candidats),
                 "donnees": resolution.donnees,
             })
             deja_vus.update(candidats)
@@ -850,6 +891,30 @@ def _completer_les_figures(
                 f"Chapitre {payload.chapitre} · {titre} "
                 f"({resolution.type_graphique}, {len(candidats)} identifiants)"
             )
+
+
+def _legende_des_sources(socle: Socle, identifiants: Sequence[str]) -> str:
+    """« Source : … » des données tracées, ou rien : jamais l'état de notre entrepôt.
+
+    Business plan ÉCLORE `28a257bf` (30/09/2026, 6.4 et 8.5) : chaque figure de
+    complétion portait la légende « Données du socle vérifié », écrite en dur
+    ici — une étiquette de la chaîne, lue par la cliente comme une source.
+    Désormais la légende dit d'où viennent les chiffres, comme le tableau de
+    repli (`_tableau_de_repli`), avec le libellé commun des sources
+    (`composants.libelle_de_source`, règle 5). Sans source connue, aucune
+    légende : une figure sans légende ne perd rien.
+
+    `getattr` : les tests de la complétion isolent sa logique avec un socle
+    réduit à rien (`object()`) ; il n'a pas de données, donc pas de source.
+    """
+    from .composants import libelle_de_source  # noqa: PLC0415 — python-docx, chargé à l'usage
+
+    par_id = {donnee.id: donnee for donnee in getattr(socle, "donnees", ())}
+    sources = dict.fromkeys(
+        par_id[i].source.strip() for i in identifiants
+        if i in par_id and par_id[i].source.strip()
+    )
+    return libelle_de_source(" ; ".join(sources)) if sources else ""
 
 
 def _est_un_verdict(intitule: str) -> bool:

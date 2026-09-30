@@ -1207,8 +1207,11 @@ _NOTATION_INTERNE = re.compile(
 #: On ne retient donc que des locutions qui n'ont AUCUN sens hors de nos
 #: propres rouages.
 _VOCABULAIRE_INTERNE: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # « vérifié » ajouté le 30/09/2026 : « Données du socle vérifié », légende
+    # imprimée sous deux figures du business plan ÉCLORE `28a257bf` (6.4,
+    # 8.5). La complétion des figures l'écrivait comme une source.
     ("socle verrouillé/bloqué", re.compile(
-        r"\bsocle\s+(?:verrouill|bloqu|de\s+donn[ée]es\b)", re.IGNORECASE)),
+        r"\bsocle\s+(?:verrouill|bloqu|v[ée]rifi|de\s+donn[ée]es\b)", re.IGNORECASE)),
     ("hors socle", re.compile(r"\bhors[- ]socle\b", re.IGNORECASE)),
     # Pas de nom de plateforme ICI : ce fichier part dans le schéma de
     # l'outil, et le modèle recopie ce qu'on lui montre. Un premier document
@@ -1288,6 +1291,58 @@ _VOCABULAIRE_INTERNE: tuple[tuple[str, re.Pattern[str]], ...] = (
     # un chapitre à chaque page.
     ("mot d'instruction en anglais", re.compile(
         r"\b(?:write|rewrite|output|generate|summarize)\b", re.IGNORECASE)),
+    # Business plan ÉCLORE `28a257bf`, relu par la cliente le 30/09/2026 :
+    # « liste noire bloquante dans le texte final ». Quatre familles, chacune
+    # réduite à la forme qui n'a aucune lecture hors de nos rouages : ces
+    # motifs refusent un chapitre PAYÉ. La revue du même jour a rejoué sur
+    # chacun du français de métier (« renseignés dans le dossier patient »,
+    # « tant que le client n'a pas communiqué ses mesures », « les phrases des
+    # clients interrogés », « sans qu'aucun recalcul manuel ne soit
+    # nécessaire ») : aucun n'est refusé (`tests/test_relecture_fuites.py`).
+    #
+    # L'étiquette que la mémoire de l'étude posait sur chaque phrase du brief
+    # (« phrase du client (…), à reprendre telle quelle ») : imprimée dans une
+    # cellule (11.4), suivie d'une virgule. Une étiquette se termine là ; « la
+    # phrase du client la plus fréquente » d'une étude de marché continue.
+    ("étiquette de la mémoire", re.compile(
+        r"\bphrase\s+(?:du\s+client|de\s+la\s+cliente)\b(?=\s*(?:[,;:()]|$))",
+        re.IGNORECASE)),
+    # Le document qui cite SA SOURCE au lieu du projet : « selon les termes du
+    # dossier » (16.7), « Non précisée dans le dossier » (12.2), « le dossier ne
+    # fournit pas » (16.6). Le lecteur ne sait pas ce qu'est « le dossier » :
+    # c'est ce qu'on a transmis au rédacteur. Seul l'emploi ABSOLU est visé —
+    # « dossier » suivi d'une ponctuation, ou sujet d'une négation : « le
+    # dossier patient », « le dossier de financement », « au dossier bancaire »
+    # le nomment, et restent du français.
+    #
+    # « décrit(e) dans le dossier » n'y est PAS, alors que le document l'écrit
+    # aussi (« la capacité décrite au dossier ») : la consigne du chapitre 16
+    # et `runner.PRIX_ET_MODELE_ECONOMIQUE` l'écrivent elles-mêmes, et un
+    # contrôle qui punit ce que le prompt enseigne ferait payer chaque
+    # chapitre deux fois (règle 5). À ajouter le jour où ces deux consignes
+    # disent « la capacité du projet ».
+    ("le dossier cité comme source", re.compile(
+        r"\b(?:selon|aux|dans)\s+les\s+termes\s+du\s+dossier(?=\s*(?:[.,;:)»]|$))"
+        r"|\b(?:pr[ée]cis|indiqu|renseign|mentionn|communiqu|transmis|fourni"
+        r"|d[ée]taill)[ée]?e?s?\s+(?:dans\s+le|par\s+le|au)\s+dossier(?=\s*(?:[.,;:)»]|$))"
+        r"|\ble\s+dossier\s+ne\s+(?:fournit|d[ée]taille|pr[ée]cise|indique|chiffre"
+        r"|renseigne)\s+pas\b",
+        re.IGNORECASE)),
+    # Le client comme COMMANDITAIRE de l'étude, qui n'a pas tranché : « des
+    # hypothèses que le client n'a pas arbitrées » (16.6). La relative, et les
+    # seuls verbes d'arbitrage : « tant que le client n'a pas communiqué ses
+    # mesures » est du métier.
+    ("le client qui n'a pas tranché", re.compile(
+        r"\bque\s+(?:le|la)\s+client(?:e)?\s+n['’]a\s+pas\s+(?:encore\s+)?(?:arbitr|tranch)",
+        re.IGNORECASE)),
+    # La consigne « n'effectue aucun calcul », redite au lecteur : « aucune
+    # ligne n'est recalculée » (16.2), « jamais recalculées d'un chapitre à
+    # l'autre » (21.5). Un prix « recalculé chaque année », un calcul « sans
+    # recalcul manuel » restent du métier : seules ces deux formes sont visées.
+    ("discours sur le recalcul", re.compile(
+        r"\baucune?\s+(?:ligne|chiffre|donn[ée]e)s?\s+n['’](?:est|a\s+[ée]t[ée])\s+recalcul"
+        r"|\bjamais\s+recalcul[ée]e?s?\s+d['’]un\s+chapitre\s+[àa]\s+l['’]autre",
+        re.IGNORECASE)),
 )
 
 #: Une adresse web porte légitimement des tirets bas.
