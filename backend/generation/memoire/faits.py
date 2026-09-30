@@ -83,9 +83,15 @@ DEFINITIONS: dict[str, str] = {
     ),
     "ebe": "excédent brut d'exploitation : chiffre d'affaires − charges d'exploitation décaissées",
     "charges_fixes": "charges fixes annuelles de l'exercice",
-    "remuneration_dirigeant": "rémunération annuelle du dirigeant prévue au prévisionnel",
+    "remuneration_dirigeant": (
+        "prélèvements réels du dirigeant sur l'exercice (en micro-entreprise, ce que "
+        "le dirigeant se verse) : ce n'est ni le résultat, ni la capacité de prélèvement"
+    ),
     "masse_salariale": "masse salariale annuelle chargée",
-    "tresorerie_fin": "trésorerie disponible au 31 décembre de l'exercice",
+    "tresorerie_fin": (
+        "trésorerie disponible au 31 décembre, APRÈS prélèvements du dirigeant : "
+        "l'afficher disponible en plus des prélèvements compterait le même argent deux fois"
+    ),
     "dette_residuelle": "capital restant dû sur les emprunts en fin d'exercice",
 }
 
@@ -418,6 +424,24 @@ def faits_de_l_etude(socle: Socle) -> dict[str, Fait]:
                 definition=(
                     "dotations aux amortissements, déduites de "
                     "CAF = résultat net + dotations"
+                ),
+            ))
+        # Capacité de prélèvement mensuelle = CAF ÷ 12 (dictionnaire d'indicateurs
+        # de la cliente, 30/09/2026). La CAF n'a PAS de « moyenne mensuelle »
+        # (`SANS_MOYENNE_MENSUELLE`) parce que cette étiquette avait été lue comme
+        # le revenu de la dirigeante puis redivisée. Cet indicateur porte donc un
+        # NOM distinct et sans ambiguïté : ce que l'activité PERMET de prélever
+        # chaque mois — pas un revenu constaté, pas le résultat, et il ne se
+        # redivise pas.
+        if caf.valeur > 0:
+            derives.append(_derive(
+                f"capacite_prelevement_mensuelle_an{rang}", (caf,), lambda v: v[0] / 12.0,
+                libelle=f"Capacité de prélèvement mensuelle, exercice {rang}",
+                formule=f"caf_an{rang} ÷ 12", annee=caf.annee, periode="mois",
+                definition=(
+                    "capacité de prélèvement mensuelle = capacité d'autofinancement ÷ 12 : "
+                    "ce que l'activité PERMET de prélever chaque mois — ce n'est ni un revenu "
+                    "constaté, ni le résultat net, ni la CAF elle-même, et elle ne se redivise pas"
                 ),
             ))
 

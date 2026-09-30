@@ -74,6 +74,21 @@ def test_le_mensuel_du_resultat_net_n_est_pas_celui_de_la_caf() -> None:
     assert "divisé par douze" in faits["resultat_net_mensuel_an3"].definition
 
 
+def test_la_capacite_de_prelevement_est_la_caf_divisee_par_douze() -> None:
+    """Dictionnaire d'indicateurs de la cliente (30/09/2026) : CAF ÷ 12, nommée sans ambiguïté.
+
+    C'est un indicateur DISTINCT de la CAF mensuelle (qui, elle, n'existe pas :
+    l'étiquette avait été lue comme le revenu de la dirigeante).
+    """
+    faits = faits_de_l_etude(_socle(ECLORE))
+    assert faits["capacite_prelevement_mensuelle_an3"].valeur == pytest.approx(1_986.32, abs=0.01)
+    assert faits["capacite_prelevement_mensuelle_an3"].formule == "caf_an3 ÷ 12"
+    assert faits["capacite_prelevement_mensuelle_an3"].periode == "mois"
+    definition = faits["capacite_prelevement_mensuelle_an3"].definition
+    assert "ne se redivise pas" in definition and "ni le résultat" in definition
+    assert "caf_mensuel_an3" not in faits, "toujours pas de « CAF mensuelle » ambiguë"
+
+
 def test_les_evolutions_et_les_ecarts_sont_calcules_une_fois() -> None:
     faits = faits_de_l_etude(_socle(ECLORE))
     assert faits["ca_previsionnel_evolution_an1_an3"].valeur == pytest.approx(290.6)

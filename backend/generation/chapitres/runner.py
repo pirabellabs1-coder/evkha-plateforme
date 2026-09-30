@@ -1664,8 +1664,22 @@ def _valeurs_interpolation(
         "titre_chapitre": chapter.chapter_title,
         "numero_chapitre": chapter.chapter_number,
         "cible_mots": (blueprint.max_words if blueprint else 0) or "non bornée",
+        "scenario_reference": _scenario_reference(variables),
         **renvois_du_plan(str(chapter.job.deliverable_type)),
     }
+
+
+def _scenario_reference(variables: Mapping[str, object]) -> str:
+    """Le nom du scénario de référence, INJECTÉ — jamais écrit en dur (cliente, 30/09/2026).
+
+    Le prompt du chapitre 16 disait « scénario central » alors que le dossier
+    repose sur le scénario prudent. Le nom vient du brief s'il le porte, sinon
+    d'un défaut NEUTRE : jamais « central », qui affirmerait un choix que le
+    client n'a pas fait. La relecture reconnaît « de référence », « prudent »,
+    « central » et « retenu » comme le prévisionnel (`relecture.valeurs._SCENARIO`).
+    """
+    nom = str(variables.get("SCENARIO_REFERENCE") or variables.get("SCENARIO") or "").strip()
+    return nom or "scénario de référence"
 
 
 def renvois_du_plan(deliverable_type: str) -> dict[str, str]:

@@ -54,6 +54,7 @@ def _valeurs(code: str, numero: int) -> dict[str, object]:
         "secteur": "bien-être", "pays": "France", "zone": "Lyon",
         "projet": "atelier de bien-être", "numero_chapitre": numero,
         "titre_chapitre": plan.title if plan else "", "cible_mots": 900,
+        "scenario_reference": "scénario de référence",
         **renvois_du_plan(code),
     }
 
