@@ -401,6 +401,49 @@ def test_aucune_tete_incertaine_ne_rend_grave_un_compte_juste(tableau: Tableau) 
     assert not any(c.grave for c in _boucles(tableau))
 
 
+def _trois_exercices(incertaine: tuple[str, str, str, str] | None, ebe_2029: str) -> Tableau:
+    """Le compte de la consigne 16 : trois exercices, 2027 et 2028 justes."""
+    lignes: list[tuple[str, ...]] = [("Chiffre d'affaires HT", "20 000 €", "40 000 €", "80 000 €")]
+    if incertaine is not None:
+        lignes.append(incertaine)
+    lignes += [
+        ("Achats", "2 000 €", "5 000 €", "10 000 €"),
+        ("Charges externes", "5 000 €", "10 000 €", "20 000 €"),
+        ("Salaires", "12 500 €", "18 500 €", "25 000 €"),
+        ("Excédent brut d'exploitation", "500 €", "6 500 €", ebe_2029),
+    ]
+    return Tableau(entetes=("Poste", "2027", "2028", "2029"), lignes=tuple(lignes))
+
+
+_RECETTES_ATELIERS = ("Recettes ateliers", "10 000 €", "20 000 €", "50 000 €")
+_APPORT = ("Apport personnel", "5 000 €", "5 000 €", "5 000 €")
+
+
+def test_un_ebe_faux_en_2029_sans_ligne_incertaine_est_grave_et_chiffre() -> None:
+    """Z0 : le témoin."""
+    constats = _boucles(_trois_exercices(None, "40 000 €"))
+    assert len(constats) == 1 and constats[0].grave
+    assert "en 2029" in constats[0].detail and "= 25 000 €" in constats[0].detail
+
+
+@pytest.mark.parametrize("incertaine", [_RECETTES_ATELIERS, _APPORT])
+def test_un_signal_d_un_exercice_ne_masque_pas_l_erreur_d_un_autre(
+    incertaine: tuple[str, str, str, str],
+) -> None:
+    """Z1, Z3 (porte finale, NO-GO sur `a8c3361`) : le signal de 2027 rendait la main,
+    et l'EBE faux de 2029 n'était jamais lu."""
+    constats = _boucles(_trois_exercices(incertaine, "40 000 €"))
+    assert len(constats) == 1 and constats[0].grave
+    assert "en 2029" in constats[0].detail and "=" not in constats[0].detail
+
+
+@pytest.mark.parametrize("incertaine", [_RECETTES_ATELIERS, _APPORT])
+def test_le_meme_compte_juste_ne_donne_qu_un_signal(incertaine: tuple[str, str, str, str]) -> None:
+    """Z5 : le témoin juste — jamais grave."""
+    constats = _boucles(_trois_exercices(incertaine, "25 000 €"))
+    assert not any(c.grave for c in constats)
+
+
 def test_un_compte_faux_sous_toutes_les_lectures_reste_grave_sans_attendu() -> None:
     """Aucune lecture de la ventilation ne donne 60 000 € : grave, mais sans chiffrer d'attendu."""
     constats = _boucles(_ventile("Recettes ateliers", "Recettes boutique", ebe="60 000 €"))

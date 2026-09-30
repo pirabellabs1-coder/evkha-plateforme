@@ -256,6 +256,10 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
             ambigues.append(i)
     if not natures or all(n in ("produit", None) for n in natures.values()):
         return None
+    # Un signal n'arrête pas la lecture : les exercices suivants peuvent porter
+    # une erreur GRAVE (porte finale, NO-GO sur `a8c3361` — un signal en 2027
+    # masquait l'EBE faux de 2029). Le premier constat grave l'emporte.
+    signal_garde: Constat | None = None
     for j, annee in annees:
         def lu(i: int, colonne: int = j, flux: bool = True) -> float | None:
             ligne = lignes[i]
@@ -311,13 +315,14 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
             ):
                 continue
             douteuses = " ; ".join(f"« {lignes[i][0]} »" for i in incertaines[:4])
-            return Constat(
+            signal_garde = signal_garde or Constat(
                 "tableau", section.numero, extrait,
                 f"L'EBE affiché ({_euros(excedent)}) ne se retrouve en {annee} qu'en "
                 f"comptant {douteuses} à part du chiffre d'affaires : si ces lignes le "
                 "détaillent, elles sont comptées deux fois. Vérifie leur nature.",
                 grave=False,
             )
+            continue
         a_lire = [i for i in ambigues if i in montants]
         autres_lectures = (
             itertools.product(("produit", "charge", None), repeat=len(a_lire))
@@ -355,7 +360,11 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
                     f"affiché ({_euros(excedent)}) ne donne cet EBE, même en lisant "
                     f"autrement {douteuses}.{consigne}"
                 )
-            return Constat("tableau", section.numero, extrait, verdict, grave=not signal)
+            constat = Constat("tableau", section.numero, extrait, verdict, grave=not signal)
+            if constat.grave:
+                return constat
+            signal_garde = signal_garde or constat
+            continue
         # Le détail affiché est celui de la lecture par défaut, tel que
         # `_concorde` l'a compté : un sous-total générique qui vaut la somme des
         # lignes précises n'y figure pas.
@@ -386,7 +395,7 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
             "lignes de charges (charges externes, cotisations…) ou un montant est faux."
             + consigne,
         )
-    return None
+    return signal_garde
 
 
 def _comptes_de_resultat(document: Document) -> list[Constat]:

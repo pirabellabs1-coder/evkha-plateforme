@@ -573,13 +573,19 @@ détailler le CA, la lecture « ventilation » doit boucler aussi ; sinon, un
 signal sans montant. « Aides … » n'est plus une recette sûre (« Aides à
 domicile » sont des salaires) ; « Prix de revient » est une charge.
 
+Sixième passage (NO-GO sur `a8c3361`) : toutes les batteries n'avaient
+qu'UNE colonne, et le compte de la consigne 16 en a trois. Un signal en 2027
+(une ligne incertaine, compte juste cette année-là) rendait la main : l'EBE
+faux de 2029 n'était jamais lu. Un signal est désormais gardé et la lecture
+continue ; le premier constat grave l'emporte.
+
 La même porte a relevé quatre pertes de détection, rétablies : « dans le
 scénario central » se juge comme le prévisionnel ; un tiret d'incise n'est pas
 une baisse ; « ressort à 110 € la première année » n'est pas un prix
 unitaire ; la tolérance d'un « 1,2 M€ » suit son unité. Et deux faux positifs
 d'avant : « charges fixes mensuelles de 1 500 € », « taux de marge nette ».
 
-Contre-épreuves : 89 ; la régression reste à 43/43 avec, classe par
+Contre-épreuves : 94 ; la régression reste à 43/43 avec, classe par
 classe, les mêmes autres constats (67) qu'avant la revue.
 
 Aussi : seuil de rentabilité de la mémoire = charges fixes ÷ taux quand le socle
