@@ -22,13 +22,19 @@ from collections.abc import Iterator
 from ..memoire.faits import Fait
 from .constat import Constat, Reference
 from .document import Document, Section
-from .valeurs import Nombre, en_euros, extrait, nombres, proche, valeurs_des_faits
+from .valeurs import Nombre, en_euros, extrait, nombres, phrases, proche, valeurs_des_faits
 
 _ANNUEL = re.compile(r"(?i)\bannuel|\bpar an\b|sur l.ann[ée]e|/ ?an\b")
 _MENSUEL = re.compile(r"(?i)\bmensuel|\bpar mois\b|/ ?mois\b")
 #: Là où une confusion de période est possible : un revenu, une rémunération.
-_CONTEXTE = re.compile(
-    r"(?i)revenu|r[ée]mun[ée]ration|salaire|pr[ée]l[èe]vement|mensuel|par mois|/ ?mois"
+_REVENU = re.compile(r"(?i)revenu|r[ée]mun[ée]ration|salaire|pr[ée]l[èe]vement")
+#: Un prix n'est jamais une période divisée : « ateliers à 100 € » (revue du
+#: 30/09/2026 — une rémunération de 14 400 €/an tombe sur 100 € ÷ 144).
+#: Un prix unitaire s'écrit « 20 ateliers à 100 € » ou « à 100 € l'atelier » —
+#: jamais « le revenu ressort à 100 € », qui est un montant, pas un prix.
+_PRIX = re.compile(
+    r"(?i)\bprix\b|\btarif|s[ée]ance|abonnement|par personne|par participant|panier"
+    r"|\d\s+\w+(?:\s+\w+)?\s+à\s+\d|\bà\s+\d[\d\s\u00a0\u202f,]*€\s*(?:l['’]|la |le |pi[èe]ce|unit)"
 )
 
 
@@ -57,7 +63,8 @@ def _le_plus_proche(
 def _textes(section: Section) -> Iterator[tuple[str, str]]:
     """(texte, contexte) : la phrase, ou la cellule avec son en-tête et sa ligne."""
     for paragraphe in section.paragraphes:
-        yield paragraphe, paragraphe
+        for phrase in phrases(paragraphe):
+            yield phrase, phrase
     for tableau in section.tableaux:
         lignes = list(tableau.lignes) or [tableau.entetes]
         for ligne in lignes:
@@ -70,7 +77,11 @@ def _redivise(
     n: Nombre, texte: str, contexte: str, flux: list[tuple[Fait, float]], connus: list[float],
     section: str,
 ) -> Constat | None:
-    if not n.monetaire or n.valeur <= 0 or not _CONTEXTE.search(contexte):
+    # Un revenu ET une période mensuelle, sans prix : la seule lecture où
+    # « fait annuel ÷ 144 » n'est pas une coïncidence.
+    if not n.monetaire or n.valeur <= 0:
+        return None
+    if not (_REVENU.search(contexte) and _MENSUEL.search(contexte)) or _PRIX.search(contexte):
         return None
     if any(proche(n.valeur, v, relatif=0.005) for v in connus):
         return None
@@ -107,7 +118,7 @@ def controler(document: Document, reference: Reference) -> list[Constat]:
                     contexte = f"{ligne[0]} {entete}"
                     annuel = bool(_ANNUEL.search(contexte)) and not _MENSUEL.search(contexte)
                     mensuel = bool(_MENSUEL.search(contexte)) and not _ANNUEL.search(contexte)
-                    if not (annuel or mensuel) or not _CONTEXTE.search(f"{contexte} revenu"):
+                    if not (annuel or mensuel) or not _REVENU.search(contexte):
                         continue
                     for n in nombres(cellule):
                         if not n.monetaire or n.valeur <= 0:

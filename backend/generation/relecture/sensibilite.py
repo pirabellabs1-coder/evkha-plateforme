@@ -35,23 +35,20 @@ import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 
+from ..memoire.faits import BAISSES_DE_SENSIBILITE
 from .constat import Constat, Reference
 from .document import Document, Section, Tableau
+from .valeurs import BAISSE
 
 CLASSE = "sensibilite"
 
 #: Les deux scénarios exigés (cliente, 30/09/2026).
-BAISSES_EXIGEES = (10, 20)
+#: Une seule liste : celle que la mémoire calcule (`faits_de_sensibilite`).
+BAISSES_EXIGEES = BAISSES_DE_SENSIBILITE
 
-#: Une baisse de N % : « −10 % », « baisse de 20 % », « inférieur de 10 % »,
-#: « 20 % de moins ».
-_BAISSE = re.compile(
-    r"(?i)(?:(?<![\w%])[-−–]\s?(\d{1,2})\s?%"
-    r"|\b(?:baisse|recul|diminution|repli|chute|perte|contraction)\s+(?:de\s+|d['’])?"
-    r"(?:[\w'’]+\s+){0,5}?(\d{1,2})\s?%"
-    r"|\binf[ée]rieure?s?\s+de\s+(\d{1,2})\s?%"
-    r"|\b(\d{1,2})\s?%\s+(?:de\s+)?(?:moins|en\s+moins))"
-)
+#: Une baisse de N % — une seule définition, partagée avec la lecture des
+#: valeurs datées, qui ne doit pas juger un scénario comme le prévisionnel.
+_BAISSE = BAISSE
 _CHIFFRE_D_AFFAIRES = re.compile(r"(?i)chiffres?\s+d['’]\s?affaires|\bCA\b|\bventes\b")
 #: « stress-test », pas « gestion du stress » (revue du 30/09/2026).
 _SENSIBILITE = re.compile(r"(?i)sensibilit|sc[ée]nario|stress[- ]test|d[ée]grad")

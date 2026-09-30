@@ -130,6 +130,14 @@ def document_du_chapitre(payload: Any) -> Document:
         elif genre == "graphique":
             graphique = _objet(bloc, "graphique")
             courante.figures.append(_propre(str(graphique.get("titre") or "")))
+        elif genre == "grille_kpi":
+            # Les chiffres clés sont lus AVANT le texte : un chiffre faux y
+            # compte autant qu'en prose (revue du 30/09/2026).
+            for cellule in bloc.get("cellules") or []:
+                if isinstance(cellule, Mapping) and str(cellule.get("valeur") or "").strip():
+                    courante.paragraphes.append(_propre(
+                        f"{cellule.get('libelle') or ''} : {cellule.get('valeur')}"
+                    ))
     return Document(sections=[s for s in sections if s.paragraphes or s.tableaux or s.figures])
 
 

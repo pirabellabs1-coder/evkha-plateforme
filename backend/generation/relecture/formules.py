@@ -45,8 +45,15 @@ def _euros(montant: float) -> str:
 _ROLES = (
     ("seuil", re.compile(r"(?i)seuil de rentabilit")),
     ("charges", re.compile(r"(?i)charges fixes")),
-    ("taux", re.compile(r"(?i)\bmarge\b|\btaux de marge")),
+    # Le taux de marge sur coûts variables — jamais la marge de SÉCURITÉ, nette
+    # ou d'EBE, qui sont d'autres grandeurs (revue du 30/09/2026).
+    ("taux", re.compile(
+        r"(?i)taux de marge|marge sur co[ûu]ts variables|marge brute|"
+        r"\bmarge\b(?!\s+(?:de\s+s[ée]curit|nette|d.EBE|d.exploitation))"
+    )),
 )
+#: Des charges fixes MENSUELLES ne se divisent pas comme des annuelles.
+_MENSUELLES = re.compile(r"(?i)^\s*(?:€\s*)?(?:par mois|/ ?mois|mensuel)")
 
 
 def _roles(phrase: str) -> dict[str, Nombre]:
@@ -93,6 +100,8 @@ def _seuils(document: Document, reference: Reference) -> list[Constat]:
             if seuil is None or taux is None or taux.valeur <= 0:
                 continue
             charges = roles.get("charges")
+            if charges is not None and _MENSUELLES.match(phrase[charges.fin:]):
+                continue
             annees = [int(a) for a in re.findall(r"\b(20[2-6]\d)\b", phrase)]
             montant_charges = charges.valeur if charges else (
                 charges_du_document.get(annees[0]) if annees else None
@@ -106,9 +115,9 @@ def _seuils(document: Document, reference: Reference) -> list[Constat]:
                 "formule", section.numero, phrase[:220],
                 f"Formule fausse : charges fixes ÷ taux de marge = {_euros(montant_charges)} "
                 f"÷ {taux.ecriture} = {_euros(attendu)}, pas {seuil.ecriture}. Les charges "
-                "fixes citées ne sont pas celles qui donnent ce seuil. Cite le repère du "
-                "seuil de l'exercice ({{seuil_rentabilite_anN}}) sans le recalculer, ou les "
-                "charges fixes complètes.",
+                "fixes citées ne sont pas celles qui donnent ce seuil. Cite le seuil calculé "
+                "pour l'exercice par la mémoire, sans le recalculer, ou les charges fixes "
+                "complètes.",
             ))
     return constats
 
@@ -137,7 +146,11 @@ def _operations(document: Document) -> list[Constat]:
                     continue
                 signe = operateur.group(1).lower()
                 x, y = _valeur_operande(a), _valeur_operande(b)
-                if signe in ("÷", "/") or signe.startswith("divis"):
+                baisse_ou_hausse = signe in ("−", "-", "moins", "+", "plus")
+                if b.pourcentage and not a.pourcentage and baisse_ou_hausse:
+                    # « 80 000 € − 10 % » : une baisse de 10 %, pas une soustraction.
+                    calcul = x * (1 - y) if signe in ("−", "-", "moins") else x * (1 + y)
+                elif signe in ("÷", "/") or signe.startswith("divis"):
                     if y == 0:
                         continue
                     calcul = x / y
@@ -168,6 +181,8 @@ _PERSONNES = (
 )
 _EFFECTIF = re.compile(rf"(?i)\b(\d[\d  ]*)\s+{_PERSONNES}\b")
 _OBJECTIF = re.compile(r"(?i)ambition|objectif|vis[ée]|atteindre|chiffre d.affaires")
+#: Une fréquence d'achat rend le produit « effectif × panier » faux par nature.
+_FREQUENCE = re.compile(r"(?i)par an\b|par mois|\bfois\b|s[ée]ances|abonnement|visites")
 #: Les quantités vagues et l'intervalle qu'elles promettent.
 _VAGUE = {
     re.compile(rf"(?i)\bune poign[ée]e (de |d.){_PERSONNES}"): (2, 15, "une poignée"),
@@ -219,10 +234,17 @@ def _ordres_de_grandeur(document: Document, reference: Reference) -> list[Consta
                 effectif = _EFFECTIF.search(phrase)
                 annee = _annee_visee(phrase, reference)
                 objectif = _chiffre_d_affaires(reference, annee)
-                if effectif and objectif and re.search(r"(?i)panier|prix moyen", phrase):
+                if (
+                    effectif and objectif and re.search(r"(?i)panier|prix moyen", phrase)
+                    and not _FREQUENCE.search(phrase)
+                ):
                     n = float(re.sub(r"\D", "", effectif.group(1)))
                     produit = n * panier
-                    if n >= 2 and not 0.7 <= produit / objectif <= 1.3:
+                    deja_ecrit = any(
+                        n_.monetaire and proche(n_.valeur, produit, relatif=0.02)
+                        for n_ in nombres(phrase)
+                    )
+                    if n >= 2 and not deja_ecrit and not 0.7 <= produit / objectif <= 1.3:
                         constats.append(Constat(
                             "formule", section.numero, phrase[:220],
                             f"Ordre de grandeur faux : {_entier(n)} × {_euros(panier)} = "
@@ -230,6 +252,9 @@ def _ordres_de_grandeur(document: Document, reference: Reference) -> list[Consta
                             f"({_euros(objectif)}) ; il faudrait environ "
                             f"{_entier(objectif / panier)} personnes. Écris l'ordre de "
                             "grandeur juste, ou retire le rapprochement.",
+                            # Un achat par personne et par an est une hypothèse que la
+                            # mémoire ne fait pas : un signal, jamais une reprise.
+                            grave=False,
                         ))
             for motif, (bas, haut, mots) in _VAGUE.items():
                 if not motif.search(phrase) or not panier:
@@ -253,6 +278,7 @@ def _ordres_de_grandeur(document: Document, reference: Reference) -> list[Consta
                     f"« {mots} » ne décrit pas l'ordre de grandeur : {_euros(objectif)} au "
                     f"panier de {_euros(panier)} demandent environ {_entier(besoin)} "
                     "personnes. Écris le nombre calculé, ou retire la quantité.",
+                    grave=False,  # même hypothèse d'un achat par personne : un signal
                 ))
             precedente = phrase
     return constats

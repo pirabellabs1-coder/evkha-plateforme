@@ -89,3 +89,60 @@ def test_une_etude_de_marche_n_en_porte_pas() -> None:
     """Contre-épreuve : la sensibilité est une pièce du business plan."""
     memoire = MemoireEtude.construire(_socle(), {}, "market_study")
     assert not [i for i in memoire.faits if "_moins_" in i]
+
+
+def _socle_a_60_pc(charges_fixes_an2: float | None = None) -> Socle:
+    """Un taux de marge de 60 % : un taux de 100 % masque les erreurs de ×/÷ taux."""
+    donnees: list[dict[str, Any]] = [
+        {"id": f"{serie}_an{rang}", "libelle": f"{serie} {rang}", "valeur": valeur,
+         "unite": "EUR", "annee": 2026 + rang, "perimetre": "entreprise",
+         "fiabilite": "declaree"}
+        for serie, valeurs in (
+            ("ca_previsionnel", (20_000.0, 40_000.0)),
+            ("resultat_net", (100.0, 6_000.0)),
+        )
+        for rang, valeur in enumerate(valeurs, start=1)
+    ]
+    donnees.append({
+        "id": "marge_brute_taux", "libelle": "Taux de marge", "valeur": 60.0,
+        "unite": "%", "annee": 2027, "perimetre": "entreprise", "fiabilite": "scenario",
+    })
+    if charges_fixes_an2 is not None:
+        donnees.append({
+            "id": "charges_fixes_an2", "libelle": "Charges fixes 2", "valeur": charges_fixes_an2,
+            "unite": "EUR", "annee": 2028, "perimetre": "entreprise", "fiabilite": "declaree",
+        })
+    return Socle.model_validate({
+        "secteur": "loisirs", "zone": {"pays": "France"}, "date_socle": "2026-09-01",
+        "donnees": donnees, "concurrents": [],
+    })
+
+
+def test_a_60_pc_le_seuil_et_la_sensibilite_divisent_et_multiplient_par_le_taux() -> None:
+    """CA 40 000 €, résultat 6 000 €, marge 60 % : charges fixes 18 000 €, seuil 30 000 €.
+
+    À −10 %, la marge perdue est 4 000 € × 60 % = 2 400 € : le résultat passe à
+    3 600 € — pas à 2 000 € (baisse du CA entière) ni à 6 000 € − 4 000 ÷ 0,6.
+    """
+    memoire = MemoireEtude.construire(_socle_a_60_pc(), {}, "business_plan")
+    assert memoire.faits["seuil_rentabilite_an2"].valeur == pytest.approx(30_000.0)
+    assert memoire.faits["marge_securite_an2"].valeur == pytest.approx(25.0)
+    assert memoire.faits["resultat_net_moins_10_pc_an2"].valeur == pytest.approx(3_600.0)
+    assert memoire.faits["resultat_net_moins_20_pc_an2"].valeur == pytest.approx(1_200.0)
+
+
+def test_les_charges_fixes_declarees_font_le_seuil() -> None:
+    """Le socle déclare 21 000 € de charges fixes : seuil 35 000 €, pas les 30 000 € reconstitués.
+
+    Le résultat net a pu supporter l'impôt ou des intérêts : le seuil reconstitué
+    depuis lui n'est qu'un repli, qui dit son hypothèse.
+    """
+    faits = faits_de_l_etude(_socle_a_60_pc(charges_fixes_an2=21_000.0))
+    assert faits["seuil_rentabilite_an2"].valeur == pytest.approx(35_000.0)
+    assert faits["seuil_rentabilite_an2"].formule == "charges_fixes_an2 ÷ marge_brute_taux"
+    assert faits["marge_securite_an2"].valeur == pytest.approx(12.5)
+
+
+def test_le_seuil_reconstitue_dit_son_hypothese() -> None:
+    faits = faits_de_l_etude(_socle_a_60_pc())
+    assert "sans impôt" in faits["seuil_rentabilite_an2"].formule

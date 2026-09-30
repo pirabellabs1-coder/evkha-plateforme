@@ -251,24 +251,24 @@ def _controler_le_pdf_rendu(job: GenerationJob, chemin_pdf: Path, chemin_docx: P
             chapitres_annonces=chapitres_annonces(str(job.deliverable_type)),
             auteur_attendu=auteur,
         )
+        rapport = dict(job.controle_final or {})
+        rapport["rendu_pdf"] = [c.en_dict() for c in constats]
+        type(job).objects.filter(pk=job.pk).update(controle_final=rapport)
+        job.controle_final = rapport
+        if constats:
+            OperationalIncident.objects.update_or_create(
+                job=job,
+                title=f"Rendu PDF : {len(constats)} constat(s) — job {job.id}",
+                defaults={
+                    "severity": IncidentSeverity.MEDIUM,
+                    "order": job.order,
+                    "details": {"constats": [c.en_dict() for c in constats]},
+                },
+            )
     except Exception:  # noqa: BLE001 — un contrôle de lecture ne tue pas une livraison
         _log.exception("Job %s : relecture du PDF impossible.", job.id)
-        return
-
-    rapport = dict(job.controle_final or {})
-    rapport["rendu_pdf"] = [c.en_dict() for c in constats]
-    type(job).objects.filter(pk=job.pk).update(controle_final=rapport)
-    job.controle_final = rapport
-    if constats:
-        OperationalIncident.objects.update_or_create(
-            job=job,
-            title=f"Rendu PDF : {len(constats)} constat(s) — job {job.id}",
-            defaults={
-                "severity": IncidentSeverity.MEDIUM,
-                "order": job.order,
-                "details": {"constats": [c.en_dict() for c in constats]},
-            },
-        )
+    # La relecture du texte est un AUTRE contrôle : la panne du premier ne la
+    # dispense pas (revue du 30/09/2026).
     _relire_le_texte_du_pdf(job, chemin_pdf)
 
 
@@ -299,29 +299,28 @@ def _relire_le_texte_du_pdf(job: GenerationJob, chemin_pdf: Path) -> None:
             document_entier=True,
         )
         constats = relire(document_du_pdf(chemin_pdf), reference)
+        graves = [c for c in constats if c.grave]
+        rapport = dict(job.controle_final or {})
+        rapport["relecture_texte"] = {
+            "total": len(constats),
+            "graves": len(graves),
+            "par_classe": dict(Counter(c.classe for c in constats)),
+            "constats": [asdict(c) for c in constats[:MAX_CONSTATS_CONSIGNES]],
+        }
+        type(job).objects.filter(pk=job.pk).update(controle_final=rapport)
+        job.controle_final = rapport
+        if graves:
+            OperationalIncident.objects.update_or_create(
+                job=job,
+                title=f"Relecture du texte : {len(graves)} erreur(s) restante(s) — job {job.id}",
+                defaults={
+                    "severity": IncidentSeverity.MEDIUM,
+                    "order": job.order,
+                    "details": {"par_classe": rapport["relecture_texte"]["par_classe"]},
+                },
+            )
     except Exception:  # noqa: BLE001 — une relecture ne tue pas une livraison
         _log.exception("Job %s : relecture du texte du PDF impossible.", job.id)
-        return
-    graves = [c for c in constats if c.grave]
-    rapport = dict(job.controle_final or {})
-    rapport["relecture_texte"] = {
-        "total": len(constats),
-        "graves": len(graves),
-        "par_classe": dict(Counter(c.classe for c in constats)),
-        "constats": [asdict(c) for c in constats[:MAX_CONSTATS_CONSIGNES]],
-    }
-    type(job).objects.filter(pk=job.pk).update(controle_final=rapport)
-    job.controle_final = rapport
-    if graves:
-        OperationalIncident.objects.update_or_create(
-            job=job,
-            title=f"Relecture du texte : {len(graves)} erreur(s) restante(s) — job {job.id}",
-            defaults={
-                "severity": IncidentSeverity.MEDIUM,
-                "order": job.order,
-                "details": {"par_classe": rapport["relecture_texte"]["par_classe"]},
-            },
-        )
 
 
 def assembler_livrable_word(

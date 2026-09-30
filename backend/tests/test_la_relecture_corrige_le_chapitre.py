@@ -22,7 +22,7 @@ from catalog.models import DeliverableType, Offer
 from customers.models import Customer
 from generation.chapitres.services import produire_avec_reprises
 from generation.chapitres.stub import chapitre_de_demonstration
-from generation.models import GenerationJob
+from generation.models import ChapterGeneration, GenerationJob
 from generation.services import bootstrap_generation_job
 from generation.socle import etablir_socle
 from intake.models import IntakeStatus, IntakeSubmission
@@ -140,3 +140,72 @@ def test_un_pdf_juste_ne_laisse_rien(tmp_path: Path) -> None:
     # Le document de deux lignes n'est pas un business plan complet (sa
     # sensibilité manque, par exemple) : on juge ici l'opération seule.
     assert "formule" not in job.controle_final["relecture_texte"]["par_classe"]
+
+
+def test_sans_memoire_la_consigne_de_reprise_porte_des_valeurs_et_non_des_reperes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Revue du 30/09/2026 : le rédacteur sans mémoire ne connaît aucun `{{repère}}`.
+
+    Recopié, le repère s'imprime tel quel ; cité, il est puni comme inconnu. La
+    consigne lui donne donc la VALEUR du fait.
+    """
+    from generation import relecture
+    from generation.chapitres.runner import _relire_le_chapitre
+    from generation.memoire.reperes import valeur_affichee
+    from generation.memoire.services import memoire_de_relecture
+    from generation.relecture import Constat
+
+    job = _dossier("e")
+    memoire = memoire_de_relecture(job)
+    assert memoire is not None and memoire.faits
+    identifiant, fait = next(iter(memoire.faits.items()))
+    constat = Constat(
+        "coherence", "16.1", "un chiffre", f"Le chiffre juste est {{{{{identifiant}}}}}.",
+    )
+    monkeypatch.setattr(relecture, "relire", lambda *_: [constat])
+    monkeypatch.setattr(relecture, "document_du_chapitre", lambda _: None)
+
+    motifs = _relire_le_chapitre(
+        None, job, ChapterGeneration(chapter_number=16), None, derniere_tentative=False,
+    )
+    assert motifs and "{{" not in " ".join(motifs)
+    assert valeur_affichee(fait) in motifs[0]
+
+
+def test_avec_memoire_la_consigne_garde_le_repere(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Contre-épreuve : le rédacteur qui a la mémoire cite le repère, pas la valeur."""
+    from generation import relecture
+    from generation.chapitres.runner import _relire_le_chapitre
+    from generation.memoire.services import memoire_de_relecture
+    from generation.relecture import Constat
+
+    job = _dossier("f")
+    memoire = memoire_de_relecture(job)
+    assert memoire is not None and memoire.faits
+    identifiant = next(iter(memoire.faits))
+    constat = Constat("coherence", "16.1", "un chiffre", f"Cite {{{{{identifiant}}}}}.")
+    monkeypatch.setattr(relecture, "relire", lambda *_: [constat])
+    monkeypatch.setattr(relecture, "document_du_chapitre", lambda _: None)
+
+    motifs = _relire_le_chapitre(
+        None, job, ChapterGeneration(chapter_number=16), memoire, derniere_tentative=False,
+    )
+    assert f"{{{{{identifiant}}}}}" in motifs[0]
+
+
+def test_la_relecture_du_texte_tourne_meme_si_le_controle_du_rendu_tombe(tmp_path: Path) -> None:
+    """Revue du 30/09/2026 : la panne du contrôle de rendu sautait la relecture du texte.
+
+    Ici le Word est illisible (absent) : le contrôle du rendu échoue, la
+    relecture du texte consigne quand même.
+    """
+    from documents.livrable_word import _controler_le_pdf_rendu
+
+    job = _dossier("g")
+    chemin = tmp_path / "livrable.pdf"
+    chemin.write_bytes(_pdf(["1.1 Un calcul", "Le calcul est simple : 1200 / 12 = 150."]))
+    _controler_le_pdf_rendu(job, chemin, tmp_path / "absent.docx")
+    job.refresh_from_db()
+    assert "rendu_pdf" not in job.controle_final
+    assert job.controle_final["relecture_texte"]["par_classe"].get("formule")

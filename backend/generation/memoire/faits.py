@@ -221,11 +221,13 @@ def _seuil_et_marge_de_securite(
     dans quatre sections. Un fait daté ne se réutilise pas pour une autre
     année : le seuil se calcule exercice par exercice.
 
-    Seuil = charges fixes ÷ taux de marge sur coûts variables. Le résultat
-    valant marge − charges fixes, le seuil s'écrit aussi CA − résultat ÷ taux
-    de marge : il se calcule depuis le chiffre d'affaires, le résultat net et
-    le taux de marge, sans charges fixes déclarées. Pour l'exercice du seuil
-    du socle, les deux calculs coïncident (24 852 − 50 = 24 802 sur ÉCLORE).
+    Seuil = charges fixes ÷ taux de marge sur coûts variables : c'est le
+    calcul retenu dès que le socle déclare les charges fixes de l'exercice.
+    Sinon, le résultat valant marge − charges fixes, le seuil s'écrit aussi
+    CA − résultat ÷ taux de marge — exact tant que le résultat net n'a
+    supporté ni impôt ni charge financière, ce que sa formule dit en clair.
+    Pour l'exercice du seuil du socle, les deux calculs coïncident
+    (24 852 − 50 = 24 802 sur ÉCLORE).
 
     Sans taux de marge ou sans résultat, on ne calcule que ce qui est juste :
     la marge de sécurité de l'exercice MÊME du seuil du socle.
@@ -235,7 +237,23 @@ def _seuil_et_marge_de_securite(
     taux = next((faits[i] for i in _TAUX_DE_MARGE if i in faits), None)
     seuil_du_socle = faits.get("seuil_rentabilite")
     seuil: Fait | None = None
-    if resultat is not None and taux is not None and taux.valeur > 0:
+    charges = series.get("charges_fixes", {}).get(rang)
+    definition = (
+        "chiffre d'affaires HT qui couvre exactement les charges fixes de CET "
+        "exercice ; chaque exercice a le sien"
+    )
+    if charges is not None and taux is not None and taux.valeur > 0:
+        # La définition même, quand le socle porte les charges fixes (revue du
+        # 30/09/2026 : la même identité que `socle.calculs`).
+        part = taux.valeur / 100.0
+        seuil = _derive(
+            f"seuil_rentabilite_an{rang}", (charges,), lambda v: v[0] / part,
+            libelle=f"Seuil de rentabilité, exercice {rang}",
+            formule=f"charges_fixes_an{rang} ÷ {taux.id}",
+            annee=ca.annee, periode="an", definition=definition,
+        )
+        resultats.append(seuil)
+    elif resultat is not None and taux is not None and taux.valeur > 0:
         part = taux.valeur / 100.0
         seuil = _derive(
             f"seuil_rentabilite_an{rang}", (ca, resultat),
@@ -243,13 +261,10 @@ def _seuil_et_marge_de_securite(
             libelle=f"Seuil de rentabilité, exercice {rang}",
             formule=(
                 f"ca_previsionnel_an{rang} − resultat_net_an{rang} ÷ {taux.id} "
-                "(= charges fixes ÷ taux de marge)"
+                "(= charges fixes ÷ taux de marge, sans impôt sur les sociétés : "
+                "le résultat net y tient lieu de résultat avant impôt)"
             ),
-            annee=ca.annee, periode="an",
-            definition=(
-                "chiffre d'affaires HT qui couvre exactement les charges fixes de "
-                "CET exercice ; chaque exercice a le sien"
-            ),
+            annee=ca.annee, periode="an", definition=definition,
         )
         resultats.append(seuil)
     elif seuil_du_socle is not None and seuil_du_socle.annee in (None, ca.annee):

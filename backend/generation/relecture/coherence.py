@@ -14,9 +14,17 @@ from __future__ import annotations
 
 import re
 
+from ..memoire.etude import MemoireEtude
 from .constat import Constat, Reference
 from .document import Document
-from .valeurs import en_euros, fait_de, faits_de_la_serie, phrases_de, valeurs_datees
+from .valeurs import (
+    en_euros,
+    fait_de,
+    faits_de_la_serie,
+    phrases_de,
+    tolerance_ecrite,
+    valeurs_datees,
+)
 
 #: Les calculs qu'une définition interdit : (ce qui est calculé, la base
 #: interdite, le signe d'un calcul fait sur cette base, ce qui l'excuse,
@@ -86,7 +94,8 @@ def _faits_par_annee(document: Document, reference: Reference) -> list[Constat]:
         attendu = en_euros(fait) if not valeur.nombre.pourcentage else fait.valeur
         if attendu is None:
             continue
-        tolerance = 0.15 if valeur.nombre.pourcentage else attendu * 0.005 + 1
+        # Un texte qui arrondit n'a pas faux : la tolérance suit sa précision.
+        tolerance = max(tolerance_ecrite(valeur.nombre), 0.005 * abs(attendu))
         if abs(valeur.nombre.valeur - attendu) <= tolerance:
             continue
         autre = next(
@@ -99,18 +108,45 @@ def _faits_par_annee(document: Document, reference: Reference) -> list[Constat]:
             ),
             None,
         )
-        origine = (
-            f"c'est celui de {autre.annee}, qui ne vaut que pour son exercice"
-            if autre is not None else
-            f"il n'a pas été calculé sur l'exercice {valeur.annee}"
+        seuil_d_un_autre = (
+            valeur.serie == "marge_securite"
+            and _marge_sur_le_seuil_d_un_autre_exercice(memoire, valeur.annee, valeur.nombre.valeur,
+                                                        tolerance)
         )
+        if autre is not None:
+            origine = f"c'est celui de {autre.annee}, qui ne vaut que pour son exercice"
+        elif seuil_d_un_autre:
+            origine = "elle est calculée sur le seuil d'un AUTRE exercice"
+        else:
+            origine = f"elle ne correspond pas au calcul de l'exercice {valeur.annee}"
         constats.append(Constat(
             "fait_par_annee", valeur.section, valeur.passage[:220],
             f"{nom[0].upper()}{nom[1:]} {valeur.annee} écrit « {valeur.nombre.ecriture} » : "
             f"{origine}. La mémoire le calcule exercice par exercice : cite "
             f"{{{{{fait.id}}}}}.",
+            # Grave seulement sur un diagnostic POSITIF (revue du 30/09/2026) :
+            # sans lui, l'écart peut être un arrondi ou une autre grandeur, et
+            # une reprise payée n'y changerait rien.
+            grave=autre is not None or bool(seuil_d_un_autre),
         ))
     return constats
+
+
+def _marge_sur_le_seuil_d_un_autre_exercice(
+    memoire: MemoireEtude | None, annee: int, valeur: float, tolerance: float,
+) -> bool:
+    """La marge de l'exercice calculée sur le seuil d'un AUTRE exercice (51,5 % sur ÉCLORE)."""
+    ca = fait_de(memoire, "ca_previsionnel", annee)
+    chiffre = en_euros(ca) if ca else None
+    if not chiffre:
+        return False
+    for seuil in faits_de_la_serie(memoire, "seuil_rentabilite"):
+        montant = en_euros(seuil)
+        if seuil.annee == annee or montant is None:
+            continue
+        if abs((chiffre - montant) / chiffre * 100 - valeur) <= tolerance:
+            return True
+    return False
 
 
 def controler(document: Document, reference: Reference) -> list[Constat]:

@@ -91,12 +91,28 @@ class Decision:
 
 
 def regime_de_tva(
-    ca_ht: float, annee: int, nature: Nature = Nature.SERVICES
+    ca_ht: float, annee: int, nature: Nature = Nature.SERVICES,
+    *, ca_precedent: float | None = None,
 ) -> Decision | None:
-    """Franchise ou TVA obligatoire, selon le chiffre d'affaires HT de l'année."""
+    """Franchise ou TVA obligatoire, selon le chiffre d'affaires HT de l'année ET de la précédente.
+
+    Art. 293 B CGI : la franchise de l'année N exige un chiffre d'affaires N−1
+    sous le seuil ET un chiffre d'affaires N sous le seuil majoré. Une année qui
+    suit un dépassement du seuil est donc soumise à la TVA dès le 1er janvier,
+    même si son propre chiffre d'affaires redescend (revue du 30/09/2026).
+    """
     seuil = _seuil(FRANCHISE_TVA, nature, annee)
     if seuil is None:
         return None
+    if ca_precedent is not None and ca_precedent > seuil.valeur:
+        return Decision(
+            "regime_tva", "TVA obligatoire", annee,
+            (
+                f"chiffre d'affaires HT de l'année précédente au-dessus du seuil de "
+                f"franchise ({seuil.valeur:,.0f} €) : la TVA s'applique dès le 1er janvier "
+                "— la TVA est OBLIGATOIRE, ce n'est pas un choix"
+            ).replace(",", " "),
+        )
     if ca_ht <= seuil.valeur:
         return Decision(
             "regime_tva", "franchise en base", annee,

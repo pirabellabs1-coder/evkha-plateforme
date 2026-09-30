@@ -476,3 +476,50 @@ dépend donc aussi de la présence de ses documents.
 Ce qui n'est pas prouvé : l'effet du lot `76fb7dc` sur un document — les faits
 client des dossiers existants sont déjà verrouillés ; seule une nouvelle
 génération le lira.
+
+## 30/09/2026 — relecture du texte final (onze classes), puis sa revue
+
+Business plan ÉCLORE `28a257bf` (104 pages) : le contrôleur laissait passer
+onze classes d'erreurs — périodes, définitions, formules, faits par année,
+tableaux qui ne bouclent pas, comptages et décisions, fuites et renvois,
+graphiques, sources, mise en page, sensibilité. Chacune a son contrôle dans
+`generation/relecture/`, branché à deux endroits, jamais bloquant :
+
+- avant rendu, sur CHAQUE chapitre (mémoire active ou non) : un constat grave
+  fait reprendre le chapitre avec sa consigne ; au dernier essai, le chapitre
+  est gardé et le constat tracé dans `memoire_etude["relecture"]` ;
+- après rendu, sur le PDF que le client lit : `controle_final["relecture_texte"]`
+  et un incident.
+
+Régression sur le PDF lui-même, sans le régénérer
+(`manage.py relire_un_pdf tests/fixtures/eclore_v2.pdf --reference … --attendus …`,
+fichiers hors git) : **43 erreurs détectées sur 43 attendues** ; les 68 autres
+constats relus un à un.
+
+La revue de code a ensuite trouvé des faux positifs GRAVES sur du texte juste —
+chacun aurait payé une réécriture de chapitre sur tous les dossiers : le tableau
+de sensibilité que la consigne 16 exige, le compte de résultat d'une société à
+l'IS (résultat financier, RCAI, rémunération du dirigeant, charges en négatif),
+un arrondi (« 31 % » pour 31,25 %), le chiffre d'affaires d'un marché, un prix
+d'atelier tombé par hasard sur une rémunération ÷ 144, la marge de sécurité
+lue comme taux de marge, des charges fixes mensuelles, un prix le plus bas par
+segment. Correctifs par classe ; 24 contre-épreuves
+(`tests/test_relecture_contre_epreuves.py`), dont 16 échouent sur le code
+d'avant. Un constat n'est plus grave que sur un diagnostic POSITIF (autre
+série, autre exercice, seuil d'un autre exercice) ; sinon c'est un signal.
+
+Rejouer la régression après la revue a montré une régression du correctif
+lui-même : la nouvelle règle « toute ligne entre le CA et l'EBE est une charge »
+signalait le tableau d'INDICATEURS de 11.3 (« Résultat net » rangé entre les
+deux). Corrigé (un résultat, un stock, un ratio n'est pas une ligne de flux)
+et verrouillé ; la régression reste à 43/43 avec les mêmes autres constats
+qu'avant la revue.
+
+Aussi : seuil de rentabilité de la mémoire = charges fixes ÷ taux quand le socle
+les déclare (sinon CA − résultat ÷ taux, hypothèse écrite dans la formule) ;
+TVA jugée avec l'année précédente (art. 293 B : au-dessus du seuil en N−1, TVA
+au 1er janvier de N) ; consignes de reprise sans `{{repère}}` pour un dossier
+rédigé sans mémoire.
+
+Ce que cela ne prouve pas : ce qu'un vrai modèle écrit avec ces reprises
+(règle 7). La preuve est une génération réelle, relue par les mêmes contrôles.

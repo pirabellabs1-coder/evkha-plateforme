@@ -122,7 +122,13 @@ def decisions_de_l_etude(
         ca = faits.get(f"ca_previsionnel_an{rang}")
         if ca is None or ca.annee is None:
             continue
-        tva = regime_de_tva(ca.valeur, ca.annee, nature)
+        # La franchise d'une année dépend AUSSI de l'année précédente
+        # (art. 293 B CGI, revue du 30/09/2026).
+        precedent = faits.get(f"ca_previsionnel_an{rang - 1}")
+        tva = regime_de_tva(
+            ca.valeur, ca.annee, nature,
+            ca_precedent=precedent.valeur if precedent is not None else None,
+        )
         if tva is not None:
             decisions.append(tva)
         if en_micro:

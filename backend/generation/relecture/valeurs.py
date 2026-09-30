@@ -83,6 +83,17 @@ def proche(a: float, b: float, *, relatif: float = 0.01, absolu: float = 0.01) -
     return abs(a - b) <= max(abs(b) * relatif, absolu)
 
 
+def tolerance_ecrite(nombre: Nombre) -> float:
+    """La moitié de la dernière unité ÉCRITE : « 16 % » vaut 15,5 à 16,5 ; « 15,7 % », ±0,05.
+
+    Un texte qui arrondit n'a pas faux (revue du 30/09/2026) : la tolérance
+    suit la précision qu'il affiche, pas celle de la mémoire.
+    """
+    chiffres = re.sub(r"[^\d,]", "", nombre.ecriture)
+    decimales = len(chiffres.split(",", 1)[1]) if "," in chiffres else 0
+    return 0.5 / 10.0 ** decimales
+
+
 def extrait(texte: str, debut: int, fin: int, *, marge: int = 60) -> str:
     """Le passage autour d'un nombre, tel qu'écrit, coupé aux mots."""
     gauche = texte.rfind(" ", 0, max(0, debut - marge)) + 1
@@ -92,15 +103,36 @@ def extrait(texte: str, debut: int, fin: int, *, marge: int = 60) -> str:
 
 # ── Séries nommées ──────────────────────────────────────────────────────────
 
+#: Une baisse de N % de chiffre d'affaires : « −10 % », « – 20 % », « baisse de
+#: 20 % », « inférieur de 10 % », « 20 % de moins ». UNE définition, partagée
+#: avec `relecture.sensibilite` (règle 5) : la lecture des valeurs datées ne
+#: doit pas juger le scénario que la consigne 16 exige comme le prévisionnel
+#: central (revue du 30/09/2026).
+BAISSE = re.compile(
+    r"(?i)(?:(?<![\w%])[-−–]\s?(\d{1,2})\s?%"
+    r"|\b(?:baisse|recul|diminution|repli|chute|perte|contraction)\s+(?:de\s+|d['’])?"
+    r"(?:[\w'’]+\s+){0,5}?(\d{1,2})\s?%"
+    r"|\binf[ée]rieure?s?\s+de\s+(\d{1,2})\s?%"
+    r"|\b(\d{1,2})\s?%\s+(?:de\s+)?(?:moins|en\s+moins))"
+)
+
 #: Les séries que le texte nomme, dans l'ordre où les tester : la plus
 #: précise d'abord (« marge de sécurité sur le seuil » est une marge, pas un
 #: seuil). Chaque série a son unité : un montant ne se compare pas à un taux.
+#: « Résultat » seul est le résultat net ; un résultat courant, financier,
+#: exceptionnel ou avant impôt est une AUTRE ligne du compte de résultat.
 SERIES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"(?i)marge de s[ée]curit[ée]"), "marge_securite", "%"),
     (re.compile(r"(?i)seuil de rentabilit[ée]"), "seuil_rentabilite", "€"),
     (re.compile(r"(?i)capacit[ée] d.autofinancement|\bCAF\b"), "caf", "€"),
     (re.compile(r"(?i)exc[ée]dent brut|\bEBE\b"), "ebe", "€"),
-    (re.compile(r"(?i)r[ée]sultat net|\br[ée]sultat\b(?! d.exploitation)"), "resultat_net", "€"),
+    (
+        re.compile(
+            r"(?i)r[ée]sultat net|r[ée]sultat de l.exercice|\br[ée]sultat\b(?!\s+(?:d.exploitation|"
+            r"courant|financier|exceptionnel|avant|brut|fiscal|op[ée]rationnel|d.exploitation))"
+        ),
+        "resultat_net", "€",
+    ),
     (re.compile(r"(?i)chiffre d.affaires"), "ca_previsionnel", "€"),
     (re.compile(r"(?i)charges fixes"), "charges_fixes", "€"),
     (re.compile(r"(?i)panier moyen"), "panier_moyen", "€"),
@@ -109,14 +141,24 @@ SERIES: tuple[tuple[re.Pattern[str], str, str], ...] = (
 #: d'EBE est un taux, un « CA si −10 % » un scénario.
 _PAS_LA_SERIE = re.compile(
     r"(?i)\bmarge (d.EBE|nette|brute)|\btaux\b|\bpart\b|\bévolution\b|\bécart\b|"
-    r"\bmensuel|\bpar mois\b|[−-] ?\d+ ?%|\bsi\b|\bsans\b|\bnon retenu|\bvariante\b|"
-    r"\balternati|\bscénario (bas|haut|pessimiste|optimiste|dégradé|de baisse)"
+    r"\bmensuel|\bpar mois\b|\bsi\b|\bsans\b|\bnon retenu|\bvariante\b|"
+    r"\balternati|\bsc[ée]nario\b(?!\s+(central|retenu|de r[ée]f[ée]rence|prudent))|\bsensibilit"
 )
+#: Le chiffre d'affaires d'un MARCHÉ, d'un secteur ou d'un concurrent n'est pas
+#: celui du projet (revue du 30/09/2026).
+_AUTRE_QUE_LE_PROJET = re.compile(
+    r"(?i)\bmarch[ée]\b|\bsecteur\b|\bfili[èe]re\b|\bconcurren|\bacteurs?\b|\bleader\b"
+)
+
+
+def _hors_prevision(texte: str) -> bool:
+    """Un scénario, une variante, une baisse : pas le prévisionnel central."""
+    return bool(_PAS_LA_SERIE.search(texte) or BAISSE.search(texte))
 
 
 def serie_nommee(libelle: str, unite: str | None = None) -> str | None:
     """La série qu'un libellé nomme, de la bonne unité ; aucune s'il en nomme plusieurs."""
-    if _PAS_LA_SERIE.search(libelle):
+    if _hors_prevision(libelle):
         return None
     for motif, serie, unite_serie in SERIES:
         if motif.search(libelle):
@@ -190,7 +232,7 @@ def _valeurs_d_un_tableau(tableau: Tableau, section: Section) -> Iterator[Valeur
         if not ligne or (retenue and ligne not in retenue):
             continue
         libelle = ligne[0]
-        if _PAS_LA_SERIE.search(libelle):
+        if _hors_prevision(libelle):
             continue
         for j, cellule in enumerate(ligne[1:], start=1):
             valeurs = [n for n in nombres(cellule) if not est_une_annee(n)]
@@ -198,6 +240,8 @@ def _valeurs_d_un_tableau(tableau: Tableau, section: Section) -> Iterator[Valeur
                 continue
             nombre = valeurs[0]
             entete = entetes[j] if j < len(entetes) else ""
+            if _hors_prevision(entete):
+                continue  # une colonne « −10 % », « scénario bas »
             # La série : le libellé de la ligne, sinon l'en-tête de la colonne
             # (« Résultat 2029, scénario prudent »).
             serie = serie_nommee(libelle, nombre.unite) or serie_nommee(entete, nombre.unite)
@@ -218,7 +262,8 @@ def _valeurs_d_un_tableau(tableau: Tableau, section: Section) -> Iterator[Valeur
 
 
 #: Une phrase qui reprend la série de la précédente : « Elle s'élargit ensuite… ».
-_REPRISE = re.compile(r"(?i)^(elle|il|celle-ci|celui-ci|cette marge|ce seuil|ce r[ée]sultat)\b")
+#: « Il » est exclu : « Il reste 6 000 € en 2028 » est impersonnel.
+_REPRISE = re.compile(r"(?i)^(elle|celle-ci|celui-ci|cette marge|ce seuil|ce r[ée]sultat)\b")
 
 
 def _valeurs_d_une_phrase(
@@ -230,7 +275,11 @@ def _valeurs_d_une_phrase(
     son unité, et à l'année écrite JUSTE après lui (« en 2028 », « (2028) »),
     sans autre nombre entre les deux.
     """
+    if BAISSE.search(phrase) or re.search(r"(?i)\bsc[ée]nario|\bsensibilit|\bsi le ", phrase):
+        return  # un scénario, pas le prévisionnel central
     series = series_nommees(phrase)
+    if _AUTRE_QUE_LE_PROJET.search(phrase):
+        series = [(s, u) for s, u in series if s != "ca_previsionnel"]
     reprise = bool(heritees) and bool(_REPRISE.search(phrase))
     if not series and not reprise:
         return

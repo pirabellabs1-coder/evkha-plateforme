@@ -564,9 +564,9 @@ Nomme celle que tu emploies, et la base sur laquelle tu la calcules.
 
 10. UN SEUIL DE RENTABILITÉ SE POSE ET SE CONFRONTE AU RÉEL. Charges fixes
 divisees par la marge unitaire : cela donne un volume. Dis-le, puis dis si ce
-volume est atteignable avec la capacité du projet (sessions, places, rythme). Un seuil qui
-exige trois fois la capacité du client doit être signalé, pas présenté comme
-un plan.
+volume est atteignable avec la capacité du projet (heures, places, points de
+vente, volume de production). Un seuil qui exige trois fois la capacité du
+client doit être signalé, pas présenté comme un plan.
 
 11. UNE HAUSSE DE PRIX A UN EFFET SUR LE VOLUME. N'écris jamais qu'augmenter
 les tarifs de 20 % augmente les recettes de 20 % : dis quelle part de clients
@@ -2208,11 +2208,22 @@ def _relire_le_chapitre(
             "garde_au_dernier_essai": dernier and bool(graves),
         }
         trace["relecture"] = relecture
-        type(job).objects.filter(pk=job.pk).update(memoire_etude=trace)
+        try:
+            type(job).objects.filter(pk=job.pk).update(memoire_etude=trace)
+        except Exception:  # noqa: BLE001 — la trace ne tue jamais un chapitre
+            _log.exception("Trace de relecture du chapitre %s impossible.", chapter.chapter_number)
         job.memoire_etude = trace
     if dernier or not graves:
         return []
     motifs = [c.motif() for c in graves[:MAX_CONSTATS_DE_RELECTURE]]
+    if memoire is None and reference.memoire is not None:
+        # Le rédacteur de ce dossier n'a pas la mémoire : un `{{repère}}` dans
+        # sa consigne serait recopié tel quel, ou puni comme repère inconnu
+        # (revue du 30/09/2026). Il reçoit la valeur.
+        from ..memoire.reperes import remplacer_les_reperes  # noqa: PLC0415
+
+        faits = reference.memoire.faits
+        motifs = [remplacer_les_reperes(m, faits).texte for m in motifs]
     if len(graves) > MAX_CONSTATS_DE_RELECTURE:
         motifs.append(
             f"[relecture] et {len(graves) - MAX_CONSTATS_DE_RELECTURE} autre(s) erreur(s) "
