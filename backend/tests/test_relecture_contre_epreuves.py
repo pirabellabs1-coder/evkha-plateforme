@@ -255,6 +255,74 @@ def test_un_compte_juste_d_une_autre_forme_ne_fait_rien_reprendre(
     assert _boucles(_compte(*charges)) == []
 
 
+@pytest.mark.parametrize("charges", [
+    # Porte finale, troisième passage (NO-GO sur `1d526db`) : un mot de recette
+    # AILLEURS que dans le nom en tête ne fait pas une recette.
+    (("Achats", "10 000 €"), ("Charges externes", "20 000 €"),
+     ("Salaires des aides à domicile", "25 000 €")),
+    (("Achats d'ingrédients pour les recettes", "10 000 €"), ("Charges externes", "20 000 €"),
+     ("Salaires", "25 000 €")),
+    (("Aide-comptable", "5 000 €"), ("Charges externes", "25 000 €"), ("Salaires", "25 000 €")),
+    # N1 : la ventilation du CA sous lui n'est pas un flux.
+    (("Ventes de marchandises", "50 000 €"), ("Prestations de services", "30 000 €"),
+     ("Charges externes", "30 000 €"), ("Salaires", "25 000 €")),
+    # N5, N6 : une charge illisible coupe l'exercice, elle ne disparaît pas.
+    (("Charges variables", "40 %"), ("Charges fixes", "23 000 €")),
+    (("Charges externes", "30 000 €"), ("Salaires", "25 000")),
+    # Déjà graves avant le chantier : le nom en tête les règle aussi.
+    (("Produits d'entretien", "5 000 €"), ("Produits capillaires", "5 000 €"),
+     ("Charges externes", "20 000 €"), ("Salaires", "25 000 €")),
+    (("Prix d'achat des marchandises vendues", "10 000 €"), ("Charges externes", "20 000 €"),
+     ("Rémunération des aides-soignantes", "25 000 €")),
+])
+def test_le_nom_en_tete_dit_la_nature_de_la_ligne(charges: tuple[tuple[str, str], ...]) -> None:
+    assert _boucles(_compte(*charges)) == []
+
+
+@pytest.mark.parametrize(("charges", "ebe"), [
+    # M8 : des salaires comptés comme une recette dans l'EBE.
+    ((("Achats", "10 000 €"), ("Charges externes", "20 000 €"),
+      ("Salaires des aides à domicile", "25 000 €")), "75 000 €"),
+    # M1 : deux charges égales, l'EBE en oublie une.
+    ((("Charges externes", "25 000 €"), ("Salaires", "25 000 €")), "55 000 €"),
+    # M2 : une ligne vaut la somme des autres, l'EBE l'oublie.
+    ((("Achats", "10 000 €"), ("Charges externes", "15 000 €"), ("Salaires", "25 000 €")),
+     "55 000 €"),
+])
+def test_aucun_sous_total_implicite_ne_sauve_un_compte_faux(
+    charges: tuple[tuple[str, str], ...], ebe: str,
+) -> None:
+    constats = _boucles(_compte(*charges, ebe=ebe))
+    assert len(constats) == 1 and constats[0].grave
+
+
+def test_un_ca_coiffe_n_est_pas_additionne_a_sa_ventilation() -> None:
+    """M5 : l'EBE compte le CA ateliers deux fois (80 000 + 50 000 − 55 000 = 75 000 €)."""
+    tableau = Tableau(entetes=("Poste", "2029"), lignes=(
+        ("Chiffre d'affaires HT", "80 000 €"), ("Chiffre d'affaires ateliers", "50 000 €"),
+        ("Charges externes", "30 000 €"), ("Salaires", "25 000 €"),
+        ("Excédent brut d'exploitation", "75 000 €"),
+    ))
+    assert len(_boucles(tableau)) == 1
+
+
+def test_un_ca_ventile_sans_ligne_qui_le_coiffe_s_additionne() -> None:
+    tableau = Tableau(entetes=("Poste", "2029"), lignes=(
+        ("Chiffre d'affaires cours", "50 000 €"), ("Chiffre d'affaires boutique", "30 000 €"),
+        ("Charges externes", "30 000 €"), ("Salaires", "25 000 €"),
+        ("Excédent brut d'exploitation", "25 000 €"),
+    ))
+    assert _boucles(tableau) == []
+
+
+def test_le_motif_ne_montre_pas_de_ligne_a_zero() -> None:
+    constats = _boucles(_compte(
+        ("Subvention d'exploitation", "—"), ("Charges externes", "30 000 €"),
+        ("Salaires", "25 000 €"), ebe="40 000 €",
+    ))
+    assert len(constats) == 1 and " 0 €" not in constats[0].detail
+
+
 def test_un_chiffre_d_affaires_ventile_se_lit_sur_son_total() -> None:
     tableau = Tableau(entetes=("Poste", "2029"), lignes=(
         ("Chiffre d'affaires cours", "50 000 €"), ("Chiffre d'affaires boutique", "30 000 €"),

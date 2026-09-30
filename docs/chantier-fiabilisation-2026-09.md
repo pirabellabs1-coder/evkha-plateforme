@@ -537,13 +537,27 @@ ventilé se lit sur son total. En le corrigeant, la régression a encore attrap�
 une perte : « coûts » ajouté aux mots de charge faisait de la ligne « Taux de
 marge sur coûts variables » (9.2) une charge.
 
+Troisième passage (NO-GO sur `1d526db`) : chercher « aides », « recettes » ou
+« dons » n'importe où dans le libellé, et avant les charges, faisait de
+« Salaires des aides à domicile » ou « Achats d'ingrédients pour les recettes »
+des recettes — la classe de « Achats de produits », déplacée. La règle est
+désormais UNE : la nature se lit sur le NOM EN TÊTE du libellé (recette,
+non-flux dont la ventilation du CA, libellé générique, charge, puis inconnu =
+dépense). Un sous-total implicite n'est admis que pour un libellé générique
+(« Charges d'exploitation ») ; la somme d'un CA ventilé seulement si aucune
+ligne de CA générique ne le coiffe ; une charge illisible (« 40 % », un
+montant sans unité) coupe l'exercice au lieu de disparaître. Trois
+corrections successives d'une même fonction, chacune plus large que la
+précédente : c'est la règle 4 du dépôt, vécue — l'énumération de mots
+n'était pas le problème, l'endroit où on les cherchait l'était.
+
 La même porte a relevé quatre pertes de détection, rétablies : « dans le
 scénario central » se juge comme le prévisionnel ; un tiret d'incise n'est pas
 une baisse ; « ressort à 110 € la première année » n'est pas un prix
 unitaire ; la tolérance d'un « 1,2 M€ » suit son unité. Et deux faux positifs
 d'avant : « charges fixes mensuelles de 1 500 € », « taux de marge nette ».
 
-Contre-épreuves : 58 ; la régression reste à 43/43 avec, classe par
+Contre-épreuves : 72 ; la régression reste à 43/43 avec, classe par
 classe, les mêmes autres constats (67) qu'avant la revue.
 
 Aussi : seuil de rentabilité de la mémoire = charges fixes ÷ taux quand le socle
