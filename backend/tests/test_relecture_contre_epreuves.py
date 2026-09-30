@@ -296,6 +296,77 @@ def test_aucun_sous_total_implicite_ne_sauve_un_compte_faux(
     assert len(constats) == 1 and constats[0].grave
 
 
+def _ventile(premiere: str, seconde: str, ebe: str = "25 000 €") -> Tableau:
+    """« Chiffre d'affaires HT » puis sa ventilation (50 000 + 30 000 €), puis les charges."""
+    return Tableau(entetes=("Poste", "2029"), lignes=(
+        ("Chiffre d'affaires HT", "80 000 €"), (premiere, "50 000 €"), (seconde, "30 000 €"),
+        ("Charges externes", "30 000 €"), ("Salaires", "25 000 €"),
+        ("Excédent brut d'exploitation", ebe),
+    ))
+
+
+@pytest.mark.parametrize(("premiere", "seconde"), [
+    # Porte finale, quatrième passage (NO-GO sur `e0f8024`) : W1, W2.
+    ("Recettes ateliers", "Recettes boutique"),
+    ("Produits des activités de formation", "Produits des activités de conseil"),
+    ("Ventes de marchandises", "Prestations de services"),
+])
+def test_la_ventilation_du_ca_sous_lui_n_est_pas_un_flux(premiere: str, seconde: str) -> None:
+    assert _boucles(_ventile(premiere, seconde)) == []
+
+
+@pytest.mark.parametrize("charges", [
+    # W3, W4 : « Prestations … » hors de la ventilation du CA est une charge.
+    (("Achats", "10 000 €"), ("Prestations de sous-traitance", "20 000 €"),
+     ("Salaires", "25 000 €")),
+    (("Prestations extérieures", "30 000 €"), ("Salaires", "25 000 €")),
+])
+def test_des_prestations_parmi_les_charges_sont_une_charge(
+    charges: tuple[tuple[str, str], ...],
+) -> None:
+    assert _boucles(_compte(*charges)) == []
+
+
+def test_un_ca_detaille_puis_totalise_sans_le_mot_total() -> None:
+    """W5 : « Chiffre d'affaires HT » en pied de sa ventilation en est le total."""
+    tableau = Tableau(entetes=("Poste", "2029"), lignes=(
+        ("Chiffre d'affaires cours", "50 000 €"), ("Chiffre d'affaires boutique", "30 000 €"),
+        ("Chiffre d'affaires HT", "80 000 €"), ("Charges externes", "30 000 €"),
+        ("Salaires", "25 000 €"), ("Excédent brut d'exploitation", "25 000 €"),
+    ))
+    assert _boucles(tableau) == []
+
+
+@pytest.mark.parametrize("tableau", [
+    # X1 : l'EBE compte la ventilation du CA une seconde fois (105 000 €).
+    _ventile("Recettes ateliers", "Recettes boutique", ebe="105 000 €"),
+    # X2 : l'EBE oublie la sous-traitance (45 000 €).
+    _compte(("Achats", "10 000 €"), ("Prestations de sous-traitance", "20 000 €"),
+            ("Salaires", "25 000 €"), ebe="45 000 €"),
+    # W8 : « Apport personnel » dans un tableau d'indicateurs, compte juste.
+    _compte(("Apport personnel", "5 000 €"), ("Charges externes", "30 000 €"),
+            ("Salaires", "25 000 €")),
+])
+def test_une_ligne_a_double_lecture_donne_un_signal_sans_montant_attendu(
+    tableau: Tableau,
+) -> None:
+    """Règle 2 : sur une ligne dont la nature n'est pas sûre, le motif n'impose aucun EBE.
+
+    Le compte n'est pas validé en silence (le constat reste tracé), mais il ne
+    fait rien reprendre, et ne chiffre aucun « attendu » qui pourrait être faux.
+    """
+    constats = _boucles(tableau)
+    assert len(constats) == 1 and not constats[0].grave
+    assert "=" not in constats[0].detail
+
+
+def test_un_compte_faux_sous_toutes_les_lectures_reste_grave_sans_attendu() -> None:
+    """Aucune lecture de la ventilation ne donne 60 000 € : grave, mais sans chiffrer d'attendu."""
+    constats = _boucles(_ventile("Recettes ateliers", "Recettes boutique", ebe="60 000 €"))
+    assert len(constats) == 1 and constats[0].grave
+    assert "aucune lecture" in constats[0].detail and "=" not in constats[0].detail
+
+
 def test_un_ca_coiffe_n_est_pas_additionne_a_sa_ventilation() -> None:
     """M5 : l'EBE compte le CA ateliers deux fois (80 000 + 50 000 − 55 000 = 75 000 €)."""
     tableau = Tableau(entetes=("Poste", "2029"), lignes=(

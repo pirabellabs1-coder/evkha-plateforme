@@ -10,6 +10,7 @@ pas. Un même libellé ne porte qu'une valeur dans tout le document.
 """
 from __future__ import annotations
 
+import itertools
 import re
 from collections import defaultdict
 
@@ -33,39 +34,47 @@ def _euros(montant: float) -> str:
 
 # ── Le compte de résultat boucle ────────────────────────────────────────────
 
-_CHARGES = re.compile(
-    r"(?i)charges|achats?|cotisations|salaires|loyers?|sous-traitance|frais|d[ée]penses|"
-    r"r[ée]mun[ée]ration|masse salariale|imp[ôo]ts et taxes|personnel|"
-    r"co[ûu]ts?\b|consommations?|fournitures|mati[èe]res|marchandises"
+#: Les mots d'une charge, EN TÊTE du libellé : « Rémunération du dirigeant »,
+#: « Autres achats et charges externes ». Trouvés ailleurs (« Apport
+#: personnel »), ils ne disent plus sûrement la nature : la ligne est ambiguë.
+_MOTS_DE_CHARGE = (
+    r"charges|achats?|cotisations|salaires|loyers?|sous-traitance|frais|d[ée]penses|"
+    r"r[ée]mun[ée]rations?|masse\s+salariale|imp[ôo]ts|taxes?|personnel|"
+    r"co[ûu]ts?|consommations?|fournitures|mati[èe]res|marchandises"
 )
+_CHARGES = re.compile(rf"(?i)\b(?:{_MOTS_DE_CHARGE})\b")
+_CHARGES_EN_TETE = re.compile(rf"(?i)^(?:autres?\s+)?(?:{_MOTS_DE_CHARGE})\b")
 #: La nature d'une ligne se lit sur son NOM EN TÊTE — jamais sur un mot pris
-#: n'importe où. Trois passages de la porte finale (30/09/2026) l'ont montré :
+#: n'importe où. Quatre passages de la porte finale (30/09/2026) l'ont montré :
 #: chercher « produits », « aides » ou « recettes » dans tout le libellé fait de
 #: « Achats de produits », « Salaires des aides à domicile » ou « Achats
-#: d'ingrédients pour les recettes » des recettes ; chercher « taux » ou
-#: « effectif » exclut « Cotisations sociales (taux de 47 %) ».
+#: d'ingrédients pour les recettes » des recettes.
 #:
-#: Une recette : « Produits » seul ou catégorisé (financiers, exceptionnels…),
-#: « Autres produits », subvention, reprise, dons, aides, recettes, crédit
-#: d'impôt, transfert de charges, production stockée, cotisations des adhérents.
-#: « Produits d'entretien » est un achat.
+#: Une recette SÛRE : « Autres produits », « Produits » catégorisés (financiers,
+#: exceptionnels…), subvention, reprise, dons, aides, crédit d'impôt, transfert
+#: de charges, production stockée, cotisations des adhérents.
 _RECETTE_EN_TETE = re.compile(
-    r"(?i)^(?:autres?\s+produits?\b|produits?(?:\s*$|\s+(?:financiers|exceptionnels|divers"
-    r"|annexes|des\s+activit|d.exploitation|de\s+gestion))"
-    r"|subventions?\b|reprises?\b|dons?\b|aides?(?![\w-])|recettes?\b"
+    r"(?i)^(?:autres?\s+produits?\b|produits?\s+(?:financiers|exceptionnels|divers|annexes"
+    r"|d.exploitation|de\s+gestion)"
+    r"|subventions?\b|reprises?\b|dons?\b|aides?(?![\w-])"
     r"|cr[ée]dits?\s+d.imp[ôo]ts?\b|transferts?\s+de\s+charges|production\s+(?:stock|immobilis)"
     r"|cotisations?\s+des\s+(?:adh[ée]rents|membres))"
 )
+#: Une tête à DOUBLE LECTURE : « Recettes ateliers », « Produits des activités
+#: de formation », « Ventes de marchandises » ventilent le chiffre d'affaires
+#: juste sous lui ; « Prestations de sous-traitance » parmi les charges est une
+#: charge ; « Produits d'entretien », un achat. Sa nature par défaut dépend de
+#: sa PLACE, et le constat n'est grave que si aucune autre lecture ne boucle.
+_DOUBLE_LECTURE = re.compile(r"(?i)^(?:recettes?|produits?|prestations?|ventes?)\b")
 #: Ni une charge ni une recette : un sous-total (« Marge brute »), un ratio, un
-#: résultat, un stock de fin d'exercice, un autre chiffre d'affaires ou sa
-#: ventilation (« Ventes de marchandises », « Prestations de services » sous le
-#: CA). Un tableau d'INDICATEURS range « Résultat net » ou « Trésorerie » entre
-#: le CA et l'EBE sans prétendre boucler (business plan ÉCLORE, 11.3).
+#: résultat, un stock de fin d'exercice, un autre chiffre d'affaires. Un tableau
+#: d'INDICATEURS range « Résultat net » ou « Trésorerie » entre le CA et l'EBE
+#: sans prétendre boucler (business plan ÉCLORE, 11.3).
 _NON_FLUX_EN_TETE = re.compile(
     r"(?i)^(?:marges?\b|taux\b|r[ée]sultats?\b|seuils?\b|point\s+mort|capacit[ée]|CAF\b"
     r"|tr[ée]sorerie|valeur\s+ajout|BFR\b|besoin\s+en\s+fonds|fonds\s+de\s+roulement"
     r"|nombre|effectifs?\b|panier|prix\b(?!\s+d.achat)|chiffres?\s+d.affaires|CA\b"
-    r"|ventes?\b|prestations?\b|dotations?\b|amortissements?\b|exc[ée]dent|EBE\b)"
+    r"|dotations?\b|amortissements?\b|exc[ée]dent|EBE\b)"
 )
 #: Ailleurs dans le libellé, ces mots-là seulement disent encore « pas un flux » :
 #: « Impôt sur le résultat », « Variation de trésorerie ».
@@ -93,6 +102,8 @@ _ZERO = re.compile(r"^[\s—–-]*$|^\s*0(?:[,.]0+)?\s*€?\s*$")
 _CA_GENERIQUE = re.compile(
     r"(?i)^\W*chiffres?\s+d.affaires(?:\s+(?:HT|hors\s+taxes?|net|total|global|annuel))*\s*$"
 )
+#: Au-delà, les lectures possibles se comptent par milliers : on n'affirme rien.
+_MAX_LIGNES_AMBIGUES = 6
 
 
 def _montant(cellule: str) -> float | None:
@@ -105,30 +116,73 @@ def _tete(libelle: str) -> str:
     return re.sub(r"^[\W\d_]+", "", re.sub(r"\([^)]*\)", " ", libelle)).strip()
 
 
-def _nature(libelle: str) -> str | None:
-    """« charge », « autre », « generique », « produit », « stock », « total » — ou None.
+def _nature(libelle: str) -> tuple[str | None, bool]:
+    """(nature, ambiguë) : charge, autre, generique, produit, stock, total — ou None.
 
     None : pas une ligne de flux. « autre » : un libellé inconnu (« Assurance »,
-    « Honoraires »), compté comme une dépense.
+    « Honoraires »), compté comme une dépense — et ambigu, comme toute ligne dont
+    la nature ne se lit pas sûrement sur son nom en tête. Juste sous le chiffre
+    d'affaires, une tête à double lecture peut le VENTILER : `_boucle` en juge
+    sur les montants.
     """
     if _DETAIL.search(libelle):
-        return None
+        return None, False
     tete = _tete(libelle)
     if _TOTAL.search(tete):
-        return "total" if _CHARGES.search(tete) else None
+        return ("total" if _CHARGES.search(tete) else None), False
     if _STOCK.search(tete):
-        return "stock"
+        return "stock", False
     if _RECETTE_EN_TETE.search(tete):
-        return "produit"
+        return "produit", False
+    if _DOUBLE_LECTURE.search(tete):
+        if re.match(r"(?i)prestations?\b", tete):
+            return "charge", True
+        if re.match(r"(?i)produits?\s*$|recettes?\b|ventes?\b", tete):
+            return "produit", True
+        return "autre", True  # « Produits d'entretien » : un achat
     if _NON_FLUX_EN_TETE.search(tete):
-        return None
+        return None, False
     if _CHARGES_GENERIQUES.search(tete):
-        return "generique"
+        return "generique", False
+    if _CHARGES_EN_TETE.search(tete):
+        return "charge", False
     if _CHARGES.search(tete):
-        return "charge"
+        return "charge", True  # « Apport personnel »
     if _PAS_UNE_LIGNE_DE_FLUX.search(tete):
-        return None
-    return "autre"
+        return None, False
+    return "autre", True
+
+
+def _concorde(
+    chiffres: list[float], montants: dict[int, float], natures: dict[int, str | None],
+    excedent: float,
+) -> bool:
+    """Une lecture honnête du compte donne-t-elle l'EBE affiché ?
+
+    Le détail des lignes ; un libellé générique n'y est un sous-total que s'il
+    vaut la somme des lignes précises ; un total seulement sans aucun détail ;
+    une variation de stock sous ses deux signes.
+    """
+    precis = [abs(v) for i, v in montants.items() if natures[i] in ("charge", "autre")]
+    comptees = {
+        i: v for i, v in montants.items() if natures[i] is not None and not (
+            natures[i] == "generique" and precis
+            and proche(abs(v), sum(precis), relatif=0.01, absolu=2)
+        )
+    }
+
+    def somme(*genres: str) -> float:
+        return sum(abs(v) for i, v in comptees.items() if natures[i] in genres)
+
+    stock = sum(v for i, v in comptees.items() if natures[i] == "stock")
+    retraits = [somme("charge", "autre", "generique")]
+    if not any(natures[i] in ("charge", "autre", "generique", "stock") for i in comptees):
+        retraits += [abs(v) for i, v in comptees.items() if natures[i] == "total"]
+    return any(
+        proche(chiffre + somme("produit") - retrait - signe * stock, excedent,
+               relatif=0.01, absolu=2)
+        for chiffre in chiffres for retrait in retraits for signe in (1, -1)
+    )
 
 
 def _boucle(tableau: Tableau, section: Section) -> Constat | None:
@@ -139,17 +193,16 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
     « Impôts et taxes ». Chaque ligne a donc une NATURE, lue sur son nom en tête
     (`_nature`), et les montants se lisent en valeur absolue.
 
-    Le constat ne tombe que si aucune lecture HONNÊTE ne boucle — et une lecture
-    n'est honnête que si elle ne peut pas blanchir un compte faux (porte finale,
-    NO-GO sur `63be6a3` et `1d526db`) :
-    - le détail des lignes, toujours ;
-    - un libellé générique (« Charges d'exploitation ») n'est un sous-total que
-      s'il vaut la somme des autres lignes ;
-    - les seules charges nommées, seulement à côté d'un libellé inconnu ;
-    - un total de charges, seulement quand il n'y a AUCUN détail ;
-    - la somme d'un CA ventilé, seulement si aucune ligne de CA générique ne le
-      coiffe.
-    Un montant illisible (« 40 % », « 25 000 » sans unité) sur une ligne de flux
+    Quatre passages de la porte finale ont ensuite trouvé, à chaque fois, un
+    libellé que la règle lisait de travers — et un motif qui, sur un compte
+    JUSTE, imposait un EBE faux (règle 2). La classe se traite par la
+    structure : une ligne dont la nature n'est pas sûre est lue de toutes les
+    façons possibles (recette, charge, pas un flux). Si la lecture par défaut
+    boucle : rien. Si seule une autre boucle : un SIGNAL, sans montant
+    « attendu ». Si aucune ne boucle : un constat grave — chiffré seulement
+    quand aucune ligne n'est ambiguë.
+
+    Un montant illisible (« 40 % », « 25 000 » sans unité) sur une ligne sûre
     coupe le contrôle de l'exercice, comme avant : on ne juge pas sans lire.
     """
     annees = [
@@ -166,13 +219,34 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
     lignes_ca = [i for i, s in series.items() if s == "ca_previsionnel" and i < ebe]
     if not lignes_ca:
         return None
-    ca_total = next((i for i in lignes_ca if _TOTAL.search(lignes[i][0])), None)
-    ca_coiffe = _CA_GENERIQUE.search(lignes[lignes_ca[0]][0]) is not None
-    natures = {
-        i: n for i in lignes
-        if lignes_ca[0] < i < ebe and i not in lignes_ca and (n := _nature(lignes[i][0]))
-    }
-    if not natures or all(n == "produit" for n in natures.values()):
+    # Le CA de l'entreprise : sa ligne « total », sinon sa ligne générique
+    # (« Chiffre d'affaires HT », en tête OU en pied de sa ventilation) ; à
+    # défaut, la première ligne ou la somme des lignes.
+    ca_total = next(
+        (i for i in lignes_ca if _TOTAL.search(lignes[i][0])),
+        next((i for i in lignes_ca if _CA_GENERIQUE.search(lignes[i][0])), None),
+    )
+    natures: dict[int, str | None] = {}
+    ambigues: list[int] = []
+    # Le bloc contigu, juste sous le CA, de têtes à double lecture (« Ventes de
+    # marchandises », « Recettes ateliers ») : une VENTILATION du CA si ses
+    # montants en font la somme — jugé colonne par colonne.
+    bloc: list[int] = []
+    en_tete = True
+    for i in sorted(lignes):
+        if not lignes_ca[0] < i < ebe or i in lignes_ca:
+            continue
+        nature, ambigue = _nature(lignes[i][0])
+        if en_tete and _DOUBLE_LECTURE.search(_tete(lignes[i][0])):
+            bloc.append(i)
+        else:
+            en_tete = False
+        if nature is None and not ambigue:
+            continue
+        natures[i] = nature
+        if ambigue:
+            ambigues.append(i)
+    if not natures or all(n in ("produit", None) for n in natures.values()):
         return None
     for j, annee in annees:
         def lu(i: int, colonne: int = j, flux: bool = True) -> float | None:
@@ -184,68 +258,105 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
 
         excedent = lu(ebe, flux=False)
         ventiles = [lu(i, flux=False) for i in lignes_ca]
-        valeurs = {i: lu(i) for i in natures}
-        if excedent is None or any(v is None for v in (*ventiles, *valeurs.values())):
-            continue  # un montant illisible : l'exercice ne se juge pas
-        montants = {i: v for i, v in valeurs.items() if v is not None}
-        chiffres_lus = [c for c in ventiles if c is not None]
+        if excedent is None or any(v is None for v in ventiles):
+            continue
+        montants: dict[int, float] = {}
+        illisible = False
+        for i in natures:
+            v = lu(i)
+            if v is not None:
+                montants[i] = v
+            elif i not in ambigues:
+                illisible = True  # un montant illisible : l'exercice ne se juge pas
+        if illisible:
+            continue
+        chiffres_lus = [v for v in ventiles if v is not None]
         if ca_total is not None:
             chiffres = [chiffres_lus[lignes_ca.index(ca_total)]]
-        elif len(chiffres_lus) > 1 and not ca_coiffe:
+        elif len(chiffres_lus) > 1:
             chiffres = [chiffres_lus[0], sum(chiffres_lus)]
         else:
-            chiffres = [chiffres_lus[0]]
-
-        # Un libellé générique qui vaut la somme des autres lignes : un sous-total.
-        precis = {i: abs(v) for i, v in montants.items() if natures[i] in ("charge", "autre")}
-        sous_totaux = {
-            i for i, v in montants.items() if natures[i] == "generique"
-            and precis and proche(abs(v), sum(precis.values()), relatif=0.01, absolu=2)
-        }
-        comptees = {i: v for i, v in montants.items() if i not in sous_totaux}
-
-        def somme(*genres: str, lues: dict[int, float] = comptees) -> float:
-            return sum(abs(v) for i, v in lues.items() if natures[i] in genres)
-
-        produits = somme("produit")
-        stock = sum(v for i, v in comptees.items() if natures[i] == "stock")
-        a_du_detail = any(
-            natures[i] in ("charge", "autre", "generique", "stock") for i in comptees
-        )
-        retraits = [somme("charge", "autre", "generique")]
-        if any(natures[i] == "autre" for i in comptees):
-            retraits.append(somme("charge", "generique"))
-        if not a_du_detail:
-            retraits += [abs(v) for i, v in comptees.items() if natures[i] == "total"]
-        if any(
-            proche(chiffre + produits - retrait - signe * stock, excedent,
-                   relatif=0.01, absolu=2)
-            for chiffre in chiffres for retrait in retraits for signe in (1, -1)
+            chiffres = chiffres_lus
+        par_defaut = dict(natures)
+        if bloc and all(i in montants for i in bloc) and any(
+            proche(sum(abs(montants[i]) for i in bloc), c, relatif=0.01, absolu=2)
+            for c in chiffres
         ):
+            par_defaut.update(dict.fromkeys(bloc))
+        if _concorde(chiffres, montants, par_defaut, excedent):
             continue
+        a_lire = [i for i in ambigues if i in montants]
+        autres_lectures = (
+            itertools.product(("produit", "charge", None), repeat=len(a_lire))
+            if len(a_lire) <= _MAX_LIGNES_AMBIGUES else iter(())
+        )
+        signal = len(a_lire) > _MAX_LIGNES_AMBIGUES or any(
+            _concorde(
+                chiffres, montants, {**par_defaut, **dict(zip(a_lire, lecture, strict=True))},
+                excedent,
+            )
+            for lecture in autres_lectures
+        )
         chiffre = chiffres[0]
-        if a_du_detail:
+        extrait = (
+            f"{tableau.lignes[ca_total if ca_total is not None else lignes_ca[0]][0]} "
+            f"{_euros(chiffre)} · {tableau.lignes[ebe][0]} {_euros(excedent)}"
+        )
+        consigne = (
+            " Reprends chaque ligne depuis la mémoire, ou ne montre pas de compte de "
+            "résultat incomplet."
+        )
+        if signal or a_lire:
+            douteuses = " ; ".join(f"« {lignes[i][0]} »" for i in a_lire[:4])
+            if len(a_lire) > _MAX_LIGNES_AMBIGUES:
+                verdict = (
+                    f"Le compte de résultat ne boucle pas en {annee} avec la lecture la plus "
+                    "probable de ses lignes, mais trop d'entre elles ont une nature "
+                    f"incertaine ({douteuses}…) pour trancher. Vérifie chaque ligne."
+                )
+            elif signal:
+                verdict = (
+                    f"L'EBE affiché ({_euros(excedent)}) ne se retrouve en {annee} qu'en "
+                    f"lisant autrement l'une de ces lignes : {douteuses}. Vérifie que "
+                    "chacune est bien comptée comme recette, comme charge, ou pas du tout."
+                )
+            else:
+                verdict = (
+                    f"Le compte de résultat ne boucle pas en {annee} : aucune lecture des "
+                    f"lignes entre le chiffre d'affaires ({_euros(chiffre)}) et l'EBE "
+                    f"affiché ({_euros(excedent)}) ne donne cet EBE, même en lisant "
+                    f"autrement {douteuses}.{consigne}"
+                )
+            return Constat("tableau", section.numero, extrait, verdict, grave=not signal)
+        # Le détail affiché est celui de la lecture par défaut, tel que
+        # `_concorde` l'a compté : un sous-total générique qui vaut la somme des
+        # lignes précises n'y figure pas.
+        precis = sum(abs(v) for i, v in montants.items() if par_defaut[i] in ("charge", "autre"))
+        comptees = {
+            i: v for i, v in montants.items() if par_defaut[i] not in (None, "total") and not (
+                par_defaut[i] == "generique" and precis
+                and proche(abs(v), precis, relatif=0.01, absolu=2)
+            )
+        }
+        produits = sum(abs(v) for i, v in comptees.items() if par_defaut[i] == "produit")
+        charges = sum(abs(v) for i, v in comptees.items() if par_defaut[i] != "produit")
+        if comptees:
             detail = " ".join([
                 _euros(chiffre),
-                *(f"{'+' if natures[i] == 'produit' else '−'} {_euros(abs(v))}"
-                  for i, v in comptees.items() if natures[i] != "total" and v),
+                *(f"{'+' if par_defaut[i] == 'produit' else '−'} {_euros(abs(v))}"
+                  for i, v in comptees.items() if v),
             ])
-            attendu = chiffre + produits - somme("charge", "autre", "generique", "stock")
+            attendu = chiffre + produits - charges
         else:
             # Seul un total de charges : l'opération se lit sur lui.
-            total = next(abs(v) for i, v in comptees.items() if natures[i] == "total")
-            ajout = f" + {_euros(produits)}" if produits else ""
-            detail = f"{_euros(chiffre)}{ajout} − {_euros(total)}"
-            attendu = chiffre + produits - total
+            total = next(abs(v) for i, v in montants.items() if par_defaut[i] == "total")
+            detail, attendu = f"{_euros(chiffre)} − {_euros(total)}", chiffre - total
         return Constat(
-            "tableau", section.numero,
-            f"{tableau.lignes[ca_total if ca_total is not None else lignes_ca[0]][0]} "
-            f"{_euros(chiffre)} · {tableau.lignes[ebe][0]} {_euros(excedent)}",
+            "tableau", section.numero, extrait,
             f"Le compte de résultat ne boucle pas en {annee} : {detail} = "
             f"{_euros(attendu)}, mais l'EBE affiché est {_euros(excedent)}. Il manque des "
-            "lignes de charges (charges externes, cotisations…) ou un montant est faux : "
-            "reprends-les depuis la mémoire, ou ne montre pas de compte de résultat "
-            "incomplet.",
+            "lignes de charges (charges externes, cotisations…) ou un montant est faux."
+            + consigne,
         )
     return None
 

@@ -551,13 +551,26 @@ corrections successives d'une même fonction, chacune plus large que la
 précédente : c'est la règle 4 du dépôt, vécue — l'énumération de mots
 n'était pas le problème, l'endroit où on les cherchait l'était.
 
+Quatrième passage (NO-GO sur `e0f8024`) : encore une tête à deux lectures —
+« Recettes ateliers » sous le CA (une ventilation, lue comme une recette),
+« Prestations de sous-traitance » parmi les charges (lue comme une
+ventilation) —, et sur ces comptes JUSTES le motif chiffrait un EBE faux
+que le contrôle aurait ensuite validé. Chercher le bon mot ne se termine
+jamais ; la classe se traite par la STRUCTURE, la règle du diagnostic positif
+déjà appliquée aux faits datés : une ligne dont la nature n'est pas sûre est
+lue de toutes les façons possibles (recette, charge, pas un flux). Si la
+lecture par défaut boucle, rien ; si seule une autre boucle, un signal sans
+montant « attendu » ; si aucune, un constat grave — chiffré seulement quand
+aucune ligne n'est ambiguë. Un bloc de têtes à double lecture juste sous le
+CA n'est une ventilation que si ses montants en font la somme.
+
 La même porte a relevé quatre pertes de détection, rétablies : « dans le
 scénario central » se juge comme le prévisionnel ; un tiret d'incise n'est pas
 une baisse ; « ressort à 110 € la première année » n'est pas un prix
 unitaire ; la tolérance d'un « 1,2 M€ » suit son unité. Et deux faux positifs
 d'avant : « charges fixes mensuelles de 1 500 € », « taux de marge nette ».
 
-Contre-épreuves : 72 ; la régression reste à 43/43 avec, classe par
+Contre-épreuves : 82 ; la régression reste à 43/43 avec, classe par
 classe, les mêmes autres constats (67) qu'avant la revue.
 
 Aussi : seuil de rentabilité de la mémoire = charges fixes ÷ taux quand le socle
