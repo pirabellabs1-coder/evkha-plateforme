@@ -33,8 +33,8 @@ suivants, chacun en un paragraphe :
 2. **Les preuves de traction déjà acquises.** Ce qui EXISTE aujourd'hui et
    démontre que le projet avance : clients servis, chiffre déjà realise,
    partenariats signes, outil déjà fonctionnel, liste d'attente, retours
-   d'utilisateurs. Prends-les dans le dossier client. SI LE DOSSIER N'EN
-   FOURNIT AUCUNE, écris-le en une phrase — « aucune traction chiffrée n'est
+   d'utilisateurs. Prends-les dans les informations fournies par le client.
+   S'IL N'EN FOURNIT AUCUNE, écris-le en une phrase — « aucune traction chiffrée n'est
    documentee a ce stade » — et n'en invente pas : un banquier verifie ce
    point, et une preuve inventee décrédibilise tout le plan.
 

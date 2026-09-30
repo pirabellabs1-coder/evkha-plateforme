@@ -564,7 +564,7 @@ Nomme celle que tu emploies, et la base sur laquelle tu la calcules.
 
 10. UN SEUIL DE RENTABILITÉ SE POSE ET SE CONFRONTE AU RÉEL. Charges fixes
 divisees par la marge unitaire : cela donne un volume. Dis-le, puis dis si ce
-volume est atteignable avec la capacité décrite dans le dossier. Un seuil qui
+volume est atteignable avec la capacité du projet (sessions, places, rythme). Un seuil qui
 exige trois fois la capacité du client doit être signalé, pas présenté comme
 un plan.
 

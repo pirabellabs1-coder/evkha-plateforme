@@ -77,8 +77,12 @@ class MemoireEtude:
         for fait in self.faits.values():
             formule = f" = {fait.formule}" if fait.formule else ""
             definition = f" — {fait.definition}" if fait.definition else ""
+            # La période se lit à côté de la valeur : un montant « par mois »
+            # ne se réemploie pas comme annuel (business plan ÉCLORE
+            # `28a257bf`, 30/09/2026).
+            periode = {"an": " par an", "mois": " par mois"}.get(fait.periode, "")
             lignes.append(
-                f"- {{{{{fait.id}}}}} : {valeur_affichee(fait)} — {fait.libelle}"
+                f"- {{{{{fait.id}}}}} : {valeur_affichee(fait)}{periode} — {fait.libelle}"
                 f"{formule}{definition}"
             )
         if self.decisions:

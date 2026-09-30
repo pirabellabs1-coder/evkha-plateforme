@@ -84,8 +84,9 @@ class Decision:
     valeur: str
     annee: int | None
     justification: str
-    #: « regle » (imposée par un seuil), « brief » (phrase du client, à
-    #: reprendre telle quelle), « socle » (compte de la base de référence).
+    #: « regle » (imposée par un seuil), « brief » (choix déjà arrêté pour le
+    #: projet : tenu, jamais contredit, rédigé dans la voix du document),
+    #: « socle » (compte de la base de référence).
     source: str = "regle"
 
 
@@ -102,13 +103,32 @@ def regime_de_tva(
             f"chiffre d'affaires HT sous le seuil de franchise "
             f"({seuil.valeur:,.0f} €)".replace(",", " "),
         )
-    immediat = seuil.majore is not None and ca_ht > seuil.majore
+    # La règle exacte (art. 293 B CGI) a DEUX seuils. Business plan ÉCLORE
+    # `28a257bf` (30/09/2026) : « la TVA s'applique dès que le chiffre
+    # d'affaires dépasse le seuil de franchise (37 500 €) » — la justification
+    # d'ici ne nommait que ce seuil, et le chapitre l'a recopiée. Entre les
+    # deux seuils, la franchise vaut encore l'année même ; seul le seuil majoré
+    # fait basculer en cours d'année.
+    if seuil.majore is not None and ca_ht <= seuil.majore:
+        return Decision(
+            "regime_tva", "franchise en base, TVA au 1er janvier suivant", annee,
+            (
+                f"chiffre d'affaires HT au-dessus du seuil de franchise "
+                f"({seuil.valeur:,.0f} €) mais sous le seuil majoré ({seuil.majore:,.0f} €) : "
+                "la franchise vaut encore cette année, la TVA s'applique au 1er janvier "
+                "de l'année suivante — ce n'est pas un choix"
+            ).replace(",", " "),
+        )
     return Decision(
         "regime_tva", "TVA obligatoire", annee,
         (
-            f"chiffre d'affaires HT au-dessus du seuil de franchise "
-            f"({seuil.valeur:,.0f} €) : la TVA est OBLIGATOIRE, ce n'est pas un choix"
-            + (" — dès le dépassement du seuil majoré" if immediat else "")
+            (
+                f"chiffre d'affaires HT au-delà du seuil majoré ({seuil.majore:,.0f} €) : "
+                "la TVA s'applique dès le jour du dépassement, sans attendre le 1er janvier"
+                if seuil.majore is not None else
+                f"chiffre d'affaires HT au-dessus du seuil de franchise ({seuil.valeur:,.0f} €)"
+            )
+            + " — la TVA est OBLIGATOIRE, ce n'est pas un choix"
         ).replace(",", " "),
     )
 

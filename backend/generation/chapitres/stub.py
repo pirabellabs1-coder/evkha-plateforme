@@ -227,9 +227,12 @@ def _garanties_structurelles(
         blocs.append({
             "type": "paragraphe",
             "texte": (
+                # Pas de « sur onze » : un total écrit en dur contredirait la
+                # base de concurrents du socle de démonstration (relecture des
+                # comptages, 30/09/2026).
                 "Demande 1 — traitée au chapitre 2. Demande 2 — partiellement "
-                "traitée : la comparaison tarifaire couvre trois acteurs sur "
-                "onze, voie de complément proposée en annexe. Demande 3 — non "
+                "traitée : la comparaison tarifaire couvre trois acteurs du "
+                "panel, voie de complément proposée en annexe. Demande 3 — non "
                 "traitée : la donnée n'est pas publiée, méthode d'estimation "
                 "documentée."
             ),

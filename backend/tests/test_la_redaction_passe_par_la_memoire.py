@@ -143,7 +143,9 @@ def test_un_dossier_sans_memoire_garde_son_chemin() -> None:
         pass
     assert all("MÉMOIRE DE L'ÉTUDE" not in p for p in client.prompts)
     job.refresh_from_db()
-    assert job.memoire_etude == {}
+    # La relecture du texte (30/09/2026) vaut pour TOUS les dossiers et range
+    # sa trace sous sa propre clé ; de la mémoire, rien.
+    assert set(job.memoire_etude) <= {"relecture"}
 
 
 class ClientQuiEcritEnClair:

@@ -96,6 +96,11 @@ def document_du_chapitre(payload: Any) -> Document:
         numero=f"ch. {chapitre}" if chapitre is not None else "ch. ?",
         titre=str(donnees.get("titre") or ""), chapitre=chapitre,
     )
+    # L'accroche s'affiche sous le titre du chapitre : le lecteur la lit la
+    # première (« Trois univers, huit formats » pour un tableau de sept).
+    accroche = str(donnees.get("accroche") or "").strip()
+    if accroche:
+        courante.paragraphes.append(_propre(accroche))
     sections = [courante]
     for bloc in donnees.get("blocs") or []:
         if not isinstance(bloc, Mapping):

@@ -1343,7 +1343,10 @@ def _seuil_de_la_memoire(reference: Reference) -> Seuil | None:
             continue
         cites = {round(v) for _, v, _ in nombres_du_texte(decision.justification)}
         for seuil in FRANCHISE_TVA.values():
-            if round(seuil.valeur) in cites:
+            # Au-delà du seuil majoré, la justification ne cite plus que lui.
+            if round(seuil.valeur) in cites or (
+                seuil.majore is not None and round(seuil.majore) in cites
+            ):
                 return seuil
     return None
 
