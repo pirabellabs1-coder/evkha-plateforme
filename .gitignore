@@ -79,3 +79,6 @@ EVKHA-code-*.zip
 docs/schemas/
 # Fichiers de verrou de Word, crees quand le document est ouvert.
 ~$*
+
+# Documents réels de clientes : confidentiels, jamais versionnés.
+tests/fixtures/eclore_*
