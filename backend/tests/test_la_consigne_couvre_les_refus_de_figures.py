@@ -191,11 +191,14 @@ def test_chaque_identifiant_porte_sa_nature(socle: Socle) -> None:
     # entier. La demande de la cliente portait sur le couple valeur+unité
     # (« 6,8 Md€ », « 1,02 Md€ », « 600 k€ ») ; seule l'unité avait suivi, et
     # un business plan livré le 17/08/2026 portait « 16 500 000 000 euros ».
-    assert "`tam` = 1,2 Md€ [monetaire]" in prompt
+    # Et l'espace entre la valeur et l'unité est INSÉCABLE depuis le 30/09/2026
+    # (`montant_lisible`) : « 12 500 » et « € » ne se séparent plus en fin de
+    # ligne — business plan ÉCLORE `28a257bf`.
+    assert "`tam` = 1,2\u00a0Md€ [monetaire]" in prompt
     assert "`nombre_entreprises` = 4 200 [effectif]" in prompt
-    assert "`croissance` = 3,4 % [pourcentage]" in prompt
-    assert "`delai_moyen` = 8 mois [duree]" in prompt
-    assert "`note_maturite` = 3,5 /5 [ratio]" in prompt
+    assert "`croissance` = 3,4\u00a0% [pourcentage]" in prompt
+    assert "`delai_moyen` = 8\u00a0mois [duree]" in prompt
+    assert "`note_maturite` = 3,5\u00a0/5 [ratio]" in prompt
 
 
 @pytest.mark.django_db
@@ -220,5 +223,5 @@ def test_une_unite_inconnue_ne_se_tait_pas(socle: Socle) -> None:
 
     prompt = _prompt(DeliverableType.MARKET_STUDY, socle)
 
-    assert "`grandeur_exotique` = 42 parsec [inconnue]" in prompt
+    assert "`grandeur_exotique` = 42\u00a0parsec [inconnue]" in prompt
     assert "[]" not in prompt

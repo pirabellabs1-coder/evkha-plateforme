@@ -120,6 +120,17 @@ def _nombre_francais(valeur: float) -> str:
 #: une espace sécable (relecture du 26/09/2026, règle 5).
 nombre_francais = _nombre_francais
 
+#: L'espace entre un nombre et son unité, comme entre ses groupes de milliers :
+#: insécable, pour que « 12 500 € » ne se coupe jamais en fin de ligne.
+INSECABLE = "\u00a0"
+
+
+def _au_centime(nombre: str) -> str:
+    """« 12,5 » → « 12,50 » : un montant en euros qui a des centimes les écrit
+    tous les deux. Un entier reste entier ; rien n'est arrondi."""
+    entier, virgule, decimales = nombre.partition(",")
+    return f"{entier},{decimales}0" if virgule and len(decimales) == 1 else nombre
+
 
 def montant_lisible(valeur: float, unite: str) -> str:
     """La valeur ET son unité telles qu'elles doivent APPARAÎTRE.
@@ -148,11 +159,24 @@ def montant_lisible(valeur: float, unite: str) -> str:
     On ne convertit donc que si la valeur s'écrit EXACTEMENT à la nouvelle
     échelle avec au plus une décimale. 16,5 Md€ oui ; 3 287 400 € reste tel
     quel. Rien ne se perd, et ce qui reste long est long parce qu'il le doit.
+
+    ## L'espace avant l'unité, et les centimes (30/09/2026)
+
+    Business plan ÉCLORE `28a257bf` : plus de sept cents espaces ORDINAIRES
+    entre un nombre et « € » ou « % » — le montant en bout de ligne, « € » au
+    début de la suivante —, et un montant à une décimale (« 12,5 € ») à côté
+    de montants au centime dans le même tableau.
+    Les deux venaient d'ici : l'espace avant l'unité était sécable, et un
+    montant en euros à une décimale perdait son zéro de centimes. La cliente :
+    « espace insécable avant % et €, arrondi identique pour tous les montants
+    d'un même tableau ». L'espace est désormais `INSECABLE`, comme celle des
+    milliers ; un montant à l'unité de base s'écrit au centime dès qu'il en a
+    (« 12,50 € »), sans rien arrondir — trois décimales restent trois.
     """
     decompose = _decomposer_unite_monetaire(unite)
     if decompose is None:
         lisible = unite_lisible(unite)
-        return f"{_nombre_francais(valeur)} {lisible}".strip()
+        return f"{_nombre_francais(valeur)}{INSECABLE}{lisible}".rstrip(INSECABLE)
 
     magnitude, devise = decompose
     symbole = _SYMBOLE_DEVISE.get(devise, devise)
@@ -167,15 +191,15 @@ def montant_lisible(valeur: float, unite: str) -> str:
             en_base = valeur_en_unites_de_base(valeur, unite)
             if en_base is not None:
                 return montant_lisible(en_base[0], devise)
-        return f"{_nombre_francais(valeur)} {magnitude}{symbole}"
+        return f"{_nombre_francais(valeur)}{INSECABLE}{magnitude}{symbole}"
 
     for seuil, prefixe in _ECHELLES:
         if abs(valeur) < seuil:
             continue
         reduit = round(valeur / seuil, 1)
         if abs(reduit * seuil - valeur) < 1.0:
-            return f"{_nombre_francais(reduit)} {prefixe}{symbole}"
-    return f"{_nombre_francais(valeur)} {symbole}"
+            return f"{_nombre_francais(reduit)}{INSECABLE}{prefixe}{symbole}"
+    return f"{_au_centime(_nombre_francais(valeur))}{INSECABLE}{symbole}"
 
 
 def unites_autorisees(famille: FamilleUnite) -> tuple[str, ...]:

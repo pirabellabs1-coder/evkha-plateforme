@@ -62,7 +62,9 @@ def _profil(chemin: Path) -> dict[str, Any]:
         "bandeaux": formes[(1, 1)],
         "encadres": formes[(1, 2)],
         "grilles": formes[(1, 3)],
-        "sauts": xml.count('w:type="page"'),
+        # Un saut vit sur un paragraphe (`pageBreakBefore`) depuis le 30/09/2026 :
+        # un caractère de saut en haut de page en ouvrait une seconde, blanche.
+        "sauts": xml.count('w:type="page"') + xml.count("<w:pageBreakBefore"),
         "images": len(medias),
         "fonds": collections.Counter(re.findall(r'w:fill="([0-9A-Fa-f]{6})"', xml)),
         "polices": set(re.findall(r'w:ascii="([^"]+)"', xml)),

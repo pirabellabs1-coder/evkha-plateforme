@@ -34,7 +34,7 @@ from ..chapitres.schema import ChapitrePayload, Graphique
 from ..prompts import PLANCHER_FIGURES
 from ..socle.schema import Socle, nombre_francais, unite_lisible
 from . import secteurs
-from .annexe_chiffres import a_son_echelle, blocs_annexe
+from .annexe_chiffres import a_son_echelle, blocs_annexe, meme_arrondi
 from .donnees_graphiques import Resolution, resoudre
 from .texte import libelle_court
 
@@ -295,8 +295,9 @@ def _tableau_de_repli(socle: Socle, demande: Graphique) -> dict[str, Any] | None
         # `annexe_chiffres.a_son_echelle`, 29/09/2026).
         valeur, unite = a_son_echelle(float(donnee.valeur), str(donnee.unite))
         lignes.append([
-            # Coupé AU MOT, avec « … » : la coupe dure à 110 signes tranchait
-            # un mot en deux, sans le dire (29/09/2026, business plan ÉCLORE).
+            # La première phrase, entière : ni coupe dure au milieu d'un mot
+            # (29/09/2026), ni « … » (30/09/2026, business plan ÉCLORE
+            # `28a257bf` : « aucune ligne de tableau tronquée »).
             libelle_court(donnee.libelle or donnee.id),
             # Le formateur du document, pas une recopie : le tableau écrivait
             # ses milliers avec une espace sécable et son unité en code de
@@ -305,6 +306,12 @@ def _tableau_de_repli(socle: Socle, demande: Graphique) -> dict[str, Any] | None
             unite_lisible(unite),
             str(donnee.annee or "—"),
         ])
+    # Un seul arrondi par unité dans la colonne des valeurs (30/09/2026, « arrondi
+    # identique pour tous les montants d'un même tableau »).
+    for ligne, nombre in zip(
+        lignes, meme_arrondi([(ligne[1], ligne[2]) for ligne in lignes]), strict=True,
+    ):
+        ligne[1] = nombre
     sources = dict.fromkeys(donnee.source.strip() for donnee in donnees if donnee.source.strip())
     return {
         "type": "tableau",

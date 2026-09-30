@@ -28,19 +28,30 @@ La demande portait sur le couple. Une moitié a été livrée.
 d'une valeur arrondie diverge de celui qui a lu la valeur exacte — ce serait
 fabriquer une incohérence pour le confort de lecture, et ce dépôt a déjà payé
 pour des contrôles qui créent le défaut qu'ils cherchent (règle 2).
+
+## L'espace avant l'unité (30/09/2026)
+
+Business plan ÉCLORE `28a257bf` : des centaines d'espaces ORDINAIRES entre un
+nombre et « € » ou « % » ; le nombre et son unité se séparaient en fin de ligne. Toute
+espace d'un montant est désormais insécable, et « 6,5 € » s'écrit « 6,50 € ».
 """
 from __future__ import annotations
 
 import pytest
 
-from generation.socle.schema import montant_lisible
+from generation.socle.schema import INSECABLE, montant_lisible
+
+
+def _insecable(texte: str) -> str:
+    """L'écriture attendue : AUCUNE espace sécable dans un montant."""
+    return texte.replace(" ", INSECABLE)
 
 LISIBLE = [
     pytest.param(16_500_000_000.0, "EUR", "16,5 Md€", id="le-cas-mesure"),
     pytest.param(3_300_000.0, "EUR", "3,3 M€", id="millions-exacts"),
     pytest.param(1_000_000.0, "EUR", "1 M€", id="pile-un-million"),
     pytest.param(320_000.0, "EUR", "320 000 €", id="un-ca-reste-en-clair"),
-    pytest.param(6.5, "EUR", "6,5 €", id="un-panier-moyen"),
+    pytest.param(6.5, "EUR", "6,50 €", id="un-panier-moyen-au-centime"),
 ]
 
 
@@ -48,7 +59,7 @@ LISIBLE = [
 def test_un_grand_montant_s_ecrit_a_son_echelle(
     valeur: float, unite: str, attendu: str
 ) -> None:
-    assert montant_lisible(valeur, unite) == attendu
+    assert montant_lisible(valeur, unite) == _insecable(attendu)
 
 
 INCHANGES = [
@@ -64,7 +75,7 @@ def test_une_conversion_qui_arrondirait_n_a_pas_lieu(
     valeur: float, unite: str, attendu: str
 ) -> None:
     """Mieux vaut long et exact que court et faux."""
-    assert montant_lisible(valeur, unite) == attendu
+    assert montant_lisible(valeur, unite) == _insecable(attendu)
 
 
 DEJA_A_L_ECHELLE = [
@@ -78,7 +89,7 @@ def test_une_unite_deja_a_l_echelle_ne_se_convertit_pas_deux_fois(
     valeur: float, unite: str, attendu: str
 ) -> None:
     """`MdEUR` porte déjà sa magnitude : la valeur lui correspond."""
-    assert montant_lisible(valeur, unite) == attendu
+    assert montant_lisible(valeur, unite) == _insecable(attendu)
 
 
 NON_MONETAIRES = [
@@ -91,7 +102,7 @@ NON_MONETAIRES = [
 def test_ce_qui_n_est_pas_de_l_argent_garde_son_unite(
     valeur: float, unite: str, attendu: str
 ) -> None:
-    assert montant_lisible(valeur, unite) == attendu
+    assert montant_lisible(valeur, unite) == _insecable(attendu)
 
 
 def test_la_ligne_du_socle_ne_porte_plus_le_nombre_brut() -> None:

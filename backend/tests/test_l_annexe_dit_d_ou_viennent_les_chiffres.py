@@ -84,7 +84,9 @@ def test_l_annexe_est_construite_depuis_le_socle_et_ne_coute_rien() -> None:
     # relevé par la cliente sur le business plan ÉCLORE. La valeur, elle, est
     # toujours celle du socle — seule son écriture a changé.
     valeurs = {ligne[1].replace(" ", " ") for ligne in _tableau(socle)}
-    assert valeurs == {"120 000 €", "17,9 €"}
+    # Un seul arrondi dans le tableau (30/09/2026) : « 17,90 € » met « 120 000 € »
+    # au centime.
+    assert valeurs == {"120 000,00 €", "17,90 €"}
     # Un bandeau d'ANNEXE, sans numéro (décision D9, 29/09/2026).
     assert [b["type"] for b in blocs] == ["bandeau_annexe", "paragraphe", "tableau"]
 

@@ -35,10 +35,12 @@ parmi les chapitres (`assemblage.assembler_etude` la range dans `annexes`).
 """
 from __future__ import annotations
 
+import re
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from ..socle.referentiel import Fiabilite
-from ..socle.schema import montant_lisible
+from ..socle.schema import INSECABLE, montant_lisible
 from .texte import libelle_court
 
 if TYPE_CHECKING:
@@ -116,6 +118,53 @@ def _valeur(donnee: Any) -> str:
     return montant_lisible(*a_son_echelle(float(donnee.valeur), str(donnee.unite)))
 
 
+#: Une unité monétaire telle que le document l'écrit (`montant_lisible`).
+_UNITE_MONETAIRE = re.compile(r"(?:k|M|Md)?(?:€|\$|£)")
+_NOMBRE_ECRIT = re.compile(rf"-?\d[\d{INSECABLE}]*(?:,(\d+))?")
+
+
+def meme_arrondi(paires: Sequence[tuple[str, str]]) -> list[str]:
+    """Les nombres d'une colonne de montants, au même nombre de décimales par unité.
+
+    Cliente, 30/09/2026 (business plan ÉCLORE `28a257bf`) : « arrondi
+    identique pour tous les montants d'un même tableau ». Un montant à l'euro
+    à côté d'un montant au centime s'écrit au centime (« 2 000,00 € ») : on
+    COMPLÈTE par des zéros, on n'arrondit jamais — rien ne se perd (règle 2).
+    `paires` : (nombre écrit, unité écrite) ; une grandeur non monétaire
+    traverse inchangée.
+    """
+    lus = [
+        (nombre, unite,
+         _NOMBRE_ECRIT.fullmatch(nombre) if _UNITE_MONETAIRE.fullmatch(unite) else None)
+        for nombre, unite in paires
+    ]
+    cibles: dict[str, int] = {}
+    for _, unite, trouve in lus:
+        if trouve:
+            cibles[unite] = max(cibles.get(unite, 0), len(trouve.group(1) or ""))
+    sortie: list[str] = []
+    for nombre, unite, trouve in lus:
+        decimales = len(trouve.group(1) or "") if trouve else 0
+        manque = cibles.get(unite, 0) - decimales if trouve else 0
+        if manque > 0:
+            nombre = f"{nombre}{'' if decimales else ','}{'0' * manque}"
+        sortie.append(nombre)
+    return sortie
+
+
+_VALEUR_MONETAIRE = re.compile(rf"(.+){INSECABLE}({_UNITE_MONETAIRE.pattern})")
+
+
+def _valeurs_au_meme_arrondi(valeurs: Sequence[str]) -> list[str]:
+    """`meme_arrondi` sur des valeurs écrites avec leur unité (« 2 000 € »)."""
+    lues = [_VALEUR_MONETAIRE.fullmatch(valeur) for valeur in valeurs]
+    nombres = meme_arrondi([(m.group(1), m.group(2)) if m else ("", "") for m in lues])
+    return [
+        f"{nombre}{INSECABLE}{m.group(2)}" if m else valeur
+        for nombre, m, valeur in zip(nombres, lues, valeurs, strict=True)
+    ]
+
+
 def blocs_annexe(socle: Socle) -> list[dict[str, Any]]:
     """L'annexe complète, prête à rendre. Vide si le socle ne porte rien.
 
@@ -126,8 +175,10 @@ def blocs_annexe(socle: Socle) -> list[dict[str, Any]]:
         return []
     lignes = [
         [
-            # Coupé au mot, avec « … » s'il le faut : jamais au milieu d'un mot
-            # (29/09/2026, tableaux tronqués du business plan ÉCLORE).
+            # La première phrase, ENTIÈRE : la coupe « … » arrêtait une
+            # définition au milieu de sa phrase sous les yeux de la cliente
+            # (30/09/2026, business plan ÉCLORE `28a257bf`). La cellule passe
+            # à la ligne.
             libelle_court(donnee.libelle) if donnee.libelle else donnee.id,
             _valeur(donnee),
             str(donnee.annee or "—"),
@@ -135,6 +186,11 @@ def blocs_annexe(socle: Socle) -> list[dict[str, Any]]:
         ]
         for donnee in socle.donnees
     ]
+    # Un seul arrondi par unité dans la colonne des valeurs (30/09/2026).
+    for ligne, valeur in zip(
+        lignes, _valeurs_au_meme_arrondi([ligne[1] for ligne in lignes]), strict=True,
+    ):
+        ligne[1] = valeur
     return [
         {"type": "bandeau_annexe", "titre": TITRE, "accroche": ""},
         {

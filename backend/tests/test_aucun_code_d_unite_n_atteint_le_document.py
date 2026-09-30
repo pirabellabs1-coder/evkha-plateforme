@@ -156,7 +156,10 @@ def test_les_valeurs_lisibles_sont_bien_imprimees(rendu: tuple[dict[str, Any], s
     """CONTRE-ÉPREUVE : la valeur ne disparaît pas avec son code."""
     _etude, texte = rendu
     compact = texte.replace(" ", " ").replace(" ", " ")
-    for attendu in ("30 000 M€", "23 223,86 €", "2 000 000", "1,2 Md€", "5 k€", "300 000 €"):
+    # « 300 000,00 € » : l'annexe écrit ses montants en euros au même arrondi que
+    # « 23 223,86 € » (30/09/2026, « arrondi identique pour tous les montants d'un
+    # même tableau »).
+    for attendu in ("30 000 M€", "23 223,86 €", "2 000 000", "1,2 Md€", "5 k€", "300 000,00 €"):
         assert attendu in compact, f"« {attendu} » absent du document"
     assert not re.search(r"(?m)^0 \w*€$", compact), "un montant réel écrit zéro"
 
