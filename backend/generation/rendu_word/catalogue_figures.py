@@ -41,7 +41,8 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .donnees_graphiques import resoudre
+from .donnees_graphiques import FORMES_DE_PARTS, resoudre
+from .reparation_figures import par_ordre_de_grandeur
 
 if TYPE_CHECKING:
     from ..socle.schema import Socle
@@ -64,7 +65,6 @@ _RACINE_DE_SERIE = re.compile(r"_(?:an)?\d+$")
 #: - les composantes d'un total (charges par poste, chiffre d'affaires par
 #:   activité, clients par segment) admettent les parts ;
 #: - toute autre série (prix des formules, tarifs) se compare, sans parts.
-_FORMES_DE_PARTS = frozenset({"anneau", "camembert"})
 _FORMES_TRAJECTOIRE = ("courbes", "barres")
 _FORMES_COMPOSANTES = ("anneau", "barres_horizontales", "barres")
 _FORMES_COMPARAISON = ("barres", "barres_horizontales")
@@ -144,15 +144,22 @@ def _groupes_compatibles(socle: Socle) -> list[tuple[str, ...]]:
             par_unite.setdefault(str(donnee.unite), []).append(donnee.id)
 
     groupes: list[tuple[str, ...]] = []
-    for identifiants in [*par_serie.values(), *par_unite.values()]:
-        if len(identifiants) < _DONNEES_PAR_FIGURE_MIN:
-            continue
-        # Par paquets de quatre : un socle de dix montants donne deux figures
-        # lisibles plutôt qu'une figure illisible ou deux cents variantes.
-        for debut in range(0, len(identifiants), _DONNEES_PAR_FIGURE_MAX):
-            paquet = tuple(identifiants[debut : debut + _DONNEES_PAR_FIGURE_MAX])
-            if len(paquet) >= _DONNEES_PAR_FIGURE_MIN:
-                groupes.append(paquet)
+    for identifiants_de_l_unite in [*par_serie.values(), *par_unite.values()]:
+        # Puis par ORDRE DE GRANDEUR, comme la réparation : une même unité ne
+        # fait pas un même axe. « Chiffre d'affaires, panier moyen » en euros
+        # était proposé — un rapport de 1 à 6 700, que `resoudre` refuse depuis
+        # la règle du client du 30/09/2026 (« rapport max/min inférieur à
+        # 1 000 »). Sans ce découpage, le groupe entier disparaissait du
+        # catalogue, et avec lui les deux chiffres d'affaires qui se comparent.
+        for identifiants in par_ordre_de_grandeur(socle, identifiants_de_l_unite):
+            if len(identifiants) < _DONNEES_PAR_FIGURE_MIN:
+                continue
+            # Par paquets de quatre : un socle de dix montants donne deux
+            # figures lisibles plutôt qu'une illisible ou deux cents variantes.
+            for debut in range(0, len(identifiants), _DONNEES_PAR_FIGURE_MAX):
+                paquet = tuple(identifiants[debut : debut + _DONNEES_PAR_FIGURE_MAX])
+                if len(paquet) >= _DONNEES_PAR_FIGURE_MIN:
+                    groupes.append(paquet)
     return groupes
 
 
@@ -186,7 +193,7 @@ def figures_possibles(socle: Socle, *, limite: int = MAX_PROPOSITIONS) -> list[P
             forme
             for decalage in range(len(_FORMES_SCALAIRES))
             if (forme := _FORMES_SCALAIRES[(rang + decalage) % len(_FORMES_SCALAIRES)])
-            not in _FORMES_DE_PARTS
+            not in FORMES_DE_PARTS
         )
         for forme in formes:
             resolution = resoudre(socle, forme, list(groupe))
@@ -272,7 +279,17 @@ def bloc_figures_possibles(socle: Socle) -> str:
         "- une figure compare des grandeurs de MÊME NATURE : des euros avec "
         "des euros, des pourcentages avec des pourcentages. Mêler un montant "
         "et un effectif ne se dessine pas ;\n"
-        "- il faut au moins deux valeurs : une seule barre n'apprend rien ;\n"
+        "- il faut au moins deux valeurs : une seule barre n'apprend rien, deux "
+        "valeurs égales non plus ;\n"
+        "- un même axe porte un même ORDRE DE GRANDEUR : un marché en milliards "
+        "et un panier en euros ne se dessinent pas côte à côte ;\n"
+        "- un anneau, un camembert, des aires ou des barres empilées "
+        "ADDITIONNENT leurs parts : jamais un résultat avec une trésorerie, ni "
+        "un marché avec un apport ;\n"
+        "- le TITRE dit ce que la figure porte : « par X », « répartition », "
+        "« structure » exigent au moins deux séries ou catégories (trois en "
+        "anneau) ; une année du titre est une année des données ; un titre qui "
+        "nomme le projet le compare ;\n"
         "- un radar exige une grille de NOTES sur au moins trois critères, "
         "jamais des montants ;\n"
         "- si aucune ligne ne sert ton propos, n'en demande pas : écris le "

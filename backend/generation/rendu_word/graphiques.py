@@ -549,7 +549,8 @@ def jauges(
 
 #: Au-delà, un nom d'acteur déborde sur ses voisins quoi qu'on fasse.
 #: « Comptoir National de l'Or/Gold.fr » fait 33 signes et traverse un quart
-#: de la figure.
+#: de la figure. Largeur d'une LIGNE : le nom se replie au-delà, il n'est plus
+#: coupé (voir `_replier_le_nom`).
 _NOM_SUR_MATRICE_MAX = 22
 
 #: Les positions d'étiquette essayées, dans l'ordre, autour d'un point.
@@ -566,10 +567,18 @@ _PLACEMENTS: tuple[tuple[int, int, str, str], ...] = (
 )
 
 
-def _abreger(nom: str) -> str:
-    if len(nom) <= _NOM_SUR_MATRICE_MAX:
-        return nom
-    return nom[: _NOM_SUR_MATRICE_MAX - 1].rstrip(" ,-/") + "…"
+def _replier_le_nom(nom: str) -> str:
+    """Le nom d'un acteur sur autant de lignes qu'il en faut, jamais coupé.
+
+    Il était coupé à 21 signes en plein mot, suivi de « … » : « Comptoir
+    National de l'Or/Gold.fr » devenait « Comptoir National de… », et deux
+    enseignes au même début se confondaient sur la carte. Règle du client du
+    30/09/2026 : « libellés non tronqués ». Même repli que les étiquettes
+    d'axe (`donnees_graphiques.replier`), à la largeur d'une étiquette de point.
+    """
+    from .donnees_graphiques import replier  # noqa: PLC0415
+
+    return replier(nom, _NOM_SUR_MATRICE_MAX)
 
 
 def _placements_sans_chevauchement(
@@ -624,7 +633,7 @@ def matrice_positionnement(
         decalage_x, decalage_y, ha, va = placements[index]
         axes.scatter(x, y, s=260, color=couleurs[index], zorder=3)
         axes.annotate(
-            _abreger(nom), (x, y), textcoords="offset points",
+            _replier_le_nom(nom), (x, y), textcoords="offset points",
             xytext=(decalage_x, decalage_y), ha=ha, va=va,
             fontsize=9, color=palette.texte_corps,
         )
