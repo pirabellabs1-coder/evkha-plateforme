@@ -2084,6 +2084,9 @@ def generer_chapitre(
         # et non le chapitre : perdre une analyse concurrentielle entière pour
         # une métadonnée est le mauvais prix (business plan `2a8872d0`).
         derniere_tentative=derniere_tentative,
+        # Avec la mémoire, dès le premier essai : ses chiffres sont contrôlés
+        # par leurs repères (`_passer_par_la_memoire`).
+        declarations_hors_socle_retirees=memoire is not None,
     )
     # Les FIGURES sont jugées ici, par le moteur qui dessine — mais une figure
     # impossible ne paie JAMAIS une reprise à elle seule.
@@ -2179,7 +2182,9 @@ def rappel_des_reperes(memoire: Any) -> str:
         "citer en clair une réponse du client telle qu'il l'a écrite. Tout autre "
         "chiffre (écart, part, moyenne, total) : prends le repère de la mémoire, "
         "ne le calcule pas. Si le repère voulu n'est pas dans la liste, n'écris pas "
-        f"ce chiffre : n'invente jamais un identifiant. {series}."
+        f"ce chiffre : n'invente jamais un identifiant. {series}. `donnees_utilisees` "
+        "ne liste que des identifiants du socle : jamais une décision ni un repère "
+        "calculé de la mémoire."
     )
 
 

@@ -912,6 +912,7 @@ def valider_chapitre(
     resume_mots_max: int,
     secteur: str = "",
     derniere_tentative: bool | None = False,
+    declarations_hors_socle_retirees: bool = False,
 ) -> list[str]:
     """Contrôles croisés avec le socle et le chapitrage.
 
@@ -957,7 +958,13 @@ def valider_chapitre(
             for identifiant in graphique.donnees_ids
         ]
 
-    if inconnues and derniere_tentative:
+    # Avec la MÉMOIRE DE L'ÉTUDE (`declarations_hors_socle_retirees`), la
+    # déclaration hors socle est retirée dès le premier essai. Les chiffres y
+    # sont contrôlés par leurs repères ; `donnees_utilisees` n'est plus qu'une
+    # trace. Reprise ÉCLORE `28a257bf` (30/09/2026) : le modèle y recopiait les
+    # décisions de la mémoire (`statut_2026`, `bloc_INITIAL_atelier_pilote`),
+    # et presque chaque chapitre était réécrit pour elles.
+    if inconnues and (derniere_tentative or declarations_hors_socle_retirees):
         # DERNIER essai : on garde le chapitre, on jette la DÉCLARATION.
         #
         # `donnees_utilisees` est une liste déclarative — elle sert à tracer et
