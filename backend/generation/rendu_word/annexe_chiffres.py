@@ -126,8 +126,10 @@ def blocs_annexe(socle: Socle) -> list[dict[str, Any]]:
         return []
     lignes = [
         [
-            # Coupé au mot, avec « … » s'il le faut : jamais au milieu d'un mot
-            # (29/09/2026, tableaux tronqués du business plan ÉCLORE).
+            # La première phrase, ENTIÈRE : la coupe « … » arrêtait une
+            # définition au milieu de sa phrase sous les yeux de la cliente
+            # (30/09/2026, business plan ÉCLORE `28a257bf`). La cellule passe
+            # à la ligne.
             libelle_court(donnee.libelle) if donnee.libelle else donnee.id,
             _valeur(donnee),
             str(donnee.annee or "—"),

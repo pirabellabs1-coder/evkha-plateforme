@@ -17,7 +17,10 @@ familles de coupes dans le document livré, nées toutes deux dans notre rendu :
 Chaque endroit coupait à sa manière. Ils passent désormais tous par ici :
 `couper_au_mot` borne une longueur sans jamais entamer un mot, et DIT la coupe
 par « … » ; `nom_court` garde la tête d'une dénomination, avant toute
-apposition ; `libelle_court` garde la première phrase d'une définition.
+apposition ; `libelle_court` garde la première phrase d'une définition —
+entière depuis le 30/09/2026 : une cellule de tableau ne se coupe plus
+(« aucune ligne de tableau tronquée par "…" », cliente, business plan ÉCLORE
+`28a257bf`).
 """
 from __future__ import annotations
 
@@ -27,10 +30,6 @@ import re
 #: document (« Stratégie d'entreprise », le plus long, fait 22 signes ; la ligne
 #: utile d'une page A4 à 2 cm de marge en porte environ 95 en corps 9).
 NOM_COURT_MAX = 40
-
-#: Plafond d'un libellé dans une cellule de tableau. Même valeur que la coupe
-#: dure qu'il remplace : seule la MANIÈRE de couper change.
-LIBELLE_MAX = 110
 
 #: Ce qui OUVRE une apposition après un nom : « ÉCLORE (nom provisoire) »,
 #: « ÉCLORE — bien-être », « ÉCLORE, avec pour signature… », « ÉCLORE avec
@@ -141,12 +140,22 @@ def ressemble_a_un_nom(texte: str) -> bool:
     )
 
 
-def libelle_court(libelle: str, plafond: int = LIBELLE_MAX) -> str:
-    """La première phrase d'un libellé, bornée à `plafond` et coupée au mot.
+def libelle_court(libelle: str) -> str:
+    """La première phrase d'un libellé, ENTIÈRE.
 
     Le libellé du socle est une DÉFINITION : il lève toute ambiguïté sur ce que
     le chiffre mesure, donc il est souvent long. Une cellule n'en garde que la
-    première phrase, et, si elle dépasse encore, la coupe se voit.
+    première phrase.
+
+    ## Plus de coupe « … » (30/09/2026)
+
+    La première phrase était encore bornée à 110 signes, coupée au mot et
+    suivie de « … ». Business plan ÉCLORE `28a257bf`, annexe des chiffres :
+    la définition d'un taux de marge s'arrêtait au milieu de sa phrase, sur
+    « … ». La cliente : « aucune ligne de tableau tronquée par "…" ». Une
+    cellule passe à la ligne ; le lecteur lit la phrase jusqu'au bout. Le
+    contrôle `relecture.mise_en_page` signale toute cellule qui finirait encore
+    ainsi.
     """
     phrase = _FIN_DE_PHRASE.split(" ".join(str(libelle or "").split()), maxsplit=1)[0]
-    return couper_au_mot(phrase.rstrip(". "), plafond)
+    return phrase.rstrip(". ")

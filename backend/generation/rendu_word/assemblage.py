@@ -295,8 +295,9 @@ def _tableau_de_repli(socle: Socle, demande: Graphique) -> dict[str, Any] | None
         # `annexe_chiffres.a_son_echelle`, 29/09/2026).
         valeur, unite = a_son_echelle(float(donnee.valeur), str(donnee.unite))
         lignes.append([
-            # Coupé AU MOT, avec « … » : la coupe dure à 110 signes tranchait
-            # un mot en deux, sans le dire (29/09/2026, business plan ÉCLORE).
+            # La première phrase, entière : ni coupe dure au milieu d'un mot
+            # (29/09/2026), ni « … » (30/09/2026, business plan ÉCLORE
+            # `28a257bf` : « aucune ligne de tableau tronquée »).
             libelle_court(donnee.libelle or donnee.id),
             # Le formateur du document, pas une recopie : le tableau écrivait
             # ses milliers avec une espace sécable et son unité en code de

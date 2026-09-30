@@ -11,6 +11,13 @@ sans points de suspension (§ 3.14 du diagnostic). Deux coupes dans notre code :
 
 Une seule manière de couper désormais (`texte.libelle_court`) : la première
 phrase, bornée au mot, suivie de « … » quand elle a été raccourcie.
+
+## Plus aucune coupe dans une cellule (30/09/2026)
+
+Business plan ÉCLORE `28a257bf`, annexe des chiffres : « … les coûts de
+session… ». La cliente : « aucune ligne de tableau tronquée par "…" ». La
+première phrase du libellé s'écrit désormais ENTIÈRE ; la cellule passe à la
+ligne. Ni mot tranché (29/09), ni points de suspension (30/09).
 """
 from __future__ import annotations
 
@@ -23,7 +30,7 @@ from docx import Document
 from generation.chapitres.schema import Graphique, TypeGraphique
 from generation.rendu_word import assemblage, secteurs
 from generation.rendu_word.depuis_json import rendre_etude
-from generation.rendu_word.texte import LIBELLE_MAX, couper_au_mot, libelle_court
+from generation.rendu_word.texte import couper_au_mot, libelle_court
 from generation.socle.referentiel import Fiabilite, Perimetre
 from generation.socle.schema import DonneeSocle, Socle, Zone
 
@@ -53,17 +60,11 @@ def _socle() -> Socle:
     )
 
 
-def _mot_entier(coupe: str, original: str) -> bool:
-    """La coupe s'arrête-t-elle sur une frontière de mot de l'original ?"""
-    tete = coupe.removesuffix("…").rstrip()
-    return original.startswith(tete) and (
-        len(tete) == len(original) or not original[len(tete)].isalnum()
-    )
-
-
-def test_le_tableau_de_repli_coupe_au_mot() -> None:
-    """Le défaut exact : « … corrigé de l » — un mot tranché, sans suspension."""
-    assert LONG[:110].endswith("corrigé de l"), "le libellé d'essai doit couper un mot"
+def test_le_tableau_de_repli_ne_coupe_plus_le_libelle() -> None:
+    """Le défaut du 29/09 : « … corrigé de l » — un mot tranché, sans suspension.
+    Celui du 30/09 : la coupe au mot, suivie de « … ». La cellule porte désormais
+    le libellé entier."""
+    assert LONG[:110].endswith("corrigé de l"), "le libellé d'essai doit dépasser 110 signes"
     socle = _socle()
     blocs = assemblage._blocs_graphique(
         socle,
@@ -75,9 +76,8 @@ def test_le_tableau_de_repli_coupe_au_mot() -> None:
     )
     tableau = next(b for b in blocs if b["type"] == "tableau")
     cellule = next(ligne[0] for ligne in tableau["lignes"] if ligne[0].startswith("Chiffre"))
-    assert len(cellule) <= LIBELLE_MAX
-    assert cellule.endswith("…"), cellule
-    assert _mot_entier(cellule, LONG), cellule
+    assert cellule == LONG, cellule
+    assert not cellule.endswith("…"), cellule
 
 
 def test_l_annexe_ne_coupe_pas_a_un_point_d_abreviation(tmp_path: Path) -> None:
@@ -93,7 +93,8 @@ def test_l_annexe_ne_coupe_pas_a_un_point_d_abreviation(tmp_path: Path) -> None:
     ]
     assert ABREGE in donnees, donnees
     longue = next(d for d in donnees if d.startswith("Chiffre"))
-    assert len(longue) <= LIBELLE_MAX and _mot_entier(longue, LONG), longue
+    assert longue == LONG, longue
+    assert not any(d.endswith("…") for d in donnees), donnees
 
 
 @pytest.mark.parametrize(
@@ -115,3 +116,8 @@ def test_un_libelle_court_traverse_intact() -> None:
     """CONTRE-ÉPREUVE : ni coupe, ni « … » sur ce qui tient déjà."""
     assert libelle_court("Chiffre d'affaires actuel.") == "Chiffre d'affaires actuel"
     assert libelle_court("Marché national. Source : Insee.") == "Marché national"
+
+
+def test_un_libelle_long_garde_sa_premiere_phrase_entiere() -> None:
+    """Le cas du 30/09 : la phrase dépasse 110 signes, elle reste entière."""
+    assert libelle_court(f"{LONG}. Seconde phrase.") == LONG

@@ -25,7 +25,7 @@ from typing import Any
 
 from docx.document import Document as DocumentWord
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
 from docx.shared import Emu, Pt, RGBColor
@@ -211,8 +211,23 @@ def _ecrire(
 
 
 def saut_de_page(document: DocumentWord) -> None:
-    """Saut explicite. La référence en compte 30 : le flux automatique ne suffit pas."""
-    document.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+    """Saut explicite. La référence en compte 30 : le flux automatique ne suffit pas.
+
+    ## Une page blanche, mesurée (30/09/2026)
+
+    Business plan ÉCLORE `28a257bf` : une page BLANCHE entre deux chapitres.
+    L'encadré qui clôt le premier finissait au ras du bas de sa page. Le saut
+    était un CARACTÈRE (`WD_BREAK.PAGE`) dans un paragraphe à lui : ce
+    paragraphe ne tenait plus sur la page, il est parti en haut de la
+    suivante — et son saut en a ouvert une troisième. Reproduit au rendu
+    LibreOffice : avec 51 lignes avant le saut, une page blanche ; aucune
+    avec `page_break_before`.
+
+    Le saut vit désormais SUR le paragraphe (`page_break_before`) : un
+    paragraphe qui commence déjà une page n'en ouvre pas une seconde. La
+    quatrième de couverture faisait déjà ainsi (`quatrieme_couverture`).
+    """
+    document.add_paragraph().paragraph_format.page_break_before = True
 
 
 # ── 1 et 7. Couverture et quatrième de couverture ────────────────────────────
@@ -346,8 +361,10 @@ def _est_vide(element: Any) -> bool:
         return False
     if "".join(element.itertext()).strip():
         return False
+    # Un saut de page vit sur le paragraphe (`saut_de_page`) : ce paragraphe
+    # sans texte n'est pas une ligne blanche.
     return not any(
-        enfant.tag in (qn("w:drawing"), qn("w:pict"), qn("w:br"))
+        enfant.tag in (qn("w:drawing"), qn("w:pict"), qn("w:br"), qn("w:pageBreakBefore"))
         for enfant in element.iter()
     )
 
