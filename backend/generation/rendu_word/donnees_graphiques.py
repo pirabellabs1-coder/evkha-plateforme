@@ -43,6 +43,11 @@ _SCALAIRES = (
     "barres", "barres_horizontales", "camembert", "anneau", "entonnoir", "jauges"
 )
 
+#: Les formes qui dessinent les PARTS D'UN TOUT. Une seule définition, lue par
+#: les résolveurs, le catalogue et le contrôle de spécification (règle 5 : elle
+#: vivait en trois copies, revue du 30/09/2026).
+FORMES_DE_PARTS = frozenset({"camembert", "anneau"})
+
 
 @dataclass(frozen=True)
 class Resolution:
@@ -208,6 +213,24 @@ def ecart_d_echelle(valeurs: Sequence[float], unite: str) -> str:
         f"{_valeur_lisible(petite, unite)} à {_valeur_lisible(grande, unite)}, "
         f"un rapport de 1 à {nombre_francais(round(rapport))} (plafond : 1 000) — "
         "la plus petite valeur n'y serait qu'un trait"
+    )
+
+
+def ecart_d_echelle_des_series(
+    series: Sequence[tuple[str, Sequence[float]]], unite: str,
+) -> str:
+    """La même règle, SÉRIE contre série : chacune pèse sa plus grande valeur.
+
+    « Toutes les SÉRIES d'un graphique ont le même ordre de grandeur » : ce
+    sont les séries qui se comparent, pas leurs points. Un résultat qui passe
+    de −100 € à +46 000 € traverse zéro, et son premier point est petit par
+    construction ; le comparer point à point au chiffre d'affaires refuserait
+    la figure « CA et résultat sur trois exercices », la plus attendue d'un
+    prévisionnel. Un marché en milliards et un chiffre d'affaires en milliers,
+    eux, restent refusés : leurs séries sont à mille fois l'une de l'autre.
+    """
+    return ecart_d_echelle(
+        [max((abs(v) for v in points), default=0.0) for _, points in series], unite,
     )
 
 
@@ -671,7 +694,7 @@ def _scalaires(
         if egales:
             return Resolution(motif=egales)
 
-    if type_demande in ("camembert", "anneau"):
+    if type_demande in FORMES_DE_PARTS:
         if any(valeur < 0 for valeur in valeurs):
             return Resolution(
                 motif="valeur négative : une part d'un tout ne peut pas être négative"
@@ -843,14 +866,14 @@ def series_par_perimetre(
     # 2024-2030 (règle du client du 30/09/2026 : « les légendes indiquent la
     # bonne période »).
     noms = {
-        cle: replier(_sans_periode(_tete(premieres[cle].libelle))) for cle in completes
+        cle: replier(_legende_de_serie(_tete(premieres[cle].libelle))) for cle in completes
     }
     # Deux séries au même nom ne se distinguent plus dans la légende : elles
     # reprennent leur libellé entier, comme les étiquettes (`etiquettes_de`).
     confondus = _en_double(list(noms.values()))
     return [
         (
-            replier(_sans_periode(premieres[cle].libelle))
+            replier(_legende_de_serie(premieres[cle].libelle))
             if noms[cle] in confondus else noms[cle],
             [groupes[cle][annee] for annee in annees],
         )
@@ -900,8 +923,16 @@ _RADICAL_ANNUEL = re.compile(r"^(?P<radical>.+)_an\d{1,2}$")
 #: la légende d'une série qui court sur six ans.
 _PERIODE_FINALE = re.compile(
     r"\s*(?:[—–(,-]\s*|\b(?:en|au|à|pour|de|d['’])\s*)?"
-    r"(?:(?:l['’]\s*)?(?:exercice|ann[ée]e|an)\s+\d{1,2}|(?:19|20)\d{2})"
+    r"(?:\b(?:l['’]\s*)?(?:exercice|ann[ée]e|an)\s+\d{1,2}|\b(?:19|20)\d{2})"
     r"\s*\)?\s*$",
+    re.IGNORECASE,
+)
+
+#: Une année n'importe où dans une LÉGENDE de série, avec sa préposition :
+#: « Taille du marché national en 2024 selon Xerfi ». La série couvre
+#: plusieurs années, l'axe les porte : son nom n'en désigne aucune.
+_ANNEE_DANS_LA_LEGENDE = re.compile(
+    r"\s*(?:\b(?:en|au|à|pour|de)\s+)?(?<![^\W\d_])(?<!\d)(?:19|20)\d{2}(?!\d)",
     re.IGNORECASE,
 )
 
@@ -915,6 +946,19 @@ def _sans_periode(texte: str) -> str:
             break
         propre = raccourci
     return propre
+
+
+def _legende_de_serie(texte: str) -> str:
+    """Le nom d'une série qui court sur plusieurs années : sans AUCUNE année.
+
+    `_sans_periode` ne retire que la période FINALE : « Taille du marché
+    national en 2024 selon Xerfi » gardait « 2024 », et le contrôle de
+    spécification refusait ensuite la figure pour une légende que notre code
+    avait écrite (revue du 30/09/2026).
+    """
+    propre = _ANNEE_DANS_LA_LEGENDE.sub("", _sans_periode(texte))
+    propre = " ".join(propre.split()).strip(" ,;:—–-")
+    return propre or _sans_periode(texte)
 
 
 def _temporel(
@@ -958,9 +1002,9 @@ def _temporel(
             motif="aucune série complète : chaque série doit couvrir toutes "
             "les années, et une valeur manquante ne s'interpole pas"
         )
-    # Sur les valeurs TRACÉES : une série trouée est écartée, elle ne
+    # Sur les séries TRACÉES : une série trouée est écartée, elle ne
     # s'affiche pas et ne rend donc aucune autre invisible.
-    ecart = ecart_d_echelle([v for _, points in series for v in points], unite)
+    ecart = ecart_d_echelle_des_series(series, unite)
     if ecart:
         return Resolution(motif=ecart)
     if type_demande == "aires" and len(series) >= 2:
@@ -1024,8 +1068,6 @@ def _groupees(
             + ", ".join(sorted({d.unite for d in donnees}))
         )
     valeurs, unite = harmonise
-    if type_demande == "barres_empilees" and any(d.valeur < 0 for d in donnees):
-        return Resolution(motif="valeur négative : un empilement deviendrait faux")
 
     annees = sorted({donnee.annee for donnee in donnees})
     series = series_par_perimetre(donnees, valeurs, annees)
@@ -1039,7 +1081,7 @@ def _groupees(
             )
         return Resolution(motif="pas de seconde dimension et " + repli.motif)
 
-    ecart = ecart_d_echelle([v for _, points in series for v in points], unite)
+    ecart = ecart_d_echelle_des_series(series, unite)
     if ecart:
         return Resolution(motif=ecart)
     contenu = {
@@ -1048,9 +1090,13 @@ def _groupees(
     }
     if type_demande == "barres_empilees":
         # Une pile est une somme, comme un anneau (règle du client du
-        # 30/09/2026) : des séries qui ne s'additionnent pas se groupent.
-        non_additif = pourquoi_non_additif(
-            membres_des_series(donnees, annees), meme_date=False,
+        # 30/09/2026) : des séries qui ne s'additionnent pas se groupent. Une
+        # valeur négative non plus ne s'empile pas — elle était REFUSÉE, alors
+        # que les mêmes séries se groupent très bien (revue du 30/09/2026).
+        non_additif = (
+            "valeur négative : un empilement deviendrait faux"
+            if any(v < 0 for _, points in series for v in points)
+            else pourquoi_non_additif(membres_des_series(donnees, annees), meme_date=False)
         )
         if non_additif:
             return Resolution(

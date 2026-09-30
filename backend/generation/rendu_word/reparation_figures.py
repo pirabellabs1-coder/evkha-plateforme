@@ -52,7 +52,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ..socle.schema import DonneeSocle, Socle, valeur_en_unites_de_base
-from .donnees_graphiques import RAPPORT_D_ECHELLE_MAX, Resolution, _famille, resoudre
+from .donnees_graphiques import (
+    RAPPORT_D_ECHELLE_MAX,
+    Resolution,
+    _famille,
+    radical_de,
+    resoudre,
+)
 
 #: Formes dont les données exigées ne se déduisent pas d'un groupe de valeurs.
 #: Les dessiner autrement ferait mentir leur titre.
@@ -130,25 +136,36 @@ def _en_base(donnee: DonneeSocle) -> float:
 def par_ordre_de_grandeur(socle: Socle, groupe: Sequence[str]) -> list[list[str]]:
     """Le groupe découpé en paquets dont le rapport max/min reste sous le plafond.
 
-    Les valeurs sont parcourues de la plus petite à la plus grande ; un paquet
-    se ferme dès qu'une valeur atteint mille fois la plus petite (non nulle)
-    du paquet. Chaque paquet garde l'ordre de la demande.
+    Ce sont les SÉRIES qui se comparent, comme dans les résolveurs
+    (`donnees_graphiques.ecart_d_echelle_des_series`) : les exercices d'une
+    même trajectoire (`tresorerie_fin_an1..3`, de 500 € à 70 000 €) restent
+    ensemble, chacune pesant sa plus grande valeur. Découpée point par point,
+    la trajectoire perdait son premier exercice ici alors que `resoudre` la
+    dessinait entière — deux lectures d'une même règle (revue du 30/09/2026).
+
+    Les séries sont parcourues de la plus petite à la plus grande ; un paquet
+    se ferme dès qu'une série atteint mille fois la plus petite (non nulle) du
+    paquet. Chaque paquet garde l'ordre de la demande.
     """
-    valeurs: dict[str, float] = {}
+    series: dict[str, list[str]] = {}
+    echelles: dict[str, float] = {}
     for identifiant in groupe:
         donnee = socle.donnee(identifiant)
-        if donnee is not None:
-            valeurs[identifiant] = _en_base(donnee)
+        if donnee is None:
+            continue
+        radical = radical_de(identifiant)
+        series.setdefault(radical, []).append(identifiant)
+        echelles[radical] = max(echelles.get(radical, 0.0), _en_base(donnee))
     paquets: list[list[str]] = [[]]
     plancher = 0.0
-    for identifiant in sorted(valeurs, key=valeurs.__getitem__):
-        valeur = valeurs[identifiant]
-        if valeur and plancher and valeur / plancher >= RAPPORT_D_ECHELLE_MAX:
+    for radical in sorted(echelles, key=echelles.__getitem__):
+        echelle = echelles[radical]
+        if echelle and plancher and echelle / plancher >= RAPPORT_D_ECHELLE_MAX:
             paquets.append([])
             plancher = 0.0
-        paquets[-1].append(identifiant)
-        if valeur and not plancher:
-            plancher = valeur
+        paquets[-1].extend(series[radical])
+        if echelle and not plancher:
+            plancher = echelle
     rang = {identifiant: place for place, identifiant in enumerate(groupe)}
     return [sorted(paquet, key=rang.__getitem__) for paquet in paquets if paquet]
 

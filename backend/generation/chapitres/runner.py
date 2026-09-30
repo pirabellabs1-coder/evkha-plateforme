@@ -2295,10 +2295,16 @@ def _motifs_de_figure(
                 legende=graphique.commentaire,
             )
             if not controle.resolution.retenu:
+                # Le conseil suit la règle en cause : un libellé tronqué ne se
+                # corrige pas en réécrivant le titre (revue du 30/09/2026).
+                conseil = (
+                    "Fais correspondre le titre aux données"
+                    if controle.titre_en_cause
+                    else "Choisis des données qui tiennent ces règles"
+                )
                 motifs.append(
-                    f"figure « {graphique.titre} » : son titre ne dit pas ce que "
-                    f"ses données montrent — {controle.motif}. Fais correspondre "
-                    "le titre aux données, ou remplace la figure par un tableau."
+                    f"figure « {graphique.titre} » : {controle.motif}. {conseil}, "
+                    "ou remplace la figure par un tableau."
                 )
             continue
         motifs.append(

@@ -178,6 +178,23 @@ def test_contre_epreuve_des_valeurs_du_meme_ordre_restent_une_figure() -> None:
     assert resolution.retenu, resolution.motif
 
 
+def test_contre_epreuve_un_resultat_qui_traverse_zero_reste_a_cote_du_chiffre_d_affaires() -> None:
+    """Ce sont les SÉRIES qui se comparent, pas leurs points.
+
+    Un résultat de −100 € au premier exercice est petit par construction : il
+    passe de la perte au bénéfice. Comparé point à point à 310 000 €, il
+    faisait refuser « CA et résultat sur trois exercices » (rapport de 3 100).
+    """
+    donnees = _previsionnel()
+    donnees[3] = _d("resultat_net_an1", "Résultat net — exercice 1", -100, annee=2027)
+    resolution = resoudre(_socle(*donnees), "courbes", [
+        "ca_previsionnel_an1", "ca_previsionnel_an2", "ca_previsionnel_an3",
+        "resultat_net_an1", "resultat_net_an2", "resultat_net_an3",
+    ])
+    assert resolution.retenu, resolution.motif
+    assert len(resolution.donnees["series"]) == 2  # type: ignore[index]
+
+
 def test_contre_epreuve_l_entonnoir_du_marche_garde_ses_six_ordres_de_grandeur() -> None:
     """Un entonnoir n'a pas d'axe commun : chaque marche porte sa propre échelle."""
     socle = _socle(
@@ -492,6 +509,29 @@ def test_la_legende_d_une_serie_ne_la_date_pas_d_une_seule_annee() -> None:
     assert [nom for nom, _ in series] == ["Taille du marché national"]
 
 
+def test_une_frise_qui_annonce_une_annee_absente_ne_laisse_pas_de_tableau() -> None:
+    """La frise dessine les tendances, pas les identifiants cités : refusée, elle
+    ne laisse pas un tableau de chiffres sans rapport avec elle."""
+    from generation.socle.schema import Tendance
+
+    socle = _socle(
+        *_previsionnel(),
+        tendances=[
+            Tendance(intitule="Céramique d'usage", horizon="2027"),
+            Tendance(intitule="Ateliers partagés", horizon="2028"),
+        ],
+    )
+
+    blocs, rapport = _poser(socle, _figure(
+        TypeGraphique.CHRONOLOGIE, "Les tendances du métier à l'horizon 2035",
+        "ca_previsionnel_an1",
+    ))
+
+    assert blocs == []
+    assert "2035" in rapport.graphiques_abandonnes[0]
+    assert rapport.graphiques_en_tableau == []
+
+
 def test_contre_epreuve_la_bonne_periode_et_l_annee_d_une_source_passent() -> None:
     """Le commentaire s'imprime à la place de la source : « Insee 2024 » y est
     l'année de la source, pas la période de la figure."""
@@ -629,3 +669,176 @@ def test_contre_epreuve_des_libelles_courts_et_distincts_ne_disent_rien() -> Non
         socle, resolution, identifiants=["charge_poste_1", "charge_poste_2"],
         titre="Deux postes de charges",
     ) == []
+
+
+# ── Revue du 30/09/2026 : ce que la première version prenait à tort ──────────
+#
+# Chaque test ci-dessous échoue sur `f823b06` (la première version de ce
+# contrôle) : une figure juste y partait en tableau, ou une figure fausse y
+# était posée. Les contre-épreuves disent que la règle mord toujours.
+
+TRAJECTOIRE = ("ca_previsionnel_an1", "ca_previsionnel_an2", "ca_previsionnel_an3")
+
+
+def _socle_avec_projet(*donnees: DonneeSocle) -> Socle:
+    return _socle(
+        *donnees, grille_notation=CRITERES,
+        concurrents=[_acteur(PROJET, "projet", 4, 5, 4)],
+    )
+
+
+@pytest.mark.parametrize("titre", [
+    "Chiffre d'affaires généré par le projet, 2027-2029",
+    f"Chiffre d'affaires réalisé par {PROJET}, 2027-2029",
+    "Chiffre d'affaires estimé par l'Insee, 2027-2029",
+    "Chiffre d'affaires moyen par mois, 2027-2029",
+])
+def test_un_complement_d_agent_ou_un_taux_n_est_pas_un_decoupage(titre: str) -> None:
+    """« par le projet », « par l'Insee » disent QUI, « par mois » un taux :
+    aucun ne promet de découpage. La trajectoire reste une figure."""
+    blocs, _ = _poser(
+        _socle_avec_projet(*_previsionnel()), _figure(TypeGraphique.COURBES, titre, *TRAJECTOIRE),
+    )
+    assert [bloc["type"] for bloc in blocs] == ["graphique"], titre
+
+
+def test_des_charges_de_structure_ne_sont_pas_une_structure() -> None:
+    """« Charges de structure » = charges fixes : une grandeur, pas un découpage."""
+    socle = _socle(*(
+        _d(f"charges_fixes_an{n}", f"Charges fixes — exercice {n}", 40_000 + 5_000 * n,
+           annee=2026 + n)
+        for n in (1, 2, 3)
+    ))
+    blocs, _ = _poser(socle, _figure(
+        TypeGraphique.COURBES, "Évolution des charges de structure sur trois exercices",
+        "charges_fixes_an1", "charges_fixes_an2", "charges_fixes_an3",
+    ))
+    assert [bloc["type"] for bloc in blocs] == ["graphique"]
+
+
+@pytest.mark.parametrize("titre", [
+    "Évolution de la structure du chiffre d'affaires",
+    "Chiffre d'affaires par gamme",
+])
+def test_contre_epreuve_un_vrai_decoupage_sur_une_seule_serie_reste_refuse(titre: str) -> None:
+    blocs, _ = _poser(_socle(*_previsionnel()), _figure(
+        TypeGraphique.COURBES, titre, *TRAJECTOIRE,
+    ))
+    assert [bloc["type"] for bloc in blocs] == ["tableau"], titre
+
+
+def _completer(titre_du_chapitre: str) -> assemblage.RapportAssemblage:
+    from types import SimpleNamespace
+
+    socle = _socle(*_previsionnel())
+    # La complétion ne lit que ces trois attributs du chapitre.
+    payload: Any = SimpleNamespace(
+        chapitre=5, titre=titre_du_chapitre,
+        donnees_utilisees=["ca_previsionnel_an1", "ca_previsionnel_an2"],
+    )
+    rapport = assemblage.RapportAssemblage()
+    assemblage._completer_les_figures(
+        [{"numero": 5, "titre": titre_du_chapitre, "blocs": []}], [payload],
+        socle, secteurs.profil_du_secteur(socle.secteur), rapport,
+    )
+    return rapport
+
+
+def test_la_completion_ne_pose_pas_une_figure_sous_un_titre_faux() -> None:
+    """Son titre est fait du nôtre : « Répartition des revenus par canal —
+    repères chiffrés » sur un seul chiffre d'affaires mentirait comme un autre."""
+    assert _completer("Répartition des revenus par canal").graphiques_completes == []
+
+
+def test_contre_epreuve_la_completion_pose_une_figure_sous_un_titre_neutre() -> None:
+    assert len(_completer("Lecture économique").graphiques_completes) == 1
+
+
+def test_une_carte_des_risques_n_est_pas_jugee_sur_les_annees_des_chiffres_cites() -> None:
+    """Elle dessine les RISQUES : l'année des identifiants cités ne la date pas."""
+    from generation.socle.schema import Risque
+
+    socle = _socle(*_previsionnel(), risques=[
+        Risque(intitule="Retard des travaux", probabilite=3, impact=4),
+        Risque(intitule="Hausse de l'énergie", probabilite=4, impact=3),
+    ])
+    blocs, _ = _poser(socle, _figure(
+        TypeGraphique.MATRICE_POSITIONNEMENT, "Risques du lancement, 2028",
+        "ca_previsionnel_an1",
+    ))
+    assert [bloc["graphique"] for bloc in blocs] == ["matrice_positionnement"]
+
+
+def test_une_annee_au_milieu_d_une_legende_est_retiree_aussi() -> None:
+    """Légende écrite par notre code : elle ne doit coûter son titre à personne."""
+    donnees = [
+        _d("marche_national_taille", "Taille du marché national en 2024 selon Xerfi", 3.1,
+           "MdEUR", annee=2024, perimetre=Perimetre.NATIONAL),
+        _d("marche_national_projection", "Taille projetée du marché national", 3.6,
+           "MdEUR", annee=2028, perimetre=Perimetre.NATIONAL),
+    ]
+    nom = series_par_perimetre(donnees, [3.1, 3.6], [2024, 2028])[0][0]
+    assert "2024" not in nom and "Xerfi" in nom.replace("\n", " ")
+
+
+def test_contre_epreuve_une_legende_sans_periode_garde_ses_mots() -> None:
+    """« an » au bout d'un mot n'est pas une année : « du plan 2 » reste entier."""
+    donnees = [
+        _d("ca_plan_an1", "Chiffre d'affaires du plan 2", 10_000),
+        _d("ca_plan_an2", "Chiffre d'affaires du plan 2", 12_000, annee=2028),
+    ]
+    nom = series_par_perimetre(donnees, [10_000, 12_000], [2027, 2028])[0][0]
+    assert nom.replace("\n", " ") == "Chiffre d'affaires du plan 2"
+
+
+def test_le_catalogue_propose_la_trajectoire_entiere_quand_elle_part_de_presque_rien() -> None:
+    """Le résolveur compare les SÉRIES ; le catalogue coupait la trajectoire
+    point par point (50 € puis 70 000 € : rapport de 1 400)."""
+    from generation.rendu_word.catalogue_figures import figures_possibles
+
+    socle = _socle(*(
+        _d(f"tresorerie_fin_an{n}", f"Trésorerie de clôture — exercice {n}", valeur,
+           annee=2026 + n)
+        for n, valeur in ((1, 50), (2, 30_000), (3, 70_000))
+    ))
+    groupes = {p.identifiants for p in figures_possibles(socle)}
+    assert ("tresorerie_fin_an1", "tresorerie_fin_an2", "tresorerie_fin_an3") in groupes
+
+
+def test_une_figure_reparee_puis_refusee_le_dit_au_diagnostic() -> None:
+    socle = _socle(*_previsionnel(), _d("abonnes", "Abonnés", 140, "unite"))
+    _, rapport = _poser(socle, _figure(
+        TypeGraphique.BARRES, "Structure du chiffre d'affaires par gamme",
+        "ca_previsionnel_an1", "ca_previsionnel_an3", "abonnes",
+    ))
+    assert str(rapport.diagnostic_des_abandons[0]["reparation"]).startswith("réussie")
+
+
+def test_le_modele_n_est_pas_renvoye_a_son_titre_pour_un_libelle_tronque() -> None:
+    from generation.chapitres.runner import _motifs_de_figure
+
+    socle = _socle(
+        _d("charge_poste_1", "Loyer de l'atelier…", 14_000),
+        _d("charge_poste_2", "Énergie des fours", 9_000),
+    )
+    motifs = _motifs_de_figure(_payload(_figure(
+        TypeGraphique.BARRES, "Deux postes de charges", "charge_poste_1", "charge_poste_2",
+    )), socle)
+    assert len(motifs) == 1 and "titre aux données" not in motifs[0]
+
+
+@pytest.mark.parametrize("titre", [
+    "Chiffre d'affaires sous la norme RE2020, 2027-2029",
+    "Chiffre d'affaires et Plan France 2030, 2027-2029",
+])
+def test_un_nom_propre_date_n_est_pas_une_periode(titre: str) -> None:
+    blocs, _ = _poser(_socle(*_previsionnel()), _figure(TypeGraphique.COURBES, titre, *TRAJECTOIRE))
+    assert [bloc["type"] for bloc in blocs] == ["graphique"], titre
+
+
+def test_une_pile_avec_une_perte_se_groupe_au_lieu_d_etre_refusee() -> None:
+    resolution = resoudre(_socle(*_previsionnel()), "barres_empilees", [
+        "ca_previsionnel_an1", "ca_previsionnel_an2", "resultat_net_an1", "resultat_net_an2",
+    ])
+    assert resolution.type_graphique == "barres_groupees"
+    assert "négative" in resolution.motif

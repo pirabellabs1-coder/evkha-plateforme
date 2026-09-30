@@ -101,6 +101,20 @@ def _resolution_toujours_possible(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
     monkeypatch.setattr(assemblage, "resoudre", resoudre)
+    _sans_controle_de_specification(monkeypatch)
+
+
+def _sans_controle_de_specification(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Le contrôle de spécification lit le socle (30/09/2026) : isolé comme la
+    résolution, il laisse passer la figure telle quelle. Il a ses propres tests
+    (`test_une_figure_dit_ce_que_ses_donnees_disent`)."""
+    from generation.rendu_word import assemblage
+    from generation.rendu_word.specification_figures import Controle
+
+    monkeypatch.setattr(
+        assemblage, "controler_la_figure",
+        lambda _socle, resolution, **_: Controle(resolution),
+    )
 
 
 def test_la_completion_ramene_le_document_au_plancher(
@@ -252,6 +266,7 @@ def test_des_candidats_intracables_ne_font_pas_abandonner_le_chapitre(
         )
 
     monkeypatch.setattr(assemblage, "resoudre", resoudre)
+    _sans_controle_de_specification(monkeypatch)
 
     # Les quatre premiers sont intraçables, la paire utile vient après.
     payloads = [

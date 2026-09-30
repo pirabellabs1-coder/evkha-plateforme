@@ -41,7 +41,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .donnees_graphiques import resoudre
+from .donnees_graphiques import FORMES_DE_PARTS, resoudre
 from .reparation_figures import par_ordre_de_grandeur
 
 if TYPE_CHECKING:
@@ -65,7 +65,6 @@ _RACINE_DE_SERIE = re.compile(r"_(?:an)?\d+$")
 #: - les composantes d'un total (charges par poste, chiffre d'affaires par
 #:   activité, clients par segment) admettent les parts ;
 #: - toute autre série (prix des formules, tarifs) se compare, sans parts.
-_FORMES_DE_PARTS = frozenset({"anneau", "camembert"})
 _FORMES_TRAJECTOIRE = ("courbes", "barres")
 _FORMES_COMPOSANTES = ("anneau", "barres_horizontales", "barres")
 _FORMES_COMPARAISON = ("barres", "barres_horizontales")
@@ -194,7 +193,7 @@ def figures_possibles(socle: Socle, *, limite: int = MAX_PROPOSITIONS) -> list[P
             forme
             for decalage in range(len(_FORMES_SCALAIRES))
             if (forme := _FORMES_SCALAIRES[(rang + decalage) % len(_FORMES_SCALAIRES)])
-            not in _FORMES_DE_PARTS
+            not in FORMES_DE_PARTS
         )
         for forme in formes:
             resolution = resoudre(socle, forme, list(groupe))

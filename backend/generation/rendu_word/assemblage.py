@@ -473,11 +473,13 @@ def _blocs_graphique(
                     for identifiant in demande.donnees_ids
                     for donnee in [socle.donnee(identifiant)]
                 ],
-                # Une figure refusée pour sa SPÉCIFICATION se dessinait : la
-                # réparation n'a rien à y dire, et `pourquoi_irreparable`
-                # rendrait des motifs vides. Le rapport dit la règle en cause.
+                # Une figure refusée pour sa SPÉCIFICATION se dessinait — telle
+                # que demandée, ou réparée : `pourquoi_irreparable` rendrait des
+                # motifs vides. Le rapport dit laquelle, et la règle en cause.
                 "reparation": (
-                    "non tentée : la figure se dessinait, sa spécification ne tient pas"
+                    f"réussie ({reparation}), puis refusée par la spécification"
+                    if controle.ecarts and repare
+                    else "non tentée : la figure se dessinait, sa spécification ne tient pas"
                     if controle.ecarts
                     else pourquoi_irreparable(socle, type_demande, demande.donnees_ids)
                 ),
@@ -750,6 +752,7 @@ def _completer_les_figures(
                 continue
 
             deja_vus = consommes.setdefault(payload.chapitre, set())
+            titre = f"{payload.titre} — repères chiffrés"
 
             # On essaie les candidats du chapitre JUSQU'À en trouver qui se
             # tracent, sans rendre la main entre deux essais.
@@ -787,6 +790,16 @@ def _completer_les_figures(
                     if type_graphique in profil.graphiques_a_eviter:
                         continue
                     essai = resoudre(socle, type_graphique, candidats)
+                    if essai.retenu:
+                        # Le titre de la complétion est ÉCRIT PAR NOUS, depuis
+                        # celui du chapitre : « Structure du marché — repères
+                        # chiffrés » sur une seule trajectoire mentirait comme
+                        # un titre du modèle. Ce qui refait le document après
+                        # le contrôle se contrôle à son tour (règle 3, revue du
+                        # 30/09/2026).
+                        essai = controler_la_figure(
+                            socle, essai, identifiants=candidats, titre=titre,
+                        ).resolution
                     # Une figure déjà dans le document ne compte pas : elle
                     # tiendrait le plancher en redessinant la même image
                     # (29/09/2026, business plan ÉCLORE, § 3.11 du diagnostic).
@@ -804,7 +817,6 @@ def _completer_les_figures(
             if resolution is None or resolution.donnees is None:
                 continue
 
-            titre = f"{payload.titre} — repères chiffrés"
             # AVANT les encadrés de fin, pas après : un chapitre se ferme sur
             # son verdict, et une figure posée dessous le repousse hors de vue.
             # La première version faisait `append` — le « Verdict » du chapitre

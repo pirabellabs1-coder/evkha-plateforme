@@ -72,22 +72,31 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..socle.schema import DonneeSocle, Socle
-from .donnees_graphiques import Resolution, _criteres_cites, radical_de, resoudre
+from .donnees_graphiques import (
+    FORMES_DE_PARTS,
+    Resolution,
+    _criteres_cites,
+    radical_de,
+    resoudre,
+)
 
 
 @dataclass(frozen=True)
 class Ecart:
     """Un écart entre ce que la figure annonce et ce qu'elle porte.
 
-    `regle` : `titre`, `forme`, `periode`, `projet`, `libelle` ou `calendrier`.
+    `regle` : `titre`, `forme`, `periode`, `legende`, `projet`, `libelle` ou
+    `calendrier`.
     """
 
     regle: str
     motif: str
 
 
-#: Les écarts qui disent que le TITRE (ou la légende) ment : le tableau de
-#: repli ne le reprend pas.
+#: Les écarts qui disent que le TITRE ment : le tableau de repli ne le reprend
+#: pas. La LÉGENDE des séries n'en fait pas partie : c'est notre code qui
+#: l'écrit (`series_par_perimetre`), et une légende fautive ne rend pas faux le
+#: titre écrit par le chapitre (revue du 30/09/2026).
 _REGLES_DU_TITRE = frozenset({"titre", "periode", "projet", "calendrier"})
 
 
@@ -100,6 +109,10 @@ class Controle:
     #: Vrai si la figure a été redessinée sous une autre forme, depuis sa
     #: spécification, pour tenir les règles.
     rederivee: bool = False
+    #: Vrai si ce que la figure dessinait ne venait PAS des identifiants
+    #: demandés : la frise dessine les tendances, la carte des risques les
+    #: risques, quels que soient les identifiants cités.
+    matiere_hors_demande: bool = False
 
     @property
     def motif(self) -> str:
@@ -111,8 +124,17 @@ class Controle:
 
     @property
     def sans_tableau(self) -> bool:
-        """Un calendrier du projet n'a pas de données : aucun tableau ne le remplace."""
-        return any(ecart.regle == "calendrier" for ecart in self.ecarts)
+        """Aucun tableau ne remplace une figure dont les données ne sont pas citées.
+
+        Le tableau de repli imprime les identifiants DEMANDÉS. Pour un
+        calendrier du projet (29/09/2026), ou une frise et une carte des
+        risques refusées ici, ce seraient des chiffres sans rapport avec ce
+        que la figure montrait — sous un titre qui ne leur correspond pas.
+        """
+        return bool(self.ecarts) and (
+            self.matiere_hors_demande
+            or any(ecart.regle == "calendrier" for ecart in self.ecarts)
+        )
 
 
 #: Les formes essayées, dans l'ordre, quand une figure échoue à son contrôle :
@@ -125,7 +147,24 @@ _REDERIVATIONS: dict[str, tuple[str, ...]] = {
     "anneau": ("barres",),
 }
 
-_FORMES_DE_PARTS = frozenset({"camembert", "anneau"})
+def _matiere_hors_demande(
+    socle: Socle, type_graphique: str, identifiants: Sequence[str],
+) -> bool:
+    """Ce que la figure dessine ne vient-il PAS des identifiants demandés ?
+
+    La frise dessine les tendances du socle ; la carte de positionnement, sans
+    critère cité, les risques ; la carte de chaleur aussi, sous deux critères.
+    Les mêmes seuils que les résolveurs (`donnees_graphiques._matrice`,
+    `_chaleur`) : une autre lecture serait une seconde vérité (règle 5).
+    """
+    if type_graphique == "chronologie":
+        return True
+    criteres = _criteres_cites(socle, identifiants)
+    if type_graphique == "matrice_positionnement":
+        return not criteres
+    if type_graphique == "carte_chaleur":
+        return len(criteres) < 2
+    return False
 
 
 def controler_la_figure(
@@ -149,6 +188,7 @@ def controler_la_figure(
     )
     if not ecarts:
         return Controle(resolution)
+    hors_demande = _matiere_hors_demande(socle, resolution.type_graphique, identifiants)
     motif = " ; ".join(ecart.motif for ecart in ecarts)
     if not any(ecart.regle == "calendrier" for ecart in ecarts):
         for forme in _REDERIVATIONS.get(resolution.type_graphique, ()):
@@ -166,7 +206,9 @@ def controler_la_figure(
                     tuple(ecarts),
                     rederivee=True,
                 )
-    return Controle(Resolution(motif=motif), tuple(ecarts))
+    return Controle(
+        Resolution(motif=motif), tuple(ecarts), matiere_hors_demande=hors_demande,
+    )
 
 
 def ecarts_de_specification(
@@ -236,18 +278,35 @@ def annonce_un_calendrier_du_projet(titre: str) -> bool:
 #: Les noms qui promettent un DÉCOUPAGE : « Structure du chiffre d'affaires »,
 #: « Répartition des charges », « Mix produit ». Une figure qui n'a qu'une
 #: grandeur ne découpe rien.
+#:
+#: « Structure » seulement comme NOM DU DÉCOUPAGE — suivi de ce qu'il découpe
+#: (« structure du chiffre d'affaires »), jamais comme complément : « charges
+#: de structure », « frais de structure » désignent les charges fixes, une
+#: seule grandeur, et la première version refusait leur trajectoire (revue du
+#: 30/09/2026).
 _MOT_DE_DECOUPAGE = re.compile(
-    r"\b(r[ée]partition|ventilation|d[ée]composition|composition|structure|mix|"
-    r"segmentation)\b",
+    r"\b(?P<mot>r[ée]partition|ventilation|d[ée]composition|composition|mix|"
+    r"segmentation)\b"
+    r"|(?<!\bde\s)\b(?P<structure>structure)(?=\s+(?:du|de|des|d['’]))",
     re.IGNORECASE,
 )
 
-#: « par univers », « par famille de besoin », « par type d'offre » : le nom
-#: qui suit « par », article compris.
-_PAR = re.compile(
-    r"\bpar\s+(?:(?:les|le|la|des|du)\s+|l['’]\s*)?(?P<objet>[^\W\d_][^\W_]*)",
-    re.IGNORECASE,
-)
+#: « par univers », « par famille de besoin », « par type d'offre » : un
+#: découpage s'écrit avec un nom NU. Suivi d'un déterminant (« par le projet »,
+#: « par l'Insee ») ou d'un nom propre (« par Atelier Brume »), « par »
+#: introduit un complément d'agent — qui a produit, estimé, réalisé —, pas un
+#: découpage. La première version prenait l'article dans le motif : « chiffre
+#: d'affaires généré par le projet » envoyait une trajectoire en tableau (revue
+#: du 30/09/2026).
+_PAR = re.compile(r"\bpar\s+(?P<objet>[^\W\d_][^\W_]*)", re.IGNORECASE)
+
+#: Ce qui fait de « par » un complément d'agent : un déterminant, ou l'entité
+#: même que l'étude décrit.
+_DETERMINANTS = frozenset({
+    "le", "la", "les", "l", "un", "une", "des", "du", "d", "son", "sa", "ses",
+    "leur", "leurs", "ce", "cet", "cette", "ces", "notre", "nos", "votre", "vos",
+    "projet", "entreprise",
+})
 
 #: « par » suivi d'une UNITÉ de compte : un taux (« dépense par habitant »,
 #: « panier par visite ») ou une locution (« par rapport à »), pas un
@@ -262,6 +321,8 @@ _PAR_UNITE = frozenset({
     "collaborateur", "employe", "visite", "visiteur", "commande", "transaction",
     "achat", "unite", "piece", "article", "m²", "m2", "metre", "km", "place",
     "couvert", "nuitee", "utilisateur", "abonne", "adherent", "eleve", "patient",
+    "lead", "prospect", "contact", "participant", "inscrit", "stagiaire",
+    "apprenant", "membre", "beneficiaire",
 })
 
 #: Un découpage DANS LE TEMPS : il exige au moins deux dates, pas deux grandeurs.
@@ -277,35 +338,52 @@ def _plat(texte: str) -> str:
     return "".join(c for c in decompose if not unicodedata.combining(c))
 
 
-def _singulier(mot: str) -> str:
-    mot = _plat(mot)
-    return mot[:-1] if len(mot) > 3 and mot.endswith(("s", "x")) else mot
+def _formes(mot: str) -> set[str]:
+    """Le mot à plat, et son singulier : « mois » reste « mois », « canaux » a « canau ».
+
+    Tester le seul singulier rendait « mois » en « moi » et « ailleurs » en
+    « ailleur » : deux entrées de `_PAR_UNITE` ne correspondaient jamais (revue
+    du 30/09/2026).
+    """
+    plat = _plat(mot)
+    return {plat, plat[:-1] if len(plat) > 3 and plat.endswith(("s", "x")) else plat}
 
 
 def _promesse_de_decoupage(
-    titre: str, traces: Sequence[DonneeSocle],
+    socle: Socle, titre: str, traces: Sequence[DonneeSocle],
 ) -> tuple[str, bool] | None:
     """(ce qui promet un découpage, s'il est temporel), ou `None`."""
     libelles = _plat(" ".join(donnee.libelle for donnee in traces))
+    acteurs = [_plat(a.nom) for a in socle.concurrents if a.nom.strip()]
     for trouve in _PAR.finditer(titre):
-        objet = _singulier(trouve.group("objet"))
-        if objet in _PAR_UNITE or re.search(rf"\b{re.escape(objet)}", libelles):
+        brut = trouve.group("objet")
+        formes = _formes(brut)
+        suite = _plat(titre[trouve.start("objet"):])
+        if (
+            brut[:1].isupper()  # un nom propre, une source, une enseigne
+            or formes & _DETERMINANTS
+            or any(suite.startswith(nom) for nom in acteurs)
+            or formes & _PAR_UNITE
+            or any(re.search(rf"\b{re.escape(forme)}", libelles) for forme in formes)
+        ):
             continue
-        return trouve.group(0), objet in _PAR_PERIODE
+        return trouve.group(0), bool(formes & _PAR_PERIODE)
     nom = _MOT_DE_DECOUPAGE.search(titre)
-    return (nom.group(0), False) if nom else None
+    if nom is None:
+        return None
+    return nom.group("mot") or nom.group("structure"), False
 
 
 def _ecarts_de_decoupage(
     socle: Socle, resolution: Resolution, identifiants: Sequence[str], titre: str,
 ) -> list[Ecart]:
     traces = _donnees_tracees(socle, identifiants)
-    promesse = _promesse_de_decoupage(titre, traces)
+    promesse = _promesse_de_decoupage(socle, titre, traces)
     if promesse is None:
         return []
     mot, temporel = promesse
+    annees = _annees_portees(socle, resolution, identifiants, traces)
     if temporel:
-        annees = _annees_portees(resolution, traces)
         if len(annees) >= 2:
             return []
         return [Ecart("titre", (
@@ -315,14 +393,12 @@ def _ecarts_de_decoupage(
     membres = _membres(socle, resolution, identifiants, traces)
     if len(membres) < 2:
         seule = f" — {membres[0]} —" if membres else ""
-        suivie = (
-            ", suivie dans le temps" if len(_annees_portees(resolution, traces)) > 1 else ""
-        )
+        suivie = ", suivie dans le temps" if len(annees) > 1 else ""
         return [Ecart("titre", (
             f"le titre annonce un découpage (« {mot} ») et la figure ne porte "
             f"qu'une grandeur{seule}{suivie} : rien ne la découpe"
         ))]
-    if resolution.type_graphique in _FORMES_DE_PARTS and len(membres) < 3:
+    if resolution.type_graphique in FORMES_DE_PARTS and len(membres) < 3:
         # Le titre dit vrai ici : c'est la FORME qui ne tient pas. D'où une
         # règle à part — la re-dérivation en barres garde le titre.
         return [Ecart("forme", (
@@ -364,33 +440,74 @@ def _membres(
         if axe and not all(_est_une_annee(item) for item in axe) and len(axe) > len(noms):
             return [str(item) for item in axe]
         return noms
-    for cle, rang in (("points", 0), ("notes", 0), ("etapes", 0), ("jalons", 1)):
+    # Acteurs, risques, tendances : ce que la figure place n'est pas une donnée.
+    for cle, rang in (("points", 0), ("jalons", 1)):
         if cle in donnees:
             return [str(item[rang]) for item in donnees[cle]]
     if "lignes" in donnees:
         return [str(ligne) for ligne in donnees["lignes"]]
+    # Barres, parts, marches d'entonnoir, jauges tirées des DONNÉES : leurs
+    # radicaux, quelle que soit la forme. Compter les marches par leur nom
+    # laissait passer l'entonnoir « exercice 1 → exercice 2 » d'un même
+    # chiffre d'affaires sous un titre de répartition (revue du 30/09/2026).
     if traces and not _criteres_cites(socle, identifiants):
         noms_par_radical: dict[str, str] = {}
         for donnee in traces:
             noms_par_radical.setdefault(radical_de(donnee.id), donnee.libelle)
         return list(noms_par_radical.values())
+    for cle in ("etapes", "notes"):
+        if cle in donnees:
+            return [str(item[0]) for item in donnees[cle]]
     return [str(item) for item in donnees.get("etiquettes") or []]
 
 
 # ── Règle 5 : la période annoncée est celle des données ──────────────────────
 
-_ANNEE = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
+#: Une année : ni collée à une lettre (« RE2020 », une norme), ni à un chiffre.
+_ANNEE = re.compile(r"(?<![^\W\d_])(?<!\d)(?:19|20)\d{2}(?!\d)")
+
+#: Le mot qui précède une année, pour reconnaître un NOM PROPRE daté.
+_MOT_PRECEDENT = re.compile(r"([^\W\d_][\w'’-]*)\s+$")
 
 
-def _annees_portees(resolution: Resolution, traces: Sequence[DonneeSocle]) -> set[int]:
+def _annees_citees(titre: str) -> set[int]:
+    """Les années que le titre ANNONCE comme période.
+
+    Une année portée par un nom propre — « Plan France 2030 », « Vision
+    2030 » — nomme un programme, pas la période de la figure : précédée d'un
+    mot à capitale qui n'ouvre pas le titre, elle n'est pas lue (revue du
+    30/09/2026). Le premier mot du titre porte sa capitale de phrase :
+    « Marché 2024 » annonce bien 2024.
+    """
+    annees: set[int] = set()
+    for trouvee in _ANNEE.finditer(titre):
+        avant = titre[: trouvee.start()]
+        mot = _MOT_PRECEDENT.search(avant)
+        if mot and mot.group(1)[:1].isupper() and avant[: mot.start()].strip():
+            continue
+        annees.add(int(trouvee.group(0)))
+    return annees
+
+
+def _annees_portees(
+    socle: Socle,
+    resolution: Resolution,
+    identifiants: Sequence[str],
+    traces: Sequence[DonneeSocle],
+) -> set[int]:
     """Les années que la figure MONTRE — son axe du temps, ou ses données.
 
     Vide pour une figure d'acteurs ou de risques : elle ne porte pas de date,
-    et rien ne permet d'y juger une année du titre.
+    et rien ne permet d'y juger une année du titre. Les années des
+    identifiants CITÉS ne comptent pas quand la figure dessine autre chose
+    qu'eux — une carte des risques jugée sur des chiffres qu'elle ne montre
+    pas partait sans tableau (revue du 30/09/2026).
     """
     donnees: dict[str, Any] = resolution.donnees or {}
     if "jalons" in donnees:
         return {int(a) for date, _ in donnees["jalons"] for a in _ANNEE.findall(str(date))}
+    if _matiere_hors_demande(socle, resolution.type_graphique, identifiants):
+        return set()
     axe = donnees.get("abscisses") or (
         donnees.get("etiquettes") if "series" in donnees else None
     )
@@ -408,12 +525,14 @@ def _ecarts_de_periode(
     la source (`assemblage._blocs_graphique`), et l'année d'une source —
     « Insee 2024 » — n'est pas la période de la figure.
     """
-    annees = _annees_portees(resolution, _donnees_tracees(socle, identifiants))
+    annees = _annees_portees(
+        socle, resolution, identifiants, _donnees_tracees(socle, identifiants),
+    )
     if not annees:
         return []
     portees = ", ".join(str(annee) for annee in sorted(annees))
     ecarts: list[Ecart] = []
-    hors = sorted({int(a) for a in _ANNEE.findall(titre)} - annees)
+    hors = sorted(_annees_citees(titre) - annees)
     if hors:
         ecarts.append(Ecart("periode", (
             f"le titre cite {', '.join(str(a) for a in hors)} et la figure porte "
@@ -421,9 +540,13 @@ def _ecarts_de_periode(
         )))
     donnees: dict[str, Any] = resolution.donnees or {}
     if len(annees) > 1 and "series" in donnees:
+        # Garde-fou : la légende est écrite par NOTRE code, délestée de toute
+        # année (`donnees_graphiques.series_par_perimetre`). Si une année y
+        # reparaît, c'est la légende qui est fausse, pas le titre du chapitre :
+        # règle `legende`, hors de `_REGLES_DU_TITRE`.
         for nom, _ in donnees["series"]:
             if _ANNEE.search(str(nom)):
-                ecarts.append(Ecart("periode", (
+                ecarts.append(Ecart("legende", (
                     f"la légende « {' '.join(str(nom).split())} » date d'une seule "
                     f"année une série qui couvre {portees}"
                 )))
