@@ -56,8 +56,8 @@ Ce sont deux lignes, deux noms, deux valeurs — elles ne sont égales que si le
 6. Tout chiffre dérivé se calcule sur les lignes du tableau.
 Marge, taux, ratio, écart, évolution, seuil de rentabilité : chacun part des lignes du compte de résultat ci-dessus, et l'opération s'écrit dans la phrase (« 18 000 € d'EBE sur 120 000 € de chiffre d'affaires, soit 15 % »). Le seuil de rentabilité = charges fixes ÷ taux de marge sur coûts variables ; dis ensuite s'il est atteignable avec la capacité décrite dans le dossier.
 
-7. Le scénario central, puis une sensibilité.
-Le compte de résultat ci-dessus est le scénario central. Ajoute une lecture de sensibilité : le résultat net et la CAF si le chiffre d'affaires est inférieur de 10 %, recalculés à partir des mêmes lignes, charges fixes inchangées.
+7. Le scénario central, puis l'analyse de sensibilité.
+Le compte de résultat ci-dessus est le scénario central. Ajoute une analyse de sensibilité : un bloc `tableau`, une colonne par exercice, avec trois lignes de chiffre d'affaires et trois lignes de résultat net — scénario central, chiffre d'affaires inférieur de 10 %, chiffre d'affaires inférieur de 20 % —, charges fixes inchangées : une baisse de chiffre d'affaires retire au résultat la marge qu'elle portait (baisse × taux de marge sur coûts variables). Si la mémoire de l'étude fournit ces montants, cite leurs repères, sans recalcul. Dis ensuite quel exercice devient déficitaire, et à partir de quelle baisse. Ce scénario se construit toujours à partir des lignes du tableau : n'écris jamais qu'il ne peut pas l'être, ni qu'il attend un arbitrage.
 
 8. La trésorerie.
 Un bloc `tableau` de trésorerie de la première année, mois par mois — encaissements, décaissements, solde cumulé — construit sur les mêmes hypothèses, avec son point bas nommé et ce qui le couvre (apport, trésorerie de sécurité). Aucun bilan inventé : un bilan ne se présente que si le client en a fourni les postes.
