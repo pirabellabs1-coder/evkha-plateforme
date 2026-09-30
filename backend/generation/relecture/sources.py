@@ -569,6 +569,23 @@ class Enonce:
     valeur: float
     sujet: frozenset[str]
     rang: int
+    #: La source est citée DANS la phrase (ou la ligne), pas seulement dans la
+    #: ligne « Source : » de la section.
+    directe: bool = False
+    #: Les années dont parle la phrase, citations exclues : « 5 % en 2024 » et
+    #: « 7 % en 2025 » sont une série, pas une donnée écrite deux fois.
+    annees: frozenset[str] = frozenset()
+
+
+def _annees_du_propos(texte: str, connues: set[str]) -> frozenset[str]:
+    sans_citations = _PARENTHESE.sub(
+        lambda m: "" if citations_de(m.group(0), connues) else m.group(0), texte,
+    )
+    return frozenset(_ANNEE.findall(sans_citations))
+
+
+def _meme_periode(a: Enonce, b: Enonce) -> bool:
+    return not (a.annees and b.annees and a.annees.isdisjoint(b.annees))
 
 
 def _sources_de_section(section: Section, connues: set[str]) -> list[str]:
@@ -593,7 +610,8 @@ def _enonces(document: Document) -> list[Enonce]:
             trouvees = proportions(unite.texte)
             if not trouvees:
                 continue
-            sources = citations_de(unite.contexte, connues) or de_la_section
+            citees = citations_de(unite.contexte, connues)
+            sources = citees or de_la_section
             if not sources:
                 continue
             exactes = [p for p in trouvees if p.forme == "exacte"]
@@ -603,11 +621,13 @@ def _enonces(document: Document) -> list[Enonce]:
             sujet = frozenset(_sujet(unite.texte, retenue, sources))
             if len(sujet) < 3:
                 continue
+            annees = _annees_du_propos(unite.contexte, connues)
             for source in sources:
                 rang += 1
-                enonces.append(
-                    Enonce(source, unite, retenue.forme, retenue.valeur, sujet, rang)
-                )
+                enonces.append(Enonce(
+                    source, unite, retenue.forme, retenue.valeur, sujet, rang,
+                    directe=bool(citees), annees=annees,
+                ))
     return enonces
 
 
@@ -618,12 +638,22 @@ def _formulations_divergentes(document: Document) -> list[Constat]:
     constats: list[Constat] = []
     for enonces in par_source.values():
         for enonce in enonces:
+            # Seul un énoncé qui cite sa source DANS la phrase est jugé : une
+            # ligne « Source : » de section couvre souvent plusieurs données
+            # (revue du 30/09/2026 : une série annuelle, une ventilation).
+            if not enonce.directe:
+                continue
             voisins = [
                 e for e in enonces
                 if e.unite is not enonce.unite and e.forme == "exacte"
+                and _meme_periode(e, enonce)
                 and _meme_sujet(set(e.sujet), set(enonce.sujet))
             ]
-            if not voisins:
+            if enonce.forme == "exacte":
+                # Deux valeurs exactes qui diffèrent : chacune citée dans sa
+                # phrase, sinon rien ne dit que c'est la même donnée.
+                voisins = [e for e in voisins if e.directe]
+            if not voisins or not any(e.directe for e in voisins):
                 continue
             valeurs = Counter(round(e.valeur, 1) for e in voisins)
             if enonce.forme == "exacte":
@@ -649,6 +679,7 @@ def _formulations_divergentes(document: Document) -> list[Constat]:
                     f"garde la même formulation dans tout le document. Écrire « {ecrite} % » "
                     "ici aussi, jamais une proportion en toutes lettres qui l'arrondit."
                 )
+                grave = True
             elif round(enonce.valeur, 1) != reference and (
                 valeurs[round(enonce.valeur, 1)] < valeurs[reference]
                 or enonce.rang > premiere.rang
@@ -658,10 +689,13 @@ def _formulations_divergentes(document: Document) -> list[Constat]:
                     f"« {_nombre(enonce.valeur)} % » ici : une donnée sourcée garde la même "
                     f"valeur dans tout le document. Reprendre « {ecrite} % »."
                 )
+                # Deux pourcentages proches d'une même source peuvent être deux
+                # données (une ventilation) : un signal, pas une réécriture.
+                grave = False
             else:
                 continue
             constats.append(Constat(
-                CLASSE, enonce.unite.section.numero, enonce.unite.extrait, detail,
+                CLASSE, enonce.unite.section.numero, enonce.unite.extrait, detail, grave=grave,
             ))
     return constats
 
@@ -839,21 +873,29 @@ class RegleJuridique:
     cite: re.Pattern[str]
     #: Ce dont parle le passage (sinon l'article peut être juste).
     sujet: re.Pattern[str]
-    #: Le contexte de l'activité qui rend l'article faux (dans la section ou le
-    #: document).
+    #: Le contexte de l'activité qui rend l'article faux (dans le passage, la
+    #: section ou le document).
     contexte: re.Pattern[str]
     #: L'article qui, s'il est cité dans le passage, rend la citation juste.
     attendu: re.Pattern[str]
     detail: str
+    #: Un passage qui parle d'autre chose (des BIENS pour la rétractation) :
+    #: l'article cité y est juste.
+    hors_champ: re.Pattern[str] | None = None
 
 
 #: Activités de loisirs fournies à une date ou une période déterminée
 #: (art. L221-28 12° du code de la consommation) : ateliers, séjours,
-#: spectacles, hébergement, restauration, locations de voiture.
+#: spectacles, hébergement, locations de voiture.
 _LOISIRS_A_DATE = re.compile(
-    r"(?i)\b(?:ateliers?|s[ée]jours?|week-ends?|soir[ée]es?|spectacles?|concerts?|excursions?"
-    r"|visites? guid[ée]es?|cours collectifs?|activit[ée]s? de loisirs?|loisirs?"
-    r"|h[ée]bergements?|locations? de voitures?|s[ée]ances?|sessions?)\b"
+    r"(?i)\b(?:(atelier)s?|(s[ée]jour)s?|(week-end)s?|(soir[ée]e)s?|(spectacle)s?"
+    r"|(concert)s?|(excursion)s?|(visite)s? guid[ée]es?|(cours collectif)s?"
+    r"|(activit[ée])s? de loisirs?|(h[ée]bergement)s?|(location)s? de voitures?)\b"
+)
+#: Des biens vendus : la rétractation de 14 jours (L221-18) s'y applique bien.
+_BIENS = re.compile(
+    r"(?i)\b(?:produits?|livraisons?|livr[ée]e?s?|marchandises?|biens|vendu(?:e|s|es)?"
+    r"|colis|boutique)\b"
 )
 
 REGLES_JURIDIQUES: tuple[RegleJuridique, ...] = (
@@ -862,6 +904,7 @@ REGLES_JURIDIQUES: tuple[RegleJuridique, ...] = (
         sujet=re.compile(r"(?i)r[ée]tractation"),
         contexte=_LOISIRS_A_DATE,
         attendu=re.compile(r"(?i)\bL\.?\s?221-28\b"),
+        hors_champ=_BIENS,
         detail=(
             "Pour des activités de loisirs fournies à une date déterminée (ateliers, séjours, "
             "soirées), le droit de rétractation est EXCLU : article L221-28 12° du code de la "
@@ -872,38 +915,47 @@ REGLES_JURIDIQUES: tuple[RegleJuridique, ...] = (
     ),
 )
 
-#: Au-delà de ce nombre de mentions dans le document, l'activité EST de
-#: celles que vise la règle, même si la section n'en reparle pas.
-_MENTIONS_DE_CONTEXTE = 3
+#: Combien d'activités DIFFÉRENTES font un contexte : « atelier » seul peut être
+#: un atelier de réparation ; « ateliers, soirées et week-ends » ne laissent
+#: pas de doute (revue du 30/09/2026).
+_ACTIVITES_DISTINCTES = 2
+
+
+def _activites(motif: re.Pattern[str], texte: str) -> set[str]:
+    return {
+        _sans_accents(next(g for g in m.groups() if g).lower()) for m in motif.finditer(texte)
+    }
 
 
 def _articles_de_loi(document: Document) -> list[Constat]:
     constats: list[Constat] = []
     texte_du_document = document.texte()
     for regle in REGLES_JURIDIQUES:
-        dans_le_document = len(regle.contexte.findall(texte_du_document))
+        dans_le_document = len(_activites(regle.contexte, texte_du_document))
         for section in document.sections:
-            texte_section = section.texte()
-            contexte = bool(regle.contexte.search(texte_section)) or (
-                dans_le_document >= _MENTIONS_DE_CONTEXTE
-            )
-            if not contexte:
-                continue
+            dans_la_section = len(_activites(regle.contexte, section.texte()))
             vus: set[str] = set()
             for unite in unites(section):
                 # Le passage qui CITE l'article est l'extrait ; la ligne
                 # entière dit de quoi il parle (« Délai de rétractation »
                 # vit souvent dans la cellule voisine).
                 passage = unite.contexte
-                if not regle.cite.search(unite.texte):
+                if not regle.cite.search(unite.texte) or passage in vus:
                     continue
                 if not regle.sujet.search(passage) or regle.attendu.search(passage):
                     continue
-                if passage in vus:
+                if regle.hors_champ is not None and regle.hors_champ.search(passage):
+                    continue
+                proche = bool(regle.contexte.search(passage)) or (
+                    dans_la_section >= _ACTIVITES_DISTINCTES
+                )
+                if not proche and dans_le_document < _ACTIVITES_DISTINCTES:
                     continue
                 vus.add(passage)
                 constats.append(Constat(
                     CLASSE, section.numero, unite.extrait, regle.detail,
+                    # Le contexte lu dans tout le document seulement : un signal.
+                    grave=proche,
                 ))
     return constats
 
@@ -923,7 +975,9 @@ def controler(document: Document, reference: Reference) -> list[Constat]:
             derniere = document.sections[-1] if document.sections else None
             constats.append(Constat(
                 CLASSE, derniere.numero if derniere else "début",
-                derniere.titre if derniere else "",
+                # Ce que le lecteur trouve à la fin du document, là où la liste
+                # manque : le titre de la dernière section, sinon son début.
+                (derniere.titre or extrait_court(derniere.texte(), 80)) if derniere else "",
                 "Aucun chapitre « Sources » reconnu dans le document : les sources citées ne "
                 "peuvent pas être rapprochées d'une liste. Le document se termine par un "
                 "chapitre « Sources et méthodologie ».",

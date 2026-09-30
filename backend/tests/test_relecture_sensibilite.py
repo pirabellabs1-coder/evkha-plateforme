@@ -65,6 +65,18 @@ def test_contre_epreuve_une_conclusion_n_est_pas_un_renoncement() -> None:
                  titre="Trésorerie de la première année"),
     ])
     assert _constats(document, BP_CHAPITRE) == []
+    # Revue du 30/09/2026 : quatre conclusions ordinaires qu'une première version
+    # prenait pour des renoncements.
+    conclusions = Document([_section(
+        "16.6",
+        "Une baisse de 20 % du chiffre d'affaires n'est pas le scénario central.",
+        "À −20 %, le compte de résultat devient déficitaire (−2 400 €), ce qui "
+        "nécessiterait un apport complémentaire.",
+        "Dans le scénario dégradé, l'entreprise ne peut plus construire sa deuxième serre.",
+        titre="Sensibilité",
+    ), _section("4.2", "Nos séances de gestion du stress sont très demandées ; ce chiffre "
+                       "est impossible à garantir.", titre="L'offre")])
+    assert _constats(conclusions, BP_CHAPITRE) == []
     renonce = Document([_section("16.6", RENONCEMENT, titre="Sensibilité")])
     assert _constats(renonce, Reference(livrable="market_study", document_entier=True)) == []
 

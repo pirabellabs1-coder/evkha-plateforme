@@ -26,7 +26,7 @@ from generation.relecture import (
     mise_en_page,
 )
 from generation.rendu_word import composants
-from generation.rendu_word.annexe_chiffres import blocs_annexe
+from generation.rendu_word.annexe_chiffres import blocs_annexe, meme_arrondi
 from generation.socle.referentiel import Fiabilite, Perimetre
 from generation.socle.schema import DonneeSocle, Socle, Zone, montant_lisible
 
@@ -112,6 +112,37 @@ def test_un_montant_a_une_decimale_parmi_des_centimes() -> None:
     assert [c.extrait for c in constats] == ["152,5 €"], constats
 
 
+def test_l_annexe_des_chiffres_ecrit_ses_montants_au_meme_arrondi() -> None:
+    """À LA SOURCE : l'annexe construite par notre code écrivait « 2 000 € » à côté
+    de « 4 166,67 € ». Le contrôle relit ce qu'elle rend (règle 3)."""
+    def donnee(identifiant: str, valeur: float) -> DonneeSocle:
+        return DonneeSocle(
+            id=identifiant, libelle=identifiant, valeur=valeur, unite="EUR", annee=2027,
+            perimetre=Perimetre.ENTREPRISE, fiabilite=Fiabilite.DECLAREE,
+        )
+
+    socle = Socle(
+        secteur="jardinage", zone=Zone(pays="France"), date_socle=date(2026, 9, 30),
+        donnees=[donnee("apport", 2_000.0), donnee("investissement_total", 4_166.67)],
+    )
+    document = document_du_chapitre({"chapitre": 22, "blocs": blocs_annexe(socle)})
+    valeurs = [ligne[1] for s in document.sections for t in s.tableaux for ligne in t.lignes]
+    assert valeurs == ["2 000,00 €", "4 166,67 €"], valeurs
+    assert _constats(document, DOCUMENT_ENTIER) == []
+
+
+def test_meme_arrondi_complete_sans_jamais_arrondir() -> None:
+    """Par unité, au plus grand nombre de décimales de la colonne ; une grandeur
+    non monétaire traverse."""
+    paires = [
+        (f"2{INSECABLE}000", "€"), (f"4{INSECABLE}166,67", "€"), (f"15{INSECABLE}000", ""),
+        ("3,5", "Md€"), ("30", "Md€"), ("8", "%"),
+    ]
+    assert meme_arrondi(paires) == [
+        f"2{INSECABLE}000,00", f"4{INSECABLE}166,67", f"15{INSECABLE}000", "3,5", "30,0", "8",
+    ]
+
+
 def test_contre_epreuve_un_seul_arrondi_phrases_et_encadres() -> None:
     """Tous au centime ; des montants dans une PHRASE de cellule ; un encadré sans
     lignes ; deux unités différentes : rien à dire."""
@@ -180,7 +211,7 @@ def test_une_espace_ordinaire_avant_l_unite_est_signalee_une_fois() -> None:
     pages = [
         "Couverture",
         _page(2, "Le chiffre d'affaires atteint 31 470 € en 2027,", "soit une marge de 8 %."),
-        _page(3, f"Le résultat atteint 1{INSECABLE}200 €", "puis 3 400\n€ en 2029."),
+        _page(3, f"Le résultat atteint 1{INSECABLE}200 €", "puis 3 400 \n€ en 2029."),
         "Fin",
     ]
     constats = [
@@ -197,7 +228,9 @@ def test_contre_epreuve_espaces_insecables() -> None:
     pages = [
         "Couverture",
         _page(2, f"Le chiffre d'affaires atteint 31{INSECABLE}470{INSECABLE}€ en 2027,",
-              f"soit une marge de 8{FINE_INSECABLE}% et 2025-2026 sans unité."),
+              f"soit une marge de 8{FINE_INSECABLE}% et 2025-2026 sans unité.",
+              # Deux cellules voisines, pas un montant coupé en fin de ligne.
+              "2027", "% du chiffre d'affaires"),
         "Fin",
     ]
     constats = _constats(Document(sections=[], pages=pages), DOCUMENT_ENTIER)

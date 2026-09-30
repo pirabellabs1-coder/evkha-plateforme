@@ -53,37 +53,41 @@ _BAISSE = re.compile(
     r"|\b(\d{1,2})\s?%\s+(?:de\s+)?(?:moins|en\s+moins))"
 )
 _CHIFFRE_D_AFFAIRES = re.compile(r"(?i)chiffres?\s+d['’]\s?affaires|\bCA\b|\bventes\b")
-_SENSIBILITE = re.compile(r"(?i)sensibilit|sc[ée]nario|stress|d[ée]grad")
+#: « stress-test », pas « gestion du stress » (revue du 30/09/2026).
+_SENSIBILITE = re.compile(r"(?i)sensibilit|sc[ée]nario|stress[- ]test|d[ée]grad")
 
-#: « chiffrer », « chiffré », « chiffrage » — pas « chiffre d'affaires ».
-_CHIFFRER = r"chiffr(?!es?\s+d['’]\s?affaires)\w*"
-#: Ce que le renoncement refuse de produire : le calcul, ou son livrable.
-_OBJETS = (
-    rf"(?:(?:re)?calcul\w*|constru\w*|{_CHIFFRER}|[ée]tabli\w*|mod[ée]lis\w*|simul\w*"
-    r"|ventil\w*|redistribu\w*|compte\s+de\s+r[ée]sultat|colonne|tableau|sc[ée]nario"
-    r"|sensibilit[ée]|projection)"
+#: Le VERBE du calcul : « calculer », « chiffré », « modéliser »… « chiffre »,
+#: nom commun, n'en est pas un ; « construire » non plus (« ne peut plus
+#: construire sa deuxième salle » est une conclusion).
+_VERBES = (
+    r"(?:(?:re)?calcul(?:er|é|ée|és|ées|able)|chiffr(?:er|é|ée|és|ées|age|able)"
+    r"|mod[ée]lis\w+|simul(?:er|é|ée|és|ées)|ventil\w+|redistribu\w+)\b"
 )
-#: Entre la négation et son objet, rien que des mots-outils : « ne fournit pas
-#: DE compte de résultat », « n'a pas ÉTÉ chiffré ». « n'est pas négatif dans
-#: le scénario » ne porte pas sur le calcul — un adjectif s'intercale.
-_OUTILS = (
-    r"(?:de|d['’]|du|la|le|les|l['’]|un|une|des|ce|cette|ces|être|été|encore|en"
-    r"|son|sa|ses|leur|leurs)"
+#: Le LIVRABLE du calcul, qu'un renoncement dit ne pas fournir.
+_LIVRABLES = (
+    r"(?:compte\s+de\s+r[ée]sultat|colonne|tableau|sc[ée]nario|projection|simulation"
+    r"|calcul)\b"
 )
+_NEGATION = r"\b(?:ne\s+|n['’]\s*)(?:[\w'’]+\s+){0,2}?"
+#: La négation porte sur le calcul quand il la suit sans rien d'autre que des
+#: mots-outils : « n'a pas ÉTÉ chiffré », « ne permet pas DE calculer » ; et
+#: sur le livrable quand il est INDÉFINI : « ne fournit pas DE compte de
+#: résultat », « ne présente AUCUN scénario ». « N'est pas LE scénario central »
+#: est une conclusion (revue du 30/09/2026).
 _NEGATION_DU_CALCUL = re.compile(
-    rf"(?i)\b(?:ne\s+|n['’]\s*)(?:[\w'’]+\s+){{0,2}}?(?:pas|aucun|aucune|jamais|plus)\s+"
-    rf"(?:{_OUTILS}\s*)*{_OBJETS}"
+    rf"(?i){_NEGATION}(?:pas|jamais|plus)\s+"
+    rf"(?:(?:de|d['’]|être|été|encore|le|la|les|l['’])\s*)*{_VERBES}"
+    rf"|{_NEGATION}(?:(?:pas|jamais|plus)\s+(?:de\s+|d['’])|aucun\s+|aucune\s+){_LIVRABLES}"
 )
-#: L'obstacle invoqué : un conditionnel qui renvoie le calcul à plus tard…
-_OBSTACLE = re.compile(
-    r"(?i)\b(?:exigerait|n[ée]cessiterait|supposerait|imposerait|demanderait)\b"
-    r"|\bfaute\s+d|\bimpossible\b|\bpas\s+(?:été\s+)?arbitr|\bnon\s+arbitr"
-)
-#: … quand il porte sur le calcul (« rendrait impossible le remboursement »
-#: est une conclusion).
-_CALCUL = re.compile(
-    rf"(?i)\b(?:re)?calcul|\bconstrui|\b{_CHIFFRER}|\bmod[ée]lis|\bsimul|\bventil|\bredistribu"
-    r"|\bcompte\s+de\s+r[ée]sultat|\bcolonne"
+#: L'obstacle invoqué, quand il porte sur le calcul : « exigerait de
+#: redistribuer », « impossible de chiffrer », « faute de données », des
+#: « hypothèses non arbitrées ». « Nécessiterait un apport » est une conclusion.
+_OBSTACLE_AU_CALCUL = re.compile(
+    rf"(?i)\b(?:exigerait|n[ée]cessiterait|supposerait|imposerait|demanderait)\s+"
+    rf"(?:de\s+|d['’])?(?:[\w'’]+\s+){{0,2}}?(?:{_VERBES}|hypoth[èe]ses?\b)"
+    rf"|\bimpossible\s+(?:de\s+|d['’]){_VERBES}"
+    r"|\bfaute\s+(?:de\s+|d['’])(?:donn[ée]es|hypoth[èe]ses|chiffres|informations)\b"
+    r"|\bhypoth[èe]ses?\b[^.;]{0,60}?\b(?:non|pas)\s+(?:encore\s+)?arbitr"
 )
 
 
@@ -113,7 +117,9 @@ def renonce_au_calcul(phrase: str, *, titre: str = "") -> bool:
         return False
     if _NEGATION_DU_CALCUL.search(phrase):
         return True
-    return bool(_OBSTACLE.search(phrase) and _CALCUL.search(phrase))
+    # Une phrase qui donne un montant a calculé quelque chose : son
+    # conditionnel est celui du scénario (« nécessiterait un apport de… »).
+    return bool(_OBSTACLE_AU_CALCUL.search(phrase)) and not _montant_re().search(phrase)
 
 
 # ── Le renoncement ──────────────────────────────────────────────────────────

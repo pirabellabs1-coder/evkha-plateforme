@@ -86,6 +86,7 @@ def test_deux_valeurs_exactes_pour_la_meme_donnee() -> None:
     constats = _constats(document, UN_CHAPITRE)
     assert [c.section for c in constats] == ["4.2"], constats
     assert "« 72 % »" in constats[0].detail
+    assert not constats[0].grave, "deux pourcentages d'une source : un signal, pas une réécriture"
 
 
 def test_contre_epreuve_meme_formulation_ou_autre_sujet() -> None:
@@ -102,6 +103,25 @@ def test_contre_epreuve_meme_formulation_ou_autre_sujet() -> None:
     assert _constats(Document([_section("2.1", EN_LETTRES)]), UN_CHAPITRE) == []
 
 
+def test_contre_epreuve_une_serie_annuelle_ou_une_source_de_section() -> None:
+    """Revue du 30/09/2026 : « 5 % en 2024 » et « 7 % en 2025 » sont une série ; une
+    ligne « Source : » de section couvre plusieurs données — rien n'est signalé."""
+    serie = Document([
+        _section("2.1", "Le marché du jardinage amateur progresse de 5 % en 2024 (Institut "
+                        "Fictif du Jardin, 2025)."),
+        _section("2.2", "Le marché du jardinage amateur progresse de 7 % en 2025 (Institut "
+                        "Fictif du Jardin, 2025)."),
+    ])
+    assert _constats(serie, UN_CHAPITRE) == []
+    ventilation = Document([
+        _section("3.1", "Trois jardiniers sur quatre achètent leurs graines en jardinerie.",
+                 "Source : Institut Fictif du Jardin, 2025"),
+        _section("3.2", "30 % des jardiniers achètent leurs graines en ligne.",
+                 "Source : Institut Fictif du Jardin, 2025"),
+    ])
+    assert _constats(ventilation, UN_CHAPITRE) == []
+
+
 # ── Les articles de loi ─────────────────────────────────────────────────────
 
 RETRACTATION = _tableau(
@@ -111,24 +131,47 @@ RETRACTATION = _tableau(
 )
 
 
+ACTIVITES = "Les ateliers de rempotage et les week-ends au potager se tiennent à date fixe."
+
+
 def test_la_retractation_d_un_atelier_a_date_fixe_cite_l221_28() -> None:
-    document = Document([_section(
-        "7.3", "Les ateliers de rempotage se tiennent à date fixe, en petit groupe.",
-        tableaux=(RETRACTATION,),
-    )])
+    document = Document([_section("7.3", ACTIVITES, tableaux=(RETRACTATION,))])
     constats = _constats(document, UN_CHAPITRE)
     assert [c.section for c in constats] == ["7.3"], constats
     assert "L.221-18" in constats[0].extrait
     assert "L221-28 12°" in constats[0].detail and constats[0].grave
 
 
+def test_un_contexte_lu_seulement_ailleurs_dans_le_document_est_un_signal() -> None:
+    """Les activités sont décrites dans une autre section : constat, mais pas grave."""
+    document = Document([
+        _section("4.1", ACTIVITES),
+        _section("13.6", "Les obligations propres au secteur.", tableaux=(RETRACTATION,)),
+    ])
+    constats = _constats(document, UN_CHAPITRE)
+    assert [(c.section, c.grave) for c in constats] == [("13.6", False)], constats
+
+
 def test_contre_epreuve_vente_en_ligne_ou_exception_citee() -> None:
-    """Une boutique en ligne relève bien de L221-18 ; citer L221-28 12° est juste."""
+    """Une boutique en ligne relève bien de L221-18 ; un atelier de réparation n'est
+    pas un loisir ; citer L221-28 12° est juste."""
     boutique = Document([_section(
         "7.3", "La boutique vend des graines en ligne, livrées à domicile.",
         tableaux=(RETRACTATION,),
     )])
     assert _constats(boutique, UN_CHAPITRE) == []
+    biens = _tableau(
+        ("Obligation", "Référence"),
+        ("Rétractation sur les outils vendus en ligne", "Article L221-18 du code de la "
+                                                         "consommation"),
+    )
+    mixte = Document([_section("7.2", ACTIVITES), _section("7.3", "La boutique.",
+                                                           tableaux=(biens,))])
+    assert _constats(mixte, UN_CHAPITRE) == []
+    reparation = Document([_section(
+        "7.3", "L'atelier de réparation remet les vélos en état.", tableaux=(RETRACTATION,),
+    )])
+    assert _constats(reparation, UN_CHAPITRE) == []
     exception = _tableau(
         ("Obligation", "Référence"),
         ("Rétractation", "Pas de droit de rétractation (article L221-28 12°), et non "

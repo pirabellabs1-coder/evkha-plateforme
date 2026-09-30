@@ -196,9 +196,11 @@ def _pages_presque_vides(document: Document) -> list[Constat]:
 
 # ── 4. Espaces sécables avant « € » et « % » ────────────────────────────────
 
-#: Un chiffre, une espace ORDINAIRE ou un saut de ligne, puis le symbole. Toute
-#: autre espace (insécable, fine insécable) tient le nombre et son unité.
-_SECABLE = re.compile(r"\d(?P<espace>[ \n]+)(?P<unite>%|(?:Mds|Md|M|k)?€)(?![^\W\d_])")
+#: Un chiffre, une espace ORDINAIRE (suivie ou non du saut de ligne où elle a
+#: cédé), puis le symbole. Toute autre espace (insécable, fine insécable) tient
+#: le nombre et son unité. Un saut de ligne SEUL sépare souvent deux cellules
+#: (« 2027 » / « % du CA ») : il n'est pas compté (revue du 30/09/2026).
+_SECABLE = re.compile(r"\d(?P<espace> +\n?)(?P<unite>%|(?:Mds|Md|M|k)?€)(?![^\W\d_])")
 
 
 def _espaces_secables(document: Document) -> list[Constat]:
