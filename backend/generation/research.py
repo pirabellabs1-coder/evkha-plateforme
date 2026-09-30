@@ -41,6 +41,7 @@ du brief — un brief amputé doit se voir (règle 1).
 """
 from __future__ import annotations
 
+import html
 import logging
 import re
 import time
@@ -344,10 +345,15 @@ def _perimetre_apparent(result: SearchResult, pays: str) -> str:
 
 def _format_result(result: SearchResult, pays: str = "") -> str:
     date = f" ({result.published_date})" if result.published_date else ""
-    extrait = result.content.strip().replace("\n", " ")
+    # Les extraits et les titres viennent du code source des pages : les
+    # entités HTML y restent (« d&#x27;une », mesuré le 30/09/2026 sur une
+    # recherche réelle). Décodées ICI, là où passent tous les fournisseurs,
+    # elles n'arrivent jamais dans le brief que lisent les chapitres.
+    titre = html.unescape(result.title)
+    extrait = html.unescape(result.content).strip().replace("\n", " ")
     if len(extrait) > 320:
         extrait = extrait[:320].rstrip() + "…"
-    ligne = f"- {result.title}{date}\n  URL : {result.url}\n  Extrait : {extrait}"
+    ligne = f"- {titre}{date}\n  URL : {result.url}\n  Extrait : {extrait}"
     portee = _perimetre_apparent(result, pays)
     if portee:
         ligne += (
