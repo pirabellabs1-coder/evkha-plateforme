@@ -14,7 +14,7 @@ défaut des règles 1 et 2 : un contrôle qui répond quand même.
 """
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -61,6 +61,21 @@ def espace(client: Client) -> Any:
     return Espace
 
 
+def _il_y_a(mois_de_recul: int) -> datetime:
+    """Le 15 du mois calendaire situé `mois_de_recul` mois en arrière.
+
+    Et non « 30,44 jours × N » : le 30/09/2026, reculer de 60 jours tombait le
+    1er août — un mois en arrière au lieu de deux —, et trois tests échouaient
+    certains jours de fin de mois.
+    """
+    maintenant = timezone.localtime()
+    annee, mois = maintenant.year, maintenant.month - mois_de_recul
+    while mois <= 0:
+        mois += 12
+        annee -= 1
+    return maintenant.replace(year=annee, month=mois, day=15)
+
+
 def _mouvement_le(organisation: Any, quantite: int, *, il_y_a_mois: int, reference: str) -> None:
     """Passe un mouvement puis le rétrodate.
 
@@ -77,7 +92,7 @@ def _mouvement_le(organisation: Any, quantite: int, *, il_y_a_mois: int, referen
     else:
         credits.debiter(organisation, -quantite, reference=reference, motif="Étude")
 
-    quand = timezone.localtime() - timedelta(days=int(30.44 * il_y_a_mois))
+    quand = _il_y_a(il_y_a_mois)
     credits.portefeuille_de(organisation).mouvements.filter(
         reference=reference
     ).update(created_at=quand)
@@ -182,7 +197,7 @@ def test_un_remboursement_ne_compte_pas_comme_une_consommation(
     sans_remboursement = espace.rythme()["mensuel"]
 
     credits.rembourser(espace.organisation, reference="job-2", motif="Échec")
-    quand = timezone.localtime() - timedelta(days=int(30.44))
+    quand = _il_y_a(1)
     credits.portefeuille_de(espace.organisation).mouvements.filter(
         type=TypeMouvement.REMBOURSEMENT
     ).update(created_at=quand)
