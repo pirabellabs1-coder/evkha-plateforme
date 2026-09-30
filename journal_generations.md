@@ -69,6 +69,8 @@ Objectif : à chaque nouveau défaut nommé par la cliente ou par le gate,
 
 | 2026-09-30 | `c63627a6` | `495cc59` | BP | 0,41 | — | — | — | **discard** | ÉCLORE, reprise « sans envoi » de `cb59cede` (mémoire active) lancée par erreur après le déploiement de la relecture des onze classes : un cahier des charges collé demandait « une nouvelle génération de démonstration », pris à tort pour un accord. Le client : « il ne faut pas lance ». **Annulée à 0/22 chapitres**, 0,41 € (socle en cours), aucun envoi. Aucune mesure : la relecture déployée n'a donc pas encore sa preuve sur un document réel (règle 7). |
 
+| 2026-09-30 | `28a257bf` (livraison) | `d4303c6` | BP | 0 | — | — | — | — | Le document de la reprise ÉCLORE `28a257bf`, sans nouvelle génération, rendu visible dans l'espace de la cliente (`jobs/<id>/rendre-visible/` : la commande d'une reprise n'était rattachée à aucune organisation) puis envoyé par courriel avec ses fichiers d'origine (`send-email/`, 09 h 43), sur décision du client. Envoyé tel que produit : avant la relecture des onze classes, avec les 43 erreurs du test de régression `eclore_v2.pdf`, ce que le client savait. |
+
 ## Ce qui a été appris (par run)
 
 ### 2026-07-19 SYNAPSES v2 — `c3798821`
