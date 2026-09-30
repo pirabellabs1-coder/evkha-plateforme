@@ -679,6 +679,7 @@ affiché.
 | Chiffre en clair = signal, pas reprise | la cause des 32 reprises de `bf98827c` (45 motifs sur 57) | `eab7535` |
 | Une reprise se paie sur le surplus | sans surplus une fois réservés les chapitres à écrire, l'essai est le dernier : le dossier va au bout sous son plafond | `ad029c8` |
 | Une métadonnée ne coûte plus un chapitre | 4 chapitres morts au dernier essai sur `bf98827c` | `62d35bf`, `1bdb99e` |
+| Recherche web sur Claude Haiku 4.5, rédaction sur Sonnet 5 (décision du client, 30/09) | ≈ 0,038 € → 0,021 € par requête, soit ≈ 0,76 € → 0,41 € pour les 20 requêtes d'un business plan | `ec1a687`, `7a22e2e` |
 
 Projection : un business plan complet coûte environ 4 € réels pour un
 plafond de 8 €, inchangé. Le frein reste en place ; le rythme l'empêche
@@ -688,9 +689,21 @@ d'être atteint.
 
 | Levier | Pourquoi pas maintenant |
 |---|---|
-| Recherche avec filtrage dynamique (`web_search_20260209`, accepté par Sonnet 5) : moins de pages brutes dans les 310 000 jetons lus du chapitre 0 (≈ 22 % d'un dossier) | change ce que la recherche rapporte : à valider sur un dossier réel |
 | Une seule passe de relecture finale au lieu de deux | échange de la qualité contre du coût ; elle ne dépense déjà que le surplus (`MARGE_DE_BUDGET`) |
 | Advisor des contrôles de blocs compté au tarif de l'exécuteur (Opus 4.7 facturé 5 $ / 25 $) | chemin hors de la génération en service (ancien moteur, bouton « corriger ») |
+
+**Recherche sur Haiku, vérification réelle** (30/09/2026, 3 requêtes
+génériques, 0,06 €, aucune génération) : 4,5 à 7,9 s par requête (13 s sur
+Sonnet 5), 5 sources gardées sur 5 dont 3 ou 4 avec un extrait cité, ~11 300
+jetons lus et ~300 écrits, 0,021 € par requête frais de l'outil compris. Elle
+a trouvé un défaut de tous les fournisseurs : les entités HTML des extraits
+(« d&#x27;une ») arrivaient dans le brief — décodées depuis `7a22e2e`.
+Retour arrière sans redéploiement : `EVKHA_RECHERCHE_MODEL_ID` vide.
+
+**Écartée après lecture du dépôt** : la variante à filtrage dynamique de
+l'outil (`web_search_20260209`), proposée ici à tort. Mesurée le 13/09/2026 sur
+Sonnet 5 : cinq fois plus de jetons, trois fois plus lente, aucune citation
+(voir `ClaudeWebSearchClient.TYPE_OUTIL`).
 
 Écartés : le traitement par lots (la cliente attend son dossier), Sonnet 5.5
 (même tarif), un modèle moins cher (qualité non mesurable sans génération).
