@@ -209,3 +209,26 @@ def test_la_relecture_du_texte_tourne_meme_si_le_controle_du_rendu_tombe(tmp_pat
     job.refresh_from_db()
     assert "rendu_pdf" not in job.controle_final
     assert job.controle_final["relecture_texte"]["par_classe"].get("formule")
+
+
+def test_une_relecture_du_pdf_qui_ne_peut_pas_tourner_ouvre_un_incident(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """30/09/2026 : `pymupdf` manquait à l'image, la relecture échouait en silence (règle 1)."""
+    from documents.livrable_word import _relire_le_texte_du_pdf
+    from generation import relecture
+
+    def _sans_pymupdf(_: object) -> None:
+        raise ModuleNotFoundError("No module named 'pymupdf'")
+
+    monkeypatch.setattr(relecture, "document_du_pdf", _sans_pymupdf)
+    job = _dossier("h")
+    chemin = tmp_path / "livrable.pdf"
+    chemin.write_bytes(b"%PDF-1.4")
+
+    _relire_le_texte_du_pdf(job, chemin)
+
+    incident = OperationalIncident.objects.get(
+        job=job, title__startswith="Relecture du texte du PDF impossible"
+    )
+    assert "pymupdf" in incident.details["erreur"]

@@ -354,8 +354,23 @@ def _relire_le_texte_du_pdf(job: GenerationJob, chemin_pdf: Path) -> None:
                     "details": {"par_classe": rapport["relecture_texte"]["par_classe"]},
                 },
             )
-    except Exception:  # noqa: BLE001 — une relecture ne tue pas une livraison
+    except Exception as erreur:  # noqa: BLE001 — une relecture ne tue pas une livraison
         _log.exception("Job %s : relecture du texte du PDF impossible.", job.id)
+        # Règle 1 : un contrôle qui ne tourne pas se DIT. Le 30/09/2026, `pymupdf`
+        # manquait à l'image : cette relecture échouait sur chaque document de
+        # production, et seul le journal du conteneur le savait.
+        try:
+            OperationalIncident.objects.update_or_create(
+                job=job,
+                title=f"Relecture du texte du PDF impossible — job {job.id}",
+                defaults={
+                    "severity": IncidentSeverity.MEDIUM,
+                    "order": job.order,
+                    "details": {"erreur": f"{type(erreur).__name__}: {erreur}"[:300]},
+                },
+            )
+        except Exception:  # noqa: BLE001
+            _log.exception("Job %s : incident de relecture impossible à écrire.", job.id)
 
 
 def assembler_livrable_word(

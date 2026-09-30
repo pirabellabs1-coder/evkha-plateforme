@@ -61,6 +61,12 @@ pdf = [
   # document (delivery/gamma_fidelite.py). Gamma REECRIT le contenu — mesure
   # sur le BP SYNAPSES : 38 752 mots -> 3 835, 5 verticales sur 10 effacees.
   "pypdf>=6,<7",
+  # pymupdf : la relecture du texte FINAL lit le PDF rendu (sections, tableaux —
+  # `generation/relecture/document.py`). Il n'etait declare NULLE PART, comme
+  # matplotlib puis reportlab avant lui : importe par `importlib`, il echappait
+  # au controle des dependances, et la relecture du PDF echouait en silence en
+  # production (constate le 30/09/2026 en reassemblant 28a257bf).
+  "pymupdf>=1.26,<2",
 ]
 word = [
   # Lot 3 : le livrable client est un Word produit a partir d'un gabarit, puis
@@ -72,6 +78,9 @@ word = [
   # produit sur le serveur a echoue sur « No module named 'matplotlib' ».
   # Backend Agg impose dans le code : aucun serveur d'affichage sur le VPS.
   "matplotlib>=3.8,<4",
+  # numpy : importe directement par `rendu_word/graphiques.py`. Il n'arrivait
+  # que par matplotlib — une dependance de dependance n'est pas une promesse.
+  "numpy>=1.26,<3",
   # reportlab compose les PDF du jeu de demonstration de la boutique
   # (`seed_boutique_demo`) et rend les schemas du dossier technique.
   #

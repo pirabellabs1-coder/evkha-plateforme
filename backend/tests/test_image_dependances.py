@@ -136,3 +136,106 @@ def test_le_detecteur_lit_bien_le_dockerfile() -> None:
     installes = _extras_installes()
     assert len(installes) >= 3, installes
     assert "pdf" in installes
+
+
+# ── La classe entière : tout module importé par la production est déclaré ────
+#
+# La liste ci-dessus est FERMÉE, et c'est la règle 4 : elle a laissé passer
+# `pymupdf` (30/09/2026). Importé par `importlib.import_module("pymupdf")` dans
+# `relecture/document.py`, il n'était déclaré nulle part ; la relecture du PDF
+# final échouait donc en production, attrapée en silence — et seulement là.
+# Ce contrôle lit TOUS les imports du code de production, y compris ceux par
+# `import_module("…")`, et exige qu'ils soient déclarés dans `pyproject.toml`.
+
+#: Outils lancés à la main, jamais par l'application (dossier technique).
+HORS_PRODUCTION = frozenset({"tests", "scripts", "migrations"})
+
+
+def _imports_de_production() -> dict[str, set[str]]:
+    """Module de premier niveau → fichiers qui l'importent, hors imports de repli.
+
+    Un import placé dans un `try` qui rattrape `ImportError` est un repli
+    assumé (`duckduckgo_search` derrière `ddgs`) : il n'engage pas l'image.
+    """
+    import ast  # noqa: PLC0415
+
+    backend = RACINE / "backend"
+    trouves: dict[str, set[str]] = {}
+    for fichier in backend.rglob("*.py"):
+        parties = set(fichier.relative_to(backend).parts)
+        if parties & HORS_PRODUCTION or any(p.endswith(".egg-info") for p in parties):
+            continue
+        arbre = ast.parse(fichier.read_text(encoding="utf-8"))
+        proteges: set[int] = set()
+        for noeud in ast.walk(arbre):
+            if isinstance(noeud, ast.Try) and any(
+                isinstance(h.type, ast.Name) and h.type.id in ("ImportError", "ModuleNotFoundError")
+                or isinstance(h.type, ast.Tuple) and any(
+                    isinstance(e, ast.Name) and e.id in ("ImportError", "ModuleNotFoundError")
+                    for e in h.type.elts
+                )
+                for h in noeud.handlers
+            ):
+                proteges.update(id(n) for bloc in noeud.body for n in ast.walk(bloc))
+        for noeud in ast.walk(arbre):
+            if id(noeud) in proteges:
+                continue
+            noms: list[str] = []
+            if isinstance(noeud, ast.Import):
+                noms = [alias.name for alias in noeud.names]
+            elif isinstance(noeud, ast.ImportFrom) and noeud.level == 0 and noeud.module:
+                noms = [noeud.module]
+            elif (
+                isinstance(noeud, ast.Call)
+                and getattr(noeud.func, "attr", getattr(noeud.func, "id", "")) == "import_module"
+                and noeud.args and isinstance(noeud.args[0], ast.Constant)
+                and isinstance(noeud.args[0].value, str)
+            ):
+                noms = [noeud.args[0].value]
+            for nom in noms:
+                trouves.setdefault(nom.split(".")[0], set()).add(fichier.name)
+    return trouves
+
+
+def _distributions_declarees() -> set[str]:
+    donnees = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    projet = donnees["project"]
+    toutes = list(projet.get("dependencies", []))
+    for paquets in projet.get("optional-dependencies", {}).values():
+        toutes += paquets
+    return {
+        re.split(r"[<>=!~\[; ]", paquet.strip())[0].lower().replace("_", "-")
+        for paquet in toutes
+    }
+
+
+def test_tout_module_importe_par_la_production_est_declare() -> None:
+    import sys  # noqa: PLC0415
+    from importlib.metadata import packages_distributions  # noqa: PLC0415
+
+    backend = RACINE / "backend"
+    locaux = {p.name for p in backend.iterdir() if (p / "__init__.py").exists()}
+    declarees = _distributions_declarees()
+    distributions = packages_distributions()
+    manquants = {
+        module: sorted(fichiers)[:3]
+        for module, fichiers in _imports_de_production().items()
+        if module not in sys.stdlib_module_names and module not in locaux
+        and module != "__future__"
+        and not any(
+            d.lower().replace("_", "-") in declarees
+            for d in distributions.get(module, [module])
+        )
+    }
+    assert not manquants, (
+        f"Importés par la production mais déclarés nulle part : {manquants}. Ils "
+        "ne sont présents que dans l'environnement local : l'image les ignorera."
+    )
+
+
+def test_le_detecteur_voit_les_imports_par_import_module() -> None:
+    """Règle 1 : le cas qui a échappé à la liste fermée doit être VU."""
+    imports = _imports_de_production()
+    assert "pymupdf" in imports and "document.py" in imports["pymupdf"]
+    assert "matplotlib" in imports
+    assert "duckduckgo_search" not in imports, "un repli sous `except ImportError` n'engage rien"
