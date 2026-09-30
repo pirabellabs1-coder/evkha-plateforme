@@ -596,3 +596,43 @@ rédigé sans mémoire.
 
 Ce que cela ne prouve pas : ce qu'un vrai modèle écrit avec ces reprises
 (règle 7). La preuve est une génération réelle, relue par les mêmes contrôles.
+
+## 30/09/2026 — la liste d'Evangéline : quatre classes de plus, et le logo
+
+La cliente a repris `28a257bf` à la main et envoyé douze points. Huit étaient
+déjà couverts par la relecture des onze classes (périodes, faits par année,
+comparaisons, sensibilité, graphiques, TVA…). Quatre ne l'étaient pas, plus le
+logo :
+
+- **classe `libelle_melange`** (point 2) : un libellé qui nomme deux
+  indicateurs — « Résultat net (revenu de la dirigeante avant impôt) ». Grave.
+  Une parenthèse qui PRÉCISE le même indicateur (« (avant impôt) », « après
+  rémunération du dirigeant ») ne l'est pas.
+- **classe `evolution`** (point 9) : une évolution en % sur une base < 1 000 €
+  (« +1 021,7 % » de 782 € à 8 772 €). Grave, sur diagnostic positif : le %
+  doit valoir (haut − bas) ÷ bas × 100 — sinon « marge de 60 % » n'est pas
+  jugée.
+- **classe `repetition`** (point 11) : une suite de mots qui revient dans UNE
+  cellule ou UN paragraphe (« quitte son poste … après avoir quitté son poste »,
+  vue malgré l'accord). Jamais sur une ligne de tableau recollée : un terme qui
+  revient d'une colonne à l'autre (« … (donnée du projet) · … (donnée du
+  projet) ») est la forme normale d'un tableau. Les lignes de sources sont
+  écartées. Grave à partir de quatre mots, signal à trois.
+- **classe `double_compte`** (point 12) : trésorerie de fin d'exercice ET
+  prélèvement du dirigeant présentés disponibles ensemble — le même argent
+  compté deux fois. Signal ; « après prélèvement » l'écarte.
+
+Sur `eclore_v2.pdf` : 8 `libelle_melange`, 2 `evolution`, 3 `repetition`,
+1 `double_compte` — tous vrais, dont les tournures exactes citées par la
+cliente. La régression des 43 attendues tient (43/43). Retirer le module du
+registre ramène ces quatre classes à zéro : la preuve qu'elles viennent de là.
+
+**Logo (point 1)** : il est logé dans un carré de 5 cm, centré, proportions
+gardées (`logo.taille_dans_un_carre`, dimensions lues dans l'en-tête PNG/JPEG),
+rien coupé — en couverture et en quatrième. Complète les correctifs du logo
+absent (`d199b5e`, `fa5e287`, `6ac1fd9`).
+
+Restent hors de portée du code : le dictionnaire d'indicateurs avec « capacité
+de prélèvement » et « prélèvements réels » (point 2) suppose que ces montants
+existent dans le prévisionnel du client — on ne les invente pas ; l'injection
+du nom de scénario comme variable (point 6) est côté rédaction.

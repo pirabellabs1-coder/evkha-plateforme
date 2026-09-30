@@ -55,6 +55,7 @@ def controles() -> tuple[Controle, ...]:
         fuites,
         mise_en_page,
         periodes,
+        redaction,
         sensibilite,
         sources,
         tableaux,
@@ -70,6 +71,7 @@ def controles() -> tuple[Controle, ...]:
         sources.controler,
         mise_en_page.controler,
         sensibilite.controler,
+        redaction.controler,
     )
 
 

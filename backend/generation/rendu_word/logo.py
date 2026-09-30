@@ -40,6 +40,50 @@ _SIGNATURES: tuple[tuple[bytes, str], ...] = (
 )
 
 
+def dimensions(contenu: bytes) -> tuple[int, int] | None:
+    """(largeur, hauteur) en pixels d'un PNG ou d'un JPEG, ou None si illisible.
+
+    Sert à loger le logo dans un carré sans le déformer ni le couper : on met
+    son PLUS GRAND côté à la taille voulue, l'autre suit sa proportion.
+    """
+    if contenu.startswith(b"\x89PNG\r\n\x1a\n") and len(contenu) >= 24:
+        largeur = int.from_bytes(contenu[16:20], "big")
+        hauteur = int.from_bytes(contenu[20:24], "big")
+        return (largeur, hauteur) if largeur and hauteur else None
+    if contenu.startswith(b"\xff\xd8"):
+        i, n = 2, len(contenu)
+        while i + 9 < n:
+            if contenu[i] != 0xFF:
+                i += 1
+                continue
+            marqueur = contenu[i + 1]
+            # SOF0..SOF15 (sauf les marqueurs sans dimensions) portent la taille.
+            if 0xC0 <= marqueur <= 0xCF and marqueur not in (0xC4, 0xC8, 0xCC):
+                hauteur = int.from_bytes(contenu[i + 5:i + 7], "big")
+                largeur = int.from_bytes(contenu[i + 7:i + 9], "big")
+                return (largeur, hauteur) if largeur and hauteur else None
+            if i + 3 >= n:
+                break
+            i += 2 + int.from_bytes(contenu[i + 2:i + 4], "big")
+    return None
+
+
+def taille_dans_un_carre(contenu: bytes, cote_emu: int) -> tuple[int, int]:
+    """(largeur, hauteur) en EMU pour loger le logo dans un carré de `cote_emu`.
+
+    Proportions gardées, plus grand côté = `cote_emu`, rien n'est coupé. Sans
+    dimensions lisibles, on retombe sur un carré : mieux vaut un logo un peu
+    étiré qu'un rendu qui échoue (le format est déjà validé par ailleurs).
+    """
+    dims = dimensions(contenu)
+    if dims is None:
+        return cote_emu, cote_emu
+    largeur, hauteur = dims
+    if largeur >= hauteur:
+        return cote_emu, round(cote_emu * hauteur / largeur)
+    return round(cote_emu * largeur / hauteur), cote_emu
+
+
 def format_image(contenu: bytes) -> str | None:
     """Format déduit des premiers octets, ou None si ce n'est pas une image.
 

@@ -47,6 +47,7 @@ from .gabarit import (
     STYLE_TABLEAU_ENTETE,
     STYLE_TITRE_DOCUMENT,
 )
+from .logo import taille_dans_un_carre
 from .palette import Palette, texte_lisible_sur, vers_rvb
 
 #: Police de chaque style. La référence pose la police sur les RUNS et pas
@@ -65,6 +66,9 @@ def _poser_police(run: Run, style: str) -> None:
 #: Largeur utile en twips : A4 (11906) moins les marges (2 × 1134).
 LARGEUR_UTILE_DXA = 9638
 LARGEUR_UTILE_EMU = Emu(int(LARGEUR_UTILE_DXA / 1440 * 914400))
+#: Le logo du client tient dans un carré de 5 cm, centré, proportions gardées,
+#: rien coupé (cliente, 30/09/2026). 1 cm = 360 000 EMU.
+COTE_LOGO_EMU = 5 * 360_000
 
 #: A4 en points, pour les formes pleine page de la couverture.
 PAGE_LARGEUR_PT = 595.3
@@ -293,7 +297,8 @@ def couverture(
     if logo:
         p = document.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.add_run().add_picture(io.BytesIO(logo), width=Emu(1_600_000))
+        largeur, hauteur = taille_dans_un_carre(logo, COTE_LOGO_EMU)
+        p.add_run().add_picture(io.BytesIO(logo), width=Emu(largeur), height=Emu(hauteur))
         document.add_paragraph()
 
     p = document.add_paragraph(style=STYLE_TITRE_DOCUMENT)
@@ -454,7 +459,8 @@ def quatrieme_couverture(
     if logo:
         p = document.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.add_run().add_picture(io.BytesIO(logo), width=Emu(1_200_000))
+        largeur, hauteur = taille_dans_un_carre(logo, COTE_LOGO_EMU)
+        p.add_run().add_picture(io.BytesIO(logo), width=Emu(largeur), height=Emu(hauteur))
 
     if nom.strip():
         p = document.add_paragraph(style=STYLE_TITRE_DOCUMENT)

@@ -146,6 +146,29 @@ _PHRASE = (
     "en lecture opérationnelle pour le porteur de projet, sans introduire "
     "aucun chiffre nouveau. "
 )
+#: La doublure remplissait ses paragraphes en répétant `_PHRASE` : la passe
+#: anti-répétition (`relecture.redaction`) la relevait à juste titre, comme elle
+#: relèverait un vrai chapitre rempli d'une seule phrase. On fait donc tourner
+#: plusieurs phrases DISTINCTES — aucun 3-mots ne revient dans un paragraphe
+#: (revue du 30/09/2026). Un paragraphe de la doublure fait deux ou trois
+#: phrases : le tour n'a pas besoin d'être long.
+_PHRASES = (
+    _PHRASE,
+    "Les repères validés en amont structurent l'analyse qui suit, à charte "
+    "constante. ",
+    "Le raisonnement s'appuie sur le prévisionnel arrêté, sans en modifier les "
+    "hypothèses. ",
+    "La lecture proposée relie chaque constat aux objectifs annoncés par le "
+    "porteur. ",
+    "Aucun élément extérieur n'est ajouté ici : tout découle des pièces déjà "
+    "réunies. ",
+    "L'exposé met en perspective les grandeurs clés pour éclairer la décision. ",
+    "Les enseignements dégagés préparent les développements suivants sans les "
+    "anticiper. ",
+    "Ce commentaire reste fidèle aux montants figés, qu'il explicite sans les "
+    "recalculer. ",
+)
+_ROTATION = "".join(_PHRASES)
 
 
 def _resume(mots_cibles: int = 190) -> str:
@@ -540,7 +563,7 @@ def _prose(signes: int) -> str:
     if signes <= 0:
         return _PHRASE.strip()
 
-    long = _PHRASE * (signes // len(_PHRASE) + 2)
+    long = _ROTATION * (signes // len(_ROTATION) + 2)
 
     # Cible plus courte qu'une phrase : couper au MOT — mais JAMAIS sans
     # ponctuation finale. Le gate `sentence_cut` lit « Cette section exploite
