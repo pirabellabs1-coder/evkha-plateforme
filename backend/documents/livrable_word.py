@@ -269,6 +269,59 @@ def _controler_le_pdf_rendu(job: GenerationJob, chemin_pdf: Path, chemin_docx: P
                 "details": {"constats": [c.en_dict() for c in constats]},
             },
         )
+    _relire_le_texte_du_pdf(job, chemin_pdf)
+
+
+#: Les constats de relecture gardés au dossier (le rapport interne les lit).
+MAX_CONSTATS_CONSIGNES = 200
+
+
+def _relire_le_texte_du_pdf(job: GenerationJob, chemin_pdf: Path) -> None:
+    """La relecture du texte final (`generation.relecture`) sur le PDF que le client lit.
+
+    30/09/2026, business plan ÉCLORE `28a257bf` : onze classes d'erreurs
+    passaient. Les chapitres ont été relus un à un avant rendu ; ce qui reste
+    — dont ce qui ne se voit que sur le document entier : pages presque vides,
+    sources, un même libellé à deux valeurs d'un chapitre à l'autre — est
+    consigné dans `controle_final["relecture_texte"]` et en incident. Lecture
+    SEULE, jamais bloquante : l'envoi est automatique (décision du 13/08/2026).
+    """
+    from collections import Counter  # noqa: PLC0415
+    from dataclasses import asdict  # noqa: PLC0415
+
+    from generation.memoire.services import memoire_de_relecture  # noqa: PLC0415
+    from generation.relecture import Reference, document_du_pdf, relire  # noqa: PLC0415
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    try:
+        reference = Reference(
+            memoire=memoire_de_relecture(job), livrable=str(job.deliverable_type),
+            document_entier=True,
+        )
+        constats = relire(document_du_pdf(chemin_pdf), reference)
+    except Exception:  # noqa: BLE001 — une relecture ne tue pas une livraison
+        _log.exception("Job %s : relecture du texte du PDF impossible.", job.id)
+        return
+    graves = [c for c in constats if c.grave]
+    rapport = dict(job.controle_final or {})
+    rapport["relecture_texte"] = {
+        "total": len(constats),
+        "graves": len(graves),
+        "par_classe": dict(Counter(c.classe for c in constats)),
+        "constats": [asdict(c) for c in constats[:MAX_CONSTATS_CONSIGNES]],
+    }
+    type(job).objects.filter(pk=job.pk).update(controle_final=rapport)
+    job.controle_final = rapport
+    if graves:
+        OperationalIncident.objects.update_or_create(
+            job=job,
+            title=f"Relecture du texte : {len(graves)} erreur(s) restante(s) — job {job.id}",
+            defaults={
+                "severity": IncidentSeverity.MEDIUM,
+                "order": job.order,
+                "details": {"par_classe": rapport["relecture_texte"]["par_classe"]},
+            },
+        )
 
 
 def assembler_livrable_word(

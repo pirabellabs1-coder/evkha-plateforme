@@ -29,6 +29,30 @@ def _variables(job: GenerationJob) -> dict[str, object]:
     return dict(soumission.normalized_variables) if soumission else {}
 
 
+def memoire_de_relecture(job: GenerationJob) -> MemoireEtude | None:
+    """La mémoire du dossier pour RELIRE — même quand la rédaction ne l'a pas employée.
+
+    30/09/2026 : la relecture du texte (`generation.relecture`) juge les
+    chiffres contre les faits de référence. Un dossier rédigé sans la mémoire
+    (`memoire_active` faux) a pourtant un socle validé : il se relit contre
+    lui. Lecture seule — rien n'est écrit en base, la rédaction n'en est pas
+    changée.
+    """
+    from generation.models import SocleDonnees, SocleStatut  # noqa: PLC0415
+
+    if job.memoire_active:
+        return memoire_du_job(job)
+    socle = SocleDonnees.objects.filter(job=job, statut=SocleStatut.VALIDE).first()
+    if socle is None:
+        return None
+    try:
+        lu = Socle.model_validate(socle.contenu)
+        return MemoireEtude.construire(lu, _variables(job), str(job.deliverable_type))
+    except Exception:  # noqa: BLE001 — une relecture sans mémoire relit quand même
+        _log.exception("Mémoire de relecture impossible pour le dossier %s", job.id)
+        return None
+
+
 def memoire_du_job(job: GenerationJob) -> MemoireEtude | None:
     """La mémoire du dossier, ou None s'il n'en a pas (ou pas encore).
 

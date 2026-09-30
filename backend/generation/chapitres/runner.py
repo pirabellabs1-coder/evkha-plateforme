@@ -2117,6 +2117,11 @@ def generer_chapitre(
     # `_passer_par_la_memoire` a déjà appliqué le repli et n'en rend aucun : le
     # chapitre est TOUJOURS validé.
     motifs.extend(motifs_memoire)
+    # Relecture du texte (onze classes d'erreurs), même règle : au dernier
+    # essai, les constats sont tracés et le chapitre est gardé.
+    motifs.extend(_relire_le_chapitre(
+        payload, job, chapter, memoire, derniere_tentative=derniere_tentative,
+    ))
     if motifs:
         # Les SIGNAUX de la mémoire (chiffres en clair) voyagent avec une
         # reprise décidée ICI, par un motif de validation ou de mémoire, comme
@@ -2152,6 +2157,68 @@ def _nombres_du_client(variables: Mapping[str, object]) -> list[float]:
 
     texte = "\n".join(str(v) for v in variables.values() if isinstance(v, str))
     return [valeur for _, valeur, _ in nombres_du_texte(texte)]
+
+
+#: Au-delà, les constats d'un chapitre sont résumés : ils accompagnent une
+#: reprise, ils ne doivent pas évincer les autres motifs de la limite.
+MAX_CONSTATS_DE_RELECTURE = 8
+
+
+def _relire_le_chapitre(
+    payload: Any,
+    job: Any,
+    chapter: ChapterGeneration,
+    memoire: Any,
+    *,
+    derniere_tentative: bool | None,
+) -> list[str]:
+    """La relecture du texte (`generation.relecture`) sur le chapitre tel qu'il sera lu.
+
+    Business plan ÉCLORE `28a257bf` (30/09/2026) : onze classes d'erreurs
+    passaient le contrôle — périodes, formules, tableaux qui ne bouclent pas,
+    comptages, fuites internes… Chacune a son contrôle en code. Un constat
+    GRAVE fait reprendre le chapitre avec sa consigne précise ; au dernier
+    essai (ou quand il n'y en aura pas d'autre), le chapitre est gardé et le
+    constat part dans la trace du dossier : l'étude ne s'arrête jamais.
+
+    Une panne de la relecture ne coûte qu'un contrôle, jamais un chapitre.
+    """
+    if not isinstance(job, GenerationJob):
+        return []
+    try:
+        from ..memoire.services import memoire_de_relecture  # noqa: PLC0415
+        from ..relecture import Reference, document_du_chapitre, relire  # noqa: PLC0415
+
+        reference = Reference(
+            memoire=memoire if memoire is not None else memoire_de_relecture(job),
+            livrable=str(job.deliverable_type),
+        )
+        constats = relire(document_du_chapitre(payload), reference)
+    except Exception:  # noqa: BLE001 — la relecture ne tue jamais un chapitre
+        _log.exception("Relecture du chapitre %s impossible.", chapter.chapter_number)
+        return []
+    graves = [c for c in constats if c.grave]
+    dernier = derniere_tentative is not False
+    if constats:
+        trace = dict(job.memoire_etude or {})
+        relecture = dict(trace.get("relecture") or {})
+        relecture[str(chapter.chapter_number)] = {
+            "graves": [c.motif() for c in graves],
+            "signaux": [c.motif() for c in constats if not c.grave],
+            "garde_au_dernier_essai": dernier and bool(graves),
+        }
+        trace["relecture"] = relecture
+        type(job).objects.filter(pk=job.pk).update(memoire_etude=trace)
+        job.memoire_etude = trace
+    if dernier or not graves:
+        return []
+    motifs = [c.motif() for c in graves[:MAX_CONSTATS_DE_RELECTURE]]
+    if len(graves) > MAX_CONSTATS_DE_RELECTURE:
+        motifs.append(
+            f"[relecture] et {len(graves) - MAX_CONSTATS_DE_RELECTURE} autre(s) erreur(s) "
+            "de la même nature : relis chaque chiffre contre la mémoire."
+        )
+    return motifs
 
 
 def rappel_des_reperes(memoire: Any) -> str:
