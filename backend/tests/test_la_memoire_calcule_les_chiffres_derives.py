@@ -67,7 +67,9 @@ def test_le_mensuel_du_resultat_net_n_est_pas_celui_de_la_caf() -> None:
     """Le défaut d'ÉCLORE : 1 986,32 € était la CAF ÷ 12, pas le résultat net ÷ 12."""
     faits = faits_de_l_etude(_socle(ECLORE))
     assert faits["resultat_net_mensuel_an3"].valeur == pytest.approx(1_935.32)
-    assert faits["caf_mensuel_an3"].valeur == pytest.approx(1_986.32)
+    # La CAF n'a plus de moyenne mensuelle : elle était lue comme un revenu
+    # mensuel (business plan ÉCLORE `28a257bf`, 30/09/2026).
+    assert "caf_mensuel_an3" not in faits
     assert "PAS la CAF" in faits["resultat_net_an3"].definition
     assert "divisé par douze" in faits["resultat_net_mensuel_an3"].definition
 

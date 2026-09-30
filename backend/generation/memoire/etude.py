@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from generation.socle.schema import Socle
 
 from .decisions import decisions_de_l_etude
-from .faits import Fait, faits_de_l_etude
+from .faits import Fait, faits_de_l_etude, faits_de_sensibilite
 from .questionnaire import Reponse, etat_des_reponses, hypotheses_pour_les_vides
 from .regles import Decision
 from .reperes import valeur_affichee
@@ -31,6 +31,9 @@ class MemoireEtude:
         cls, socle: Socle, variables: Mapping[str, object], deliverable_type: str = "",
     ) -> MemoireEtude:
         faits = faits_de_l_etude(socle)
+        if deliverable_type == "business_plan":
+            # L'analyse de sensibilité, calculée en code (−10 %, −20 %).
+            faits.update(faits_de_sensibilite(faits))
         reponses = etat_des_reponses(variables, deliverable_type) if deliverable_type else []
         decisions = [
             *decisions_de_l_etude(socle, variables, faits),
