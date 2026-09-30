@@ -52,7 +52,7 @@ _DEFINITIONS_FAUSSES: tuple[
         ),
         "l'EBE diminué des dotations est le résultat d'EXPLOITATION ; le résultat net "
         "retire encore les charges financières, les cotisations ou l'impôt. Cite le repère "
-        "du résultat net ({{resultat_net_anN}}).",
+        "du résultat net de l'exercice, tel que la mémoire le calcule.",
     ),
 )
 
@@ -135,7 +135,7 @@ def _faits_par_annee(document: Document, reference: Reference) -> list[Constat]:
 def _marge_sur_le_seuil_d_un_autre_exercice(
     memoire: MemoireEtude | None, annee: int, valeur: float, tolerance: float,
 ) -> bool:
-    """La marge de l'exercice calculée sur le seuil d'un AUTRE exercice (51,5 % sur ÉCLORE)."""
+    """La marge de l'exercice calculée sur le seuil d'un AUTRE exercice (revue du 30/09/2026)."""
     ca = fait_de(memoire, "ca_previsionnel", annee)
     chiffre = en_euros(ca) if ca else None
     if not chiffre:

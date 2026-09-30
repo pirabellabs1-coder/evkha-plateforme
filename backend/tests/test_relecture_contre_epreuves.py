@@ -21,6 +21,7 @@ from generation.memoire.etude import MemoireEtude
 from generation.memoire.faits import faits_de_l_etude
 from generation.memoire.regles import Nature, regime_de_tva
 from generation.relecture import Reference, Section, Tableau, document_du_chapitre, relire
+from generation.relecture.coherence import controler as coherence
 from generation.relecture.comptages import controler as comptages
 from generation.relecture.document import Document
 from generation.relecture.formules import controler as formules
@@ -192,6 +193,57 @@ def test_un_compte_de_resultat_faux_reste_signale() -> None:
     assert "tableau" in [c.classe for c in constats]
 
 
+def _compte(*charges: tuple[str, str], ebe: str = "25 000 €") -> Tableau:
+    """2029 : CA 80 000 €, les lignes données, puis l'EBE."""
+    return Tableau(entetes=("Poste", "2029"), lignes=(
+        ("Chiffre d'affaires HT", "80 000 €"), *charges, ("Excédent brut d'exploitation", ebe),
+    ))
+
+
+def _boucles(tableau: Tableau) -> list[Any]:
+    document = Document(sections=[_section("16.2", tableaux=(tableau,))])
+    return [c for c in tableaux(document, _reference()) if c.classe == "tableau"]
+
+
+@pytest.mark.parametrize("charges", [
+    # Porte finale du 30/09/2026 : chacun de ces comptes JUSTES devenait grave.
+    (("Achats de produits", "20 000 €"), ("Charges externes", "10 000 €"),
+     ("Charges de personnel", "25 000 €")),
+    (("Achats de produits d'entretien", "20 000 €"), ("Charges externes", "10 000 €"),
+     ("Salaires", "25 000 €")),
+    (("Charges externes", "30 000 €"), ("Charges de personnel", "25 000 €"),
+     ("dont rémunération du dirigeant", "18 000 €")),
+    (("Charges externes", "30 000 €"), ("Salaires", "15 000 €"),
+     ("Cotisations sociales (taux de 47 %)", "10 000 €")),
+    (("Charges externes", "30 000 €"), ("Salaires et charges (effectif : 1 ETP)", "25 000 €")),
+    (("Achats de marchandises", "32 000 €"), ("Variation de stock", "−2 000 €"),
+     ("Charges externes", "25 000 €")),
+    (("Total des charges d'exploitation", "55 000 €"),),
+    (("Loyer", "12 000 €"), ("Assurance", "3 000 €"), ("Charges externes", "40 000 €")),
+])
+def test_un_compte_de_resultat_juste_ne_fait_rien_reprendre(
+    charges: tuple[tuple[str, str], ...],
+) -> None:
+    assert _boucles(_compte(*charges)) == []
+
+
+def test_un_compte_faux_qui_ne_porte_qu_un_total_reste_signale() -> None:
+    """80 000 − 55 000 = 25 000 €, pas 31 000 € — et l'opération affichée est la vraie."""
+    constats = _boucles(_compte(("Total des charges d'exploitation", "55 000 €"), ebe="31 000 €"))
+    assert len(constats) == 1 and constats[0].grave
+    assert "80 000 € − 55 000 € = 25 000 €" in constats[0].detail
+
+
+def test_le_motif_d_un_compte_faux_montre_une_arithmetique_juste() -> None:
+    """Règle 2 : l'opération du motif se refait à la main et tombe juste."""
+    constats = _boucles(_compte(
+        ("Achats de produits", "20 000 €"), ("Charges externes", "10 000 €"),
+        ("Charges de personnel", "25 000 €"), ebe="31 000 €",
+    ))
+    assert len(constats) == 1
+    assert "80 000 € − 20 000 € − 10 000 € − 25 000 € = 25 000 €" in constats[0].detail
+
+
 # ── M1. Arrondis et chiffres d'un autre acteur ──────────────────────────────
 
 
@@ -351,3 +403,54 @@ def test_la_grille_de_chiffres_cles_est_relue() -> None:
     })
     assert "Revenu mensuel de la dirigeante : 110 €" in document.sections[0].paragraphes
     assert [c.classe for c in periodes(document, _reference())] == ["periode"]
+
+
+# ── Porte finale : ce qui ne doit PAS cesser d'être détecté ─────────────────
+
+
+def test_le_scenario_central_se_juge_comme_le_previsionnel() -> None:
+    """30 000 € est le seuil de 2028 : écrit pour 2029, même « dans le scénario central »."""
+    graves = _graves(_section(
+        "9.3", "Dans le scénario central, le seuil de rentabilité atteint 30 000 € en 2029.",
+    ))
+    assert any("[fait_par_annee]" in g for g in graves)
+
+
+def test_une_incise_entre_tirets_n_est_pas_une_baisse() -> None:
+    """Une marge de 25 % en 2029 (celle de 2028), dans une incise : elle se juge."""
+    doc = Document(sections=[_section(
+        "9.3", "La marge de sécurité – 25 % en 2029 – reste confortable.",
+    )])
+    assert "fait_par_annee" in [c.classe for c in coherence(doc, _reference())]
+
+
+def test_un_revenu_redivise_la_premiere_annee_reste_signale() -> None:
+    """« ressort à 110 € la première année » n'est pas un prix unitaire."""
+    doc = Document(sections=[_section(
+        "12.2", "Le revenu mensuel de la dirigeante ressort à 110 € la première année.",
+    )])
+    assert [c.classe for c in periodes(doc, _reference())] == ["periode"]
+
+
+def test_des_charges_fixes_mensuelles_ecrites_avant_le_montant() -> None:
+    assert _graves(_section(
+        "9.3",
+        "Avec des charges fixes mensuelles de 1 500 € et un taux de marge de 60 %, le seuil "
+        "de rentabilité atteint 30 000 € en 2028.",
+    )) == []
+
+
+def test_une_marge_nette_n_est_pas_le_taux_de_marge_du_seuil() -> None:
+    assert _graves(_section(
+        "9.3",
+        "Le seuil de rentabilité (30 000 €) couvre des charges fixes de 18 000 € ; le taux de "
+        "marge nette atteint 15 % en 2028.",
+    )) == []
+
+
+def test_la_tolerance_suit_l_unite_ecrite() -> None:
+    """« 1,2 M€ » arrondit à 100 000 € près : ±50 000 €, pas ±0,05 €."""
+    from generation.relecture.valeurs import nombres, tolerance_ecrite
+
+    assert tolerance_ecrite(nombres("1,2 M€")[0]) == pytest.approx(50_000.0)
+    assert tolerance_ecrite(nombres("16 %")[0]) == pytest.approx(0.5)

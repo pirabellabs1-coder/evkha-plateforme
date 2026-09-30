@@ -493,7 +493,7 @@ graphiques, sources, mise en page, sensibilité. Chacune a son contrôle dans
 
 Régression sur le PDF lui-même, sans le régénérer
 (`manage.py relire_un_pdf tests/fixtures/eclore_v2.pdf --reference … --attendus …`,
-fichiers hors git) : **43 erreurs détectées sur 43 attendues** ; les 68 autres
+fichiers hors git) : **43 erreurs détectées sur 43 attendues** ; les 67 autres
 constats relus un à un.
 
 La revue de code a ensuite trouvé des faux positifs GRAVES sur du texte juste —
@@ -503,17 +503,33 @@ l'IS (résultat financier, RCAI, rémunération du dirigeant, charges en négati
 un arrondi (« 31 % » pour 31,25 %), le chiffre d'affaires d'un marché, un prix
 d'atelier tombé par hasard sur une rémunération ÷ 144, la marge de sécurité
 lue comme taux de marge, des charges fixes mensuelles, un prix le plus bas par
-segment. Correctifs par classe ; 24 contre-épreuves
-(`tests/test_relecture_contre_epreuves.py`), dont 16 échouent sur le code
+segment. Correctifs par classe ; contre-épreuves dans
+`tests/test_relecture_contre_epreuves.py`, dont 16 échouent sur le code
 d'avant. Un constat n'est plus grave que sur un diagnostic POSITIF (autre
 série, autre exercice, seuil d'un autre exercice) ; sinon c'est un signal.
 
-Rejouer la régression après la revue a montré une régression du correctif
-lui-même : la nouvelle règle « toute ligne entre le CA et l'EBE est une charge »
-signalait le tableau d'INDICATEURS de 11.3 (« Résultat net » rangé entre les
-deux). Corrigé (un résultat, un stock, un ratio n'est pas une ligne de flux)
-et verrouillé ; la régression reste à 43/43 avec les mêmes autres constats
-qu'avant la revue.
+Le correctif a lui-même régressé, deux fois, sur la même classe — le compte
+de résultat. La règle « toute ligne entre le CA et l'EBE est une charge »
+signalait d'abord le tableau d'INDICATEURS de 11.3 (« Résultat net » rangé
+entre les deux), vu en rejouant la régression. Puis la porte finale
+(`quality-gatekeeper`, NO-GO sur `20683d1`) a trouvé cinq comptes JUSTES
+devenus graves : « Achats de produits » pris pour une recette, « dont
+rémunération du dirigeant » retranché deux fois, « (taux de 47 %) » ou
+« (effectif : 1 ETP) » qui excluaient une vraie charge — et un compte FAUX qui
+ne portait qu'un « Total des charges » n'était plus vu. Le PDF ÉCLORE ne
+pouvait pas le montrer : son compte de résultat n'a qu'une ligne entre le CA
+et l'EBE. Désormais chaque ligne a une NATURE (charge avant produit, détail
+« dont » ignoré, parenthèse ignorée, variation de stock signée, total de
+charges lu seul) et le motif affiche l'opération qui tombe juste.
+
+La même porte a relevé quatre pertes de détection, rétablies : « dans le
+scénario central » se juge comme le prévisionnel ; un tiret d'incise n'est pas
+une baisse ; « ressort à 110 € la première année » n'est pas un prix
+unitaire ; la tolérance d'un « 1,2 M€ » suit son unité. Et deux faux positifs
+d'avant : « charges fixes mensuelles de 1 500 € », « taux de marge nette ».
+
+40 contre-épreuves au total ; la régression reste à 43/43 avec, classe par
+classe, les mêmes autres constats (67) qu'avant la revue.
 
 Aussi : seuil de rentabilité de la mémoire = charges fixes ÷ taux quand le socle
 les déclare (sinon CA − résultat ÷ taux, hypothèse écrite dans la formule) ;

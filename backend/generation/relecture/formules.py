@@ -48,12 +48,15 @@ _ROLES = (
     # Le taux de marge sur coûts variables — jamais la marge de SÉCURITÉ, nette
     # ou d'EBE, qui sont d'autres grandeurs (revue du 30/09/2026).
     ("taux", re.compile(
-        r"(?i)taux de marge|marge sur co[ûu]ts variables|marge brute|"
-        r"\bmarge\b(?!\s+(?:de\s+s[ée]curit|nette|d.EBE|d.exploitation))"
+        r"(?i)taux de marge(?!\s+(?:nette|op[ée]rationnelle|d.EBE|d.exploitation))"
+        r"|marge sur co[ûu]ts variables|marge brute|"
+        r"\bmarge\b(?!\s+(?:de\s+s[ée]curit|nette|d.EBE|d.exploitation|op[ée]rationnelle))"
     )),
 )
 #: Des charges fixes MENSUELLES ne se divisent pas comme des annuelles.
 _MENSUELLES = re.compile(r"(?i)^\s*(?:€\s*)?(?:par mois|/ ?mois|mensuel)")
+#: « charges fixes mensuelles de 1 500 € » : la période écrite AVANT le montant.
+_MENSUELLES_AVANT = re.compile(r"(?i)charges fixes\s+mensuelles[^\d]{0,20}$")
 
 
 def _roles(phrase: str) -> dict[str, Nombre]:
@@ -100,7 +103,10 @@ def _seuils(document: Document, reference: Reference) -> list[Constat]:
             if seuil is None or taux is None or taux.valeur <= 0:
                 continue
             charges = roles.get("charges")
-            if charges is not None and _MENSUELLES.match(phrase[charges.fin:]):
+            if charges is not None and (
+                _MENSUELLES.match(phrase[charges.fin:])
+                or _MENSUELLES_AVANT.search(phrase[:charges.debut])
+            ):
                 continue
             annees = [int(a) for a in re.findall(r"\b(20[2-6]\d)\b", phrase)]
             montant_charges = charges.valeur if charges else (

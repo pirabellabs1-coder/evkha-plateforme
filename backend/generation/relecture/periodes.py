@@ -34,7 +34,13 @@ _REVENU = re.compile(r"(?i)revenu|r[ée]mun[ée]ration|salaire|pr[ée]l[èe]veme
 #: jamais « le revenu ressort à 100 € », qui est un montant, pas un prix.
 _PRIX = re.compile(
     r"(?i)\bprix\b|\btarif|s[ée]ance|abonnement|par personne|par participant|panier"
-    r"|\d\s+\w+(?:\s+\w+)?\s+à\s+\d|\bà\s+\d[\d\s\u00a0\u202f,]*€\s*(?:l['’]|la |le |pi[èe]ce|unit)"
+    # « 12 ateliers à 110 € » : un compte de choses, puis leur prix — pas
+    # « de 12 000 à 14 000 € », où le mot entre les deux est un nombre.
+    r"|\d\s+[^\W\d_]+(?:\s+[^\W\d_]+)?\s+à\s+\d"
+    # « à 110 € l'atelier », pas « à 110 € la première année ».
+    r"|\bà\s+\d[\d\s\u00a0\u202f,]*€\s*(?:(?:l['’]|la |le )"
+    r"(?!premi|derni|deuxi|second|troisi|ann[ée]e|mois|semaine|p[ée]riode|fin\b|d[ée]but)"
+    r"|pi[èe]ce|unit)"
 )
 
 

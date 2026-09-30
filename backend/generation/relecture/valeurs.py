@@ -91,7 +91,13 @@ def tolerance_ecrite(nombre: Nombre) -> float:
     """
     chiffres = re.sub(r"[^\d,]", "", nombre.ecriture)
     decimales = len(chiffres.split(",", 1)[1]) if "," in chiffres else 0
-    return 0.5 / 10.0 ** decimales
+    try:
+        mantisse = float(chiffres.replace(",", "."))
+    except ValueError:
+        mantisse = 0.0
+    # « 1,2 M€ » : la dernière unité écrite vaut 100 000 €, pas 0,1 €.
+    echelle = abs(nombre.valeur / mantisse) if mantisse else 1.0
+    return 0.5 / 10.0 ** decimales * echelle
 
 
 def extrait(texte: str, debut: int, fin: int, *, marge: int = 60) -> str:
@@ -109,7 +115,11 @@ def extrait(texte: str, debut: int, fin: int, *, marge: int = 60) -> str:
 #: doit pas juger le scénario que la consigne 16 exige comme le prévisionnel
 #: central (revue du 30/09/2026).
 BAISSE = re.compile(
-    r"(?i)(?:(?<![\w%])[-−–]\s?(\d{1,2})\s?%"
+    # Le signe collé (« −10 % ») ; espacé, seulement hors d'une incise : dans
+    # « la marge – 25 % en 2029 – reste », le tiret ouvre une incise, il ne
+    # retranche rien (revue du 30/09/2026).
+    r"(?i)(?:(?<![\w%])[-−–](\d{1,2})\s?%"
+    r"|(?<![\w%])[-−–]\s(\d{1,2})\s?%(?!.*?\s[-–—](?:\s|$))"
     r"|\b(?:baisse|recul|diminution|repli|chute|perte|contraction)\s+(?:de\s+|d['’])?"
     r"(?:[\w'’]+\s+){0,5}?(\d{1,2})\s?%"
     r"|\binf[ée]rieure?s?\s+de\s+(\d{1,2})\s?%"
@@ -139,10 +149,16 @@ SERIES: tuple[tuple[re.Pattern[str], str, str], ...] = (
 )
 #: Ce qui fait d'un libellé autre chose que la série qu'il nomme : une marge
 #: d'EBE est un taux, un « CA si −10 % » un scénario.
+#: Un scénario autre que le central, une analyse de sensibilité. UNE définition
+#: pour les tableaux et la prose : « dans le scénario central, le seuil… » se
+#: juge comme le prévisionnel (revue du 30/09/2026).
+_SCENARIO = re.compile(
+    r"(?i)\bsc[ée]nario\b(?!\s+(central|retenu|de r[ée]f[ée]rence|prudent))|\bsensibilit"
+)
 _PAS_LA_SERIE = re.compile(
     r"(?i)\bmarge (d.EBE|nette|brute)|\btaux\b|\bpart\b|\bévolution\b|\bécart\b|"
     r"\bmensuel|\bpar mois\b|\bsi\b|\bsans\b|\bnon retenu|\bvariante\b|"
-    r"\balternati|\bsc[ée]nario\b(?!\s+(central|retenu|de r[ée]f[ée]rence|prudent))|\bsensibilit"
+    r"\balternati|" + _SCENARIO.pattern.removeprefix("(?i)")
 )
 #: Le chiffre d'affaires d'un MARCHÉ, d'un secteur ou d'un concurrent n'est pas
 #: celui du projet (revue du 30/09/2026).
@@ -275,7 +291,7 @@ def _valeurs_d_une_phrase(
     son unité, et à l'année écrite JUSTE après lui (« en 2028 », « (2028) »),
     sans autre nombre entre les deux.
     """
-    if BAISSE.search(phrase) or re.search(r"(?i)\bsc[ée]nario|\bsensibilit|\bsi le ", phrase):
+    if BAISSE.search(phrase) or _SCENARIO.search(phrase) or re.search(r"(?i)\bsi le ", phrase):
         return  # un scénario, pas le prévisionnel central
     series = series_nommees(phrase)
     if _AUTRE_QUE_LE_PROJET.search(phrase):

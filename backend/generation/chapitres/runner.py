@@ -2220,10 +2220,13 @@ def _relire_le_chapitre(
         # Le rédacteur de ce dossier n'a pas la mémoire : un `{{repère}}` dans
         # sa consigne serait recopié tel quel, ou puni comme repère inconnu
         # (revue du 30/09/2026). Il reçoit la valeur.
-        from ..memoire.reperes import remplacer_les_reperes  # noqa: PLC0415
+        try:
+            from ..memoire.reperes import remplacer_les_reperes  # noqa: PLC0415
 
-        faits = reference.memoire.faits
-        motifs = [remplacer_les_reperes(m, faits).texte for m in motifs]
+            faits = reference.memoire.faits
+            motifs = [remplacer_les_reperes(m, faits).texte for m in motifs]
+        except Exception:  # noqa: BLE001 — la relecture ne tue jamais un chapitre
+            _log.exception("Repères des motifs du chapitre %s impossibles.", chapter.chapter_number)
     if len(graves) > MAX_CONSTATS_DE_RELECTURE:
         motifs.append(
             f"[relecture] et {len(graves) - MAX_CONSTATS_DE_RELECTURE} autre(s) erreur(s) "
