@@ -383,6 +383,52 @@ def _depouiller_url_tally(valeur: str) -> str:
     return valeur
 
 
+def _fichier_local_lisible(reference: str) -> bool:
+    """Le logo DÉPOSÉ que désigne cette référence est-il encore sur le disque ?"""
+    from .rendu_word.logo import charger_logo  # noqa: PLC0415
+
+    return charger_logo(reference) is not None
+
+
+def logo_du_job(job: GenerationJob, reference: str) -> tuple[str, str]:
+    """(référence du logo, source) : celui de la commande, sinon celui de l'organisation.
+
+    ## Le défaut, mesuré
+
+    Business plan ÉCLORE `28a257bf` (livré le 30/09/2026) : aucune image sur
+    la couverture ni sur la dernière page. La commande garde une COPIE du
+    chemin du logo, prise le jour où elle est passée (`commandes.py`) ; or,
+    depuis le 08/08/2026, remplacer son logo dans « Ma marque » EFFACE l'ancien
+    fichier du disque (`purge._effacer_le_fichier`). Toute commande antérieure
+    désigne alors un fichier disparu, et le rendu passait sans logo — « ça fait
+    plusieurs fois », dit l'utilisateur.
+
+    ## La règle
+
+    La marque est celle de l'abonné : quand le fichier de la commande n'est
+    plus lisible, c'est son logo d'AUJOURD'HUI qui s'imprime. Une URL
+    externe (ancien formulaire) n'est pas testée ici — elle se télécharge au
+    rendu, et un appel réseau n'a rien à faire dans la lecture de la marque.
+    Source : « commande », « organisation », ou « » si aucun logo n'existe.
+    """
+    if reference.startswith(("http://", "https://")):
+        return reference, "commande"
+    if reference and _fichier_local_lisible(reference):
+        return reference, "commande"
+    try:
+        from organisations.liaison import organisation_du_job  # noqa: PLC0415
+
+        organisation = organisation_du_job(job)
+    except Exception:  # noqa: BLE001 — la marque ne tue pas un rendu
+        organisation = None
+    actuel = str(getattr(organisation, "logo_url", "") or "")
+    if actuel and actuel != reference and (
+        actuel.startswith(("http://", "https://")) or _fichier_local_lisible(actuel)
+    ):
+        return actuel, "organisation"
+    return reference, "commande" if reference else ""
+
+
 def extract_branding(job: GenerationJob) -> BrandingContext:
     """Lit les variables de branding dans l'intake associé au job.
 
@@ -399,7 +445,7 @@ def extract_branding(job: GenerationJob) -> BrandingContext:
     except Exception:  # noqa: BLE001 – intake optionnel
         pass
 
-    logo_url = _depouiller_url_tally(variables.get("LOGO_URL", ""))
+    logo_url, _ = logo_du_job(job, _depouiller_url_tally(variables.get("LOGO_URL", "")))
 
     return BrandingContext(
         logo_url=logo_url,

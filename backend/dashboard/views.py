@@ -1162,6 +1162,56 @@ def job_retablir(request: HttpRequest, job_id: str) -> JsonResponse:
     return _json({"job_id": str(job.id), "status": job.status, "message": message})
 
 
+@require_GET
+@csrf_exempt
+def job_logo(request: HttpRequest, job_id: str) -> JsonResponse:
+    """Le logo que le rendu de ce dossier imprimera, et pourquoi — lecture seule.
+
+    30/09/2026, business plan ÉCLORE `28a257bf` : livré sans logo, et rien ne
+    permettait de dire pourquoi sans accès au serveur. La commande garde une
+    copie du chemin du logo ; `rendering.logo_du_job` retombe sur le logo
+    actuel de l'organisation quand ce fichier a disparu. Cette route dit
+    lequel est retenu, et si chacun se lit.
+    """
+    try:
+        job = GenerationJob.objects.select_related("order").get(id=job_id)
+    except GenerationJob.DoesNotExist:
+        return _json({"error": "Job not found."}, status=404)
+    except Exception:
+        return _json({"error": "Invalid job id."}, status=400)
+
+    from generation.rendering import (  # noqa: PLC0415
+        _depouiller_url_tally,
+        _fichier_local_lisible,
+        logo_du_job,
+    )
+    from organisations.liaison import organisation_du_job  # noqa: PLC0415
+
+    try:
+        variables = dict(job.order.intake_submission.normalized_variables or {})
+    except Exception:  # noqa: BLE001 — une commande sans questionnaire n'a pas de logo
+        variables = {}
+    de_la_commande = _depouiller_url_tally(str(variables.get("LOGO_URL") or ""))
+    organisation = organisation_du_job(job)
+    actuel = str(getattr(organisation, "logo_url", "") or "")
+    retenu, source = logo_du_job(job, de_la_commande)
+
+    def _etat(reference: str) -> dict[str, Any]:
+        externe = reference.startswith(("http://", "https://"))
+        return {
+            "reference": reference,
+            "lisible": None if externe or not reference else _fichier_local_lisible(reference),
+        }
+
+    return _json({
+        "job_id": str(job.id),
+        "commande": _etat(de_la_commande),
+        "organisation": _etat(actuel),
+        "retenu": {"reference": retenu, "source": source,
+                   "lisible": _etat(retenu)["lisible"]},
+    })
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def job_rendre_visible(request: HttpRequest, job_id: str) -> JsonResponse:

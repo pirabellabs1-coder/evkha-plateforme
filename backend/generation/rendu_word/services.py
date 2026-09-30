@@ -23,6 +23,7 @@ from ..socle.schema import Socle
 from ..socle.services import socle_verrouille
 from .assemblage import RapportAssemblage, assembler_etude
 from .depuis_json import rendre_etude
+from .logo import charger_logo
 
 _log = logging.getLogger(__name__)
 
@@ -44,6 +45,10 @@ class LivrableWord:
     chemin: Path
     rapport: RapportAssemblage
     etude: dict[str, Any]
+    #: La référence d'un logo ATTENDU mais illisible — vide s'il n'en fallait
+    #: pas, ou s'il est imprimé. L'assemblage en fait un incident : un logo
+    #: absent passait en silence (business plan ÉCLORE `28a257bf`, 30/09/2026).
+    logo_introuvable: str = ""
 
 
 def _repertoire_de_sortie() -> Path:
@@ -160,6 +165,16 @@ def produire_docx(
     # une phrase la crédibilité que trente pages ont construite.
     etude["type_livrable"] = str(job.deliverable_type)
     etude.update(identite_du_projet(job))
+    # Le logo se charge UNE fois, ici : le rendu reçoit les octets, et on sait
+    # s'il manque. `marque["logo_url"]` a déjà son repli sur le logo actuel de
+    # l'organisation (`rendering.logo_du_job`).
+    logo_introuvable = ""
+    if marque.get("logo_url"):
+        octets_logo = charger_logo(str(marque["logo_url"]))
+        if octets_logo is not None:
+            etude["logo"] = octets_logo
+        else:
+            logo_introuvable = str(marque["logo_url"])
 
     cible = destination or _repertoire_de_sortie() / f"{job.id}.docx"
     rendre_etude(etude, cible)
@@ -171,4 +186,6 @@ def produire_docx(
             job.id, len(rapport.graphiques_abandonnes),
             " | ".join(rapport.graphiques_abandonnes),
         )
-    return LivrableWord(chemin=cible, rapport=rapport, etude=etude)
+    return LivrableWord(
+        chemin=cible, rapport=rapport, etude=etude, logo_introuvable=logo_introuvable,
+    )

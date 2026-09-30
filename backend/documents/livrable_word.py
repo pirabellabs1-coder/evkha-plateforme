@@ -83,6 +83,41 @@ def _retention(job: GenerationJob) -> timedelta:
 INCIDENT_TYPE_VISUELS_ABANDONNES = "visuels_abandonnes"
 
 
+def _signaler_le_logo_introuvable(job: GenerationJob, reference: str) -> None:
+    """Un logo attendu mais illisible devient un incident, jamais un silence.
+
+    Business plan ÉCLORE `28a257bf` (livré le 30/09/2026) : ni la couverture
+    ni la dernière page ne portaient le logo de l'abonnée, et seul un
+    avertissement du journal du conteneur le disait — « ça fait plusieurs
+    fois », a dû constater l'utilisateur sur le document. Règle 1 : ne pouvant
+    pas l'imprimer, on le dit. Rien n'est bloqué : le document part sans logo,
+    et l'incident dit quoi faire.
+    """
+    if not reference:
+        return
+
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    forme = "lien externe" if reference.startswith(("http://", "https://")) else "fichier déposé"
+    OperationalIncident.objects.update_or_create(
+        job=job,
+        title=f"Logo introuvable au rendu — job {job.id}",
+        defaults={
+            "severity": IncidentSeverity.MEDIUM,
+            "order": job.order,
+            "details": {
+                "reference": reference[:300],
+                "forme": forme,
+                "consigne": (
+                    "Le fichier du logo n'existe plus (remplacé ou supprimé dans « Ma "
+                    "marque ») ou n'est pas une image PNG/JPEG. Faire redéposer le logo, "
+                    "puis réassembler le document (jobs/<id>/assembler/)."
+                ),
+            },
+        },
+    )
+
+
 def _consigner_les_visuels_abandonnes(
     job: GenerationJob, rapport: RapportAssemblage
 ) -> None:
@@ -360,6 +395,7 @@ def assembler_livrable_word(
     duree_lien_s = int(_retention(job).total_seconds())
 
     _consigner_les_visuels_abandonnes(job, livrable.rapport)
+    _signaler_le_logo_introuvable(job, livrable.logo_introuvable)
 
     # La vérification porte sur le FICHIER, et elle passe avant l'enregistrement
     # des artefacts : ce qui refait le document après le contrôle doit être
