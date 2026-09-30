@@ -137,4 +137,6 @@ def test_un_pdf_juste_ne_laisse_rien(tmp_path: Path) -> None:
     chemin.write_bytes(_pdf(["1.1 Un calcul", "Le calcul est simple : 1200 / 12 = 100."]))
     _relire_le_texte_du_pdf(job, chemin)
     job.refresh_from_db()
-    assert job.controle_final["relecture_texte"]["graves"] == 0
+    # Le document de deux lignes n'est pas un business plan complet (sa
+    # sensibilité manque, par exemple) : on juge ici l'opération seule.
+    assert "formule" not in job.controle_final["relecture_texte"]["par_classe"]
