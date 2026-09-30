@@ -339,6 +339,14 @@ BREVO_API_KEY = env("BREVO_API_KEY", default="")
 EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")
 EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="")
 
+# Modele de la RECHERCHE WEB (fournisseur « claude »), distinct de celui qui
+# redige. Decision du client du 30/09/2026 : chercher puis citer ne demande pas
+# le modele de redaction, et la recherche pesait ~22 % d'un dossier (20
+# requetes d'environ 15 000 jetons pour un business plan). Claude Haiku 4.5
+# coute 1 $ / 5 $ par million de jetons, contre 2 $ / 10 $ pour Sonnet 5, et
+# compte moins de jetons pour le meme texte. Vide = le modele de redaction.
+EVKHA_RECHERCHE_MODEL_ID = env("EVKHA_RECHERCHE_MODEL_ID", default="claude-haiku-4-5")
+
 # Reflexion adaptative : PROVISION de reflexion reservee a CHAQUE appel de
 # generation. Depuis le passage aux modeles recents, ce nombre n'est plus
 # transmis a l'API — `thinking.budget_tokens` y a ete supprime et renvoie 400.

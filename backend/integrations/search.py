@@ -276,8 +276,18 @@ class ClaudeWebSearchClient:
 
     @property
     def modele(self) -> str:
+        """Le modèle qui CHERCHE : `EVKHA_RECHERCHE_MODEL_ID`, sinon celui qui rédige.
+
+        Décision du client du 30/09/2026 : la recherche passe sur Claude
+        Haiku 4.5 (1 $ / 5 $ par million de jetons, contre 2 $ / 10 $ pour
+        Sonnet 5). Trouver puis citer ne demande pas le modèle de rédaction,
+        et la recherche pesait ~22 % d'un dossier.
+        """
         if self._model_id:
             return self._model_id
+        dedie = str(getattr(settings, "EVKHA_RECHERCHE_MODEL_ID", "") or "").strip()
+        if dedie:
+            return dedie
         from integrations.claude import (  # noqa: PLC0415
             _resolve_anthropic_model_id,
             _resolve_model_alias,
@@ -327,12 +337,15 @@ class ClaudeWebSearchClient:
             "chiffré ou daté qu'elle apporte. Aucune introduction, aucune "
             "conclusion, aucun commentaire : seulement ces phrases."
         )
+        options: dict[str, object] = {}
+        if _accepte_l_effort(self.modele):
+            options["output_config"] = {"effort": "low"}
         reponse = self._sdk().messages.create(  # type: ignore[attr-defined]
             model=self.modele,
             max_tokens=4096,
-            output_config={"effort": "low"},
             tools=[{"type": self.TYPE_OUTIL, "name": "web_search", "max_uses": 1}],
             messages=[{"role": "user", "content": consigne}],
+            **options,
         )
 
         usage = getattr(reponse, "usage", None)
@@ -397,6 +410,14 @@ class ClaudeWebSearchClient:
         # Les sources CITÉES d'abord : ce sont celles dont on a un extrait.
         resultats.sort(key=lambda r: not r.content)
         return SearchResponse(query=query, results=tuple(resultats[:plafond]))
+
+
+def _accepte_l_effort(modele: str) -> bool:
+    """Le paramètre `effort` est refusé (400) par Claude Haiku 4.5 et Sonnet 4.5.
+
+    Sans réflexion par défaut, Haiku n'a de toute façon rien à abaisser.
+    """
+    return not modele.startswith(("claude-haiku", "claude-sonnet-4-5"))
 
 
 def get_search_client() -> WebSearchClient:
