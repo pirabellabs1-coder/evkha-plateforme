@@ -340,3 +340,84 @@ def message_evenements(request: HttpRequest, message_id: str) -> JsonResponse:
     types = {t for t, _ in TypeEvenement.choices}
     resume = {t: sum(1 for e in evenements if e["type"] == t) for t in types}
     return _json({"evenements": evenements, "resume": resume})
+
+
+# ── Les agents (phase 3) : recherche, qualification, rédaction ────────────────
+#
+# Ces trois actions appellent le modèle (et, pour la recherche, la recherche
+# web). En production, c'est un COÛT réel — le même garde-fou que pour les
+# générations : rien ne tourne sans un acte délibéré. D'où `confirmer: true`
+# obligatoire dans le corps ; sans lui l'action est refusée et RIEN n'est appelé.
+# Les agents, eux, ne font que PRÉPARER : la recherche crée des fiches, la
+# qualification pose un score, la rédaction crée des BROUILLONS. Aucun n'envoie.
+
+
+def _confirme(request: HttpRequest) -> bool:
+    return _corps(request).get("confirmer") is True
+
+
+def _confirmation_requise(action: str) -> JsonResponse:
+    return JsonResponse(
+        {
+            "erreur": (
+                f"L'action « {action} » appelle le modèle et coûte en production. "
+                "Relancez avec `confirmer: true` pour l'autoriser."
+            ),
+            "confirmation_requise": True,
+        },
+        status=400,
+    )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def campagne_rechercher(request: HttpRequest, campagne_id: str) -> JsonResponse:
+    """Agent de recherche : propose des prospects pour la campagne (fiches, rien d'envoyé)."""
+    try:
+        c = Campagne.objects.get(id=campagne_id)
+    except (Campagne.DoesNotExist, ValueError):
+        return _erreur("Campagne introuvable.", status=404)
+    if not _confirme(request):
+        return _confirmation_requise("recherche de prospects")
+    from prospection import agents  # noqa: PLC0415
+
+    limite = int(_corps(request).get("limite") or 10)
+    crees = agents.rechercher_des_prospects(c, limite=limite)
+    return _json({"crees": len(crees), "prospects": [_prospect_dict(p) for p in crees]})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def prospect_qualifier(request: HttpRequest, prospect_id: str) -> JsonResponse:
+    """Agent de qualification : pose le score d'abonnement du prospect."""
+    try:
+        p = Prospect.objects.get(id=prospect_id)
+    except (Prospect.DoesNotExist, ValueError):
+        return _erreur("Prospect introuvable.", status=404)
+    if not _confirme(request):
+        return _confirmation_requise("qualification")
+    from prospection import agents  # noqa: PLC0415
+
+    agents.qualifier_un_prospect(p)
+    return _json(_prospect_dict(p))
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def prospect_rediger(request: HttpRequest, prospect_id: str) -> JsonResponse:
+    """Agent de rédaction : prépare le 1ᵉʳ message et les relances, EN BROUILLON."""
+    try:
+        p = Prospect.objects.get(id=prospect_id)
+    except (Prospect.DoesNotExist, ValueError):
+        return _erreur("Prospect introuvable.", status=404)
+    if not _confirme(request):
+        return _confirmation_requise("rédaction des messages")
+    from prospection import agents  # noqa: PLC0415
+
+    corps = _corps(request)
+    crees = agents.rediger_les_messages(
+        p,
+        nb_relances=int(corps.get("nb_relances") or 4),
+        remplacer=corps.get("remplacer") is True,
+    )
+    return _json({"crees": len(crees), "messages": [_message_dict(m) for m in crees]})

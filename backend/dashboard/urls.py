@@ -177,6 +177,10 @@ urlpatterns = [
         "prospection/campagnes/<str:campagne_id>/sequence/",
         prospection.campagne_sequence, name="prospection-campagne-sequence",
     ),
+    path(
+        "prospection/campagnes/<str:campagne_id>/rechercher/",
+        prospection.campagne_rechercher, name="prospection-campagne-rechercher",
+    ),
     path("prospection/prospects/", prospection.prospects, name="prospection-prospects"),
     path(
         "prospection/prospects/<str:prospect_id>/",
@@ -185,6 +189,14 @@ urlpatterns = [
     path(
         "prospection/prospects/<str:prospect_id>/desinscrire/",
         prospection.prospect_desinscrire, name="prospection-desinscrire",
+    ),
+    path(
+        "prospection/prospects/<str:prospect_id>/qualifier/",
+        prospection.prospect_qualifier, name="prospection-prospect-qualifier",
+    ),
+    path(
+        "prospection/prospects/<str:prospect_id>/rediger/",
+        prospection.prospect_rediger, name="prospection-prospect-rediger",
     ),
     path("prospection/messages/", prospection.messages, name="prospection-messages"),
     path(
