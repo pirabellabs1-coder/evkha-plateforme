@@ -111,6 +111,7 @@ def rechercher_des_prospects(
     campagne: Campagne,
     *,
     limite: int = 10,
+    criteres: str = "",
     recherche: WebSearchClient | None = None,
     client: StructuredClaudeClient | None = None,
 ) -> list[Prospect]:
@@ -120,6 +121,9 @@ def rechercher_des_prospects(
     fiches structurées (raison sociale, e-mail éventuel, site…). On crée un
     `Prospect` NOUVEAU par fiche inédite — dédoublonné, dans la campagne, sur la
     raison sociale et sur l'e-mail. Rien n'est contacté : ce sont des fiches.
+
+    `criteres` (facultatif) affine la cible — c'est ce que l'assistant produit
+    à partir d'une discussion (« des PME de 10 à 50 salariés qui recrutent »).
     """
     limite = max(1, min(limite, _MAX_PROSPECTS_PAR_RECHERCHE))
     if recherche is None:
@@ -128,7 +132,9 @@ def rechercher_des_prospects(
         recherche = get_search_client()
     client = _client_structure(client)
 
-    reponse = recherche.search(query=_requete_de_recherche(campagne), max_results=limite)
+    criteres = criteres.strip()
+    requete = f"{_requete_de_recherche(campagne)} {criteres}".strip()
+    reponse = recherche.search(query=requete, max_results=limite)
     extraits = "\n\n".join(
         f"- {r.title}\n  {r.url}\n  {r.content}" for r in reponse.results
     )
@@ -144,7 +150,8 @@ def rechercher_des_prospects(
         f"Campagne : {campagne.nom}.\n"
         f"Secteur visé : {campagne.secteur or '—'}.\n"
         f"Zone : {campagne.zone or '—'}.\n"
-        f"Offre proposée : {campagne.offre_visee or '—'}.\n\n"
+        f"Offre proposée : {campagne.offre_visee or '—'}.\n"
+        f"Critères affinés : {criteres or '—'}.\n\n"
         f"Extraits de recherche web :\n{extraits or '(aucun résultat)'}\n\n"
         f"Propose jusqu'à {limite} entreprises cibles pertinentes."
     )

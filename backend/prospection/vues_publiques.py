@@ -9,9 +9,13 @@ Montés sous `/webhooks/brevo/` et `/p/desinscription/<jeton>/` (hors `/api/`),
 """
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 from typing import Any
 
+from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.html import escape
 from django.views.decorators.csrf import csrf_exempt
@@ -23,7 +27,7 @@ from integrations.webhooks import is_webhook_authorized, record_webhook_event, s
 
 from . import services
 from .models import Prospect
-from .webhooks import enregistrer_evenement_brevo
+from .webhooks import enregistrer_evenement_brevo, enregistrer_evenement_resend
 
 
 def _evenements_du_corps(parse: Any) -> list[dict[str, Any]]:
@@ -58,6 +62,64 @@ def webhook_brevo(request: HttpRequest) -> JsonResponse:
         payload=charge_audit,
     )
     traces = sum(1 for e in evenements if enregistrer_evenement_brevo(e) is not None)
+    return JsonResponse({"accepted": True, "traces": traces, "recus": len(evenements)}, status=202)
+
+
+def _signature_svix_valide(request: HttpRequest, corps_brut: bytes) -> bool:
+    """Vérifie la signature Svix d'un webhook Resend (son mécanisme natif).
+
+    Fail-open tant que `RESEND_WEBHOOK_SECRET` n'est pas posé (dev/CI, et mise
+    en route immédiate), fail-closed ensuite — même règle que les autres
+    webhooks du projet. Le secret (`whsec_…`) est celui que Resend affiche à la
+    création du webhook : il se colle dans Coolify, il ne transite jamais par le
+    code ni par une URL.
+    """
+    secret = str(getattr(settings, "RESEND_WEBHOOK_SECRET", "") or "")
+    if not secret:
+        return True
+    svix_id = request.headers.get("svix-id", "")
+    svix_ts = request.headers.get("svix-timestamp", "")
+    svix_sig = request.headers.get("svix-signature", "")
+    if not (svix_id and svix_ts and svix_sig):
+        return False
+    try:
+        cle = base64.b64decode(secret.split("_", 1)[1] if "_" in secret else secret)
+    except (ValueError, IndexError):
+        return False
+    signe = f"{svix_id}.{svix_ts}.{corps_brut.decode('utf-8')}".encode()
+    attendue = base64.b64encode(hmac.new(cle, signe, hashlib.sha256).digest()).decode()
+    # L'en-tête porte une liste « v1,<sig> v1,<sig> » : on accepte si l'une colle.
+    for morceau in svix_sig.split():
+        _, _, sig = morceau.partition(",")
+        if sig and hmac.compare_digest(sig, attendue):
+            return True
+    return False
+
+
+def _evenements_resend(parse: Any) -> list[dict[str, Any]]:
+    if isinstance(parse, list):
+        return [e for e in parse if isinstance(e, dict)]
+    return [parse] if isinstance(parse, dict) else []
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def webhook_resend(request: HttpRequest) -> JsonResponse:
+    """Reçoit les événements d'e-mail Resend (le fournisseur actif) et les trace."""
+    if not _signature_svix_valide(request, request.body):
+        return JsonResponse({"accepted": False, "error": "signature"}, status=401)
+    try:
+        parse = json.loads(request.body.decode("utf-8") or "null")
+    except (json.JSONDecodeError, ValueError) as exc:
+        return JsonResponse({"accepted": False, "error": str(exc)}, status=400)
+    evenements = _evenements_resend(parse)
+    charge_audit = parse if isinstance(parse, dict) else {"events": evenements}
+    record_webhook_event(
+        provider=IntegrationProvider.RESEND,
+        event_id=f"resend:{stable_payload_hash(charge_audit)}",
+        payload=charge_audit,
+    )
+    traces = sum(1 for e in evenements if enregistrer_evenement_resend(e) is not None)
     return JsonResponse({"accepted": True, "traces": traces, "recus": len(evenements)}, status=202)
 
 

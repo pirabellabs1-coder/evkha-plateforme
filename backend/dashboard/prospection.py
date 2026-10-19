@@ -437,9 +437,34 @@ def campagne_rechercher(request: HttpRequest, campagne_id: str) -> JsonResponse:
         return _confirmation_requise("recherche de prospects")
     from prospection import agents  # noqa: PLC0415
 
-    limite = int(_corps(request).get("limite") or 10)
-    crees = agents.rechercher_des_prospects(c, limite=limite)
+    corps = _corps(request)
+    limite = int(corps.get("limite") or 10)
+    criteres = str(corps.get("criteres") or "")
+    crees = agents.rechercher_des_prospects(c, limite=limite, criteres=criteres)
     return _json({"crees": len(crees), "prospects": [_prospect_dict(p) for p in crees]})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def assistant(request: HttpRequest) -> JsonResponse:
+    """L'assistant conversationnel : discuter pour affiner la cible.
+
+    Il répond au fil de la discussion et, quand elle aboutit, PROPOSE une
+    recherche (critères) que l'humain déclenche ensuite — l'assistant ne lance
+    rien lui-même. Chaque échange interroge le modèle ; c'est l'usage attendu
+    d'un assistant, donc pas de garde `confirmer` ici (à la différence du
+    lancement d'une recherche, lui facturé et confirmé).
+    """
+    corps = _corps(request)
+    messages = corps.get("messages")
+    if not isinstance(messages, list) or not messages:
+        return _erreur("`messages` doit être une liste non vide.")
+    campagne = None
+    if cid := corps.get("campagne_id"):
+        campagne = Campagne.objects.filter(id=cid).first()
+    from prospection import assistant as agent_assistant  # noqa: PLC0415
+
+    return _json(agent_assistant.repondre(messages, campagne=campagne))
 
 
 @csrf_exempt

@@ -145,6 +145,21 @@ export interface CampagneDetail extends Campagne {
   prospects_liste: Prospect[];
 }
 
+export interface MessageAssistant {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface PropositionRecherche {
+  criteres: string;
+  limite: number;
+}
+
+export interface ReponseAssistant {
+  reponse: string;
+  proposition_recherche: PropositionRecherche | null;
+}
+
 // ── Méthodes ──────────────────────────────────────────────────────────────────
 
 export const apiProspection = {
@@ -176,10 +191,17 @@ export const apiProspection = {
 
   // Les agents : chaque passage interroge le modèle (facturé). `confirmer` est
   // exigé par le serveur — jamais d'appel payant par accident.
-  rechercher: (campagneId: string, limite = 10) =>
+  rechercher: (campagneId: string, limite = 10, criteres = "") =>
     envoyer<{ crees: number; prospects: Prospect[] }>(
-      "POST", `/campagnes/${campagneId}/rechercher/`, { confirmer: true, limite },
+      "POST", `/campagnes/${campagneId}/rechercher/`, { confirmer: true, limite, criteres },
     ),
+  // L'assistant conversationnel : discuter pour affiner la cible. Chaque échange
+  // interroge le modèle — c'est l'usage attendu, pas de garde `confirmer`.
+  assistant: (messages: MessageAssistant[], campagneId?: string) =>
+    envoyer<ReponseAssistant>("POST", "/assistant/", {
+      messages,
+      ...(campagneId ? { campagne_id: campagneId } : {}),
+    }),
   qualifier: (prospectId: string) =>
     envoyer<Prospect>("POST", `/prospects/${prospectId}/qualifier/`, { confirmer: true }),
   rediger: (prospectId: string, nbRelances = 4) =>

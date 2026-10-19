@@ -80,7 +80,19 @@ def enregistrer_evenement_brevo(payload: dict[str, Any]) -> Evenement | None:
     type_evt = _CORRESPONDANCE.get(str(payload.get("event", "")).strip().lower())
     if type_evt is None:
         return None
-    identifiant = _identifiant_message(payload)
+    return _tracer_sur_message(
+        _identifiant_message(payload), type_evt, _horodatage(payload), payload
+    )
+
+
+def _tracer_sur_message(
+    identifiant: str, type_evt: str, horodatage: Any, charge: dict[str, Any]
+) -> Evenement | None:
+    """Pose l'événement sur le message désigné par son id fournisseur, ou None.
+
+    Partagé par Brevo et Resend : les deux relient par `provider_message_id` et
+    tracent un `Evenement` idempotent. Une désinscription déclenche l'opt-out.
+    """
     if not identifiant:
         return None
     message = (
@@ -90,13 +102,44 @@ def enregistrer_evenement_brevo(payload: dict[str, Any]) -> Evenement | None:
     )
     if message is None:
         return None
-
     evenement, _ = Evenement.objects.get_or_create(
         message=message,
         type=type_evt,
-        horodatage=_horodatage(payload),
-        defaults={"charge": payload},
+        horodatage=horodatage,
+        defaults={"charge": charge},
     )
     if type_evt == TypeEvenement.DESINSCRIT and not message.prospect.consentement_retire:
         services.desinscrire(message.prospect)
     return evenement
+
+
+#: Type d'événement Resend (champ `type`, préfixé `email.`) -> notre type.
+_CORRESPONDANCE_RESEND: dict[str, str] = {
+    "email.delivered": TypeEvenement.DELIVRE,
+    "email.opened": TypeEvenement.OUVERT,
+    "email.clicked": TypeEvenement.CLIQUE,
+    "email.bounced": TypeEvenement.REBOND,
+    "email.delivery_delayed": TypeEvenement.REBOND,
+    "email.complained": TypeEvenement.PLAINTE,
+}
+
+
+def enregistrer_evenement_resend(payload: dict[str, Any]) -> Evenement | None:
+    """Trace un événement Resend sur le bon message. Rend l'`Evenement`, ou None.
+
+    Resend enveloppe tout sous `{"type": "email.opened", "data": {"email_id": …}}`.
+    Même contrat défensif que Brevo : inconnu ou introuvable rendent None, jamais
+    une exception. Resend n'émet pas d'événement de désinscription — celle-ci
+    passe par notre lien public.
+    """
+    if not isinstance(payload, dict):
+        return None
+    type_evt = _CORRESPONDANCE_RESEND.get(str(payload.get("type", "")).strip().lower())
+    if type_evt is None:
+        return None
+    donnee = payload.get("data")
+    identifiant = ""
+    if isinstance(donnee, dict):
+        identifiant = str(donnee.get("email_id") or donnee.get("id") or "").strip()
+    horodatage = _horodatage({"date": payload.get("created_at", "")})
+    return _tracer_sur_message(identifiant, type_evt, horodatage, payload)

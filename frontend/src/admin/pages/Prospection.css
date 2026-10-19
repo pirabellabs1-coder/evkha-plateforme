@@ -82,3 +82,46 @@
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: var(--e-3);
 }
+
+/* Assistant : le fil de discussion. */
+.prospection-fil {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  min-height: 8rem;
+  max-height: 24rem;
+  overflow-y: auto;
+  padding: var(--e-2) 0;
+}
+
+.prospection-bulle {
+  max-width: 85%;
+  padding: var(--e-2) var(--e-3);
+  border-radius: 1rem;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.prospection-bulle.vous {
+  align-self: flex-end;
+  background: var(--e-accent, #c8a24a);
+  color: #1a1a1a;
+  border-bottom-right-radius: 0.25rem;
+}
+
+.prospection-bulle.assistant {
+  align-self: flex-start;
+  background: var(--e-surface-2, rgba(0, 0, 0, 0.05));
+  border-bottom-left-radius: 0.25rem;
+}
+
+.prospection-saisie {
+  display: flex;
+  gap: var(--e-2);
+  align-items: flex-end;
+  margin-top: var(--e-3);
+}
+
+.prospection-saisie .prospection-corps {
+  flex: 1;
+}

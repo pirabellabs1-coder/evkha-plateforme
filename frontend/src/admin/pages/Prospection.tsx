@@ -15,13 +15,14 @@ import {
   apiProspection as api,
   type Campagne,
   type Message,
+  type MessageAssistant,
   type Prospect,
 } from "../apiProspection";
 import { Bandeau, Carte, Chiffre, Pastille, Squelette, Vide } from "../../espace/composants/Interface";
 import * as f from "../../espace/format";
 import "./Prospection.css";
 
-type Onglet = "campagnes" | "valider" | "metriques";
+type Onglet = "campagnes" | "assistant" | "valider" | "metriques";
 
 export function ProspectionAdmin() {
   const [onglet, setOnglet] = useState<Onglet>("campagnes");
@@ -33,6 +34,7 @@ export function ProspectionAdmin() {
 
   const onglets: { cle: Onglet; libelle: string; pastille?: number }[] = [
     { cle: "campagnes", libelle: "Campagnes" },
+    { cle: "assistant", libelle: "Assistant" },
     { cle: "valider", libelle: "À valider", pastille: apercu?.a_valider },
     { cle: "metriques", libelle: "Métriques" },
   ];
@@ -54,8 +56,142 @@ export function ProspectionAdmin() {
       </nav>
 
       {onglet === "campagnes" && <VueCampagnes />}
+      {onglet === "assistant" && <VueAssistant />}
       {onglet === "valider" && <VueValidation />}
       {onglet === "metriques" && <VueMetriques />}
+    </>
+  );
+}
+
+// ── Onglet Assistant ─────────────────────────────────────────────────────────
+
+function VueAssistant() {
+  const cache = useQueryClient();
+  const [erreur, setErreur] = useState("");
+  const [campagneId, setCampagneId] = useState("");
+  const [saisie, setSaisie] = useState("");
+  const [fil, setFil] = useState<MessageAssistant[]>([]);
+  const [proposition, setProposition] = useState<{ criteres: string; limite: number } | null>(null);
+
+  const { data: campagnes } = useQuery({
+    queryKey: ["prospection", "campagnes"],
+    queryFn: api.campagnes,
+  });
+
+  const envoyer = useMutation({
+    mutationFn: (messages: MessageAssistant[]) =>
+      api.assistant(messages, campagneId || undefined),
+    onSuccess: (rep) => {
+      setErreur("");
+      setFil((f) => [...f, { role: "assistant", content: rep.reponse }]);
+      setProposition(rep.proposition_recherche);
+    },
+    onError: (c) => setErreur(c instanceof Error ? c.message : "L'assistant n'a pas répondu."),
+  });
+
+  const lancer = useMutation({
+    mutationFn: () =>
+      api.rechercher(campagneId, proposition?.limite ?? 10, proposition?.criteres ?? ""),
+    onSuccess: (r) => {
+      setFil((f) => [
+        ...f,
+        { role: "assistant", content: `J'ai lancé la recherche : ${r.crees} prospect(s) ajouté(s) à la campagne.` },
+      ]);
+      setProposition(null);
+      void cache.invalidateQueries({ queryKey: ["prospection"] });
+    },
+    onError: (c) => setErreur(c instanceof Error ? c.message : "Recherche impossible."),
+  });
+
+  function soumettre() {
+    const texte = saisie.trim();
+    if (!texte || envoyer.isPending) return;
+    const prochain: MessageAssistant[] = [...fil, { role: "user", content: texte }];
+    setFil(prochain);
+    setSaisie("");
+    envoyer.mutate(prochain);
+  }
+
+  return (
+    <>
+      {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+      <Carte
+        titre="Assistant de prospection"
+        note="Discutez pour affiner votre cible ; il proposera une recherche à lancer."
+        action={
+          <select
+            className="champ-saisie"
+            style={{ maxWidth: 240 }}
+            aria-label="Campagne de rattachement"
+            value={campagneId}
+            onChange={(e) => setCampagneId(e.target.value)}
+          >
+            <option value="">Sans campagne</option>
+            {(campagnes ?? []).map((c: Campagne) => (
+              <option key={c.id} value={c.id}>{c.nom}</option>
+            ))}
+          </select>
+        }
+      >
+        <div className="prospection-fil">
+          {fil.length === 0 && (
+            <Vide
+              icone="◎"
+              titre="Dites-lui qui vous cherchez"
+              texte="Par exemple : « Des cabinets RH à Lyon qui recrutent en ce moment »."
+            />
+          )}
+          {fil.map((m, i) => (
+            <div
+              key={i}
+              className={m.role === "user" ? "prospection-bulle vous" : "prospection-bulle assistant"}
+            >
+              {m.content}
+            </div>
+          ))}
+          {envoyer.isPending && <div className="prospection-bulle assistant">…</div>}
+        </div>
+
+        {proposition && (
+          <Bandeau ton="succes" titre="Recherche proposée">
+            <div>{proposition.criteres}</div>
+            <div className="prospection-actions" style={{ marginTop: "var(--e-2)" }}>
+              <BoutonConfirme
+                libelle={campagneId ? "Lancer cette recherche" : "Choisissez d'abord une campagne"}
+                avertissement="Interroge l'IA et la recherche web (facturé)."
+                principal
+                enCours={lancer.isPending || !campagneId}
+                onConfirmer={() => campagneId && lancer.mutate()}
+              />
+            </div>
+          </Bandeau>
+        )}
+
+        <div className="prospection-saisie">
+          <textarea
+            className="champ-saisie prospection-corps"
+            rows={2}
+            aria-label="Votre message à l'assistant"
+            placeholder="Écrivez à l'assistant…"
+            value={saisie}
+            onChange={(e) => setSaisie(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                soumettre();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="bouton bouton-principal bouton-sm"
+            disabled={envoyer.isPending || !saisie.trim()}
+            onClick={soumettre}
+          >
+            Envoyer
+          </button>
+        </div>
+      </Carte>
     </>
   );
 }

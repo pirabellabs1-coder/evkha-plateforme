@@ -10,6 +10,7 @@ class IntegrationProvider(models.TextChoices):
     GOOGLE = "google", "Google Docs / Drive"
     GAMMA = "gamma", "Gamma"
     BREVO = "brevo", "Brevo"
+    RESEND = "resend", "Resend"
     SYSTEME = "systeme", "Systeme.io (commandes)"
     SYSTEME_SUB = "systeme_sub", "Systeme.io (abonnements)"
     TALLY = "tally", "Tally"

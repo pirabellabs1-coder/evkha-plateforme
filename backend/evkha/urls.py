@@ -7,7 +7,7 @@ from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 from django.views.static import serve
 from paiement.vues import webhook as stripe_webhook
-from prospection.vues_publiques import desinscription, webhook_brevo
+from prospection.vues_publiques import desinscription, webhook_brevo, webhook_resend
 
 from integrations.views import (
     systeme_order_webhook,
@@ -42,6 +42,7 @@ urlpatterns = [
     # /api/ comme les autres webhooks ; le secret partagé authentifie Brevo, le
     # jeton opaque authentifie le destinataire.
     path("webhooks/brevo/prospection/", webhook_brevo, name="prospection-webhook-brevo"),
+    path("webhooks/resend/prospection/", webhook_resend, name="prospection-webhook-resend"),
     path(
         "p/desinscription/<uuid:jeton>/",
         desinscription,

@@ -22,7 +22,7 @@ from prospection.models import (
     StatutProspect,
     TypeEvenement,
 )
-from prospection.webhooks import enregistrer_evenement_brevo
+from prospection.webhooks import enregistrer_evenement_brevo, enregistrer_evenement_resend
 
 pytestmark = pytest.mark.django_db
 
@@ -106,6 +106,76 @@ def test_le_webhook_brevo_traite_un_lot() -> None:
         content_type="application/json",
     )
     assert r.status_code == 202 and json.loads(r.content)["traces"] == 2
+
+
+# ── Suivi Resend (le fournisseur actif) ──────────────────────────────────────
+
+
+def test_un_evenement_resend_se_trace_sur_le_bon_message() -> None:
+    m = _message()
+    evt = enregistrer_evenement_resend(
+        {"type": "email.opened", "data": {"email_id": "brevo-msg-1"}}
+    )
+    assert evt is not None and evt.type == TypeEvenement.OUVERT and evt.message_id == m.id
+
+
+def test_un_type_resend_inconnu_est_ignore() -> None:
+    _message()
+    charge = {"type": "email.sent", "data": {"email_id": "brevo-msg-1"}}
+    assert enregistrer_evenement_resend(charge) is None
+
+
+def test_le_webhook_resend_accepte_sans_secret() -> None:
+    """Fail-open tant que le secret n'est pas posé : mise en route immédiate."""
+    _message()
+    r = Client().post(
+        "/webhooks/resend/prospection/",
+        data=json.dumps({"type": "email.delivered", "data": {"email_id": "brevo-msg-1"}}),
+        content_type="application/json",
+    )
+    assert r.status_code == 202 and json.loads(r.content)["traces"] == 1
+    assert Evenement.objects.filter(type=TypeEvenement.DELIVRE).count() == 1
+
+
+def test_le_webhook_resend_refuse_une_signature_absente_si_secret_pose() -> None:
+    from django.test import override_settings
+    with override_settings(RESEND_WEBHOOK_SECRET="whsec_c2VjcmV0"):
+        r = Client().post(
+            "/webhooks/resend/prospection/",
+            data=json.dumps({"type": "email.opened", "data": {"email_id": "x"}}),
+            content_type="application/json",
+        )
+    assert r.status_code == 401
+
+
+def test_le_webhook_resend_accepte_une_signature_valide() -> None:
+    import base64
+    import hashlib
+    import hmac
+
+    from django.test import override_settings
+
+    m = _message()
+    secret_b64 = base64.b64encode(b"super-secret").decode()
+    corps = json.dumps({"type": "email.clicked", "data": {"email_id": "brevo-msg-1"}})
+    svix_id, svix_ts = "msg_1", "1700000000"
+    signe = f"{svix_id}.{svix_ts}.{corps}".encode()
+    sig = base64.b64encode(
+        hmac.new(base64.b64decode(secret_b64), signe, hashlib.sha256).digest()
+    ).decode()
+    with override_settings(RESEND_WEBHOOK_SECRET=f"whsec_{secret_b64}"):
+        r = Client().post(
+            "/webhooks/resend/prospection/",
+            data=corps,
+            content_type="application/json",
+            headers={
+                "svix-id": svix_id,
+                "svix-timestamp": svix_ts,
+                "svix-signature": f"v1,{sig}",
+            },
+        )
+    assert r.status_code == 202
+    assert Evenement.objects.filter(message=m, type=TypeEvenement.CLIQUE).count() == 1
 
 
 # ── Désinscription publique ──────────────────────────────────────────────────
