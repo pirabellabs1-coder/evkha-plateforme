@@ -1,0 +1,84 @@
+/* Prospection — mise en page de l'écran admin. Réutilise les variables de
+   thème de l'espace (--e-*) : pas de couleurs en dur, pas de charte parallèle. */
+
+.prospection-onglets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  margin-bottom: var(--e-4);
+}
+
+.prospection-onglet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  padding: var(--e-2) var(--e-4);
+  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.prospection-onglet:hover {
+  border-color: var(--e-accent, #c8a24a);
+}
+
+.prospection-onglet.actif {
+  background: var(--e-accent, #c8a24a);
+  border-color: var(--e-accent, #c8a24a);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.prospection-formulaire {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  align-items: center;
+}
+
+.prospection-formulaire .champ-saisie {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.prospection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+  align-items: center;
+}
+
+.prospection-confirme {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  flex-wrap: wrap;
+}
+
+.prospection-brouillon {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  padding: var(--e-3) 0;
+  border-top: 1px solid var(--e-bord, rgba(0, 0, 0, 0.08));
+}
+
+.prospection-brouillon:first-of-type {
+  border-top: none;
+}
+
+.prospection-corps {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.prospection-chiffres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--e-3);
+}

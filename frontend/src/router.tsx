@@ -12,6 +12,7 @@ import { LivrablesAdmin } from "./admin/pages/Livrables";
 import { QualiteAdmin } from "./admin/pages/Qualite";
 import { BoutiqueAdmin } from "./admin/pages/BoutiqueAdmin";
 import { Annonces } from "./admin/pages/Annonces";
+import { ProspectionAdmin } from "./admin/pages/Prospection";
 import { TransactionsAdmin } from "./admin/pages/Transactions";
 import { DemandesAdmin } from "./admin/pages/Demandes";
 import { SignalementsAdmin } from "./admin/pages/Signalements";
@@ -231,6 +232,12 @@ const adminAnnonces = createRoute({
   component: Annonces,
 });
 
+const adminProspection = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "prospection",
+  component: ProspectionAdmin,
+});
+
 const adminTransactions = createRoute({
   getParentRoute: () => adminRoute,
   path: "transactions",
@@ -325,6 +332,7 @@ const routeTree = rootRoute.addChildren([
     adminOrganisations,
     adminBoutique,
     adminAnnonces,
+    adminProspection,
     adminTransactions,
     adminLivrables,
     adminQualite,
