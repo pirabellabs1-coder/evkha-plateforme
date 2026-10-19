@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.conf import settings
 from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 
 from .models import (
@@ -24,6 +26,32 @@ from .models import (
 
 if TYPE_CHECKING:
     from integrations.brevo import TransactionalEmailClient
+
+
+def lien_de_desinscription(prospect: Prospect) -> str:
+    """L'URL ABSOLUE de désinscription du prospect, bâtie sur `EVKHA_BASE_URL`.
+
+    Jeton opaque, aucune donnée personnelle dans l'URL (règle de confidentialité).
+    """
+    base = str(getattr(settings, "EVKHA_BASE_URL", "")).rstrip("/")
+    chemin = reverse("prospection-desinscription", kwargs={"jeton": prospect.jeton_desinscription})
+    return f"{base}{chemin}"
+
+
+def _corps_pour_envoi(message: Message) -> str:
+    """Le corps du message, suivi du pied de désinscription — à l'envoi seulement.
+
+    On ne touche PAS au brouillon validé : le lien, dépendant du jeton et de
+    l'URL de base, est ajouté au moment de partir. Tout e-mail de prospection
+    doit porter une sortie facile (prospection B2B : opt-out obligatoire).
+    """
+    lien = lien_de_desinscription(message.prospect)
+    pied = (
+        '<hr><p style="font-size:12px;color:#666">'
+        f'Vous ne souhaitez plus recevoir nos messages ? '
+        f'<a href="{lien}">Se désinscrire</a>.</p>'
+    )
+    return f"{message.corps}\n{pied}"
 
 
 class EnvoiRefuseError(RuntimeError):
@@ -98,7 +126,7 @@ def envoyer_message(
         resultat = client.send_delivery_email(
             recipient_email=message.prospect.email,
             subject=message.objet,
-            html_body=message.corps,
+            html_body=_corps_pour_envoi(message),
             attachments=(),
         )
     except Exception as erreur:  # noqa: BLE001 — un échec d'envoi se trace, ne se masque pas

@@ -16,6 +16,7 @@ _SECRET_SETTING: dict[str, str] = {
     IntegrationProvider.SYSTEME.value: "SYSTEME_WEBHOOK_SECRET",
     IntegrationProvider.SYSTEME_SUB.value: "SYSTEME_WEBHOOK_SECRET",
     IntegrationProvider.TALLY.value: "TALLY_WEBHOOK_SECRET",
+    IntegrationProvider.BREVO.value: "BREVO_WEBHOOK_SECRET",
 }
 
 

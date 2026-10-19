@@ -114,6 +114,62 @@ def apercu(request: HttpRequest) -> JsonResponse:
     })
 
 
+def _taux(numerateur: int, denominateur: int) -> float:
+    """Un taux en pourcentage, arrondi, ou 0 quand il n'y a rien à diviser."""
+    return round(100 * numerateur / denominateur, 1) if denominateur else 0.0
+
+
+@require_GET
+@csrf_exempt
+def metriques(request: HttpRequest) -> JsonResponse:
+    """Les métriques de la prospection, recalculées à partir des `Evenement`.
+
+    Une seule source de vérité : aucun taux n'est stocké, tout se recompte depuis
+    les événements, donc un recompte donne toujours le même chiffre. Les
+    « ouvertures » comptent les MESSAGES ouverts au moins une fois (uniques) ;
+    « ouvertures_total » compte tous les événements d'ouverture (réouvertures
+    comprises). Filtrable par `?campagne=`.
+    """
+    msgs = Message.objects.all()
+    evts = Evenement.objects.all()
+    if campagne_id := request.GET.get("campagne"):
+        msgs = msgs.filter(campagne_id=campagne_id)
+        evts = evts.filter(message__campagne_id=campagne_id)
+        prospects = Prospect.objects.filter(campagne_id=campagne_id)
+    else:
+        prospects = Prospect.objects.all()
+
+    envoyes = msgs.filter(statut=StatutMessage.ENVOYE).count()
+
+    def _uniques(type_evt: str) -> int:
+        return evts.filter(type=type_evt).values("message_id").distinct().count()
+
+    ouverts = _uniques(TypeEvenement.OUVERT)
+    cliques = _uniques(TypeEvenement.CLIQUE)
+    repondu = _uniques(TypeEvenement.REPONDU)
+    contactes = prospects.exclude(statut=StatutProspect.NOUVEAU).exclude(
+        statut=StatutProspect.QUALIFIE
+    ).count()
+    convertis = prospects.filter(statut=StatutProspect.CONVERTI).count()
+    desinscrits = prospects.filter(statut=StatutProspect.DESINSCRIT).count()
+
+    return _json({
+        "envoyes": envoyes,
+        "ouvertures": ouverts,
+        "ouvertures_total": evts.filter(type=TypeEvenement.OUVERT).count(),
+        "taux_ouverture": _taux(ouverts, envoyes),
+        "clics": cliques,
+        "taux_clic": _taux(cliques, envoyes),
+        "reponses": repondu,
+        "taux_reponse": _taux(repondu, envoyes),
+        "rebonds": _uniques(TypeEvenement.REBOND),
+        "desinscriptions": desinscrits,
+        "prospects_contactes": contactes,
+        "conversions": convertis,
+        "taux_conversion": _taux(convertis, contactes),
+    })
+
+
 # ── Campagnes ────────────────────────────────────────────────────────────────
 
 

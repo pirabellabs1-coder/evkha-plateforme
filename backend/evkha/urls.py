@@ -7,6 +7,7 @@ from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 from django.views.static import serve
 from paiement.vues import webhook as stripe_webhook
+from prospection.vues_publiques import desinscription, webhook_brevo
 
 from integrations.views import (
     systeme_order_webhook,
@@ -37,6 +38,15 @@ urlpatterns = [
     # tableau de bord Stripe et qui ne bouge plus. Elle se verifie par signature
     # et non par jeton partage — voir `paiement/vues.py`.
     path("webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
+    # Prospection : suivi des e-mails (Brevo) et désinscription publique. Hors
+    # /api/ comme les autres webhooks ; le secret partagé authentifie Brevo, le
+    # jeton opaque authentifie le destinataire.
+    path("webhooks/brevo/prospection/", webhook_brevo, name="prospection-webhook-brevo"),
+    path(
+        "p/desinscription/<uuid:jeton>/",
+        desinscription,
+        name="prospection-desinscription",
+    ),
     # Dashboard API — consomme par le frontend TanStack (phase 6).
     # A securiser avec Better Auth token en production.
     path("api/dashboard/", include("dashboard.urls", namespace="dashboard")),

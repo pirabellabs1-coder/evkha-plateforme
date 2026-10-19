@@ -168,6 +168,7 @@ urlpatterns = [
     path("generate/", views.create_generation, name="generate"),
     # ── Prospection (espace admin) ──────────────────────────────────────────
     path("prospection/apercu/", prospection.apercu, name="prospection-apercu"),
+    path("prospection/metriques/", prospection.metriques, name="prospection-metriques"),
     path("prospection/campagnes/", prospection.campagnes, name="prospection-campagnes"),
     path(
         "prospection/campagnes/<str:campagne_id>/",

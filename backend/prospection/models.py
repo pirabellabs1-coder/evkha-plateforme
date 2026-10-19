@@ -13,6 +13,8 @@ et un test échoue si un brouillon pouvait partir.
 """
 from __future__ import annotations
 
+import uuid
+
 from django.db import models
 
 from core.models import UUIDModel
@@ -106,6 +108,10 @@ class Prospect(UUIDModel):
     #: Opt-out : une fois retiré, aucun message ne part plus (voir services).
     consentement_retire = models.BooleanField(default=False)
     desinscrit_le = models.DateTimeField(null=True, blank=True)
+    #: Jeton OPAQUE du lien de désinscription public : il ne porte aucune donnée
+    #: personnelle (règle de confidentialité), et n'est pas l'identifiant interne,
+    #: donc non énumérable. L'e-mail envoyé y renvoie ; le clic déclenche l'opt-out.
+    jeton_desinscription = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     notes = models.TextField(blank=True)
 
     class Meta:
