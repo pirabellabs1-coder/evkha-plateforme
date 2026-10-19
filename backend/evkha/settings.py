@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     "delivery",
     "monitoring",
     "dashboard",
+    "prospection",
 ]
 
 MIDDLEWARE = [
