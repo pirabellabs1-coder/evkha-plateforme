@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from django.urls import path
 
-from . import actions, annonces, boutique, qualite, signalements, supervision, views
+from . import (
+    actions,
+    annonces,
+    boutique,
+    prospection,
+    qualite,
+    signalements,
+    supervision,
+    views,
+)
 
 app_name = "dashboard"
 
@@ -157,4 +166,45 @@ urlpatterns = [
     path("system/recherche/", views.system_recherche, name="system-recherche"),
     # Génération manuelle
     path("generate/", views.create_generation, name="generate"),
+    # ── Prospection (espace admin) ──────────────────────────────────────────
+    path("prospection/apercu/", prospection.apercu, name="prospection-apercu"),
+    path("prospection/campagnes/", prospection.campagnes, name="prospection-campagnes"),
+    path(
+        "prospection/campagnes/<str:campagne_id>/",
+        prospection.campagne_detail, name="prospection-campagne",
+    ),
+    path(
+        "prospection/campagnes/<str:campagne_id>/sequence/",
+        prospection.campagne_sequence, name="prospection-campagne-sequence",
+    ),
+    path("prospection/prospects/", prospection.prospects, name="prospection-prospects"),
+    path(
+        "prospection/prospects/<str:prospect_id>/",
+        prospection.prospect_detail, name="prospection-prospect",
+    ),
+    path(
+        "prospection/prospects/<str:prospect_id>/desinscrire/",
+        prospection.prospect_desinscrire, name="prospection-desinscrire",
+    ),
+    path("prospection/messages/", prospection.messages, name="prospection-messages"),
+    path(
+        "prospection/messages/<str:message_id>/",
+        prospection.message_detail, name="prospection-message",
+    ),
+    path(
+        "prospection/messages/<str:message_id>/valider/",
+        prospection.message_valider, name="prospection-message-valider",
+    ),
+    path(
+        "prospection/messages/<str:message_id>/envoyer/",
+        prospection.message_envoyer, name="prospection-message-envoyer",
+    ),
+    path(
+        "prospection/messages/<str:message_id>/annuler/",
+        prospection.message_annuler, name="prospection-message-annuler",
+    ),
+    path(
+        "prospection/messages/<str:message_id>/evenements/",
+        prospection.message_evenements, name="prospection-message-evenements",
+    ),
 ]
