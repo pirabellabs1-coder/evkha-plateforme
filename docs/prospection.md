@@ -49,9 +49,25 @@ suivi d'ouverture par Brevo (natif), pas de pixel maison.
    modèle (coût) : endpoints gardés par `confirmer: true`, rien ne tourne sans
    acte délibéré.
 4. Envoi validé (file de validation d'Evangéline) + webhooks Brevo de suivi
-   (ouvert/cliqué/répondu/désinscrit) + lien de désinscription public.
+   (ouvert/cliqué/répondu/désinscrit) + lien de désinscription public. **FAIT**
+   (`prospection/webhooks.py`, `prospection/vues_publiques.py`,
+   `test_prospection_suivi_et_desinscription.py`). Routes publiques :
+   `/webhooks/brevo/prospection/` (secret partagé `BREVO_WEBHOOK_SECRET`) et
+   `/p/desinscription/<uuid>/`. Tout e-mail envoyé porte le lien de
+   désinscription (injecté à l'envoi).
 5. Tableau de bord des métriques : ouvertures, taux d'ouverture, réponses, taux
-   de réponse, taux de conversion.
+   de réponse, taux de conversion. **FAIT**
+   (`/api/dashboard/prospection/metriques/`, recompté depuis les Evenement).
+
+## Reste à brancher côté exploitation (hors code)
+
+- Dans Coolify : poser `BREVO_WEBHOOK_SECRET` (le webhook est fail-open tant
+  qu'il est absent) et le déclarer dans les webhooks Brevo, URL
+  `https://api2.evkha.fr/webhooks/brevo/prospection/`.
+- Pour lancer les agents en RÉEL : `EVKHA_USE_STUB_AI=false` + `ANTHROPIC_API_KEY`
+  (et `EVKHA_USE_STUB_SEARCH=false` + clé pour la recherche). Chaque passage est
+  facturé ; l'endpoint exige `confirmer: true`.
+- Le front de l'espace admin (autre dépôt) à câbler sur ces endpoints.
 
 ## Décisions tranchées
 
