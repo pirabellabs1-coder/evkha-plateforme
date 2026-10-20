@@ -275,6 +275,12 @@ EVKHA_PIECES_JOINTES_RETENTION_DAYS = env("EVKHA_PIECES_JOINTES_RETENTION_DAYS")
 # Webhook shared secrets (M1).
 SYSTEME_WEBHOOK_SECRET = env("SYSTEME_WEBHOOK_SECRET", default="")
 TALLY_WEBHOOK_SECRET = env("TALLY_WEBHOOK_SECRET", default="")
+# Suivi des e-mails de prospection. Sans ces declarations, le code lisait
+# toujours "" (getattr sur un reglage absent) et laissait passer tout POST :
+# un controle de signature silencieusement inerte. Defaut vide = fail-open
+# (mise en route immediate), valeur posee dans Coolify = verification active.
+BREVO_WEBHOOK_SECRET = env("BREVO_WEBHOOK_SECRET", default="")
+RESEND_WEBHOOK_SECRET = env("RESEND_WEBHOOK_SECRET", default="")
 
 # Stripe — encaissement des abonnements B2B.
 #

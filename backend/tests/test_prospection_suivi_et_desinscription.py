@@ -178,6 +178,14 @@ def test_le_webhook_resend_accepte_une_signature_valide() -> None:
     assert Evenement.objects.filter(message=m, type=TypeEvenement.CLIQUE).count() == 1
 
 
+def test_les_secrets_de_webhook_email_sont_declares_dans_les_reglages() -> None:
+    """Sans déclaration dans settings, `getattr(settings, …)` rend "" et le
+    contrôle de signature est silencieusement inerte. On vérifie qu'ils EXISTENT."""
+    from django.conf import settings
+    assert hasattr(settings, "RESEND_WEBHOOK_SECRET")
+    assert hasattr(settings, "BREVO_WEBHOOK_SECRET")
+
+
 # ── Désinscription publique ──────────────────────────────────────────────────
 
 
