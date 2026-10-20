@@ -156,8 +156,23 @@ export interface PropositionRecherche {
 }
 
 export interface ReponseAssistant {
+  conversation_id: string;
   reponse: string;
   proposition_recherche: PropositionRecherche | null;
+  messages: MessageAssistant[];
+}
+
+export interface ResumeConversation {
+  id: string;
+  titre: string;
+  campagne_id: string | null;
+  cree_par: string;
+  maj_le: string;
+  nb_messages: number;
+}
+
+export interface ConversationDetail extends ResumeConversation {
+  messages: MessageAssistant[];
 }
 
 // ── Méthodes ──────────────────────────────────────────────────────────────────
@@ -195,13 +210,17 @@ export const apiProspection = {
     envoyer<{ crees: number; prospects: Prospect[] }>(
       "POST", `/campagnes/${campagneId}/rechercher/`, { confirmer: true, limite, criteres },
     ),
-  // L'assistant conversationnel : discuter pour affiner la cible. Chaque échange
-  // interroge le modèle — c'est l'usage attendu, pas de garde `confirmer`.
-  assistant: (messages: MessageAssistant[], campagneId?: string) =>
+  // L'assistant conversationnel : la discussion est GARDÉE EN MÉMOIRE côté
+  // serveur. On envoie un seul message + l'id de la discussion (absent = nouvelle).
+  assistant: (message: string, conversationId?: string, campagneId?: string) =>
     envoyer<ReponseAssistant>("POST", "/assistant/", {
-      messages,
+      message,
+      ...(conversationId ? { conversation_id: conversationId } : {}),
       ...(campagneId ? { campagne_id: campagneId } : {}),
     }),
+  conversations: (campagneId?: string) =>
+    get<ResumeConversation[]>("/conversations/", campagneId ? { campagne: campagneId } : undefined),
+  conversation: (id: string) => get<ConversationDetail>(`/conversations/${id}/`),
   qualifier: (prospectId: string) =>
     envoyer<Prospect>("POST", `/prospects/${prospectId}/qualifier/`, { confirmer: true }),
   rediger: (prospectId: string, nbRelances = 4) =>

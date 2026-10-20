@@ -18,8 +18,10 @@ from django.views.decorators.http import require_GET, require_http_methods
 from prospection import services
 from prospection.models import (
     Campagne,
+    Conversation,
     Evenement,
     Message,
+    MessageConversation,
     Prospect,
     Sequence,
     StatutMessage,
@@ -444,27 +446,91 @@ def campagne_rechercher(request: HttpRequest, campagne_id: str) -> JsonResponse:
     return _json({"crees": len(crees), "prospects": [_prospect_dict(p) for p in crees]})
 
 
+def _conversation_dict(c: Conversation, *, avec_messages: bool = False) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "id": str(c.id), "titre": c.titre,
+        "campagne_id": str(c.campagne_id) if c.campagne_id else None,
+        "cree_par": c.cree_par, "maj_le": c.updated_at.isoformat(),
+        "nb_messages": c.messages.count(),
+    }
+    if avec_messages:
+        d["messages"] = [
+            {"role": m.role, "content": m.contenu, "le": m.created_at.isoformat()}
+            for m in c.messages.all()
+        ]
+    return d
+
+
+@require_GET
+@csrf_exempt
+def conversations(request: HttpRequest) -> JsonResponse:
+    """Les discussions gardées en mémoire (les plus récentes d'abord)."""
+    qs = Conversation.objects.all()
+    if cid := request.GET.get("campagne"):
+        qs = qs.filter(campagne_id=cid)
+    return _json([_conversation_dict(c) for c in qs[:100]])
+
+
+@require_GET
+@csrf_exempt
+def conversation_detail(request: HttpRequest, conversation_id: str) -> JsonResponse:
+    """Une discussion et tout son historique — pour la rouvrir et la continuer."""
+    try:
+        c = Conversation.objects.get(id=conversation_id)
+    except (Conversation.DoesNotExist, ValueError):
+        return _erreur("Discussion introuvable.", status=404)
+    return _json(_conversation_dict(c, avec_messages=True))
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def assistant(request: HttpRequest) -> JsonResponse:
     """L'assistant conversationnel : discuter pour affiner la cible.
 
-    Il répond au fil de la discussion et, quand elle aboutit, PROPOSE une
-    recherche (critères) que l'humain déclenche ensuite — l'assistant ne lance
-    rien lui-même. Chaque échange interroge le modèle ; c'est l'usage attendu
-    d'un assistant, donc pas de garde `confirmer` ici (à la différence du
-    lancement d'une recherche, lui facturé et confirmé).
+    La discussion est GARDÉE EN MÉMOIRE (modèle `Conversation`) : on envoie un
+    seul `message`, le serveur relit tout l'historique, répond, et enregistre le
+    tour de l'humain ET celui de l'assistant. Sans `conversation_id`, une
+    nouvelle discussion s'ouvre. Pas de garde `confirmer` (c'est l'usage attendu
+    d'un assistant ; seul le LANCEMENT d'une recherche est facturé et confirmé).
     """
     corps = _corps(request)
-    messages = corps.get("messages")
-    if not isinstance(messages, list) or not messages:
-        return _erreur("`messages` doit être une liste non vide.")
+    texte = str(corps.get("message") or "").strip()
+    if not texte:
+        return _erreur("`message` est obligatoire.")
+
     campagne = None
     if cid := corps.get("campagne_id"):
         campagne = Campagne.objects.filter(id=cid).first()
+
+    conv = None
+    if conv_id := corps.get("conversation_id"):
+        conv = Conversation.objects.filter(id=conv_id).first()
+    if conv is None:
+        conv = Conversation.objects.create(
+            campagne=campagne, titre=texte[:200],
+            cree_par=str(corps.get("cree_par") or "administrateur"),
+        )
+
+    historique = [
+        {"role": m.role, "content": m.contenu} for m in conv.messages.all()
+    ]
+    historique.append({"role": "user", "content": texte})
+
     from prospection import assistant as agent_assistant  # noqa: PLC0415
 
-    return _json(agent_assistant.repondre(messages, campagne=campagne))
+    reponse = agent_assistant.repondre(historique, campagne=conv.campagne)
+
+    MessageConversation.objects.create(conversation=conv, role="user", contenu=texte)
+    MessageConversation.objects.create(
+        conversation=conv, role="assistant", contenu=reponse["reponse"]
+    )
+    conv.save(update_fields=["updated_at"])  # remonte en tête de liste
+
+    return _json({
+        "conversation_id": str(conv.id),
+        **reponse,
+        "messages": _conversation_dict(conv, avec_messages=True)["messages"],
+    })
 
 
 @csrf_exempt

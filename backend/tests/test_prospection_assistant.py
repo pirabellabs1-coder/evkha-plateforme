@@ -74,28 +74,67 @@ def test_l_assistant_ne_plante_pas_sur_une_charge_vide() -> None:
 
 def test_l_endpoint_assistant_exige_le_jeton() -> None:
     from django.test import Client
-    corps = json.dumps({"messages": [{"role": "user", "content": "x"}]})
+    corps = json.dumps({"message": "x"})
     r = Client().post(f"{BASE}/assistant/", data=corps, content_type="application/json")
     assert r.status_code in (401, 403)
 
 
-def test_l_endpoint_assistant_repond(client_admin: Any, monkeypatch: Any) -> None:
+def test_l_endpoint_assistant_repond_et_garde_en_memoire(
+    client_admin: Any, monkeypatch: Any,
+) -> None:
     monkeypatch.setattr(
         "integrations.claude.get_claude_client",
         lambda: _ClientFaux({"reponse": "Bonjour, quel est votre secteur ?"}),
     )
     r = client_admin.post(
         f"{BASE}/assistant/",
-        data=json.dumps({"messages": [{"role": "user", "content": "Aidez-moi"}]}),
+        data=json.dumps({"message": "Aidez-moi"}),
         content_type="application/json",
     )
     assert r.status_code == 200
-    assert json.loads(r.content)["reponse"] == "Bonjour, quel est votre secteur ?"
+    d = json.loads(r.content)
+    assert d["reponse"] == "Bonjour, quel est votre secteur ?"
+    # La discussion est gardée : un id, et l'échange (user + assistant) enregistré.
+    cid = d["conversation_id"]
+    assert cid
+    assert [m["role"] for m in d["messages"]] == ["user", "assistant"]
+    # On la retrouve dans la liste et on peut la rouvrir avec tout l'historique.
+    liste = json.loads(client_admin.get(f"{BASE}/conversations/").content)
+    assert any(c["id"] == cid for c in liste)
+    detail = json.loads(client_admin.get(f"{BASE}/conversations/{cid}/").content)
+    assert len(detail["messages"]) == 2
 
 
-def test_l_endpoint_assistant_refuse_sans_messages(client_admin: Any) -> None:
+def test_l_endpoint_assistant_continue_une_discussion(
+    client_admin: Any, monkeypatch: Any,
+) -> None:
+    monkeypatch.setattr(
+        "integrations.claude.get_claude_client",
+        lambda: _ClientFaux({"reponse": "Compris."}),
+    )
+    r1 = client_admin.post(f"{BASE}/assistant/", data=json.dumps({"message": "Premier"}),
+                           content_type="application/json")
+    cid = json.loads(r1.content)["conversation_id"]
+    # Deuxième tour sur la MÊME discussion.
+    r2 = client_admin.post(
+        f"{BASE}/assistant/",
+        data=json.dumps({"message": "Deuxième", "conversation_id": cid}),
+        content_type="application/json",
+    )
+    d2 = json.loads(r2.content)
+    assert d2["conversation_id"] == cid
+    # L'historique cumule les deux tours (4 messages : 2 user + 2 assistant).
+    assert len(d2["messages"]) == 4
+
+
+def test_l_endpoint_assistant_refuse_sans_message(client_admin: Any) -> None:
     r = client_admin.post(f"{BASE}/assistant/", data="{}", content_type="application/json")
     assert r.status_code == 400
+
+
+def test_les_conversations_exigent_le_jeton() -> None:
+    from django.test import Client
+    assert Client().get(f"{BASE}/conversations/").status_code in (401, 403)
 
 
 # ── La recherche par critères ────────────────────────────────────────────────

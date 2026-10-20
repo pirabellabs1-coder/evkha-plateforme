@@ -213,6 +213,44 @@ class Message(UUIDModel):
         return self.statut in ETATS_ENVOYABLES
 
 
+class Conversation(UUIDModel):
+    """Une discussion avec l'assistant de prospection, GARDÉE en mémoire.
+
+    L'écran ne retient rien ; la vérité vit ici. On rouvre une discussion et on
+    la continue — l'assistant relit tout l'historique à chaque tour.
+    """
+
+    campagne = models.ForeignKey(
+        Campagne, on_delete=models.SET_NULL, related_name="conversations",
+        null=True, blank=True,
+    )
+    titre = models.CharField(max_length=200, blank=True)
+    cree_par = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return self.titre or f"Discussion {self.pk}"
+
+
+class MessageConversation(UUIDModel):
+    """Un tour de la discussion : qui a parlé (role) et ce qui a été dit."""
+
+    conversation = models.ForeignKey(
+        Conversation, on_delete=models.CASCADE, related_name="messages"
+    )
+    #: « user » (l'humain) ou « assistant » — mêmes rôles que le modèle attend.
+    role = models.CharField(max_length=12)
+    contenu = models.TextField()
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.role}: {self.contenu[:40]}"
+
+
 class Evenement(UUIDModel):
     """Un événement sur un message : ouvert, cliqué, a répondu, désinscrit…
 

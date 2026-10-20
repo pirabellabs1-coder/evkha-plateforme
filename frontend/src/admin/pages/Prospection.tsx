@@ -70,6 +70,7 @@ function VueAssistant() {
   const [erreur, setErreur] = useState("");
   const [campagneId, setCampagneId] = useState("");
   const [saisie, setSaisie] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [fil, setFil] = useState<MessageAssistant[]>([]);
   const [proposition, setProposition] = useState<{ criteres: string; limite: number } | null>(null);
 
@@ -77,14 +78,38 @@ function VueAssistant() {
     queryKey: ["prospection", "campagnes"],
     queryFn: api.campagnes,
   });
+  const discussions = useQuery({
+    queryKey: ["prospection", "conversations"],
+    queryFn: () => api.conversations(),
+  });
+
+  function nouvelle() {
+    setConversationId(null);
+    setFil([]);
+    setProposition(null);
+    setErreur("");
+  }
+
+  const rouvrir = useMutation({
+    mutationFn: (id: string) => api.conversation(id),
+    onSuccess: (c) => {
+      setErreur("");
+      setProposition(null);
+      setConversationId(c.id);
+      setFil(c.messages);
+    },
+    onError: (c) => setErreur(c instanceof Error ? c.message : "Discussion introuvable."),
+  });
 
   const envoyer = useMutation({
-    mutationFn: (messages: MessageAssistant[]) =>
-      api.assistant(messages, campagneId || undefined),
+    mutationFn: (texte: string) =>
+      api.assistant(texte, conversationId || undefined, campagneId || undefined),
     onSuccess: (rep) => {
       setErreur("");
-      setFil((f) => [...f, { role: "assistant", content: rep.reponse }]);
+      setConversationId(rep.conversation_id);
+      setFil(rep.messages); // la vérité vient du serveur (gardée en mémoire)
       setProposition(rep.proposition_recherche);
+      void cache.invalidateQueries({ queryKey: ["prospection", "conversations"] });
     },
     onError: (c) => setErreur(c instanceof Error ? c.message : "L'assistant n'a pas répondu."),
   });
@@ -106,15 +131,47 @@ function VueAssistant() {
   function soumettre() {
     const texte = saisie.trim();
     if (!texte || envoyer.isPending) return;
-    const prochain: MessageAssistant[] = [...fil, { role: "user", content: texte }];
-    setFil(prochain);
+    setFil((f) => [...f, { role: "user", content: texte }]); // écho immédiat
     setSaisie("");
-    envoyer.mutate(prochain);
+    envoyer.mutate(texte);
   }
 
   return (
     <>
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+
+      <Carte
+        titre="Vos discussions"
+        note="Elles sont gardées en mémoire : rouvrez-en une pour la continuer."
+        action={
+          <button type="button" className="bouton bouton-principal bouton-sm" onClick={nouvelle}>
+            + Nouvelle discussion
+          </button>
+        }
+      >
+        {!discussions.data || discussions.data.length === 0 ? (
+          <p className="carte-note">Aucune discussion pour l'instant.</p>
+        ) : (
+          <div className="prospection-discussions">
+            {discussions.data.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                className={
+                  d.id === conversationId
+                    ? "prospection-discussion actif"
+                    : "prospection-discussion"
+                }
+                onClick={() => rouvrir.mutate(d.id)}
+              >
+                <span className="prospection-discussion-titre">{d.titre || "Sans titre"}</span>
+                <span className="carte-note">{d.nb_messages} message(s) · {f.dateHeure(d.maj_le)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </Carte>
+
       <Carte
         titre="Assistant de prospection"
         note="Discutez pour affiner votre cible ; il proposera une recherche à lancer."
@@ -625,38 +682,83 @@ function CarteBrouillon({
 }) {
   const [objet, setObjet] = useState(message.objet);
   const [corps, setCorps] = useState(message.corps);
+  const [edition, setEdition] = useState(false);
   const modifie = objet !== message.objet || corps !== message.corps;
 
   const enregistrer = useMutation({
     mutationFn: () => api.editerBrouillon(message.id, { objet, corps }),
-    onSuccess: onEnregistre,
+    onSuccess: () => {
+      setEdition(false);
+      onEnregistre();
+    },
     onError: onErreur,
   });
 
   return (
     <div className="prospection-brouillon">
-      <input
-        className="champ-saisie"
-        aria-label="Objet du message"
-        value={objet}
-        onChange={(e) => setObjet(e.target.value)}
-      />
-      <textarea
-        className="champ-saisie prospection-corps"
-        aria-label="Corps du message"
-        rows={6}
-        value={corps}
-        onChange={(e) => setCorps(e.target.value)}
-      />
+      {edition ? (
+        <>
+          <label className="prospection-etiquette">Objet</label>
+          <input
+            className="champ-saisie"
+            aria-label="Objet du message"
+            value={objet}
+            onChange={(e) => setObjet(e.target.value)}
+          />
+          <label className="prospection-etiquette">
+            Corps (mise en forme HTML — l'aperçu montre le rendu)
+          </label>
+          <textarea
+            className="champ-saisie prospection-corps"
+            aria-label="Corps du message"
+            rows={8}
+            value={corps}
+            onChange={(e) => setCorps(e.target.value)}
+          />
+        </>
+      ) : (
+        <div className="prospection-apercu-mail">
+          <div className="prospection-apercu-objet">{message.objet}</div>
+          {/* Aperçu du rendu : c'est notre propre brouillon (pas une entrée
+              externe), affiché tel que le destinataire le lira. */}
+          <div
+            className="prospection-apercu-corps"
+            dangerouslySetInnerHTML={{ __html: message.corps }}
+          />
+        </div>
+      )}
       <div className="prospection-actions">
-        <button
-          type="button"
-          className="bouton bouton-contour bouton-sm"
-          disabled={!modifie || enregistrer.isPending}
-          onClick={() => enregistrer.mutate()}
-        >
-          Enregistrer
-        </button>
+        {edition ? (
+          <>
+            <button
+              type="button"
+              className="bouton bouton-principal bouton-sm"
+              disabled={!modifie || enregistrer.isPending}
+              onClick={() => enregistrer.mutate()}
+            >
+              Enregistrer
+            </button>
+            <button
+              type="button"
+              className="bouton bouton-contour bouton-sm"
+              onClick={() => {
+                setObjet(message.objet);
+                setCorps(message.corps);
+                setEdition(false);
+              }}
+            >
+              Retour à l'aperçu
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="bouton bouton-contour bouton-sm"
+            onClick={() => setEdition(true)}
+          >
+            Modifier
+          </button>
+        )}
         <button
           type="button"
           className="bouton bouton-principal bouton-sm"

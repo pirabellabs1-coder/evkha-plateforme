@@ -39,19 +39,17 @@ def lien_de_desinscription(prospect: Prospect) -> str:
 
 
 def _corps_pour_envoi(message: Message) -> str:
-    """Le corps du message, suivi du pied de désinscription — à l'envoi seulement.
+    """L'e-mail complet, mis en page, à l'envoi seulement.
 
-    On ne touche PAS au brouillon validé : le lien, dépendant du jeton et de
-    l'URL de base, est ajouté au moment de partir. Tout e-mail de prospection
-    doit porter une sortie facile (prospection B2B : opt-out obligatoire).
+    On ne touche PAS au brouillon validé : le corps rédigé par l'agent est
+    enrobé dans le gabarit de marque EVKHA (en-tête, cadre, pied) au moment de
+    partir, et le lien de désinscription — dépendant du jeton et de l'URL de
+    base — y est injecté. Tout e-mail de prospection doit porter une sortie
+    facile (prospection B2B : opt-out obligatoire).
     """
-    lien = lien_de_desinscription(message.prospect)
-    pied = (
-        '<hr><p style="font-size:12px;color:#666">'
-        f'Vous ne souhaitez plus recevoir nos messages ? '
-        f'<a href="{lien}">Se désinscrire</a>.</p>'
-    )
-    return f"{message.corps}\n{pied}"
+    from .gabarit_email import enrober  # noqa: PLC0415
+
+    return enrober(message.objet, message.corps, lien_de_desinscription(message.prospect))
 
 
 class EnvoiRefuseError(RuntimeError):

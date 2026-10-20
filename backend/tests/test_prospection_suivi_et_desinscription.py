@@ -241,6 +241,11 @@ def test_tout_envoi_porte_le_lien_de_desinscription() -> None:
 
     assert f"/p/desinscription/{prospect.jeton_desinscription}/" in espion.html_body
     assert "désinscrire" in espion.html_body.lower()
-    # Le brouillon validé n'a PAS été modifié : le lien est ajouté à l'envoi.
+    # L'e-mail envoyé est MIS EN PAGE dans le gabarit, pas du HTML nu : en-tête
+    # de marque, document complet, et le corps rédigé à l'intérieur.
+    assert "<!DOCTYPE html>" in espion.html_body
+    assert "EVKHA" in espion.html_body
+    assert "<p>Bonjour</p>" in espion.html_body  # le corps du brouillon, intact
+    # Le brouillon validé n'a PAS été modifié : la mise en page est ajoutée à l'envoi.
     message.refresh_from_db()
-    assert "desinscription" not in message.corps
+    assert message.corps == "<p>Bonjour</p>" and "DOCTYPE" not in message.corps

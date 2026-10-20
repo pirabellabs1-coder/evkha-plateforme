@@ -77,6 +77,42 @@
   font-family: inherit;
 }
 
+.prospection-etiquette {
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+/* Aperçu lisible du brouillon : le rendu, pas le code. */
+.prospection-apercu-mail {
+  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+  color: #2a2a2a;
+}
+
+.prospection-apercu-objet {
+  padding: 12px 18px;
+  font-weight: 600;
+  border-bottom: 2px solid var(--e-accent, #c8a24a);
+  background: #faf9f6;
+}
+
+.prospection-apercu-corps {
+  padding: 16px 18px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.prospection-apercu-corps p {
+  margin: 0 0 0.75em;
+}
+
+.prospection-apercu-corps p:last-child {
+  margin-bottom: 0;
+}
+
 .prospection-chiffres {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
@@ -113,6 +149,43 @@
   align-self: flex-start;
   background: var(--e-surface-2, rgba(0, 0, 0, 0.05));
   border-bottom-left-radius: 0.25rem;
+}
+
+.prospection-discussions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1, 0.4rem);
+}
+
+.prospection-discussion {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: var(--e-2) var(--e-3);
+  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.1));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.prospection-discussion:hover {
+  border-color: var(--e-accent, #c8a24a);
+}
+
+.prospection-discussion.actif {
+  border-color: var(--e-accent, #c8a24a);
+  background: rgba(200, 162, 74, 0.08);
+}
+
+.prospection-discussion-titre {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .prospection-saisie {
