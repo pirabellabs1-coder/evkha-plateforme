@@ -175,6 +175,14 @@ export interface ConversationDetail extends ResumeConversation {
   messages: MessageAssistant[];
 }
 
+export interface Automatisation {
+  active: boolean;
+  prospects_par_jour: number;
+  campagne_id: string | null;
+  jours: number[];
+  derniere_execution: string | null;
+}
+
 // ── Méthodes ──────────────────────────────────────────────────────────────────
 
 export const apiProspection = {
@@ -223,6 +231,10 @@ export const apiProspection = {
   conversations: (campagneId?: string) =>
     get<ResumeConversation[]>("/conversations/", campagneId ? { campagne: campagneId } : undefined),
   conversation: (id: string) => get<ConversationDetail>(`/conversations/${id}/`),
+
+  automatisation: () => get<Automatisation>("/automatisation/"),
+  reglerAutomatisation: (r: Partial<Automatisation>) =>
+    envoyer<Automatisation>("PUT", "/automatisation/", r),
   qualifier: (prospectId: string) =>
     envoyer<Prospect>("POST", `/prospects/${prospectId}/qualifier/`, { confirmer: true }),
   rediger: (prospectId: string, nbRelances = 4) =>

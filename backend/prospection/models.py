@@ -213,6 +213,47 @@ class Message(UUIDModel):
         return self.statut in ETATS_ENVOYABLES
 
 
+class ReglageAutomatisation(UUIDModel):
+    """Les réglages de la prospection AUTOMATIQUE quotidienne (un seul jeu).
+
+    Par défaut DÉSACTIVÉE : rien ne tourne — donc rien ne se dépense — tant que
+    l'utilisatrice ne l'active pas. Quand elle est active, une tâche quotidienne
+    cherche `prospects_par_jour` prospects pour la campagne visée, les qualifie
+    et PRÉPARE les e-mails — jamais d'envoi, la validation humaine reste requise.
+    """
+
+    active = models.BooleanField(default=False)
+    #: Combien de prospects préparer par jour (borné pour éviter tout emballement).
+    prospects_par_jour = models.PositiveSmallIntegerField(default=20)
+    #: La campagne pour laquelle prospecter (son secteur/zone guident la recherche).
+    campagne = models.ForeignKey(
+        Campagne, on_delete=models.SET_NULL, related_name="automatisations",
+        null=True, blank=True,
+    )
+    #: Jours de la semaine autorisés : CSV d'entiers 0=lundi … 6=dimanche.
+    #: Vide = tous les jours.
+    jours = models.CharField(max_length=20, blank=True, default="0,1,2,3,4")
+    derniere_execution = models.DateTimeField(null=True, blank=True)
+    cree_par = models.CharField(max_length=200, blank=True)
+
+    def __str__(self) -> str:
+        return f"Automatisation ({'active' if self.active else 'inactive'})"
+
+    @classmethod
+    def charger(cls) -> ReglageAutomatisation:
+        """Le jeu de réglages unique — créé (inactif) au premier accès."""
+        reglage = cls.objects.order_by("created_at").first()
+        if reglage is None:
+            reglage = cls.objects.create()
+        return reglage
+
+    def jours_autorises(self) -> set[int]:
+        """Les jours (0-6) où tourner ; tous si `jours` est vide."""
+        if not self.jours.strip():
+            return set(range(7))
+        return {int(j) for j in self.jours.split(",") if j.strip().isdigit()}
+
+
 class Conversation(UUIDModel):
     """Une discussion avec l'assistant de prospection, GARDÉE en mémoire.
 

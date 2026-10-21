@@ -37,11 +37,13 @@ if TYPE_CHECKING:
     from integrations.claude import StructuredClaudeClient
     from integrations.search import WebSearchClient
 
-#: Le modèle employé par les agents. Alias EVKHA, résolu en identifiant réel par
-#: `integrations.claude`. Sonnet : la prospection n'a pas la densité analytique
-#: d'un livrable, et chaque passage est facturé — on ne monte pas en gamme sans
-#: raison mesurée.
-_MODELE_AGENTS = "claude-sonnet"
+#: Le modèle employé par les agents (recherche, qualification, rédaction).
+#: Alias EVKHA, résolu en identifiant réel par `integrations.claude`. OPUS :
+#: c'est le travail livré (juger un prospect, écrire un e-mail qui convainc) ;
+#: la cliente vise ~1 €/jour pour que ce travail soit de qualité, Opus le porte.
+#: ATTENTION : seuls « claude-sonnet » et « claude-opus » sont mappés ; tout
+#: autre identifiant retomberait en silence sur Sonnet (voir claude.py).
+_MODELE_AGENTS = "claude-opus"
 
 #: Par défaut, un premier message + quatre relances (l'utilisateur en veut « au
 #: moins quatre ou cinq »). La séquence de la campagne, si elle existe, prime.

@@ -23,6 +23,7 @@ from prospection.models import (
     Message,
     MessageConversation,
     Prospect,
+    ReglageAutomatisation,
     Sequence,
     StatutMessage,
     StatutProspect,
@@ -506,6 +507,48 @@ def conversation_detail(request: HttpRequest, conversation_id: str) -> JsonRespo
     except (Conversation.DoesNotExist, ValueError):
         return _erreur("Discussion introuvable.", status=404)
     return _json(_conversation_dict(c, avec_messages=True))
+
+
+def _reglage_dict(r: ReglageAutomatisation) -> dict[str, Any]:
+    return {
+        "active": r.active,
+        "prospects_par_jour": r.prospects_par_jour,
+        "campagne_id": str(r.campagne_id) if r.campagne_id else None,
+        "jours": [int(j) for j in r.jours.split(",") if j.strip().isdigit()],
+        "derniere_execution": r.derniere_execution and r.derniere_execution.isoformat(),
+    }
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT"])
+def automatisation(request: HttpRequest) -> JsonResponse:
+    """Les réglages de la prospection automatique quotidienne (lire / modifier).
+
+    Désactivée par défaut. L'activer lance, chaque jour, la recherche + la
+    qualification + la préparation des e-mails (facturé) ; rien ne part sans
+    validation. La désactiver arrête tout. Garde-fou : au plus 50 prospects/jour.
+    """
+    r = ReglageAutomatisation.charger()
+    if request.method == "GET":
+        return _json(_reglage_dict(r))
+    corps = _corps(request)
+    if "active" in corps:
+        r.active = bool(corps.get("active"))
+    if "prospects_par_jour" in corps:
+        r.prospects_par_jour = max(1, min(int(corps.get("prospects_par_jour") or 20), 50))
+    if "campagne_id" in corps:
+        cid = corps.get("campagne_id")
+        r.campagne = Campagne.objects.filter(id=cid).first() if cid else None
+    if "jours" in corps and isinstance(corps.get("jours"), list):
+        valides = [int(j) for j in corps["jours"] if str(j).isdigit() and 0 <= int(j) <= 6]
+        r.jours = ",".join(str(j) for j in valides)
+    if "cree_par" in corps:
+        r.cree_par = str(corps.get("cree_par") or "")
+    # Refus clair : activer sans campagne ne prospecterait rien.
+    if r.active and r.campagne is None:
+        return _erreur("Choisissez une campagne avant d'activer l'automatisation.")
+    r.save()
+    return _json(_reglage_dict(r))
 
 
 @csrf_exempt

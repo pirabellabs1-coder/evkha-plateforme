@@ -259,6 +259,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "generation.reset_stuck_generation_jobs",
         "schedule": 3600.0,
     },
+    # Prospection automatique quotidienne. Verification horaire ; la tache decide
+    # s'il y a lieu d'agir (active ? bon jour ? pas deja fait aujourd'hui ?).
+    # Desactivee par defaut : aucune depense tant que la cliente ne l'active pas,
+    # et elle ne fait que PREPARER des brouillons (jamais d'envoi).
+    "prospection-quotidienne": {
+        "task": "prospection.prospection_quotidienne",
+        "schedule": 3600.0,
+    },
 }
 
 #: Delai avant la demande d'avis, en heures. Reglable pour les essais — la

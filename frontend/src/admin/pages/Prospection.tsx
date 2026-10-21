@@ -23,7 +23,8 @@ import { Bandeau, Carte, Chiffre, Pastille, Squelette, Vide } from "../../espace
 import * as f from "../../espace/format";
 import "./Prospection.css";
 
-type Onglet = "campagnes" | "prospects" | "assistant" | "valider" | "metriques";
+type Onglet =
+  | "campagnes" | "prospects" | "assistant" | "valider" | "metriques" | "automatisation";
 
 export function ProspectionAdmin() {
   const [onglet, setOnglet] = useState<Onglet>("campagnes");
@@ -39,6 +40,7 @@ export function ProspectionAdmin() {
     { cle: "assistant", libelle: "Assistant" },
     { cle: "valider", libelle: "À valider", pastille: apercu?.a_valider },
     { cle: "metriques", libelle: "Métriques" },
+    { cle: "automatisation", libelle: "Automatisation" },
   ];
 
   return (
@@ -62,6 +64,145 @@ export function ProspectionAdmin() {
       {onglet === "assistant" && <VueAssistant />}
       {onglet === "valider" && <VueValidation />}
       {onglet === "metriques" && <VueMetriques />}
+      {onglet === "automatisation" && <VueAutomatisation />}
+    </>
+  );
+}
+
+// ── Onglet Automatisation : la prospection quotidienne, réglée par la cliente ─
+
+const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+function VueAutomatisation() {
+  const cache = useQueryClient();
+  const [erreur, setErreur] = useState("");
+  const [brouillon, setBrouillon] = useState<{
+    active: boolean; prospects_par_jour: number; campagne_id: string | null; jours: number[];
+  } | null>(null);
+
+  const reglage = useQuery({
+    queryKey: ["prospection", "automatisation"],
+    queryFn: api.automatisation,
+  });
+  const { data: campagnes } = useQuery({
+    queryKey: ["prospection", "campagnes"],
+    queryFn: api.campagnes,
+  });
+
+  // On édite une copie locale, initialisée depuis le serveur.
+  const r = brouillon ?? (reglage.data
+    ? {
+        active: reglage.data.active,
+        prospects_par_jour: reglage.data.prospects_par_jour,
+        campagne_id: reglage.data.campagne_id,
+        jours: reglage.data.jours,
+      }
+    : null);
+
+  const enregistrer = useMutation({
+    mutationFn: () => api.reglerAutomatisation(r ?? {}),
+    onSuccess: (maj) => {
+      setErreur("");
+      setBrouillon(null);
+      cache.setQueryData(["prospection", "automatisation"], maj);
+      void cache.invalidateQueries({ queryKey: ["prospection", "automatisation"] });
+    },
+    onError: (c) => setErreur(c instanceof Error ? c.message : "Enregistrement impossible."),
+  });
+
+  if (reglage.isPending || !r) return <Carte titre="Automatisation"><Squelette lignes={3} /></Carte>;
+
+  const maj = (p: Partial<typeof r>) => setBrouillon({ ...r, ...p });
+  // Estimation avec Opus (le modèle de qualité des agents) : ~0,04 €/prospect.
+  const coutJour = (r.prospects_par_jour * 0.04).toFixed(2);
+
+  return (
+    <>
+      {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+      <Bandeau titre="Comment ça marche">
+        Quand c'est <strong>activé</strong>, chaque jour l'assistant cherche vos prospects,
+        les qualifie et <strong>prépare les e-mails en brouillon</strong> — vous n'avez plus
+        qu'à les relire et valider dans « À valider ». <strong>Rien ne part sans vous.</strong>
+        Désactivé, rien ne tourne (et rien n'est facturé).
+      </Bandeau>
+
+      <Carte
+        titre="Prospection automatique quotidienne"
+        action={
+          <button
+            type="button"
+            className={r.active ? "bouton bouton-principal bouton-sm" : "bouton bouton-contour bouton-sm"}
+            onClick={() => maj({ active: !r.active })}
+          >
+            {r.active ? "Activée ✓" : "Désactivée"}
+          </button>
+        }
+      >
+        <div className="prospection-reglage">
+          <label className="prospection-etiquette">Campagne à prospecter</label>
+          <select
+            className="champ-saisie"
+            aria-label="Campagne à prospecter"
+            value={r.campagne_id ?? ""}
+            onChange={(e) => maj({ campagne_id: e.target.value || null })}
+          >
+            <option value="">— choisir une campagne —</option>
+            {(campagnes ?? []).map((c: Campagne) => (
+              <option key={c.id} value={c.id}>{c.nom}</option>
+            ))}
+          </select>
+
+          <label className="prospection-etiquette">Prospects par jour (max 50)</label>
+          <input
+            type="number"
+            min={1}
+            max={50}
+            className="champ-saisie"
+            style={{ maxWidth: 160 }}
+            aria-label="Prospects par jour"
+            value={r.prospects_par_jour}
+            onChange={(e) => maj({ prospects_par_jour: Number(e.target.value) || 1 })}
+          />
+          <p className="carte-note">≈ {coutJour} € d'IA par jour (préparation ; l'envoi reste quasi gratuit).</p>
+
+          <label className="prospection-etiquette">Jours</label>
+          <div className="prospection-jours">
+            {JOURS.map((lib, i) => (
+              <button
+                key={i}
+                type="button"
+                className={r.jours.includes(i) ? "prospection-jour actif" : "prospection-jour"}
+                onClick={() =>
+                  maj({
+                    jours: r.jours.includes(i)
+                      ? r.jours.filter((j) => j !== i)
+                      : [...r.jours, i].sort((a, b) => a - b),
+                  })
+                }
+              >
+                {lib}
+              </button>
+            ))}
+          </div>
+
+          {reglage.data?.derniere_execution && (
+            <p className="carte-note">
+              Dernière exécution : {f.dateHeure(reglage.data.derniere_execution)}
+            </p>
+          )}
+
+          <div className="prospection-actions" style={{ marginTop: "var(--e-3)" }}>
+            <button
+              type="button"
+              className="bouton bouton-principal bouton-sm"
+              disabled={enregistrer.isPending || brouillon === null}
+              onClick={() => enregistrer.mutate()}
+            >
+              Enregistrer les réglages
+            </button>
+          </div>
+        </div>
+      </Carte>
     </>
   );
 }

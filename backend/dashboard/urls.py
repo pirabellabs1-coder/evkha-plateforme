@@ -171,6 +171,10 @@ urlpatterns = [
     path("prospection/metriques/", prospection.metriques, name="prospection-metriques"),
     path("prospection/assistant/", prospection.assistant, name="prospection-assistant"),
     path(
+        "prospection/automatisation/",
+        prospection.automatisation, name="prospection-automatisation",
+    ),
+    path(
         "prospection/conversations/",
         prospection.conversations, name="prospection-conversations",
     ),

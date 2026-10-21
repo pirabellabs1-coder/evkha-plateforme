@@ -149,6 +149,37 @@
   gap: var(--e-3);
 }
 
+/* Réglages de l'automatisation. */
+.prospection-reglage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 32rem;
+}
+
+.prospection-jours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.prospection-jour {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.prospection-jour.actif {
+  background: rgba(200, 162, 74, 0.14);
+  border-color: var(--e-accent, #c8a24a);
+  font-weight: 600;
+}
+
 /* Assistant : le fil de discussion. */
 .prospection-fil {
   display: flex;
