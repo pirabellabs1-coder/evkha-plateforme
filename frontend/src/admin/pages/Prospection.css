@@ -1,22 +1,30 @@
 /* Prospection — mise en page de l'écran admin. Réutilise les variables de
    thème de l'espace (--e-*) : pas de couleurs en dur, pas de charte parallèle. */
 
-/* Onglets principaux : des onglets soulignés, discrets, pas des pastilles. */
+/* Onglets principaux : des onglets soulignés, sur UNE ligne qui défile. */
 .prospection-onglets {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0 1.6rem;
+  flex-wrap: nowrap;
+  gap: 0 1.5rem;
   margin-bottom: var(--e-4);
   border-bottom: 1px solid var(--e-bord, rgba(0, 0, 0, 0.1));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.prospection-onglets::-webkit-scrollbar {
+  display: none;
 }
 
 .prospection-onglet {
   position: relative;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   padding: 0.6rem 0.15rem;
   margin-bottom: -1px;
+  white-space: nowrap;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
@@ -173,19 +181,27 @@
   border-bottom-left-radius: 0.25rem;
 }
 
-/* Pipeline : les étapes en filtres — des puces fines et discrètes. */
+/* Pipeline : les étapes en filtres — UNE ligne fine qui défile (pas de pavé). */
 .prospection-etapes {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.4rem;
   margin-bottom: var(--e-4);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.prospection-etapes::-webkit-scrollbar {
+  display: none;
 }
 
 .prospection-etape {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.28rem 0.75rem;
+  padding: 0.3rem 0.8rem;
+  white-space: nowrap;
   border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.12));
   border-radius: 999px;
   background: transparent;
