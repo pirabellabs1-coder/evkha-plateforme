@@ -285,6 +285,32 @@ def prospect_desinscrire(request: HttpRequest, prospect_id: str) -> JsonResponse
     return _json(_prospect_dict(p))
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def prospect_statut(request: HttpRequest, prospect_id: str) -> JsonResponse:
+    """Fait avancer un prospect dans le pipeline (a répondu, converti, exclu…).
+
+    C'est l'acte humain qui classe un prospect selon ce qu'il devient : une
+    réponse reçue, une conversion, une exclusion. La désinscription passe par le
+    service (elle annule aussi les messages en file) ; les autres états se
+    posent directement.
+    """
+    try:
+        p = Prospect.objects.get(id=prospect_id)
+    except (Prospect.DoesNotExist, ValueError):
+        return _erreur("Prospect introuvable.", status=404)
+    vise = str(_corps(request).get("statut") or "")
+    valides = {s for s, _ in StatutProspect.choices}
+    if vise not in valides:
+        return _erreur(f"Statut inconnu : « {vise} ».")
+    if vise == StatutProspect.DESINSCRIT:
+        services.desinscrire(p)
+    else:
+        p.statut = vise
+        p.save(update_fields=["statut", "updated_at"])
+    return _json(_prospect_dict(p))
+
+
 # ── Messages : la file de validation ─────────────────────────────────────────
 
 

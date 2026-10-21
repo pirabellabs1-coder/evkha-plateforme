@@ -34,9 +34,13 @@ class _ClientFaux:
     def __init__(self, charges: dict[str, dict[str, Any]]) -> None:
         self._charges = charges
         self.appels: list[str] = []
+        self.systemes: list[str] = []
 
-    def complete_structured(self, *, outil_nom: str, **_: Any) -> StructuredResult:
+    def complete_structured(
+        self, *, outil_nom: str, system: str = "", **_: Any
+    ) -> StructuredResult:
         self.appels.append(outil_nom)
+        self.systemes.append(system)
         return StructuredResult(
             payload=dict(self._charges.get(outil_nom, {})),
             input_tokens=1,
@@ -232,3 +236,22 @@ def test_la_redaction_borne_le_nombre_de_messages() -> None:
     crees = agents.rediger_les_messages(prospect, nb_relances=1,
                                         client=_ClientFaux(_cinq_messages()))
     assert len(crees) == 2
+
+
+# ── Les agents sont « entraînés » sur le brief des cibles ─────────────────────
+
+
+def test_les_agents_portent_le_brief_des_cibles() -> None:
+    campagne = _campagne()
+    prospect = Prospect.objects.create(campagne=campagne, raison_sociale="BGE Lille",
+                                       email="contact@bge.fr")
+
+    cq = _ClientFaux({"qualifier_prospect": {"score": 80, "raison": "x"}})
+    agents.qualifier_un_prospect(prospect, client=cq)
+    assert "Initiative France" in cq.systemes[0]  # la cible n°1 du brief
+
+    cr = _ClientFaux(_cinq_messages())
+    agents.rediger_les_messages(prospect, client=cr)
+    systeme = cr.systemes[0]
+    assert "Evangeline" in systeme and "nous" in systeme  # règle de ton « je », pas « nous »
+    assert "démonstration de 10 minutes" in systeme  # le but d'un message

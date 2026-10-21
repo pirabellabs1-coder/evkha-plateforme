@@ -1,36 +1,58 @@
 /* Prospection — mise en page de l'écran admin. Réutilise les variables de
    thème de l'espace (--e-*) : pas de couleurs en dur, pas de charte parallèle. */
 
+/* Onglets principaux : des onglets soulignés, discrets, pas des pastilles. */
 .prospection-onglets {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--e-2);
+  gap: 0 1.6rem;
   margin-bottom: var(--e-4);
+  border-bottom: 1px solid var(--e-bord, rgba(0, 0, 0, 0.1));
 }
 
 .prospection-onglet {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--e-2);
-  padding: var(--e-2) var(--e-4);
-  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.12));
-  border-radius: 999px;
-  background: transparent;
+  gap: 0.45rem;
+  padding: 0.6rem 0.15rem;
+  margin-bottom: -1px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
   color: inherit;
   font: inherit;
+  opacity: 0.6;
   cursor: pointer;
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: opacity 150ms ease, border-color 150ms ease;
 }
 
 .prospection-onglet:hover {
-  border-color: var(--e-accent, #c8a24a);
+  opacity: 1;
 }
 
 .prospection-onglet.actif {
-  background: var(--e-accent, #c8a24a);
-  border-color: var(--e-accent, #c8a24a);
-  color: #1a1a1a;
+  opacity: 1;
   font-weight: 600;
+  border-bottom-color: var(--e-accent, #c8a24a);
+}
+
+/* Compteur sobre, partagé par les onglets et les filtres d'étape. */
+.prospection-compteur {
+  min-width: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--e-bord, rgba(0, 0, 0, 0.1));
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-align: center;
+}
+
+.prospection-onglet.actif .prospection-compteur,
+.prospection-etape.actif .prospection-compteur {
+  background: var(--e-accent, #c8a24a);
+  color: #1a1a1a;
 }
 
 .prospection-formulaire {
@@ -149,6 +171,85 @@
   align-self: flex-start;
   background: var(--e-surface-2, rgba(0, 0, 0, 0.05));
   border-bottom-left-radius: 0.25rem;
+}
+
+/* Pipeline : les étapes en filtres — des puces fines et discrètes. */
+.prospection-etapes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: var(--e-4);
+}
+
+.prospection-etape {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.75rem;
+  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.prospection-etape:hover {
+  border-color: var(--e-accent, #c8a24a);
+}
+
+.prospection-etape.actif {
+  background: rgba(200, 162, 74, 0.14);
+  border-color: var(--e-accent, #c8a24a);
+  font-weight: 600;
+}
+
+/* La fiche d'un prospect, dépliée sous sa ligne. */
+.prospection-fiche {
+  padding: var(--e-3);
+  background: var(--e-surface-2, rgba(0, 0, 0, 0.03));
+  border-radius: 10px;
+}
+
+.prospection-fiche-infos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--e-2);
+}
+
+.prospection-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.prospection-info-libelle {
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.prospection-fiche-mails {
+  margin-top: var(--e-3);
+}
+
+.prospection-ligne-mail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--e-2);
+  padding: var(--e-2) 0;
+  border-top: 1px solid var(--e-bord, rgba(0, 0, 0, 0.08));
+}
+
+.prospection-ligne-mail-objet {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .prospection-discussions {

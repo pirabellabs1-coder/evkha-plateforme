@@ -9,7 +9,7 @@
  * (facturé) et l'envoi PART pour de vrai — chacun demande une confirmation
  * explicite, jamais un clic sec.
  */
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   apiProspection as api,
@@ -17,12 +17,13 @@ import {
   type Message,
   type MessageAssistant,
   type Prospect,
+  type StatutProspect,
 } from "../apiProspection";
 import { Bandeau, Carte, Chiffre, Pastille, Squelette, Vide } from "../../espace/composants/Interface";
 import * as f from "../../espace/format";
 import "./Prospection.css";
 
-type Onglet = "campagnes" | "assistant" | "valider" | "metriques";
+type Onglet = "campagnes" | "prospects" | "assistant" | "valider" | "metriques";
 
 export function ProspectionAdmin() {
   const [onglet, setOnglet] = useState<Onglet>("campagnes");
@@ -34,6 +35,7 @@ export function ProspectionAdmin() {
 
   const onglets: { cle: Onglet; libelle: string; pastille?: number }[] = [
     { cle: "campagnes", libelle: "Campagnes" },
+    { cle: "prospects", libelle: "Prospects", pastille: apercu?.prospects },
     { cle: "assistant", libelle: "Assistant" },
     { cle: "valider", libelle: "À valider", pastille: apercu?.a_valider },
     { cle: "metriques", libelle: "Métriques" },
@@ -50,16 +52,276 @@ export function ProspectionAdmin() {
             onClick={() => setOnglet(o.cle)}
           >
             {o.libelle}
-            {o.pastille ? <span className="espace-compteur">{o.pastille}</span> : null}
+            {o.pastille ? <span className="prospection-compteur">{o.pastille}</span> : null}
           </button>
         ))}
       </nav>
 
       {onglet === "campagnes" && <VueCampagnes />}
+      {onglet === "prospects" && <VueProspects />}
       {onglet === "assistant" && <VueAssistant />}
       {onglet === "valider" && <VueValidation />}
       {onglet === "metriques" && <VueMetriques />}
     </>
+  );
+}
+
+// ── Onglet Prospects : le pipeline (identifier, filtrer, agir) ────────────────
+
+const ETAPES: { code: StatutProspect | ""; libelle: string }[] = [
+  { code: "", libelle: "Tous" },
+  { code: "nouveau", libelle: "Nouveaux" },
+  { code: "qualifie", libelle: "Qualifiés" },
+  { code: "contacte", libelle: "Contactés" },
+  { code: "en_relance", libelle: "En relance" },
+  { code: "a_repondu", libelle: "Ont répondu" },
+  { code: "converti", libelle: "Convertis" },
+  { code: "exclu", libelle: "Exclus" },
+  { code: "desinscrit", libelle: "Désinscrits" },
+];
+
+function VueProspects() {
+  const [statut, setStatut] = useState<StatutProspect | "">("");
+  const [campagneId, setCampagneId] = useState("");
+  const [recherche, setRecherche] = useState("");
+  const [ouvert, setOuvert] = useState<string | null>(null);
+
+  const { data: apercu } = useQuery({
+    queryKey: ["prospection", "apercu"],
+    queryFn: api.apercu,
+    staleTime: 15_000,
+  });
+  const { data: campagnes } = useQuery({
+    queryKey: ["prospection", "campagnes"],
+    queryFn: api.campagnes,
+  });
+  const prospects = useQuery({
+    queryKey: ["prospection", "prospects", statut, campagneId],
+    queryFn: () =>
+      api.prospects({
+        ...(statut ? { statut } : {}),
+        ...(campagneId ? { campagne: campagneId } : {}),
+      }),
+  });
+
+  const parStatut = apercu?.prospects_par_statut ?? {};
+  const liste = (prospects.data ?? []).filter((p) =>
+    p.raison_sociale.toLowerCase().includes(recherche.trim().toLowerCase()),
+  );
+
+  return (
+    <>
+      <nav className="prospection-etapes" aria-label="Étapes du pipeline">
+        {ETAPES.map((e) => (
+          <button
+            key={e.code || "tous"}
+            type="button"
+            className={statut === e.code ? "prospection-etape actif" : "prospection-etape"}
+            onClick={() => setStatut(e.code)}
+          >
+            {e.libelle}
+            {e.code && parStatut[e.code] ? (
+              <span className="prospection-compteur">{parStatut[e.code]}</span>
+            ) : null}
+          </button>
+        ))}
+      </nav>
+
+      <Carte
+        titre="Prospects"
+        note="Cliquez sur un prospect pour voir sa fiche, ses e-mails envoyés et ses relances."
+        action={
+          <select
+            className="champ-saisie"
+            style={{ maxWidth: 220 }}
+            aria-label="Filtrer par campagne"
+            value={campagneId}
+            onChange={(e) => setCampagneId(e.target.value)}
+          >
+            <option value="">Toutes les campagnes</option>
+            {(campagnes ?? []).map((c: Campagne) => (
+              <option key={c.id} value={c.id}>{c.nom}</option>
+            ))}
+          </select>
+        }
+      >
+        <input
+          className="champ-saisie"
+          style={{ marginBottom: "var(--e-3)" }}
+          placeholder="Rechercher par nom…"
+          aria-label="Rechercher un prospect"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+        />
+        {prospects.isPending ? (
+          <Squelette lignes={4} />
+        ) : liste.length === 0 ? (
+          <Vide icone="◇" titre="Aucun prospect" texte="Ajustez les filtres, ou trouvez-en via une campagne." />
+        ) : (
+          <div className="tableau-cadre tableau-defile">
+            <table className="tableau">
+              <thead>
+                <tr>
+                  <th scope="col">Prospect</th>
+                  <th scope="col">Étape</th>
+                  <th scope="col">Score</th>
+                  <th scope="col"><span className="visuellement-cache">Ouvrir</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {liste.map((p) => (
+                  <Fragment key={p.id}>
+                    <tr>
+                      <td>
+                        <strong>{p.raison_sociale}</strong>
+                        <div className="carte-note">{p.email || "sans e-mail"}</div>
+                      </td>
+                      <td><Pastille statut={p.statut} texte={libelleStatut(p.statut)} /></td>
+                      <td>{p.score_adequation ?? "—"}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="bouton bouton-contour bouton-sm"
+                          onClick={() => setOuvert(ouvert === p.id ? null : p.id)}
+                        >
+                          {ouvert === p.id ? "Fermer" : "Voir"}
+                        </button>
+                      </td>
+                    </tr>
+                    {ouvert === p.id && (
+                      <tr>
+                        <td colSpan={4}>
+                          <FicheProspect prospectId={p.id} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Carte>
+    </>
+  );
+}
+
+function libelleStatut(s: StatutProspect): string {
+  return ETAPES.find((e) => e.code === s)?.libelle.replace(/s$/, "") ?? s;
+}
+
+function FicheProspect({ prospectId }: { prospectId: string }) {
+  const cache = useQueryClient();
+  const [erreur, setErreur] = useState("");
+  const { data: p, isPending } = useQuery({
+    queryKey: ["prospection", "prospect", prospectId],
+    queryFn: () => api.prospect(prospectId),
+  });
+
+  const rafraichir = () => {
+    setErreur("");
+    void cache.invalidateQueries({ queryKey: ["prospection"] });
+  };
+  const surErreur = (c: unknown) =>
+    setErreur(c instanceof Error ? c.message : "Action impossible.");
+
+  const qualifier = useMutation({
+    mutationFn: () => api.qualifier(prospectId), onSuccess: rafraichir, onError: surErreur,
+  });
+  const rediger = useMutation({
+    mutationFn: () => api.rediger(prospectId), onSuccess: rafraichir, onError: surErreur,
+  });
+  const statut = useMutation({
+    mutationFn: (s: StatutProspect) => api.changerStatut(prospectId, s),
+    onSuccess: rafraichir, onError: surErreur,
+  });
+  const desinscrire = useMutation({
+    mutationFn: () => api.desinscrire(prospectId), onSuccess: rafraichir, onError: surErreur,
+  });
+
+  if (isPending || !p) return <Squelette lignes={3} />;
+
+  const envoyes = (p.messages ?? []).filter((m) => m.statut === "envoye");
+  const enCours = (p.messages ?? []).filter((m) => m.statut !== "envoye" && m.statut !== "annule");
+
+  return (
+    <div className="prospection-fiche">
+      {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+
+      <div className="prospection-fiche-infos">
+        <Info libelle="Secteur" valeur={p.secteur} />
+        <Info libelle="Zone" valeur={p.zone} />
+        <Info libelle="Contact" valeur={[p.nom_contact, p.fonction].filter(Boolean).join(" · ")} />
+        <Info libelle="Site" valeur={p.site_web} />
+        <Info libelle="Source" valeur={p.source} />
+        <Info libelle="Score" valeur={p.score_adequation != null ? String(p.score_adequation) : "—"} />
+      </div>
+      {p.raison_score && (
+        <p className="carte-note" style={{ marginTop: "var(--e-2)" }}>{p.raison_score}</p>
+      )}
+
+      <div className="prospection-actions" style={{ marginTop: "var(--e-3)" }}>
+        <BoutonConfirme libelle="Qualifier" avertissement="Interroge l'IA (facturé)."
+          enCours={qualifier.isPending} onConfirmer={() => qualifier.mutate()} />
+        <BoutonConfirme libelle="Rédiger les e-mails" avertissement="Interroge l'IA (facturé)."
+          enCours={rediger.isPending} onConfirmer={() => rediger.mutate()} />
+        <button type="button" className="bouton bouton-contour bouton-sm"
+          disabled={statut.isPending} onClick={() => statut.mutate("a_repondu")}>
+          A répondu
+        </button>
+        <button type="button" className="bouton bouton-contour bouton-sm"
+          disabled={statut.isPending} onClick={() => statut.mutate("converti")}>
+          Converti
+        </button>
+        <BoutonConfirme libelle="Exclure" avertissement="Sort ce prospect de la prospection."
+          enCours={statut.isPending} onConfirmer={() => statut.mutate("exclu")} />
+        {p.contactable && (
+          <BoutonConfirme libelle="Désinscrire" avertissement="Retire le consentement (irréversible)."
+            enCours={desinscrire.isPending} onConfirmer={() => desinscrire.mutate()} />
+        )}
+      </div>
+
+      <div className="prospection-fiche-mails">
+        <h3 className="carte-titre" style={{ fontSize: "1rem" }}>
+          E-mails envoyés ({envoyes.length})
+        </h3>
+        {envoyes.length === 0 ? (
+          <p className="carte-note">Aucun e-mail encore envoyé.</p>
+        ) : (
+          envoyes.map((m) => <LigneMail key={m.id} message={m} />)
+        )}
+        <h3 className="carte-titre" style={{ fontSize: "1rem", marginTop: "var(--e-3)" }}>
+          En cours — brouillons et relances ({enCours.length})
+        </h3>
+        {enCours.length === 0 ? (
+          <p className="carte-note">Rien en préparation. « Rédiger les e-mails » prépare la séquence.</p>
+        ) : (
+          enCours.map((m) => <LigneMail key={m.id} message={m} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Info({ libelle, valeur }: { libelle: string; valeur: string }) {
+  return (
+    <div className="prospection-info">
+      <span className="prospection-info-libelle">{libelle}</span>
+      <span>{valeur || "—"}</span>
+    </div>
+  );
+}
+
+function LigneMail({ message }: { message: Message }) {
+  const quand = message.envoye_le || message.cree_le;
+  return (
+    <div className="prospection-ligne-mail">
+      <div style={{ minWidth: 0 }}>
+        <div className="prospection-ligne-mail-objet">{message.objet}</div>
+        <div className="carte-note">{f.dateHeure(quand)}</div>
+      </div>
+      <Pastille statut={message.statut} texte={message.statut} />
+    </div>
   );
 }
 

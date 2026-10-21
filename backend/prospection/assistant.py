@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from . import brief
 from .agents import _client_structure, _texte
 from .models import Campagne
 
@@ -48,11 +49,12 @@ def _systeme(campagne: Campagne | None) -> str:
             f"offre {campagne.offre_visee or 'non précisée'}."
         )
     return (
+        f"{brief.brief_assistant()}\n\n"
         "Tu es l'assistant de prospection d'EVKHA. Tu aides à définir QUI cibler "
-        "et COMMENT : secteur, zone, taille d'entreprise, signaux (recrutement, "
-        "levée de fonds, ouverture d'agence…), et l'angle du message. Tu "
-        "vouvoies ton interlocutrice, tu es concis et concret, et tu formules "
-        "tes conseils comme des avis, pas des ordres. "
+        "et COMMENT, en t'appuyant sur les 5 cibles ci-dessus : secteur, zone, "
+        "signes d'intérêt, et l'angle du message. Tu vouvoies ton "
+        "interlocutrice, tu es concis et concret, et tu formules tes conseils "
+        "comme des avis, pas des ordres. "
         "Quand la discussion aboutit à une cible précise, remplis "
         "`proposition_recherche` avec des `criteres` en une phrase actionnable "
         "(ce qui affinera la recherche web) ; sinon laisse ce champ vide et pose "

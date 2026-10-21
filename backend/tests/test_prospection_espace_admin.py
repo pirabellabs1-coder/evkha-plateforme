@@ -157,3 +157,13 @@ def test_un_prospect_sans_email_n_est_pas_contactable(client_admin: Any) -> None
         "campagne_id": cid, "raison_sociale": "Sans mail",
     })
     assert r.status_code == 201 and _charge(r)["contactable"] is False
+
+
+def test_on_fait_avancer_un_prospect_dans_le_pipeline(client_admin: Any) -> None:
+    cid = _campagne(client_admin)
+    pid = _prospect(client_admin, cid)
+    r = _poster(client_admin, f"{BASE}/prospects/{pid}/statut/", {"statut": "a_repondu"})
+    assert r.status_code == 200 and _charge(r)["statut"] == StatutProspect.A_REPONDU
+    # Un statut inconnu est refusé.
+    r2 = _poster(client_admin, f"{BASE}/prospects/{pid}/statut/", {"statut": "n_importe_quoi"})
+    assert r2.status_code == 400

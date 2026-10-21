@@ -194,6 +194,8 @@ export const apiProspection = {
     envoyer<Prospect>("POST", "/prospects/", p),
   prospect: (id: string) => get<Prospect>(`/prospects/${id}/`),
   desinscrire: (id: string) => envoyer<Prospect>("POST", `/prospects/${id}/desinscrire/`, {}),
+  changerStatut: (id: string, statut: StatutProspect) =>
+    envoyer<Prospect>("POST", `/prospects/${id}/statut/`, { statut }),
 
   messages: (params?: { statut?: string; prospect?: string; campagne?: string }) =>
     get<Message[]>("/messages/", params),

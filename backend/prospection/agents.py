@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 
+from . import brief
 from .models import (
     Campagne,
     Message,
@@ -139,12 +140,13 @@ def rechercher_des_prospects(
         f"- {r.title}\n  {r.url}\n  {r.content}" for r in reponse.results
     )
     system = (
-        "Tu assistes la prospection commerciale B2B d'EVKHA. À partir d'extraits "
-        "de recherche web, tu identifies des ENTREPRISES CIBLES réelles et tu "
-        "rends leurs coordonnées professionnelles quand elles figurent dans les "
-        "extraits. N'invente jamais d'e-mail ni de contact : laisse le champ vide "
-        "si l'information n'est pas présente. Pas de particuliers, uniquement des "
-        "organisations."
+        f"{brief.brief_recherche()}\n\n"
+        "À partir d'extraits de recherche web, tu identifies des ORGANISATIONS "
+        "CIBLES réelles correspondant aux cibles ci-dessus et tu rends leurs "
+        "coordonnées professionnelles quand elles figurent dans les extraits. "
+        "N'invente jamais d'e-mail ni de contact : laisse le champ vide si "
+        "l'information n'est pas présente. Jamais de particuliers, jamais de "
+        "profil exclu — uniquement des organisations pertinentes."
     )
     prompt = (
         f"Campagne : {campagne.nom}.\n"
@@ -245,11 +247,12 @@ def qualifier_un_prospect(
 
     campagne = prospect.campagne
     system = (
-        "Tu qualifies un prospect pour EVKHA (plateforme qui produit des "
-        "documents d'entreprise : business plans, études de marché, etc.). Juge, "
-        "de 0 à 100, la probabilité qu'il souscrive un abonnement, et explique "
-        "brièvement ta note (secteur, taille probable, besoin apparent). Sois "
-        "lucide : une note basse est une information utile."
+        f"{brief.brief_qualification()}\n\n"
+        "Juge, de 0 à 100, la probabilité que ce prospect souscrive un "
+        "abonnement EVKHA, en t'appuyant sur les cibles, les signes d'intérêt et "
+        "les exclusions ci-dessus. Explique brièvement ta note (quelle cible, "
+        "quels signes, quelle priorité). Sois lucide : une note basse, ou 0 pour "
+        "un profil exclu, est une information utile."
     )
     prompt = (
         f"Entreprise : {prospect.raison_sociale}.\n"
@@ -379,15 +382,17 @@ def _plan_de_sequence(etapes: list[Sequence], nb_messages: int) -> list[str]:
 
 
 def _system_de_redaction(prospect: Prospect) -> str:
-    offre = (prospect.campagne.offre_visee if prospect.campagne else "") or "les services EVKHA"
     return (
-        "Tu rédiges une séquence d'e-mails de prospection B2B pour EVKHA, en "
-        "français, professionnels et courtois. Chaque e-mail : un objet court et "
-        f"un corps en HTML simple proposant {offre}. Les relances sont plus "
-        "brèves que le premier message et n'insistent jamais lourdement. "
-        "N'invente aucun chiffre ni engagement. Termine chaque corps par une "
-        "formule laissant une sortie facile (possibilité de ne plus être "
-        "contacté) : la désinscription doit rester simple."
+        f"{brief.brief_redaction()}\n\n"
+        "Tu rédiges, au nom d'Evangeline, une séquence d'e-mails de prospection "
+        "B2B en français. Chaque e-mail : un objet court et accrocheur, et un "
+        "corps en HTML simple (<p>, <strong>) adapté à la CIBLE du prospect et "
+        "portant l'argument correspondant. Le premier message situe d'où vient "
+        "le contact et propose une démo de 10 minutes ; les relances sont plus "
+        "brèves et n'insistent jamais lourdement. Termine chaque corps par la "
+        "signature d'Evangeline. N'invente aucun chiffre, n'annonce aucun prix, "
+        "et n'écris PAS de lien ni de formule de désinscription (ils sont "
+        "ajoutés automatiquement)."
     )
 
 

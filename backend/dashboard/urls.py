@@ -201,6 +201,10 @@ urlpatterns = [
         prospection.prospect_desinscrire, name="prospection-desinscrire",
     ),
     path(
+        "prospection/prospects/<str:prospect_id>/statut/",
+        prospection.prospect_statut, name="prospection-prospect-statut",
+    ),
+    path(
         "prospection/prospects/<str:prospect_id>/qualifier/",
         prospection.prospect_qualifier, name="prospection-prospect-qualifier",
     ),
