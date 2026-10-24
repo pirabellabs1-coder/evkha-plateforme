@@ -19,8 +19,11 @@ corrige, il ne bloque pas).
 """
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
+from django.conf import settings
 from django.db import transaction
 
 from . import brief
@@ -109,6 +112,145 @@ _SCHEMA_RECHERCHE: dict[str, object] = {
     "required": ["prospects"],
 }
 
+# ── Enrichissement : trouver l'e-mail professionnel d'une organisation ────────
+#
+# Une prospection sans e-mail ne sert à rien. Les extraits de recherche portent
+# rarement l'adresse ; on va donc la CHERCHER pour chaque fiche qui n'en a pas :
+# d'abord sur le site de l'organisation (pages publiques, mentions légales —
+# obligatoires en France), gratuitement ; puis, en secours, par une recherche
+# ciblée. On ne devine JAMAIS une adresse : à défaut, le champ reste vide (le
+# prospect est créé quand même, mais l'envoi exigera un e-mail — invariant du
+# service). 100 % n'est pas atteignable : certaines structures n'exposent qu'un
+# formulaire.
+
+_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+#: Faux positifs courants dans le HTML (traqueurs, exemples, ressources).
+_EMAIL_REJETE = (
+    "sentry", "wixpress", "example.", "@example", "domain.com", "email.com",
+    "votredomaine", "yourdomain", "@2x", ".png", ".jpg", ".jpeg", ".gif",
+    ".webp", ".svg", "u002", "schema.org",
+)
+
+#: Pages où un cabinet publie son adresse. "" = la page d'accueil.
+_PAGES_CONTACT = (
+    "", "contact", "nous-contacter", "mentions-legales", "mentions-legales.html",
+    "mentions-legales-et-cgu", "mentions", "cgv", "qui-sommes-nous",
+)
+
+_HTTP_TIMEOUT = 10.0
+_MAX_PAGES = 5  # borne de sûreté : on ne parcourt pas tout un site.
+
+_SCHEMA_EMAIL: dict[str, object] = {
+    "type": "object",
+    "properties": {"email": {"type": "string"}},
+    "required": [],
+}
+
+
+def _email_plausible(brut: str) -> str:
+    """Normalise et filtre : rend l'e-mail nettoyé, ou "" s'il est douteux."""
+    a = str(brut or "").strip().strip(".").lower()
+    if "@" not in a or any(mauvais in a for mauvais in _EMAIL_REJETE):
+        return ""
+    return a[:254]
+
+
+def _domaine_racine(hote: str) -> str:
+    """« www.cabinet-lille.fr » -> « cabinet-lille.fr » (deux derniers labels)."""
+    labels = hote.split(":")[0].replace("www.", "").split(".")
+    return ".".join(labels[-2:]) if len(labels) >= 2 else hote
+
+
+def _email_par_site(site_web: str) -> str:
+    """Cherche une adresse sur le site de l'organisation. GET seulement, aucun
+    modèle, aucun coût. Préfère une adresse du MÊME domaine que le site."""
+    base = (site_web or "").strip()
+    if not base:
+        return ""
+    if not base.startswith(("http://", "https://")):
+        base = "https://" + base
+    racine = base.rstrip("/")
+    try:
+        import httpx  # noqa: PLC0415 — dépendance optionnelle, jamais en CI
+    except ImportError:
+        return ""
+    entetes = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    dom = _domaine_racine(urlparse(racine).netloc)
+    candidats: list[str] = []
+    for suffixe in _PAGES_CONTACT[:_MAX_PAGES]:
+        url = f"{racine}/{suffixe}" if suffixe else racine
+        try:
+            reponse = httpx.get(
+                url, headers=entetes, timeout=_HTTP_TIMEOUT, follow_redirects=True
+            )
+        except Exception:  # noqa: BLE001 — un site injoignable n'arrête pas la collecte
+            continue
+        for brut in _EMAIL.findall(reponse.text):
+            adresse = _email_plausible(brut)
+            if adresse and adresse not in candidats:
+                candidats.append(adresse)
+        meme_domaine = [e for e in candidats if dom and dom in e.split("@")[-1]]
+        if meme_domaine:
+            return meme_domaine[0]
+    return candidats[0] if candidats else ""
+
+
+def _email_par_recherche(
+    nom: str, ville: str, recherche: WebSearchClient, client: StructuredClaudeClient
+) -> str:
+    """Secours : une recherche ciblée, puis l'adresse lue dans les extraits
+    (regex d'abord, le modèle ensuite). Le modèle n'extrait que ce qui FIGURE."""
+    try:
+        reponse = recherche.search(
+            query=f"{nom} {ville} email contact".strip(), max_results=5
+        )
+    except Exception:  # noqa: BLE001 — une recherche ratée ne crée pas de blocage
+        return ""
+    extraits = "\n".join(
+        f"{r.title} {r.url} {r.content}" for r in reponse.results
+    )
+    for brut in _EMAIL.findall(extraits):
+        adresse = _email_plausible(brut)
+        if adresse:
+            return adresse
+    resultat = client.complete_structured(
+        system=(
+            "Tu extrais UNIQUEMENT une adresse e-mail professionnelle qui FIGURE "
+            "dans les extraits. Tu n'en inventes jamais. Si aucune n'y figure, tu "
+            "rends une chaîne vide."
+        ),
+        prompt=(
+            f"Organisation : {nom} ({ville or '—'}).\n"
+            f"Extraits de recherche web :\n{extraits or '(aucun résultat)'}\n\n"
+            "Rends l'adresse e-mail de contact professionnel si elle figure, "
+            "sinon une chaîne vide."
+        ),
+        outil_nom="extraire_email",
+        outil_description="Rend l'e-mail professionnel trouvé, ou vide.",
+        schema=_SCHEMA_EMAIL,
+        model=_MODELE_AGENTS,
+    )
+    return _email_plausible(str(resultat.payload.get("email", "")))
+
+
+def _trouver_email_pro(
+    fiche: dict[str, Any], recherche: WebSearchClient, client: StructuredClaudeClient
+) -> str:
+    """L'e-mail pro d'une organisation : le site d'abord (gratuit), la recherche
+    en secours. Jamais deviné — "" si rien n'est trouvé."""
+    nom = str(fiche.get("raison_sociale") or "").strip()
+    site = str(fiche.get("site_web") or "").strip()
+    ville = str(fiche.get("zone") or "").strip()
+    # Le fetch réel est sauté sur doublure (CI/dev) : aucun réseau involontaire.
+    if site and not bool(getattr(settings, "EVKHA_USE_STUB_SEARCH", True)):
+        adresse = _email_par_site(site)
+        if adresse:
+            return adresse
+    if nom:
+        return _email_par_recherche(nom, ville, recherche, client)
+    return ""
+
 
 def rechercher_des_prospects(
     campagne: Campagne,
@@ -170,6 +312,11 @@ def rechercher_des_prospects(
     fiches = resultat.payload.get("prospects")
     if not isinstance(fiches, list):
         return []
+    # Une fiche sans e-mail ne sert à rien : on CHERCHE l'adresse pro de chaque
+    # organisation avant de la matérialiser (site, puis recherche en secours).
+    for fiche in fiches:
+        if isinstance(fiche, dict) and not str(fiche.get("email") or "").strip():
+            fiche["email"] = _trouver_email_pro(fiche, recherche, client)
     return _creer_les_prospects(campagne, fiches, limite)
 
 

@@ -155,3 +155,48 @@ def test_une_panne_de_credits_ia_ne_rend_pas_un_500(
     assert r.status_code == 502, (r.status_code, r.content)
     assert "Crédits IA épuisés" in _charge(r)["erreur"]
     assert Prospect.objects.count() == 0
+
+
+class _RechercheAvecEmail:
+    """La recherche ciblée fait remonter une adresse dans ses extraits."""
+
+    def search(self, *, query: str, max_results: int = 5, **_: Any) -> SearchResponse:
+        return SearchResponse(
+            query=query,
+            results=(
+                SearchResult(
+                    title="Alpha RH",
+                    url="https://alpha-rh.fr",
+                    content="Nous contacter : contact@alpha-rh.fr",
+                ),
+            ),
+        )
+
+
+def test_la_recherche_va_chercher_l_email_manquant(
+    client_admin: Any, monkeypatch: Any
+) -> None:
+    """Une prospection sans e-mail ne sert à rien : l'agent cherche l'e-mail pro
+    de chaque organisation. Le modèle rend une fiche SANS e-mail ; l'enrichissement
+    (recherche en secours) fait remonter l'adresse, et le prospect est créé AVEC.
+
+    Sur le code d'avant — pas d'enrichissement — le prospect était créé sans
+    e-mail : ce test échouait.
+    """
+    c = _campagne()
+    # Le fetch direct du site est neutralisé : on teste le secours par recherche,
+    # sans réseau.
+    monkeypatch.setattr("prospection.agents._email_par_site", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        "integrations.claude.get_claude_client",
+        lambda: _ClientFaux({"extraire_prospects": {"prospects": [
+            {"raison_sociale": "Alpha RH", "site_web": "https://alpha-rh.fr"},
+        ]}}),
+    )
+    monkeypatch.setattr("integrations.search.get_search_client", _RechercheAvecEmail)
+
+    r = _poster(client_admin, f"{BASE}/campagnes/{c.id}/rechercher/", {"confirmer": True})
+
+    assert r.status_code == 200, r.content
+    p = Prospect.objects.get(campagne=c, raison_sociale="Alpha RH")
+    assert p.email == "contact@alpha-rh.fr", p.email
