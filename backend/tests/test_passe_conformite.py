@@ -274,6 +274,36 @@ def test_un_chapitre_conforme_passe_sans_mention(job_conformite: Any) -> None:
     assert chapitre.error_message == "", chapitre.error_message
 
 
+@pytest.mark.django_db
+def test_un_chapitre_accepte_avec_ecart_ne_porte_pas_de_commentaire(
+    job_conformite: Any, monkeypatch: Any
+) -> None:
+    """Un chapitre RÉUSSI malgré un écart de forme accepté ne porte AUCUNE note
+    dans `error_message` — le champ des erreurs, affiché en rouge sous le titre
+    dans le tableau de bord. L'acceptation reste tracée dans les logs
+    (`_arbitrer_conformite` au warning, la persistance à l'info).
+
+    Décision cliente du 24/10/2026 : « je ne veux plus voir ces choses là comme
+    commentaire ». Sur le code d'avant, `error_message` portait
+    « [écarts acceptés] … » et ce test échouait.
+    """
+    from generation.chapitres.services import produire_chapitre
+    from generation.models import ChapterStatus
+    from integrations.claude import StubClaudeClient
+
+    # La passe voit un écart de dosage pur : consigné, jamais rejoué — donc
+    # accepté dès la première tentative, le chapitre reste DONE.
+    monkeypatch.setattr(
+        "generation.modele.conformite.verifier_chapitre",
+        lambda *a, **k: _rapport(_ressemblance()),
+    )
+
+    chapitre = produire_chapitre(job_conformite, 1, client=StubClaudeClient())
+
+    assert chapitre.status == ChapterStatus.DONE
+    assert chapitre.error_message == "", chapitre.error_message
+
+
 @pytest.fixture
 def job_conformite(db: object) -> Any:
     """Étude de marché prête à produire un chapitre : socle verrouillé, rien d'écrit.

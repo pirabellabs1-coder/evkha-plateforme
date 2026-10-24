@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from django.http import HttpRequest, JsonResponse
@@ -437,6 +438,33 @@ def message_evenements(request: HttpRequest, message_id: str) -> JsonResponse:
 # qualification pose un score, la rédaction crée des BROUILLONS. Aucun n'envoie.
 
 
+def _executer_agent(
+    action: str, fn: Callable[[], Any]
+) -> tuple[Any, JsonResponse | None]:
+    """Exécute un agent (appel modèle/recherche) et NOMME toute panne IA.
+
+    Une erreur de l'API Claude — crédits épuisés, quota, réseau — n'est pas un
+    bug du logiciel. La laisser remonter rendait un 500 nu sous le bouton, sans
+    dire à la cliente ce qui se passe ni quoi faire : c'est exactement ce qui est
+    arrivé le 24/10/2026, « credit balance is too low » transformé en « Server
+    Error (500) ». On la capte, on la journalise EN ENTIER, et on rend un message
+    lisible (règle 1 : échouer, mais à voix haute). Rien n'est créé en cas de
+    panne — l'agent ne touche la base qu'après l'appel modèle réussi.
+    """
+    try:
+        return fn(), None
+    except Exception as exc:  # noqa: BLE001 — aucune panne d'agent ne doit rendre un 500 nu
+        _log.exception("Agent « %s » en échec", action)
+        credits_epuises = "credit balance is too low" in str(exc).lower()
+        message = (
+            "Crédits IA épuisés : rechargez le compte Anthropic (Plans & Billing) "
+            "avant de relancer cette action."
+            if credits_epuises
+            else f"Le service IA n'a pas pu exécuter « {action} ». Réessayez plus tard."
+        )
+        return None, _erreur(message, status=502)
+
+
 def _confirme(request: HttpRequest) -> bool:
     return _corps(request).get("confirmer") is True
 
@@ -469,7 +497,12 @@ def campagne_rechercher(request: HttpRequest, campagne_id: str) -> JsonResponse:
     corps = _corps(request)
     limite = int(corps.get("limite") or 10)
     criteres = str(corps.get("criteres") or "")
-    crees = agents.rechercher_des_prospects(c, limite=limite, criteres=criteres)
+    crees, err = _executer_agent(
+        "recherche de prospects",
+        lambda: agents.rechercher_des_prospects(c, limite=limite, criteres=criteres),
+    )
+    if err is not None:
+        return err
     return _json({"crees": len(crees), "prospects": [_prospect_dict(p) for p in crees]})
 
 
@@ -614,7 +647,9 @@ def prospect_qualifier(request: HttpRequest, prospect_id: str) -> JsonResponse:
         return _confirmation_requise("qualification")
     from prospection import agents  # noqa: PLC0415
 
-    agents.qualifier_un_prospect(p)
+    _, err = _executer_agent("qualification", lambda: agents.qualifier_un_prospect(p))
+    if err is not None:
+        return err
     return _json(_prospect_dict(p))
 
 
@@ -631,9 +666,14 @@ def prospect_rediger(request: HttpRequest, prospect_id: str) -> JsonResponse:
     from prospection import agents  # noqa: PLC0415
 
     corps = _corps(request)
-    crees = agents.rediger_les_messages(
-        p,
-        nb_relances=int(corps.get("nb_relances") or 4),
-        remplacer=corps.get("remplacer") is True,
+    crees, err = _executer_agent(
+        "rédaction des messages",
+        lambda: agents.rediger_les_messages(
+            p,
+            nb_relances=int(corps.get("nb_relances") or 4),
+            remplacer=corps.get("remplacer") is True,
+        ),
     )
+    if err is not None:
+        return err
     return _json({"crees": len(crees), "messages": [_message_dict(m) for m in crees]})

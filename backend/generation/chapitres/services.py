@@ -133,11 +133,17 @@ def enregistrer_chapitre(
         chapter.content = payload_vers_markdown(payload)
         chapter.operational_summary = payload.resume
         chapter.status = ChapterStatus.DONE
-        # Un chapitre accepté malgré des écarts de forme reste DONE — mais ne
-        # passe pas pour parfait. Le préfixe le distingue de `[contrat] `, que
-        # la tentative suivante relit pour se corriger : celui-ci ne doit
-        # surtout pas être réinjecté dans un prompt, la décision est prise.
-        chapter.error_message = _mention_arbitrage(arbitrage)
+        # Un chapitre accepté malgré des écarts de forme reste DONE, et son
+        # champ d'erreurs reste VIDE. L'acceptation n'est pas tue pour autant :
+        # elle part dans les LOGS. On ne la réécrit PAS dans `error_message`, le
+        # champ des ERREURS, où elle s'affichait en rouge sous le titre comme
+        # une panne (tableau de bord). Décision cliente du 24/10/2026 : « je ne
+        # veux plus voir ces choses là comme commentaire ». Un chapitre réussi a
+        # donc le champ des erreurs vide.
+        mention = _mention_arbitrage(arbitrage)
+        if mention:
+            _log.info("Chapitre %s accepté — %s", chapter.chapter_number, mention)
+        chapter.error_message = ""
         chapter.save(
             update_fields=[
                 "payload", "content", "operational_summary",

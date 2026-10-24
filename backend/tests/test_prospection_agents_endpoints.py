@@ -122,3 +122,36 @@ def test_la_redaction_confirmee_cree_des_brouillons(client_admin: Any, monkeypat
     assert Message.objects.filter(statut=StatutMessage.BROUILLON).count() == 5
     assert Message.objects.exclude(statut=StatutMessage.BROUILLON).count() == 0
     assert Evenement.objects.count() == 0
+
+
+class _RechercheEnPanne:
+    """Doublure qui simule une API Claude sans crédits (le 400 réel du 24/10)."""
+
+    def search(self, *, query: str, max_results: int = 5, **_: Any) -> Any:
+        msg = (
+            "Error code: 400 - Your credit balance is too low to access the "
+            "Anthropic API. Please go to Plans & Billing."
+        )
+        raise RuntimeError(msg)
+
+
+def test_une_panne_de_credits_ia_ne_rend_pas_un_500(
+    client_admin: Any, monkeypatch: Any
+) -> None:
+    """24/10/2026 : crédits Anthropic épuisés. « credit balance is too low »
+    remontait en « Server Error (500) » nu sous le bouton, sans dire à la cliente
+    quoi faire. L'action doit NOMMER la panne (502 + message clair) et ne rien
+    créer.
+
+    Sur le code d'avant — l'agent appelé sans capture — l'exception remontait :
+    ce test échouait.
+    """
+    c = _campagne()
+    monkeypatch.setattr("integrations.claude.get_claude_client", lambda: _ClientFaux({}))
+    monkeypatch.setattr("integrations.search.get_search_client", _RechercheEnPanne)
+
+    r = _poster(client_admin, f"{BASE}/campagnes/{c.id}/rechercher/", {"confirmer": True})
+
+    assert r.status_code == 502, (r.status_code, r.content)
+    assert "Crédits IA épuisés" in _charge(r)["erreur"]
+    assert Prospect.objects.count() == 0
