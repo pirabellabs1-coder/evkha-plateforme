@@ -600,10 +600,19 @@ def _blocs_graphique(
                 f"{reference} · {demande.titre} : {source[:160]}"
             )
             source = ""
+        # Le titre RÉÉCRIT quand il annonçait une période que la figure ne
+        # porte pas : la figure est juste, c'est son étiquette qui mentait.
+        # Voir `specification_figures._titre_sans_les_annees_absentes`.
+        titre_pose = controle.titre_corrige or demande.titre
+        if controle.titre_corrige:
+            rapport.graphiques_repares.append(
+                f"{reference} · titre corrigé : « {demande.titre} » → "
+                f"« {controle.titre_corrige} » ({controle.motif})"
+            )
         blocs.append({
             "type": "graphique",
             "graphique": resolution.type_graphique,
-            "titre": demande.titre,
+            "titre": titre_pose,
             "source": source,
             "donnees": resolution.donnees,
         })

@@ -470,7 +470,24 @@ COHERENCE_DES_CHIFFRES = (
     "10. CE QUI MANQUE SE DIT SANS SE PLAINDRE. Si une donnée n'existe pas, "
     "raisonne avec ce que tu as et dis ce que cela implique. N'écris jamais "
     "« donnée à définir », « à vérifier », « non communiqué » : le lecteur a "
-    "payé des réponses, pas la liste de ce qui vous manque."
+    "payé des réponses, pas la liste de ce qui vous manque.\n"
+    "\n"
+    # Défaut mesuré sur une étude à l'export (cliente, 26/10/2026) : « le
+    # chapitre 7 recommande Corée, Japon et Taïwan en priorité, le chapitre 17
+    # recommande la Chine en premier. Un test est prévu sur un marché que
+    # l'étude déprioritise. » Les CHIFFRES étaient verrouillés ; les DÉCISIONS
+    # ne l'étaient pas.
+    "11. UNE DÉCISION SE PREND UNE FOIS, ET TOUT LE DOCUMENT LA TIENT. Les "
+    "marchés prioritaires et leur ORDRE, les segments visés, l'ordre des "
+    "vagues de lancement, le marché du test pilote : dès qu'un chapitre a "
+    "tranché, les suivants reprennent la même décision, dans le même ordre, "
+    "avec les mêmes noms. Si un chapitre antérieur a classé trois pays, tu ne "
+    "réordonnes pas la liste et tu n'en ajoutes pas un quatrième en tête.\n"
+    "   Et une recommandation d'action suit la décision : on ne teste pas en "
+    "premier un marché que l'étude a placé en dernier. Si les chiffres de TON "
+    "chapitre contredisent la priorité retenue, ne la change pas en silence — "
+    "écris ce que tes chiffres montrent et dis explicitement que cela "
+    "interroge le classement, pour que le lecteur arbitre."
 )
 
 
@@ -542,7 +559,31 @@ se présente comme tel.
 
 8. CES RÈGLES NE SE CITENT PAS DANS LE TEXTE. Le lecteur ne doit trouver ni
 « source vérifiable », ni « conformément à la méthode » : il doit trouver des
-sources, et pouvoir les ouvrir."""
+sources, et pouvoir les ouvrir.
+
+9. UNE AFFIRMATION BALAYANTE SE VÉRIFIE AVANT D'ÊTRE ÉCRITE. « Aucun
+concurrent ne publie son chiffre d'affaires », « il n'existe aucune donnée sur
+ce marché », « personne ne propose cette offre » : ces phrases portent sur TOUT
+un ensemble, et une seule exception les rend fausses. Une société cotée publie
+ses résultats chaque trimestre ; un groupe soumis à dépôt des comptes les
+publie chaque année. Si un seul acteur de ta liste est coté ou dépose ses
+comptes, la phrase est fausse — et le lecteur qui connaît le secteur le voit
+immédiatement.
+
+Écris ce que tu as constaté, pas ce que tu n'as pas trouvé : « les trois
+acteurs non cotés de ce panel ne publient pas leur chiffre d'affaires ; les
+deux groupes cotés publient le leur, consolidé au niveau mondial ». C'est
+vérifiable, et c'est utile.
+
+10. UN DIFFÉREND COMMERCIAL EN COURS SE DIT. Droits antidumping, enquête en
+cours, droits de douane relevés, quota, restriction d'importation, exigence
+sanitaire ou d'étiquetage nouvelle, réglementation du commerce en ligne
+transfrontalier : quand ton sujet est un produit vendu dans un pays étranger,
+ces faits décident de la faisabilité du projet. Ils priment sur une tendance de
+consommation. S'il en existe un sur le couple produit × pays que tu traites,
+il a sa place dans le chapitre, avec sa date et sa source ; si tes sources
+n'en montrent aucun, ne l'invente pas et ne dis pas non plus qu'il n'y en a
+pas — tu n'en sais rien (voir le point 9)."""
 
 
 #: Les PRIX, le defaut que le client a nomme en premier : « surtout au niveau

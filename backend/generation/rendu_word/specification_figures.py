@@ -113,6 +113,9 @@ class Controle:
     #: demandés : la frise dessine les tendances, la carte des risques les
     #: risques, quels que soient les identifiants cités.
     matiere_hors_demande: bool = False
+    #: Le titre REÉCRIT, quand le seul défaut de la figure était son titre.
+    #: Vide sinon. Voir `_titre_sans_les_annees_absentes`.
+    titre_corrige: str = ""
 
     @property
     def motif(self) -> str:
@@ -190,6 +193,44 @@ def controler_la_figure(
         return Controle(resolution)
     hors_demande = _matiere_hors_demande(socle, resolution.type_graphique, identifiants)
     motif = " ; ".join(ecart.motif for ecart in ecarts)
+
+    # Une figure JUSTE ne se jette pas pour une étiquette fausse.
+    #
+    # ## Le défaut, mesuré sur la production
+    #
+    # Étude de marché `dd30db73` (26/10/2026), relevée par la cliente :
+    # 18 figures demandées, 8 obtenues, 5 imprimées en tableau brut, 5 perdues.
+    # Deux des cinq abandons tenaient à ceci, et à rien d'autre :
+    #
+    #     Chapitre 5, entonnoir : le titre cite 2026, 2030 et la figure porte
+    #     2024, 2025 : la période annoncée n'est pas celle des données.
+    #     Chapitre 7, barres horizontales : le titre cite 2026 et la figure
+    #     porte 2025.
+    #
+    # Les DONNÉES étaient bonnes — elles viennent du socle, et la résolution
+    # avait réussi. Seul le titre, écrit par le chapitre, annonçait une période
+    # que la figure ne montre pas. On jetait donc la figure et on imprimait ses
+    # chiffres en tableau nu, titre retiré : le lecteur perdait le graphique ET
+    # l'intitulé, pour une erreur d'étiquette.
+    #
+    # ## Pourquoi corriger le titre plutôt que l'accepter
+    #
+    # Le contrôle a raison : un titre qui annonce 2026 devant des chiffres de
+    # 2025 ment au lecteur. Ce qu'il faut retirer, c'est le mensonge, pas la
+    # figure. L'année absente des données sort du titre ; ce qui reste est vrai
+    # et se lit.
+    #
+    # Seulement quand la période est le SEUL grief : un titre qui nomme un
+    # projet non comparé, une forme qui ne tient pas, un découpage inventé
+    # restent des refus — là, c'est bien la figure qui ne va pas.
+    if all(ecart.regle == "periode" for ecart in ecarts):
+        corrige = _titre_sans_les_annees_absentes(
+            socle, resolution, identifiants, titre,
+        )
+        if corrige and not ecarts_de_specification(
+            socle, resolution, identifiants=identifiants, titre=corrige, legende=legende,
+        ):
+            return Controle(resolution, tuple(ecarts), titre_corrige=corrige)
     if not any(ecart.regle == "calendrier" for ecart in ecarts):
         for forme in _REDERIVATIONS.get(resolution.type_graphique, ()):
             essai = resoudre(socle, forme, identifiants)
@@ -514,6 +555,73 @@ def _annees_portees(
     if axe and all(_est_une_annee(item) for item in axe):
         return {int(str(item).strip()) for item in axe}
     return {donnee.annee for donnee in traces}
+
+
+#: Ce qui relie deux années dans un titre : « 2024-2030 », « 2024 à 2030 ».
+_LIAISON_D_ANNEES = re.compile(r"\s*(?:[-–—]|à|a|et|vers|jusqu'[aà])\s*")
+
+#: Les mots qui, en fin de titre, appellent un complément. Un titre qui s'y
+#: arrête a été AMPUTÉ, pas raccourci : il ne se pose pas sous une figure.
+_ATTEND_UN_COMPLEMENT = frozenset({
+    "a", "au", "aux", "de", "du", "des", "en", "entre", "pour", "sur", "vers",
+    "depuis", "jusqu", "horizon", "horizons", "periode", "periodes", "annee",
+    "annees", "exercice", "exercices", "et", "ou", "dans", "par", "the",
+})
+
+
+def _sans_accents(texte: str) -> str:
+    """« période » → « periode ». Pour comparer un mot à une liste fermée."""
+    decompose = unicodedata.normalize("NFD", texte)
+    return "".join(c for c in decompose if unicodedata.category(c) != "Mn")
+
+
+def _titre_sans_les_annees_absentes(
+    socle: Socle,
+    resolution: Resolution,
+    identifiants: Sequence[str],
+    titre: str,
+) -> str:
+    """Le titre débarrassé des années que la figure ne porte pas.
+
+    « Projection du marché 2026-2030 » devant des données 2024-2025 devient
+    « Projection du marché ». On retire l'annonce fausse, jamais le sujet.
+
+    Rend la chaîne vide si rien ne peut être retiré proprement — titre réduit
+    à presque rien, ou année qu'aucun motif ne sait isoler. Mieux vaut un refus
+    qu'un titre amputé de son sens (règle 2 : ce que le lecteur lit doit se
+    tenir).
+    """
+    annees = _annees_portees(
+        socle, resolution, identifiants, _donnees_tracees(socle, identifiants),
+    )
+    hors = _annees_citees(titre) - annees
+    if not hors:
+        return ""
+    propre = titre
+    for annee in sorted(hors, reverse=True):
+        # L'année ET sa liaison : « 2026-2030 » amputé de 2026 laisserait
+        # « -2030 ». On retire la liaison qui la précède ou qui la suit.
+        propre = re.sub(
+            rf"{_LIAISON_D_ANNEES.pattern}{annee}\b|\b{annee}{_LIAISON_D_ANNEES.pattern}(?=\d)",
+            " ", propre,
+        )
+        propre = re.sub(rf"\b{annee}\b", " ", propre)
+    # Ponctuation et parenthèses laissées vides par le retrait.
+    propre = re.sub(r"\(\s*\)|\[\s*\]", " ", propre)
+    propre = re.sub(r"\s*[,;:]\s*(?=[,;:]|$)", "", propre)
+    propre = re.sub(r"\s{2,}", " ", propre).strip(" ,;:-–—")
+    # Un titre qui ne dit plus rien ne vaut pas mieux qu'un refus.
+    mots = re.findall(r"[^\W\d_]+", propre)
+    if len(mots) < 2:
+        return ""
+    # Ni un titre AMPUTÉ. « Les tendances du métier à l'horizon 2035 » privé de
+    # son année laisse « … à l'horizon » : une préposition en l'air, que le
+    # lecteur lirait sous la figure. Le défaut a été trouvé par le test
+    # `test_une_frise_qui_annonce_une_annee_absente_ne_laisse_pas_de_tableau`,
+    # écrit bien avant ce correctif — c'est exactement ce qu'un test doit faire.
+    if _sans_accents(mots[-1].lower()) in _ATTEND_UN_COMPLEMENT:
+        return ""
+    return propre
 
 
 def _ecarts_de_periode(

@@ -664,9 +664,17 @@ class TotalFaux:
     somme: float
 
     def __str__(self) -> str:
+        # `{:,.2f}` écrivait « 1,250,000.00 » : virgule de milliers et point
+        # décimal, c'est-à-dire la typographie ANGLAISE. Aucun document
+        # français ne contient ce nombre, et ce motif part au rédacteur chargé
+        # de corriger (règle 2). `nombre_francais` est la source unique du
+        # dépôt pour écrire un nombre (règle 5).
+        from .socle.schema import nombre_francais  # noqa: PLC0415 — schéma lourd
+
         return (
             f"Colonne « {self.colonne} » : le tableau annonce un total de "
-            f"{self.annonce:,.2f}, mais ses lignes font {self.somme:,.2f}. "
+            f"{nombre_francais(round(self.annonce, 2))}, mais ses lignes font "
+            f"{nombre_francais(round(self.somme, 2))}. "
             "Un lecteur qui additionne la colonne verra l'écart ; corrige le "
             "total, ou la ligne qui manque."
         )

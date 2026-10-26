@@ -483,11 +483,52 @@ def test_contre_epreuve_une_egalite_parmi_trois_valeurs_reste_une_figure() -> No
 # ── Règle 5 : la bonne période ───────────────────────────────────────────────
 
 
-def test_une_annee_du_titre_absente_des_donnees_part_en_tableau() -> None:
+def test_une_annee_du_titre_absente_des_donnees_sort_du_titre() -> None:
+    """Le titre ment : on retire le mensonge, plus la figure.
+
+    ## Ce que ce test exigeait avant le 26/10/2026, et pourquoi il a changé
+
+    Il demandait que la figure parte en TABLEAU, titre retiré. L'intention est
+    juste — un titre qui annonce 2029 devant des chiffres qui s'arrêtent en
+    2028 trompe le lecteur — mais le remède coûtait trop cher.
+
+    Mesure sur l'étude de production `dd30db73` : 18 figures demandées, 8
+    obtenues, 5 imprimées en tableau brut, 5 perdues. DEUX des cinq abandons
+    tenaient à cela seul, sur des données parfaitement valides venues du socle.
+    Le lecteur perdait le graphique ET son intitulé, et recevait à la place un
+    tableau « Donnée | Valeur | Unité | Année » — ce que la cliente a relevé
+    comme une fuite de données internes au milieu de ses chapitres.
+
+    L'année fautive sort donc du titre, et la figure reste. Ce que ce test
+    verrouille n'a pas bougé : **le titre menteur ne s'imprime jamais.**
+    """
     socle = _socle(*_previsionnel())
 
     blocs, rapport = _poser(socle, _figure(
         TypeGraphique.COURBES, "Chiffre d'affaires prévisionnel 2026-2029",
+        "ca_previsionnel_an1", "ca_previsionnel_an2", "ca_previsionnel_an3",
+    ))
+
+    # 2026 sort — la figure commence en 2027. 2029 RESTE : c'est une année que
+    # les données portent, et la retirer appauvrirait un titre exact.
+    assert [bloc["type"] for bloc in blocs] == ["graphique"]
+    assert blocs[0]["titre"] == "Chiffre d'affaires prévisionnel 2029"
+    # La correction est TRACÉE : une réécriture silencieuse n'en est pas une.
+    assert any("titre corrigé" in ligne for ligne in rapport.graphiques_repares), (
+        rapport.graphiques_repares
+    )
+
+
+def test_un_titre_qu_on_ne_sait_pas_reparer_part_toujours_en_tableau() -> None:
+    """Contre-épreuve : la réparation n'ouvre pas la porte à n'importe quoi.
+
+    Quand retirer l'année ne laisse pas un titre qui se tient — ici il ne
+    resterait qu'un mot —, la figure repart au refus, comme avant.
+    """
+    socle = _socle(*_previsionnel())
+
+    blocs, rapport = _poser(socle, _figure(
+        TypeGraphique.COURBES, "Bilan 2026",
         "ca_previsionnel_an1", "ca_previsionnel_an2", "ca_previsionnel_an3",
     ))
 

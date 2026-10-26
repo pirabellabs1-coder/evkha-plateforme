@@ -128,6 +128,28 @@ _AXES_ETUDE_DE_MARCHE: tuple[Axe, ...] = (
     Axe("opportunites_2030", "opportunités croissance secteur 2026 2030", (5, 8)),
     # Bloc D — réglementation (ch. 6)
     Axe("licences", "licence agrément autorisation obligations légales activité", (6,)),
+    # Les BARRIÈRES COMMERCIALES, ajoutées le 26/10/2026.
+    #
+    # Retour de la cliente sur une étude à l'export : « les différends
+    # commerciaux en cours sur le produit ou le pays — antidumping, enquêtes —
+    # ne sont pas mentionnés, alors qu'ils touchent directement l'offre du
+    # client ».
+    #
+    # L'axe `reglementation` cherche le cadre légal du pays ; il ne cherche
+    # pas ce qui se passe À LA FRONTIÈRE. Un droit antidumping ou un quota
+    # décide de la faisabilité d'un projet avant toute tendance de
+    # consommation, et aucune requête ne pouvait le ramener.
+    #
+    # Une requête de plus par étude, y compris pour un projet qui ne vend que
+    # chez lui : le tri des résultats écartera ce qui ne s'applique pas, et le
+    # coût d'une recherche est sans commune mesure avec celui d'une étude qui
+    # ignore un droit de douane.
+    Axe(
+        "barrieres_commerciales",
+        "droits de douane antidumping restriction importation quota "
+        "réglementation e-commerce transfrontalier",
+        (4, 6, 12),
+    ),
     Axe("fiscalite", "fiscalité TVA charges statut juridique activité", (6,)),
     # Bloc E — horizons (ch. 7-8)
     Axe("tendances_2026", "tendances 2026 2027 évolution des usages", (7,)),
