@@ -1281,10 +1281,36 @@ def controler_chiffres_hors_socle(
     # Le BRIEF en tête : `_derivations` coupe à 80 valeurs, et les chiffres du
     # client rangés après le socle n'entraient jamais dans une dérivation dès
     # que le socle en comptait 80 (relecture du 14/09/2026).
+    # Les seuils que la LOI fixe sont des références au même titre que le socle.
+    #
+    # Mesuré le 26/10/2026 sur le business plan `68fc68b4` : « 83 600 € » —
+    # le plafond de la micro-entreprise — et « 37 500 € » — la franchise en
+    # base de TVA — étaient signalés comme sans équivalent « dans le socle, ni
+    # dans le brief, ni dans les documents du client ». C'était exact et hors
+    # sujet : ils viennent du CGI, et `memoire.regles` les impose par ailleurs
+    # au même document. Le contrôle accusait le livrable d'avoir inventé un
+    # chiffre que le dépôt lui ordonne d'écrire (règle 2).
+    # Ils entrent comme references DIRECTES, et JAMAIS dans les derivations.
+    #
+    # La premiere version les versait dans `references`, qui alimente
+    # `_derivations`. Le test `test_un_en_tete_qui_ne_decide_rien_ne_blanchit_rien`
+    # est tombe aussitot : « 47,1 % » cessait d'etre signale, justifie par
+    # hasard par un quotient de deux seuils legaux. C'est exactement ce que la
+    # docstring de `_derivations` annonce — « la probabilite qu'un chiffre
+    # INVENTE tombe par hasard sur l'une d'elles devient reelle ». Six valeurs
+    # de plus, et le controle blanchissait ce qu'il devait montrer.
+    #
+    # Un seuil legal justifie le montant QU'IL EST, pas ce qu'on peut calculer
+    # avec. Il n'est pas une donnee du dossier : rien n'en derive.
+    from ..memoire.regles import valeurs_des_seuils_legaux  # noqa: PLC0415
+
     references = [
         *((valeur, "brut") for valeur in chiffres_du_brief),
         *((valeur, "monetaire") for valeur in chiffres_du_brief),
         *_valeurs_de_reference(socle),
+    ]
+    seuils_legaux: list[tuple[float, str]] = [
+        (valeur, "monetaire") for valeur in valeurs_des_seuils_legaux()
     ]
 
     # Les dérivations sont calculées UNE fois pour tout le document : elles ne
@@ -1304,6 +1330,9 @@ def controler_chiffres_hors_socle(
     deja_vues: set[str] = set()
     for mesure in document.mesures:
         if _justifiee(mesure, references, derivations):
+            continue
+        # Un montant que la LOI fixe se justifie par lui-meme, sans derivation.
+        if _justifiee(mesure, seuils_legaux):
             continue
         if _reprend_une_estimation_etablie(mesure, etablies):
             continue

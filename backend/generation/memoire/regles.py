@@ -164,3 +164,35 @@ def depasse_le_plafond_micro(
             "répète deux années civiles consécutives"
         ).replace(",", " "),
     )
+
+
+def valeurs_des_seuils_legaux() -> set[float]:
+    """Tous les montants que la LOI fixe, seuils majorés compris.
+
+    ## Pourquoi cette fonction existe
+
+    Mesuré le 26/10/2026 sur le business plan `68fc68b4` : le contrôle des
+    chiffres hors socle signalait « 83 600 € » (plafond de la micro-entreprise)
+    et « 37 500 € » (franchise en base de TVA) comme n'ayant « pas d'équivalent
+    dans le socle, ni dans le brief, ni dans les documents du client ».
+
+    C'est exact, et c'est hors sujet : ces montants ne viennent ni du socle ni
+    du client, ils viennent du CGI. Un document qui les cite ne les invente
+    pas — il applique la règle que `FRANCHISE_TVA` et `PLAFOND_MICRO`
+    imposent par ailleurs au même document.
+
+    Le contrôle accusait donc le livrable d'avoir inventé un chiffre que le
+    dépôt lui ordonne d'écrire. Un motif faux envoie corriger ce qui est juste
+    (règle 2), et il noie les vrais au milieu du bruit.
+
+    Les montants vivent ICI, avec leur article et leur source : les recopier
+    dans le contrôle en ferait une seconde vérité qui divergerait au prochain
+    budget (règle 5).
+    """
+    valeurs: set[float] = set()
+    for table in SEUILS_LEGAUX:
+        for seuil in table.values():
+            valeurs.add(float(seuil.valeur))
+            if seuil.majore is not None:
+                valeurs.add(float(seuil.majore))
+    return valeurs

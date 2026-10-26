@@ -133,7 +133,25 @@ _BASE_CONCURRENTS = (
     "observé — offre affichée, tarifs publics, avis clients, couverture — et "
     "non des chiffres de source : c'est le seul endroit du socle où tu juges. "
     "Un critère noté sur un seul acteur ne compare rien et fait refuser le "
-    "socle ; un acteur non noté disparaît de toutes les figures."
+    "socle ; un acteur non noté disparaît de toutes les figures.\n"
+    # Mesuré le 26/10/2026 sur l'étude `dd30db73` : DEUX figures sur dix-huit
+    # abandonnées — une matrice de positionnement au chapitre 3, un radar au
+    # 17 — avec le même motif : « le titre ou la légende nomme le projet, et
+    # la figure ne le compare pas : l'entreprise du dossier n'est pas notée
+    # sur la grille ». La consigne disait « chaque CONCURRENT », et le projet
+    # n'en est pas un : il n'était donc jamais noté, et toute figure qui le
+    # compare mourait. Le schéma l'attendait pourtant — `type: "projet"` est
+    # un sélecteur de `SELECTEURS_D_ACTEURS` depuis le 13/08/2026.
+    "\n"
+    "NOTE AUSSI LE PROJET DU CLIENT, sur les mêmes critères. Ajoute-le à "
+    "`concurrents` avec son nom et `\"type\": \"projet\"`, puis note-le comme "
+    "les autres. Il ne compte pas parmi les concurrents directs ou indirects : "
+    "son type le distingue.\n"
+    "Sans lui, une matrice de positionnement ou un radar qui situent "
+    "l'entreprise du dossier face à son marché n'ont aucune coordonnée à "
+    "placer — et ce sont les figures que le lecteur regarde en premier, "
+    "puisqu'il y cherche SA place. Note le projet tel qu'il se présentera au "
+    "lancement, pas tel qu'il espère devenir."
 )
 
 # Règles du prévisionnel — business plan uniquement. Le pendant de
