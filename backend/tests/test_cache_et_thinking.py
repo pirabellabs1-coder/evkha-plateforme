@@ -237,17 +237,35 @@ def test_la_reflexion_est_adaptative_et_porte_un_effort(
 
 
 @override_settings(EVKHA_THINKING_BUDGET_TOKENS=0)
-def test_provision_nulle_coupe_la_reflexion_EXPLICITEMENT(
+def test_provision_nulle_demande_la_reflexion_MINIMALE(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Omettre `thinking` ne coupe rien : les modeles recents la laissent en
-    adaptatif. Le levier de repli doit donc dire non, pas se taire."""
+    """Le levier de repli dit toujours non — mais dans la langue des modeles recents.
+
+    ## Ce que ce test exigeait avant le 26/10/2026
+
+    `thinking: {"type": "disabled"}`, et pas d'`output_config`. L'intention
+    etait juste et le reste : omettre `thinking` ne coupe rien, les modeles
+    recents le laissent en adaptatif, donc le repli doit parler.
+
+    Ce qui a change, c'est que `disabled` n'existe plus partout. Mesure du
+    26/10/2026, premiere generation reelle apres le passage en Opus — morte a
+    0,43 EUR, zero chapitre sur vingt-deux :
+
+        "thinking.type.disabled" is not supported for this model. Use
+        "thinking.type.adaptive" and "output_config.effort".
+
+    `claude-sonnet-5` l'acceptait, `claude-opus-5-5` le refuse. L'intention se
+    dit desormais par l'EFFORT : adaptatif, au plus bas.
+    """
     messages = _appel_capture(monkeypatch)
     AnthropicClaudeClient(api_key="fake").complete(system="sys", prompt="p")
 
     envoye = messages.calls[0]
-    assert envoye["thinking"] == {"type": "disabled"}
-    assert "output_config" not in envoye
+    assert envoye["thinking"] == {"type": "adaptive"}
+    assert envoye["output_config"] == {"effort": "low"}
+    # Ce qui ne doit JAMAIS revenir : la forme qui a tue la generation.
+    assert "disabled" not in str(envoye["thinking"])
 
 
 @override_settings(EVKHA_THINKING_BUDGET_TOKENS=1024)
@@ -267,14 +285,31 @@ def test_la_provision_reste_reservee_dans_max_tokens(
     assert messages.calls[0]["max_tokens"] == 4000 + 1024
 
 
-def test_la_sortie_structuree_coupe_la_reflexion_explicitement(
+def test_la_sortie_structuree_demande_la_reflexion_minimale_et_un_choix_libre(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`tool_choice` force est incompatible avec la reflexion.
+    """La sortie contrainte parle la langue des modeles recents.
 
-    Le code d'avant comptait sur l'omission de `thinking` pour l'eteindre. Sur
-    les modeles recents, l'omission la rallume : le socle et chaque chapitre
-    structure auraient reflechi en adaptatif, hors de toute provision.
+    ## Les DEUX formes que ce test exigeait, et que l'API refuse desormais
+
+    Mesure du 26/10/2026 contre l'API reelle, sur `claude-opus-5-5` :
+
+        thinking.type.disabled      -> refuse
+        tool_choice type "tool"     -> refuse
+        tool_choice type "any"      -> refuse
+
+    La production tournait sur `claude-sonnet-5`, qui acceptait les deux. La
+    premiere generation reelle apres le passage en Opus est morte a 0,43 EUR,
+    zero chapitre sur vingt-deux, sur la premiere de ces deux formes — le
+    socle est le premier appel du dossier.
+
+    `auto` a appele l'outil aux trois essais, sur opus-5-5, sonnet-5 et
+    sonnet-5-5. La garantie n'est donc plus dans l'API : elle est dans la
+    boucle de reprise du socle, qui s'y reprend a trois fois.
+
+    L'omission reste INTERDITE, et cette partie-la n'a pas bouge : sur les
+    modeles recents, ne pas envoyer `thinking` le laisse tourner en adaptatif,
+    hors de toute provision.
     """
     messages = _appel_capture(monkeypatch)
     AnthropicClaudeClient(api_key="fake").complete_structured(
@@ -285,7 +320,10 @@ def test_la_sortie_structuree_coupe_la_reflexion_explicitement(
         schema={"type": "object"},
     )
 
-    assert messages.calls[0]["thinking"] == {"type": "disabled"}
+    envoye = messages.calls[0]
+    assert envoye["thinking"] == {"type": "adaptive"}
+    assert envoye["output_config"] == {"effort": "low"}
+    assert envoye["tool_choice"] == {"type": "auto"}
 
 
 @pytest.fixture

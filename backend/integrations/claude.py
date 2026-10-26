@@ -408,6 +408,51 @@ def _provision_reflexion() -> int:
     return max(int(getattr(settings, "EVKHA_THINKING_BUDGET_TOKENS", 0) or 0), 0)
 
 
+#: Ce que vaut « pas de reflexion » sur un modele qui refuse de la couper.
+#:
+#: ## La panne, mesuree
+#:
+#: 26/10/2026, premiere generation reelle apres le passage en Opus. Le dossier
+#: `8961e377` est mort a 0,43 EUR, zero chapitre sur vingt-deux :
+#:
+#:     BadRequestError 400 : "thinking.type.disabled" is not supported for this
+#:     model. Use "thinking.type.adaptive" and "output_config.effort".
+#:
+#: `claude-sonnet-5` acceptait `disabled` — la production tournait avec depuis
+#: des mois. `claude-opus-5-5` le refuse. La repetition a blanc ne pouvait pas
+#: le voir : elle joue la chaine sur la DOUBLURE, sans un appel d'API (regle 7
+#: — le vert des tests ne prouve rien sur ce qui part chez Anthropic).
+#:
+#: ## Pourquoi pas une table de modeles
+#:
+#: Une table qui dit quels modeles acceptent `disabled` serait fausse au
+#: prochain modele, en silence, et c'est EXACTEMENT le defaut qui vient de
+#: couter cette generation : `_ANTHROPIC_MODEL_IDS` pointait encore vers des
+#: modeles de la generation precedente parce que rien ne la confrontait au
+#: reel. On n'en ecrit pas une seconde.
+#:
+#: `adaptive` avec l'effort le plus BAS est accepte par TOUS les modeles, et
+#: demande au modele de reflechir le moins possible. C'est la meme intention
+#: que `disabled`, dite dans la langue que tous comprennent.
+_EFFORT_MINIMAL = "low"
+
+#: Provision de jetons quand la reflexion est au minimum. `max_tokens` borne la
+#: reflexion ET le texte ensemble : sans elle, le peu que le modele reflechit
+#: mange la fin du chapitre. Petite, parce que l'effort est bas.
+_PROVISION_MINIMALE = 512
+
+
+def reflexion_minimale() -> dict[str, object]:
+    """Le couple `thinking` / `output_config` qui demande le moins de reflexion.
+
+    Remplace `thinking: {"type": "disabled"}`, refuse par les modeles recents.
+    """
+    return {
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": _EFFORT_MINIMAL},
+    }
+
+
 def _effort_reflexion() -> str:
     """Niveau d'effort envoye en `output_config.effort` (low → max).
 
@@ -585,7 +630,12 @@ class AnthropicClaudeClient:
             extra["output_config"] = {"effort": _effort_reflexion()}
             max_tokens = max_tokens + provision_reflexion
         else:
-            extra["thinking"] = {"type": "disabled"}
+            # `disabled` est refuse par les modeles recents (voir
+            # `reflexion_minimale`). L'intention — reflechir le moins
+            # possible — se dit en `adaptive` + effort bas, et `max_tokens`
+            # reçoit sa provision pour que la reflexion ne mange pas le texte.
+            extra.update(reflexion_minimale())
+            max_tokens = max_tokens + _PROVISION_MINIMALE
 
         # Outil advisor : reserve aux appels qui le demandent explicitement
         # (aujourd'hui les CHECKs de bloc, cf. generation/checks_blocs.py). Il
@@ -731,19 +781,36 @@ class AnthropicClaudeClient:
     ) -> StructuredResult:
         """Reponse contrainte a un schema JSON, via l'outil dedie (lot 1).
 
-        Utilise `tool_choice` force : le modele NE PEUT PAS repondre autre chose
-        qu'un appel d'outil conforme au schema. C'est la difference de nature
-        avec `complete()`, qui rend du texte libre a analyser apres coup.
+        Le modele est invite a repondre par un appel d'outil conforme au
+        schema. C'est la difference de nature avec `complete()`, qui rend du
+        texte libre a analyser apres coup.
 
-        La reflexion est volontairement DESACTIVEE ici : elle impose
-        `tool_choice: auto` cote API, ce qui reintroduirait la possibilite d'une
-        reponse en texte libre — exactement ce que cette methode elimine.
+        ## Ce que ce paragraphe disait, et que la mesure a dementi (26/10/2026)
 
-        Elle est desactivee EXPLICITEMENT, et non par omission. Sur les modeles
-        recents, ne pas envoyer `thinking` ne coupe pas la reflexion : elle
-        tourne en adaptatif. L'omission qui suffisait jusqu'ici aurait donc
-        silencieusement rallume ce que ce paragraphe declare eteindre, sur
-        chaque appel du socle et de chaque chapitre structure.
+        Il annoncait un `tool_choice` FORCE — « le modele NE PEUT PAS repondre
+        autre chose » — et une reflexion DESACTIVEE pour le tenir.
+
+        Les deux ont cesse d'etre vrais au passage en Opus, et la production
+        est tombee dessus : le dossier `8961e377` est mort a 0,43 EUR, zero
+        chapitre sur vingt-deux. Mesure contre l'API reelle :
+
+            thinking.type.disabled      -> refuse par claude-opus-5-5
+            tool_choice type "tool"     -> refuse par claude-opus-5-5
+            tool_choice type "any"      -> refuse par claude-opus-5-5
+
+        Le choix force n'existe plus sur ce modele, avec ou sans reflexion. Il
+        ne reste que `auto`, qui a appele l'outil aux trois essais sur les
+        trois modeles eprouves (opus-5-5, sonnet-5, sonnet-5-5).
+
+        La garantie n'est donc plus dans l'API : elle est dans la boucle. Un
+        appel qui ne rend pas l'outil laisse `payload` vide, et l'appelant
+        retente — `socle.builder` s'y reprend a trois fois. C'est plus faible
+        qu'une contrainte d'API, et c'est dit plutot que promis (regle 1).
+
+        La reflexion est au MINIMUM, pas eteinte : `reflexion_minimale` dit
+        pourquoi. Elle est explicite, jamais omise — sur les modeles recents,
+        ne pas envoyer `thinking` la laisse tourner en adaptatif, et le silence
+        voudrait dire « non provisionnee », pas « absente ».
         """
         import os
 
@@ -774,8 +841,25 @@ class AnthropicClaudeClient:
                     "input_schema": schema,
                 }
             ],
-            tool_choice={"type": "tool", "name": outil_nom},
-            thinking={"type": "disabled"},
+            # `auto`, et non `{"type": "tool"}` : MESURE du 26/10/2026 contre
+            # l'API reelle, sur `claude-opus-5-5` —
+            #
+            #     tool_choice: type "tool" and "any" are not supported for
+            #     this model.
+            #
+            # Le choix FORCE n'existe plus sur ce modele, avec ou sans
+            # reflexion. `auto` a appele l'outil aux trois essais, sur
+            # opus-5-5, sonnet-5 et sonnet-5-5 : c'est le seul chemin que les
+            # trois acceptent, donc le seul qu'on ecrit (regle 5).
+            #
+            # Un appel qui ne rendrait pas l'outil laisse `payload` vide, et
+            # l'appelant retente — `socle.builder` s'y reprend a trois fois.
+            tool_choice={"type": "auto"},
+            # `disabled` est refuse par les modeles recents : voir
+            # `reflexion_minimale`. Un appel a sortie contrainte n'a pas besoin
+            # de reflechir, mais il doit le DEMANDER dans une langue que le
+            # modele comprend.
+            **reflexion_minimale(),
         )
 
         charge: dict[str, object] = {}
