@@ -732,6 +732,247 @@ def _valeur_de_cellule(cellule: str) -> float | None:
     return -valeur if signe and signe.group(1) != "+" else valeur
 
 
+def _tableaux(texte: str) -> list[list[list[str]]]:
+    """Les tableaux markdown du texte : une liste de lignes de cellules.
+
+    L'en-tête est la première ligne ; la ligne de séparation est retirée. Un
+    bloc de moins de deux lignes n'est pas un tableau.
+    """
+    tableaux: list[list[list[str]]] = []
+    courant: list[list[str]] = []
+    for ligne in texte.splitlines():
+        if not _LIGNE_TABLEAU.match(ligne):
+            if len(courant) >= 2:
+                tableaux.append(courant)
+            courant = []
+            continue
+        if _SEPARATEUR.match(ligne):
+            continue
+        courant.append(_cellules(ligne))
+    if len(courant) >= 2:
+        tableaux.append(courant)
+    return tableaux
+
+
+#: Un en-tête de colonne qui EST une année : « 2024 », « 2025e », « Année 2026 ».
+_ENTETE_ANNEE = re.compile(r"(?<!\d)(?P<annee>(?:19|20)\d{2})(?!\d)")
+
+#: Un en-tête qui annonce la variation TOTALE entre deux colonnes.
+#: « Écart type » n'est PAS une variation, et une colonne au titre nu « % »
+#: désigne le plus souvent une part du total : les deux produisaient un motif
+#: faux sur des lignes justes (relecture du 26/10/2026). Un en-tête doit
+#: ANNONCER une variation pour être recalculé — sinon on s'abstient (règle 2).
+_ENTETE_VARIATION = re.compile(
+    r"(?i)\b(?:[ée]volution|variation|croissance|progression|recul|baisse|"
+    r"hausse|delta)\b|\b[ée]cart(?!\s*-?\s*type)\w*\s+(?:relatif|en\s*%|"
+    r"de\s+croissance)|^\s*[+±]\s*/?\s*[-−]?\s*%?\s*$"
+)
+
+#: Les unités dont l'écart s'exprime en POINTS et non en variation relative.
+#: Deux parts de marché passant de 12 % à 15 % font « +3 points », pas « +25 % ».
+_UNITES_SANS_VARIATION_RELATIVE = frozenset({"%", "pt", "pts", "point", "points"})
+
+#: Une cellule qui annonce elle-même des POINTS : on ne la lit pas comme un taux.
+_EN_POINTS = re.compile(r"(?i)\b(?:pt|pts|points?)\b")
+
+#: Un en-tête de taux ANNUALISÉ. `(fin − début) / début` n'est PAS sa formule :
+#: un TCAC prend la racine n-ième. Juger une colonne de TCAC avec la formule de
+#: la variation totale crierait faux sur une colonne juste — c'est la règle 2,
+#: et ce dépôt a déjà payé trois passes de correction pour un motif faux.
+_ENTETE_ANNUALISE = re.compile(
+    r"(?i)\b(?:tcac|cagr|annualis\w*|annuel\w*)\b|/\s*an\b|\bpar\s+an\b"
+)
+
+
+@dataclass(frozen=True)
+class VariationFausse:
+    """Une évolution annoncée qui ne découle pas des deux valeurs du tableau."""
+
+    intitule: str
+    colonne: str
+    avant: float
+    apres: float
+    unite: str
+    ecrit: float
+    calcule: float
+    #: Les cellules TELLES QUE LE DOCUMENT LES ÉCRIT.
+    #:
+    #: Le motif citait `{:,.4g}` des valeurs lues : « de 2.7e+06 € à 2.1e+06 € »
+    #: pour un tableau qui écrit « 2 700 000 € » (relecture du 26/10/2026).
+    #: Aucun document ne contient `2.7e+06`, et ce motif part dans la consigne
+    #: de réécriture : le rédacteur devait retrouver un chiffre écrit autrement.
+    #: C'est la règle 2 — un motif doit être trouvable par le lecteur.
+    avant_ecrit: str = ""
+    apres_ecrit: str = ""
+
+    def __str__(self) -> str:
+        from .socle.schema import nombre_francais  # noqa: PLC0415 — schéma lourd
+
+        unite = f" {self.unite}" if self.unite else ""
+        avant = self.avant_ecrit or f"{nombre_francais(self.avant)}{unite}"
+        apres = self.apres_ecrit or f"{nombre_francais(self.apres)}{unite}"
+        return (
+            f"Ligne « {self.intitule} », colonne « {self.colonne} » : de "
+            f"{avant} à {apres}, la variation est de "
+            f"{_pourcentage_signe(self.calcule)} et non "
+            f"{_pourcentage_signe(self.ecrit)}. "
+            "Un lecteur qui refait la division le verra ; corrige le "
+            "pourcentage, ou les deux valeurs si ce sont elles qui sont fausses."
+        )
+
+
+def _pourcentage_signe(valeur: float) -> str:
+    """« -22,2 % », « +25 % » — écrit comme le document écrit ses nombres.
+
+    `nombre_francais` est la source unique du dépôt pour écrire un nombre
+    (règle 5) ; elle n'écrit pas le signe des positifs, qu'une variation doit
+    porter.
+    """
+    from .socle.schema import nombre_francais  # noqa: PLC0415 — schéma lourd
+
+    arrondi = round(valeur, 1)
+    signe = "+" if arrondi > 0 else ""
+    return f"{signe}{nombre_francais(arrondi)} %"
+
+
+def variations_fausses(texte: str) -> list[VariationFausse]:
+    """Les évolutions qu'un tableau annonce et que ses propres colonnes démentent.
+
+    ## Le défaut, mesuré
+
+    Étude de marché à l'export, relevée par la cliente le 26/10/2026 : « une
+    base de 2,7 Md€ passe à 2,1 Md€, présentée comme −6 %, alors que la baisse
+    réelle est de −22 % ». Le chiffre faux servait ensuite de pilier dans une
+    dizaine de chapitres.
+
+    ## Pourquoi `verifier` ne l'a pas vu
+
+    `_EVOLUTION` attrape « de 40 000 à 50 000, soit une hausse de 25 % » : une
+    tournure de PROSE, d'un seul tenant, avec moins de quarante signes entre
+    les deux termes. Les trois nombres du défaut vivaient dans trois COLONNES
+    d'un tableau. Rien ne les reliait.
+
+    C'est la règle 4 du dépôt : un correctif qui énumère des cas est incomplet.
+    `_EVOLUTION` énumérait des tournures ; la classe est « deux valeurs d'une
+    même grandeur à deux dates, et un pourcentage qui prétend les relier ».
+
+    ## Ce qui est jugé, et ce qui ne l'est pas
+
+    Un tableau ne dit pas lequel de ses nombres découle des autres. On ne juge
+    donc que lorsque son EN-TÊTE le dit : deux colonnes qui sont des années, et
+    une colonne qui nomme une évolution. Tout le reste est laissé tranquille —
+    « 12 % » à côté de « 150 € » et « 18 € » est une marge, pas une variation,
+    et un contrôle qui la recalculerait produirait un motif faux.
+
+    Une colonne de taux ANNUALISÉ (TCAC, CAGR, « %/an ») est explicitement
+    écartée : sa formule prend la racine n-ième, pas la différence relative.
+    """
+    fautes: list[VariationFausse] = []
+    for tableau in _tableaux(texte):
+        entetes = tableau[0]
+        # Une colonne « Évolution 2024-2026 » porte une année SANS être une
+        # colonne d'années : la prendre pour telle ferait comparer la colonne
+        # d'évolution à elle-même. On tranche sur ce que l'en-tête ANNONCE.
+        annees: list[tuple[int, int]] = []
+        for rang, entete in enumerate(entetes):
+            if _ENTETE_ANNUALISE.search(entete) or _ENTETE_VARIATION.search(entete):
+                continue
+            trouve = _ENTETE_ANNEE.search(entete)
+            if trouve:
+                annees.append((int(trouve.group("annee")), rang))
+        if len(annees) < 2:
+            continue
+        annees.sort()
+        # Deux colonnes du MÊME millésime ne sont pas un avant/après.
+        #
+        # Relecture du 26/10/2026 : « | Pays | Importations 2024 | Exportations
+        # 2024 | Évolution | » faisait comparer les imports aux exports et
+        # rendait « de 120 M€ à 80 M€, soit −33 % » sur une ligne juste. Un
+        # tableau imports/exports, volume/valeur ou CA/effectif d'une même
+        # année est une forme banale d'étude de marché, et chaque motif faux
+        # fait réécrire un chapitre payé.
+        if annees[0][0] == annees[-1][0]:
+            continue
+        premiere, derniere = annees[0][0], annees[-1][0]
+        if sum(1 for a, _ in annees if a == premiere) > 1:
+            continue
+        if sum(1 for a, _ in annees if a == derniere) > 1:
+            continue
+        _, rang_avant = annees[0]
+        _, rang_apres = annees[-1]
+
+        # Une colonne de variation qui NOMME ses années — « Évolution 2025/2026 »
+        # — désigne un couple que nous ne savons pas identifier à coup sûr : sur
+        # un tableau à trois années, nous comparerions les mauvaises. On s'en
+        # abstient. On perd une détection ; on ne produit pas un motif faux, et
+        # c'est le sens dans lequel ce dépôt tranche (règle 2).
+        variations = [
+            rang
+            for rang, entete in enumerate(entetes)
+            if rang not in {rang_avant, rang_apres}
+            and _ENTETE_VARIATION.search(entete)
+            and not _ENTETE_ANNUALISE.search(entete)
+            and not _ENTETE_ANNEE.search(entete)
+        ]
+        if not variations:
+            continue
+
+        for ligne in tableau[1:]:
+            if len(ligne) <= max(rang_apres, *variations):
+                continue
+            avant = _valeur_de_cellule(ligne[rang_avant])
+            apres = _valeur_de_cellule(ligne[rang_apres])
+            if avant is None or apres is None or avant == 0:
+                continue
+            unite = _unite_de_cellule(ligne[rang_avant])
+            if unite != _unite_de_cellule(ligne[rang_apres]):
+                continue
+            # Quand les deux colonnes sont elles-mêmes des TAUX, l'écart
+            # s'exprime presque toujours en POINTS, pas en variation relative.
+            #
+            # Relecture du 26/10/2026 : « | Part de marché | 12 % | 15 % | +3 % | »
+            # faisait rendre « +25 % et non +3 % » sur une ligne juste. Part de
+            # marché, taux de pénétration, de marge, d'occupation : c'est
+            # l'ossature chiffrée d'une étude de marché. Le garde-fou du TCAC
+            # fermait un cas ; la classe est « le résultat n'est pas une
+            # différence relative » (règle 4).
+            if unite in _UNITES_SANS_VARIATION_RELATIVE:
+                continue
+            # Une base NÉGATIVE n'a pas de variation relative lisible : une
+            # perte qui passe de −50 k€ à −20 k€ s'écrit « −60 % » dans un
+            # compte de résultat, et `(après − avant) / |avant|` rend « +60 % ».
+            if avant < 0:
+                continue
+            calcule = (apres - avant) / abs(avant) * 100
+            for rang in variations:
+                cellule = ligne[rang]
+                if "%" not in cellule or _EN_POINTS.search(cellule):
+                    continue
+                ecrit = _valeur_de_cellule(cellule)
+                if ecrit is None:
+                    continue
+                nombre = re.search(_NOMBRE, cellule)
+                precision = _decimales(nombre.group(0)) if nombre else 0
+                if not _ecart_trop_grand(ecrit, calcule, precision):
+                    continue
+                intitule = ligne[0].strip("* ").strip()
+                if not intitule:
+                    # Sans intitulé, « Ligne «  » » n'est trouvable nulle part.
+                    continue
+                fautes.append(VariationFausse(
+                    intitule=intitule,
+                    colonne=entetes[rang].strip("* "),
+                    avant=avant,
+                    apres=apres,
+                    unite=unite,
+                    ecrit=ecrit,
+                    calcule=calcule,
+                    avant_ecrit=ligne[rang_avant].strip("* ").strip(),
+                    apres_ecrit=ligne[rang_apres].strip("* ").strip(),
+                ))
+    return fautes
+
+
 def totaux_faux(texte: str) -> list[TotalFaux]:
     """Les totaux annoncés qu'un tableau ne vérifie pas.
 

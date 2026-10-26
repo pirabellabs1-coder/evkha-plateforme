@@ -202,6 +202,66 @@ def montant_lisible(valeur: float, unite: str) -> str:
     return f"{_au_centime(_nombre_francais(valeur))}{INSECABLE}{symbole}"
 
 
+#: En deçà, aucune écriture décimale ne montre un chiffre significatif : on dit
+#: le seuil plutôt que d'écrire un zéro qui serait faux.
+_PLUS_PETIT_POURCENTAGE = 0.001
+
+
+def pourcentage_lisible(valeur: float, decimales: int = 0) -> str:
+    """Un taux tel qu'il doit APPARAÎTRE. Un taux non nul ne s'écrit jamais « 0 % ».
+
+    ## Le défaut, mesuré
+
+    Étude de marché à l'export, relevée par la cliente le 26/10/2026 : « un
+    taux de capture de 0,009 % s'affiche "0 %" à deux endroits ».
+
+    Le rendu Word écrivait ses étiquettes de répartition en `f"{part:.0f} %"`.
+    Sur 0,009, cela donne « 0 % » — et le document AFFIRME alors que le projet
+    ne capte rien, ce qui est faux, et ce qui vide de son sens tout le
+    raisonnement qui s'appuie dessus. Un zéro n'est pas un arrondi : c'est une
+    autre affirmation.
+
+    C'est exactement le défaut que `montant_lisible` traite déjà pour les
+    montants depuis le 29/09/2026 (« SOM = 0 Md€ » pour 480 000 €), sur une
+    autre grandeur. La règle 4 demandait de fermer la classe ; elle ne l'était
+    qu'à moitié.
+
+    ## Ce que fait la fonction
+
+    `decimales` est la précision VOULUE, celle qui rend une étiquette lisible.
+    Elle n'est augmentée que si l'arrondi à ce niveau efface un taux non nul :
+    on descend alors jusqu'au premier chiffre significatif. En deçà de
+    0,001 %, aucune écriture décimale n'en montre : on écrit « < 0,001 % »,
+    qui est vrai, plutôt qu'un zéro qui ne l'est pas.
+    """
+    if valeur == 0:
+        return f"0{INSECABLE}%"
+    precision = max(decimales, 0)
+    # On descend jusqu'à ce que l'arrondi soit FIDÈLE, pas seulement non nul.
+    #
+    # La première version s'arrêtait dès que l'arrondi cessait de valoir zéro.
+    # 0,009 % devenait donc « 0,01 % » : le premier chiffre significatif — le
+    # 9 — disparaissait quand même, arrondi en 1. Relecture du 26/10/2026 : la
+    # consigne `5 bis` ordonne au rédacteur d'écrire « 0,009 % », et le rendu
+    # Word en écrivait « 0,01 % ». Deux valeurs pour une même grandeur dans un
+    # document, sur le chiffre que la cliente venait de signaler.
+    #
+    # `_nombre_francais` ne rend que trois décimales : chercher plus loin
+    # produirait « 0 » à nouveau, par l'autre bout.
+    while precision < 3 and (
+        round(valeur, precision) == 0
+        or abs(round(valeur, precision) - valeur) > abs(valeur) * 0.1
+    ):
+        precision += 1
+    if round(valeur, precision) == 0:
+        # « -< 0,001 % » se lit « moins inférieur à ». Un taux négatif minuscule
+        # se borne par le haut : il est SUPÉRIEUR à −0,001 %.
+        if valeur < 0:
+            return f"> -0,001{INSECABLE}%"
+        return f"< 0,001{INSECABLE}%"
+    return f"{_nombre_francais(round(valeur, precision))}{INSECABLE}%"
+
+
 def unites_autorisees(famille: FamilleUnite) -> tuple[str, ...]:
     if famille is FamilleUnite.MONETAIRE:
         return unites_monetaires()
@@ -855,6 +915,7 @@ def valider_socle(socle: Socle, deliverable_type: str) -> list[str]:
         )
 
     motifs.extend(_controler_emboitement_marche(socle))
+    motifs.extend(_controler_territoire_de_l_entonnoir(socle))
     motifs.extend(_controler_equilibre_financier(socle))
     motifs.extend(_controler_grille_notation(socle))
     return motifs
@@ -1106,6 +1167,101 @@ def _controler_equilibre_financier(socle: Socle) -> list[str]:
                     f"depuis les hypotheses presentees dans le document."
                 )
 
+    return motifs
+
+
+#: De la plus large à la plus étroite. Un entonnoir de marché ne peut pas
+#: S'ÉLARGIR en descendant : un SAM ne vit jamais sur un territoire plus vaste
+#: que son TAM.
+_LARGEUR_DU_PERIMETRE: dict[Perimetre, int] = {
+    Perimetre.MONDE: 4,
+    Perimetre.CONTINENT: 3,
+    Perimetre.NATIONAL: 2,
+    Perimetre.REGIONAL: 1,
+    Perimetre.ENTREPRISE: 0,
+}
+
+
+def _controler_territoire_de_l_entonnoir(socle: Socle) -> list[str]:
+    """TAM, SAM et SOM parlent-ils du même territoire, et de la même année ?
+
+    ## Le défaut, mesuré
+
+    Étude de marché à l'export, relevée par la cliente le 26/10/2026 : « pour
+    un projet qui vend à l'export, le TAM retenu était le marché français du
+    e-commerce alimentaire, et le SAM était constitué des exportations. Le SAM
+    n'est donc pas un sous-ensemble du TAM. Le ratio SAM = 23,5 % du TAM n'a
+    pas de sens, et il est pourtant répété partout. »
+
+    ## Pourquoi `_controler_emboitement_marche` ne l'a pas vu
+
+    Il compare des MONTANTS : TAM ≥ SAM ≥ SOM, dans la même devise. Un SAM à
+    l'export qui pèse moins que le marché intérieur français satisfait cette
+    inégalité sans difficulté. Les deux nombres étaient ordonnés ; ils ne
+    parlaient simplement pas du même monde.
+
+    L'erreur est donc INVISIBLE à un contrôle de valeurs, et c'est ce qui la
+    rend dangereuse : elle produit un ratio arithmétiquement impeccable et
+    sémantiquement vide, que tous les chapitres suivants reprennent.
+
+    ## Ce qui est refusé
+
+    Deux impossibilités, pas des préférences :
+
+    - un étage de l'entonnoir sur un territoire PLUS LARGE que celui du dessus
+      (un SAM mondial sous un TAM national) ;
+    - deux étages mesurés à plus d'un an d'écart — le ratio qu'on en tire
+      mélange alors deux états du marché.
+
+    Un écart d'UN an reste admis : une publication nationale et une publication
+    sectorielle ne sortent jamais le même mois, et refuser cela tuerait des
+    études pour un décalage que le lecteur ne verrait même pas.
+    """
+    motifs: list[str] = []
+    etages = [(nom, socle.donnee(nom)) for nom in ("tam", "sam", "som")]
+    presents = [(nom, item) for nom, item in etages if item is not None]
+
+    for (nom_grand, grand), (nom_petit, petit) in zip(presents, presents[1:], strict=False):
+        largeur_grand = _LARGEUR_DU_PERIMETRE.get(grand.perimetre)
+        largeur_petit = _LARGEUR_DU_PERIMETRE.get(petit.perimetre)
+        if largeur_grand is None or largeur_petit is None:
+            continue
+        if largeur_petit > largeur_grand:
+            motifs.append(
+                f"`{nom_petit}` est défini sur un périmètre « {petit.perimetre} » "
+                f"plus large que celui de `{nom_grand}` (« {grand.perimetre} »). "
+                f"Un entonnoir ne s'élargit pas en descendant : le "
+                f"{nom_petit.upper()} est une PART du {nom_grand.upper()}, donc "
+                f"il vit sur le même territoire ou sur un territoire plus "
+                f"étroit. Si le projet vend hors de sa zone, c'est le "
+                f"{nom_grand.upper()} qu'il faut redéfinir sur la zone de vente "
+                f"réelle — pas le {nom_petit.upper()} qu'il faut rétrécir."
+            )
+
+    # L'année ne se compare QUE sur le couple TAM/SAM, et c'est une correction.
+    #
+    # La première version comparait les trois étages. Relecture du 26/10/2026 :
+    # le TAM et le SAM sont des MESURES de marché — leur année est celle de la
+    # publication, 2024 ou 2025 — quand le SOM est une PROJECTION du projet,
+    # dont l'année 1 peut être en N+1. Un socle parfaitement correct portait
+    # donc trois ans d'écart, et le motif le refusait.
+    #
+    # Pire : `tam`, `sam` et `som` sont OBLIGATOIRES au référentiel, donc
+    # `ecarter_les_donnees_facultatives_en_cause` ne peut pas les retirer. Le
+    # motif survivait aux trois tentatives et le dossier mourait à zéro
+    # chapitre — le scénario `cb59cede` du 29/09/2026, que ce fichier raconte
+    # déjà deux fois. Et la répétition à blanc ne l'aurait pas vu : le stub
+    # date toutes ses données de la même année.
+    #
+    # Le ratio qui motivait ce contrôle est SAM/TAM. Il ne concerne pas le SOM.
+    mesures = {nom: item.annee for nom, item in presents if nom in ("tam", "sam")}
+    if len(mesures) == 2 and abs(mesures["tam"] - mesures["sam"]) > 1:
+        detail = ", ".join(f"`{nom}` {annee}" for nom, annee in mesures.items())
+        motifs.append(
+            f"`tam` et `sam` sont mesurés à plus d'un an d'écart ({detail}). "
+            f"Le ratio SAM/TAM qu'on en tire mélange deux états du marché : "
+            f"aligne-les sur la même année, ou sur deux années consécutives."
+        )
     return motifs
 
 

@@ -64,9 +64,15 @@ def test_au_depart_une_reprise_est_financable() -> None:
 
 
 def test_quand_le_budget_ne_couvre_plus_la_suite_la_reprise_ne_l_est_plus() -> None:
-    """Plafond 8 € : 7,50 € dépensés, 21 chapitres à écrire — la reprise attendra."""
+    """Presque tout le budget dépensé, 21 chapitres à écrire — la reprise attendra.
+
+    Le montant se prend SUR le budget du dossier et n'est pas recopié : il
+    valait « 7,50 € » pour un plafond de 8, et ce test est tombé le jour où la
+    table est passée en Opus (26/10/2026). Ce qu'il vérifie, c'est le rapport
+    entre la dépense et le reste à écrire — pas un montant (règle 5).
+    """
     job = _dossier("b")
-    _depenser(job, "7.50")
+    _depenser(job, str((job.budget_eur * Decimal("0.94")).quantize(Decimal("0.0001"))))
     assert not reprise_financable(job)
 
 

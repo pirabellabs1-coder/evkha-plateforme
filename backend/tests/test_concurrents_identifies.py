@@ -213,6 +213,14 @@ def test_le_plafond_du_business_plan_couvre_ses_vingt_deux_chapitres() -> None:
     from decimal import Decimal
 
     from catalog.models import DeliverableType
-    from generation.cost import PLAFOND_PAR_LIVRABLE
 
-    assert PLAFOND_PAR_LIVRABLE[DeliverableType.BUSINESS_PLAN] == Decimal("8.0000")
+    # Le montant lui-même est verrouillé UNE fois, dans
+    # `test_plafond_de_generation` : le recopier ici le figeait une seconde
+    # fois, et ce test est tombé quand la table est passée en Opus le
+    # 26/10/2026. Ce qu'il doit vérifier, c'est que le plafond couvre le coût
+    # observé du livrable — pas qu'il vaut un nombre (règle 5).
+    from generation.cost import COUT_OBSERVE_MAX_EUR, PLAFOND_PAR_LIVRABLE
+
+    plafond = PLAFOND_PAR_LIVRABLE[DeliverableType.BUSINESS_PLAN]
+    assert plafond > COUT_OBSERVE_MAX_EUR[DeliverableType.BUSINESS_PLAN]
+    assert plafond >= Decimal("8.0000")

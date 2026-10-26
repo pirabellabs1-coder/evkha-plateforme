@@ -963,6 +963,93 @@ def _articles_de_loi(document: Document) -> list[Constat]:
 # ── Le contrôle ─────────────────────────────────────────────────────────────
 
 
+#: Portails et dépôts qui hébergent les publications de PLUSIEURS organismes.
+#: Leur domaine ne dit rien de l'auteur du chiffre : un rapport de l'Insee
+#: déposé sur `data.gouv.fr` reste un rapport de l'Insee. Les comparer
+#: produirait un motif faux sur une citation juste (règle 2).
+_PORTAILS = frozenset({
+    "gouv", "europa", "data", "hal", "cairn", "persee", "oecd", "worldbank",
+    "who", "statista", "researchgate", "scribd", "calameo", "issuu", "doi",
+    "jstor", "springer", "elsevier", "sciencedirect", "linkedin", "youtube",
+})
+
+
+def _etiquette_distinctive(adresse: str) -> str:
+    """Le label qui DÉSIGNE l'organisme dans un domaine, ou la chaîne vide.
+
+    Vide pour un portail partagé ou un hébergeur de blog : là, l'hébergeur
+    n'est pas l'auteur, et rien ne se déduit du domaine.
+    """
+    hote = adresse.removeprefix("www.")
+    etiquettes = [e for e in hote.split(".") if e]
+    if len(etiquettes) < 2:
+        return ""
+    if any(cle(e) in _PORTAILS or cle(e) in _HEBERGEURS for e in etiquettes):
+        return ""
+    return cle(etiquettes[-2])
+
+
+def _nom_court(nom: str) -> str:
+    """La clé du nom, avant sa première virgule ou parenthèse."""
+    return cle(re.split(r"[,(]", nom)[0])
+
+
+def _domaines_d_un_autre_organisme(document: Document, chapitre: int) -> list[Constat]:
+    """Un organisme dont l'adresse mène chez un AUTRE organisme du document.
+
+    ## Le défaut, mesuré
+
+    Étude de marché à l'export, relevée par la cliente le 26/10/2026 : « le
+    lien d'un organisme pointe vers le domaine d'un autre organisme ». Le
+    lecteur qui clique arrive ailleurs, et le chiffre perd sa source.
+
+    ## Pourquoi les contrôles existants ne le voyaient pas
+
+    `_cles_de_source` traite le nom ET l'adresse comme deux clés du MÊME
+    acteur — c'est ce qui permet de reconnaître « lettredujardin » derrière
+    « lettredujardin.substack.com ». Aucun contrôle ne se demandait si les
+    deux désignaient le même organisme : la question n'était posée nulle part
+    (règle 9).
+
+    ## Ce qui est refusé, et ce qui ne l'est pas
+
+    Seulement le cas où le domaine porte le nom d'une AUTRE source listée du
+    même document. Un organisme qui publie sur un portail, une adresse qu'on
+    ne sait pas rattacher, un sigle qui ne ressemble pas à son domaine
+    (« BPI » sur `bpifrance.fr`) : rien n'est dit. Une attribution qu'on ne
+    sait pas trancher n'est pas une attribution fausse.
+    """
+    listees, _ = sources_listees(document, chapitre)
+    par_nom: dict[str, str] = {}
+    for source in listees:
+        court = _nom_court(source.nom)
+        if len(court) >= 4:
+            par_nom.setdefault(court, source.nom)
+
+    constats: list[Constat] = []
+    for source in listees:
+        etiquette = _etiquette_distinctive(source.adresse)
+        sien = _nom_court(source.nom)
+        if len(etiquette) < 4 or not sien:
+            continue
+        if etiquette == sien or etiquette in sien or sien in etiquette:
+            continue
+        autre = par_nom.get(etiquette)
+        if autre is None or _nom_court(autre) == sien:
+            continue
+        constats.append(Constat(
+            CLASSE,
+            source.section.numero,
+            extrait_court(source.texte, 140),
+            f"« {source.nom.strip()} » est cité avec une adresse qui mène chez "
+            f"« {autre.strip()} » ({source.adresse}). Le lecteur qui clique "
+            f"arrive chez un autre organisme, et le chiffre perd sa source. "
+            f"Donne l'adresse de la publication de {source.nom.strip()}, ou "
+            f"attribue le chiffre à {autre.strip()}.",
+        ))
+    return constats
+
+
 def controler(document: Document, reference: Reference) -> list[Constat]:
     constats = [*_articles_de_loi(document), *_formulations_divergentes(document)]
     chapitre = chapitre_des_sources(document) if reference.document_entier else None
@@ -985,4 +1072,5 @@ def controler(document: Document, reference: Reference) -> list[Constat]:
             ))
         else:
             constats += _citees_contre_listees(document, chapitre)
+            constats += _domaines_d_un_autre_organisme(document, chapitre)
     return constats

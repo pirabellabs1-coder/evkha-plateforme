@@ -483,8 +483,72 @@ def max_tokens_for_job(
 #: Marge d'environ 15 % au-dessus du cout observe : assez pour les passes de
 #: correction, pas assez pour qu'une derive passe inapercue. L'etude de marche
 #: garde 8,00 € : la seule mesuree tres en dessous de sa borne (7,44 €).
+#: DOUBLÉS LE 26/10/2026, avec le passage de la génération en Opus.
+#:
+#: Ces plafonds étaient calibrés sur `claude-sonnet-5` (2 $ / 10 $ par Mtok).
+#: Opus 5.5 est facturé 4 $ / 20 $ : EXACTEMENT le double, sur l'entrée comme
+#: sur la sortie. À jetons égaux, chaque dossier coûte donc deux fois plus.
+#:
+#: Relevé le 26/10/2026 sur les jobs terminés du tableau de bord de
+#: production, c'est-à-dire sur des factures et non sur des estimations :
+#:
+#:   étude de marché      n=7   médian 7,30 €   max 7,72 €   (plafond 8,00)
+#:   business plan        n=12  médian 5,65 €   max 7,93 €   (plafond 8,00)
+#:   stratégie            n=12  médian 4,85 €   max 6,52 €   (plafond 6,50)
+#:   étude concurrence    n=9   médian 2,26 €   max 3,16 €   (plafond 4,50)
+#:
+#: Doubler les plafonds reconduit la marge que la cliente avait validée — en
+#: gros 15 % au-dessus du coût observé — au nouveau tarif. Les augmenter de
+#: +5 € avait été envisagé : l'étude de marché serait passée à 13,00 € pour un
+#: coût réel attendu d'environ 14,60 €, et aurait été coupée vers le 20e
+#: chapitre sur 23, APRÈS avoir engagé la dépense. C'est le défaut que les
+#: deux paragraphes ci-dessus racontent déjà deux fois ; on ne le refait pas.
+#:
+#: Ce que ces nombres ne disent pas : ils ne sont PAS une mesure d'Opus. Aucune
+#: génération réelle n'a encore tourné à ce tarif. Ce sont des coûts Sonnet
+#: mesurés, multipliés par un rapport de prix connu. Le premier dossier produit
+#: en Opus donnera les vrais chiffres, et c'est EUX qu'il faudra inscrire ici.
+#:
+#: ## Pourquoi PLUS que le double
+#:
+#: Doubler les plafonds a d'abord été posé tel quel : 16 / 16 / 13 / 9. Le
+#: contrôle `plafonds_sous_calibres`, écrit dans le même commit, l'a refusé sur
+#: la stratégie — 13,00 € de plafond pour 13,04 € attendus. Un centime, et le
+#: dernier chapitre avec.
+#:
+#: Ce refus a montré que les anciens plafonds n'avaient PAS la marge de 15 %
+#: que leur commentaire annonce : l'étude de marché tenait 8,00 € pour 7,72 €
+#: observés, soit 3 %, et le business plan 8,00 € pour 7,93 €, soit 0,9 %. Les
+#: doubler aurait donc reconduit une marge d'un centime, pas une marge.
+#:
+#: Pire : le « max observé » est lui-même TRONQUÉ par l'ancien plafond. Un
+#: dossier qui aurait coûté davantage a été coupé à 8,00 € et compte pour
+#: 7,93 €. Le vrai maximum n'est pas connu — il est seulement minoré.
+#:
+#: Les plafonds portent donc 15 % au-dessus du coût attendu.
+#:
+#: ## Ce qu'un plafond plus haut change VRAIMENT sur la dépense
+#:
+#: Ce commentaire a d'abord affirmé qu'un relèvement « ne fait pas dépenser un
+#: centime de plus ». C'est FAUX dans ce code, et la relecture du 26/10/2026
+#: l'a montré : `services._BUDGET_EUR_BY_TYPE` est cette table, `budget_eur`
+#: est écrit depuis elle à la création du dossier, et `max_tokens_for_job`
+#: s'en sert comme DÉNOMINATEUR — `per_call_budget = (budget − dépensé −
+#: marge) / appels restants`. Un budget plus large desserre donc le rythme :
+#: chaque appel reçoit plus de jetons, les chapitres s'allongent jusqu'au
+#: plafond de sortie, et la dépense réelle monte.
+#:
+#: Conséquence sur les chiffres ci-dessus : `COUT_OBSERVE_MAX_EUR` a été
+#: mesuré SOUS l'ancien rythme. Multiplier par le rapport de tarif donne donc
+#: un MINORANT, pas une prévision. Le premier dossier produit en Opus dira le
+#: vrai coût, et c'est lui qu'il faudra inscrire ici.
+#:
+#: Ce desserrement est voulu — le commentaire de `claude.py` chiffre lui-même
+#: l'étranglement de l'ancien rythme à « ~5111 jetons dès le 1er appel », et
+#: des chapitres étranglés sont exactement ce que la cliente reproche au
+#: livrable. Mais il se dit, au lieu de se présenter comme gratuit.
 PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("8.0000"),
+    DeliverableType.MARKET_STUDY:      Decimal("18.0000"),
     # Relevé de 6,50 à 8,00 € le 18/08/2026, sur décision de la cliente.
     #
     # Le business plan `256e63d8` s'est arrêté à 21 chapitres sur 22 : le
@@ -497,10 +561,69 @@ PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
     # amputé, déjà payé, que personne ne peut vendre. Le montant reste la
     # décision de la cliente et de personne d'autre — ce fichier ne fait que
     # l'appliquer.
-    DeliverableType.BUSINESS_PLAN:     Decimal("8.0000"),
-    DeliverableType.BUSINESS_STRATEGY: Decimal("6.5000"),
-    DeliverableType.COMPETITOR_STUDY:  Decimal("4.5000"),
+    DeliverableType.BUSINESS_PLAN:     Decimal("18.0000"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("15.0000"),
+    DeliverableType.COMPETITOR_STUDY:  Decimal("9.0000"),
 }
+
+#: Le modèle sur lequel les plafonds ci-dessus ont été calibrés, et le coût le
+#: plus élevé réellement observé par livrable à ce tarif.
+#:
+#: ## Pourquoi ces deux constantes existent
+#:
+#: L'historique de ce fichier est celui d'un plafond qui court après son coût :
+#: relevé le 08/08, le 13/08, le 18/08, chaque fois APRÈS qu'un dossier réel se
+#: soit fait couper à un chapitre de la fin. Chaque fois, la cause était la
+#: même — le coût avait bougé, le plafond non — et chaque fois le défaut a été
+#: découvert en payant un livrable amputé.
+#:
+#: Le 26/10/2026, le changement de modèle aurait rejoué ce film sur les quatre
+#: livrables d'un coup, en silence : rien dans le code ne reliait un plafond au
+#: tarif pour lequel il avait été posé. C'est la règle 4 — viser la CLASSE,
+#: pas l'exemple. Les plafonds ne se contentent plus d'être des nombres : ils
+#: déclarent sur quoi ils ont été mesurés, ce qui rend l'écart CALCULABLE.
+COUT_OBSERVE_MAX_EUR: dict[str, Decimal] = {
+    DeliverableType.MARKET_STUDY:      Decimal("7.7200"),
+    DeliverableType.BUSINESS_PLAN:     Decimal("7.9300"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("6.5200"),
+    DeliverableType.COMPETITOR_STUDY:  Decimal("3.1600"),
+}
+MODELE_DE_CALIBRAGE = "claude-sonnet-5"
+
+
+def plafonds_sous_calibres(modele: str | None = None) -> list[str]:
+    """Les livrables dont le plafond ne couvre plus le coût au tarif de `modele`.
+
+    Rend une liste de motifs lisibles ; liste vide = tous les plafonds tiennent.
+
+    Le coût attendu est le coût OBSERVÉ sur le modèle de calibrage, multiplié
+    par le rapport des tarifs. Le rapport se prend sur la sortie : c'est elle
+    qui domine la facture d'un livrable rédigé (dix fois le prix de l'entrée
+    chez tous les modèles de la table).
+
+    Un modèle inconnu de la table de tarifs se fait prêter le tarif le plus
+    cher de sa famille par `_pricing` — donc ce contrôle le juge au pire, et ne
+    peut pas rassurer à tort. C'est la règle 1 : quand on ne peut pas trancher,
+    on échoue bruyamment plutôt que de se taire.
+    """
+    _, sortie_calibrage = _pricing(MODELE_DE_CALIBRAGE)
+    _, sortie_actuelle = _pricing(modele)
+    if sortie_calibrage <= 0:
+        return []
+    rapport = sortie_actuelle / sortie_calibrage
+    motifs: list[str] = []
+    for livrable, observe in COUT_OBSERVE_MAX_EUR.items():
+        attendu = (observe * rapport).quantize(Decimal("0.01"))
+        plafond = PLAFOND_PAR_LIVRABLE.get(livrable)
+        if plafond is None or plafond >= attendu:
+            continue
+        motifs.append(
+            f"{livrable} : plafond {plafond:.2f} € alors que le coût attendu "
+            f"est {attendu:.2f} € (max observé {observe:.2f} € sur "
+            f"{MODELE_DE_CALIBRAGE}, tarif × {rapport:.2f}). Le dossier sera "
+            f"coupé avant la fin, après avoir engagé la dépense."
+        )
+    return motifs
 
 #: Repli pour un type de livrable inconnu de la table — le plus BAS, jamais le
 #: plus haut. Un livrable qu'on n'a pas budgete ne doit pas heriter du plafond

@@ -2024,8 +2024,15 @@ def verifier_decisions_strategie(corpus: str) -> list[DecisionManquante]:
     return manquantes
 
 
+#: Combien de signes pèse un mot français, en moyenne — espace comprise.
+#: Sert à comparer le volume ATTENDU d'un chapitre, exprimé en signes par le
+#: modèle de référence, au volume RENDU, compté en mots.
+_SIGNES_PAR_MOT = 6.0
+
+
 def detecter_chapitres_avortes(
     sections_avec_plafond: list[tuple[int, str, str, int]],
+    volumes_attendus: dict[int, int] | None = None,
 ) -> list[ChapitreAvorte]:
     """Signale les chapitres manifestement plus courts QUE LEURS VOISINS.
 
@@ -2065,20 +2072,61 @@ def detecter_chapitres_avortes(
 
     longueurs = sorted(mots for _n, _t, mots, _m in mesures)
     mediane = longueurs[len(longueurs) // 2]
-    seuil = max(int(mediane * _PLANCHER_RATIO_VOISINS), _PLANCHER_ABSOLU_MOTS)
+    seuil_voisins = max(int(mediane * _PLANCHER_RATIO_VOISINS), _PLANCHER_ABSOLU_MOTS)
 
-    return [
-        ChapitreAvorte(
-            chapitre=numero,
-            titre=titre,
-            mots_rendus=mots,
-            mots_attendus=seuil,
-            ratio=mots / seuil if seuil else 0.0,
-            mediane=mediane,
+    # ## On ne reproche pas à un chapitre de tenir le format qu'on lui a demandé
+    #
+    # 26/10/2026, répétition à blanc : le chapitre 9 d'une étude de marché
+    # (« Les 12 chiffres clés ») déclaré avorté à 124 mots pour un plancher de
+    # 135 — soit 40 % de la médiane du document. Or ce chapitre est une GRILLE
+    # de douze chiffres : le modèle de référence lui donne un volume bien
+    # inférieur à celui d'un chapitre d'analyse, et le chapitre produit s'y
+    # conforme. Il était donc puni pour avoir obéi.
+    #
+    # Le défaut n'est pas la valeur du plancher : c'est qu'il compare chaque
+    # chapitre à ses VOISINS sans regarder ce qu'on a demandé à CELUI-LÀ. Deux
+    # contrôles du dépôt visaient deux cibles incompatibles sur le même
+    # chapitre (règle 9). Le plancher ne dépasse donc plus la part attendue du
+    # volume propre du chapitre, quand le modèle de référence le donne.
+    #
+    # Le plancher ABSOLU reste, et c'est lui qui tient le fond : un chapitre
+    # de trente mots est avorté quel que soit son format.
+    volumes = volumes_attendus or {}
+
+    avortes: list[ChapitreAvorte] = []
+    for numero, titre, mots, _max_words in mesures:
+        # SEUL le cas « aucune prose demandée » est traité, et c'est voulu.
+        #
+        # Une première version mettait le plancher en proportion du volume
+        # attendu, converti en mots. Relecture du 26/10/2026 : les deux mesures
+        # ne sont pas comparables — `_compter_mots` compte TOUT le corps,
+        # tableaux inclus, quand `signes_comparables` ne compte QUE les
+        # paragraphes et les titres de sous-section. Recalculé sur le modèle
+        # réel, le plancher tombait au plancher absolu sur TREIZE chapitres sur
+        # vingt et un, là où il valait 240 à 280 mots. Un chapitre réellement
+        # tronqué à 150 mots au milieu de chapitres de 700 serait passé.
+        #
+        # C'est le corollaire de la règle 2 : dépouillez les deux côtés, ou
+        # vous mesurez votre propre balisage. Le correctif visait une fausse
+        # alerte sur un chapitre ; il en désarmait vingt.
+        #
+        # Zéro, lui, n'est pas une proportion : c'est une consigne. Le
+        # chapitre 9 d'une étude de marché n'a AUCUN bloc de paragraphe au
+        # modèle — c'est une grille de douze chiffres. On ne peut pas lui
+        # reprocher une prose qu'on ne lui a pas commandée.
+        seuil = (
+            _PLANCHER_ABSOLU_MOTS if volumes.get(numero) == 0 else seuil_voisins
         )
-        for numero, titre, mots, _max_words in mesures
-        if mots < seuil
-    ]
+        if mots < seuil:
+            avortes.append(ChapitreAvorte(
+                chapitre=numero,
+                titre=titre,
+                mots_rendus=mots,
+                mots_attendus=seuil,
+                ratio=mots / seuil if seuil else 0.0,
+                mediane=mediane,
+            ))
+    return avortes
 
 
 def detecter_divergences(mentions: list[Mention]) -> list[DivergenceChiffree]:

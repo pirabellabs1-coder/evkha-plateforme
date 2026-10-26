@@ -113,6 +113,19 @@ class RapportRepetition:
             )
         if self.erreur_chaine:
             defauts.append(f"chaîne interrompue : {self.erreur_chaine}")
+        # Le plafond de dépense tient-il au tarif du modèle SERVI ?
+        #
+        # Ce contrôle existait depuis le 26/10/2026 et n'était appelé que par
+        # ses propres tests — il fermait la porte par laquelle on n'entre pas.
+        # Le défaut qu'il décrit est précisément « le modèle change sans
+        # qu'une ligne de code ne change », c'est-à-dire une variable Coolify :
+        # dans ce scénario aucun test ne tourne. La répétition à blanc, elle,
+        # est obligatoire avant tout déploiement — c'est ici qu'il doit parler.
+        from .cost import plafonds_sous_calibres  # noqa: PLC0415 — cycle d'import
+
+        defauts.extend(
+            f"plafond sous-calibré — {motif}" for motif in plafonds_sous_calibres()
+        )
         return defauts
 
     @property

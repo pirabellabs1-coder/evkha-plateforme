@@ -203,13 +203,45 @@ _EM: tuple[DefinitionDonnee, ...] = (
         commentaire="Touristes, visiteurs, passage : dépend du secteur.",
     ),
     # Chapitre 2 — marché accessible. Le trio doit être cohérent : TAM ≥ SAM ≥ SOM.
+    # Le TAM et le SAM suivent la ZONE DE VENTE du projet, pas son pays
+    # d'immatriculation — d'où les trois échelles admises.
+    #
+    # ## Le défaut que l'échelle unique a PRODUIT
+    #
+    # Étude de marché à l'export, relevée par la cliente le 26/10/2026 : « le
+    # TAM retenu était le marché français du e-commerce alimentaire, et le SAM
+    # était constitué des exportations. Le SAM n'est donc pas un sous-ensemble
+    # du TAM. Le ratio SAM = 23,5 % du TAM n'a pas de sens, et il est pourtant
+    # répété partout. »
+    #
+    # Le modèle n'a pas désobéi : il a obéi à un schéma qui ne savait pas dire
+    # ce qu'il avait à dire. `national` était la SEULE échelle admise, et elle
+    # ne précise pas QUELLE nation. Pour un projet qui vend de la France vers
+    # la Corée, le Japon et Taïwan, « le marché national » désigne deux choses
+    # incompatibles — le pays d'où l'on part, ou ceux où l'on vend. Il a mis
+    # l'un en TAM et l'autre en SAM, et l'entonnoir s'est brisé là.
+    #
+    # C'est la même leçon que `cb59cede` (29/09/2026) sur la clientèle cible
+    # régionale, deux lignes plus bas : une échelle imposée qui ne correspond
+    # pas au projet ne produit pas un refus propre, elle produit un socle qui
+    # ment. Élargir ne relâche rien — `_controler_territoire_de_l_entonnoir`
+    # vérifie désormais que les étages ne s'élargissent pas en descendant, ce
+    # qu'une échelle unique rendait impossible à contrôler.
     DefinitionDonnee(
         "tam", "Marché total théorique (TAM)",
         Perimetre.NATIONAL, FamilleUnite.MONETAIRE, obligatoire=True, chapitres=(2, 14),
+        perimetres_admis=(Perimetre.MONDE, Perimetre.CONTINENT, Perimetre.NATIONAL),
+        commentaire="Zone de VENTE du projet, pas son pays d'immatriculation. "
+                    "Un projet à l'export a un TAM qui couvre ses pays cibles.",
     ),
     DefinitionDonnee(
         "sam", "Marché adressable (SAM)",
         Perimetre.NATIONAL, FamilleUnite.MONETAIRE, obligatoire=True, chapitres=(2, 14),
+        perimetres_admis=(
+            Perimetre.MONDE, Perimetre.CONTINENT, Perimetre.NATIONAL, Perimetre.REGIONAL,
+        ),
+        commentaire="Part du TAM réellement adressable. Jamais sur un "
+                    "territoire plus vaste que celui du TAM.",
     ),
     DefinitionDonnee(
         "som", "Marché atteignable par le projet (SOM)",
@@ -805,3 +837,18 @@ def definition(deliverable_type: str, identifiant: str) -> DefinitionDonnee | No
 
 def livrable_couvert(deliverable_type: str) -> bool:
     return bool(definitions_pour(deliverable_type))
+
+
+#: Les trois etages de l'entonnoir de marche.
+#:
+#: Ils ne forment PAS une trajectoire de marche par perimetre : ce sont trois
+#: grandeurs differentes d'une meme annee. `donnees_graphiques.cle_de_serie`
+#: les exclut donc du regroupement par perimetre, qui agrege au contraire
+#: `marche_mondial_taille` et `marche_mondial_projection` en une courbe.
+#:
+#: Defini ICI parce que le referentiel est ce qui nomme ces donnees. Avant le
+#: 26/10/2026, `tam` et `sam` etaient contraints au perimetre `national`, et la
+#: collision restait invisible ; en les ouvrant a `monde` et `continent`, un
+#: TAM mondial et `marche_mondial_taille` partageaient la cle « monde » et
+#: s'ecrasaient en silence, le dernier gagnant, sous la legende du premier.
+NIVEAUX_DE_L_ENTONNOIR: frozenset[str] = frozenset({"tam", "sam", "som"})

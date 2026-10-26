@@ -1242,6 +1242,22 @@ _VOCABULAIRE_INTERNE: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("chapitre 0", re.compile(r"\bchapitre\s+0\b", re.IGNORECASE)),
     ("identifiant du socle", re.compile(
         r"\bidentifiants?\s+du\s+socle\b", re.IGNORECASE)),
+    # « aucune donnée du socle », lu par la cliente dans une étude de marché
+    # livrée le 26/10/2026, sous un tableau d'analyse.
+    #
+    # Le motif du haut exige « verrouillé », « bloqué » ou « de données » APRÈS
+    # « socle » : il attrape « socle de données » et laisse passer « donnée du
+    # socle », qui dit exactement la même chose dans l'autre sens. C'est la
+    # règle 4 — le correctif de septembre visait les tournures observées ce
+    # jour-là, pas la classe. « Donnée du socle » n'est jamais du français
+    # ordinaire dans un livrable : c'est notre entrepôt interne, nommé au
+    # lecteur qui ne sait pas ce que c'est.
+    # La négation évite le DOUBLE constat : « Données du socle vérifié » est
+    # déjà pris par le motif du haut, et deux constats sur une même phrase
+    # envoient corriger deux fois le même mot.
+    ("donnée du socle", re.compile(
+        r"\bdonn[ée]es?\s+du\s+socle\b(?!\s+(?:verrouill|bloqu|v[ée]rifi))",
+        re.IGNORECASE)),
     ("livrable bloqué", re.compile(r"\blivrable\s+bloqu[ée]", re.IGNORECASE)),
     # « Socle EVKHA », lu par la cliente sous des tableaux le 12/08/2026.
     #

@@ -82,7 +82,30 @@ def _date_line() -> str:
         "a cette date : la periode recente correspond aux 2-3 dernieres annees "
         "civiles qui la precedent, les projections/estimations portent sur les "
         "annees suivantes. Ne jamais traiter une annee anterieure a cette date "
-        "comme etant l'annee en cours."
+        "comme etant l'annee en cours.\n"
+        # Deux defauts mesures sur une etude a l'export (cliente, 26/10/2026) :
+        # « le SOM d'annee 1 est date de l'annee en cours, alors que le projet
+        # est au stade prototype et qu'on est fin octobre », et « un evenement
+        # programme fin octobre est presente comme futur, alors que l'etude est
+        # livree a cette date ». Les deux viennent du meme angle mort : la date
+        # etait donnee, mais rien ne disait ce qu'elle INTERDIT d'ecrire.
+        "UN EVENEMENT ANTERIEUR A CETTE DATE EST PASSE. Ne l'annonce jamais "
+        "comme « a venir », « prevu » ou « programme » : l'etude est lue a "
+        "partir de cette date-la. S'il a eu lieu, ecris ce qu'il a donne ; si "
+        "tu l'ignores, n'en parle pas.\n"
+        "L'ANNEE 1 EST CELLE DU PREMIER EURO ENCAISSE, pas l'annee du "
+        "calendrier. Un projet qui n'est pas encore lance ne peut pas avoir "
+        "une annee 1 deja entamee : si l'activite demarre apres cette date, "
+        "l'annee 1 commence au plus tot l'annee suivante, et le SOM d'annee 1 "
+        "porte CETTE annee-la. Un projet au stade idee ou prototype en fin "
+        "d'annee civile a donc une annee 1 en N+1 — jamais en N, ou il ne "
+        "resterait que quelques semaines pour realiser douze mois de chiffre "
+        "d'affaires.\n"
+        "UN PLAN D'ACTION TIENT COMPTE DES DELAIS REELS. Une demarche "
+        "administrative, une homologation, l'ouverture d'une boutique sur une "
+        "place de marche etrangere ou un referencement en centrale prennent "
+        "des mois : ne les place pas dans les quatre-vingt-dix premiers jours "
+        "sans dire ce qui rend ce calendrier tenable."
     )
 
 

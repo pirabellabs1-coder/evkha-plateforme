@@ -889,7 +889,20 @@ def cle_de_serie(donnee: DonneeSocle) -> str:
     le résolveur ne les forme serait une seconde vérité (règle 5).
     """
     serie = _RADICAL_ANNUEL.match(donnee.id)
-    return serie.group("radical") if serie else str(donnee.perimetre)
+    if serie:
+        return serie.group("radical")
+    # L'entonnoir n'est PAS une trajectoire de marché : TAM, SAM et SOM sont
+    # trois grandeurs différentes d'une même année, pas trois points d'une même
+    # courbe. Les regrouper par périmètre les ferait s'écraser entre eux, et
+    # écraser une vraie série du même périmètre — depuis le 26/10/2026, un TAM
+    # peut être `monde`, comme `marche_mondial_taille`. L'écrasement est
+    # silencieux (`groupes[cle][annee] = donnee`) : le dernier gagne, et la
+    # légende reste celle du premier.
+    from ..socle.referentiel import NIVEAUX_DE_L_ENTONNOIR  # noqa: PLC0415
+
+    if donnee.id in NIVEAUX_DE_L_ENTONNOIR:
+        return donnee.id
+    return str(donnee.perimetre)
 
 
 def radical_de(identifiant: str) -> str:

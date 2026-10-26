@@ -32,6 +32,11 @@ from docx.shared import Emu, Pt, RGBColor
 from docx.table import Table, _Cell
 from docx.text.run import Run
 
+# Le formateur vit a cote des unites qu'il traduit, jamais ici : la ligne du
+# socle injectee dans le prompt en a besoin AUSSI, et deux ecritures auraient
+# diverge (regle 5, comme pour `montant_lisible`).
+from generation.socle.schema import pourcentage_lisible
+
 from .gabarit import (
     STYLE_BANDEAU,
     STYLE_CHIFFRE_LIBELLE,
@@ -1072,7 +1077,9 @@ def barre_repartition(
         bande = table.rows[0].cells[index]
         fond_cellule(bande, fond)
         _ecrire(
-            bande, f"{valeur / total * 100:.0f} %", STYLE_CHIFFRE_LIBELLE,
+            # `:.0f` ecrivait « 0 % » pour une part de 0,009 % — le document
+            # affirmait alors que le projet ne capte RIEN (cliente, 26/10/2026).
+            bande, pourcentage_lisible(valeur / total * 100), STYLE_CHIFFRE_LIBELLE,
             couleur=texte_lisible_sur(fond), gras=True,
         )
         etiquette = table.rows[1].cells[index]

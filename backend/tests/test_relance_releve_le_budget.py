@@ -23,7 +23,17 @@ from decimal import Decimal
 import pytest
 
 from catalog.models import DeliverableType
+from generation.cost import PLAFOND_PAR_LIVRABLE
 from generation.models import ChapterStatus, JobStatus
+
+#: Le montant de la table, LU et non recopié. Le sujet de ces tests est le
+#: comportement de la relance, pas la décision de la cliente — celle-ci est
+#: verrouillée une seule fois, dans `test_plafond_de_generation`. Recopier le
+#: montant ici l'aurait figé une seconde fois, et c'est ce qui les a cassés
+#: quand la table est passée en Opus le 26/10/2026 (règle 5).
+_TABLE = PLAFOND_PAR_LIVRABLE[DeliverableType.BUSINESS_PLAN]
+#: Un budget posé À LA MAIN au-dessus de la table, pour la contre-épreuve.
+_AU_DESSUS_DE_LA_TABLE = _TABLE + Decimal("4.0000")
 
 
 def _dossier(slug: str, budget: str, avec_chapitre_ecrit: bool):
@@ -66,7 +76,7 @@ def test_un_dossier_ecrit_voit_son_budget_releve() -> None:
     relaunch_generation_job(job)
 
     job.refresh_from_db()
-    assert job.budget_eur == Decimal("8.0000")
+    assert job.budget_eur == _TABLE
     assert job.status == JobStatus.PENDING
 
 
@@ -79,11 +89,11 @@ def test_un_dossier_ecrit_ne_voit_jamais_son_budget_baisser() -> None:
     """
     from generation.services import relaunch_generation_job
 
-    job = _dossier("relance-genereux", "12.00", avec_chapitre_ecrit=True)
+    job = _dossier("relance-genereux", str(_AU_DESSUS_DE_LA_TABLE), avec_chapitre_ecrit=True)
     relaunch_generation_job(job)
 
     job.refresh_from_db()
-    assert job.budget_eur == Decimal("12.0000")
+    assert job.budget_eur == _AU_DESSUS_DE_LA_TABLE
 
 
 @pytest.mark.django_db
@@ -91,8 +101,8 @@ def test_un_dossier_vierge_est_recale_sur_la_table() -> None:
     """Contre-epreuve : le comportement d'origine sur un dossier sans chapitre."""
     from generation.services import relaunch_generation_job
 
-    job = _dossier("relance-vierge", "12.00", avec_chapitre_ecrit=False)
+    job = _dossier("relance-vierge", str(_AU_DESSUS_DE_LA_TABLE), avec_chapitre_ecrit=False)
     relaunch_generation_job(job)
 
     job.refresh_from_db()
-    assert job.budget_eur == Decimal("8.0000")
+    assert job.budget_eur == _TABLE

@@ -11,9 +11,26 @@ from django.conf import settings
 # Alias EVKHA (EVKHA_CLAUDE_MODEL) -> identifiant API Anthropic reel.
 # L'identifiant exact peut etre surcharge via EVKHA_ANTHROPIC_MODEL_ID sans
 # toucher au code (les references produit evoluent souvent).
+#
+# Rafraichis le 26/10/2026, avec le passage de la generation en Opus. Ils
+# pointaient vers `claude-sonnet-4-6` et `claude-opus-4-8`, deux modeles de la
+# generation precedente — et plus chers que leurs successeurs : Opus 5.5 est
+# facture 4 $ / 20 $ par Mtok la ou Opus 4.8 l'est 5 $ / 25 $.
+#
+# Personne ne l'avait vu parce que `EVKHA_ANTHROPIC_MODEL_ID` ecrase cette
+# table : quel que soit l'alias demande, c'est la surcharge qui sort de
+# `_resolve_anthropic_model_id`. Un blueprint qui reclame `claude-opus`
+# recevait donc du Sonnet, sans que rien ne le signale. La table restait juste
+# assez vraie pour ne pas etre relue.
+#
+# MESURE, et pas lecture d'un fichier du depot : l'API Coolify de
+# `evkha-plateforme` (zft1wsl…, /envs) rendait le 26/10/2026
+# `EVKHA_ANTHROPIC_MODEL_ID = claude-sonnet-5` sur la portee production. Le
+# fichier `env-coolify.txt` porte une valeur VIDE et a diverge du serveur : il
+# ne decrit pas la configuration en service, et le CLAUDE.md le dit.
 _ANTHROPIC_MODEL_IDS: dict[str, str] = {
-    "claude-sonnet": "claude-sonnet-4-6",
-    "claude-opus": "claude-opus-4-8",
+    "claude-sonnet": "claude-sonnet-5-5",
+    "claude-opus": "claude-opus-5-5",
 }
 # 8192 tokens ≈ 6144 mots par section. Hausse de 5000 → 8192 justifiee par :
 # 1. Section la plus dense (ec.03.a 3800 mots ≈ 5067 tokens) passe en 1 seul

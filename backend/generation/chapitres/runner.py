@@ -420,11 +420,34 @@ COHERENCE_DES_CHIFFRES = (
     "AVANT d'écrire : une division fausse dans un document payé est la faute "
     "la plus visible qui soit.\n"
     "\n"
+    "4 bis. DANS UN TABLEAU, LA COLONNE QUI VARIE SE REFAIT À LA MAIN. Une "
+    "colonne « Évolution » n'a pas de phrase pour porter son calcul : elle se "
+    "lit en divisant deux AUTRES colonnes de la même ligne. Avant de l'écrire, "
+    "pose l'opération : (valeur d'arrivée − valeur de départ) ÷ valeur de "
+    "DÉPART. De 2,7 Md€ à 2,1 Md€, c'est −22 %, pas −6 %. Les deux colonnes "
+    "doivent être dans le MÊME tableau et la MÊME unité, sinon la colonne "
+    "d'évolution n'a rien à dire et tu la retires. Un contrôle refait cette "
+    "division sur chaque ligne.\n"
+    "\n"
+    "4 ter. UN TAUX ANNUEL MOYEN N'EST PAS UNE VARIATION TOTALE. Passer de 1 à "
+    "2 sur cinq ans fait +100 % au total et +14,9 % par an. Si ta colonne est "
+    "un TCAC, intitule-la « TCAC » ; si c'est la variation totale, intitule-la "
+    "« Évolution ». Deux formules, deux noms : un lecteur qui confond les deux "
+    "se trompe d'un facteur cinq.\n"
+    "\n"
     "5. JAMAIS DE ZÉRO NU. Un « 0 € » ou un « 0 % » au milieu d'un tableau se "
     "lit comme une donnée manquante. Si la valeur est réellement nulle, "
     "écris-le en toutes lettres — « aucun emprunt », « pas de subvention ». Si "
     "tu ne connais pas la valeur, ne mets pas zéro : construis la phrase sans "
     "elle.\n"
+    "\n"
+    "5 bis. UN TAUX QUI N'EST PAS NUL NE S'ÉCRIT JAMAIS « 0 % ». Une part de "
+    "marché de 0,009 % arrondie au point près devient « 0 % », et le document "
+    "affirme alors que le projet ne capte RIEN — ce qui est faux, et ce qui "
+    "ruine tout le raisonnement qui s'appuie dessus. Garde autant de décimales "
+    "qu'il en faut pour que le premier chiffre significatif apparaisse : "
+    "0,009 %, 0,0096 %. La même règle vaut pour un montant : « 0 Md€ » pour "
+    "480 000 € est un faux zéro.\n"
     "\n"
     "6. UNE SEULE UNITÉ PAR COMPARAISON. Des euros se comparent à des euros. "
     "Ne mets jamais un effectif et un montant dans le même total, la même "
@@ -477,6 +500,27 @@ est pire qu'une absence : elle donne l'apparence du sérieux à ce qui n'a pas
 demande-toi si cette publication donne EXACTEMENT cette valeur, pour ce
 périmètre et cette année. Une source qui traite du sujet sans porter le chiffre
 n'est pas une source : c'est une lecture.
+
+3 bis. LE TITRE D'UNE ÉTUDE N'EST PAS SON PÉRIMÈTRE. Avant d'employer un
+chiffre, écris pour toi-même, en une phrase, CE QUE LA SOURCE MESURE EXACTEMENT :
+quel produit, quelle zone, quels acheteurs, quelle année. Puis vérifie que cette
+phrase est bien celle dont ton chapitre a besoin.
+
+Le piège est toujours le même : un rapport « Asian Food Market » mesure le
+marché MONDIAL des produits de cuisine asiatique — quelques dizaines de
+milliards. Il ne mesure PAS le marché alimentaire EN Asie, qui se compte en
+milliers de milliards. Les deux lectures tiennent dans le même titre, et elles
+diffèrent d'un facteur cent. Un chiffre-pilier mal cadré contamine ensuite tous
+les chapitres qui s'y réfèrent.
+
+3 ter. UN ORDRE DE GRANDEUR SE VÉRIFIE AVANT D'ÊTRE ÉCRIT. Pose-toi la question
+du bon sens : ce marché national peut-il vraiment peser plus que le PIB de son
+pays ? Ce segment de niche peut-il vraiment peser autant que l'automobile
+mondiale ? Ce marché « mondial » peut-il tenir dans une ville ? Quand un chiffre
+te paraît trop petit ou trop grand d'un facteur dix, c'est presque toujours un
+périmètre mal lu ou une unité perdue — reprends la source avant d'écrire, et dis
+dans la phrase ce que le chiffre recouvre : « le marché mondial des produits de
+cuisine asiatique (36 Md$) », jamais « le marché asiatique (36 Md$) ».
 
 4. LES DONNÉES DU CLIENT SE CITENT « données du projet ». Son chiffre
 d'affaires, ses prix, ses clients, son prévisionnel : ils n'ont pas d'adresse

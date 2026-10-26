@@ -1469,7 +1469,7 @@ def _check_arithmetique(
     termes et le résultat. Deviner un terme manquant produirait des motifs
     faux, et ce projet a mesuré ce qu'ils coûtent.
     """
-    from .arithmetique import totaux_faux, verifier  # noqa: PLC0415
+    from .arithmetique import totaux_faux, variations_fausses, verifier  # noqa: PLC0415
 
     failures: list[GateFailure] = []
     for section in sections:
@@ -1485,6 +1485,16 @@ def _check_arithmetique(
                 check="calcul_faux",
                 chapter_number=section.number,
                 detail=str(total),
+            ))
+        # Et ceux qui annoncent une ÉVOLUTION entre deux années : la division
+        # se refait. `verifier` ne lit que la prose, et les trois nombres du
+        # défaut du 26/10/2026 — 2,7 Md€, 2,1 Md€, « −6 % » — vivaient dans
+        # trois colonnes.
+        for variation in variations_fausses(section.body):
+            failures.append(GateFailure(
+                check="calcul_faux",
+                chapter_number=section.number,
+                detail=str(variation),
             ))
     return failures
 
@@ -1965,6 +1975,47 @@ def _part_de_la_mediane() -> str:
     return f"{_PLANCHER_RATIO_VOISINS:.0%}".replace("%", " %")
 
 
+def _volumes_du_modele(
+    job: GenerationJob, sections: tuple[RenderedSection, ...]
+) -> dict[int, int]:
+    """Le volume attendu de chaque chapitre, en signes, selon le modèle de référence.
+
+    Vide quand le modèle ne couvre pas ce livrable, ou qu'il est illisible : le
+    détecteur retombe alors sur la seule comparaison aux voisins. Ne lève
+    jamais — un volume de référence manquant affaiblit un contrôle, il ne doit
+    pas faire tomber le gate entier.
+    """
+    try:
+        from .modele.chargement import (  # noqa: PLC0415
+            chapitre_du_modele,
+            dosage_attendu,
+            modele_couvre,
+        )
+
+        if not modele_couvre(str(job.deliverable_type)):
+            return {}
+        volumes: dict[int, int] = {}
+        for section in sections:
+            chapitre = chapitre_du_modele(section.number)
+            if chapitre is None:
+                continue
+            # ZÉRO est une information, pas une absence : le chapitre 9 d'une
+            # étude de marché (« Les 12 chiffres clés ») n'a AUCUN bloc de
+            # paragraphe au modèle — c'est une grille de chiffres. L'écarter
+            # ici le renvoyait à la comparaison aux voisins, c'est-à-dire à
+            # des chapitres de prose (règle 1 : une donnée absente et une
+            # donnée nulle ne se confondent pas).
+            volumes[section.number] = dosage_attendu(chapitre).signes
+        return volumes
+    except Exception:  # noqa: BLE001 — un repère absent ne fait pas tomber le gate
+        import logging  # noqa: PLC0415
+
+        logging.getLogger(__name__).exception(
+            "Volumes du modèle illisibles (job %s)", job.id
+        )
+        return {}
+
+
 def _check_chapitres_avortes(
     job: GenerationJob, sections: tuple[RenderedSection, ...]
 ) -> list[GateFailure]:
@@ -1989,7 +2040,7 @@ def _check_chapitres_avortes(
         for s in sections
     ]
     failures: list[GateFailure] = []
-    for a in detecter_chapitres_avortes(entrees):
+    for a in detecter_chapitres_avortes(entrees, _volumes_du_modele(job, sections)):
         failures.append(GateFailure(
             check="chapitre_avorte",
             chapter_number=a.chapitre,

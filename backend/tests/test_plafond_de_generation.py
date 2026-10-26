@@ -81,11 +81,28 @@ from generation.services import _BUDGET_EUR_BY_TYPE
 # 21 chapitres sur 22 et le sommaire livré passe de « 01 Résumé exécutif » à
 # « 03 Genèse du projet ». Le plafond n'a pas failli — c'est sa valeur qui
 # était sous le coût réel du livrable.
+# Relevés le 26/10/2026, sur décision de la cliente, avec le passage de la
+# génération en Opus. Opus 5.5 est facturé 4 $ / 20 $ par Mtok là où
+# `claude-sonnet-5` l'était 2 $ / 10 $ : le DOUBLE, sur l'entrée comme sur la
+# sortie. Les quatre plafonds, calibrés sur des coûts mesurés en Sonnet,
+# devenaient donc insuffisants le jour de la bascule.
+#
+# Mesuré le même jour sur les jobs terminés du tableau de bord de production :
+# étude de marché max 7,72 € (n=7), business plan 7,93 € (n=12), stratégie
+# 6,52 € (n=12), concurrence 3,16 € (n=9). Doublés, ces maxima donnent 15,44 /
+# 15,86 / 13,04 / 6,32 €, et les plafonds portent 15 % au-dessus.
+#
+# Doubler les plafonds tels quels — 16 / 16 / 13 / 9 — avait été posé d'abord,
+# puis refusé par `plafonds_sous_calibres` : 13,00 € de plafond pour 13,04 €
+# attendus sur la stratégie. Ce refus a montré que les anciens plafonds
+# n'avaient pas la marge que leur commentaire annonçait (8,00 € pour 7,72 €
+# observés, soit 3 %). Un plafond est un MAXIMUM, pas une dépense : le relever
+# ne fait rien dépenser de plus, il enlève seulement la coupure.
 DECISION_CLIENTE = {
-    DeliverableType.MARKET_STUDY: Decimal("8.00"),
-    DeliverableType.BUSINESS_PLAN: Decimal("8.00"),
-    DeliverableType.BUSINESS_STRATEGY: Decimal("6.50"),
-    DeliverableType.COMPETITOR_STUDY: Decimal("4.50"),
+    DeliverableType.MARKET_STUDY: Decimal("18.00"),
+    DeliverableType.BUSINESS_PLAN: Decimal("18.00"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("15.00"),
+    DeliverableType.COMPETITOR_STUDY: Decimal("9.00"),
 }
 
 
