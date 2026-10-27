@@ -408,6 +408,49 @@ consigne transmise), trois mêlent encore des natures (`%, unite` ; `%, annees` 
 démographique que le socle ne porte pas — refus légitime. Le mélange des natures
 recule mais ne disparaît pas : c'est le prochain palier.
 
+## 27/10/2026 — six classes du relevé de la cliente, sans une génération
+
+**Aucune génération réelle, aucun centime.** Les quinze classes de défauts
+relevées par la cliente le 26/10/2026 sur l'étude de marché à l'export ont été
+traitées contre la doublure et contre le document déjà payé `68fc68b4`
+(business plan, envoyé à personne).
+
+| Commit | Ce qu'il ferme | Verdict |
+|---|---|---|
+| `b9b31dc` | barre invisible et barres identiques (9), faux « 0 % » dans les figures (3), comptages annoncés (11), décisions contradictoires (6), demande esquivée (5), accents et nombre sans échelle (15) | `blocked` |
+| `3ef72a0` | les cinq défauts que la revue a mesurés DANS `b9b31dc` | `blocked` |
+
+**Les deux restent `blocked` : rien n'est validé sur un vrai document.** La
+preuve manquante est une génération réelle relue par la cliente (règle 7).
+
+**Mesuré en production, et c'est le seul comportement qui a changé de façon
+observable :** la fiche de `68fc68b4` listait encore « 83 600 € » et
+« 37 500 € » en `chiffres_hors_socle` ; `mesure/`, recalculant avec le code
+déployé, ne les liste plus. `controle_final` est une trace FIGÉE à la
+génération — elle a failli me faire conclure que `e559028` ne tournait pas.
+
+**Huit chiffres hors socle subsistent sur ce dossier, et leur contexte dit
+qu'ils ne sont pas inventés :** des marges présentées sur trois exercices et
+validées sur un seul (`Marge d'EBE | 3,1 % | 17,2 % | 24,7 %`, seul 17,2 %
+retrouvé). La cause est dans le socle, pas dans le contrôle ; non vérifiée sur
+les données du dossier, donc non corrigée.
+
+**Ce que la revue indépendante a rattrapé, et qui vaut d'être retenu :** trois
+de mes nouveaux contrôles étaient `grave=True`, donc faisaient reprendre un
+chapitre payant ET dictaient au rédacteur — sur du contenu correct. « Les 27
+États membres » au-dessus de quatre lignes recevait « écrire « quatre » ». Mes
+64 tests passaient : ils couvraient le défaut visé et des contre-épreuves
+neutres, jamais une forme COURANTE qui ressemble au défaut.
+
+**Et la réparation des accents a été retirée après coup** : elle écrivait
+« Crédit Suisse » dans le texte livré. Le dépôt n'autorise la réparation que
+pour les classes sans exception légitime en français.
+
+**Reste ouvert :** les accords grammaticaux (« acheteurs transfrontalier ») —
+chaque règle étroite essayée frappe du français correct ; les marges par
+exercice ci-dessus ; et la production n'expose aucun commit, donc la preuve
+d'un déploiement reste un comportement mesuré.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.
