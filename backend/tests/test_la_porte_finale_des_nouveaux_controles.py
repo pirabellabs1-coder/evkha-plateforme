@@ -143,3 +143,71 @@ def test_chaque_defaut_parle(nom: str, cas: tuple[Callable[[dict[str, Any]], Non
     motifs = _relire(payload)
     assert motifs, f"MUET sur « {nom} »"
     assert any(m.startswith(f"[{classe}]") for m in motifs), motifs
+
+# ── Les formes COURANTES que la revue du 27/10/2026 a mesurées fausses ─────
+
+#: Des intitulés, des phrases et des demandes que le modèle écrit tous les
+#: jours, et sur lesquels les trois contrôles rendaient un constat GRAVE —
+#: donc une reprise payée, et parfois une consigne d'écrire un chiffre faux.
+FORMES_COURANTES: dict[str, dict[str, Any]] = {
+    "un nombre qui qualifie le SUJET, pas la liste": {
+        "chapitre": 7, "titre": "Zones",
+        "blocs": [{"type": "encadre", "encadre": {
+            "intitule": "Les 27 Etats membres : ce qui change",
+            "lignes": ["Droit de douane nul", "TVA à l'import", "Normes CE",
+                       "Étiquetage multilingue"],
+        }}],
+    },
+    "un compte groupé en moins de lignes": {
+        "chapitre": 7, "titre": "Panel",
+        "blocs": [{"type": "encadre", "encadre": {
+            "intitule": "Les dix pays du panel",
+            "lignes": ["Trois leaders — Chine, Japon, Corée du Sud",
+                       "Cinq suiveurs — Taïwan, Thaïlande, Vietnam, Malaisie, Inde",
+                       "Deux entrants — Indonésie, Philippines"],
+        }}],
+    },
+    "une priorité OPÉRATIONNELLE à côté d'une vraie cible": {
+        "chapitre": 7, "titre": "Préalables",
+        "blocs": [
+            {"type": "titre_sous_section", "numero": "7.1", "intitule": "Préalables"},
+            {"type": "paragraphe", "texte": (
+                "Il faut en priorité obtenir la certification HACCP auprès du "
+                "Bureau Veritas, avant toute expédition."
+            )},
+            {"type": "titre_sous_section", "numero": "7.2", "intitule": "Zone visée"},
+            {"type": "paragraphe", "texte": "La première cible reste la Corée du Sud."},
+        ],
+    },
+    "un même choix dit de deux façons": {
+        "chapitre": 7, "titre": "Zones",
+        "blocs": [
+            {"type": "titre_sous_section", "numero": "7.1", "intitule": "Zone"},
+            {"type": "paragraphe", "texte": (
+                "La première étape est l'ouverture du canal distributeur en "
+                "Corée du Sud."
+            )},
+            {"type": "titre_sous_section", "numero": "7.2", "intitule": "Villes"},
+            {"type": "paragraphe", "texte": "Le marché prioritaire est Séoul, puis Busan."},
+        ],
+    },
+}
+
+
+@pytest.mark.parametrize("nom", list(FORMES_COURANTES), ids=list(FORMES_COURANTES))
+def test_aucune_forme_courante_ne_fait_reprendre_un_chapitre(nom: str) -> None:
+    """Un constat GRAVE fait rejouer un appel payant et dicte au modèle.
+
+    C'est la règle 2 dans sa forme la plus coûteuse : sur « Les 27 États
+    membres : ce qui change » au-dessus de quatre lignes, le détail ordonnait
+    « écrire « quatre » » — et le modèle aurait obéi.
+    """
+    constats = [
+        c for c in relire(document_du_chapitre(FORMES_COURANTES[nom]), Reference())
+        if c.classe in CLASSES_NOUVELLES
+    ]
+    graves = [c.motif() for c in constats if c.grave]
+    assert not graves, graves
+    # Et aucun détail ne dicte un chiffre à écrire.
+    for constat in constats:
+        assert "écrire «" not in constat.detail, constat.motif()

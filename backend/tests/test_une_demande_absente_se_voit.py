@@ -58,11 +58,46 @@ def test_une_flexion_differente_suffit() -> None:
 
 
 def test_un_seul_mot_absent_ne_suffit_pas() -> None:
-    """Un mot manquant est courant et innocent : il en faut deux."""
-    assert MOTS_ABSENTS_MIN == 2
+    """Un mot manquant est courant et innocent : il en faut trois."""
+    assert MOTS_ABSENTS_MIN == 3
     assert demandes_absentes(
         {"DEMANDES_SPECIFIQUES": "Je veux connaître les langues parlées sur place."},
         "Les étiquettes doivent être traduites dans la langue locale de chaque pays.",
+    ) == []
+
+
+def test_une_demande_enumerative_traitee_ne_dit_rien() -> None:
+    """Contre-épreuve de la revue du 27/10/2026.
+
+    Le seuil était « deux sujets absents », et une demande qui énumère six ou
+    huit sujets en laisse facilement quatre absents TOUT EN ayant reçu sa
+    réponse : l'étude nomme des grossistes, un panier moyen, une norme JAS.
+    Le constat ne tient que si AUCUN sujet n'apparaît.
+    """
+    assert demandes_absentes(
+        {"DEMANDES_SPECIFIQUES": (
+            "Je souhaite une analyse des circuits de distribution et des "
+            "acheteurs professionnels, les habitudes d'achat des consommateurs "
+            "locaux, ainsi que les démarches administratives et les "
+            "certifications exigées à l'import."
+        )},
+        "Les grossistes et les centrales d'achat captent 62 % des flux. Les "
+        "importateurs professionnels représentent 62 % des volumes, avec un "
+        "panier moyen de 18 EUR et une fréquence hebdomadaire. "
+        "L'enregistrement sanitaire et la norme JAS sont exigés.",
+    ) == []
+
+
+def test_un_infinitif_n_est_pas_un_sujet() -> None:
+    """« Merci de préciser les délais » : la politesse fabriquait l'incident.
+
+    Le motif prenait « préciser » pour un sujet, puisque « de » annonce
+    normalement un nom. Deux sujets restaient — « délais », « paiement » — tous
+    deux absents d'une étude qui répond « le règlement intervient à 45 jours ».
+    """
+    assert demandes_absentes(
+        {"DEMANDES_SPECIFIQUES": "Merci de préciser les délais moyens de paiement."},
+        "Le règlement intervient à 45 jours après livraison.",
     ) == []
 
 

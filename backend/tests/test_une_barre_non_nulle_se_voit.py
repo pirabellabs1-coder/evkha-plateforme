@@ -64,8 +64,42 @@ def test_le_signe_est_conserve() -> None:
 
 
 def test_toutes_egales_ne_declenche_rien() -> None:
-    """Étendue nulle : aucun plancher calculable, et rien à corriger."""
+    """Trois valeurs égales : aucune n'est sous le plancher, rien ne bouge.
+
+    Ce test annonçait « étendue nulle » et passait pour une autre raison : sur
+    `[5, 5, 5]` l'étendue vaut 5, puisqu'elle est mesurée en incluant le zéro
+    de l'axe. La branche de l'étendue nulle n'est atteignable que si TOUTES les
+    valeurs sont nulles — et c'est ce que le test suivant vérifie (revue du
+    27/10/2026).
+    """
     assert longueurs_visibles([5.0, 5.0, 5.0]) == [5.0, 5.0, 5.0]
+
+
+def test_rien_que_des_zeros_ne_declenche_rien() -> None:
+    """La seule façon d'atteindre la branche de l'étendue nulle."""
+    assert longueurs_visibles([0.0, 0.0]) == [0.0, 0.0]
+
+
+def test_deux_valeurs_ecrasees_restent_ordonnees() -> None:
+    """Le défaut que la première version rouvrait (revue du 27/10/2026).
+
+    Relever toutes les valeurs écrasées au plancher EXACT rendait identiques
+    deux valeurs dans un rapport de dix : on fermait « une barre est
+    invisible » et on rouvrait « deux barres identiques », les deux défauts du
+    même relevé.
+    """
+    longueurs = longueurs_visibles([2.7e9, 2.1e9, 2.4e5, 2.4e4])
+    assert longueurs[2] > longueurs[3] > 0
+    plancher = 2.7e9 * PART_MINIMALE_D_UNE_BARRE
+    # Les deux restent visibles : la plus petite garde la moitié du plancher.
+    assert longueurs[3] >= plancher / 2
+    assert longueurs[2] == pytest.approx(plancher)
+
+
+def test_deux_valeurs_egales_gardent_la_meme_longueur() -> None:
+    """Contre-épreuve de l'ordonnancement : égales dessinées égales."""
+    longueurs = longueurs_visibles([1e9, 10.0, 10.0])
+    assert longueurs[1] == longueurs[2]
 
 
 def _plus_long_segment(png: bytes, couleur: str) -> int:

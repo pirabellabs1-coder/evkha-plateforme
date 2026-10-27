@@ -133,3 +133,38 @@ def test_les_constats_remontent_par_la_relecture() -> None:
     # feraient qu'un — ce qui est le comportement voulu.
     assert len(orthographe) == 2, [c.motif() for c in constats]
     assert {"precise" in c.detail for c in orthographe} == {True, False}
+
+# ── Ce que le lecteur lit dans un TABLEAU compte aussi ─────────────────────
+
+
+def _document_avec_tableau(cellule: str, *paragraphes: str) -> Document:
+    return document_du_chapitre({
+        "chapitre": 4,
+        "titre": "Segmentation",
+        "blocs": [
+            *({"type": "paragraphe", "texte": p} for p in paragraphes),
+            {"type": "tableau", "tableau": {
+                "entetes": ["Zone", "Demande"],
+                "lignes": [["Corée du Sud", cellule]],
+            }},
+        ],
+    })
+
+
+def test_une_cellule_courte_est_lue() -> None:
+    """Revue du 27/10/2026 : `phrases_de` écarte toute cellule de 40 signes ou
+    moins, et « 275 000 000 de dollars » en fait 22 — or un tableau est son
+    habitat naturel, et le livrable de référence y loge 52 % de ses mots.
+    """
+    [constat] = _nombres_sans_echelle(
+        _document_avec_tableau("275 000 000 de dollars", "Du texte.")
+    )
+    assert "275 millions" in constat.detail
+
+
+def test_une_graphie_fautive_en_cellule_est_lue() -> None:
+    [constat] = _orthographe_a_deux_graphies(_document_avec_tableau(
+        "Note precise",
+        "La méthode précise retenue vaut pour les trois zones visées.",
+    ))
+    assert "precise" in constat.detail

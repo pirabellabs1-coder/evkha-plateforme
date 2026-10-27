@@ -10,7 +10,11 @@ contrôle de relecture constate la contradiction sur le document entier.
 """
 from __future__ import annotations
 
-from generation.decisions import bloc_des_decisions, decisions_du_chapitre
+from generation.decisions import (
+    bloc_des_decisions,
+    decisions_du_chapitre,
+    entites_nommees,
+)
 from generation.relecture import Document, Reference, document_du_chapitre, relire
 from generation.relecture.comptages import _priorites_contradictoires
 
@@ -45,7 +49,47 @@ def test_deux_premieres_cibles_se_contredisent() -> None:
     assert constat.classe == "decision"
     assert constat.section == "7.2"
     assert "7.1" in constat.detail
-    assert constat.grave is True
+    # JAMAIS grave : voir `test_un_meme_choix_dit_autrement_ne_commande_rien`.
+    assert constat.grave is False
+
+
+def test_une_priorite_operationnelle_ne_dit_rien() -> None:
+    """Contre-épreuve de la revue du 27/10/2026.
+
+    « en priorité » nu attrapait toute priorité de travail — « en priorité
+    obtenir la certification HACCP auprès du Bureau Veritas » devenait une
+    première cible, et le chapitre qui désignait la vraie cible recevait un
+    constat grave. Une priorité de CIBLE nomme une cible.
+    """
+    assert _priorites_contradictoires(_document(
+        "Il faut en priorité obtenir la certification HACCP auprès du Bureau Veritas.",
+        "La première cible reste la Corée du Sud.",
+    )) == []
+
+
+def test_un_meme_choix_dit_autrement_ne_commande_rien() -> None:
+    """Deux formulations du MÊME choix ne se recoupent pas forcément.
+
+    « la première étape est la Corée du Sud » et « le marché prioritaire est
+    Séoul » désignent la même cible, et le code ne peut pas savoir que Séoul
+    est en Corée. Le constat reste donc un signal, jamais une reprise payée.
+    """
+    for constat in _priorites_contradictoires(_document(
+        "La première étape est l'ouverture du canal distributeur en Corée du Sud.",
+        "Le marché prioritaire est Séoul, puis Busan.",
+    )):
+        assert constat.grave is False
+
+
+def test_une_capitale_accentuee_est_vue() -> None:
+    """`[A-Z]` laissait tomber « Égypte » : la phrase ne nommait plus rien."""
+    assert entites_nommees("L'Égypte est la première cible du déploiement.") == {"Égypte"}
+    # Et un nom composé ouvert par un déterminant n'est plus avalé en bloc.
+    assert "Emirats" in entites_nommees(
+        "Les Emirats arabes unis sont la première cible."
+    )
+    # Contre-épreuve : un vrai nom propre en tête de phrase compte aussi.
+    assert "Corée" in entites_nommees("Corée du Sud reste la cible retenue.")
 
 
 def test_une_priorite_qui_precise_l_autre_ne_dit_rien() -> None:
@@ -148,3 +192,28 @@ def test_le_bloc_dit_que_la_decision_est_close() -> None:
     assert "chapitre 7" in bloc
     # Contre-épreuve : le chapitre 7 lui-même ne reçoit pas sa propre décision.
     assert bloc_des_decisions(job, 7) == ""
+
+def test_une_seule_definition_de_la_premiere_cible() -> None:
+    """Règle 5 : le verrou amont et le contrôle aval lisent le MÊME motif.
+
+    Les deux modules en portaient leur copie, à un mot près, et leurs motifs de
+    nom propre avaient divergé — « L'Égypte est la première cible » était vue
+    par l'un et invisible pour l'autre (revue du 27/10/2026).
+    """
+    import generation.relecture.comptages as aval
+
+    # Plus aucune copie locale côté aval : c'est ce qui rendait la divergence
+    # possible.
+    for copie in ("_PREMIERE_CIBLE", "_NOM_PROPRE", "_MOT_CAPITALISE",
+                  "_MAJUSCULES_SANS_ENTITE", "_entites_nommees"):
+        assert not hasattr(aval, copie), copie
+
+    # Et les deux côtés s'accordent sur le cas qui les séparait : le verrou
+    # amont voyait « Égypte », le contrôle aval ne la voyait pas.
+    phrase = "L'Égypte est la première cible du déploiement."
+    assert entites_nommees(phrase) == {"Égypte"}
+    [constat] = _priorites_contradictoires(_document(phrase, CHINE))
+    assert constat.section == "7.2"
+    assert decisions_du_chapitre(7, {
+        "chapitre": 7, "titre": "T", "blocs": [{"type": "paragraphe", "texte": phrase}],
+    })

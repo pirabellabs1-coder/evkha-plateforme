@@ -66,11 +66,12 @@ from __future__ import annotations
 
 import logging
 import re
-import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from .orthographe import sans_accents
 
 _log = logging.getLogger(__name__)
 
@@ -256,12 +257,16 @@ def questions_du_brief(variables: Any) -> list[str]:
 #: se trouvent partout, et leur présence ne prouve rien.
 LONGUEUR_DISTINCTIVE = 5
 
-#: Combien de mots distinctifs d'une demande doivent manquer pour que le sujet
-#: soit tenu pour absent. Un seul mot manquant est courant et innocent — le
-#: client écrit « dialectes », l'étude écrit « langues régionales ». Deux mots
-#: distinctifs absents sur une même demande, en revanche, désignent un sujet
-#: que personne n'a traité.
-MOTS_ABSENTS_MIN = 2
+#: Combien de sujets une demande doit porter pour que leur absence TOTALE
+#: veuille dire quelque chose.
+#:
+#: Le seuil était à deux, et la revue du 27/10/2026 l'a mesuré faux : « Merci
+#: de préciser les délais moyens de paiement » porte deux sujets — « délais »,
+#: « paiement » — qu'une étude répondant « le règlement intervient à 45 jours »
+#: laisse tous deux absents. Deux sujets, c'est une tournure ; trois, c'est un
+#: sujet d'étude. Mesuré sur les deux cas : le brief de la cliente (« langues »,
+#: « dialectes », « étiquettes ») parle, celui des délais se taît.
+MOTS_ABSENTS_MIN = 3
 
 #: Le vocabulaire que TOUTE étude emploie : sa présence ne prouve rien, son
 #: absence ne prouve rien non plus. Classe fermée du métier, pas une liste de
@@ -302,8 +307,10 @@ _MOT_DU_DOCUMENT = re.compile(rf"[^\W\d_]{{{LONGUEUR_DISTINCTIVE},}}")
 
 
 def _plat(texte: str) -> str:
-    decompose = unicodedata.normalize("NFD", texte.casefold())
-    return "".join(c for c in decompose if not unicodedata.combining(c))
+    """Minuscules sans accents. La mise à plat vient de `generation.orthographe`
+    (règle 5) : trois copies du même dépouillement NFD vivaient dans trois
+    modules, et c'est ainsi que les listes divergent."""
+    return sans_accents(texte.casefold())
 
 
 def _racine(mot: str) -> str:
@@ -353,36 +360,57 @@ def demandes_absentes(variables: Any, document: str) -> list[DemandeAbsente]:
     existe — un contrôle et sa réparation ne doivent pas juger sur la même
     évidence (règle 9).
 
-    ## Ce qu'il ne dit pas
+    ## Ce qu'il ne dit pas, et le seuil que la revue a corrigé
 
     Il ne dit pas qu'une demande est mal traitée : un sujet peut être traité
-    sous d'autres mots. Il dit que PERSONNE n'a écrit ces mots-là, ce qui, pour
-    deux mots distinctifs d'une même demande, ne s'explique pas autrement que
-    par un sujet laissé de côté.
+    sous d'AUTRES mots. Le seuil était « deux sujets absents » ; la revue du
+    27/10/2026 l'a mesuré faux sur du contenu réel. Une demande qui énumère —
+    « les circuits de distribution, les acheteurs professionnels, les habitudes
+    d'achat, les démarches administratives, les certifications » — porte six ou
+    huit sujets, et une étude qui y répond en nommant des grossistes, un panier
+    moyen et une norme JAS en laisse facilement quatre absents **tout en ayant
+    répondu**. Deux absences ne prouvaient donc rien.
+
+    Le constat ne tient que si AUCUN sujet de la demande n'apparaît : là,
+    l'étude n'a pas écrit un seul des mots que le client a employés pour dire
+    ce qu'il voulait. C'est faible comme preuve de qualité, mais c'est solide
+    comme signal d'absence — et c'est pour cela que l'incident est classé
+    FAIBLE et dit qu'il est lexical.
     """
     corpus = {_racine(mot) for mot in _MOT_DU_DOCUMENT.findall(document or "")}
     if not corpus:
         return []
     absentes: list[DemandeAbsente] = []
     for candidat in candidats_du_brief(variables):
-        manquants = [
-            nom
-            for trouve in _SUJET_DEMANDE.finditer(candidat.texte)
-            for nom in (trouve.group("nom"), trouve.group("nom2"))
-            if nom
-            and _plat(nom) not in _MOTS_DE_TOUTE_ETUDE
-            and _racine(nom) not in corpus
-        ]
-        # Dédoublonnage par racine : « dialecte » et « dialectes » comptent
-        # pour un seul mot absent, sinon un pluriel doublerait le compte.
-        uniques: dict[str, str] = {}
-        for mot in manquants:
-            uniques.setdefault(_racine(mot), mot)
-        if len(uniques) >= MOTS_ABSENTS_MIN:
+        sujets: dict[str, str] = {}
+        for trouve in _SUJET_DEMANDE.finditer(candidat.texte):
+            for nom in (trouve.group("nom"), trouve.group("nom2")):
+                if nom is None or _plat(nom) in _MOTS_DE_TOUTE_ETUDE:
+                    continue
+                if _est_un_infinitif(nom):
+                    continue
+                # Dédoublonnage par racine : « dialecte » et « dialectes »
+                # comptent pour un seul sujet, sinon un pluriel doublerait.
+                sujets.setdefault(_racine(nom), nom)
+        if len(sujets) < MOTS_ABSENTS_MIN:
+            continue
+        absents = {racine: nom for racine, nom in sujets.items() if racine not in corpus}
+        # TOUS absents, pas seulement deux.
+        if len(absents) == len(sujets):
             absentes.append(DemandeAbsente(
-                candidat.champ, candidat.texte, tuple(uniques.values()),
+                candidat.champ, candidat.texte, tuple(absents.values()),
             ))
     return absentes
+
+
+#: Un verbe à l'infinitif n'est pas un sujet. « Merci **de préciser** les
+#: délais » : le motif y voyait « preciser », et la politesse du brief
+#: fabriquait un incident (revue du 27/10/2026).
+_INFINITIF = re.compile(r"(?i)(?:[^aeiouyàâéèêëîïôöùûü]er|ir|oir|aître|aitre|endre|ondre)$")
+
+
+def _est_un_infinitif(mot: str) -> bool:
+    return bool(_INFINITIF.search(mot))
 
 
 _SYSTEME = (

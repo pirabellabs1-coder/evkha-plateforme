@@ -12,15 +12,27 @@ Mais une faute d'accent se trahit seule : le texte écrit « précise » ailleur
 mot sont un défaut quelle que soit celle qui est juste, et la graphie accentuée
 est celle qui a raison.
 
-## Pourquoi ce module existe à part
+## On SIGNALE, on ne répare pas — et c'est la doctrine du dépôt qui le dit
 
-Deux modules s'en servent, et la règle 5 interdit qu'ils en portent chacun leur
-version :
+`chapitres.typographie` ouvre par la règle inverse : « on répare, on ne refuse
+pas ». J'y avais donc greffé la réparation des accents le 27/10/2026. C'était
+une erreur, et le critère qui la condamne est écrit dans ce même fichier : il
+ne répare que les classes qui n'ont **aucune exception légitime** en français.
 
-- `chapitres.typographie` RÉPARE, chapitre par chapitre, avant le gate et sans
-  rien coûter — la doctrine du dépôt est de réparer ce qui se répare ;
-- `relecture.redaction` SIGNALE ce qui reste, sur le document entier, là où un
-  mot juste vit dans un autre chapitre que sa faute.
+Les accents en ont plusieurs, et la revue les a mesurées sur du contenu réel :
+
+    « Credit Suisse Research Institute » → « Crédit Suisse Research Institute »
+    « General Motors »                  → « Général Motors »
+    « theme park »                      → « thème park »
+    « ACCES AU MARCHE »                 → « Accès AU MARCHE »
+
+Un nom propre, une marque, un terme anglais, un bandeau en capitales : la
+réparation prenait un mot JUSTE et en faisait une faute, dans un livrable
+payant — et elle effaçait du même coup la preuve que le contrôle aurait pu
+lire. Falsifier le nom d'une source est plus grave que lui laisser un accent.
+
+Ce module ne fait donc que fournir la MESURE, à un seul lecteur :
+`relecture.redaction`, qui signale sur le document entier et ne touche à rien.
 
 ## Ce que ce module ne voit pas, et pourquoi c'est écrit ici
 
@@ -125,37 +137,3 @@ def graphies_suspectes(textes: Iterable[str]) -> dict[str, str]:
             if sans_accents(mot) == mot and mot.casefold() not in DEUX_GRAPHIES:
                 suspectes[mot] = accentuees[0]
     return suspectes
-
-
-def _accorder_la_casse(juste: str, fautif: str) -> str:
-    """La graphie juste, sous la casse du mot qu'elle remplace.
-
-    « Precise » en tête de phrase doit devenir « Précise », pas « précise » :
-    une réparation ne déplace pas une majuscule.
-    """
-    return juste[0].upper() + juste[1:] if fautif[:1].isupper() else juste
-
-
-def reparer_les_accents(texte: str, suspectes: dict[str, str]) -> str:
-    """Remplace chaque graphie fautive par celle que le corpus accentue.
-
-    Remplacement mot à mot et non par chaîne : « etude » remplacé partout
-    abîmerait « etudes » et le nom d'un fichier.
-    """
-    if not texte or not suspectes:
-        return texte
-
-    def _remplacer(trouve: re.Match[str]) -> str:
-        mot = trouve.group(0)
-        juste = suspectes.get(mot)
-        if juste is not None:
-            return _accorder_la_casse(juste, mot)
-        # Le corpus a pu voir « Precise » sans voir « precise » : on rapproche
-        # alors par la casse repliée, sinon une faute en tête de phrase
-        # échapperait à la réparation de la même faute en milieu de phrase.
-        for fautif, correct in suspectes.items():
-            if fautif.casefold() == mot.casefold():
-                return _accorder_la_casse(correct, mot)
-        return mot
-
-    return MOT.sub(_remplacer, texte)

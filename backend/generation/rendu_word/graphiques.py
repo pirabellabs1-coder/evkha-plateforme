@@ -264,11 +264,24 @@ def longueurs_visibles(valeurs: Sequence[float]) -> list[float]:
     barres suivent la même règle, à ceci près qu'elles gardent la
     proportionnalité partout où elle se voit.
 
-    Seules les valeurs qui n'auraient AUCUN pixel sont relevées, au plancher
-    exact, et le chiffre écrit à côté reste la valeur vraie. Le lecteur lit donc
-    « 0,24 M€ » sur un trait court, au lieu de ne rien lire sur rien.
+    Seules les valeurs qui n'auraient AUCUN pixel sont relevées, et le chiffre
+    écrit à côté reste la valeur vraie. Le lecteur lit donc « 0,24 M€ » sur un
+    trait court, au lieu de ne rien lire sur rien.
 
     Un zéro, lui, reste un zéro : une barre absente y est la bonne réponse.
+
+    ## Sous le plancher, l'ORDRE est conservé (revue du 27/10/2026)
+
+    La première version relevait toutes les valeurs écrasées au plancher
+    EXACT. Mesuré : `[2,7 Md ; 2,1 Md ; 240 k ; 24 k]` donnait deux barres
+    strictement identiques pour des valeurs dans un rapport de dix — on fermait
+    « une barre est invisible » et on rouvrait « deux barres identiques », les
+    deux défauts du même relevé.
+
+    Les valeurs sous le plancher sont donc réparties par RANG entre la moitié
+    du plancher et le plancher : elles restent toutes visibles, et elles restent
+    ordonnées. C'est exactement l'arbitrage de l'entonnoir — la géométrie porte
+    l'ordre, l'étiquette porte la valeur — appliqué au seul bas de l'échelle.
     """
     nombres = [float(valeur) for valeur in valeurs]
     if not nombres:
@@ -277,9 +290,24 @@ def longueurs_visibles(valeurs: Sequence[float]) -> list[float]:
     if etendue <= 0:
         return nombres
     plancher = etendue * PART_MINIMALE_D_UNE_BARRE
+    # Les magnitudes distinctes à relever, de la plus petite à la plus grande :
+    # deux valeurs égales gardent une longueur égale.
+    ecrasees = sorted({
+        abs(nombre) for nombre in nombres if nombre != 0 and abs(nombre) < plancher
+    })
+    if not ecrasees:
+        return nombres
+    # La PLUS GRANDE des magnitudes écrasées reçoit le plancher entier, les
+    # autres se répartissent jusqu'à sa moitié. Une seule valeur écrasée reçoit
+    # donc le plancher, comme avant la correction de l'ordre.
+    dernier = len(ecrasees) - 1
+    longueur_par_magnitude = {
+        magnitude: plancher * (0.5 + 0.5 * (1.0 if dernier == 0 else rang / dernier))
+        for rang, magnitude in enumerate(ecrasees)
+    }
     return [
         nombre if nombre == 0 or abs(nombre) >= plancher
-        else math.copysign(plancher, nombre)
+        else math.copysign(longueur_par_magnitude[abs(nombre)], nombre)
         for nombre in nombres
     ]
 

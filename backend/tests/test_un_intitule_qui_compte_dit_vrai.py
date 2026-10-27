@@ -35,24 +35,56 @@ def test_l_encadre_garde_ses_lignes_ensemble() -> None:
     assert "Limite — …" in document.texte()
 
 
-def test_dix_risques_pour_six_lignes_est_grave() -> None:
+def test_dix_risques_pour_six_lignes_est_signale() -> None:
     [constat] = _comptes_contre_les_encadres(
         _document("Dix risques majeurs", [f"Risque {n}" for n in range(6)])
     )
     assert constat.classe == "comptage"
-    assert constat.grave is True
-    assert "six" in constat.detail
+    assert "10" in constat.detail
+    assert "6 ligne" in constat.detail
     # Règle 2 : le lecteur doit retrouver le passage dans le document.
     assert constat.extrait == "Dix risques majeurs"
+    # JAMAIS grave : voir `test_un_intitule_correct_ne_commande_rien`.
+    assert constat.grave is False
 
 
 def test_cinq_reperes_pour_trois_lignes_est_signale() -> None:
-    """Annoncer MOINS peut être un sous-ensemble : on nomme sans faire reprendre."""
     [constat] = _comptes_contre_les_encadres(
         _document("Trois repères du lancement", ["a", "b", "c", "d", "e"])
     )
     assert constat.grave is False
-    assert "cinq" in constat.detail
+    assert "5 ligne" in constat.detail
+
+
+def test_un_intitule_correct_ne_commande_rien() -> None:
+    """Le constat ne doit JAMAIS faire reprendre un chapitre (revue du 27/10/2026).
+
+    Mesuré sur des intitulés corrects : « Les 27 États membres : ce qui
+    change » au-dessus de quatre lignes recevait un constat GRAVE dont le
+    détail ORDONNAIT d'écrire « quatre ». Le modèle aurait obéi — un motif
+    faux qui envoie corriger ce qui était juste, c'est la règle 2 dans sa forme
+    la plus coûteuse.
+
+    Aucune règle de surface ne sépare un compte de LIGNES d'un compte du MONDE.
+    Le contrôle reste donc un filet, et un filet ne commande pas ; la cause du
+    défaut de la cliente est fermée ailleurs, par le plafond déclaré au modèle.
+    """
+    corrects = [
+        ("Les 27 Etats membres : ce qui change", 4),
+        ("Les dix pays du panel", 3),
+        ("Les 150 distributeurs recenses", 3),
+        ("Les 5 forces de Porter appliquees au marche", 6),
+    ]
+    for intitule, lignes in corrects:
+        for constat in _comptes_contre_les_encadres(
+            _document(intitule, [f"l{n}" for n in range(lignes)])
+        ):
+            assert constat.grave is False, f"« {intitule} » ferait reprendre le chapitre"
+        # Et son détail ne dicte aucun chiffre à écrire.
+        for constat in _comptes_contre_les_encadres(
+            _document(intitule, [f"l{n}" for n in range(lignes)])
+        ):
+            assert "écrire «" not in constat.detail, constat.detail
 
 
 def test_un_compte_juste_ne_dit_rien() -> None:

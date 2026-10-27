@@ -181,13 +181,34 @@ def _signaler_les_demandes_absentes(
     couverture tournait ; il interroge un modèle, et le modèle avait jugé la
     demande couverte.
 
-    Celui-ci ne juge rien : il constate. Son incident est donc plus fort qu'un
-    verdict — une recherche dans le document le vérifie en dix secondes, et
-    c'est pourquoi il est classé HAUT quand l'autre reste MOYEN.
+    Celui-ci ne juge rien : il constate qu'AUCUN des mots par lesquels le client
+    a dit ce qu'il voulait ne figure dans l'étude. Une recherche dans le
+    document le vérifie en dix secondes.
+
+    Classé FAIBLE, et c'est mesuré : la revue du 27/10/2026 a montré qu'une
+    étude peut répondre à une demande sans employer ses mots — « règlement à
+    45 jours » répond aux « délais moyens de paiement ». Un signal lexical ne
+    peut donc pas commander ; il indique où regarder.
 
     Ne lève jamais : un contrôle en panne ne fait pas échouer une étude.
     """
     from .couverture import demandes_absentes  # noqa: PLC0415
+
+    # Règle 1 : un contrôle qui n'a rien à lire ne se tait pas. `texte` est le
+    # texte assemblé des chapitres ; vide, le contrôle rendait `[]`, ce qui se
+    # lit « aucune demande absente » — exactement le `continue` silencieux que
+    # la règle interdit (revue du 27/10/2026).
+    if not (texte or "").strip():
+        OperationalIncident.objects.update_or_create(
+            job=job,
+            title=f"Contrôle lexical des demandes NON exécuté (job {job.id})",
+            defaults={
+                "severity": IncidentSeverity.LOW,
+                "order": job.order,
+                "details": {"motif": "aucun texte de chapitre à relire"},
+            },
+        )
+        return
 
     try:
         absentes = demandes_absentes(variables, texte)
@@ -198,16 +219,23 @@ def _signaler_les_demandes_absentes(
         return
     if not absentes:
         return
+    # Le compte sort du TITRE : il servait de clé à `update_or_create`, donc un
+    # second passage avec un compte différent créait un second incident au lieu
+    # de corriger le premier (revue du 27/10/2026).
     OperationalIncident.objects.update_or_create(
         job=job,
-        title=f"{len(absentes)} demande(s) client dont le sujet est ABSENT (job {job.id})",
+        title=f"Sujets du brief absents du texte — contrôle lexical (job {job.id})",
         defaults={
-            "severity": IncidentSeverity.HIGH,
+            "severity": IncidentSeverity.LOW,
             "order": job.order,
             "details": {
+                "demandes_concernees": len(absentes),
                 "constat": (
-                    "Ces mots du brief ne figurent nulle part dans l'étude. "
-                    "Vérifiable par une recherche dans le document."
+                    "Pour chaque demande listée, AUCUN des mots par lesquels le "
+                    "client a dit ce qu'il voulait ne figure dans l'étude. "
+                    "Vérifiable par une recherche dans le document — mais une "
+                    "étude peut répondre sans employer les mots du brief : ce "
+                    "signal dit où regarder, pas ce qui manque."
                 ),
                 "demandes": [a.ligne() for a in absentes],
             },

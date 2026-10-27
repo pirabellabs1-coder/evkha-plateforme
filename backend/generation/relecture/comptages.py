@@ -44,13 +44,14 @@ refaire n'est pas jugé (règle 2).
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
 from generation.arithmetique import _COMPTE_EN_LETTRES
 from generation.chapitres.schema import LIGNES_D_UN_ENCADRE
+from generation.decisions import PREMIERE_CIBLE, entites_nommees
 from generation.memoire.regles import FRANCHISE_TVA, Seuil
+from generation.orthographe import sans_accents
 
 from .constat import Constat, Reference
 from .document import Document, Encadre, Section, Tableau
@@ -69,8 +70,13 @@ from .valeurs import phrases_de
 #: « Cap sur les 100 000 premiers euros » se lisait « 000 premiers »
 #: (relecture du 27/10/2026).
 _NB = (
-    r"(?<![\w-])(?<!\d[ \u00a0\u202f])"
-    r"(?:\d{1,3}(?![\d])(?![.,]\d)(?!\s\d{3}\b)|"
+    r"(?<![\w-])"
+    # Le garde du groupe de milliers ne vaut QUE pour la branche en chiffres.
+    # Posé devant l'alternation entière, il rendait muets les comptes en
+    # LETTRES précédés d'un nombre : « En 2024 trois pays ont ouvert leurs
+    # frontières » perdait « trois », et avec lui `_ANNONCE` et les trois
+    # contrôles de comptage qui le partagent (revue du 27/10/2026).
+    r"(?:(?<!\d[ \u00a0\u202f])\d{1,3}(?![\d])(?![.,]\d)(?!\s\d{3}\b)|"
     + "|".join(sorted(_COMPTE_EN_LETTRES, key=len, reverse=True))
     + r")(?![-‑]\w)"
 )
@@ -886,9 +892,10 @@ def _nom_compte(mot: str) -> str:
 
 
 def _sans_pluriel(mot: str) -> str:
-    """Minuscules et sans accents, le pluriel gardé : « Années » → « annees »."""
-    decompose = unicodedata.normalize("NFD", mot.casefold())
-    return "".join(c for c in decompose if not unicodedata.combining(c))
+    """Minuscules et sans accents, le pluriel gardé : « Années » → « annees ».
+
+    La mise à plat vient de `generation.orthographe` (règle 5)."""
+    return sans_accents(mot.casefold())
 
 
 #: Les deux formes de chaque mot — telle quelle et dépluralisée — parce que
@@ -962,22 +969,34 @@ def _juger_l_intitule(section: Section, encadre: Encadre) -> Constat | None:
         presentes = len(encadre.lignes)
         if annonce_n == presentes:
             return None
-        trop = annonce_n > presentes
-        conseil = (
-            f"l'encadré n'en porte que {presentes} : écrire "
-            f"« {_ecrire(presentes)} », ou compléter l'encadré — il tient au "
-            f"plus {LIGNES_D_UN_ENCADRE} lignes."
-            if trop else
-            f"l'encadré en porte {presentes} : écrire « {_ecrire(presentes)} », "
-            "ou sortir de l'encadré ce qui n'entre pas dans le compte annoncé."
-        )
         # L'extrait porte DÉJÀ l'intitulé entier : le détail n'en recite pas
         # un fragment. « Le top 5 des concurrents » donnait « 5 des », qui
         # n'aide pas le rédacteur à se relire (règle 2).
         return Constat(
             "comptage", section.numero, intitule,
-            f"l'intitulé annonce {annonce_n} « {m.group('nom')} » : {conseil}",
-            grave=trop,
+            f"l'intitulé annonce {annonce_n} « {m.group('nom')} » et l'encadré "
+            f"porte {presentes} ligne(s) : vérifie si le compte annoncé est "
+            "celui des lignes. Si oui, mets les deux d'accord — l'encadré tient "
+            f"au plus {LIGNES_D_UN_ENCADRE} lignes.",
+            # JAMAIS grave, et c'est une décision mesurée (revue du 27/10/2026).
+            #
+            # Le contrôle rendait un constat grave — donc une reprise payée du
+            # chapitre — et son détail ORDONNAIT d'écrire le compte des lignes.
+            # Mesuré sur des intitulés corrects : « Les 27 États membres : ce
+            # qui change » au-dessus de quatre lignes recevait « écrire
+            # « quatre » ». Le modèle aurait obéi. C'est la règle 2 dans sa
+            # forme la plus coûteuse : un motif faux envoie corriger ce qui
+            # était juste.
+            #
+            # Aucune règle de surface ne sépare « Dix risques majeurs » — qui
+            # compte les lignes — de « Les 27 États membres » — qui compte le
+            # monde : essayées et mesurées, un plafond sur le nombre annoncé
+            # rend muet le cas de la cliente, et la reprise du nom dans les
+            # lignes aussi. La CAUSE de son défaut est fermée ailleurs, et
+            # proprement : `LIGNES_D_UN_ENCADRE` est désormais déclaré au
+            # modèle. Ce contrôle n'est plus que le filet, et un filet ne
+            # commande pas.
+            grave=False,
         )
     return None
 
@@ -1598,37 +1617,10 @@ def _regle_de_tva(document: Document, reference: Reference) -> list[Constat]:
 # 4 bis. Deux chapitres, deux premières priorités
 # ═════════════════════════════════════════════════════════════════════════════
 
-#: Ce par quoi une étude désigne SA première cible. Un rang, pas un constat :
-#: « le marché coréen croît de 8 % » n'ordonne rien, « le marché coréen est la
-#: première cible » ordonne.
-_PREMIERE_CIBLE = re.compile(
-    r"(?i)\b("
-    r"premi[èe]re?\s+(?:cible|march[ée]|[ée]tape|zone|destination|priorit[ée])|"
-    r"cible\s+(?:primaire|principale)|"
-    r"march[ée]\s+prioritaire|"
-    r"priorit[ée]\s+(?:num[ée]ro\s+un|absolue|premi[èe]re)|"
-    r"[àa]\s+(?:cibler|viser|aborder|attaquer|ouvrir)\s+(?:en\s+)?(?:premier|d['’]abord)|"
-    r"en\s+priorit[ée]"
-    r")\b"
-)
-
-#: Un nom propre cité dans la phrase : le pays, la zone, la marque désignée.
-#: Le premier mot de la phrase est capitalisé par la ponctuation et ne compte
-#: donc pas — sans cette garde, « En priorité, le marché… » désignerait « En ».
-_NOM_PROPRE = re.compile(r"\b[A-Z][^\W\d_]{2,}(?:[- ][A-Z][^\W\d_]{2,})*")
-
-#: Ce qui porte une majuscule sans désigner personne : début de phrase,
-#: vocabulaire de méthode, mois. Classe fermée du vocabulaire des études.
-_MAJUSCULES_SANS_ENTITE = frozenset(
-    "Le La Les Un Une Des Ce Cette Ces Il Elle Nous Vous On Cela "
-    "En Au Aux Dans Pour Sur Par Avec Sans Selon Depuis Afin Ainsi Enfin "
-    "Toutefois Cependant Néanmoins Par Mais Donc Or "
-    "La Première Premier Deuxième Troisième "
-    "Janvier Février Mars Avril Mai Juin Juillet Août Septembre Octobre "
-    "Novembre Décembre "
-    "Marché Marchés Zone Zones Cible Cibles Priorité Priorités Étape Étapes "
-    "Chapitre Figure Tableau Source Sources".split()
-)
+# Les motifs de la première cible, du nom propre et des majuscules sans
+# entité vivent dans `generation.decisions` : le verrou amont et ce
+# contrôle aval doivent lire la MÊME définition (règle 5). Ils en
+# portaient deux copies divergentes jusqu'au 27/10/2026.
 
 
 @dataclass(frozen=True)
@@ -1638,22 +1630,13 @@ class _Priorite:
     entites: frozenset[str]
 
 
-def _entites_nommees(phrase: str) -> frozenset[str]:
-    return frozenset(
-        trouve.group(0)
-        for trouve in _NOM_PROPRE.finditer(phrase)
-        if trouve.group(0) not in _MAJUSCULES_SANS_ENTITE
-        and trouve.start() > 0
-    )
-
-
 def _premieres_cibles(document: Document) -> list[_Priorite]:
     trouvees: list[_Priorite] = []
     for section in document.sections:
         for phrase in phrases_de(section):
-            if not _PREMIERE_CIBLE.search(phrase):
+            if not PREMIERE_CIBLE.search(phrase):
                 continue
-            entites = _entites_nommees(phrase)
+            entites = entites_nommees(phrase)
             if entites:
                 trouvees.append(_Priorite(section.numero, phrase.strip(), entites))
     return trouvees
@@ -1684,21 +1667,37 @@ def _priorites_contradictoires(document: Document) -> list[Constat]:
     (règle 9).
     """
     cibles = _premieres_cibles(document)
-    if len(cibles) < 2:
-        return []
-    premiere = cibles[0]
     constats: list[Constat] = []
-    for autre in cibles[1:]:
-        if premiere.entites & autre.entites or premiere.section == autre.section:
-            continue
-        constats.append(Constat(
-            "decision", autre.section, autre.phrase[:220],
-            f"Première cible déjà désignée en {premiere.section} : "
-            f"« {_court(premiere.phrase, 140)} ». Deux premières cibles qui ne "
-            "se recoupent pas ne laissent au lecteur aucune décision à prendre. "
-            "Reprends celle du chapitre qui l'a tranchée, ou dis en une phrase "
-            "ce qui la change.",
-        ))
+    vues: set[str] = set()
+    # DEUX À DEUX, et non toutes contre la première trouvée : ancrée sur la
+    # première phrase du document, la comparaison manquait les contradictions
+    # qui ne l'impliquent pas, et citait comme « cible déjà désignée » la
+    # phrase la moins décisive (revue du 27/10/2026).
+    for rang, premiere in enumerate(cibles):
+        for autre in cibles[rang + 1:]:
+            if premiere.entites & autre.entites or premiere.section == autre.section:
+                continue
+            if autre.section in vues:
+                continue
+            vues.add(autre.section)
+            constats.append(Constat(
+                "decision", autre.section, autre.phrase[:220],
+                f"Première cible déjà désignée en {premiere.section} : "
+                f"« {_court(premiere.phrase, 140)} ». Deux désignations qui ne "
+                "se recoupent pas ne laissent au lecteur aucune décision à "
+                "prendre : vérifie s'il s'agit du même choix dit autrement, ou "
+                "d'un changement à annoncer.",
+                # JAMAIS grave, et c'est mesuré (revue du 27/10/2026). Deux
+                # formulations du MÊME choix ne se recoupent pas forcément par
+                # leurs noms propres : « la première étape est la Corée du
+                # Sud » et « le marché prioritaire est Séoul » désignent la
+                # même cible, et le code ne peut pas savoir que Séoul est en
+                # Corée. Un constat grave y ferait reprendre un chapitre
+                # correct (règle 2). Le verrou qui EMPÊCHE le défaut est en
+                # amont, dans `generation.decisions` ; celui-ci le nomme au
+                # rapport interne, pour un lecteur qui tranche.
+                grave=False,
+            ))
     return constats
 
 

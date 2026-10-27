@@ -28,6 +28,7 @@ import unicodedata
 from ..orthographe import MOT, graphies_suspectes
 from .constat import Constat, Reference
 from .document import Document
+from .fuites import textes_de_la_section
 from .valeurs import nombres, phrases_de
 
 # ── 2. Un libellé n'assimile pas deux indicateurs ────────────────────────────
@@ -321,7 +322,11 @@ def _orthographe_a_deux_graphies(document: Document) -> list[Constat]:
     constats: list[Constat] = []
     vus: set[str] = set()
     for section in document.sections:
-        for phrase in phrases_de(section):
+        # `textes_de_la_section` et non `phrases_de` : ce dernier écarte toute
+        # cellule de 40 signes ou moins, or le livrable de référence loge 52 %
+        # de ses mots dans des tableaux, et c'est là qu'une graphie fautive
+        # isolée passait inaperçue (revue du 27/10/2026).
+        for phrase in textes_de_la_section(section):
             for mot in MOT.findall(phrase):
                 juste = suspects.get(mot)
                 if juste is None or mot in vus:
@@ -370,7 +375,9 @@ def _nombres_sans_echelle(document: Document) -> list[Constat]:
     """
     constats: list[Constat] = []
     for section in document.sections:
-        for phrase in phrases_de(section):
+        # Idem : « 275 000 000 de dollars » tient en 22 signes, et un tableau
+        # est son habitat naturel — `phrases_de` ne l'aurait jamais vu.
+        for phrase in textes_de_la_section(section):
             for trouve in _CHIFFRES_PUIS_DE.finditer(phrase):
                 nombre, objet = trouve.group("nombre"), trouve.group("objet")
                 constats.append(Constat(

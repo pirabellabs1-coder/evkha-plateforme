@@ -34,10 +34,33 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-#: Ce par quoi une étude ORDONNE ses cibles. Chaque forme est un verbe de
-#: décision ou un rang, jamais un simple constat : « le marché coréen croît de
-#: 8 % » n'est pas une décision, « le marché coréen est retenu en premier »
-#: l'est.
+#: Ce par quoi une étude désigne SA première cible — un RANG, pas un constat.
+#:
+#: Cette constante est la source unique, et c'est une correction de la revue du
+#: 27/10/2026 (règle 5). `relecture.comptages` en portait sa propre copie, à un
+#: mot près, et les deux motifs de nom propre avaient divergé : `[A-ZÀ-Þ]` ici,
+#: `[A-Z]` là-bas. « L'Égypte est la première cible » était donc vue par le
+#: verrou amont et invisible pour le contrôle aval — la pire des deux issues,
+#: puisqu'on avait ni source unique, ni indépendance.
+#:
+#: « en priorité » n'y figure qu'avec une cible nommée derrière : nu, il
+#: attrapait « en priorité obtenir la certification HACCP », qui n'ordonne
+#: aucune cible.
+PREMIERE_CIBLE = re.compile(
+    r"(?i)\b("
+    r"premi[èe]re?\s+(?:cible|march[ée]|[ée]tape|zone|destination|priorit[ée])|"
+    r"cible\s+(?:primaire|principale)|"
+    r"march[ée]\s+prioritaire|"
+    r"priorit[ée]\s+(?:num[ée]ro\s+un|absolue|premi[èe]re)|"
+    r"[àa]\s+(?:cibler|viser|aborder|attaquer|ouvrir)\s+(?:en\s+)?(?:premier|d['’]abord)|"
+    r"en\s+priorit[ée](?=[^.;]{0,70}\b"
+    r"(?:march[ée]|zone|pays|r[ée]gion|ville|territoire|destination|client[èe]le))"
+    r")\b"
+)
+
+#: Ce par quoi une étude ORDONNE ses cibles, au sens large : le rang ci-dessus,
+#: plus les verbes de décision. « Le marché coréen croît de 8 % » n'est pas une
+#: décision ; « le marché coréen est retenu en premier » l'est.
 _DECIDE = re.compile(
     r"(?i)\b("
     r"priorit[ée]s?|prioritaires?|"
@@ -51,11 +74,37 @@ _DECIDE = re.compile(
     r")\b"
 )
 
-#: Un nom propre : un pays, une ville, une marque. Une décision qui ne nomme
-#: rien n'en est pas une — « il faut prioriser » ne se verrouille pas.
-#: Le premier mot d'une phrase est capitalisé par la ponctuation : il ne
-#: compte pas.
-_NOMME = re.compile(r"(?<![.!?]\s)(?<!^)\b[A-ZÀ-Þ][\w’'-]{2,}")
+#: Un mot capitalisé : un pays, une ville, une marque. Un mot à la fois — les
+#: noms composés pris d'un bloc faisaient de « Les Émirats arabes unis » un
+#: seul match ouvert par un déterminant.
+MOT_CAPITALISE = re.compile(r"\b[A-ZÀ-ÖØ-Þ][^\W\d_]{2,}")
+
+#: Ce qui porte une majuscule sans désigner personne : début de phrase,
+#: vocabulaire de méthode, mois. Classe fermée du vocabulaire des études.
+MAJUSCULES_SANS_ENTITE = frozenset(
+    "Le La Les Un Une Des Ce Cette Ces Il Elle Nous Vous On Cela "
+    "En Au Aux Dans Pour Sur Par Avec Sans Selon Depuis Afin Ainsi Enfin "
+    "Toutefois Cependant Néanmoins Mais Donc Or "
+    "Première Premier Deuxième Troisième "
+    "Janvier Février Mars Avril Mai Juin Juillet Août Septembre Octobre "
+    "Novembre Décembre "
+    "Marché Marchés Zone Zones Cible Cibles Priorité Priorités Étape Étapes "
+    "Chapitre Figure Tableau Source Sources".split()
+)
+
+
+def entites_nommees(phrase: str) -> frozenset[str]:
+    """Les noms propres de la phrase, mot par mot.
+
+    Pas de garde de position : il écartait un vrai nom propre en tête de phrase
+    — « Corée du Sud reste la cible » ne nommait rien. La liste fermée des
+    majuscules sans entité fait ce travail mieux, et mot par mot.
+    """
+    return frozenset(
+        trouve.group(0)
+        for trouve in MOT_CAPITALISE.finditer(phrase)
+        if trouve.group(0) not in MAJUSCULES_SANS_ENTITE
+    )
 
 #: Plafond du bloc envoyé au rédacteur. Chaque phrase coûte des jetons sur
 #: CHAQUE chapitre suivant : au-delà, ce n'est plus un verrou, c'est un
@@ -95,7 +144,9 @@ def decisions_du_chapitre(numero: int, payload: Any) -> list[Decision]:
             propre = phrase.strip()
             if len(propre) > LONGUEUR_MAX or not _DECIDE.search(propre):
                 continue
-            if not _NOMME.search(propre):
+            # Une décision qui ne nomme rien n'en est pas une : « il faut
+            # prioriser » ne se verrouille pas.
+            if not entites_nommees(propre):
                 continue
             trouvees.append(Decision(numero, section.numero, propre))
     return trouvees
