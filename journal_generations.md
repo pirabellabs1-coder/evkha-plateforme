@@ -451,6 +451,45 @@ chaque règle étroite essayée frappe du français correct ; les marges par
 exercice ci-dessus ; et la production n'expose aucun commit, donc la preuve
 d'un déploiement reste un comportement mesuré.
 
+## 27/10/2026 (après-midi) — premier VRAI document sur le code du matin
+
+Essai `1fa31a8d`, reprise sans envoi de l'étude à l'export `dd30db73` (Sun Tzu
+– Projet Asie-France, six pays). **Première génération réelle traversant les
+correctifs des trois commits du jour.** Verdict : `blocked`.
+
+**Coût** 9,80 € (plafond 18 €), contre 6,70 € pour l'original — une étude de
+marché à six pays, six classes de produits, beaucoup de dimensionnement.
+
+**Ce que je voulais prouver, et qui tient :** le nouveau moteur de figures et
+le rendu n'ont PAS cassé. `mesure/` : rendu sans erreur, **0 figure
+abandonnée** (l'original et `68fc68b4` en perdaient). C'était mon risque
+principal — « son document serait le premier à passer le moteur modifié ».
+
+**Les six classes, lues sur le `.docx` :**
+- 3 (faux « 0 % ») : zéro occurrence de « 0 % » isolé ;
+- 15 (« 275 000 000 de dollars ») : zéro ;
+- 6 (cible contradictoire) : le Japon est désigné première cible de façon
+  cohérente, aucune seconde cible qui le contredit ;
+- 11 (comptages annoncés) : les listes et encadrés comptés concordent ;
+- 8 (faits sectoriels) : l'antidumping est traité (6.7, et un signal dédié).
+- La classe des accords (« acheteurs transfrontalier ») reste ouverte, comme
+  annoncé : pas d'analyse grammaticale.
+
+**Pourquoi `blocked` et pas livré :** 11 CHECK de bloc ouverts bloquent la
+livraison (`delivery: None`). Ce n'est PAS un effet de mes changements — le
+dossier d'origine, produit par le code d'AVANT, a lui aussi ses CHECK de bloc
+ouverts. Le CHECK bloc A a attrapé un VRAI défaut : le SAM projeté à +7 %/an
+(croissance Fevad tous secteurs, hors périmètre) au lieu des 3 % retenus —
+exactement la classe 2 du relevé de la cliente. Le gate de contenu passe
+(`qa: passed`), le CHECK bloc bloque : deux contrôles distincts.
+
+**30 chiffres hors socle** : surtout les valeurs dérivées du dimensionnement
+six pays (dont le « 470 M€ » que le CHECK a fait recalculer). Traçabilité
+interne, pas une classe visible par le lecteur.
+
+**Reste `blocked`** : rien n'est validé tant qu'Évangéline n'a pas relu un
+document réellement livré (règle 7). Ce dossier n'a été envoyé à personne.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.
