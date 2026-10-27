@@ -1899,6 +1899,26 @@ def construire_prompt_chapitre(
         *([memoire.bloc_pour_le_redacteur()] if memoire is not None else []),
         *([consigne_livrable] if consigne_livrable else []),
         f"BRIEF_CLIENT :\n{json.dumps(dict(variables), ensure_ascii=False, sort_keys=True)}",
+        # Le sujet d'une demande n'est pas négociable.
+        #
+        # Étude de marché à l'export, cliente, 26/10/2026 : « la demande
+        # prioritaire du client — les langues et dialectes parlés dans chaque
+        # pays — n'est pas traitée ; le FOCUS parle des conditions d'entrée ».
+        # Le rédacteur avait traité un sujet VOISIN, qui a l'air d'une réponse
+        # et n'en est pas. Cette consigne est dans la partie cachée du prompt :
+        # elle coûte une fois par dossier, pas une fois par chapitre.
+        (
+            "LE SUJET D'UNE DEMANDE DU CLIENT — règle sans exception.\n"
+            "Quand le brief demande un sujet NOMMÉ, la réponse porte sur ce "
+            "sujet-là et emploie ses mots. Si le client demande les langues "
+            "parlées pays par pays, la réponse parle de langues, pays par "
+            "pays. Traiter un sujet voisin — les conditions d'entrée à la "
+            "place des langues — est la faute la plus coûteuse du livrable : "
+            "elle a l'air d'une réponse, et le client ne retrouve pas sa "
+            "question. Si les sources ne permettent pas d'aller au bout, dis "
+            "ce qu'elles permettent d'en dire, puis ce qui manque exactement "
+            "et qui le publie. Ne remplace jamais la question par une autre."
+        ),
         *([f"{documents}\n\n{CONSIGNE_DOCUMENTS_CHAPITRE}"] if documents else []),
         *([figures] if figures else []),
     ])
@@ -1907,6 +1927,8 @@ def construire_prompt_chapitre(
     # collectées pour CE chapitre, les résumés qui s'accumulent, l'instruction,
     # les formes déjà employées, le verdict du dernier chapitre, les motifs
     # d'une reprise.
+    from ..decisions import bloc_des_decisions  # noqa: PLC0415
+
     registre = registre_json_as_context(chapter.job)
     blocs = [
         _bloc_sources(chapter.job, chapter.chapter_number),
@@ -1924,6 +1946,16 @@ def construire_prompt_chapitre(
         *(
             [decisions]
             if (decisions := _bloc_decisions(chapter.job, chapter.chapter_number))
+            else []
+        ),
+        # Ce que les chapitres précédents ont TRANCHÉ, et non seulement traité.
+        # Le chapitre 7 d'une étude à l'export recommandait la Corée, le Japon
+        # et Taïwan ; le chapitre 17 recommandait la Chine en premier
+        # (cliente, 26/10/2026). Les résumés passaient déjà, mais rien n'y
+        # distinguait une décision close d'une observation.
+        *(
+            [prises]
+            if (prises := bloc_des_decisions(chapter.job, chapter.chapter_number))
             else []
         ),
         # Vide pour tous les chapitres sauf le dernier : un verdict repete

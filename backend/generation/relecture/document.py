@@ -39,6 +39,22 @@ class Tableau:
             yield from ligne
 
 
+@dataclass(frozen=True)
+class Encadre:
+    """Un encadré de synthèse : son intitulé, et les lignes qu'il coiffe.
+
+    Ses lignes étaient versées à plat dans `paragraphes`, et son compte perdu
+    avec. « Dix risques majeurs » au-dessus de six lignes n'avait donc rien
+    contre quoi se juger (règle 1) — le défaut que la cliente a relevé le
+    26/10/2026 sur l'étude à l'export. Les lignes restent dans
+    `paragraphes` (les contrôles de texte les lisent), et l'encadré est en
+    plus rendu ICI comme la liste fermée qu'il est.
+    """
+
+    intitule: str
+    lignes: tuple[str, ...]
+
+
 @dataclass
 class Section:
     #: « 9.3 », ou « ch. 9 » pour ce qui précède la première sous-section.
@@ -49,6 +65,8 @@ class Section:
     tableaux: list[Tableau] = field(default_factory=list)
     #: Titres des figures de la section (spécification, avant rendu).
     figures: list[str] = field(default_factory=list)
+    #: Les encadrés de la section, intitulé et lignes gardés ensemble.
+    encadres: list[Encadre] = field(default_factory=list)
     page: int | None = None
 
     def texte(self) -> str:
@@ -125,8 +143,15 @@ def document_du_chapitre(payload: Any) -> Document:
             ))
         elif genre == "encadre":
             encadre = _objet(bloc, "encadre")
-            lignes = [str(encadre.get("intitule") or ""), *map(str, encadre.get("lignes") or [])]
-            courante.paragraphes.extend(_propre(ligne) for ligne in lignes if ligne.strip())
+            intitule = _propre(str(encadre.get("intitule") or ""))
+            items = tuple(
+                _propre(str(ligne)) for ligne in encadre.get("lignes") or [] if str(ligne).strip()
+            )
+            courante.paragraphes.extend(
+                ligne for ligne in (intitule, *items) if ligne.strip()
+            )
+            if intitule or items:
+                courante.encadres.append(Encadre(intitule, items))
         elif genre == "graphique":
             graphique = _objet(bloc, "graphique")
             courante.figures.append(_propre(str(graphique.get("titre") or "")))
@@ -138,7 +163,9 @@ def document_du_chapitre(payload: Any) -> Document:
                     courante.paragraphes.append(_propre(
                         f"{cellule.get('libelle') or ''} : {cellule.get('valeur')}"
                     ))
-    return Document(sections=[s for s in sections if s.paragraphes or s.tableaux or s.figures])
+    return Document(sections=[
+        s for s in sections if s.paragraphes or s.tableaux or s.figures or s.encadres
+    ])
 
 
 # ── Depuis le PDF rendu ─────────────────────────────────────────────────────
@@ -155,6 +182,37 @@ def _lignes_d_en_tete(pages: list[list[str]]) -> set[str]:
     )
     seuil = max(3, len(pages) // 2)
     return {ligne for ligne, n in sans_chiffres.items() if n >= seuil}
+
+
+def _encadre_du_tableau(tableau: Tableau) -> Encadre | None:
+    """L'encadré derrière le tableau que le PDF a rendu, s'il en est un.
+
+    On ne le reconnaît comme encadré que s'il n'a QU'UNE colonne — sinon c'est
+    un tableau de données, et ses lignes ne sont pas des items annoncés.
+
+    ## Ce que le rendu d'AUJOURD'HUI permet, et ce qu'il ne permet pas
+
+    `rendu_word.composants.encadre` écrit une seule ligne de DEUX cellules :
+    l'intitulé à gauche, tous les items en paragraphes dans la cellule de
+    droite. Sur les PDF produits par ce rendu, cette fonction rend donc `None`,
+    et le compte des items n'est pas récupérable — les retours à la ligne sont
+    recollés par `_propre`.
+
+    Ce n'est pas un contrôle qui se taît faute de pouvoir juger (règle 1) : le
+    comptage des encadrés fait son travail AVANT rendu, sur le chapitre
+    structuré, là où il peut encore faire reprendre le texte. Cette fonction
+    est le chemin symétrique, écrit pour le jour où le rendu posera une ligne
+    par item — et elle est prudente d'ici là plutôt que fausse.
+    """
+    from .fuites import est_un_encadre  # noqa: PLC0415 — cycle à l'import du module
+
+    entetes = [e for e in tableau.entetes if e.strip()]
+    if len(entetes) != 1 or not est_un_encadre(tableau):
+        return None
+    items = tuple(
+        ligne[0].strip() for ligne in tableau.lignes if ligne and ligne[0].strip()
+    )
+    return Encadre(entetes[0].strip(), items) if items else None
 
 
 def document_du_pdf(chemin: str | Path) -> Document:
@@ -187,7 +245,11 @@ def document_du_pdf(chemin: str | Path) -> Document:
                     tuple(_propre(c or "") for c in ligne) for ligne in contenu.extract()
                 ]
                 if lignes:
-                    courante.tableaux.append(Tableau(entetes=lignes[0], lignes=tuple(lignes[1:])))
+                    tableau = Tableau(entetes=lignes[0], lignes=tuple(lignes[1:]))
+                    courante.tableaux.append(tableau)
+                    encadre = _encadre_du_tableau(tableau)
+                    if encadre is not None:
+                        courante.encadres.append(encadre)
                 continue
             paragraphe: list[str] = []
             for ligne in str(contenu).splitlines():

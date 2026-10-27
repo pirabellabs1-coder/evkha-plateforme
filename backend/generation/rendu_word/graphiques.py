@@ -18,6 +18,7 @@ aucun cadre, étiquettes en Aptos, 200 dpi, 2000 px de large.
 from __future__ import annotations
 
 import io
+import math
 import textwrap
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -35,6 +36,7 @@ from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 
+from ..socle.schema import pourcentage_lisible  # noqa: E402
 from .palette import Palette, texte_lisible_sur  # noqa: E402
 
 DPI = 200
@@ -208,12 +210,102 @@ def _pourcentages_lisibles(
         texte.set_fontweight("bold")
 
 
+def _part_lisible(part: float) -> str:
+    """Le pourcentage d'une part, qui ne vaut JAMAIS « 0 % » quand elle existe.
+
+    `autopct=_part_lisible` écrivait « 0 % » sur toute part inférieure à 0,5 %.
+    Relevé par la cliente le 26/10/2026 sur une étude de marché à l'export :
+    « un taux de capture de 0,009 % s'affiche "0 %" à deux endroits ». Le
+    correctif du 26/10 avait fermé le texte et les étiquettes de répartition du
+    rendu Word — pas les figures, qui portaient le même défaut sous une autre
+    forme (règle 4).
+
+    Une part nulle, elle, s'écrit toujours « 0 % » : c'est vrai.
+    """
+    return pourcentage_lisible(part)
+
+
 def _legende(
     axes: Axes, palette: Palette, position: _Position = "upper left"
 ) -> None:
     legende = axes.legend(frameon=False, fontsize=9, loc=position)
     for texte in legende.get_texts():
         texte.set_color(palette.texte_corps)
+
+
+#: Part de l'étendue de l'axe en dessous de laquelle une barre n'a plus de
+#: pixel à l'écran. 2 000 px de large, 1,2 % : vingt-quatre pixels, soit un
+#: trait que le lecteur voit sans confondre avec une barre pleine.
+PART_MINIMALE_D_UNE_BARRE = 0.012
+
+
+def longueurs_visibles(valeurs: Sequence[float]) -> list[float]:
+    """Les longueurs à DESSINER : la valeur, sauf quand elle n'aurait aucun pixel.
+
+    ## Le défaut, mesuré
+
+    Étude de marché à l'export relevée par la cliente le 26/10/2026 : une
+    figure de l'emboîtement du marché dont « une barre est invisible », et deux
+    autres « identiques ». Les trois valeurs étaient 2,7 Md€, 2,1 Md€ et
+    0,24 M€. Sur un axe linéaire qui part de zéro et monte à 2,7 Md€, la
+    troisième mesure **un dixième de pixel** : le lecteur ne voit pas qu'elle
+    existe. Et les deux premières, séparées de 22 %, se ressemblent assez pour
+    qu'on les croie égales.
+
+    Une figure qui efface une de ses données est fausse, quelle que soit la
+    rigueur du calcul qui l'a produite.
+
+    ## Pourquoi un plancher, et pourquoi il ne ment pas
+
+    C'est le même défaut que l'entonnoir a réglé le 05/08/2026 — « la troisième
+    marche n'avait aucun pixel » — et la correction y était restée : on avait
+    traité l'instance, pas la classe (règle 4). L'entonnoir a tranché que la
+    **géométrie porte l'ordre** et que **l'étiquette porte la valeur** ; les
+    barres suivent la même règle, à ceci près qu'elles gardent la
+    proportionnalité partout où elle se voit.
+
+    Seules les valeurs qui n'auraient AUCUN pixel sont relevées, au plancher
+    exact, et le chiffre écrit à côté reste la valeur vraie. Le lecteur lit donc
+    « 0,24 M€ » sur un trait court, au lieu de ne rien lire sur rien.
+
+    Un zéro, lui, reste un zéro : une barre absente y est la bonne réponse.
+    """
+    nombres = [float(valeur) for valeur in valeurs]
+    if not nombres:
+        return nombres
+    etendue = max([*nombres, 0.0]) - min([*nombres, 0.0])
+    if etendue <= 0:
+        return nombres
+    plancher = etendue * PART_MINIMALE_D_UNE_BARRE
+    return [
+        nombre if nombre == 0 or abs(nombre) >= plancher
+        else math.copysign(plancher, nombre)
+        for nombre in nombres
+    ]
+
+
+#: Au-delà, une étiquette de catégorie est repliée sur plusieurs lignes.
+#: Mesure : 2 000 px / 200 dpi = 10 pouces ; une catégorie sur six d'un
+#: histogramme dispose donc d'environ 1,6 pouce, soit seize signes en corps 9.
+LARGEUR_D_UNE_ETIQUETTE = 16
+
+
+def etiquettes_repliees(etiquettes: Sequence[str], colonnes: int) -> list[str]:
+    """Les étiquettes telles qu'elles tiennent, repliées plutôt que rognées.
+
+    Relevé par la cliente le 26/10/2026 : des « libellés tronqués » sous les
+    figures. Matplotlib ne tronque pas, il laisse se chevaucher — ce que le
+    lecteur lit comme une troncature. Un nom de pays, de segment ou de
+    concurrent dépasse régulièrement la largeur d'une catégorie.
+
+    `colonnes` est la largeur utile en signes : elle dépend du nombre de
+    catégories, donc de l'axe, et c'est l'appelant qui la connaît.
+    """
+    largeur = max(colonnes, 8)
+    return [
+        "\n".join(textwrap.wrap(str(etiquette), largeur)) or str(etiquette)
+        for etiquette in etiquettes
+    ]
 
 
 # ── Comparaisons ─────────────────────────────────────────────────────────────
@@ -227,17 +319,25 @@ def barres_verticales(
     # graduent crème / bronze / prune d'une barre à l'autre. Une seule couleur
     # rendait une comparaison à trois barres plate et monotone — et interdisait
     # au lecteur de suivre une barre d'une figure à l'autre.
+    hauteurs = longueurs_visibles(valeurs)
     axes.bar(
-        list(etiquettes), list(valeurs),
+        list(etiquettes), hauteurs,
         color=_couleurs(palette, len(valeurs)), width=0.55,
     )
     axes.grid(axis="y", color=palette.fond_clair_alt, linewidth=0.8)
     axes.set_axisbelow(True)
     axes.set_xticks(range(len(etiquettes)))
-    axes.set_xticklabels(etiquettes, rotation=0)
-    for index, valeur in enumerate(valeurs):
+    axes.set_xticklabels(
+        etiquettes_repliees(
+            etiquettes, LARGEUR_D_UNE_ETIQUETTE * 6 // max(len(etiquettes), 1)
+        ),
+        rotation=0,
+    )
+    # Le chiffre se pose sur la barre DESSINÉE et dit la valeur VRAIE : posé à
+    # la valeur, il retombait au ras de l'axe pour les barres relevées.
+    for index, (valeur, hauteur) in enumerate(zip(valeurs, hauteurs, strict=True)):
         axes.text(
-            index, valeur, f" {_fmt(valeur)}{unite}", ha="center", va="bottom",
+            index, hauteur, f" {_fmt(valeur)}{unite}", ha="center", va="bottom",
             fontsize=9, color=palette.prune_fonce,
         )
     return _exporter(figure, palette)
@@ -248,18 +348,21 @@ def barres_horizontales(
 ) -> bytes:
     figure, axes = _figure(palette, hauteur_ratio=0.06 * max(len(etiquettes), 4))
     positions = range(len(etiquettes))
+    longueurs = longueurs_visibles(valeurs)
     axes.barh(
-        list(positions), list(valeurs),
+        list(positions), longueurs,
         color=_couleurs(palette, len(valeurs)), height=0.55,
     )
     axes.set_yticks(list(positions))
-    axes.set_yticklabels(etiquettes)
+    # Une barre horizontale laisse toute la largeur de la figure à son nom :
+    # il est replié bien plus tard que sous un histogramme.
+    axes.set_yticklabels(etiquettes_repliees(etiquettes, LARGEUR_D_UNE_ETIQUETTE * 2))
     axes.invert_yaxis()
     axes.grid(axis="x", color=palette.fond_clair_alt, linewidth=0.8)
     axes.set_axisbelow(True)
-    for index, valeur in enumerate(valeurs):
+    for index, (valeur, longueur) in enumerate(zip(valeurs, longueurs, strict=True)):
         axes.text(
-            valeur, index, f" {_fmt(valeur)}{unite}", va="center",
+            longueur, index, f" {_fmt(valeur)}{unite}", va="center",
             fontsize=9, color=palette.prune_fonce,
         )
     return _exporter(figure, palette)
@@ -276,13 +379,20 @@ def barres_groupees(
     positions = np.arange(len(etiquettes), dtype=float)
     largeur = 0.8 / max(len(series), 1)
     couleurs = _couleurs(palette, len(series))
+    # Le plancher se calcule sur TOUTES les séries : l'axe leur est commun, et
+    # une série entière peut être écrasée par une autre (règle 4 — la classe).
+    toutes = [float(v) for _, valeurs in series for v in valeurs]
+    hauteurs = iter(longueurs_visibles(toutes))
     for index, (nom, valeurs) in enumerate(series):
         axes.bar(
-            positions + index * largeur, list(valeurs), largeur * 0.9,
+            positions + index * largeur,
+            [next(hauteurs) for _ in valeurs], largeur * 0.9,
             label=nom, color=couleurs[index],
         )
     axes.set_xticks(positions + largeur * (len(series) - 1) / 2)
-    axes.set_xticklabels(etiquettes)
+    axes.set_xticklabels(etiquettes_repliees(
+        etiquettes, LARGEUR_D_UNE_ETIQUETTE * 6 // max(len(etiquettes), 1)
+    ))
     axes.grid(axis="y", color=palette.fond_clair_alt, linewidth=0.8)
     axes.set_axisbelow(True)
     _legende(axes, palette)
@@ -374,7 +484,7 @@ def camembert(
     couleurs = _couleurs(palette, len(valeurs))
     _, _, pourcentages = axes.pie(
         list(valeurs), labels=list(etiquettes), colors=couleurs,
-        autopct="%1.0f %%", startangle=90, counterclock=False,
+        autopct=_part_lisible, startangle=90, counterclock=False,
         textprops={"fontsize": 9, "color": palette.texte_corps},
         wedgeprops={"edgecolor": palette.fond_graphique, "linewidth": 2},
     )

@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -244,6 +245,144 @@ def questions_du_brief(variables: Any) -> list[str]:
     """Le texte des candidats, dans l'ordre. Conservé pour les appelants
     qui n'ont besoin que de la liste des passages."""
     return [c.texte for c in candidats_du_brief(variables)]
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Le mot d'une demande qui n'apparaît NULLE PART dans l'étude
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: En dessous, un mot n'identifie pas un sujet : « prix », « part », « coût »
+#: se trouvent partout, et leur présence ne prouve rien.
+LONGUEUR_DISTINCTIVE = 5
+
+#: Combien de mots distinctifs d'une demande doivent manquer pour que le sujet
+#: soit tenu pour absent. Un seul mot manquant est courant et innocent — le
+#: client écrit « dialectes », l'étude écrit « langues régionales ». Deux mots
+#: distinctifs absents sur une même demande, en revanche, désignent un sujet
+#: que personne n'a traité.
+MOTS_ABSENTS_MIN = 2
+
+#: Le vocabulaire que TOUTE étude emploie : sa présence ne prouve rien, son
+#: absence ne prouve rien non plus. Classe fermée du métier, pas une liste de
+#: cas observés (règle 4).
+_MOTS_DE_TOUTE_ETUDE = frozenset(
+    "marche marches marché marchés secteur secteurs client clients clientele "
+    "clientèle concurrent concurrents concurrence produit produits service "
+    "services projet projets entreprise entreprises societe société "
+    "strategie stratégie analyse analyses etude étude etudes études "
+    "donnees données chiffre chiffres chiffrage resultat résultat resultats "
+    "croissance evolution évolution tendance tendances perspective "
+    "perspectives objectif objectifs besoin besoins demande demandes offre "
+    "offres prix tarif tarifs marge marges volume volumes "
+    "souhaite souhaiterais souhaitons voudrais aimerais aimerait "
+    "connaitre connaître comprendre identifier savoir obtenir disposer "
+    "notamment egalement également particulier particulierement "
+    "concernant concerne concernent pourrait pourraient permettre "
+    "informations information precisions précisions elements éléments".split()
+)
+
+#: Le SUJET d'une demande, repéré par son déterminant : « les langues », « nos
+#: étiquettes », « des dialectes ». Prendre tous les mots longs de la phrase ne
+#: marchait pas — « parlés », « chaque », « adapter » passaient pour des sujets
+#: et déclaraient absente une demande que l'étude traitait (mesuré le
+#: 27/10/2026, en écrivant la contre-épreuve). Un déterminant, lui, annonce un
+#: nom : c'est une marque de GRAMMAIRE, pas une liste de mots (règle 4).
+_SUJET_DEMANDE = re.compile(
+    r"(?i)\b(?:les?|la|l'|des?|du|une?|aux?|ses|leurs?|nos|notre|vos|votre|"
+    r"ces?|cette|chaque|plusieurs|quelles?|quels?)\s*"
+    rf"(?P<nom>[^\W\d_]{{{LONGUEUR_DISTINCTIVE},}})"
+    # « les langues et dialectes » : le second nom partage le déterminant
+    # du premier, et c'était justement celui que la cliente cherchait.
+    rf"(?:\s*(?:et|ou|,)\s*(?P<nom2>[^\W\d_]{{{LONGUEUR_DISTINCTIVE},}}))?"
+)
+
+#: Tout mot assez long du document : c'est le corpus contre lequel on cherche.
+_MOT_DU_DOCUMENT = re.compile(rf"[^\W\d_]{{{LONGUEUR_DISTINCTIVE},}}")
+
+
+def _plat(texte: str) -> str:
+    decompose = unicodedata.normalize("NFD", texte.casefold())
+    return "".join(c for c in decompose if not unicodedata.combining(c))
+
+
+def _racine(mot: str) -> str:
+    """Le mot sans accent, sans sa marque de pluriel, tronqué à six lettres.
+
+    Grossier par choix : « dialectes » et « dialectal », « linguistique » et
+    « linguistiques » doivent se rejoindre. Une comparaison plus fine
+    déclarerait absent un sujet que l'étude traite sous une autre flexion, et
+    produirait un motif faux — pire qu'absent (règle 2).
+    """
+    propre = _plat(mot)
+    if propre.endswith(("s", "x")) and len(propre) > 4:
+        propre = propre[:-1]
+    return propre[:6]
+
+
+@dataclass(frozen=True)
+class DemandeAbsente:
+    """Une demande du client dont le sujet n'apparaît pas dans l'étude."""
+
+    champ: str
+    texte: str
+    mots: tuple[str, ...]
+
+    def ligne(self) -> str:
+        return (
+            f"[{self.champ}] {self.texte} — mots absents de toute l'étude : "
+            + ", ".join(f"« {m} »" for m in self.mots)
+        )
+
+
+def demandes_absentes(variables: Any, document: str) -> list[DemandeAbsente]:
+    """Les demandes dont au moins deux mots distinctifs ne figurent NULLE PART.
+
+    ## Pourquoi ce contrôle existe à côté de celui du modèle
+
+    Étude de marché à l'export, cliente, 26/10/2026 : « la demande prioritaire
+    du client — les langues et dialectes parlés dans chaque pays — n'est pas
+    traitée ; le FOCUS parle des conditions d'entrée ». Le contrôle de
+    couverture tournait : il interroge le modèle, et le modèle a jugé la
+    demande couverte.
+
+    Un contrôle qui demande à un modèle de langage si une étude répond à une
+    question peut se tromper, et il se tait quand il se trompe. Celui-ci ne
+    juge RIEN : il constate qu'un mot n'est pas dans le document. C'est
+    vérifiable par n'importe qui en une recherche, et c'est pour cela qu'il
+    existe — un contrôle et sa réparation ne doivent pas juger sur la même
+    évidence (règle 9).
+
+    ## Ce qu'il ne dit pas
+
+    Il ne dit pas qu'une demande est mal traitée : un sujet peut être traité
+    sous d'autres mots. Il dit que PERSONNE n'a écrit ces mots-là, ce qui, pour
+    deux mots distinctifs d'une même demande, ne s'explique pas autrement que
+    par un sujet laissé de côté.
+    """
+    corpus = {_racine(mot) for mot in _MOT_DU_DOCUMENT.findall(document or "")}
+    if not corpus:
+        return []
+    absentes: list[DemandeAbsente] = []
+    for candidat in candidats_du_brief(variables):
+        manquants = [
+            nom
+            for trouve in _SUJET_DEMANDE.finditer(candidat.texte)
+            for nom in (trouve.group("nom"), trouve.group("nom2"))
+            if nom
+            and _plat(nom) not in _MOTS_DE_TOUTE_ETUDE
+            and _racine(nom) not in corpus
+        ]
+        # Dédoublonnage par racine : « dialecte » et « dialectes » comptent
+        # pour un seul mot absent, sinon un pluriel doublerait le compte.
+        uniques: dict[str, str] = {}
+        for mot in manquants:
+            uniques.setdefault(_racine(mot), mot)
+        if len(uniques) >= MOTS_ABSENTS_MIN:
+            absentes.append(DemandeAbsente(
+                candidat.champ, candidat.texte, tuple(uniques.values()),
+            ))
+    return absentes
 
 
 _SYSTEME = (

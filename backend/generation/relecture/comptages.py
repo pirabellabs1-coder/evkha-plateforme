@@ -44,15 +44,18 @@ refaire n'est pas jugé (règle 2).
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
 from generation.arithmetique import _COMPTE_EN_LETTRES
+from generation.chapitres.schema import LIGNES_D_UN_ENCADRE
 from generation.memoire.regles import FRANCHISE_TVA, Seuil
 
 from .constat import Constat, Reference
-from .document import Document, Section, Tableau
+from .document import Document, Encadre, Section, Tableau
 from .fuites import PHRASE, RENVOI, est_un_encadre, racines, texte_lisible
+from .valeurs import phrases_de
 
 # ── Nombres, phrases, propositions ──────────────────────────────────────────
 
@@ -61,9 +64,13 @@ from .fuites import PHRASE, RENVOI, est_un_encadre, racines, texte_lisible
 #:
 #: Un compte est un nombre ENTIER et SEUL : ni le « dix » de « dix-sept », ni
 #: le « 2 » de « 2 500 », ni le « 5 » de « 5,5 » (revue du 30/09/2026 : « sur
-#: dix-sept » lu « sur dix », « 300 acteurs sur 2 500 » lu « sur 2 »).
+#: dix-sept » lu « sur dix », « 300 acteurs sur 2 500 » lu « sur 2 »), ni le
+#: « 000 » de « 100 000 » — le garde ne regardait que vers l'avant, et
+#: « Cap sur les 100 000 premiers euros » se lisait « 000 premiers »
+#: (relecture du 27/10/2026).
 _NB = (
-    r"(?<![\w-])(?:\d{1,3}(?![\d])(?![.,]\d)(?!\s\d{3}\b)|"
+    r"(?<![\w-])(?<!\d[ \u00a0\u202f])"
+    r"(?:\d{1,3}(?![\d])(?![.,]\d)(?!\s\d{3}\b)|"
     + "|".join(sorted(_COMPTE_EN_LETTRES, key=len, reverse=True))
     + r")(?![-‑]\w)"
 )
@@ -795,6 +802,187 @@ def _constat_d_annonce(
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# 3 bis. « Dix risques majeurs » : contre les lignes de l'encadré lui-même
+# ═════════════════════════════════════════════════════════════════════════════
+
+
+def _comptes_contre_les_encadres(document: Document) -> list[Constat]:
+    """Un intitulé qui compte décrit TOUT ce qu'il coiffe.
+
+    ## Le défaut, mesuré
+
+    Étude de marché à l'export, cliente, 26/10/2026 : « dix risques annoncés,
+    six présentés » et « cinq repères annoncés, huit présentés ».
+
+    Les lignes d'un encadré étaient versées à plat dans les paragraphes, et son
+    compte perdu avec : « Dix risques majeurs » au-dessus de six lignes n'avait
+    rien contre quoi se juger. Le contrôle du compte annoncé ne regardait que
+    les colonnes des TABLEAUX, et il écartait explicitement les encadrés.
+    C'est la règle 1 — un contrôle qui n'a rien à comparer n'échoue pas, il se
+    tait — et la règle 9 : ce qu'il ne regardait pas est exactement là où le
+    défaut vivait.
+
+    ## Pourquoi l'INTITULÉ, et pas n'importe quelle phrase
+
+    Un intitulé coiffe une liste fermée : le lecteur voit les deux d'un seul
+    regard, et rien ne vient d'ailleurs. Une phrase de prose, elle, peut citer
+    à bon droit une partie d'un ensemble — « les trois actions de la première
+    année » — et c'est pour cela que le contrôle des tableaux ne juge que les
+    dépassements. Ici les deux sens se jugent, mais pas avec la même gravité :
+
+    - annoncer PLUS que de lignes est impossible à justifier — grave ;
+    - annoncer MOINS peut être un sous-ensemble volontaire — signalé seulement.
+    """
+    constats: list[Constat] = []
+    for section in document.sections:
+        for encadre in section.encadres:
+            constat = _juger_l_intitule(section, encadre)
+            if constat is not None:
+                constats.append(constat)
+    return constats
+
+
+#: Ce qu'un nombre peut compter dans un intitulé SANS compter des items :
+#: une durée, une échéance, une monnaie, une mesure, une population.
+#:
+#: C'est une liste fermée, et elle l'est à bon droit — contrairement à celles
+#: que la règle 4 proscrit. Sur un intitulé qui coiffe une liste fermée, la
+#: CLASSE est « n'importe quel nom » : le lecteur voit le compte et les lignes
+#: d'un seul regard, et rien ne vient d'ailleurs. Ce sont les EXCEPTIONS qui
+#: sont finies, et le français les connaît toutes.
+#:
+#: Le contrôle des tableaux, lui, garde sa liste de noms comptables : une
+#: phrase de prose peut citer à bon droit une partie d'un ensemble, et le
+#: compte annoncé n'y coiffe rien.
+_MOTS_QUI_NE_SONT_PAS_DES_ITEMS = (
+    "an ans année années exercice exercices trimestre trimestres semestre "
+    "semestres mois semaine semaines jour jours heure heures minute minutes "
+    "seconde secondes "
+    "euro euros millier milliers million millions milliard milliards pourcent "
+    "point points fois degré degrés kilomètre kilomètres mètre mètres litre "
+    "litres kilo kilos tonne tonnes "
+    "habitant habitants client clients salarié salariés personne personnes "
+    "emploi emplois collaborateur collaborateurs employé employés membre "
+    "membres abonné abonnés utilisateur utilisateurs"
+)
+
+
+def _nom_compte(mot: str) -> str:
+    """Le nom tel qu'on le compare : minuscules, sans accents, sans pluriel.
+
+    `racines()` ne convient PAS ici, et c'est délibéré : sa liste de mots vides
+    écarte « repères », « données », « figure » — du vocabulaire de
+    présentation quand il s'agit de rapprocher un titre de figure d'un titre de
+    section. Or « Cinq repères » est précisément l'intitulé que la cliente a
+    relevé le 26/10/2026. Deux usages, deux normalisations : les confondre
+    rendait le contrôle muet sur son propre cas.
+    """
+    propre = _sans_pluriel(mot)
+    if propre.endswith("aux") and len(propre) > 4:
+        propre = propre[:-3] + "al"
+    elif propre.endswith(("s", "x")) and len(propre) > 2:
+        propre = propre[:-1]
+    return propre if len(propre) >= 2 else ""
+
+
+def _sans_pluriel(mot: str) -> str:
+    """Minuscules et sans accents, le pluriel gardé : « Années » → « annees »."""
+    decompose = unicodedata.normalize("NFD", mot.casefold())
+    return "".join(c for c in decompose if not unicodedata.combining(c))
+
+
+#: Les deux formes de chaque mot — telle quelle et dépluralisée — parce que
+#: « ans » se réduit en « an » et « mois » en « moi » : chercher une seule
+#: forme laissait passer la moitié de la liste.
+_PAS_DES_ITEMS = frozenset(
+    forme
+    for mot in _MOTS_QUI_NE_SONT_PAS_DES_ITEMS.split()
+    for forme in (_sans_pluriel(mot), _nom_compte(mot))
+    if forme
+)
+
+
+#: Ce qui se tient entre un compte et le nom qu'il compte : déterminants,
+#: prépositions, et les adjectifs de rang ou de taille. Classe fermée du
+#: français — pas une liste de cas (règle 4).
+_MOTS_OUTILS = frozenset(
+    "de des du d la le les l a au aux en et ou pour sur par dans avec sans "
+    "ses son sa leur leurs nos notre vos votre ce cet cette ces plus moins "
+    "premier premiers premiere premieres dernier derniers derniere dernieres "
+    "prochain prochains prochaine prochaines grand grands grande grandes "
+    "principal principaux principale principales nouveau nouveaux nouvelle "
+    "nouvelles autre autres meme memes seul seuls seule seules bon bons "
+    "majeur majeurs majeure majeures cle cles".split()
+)
+
+#: Combien de mots, après le compte, peuvent précéder le nom. « les trois
+#: premiers grands marchés » en compte trois ; au-delà, la phrase a changé de
+#: sujet et le compte ne coiffe plus rien.
+_MOTS_AVANT_LE_NOM = 4
+
+
+def _nom_de_l_annonce(suite: str) -> str | None:
+    """Le nom que le compte compte, ou `None` s'il n'en compte pas.
+
+    `_ANNONCE` prend le mot qui suit immédiatement le nombre. « Vos 3 prochains
+    mois » lui donnait donc « prochains », et « mois » — qui n'est pas un item
+    — n'était jamais vu ; « Le top 5 des concurrents » lui donnait « des ».
+    On lit ici les quatre mots suivants : si l'un d'eux est une unité de temps,
+    de monnaie ou de mesure, le nombre ne compte pas des items et on se taît ;
+    sinon le nom est le premier mot qui n'est pas un mot outil.
+    """
+    mots = [_nom_compte(mot) for mot in re.findall(r"[^\W\d_]+", suite)[:_MOTS_AVANT_LE_NOM]]
+    # Le nom RETENU, et lui seul, décide. Abandonner dès qu'une unité figure
+    # dans les quatre mots suivants aurait rendu muet « les quatre pays et
+    # leurs habitants » — un compte juste, perdu pour un mot de voisinage
+    # (vu en auto-revue, 27/10/2026).
+    nom = next((mot for mot in mots if mot and mot not in _MOTS_OUTILS), None)
+    return None if nom is None or nom in _PAS_DES_ITEMS else nom
+
+
+def _juger_l_intitule(section: Section, encadre: Encadre) -> Constat | None:
+    intitule = texte_lisible(encadre.intitule)
+    if not intitule or not encadre.lignes:
+        return None
+    for m in _ANNONCE.finditer(intitule):
+        nom = _nom_de_l_annonce(intitule[m.end("n"):])
+        if nom is None:
+            continue
+        avant, apres = intitule[:m.start()], intitule[m.end():]
+        # « 2 à 3 priorités » : une fourchette, pas un compte. « Trois leviers
+        # par risque » : un compte PAR ligne, pas un total. Mêmes gardes que
+        # pour les tableaux (règle 5 — une seule lecture de l'annonce).
+        if re.search(rf"(?i)\b{_NB}\s*(?:à|-)\s*$", avant):
+            continue
+        if re.match(r"^(?:\s+\S+){0,2}\s+par\b", apres):
+            continue
+        # « deux risques sur cinq » dans un intitulé : c'est le TOUT qui coiffe.
+        total = _nombre(m.group("m")) if m.group("m") else None
+        annonce_n = total if total is not None else _nombre(m.group("n"))
+        presentes = len(encadre.lignes)
+        if annonce_n == presentes:
+            return None
+        trop = annonce_n > presentes
+        conseil = (
+            f"l'encadré n'en porte que {presentes} : écrire "
+            f"« {_ecrire(presentes)} », ou compléter l'encadré — il tient au "
+            f"plus {LIGNES_D_UN_ENCADRE} lignes."
+            if trop else
+            f"l'encadré en porte {presentes} : écrire « {_ecrire(presentes)} », "
+            "ou sortir de l'encadré ce qui n'entre pas dans le compte annoncé."
+        )
+        # L'extrait porte DÉJÀ l'intitulé entier : le détail n'en recite pas
+        # un fragment. « Le top 5 des concurrents » donnait « 5 des », qui
+        # n'aide pas le rédacteur à se relire (règle 2).
+        return Constat(
+            "comptage", section.numero, intitule,
+            f"l'intitulé annonce {annonce_n} « {m.group('nom')} » : {conseil}",
+            grave=trop,
+        )
+    return None
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # 4. Une décision écrite de deux façons
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -1404,6 +1592,116 @@ def _regle_de_tva(document: Document, reference: Reference) -> list[Constat]:
     return constats
 
 
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 4 bis. Deux chapitres, deux premières priorités
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: Ce par quoi une étude désigne SA première cible. Un rang, pas un constat :
+#: « le marché coréen croît de 8 % » n'ordonne rien, « le marché coréen est la
+#: première cible » ordonne.
+_PREMIERE_CIBLE = re.compile(
+    r"(?i)\b("
+    r"premi[èe]re?\s+(?:cible|march[ée]|[ée]tape|zone|destination|priorit[ée])|"
+    r"cible\s+(?:primaire|principale)|"
+    r"march[ée]\s+prioritaire|"
+    r"priorit[ée]\s+(?:num[ée]ro\s+un|absolue|premi[èe]re)|"
+    r"[àa]\s+(?:cibler|viser|aborder|attaquer|ouvrir)\s+(?:en\s+)?(?:premier|d['’]abord)|"
+    r"en\s+priorit[ée]"
+    r")\b"
+)
+
+#: Un nom propre cité dans la phrase : le pays, la zone, la marque désignée.
+#: Le premier mot de la phrase est capitalisé par la ponctuation et ne compte
+#: donc pas — sans cette garde, « En priorité, le marché… » désignerait « En ».
+_NOM_PROPRE = re.compile(r"\b[A-Z][^\W\d_]{2,}(?:[- ][A-Z][^\W\d_]{2,})*")
+
+#: Ce qui porte une majuscule sans désigner personne : début de phrase,
+#: vocabulaire de méthode, mois. Classe fermée du vocabulaire des études.
+_MAJUSCULES_SANS_ENTITE = frozenset(
+    "Le La Les Un Une Des Ce Cette Ces Il Elle Nous Vous On Cela "
+    "En Au Aux Dans Pour Sur Par Avec Sans Selon Depuis Afin Ainsi Enfin "
+    "Toutefois Cependant Néanmoins Par Mais Donc Or "
+    "La Première Premier Deuxième Troisième "
+    "Janvier Février Mars Avril Mai Juin Juillet Août Septembre Octobre "
+    "Novembre Décembre "
+    "Marché Marchés Zone Zones Cible Cibles Priorité Priorités Étape Étapes "
+    "Chapitre Figure Tableau Source Sources".split()
+)
+
+
+@dataclass(frozen=True)
+class _Priorite:
+    section: str
+    phrase: str
+    entites: frozenset[str]
+
+
+def _entites_nommees(phrase: str) -> frozenset[str]:
+    return frozenset(
+        trouve.group(0)
+        for trouve in _NOM_PROPRE.finditer(phrase)
+        if trouve.group(0) not in _MAJUSCULES_SANS_ENTITE
+        and trouve.start() > 0
+    )
+
+
+def _premieres_cibles(document: Document) -> list[_Priorite]:
+    trouvees: list[_Priorite] = []
+    for section in document.sections:
+        for phrase in phrases_de(section):
+            if not _PREMIERE_CIBLE.search(phrase):
+                continue
+            entites = _entites_nommees(phrase)
+            if entites:
+                trouvees.append(_Priorite(section.numero, phrase.strip(), entites))
+    return trouvees
+
+
+def _priorites_contradictoires(document: Document) -> list[Constat]:
+    """Deux chapitres qui désignent deux premières cibles qui ne se recoupent pas.
+
+    ## Le défaut, mesuré
+
+    Étude de marché à l'export, cliente, 26/10/2026 : « le chapitre 7
+    recommande la Corée, le Japon et Taïwan ; le chapitre 17 recommande la
+    Chine en premier ». Le lecteur n'a plus de décision à prendre : il en a
+    deux, et elles s'excluent.
+
+    ## Comment deux priorités se contredisent
+
+    Par leurs noms propres. Deux phrases qui désignent chacune une première
+    cible et dont les noms ne se recoupent PAS désignent deux cibles
+    différentes — « la Corée, le Japon et Taïwan » d'un côté, « la Chine » de
+    l'autre. Quand les ensembles se recoupent, la seconde phrase précise la
+    première et ne la contredit pas : on se tait.
+
+    Le verrou amont — `generation.decisions`, qui rend au rédacteur du chapitre
+    suivant ce que les précédents ont tranché — est ce qui EMPÊCHE le défaut.
+    Celui-ci le CONSTATE sur le document entier, là où le premier n'a pas
+    suffi : un contrôle et sa réparation ne jugent pas sur la même évidence
+    (règle 9).
+    """
+    cibles = _premieres_cibles(document)
+    if len(cibles) < 2:
+        return []
+    premiere = cibles[0]
+    constats: list[Constat] = []
+    for autre in cibles[1:]:
+        if premiere.entites & autre.entites or premiere.section == autre.section:
+            continue
+        constats.append(Constat(
+            "decision", autre.section, autre.phrase[:220],
+            f"Première cible déjà désignée en {premiere.section} : "
+            f"« {_court(premiere.phrase, 140)} ». Deux premières cibles qui ne "
+            "se recoupent pas ne laissent au lecteur aucune décision à prendre. "
+            "Reprends celle du chapitre qui l'a tranchée, ou dis en une phrase "
+            "ce qui la change.",
+        ))
+    return constats
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 
 
@@ -1415,6 +1713,8 @@ def controler(document: Document, reference: Reference) -> list[Constat]:
         constats += _comptes_contre_la_base(document, base, predicats)
     constats += _proportions_discordantes(predicats, base)
     constats += _comptes_contre_les_tableaux(document)
+    constats += _comptes_contre_les_encadres(document)
+    constats += _priorites_contradictoires(document)
     constats += _dates_de_lancement(document)
     constats += _dates_du_depart(document, reference)
     constats += _statuts_de_l_apport(document)

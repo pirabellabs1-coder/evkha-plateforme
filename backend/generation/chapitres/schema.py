@@ -310,7 +310,21 @@ class Graphique(SortieDeChapitre):
     model_config = {"extra": "forbid", "populate_by_name": True}
 
     type: TypeGraphique = Field(alias="type_graphique")
-    titre: str = Field(min_length=1, max_length=220)
+    #: La description part dans le schéma de l'outil : c'est la seule consigne
+    #: que le modèle lise sur ce champ, et il n'en avait aucune. Relevé par la
+    #: cliente le 26/10/2026 sur l'étude à l'export : des « titres génériques »
+    #: sous les figures.
+    titre: str = Field(
+        min_length=1, max_length=220,
+        description=(
+            "Titre lu sous la figure. Il NOMME ce que la figure montre : la "
+            "grandeur, la zone ou la population concernée, et la période. "
+            "« Évolution », « Répartition », « Comparaison » ne sont pas des "
+            "titres : ils conviendraient à n'importe quelle autre figure du "
+            "document. Un bon titre ne peut coiffer qu'UNE figure. N'annonce "
+            "pas une année que la figure ne trace pas."
+        ),
+    )
     donnees_ids: list[str] = Field(min_length=1)
     #: La phrase imprimée SOUS le graphique, lue par le client : ce que le
     #: graphique lui apprend, ou d'où viennent ses chiffres. Jamais le brief du
@@ -324,6 +338,13 @@ class Graphique(SortieDeChapitre):
             "d'où viennent ses chiffres. Jamais une consigne de dessin."
         ),
     )
+
+
+#: Lignes d'un encadré. Six suffisent au patron du document de référence —
+#: opportunité, limite, décision — et au-delà l'encadré cesse d'être un
+#: encadré. Déclaré au modèle (champ `lignes`) ET appliqué (validateur) depuis
+#: le 27/10/2026 : les deux lisent cette constante.
+LIGNES_D_UN_ENCADRE = 6
 
 
 class Encadre(SortieDeChapitre):
@@ -364,11 +385,32 @@ class Encadre(SortieDeChapitre):
     #: sur-mesure », soit 86 caractères. Une contrainte qui interdit ce que le
     #: document validé contient est une contrainte fausse.
     intitule: str = Field(min_length=1, max_length=120)
-    lignes: list[str] = Field(min_length=1)
+    #: Le plafond est DÉCLARÉ, et pas seulement appliqué.
+    #:
+    #: `_au_plus_six_lignes` coupait à six sans que le schéma de l'outil le
+    #: dise : le modèle écrivait dix lignes, en annonçait dix dans sa prose, et
+    #: le lecteur en trouvait six. Relevé par la cliente le 26/10/2026 sur une
+    #: étude de marché à l'export — « dix risques annoncés, six présentés » —
+    #: et c'est bien le code qui produisait le mensonge, pas le modèle.
+    #:
+    #: Un plafond qu'une moitié du code applique et que l'autre ignore, c'est
+    #: la règle 5 : le nombre est écrit une fois, ici, et le validateur ne reste
+    #: qu'un filet.
+    lignes: list[str] = Field(min_length=1, max_length=LIGNES_D_UN_ENCADRE)
 
-    @model_validator(mode="after")
-    def _au_plus_six_lignes(self) -> Encadre:
+    @model_validator(mode="before")
+    @classmethod
+    def _au_plus_six_lignes(cls, valeurs: Any) -> Any:
         """Garde les six premières au lieu de refuser le chapitre entier.
+
+        ## Pourquoi AVANT, et non plus après (27/10/2026)
+
+        Le plafond est désormais déclaré sur le champ (`max_length`), pour que
+        le schéma de l'outil le dise au modèle. Un validateur `after` ne serait
+        jamais atteint : la validation du champ aurait déjà refusé la septième
+        ligne, et on retomberait exactement sur le chapitre perdu du
+        11/08/2026 raconté ci-dessous. La coupe se fait donc avant — le modèle
+        est averti, et l'excédent ne coûte toujours rien.
 
         ## Le cas réel qui a changé cette règle
 
@@ -397,14 +439,17 @@ class Encadre(SortieDeChapitre):
         On ne se tait pas pour autant : la coupe est journalisée avec ce
         qu'elle retire (règle 1).
         """
-        if len(self.lignes) <= 6:
-            return self
+        if not isinstance(valeurs, dict):
+            return valeurs
+        lignes = valeurs.get("lignes")
+        if not isinstance(lignes, list) or len(lignes) <= LIGNES_D_UN_ENCADRE:
+            return valeurs
         _log.warning(
-            "Encadré « %s » : %s lignes ramenées à 6. Retirées : %s",
-            self.intitule, len(self.lignes), " | ".join(self.lignes[6:]),
+            "Encadré « %s » : %s lignes ramenées à %s. Retirées : %s",
+            valeurs.get("intitule", ""), len(lignes), LIGNES_D_UN_ENCADRE,
+            " | ".join(str(ligne) for ligne in lignes[LIGNES_D_UN_ENCADRE:]),
         )
-        self.lignes = self.lignes[:6]
-        return self
+        return {**valeurs, "lignes": lignes[:LIGNES_D_UN_ENCADRE]}
 
 
 class CelluleKpi(SortieDeChapitre):

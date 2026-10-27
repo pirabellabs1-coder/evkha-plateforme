@@ -72,6 +72,8 @@ import unicodedata
 from functools import lru_cache
 from typing import Any, NamedTuple
 
+from ..orthographe import graphies_suspectes, reparer_les_accents
+
 #: Espace fine insécable — celle de Word en français (U+202F).
 FINE_INSECABLE = " "
 
@@ -217,7 +219,10 @@ def _borne(modele: Any, nom: str) -> int | None:
     return None
 
 
-def _reparer_dans_la_borne(texte: str, *, prose: bool, borne: int | None) -> str:
+def _reparer_dans_la_borne(
+    texte: str, *, prose: bool, borne: int | None,
+    graphies: dict[str, str] | None = None,
+) -> str:
     """La réparation la plus complète qui tienne dans la borne du champ.
 
     ## Le défaut, relevé en relecture (29/09/2026)
@@ -234,17 +239,28 @@ def _reparer_dans_la_borne(texte: str, *, prose: bool, borne: int | None) -> str
     post-rendu (`checks_post_rendu.detecter_mots_anglais`) : il se réécrit au
     chapitre, il ne casse rien.
     """
-    complet = reparer_texte(texte, prose=prose)
+    # Les accents ne changent pas la longueur — « precise » et « précise »
+    # font sept signes — donc la cascade de replis ci-dessous reste valable.
+    complet = _accents(reparer_texte(texte, prose=prose), prose, graphies)
     if borne is None or len(complet) <= borne:
         return complet
     candidats = (
-        reparer_texte(texte, prose=prose, anglais=False),
-        reparer_texte(texte, prose=False),
+        _accents(reparer_texte(texte, prose=prose, anglais=False), prose, graphies),
+        _accents(reparer_texte(texte, prose=False), prose, graphies),
     )
     for candidat in candidats:
         if len(candidat) <= borne:
             return candidat
     return purger_les_invisibles(texte)
+
+
+def _accents(texte: str, prose: bool, graphies: dict[str, str] | None) -> str:
+    """Les accents du corpus, appliqués à la prose seulement.
+
+    Un identifiant n'a pas d'accent à retrouver, et le toucher le rendrait
+    introuvable au rendu — même raison que pour la langue.
+    """
+    return reparer_les_accents(texte, graphies) if prose and graphies else texte
 
 
 #: Les champs du contrat qui portent des IDENTIFIANTS, pas de la prose. La
@@ -266,14 +282,18 @@ def reparer_typographie(payload: Any) -> int:
     dans le bandeau du chapitre (`rendu_word.composants`), donc lue — et elle
     était le seul texte du chapitre que cette passe ne voyait pas.
     """
+    # Les accents se jugent sur le CHAPITRE ENTIER : « precise » ne se répare
+    # que parce que « précise » est écrit ailleurs. On lit donc tout avant de
+    # toucher quoi que ce soit.
+    graphies = graphies_suspectes(_textes_du_payload(payload))
     retouches = 0
     for bloc in getattr(payload, "blocs", ()) or ():
-        retouches += _reparer_modele(bloc)
+        retouches += _reparer_modele(bloc, graphies)
     for champ in ("accroche", "resume"):
         texte = getattr(payload, champ, None)
         if isinstance(texte, str):
             corrige = _reparer_dans_la_borne(
-                texte, prose=True, borne=_borne(payload, champ)
+                texte, prose=True, borne=_borne(payload, champ), graphies=graphies,
             )
             if corrige != texte:
                 setattr(payload, champ, corrige)
@@ -281,7 +301,31 @@ def reparer_typographie(payload: Any) -> int:
     return retouches
 
 
-def _reparer_modele(modele: Any) -> int:
+def _textes_du_payload(payload: Any) -> list[str]:
+    """Toute la prose du chapitre, pour servir de corpus aux accents."""
+    textes: list[str] = []
+    for champ in ("accroche", "resume"):
+        valeur = getattr(payload, champ, None)
+        if isinstance(valeur, str):
+            textes.append(valeur)
+    for bloc in getattr(payload, "blocs", ()) or ():
+        _collecter(bloc, textes)
+    return textes
+
+
+def _collecter(valeur: Any, textes: list[str]) -> None:
+    if isinstance(valeur, str):
+        textes.append(valeur)
+    elif isinstance(valeur, list):
+        for element in valeur:
+            _collecter(element, textes)
+    elif getattr(type(valeur), "model_fields", None):
+        for nom in type(valeur).model_fields:
+            if nom not in _CHAMPS_IDENTIFIANTS:
+                _collecter(getattr(valeur, nom, None), textes)
+
+
+def _reparer_modele(modele: Any, graphies: dict[str, str]) -> int:
     """Descend dans un bloc et ses modèles imbriqués, comme le fait le contrôle.
 
     Un `BlocTableau` ne porte pas de texte : il porte un `Tableau`. Rester en
@@ -299,6 +343,7 @@ def _reparer_modele(modele: Any) -> int:
             valeur,
             prose=nom not in _CHAMPS_IDENTIFIANTS,
             borne=_borne(modele, nom),
+            graphies=graphies,
         )
         if compte:
             setattr(modele, nom, corrige)
@@ -307,23 +352,26 @@ def _reparer_modele(modele: Any) -> int:
 
 
 def _reparer_valeur(
-    valeur: Any, *, prose: bool = True, borne: int | None = None
+    valeur: Any, *, prose: bool = True, borne: int | None = None,
+    graphies: dict[str, str] | None = None,
 ) -> tuple[Any, int]:
     """`borne` ne vaut que pour une chaîne : sur une liste, `max_length`
     compte des ÉLÉMENTS, pas des signes — elle ne descend donc pas."""
     if isinstance(valeur, str):
-        corrige = _reparer_dans_la_borne(valeur, prose=prose, borne=borne)
+        corrige = _reparer_dans_la_borne(
+            valeur, prose=prose, borne=borne, graphies=graphies,
+        )
         return corrige, int(corrige != valeur)
     if isinstance(valeur, list):
         retouches = 0
         sortie = []
         for element in valeur:
-            corrige, compte = _reparer_valeur(element, prose=prose)
+            corrige, compte = _reparer_valeur(element, prose=prose, graphies=graphies)
             sortie.append(corrige)
             retouches += compte
         return sortie, retouches
     if getattr(type(valeur), "model_fields", None):
-        return valeur, _reparer_modele(valeur)
+        return valeur, _reparer_modele(valeur, graphies or {})
     return valeur, 0
 
 

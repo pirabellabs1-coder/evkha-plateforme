@@ -29,6 +29,9 @@ Questions a reprendre OBLIGATOIREMENT :
 - Le projet paraît-il viable, a quelles conditions et avec quelles limites ?
 - Quelles sont les trois a cinq actions prioritaires a engager après l'étude ?
 
+RÈGLE ABSOLUE — le sujet demandé, et pas un sujet voisin :
+Chaque demande du client porte sur un sujet NOMMÉ, et la réponse porte sur ce sujet-là, avec ses mots. Si le client demande les langues parlées pays par pays, la ligne parle de langues, pays par pays. Répondre sur un sujet voisin — les conditions d'entrée à la place des langues — est la faute la plus grave de cette annexe : elle a l'air d'une réponse, et le client ne retrouve pas sa question. Quand l'étude n'a rien établi sur le sujet, dis ce que les sources permettent d'en dire, puis ce qui manque exactement et qui le publie.
+
 RÈGLE ABSOLUE — aucune nouveaute :
 Aucune donnée, conclusion ou recommandation ne doit apparaître UNIQUEMENT dans cette annexe. Chaque ligne reprend, aux mêmes chiffres, aux mêmes unités et aux mêmes dates, ce qui est déjà établi dans les chapitres. Si une réponse te semble manquer, c'est un défaut de l'étude : signale-le dans la colonne « Ou approfondir » en renvoyant au chapitre concerne, n'invente pas la réponse ici.
 

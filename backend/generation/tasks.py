@@ -129,6 +129,11 @@ def _controler_les_demandes_du_client(job: GenerationJob) -> None:
         texte = "\n\n".join(
             c.content for c in job.chapters.order_by("chapter_number") if c.content
         )
+        # D'ABORD le constat qui ne se trompe pas : un mot de la demande
+        # absent de toute l'étude. Il ne coûte rien, il ne juge rien, et il
+        # tient même si l'appel au modèle échoue juste après — un contrôle et
+        # sa réparation ne jugent pas sur la même évidence (règle 9).
+        _signaler_les_demandes_absentes(job, variables, texte)
         rapport = controler_la_couverture(
             client=get_claude_client(), variables=variables, document=texte
         )
@@ -163,6 +168,51 @@ def _controler_les_demandes_du_client(job: GenerationJob) -> None:
             order=job.order,
             details=rapport.as_details(),
         )
+
+
+def _signaler_les_demandes_absentes(
+    job: GenerationJob, variables: object, texte: str,
+) -> None:
+    """Les demandes dont deux mots distinctifs ne figurent NULLE PART dans l'étude.
+
+    Étude de marché à l'export, cliente, 26/10/2026 : « la demande prioritaire
+    du client — les langues et dialectes parlés dans chaque pays — n'est pas
+    traitée ; le FOCUS parle des conditions d'entrée ». Le contrôle de
+    couverture tournait ; il interroge un modèle, et le modèle avait jugé la
+    demande couverte.
+
+    Celui-ci ne juge rien : il constate. Son incident est donc plus fort qu'un
+    verdict — une recherche dans le document le vérifie en dix secondes, et
+    c'est pourquoi il est classé HAUT quand l'autre reste MOYEN.
+
+    Ne lève jamais : un contrôle en panne ne fait pas échouer une étude.
+    """
+    from .couverture import demandes_absentes  # noqa: PLC0415
+
+    try:
+        absentes = demandes_absentes(variables, texte)
+    except Exception:  # noqa: BLE001 — un contrôle ne fait pas échouer l'étude
+        logging.getLogger(__name__).exception(
+            "Recherche des demandes absentes impossible pour le job %s", job.id
+        )
+        return
+    if not absentes:
+        return
+    OperationalIncident.objects.update_or_create(
+        job=job,
+        title=f"{len(absentes)} demande(s) client dont le sujet est ABSENT (job {job.id})",
+        defaults={
+            "severity": IncidentSeverity.HIGH,
+            "order": job.order,
+            "details": {
+                "constat": (
+                    "Ces mots du brief ne figurent nulle part dans l'étude. "
+                    "Vérifiable par une recherche dans le document."
+                ),
+                "demandes": [a.ligne() for a in absentes],
+            },
+        },
+    )
 
 
 def _assembler_ce_qui_est_ecrit(job: GenerationJob) -> None:

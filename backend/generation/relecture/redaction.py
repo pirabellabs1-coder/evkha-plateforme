@@ -25,6 +25,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
+from ..orthographe import MOT, graphies_suspectes
 from .constat import Constat, Reference
 from .document import Document
 from .valeurs import nombres, phrases_de
@@ -284,6 +285,103 @@ def _double_compte(document: Document) -> list[Constat]:
     return constats
 
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 13. Orthographe : le même mot écrit de deux façons dans le même document
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _orthographe_a_deux_graphies(document: Document) -> list[Constat]:
+    """Le même mot écrit avec et sans ses accents dans le même document.
+
+    ## Le défaut, mesuré
+
+    Étude de marché à l'export, cliente, 26/10/2026 : « toutefise », « precise »,
+    « acheteurs transfrontalier ». Aucun dictionnaire français n'est installé
+    dans l'image, et en ajouter un est une décision d'infrastructure.
+
+    Mais une faute d'accent se trahit sans dictionnaire : le document écrit
+    « précise » ailleurs. **Le corpus de référence, c'est le document
+    lui-même.** Deux graphies du même mot dans un même livrable sont un défaut
+    quelle que soit celle qui est juste — et le lecteur retrouve les deux
+    (règle 2).
+
+    ## Ce que ce contrôle NE voit pas, et pourquoi c'est écrit ici
+
+    Une faute écrite de façon CONSTANTE — « toutefise » partout, un mot dont la
+    forme juste n'apparaît nulle part — reste invisible : il n'y a rien à
+    comparer (règle 1). La fermer demande un dictionnaire français dans
+    l'image, décision qui appartient au client.
+
+    Signalé, jamais grave : la graphie ne change aucun chiffre, et une reprise
+    de chapitre payée pour un accent coûterait plus qu'elle ne rapporte.
+    """
+    suspects = graphies_suspectes(s.texte() for s in document.sections)
+    if not suspects:
+        return []
+    constats: list[Constat] = []
+    vus: set[str] = set()
+    for section in document.sections:
+        for phrase in phrases_de(section):
+            for mot in MOT.findall(phrase):
+                juste = suspects.get(mot)
+                if juste is None or mot in vus:
+                    continue
+                vus.add(mot)
+                constats.append(Constat(
+                    "orthographe", section.numero, phrase[:200],
+                    f"« {mot} » s'écrit « {juste} » ailleurs dans le document : le "
+                    "même mot ne s'écrit pas de deux façons. Garde la graphie "
+                    "accentuée.",
+                    grave=False,
+                ))
+    return constats
+
+
+# ── Un nombre en chiffres n'appelle pas de « de » ───────────────────────────
+
+#: Ce qui suit « de » quand le « de » est fautif : une monnaie, une mesure, une
+#: population. « 5 000 de plus », « 3 % de marge » sont corrects ;
+#: « 275 000 000 de dollars » ne l'est pas — « de » n'appelle un complément
+#: qu'après un mot d'échelle (« millions de », « milliards de »).
+_APRES_DE = (
+    "euros?|dollars?|yens?|livres?|francs?|dirhams?|yuans?|"
+    "tonnes?|kilos?|kilogrammes?|litres?|hectares?|kilom[eè]tres?|"
+    "habitants?|clients?|visiteurs?|unit[eé]s?|pi[eè]ces?|articles?|"
+    "personnes?|salari[eé]s?|entreprises?|foyers?|m[eé]nages?"
+)
+
+#: Un nombre écrit en chiffres, séparateurs de milliers compris. Le mot
+#: d'échelle, lui, est un mot : il ne peut pas tomber dans ce motif.
+_CHIFFRES_PUIS_DE = re.compile(
+    r"(?<![\w,.])(?P<nombre>\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d{4,})"
+    r"\s+d[e\u2019']\s*(?P<objet>" + _APRES_DE + r")\b",
+    re.IGNORECASE,
+)
+
+
+def _nombres_sans_echelle(document: Document) -> list[Constat]:
+    """« 275 000 000 de dollars » : il manque le mot d'échelle.
+
+    Relevé par la cliente le 26/10/2026 sur l'étude à l'export :
+    « 275 000 000 de ». En français, « de » ne suit un nombre qu'après un mot
+    d'échelle — « 275 millions de dollars » — ou disparaît :
+    « 275 000 000 dollars ». Écrit tel quel, le lecteur bute sur la phrase et
+    doute du chiffre.
+    """
+    constats: list[Constat] = []
+    for section in document.sections:
+        for phrase in phrases_de(section):
+            for trouve in _CHIFFRES_PUIS_DE.finditer(phrase):
+                nombre, objet = trouve.group("nombre"), trouve.group("objet")
+                constats.append(Constat(
+                    "orthographe", section.numero, phrase[:200],
+                    f"« {nombre} de {objet} » : après un nombre écrit en chiffres, "
+                    "« de » n'a pas de place. Écris le mot d'échelle — « 275 millions "
+                    f"de {objet} » — ou retire le « de » : « {nombre} {objet} ».",
+                ))
+    return constats
+
+
 def controler(document: Document, reference: Reference) -> list[Constat]:
     del reference  # ces contrôles ne lisent pas la mémoire
     return [
@@ -291,4 +389,6 @@ def controler(document: Document, reference: Reference) -> list[Constat]:
         *_evolutions_sur_base_faible(document),
         *_repetitions(document),
         *_double_compte(document),
+        *_orthographe_a_deux_graphies(document),
+        *_nombres_sans_echelle(document),
     ]
