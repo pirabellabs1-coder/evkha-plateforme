@@ -490,6 +490,52 @@ interne, pas une classe visible par le lecteur.
 **Reste `blocked`** : rien n'est validé tant qu'Évangéline n'a pas relu un
 document réellement livré (règle 7). Ce dossier n'a été envoyé à personne.
 
+## 28/10/2026 — l'étude de la concurrence, après les cinq correctifs
+
+Essai `d4d73208`, reprise SANS ENVOI de `e150aade` (Sun Tzu – Projet
+Asie-France), sur le code `c24715d1`. **10 chapitres sur 10, gate `passed`,
+3,60 €** contre 3,99 € pour l'original. Verdict : `keep` sur la forme,
+`blocked` sur le fond — Évangéline n'a pas relu.
+
+### Ce que les cinq correctifs ont produit, mesuré
+
+|                      | AVANT `e150aade` | Sa référence | APRÈS `d4d73208` |
+|---|---|---|---|
+| prose                | 18 680 (21 %) | 56 400 (81 %) | **56 589 (51 %)** |
+| cellules             | 68 821 (78 %) | 12 891 (18 %) | 53 103 (48 %) |
+| paragraphes de prose | 146 | 651 | **419** |
+| « Figure présentée » | 7 (dont 4 identiques) | 0 | **0** |
+| « données du projet »| 14 | 0 | **0** |
+| adresses en prose    | 4 | 0 | **2**, toutes deux dans une sous-section de sources — donc légitimes, et mon propre contrôle rend 0 |
+
+**Le volume de prose a TRIPLÉ et atteint celui de sa référence** (56 589 contre
+56 400 signes). La PART reste à 51 % contre ses 81 % parce que le document a
+gardé autant de tableaux ; c'est un arbitrage à reprendre avec elle, pas un
+défaut du correctif.
+
+### La relecture complète du document livré
+
+| classe | avant | après | pour 10 000 signes de prose |
+|---|---|---|---|
+| **graves** | **2** | **0** | — |
+| renvoi_figure | 6 | **0** | −100 % |
+| source | 16 | 17 | −65 % |
+| mise_en_page | 6 | 6 | −67 % |
+| orthographe | 8 | 11 | −55 % |
+| repetition | 1 | 3 | −1 % |
+| comptage | 0 | 1 | — |
+| TOTAL | 37 | 38 | **−66 %** |
+
+**Les comptes absolus ne se comparent pas** : il y a trois fois plus de prose.
+Normalisés au volume, tous les taux baissent ou tiennent — et les deux constats
+GRAVES disparaissent. Aucun motif, dans ce document, ne justifie une reprise.
+
+### Ce qui reste vrai malgré ces chiffres
+
+Évangéline n'a pas lu ce document. La forme est mesurée, le FOND ne l'est pas :
+un chiffre juste, une analyse qui tient, une réponse à sa question — rien de
+cela ne se lit dans un compteur (règle 7). Le dossier n'a été envoyé à personne.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.
