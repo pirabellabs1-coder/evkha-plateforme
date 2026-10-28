@@ -80,6 +80,30 @@ def test_un_montant_par_jour_n_est_pas_une_valeur_de_reference() -> None:
     assert collecter_mentions(9, PAR_JOUR) == []
 
 
+#: Business plan `81192cb7` (28/10/2026) : la MÊME classe, dite autrement —
+#: par un ADJECTIF de période et par l'opération ÉCRITE, sans « par ». Le
+#: premier correctif ne lisait que « par <base> », et ce livrable est resté
+#: bloqué pour cette seule raison. L'instance au lieu de la classe (règle 4).
+CANONIQUE_CAF = f"La CAF 2027 est de {_euros('662')}."
+MENSUELLE = (
+    "| Capacité de prélèvement mensuelle (CAF ÷ 12) | "
+    f"{_euros('55,17')} |"
+)
+
+
+def test_le_meme_montant_dit_mensuel_ne_diverge_pas() -> None:
+    """662 ÷ 12 = 55,17. Échoue sur le premier correctif, qui exigeait « par »."""
+    assert _divergences(CANONIQUE_CAF, MENSUELLE) == []
+
+
+def test_une_vraie_divergence_de_caf_est_toujours_vue() -> None:
+    """CONTRE-ÉPREUVE sur le même libellé : deux CAF annuelles différentes."""
+    divergences = _divergences(CANONIQUE_CAF, f"La CAF 2027 est de {_euros('800')}.")
+
+    assert len(divergences) == 1
+    assert "662" in divergences[0]
+
+
 def test_une_vraie_divergence_est_toujours_vue() -> None:
     """CONTRE-ÉPREUVE : c'est le défaut SYNAPSES — trois seuils concurrents.
 

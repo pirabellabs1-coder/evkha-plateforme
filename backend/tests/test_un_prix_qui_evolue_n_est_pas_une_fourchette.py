@@ -111,6 +111,44 @@ def test_les_vraies_fourchettes_restent_vues(texte: str) -> None:
     assert _plages(rendu) == [("39", "45")]
 
 
+#: Business plan `81192cb7` (28/10/2026) : la MÊME ellipse, coordonnée par une
+#: VIRGULE. Le premier correctif n'acceptait que « et » — l'instance au lieu de
+#: la classe, et le livrable suivant est resté bloqué pour cette seule raison.
+PHRASE_A_LA_VIRGULE = (
+    "Cette progression repose sur la montée en gamme du panier : les échappées "
+    "passent de 44 % à 50 % du CA, les élans de 14 % à 26 %."
+)
+
+
+def test_l_ellipse_coordonnee_par_une_virgule_n_est_pas_signalee() -> None:
+    """Le cas de `81192cb7`. Échoue sur le premier correctif, qui exigeait « et »."""
+    assert _plages(PHRASE_A_LA_VIRGULE) == []
+
+
+def test_un_membre_a_la_virgule_qui_porte_son_verbe_reste_une_plage() -> None:
+    """La contre-épreuve de la virgule : trois mots, dont le verbe."""
+    risque = (
+        f"L{APOSTROPHE}atelier passe de {_euros('85')} à {_euros('94')}, le "
+        f"tarif varie de {_euros('39')} à {_euros('45')}."
+    )
+
+    assert _plages(risque) == [("39", "45")]
+
+
+def test_une_virgule_sans_aucun_mouvement_ne_dispense_de_rien() -> None:
+    """LA contre-épreuve qui compte : accepter la virgule ne doit pas tout ouvrir.
+
+    Aucun verbe de mouvement dans la phrase, donc rien ne permet de lire
+    « de 14 % à 26 % » comme une évolution — et elle reste signalée.
+    """
+    sans_mouvement = (
+        f"Deux formules coexistent : l{APOSTROPHE}atelier à {_euros('85')}, "
+        "les élans de 14 % à 26 %."
+    )
+
+    assert _plages(sans_mouvement) == [("14", "26")]
+
+
 def test_une_ellipse_sans_aucun_verbe_de_mouvement_reste_vue() -> None:
     """La garde exige LES DEUX : un mouvement dans la phrase, et l'ellipse.
 

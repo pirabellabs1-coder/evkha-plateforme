@@ -149,8 +149,16 @@ _UN_MOUVEMENT = re.compile(r"\b(?:" + _VERBES_DE_MOUVEMENT + r")\b", re.IGNORECA
 #: C'est lui qui sépare l'ellipse d'une vraie plage. « …et le tarif varie de
 #: 39 € à 45 € » porte SON verbe (trois mots), gouverne lui-même son « de », et
 #: doit rester vu : vérifié sur le détecteur avant d'écrire cette garde.
+#: La coordination peut être une VIRGULE, pas seulement « et ». Business plan
+#: `81192cb7` (28/10/2026) : « les échappées passent de 44 % à 50 % du CA, les
+#: élans de 14 % à 26 % » — même ellipse, coordonnée sans conjonction. Mon
+#: premier motif exigeait « et » : c'était l'instance, pas la classe (règle 4).
 _ELLIPSE_DU_MOUVEMENT = re.compile(
-    r"\b(?:et|puis|ainsi\s+que)\s+(?:\S+\s+){0,1}\S*?\b(?:de|d['’])\s*[+]?\s*$",
+    # Deux mots au plus entre la coordination et le « de » : « les élans de »
+    # passe, « le tarif varie de » non — le troisième mot est son verbe, et
+    # c'est lui qui gouverne alors sa propre plage. C'est ce comptage qui
+    # sépare l'ellipse d'une vraie fourchette, vérifié sur les deux.
+    r"(?:\b(?:et|puis|ainsi\s+que)|,)\s+(?:\S+\s+){0,2}\S*?\b(?:de|d['’])\s*[+]?\s*$",
     re.IGNORECASE,
 )
 #: Un montant ramené à une AUTRE BASE que celle du libellé : « 99 € de CA par
@@ -161,8 +169,32 @@ _ELLIPSE_DU_MOUVEMENT = re.compile(
 #: seuil de rentabilité, et l'exempter ferait disparaître la mention de
 #: référence — plus aucune divergence ne serait détectée contre elle. Le
 #: critère est donc « par <base>, sauf l'année », et non une liste de bases.
+#: Trois façons de dire la même chose, mesurées sur deux business plans :
+#:
+#:   « 99 € de CA PAR JOUR OUVRÉ »           (`ad6bb533`)
+#:   « Capacité de prélèvement MENSUELLE »   (`81192cb7`)
+#:   « (CAF ÷ 12) »                          (`81192cb7`, même ligne)
+#:
+#: Mon premier motif ne lisait que la première. Les deux autres ont bloqué le
+#: livrable suivant — l'instance au lieu de la classe, deux fois (règle 4).
+#: La classe est « ce montant est une AUTRE BASE que celle du libellé », et
+#: elle se dit par une préposition, par un adjectif de période, ou par
+#: l'opération écrite en clair.
+#: Sans ancre : le qualificatif peut être APRÈS le montant (« 99 € par jour
+#: ouvré »), ENTRE le libellé et lui (« CAF ÷ 12 | 55,17 € »), ou AVANT le
+#: libellé (« Capacité de prélèvement mensuelle (CAF… »). L'appelant lit donc
+#: trois fenêtres bornées plutôt qu'un préfixe.
 _RAMENE_A_UNE_AUTRE_BASE = re.compile(
-    r"^[^.;:\d]{0,25}?\bpar\s+(?!an\b|ann[ée]e|exercice)[^\W\d_]{2,}",
+    r"(?:"
+    # « par jour », « par participante » — jamais « par an », qui EST la base
+    # du libellé : l'exempter ferait disparaître la mention de référence.
+    r"\bpar\s+(?!an\b|ann[ée]e|exercice)[^\W\d_]{2,}"
+    # « mensuelle », « hebdomadaire », « journalier », « quotidien ».
+    r"|\b(?:mensuel|hebdomadaire|journali[èe]r|quotidien|trimestriel|"
+    r"semestriel)\w*"
+    # L'opération écrite : « (CAF ÷ 12) », « / 12 », « divisé par 12 ».
+    r"|[÷/]\s*\d|\bdivis[ée]\w*\s+par\b"
+    r")",
     re.IGNORECASE,
 )
 _ECART_AVANT = re.compile(
@@ -1136,7 +1168,14 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             #
             # `_MOTS_DE_RUPTURE` ne pouvait pas le voir : il regarde ENTRE le
             # libellé et le montant, et le qualificatif est APRÈS.
-            if _RAMENE_A_UNE_AUTRE_BASE.match(fenetre[montant.end():]):
+            if any(
+                _RAMENE_A_UNE_AUTRE_BASE.search(morceau)
+                for morceau in (
+                    fenetre[montant.end():montant.end() + 30],
+                    entre,
+                    avant_libelle[-40:],
+                )
+            ):
                 continue
             if _COORDINATION.search(entre):
                 continue
