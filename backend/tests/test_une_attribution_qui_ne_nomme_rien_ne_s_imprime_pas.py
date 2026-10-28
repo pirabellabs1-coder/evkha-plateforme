@@ -117,6 +117,36 @@ def test_sous_un_chiffre_cle_une_vraie_source_s_imprime_toujours() -> None:
     assert "Insee, 2026" in libelle
 
 
+def test_une_attribution_est_une_LISTE_et_se_juge_membre_par_membre() -> None:
+    """Les trois seuls résidus mesurés sur l'étude de marché `d98f2df4`.
+
+    « Source : FEVS, 2026 — révisé depuis l'étude précédente, qui retenait
+    +8 % (bien-être) ; données du projet ». La chaîne nomme FEVS : un critère
+    appliqué au TOUT la gardait en entier, placeholder compris. C'est la
+    règle 4 — j'avais traité comme atomique ce qui est une liste.
+
+    Ce test échoue sur la première version du correctif.
+    """
+    libelle = libelle_de_source(
+        "FEVS, 2026 — révisé depuis l'étude précédente, qui retenait "
+        "+8 % (bien-être) ; données du projet"
+    )
+
+    assert "données du projet" not in libelle
+    assert "FEVS, 2026" in libelle
+    # L'ordre inverse aussi : le placeholder était parfois en tête.
+    inverse = libelle_de_source("données du projet ; FEVS, 2026")
+    assert inverse == "Source : FEVS, 2026"
+
+
+def test_plusieurs_vraies_sources_sont_toutes_gardees() -> None:
+    """CONTRE-ÉPREUVE : filtrer par membre ne doit pas élaguer une vraie liste."""
+    libelle = libelle_de_source("Insee, 2026 ; Banque de France, 2025")
+
+    assert "Insee, 2026" in libelle
+    assert "Banque de France, 2025" in libelle
+
+
 def test_dans_l_annexe_l_explication_prend_la_place() -> None:
     """Et elle en dit PLUS que l'attribution qu'elle remplace.
 

@@ -703,7 +703,7 @@ def fermer_le_chapitre_inacheve(
     Source unique de la règle (règle 5) : deux appelants la suivent — la fin de
     la génération, par `fermer_les_chapitres_inacheves`, et l'échec d'une
     réécriture dans la relecture finale. Les laisser décider séparément, c'est
-    la façon exacte dont le chapitre 12 de `578c7024` est resté « en cours ».
+    la façon dont un chapitre non refermé quitterait le document sans erreur.
 
     Le motif EXISTANT est conservé et préfixé, jamais remplacé : il porte la
     CAUSE, et l'écraser signalerait l'effet en effaçant la raison.
@@ -750,18 +750,22 @@ def fermer_les_chapitres_inacheves(job: GenerationJob) -> list[int]:
 
     ## Pourquoi ÉCHEC n'est pas toujours la bonne fermeture (28/10/2026)
 
-    Business plan `578c7024` : le chapitre 12 « Organisation et moyens » est
-    resté « en cours » sur un dossier `done`, `qa=passed`, document livré. La
-    cause n'est pas la boucle de génération — cette fonction y tourne déjà —
-    mais la relecture FINALE, qui tourne dans sa propre tâche APRÈS, remet un
-    chapitre en réécriture, et dont la panne ne refermait rien (règle 3 : ce
-    qui refait le document après le contrôle doit être contrôlé à son tour).
+    `payloads_du_job` n'assemble que les chapitres `DONE`. Marquer en échec un
+    chapitre dont le payload est encore rendable le ferait donc **disparaître
+    du prochain assemblage** : le trou serait creusé par la réparation qui
+    prétend le signaler. C'est la règle 2 — un motif faux est pire qu'absent —
+    appliquée à un statut.
 
-    Et dans ce cas-là, ÉCHEC est le pire des deux états. `payloads_du_job`
-    n'assemble que les chapitres `DONE` : marquer en échec un chapitre dont le
-    payload est encore rendable le ferait **disparaître du prochain
-    assemblage**. Le trou serait créé par la réparation. Ce document-ci n'a
-    gardé son chapitre 12 que parce que le `.docx` avait été assemblé avant.
+    NE PAS CROIRE CE QUE J'AI D'ABORD ÉCRIT ICI. J'avais motivé ce passage par
+    le chapitre 12 du business plan `578c7024`, relevé « en cours » sur un
+    dossier `done`, et présenté comme bloqué. C'ÉTAIT FAUX : la relecture
+    finale tourne dans sa propre tâche APRÈS le passage en `done`, donc un
+    chapitre en réécriture y est normal. `578c7024` et `7f737b7b` se sont tous
+    deux terminés 22/22, sans intervention.
+
+    Ce qui justifie cette distinction n'est donc pas un défaut mesuré, mais la
+    forme du risque : une réécriture qui échoue VRAIMENT laisse un chapitre
+    non refermé, et le document suivant part sans lui, sans erreur.
 
     Donc la fermeture suit ce que le LECTEUR recevrait :
 
@@ -836,11 +840,16 @@ def regenerate_chapter(
     # cours » — et `payloads_du_job` n'assemble que les chapitres `DONE` : le
     # chapitre disparaît alors du document SANS erreur.
     #
-    # Mesuré deux fois de suite sur le même brief : chapitre 12 de `578c7024`,
-    # puis chapitre 1 de `7f737b7b`. Entre les deux j'avais réparé l'appelant
-    # OBSERVÉ au lieu de la classe — c'est la règle 4 : si votre correctif
-    # énumère des cas, il est incomplet. La garantie vit donc ici, une fois,
-    # pour les quatre (règle 5).
+    # La garantie vit ICI, une fois, pour les quatre (règle 5) — et non chez
+    # l'appelant observé. Le 28/10/2026 j'ai d'abord réparé la relecture
+    # finale, parce que c'est là que j'avais vu un chapitre « en cours » ; le
+    # chapitre suivant à l'être relevait d'un autre appelant. Réparer ce qu'on
+    # observe au lieu de la classe, c'est la règle 4.
+    #
+    # (Aucun de ces deux chapitres n'était réellement bloqué : ils étaient en
+    # cours de réécriture dans la tâche qui suit le passage en `done`, et les
+    # deux dossiers ont fini 22/22. Ce `finally` est un filet pour l'échec
+    # vrai, pas la réparation d'un défaut mesuré.)
     try:
         if _moteur_structure(job):
             # Import tardif : `chapitres.services` remonte vers

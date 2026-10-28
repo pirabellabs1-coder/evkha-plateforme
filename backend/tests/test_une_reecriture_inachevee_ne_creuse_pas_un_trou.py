@@ -1,36 +1,38 @@
-"""Un chapitre resté « en cours » après la relecture finale, sur un dossier livré.
+"""Une réécriture qui échoue ne doit pas retirer son chapitre du document.
 
-## Le défaut mesuré
+## CE QUI A MOTIVÉ CE FICHIER ÉTAIT UNE MAUVAISE LECTURE
 
-Business plan `578c7024` (28/10/2026), relevé sur la fiche du dossier : statut
-`done`, `qa_status: passed`, document livré, et **21 chapitres sur 22** — le
-chapitre 12 « Organisation et moyens » bloqué en `running`.
+À lire avant le reste, parce que la version précédente de cette docstring
+affirmait un défaut qui n'existait pas — et une prose qui raconte un défaut
+inexistant est exactement ce qui fait travailler à côté (règle 8).
 
-La cause n'est pas la boucle de génération : `fermer_les_chapitres_inacheves`
-y tourne déjà, depuis le business plan `2a8872d0` du 12/08/2026. C'est la
-relecture FINALE, qui tourne dans sa propre tâche **après** que le dossier est
-passé `done` : elle avait remis le chapitre 12 en réécriture — un contrôle
-`valeur_nulle` sur une phrase pourtant juste — la réécriture n'a pas abouti, et
-rien ne refermait l'état intermédiaire.
+Le 28/10/2026 j'ai relevé sur la fiche du business plan `578c7024` : statut
+`done`, **21 chapitres sur 22**, le chapitre 12 en `running`. J'en ai conclu
+qu'il était bloqué et je l'ai écrit ici. **C'était faux.** La relecture finale
+tourne dans sa PROPRE tâche, après le passage en `done` : un chapitre en
+réécriture y est l'état normal du travail en cours. `578c7024` et `7f737b7b`
+se sont tous deux terminés **22/22**, sans intervention.
 
-C'est la règle 3 mot pour mot : *ce qui refait le document APRÈS le contrôle
-doit être contrôlé à son tour.*
-
-## Pourquoi « passer en ÉCHEC » était le mauvais réflexe
+## Ce qui reste vrai, et ne dépend pas de cette observation
 
 `rendu_word.services.payloads_du_job` n'assemble que les chapitres `DONE`.
-Marquer en échec un chapitre dont le payload est encore rendable le ferait donc
-**disparaître du prochain assemblage** : la réparation creuserait le trou
-qu'elle prétend signaler. Ce document-ci n'a gardé son chapitre 12 que parce
-que le `.docx` avait été assemblé AVANT la réécriture — et les cinq
-sous-sections 12.1 à 12.5 sont bien dans les 59 pages livrées.
+Donc une réécriture qui échoue VRAIMENT, en laissant son chapitre non
+refermé, le fait **quitter le document sans erreur et avec un gate au vert**.
+C'est un risque de forme, lisible dans le code ; ces tests le verrouillent
+comme un filet, pas comme la réparation d'un défaut mesuré.
+
+## Pourquoi « passer en ÉCHEC » serait le mauvais réflexe
+
+Marquer en échec un chapitre dont le payload est encore rendable le ferait
+disparaître du prochain assemblage : la réparation creuserait le trou qu'elle
+prétend signaler (règle 2 appliquée à un statut).
 
 La fermeture suit donc ce que le LECTEUR recevrait, le seul critère que ce
 dépôt accepte : payload rendable → `DONE` avec son motif conservé ; rien à
 rendre → `FAILED`, et le rattrapage le reprend.
 
 Ces tests échouent sur le code d'avant : un chapitre avec payload devenait
-`FAILED`, et aucune des deux fermetures d'après-contrôle n'existait.
+`FAILED`, et `regenerate_chapter` n'avait pas de `finally`.
 """
 from __future__ import annotations
 
@@ -84,7 +86,9 @@ def _chapitre_en_reecriture(job: GenerationJob, **champs: object) -> ChapterGene
 def test_un_chapitre_encore_rendable_part_dans_sa_version_precedente(
     job: GenerationJob, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Le cas de `578c7024`. Sur le code d'avant, il devenait FAILED.
+    """Une réécriture qui échoue sur un chapitre déjà écrit une fois.
+
+    Sur le code d'avant, il devenait FAILED.
 
     Et FAILED l'aurait retiré du prochain assemblage : le lecteur aurait perdu
     « Organisation et moyens » parce qu'on voulait signaler qu'il manquait.

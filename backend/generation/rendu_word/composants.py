@@ -963,7 +963,20 @@ def libelle_de_source(texte: str) -> str:
     # données du projet » occupe la place d'une information et n'en porte
     # aucune. Le lecteur garde l'origine du chiffre dans l'annexe, qui la dit
     # en français (« fournie par vous, dans votre dossier »).
-    if not attribue_quelque_chose(propre):
+    #
+    # MEMBRE PAR MEMBRE, et non sur la chaîne entière : une attribution est
+    # une LISTE. Mesuré sur l'étude de marché `d98f2df4` (28/10/2026), les
+    # trois seuls résidus avaient tous cette forme — « Source : FEVS, 2026 —
+    # révisé depuis l'étude précédente ; données du projet ». La chaîne nomme
+    # FEVS, donc un critère appliqué au tout la gardait en entier, placeholder
+    # compris. `assemblage.py` joint d'ailleurs les sources par « ; » AVANT de
+    # juger : c'est à la jointure que la granularité se perdait.
+    propre = " ; ".join(
+        membre.strip()
+        for membre in propre.split(";")
+        if attribue_quelque_chose(membre)
+    )
+    if not propre:
         return ""
     if _ATTRIBUTION_ANNONCEE.match(propre):
         return propre

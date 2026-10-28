@@ -549,21 +549,23 @@ def controler_puis_livrer_task(job_id: str) -> str:
             },
         )
 
-    # La relecture finale REMET des chapitres en réécriture, et sa panne ne
-    # refermait rien : le chapitre 12 du business plan `578c7024` (28/10/2026)
-    # est resté « en cours » sur un dossier `done`, `qa=passed`, document
-    # livré — 21/22 au tableau de bord pour toujours, et hors d'atteinte du
-    # rattrapage, qui ne reconnaît que les chapitres en échec.
+    # La relecture finale REMET des chapitres en réécriture, et une réécriture
+    # qui échoue laissait le chapitre dans l'état où l'échec l'avait mis.
     #
-    # Le danger est plus grave que l'affichage. `payloads_du_job` n'assemble
-    # que les chapitres `DONE` : si la relecture avait réassemblé le document
-    # pendant que le chapitre 12 était en réécriture, « Organisation et
-    # moyens » aurait DISPARU des cinquante-neuf pages, sans erreur et avec un
-    # gate au vert. Ce document n'a gardé son chapitre que parce que le `.docx`
-    # avait été assemblé avant.
+    # ATTENTION À CE QUI A MOTIVÉ CECI, ET À CE QUI NE L'A PAS MOTIVÉ.
+    # Le 28/10/2026 j'ai relevé le chapitre 12 du business plan `578c7024`
+    # « en cours » sur un dossier `done`, et j'en ai conclu qu'il était bloqué.
+    # C'ÉTAIT FAUX : cette tâche-ci tourne APRÈS le passage en `done`, donc un
+    # chapitre en réécriture y est normal. Les deux dossiers se sont terminés
+    # 22/22, sans intervention. Le défaut observé n'existait pas.
     #
-    # On referme donc ici aussi, et avant la livraison — c'est la règle 3 : ce
-    # qui refait le document après le contrôle doit être contrôlé à son tour.
+    # Ce qui reste vrai, et qui ne dépend pas de cette observation :
+    # `payloads_du_job` n'assemble que les chapitres `DONE`, donc un chapitre
+    # qu'une réécriture échouée laisse non refermé QUITTERAIT le document sans
+    # erreur et avec un gate au vert. C'est un filet, pas la réparation d'un
+    # défaut mesuré — et il est posé avant la livraison parce que c'est le seul
+    # endroit où il sert (règle 3).
+    #
     # `fermer_les_chapitres_inacheves` rend sa version précédente au lecteur
     # quand elle est encore rendable, et ne déclare un trou que s'il y en a un.
     try:
