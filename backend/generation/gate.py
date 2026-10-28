@@ -37,6 +37,7 @@ import re
 import unicodedata
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass, field
+from typing import Any
 
 from catalog.models import DeliverableType
 from core.numbers import (
@@ -659,7 +660,98 @@ def _client_fact_keys(job: GenerationJob) -> set[str]:
     }
 
 
-def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
+#: Le nom d'une verticale, tel que le brief l'écrit : « Parenthèses : 10 332 € ».
+#: Exige une MINUSCULE dans le nom, ce qui écarte les intertitres du brief
+#: (« VOLUME : 26, 44, 63 sessions », « INVESTISSEMENT_TOTAL : … ») sans avoir
+#: à les énumérer.
+_LIGNE_DE_VERTICALE = re.compile(
+    r"^\s*(?P<nom>[^\W\d_][^:;\n]{1,40}?)\s*:\s*[^\n;]*\d", re.MULTILINE
+)
+
+
+def _noms_de_verticales(brief: str) -> list[str]:
+    """Les verticales que le brief NOMME, lues dans son texte libre.
+
+    Rend une liste vide quand rien n'est lisible — l'appelant échoue alors
+    bruyamment, comme avant (règle 1).
+    """
+    trouve = _BRIEF_VERTICALES_HINT.search(brief)
+    if not trouve:
+        return []
+    # On s'arrête au premier intertitre en CAPITALES : le bloc des verticales
+    # est suivi de « VOLUME : … », « INVESTISSEMENT_TOTAL : … ».
+    apres = brief[trouve.end():]
+    fin = re.search(r"\n\s*[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ_ ]{3,}\s*:", apres)
+    bloc = apres[: fin.start()] if fin else apres[:1200]
+    noms: list[str] = []
+    for ligne in re.split(r"[\n;]", bloc):
+        correspond = _LIGNE_DE_VERTICALE.match(ligne)
+        if not correspond:
+            continue
+        nom = correspond.group("nom").strip(" .-—").strip()
+        if any(c.islower() for c in nom) and nom not in noms:
+            noms.append(nom)
+    return noms
+
+
+def _verticales_absentes_du_document(
+    brief: str, livrees: Iterable[Any]
+) -> list[GateFailure]:
+    """Les verticales du brief que le DOCUMENT ne traite pas.
+
+    ## Le motif faux que ceci remplace (28/10/2026)
+
+    Le check échouait dès que notre extraction automatique n'avait pas produit
+    le fait `verticales`, au motif que « rien ne garantit qu'elles figurent
+    dans le livrable ». C'est une propriété de NOTRE lecture, pas du document —
+    et son `extrait` était vide, donc le motif n'était pas trouvable par le
+    lecteur (règle 2).
+
+    Mesuré sur le business plan `fedb76a1` : le brief nomme Parenthèses,
+    Échappées et Élans ; le document livré les cite **51, 71 et 66 fois**, et
+    une phrase les traite ensemble — « L'offre est organisée en trois univers :
+    les Parenthèses…, les Échappées… et les Élans… ». C'était le SEUL motif qui
+    bloquait ce livrable.
+
+    On juge donc ce que le LECTEUR reçoit (règle 3), et on n'échoue que sur ce
+    qui manque vraiment — avec les noms manquants dans le motif, pour qu'il
+    soit vérifiable. Quand aucun nom n'est lisible dans le brief, on échoue
+    bruyamment comme avant : ne pas pouvoir juger n'est pas un succès
+    (règle 1).
+    """
+    noms = _noms_de_verticales(brief)
+    if not noms:
+        return [GateFailure(
+            check="brief_non_lu",
+            detail=(
+                "Le brief annonce des verticales d'activite que ni la lecture "
+                "automatique ni la lecture de son texte n'ont pu nommer : elles "
+                "ne sont verifiees nulle part. C'est le defaut SYNAPSES — trois "
+                "verticales effacees au profit d'un modele generique. Nommer "
+                "une verticale par ligne dans le brief, puis relancer."
+            ),
+        )]
+    # `RenderedSection` : son texte est son titre et son corps markdown — les
+    # tableaux y sont inclus, puisque le corps est le markdown complet.
+    texte = "\n".join(f"{section.title}\n{section.body}" for section in livrees)
+    manquantes = [nom for nom in noms if nom.casefold() not in texte.casefold()]
+    if not manquantes:
+        return []
+    return [GateFailure(
+        check="brief_non_lu",
+        detail=(
+            "Le brief nomme des verticales d'activite que le document ne traite "
+            f"pas : {', '.join(manquantes)}. C'est le defaut SYNAPSES — des "
+            "verticales effacees au profit d'un modele generique. Les autres "
+            f"verticales du brief sont bien presentes ({len(noms) - len(manquantes)} "
+            f"sur {len(noms)})."
+        ),
+    )]
+
+
+def _check_brief_lu(
+    job: GenerationJob, livrees: Iterable[Any] = ()
+) -> list[GateFailure]:
     """Le client a-t-il ecrit des donnees que le pipeline n'a pas su lire ?
 
     Vaut pour TOUS les types de livrable — c'est ce qui manquait. Le trou
@@ -719,15 +811,7 @@ def _check_brief_lu(job: GenerationJob) -> list[GateFailure]:
         ))
 
     if "verticales" not in locked and _BRIEF_VERTICALES_HINT.search(brief):
-        failures.append(GateFailure(
-            check="brief_non_lu",
-            detail=(
-                "Le brief liste des verticales d'activite que la lecture automatique "
-                "n'a pas retenues : rien ne garantit qu'elles figurent dans le "
-                "livrable. C'est le defaut SYNAPSES — trois verticales effacees "
-                "au profit d'un modele generique."
-            ),
-        ))
+        failures.extend(_verticales_absentes_du_document(brief, livrees))
 
     return failures
 
@@ -2376,7 +2460,9 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     failures.extend(_check_etat_chiffre_present(job))
     # Vaut pour TOUS les types de livrable, contrairement au check ci-dessus
     # qui ne couvre que le business plan.
-    failures.extend(_check_brief_lu(job))
+    # `livrees` : le check des verticales juge le DOCUMENT, pas notre
+    # extraction — et ce que le client lit, donc sans la fiche projet.
+    failures.extend(_check_brief_lu(job, livrees))
     failures.extend(_check_completude_chapitres(job, sections))
     failures.extend(_check_contamination(job, livrees))
     failures.extend(_check_meta_discours(job))
