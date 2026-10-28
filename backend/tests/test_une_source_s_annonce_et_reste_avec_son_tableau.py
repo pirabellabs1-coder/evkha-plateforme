@@ -6,11 +6,27 @@ italique de 8 points, sous chaque tableau et chaque chiffre clé — 73 pages
 rien ne le liait à son tableau : un tableau qui finissait en bas de page
 laissait sa source seule en haut de la suivante.
 
-Tenu ici, sur le `.docx` écrit : la ligne se lit « Source : données du
-projet », la dernière ligne du tableau la garde avec elle (`keep_with_next`),
-et le chiffre clé dit aussi « Source : ». Les contre-épreuves : une source qui
-s'annonce déjà n'est pas doublée, et le commentaire d'une FIGURE — ce qu'elle
-apprend, pas d'où elle vient — n'est pas travesti en source.
+Tenu ici, sur le `.docx` écrit : la ligne se lit « Source : … », la dernière
+ligne du tableau la garde avec elle (`keep_with_next`), et le chiffre clé dit
+aussi « Source : ». Les contre-épreuves : une source qui s'annonce déjà n'est
+pas doublée, et le commentaire d'une FIGURE — ce qu'elle apprend, pas d'où
+elle vient — n'est pas travesti en source.
+
+## Pourquoi l'exemple a changé le 28/10/2026
+
+Ces tests prenaient « données du projet » comme EXEMPLE de source, et
+exigeaient donc que le document imprime « Source : données du projet ». Deux
+règles s'y rencontraient sans se voir :
+
+- celle du 29/09, toujours vraie : une source s'annonce comme telle ;
+- celle du 28/10, demandée par la cliente : « pas de texte générique ni de
+  placeholder (« données du projet ») ». Mesuré 34 fois dans le business plan
+  `578c7024`, puis 37 dans `7f737b7b`.
+
+« Source : données du projet » obéit à la première et viole la seconde. Les
+tests gardent donc toutes leurs assertions, sur une source qui en est une — et
+le placeholder a désormais ses propres cas, où il ne s'imprime pas (voir
+`test_une_attribution_qui_ne_nomme_rien_ne_s_imprime_pas`).
 """
 from __future__ import annotations
 
@@ -63,15 +79,29 @@ def _ce_qui_suit_le_tableau(document: Any, entete: str) -> tuple[Table, Paragrap
 
 
 def test_la_source_d_un_tableau_s_annonce(tmp_path: Path) -> None:
-    """Le défaut exact : « données du projet », seul, sous le tableau."""
-    document = _rendre(tmp_path, _tableau("données du projet"))
+    """Le défaut exact : un libellé nu, seul, sous le tableau."""
+    document = _rendre(tmp_path, _tableau("Insee, démographie 2026"))
     _table, source = _ce_qui_suit_le_tableau(document, "Poste")
-    assert source.text == f"{SOURCE}données du projet"
+    assert source.text == f"{SOURCE}Insee, démographie 2026"
+
+
+def test_un_placeholder_ne_s_imprime_pas_sous_un_tableau(tmp_path: Path) -> None:
+    """La règle du 28/10 : « pas de placeholder (« données du projet ») ».
+
+    Il n'est pas annoncé comme source, puisqu'il n'en nomme aucune — il n'est
+    pas imprimé du tout. Ce test échoue sur le code d'avant, qui écrivait
+    « Source : données du projet ».
+    """
+    document = _rendre(tmp_path, _tableau("données du projet"))
+    textes = [p.text for p in document.paragraphs]
+
+    assert not any("données du projet" in t for t in textes), textes
+    assert not any(t.startswith("Source") for t in textes), textes
 
 
 def test_la_source_reste_avec_son_tableau(tmp_path: Path) -> None:
     """La dernière ligne du tableau garde la source sur sa page."""
-    document = _rendre(tmp_path, _tableau("données du projet"))
+    document = _rendre(tmp_path, _tableau("Insee, démographie 2026"))
     table, _source = _ce_qui_suit_le_tableau(document, "Poste")
     derniere = [p for cellule in table.rows[-1].cells for p in cellule.paragraphs]
     assert derniere and all(p.paragraph_format.keep_with_next for p in derniere)
@@ -80,13 +110,37 @@ def test_la_source_reste_avec_son_tableau(tmp_path: Path) -> None:
 def test_la_source_d_un_chiffre_cle_s_annonce(tmp_path: Path) -> None:
     document = _rendre(tmp_path, {
         "type": "kpi",
+        "chiffres": [("5 000 €", "Budget de démarrage", "ÉCLORE, prévisionnel 2027")],
+    })
+    cellules = [
+        cellule.text for table in document.tables for ligne in table.rows
+        for cellule in ligne.cells
+    ]
+    assert any(c.endswith(f"{SOURCE}ÉCLORE, prévisionnel 2027") for c in cellules), cellules
+
+
+def test_un_placeholder_ne_s_imprime_pas_sous_un_chiffre_cle(tmp_path: Path) -> None:
+    """Et il ne laisse pas de ligne vide à la place.
+
+    `_ecrire` ajoute un paragraphe pour tout ce qu'on lui donne : écrire la
+    chaîne vide aurait creusé un blanc sous chaque chiffre clé.
+    """
+    document = _rendre(tmp_path, {
+        "type": "kpi",
         "chiffres": [("5 000 €", "Budget de démarrage", "données du projet")],
     })
     cellules = [
         cellule.text for table in document.tables for ligne in table.rows
         for cellule in ligne.cells
     ]
-    assert any(c.endswith(f"{SOURCE}données du projet") for c in cellules), cellules
+    porteuse = [c for c in cellules if "Budget de démarrage" in c]
+
+    assert porteuse, cellules
+    assert not any("données du projet" in c for c in porteuse), porteuse
+    assert not any(c.rstrip().endswith("Source") for c in porteuse), porteuse
+    assert porteuse[0].rstrip().endswith("Budget de démarrage"), (
+        "rien ne doit suivre le libellé : ni une source muette, ni une ligne vide"
+    )
 
 
 def test_une_source_deja_annoncee_n_est_pas_doublee(tmp_path: Path) -> None:

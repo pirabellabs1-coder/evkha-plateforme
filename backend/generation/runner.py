@@ -830,30 +830,50 @@ def regenerate_chapter(
     """
     client = client or get_claude_client()
 
-    if _moteur_structure(job):
-        # Import tardif : `chapitres.services` remonte vers `generation.cost`,
-        # le cycle se referme si on le charge au niveau module.
-        from .chapitres.services import regenerer_chapitre  # noqa: PLC0415
+    # QUATRE appelants réécrivent un chapitre : la relecture finale, la boucle
+    # d'auto-correction, et deux fois la réparation des CHECK inter-blocs.
+    # Chacun laissait le chapitre dans l'état où l'échec l'avait mis — « en
+    # cours » — et `payloads_du_job` n'assemble que les chapitres `DONE` : le
+    # chapitre disparaît alors du document SANS erreur.
+    #
+    # Mesuré deux fois de suite sur le même brief : chapitre 12 de `578c7024`,
+    # puis chapitre 1 de `7f737b7b`. Entre les deux j'avais réparé l'appelant
+    # OBSERVÉ au lieu de la classe — c'est la règle 4 : si votre correctif
+    # énumère des cas, il est incomplet. La garantie vit donc ici, une fois,
+    # pour les quatre (règle 5).
+    try:
+        if _moteur_structure(job):
+            # Import tardif : `chapitres.services` remonte vers
+            # `generation.cost`, le cycle se referme si on le charge au niveau
+            # module.
+            from .chapitres.services import regenerer_chapitre  # noqa: PLC0415
 
-        regenerer_chapitre(
-            job,
-            chapter.chapter_number,
-            client=client,
-            note_corrective=corrective_note,
+            regenerer_chapitre(
+                job,
+                chapter.chapter_number,
+                client=client,
+                note_corrective=corrective_note,
+            )
+            chapter.refresh_from_db()
+            return
+
+        variables = _variables_for(job)
+        country = str(variables.get("PAYS", "")).strip()
+        system_prompt = build_system_prompt(
+            job.deliverable_type, country=country, plan=job.phase0_plan
         )
+        _generate_chapter(
+            job, chapter, client=client, system_prompt=system_prompt,
+            corrective_note=corrective_note,
+        )
+        _inline_qa_repair(chapter)
+    finally:
+        # Une réécriture réussie a déjà posé `DONE` : on ne touche que ce qui
+        # est resté intermédiaire. Et on relit la base, parce que la réécriture
+        # écrit par un autre chemin que cet objet-ci.
         chapter.refresh_from_db()
-        return
-
-    variables = _variables_for(job)
-    country = str(variables.get("PAYS", "")).strip()
-    system_prompt = build_system_prompt(
-        job.deliverable_type, country=country, plan=job.phase0_plan
-    )
-    _generate_chapter(
-        job, chapter, client=client, system_prompt=system_prompt,
-        corrective_note=corrective_note,
-    )
-    _inline_qa_repair(chapter)
+        if chapter.status in (ChapterStatus.PENDING, ChapterStatus.RUNNING):
+            fermer_le_chapitre_inacheve(job, chapter)
 
 
 def _inline_qa_repair(chapter: ChapterGeneration) -> bool:

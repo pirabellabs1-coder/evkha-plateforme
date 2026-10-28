@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..socle.referentiel import Fiabilite
 from ..socle.schema import INSECABLE, montant_lisible
+from .composants import attribue_quelque_chose
 from .texte import libelle_court
 
 if TYPE_CHECKING:
@@ -78,9 +79,19 @@ def _origine(donnee: Any) -> str:
     libelle = (donnee.libelle or "").strip()
     if libelle.lower().startswith("calculé"):
         morceaux.append(libelle.rstrip("."))
-    elif donnee.source:
+    elif attribue_quelque_chose(donnee.source):
         morceaux.append(str(donnee.source))
     else:
+        # Une attribution qui ne nomme aucune source cède la place à
+        # l'explication, qui dit la même chose en français et dit davantage :
+        # « Déclarée — données du projet » devient « Déclarée — fournie par
+        # vous, dans votre dossier ».
+        #
+        # Mesuré : 34 occurrences de « données du projet » dans le business
+        # plan `578c7024`, et 37 dans `7f737b7b` après que le prompt est passé
+        # de la prescrire à l'interdire — l'essentiel ici, dans cette annexe.
+        # Une interdiction de plus ne change rien ; une réparation
+        # déterministe, oui.
         morceaux.append(_EXPLICATION.get(nature, ""))
     return " — ".join(m for m in morceaux if m)
 

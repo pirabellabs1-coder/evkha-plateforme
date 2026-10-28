@@ -627,12 +627,15 @@ def grille_chiffres(
                 cellule, libelle, STYLE_CHIFFRE_LIBELLE,
                 couleur=palette.prune_fonce, premier=False,
             )
-            if source:
-                # « Source : données du projet », jamais le libellé seul : sous
-                # un chiffre clé, « données du projet » ne se lisait pas comme
-                # une source (29/09/2026, business plan ÉCLORE).
+            # « Source : … », jamais le libellé seul : sous un chiffre clé, un
+            # libellé nu ne se lisait pas comme une source (29/09/2026,
+            # business plan ÉCLORE). Et rien du tout quand l'attribution ne
+            # nomme aucune source : `libelle_de_source` rend alors une chaîne
+            # vide, qu'il ne faut pas écrire — elle ajouterait une ligne vide
+            # sous le chiffre.
+            if source and (libelle_source := libelle_de_source(source)):
                 _ecrire(
-                    cellule, libelle_de_source(source), STYLE_CHIFFRE_LIBELLE,
+                    cellule, libelle_source, STYLE_CHIFFRE_LIBELLE,
                     couleur=palette.texte_legende, premier=False,
                 )
         document.add_paragraph()
@@ -909,6 +912,38 @@ def source_lisible(texte: str) -> str:
 _ATTRIBUTION_ANNONCEE = re.compile(r"^\s*(?:sources?\b|selon\b|d['’]apr[èe]s\b)", re.IGNORECASE)
 
 
+#: Une année : elle date un chiffre, donc elle attribue.
+_UNE_ANNEE = re.compile(r"\b(?:19|20)\d{2}\b")
+
+
+def attribue_quelque_chose(texte: str) -> bool:
+    """Cette attribution nomme-t-elle une source, ou ne dit-elle rien ?
+
+    ## Pourquoi un critère et non une liste d'expressions
+
+    « données du projet » a été mesuré 34 fois dans le business plan
+    `578c7024`, puis **37 fois** dans `7f737b7b` après que le prompt a cessé
+    de le prescrire et s'est mis à l'interdire. Interdire une expression la met
+    sous les yeux du modèle ; six prompts la nommaient déjà, et le septième
+    n'a rien changé (voir `chapitres/runner.py`, SOURCE_D_UN_CHIFFRE_CLIENT).
+
+    Et la liste serait sans fin : « données du projet », « données internes »,
+    « le projet », « dossier client » attribuent tous aussi peu. La règle 4
+    dit qu'un correctif qui énumère des cas est incomplet.
+
+    Le critère est donc celui de la CLASSE : une attribution qui ne porte ni
+    nom propre ni année ne nomme aucune source. « ÉCLORE, données internes »
+    attribue ; « Insee, 2026 » attribue ; « prévisionnel 2027 » attribue ;
+    « données du projet » n'attribue rien.
+    """
+    from ..decisions import MOT_CAPITALISE  # noqa: PLC0415
+
+    propre = " ".join(str(texte or "").split())
+    if not propre:
+        return False
+    return bool(MOT_CAPITALISE.search(propre) or _UNE_ANNEE.search(propre))
+
+
 def libelle_de_source(texte: str) -> str:
     """Le texte d'une source tel que le lecteur doit le lire : « Source : … ».
 
@@ -924,7 +959,13 @@ def libelle_de_source(texte: str) -> str:
     from ..chapitres.typographie import FINE_INSECABLE  # noqa: PLC0415
 
     propre = source_lisible(" ".join(str(texte or "").split()))
-    if not propre or _ATTRIBUTION_ANNONCEE.match(propre):
+    # Une attribution qui ne nomme aucune source ne s'imprime pas : « Source :
+    # données du projet » occupe la place d'une information et n'en porte
+    # aucune. Le lecteur garde l'origine du chiffre dans l'annexe, qui la dit
+    # en français (« fournie par vous, dans votre dossier »).
+    if not attribue_quelque_chose(propre):
+        return ""
+    if _ATTRIBUTION_ANNONCEE.match(propre):
         return propre
     return f"Source{FINE_INSECABLE}: {propre}"
 

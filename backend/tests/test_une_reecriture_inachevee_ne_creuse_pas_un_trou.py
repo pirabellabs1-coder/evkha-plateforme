@@ -205,23 +205,53 @@ def test_la_tache_de_relecture_referme_avant_de_livrer() -> None:
     assert fermeture < livraison
 
 
-def test_une_reecriture_qui_echoue_referme_son_chapitre() -> None:
-    """La fenêtre que la fermeture d'après-coup ne couvre pas.
+def test_aucun_appelant_ne_peut_laisser_un_chapitre_en_cours() -> None:
+    """La garantie est dans la fonction, pas chez ses appelants (regles 4 et 5).
 
-    Dans la relecture, le `except` par chapitre faisait `continue` en laissant
-    le chapitre « en cours ». La passe SUIVANTE réassemblait alors le document
-    sans lui, en silence, avant que la tâche n'ait la moindre chance de
-    refermer quoi que ce soit.
+    Mesure qui l'a imposee : le chapitre 12 de `578c7024` est reste « en
+    cours », j'ai repare l'appelant OBSERVE — la relecture finale — et le
+    chapitre 1 de `7f737b7b`, meme brief relance, est reste « en cours » par
+    un AUTRE appelant, la reparation des CHECK inter-blocs. Quatre appelants
+    reecrivent un chapitre ; en nommer un etait la version incomplete du
+    correctif.
+
+    Ce test echoue sur le code d'avant : `regenerate_chapter` n'avait pas de
+    `finally`, et le nombre d'appelants n'etait verifie nulle part.
     """
-    source = _source("generation", "controle_final.py")
-    echec = source.index("chapitre %s non réécrit")
-    suite = source[echec:]
+    source = _source("generation", "runner.py")
+    corps = source[source.index("def regenerate_chapter"):]
+    corps = corps[: corps.index("def _inline_qa_repair")]
 
-    fermeture = suite.index("fermer_le_chapitre_inacheve(job, chapitre)")
-    # L'INSTRUCTION, repérée par son indentation : chercher le mot nu trouvait
-    # le « continue » du commentaire qui explique précisément ce défaut.
-    reprise = suite.index("\n" + " " * 16 + "continue")
-    assert fermeture < reprise, (
-        "le chapitre doit retrouver un état assemblable AVANT que la boucle "
-        "ne passe au suivant"
+    assert "finally:" in corps, (
+        "sans `finally`, une reecriture qui leve laisse le chapitre « en "
+        "cours », et payloads_du_job le retire du document sans erreur"
+    )
+    assert "fermer_le_chapitre_inacheve(job, chapter)" in corps
+
+
+def test_les_quatre_appelants_passent_bien_par_la() -> None:
+    """CONTRE-EPREUVE du compte : si un cinquieme chemin apparait, il est vu.
+
+    Le `finally` ne protege que ce qui passe par `regenerate_chapter`. Le jour
+    ou quelqu'un appelle `regenerer_chapitre` directement, la garantie saute
+    en silence — et c'est exactement le defaut qu'on vient de corriger deux
+    fois.
+    """
+    import subprocess  # noqa: PLC0415
+
+    sortie = subprocess.run(
+        ["git", "grep", "-n", "regenerer_chapitre(", "--", "backend"],
+        capture_output=True, text=True, check=False,
+        cwd=Path(__file__).resolve().parents[2],
+    ).stdout
+
+    hors_du_passage = [
+        ligne for ligne in sortie.splitlines()
+        if ligne and "backend/tests/" not in ligne
+        and "chapitres/services.py" not in ligne
+        and "generation/runner.py" not in ligne
+    ]
+    assert not hors_du_passage, (
+        "un chemin de reecriture contourne `regenerate_chapter` et sa "
+        "garantie : " + " | ".join(hors_du_passage)
     )
