@@ -34,8 +34,25 @@ from integrations.claude import StubClaudeClient
 #: Une phrase de chaque correction de consigne, par livrable. Une consigne
 #: réécrite doit mettre à jour cette liste : c'est voulu, elle dit ce qui
 #: DOIT arriver au modèle.
+#: Ce que les correctifs du 27 et 28/10/2026 doivent faire arriver à TOUS les
+#: livrables. Sans cette liste, rien ne garantissait qu'ils atteignent autre
+#: chose que l'étude de la concurrence, la seule mesurée sur un document réel.
+#:
+#: Chacune vient d'un défaut mesuré :
+#: - l'attribution d'un chiffre du client : 105 « données du projet » sur le
+#:   business plan `68fc68b4` ;
+#: - les figures déjà posées : 13 renvois « Figure présentée au chapitre… » sur
+#:   le même document, 7 sur l'étude de la concurrence `e150aade`.
+CORRECTIFS_DU_28_OCTOBRE: list[str] = [
+    # L'attribution d'un chiffre fourni par le client.
+    "NOM DE L'ENTREPRISE",
+    # La mémoire des figures déjà tracées, qui évite le doublon.
+    "FIGURES DÉJÀ POSÉES",
+]
+
 CONSIGNES_ATTENDUES: dict[str, list[str]] = {
     DeliverableType.BUSINESS_PLAN: [
+        *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
         "Un montant se DÉCIDE",
         "adresse web, recopiée telle quelle",
@@ -43,6 +60,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
         "cité par 9 comparateurs",
     ],
     DeliverableType.COMPETITOR_STUDY: [
+        *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
         "CA de référence estimé",
         "CA actuel estimé",
@@ -51,6 +69,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
         "cité par 9 comparateurs",
     ],
     DeliverableType.BUSINESS_STRATEGY: [
+        *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
         "le coût mensuel retenu",
         "ce qu'un pilotage stratégique change",
@@ -60,6 +79,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
         "cité par 9 comparateurs",
     ],
     DeliverableType.MARKET_STUDY: [
+        *CORRECTIFS_DU_28_OCTOBRE,
         "FIGURES RÉALISABLES AVEC CE SOCLE",
         "cité par 9 comparateurs",
     ],

@@ -549,6 +549,34 @@ def controler_puis_livrer_task(job_id: str) -> str:
             },
         )
 
+    # La relecture finale REMET des chapitres en réécriture, et sa panne ne
+    # refermait rien : le chapitre 12 du business plan `578c7024` (28/10/2026)
+    # est resté « en cours » sur un dossier `done`, `qa=passed`, document
+    # livré — 21/22 au tableau de bord pour toujours, et hors d'atteinte du
+    # rattrapage, qui ne reconnaît que les chapitres en échec.
+    #
+    # Le danger est plus grave que l'affichage. `payloads_du_job` n'assemble
+    # que les chapitres `DONE` : si la relecture avait réassemblé le document
+    # pendant que le chapitre 12 était en réécriture, « Organisation et
+    # moyens » aurait DISPARU des cinquante-neuf pages, sans erreur et avec un
+    # gate au vert. Ce document n'a gardé son chapitre que parce que le `.docx`
+    # avait été assemblé avant.
+    #
+    # On referme donc ici aussi, et avant la livraison — c'est la règle 3 : ce
+    # qui refait le document après le contrôle doit être contrôlé à son tour.
+    # `fermer_les_chapitres_inacheves` rend sa version précédente au lecteur
+    # quand elle est encore rendable, et ne déclare un trou que s'il y en a un.
+    try:
+        from .runner import fermer_les_chapitres_inacheves  # noqa: PLC0415
+
+        fermer_les_chapitres_inacheves(job)
+    except Exception:  # noqa: BLE001 — la livraison prime toujours
+        import logging  # noqa: PLC0415
+
+        logging.getLogger(__name__).exception(
+            "Fermeture des chapitres inacheves impossible pour le job %s.", job.id
+        )
+
     job.refresh_from_db()
     # L'envoi AVANT le verdict. Une fois la relecture terminée, le gardien ne
     # rattrape plus ce dossier : un worker tué pendant le rendu du gate — deux

@@ -100,6 +100,20 @@ def _job_summary(
     # d'une cliente tuee par un deploiement le 09/08/2026, restee « en cours »
     # soixante-seize minutes.
     silence = duree_sans_progression(job)
+    # Les compteurs de cache existaient sur `ChapterGeneration` depuis la
+    # migration 0014 et n'etaient lisibles que dans l'admin Django. Une
+    # affirmation sur le cache — « il marche », « il reste 40 % a gagner » —
+    # n'etait donc pas verifiable depuis l'exterieur, et c'est exactement le
+    # chemin par lequel une entree de journal de 2026-08 a fait conclure a un
+    # gain deja acquis (regle 8 : une conclusion tiree du mauvais artefact est
+    # pire qu'un silence).
+    #
+    # La somme ne coute aucune requete : `chapters_qs` est deja materialise.
+    # `part_lue` est le rapport qui tranche : le socle, la base concurrents et
+    # la consigne de livrable sont identiques pour tous les chapitres d'un
+    # dossier, donc un dossier sain lit beaucoup et n'ecrit qu'une fois.
+    cache_lu = sum(c.cache_read_tokens for c in chapters_qs)
+    cache_ecrit = sum(c.cache_write_tokens for c in chapters_qs)
     return {
         "id": str(job.id),
         "deliverable_type": job.deliverable_type,
@@ -115,6 +129,13 @@ def _job_summary(
         "budget_eur": str(job.budget_eur),
         "chapters_done": done,
         "chapters_total": len(chapters_qs),
+        "cache_read_tokens": cache_lu,
+        "cache_write_tokens": cache_ecrit,
+        "cache_part_lue": (
+            round(cache_lu / (cache_lu + cache_ecrit), 3)
+            if (cache_lu + cache_ecrit)
+            else None
+        ),
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
         "order_id": str(job.order_id),
@@ -208,8 +229,14 @@ def jobs_list(request: HttpRequest) -> JsonResponse:
     from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact  # noqa: PLC0415
 
     status_filter = request.GET.get("status")
-    qs = GenerationJob.objects.select_related("order__offer", "order__customer").order_by(
-        "-created_at"
+    # `prefetch_related("chapters")` : `_job_summary` materialise les chapitres
+    # de chaque dossier (compte des chapitres faits, compteurs de cache). Sans
+    # ce prefetch, la liste faisait une requete par dossier affiche — cinquante
+    # requetes pour un ecran. Le prefetch en fait une pour les cinquante.
+    qs = (
+        GenerationJob.objects.select_related("order__offer", "order__customer")
+        .prefetch_related("chapters")
+        .order_by("-created_at")
     )
     if status_filter:
         qs = qs.filter(status=status_filter)

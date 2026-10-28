@@ -118,7 +118,12 @@ def test_le_dosage_est_mesure_par_livrable() -> None:
 
     # Contre-épreuve : l'étude de marché ne doit RIEN perdre. C'est elle qui
     # porte la mesure d'origine, et la cliente y a refusé le mur de texte.
-    for livrable in (DeliverableType.MARKET_STUDY, DeliverableType.BUSINESS_PLAN, ""):
+    #
+    # Le BUSINESS PLAN a quitté cette liste le 28/10/2026 : mesuré sur le
+    # document validé « FINDRAX v3 », il est à 93 % de prose, et nos seuils
+    # d'alors refusaient ce document (voir
+    # `test_un_business_plan_se_raconte`).
+    for livrable in (DeliverableType.MARKET_STUDY, ""):
         forme = _bloc_forme(livrable)
         assert "L'information vit dans les TABLEAUX" in forme, livrable
         assert "L'analyse est RÉDIGÉE" not in forme, livrable

@@ -1522,6 +1522,34 @@ def _longueur_des_paragraphes(code_livrable: str) -> str:
 #: contre nos 25 %). C'est leur NOMBRE — quatre fois plus, en deux fois moins
 #: de pages. Le plafond par paragraphe reste donc intact.
 _DOSAGE_PAR_LIVRABLE: dict[str, str] = {
+    # Le BUSINESS PLAN, mesuré le 28/10/2026 sur un document VALIDÉ et écrit
+    # hors de notre chaîne : « FINDRAX — Business Plan v3, octobre 2026 »,
+    # 59 pages, prévisionnel en version 8.
+    #
+    #     référence Findrax v3 : prose 93 % | 24 tableaux | 41 % de longs
+    #     produit par EVKHA    : prose 31 % | 157 tableaux | 19 % de longs
+    #
+    # Son cahier des charges semblait se contredire — « la même charte
+    # rédactionnelle » que l'étude de marché, ET une « patte narrative EVKHA,
+    # écrit comme si le porteur de projet en était lui-même l'auteur ». La
+    # mesure tranche : c'est la patte narrative qui gagne, et de loin.
+    #
+    # Contrairement à l'étude de la concurrence, ses paragraphes sont PLUS
+    # longs que les nôtres (moyenne 42 mots contre 18). Un plan d'affaires se
+    # raconte ; il ne se tabule pas.
+    "business_plan": (
+        "- Le business plan se RACONTE. Chaque sous-section développe en "
+        "paragraphes rédigés ce que le porteur a décidé et pourquoi : d'où "
+        "vient le chiffre, ce qu'il suppose, ce qui le ferait bouger. Le "
+        "client doit pouvoir présenter ce document à son banquier et y "
+        "reconnaître son projet, ses mots, sa vision.\n"
+        "- Les TABLEAUX sont réservés à ce qui se lit en colonnes : le "
+        "prévisionnel, le plan de financement, les investissements, la "
+        "trajectoire par exercice. Un raisonnement, une hypothèse, un "
+        "arbitrage ne se mettent pas en grille.\n"
+        "- Un paragraphe peut être développé : ici, mieux vaut une idée "
+        "menée au bout qu'une ligne de tableau de plus."
+    ),
     "competitor_study": (
         "- L'analyse est RÉDIGÉE. Chaque sous-section développe en plusieurs "
         "paragraphes courts ce que les chiffres veulent dire : ce que fait "

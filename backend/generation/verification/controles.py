@@ -107,8 +107,47 @@ class SeuilsDeDensite:
 #: toujours. Ce qu'elle a refusé, c'est le mur de texte, pas la prose.
 PART_TABLEAUX_MIN_CONCURRENCE = 0.15
 
+#: Le BUSINESS PLAN, mesuré sur un document VALIDÉ et écrit hors de notre
+#: chaîne : « FINDRAX — Business Plan v3, octobre 2026 », 59 pages, bâti sur
+#: une étude de marché et une étude de la concurrence déjà validées, avec un
+#: prévisionnel en version 8. Transmis par la cliente le 28/10/2026.
+#:
+#: ## Ce que nos seuils faisaient de ce document
+#:
+#: Passé par le même extracteur que nos livrables :
+#:
+#:     reference Findrax v3 : prose 93 % | tableaux  6,9 % | longs 41 %
+#:     produit par EVKHA    : prose 31 % | tableaux 68 %   | longs 19 %
+#:
+#: Confronté aux seuils d'alors — 40 % de tableaux au minimum, 25 % de
+#: paragraphes longs au maximum — **le business plan validé par la cliente
+#: échouait sur DEUX critères sur trois.** Un contrôle qui refuse le document
+#: de référence est la règle 2 dans sa forme la plus pure : il frappe ce qui
+#: n'était pas malade.
+#:
+#: Et il ne s'arrêtait pas là : la consigne de forme ordonnait « l'information
+#: vit dans les TABLEAUX » et ce contrôle en exigeait 40 %. Le moteur était
+#: configuré pour produire l'inverse de ce qu'elle valide.
+#:
+#: ## Les valeurs retenues, et pourquoi celles-là
+#:
+#: - 5 % de tableaux au minimum, juste sous ses 6,9 % : son document passe, et
+#:   un business plan SANS AUCUN tableau échoue toujours — un plan de
+#:   financement et un prévisionnel sont des tableaux, pas de la prose ;
+#: - 50 % de paragraphes longs, au-dessus de ses 41 % : la « patte narrative »
+#:   que le cahier des charges exige produit des paragraphes développés ;
+#: - la médiane reste à 25 mots : la sienne est à 17, elle n'a jamais été le
+#:   problème. C'est la PART de paragraphes longs qui liait les mains.
+PART_TABLEAUX_MIN_BUSINESS_PLAN = 0.05
+PART_PARAGRAPHES_LONGS_MAX_BUSINESS_PLAN = 0.50
+
 _SEUILS_PAR_LIVRABLE: dict[str, SeuilsDeDensite] = {
     "business_strategy": SeuilsDeDensite(PART_TABLEAUX_MIN, 60, 0.60),
+    "business_plan": SeuilsDeDensite(
+        PART_TABLEAUX_MIN_BUSINESS_PLAN,
+        MEDIANE_PARAGRAPHE_MAX,
+        PART_PARAGRAPHES_LONGS_MAX_BUSINESS_PLAN,
+    ),
     "competitor_study": SeuilsDeDensite(
         PART_TABLEAUX_MIN_CONCURRENCE,
         # La longueur par paragraphe, elle, n'avait pas à bouger : sa référence
@@ -1968,6 +2007,77 @@ _BORNE_D_INTERVALLE = re.compile(
 )
 
 
+#: Ce qui ne compte pas comme une explication : le nombre lui-même, une année,
+#: une unité. Retiré avant de compter les mots, sinon « 0 € | 2026 » passerait
+#: pour commenté.
+_MOT_QUI_EXPLIQUE = re.compile(r"[^\W\d_]{3,}")
+
+#: Combien de mots il faut, à côté d'un zéro, pour que quelque chose en soit
+#: DIT plutôt que seulement ÉTIQUETÉ. Quatre mots ne font pas une proposition ;
+#: « Coût d'acquisition » n'en fait que deux. Mesuré sur les deux seules
+#: occurrences du business plan `578c7024` : 10 mots et 14 mots.
+_MOTS_POUR_EXPLIQUER_UN_ZERO = 5
+
+
+def _zero_explique(mesure: Mesure) -> bool:
+    """Quelque chose est-il DIT de ce zéro, ou n'est-il qu'étiqueté ?
+
+    ## Pourquoi un comptage et non une liste de mots (28/10/2026)
+
+    `_ZERO_ASSUME` et `_EN_TETE_DE_RESULTAT` sont deux listes fermées de mots
+    qui tiennent lieu d'une propriété de sens : « le texte explique ce zéro ».
+    Mesuré sur le business plan réel `578c7024`, 59 pages : les DEUX seules
+    occurrences du contrôle étaient fausses, et pour la même raison — le mot
+    qui disait l'explication ne figurait pas dans la liste.
+
+    - « …est de 0 € **: les clientes paient à la réservation, avant que salles
+      et intervenantes soient réglées** » — la phrase énonce le zéro ET sa
+      cause ; aucun de « aucun / nul / zéro / sans » n'y est.
+    - « …− apport − emprunt **; le plan de financement s'équilibre** | 0 € » —
+      c'est un écart nul, et le mot qui le dit est « s'équilibre », que
+      `_EN_TETE_DE_RESULTAT` ne liste pas.
+
+    Allonger les listes serait la quatrième énumération du même défaut
+    (règle 4 : si votre correctif énumère des cas, il est incomplet). Et ce
+    contrôle fait RÉÉCRIRE un chapitre — il a coûté une réécriture payante du
+    chapitre 12 sur une phrase juste.
+
+    ## Le critère
+
+    Celui que la docstring du contrôle énonce déjà sans l'appliquer : le défaut
+    est le zéro **NU**. On regarde donc la portée entière du zéro — sa LIGNE
+    quand il est en tableau, sa PHRASE sinon — et on compte ce qui s'y dit de
+    lui. Les deux faux positifs venaient de ce que le contrôle regardait une
+    tranche trop étroite : la cellule du zéro, alors que le sens vivait dans la
+    cellule d'à côté (règle 9).
+
+    En prose, seul ce qui SUIT le nombre compte : « Le coût d'acquisition est
+    de 0 €. » a huit mots devant lui et n'explique rien.
+    """
+    entiere = (mesure.phrase if mesure.dans_un_tableau else mesure.contexte) or ""
+    if mesure.dans_un_tableau:
+        a_compter = entiere
+    else:
+        trouve = re.search(
+            r"(?<![\d,.])" + re.escape(mesure.texte), mesure.contexte or ""
+        )
+        a_compter = (mesure.contexte or "")[trouve.end():] if trouve else ""
+    # « Je ne sais pas » n'explique pas un zéro : c'est le défaut lui-même.
+    # Sans cette ligne, « Coût | 0 € (non chiffré) | Statut » était ACCEPTÉ —
+    # régression attrapée par la contre-épreuve de
+    # `test_une_cellule_se_lit_avec_son_en_tete`, parce que le contrôle ne
+    # consulte `_MANQUE_DANS_LA_CELLULE` que plus bas, dans sa branche tableau.
+    # Un comptage de mots ne doit jamais pouvoir acheter ce silence-là.
+    #
+    # Ce garde-fou lit la portée ENTIÈRE, pas seulement ce qui suit le nombre :
+    # « Le budget, non chiffré à ce jour, est de 0 € » annonce le manque AVANT
+    # le chiffre, et un comptage qui ne regarde que l'aval ne le verrait pas.
+    if _DONNEE_MANQUANTE.search(entiere) or _MANQUE_DANS_LA_CELLULE.search(entiere):
+        return False
+    reste = _COMPLEMENT_D_UNITE.sub(" ", a_compter.replace(mesure.texte, " "))
+    return len(_MOT_QUI_EXPLIQUE.findall(reste)) >= _MOTS_POUR_EXPLIQUER_UN_ZERO
+
+
 def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
     """Un montant ou un taux à zéro que rien n'assume dans la phrase.
 
@@ -1990,6 +2100,13 @@ def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
         manquante = bool(_DONNEE_MANQUANTE.search(mesure.contexte))
         if not manquante and _ZERO_ASSUME.search(mesure.contexte):
             continue
+        # Le critère de CLASSE, après les listes de mots qu'il remplace : on
+        # les garde parce qu'un zéro qu'elles acceptaient déjà ne doit pas
+        # commencer à échouer, mais c'est celui-ci qui tranche les cas qu'elles
+        # ne nomment pas. `manquante` l'emporte toujours : « non chiffré
+        # (0 €) » est explicite, et aucun bavardage alentour ne le rattrape.
+        if not manquante and _zero_explique(mesure):
+            continue
         if not manquante and mesure.dans_un_tableau:
             en_tete, _, ligne = mesure.phrase.partition(" : ")
             if _EN_TETE_DE_RESULTAT.search(en_tete) or _EN_TETE_DE_RESULTAT.search(ligne):
@@ -2009,9 +2126,13 @@ def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
         deja_vues.add(mesure.texte)
         anomalies.append(Anomalie(
             "valeur_nulle", Gravite.AVERTISSEMENT,
-            f"« {mesure.texte} » : un zéro que la phrase n'assume pas. Si la "
-            "valeur est réellement nulle, écris-le en toutes lettres ; sinon "
-            "c'est une donnée manquante rendue comme un chiffre.",
+            # Le motif CONSTATE : rien n'est dit de ce zéro. Il ne dicte plus
+            # « écris-le en toutes lettres » — ce contrôle fait réécrire un
+            # chapitre payant, et un contrôle qui commande la forme produit la
+            # phrase qu'il réclame au lieu de l'information qui manque.
+            f"« {mesure.texte} » : rien, autour de ce zéro, ne dit s'il est "
+            "une valeur réellement nulle ou une donnée manquante rendue comme "
+            "un chiffre. Le lecteur ne peut pas trancher.",
             extrait=mesure.contexte,
             chapitre=mesure.chapitre,
         ))

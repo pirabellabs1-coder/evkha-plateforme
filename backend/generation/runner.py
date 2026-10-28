@@ -681,6 +681,51 @@ def run_generation_job(
     return job
 
 
+def _le_rendu_sait_encore_le_lire(job: GenerationJob, chapitre: ChapterGeneration) -> bool:
+    """Le lecteur recevrait-il ce chapitre si le document etait assemble maintenant ?
+
+    La question n'est pas « ce chapitre a-t-il du texte » mais « le chemin de
+    rendu ACTIF en voit-il quelque chose » — moteur structure, `rendu_word`
+    n'assemble que `payload` et ignore `content` ; ancien moteur, l'inverse.
+    Juger sur l'autre representation, c'est juger sur une evidence que le
+    lecteur ne recoit pas (regle 9).
+    """
+    if _moteur_structure(job):
+        return bool(chapitre.payload)
+    return bool((chapitre.content or "").strip())
+
+
+def fermer_le_chapitre_inacheve(
+    job: GenerationJob, chapitre: ChapterGeneration
+) -> bool:
+    """Referme UN chapitre resté dans un état intermédiaire. Rend True s'il part.
+
+    Source unique de la règle (règle 5) : deux appelants la suivent — la fin de
+    la génération, par `fermer_les_chapitres_inacheves`, et l'échec d'une
+    réécriture dans la relecture finale. Les laisser décider séparément, c'est
+    la façon exacte dont le chapitre 12 de `578c7024` est resté « en cours ».
+
+    Le motif EXISTANT est conservé et préfixé, jamais remplacé : il porte la
+    CAUSE, et l'écraser signalerait l'effet en effaçant la raison.
+    """
+    ancien = (chapitre.error_message or "").strip()
+    if _le_rendu_sait_encore_le_lire(job, chapitre):
+        chapitre.status = ChapterStatus.DONE
+        chapitre.error_message = (
+            "Réécriture inachevée : c'est la version précédente de ce "
+            f"chapitre qui part. {ancien}".strip()[:2000]
+        )
+        rendable = True
+    else:
+        chapitre.status = ChapterStatus.FAILED
+        chapitre.error_message = (
+            f"Chapitre inachevé à la fin de la génération. {ancien}".strip()[:2000]
+        )
+        rendable = False
+    chapitre.save(update_fields=["status", "error_message", "updated_at"])
+    return rendable
+
+
 def fermer_les_chapitres_inacheves(job: GenerationJob) -> list[int]:
     """Passe en ÉCHEC tout chapitre resté en attente ou en cours. Rend leurs numéros.
 
@@ -702,19 +747,49 @@ def fermer_les_chapitres_inacheves(job: GenerationJob) -> list[int]:
     Le motif EXISTANT est conservé et préfixé, jamais remplacé : sur
     `2a8872d0`, le chapitre 6 portait le retour du contrôle qualité, la seule
     explication du trou. L'écraser aurait effacé la cause en signalant l'effet.
+
+    ## Pourquoi ÉCHEC n'est pas toujours la bonne fermeture (28/10/2026)
+
+    Business plan `578c7024` : le chapitre 12 « Organisation et moyens » est
+    resté « en cours » sur un dossier `done`, `qa=passed`, document livré. La
+    cause n'est pas la boucle de génération — cette fonction y tourne déjà —
+    mais la relecture FINALE, qui tourne dans sa propre tâche APRÈS, remet un
+    chapitre en réécriture, et dont la panne ne refermait rien (règle 3 : ce
+    qui refait le document après le contrôle doit être contrôlé à son tour).
+
+    Et dans ce cas-là, ÉCHEC est le pire des deux états. `payloads_du_job`
+    n'assemble que les chapitres `DONE` : marquer en échec un chapitre dont le
+    payload est encore rendable le ferait **disparaître du prochain
+    assemblage**. Le trou serait créé par la réparation. Ce document-ci n'a
+    gardé son chapitre 12 que parce que le `.docx` avait été assemblé avant.
+
+    Donc la fermeture suit ce que le LECTEUR recevrait :
+
+    - payload encore rendable → `DONE`, motif conservé : sa réécriture a
+      échoué, et c'est sa version précédente qui part. Le défaut que la
+      réécriture visait reste, mais le gate le reverra sur le document qui
+      part, et l'incident porte la trace ;
+    - rien à rendre → `FAILED` : un vrai trou, et `trou_a_combler` le
+      rattrape.
     """
     inacheves = list(job.chapters.filter(
         status__in=[ChapterStatus.PENDING, ChapterStatus.RUNNING]
     ))
-    for chapitre in inacheves:
-        ancien = (chapitre.error_message or "").strip()
-        chapitre.status = ChapterStatus.FAILED
-        chapitre.error_message = (
-            f"Chapitre inachevé à la fin de la génération. {ancien}".strip()[:2000]
-        )
-        chapitre.save(update_fields=["status", "error_message", "updated_at"])
+    rendables = [
+        chapitre.chapter_number
+        for chapitre in inacheves
+        if fermer_le_chapitre_inacheve(job, chapitre)
+    ]
 
-    numeros = [c.chapter_number for c in inacheves]
+    if rendables:
+        _log.warning(
+            "Job %s : %s chapitre(s) rendus dans leur version precedente apres "
+            "une reecriture inachevee : %s. Le defaut vise par la reecriture "
+            "n'est PAS corrige.",
+            job.id, len(rendables), ", ".join(str(n) for n in rendables),
+        )
+
+    numeros = [c.chapter_number for c in inacheves if c.status == ChapterStatus.FAILED]
     if numeros:
         _log.warning(
             "Job %s termine avec %s chapitre(s) inacheve(s) : %s. Marques en "

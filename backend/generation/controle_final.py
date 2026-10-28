@@ -412,6 +412,19 @@ def relire_et_corriger(
                 _log.exception(
                     "Relecture finale : chapitre %s non réécrit (job %s)", numero, job.id
                 )
+                # `continue` laissait le chapitre dans l'état où la réécriture
+                # l'avait mis : « en cours ». Or `payloads_du_job` n'assemble
+                # que les chapitres `DONE` — la passe suivante refaisait donc
+                # le document SANS lui, en silence. C'est ainsi que le
+                # chapitre 12 du business plan `578c7024` a failli quitter un
+                # document de cinquante-neuf pages (28/10/2026).
+                #
+                # On lui rend donc son état : sa version précédente si le rendu
+                # sait encore la lire, un échec déclaré sinon. Même règle qu'à
+                # la fin de la génération, même fonction (règle 5).
+                from .runner import fermer_le_chapitre_inacheve  # noqa: PLC0415
+
+                fermer_le_chapitre_inacheve(job, chapitre)
                 continue
             rapport.chapitres_reecrits.append(numero)
 
