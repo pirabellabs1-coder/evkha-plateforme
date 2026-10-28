@@ -1631,6 +1631,55 @@ def formes_deja_employees(job: GenerationJob, avant: int) -> list[str]:
     return formes
 
 
+def donnees_deja_tracees(job: GenerationJob, avant: int) -> list[tuple[str, tuple[str, ...]]]:
+    """Les figures déjà posées, avec LEURS DONNÉES : le titre et les identifiants.
+
+    ## Le défaut, mesuré
+
+    Business plan `68fc68b4` : **treize** lignes « Figure présentée au
+    chapitre N — … » dans le document livré. Étude de la concurrence
+    `e150aade` : sept, dont quatre identiques.
+
+    Ces lignes ne sont pas des légendes orphelines : c'est le traitement
+    délibéré d'une figure en DOUBLON (`rendu_word.assemblage._renvoi`, revue du
+    29/09/2026). La seconde occurrence est remplacée par un renvoi vers
+    l'endroit où le lecteur la trouvera.
+
+    Mais le lecteur, lui, voit « Figure présentée… » là où un graphique était
+    annoncé, et le classe parmi les placeholders — c'est ce que la cliente a
+    fait le 28/10/2026 : « graphiques annoncés mais absents », « encadrés
+    répétés à l'identique ».
+
+    ## Pourquoi le modèle ne pouvait pas l'éviter
+
+    `formes_deja_employees` lui dit quels TYPES ont servi — « `entonnoir` ×2 ».
+    Or un doublon se définit par sa forme ET ses données
+    (`assemblage._signature`). Rien ne lui disait quelles DONNÉES étaient déjà
+    tracées : il pouvait redemander exactement la même figure sans le savoir.
+
+    C'est le même mécanisme que `formes_deja_employees`, un niveau plus bas, et
+    la même source : les payloads déjà écrits (règle 5).
+    """
+    from .schema import ChapitrePayload  # noqa: PLC0415
+
+    tracees: list[tuple[str, tuple[str, ...]]] = []
+    requete = (
+        job.chapters.filter(chapter_number__lt=avant, status=ChapterStatus.DONE)
+        .exclude(payload={})
+        .order_by("chapter_number")
+    )
+    for chapitre in requete:
+        try:
+            payload = ChapitrePayload.model_validate(chapitre.payload)
+        except ValidationError:
+            continue  # un chapitre illisible ne doit pas priver le suivant
+        for graphique in payload.graphiques:
+            tracees.append((
+                str(graphique.titre), tuple(str(i) for i in graphique.donnees_ids),
+            ))
+    return tracees
+
+
 #: Les six axes du verdict de clôture, avec leur vocabulaire FERMÉ.
 #:
 #: Demande de la cliente du 09/08/2026 : « en fin d'étude, ajouter un verdict
@@ -1744,6 +1793,35 @@ def _bloc_decisions(job: GenerationJob, numero: int) -> str:
     )
 
 
+def _figures_deja_posees(job: GenerationJob, numero: int) -> str:
+    """Les figures déjà dans l'étude, titre et données — pour ne pas les redemander.
+
+    Sans ce bloc, le modèle ne savait pas quelles DONNÉES étaient déjà tracées
+    et redemandait la même figure : treize renvois « Figure présentée au
+    chapitre N — … » sur le business plan `68fc68b4`, sept sur l'étude de la
+    concurrence `e150aade` dont quatre identiques. Le lecteur les lit comme un
+    graphique annoncé puis absent — « graphiques annoncés mais absents »,
+    « encadrés répétés à l'identique » (cliente, 28/10/2026).
+    """
+    posees = donnees_deja_tracees(job, numero)
+    if not posees:
+        return ""
+    lignes = "\n".join(
+        f"- « {titre} » ({', '.join(ids)})" for titre, ids in posees[:12]
+    )
+    return (
+        "FIGURES DÉJÀ POSÉES dans cette étude — le lecteur les a vues :\n"
+        + lignes
+        + "\n\nN'en redemande AUCUNE, même sous un autre titre ou une autre "
+        "forme : une figure qui reprend les mêmes identifiants est un doublon, "
+        "et le document la remplace alors par la ligne « Figure présentée au "
+        "chapitre… » — où le lecteur voit un graphique annoncé puis absent. Si "
+        "ce chapitre a besoin de ces chiffres, renvoie-y en une phrase de "
+        "prose, ou trace AUTRE CHOSE : d'autres identifiants, une autre "
+        "période, un autre découpage.\n"
+    )
+
+
 def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
     """Catalogue des visuels, consigne sectorielle, et MÉMOIRE des formes.
 
@@ -1757,14 +1835,17 @@ def _bloc_visuels(socle: Socle, job: GenerationJob, numero: int) -> str:
 
     profil = secteurs.profil_du_secteur(socle.secteur)
     deja = formes_deja_employees(job, numero)
-    memoire = ""
+    # Les figures DÉJÀ POSÉES, avec leurs données, puis les formes déjà
+    # employées. Les deux s'ajoutent : la forme ne suffisait pas, un doublon se
+    # définit par sa forme ET ses données (`assemblage._signature`).
+    memoire = _figures_deja_posees(job, numero)
     if deja:
         compte = Counter(deja)
         vues = ", ".join(
             f"`{forme}`" + (f" ×{n}" if n > 1 else "") for forme, n in compte.most_common()
         )
         libres = [t for t in TYPES_DISPONIBLES if t not in compte]
-        memoire = (
+        memoire += (
             f"\n\nFORMES DÉJÀ EMPLOYÉES dans cette étude : {vues}.\n"
             "Choisis une forme ENCORE INEMPLOYÉE dès que le propos s'y prête — "
             "une étude qui répète deux fois le même graphique se lit comme un "
