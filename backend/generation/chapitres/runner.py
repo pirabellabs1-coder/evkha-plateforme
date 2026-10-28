@@ -293,6 +293,42 @@ def _nature(unite: str) -> str:
     return str(famille) if famille is not None else NATURE_INCONNUE
 
 
+#: Comment se cite un chiffre que le CLIENT a fourni.
+#:
+#: ## Le défaut, mesuré
+#:
+#: Le prompt ordonnait d'écrire « données du projet ». Mesuré le 28/10/2026 sur
+#: le business plan `68fc68b4` : **105 occurrences** dans un seul document, la
+#: plupart sous un tableau ou un chiffre clé, sous la forme « Source : données
+#: du projet ».
+#:
+#: La cliente les classe parmi les placeholders : « Aucun texte générique ni
+#: placeholder (« données du projet », « Figure présentée… ») » (28/10/2026).
+#: Elle a raison — l'étiquette ne dit ni QUI a fourni le chiffre ni CE QUE
+#: c'est, et elle se lit comme un échec de recherche.
+#:
+#: Sa référence réécrite à la main, elle, nomme : « VÉRIFIÉ FEVS », « ESTIMÉ ≈
+#: 34 % de 315 M€ (DG Trésor) ». Une attribution spécifique ne ressemble pas à
+#: un placeholder.
+#:
+#: ## Ce qui est demandé à la place
+#:
+#: Le nom de l'entreprise du dossier, suivi de la nature de la donnée. C'est
+#: vrai, c'est spécifique, et le lecteur sait d'où vient le chiffre. L'intention
+#: d'origine — ne pas inventer d'institut pour un chiffre du client — est
+#: entièrement conservée.
+#:
+#: Aucun contrôle n'attendait la chaîne « données du projet » : vérifié le
+#: 28/10/2026, elle ne vivait que dans ces consignes et dans des commentaires.
+SOURCE_D_UN_CHIFFRE_CLIENT = (
+    "cite le NOM DE L'ENTREPRISE du dossier suivi de la nature de la donnée — "
+    "« <entreprise>, données internes », « <entreprise>, prévisionnel 2027 », "
+    "« <entreprise>, relevé de prix » — jamais « données du projet », qui ne "
+    "dit ni qui a fourni le chiffre ni ce que c'est, et se lit comme un échec "
+    "de recherche"
+)
+
+
 #: La consigne qui manquait sous le socle, et qui a coûté un défaut de forme.
 #:
 #: Retour cliente du 12/08/2026 sur un business plan noté 8/10 : « des traces
@@ -343,7 +379,7 @@ _CE_QUI_NE_SE_RECOPIE_PAS = (
     "- Le champ `source` d'un tableau ou d'un indicateur cite une source "
     "RÉELLE et vérifiable : « INSEE, base Sirene 2025 », « Xerfi, panorama du "
     "secteur, mars 2026 », ou l'une des sources web fournies pour ce chapitre. "
-    "Si la valeur vient du dossier client, écris « données du projet ». Si tu "
+    "Si la valeur vient du dossier client, " + SOURCE_D_UN_CHIFFRE_CLIENT + ". Si tu "
     "n'as pas de source à citer, LAISSE LE CHAMP VIDE — un champ vide se lit, "
     "une référence interne trahit la machine.\n"
     "\nTU NE RECALCULES RIEN. Les chiffres ci-dessous sont arrêtés pour tout le "
@@ -357,6 +393,7 @@ _CE_QUI_NE_SE_RECOPIE_PAS = (
 )
 
 
+
 #: Ce que le rédacteur fait des documents du client. Le socle en a déjà tiré
 #: les chiffres de référence ; le chapitre y trouve le reste — la répartition
 #: des clients, le détail d'une offre, l'objectif que le dirigeant s'est fixé.
@@ -367,7 +404,8 @@ CONSIGNE_DOCUMENTS_CHAPITRE = (
     "été arrêtées pour tout le document.\n"
     "- Un chiffre propre à l'entreprise qui ne figure QUE dans un document — "
     "répartition des clients, détail d'une offre, objectif chiffré — peut être "
-    "cité tel que le document l'écrit, avec « données du projet » pour source. "
+    "cité tel que le document l'écrit ; pour sa source, "
+    + SOURCE_D_UN_CHIFFRE_CLIENT + ". "
     "Ne le transforme pas : un objectif reste un objectif, une valeur réalisée "
     "reste réalisée.\n"
     # Relecture du 11/09/2026 : sans cette ligne, un chiffre d'étude régionale
@@ -539,10 +577,14 @@ périmètre mal lu ou une unité perdue — reprends la source avant d'écrire, 
 dans la phrase ce que le chiffre recouvre : « le marché mondial des produits de
 cuisine asiatique (36 Md$) », jamais « le marché asiatique (36 Md$) ».
 
-4. LES DONNÉES DU CLIENT SE CITENT « données du projet ». Son chiffre
-d'affaires, ses prix, ses clients, son prévisionnel : ils n'ont pas d'adresse
-web, ils n'en auront jamais, et c'est normal. Ne leur invente pas un institut.
-Ne les présente pas non plus comme publiés.
+4. LES DONNÉES DU CLIENT SE CITENT PAR LE NOM DE SON ENTREPRISE, suivi de la
+nature de la donnée : « <entreprise>, données internes », « <entreprise>,
+prévisionnel 2027 », « <entreprise>, relevé de prix ». Son chiffre d'affaires,
+ses prix, ses clients, son prévisionnel : ils n'ont pas d'adresse web, ils n'en
+auront jamais, et c'est normal. Ne leur invente pas un institut. Ne les
+présente pas non plus comme publiés. N'écris jamais « données du projet » : le
+lecteur n'y trouve ni qui a fourni le chiffre, ni ce que c'est, et le lit comme
+un échec de recherche.
 
 5. UN CHIFFRE DU CLIENT PRIME SUR UN CHIFFRE DE MARCHÉ. S'il a mesuré son
 panier moyen, c'est le sien qui vaut pour son dossier — la moyenne sectorielle

@@ -389,9 +389,115 @@ def _nombres_sans_echelle(document: Document) -> list[Constat]:
     return constats
 
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 14. Les formulations que les cahiers des charges interdisent nommément
+# ═════════════════════════════════════════════════════════════════════════════
+
+#: Ce que les cahiers des charges écrivent sous « Ne jamais écrire », mot pour
+#: mot, et qu'aucun contrôle ne lisait.
+#:
+#: ## Pourquoi un contrôle, et pas une consigne de plus
+#:
+#: Ces phrases sont déjà interdites dans les prompts (`prompts.py`,
+#: `prompt_library.py`). Depuis cinq mois. La cliente les relève encore —
+#: « l'étude passe son temps à dire données à définir, à vérifier : je n'aime
+#: pas cela, j'aime apporter de vraies réponses » (09/08/2026), et le
+#: 28/10/2026 : « Aucun texte générique ni placeholder ».
+#:
+#: Une septième formulation de la consigne n'y changera rien. Un motif qui fait
+#: reprendre le chapitre avec la phrase exacte, oui.
+#:
+#: ## D'où vient chaque ligne
+#:
+#: `references/systemes/02-etude-concurrence-cdc-v1.pdf` (18/05/2026),
+#: `03-business-plan-v1.pdf` et `04-strategie-business-v1.pdf`. Rien n'est
+#: inventé ici : chaque motif traduit une puce de ces documents.
+
+#: L'ABSENCE DE DONNÉE, dite au lecteur. Les cahiers de l'étude de la
+#: concurrence ET du business plan la listent tous les deux : c'est une règle
+#: de maison, appliquée aux quatre livrables.
+_ABSENCE_DE_DONNEE: tuple[tuple[str, str], ...] = (
+    (r"n.(?:avons|ai)\s+pas\s+trouv[ée]\s+de\s+donn[ée]es", "nous n'avons pas trouvé de données"),
+    (r"(?:les\s+)?donn[ée]es\s+sont\s+indisponibles", "les données sont indisponibles"),
+    (r"peu\s+de\s+sources\s+existent", "peu de sources existent"),
+    (r"aucune\s+information\s+(?:n.est\s+)?disponible", "aucune information disponible"),
+)
+
+#: Ce que chaque livrable interdit EN PLUS, sans condition.
+_INTERDITES_PAR_LIVRABLE: dict[str, tuple[tuple[str, str], ...]] = {
+    "business_plan": (
+        (r"le\s+projet\s+est\s+tr[èe]s\s+ambitieux\s+et\s+innovant",
+         "le projet est très ambitieux et innovant"),
+    ),
+    "business_strategy": (
+        (r"il\s+faut\s+poster\s+plus", "il faut poster plus sur Instagram"),
+        (r"il\s+faut\s+[êe]tre\s+pr[ée]sent\s+sur\s+tous\s+les\s+r[ée]seaux",
+         "il faut être présent sur tous les réseaux"),
+    ),
+}
+
+#: Celles que le cahier n'interdit QUE « sans chiffres à l'appui » (business
+#: plan) ou « sans analyse » (stratégie). La condition ne se lit pas en code :
+#: on vérifie qu'un chiffre figure dans la même phrase, et on se contente de
+#: SIGNALER — un motif grave sur une affirmation peut-être justifiée punirait
+#: ce qui ne l'a pas mérité (règle 2).
+_A_JUSTIFIER: tuple[tuple[str, str], ...] = (
+    (r"le\s+march[ée]\s+est\s+tr[èe]s\s+porteur", "le marché est très porteur"),
+    (r"l.entreprise\s+doit\s+se\s+d[ée]marquer", "l'entreprise doit se démarquer"),
+    (r"la\s+strat[ée]gie\s+semble\s+coh[ée]rente", "la stratégie semble cohérente"),
+)
+
+#: Un chiffre dans la phrase : ce qui transforme une affirmation en constat.
+_UN_CHIFFRE = re.compile(r"\d")
+
+
+def _formulations_interdites(document: Document, livrable: str) -> list[Constat]:
+    """Les phrases que le cahier des charges du livrable interdit nommément.
+
+    Deux sévérités, et la différence vient du cahier lui-même :
+
+    - l'absence de donnée dite au lecteur est interdite SANS condition — le
+      chapitre se reprend ;
+    - « le marché est très porteur » n'est interdit que « sans chiffres à
+      l'appui » : on ne le signale que si la phrase ne porte aucun chiffre, et
+      jamais gravement, parce que la justification peut vivre dans la phrase
+      suivante et que le code ne sait pas la lire.
+    """
+    interdites = (*_ABSENCE_DE_DONNEE, *_INTERDITES_PAR_LIVRABLE.get(livrable, ()))
+    constats: list[Constat] = []
+    for section in document.sections:
+        for phrase in textes_de_la_section(section):
+            for motif, telle_quelle in interdites:
+                if not re.search(motif, phrase, re.IGNORECASE):
+                    continue
+                constats.append(Constat(
+                    "redaction", section.numero, phrase[:200],
+                    f"« {telle_quelle} » : le cahier des charges l'interdit "
+                    "nommément. Écris ce que les sources PERMETTENT de dire, "
+                    "puis ce qui manque exactement et qui le publie — un "
+                    "client paie un livrable, pas le relevé de ce qu'on n'a "
+                    "pas trouvé.",
+                ))
+            if _UN_CHIFFRE.search(phrase):
+                continue
+            for motif, telle_quelle in _A_JUSTIFIER:
+                if re.search(motif, phrase, re.IGNORECASE):
+                    constats.append(Constat(
+                        "redaction", section.numero, phrase[:200],
+                        f"« {telle_quelle} » sans un chiffre dans la phrase : "
+                        "le cahier des charges ne l'admet qu'appuyé. Donne la "
+                        "valeur, la croissance ou la part qui le montre.",
+                        grave=False,
+                    ))
+    return constats
+
+
 def controler(document: Document, reference: Reference) -> list[Constat]:
-    del reference  # ces contrôles ne lisent pas la mémoire
     return [
+        # Le seul contrôle de ce module qui dépend du LIVRABLE : chaque cahier
+        # des charges a sa propre liste de « Ne jamais écrire ».
+        *_formulations_interdites(document, str(reference.livrable or "")),
         *_libelles_qui_melangent(document),
         *_evolutions_sur_base_faible(document),
         *_repetitions(document),
