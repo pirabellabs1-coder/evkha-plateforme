@@ -48,12 +48,29 @@ CORRECTIFS_DU_28_OCTOBRE: list[str] = [
     "NOM DE L'ENTREPRISE",
     # La mémoire des figures déjà tracées, qui évite le doublon.
     "FIGURES DÉJÀ POSÉES",
+    # Le taux de capture choisi et non calculé à l'envers. Étude de marché
+    # `d98f2df4` : 22 incidents CHECK bloquants, tous le même reproche — « la
+    # formulation circulaire : un taux de capture d'environ 0,11 % donne
+    # 180 000 € ». `REGLES_DE_FOND` part aux QUATRE livrables, donc la
+    # consigne aussi.
+    "CHOISI, pas calculé à l'envers",
 ]
+
+#: La contradiction levée le soir du 28/10/2026 : « formule par formule » ne
+#: tient pas dans un encadré de six lignes, et le modèle y résumait donc en
+#: « de 39 € à 450 € ». L'encadré a sa propre consigne.
+#:
+#: Attendue dans les TROIS livrables à règle stricte, pas dans l'étude de
+#: marché : son cahier des charges autorise une fourchette serrée et sourcée,
+#: et `consigne_fourchettes_stricte` ne lui envoie rien. C'est le test qui me
+#: l'a rappelé, en échouant sur `market_study`.
+ENCADRE_SANS_ETENDUE = "DANS UN ENCADRÉ"
 
 CONSIGNES_ATTENDUES: dict[str, list[str]] = {
     DeliverableType.BUSINESS_PLAN: [
         *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
+        ENCADRE_SANS_ETENDUE,
         "Un montant se DÉCIDE",
         "adresse web, recopiée telle quelle",
         "FIGURES RÉALISABLES AVEC CE SOCLE",
@@ -62,6 +79,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
     DeliverableType.COMPETITOR_STUDY: [
         *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
+        ENCADRE_SANS_ETENDUE,
         "CA de référence estimé",
         "CA actuel estimé",
         "adresse web, recopiée telle quelle",
@@ -71,6 +89,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
     DeliverableType.BUSINESS_STRATEGY: [
         *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
+        ENCADRE_SANS_ETENDUE,
         "le coût mensuel retenu",
         "ce qu'un pilotage stratégique change",
         "Décisions retenues",

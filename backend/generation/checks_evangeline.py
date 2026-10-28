@@ -153,6 +153,18 @@ _ELLIPSE_DU_MOUVEMENT = re.compile(
     r"\b(?:et|puis|ainsi\s+que)\s+(?:\S+\s+){0,1}\S*?\b(?:de|d['’])\s*[+]?\s*$",
     re.IGNORECASE,
 )
+#: Un montant ramené à une AUTRE BASE que celle du libellé : « 99 € de CA par
+#: jour ouvré », « 2 067 € par mois », « 141 € par participante ». C'est la
+#: valeur du libellé divisée, pas une valeur concurrente.
+#:
+#: L'exception est la base ANNUELLE : « 24 802 € par an » EST la valeur du
+#: seuil de rentabilité, et l'exempter ferait disparaître la mention de
+#: référence — plus aucune divergence ne serait détectée contre elle. Le
+#: critère est donc « par <base>, sauf l'année », et non une liste de bases.
+_RAMENE_A_UNE_AUTRE_BASE = re.compile(
+    r"^[^.;:\d]{0,25}?\bpar\s+(?!an\b|ann[ée]e|exercice)[^\W\d_]{2,}",
+    re.IGNORECASE,
+)
 _ECART_AVANT = re.compile(
     r"\b(?:[ée]cart|diff[ée]rence|confusion|saut|choix|arbitrage|comparaison"
     r"|h[ée]sitation)\b[^.;:\d]{0,25}?\bentre\s*$",
@@ -1110,6 +1122,21 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             # l'année 3 ». Aucun des deux montants n'a d'année propre dans la
             # phrase — l'année la plus proche est celle de l'autre.
             if _DEBUT_DE_TRAJECTOIRE.match(fenetre[montant.end():]):
+                continue
+            # Le montant RAMENÉ À UNE AUTRE BASE n'est pas la valeur du
+            # libellé : c'est elle, divisée.
+            #
+            # Business plan `ad6bb533` (28/10/2026) : le gate bloquait sur
+            # « seuil_rentabilite : 24 802 € (ch. 3, 4, 9, 10, 11, 16, 17, 18,
+            # 19) ; 99 € (ch. 9) », et la phrase du chapitre 9 écrit
+            # « Ramené au calendrier, le point mort représente 99 € de CA PAR
+            # JOUR OUVRÉ en 2027 ». 24 802 ÷ 250 jours ouvrés ≈ 99 : ce n'est
+            # pas une divergence, c'est le même chiffre ramené à la journée, et
+            # la phrase le dit.
+            #
+            # `_MOTS_DE_RUPTURE` ne pouvait pas le voir : il regarde ENTRE le
+            # libellé et le montant, et le qualificatif est APRÈS.
+            if _RAMENE_A_UNE_AUTRE_BASE.match(fenetre[montant.end():]):
                 continue
             if _COORDINATION.search(entre):
                 continue

@@ -388,6 +388,19 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         "prix le plus bas (concurrent, prix, source), le prix le plus haut "
         "(concurrent, prix, source) et le prix médian du panel, en disant sur "
         "combien de prix relevés dans le document il est calculé.\n"
+        # Business plan `ad6bb533` (28/10/2026) : la relecture a RÉÉCRIT le
+        # chapitre 8, et « une échelle de prix lisible, de 39 € à 450 € » est
+        # revenue. Ce n'était pas de la désobéissance : la phrase vit dans un
+        # encadré plafonné à six lignes, et « formule par formule » n'y tient
+        # pas pour une étendue de 39 à 450 €. Deux de nos règles se
+        # contredisaient, et le modèle a tranché pour celle qui tenait dans la
+        # place — c'est exactement ce que la répétition à blanc cherche.
+        "DANS UN ENCADRÉ (synthèse, verdict, décision) : la place est "
+        "comptée, et énumérer toutes les formules n'y tient pas. N'y écris "
+        "donc JAMAIS d'étendue « de X à Y » : nomme DEUX prix réels avec ce "
+        "qu'ils désignent — « l'atelier à 39 €, le parcours à 450 € » — ou un "
+        "seul prix avec sa formule. Deux faits valent mieux qu'une plage, et "
+        "tiennent sur une ligne.\n"
     )
 
     if deliverable_type == DeliverableType.MARKET_STUDY:

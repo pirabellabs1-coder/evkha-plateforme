@@ -1345,6 +1345,22 @@ REGLES_DE_FOND = (
     "de capture de 0,01 % du marché accessible donne 130 000 €, soit environ "
     "2 000 commandes a 65 € » — jamais l'inverse. Ce taux se RÉPÈTE dans le "
     "verdict de viabilité : c'est lui qui rend l'objectif discutable.\n"
+    # Étude de marché `d98f2df4` (28/10/2026) : 22 incidents CHECK bloquants,
+    # tous le même reproche — « supprimer la formulation circulaire : un taux
+    # de capture d'environ 0,11 % donne 180 000 € ». La règle ci-dessus était
+    # respectée dans la FORME et violée dans le raisonnement : le montant avait
+    # été décidé d'abord, et le taux calculé pour y tomber. « 0,11 % » à côté
+    # de « 180 000 € » le trahit — un taux choisi est rond, un montant déduit
+    # ne l'est pas. Le relecteur voit ce que la règle de forme ne voyait pas.
+    "- Et ce taux est CHOISI, pas calculé à l'envers. Tu l'écris rond — "
+    "0,1 %, 0,5 %, 1 % — et tu dis en une phrase ce qui le justifie : une "
+    "part de marché comparable, une capacité de production, un nombre de "
+    "clients atteignables. Le montant qui en découle est alors ce que "
+    "l'arithmétique donne, et il tombe rarement rond. Un taux à deux "
+    "décimales en face d'un montant rond est le signe que la déduction a été "
+    "faite dans l'autre sens : « 0,11 % donne 180 000 € » se lit comme une "
+    "justification fabriquée après coup, et un lecteur qui la repère cesse de "
+    "croire le reste du chapitre.\n"
     # « Preciser explicitement si le taux compare est celui du marche francais
     # ou du marche mondial. » Un taux nu oblige le lecteur a deviner.
     "- Tout taux et tout montant nomme SON PÉRIMÈTRE a chaque occurrence : "
