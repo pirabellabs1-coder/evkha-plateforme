@@ -84,8 +84,40 @@ class SeuilsDeDensite:
 #: Faute de document de stratégie validé, seul le vrai mur de texte y reste
 #: signalé : un paragraphe médian au-delà de soixante mots, ou une majorité de
 #: paragraphes de plus de soixante mots.
+#: L'ÉTUDE DE LA CONCURRENCE a elle aussi sa mesure, depuis le 28/10/2026, et
+#: elle contredisait celle de l'étude de marché.
+#:
+#: La cliente a réécrit à la main l'étude de la concurrence qu'elle voulait, et
+#: les deux documents passés par le même extracteur donnent :
+#:
+#:     produit par EVKHA : prose 21 % | cellules 78 %
+#:     référence cliente : prose 81 % | cellules 18 %
+#:
+#: Son verdict : « il n'y avait que des tableaux mais j'ai besoin de textes
+#: aussi ». Le cahier des charges de ce livrable le demandait déjà le
+#: 18/05/2026 : « Les paragraphes doivent être rédigés. »
+#:
+#: Laisser le plancher à 40 % aurait créé la contradiction que la répétition à
+#: blanc est faite pour trouver : `_DOSAGE_PAR_LIVRABLE` demande désormais six
+#: à dix paragraphes par sous-section à ce livrable, et ce contrôle aurait
+#: puni le document qui obéit.
+#:
+#: Le plancher descend à 15 %, soit juste sous les 18 % mesurés chez elle —
+#: un document de SA forme passe, un mur de texte sans aucun tableau échoue
+#: toujours. Ce qu'elle a refusé, c'est le mur de texte, pas la prose.
+PART_TABLEAUX_MIN_CONCURRENCE = 0.15
+
 _SEUILS_PAR_LIVRABLE: dict[str, SeuilsDeDensite] = {
     "business_strategy": SeuilsDeDensite(PART_TABLEAUX_MIN, 60, 0.60),
+    "competitor_study": SeuilsDeDensite(
+        PART_TABLEAUX_MIN_CONCURRENCE,
+        # La longueur par paragraphe, elle, n'avait pas à bouger : sa référence
+        # écrit PLUS court que nous (médiane 15 mots contre 21, et 1 % au-delà
+        # de 25 mots contre nos 25 %). C'est le NOMBRE de paragraphes qui
+        # manquait, pas leur taille.
+        MEDIANE_PARAGRAPHE_MAX,
+        PART_PARAGRAPHES_LONGS_MAX,
+    ),
 }
 _SEUILS_PAR_DEFAUT = SeuilsDeDensite(
     PART_TABLEAUX_MIN, MEDIANE_PARAGRAPHE_MAX, PART_PARAGRAPHES_LONGS_MAX,

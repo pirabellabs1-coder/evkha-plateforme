@@ -1427,7 +1427,7 @@ def _bloc_forme(code_livrable: str = "") -> str:
     """
     propre = _FORME_PAR_LIVRABLE.get(code_livrable, "")
     return (
-        _forme_commune()
+        _forme_commune(code_livrable)
         + f"\n{_longueur_des_paragraphes(code_livrable)}"
         + (f"\n{propre}" if propre else "")
     )
@@ -1454,16 +1454,62 @@ def _longueur_des_paragraphes(code_livrable: str) -> str:
     )
 
 
-def _forme_commune() -> str:
+#: Le dosage prose / tableaux, mesuré PAR LIVRABLE.
+#:
+#: ## Pourquoi cette table existe (28/10/2026)
+#:
+#: Les deux premières puces vivaient dans `_forme_commune`, donc partaient aux
+#: QUATRE livrables. Elles traduisaient une mesure réelle — `joalie_2026.docx`,
+#: l'étude de marché validée par la cliente, porte 52 % de ses mots dans des
+#: tableaux — mais cette mesure ne vaut que pour l'étude de marché.
+#:
+#: Mesuré le 28/10/2026 sur l'étude de la concurrence `e150aade` et sur la
+#: référence que la cliente a réécrite à la main, passées par le MÊME
+#: extracteur (`relecture.document_du_pdf`) :
+#:
+#:     produit par EVKHA : prose 21 % | cellules 78 % | 146 paragraphes
+#:     référence cliente : prose 81 % | cellules 18 % | 651 paragraphes
+#:
+#: Son verdict, le 28/10/2026 : « il n'y avait que des tableaux mais j'ai
+#: besoin de textes aussi ». Et le cahier des charges de l'étude de la
+#: concurrence le demandait depuis le 18/05/2026 : « Les paragraphes doivent
+#: être rédigés. Éviter les listes de points successifs sans analyse. »
+#:
+#: Ce n'est pas la LONGUEUR des paragraphes qui manquait : sa référence écrit
+#: plus court que nous (médiane 15 mots contre 21 ; 1 % au-delà de 25 mots
+#: contre nos 25 %). C'est leur NOMBRE — quatre fois plus, en deux fois moins
+#: de pages. Le plafond par paragraphe reste donc intact.
+_DOSAGE_PAR_LIVRABLE: dict[str, str] = {
+    "competitor_study": (
+        "- L'analyse est RÉDIGÉE. Chaque sous-section développe en plusieurs "
+        "paragraphes courts ce que les chiffres veulent dire : ce que fait "
+        "l'acteur, pourquoi sa position tient, ce que cela ouvre ou ferme pour "
+        "le client. Compte six à dix paragraphes par sous-section.\n"
+        "- Le tableau porte la COMPARAISON — les mêmes colonnes pour tous les "
+        "acteurs — jamais l'analyse. Un chapitre qui n'est qu'une suite de "
+        "grilles ne se lit pas : le lecteur doit pouvoir suivre le "
+        "raisonnement en prose et ouvrir le tableau pour vérifier.\n"
+        "- Jamais une liste de points successifs à la place d'une analyse."
+    ),
+}
+
+#: Ce que reçoit un livrable dont le dosage n'est pas mesuré à part : la forme
+#: de l'étude de marché, la seule réellement mesurée sur un document validé.
+_DOSAGE_PAR_DEFAUT = (
+    "- L'information vit dans les TABLEAUX. Chaque section porte un "
+    "`tableau` de 3 à 5 colonnes ; ce sont ses lignes qui portent les "
+    "chiffres, les critères et les comparaisons.\n"
+    "- Les blocs `paragraphe` sont des AMORCES, pas un développement : "
+    "ils annoncent ce que le tableau montre et disent ce qu'il implique."
+)
+
+
+def _forme_commune(code_livrable: str = "") -> str:
     return (
         "FORME ATTENDUE — contrainte mesurée sur le livrable de référence, "
         "pas une préférence de style :\n"
-        "- L'information vit dans les TABLEAUX. Chaque section porte un "
-        "`tableau` de 3 à 5 colonnes ; ce sont ses lignes qui portent les "
-        "chiffres, les critères et les comparaisons.\n"
-        "- Les blocs `paragraphe` sont des AMORCES, pas un développement : "
-        "ils annoncent ce que le tableau montre et disent ce qu'il implique.\n"
-        "- Un encadré au moins par chapitre, avec un verdict actionnable "
+        + _DOSAGE_PAR_LIVRABLE.get(code_livrable, _DOSAGE_PAR_DEFAUT)
+        + "\n- Un encadré au moins par chapitre, avec un verdict actionnable "
         "(opportunité, limite, décision) — jamais un résumé de ce qui précède."
     ) + "\n" + REGLES_DE_FOND
 

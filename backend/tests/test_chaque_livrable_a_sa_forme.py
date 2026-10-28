@@ -85,13 +85,64 @@ def test_chaque_forme_porte_sa_contrainte_caracteristique(
 def test_la_partie_commune_reste_commune() -> None:
     """La forme propre s'AJOUTE, elle ne remplace pas — sinon la mesure se perd.
 
-    « 52 % des mots dans des tableaux » vient du document validé et vaut pour
-    tous les livrables. Une forme propre qui l'écraserait ferait reculer les
-    trois documents qu'elle prétend améliorer.
+    ## Ce que « commun » veut dire depuis le 28/10/2026
+
+    Ce test exigeait « TABLEAUX » dans TOUS les livrables, au motif que « 52 %
+    des mots dans des tableaux » vient du document validé. Il y a une erreur
+    dans ce motif, et elle a coûté une étude : ces 52 % sont mesurés sur
+    `joalie_2026.docx`, **une étude de marché**. Appliqués à l'étude de la
+    concurrence, ils ont produit un livrable à 78 % de cellules que la cliente
+    a refusé — « il n'y avait que des tableaux mais j'ai besoin de textes
+    aussi » — alors que sa propre référence est à 18 %.
+
+    Reste commun ce qui l'est vraiment : le bandeau, l'encadré à verdict, et
+    les règles de fond. Le DOSAGE prose / tableaux est désormais mesuré par
+    livrable (`_DOSAGE_PAR_LIVRABLE`).
     """
     for livrable in (*NON_DECRITS, DeliverableType.MARKET_STUDY, ""):
-        assert "FORME ATTENDUE" in _bloc_forme(livrable), livrable
-        assert "TABLEAUX" in _bloc_forme(livrable), livrable
+        forme = _bloc_forme(livrable)
+        assert "FORME ATTENDUE" in forme, livrable
+        assert "encadré au moins par chapitre" in forme, livrable
+
+
+def test_le_dosage_est_mesure_par_livrable() -> None:
+    """Chaque livrable reçoit le dosage de SA référence, pas celui d'un autre.
+
+    Mesuré le 28/10/2026 par le même extracteur sur les deux documents :
+    l'étude de marché validée porte 52 % de ses mots en tableaux ; la référence
+    de l'étude de la concurrence réécrite par la cliente en porte 18 %.
+    """
+    concurrence = _bloc_forme(DeliverableType.COMPETITOR_STUDY)
+    assert "L'analyse est RÉDIGÉE" in concurrence
+    assert "L'information vit dans les TABLEAUX" not in concurrence
+
+    # Contre-épreuve : l'étude de marché ne doit RIEN perdre. C'est elle qui
+    # porte la mesure d'origine, et la cliente y a refusé le mur de texte.
+    for livrable in (DeliverableType.MARKET_STUDY, DeliverableType.BUSINESS_PLAN, ""):
+        forme = _bloc_forme(livrable)
+        assert "L'information vit dans les TABLEAUX" in forme, livrable
+        assert "L'analyse est RÉDIGÉE" not in forme, livrable
+
+
+def test_la_consigne_et_le_controle_ne_se_contredisent_pas() -> None:
+    """Demander de la prose et punir la prose : la contradiction à ne pas créer.
+
+    `_DOSAGE_PAR_LIVRABLE` demande six à dix paragraphes par sous-section à
+    l'étude de la concurrence. Si le plancher de tableaux était resté à 40 % —
+    la mesure de l'ÉTUDE DE MARCHÉ — le contrôle de densité aurait puni le
+    document qui obéit. C'est exactement ce que la répétition à blanc cherche.
+    """
+    from generation.verification.controles import seuils_de_densite
+
+    concurrence = seuils_de_densite(DeliverableType.COMPETITOR_STUDY)
+    marche = seuils_de_densite(DeliverableType.MARKET_STUDY)
+
+    # 18 % mesurés chez la cliente : son document doit passer.
+    assert concurrence.part_tableaux_min < 0.18
+    # Mais un mur de texte sans aucun tableau échoue toujours.
+    assert concurrence.part_tableaux_min > 0
+    # Et l'étude de marché garde son plancher d'origine.
+    assert marche.part_tableaux_min == 0.40
 
 
 def test_un_livrable_inconnu_recoit_la_partie_commune_seule() -> None:

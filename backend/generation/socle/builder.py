@@ -312,6 +312,7 @@ def produire_socle(
     variables: Mapping[str, object],
     brief_recherche: str = "",
     documents_client: str = "",
+    chiffres_herites: str = "",
     max_tokens: int = _PLAFOND_DE_SORTIE_SOCLE,
 ) -> tuple[Socle, dict[str, int], int]:
     """Produit et valide le socle.
@@ -345,6 +346,7 @@ def produire_socle(
             variables=variables,
             brief_recherche=brief_recherche,
             documents_client=documents_client,
+            chiffres_herites=chiffres_herites,
             motifs_precedents=motifs or None,
         )
         resultat = client.complete_structured(

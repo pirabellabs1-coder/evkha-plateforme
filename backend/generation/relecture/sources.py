@@ -1050,9 +1050,127 @@ def _domaines_d_un_autre_organisme(document: Document, chapitre: int) -> list[Co
     return constats
 
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Une adresse au fil du texte : le cahier des charges l'interdit sans exception
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: Une adresse complète SUIVIE D'UN CHEMIN : « https://www.pleinchamp.com/
+#: actualite/en-2025-les-exportations… ». Le chemin est ce qui sépare une
+#: RÉFÉRENCE de source du nom d'un acteur.
+#:
+#: Sans cette exigence, « https://vinatis.com » — l'identité d'un concurrent,
+#: parfaitement à sa place dans une étude de la concurrence — serait signalée
+#: comme une source égarée. Les quatre cas relevés le 28/10/2026 portent tous
+#: un chemin ; aucun nom de concurrent n'en porte.
+_ADRESSE_AVEC_CHEMIN = re.compile(
+    r"https?://[\w.-]+\.[a-z]{2,}/\S", re.IGNORECASE
+)
+
+
+def _porte_les_sources(section: Section, chapitre: int | None) -> bool:
+    """La section a-t-elle pour FONCTION de porter les adresses ?
+
+    Quatre chemins, et chacun vient d'un cas réel :
+
+    - sur le DOCUMENT entier, `chapitre_des_sources` a trouvé son numéro ;
+    - sur un CHAPITRE seul — le seul contexte qui peut encore faire reprendre
+      le texte — il n'y a rien à parcourir, et c'est le titre du chapitre
+      lui-même qui répond. Sans ce chemin, le chapitre des sources se serait
+      fait reprendre pour avoir fait son travail ;
+    - une ANNEXE. La répétition à blanc du 28/10/2026 a montré le trou : une
+      annexe intitulée « B — Sources par acteur » ne commence pas par
+      « Sources », et le chapitre a brûlé DEUX tentatives payantes avant
+      d'être gardé. Une annexe est précisément l'endroit où vivent la méthode
+      et la provenance ;
+    - l'annexe des chiffres, dont le titre ne contient pas le mot « source » —
+      « D'où viennent les chiffres de cette étude » — et qui est pourtant
+      exactement cela. Son intitulé est lu dans sa propre constante (règle 5),
+      jamais recopié.
+
+    Ce qui n'est PAS exempté : une sous-section qui parle des « sources de la
+    croissance ». Son titre ne commence pas par « Source » et son numéro n'est
+    pas une annexe — le mot seul ne suffit jamais.
+    """
+    from ..checks_post_rendu import _TITRE_SOURCES_RE  # noqa: PLC0415 — règle 5
+    from ..rendu_word.annexe_chiffres import TITRE as TITRE_ANNEXE_CHIFFRES  # noqa: PLC0415
+
+    if chapitre is not None and section.chapitre == chapitre:
+        return True
+    titre = (section.titre or "").strip()
+    if _TITRE_SOURCES_RE.match(titre):
+        return True
+    if titre.casefold() == TITRE_ANNEXE_CHIFFRES.casefold():
+        return True
+    return (section.numero or "").strip().lower().startswith("annexe")
+
+
+def _adresses_au_fil_du_texte(document: Document, chapitre: int | None) -> list[Constat]:
+    """Une adresse de source dans la PROSE, hors du chapitre qui les liste.
+
+    ## La règle, et depuis quand elle existe
+
+    Cahier des charges « Étude de la concurrence » v1, 18/05/2026 :
+
+        Les sources doivent être listées uniquement en fin de réponse totale.
+        Ne jamais intégrer les sources : au milieu du texte, dans les
+        paragraphes, à la fin des sections.
+
+    Rappelée par la cliente le 28/10/2026 : « Pas d'URL brutes dans le texte :
+    les sources vont dans le chapitre dédié. »
+
+    ## Pourquoi un contrôle et non une consigne de plus
+
+    La consigne EXISTE déjà, à six endroits de `prompt_library` (« Sources
+    uniquement en fin de reponse totale »). Elle n'a pas suffi pendant cinq
+    mois. Une septième formulation n'y changerait rien ; un constat grave fait
+    reprendre le chapitre avec le passage exact à retirer.
+
+    ## Ce qui est jugé, et ce qui ne l'est pas
+
+    - la PROSE seulement. Les cellules de tableau sont laissées tranquilles :
+      le chapitre des sources les tabule à bon droit (`Organisme | Ce que la
+      source étaye | Année`), et une colonne « Site » d'un panel de
+      concurrents est légitime ;
+    - hors du chapitre des sources, reconnu par le motif que
+      `checks_post_rendu` utilise déjà (règle 5) ;
+    - une adresse AVEC CHEMIN. Mesuré sur l'étude `e150aade` : douze adresses
+      dans le document, dont huit dans le tableau du chapitre 9 — à leur
+      place. Les quatre vraies fautes sont en prose, aux sections 5.4 et 6.4,
+      et portent toutes un chemin.
+    """
+    constats: list[Constat] = []
+    # UN constat par chapitre, et c'est une mesure : la répétition à blanc du
+    # 28/10/2026 en produisait SEPT pour le seul chapitre 19, tous identiques.
+    # Le rédacteur retire toutes les adresses de son chapitre d'une passe, et
+    # sept motifs jumeaux mangent la place des autres classes
+    # (`MAX_CONSTATS_DE_RELECTURE` en garde cinq).
+    vus: set[int | None] = set()
+    for section in document.sections:
+        if _porte_les_sources(section, chapitre) or section.chapitre in vus:
+            continue
+        for paragraphe in section.paragraphes:
+            if _ADRESSE_AVEC_CHEMIN.search(paragraphe) is None:
+                continue
+            vus.add(section.chapitre)
+            constats.append(Constat(
+                CLASSE, section.numero, extrait_court(paragraphe, 200),
+                "Une adresse de source au fil du texte, ici et peut-être "
+                "ailleurs dans le chapitre : retire-les TOUTES. Nomme la source "
+                "dans la phrase — l'organisme, le titre, l'année — et laisse "
+                "l'adresse au chapitre « Sources et méthodologie », qui est le "
+                "seul endroit où elle se lit.",
+            ))
+            break
+    return constats
+
+
 def controler(document: Document, reference: Reference) -> list[Constat]:
     constats = [*_articles_de_loi(document), *_formulations_divergentes(document)]
     chapitre = chapitre_des_sources(document) if reference.document_entier else None
+    # Dans les DEUX contextes : sur un chapitre seul, c'est le seul moment
+    # où le texte peut encore être repris.
+    constats += _adresses_au_fil_du_texte(document, chapitre)
     constats += _blogs_et_chiffres_de_marche(document, chapitre)
     if reference.document_entier:
         constats += _origines_contradictoires(document)

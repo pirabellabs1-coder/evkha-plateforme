@@ -21,6 +21,7 @@ from ..models import (
     SocleStatut,
 )
 from .builder import SocleGenerationError, produire_socle
+from .heritage import chiffres_du_livrable_precedent
 from .referentiel import livrable_couvert
 from .schema import Socle, valider_socle
 
@@ -177,6 +178,11 @@ def etablir_socle(
             variables=variables,
             brief_recherche=brief_recherche,
             documents_client=documents_client,
+            # Les chiffres que ce client a DÉJÀ lus dans un livrable
+            # précédent : le cahier des charges de l'étude de la concurrence
+            # exige cette cohérence depuis le 18/05/2026, et aucun mécanisme
+            # ne l'assurait (`socle.heritage`).
+            chiffres_herites=chiffres_du_livrable_precedent(job),
         )
     except SocleGenerationError as erreur:
         enregistrement, _ = SocleDonnees.objects.update_or_create(

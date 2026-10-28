@@ -253,6 +253,144 @@ def _reparer_dans_la_borne(texte: str, *, prose: bool, borne: int | None) -> str
 _CHAMPS_IDENTIFIANTS = frozenset({"donnees_ids"})
 
 
+
+# ══════════════════════════════════════════════════════════════════════════
+# LES ADRESSES DE SOURCE DANS LA PROSE (28/10/2026)
+# ══════════════════════════════════════════════════════════════════════════
+
+
+def _raccourcir_les_adresses(payload: Any) -> int:
+    """Remplace une adresse par le NOM du site, dans la prose du chapitre.
+
+    ## Le défaut, et la fonction qui existait déjà
+
+    Cliente, 28/10/2026 : « Pas d'URL brutes dans le texte : les sources vont
+    dans le chapitre dédié. » Le cahier des charges de l'étude de la
+    concurrence le demande depuis le 18/05/2026 — « Ne jamais intégrer les
+    sources au milieu du texte, dans les paragraphes, à la fin des sections ».
+
+    `rendu_word.composants.source_lisible` fait exactement ce travail depuis le
+    09/08/2026, après une première demande de la cliente — « il vaut mieux
+    utiliser des noms de source propres ». Elle garde la source et ne remplace
+    que l'adresse par son domaine.
+
+    Mais elle n'était appelée qu'à DEUX endroits : la note sous une figure, et
+    la ligne d'attribution d'un tableau. **Jamais sur la prose.** Un paragraphe
+    qui écrit « Sources : FEVS, bilan 2025, via Pleinchamp
+    (https://www.pleinchamp.com/actualite/…) » ne passait par aucun des deux —
+    mesuré sur l'étude `e150aade`, sections 5.4 et 6.4.
+
+    ## Pourquoi réparer, et pas refuser
+
+    Le critère de ce fichier : une classe sans AUCUNE exception légitime. Une
+    adresse en prose n'en a pas — le cahier des charges écrit « ne jamais » —
+    et la réparation ne perd rien, puisque le nom du site reste. Refuser
+    coûterait une reprise payée par chapitre concerné ; réparer ne coûte rien
+    et ne peut pas échouer à moitié.
+
+    ## Ce qui est épargné, et pourquoi
+
+    Le chapitre des SOURCES et les ANNEXES. Le cahier des charges y veut
+    précisément l'adresse complète : « une liste structurée (nom + URL) ».
+    Raccourcir là serait détruire ce qu'il demande — et c'est la répétition à
+    blanc du 28/10/2026 qui l'a montré, en signalant une annexe « B — Sources
+    par acteur » qui faisait son travail.
+    """
+    if _porte_les_adresses(payload):
+        return 0
+    from ..rendu_word.composants import source_lisible  # noqa: PLC0415 — règle 5
+
+    retouches = 0
+    # L'ordre des blocs COMPTE : une `titre_sous_section` numérotée « Annexe »
+    # ouvre une liste de sources, et tout ce qui la suit porte les adresses à
+    # bon droit — jusqu'à la sous-section suivante. Sauter le seul bloc de
+    # titre laissait raccourcir ses paragraphes (contre-épreuve du 28/10/2026).
+    dans_une_annexe = False
+    for bloc in getattr(payload, "blocs", ()) or ():
+        if str(getattr(bloc, "type", "")) == "titre_sous_section":
+            dans_une_annexe = _ouvre_des_sources(bloc)
+            continue
+        if dans_une_annexe:
+            continue
+        retouches += _raccourcir_dans(bloc, source_lisible)
+    for champ in ("accroche", "resume"):
+        texte = getattr(payload, champ, None)
+        if isinstance(texte, str) and _ADRESSE.search(texte):
+            corrige = source_lisible(texte)
+            if corrige != texte and len(corrige) <= len(texte):
+                setattr(payload, champ, corrige)
+                retouches += 1
+    return retouches
+
+
+#: Une adresse complète. Le domaine nu (« vinatis.com ») est laissé tranquille :
+#: dans une étude de la concurrence, c'est l'identité d'un acteur.
+_ADRESSE = re.compile(r"https?://", re.IGNORECASE)
+
+
+def _porte_les_adresses(payload: Any) -> bool:
+    """Le chapitre a-t-il pour FONCTION de lister les adresses ?
+
+    Le chapitre « Sources et méthodologie » et l'annexe des chiffres : le
+    cahier des charges y veut « nom + URL ». Reconnu par le motif que
+    `checks_post_rendu` utilise déjà, et par le titre de l'annexe lu dans sa
+    propre constante (règle 5).
+    """
+    from ..checks_post_rendu import _TITRE_SOURCES_RE  # noqa: PLC0415 — règle 5
+    from ..rendu_word.annexe_chiffres import TITRE as TITRE_ANNEXE  # noqa: PLC0415
+
+    titre = str(getattr(payload, "titre", "") or "").strip()
+    return bool(
+        _TITRE_SOURCES_RE.match(titre) or titre.casefold() == TITRE_ANNEXE.casefold()
+    )
+
+
+def _ouvre_des_sources(bloc: Any) -> bool:
+    """Cette sous-section ouvre-t-elle une liste d'adresses ?
+
+    Une annexe, ou une sous-section dont l'intitulé commence par « Sources ».
+    Le mot seul ne suffit pas : « Les sources de la croissance » parle
+    d'origines économiques, et n'a aucune raison de porter une adresse.
+    """
+    from ..checks_post_rendu import _TITRE_SOURCES_RE  # noqa: PLC0415 — règle 5
+
+    numero = str(getattr(bloc, "numero", "") or "").strip().lower()
+    intitule = str(getattr(bloc, "intitule", "") or "").strip()
+    return numero.startswith("annexe") or bool(_TITRE_SOURCES_RE.match(intitule))
+
+
+def _raccourcir_dans(modele: Any, raccourcir: Any) -> int:
+    """Descend dans un bloc comme le fait la réparation typographique."""
+    champs = getattr(type(modele), "model_fields", None)
+    if not champs:
+        return 0
+    retouches = 0
+    for nom in champs:
+        if nom in _CHAMPS_IDENTIFIANTS:
+            continue
+        valeur = getattr(modele, nom, None)
+        if isinstance(valeur, str):
+            if _ADRESSE.search(valeur):
+                corrige = raccourcir(valeur)
+                if corrige != valeur:
+                    setattr(modele, nom, corrige)
+                    retouches += 1
+        elif isinstance(valeur, list):
+            sortie = []
+            for element in valeur:
+                if isinstance(element, str) and _ADRESSE.search(element):
+                    corrige = raccourcir(element)
+                    retouches += int(corrige != element)
+                    sortie.append(corrige)
+                else:
+                    retouches += _raccourcir_dans(element, raccourcir)
+                    sortie.append(element)
+            setattr(modele, nom, sortie)
+        elif getattr(type(valeur), "model_fields", None):
+            retouches += _raccourcir_dans(valeur, raccourcir)
+    return retouches
+
+
 def reparer_typographie(payload: Any) -> int:
     """Répare tous les textes d'un chapitre EN PLACE. Rend le nombre de retouches.
 
@@ -266,7 +404,7 @@ def reparer_typographie(payload: Any) -> int:
     dans le bandeau du chapitre (`rendu_word.composants`), donc lue — et elle
     était le seul texte du chapitre que cette passe ne voyait pas.
     """
-    retouches = 0
+    retouches = _raccourcir_les_adresses(payload)
     for bloc in getattr(payload, "blocs", ()) or ():
         retouches += _reparer_modele(bloc)
     for champ in ("accroche", "resume"):

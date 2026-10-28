@@ -483,6 +483,7 @@ def construire_prompt_socle(
     variables: Mapping[str, object],
     brief_recherche: str = "",
     documents_client: str = "",
+    chiffres_herites: str = "",
     motifs_precedents: list[str] | None = None,
 ) -> str:
     """Prompt utilisateur de la passe 1.
@@ -523,6 +524,16 @@ def construire_prompt_socle(
 
     if documents_client.strip():
         blocs.append(f"{documents_client}\n\n{CONSIGNE_DOCUMENTS_SOCLE}")
+
+    # AVANT les sources web, et c'est délibéré : ce que le client a déjà lu
+    # dans un livrable précédent prime sur ce qu'une recherche retrouve. Le
+    # cahier des charges de l'étude de la concurrence l'exige depuis le
+    # 18/05/2026 — « une cohérence systématique avec l'étude de marché
+    # lorsque celle-ci existe » — et rien ne l'assurait : deux documents du
+    # même dossier annonçaient 1 588,6 M€ et 1 902 M€ pour le même marché
+    # (relevé de la cliente, 28/10/2026). Voir `socle.heritage`.
+    if chiffres_herites.strip():
+        blocs.append(chiffres_herites)
 
     if brief_recherche.strip():
         blocs.append(
