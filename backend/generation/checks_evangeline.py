@@ -128,12 +128,29 @@ _ETIQUETTE_AVANT = re.compile(
 #:    euros » étaient comptés comme fourchettes. « Interventions de 60 à 75 €
 #:    de l'heure » reste une plage : le brief donnait trois prix distincts, et
 #:    la plage les efface.
+#: Les mots qui relient DEUX ÉTATS — source unique, lue par la garde du
+#: mouvement et par celle de son ELLIPSE (règle 5).
+_VERBES_DE_MOUVEMENT = (
+    r"saut|passage|pass(?:e|er|ent|ant|é|ée|és)|bascul\w*|migr\w*"
+    r"|port(?:e|er|ant|é)|glissement|transition|rel[èe]vement|revaloris\w*"
+)
 _MOUVEMENT_AVANT = re.compile(
     # Seuls les mots qui relient DEUX ÉTATS. « Une hausse de 3 à 5 % » dit une
     # hausse comprise entre 3 et 5 % : c'est une plage, et elle reste vue.
-    r"\b(?:saut|passage|pass(?:e|er|ent|ant|é|ée|és)|bascul\w*|migr\w*"
-    r"|port(?:e|er|ant|é)|glissement|transition|rel[èe]vement|revaloris\w*)\b"
+    r"\b(?:" + _VERBES_DE_MOUVEMENT + r")\b"
     r"[^.;:\d]{0,30}?\b(?:de|d['’])\s*[+]?\s*$",
+    re.IGNORECASE,
+)
+_UN_MOUVEMENT = re.compile(r"\b(?:" + _VERBES_DE_MOUVEMENT + r")\b", re.IGNORECASE)
+
+#: Le membre COORDONNÉ qui a perdu son verbe : « …et l'échappée de ». Un groupe
+#: nominal nu — au plus deux mots entre la coordination et le « de ».
+#:
+#: C'est lui qui sépare l'ellipse d'une vraie plage. « …et le tarif varie de
+#: 39 € à 45 € » porte SON verbe (trois mots), gouverne lui-même son « de », et
+#: doit rester vu : vérifié sur le détecteur avant d'écrire cette garde.
+_ELLIPSE_DU_MOUVEMENT = re.compile(
+    r"\b(?:et|puis|ainsi\s+que)\s+(?:\S+\s+){0,1}\S*?\b(?:de|d['’])\s*[+]?\s*$",
     re.IGNORECASE,
 )
 _ECART_AVANT = re.compile(
@@ -187,6 +204,31 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     if match.group(3) is not None and _MOUVEMENT_AVANT.search(avant_long):
         connecteur = _connecteur_a_nu(texte, match)
         if connecteur in ("à", "a"):
+            return True
+
+    # 4 bis. L'ELLIPSE du verbe de mouvement, dans un membre coordonné.
+    #
+    # « l'atelier PASSE DE 85 € à 94 € TTC et l'échappée DE 390 € à 429 € TTC »
+    # (business plan `acd30be3`, 28/10/2026) : le verbe n'est écrit qu'une
+    # fois et gouverne les deux membres. La garde 4 regarde 30 caractères SANS
+    # CHIFFRE avant le « de » — elle ne peut donc jamais franchir les nombres
+    # du premier membre, et le second était signalé comme une fourchette. Ce
+    # motif faux bloquait le livrable à lui seul.
+    #
+    # On remonte donc au début de la PHRASE, mais on n'exempte que le membre
+    # qui a vraiment perdu son verbe : un groupe nominal nu. Vérifié sur le
+    # détecteur avant d'écrire ceci — « …et le tarif VARIE de 39 € à 45 € »
+    # porte son propre verbe, gouverne son « de », et reste une plage.
+    if match.group(3) is not None and _connecteur_a_nu(texte, match) in ("à", "a"):
+        debut_phrase = max(
+            texte.rfind(".", 0, debut_basse),
+            texte.rfind(";", 0, debut_basse),
+            texte.rfind(":", 0, debut_basse),
+        ) + 1
+        phrase_avant = texte[debut_phrase:debut_basse]
+        if _UN_MOUVEMENT.search(phrase_avant) and _ELLIPSE_DU_MOUVEMENT.search(
+            phrase_avant
+        ):
             return True
 
     # 1. Trajectoire : la « borne basse » est une année, ou suit un repère.
