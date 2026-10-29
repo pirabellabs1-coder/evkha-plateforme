@@ -476,10 +476,33 @@ def _rendre_le_verdict_du_gate(job: GenerationJob) -> None:
         ).update(qa_status=QAStatus.PASSED)
         return
     GenerationJob.objects.filter(pk=job.pk).update(qa_status=QAStatus.BLOCKED)
+    # Le compte annoncé est celui des REMARQUES DISTINCTES, pas celui des
+    # lignes d'échec.
+    #
+    # Mesuré sur les deux études de marché de la cliente du 28/10/2026 : « 22
+    # point(s) non résolu(s) » et « 24 », alors que le relecteur n'avait écrit
+    # que DIX remarques — chacune portant sur plusieurs chapitres, et répétée
+    # une fois par chapitre nommé. Le compte triplait le problème.
+    #
+    # Ce n'est pas cosmétique. Un chiffre faux fait prendre des décisions : la
+    # veille, 22 incidents m'ont fait conclure que le correctif du taux de
+    # capture avait échoué, alors que le document, lui, l'appliquait
+    # correctement. Un motif doit être vrai de ce que le lecteur constatera
+    # (règle 2), et un COMPTE est un motif.
+    #
+    # Les lignes d'échec restent entières dans `details` : c'est leur
+    # `chapter_number` qui dit à la boucle de correction quoi réécrire, et les
+    # dédoublonner priverait des chapitres de leur réparation.
+    distinctes = len({echec.detail for echec in report.failures})
+    sur_chapitres = (
+        f" sur {len(report.failures)} chapitres"
+        if len(report.failures) > distinctes
+        else ""
+    )
     OperationalIncident.objects.create(
         title=(
-            f"Gate qualité : {len(report.failures)} point(s) non résolu(s), "
-            f"document livré quand même (job {job.id})"
+            f"Gate qualité : {distinctes} remarque(s) non résolue(s)"
+            f"{sur_chapitres}, document livré quand même (job {job.id})"
         ),
         severity=IncidentSeverity.HIGH,
         job=job,

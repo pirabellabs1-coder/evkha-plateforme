@@ -110,11 +110,26 @@ def test_un_lien_expire_ne_vaut_plus(client: Any, fichier: Any, settings: Any) -
     C'est le piège que ce module a d'abord posé : `Signer` ne porte aucune
     date, et un lien signé sans horodatage serait éternel — la protection
     aurait l'air complète tout en laissant la moitié du problème (règle 1).
+
+    ## Pourquoi il n'y a plus d'« assert 200 » avant l'attente (29/10/2026)
+
+    Ce test commençait par vérifier que le lien FRAÎCHEMENT signé valait 200,
+    avec une durée de vie d'UNE seconde. Il courait donc contre l'horloge : sous
+    la charge de la suite complète, plus d'une seconde peut s'écouler entre la
+    signature et la requête, et c'est ce premier `assert` qui tombait — un
+    échec dans un contrôle obligatoire, sur un code parfaitement sain.
+
+    Mesuré ce jour : neuf tests verts quand le fichier tourne seul, un échec
+    dans la suite entière. Un contrôle qui échoue au hasard ne contrôle plus
+    rien, et on prend l'habitude de le relancer au lieu de le lire (règle 1).
+
+    Le cas positif a son propre test, `test_un_lien_signe_ouvre_le_document`,
+    sans contrainte de durée. Ce test-ci ne garde donc que ce qu'il est seul à
+    vérifier : passé l'échéance, le lien ne vaut plus.
     """
     settings.EVKHA_MEDIA_DUREE_LIEN_S = 1
     lien = signatures.lien(fichier)
 
-    assert client.get(lien).status_code == 200
     time.sleep(2)
     assert client.get(lien).status_code == 404, "le lien vaut encore apres expiration"
 
