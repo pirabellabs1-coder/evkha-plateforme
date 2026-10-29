@@ -43,9 +43,12 @@ Ce que le contrôle ne voit pas, dit pour qu'on le sache (règle 9) :
 
 - un objet placé AVANT le nombre (« les TPE : 40 % utilisent l'IA ») ;
 - les nombres écrits en lettres ;
-- tout ce qui suit le PREMIER mot de l'objet : « 40 % des TPE et PME » face à
-  « 40 % des TPE » reste muet, et « des petites entreprises » face à « des
-  grandes entreprises » sort en « objet changé » sur `petites` / `grandes` ;
+- tout ce qui suit le PREMIER mot de l'objet, sauf une population ÉLARGIE par
+  « et » ou « ou » (« 40 % des TPE et PME » face à « 40 % des TPE » est un
+  glissement, relecture du 29/10/2026) : « des petites entreprises » face à
+  « des grandes entreprises » sort en « objet changé » sur `petites` /
+  `grandes`, et « des entreprises de moins de 10 salariés » se lit
+  `entreprises` ;
 - un nom qui a la forme d'un participe (`_FIN_DE_PARTICIPE`) : « nuitées »,
   « entrées », « données », « contenus » sont écartés avec « créées ».
 """
@@ -147,7 +150,10 @@ class Occurrence:
     chapitre: int | None
     extrait: str
     forme: str = ""
-    """La grandeur et son objet, tels qu'écrits : `40 % des TPE-PME`."""
+    """La grandeur et la suite de sa phrase, telles qu'écrites, jusqu'à la
+    ponctuation : `10 000 porteurs de projet` — pas `10 000 porteurs`. C'est
+    ce que lit un rédacteur à qui l'on demande de reprendre l'objet mot pour
+    mot ; la COMPARAISON, elle, reste sur `cle`."""
 
 
 def _sans_accents(texte: str) -> str:
@@ -170,7 +176,7 @@ def _mots(cle: str) -> set[str]:
     return {m for m in re.split(r"[-\s]+", cle) if m}
 
 
-def _apparentes(a: str, b: str) -> bool:
+def apparentes(a: str, b: str) -> bool:
     """L'une des populations contient l'autre : `TPE` dans `TPE-PME`.
 
     L'INCLUSION, pas un mot commun : « e-commerçants » et « e-commerces »,
@@ -178,6 +184,61 @@ def _apparentes(a: str, b: str) -> bool:
     l'une soit une part de l'autre (relecture du 29/10/2026)."""
     mots_a, mots_b = _mots(a), _mots(b)
     return mots_a < mots_b or mots_b < mots_a
+
+
+#: Ce qui clôt un groupe nominal à la lecture : ponctuation forte, parenthèse,
+#: tiret, séparateur de cellule, virgule suivie d'une espace (pas la virgule
+#: décimale de « 2,5 »).
+_FIN_DE_FORME = re.compile(r"[.;:!?()«»—–|\n]|,\s|\s(?:et|ou)\s+\d")
+#: Au-delà, la forme devient une phrase : on la coupe au dernier mot entier.
+_SUITE_MAX = 40
+
+
+def _forme(texte: str, debut: int, fin: int) -> str:
+    """Le nombre, son objet ENTIER et la suite immédiate, jusqu'à la ponctuation.
+
+    Relecture du 29/10/2026 : `m.group(0)` s'arrête au premier mot de
+    l'objet, et le registre montrait « 10 000 porteurs » pour « 10 000
+    porteurs de projet », « 40 % des TPE » pour « 40 % des TPE et PME » — des
+    références tronquées présentées comme à reprendre mot pour mot.
+    """
+    suite = texte[fin : fin + _SUITE_MAX + 1]
+    arret = _FIN_DE_FORME.search(suite)
+    if arret is not None:
+        suite = suite[: arret.start()]
+    elif len(suite) > _SUITE_MAX:
+        suite = (suite[: suite.rfind(" ")] if " " in suite else "") + " …"
+    return re.sub(SPACE_CLASS + "+", " ", texte[debut:fin] + suite).strip(" ,")
+
+
+#: « 40 % des TPE ET PME », « des femmes ET DES hommes » : la population
+#: s'élargit après le premier mot. Deux formes seulement, parce qu'elles ne
+#: peuvent pas être un verbe : un mot à MAJUSCULE (sigle, nom propre), ou un
+#: nom précédé de son ARTICLE. Mesuré sur le corpus du 29/10/2026 : sans cette
+#: borne, « 1 000 000 TPE et PARTENT d'un même constat » devenait une
+#: population « TPE et partent ». Une conjonction suivie d'un nombre (« et
+#: 25 % des ETI ») ouvre une autre statistique : `_MOT` commence par une lettre.
+_ELARGIE = re.compile(
+    rf"{SPACE_CLASS}+(?:et|ou){SPACE_CLASS}+"
+    rf"(?:(?:les|des|aux){SPACE_CLASS}+({_MOT})|d['’]({_MOT})|([A-ZÀ-Ý][\wÀ-ÖØ-öø-ÿ'’-]*))"
+)
+
+
+def _population_elargie(texte: str, fin: int, objet: str, cle: str) -> tuple[str, str]:
+    """L'objet et sa clé, prolongés des populations jointes par « et » / « ou »."""
+    debut = fin
+    jointes = []
+    while (suite := _ELARGIE.match(texte, fin)) is not None:
+        mot = next(g for g in suite.groups() if g)
+        brut = _sans_accents(mot).lower()
+        if brut in _PAS_UN_OBJET or _FIN_DE_PARTICIPE.search(mot):
+            break
+        jointes.append(_cle(mot))
+        fin = suite.end()
+    if not jointes:
+        return objet, cle
+    ecrit = re.sub(SPACE_CLASS + "+", " ", objet + texte[debut:fin])
+    return ecrit, " et ".join([cle, *jointes])
 
 
 def _extrait(texte: str, debut: int, fin: int) -> str:
@@ -215,10 +276,11 @@ def occurrences(document: DocumentLu) -> list[Occurrence]:
                 valeur = re.sub(SPACE_CLASS, " ", m.group(1)) + unite
                 if valeur in _TOUT_OU_RIEN:
                     continue
+                objet, cle = _population_elargie(texte, m.end(), objet, cle)
                 trouvees.append(Occurrence(
                     valeur=valeur, objet=objet, cle=cle, chapitre=chapitre,
                     extrait=_extrait(texte, m.start(), m.end()),
-                    forme=re.sub(SPACE_CLASS, " ", m.group(0)),
+                    forme=_forme(texte, m.start(), m.end()),
                 ))
     return trouvees
 
@@ -244,7 +306,7 @@ def controler_objet_des_chiffres(document: DocumentLu) -> list[Anomalie]:
         cles = sorted(par_cle, key=lambda c: (-len(par_cle[c]), c))
         for rang, autre in enumerate(cles[1:], start=1):
             ecart = par_cle[autre][0]
-            parente = next((c for c in cles[:rang] if _apparentes(c, autre)), None)
+            parente = next((c for c in cles[:rang] if apparentes(c, autre)), None)
             modele = par_cle[parente or cles[0]][0]
             if parente is not None:
                 anomalies.append(Anomalie(
@@ -280,6 +342,7 @@ class ChiffreEcrit:
     """Un couple valeur–objet déjà écrit, et les chapitres qui l'emploient."""
 
     valeur: str
+    cle: str
     forme: str
     chapitres: tuple[int, ...]
 
@@ -292,6 +355,10 @@ def chiffres_deja_ecrits(document: DocumentLu) -> list[ChiffreEcrit]:
     valeur peut y figurer avec deux objets — « 30 % des femmes », « 30 % des
     hommes » sont deux statistiques —, mais jamais un même couple deux fois.
     Ordre de première apparition.
+
+    Limite, héritée de `cle` (premier mot de l'objet) : « 40 % des TPE et
+    PME » et « 40 % des TPE » forment UN couple, et seule la première forme
+    est montrée. Le contrôle du document livré ne les distingue pas non plus.
     """
     premieres: dict[tuple[str, str], Occurrence] = {}
     chapitres: dict[tuple[str, str], set[int]] = defaultdict(set)
@@ -301,6 +368,9 @@ def chiffres_deja_ecrits(document: DocumentLu) -> list[ChiffreEcrit]:
         if occurrence.chapitre is not None:
             chapitres[cle].add(occurrence.chapitre)
     return [
-        ChiffreEcrit(valeur=o.valeur, forme=o.forme, chapitres=tuple(sorted(chapitres[cle])))
+        ChiffreEcrit(
+            valeur=o.valeur, cle=o.cle, forme=o.forme,
+            chapitres=tuple(sorted(chapitres[cle])),
+        )
         for cle, o in premieres.items()
     ]

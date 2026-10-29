@@ -1083,22 +1083,40 @@ def _bloc_chiffres_ecrits(job: GenerationJob, numero: int, faits: Mapping[str, A
     chaque couple valeur–objet, tel qu'écrit — la même lecture que le contrôle
     du document livré (`objet_des_chiffres`, règle 5).
 
-    Les repères y sont remplacés par leur valeur : c'est le texte que le
-    lecteur lira, pas celui que le modèle a rendu.
+    Ce sont TOUS les autres chapitres terminés, pas les seuls précédents : une
+    réécriture du chapitre 5 (`regenerer_chapitre`, `controle_final`) doit
+    voir les seize chapitres qui reprennent ses chiffres. À la première
+    rédaction, les chapitres suivants ne sont pas encore terminés : la liste
+    est celle des précédents.
+
+    Les repères sont remplacés par précaution : `_appliquer_memoire` les a
+    déjà écrits en valeurs avant l'enregistrement.
+
+    Aucun exemple n'est écrit en dur : un chiffre absent du dossier, montré au
+    modèle, est recopié (voir `rappel_des_reperes`). Les seuls chiffres du
+    bloc sont ceux de CE dossier.
     """
     from ..memoire.reperes import remplacer_les_reperes  # noqa: PLC0415
     from ..verification.lecture import DocumentLu  # noqa: PLC0415
-    from ..verification.objet_des_chiffres import chiffres_deja_ecrits  # noqa: PLC0415
+    from ..verification.objet_des_chiffres import (  # noqa: PLC0415
+        apparentes,
+        chiffres_deja_ecrits,
+    )
+    from .langage_simple import sans_gras  # noqa: PLC0415
 
-    precedents = (
-        job.chapters.filter(chapter_number__lt=numero, chapter_number__gt=0)
+    autres = (
+        job.chapters.filter(chapter_number__gt=0, status=ChapterStatus.DONE)
+        .exclude(chapter_number=numero)
         .exclude(content="")
         .order_by("chapter_number")
     )
     morceaux: list[str] = []
     chapitres: list[int | None] = []
-    for chapitre in precedents:
+    for chapitre in autres:
         texte = remplacer_les_reperes(chapitre.content, faits).texte
+        # « **40 %** des TPE-PME », « *40 %* des TPE-PME » : l'emphase ne doit
+        # pas cacher le chiffre au registre.
+        texte = _ITALIQUE.sub(r"\1", sans_gras(texte))
         # Une ligne de tableau se lit cellule par cellule : « 40 % | des
         # TPE » n'est pas « 40 % des TPE ».
         for morceau in re.split(r"[\n|]", texte):
@@ -1111,31 +1129,50 @@ def _bloc_chiffres_ecrits(job: GenerationJob, numero: int, faits: Mapping[str, A
     if not ecrits:
         return ""
 
-    par_valeur: dict[str, list[str]] = {}
+    par_valeur: dict[str, list[ChiffreEcrit]] = {}
     for ecrit in ecrits:
-        par_valeur.setdefault(ecrit.valeur, []).append(_ligne_de_chiffre_ecrit(ecrit))
+        par_valeur.setdefault(ecrit.valeur, []).append(ecrit)
     lignes = []
     for formes in par_valeur.values():
-        lignes.append("- " + formes[0])
-        # Deux objets pour une valeur : deux statistiques (« 30 % des femmes »,
-        # « 30 % des hommes »), ou la même mal reprise. Le rédacteur ne peut
-        # trancher que sur sa source ; on lui dit de la relire, pas laquelle
-        # est fausse.
-        lignes.extend(
-            f"  même valeur, autre objet : {autre} — avant de reprendre l'un ou "
-            "l'autre, vérifie lequel ta source porte."
-            for autre in formes[1:]
-        )
+        # La référence est la forme la plus reprise, comme pour le contrôle du
+        # document livré : si le premier chapitre s'est trompé, ce n'est pas
+        # son erreur qui doit faire foi.
+        formes.sort(key=lambda e: -len(e.chapitres))
+        reference = formes[0]
+        lignes.append("- " + _ligne_de_chiffre_ecrit(reference))
+        for rang, autre in enumerate(formes[1:], start=1):
+            # Deux populations sans lien (« 20 % des visites », « 20 % des
+            # clients ») sont deux statistiques : listées sans commentaire.
+            # Seule l'inclusion (`TPE` dans `TPE-PME`, dans `TPE et PME`) est le
+            # glissement — cherchée contre TOUTES les formes plus reprises, comme
+            # le contrôle du document livré (règle 5) : avec `entreprises` en
+            # tête, le glissement entre `TPE` et `TPE-PME` doit être nommé.
+            parente = next((p for p in formes[:rang] if apparentes(p.cle, autre.cle)), None)
+            if parente is not None:
+                lignes.append(
+                    f"- {_ligne_de_chiffre_ecrit(autre)} — même valeur, population "
+                    f"plus large ou plus étroite que « {parente.forme} » : l'une des "
+                    "deux est probablement mal reprise ; ne reprends que celle que ta "
+                    "source porte."
+                )
+            else:
+                lignes.append("- " + _ligne_de_chiffre_ecrit(autre))
     return (
         "CHIFFRES DÉJÀ ÉCRITS DANS L'ÉTUDE — chacun avec CE QU'IL COMPTE.\n"
-        "Un chiffre repris garde son objet mot pour mot : « 40 % des TPE-PME » ne "
-        "devient jamais « 40 % des TPE », ni « 40 % des entreprises » ; « 10 000 "
-        "porteurs de projet » ne devient jamais « 10 000 entreprises créées ». Une "
-        "autre population est un AUTRE chiffre : il lui faut sa propre source, qui "
-        "donne cette valeur pour elle — sinon, ne l'écris pas.\n"
+        "Chaque ligne cite le chiffre et la suite de sa phrase, pour le situer. "
+        "Si tu reprends l'un de ces chiffres, la POPULATION — les mots qui suivent "
+        "immédiatement le chiffre — se reprend mot pour mot : jamais une population "
+        "plus large, plus étroite ou voisine. Le reste de la citation ne se recopie "
+        "pas : écris ta propre phrase. Une autre population est un AUTRE chiffre : "
+        "il lui faut sa propre source, qui donne cette valeur pour elle — sinon, "
+        "ne l'écris pas.\n"
         "Un chiffre déjà repris dans plusieurs chapitres ne se répète que si ton "
         "raisonnement en a besoin.\n" + "\n".join(lignes)
     )
+
+
+#: L'italique simple, `*…*`, que `sans_gras` ne retire pas.
+_ITALIQUE = re.compile(r"(?<![*\w])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![*\w])")
 
 
 def _chiffres_ecrits_sans_arreter(
@@ -1160,9 +1197,10 @@ def _ligne_de_chiffre_ecrit(ecrit: ChiffreEcrit) -> str:
         return f"« {ecrit.forme} »"
     if len(chapitres) == 1:
         return f"« {ecrit.forme} » (chapitre {chapitres[0]})"
+    autres = len(chapitres) - 1
     return (
-        f"« {ecrit.forme} » (posé au chapitre {chapitres[0]}, déjà repris dans "
-        f"{len(chapitres)} chapitres)"
+        f"« {ecrit.forme} » (chapitre {chapitres[0]}, repris dans {autres} "
+        f"autre{'s' if autres > 1 else ''} chapitre{'s' if autres > 1 else ''})"
     )
 
 
@@ -2312,8 +2350,8 @@ def construire_prompt_chapitre(
             f"{document.resume_mots_max} mots. Il sera relu par tous les "
             "chapitres suivants : fais-y figurer les chiffres et les "
             "conclusions qu'ils devront reprendre à l'identique — chaque "
-            "chiffre avec ce qu'il compte (« 40 % des TPE-PME », jamais "
-            "« 40 % » seul)."
+            "chiffre avec la population ou la chose qu'il compte, jamais un "
+            "pourcentage seul."
         ),
     ]
 

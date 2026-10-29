@@ -247,3 +247,37 @@ def test_une_panne_de_la_mesure_n_arrete_pas_la_livraison(
     # Le document minimal échoue ailleurs (intégrité) : ce qui compte, c'est
     # que CE contrôle n'ajoute aucun blocage.
     assert CONTROLE not in {a.controle for a in rapport.bloquantes}
+
+
+def test_une_population_elargie_par_et_glisse_aussi() -> None:
+    """« 40 % des TPE et PME » face à « 40 % des TPE » : la clé ne s'arrête
+    plus au premier mot quand la population est jointe par « et » / « ou »
+    (contre-relecture du 29/10/2026)."""
+    anomalies = controler_objet_des_chiffres(_document(
+        (1, "40 % des TPE et PME utilisent l'IA."),
+        (2, "40 % des TPE et PME l'emploient."),
+        (3, "40 % des TPE utilisent l'IA."),
+    ))
+    (glissement,) = anomalies
+    assert glissement.detail.startswith("Glissement")
+    assert glissement.chapitre == 3
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        # Une autre statistique, pas une population élargie.
+        "40 % des TPE et 25 % des ETI utilisent l'IA.",
+        # Un mot outil après « et » ne prolonge pas la population.
+        "40 % des TPE et la moitié des PME.",
+        # Un VERBE après « et » : `99a142b0`, chapitre 11, mot pour mot (la
+        # première version de l'élargissement y voyait « TPE et partent »).
+        "Ils puisent dans le même cœur de cible de 40 % des TPE et partent "
+        "d'un même constat.",
+    ],
+)
+def test_ce_qui_suit_et_n_est_pas_toujours_une_population(phrase: str) -> None:
+    from generation.verification.objet_des_chiffres import occurrences
+
+    cles = {o.valeur: o.cle for o in occurrences(_document((1, phrase)))}
+    assert cles["40 %"] == "tpe"
