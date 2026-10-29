@@ -336,3 +336,18 @@ def test_le_glissement_entre_deux_formes_minoritaires_est_nomme() -> None:
     # La forme intermédiaire reste listée sans avertissement : elle n'est
     # incluse ni dans `entreprises`, ni l'inverse.
     assert "- « 40 % des TPE-PME utilisent l'IA » (chapitre 3)\n" in consigne
+
+
+@pytest.mark.django_db
+def test_le_bloc_est_borne_et_garde_les_plus_reprises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("generation.chapitres.runner._VALEURS_ECRITES_MAX", 1)
+    job = _dossier("n")
+    _ecrire(job, 1, "On compte 10 000 porteurs de projet.")
+    _ecrire(job, 2, "40 % des TPE-PME utilisent l'IA.")
+    _ecrire(job, 3, "Rappel : 40 % des TPE-PME utilisent l'IA.")
+
+    consigne = _consigne(job, 4)
+    assert "« 40 % des TPE-PME utilisent l'IA »" in consigne
+    assert "porteurs de projet" not in consigne

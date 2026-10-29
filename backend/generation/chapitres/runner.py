@@ -1132,8 +1132,14 @@ def _bloc_chiffres_ecrits(job: GenerationJob, numero: int, faits: Mapping[str, A
     par_valeur: dict[str, list[ChiffreEcrit]] = {}
     for ecrit in ecrits:
         par_valeur.setdefault(ecrit.valeur, []).append(ecrit)
+    # Une borne, pour un dossier atypique : les valeurs les plus reprises
+    # d'abord — ce sont elles qui glissent. Mesuré le 29/10/2026 sur 18 études
+    # de production : de 4 à 17 couples, loin de la borne.
+    groupes = sorted(
+        par_valeur.values(), key=lambda formes: -max(len(e.chapitres) for e in formes),
+    )[:_VALEURS_ECRITES_MAX]
     lignes = []
-    for formes in par_valeur.values():
+    for formes in groupes:
         # La référence est la forme la plus reprise, comme pour le contrôle du
         # document livré : si le premier chapitre s'est trompé, ce n'est pas
         # son erreur qui doit faire foi.
@@ -1170,6 +1176,9 @@ def _bloc_chiffres_ecrits(job: GenerationJob, numero: int, faits: Mapping[str, A
         "raisonnement en a besoin.\n" + "\n".join(lignes)
     )
 
+
+#: Au plus tant de valeurs dans le bloc des chiffres déjà écrits.
+_VALEURS_ECRITES_MAX = 40
 
 #: L'italique simple, `*…*`, que `sans_gras` ne retire pas.
 _ITALIQUE = re.compile(r"(?<![*\w])\*(?=\S)([^*\n]+?)(?<=\S)\*(?![*\w])")

@@ -356,9 +356,11 @@ def chiffres_deja_ecrits(document: DocumentLu) -> list[ChiffreEcrit]:
     hommes » sont deux statistiques —, mais jamais un même couple deux fois.
     Ordre de première apparition.
 
-    Limite, héritée de `cle` (premier mot de l'objet) : « 40 % des TPE et
-    PME » et « 40 % des TPE » forment UN couple, et seule la première forme
-    est montrée. Le contrôle du document livré ne les distingue pas non plus.
+    La clé est celle du contrôle : le premier mot de l'objet, prolongé d'une
+    population jointe par « et » / « ou » (`_population_elargie`). « 40 % des
+    TPE et PME » et « 40 % des TPE » sont donc deux couples. Limite qui
+    demeure : « des entreprises de moins de 10 salariés » et « des
+    entreprises » en forment un seul, montré sous sa première forme.
     """
     premieres: dict[tuple[str, str], Occurrence] = {}
     chapitres: dict[tuple[str, str], set[int]] = defaultdict(set)
