@@ -27,7 +27,7 @@ Contenu obligatoire :
 - Hypothèses et signaux soutenant chaque scénario.
 - Risques structurels et leviers durables.
 Rappel : perspectives presentees comme projections ou scénarios, jamais comme certitudes.
-CONTRAINTE ABSOLUE — cohérence chiffres-fondations : toutes les tailles de marché (TAM mondial, continental, national) et tous les TCAC que tu mentionnes dans ce chapitre DOIVENT être exactement ceux du bloc DONNÉES DE RÉFÉRENCE de ton contexte. Ne recalcule pas, ne re-derive pas, ne cite pas de chiffre de mémoire. Si un scénario chiffre s'écarte d'une valeur fondation, exprime l'écart en % relatif a la valeur fondation.
+CONTRAINTE ABSOLUE — cohérence chiffres-fondations : toutes les tailles de marché (mondial, continental, national) et tous les TCAC que tu mentionnes dans ce chapitre DOIVENT être exactement ceux du bloc DONNÉES DE RÉFÉRENCE de ton contexte. Ne recalcule pas, ne re-derive pas, ne cite pas de chiffre de mémoire. Si un scénario chiffre s'écarte d'une valeur fondation, exprime l'écart en % relatif a la valeur fondation.
 Distinction critique : `marche_mondial_taille` et `marche_continental_taille` sont deux valeurs DIFFÉRENTES dans le bloc DONNÉES DE RÉFÉRENCE. La valeur continentale n'est jamais le marché mondial — labellise chaque chiffre avec son périmètre exact.
 
 Lecture stratégique attendue : Proposer des décisions robustes a 2030 et les indicateurs qui permettront de reconnaître le scénario en train de se realiser.

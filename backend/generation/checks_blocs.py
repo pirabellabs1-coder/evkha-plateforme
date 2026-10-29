@@ -88,8 +88,9 @@ BLOCS: tuple[BlocDefinition, ...] = (
             "secteur et les bonnes zones geographiques ?",
             "Toutes les demandes importantes du client sont-elles toujours prises "
             "en compte ?",
-            "Les tailles de marche, taux de croissance, projections et "
-            "TAM/SAM/SOM sont-ils sources, dates, definis et coherents ?",
+            "Les tailles de marche, taux de croissance, projections et les "
+            "trois niveaux de marche (marche total, marche accessible, chiffre "
+            "d'affaires vise) sont-ils sources, dates, definis et coherents ?",
             "Les graphiques reprennent-ils exactement les memes valeurs que le "
             "texte ?",
             "Les estimations sont-elles expliquees sans presenter une deduction "
@@ -202,7 +203,8 @@ BLOCS: tuple[BlocDefinition, ...] = (
             "chapitre 12 ?",
             "Les probabilites, impacts et priorites sont-ils coherents entre le "
             "texte et la matrice ?",
-            "L'avis de viabilite repose-t-il sur le SOM, les ressources, la "
+            "L'avis de viabilite repose-t-il sur le chiffre d'affaires vise, "
+            "les ressources, la "
             "cible, la reglementation et le cycle de vente ?",
             "L'analyse reste-t-elle neutre, y compris si le potentiel est "
             "fragile ou conditionnel ?",
@@ -351,6 +353,16 @@ _SYSTEM_PROMPT_CHECK = (
     "Tu es exigeant mais juste : un verdict 'fix' declenche une "
     "regeneration couteuse ; ne le rends que sur des defauts reels et "
     "actionnables. Un verdict 'pass' laisse passer le bloc. "
+    # Cliente, 29/10/2026 : « un langage simple, a la portee de tout le
+    # monde ». Les chapitres ecrivent desormais « marche total », « marche
+    # accessible », « chiffre d'affaires vise ». Un relecteur qui redemanderait
+    # les sigles ferait reecrire, et payer, le jargon qu'on vient de retirer.
+    "LANGAGE SIMPLE : l'etude ecrit volontairement « le marche total », « le "
+    "marche accessible » et « le chiffre d'affaires vise » ; les sigles TAM, "
+    "SAM et SOM n'apparaissent qu'au chapitre qui les pose. Ne demande JAMAIS "
+    "d'ajouter un sigle, un anglicisme ou un terme d'analyste. Demande au "
+    "contraire de remplacer tout terme qu'un porteur de projet novice ne "
+    "comprendrait pas a la premiere lecture. "
     "Reponds toujours en JSON strict, aucun texte hors du bloc JSON."
 )
 
@@ -660,9 +672,10 @@ _ADDENDUM_ADVISOR = (
     "\n\n## CONSULTATION D'UN SECOND RELECTEUR\n"
     "Tu disposes de l'outil `advisor` : un second relecteur qui lit la meme "
     "transcription que toi. Consulte-le UNE FOIS, avant de formuler ton "
-    "verdict, et fais-lui verifier en priorite : (1) les calculs et "
-    "l'emboitement TAM > SAM > SOM (le SOM doit resulter d'un taux de capture "
-    "explicite du SAM, pas d'un chiffre pose) ; (2) la coherence d'un chapitre "
+    "verdict, et fais-lui verifier en priorite : (1) les calculs et l'ordre "
+    "marche total > marche accessible > chiffre d'affaires vise (ce dernier "
+    "doit resulter d'une part explicite du marche accessible, pas d'un chiffre "
+    "pose) ; (2) la coherence d'un chapitre "
     "a l'autre des taux, prix, volumes, dates et objectifs commerciaux ; "
     "(3) tout chiffre presente comme officiel alors qu'il s'agit d'une "
     "deduction. Demande-lui un avis sous 250 mots. Son avis t'informe, il ne "

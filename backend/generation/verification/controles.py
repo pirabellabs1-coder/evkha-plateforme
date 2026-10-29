@@ -219,13 +219,21 @@ def _cite_un_libelle_du_socle(mesure: Mesure, socle: Socle) -> bool:
     « 10,5 % » de marge nette. Le nombre ne vaut que dans la phrase qui cite
     son libellé.
     """
+    from ..rendu_word.texte import libelle_affiche  # noqa: PLC0415 — évite un cycle
+
     phrase = " ".join(mesure.phrase.casefold().split())
     for donnee in socle.donnees:
-        libelle = " ".join(donnee.libelle.casefold().split())
-        if len(libelle) < _DEBUT_DE_LIBELLE or libelle[:_DEBUT_DE_LIBELLE] not in phrase:
-            continue
-        if any(_proche(mesure.valeur, nombre) for nombre in amounts_in(donnee.libelle)):
-            return True
+        # Le libellé STOCKÉ et l'AFFICHÉ : depuis le 29/10/2026, le document
+        # imprime « Marché total — … » là où le socle garde « TAM — … ». Ne
+        # chercher que le stocké, c'était comparer le document à une forme
+        # qu'il ne contient plus (règle 9 : dépouiller les deux côtés).
+        formes = {donnee.libelle, libelle_affiche(donnee.libelle)}
+        for forme in formes:
+            libelle = " ".join(forme.casefold().split())
+            if len(libelle) < _DEBUT_DE_LIBELLE or libelle[:_DEBUT_DE_LIBELLE] not in phrase:
+                continue
+            if any(_proche(mesure.valeur, nombre) for nombre in amounts_in(donnee.libelle)):
+                return True
     return False
 
 

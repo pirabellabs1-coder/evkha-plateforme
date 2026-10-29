@@ -156,6 +156,26 @@ def libelle_court(libelle: str) -> str:
     cellule passe à la ligne ; le lecteur lit la phrase jusqu'au bout. Le
     contrôle `relecture.mise_en_page` signale toute cellule qui finirait encore
     ainsi.
+
+    ## Et en langage simple (29/10/2026)
+
+    Le socle nomme ses tailles de marché « TAM — textile d'occasion… » : c'est
+    ce que `socle.prompt` demande, et `coherence` comme `arithmetique` lisent
+    ces sigles. Le libellé STOCKÉ les garde donc. Le libellé AFFICHÉ, lui, passe
+    par `langage_simple` : l'annexe des chiffres de `6832779f` imprimait
+    « TAM », « SAM », « SOM » au lecteur.
     """
     phrase = _FIN_DE_PHRASE.split(" ".join(str(libelle or "").split()), maxsplit=1)[0]
-    return phrase.rstrip(". ")
+    return libelle_affiche(phrase.rstrip(". "))
+
+
+def libelle_affiche(libelle: str) -> str:
+    """Le libellé d'une donnée du socle tel que le LECTEUR le voit.
+
+    Une seule porte (règle 5) pour l'annexe, les tableaux de données et les
+    étiquettes de figures : le libellé stocké garde ses sigles, l'affiché les
+    remplace par leur nom simple (`chapitres.langage_simple`).
+    """
+    from ..chapitres.langage_simple import simplifier_texte  # noqa: PLC0415 — évite un cycle
+
+    return simplifier_texte(str(libelle or ""), sigles_admis=False)

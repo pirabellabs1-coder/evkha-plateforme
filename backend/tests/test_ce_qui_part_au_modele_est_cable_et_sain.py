@@ -53,7 +53,7 @@ CORRECTIFS_DU_28_OCTOBRE: list[str] = [
     # formulation circulaire : un taux de capture d'environ 0,11 % donne
     # 180 000 € ». `REGLES_DE_FOND` part aux QUATRE livrables, donc la
     # consigne aussi.
-    "CHOISI, pas calculé à l'envers",
+    "CHOISIE, pas calculée à l'envers",
 ]
 
 #: La contradiction levée le soir du 28/10/2026 : « formule par formule » ne

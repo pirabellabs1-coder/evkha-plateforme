@@ -28,6 +28,7 @@ from ..socle.schema import (
 )
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
+from .langage_simple import NOMS_SIMPLES, simplifier_le_langage
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
 from .typographie import reparer_typographie
 
@@ -128,10 +129,10 @@ _SYSTEME = (
     "\n"
     "Quand un chiffre manque ou reste fragile, tu ne le signales pas : tu "
     "PRENDS POSITION, prudemment. Une valeur assumée, un ordre de grandeur "
-    "raisonné, un scénario central — et tu dis sur quoi tu t'appuies. Écris "
-    "« nous retenons une hypothèse prudente de X, parce que… », « au vu "
-    "des éléments disponibles, le marché apparaît favorable sous conditions », "
-    "« le scénario central paraît aujourd'hui le plus cohérent ». Jamais « la "
+    "raisonné, la situation la plus probable — et tu dis sur quoi tu "
+    "t'appuies. Écris « nous retenons prudemment X, parce que… », « au vu de "
+    "ce que l'on sait, le marché paraît favorable, à certaines conditions », "
+    "« c'est aujourd'hui la situation la plus probable ». Jamais « la "
     "donnée n'est pas disponible ».\n"
     "\n"
     "Une estimation n'est pas un aveu : c'est un travail d'analyste. Le socle "
@@ -160,16 +161,31 @@ _SYSTEME = (
     "dis ce qui manque et ce que tu retiens à la place — jamais qu'elle "
     "n'était pas disponible dans nos données.\n"
     "\n"
-    "ÉCRIT POUR QUELQU'UN QUI DÉCOUVRE. Ton lecteur porte un projet, il n'est "
-    "pas analyste. La PREMIÈRE fois qu'un terme technique apparaît dans "
-    "l'étude, explique-le en une demi-phrase, entre parenthèses ou entre "
-    "tirets, puis emploie-le librement ensuite : « le SOM (la part de marché "
-    "que le projet peut réalistement capter les premières années) ». Cela vaut "
-    "pour le vocabulaire d'analyse — TAM, SAM, SOM, churn, taux de captation, "
-    "panier moyen, marge brute — comme pour le jargon du secteur étudié. "
-    "N'explique pas deux fois le même terme : les résumés des chapitres "
-    "précédents te disent ce qui a déjà été posé. Une phrase que le lecteur "
-    "doit relire pour la comprendre est une phrase à réécrire.\n"
+    # Cliente, 29/10/2026, sur deux études de marché : « c'est toujours très
+    # technique, avec des termes très analytiques. Un porteur de projet qui
+    # demande une étude de base ne va pas comprendre, et ce n'est pas le but. »
+    # L'ancienne règle disait « explique le terme une fois, puis emploie-le
+    # librement » : c'est elle qui semait TAM, SAM et SOM dans seize chapitres
+    # (`99a142b0`, `6832779f`). On n'explique plus le jargon, on ne l'écrit pas.
+    "UN LANGAGE SIMPLE, COMPRÉHENSIBLE PAR TOUT LE MONDE. Ton lecteur porte un "
+    "projet ; il n'est ni analyste, ni financier, ni du métier. Il doit tout "
+    "comprendre à la première lecture, sans dictionnaire.\n"
+    "- Des mots de tous les jours. Quand un mot courant existe, c'est lui : "
+    # Les trois noms viennent de `langage_simple.NOMS_SIMPLES` : la consigne
+    # et la réparation disent la même chose (règle 5).
+    f"« le {NOMS_SIMPLES['SAM']} », « le {NOMS_SIMPLES['SOM']} », "
+    "« l'approvisionnement », « les clients professionnels », « la situation la "
+    "plus probable ». Un sigle d'analyse ou un anglicisme de consultant n'a "
+    "sa place que là où la consigne du chapitre l'exige, une seule fois, "
+    "suivi de son nom simple — et ensuite seul le nom simple revient.\n"
+    "- Des phrases courtes : une idée par phrase, vingt-cinq mots au plus en "
+    "règle générale. Le sujet, le verbe, puis ce qui compte.\n"
+    "- Du concret : chaque notion s'accroche à un exemple de la vie du projet "
+    "— un client, une journée de travail, un achat, une somme.\n"
+    "- Un terme du métier étudié, indispensable, s'explique en quelques mots "
+    "la première fois qu'il apparaît.\n"
+    "- Une phrase que le lecteur doit relire pour la comprendre est une "
+    "phrase à réécrire.\n"
     "\n"
     # Le gate refuse ces locutions (`detecter_ton_publicitaire`). La consigne
     # ne les nommait pas (« incontournable » corrigé en cours de route sur
@@ -1339,12 +1355,15 @@ REGLES_DE_FOND = (
     # taux de capture », « boucler l'emboitement », « trancher le scenario
     # central ». Le relecteur redemandait la meme chose a quatre chapitres
     # differents, et chaque demande coutait une reprise.
-    "- Un marché atteignable se DÉDUIT, il ne se justifie pas après coup. "
-    "Écris toujours dans cet ordre : un taux de capture du marché accessible, "
-    "puis le montant qui en découle, puis sa traduction concrète. « Un taux "
-    "de capture de 0,01 % du marché accessible donne 130 000 €, soit environ "
-    "2 000 commandes a 65 € » — jamais l'inverse. Ce taux se RÉPÈTE dans le "
-    "verdict de viabilité : c'est lui qui rend l'objectif discutable.\n"
+    # Le 29/10/2026, « taux de capture » est devenu « la part du marché
+    # accessible que le projet peut prendre » : la consigne commune demande un
+    # langage simple, et cette règle-ci lui imposait le terme d'analyste.
+    "- Le chiffre d'affaires visé se DÉDUIT, il ne se justifie pas après coup. "
+    "Écris toujours dans cet ordre : la part du marché accessible que le "
+    "projet peut prendre, puis le montant qui en découle, puis sa traduction "
+    "concrète. « Prendre 0,01 % du marché accessible donne 130 000 €, soit "
+    "environ 2 000 commandes à 65 € » — jamais l'inverse. Cette part se RÉPÈTE "
+    "dans le verdict de viabilité : c'est elle qui rend l'objectif discutable.\n"
     # Étude de marché `d98f2df4` (28/10/2026) : 22 incidents CHECK bloquants,
     # tous le même reproche — « supprimer la formulation circulaire : un taux
     # de capture d'environ 0,11 % donne 180 000 € ». La règle ci-dessus était
@@ -1352,11 +1371,11 @@ REGLES_DE_FOND = (
     # été décidé d'abord, et le taux calculé pour y tomber. « 0,11 % » à côté
     # de « 180 000 € » le trahit — un taux choisi est rond, un montant déduit
     # ne l'est pas. Le relecteur voit ce que la règle de forme ne voyait pas.
-    "- Et ce taux est CHOISI, pas calculé à l'envers. Tu l'écris rond — "
+    "- Et cette part est CHOISIE, pas calculée à l'envers. Tu l'écris ronde — "
     "0,1 %, 0,5 %, 1 % — et tu dis en une phrase ce qui le justifie : une "
     "part de marché comparable, une capacité de production, un nombre de "
     "clients atteignables. Le montant qui en découle est alors ce que "
-    "l'arithmétique donne, et il tombe rarement rond. Un taux à deux "
+    "l'arithmétique donne, et il tombe rarement rond. Une part à deux "
     "décimales en face d'un montant rond est le signe que la déduction a été "
     "faite dans l'autre sens : « 0,11 % donne 180 000 € » se lit comme une "
     "justification fabriquée après coup, et un lecteur qui la repère cesse de "
@@ -2404,6 +2423,17 @@ def generer_chapitre(
         _log.info(
             "Chapitre %s : %s retouche(s) typographique(s).",
             chapter.chapter_number, retouches,
+        )
+    # Le langage simple aussi se répare avant de juger : un sigle d'analyse
+    # hors du chapitre qui le pose, du gras Markdown imprimé tel quel (cliente,
+    # 29/10/2026). Même journal : si la consigne sert, ce compte baisse.
+    simplifications = simplifier_le_langage(
+        payload, deliverable_type=str(job.deliverable_type)
+    )
+    if simplifications:
+        _log.info(
+            "Chapitre %s : %s simplification(s) de langage.",
+            chapter.chapter_number, simplifications,
         )
 
     mention_resume = raccourcir_le_resume(

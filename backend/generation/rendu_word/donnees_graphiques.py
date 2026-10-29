@@ -37,6 +37,7 @@ from ..socle.schema import (
     unite_lisible,
     valeur_en_unites_de_base,
 )
+from .texte import libelle_affiche
 
 #: Types alimentés par une simple liste de valeurs scalaires.
 _SCALAIRES = (
@@ -111,7 +112,13 @@ def etiquette_de(donnee: DonneeSocle) -> str:
 
 
 def _tete(libelle: str) -> str:
-    """Le segment de tête d'un libellé : ce qui précède virgule, parenthèse, tiret."""
+    """Le segment de tête d'un libellé : ce qui précède virgule, parenthèse, tiret.
+
+    Lu sur le libellé AFFICHÉ : le socle écrit « TAM — e-commerce… », et la
+    tête d'un tel libellé était le sigle seul — les barres de l'entonnoir
+    s'intitulaient « TAM », « SAM », « SOM » (relecture du 29/10/2026).
+    """
+    libelle = libelle_affiche(libelle)
     tete = re.split(r"[,(—–:;]", libelle, maxsplit=1)[0].strip()
     return tete or libelle.strip()
 
@@ -154,12 +161,12 @@ def etiquettes_de(donnees: Sequence[DonneeSocle]) -> list[str]:
     tetes = [etiquette_de(donnee) for donnee in donnees]
     confondues = _en_double(tetes)
     etiquettes = [
-        replier(donnee.libelle) if tete in confondues else tete
+        replier(libelle_affiche(donnee.libelle)) if tete in confondues else tete
         for donnee, tete in zip(donnees, tetes, strict=True)
     ]
     confondues = _en_double(etiquettes)
     return [
-        replier(f"{donnee.libelle} ({donnee.annee})") if etiquette in confondues
+        replier(f"{libelle_affiche(donnee.libelle)} ({donnee.annee})") if etiquette in confondues
         else etiquette
         for donnee, etiquette in zip(donnees, etiquettes, strict=True)
     ]
@@ -873,7 +880,7 @@ def series_par_perimetre(
     confondus = _en_double(list(noms.values()))
     return [
         (
-            replier(_legende_de_serie(premieres[cle].libelle))
+            replier(_legende_de_serie(libelle_affiche(premieres[cle].libelle)))
             if noms[cle] in confondus else noms[cle],
             [groupes[cle][annee] for annee in annees],
         )

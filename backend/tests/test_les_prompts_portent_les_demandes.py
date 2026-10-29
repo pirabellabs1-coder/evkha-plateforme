@@ -95,11 +95,14 @@ DEMANDES: list[tuple[str, str, str, str]] = [
     ("V3", "« reste à vérifier » banni", "reste à vérifier", "S"),
     ("V3", "« à confirmer avec un professionnel » banni", "professionnel", "S"),
     # « comprise entre X et Y » fabriquait des plages (audit A2, 14/09/2026).
-    ("V3", "Remplacement : valeur assumée", "hypothèse prudente de X", "S"),
+    ("V3", "Remplacement : valeur assumée", "nous retenons prudemment X", "S"),
     ("V3", "Chaîne donnée → décision", "ordre de grandeur à retenir", "S"),
     ("V3", "Identifiants internes bannis", "`tam`", "S"),
     ("V3", "« à dire d'expert » banni", "dire d'expert", "S"),
-    ("V3", "Accessibilité (novice)", "QUELQU'UN QUI DÉCOUVRE", "S"),
+    # Cliente, 29/10/2026 : « un langage simple, à la portée de tout le monde ».
+    ("V3", "Langage simple (novice)", "UN LANGAGE SIMPLE, COMPRÉHENSIBLE", "S"),
+    ("V3", "Sigles réservés au chapitre qui les exige", "seul le nom simple revient", "S"),
+    ("V3", "Phrases courtes", "une idée par phrase", "S"),
     ("V3", "Orthographe", "FRANÇAIS IRRÉPROCHABLE", "S"),
     ("V3", "Balisage interdit", "AUCUN FORMAT DE DONNÉES", "S"),
     ("V3", "Données brutes bannies", "points-virgules", "S"),

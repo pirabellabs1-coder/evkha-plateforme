@@ -31,7 +31,7 @@ Contenu obligatoire :
 - Ne jamais considerer un blog, une page commerciale ou un agrégateur comme preuve unique d'un chiffre important.
 - Faire apparaître toutes les sources réellement utilisées, y compris celles qui ont servi a confirmer, nuancer ou construire une estimation. Pour chaque source : titre, organisme, année et URL vérifiée. Reprends en PRIORITÉ les URLs réelles du bloc SOURCES WEB du contexte.
 - Courte méthodologie : démarche de recherche, croisement de sources, période des données, estimations construites (secteur adjacent, zone géographique proche, indicateur équivalent) et limites de l'étude.
-- Mention sobre des calculs EVKHA (TAM/SAM/SOM, scénarios) sans detailler la pipeline technique.
+- Mention sobre des calculs EVKHA (marché total, marché accessible, chiffre d'affaires visé, scénarios) sans detailler la pipeline technique.
 - Aucune source utilisee absente ; aucune source inutilisee ajoutee.
 Format : une section « ## » par famille effectivement mobilisee, parmi les huit du manuel. N'écris pas une section vide : une famille sans source n'apparaît pas.
 ## Statistiques publiques

@@ -26,6 +26,7 @@ import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
+from generation.chapitres.langage_simple import NOMS_SIMPLES
 from generation.socle.referentiel import Fiabilite
 from generation.socle.schema import Socle, valeur_en_unites_de_base
 
@@ -494,7 +495,10 @@ def faits_de_l_etude(socle: Socle) -> dict[str, Fait]:
         if petit in faits and grand in faits:
             derives.append(_derive(
                 f"part_{petit}_dans_{grand}", (faits[petit], faits[grand]), _part,
-                libelle=f"Part du {petit.upper()} dans le {grand.upper()}",
+                # Le libellé part au rédacteur : en nom simple, pas en sigle
+                # (langage simple, 29/10/2026).
+                libelle=f"Part du {NOMS_SIMPLES[petit.upper()]} dans le "
+                f"{NOMS_SIMPLES[grand.upper()]}",
                 formule=f"{petit} ÷ {grand} × 100", unite="%",
             ))
 

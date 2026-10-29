@@ -22,7 +22,7 @@ Questions auxquelles ce chapitre doit répondre :
 
 Contenu obligatoire :
 - 3 à 5 visuels maximum selectionnes selon le projet.
-- Évolution du marché, TAM/SAM/SOM, cible, risque ou géographie selon pertinence.
+- Évolution du marché, marché total, marché accessible et chiffre d'affaires visé, cible, risque ou géographie selon pertinence.
 - Données appelees directement depuis la fiche projet enrichie et les chapitres précédents. Aucune nouvelle valeur introduite.
 - Titre, unité, période, légende et source courte pour chaque visuel.
 - Commentaire d'une a trois phrases par visuel.
