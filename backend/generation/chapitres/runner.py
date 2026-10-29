@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ValidationError
 
@@ -31,6 +33,9 @@ from .fichiers_prompts import rendre_prompt
 from .langage_simple import NOMS_SIMPLES, simplifier_le_langage
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
 from .typographie import reparer_typographie
+
+if TYPE_CHECKING:
+    from ..verification.objet_des_chiffres import ChiffreEcrit
 
 _log = logging.getLogger(__name__)
 
@@ -1062,6 +1067,102 @@ def _bloc_grille(socle: Socle) -> str:
         "grille dans un tableau — intitulé, ce que vaut 1, ce que vaut 5 — "
         "pour que le lecteur puisse refaire la notation lui-même.\n"
         "Les notes déjà attribuées :\n" + "\n".join(notes)
+    )
+
+
+def _bloc_chiffres_ecrits(job: GenerationJob, numero: int, faits: Mapping[str, Any]) -> str:
+    """Les chiffres déjà écrits par les chapitres précédents, AVEC ce qu'ils comptent.
+
+    Cliente, 29/10/2026 : « 10 000 porteurs de projet » devenus « 10 000
+    entreprises créées » trois chapitres plus loin. Mesuré sur `99a142b0` :
+    « 40 % des TPE-PME » (France Num) écrit dans seize chapitres, devenu
+    « 40 % des TPE » au chapitre 22. Le registre ne portait que des VALEURS,
+    et le socle ne porte pas les statistiques que chaque chapitre tire de ses
+    propres sources : rien ne disait au rédacteur quelle population ce 40 %
+    comptait déjà. Le code relit donc les chapitres acceptés et lui donne
+    chaque couple valeur–objet, tel qu'écrit — la même lecture que le contrôle
+    du document livré (`objet_des_chiffres`, règle 5).
+
+    Les repères y sont remplacés par leur valeur : c'est le texte que le
+    lecteur lira, pas celui que le modèle a rendu.
+    """
+    from ..memoire.reperes import remplacer_les_reperes  # noqa: PLC0415
+    from ..verification.lecture import DocumentLu  # noqa: PLC0415
+    from ..verification.objet_des_chiffres import chiffres_deja_ecrits  # noqa: PLC0415
+
+    precedents = (
+        job.chapters.filter(chapter_number__lt=numero, chapter_number__gt=0)
+        .exclude(content="")
+        .order_by("chapter_number")
+    )
+    morceaux: list[str] = []
+    chapitres: list[int | None] = []
+    for chapitre in precedents:
+        texte = remplacer_les_reperes(chapitre.content, faits).texte
+        # Une ligne de tableau se lit cellule par cellule : « 40 % | des
+        # TPE » n'est pas « 40 % des TPE ».
+        for morceau in re.split(r"[\n|]", texte):
+            if morceau.strip():
+                morceaux.append(morceau)
+                chapitres.append(chapitre.chapter_number)
+    ecrits = chiffres_deja_ecrits(
+        DocumentLu(chemin=Path(), paragraphes=morceaux, chapitre_du_paragraphe=chapitres)
+    )
+    if not ecrits:
+        return ""
+
+    par_valeur: dict[str, list[str]] = {}
+    for ecrit in ecrits:
+        par_valeur.setdefault(ecrit.valeur, []).append(_ligne_de_chiffre_ecrit(ecrit))
+    lignes = []
+    for formes in par_valeur.values():
+        lignes.append("- " + formes[0])
+        # Deux objets pour une valeur : deux statistiques (« 30 % des femmes »,
+        # « 30 % des hommes »), ou la même mal reprise. Le rédacteur ne peut
+        # trancher que sur sa source ; on lui dit de la relire, pas laquelle
+        # est fausse.
+        lignes.extend(
+            f"  même valeur, autre objet : {autre} — avant de reprendre l'un ou "
+            "l'autre, vérifie lequel ta source porte."
+            for autre in formes[1:]
+        )
+    return (
+        "CHIFFRES DÉJÀ ÉCRITS DANS L'ÉTUDE — chacun avec CE QU'IL COMPTE.\n"
+        "Un chiffre repris garde son objet mot pour mot : « 40 % des TPE-PME » ne "
+        "devient jamais « 40 % des TPE », ni « 40 % des entreprises » ; « 10 000 "
+        "porteurs de projet » ne devient jamais « 10 000 entreprises créées ». Une "
+        "autre population est un AUTRE chiffre : il lui faut sa propre source, qui "
+        "donne cette valeur pour elle — sinon, ne l'écris pas.\n"
+        "Un chiffre déjà repris dans plusieurs chapitres ne se répète que si ton "
+        "raisonnement en a besoin.\n" + "\n".join(lignes)
+    )
+
+
+def _chiffres_ecrits_sans_arreter(
+    job: GenerationJob, numero: int, faits: Mapping[str, Any],
+) -> str:
+    """Le bloc, ou rien : une aide au rédacteur ne doit jamais arrêter une étude.
+
+    Une exception ici remonterait dans CHAQUE chapitre et bloquerait le
+    dossier ; sans le bloc, le chapitre s'écrit comme avant le 29/10/2026, et
+    le contrôle du document livré mesure toujours l'objet des chiffres.
+    """
+    try:
+        return _bloc_chiffres_ecrits(job, numero, faits)
+    except Exception:  # noqa: BLE001 — même engagement que `memoire_du_job`
+        _log.exception("Chiffres déjà écrits illisibles pour le dossier %s", job.id)
+        return ""
+
+
+def _ligne_de_chiffre_ecrit(ecrit: ChiffreEcrit) -> str:
+    chapitres = ecrit.chapitres
+    if not chapitres:
+        return f"« {ecrit.forme} »"
+    if len(chapitres) == 1:
+        return f"« {ecrit.forme} » (chapitre {chapitres[0]})"
+    return (
+        f"« {ecrit.forme} » (posé au chapitre {chapitres[0]}, déjà repris dans "
+        f"{len(chapitres)} chapitres)"
     )
 
 
@@ -2165,6 +2266,14 @@ def construire_prompt_chapitre(
     blocs = [
         _bloc_sources(chapter.job, chapter.chapter_number),
         _bloc_resumes(chapter.job, chapter.chapter_number),
+        *(
+            [ecrits]
+            if (ecrits := _chiffres_ecrits_sans_arreter(
+                chapter.job, chapter.chapter_number,
+                memoire.faits if memoire is not None else {},
+            ))
+            else []
+        ),
         (
             "REGISTRE_CHIFFRES (JSON, source unique — tout chiffre deja "
             "pose dans un chapitre precedent ou fourni par le client. "
@@ -2202,7 +2311,9 @@ def construire_prompt_chapitre(
             f"RÉSUMÉ : termine par un résumé de {document.resume_mots_min} à "
             f"{document.resume_mots_max} mots. Il sera relu par tous les "
             "chapitres suivants : fais-y figurer les chiffres et les "
-            "conclusions qu'ils devront reprendre à l'identique."
+            "conclusions qu'ils devront reprendre à l'identique — chaque "
+            "chiffre avec ce qu'il compte (« 40 % des TPE-PME », jamais "
+            "« 40 % » seul)."
         ),
     ]
 

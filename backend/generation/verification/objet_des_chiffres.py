@@ -146,6 +146,8 @@ class Occurrence:
     """L'objet normalisé — casse, accents, pluriel — pour comparer."""
     chapitre: int | None
     extrait: str
+    forme: str = ""
+    """La grandeur et son objet, tels qu'écrits : `40 % des TPE-PME`."""
 
 
 def _sans_accents(texte: str) -> str:
@@ -216,6 +218,7 @@ def occurrences(document: DocumentLu) -> list[Occurrence]:
                 trouvees.append(Occurrence(
                     valeur=valeur, objet=objet, cle=cle, chapitre=chapitre,
                     extrait=_extrait(texte, m.start(), m.end()),
+                    forme=re.sub(SPACE_CLASS, " ", m.group(0)),
                 ))
     return trouvees
 
@@ -270,3 +273,34 @@ def controler_objet_des_chiffres(document: DocumentLu) -> list[Anomalie]:
                     chapitre=chapitres[-1], extrait=memes[-1].extrait,
                 ))
     return anomalies
+
+
+@dataclass(frozen=True)
+class ChiffreEcrit:
+    """Un couple valeur–objet déjà écrit, et les chapitres qui l'emploient."""
+
+    valeur: str
+    forme: str
+    chapitres: tuple[int, ...]
+
+
+def chiffres_deja_ecrits(document: DocumentLu) -> list[ChiffreEcrit]:
+    """Chaque couple valeur–objet du document, à sa première forme écrite.
+
+    C'est le registre que reçoit le chapitre suivant : le contrôle ci-dessus
+    constate un glissement APRÈS coup, ce registre le prévient. Une même
+    valeur peut y figurer avec deux objets — « 30 % des femmes », « 30 % des
+    hommes » sont deux statistiques —, mais jamais un même couple deux fois.
+    Ordre de première apparition.
+    """
+    premieres: dict[tuple[str, str], Occurrence] = {}
+    chapitres: dict[tuple[str, str], set[int]] = defaultdict(set)
+    for occurrence in occurrences(document):
+        cle = (occurrence.valeur, occurrence.cle)
+        premieres.setdefault(cle, occurrence)
+        if occurrence.chapitre is not None:
+            chapitres[cle].add(occurrence.chapitre)
+    return [
+        ChiffreEcrit(valeur=o.valeur, forme=o.forme, chapitres=tuple(sorted(chapitres[cle])))
+        for cle, o in premieres.items()
+    ]
