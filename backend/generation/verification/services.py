@@ -228,9 +228,24 @@ def _mesurer_l_objet_des_chiffres(rapport: RapportControle, document: DocumentLu
     partir du 29/10/2026, `autres_anomalies` (`mesure.py`) compte aussi ces
     signalements. Comparer deux mesures de part et d'autre de cette date sans
     les retirer, c'est changer d'instrument en cours de route.
+
+    **Une panne de la mesure n'arrête pas la livraison** (porte qualité du
+    29/10/2026). Une exception imprévue dans un contrôle qui ne fait que mesurer
+    interromprait l'assemblage du document, donc l'envoi au client. Elle est
+    journalisée et DITE dans le rapport — un contrôle qui n'a pas pu juger ne se
+    tait pas (règle 1) — sans rendre le document non livrable.
     """
     rapport.controles_executes.append(objet_des_chiffres.CONTROLE)
-    rapport.ajouter(*objet_des_chiffres.controler_objet_des_chiffres(document))
+    try:
+        anomalies = objet_des_chiffres.controler_objet_des_chiffres(document)
+    except Exception as erreur:  # noqa: BLE001 — une mesure en panne ne bloque pas un livrable
+        _log.exception("Contrôle de l'objet des chiffres en échec")
+        anomalies = [Anomalie(
+            objet_des_chiffres.CONTROLE, Gravite.INFORMATION,
+            f"Mesure impossible ({type(erreur).__name__}) : l'objet des chiffres "
+            "n'a pas été contrôlé sur ce document.",
+        )]
+    rapport.ajouter(*anomalies)
 
 
 def verifier_document_sans_socle(document: DocumentLu) -> RapportControle:

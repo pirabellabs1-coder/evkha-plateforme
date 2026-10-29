@@ -225,3 +225,25 @@ def test_le_controle_ne_bloque_ni_ne_fait_reecrire() -> None:
     assert anomalies
     assert all(a.gravite is not Gravite.BLOQUANTE for a in anomalies)
     assert CONTROLE not in REPARABLES_PAR_CHAPITRE
+
+
+def test_une_panne_de_la_mesure_n_arrete_pas_la_livraison(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Porte qualité du 29/10/2026 : une exception dans ce contrôle de mesure
+    interrompait l'assemblage. Elle est dite dans le rapport, rien ne bloque."""
+    from generation.verification import services
+
+    def en_panne(_document: DocumentLu) -> list[object]:
+        raise ValueError("imprévu")
+
+    monkeypatch.setattr(
+        "generation.verification.objet_des_chiffres.controler_objet_des_chiffres", en_panne
+    )
+    rapport = services.verifier_document_sans_socle(_document((1, "40 % des TPE.")))
+    (signal,) = [a for a in rapport.anomalies if a.controle == CONTROLE]
+    assert "Mesure impossible (ValueError)" in signal.detail
+    assert signal.gravite is Gravite.INFORMATION
+    # Le document minimal échoue ailleurs (intégrité) : ce qui compte, c'est
+    # que CE contrôle n'ajoute aucun blocage.
+    assert CONTROLE not in {a.controle for a in rapport.bloquantes}
