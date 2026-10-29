@@ -20,7 +20,7 @@ from ..models import GenerationJob
 from ..rendu_word.assemblage import RapportAssemblage
 from ..socle.schema import Socle
 from ..socle.services import socle_verrouille
-from . import controles
+from . import controles, objet_des_chiffres
 from .lecture import DocumentLu, lire_livrable
 from .rapport import Anomalie, Gravite, RapportControle
 
@@ -209,7 +209,28 @@ def verifier_document(
             assemblage.graphiques_convertis,
         ))
 
+    _mesurer_l_objet_des_chiffres(rapport, document)
     return rapport
+
+
+def _mesurer_l_objet_des_chiffres(rapport: RapportControle, document: DocumentLu) -> None:
+    """« Il reprend le même chiffre, mais pas la même destination » (cliente,
+    29/10/2026). Voir `objet_des_chiffres`.
+
+    MESURE SEULE : avertissement ou information, et le contrôle n'est pas dans
+    `REPARABLES_PAR_CHAPITRE` — il ne bloque rien et ne fait rien réécrire.
+
+    En DERNIER, à dessein : l'incident de réserves et `restantes` de la
+    relecture finale sont tronqués à quarante lignes dans l'ordre d'insertion,
+    et ces signalements ne doivent pas en chasser ceux des contrôles établis.
+
+    Effet sur la mesure du corpus, à savoir pour comparer avant et après : à
+    partir du 29/10/2026, `autres_anomalies` (`mesure.py`) compte aussi ces
+    signalements. Comparer deux mesures de part et d'autre de cette date sans
+    les retirer, c'est changer d'instrument en cours de route.
+    """
+    rapport.controles_executes.append(objet_des_chiffres.CONTROLE)
+    rapport.ajouter(*objet_des_chiffres.controler_objet_des_chiffres(document))
 
 
 def verifier_document_sans_socle(document: DocumentLu) -> RapportControle:
@@ -258,6 +279,10 @@ def verifier_document_sans_socle(document: DocumentLu) -> RapportControle:
 
     rapport.controles_executes.append("valeur_nulle")
     rapport.ajouter(*controles.controler_les_valeurs_nulles(document))
+
+    # Sans socle non plus : il ne lit que le document, et le business plan et
+    # la stratégie reprennent autant de chiffres d'un chapitre à l'autre.
+    _mesurer_l_objet_des_chiffres(rapport, document)
     return rapport
 
 
