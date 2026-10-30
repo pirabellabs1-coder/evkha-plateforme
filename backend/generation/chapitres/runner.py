@@ -1200,6 +1200,65 @@ def _chiffres_ecrits_sans_arreter(
         return ""
 
 
+#: Au-delà, le bloc coûterait plus de contexte qu'il n'évite de doublons.
+_FIGURES_POSEES_MAX = 30
+
+
+def _bloc_figures_posees(job: GenerationJob, numero: int) -> str:
+    """Les figures que les AUTRES chapitres ont déjà demandées, et leurs données.
+
+    Mesuré sur l'étude IA `d24977e6` (30/10/2026) : le chapitre 17 redemandait
+    la figure « marché européen et marché mondial » du chapitre 16. L'assemblage
+    ne la redessine pas (même forme, mêmes données) et imprime un renvoi ; le
+    relecteur, qui lit le chapitre, voyait un graphique d'ouverture en double et
+    en a demandé le retrait trois passes de suite. Rien ne disait au rédacteur
+    qu'elle existait déjà : la même classe de défaut que les chiffres déjà
+    écrits (`_bloc_chiffres_ecrits`), pour les figures.
+
+    Tous les autres chapitres terminés, comme pour les chiffres : une
+    réécriture doit voir les figures des chapitres qui la suivent.
+    """
+    autres = (
+        job.chapters.filter(chapter_number__gt=0, status=ChapterStatus.DONE)
+        .exclude(chapter_number=numero)
+        .order_by("chapter_number")
+    )
+    lignes: list[str] = []
+    for chapitre in autres:
+        for bloc in (chapitre.payload or {}).get("blocs") or []:
+            if not isinstance(bloc, dict) or bloc.get("type") != "graphique":
+                continue
+            figure = bloc.get("graphique") or {}
+            titre = str(figure.get("titre") or "").strip()
+            donnees = [str(d) for d in figure.get("donnees_ids") or []]
+            if not titre or not donnees:
+                continue
+            lignes.append(
+                f"- « {titre} » (chapitre {chapitre.chapter_number}) — "
+                f"données : {', '.join(donnees)}"
+            )
+    if not lignes:
+        return ""
+    return (
+        "FIGURES DÉJÀ PRÉSENTÉES DANS L'ÉTUDE — avec les données qu'elles "
+        "montrent. Une figure qui montrerait les MÊMES données n'est jamais "
+        "redemandée : elle ne serait pas redessinée, le lecteur ne lirait qu'un "
+        "renvoi. Cite-la en une phrase (« voir la figure du chapitre N ») et "
+        "passe à ce qui est propre à ton chapitre. Ne demande une figure que si "
+        "elle montre d'autres données que celles-ci.\n"
+        + "\n".join(lignes[:_FIGURES_POSEES_MAX])
+    )
+
+
+def _figures_posees_sans_arreter(job: GenerationJob, numero: int) -> str:
+    """Le bloc, ou rien : une aide au rédacteur ne doit jamais arrêter une étude."""
+    try:
+        return _bloc_figures_posees(job, numero)
+    except Exception:  # noqa: BLE001 — même engagement que les chiffres écrits
+        _log.exception("Figures déjà présentées illisibles pour le dossier %s", job.id)
+        return ""
+
+
 def _ligne_de_chiffre_ecrit(ecrit: ChiffreEcrit) -> str:
     chapitres = ecrit.chapitres
     if not chapitres:
@@ -1545,6 +1604,27 @@ REGLES_DE_FOND = (
     "de directive ou article de code. « Le délai de rétractation de 14 jours "
     "(article L221-18 du code de la consommation) » — une obligation sans "
     "référence n'est pas vérifiable, donc pas opposable.\n"
+    # Étude IA `d24977e6` (30/10/2026), chapitre 6 : « le droit de la
+    # consommation ne s'applique pas en principe » à un artisan client. Faux
+    # dans le cas le plus courant d'une offre aux TPE, et relevé trois passes
+    # de suite par le relecteur.
+    "- Vendre à une TRÈS PETITE ENTREPRISE n'écarte pas le droit de la "
+    "consommation : un professionnel de cinq salariés au plus, qui signe hors "
+    "de l'établissement du vendeur (chez lui, sur un chantier, par démarchage) "
+    "un contrat sans rapport avec son activité principale, a les protections "
+    "d'un particulier, dont le délai de rétractation de 14 jours (article "
+    "L221-3 du code de la consommation). Ne l'écris jamais exclu par principe.\n"
+    # Même dossier, chapitre 10 : « Il a souvent entre 35 et 60 ans ». Ni le
+    # brief ni une source ne le disait : un portrait inventé, lu comme un fait.
+    "- Un trait de la cible — âge, habitudes, budget, équipement — qui ne "
+    "vient ni du dossier client ni d'une source citée est une HYPOTHÈSE, et "
+    "s'écrit comme telle : « nous retenons, à titre d'hypothèse, un dirigeant "
+    "de 35 à 60 ans ». Jamais au présent de vérité générale.\n"
+    # Même dossier, chapitre 8 : « Quatre choix tiennent… », suivi de cinq.
+    "- Un NOMBRE ANNONCÉ (« trois risques », « quatre choix ») est le nombre "
+    "exact des éléments qui suivent. Compte-les avant d'écrire l'annonce ; un "
+    "élément d'une autre nature (une hypothèse parmi des certitudes) se sort "
+    "de la liste et s'introduit à part.\n"
     # « Dedupliquer les deux entrees Xerfi, memes lien et code d'etude, titres
     # differents. » Une source citee deux fois gonfle le compte sans rien
     # ajouter, et fait douter des autres.
@@ -2318,6 +2398,13 @@ def construire_prompt_chapitre(
             if (ecrits := _chiffres_ecrits_sans_arreter(
                 chapter.job, chapter.chapter_number,
                 memoire.faits if memoire is not None else {},
+            ))
+            else []
+        ),
+        *(
+            [figures]
+            if (figures := _figures_posees_sans_arreter(
+                chapter.job, chapter.chapter_number,
             ))
             else []
         ),
