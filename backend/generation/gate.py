@@ -2205,11 +2205,19 @@ def _check_blocs_evangeline(job: GenerationJob) -> list[GateFailure]:
     for incident in ouverts:
         details = incident.details or {}
         chapitres = details.get("chapitres") or []
+        # La note ENTIÈRE. Elle était coupée à 400 caractères, et c'est ce
+        # motif que la relecture finale donne au rédacteur comme consigne :
+        # sur `bc694571` (30/10/2026), les notes faisaient 1 300 à 3 000
+        # caractères, le rédacteur en recevait le quart, et le relecteur
+        # constatait à chaque passe « défaut de la note précédente encore
+        # présent » — sur les points qu'on ne lui avait jamais transmis (bloc
+        # G : chapitres 12 et 13 au-delà de la coupe). Huit blocs sur dix sont
+        # restés bloqués pour cette seule raison (règle 9).
         detail = (
             f"CHECK {details.get('check', '?')} (bloc "
             f"{details.get('bloc', '?')} — {details.get('intitule', '')}) "
             f"non valide sur les chapitres {chapitres}. "
-            f"Note du relecteur : {str(details.get('note_corrective', ''))[:400]} "
+            f"Note du relecteur : {details.get('note_corrective', '')} "
             "Livraison bloquee tant que le controle n'est pas valide "
             "(manuel EVKHA, « Livraison autorisee »)."
         )

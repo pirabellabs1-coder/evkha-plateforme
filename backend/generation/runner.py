@@ -1401,7 +1401,10 @@ def _log_incident_check(
             "check": bloc.check_numero,
             "intitule": bloc.intitule,
             "chapitres": list(bloc.chapitres),
-            "note_corrective": note[:2000],
+            # Entière : c'est la consigne que la relecture finale transmet au
+            # rédacteur. Coupée à 2 000 caractères, elle perdait les derniers
+            # chapitres du bloc (`bc694571`, notes jusqu'à 3 070 caractères).
+            "note_corrective": note,
         },
     )
 
