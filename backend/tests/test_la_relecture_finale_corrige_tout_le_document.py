@@ -80,7 +80,9 @@ def _monter(
     def _gate(job: Any) -> tuple[Any, ...]:
         return lectures.pop(0) if len(lectures) > 1 else lectures[0]
 
-    def _rejouer(job: Any, *, client: Any = None, chapitres_reecrits: Any = None) -> int:
+    def _rejouer(
+        job: Any, *, client: Any = None, chapitres_reecrits: Any = None, **options: Any,
+    ) -> int:
         rejeux.append(sorted(chapitres_reecrits))
         return 0
 
@@ -158,14 +160,38 @@ def test_le_rejeu_ne_porte_que_sur_les_chapitres_de_la_passe(
     assert rejeux == [[3, 9], [9]]
 
 
-def test_un_budget_epuise_ne_paie_pas_le_rejeu(
+def test_le_budget_qui_tombe_en_cours_de_passe_laisse_rejuger_ce_qui_est_reecrit(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Relecture du 30/10 : les réécritures consommaient tout, puis la passe
+    sortait sans rejeu — le défaut réparé, reproduit sur la dernière passe."""
+    from generation import cost
+
+    reecrits, rejeux = _monter(monkeypatch, [(_bloc(3), _bloc(9)), ()])
+    # Le solde tombe APRÈS la première réécriture : assez pour rejuger, plus
+    # assez pour réécrire (marge 0,30 € + réserve du rejeu 0,50 €).
+    monkeypatch.setattr(
+        cost, "budget_restant",
+        lambda j: Decimal("0.60") if reecrits else Decimal("5"),
+    )
+
+    rapport = controle_final.relire_et_corriger(job)
+
+    assert reecrits == [3], "le solde réservé au rejeu n'entame pas de réécriture"
+    assert rejeux == [[3]]
+    assert rapport.motif_d_arret == "budget du dossier épuisé"
+
+
+def test_un_solde_nul_ne_paie_pas_le_rejeu(
     job: Any, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from generation import cost
 
-    _, rejeux = _monter(monkeypatch, [(_bloc(7),), ()])
-    soldes = iter([Decimal("5"), Decimal("5"), Decimal("0.05")])
-    monkeypatch.setattr(cost, "budget_restant", lambda j: next(soldes, Decimal("0.05")))
+    reecrits, rejeux = _monter(monkeypatch, [(_bloc(7),), ()])
+    monkeypatch.setattr(
+        cost, "budget_restant",
+        lambda j: Decimal("0.01") if reecrits else Decimal("5"),
+    )
 
     controle_final.relire_et_corriger(job)
 
@@ -241,21 +267,90 @@ def test_le_rejeu_borne_ne_juge_que_les_blocs_touches(
     bloc_a, bloc_e = _incident(job, "A"), _incident(job, "E")
     juges: list[str] = []
 
-    def _check(job: Any, bloc: Any, chapitres: Any, *, client: Any = None) -> Any:
+    notes: list[str] = []
+
+    def _check(
+        job: Any, bloc: Any, chapitres: Any, *, client: Any = None, note_precedente: str = "",
+    ) -> Any:
         juges.append(bloc.identifiant)
+        notes.append(note_precedente)
         return checks_blocs.CheckResult(bloc_identifiant=bloc.identifiant, verdict="pass")
 
     monkeypatch.setattr(checks_blocs, "check_bloc", _check)
     monkeypatch.setattr(checks_blocs, "get_claude_client", lambda: object())
 
-    fermes = checks_blocs.rejouer_les_checks_ouverts(job, chapitres_reecrits=[7])
+    fermes = checks_blocs.rejouer_les_checks_ouverts(
+        job, chapitres_reecrits=[7], ferme_par="relecture finale (automatique)",
+    )
 
     assert juges == ["E"]
+    assert notes == ["x"], "le relecteur rejugé reçoit sa note d'avant"
     assert fermes == 1
     bloc_a.refresh_from_db()
     bloc_e.refresh_from_db()
     assert bloc_e.status == IncidentStatus.RESOLVED
+    assert bloc_e.details["ferme_par"] == "relecture finale (automatique)"
+    assert bloc_e.details["note_levee"] == "x"
     assert bloc_a.status == IncidentStatus.OPEN
+
+
+def test_le_rejeu_s_arrete_sous_le_solde_avant_chaque_bloc(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le coût d'un CHECK n'applique pas le plafond : le rejeu le fait lui-même."""
+    from generation import checks_blocs, cost
+    from generation.models import ChapterStatus
+
+    job.chapters.filter(chapter_number__in=[1, 2, 7, 8]).update(status=ChapterStatus.DONE)
+    _incident(job, "A")
+    _incident(job, "E")
+    juges: list[str] = []
+    soldes = iter([Decimal("1"), Decimal("0.01")])
+
+    def _check(job: Any, bloc: Any, chapitres: Any, **k: Any) -> Any:
+        juges.append(bloc.identifiant)
+        return checks_blocs.CheckResult(bloc_identifiant=bloc.identifiant, verdict="fix")
+
+    monkeypatch.setattr(checks_blocs, "check_bloc", _check)
+    monkeypatch.setattr(checks_blocs, "get_claude_client", lambda: object())
+    monkeypatch.setattr(cost, "budget_restant", lambda j: next(soldes, Decimal("0.01")))
+
+    checks_blocs.rejouer_les_checks_ouverts(
+        job, chapitres_reecrits=[1, 7], budget_minimum=Decimal("0.05"),
+    )
+
+    assert len(juges) == 1
+
+
+def test_le_rejeu_lit_les_chapitres_entiers() -> None:
+    """Coupé au milieu, le passage reproché pouvait échapper au relecteur dont
+    le « pass » ferme maintenant l'incident (règle 9)."""
+    from types import SimpleNamespace
+
+    from generation.checks_blocs import _formater_chapitres
+
+    milieu = "PASSAGE REPROCHÉ AU MILIEU"
+    corps = "a" * 5000 + "\n" + milieu + "\n" + "b" * 5000
+    chapitre: Any = SimpleNamespace(chapter_number=9, chapter_title="Chiffres", content=corps)
+
+    assert milieu not in _formater_chapitres([chapitre])
+    assert milieu in _formater_chapitres([chapitre], entiers=True)
+
+
+def test_une_liste_vide_ne_rejoue_rien(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`[]` n'est pas `None` : aucun chapitre réécrit, aucun bloc rejugé."""
+    from generation import checks_blocs
+
+    _incident(job, "A")
+
+    def _interdit() -> Any:
+        raise AssertionError("aucun client ne devait être créé")
+
+    monkeypatch.setattr(checks_blocs, "get_claude_client", _interdit)
+
+    assert checks_blocs.rejouer_les_checks_ouverts(job, chapitres_reecrits=[]) == 0
 
 
 def test_sans_bloc_touche_aucun_client_n_est_cree(

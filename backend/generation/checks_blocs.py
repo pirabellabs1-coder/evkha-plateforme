@@ -27,6 +27,7 @@ import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 from django.conf import settings
 from django.utils import timezone
@@ -402,14 +403,22 @@ def _extrait_chapitre(chapitre: ChapterGeneration) -> str:
     )
 
 
-def _formater_chapitres(chapitres: list[ChapterGeneration]) -> str:
+def _formater_chapitres(
+    chapitres: list[ChapterGeneration], *, entiers: bool = False
+) -> str:
+    """`entiers` : le texte complet, sans la coupe du milieu.
+
+    Exigé quand le verdict peut FERMER un incident (rejeu) : coupé, le passage
+    reproché peut glisser dans la partie non transmise, et le relecteur rendre
+    « pass » sur un défaut toujours présent (règle 9).
+    """
     if not chapitres:
         return "(aucun chapitre a controler pour ce bloc — CHECK sur la fiche projet uniquement)"
     parts: list[str] = []
     for chap in chapitres:
+        corps = (chap.content or "").strip() if entiers else _extrait_chapitre(chap)
         parts.append(
-            f"### Chapitre {chap.chapter_number} — {chap.chapter_title}\n\n"
-            f"{_extrait_chapitre(chap)}"
+            f"### Chapitre {chap.chapter_number} — {chap.chapter_title}\n\n{corps}"
         )
     return "\n\n---\n\n".join(parts)
 
@@ -467,11 +476,25 @@ def _construire_prompt_check(
     bloc: BlocDefinition,
     job: GenerationJob,
     chapitres: list[ChapterGeneration],
+    *,
+    note_precedente: str = "",
 ) -> str:
     fiche_client = client_facts_as_context(job)
     fiche_generee = generated_facts_as_context(job)
-    corps_chapitres = _formater_chapitres(chapitres)
+    # Un REJEU juge le texte entier : son verdict peut fermer l'incident.
+    corps_chapitres = _formater_chapitres(chapitres, entiers=bool(note_precedente))
     questions = _formater_questions(bloc.questions)
+    if note_precedente:
+        # Le verdict d'un rejeu porte d'abord sur ce qu'il avait reproché :
+        # sans sa note, un « pass » pouvait venir d'un relecteur qui ne
+        # cherchait plus le défaut, pas d'un défaut corrigé.
+        questions += (
+            "\n\n## TA NOTE PRECEDENTE SUR CE BLOC (avant reecriture)\n"
+            f"{note_precedente}\n"
+            "Verifie d'abord, point par point, que chaque defaut qu'elle nomme a "
+            "quitte le texte ci-dessus. Un seul defaut encore present : verdict "
+            "« fix », et ta nouvelle note le cite."
+        )
     est_initial = bloc.identifiant == "INITIAL"
     if bloc.check_numero == "FINAL":
         addendum = _ADDENDUM_CHECK_FINAL
@@ -738,6 +761,7 @@ def check_bloc(
     *,
     client: ClaudeClient | None = None,
     persister_enrichissements: bool = True,
+    note_precedente: str = "",
 ) -> CheckResult:
     """Execute le CHECK d'un bloc et enrichit la fiche projet si `pass`.
 
@@ -747,7 +771,9 @@ def check_bloc(
     apres coup ; si celui-ci passe, la fiche est enrichie a ce moment-la.
     """
     client = client or get_claude_client()
-    prompt = _construire_prompt_check(bloc, job, chapitres)
+    prompt = _construire_prompt_check(
+        bloc, job, chapitres, note_precedente=note_precedente
+    )
 
     avec_advisor = _advisor_actif_pour_bloc(bloc)
     system = _SYSTEM_PROMPT_CHECK + (_ADDENDUM_ADVISOR if avec_advisor else "")
@@ -823,6 +849,8 @@ def rejouer_les_checks_ouverts(
     *,
     client: ClaudeClient | None = None,
     chapitres_reecrits: Iterable[int] | None = None,
+    budget_minimum: Decimal | None = None,
+    ferme_par: str = "bouton « corriger »",
 ) -> int:
     """Rejoue les CHECK dont l'incident est encore ouvert, ferme ceux qui passent.
 
@@ -844,8 +872,20 @@ def rejouer_les_checks_ouverts(
     `chapitres_reecrits` borne le rejeu aux blocs dont un chapitre vient
     d'être réécrit : rejuger un bloc que rien n'a touché paierait un relecteur
     pour le même verdict. `None` rejoue tout (bouton « corriger »).
+
+    `budget_minimum` arrête le rejeu dès que le dossier passe sous ce solde,
+    AVANT chaque bloc : le coût d'un CHECK est compté au dossier mais
+    `record_additional_cost` n'applique pas le plafond — sans ce contrôle, le
+    rejeu serait la seule dépense de la relecture finale à le franchir.
+
+    Le relecteur rejugé reçoit sa note d'avant et le texte ENTIER des
+    chapitres : son « pass » ferme l'incident, et il ne doit pas venir d'un
+    passage coupé ni d'un défaut qu'il ne cherchait plus. Chaque fermeture
+    garde qui l'a prononcée et la note qu'elle lève (`ferme_par`).
     """
     from monitoring.models import IncidentStatus, OperationalIncident  # noqa: PLC0415
+
+    from .cost import budget_restant  # noqa: PLC0415
 
     touches = None if chapitres_reecrits is None else set(chapitres_reecrits)
     fermes = 0
@@ -862,6 +902,8 @@ def rejouer_les_checks_ouverts(
             continue
         if touches is not None and not touches.intersection(bloc.chapitres):
             continue
+        if budget_minimum is not None and budget_restant(job) < budget_minimum:
+            break
         # Le client n'est créé qu'au premier bloc à rejuger : sans bloc
         # concerné, aucun appel ni aucune connexion.
         client = client or get_claude_client()
@@ -873,11 +915,17 @@ def rejouer_les_checks_ouverts(
         if not chapitres:
             continue
 
-        resultat = check_bloc(job, bloc, chapitres, client=client)
+        note_d_avant = str(details.get("note_corrective", ""))
+        resultat = check_bloc(
+            job, bloc, chapitres, client=client, note_precedente=note_d_avant
+        )
         if resultat.est_ok:
             incident.status = IncidentStatus.RESOLVED
             incident.resolved_at = timezone.now()
-            incident.save(update_fields=["status", "resolved_at"])
+            incident.details = {
+                **details, "ferme_par": ferme_par, "note_levee": note_d_avant,
+            }
+            incident.save(update_fields=["status", "resolved_at", "details"])
             fermes += 1
             continue
 

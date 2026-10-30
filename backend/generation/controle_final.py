@@ -93,6 +93,16 @@ MAX_CHAPITRES_PAR_PASSE = 8
 #: cours par le plafond, et le chapitre resterait à moitié refait.
 MARGE_DE_BUDGET = Decimal("0.30")
 
+#: Ce qu'une réécriture laisse toujours au REJEU des blocs qu'elle a touchés.
+#: Le rejeu (un relecteur Sonnet par bloc, quelques centimes) est ce qui ferme
+#: un blocage : sans réserve, les réécritures Opus consommaient tout le solde
+#: et la passe se terminait sans rejuger — le défaut que ce rejeu répare,
+#: reproduit sur la dernière passe (relecture du 30/10/2026).
+RESERVE_DU_REJEU = Decimal("0.50")
+
+#: En dessous, plus aucun relecteur n'est appelé, même pour rejuger.
+SOLDE_MINIMUM_DU_REJEU = Decimal("0.05")
+
 
 @dataclass
 class RapportRelecture:
@@ -411,7 +421,7 @@ def relire_et_corriger(
         if passe == max_passes:
             rapport.motif_d_arret = f"plafond de {max_passes} passes atteint"
             return rapport
-        if budget_restant(job) < MARGE_DE_BUDGET:
+        if budget_restant(job) < MARGE_DE_BUDGET + RESERVE_DU_REJEU:
             rapport.motif_d_arret = "budget du dossier épuisé"
             return rapport
 
@@ -429,10 +439,13 @@ def relire_et_corriger(
             key=lambda n: (priorites.get(n, 10_000), n in consignes_donnees, n),
         )
         reecrits_cette_passe: list[int] = []
+        budget_epuise = False
         for numero in ordre[:MAX_CHAPITRES_PAR_PASSE]:
-            if budget_restant(job) < MARGE_DE_BUDGET:
-                rapport.motif_d_arret = "budget du dossier épuisé"
-                return rapport
+            if budget_restant(job) < MARGE_DE_BUDGET + RESERVE_DU_REJEU:
+                # On sort de la boucle, pas de la relecture : ce qui vient
+                # d'être réécrit doit encore être rejugé.
+                budget_epuise = True
+                break
             chapitre = job.chapters.filter(chapter_number=numero).first()
             if chapitre is None:
                 continue
@@ -460,11 +473,13 @@ def relire_et_corriger(
             if numero not in rapport.chapitres_reecrits:
                 rapport.chapitres_reecrits.append(numero)
 
+        _rejuger_les_blocs(job, reecrits_cette_passe, client=client)
+        if budget_epuise:
+            rapport.motif_d_arret = "budget du dossier épuisé"
+            return rapport
         if not reecrits_cette_passe:
             rapport.motif_d_arret = "aucun chapitre n'a pu être réécrit"
             return rapport
-
-        _rejuger_les_blocs(job, reecrits_cette_passe, client=client)
 
     return rapport
 
@@ -489,10 +504,16 @@ def _rejuger_les_blocs(job: GenerationJob, chapitres: list[int], *, client: Any)
     from .checks_blocs import rejouer_les_checks_ouverts  # noqa: PLC0415
     from .cost import budget_restant  # noqa: PLC0415
 
-    if budget_restant(job) < MARGE_DE_BUDGET:
+    if budget_restant(job) < SOLDE_MINIMUM_DU_REJEU:
         return
     try:
-        rejouer_les_checks_ouverts(job, client=client, chapitres_reecrits=chapitres)
+        rejouer_les_checks_ouverts(
+            job,
+            client=client,
+            chapitres_reecrits=chapitres,
+            budget_minimum=SOLDE_MINIMUM_DU_REJEU,
+            ferme_par="relecture finale (automatique)",
+        )
     except Exception:  # noqa: BLE001 — un rejeu raté garde l'incident ouvert, rien de plus
         _log.exception("Relecture finale : rejeu des CHECK impossible (job %s)", job.id)
 

@@ -317,11 +317,14 @@ def _motifs_par_chapitre(
     groupes: dict[int, list[GateFailure]] = {}
     priorites: dict[int, int] = {}
     for failure in failures:
-        # Les CHECK de bloc ne sont JAMAIS rejoués par le chemin automatique :
-        # la génération les a déjà retentés une fois, et boucler dessus
-        # dépenserait sans rien garantir. Ils ne deviennent réparables que sur
-        # décision explicite — le bouton « corriger » du recontrôle, qui EST
-        # la reprise humaine que le manuel demande.
+        # Les CHECK de bloc ne sont pas rejoués par CETTE boucle : la
+        # génération les a déjà retentés une fois, et boucler dessus
+        # dépenserait sans rien garantir. Deux chemins les rendent
+        # réparables (`inclure_les_checks=True`) : le bouton « corriger » du
+        # recontrôle, et — depuis le 30/10/2026 — la relecture finale
+        # (`controle_final`), bornée à deux passes correctrices et au budget,
+        # qui rejuge chaque bloc réécrit sur son texte entier et trace chaque
+        # fermeture (`ferme_par`).
         if failure.check == _CHECK_BLOC and not inclure_les_checks:
             continue
         if failure.check != _CHECK_BLOC and not _is_regenerable(failure.check):
