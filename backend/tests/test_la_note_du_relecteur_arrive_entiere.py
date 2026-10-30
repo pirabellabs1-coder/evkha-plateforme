@@ -118,3 +118,29 @@ def test_une_note_courte_reste_identique() -> None:
     (premier, *_) = _check_blocs_evangeline(job)
 
     assert "Note du relecteur : Ch. 12 : une seule correction. " in premier.detail
+
+
+def test_la_note_survit_au_rangement_avant_la_reecriture() -> None:
+    """La troisième coupe, trouvée par la porte qualité du 30/10 : la consigne
+    est rangée dans `error_message` (`services.regenerer_chapitre`) puis
+    relue pour le prompt (`_motifs_stockes`). Elle y était coupée à 2 000.
+
+    Le chemin est rejoué tel quel : motif du gate → consigne de la relecture
+    finale → rangement → relecture → consigne du prompt.
+    """
+    from types import SimpleNamespace
+
+    from generation.chapitres.runner import _motifs_stockes, formater_motifs
+
+    job = _job()
+    _incident(job, _NOTE_BLOC_G)
+    motif_13 = next(e for e in _check_blocs_evangeline(job) if e.chapter_number == 13)
+    consigne_finale = consigne_de_correction([motif_13.detail])
+
+    chapitre: Any = SimpleNamespace(error_message=formater_motifs([consigne_finale]))
+    relus = _motifs_stockes(chapitre)
+
+    assert relus is not None
+    assert "retarde le chiffre d'affaires visé d'au moins six mois" in (
+        consigne_de_correction(relus)
+    )

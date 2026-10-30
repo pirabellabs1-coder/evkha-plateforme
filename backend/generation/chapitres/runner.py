@@ -3022,4 +3022,13 @@ def _motifs_stockes(chapter: ChapterGeneration) -> list[str] | None:
 
 
 def formater_motifs(motifs: list[str]) -> str:
-    return (_PREFIXE_MOTIFS + " ; ".join(motifs))[:2000]
+    """Les motifs, ENTIERS : ils sont relus tels quels comme consigne.
+
+    La chaîne était coupée à 2 000 caractères. C'est par ici que passe la
+    consigne de la relecture finale (`regenerer_chapitre`) : une note de
+    relecteur de 3 000 caractères perdait ses derniers points — ceux des
+    derniers chapitres du bloc — et le relecteur les retrouvait « encore
+    présents » à la passe suivante (`bc694571`, 30/10/2026). `error_message`
+    est un champ texte sans borne.
+    """
+    return _PREFIXE_MOTIFS + " ; ".join(motifs)
