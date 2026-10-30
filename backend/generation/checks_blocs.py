@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from django.conf import settings
@@ -818,7 +819,10 @@ __all__ = [
 
 
 def rejouer_les_checks_ouverts(
-    job: GenerationJob, *, client: ClaudeClient | None = None
+    job: GenerationJob,
+    *,
+    client: ClaudeClient | None = None,
+    chapitres_reecrits: Iterable[int] | None = None,
 ) -> int:
     """Rejoue les CHECK dont l'incident est encore ouvert, ferme ceux qui passent.
 
@@ -836,10 +840,14 @@ def rejouer_les_checks_ouverts(
     Retourne le nombre d'incidents fermés. Un CHECK qui échoue encore garde
     son incident ouvert ET met à jour sa note : relire une note périmée ferait
     chercher dans le document un défaut qui n'y est plus (règle 2).
+
+    `chapitres_reecrits` borne le rejeu aux blocs dont un chapitre vient
+    d'être réécrit : rejuger un bloc que rien n'a touché paierait un relecteur
+    pour le même verdict. `None` rejoue tout (bouton « corriger »).
     """
     from monitoring.models import IncidentStatus, OperationalIncident  # noqa: PLC0415
 
-    client = client or get_claude_client()
+    touches = None if chapitres_reecrits is None else set(chapitres_reecrits)
     fermes = 0
 
     ouverts = OperationalIncident.objects.filter(
@@ -852,6 +860,11 @@ def rejouer_les_checks_ouverts(
         bloc = BLOCS_PAR_IDENTIFIANT.get(str(details.get("bloc", "")))
         if bloc is None or not bloc.chapitres:
             continue
+        if touches is not None and not touches.intersection(bloc.chapitres):
+            continue
+        # Le client n'est créé qu'au premier bloc à rejuger : sans bloc
+        # concerné, aucun appel ni aucune connexion.
+        client = client or get_claude_client()
 
         chapitres = list(
             job.chapters.filter(chapter_number__in=bloc.chapitres)

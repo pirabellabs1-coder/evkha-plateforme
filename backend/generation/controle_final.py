@@ -71,11 +71,19 @@ REPARABLES_PAR_CHAPITRE = frozenset({
     "densite",
 })
 
-#: Deux passes. La première corrige, la seconde VÉRIFIE la correction sur le
-#: fichier — et corrige ce qu'elle trouve encore. Au-delà, l'expérience de la
-#: boucle de correction est nette : ce qui revient deux fois à l'identique ne
-#: part pas au troisième essai, il coûte seulement une génération de plus.
-MAX_PASSES = 2
+#: Trois lectures : deux qui corrigent, la dernière qui VÉRIFIE.
+#:
+#: Il y en avait deux, et la seconde ne faisait que constater : une seule passe
+#: corrigeait, au plus `MAX_CHAPITRES_PAR_PASSE` chapitres pris dans l'ordre
+#: des numéros. Mesuré sur l'étude IA `03ba4f93` (30/10/2026) : chapitres 1 à 8
+#: réécrits, les chapitres 9 à 22 jamais — l'entonnoir faux du chapitre 9, le
+#: revenu des années 1 à 3 du chapitre 22 sont partis tels quels.
+#:
+#: Ce qui revient à l'IDENTIQUE ne repart pas pour autant au deuxième essai
+#: (voir `relire_et_corriger`) : l'expérience de la boucle de correction est
+#: nette, un même motif ne part pas au troisième essai, il coûte seulement une
+#: génération de plus.
+MAX_PASSES = 3
 
 #: Chapitres réécrits par passe. Le même plafond que la boucle de correction :
 #: au-delà, ce n'est plus une correction, c'est une régénération déguisée.
@@ -331,6 +339,8 @@ def relire_et_corriger(
     # (règle 9 : le contrôle et sa réparation ne regardaient pas la même chose).
     _refaire_les_chapitres_manquants(job, rapport, client=client)
 
+    #: La consigne donnée à chaque chapitre réécrit, pour ne pas la redonner.
+    consignes_donnees: dict[int, list[str]] = {}
     for passe in range(1, max_passes + 1):
         try:
             # AUCUN incident de réserves ici. La livraison assemble le même
@@ -375,6 +385,22 @@ def relire_et_corriger(
         par_chapitre = _motifs_par_chapitre(_reparables(anomalies))
         for numero, motifs in _motifs_du_gate(echecs_du_gate).items():
             par_chapitre.setdefault(numero, []).extend(motifs)
+        # Un chapitre dont TOUS les motifs figuraient déjà dans sa consigne
+        # précédente ne repart pas : le même reproche à la même version ne
+        # donne pas un autre texte. Un motif NOUVEAU ou RAFRAÎCHI (le
+        # relecteur rejugé à la passe d'avant) le relance — c'est une nouvelle
+        # consigne.
+        a_retenter = {
+            numero: motifs
+            for numero, motifs in par_chapitre.items()
+            if not set(motifs) <= set(consignes_donnees.get(numero, ()))
+        }
+        if par_chapitre and not a_retenter:
+            rapport.motif_d_arret = (
+                "les motifs restants ont déjà été tentés à l'identique"
+            )
+            return rapport
+        par_chapitre = a_retenter
         if not par_chapitre:
             rapport.motif_d_arret = (
                 "gate illisible — aucune anomalie réparable parmi celles lues"
@@ -392,8 +418,17 @@ def relire_et_corriger(
         # Par GRAVITÉ, puis par numéro : les chapitres désignés par le gate
         # passent dans l'ordre de `_CHECK_PRIORITY`, avant ceux que seule la
         # lecture du fichier désigne. Voir `_priorites_du_gate`.
+        #
+        # À gravité égale, un chapitre JAMAIS réécrit passe devant un chapitre
+        # déjà repris : sans cela, la seconde passe reprenait les mêmes huit
+        # premiers numéros, et la fin du document — les conclusions chiffrées —
+        # n'était jamais corrigée (`03ba4f93`).
         priorites = _priorites_du_gate(echecs_du_gate)
-        ordre = sorted(par_chapitre, key=lambda n: (priorites.get(n, 10_000), n))
+        ordre = sorted(
+            par_chapitre,
+            key=lambda n: (priorites.get(n, 10_000), n in consignes_donnees, n),
+        )
+        reecrits_cette_passe: list[int] = []
         for numero in ordre[:MAX_CHAPITRES_PAR_PASSE]:
             if budget_restant(job) < MARGE_DE_BUDGET:
                 rapport.motif_d_arret = "budget du dossier épuisé"
@@ -420,13 +455,46 @@ def relire_et_corriger(
                 # était la version incomplète du correctif (règle 4) : trois
                 # autres appelants réécrivent aussi.
                 continue
-            rapport.chapitres_reecrits.append(numero)
+            consignes_donnees[numero] = par_chapitre[numero]
+            reecrits_cette_passe.append(numero)
+            if numero not in rapport.chapitres_reecrits:
+                rapport.chapitres_reecrits.append(numero)
 
-        if not rapport.chapitres_reecrits:
+        if not reecrits_cette_passe:
             rapport.motif_d_arret = "aucun chapitre n'a pu être réécrit"
             return rapport
 
+        _rejuger_les_blocs(job, reecrits_cette_passe, client=client)
+
     return rapport
+
+
+def _rejuger_les_blocs(job: GenerationJob, chapitres: list[int], *, client: Any) -> None:
+    """Rejoue le CHECK des blocs dont un chapitre vient d'être réécrit.
+
+    Le gate lit les incidents CHECK OUVERTS. Sans ce rejeu, un bloc corrigé
+    restait bloqué sur son verdict d'avant : sur `03ba4f93` (30/10/2026), les
+    phrases reprochées au bloc E avaient quitté le document, et le bloc
+    comptait toujours parmi les 22 motifs de blocage. Le rejeu existait — mais
+    derrière le seul bouton « corriger » (`tasks._corriger_et_juger`), le
+    défaut que `cc0dfe14` avait mesuré le 11/08 (règle 9 : une réparation qui
+    n'atteint pas ce qui juge).
+
+    Un CHECK qui échoue encore rafraîchit sa note : la passe suivante corrige
+    sur ce que le relecteur voit MAINTENANT. Une panne ici ne coûte qu'un
+    blocage conservé — jamais la livraison.
+    """
+    if not chapitres:
+        return
+    from .checks_blocs import rejouer_les_checks_ouverts  # noqa: PLC0415
+    from .cost import budget_restant  # noqa: PLC0415
+
+    if budget_restant(job) < MARGE_DE_BUDGET:
+        return
+    try:
+        rejouer_les_checks_ouverts(job, client=client, chapitres_reecrits=chapitres)
+    except Exception:  # noqa: BLE001 — un rejeu raté garde l'incident ouvert, rien de plus
+        _log.exception("Relecture finale : rejeu des CHECK impossible (job %s)", job.id)
 
 
 def relire_avant_envoi(job: GenerationJob, *, client: Any = None) -> RapportRelecture:
