@@ -919,11 +919,26 @@ def rejouer_les_checks_ouverts(
         resultat = check_bloc(
             job, bloc, chapitres, client=client, note_precedente=note_d_avant
         )
+        # Chaque note remplacée est GARDÉE, avec ce qui l'a remplacée. Sans
+        # elle, un « défaut de la note précédente encore présent » ne se
+        # vérifiait pas : on ne pouvait plus dire si le point avait été
+        # transmis au rédacteur, transmis et ignoré, ou s'il était nouveau
+        # (`bc694571`, 30/10/2026 — la note d'avant était écrasée).
+        historique = [
+            *details.get("historique_notes", []),
+            {
+                "note": note_d_avant,
+                "remplacee_le": timezone.now().isoformat(),
+                "par": ferme_par,
+                "verdict": "pass" if resultat.est_ok else "fix",
+            },
+        ]
         if resultat.est_ok:
             incident.status = IncidentStatus.RESOLVED
             incident.resolved_at = timezone.now()
             incident.details = {
                 **details, "ferme_par": ferme_par, "note_levee": note_d_avant,
+                "historique_notes": historique,
             }
             incident.save(update_fields=["status", "resolved_at", "details"])
             fermes += 1
@@ -931,7 +946,11 @@ def rejouer_les_checks_ouverts(
 
         # Toujours en échec : la note du relecteur est RAFRAÎCHIE sur le
         # document tel qu'il est maintenant.
-        incident.details = {**details, "note_corrective": resultat.note_corrective}
+        incident.details = {
+            **details,
+            "note_corrective": resultat.note_corrective,
+            "historique_notes": historique,
+        }
         incident.save(update_fields=["details"])
 
     return fermes

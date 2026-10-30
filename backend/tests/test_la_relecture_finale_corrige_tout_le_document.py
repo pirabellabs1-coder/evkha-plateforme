@@ -367,3 +367,56 @@ def test_sans_bloc_touche_aucun_client_n_est_cree(
     monkeypatch.setattr(checks_blocs, "get_claude_client", _interdit)
 
     assert checks_blocs.rejouer_les_checks_ouverts(job, chapitres_reecrits=[15]) == 0
+
+
+# ── L'historique des notes ───────────────────────────────────────────────────
+
+
+def _rejouer_avec(job: Any, monkeypatch: pytest.MonkeyPatch, verdicts: list[str]) -> Any:
+    """Rejoue le bloc E autant de fois que de verdicts ; rend l'incident."""
+    from generation import checks_blocs
+    from generation.models import ChapterStatus
+
+    job.chapters.filter(chapter_number__in=[7, 8]).update(status=ChapterStatus.DONE)
+    incident = _incident(job, "E")
+    restants = list(verdicts)
+
+    def _check(job: Any, bloc: Any, chapitres: Any, **k: Any) -> Any:
+        verdict = restants.pop(0)
+        return checks_blocs.CheckResult(
+            bloc_identifiant=bloc.identifiant, verdict=verdict,
+            note_corrective=f"note {len(verdicts) - len(restants)}" if verdict == "fix" else "",
+        )
+
+    monkeypatch.setattr(checks_blocs, "check_bloc", _check)
+    monkeypatch.setattr(checks_blocs, "get_claude_client", lambda: object())
+    for _ in verdicts:
+        checks_blocs.rejouer_les_checks_ouverts(
+            job, chapitres_reecrits=[7], ferme_par="relecture finale (automatique)",
+        )
+    incident.refresh_from_db()
+    return incident
+
+
+def test_une_note_rafraichie_garde_la_precedente(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LE manque de `bc694571` : la note d'avant était écrasée, et « défaut
+    encore présent » ne se vérifiait plus. Sur le code d'avant, aucun historique."""
+    incident = _rejouer_avec(job, monkeypatch, ["fix", "fix"])
+
+    assert incident.details["note_corrective"] == "note 2"
+    notes = [entree["note"] for entree in incident.details["historique_notes"]]
+    assert notes == ["x", "note 1"]
+    assert all(e["verdict"] == "fix" for e in incident.details["historique_notes"])
+
+
+def test_un_bloc_leve_garde_tout_son_historique(
+    job: Any, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident = _rejouer_avec(job, monkeypatch, ["fix", "pass"])
+
+    historique = incident.details["historique_notes"]
+    assert [e["note"] for e in historique] == ["x", "note 1"]
+    assert historique[-1]["verdict"] == "pass"
+    assert historique[-1]["par"] == "relecture finale (automatique)"
