@@ -20,7 +20,10 @@ from __future__ import annotations
 
 import io
 import re
+import threading
 from collections.abc import Sequence
+from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 from docx.document import Document as DocumentWord
@@ -119,9 +122,21 @@ def _bordures(table: Table, couleur: str | None, epaisseur: int = 4) -> None:
     proprietes.append(bordures)
 
 
-def marges_cellules(table: Table, haut: int = 80, cote: int = 120) -> None:
-    """Marges intérieures, en twips."""
+def marges_cellules(
+    table: Table, haut: int = 80, cote: int = 120, *, remplacer: bool = False
+) -> None:
+    """Marges intérieures, en twips.
+
+    `remplacer` retire d'abord les marges déjà posées par `_table`. Le tableau
+    de données en a besoin : ses largeurs sont calculées sur SES marges, et
+    deux `w:tblCellMar` laissent le lecteur choisir. Les autres composants
+    gardent leur rendu actuel — les changer sans mesure déplacerait leurs
+    libellés (relecture du 30/10/2026).
+    """
     proprietes = table._tbl.tblPr
+    if remplacer:
+        for existant in proprietes.findall(qn("w:tblCellMar")):
+            proprietes.remove(existant)
     marges = proprietes.makeelement(qn("w:tblCellMar"), {})
     for nom, valeur in (("top", haut), ("bottom", haut), ("left", cote), ("right", cote)):
         marges.append(
@@ -183,6 +198,23 @@ def garder_avec_la_suite(paragraphe: Any) -> None:
     paragraphe.paragraph_format.keep_together = True
 
 
+def _grille(table: Table, largeurs: Sequence[int]) -> None:
+    """Largeurs de la GRILLE (`w:gridCol`), les mêmes que celles des cellules.
+
+    `add_table` pose une grille à parts égales. Word lit les cellules,
+    LibreOffice — qui fabrique le PDF livré — lit la grille : jusqu'au
+    30/10/2026, le PDF montrait donc des colonnes égales quel que soit leur
+    contenu, et le correctif « tableaux trop étroits » du 09/08 n'y avait
+    jamais eu d'effet. Relevé par la cliente le 29/10 : « des troncatures au
+    niveau de certains tableaux » — neuf colonnes de 2,1 cm, mots coupés en
+    deux (« recommandati-ons »).
+    """
+    for colonne, largeur in zip(
+        table._tbl.tblGrid.findall(qn("w:gridCol")), largeurs, strict=True
+    ):
+        colonne.set(qn("w:w"), str(largeur))
+
+
 def _table(
     document: DocumentWord, lignes: int, colonnes: int, largeurs: Sequence[int]
 ) -> Table:
@@ -208,6 +240,7 @@ def _ecrire(
     couleur: str | None = None,
     gras: bool | None = None,
     premier: bool = True,
+    taille: float | None = None,
 ) -> None:
     paragraphe = cellule.paragraphs[0] if premier else cellule.add_paragraph()
     paragraphe.style = style
@@ -217,6 +250,8 @@ def _ecrire(
         run.font.color.rgb = _rgb(couleur)
     if gras is not None:
         run.font.bold = gras
+    if taille is not None:
+        run.font.size = Pt(taille)
 
 
 def saut_de_page(document: DocumentWord) -> None:
@@ -654,7 +689,10 @@ _PART_MAX = 0.34
 
 
 def _largeurs(
-    entetes: Sequence[str], lignes: Sequence[Sequence[str]], colonnes: int
+    entetes: Sequence[str],
+    lignes: Sequence[Sequence[str]],
+    colonnes: int,
+    forme: FormeDeTableau | None = None,
 ) -> list[int]:
     """Largeur de chaque colonne, PROPORTIONNELLE à ce qu'elle porte.
 
@@ -677,6 +715,13 @@ def _largeurs(
     borne ensuite chaque part entre un plancher et un plafond, puis on
     renormalise pour que la somme fasse exactement la largeur utile : sans cette
     dernière étape, les bornes feraient déborder ou rétrécir le tableau.
+
+    ## Aucun mot coupé (30/10/2026)
+
+    La proportion seule laissait une colonne « Priorité » à 1,1 cm, plus
+    étroite que le mot « Priorité » : le moteur le coupait lettre à lettre.
+    Chaque colonne est désormais relevée au moins à son mot le plus long
+    (`_planchers`), en prenant la place sur les colonnes qui en ont de trop.
     """
     textes: list[int] = []
     for index in range(colonnes):
@@ -693,7 +738,236 @@ def _largeurs(
         min(max(poids / total, _PART_MIN), _PART_MAX) for poids in textes
     ]
     somme = sum(parts)
-    return [max(int(LARGEUR_UTILE_DXA * part / somme), 1) for part in parts]
+    largeurs = [max(int(LARGEUR_UTILE_DXA * part / somme), 1) for part in parts]
+    return _relever_aux_planchers(
+        largeurs,
+        _planchers(entetes, lignes, colonnes, forme or FORME_TABLEAU_CONFORTABLE),
+    )
+
+
+# ── 5 bis. Aucun mot coupé ───────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class FormeDeTableau:
+    """Corps du texte (pt) et marge intérieure gauche ET droite (DXA).
+
+    La même forme pose le texte, les marges, et entre dans le calcul des
+    planchers : deux écritures auraient divergé (règle 5).
+    """
+
+    taille: float
+    marge: int
+
+
+#: Du plus confortable au plus serré. Les marges passent avant le dernier
+#: demi-point : sur neuf colonnes, 2 × 140 DXA de marge par colonne prennent
+#: le quart de la page, plus qu'un corps de 7 pt n'en rend.
+_FORMES_TABLEAU = (
+    FormeDeTableau(9.0, 140),
+    FormeDeTableau(8.5, 140),
+    FormeDeTableau(8.0, 140),
+    FormeDeTableau(8.0, 80),
+    FormeDeTableau(7.5, 80),
+    FormeDeTableau(7.0, 80),
+    FormeDeTableau(7.0, 50),
+)
+FORME_TABLEAU_CONFORTABLE = _FORMES_TABLEAU[0]
+
+#: Jeu ajouté au mot le plus long : approche et crénage du moteur de rendu.
+_JEU_DXA = 60
+
+_POLICES_DE_MESURE: dict[bool, Any] = {}
+
+
+def _police_de_mesure(gras: bool) -> Any:
+    """DejaVu Serif, livrée avec matplotlib : la police du PDF livré.
+
+    Le gabarit demande Aptos, absente du serveur ; LibreOffice la remplace par
+    DejaVu Serif (constaté dans le PDF de `99a142b0`), plus large. Mesurer
+    avec elle est donc le cas le plus défavorable : ce qui tient en DejaVu
+    tient aussi en Aptos sous Word.
+    """
+    if gras not in _POLICES_DE_MESURE:
+        from pathlib import Path  # noqa: PLC0415
+
+        import matplotlib  # noqa: PLC0415
+        from matplotlib.ft2font import FT2Font  # noqa: PLC0415
+
+        nom = "DejaVuSerif-Bold.ttf" if gras else "DejaVuSerif.ttf"
+        _POLICES_DE_MESURE[gras] = FT2Font(
+            str(Path(matplotlib.get_data_path()) / "fonts" / "ttf" / nom)
+        )
+    return _POLICES_DE_MESURE[gras]
+
+
+_VERROU_DE_MESURE = threading.Lock()
+
+#: Résolution de mesure. À 72 ppp, FreeType arrondit chaque glyphe au point
+#: entier : jusqu'à 11 % d'écart, dans les deux sens (relecture du 30/10).
+_PPP_DE_MESURE = 7200
+
+
+@lru_cache(maxsize=4096)
+def _largeur_du_mot(mot: str, gras: bool, taille: float) -> int:
+    """Largeur imprimée d'un mot, en DXA (1 pt = 20 DXA)."""
+    with _VERROU_DE_MESURE:  # une police partagée change d'état à chaque mesure
+        police = _police_de_mesure(gras)
+        police.set_size(taille, _PPP_DE_MESURE)
+        police.set_text(mot)
+        largeur = police.get_width_height()[0]
+    return int(largeur / 64 * 72 / _PPP_DE_MESURE * 20)
+
+
+#: Où le moteur peut passer à la ligne sans couper de mot : les espaces
+#: SÉCABLES — jamais l'insécable d'un montant, « 1 250 000 € » est un seul
+#: bloc — et juste après un trait d'union ou une barre oblique qui ne précède
+#: pas un chiffre (« 2026-2030 » ne se coupe pas). C'est ainsi que les
+#: adresses web des tableaux de sources se replient proprement (PDF de
+#: `99a142b0`, chapitre 21).
+_COUPURES_PERMISES = re.compile(r"[ \t\r\n]+|(?<=[-/])(?!\d)")
+
+
+def _plus_long_mot(texte: str, gras: bool, taille: float) -> int:
+    return max(
+        (
+            _largeur_du_mot(mot, gras, taille)
+            for mot in _COUPURES_PERMISES.split(texte)
+            if mot
+        ),
+        default=0,
+    )
+
+
+def _planchers(
+    entetes: Sequence[str],
+    lignes: Sequence[Sequence[str]],
+    colonnes: int,
+    forme: FormeDeTableau,
+) -> list[int]:
+    """Largeur sous laquelle une colonne coupe un mot en deux.
+
+    Le moteur de rendu ne coupe pas un mot qui tient : il ne le coupe, lettre
+    à lettre, que lorsque la colonne est plus étroite que lui. Le plancher est
+    donc le mot le plus long de la colonne — en-tête en gras compris — plus
+    les deux marges intérieures.
+    """
+    planchers = []
+    for index in range(colonnes):
+        mot = _plus_long_mot(
+            entetes[index] if index < len(entetes) else "", True, forme.taille
+        )
+        for ligne in lignes:
+            if index < len(ligne):
+                mot = max(mot, _plus_long_mot(ligne[index], False, forme.taille))
+        # Un « mot » plus large que le plafond d'une colonne — une référence
+        # sans espace, une suite de caractères — sera coupé quoi qu'on fasse :
+        # le laisser réclamer davantage écraserait ses voisines pour rien.
+        planchers.append(
+            min(mot + 2 * forme.marge + _JEU_DXA, int(LARGEUR_UTILE_DXA * _PART_MAX))
+        )
+    return planchers
+
+
+def _relever_aux_planchers(largeurs: list[int], planchers: list[int]) -> list[int]:
+    """Porte chaque colonne à son plancher, en prenant sur celles qui ont de la marge.
+
+    Le total reste la largeur utile. Si les planchers ne tiennent pas ensemble
+    — ce que `forme_du_tableau` évite en resserrant le tableau — on les
+    répartit au prorata : des mots coupés partout plutôt qu'un tableau hors de
+    la page.
+    """
+    if sum(planchers) >= LARGEUR_UTILE_DXA:
+        total = sum(planchers)
+        resultat = [max(int(LARGEUR_UTILE_DXA * p / total), 1) for p in planchers]
+    else:
+        resultat = _prendre_sur_le_surplus(largeurs, planchers)
+    # L'arrondi laisse quelques DXA de trop ou de moins. Un manque va à la
+    # colonne la plus à l'aise ; un excès se retire DXA par DXA des colonnes
+    # au-dessus de leur plancher, pour n'en faire passer aucune dessous.
+    reste = LARGEUR_UTILE_DXA - sum(resultat)
+    ordre = sorted(
+        range(len(resultat)), key=lambda i: resultat[i] - planchers[i], reverse=True
+    )
+    if reste >= 0:
+        resultat[ordre[0]] += reste
+    for index in ordre:
+        if reste >= 0:
+            break
+        retrait = min(-reste, max(resultat[index] - planchers[index], 0))
+        resultat[index] -= retrait
+        reste += retrait
+    if reste < 0:  # planchers infaisables : la plus large paie le solde
+        resultat[resultat.index(max(resultat))] += reste
+    return resultat
+
+
+def _prendre_sur_le_surplus(largeurs: list[int], planchers: list[int]) -> list[int]:
+    resultat = list(largeurs)
+    while True:
+        manque = sum(
+            plancher - largeur
+            for largeur, plancher in zip(resultat, planchers, strict=True)
+            if largeur < plancher
+        )
+        if manque <= 0:
+            break
+        resultat = [max(largeur, plancher) for largeur, plancher in zip(
+            resultat, planchers, strict=True
+        )]
+        surplus = [
+            largeur - plancher
+            for largeur, plancher in zip(resultat, planchers, strict=True)
+        ]
+        disponible = sum(surplus)
+        resultat = [
+            largeur - int(manque * reste / disponible) if reste > 0 else largeur
+            for largeur, reste in zip(resultat, surplus, strict=True)
+        ]
+    return resultat
+
+
+def forme_du_tableau(
+    entetes: Sequence[str], lignes: Sequence[Sequence[str]]
+) -> FormeDeTableau:
+    """La forme la plus confortable à laquelle aucun mot du tableau n'est coupé.
+
+    Neuf colonnes de mots longs (« Indicateur de réussite », « recommandations »)
+    ne tiennent pas toutes en 17 cm à 9 pt. Resserrer ce seul tableau garde les
+    mots entiers ; en dessous de 7 pt, on ne lit plus — on s'arrête là.
+    """
+    for forme in _FORMES_TABLEAU:
+        if _tient(entetes, lignes, forme):
+            return forme
+    return _FORMES_TABLEAU[-1]
+
+
+def _tient(
+    entetes: Sequence[str], lignes: Sequence[Sequence[str]], forme: FormeDeTableau
+) -> bool:
+    colonnes = max(len(entetes), 1)
+    return sum(_planchers(entetes, lignes, colonnes, forme)) <= LARGEUR_UTILE_DXA
+
+
+def _en_deux(
+    entetes: Sequence[str], lignes: Sequence[Sequence[str]]
+) -> list[tuple[list[str], list[list[str]]]]:
+    """Deux tableaux qui reprennent chacun la première colonne.
+
+    Le dernier recours, quand même la forme la plus serrée coupe des mots :
+    neuf colonnes dont chacune porte un mot de dix lettres ne tiennent pas en
+    17 cm (2 tableaux sur 1 226 dans le corpus du 30/10/2026). La première
+    colonne nomme la ligne — sans elle, la seconde moitié ne se lit pas.
+    """
+    reste = list(range(1, len(entetes)))
+    moitie = (len(reste) + 1) // 2
+    parties = []
+    for groupe in (reste[:moitie], reste[moitie:]):
+        indices = [0, *groupe]
+        parties.append((
+            [entetes[i] for i in indices],
+            [[ligne[i] if i < len(ligne) else "" for i in indices] for ligne in lignes],
+        ))
+    return parties
 
 
 def tableau(
@@ -711,6 +985,21 @@ def tableau(
     passé comme SOURCE, et se serait lu « Source : Diagnostic de maturité »
     depuis que les sources s'annoncent (29/09/2026).
     """
+    if len(entetes) > 2 and not _tient(entetes, lignes, _FORMES_TABLEAU[-1]):
+        parties = _en_deux(entetes, lignes)
+        for rang, (entetes_partie, lignes_partie) in enumerate(parties):
+            tableau(
+                document,
+                palette,
+                entetes_partie,
+                lignes_partie,
+                source=source if rang == len(parties) - 1 else "",
+                # La seconde moitié se dit suite de la première ; sans titre,
+                # la première colonne reprise suffit à les relier.
+                titre=titre if rang == 0 or not titre else f"{titre} (suite)",
+            )
+        return
+
     if titre:
         p = document.add_paragraph(style=STYLE_LEGENDE)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -723,11 +1012,16 @@ def tableau(
         garder_avec_la_suite(p)
 
     colonnes = max(len(entetes), 1)
-    table = _table(
-        document, 1 + len(lignes), colonnes, _largeurs(entetes, lignes, colonnes)
-    )
+    forme = forme_du_tableau(entetes, lignes)
+    taille = forme.taille
+    largeurs = _largeurs(entetes, lignes, colonnes, forme)
+    table = _table(document, 1 + len(lignes), colonnes, largeurs)
+    # La grille seulement ici : c'est le seul composant dont les largeurs sont
+    # calculées pour que chaque mot tienne. Ailleurs, aligner la grille sur des
+    # largeurs fixes réduirait l'étiquette d'un encadré sous « RECOMMANDATION ».
+    _grille(table, largeurs)
     _bordures(table, palette.fond_clair_alt, epaisseur=4)
-    marges_cellules(table, haut=90, cote=140)
+    marges_cellules(table, haut=90, cote=forme.marge, remplacer=True)
     # Seul le tableau de DONNÉES a une ligne d'en-tête à redonner : les autres
     # composants passant par `_table` (encadré, grille de chiffres) n'en ont pas.
     ne_pas_fractionner(table, entete_repetee=True)
@@ -737,7 +1031,7 @@ def tableau(
         fond_cellule(cellule, palette.fond_bandeau)
         _ecrire(
             cellule, intitule, STYLE_TABLEAU_ENTETE,
-            couleur=palette.texte_sur_primaire, gras=True,
+            couleur=palette.texte_sur_primaire, gras=True, taille=taille,
         )
 
     for numero, ligne in enumerate(lignes):
@@ -749,6 +1043,7 @@ def tableau(
                 ligne[index] if index < len(ligne) else "",
                 STYLE_TABLEAU_CELLULE,
                 couleur=palette.texte_corps,
+                taille=taille,
             )
 
     if source:
