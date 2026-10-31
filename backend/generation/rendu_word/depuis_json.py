@@ -485,13 +485,6 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
     return destination
 
 
-#: Le chiffre et son unité, séparés par une espace ordinaire.
-_ESPACE_AVANT_L_UNITE = re.compile(r"(?<=\d)[ \t]+(?=(?:%|€|k€|M€|Md€)(?!\w))")
-#: Le même cas quand le chiffre finit un morceau de texte et l'unité ouvre le
-#: suivant : « 23,4 » | « % par an ».
-_UNITE_EN_TETE = re.compile(r"^[ \t]+(?=(?:%|€|k€|M€|Md€)(?!\w))")
-
-
 def poser_les_insecables(document: DocumentWord) -> int:
     """Une insécable entre chaque nombre et son « € » ou « % », dans tout le Word.
 
@@ -503,26 +496,42 @@ def poser_les_insecables(document: DocumentWord) -> int:
     c'est donc là qu'il se corrige, une seule fois pour tous les chemins
     (règle 3 : ce que le lecteur lit, pas ce qu'on a envoyé au rendu).
 
+    Le motif est celui de la typographie (`AVANT_L_UNITE`, règle 5). Il se lit
+    sur le texte ENTIER du paragraphe, recomposé de ses morceaux : le nombre,
+    l'espace et l'unité tombent souvent dans des morceaux différents (« 30 000 »
+    | « ␠ » | « € HT »). Corps du document, en-têtes et pieds de page.
+
     Idempotente. Rend le nombre d'espaces remplacées.
     """
     from docx.oxml.ns import qn  # noqa: PLC0415
 
+    from generation.chapitres.typographie import AVANT_L_UNITE  # noqa: PLC0415
     from generation.socle.schema import INSECABLE  # noqa: PLC0415
 
+    racines = [document.element.body]
+    for section in document.sections:
+        for zone in (section.header, section.footer):
+            racines.append(zone._element)  # noqa: SLF001 — python-docx n'expose pas mieux
+
     remplacees = 0
-    for paragraphe in document.element.body.iter(qn("w:p")):
-        precedent = None
-        for noeud in paragraphe.iter(qn("w:t")):
-            texte = noeud.text or ""
-            nouveau, n = _ESPACE_AVANT_L_UNITE.subn(INSECABLE, texte)
-            if precedent is not None and (precedent.text or "")[-1:].isdigit():
-                nouveau, m = _UNITE_EN_TETE.subn(INSECABLE, nouveau)
-                n += m
-            if n:
-                noeud.text = nouveau
-                remplacees += n
-            if nouveau:
-                precedent = noeud
+    for racine in racines:
+        for paragraphe in racine.iter(qn("w:p")):
+            noeuds = list(paragraphe.iter(qn("w:t")))
+            textes = [n.text or "" for n in noeuds]
+            positions: set[int] = set()
+            for trouve in AVANT_L_UNITE.finditer("".join(textes)):
+                positions.update(range(trouve.start(), trouve.end()))
+            if not positions:
+                continue
+            decalage = 0
+            for noeud, texte in zip(noeuds, textes, strict=True):
+                if any(decalage <= p < decalage + len(texte) for p in positions):
+                    noeud.text = "".join(
+                        INSECABLE if decalage + i in positions else c
+                        for i, c in enumerate(texte)
+                    )
+                decalage += len(texte)
+            remplacees += len(positions)
     return remplacees
 
 

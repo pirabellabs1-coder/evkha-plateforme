@@ -95,7 +95,12 @@ def sans_accents(mot: str) -> str:
 
 
 def accent_final_seulement(mot: str) -> bool:
-    """L'accent ne porte-t-il QUE sur la dernière lettre ?
+    """Le seul accent du mot est-il un « é » final, ou suivi d'un seul « s » ?
+
+    Le pluriel est exempté depuis le 31/10/2026 : « commandes » / « commandés »,
+    « limites » / « limités » sont deux mots justes. Le prix, connu et accepté :
+    un « és » final écrit sans accent par erreur (« les prix fixes » pour
+    « fixés ») n'est plus signalé — faux négatif préféré au faux motif (règle 2).
 
     C'est la question qui rend tout ceci utilisable en français. « marche » et
     « marché », « entre » et « entré », « note » et « noté », « cible » et

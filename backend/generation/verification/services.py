@@ -217,8 +217,10 @@ def _mesurer_l_objet_des_chiffres(rapport: RapportControle, document: DocumentLu
     """« Il reprend le même chiffre, mais pas la même destination » (cliente,
     29/10/2026). Voir `objet_des_chiffres`.
 
-    MESURE SEULE : avertissement ou information, et le contrôle n'est pas dans
-    `REPARABLES_PAR_CHAPITRE` — il ne bloque rien et ne fait rien réécrire.
+    Avertissement ou information, jamais blocage. Le GLISSEMENT de population
+    (`CONTROLE_GLISSEMENT`) est dans `REPARABLES_PAR_CHAPITRE` depuis le
+    31/10/2026 : il fait réécrire le chapitre fautif. L'objet changé et la
+    répétition restent en mesure seule.
 
     En DERNIER, à dessein : l'incident de réserves et `restantes` de la
     relecture finale sont tronqués à quarante lignes dans l'ordre d'insertion,

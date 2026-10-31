@@ -178,9 +178,15 @@ def _calcul_simple(a: Nombre, signe: str, b: Nombre) -> float | None:
 
 def _calcul_enchaine(termes: list[Nombre], signes: list[str]) -> float | None:
     """« 4 × 0,25 + 3 × 0,15 + … + 5 × 0,05 » : multiplications et divisions
-    d'abord, puis sommes et différences, comme le lecteur le calcule."""
+    d'abord, puis sommes et différences, comme le lecteur le calcule.
+
+    Un pourcentage ajouté ou retiré à un montant est une hausse ou une baisse
+    du total déjà formé (« 100 € − 10 % + 5 € = 95 € »), comme dans le cas
+    simple (`_calcul_simple`) — relecture du 31/10/2026.
+    """
+    montant = not termes[0].pourcentage
     valeurs = [_valeur_operande(termes[0])]
-    additifs: list[str] = []
+    groupes: list[tuple[str, bool]] = []
     for signe, terme in zip(signes, termes[1:], strict=True):
         famille, y = _famille(signe), _valeur_operande(terme)
         if famille == "×":
@@ -190,12 +196,21 @@ def _calcul_enchaine(termes: list[Nombre], signes: list[str]) -> float | None:
                 return None
             valeurs[-1] /= y
         else:
-            additifs.append(famille)
+            groupes.append((famille, montant and terme.pourcentage))
             valeurs.append(y)
     total = valeurs[0]
-    for famille, y in zip(additifs, valeurs[1:], strict=True):
-        total = total - y if famille == "−" else total + y
+    for (famille, taux), y in zip(groupes, valeurs[1:], strict=True):
+        if taux:
+            total = total * (1 - y) if famille == "−" else total * (1 + y)
+        else:
+            total = total - y if famille == "−" else total + y
     return total
+
+
+def _fourchette(phrase: str, a: Nombre, b: Nombre) -> bool:
+    """« 20-30 × 50 € » : un tiret COLLÉ entre deux nombres borne une
+    fourchette, ce n'est pas une soustraction (relecture du 31/10/2026)."""
+    return phrase[a.fin: b.debut] in ("-", "–")
 
 
 def _operations(document: Document) -> list[Constat]:
@@ -214,11 +229,18 @@ def _operations(document: Document) -> list[Constat]:
             lus = [n for n in nombres(phrase) if not est_une_annee(n)]
             debut = 0
             while debut < len(lus) - 2:
-                if debut and _OPERATEUR.match(phrase[lus[debut - 1].fin: lus[debut].debut]):
-                    debut += 1  # au milieu d'une expression déjà lue
+                if debut and (
+                    _fourchette(phrase, lus[debut - 1], lus[debut])
+                    or _OPERATEUR.match(phrase[lus[debut - 1].fin: lus[debut].debut])
+                ):
+                    # Au milieu d'une expression déjà lue, ou sur la borne
+                    # haute d'une fourchette : on ne juge pas une moitié.
+                    debut += 1
                     continue
                 termes, signes, fin = [lus[debut]], [], debut
                 while fin + 1 < len(lus):
+                    if _fourchette(phrase, lus[fin], lus[fin + 1]):
+                        break
                     operateur = _OPERATEUR.match(phrase[lus[fin].fin: lus[fin + 1].debut])
                     if not operateur:
                         break
@@ -238,7 +260,9 @@ def _operations(document: Document) -> list[Constat]:
                     if len(signes) == 1
                     else _calcul_enchaine(termes, signes)
                 )
-                debut = fin + 2
+                # Le résultat ouvre l'étape suivante d'un calcul posé pas à
+                # pas : « 10 000 € − 3 000 € = 7 000 € − 2 000 € = 5 000 € ».
+                debut = fin + 1
                 if calcul is None:
                     continue
                 attendu = _valeur_operande(c)

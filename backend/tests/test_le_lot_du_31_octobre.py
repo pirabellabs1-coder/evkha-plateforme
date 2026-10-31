@@ -72,6 +72,26 @@ def test_une_operation_simple_fausse_reste_signalee() -> None:
     assert len(_operations(_document("Le panier vaut 25 × 40 = 1 200 €."))) == 1
 
 
+def test_une_egalite_en_chaine_juge_chaque_etape() -> None:
+    """« a = b = c » : l'étape suivante repart APRÈS le résultat (relecture du
+    31/10). Une deuxième étape fausse se voit, une juste ne crie pas."""
+    assert _operations(_document("Soit 2 × 3 = 6 et 6 × 4 = 24.")) == []
+    assert len(_operations(_document("Soit 2 × 3 = 6 et 6 × 4 = 30."))) == 1
+
+
+def test_une_fourchette_n_est_pas_une_soustraction() -> None:
+    """« 10-15 % » est une fourchette : la lire « 10 − 15 » serait un faux calcul."""
+    assert _operations(_document("Une marge de 10-15 % = 12 % en moyenne.")) == []
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    ["Prix : 100 € − 10 % + 5 € = 95 €.", "Soit 45 € × 1 200 − 10 % = 48 600 €."],
+)
+def test_un_pourcentage_dans_une_chaine_s_applique_au_montant(phrase: str) -> None:
+    assert _operations(_document(phrase)) == []
+
+
 # ── 2. L'annonce qui parle d'un autre chapitre ───────────────────────────────
 
 
@@ -94,6 +114,11 @@ def test_une_annonce_du_chapitre_12_ne_se_compte_pas_au_13() -> None:
 def test_une_annonce_fausse_du_chapitre_reste_signalee() -> None:
     """CONTRE-ÉPREUVE : sans renvoi à un autre chapitre, dix pour sept se voit."""
     assert _comptage("Voici les dix risques de la carte.")
+
+
+def test_un_chapitre_cite_apres_l_annonce_ne_l_excuse_pas() -> None:
+    """CONTRE-ÉPREUVE : seul un renvoi AVANT l'annonce en change l'objet."""
+    assert _comptage("La carte place dix risques, détaillés au chapitre 12.")
 
 
 # ── 3. Les fausses fautes d'orthographe ──────────────────────────────────────
@@ -180,6 +205,32 @@ def test_le_word_ne_garde_aucune_espace_ordinaire_avant_l_unite() -> None:
     assert poser_les_insecables(document) == 0, "idempotente"
 
 
+def test_l_insecable_se_pose_a_travers_les_morceaux_et_en_pied_de_page() -> None:
+    """Relecture du 31/10 : espace en fin de morceau, espace seule dans son
+    morceau, espace fine sécable, pied de page."""
+    from docx import Document as DocumentWord
+
+    from generation.rendu_word.depuis_json import poser_les_insecables
+
+    document = DocumentWord()
+    fin = document.add_paragraph()
+    fin.add_run("soit 30 000 ")
+    fin.add_run("€ HT")
+    seule = document.add_paragraph()
+    for morceau in ("soit 30 000", " ", "€"):
+        seule.add_run(morceau)
+    document.add_paragraph("fine 30 000 €")
+    document.sections[0].footer.paragraphs[0].text = "dont 12 % du total"
+
+    assert poser_les_insecables(document) == 4
+    assert [p.text for p in document.paragraphs] == [
+        "soit 30 000 € HT", "soit 30 000 €", "fine 30 000 €",
+    ]
+    assert document.sections[0].footer.paragraphs[0].text == "dont 12 % du total"
+    # CONTRE-ÉPREUVE : l'espace fine ENTRE les milliers ne bouge pas.
+    assert "30 000" in document.paragraphs[2].text
+
+
 def test_la_passe_part_avant_l_enregistrement_de_l_etude() -> None:
     """Le câble, pas seulement la fonction (règle 8)."""
     import inspect
@@ -208,40 +259,27 @@ def test_le_glissement_fait_reecrire_son_chapitre() -> None:
 REGLEMENT = "règlement européen sur l'IA"
 
 
-@pytest.mark.parametrize(
-    ("avant", "apres"),
-    [
-        ("l'article 4 de l'AI Act oblige", f"l'article 4 du {REGLEMENT} oblige"),
-        ("Conformité à l'AI Act : faible", f"Conformité au {REGLEMENT} : faible"),
-        ("L'AI Act entre en application.", f"Le {REGLEMENT} entre en application."),
-        ("le règlement (UE) 2024/1689, appelé AI Act, qui s'applique",
-         "le règlement (UE) 2024/1689, qui s'applique"),
-        (f"le {REGLEMENT} (AI Act) s'applique", f"le {REGLEMENT} s'applique"),
-    ],
-)
-def test_ai_act_devient_le_reglement_europeen(avant: str, apres: str) -> None:
-    from generation.chapitres.langage_simple import simplifier_texte
-
-    def sans_ai_act(texte: str) -> str:
-        return simplifier_texte(texte, sigles_admis=True)
-
-    assert sans_ai_act(avant) == apres
-    assert sans_ai_act(apres) == apres, "idempotente"
-
-
-def test_un_autre_mot_en_act_ne_bouge_pas() -> None:
-    """CONTRE-ÉPREUVE."""
-    from generation.chapitres.langage_simple import simplifier_texte
-
-    assert simplifier_texte("un acte notarié et un impact réel", sigles_admis=True) == (
-        "un acte notarié et un impact réel"
-    )
+#: La réécriture automatique du texte a été RETIRÉE à la relecture du
+#: 31/10/2026 : elle abîmait des phrases justes (« l'AI Act » → « le règlement
+#: … » au milieu d'une élision, une parenthèse explicative effacée). Le nom
+#: français se demande au rédacteur, dans la charte.
 
 
 def test_la_charte_nomme_le_reglement_en_francais() -> None:
+    from generation.chapitres.langage_simple import REGLEMENT_IA
     from generation.chapitres.runner import _SYSTEME
 
+    assert REGLEMENT_IA == REGLEMENT
     assert f"« le {REGLEMENT} »" in _SYSTEME
+    assert "forces, faiblesses, opportunités et menaces" in _SYSTEME
+
+
+def test_le_texte_ecrit_n_est_plus_reecrit() -> None:
+    """CONTRE-ÉPREUVE de la réparation retirée : le texte du rédacteur reste le sien."""
+    from generation.chapitres.langage_simple import simplifier_texte
+
+    phrase = "le règlement (UE) 2024/1689, appelé AI Act, qui s'applique"
+    assert simplifier_texte(phrase, sigles_admis=True) == phrase
 
 
 # ── 8. Le chapitre des sources reçoit les sources citées ────────────────────
@@ -290,6 +328,8 @@ def test_le_chapitre_des_sources_recoit_les_sources_citees() -> None:
 
     assert "SOURCES CITÉES DANS L'ÉTUDE" in bloc
     assert "Insee (chapitre 4)" in bloc
+    # Le chapitre 15 n'est pas écrit : ses sources manquent, le bloc le dit.
+    assert "Chapitres pas encore écrits (15)" in bloc
     # CONTRE-ÉPREUVE : un chapitre qui n'est pas celui des sources ne reçoit rien.
     assert _bloc_sources_citees(autre) == ""
 

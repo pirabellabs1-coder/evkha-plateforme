@@ -324,7 +324,9 @@ def controler_objet_des_chiffres(document: DocumentLu) -> list[Anomalie]:
                     CONTROLE_GLISSEMENT, Gravite.AVERTISSEMENT,
                     f"Glissement : « {valeur} » compte « {modele.objet} » ailleurs "
                     f"(ch. {modele.chapitre or '—'}) et « {ecart.objet} » ici. "
-                    "Le chiffre est le même, la population ne l'est plus.",
+                    "Le chiffre est le même, la population ne l'est plus. "
+                    "Reprends la population exacte de la source citée, ou "
+                    "retire le chiffre de cette phrase.",
                     chapitre=ecart.chapitre, extrait=ecart.extrait,
                 ))
             else:

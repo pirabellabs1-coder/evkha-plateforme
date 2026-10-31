@@ -747,9 +747,13 @@ def _annonce_d_un_autre_chapitre(texte: str, position: int, section: Section) ->
     fin = texte.find(". ", position)
     phrase = texte[debut + 1: fin if fin >= 0 else len(texte)]
     ici = section.chapitre
+    # Seul un renvoi AVANT l'annonce en change l'objet : « le chapitre 12 a
+    # classé dix risques ». Après elle, il parle d'autre chose : « ce chapitre
+    # retient dix risques, que le chapitre 14 chiffrera » compte bien ici.
+    avant = phrase[: max(position - (debut + 1), 0)]
     return any(
         ici is None or int(cite.group(1)) != ici
-        for cite in _CHAPITRE_CITE.finditer(phrase)
+        for cite in _CHAPITRE_CITE.finditer(avant)
     )
 
 

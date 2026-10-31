@@ -194,7 +194,11 @@ def reparer_texte(texte: str, *, prose: bool = True, anglais: bool = True) -> st
 #: (30/09/2026) : 712 espaces ordinaires avant € et % sur 81 pages — la prose
 #: du modèle ; les montants posés par le code (`socle.schema.montant_lisible`)
 #: portent déjà l'insécable.
-_AVANT_L_UNITE = re.compile(r"(?<=\d)[ \t]+(?=(?:%|€|k€|M€|Md€)(?![\w]))")
+#: L'espace fine SÉCABLE (U+2009) en fait partie : elle coupe aussi la ligne
+#: (relecture du 31/10/2026). Lu aussi par le rendu Word
+#: (`depuis_json.poser_les_insecables`) : un seul motif (règle 5).
+AVANT_L_UNITE = re.compile(r"(?<=\d)[ \t ]+(?=(?:%|€|k€|M€|Md€)(?![\w]))")
+_AVANT_L_UNITE = AVANT_L_UNITE
 
 
 def _espace_insecable_avant_l_unite(texte: str) -> str:

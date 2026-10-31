@@ -1235,28 +1235,35 @@ def _bloc_sources_citees(chapter: ChapterGeneration) -> str:
     partir des sources COLLECTÉES, sans savoir lesquelles les chapitres
     avaient réellement citées : il ne pouvait pas tomber juste.
 
-    La lecture est celle de la relecture elle-même (`_citations_du_document`) :
+    La lecture est celle de la relecture elle-même (`citations_du_document`) :
     le chapitre reçoit exactement ce que le contrôle lui reprochera d'oublier
     (règle 5). Tous les autres chapitres terminés, pour qu'une réécriture voie
-    aussi ceux qui le suivent.
+    aussi ceux qui le suivent. Le chapitre des sources lui-même est lu aussi
+    quand il a déjà été écrit : ses lignes déclarent les noms qui permettent de
+    reconnaître une citation d'un seul mot (`noms_declares`).
     """
     if not _CHAPITRE_DES_SOURCES.match(chapter.prompt_key or ""):
         return ""
     from ..relecture.document import Document, document_du_chapitre  # noqa: PLC0415
-    from ..relecture.sources import _citations_du_document, cle  # noqa: PLC0415
+    from ..relecture.sources import citations_du_document, cle  # noqa: PLC0415
 
+    du_dossier = chapter.job.chapters.filter(chapter_number__gt=0)
     autres = (
-        chapter.job.chapters.filter(chapter_number__gt=0, status=ChapterStatus.DONE)
-        .exclude(chapter_number=chapter.chapter_number)
+        du_dossier.filter(status=ChapterStatus.DONE)
         .exclude(payload={})
         .order_by("chapter_number")
+    )
+    pas_encore = sorted(
+        du_dossier.exclude(status=ChapterStatus.DONE)
+        .exclude(chapter_number=chapter.chapter_number)
+        .values_list("chapter_number", flat=True)
     )
     sections = [
         section
         for autre in autres
         for section in document_du_chapitre(autre.payload).sections
     ]
-    citations = _citations_du_document(
+    citations = citations_du_document(
         Document(sections=sections), chapter.chapter_number
     )
     par_nom: dict[str, tuple[str, set[int]]] = {}
@@ -1266,6 +1273,12 @@ def _bloc_sources_citees(chapter: ChapterGeneration) -> str:
             chapitres.add(citation.section.chapitre)
     if not par_nom:
         return ""
+    reserve = (
+        "\nChapitres pas encore écrits (" + ", ".join(map(str, pas_encore)) + ") : "
+        "leurs sources manquent à cette liste ; ajoute celles des sources "
+        "collectées dont ils se servent."
+        if pas_encore else ""
+    )
     lignes = [
         f"- {nom} (chapitre{'s' if len(ch) > 1 else ''} "
         f"{', '.join(map(str, sorted(ch)))})"
@@ -1275,10 +1288,11 @@ def _bloc_sources_citees(chapter: ChapterGeneration) -> str:
     return (
         "SOURCES CITÉES DANS L'ÉTUDE — chacune figure dans le texte des chapitres "
         "indiqués. Le chapitre des sources les liste TOUTES, chacune avec son "
-        "adresse quand les sources collectées la donnent, et n'en liste AUCUNE "
-        "autre : une source citée que la liste oublie, ou une source listée que "
-        "le texte ne cite nulle part, est une erreur que le lecteur voit.\n"
-        + "\n".join(lignes)
+        "adresse quand les sources collectées la donnent. N'y ajoute une autre "
+        "source que si l'étude s'en sert réellement : une source citée que la "
+        "liste oublie, ou une source listée que le texte ne cite nulle part, "
+        "est une erreur que le lecteur voit.\n"
+        + "\n".join(lignes) + reserve
     )
 
 

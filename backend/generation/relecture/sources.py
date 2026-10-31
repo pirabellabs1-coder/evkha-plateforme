@@ -376,6 +376,14 @@ def _dans(nom: str, meule: str, mots_de_la_meule: set[str]) -> bool:
 # ── 1. Citées contre listées ────────────────────────────────────────────────
 
 
+def citations_du_document(document: Document, chapitre: int) -> list[Citation]:
+    """Les sources CITÉES hors du chapitre des sources `chapitre` — la lecture
+    même du contrôle « cité mais absent de la liste ». Publique : le rédacteur
+    du chapitre des sources la reçoit (`chapitres.runner._bloc_sources_citees`).
+    """
+    return _citations_du_document(document, chapitre)
+
+
 def _citations_du_document(document: Document, chapitre: int) -> list[Citation]:
     connues = noms_declares(document)
     citations: list[Citation] = []
@@ -898,18 +906,22 @@ _BIENS = re.compile(
     r"|colis|boutique)\b"
 )
 
+#: Un passage qui parle d'autre chose qu'un loisir daté : des BIENS, ou un
+#: client PROFESSIONNEL de cinq salariés au plus qui signe hors établissement
+#: (L221-3). Étude IA `e30fce14` (31/10/2026) : la règle juste de
+#: `REGLES_DE_FOND` était signalée deux fois comme une erreur de droit, parce
+#: que l'étude parle aussi d'« ateliers » de formation.
+_HORS_CHAMP_RETRACTATION = re.compile(
+    _BIENS.pattern + r"|(?i:\bL\.?\s?221-3\b)"
+)
+
 REGLES_JURIDIQUES: tuple[RegleJuridique, ...] = (
     RegleJuridique(
         cite=re.compile(r"(?i)\bL\.?\s?221-18\b"),
         sujet=re.compile(r"(?i)r[ée]tractation"),
         contexte=_LOISIRS_A_DATE,
-        # L221-3 cité avec L221-18 : le passage parle d'un PROFESSIONNEL de cinq
-        # salariés au plus qui signe hors établissement, pas d'une activité de
-        # loisirs. Étude IA `e30fce14` (31/10/2026) : la règle juste de
-        # `REGLES_DE_FOND` était signalée deux fois comme une erreur de droit,
-        # parce que l'étude parle aussi d'« ateliers » de formation.
-        attendu=re.compile(r"(?i)\bL\.?\s?221-(?:28|3)\b"),
-        hors_champ=_BIENS,
+        attendu=re.compile(r"(?i)\bL\.?\s?221-28\b"),
+        hors_champ=_HORS_CHAMP_RETRACTATION,
         detail=(
             "Pour des activités de loisirs fournies à une date déterminée (ateliers, séjours, "
             "soirées), le droit de rétractation est EXCLU : article L221-28 12° du code de la "
