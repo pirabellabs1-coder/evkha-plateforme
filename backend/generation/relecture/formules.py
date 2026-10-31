@@ -28,6 +28,7 @@ from .valeurs import (
     nombres,
     phrases_de,
     proche,
+    tolerance_ecrite,
     valeurs_datees,
 )
 
@@ -139,18 +140,6 @@ _EGAL = re.compile(r"^\s*(=|soit|donne|font)\s*$", re.IGNORECASE)
 
 def _valeur_operande(n: Nombre) -> float:
     return n.valeur / 100 if n.pourcentage else n.valeur
-
-
-def _demi_unite(ecriture: str) -> float:
-    """L'arrondi que l'auteur a pu faire, lu dans le résultat ÉCRIT.
-
-    « 1 200 » tolère un demi ; « 3,80 », un demi-centième. La tolérance était
-    0,51 partout : juste pour des euros, aveugle sur une note sur 5, où
-    « = 4,20 » passait pour « = 3,80 » (relecture du 31/10/2026).
-    """
-    decimales = ecriture.split(",", 1)[1] if "," in ecriture else ""
-    chiffres = len(re.sub(r"\D", "", decimales))
-    return 0.5 * 10.0 ** -chiffres + 1e-9
 
 
 def _famille(signe: str) -> str:
@@ -266,7 +255,10 @@ def _operations(document: Document) -> list[Constat]:
                 if calcul is None:
                     continue
                 attendu = _valeur_operande(c)
-                absolu = 0.001 if c.pourcentage else _demi_unite(c.ecriture)
+                # Une unité entière de la dernière décimale ÉCRITE, à l'échelle
+                # (« 1,2 M€ » se juge à 100 000 € près) : « 3,80 » se juge au
+                # centième, et « 2 ÷ 3 = 0,66 », tronqué, n'est pas faux.
+                absolu = 0.001 if c.pourcentage else 2 * tolerance_ecrite(c)
                 if proche(calcul, attendu, relatif=0.01, absolu=absolu):
                     continue
                 expression = phrase[termes[0].debut: termes[-1].fin]

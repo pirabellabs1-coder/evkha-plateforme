@@ -75,8 +75,18 @@ def test_une_operation_simple_fausse_reste_signalee() -> None:
 def test_une_egalite_en_chaine_juge_chaque_etape() -> None:
     """« a = b = c » : l'étape suivante repart APRÈS le résultat (relecture du
     31/10). Une deuxième étape fausse se voit, une juste ne crie pas."""
-    assert _operations(_document("Soit 2 × 3 = 6 et 6 × 4 = 24.")) == []
-    assert len(_operations(_document("Soit 2 × 3 = 6 et 6 × 4 = 30."))) == 1
+    assert _operations(_document("Soit 2 × 3 = 6 × 4 = 24.")) == []
+    (constat,) = _operations(_document("Soit 2 × 3 = 6 × 4 = 30."))
+    assert "6 × 4" in constat.detail
+
+
+def test_la_tolerance_suit_la_derniere_unite_ecrite_a_son_echelle() -> None:
+    """« 1,2 M€ » se juge à 100 000 € près ; « 0,66 » tronqué n'est pas faux.
+    Une seule tolérance, celle de `valeurs.tolerance_ecrite` (règle 5)."""
+    assert _operations(_document("Soit 400 000 € × 3,1 = 1,2 M€.")) == []
+    assert _operations(_document("Le ratio vaut 2 ÷ 3 = 0,66.")) == []
+    # CONTRE-ÉPREUVE : un écart de plusieurs unités reste faux.
+    assert _operations(_document("Soit 400 000 € × 3,1 = 1,5 M€."))
 
 
 def test_une_fourchette_n_est_pas_une_soustraction() -> None:
@@ -272,6 +282,40 @@ def test_la_charte_nomme_le_reglement_en_francais() -> None:
     assert REGLEMENT_IA == REGLEMENT
     assert f"« le {REGLEMENT} »" in _SYSTEME
     assert "forces, faiblesses, opportunités et menaces" in _SYSTEME
+
+
+def _paiement_des_fournisseurs(phrase: str) -> list[Any]:
+    def chapitre(numero: int, texte: str) -> list[Any]:
+        return document_du_chapitre({
+            "chapitre": numero, "titre": "C",
+            "blocs": [{"type": "paragraphe", "texte": texte}],
+        }).sections
+
+    sections = chapitre(
+        9, "Les salles de formation demandent un acompte de 30 % pour bloquer la date."
+    ) + chapitre(14, phrase)
+    return [
+        c for c in relire(Document(sections=sections), Reference())
+        if "ournisseur" in c.detail
+    ]
+
+
+def test_le_nom_du_reglement_n_est_pas_un_paiement() -> None:
+    """Porte finale du 31/10 : la consigne de la charte déclenchait un
+    constat GRAVE « politique de paiement contradictoire » (règle 5)."""
+    from generation.chapitres.langage_simple import REGLEMENT_IA
+
+    assert _paiement_des_fournisseurs(
+        f"Le {REGLEMENT_IA} impose aux fournisseurs de modèles une documentation ; "
+        "les obligations des utilisateurs s'appliquent après le 2 août 2026."
+    ) == []
+
+
+def test_des_prestataires_regles_apres_restent_une_version() -> None:
+    """CONTRE-ÉPREUVE : le sens « paiement » de règlement compte toujours."""
+    assert _paiement_des_fournisseurs(
+        "Le règlement des prestataires intervient après la prestation."
+    )
 
 
 def test_le_texte_ecrit_n_est_plus_reecrit() -> None:

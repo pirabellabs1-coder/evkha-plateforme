@@ -1499,7 +1499,18 @@ _DE_LA_CLIENTE = re.compile(
 _PAR_L_ENTREPRISE = re.compile(
     r"(?i)\b(?:trésorerie|réserve|financ\w*|couvr\w*|absorb\w*|amort\w*)"
 )
-_REGLEMENT = re.compile(r"(?i)\b(?:réglé|payé|paiement|règlement|décaiss)\w*")
+#: « règlement » au sens du PAIEMENT seulement. Le texte de loi — « le
+#: règlement européen sur l'IA », que la charte demande au lieu d'« AI Act »,
+#: « le règlement général », « le règlement (UE) 2024/1689 », « le règlement
+#: intérieur » — et « règlementation » / « règlementaire » parlent de
+#: « fournisseurs » et de dates (« après le 2 août 2026 ») : ils faisaient lire
+#: une politique de paiement contradictoire, constat GRAVE (porte finale du
+#: 31/10/2026).
+_REGLEMENT = re.compile(
+    r"(?i)\b(?:réglé|payé|paiement|décaiss)\w*"
+    r"|\brèglements?\b(?!\s+(?:européen|général|\(UE\)|UE\b|intérieur|délégué"
+    r"|d['’]exécution|relatif|sur\b|de\s+l['’]Union|n°))"
+)
 _APRES = re.compile(
     r"(?i)\baprès\b|\bau\s+moment\b|\bune\s+fois\b|\bà\s+réception\b|\bà\s+l['’]issue\b"
 )
