@@ -69,6 +69,10 @@ REPARABLES_PAR_CHAPITRE = frozenset({
     # cliente a refusé une livraison entière pour cette raison seule, un mur de
     # texte là où elle attendait des tableaux reliés par de la prose courte.
     "densite",
+    # Le même chiffre sur une autre population (« 26 % des TPE-PME » devenu
+    # « des TPE ») : l'erreur que la cliente décrit, triée sur le corpus le
+    # 31/10/2026 — 2 signalés sur 24 documents, 2 vrais.
+    "glissement_de_population",
 })
 
 #: Trois lectures : deux qui corrigent, la dernière qui VÉRIFIE.

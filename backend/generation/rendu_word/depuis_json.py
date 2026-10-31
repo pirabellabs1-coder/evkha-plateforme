@@ -478,10 +478,52 @@ def rendre_etude(etude: dict[str, Any], destination: Path) -> Path:
         auteur=auteur_du_document(etude, marque),
         titre=str(etude.get("titre", "")).strip(),
     )
+    poser_les_insecables(document)
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     document.save(str(destination))
     return destination
+
+
+#: Le chiffre et son unité, séparés par une espace ordinaire.
+_ESPACE_AVANT_L_UNITE = re.compile(r"(?<=\d)[ \t]+(?=(?:%|€|k€|M€|Md€)(?!\w))")
+#: Le même cas quand le chiffre finit un morceau de texte et l'unité ouvre le
+#: suivant : « 23,4 » | « % par an ».
+_UNITE_EN_TETE = re.compile(r"^[ \t]+(?=(?:%|€|k€|M€|Md€)(?!\w))")
+
+
+def poser_les_insecables(document: DocumentWord) -> int:
+    """Une insécable entre chaque nombre et son « € » ou « % », dans tout le Word.
+
+    La réparation typographique du chapitre la pose déjà (`typographie`). Mais
+    l'étude IA `e30fce14` (31/10/2026) portait encore 108 espaces ordinaires
+    avant « € » et « % » sur 135 insécables : le texte arrive au Word par
+    plusieurs chemins, et l'un d'eux au moins passe à côté. Le défaut se lit
+    sur le document — « 30 000 » en fin de ligne, « € HT » à la suivante — :
+    c'est donc là qu'il se corrige, une seule fois pour tous les chemins
+    (règle 3 : ce que le lecteur lit, pas ce qu'on a envoyé au rendu).
+
+    Idempotente. Rend le nombre d'espaces remplacées.
+    """
+    from docx.oxml.ns import qn  # noqa: PLC0415
+
+    from generation.socle.schema import INSECABLE  # noqa: PLC0415
+
+    remplacees = 0
+    for paragraphe in document.element.body.iter(qn("w:p")):
+        precedent = None
+        for noeud in paragraphe.iter(qn("w:t")):
+            texte = noeud.text or ""
+            nouveau, n = _ESPACE_AVANT_L_UNITE.subn(INSECABLE, texte)
+            if precedent is not None and (precedent.text or "")[-1:].isdigit():
+                nouveau, m = _UNITE_EN_TETE.subn(INSECABLE, nouveau)
+                n += m
+            if n:
+                noeud.text = nouveau
+                remplacees += n
+            if nouveau:
+                precedent = noeud
+    return remplacees
 
 
 def _signer_le_document(document: Any, *, auteur: str, titre: str) -> None:

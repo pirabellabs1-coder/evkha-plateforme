@@ -726,6 +726,33 @@ def _comptes_contre_les_tableaux(document: Document) -> list[Constat]:
     return constats
 
 
+_CHAPITRE_CITE = re.compile(r"(?i)\bchapitres?\s+(\d{1,2})\b")
+
+
+def _annonce_d_un_autre_chapitre(texte: str, position: int, section: Section) -> bool:
+    """L'annonce compte ce qu'un AUTRE chapitre a posé : elle ne se compare pas ici.
+
+    Étude IA `e30fce14` (31/10/2026), chapitre 13 : « Le chapitre 12 a classé
+    dix risques. Sept viennent de l'extérieur […] ce sont eux que cette carte
+    place. » La carte en place sept, à raison ; le contrôle comparait les
+    « dix risques » du chapitre 12 au tableau du 13, et rendait un constat
+    GRAVE — qui, à la rédaction, fait reprendre et payer un chapitre juste
+    (règle 2).
+
+    Seule la phrase de l'annonce compte : un renvoi trois phrases plus haut ne
+    dit rien de celle-ci.
+    """
+    debut = max(texte.rfind(". ", 0, position), texte.rfind("? ", 0, position),
+                texte.rfind("! ", 0, position))
+    fin = texte.find(". ", position)
+    phrase = texte[debut + 1: fin if fin >= 0 else len(texte)]
+    ici = section.chapitre
+    return any(
+        ici is None or int(cite.group(1)) != ici
+        for cite in _CHAPITRE_CITE.finditer(phrase)
+    )
+
+
 def _juger_une_annonce(
     m: re.Match[str], texte: str, section: Section,
     memes: list[_Colonne], suivantes: list[_Colonne],
@@ -733,6 +760,8 @@ def _juger_une_annonce(
     nom = _racine(m.group("nom"))
     groupe = nom in _NOMS_DE_GROUPE
     if not (groupe or nom in _NOMS_COMPTES):
+        return None
+    if _annonce_d_un_autre_chapitre(texte, m.start(), section):
         return None
     avant, apres = texte[:m.start()], texte[m.end():]
     # « 2 à 3 partenariats » : une fourchette, pas un compte. « Trois leviers de

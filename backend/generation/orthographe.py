@@ -76,7 +76,10 @@ DEUX_GRAPHIES = frozenset((
     "paraitre paraissent connaitre apparaitre disparaitre naitre reconnaitre "
     "gout gouts goutte bruler brulure brulant surement piqure voute croute "
     "fraiche fraicheur traine trainer trainee abime abimer plait "
-    "entraine entrainer entrainement entrainee"
+    "entraine entrainer entrainement entrainee "
+    # « croit » (croire) et « croît » (croître) : signalé à tort dans trois
+    # études de test sur quatre (30/10/2026).
+    "croit"
 ).split())
 
 #: Un mot écrit en capitales est un sigle ou un bandeau : les capitales perdent
@@ -109,7 +112,15 @@ def accent_final_seulement(mot: str) -> bool:
     if len(plat) != len(mot):
         return False
     rangs = [i for i, (accentue, nu) in enumerate(zip(mot, plat, strict=True)) if accentue != nu]
-    return bool(rangs) and rangs == [len(mot) - 1]
+    if len(rangs) != 1:
+        return False
+    # Le participe au masculin pluriel porte le même accent, suivi d'un « s » :
+    # « commandés » / « commandes », « limités » / « limites ». Étude IA
+    # `e30fce14` (31/10/2026) : 8 des 22 « fautes » signalées étaient ces
+    # paires. Le féminin, lui, ne se dédouble pas : sans son accent,
+    # « données » devient « donnees », qui n'est pas un mot.
+    rang = rangs[0]
+    return mot[rang].casefold() == "é" and mot[rang + 1:].casefold() in ("", "s")
 
 
 def graphies_suspectes(textes: Iterable[str]) -> dict[str, str]:

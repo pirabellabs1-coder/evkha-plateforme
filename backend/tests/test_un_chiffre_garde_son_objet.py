@@ -20,6 +20,7 @@ from generation.controle_final import REPARABLES_PAR_CHAPITRE
 from generation.verification.lecture import DocumentLu
 from generation.verification.objet_des_chiffres import (
     CONTROLE,
+    CONTROLE_GLISSEMENT,
     REPETITION_MAX,
     controler_objet_des_chiffres,
 )
@@ -210,14 +211,21 @@ def test_la_verification_execute_le_controle_sans_rendre_le_document_non_livrabl
         verifier_document_sans_socle(document),
     ):
         assert CONTROLE in rapport.controles_executes
-        assert any(a.controle == CONTROLE for a in rapport.anomalies)
-        assert not [a for a in rapport.anomalies if a.controle == CONTROLE
+        assert any(
+            a.controle in (CONTROLE, CONTROLE_GLISSEMENT) for a in rapport.anomalies
+        )
+        assert not [a for a in rapport.anomalies
+                    if a.controle in (CONTROLE, CONTROLE_GLISSEMENT)
                     and a.gravite is Gravite.BLOQUANTE]
 
 
 def test_le_controle_ne_bloque_ni_ne_fait_reecrire() -> None:
     """Un avis de ce contrôle ne doit ni arrêter un document ni relancer un
-    chapitre payant tant que ses motifs n'ont pas été triés sur le corpus."""
+    chapitre payant tant que ses motifs n'ont pas été triés sur le corpus.
+
+    Le GLISSEMENT l'a été le 31/10/2026 (2 signalés sur 24 documents, 2 vrais) :
+    lui seul est réparable, sous son propre nom. Objets changés et répétitions
+    restent en mesure seule."""
     anomalies = controler_objet_des_chiffres(_document(
         (1, "40 % des TPE-PME utilisent l'IA."),
         (2, "40 % des TPE utilisent l'IA."),
@@ -225,6 +233,10 @@ def test_le_controle_ne_bloque_ni_ne_fait_reecrire() -> None:
     assert anomalies
     assert all(a.gravite is not Gravite.BLOQUANTE for a in anomalies)
     assert CONTROLE not in REPARABLES_PAR_CHAPITRE
+    assert CONTROLE_GLISSEMENT in REPARABLES_PAR_CHAPITRE
+    assert {a.controle for a in anomalies if a.detail.startswith("Glissement")} == {
+        CONTROLE_GLISSEMENT
+    }
 
 
 def test_une_panne_de_la_mesure_n_arrete_pas_la_livraison(

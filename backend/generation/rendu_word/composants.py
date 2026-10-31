@@ -277,11 +277,14 @@ def saut_de_page(document: DocumentWord) -> None:
 # ── 1 et 7. Couverture et quatrième de couverture ────────────────────────────
 
 
-def _fond_pleine_page(document: DocumentWord, couleur: str) -> Any:
+def _fond_pleine_page(
+    document: DocumentWord, couleur: str, *, motifs: str = ""
+) -> Any:
     """Rectangle pleine page ancré DERRIÈRE le texte, comme dans la référence.
 
     Rend le paragraphe qui porte la forme : la quatrième de couverture y pose
-    son saut de page.
+    son saut de page. `motifs` : des formes posées par-dessus le fond, toujours
+    derrière le texte (voir `_motifs_de_couverture`).
     """
     paragraphe = document.add_paragraph()
     run = paragraphe.add_run()
@@ -292,10 +295,65 @@ def _fond_pleine_page(document: DocumentWord, couleur: str) -> Any:
         f"width:{PAGE_LARGEUR_PT}pt;height:{PAGE_HAUTEUR_PT}pt;z-index:-251658752;"
         "mso-position-horizontal:left;mso-position-horizontal-relative:page;"
         'mso-position-vertical:top;mso-position-vertical-relative:page" '
-        f'fillcolor="{couleur}" stroked="f"/></w:pict>'
+        f'fillcolor="{couleur}" stroked="f"/>{motifs}</w:pict>'
     )
     run._r.append(parse_xml(xml))
     return paragraphe
+
+
+def _ovale(
+    gauche: float, haut: float, diametre: float, *, z: int,
+    remplissage: str = "", trait: str = "", epaisseur: float = 0, opacite: float = 1.0,
+) -> str:
+    """Un cercle VML positionné sur la PAGE, en points."""
+    style = (
+        f"position:absolute;margin-left:{gauche:.0f}pt;margin-top:{haut:.0f}pt;"
+        f"width:{diametre:.0f}pt;height:{diametre:.0f}pt;z-index:{z};"
+        # Le repère est la PAGE, mais sans `mso-position-horizontal:left` :
+        # cet alignement l'emporte sur `margin-left`, et Word posait alors les
+        # trois cercles dans le coin haut gauche, sous le titre (aperçu du
+        # 31/10/2026).
+        "mso-position-horizontal-relative:page;"
+        "mso-position-vertical-relative:page"
+    )
+    attributs = [f'style="{style}"']
+    enfants = []
+    if remplissage:
+        attributs.append(f'fillcolor="{remplissage}"')
+        enfants.append(f'<v:fill opacity="{opacite:.2f}"/>')
+    else:
+        attributs.append('filled="f"')
+    if trait:
+        attributs.append(f'strokecolor="{trait}" strokeweight="{epaisseur:.1f}pt"')
+        enfants.append(f'<v:stroke opacity="{opacite:.2f}"/>')
+    else:
+        attributs.append('stroked="f"')
+    return f"<v:oval {' '.join(attributs)}>{''.join(enfants)}</v:oval>"
+
+
+def _motifs_de_couverture(palette: Palette) -> str:
+    """Deux ou trois cercles discrets, en partie hors de la page.
+
+    Evangéline, 29/10/2026, sur la couverture qu'elle a refaite pour la
+    boutique : « si vous pouvez mettre juste un ou deux motifs, même en
+    dessin, que ce n'est pas une photo […] c'est un peu plus vivant ».
+
+    Des FORMES, pas une image : elles prennent les couleurs de la palette du
+    client et suivent donc sa marque. Elles sont dans les coins, loin du titre
+    centré, et derrière le texte — jamais sur ce qu'on lit.
+    """
+    z = -251658751  # au-dessus du fond, sous le texte
+    return "".join((
+        # Grand disque en haut à droite, débordant de la page.
+        _ovale(PAGE_LARGEUR_PT - 190, -110, 300, z=z,
+               remplissage=palette.secondaire, opacite=0.35),
+        # Anneau en bas à gauche.
+        _ovale(-70, PAGE_HAUTEUR_PT - 170, 230, z=z,
+               trait=palette.texte_sur_primaire, epaisseur=2.5, opacite=0.45),
+        # Petit disque d'accent, près de l'anneau.
+        _ovale(120, PAGE_HAUTEUR_PT - 120, 34, z=z,
+               remplissage=palette.secondaire, opacite=0.8),
+    ))
 
 
 def _filet_horizontal(document: DocumentWord, couleur: str, largeur_emu: int = 3_000_000) -> None:
@@ -329,7 +387,7 @@ def couverture(
     logo: bytes | None = None,
     date: str = "",
 ) -> None:
-    _fond_pleine_page(document, palette.primaire)
+    _fond_pleine_page(document, palette.primaire, motifs=_motifs_de_couverture(palette))
 
     for _ in range(3):
         document.add_paragraph()

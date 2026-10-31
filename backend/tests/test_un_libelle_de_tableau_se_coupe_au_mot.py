@@ -86,8 +86,10 @@ def test_l_annexe_ne_coupe_pas_a_un_point_d_abreviation(tmp_path: Path) -> None:
         socle=_socle(), chapitres=[], titre="Business plan", marque={"nom": "ÉCLORE"},
     )
     document = Document(str(rendre_etude(etude, tmp_path / "annexe.docx")))
+    # L'insécable avant « % » est posée au rendu depuis le 31/10/2026
+    # (`poser_les_insecables`) : on compare le libellé, pas l'espace.
     donnees = [
-        ligne.cells[0].text for table in document.tables
+        ligne.cells[0].text.replace(" ", " ") for table in document.tables
         if table.rows[0].cells[0].text == "Donnée" and len(table.columns) == 4
         for ligne in table.rows[1:]
     ]

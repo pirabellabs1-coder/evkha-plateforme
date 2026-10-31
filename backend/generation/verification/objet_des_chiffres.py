@@ -31,11 +31,13 @@ la suit : « 40 % des TPE-PME » → `TPE-PME` ; « 10 000 porteurs » →
 - **répétition** : la même statistique, avec le même objet, dans plus de
   `REPETITION_MAX` chapitres.
 
-## Mode mesure seule
+## Mode mesure seule — sauf le glissement
 
-Gravité **avertissement** ou **information**, jamais blocage, et le nom du
-contrôle n'est PAS dans `controle_final.REPARABLES_PAR_CHAPITRE` : il ne
-déclenche aucune réécriture payante. On le fait tourner sur le corpus, on lit
+Gravité **avertissement** ou **information**, jamais blocage. Le nom du
+contrôle n'est PAS dans `controle_final.REPARABLES_PAR_CHAPITRE` : un objet
+changé ou une répétition ne déclenchent aucune réécriture payante. Le
+GLISSEMENT, trié sur le corpus le 31/10/2026 (2 signalés, 2 vrais), sort sous
+`CONTROLE_GLISSEMENT`, qui y est. On le fait tourner sur le corpus, on lit
 ce qu'il trouve, on trie vrais et faux motifs, puis on décide (règle 2 : un
 contrôle qui frappe à tort est pire qu'absent).
 
@@ -65,6 +67,15 @@ from .lecture import DocumentLu
 from .rapport import Anomalie, Gravite
 
 CONTROLE = "objet_des_chiffres"
+
+#: Le GLISSEMENT seul — la même valeur sur une population resserrée ou
+#: élargie — sous son propre nom, pour qu'il soit RÉPARABLE par la relecture
+#: finale (`controle_final.REPARABLES_PAR_CHAPITRE`). Trié sur le corpus le
+#: 31/10/2026 : 2 glissements sur 24 documents (20 de production, 4 études de
+#: test), 2 vrais — « 40 % » et « 26 % des TPE-PME » devenus « des TPE »,
+#: l'exemple même de la cliente. Les « objets changés » et les répétitions,
+#: moins sûrs, restent en mesure seule sous `CONTROLE`.
+CONTROLE_GLISSEMENT = "glissement_de_population"
 
 #: Au-delà, une statistique répétée encombre plus qu'elle n'informe. La
 #: cliente : « une même statistique n'apparaît que là où elle sert ».
@@ -310,7 +321,7 @@ def controler_objet_des_chiffres(document: DocumentLu) -> list[Anomalie]:
             modele = par_cle[parente or cles[0]][0]
             if parente is not None:
                 anomalies.append(Anomalie(
-                    CONTROLE, Gravite.AVERTISSEMENT,
+                    CONTROLE_GLISSEMENT, Gravite.AVERTISSEMENT,
                     f"Glissement : « {valeur} » compte « {modele.objet} » ailleurs "
                     f"(ch. {modele.chapitre or '—'}) et « {ecart.objet} » ici. "
                     "Le chiffre est le même, la population ne l'est plus.",

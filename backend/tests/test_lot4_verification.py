@@ -506,7 +506,8 @@ def test_la_passe_voit_un_chiffre_invente_dans_un_vrai_fichier(tmp_path: Path) -
     )
     hors_socle = [a for a in rapport.anomalies if a.controle == "chiffres_hors_socle"]
     assert len(hors_socle) == 1
-    assert "777 M€" in hors_socle[0].detail
+    # Le Word porte l'insécable entre le nombre et son unité (31/10/2026).
+    assert "777 M€" in hors_socle[0].detail.replace(" ", " ")
 
 
 def test_le_rapport_d_assemblage_expose_les_identifiants_rendus() -> None:

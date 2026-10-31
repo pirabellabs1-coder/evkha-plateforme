@@ -134,12 +134,61 @@ def sans_gras(texte: str) -> str:
     return _GRAS.sub(r"\1", texte) if texte else texte
 
 
+#: « AI Act » : le nom anglais du règlement (UE) 2024/1689. Les quatre études
+#: de test du 30/10/2026 l'écrivaient — huit fois dans `e30fce14` — et le
+#: relecteur demandait à chaque passe « le règlement européen sur l'IA ».
+#: L'article se contracte avec ce qui le précède : « de l'AI Act » → « du
+#: règlement… », « à l'AI Act » → « au règlement… ».
+REGLEMENT_IA = "règlement européen sur l'IA"
+_AI_ACT_APPOSE = re.compile(
+    r",?[ \t  ]*(?:\(|,)?[ \t  ]*"
+    r"(?:appel[ée]|dit|surnomm[ée]|connu sous le nom d')[ \t  ]*"
+    r"(?:l')?[ \t  ]*(?:«[ \t  ]*)?AI[ \t  ]+Act"
+    r"(?:[ \t  ]*»)?[ \t  ]*\)?",
+    re.IGNORECASE,
+)
+_AI_ACT_ENTRE_PARENTHESES = re.compile(
+    r"[ \t  ]*\((?:«[ \t  ]*)?AI[ \t  ]+Act"
+    r"(?:[ \t  ]*»)?\)"
+)
+_AI_ACT = re.compile(
+    r"(?P<avant>\b(?:de|à|De|À)[ \t  ]+)?(?P<article>[lL]['’])?"
+    r"(?P<sigle>AI[ \t  ]+Act)\b"
+)
+
+
+def sans_ai_act(texte: str) -> str:
+    """« AI Act » remplacé par « le règlement européen sur l'IA ». Idempotente."""
+    if "act" not in texte.lower():
+        return texte
+    simple = _AI_ACT_APPOSE.sub("", texte)
+    simple = _AI_ACT_ENTRE_PARENTHESES.sub("", simple)
+
+    def _nom(m: re.Match[str]) -> str:
+        avant = m.group("avant") or ""
+        majuscule = (avant[:1] or (m.group("article") or "x")[:1]).isupper()
+        if m.group("article") or avant:
+            if avant.strip().lower() == "de":
+                tete = "du"
+            elif avant.strip().lower() == "à":
+                tete = "au"
+            else:
+                tete = "le"
+            tete = tete[0].upper() + tete[1:] if majuscule else tete
+            return f"{tete} {REGLEMENT_IA}"
+        if _DEBUT_DE_PHRASE.search(simple[: m.start()]):
+            return REGLEMENT_IA[0].upper() + REGLEMENT_IA[1:]
+        return REGLEMENT_IA
+
+    return _AI_ACT.sub(_nom, simple)
+
+
 def simplifier_texte(texte: str, *, sigles_admis: bool) -> str:
     """Le texte sans gras brut et, hors du chapitre qui les pose, sans sigles.
 
     Idempotente : la rejouer ne change rien.
     """
-    simple = sans_gras(texte)
+    simple = sans_ai_act(sans_gras(texte))
     if not simple or sigles_admis:
         return simple
     simple = _SIGLE_APRES_SON_NOM.sub(r"\1", simple)

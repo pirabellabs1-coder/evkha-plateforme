@@ -30,7 +30,7 @@ from ..socle.schema import (
 )
 from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
-from .langage_simple import NOMS_SIMPLES, simplifier_le_langage
+from .langage_simple import NOMS_SIMPLES, REGLEMENT_IA, simplifier_le_langage
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
 from .typographie import reparer_typographie
 
@@ -189,6 +189,13 @@ _SYSTEME = (
     "— un client, une journée de travail, un achat, une somme.\n"
     "- Un terme du métier étudié, indispensable, s'explique en quelques mots "
     "la première fois qu'il apparaît.\n"
+    # Les quatre études de test du 30/10/2026 : « AI Act » huit fois par étude,
+    # « SWOT » sans explication ; le relecteur les reprenait à chaque passe.
+    # Le nom vient de `langage_simple.REGLEMENT_IA`, que la réparation emploie.
+    f"- Un texte de loi se nomme en français : « le {REGLEMENT_IA} », jamais "
+    "son surnom anglais. Un outil d'analyse que la consigne du chapitre "
+    "impose s'écrit d'abord en toutes lettres : « forces, faiblesses, "
+    "opportunités et menaces » avant tout sigle.\n"
     "- Une phrase que le lecteur doit relire pour la comprendre est une "
     "phrase à réécrire.\n"
     "\n"
@@ -1211,6 +1218,79 @@ def _ligne_de_chiffre_ecrit(ecrit: ChiffreEcrit) -> str:
         f"« {ecrit.forme} » (chapitre {chapitres[0]}, repris dans {autres} "
         f"autre{'s' if autres > 1 else ''} chapitre{'s' if autres > 1 else ''})"
     )
+
+
+#: Le chapitre des sources des quatre livrables : `em.21.sources_methodologie`,
+#: `ec.09.sources`, `bp.21.sources`, `str.20.sources` — et pas
+#: `str.15.arbitrages_ressources`.
+_CHAPITRE_DES_SOURCES = re.compile(r"^[a-z]+\.\d+\.sources")
+
+
+def _bloc_sources_citees(chapter: ChapterGeneration) -> str:
+    """Au chapitre des sources : les sources que les autres chapitres CITENT.
+
+    Les quatre études de test du 30/10/2026 portaient chacune douze à vingt
+    et un constats « cité mais absent de la liste » ou « listé mais cité
+    nulle part » (`relecture.sources`). Le chapitre des sources s'écrivait à
+    partir des sources COLLECTÉES, sans savoir lesquelles les chapitres
+    avaient réellement citées : il ne pouvait pas tomber juste.
+
+    La lecture est celle de la relecture elle-même (`_citations_du_document`) :
+    le chapitre reçoit exactement ce que le contrôle lui reprochera d'oublier
+    (règle 5). Tous les autres chapitres terminés, pour qu'une réécriture voie
+    aussi ceux qui le suivent.
+    """
+    if not _CHAPITRE_DES_SOURCES.match(chapter.prompt_key or ""):
+        return ""
+    from ..relecture.document import Document, document_du_chapitre  # noqa: PLC0415
+    from ..relecture.sources import _citations_du_document, cle  # noqa: PLC0415
+
+    autres = (
+        chapter.job.chapters.filter(chapter_number__gt=0, status=ChapterStatus.DONE)
+        .exclude(chapter_number=chapter.chapter_number)
+        .exclude(payload={})
+        .order_by("chapter_number")
+    )
+    sections = [
+        section
+        for autre in autres
+        for section in document_du_chapitre(autre.payload).sections
+    ]
+    citations = _citations_du_document(
+        Document(sections=sections), chapter.chapter_number
+    )
+    par_nom: dict[str, tuple[str, set[int]]] = {}
+    for citation in citations:
+        nom, chapitres = par_nom.setdefault(cle(citation.nom), (citation.nom, set()))
+        if citation.section.chapitre is not None:
+            chapitres.add(citation.section.chapitre)
+    if not par_nom:
+        return ""
+    lignes = [
+        f"- {nom} (chapitre{'s' if len(ch) > 1 else ''} "
+        f"{', '.join(map(str, sorted(ch)))})"
+        if ch else f"- {nom}"
+        for nom, ch in par_nom.values()
+    ]
+    return (
+        "SOURCES CITÉES DANS L'ÉTUDE — chacune figure dans le texte des chapitres "
+        "indiqués. Le chapitre des sources les liste TOUTES, chacune avec son "
+        "adresse quand les sources collectées la donnent, et n'en liste AUCUNE "
+        "autre : une source citée que la liste oublie, ou une source listée que "
+        "le texte ne cite nulle part, est une erreur que le lecteur voit.\n"
+        + "\n".join(lignes)
+    )
+
+
+def _sources_citees_sans_arreter(chapter: ChapterGeneration) -> str:
+    """Le bloc, ou rien : une aide au rédacteur ne doit jamais arrêter une étude."""
+    try:
+        return _bloc_sources_citees(chapter)
+    except Exception:  # noqa: BLE001 — même engagement que les chiffres écrits
+        _log.exception(
+            "Sources citées illisibles pour le dossier %s", chapter.job_id
+        )
+        return ""
 
 
 def _bloc_resumes(job: GenerationJob, numero: int) -> str:
@@ -2412,6 +2492,7 @@ def construire_prompt_chapitre(
             ))
             else []
         ),
+        *([citees] if (citees := _sources_citees_sans_arreter(chapter)) else []),
         (
             "REGISTRE_CHIFFRES (JSON, source unique — tout chiffre deja "
             "pose dans un chapitre precedent ou fourni par le client. "

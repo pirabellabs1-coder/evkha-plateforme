@@ -291,6 +291,20 @@ def _double_compte(document: Document) -> list[Constat]:
 # 13. Orthographe : le même mot écrit de deux façons dans le même document
 # ═════════════════════════════════════════════════════════════════════════════
 
+#: Une adresse web, y compris coupée en fin de ligne par le PDF (« https://www.
+#: francenum.gouv.fr/ guides-et-conseils/strategie- numerique/ ») : elle va
+#: jusqu'à la première espace qui n'est pas suivie d'un morceau de chemin.
+_ADRESSE = re.compile(
+    r"(?i)(?:https?://|www\.)\S*(?:\s+[\w.-]*[/-][\w./-]*)*"
+    # Un domaine cité nu, sans protocole : « (presse.economie.gouv.fr) ».
+    r"|\b[\w-]+(?:\.[\w-]+)*\.(?:fr|com|org|net|eu|io|info|be|ch)\b(?:/\S*)?"
+)
+
+
+def _sans_adresses(texte: str) -> str:
+    return _ADRESSE.sub(" ", texte or "")
+
+
 def _orthographe_a_deux_graphies(document: Document) -> list[Constat]:
     """Le même mot écrit avec et sans ses accents dans le même document.
 
@@ -316,7 +330,13 @@ def _orthographe_a_deux_graphies(document: Document) -> list[Constat]:
     Signalé, jamais grave : la graphie ne change aucun chiffre, et une reprise
     de chapitre payée pour un accent coûterait plus qu'elle ne rapporte.
     """
-    suspects = graphies_suspectes(s.texte() for s in document.sections)
+    # Une adresse web s'écrit sans accent par construction : « barometre »,
+    # « strategie », « legifrance » dans un lien ne sont pas des fautes. Étude
+    # IA `e30fce14` (31/10/2026) : 13 des 22 « fautes » signalées venaient des
+    # adresses du chapitre des sources. Elles sortent du corpus ET de la lecture.
+    suspects = graphies_suspectes(
+        _sans_adresses(s.texte()) for s in document.sections
+    )
     if not suspects:
         return []
     constats: list[Constat] = []
@@ -327,7 +347,7 @@ def _orthographe_a_deux_graphies(document: Document) -> list[Constat]:
         # de ses mots dans des tableaux, et c'est là qu'une graphie fautive
         # isolée passait inaperçue (revue du 27/10/2026).
         for phrase in textes_de_la_section(section):
-            for mot in MOT.findall(phrase):
+            for mot in MOT.findall(_sans_adresses(phrase)):
                 juste = suspects.get(mot)
                 if juste is None or mot in vus:
                     continue

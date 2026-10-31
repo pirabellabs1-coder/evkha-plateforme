@@ -903,7 +903,12 @@ REGLES_JURIDIQUES: tuple[RegleJuridique, ...] = (
         cite=re.compile(r"(?i)\bL\.?\s?221-18\b"),
         sujet=re.compile(r"(?i)r[ée]tractation"),
         contexte=_LOISIRS_A_DATE,
-        attendu=re.compile(r"(?i)\bL\.?\s?221-28\b"),
+        # L221-3 cité avec L221-18 : le passage parle d'un PROFESSIONNEL de cinq
+        # salariés au plus qui signe hors établissement, pas d'une activité de
+        # loisirs. Étude IA `e30fce14` (31/10/2026) : la règle juste de
+        # `REGLES_DE_FOND` était signalée deux fois comme une erreur de droit,
+        # parce que l'étude parle aussi d'« ateliers » de formation.
+        attendu=re.compile(r"(?i)\bL\.?\s?221-(?:28|3)\b"),
         hors_champ=_BIENS,
         detail=(
             "Pour des activités de loisirs fournies à une date déterminée (ateliers, séjours, "

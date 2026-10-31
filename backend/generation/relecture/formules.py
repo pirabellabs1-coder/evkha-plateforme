@@ -141,38 +141,114 @@ def _valeur_operande(n: Nombre) -> float:
     return n.valeur / 100 if n.pourcentage else n.valeur
 
 
+def _demi_unite(ecriture: str) -> float:
+    """L'arrondi que l'auteur a pu faire, lu dans le résultat ÉCRIT.
+
+    « 1 200 » tolère un demi ; « 3,80 », un demi-centième. La tolérance était
+    0,51 partout : juste pour des euros, aveugle sur une note sur 5, où
+    « = 4,20 » passait pour « = 3,80 » (relecture du 31/10/2026).
+    """
+    decimales = ecriture.split(",", 1)[1] if "," in ecriture else ""
+    chiffres = len(re.sub(r"\D", "", decimales))
+    return 0.5 * 10.0 ** -chiffres + 1e-9
+
+
+def _famille(signe: str) -> str:
+    if signe in ("÷", "/") or signe.startswith("divis"):
+        return "÷"
+    if signe in ("×", "x", "*") or signe.startswith("multipli"):
+        return "×"
+    if signe in ("−", "-", "moins"):
+        return "−"
+    return "+"
+
+
+def _calcul_simple(a: Nombre, signe: str, b: Nombre) -> float | None:
+    x, y = _valeur_operande(a), _valeur_operande(b)
+    famille = _famille(signe)
+    if b.pourcentage and not a.pourcentage and famille in ("−", "+"):
+        # « 80 000 € − 10 % » : une baisse de 10 %, pas une soustraction.
+        return x * (1 - y) if famille == "−" else x * (1 + y)
+    if famille == "÷":
+        return None if y == 0 else x / y
+    if famille == "×":
+        return x * y
+    return x - y if famille == "−" else x + y
+
+
+def _calcul_enchaine(termes: list[Nombre], signes: list[str]) -> float | None:
+    """« 4 × 0,25 + 3 × 0,15 + … + 5 × 0,05 » : multiplications et divisions
+    d'abord, puis sommes et différences, comme le lecteur le calcule."""
+    valeurs = [_valeur_operande(termes[0])]
+    additifs: list[str] = []
+    for signe, terme in zip(signes, termes[1:], strict=True):
+        famille, y = _famille(signe), _valeur_operande(terme)
+        if famille == "×":
+            valeurs[-1] *= y
+        elif famille == "÷":
+            if y == 0:
+                return None
+            valeurs[-1] /= y
+        else:
+            additifs.append(famille)
+            valeurs.append(y)
+    total = valeurs[0]
+    for famille, y in zip(additifs, valeurs[1:], strict=True):
+        total = total - y if famille == "−" else total + y
+    return total
+
+
 def _operations(document: Document) -> list[Constat]:
+    """Les opérations écrites, lues EN ENTIER jusqu'au signe égal.
+
+    Étude IA `e30fce14` (31/10/2026), chapitre 17 : « 4 × 0,25 + 3 × 0,15 +
+    3 × 0,10 + 4 × 0,20 + 4 × 0,15 + 4 × 0,10 + 5 × 0,05 = 3,80 » — juste.
+    Le contrôle ne lisait que les trois derniers nombres, « 5 × 0,05 = 3,80 »,
+    et rendait un calcul faux GRAVE : à la rédaction, une reprise payée d'un
+    chapitre juste (règle 2). Une opération qui suit un opérateur appartient à
+    l'expression qui la précède : on évalue l'expression.
+    """
     constats: list[Constat] = []
     for section in document.sections:
         for phrase in phrases_de(section):
             lus = [n for n in nombres(phrase) if not est_une_annee(n)]
-            for a, b, c in zip(lus, lus[1:], lus[2:], strict=False):
-                operateur = _OPERATEUR.match(phrase[a.fin: b.debut])
-                if not operateur or not _EGAL.match(phrase[b.fin: c.debut]):
+            debut = 0
+            while debut < len(lus) - 2:
+                if debut and _OPERATEUR.match(phrase[lus[debut - 1].fin: lus[debut].debut]):
+                    debut += 1  # au milieu d'une expression déjà lue
                     continue
-                signe = operateur.group(1).lower()
-                x, y = _valeur_operande(a), _valeur_operande(b)
-                baisse_ou_hausse = signe in ("−", "-", "moins", "+", "plus")
-                if b.pourcentage and not a.pourcentage and baisse_ou_hausse:
-                    # « 80 000 € − 10 % » : une baisse de 10 %, pas une soustraction.
-                    calcul = x * (1 - y) if signe in ("−", "-", "moins") else x * (1 + y)
-                elif signe in ("÷", "/") or signe.startswith("divis"):
-                    if y == 0:
-                        continue
-                    calcul = x / y
-                elif signe in ("×", "x", "*") or signe.startswith("multipli"):
-                    calcul = x * y
-                elif signe in ("−", "-", "moins"):
-                    calcul = x - y
-                else:
-                    calcul = x + y
+                termes, signes, fin = [lus[debut]], [], debut
+                while fin + 1 < len(lus):
+                    operateur = _OPERATEUR.match(phrase[lus[fin].fin: lus[fin + 1].debut])
+                    if not operateur:
+                        break
+                    signes.append(operateur.group(1).lower())
+                    termes.append(lus[fin + 1])
+                    fin += 1
+                if (
+                    not signes
+                    or fin + 1 >= len(lus)
+                    or not _EGAL.match(phrase[lus[fin].fin: lus[fin + 1].debut])
+                ):
+                    debut = fin + 1 if signes else debut + 1
+                    continue
+                c = lus[fin + 1]
+                calcul = (
+                    _calcul_simple(termes[0], signes[0], termes[1])
+                    if len(signes) == 1
+                    else _calcul_enchaine(termes, signes)
+                )
+                debut = fin + 2
+                if calcul is None:
+                    continue
                 attendu = _valeur_operande(c)
-                absolu = 0.001 if c.pourcentage else 0.51
+                absolu = 0.001 if c.pourcentage else _demi_unite(c.ecriture)
                 if proche(calcul, attendu, relatif=0.01, absolu=absolu):
                     continue
+                expression = phrase[termes[0].debut: termes[-1].fin]
                 constats.append(Constat(
-                    "formule", section.numero, phrase[a.debut: c.fin],
-                    f"Calcul faux : {a.ecriture} {signe} {b.ecriture} ne donne pas "
+                    "formule", section.numero, phrase[termes[0].debut: c.fin],
+                    f"Calcul faux : {expression} ne donne pas "
                     f"{c.ecriture}. Cite le repère de la mémoire qui porte ce résultat, "
                     "ou retire l'opération.",
                 ))
