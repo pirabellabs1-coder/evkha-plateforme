@@ -141,7 +141,28 @@ PART_TABLEAUX_MIN_CONCURRENCE = 0.15
 PART_TABLEAUX_MIN_BUSINESS_PLAN = 0.05
 PART_PARAGRAPHES_LONGS_MAX_BUSINESS_PLAN = 0.50
 
+#: L'ÉTUDE DE MARCHÉ, après le retour de la cliente du 29/10/2026 : « beaucoup
+#: de tableaux, mais pas beaucoup de textes ». Le modèle pose désormais un
+#: paragraphe de lecture d'une cinquantaine de mots après chaque tableau, et
+#: des cellules courtes (`modele.chargement._lire_chaque_tableau`) : des mots
+#: passent des cellules aux paragraphes. Garder 40 % de tableaux au minimum et
+#: une médiane à 25 mots, c'était punir — et faire réécrire, à nos frais — le
+#: document qui obéit (le défaut corrigé pour la concurrence le 28/10).
+#:
+#: Mesuré au même extracteur avant ce changement : Joalie 58 % de mots en
+#: tableaux, médiane 12 mots ; l'étude IA `e30fce14` 59 %, médiane 20. Le
+#: plancher descend à 25 % : un mur de texte sans tableau échoue toujours. La
+#: médiane monte à 35 mots pour laisser passer les paragraphes de lecture ;
+#: la part de paragraphes longs (plus de 60 mots) reste à 25 %.
+PART_TABLEAUX_MIN_ETUDE_DE_MARCHE = 0.25
+MEDIANE_PARAGRAPHE_MAX_ETUDE_DE_MARCHE = 35
+
 _SEUILS_PAR_LIVRABLE: dict[str, SeuilsDeDensite] = {
+    "market_study": SeuilsDeDensite(
+        PART_TABLEAUX_MIN_ETUDE_DE_MARCHE,
+        MEDIANE_PARAGRAPHE_MAX_ETUDE_DE_MARCHE,
+        PART_PARAGRAPHES_LONGS_MAX,
+    ),
     "business_strategy": SeuilsDeDensite(PART_TABLEAUX_MIN, 60, 0.60),
     "business_plan": SeuilsDeDensite(
         PART_TABLEAUX_MIN_BUSINESS_PLAN,

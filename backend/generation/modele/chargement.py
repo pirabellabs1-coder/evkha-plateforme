@@ -35,10 +35,83 @@ def charger_modele(chemin: str | None = None) -> dict[str, Any]:
         )
         raise ModeleIntrouvableError(msg)
     try:
-        return json.loads(fichier.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+        modele = json.loads(fichier.read_text(encoding="utf-8"))
     except json.JSONDecodeError as erreur:
         msg = f"Modèle de référence illisible ({fichier}) : {erreur}"
         raise ModeleIntrouvableError(msg) from erreur
+    return _lire_chaque_tableau(modele)
+
+
+#: Longueur du paragraphe de lecture posé après chaque tableau : deux ou trois
+#: phrases, une cinquantaine de mots — sous les soixante qui font un paragraphe
+#: « long » au contrôle de densité.
+LECTURE_DE_TABLEAU_SIGNES = 300
+
+#: Ce que la cellule porte, et ce qu'elle laisse au paragraphe.
+CELLULES_COURTES = (
+    "Cellules COURTES : une donnée, un mot-clé ou un verdict de douze mots au "
+    "plus. L'explication ne va pas dans la cellule : elle va dans le paragraphe "
+    "de lecture qui suit le tableau."
+)
+
+
+def _lire_chaque_tableau(modele: dict[str, Any]) -> dict[str, Any]:
+    """Après chaque tableau du modèle, un paragraphe qui le LIT.
+
+    ## Le retour de la cliente, et la mesure qui le fonde
+
+    Le 29/10/2026, sur les deux études de marché de la boutique : « il y avait
+    beaucoup de tableaux, mais pas beaucoup de textes. Du coup, ça fait un
+    empilement de tableaux, mais c'est bien aussi qu'il y ait des paragraphes
+    écrits. Mais ça, je vous l'avais dit l'autre fois. » Son cahier des charges
+    de l'étude de marché le dit aussi : « Les paragraphes doivent être
+    rédigés », « des paragraphes développés ».
+
+    Mesuré au même extracteur le 31/10/2026 : Joalie, le document validé qui
+    sert de modèle, porte 61,6 % de ses mots en tableaux ; l'étude IA de test
+    `e30fce14`, 61,7 %. Le moteur ne s'écartait pas du modèle, il le
+    reproduisait — et le validateur de conformité plafonnait la prose au
+    volume de Joalie (paragraphes ±1, volume ±15 %). Une consigne « écris plus »
+    aurait été refusée par ce validateur.
+
+    L'écart se lisait ailleurs : 18 % de nos cellules font douze mots ou plus
+    et portent 52 % des mots de tableau (6 % et 25 % chez Joalie). L'analyse
+    vivait dans les cellules.
+
+    ## Ce qui change, et pourquoi ici
+
+    Chaque tableau qui n'est pas déjà suivi d'un paragraphe en reçoit un, et
+    chaque tableau demande des cellules courtes. C'est fait AU CHARGEMENT, la
+    seule source que lisent à la fois le plan envoyé au modèle et le
+    validateur qui le juge (règle 5) : demander une forme et en contrôler une
+    autre ne converge jamais. Le fichier mesuré reste intact.
+    """
+    for chapitre in modele.get("chapitres", []):
+        blocs = chapitre.get("blocs") or []
+        ajustes: list[dict[str, Any]] = []
+        for rang, bloc in enumerate(blocs):
+            if bloc.get("type") != "tableau":
+                ajustes.append(bloc)
+                continue
+            consigne = str(bloc.get("consigne", "")).strip()
+            ajustes.append({
+                **bloc,
+                "consigne": f"{consigne}\n   → {CELLULES_COURTES}" if consigne
+                else CELLULES_COURTES,
+            })
+            suivant = blocs[rang + 1] if rang + 1 < len(blocs) else {}
+            if suivant.get("type") != "paragraphe":
+                ajustes.append({
+                    "type": "paragraphe",
+                    "longueur_cible_signes": LECTURE_DE_TABLEAU_SIGNES,
+                    "consigne": (
+                        "Lecture du tableau qui précède : ce qu'il montre, et "
+                        "ce que cela implique pour le projet. Deux ou trois "
+                        "phrases rédigées — jamais une redite des cellules."
+                    ),
+                })
+        chapitre["blocs"] = ajustes
+    return modele
 
 
 #: Livrables décrits par un modèle de forme, et le `type_document` que leur

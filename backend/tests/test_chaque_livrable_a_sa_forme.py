@@ -146,8 +146,15 @@ def test_la_consigne_et_le_controle_ne_se_contredisent_pas() -> None:
     assert concurrence.part_tableaux_min < 0.18
     # Mais un mur de texte sans aucun tableau échoue toujours.
     assert concurrence.part_tableaux_min > 0
-    # Et l'étude de marché garde son plancher d'origine.
-    assert marche.part_tableaux_min == 0.40
+    # Et l'étude de marché garde un plancher PROPRE, distinct de celui de la
+    # concurrence. Il est descendu le 31/10/2026 par une décision propre à
+    # l'étude de marché (`PART_TABLEAUX_MIN_ETUDE_DE_MARCHE`) — pour la même
+    # raison : la consigne y demande désormais un paragraphe de lecture après
+    # chaque tableau, et 40 % aurait puni le document qui obéit.
+    from generation.verification.controles import PART_TABLEAUX_MIN_ETUDE_DE_MARCHE
+
+    assert marche.part_tableaux_min == PART_TABLEAUX_MIN_ETUDE_DE_MARCHE
+    assert marche.part_tableaux_min != concurrence.part_tableaux_min
 
 
 def test_un_livrable_inconnu_recoit_la_partie_commune_seule() -> None:

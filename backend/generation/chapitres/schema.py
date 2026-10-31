@@ -186,7 +186,20 @@ class Tableau(SortieDeChapitre):
     #: priorité, coût, délai, indicateur. Une contrainte qui interdit ce que le
     #: document validé contient est une contrainte fausse.
     entetes: list[str] = Field(min_length=2)
-    lignes: list[list[str]] = Field(min_length=1)
+    #: La description part dans le schéma de l'outil, seule consigne que le
+    #: modèle lise sur ce champ. Étude IA `e30fce14` (31/10/2026) : 18 % des
+    #: cellules faisaient douze mots ou plus et portaient 52 % des mots de
+    #: tableau — l'analyse vivait dans les cellules, et la cliente lisait « un
+    #: empilement de tableaux, pas beaucoup de textes ».
+    lignes: list[list[str]] = Field(
+        min_length=1,
+        description=(
+            "Une cellule porte une donnée, un mot-clé ou un verdict court — "
+            "douze mots au plus. L'explication, la justification et la "
+            "conséquence pour le projet ne vont pas dans les cellules : elles "
+            "s'écrivent dans un paragraphe rédigé qui suit le tableau."
+        ),
+    )
     source: str = ""
 
     @model_validator(mode="before")

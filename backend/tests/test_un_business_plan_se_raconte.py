@@ -103,8 +103,16 @@ def test_les_autres_livrables_ne_bougent_pas() -> None:
     assert "L'analyse est RÉDIGÉE" in concurrence
     assert "se RACONTE" not in concurrence
 
-    # Et les seuils de l'étude de marché gardent la valeur d'origine.
-    assert seuils_de_densite(DeliverableType.MARKET_STUDY).part_tableaux_min == 0.40
+    # Et les seuils de l'étude de marché sont les SIENS — ni ceux du business
+    # plan, ni ceux de la concurrence. Ils ont bougé le 31/10/2026, par une
+    # décision propre à l'étude de marché (« beaucoup de tableaux, pas
+    # beaucoup de textes ») : voir `PART_TABLEAUX_MIN_ETUDE_DE_MARCHE`.
+    from generation.verification.controles import PART_TABLEAUX_MIN_ETUDE_DE_MARCHE
+
+    assert (
+        seuils_de_densite(DeliverableType.MARKET_STUDY).part_tableaux_min
+        == PART_TABLEAUX_MIN_ETUDE_DE_MARCHE
+    )
 
 
 def test_chaque_livrable_a_desormais_ses_propres_seuils() -> None:
