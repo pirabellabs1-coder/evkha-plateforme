@@ -278,13 +278,20 @@ def saut_de_page(document: DocumentWord) -> None:
 
 
 def _fond_pleine_page(
-    document: DocumentWord, couleur: str, *, motifs: str = ""
+    document: DocumentWord, couleur: str, *, motifs: tuple[str, ...] = ()
 ) -> Any:
     """Rectangle pleine page ancré DERRIÈRE le texte, comme dans la référence.
 
     Rend le paragraphe qui porte la forme : la quatrième de couverture y pose
     son saut de page. `motifs` : des formes posées par-dessus le fond, toujours
     derrière le texte (voir `_motifs_de_couverture`).
+
+    UNE forme par `w:pict`, chacune dans son propre morceau de texte. Le
+    31/10/2026, les trois cercles partageaient le `w:pict` du fond : Word les
+    affichait, mais LibreOffice — qui fabrique le PDF envoyé — n'en gardait
+    que la dernière et PERDAIT le fond pleine page. La couverture de l'étude
+    `bb4cc515` est sortie blanche, sous-titre crème illisible (règle 3 : juger
+    sur ce que le lecteur reçoit, le PDF).
     """
     paragraphe = document.add_paragraph()
     run = paragraphe.add_run()
@@ -295,9 +302,14 @@ def _fond_pleine_page(
         f"width:{PAGE_LARGEUR_PT}pt;height:{PAGE_HAUTEUR_PT}pt;z-index:-251658752;"
         "mso-position-horizontal:left;mso-position-horizontal-relative:page;"
         'mso-position-vertical:top;mso-position-vertical-relative:page" '
-        f'fillcolor="{couleur}" stroked="f"/>{motifs}</w:pict>'
+        f'fillcolor="{couleur}" stroked="f"/></w:pict>'
     )
     run._r.append(parse_xml(xml))
+    for motif in motifs:
+        paragraphe.add_run()._r.append(parse_xml(
+            '<w:pict xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+            f'xmlns:v="urn:schemas-microsoft-com:vml">{motif}</w:pict>'
+        ))
     return paragraphe
 
 
@@ -331,7 +343,7 @@ def _ovale(
     return f"<v:oval {' '.join(attributs)}>{''.join(enfants)}</v:oval>"
 
 
-def _motifs_de_couverture(palette: Palette) -> str:
+def _motifs_de_couverture(palette: Palette) -> tuple[str, ...]:
     """Deux ou trois cercles discrets, en partie hors de la page.
 
     Evangéline, 29/10/2026, sur la couverture qu'elle a refaite pour la
@@ -343,7 +355,7 @@ def _motifs_de_couverture(palette: Palette) -> str:
     centré, et derrière le texte — jamais sur ce qu'on lit.
     """
     z = -251658751  # au-dessus du fond, sous le texte
-    return "".join((
+    return (
         # Grand disque en haut à droite, débordant de la page.
         _ovale(PAGE_LARGEUR_PT - 190, -110, 300, z=z,
                remplissage=palette.secondaire, opacite=0.35),
@@ -353,7 +365,7 @@ def _motifs_de_couverture(palette: Palette) -> str:
         # Petit disque d'accent, près de l'anneau.
         _ovale(120, PAGE_HAUTEUR_PT - 120, 34, z=z,
                remplissage=palette.secondaire, opacite=0.8),
-    ))
+    )
 
 
 def _filet_horizontal(document: DocumentWord, couleur: str, largeur_emu: int = 3_000_000) -> None:

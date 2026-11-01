@@ -401,6 +401,24 @@ def test_la_couverture_porte_des_motifs_derriere_le_texte() -> None:
         assert "mso-position-horizontal:left" not in style
 
 
+def test_chaque_forme_de_couverture_a_son_propre_bloc() -> None:
+    """LibreOffice, qui fait le PDF envoyé, ne garde qu'UNE forme par `w:pict` :
+    le fond pleine page partagé avec les cercles disparaissait (`bb4cc515`,
+    31/10/2026 — couverture blanche, sous-titre illisible)."""
+    from generation.rendu_word import composants
+    from generation.rendu_word.gabarit import charger_gabarit
+    from generation.rendu_word.palette import REF_CREME, REF_PRUNE, construire_palette
+
+    document = charger_gabarit()
+    palette = construire_palette(primaire=REF_PRUNE, fond_clair=REF_CREME)
+    composants.couverture(document, palette, titre="Étude", client="Client")
+
+    blocs = [b for b in document.element.xml.split("<w:pict")[1:]]
+    formes = [b.count("<v:rect") + b.count("<v:oval") for b in blocs]
+    assert formes and all(n == 1 for n in formes), formes
+    assert sum(b.count("<v:rect") for b in blocs) == 1, "le fond pleine page"
+
+
 def test_la_quatrieme_de_couverture_reste_sobre() -> None:
     """CONTRE-ÉPREUVE : la demande portait sur la couverture."""
     from generation.rendu_word import composants
