@@ -220,7 +220,6 @@ def test_le_lancement_repartit_les_demandes_avant_le_premier_chapitre(
     from generation.repartition import CLE
 
     vues: list[bool] = []
-    original = traces  # garde la fixture active
     from generation.chapitres import services as cycle_de_vie
 
     produire = cycle_de_vie.produire_chapitre
@@ -233,7 +232,7 @@ def test_le_lancement_repartit_les_demandes_avant_le_premier_chapitre(
     moteur.run_generation_job(job)
     job.refresh_from_db()
 
-    assert original.structures
+    assert traces.structures
     assert vues and all(vues), "un chapitre a été écrit avant la répartition"
     assert job.memoire_etude[CLE]["executee"] is True
     assert job.memoire_etude[CLE]["demandes"]

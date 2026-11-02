@@ -57,7 +57,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from .couverture import Candidat, candidats_du_brief
+from .couverture import PART_NON_EXAMINEE_MAX, Candidat, candidats_du_brief
 
 _log = logging.getLogger(__name__)
 
@@ -77,8 +77,8 @@ MAX_TOKENS_PLAFOND = 16_000
 ESSAIS_MAX = 3
 
 #: Au-delà de cette part de passages sans verdict, la répartition ne conclut
-#: pas. Même seuil que la couverture : les deux lisent le même découpage.
-PART_NON_REPARTIE_MAX = 0.2
+#: pas. LE seuil de la couverture, importé : les deux lisent le même découpage.
+PART_NON_REPARTIE_MAX = PART_NON_EXAMINEE_MAX
 
 #: Au-delà, un chapitre ne peut pas répondre EN ENTIER à chacune : sa cible de
 #: mots ne bouge pas. Dit au modèle ; les dépassements sont dans la trace
