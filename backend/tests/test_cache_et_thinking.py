@@ -344,6 +344,10 @@ def em_job() -> GenerationJob:
 @pytest.mark.django_db
 def test_le_throttle_provisionne_le_cout_de_la_reflexion(em_job: GenerationJob) -> None:
     """Sans provision, le job meurt sur CostBudgetExceededError vers 90 %."""
+    # Un budget SERRÉ, pour que le throttle morde : au tarif de Sonnet 5, le
+    # modèle de production (02/11/2026), 4 € sur douze appels laissent plus de
+    # 8 192 jetons par appel et la provision ne se voyait plus.
+    em_job.budget_eur = Decimal("1.0000")
     with override_settings(EVKHA_THINKING_BUDGET_TOKENS=0):
         sans = max_tokens_for_job(em_job, default_max_tokens=8192, call_count=12)
     with override_settings(EVKHA_THINKING_BUDGET_TOKENS=1024):

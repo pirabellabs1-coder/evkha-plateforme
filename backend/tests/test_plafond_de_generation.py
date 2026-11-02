@@ -98,12 +98,27 @@ from generation.services import _BUDGET_EUR_BY_TYPE
 # n'avaient pas la marge que leur commentaire annonçait (8,00 € pour 7,72 €
 # observés, soit 3 %). Un plafond est un MAXIMUM, pas une dépense : le relever
 # ne fait rien dépenser de plus, il enlève seulement la coupure.
+#
+# Ramenés le 02/11/2026 aux valeurs d'avant Opus, sur décision de la cliente
+# (« il n'y a pas eu de changement de résultats […] revenir au prix
+# précédent […] complètement »), avec le retour du modèle à `claude-sonnet-5`.
+# La stratégie à 6,60 € et non 6,50 € : 6,52 € observés en Sonnet 5, et
+# `plafonds_sous_calibres` refuse un plafond sous le coût réel.
 DECISION_CLIENTE = {
-    DeliverableType.MARKET_STUDY: Decimal("18.00"),
-    DeliverableType.BUSINESS_PLAN: Decimal("18.00"),
-    DeliverableType.BUSINESS_STRATEGY: Decimal("15.00"),
-    DeliverableType.COMPETITOR_STUDY: Decimal("9.00"),
+    DeliverableType.MARKET_STUDY: Decimal("8.00"),
+    DeliverableType.BUSINESS_PLAN: Decimal("8.00"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("6.60"),
+    DeliverableType.COMPETITOR_STUDY: Decimal("4.50"),
 }
+
+
+def test_les_plafonds_tiennent_au_tarif_du_modele_de_production() -> None:
+    """Le modèle et les plafonds se changent ENSEMBLE : en Opus, ces plafonds
+    couperaient chaque étude avant la fin."""
+    from generation.cost import plafonds_sous_calibres
+
+    assert plafonds_sous_calibres("claude-sonnet-5") == []
+    assert plafonds_sous_calibres("claude-opus-5-5"), "en Opus, ils seraient trop bas"
 
 
 @pytest.fixture

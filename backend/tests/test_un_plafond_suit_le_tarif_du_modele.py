@@ -26,20 +26,17 @@ from generation.cost import (
     plafonds_sous_calibres,
 )
 
-#: Le modèle que la production appelle depuis le 26/10/2026.
+#: Le modèle d'Opus, appelé en production du 26/10 au 02/11/2026.
 OPUS = "claude-opus-5-5"
 
 
-def test_les_plafonds_couvrent_le_cout_en_opus() -> None:
-    """Le contrôle qui échoue sur les plafonds d'avant.
-
-    Avec les anciennes valeurs — étude de marché 8,00 €, business plan 8,00 €,
-    stratégie 6,50 €, concurrence 4,50 € — ce test échoue sur les QUATRE
-    livrables : au tarif d'Opus, le coût attendu d'une étude de marché est de
-    7,72 × 2 = 15,44 €, et le plafond l'aurait coupée vers le 20e chapitre.
-    """
+def test_les_plafonds_d_avant_opus_ne_couvrent_pas_opus() -> None:
+    """Le contrôle relie bien plafond et tarif : revenus le 02/11/2026 aux
+    plafonds calibrés sur Sonnet 5, ils seraient REFUSÉS si la production
+    repassait en Opus sans les relever — sur les quatre livrables."""
     with override_settings(EVKHA_ANTHROPIC_MODEL_ID=OPUS):
-        assert plafonds_sous_calibres() == []
+        motifs = plafonds_sous_calibres()
+    assert len(motifs) == len(PLAFOND_PAR_LIVRABLE)
 
 
 def test_au_tarif_de_calibrage_rien_n_est_signale() -> None:

@@ -37,6 +37,7 @@ from generation.socle.heritage import (
     MAX_CHIFFRES_HERITES,
     chiffres_du_livrable_precedent,
 )
+from intake.models import IntakeSubmission
 from orders.models import Order
 
 EM = DeliverableType.MARKET_STUDY
@@ -76,6 +77,7 @@ def _job(
     *,
     reference: str,
     statut: str = JobStatus.DONE,
+    projet: str = "Vins et fromages du continent",
 ) -> GenerationJob:
     offre = Offer.objects.create(
         name=f"offre {reference}", slug=f"heritage-{reference}", deliverable_type=livrable,
@@ -83,6 +85,10 @@ def _job(
     commande = Order.objects.create(
         systeme_order_id=f"cmd-{reference}", customer=customer, offer=offre,
     )
+    if projet:
+        IntakeSubmission.objects.create(
+            order=commande, normalized_variables={"PROJET": projet},
+        )
     return GenerationJob.objects.create(
         order=commande,
         deliverable_type=livrable,
@@ -210,3 +216,67 @@ def test_le_prompt_du_socle_porte_le_bloc() -> None:
     assert "CHIFFRES DÉJÀ POSÉS" not in construire_prompt_socle(
         deliverable_type=EC, variables={"SECTEUR": "vins"},
     )
+
+
+# ── Le même PROJET, pas le même compte (02/11/2026) ─────────────────────────
+
+
+def test_un_autre_projet_du_meme_compte_ne_s_herite_pas(
+    client_avec_deux_commandes: Customer,
+) -> None:
+    """LE cas réel : la consultante fait deux études pour deux projets. Les
+    chiffres de l'IA passaient dans l'étude du terroir vendu en Asie
+    (`a6947890`). Échoue sur le code d'avant, qui héritait du compte."""
+    ia = _job(
+        client_avec_deux_commandes, EM, reference="ia",
+        projet="Consultant IA pour TPE : lancer son activité de freelance",
+    )
+    SocleDonnees.objects.create(job=ia, statut=SocleStatut.VALIDE, contenu=MARCHE_DE_LA_ZONE)
+    asie = _job(client_avec_deux_commandes, EM, reference="asie", projet="SUN TZU ORGANISATION")
+
+    assert chiffres_du_livrable_precedent(asie) == ""
+
+
+def test_un_dossier_sans_nom_de_projet_n_herite_de_rien(
+    client_avec_deux_commandes: Customer,
+) -> None:
+    """Sans preuve que c'est le même dossier, rien ne passe (règle 2)."""
+    marche = _job(client_avec_deux_commandes, EM, reference="em-anonyme")
+    SocleDonnees.objects.create(job=marche, statut=SocleStatut.VALIDE, contenu=MARCHE_DE_LA_ZONE)
+    concurrence = _job(client_avec_deux_commandes, EC, reference="ec-anonyme", projet="")
+
+    assert chiffres_du_livrable_precedent(concurrence) == ""
+
+
+def test_le_meme_projet_ecrit_autrement_herite_toujours(
+    client_avec_deux_commandes: Customer,
+) -> None:
+    """CONTRE-ÉPREUVE : casse, accents et espaces ne séparent pas un projet."""
+    marche = _job(
+        client_avec_deux_commandes, EM, reference="em-meme", projet="Épicerie  du Terroir",
+    )
+    SocleDonnees.objects.create(job=marche, statut=SocleStatut.VALIDE, contenu=MARCHE_DE_LA_ZONE)
+    concurrence = _job(
+        client_avec_deux_commandes, EC, reference="ec-meme", projet="epicerie du terroir ",
+    )
+
+    assert "Marché total de la zone" in chiffres_du_livrable_precedent(concurrence)
+
+
+def test_le_projet_le_plus_recent_du_meme_nom_l_emporte_sur_un_autre_plus_recent(
+    client_avec_deux_commandes: Customer,
+) -> None:
+    """Un dossier plus récent d'un AUTRE projet ne masque pas celui du même projet."""
+    marche = _job(client_avec_deux_commandes, EM, reference="em-a")
+    SocleDonnees.objects.create(job=marche, statut=SocleStatut.VALIDE, contenu=MARCHE_DE_LA_ZONE)
+    autre = _job(client_avec_deux_commandes, EM, reference="em-b", projet="Autre projet")
+    SocleDonnees.objects.create(
+        job=autre, statut=SocleStatut.VALIDE,
+        contenu={"donnees": [{"id": "x", "libelle": "Marché de l'IA", "valeur": 18.4,
+                              "unite": "MdEUR", "annee": 2026}]},
+    )
+    concurrence = _job(client_avec_deux_commandes, EC, reference="ec-a")
+
+    bloc = chiffres_du_livrable_precedent(concurrence)
+    assert "Marché total de la zone" in bloc
+    assert "IA" not in bloc

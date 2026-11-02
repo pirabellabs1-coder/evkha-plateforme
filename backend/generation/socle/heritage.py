@@ -39,10 +39,29 @@ l'identique, et nommer l'écart quand il y en a un.
 Il ne compare pas et ne juge pas : un chiffre repris à l'identique n'a pas
 besoin d'être contrôlé, et un chiffre qui s'en écarte est jugé par les
 contrôles de cohérence qui existent déjà.
+
+## Le même PROJET, pas le même compte (02/11/2026)
+
+Le client d'EVKHA est souvent une consultante qui produit des études pour
+PLUSIEURS projets depuis un seul compte. Hériter « du même client » a fait
+passer les chiffres de l'étude « Consultant IA pour TPE » (`99a142b0`) dans
+l'étude « SUN TZU ORGANISATION », produits du terroir vendus en Asie
+(`a6947890`) : le modèle les a écartés, mais en l'ÉCRIVANT dans le document
+livré — « Pas de reprise de l'étude précédente : elle retenait 18,4 MdEUR pour
+le marché français de l'IA » —, pages 28, 42, 65 et 70. Evangéline : « ça a
+mélangé les dossiers ».
+
+L'héritage exige donc le même `PROJET` saisi au questionnaire, comparé sans
+casse ni accents ni espaces superflus. Un dossier sans nom de projet n'hérite
+de rien : sans preuve que c'est le même dossier, un chiffre hérité est un
+chiffre d'un autre client (règle 2 — un rapprochement faux est pire
+qu'absent).
 """
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 from typing import Any
 
 _log = logging.getLogger(__name__)
@@ -74,24 +93,38 @@ def chiffres_du_livrable_precedent(job: Any) -> str:
         return ""
 
 
+def _projet(job: Any) -> str:
+    """Le nom du projet saisi au questionnaire, réduit pour la comparaison."""
+    from ..chapitres.services import variables_du_job  # noqa: PLC0415
+
+    brut = str(variables_du_job(job).get("PROJET") or "")
+    sans_accents = "".join(
+        c for c in unicodedata.normalize("NFD", brut) if not unicodedata.combining(c)
+    )
+    return re.sub(r"\s+", " ", sans_accents).strip().casefold()
+
+
 def _dernier_livrable_du_client(job: Any) -> Any:
-    """Le dernier dossier TERMINÉ du même client, hors celui-ci, avec un socle."""
+    """Le dernier dossier TERMINÉ du même client ET du même projet, avec un socle."""
     from ..models import GenerationJob, SocleStatut  # noqa: PLC0415
 
     customer = getattr(getattr(job, "order", None), "customer", None)
     if customer is None:
         return None
-    return (
+    projet = _projet(job)
+    if not projet:
+        return None
+    candidats = (
         GenerationJob.objects.filter(
             order__customer=customer,
             status=_STATUT_HERITABLE,
             socle__statut=SocleStatut.VALIDE,
         )
         .exclude(pk=job.pk)
-        .select_related("socle")
+        .select_related("socle", "order")
         .order_by("-completed_at")
-        .first()
     )
+    return next((c for c in candidats if _projet(c) == projet), None)
 
 
 def _bloc(precedent: Any) -> str:

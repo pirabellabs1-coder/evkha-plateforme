@@ -547,8 +547,19 @@ def max_tokens_for_job(
 #: l'étranglement de l'ancien rythme à « ~5111 jetons dès le 1er appel », et
 #: des chapitres étranglés sont exactement ce que la cliente reproche au
 #: livrable. Mais il se dit, au lieu de se présenter comme gratuit.
+#: ## Retour aux plafonds d'avant Opus (02/11/2026)
+#:
+#: Décision de la cliente, après cinq études produites en Opus 5.5 : « il n'y
+#: a pas eu de changement de résultats […] il faut revenir au prix précédent
+#: […] complètement ». Mesuré : l'étude de marché coûtait 7,30 € de médiane en
+#: Sonnet 5 ; en Opus, 14,95 €, 16,32 €, 17,83 € — plus du double, pour un
+#: document qu'elle juge pas meilleur. Le modèle revient à `claude-sonnet-5`
+#: (variable `EVKHA_ANTHROPIC_MODEL_ID` de Coolify) et les plafonds à leurs
+#: valeurs du 25/10/2026 — sauf la stratégie, posée à 6,60 € au lieu de
+#: 6,50 € : un dossier réel a coûté 6,52 € en Sonnet 5, et
+#: `plafonds_sous_calibres` le couperait avant la fin.
 PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
-    DeliverableType.MARKET_STUDY:      Decimal("18.0000"),
+    DeliverableType.MARKET_STUDY:      Decimal("8.0000"),
     # Relevé de 6,50 à 8,00 € le 18/08/2026, sur décision de la cliente.
     #
     # Le business plan `256e63d8` s'est arrêté à 21 chapitres sur 22 : le
@@ -561,9 +572,9 @@ PLAFOND_PAR_LIVRABLE: dict[str, Decimal] = {
     # amputé, déjà payé, que personne ne peut vendre. Le montant reste la
     # décision de la cliente et de personne d'autre — ce fichier ne fait que
     # l'appliquer.
-    DeliverableType.BUSINESS_PLAN:     Decimal("18.0000"),
-    DeliverableType.BUSINESS_STRATEGY: Decimal("15.0000"),
-    DeliverableType.COMPETITOR_STUDY:  Decimal("9.0000"),
+    DeliverableType.BUSINESS_PLAN:     Decimal("8.0000"),
+    DeliverableType.BUSINESS_STRATEGY: Decimal("6.6000"),
+    DeliverableType.COMPETITOR_STUDY:  Decimal("4.5000"),
 }
 
 #: Le modèle sur lequel les plafonds ci-dessus ont été calibrés, et le coût le

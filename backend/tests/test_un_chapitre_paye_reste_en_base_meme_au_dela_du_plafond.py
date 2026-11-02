@@ -30,8 +30,9 @@ from generation.models import ChapterGeneration, ChapterStatus, GenerationJob
 from monitoring.models import OperationalIncident
 from orders.models import Order
 
-#: Assez pour franchir un plafond de 1 € en un seul appel.
-CONSOMMATION_HORS_PLAFOND = {"input_tokens": 400_000, "output_tokens": 16_000}
+#: Assez pour franchir un plafond de 1 € en un seul appel, à tout tarif Sonnet :
+#: 1,22 € en Sonnet 5 (2 $ / 10 $), le modèle de production depuis le 02/11/2026.
+CONSOMMATION_HORS_PLAFOND = {"input_tokens": 600_000, "output_tokens": 16_000}
 
 
 @pytest.fixture

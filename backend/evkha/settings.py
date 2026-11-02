@@ -352,7 +352,13 @@ BREVO_API_KEY = env("BREVO_API_KEY", default="")
 # claude-sonnet : qualite optimale pour les analyses longues (80 pages). Les budgets
 # adaptatifs (EM=4€, BP=3€) absorbent le cout Sonnet meme sur 30 appels.
 EVKHA_CLAUDE_MODEL = env("EVKHA_CLAUDE_MODEL", default="claude-sonnet")
-EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="")
+# Le modele que la PRODUCTION appelle, et la valeur par defaut partout ailleurs
+# (02/11/2026, retour d'Opus a Sonnet 5 sur decision de la cliente). Vide, il
+# laissait la tarification compter l'alias « claude-sonnet » au plus cher de sa
+# famille : la repetition a blanc, locale comme en CI, jugeait les plafonds au
+# tarif de Sonnet 4.6 (x 1,5), un modele qui ne tourne pas — et refusait des
+# plafonds justes. Coolify le fixe explicitement sur les deux portees.
+EVKHA_ANTHROPIC_MODEL_ID = env("EVKHA_ANTHROPIC_MODEL_ID", default="claude-sonnet-5")
 
 # Modele de la RECHERCHE WEB (fournisseur « claude »), distinct de celui qui
 # redige. Decision du client du 30/09/2026 : chercher puis citer ne demande pas
