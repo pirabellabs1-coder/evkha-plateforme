@@ -22,6 +22,7 @@ from integrations.claude import SYSTEM_CACHE_BREAK, motif_de_troncature
 from ..coherence import registre_json_as_context
 from ..modele.conformite import Arbitrage, arbitrer
 from ..models import ChapterGeneration, ChapterStatus, GenerationJob
+from ..repartition import bloc_de_la_repartition, bloc_du_chapitre
 from ..socle.schema import (
     Socle,
     famille_de_l_unite,
@@ -2484,6 +2485,8 @@ def construire_prompt_chapitre(
             "ce qu'elles permettent d'en dire, puis ce qui manque exactement "
             "et qui le publie. Ne remplace jamais la question par une autre."
         ),
+        # Qui traite quoi : figée avant le premier chapitre, donc constante.
+        *([table] if (table := bloc_de_la_repartition(chapter.job.memoire_etude)) else []),
         *([f"{documents}\n\n{CONSIGNE_DOCUMENTS_CHAPITRE}"] if documents else []),
         *([figures] if figures else []),
     ])
@@ -2515,6 +2518,15 @@ def construire_prompt_chapitre(
         ),
         f"CHAPITRE À RÉDIGER : {chapter.chapter_number} — {chapter.chapter_title}",
         f"INSTRUCTION DU CHAPITRE :\n{instruction}",
+        # Juste après l'instruction : les demandes du client que le plan ne
+        # nomme pas, et que CE chapitre doit traiter (`generation.repartition`).
+        *(
+            [confiees]
+            if (confiees := bloc_du_chapitre(
+                chapter.job.memoire_etude, chapter.chapter_number,
+            ))
+            else []
+        ),
         *_blocs_du_modele(str(chapter.job.deliverable_type), chapter.chapter_number),
         # Vide hors stratégie et hors chapitres porteurs d'un pilier.
         *(

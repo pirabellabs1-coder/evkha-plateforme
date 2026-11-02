@@ -1094,6 +1094,12 @@ class StubClaudeClient:
             )
 
             charge = chapitre_de_demonstration(contexte)
+        elif outil_nom == "repartir_les_demandes":
+            from generation.repartition import (  # noqa: PLC0415
+                repartition_de_demonstration,
+            )
+
+            charge = repartition_de_demonstration(contexte)
 
         return StructuredResult(
             payload=charge,

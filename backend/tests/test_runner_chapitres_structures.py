@@ -209,3 +209,31 @@ def test_un_type_de_livrable_non_declare_reste_sur_l_ancienne_voie(
 
     assert traces.structures == []
     assert traces.markdown, "l'ancienne voie prend le relais"
+
+
+@override_settings(EVKHA_SOCLE_ENABLED=True)
+def test_le_lancement_repartit_les_demandes_avant_le_premier_chapitre(
+    job: GenerationJob, traces: _Traces, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le BRANCHEMENT, pas la fonction (règle 8) : étude `a6947890`, 48 demandes
+    sur 54 sans chapitre qui en ait la charge. Voir `generation.repartition`."""
+    from generation.repartition import CLE
+
+    vues: list[bool] = []
+    original = traces  # garde la fixture active
+    from generation.chapitres import services as cycle_de_vie
+
+    produire = cycle_de_vie.produire_chapitre
+
+    def _apres_repartition(job_recu: Any, numero: int, **kwargs: Any) -> Any:
+        vues.append(CLE in (job_recu.memoire_etude or {}))
+        return produire(job_recu, numero, **kwargs)
+
+    monkeypatch.setattr(cycle_de_vie, "produire_chapitre", _apres_repartition)
+    moteur.run_generation_job(job)
+    job.refresh_from_db()
+
+    assert original.structures
+    assert vues and all(vues), "un chapitre a été écrit avant la répartition"
+    assert job.memoire_etude[CLE]["executee"] is True
+    assert job.memoire_etude[CLE]["demandes"]

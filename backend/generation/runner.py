@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from django.utils import timezone
@@ -260,6 +261,81 @@ def _build_phase0_plan(job: GenerationJob, variables: dict[str, object]) -> str:
     )
 
 
+def _repartir_les_demandes(
+    job: GenerationJob, *, client: Any, variables: Mapping[str, object]
+) -> None:
+    """Confie les demandes du brief aux chapitres, une fois par dossier.
+
+    Idempotent : une relance garde une répartition RÉUSSIE — les chapitres
+    écrits l'ont lue, ceux qui restent doivent lire la même. Une répartition
+    en échec se refait tant qu'aucun chapitre de fond n'est écrit : personne
+    ne l'a encore lue.
+
+    Ne lève jamais ; un échec se dit dans un incident, et les chapitres
+    retombent sur le brief brut (règle 1 : ne pas se taire, mais ne pas tuer
+    l'étude).
+    """
+    try:
+        _repartir_ou_dire_pourquoi(job, client=client, variables=variables)
+    except Exception:  # noqa: BLE001 — la répartition ne tue jamais l'étude
+        _log.exception("Répartition des demandes impossible (job %s)", job.id)
+
+
+def _repartir_ou_dire_pourquoi(
+    job: GenerationJob, *, client: Any, variables: Mapping[str, object]
+) -> None:
+    from .repartition import CLE, repartir_les_demandes  # noqa: PLC0415
+
+    deja = (job.memoire_etude or {}).get(CLE)
+    if deja is not None and (
+        deja.get("executee")
+        or job.chapters.filter(chapter_number__gt=0, status=ChapterStatus.DONE).exists()
+    ):
+        return
+    repartition = repartir_les_demandes(
+        client=client,
+        variables=variables,
+        plan=chapters_for_deliverable(str(job.deliverable_type)),
+    )
+
+    # La trace AVANT le coût : si l'écriture du coût échouait, la répartition
+    # payée resterait au moins lue par les chapitres.
+    trace = {**(job.memoire_etude or {}), CLE: repartition.en_dict()}
+    job.memoire_etude = trace
+    GenerationJob.objects.filter(pk=job.pk).update(memoire_etude=trace)
+
+    # Comptée sur la fiche projet, comme le CHECK initial : c'est un appel du
+    # dossier, pas d'un chapitre. Tous les essais, réussis ou non.
+    porteur = job.chapters.order_by("chapter_number").first()
+    if porteur is not None:
+        from .cost import record_additional_cost  # noqa: PLC0415
+
+        record_additional_cost(
+            chapter=porteur,
+            input_tokens=repartition.input_tokens,
+            output_tokens=repartition.output_tokens,
+            model=repartition.modele or None,
+        )
+
+    if not repartition.executee:
+        OperationalIncident.objects.create(
+            title=f"Demandes du client NON réparties entre les chapitres (job {job.id})",
+            severity=IncidentSeverity.MEDIUM,
+            job=job,
+            order=job.order,
+            details={
+                "type": "repartition_des_demandes",
+                **repartition.en_dict(),
+                "consequence": (
+                    "Les demandes sans chapitre ne sont confiées à personne : "
+                    "elles ne reçoivent que le brief brut, comme avant le "
+                    "02/11/2026. Relire la couverture des demandes à la "
+                    "livraison."
+                ),
+            },
+        )
+
+
 def _var(v: dict[str, object], k: str) -> str:
     """Lit une variable normalisée en gérant les valeurs list-valued de Tally.
 
@@ -513,6 +589,12 @@ def run_generation_job(
                          "tentatives": getattr(exc, "tentatives", 0)},
             )
             raise
+
+        # Chaque demande du client reçoit un chapitre qui en a la charge,
+        # AVANT le premier chapitre : c'est lui qui la lira. Voir
+        # `generation.repartition` (étude `a6947890`, 48 demandes sur 54
+        # insuffisamment traitées).
+        _repartir_les_demandes(job, client=client, variables=variables)
 
     # Phase 0 : rappel court des exigences client. Garde `if not job.phase0_plan` :
     # sur une relance avec chapitres partiellement DONE, on préserve le plan
