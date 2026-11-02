@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..socle.referentiel import Fiabilite
 from ..socle.schema import INSECABLE, montant_lisible
-from .composants import attribue_quelque_chose
+from .composants import attribue_quelque_chose, sans_refus_d_heritage
 from .texte import libelle_court
 
 if TYPE_CHECKING:
@@ -79,8 +79,8 @@ def _origine(donnee: Any) -> str:
     libelle = (donnee.libelle or "").strip()
     if libelle.lower().startswith("calculé"):
         morceaux.append(libelle.rstrip("."))
-    elif attribue_quelque_chose(donnee.source):
-        morceaux.append(str(donnee.source))
+    elif attribue_quelque_chose(source := sans_refus_d_heritage(str(donnee.source))):
+        morceaux.append(source)
     else:
         # Une attribution qui ne nomme aucune source cède la place à
         # l'explication, qui dit la même chose en français et dit davantage :

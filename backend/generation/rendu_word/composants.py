@@ -1236,6 +1236,28 @@ _URL = re.compile(r"(?:https?://|www\.)[^\s,;)\]]+", re.IGNORECASE)
 _PREFIXES_INUTILES = ("www.", "fr.", "en.", "m.")
 
 
+#: Le refus d'un héritage écrit DANS la source : « Pas de reprise de l'étude
+#: précédente : elle retenait 18,4 MdEUR pour le marché français de l'IA, un
+#: autre secteur ». Étude `a6947890` (01/11/2026), quinze fois : l'héritage
+#: transmettait les chiffres d'un AUTRE projet du même compte, et le modèle
+#: consignait son refus là où le lecteur le lit. La cause est fermée
+#: (`socle.heritage` exige le même projet) ; ceci retire la trace des socles
+#: déjà écrits. « Révisé depuis l'étude précédente, qui retenait X » — l'écart
+#: nommé entre deux livrables du MÊME projet — n'est pas visé.
+_REFUS_D_HERITAGE = re.compile(
+    r"[\s.,;]*\b(?:pas\s+de|aucune)\s+reprise\s+de\s+l['’]étude\s+précédente\b[^;]*",
+    re.IGNORECASE,
+)
+
+
+def sans_refus_d_heritage(texte: str) -> str:
+    """La source sans le commentaire qui écarte l'étude d'un autre projet."""
+    nettoye = _REFUS_D_HERITAGE.sub("", texte)
+    if nettoye == texte:
+        return texte
+    return re.sub(r"\s*;\s*", " ; ", nettoye).strip(" ;")
+
+
 def source_lisible(texte: str) -> str:
     """Remplace une URL par le NOM de la source qu'elle désigne.
 
@@ -1268,7 +1290,7 @@ def source_lisible(texte: str) -> str:
                 hote = hote[len(prefixe):]
         return hote or url
 
-    return _URL.sub(_domaine, texte)
+    return _URL.sub(_domaine, sans_refus_d_heritage(texte))
 
 
 #: Un texte qui s'annonce DÉJÀ comme une attribution : « Source : Insee »,
