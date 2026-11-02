@@ -30,7 +30,6 @@ from typing import Any
 from django.conf import settings
 
 from ..chapitres.schema import ChapitrePayload, Graphique
-from ..prompts import PLANCHER_FIGURES
 from ..socle.schema import Socle, nombre_francais, unite_lisible
 from . import secteurs
 from .annexe_chiffres import a_son_echelle, blocs_annexe, meme_arrondi
@@ -361,20 +360,6 @@ def _tableau_des_notes(socle: Socle, demande: Graphique) -> dict[str, Any] | Non
     }
 
 
-def _renvoi(lieu: tuple[str, str], reference: str) -> str:
-    """La ligne qui remplace une figure déjà posée ailleurs dans le document.
-
-    Revue du 29/09/2026 : le doublon écarté était souvent celui du chapitre de
-    fond (le premier exemplaire vit au résumé exécutif), et sa prose — « le
-    graphique ci-dessous » — ne renvoyait plus à rien. Elle renvoie désormais à
-    la figure, là où le lecteur la trouvera.
-    """
-    chapitre, titre = lieu
-    if chapitre == reference:
-        return f"Figure présentée plus haut dans ce chapitre — {titre}"
-    return f"Figure présentée au {chapitre[:1].lower()}{chapitre[1:]} — {titre}"
-
-
 def _signature(resolution: Resolution) -> str:
     """Ce qui fait qu'une figure est LA MÊME : sa forme et ses données résolues.
 
@@ -539,33 +524,21 @@ def _blocs_graphique(
             # ses données passent en tableau si le lecteur ne les a pas déjà
             # sous les yeux.
             #
-            # Le renvoi n'est écrit que s'il est À PROPOS. Business plan ÉCLORE
-            # `28a257bf` (30/09/2026, 6.1) : « Figure présentée au chapitre 1 —
-            # Repères financiers du lancement » sous « Taille et dynamique du
-            # marché ». Le radar et la frise ignorent les identifiants demandés :
-            # une figure de marché et une figure financière y rendent la même
-            # image, et le renvoi envoyait le lecteur vers une autre question.
-            # Le titre de la figure posée est jugé contre ce dont parle la
-            # section et contre ce que le chapitre demandait ici — par la
-            # fonction de la relecture, qui signale ceux qui restent (règle 5).
-            from ..relecture.fuites import renvoi_sur_le_sujet  # noqa: PLC0415
-
-            a_propos = renvoi_sur_le_sujet(deja_posee[1], [*sujets, demande.titre])
-            if a_propos:
-                blocs.append({"type": "renvoi", "texte": _renvoi(deja_posee, reference)})
+            # PLUS DE RENVOI « Figure présentée au chapitre N » (02/11/2026).
+            # Étude `a6947890` : « Figure présentée au chapitre 0 » — la fiche
+            # projet, que le gabarit ne rend pas comme un chapitre — et « au
+            # chapitre 7 », où le lecteur ne trouve aucune figure de ce titre.
+            # Evangéline : « ce n'est pas du tout le cas ». Le renvoi désignait
+            # l'endroit où la signature avait été ENREGISTRÉE, pas une figure
+            # que le lecteur voit (règle 3). Le doublon cède la place à ses
+            # données en tableau, si le lecteur ne les a pas déjà sous les yeux,
+            # sinon à rien.
             repli = _tableau_de_repli(socle, demande)
             deja_vues = set(demande.donnees_ids) <= rapport.identifiants_rendus
             if repli is not None and not deja_vues and _poser_le_repli(repli, rapport, blocs):
-                devenir = "tableau de ses données" if not a_propos else (
-                    "renvoi, et tableau de ses données"
-                )
-            elif a_propos:
-                devenir = "renvoi à la figure"
+                devenir = "tableau de ses données"
             else:
-                devenir = (
-                    f"ni renvoi ni figure : la figure posée (« {deja_posee[1]} ») ne porte "
-                    "pas sur le sujet de la section"
-                )
+                devenir = "retirée : ses données sont déjà sous les yeux du lecteur"
             rapport.graphiques_en_double.append(
                 f"{reference} · {demande.titre} : même figure "
                 f"({resolution.type_graphique}, mêmes données) que plus haut "
@@ -742,190 +715,6 @@ def blocs_du_chapitre(
 _INTITULES_VERDICT = ("verdict", "conclusion", "décision", "decision")
 
 
-def _completer_les_figures(
-    blocs_par_chapitre: list[dict[str, Any]],
-    payloads: Sequence[ChapitrePayload],
-    socle: Socle,
-    profil: secteurs.ProfilSectoriel,
-    rapport: RapportAssemblage,
-) -> None:
-    """Ramène le document au plancher de figures, en place.
-
-    La cliente a posé un quota : « au moins 17 à 25 graphes par document, c'est
-    une obligation absolue ». La charte le demande au modèle — mais un modèle
-    qui en déclare douze produisait jusqu'ici un document à douze figures, sans
-    que rien ne le relève.
-
-    La complétion ne fabrique AUCUN chiffre : elle ne trace que des données du
-    socle, déjà vérifiées, et seulement celles que le chapitre a lui-même
-    déclarées dans `donnees_utilisees`. Une figure ajoutée à un chapitre parle
-    donc de ce dont ce chapitre parle.
-
-    Elle sert d'abord les chapitres qui n'ont AUCUNE figure : c'est là que le
-    lecteur voit un mur de texte, et c'est aussi là qu'une figure de plus
-    apporte le plus. Les identifiants déjà tracés ailleurs passent en dernier —
-    redessiner deux fois la même donnée tiendrait le compte sans rien apprendre.
-    """
-    if rapport.graphiques_rendus >= PLANCHER_FIGURES:
-        return
-
-    par_numero = {payload.chapitre: payload for payload in payloads}
-    # Le chapitre 0 est la « Fiche projet » : elle récapitule le brief du
-    # client, elle n'analyse rien. Une figure n'y a pas de sens — et surtout,
-    # elle n'y arriverait pas : mesuré, le document sortait avec DIX-SEPT
-    # figures au rapport et SEIZE sous les yeux du lecteur, la dix-septième
-    # étant celle posée sur cette fiche, que le gabarit rend autrement.
-    # Compter une figure que personne ne voit, c'est la règle 9 : le contrôle
-    # et le document n'auraient plus jugé sur la même évidence.
-    eligibles = [c for c in blocs_par_chapitre if c["numero"] != 0]
-    # Un chapitre sans aucune figure d'abord ; les autres ensuite.
-    sans_figure = [
-        chapitre for chapitre in eligibles
-        if not any(b.get("type") == "graphique" for b in chapitre["blocs"])
-    ]
-    avec_figure = [c for c in eligibles if c not in sans_figure]
-
-    forme = 0
-    # Ce que la complétion a déjà consommé, CHAPITRE PAR CHAPITRE. Une première
-    # version retenait une signature globale « chapitre + identifiants » : elle
-    # rendait la seconde passe inerte, puisqu'un chapitre repassait toujours
-    # avec la même liste. Un chapitre qui cite six données doit pouvoir en
-    # porter deux figures ; un chapitre qui n'en cite que deux, une seule.
-    consommes: dict[int, set[str]] = {}
-
-    # On repasse tant que la passe précédente a servi à quelque chose. Une
-    # seule passe donnait une figure par chapitre au plus : suffisant pour une
-    # étude de marché (vingt-et-un chapitres), pas pour une étude
-    # concurrentielle, qui n'en a que neuf.
-    progres = True
-    while progres and rapport.graphiques_rendus < PLANCHER_FIGURES:
-        progres = False
-        for chapitre in [*sans_figure, *avec_figure]:
-            if rapport.graphiques_rendus >= PLANCHER_FIGURES:
-                return
-
-            payload = par_numero.get(chapitre["numero"])
-            if payload is None:
-                continue
-
-            deja_vus = consommes.setdefault(payload.chapitre, set())
-            titre = f"{payload.titre} — repères chiffrés"
-
-            # On essaie les candidats du chapitre JUSQU'À en trouver qui se
-            # tracent, sans rendre la main entre deux essais.
-            #
-            # Une première version passait au chapitre suivant dès le premier
-            # refus, en comptant sur une passe ultérieure. Elle ne revenait
-            # jamais : une passe qui ne fait qu'épuiser des candidats n'ajoute
-            # aucune figure, `progres` reste faux, et la boucle s'arrête. Mesuré
-            # sur la stratégie : ses quatre premiers identifiants inédits mêlent
-            # des pourcentages et un montant — rejetés à raison —, et la paire
-            # traçable qui venait juste après n'était jamais atteinte. Quatorze
-            # figures au lieu de dix-sept, sans qu'aucun abandon ne soit
-            # consigné, puisque rien n'avait été demandé.
-            resolution = None
-            candidats: list[str] = []
-            while resolution is None:
-                restants = [i for i in payload.donnees_utilisees if i not in deja_vus]
-                if len(restants) < 2:
-                    break
-
-                # Les identifiants encore jamais tracés dans TOUT le document
-                # d'abord : c'est ce qui ajoute de l'information plutôt que de
-                # la répétition. À défaut, on retrace ce que le chapitre cite —
-                # une donnée peut légitimement paraître deux fois sous deux
-                # angles.
-                inedits = [i for i in restants if i not in rapport.identifiants_rendus]
-                candidats = (
-                    inedits if len(inedits) >= 2 else restants
-                )[:_DONNEES_PAR_FIGURE]
-
-                for decalage in range(len(_FORMES_DE_COMPLETION)):
-                    type_graphique = _FORMES_DE_COMPLETION[
-                        (forme + decalage) % len(_FORMES_DE_COMPLETION)
-                    ]
-                    if type_graphique in profil.graphiques_a_eviter:
-                        continue
-                    essai = resoudre(socle, type_graphique, candidats)
-                    if essai.retenu:
-                        # Le titre de la complétion est ÉCRIT PAR NOUS, depuis
-                        # celui du chapitre : « Structure du marché — repères
-                        # chiffrés » sur une seule trajectoire mentirait comme
-                        # un titre du modèle. Ce qui refait le document après
-                        # le contrôle se contrôle à son tour (règle 3, revue du
-                        # 30/09/2026).
-                        essai = controler_la_figure(
-                            socle, essai, identifiants=candidats, titre=titre,
-                        ).resolution
-                    # Une figure déjà dans le document ne compte pas : elle
-                    # tiendrait le plancher en redessinant la même image
-                    # (29/09/2026, business plan ÉCLORE, § 3.11 du diagnostic).
-                    if essai.retenu and _signature(essai) not in rapport.signatures_dessinees:
-                        resolution = essai
-                        forme += decalage + 1
-                        break
-
-                if resolution is None:
-                    # Ces identifiants ne donnent rien — unités mêlées, le plus
-                    # souvent. On les retire du chapitre et on essaie la suite ;
-                    # sans cela, la boucle les représenterait indéfiniment.
-                    deja_vus.update(candidats)
-
-            if resolution is None or resolution.donnees is None:
-                continue
-
-            # AVANT les encadrés de fin, pas après : un chapitre se ferme sur
-            # son verdict, et une figure posée dessous le repousse hors de vue.
-            # La première version faisait `append` — le « Verdict » du chapitre
-            # se retrouvait au milieu, suivi d'une image.
-            blocs_du_chapitre_courant = chapitre["blocs"]
-            position = len(blocs_du_chapitre_courant)
-            while position and blocs_du_chapitre_courant[position - 1]["type"] == "encadre":
-                position -= 1
-            blocs_du_chapitre_courant.insert(position, {
-                "type": "graphique",
-                "graphique": resolution.type_graphique,
-                "titre": titre,
-                "source": _legende_des_sources(socle, candidats),
-                "donnees": resolution.donnees,
-            })
-            deja_vus.update(candidats)
-            progres = True
-            rapport.signatures_dessinees[_signature(resolution)] = (
-                f"Chapitre {payload.chapitre}", titre,
-            )
-            rapport.graphiques_rendus += 1
-            rapport.identifiants_rendus.update(candidats)
-            rapport.graphiques_completes.append(
-                f"Chapitre {payload.chapitre} · {titre} "
-                f"({resolution.type_graphique}, {len(candidats)} identifiants)"
-            )
-
-
-def _legende_des_sources(socle: Socle, identifiants: Sequence[str]) -> str:
-    """« Source : … » des données tracées, ou rien : jamais l'état de notre entrepôt.
-
-    Business plan ÉCLORE `28a257bf` (30/09/2026, 6.4 et 8.5) : chaque figure de
-    complétion portait la légende « Données du socle vérifié », écrite en dur
-    ici — une étiquette de la chaîne, lue par la cliente comme une source.
-    Désormais la légende dit d'où viennent les chiffres, comme le tableau de
-    repli (`_tableau_de_repli`), avec le libellé commun des sources
-    (`composants.libelle_de_source`, règle 5). Sans source connue, aucune
-    légende : une figure sans légende ne perd rien.
-
-    `getattr` : les tests de la complétion isolent sa logique avec un socle
-    réduit à rien (`object()`) ; il n'a pas de données, donc pas de source.
-    """
-    from .composants import libelle_de_source  # noqa: PLC0415 — python-docx, chargé à l'usage
-
-    par_id = {donnee.id: donnee for donnee in getattr(socle, "donnees", ())}
-    sources = dict.fromkeys(
-        par_id[i].source.strip() for i in identifiants
-        if i in par_id and par_id[i].source.strip()
-    )
-    return libelle_de_source(" ; ".join(sources)) if sources else ""
-
-
 def _est_un_verdict(intitule: str) -> bool:
     debut = intitule.strip().casefold()
     return any(debut.startswith(mot) for mot in _INTITULES_VERDICT)
@@ -958,11 +747,14 @@ def assembler_etude(
         for payload in ordonnes
     ]
 
-    # Le plancher de figures est une exigence de la cliente, pas une préférence
-    # de mise en page. On le tient AVANT de figer la structure : après, il n'y
-    # a plus qu'un fichier, et un contrôle qui constate le manque sans pouvoir
-    # le réparer ne laisse le choix qu'entre bloquer et se taire.
-    _completer_les_figures(blocs_par_chapitre, ordonnes, socle, profil, rapport)
+    # PLUS DE COMPLÉTION AUTOMATIQUE DE FIGURES (02/11/2026). Elle ajoutait
+    # des « — repères chiffrés » jusqu'à dix-sept figures, des barres tirées
+    # des données que le chapitre citait, sans savoir de quoi il parlait.
+    # Evangéline, sur l'étude `a6947890` : « c'est tout le temps les mêmes […]
+    # des fois, ça ne traite même pas le bon sujet […] le graphique, il est un
+    # peu automatique et il prend n'importe quoi ». Le quota qu'elle servait a
+    # été retiré par le client le 15/09/2026 : une figure n'existe plus que
+    # parce qu'un chapitre l'a demandée pour son propos.
 
     # L'annexe qui dit d'où vient chaque chiffre — vérifié, déclaré, estimé,
     # hypothèse — et qui montre les calculs. Demande de la cliente du

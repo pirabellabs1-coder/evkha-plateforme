@@ -69,6 +69,7 @@ def _socle() -> Socle:
             _donnee("resultat_net_an3", "Résultat net — exercice 3", 23_223.86, "EUR"),
             _donnee("budget_demarrage", "Budget de démarrage", 5, "kEUR"),
             _donnee("marche_mondial", "Marché mondial", 1.2, "MdEUR"),
+            _donnee("marche_europeen", "Marché européen", 0.4, "MdEUR"),
             # Petit devant son échelle : s'écrivait « 0 Md€ » une fois le code
             # « MdEUR » traduit — un zéro faux (29/09/2026).
             _donnee("som", "Marché atteignable", 0.0003, "MdEUR"),
@@ -90,13 +91,20 @@ def _chapitre() -> ChapitrePayload:
             {"type": "graphique", "graphique": {
                 "type": "entonnoir", "titre": "Du marché au projet", "donnees_ids": ids,
             }},
+            # Dessinée : deux marchés de même ordre de grandeur. L'entonnoir
+            # ci-dessus, converti en barres, mêle 30 Md€ et 1,2 Md€ : refusé
+            # pour son échelle depuis le 02/11/2026, il passe en tableau.
+            {"type": "graphique", "graphique": {
+                "type": "barres", "titre": "Marchés mondial et européen",
+                "donnees_ids": ["marche_mondial", "marche_europeen"],
+            }},
             # Refusée au dessin (unités mêlées) : imprimée en tableau de repli.
             {"type": "graphique", "graphique": {
                 "type": "barres", "titre": "Repères mêlés",
                 "donnees_ids": ["visiteurs_zone", "resultat_net_an3", "duree_amortissement"],
             }},
         ],
-        "donnees_utilisees": [*ids, "taux_remplissage", "note_accueil"],
+        "donnees_utilisees": [*ids, "marche_europeen", "taux_remplissage", "note_accueil"],
         "resume": "Résumé.",
     })
 

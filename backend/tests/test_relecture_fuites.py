@@ -17,7 +17,7 @@ chaque classe a sa contre-épreuve.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
@@ -343,12 +343,13 @@ def test_le_rendu_n_ecrit_pas_un_renvoi_hors_sujet() -> None:
         titre="Business plan",
     )
     assert _renvois(etude, 6) == []
-    assert any("ni renvoi" in m for m in rapport.graphiques_en_double), (
-        rapport.graphiques_en_double
-    )
+    assert rapport.graphiques_en_double, "le doublon reste tracé au rapport"
 
 
-def test_contre_epreuve_le_rendu_garde_le_renvoi_a_propos() -> None:
+def test_le_rendu_n_ecrit_plus_aucun_renvoi_meme_a_propos() -> None:
+    """02/11/2026, étude `a6947890` : « Figure présentée au chapitre 0 » (la
+    fiche projet, invisible) et « au chapitre 7 » (aucune figure de ce titre).
+    Plus aucun renvoi : le doublon devient ses données, ou rien."""
     from generation.rendu_word.assemblage import assembler_etude
 
     etude, _ = assembler_etude(
@@ -359,7 +360,7 @@ def test_contre_epreuve_le_rendu_garde_le_renvoi_a_propos() -> None:
         ],
         titre="Business plan",
     )
-    assert _renvois(etude, 16) == ["Figure présentée au chapitre 1 — Deux activités, deux moteurs"]
+    assert _renvois(etude, 16) == []
 
 
 class _Payload:
@@ -370,41 +371,6 @@ class _Payload:
 class _Profil:
     libelle = "Test"
     graphiques_a_eviter: tuple[str, ...] = ()
-
-
-def _legendes_de_completion(monkeypatch: pytest.MonkeyPatch, socle: Any) -> list[str]:
-    from generation.rendu_word import assemblage
-    from generation.rendu_word.donnees_graphiques import Resolution
-
-    def resoudre(_socle: Any, type_graphique: str, ids: Any) -> Resolution:
-        return Resolution(type_graphique=type_graphique,
-                          donnees={"valeurs": [(str(i), 1.0) for i in ids]})
-
-    monkeypatch.setattr(assemblage, "resoudre", resoudre)
-    blocs: list[dict[str, Any]] = [{"numero": 2, "titre": "Offre", "blocs": []}]
-    assemblage._completer_les_figures(
-        blocs, [cast(Any, _Payload(2, "Offre", ["ca_sejours", "ca_ateliers"]))],
-        socle, cast(Any, _Profil()),
-        assemblage.RapportAssemblage(),
-    )
-    return [b["source"] for b in blocs[0]["blocs"] if b["type"] == "graphique"]
-
-
-def test_la_figure_de_completion_dit_sa_source_pas_notre_entrepot(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Sur le code d'avant : « Données du socle vérifié » sous chaque figure ajoutée."""
-    legendes = _legendes_de_completion(monkeypatch, _socle("Insee, 2025"))
-    assert legendes, "aucune figure de complétion : le test ne jugerait rien (règle 1)"
-    assert all("socle" not in legende.lower() for legende in legendes)
-    assert all(legende.startswith("Source") and "Insee, 2025" in legende for legende in legendes)
-    assert _fuites(Document(sections=[_section("5.4", "Offre", *legendes)])) == []
-
-
-def test_contre_epreuve_sans_source_connue_pas_de_legende(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    assert _legendes_de_completion(monkeypatch, _socle("")) == [""]
 
 
 def test_le_registre_relit_les_fuites() -> None:

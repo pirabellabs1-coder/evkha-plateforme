@@ -85,8 +85,8 @@ from .donnees_graphiques import (
 class Ecart:
     """Un écart entre ce que la figure annonce et ce qu'elle porte.
 
-    `regle` : `titre`, `forme`, `periode`, `legende`, `projet`, `libelle` ou
-    `calendrier`.
+    `regle` : `titre`, `forme`, `periode`, `legende`, `projet`, `libelle`,
+    `calendrier` ou `echelle`.
     """
 
     regle: str
@@ -274,6 +274,7 @@ def ecarts_de_specification(
         *_ecarts_de_periode(socle, resolution, identifiants, titre),
         *_ecarts_de_projet(socle, resolution, identifiants, f"{titre}\n{legende}"),
         *_ecarts_de_libelles(resolution),
+        *_ecarts_d_echelle(resolution),
     ]
 
 
@@ -742,3 +743,41 @@ def _ecarts_de_libelles(resolution: Resolution) -> list[Ecart]:
                     "le lecteur ne peut pas les distinguer"
                 )))
     return ecarts
+
+
+# ── L'échelle des barres (02/11/2026) ────────────────────────────────────────
+
+#: Au-delà de ce rapport entre la plus grande et la plus petite barre, la petite
+#: n'est plus qu'un trait au pied de l'axe et la grande remplit le cadre.
+RAPPORT_D_ECHELLE_MAX = 20.0
+
+#: Les formes jugées : des barres côte à côte, qui se lisent par leur hauteur.
+#: L'entonnoir n'en est pas — il montre précisément des étages d'ordres de
+#: grandeur différents (marché total, accessible, visé).
+_BARRES = frozenset({"barres", "barres_horizontales"})
+
+
+def _ecarts_d_echelle(resolution: Resolution) -> list[Ecart]:
+    """Deux grandeurs que l'œil ne peut pas comparer sur un même axe.
+
+    Étude `a6947890` (01/11/2026), chapitre 2 : 3,5 Md€ d'exportations
+    françaises de boissons face à 176 Md€ d'importations alimentaires
+    chinoises, en barres. Une barre au ras de l'axe, l'autre en PAVÉ plein
+    cadre — « des gros pavés noirs », dit Evangéline. Le tableau de repli porte
+    les mêmes chiffres, lisibles.
+    """
+    if resolution.type_graphique not in _BARRES:
+        return []
+    valeurs = [
+        abs(float(v)) for v in (resolution.donnees or {}).get("valeurs") or []
+        if isinstance(v, (int, float)) and v
+    ]
+    if len(valeurs) < 2:
+        return []
+    rapport = max(valeurs) / min(valeurs)
+    if rapport <= RAPPORT_D_ECHELLE_MAX:
+        return []
+    return [Ecart("echelle", (
+        f"la plus grande barre vaut {rapport:.0f} fois la plus petite : sur un "
+        "même axe, la petite disparaît et la grande remplit le cadre"
+    ))]

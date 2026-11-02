@@ -37,7 +37,7 @@ from matplotlib.figure import Figure  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 from ..socle.schema import pourcentage_lisible  # noqa: E402
-from .palette import Palette, texte_lisible_sur  # noqa: E402
+from .palette import Palette, luminance, texte_lisible_sur  # noqa: E402
 
 DPI = 200
 LARGEUR_PX = 2000
@@ -166,6 +166,43 @@ EPAISSEUR_TRAIT_SOLO = 2.8
 EPAISSEUR_TRAIT = 2.0
 
 
+#: Bornes de luminance relative hors desquelles une couleur ne fait pas un
+#: aplat : en dessous, la barre est un pavé noir ; au-dessus, elle disparaît
+#: dans le fond. Le noir pur vaut 0, le blanc 1.
+LUMINANCE_APLAT_MIN = 0.03
+LUMINANCE_APLAT_MAX = 0.85
+
+
+def couleur_d_aplat(palette: Palette) -> str:
+    """La couleur d'une série seule : la secondaire du client, si elle fait un aplat.
+
+    Étude `a6947890` (Evangéline, 01/11/2026) : couleur secondaire `#000000`.
+    Chaque graphique à une seule série sortait en barres NOIRES pleines — « des
+    gros pavés noirs ». Le noir est une bonne couleur de texte, pas une
+    surface : quasi noire ou quasi blanche, la secondaire cède la place à la
+    principale, puis à l'or de référence si la principale ne convient pas non
+    plus.
+    """
+    for candidate in (palette.or_bronze, palette.primaire):
+        if _fait_un_aplat(candidate):
+            return candidate
+    from .palette import REF_OR_BRONZE  # noqa: PLC0415
+
+    return REF_OR_BRONZE
+
+
+def _fait_un_aplat(couleur: str) -> bool:
+    return LUMINANCE_APLAT_MIN <= luminance(couleur) <= LUMINANCE_APLAT_MAX
+
+
+def _accent_de_serie(palette: Palette) -> str:
+    """La secondaire parmi d'autres séries : le bronze de référence si elle est
+    quasi noire ou quasi blanche. Pas la principale — c'est déjà la série 1."""
+    from .palette import REF_OR_BRONZE  # noqa: PLC0415
+
+    return palette.or_bronze if _fait_un_aplat(palette.or_bronze) else REF_OR_BRONZE
+
+
 def _couleurs(palette: Palette, nombre: int) -> list[str]:
     """Couleurs des series, dans l'ordre du lot 0 — sauf pour une serie seule.
 
@@ -179,9 +216,10 @@ def _couleurs(palette: Palette, nombre: int) -> list[str]:
     n'avaient qu'une serie et que le rang 0 est sombre. La charte y perdait sans
     qu'aucune regle ne le demande.
     """
-    base = palette.series_graphique
     if nombre == 1:
-        return [palette.or_bronze]
+        return [couleur_d_aplat(palette)]
+    accent = _accent_de_serie(palette)
+    base = [accent if c == palette.or_bronze else c for c in palette.series_graphique]
     return [base[index % len(base)] for index in range(nombre)]
 
 
@@ -835,7 +873,7 @@ def pyramide_ages(
         height=0.72, label=libelles[0],
     )
     axes.barh(
-        positions, list(droite), color=palette.or_bronze,
+        positions, list(droite), color=_accent_de_serie(palette),
         height=0.72, label=libelles[1],
     )
     axes.set_yticks(positions)

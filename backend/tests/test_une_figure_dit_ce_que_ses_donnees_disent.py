@@ -769,33 +769,6 @@ def test_contre_epreuve_un_vrai_decoupage_sur_une_seule_serie_reste_refuse(titre
     assert [bloc["type"] for bloc in blocs] == ["tableau"], titre
 
 
-def _completer(titre_du_chapitre: str) -> assemblage.RapportAssemblage:
-    from types import SimpleNamespace
-
-    socle = _socle(*_previsionnel())
-    # La complétion ne lit que ces trois attributs du chapitre.
-    payload: Any = SimpleNamespace(
-        chapitre=5, titre=titre_du_chapitre,
-        donnees_utilisees=["ca_previsionnel_an1", "ca_previsionnel_an2"],
-    )
-    rapport = assemblage.RapportAssemblage()
-    assemblage._completer_les_figures(
-        [{"numero": 5, "titre": titre_du_chapitre, "blocs": []}], [payload],
-        socle, secteurs.profil_du_secteur(socle.secteur), rapport,
-    )
-    return rapport
-
-
-def test_la_completion_ne_pose_pas_une_figure_sous_un_titre_faux() -> None:
-    """Son titre est fait du nôtre : « Répartition des revenus par canal —
-    repères chiffrés » sur un seul chiffre d'affaires mentirait comme un autre."""
-    assert _completer("Répartition des revenus par canal").graphiques_completes == []
-
-
-def test_contre_epreuve_la_completion_pose_une_figure_sous_un_titre_neutre() -> None:
-    assert len(_completer("Lecture économique").graphiques_completes) == 1
-
-
 def test_une_carte_des_risques_n_est_pas_jugee_sur_les_annees_des_chiffres_cites() -> None:
     """Elle dessine les RISQUES : l'année des identifiants cités ne la date pas."""
     from generation.socle.schema import Risque

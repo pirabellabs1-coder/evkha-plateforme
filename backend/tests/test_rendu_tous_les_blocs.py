@@ -24,6 +24,8 @@ pytestmark = pytest.mark.django_db
 
 
 def _socle() -> Any:
+    """Deux marchés de même ordre de grandeur : à 381,5 contre 6,1 Md€, les
+    barres sont refusées depuis le 02/11/2026 (rapport d'échelle de 62)."""
     from generation.socle.schema import Socle
 
     return Socle.model_validate({
@@ -36,7 +38,7 @@ def _socle() -> Any:
              "perimetre": "monde", "source": "Essai", "fiabilite": "observee",
              "derivee_de": []},
             {"id": "marche_france_taille", "libelle": "Marché France",
-             "valeur": 6.1, "unite": "MdEUR", "annee": 2025,
+             "valeur": 38.2, "unite": "MdEUR", "annee": 2025,
              "perimetre": "national", "source": "Essai", "fiabilite": "observee",
              "derivee_de": []},
         ],
@@ -58,7 +60,7 @@ def _chapitre_avec_tous_les_blocs() -> ChapitrePayload:
             {"type": "paragraphe", "texte": "Le socle cadre le périmètre étudié."},
             {"type": "tableau", "tableau": {
                 "entetes": ["Niveau", "Ordre de grandeur"],
-                "lignes": [["Mondial", "381,5 Md€"], ["France", "6,1 Md€"]],
+                "lignes": [["Mondial", "381,5 Md€"], ["France", "38,2 Md€"]],
                 "source": "Socle",
             }},
             {"type": "graphique", "graphique": {
@@ -66,7 +68,7 @@ def _chapitre_avec_tous_les_blocs() -> ChapitrePayload:
             }},
             {"type": "grille_kpi", "cellules": [
                 {"valeur": "381,5 Md€", "libelle": "Marché mondial", "source": "Socle"},
-                {"valeur": "6,1 Md€", "libelle": "Marché France", "source": "Socle"},
+                {"valeur": "38,2 Md€", "libelle": "Marché France", "source": "Socle"},
                 {"valeur": "+4 %", "libelle": "Croissance", "source": "Socle"},
             ]},
             {"type": "encadre", "encadre": {

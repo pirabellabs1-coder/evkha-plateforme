@@ -195,25 +195,24 @@ def _doublon_au_chapitre_16() -> dict[str, Any]:
     return etude
 
 
-def test_le_doublon_ecarte_laisse_un_renvoi_a_la_figure() -> None:
+def test_le_doublon_ecarte_ne_laisse_aucun_renvoi() -> None:
     """Sa prose annonçait « le graphique ci-dessous » : il pointait vers rien."""
     etude = _doublon_au_chapitre_16()
     chapitre_16 = next(c for c in etude["chapitres"] if c["numero"] == 16)
     types = [b["type"] for b in chapitre_16["blocs"]]
-    renvois = [b["texte"] for b in chapitre_16["blocs"] if b["type"] == "renvoi"]
-    assert renvois == ["Figure présentée au chapitre 1 — Deux activités, deux moteurs"]
-    # À la place de la figure : juste après la prose qui l'annonce.
-    assert types[types.index("paragraphe") + 1] == "renvoi", types
+    # Plus de renvoi depuis le 02/11/2026 (étude `a6947890`) : il désignait
+    # des figures que le lecteur ne trouvait pas.
+    assert "renvoi" not in types, types
     signatures = _signatures(etude)
     assert len(signatures) == len(set(signatures)), "la figure est redessinée"
 
 
-def test_le_renvoi_est_imprime_dans_le_document(tmp_path: Path) -> None:
+def test_aucun_renvoi_n_est_imprime_dans_le_document(tmp_path: Path) -> None:
     from generation.rendu_word.depuis_json import rendre_etude
 
     chemin = rendre_etude(_doublon_au_chapitre_16(), tmp_path / "renvoi.docx")
     textes = [p.text for p in Document(str(chemin)).paragraphs]
-    assert "Figure présentée au chapitre 1 — Deux activités, deux moteurs" in textes
+    assert not [t for t in textes if t.startswith("Figure présentée")], textes
 
 
 @pytest.mark.parametrize(
