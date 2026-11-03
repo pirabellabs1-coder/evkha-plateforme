@@ -26,6 +26,7 @@ Contenu obligatoire :
 - Distinction obligatoire/recommande et national/international.
 - Organisme compétent et date de vérification.
 - Coût, délai, séquence ou risque de non-conformité lorsque documente.
+- Une courte VEILLE RÉGLEMENTAIRE, en fin de chapitre : les textes entrés en vigueur ou annoncés depuis douze mois, pour le pays du projet ET chaque marché visé — date, organisme, effet concret pour le projet, une ligne chacun. Uniquement ce que tes sources montrent. Si elles n'en montrent aucun, une seule phrase le dit, avec la date de vérification, et renvoie à l'organisme compétent ; jamais une nouveauté supposée.
 Rappel : aucune affirmation ne remplace l'avis d'un professionnel du droit, de la fiscalité ou de la conformité.
 
 Lecture stratégique attendue : Transformer les règles en feuille de route de conformité : demarches, ordre, délais, coûts, responsables et points a confirmer.

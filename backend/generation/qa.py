@@ -945,6 +945,13 @@ def run_qa_pass(
     current_cost = current_job_cost_eur(job)
     if current_cost >= job.budget_eur * Decimal("0.85"):
         ai_repair = False
+    # Et jamais au-delà du plafond EFFECTIF (`budget_restant`, qui suit aussi
+    # `EVKHA_PLAFOND_DEPENSE_EUR`) : depuis le 03/11/2026, un dossier qui a
+    # franchi son plafond après son dernier chapitre arrive jusqu'ici.
+    from .cost import budget_restant  # noqa: PLC0415
+
+    if budget_restant(job) <= 0:
+        ai_repair = False
 
     GenerationJob.objects.filter(pk=job.pk).update(qa_status="running")
 

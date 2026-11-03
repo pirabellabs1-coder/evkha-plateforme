@@ -101,7 +101,13 @@ _AXES_COMMUNS: tuple[Axe, ...] = (
     Axe("taille_marche", "taille du marché chiffres"),
     Axe("croissance", "taux de croissance TCAC prévisions"),
     Axe("segments", "segments de clientèle besoins comportement d'achat"),
-    Axe("reglementation", "réglementation cadre légal normes"),
+    # « Nouvelle » et « entrée en vigueur », ajoutés le 03/11/2026. Retour de la
+    # cliente sur `a6947890` : « depuis juin 2026 ils ont mis en place de
+    # nouvelles normes, et l'étude n'en parle pas du tout ». L'indice d'année
+    # datait déjà la requête, mais elle cherchait LE CADRE, pas CE QUI CHANGE :
+    # un moteur rend d'abord la page de synthèse, rarement le texte du mois.
+    # Même nombre de requêtes : l'étude de marché est à son plafond.
+    Axe("reglementation", "nouvelle réglementation normes entrée en vigueur cadre légal"),
     Axe("tendances", "tendances récentes innovation"),
 )
 

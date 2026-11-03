@@ -439,7 +439,9 @@ def run_generation_job(
 
     Resumable : les chapitres deja DONE sont ignores. Garde-fous : budget cout
     (regle d'or #1) et coherence (faits verrouilles). Tout echec marque le job
-    FAILED, ouvre un incident operationnel et leve une exception.
+    FAILED, ouvre un incident operationnel et leve une exception — sauf un
+    plafond franchi quand ce run n'a plus aucun chapitre a ecrire : le dossier
+    suit alors la fin normale, l'incident budget restant ouvert.
     """
     client = client or get_claude_client()
 
@@ -616,8 +618,11 @@ def run_generation_job(
     # le relire à chaque tour multiplierait les requêtes sans rien changer.
     socle_du_run = socle_verrouille(job) if moteur_structure else None
 
-    chapters = job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")
-    for chapter in chapters:
+    chapters = list(
+        job.chapters.exclude(status=ChapterStatus.DONE).order_by("chapter_number")
+    )
+    for rang, chapter in enumerate(chapters):
+        controle_du_bloc_lance = False
         # Vérification annulation entre chaque chapitre (check DB allégé)
         job.refresh_from_db(fields=["status"])
         if job.status == JobStatus.CANCELLED:
@@ -680,6 +685,7 @@ def run_generation_job(
                 _produire_avec_reprises(
                     job, chapter, client=client, socle=socle_du_run
                 )
+                controle_du_bloc_lance = True
                 _after_chapter_hook(job, chapter, client=client)
             else:
                 _generate_chapter(
@@ -705,6 +711,33 @@ def run_generation_job(
             )
             raise
         except CostBudgetExceededError as exc:
+            # LE PLAFOND ARRÊTE LA DÉPENSE, PAS UN DOCUMENT DÉJÀ ÉCRIT.
+            #
+            # Étude `5438a832` (02/11/2026) : 23 chapitres sur 23 écrits à
+            # 7,82 €, puis la reprise d'un CHECK de bloc franchit les 8 €. Le
+            # dossier passait `failed` : ni relecture finale, ni contrôle de
+            # couverture, ni envoi — alors qu'il ne manquait rien. Quand tous
+            # les chapitres sont rendables, on sort de la boucle et le dossier
+            # suit la fin normale ; la relecture finale s'arrête d'elle-même
+            # sur un budget vide (`controle_final`). L'incident HIGH du Cost
+            # Engine reste ouvert : le dépassement se voit.
+            #
+            # « Rien à écrire » se juge sur la file de CE run, pas sur l'état
+            # des chapitres : après `regenerer_socle`, des chapitres PENDING
+            # gardent le payload d'un socle invalidé, et les dire « rendables »
+            # enverrait ce document-là (relecture du 03/11/2026).
+            if not chapters[rang + 1:] and _tous_les_chapitres_sont_rendables(job):
+                if not controle_du_bloc_lance:
+                    # Le plafond est tombé pendant l'écriture même du dernier
+                    # chapitre : le CHECK de son bloc n'a pas eu lieu. Un
+                    # contrôle sauté ne se tait pas (règle 1).
+                    _signaler_le_controle_non_execute(job, chapter)
+                _log.warning(
+                    "Job %s : plafond atteint sur le dernier chapitre du run "
+                    "(%s). Plus rien à écrire : le dossier suit la fin normale.",
+                    job.id, exc,
+                )
+                break
             # L'incident budget est deja ouvert par le Cost Engine ; le chapitre
             # courant a un contenu valide. On stoppe juste le job proprement.
             GenerationJob.objects.filter(pk=job.pk).update(
@@ -775,6 +808,22 @@ def _le_rendu_sait_encore_le_lire(job: GenerationJob, chapitre: ChapterGeneratio
     if _moteur_structure(job):
         return bool(chapitre.payload)
     return bool((chapitre.content or "").strip())
+
+
+def _tous_les_chapitres_sont_rendables(job: GenerationJob) -> bool:
+    """Plus rien à écrire : chaque chapitre est fini, en échec nommé, ou lisible.
+
+    Un chapitre en échec reste un trou nommé, comme sans dépassement ; un
+    chapitre resté intermédiaire mais lisible sera refermé par
+    `fermer_les_chapitres_inacheves`. Seul un chapitre JAMAIS écrit rend le
+    document incomplet.
+    """
+    for chapitre in job.chapters.all():
+        if chapitre.status in (ChapterStatus.DONE, ChapterStatus.FAILED):
+            continue
+        if not _le_rendu_sait_encore_le_lire(job, chapitre):
+            return False
+    return True
 
 
 def fermer_le_chapitre_inacheve(
@@ -1412,6 +1461,19 @@ def _executer_check_avec_retry(
                 regenerate_chapter(
                     job, chap, corrective_note=result.note_corrective, client=client,
                 )
+            except CostBudgetExceededError:
+                # Le dossier peut désormais FINIR après ce plafond (voir la
+                # boucle de `run_generation_job`) : le défaut que ce CHECK a
+                # constaté doit rester visible au gate et à la relecture
+                # finale, qui ne lisent que ces incidents.
+                _log_incident_check(
+                    job, bloc, result.note_corrective,
+                    titre=(
+                        f"CHECK {bloc.check_numero} (bloc {bloc.identifiant}) "
+                        "interrompu par le plafond de depense"
+                    ),
+                )
+                raise
             except ERREURS_SANS_REPRISE:
                 raise
             except Exception as erreur:  # noqa: BLE001 — voir ci-dessous
@@ -1455,6 +1517,31 @@ def _executer_check_avec_retry(
             job, bloc, result.note_corrective,
             titre=f"CHECK {bloc.check_numero} (bloc {bloc.identifiant}) echoue apres retry",
         )
+
+
+def _signaler_le_controle_non_execute(
+    job: GenerationJob, chapter: ChapterGeneration
+) -> None:
+    """Le CHECK du bloc qu'aurait fermé `chapter` n'a pas eu lieu : on le dit."""
+    if job.deliverable_type != DeliverableType.MARKET_STUDY:
+        return
+    bloc = bloc_pour_chapitre(chapter.chapter_number)
+    if bloc is None or not bloc.chapitres or chapter.chapter_number != max(bloc.chapitres):
+        return
+    premier, dernier = min(bloc.chapitres), max(bloc.chapitres)
+    _log_incident_check(
+        job, bloc,
+        (
+            f"Le CHECK de ce bloc n'a pas pu etre execute : plafond de depense "
+            f"atteint pendant l'ecriture du chapitre {chapter.chapter_number}. "
+            f"Relire la coherence des chapitres {premier} a {dernier} "
+            f"({bloc.intitule})."
+        ),
+        titre=(
+            f"CHECK {bloc.check_numero} (bloc {bloc.identifiant}) non execute "
+            "- plafond de depense"
+        ),
+    )
 
 
 def _log_incident_check(

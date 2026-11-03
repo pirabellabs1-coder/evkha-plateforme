@@ -236,3 +236,126 @@ def test_le_lancement_repartit_les_demandes_avant_le_premier_chapitre(
     assert vues and all(vues), "un chapitre a été écrit avant la répartition"
     assert job.memoire_etude[CLE]["executee"] is True
     assert job.memoire_etude[CLE]["demandes"]
+
+
+def _plafond_au_check_du_chapitre(
+    monkeypatch: pytest.MonkeyPatch, numero: int
+) -> None:
+    """Le CHECK du bloc qui finit au chapitre `numero` franchit le plafond."""
+    from generation.cost import CostBudgetExceededError
+
+    def _check(job_recu: Any, chapitre: Any, **kwargs: Any) -> None:
+        if chapitre.chapter_number == numero:
+            raise CostBudgetExceededError("Plafond de depense atteint (test)")
+
+    monkeypatch.setattr(moteur, "_after_chapter_hook", _check)
+
+
+@override_settings(EVKHA_SOCLE_ENABLED=True)
+def test_un_plafond_franchi_apres_le_dernier_chapitre_ne_fait_pas_echouer(
+    job: GenerationJob, traces: _Traces, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Étude `5438a832` (02/11/2026) : 23 chapitres écrits, la reprise d'un CHECK
+    franchit 8 €, et le dossier finissait `failed` — sans relecture ni envoi."""
+    dernier = max(job.chapters.values_list("chapter_number", flat=True))
+    _plafond_au_check_du_chapitre(monkeypatch, dernier)
+
+    moteur.run_generation_job(job)
+    job.refresh_from_db()
+
+    assert job.status == "done"
+    assert not job.chapters.exclude(status=ChapterStatus.DONE).exists()
+
+
+@override_settings(EVKHA_SOCLE_ENABLED=True)
+def test_un_plafond_franchi_avant_la_fin_arrete_toujours_l_etude(
+    job: GenerationJob, traces: _Traces, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Contre-épreuve : s'il reste des chapitres à écrire, le plafond arrête."""
+    from generation.cost import CostBudgetExceededError
+
+    _plafond_au_check_du_chapitre(monkeypatch, 5)
+
+    with pytest.raises(CostBudgetExceededError):
+        moteur.run_generation_job(job)
+    job.refresh_from_db()
+
+    assert job.status == "failed"
+    assert 6 not in traces.structures
+
+
+@override_settings(EVKHA_SOCLE_ENABLED=True)
+def test_un_payload_perime_ne_fait_pas_sortir_la_boucle(
+    job: GenerationJob, traces: _Traces, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Relecture du 03/11/2026 : après `regenerer_socle`, des chapitres PENDING
+    gardent le payload d'un socle invalidé. « Rendables » ne veut pas dire
+    « écrits par ce run » : le plafond au chapitre 5 arrête toujours l'étude."""
+    from generation.cost import CostBudgetExceededError
+
+    job.chapters.filter(chapter_number__gt=5).update(
+        payload={"chapitre": 0, "titre": "ancien socle", "resume": "périmé"}
+    )
+    _plafond_au_check_du_chapitre(monkeypatch, 5)
+
+    with pytest.raises(CostBudgetExceededError):
+        moteur.run_generation_job(job)
+    job.refresh_from_db()
+
+    assert job.status == "failed"
+
+
+@override_settings(EVKHA_SOCLE_ENABLED=True)
+def test_le_controle_saute_par_le_plafond_laisse_un_incident(
+    job: GenerationJob, traces: _Traces, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le plafond tombe pendant l'écriture du DERNIER chapitre : le CHECK de son
+    bloc n'a pas lieu, et ce silence se lisait comme un succès (règle 1)."""
+    from generation.chapitres import services as cycle_de_vie
+    from generation.cost import CostBudgetExceededError
+    from monitoring.models import OperationalIncident
+
+    dernier = max(job.chapters.values_list("chapter_number", flat=True))
+    produire = cycle_de_vie.produire_chapitre
+
+    def _depasse_au_dernier(job_recu: Any, numero: int, **kwargs: Any) -> Any:
+        chapitre = produire(job_recu, numero, **kwargs)
+        if numero == dernier:
+            raise CostBudgetExceededError("Plafond de depense atteint (test)")
+        return chapitre
+
+    monkeypatch.setattr(cycle_de_vie, "produire_chapitre", _depasse_au_dernier)
+    moteur.run_generation_job(job)
+    job.refresh_from_db()
+
+    assert job.status == "done"
+    titres = list(OperationalIncident.objects.filter(job=job).values_list("title", flat=True))
+    assert any("non execute" in t for t in titres), titres
+
+
+def test_un_check_interrompu_par_le_plafond_ouvre_son_incident(
+    job: GenerationJob, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """La reprise d'un CHECK franchit le plafond : le défaut constaté reste un
+    incident `check_bloc`, que le gate et la relecture finale lisent — le
+    dossier peut désormais finir, et sans lui le défaut partait sans trace."""
+    from generation.checks_blocs import BLOCS_PAR_IDENTIFIANT, CheckResult
+    from generation.cost import CostBudgetExceededError
+    from monitoring.models import OperationalIncident
+
+    bloc = BLOCS_PAR_IDENTIFIANT["A"]
+    refus = CheckResult(bloc_identifiant="A", verdict="fix", note_corrective="Ch. 2 : x")
+    monkeypatch.setattr(moteur, "check_bloc", lambda *a, **k: refus)
+
+    def _plafond(*a: Any, **k: Any) -> None:
+        raise CostBudgetExceededError("Plafond de depense atteint (test)")
+
+    monkeypatch.setattr(moteur, "regenerate_chapter", _plafond)
+    chapitres = list(job.chapters.filter(chapter_number__in=bloc.chapitres))
+
+    with pytest.raises(CostBudgetExceededError):
+        moteur._executer_check_avec_retry(job, bloc, chapitres=chapitres, client=None)  # type: ignore[arg-type]
+
+    incident = OperationalIncident.objects.get(job=job)
+    assert "interrompu par le plafond" in incident.title
+    assert incident.details["note_corrective"] == "Ch. 2 : x"

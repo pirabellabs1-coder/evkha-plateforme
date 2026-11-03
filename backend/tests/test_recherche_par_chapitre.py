@@ -23,6 +23,7 @@ from typing import Any
 from catalog.models import DeliverableType
 from generation.research import (
     PREFIXE_SECTION,
+    axes_et_requetes,
     axes_pour,
     brief_pour_chapitre,
     build_queries,
@@ -282,3 +283,22 @@ def test_un_brief_complet_ne_s_annonce_pas_ampute() -> None:
     brief = _brief()
     assert "n'ont rien renvoyé" not in brief
     assert "sources distinctes collectées" in brief
+
+
+def test_la_reglementation_cherche_ce_qui_vient_de_changer() -> None:
+    """Retour de la cliente du 03/11/2026 sur `a6947890` : des normes en vigueur
+    depuis juin 2026, absentes de l'étude. La requête cherchait le cadre, pas
+    la nouveauté ; et le chapitre 6 n'avait pas à dire s'il y en avait une."""
+    from generation.chapitres.fichiers_prompts import charger_prompt
+
+    variables: dict[str, object] = {
+        "SECTEUR": "épicerie fine", "PAYS": "France",
+        "DELIVERABLE_TYPE": DeliverableType.MARKET_STUDY,
+    }
+    requete = dict((a.cle, r) for a, r in axes_et_requetes(variables))["reglementation"]
+    assert "entrée en vigueur" in requete
+
+    # La source VIVANTE du moteur structuré, pas le miroir de `prompt_library`.
+    consigne = charger_prompt(str(DeliverableType.MARKET_STUDY), 6)
+    assert "VEILLE RÉGLEMENTAIRE" in consigne
+    assert "jamais une nouveauté supposée" in consigne
