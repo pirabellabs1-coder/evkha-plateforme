@@ -252,3 +252,22 @@ def test_une_recherche_payante_est_inscrite_au_budget_des_le_lancement(
     _lancer_jusqu_apres_la_recherche(job, monkeypatch)
 
     assert GenerationJob.objects.get(pk=job.pk).total_cost_eur > 0
+
+
+@pytest.mark.django_db
+def test_l_etat_du_systeme_dit_si_la_file_est_injoignable(
+    api: Client, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """03/11/2026 : `api: ok` pendant que chaque mise en file échouait. L'état
+    du système nomme désormais la panne de la file au lieu de la taire."""
+    from evkha.celery import app
+
+    def _coupee(*a: Any, **k: Any) -> Any:
+        raise ConnectionError("Error 111 connecting to redis:6379")
+
+    monkeypatch.setattr(app, "connection_for_write", _coupee)
+    charge = json.loads(api.get("/api/dashboard/system/").content)
+
+    assert charge["api"] == "ok"
+    assert charge["file"].startswith("injoignable")
+    assert "redis:6379" in charge["file"]

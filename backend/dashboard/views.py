@@ -1631,8 +1631,35 @@ def system_status(request: HttpRequest) -> JsonResponse:
             "api": "ok",
             "email_stub": bool(getattr(settings, "EVKHA_USE_STUB_EMAIL", True)),
             "ai_stub": bool(getattr(settings, "EVKHA_USE_STUB_AI", True)),
+            **_etat_de_la_file(),
         }
     )
+
+
+def _etat_de_la_file() -> dict[str, Any]:
+    """La file de tâches répond-elle, et qui la consomme ? Lecture seule.
+
+    Le 03/11/2026, la pile tournait en `restarting`, chaque commande finissait
+    en « Erreur 500 » à la mise en file, et rien ne permettait de dire QUEL
+    service tombait : l'API de Coolify ne rend pas les journaux par conteneur.
+    `api: ok` disait vrai et ne disait rien.
+    """
+    from evkha.celery import app  # noqa: PLC0415
+
+    etat: dict[str, Any] = {}
+    try:
+        with app.connection_for_write() as connexion:
+            connexion.ensure_connection(max_retries=1, timeout=3)
+        etat["file"] = "ok"
+    except Exception as erreur:  # noqa: BLE001 — on DIT la panne, on ne la lève pas
+        etat["file"] = f"injoignable : {type(erreur).__name__}: {erreur}"[:300]
+        return etat
+    try:
+        reponses = app.control.ping(timeout=2.0) or []
+        etat["ouvriers"] = sorted(nom for reponse in reponses for nom in reponse)
+    except Exception as erreur:  # noqa: BLE001
+        etat["ouvriers"] = f"inconnu : {type(erreur).__name__}"[:300]
+    return etat
 
 
 # ---------------------------------------------------------------------------
