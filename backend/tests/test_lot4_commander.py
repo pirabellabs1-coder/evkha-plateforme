@@ -328,3 +328,35 @@ def test_le_catalogue_signale_ce_que_le_solde_ne_couvre_pas(
     credits.crediter(abonne.organisation, 2, motif="Dotation")
     plein = charge(api.get("/api/espace/catalogue/", headers=abonne.entetes))
     assert all(doc["couvert"] for doc in plein["documents"])
+
+
+def test_une_file_injoignable_ne_rend_plus_une_erreur_500(
+    api: Client, abonne: Abonne, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Étude concurrentielle `b57a4284` (03/11/2026) : la commande était créée,
+    la mise en file échouait, et la cliente lisait « Erreur 500 » deux fois.
+
+    Elle lit désormais que rien n'est débité, l'équipe a son incident, et un
+    nouvel envoi reprend LA MÊME commande quand la file revient."""
+    from monitoring.models import OperationalIncident
+
+    credits.crediter(abonne.organisation, 3, motif="Dotation")
+    lancees: list[str] = []
+
+    def _file_coupee(job: GenerationJob) -> None:
+        raise ConnectionError("Error 111 connecting to redis:6379")
+
+    monkeypatch.setattr(commandes, "lancer", _file_coupee)
+    reponse = _poster(api, abonne, {"type": "market_study", "saisie": SAISIE_EM})
+
+    assert reponse.status_code == 503
+    assert "Rien n'a été débité" in charge(reponse)["error"]
+    job = GenerationJob.objects.get()
+    assert OperationalIncident.objects.filter(job=job, severity="high").count() == 1
+
+    monkeypatch.setattr(commandes, "lancer", lambda j: lancees.append(str(j.id)))
+    reprise = _poster(api, abonne, {"type": "market_study", "saisie": SAISIE_EM})
+
+    assert reprise.status_code == 202
+    assert lancees == [str(job.id)]
+    assert GenerationJob.objects.count() == 1

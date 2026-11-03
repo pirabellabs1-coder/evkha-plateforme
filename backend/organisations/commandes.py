@@ -372,6 +372,29 @@ def lancer(job: GenerationJob) -> None:
     run_generation_job_task.delay(str(job.id))
 
 
+def signaler_la_file_injoignable(job: GenerationJob) -> None:
+    """Un incident HIGH, un seul par dossier : la commande attend, personne ne la lance."""
+    from monitoring.models import IncidentSeverity, OperationalIncident  # noqa: PLC0415
+
+    titre = f"Mise en file impossible — commande en attente (job {job.id})"
+    if OperationalIncident.objects.filter(job=job, title=titre).exists():
+        return
+    OperationalIncident.objects.create(
+        title=titre,
+        severity=IncidentSeverity.HIGH,
+        job=job,
+        order=job.order,
+        details={
+            "type": "file_injoignable",
+            "consigne": (
+                "La file de tâches (Redis) ne répond pas. Rétablir Redis, puis "
+                "relancer ce dossier (jobs/<id>/relaunch/) ou laisser le client "
+                "renvoyer sa commande : rien n'a été débité."
+            ),
+        },
+    )
+
+
 def cout_affiche(job: GenerationJob) -> int:
     """Coût en crédits d'un job, pour l'affichage. Une seule source (règle 5)."""
     return cout_en_credits(job)

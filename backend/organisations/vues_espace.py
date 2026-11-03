@@ -2378,7 +2378,23 @@ def commander(
 
     # Hors de la transaction de création : une tâche consommée avant la
     # validation ne trouverait pas le job en base.
-    commandes.lancer(job)
+    try:
+        commandes.lancer(job)
+    except Exception:  # noqa: BLE001 — la file est en panne, pas la commande
+        # Étude concurrentielle `b57a4284` (03/11/2026) : la commande était
+        # créée, la mise en file échouait (file de tâches injoignable), et la
+        # cliente voyait « Erreur 500 » deux fois, sans savoir si elle avait
+        # payé. Rien n'est débité avant le démarrage ; un nouvel envoi retrouve
+        # CETTE commande (fenêtre anti-doublon) et retente sa mise en file.
+        _log.exception("Mise en file impossible pour le job %s.", job.id)
+        commandes.signaler_la_file_injoignable(job)
+        return _refus(
+            "Votre commande est enregistrée, mais son démarrage a échoué de notre "
+            "côté. Rien n'a été débité. Réessayez dans quelques minutes : la même "
+            "commande sera reprise, sans double débit.",
+            "demarrage_impossible",
+            503,
+        )
     return JsonResponse(
         {
             "job_id": str(job.id),

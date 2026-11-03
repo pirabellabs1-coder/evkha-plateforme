@@ -192,15 +192,22 @@ services:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
+  # Le 03/11/2026, la pile tournait en `restarting` et chaque mise en file
+  # échouait (« Erreur 500 » à la commande `b57a4284`), alors que l'API et la
+  # base répondaient. Redis est le seul service que la mise en file touche.
+  # Volume neuf : s'il redémarrait sur une sauvegarde abîmée, il ne la relira
+  # plus. Ce volume ne porte que la FILE des tâches — les dossiers, les
+  # crédits et les documents vivent dans Postgres et le volume `media`.
   redis:
     image: redis:7-alpine
     volumes:
-      - redisdata:/data
+      - redisbroker:/data
     restart: unless-stopped
 
 volumes:
   pgdata:
   redisdata:
+  redisbroker:
   media:
   staticfiles:
   factstore:
