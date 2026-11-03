@@ -3640,3 +3640,43 @@
   }
 }
 
+
+/* ── Fiche client : ses marques ou projets ────────────────────────────────
+ * Une ligne par projet : son nom à gauche, les quatre livrables à lancer à
+ * droite. Sous 900 px les boutons passent sous le nom plutôt que de le
+ * comprimer — c'est le nom qui dit pour quoi l'on commande. */
+.liste-projets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--e-4);
+}
+
+.projet-ligne {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--e-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--e-4);
+  border-bottom: 1px solid var(--evkha-bordure);
+}
+
+.projet-ligne:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.projet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+}
+
+@media (max-width: 900px) {
+  .projet-ligne {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

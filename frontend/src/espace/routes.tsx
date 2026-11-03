@@ -8,6 +8,7 @@ import { createRoute, redirect, type AnyRoute } from "@tanstack/react-router";
 import { jeton } from "./api";
 import { Coquille } from "./Coquille";
 import { Abonnement } from "./pages/Abonnement";
+import { Clients } from "./pages/Clients";
 import { Commander } from "./pages/Commander";
 import { MaMarque } from "./pages/MaMarque";
 // La connexion partage la coquille de l'inscription : deux portes du meme
@@ -15,6 +16,7 @@ import { MaMarque } from "./pages/MaMarque";
 import { Connexion } from "../public/Connexion";
 import { Credits } from "./pages/Credits";
 import { Equipe } from "./pages/Equipe";
+import { FicheClient } from "./pages/FicheClient";
 import { Livrables } from "./pages/Livrables";
 import { MesAchats } from "./pages/MesAchats";
 import { MonCompte } from "./pages/MonCompte";
@@ -57,6 +59,18 @@ export function routesEspace(racine: AnyRoute) {
       getParentRoute: () => coquille,
       path: "/",
       component: TableauDeBord,
+    }),
+    // Travailler par client : la liste, puis la fiche d'un client, depuis
+    // laquelle chaque livrable se commande pré-rempli.
+    createRoute({
+      getParentRoute: () => coquille,
+      path: "clients",
+      component: Clients,
+    }),
+    createRoute({
+      getParentRoute: () => coquille,
+      path: "clients/$clientId",
+      component: FicheClient,
     }),
     createRoute({
       getParentRoute: () => coquille,

@@ -48,6 +48,14 @@ class Champ:
     type: str = "texte"
     aide: str = ""
     exemple: str = ""
+    #: La réponse décrit-elle le PROJET, et se reprend-elle donc d'une étude à
+    #: l'autre (`projets.reponses_connues`) ? Faux pour ce qui ne vaut que pour
+    #: CETTE étude : les questions auxquelles elle doit répondre, les résultats
+    #: qu'on en attend, ce qu'il faut retenir des documents joints cette
+    #: fois-ci. Reprendre la question d'une étude de marché dans une stratégie
+    #: ferait chercher à la seconde la réponse due à la première — et depuis
+    #: `e70f6ac`, chaque demande reçoit un chapitre qui en a la charge.
+    reprise: bool = True
 
 
 @dataclass(frozen=True)
@@ -100,6 +108,7 @@ _DOCUMENTS = Champ(
     "Disposez-vous de données ou documents internes à partager pour enrichir "
     "l'étude ? (retours clients, historique de ventes, site web, études déjà "
     "réalisées, présentation…)",
+    reprise=False,
     obligatoire=True,
     type="zone",
     aide="Déposez-les dans « Vos documents » plus bas : ils seront lus. "
@@ -187,6 +196,7 @@ ETUDE_DE_MARCHE = Formulaire(
                 Champ(
                     "RESULTATS_ATTENDUS",
                     "Quels résultats attendez-vous de cette étude ?",
+                    reprise=False,
                     obligatoire=True,
                     type="zone",
                 ),
@@ -194,6 +204,7 @@ ETUDE_DE_MARCHE = Formulaire(
                     "DEMANDES_SPECIFIQUES",
                     "Quelles sont les questions les plus importantes pour vous, "
                     "auxquelles l'étude doit répondre ?",
+                    reprise=False,
                     obligatoire=True,
                     type="zone",
                     exemple="recommandations stratégiques, chiffres, clientèle, "
@@ -304,6 +315,7 @@ ETUDE_DE_CONCURRENCE = Formulaire(
                     "DEMANDES_SPECIFIQUES",
                     "Quelles sont les questions les plus importantes pour vous, "
                     "auxquelles l'étude doit répondre ?",
+                    reprise=False,
                     obligatoire=True,
                     type="zone",
                     exemple="recommandations stratégiques, chiffres, "
@@ -312,6 +324,7 @@ ETUDE_DE_CONCURRENCE = Formulaire(
                 Champ(
                     "RESULTATS_ATTENDUS",
                     "Quels résultats attendez-vous de cette étude ?",
+                    reprise=False,
                     obligatoire=True,
                     type="zone",
                 ),
@@ -540,6 +553,7 @@ BUSINESS_PLAN = Formulaire(
                     "existants ? Souhaitez-vous une version investisseur (levée "
                     "de fonds ou banque) ou institutionnelle (Initiative, BPI, "
                     "BGE…) ? D'autres éléments à faire figurer ?",
+                    reprise=False,
                     obligatoire=True,
                     type="zone",
                     aide="Déposez vos études et tableaux dans « Vos "
@@ -689,6 +703,7 @@ STRATEGIE = Formulaire(
                     "Si vous deviez résumer en une phrase la question "
                     "stratégique principale à laquelle cette stratégie doit "
                     "répondre, ce serait :",
+                    reprise=False,
                     obligatoire=True,
                     type="zone",
                     exemple="« Comment passer de prestataire débordée à "
@@ -729,6 +744,7 @@ def en_dict(formulaire_demande: Formulaire) -> dict[str, Any]:
                         "type": champ.type,
                         "aide": champ.aide,
                         "exemple": champ.exemple,
+                        "reprise": champ.reprise,
                     }
                     for champ in section.champs
                 ],

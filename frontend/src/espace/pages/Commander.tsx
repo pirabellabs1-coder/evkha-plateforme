@@ -8,7 +8,7 @@
  * compte vingt-quatre questions, dont plusieurs demandent de la réflexion. Les
  * poser d'un bloc fait fermer l'onglet.
  */
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
@@ -37,19 +37,24 @@ function Question({
   valeur,
   onChange,
   manquant,
+  verrouille,
 }: {
   champ: ChampFormulaire;
   valeur: string;
   onChange: (valeur: string) => void;
   manquant: boolean;
+  /** Imposé par la fiche du projet, et dit comme tel dans l'aide. */
+  verrouille?: string;
 }) {
   const id = `champ-${champ.identifiant}`;
-  const idAide = champ.aide || champ.exemple ? `${id}-aide` : undefined;
+  const aide = verrouille ?? champ.aide;
+  const idAide = aide || champ.exemple ? `${id}-aide` : undefined;
   const commun = {
     id,
     name: champ.identifiant,
     className: "champ-saisie",
     value: valeur,
+    readOnly: Boolean(verrouille),
     required: champ.obligatoire,
     "aria-invalid": manquant || undefined,
     "aria-describedby": idAide,
@@ -73,11 +78,11 @@ function Question({
       ) : (
         <textarea rows={champ.type === "nombres" ? 2 : 4} {...commun} />
       )}
-      {(champ.aide || champ.exemple) && (
+      {(aide || champ.exemple) && (
         <span className="champ-aide" id={idAide}>
-          {champ.aide}
-          {champ.aide && champ.exemple ? " " : ""}
-          {champ.exemple && <em>Ex. : {champ.exemple}</em>}
+          {aide}
+          {aide && champ.exemple && !verrouille ? " " : ""}
+          {champ.exemple && !verrouille && <em>Ex. : {champ.exemple}</em>}
         </span>
       )}
     </div>
@@ -102,7 +107,24 @@ export function Commander() {
   const [choisi, setChoisi] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get("livrable") || null,
   );
-  const [reponses, setReponses] = useState<Record<string, string>>({});
+  // Le projet d'un client, quand on commande depuis sa fiche
+  // (`/espace/commander?livrable=…&projet=…`). Lu une fois, comme le livrable.
+  const [projet] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get("projet") || null,
+  );
+  // Le brouillon est rangé PAR PROJET : sans cela, la saisie laissée pour un
+  // client se « restaurait » dans l'étude d'un autre.
+  const cleBrouillon = useCallback(
+    (type: string) => (projet ? `${projet}.${type}` : type),
+    [projet],
+  );
+  // Repris du brouillon dès l'arrivée par une adresse : démarrer vide faisait
+  // EFFACER le brouillon par l'effet qui l'enregistre (une saisie vide le
+  // retire). Revenir finir un questionnaire depuis la fiche d'un client
+  // perdait donc tout ce qui avait été tapé.
+  const [reponses, setReponses] = useState<Record<string, string>>(() =>
+    choisi ? lireBrouillon(cleBrouillon(choisi)) : {},
+  );
   const [erreur, setErreur] = useState("");
   const [manquants, setManquants] = useState<string[]>([]);
   // Le sens du dernier passage d'une étape à l'autre, pour que l'étape qui
@@ -121,15 +143,15 @@ export function Commander() {
   // un rechargement, à un clic dans la barre latérale, à un onglet fermé.
   const saisieEnCours = Object.values(reponses).some((v) => v.trim());
   const brouillonRestaure = useMemo(
-    () => (choisi ? dateDuBrouillon(choisi) : null),
+    () => (choisi ? dateDuBrouillon(cleBrouillon(choisi)) : null),
     // Ne dépend QUE du type choisi : rafraîchir la date à chaque frappe
     // ferait annoncer « saisie d'il y a une seconde » pendant qu'on écrit.
-    [choisi],
+    [choisi, cleBrouillon],
   );
 
   useEffect(() => {
-    if (choisi) enregistrerBrouillon(choisi, reponses);
-  }, [choisi, reponses]);
+    if (choisi) enregistrerBrouillon(cleBrouillon(choisi), reponses);
+  }, [choisi, reponses, cleBrouillon]);
 
   // Le navigateur ne laisse pas personnaliser ce message, et c'est très bien :
   // ce qui compte est qu'il y en ait un.
@@ -152,6 +174,32 @@ export function Commander() {
     queryFn: () => espaceApi.formulaire(choisi!),
     enabled: Boolean(choisi),
   });
+
+  // Ce que l'on a déjà répondu pour ce projet, tous livrables confondus.
+  const { data: dejaDit, isError: projetIntrouvable } = useQuery({
+    queryKey: ["espace", "projet", projet, "reponses", choisi],
+    queryFn: () => espaceApi.reponsesDuProjet(projet!, choisi!),
+    enabled: Boolean(projet && choisi),
+  });
+
+  // Le pré-remplissage se pose UNE fois par livrable, sous le brouillon : une
+  // saisie en cours l'emporte sur ce que la fiche savait, et une frappe ne
+  // doit jamais être écrasée par un rechargement de la requête. Posé pendant
+  // le rendu et non dans un effet : React ajuste l'état avant d'afficher,
+  // sans un premier rendu vide qui clignoterait.
+  const [preRempli, setPreRempli] = useState<string | null>(null);
+  if (dejaDit && choisi && preRempli !== choisi) {
+    setPreRempli(choisi);
+    setReponses((saisie) => {
+      const tapees = Object.fromEntries(
+        Object.entries(saisie).filter(([, valeur]) => valeur.trim()),
+      );
+      return { ...dejaDit.reponses, ...tapees, PROJET: dejaDit.projet.nom };
+    });
+  }
+  const repris = dejaDit
+    ? Object.keys(dejaDit.reponses).filter((cle) => cle !== "PROJET").length
+    : 0;
 
   // Pièces jointes de l'organisation : elles accompagnent la commande. Les
   // questionnaires demandent des tableaux financiers et des études existantes,
@@ -178,13 +226,22 @@ export function Commander() {
   });
 
   const envoi = useMutation({
-    mutationFn: () => espaceApi.commander(choisi!, reponses),
+    mutationFn: () => espaceApi.commander(choisi!, reponses, projet ?? undefined),
     onSuccess: () => {
       // La saisie est partie : la garder en brouillon la ferait « restaurer »
       // à la prochaine commande, et quelqu'un l'enverrait une seconde fois.
-      if (choisi) oublierBrouillon(choisi);
+      if (choisi) oublierBrouillon(cleBrouillon(choisi));
       void cache.invalidateQueries({ queryKey: ["espace"] });
-      void naviguer({ to: "/espace/livrables" });
+      // Depuis une fiche, on y revient : c'est là que l'étude s'ajoute à
+      // l'historique du client.
+      if (dejaDit) {
+        void naviguer({
+          to: "/espace/clients/$clientId",
+          params: { clientId: dejaDit.client.id },
+        });
+      } else {
+        void naviguer({ to: "/espace/livrables" });
+      }
     },
     onError: (cause) =>
       setErreur(
@@ -227,6 +284,7 @@ export function Commander() {
       // Une enveloppe par étape, avec sa propre `key` : changer d'étape la
       // remonte, et c'est le remontage qui joue le fondu-glissé.
       <div className={`etape-commande etape-commande-${sens}`} key="choix">
+        {projet && <PourQui projet={projet} />}
         {!peutCommander && (
           <Bandeau titre="Votre rôle ne permet pas de commander">
             Demandez à un propriétaire ou à un membre de votre équipe de lancer
@@ -292,7 +350,7 @@ export function Commander() {
                     // autre type puis revenir effaçait 24 réponses en un clic.
                     if (doc.type !== choisi) {
                       setChoisi(doc.type);
-                      setReponses(lireBrouillon(doc.type));
+                      setReponses(lireBrouillon(cleBrouillon(doc.type)));
                     }
                     setSens("avant");
                     setErreur("");
@@ -376,7 +434,10 @@ export function Commander() {
               className="bouton bouton-discret bouton-sm"
               onClick={() => {
                 setReponses({});
-                if (choisi) oublierBrouillon(choisi);
+                if (choisi) oublierBrouillon(cleBrouillon(choisi));
+                // Repartir d'une page blanche garde ce que la fiche savait :
+                // c'est la saisie qu'on efface, pas le projet.
+                setPreRempli(null);
               }}
             >
               Repartir d'une page blanche
@@ -385,6 +446,34 @@ export function Commander() {
         )}
       </Carte>
 
+      {projetIntrouvable && (
+        <Bandeau ton="echec" titre="Projet introuvable">
+          Ce lien ne correspond à aucun projet de vos clients. Repassez par{" "}
+          <Link to="/espace/clients" className="bandeau-lien">
+            la liste de vos clients
+          </Link>
+          .
+        </Bandeau>
+      )}
+      {dejaDit && (
+        <Bandeau
+          ton={dejaDit.projet.archive ? "echec" : "succes"}
+          titre={`Pour ${dejaDit.client.nom} · ${dejaDit.projet.nom}`}
+        >
+          {dejaDit.projet.archive
+            ? "Ce projet est archivé : il ne reçoit plus d'étude."
+            : repris > 0
+              ? `${repris} réponse${repris > 1 ? "s" : ""} reprise${repris > 1 ? "s" : ""} de la fiche et des études précédentes. Relisez-les : tout reste modifiable, sauf le nom du projet.`
+              : "Le nom du projet est repris de la fiche. Les réponses de cette étude seront proposées aux suivantes."}{" "}
+          <Link
+            to="/espace/clients/$clientId"
+            params={{ clientId: dejaDit.client.id }}
+            className="bandeau-lien"
+          >
+            Revenir à la fiche
+          </Link>
+        </Bandeau>
+      )}
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
       {manquants.length > 0 && (
         <Bandeau titre={`${manquants.length} réponse(s) manquante(s)`}>
@@ -401,6 +490,11 @@ export function Commander() {
                 champ={champ}
                 valeur={reponses[champ.identifiant] ?? ""}
                 manquant={manquants.includes(champ.identifiant)}
+                verrouille={
+                  dejaDit && champ.identifiant === "PROJET"
+                    ? "Repris de la fiche du client : c'est ce nom qui relie les études de ce projet."
+                    : undefined
+                }
                 onChange={(valeur) =>
                   setReponses((precedent) => ({
                     ...precedent,
@@ -516,7 +610,12 @@ export function Commander() {
                 ? "bouton bouton-principal bouton-chargement"
                 : "bouton bouton-principal"
             }
-            disabled={envoi.isPending || !peutCommander}
+            disabled={
+              envoi.isPending ||
+              !peutCommander ||
+              Boolean(dejaDit?.projet.archive) ||
+              (Boolean(projet) && !dejaDit)
+            }
           >
             {envoi.isPending ? "Lancement…" : "Lancer la génération"}
           </button>
@@ -528,6 +627,30 @@ export function Commander() {
         </div>
       </Carte>
     </form>
+  );
+}
+
+/** Au choix du document, le rappel du client pour qui l'on commande.
+ *
+ * Le pré-remplissage dépend du livrable, pas le client : on lit donc la fiche
+ * par la liste des clients plutôt que d'attendre un choix. */
+function PourQui({ projet }: { projet: string }) {
+  const { data } = useQuery({
+    queryKey: ["espace", "projet", projet, "reponses", "market_study"],
+    queryFn: () => espaceApi.reponsesDuProjet(projet, "market_study"),
+  });
+  if (!data) return null;
+  return (
+    <Bandeau ton="succes" titre={`Pour ${data.client.nom} · ${data.projet.nom}`}>
+      Le questionnaire reprendra ce que vous avez déjà répondu pour ce projet.{" "}
+      <Link
+        to="/espace/clients/$clientId"
+        params={{ clientId: data.client.id }}
+        className="bandeau-lien"
+      >
+        Revenir à la fiche
+      </Link>
+    </Bandeau>
   );
 }
 

@@ -26,6 +26,7 @@ from .models import (
     MouvementCredit,
     Organisation,
     PortefeuilleCredits,
+    Projet,
 )
 
 
@@ -267,3 +268,11 @@ class ClientFinalAdmin(admin.ModelAdmin):
     )
     list_filter = ("organisation",)
     search_fields = ("raison_sociale", "secteur")
+
+
+@admin.register(Projet)
+class ProjetAdmin(admin.ModelAdmin):
+    list_display = ("nom", "client", "archive_le")
+    list_filter = ("client__organisation",)
+    search_fields = ("nom", "client__raison_sociale")
+    readonly_fields = ("cle",)

@@ -17,6 +17,10 @@ import { FenetreAnnonce } from "./composants/Annonce";
 
 const ENTREES = [
   { vers: "/espace", libelle: "Tableau de bord", icone: "◈", exact: true },
+  // Les clients avant « Commander » : une consultante part de la personne pour
+  // qui elle travaille, et commande depuis sa fiche. Réservé aux abonnés, comme
+  // « Abonnement » : un achat à l'unité est une étude, pas un portefeuille.
+  { vers: "/espace/clients", libelle: "Clients", icone: "◇", abonnesSeuls: true },
   { vers: "/espace/commander", libelle: "Commander", icone: "＋" },
   { vers: "/espace/livrables", libelle: "Livrables", icone: "▤" },
   { vers: "/espace/ma-marque", libelle: "Ma marque", icone: "◉" },
@@ -45,6 +49,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/espace/commander": {
     titre: "Commander un document",
     sous: "Choisissez le livrable, répondez au questionnaire, la production démarre.",
+  },
+  "/espace/clients": {
+    titre: "Clients",
+    sous: "Une fiche par client, ses marques ou projets, et tout ce qui a été produit pour lui.",
   },
   "/espace/livrables": {
     titre: "Livrables",
@@ -95,7 +103,12 @@ export function Coquille() {
     ENTETES[chemin] ??
     (chemin.startsWith("/espace/livrables")
       ? { titre: "Suivi de production", sous: "Où en est votre étude, étape par étape." }
-      : ENTETES["/espace"]);
+      : chemin.startsWith("/espace/clients/")
+        ? {
+            titre: "Fiche client",
+            sous: "Ses marques ou projets, les études à lancer, et tout ce qui a déjà été produit.",
+          }
+        : ENTETES["/espace"]);
   const solde = moi?.credits.solde ?? 0;
   const alerte = moi?.credits.alerte ?? false;
   // Abonné par défaut TANT QUE `moi` n'est pas chargé : c'est le cas de la

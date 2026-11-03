@@ -46,6 +46,7 @@ from . import (
     identifiants,
     liaison,
     limitation,
+    projets,
     services,
     suivi,
 )
@@ -68,6 +69,7 @@ from .models import (
     ObjetTentative,
     Organisation,
     PieceJointe,
+    Projet,
     RoleOrganisation,
     Signalement,
     StatutAbonnement,
@@ -939,6 +941,21 @@ def _client_final_en_dict(client: ClientFinal) -> dict[str, Any]:
     }
 
 
+#: Ce qu'une abonnée peut corriger sur la fiche d'un client. Liste fermée, comme
+#: `CHAMPS_MARQUE` : une charge JSON ne réécrit pas `organisation`.
+CHAMPS_CLIENT = ("raison_sociale", "secteur", "pays", "region", "ville", "contact_email")
+
+
+def _projet_en_dict(projet: Projet, nb_dossiers: int) -> dict[str, Any]:
+    return {
+        "id": str(projet.id),
+        "nom": projet.nom,
+        "archive": projet.archive,
+        "nb_dossiers": nb_dossiers,
+        "cree_le": projet.created_at.isoformat(),
+    }
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 @espace("consulter_livrables", ecriture="gerer_clients_finaux")
@@ -946,13 +963,17 @@ def clients_finaux(
     request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
 ) -> HttpResponse:
     if request.method == "GET":
-        inclure_archives = request.GET.get("archives") == "1"
-        requete = organisation.clients_finaux.all()
-        if not inclure_archives:
-            requete = requete.filter(archive_le__isnull=True)
+        requete = projets.clients_avec_comptes(
+            organisation, archives=request.GET.get("archives") == "1"
+        )
         return JsonResponse({
             "clients": [
-                _client_final_en_dict(c) for c in requete.order_by("raison_sociale")
+                {
+                    **_client_final_en_dict(c),
+                    "nb_projets": c.nb_projets,
+                    "nb_dossiers": c.nb_dossiers,
+                }
+                for c in requete
             ]
         })
 
@@ -996,6 +1017,127 @@ def archiver_client_final(
         return _refus("Fiche introuvable.", "introuvable", 404)
     services.archiver_client_final(client)
     return JsonResponse(_client_final_en_dict(client))
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+@espace("consulter_livrables", ecriture="gerer_clients_finaux")
+def fiche_client(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    client_id: str,
+) -> HttpResponse:
+    """La fiche d'un client : ses projets, et tout ce qui a été produit pour lui.
+
+    POST corrige la fiche (`CHAMPS_CLIENT`). Les dossiers sont ceux dont la
+    commande porte un projet de ce client — y compris ceux d'un projet archivé :
+    archiver range, ne retire rien.
+    """
+    client = projets.par_identifiant(ClientFinal, client_id, organisation=organisation)
+    if client is None:
+        return _refus("Fiche introuvable.", "introuvable", 404)
+
+    if request.method == "POST":
+        charge = _corps(request)
+        for champ in CHAMPS_CLIENT:
+            if champ in charge:
+                setattr(client, champ, _texte_propre(charge[champ]))
+        if not client.raison_sociale:
+            return _refus("Le nom du client est obligatoire.", "champ_manquant", 400)
+        doublon = organisation.clients_finaux.filter(
+            raison_sociale=client.raison_sociale
+        ).exclude(id=client.id)
+        if doublon.exists():
+            return _refus(
+                f"Une fiche « {client.raison_sociale} » existe déjà.", "doublon", 409
+            )
+        client.save()
+
+    jobs = (
+        GenerationJob.objects.filter(
+            order__organisation=organisation, order__projet__client=client
+        )
+        .select_related("order", "order__offer", "order__projet__client")
+        .order_by("-created_at")
+    )
+    dossiers = [_livrable_en_dict(job) for job in jobs]
+    par_projet: dict[str, int] = {}
+    for dossier in dossiers:
+        cle = dossier["projet"]["id"] if dossier["projet"] else ""
+        par_projet[cle] = par_projet.get(cle, 0) + 1
+
+    return JsonResponse({
+        "client": _client_final_en_dict(client),
+        "projets": [
+            _projet_en_dict(p, par_projet.get(str(p.id), 0))
+            for p in client.projets.order_by("archive_le", "nom")
+        ],
+        "dossiers": dossiers,
+        "conservation_jours": retention.jours_par_defaut(),
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("gerer_clients_finaux")
+def creer_projet(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    client_id: str,
+) -> HttpResponse:
+    """Ajoute une marque ou un projet à la fiche d'un client."""
+    client = projets.par_identifiant(ClientFinal, client_id, organisation=organisation)
+    if client is None:
+        return _refus("Fiche introuvable.", "introuvable", 404)
+    if client.archive:
+        return _refus("Cette fiche est archivée.", "archive", 400)
+    nom = _texte_propre(_corps(request).get("nom", ""))
+    if not nom:
+        return _refus(
+            "Le nom de la marque ou du projet est obligatoire.", "champ_manquant", 400
+        )
+    try:
+        projet, rattaches = projets.creer_projet(client, nom)
+    except projets.ProjetRefuseError as refus:
+        return _refus(str(refus), "doublon", 409)
+    return JsonResponse(
+        {**_projet_en_dict(projet, rattaches), "dossiers_rattaches": rattaches},
+        status=201,
+    )
+
+
+@require_http_methods(["GET"])
+@espace("consulter_livrables")
+def reponses_du_projet(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    projet_id: str,
+    type_document: str,
+) -> HttpResponse:
+    """Le questionnaire pré-rempli pour ce projet : ce que l'abonnée a déjà dit.
+
+    Rend aussi le projet et son client, pour que l'écran de commande dise POUR
+    QUI il commande — une étude lancée sur la mauvaise fiche coûte un crédit.
+    """
+    projet = projets.projet_de(organisation, projet_id)
+    if projet is None:
+        return _refus("Projet introuvable.", "introuvable", 404)
+    if formulaires.formulaire(type_document) is None:
+        return _refus(
+            f"Aucun questionnaire pour « {type_document} ».", "introuvable", 404
+        )
+    return JsonResponse({
+        "projet": {
+            "id": str(projet.id),
+            "nom": projet.nom,
+            "archive": projet.archive or projet.client.archive,
+        },
+        "client": {"id": str(projet.client.id), "nom": projet.client.raison_sociale},
+        "reponses": projets.reponses_connues(projet, type_document),
+    })
 
 
 # ── Ma marque ────────────────────────────────────────────────────────────────
@@ -1147,6 +1289,40 @@ def marque(
 # ── Livrables ────────────────────────────────────────────────────────────────
 
 
+def _livrable_en_dict(job: GenerationJob) -> dict[str, Any]:
+    """Une ligne de bibliothèque. La même pour la liste et pour la fiche client.
+
+    Les fichiers suivent le MÊME prédicat que la page de suivi : cette liste
+    offrait auparavant tous les DOCX/PDF sans regarder leur statut ni celui du
+    job, si bien qu'un document retenu par le contrôle qualité restait
+    téléchargeable.
+    """
+    fichiers = suivi.fichiers_du_client(job)
+    projet = job.order.projet
+    return {
+        "id": str(job.id),
+        "type": job.deliverable_type,
+        "statut": job.status,
+        "offre": job.order.offer.name,
+        "chapitres_faits": job.chapters.filter(status="done").count(),
+        "cree_le": job.created_at.isoformat(),
+        "termine_le": job.completed_at.isoformat() if job.completed_at else None,
+        "fichiers": fichiers,
+        "fichiers_etat": suivi.etat_des_fichiers(job, fichiers),
+        "projet": (
+            {
+                "id": str(projet.id),
+                "nom": projet.nom,
+                "client_id": str(projet.client_id),
+                "client": projet.client.raison_sociale,
+            }
+            if projet is not None
+            else None
+        ),
+    }
+
+
+
 @require_http_methods(["GET"])
 @espace("consulter_livrables")
 def livrables(
@@ -1160,33 +1336,11 @@ def livrables(
     """
     jobs = (
         GenerationJob.objects.filter(order__organisation=organisation)
-        .select_related("order", "order__offer")
+        .select_related("order", "order__offer", "order__projet__client")
         .order_by("-created_at")[:200]
     )
-    # Le MEME predicat que la page de suivi : cette liste offrait auparavant
-    # tous les DOCX/PDF sans regarder leur statut ni celui du job, si bien
-    # qu'un document retenu par le controle qualite restait telechargeable.
-    artefacts_par_job: dict[str, list[dict[str, str]]] = {
-        str(job.id): suivi.fichiers_du_client(job) for job in jobs
-    }
-
     return JsonResponse({
-        "livrables": [
-            {
-                "id": str(job.id),
-                "type": job.deliverable_type,
-                "statut": job.status,
-                "offre": job.order.offer.name,
-                "chapitres_faits": job.chapters.filter(status="done").count(),
-                "cree_le": job.created_at.isoformat(),
-                "termine_le": job.completed_at.isoformat() if job.completed_at else None,
-                "fichiers": artefacts_par_job.get(str(job.id), []),
-                "fichiers_etat": suivi.etat_des_fichiers(
-                    job, artefacts_par_job.get(str(job.id), [])
-                ),
-            }
-            for job in jobs
-        ],
+        "livrables": [_livrable_en_dict(job) for job in jobs],
         # La durée de conservation, dite par le serveur : l'écran ne la
         # recopie pas (règle 5).
         "conservation_jours": retention.jours_par_defaut(),
@@ -2152,12 +2306,18 @@ def commander(
     « solde insuffisant » lui dit quoi faire, « erreur interne » non.
     """
     charge = _corps(request)
+    projet = None
+    if charge.get("projet"):
+        projet = projets.projet_de(organisation, str(charge["projet"]))
+        if projet is None:
+            return _refus("Projet introuvable.", "introuvable", 404)
     try:
         job = commandes.creer_commande(
             organisation,
             membre.customer,
             type_document=str(charge.get("type", "")),
             saisie=charge.get("saisie", {}) or {},
+            projet=projet,
         )
     except commandes.CommandeRefuseeError as refus:
         return _refus(str(refus), "commande_refusee", 400)

@@ -326,6 +326,32 @@ export interface ClientFinal {
   couleur_secondaire: string;
   couleur_fond: string;
   archive: boolean;
+  /** Présents sur la liste seulement : projets actifs, dossiers produits. */
+  nb_projets?: number;
+  nb_dossiers?: number;
+}
+
+/** Une marque ou un projet d'un client. Son nom relie ses études entre elles. */
+export interface ProjetClient {
+  id: string;
+  nom: string;
+  archive: boolean;
+  nb_dossiers: number;
+  cree_le: string;
+}
+
+export interface FicheClient {
+  client: ClientFinal;
+  projets: ProjetClient[];
+  dossiers: Livrable[];
+  conservation_jours?: number;
+}
+
+/** Le questionnaire d'un projet, pré-rempli de ce qui a déjà été dit. */
+export interface ReponsesDuProjet {
+  projet: { id: string; nom: string; archive: boolean };
+  client: { id: string; nom: string };
+  reponses: Record<string, string>;
 }
 
 export interface Marque {
@@ -352,6 +378,8 @@ export interface Livrable {
   fichiers: { kind: string; statut: string; url: string }[];
   /** Où en sont les fichiers, dit par le serveur (jamais déduit ici). */
   fichiers_etat?: EtatDesFichiers;
+  /** Le client et le projet pour qui l'étude a été commandée, s'il y en a. */
+  projet?: { id: string; nom: string; client_id: string; client: string } | null;
 }
 
 /** `organisations.suivi.etat_des_fichiers` : une seule réponse pour trois écrans. */
@@ -406,6 +434,8 @@ export interface ChampFormulaire {
   type: "texte" | "zone" | "nombres";
   aide: string;
   exemple: string;
+  /** La réponse décrit le projet et se reprend d'une étude à l'autre. */
+  reprise?: boolean;
 }
 
 export interface SectionFormulaire {
@@ -549,6 +579,19 @@ export const espaceApi = {
     }),
   archiverClientFinal: (id: string) =>
     appel<ClientFinal>(`/clients-finaux/${id}/archiver/`, { method: "POST" }),
+  ficheClient: (id: string) => appel<FicheClient>(`/clients-finaux/${id}/`),
+  modifierClient: (id: string, donnees: Partial<ClientFinal>) =>
+    appel<FicheClient>(`/clients-finaux/${id}/`, {
+      method: "POST",
+      body: JSON.stringify(donnees),
+    }),
+  creerProjet: (clientId: string, nom: string) =>
+    appel<ProjetClient & { dossiers_rattaches: number }>(
+      `/clients-finaux/${clientId}/projets/`,
+      { method: "POST", body: JSON.stringify({ nom }) },
+    ),
+  reponsesDuProjet: (id: string, type: string) =>
+    appel<ReponsesDuProjet>(`/projets/${id}/reponses/${type}/`),
   marque: () => appel<Marque>("/marque/"),
   enregistrerMarque: (donnees: Partial<Marque>) =>
     appel<Marque>("/marque/", { method: "POST", body: JSON.stringify(donnees) }),
@@ -560,10 +603,10 @@ export const espaceApi = {
     }>("/catalogue/"),
   formulaire: (type: string) =>
     appel<FormulaireQuestionnaire>(`/formulaire/${type}/`),
-  commander: (type: string, saisie: Record<string, string>) =>
+  commander: (type: string, saisie: Record<string, string>, projet?: string) =>
     appel<{ job_id: string; statut: string; cout_credits: number }>(
       "/commander/",
-      { method: "POST", body: JSON.stringify({ type, saisie }) },
+      { method: "POST", body: JSON.stringify({ type, saisie, projet }) },
     ),
   fichiers: (categorie?: string) =>
     appel<{ pieces: PieceJointe[] }>(

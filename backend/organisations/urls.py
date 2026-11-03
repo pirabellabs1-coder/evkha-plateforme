@@ -46,6 +46,23 @@ urlpatterns = [
         vues.archiver_client_final,
         name="client-final-archiver",
     ),
+    # Travailler par client : la fiche, ses projets ou marques, et le
+    # questionnaire pre-rempli de ce qu'on a deja dit pour ce projet.
+    path(
+        "clients-finaux/<str:client_id>/",
+        vues.fiche_client,
+        name="client-final",
+    ),
+    path(
+        "clients-finaux/<str:client_id>/projets/",
+        vues.creer_projet,
+        name="client-final-projets",
+    ),
+    path(
+        "projets/<str:projet_id>/reponses/<str:type_document>/",
+        vues.reponses_du_projet,
+        name="projet-reponses",
+    ),
     path("marque/", vues.marque, name="marque"),
     path("catalogue/", vues.catalogue, name="catalogue"),
     path("commander/", vues.commander, name="commander"),

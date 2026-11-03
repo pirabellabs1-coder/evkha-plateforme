@@ -124,7 +124,22 @@ export function Livrables() {
                     >
                       {f.typeLivrable(livrable.type)}
                     </Link>
-                    <div className="carte-note">{livrable.offre}</div>
+                    {/* Pour qui, quand l'étude a été commandée depuis une
+                        fiche client : quatre études de marché sans nom ne
+                        se distinguent pas l'une de l'autre. */}
+                    <div className="carte-note">
+                      {livrable.projet ? (
+                        <Link
+                          to="/espace/clients/$clientId"
+                          params={{ clientId: livrable.projet.client_id }}
+                          className="bandeau-lien"
+                        >
+                          {livrable.projet.client} · {livrable.projet.nom}
+                        </Link>
+                      ) : (
+                        livrable.offre
+                      )}
+                    </div>
                   </td>
                   <td>
                     <Pastille statut={livrable.statut} />

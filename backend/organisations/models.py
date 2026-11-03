@@ -127,10 +127,10 @@ class Organisation(UUIDModel):
     # SES propres études. Ce n'est donc pas une liste de clients finaux mais un
     # profil unique, porté par l'organisation elle-même.
     #
-    # Écart assumé avec le §9.2 du cahier des charges, qui décrit des fiches
-    # clients finaux réutilisables pour la marque blanche des agences. Le modèle
-    # `ClientFinal` reste en place pour ce cas s'il revient ; il n'alimente plus
-    # l'espace client.
+    # La charte reste celle de l'abonné. Depuis le 03/11/2026, `ClientFinal`
+    # alimente de nouveau l'espace — mais pour ranger les études PAR CLIENT
+    # (une fiche, ses projets, ses dossiers), pas pour habiller les documents
+    # aux couleurs de ce client : voir `Projet`.
     secteur = models.CharField(max_length=200, blank=True)
     pays = models.CharField(max_length=120, blank=True)
     region = models.CharField(max_length=120, blank=True)
@@ -453,6 +453,52 @@ class ClientFinal(UUIDModel):
 
     def __str__(self) -> str:
         return self.raison_sociale
+
+    @property
+    def archive(self) -> bool:
+        return self.archive_le is not None
+
+
+class Projet(UUIDModel):
+    """Une marque ou un projet d'un client de l'abonnée (03/11/2026).
+
+    Une consultante produit, pour une même personne, une étude de marché
+    aujourd'hui et un business plan demain. Sans fiche, elle effaçait le
+    questionnaire et retapait le projet à chaque étude. Le projet est ce qui
+    relie ces dossiers : ses commandes portent `Order.projet`, et les réponses
+    déjà données pré-remplissent la suivante (`projets.reponses_connues`).
+
+    Le nom est imposé à la variable `PROJET` de chaque commande. C'est sur elle
+    que `generation.socle.heritage` reconnaît « le même dossier » : un projet
+    sert donc aussi, sans autre branchement, à reprendre les chiffres de l'étude
+    précédente — et c'est pourquoi `cle` est unique dans toute l'organisation,
+    pas seulement chez un client (voir `projets.creer_projet`).
+
+    Les réponses ne sont PAS recopiées ici : elles vivent dans les soumissions
+    des commandes, et une copie divergerait de ce qui a réellement été envoyé.
+    """
+
+    client = models.ForeignKey(
+        ClientFinal, on_delete=models.CASCADE, related_name="projets"
+    )
+    nom = models.CharField(max_length=200)
+    #: Le nom réduit comme le compare l'héritage (sans casse, accents ni
+    #: espaces superflus). Calculé, jamais saisi.
+    cle = models.CharField(max_length=200, editable=False, db_index=True)
+    archive_le = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["nom"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "cle"], name="uniq_projet_par_client"
+            )
+        ]
+        verbose_name = "projet"
+        verbose_name_plural = "projets"
+
+    def __str__(self) -> str:
+        return self.nom
 
     @property
     def archive(self) -> bool:

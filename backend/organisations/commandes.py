@@ -37,9 +37,9 @@ from generation.services import bootstrap_generation_job
 from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
 from orders.models import Order, OrderStatus
 
-from . import credits, formulaires
+from . import credits, formulaires, projets
 from .liaison import cout_en_credits
-from .models import Organisation
+from .models import Organisation, Projet
 
 #: Fenêtre pendant laquelle une soumission identique est traitée comme un
 #: double envoi, et non comme une nouvelle commande.
@@ -226,11 +226,17 @@ def creer_commande(
     *,
     type_document: str,
     saisie: dict[str, Any],
+    projet: Projet | None = None,
 ) -> GenerationJob:
     """Crée la commande et le job. Ne débite pas — voir l'en-tête du module.
 
     Lève `CommandeRefuseeError` avec un message destiné au client : « Erreur
     interne » n'aide personne à comprendre qu'il lui manque un crédit.
+
+    Depuis la fiche d'un client, `projet` impose son nom à `PROJET` : c'est sur
+    ce nom que l'héritage reconnaît le même dossier (`organisations.projets`).
+    Sans projet, une saisie qui porte le nom d'un projet existant lui est
+    rattachée — l'héritage la traite déjà comme telle, la fiche doit la montrer.
     """
     if type_document not in TYPES_COMMANDABLES:
         msg = f"Ce type de document n'est pas commandable : {type_document!r}."
@@ -242,6 +248,21 @@ def creer_commande(
             "votre accès."
         )
         raise CommandeRefuseeError(msg)
+
+    if projet is not None:
+        if projet.client.organisation_id != organisation.id:
+            raise CommandeRefuseeError("Ce projet n'appartient pas à votre espace.")
+        if projet.archive or projet.client.archive:
+            msg = f"Le projet « {projet.nom} » est archivé : il ne reçoit plus d'étude."
+            raise CommandeRefuseeError(msg)
+        saisie = {**saisie, "PROJET": projet.nom}
+    else:
+        cle = projets.cle_de_projet(str(saisie.get("PROJET", "") or ""))
+        projet = (
+            Projet.objects.filter(client__organisation=organisation, cle=cle).first()
+            if cle
+            else None
+        )
 
     variables, manquants = variables_de_commande(organisation, type_document, saisie)
     if manquants:
@@ -318,6 +339,7 @@ def creer_commande(
         customer=demandeur,
         offer=_offre_pour(type_document),
         organisation=organisation,
+        projet=projet,
         systeme_order_id=f"espace-{uuid.uuid4().hex[:12]}",
         status=OrderStatus.PROCESSING,
         raw_payload={"origine": "espace_client", "saisie": saisie},

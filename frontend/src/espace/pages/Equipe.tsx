@@ -16,15 +16,16 @@ import {
  *  les LIBELLÉS sont ici. Recopier la matrice du §12 dans l'interface la ferait
  *  diverger du serveur au premier ajout d'action.
  *
- *  `gerer_clients_finaux` est le nom de l'action côté serveur, hérité du modèle
- *  où un abonné gérait un portefeuille de clients. Cet espace est celui d'UN
- *  abonné qui gère SA marque, pas une agence : le libellé le dit, la clé garde
- *  son nom tant que le serveur ne change pas le sien. Renommer l'un sans
- *  l'autre romprait la correspondance en silence. */
+ *  `gerer_clients_finaux` est le nom de l'action côté serveur. Depuis le
+ *  03/11/2026 elle couvre de nouveau ce qu'elle nomme : les fiches clients et
+ *  leurs projets (page « Clients »), ainsi que le retrait d'un document de la
+ *  bibliothèque. La charte relève de `gerer_marque`, qui n'avait pas de
+ *  libellé et s'affichait sous sa clé brute. */
 const LIBELLE_DROIT: Record<string, string> = {
   commander: "Commander un document",
   consulter_livrables: "Consulter les livrables",
-  gerer_clients_finaux: "Modifier ma marque et ma charte",
+  gerer_clients_finaux: "Gérer les fiches clients, leurs projets et les documents déposés",
+  gerer_marque: "Modifier ma marque et ma charte",
   gerer_membres: "Inviter ou révoquer un collaborateur",
   gerer_abonnement: "Changer de formule, acheter des crédits",
   consulter_factures: "Consulter les factures",

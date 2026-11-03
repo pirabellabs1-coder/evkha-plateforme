@@ -29,6 +29,15 @@ class Order(UUIDModel):
         null=True,
         blank=True,
     )
+    # Le projet du client de l'abonnee pour lequel l'etude est commandee.
+    # SET_NULL : retirer une fiche ne doit jamais emporter un document produit.
+    projet = models.ForeignKey(
+        "organisations.Projet",
+        on_delete=models.SET_NULL,
+        related_name="commandes",
+        null=True,
+        blank=True,
+    )
     offer = models.ForeignKey(Offer, on_delete=models.PROTECT, related_name="orders")
     systeme_order_id = models.CharField(max_length=140, unique=True)
     # Lien vers l'Order parent (abonnement/crédit) pour les tickets de crédit auto-créés.
