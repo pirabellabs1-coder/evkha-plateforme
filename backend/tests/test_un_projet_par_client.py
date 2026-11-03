@@ -405,3 +405,81 @@ def test_un_role_lecture_consulte_mais_n_ajoute_pas_de_projet(
         ).status_code
         == 403
     )
+
+
+# ── Entrées malformées et chemins hors service (relecture du 03/11/2026) ─────
+
+
+@pytest.mark.parametrize(
+    "nom",
+    [
+        "x" * 201,  # au-delà de la colonne : 500 sous PostgreSQL, rien sous SQLite
+        None,  # devenait le texte « None »
+        ["liste"],
+    ],
+)
+def test_un_nom_de_projet_malforme_est_refuse_proprement(
+    api: Client, evangeline: Abonne, dupont: ClientFinal, nom: object
+) -> None:
+    reponse = _post(
+        api, evangeline, f"/api/espace/clients-finaux/{dupont.id}/projets/", {"nom": nom}
+    )
+    assert reponse.status_code == 400
+    assert not dupont.projets.exists()
+
+
+def test_une_cle_allongee_par_casefold_tient_dans_sa_colonne(dupont: ClientFinal) -> None:
+    """`ß` devient `ss` : 200 caractères de nom font 400 caractères de clé."""
+    projet, _ = projets.creer_projet(dupont, "ß" * 200)
+    assert len(projet.cle) == Projet._meta.get_field("cle").max_length
+
+
+def test_un_projet_cree_ou_renomme_hors_service_garde_une_cle_juste(
+    dupont: ClientFinal,
+) -> None:
+    """Depuis l'administration, la clé restait vide puis périmée."""
+    projet = Projet.objects.create(client=dupont, nom="Café Lumière")
+    assert projet.cle == "cafe lumiere"
+    projet.nom = "Fournil"
+    projet.save(update_fields=["nom"])
+    projet.refresh_from_db()
+    assert projet.cle == "fournil"
+
+
+def test_une_fiche_ne_prend_pas_une_valeur_trop_longue_ni_null(
+    api: Client, evangeline: Abonne, dupont: ClientFinal
+) -> None:
+    chemin = f"/api/espace/clients-finaux/{dupont.id}/"
+    assert _post(api, evangeline, chemin, {"pays": "p" * 121}).status_code == 400
+    assert _post(api, evangeline, chemin, {"contact_email": "pas-une-adresse"}).status_code == 400
+    assert _post(api, evangeline, chemin, {"secteur": None}).status_code == 200
+    dupont.refresh_from_db()
+    assert dupont.secteur == ""
+    assert dupont.pays == "France"
+
+
+def test_un_role_lecture_ne_modifie_pas_une_fiche(api: Client) -> None:
+    lectrice = Abonne(
+        "Cabinet Lecture 2", "lecture-fiche@example.com", role=RoleOrganisation.LECTURE
+    )
+    chez_elle = ClientFinal.objects.create(organisation=lectrice.organisation, raison_sociale="Y")
+    reponse = _post(
+        api, lectrice, f"/api/espace/clients-finaux/{chez_elle.id}/", {"raison_sociale": "Z"}
+    )
+    assert reponse.status_code == 403
+    chez_elle.refresh_from_db()
+    assert chez_elle.raison_sociale == "Y"
+
+
+def test_une_saisie_qui_n_est_pas_un_objet_rend_400(
+    api: Client, evangeline: Abonne, dupont: ClientFinal
+) -> None:
+    projet, _ = projets.creer_projet(dupont, "Fournil")
+    credits.crediter(evangeline.organisation, 1, motif="Dotation de test")
+    reponse = _post(
+        api,
+        evangeline,
+        "/api/espace/commander/",
+        {"type": "market_study", "saisie": ["x"], "projet": str(projet.id)},
+    )
+    assert reponse.status_code == 400

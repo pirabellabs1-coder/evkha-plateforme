@@ -10,7 +10,7 @@
  */
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   ErreurApi,
   espaceApi,
@@ -89,6 +89,17 @@ function Question({
   );
 }
 
+/** Le questionnaire, remonté à chaque changement d'adresse.
+ *
+ * `Commander` lit le livrable et le projet UNE fois, depuis l'adresse. Revenir
+ * par « Commander » dans la barre latérale ne démonte pas la page (même
+ * route) : la commande suivante serait partie pour le projet du client
+ * précédent. La clé sur la requête de l'adresse force un départ à neuf. */
+export function CommanderSelonAdresse() {
+  const adresse = useRouterState({ select: (s) => s.location.searchStr });
+  return <Commander key={adresse} />;
+}
+
 export function Commander() {
   const { data: moi } = useMoi();
   const cache = useQueryClient();
@@ -139,31 +150,6 @@ export function Commander() {
   // de les distinguer l'un de l'autre.
   const aLUnite = moi?.organisation.type_de_compte === "a_l_unite";
 
-  // Une saisie en cours vaut 24 réponses de texte long : elle doit survivre à
-  // un rechargement, à un clic dans la barre latérale, à un onglet fermé.
-  const saisieEnCours = Object.values(reponses).some((v) => v.trim());
-  const brouillonRestaure = useMemo(
-    () => (choisi ? dateDuBrouillon(cleBrouillon(choisi)) : null),
-    // Ne dépend QUE du type choisi : rafraîchir la date à chaque frappe
-    // ferait annoncer « saisie d'il y a une seconde » pendant qu'on écrit.
-    [choisi, cleBrouillon],
-  );
-
-  useEffect(() => {
-    if (choisi) enregistrerBrouillon(cleBrouillon(choisi), reponses);
-  }, [choisi, reponses, cleBrouillon]);
-
-  // Le navigateur ne laisse pas personnaliser ce message, et c'est très bien :
-  // ce qui compte est qu'il y en ait un.
-  useEffect(() => {
-    if (!saisieEnCours) return undefined;
-    const avertir = (evenement: BeforeUnloadEvent) => {
-      evenement.preventDefault();
-    };
-    window.addEventListener("beforeunload", avertir);
-    return () => window.removeEventListener("beforeunload", avertir);
-  }, [saisieEnCours]);
-
   const { data: catalogue, isPending } = useQuery({
     queryKey: ["espace", "catalogue"],
     queryFn: espaceApi.catalogue,
@@ -200,6 +186,47 @@ export function Commander() {
   const repris = dejaDit
     ? Object.keys(dejaDit.reponses).filter((cle) => cle !== "PROJET").length
     : 0;
+
+  // Une saisie en cours vaut 24 réponses de texte long : elle doit survivre à
+  // un rechargement, à un clic dans la barre latérale, à un onglet fermé.
+  //
+  // Ce qui est ENREGISTRÉ et ce qui compte comme « en cours », c'est ce que la
+  // personne a tapé — pas ce que la fiche a pré-rempli. Garder le pré-rempli
+  // dans le brouillon le faisait passer, au retour, pour une saisie : il
+  // l'emportait alors sur une réponse plus récente donnée dans une autre
+  // étude, et quitter un questionnaire intact déclenchait l'alerte de départ.
+  const propres = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(reponses).filter(
+          ([cle, valeur]) =>
+            valeur.trim() && valeur !== (dejaDit?.reponses[cle] ?? ""),
+        ),
+      ),
+    [reponses, dejaDit],
+  );
+  const saisieEnCours = Object.keys(propres).length > 0;
+  const brouillonRestaure = useMemo(
+    () => (choisi ? dateDuBrouillon(cleBrouillon(choisi)) : null),
+    // Ne dépend QUE du type choisi : rafraîchir la date à chaque frappe
+    // ferait annoncer « saisie d'il y a une seconde » pendant qu'on écrit.
+    [choisi, cleBrouillon],
+  );
+
+  useEffect(() => {
+    if (choisi) enregistrerBrouillon(cleBrouillon(choisi), propres);
+  }, [choisi, propres, cleBrouillon]);
+
+  // Le navigateur ne laisse pas personnaliser ce message, et c'est très bien :
+  // ce qui compte est qu'il y en ait un.
+  useEffect(() => {
+    if (!saisieEnCours) return undefined;
+    const avertir = (evenement: BeforeUnloadEvent) => {
+      evenement.preventDefault();
+    };
+    window.addEventListener("beforeunload", avertir);
+    return () => window.removeEventListener("beforeunload", avertir);
+  }, [saisieEnCours]);
 
   // Pièces jointes de l'organisation : elles accompagnent la commande. Les
   // questionnaires demandent des tableaux financiers et des études existantes,

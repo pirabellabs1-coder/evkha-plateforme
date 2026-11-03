@@ -23,6 +23,7 @@ from typing import Any
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
+from django.core.validators import validate_email
 from django.db import DataError
 from django.db.models import Field, Sum
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -946,6 +947,47 @@ def _client_final_en_dict(client: ClientFinal) -> dict[str, Any]:
 CHAMPS_CLIENT = ("raison_sociale", "secteur", "pays", "region", "ville", "contact_email")
 
 
+def _texte_de_la_charge(
+    charge: dict[str, Any], champ: str, modele: Any, libelle: str
+) -> tuple[str, JsonResponse | None]:
+    """La valeur d'un champ texte, ou le refus qui dit pourquoi.
+
+    Même défaut que celui que `_refus_de_marque` a corrigé le 29/09/2026 : une
+    valeur plus longue que sa colonne passait sous SQLite et tombait en 500
+    sous PostgreSQL. Et `null` devenait le texte « None ».
+    """
+    brut = charge.get(champ)
+    if brut is None:
+        return "", None
+    if not isinstance(brut, str):
+        return "", _refus(f"{libelle} : un texte est attendu.", "type_invalide", 400)
+    valeur = _texte_propre(brut)
+    longueur_max = modele._meta.get_field(champ).max_length
+    if longueur_max is not None and len(valeur) > longueur_max:
+        return "", _refus(
+            f"{libelle} : {longueur_max} caractères au plus "
+            f"(votre texte en compte {len(valeur)}).",
+            "trop_long",
+            400,
+        )
+    if champ == "contact_email" and valeur:
+        try:
+            validate_email(valeur)
+        except ValidationError:
+            return "", _refus(f"{libelle} : adresse invalide.", "email_invalide", 400)
+    return valeur, None
+
+
+LIBELLES_CLIENT = {
+    "raison_sociale": "Nom du client",
+    "secteur": "Secteur d'activité",
+    "pays": "Pays",
+    "region": "Région",
+    "ville": "Ville ou zone",
+    "contact_email": "Adresse e-mail du contact",
+}
+
+
 def _projet_en_dict(projet: Projet, nb_dossiers: int) -> dict[str, Any]:
     return {
         "id": str(projet.id),
@@ -1042,7 +1084,12 @@ def fiche_client(
         charge = _corps(request)
         for champ in CHAMPS_CLIENT:
             if champ in charge:
-                setattr(client, champ, _texte_propre(charge[champ]))
+                valeur, refus = _texte_de_la_charge(
+                    charge, champ, ClientFinal, LIBELLES_CLIENT[champ]
+                )
+                if refus is not None:
+                    return refus
+                setattr(client, champ, valeur)
         if not client.raison_sociale:
             return _refus("Le nom du client est obligatoire.", "champ_manquant", 400)
         doublon = organisation.clients_finaux.filter(
@@ -1059,7 +1106,7 @@ def fiche_client(
             order__organisation=organisation, order__projet__client=client
         )
         .select_related("order", "order__offer", "order__projet__client")
-        .order_by("-created_at")
+        .order_by("-created_at")[:200]
     )
     dossiers = [_livrable_en_dict(job) for job in jobs]
     par_projet: dict[str, int] = {}
@@ -1093,7 +1140,11 @@ def creer_projet(
         return _refus("Fiche introuvable.", "introuvable", 404)
     if client.archive:
         return _refus("Cette fiche est archivée.", "archive", 400)
-    nom = _texte_propre(_corps(request).get("nom", ""))
+    nom, refus = _texte_de_la_charge(
+        _corps(request), "nom", Projet, "Nom de la marque ou du projet"
+    )
+    if refus is not None:
+        return refus
     if not nom:
         return _refus(
             "Le nom de la marque ou du projet est obligatoire.", "champ_manquant", 400
@@ -2306,6 +2357,9 @@ def commander(
     « solde insuffisant » lui dit quoi faire, « erreur interne » non.
     """
     charge = _corps(request)
+    saisie = charge.get("saisie", {}) or {}
+    if not isinstance(saisie, dict):
+        return _refus("Le questionnaire reçu est illisible.", "saisie_invalide", 400)
     projet = None
     if charge.get("projet"):
         projet = projets.projet_de(organisation, str(charge["projet"]))
@@ -2316,7 +2370,7 @@ def commander(
             organisation,
             membre.customer,
             type_document=str(charge.get("type", "")),
-            saisie=charge.get("saisie", {}) or {},
+            saisie=saisie,
             projet=projet,
         )
     except commandes.CommandeRefuseeError as refus:

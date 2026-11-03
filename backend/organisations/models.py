@@ -31,7 +31,10 @@ organisation et par mois — l'agrégat coûte moins qu'un bug de solde.
 """
 from __future__ import annotations
 
+import re
+import unicodedata
 from datetime import timedelta
+from typing import Any
 
 from django.contrib.auth.models import User
 from django.db import models
@@ -459,6 +462,18 @@ class ClientFinal(UUIDModel):
         return self.archive_le is not None
 
 
+def cle_de_projet(nom: str) -> str:
+    """Le nom réduit EXACTEMENT comme `socle.heritage._projet` le réduit.
+
+    Les deux doivent rester d'accord : `test_un_projet_par_client` le vérifie
+    en passant par une vraie commande, pas en relisant ce code.
+    """
+    sans_accents = "".join(
+        c for c in unicodedata.normalize("NFD", nom) if not unicodedata.combining(c)
+    )
+    return re.sub(r"\s+", " ", sans_accents).strip().casefold()
+
+
 class Projet(UUIDModel):
     """Une marque ou un projet d'un client de l'abonnée (03/11/2026).
 
@@ -499,6 +514,22 @@ class Projet(UUIDModel):
 
     def __str__(self) -> str:
         return self.nom
+
+    @staticmethod
+    def cle_pour(nom: str) -> str:
+        """La clé d'un nom, coupée à sa colonne. LA règle : sauvegarde,
+        unicité, rattachement et commande libre la lisent ici."""
+        return cle_de_projet(nom)[: Projet._meta.get_field("cle").max_length]
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        # Recalculée à CHAQUE enregistrement : un projet créé ou renommé depuis
+        # l'administration gardait sinon une clé vide ou périmée, et l'unicité
+        # comme le rattachement comparaient un autre nom que celui imposé à
+        # `PROJET`. Coupée à la colonne : `casefold` allonge parfois (ß → ss).
+        self.cle = Projet.cle_pour(self.nom)
+        if "update_fields" in kwargs and kwargs["update_fields"] is not None:
+            kwargs["update_fields"] = {*kwargs["update_fields"], "cle"}
+        super().save(*args, **kwargs)
 
     @property
     def archive(self) -> bool:

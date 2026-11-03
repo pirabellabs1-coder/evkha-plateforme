@@ -207,7 +207,13 @@ export function FicheClient() {
         titre="Marques ou projets"
         note="Une étude lancée depuis un projet reprend ce que vous avez déjà répondu pour lui. Seules les questions propres à chaque étude restent à remplir."
       >
-        {peutGerer && (
+        {client.archive && (
+          <Bandeau titre="Fiche archivée">
+            Ses études restent consultables ; elle ne reçoit plus de projet ni
+            de commande.
+          </Bandeau>
+        )}
+        {peutGerer && !client.archive && (
           <form
             onSubmit={(evenement) => {
               evenement.preventDefault();
@@ -260,7 +266,7 @@ export function FicheClient() {
                 </div>
                 <div className="projet-actions">
                   {documents.map((doc) => {
-                    const ouvert = peutCommander && doc.couvert;
+                    const ouvert = peutCommander && doc.couvert && !client.archive;
                     return ouvert ? (
                       <Link
                         key={doc.type}
@@ -279,7 +285,9 @@ export function FicheClient() {
                         className="bouton bouton-contour bouton-sm"
                         disabled
                         title={
-                          peutCommander
+                          client.archive
+                            ? "Cette fiche est archivée"
+                            : peutCommander
                             ? "Aucun crédit disponible pour ce document"
                             : "Votre rôle ne permet pas de commander"
                         }

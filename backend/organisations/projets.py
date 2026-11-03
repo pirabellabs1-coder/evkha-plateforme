@@ -32,8 +32,6 @@ a réellement reçu dès la première correction.
 
 from __future__ import annotations
 
-import re
-import unicodedata
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -44,23 +42,13 @@ from intake.models import IntakeSubmission
 from orders.models import Order
 
 from . import formulaires
-from .models import ClientFinal, Organisation, Projet
+from .models import ClientFinal, Organisation, Projet, cle_de_projet
+
+__all__ = ["cle_de_projet"]  # réexportée : `commandes` et les tests la lisent ici
 
 
 class ProjetRefuseError(ValueError):
     """Le projet ne peut pas être créé. Le message est destiné à l'abonnée."""
-
-
-def cle_de_projet(nom: str) -> str:
-    """Le nom réduit EXACTEMENT comme `socle.heritage._projet` le réduit.
-
-    Les deux doivent rester d'accord : `test_un_projet_par_client` le vérifie
-    en passant par une vraie commande, pas en relisant ce code.
-    """
-    sans_accents = "".join(
-        c for c in unicodedata.normalize("NFD", nom) if not unicodedata.combining(c)
-    )
-    return re.sub(r"\s+", " ", sans_accents).strip().casefold()
 
 
 def par_identifiant(modele: Any, identifiant: str, **filtres: Any) -> Any:
@@ -95,8 +83,14 @@ def creer_projet(client: ClientFinal, nom: str) -> tuple[Projet, int]:
     nom = nom.strip()
     if not nom:
         raise ProjetRefuseError("Le nom de la marque ou du projet est obligatoire.")
-    cle = cle_de_projet(nom)
     organisation = client.organisation
+    # Verrou sur l'organisation : « vérifier l'homonyme, puis créer » laissait
+    # passer deux créations simultanées du même nom chez deux clients — ceux-là
+    # même qui se prêteraient ensuite leurs chiffres. SQLite l'ignore ;
+    # PostgreSQL, qui sert la production, l'applique.
+    Organisation.objects.select_for_update().filter(pk=organisation.pk).first()
+    projet = Projet(client=client, nom=nom)
+    cle = Projet.cle_pour(nom)
 
     homonyme = (
         Projet.objects.filter(client__organisation=organisation, cle=cle)
@@ -116,14 +110,14 @@ def creer_projet(client: ClientFinal, nom: str) -> tuple[Projet, int]:
         )
         raise ProjetRefuseError(msg)
 
-    projet = Projet.objects.create(client=client, nom=nom, cle=cle)
+    projet.save()
 
     a_rattacher = [
         soumission.order_id
         for soumission in IntakeSubmission.objects.filter(
             order__organisation=organisation, order__projet__isnull=True
         ).only("order_id", "normalized_variables")
-        if cle_de_projet(str(soumission.normalized_variables.get("PROJET") or "")) == cle
+        if Projet.cle_pour(str(soumission.normalized_variables.get("PROJET") or "")) == cle
     ]
     rattaches = Order.objects.filter(id__in=a_rattacher).update(projet=projet)
     return projet, rattaches

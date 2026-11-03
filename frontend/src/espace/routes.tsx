@@ -9,7 +9,7 @@ import { jeton } from "./api";
 import { Coquille } from "./Coquille";
 import { Abonnement } from "./pages/Abonnement";
 import { Clients } from "./pages/Clients";
-import { Commander } from "./pages/Commander";
+import { CommanderSelonAdresse } from "./pages/Commander";
 import { MaMarque } from "./pages/MaMarque";
 // La connexion partage la coquille de l'inscription : deux portes du meme
 // endroit doivent se ressembler. Elle vit donc avec les pages publiques.
@@ -75,7 +75,7 @@ export function routesEspace(racine: AnyRoute) {
     createRoute({
       getParentRoute: () => coquille,
       path: "commander",
-      component: Commander,
+      component: CommanderSelonAdresse,
     }),
     createRoute({
       getParentRoute: () => coquille,

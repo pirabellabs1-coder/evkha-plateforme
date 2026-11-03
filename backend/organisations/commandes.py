@@ -37,7 +37,7 @@ from generation.services import bootstrap_generation_job
 from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
 from orders.models import Order, OrderStatus
 
-from . import credits, formulaires, projets
+from . import credits, formulaires
 from .liaison import cout_en_credits
 from .models import Organisation, Projet
 
@@ -257,7 +257,7 @@ def creer_commande(
             raise CommandeRefuseeError(msg)
         saisie = {**saisie, "PROJET": projet.nom}
     else:
-        cle = projets.cle_de_projet(str(saisie.get("PROJET", "") or ""))
+        cle = Projet.cle_pour(str(saisie.get("PROJET", "") or ""))
         projet = (
             Projet.objects.filter(client__organisation=organisation, cle=cle).first()
             if cle
