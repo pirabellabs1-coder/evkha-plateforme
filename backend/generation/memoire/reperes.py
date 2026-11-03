@@ -10,10 +10,11 @@ et aucune figure n'a jamais porté un chiffre divergent du socle. Ce module
 
 ## Le format, une seule fois
 
-La valeur s'écrit par `montant_lisible` / `nombre_francais`, les formateurs
-déjà utilisés par l'annexe et les figures (règle 5) : virgule décimale, espaces
-de milliers, « M€ », « 8 % ». Un montant garde au plus deux décimales, un
-pourcentage une.
+La valeur s'écrit par `montant_lisible` / `pourcentage_lisible`, les
+formateurs déjà utilisés par l'annexe et les figures (règle 5) : virgule
+décimale, espaces de milliers, « M€ », « 8 % ». Un montant garde au plus deux
+décimales, un pourcentage une — sauf si elle l'efface : 0,011 %, jamais
+« 0 % ».
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from generation.socle.schema import montant_lisible, nombre_francais
+from generation.socle.schema import montant_lisible, pourcentage_lisible
 
 from .faits import Fait
 
@@ -33,7 +34,8 @@ REPERE = re.compile(r"\{\{\s*([a-z][a-z0-9_]*)\s*\}\}")
 def valeur_affichee(fait: Fait) -> str:
     """La valeur d'un fait telle que le lecteur la lit."""
     if fait.unite == "%":
-        return f"{nombre_francais(round(fait.valeur, 1))}\u00a0%"
+        # Un taux non nul ne s'écrit jamais « 0 % » (`pourcentage_lisible`).
+        return pourcentage_lisible(fait.valeur, 1)
     valeur = round(fait.valeur, 2)
     return montant_lisible(valeur, fait.unite)
 

@@ -28,6 +28,7 @@ from generation.socle.schema import Socle
 from generation.socle.stub import socle_de_demonstration
 
 BP = DeliverableType.BUSINESS_PLAN
+EM = DeliverableType.MARKET_STUDY
 BRIEF = {
     "SECTEUR": "ateliers bien-être", "PAYS": "France",
     "ZONE": "Île-de-France", "PROJET": "ÉCLORE",
@@ -42,9 +43,13 @@ ECLORE = {
 }
 
 
-def _socle(valeurs: dict[str, float] | None = None, retirer: tuple[str, ...] = ()) -> Socle:
+def _socle(
+    valeurs: dict[str, float] | None = None,
+    retirer: tuple[str, ...] = (),
+    livrable: DeliverableType = BP,
+) -> Socle:
     charge: dict[str, Any] = socle_de_demonstration(
-        construire_prompt_socle(deliverable_type=BP, variables=BRIEF)
+        construire_prompt_socle(deliverable_type=livrable, variables=BRIEF)
     )
     for donnee in charge["donnees"]:
         if valeurs and donnee["id"] in valeurs:
@@ -156,6 +161,26 @@ def test_un_repere_inconnu_reste_visible_pour_le_controle() -> None:
 def test_un_pourcentage_garde_une_decimale() -> None:
     faits = faits_de_l_etude(_socle(ECLORE))
     assert valeur_affichee(faits["marge_nette_an3"]) == "23,9\u00a0%"
+
+
+def test_une_petite_part_ne_devient_pas_zero() -> None:
+    # Étude `5438a832` (02/11/2026) : 200 000 € sur 1,76 Md€ = 0,0114 %, écrit
+    # cinq fois « 0 % ». Le zéro venait de la donnée dérivée, arrondie à 0,0.
+    marche = {"sam": 1_760_000_000.0, "som": 200_000.0}
+    faits = faits_de_l_etude(_socle(marche, livrable=EM))
+    part = faits["part_som_dans_sam"]
+    assert part.valeur == pytest.approx(0.0114)
+    assert valeur_affichee(part) == "0,011\u00a0%"
+    rendu = remplacer_les_reperes("EVKHA vise {{part_som_dans_sam}}.", faits)
+    assert "0\u00a0%" not in rendu.texte.replace("0,011\u00a0%", "")
+
+
+def test_une_part_ordinaire_garde_une_decimale() -> None:
+    # Contre-épreuve : au-dessus de 1 %, rien ne change.
+    marche = {"tam": 176_000_000_000.0, "sam": 1_760_000_000.0}
+    faits = faits_de_l_etude(_socle(marche, livrable=EM))
+    assert faits["part_sam_dans_tam"].valeur == 1.0
+    assert valeur_affichee(faits["part_sam_dans_tam"]) == "1\u00a0%"
 
 
 # ── 3. Les règles datées ─────────────────────────────────────────────────────

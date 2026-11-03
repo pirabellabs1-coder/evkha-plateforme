@@ -22,6 +22,7 @@ contrôleur de juger une phrase.
 """
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
@@ -178,6 +179,23 @@ def _arrondi_monetaire(valeur: float) -> float:
     return round(valeur, 2)
 
 
+def _arrondi_pourcentage(valeur: float) -> float:
+    """Une décimale, sauf si elle efface le taux : on garde alors trois chiffres significatifs.
+
+    Étude de marché `5438a832` (02/11/2026) : 200 000 € sur un marché
+    accessible de 1,76 Md€ font 0,0114 %, arrondi ici à 0,0 — et le document
+    écrivait cinq fois « EVKHA vise à capter 0 % », relevé par cinq blocs du
+    relecteur. Le zéro était dans la DONNÉE, avant tout affichage : aucun
+    formateur en aval ne pouvait le rattraper.
+    """
+    if valeur == 0:
+        return 0.0
+    # Trois chiffres, pas deux : l'affichage (`pourcentage_lisible`) arrondit
+    # à son tour, et deux arrondis successifs perdaient le dernier chiffre
+    # (0,0114 → 0,011 → « 0,01 % »).
+    return round(valeur, max(1, 2 - math.floor(math.log10(abs(valeur)))))
+
+
 def _derive(
     produit: str,
     termes: Iterable[Fait],
@@ -202,7 +220,7 @@ def _derive(
     if unite is None:
         unite, resultat = devise, _arrondi_monetaire(resultat)
     else:
-        resultat = round(resultat, 1)
+        resultat = _arrondi_pourcentage(resultat)
     return Fait(
         id=produit,
         valeur=resultat,
