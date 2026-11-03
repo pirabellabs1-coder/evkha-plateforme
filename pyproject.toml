@@ -8,7 +8,13 @@ version = "0.1.0"
 description = "Fondation backend du Systeme EVKHA."
 requires-python = ">=3.12"
 dependencies = [
-  "celery>=5.4,<6",
+  # Plafonnés à la version qui tourne et qui est testée. Le 03/11/2026, une
+  # reconstruction de l'image a tiré un `kombu` plus récent qui exige
+  # redis-py >= 6.1 ; `redis` étant borné à < 6, chaque mise en file levait
+  # `VersionMismatch` : « Erreur 500 » à la commande, ouvriers en boucle de
+  # redémarrage. Monter l'un oblige à monter les trois, ensemble et testés.
+  "celery>=5.4,<=5.6.3",
+  "kombu>=5.4,<=5.6.2",
   "django>=5.2,<6",
   # Le front est servi depuis un autre domaine que l'API (Vercel d'un cote,
   # le VPS de l'autre). Sans en-tetes CORS, le navigateur bloque tous les
