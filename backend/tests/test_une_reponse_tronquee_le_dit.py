@@ -15,6 +15,8 @@ envoyé chercher au mauvais endroit à chaque tentative.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from generation.chapitres.runner import MAX_TOKENS_CHAPITRE, motif_de_troncature
@@ -67,12 +69,57 @@ def test_la_borne_laisse_de_la_place_aux_chapitres_mesures() -> None:
     assert MAX_TOKENS_CHAPITRE >= CONSOMMATION_OBSERVEE * 2
 
 
-def test_la_borne_reste_sous_le_seuil_du_flux() -> None:
-    """Contre-épreuve : on ne règle pas le problème en la poussant à l'infini.
+def test_au_dela_du_seuil_l_appel_passe_en_flux(monkeypatch: Any) -> None:
+    """Contre-épreuve : on ne relève pas la borne sans le flux.
 
     Au-delà d'environ 16 000 jetons, un appel NON diffusé en flux risque
-    d'expirer avant de rendre sa réponse — et ce client n'utilise pas le flux.
-    Relever la borne sans cette limite échangerait une troncature contre un
-    délai dépassé, ce qui serait pire : l'appel serait facturé sans rien rendre.
+    d'expirer avant de rendre sa réponse : l'appel serait facturé sans rien
+    rendre. La borne a pu monter le 04/11/2026 (étude `25be2162`, chapitre des
+    parts de marché tronqué sur six marchés) PARCE QUE l'appel passe en flux
+    au-dessus de `MAX_TOKENS_SANS_FLUX`. Ce test vérifie le chemin, pas l'intention.
     """
-    assert MAX_TOKENS_CHAPITRE <= 16000
+    import sys
+    import types
+
+    from integrations.claude import MAX_TOKENS_SANS_FLUX, AnthropicClaudeClient
+
+    appels: list[str] = []
+
+    class _Message:
+        content: list[Any] = []
+        stop_reason = "end_turn"
+        usage = None
+
+    class _Flux:
+        def __enter__(self) -> _Flux:
+            return self
+
+        def __exit__(self, *a: Any) -> None:
+            return None
+
+        def get_final_message(self) -> _Message:
+            return _Message()
+
+    class _Messages:
+        def create(self, **k: Any) -> _Message:
+            appels.append("create")
+            return _Message()
+
+        def stream(self, **k: Any) -> _Flux:
+            appels.append("stream")
+            return _Flux()
+
+    faux = types.ModuleType("anthropic")
+    faux.Anthropic = lambda **_: types.SimpleNamespace(messages=_Messages())  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "anthropic", faux)
+    client = AnthropicClaudeClient(api_key="fake")
+    arguments: dict[str, Any] = {
+        "system": "s", "prompt": "p", "outil_nom": "o",
+        "outil_description": "d", "schema": {"type": "object"},
+    }
+
+    client.complete_structured(**arguments, max_tokens=MAX_TOKENS_CHAPITRE)
+    client.complete_structured(**arguments, max_tokens=MAX_TOKENS_SANS_FLUX)
+
+    assert MAX_TOKENS_CHAPITRE > MAX_TOKENS_SANS_FLUX
+    assert appels == ["stream", "create"]

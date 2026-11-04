@@ -4,7 +4,7 @@ import hashlib
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from django.conf import settings
 
@@ -463,6 +463,11 @@ def _effort_reflexion() -> str:
     return str(valeur or _EFFORT_PAR_DEFAUT)
 
 
+#: Au-dessus de cette borne de sortie, `complete_structured` recoit sa reponse
+#: en flux. En dessous, l'appel d'un seul tenant reste le chemin eprouve.
+MAX_TOKENS_SANS_FLUX = 16_000
+
+
 @dataclass(frozen=True)
 class StructuredResult:
     """Resultat d'un appel a sortie contrainte par schema (lot 1 — socle).
@@ -829,7 +834,7 @@ class AnthropicClaudeClient:
         # des TypedDict fermes. Nos dictionnaires sont construits dynamiquement
         # (le schema depend du livrable), ce que mypy ne peut pas rapprocher des
         # surcharges. Meme traitement que `complete()` ci-dessus.
-        message = client.messages.create(  # type: ignore[call-overload]
+        parametres: dict[str, Any] = dict(
             model=model_id,
             max_tokens=max_tokens,
             system=_cacheable_system(system),
@@ -861,6 +866,16 @@ class AnthropicClaudeClient:
             # modele comprend.
             **reflexion_minimale(),
         )
+        if max_tokens > MAX_TOKENS_SANS_FLUX:
+            # Au-dela, la reponse arrive EN FLUX : un appel d'un seul tenant
+            # aussi long risque d'expirer avant de rendre quoi que ce soit.
+            # Etude de la concurrence `25be2162` (04/11/2026), six marches : le
+            # chapitre des parts de marche a depasse 16 000 jetons, l'appel a
+            # ete tronque, et le livrable a ete retenu — chapitre 6 absent.
+            with client.messages.stream(**parametres) as flux:
+                message = flux.get_final_message()
+        else:
+            message = client.messages.create(**parametres)
 
         charge: dict[str, object] = {}
         for bloc in message.content:

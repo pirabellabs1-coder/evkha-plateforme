@@ -2650,9 +2650,12 @@ def payload_vers_markdown(payload: ChapitrePayload) -> str:
 #: alors que ses voisins consommaient 5 400 a 6 400 jetons — assez pres de la
 #: borne pour que le suivant la depasse.
 #:
-#: 16 000 et pas davantage : au-dela, un appel NON diffuse en flux risque
-#: d'expirer avant de rendre sa reponse, et ce client n'utilise pas le flux.
-MAX_TOKENS_CHAPITRE = 16000
+#: 16 000 a tenu jusqu'au 04/11/2026 : au-dela, un appel NON diffuse en flux
+#: risquait d'expirer. L'etude de la concurrence `25be2162` (six marches) l'a
+#: depassee au chapitre des parts de marche, et le livrable est parti sans
+#: lui. `complete_structured` recoit desormais en FLUX au-dessus de
+#: `MAX_TOKENS_SANS_FLUX` : le plafond peut monter sans risque d'expiration.
+MAX_TOKENS_CHAPITRE = 32000
 
 # `motif_de_troncature` vit désormais dans `integrations.claude`, à côté du
 # `stop_reason` qu'il lit : le socle et sa vérification en ont besoin autant
