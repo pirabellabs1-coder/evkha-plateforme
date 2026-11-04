@@ -938,26 +938,57 @@ function PanneauCampagne({ campagneId }: { campagneId: string }) {
 
 // ── Onglet À valider ─────────────────────────────────────────────────────────
 
+/** Les étapes présentes dans la file, dans l'ordre de la séquence. */
+function etapesPresentes(messages: Message[]): number[] {
+  return [...new Set(messages.map((m) => m.etape))].sort((a, b) => a - b);
+}
+
+function libelleEtape(etape: number): string {
+  return etape === 0 ? "Premiers mails" : `Relance ${etape}`;
+}
+
 function VueValidation() {
   const cache = useQueryClient();
   const [erreur, setErreur] = useState("");
+  const [bilan, setBilan] = useState("");
   const [par, setPar] = useState("administrateur");
+  // `null` = toutes les étapes. On ouvre sur les premiers mails : c'est par eux
+  // que la séquence commence, les relances ne viennent qu'à leur tour.
+  const [etape, setEtape] = useState<number | null>(0);
 
+  // Seulement ce qui est À SON TOUR : une relance n'apparaît qu'une fois
+  // l'étape d'avant envoyée et son délai écoulé (le serveur en décide).
   const brouillons = useQuery({
-    queryKey: ["prospection", "messages", "brouillon"],
-    queryFn: () => api.messages({ statut: "brouillon" }),
+    queryKey: ["prospection", "messages", "brouillon", "prets"],
+    queryFn: () => api.messages({ statut: "brouillon", pret: "1" }),
   });
   const valides = useQuery({
     queryKey: ["prospection", "messages", "valide"],
     queryFn: () => api.messages({ statut: "valide" }),
   });
+  const { data: apercu } = useQuery({
+    queryKey: ["prospection", "apercu"],
+    queryFn: api.apercu,
+  });
 
   const rafraichir = () => {
     setErreur("");
+    setBilan("");
     void cache.invalidateQueries({ queryKey: ["prospection"] });
   };
   const surErreur = (c: unknown) =>
     setErreur(c instanceof Error ? c.message : "Action impossible.");
+  const dire = (fait: string, refus: string[]) => {
+    // Résumé, pas une liste de cent lignes : les « pas encore à son tour » se
+    // comptent, les autres refus se nomment.
+    const attente = refus.filter((r) => r.endsWith("pas encore à son tour")).length;
+    const autres = refus.filter((r) => !r.endsWith("pas encore à son tour"));
+    const morceaux = [fait];
+    if (attente) morceaux.push(`${attente} pas encore à leur tour.`);
+    if (autres.length) morceaux.push(`Non traités : ${autres.join(" · ")}`);
+    rafraichir();
+    setBilan(morceaux.join(" "));
+  };
 
   const valider = useMutation({
     mutationFn: (id: string) => api.valider(id, par),
@@ -974,41 +1005,113 @@ function VueValidation() {
     onSuccess: rafraichir,
     onError: surErreur,
   });
+  const validerTout = useMutation({
+    mutationFn: (ids: string[]) => api.validerLot(par, ids),
+    onSuccess: (r) => dire(`${r.valides} message(s) validé(s).`, r.refus),
+    onError: surErreur,
+  });
+  const envoyerTout = useMutation({
+    mutationFn: (ids: string[]) => api.envoyerLot(ids),
+    onSuccess: (r) => dire(`${r.envoyes} message(s) envoyé(s).`, r.refus),
+    onError: surErreur,
+  });
+
+  const tousBrouillons = brouillons.data ?? [];
+  const tousValides = valides.data ?? [];
+  const filtre = (m: Message) => etape === null || m.etape === etape;
+  const aValider = tousBrouillons.filter(filtre);
+  const aEnvoyer = tousValides.filter(filtre);
+  const envoyables = aEnvoyer.filter((m) => m.pret);
+  const presentes = etapesPresentes([...tousBrouillons, ...tousValides]);
+  const etapes = presentes.includes(0) ? presentes : [0, ...presentes];
+  const portee = etape === null ? "toutes étapes" : libelleEtape(etape).toLowerCase();
 
   return (
     <>
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+      {bilan && <Bandeau ton="succes">{bilan}</Bandeau>}
       <Bandeau titre="Rien ne part sans vous">
-        Un message est un <strong>brouillon</strong> tant que vous ne l'avez pas validé.
-        Vous pouvez le modifier, puis le valider — c'est seulement alors qu'il peut être
-        envoyé. L'envoi part <strong>réellement</strong> au destinataire.
+        Les <strong>premiers mails</strong> se valident d'abord. Chaque relance n'apparaît
+        ici qu'une fois le message précédent <strong>envoyé</strong> et son délai écoulé
+        {apercu?.relances_en_attente
+          ? ` — ${apercu.relances_en_attente} relance(s) déjà rédigée(s) attendent leur tour`
+          : ""}
+        . L'envoi part <strong>réellement</strong> au destinataire.
       </Bandeau>
 
+      <nav className="prospection-onglets" aria-label="Étape de la séquence">
+        <button
+          type="button"
+          className={etape === null ? "prospection-onglet actif" : "prospection-onglet"}
+          aria-pressed={etape === null}
+          onClick={() => setEtape(null)}
+        >
+          Toutes
+        </button>
+        {etapes.map((e) => {
+          const nombre = tousBrouillons.filter((m) => m.etape === e).length;
+          return (
+            <button
+              key={e}
+              type="button"
+              className={etape === e ? "prospection-onglet actif" : "prospection-onglet"}
+              aria-pressed={etape === e}
+              onClick={() => setEtape(e)}
+            >
+              {libelleEtape(e)}
+              {nombre ? (
+                <span className="prospection-compteur">
+                  {nombre}
+                  <span className="visuellement-cache"> à valider</span>
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </nav>
+
       <Carte
-        titre="À valider"
+        titre={`À valider — ${portee}`}
         note="Relisez, ajustez, puis validez. La validation est nominative."
         action={
-          <input
-            className="champ-saisie"
-            style={{ maxWidth: 220 }}
-            aria-label="Nom du validateur"
-            placeholder="Validé par…"
-            value={par}
-            onChange={(e) => setPar(e.target.value)}
-          />
+          <div className="prospection-actions">
+            <input
+              className="champ-saisie"
+              style={{ maxWidth: 220 }}
+              aria-label="Nom du validateur"
+              placeholder="Validé par…"
+              value={par}
+              onChange={(e) => setPar(e.target.value)}
+            />
+            {aValider.length > 0 && (
+              <BoutonConfirme
+                libelle={`Tout valider (${aValider.length})`}
+                avertissement={`Valide les ${aValider.length} message(s) affichés. Rien ne part encore.`}
+                principal
+                enCours={validerTout.isPending || !par.trim()}
+                onConfirmer={() => validerTout.mutate(aValider.map((m) => m.id))}
+              />
+            )}
+          </div>
         }
       >
         {brouillons.isPending ? (
           <Squelette lignes={3} />
-        ) : !brouillons.data || brouillons.data.length === 0 ? (
-          <Vide icone="✓" titre="Aucun brouillon" texte="Les messages rédigés par l'agent apparaîtront ici." />
+        ) : brouillons.isError ? (
+          <Bandeau ton="echec">La file n'a pas pu être chargée. Rechargez la page.</Bandeau>
+        ) : aValider.length === 0 ? (
+          <Vide
+            icone="✓"
+            titre="Rien à valider à cette étape"
+            texte="Une relance apparaît ici une fois le message précédent envoyé."
+          />
         ) : (
-          brouillons.data.map((m) => (
+          aValider.map((m) => (
             <CarteBrouillon
               key={m.id}
               message={m}
               par={par}
-              enCours={valider.isPending || annuler.isPending}
+              enCours={valider.isPending || annuler.isPending || validerTout.isPending}
               onValider={() => valider.mutate(m.id)}
               onAnnuler={() => annuler.mutate(m.id)}
               onEnregistre={rafraichir}
@@ -1018,35 +1121,66 @@ function VueValidation() {
         )}
       </Carte>
 
-      <Carte titre="Validés, prêts à envoyer" note="L'envoi part réellement au destinataire.">
+      <Carte
+        titre={`Validés, prêts à envoyer — ${portee}`}
+        note="L'envoi part réellement au destinataire."
+        action={
+          envoyables.length > 0 ? (
+            <BoutonConfirme
+              libelle={`Tout envoyer (${envoyables.length})`}
+              avertissement={`Envoie RÉELLEMENT ${envoyables.length} e-mail(s) aux destinataires.`}
+              principal
+              enCours={envoyerTout.isPending}
+              onConfirmer={() => envoyerTout.mutate(envoyables.map((m) => m.id))}
+            />
+          ) : null
+        }
+      >
         {valides.isPending ? (
           <Squelette lignes={2} />
-        ) : !valides.data || valides.data.length === 0 ? (
+        ) : valides.isError ? (
+          <Bandeau ton="echec">Les messages validés n'ont pas pu être chargés.</Bandeau>
+        ) : aEnvoyer.length === 0 ? (
           <Vide icone="◇" titre="Rien en attente d'envoi" />
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">
               <thead>
                 <tr>
+                  <th scope="col">Étape</th>
+                  <th scope="col">Prospect</th>
                   <th scope="col">Objet</th>
                   <th scope="col">Validé par</th>
                   <th scope="col"><span className="visuellement-cache">Envoyer</span></th>
                 </tr>
               </thead>
               <tbody>
-                {valides.data.map((m) => (
+                {aEnvoyer.map((m) => (
                   <tr key={m.id}>
+                    <td>{m.etape_libelle}</td>
+                    <td>{m.prospect_nom}</td>
                     <td>{m.objet}</td>
                     <td>{m.valide_par || "—"}</td>
                     <td>
                       <div className="prospection-actions">
-                        <BoutonConfirme
-                          libelle="Envoyer"
-                          avertissement="Envoie réellement l'e-mail au destinataire."
-                          principal
-                          enCours={envoyer.isPending}
-                          onConfirmer={() => envoyer.mutate(m.id)}
-                        />
+                        {m.pret ? (
+                          <BoutonConfirme
+                            libelle="Envoyer"
+                            avertissement="Envoie réellement l'e-mail au destinataire."
+                            principal
+                            enCours={envoyer.isPending || envoyerTout.isPending}
+                            onConfirmer={() => envoyer.mutate(m.id)}
+                          />
+                        ) : (
+                          <span className="carte-note">
+                            {m.disponible_le
+                              ? `À partir du ${new Date(m.disponible_le).toLocaleString("fr-FR", {
+                                  dateStyle: "short",
+                                  timeStyle: "short",
+                                })}`
+                              : "Après l'étape précédente"}
+                          </span>
+                        )}
                         <BoutonConfirme
                           libelle="Annuler"
                           avertissement="Retire ce message de la file."
@@ -1121,6 +1255,10 @@ function CarteBrouillon({
         </>
       ) : (
         <div className="prospection-apercu-mail">
+          <div className="carte-note">
+            {message.etape_libelle} · {message.prospect_nom}
+            {message.prospect_contact ? ` (${message.prospect_contact})` : ""}
+          </div>
           <div className="prospection-apercu-objet">{message.objet}</div>
           {/* Aperçu du rendu : c'est notre propre brouillon (pas une entrée
               externe), affiché tel que le destinataire le lira. */}

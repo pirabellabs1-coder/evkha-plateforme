@@ -184,6 +184,11 @@ class Message(UUIDModel):
     sequence = models.ForeignKey(
         Sequence, on_delete=models.SET_NULL, related_name="messages", null=True, blank=True
     )
+    #: L'étape de la séquence (0 = premier message), écrite par l'agent qui la
+    #: CONNAÎT au moment de rédiger. Sans elle, l'étape d'un message sans
+    #: `sequence` se déduisait d'un rang, et une nouvelle rédaction après
+    #: annulation faisait d'un premier mail une « Relance 5 » (04/11/2026).
+    etape = models.PositiveSmallIntegerField(null=True, blank=True)
     objet = models.CharField(max_length=300)
     corps = models.TextField()
     statut = models.CharField(

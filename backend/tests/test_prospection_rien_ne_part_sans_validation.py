@@ -7,6 +7,7 @@ seul chemin d'envoi (`services.envoyer_message`).
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -160,6 +161,12 @@ def test_une_relance_fait_passer_le_prospect_en_relance() -> None:
     services.envoyer_message(m0, client=_ClientEspion())
     prospect.refresh_from_db()
     assert prospect.statut == StatutProspect.CONTACTE
+    # Le délai de l'étape (4 jours) est écoulé : depuis le 04/11/2026, une
+    # relance ne part pas avant (`prospection.file`).
+    assert m0.envoye_le is not None
+    Message.objects.filter(pk=m0.pk).update(
+        envoye_le=m0.envoye_le - timedelta(days=5)
+    )
 
     m1 = Message.objects.create(
         prospect=prospect, campagne=campagne, sequence=relance, objet="2", corps="y"

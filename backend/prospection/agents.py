@@ -577,6 +577,7 @@ def _creer_les_messages(
                 prospect=prospect,
                 campagne=prospect.campagne,
                 sequence=etapes[i] if i < len(etapes) else None,
+                etape=etapes[i].ordre if i < len(etapes) else i,
                 objet=objet,
                 corps=corps,
                 statut=StatutMessage.BROUILLON,

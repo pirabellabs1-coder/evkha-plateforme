@@ -99,6 +99,16 @@ export interface Prospect {
 
 export interface Message {
   id: string;
+  /** 0 = premier message, 1, 2… = relances. */
+  etape: number;
+  etape_libelle: string;
+  /** Peut partir maintenant : premier message, ou étape d'avant envoyée et délai écoulé. */
+  pret: boolean;
+  /** L'étape d'avant n'a plus de message vivant : il ne partira jamais seul. */
+  rompue: boolean;
+  disponible_le: string | null;
+  prospect_nom: string;
+  prospect_contact: string;
   prospect_id: string;
   campagne_id: string | null;
   sequence_id: string | null;
@@ -120,6 +130,8 @@ export interface Apercu {
   prospects: number;
   prospects_par_statut: Record<string, number>;
   a_valider: number;
+  /** Relances rédigées d'avance qui attendent l'envoi de l'étape d'avant. */
+  relances_en_attente: number;
   valides_en_attente: number;
   envoyes: number;
 }
@@ -205,8 +217,22 @@ export const apiProspection = {
   changerStatut: (id: string, statut: StatutProspect) =>
     envoyer<Prospect>("POST", `/prospects/${id}/statut/`, { statut }),
 
-  messages: (params?: { statut?: string; prospect?: string; campagne?: string }) =>
-    get<Message[]>("/messages/", params),
+  messages: (params?: {
+    statut?: string;
+    prospect?: string;
+    campagne?: string;
+    etape?: string;
+    pret?: string;
+  }) => get<Message[]>("/messages/", params),
+  // Un lot porte EXACTEMENT les messages affichés : le serveur ne valide ni
+  // n'envoie ce que l'écran n'a pas montré.
+  validerLot: (par: string, ids: string[]) =>
+    envoyer<{ valides: number; refus: string[] }>("POST", "/messages/valider-lot/", { par, ids }),
+  envoyerLot: (ids: string[]) =>
+    envoyer<{ envoyes: number; refus: string[] }>("POST", "/messages/envoyer-lot/", {
+      confirmer: true,
+      ids,
+    }),
   editerBrouillon: (id: string, corps: { objet?: string; corps?: string }) =>
     envoyer<Message>("PUT", `/messages/${id}/`, corps),
   valider: (id: string, par: string) =>

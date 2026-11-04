@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -17,6 +18,7 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 from prospection import services
+from prospection.file import Place, place, places
 from prospection.models import (
     Campagne,
     Conversation,
@@ -74,12 +76,21 @@ def _prospect_dict(p: Prospect, *, avec_messages: bool = False) -> dict[str, Any
         "notes": p.notes, "cree_le": p.created_at.isoformat(),
     }
     if avec_messages:
-        d["messages"] = [_message_dict(m) for m in p.messages.all()]
+        messages = list(p.messages.select_related("prospect", "sequence"))
+        leurs_places = places(messages)
+        messages.sort(key=lambda m: (leurs_places[str(m.id)].etape, m.created_at))
+        d["messages"] = [_message_dict(m, leurs_places[str(m.id)]) for m in messages]
     return d
 
 
-def _message_dict(m: Message) -> dict[str, Any]:
+def _message_dict(m: Message, sa_place: Place | None = None) -> dict[str, Any]:
+    sa_place = sa_place or place(m)
     return {
+        "etape": sa_place.etape, "etape_libelle": sa_place.libelle,
+        "pret": sa_place.pret, "rompue": sa_place.rompue,
+        "disponible_le": sa_place.disponible_le and sa_place.disponible_le.isoformat(),
+        "prospect_nom": m.prospect.raison_sociale,
+        "prospect_contact": m.prospect.nom_contact,
         "id": str(m.id), "prospect_id": str(m.prospect_id),
         "campagne_id": str(m.campagne_id) if m.campagne_id else None,
         "sequence_id": str(m.sequence_id) if m.sequence_id else None,
@@ -108,11 +119,19 @@ def _sequence_dict(s: Sequence) -> dict[str, Any]:
 def apercu(request: HttpRequest) -> JsonResponse:
     """Les compteurs de l'écran d'accueil de la prospection."""
     par_statut = {s: Prospect.objects.filter(statut=s).count() for s, _ in StatutProspect.choices}
+    brouillons = list(Message.objects.filter(statut=StatutMessage.BROUILLON))
+    leurs_places = places(brouillons)
+    tours = [leurs_places[str(m.id)] for m in brouillons]
     return _json({
         "campagnes_actives": Campagne.objects.filter(statut="active").count(),
         "prospects": Prospect.objects.count(),
         "prospects_par_statut": par_statut,
-        "a_valider": Message.objects.filter(statut=StatutMessage.BROUILLON).count(),
+        # Ce qui est À SON TOUR, pas tous les brouillons : les relances rédigées
+        # d'avance attendent l'envoi de l'étape d'avant (`prospection.file`).
+        "a_valider": sum(1 for p in tours if p.pret),
+        # Une relance ROMPUE (étape d'avant annulée) n'attend pas son tour :
+        # elle ne viendra jamais, la compter ici annoncerait le contraire.
+        "relances_en_attente": sum(1 for p in tours if not p.pret and not p.rompue),
         "valides_en_attente": Message.objects.filter(statut=StatutMessage.VALIDE).count(),
         "envoyes": Message.objects.filter(statut=StatutMessage.ENVOYE).count(),
     })
@@ -327,7 +346,11 @@ def messages(request: HttpRequest) -> JsonResponse:
             qs = qs.filter(prospect_id=prospect_id)
         if campagne_id := request.GET.get("campagne"):
             qs = qs.filter(campagne_id=campagne_id)
-        return _json([_message_dict(m) for m in qs[:500]])
+        # Le plafond APRÈS le tri et les filtres : appliqué avant, il gardait
+        # les 500 brouillons les plus récents — surtout des relances pas encore
+        # à leur tour — et affamait les premiers mails des prospects anciens.
+        couples = _ordonnes(list(qs), request)[:500]
+        return _json([_message_dict(m, p) for m, p in couples])
     corps = _corps(request)
     try:
         prospect = Prospect.objects.get(id=str(corps.get("prospect_id") or ""))
@@ -344,6 +367,80 @@ def messages(request: HttpRequest) -> JsonResponse:
         objet=objet, corps=texte,
     )
     return _json(_message_dict(m), status=201)
+
+
+def _ordonnes(
+    messages: list[Message], request: HttpRequest
+) -> list[tuple[Message, Place]]:
+    """Les messages dans l'ordre de la séquence, filtrés par étape et par tour.
+
+    `etape=0` : les premiers messages seuls ; `etape=2` : la deuxième relance.
+    `pret=1` : seulement ce qui peut partir maintenant — une relance attend
+    l'envoi de l'étape d'avant (`prospection.file`).
+    """
+    leurs_places = places(messages)
+    couples = [(m, leurs_places[str(m.id)]) for m in messages]
+    etape = request.GET.get("etape", "")
+    if etape.isdigit():
+        couples = [(m, p) for m, p in couples if p.etape == int(etape)]
+    if request.GET.get("pret") in ("1", "true"):
+        couples = [(m, p) for m, p in couples if p.pret]
+    couples.sort(key=lambda c: (c[1].etape, c[0].prospect.raison_sociale.lower(), c[0].created_at))
+    return couples
+
+
+def _lot(request: HttpRequest, statut: str) -> list[Message] | JsonResponse:
+    """Les messages d'un lot : EXACTEMENT ceux que l'écran affichait (`ids`).
+
+    Un lot calculé par le serveur au moment du clic validait aussi ce qui était
+    arrivé depuis l'affichage — un brouillon rédigé par la tâche quotidienne,
+    une relance devenue prête — sans qu'un humain l'ait lu (relecture du
+    04/11/2026). Les vérifications du service restent entières.
+    """
+    ids = _corps(request).get("ids")
+    if not isinstance(ids, list) or not ids or not all(isinstance(i, str) for i in ids):
+        return _erreur("Indiquez les messages du lot (`ids`) : ceux que l'écran affiche.")
+    try:
+        cles = [uuid.UUID(i) for i in ids]
+    except ValueError:
+        return _erreur("Un identifiant de message est invalide.")
+    qs = Message.objects.select_related("prospect", "sequence").filter(
+        id__in=cles, statut=statut
+    )
+    return sorted(qs, key=lambda m: m.created_at)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def messages_valider_lot(request: HttpRequest) -> JsonResponse:
+    """Valide d'un coup tous les brouillons PRÊTS d'une étape (ou de toutes)."""
+    par = str(_corps(request).get("par") or "").strip()
+    if not par:
+        return _erreur("Une validation est nominative : indiquez qui valide.")
+    lot = _lot(request, StatutMessage.BROUILLON)
+    if isinstance(lot, JsonResponse):
+        return lot
+    valides, refus = services.valider_par_lot(lot, par=par)
+    return _json({"valides": valides, "refus": refus})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def messages_envoyer_lot(request: HttpRequest) -> JsonResponse:
+    """Envoie d'un coup les messages VALIDÉS d'une étape. Part RÉELLEMENT."""
+    if _corps(request).get("confirmer") is not True:
+        return JsonResponse(
+            {
+                "erreur": "L'envoi par lot part réellement : relancez avec `confirmer: true`.",
+                "confirmation_requise": True,
+            },
+            status=400,
+        )
+    lot = _lot(request, StatutMessage.VALIDE)
+    if isinstance(lot, JsonResponse):
+        return lot
+    envoyes, refus = services.envoyer_par_lot(lot)
+    return _json({"envoyes": envoyes, "refus": refus})
 
 
 def _message_ou_404(message_id: str) -> Message | None:

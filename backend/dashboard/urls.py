@@ -218,6 +218,14 @@ urlpatterns = [
     ),
     path("prospection/messages/", prospection.messages, name="prospection-messages"),
     path(
+        "prospection/messages/valider-lot/",
+        prospection.messages_valider_lot, name="prospection-messages-valider-lot",
+    ),
+    path(
+        "prospection/messages/envoyer-lot/",
+        prospection.messages_envoyer_lot, name="prospection-messages-envoyer-lot",
+    ),
+    path(
         "prospection/messages/<str:message_id>/",
         prospection.message_detail, name="prospection-message",
     ),
