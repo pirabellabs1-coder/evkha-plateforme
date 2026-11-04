@@ -100,6 +100,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Protege /api/dashboard/ par Bearer token (Better Auth).
     "dashboard.middleware.DashboardAuthMiddleware",
+    # Chaque 500 devient un incident qui dit sa cause (04/11/2026) : les
+    # journaux de Coolify ne montrent que le serveur web, jamais l'exception.
+    "monitoring.middleware.IncidentSurErreur500",
 ]
 
 ROOT_URLCONF = "evkha.urls"

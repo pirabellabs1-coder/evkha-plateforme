@@ -985,7 +985,15 @@ LIBELLES_CLIENT = {
     "region": "Région",
     "ville": "Ville ou zone",
     "contact_email": "Adresse e-mail du contact",
+    "logo_url": "Adresse du logo",
+    "couleur_principale": "Couleur principale",
+    "couleur_secondaire": "Couleur secondaire",
+    "couleur_fond": "Couleur de fond",
 }
+
+#: La charte du client, posée à la création de sa fiche : elle habillera ses
+#: documents. Bornée comme le reste — une couleur tient en 7 caractères.
+CHAMPS_CHARTE_CLIENT = ("logo_url", "couleur_principale", "couleur_secondaire", "couleur_fond")
 
 
 def _projet_en_dict(projet: Projet, nb_dossiers: int) -> dict[str, Any]:
@@ -1020,27 +1028,36 @@ def clients_finaux(
         })
 
     charge = _corps(request)
-    raison_sociale = str(charge.get("raison_sociale", "")).strip()
-    if not raison_sociale:
-        return _refus("La raison sociale est obligatoire.", "champ_manquant", 400)
+    if not isinstance(charge, dict):
+        return _refus("Corps de requête invalide.", "corps_invalide", 400)
+    # La CRÉATION passe par la même garde que la correction de fiche. Elle ne
+    # le faisait pas : le 04/11/2026, « Ajouter un client » rendait deux fois
+    # « Erreur 500 » en production — une valeur plus longue que sa colonne
+    # passe sous SQLite et tombe sous PostgreSQL.
+    valeurs: dict[str, str] = {}
+    for champ in (*CHAMPS_CLIENT, *CHAMPS_CHARTE_CLIENT):
+        valeur, refus = _texte_de_la_charge(
+            charge, champ, ClientFinal, LIBELLES_CLIENT.get(champ, champ)
+        )
+        if refus is not None:
+            return refus
+        valeurs[champ] = valeur
+    if not valeurs["raison_sociale"]:
+        return _refus("Le nom du client est obligatoire.", "champ_manquant", 400)
+    raison_sociale = valeurs["raison_sociale"]
     if organisation.clients_finaux.filter(raison_sociale=raison_sociale).exists():
         return _refus(
             f"Une fiche « {raison_sociale} » existe déjà.", "doublon", 409
         )
 
-    client = ClientFinal.objects.create(
-        organisation=organisation,
-        raison_sociale=raison_sociale,
-        secteur=str(charge.get("secteur", "")).strip(),
-        pays=str(charge.get("pays", "")).strip(),
-        region=str(charge.get("region", "")).strip(),
-        ville=str(charge.get("ville", "")).strip(),
-        contact_email=str(charge.get("contact_email", "")).strip(),
-        logo_url=str(charge.get("logo_url", "")).strip(),
-        couleur_principale=str(charge.get("couleur_principale", "")).strip(),
-        couleur_secondaire=str(charge.get("couleur_secondaire", "")).strip(),
-        couleur_fond=str(charge.get("couleur_fond", "")).strip(),
-    )
+    from django.db import IntegrityError, transaction  # noqa: PLC0415
+
+    try:
+        with transaction.atomic():
+            client = ClientFinal.objects.create(organisation=organisation, **valeurs)
+    except IntegrityError:
+        # Deux clics rapprochés : le second trouve la fiche créée par le premier.
+        return _refus(f"Une fiche « {raison_sociale} » existe déjà.", "doublon", 409)
     return JsonResponse(_client_final_en_dict(client), status=201)
 
 
