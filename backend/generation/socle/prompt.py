@@ -48,6 +48,31 @@ _BASE_CONCURRENTS = (
     "chiffre d'affaires, ni sa part de marché ;\n"
     "- deux offres d'un MÊME groupe (même domaine) ne comptent que pour un "
     "acteur : ne les inscris pas deux fois ;\n"
+    # Audit de la cliente du 04/11/2026 sur l'étude SUN TZU : « Parmi les huit
+    # concurrents qualifiés de directs, trois ne sont pas des entreprises
+    # identifiées, mais de simples catégories d'acteurs : les importateurs
+    # taïwanais, les vendeurs sur Tmall Global et les distributeurs coréens.
+    # […] il ne reste que quatre concurrents directs nommément identifiés et
+    # actifs dans le panel. Pour une étude de 65 pages couvrant six
+    # territoires prioritaires, c'est trop limité. »
+    #
+    # La consigne d'avant rendait ce cas PARFAITEMENT conforme : elle exigeait
+    # huit directs, et une catégorie compte pour un. Rien ne demandait que les
+    # directs soient des entreprises.
+    #
+    # Sa prescription est reprise telle quelle, avec sa réserve — « lorsque le
+    # marché le permet ». Un marché réellement sans acteur nommable existe, et
+    # exiger un nombre dans ce cas-là ferait inventer des entreprises : c'est
+    # exactement le défaut de `3a4df56c` ci-dessus, pris par l'autre bout.
+    "- un concurrent DIRECT est une entreprise NOMMÉE, avec son adresse "
+    "officielle : « les importateurs taïwanais » ou « les vendeurs sur une "
+    "place de marché » décrivent une zone du marché, pas un concurrent. "
+    "Cherche TROIS À CINQ entreprises nommées par territoire prioritaire "
+    "quand le marché le permet, et préfère les distributeurs spécialisés et "
+    "les vendeurs de petits producteurs aux grandes marques industrielles, "
+    "qui ne sont que des comparateurs de prix. Quand un territoire n'a "
+    "vraiment aucun acteur nommable, écris-le dans `libelle` au lieu "
+    "d'inscrire une catégorie à sa place ;\n"
     # La devise d'une source ne se réétiquette pas en silence.
     #
     # Étude de marché `f0064333`, relue par la cliente le 18/08/2026 : « ne pas

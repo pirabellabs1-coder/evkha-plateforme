@@ -167,6 +167,35 @@ def purger_les_invisibles(texte: str) -> str:
 _TRAIT_EXOTIQUE = re.compile(r"(?<=[^\W\d_])[‐‑‒–](?=[^\W\d_])")
 
 
+#: Une valeur suivie d'une parenthèse qui la REPÈTE à l'identique.
+#:
+#: Audit de la cliente du 04/11/2026, point 6 : « La même page comporte
+#: d'ailleurs une coquille importante : "Retenir 0,1 % de 188 M€ (188 M€),
+#: soit 188 000 €". La valeur entre parenthèses est erronée. »
+#:
+#: ## Pourquoi cela se RÉPARE et ne se signale pas
+#:
+#: L'arithmétique de cette phrase est JUSTE — 0,1 % de 188 M€ font bien
+#: 188 000 € — et `arithmetique.verifier` a donc raison de ne rien dire. Le
+#: défaut est la parenthèse, qui redit sa propre base.
+#:
+#: Cette forme n'a aucun usage légitime. « 188 M€ (2025) » date la valeur,
+#: « 188 M€ (Insee) » la source, « 188 M€ (188 000 € par an) » la ramène à une
+#: autre base — toutes apportent quelque chose. Répéter la valeur à
+#: l'identique n'apporte rien et se lit comme une erreur. L'égalité EXACTE des
+#: deux écritures est donc le critère : il n'y a rien à arbitrer, donc rien à
+#: faire réécrire au modèle. Une réparation déterministe ne coûte rien, et
+#: c'est ce qui compte — mesuré le 05/11/2026, la relecture finale de l'étude
+#: de la concurrence n'a pas de quoi réécrire un seul chapitre.
+#:
+#: L'espace est tolérée de part et d'autre, et l'insécable comme l'ordinaire :
+#: « 188 M€ ( 188 M€ ) » est la même coquille.
+_PARENTHESE_QUI_SE_REPETE = re.compile(
+    r"(\d[\d    .,]*\s*(?:%|€|k€|M€|Md€)?)"
+    r"\s*\(\s*\1\s*\)",
+)
+
+
 def reparer_texte(texte: str, *, prose: bool = True, anglais: bool = True) -> str:
     """Texte aux espaces normalisées. Idempotente : la rejouer ne change rien.
 
@@ -184,6 +213,7 @@ def reparer_texte(texte: str, *, prose: bool = True, anglais: bool = True) -> st
     corrige = _DEJA_ESPACEE.sub(rf"{FINE_INSECABLE}\1", corrige)
     corrige = _AVANT_DOUBLE.sub(rf"\1{FINE_INSECABLE}\2", corrige)
     corrige = reparer_langue(corrige, anglais=anglais) if prose else corrige
+    corrige = _PARENTHESE_QUI_SE_REPETE.sub(r"\1", corrige) if prose else corrige
     # En dernier : la langue traduit « 12 MEUR » en « 12 M€ », avec une espace
     # ordinaire — la poser avant elle ne serait pas idempotent.
     return _espace_insecable_avant_l_unite(corrige)
