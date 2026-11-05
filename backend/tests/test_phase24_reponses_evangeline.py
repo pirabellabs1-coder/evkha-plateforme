@@ -1,15 +1,15 @@
 """Phase 24 — Les 4 reponses d'Evangeline du 17/07/2026, traduites en verrous.
 
 Q1 : les chiffres marche mondial / continental / national sont verrouilles
-     apres les chapitres 1 et 2 EM, chacun a sa propre cle CoherenceFact.
-Q2 : la formule « donnee non disponible » est INTERDITE dans le prompt.
-     A la place, hypothese construite par croisement, presentee comme telle,
+     après les chapitres 1 et 2 EM, chacun a sa propre cle CoherenceFact.
+Q2 : la formule « donnée non disponible » est INTERDITE dans le prompt.
+     A la place, hypothese construite par croisement, présentée comme telle,
      documentee dans l'encadre methodologie du chapitre Sources.
 Q3 : l'ordre de tri des concurrents (similitude offre, cible, taille,
      proximite, anciennete) est injecte dans la consigne EC, importe depuis
      la constante `CRITERES_TRI_CONCURRENTS` (regle 5, source unique).
 Q4 : le prompt STR reprend la POSTURE, les 5 OBJECTIFS et l'INTERPRETATION DU
-     BRIEF IMPARFAIT du document methodologique « Systeme EVKHA — Strategies
+     BRIEF IMPARFAIT du document methodologique « Systeme EVKHA — Stratégies
      Business Automatisees » que la cliente a renvoye.
 
 Chaque test cherche une chaine ou un comportement qui N'EXISTAIT PAS avant ce
@@ -30,7 +30,7 @@ from generation.prompts import build_system_prompt
 @pytest.mark.django_db
 def test_les_chiffres_du_marche_sont_verrouilles_par_niveau() -> None:
     """Elle a dit : « on a des chiffres mondiaux, continentaux, nationaux et on
-    les garde pour continuer l'etude sur la meme lignee. » Chaque niveau a
+    les garde pour continuer l'étude sur la même lignee. » Chaque niveau a
     donc sa propre cle CoherenceFact.
 
     Avant : une seule cle `taille_marche`, le premier niveau vu ecrasait les
@@ -73,7 +73,7 @@ def test_les_chiffres_du_marche_sont_verrouilles_par_niveau() -> None:
 
 @pytest.mark.django_db
 def test_le_tcac_est_verrouille_par_niveau() -> None:
-    """Meme logique que la taille du marche : chaque niveau a son TCAC propre."""
+    """Même logique que la taille du marche : chaque niveau a son TCAC propre."""
     from catalog.models import Offer
     from customers.models import Customer
     from generation.coherence import extract_and_lock_chiffres_cles
@@ -94,7 +94,7 @@ def test_le_tcac_est_verrouille_par_niveau() -> None:
     job = bootstrap_generation_job(submission)
 
     extract_and_lock_chiffres_cles(job, chapter_number=1, content=(
-        "TCAC mondial de 12,5 % sur la periode. "
+        "TCAC mondial de 12,5 % sur la période. "
         "TCAC europeen de 8,3 %. "
         "TCAC national francais de 6,1 %."
     ))
@@ -110,15 +110,15 @@ def test_le_tcac_est_verrouille_par_niveau() -> None:
 
 
 def test_le_prompt_interdit_la_formule_donnee_non_disponible() -> None:
-    """Manuel Evangeline §3 : « Ne jamais afficher 'donnees non disponibles'
-    dans l'etude client. » Le charter mentionne le pluriel avec guillemets ;
+    """Manuel Evangeline §3 : « Ne jamais afficher 'données non disponibles'
+    dans l'étude client. » Le charter mentionne le pluriel avec guillemets ;
     accepter les deux formes pour ne pas dependre du wording exact."""
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
     lower = prompt.lower()
 
     assert (
-        "donnee non disponible" in lower
-        or "donnees non disponibles" in lower
+        "donnée non disponible" in lower
+        or "données non disponibles" in lower
     )
     # L'ancienne mention "INTERDICTION VERBATIM" en majuscules a ete retiree
     # avec le manuel Evangeline (24/07/2026) : le nouveau charter enonce
@@ -127,19 +127,19 @@ def test_le_prompt_interdit_la_formule_donnee_non_disponible() -> None:
 
 def test_le_prompt_impose_la_documentation_dans_la_methodologie() -> None:
     """Manuel §3 : « construire une estimation prudente et expliquer
-    clairement la methode. » Les sources completes vont dans le chapitre Sources.
+    clairement la méthode. » Les sources completes vont dans le chapitre Sources.
 
-    Le numero « chapitre 21 » etait code en dur dans la charte, et cette charte
+    Le numéro « chapitre 21 » etait code en dur dans la charte, et cette charte
     est injectee dans les QUATRE livrables. Or leurs chapitres Sources sont
     respectivement 21 (EM), 21 (BP), 20 (STR) et 9 (EC) : trois sur quatre
     recevaient l'ordre de regrouper leurs sources dans un chapitre qui n'existe
-    pas chez eux. Ce test verrouillait ce numero, donc le defaut (regle 6). On
-    verifie desormais que le chapitre est NOMME et non numerote.
+    pas chez eux. Ce test verrouillait ce numéro, donc le defaut (regle 6). On
+    vérifié desormais que le chapitre est NOMME et non numerote.
     """
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY, country="France")
     lower = prompt.lower()
 
-    assert "methode" in lower
+    assert "méthode" in lower
     assert "estimation" in lower
     assert "chapitre sources" in lower
     assert "chapitre 21" not in lower
@@ -148,7 +148,7 @@ def test_le_prompt_impose_la_documentation_dans_la_methodologie() -> None:
 def test_la_charte_ne_numerote_le_chapitre_sources_pour_aucun_livrable() -> None:
     """Contre-epreuve : la correction doit valoir pour les quatre (regle 4).
 
-    Corriger le seul cas observe aurait laisse le meme defaut vivre ailleurs :
+    Corriger le seul cas observe aurait laisse le même defaut vivre ailleurs :
     c'est exactement le motif de la regle 4 du depot.
     """
     for livrable in (
@@ -173,10 +173,10 @@ def test_le_prompt_ec_injecte_l_ordre_de_tri_des_concurrents() -> None:
     # Les 5 criteres sont injectes dans l'ordre, avec leur numero.
     positions = [prompt.find(c) for c in CRITERES_TRI_CONCURRENTS]
     assert all(p >= 0 for p in positions), (
-        "un critere manque dans le prompt : " + repr(positions)
+        "un critère manque dans le prompt : " + repr(positions)
     )
     assert positions == sorted(positions), (
-        "les criteres ne sont pas dans l'ordre annonce"
+        "les critères ne sont pas dans l'ordre annonce"
     )
 
 
@@ -224,7 +224,7 @@ def test_le_prompt_strategie_ancre_l_interpretation_du_brief_imparfait() -> None
 
 def test_le_prompt_strategie_interdit_les_conseils_generiques_verbatim() -> None:
     """Verbatim du document methodologique : « il faut poster plus sur
-    Instagram », « le marche est tres porteur »..."""
+    Instagram », « le marche est très porteur »..."""
     prompt = build_system_prompt(DeliverableType.BUSINESS_STRATEGY)
 
     assert "instagram" in prompt.lower()

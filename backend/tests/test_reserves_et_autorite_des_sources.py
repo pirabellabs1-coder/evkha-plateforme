@@ -190,7 +190,7 @@ def test_les_etudes_sont_invitees_a_varier_les_formes() -> None:
     # pour CE fichier — l'ambition est chiffrée, et la variété est réclamée.
     assert "FORMES DIFFERENTES" in prompt
     assert "figures" in prompt
-    assert "formes l'etude a DEJA employees" in prompt
+    assert "formes l'étude a DÉJÀ employees" in prompt
     # La liste sectorielle n'est PAS dans la charte : elle vient du profil.
     assert "matrice de positionnement" not in prompt
 
@@ -204,7 +204,7 @@ def test_la_charte_classe_les_sources_par_autorite() -> None:
 
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
     for niveau in ("institut statistique national", "banque centrale",
-                   "organisation professionnelle", "cabinet d'etudes"):
+                   "organisation professionnelle", "cabinet d'études"):
         assert niveau in prompt, niveau
     assert "remonte a celui qu'il repete" in prompt.lower()
 
@@ -214,9 +214,9 @@ def test_la_hierarchie_reste_une_preference() -> None:
 
     Un marche de niche — la joaillerie de createurs a Paris — n'est couvert par
     aucun institut statistique. Ecarter un chiffre de Francelat ou de Xerfi
-    faute d'INSEE appauvrirait l'etude au nom de la rigueur.
+    faute d'INSEE appauvrirait l'étude au nom de la rigueur.
 
-    Ce qui reste exigible, en revanche : nommer QUI produit la donnee et QUAND.
+    Ce qui reste exigible, en revanche : nommer QUI produit la donnée et QUAND.
     """
     prompt = build_system_prompt(DeliverableType.MARKET_STUDY)
 

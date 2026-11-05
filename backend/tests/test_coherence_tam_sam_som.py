@@ -1,16 +1,16 @@
-"""Registre TAM / SAM / SOM et controle arithmetique (manuel p. 6).
+"""Registre TAM / SAM / SOM et contrôle arithmetique (manuel p. 6).
 
 Le manuel prescrit noir sur blanc, dans le tableau des chiffres-fondations,
-une ligne « TAM / SAM / SOM | Annee — hypotheses | Formule et sources |
+une ligne « TAM / SAM / SOM | Année — hypotheses | Formule et sources |
 Ch. 2, 14, 15 ». Le registre ne la portait pas : les trois seuls chiffres que
 le manuel nomme explicitement etaient les seuls qui n'etaient pas verrouilles.
 
 Constat du run reel 010e3bf2 (WAOME, juillet 2026), chapitre 2, repris dans le
 verdict d'Evangeline (« TAM, SAM et SOM incoherents », « erreurs de calcul
 importantes ») :
-  - deux valeurs pour le meme SAM regional (240 puis 250 kEUR) ;
-  - un SOM annee 1 a 100-120 kEUR contre un SAM de 250 kEUR, soit ~44 % du
-    marche accessible capte des la premiere annee, que le texte JUSTIFIE au
+  - deux valeurs pour le même SAM regional (240 puis 250 kEUR) ;
+  - un SOM année 1 a 100-120 kEUR contre un SAM de 250 kEUR, soit ~44 % du
+    marche accessible capte des la premiere année, que le texte JUSTIFIE au
     lieu de le recalculer.
 
 Ces tests verrouillent : l'extraction, l'emboitement TAM >= SAM >= SOM, le
@@ -54,7 +54,7 @@ def em_job() -> GenerationJob:
 def test_tam_sam_som_sont_verrouilles(em_job: GenerationJob) -> None:
     content = (
         "Le TAM atteint 90 millions d'euros. Le SAM ressort a 250 keur "
-        "apres application du filtre geographique. Le SOM annee 1 vise "
+        "après application du filtre géographique. Le SOM année 1 vise "
         "20 keur, soit 8 % du marche accessible."
     )
     extract_and_lock_chiffres_cles(em_job, 2, content)
@@ -93,7 +93,7 @@ def test_som_trop_gros_face_au_sam_est_signale(em_job: GenerationJob) -> None:
     # Le cas WAOME : SOM 110 kEUR / SAM 250 kEUR = 44 %. Arithmetiquement
     # possible, commercialement invraisemblable en annee 1.
     extract_and_lock_chiffres_cles(
-        em_job, 2, "Le SAM est de 250 keur. Le SOM annee 1 est de 110 keur."
+        em_job, 2, "Le SAM est de 250 keur. Le SOM année 1 est de 110 keur."
     )
     anomalies = anomalies_tam_sam_som(em_job)
     assert len(anomalies) == 1
@@ -106,7 +106,7 @@ def test_emboitement_correct_ne_signale_rien(em_job: GenerationJob) -> None:
     # SOM = 1,2 % du SAM : l'ordre de grandeur d'une etude de reference.
     extract_and_lock_chiffres_cles(
         em_job, 2,
-        "Le TAM est de 90 millions. Le SAM est de 250 keur. Le SOM annee 1 "
+        "Le TAM est de 90 millions. Le SAM est de 250 keur. Le SOM année 1 "
         "est de 3 keur.",
     )
     assert anomalies_tam_sam_som(em_job) == []
@@ -151,7 +151,7 @@ def test_anomalie_cree_un_incident_pendant_la_generation(em_job: GenerationJob) 
     from monitoring.models import OperationalIncident
 
     extract_and_lock_chiffres_cles(
-        em_job, 2, "Le SAM est de 250 keur. Le SOM annee 1 est de 110 keur."
+        em_job, 2, "Le SAM est de 250 keur. Le SOM année 1 est de 110 keur."
     )
     incidents = OperationalIncident.objects.filter(job=em_job)
     assert incidents.filter(title__startswith="Emboitement TAM/SAM/SOM").exists()
@@ -175,12 +175,12 @@ def test_gate_bloque_un_emboitement_faux(em_job: GenerationJob) -> None:
 @pytest.mark.django_db
 def test_table_fondations_rend_les_cinq_colonnes_du_manuel(em_job: GenerationJob) -> None:
     extract_and_lock_chiffres_cles(
-        em_job, 2, "Le SAM est de 250 keur. Le SOM annee 1 est de 20 keur."
+        em_job, 2, "Le SAM est de 250 keur. Le SOM année 1 est de 20 keur."
     )
     table = chiffres_fondations_as_table(em_job)
     entete = (
-        "| Information | Valeur retenue | Perimetre / annee / unite "
-        "| Source ou methode | Reutilisation |"
+        "| Information | Valeur retenue | Perimetre / année / unite "
+        "| Source ou méthode | Reutilisation |"
     )
     assert entete in table
     # Colonne « Reutilisation » recopiee du manuel p. 6 pour la ligne
@@ -190,7 +190,7 @@ def test_table_fondations_rend_les_cinq_colonnes_du_manuel(em_job: GenerationJob
     # Colonne « Perimetre / annee / unite » : l'unite vient de la valeur, et
     # l'annee manquante est signalee au lieu d'etre inventee.
     assert "keur" in table
-    assert "annee a preciser" in table
+    assert "année a préciser" in table
 
 
 def test_chapitre_2_est_genere_en_un_seul_appel() -> None:
@@ -224,7 +224,7 @@ def test_prompt_chapitre_2_impose_le_calcul_explicite() -> None:
     from generation.prompt_library import MARKET_STUDY_PROMPTS
 
     prompt = MARKET_STUDY_PROMPTS["em.02.marche_national_local"]
-    assert "Ecris le calcul, pas seulement le resultat" in prompt
+    assert "Ecris le calcul, pas seulement le résultat" in prompt
     assert "TAM > SAM > SOM" in prompt
     assert "refais le calcul" in prompt
     # Les chapitres 14 et 15 reutilisent ces valeurs (manuel p. 6) : le
@@ -264,9 +264,9 @@ def test_aucune_section_orpheline_dans_les_blueprints() -> None:
 def test_fiche_projet_em_nest_pas_sur_haiku() -> None:
     """La fiche projet EM doit tourner sur le modele principal, pas sur Haiku.
 
-    Manuel p. 6 : la fiche projet est « la memoire de l'etude », relue avant
+    Manuel p. 6 : la fiche projet est « la memoire de l'étude », relue avant
     chaque nouveau bloc, et c'est elle qui fixe les 4 a 5 questions du porteur
-    auxquelles l'etude repond. Une lecture faible du questionnaire a cet
+    auxquelles l'étude repond. Une lecture faible du questionnaire a cet
     endroit se propage aux 21 chapitres suivants — Findrax adapte ses titres de
     chapitre au questionnaire, notre run ne le faisait pas.
 

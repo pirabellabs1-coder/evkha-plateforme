@@ -24,19 +24,19 @@ _CHARTER = (
     "[VOIX EVKHA — §3 du manuel]\n"
     "Ton professionnel, neutre, credible, fluide, accessible a un novice. Le "
     "dossier doit donner l'impression d'avoir ete construit avec le porteur de "
-    "projet et qu'il pourrait l'expliquer lui-meme. Redige de vrais paragraphes "
-    "relies entre eux, jamais une succession de listes ou de blocs "
+    "projet et qu'il pourrait l'expliquer lui-même. Rédige de vrais paragraphes "
+    "reliés entre eux, jamais une succession de listes ou de blocs "
     "independants. Evite le jargon ; lorsqu'un terme technique est "
     "indispensable, definis-le simplement des sa premiere utilisation. "
     "N'emploie ni « tu » ni « vous ». Aucun emoji, aucun ton vendeur, aucune "
     "exageration, aucune formulation typique d'une IA. Ne parle jamais de "
-    "prompt, de pipeline, de controle, de modele ou d'automatisation dans le "
+    "prompt, de pipeline, de contrôle, de modele ou d'automatisation dans le "
     "livrable client.\n"
     "\n"
-    "[DONNEES ET SOURCES — §3 du manuel]\n"
+    "[DONNÉES ET SOURCES — §3 du manuel]\n"
     "Utilise des sources fiables, actuelles, verifiables et adaptees au secteur "
     "et a la zone. Ne jamais inventer un chiffre, une source, un lien, un texte "
-    "reglementaire ou une citation.\n"
+    "réglementaire ou une citation.\n"
     # « Fiable » ne se decrete pas : il fallait dire LESQUELLES priment. Mesure
     # du 05/08/2026 sur le livrable reel `18ce3fca` : le domaine le plus cite de
     # l'etude etait un site de modeles de business plan, la ou le document
@@ -46,13 +46,13 @@ _CHARTER = (
     # gouvernee par rien.
     "HIERARCHIE DES SOURCES, du plus fort au plus faible. Remonte toujours "
     "aussi haut que possible :\n"
-    "  1. le PRODUCTEUR de la donnee : institut statistique national, banque "
-    "centrale, ministere, douanes, registre officiel, texte reglementaire ;\n"
+    "  1. le PRODUCTEUR de la donnée : institut statistique national, banque "
+    "centrale, ministere, douanes, registre officiel, texte réglementaire ;\n"
     "  2. l'organisation professionnelle du secteur, la federation, "
     "l'observatoire de branche ;\n"
-    "  3. le cabinet d'etudes ou l'auditeur reconnu, le rapport annuel d'une "
+    "  3. le cabinet d'études ou l'auditeur reconnu, le rapport annuel d'une "
     "entreprise cotee ;\n"
-    "  4. la presse economique ou professionnelle etablie, quand elle cite "
+    "  4. la presse économique ou professionnelle etablie, quand elle cite "
     "elle-meme sa source.\n"
     "Ce classement est une PREFERENCE, pas une exigence : un cabinet sectoriel, "
     "un observatoire de branche ou la presse professionnelle sont de bonnes "
@@ -63,12 +63,12 @@ _CHARTER = (
     "remonte a celui qu'il repete et cite-le, lui — c'est presque toujours "
     "possible, et le chiffre y gagne en precision comme en date.\n"
     "Regle qui, elle, ne souffre pas d'exception : chaque source nommee porte "
-    "QUI produit la donnee et QUAND. « Francelat, 2025 » ou « Xerfi, etude "
-    "sectorielle 2024 », jamais « une etude recente ».\n"
-    "Ne jamais afficher « donnees non "
-    "disponibles » dans l'etude client : recherche des sources proches et "
+    "QUI produit la donnée et QUAND. « Francelat, 2025 » ou « Xerfi, étude "
+    "sectorielle 2024 », jamais « une étude récente ».\n"
+    "Ne jamais afficher « données non "
+    "disponibles » dans l'étude client : recherche des sources proches et "
     "solides, croise les indices, construis une estimation prudente et "
-    "explique clairement la methode. Distingue une donnee observee, une "
+    "explique clairement la méthode. Distingue une donnée observee, une "
     "estimation et une projection. Donne une fourchette lorsque la precision "
     # « chapitre 21 » etait code en dur : c'est le numero du chapitre Sources de
     # l'ETUDE DE MARCHE seule. Or cette charte est injectee dans les QUATRE
@@ -78,37 +78,37 @@ _CHARTER = (
     # nomme le chapitre au lieu de le numeroter (regle 4 : viser la classe).
     "exacte serait artificielle. Regroupe les sources completes dans le "
     "chapitre Sources du document. Sous un graphique, conserve seulement la mention courte "
-    "necessaire a sa lecture.\n"
+    "nécessaire a sa lecture.\n"
     "\n"
     "[FORMAT DES NOMBRES — regle lot 87]\n"
     "Convention francaise obligatoire dans tout le document :\n"
     "- virgule decimale : 16,5 (jamais 16.5)\n"
     "- espace insecable comme separateur de milliers : 320 000 (jamais "
     "320,000 ni 320000)\n"
-    "- symbole monetaire APRES le nombre : 320 000 EUR, 16,5 Md EUR, "
+    "- symbole monetaire APRÈS le nombre : 320 000 EUR, 16,5 Md EUR, "
     "600 k EUR (jamais EUR320 000)\n"
     "- pourcentage colle : 3,4 %\n"
     "Aucune notation scientifique (jamais 1.6e+10). Un nombre de plus "
     "de neuf chiffres utilise une magnitude : 16,5 Md EUR, 3,3 M EUR.\n"
     "\n"
     "[COHERENCE D'UN BOUT A L'AUTRE — §4 du manuel]\n"
-    "Un chiffre valide ne doit pas changer de definition, d'annee, d'unite ou "
+    "Un chiffre valide ne doit pas changer de definition, d'année, d'unite ou "
     "de valeur au fil du document. Si un chapitre retient un marche selon un "
-    "perimetre precis, les chapitres suivants utilisent la meme fondation. "
-    "Reutilise les memes definitions du marche, de la cible et des zones. "
-    "Evite de repeter les memes explications ; chaque chapitre doit apporter "
-    "une avancee. Relie chaque analyse au projet presente dans la fiche "
-    "initiale. Verifie regulierement que toutes les demandes du client "
+    "perimetre precis, les chapitres suivants utilisent la même fondation. "
+    "Reutilise les mêmes definitions du marche, de la cible et des zones. "
+    "Evite de repeter les mêmes explications ; chaque chapitre doit apporter "
+    "une avancee. Relie chaque analyse au projet présenté dans la fiche "
+    "initiale. Vérifié regulierement que toutes les demandes du client "
     "restent couvertes.\n"
     "ACTUEL vs OBJECTIF : distingue clairement ce qui EXISTE (la plateforme "
     "est en ligne, 8 000 lieux referencies, la marque est deposee) de ce qui "
     "est VISE (10 000 utilisateurs a 12 mois, 200 professionnels partenaires). "
-    "Ne pas presenter un objectif au present de l'indicatif comme s'il etait "
+    "Ne pas présenter un objectif au present de l'indicatif comme s'il etait "
     "deja atteint.\n"
-    "CHRONOLOGIE UNIQUE : la date de creation, l'annee des investissements et "
+    "CHRONOLOGIE UNIQUE : la date de creation, l'année des investissements et "
     "l'exercice 1 forment une seule ligne de temps coherente. Un investissement "
     "ne peut pas preceder la creation de l'entreprise. L'exercice 1 commence "
-    "apres la creation. Utiliser les memes dates d'un chapitre a l'autre.\n"
+    "après la creation. Utiliser les mêmes dates d'un chapitre a l'autre.\n"
     "\n"
     "[FOURCHETTES ET TAUX — regle Evangeline 23/07/2026]\n"
     "Une fourchette est autorisee seulement si elle est SERREE et coherente "
@@ -155,9 +155,9 @@ _GRAPHIQUES_MOTEUR_HERITE = (
     "\"series\":[{\"name\":\"Projet\",\"values\":[4,5,3]}],\"unit\":\"\"}\n"
     "```\n"
     "Contraintes : valeurs numeriques uniquement (pas d'unite dans les "
-    "nombres). Pour pie : une seule serie. Pour radar : minimum 3 axes, memes "
+    "nombres). Pour pie : une seule serie. Pour radar : minimum 3 axes, mêmes "
     "axes pour toutes les series. Conserve un paragraphe d'analyse avant et "
-    "apres chaque bloc chart."
+    "après chaque bloc chart."
 )
 
 #: L'objectif chiffre de figures, en UN SEUL exemplaire.
@@ -203,10 +203,10 @@ PLANCHER_FIGURES = 17
 
 OBJECTIF_FIGURES_TEXTE = (
     "FIGURES — pas de nombre à atteindre. Illustre ce qui s'illustre : une "
-    "comparaison, une repartition, une progression dans le temps, un classement "
+    "comparaison, une répartition, une progression dans le temps, un classement "
     "ou le passage d'un perimetre a un autre appelle sa figure, prise dans la "
     "liste des figures realisables. Varie les FORMES DIFFERENTES d'un chapitre a "
-    "l'autre. Un chapitre sans figure est normal quand aucune donnee ne s'y "
+    "l'autre. Un chapitre sans figure est normal quand aucune donnée ne s'y "
     "prete : son tableau porte l'information. Une figure hors de cette liste est "
     "abandonnee au rendu — n'en demande aucune pour remplir."
 )
@@ -278,22 +278,22 @@ _GRAPHIQUES_MOTEUR_STRUCTURE = (
     "\n\nGRAPHIQUES : le catalogue complet et les types pertinents pour CE "
     "secteur te sont donnes avec la consigne du chapitre.\n"
     + OBJECTIF_FIGURES_TEXTE + "\n"
-    "Un chapitre qui porte une comparaison, une repartition, une progression "
+    "Un chapitre qui porte une comparaison, une répartition, une progression "
     "dans le temps, un classement, une evaluation ou un passage d'un perimetre "
-    "a un autre APPELLE sa figure. Deux figures dans un meme chapitre sont "
+    "a un autre APPELLE sa figure. Deux figures dans un même chapitre sont "
     "bienvenues quand deux idees distinctes s'illustrent.\n"
-    "La consigne du chapitre te dit quelles formes l'etude a DEJA employees : "
+    "La consigne du chapitre te dit quelles formes l'étude a DÉJÀ employees : "
     "prends-en une autre des que le propos s'y prete. Reprendre une forme est "
     "permis — deux entonnoirs de suite, non.\n"
     + REGLES_IDENTIFIANTS_FIGURES
 )
 
 _EM_ROLE = (
-    "Tu es un analyste senior en etude de marche, SPECIALISTE du secteur et "
+    "Tu es un analyste senior en étude de marche, SPECIALISTE du secteur et "
     "de la zone etudies (manuel EVKHA §3, juillet 2026). Tu comprends les "
     "enjeux d'un porteur de projet, tu restes objectif, tu expliques "
-    "clairement les donnees et tu TRANSFORMES CHAQUE CONSTAT EN CONSEQUENCE "
-    "CONCRETE POUR LE PROJET. Tu maitrises la collecte de donnees "
+    "clairement les données et tu TRANSFORMES CHAQUE CONSTAT EN CONSEQUENCE "
+    "CONCRETE POUR LE PROJET. Tu maitrises la collecte de données "
     "internationales, continentales, nationales et locales, et tu croises "
     "des sources fiables (primaires et secondaires) pour identifier les "
     "dynamiques sectorielles, les tendances emergentes, les risques et "
@@ -301,13 +301,13 @@ _EM_ROLE = (
 )
 
 _EC_ROLE = (
-    "Tu es un expert mondial en strategie concurrentielle, specialise dans les "
+    "Tu es un expert mondial en stratégie concurrentielle, specialise dans les "
     "marches internationaux et locaux. Tu maitrises les outils utilises par les "
-    "cabinets d'analyse strategique : identification fine des concurrents, "
+    "cabinets d'analyse stratégique : identification fine des concurrents, "
     "cartographie concurrentielle, analyse SWOT concurrentielle, estimation des "
     "parts de marche, benchmark digital, analyse de positionnement, veille "
-    "innovation et strategie RSE, lecture des avis clients comme signal "
-    "strategique. Tu produis des analyses exploitables et decisionnelles."
+    "innovation et stratégie RSE, lecture des avis clients comme signal "
+    "stratégique. Tu produis des analyses exploitables et decisionnelles."
 )
 
 _BP_ROLE = (
@@ -315,19 +315,19 @@ _BP_ROLE = (
     "professionnels, capable de produire des livrables de niveau cabinet de "
     "conseil destines aux banques, investisseurs, incubateurs et partenaires "
     "institutionnels. Tu ecris le business plan comme si le porteur de projet "
-    "en etait lui-meme l'auteur : le client doit pouvoir s'approprier le "
-    "document sans reecriture, le presenter a son banquier en confiance, et y "
+    "en etait lui-même l'auteur : le client doit pouvoir s'approprier le "
+    "document sans reecriture, le présenter a son banquier en confiance, et y "
     "reconnaitre son projet, ses mots, sa vision. Tu construis un recit "
     "entrepreneurial coherent et finançable."
 )
 
 _STR_ROLE = (
-    "Tu es un consultant senior en strategie d'entreprise, specialiste du "
-    "pilotage strategique des TPE et PME. Tu produis des strategies business "
+    "Tu es un consultant senior en stratégie d'entreprise, specialiste du "
+    "pilotage stratégique des TPE et PME. Tu produis des stratégies business "
     "professionnelles qui aident un dirigeant a piloter avec une vision claire : "
     "sortir d'une logique reactive, prioriser les bons leviers, structurer une "
     "croissance coherente et soutenable. Ton approche est centree sur les "
-    "arbitrages strategiques reels, pas sur des conseils generiques. "
+    "arbitrages stratégiques reels, pas sur des conseils génériques. "
     "Tu ecris comme un consultant experimente qui explique intelligemment, "
     "non comme un rapport academique."
 )
@@ -623,15 +623,15 @@ def build_system_prompt(
 
       [ role + charte + few-shot EM + consigne ]  <- STABLE
       SYSTEM_CACHE_BREAK
-      [ consigne geographique + plan Phase 0 ]    <- PROPRE AU JOB
+      [ consigne géographique + plan Phase 0 ]    <- PROPRE AU JOB
 
     Le cache Anthropic est un prefixe strict : tout ce qui precede un
     breakpoint reste valide tant qu'il est inchange. En placant la consigne
-    geographique AVANT la consigne de livrable (l'ordre historique), le
+    géographique AVANT la consigne de livrable (l'ordre historique), le
     moindre changement de pays invalidait la charte et le role, qui sont
     pourtant identiques pour tous les clients. Les trois blocs stables
     representent l'essentiel du system prompt : ils sont desormais mutualises
-    entre jobs du meme type dans la fenetre d'1 h.
+    entre jobs du même type dans la fenetre d'1 h.
     """
     role = _ROLES.get(deliverable_type, _EM_ROLE)
     # La consigne graphique suit le MOTEUR qui sert ce livrable, et cette
@@ -739,8 +739,8 @@ def _corrective_footer(corrective_note: str) -> str:
 
     Place en fin de prompt pour maximiser sa priorite. Le texte vient de
     `meta_discours.consigne_de_correction`, commun aux deux chaines : il disait
-    ici « Ta version precedente de ce chapitre a ete REJETEE par le controle
-    qualite », et le modele le repetait au client — « la version precedente
+    ici « Ta version precedente de ce chapitre a ete REJETEE par le contrôle
+    qualité », et le modele le repetait au client — « la version precedente
     affirmait que… » (stratégie `f7f2fad9`, 11/09/2026).
     """
     if not corrective_note:
@@ -775,7 +775,7 @@ def build_section_prompt(
 ) -> str:
     """Prompt pour une section d'un chapitre en mode chunk generation.
 
-    Meme contexte que le chapitre complet, mais instruction ciblee sur
+    Même contexte que le chapitre complet, mais instruction ciblee sur
     un sous-perimetre precis pour maximiser la densite par appel API.
 
     Le budget max_words est d'abord cherche dans SECTION_MAX_WORDS (table
@@ -809,6 +809,6 @@ def build_section_prompt(
         f"{word_limit}"
         f"{_corrective_footer(corrective_note)}\n\n"
         "Rends uniquement le contenu de cette section, destine au client. "
-        "Ne repete pas les consignes ni les donnees deja traitees dans les "
+        "Ne repete pas les consignes ni les données déjà traitees dans les "
         "sections precedentes de ce chapitre."
     )

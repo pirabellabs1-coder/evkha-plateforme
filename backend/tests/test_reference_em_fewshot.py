@@ -1,21 +1,21 @@
-"""Few-shot « etude de reference » (tache #13).
+"""Few-shot « étude de reference » (tache #13).
 
 Ce que ces tests protegent, et pourquoi chacun existe :
 
-1. LE CACHE. Le bloc fait ~1 600 tokens. Place apres SYSTEM_CACHE_BREAK ou
+1. LE CACHE. Le bloc fait ~1 600 tokens. Place après SYSTEM_CACHE_BREAK ou
    rendu dependant du pays, il serait facture plein tarif sur les 30 appels
    d'un job (~0,13 EUR) au lieu d'etre mutualise entre jobs (~0,01 EUR). Deux
    tests verrouillent la position et l'invariance par pays.
 2. LA CONTAMINATION. Le few-shot contient des chiffres reels d'un AUTRE
    secteur (79 141 avocats, 49,95 EUR/mois). Si l'interdiction de reprise
-   passait apres les extraits, ou disparaissait, le modele pourrait injecter
-   ces valeurs dans l'etude d'un client de la beaute au Benin.
+   passait après les extraits, ou disparaissait, le modele pourrait injecter
+   ces valeurs dans l'étude d'un client de la beaute au Benin.
 3. LA PORTEE. Le manuel d'Evangeline ne couvre que l'EM ; BP/EC/STR attendent
    sa validation. Findrax est une EM : aucun de ses gestes ne doit fuir vers
    un dossier bancaire.
 4. LA RECHUTE EN REGLES. `_RAPPEL_ANTI_RECHUTE_PIED` a ete supprime le 24/07
    parce que le modele recopiait ses formules dans le texte livre. Un test
-   verifie que le few-shot ne reintroduit pas ces formulations.
+   vérifié que le few-shot ne reintroduit pas ces formulations.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from generation.prompts import build_system_prompt
 from generation.reference_em import REFERENCE_EM, REFERENCE_SOM
 from integrations.claude import SYSTEM_CACHE_BREAK
 
-_MARQUEUR = "[ETUDE DE REFERENCE"
+_MARQUEUR = "[ÉTUDE DE REFERENCE"
 
 
 def _segments(deliverable_type: str, country: str = "", plan: str = "") -> tuple[str, str]:
@@ -232,7 +232,7 @@ def test_la_charte_et_le_role_em_restent_dans_le_prefixe_stable() -> None:
     stable, _ = _segments(DeliverableType.MARKET_STUDY, country="Benin", plan="PLAN")
 
     assert "VOIX EVKHA" in stable
-    assert "analyste senior en etude de marche" in stable
+    assert "analyste senior en étude de marche" in stable
     # Ordre voulu : la charte (le manuel) precede le few-shot (l'illustration).
     assert stable.index("VOIX EVKHA") < stable.index(_MARQUEUR)
 

@@ -20,7 +20,7 @@ _TCAC_PATTERNS: tuple[re.Pattern[str], ...] = (
 _MARKET_SIZE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"march[ée]\s+(?:mondial|global|national|local|regional|europe|europ[ée]en|africain)?\s*"
-        r"(?:de\s+|estim[ée]\s+a\s+|atteint\s+|p[èe]se\s+|repr[ée]sente\s+)"
+        r"(?:de\s+|estim[ée]\s+[àa]\s+|atteint\s+|p[èe]se\s+|repr[ée]sente\s+)"
         r"(\d+(?:[.,]\d+)?)\s*(milliards?|mds?|millions?|m€|md€|mds?€|mfcfa)",
         re.IGNORECASE,
     ),
@@ -154,7 +154,7 @@ def _classer_niveau(contexte: str) -> str | None:
     """Retourne 'mondial', 'continental' ou 'national' si un qualificatif de
     zone se trouve dans le contexte proche. Sinon None : la mention est
     globale sans niveau precis, on n'ecrase pas une eventuelle valeur par
-    niveau deja verrouillee."""
+    niveau déjà verrouillee."""
     for niveau, motif in _NIVEAUX_QUALIFIANTS.items():
         if motif.search(contexte):
             return niveau
@@ -167,39 +167,50 @@ def _classer_niveau(contexte: str) -> str | None:
 # pas les memes ou sont un peu modifies d'un chapitre a l'autre".
 _CA_CIBLE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        r"(?:chiffre\s+d['e]?affaires?|CA)\s+(?:cible|projet[ée]|previsionnel|"
-        r"objectif|attendu|d['e]?annee\s*1|annee\s*1)\s*(?:de\s+|estim[ée]\s+a\s+|"
-        r"a\s+|:\s*)?(\d[\d\s]*)\s*(?:€|euros?|EUR|k\s*€|k\s*EUR)",
+        # Chaque mot accentué tolère SES DEUX orthographes, y compris la
+        # préposition « à ». Mesuré le 05/11/2026 : `previsionnel`, `annee` et
+        # le `a` de « estimé à » étaient écrits NUS, quand leurs voisins
+        # (`projet[ée]`) étaient déjà tolérants. Tant que les prompts
+        # dictaient un français sans accents, le modèle écrivait nu et le
+        # motif voyait. Les prompts rendus à l'orthographe (849 accents le
+        # 05/11), le modèle écrit « prévisionnel » et « estimé à » — et ce
+        # verrou sur les chiffres financiers du client devenait MUET sans que
+        # rien ne le dise. C'est la règle 1 : un contrôle qui ne peut plus
+        # comparer n'est pas un contrôle qui passe.
+        r"(?:chiffre\s+d['e’]?affaires?|CA)\s+(?:cible|projet[ée]|pr[ée]visionnel|"
+        r"objectif|attendu|d['e’]?ann[ée]e\s*1|ann[ée]e\s*1)\s*"
+        r"(?:de\s+|estim[ée]\s+[àa]\s+|[àa]\s+|:\s*)?"
+        r"(\d[\d\s]*)\s*(?:€|euros?|EUR|k\s*€|k\s*EUR)",
         re.IGNORECASE,
     ),
 )
 _SEUIL_RENTABILITE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        r"seuil\s+de\s+rentabilit[ée]\s*(?:se\s+situe\s+a\s+|est\s+de\s+|:\s*|de\s+)?"
+        r"seuil\s+de\s+rentabilit[ée]\s*(?:se\s+situe\s+[àa]\s+|est\s+de\s+|:\s*|de\s+)?"
         r"(\d[\d\s]*)\s*(?:€|euros?|EUR)",
         re.IGNORECASE,
     ),
     re.compile(
-        r"point\s+mort\s*(?:a\s+|est\s+de\s+|:\s*|de\s+)?"
+        r"point\s+mort\s*(?:[àa]\s+|est\s+de\s+|:\s*|de\s+)?"
         r"(\d[\d\s]*)\s*(?:€|euros?|EUR)",
         re.IGNORECASE,
     ),
 )
 _PANIER_MOYEN_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        r"(?:panier|ticket)\s+moyen\s*(?:de\s+|estim[ée]\s+a\s+|:\s*|est\s+de\s+)?"
+        r"(?:panier|ticket)\s+moyen\s*(?:de\s+|estim[ée]\s+[àa]\s+|:\s*|est\s+de\s+)?"
         r"(\d+(?:[.,]\d+)?)\s*(?:€|euros?|EUR)",
         re.IGNORECASE,
     ),
     re.compile(
-        r"prix\s+moyen(?:\s+par\s+client)?\s*(?:de\s+|estim[ée]\s+a\s+|:\s*|est\s+de\s+)?"
+        r"prix\s+moyen(?:\s+par\s+client)?\s*(?:de\s+|estim[ée]\s+[àa]\s+|:\s*|est\s+de\s+)?"
         r"(\d+(?:[.,]\d+)?)\s*(?:€|euros?|EUR)",
         re.IGNORECASE,
     ),
 )
 _MARGE_BRUTE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        r"(?:taux\s+de\s+)?marge\s+brute\s*(?:est\s+de\s+|se\s+situe\s+a\s+|:\s*|de\s+)?"
+        r"(?:taux\s+de\s+)?marge\s+brute\s*(?:est\s+de\s+|se\s+situe\s+[àa]\s+|:\s*|de\s+)?"
         r"(\d+(?:[.,]\d+)?)\s*%",
         re.IGNORECASE,
     ),
@@ -286,7 +297,7 @@ _NUMERIC_PREFIX_RE = re.compile(
 
 
 def _numeric_gap(a: str, b: str) -> float | None:
-    """Retourne l'ecart relatif entre deux valeurs numeriques (apres strip %).
+    """Retourne l'ecart relatif entre deux valeurs numeriques (après strip %).
 
     Tolerant aux suffixes d'unite (" EUR", " Mds EUR", " %", "..."). Extrait
     le prefixe numerique de chaque cote et compare. Retourne None si l'un
@@ -445,10 +456,10 @@ def seed_locked_facts_from_variables(
 ) -> None:
     """Verrouille les faits deduits des variables de cadrage, provenance CLIENT.
 
-    Idempotent : meme valeur -> pas de conflit. Source = donnees client figees,
+    Idempotent : même valeur -> pas de conflit. Source = données client figees,
     donc base fiable du Coherence Engine pour tous les chapitres suivants.
     Inclut l'etat chiffre client (Brique 1) : previsionnel financier et
-    verticales d'activite, intangibles pour toute la generation.
+    verticales d'activité, intangibles pour toute la generation.
     """
     # L'etat chiffre ecrit en TEXTE LIBRE (« apport 24 000 € + subvention
     # Bpifrance 27 500 € ; CA an 1 = 51 030 € ») n'etait extrait que par la
@@ -526,14 +537,14 @@ def client_facts_as_context(job: GenerationJob) -> str:
         is_locked=True, provenance=FactProvenance.CLIENT
     ).order_by("kind", "key")
     if not facts:
-        return "Aucune donnee client structuree fournie."
+        return "Aucune donnée client structuree fournie."
     return "\n".join(f"- {fact.key} = {fact.value}" for fact in facts)
 
 
 def generated_facts_as_context(job: GenerationJob) -> str:
-    """Reperes extraits des chapitres deja generes (coherence inter-chapitres).
+    """Reperes extraits des chapitres déjà generes (coherence inter-chapitres).
 
-    Presentes comme reperes a reprendre a l'identique — JAMAIS comme des
+    Présentés comme reperes a reprendre a l'identique — JAMAIS comme des
     'faits verrouilles du dossier' (brief juillet 2026 : le pipeline
     consolidait des chiffres hallucines en dogme).
     """
@@ -661,7 +672,7 @@ _LIBELLES_FONDATIONS: dict[str, str] = {
     "currency": "Devise",
     "forme_juridique": "Forme juridique du projet",
     "capital_initial": "Capital initial",
-    "verticales": "Verticales d'activite",
+    "verticales": "Verticales d'activité",
     # tailles de marche
     "taille_marche": "Marche (perimetre general)",
     "taille_marche_mondial": "Marche mondial",
@@ -706,7 +717,7 @@ _LIBELLES_FONDATIONS: dict[str, str] = {
     "subventions": "Subventions (brief)",
     "ca_previsionnel": "CA previsionnel (brief)",
     "ebe_previsionnel": "EBE previsionnel (brief)",
-    "resultat_net_previsionnel": "Resultat net previsionnel (brief)",
+    "resultat_net_previsionnel": "Résultat net previsionnel (brief)",
 }
 
 
@@ -746,8 +757,8 @@ _REUTILISATION_FONDATIONS.update(
 _PERIMETRES_LISIBLES: dict[str, str] = {
     "mondial": "monde",
     "continental": "continent",
-    "national": "pays de l'etude",
-    "local": "zone locale de l'etude",
+    "national": "pays de l'étude",
+    "local": "zone locale de l'étude",
 }
 _ANNEE_DANS_VALEUR = re.compile(r"\b(?:19|20)\d{2}\b")
 _UNITE_DANS_VALEUR = re.compile(
@@ -758,24 +769,24 @@ _UNITE_DANS_VALEUR = re.compile(
 
 
 def _perimetre_annee_unite(cle: str, valeur: str) -> str:
-    """Compose la colonne « Perimetre / annee / unite » du manuel p. 6.
+    """Compose la colonne « Perimetre / année / unite » du manuel p. 6.
 
     Rien n'est invente : chaque element vient de la cle ou de la valeur
-    verrouillee. Ce qui manque est ecrit « a preciser » plutot que devine —
+    verrouillee. Ce qui manque est ecrit « a préciser » plutot que devine —
     la fiche sert justement a montrer au redacteur ce qui n'est pas cadre.
-    Un fait sans chiffre (definition du marche, verticales) n'a ni annee ni
+    Un fait sans chiffre (definition du marche, verticales) n'a ni année ni
     unite : on n'affiche que son perimetre.
     """
     niveau = next(
         (n for n in _PERIMETRES_LISIBLES if cle.endswith(f"_{n}")),
         None,
     )
-    elements = [_PERIMETRES_LISIBLES.get(niveau or "", "perimetre de l'etude")]
+    elements = [_PERIMETRES_LISIBLES.get(niveau or "", "perimetre de l'étude")]
     if any(c.isdigit() for c in valeur):
         annee = _ANNEE_DANS_VALEUR.search(valeur)
-        elements.append(annee.group(0) if annee else "annee a preciser")
+        elements.append(annee.group(0) if annee else "année a préciser")
         unite = _UNITE_DANS_VALEUR.search(valeur)
-        elements.append(unite.group(0) if unite else "unite a preciser")
+        elements.append(unite.group(0) if unite else "unite a préciser")
     return " / ".join(elements)
 
 
@@ -783,13 +794,13 @@ def chiffres_fondations_as_table(job: GenerationJob) -> str:
     """Rend les faits verrouilles au format tableau du manuel p. 6.
 
     Les cinq colonnes du manuel, dans son ordre : Information | Valeur retenue
-    | Perimetre / annee / unite | Source ou methode | Reutilisation.
+    | Perimetre / année / unite | Source ou méthode | Reutilisation.
 
     Les deux colonnes ajoutees en juillet 2026 ne sont pas cosmetiques. Le
     verdict d'Evangeline sur le run 010e3bf2 (« un chiffre valide ne doit pas
-    changer de definition, d'annee, d'unite ou de valeur », p. 5) portait sur
+    changer de definition, d'année, d'unite ou de valeur », p. 5) portait sur
     des ecarts que la table a trois colonnes ne pouvait pas rendre visibles :
-    une valeur nue « 250 kEUR » ne dit ni son annee, ni son perimetre, ni
+    une valeur nue « 250 kEUR » ne dit ni son année, ni son perimetre, ni
     quels chapitres doivent la reprendre telle quelle.
 
     Les cles enrichies par un CHECK (prefixe `bloc_X_...`) sont affichees
@@ -800,7 +811,7 @@ def chiffres_fondations_as_table(job: GenerationJob) -> str:
     if not facts:
         return (
             "Aucun chiffre-fondation verrouille pour le moment. Les valeurs "
-            "se figeront apres le CHECK 1 (bloc A, fondations du marche)."
+            "se figeront après le CHECK 1 (bloc A, fondations du marche)."
         )
 
     rows: list[str] = []
@@ -827,11 +838,11 @@ def chiffres_fondations_as_table(job: GenerationJob) -> str:
     return (
         "Chiffres-fondations (manuel p. 6, memoire enrichie). Valeurs "
         "INVIOLABLES : chaque chapitre listé dans la colonne « Reutilisation » "
-        "DOIT reprendre la valeur a l'identique (definition, annee, unite, "
+        "DOIT reprendre la valeur a l'identique (definition, année, unite, "
         "valeur). Une fondation qui doit changer se corrige d'abord ici, "
         "puis dans tous les chapitres concernes — jamais l'inverse.\n\n"
-        "| Information | Valeur retenue | Perimetre / annee / unite "
-        "| Source ou methode | Reutilisation |\n"
+        "| Information | Valeur retenue | Perimetre / année / unite "
+        "| Source ou méthode | Reutilisation |\n"
         "|---|---|---|---|---|\n"
         + "\n".join(rows)
     )
@@ -847,7 +858,7 @@ def enrichir_fiche_apres_check(
 
     Chaque point (cle, valeur) devient un CoherenceFact GENERATED, avec la
     convention de cle `bloc_{X}_{cle}` (ex : `bloc_A_definition_marche`).
-    Les cles deja presentes ne sont pas ecrasees a la legere : `upsert_locked_fact`
+    Les cles déjà présentés ne sont pas ecrasees a la legere : `upsert_locked_fact`
     detecte les conflits (tolerance 20 % sur les valeurs numeriques) et cree
     un incident MEDIUM sans stopper la generation.
 
@@ -1064,14 +1075,14 @@ def _resoudre_montant(
 
 
 def anomalies_tam_sam_som(job: GenerationJob) -> list[str]:
-    """Verifie l'emboitement TAM >= SAM >= SOM sur les faits verrouilles.
+    """Vérifié l'emboitement TAM >= SAM >= SOM sur les faits verrouilles.
 
     Lecture seule. Trois anomalies possibles, toutes constatees ou frolees sur
     le run reel 010e3bf2 :
       - SAM > TAM : le marche servi depasse le marche total, impossible ;
       - SOM > SAM : la part obtenable depasse le marche accessible, impossible ;
       - SOM / SAM au-dela de `_PART_SOM_SUR_SAM_MAX` : arithmetiquement
-        possible mais commercialement invraisemblable en annee 1.
+        possible mais commercialement invraisemblable en année 1.
 
     Les deux premieres sont des erreurs de calcul, la troisieme une hypothese
     a refaire. Les trois doivent revenir en correction, pas en justification
@@ -1256,7 +1267,7 @@ def extract_and_lock_numeric_facts(chapter: ChapterGeneration) -> list[Coherence
     """Extrait les chiffres cles explicitement libelles et les verrouille.
 
     Regle : premier chapitre a mentionner un libelle => valeur figee pour tous
-    les chapitres suivants. Un conflit ulterieur (autre chapitre, meme cle,
+    les chapitres suivants. Un conflit ulterieur (autre chapitre, même cle,
     autre valeur) leve CoherenceConflictError si is_locked, sinon MAJ.
 
     Comportement conservateur : on ne verrouille qu'un pattern strict

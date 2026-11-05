@@ -1,14 +1,14 @@
-"""Controles inter-blocs — methode Evangeline (manuel juillet 2026).
+"""Contrôles inter-blocs — méthode Evangeline (manuel juillet 2026).
 
 Le manuel EVKHA definit 11 CHECKs qui structurent la generation d'une EM :
 
 - CHECK INITIAL (§2, p. 3) : validation de la fiche projet avant chapitre 1.
-- CHECK 1 a 9 (§6, pp. 8-16) : un controle apres chaque bloc de chapitres.
+- CHECK 1 a 9 (§6, pp. 8-16) : un contrôle après chaque bloc de chapitres.
 - CHECK FINAL (§6, p. 17) : dix items a valider avant la livraison.
 
-Chaque CHECK reprend telles quelles les questions redigees par Evangeline.
+Chaque CHECK reprend telles quelles les questions rédigées par Evangeline.
 Un appel Claude Sonnet joue le role du relecteur humain : lit la fiche projet
-enrichie et les chapitres du bloc, verifie chaque question, rend un verdict
+enrichie et les chapitres du bloc, vérifié chaque question, rend un verdict
 `pass` / `fix` + une note corrective + les points a enrichir dans la fiche.
 
 Ce module remplace la constellation de checks regex de `checks_post_rendu.py`
@@ -46,7 +46,7 @@ from .models import ChapterGeneration, GenerationJob
 
 @dataclass(frozen=True)
 class BlocDefinition:
-    """Un bloc regroupe 1 a 3 chapitres controles par un meme CHECK."""
+    """Un bloc regroupe 1 a 3 chapitres contrôles par un même CHECK."""
 
     identifiant: str  # "INITIAL", "A", "B", ..., "J", "FINAL"
     check_numero: str  # "INITIAL", "1", ..., "9", "FINAL"
@@ -64,13 +64,13 @@ BLOCS: tuple[BlocDefinition, ...] = (
         check_numero="INITIAL",
         intitule="Validation de la fiche projet",
         chapitres=(),
-        focus="Avant d'autoriser le chapitre 1, verifier que la fiche projet "
+        focus="Avant d'autoriser le chapitre 1, vérifier que la fiche projet "
               "est complete et fidele a la demande du client.",
         questions=(
             "La demande du client a-t-elle ete entierement lue et comprise ?",
-            "Le marche etudie correspond-il a l'activite reelle, sans confusion "
+            "Le marche etudie correspond-il a l'activité reelle, sans confusion "
             "de secteur ?",
-            "Les zones geographiques sont-elles exactes et adaptees au projet ?",
+            "Les zones géographiques sont-elles exactes et adaptees au projet ?",
             "Toutes les questions du client sont-elles inscrites dans la fiche ?",
             "Des contradictions ou informations critiques manquantes doivent-elles "
             "etre clarifiees ?",
@@ -87,16 +87,16 @@ BLOCS: tuple[BlocDefinition, ...] = (
               "avant tout le reste.",
         questions=(
             "Les chapitres 1 et 2 traitent-ils exactement le bon marche, le bon "
-            "secteur et les bonnes zones geographiques ?",
+            "secteur et les bonnes zones géographiques ?",
             "Toutes les demandes importantes du client sont-elles toujours prises "
             "en compte ?",
             "Les tailles de marche, taux de croissance, projections et les "
             "trois niveaux de marche (marche total, marche accessible, chiffre "
             "d'affaires vise) sont-ils sources, dates, definis et coherents ?",
-            "Les graphiques reprennent-ils exactement les memes valeurs que le "
+            "Les graphiques reprennent-ils exactement les mêmes valeurs que le "
             "texte ?",
-            "Les estimations sont-elles expliquees sans presenter une deduction "
-            "comme une donnee officielle ?",
+            "Les estimations sont-elles expliquees sans présenter une deduction "
+            "comme une donnée officielle ?",
         ),
     ),
     BlocDefinition(
@@ -104,7 +104,7 @@ BLOCS: tuple[BlocDefinition, ...] = (
         check_numero="2",
         intitule="Direction de l'etude",
         chapitres=(3,),
-        focus="Verifier que la segmentation prolonge naturellement les fondations "
+        focus="Vérifier que la segmentation prolonge naturellement les fondations "
               "et repond a la demande.",
         questions=(
             "Les segments retenus correspondent-ils reellement a la zone, a "
@@ -125,10 +125,10 @@ BLOCS: tuple[BlocDefinition, ...] = (
         intitule="Distinction present / avenir",
         chapitres=(4, 5),
         focus="S'assurer que les avantages/contraintes du present sont bien "
-              "distingues des defis/opportunites du futur.",
+              "distingues des defis/opportunités du futur.",
         questions=(
             "Les avantages et contraintes actuels sont-ils bien separes des "
-            "defis et opportunites futurs ?",
+            "defis et opportunités futurs ?",
             "Chaque point est-il specifique au secteur et relie au projet, plutot "
             "que generique ?",
             "Les chapitres 4 et 5 evitent-ils les repetitions et les listes "
@@ -142,13 +142,13 @@ BLOCS: tuple[BlocDefinition, ...] = (
         check_numero="4",
         intitule="Reglementation securisee",
         chapitres=(6,),
-        focus="Verifier que la reglementation citee est officielle, actuelle "
+        focus="Vérifier que la réglementation citee est officielle, actuelle "
               "et applicable, sans se substituer a un professionnel du droit.",
         questions=(
             "Les textes et organismes cites sont-ils officiels, actuels et "
             "applicables au bon pays ?",
             "Les obligations sont-elles distinguees des recommandations ?",
-            "Les couts, delais, demarches et risques de non-conformite sont-ils "
+            "Les couts, delais, démarches et risques de non-conformite sont-ils "
             "expliques lorsqu'ils sont connus ?",
             "Aucune affirmation ne remplace-t-elle l'avis d'un professionnel du "
             "droit, de la fiscalite ou de la conformite ?",
@@ -159,12 +159,12 @@ BLOCS: tuple[BlocDefinition, ...] = (
         check_numero="5",
         intitule="Horizons 2026-2030",
         chapitres=(7, 8),
-        focus="Controler que le court terme reste observable et que le long "
+        focus="Contrôler que le court terme reste observable et que le long "
               "terme reste des scenarios argumentes, sans casser les fondations.",
         questions=(
-            "Les tendances 2026-2027 sont-elles recentes, observables et utiles "
+            "Les tendances 2026-2027 sont-elles récentes, observables et utiles "
             "pour le lancement ?",
-            "Les perspectives a 2030 sont-elles presentees comme des projections "
+            "Les perspectives a 2030 sont-elles présentées comme des projections "
             "ou des scenarios, jamais comme des certitudes ?",
             "Les taux et montants utilises restent-ils identiques aux "
             "chiffres-fondations ?",
@@ -178,18 +178,18 @@ BLOCS: tuple[BlocDefinition, ...] = (
         check_numero="6",
         intitule="Chiffres, clients et usages",
         chapitres=(9, 10, 11),
-        focus="Verifier que les 12 chiffres cles, la clientele et les personas "
+        focus="Vérifier que les 12 chiffres cles, la clientele et les personas "
               "sont fondes sur les registres validees et coherents entre eux.",
         questions=(
             "Les 12 chiffres cles proviennent-ils tous des fondations ou de "
-            "chapitres deja valides ?",
+            "chapitres déjà valides ?",
             "Le chapitre 10 repond-il clairement a : qui achete, quoi, a quelle "
             "frequence, a quel prix, pourquoi et par quel canal ?",
             "Les deux personas decoulent-ils des segments et comportements "
             "analyses, sans details inventes ni cliches ?",
             "Les prix, frequences, budgets et comportements ne se "
             "contredisent-ils pas d'un chapitre a l'autre ?",
-            "La presentation reste-t-elle redigee et agreable, sans succession "
+            "La presentation reste-t-elle rédigée et agreable, sans succession "
             "de listes ?",
         ),
     ),
@@ -199,7 +199,7 @@ BLOCS: tuple[BlocDefinition, ...] = (
         intitule="Risques et viabilite",
         chapitres=(12, 13, 14),
         focus="S'assurer que la cartographie des risques reflete l'analyse et "
-              "que la viabilite s'appuie sur les elements deja verrouilles.",
+              "que la viabilite s'appuie sur les elements déjà verrouilles.",
         questions=(
             "La cartographie reprend-elle exactement les risques analyses au "
             "chapitre 12 ?",
@@ -207,10 +207,10 @@ BLOCS: tuple[BlocDefinition, ...] = (
             "texte et la matrice ?",
             "L'avis de viabilite repose-t-il sur le chiffre d'affaires vise, "
             "les ressources, la "
-            "cible, la reglementation et le cycle de vente ?",
+            "cible, la réglementation et le cycle de vente ?",
             "L'analyse reste-t-elle neutre, y compris si le potentiel est "
             "fragile ou conditionnel ?",
-            "Aucun previsionnel financier ou resultat de rentabilite n'a-t-il "
+            "Aucun previsionnel financier ou résultat de rentabilite n'a-t-il "
             "ete invente ?",
         ),
     ),
@@ -219,17 +219,17 @@ BLOCS: tuple[BlocDefinition, ...] = (
         check_numero="8",
         intitule="Visuels, offre et geographie",
         chapitres=(15, 16, 17),
-        focus="Verifier que les visuels reprennent les chiffres valides et que "
-              "l'analyse geographique se justifie par des criteres objectifs.",
+        focus="Vérifier que les visuels reprennent les chiffres valides et que "
+              "l'analyse géographique se justifie par des critères objectifs.",
         questions=(
             "Tous les graphiques et tableaux reprennent-ils les chiffres valides, "
-            "avec titre, unite, periode et source courte ?",
-            "L'analyse offre/demande reste-t-elle une etude de marche, sans "
-            "devenir une etude detaillee de la concurrence ?",
-            "Les zones prioritaires sont-elles justifiees par des criteres "
+            "avec titre, unite, période et source courte ?",
+            "L'analyse offre/demande reste-t-elle une étude de marche, sans "
+            "devenir une étude détaillée de la concurrence ?",
+            "Les zones prioritaires sont-elles justifiees par des critères "
             "objectifs et coherentes avec la demande du client ?",
             "Les chapitres 15 a 17 apportent-ils une lecture nouvelle sans "
-            "repeter les memes paragraphes ?",
+            "repeter les mêmes paragraphes ?",
             "Le document contient-il un rythme visuel agreable, sans surcharge "
             "ni elements decoratifs inutiles ?",
         ),
@@ -239,12 +239,12 @@ BLOCS: tuple[BlocDefinition, ...] = (
         check_numero="9",
         intitule="Analyse transformee en decision",
         chapitres=(18, 19, 20),
-        focus="Verifier que la SWOT, les recommandations et la conclusion "
+        focus="Vérifier que la SWOT, les recommandations et la conclusion "
               "racontent une seule histoire coherente et repondent au client.",
         questions=(
             "Chaque element de la SWOT provient-il d'un chapitre precedent ?",
             "Les recommandations sont-elles concretes, hierarchisees, realistes "
-            "et directement reliees aux constats ?",
+            "et directement reliées aux constats ?",
             "La conclusion repond-elle aux demandes du client sans ajouter de "
             "chiffre, risque ou conseil nouveau ?",
             "L'ensemble raconte-t-il une seule histoire coherente, du marche "
@@ -256,27 +256,27 @@ BLOCS: tuple[BlocDefinition, ...] = (
     BlocDefinition(
         identifiant="J",
         check_numero="FINAL",
-        intitule="Controle final avant livraison",
+        intitule="Contrôle final avant livraison",
         chapitres=(21, 22),
-        focus="Verifier que tout le dossier est pret a etre remis au client.",
+        focus="Vérifier que tout le dossier est pret a etre remis au client.",
         questions=(
             "Toutes les sources utilisees figurent une seule fois dans le "
-            "chapitre 21, avec organisme, titre, annee et lien verifie ?",
+            "chapitre 21, avec organisme, titre, année et lien vérifié ?",
             # Les quatre questions qui suivent sont celles que le manuel de
             # juillet 2026 AJOUTE a son controle final. Sans elles, un dossier
             # de douze sources datees de 2019, sans annexe, passait le controle.
             "La quantite et la diversite des sources sont-elles coherentes avec "
-            "la profondeur de l'etude — 35 a 60 references distinctes et utiles, "
+            "la profondeur de l'étude — 35 a 60 references distinctes et utiles, "
             "reparties sur plusieurs familles ?",
             "Les chiffres decrivant la situation actuelle privilegient-ils "
-            "2024-2026 ou la derniere annee reellement disponible, les donnees "
+            "2024-2026 ou la derniere année reellement disponible, les données "
             "plus anciennes etant clairement justifiees ?",
             "Les projections portent-elles sur un horizon coherent, generalement "
-            "2026-2030, et restent-elles distinguees des donnees observees ?",
+            "2026-2030, et restent-elles distinguees des données observees ?",
             "L'annexe « Reponses essentielles au client — en un coup d'oeil » "
             "reprend-elle toutes les demandes explicites et les questions "
             "essentielles du porteur, sans y introduire aucun chiffre nouveau ?",
-            "Les estimations importantes expliquent sobrement leur methode, "
+            "Les estimations importantes expliquent sobrement leur méthode, "
             "leurs hypotheses et leurs limites ?",
             "Les 21 chapitres et l'annexe sont presents dans le bon ordre et "
             "forment une lecture continue ?",
@@ -290,7 +290,7 @@ BLOCS: tuple[BlocDefinition, ...] = (
             "et les visuels sont-ils homogenes ?",
             "Un ancrage visuel utile apparait-il tous les deux ou trois "
             "chapitres, sans surcharger le document ?",
-            "Le DOCX et le PDF presenteront-ils le meme contenu, sans page vide "
+            "Le DOCX et le PDF presenteront-ils le même contenu, sans page vide "
             "ni tableau coupe ?",
             "Le document final ne depasse-t-il pas 80 pages ?",
         ),
@@ -348,10 +348,10 @@ class CheckResult:
 
 
 _SYSTEM_PROMPT_CHECK = (
-    "Tu es le RELECTEUR EVKHA. Tu appliques a la lettre la methode "
+    "Tu es le RELECTEUR EVKHA. Tu appliques a la lettre la méthode "
     "d'Evangeline (manuel juillet 2026, section 6). "
-    "Ton role : verifier, apres un bloc de chapitres, que chaque question du "
-    "CHECK est satisfaite. Tu ne redige pas les chapitres, tu les evalues. "
+    "Ton role : vérifier, après un bloc de chapitres, que chaque question du "
+    "CHECK est satisfaite. Tu ne rédige pas les chapitres, tu les evalues. "
     "Tu es exigeant mais juste : un verdict 'fix' declenche une "
     "regeneration couteuse ; ne le rends que sur des defauts reels et "
     "actionnables. Un verdict 'pass' laisse passer le bloc. "
@@ -359,7 +359,7 @@ _SYSTEM_PROMPT_CHECK = (
     # monde ». Les chapitres ecrivent desormais « marche total », « marche
     # accessible », « chiffre d'affaires vise ». Un relecteur qui redemanderait
     # les sigles ferait reecrire, et payer, le jargon qu'on vient de retirer.
-    "LANGAGE SIMPLE : l'etude ecrit volontairement « le marche total », « le "
+    "LANGAGE SIMPLE : l'étude ecrit volontairement « le marche total », « le "
     "marche accessible » et « le chiffre d'affaires vise » ; les sigles TAM, "
     "SAM et SOM n'apparaissent qu'au chapitre qui les pose. Ne demande JAMAIS "
     "d'ajouter un sigle, un anglicisme ou un terme d'analyste. Demande au "
@@ -413,7 +413,7 @@ def _formater_chapitres(
     « pass » sur un défaut toujours présent (règle 9).
     """
     if not chapitres:
-        return "(aucun chapitre a controler pour ce bloc — CHECK sur la fiche projet uniquement)"
+        return "(aucun chapitre a contrôler pour ce bloc — CHECK sur la fiche projet uniquement)"
     parts: list[str] = []
     for chap in chapitres:
         corps = (chap.content or "").strip() if entiers else _extrait_chapitre(chap)
@@ -438,12 +438,12 @@ def _formater_questions(questions: tuple[str, ...]) -> str:
 _ADDENDUM_CHECK_FINAL = (
     "\n\n## CADRAGE DES QUESTIONS DE RENDU (CHECK FINAL)\n"
     "Certaines questions portent sur le rendu final (parite DOCX/PDF, pages "
-    "vides ou tableaux coupes, limite de 80 pages). Ce rendu est produit APRES "
+    "vides ou tableaux coupes, limite de 80 pages). Ce rendu est produit APRÈS "
     "cette relecture, par un moteur de mise en page : tu ne le vois pas ici, et "
     "les extraits de chapitres sont parfois tronques. Ne reponds 'non' ou "
-    "'partiel' a ces questions QUE si le TEXTE que tu lis contient deja un "
+    "'partiel' a ces questions QUE si le TEXTE que tu lis contient déjà un "
     "defaut observable (tableau manifestement trop large, contenu tronque, "
-    "placeholder, lien casse). N'invente pas un probleme de pagination, de "
+    "placeholder, lien casse). N'invente pas un problème de pagination, de "
     "conversion DOCX/PDF ou de depassement de 80 pages que tu ne peux pas "
     "constater dans le texte : la longueur et la parite sont garanties en amont. "
     "En l'absence d'indice textuel, reponds 'oui' a ces questions."
@@ -458,13 +458,13 @@ _ADDENDUM_CHECK_FINAL = (
 # bloquait la generation a tort.
 _ADDENDUM_CHECK_INITIAL = (
     "\n\n## CADRAGE DU CHECK INITIAL\n"
-    "Le document a valider est la FICHE PROJET REDIGEE ci-dessus, pas le brief "
+    "Le document a valider est la FICHE PROJET RÉDIGÉE ci-dessus, pas le brief "
     "brut du client. Juge-la telle qu'elle est ecrite : si une information est "
-    "presente dans la fiche, la question correspondante est 'oui', meme si elle "
+    "présenté dans la fiche, la question correspondante est 'oui', même si elle "
     "est formulee autrement que dans la demande du client. Ne demande pas de "
-    "collecter une donnee qui y figure deja. Un point que le client n'a pas "
+    "collecter une donnée qui y figure déjà. Un point que le client n'a pas "
     "fourni et qui n'est pas indispensable pour rediger le chapitre 1 (budget "
-    "de l'etude, delai, forme juridique encore a arbitrer) n'est PAS un defaut "
+    "de l'étude, delai, forme juridique encore a arbitrer) n'est PAS un defaut "
     "des lors que la fiche le signale honnetement comme non specifie ou "
     "provisoire. Ne reponds 'non' ou 'partiel' que si la fiche est reellement "
     "incomplete, contradictoire ou infidele a la demande — auquel cas la "
@@ -491,7 +491,7 @@ def _construire_prompt_check(
         questions += (
             "\n\n## TA NOTE PRECEDENTE SUR CE BLOC (avant reecriture)\n"
             f"{note_precedente}\n"
-            "Verifie d'abord, point par point, que chaque defaut qu'elle nomme a "
+            "Vérifié d'abord, point par point, que chaque defaut qu'elle nomme a "
             "quitte le texte ci-dessus. Un seul defaut encore present : verdict "
             "« fix », et ta nouvelle note le cite."
         )
@@ -505,12 +505,12 @@ def _construire_prompt_check(
     # Pour le CHECK INITIAL, les deux sections seraient toutes deux intitulees
     # « fiche projet » : on distingue la demande brute du document a valider.
     titre_client = (
-        "## DEMANDE DU CLIENT — donnees verrouillees"
+        "## DEMANDE DU CLIENT — données verrouillees"
         if est_initial
-        else "## FICHE PROJET — donnees client verrouillees"
+        else "## FICHE PROJET — données client verrouillees"
     )
     titre_corps = (
-        "## FICHE PROJET REDIGEE — document a valider"
+        "## FICHE PROJET RÉDIGÉE — document a valider"
         if est_initial
         else "## CHAPITRES DU BLOC"
     )
@@ -533,7 +533,7 @@ def _construire_prompt_check(
         "{\n"
         '  "verdict": "pass" ou "fix",\n'
         '  "reponses_questions": [\n'
-        '    {"numero": 1, "reponse": "oui/non/partiel", "commentaire": "en une phrase"},\n'
+        '    {"numéro": 1, "reponse": "oui/non/partiel", "commentaire": "en une phrase"},\n'
         "    ... (une entree par question)\n"
         "  ],\n"
         '  "note_corrective": "Instructions concretes a passer au redacteur '
@@ -554,7 +554,7 @@ def _construire_prompt_check(
         "- 'points_a_enrichir_fiche' contient les faits stables identifies "
         "dans les chapitres qui devront etre reutilises tels quels par les "
         "chapitres suivants (chiffres-fondations, definitions, segments prioritaires...). "
-        "N'inclus PAS les faits deja presents dans la fiche client au-dessus."
+        "N'inclus PAS les faits déjà presents dans la fiche client au-dessus."
     )
 
 
@@ -694,14 +694,14 @@ def _advisor_actif_pour_bloc(bloc: BlocDefinition) -> bool:
 # cout total meme quand elle augmente le nombre de consultations.
 _ADDENDUM_ADVISOR = (
     "\n\n## CONSULTATION D'UN SECOND RELECTEUR\n"
-    "Tu disposes de l'outil `advisor` : un second relecteur qui lit la meme "
+    "Tu disposes de l'outil `advisor` : un second relecteur qui lit la même "
     "transcription que toi. Consulte-le UNE FOIS, avant de formuler ton "
-    "verdict, et fais-lui verifier en priorite : (1) les calculs et l'ordre "
+    "verdict, et fais-lui vérifier en priorite : (1) les calculs et l'ordre "
     "marche total > marche accessible > chiffre d'affaires vise (ce dernier "
     "doit resulter d'une part explicite du marche accessible, pas d'un chiffre "
     "pose) ; (2) la coherence d'un chapitre "
     "a l'autre des taux, prix, volumes, dates et objectifs commerciaux ; "
-    "(3) tout chiffre presente comme officiel alors qu'il s'agit d'une "
+    "(3) tout chiffre présenté comme officiel alors qu'il s'agit d'une "
     "deduction. Demande-lui un avis sous 250 mots. Son avis t'informe, il ne "
     "te remplace pas : le verdict final et le JSON restent les tiens, et un "
     "'fix' doit rester justifie par un defaut reel et actionnable."
@@ -724,14 +724,14 @@ def _enregistrer_cout_check(
     un second appel de secours si le JSON revient coupe) invisibles pour le
     Cost Engine. Consequences mesurables : le run 010e3bf2 annonce 3,05 EUR
     alors que la depense reelle Anthropic etait superieure, et le throttle de
-    `max_tokens` repartissait un budget restant surestime — le meme mecanisme
+    `max_tokens` repartissait un budget restant surestime — le même mecanisme
     qui etranglait les derniers chapitres.
     L'advisor rend le trou plus grave encore : il ajoute une sous-inference
-    entiere sur ces memes appels.
+    entiere sur ces mêmes appels.
 
     `record_additional_cost` (et pas `record_chapter_cost`) : le chapitre garde
     son propre cout de redaction, le CHECK s'y ajoute. Pas d'`enforce_budget`
-    ici — un depassement constate juste apres un CHECK reussi n'a pas a tuer le
+    ici — un depassement constate juste après un CHECK reussi n'a pas a tuer le
     job dans cette fonction : le total est ecrit en base, donc le prochain
     `record_chapter_cost` le voit et applique la regle d'or #1.
     """
@@ -766,9 +766,9 @@ def check_bloc(
     """Execute le CHECK d'un bloc et enrichit la fiche projet si `pass`.
 
     En cas de `fix`, la fiche N'EST PAS enrichie (les chapitres seront
-    regeneres) : les points identifies sont conserves dans le resultat pour
+    regeneres) : les points identifies sont conserves dans le résultat pour
     inspection, mais non persistes. La regeneration relance un nouveau CHECK
-    apres coup ; si celui-ci passe, la fiche est enrichie a ce moment-la.
+    après coup ; si celui-ci passe, la fiche est enrichie a ce moment-la.
     """
     client = client or get_claude_client()
     prompt = _construire_prompt_check(

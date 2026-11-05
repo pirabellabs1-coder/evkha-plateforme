@@ -17,8 +17,8 @@ from .models import ChapterGeneration, GenerationJob
 from .substitution import tokens_catalogue
 
 ROLE_LINE = (
-    "ROLE: Methode EVKHA, ton mentor, rendu client sans balises internes "
-    "(jamais 'Etape', 'Point de controle' ni vocabulaire pipeline). "
+    "ROLE: Méthode EVKHA, ton mentor, rendu client sans balises internes "
+    "(jamais 'Etape', 'Point de contrôle' ni vocabulaire pipeline). "
     # On n'enumere QUE les labels reellement presents dans le contexte ci-dessous.
     # Citer un token absent (l'ancien FAITS_VERROUILLES) pour l'interdire ne
     # faisait que le reintroduire dans la fenetre du modele : interdire un mot
@@ -32,44 +32,44 @@ ROLE_LINE = (
     "Si tu dois designer l'origine d'un chiffre client, ecris 'le "
     "previsionnel fourni par le porteur' ou equivalent naturel. "
     "Si VARIABLES_PROJET contient CONTEXTE_ETUDE_PRECEDENTE, appuie-toi sur "
-    "ce resume d'une etude ou d'un document deja produit pour ce client pour "
+    "ce resume d'une étude ou d'un document déjà produit pour ce client pour "
     "rester coherent avec son contenu et eviter les repetitions, sans le "
     "recopier tel quel. "
     "Quand une instruction de chapitre fournit un pattern HTML/CSS (tableau, "
     "grille, graphique en barres), tu DOIS produire ce bloc HTML rempli avec "
-    "les donnees reelles du projet, en respectant EXACTEMENT la structure "
-    "fournie en exemple (memes balises, memes proprietes CSS) : ne le "
-    "remplace jamais par une simple description textuelle equivalente, meme "
+    "les données reelles du projet, en respectant EXACTEMENT la structure "
+    "fournie en exemple (mêmes balises, mêmes proprietes CSS) : ne le "
+    "remplace jamais par une simple description textuelle equivalente, même "
     "si cela demande de rester concis dans le texte qui l'entoure. "
     "N'utilise JAMAIS display:grid, display:flex ni position:absolute : "
     "seuls les <table> et les <div> de largeur variable (barres) sont "
     "correctement rendus par WeasyPrint, le moteur PDF utilise en production. "
     "Si une instruction de chapitre NE fournit AUCUN pattern HTML/CSS, "
-    "redige uniquement en texte/Markdown (titres, paragraphes, listes) : "
+    "rédige uniquement en texte/Markdown (titres, paragraphes, listes) : "
     "n'invente jamais de bloc HTML/CSS de ta propre initiative. "
     "COHERENCE ABSOLUE (regle prioritaire, non negociable) : "
     "0) HIERARCHIE DES SOURCES : les chiffres du bloc DONNEES_CLIENT "
     "(previsionnel, investissement, emprunt, taux d'occupation, verticales "
-    "d'activite...) priment sur TOUTE moyenne sectorielle, benchmark ou "
-    "estimation. Tu ne substitues JAMAIS un cas generique aux hypotheses "
-    "reelles du client. Chaque verticale d'activite listee par le client "
+    "d'activité...) priment sur TOUTE moyenne sectorielle, benchmark ou "
+    "estimation. Tu ne substitues JAMAIS un cas générique aux hypotheses "
+    "reelles du client. Chaque verticale d'activité listee par le client "
     "doit etre traitee — aucune ne disparait au profit d'un modele type. "
     "1) Les blocs DONNEES_CLIENT, REPERES_DEJA_ENONCES et "
     "RESUME_OPERATIONNEL_PRECEDENT sont la VERITE de reference du dossier. "
-    "Si tu evoques un chiffre ou un nom deja mentionne, tu DOIS le reprendre "
-    "a l'IDENTIQUE : meme valeur exacte, meme unite, meme orthographe. "
+    "Si tu evoques un chiffre ou un nom déjà mentionne, tu DOIS le reprendre "
+    "a l'IDENTIQUE : même valeur exacte, même unite, même orthographe. "
     "2) Une variation d'un chiffre entre deux chapitres (ex : TCAC 8,4 % au "
     "chapitre 2 puis 8,5 % au chapitre 7, ou CA cible 285 000 EUR puis "
     "287 000 EUR) est une incoherence percue instantanement par un lecteur "
     "professionnel et decredibilise l'ensemble du livrable. "
     "3) Si un chiffre a besoin d'etre affine, INDIQUE explicitement qu'il "
-    "s'agit d'un affinage (ex: 'apres integration des couts logistiques, "
+    "s'agit d'un affinage (ex: 'après integration des couts logistiques, "
     "l'estimation passe de 285 000 a 287 500 EUR'). Ne modifie JAMAIS "
-    "silencieusement une valeur deja posee. "
-    "4) Pour les etudes de concurrence : les 8 concurrents directs et 3 "
+    "silencieusement une valeur déjà posee. "
+    "4) Pour les études de concurrence : les 8 concurrents directs et 3 "
     "indirects identifies au chapitre 1 sont VERROUILLES. Chaque chapitre "
-    "suivant DOIT reprendre ces 11 acteurs, exactement dans le meme ordre, "
-    "avec le meme nom (meme orthographe). Aucun ajout, aucun retrait, aucune "
+    "suivant DOIT reprendre ces 11 acteurs, exactement dans le même ordre, "
+    "avec le même nom (même orthographe). Aucun ajout, aucun retrait, aucune "
     "substitution possible."
 )
 
@@ -79,10 +79,10 @@ def _date_line() -> str:
     return (
         f"DATE_DU_JOUR: {today.strftime('%d/%m/%Y')}. Toutes les donnees, "
         "tendances, chiffres et projections doivent etre calibres par rapport "
-        "a cette date : la periode recente correspond aux 2-3 dernieres annees "
+        "a cette date : la période récente correspond aux 2-3 dernieres années "
         "civiles qui la precedent, les projections/estimations portent sur les "
-        "annees suivantes. Ne jamais traiter une annee anterieure a cette date "
-        "comme etant l'annee en cours.\n"
+        "années suivantes. Ne jamais traiter une année anterieure a cette date "
+        "comme etant l'année en cours.\n"
         # Deux defauts mesures sur une etude a l'export (cliente, 26/10/2026) :
         # « le SOM d'annee 1 est date de l'annee en cours, alors que le projet
         # est au stade prototype et qu'on est fin octobre », et « un evenement
@@ -90,18 +90,18 @@ def _date_line() -> str:
         # livree a cette date ». Les deux viennent du meme angle mort : la date
         # etait donnee, mais rien ne disait ce qu'elle INTERDIT d'ecrire.
         "UN EVENEMENT ANTERIEUR A CETTE DATE EST PASSE. Ne l'annonce jamais "
-        "comme « a venir », « prevu » ou « programme » : l'etude est lue a "
+        "comme « a venir », « prevu » ou « programme » : l'étude est lue a "
         "partir de cette date-la. S'il a eu lieu, ecris ce qu'il a donne ; si "
         "tu l'ignores, n'en parle pas.\n"
-        "L'ANNEE 1 EST CELLE DU PREMIER EURO ENCAISSE, pas l'annee du "
+        "L'ANNÉE 1 EST CELLE DU PREMIER EURO ENCAISSE, pas l'année du "
         "calendrier. Un projet qui n'est pas encore lance ne peut pas avoir "
-        "une annee 1 deja entamee : si l'activite demarre apres cette date, "
-        "l'annee 1 commence au plus tot l'annee suivante, et le SOM d'annee 1 "
-        "porte CETTE annee-la. Un projet au stade idee ou prototype en fin "
-        "d'annee civile a donc une annee 1 en N+1 — jamais en N, ou il ne "
+        "une année 1 déjà entamee : si l'activité demarre après cette date, "
+        "l'année 1 commence au plus tot l'année suivante, et le SOM d'année 1 "
+        "porte CETTE année-la. Un projet au stade idee ou prototype en fin "
+        "d'année civile a donc une année 1 en N+1 — jamais en N, ou il ne "
         "resterait que quelques semaines pour realiser douze mois de chiffre "
         "d'affaires.\n"
-        "UN PLAN D'ACTION TIENT COMPTE DES DELAIS REELS. Une demarche "
+        "UN PLAN D'ACTION TIENT COMPTE DES DELAIS REELS. Une démarche "
         "administrative, une homologation, l'ouverture d'une boutique sur une "
         "place de marche etrangere ou un referencement en centrale prennent "
         "des mois : ne les place pas dans les quatre-vingt-dix premiers jours "
@@ -112,7 +112,7 @@ def _date_line() -> str:
 def _tokens_block(job: GenerationJob) -> str:
     """Catalogue des tokens de substitution (Brique 1).
 
-    Le modele voit le nombre deja ecrit a cote du token : il n'a donc aucune
+    Le modele voit le nombre déjà ecrit a cote du token : il n'a donc aucune
     raison de l'estimer, et le token garantit que la valeur livree est celle du
     brief, au caractere pres.
     """
@@ -168,7 +168,7 @@ def build_context(chapter: ChapterGeneration) -> str:
         job.research_brief, chapter.chapter_number, job.deliverable_type
     ) or (
         "Aucune source web collectee : n'invente aucune URL ni date de "
-        "publication ; presente toute donnee non etablie comme une estimation."
+        "publication ; présenté toute donnée non etablie comme une estimation."
     )
 
     blocs = [
@@ -180,10 +180,10 @@ def build_context(chapter: ChapterGeneration) -> str:
         "DONNEES_CLIENT (brief client, intangibles, priorite absolue):\n"
         + client_facts_as_context(job),
         _tokens_block(job),
-        "REPERES_DEJA_ENONCES (chiffres deja poses dans les chapitres "
-        "precedents, a reprendre a l'identique, jamais presentes comme "
+        "REPERES_DEJA_ENONCES (chiffres déjà poses dans les chapitres "
+        "precedents, a reprendre a l'identique, jamais présentés comme "
         "'faits verrouilles'):\n" + generated_facts_as_context(job),
-        "REGISTRE_CHIFFRES (JSON, source unique — tout chiffre deja "
+        "REGISTRE_CHIFFRES (JSON, source unique — tout chiffre déjà "
         "pose dans un chapitre precedent ou fourni par le client. "
         "Reprendre EXACTEMENT la valeur du registre, jamais "
         "l'arrondir ni la recalculer) :\n" + registre_json_as_context(job),

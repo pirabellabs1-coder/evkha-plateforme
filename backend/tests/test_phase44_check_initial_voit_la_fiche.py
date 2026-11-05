@@ -1,15 +1,15 @@
-"""Phase 44 — Le CHECK INITIAL doit VOIR la fiche projet redigee.
+"""Phase 44 — Le CHECK INITIAL doit VOIR la fiche projet rédigée.
 
 Manuel EVKHA p.3 : « Si la fiche projet est complete, coherente et fidele a la
 demande, commencer le chapitre 1. Sinon, corriger la fiche ou demander la
-precision necessaire AVANT TOUTE REDACTION. » Le controle porte donc sur la
-FICHE REDIGEE, pas sur le brief brut du client.
+precision nécessaire AVANT TOUTE REDACTION. » Le contrôle porte donc sur la
+FICHE RÉDIGÉE, pas sur le brief brut du client.
 
 Bug constate en generation reelle (job 283a0cab, 24/07/2026) : le hook lancait
 le CHECK INITIAL avec `chapitres=[]`. Le relecteur ne recevait que les variables
 normalisees du brief et reclamait de « collecter et verrouiller dans la fiche »
-l'objectif de l'etude, les questions du client, le modele economique et le
-lecteur final — six elements tous deja rediges dans le chapitre 0. Verdict
+l'objectif de l'étude, les questions du client, le modele économique et le
+lecteur final — six elements tous déjà rédigés dans le chapitre 0. Verdict
 `fix`, generation stoppee avant le chapitre 1 : un faux positif bloquant.
 """
 from __future__ import annotations
@@ -62,9 +62,9 @@ def test_le_prompt_du_check_initial_contient_la_fiche_redigee() -> None:
     prompt = _construire_prompt_check(bloc, job, [fiche])
 
     assert _FICHE_MARQUEUR in prompt, "La fiche projet n'est pas dans le prompt."
-    assert "FICHE PROJET REDIGEE — document a valider" in prompt
+    assert "FICHE PROJET RÉDIGÉE — document a valider" in prompt
     # Le cadrage qui empeche de reclamer une donnee deja presente.
-    assert "Ne demande pas de collecter une donnee qui y figure deja" in prompt
+    assert "Ne demande pas de collecter une donnée qui y figure déjà" in prompt
 
 
 @pytest.mark.django_db
@@ -86,9 +86,9 @@ def test_le_hook_transmet_bien_le_chapitre_0_au_check() -> None:
     with patch("generation.runner.check_bloc", side_effect=_capture):
         _after_chapter_hook(job, fiche, client=None)
 
-    assert captures, "Le CHECK INITIAL n'a pas ete declenche apres la fiche."
+    assert captures, "Le CHECK INITIAL n'a pas ete declenche après la fiche."
     assert [c.chapter_number for c in captures[0]] == [0], (
-        "Le CHECK INITIAL doit recevoir le chapitre 0 (la fiche redigee)."
+        "Le CHECK INITIAL doit recevoir le chapitre 0 (la fiche rédigée)."
     )
 
 
@@ -97,7 +97,7 @@ def test_les_checks_de_bloc_gardent_leur_intitule_de_chapitres() -> None:
     """Le renommage de section ne concerne QUE le CHECK INITIAL.
 
     Les CHECK 1-9 continuent de lire « CHAPITRES DU BLOC » et « FICHE PROJET —
-    donnees client verrouillees » : leurs questions du manuel s'y referent.
+    données client verrouillees » : leurs questions du manuel s'y referent.
     """
     job, fiche = _make_job_avec_fiche()
     bloc_a = BLOCS_PAR_IDENTIFIANT["A"]
@@ -105,5 +105,5 @@ def test_les_checks_de_bloc_gardent_leur_intitule_de_chapitres() -> None:
     prompt = _construire_prompt_check(bloc_a, job, [])
 
     assert "## CHAPITRES DU BLOC" in prompt
-    assert "## FICHE PROJET — donnees client verrouillees" in prompt
+    assert "## FICHE PROJET — données client verrouillees" in prompt
     assert "CADRAGE DU CHECK INITIAL" not in prompt

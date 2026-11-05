@@ -2,18 +2,18 @@
 
 ## Le defaut, releve par la cliente le 18/08/2026
 
-Etude de concurrence `743e6a2b` — celle qu'elle venait de valider par ailleurs.
+Étude de concurrence `743e6a2b` — celle qu'elle venait de valider par ailleurs.
 Son chapitre 8, le dernier qu'elle lit :
 
     | 8  | Non traitée | canaux d'acquisition des concurrents
-    | 10 | Non traitée | pression des freelances, cadre reglementaire
+    | 10 | Non traitée | pression des freelances, cadre réglementaire
     « Neuf demandes sur onze sont couvertes integralement »
 
-Son mot : « pour le client, voir plusieurs "non traite" en fin d'etude est
+Son mot : « pour le client, voir plusieurs "non traite" en fin d'étude est
 assez frustrant ».
 
-Elle l'avait deja dit le 09/08, autrement : « l'etude passe son temps a dire
-donnees a definir, a verifier — je n'aime pas cela, j'aime apporter de vraies
+Elle l'avait déjà dit le 09/08, autrement : « l'étude passe son temps a dire
+données a definir, a vérifier — je n'aime pas cela, j'aime apporter de vraies
 reponses. »
 
 ## La cause
@@ -24,8 +24,8 @@ obeissait. Le defaut n'etait pas dans le document, il etait dans la consigne.
 
 ## La regle 10 du depot : le correctif vaut pour TOUS les livrables
 
-Le business plan portait la meme instruction en une ligne. La strategie, elle,
-faisait deja ce qu'il faut — « fournis une reponse synthetique » — et sert de
+Le business plan portait la même instruction en une ligne. La stratégie, elle,
+faisait déjà ce qu'il faut — « fournis une reponse synthetique » — et sert de
 modele.
 """
 from __future__ import annotations
@@ -41,7 +41,7 @@ ANNEXES = ["ec.08.annexe_brief", "bp.20.annexes"]
 def test_l_annexe_ne_prescrit_plus_de_statut(cle: str) -> None:
     """Echoue sur le code d'avant : le prompt imposait les trois statuts.
 
-    On verifie que le vocabulaire n'est plus PRESCRIT. Il subsiste sous forme
+    On vérifié que le vocabulaire n'est plus PRESCRIT. Il subsiste sous forme
     d'interdiction — « n'ecris jamais qu'une demande est non traitee » — et
     c'est exactement ce qu'on veut.
     """
@@ -62,7 +62,7 @@ def test_l_annexe_exige_une_reponse_et_une_demarche(cle: str) -> None:
     """Ce qui remplace le statut : ce qui est etabli, ce qui manque, comment l'obtenir."""
     texte = prompt_instruction(cle).lower()
     assert "repond" in texte or "réponds" in texte
-    assert "demarche" in texte
+    assert "démarche" in texte
     assert "manque" in texte
 
 
@@ -79,7 +79,7 @@ def test_la_synthese_ne_compte_plus_les_demandes_par_statut() -> None:
 
 
 def test_la_strategie_reste_le_modele() -> None:
-    """Contre-epreuve : la strategie repondait deja, on n'y touche pas."""
+    """Contre-epreuve : la stratégie repondait déjà, on n'y touche pas."""
     texte = prompt_instruction("str.19.annexe_brief").lower()
     assert "reponse synthetique" in texte
     assert "non traitee" not in texte
@@ -88,8 +88,8 @@ def test_la_strategie_reste_le_modele() -> None:
 def test_le_socle_exige_de_chercher_l_edition_la_plus_recente() -> None:
     """« je vois 2024, or je sais que 2025 existe et est publie ».
 
-    Echoue sur le code d'avant : la consigne disait « les plus recents
-    disponibles », un vœu que rien n'obligeait a verifier.
+    Echoue sur le code d'avant : la consigne disait « les plus récents
+    disponibles », un vœu que rien n'obligeait a vérifier.
     """
     from generation.socle.prompt import construire_prompt_socle
 
