@@ -62,6 +62,72 @@ _CONTINENT_BY_COUNTRY: dict[str, str] = {
     "guyane": "caribeen",
     "reunion": "ocean indien",
     "mayotte": "ocean indien",
+    # ── ASIE, MOYEN-ORIENT ET RESTE DU MONDE (05/11/2026) ───────────────────
+    #
+    # Ce répertoire couvrait la France, l'Afrique francophone, le Maghreb,
+    # l'Europe de l'Ouest et l'Amérique du Nord : le marché historique
+    # d'EVKHA. L'ASIE N'Y ÉTAIT PAS, et le Royaume-Uni non plus.
+    #
+    # Mesuré sur l'étude de la concurrence SUN TZU du 04/11/2026, qui vise six
+    # territoires asiatiques : `macro_zone_for("Japon")` rendait
+    # « international », donc la consigne envoyée au modèle disait « pays
+    # cible NON IDENTIFIÉ. Analyser le marché MONDIAL » et le chapitre 1
+    # s'intitulait « Analyse chiffrée du marché mondial ».
+    #
+    # L'audit de la cliente en porte la trace : « la baisse de 6 % publiée par
+    # FranceAgriMer concerne les importations chinoises de produits agricoles
+    # et agroalimentaires provenant du MONDE ENTIER » — l'étude a confondu un
+    # agrégat mondial avec un flux France → Chine, et notre propre consigne
+    # lui demandait d'analyser le marché mondial. « Concurrents par pays :
+    # insuffisant, notamment pour l'Inde et la Corée du Sud » dit la même
+    # chose par un autre bout.
+    #
+    # Le critère d'ajout est celui des TERRITOIRES QUE LES ÉTUDES VISENT, pas
+    # un atlas : les six de SUN TZU, leurs voisins commerciaux immédiats, le
+    # Golfe et les grands marchés d'export que les dossiers citent. La liste
+    # reste faite pour s'allonger — une absence coûte une consigne fausse, pas
+    # un plantage.
+    "chine": "asiatique",
+    "chine continentale": "asiatique",
+    "hong kong": "asiatique",
+    "taiwan": "asiatique",
+    "japon": "asiatique",
+    "coree du sud": "asiatique",
+    "coree": "asiatique",
+    "singapour": "asiatique",
+    "inde": "asiatique",
+    "vietnam": "asiatique",
+    "thailande": "asiatique",
+    "malaisie": "asiatique",
+    "indonesie": "asiatique",
+    "philippines": "asiatique",
+    "emirats arabes unis": "moyen-oriental",
+    "arabie saoudite": "moyen-oriental",
+    "qatar": "moyen-oriental",
+    "koweit": "moyen-oriental",
+    "liban": "moyen-oriental",
+    "turquie": "moyen-oriental",
+    "israel": "moyen-oriental",
+    "royaume-uni": "europeen",
+    "angleterre": "europeen",
+    "irlande": "europeen",
+    "autriche": "europeen",
+    "pologne": "europeen",
+    "suede": "europeen",
+    "danemark": "europeen",
+    "norvege": "europeen",
+    "finlande": "europeen",
+    "grece": "europeen",
+    "roumanie": "europeen",
+    "tchequie": "europeen",
+    "republique tcheque": "europeen",
+    "bresil": "sud-americain",
+    "mexique": "sud-americain",
+    "argentine": "sud-americain",
+    "chili": "sud-americain",
+    "colombie": "sud-americain",
+    "australie": "oceanien",
+    "nouvelle-zelande": "oceanien",
 }
 
 _CONTINENT_LABELS: dict[str, str] = {
@@ -71,6 +137,10 @@ _CONTINENT_LABELS: dict[str, str] = {
     "nord-americain":   "nord-américain",
     "caribeen":         "caribéen et antillais",
     "ocean indien":     "de l'océan Indien",
+    "asiatique":        "asiatique",
+    "moyen-oriental":   "du Moyen-Orient",
+    "sud-americain":    "latino-américain",
+    "oceanien":         "océanien",
 }
 
 
@@ -94,6 +164,106 @@ def _strip_accents(s: str) -> str:
     return "".join(
         c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn"
     )
+
+
+#: Les noms qui désignent UN MÊME territoire. Replié sur le canonique.
+#:
+#: Le répertoire en portait déjà, par commodité de recherche : `usa` et
+#: `etats-unis`, `rdc` et son nom long, deux orthographes de Côte d'Ivoire.
+#: Tant qu'on ne faisait que chercher une macro-zone, deux clés pour un pays
+#: étaient sans conséquence — les deux rendaient la même zone.
+#:
+#: Dès qu'on COMPTE des territoires, elles en font deux. Mesuré sur l'étude
+#: SUN TZU : « Chine continentale (vente en ligne transfrontalière) » et
+#: « Shanghai, Chine » comptaient pour deux marchés, et le panel paraissait
+#: deux fois plus dispersé qu'il ne l'est.
+#:
+#: « coree » n'y est PAS replié sur « coree du sud » : la Corée du Nord
+#: existe, et deviner laquelle serait inventer une donnée.
+_MEME_TERRITOIRE: dict[str, str] = {
+    "chine continentale": "chine",
+    "angleterre": "royaume-uni",
+    "usa": "etats-unis",
+    "rdc": "republique democratique du congo",
+    "republique tcheque": "tchequie",
+    "cote d ivoire": "cote d'ivoire",
+    "republique centrafricaine": "centrafrique",
+    "congo-brazzaville": "congo",
+}
+
+#: Les noms de pays du répertoire, du plus LONG au plus court.
+#:
+#: L'ordre fait tout : « coree du sud » doit être essayé avant « coree », et
+#: « chine continentale » avant « chine ». Sans cela, « Corée du Sud » se
+#: rangerait sous « Corée », et deux territoires distincts se confondraient.
+_PAYS_DU_PLUS_LONG = sorted(_CONTINENT_BY_COUNTRY, key=len, reverse=True)
+
+
+def territoires_de(emplacement: str) -> list[str]:
+    """Les territoires NOMMÉS dans un emplacement écrit en texte libre.
+
+    ## Le défaut mesuré
+
+    Le champ `emplacement` d'un concurrent est de la prose. Relevé sur l'étude
+    SUN TZU du 04/11/2026, qui vise SIX territoires prioritaires :
+
+        « Siège France, distribution internationale »
+        « Hong Kong et Taïwan (plusieurs magasins) »
+        « Chine continentale (vente en ligne transfrontalière) »
+        « Corée du Sud (Séoul notamment) »
+        « Shanghai, Chine »
+        « Siège international, distribution en Asie »
+
+    Neuf libellés pour six territoires. Compter les libellés donnait donc neuf
+    « territoires » dont aucun n'atteignait son plancher de trois acteurs :
+    une mesure bavarde, qui ne disait plus où chercher.
+
+    ## Ce qu'elle rend, et ce qu'elle ne rend pas
+
+    Un emplacement peut nommer PLUSIEURS territoires — « Hong Kong et
+    Taïwan » en vaut deux, et les deux les comptent. Le nom rendu est la clé
+    du répertoire (`chine`, `coree du sud`) : un identifiant stable, pas de la
+    prose, et surtout pas une seconde table de noms à faire diverger
+    (règle 5).
+
+    Un emplacement qui ne nomme AUCUN pays connu — « Siège international,
+    distribution en Asie » — rend une liste vide. Ce n'est pas un territoire,
+    c'est une portée, et l'appelant doit le ranger à part plutôt que
+    d'inventer un pays. Une zone comme « asiatique » n'en est pas un non plus :
+    on ne vend pas en « Asie », on vend au Japon.
+    """
+    texte = _strip_accents((emplacement or "").lower())
+    trouves: list[str] = []
+    for pays in _PAYS_DU_PLUS_LONG:
+        if pays not in texte:
+            continue
+        # Frontière de mot aux deux bouts : « mali » ne doit pas sortir de
+        # « Malaisie », ni « inde » de « Indonésie ».
+        for position in _positions(texte, pays):
+            avant = texte[position - 1] if position else " "
+            apres_index = position + len(pays)
+            apres = texte[apres_index] if apres_index < len(texte) else " "
+            if avant.isalpha() or apres.isalpha():
+                continue
+            # Un territoire déjà trouvé par un nom PLUS LONG qui le contient
+            # (« coree » dans « coree du sud ») n'est pas un second territoire.
+            if any(pays in deja for deja in trouves):
+                break
+            trouves.append(pays)
+            break
+    # Replié en dernier : « chine continentale » a pu être trouvé par son nom
+    # long AVANT que « chine » ne soit essayé, et les deux doivent n'en faire
+    # qu'un. Le repli après coup rend l'ordre de recherche indifférent.
+    return sorted({_MEME_TERRITOIRE.get(pays, pays) for pays in trouves})
+
+
+def _positions(texte: str, aiguille: str) -> list[int]:
+    positions: list[int] = []
+    depart = texte.find(aiguille)
+    while depart != -1:
+        positions.append(depart)
+        depart = texte.find(aiguille, depart + 1)
+    return positions
 
 
 def macro_zone_for(country: str) -> str:

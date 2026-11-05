@@ -63,18 +63,28 @@ class _Socle:
 
 #: Le panel de SUN TZU tel qu'elle le décrit : huit directs, dont trois
 #: catégories, répartis sur plusieurs territoires.
+#: Les emplacements sont recopiés TELS QUELS du socle de l'étude : de la
+#: prose, pas des noms de pays. C'est le point de la normalisation — neuf
+#: libellés pour six territoires.
 PANEL_SUN_TZU = _Socle([
-    _Acteur("City'Super", "direct", "citysuper.com.hk", "Hong Kong"),
-    _Acteur("City Shop", "direct", "cityshop.com.cn", "Chine"),
-    _Acteur("Kaldi Coffee Farm", "direct", "kaldi.co.jp", "Japon"),
-    _Acteur("FairPrice Finest", "direct", "fairprice.com.sg", "Singapour"),
-    _Acteur("Cold Storage", "direct", "coldstorage.com.sg", "Singapour"),
+    _Acteur("City'Super", "direct", "citysuper.com.hk",
+            "Hong Kong et Taïwan (plusieurs magasins)"),
+    _Acteur("City Shop", "direct", "cityshop.com.cn", "Shanghai, Chine"),
+    _Acteur("Kaldi Coffee Farm", "direct", "kaldi.co.jp",
+            "Japon (réseau national de magasins)"),
+    _Acteur("FairPrice Finest", "direct", "fairprice.com.sg",
+            "Singapour (réseau de magasins)"),
+    _Acteur("Cold Storage", "direct", "coldstorage.com.sg",
+            "Singapour (réseau de magasins)"),
     # Les trois que la cliente refuse : des catégories, sans adresse.
     _Acteur("les importateurs taïwanais", "direct", "", "Taïwan"),
-    _Acteur("les vendeurs sur Tmall Global", "direct", "", "Chine"),
-    _Acteur("les distributeurs coréens", "direct", "", "Corée du Sud"),
+    _Acteur("les vendeurs sur Tmall Global", "direct", "",
+            "Chine continentale (vente en ligne transfrontalière)"),
+    _Acteur("les distributeurs coréens", "direct", "",
+            "Corée du Sud (Séoul notamment)"),
     _Acteur("Carrefour Taiwan", "indirect", "carrefour.com.tw", "Taïwan"),
-    _Acteur("SUN TZU ORGANISATION", "projet", "suntzu.fr", "France"),
+    _Acteur("SUN TZU ORGANISATION", "projet", "suntzu.fr",
+            "Siège France, distribution internationale"),
 ])
 
 
@@ -92,22 +102,50 @@ def test_le_compte_qu_elle_a_fait_a_la_main() -> None:
     assert panel["categories"] == 3
 
 
-def test_les_territoires_les_plus_pauvres_viennent_en_premier() -> None:
-    """Classer, c'est dire où chercher — pas condamner.
+def test_neuf_libelles_de_prose_donnent_six_territoires() -> None:
+    """LE point de la normalisation.
 
-    Taïwan et la Corée du Sud ne portent qu'une catégorie chacun ; Singapour
-    en porte deux nommées. L'ordre met le plus pauvre devant.
+    Avant elle, chaque libellé comptait pour un territoire : « Shanghai,
+    Chine » et « Chine continentale (vente en ligne transfrontalière) » en
+    faisaient deux, et le panel paraissait deux fois plus dispersé qu'il ne
+    l'est. Ce test échoue sur le code d'avant.
     """
+    panel = mesurer_le_panel(PANEL_SUN_TZU)
+    assert panel is not None
+
+    territoires = set(panel["par_territoire"])  # type: ignore[call-overload]
+
+    assert territoires == {
+        "chine", "coree du sud", "hong kong", "japon", "singapour", "taiwan",
+    }
+
+
+def test_un_acteur_present_sur_deux_territoires_compte_dans_les_deux() -> None:
+    """« Hong Kong et Taïwan » dit quelque chose des DEUX marchés."""
+    panel = mesurer_le_panel(PANEL_SUN_TZU)
+    assert panel is not None
+
+    assert panel["par_territoire"]["hong kong"]["identifies"] == 1  # type: ignore[index]
+    # Taïwan : City'Super (nommé) + Carrefour Taiwan (nommé) + la catégorie.
+    assert panel["par_territoire"]["taiwan"] == {  # type: ignore[index]
+        "acteurs": 3, "identifies": 2,
+    }
+
+
+def test_les_territoires_les_plus_pauvres_viennent_en_premier() -> None:
+    """Classer, c'est dire où chercher — pas condamner."""
     panel = mesurer_le_panel(PANEL_SUN_TZU)
     assert panel is not None
 
     territoires = list(panel["par_territoire"])  # type: ignore[call-overload]
 
-    assert territoires[0] in {"Taïwan", "Corée du Sud", "Chine"}
-    assert panel["par_territoire"]["Singapour"] == {  # type: ignore[index]
+    # La Corée du Sud ne porte qu'une catégorie : elle vient devant Singapour,
+    # qui porte deux enseignes nommées.
+    assert territoires.index("coree du sud") < territoires.index("singapour")
+    assert panel["par_territoire"]["singapour"] == {  # type: ignore[index]
         "acteurs": 2, "identifies": 2,
     }
-    assert panel["par_territoire"]["Corée du Sud"] == {  # type: ignore[index]
+    assert panel["par_territoire"]["coree du sud"] == {  # type: ignore[index]
         "acteurs": 1, "identifies": 0,
     }
 
@@ -119,12 +157,30 @@ def test_les_territoires_sous_le_plancher_sont_nommes() -> None:
 
     sous = panel["territoires_sous_le_plancher"]
 
-    assert "Corée du Sud" in sous  # type: ignore[operator]
-    assert "Taïwan" in sous  # type: ignore[operator]
+    assert "coree du sud" in sous  # type: ignore[operator]
     # Singapour n'a que deux nommés : il y est aussi, et c'est voulu — deux,
     # ce n'est pas trois.
-    assert "Singapour" in sous  # type: ignore[operator]
+    assert "singapour" in sous  # type: ignore[operator]
     assert panel["plancher_par_territoire"] == PLANCHER_PAR_TERRITOIRE
+
+
+def test_un_emplacement_qui_ne_nomme_aucun_pays_est_compte_a_part() -> None:
+    """« Siège international, distribution en Asie » n'est pas un territoire.
+
+    C'est une portée. L'inventer en territoire ferait un marché de plus dans
+    la mesure ; le taire ferait disparaître l'acteur. On le dit (règle 1).
+    """
+    panel = mesurer_le_panel(_Socle([
+        _Acteur("Groupe X", "direct", "x.com",
+                "Siège international, distribution en Asie"),
+        _Acteur("Maison Y", "direct", "y.fr", "Japon"),
+    ]))
+    assert panel is not None
+
+    assert panel["sans_territoire"] == 1
+    assert set(panel["par_territoire"]) == {"japon"}  # type: ignore[call-overload]
+    # L'acteur n'a pas disparu du total.
+    assert panel["acteurs"] == 2
 
 
 # ---------------------------------------------------------------------------
@@ -164,4 +220,5 @@ def test_un_acteur_sans_emplacement_est_range_sans_mentir() -> None:
     ]))
 
     assert panel is not None
-    assert "non précisé" in panel["par_territoire"]  # type: ignore[operator]
+    assert panel["sans_territoire"] == 1
+    assert panel["par_territoire"] == {}

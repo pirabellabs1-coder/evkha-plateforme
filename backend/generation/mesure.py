@@ -391,17 +391,34 @@ def mesurer_le_panel(socle: object) -> dict[str, object] | None:
     if not concurrents:
         return None
 
+    from generation.geography import territoires_de
+
     acteurs = [a for a in concurrents if getattr(a, "type", "") != "projet"]
     identifies = [a for a in acteurs if a.est_identifie]
     par_territoire: dict[str, dict[str, int]] = {}
+    sans_territoire = 0
     for acteur in acteurs:
-        territoire = (getattr(acteur, "emplacement", "") or "non précisé").strip()
-        compte = par_territoire.setdefault(
-            territoire, {"acteurs": 0, "identifies": 0}
-        )
-        compte["acteurs"] += 1
-        if acteur.est_identifie:
-            compte["identifies"] += 1
+        # L'emplacement est de la PROSE : « Hong Kong et Taïwan (plusieurs
+        # magasins) », « Shanghai, Chine », « Siège France, distribution
+        # internationale ». Compter les libellés donnait neuf « territoires »
+        # pour les six que l'étude annonce, dont aucun n'atteignait son
+        # plancher : une mesure bavarde, qui ne disait plus où chercher.
+        noms = territoires_de(getattr(acteur, "emplacement", "") or "")
+        if not noms:
+            # « Siège international, distribution en Asie » ne nomme aucun
+            # pays. C'est une portée, pas un territoire : on le compte à part
+            # plutôt que d'en inventer un (règle 1).
+            sans_territoire += 1
+            continue
+        # Un acteur présent sur DEUX territoires compte dans les deux : c'est
+        # ce que « Hong Kong et Taïwan » dit du concurrent.
+        for nom in noms:
+            compte = par_territoire.setdefault(
+                nom, {"acteurs": 0, "identifies": 0}
+            )
+            compte["acteurs"] += 1
+            if acteur.est_identifie:
+                compte["identifies"] += 1
 
     return {
         "acteurs": len(acteurs),
@@ -414,6 +431,9 @@ def mesurer_le_panel(socle: object) -> dict[str, object] | None:
             1 for a in identifies if getattr(a, "type", "") == "direct"
         ),
         "territoires": len(par_territoire),
+        #: Les acteurs dont l'emplacement ne nomme aucun pays. Dit, pas rangé
+        #: sous un territoire inventé.
+        "sans_territoire": sans_territoire,
         "par_territoire": dict(sorted(
             par_territoire.items(), key=lambda x: x[1]["identifies"]
         )),
