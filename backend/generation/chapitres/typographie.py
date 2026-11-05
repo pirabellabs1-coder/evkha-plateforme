@@ -682,6 +682,40 @@ MOTS_ANGLAIS: dict[str, str | None] = {
     "though": None,
 }
 
+#: Le JARGON : des mots compris d'un consultant, pas d'un porteur de projet.
+#:
+#: Liste nommée par la cliente dans son audit du 04/11/2026 : « Je recommande
+#: aussi de simplifier certains termes : benchmark, mass market, storytelling,
+#: omnicanal, cannibalisation, RSE. Ces mots ne rendent pas l'étude plus
+#: précise pour le client. »
+#:
+#: ## Pourquoi une liste SÉPARÉE de `MOTS_ANGLAIS`
+#:
+#: `MOTS_ANGLAIS` ne porte que des CONNECTEURS anglais qui fuient du modèle
+#: (« however », « therefore »). Trois des six termes ci-dessous ne sont pas
+#: anglais du tout — omnicanal, cannibalisation, RSE. Les y ranger les ferait
+#: signaler comme « Mot anglais », c'est-à-dire sous un motif FAUX, et un motif
+#: faux est pire qu'absent (règle 2).
+#:
+#: ## Pourquoi ils se SIGNALENT sans se remplacer
+#:
+#: La raison est celle que `langage_simple` énonce déjà pour les anglicismes :
+#: le déterminant change avec le mot. « le benchmark » → « la comparaison »,
+#: « la cannibalisation » → « le report des ventes ». Un remplacement mot à mot
+#: fabriquerait une faute de français dans un document qui en était exempt.
+#:
+#: L'équivalent est donc une SUGGESTION portée par le motif, jamais une
+#: substitution. Et le constat n'est pas grave : un terme de style ne vaut pas
+#: la réécriture payante d'un chapitre entier.
+JARGON: dict[str, str] = {
+    "benchmark": "la comparaison, ou le relevé de ce que font les concurrents",
+    "mass market": "le grand public",
+    "storytelling": "le récit, ou la façon de raconter",
+    "omnicanal": "présent en boutique, en ligne et par les revendeurs",
+    "cannibalisation": "le report des ventes d'une offre sur une autre",
+    "RSE": "la responsabilité sociale et environnementale, écrite en entier",
+}
+
 #: Capitalisés, ces mots ne sont visés qu'en tête de phrase et suivis d'une
 #: virgule (« However, le marché… »). « Indeed » n'y est jamais : c'est aussi
 #: le nom d'une plateforme d'emploi, citée comme source dans les business plans.
@@ -766,6 +800,45 @@ def mots_anglais(texte: str) -> list[MotAnglais]:
         if _dans_une_phrase_anglaise(texte, m.start(), m.end()):
             continue
         trouves.append(MotAnglais(mot, m.start(), m.end(), MOTS_ANGLAIS[bas]))
+    return trouves
+
+
+_JARGON_RE = re.compile(
+    r"(?<![\w/@.'’-])("
+    + "|".join(sorted((re.escape(t) for t in JARGON), key=len, reverse=True))
+    + r")(?![\w/@'’-])(?!\.\w)",
+    re.IGNORECASE,
+)
+#: La recherche est insensible à la casse, la table ne l'est pas : « RSE » y
+#: est écrit en capitales parce que c'est un sigle. Sans cette table-ci,
+#: `JARGON[terme.casefold()]` lèverait `KeyError` au premier sigle rencontré.
+_JARGON_PAR_CLE: dict[str, str] = {
+    terme.casefold(): equivalent for terme, equivalent in JARGON.items()
+}
+
+
+def jargon(texte: str) -> list[MotAnglais]:
+    """Les termes de jargon restés dans la prose. Source unique (règle 5).
+
+    Rend la même forme que `mots_anglais` — `equivalent` y porte la
+    SUGGESTION, que le motif donne au lecteur et que personne ne substitue.
+
+    Les mêmes exemptions s'appliquent, pour les mêmes raisons : un terme CITÉ
+    entre guillemets est commenté, pas employé (« le mot « benchmark » »), et
+    un terme pris dans une phrase anglaise appartient à cette phrase.
+
+    « RSE » est le seul à être cherché en capitales, puisque c'est un sigle :
+    le filtre de capitalisation de `mots_anglais` viserait à côté.
+    """
+    trouves: list[MotAnglais] = []
+    for m in _JARGON_RE.finditer(texte or ""):
+        terme = m.group(1)
+        bas = terme.casefold()
+        if _entre_guillemets(texte, m.start(), m.end()):
+            continue
+        if _dans_une_phrase_anglaise(texte, m.start(), m.end()):
+            continue
+        trouves.append(MotAnglais(terme, m.start(), m.end(), _JARGON_PAR_CLE[bas]))
     return trouves
 
 

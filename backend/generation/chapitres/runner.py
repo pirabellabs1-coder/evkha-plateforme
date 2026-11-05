@@ -33,7 +33,7 @@ from .configuration import TypeDocument, type_document
 from .fichiers_prompts import rendre_prompt
 from .langage_simple import NOMS_SIMPLES, REGLEMENT_IA, simplifier_le_langage
 from .schema import ChapitrePayload, raccourcir_le_resume, valider_chapitre
-from .typographie import reparer_typographie
+from .typographie import JARGON, reparer_typographie
 
 if TYPE_CHECKING:
     from ..verification.objet_des_chiffres import ChiffreEcrit
@@ -184,6 +184,23 @@ _SYSTEME = (
     "plus probable ». Un sigle d'analyse ou un anglicisme de consultant n'a "
     "sa place que là où la consigne du chapitre l'exige, une seule fois, "
     "suivi de son nom simple — et ensuite seul le nom simple revient.\n"
+    # Les six termes nommés par la cliente dans son audit du 04/11/2026 :
+    # « Je recommande aussi de simplifier certains termes : benchmark, mass
+    # market, storytelling, omnicanal, cannibalisation, RSE. Ces mots ne
+    # rendent pas l'étude plus précise pour le client. »
+    #
+    # La liste vient de `typographie.JARGON`, que le constat de relecture
+    # emploie aussi : la consigne et la mesure disent la même chose (règle 5),
+    # comme pour `NOMS_SIMPLES` juste au-dessus.
+    #
+    # Et c'est la consigne qui porte l'effort, pas la réparation : mesuré le
+    # 05/11/2026 sur l'étude `25be2162`, la relecture finale n'avait plus de
+    # quoi réécrire un seul chapitre (0,50 € restants pour 0,80 € exigés).
+    # Ce qu'on prévient ici ne coûte rien ; ce qu'on laisse passer ne sera pas
+    # réparé.
+    "- Ces mots-là, jamais : "
+    + ", ".join(f"« {terme} » (écris {remede})" for terme, remede in JARGON.items())
+    + ".\n"
     "- Des phrases courtes : une idée par phrase, vingt-cinq mots au plus en "
     "règle générale. Le sujet, le verbe, puis ce qui compte.\n"
     "- Du concret : chaque notion s'accroche à un exemple de la vie du projet "

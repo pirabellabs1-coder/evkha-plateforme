@@ -513,6 +513,58 @@ def _formulations_interdites(document: Document, livrable: str) -> list[Constat]
     return constats
 
 
+def _jargon_de_consultant(document: Document) -> list[Constat]:
+    """Les termes qu'un consultant comprend et qu'un porteur de projet non.
+
+    ## La demande
+
+    Audit de la cliente du 04/11/2026, point 8 : « Je recommande aussi de
+    simplifier certains termes : benchmark, mass market, storytelling,
+    omnicanal, cannibalisation, RSE. Ces mots ne rendent pas l'étude plus
+    précise pour le client. » La liste close vit dans
+    `chapitres/typographie.JARGON` — une seule source pour la consigne et pour
+    ce constat (règle 5).
+
+    ## Pourquoi il SIGNALE, et pourquoi il n'est pas grave
+
+    Deux raisons, et aucune n'est de la timidité.
+
+    La première est linguistique, et `langage_simple` l'énonce déjà pour les
+    anglicismes : le déterminant change avec le mot. « le benchmark » devient
+    « la comparaison », « la cannibalisation » devient « le report des
+    ventes ». Un remplacement mot à mot fabriquerait une faute de français
+    dans un document qui en était exempt. L'équivalent est donc une
+    SUGGESTION portée par le motif, jamais une substitution.
+
+    La seconde est économique, et elle vient d'être mesurée. L'étude
+    `25be2162` a coûté 3,9986 € sur un plafond de 4,50 € : la relecture finale
+    a réclamé `MARGE_DE_BUDGET + RESERVE_DU_REJEU` — 0,80 € — n'a trouvé que
+    0,50 €, et n'a réécrit AUCUN chapitre. Sur ce livrable, la boucle de
+    réparation ne tourne pas. Un motif GRAVE de plus ne corrigerait donc rien
+    et prendrait la place d'un défaut qui compte, quand le budget existera.
+
+    Un terme de style ne vaut pas la réécriture payante d'un chapitre entier.
+    """
+    from ..chapitres.typographie import jargon  # noqa: PLC0415
+
+    constats: list[Constat] = []
+    deja_dit: set[str] = set()
+    for section in document.sections:
+        for phrase in textes_de_la_section(section):
+            for trouve in jargon(phrase):
+                cle = trouve.mot.casefold()
+                if cle in deja_dit:
+                    continue
+                deja_dit.add(cle)
+                constats.append(Constat(
+                    "redaction", section.numero, phrase[:200],
+                    f"« {trouve.mot} » : du jargon que le client ne lit pas "
+                    f"comme une précision. Écris plutôt {trouve.equivalent}.",
+                    grave=False,
+                ))
+    return constats
+
+
 def controler(document: Document, reference: Reference) -> list[Constat]:
     return [
         # Le seul contrôle de ce module qui dépend du LIVRABLE : chaque cahier
@@ -524,4 +576,5 @@ def controler(document: Document, reference: Reference) -> list[Constat]:
         *_double_compte(document),
         *_orthographe_a_deux_graphies(document),
         *_nombres_sans_echelle(document),
+        *_jargon_de_consultant(document),
     ]
