@@ -108,6 +108,9 @@ class Mesure:
     catalogue_figures: int = 0
     catalogue_formes: int = 0
     chiffres_hors_socle_en_contexte: list[dict[str, object]] = field(default_factory=list)
+    #: La composition du PANEL de concurrents. `None` quand le dossier n'a pas
+    #: de socle verrouillé — ne pas pouvoir mesurer n'est pas mesurer zéro.
+    panel: dict[str, object] | None = None
     #: Renseigné quand le document n'a pas pu être rendu. Ne pas pouvoir
     #: mesurer EST la mesure : on le dit, on ne rend pas des zéros.
     echec: str = ""
@@ -148,6 +151,7 @@ class Mesure:
             "catalogue": {
                 "figures": self.catalogue_figures, "formes": self.catalogue_formes,
             },
+            "panel": self.panel,
         }
 
 
@@ -348,6 +352,79 @@ def _echecs_du_gate(
     ])
 
 
+#: Ce qu'elle demande par territoire : « identifier au moins trois à cinq
+#: acteurs concrets par territoire, lorsque le marché le permet » (audit du
+#: 04/11/2026). Le plancher sert à CLASSER les territoires dans la mesure, pas
+#: à bloquer : sa réserve est explicite, et un marché sans acteur nommable
+#: existe — exiger un nombre là ferait inventer des entreprises.
+PLANCHER_PAR_TERRITOIRE = 3
+
+
+def mesurer_le_panel(socle: object) -> dict[str, object] | None:
+    """La composition du panel de concurrents, telle qu'elle la compte.
+
+    ## Pourquoi cette mesure existe
+
+    Audit du 04/11/2026 : « Parmi les huit concurrents qualifiés de directs,
+    trois ne sont pas des entreprises identifiées, mais de simples catégories
+    d'acteurs […] il ne reste que quatre concurrents directs nommément
+    identifiés et actifs dans le panel. »
+
+    Elle a dû les compter À LA MAIN, et moi aussi : ni la fiche du dossier ni
+    `mesure/` n'exposaient la composition du panel. Un défaut qu'on ne peut
+    pas mesurer se discute au lieu de se corriger — et c'est par ce trou qu'un
+    panel de quatre entreprises réelles a pu passer pour huit concurrents
+    directs, en étant parfaitement conforme à la consigne d'alors.
+
+    C'est la même raison qui a fait exposer les compteurs de cache le
+    28/10/2026 : mesuré, le cache s'est révélé à 96,2 % de lecture, là où une
+    note périmée annonçait 40 % à récupérer.
+
+    ## Ce qu'elle ne fait pas
+
+    Elle ne juge pas. Le plancher par territoire CLASSE les territoires, il ne
+    produit aucun motif : la cliente écrit « lorsque le marché le permet », et
+    un contrôle qui exigerait un nombre ferait inventer des entreprises —
+    exactement le défaut de l'étude `3a4df56c` d'août 2026.
+    """
+    concurrents = getattr(socle, "concurrents", None)
+    if not concurrents:
+        return None
+
+    acteurs = [a for a in concurrents if getattr(a, "type", "") != "projet"]
+    identifies = [a for a in acteurs if a.est_identifie]
+    par_territoire: dict[str, dict[str, int]] = {}
+    for acteur in acteurs:
+        territoire = (getattr(acteur, "emplacement", "") or "non précisé").strip()
+        compte = par_territoire.setdefault(
+            territoire, {"acteurs": 0, "identifies": 0}
+        )
+        compte["acteurs"] += 1
+        if acteur.est_identifie:
+            compte["identifies"] += 1
+
+    return {
+        "acteurs": len(acteurs),
+        "directs": sum(1 for a in acteurs if getattr(a, "type", "") == "direct"),
+        "indirects": sum(1 for a in acteurs if getattr(a, "type", "") == "indirect"),
+        # Le nombre qu'elle a compté à la main.
+        "identifies": len(identifies),
+        "categories": len(acteurs) - len(identifies),
+        "directs_identifies": sum(
+            1 for a in identifies if getattr(a, "type", "") == "direct"
+        ),
+        "territoires": len(par_territoire),
+        "par_territoire": dict(sorted(
+            par_territoire.items(), key=lambda x: x[1]["identifies"]
+        )),
+        "territoires_sous_le_plancher": sorted(
+            nom for nom, compte in par_territoire.items()
+            if compte["identifies"] < PLANCHER_PAR_TERRITOIRE
+        ),
+        "plancher_par_territoire": PLANCHER_PAR_TERRITOIRE,
+    }
+
+
 def mesurer(job: GenerationJob) -> Mesure:
     """Compte les trois défauts sur le livrable du dossier. N'écrit rien."""
     from generation.rendu_word.services import produire_docx
@@ -391,6 +468,7 @@ def mesurer(job: GenerationJob) -> Mesure:
         chiffres_hors_socle=hors_socle,
         autres_anomalies=len(controle.anomalies) - len(hors_socle),
         adresses_collectees=adresses_collectees(job),
+        panel=mesurer_le_panel(socle),
         anomalies=_regrouper([
             (a.controle, a.chapitre, a.detail, a.extrait) for a in controle.anomalies
         ]),
