@@ -166,13 +166,79 @@ def _faux_dns(hote: str) -> bool | None:
 
 def test_un_domaine_inconnu_et_inexistant_est_signale() -> None:
     (trouve,) = detecter_domaines_inexistants(
-        [_section(9, "Source : https://www.observatoire-bidon.fr/etude-2025")],
+        [_section(9, "Source : https://observatoire-bidon.fr/etude-2025")],
         hotes_admis=frozenset({"insee.fr"}),
         resoudre=_faux_dns,
     )
     assert trouve.hote == "observatoire-bidon.fr"
     assert trouve.chapitre == 9
-    assert "n'existe pas" in str(trouve)
+    assert "ne répond pas" in str(trouve)
+
+
+# ── L'hôte interrogé est celui que le LECTEUR saisit ─────────────────────────
+#
+# Mesuré le 06/11/2026 sur `03c9291b` avec un second résolveur : trois enseignes
+# RÉELLES du document — `citysuper.com.tw`, `isetan.co.jp`, `samsclub.cn` — ont
+# une zone DNS qui existe (NS trouvé) et AUCUNE adresse à l'apex ; leur site
+# est sur `www`. `getaddrinfo` rend `EAI_NONAME` pour ce cas comme pour un
+# NXDOMAIN, et `_hote` retirait `www` avant d'interroger. Un document qui écrit
+# correctement `www.citysuper.com.tw` se faisait donc accuser sur
+# `citysuper.com.tw`, qui ne répond pas — un motif faux, qui fait payer une
+# réécriture pour retirer un concurrent qui existe (règle 2).
+
+
+def test_une_adresse_en_www_est_interrogee_telle_quelle() -> None:
+    """LE défaut : `www` était retiré, et c'est l'apex muet qu'on jugeait.
+
+    Échoue sur le code d'avant : l'hôte y valait « citysuper.com.tw », que
+    `_dns_reel_du_06_11` déclare sans réponse → un motif sur une adresse qui
+    marche.
+    """
+    def _dns_reel_du_06_11(hote: str) -> bool | None:
+        return hote.startswith("www.")        # apex muet, site sur www
+
+    assert detecter_domaines_inexistants(
+        [_section(1, "City'super Taïwan — www.citysuper.com.tw")],
+        hotes_admis=frozenset(),
+        resoudre=_dns_reel_du_06_11,
+    ) == []
+
+
+def test_l_adresse_nue_vers_un_apex_muet_reste_signalee_sans_nier_le_domaine() -> None:
+    """CONTRE-ÉPREUVE : on ne se taît pas, et on n'affirme pas le faux.
+
+    Écrite nue, l'adresse ne mène nulle part : le motif reste dû. Mais il ne
+    doit plus dire « le domaine n'existe pas » — c'est faux de l'enseigne
+    réelle — et il doit nommer la piste qui répare les deux cas.
+    """
+    (trouve,) = detecter_domaines_inexistants(
+        [_section(1, "City'super Taïwan — citysuper.com.tw")],
+        hotes_admis=frozenset(),
+        resoudre=lambda hote: hote.startswith("www."),
+    )
+    assert trouve.hote == "citysuper.com.tw"
+    assert "ne répond pas" in str(trouve)
+    assert "n'existe pas" not in str(trouve)
+    assert "www." in str(trouve)
+
+
+def test_un_domaine_admis_couvre_son_www() -> None:
+    """CONTRE-ÉPREUVE : la liste blanche est sans `www`, la citation peut en avoir.
+
+    `_admis` compare par suffixe : un `insee.fr` donné par la cliente doit
+    continuer de couvrir `www.insee.fr` cité, même avec un DNS qui refuse tout.
+    """
+    assert detecter_domaines_inexistants(
+        [_section(2, "Source : https://www.insee.fr/fr/statistiques/1")],
+        hotes_admis=frozenset({"insee.fr"}),
+        resoudre=lambda _: False,
+    ) == []
+
+
+def test_la_liste_blanche_reste_sans_www() -> None:
+    """La forme par défaut ne change pas : la liste blanche se construit dessus."""
+    assert set(hotes_cites("Source : www.insee.fr/x")) == {"insee.fr"}
+    assert set(hotes_cites("Source : www.insee.fr/x", garder_www=True)) == {"www.insee.fr"}
 
 
 @pytest.mark.parametrize(

@@ -1770,11 +1770,33 @@ def detecter_chapitres_desaccentues(
 # est un lien mort, motif vrai et trouvable par le lecteur (règle 2). Une panne
 # DNS temporaire n'accuse personne. Un chemin inventé sur un domaine réel reste
 # hors de portée sans requête HTTP — limite assumée, nommée ici.
+#
+# ## Ce que ce contrôle MESURE vraiment, et ce qu'il ne doit plus affirmer
+#
+# `socket.getaddrinfo` rend `EAI_NONAME` dans DEUX situations que rien ne
+# distingue depuis la bibliothèque standard :
+#
+#     cityshop.com.cn     la zone n'existe pas         (NXDOMAIN)
+#     citysuper.com.tw    la zone EXISTE, le site est  (NODATA : NS trouvé,
+#                         sur « www », l'apex n'a           aucun A à l'apex)
+#                         aucune adresse
+#
+# Mesuré le 06/11/2026 sur `03c9291b`, par un second résolveur : trois enseignes
+# RÉELLES du document — `citysuper.com.tw`, `isetan.co.jp`, `samsclub.cn` — sont
+# dans le second cas. Le motif leur disait « le domaine n'existe pas » : c'est
+# FAUX, et un motif faux fait payer une réécriture pour retirer un concurrent
+# qui existe (règle 2). Elles n'étaient muettes que par la liste blanche —
+# donc par chance, pas par construction.
+#
+# On n'affirme donc plus que le domaine n'existe pas. On affirme ce qui a été
+# mesuré et qui est vrai des deux cas : **l'adresse écrite ne répond pas**, et
+# un lecteur qui la saisit n'arrive nulle part. La réparation couvre les deux
+# (vérifier l'adresse, « www » compris, ou la retirer).
 
 
 @dataclass(frozen=True)
 class DomaineInexistant:
-    """Une adresse citée dont le domaine n'existe pas."""
+    """Une adresse citée dont l'hôte écrit ne répond pas au DNS."""
 
     chapitre: int
     titre: str
@@ -1783,35 +1805,52 @@ class DomaineInexistant:
 
     def __str__(self) -> str:
         return (
-            f"Adresse « {self.adresse} » dans le chapitre « {self.titre} » : le "
-            f"domaine « {self.hote} » n'existe pas (aucune résolution DNS). Un "
-            "lecteur qui clique n'arrive nulle part. Retire cette adresse, ou "
-            "remplace-la par une adresse du bloc des sources collectées."
+            f"Adresse « {self.adresse} » dans le chapitre « {self.titre} » : "
+            f"l'hôte « {self.hote} » ne répond pas (aucune résolution DNS). Un "
+            "lecteur qui saisit cette adresse n'arrive nulle part. Vérifie "
+            "l'adresse exacte du site — elle est souvent sur « www. » —, "
+            "retire-la, ou remplace-la par une adresse du bloc des sources "
+            "collectées."
         )
 
 
 _PORT_RE = re.compile(r":\d+$")
 
 
-def _hote(adresse: str) -> str:
-    """« https://www.Insee.fr:443/fr/stat » → « insee.fr »."""
+def _hote(adresse: str, *, garder_www: bool = False) -> str:
+    """« https://www.Insee.fr:443/fr/stat » → « insee.fr », ou « www.insee.fr ».
+
+    `garder_www=True` rend l'hôte **tel que le lecteur le saisit**. C'est la
+    forme à interroger : `www.citysuper.com.tw` répond là où
+    `citysuper.com.tw` ne répond pas, et juger la seconde quand le document
+    écrit la première, c'est accuser une adresse qui marche — la faute même
+    que la troncature `.com.tw` → `.com` avait produite (06/11/2026).
+
+    La forme SANS `www` reste celle de la liste blanche : `_admis` y compare
+    par suffixe, si bien qu'un `insee.fr` admis couvre `www.insee.fr` cité.
+    """
     sans_schema = re.sub(r"^[a-z][a-z0-9+.-]*://", "", adresse.strip(), flags=re.IGNORECASE)
     hote = sans_schema.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
     hote = _PORT_RE.sub("", hote).strip(".").lower()
+    if garder_www:
+        return hote
     return hote[4:] if hote.startswith("www.") else hote
 
 
-def hotes_cites(texte: str) -> dict[str, str]:
+def hotes_cites(texte: str, *, garder_www: bool = False) -> dict[str, str]:
     """Chaque domaine cité dans `texte`, avec une adresse qui le porte.
 
     Une URL complète comme un domaine nu (« gold.fr/vente-or ») : les deux
     formes que les livrables emploient (`adresse_de_la_source`).
+
+    `garder_www=True` pour interroger le DNS ; par défaut pour la liste
+    blanche, qui se compare par suffixe (voir `_hote`).
     """
     trouves: dict[str, str] = {}
     for motif in (_URL_RE, _DOMAINE_RE):
         for m in motif.finditer(texte or ""):
             adresse = m.group(0).rstrip(".,;:")
-            hote = _hote(adresse)
+            hote = _hote(adresse, garder_www=garder_www)
             if "." in hote and hote not in trouves:
                 trouves[hote] = adresse
     return trouves
@@ -1851,12 +1890,18 @@ def detecter_domaines_inexistants(
     *,
     resoudre: Callable[[str], bool | None] = resoudre_dns,
 ) -> list[DomaineInexistant]:
-    """Les adresses du document dont le domaine, inconnu de nous, n'existe pas."""
+    """Les adresses du document dont l'hôte écrit, inconnu de nous, ne répond pas.
+
+    L'hôte est interrogé **tel qu'il est écrit** (`garder_www=True`) : c'est ce
+    que le lecteur saisit. La liste blanche, elle, est sans `www` et se compare
+    par suffixe (`_admis`), si bien qu'un domaine admis couvre ses
+    sous-domaines.
+    """
     trouves: list[DomaineInexistant] = []
     verdicts: dict[str, bool | None] = {}
     for section in sections:
         corps = getattr(section, "body", "") or ""
-        for hote, adresse in hotes_cites(corps).items():
+        for hote, adresse in hotes_cites(corps, garder_www=True).items():
             if _admis(hote, hotes_admis):
                 continue
             if hote not in verdicts:
