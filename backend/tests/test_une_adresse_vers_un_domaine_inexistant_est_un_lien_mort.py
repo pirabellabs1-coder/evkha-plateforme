@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from generation.checks_post_rendu import (
+    _admis,
     _hote,
     detecter_domaines_inexistants,
     hotes_cites,
@@ -298,3 +299,63 @@ def test_seul_un_nom_inconnu_vaut_inexistant(monkeypatch: pytest.MonkeyPatch) ->
 def test_la_boucle_de_correction_sait_le_reparer() -> None:
     assert _is_regenerable("domaine_inexistant")
     assert "domaine_inexistant" in _CHECK_LABELS
+
+
+# ── Un SUFFIXE dans la liste blanche admettait tout un pays ──────────────────
+#
+# Mesuré le 06/11/2026 sur `6616a393`. Le document écrivait « (avec Cold
+# Storage, même groupe com.sg) » : phrase abîmée, et pour le lecteur du
+# contrôle l'adresse `com.sg`, qui ne répond pas. Le gate n'en a rien dit.
+#
+# La liste blanche est bâtie en lisant les adresses de textes EXTRAITS DE PDF
+# (brief de recherche, documents du client). Un retour à la ligne au milieu
+# d'une adresse y fabrique « com.sg », « com.tw », « co.jp » — et `_admis`
+# comparant par suffixe, « com.tw » fait finir par `.com.tw` TOUS les domaines
+# taïwanais du livrable, inventés compris.
+
+
+def test_un_retour_a_la_ligne_de_pdf_fabrique_un_suffixe() -> None:
+    """La cause, mesurée : le lecteur rend bien un fragment sans nom devant."""
+    assert set(hotes_cites("Source : https://www.fairprice.\ncom.sg/produits")) == {"com.sg"}
+    assert set(hotes_cites("Voir citysuper.\ncom.tw pour la gamme")) == {"com.tw"}
+
+
+@pytest.mark.parametrize(
+    ("hote", "suffixe"),
+    [
+        pytest.param("citysuper.com.tw", "com.tw", id="taiwan"),
+        pytest.param("nimporte-quoi.com.sg", "com.sg", id="singapour"),
+        pytest.param("invente.co.jp", "co.jp", id="japon"),
+        pytest.param("com.sg", "com.sg", id="le-fragment-lui-meme"),
+    ],
+)
+def test_un_suffixe_admis_n_admet_personne(hote: str, suffixe: str) -> None:
+    """LE défaut : un pays entier blanchi par un fragment d'extraction.
+
+    Échoue sur le code d'avant, où `_admis` rendait True pour les quatre.
+    """
+    assert not _admis(hote, {suffixe})
+
+
+def test_le_fragment_mesure_redevient_un_motif() -> None:
+    """Bout en bout : la phrase abîmée de `6616a393` n'est plus couverte."""
+    (trouve,) = detecter_domaines_inexistants(
+        [_section(1, "Conservé, concurrent direct (avec Cold Storage, même groupe com.sg)")],
+        hotes_admis=frozenset({"com.sg", "fairprice.com.sg"}),
+        resoudre=lambda hote: hote != "com.sg",
+    )
+    assert trouve.hote == "com.sg"
+
+
+@pytest.mark.parametrize(
+    ("hote", "admis"),
+    [
+        pytest.param("data.insee.fr", "insee.fr", id="sous-domaine-d-un-vrai-domaine"),
+        pytest.param("insee.fr", "insee.fr", id="le-domaine-lui-meme"),
+        pytest.param("fairprice.com.sg", "fairprice.com.sg", id="domaine-sous-suffixe-multiple"),
+        pytest.param("shop.fairprice.com.sg", "fairprice.com.sg", id="sous-domaine-sous-suffixe"),
+    ],
+)
+def test_contre_epreuve_un_vrai_domaine_admis_le_reste(hote: str, admis: str) -> None:
+    """Le correctif ne doit pas vider la liste blanche de ce qui la justifie."""
+    assert _admis(hote, {admis})

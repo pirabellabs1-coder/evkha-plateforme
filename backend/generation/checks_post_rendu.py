@@ -1856,9 +1856,59 @@ def hotes_cites(texte: str, *, garder_www: bool = False) -> dict[str, str]:
     return trouves
 
 
+#: Les terminaisons connues, prises à leur source unique (règle 5).
+_JEU_DES_TERMINAISONS = frozenset(_TERMINAISONS.split("|"))
+
+
+def _est_un_suffixe(hote: str) -> bool:
+    """« com.sg », « com.tw », « co.jp », « gouv.fr » : un suffixe, pas un domaine.
+
+    Un hôte dont TOUS les morceaux sont des terminaisons connues ne désigne
+    personne : il n'y a pas de nom devant. Admettre un tel hôte, c'est admettre
+    tout un pays — voir `_admis`.
+    """
+    morceaux = hote.split(".")
+    return len(morceaux) >= 2 and all(m in _JEU_DES_TERMINAISONS for m in morceaux)
+
+
 def _admis(hote: str, hotes_admis: Collection[str]) -> bool:
-    """Un sous-domaine d'un hôte admis est admis : « data.insee.fr » pour « insee.fr »."""
-    return any(hote == admis or hote.endswith("." + admis) for admis in hotes_admis)
+    """Un sous-domaine d'un hôte admis est admis : « data.insee.fr » pour « insee.fr ».
+
+    ## Pourquoi un SUFFIXE n'admet rien
+
+    Mesuré le 06/11/2026 sur `6616a393`. Le document écrivait « (avec Cold
+    Storage, même groupe com.sg) » — une phrase abîmée, et pour le lecteur du
+    contrôle une adresse `com.sg`, qui ne répond pas. Le gate n'en a rien dit.
+
+    La cause est ici : la comparaison se fait par SUFFIXE, et la liste blanche
+    est construite en lisant les adresses de textes **extraits de PDF** (le
+    brief de recherche, les documents du client). Un retour à la ligne au
+    milieu d'une adresse y fabrique un fragment :
+
+        « https://www.fairprice.\\ncom.sg/produits »  ->  « com.sg »
+        « citysuper.\\ncom.tw »                       ->  « com.tw »
+
+    Et `com.tw` admis fait finir par `.com.tw` **tous** les domaines taïwanais
+    du livrable, inventés compris. Un seul retour à la ligne dans le PDF d'une
+    cliente aveuglait le contrôle sur un marché entier : c'est très
+    probablement pourquoi `citysuper.com.tw` restait muet le matin même, après
+    que le socle eut cessé de le blanchir.
+
+    Le défaut n'est pas la composition de la liste (règle 4), c'est qu'un hôte
+    SANS NOM devant sa terminaison puisse y entrer. Un tel hôte ne désigne
+    personne, donc il n'admet personne.
+
+    Ce que cela coûte, nommé : un domaine réel dont tous les morceaux sont des
+    mots de terminaison (« shop.de », « app.fr ») n'est plus admis. Il n'est
+    pas accusé pour autant — la liste ne fait que SAUTER la requête DNS, et un
+    domaine qui existe répond. Le seul cas perdu est un domaine MORT, donné par
+    un humain, et nommé uniquement de terminaisons.
+    """
+    return any(
+        hote == admis or hote.endswith("." + admis)
+        for admis in hotes_admis
+        if not _est_un_suffixe(admis)
+    )
 
 
 def resoudre_dns(hote: str) -> bool | None:
