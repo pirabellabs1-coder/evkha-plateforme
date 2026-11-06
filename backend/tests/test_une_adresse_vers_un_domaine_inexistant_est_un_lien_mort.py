@@ -359,3 +359,64 @@ def test_le_fragment_mesure_redevient_un_motif() -> None:
 def test_contre_epreuve_un_vrai_domaine_admis_le_reste(hote: str, admis: str) -> None:
     """Le correctif ne doit pas vider la liste blanche de ce qui la justifie."""
     assert _admis(hote, {admis})
+
+
+# ── Le verdict ne doit pas dependre de la plateforme ─────────────────────────
+#
+# Mesure du 06/11/2026, et VRAIE cause du silence sur `citysuper.com.tw` —
+# ni le socle, ni le brief de recherche, ni un suffixe dans la liste blanche,
+# les trois causes que j'avais annoncees tour a tour.
+#
+# Un nom echoue de deux facons que le DNS distingue :
+#
+#     NXDOMAIN   le nom n'existe pas                  -> EAI_NONAME
+#     NODATA     le nom EXISTE, sans adresse a l'apex -> EAI_NODATA
+#
+# `EAI_NODATA` vaut -5 sur la glibc (la production) et 11001 sur Windows, ou il
+# est confondu avec `EAI_NONAME`. Le controle accusait donc en local et se
+# taisait en production, sur le MEME document. Sur `6616a393` et `03c9291b`, la
+# partition est exacte : les quatre hotes signales sont NXDOMAIN, les quatre
+# muets sont NODATA.
+
+
+@pytest.mark.parametrize(
+    ("errno_", "quoi"),
+    [
+        pytest.param(-2, "NXDOMAIN sur glibc", id="glibc-EAI_NONAME"),
+        pytest.param(-5, "NODATA sur glibc", id="glibc-EAI_NODATA"),
+        pytest.param(11001, "les deux, confondus sur Windows", id="windows"),
+    ],
+)
+def test_un_hote_sans_adresse_ne_repond_pas_sur_toute_plateforme(
+    errno_: int, quoi: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """LE défaut : `-5` rendait « on ne sait pas », donc le silence en production.
+
+    Échoue sur le code d'avant pour `glibc-EAI_NODATA` : il n'y comparait qu'à
+    `socket.EAI_NONAME`, qui vaut 11001 sur cette machine. Le cas Windows
+    passait déjà — c'est précisément pourquoi le défaut était invisible ici.
+    """
+    def _echec(*_: Any, **__: Any) -> Any:
+        raise socket.gaierror(errno_, quoi)
+
+    monkeypatch.setattr(socket, "getaddrinfo", _echec)
+    assert resoudre_dns("peu-importe.fr") is False, quoi
+
+
+@pytest.mark.parametrize(
+    "errno_",
+    [
+        pytest.param(-3, id="glibc-EAI_AGAIN-resolveur-en-panne"),
+        pytest.param(-4, id="glibc-EAI_FAIL"),
+        pytest.param(11002, id="windows-EAI_AGAIN"),
+    ],
+)
+def test_contre_epreuve_ne_pas_savoir_n_accuse_personne(
+    errno_: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Une panne de resolveur n'est pas un lien mort : elle doit rendre None."""
+    def _panne(*_: Any, **__: Any) -> Any:
+        raise socket.gaierror(errno_, "resolveur indisponible")
+
+    monkeypatch.setattr(socket, "getaddrinfo", _panne)
+    assert resoudre_dns("peu-importe.fr") is None

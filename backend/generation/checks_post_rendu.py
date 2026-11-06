@@ -1890,9 +1890,15 @@ def _admis(hote: str, hotes_admis: Collection[str]) -> bool:
 
     Et `com.tw` admis fait finir par `.com.tw` **tous** les domaines taïwanais
     du livrable, inventés compris. Un seul retour à la ligne dans le PDF d'une
-    cliente aveuglait le contrôle sur un marché entier : c'est très
-    probablement pourquoi `citysuper.com.tw` restait muet le matin même, après
-    que le socle eut cessé de le blanchir.
+    cliente peut donc aveugler le contrôle sur un marché entier.
+
+    **Ce n'était PAS la cause du silence sur `citysuper.com.tw`**, contrairement
+    à ce que ce commentaire a affirmé le 06/11/2026. La prédiction qui allait
+    avec — « ces hôtes deviendront des motifs après déploiement » — a été
+    vérifiée et elle est FAUSSE : rien n'a bougé. La vraie cause était
+    `EAI_NODATA`, voir `_SANS_ADRESSE`. Ce garde-fou reste nécessaire comme
+    trou latent, démontré mécaniquement par ses tests ; il n'explique aucun
+    silence observé.
 
     Le défaut n'est pas la composition de la liste (règle 4), c'est qu'un hôte
     SANS NOM devant sa terminaison puisse y entrer. Un tel hôte ne désigne
@@ -1911,17 +1917,56 @@ def _admis(hote: str, hotes_admis: Collection[str]) -> bool:
     )
 
 
-def resoudre_dns(hote: str) -> bool | None:
-    """True : le domaine existe ; False : il n'existe pas ; None : on ne sait pas.
+#: Les codes qui disent « cet hôte n'a pas d'adresse », sur TOUTES les
+#: plateformes.
+#:
+#: ## Pourquoi il en faut deux, mesuré le 06/11/2026
+#:
+#: Un nom peut échouer de deux façons que le DNS distingue :
+#:
+#:     NXDOMAIN   le nom n'existe pas                  -> EAI_NONAME
+#:     NODATA     le nom EXISTE, sans adresse à l'apex -> EAI_NODATA
+#:
+#: Or `EAI_NODATA` vaut **-5 sur la glibc** — la production — et **11001 sur
+#: Windows**, où il est confondu avec `EAI_NONAME`. Le contrôle rendait donc
+#: deux verdicts différents sur le MÊME document selon la machine : il accusait
+#: en local et se taisait en production.
+#:
+#: Mesuré sur l'étude `6616a393` et la reprise `03c9291b`, la partition est
+#: exacte — les quatre hôtes signalés sont NXDOMAIN, les quatre muets sont
+#: NODATA :
+#:
+#:     signales : cityshop.com.cn  miacbon.com.cn  culinaconcepts.com
+#:                thefrenchgrocer.com.sg
+#:     muets    : citysuper.com.tw  isetan.co.jp  samsclub.cn  com.sg
+#:
+#: C'est la VRAIE cause du silence sur `citysuper.com.tw`, que j'avais imputée
+#: d'abord au socle, puis au brief de recherche, puis à un suffixe dans la
+#: liste blanche. Aucune des trois.
+#:
+#: Et le verdict est désormais tranché, pas subi : un hôte sans adresse NE
+#: RÉPOND PAS, c'est ce que le motif affirme, et c'est vrai des deux cas — le
+#: lecteur qui saisit l'adresse n'arrive nulle part. Règle 5 : une seule source
+#: par vérité, et ce n'est pas la plateforme.
+_SANS_ADRESSE = frozenset(
+    code
+    for code in (getattr(socket, "EAI_NONAME", None), getattr(socket, "EAI_NODATA", None))
+    if code is not None
+) | {-2, -5}  # les valeurs de la glibc, nommées pour que le test vaille partout
 
-    Seul `EAI_NONAME` (nom inconnu) vaut « n'existe pas ». Toute autre erreur —
+
+def resoudre_dns(hote: str) -> bool | None:
+    """True : l'hôte a une adresse ; False : il n'en a pas ; None : on ne sait pas.
+
+    `EAI_NONAME` (nom inconnu) et `EAI_NODATA` (nom connu, sans adresse) valent
+    tous deux « ne répond pas » — voir `_SANS_ADRESSE`. Toute autre erreur —
     résolveur injoignable, délai — vaut « on ne sait pas » : ne pas savoir
     n'autorise pas à accuser.
     """
     try:
         socket.getaddrinfo(hote, None)
     except socket.gaierror as erreur:
-        if erreur.errno == socket.EAI_NONAME:
+        if erreur.errno in _SANS_ADRESSE:
             return False
         return None
     except OSError:
