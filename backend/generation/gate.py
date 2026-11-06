@@ -2291,11 +2291,41 @@ def _check_montants_non_arrondis(
 
 
 def _hotes_admis(job: GenerationJob) -> frozenset[str]:
-    """Les domaines que QUELQU'UN nous a donnés : ils ne sont jamais accusés.
+    """Les domaines qu'un HUMAIN nous a donnés : ils ne sont jamais accusés.
 
-    Le brief de recherche, les réponses du client, ses documents, le socle
-    (sites des concurrents, sources) et les fichiers de prompts — ceux-ci
-    distribuent eux-mêmes des portails institutionnels au modèle.
+    Le brief de recherche, les réponses du client, ses documents et les
+    fichiers de prompts — ceux-ci distribuent eux-mêmes des portails
+    institutionnels au modèle.
+
+    ## Ce que le socle N'apporte PAS, et pourquoi
+
+    Le socle en faisait partie jusqu'au 06/11/2026 : ses `concurrents[].site_web`
+    et ses `donnees[].source` blanchissaient leurs propres domaines. Or **le
+    socle est écrit par le modèle.** Une adresse qu'il inventait s'autorisait
+    donc elle-même, et le contrôle ne regardait plus jamais si elle existait.
+
+    Mesuré sur la reprise `ecb28fa8` de l'étude SUN TZU : trois adresses du
+    document ne résolvaient pas, le contrôle n'en a signalé qu'UNE —
+    `culinaconcepts.com`, la seule qui n'apparaissait qu'en prose.
+    `citysuper.com.tw` et `thefrenchgrocer.com.sg` étaient dans le socle, donc
+    admises sans question. Aucune des trois ne figure dans le brief de la
+    cliente, vérifié.
+
+    C'est la règle 9 du dépôt : un contrôle et ce qu'il juge ne doivent pas
+    partager leur évidence. Et c'est la règle 4 — la classe n'est pas « le
+    socle », c'est **tout texte produit par le modèle** : rien de ce qu'il
+    écrit ne vaut comme autorisation.
+
+    Retirer ces entrées n'accuse aucun domaine réel : `hotes_admis` ne sert
+    qu'à SAUTER l'interrogation DNS, et seul un nom qui échoue explicitement
+    fait un motif (`verdicts[hote] is False`). Un domaine qui existe résout,
+    qu'il soit dans la liste ou non. Ce que la liste protège, ce sont les
+    domaines MORTS qu'un humain nous a donnés : on n'accuse pas la cliente
+    d'avoir inventé le site d'un concurrent qu'elle a cité elle-même. Le
+    modèle, lui, n'a pas droit à cette présomption.
+
+    Les sites de concurrents que la cliente a nommés restent admis : ils
+    arrivent par `normalized_variables` et par ses documents, lus ci-dessous.
     """
     import json  # noqa: PLC0415
 
@@ -2304,18 +2334,12 @@ def _hotes_admis(job: GenerationJob) -> frozenset[str]:
     from .chapitres.configuration import types_declares  # noqa: PLC0415
     from .checks_post_rendu import hotes_cites  # noqa: PLC0415
     from .documents_client import texte_des_documents  # noqa: PLC0415
-    from .socle import socle_verrouille  # noqa: PLC0415
 
     textes: list[str] = [job.research_brief or ""]
     soumission = IntakeSubmission.objects.filter(order=job.order).first()
     if soumission is not None:
         textes.append(json.dumps(soumission.normalized_variables or {}, ensure_ascii=False))
     textes.append(texte_des_documents(job))
-    socle = socle_verrouille(job)
-    if socle is not None:
-        textes.extend(getattr(c, "site_web", "") or "" for c in socle.concurrents)
-        textes.extend(getattr(d, "source", "") or "" for d in socle.donnees)
-        textes.extend(getattr(t, "source", "") or "" for t in getattr(socle, "tendances", ()))
     for document in _textes_des_prompts(types_declares()):
         textes.append(document)
     hotes: set[str] = set()

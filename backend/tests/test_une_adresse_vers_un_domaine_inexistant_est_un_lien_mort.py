@@ -55,6 +55,101 @@ def test_les_deux_formes_d_adresse_sont_lues() -> None:
     assert set(cites) == {"insee.fr", "gold.fr"}
 
 
+# ── Un domaine se lit ENTIER, ou pas du tout ─────────────────────────────────
+#
+# Mesuré le 06/11/2026 sur la reprise `ecb28fa8` de l'étude de la concurrence
+# SUN TZU. Trois adresses du document ne résolvaient pas ; UNE SEULE a été
+# signalée :
+#
+#     culinaconcepts.com        -> motif          (.com simple)
+#     citysuper.com.tw          -> AUCUN motif    (lu « citysuper.com »)
+#     thefrenchgrocer.com.sg    -> AUCUN motif    (lu « thefrenchgrocer.com »)
+#
+# `_DOMAINE_RE` énumérait quinze terminaisons, toutes européennes ou
+# génériques, et son `\b` laissait la correspondance s'arrêter au premier
+# morceau connu. Les deux adresses asiatiques étaient donc TRONQUÉES vers un
+# domaine qui, lui, existe : le contrôle jugeait un hôte que le lecteur ne
+# clique pas et déclarait l'adresse saine (règle 2).
+#
+# Les trois étaient des domaines NUS dans des tableaux, sans « https:// ».
+
+
+@pytest.mark.parametrize(
+    ("texte", "hotes"),
+    [
+        pytest.param("citysuper.com.tw", {"citysuper.com.tw"}, id="com-tw-nu"),
+        pytest.param(
+            "thefrenchgrocer.com.sg", {"thefrenchgrocer.com.sg"}, id="com-sg-nu",
+        ),
+        pytest.param("ole.com.cn", {"ole.com.cn"}, id="com-cn-nu"),
+        pytest.param("seijoishii.co.jp", {"seijoishii.co.jp"}, id="co-jp-nu"),
+        pytest.param("www.citysuper.com.tw", {"citysuper.com.tw"}, id="www-com-tw"),
+        pytest.param("shinsegae.com", {"shinsegae.com"}, id="com-simple-inchange"),
+    ],
+)
+def test_un_domaine_a_deux_niveaux_est_lu_entier(texte: str, hotes: set[str]) -> None:
+    """Le défaut mesuré : « .com.tw » ne doit jamais devenir « .com »."""
+    assert set(hotes_cites(texte)) == hotes
+
+
+def test_une_terminaison_inconnue_fait_taire_la_lecture_au_lieu_de_tronquer() -> None:
+    """LA classe du défaut, pas son exemple (règle 4).
+
+    Allonger la liste des terminaisons n'aurait réglé que les pays prévus : le
+    premier « .com.xx » absent de la liste aurait été tronqué comme avant. Un
+    contrôle muet est acceptable ; un contrôle qui juge le MAUVAIS hôte ne
+    l'est pas (règles 1 et 2).
+    """
+    assert hotes_cites("exemple.com.zz") == {}
+    assert hotes_cites("maison.fr.qq") == {}
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [
+        # Ces huit mots français SONT des terminaisons de pays réelles :
+        # il (Israël), sa (Arabie saoudite), de (Allemagne), ne (Niger),
+        # ma (Maroc), se (Suède), es (Espagne), it (Italie). Une majuscule
+        # après un point sans espace les transforme en domaine.
+        pytest.param("le chiffre d'affaires.Il progresse", id="il-israel"),
+        pytest.param("des produits.Sa qualité est reconnue", id="sa-arabie"),
+        pytest.param("la marge.De plus, le panier", id="de-allemagne"),
+        pytest.param("le marché.Ne pas confondre", id="ne-niger"),
+        pytest.param("la zone.Ma lecture du panel", id="ma-maroc"),
+        pytest.param("le panel.Se distingue par", id="se-suede"),
+        pytest.param("le prix.Es-tu sûr", id="es-espagne"),
+        pytest.param("le coût.It depends", id="it-italie"),
+        # Et les mots qui ne sont pas des terminaisons : la liste les refuse
+        # déjà parce qu'elle est fermée.
+        pytest.param("des produits.Les clients hésitent", id="les-inconnu"),
+        pytest.param("fin de phrase.Le paragraphe suivant", id="le-inconnu"),
+    ],
+)
+def test_contre_epreuve_une_coquille_de_prose_n_est_pas_une_adresse(prose: str) -> None:
+    """Deux garde-fous, et il faut les DEUX.
+
+    1. La liste des terminaisons est fermée : « produits.Les » ne passe pas,
+       parce que `les` n'est le code d'aucun pays. Avec une règle ouverte
+       (« le dernier morceau est une suite de lettres »), il passerait.
+    2. La terminaison doit être tout en minuscules ou tout en MAJUSCULES, pas
+       capitalisée : « affaires.Il » ne passe pas, bien que `il` soit Israël.
+
+    Sans le second, l'extension du 06/11/2026 aurait introduit un motif faux
+    sur le pronom le plus courant de la langue — et le défaut existait déjà
+    pour « .De », l'Allemagne étant dans la liste depuis le début.
+    """
+    assert hotes_cites(prose) == {}
+
+
+def test_une_adresse_tout_en_majuscules_reste_lue() -> None:
+    """CONTRE-ÉPREUVE de la règle de casse : une cellule de tableau en capitales.
+
+    Contraindre la casse ne doit pas rendre le contrôle aveugle à une adresse
+    écrite « XERFI.COM ». Seule la forme capitalisée est refusée.
+    """
+    assert set(hotes_cites("Source : WWW.XERFI.COM")) == {"xerfi.com"}
+
+
 # ── Juger ────────────────────────────────────────────────────────────────────
 
 RESOLUTIONS = {

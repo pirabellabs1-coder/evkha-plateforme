@@ -501,10 +501,80 @@ _URL_BIDON_RE = re.compile(
 # « gold.fr/vente-or », « annuaire-entreprises.data.gouv.fr ». Deux études
 # concurrentielles du corpus du 14/09/2026 citaient ainsi 12 et 25 sources, et
 # la mesure les déclarait toutes « sans adresse ».
+#: Les terminaisons reconnues. Fermée VOLONTAIREMENT : avec une règle ouverte
+#: (« le dernier morceau est une suite de lettres »), une coquille de prose
+#: française — « des produits.Les clients » — devient le domaine
+#: « produits.les », qu'aucun DNS ne connaît, et le contrôle accuserait le
+#: rédacteur d'un lien mort qui n'est pas une adresse. Règle 2 : un motif faux
+#: est pire qu'un motif absent.
+#:
+#: Elle couvre les TERRITOIRES QUE LES ÉTUDES VISENT, au même titre que
+#: `geography._CONTINENT_BY_COUNTRY` : ni plus, ni un atlas. Elle est faite
+#: pour s'allonger, et une absence ne coûte qu'un contrôle muet — jamais une
+#: accusation fausse.
+#:
+#: Fermée ne suffit pas, et la contre-épreuve l'a montré à l'écriture :
+#: plusieurs terminaisons de pays SONT des mots français — `il` (Israël),
+#: `ne` (Niger), `ma` (Maroc), `sa` (Arabie saoudite), `de` (Allemagne),
+#: `se` (Suède), `es` (Espagne), `it` (Italie). « le chiffre d'affaires.Il
+#: progresse » devenait le domaine « affaires.il ». Les RETIRER un par un
+#: serait la règle 4 reprise à l'envers : la classe n'est pas ces huit mots,
+#: c'est la CASSE. Voir `_DOMAINE_RE`.
+_TERMINAISONS = (
+    # génériques
+    "com|org|net|info|io|co|int|eu|gouv|gov|edu|biz|app|dev|shop|store|asia"
+    # France et Europe
+    "|fr|de|be|ch|lu|uk|es|it|pt|nl|pl|se|no|dk|fi|ie|at|cz|gr|hu|ro|tr|ru|ua"
+    # Asie et Moyen-Orient — ajoutées le 06/11/2026, voir le commentaire suivant
+    "|cn|hk|tw|jp|kr|sg|in|th|vn|my|id|ph|ae|sa|qa|il"
+    # Afrique et Maghreb
+    "|ma|tn|dz|sn|ci|cm|ga|bj|tg|ml|bf|ne|td|cd|cg|mg|mu|ke|ng|gh|za|eg"
+    # Amériques et Océanie
+    "|us|ca|mx|br|ar|cl|pe|au|nz"
+)
+
+# Un NOM DE DOMAINE sans schéma, lu ENTIER ou pas du tout.
+#
+# ## Pourquoi la négation finale existe
+#
+# Jusqu'au 06/11/2026 la liste des terminaisons ne portait aucun pays d'Asie,
+# et le `\b` laissait la correspondance s'arrêter au premier morceau connu :
+# « citysuper.com.tw » était lu « citysuper.com ». Or ce domaine-là EXISTE. Le
+# contrôle interrogeait donc un domaine QUE LE LECTEUR NE CLIQUE PAS, et
+# déclarait l'adresse saine.
+#
+# Mesuré sur la reprise `ecb28fa8` de l'étude SUN TZU : trois adresses mortes
+# dans le document, une seule signalée — « culinaconcepts.com », la seule en
+# `.com` simple. « citysuper.com.tw » et « thefrenchgrocer.com.sg » étaient
+# tronquées vers un domaine vivant.
+#
+# C'est la règle 4 : le défaut n'était pas la COMPOSITION de la liste, c'était
+# qu'elle soit fermée SANS GARDE-FOU. L'allonger seulement aurait laissé le
+# même piège au premier « .com.xx » non prévu. `(?!\.[a-z])` règle la classe :
+# s'il reste du domaine après la terminaison trouvée, la correspondance est
+# refusée EN ENTIER. Le contrôle se tait au lieu de juger le mauvais hôte —
+# règle 1 appliquée à l'extraction, et règle 2 : on ne compare jamais à une
+# donnée mal extraite.
+#
+# ## Pourquoi la casse de la terminaison est contrainte
+#
+# Pas de `re.IGNORECASE` ici, à la place DEUX formes explicites : terminaison
+# tout en minuscules (`citysuper.com.tw`) ou tout en majuscules (`XERFI.COM`,
+# qu'une cellule de tableau peut porter). La forme CAPITALISÉE — majuscule
+# puis minuscules — est refusée, parce qu'elle est la signature d'un mot
+# français qui suit un point sans espace, jamais celle d'une adresse :
+#
+#     « le chiffre d'affaires.Il progresse »   ->  rien      (avant : affaires.il)
+#     « des produits.Sa qualité »              ->  rien      (avant : produits.sa)
+#     « citysuper.com.tw »                     ->  lu entier
+#
+# C'est la classe, là où retirer `il`, `ne`, `ma`, `sa`, `de`, `se`, `es` et
+# `it` de la liste n'aurait traité que huit exemples (règle 4). Le défaut
+# existait avant l'extension : `de` était déjà dans la liste.
 _DOMAINE_RE = re.compile(
-    r"(?<![@\w.])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+"
-    r"(?:fr|com|org|net|eu|io|info|de|be|ch|lu|co|uk|int|gouv)\b(?:/[^\s)\]<>»,]*)?",
-    re.IGNORECASE,
+    r"(?<![@\w.])(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+"
+    r"(?:" + _TERMINAISONS + r"|" + _TERMINAISONS.upper() + r")"
+    r"\b(?!\.[a-zA-Z])(?:/[^\s)\]<>»,]*)?",
 )
 
 #: Un texte de loi cité par sa référence se retrouve sans lien : « Article
