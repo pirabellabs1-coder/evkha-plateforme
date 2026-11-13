@@ -21,6 +21,7 @@ import {
   Vide,
 } from "../composants/Interface";
 import { CelluleFichiers } from "../composants/EtatDesFichiers";
+import { ZoneDepot } from "../composants/Televersement";
 
 type Modifiable = Pick<
   ClientFinal,
@@ -203,6 +204,8 @@ export function FicheClient() {
         )}
       </Carte>
 
+      <CharteDuClient client={client} peutGerer={peutGerer} onChange={rafraichir} />
+
       <Carte
         titre="Marques ou projets"
         note="Une étude lancée depuis un projet reprend ce que vous avez déjà répondu pour lui. Seules les questions propres à chaque étude restent à remplir."
@@ -356,5 +359,132 @@ export function FicheClient() {
         )}
       </Carte>
     </>
+  );
+}
+
+
+/** La charte du client : c'est ELLE qui habille ses documents (13/11/2026).
+ *
+ * Avant, la fiche ne portait ni logo ni couleurs, et un document commandé
+ * depuis la fiche prenait ceux de « Ma marque » — donc ceux d'un autre client.
+ */
+function CharteDuClient({
+  client,
+  peutGerer,
+  onChange,
+}: {
+  client: ClientFinal;
+  peutGerer: boolean;
+  onChange: () => void;
+}) {
+  const [couleurs, setCouleurs] = useState({
+    couleur_principale: client.couleur_principale,
+    couleur_secondaire: client.couleur_secondaire,
+    couleur_fond: client.couleur_fond,
+  });
+  const [erreur, setErreur] = useState("");
+  const [enregistre, setEnregistre] = useState(false);
+  const surErreur = (cause: unknown) =>
+    setErreur(cause instanceof ErreurApi ? cause.message : "Enregistrement impossible.");
+  const reussi = () => {
+    setErreur("");
+    onChange();
+  };
+
+  const envoi = useMutation({
+    mutationFn: () => espaceApi.modifierClient(client.id, couleurs),
+    onSuccess: () => {
+      setEnregistre(true);
+      reussi();
+    },
+    onError: surErreur,
+  });
+  const depot = useMutation({
+    mutationFn: (fichier: File) => espaceApi.deposerLogoClient(client.id, fichier),
+    onSuccess: reussi,
+    onError: surErreur,
+  });
+  const retrait = useMutation({
+    mutationFn: () => espaceApi.retirerLogoClient(client.id),
+    onSuccess: reussi,
+    onError: surErreur,
+  });
+
+  const champ = (cle: keyof typeof couleurs, libelle: string, exemple: string) => (
+    <Champ
+      libelle={libelle}
+      name={cle}
+      placeholder={exemple}
+      disabled={!peutGerer}
+      value={couleurs[cle]}
+      onChange={(e) => {
+        setEnregistre(false);
+        setCouleurs({ ...couleurs, [cle]: e.target.value });
+      }}
+    />
+  );
+  const sansCharte = !client.logo_url && !client.couleur_principale;
+
+  return (
+    <Carte
+      titre="Charte de ce client"
+      note="Son logo et ses couleurs habillent tous les documents commandés depuis cette fiche."
+    >
+      {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+      {sansCharte && (
+        <Bandeau titre="Aucune charte pour ce client">
+          Sans logo ni couleurs, ses documents sortent avec une présentation neutre. La
+          charte de « Ma marque » ne s'applique pas ici.
+        </Bandeau>
+      )}
+      <form
+        className="questions"
+        onSubmit={(evenement) => {
+          evenement.preventDefault();
+          envoi.mutate();
+        }}
+      >
+        <div className="grille-champs">
+          {champ("couleur_principale", "Couleur principale", "#1B3A8C")}
+          {champ("couleur_secondaire", "Couleur secondaire", "#D7262E")}
+          {champ("couleur_fond", "Couleur de fond (facultative)", "#FFFFFF")}
+        </div>
+        {client.logo_apercu ? (
+          <div className="champ">
+            <span className="champ-libelle">Logo du client</span>
+            <img src={client.logo_apercu} alt="" className="apercu-logo" />
+            {peutGerer && (
+              <button
+                type="button"
+                className="bouton bouton-discret bouton-sm"
+                style={{ alignSelf: "flex-start" }}
+                disabled={retrait.isPending}
+                onClick={() => retrait.mutate()}
+              >
+                Retirer le logo
+              </button>
+            )}
+          </div>
+        ) : (
+          <ZoneDepot
+            libelle="Logo du client"
+            aide="PNG ou JPEG, 2 Mo maximum."
+            accepte="image/png,image/jpeg"
+            tailleMax={2 * 1024 * 1024}
+            desactive={!peutGerer}
+            enCours={depot.isPending}
+            onDeposer={(fichier) => depot.mutate(fichier)}
+          />
+        )}
+        {peutGerer && (
+          <div style={{ display: "flex", gap: "var(--e-4)", alignItems: "center" }}>
+            <button type="submit" className="bouton bouton-principal" disabled={envoi.isPending}>
+              {envoi.isPending ? "Enregistrement…" : "Enregistrer les couleurs"}
+            </button>
+            {enregistre && <span className="pastille pastille-succes">Enregistré</span>}
+          </div>
+        )}
+      </form>
+    </Carte>
   );
 }

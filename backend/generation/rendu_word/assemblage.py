@@ -170,6 +170,9 @@ class RapportAssemblage:
     #: d'analyse reste un livrable, mais il ne doit pas passer pour intact.
     paragraphes_tronques: int = 0
     mots_tronques: int = 0
+    #: Paragraphes où l'outil parlait de sa fabrication (« cette figure ne
+    #: peut pas être produite… »), retirés avant la mise en page.
+    aveux_techniques_retires: list[str] = field(default_factory=list)
     #: Figures ajoutées par la passe de complétion, avec le chapitre et les
     #: identifiants employés. Une complétion silencieuse serait un mensonge par
     #: omission : le lecteur du rapport doit pouvoir distinguer une figure
@@ -221,6 +224,11 @@ class RapportAssemblage:
             parties.append(
                 f"{len(self.consignes_de_dessin_retirees)} consigne(s) de dessin "
                 "retirée(s) sous les graphiques"
+            )
+        if self.aveux_techniques_retires:
+            parties.append(
+                f"{len(self.aveux_techniques_retires)} phrase(s) technique(s) "
+                "retirée(s) du texte"
             )
         if self.paragraphes_tronques:
             parties.append(
@@ -650,6 +658,11 @@ def blocs_du_chapitre(
                 "texte": f"{bloc.numero} {bloc.intitule}".strip(),
             })
         elif isinstance(bloc, BlocParagraphe):
+            from ..meta_discours import est_un_aveu_technique  # noqa: PLC0415
+
+            if est_un_aveu_technique(bloc.texte):
+                rapport.aveux_techniques_retires.append(bloc.texte[:200])
+                continue
             amorce = _amorce(bloc.texte, rapport)
             if amorce:
                 blocs.append({"type": "paragraphe", "texte": amorce})

@@ -925,6 +925,16 @@ def journal_credits(
 # ── Clients finaux ───────────────────────────────────────────────────────────
 
 
+def _apercu_du_logo(logo_url: str) -> str:
+    if not logo_url:
+        return ""
+    if logo_url.startswith(("http://", "https://")):
+        return logo_url
+    from evkha import signatures  # noqa: PLC0415 — évite un cycle à l'import
+
+    return signatures.lien_absolu(_nom_du_fichier(logo_url))
+
+
 def _client_final_en_dict(client: ClientFinal) -> dict[str, Any]:
     return {
         "id": str(client.id),
@@ -935,6 +945,9 @@ def _client_final_en_dict(client: ClientFinal) -> dict[str, Any]:
         "ville": client.ville,
         "contact_email": client.contact_email,
         "logo_url": client.logo_url,
+        # Lien signé et ABSOLU pour l'aperçu : un `/media/…` relatif rend la
+        # page d'accueil du front, jamais l'image.
+        "logo_apercu": _apercu_du_logo(client.logo_url),
         "couleur_principale": client.couleur_principale,
         "couleur_secondaire": client.couleur_secondaire,
         "couleur_fond": client.couleur_fond,
@@ -1061,6 +1074,89 @@ def clients_finaux(
     return JsonResponse(_client_final_en_dict(client), status=201)
 
 
+COULEURS_CLIENT = ("couleur_principale", "couleur_secondaire", "couleur_fond")
+
+
+def _couleur_de_la_charge(
+    charge: dict[str, Any], champ: str
+) -> tuple[str, JsonResponse | None]:
+    """Une couleur de la charte du client : vide, ou un hexadécimal que le rendu sait lire."""
+    brut = charge.get(champ)
+    if brut is None or brut == "":
+        return "", None
+    if not isinstance(brut, str) or not est_une_couleur(brut):
+        return "", _refus(
+            f"{LIBELLES_CLIENT[champ]} : une couleur s'écrit comme #1B3A8C.",
+            "couleur_invalide",
+            400,
+        )
+    return normaliser_couleur(brut), None
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("gerer_clients_finaux")
+def logo_client(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    client_id: str,
+) -> HttpResponse:
+    """Dépose (ou retire, sans fichier et avec `retirer=1`) le logo d'un client.
+
+    Stratégie `d319a9e5` (13/11/2026) : la fiche client ne portait ni logo ni
+    couleurs, et le document prenait ceux de « Ma marque » — la charte d'un
+    autre client. Le logo vit sur la fiche ; un nouveau remplace l'ancien.
+    """
+    client = projets.par_identifiant(ClientFinal, client_id, organisation=organisation)
+    if client is None:
+        return _refus("Fiche introuvable.", "introuvable", 404)
+
+    anciens = organisation.pieces_jointes.filter(
+        categorie=CategorieFichier.LOGO_CLIENT, fichier=_nom_du_fichier(client.logo_url)
+    ) if client.logo_url else organisation.pieces_jointes.none()
+
+    envoye = request.FILES.get("fichier")
+    if envoye is None:
+        if request.POST.get("retirer") != "1":
+            return _refus("Aucun fichier reçu.", "fichier_manquant", 400)
+        anciens.delete()
+        client.logo_url = ""
+        client.save(update_fields=["logo_url", "updated_at"])
+        return JsonResponse(_client_final_en_dict(client))
+
+    contenu = envoye.read()
+    nom_envoye = envoye.name or "logo"
+    try:
+        format_trouve = fichiers.valider_logo(contenu, nom_envoye)
+    except fichiers.FichierRefuseError as refus:
+        return _refus(str(refus), "fichier_refuse", 400)
+    nom = fichiers.nom_sur(nom_envoye, format_trouve)
+    piece = PieceJointe(
+        organisation=organisation,
+        categorie=CategorieFichier.LOGO_CLIENT,
+        nom_original=nom,
+        type_mime=format_trouve.type_mime,
+        taille_octets=len(contenu),
+        depose_par=membre.customer,
+    )
+    piece.fichier.save(nom, ContentFile(contenu), save=False)
+    piece.save()
+    anciens.exclude(pk=piece.pk).delete()
+    client.logo_url = piece.fichier.url
+    client.save(update_fields=["logo_url", "updated_at"])
+    return JsonResponse(_client_final_en_dict(client), status=201)
+
+
+def _nom_du_fichier(url: str) -> str:
+    """Le chemin de stockage d'un fichier, depuis son adresse `/media/…`."""
+    prefixe = str(settings.MEDIA_URL)
+    chemin = url[len(prefixe):] if url.startswith(prefixe) else url.lstrip("/")
+    from urllib.parse import unquote  # noqa: PLC0415
+
+    return unquote(chemin)
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 @espace("gerer_clients_finaux")
@@ -1104,6 +1200,12 @@ def fiche_client(
                 valeur, refus = _texte_de_la_charge(
                     charge, champ, ClientFinal, LIBELLES_CLIENT[champ]
                 )
+                if refus is not None:
+                    return refus
+                setattr(client, champ, valeur)
+        for champ in COULEURS_CLIENT:
+            if champ in charge:
+                valeur, refus = _couleur_de_la_charge(charge, champ)
                 if refus is not None:
                     return refus
                 setattr(client, champ, valeur)
@@ -2467,7 +2569,7 @@ def pieces_jointes(
         return _refus("Aucun fichier reçu.", "fichier_manquant", 400)
 
     categorie = request.POST.get("categorie", CategorieFichier.DOCUMENT)
-    if categorie not in CategorieFichier.values:
+    if categorie not in (CategorieFichier.LOGO, CategorieFichier.DOCUMENT):
         return _refus(f"Catégorie inconnue : {categorie!r}.", "categorie", 400)
 
     contenu = envoye.read()

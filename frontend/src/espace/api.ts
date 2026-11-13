@@ -322,6 +322,8 @@ export interface ClientFinal {
   ville: string;
   contact_email: string;
   logo_url: string;
+  /** Lien d'aperçu du logo (signé) ; vide sans logo. */
+  logo_apercu: string;
   couleur_principale: string;
   couleur_secondaire: string;
   couleur_fond: string;
@@ -585,6 +587,16 @@ export const espaceApi = {
       method: "POST",
       body: JSON.stringify(donnees),
     }),
+  deposerLogoClient: (clientId: string, fichier: File) => {
+    const corps = new FormData();
+    corps.append("fichier", fichier);
+    return appel<ClientFinal>(`/clients-finaux/${clientId}/logo/`, { method: "POST", body: corps });
+  },
+  retirerLogoClient: (clientId: string) => {
+    const corps = new FormData();
+    corps.append("retirer", "1");
+    return appel<ClientFinal>(`/clients-finaux/${clientId}/logo/`, { method: "POST", body: corps });
+  },
   creerProjet: (clientId: string, nom: string) =>
     appel<ProjetClient & { dossiers_rattaches: number }>(
       `/clients-finaux/${clientId}/projets/`,

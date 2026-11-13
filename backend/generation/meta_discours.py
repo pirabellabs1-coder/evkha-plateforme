@@ -205,6 +205,36 @@ _DESSIN = re.compile(
     re.IGNORECASE,
 )
 
+#: Un paragraphe où l'OUTIL parle de sa propre fabrication. Formes sans
+#: ambiguïté seulement : « socle » et « identifiant » ont un sens courant
+#: (« le socle récurrent de l'activité », « identifiant fiscal »), et seul
+#: leur emploi technique — le socle qui « porte » ou « ne contient pas », des
+#: identifiants « séparés » ou « du socle » — désigne la machine.
+_AVEU = re.compile(
+    r"(?:cette|la|aucune)\s+(?:figure|illustration)\s+ne\s+peut\s+(?:pas\s+)?[êe]tre\s+"
+    r"(?:produite|dessin[ée]e|g[ée]n[ée]r[ée]e|trac[ée]e|rendue)"
+    r"|ce\s+graphique\s+ne\s+peut\s+(?:pas\s+)?[êe]tre\s+"
+    r"(?:produit|dessin[ée]|g[ée]n[ée]r[ée]|trac[ée]|rendu)"
+    r"|le\s+socle\s+ne\s+(?:porte|contient|fournit|d[ée]clare)\s+pas"
+    r"|identifiants?\s+(?:s[ée]par[ée]s?|du\s+socle|absents?\s+du\s+socle)",
+    re.IGNORECASE,
+)
+
+
+def est_un_aveu_technique(texte: str) -> bool:
+    """Ce paragraphe dit-il au lecteur ce que l'outil n'a pas su fabriquer ?
+
+    Business plan `8ead345f` (13/11/2026), sous un tableau : « Cette figure ne
+    peut pas être produite : le socle ne porte pas les quatre sources de
+    revenus comme identifiants séparés. » Le lecteur d'un business plan ne
+    sait pas ce qu'est un socle, et n'a pas à l'apprendre. La cliente demande
+    « un filtre qui bloque ces phrases avant la mise en page » : le paragraphe
+    est retiré à l'assemblage, sans réécriture payante (il ne porte rien que
+    le lecteur perde), et le rapport d'assemblage le compte.
+    """
+    return bool(_AVEU.search(texte or ""))
+
+
 def est_une_consigne_de_dessin(texte: str) -> bool:
     """Ce commentaire de graphique est-il un ordre adressé au dessinateur ?
 

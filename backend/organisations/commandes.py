@@ -161,7 +161,10 @@ def _reste_utilisable(job: GenerationJob) -> bool:
 
 
 def variables_de_commande(
-    organisation: Organisation, type_document: str, saisie: dict[str, Any]
+    organisation: Organisation,
+    type_document: str,
+    saisie: dict[str, Any],
+    projet: Projet | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     """Variables du brief. Retourne (variables, champs obligatoires manquants).
 
@@ -209,6 +212,26 @@ def variables_de_commande(
         "COULEUR_FOND": organisation.couleur_fond,
         "MENTION_CONFIDENTIALITE": organisation.mention_confidentialite,
     }
+    if projet is not None:
+        # L'IDENTITÉ DU DOCUMENT EST CELLE DU CLIENT DE LA FICHE.
+        #
+        # Stratégie `d319a9e5` (13/11/2026), projet « Dibitek Forge » : la
+        # couverture, les sources, le logo et les couleurs portaient « SUNTZU
+        # KOUMISITH POLY GROUPES FRANCE » — un AUTRE client de l'abonnée, dont
+        # la charte était restée dans « Ma marque ». La fiche client existait,
+        # et rien ne la lisait ici.
+        #
+        # Aucun repli sur « Ma marque » pour le logo et les couleurs : une
+        # fiche sans charte donne un document neutre, jamais la charte d'un
+        # tiers. La mention de confidentialité, elle, reste celle de l'abonnée.
+        client = projet.client
+        marque.update({
+            "NOM_ENTREPRISE": client.raison_sociale,
+            "LOGO_URL": client.logo_url,
+            "COULEUR_PRINCIPALE": client.couleur_principale,
+            "COULEUR_SECONDAIRE": client.couleur_secondaire,
+            "COULEUR_FOND": client.couleur_fond,
+        })
     variables.update({cle: valeur for cle, valeur in marque.items() if valeur})
 
     manquants = [
@@ -264,7 +287,9 @@ def creer_commande(
             else None
         )
 
-    variables, manquants = variables_de_commande(organisation, type_document, saisie)
+    variables, manquants = variables_de_commande(
+        organisation, type_document, saisie, projet=projet
+    )
     if manquants:
         questionnaire = formulaires.formulaire(type_document)
         libelles = {c.identifiant: c.libelle for c in questionnaire.champs} if questionnaire else {}

@@ -572,6 +572,10 @@ class CompteClient(UUIDModel):
 class CategorieFichier(models.TextChoices):
     LOGO = "logo", "Logo"
     DOCUMENT = "document", "Document complémentaire"
+    #: Le logo d'un client de l'abonnée (fiche client). Catégorie à part : le
+    #: logo de « Ma marque » est unique et remplacé à chaque dépôt, et ce
+    #: remplacement effacerait les logos des clients s'ils la partageaient.
+    LOGO_CLIENT = "logo_client", "Logo d'un client"
 
 
 def _chemin_piece_jointe(instance: PieceJointe, nom: str) -> str:

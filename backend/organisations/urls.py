@@ -54,6 +54,11 @@ urlpatterns = [
         name="client-final",
     ),
     path(
+        "clients-finaux/<str:client_id>/logo/",
+        vues.logo_client,
+        name="client-final-logo",
+    ),
+    path(
         "clients-finaux/<str:client_id>/projets/",
         vues.creer_projet,
         name="client-final-projets",

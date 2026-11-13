@@ -415,6 +415,20 @@ def logo_du_job(job: GenerationJob, reference: str) -> tuple[str, str]:
         return reference, "commande"
     if reference and _fichier_local_lisible(reference):
         return reference, "commande"
+    # Une commande rattachée à la fiche d'un client ne retombe JAMAIS sur le
+    # logo de « Ma marque » : c'est par ce repli que la stratégie Dibitek
+    # `d319a9e5` (13/11/2026) aurait encore pris le logo d'un autre client,
+    # même une fois sa charte lue sur la fiche. Son repli est le logo ACTUEL
+    # de la fiche, ou rien.
+    projet = getattr(getattr(job, "order", None), "projet", None)
+    if projet is not None:
+        du_client = str(projet.client.logo_url or "")
+        if du_client and du_client != reference and (
+            du_client.startswith(("http://", "https://"))
+            or _fichier_local_lisible(du_client)
+        ):
+            return du_client, "client"
+        return reference, "commande" if reference else ""
     try:
         from organisations.liaison import organisation_du_job  # noqa: PLC0415
 
