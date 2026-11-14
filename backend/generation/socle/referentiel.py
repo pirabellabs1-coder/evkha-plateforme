@@ -443,6 +443,12 @@ _EC: tuple[DefinitionDonnee, ...] = (
 # surveille déjà sous ces noms. Inventer ici une seconde nomenclature ferait
 # deux listes pour une même vérité (règle 5).
 
+_COMMENTAIRE_VOLUME = (
+    "Montant total payé par les clients, quand il DIFFÈRE du chiffre d'affaires "
+    "de la société : place de marché, commission, intermédiation, mandat. Ne pas "
+    "le renseigner quand le chiffre d'affaires EST le montant des ventes."
+)
+
 _BP: tuple[DefinitionDonnee, ...] = (
     # Chapitre 6 — synthèse de marché. Volontairement réduit : le BP cite le
     # marché, il ne le démontre pas — c'est le rôle de l'étude de marché.
@@ -517,6 +523,38 @@ _BP: tuple[DefinitionDonnee, ...] = (
         "ca_previsionnel_an3", "Chiffre d'affaires prévisionnel — exercice 3",
         Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, obligatoire=True,
         chapitres=(16,),
+    ),
+    # Volume de ventes ≠ chiffre d'affaires (14/11/2026). Business plan
+    # `8ead345f`, place de marché : la société encaisse une commission, pas le
+    # prix payé par le client. « 8 000 commandes × 35 € » donne 280 000 € de
+    # VENTES, pas les 136 800 € de chiffre d'affaires, et la part de marché se
+    # calcule sur les ventes — 0,66 %, pas les 0,32 % imprimés.
+    DefinitionDonnee(
+        "nombre_commandes_an1", "Nombre de commandes ou de ventes — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.EFFECTIF, chapitres=(8, 16),
+    ),
+    DefinitionDonnee(
+        "volume_de_ventes_an1", "Volume de ventes payé par les clients — exercice 1",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(6, 8, 16),
+        commentaire=_COMMENTAIRE_VOLUME,
+    ),
+    DefinitionDonnee(
+        "nombre_commandes_an2", "Nombre de commandes ou de ventes — exercice 2",
+        Perimetre.ENTREPRISE, FamilleUnite.EFFECTIF, chapitres=(8, 16),
+    ),
+    DefinitionDonnee(
+        "volume_de_ventes_an2", "Volume de ventes payé par les clients — exercice 2",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(6, 8, 16),
+        commentaire=_COMMENTAIRE_VOLUME,
+    ),
+    DefinitionDonnee(
+        "nombre_commandes_an3", "Nombre de commandes ou de ventes — exercice 3",
+        Perimetre.ENTREPRISE, FamilleUnite.EFFECTIF, chapitres=(8, 16),
+    ),
+    DefinitionDonnee(
+        "volume_de_ventes_an3", "Volume de ventes payé par les clients — exercice 3",
+        Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(6, 8, 16),
+        commentaire=_COMMENTAIRE_VOLUME,
     ),
     DefinitionDonnee(
         "resultat_net_an1", "Résultat net — exercice 1",

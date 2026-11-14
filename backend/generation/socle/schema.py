@@ -1149,7 +1149,10 @@ def _controler_equilibre_financier(socle: Socle) -> list[str]:
     #    charge et les arrondis expliquent un écart modéré. Au-delà, le lecteur
     #    ne peut pas reconstituer le CA depuis les hypothèses — c'est le défaut
     #    qu'Evangéline a relevé sur FriendzyPet.
-    ca1 = montant("ca_previsionnel_an1")
+    # Pour une place de marché, ce produit construit le VOLUME de ventes, pas
+    # le chiffre d'affaires (commission) : on le compare au volume quand le
+    # socle le porte (business plan `8ead345f`, 13/11/2026).
+    ca1 = montant("volume_de_ventes_an1") or montant("ca_previsionnel_an1")
     panier = montant("panier_moyen")
     clientele = montant("taille_clientele_cible")
     if ca1 is not None and panier is not None and clientele is not None:

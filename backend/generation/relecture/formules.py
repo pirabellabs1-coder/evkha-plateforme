@@ -275,7 +275,7 @@ def _operations(document: Document) -> list[Constat]:
 
 _PERSONNES = (
     r"(femmes|participantes?|participants|clientes?|clients|personnes|inscrit\w*|"
-    r"adh[ée]rent\w*)"
+    r"adh[ée]rent\w*|commandes|ventes|transactions)"
 )
 _EFFECTIF = re.compile(rf"(?i)\b(\d[\d  ]*)\s+{_PERSONNES}\b")
 _OBJECTIF = re.compile(r"(?i)ambition|objectif|vis[ée]|atteindre|chiffre d.affaires")
@@ -299,9 +299,13 @@ def _premiere_annee(reference: Reference) -> int | None:
 
 
 def _chiffre_d_affaires(reference: Reference, annee: int | None) -> float | None:
+    """Ce que « effectif × panier » doit approcher : le VOLUME de ventes s'il est
+    connu (place de marché, commission), sinon le chiffre d'affaires."""
     if annee is None:
         return None
-    fait = fait_de(reference.memoire, "ca_previsionnel", annee)
+    fait = fait_de(reference.memoire, "volume_de_ventes", annee) or fait_de(
+        reference.memoire, "ca_previsionnel", annee
+    )
     return en_euros(fait) if fait else None
 
 

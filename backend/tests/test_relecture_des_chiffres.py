@@ -261,3 +261,36 @@ def test_une_variante_non_retenue_n_est_pas_comparee_au_previsionnel() -> None:
         lignes=(("Modèle A", "12 000 €"), ("Modèle B (retenu)", "20 000 €")),
     ),)))
     assert tableaux(doc, _reference()) == []
+
+
+def test_des_commandes_fois_un_panier_sont_confrontees_au_chiffre_d_affaires() -> None:
+    """Business plan `8ead345f` (13/11/2026) : « N commandes à P € » présenté comme
+    le chiffre d'affaires. CA 2027 = 20 000 € à 100 € de panier : 200 commandes."""
+    faux = _doc(_section(
+        "8.2",
+        "Le chiffre d'affaires visé en 2027 suppose 600 commandes au panier moyen de 100 €.",
+    ))
+    juste = _doc(_section(
+        "8.2",
+        "Le chiffre d'affaires visé en 2027 suppose 200 commandes au panier moyen de 100 €.",
+    ))
+    assert _classes(formules(faux, _reference())) == ["formule"]
+    assert formules(juste, _reference()) == []
+
+
+def test_pour_une_place_de_marche_les_commandes_se_comparent_au_volume() -> None:
+    """Contre-épreuve : quand le volume de ventes est connu, 600 × 100 € = 60 000 €
+    de VENTES est juste, même si la société n'en garde que 20 000 € de CA."""
+    reference = _reference()
+    assert reference.memoire is not None
+    from generation.memoire.faits import Fait
+
+    reference.memoire.faits["volume_de_ventes_an1"] = Fait(
+        id="volume_de_ventes_an1", valeur=60_000.0, unite="EUR", libelle="Volume",
+        origine="declaree", annee=2027,
+    )
+    doc = _doc(_section(
+        "8.2",
+        "Le chiffre d'affaires visé en 2027 suppose 600 commandes au panier moyen de 100 €.",
+    ))
+    assert formules(doc, reference) == []

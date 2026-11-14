@@ -85,7 +85,10 @@ def test_la_capacite_de_prelevement_est_la_caf_divisee_par_douze() -> None:
     C'est un indicateur DISTINCT de la CAF mensuelle (qui, elle, n'existe pas :
     l'étiquette avait été lue comme le revenu de la dirigeante).
     """
-    faits = faits_de_l_etude(_socle(ECLORE))
+    # Sans dette connue : la CAF entière divisée par douze. Avec un prêt, son
+    # remboursement passe d'abord (14/11/2026, voir le test suivant).
+    sans_dette = ("dette_residuelle_an2", "dette_residuelle_an3")
+    faits = faits_de_l_etude(_socle(ECLORE, retirer=sans_dette))
     assert faits["capacite_prelevement_mensuelle_an3"].valeur == pytest.approx(1_986.32, abs=0.01)
     assert faits["capacite_prelevement_mensuelle_an3"].formule == "caf_an3 ÷ 12"
     assert faits["capacite_prelevement_mensuelle_an3"].periode == "mois"
@@ -206,3 +209,58 @@ def test_le_plafond_micro_est_signale() -> None:
 
 def test_une_annee_trop_ancienne_ne_rend_pas_un_seuil_faux() -> None:
     assert regime_de_tva(30_000.0, 2019) is None
+
+
+def test_la_capacite_de_prelevement_passe_apres_le_pret() -> None:
+    """Business plan `8ead345f` (13/11/2026) : « le dirigeant pouvait soi-disant
+    prélever 1 058 €/mois, sans tenir compte du remboursement du prêt »."""
+    faits = faits_de_l_etude(_socle({
+        "caf_an1": 12_694.17, "emprunt": 48_000.0, "dette_residuelle_an1": 39_051.45,
+    }))
+
+    assert faits["capital_rembourse_an1"].valeur == pytest.approx(8_948.55)
+    assert faits["capacite_prelevement_mensuelle_an1"].valeur == pytest.approx(
+        (12_694.17 - 8_948.55) / 12, abs=0.01
+    )
+    assert "1,4 fois" in faits["caf_apres_remboursement_an1"].definition
+
+
+def test_sans_dette_connue_la_capacite_reste_la_caf_sur_douze() -> None:
+    """Contre-épreuve : sans emprunt ni dette, la formule d'avant tient."""
+    faits = faits_de_l_etude(_socle(
+        {"caf_an1": 12_000.0}, retirer=("emprunt", "dette_residuelle_an1"),
+    ))
+
+    assert "capital_rembourse_an1" not in faits
+    assert faits["capacite_prelevement_mensuelle_an1"].valeur == pytest.approx(1_000.0)
+
+
+def test_une_place_de_marche_distingue_volume_et_chiffre_d_affaires() -> None:
+    """Business plan `8ead345f` (13/11/2026) : « 8 000 × 35 € = 136 800 € » était
+    faux, et la part de marché se calculait sur le CA (0,32 %) au lieu du volume
+    de ventes (0,66 %)."""
+    socle = _socle({
+        "ca_previsionnel_an1": 136_800.0, "panier_moyen": 35.0,
+        "marche_national_taille": 42_500_000.0,
+    }, retirer=("sam",))
+    modele = next(d for d in socle.donnees if d.id == "ca_previsionnel_an1")
+    socle.donnees.append(
+        type(modele).model_validate({
+            **modele.model_dump(),
+            "id": "nombre_commandes_an1", "valeur": 8_000.0, "unite": "unite",
+            "libelle": "Nombre de commandes — exercice 1",
+        })
+    )
+    faits = faits_de_l_etude(socle)
+
+    assert faits["volume_de_ventes_an1"].valeur == pytest.approx(280_000.0)
+    assert faits["ca_previsionnel_an1"].valeur == pytest.approx(136_800.0)
+    assert faits["part_de_marche_an1"].valeur == pytest.approx(0.659, abs=0.001)
+    assert "VOLUME" in faits["part_de_marche_an1"].definition
+
+
+def test_sans_volume_ni_commandes_aucune_part_de_marche_n_est_inventee() -> None:
+    """Contre-épreuve : la part ne se calcule jamais sur le chiffre d'affaires."""
+    faits = faits_de_l_etude(_socle({"ca_previsionnel_an1": 136_800.0}))
+
+    assert not any(identifiant.startswith("part_de_marche") for identifiant in faits)

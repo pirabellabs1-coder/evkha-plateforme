@@ -1631,6 +1631,17 @@ REGLES_DE_FOND = (
     # été décidé d'abord, et le taux calculé pour y tomber. « 0,11 % » à côté
     # de « 180 000 € » le trahit — un taux choisi est rond, un montant déduit
     # ne l'est pas. Le relecteur voit ce que la règle de forme ne voyait pas.
+    # Business plan `8ead345f` (13/11/2026), place de marché : « 8 000 × 35 € =
+    # 136 800 € » et une part de marché de 0,32 % au lieu de 0,66 %. Le
+    # rédacteur confondait le chiffre d'affaires (la commission) et le
+    # montant payé par les clients.
+    "- Volume de ventes et chiffre d'affaires sont DEUX grandeurs dès que la "
+    "société ne garde qu'une commission (place de marché, intermédiation, mandat). "
+    "Le volume de ventes est ce que paient les clients ; le chiffre d'affaires est "
+    "ce que la société garde. « Nombre de commandes × panier moyen » donne le "
+    "VOLUME, jamais le chiffre d'affaires. Une part de marché se calcule sur le "
+    "VOLUME, jamais sur le chiffre d'affaires. Nomme toujours laquelle des deux "
+    "grandeurs tu cites.\n"
     "- Et cette part est CHOISIE, pas calculée à l'envers. Tu l'écris ronde — "
     "0,1 %, 0,5 %, 1 % — et tu dis en une phrase ce qui le justifie : une "
     "part de marché comparable, une capacité de production, un nombre de "

@@ -141,6 +141,11 @@ def socle_de_demonstration(prompt: str) -> dict[str, object]:
         bloc = prompt[correspondance.start(): suivante if suivante >= 0 else len(prompt)]
         if "DU CLIENT :" in bloc:
             continue
+        # Le volume de ventes et les commandes ne valent que pour une place de
+        # marché (commission) : la démonstration n'en est pas une, et un
+        # volume à 1 MdEUR fausserait la répétition à blanc.
+        if identifiant.startswith(("volume_de_ventes_", "nombre_commandes_")):
+            continue
         valeur, unite = _unite_et_valeur(identifiant, correspondance.group("unite"))
         # Un identifiant annuel porte l'annee de SON exercice : trois points a
         # la meme annee ne font pas une serie, et la repetition a blanc ne

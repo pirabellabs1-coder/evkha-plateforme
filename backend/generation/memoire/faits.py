@@ -74,6 +74,12 @@ class Fait:
 #: dans le même dossier, c'est le défaut qu'on répare (règle 5).
 DEFINITIONS: dict[str, str] = {
     "ca_previsionnel": "chiffre d'affaires hors taxes de l'exercice",
+    "volume_de_ventes": (
+        "montant total payé par les clients sur l'exercice — ce n'est PAS le "
+        "chiffre d'affaires quand la société ne garde qu'une commission : une part "
+        "de marché se calcule sur ce volume, et « commandes × panier » donne ce "
+        "volume, jamais le chiffre d'affaires"
+    ),
     "resultat_net": (
         "résultat net comptable : ce qui reste après toutes les charges, les "
         "dotations aux amortissements et l'impôt — ce n'est PAS la CAF"
@@ -100,6 +106,8 @@ DEFINITIONS: dict[str, str] = {
 #: Le nom qu'une série porte dans une phrase.
 NOMS: dict[str, str] = {
     "ca_previsionnel": "chiffre d'affaires",
+    "volume_de_ventes": "volume de ventes",
+    "nombre_commandes": "nombre de commandes",
     "resultat_net": "résultat net",
     "caf": "capacité d'autofinancement",
     "ebe": "excédent brut d'exploitation",
@@ -114,7 +122,7 @@ NOMS: dict[str, str] = {
 #: trésorerie de fin d'exercice ou une dette résiduelle est un STOCK — la
 #: diviser par douze n'a aucun sens.
 FLUX = frozenset({
-    "ca_previsionnel", "resultat_net", "caf", "ebe", "charges_fixes",
+    "ca_previsionnel", "volume_de_ventes", "resultat_net", "caf", "ebe", "charges_fixes",
     "remuneration_dirigeant", "masse_salariale",
 })
 
@@ -375,6 +383,84 @@ def faits_de_sensibilite(faits: dict[str, Fait]) -> dict[str, Fait]:
     return ajoutes
 
 
+def _volumes_et_parts_de_marche(
+    faits: dict[str, Fait], series: dict[str, dict[int, Fait]],
+) -> list[Fait | None]:
+    """Le volume de ventes de chaque exercice, et la part de marché qu'il représente.
+
+    Business plan `8ead345f` (13/11/2026), place de marché : « 8 000 × 35 € =
+    136 800 € » était faux (280 000 €), et la part de marché se calculait sur
+    le chiffre d'affaires (0,32 %) au lieu du volume (0,66 %). Le volume se lit
+    dans le socle, sinon se déduit de commandes × panier ; la part de marché
+    ne se calcule QUE sur un volume, et sur le marché le plus étroit connu.
+    """
+    derives: list[Fait | None] = []
+    panier = faits.get("panier_moyen")
+    marche = faits.get("sam") or faits.get("marche_national_taille")
+    rangs = set(series.get("volume_de_ventes", {})) | set(series.get("nombre_commandes", {}))
+    for rang in sorted(rangs):
+        volume = series.get("volume_de_ventes", {}).get(rang)
+        commandes = series.get("nombre_commandes", {}).get(rang)
+        if volume is None and commandes is not None and panier is not None:
+            base = _monetaire(panier)
+            if base is not None and commandes.valeur > 0:
+                volume = Fait(
+                    id=f"volume_de_ventes_an{rang}",
+                    valeur=_arrondi_monetaire(commandes.valeur * base[0][0]),
+                    unite=base[1],
+                    libelle=f"Volume de ventes, exercice {rang}",
+                    origine="calculee",
+                    annee=commandes.annee,
+                    formule=f"nombre_commandes_an{rang} × panier_moyen",
+                    depuis=(commandes.id, panier.id),
+                    definition=DEFINITIONS["volume_de_ventes"],
+                    periode="an",
+                )
+                derives.append(volume)
+        if volume is None or marche is None:
+            continue
+        derives.append(_derive(
+            f"part_de_marche_an{rang}", (volume, marche), _part,
+            libelle=f"Part de marché visée, exercice {rang}",
+            formule=f"volume_de_ventes_an{rang} ÷ {marche.id} × 100", unite="%",
+            annee=volume.annee,
+            definition=(
+                "part de marché calculée sur le VOLUME DE VENTES, jamais sur le chiffre "
+                "d'affaires quand la société ne garde qu'une commission"
+            ),
+        ))
+    return derives
+
+
+def _nombre_de_fois(rapport: float) -> str:
+    """« 1,5 » : un rapport de couverture, à une décimale et à la française."""
+    return f"{rapport:.1f}".replace(".", ",")
+
+
+def _capital_rembourse(
+    faits: dict[str, Fait], series: dict[str, dict[int, Fait]], rang: int,
+) -> Fait | None:
+    """Le capital du prêt remboursé pendant l'exercice `rang`, s'il se déduit.
+
+    Dette d'ouverture − dette de clôture. La dette d'ouverture du premier
+    exercice est l'emprunt ; celle des suivants, la dette résiduelle de
+    l'exercice d'avant. Rien n'est produit sans les deux termes, ni quand la
+    dette AUGMENTE (un second emprunt) : ce ne serait pas un remboursement.
+    """
+    dettes = series.get("dette_residuelle", {})
+    cloture = dettes.get(rang)
+    ouverture = faits.get("emprunt") if rang == 1 else dettes.get(rang - 1)
+    if cloture is None or ouverture is None:
+        return None
+    return _derive(
+        f"capital_rembourse_an{rang}", (ouverture, cloture),
+        lambda v: v[0] - v[1] if v[0] > v[1] else None,
+        libelle=f"Capital du prêt remboursé, exercice {rang}",
+        formule=f"{ouverture.id} − {cloture.id}", annee=cloture.annee, periode="an",
+        definition="part du prêt bancaire rendue à la banque pendant l'exercice, hors intérêts",
+    )
+
+
 def _evolution(valeurs: list[float]) -> float | None:
     depart, arrivee = valeurs
     if depart == 0:
@@ -445,14 +531,51 @@ def faits_de_l_etude(socle: Socle) -> dict[str, Fait]:
                     "CAF = résultat net + dotations"
                 ),
             ))
-        # Capacité de prélèvement mensuelle = CAF ÷ 12 (dictionnaire d'indicateurs
-        # de la cliente, 30/09/2026). La CAF n'a PAS de « moyenne mensuelle »
+        # Le capital du prêt remboursé dans l'exercice : la dette d'ouverture
+        # (l'emprunt, puis la dette résiduelle de l'exercice précédent) moins
+        # la dette de clôture. Business plan `8ead345f` (13/11/2026), relevé
+        # par la cliente : « le dirigeant pouvait soi-disant prélever
+        # 1 058 €/mois, sans tenir compte du remboursement du prêt », et « la
+        # CAF couvre largement le prêt » pour une couverture de 1,5 fois.
+        capital = _capital_rembourse(faits, series, rang)
+        if capital is not None:
+            derives.append(capital)
+            lus = _monetaire(caf, capital)
+            if lus is not None and lus[0][1] > 0:
+                fois = _nombre_de_fois(lus[0][0] / lus[0][1])
+                derives.append(_derive(
+                    f"caf_apres_remboursement_an{rang}", (caf, capital), lambda v: v[0] - v[1],
+                    libelle=f"CAF après remboursement du prêt, exercice {rang}",
+                    formule=f"caf_an{rang} − capital_rembourse_an{rang}", annee=caf.annee,
+                    definition=(
+                        "ce qui reste de la capacité d'autofinancement une fois le capital "
+                        f"du prêt remboursé. La CAF de cet exercice couvre {fois} fois le "
+                        "capital remboursé : écris ce rapport, jamais « largement »"
+                    ),
+                ))
+        # Capacité de prélèvement mensuelle (dictionnaire d'indicateurs de la
+        # cliente, 30/09/2026). La CAF n'a PAS de « moyenne mensuelle »
         # (`SANS_MOYENNE_MENSUELLE`) parce que cette étiquette avait été lue comme
         # le revenu de la dirigeante puis redivisée. Cet indicateur porte donc un
         # NOM distinct et sans ambiguïté : ce que l'activité PERMET de prélever
         # chaque mois — pas un revenu constaté, pas le résultat, et il ne se
-        # redivise pas.
-        if caf.valeur > 0:
+        # redivise pas. Depuis le 14/11/2026, le prêt passe AVANT le dirigeant :
+        # quand le capital remboursé est connu, il est retiré de la CAF.
+        if capital is not None:
+            derives.append(_derive(
+                f"capacite_prelevement_mensuelle_an{rang}", (caf, capital),
+                lambda v: (v[0] - v[1]) / 12.0 if v[0] > v[1] else None,
+                libelle=f"Capacité de prélèvement mensuelle, exercice {rang}",
+                formule=f"(caf_an{rang} − capital_rembourse_an{rang}) ÷ 12",
+                annee=caf.annee, periode="mois",
+                definition=(
+                    "capacité de prélèvement mensuelle = (capacité d'autofinancement − "
+                    "capital du prêt remboursé) ÷ 12 : ce que l'activité PERMET de prélever "
+                    "chaque mois une fois le prêt payé — ce n'est ni un revenu constaté, ni "
+                    "le résultat net, ni la CAF elle-même, et elle ne se redivise pas"
+                ),
+            ))
+        elif caf.valeur > 0:
             derives.append(_derive(
                 f"capacite_prelevement_mensuelle_an{rang}", (caf,), lambda v: v[0] / 12.0,
                 libelle=f"Capacité de prélèvement mensuelle, exercice {rang}",
@@ -463,6 +586,8 @@ def faits_de_l_etude(socle: Socle) -> dict[str, Fait]:
                     "constaté, ni le résultat net, ni la CAF elle-même, et elle ne se redivise pas"
                 ),
             ))
+
+    derives.extend(_volumes_et_parts_de_marche(faits, series))
 
     # Marges rapportées au chiffre d'affaires du même exercice.
     for rang, ca in series.get("ca_previsionnel", {}).items():
