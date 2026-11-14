@@ -160,6 +160,38 @@ def _reste_utilisable(job: GenerationJob) -> bool:
     return not credits_restitues(job)
 
 
+def charte_du_projet(projet: Projet) -> dict[str, str]:
+    """La charte de la fiche client, clé par clé — VIDE comprise.
+
+    Une valeur vide est voulue : elle dit « pas de logo », et l'appelant doit
+    alors RETIRER celui qu'il avait, jamais garder celui de « Ma marque ». La
+    mention de confidentialité n'en fait pas partie : elle reste l'abonnée.
+    """
+    client = projet.client
+    return {
+        "NOM_ENTREPRISE": str(client.raison_sociale or ""),
+        "LOGO_URL": str(client.logo_url or ""),
+        "COULEUR_PRINCIPALE": str(client.couleur_principale or ""),
+        "COULEUR_SECONDAIRE": str(client.couleur_secondaire or ""),
+        "COULEUR_FOND": str(client.couleur_fond or ""),
+    }
+
+
+def appliquer_charte_du_projet(variables: dict[str, str], projet: Projet) -> dict[str, str]:
+    """Les variables d'un brief, habillées de la charte ACTUELLE de la fiche.
+
+    Une clé que la fiche laisse vide est retirée, pas conservée : c'est le
+    brief d'avant qui la portait, donc la charte d'un autre.
+    """
+    habillees = dict(variables)
+    for cle, valeur in charte_du_projet(projet).items():
+        if valeur:
+            habillees[cle] = valeur
+        else:
+            habillees.pop(cle, None)
+    return habillees
+
+
 def variables_de_commande(
     organisation: Organisation,
     type_document: str,
@@ -224,14 +256,7 @@ def variables_de_commande(
         # Aucun repli sur « Ma marque » pour le logo et les couleurs : une
         # fiche sans charte donne un document neutre, jamais la charte d'un
         # tiers. La mention de confidentialité, elle, reste celle de l'abonnée.
-        client = projet.client
-        marque.update({
-            "NOM_ENTREPRISE": client.raison_sociale,
-            "LOGO_URL": client.logo_url,
-            "COULEUR_PRINCIPALE": client.couleur_principale,
-            "COULEUR_SECONDAIRE": client.couleur_secondaire,
-            "COULEUR_FOND": client.couleur_fond,
-        })
+        marque.update(charte_du_projet(projet))
     variables.update({cle: valeur for cle, valeur in marque.items() if valeur})
 
     manquants = [

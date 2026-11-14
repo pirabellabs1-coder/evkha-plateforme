@@ -483,7 +483,9 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
     livrable.
     """
     try:
-        job = GenerationJob.objects.select_related("order__customer").get(id=job_id)
+        job = GenerationJob.objects.select_related(
+            "order__customer", "order__projet__client"
+        ).get(id=job_id)
     except GenerationJob.DoesNotExist:
         return _json({"error": "Job not found."}, status=404)
     except Exception:
@@ -541,9 +543,22 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
     # l'ouvrir aux commandes des clients (29/09/2026).
     avec_memoire = isinstance(corps_requete, dict) and corps_requete.get("memoire") is True
 
+    # La reprise garde la FICHE CLIENT de la commande d'origine, et la charte
+    # ACTUELLE de cette fiche. Avant le 14/11/2026, elle perdait le projet et
+    # recopiait une marque figée dans le brief : reprendre la stratégie
+    # Dibitek `d319a9e5` aurait réimprimé le nom et le logo d'un autre client,
+    # alors même que le correctif d'identité était en ligne.
+    projet = job.order.projet
+    variables = dict(soumission.normalized_variables)
+    if projet is not None:
+        from organisations.commandes import appliquer_charte_du_projet  # noqa: PLC0415
+
+        variables = appliquer_charte_du_projet(variables, projet)
+
     commande = Order.objects.create(
         customer=job.order.customer,
         offer=offre,
+        projet=projet,
         # L'identifiant PORTE la filiation : sans elle, un dossier repris est
         # indiscernable d'une commande manuelle ordinaire, et personne ne
         # saura dans six mois pourquoi ce client a deux business plans.
@@ -559,7 +574,7 @@ def job_regenerer(request: HttpRequest, job_id: str) -> JsonResponse:
         raw_payload={"reprise_de": str(job.id)},
         # VERBATIM. Aucun filtre, aucune normalisation, aucune valeur par
         # défaut : ce que la cliente a répondu, et rien d'autre.
-        normalized_variables=dict(soumission.normalized_variables),
+        normalized_variables=variables,
         missing_fields=list(soumission.missing_fields or []),
     )
 
