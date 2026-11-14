@@ -1670,6 +1670,14 @@ REGLES_DE_FOND = (
     "« 3,4 % par an (France) », jamais « 3,4 % » seul quand le document porte "
     "aussi un chiffre mondial. Deux périmètres compares dans la même phrase "
     "se nomment tous les deux.\n"
+    # Business plan de test `71a755fd` (14/11/2026) : « une part de marché de
+    # < 0,001 % du marché français du e-commerce » pour une société qui vend
+    # en Chine. Juste en arithmétique, vide de sens.
+    "- Un marché, une part de marché, des concurrents se mesurent dans le PAYS "
+    "OÙ LES CLIENTS ACHÈTENT, jamais dans celui du siège. Une société française "
+    "qui vend en Asie ne rapporte pas ses ventes au marché français : elle "
+    "les rapporte au marché de son pays de vente, ou dit qu'aucun chiffre "
+    "publié ne le mesure encore.\n"
     # « Ne pas enoncer de nouveau les chiffres presents tels quels, mais
     # expliquer en quoi ces contraintes se transforment a horizon 2026-2030. »
     "- Une section sur l'AVENIR ne redit pas les chiffres du présent : elle "
@@ -1824,7 +1832,11 @@ REGLES_DE_FOND = (
     "cours — Service Public, la DGFiP, le BOFiP, l'URSSAF, Légifrance, ou "
     "l'équivalent officiel du pays — citée avec sa date. Distingue toujours la "
     "nature de l'activité : les seuils des VENTES DE BIENS ne sont pas ceux des "
-    "PRESTATIONS DE SERVICES, ni un seuil de base un seuil majoré. Un texte "
+    "PRESTATIONS DE SERVICES, ni un seuil de base un seuil majoré. La nature "
+    "se juge sur ce que la SOCIÉTÉ FACTURE, pas sur ce que ses clients "
+    "achètent : une place de marché, un intermédiaire, une commission, un "
+    "abonnement, des frais logistiques refacturés sont des PRESTATIONS DE "
+    "SERVICES, même quand les clients achètent des produits. Un texte "
     "cité doit être EN VIGUEUR : s'il a été abrogé ou remplacé, cite celui qui "
     "s'applique. Si tu ne trouves pas de source datée, écris que le montant "
     "est à confirmer auprès de l'administration, plutôt qu'un chiffre.\n"

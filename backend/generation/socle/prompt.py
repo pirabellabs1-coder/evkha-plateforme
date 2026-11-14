@@ -250,6 +250,20 @@ _REGLES = (
     "du projet (une activité régionale a une clientèle régionale). Le marché "
     "mondial et le marché continental sont deux "
     "valeurs DIFFÉRENTES : ne mets jamais la même des deux côtés.\n"
+    # Business plan de test `71a755fd` (14/11/2026) : siège en France, ventes
+    # en Chine continentale. « Taille du marché national » a été lue comme la
+    # France — le e-commerce français, 196,4 Md€ — et toute l'analyse de
+    # marché, part de marché comprise, a porté sur un pays où le projet ne
+    # vend rien. La règle 8 pré le disait pour le TAM seul : c'est la CLASSE
+    # (toute donnée de marché), pas l'instance.
+    "3 bis. « NATIONAL », dans ce référentiel, désigne LE PAYS OÙ LES CLIENTS "
+    "ACHÈTENT, jamais celui du siège ni de l'immatriculation. Une société "
+    "installée en France qui vend en Chine a pour marché national la Chine : "
+    "taille du marché, croissance, clientèle cible et concurrents s'y "
+    "mesurent. Si le projet vend dans plusieurs pays, le marché national est "
+    "celui de son PREMIER pays de vente, et tu l'écris dans le `libelle` "
+    "(« e-commerce alimentaire importé, Chine continentale »). Le pays du "
+    "siège ne sert qu'au droit, à la fiscalité et aux coûts.\n"
     "4. Respecte la famille d'unité imposée. Un taux de croissance s'exprime "
     "en %, jamais en milliards.\n"
     "5. `fiabilite` vaut :\n"
