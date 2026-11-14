@@ -1471,7 +1471,20 @@ _FORME_PAR_LIVRABLE: dict[str, str] = {
         # deux fois — le modèle ne savait pas que c'était interdit.
         "- Un montant se DÉCIDE : jamais deux bornes à la place d'une valeur. "
         "Un chiffre unique, et l'hypothèse qui le porte. Un prévisionnel "
-        "tranche."
+        "tranche.\n"
+        # Retour de la cliente du 13/11/2026 (`8ead345f`) : le document parlait
+        # comme un consultant qui conseille le porteur. Un business plan est
+        # présenté PAR le porteur à son banquier ou à ses investisseurs.
+        "- Le business plan est écrit PAR LE PORTEUR DU PROJET, à la première "
+        "personne du pluriel (« nous lançons », « nous visons »), pour un "
+        "banquier ou un investisseur. Jamais la voix d'un conseil extérieur : "
+        "pas de « le porteur devrait », « nous recommandons au client », « il "
+        "conviendrait que la société ». Les points encore ouverts s'écrivent "
+        "comme des étapes que le porteur s'engage à mener, avec leur date.\n"
+        "- La TRÉSORERIE se suit mois par mois sur la première année : le point "
+        "bas, son mois et ce qui le couvre (apport, prêt, découvert autorisé) "
+        "sont écrits en clair. Un besoin de trésorerie non couvert est dit "
+        "comme tel."
     ),
     "competitor_study": (
         "- Les concurrents se comparent sur des CRITÈRES CONSTANTS : les mêmes "
@@ -1774,6 +1787,62 @@ REGLES_DE_FOND = (
     # pas ne vaut rien, quelle que soit sa justesse. La regle vaut pour les
     # quatre livrables : « ca doit s'appliquer sur toutes les etudes »
     # (cliente, 11/08/2026).
+    # Retours de la cliente du 13/11/2026 sur la stratégie `d319a9e5` et le
+    # business plan `8ead345f`. Chaque règle vise la CLASSE du défaut (règle 4
+    # de CLAUDE.md) : elle vaut pour tous les dossiers, pas pour ces deux-là.
+    #
+    # « Devis CMA CGM et DHL », « présence sur Tmall », « plateforme louée » :
+    # aucun ne figurait au dossier. Un fait inventé sur le client est pire
+    # qu'un chiffre faux — le client sait qu'il est faux.
+    "- Tu n'attribues au client AUCUN FAIT qui ne figure pas dans son dossier : "
+    "devis reçu, partenaire signé, contrat, fournisseur choisi, présence sur une "
+    "plateforme, local loué, recrutement fait, client déjà acquis. Ce que le "
+    "dossier ne dit pas s'écrit comme une ÉTAPE À MENER ou une HYPOTHÈSE "
+    "(« un devis transporteur reste à obtenir »), jamais comme acquis. Un nom "
+    "d'entreprise réelle ne s'associe au projet que si le dossier le nomme.\n"
+    # « Home = 20 % » : une donnée du brief que le reste du brief contredisait,
+    # reprise telle quelle et propagée à tout le document.
+    "- Une donnée du dossier client que d'autres éléments du MÊME dossier "
+    "contredisent ne se reprend pas en silence. Tu signales l'écart en une "
+    "phrase, tu dis quelle valeur tu retiens et pourquoi, et tu t'y tiens "
+    "ensuite. Un chiffre du client n'est pas vrai parce qu'il vient du client.\n"
+    # Statut juridique différent selon les chapitres, cibles « seniors » qui
+    # changent, « un mois » puis « trois mois », dates hors d'ordre.
+    "- Ce que les chapitres précédents ont FIXÉ te lie : statut juridique, "
+    "forme de la société, répartition du capital, cibles prioritaires, prix, "
+    "calendrier, délais, rôle de chaque intervenant. Relis leurs résumés avant "
+    "d'écrire, et reprends ces éléments À L'IDENTIQUE. Si tu dois t'en écarter, "
+    "dis-le explicitement et justifie-le ; un écart silencieux est une "
+    "contradiction. Les dates s'enchaînent dans l'ordre du calendrier du "
+    "projet : rien ne se fait avant la création de la société ou avant le "
+    "lancement annoncé.\n"
+    # Seuil de franchise de TVA faux (93 500 € au lieu de 41 250 € pour des
+    # services), décrets périmés, aucune source légale.
+    "- Un SEUIL, un TAUX ou un MONTANT réglementaire (franchise de TVA, "
+    "plafonds du micro-régime, cotisations sociales, aides, obligations) ne "
+    "s'écrit JAMAIS de mémoire. Il vient d'une source officielle de l'année en "
+    "cours — Service Public, la DGFiP, le BOFiP, l'URSSAF, Légifrance, ou "
+    "l'équivalent officiel du pays — citée avec sa date. Distingue toujours la "
+    "nature de l'activité : les seuils des VENTES DE BIENS ne sont pas ceux des "
+    "PRESTATIONS DE SERVICES, ni un seuil de base un seuil majoré. Un texte "
+    "cité doit être EN VIGUEUR : s'il a été abrogé ou remplacé, cite celui qui "
+    "s'applique. Si tu ne trouves pas de source datée, écris que le montant "
+    "est à confirmer auprès de l'administration, plutôt qu'un chiffre.\n"
+    # « CAF couvre largement » ; analyses de sensibilité menées avec deux
+    # méthodes différentes ; indicateur qui ne mesure pas l'objectif.
+    "- Un jugement se CHIFFRE : « couvre largement », « confortable », "
+    "« solide » se remplacent par le rapport qui le prouve (« couvre 1,4 fois "
+    "l'annuité »). Une analyse de sensibilité garde UNE méthode d'un bout à "
+    "l'autre du document — même variable, même amplitude, même point de "
+    "départ. Un indicateur de suivi mesure l'objectif qu'il accompagne, pas "
+    "une activité voisine.\n"
+    # La stratégie poussait l'offre la moins rentable : la conversion visée
+    # allait à rebours de la marge.
+    "- Une recommandation commerciale tient compte de la MARGE de chaque offre, "
+    "pas seulement de son volume. Pousser l'offre la moins rentable doit être "
+    "un choix assumé et justifié, jamais une conséquence non vue. Toute "
+    "recommandation qui engage de l'argent dit aussi son effet sur la "
+    "TRÉSORERIE du mois où elle est engagée.\n"
     "- Écris pour un DIRIGEANT, pas pour un consultant. Chaque terme technique "
     "ou anglais est soit remplacé par son équivalent courant, soit expliqué "
     "dans la phrase même — jamais laissé nu. « La verticale la plus scalable » "

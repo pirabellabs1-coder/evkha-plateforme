@@ -54,6 +54,15 @@ CORRECTIFS_DU_28_OCTOBRE: list[str] = [
     # 180 000 € ». `REGLES_DE_FOND` part aux QUATRE livrables, donc la
     # consigne aussi.
     "CHOISIE, pas calculée à l'envers",
+    # Retours de la cliente du 13/11/2026 (stratégie `d319a9e5`, business plan
+    # `8ead345f`) : chacun devient une consigne pour TOUS les dossiers.
+    "AUCUN FAIT qui ne figure pas dans son dossier",
+    "Un chiffre du client n'est pas vrai parce qu'il vient du client",
+    "Ce que les chapitres précédents ont FIXÉ te lie",
+    "ne s'écrit JAMAIS de mémoire",
+    "Un jugement se CHIFFRE",
+    "tient compte de la MARGE de chaque offre",
+    "Volume de ventes et chiffre d'affaires sont DEUX grandeurs",
 ]
 
 #: La contradiction levée le soir du 28/10/2026 : « formule par formule » ne
@@ -75,6 +84,8 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
         "adresse web, recopiée telle quelle",
         "FIGURES RÉALISABLES AVEC CE SOCLE",
         "cité par 9 comparateurs",
+        "écrit PAR LE PORTEUR DU PROJET",
+        "La TRÉSORERIE se suit mois par mois",
     ],
     DeliverableType.COMPETITOR_STUDY: [
         *CORRECTIFS_DU_28_OCTOBRE,
