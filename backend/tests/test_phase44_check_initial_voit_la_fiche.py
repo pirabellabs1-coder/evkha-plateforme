@@ -15,6 +15,7 @@ lecteur final — six elements tous déjà rédigés dans le chapitre 0. Verdict
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -25,7 +26,7 @@ from generation.models import ChapterStatus
 _FICHE_MARQUEUR = "Cycle de vente estime : 6 a 12 mois pour grands comptes."
 
 
-def _make_job_avec_fiche():
+def _make_job_avec_fiche() -> tuple[Any, Any]:
     from catalog.models import DeliverableType, Offer
     from customers.models import Customer
     from generation.models import ChapterGeneration, GenerationJob
@@ -107,3 +108,46 @@ def test_les_checks_de_bloc_gardent_leur_intitule_de_chapitres() -> None:
     assert "## CHAPITRES DU BLOC" in prompt
     assert "## FICHE PROJET — données client verrouillees" in prompt
     assert "CADRAGE DU CHECK INITIAL" not in prompt
+
+
+# ── Le relecteur juge la fidélité à la demande : il doit l'avoir LUE ─────────
+#
+# Business plan de test `db3aa88d` (16/11/2026) : le CHECK INITIAL demandait de
+# retirer « la feuille de route d'expansion (Taïwan, Japon 2028…) qui n'est pas
+# dans la demande client » — elle y était, dans le champ PAYS.
+
+def _avec_les_reponses(job: Any, variables: dict[str, str]) -> None:
+    from intake.models import IntakeSource, IntakeStatus, IntakeSubmission
+
+    IntakeSubmission.objects.create(
+        order=job.order, source=IntakeSource.MANUAL, status=IntakeStatus.NORMALIZED,
+        normalized_variables=variables,
+    )
+
+
+@pytest.mark.django_db
+def test_le_check_initial_recoit_les_reponses_du_client() -> None:
+    job, fiche = _make_job_avec_fiche()
+    _avec_les_reponses(job, {
+        "PAYS": "France (siège). Marchés de vente : Chine dès 2027, puis Taïwan et Japon (2028).",
+        "MODELE_REVENUS": "Commission de 21 % et panier moyen de 35 €.",
+        "LOGO_URL": "/media/logo-secret.png",
+    })
+
+    prompt = _construire_prompt_check(BLOCS_PAR_IDENTIFIANT["INITIAL"], job, [fiche])
+
+    assert "puis Taïwan et Japon (2028)" in prompt
+    assert "Commission de 21 %" in prompt
+    assert "ne demande JAMAIS de la retirer" in prompt
+    assert "logo-secret" not in prompt, "la charte n'est pas une réponse sur le projet"
+
+
+@pytest.mark.django_db
+def test_les_autres_blocs_ne_recoivent_pas_le_questionnaire() -> None:
+    """Contre-épreuve : seul le contrôle de la fiche projet lit le brief entier."""
+    job, fiche = _make_job_avec_fiche()
+    _avec_les_reponses(job, {"PAYS": "Marchés de vente : Chine, puis Taïwan."})
+
+    prompt = _construire_prompt_check(BLOCS_PAR_IDENTIFIANT["A"], job, [fiche])
+
+    assert "RÉPONSES DU CLIENT AU QUESTIONNAIRE" not in prompt

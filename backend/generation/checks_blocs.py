@@ -466,10 +466,54 @@ _ADDENDUM_CHECK_INITIAL = (
     "fourni et qui n'est pas indispensable pour rediger le chapitre 1 (budget "
     "de l'étude, delai, forme juridique encore a arbitrer) n'est PAS un defaut "
     "des lors que la fiche le signale honnetement comme non specifie ou "
-    "provisoire. Ne reponds 'non' ou 'partiel' que si la fiche est reellement "
+    "provisoire. Une information qui figure dans les RÉPONSES DU CLIENT AU "
+    "QUESTIONNAIRE vient du client : ne demande JAMAIS de la retirer de la "
+    "fiche, ni de la marquer comme hypothèse ou estimation, même si elle "
+    "n'apparaît pas parmi les données verrouillées — celles-ci ne reprennent "
+    "que quelques chiffres. "
+    "Ne reponds 'non' ou 'partiel' que si la fiche est reellement "
     "incomplete, contradictoire ou infidele a la demande — auquel cas la "
     "generation sera stoppee et un humain devra intervenir."
 )
+
+
+#: Ce qui n'est pas une réponse du client sur son projet : la charte du
+#: document et les champs techniques de la commande.
+_HORS_DEMANDE = frozenset({
+    "LOGO_URL", "COULEUR_PRINCIPALE", "COULEUR_SECONDAIRE", "COULEUR_FOND",
+    "MENTION_CONFIDENTIALITE", "DELIVERABLE_TYPE", "CONTACT_PRO",
+})
+#: Au-delà, une réponse est coupée : le relecteur doit pouvoir vérifier qu'une
+#: information VIENT du client, pas relire son dossier.
+_MAX_SIGNES_PAR_REPONSE = 1500
+
+
+def reponses_du_client(job: GenerationJob) -> str:
+    """Ce que le client a répondu au questionnaire, question par question.
+
+    Business plan de test `db3aa88d` (16/11/2026). Le CHECK INITIAL a bloqué
+    la livraison en demandant de « retirer la feuille de route d'expansion
+    (Taïwan, Japon 2028, Inde…) qui n'est pas dans la demande client » et de
+    marquer « la commission de 21 % et le panier moyen de 35 € comme des
+    estimations » — trois informations écrites en toutes lettres dans le
+    brief. Sous le titre « DEMANDE DU CLIENT », le relecteur ne recevait que
+    les faits chiffrés verrouillés : il jugeait la fidélité à une demande
+    qu'il n'avait pas lue (règle 1 — un contrôle sans référence n'en est pas
+    un ; règle 2 — une référence amputée accuse ce qui est juste).
+    """
+    from intake.models import IntakeSubmission  # noqa: PLC0415
+
+    soumission = IntakeSubmission.objects.filter(order=job.order).first()
+    variables = (soumission.normalized_variables if soumission else None) or {}
+    lignes = []
+    for cle in sorted(variables):
+        valeur = " ".join(str(variables[cle] or "").split())
+        if cle in _HORS_DEMANDE or not valeur:
+            continue
+        if len(valeur) > _MAX_SIGNES_PAR_REPONSE:
+            valeur = valeur[:_MAX_SIGNES_PAR_REPONSE].rstrip() + " […]"
+        lignes.append(f"- {cle} : {valeur}")
+    return "\n".join(lignes)
 
 
 def _construire_prompt_check(
@@ -509,6 +553,13 @@ def _construire_prompt_check(
         if est_initial
         else "## FICHE PROJET — données client verrouillees"
     )
+    # Le CHECK INITIAL juge la fidélité à la demande : il la reçoit ENTIÈRE.
+    reponses = reponses_du_client(job) if est_initial else ""
+    demande = (
+        "## RÉPONSES DU CLIENT AU QUESTIONNAIRE — sa demande, mot pour mot\n"
+        f"{reponses}\n\n"
+        if reponses else ""
+    )
     titre_corps = (
         "## FICHE PROJET RÉDIGÉE — document a valider"
         if est_initial
@@ -522,6 +573,7 @@ def _construire_prompt_check(
         f"Objectif du CHECK {bloc.check_numero} : {bloc.focus}\n\n"
         f"{titre_client}\n"
         f"{fiche_client}\n\n"
+        f"{demande}"
         f"## FICHE PROJET — reperes enrichis (chapitres precedents)\n"
         f"{fiche_generee}\n\n"
         f"{titre_corps}\n{corps_chapitres}\n\n"
