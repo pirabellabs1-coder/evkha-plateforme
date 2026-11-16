@@ -145,3 +145,41 @@ def test_un_bloc_reellement_incomplet_est_toujours_refuse() -> None:
         ChapitrePayload.model_validate(_payload([
             {"type": "graphique", "type_graphique": "courbes", "titre": "Vide"},
         ]))
+
+
+# ── La forme MIXTE : l'objet niché, et un de ses champs resté à côté ─────────
+#
+# Business plan de test `db3aa88d` (16/11/2026) : le chapitre 5 a échoué trois
+# fois sur « blocs.3.tableau.source : Extra inputs are not permitted », et le
+# dossier est mort à 21 chapitres sur 22.
+
+_TABLEAU = {"entetes": ["Critère", "Nous"], "lignes": [["Prix", "35 €"]]}
+
+
+def test_la_source_posee_a_cote_du_tableau_est_rangee_dedans() -> None:
+    """Sur le code d'avant, ValidationError : la source était un champ « en trop »."""
+    bloc = {"type": "tableau", "tableau": dict(_TABLEAU), "source": "Fevad, 2025"}
+
+    chapitre = ChapitrePayload.model_validate(_payload([bloc]))
+
+    assert chapitre.blocs[0].tableau.source == "Fevad, 2025"  # type: ignore[union-attr]
+
+
+def test_ce_que_le_tableau_porte_deja_gagne_sur_ce_qui_traine() -> None:
+    bloc = {
+        "type": "tableau",
+        "tableau": {**_TABLEAU, "source": "Insee, 2026"},
+        "source": "à côté",
+    }
+
+    chapitre = ChapitrePayload.model_validate(_payload([bloc]))
+
+    assert chapitre.blocs[0].tableau.source == "Insee, 2026"  # type: ignore[union-attr]
+
+
+def test_une_cle_etrangere_a_cote_du_tableau_reste_refusee() -> None:
+    """Contre-épreuve : on range un champ DU tableau, on n'avale pas n'importe quoi."""
+    bloc = {"type": "tableau", "tableau": dict(_TABLEAU), "remarque": "hors contrat"}
+
+    with pytest.raises(ValidationError):
+        ChapitrePayload.model_validate(_payload([bloc]))

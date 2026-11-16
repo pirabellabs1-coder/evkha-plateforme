@@ -520,12 +520,36 @@ def _renester(valeurs: Any, cle: str, modele: type[BaseModel]) -> Any:
     qu'elle retrouverait sa structure. C'est précisément le nom que l'alias
     existe pour désambiguïser.
     """
-    if not isinstance(valeurs, dict) or cle in valeurs:
+    if not isinstance(valeurs, dict):
         return valeurs
     noms = {
         champ.alias or nom
         for nom, champ in modele.model_fields.items()
     }
+    if cle in valeurs:
+        # La forme MIXTE : l'objet est bien niché, mais un de ses champs est
+        # resté à côté de lui — `{type, tableau: {…}, source: "…"}`. Business
+        # plan de test `db3aa88d` (16/11/2026) : le chapitre 5 a échoué trois
+        # fois de suite sur « blocs.3.tableau.source : Extra inputs are not
+        # permitted. Champs admis ici : tableau, type » — un motif qui ne
+        # disait pas où ranger la source —, et le dossier est mort à 21
+        # chapitres sur 22 pour une clé posée un niveau trop haut. Même geste
+        # que la forme aplatie : on répare le transport, pas le fond. Ce que
+        # l'objet niché porte déjà GAGNE sur ce qui traîne à côté.
+        niche = valeurs[cle]
+        if not isinstance(niche, dict):
+            return valeurs
+        egares = {
+            nom: valeur for nom, valeur in valeurs.items()
+            if nom not in (cle, "type") and (
+                nom in noms or any(_differe_d_un_signe(str(nom), n) for n in noms)
+            )
+        }
+        if not egares:
+            return valeurs
+        corrige = {nom: valeur for nom, valeur in valeurs.items() if nom not in egares}
+        corrige[cle] = {**egares, **niche}
+        return corrige
 
     def _appartient(candidat: str) -> bool:
         # « à un signe près » vaut ici AUSSI : sans quoi une clé aplatie ET
