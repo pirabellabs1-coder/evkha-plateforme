@@ -1081,8 +1081,15 @@ def job_relaunch(request: HttpRequest, job_id: str) -> JsonResponse:
     if job.status == JobStatus.DONE:
         fermer_les_chapitres_inacheves(job)
 
+    # « Intervention requise » AVEC un chapitre en échec est le même trou, sous
+    # un autre nom. Business plan de test `db3aa88d` (16/11/2026) : chapitre 5
+    # mort sur une erreur de format, vingt et un chapitres écrits, et le
+    # dossier — passé de `done` à `intervention_requise` à l'assemblage —
+    # refusait la relance. Le correctif était en ligne, et le seul recours
+    # restait de repayer une génération entière : exactement ce que ce bloc
+    # existe pour éviter (règle 4, la classe et pas le statut).
     trou_a_combler = (
-        job.status == JobStatus.DONE
+        job.status in (JobStatus.DONE, JobStatus.INTERVENTION_REQUISE)
         and job.chapters.filter(status=ChapterStatus.FAILED).exists()
     )
     relancable = (JobStatus.FAILED, JobStatus.CANCELLED)

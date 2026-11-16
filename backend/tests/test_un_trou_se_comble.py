@@ -129,3 +129,28 @@ def test_un_dossier_qui_progresse_encore_reste_protege() -> None:
     reponse = _relancer(job)
 
     assert reponse.status_code == 400
+
+
+@pytest.mark.django_db
+def test_un_dossier_en_intervention_avec_un_trou_se_relance() -> None:
+    """Business plan de test `db3aa88d` (16/11/2026) : 21 chapitres sur 22, statut
+    « intervention requise », relance refusée — le trou redevenait définitif."""
+    job = _job_avec(
+        [ChapterStatus.DONE] * 5 + [ChapterStatus.FAILED] + [ChapterStatus.DONE] * 16,
+        job_status=JobStatus.INTERVENTION_REQUISE,
+    )
+
+    reponse = _relancer(job)
+
+    assert reponse.status_code in (200, 202), reponse.content
+    a_refaire = job.chapters.filter(status=ChapterStatus.PENDING)
+    assert [c.chapter_number for c in a_refaire] == [5]
+
+
+@pytest.mark.django_db
+def test_une_intervention_sans_chapitre_en_echec_ne_se_relance_pas() -> None:
+    """CONTRE-ÉPREUVE : un livrable retenu à la vérification, tous chapitres écrits,
+    n'a rien à réécrire — le relancer ne réparerait rien."""
+    job = _job_avec([ChapterStatus.DONE] * 21, job_status=JobStatus.INTERVENTION_REQUISE)
+
+    assert _relancer(job).status_code == 400
