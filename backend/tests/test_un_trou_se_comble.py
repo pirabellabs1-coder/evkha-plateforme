@@ -21,6 +21,7 @@ sont conservés, et la dépense se limite au trou.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
@@ -37,7 +38,7 @@ from generation.models import (
 from orders.models import Order
 
 
-def _job_avec(statuts: list[str], job_status: str = JobStatus.DONE) -> GenerationJob:
+def _job_avec(statuts: Sequence[str], job_status: str = JobStatus.DONE) -> GenerationJob:
     offre, _ = Offer.objects.get_or_create(
         slug="trou", defaults={"name": "Stratégie",
                                "deliverable_type": DeliverableType.BUSINESS_STRATEGY},
