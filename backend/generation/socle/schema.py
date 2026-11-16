@@ -603,6 +603,15 @@ class Concurrent(BaseModel):
 
         On prend donc l'hôte, puis ses deux derniers segments :
         « www2.deloitte.com/fr » → « deloitte.com ».
+
+        Sauf quand ces deux segments ne sont qu'un SUFFIXE de pays (« com.hk »,
+        « co.jp », « com.tw ») : il n'y a alors aucun nom dedans, et on remonte
+        d'un segment. Business plan de test `ac010864` (16/11/2026) :
+        `citysuper.com.hk`, `mymarket.com.hk` et `terroirs.com.hk` rendaient
+        tous « com.hk », et la consigne ordonnait au rédacteur de compter ces
+        trois entreprises de Hong Kong pour UN concurrent — « City'Super
+        (groupe com.hk) » dans le document. C'est aussi l'origine du « même
+        groupe com.sg » relevé le 06/11 sur `6616a393`.
         """
         trouve = _DOMAINE_WEB.search(self.site_web or "")
         if not trouve:
@@ -610,7 +619,18 @@ class Concurrent(BaseModel):
         # L'hôte s'arrête au premier séparateur : chemin, espace, virgule.
         hote = re.split(r"[/\s,;)]", self.site_web[trouve.start():], maxsplit=1)[0]
         segments = [s for s in hote.lower().strip(".").split(".") if s]
-        return ".".join(segments[-2:]) if len(segments) >= 2 else ""
+        if len(segments) < 2:
+            return ""
+        # La liste des terminaisons a UNE source (règle 5) : le contrôle des
+        # adresses. Import tardif — ce module-là lit le socle.
+        from ..checks_post_rendu import _est_un_suffixe  # noqa: PLC0415
+
+        garde = 2
+        while garde < len(segments) and _est_un_suffixe(".".join(segments[-garde:])):
+            garde += 1
+        racine = ".".join(segments[-garde:])
+        # Un hôte qui n'est QUE suffixe (« com.hk » seul) ne désigne personne.
+        return "" if _est_un_suffixe(racine) else racine
 
     @property
     def codes_notes(self) -> set[str]:

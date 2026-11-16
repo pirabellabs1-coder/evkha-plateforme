@@ -43,6 +43,10 @@ ECLORE = {
 }
 
 
+#: Un projet sans prêt bancaire : ni emprunt, ni dette restante.
+SANS_PRET = ("emprunt", "dette_residuelle_an1", "dette_residuelle_an2", "dette_residuelle_an3")
+
+
 def _socle(
     valeurs: dict[str, float] | None = None,
     retirer: tuple[str, ...] = (),
@@ -87,8 +91,9 @@ def test_la_capacite_de_prelevement_est_la_caf_divisee_par_douze() -> None:
     """
     # Sans dette connue : la CAF entière divisée par douze. Avec un prêt, son
     # remboursement passe d'abord (14/11/2026, voir le test suivant).
-    sans_dette = ("dette_residuelle_an2", "dette_residuelle_an3")
-    faits = faits_de_l_etude(_socle(ECLORE, retirer=sans_dette))
+    # « Sans dette » veut dire sans PRÊT : depuis le 16/11/2026, un emprunt dont
+    # le capital remboursé ne se déduit pas ne rend plus aucun chiffre.
+    faits = faits_de_l_etude(_socle(ECLORE, retirer=SANS_PRET))
     assert faits["capacite_prelevement_mensuelle_an3"].valeur == pytest.approx(1_986.32, abs=0.01)
     assert faits["capacite_prelevement_mensuelle_an3"].formule == "caf_an3 ÷ 12"
     assert faits["capacite_prelevement_mensuelle_an3"].periode == "mois"
@@ -228,11 +233,49 @@ def test_la_capacite_de_prelevement_passe_apres_le_pret() -> None:
 def test_sans_dette_connue_la_capacite_reste_la_caf_sur_douze() -> None:
     """Contre-épreuve : sans emprunt ni dette, la formule d'avant tient."""
     faits = faits_de_l_etude(_socle(
-        {"caf_an1": 12_000.0}, retirer=("emprunt", "dette_residuelle_an1"),
+        {"caf_an1": 12_000.0}, retirer=SANS_PRET,
     ))
 
     assert "capital_rembourse_an1" not in faits
     assert faits["capacite_prelevement_mensuelle_an1"].valeur == pytest.approx(1_000.0)
+
+
+def test_un_pret_sans_dette_connue_ne_rend_pas_la_caf_sur_douze() -> None:
+    """Business plan de test `ac010864` (16/11/2026) : emprunt connu, dette de fin
+    d'exercice absente du socle — le document réécrivait « 1 057,85 € par mois »."""
+    faits = faits_de_l_etude(_socle(
+        {"caf_an1": 12_694.17, "emprunt": 47_700.0},
+        retirer=("dette_residuelle_an1", "dette_residuelle_an2", "dette_residuelle_an3"),
+    ))
+
+    assert "capital_rembourse_an1" not in faits
+    assert "capacite_prelevement_mensuelle_an1" not in faits
+
+
+def test_une_revente_niee_ne_fait_pas_une_activite_de_vente() -> None:
+    """Place de marché `8ead345f` : seuil des VENTES (93 500 €) au lieu des services."""
+    from generation.memoire.decisions import nature_de_l_activite
+
+    place_de_marche = {
+        "OFFRE": "Le modèle de place de marché supprime la marge d'achat-revente. "
+                 "La société n'achète pas de marchandise.",
+        "POSITIONNEMENT": "Sans marge d'achat-revente, la plateforme livre moins cher.",
+    }
+    assert nature_de_l_activite(place_de_marche) is Nature.SERVICES
+    # Même sans négation : une intermédiation facture un service.
+    assert nature_de_l_activite(
+        {"OFFRE": "Marketplace : les producteurs y font la revente de leurs invendus."}
+    ) is Nature.SERVICES
+
+
+def test_un_commerce_de_revente_reste_une_activite_de_vente() -> None:
+    """Contre-épreuve : la règle d'avant tient pour un vrai négoce."""
+    from generation.memoire.decisions import nature_de_l_activite
+
+    assert nature_de_l_activite(
+        {"OFFRE": "Boutique : achat et revente de vêtements, sans stock dormant."}
+    ) is Nature.VENTES
+    assert nature_de_l_activite({"OFFRE": "Commerce de détail alimentaire."}) is Nature.VENTES
 
 
 def test_une_place_de_marche_distingue_volume_et_chiffre_d_affaires() -> None:

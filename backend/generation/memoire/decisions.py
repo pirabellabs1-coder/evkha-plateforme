@@ -70,17 +70,42 @@ MAX_PHRASES_DU_BRIEF = 8
 JUSTIFICATION_DU_BRIEF = "choix déjà arrêté pour le projet"
 
 
+#: Ce qui dit que la société VEND des marchandises qu'elle a achetées.
+_VENTES = re.compile(r"vente de marchandises|négoce|commerce de détail|revente")
+#: Ce qui dit qu'elle facture un SERVICE, même quand ses clients achètent des
+#: produits : elle met en relation, et garde une commission.
+_SERVICES = re.compile(
+    r"prestations? de services?|place de marché|marketplace|intermédiation|courtage"
+    r"|rémunér\w+ par (?:des |une )?commissions?"
+)
+#: Une mention de vente que la phrase NIE : « sans marge d'achat-revente »,
+#: « supprime la revente », « n'achète pas de marchandise ».
+_NEGATION_AVANT = re.compile(
+    r"(?:\bsans\b|\bsupprim\w+|\bpas de\b|\baucune?\b|\bni\b|n['’]ach[èe]te pas)[^.;\n]{0,40}$"
+)
+
+
 def nature_de_l_activite(variables: Mapping[str, object]) -> Nature:
     """Services ou ventes, au sens des seuils fiscaux. Services par défaut.
 
     Le brief d'ÉCLORE le dit : « Il s'agit d'une prestation de services
     commerciale, relevant du régime BIC ». Une activité de vente de
     marchandises a d'autres seuils — les confondre fausse la TVA.
+
+    Business plan `8ead345f` (retour de la cliente du 13/11/2026, cause trouvée
+    le 16/11) : une place de marché rémunérée par commissions, dont le brief
+    écrit « le modèle supprime la marge d'achat-revente » et « la société
+    n'achète pas de marchandise ». Le mot « revente » suffisait : l'activité
+    était classée VENTES, et le document appliquait le seuil de 93 500 € au
+    lieu des 41 250 € des services. Une mention NIÉE ne compte plus, et une
+    activité d'intermédiation est un service quoi que vendent ses vendeurs.
     """
     texte = " ".join(str(v) for v in variables.values() if v).lower()
-    ventes = re.search(r"vente de marchandises|négoce|commerce de détail|revente", texte)
-    services = re.search(r"prestations? de services?", texte)
-    if ventes and not services:
+    ventes = any(
+        not _NEGATION_AVANT.search(texte[max(0, trouve.start() - 60):trouve.start()])
+        for trouve in _VENTES.finditer(texte)
+    )
+    if ventes and not _SERVICES.search(texte):
         return Nature.VENTES
     return Nature.SERVICES
 

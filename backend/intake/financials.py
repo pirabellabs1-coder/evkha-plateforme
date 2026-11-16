@@ -616,6 +616,42 @@ def _trajectoire_par_exercice(brut: str) -> str | None:
     return " / ".join(exercices[n] for n in sorted(exercices))
 
 
+#: Ce qui sépare deux montants sur une ligne de valeurs, et rien d'autre.
+_ENTRE_DEUX_VALEURS_RE = re.compile(
+    rf"(?:{_SP}|[,;/|\-–—→>.]|\b(?:puis|et)\b)*", re.IGNORECASE
+)
+
+
+def _ligne_de_valeurs(brut: str) -> str | None:
+    """La première ligne faite UNIQUEMENT de montants : c'est la réponse du champ.
+
+    Business plan de test `ac010864` (16/11/2026). Le champ CA de la cliente :
+
+        Chiffre d'affaires de la première année et évolution sur 5 ans
+        136 800 €, 281 556 €, 513 280 €, 839 800 €, 1 107 920 €.
+        Pourquoi ce calcul : le chiffre d'affaires est construit à partir des
+        commandes […] multipliées par le panier moyen (35 € à 38 €).
+
+    Le titre de la question, puis les valeurs SEULES sur leur ligne, puis
+    l'explication. La lecture par libellé borne chaque « chiffre d'affaires »
+    à sa ligne : la première n'a aucun montant, la troisième a ceux du panier
+    moyen. `ca_previsionnel` a donc été verrouillé à « 35 € / 38 € », et le
+    gate a bloqué le document pour avoir écrit 136 800 € — le bon chiffre
+    (règle 2 : une référence mal extraite est pire qu'absente).
+
+    Une ligne qui ne porte que des montants ne commente rien : elle répond.
+    Une phrase qui en contient (« un panier de 35 € ») n'est pas concernée.
+    """
+    for ligne in brut.splitlines():
+        montants = [_clean(m.group(0)) for m in _AMOUNT_RE.finditer(ligne)]
+        if not montants:
+            continue
+        reste = _AMOUNT_RE.sub(" ", ligne)
+        if _ENTRE_DEUX_VALEURS_RE.fullmatch(reste):
+            return " / ".join(montants)
+    return None
+
+
 def _montant_avant_le_libelle(brut: str, cle: str) -> bool:
     """Le champ chiffre-t-il AVANT de nommer son libellé ?
 
@@ -662,11 +698,13 @@ def raffiner_champs_financiers(variables: dict[str, object]) -> dict[str, str]:
         brut = str(variables.get(cle) or "").strip()
         if not brut:
             continue
-        relu = (
-            _trajectoire_par_exercice(brut) if cle in _TRAJECTORY_LABELS else None
-        ) or extract_financials_from_text(brut).get(cle)
+        par_structure = (
+            _trajectoire_par_exercice(brut) or _ligne_de_valeurs(brut)
+            if cle in _TRAJECTORY_LABELS else None
+        )
+        relu = par_structure or extract_financials_from_text(brut).get(cle)
         if relu and relu != brut and not (
-            _montant_avant_le_libelle(brut, cle) and relu != _trajectoire_par_exercice(brut)
+            _montant_avant_le_libelle(brut, cle) and relu != par_structure
         ):
             variables[cle] = relu
             corrigees[cle] = relu

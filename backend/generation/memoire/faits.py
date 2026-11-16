@@ -461,6 +461,14 @@ def _capital_rembourse(
     )
 
 
+def _un_pret_court(faits: dict[str, Fait], series: dict[str, dict[int, Fait]]) -> bool:
+    """Le socle porte-t-il un prêt à rembourser — emprunt non nul, ou dette restante ?"""
+    emprunt = faits.get("emprunt")
+    if emprunt is not None and emprunt.valeur > 0:
+        return True
+    return any(dette.valeur > 0 for dette in series.get("dette_residuelle", {}).values())
+
+
 def _evolution(valeurs: list[float]) -> float | None:
     depart, arrivee = valeurs
     if depart == 0:
@@ -575,7 +583,15 @@ def faits_de_l_etude(socle: Socle) -> dict[str, Fait]:
                     "le résultat net, ni la CAF elle-même, et elle ne se redivise pas"
                 ),
             ))
-        elif caf.valeur > 0:
+        # Un prêt existe mais son capital remboursé ne se déduit pas (la dette de
+        # fin d'exercice, facultative, manque au socle) : on ne calcule RIEN.
+        # Business plan de test `ac010864` (16/11/2026) : le socle portait
+        # l'emprunt sans la dette résiduelle, le calcul retombait sur CAF ÷ 12
+        # et le document réécrivait « 1 057,85 € par mois », le chiffre que la
+        # cliente avait refusé le 13/11 — quand la génération d'avant, dette
+        # connue, écrivait 337,14 €. Un indicateur juste une fois sur deux est
+        # pire qu'absent (règle 1).
+        elif caf.valeur > 0 and not _un_pret_court(faits, series):
             derives.append(_derive(
                 f"capacite_prelevement_mensuelle_an{rang}", (caf,), lambda v: v[0] / 12.0,
                 libelle=f"Capacité de prélèvement mensuelle, exercice {rang}",
