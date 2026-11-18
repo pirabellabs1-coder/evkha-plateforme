@@ -183,3 +183,40 @@ def test_une_cle_etrangere_a_cote_du_tableau_reste_refusee() -> None:
 
     with pytest.raises(ValidationError):
         ChapitrePayload.model_validate(_payload([bloc]))
+
+
+# ── Un intitulé de sous-section trop long ────────────────────────────────────
+#
+# Business plan de test `9e38eb81` (18/11/2026) : chapitre 14 rejoué trois fois
+# sur « intitule : String should have at most 220 characters ».
+
+def test_un_intitule_trop_long_devient_un_titre_et_un_paragraphe() -> None:
+    """Sur le code d'avant, ValidationError : le chapitre entier était refusé."""
+    long = (
+        "Le plan de financement initial : " + "un emprunt bancaire garanti complète l'apport "
+        * 6 + "et couvre le besoin en fonds de roulement."
+    )
+    assert len(long) > 220
+
+    chapitre = ChapitrePayload.model_validate(_payload([
+        {"type": "titre_sous_section", "numero": "14.1", "intitule": long},
+        {"type": "paragraphe", "texte": "Suite du chapitre."},
+    ]))
+
+    titre, suite, apres = chapitre.blocs
+    assert titre.intitule == "Le plan de financement initial"  # type: ignore[union-attr]
+    assert suite.texte.startswith("Un emprunt bancaire")  # type: ignore[union-attr]
+    assert suite.texte.endswith("fonds de roulement.")  # type: ignore[union-attr]
+    assert apres.texte == "Suite du chapitre."  # type: ignore[union-attr]
+
+
+def test_un_intitule_ordinaire_n_est_pas_touche() -> None:
+    """Contre-épreuve."""
+    chapitre = ChapitrePayload.model_validate(_payload([
+        {"type": "titre_sous_section", "numero": "1.1",
+         "intitule": "Deux périmètres : à ne pas confondre"},
+        {"type": "paragraphe", "texte": "Texte."},
+    ]))
+
+    assert len(chapitre.blocs) == 2
+    assert chapitre.blocs[0].intitule == "Deux périmètres : à ne pas confondre"  # type: ignore[union-attr]

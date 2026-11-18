@@ -475,6 +475,60 @@ class CelluleKpi(SortieDeChapitre):
     source: str = ""
 
 
+#: Longueur maximale de l'intitulé d'une sous-section (`BlocSousTitre`).
+LONGUEUR_D_UN_INTITULE = 220
+
+
+def scinder_les_intitules_trop_longs(valeurs: dict[str, Any]) -> dict[str, Any]:
+    """Un intitulé de sous-section trop long devient un titre ET un paragraphe.
+
+    Business plan de test `9e38eb81` (18/11/2026) : le chapitre 14 a été
+    rejoué trois fois sur
+
+        blocs.3.titre_sous_section.intitule : String should have at most
+        220 characters
+
+    Un titre de plus de 220 caractères est une phrase rangée dans un titre.
+    Le plafond protège la mise en page, comme celui des six lignes d'un
+    encadré : c'est un défaut de FORME, et ce dépôt a déjà tranché qu'un
+    défaut de forme ne coûte pas un chapitre (voir `Encadre`, `Tableau`,
+    `raccourcir_le_resume`).
+
+    Rien n'est perdu : l'intitulé garde son début, coupé à une frontière
+    lisible (deux-points, tiret, point, sinon le dernier mot entier), et la
+    suite devient le paragraphe qui ouvre la sous-section. La coupe est
+    journalisée (règle 1).
+    """
+    blocs = valeurs.get("blocs")
+    if not isinstance(blocs, list):
+        return valeurs
+    corriges: list[Any] = []
+    for bloc in blocs:
+        intitule = bloc.get("intitule") if isinstance(bloc, dict) else None
+        if not (
+            isinstance(bloc, dict) and bloc.get("type") == "titre_sous_section"
+            and isinstance(intitule, str) and len(intitule) > LONGUEUR_D_UN_INTITULE
+        ):
+            corriges.append(bloc)
+            continue
+        fenetre = intitule[:LONGUEUR_D_UN_INTITULE]
+        coupe = max(fenetre.rfind(" : "), fenetre.rfind(" — "), fenetre.rfind(". "))
+        if coupe < 20:
+            coupe = fenetre.rfind(" ")
+        if coupe < 20:
+            coupe = LONGUEUR_D_UN_INTITULE
+        titre = intitule[:coupe].rstrip(" :—.,;")
+        suite = intitule[coupe:].lstrip(" :—.,;")
+        _log.warning(
+            "Intitulé de %s caractères ramené à %s ; la suite devient un paragraphe : %s",
+            len(intitule), len(titre), suite[:120],
+        )
+        corriges.append({**bloc, "intitule": titre})
+        if suite:
+            corriges.append({"type": "paragraphe", "texte": suite[0].upper() + suite[1:]})
+    return {**valeurs, "blocs": corriges}
+
+
 class BlocSousTitre(SortieDeChapitre):
     """Titre de sous-section : « 1.1 Deux périmètres à ne pas confondre »."""
 
@@ -482,7 +536,7 @@ class BlocSousTitre(SortieDeChapitre):
 
     type: Literal["titre_sous_section"] = "titre_sous_section"
     numero: str = Field(min_length=1, max_length=8)
-    intitule: str = Field(min_length=1, max_length=220)
+    intitule: str = Field(min_length=1, max_length=LONGUEUR_D_UN_INTITULE)
 
 
 class BlocParagraphe(SortieDeChapitre):
@@ -792,7 +846,9 @@ class ChapitrePayload(SortieDeChapitre):
     @model_validator(mode="before")
     @classmethod
     def _accepter_ancien_format(cls, valeurs: Any) -> Any:
-        return depuis_ancien_format(valeurs) if isinstance(valeurs, dict) else valeurs
+        if not isinstance(valeurs, dict):
+            return valeurs
+        return scinder_les_intitules_trop_longs(depuis_ancien_format(valeurs))
 
     # ── Vues dérivées ────────────────────────────────────────────────────────
     # Elles LISENT `blocs`, elles ne le doublent pas : une seule source par
