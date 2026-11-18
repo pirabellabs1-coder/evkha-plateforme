@@ -371,7 +371,19 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         "le choix dans l'encadre Méthodologie du chapitre Sources. Quand le "
         "brief donne UN prix par variante (à distance, en atelier, à domicile ; "
         "une formule par palier), écris chaque prix avec sa variante : un "
-        "résumé « de X à Y » efface les prix du milieu et devient une plage.\n"
+        "résumé « de X à Y » efface les prix du milieu et devient une plage. "
+        # Business plan de test `db3aa88d` (16/11/2026) : le brief donne un
+        # écart de prix par produit — 17 % pour l'épicerie, 21 % pour un vin,
+        # 36 % pour un champagne — et le chapitre 8 l'a résumé en une plage
+        # « selon le produit », que le gate a bloquée. La consigne ne parlait
+        # que de PRIX : la classe est « une valeur par variante ».
+        "La règle vaut pour TOUTE valeur que le brief donne par variante, pas "
+        "seulement un prix : un pourcentage, un écart, un délai, une marge, "
+        "une commission. Trois écarts donnés pour trois produits s'écrivent en "
+        "trois valeurs, chacune avec son produit — sur trois lignes d'un "
+        "tableau, ou dans une phrase qui les nomme tous. Jamais la plus basse "
+        "et la plus haute reliées par « à », suivies de « selon le produit » : "
+        "si la place manque, cite UNE valeur avec ce qu'elle désigne.\n"
         # Décision de la cliente du 27/09/2026 (« cas 1 : A, cas 2 : A »),
         # prise sur la dernière étude concurrentielle : « les tarifs du marché
         # s'étalent entre … et … » et « Concurrent X : …-… € » étaient bloqués

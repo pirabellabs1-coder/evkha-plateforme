@@ -79,6 +79,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
     DeliverableType.BUSINESS_PLAN: [
         *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
+        "TOUTE valeur que le brief donne par variante",
         ENCADRE_SANS_ETENDUE,
         "Un montant se DÉCIDE",
         "adresse web, recopiée telle quelle",
@@ -90,6 +91,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
     DeliverableType.COMPETITOR_STUDY: [
         *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
+        "TOUTE valeur que le brief donne par variante",
         ENCADRE_SANS_ETENDUE,
         "CA de référence estimé",
         "CA actuel estimé",
@@ -100,6 +102,7 @@ CONSIGNES_ATTENDUES: dict[str, list[str]] = {
     DeliverableType.BUSINESS_STRATEGY: [
         *CORRECTIFS_DU_28_OCTOBRE,
         "UN prix par variante",
+        "TOUTE valeur que le brief donne par variante",
         ENCADRE_SANS_ETENDUE,
         "le coût mensuel retenu",
         "ce qu'un pilotage stratégique change",
