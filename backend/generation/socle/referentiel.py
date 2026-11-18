@@ -449,6 +449,45 @@ _COMMENTAIRE_VOLUME = (
     "le renseigner quand le chiffre d'affaires EST le montant des ventes."
 )
 
+def _marche_accessible(chapitres: tuple[int, ...]) -> DefinitionDonnee:
+    """Le marché que CE projet peut servir, à côté du marché total de son pays.
+
+    Business plan de test `9e38eb81` (18/11/2026). Le brief disait : « La Chine
+    importe 176 Md€ de produits agricoles et alimentaires […]. Le marché
+    réellement accessible à une plateforme de petits producteurs est estimé à
+    127 M€ sur les six pays, dont 42,5 M€ en Chine. » Le référentiel du
+    business plan n'avait QU'UNE place, `marche_national_taille` : elle a reçu
+    176 000 M€, et le chiffre que le client retient pour son projet n'en avait
+    aucune. La fiche projet a donc présenté 176 Md€ comme « marché d'accueil »,
+    le chapitre 19 y a rapporté 280 000 € de ventes (« une fraction infime »),
+    et la relecture a bloqué le document.
+
+    Même identifiant que dans l'étude de marché (règle 5) : la mémoire calcule
+    déjà la part de marché sur `sam` quand il existe
+    (`memoire.faits._volumes_et_parts_de_marche`), et un chiffre hérité de
+    l'étude de marché du même projet retrouve sa place sous son nom.
+
+    Facultatif : un business plan cite son marché, il ne le démontre pas. Sans
+    chiffre établi, la donnée reste absente — une estimation maison du marché
+    accessible serait exactement le chiffre inventé que la règle 10 du prompt
+    interdit.
+    """
+    return DefinitionDonnee(
+        "sam", "Marché réellement accessible au projet",
+        Perimetre.NATIONAL, FamilleUnite.MONETAIRE, chapitres=chapitres,
+        perimetres_admis=(Perimetre.NATIONAL, Perimetre.REGIONAL),
+        commentaire=(
+            "La part du marché national que CE projet peut servir, compte tenu "
+            "de son offre, de son circuit et de sa taille. Renseigne-la dès que "
+            "le brief, ses documents ou un livrable précédent la chiffrent, à "
+            "l'identique, et sur le MÊME pays que `marche_national_taille` ; si "
+            "le client la donne pour plusieurs pays, retiens celle du premier "
+            "pays de vente et cite le total dans `libelle`. Jamais supérieure à "
+            "`marche_national_taille`. Sans chiffre établi, omets-la."
+        ),
+    )
+
+
 _BP: tuple[DefinitionDonnee, ...] = (
     # Chapitre 6 — synthèse de marché. Volontairement réduit : le BP cite le
     # marché, il ne le démontre pas — c'est le rôle de l'étude de marché.
@@ -460,6 +499,7 @@ _BP: tuple[DefinitionDonnee, ...] = (
         "marche_national_croissance", "Croissance annuelle du marché national",
         Perimetre.NATIONAL, FamilleUnite.POURCENTAGE, chapitres=(6,),
     ),
+    _marche_accessible(chapitres=(6,)),
     DefinitionDonnee(
         "taille_clientele_cible", "Taille de la clientèle cible",
         Perimetre.NATIONAL, FamilleUnite.EFFECTIF, chapitres=(6, 10),
@@ -727,6 +767,7 @@ _STR: tuple[DefinitionDonnee, ...] = (
         "marche_national_croissance", "Croissance annuelle du marché national",
         Perimetre.NATIONAL, FamilleUnite.POURCENTAGE, chapitres=(2,),
     ),
+    _marche_accessible(chapitres=(2,)),
     DefinitionDonnee(
         "ca_actuel", "Chiffre d'affaires actuel de l'entreprise",
         Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(3, 14),

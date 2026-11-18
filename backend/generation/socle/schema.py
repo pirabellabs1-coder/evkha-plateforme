@@ -1321,6 +1321,24 @@ def _controler_emboitement_marche(socle: Socle) -> list[str]:
                 f"({a[0]:,.0f} {a[1]}). L'emboîtement TAM ≥ SAM ≥ SOM est rompu."
             )
 
+    # Business plan et stratégie : pas de TAM, mais un marché national et, depuis
+    # le 18/11/2026, le marché accessible que le client déclare. Les deux vivent
+    # sur le même pays (`referentiel._marche_accessible`) : l'accessible est une
+    # PART du national. Contrôlé seulement sans `tam` — dans l'étude de marché,
+    # c'est le couple TAM/SAM qui porte l'emboîtement, et le TAM peut y couvrir
+    # plusieurs pays.
+    national, accessible = montant("marche_national_taille"), montant("sam")
+    if (
+        socle.donnee("tam") is None and national and accessible
+        and national[1] == accessible[1] and accessible[0] > national[0]
+    ):
+        motifs.append(
+            f"`sam` ({accessible[0]:,.0f} {accessible[1]}) dépasse "
+            f"`marche_national_taille` ({national[0]:,.0f} {national[1]}). Le "
+            "marché accessible au projet est une part du marché national, sur "
+            "le même pays : il ne peut pas le dépasser."
+        )
+
     mondial, continental = montant("marche_mondial_taille"), montant("marche_continental_taille")
     if mondial and continental and mondial[1] == continental[1]:
         if continental[0] > mondial[0]:

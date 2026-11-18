@@ -1678,6 +1678,17 @@ REGLES_DE_FOND = (
     "qui vend en Asie ne rapporte pas ses ventes au marché français : elle "
     "les rapporte au marché de son pays de vente, ou dit qu'aucun chiffre "
     "publié ne le mesure encore.\n"
+    # Business plan de test `9e38eb81` (18/11/2026) : le client donnait 176 Md€
+    # d'importations chinoises ET 42,5 M€ de marché accessible. La fiche projet
+    # n'a gardé que le premier (« marché d'accueil évalué à 176 000 M€ »), le
+    # chapitre 19 y a rapporté 280 000 € de ventes : la relecture a bloqué.
+    "- Quand le dossier donne à la fois un marché TOTAL et le marché ACCESSIBLE "
+    "au projet, le marché du projet est l'ACCESSIBLE : c'est à lui que se "
+    "rapportent les ventes visées, la part de marché, les objectifs et la "
+    "ligne « marché » d'une fiche ou d'une synthèse. Le marché total ne se "
+    "cite jamais seul : la même phrase ou le même tableau donne l'accessible "
+    "et dit ce qui les sépare. Rapporter les ventes d'une jeune société au "
+    "marché total d'un pays ne mesure rien.\n"
     # « Ne pas enoncer de nouveau les chiffres presents tels quels, mais
     # expliquer en quoi ces contraintes se transforment a horizon 2026-2030. »
     "- Une section sur l'AVENIR ne redit pas les chiffres du présent : elle "
