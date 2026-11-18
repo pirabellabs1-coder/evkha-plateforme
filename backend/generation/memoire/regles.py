@@ -149,6 +149,34 @@ def regime_de_tva(
     )
 
 
+def plafond_micro_de_reference(annee: int, nature: Nature = Nature.SERVICES) -> Decision | None:
+    """Le plafond de la micro-entreprise, pour un projet qui n'en est PAS une.
+
+    Business plan de test `9e38eb81` (18/11/2026), une SASU qui ne facture que
+    des services. Le chapitre juridique compare les formes et écarte la
+    micro-entreprise : « plafond de 188 700 € en ventes de marchandises
+    dépassé dès 2029 ». Deux erreurs dans un seul chiffre — le plafond des
+    VENTES pour une activité de services, et sa valeur d'AVANT la
+    revalorisation de 2026. La mémoire ne donnait ce plafond qu'aux projets
+    déclarés en micro-entreprise : tous les autres le citaient de mémoire, pour
+    dire pourquoi ils écartent ce régime.
+
+    Le montant est donc donné à tous, avec la nature et l'année : c'est le seul
+    qui s'écrit.
+    """
+    seuil = _seuil(PLAFOND_MICRO, nature, annee)
+    if seuil is None:
+        return None
+    activite = "prestations de services" if nature is Nature.SERVICES else "ventes de marchandises"
+    return Decision(
+        "plafond_micro", f"{seuil.valeur:,.0f} € de chiffre d'affaires HT".replace(",", " "),
+        annee,
+        f"plafond de la micro-entreprise pour une activité de {activite} "
+        f"({seuil.source}) : c'est ce montant, et aucun autre, qui se cite pour "
+        "comparer ce régime ou dire pourquoi il est écarté",
+    )
+
+
 def depasse_le_plafond_micro(
     ca_ht: float, annee: int, nature: Nature = Nature.SERVICES
 ) -> Decision | None:

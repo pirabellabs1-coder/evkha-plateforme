@@ -21,6 +21,7 @@ import pytest
 
 from catalog.models import DeliverableType
 from generation.controle_final import les_sources_en_dernier
+from generation.memoire.decisions import decisions_de_l_etude
 from generation.memoire.faits import faits_de_l_etude
 from generation.prompts import build_system_prompt
 from generation.relecture.valeurs import serie_nommee
@@ -265,3 +266,32 @@ def test_un_besoin_en_fonds_de_roulement_distinct_s_ajoute_toujours() -> None:
     assert faits["besoins_totaux"].valeur == pytest.approx(77_700.0)
     assert faits["ecart_financement"].valeur == pytest.approx(0.0)
     assert "compris" not in faits["besoins_totaux"].libelle
+
+
+# ── Le plafond de la micro-entreprise ne se cite pas de mémoire ─────────────
+
+
+def test_un_projet_hors_micro_recoit_le_plafond_de_son_activite() -> None:
+    """Le dossier : une SASU de services a écrit « 188 700 € en ventes de marchandises »."""
+    socle = _socle()
+    decisions = decisions_de_l_etude(
+        socle,
+        {"OFFRE": "Place de marché : la société se rémunère par commissions.",
+         "FORME": "SASU"},
+        faits_de_l_etude(socle),
+    )
+
+    (plafond,) = [d for d in decisions if d.sujet == "plafond_micro"]
+    assert plafond.valeur.startswith("83 600 €")
+    assert "prestations de services" in plafond.justification
+
+
+def test_un_commerce_recoit_le_plafond_des_ventes() -> None:
+    """Contre-épreuve : la nature décide du plafond."""
+    socle = _socle()
+    decisions = decisions_de_l_etude(
+        socle, {"OFFRE": "Commerce de détail alimentaire."}, faits_de_l_etude(socle),
+    )
+
+    (plafond,) = [d for d in decisions if d.sujet == "plafond_micro"]
+    assert plafond.valeur.startswith("203 100 €")

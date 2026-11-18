@@ -44,7 +44,13 @@ from collections.abc import Mapping
 from generation.socle.schema import Socle
 
 from .faits import Fait
-from .regles import Decision, Nature, depasse_le_plafond_micro, regime_de_tva
+from .regles import (
+    Decision,
+    Nature,
+    depasse_le_plafond_micro,
+    plafond_micro_de_reference,
+    regime_de_tva,
+)
 
 #: Ce qui fait d'une phrase du brief une décision de calendrier ou de statut.
 _SUJETS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -160,6 +166,19 @@ def decisions_de_l_etude(
             sortie = depasse_le_plafond_micro(ca.valeur, ca.annee, nature)
             if sortie is not None:
                 decisions.append(sortie)
+
+    # Le plafond de la micro-entreprise, une fois, pour l'année du premier
+    # exercice : un projet qui écarte ce régime doit pouvoir dire pourquoi sans
+    # citer un plafond de mémoire (`regles.plafond_micro_de_reference`).
+    premier = next(
+        (f for rang in (1, 2, 3) if (f := faits.get(f"ca_previsionnel_an{rang}")) is not None
+         and f.annee is not None),
+        None,
+    )
+    if premier is not None and premier.annee is not None:
+        plafond = plafond_micro_de_reference(premier.annee, nature)
+        if plafond is not None:
+            decisions.append(plafond)
 
     directs = sum(1 for a in socle.concurrents if a.type == "direct")
     indirects = sum(1 for a in socle.concurrents if a.type == "indirect")
