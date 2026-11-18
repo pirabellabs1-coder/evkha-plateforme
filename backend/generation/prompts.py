@@ -383,7 +383,22 @@ def _consigne_specifique_livrable(deliverable_type: str) -> str:
         "trois valeurs, chacune avec son produit — sur trois lignes d'un "
         "tableau, ou dans une phrase qui les nomme tous. Jamais la plus basse "
         "et la plus haute reliées par « à », suivies de « selon le produit » : "
-        "si la place manque, cite UNE valeur avec ce qu'elle désigne.\n"
+        "si la place manque, cite UNE valeur avec ce qu'elle désigne. "
+        # Business plan de test `9e38eb81` (18/11/2026), chapitre 6 : « ce
+        # chiffre reste une estimation ; un écart de 20 à 30 % dans un sens ou
+        # l'autre ne changerait pas la décision ». Aucune source ne donnait cet
+        # écart : une marge d'incertitude inventée, écrite en plage, bloquée
+        # par le gate.
+        "UNE INCERTITUDE NE SE CHIFFRE PAS PAR UNE PLAGE INVENTÉE. Quand un "
+        "chiffre est une estimation, dis-le, dis ce qui reste à vérifier et "
+        # Aucune plage en exemple : une forme interdite montrée au modèle est
+        # une forme qu'il recopie
+        # (`test_les_consignes_ne_fabriquent_pas_de_fourchettes`).
+        "comment — jamais une marge d'erreur chiffrée que personne n'a "
+        "mesurée (« à tant de pour cent près », « un écart de tant dans un sens "
+        "ou l'autre ») : le dossier ne mesure pas cet écart, et tu n'as pas à "
+        "le fabriquer. Si une marge d'erreur est réellement publiée, cite-la "
+        "en UNE valeur avec sa source.\n"
         # Décision de la cliente du 27/09/2026 (« cas 1 : A, cas 2 : A »),
         # prise sur la dernière étude concurrentielle : « les tarifs du marché
         # s'étalent entre … et … » et « Concurrent X : …-… € » étaient bloqués

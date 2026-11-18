@@ -158,7 +158,16 @@ _SCENARIO = re.compile(
 _PAS_LA_SERIE = re.compile(
     r"(?i)\bmarge (d.EBE|nette|brute)|\btaux\b|\bpart\b|\bévolution\b|\bécart\b|"
     r"\bmensuel|\bpar mois\b|\bsi\b|\bsans\b|\bnon retenu|\bvariante\b|"
-    r"\balternati|" + _SCENARIO.pattern.removeprefix("(?i)")
+    r"\balternati|"
+    # Business plan de test `9e38eb81` (18/11/2026), annexe des chiffres :
+    # « Volume de ventes réglé par les clients, exercice 2027 (diffère du
+    # chiffre d'affaires société) · 280 000 € » a été lu comme LE chiffre
+    # d'affaires 2027, et accusé de contredire 136 800 €. Un libellé qui nomme
+    # une autre grandeur et ne cite la série que pour s'en distinguer n'est pas
+    # cette série.
+    r"\bvolume (?:de ventes|d.affaires)\b|\bdiff[èe]re(?:nt)? d[ue]\b|"
+    r"\b[àa] ne pas confondre\b|"
+    + _SCENARIO.pattern.removeprefix("(?i)")
 )
 #: Le chiffre d'affaires d'un MARCHÉ, d'un secteur ou d'un concurrent n'est pas
 #: celui du projet (revue du 30/09/2026).

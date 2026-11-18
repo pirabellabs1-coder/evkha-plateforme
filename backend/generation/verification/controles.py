@@ -29,6 +29,7 @@ cherchera pas non plus :
 """
 from __future__ import annotations
 
+import logging
 import re
 import statistics
 from bisect import bisect_left
@@ -43,6 +44,8 @@ from ..socle.referentiel import identifiants_obligatoires
 from ..socle.schema import DONNEE_MANQUANTE, Socle, valeur_en_unites_de_base
 from .lecture import DocumentLu, Mesure, mesures_dans
 from .rapport import Anomalie, Gravite
+
+_log = logging.getLogger(__name__)
 
 #: Écart relatif toléré entre une grandeur du document et une valeur du socle.
 #: Couvre l'arrondi d'affichage (« 381,5 Md€ » écrit « 382 Md€ ») sans laisser
@@ -1350,8 +1353,72 @@ def _part_d_une_donnee_nommee(mesure: Mesure, socle: Socle) -> bool:
     return False
 
 
+#: Tolérance pour un chiffre que la mémoire a CALCULÉ : le document le reprend
+#: par un repère, à l'arrondi d'affichage près. Plus serrée que `TOLERANCE` —
+#: la mémoire porte deux cents valeurs, et à 1 % elles blanchiraient un chiffre
+#: inventé par simple voisinage.
+TOLERANCE_CALCUL_DE_LA_MEMOIRE = 0.005
+
+
+def valeurs_calculees_par_la_memoire(
+    socle: Socle, deliverable_type: str
+) -> list[tuple[float, str]]:
+    """Ce que la mémoire de l'étude calcule et DONNE au rédacteur, en références.
+
+    Business plan de test `9e38eb81` (18/11/2026) : vingt-huit « chiffres hors
+    socle », dont « 82,3 % » (évolution du chiffre d'affaires 2028-2029),
+    « 1 291,67 € » (EBE mensuel moyen), « 123 120 € » (chiffre d'affaires à
+    −10 %), « 217 972,92 € » (seuil de rentabilité 2028). Chacun est un fait que
+    `memoire.faits` calcule et que le prompt ordonne de citer. Le contrôle ne
+    lisait que le socle : il accusait le document d'avoir inventé ce que le
+    dépôt lui fait écrire (règle 2) — la même faute que pour les seuils légaux,
+    corrigée le 26/10/2026 pour eux seuls.
+
+    Références DIRECTES, jamais versées dans les dérivations, pour la raison
+    écrite plus bas : rien ne se calcule à partir d'elles.
+    """
+    from ..memoire.etude import MemoireEtude  # noqa: PLC0415
+    from ..memoire.faits import BAISSES_DE_SENSIBILITE  # noqa: PLC0415
+
+    try:
+        faits = MemoireEtude.construire(socle, {}, deliverable_type).faits
+    except Exception:  # noqa: BLE001 — sans mémoire, le contrôle juge comme avant
+        _log.exception("Chiffres hors socle : mémoire de l'étude non reconstruite")
+        return []
+    valeurs: list[tuple[float, str]] = []
+    for fait in faits.values():
+        if fait.origine != "calculee":
+            continue
+        base = valeur_en_unites_de_base(fait.valeur, fait.unite)
+        if base is not None:
+            valeurs.append((base[0], "monetaire"))
+        else:
+            valeurs.append((fait.valeur, "brut"))
+    if any("_moins_" in identifiant for identifiant in faits):
+        # Les taux de baisse du scénario sont écrits avec lui (« −10 % »).
+        valeurs.extend((float(baisse), "brut") for baisse in BAISSES_DE_SENSIBILITE)
+    return valeurs
+
+
+def _calculee_par_la_memoire(mesure: Mesure, calculees: Sequence[tuple[float, str]]) -> bool:
+    """Le document écrit-il un fait de la mémoire, au signe d'écriture près ?
+
+    « recule de −5 %, soit −1 710 € de moins » : le signe suit la tournure, pas
+    le calcul. La valeur absolue se compare donc.
+    """
+    famille = "monetaire" if mesure.est_monetaire else "brut"
+    return any(
+        nature == famille
+        and _proche(abs(mesure.valeur), abs(valeur), TOLERANCE_CALCUL_DE_LA_MEMOIRE)
+        for valeur, nature in calculees
+    )
+
+
 def controler_chiffres_hors_socle(
-    document: DocumentLu, socle: Socle, chiffres_du_brief: Iterable[float] = ()
+    document: DocumentLu,
+    socle: Socle,
+    chiffres_du_brief: Iterable[float] = (),
+    valeurs_calculees: Sequence[tuple[float, str]] = (),
 ) -> list[Anomalie]:
     """Chaque grandeur chiffrée du document est-elle dans le socle ou le brief ?
 
@@ -1433,6 +1500,9 @@ def controler_chiffres_hors_socle(
             continue
         # Un montant que la LOI fixe se justifie par lui-meme, sans derivation.
         if _justifiee(mesure, seuils_legaux):
+            continue
+        # Un fait que la MÉMOIRE calcule aussi (`valeurs_calculees_par_la_memoire`).
+        if _calculee_par_la_memoire(mesure, valeurs_calculees):
             continue
         if _reprend_une_estimation_etablie(mesure, etablies):
             continue

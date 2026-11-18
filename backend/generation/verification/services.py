@@ -169,7 +169,8 @@ def verifier_document(
 
     rapport.controles_executes.append("chiffres_hors_socle")
     rapport.ajouter(*controles.controler_chiffres_hors_socle(
-        document, socle, chiffres_client
+        document, socle, chiffres_client,
+        valeurs_calculees=controles.valeurs_calculees_par_la_memoire(socle, deliverable_type),
     ))
 
     rapport.controles_executes.append("couverture_socle")

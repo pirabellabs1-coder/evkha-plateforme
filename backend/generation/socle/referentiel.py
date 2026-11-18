@@ -677,8 +677,25 @@ _BP: tuple[DefinitionDonnee, ...] = (
         "seuil_rentabilite", "Seuil de rentabilité (point mort)",
         Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, obligatoire=True,
         chapitres=(16, 17),
-        commentaire="Niveau de chiffre d'affaires, pas un résultat. Se dérive "
-                    "des charges fixes et du taux de marge.",
+        commentaire="Niveau de chiffre d'affaires, pas un résultat. Celui du "
+                    "PREMIER exercice. Si le brief ou ses documents le donnent, "
+                    "reprends-le à l'identique, en `declaree` ; sinon il se "
+                    "dérive des charges fixes et du taux de marge.",
+    ),
+    # Le seuil exercice par exercice, quand le CLIENT l'écrit. Business plan
+    # de test `9e38eb81` (18/11/2026) : le brief donnait « 130 535 €,
+    # 206 744 €, 443 950 € » ; faute de place, seul le premier entrait au
+    # socle, et la mémoire recalculait les deux autres à 217 972,92 € et
+    # 454 355,86 €. Sans chiffre du client, ils restent absents et la mémoire
+    # les calcule (`memoire.faits._seuil_declare`). Les trois exercices, comme
+    # toute série annuelle : l'exercice 1 redit alors `seuil_rentabilite`.
+    *(
+        DefinitionDonnee(
+            f"seuil_rentabilite_an{n}", f"Seuil de rentabilité — exercice {n}",
+            Perimetre.ENTREPRISE, FamilleUnite.MONETAIRE, chapitres=(16, 17),
+            du_client=True,
+        )
+        for n in (1, 2, 3)
     ),
     # Chapitre 18 — rémunération
     *(

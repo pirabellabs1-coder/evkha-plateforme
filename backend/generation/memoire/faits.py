@@ -25,7 +25,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from generation.chapitres.langage_simple import NOMS_SIMPLES
 from generation.socle.referentiel import Fiabilite
@@ -183,6 +183,18 @@ def _monetaire(*termes: Fait) -> tuple[list[float], str] | None:
     return [b[0] for b in bases if b is not None], devises.pop()
 
 
+#: En dessous, un montant calculé garde ses centimes : un prix, une marge par
+#: commande (« 2,90 € ») se lisent au centime. Au-dessus, et quand tous ses
+#: termes sont à l'euro, il s'écrit à l'euro.
+#:
+#: Business plan de test `9e38eb81` (18/11/2026) : « 136 800 € », « 281 556 € »
+#: à côté de « 217 972,92 € », « 1 291,67 € » dans les mêmes tableaux — six
+#: constats « tous les montants d'un tableau portent le même arrondi ». Les
+#: seconds étaient des calculs de la mémoire sur des termes à l'euro : un
+#: dérivé n'a pas plus de précision que ce dont il est tiré.
+SEUIL_DES_CENTIMES = 100.0
+
+
 def _arrondi_monetaire(valeur: float) -> float:
     return round(valeur, 2)
 
@@ -227,6 +239,8 @@ def _derive(
         return None
     if unite is None:
         unite, resultat = devise, _arrondi_monetaire(resultat)
+        if abs(resultat) >= SEUIL_DES_CENTIMES and all(v == round(v) for v in valeurs):
+            resultat = float(round(resultat))
     else:
         resultat = _arrondi_pourcentage(resultat)
     return Fait(
@@ -241,6 +255,35 @@ def _derive(
         definition=definition,
         periode=periode,
     )
+
+
+def _seuil_declare(
+    faits: dict[str, Fait], series: dict[str, dict[int, Fait]], rang: int, ca: Fait,
+) -> Fait | None:
+    """Le seuil de rentabilité que le CLIENT a écrit pour cet exercice, s'il l'a fait.
+
+    Business plan de test `9e38eb81` (18/11/2026). Le brief donnait le seuil de
+    chaque exercice — « 130 535 €, 206 744 €, 443 950 € ». La mémoire l'a
+    recalculé (CA − résultat net ÷ taux de marge, qui ignore l'impôt) : le
+    document a écrit 131 475,29 € au chapitre 1 et 130 535 € en annexe, et la
+    relecture a relevé la contradiction. Un chiffre que le client déclare ne se
+    recalcule pas : la mémoire calcule ce qui MANQUE (règle 5 — le brief est la
+    source).
+
+    Seule une donnée `declaree` prime. Un seuil que le socle a lui-même dérivé
+    reste recalculé exercice par exercice, comme avant (ÉCLORE `28a257bf`).
+    """
+    par_exercice = series.get("seuil_rentabilite", {}).get(rang)
+    if par_exercice is not None and par_exercice.origine == "declaree":
+        return par_exercice
+    du_socle = faits.get("seuil_rentabilite")
+    premier = min(series.get("ca_previsionnel", {rang: ca}))
+    if (
+        du_socle is not None and du_socle.origine == "declaree"
+        and rang == premier and du_socle.annee in (None, ca.annee)
+    ):
+        return du_socle
+    return None
 
 
 def _seuil_et_marge_de_securite(
@@ -275,7 +318,17 @@ def _seuil_et_marge_de_securite(
         "chiffre d'affaires HT qui couvre exactement les charges fixes de CET "
         "exercice ; chaque exercice a le sien"
     )
-    if charges is not None and taux is not None and taux.valeur > 0:
+    declare = _seuil_declare(faits, series, rang, ca)
+    if declare is not None:
+        # Le client a écrit le seuil de cet exercice : on ne le recalcule pas.
+        seuil = declare
+        if declare.id != f"seuil_rentabilite_an{rang}":
+            resultats.append(replace(
+                declare, id=f"seuil_rentabilite_an{rang}",
+                libelle=f"Seuil de rentabilité, exercice {rang}",
+                periode="an", definition=definition,
+            ))
+    elif charges is not None and taux is not None and taux.valeur > 0:
         # La définition même, quand le socle porte les charges fixes (revue du
         # 30/09/2026 : la même identité que `socle.calculs`).
         part = taux.valeur / 100.0
@@ -469,6 +522,33 @@ def _un_pret_court(faits: dict[str, Fait], series: dict[str, dict[int, Fait]]) -
     return any(dette.valeur > 0 for dette in series.get("dette_residuelle", {}).values())
 
 
+def _le_bfr_est_deja_dans_l_investissement(besoins: list[Fait], ressources: list[Fait]) -> bool:
+    """Le budget de démarrage du client comprend-il déjà sa trésorerie de départ ?
+
+    Business plan de test `9e38eb81` (18/11/2026). Le client donnait un budget
+    total de démarrage de 77 700 €, « emplois durables + trésorerie de départ »,
+    financé à l'euro près : 10 000 € d'apport, 20 000 € de prêts d'honneur,
+    47 700 € de prêt bancaire. Le socle a rangé 77 700 € en
+    `investissement_total` ET les 18 000 € de trésorerie en `bfr` ; la mémoire
+    les a additionnés (95 700 €), et le chapitre 15 a écrit : « l'écart entre
+    les ressources et les besoins s'établit à −18 000 € : nos ressources ne
+    couvrent pas la totalité des besoins ». Un plan de financement bouclé,
+    présenté comme troué à un banquier.
+
+    Quand les ressources égalent l'investissement total à l'euro près, le plan
+    est bouclé SUR CE MONTANT : le besoin en fonds de roulement y est compris,
+    on ne l'ajoute pas une seconde fois. Une égalité à l'euro ne tombe pas par
+    hasard ; dans tout autre cas, les deux besoins s'additionnent comme avant.
+    """
+    if len(besoins) != 2 or not ressources:
+        return False
+    lus = _monetaire(besoins[0], *ressources)
+    if lus is None:
+        return False
+    investissement, *apports = lus[0]
+    return abs(sum(apports) - investissement) <= 1.0
+
+
 def _evolution(valeurs: list[float]) -> float | None:
     depart, arrivee = valeurs
     if depart == 0:
@@ -622,10 +702,14 @@ def faits_de_l_etude(socle: Socle) -> dict[str, Fait]:
     # Plan de financement : besoins et ressources, et leur écart.
     besoins = [faits[i] for i in ("investissement_total", "bfr") if i in faits]
     ressources = [faits[i] for i in ("apport", "emprunt", "autres_ressources") if i in faits]
+    bfr_compris = _le_bfr_est_deja_dans_l_investissement(besoins, ressources)
+    if bfr_compris:
+        besoins = besoins[:1]
     if besoins:
         derives.append(_derive(
             "besoins_totaux", besoins, sum,
-            libelle="Besoins de financement totaux",
+            libelle="Besoins de financement totaux"
+            + (" (besoin en fonds de roulement compris)" if bfr_compris else ""),
             formule=" + ".join(b.id for b in besoins),
         ))
     if ressources:

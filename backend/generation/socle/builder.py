@@ -156,6 +156,44 @@ def _objectifs_inventes(
     return inventes
 
 
+def reprendre_les_montants_du_client(
+    socle: Socle, montants_client: Collection[float],
+) -> list[str]:
+    """Un montant que le client écrit à l'euro ne gagne pas de centimes au socle.
+
+    Business plan de test `9e38eb81` (18/11/2026). Le brief donnait « RÉSULTAT
+    NET PRÉVISIONNEL : 1 954 €, 23 335 €, 21 625 € », « EBE : 15 500 €,
+    40 270 €, 37 863 € ». Le socle a posé 1 954,17 €, 23 334,99 €, 40 269,53 €
+    — les valeurs non arrondies d'un livrable précédent — et le document les a
+    imprimées partout. La relecture a bloqué : « remplacer 1 954,17 € par
+    1 954 €, seul chiffre fourni par le client (pas de décimale inventée) ».
+
+    La consigne le dit déjà (« si le brief donne une valeur, c'est ELLE que tu
+    retiens ») ; elle n'a pas suffi. La reprise est donc faite en code : une
+    donnée en euros qui tombe à moins d'un demi-euro d'un montant ENTIER du
+    client, sans être elle-même un montant du client, prend ce montant.
+
+    Rien d'autre ne bouge : une valeur que le client écrit au centime
+    (« 8 040,11 € ») reste au centime, et un écart d'un euro ou plus n'est pas
+    un arrondi — c'est un autre chiffre, que les contrôles jugent.
+    """
+    entiers = sorted({m for m in montants_client if m == round(m) and abs(m) >= 1})
+    exacts = {round(m, 2) for m in montants_client}
+    repris: list[str] = []
+    for item in socle.donnees:
+        if item.unite.strip().upper() not in {"EUR", "€"}:
+            continue
+        valeur = float(item.valeur)
+        if valeur == round(valeur) or round(valeur, 2) in exacts:
+            continue
+        proche = next((m for m in entiers if abs(abs(valeur) - m) <= 0.5), None)
+        if proche is None:
+            continue
+        item.valeur = proche if valeur >= 0 else -proche
+        repris.append(f"{item.id} {valeur:g} → {item.valeur:g}")
+    return repris
+
+
 def _analyser(
     charge: dict[str, Any],
     deliverable_type: str,
@@ -223,6 +261,14 @@ def _analyser(
             _log.warning(
                 "Socle : objectifs non donnés par le client retirés — %s.",
                 ", ".join(sorted(objectifs_retires)),
+            )
+
+    if montants_client is not None:
+        repris = reprendre_les_montants_du_client(socle, montants_client)
+        if repris:
+            _log.warning(
+                "Socle : montants ramenés à ceux que le client écrit — %s.",
+                " ; ".join(repris),
             )
 
     if dernier_recours:

@@ -248,6 +248,27 @@ def _motifs_du_gate(echecs: tuple[Any, ...]) -> dict[int, list[str]]:
     }
 
 
+def les_sources_en_dernier(numeros: list[int], cles: dict[int, str]) -> list[int]:
+    """Dans une passe, le chapitre des sources se réécrit APRÈS les autres.
+
+    Business plan de test `9e38eb81` (18/11/2026) : huit chapitres réécrits
+    dans l'ordre 12, 21, 3, 13, 15, 18, 6, 19 — le chapitre des sources (21) en
+    deuxième. Il a listé les sources que citaient les versions d'AVANT des six
+    chapitres suivants : huit constats « listée au chapitre des sources mais le
+    texte ne la cite nulle part ». Ce chapitre reçoit la liste des sources
+    citées par les autres (`chapitres.runner._bloc_sources_citees`) : elle
+    n'est juste que si les autres sont écrits.
+
+    L'ordre de gravité des autres chapitres est conservé.
+    """
+    from .chapitres.runner import _CHAPITRE_DES_SOURCES  # noqa: PLC0415
+
+    def est_des_sources(numero: int) -> bool:
+        return bool(_CHAPITRE_DES_SOURCES.match(cles.get(numero) or ""))
+
+    return sorted(numeros, key=est_des_sources)
+
+
 def _refaire_les_chapitres_manquants(
     job: GenerationJob, rapport: RapportRelecture, *, client: Any = None,
 ) -> None:
@@ -444,7 +465,8 @@ def relire_et_corriger(
         )
         reecrits_cette_passe: list[int] = []
         budget_epuise = False
-        for numero in ordre[:MAX_CHAPITRES_PAR_PASSE]:
+        cles = dict(job.chapters.values_list("chapter_number", "prompt_key"))
+        for numero in les_sources_en_dernier(ordre[:MAX_CHAPITRES_PAR_PASSE], cles):
             if budget_restant(job) < MARGE_DE_BUDGET + RESERVE_DU_REJEU:
                 # On sort de la boucle, pas de la relecture : ce qui vient
                 # d'être réécrit doit encore être rejugé.
