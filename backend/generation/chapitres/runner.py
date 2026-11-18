@@ -1971,8 +1971,17 @@ _DOSAGE_PAR_LIVRABLE: dict[str, str] = {
         "prévisionnel, le plan de financement, les investissements, la "
         "trajectoire par exercice. Un raisonnement, une hypothèse, un "
         "arbitrage ne se mettent pas en grille.\n"
-        "- Un paragraphe peut être développé : ici, mieux vaut une idée "
-        "menée au bout qu'une ligne de tableau de plus."
+        # Les quatre business plans de test du 14 au 18/11/2026 : paragraphe
+        # médian de 27 à 32 mots, pour 17 dans le document validé (Findrax v3)
+        # et un plafond de 25 au contrôle. Cette puce disait seulement « un
+        # paragraphe peut être développé », la suivante « 25 mots au plus pour
+        # la plupart » : le modèle retenait la première. La référence alterne —
+        # une majorité de paragraphes courts, quatre sur dix développés.
+        "- Le rythme ALTERNE, comme dans un document rédigé à la main : la "
+        "plupart des paragraphes sont courts — une idée, une ou deux phrases — "
+        "et un sur trois environ est développé, quand une décision demande "
+        "d'être menée au bout. Une suite de paragraphes tous longs se lit "
+        "comme un bloc : coupe-la."
     ),
     "competitor_study": (
         "- L'analyse est RÉDIGÉE. Chaque sous-section développe en plusieurs "

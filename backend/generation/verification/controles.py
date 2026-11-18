@@ -2071,8 +2071,35 @@ _COMPLEMENT_D_UNITE = re.compile(
 _MANQUE_DANS_LA_CELLULE = re.compile(
     r"(?i)[àa]\s+(?:d[ée]terminer|venir|chiffrer|estimer|compl[ée]ter)|"
     r"en\s+(?:attente|cours)|"
-    r"non\s+(?!retenu|prioris|mobilis|sollicit|activ|engag|lanc|appli)\w+[ée]e?s?\b"
+    # Les mots de l'IGNORANCE, et eux seuls. La version d'avant prenait tout
+    # « non + participe » pour un manque, sauf huit décisions énumérées :
+    # « Rémunération du président | 0 € | Choix de gestion : non rémunéré la
+    # première année » (business plan de test `9e38eb81`, 18/11/2026) était
+    # donc lu comme une donnée manquante, et le chapitre partait en
+    # réécriture payante. Les décisions sont une classe OUVERTE — on peut ne
+    # pas rémunérer, ne pas facturer, ne pas recruter, ne pas amortir ; les
+    # façons de dire « je ne sais pas » sont peu nombreuses (règle 4).
+    r"non\s+(?:chiffr|renseign|communiqu|connu|d[ée]termin|pr[ée]cis|d[ée]fini|"
+    r"estim|fourni|[ée]valu|mesur|disponible|document|calcul|budg[ée]t|arr[êe]t)\w*"
 )
+
+
+def _sans_les_mots_de_l_annexe(texte: str) -> str:
+    """Le texte sans ce que l'annexe des chiffres écrit d'elle-même sur chaque ligne.
+
+    Business plan de test `9e38eb81` (18/11/2026) : « Masse salariale, exercice
+    2027 (0 salarié) | 0 € | 2027 | Hypothèse — posée pour raisonner, à
+    confirmer » signalé comme donnée manquante. « À confirmer » n'était pas
+    dit de CE zéro : c'est la mention que `rendu_word.annexe_chiffres` pose
+    sur toute donnée de scénario. Le contrôle lisait notre propre gabarit
+    comme un aveu du rédacteur (règle 9 — dépouiller ce qu'on a écrit
+    soi-même avant de juger).
+    """
+    from ..rendu_word.annexe_chiffres import _EXPLICATION  # noqa: PLC0415
+
+    for mention in _EXPLICATION.values():
+        texte = texte.replace(mention, " ")
+    return texte
 
 
 def _zero_commente_dans_sa_cellule(mesure: Mesure) -> bool:
@@ -2086,6 +2113,7 @@ def _zero_commente_dans_sa_cellule(mesure: Mesure) -> bool:
     (« non mesuré (0 €) ») est tranché AVANT, par `_DONNEE_MANQUANTE`.
     """
     cellule = cellule_jugee(mesure)
+    cellule = _sans_les_mots_de_l_annexe(cellule or "")
     if not cellule or _DONNEE_MANQUANTE.search(cellule) or _MANQUE_DANS_LA_CELLULE.search(cellule):
         return False
     reste = _COMPLEMENT_D_UNITE.sub(" ", cellule.replace(mesure.texte, " ", 1))
@@ -2171,7 +2199,8 @@ def _zero_explique(mesure: Mesure) -> bool:
     # Ce garde-fou lit la portée ENTIÈRE, pas seulement ce qui suit le nombre :
     # « Le budget, non chiffré à ce jour, est de 0 € » annonce le manque AVANT
     # le chiffre, et un comptage qui ne regarde que l'aval ne le verrait pas.
-    if _DONNEE_MANQUANTE.search(entiere) or _MANQUE_DANS_LA_CELLULE.search(entiere):
+    lue = _sans_les_mots_de_l_annexe(entiere)
+    if _DONNEE_MANQUANTE.search(lue) or _MANQUE_DANS_LA_CELLULE.search(lue):
         return False
     reste = _COMPLEMENT_D_UNITE.sub(" ", a_compter.replace(mesure.texte, " "))
     return len(_MOT_QUI_EXPLIQUE.findall(reste)) >= _MOTS_POUR_EXPLIQUER_UN_ZERO
@@ -2196,7 +2225,9 @@ def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
     for mesure in document.mesures:
         if abs(mesure.valeur) > EPSILON:
             continue
-        manquante = bool(_DONNEE_MANQUANTE.search(mesure.contexte))
+        manquante = bool(
+            _DONNEE_MANQUANTE.search(_sans_les_mots_de_l_annexe(mesure.contexte))
+        )
         if not manquante and _ZERO_ASSUME.search(mesure.contexte):
             continue
         # Le critère de CLASSE, après les listes de mots qu'il remplace : on

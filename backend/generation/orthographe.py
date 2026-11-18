@@ -88,6 +88,22 @@ _SIGLE = re.compile(r"^[A-Z0-9&.\-]+$")
 
 MOT = re.compile(r"[^\W\d_]{2,}")
 
+#: Le mot à majuscule qui SUIT un autre mot à majuscule : la suite d'un nom
+#: propre (« Le Petit Depot », « Home Depot », « Craft Republic »).
+#:
+#: Business plan de test `9e38eb81` (18/11/2026) : « Depot » — l'épicerie en
+#: ligne « Le Petit Depot », citée trois fois parmi les concurrents — signalé
+#: comme une faute parce que le chapitre juridique écrit « Dépôt de marque ».
+#: Un nom de marque s'écrit comme la marque l'écrit, et la réparation d'avant
+#: gate, qui lit la même liste, l'aurait « corrigé » en « Le Petit Dépôt ». Le
+#: français ne met pas de majuscule au milieu d'une phrase à un nom commun :
+#: deux majuscules de suite désignent un nom.
+_SUITE_D_UN_NOM_PROPRE = re.compile(
+    # L'avance (`(?=…)`) laisse chaque mot ouvrir la paire suivante :
+    # « Le Petit Depot » donne « Petit » ET « Depot ».
+    r"(?<![^\W\d_])[A-ZÀ-Þ][^\W\d_'’-]*[ \u00a0]+(?=([A-ZÀ-Þ][^\W\d_]+))"
+)
+
 
 def sans_accents(mot: str) -> str:
     decompose = unicodedata.normalize("NFD", mot)
@@ -135,6 +151,10 @@ def graphies_suspectes(textes: Iterable[str]) -> dict[str, str]:
     avant le gate, ceux du document entier quand on relit après rendu.
     """
     formes: dict[str, set[str]] = {}
+    propres: set[str] = set()
+    textes = list(textes)
+    for texte in textes:
+        propres.update(_SUITE_D_UN_NOM_PROPRE.findall(texte or ""))
     for texte in textes:
         for mot in MOT.findall(texte or ""):
             if len(mot) < LONGUEUR_JUGEABLE or _SIGLE.match(mot):
@@ -150,6 +170,8 @@ def graphies_suspectes(textes: Iterable[str]) -> dict[str, str]:
         if not accentuees:
             continue
         for mot in variantes:
+            if mot in propres:
+                continue
             if sans_accents(mot) == mot and mot.casefold() not in DEUX_GRAPHIES:
                 suspectes[mot] = accentuees[0]
     return suspectes

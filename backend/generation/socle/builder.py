@@ -17,7 +17,12 @@ from core.numbers import amounts_in
 from integrations.claude import motif_de_troncature
 
 from .prompt import construire_prompt_socle
-from .referentiel import identifiants_du_client, identifiants_pour, livrable_couvert
+from .referentiel import (
+    Fiabilite,
+    identifiants_du_client,
+    identifiants_pour,
+    livrable_couvert,
+)
 from .schema import (
     DonneeSocle,
     Socle,
@@ -194,6 +199,33 @@ def reprendre_les_montants_du_client(
     return repris
 
 
+def declarer_le_seuil_du_client(socle: Socle, montants_client: Collection[float]) -> bool:
+    """Le seuil de rentabilité que le client a écrit est une donnée DÉCLARÉE.
+
+    Business plan de test `9e38eb81` (18/11/2026) : le brief donnait
+    « SEUIL DE RENTABILITÉ : 130 535 € », et le socle l'a rangé en `scenario`
+    — l'annexe l'imprimait « Hypothèse — posée pour raisonner, à confirmer ».
+    La mémoire ne recalcule pas un seuil déclaré (`memoire.faits._seuil_declare`),
+    mais elle ne peut pas deviner qu'une « hypothèse » vient du client : c'est
+    ici, où les montants du client sont connus, que cela se dit.
+
+    Le prévisionnel reste un scénario ; le seuil, lui, est un chiffre que le
+    client a calculé et écrit — le recalculer en donnerait un second.
+    """
+    seuil = socle.donnee("seuil_rentabilite")
+    if seuil is None or seuil.fiabilite == Fiabilite.DECLAREE:
+        return False
+    base = valeur_en_unites_de_base(seuil.valeur, seuil.unite)
+    valeur = base[0] if base else seuil.valeur
+    if not any(
+        abs(valeur - montant) <= abs(montant) * _ECART_OBJECTIF_CLIENT
+        for montant in montants_client
+    ):
+        return False
+    seuil.fiabilite = Fiabilite.DECLAREE
+    return True
+
+
 def _analyser(
     charge: dict[str, Any],
     deliverable_type: str,
@@ -270,6 +302,8 @@ def _analyser(
                 "Socle : montants ramenés à ceux que le client écrit — %s.",
                 " ; ".join(repris),
             )
+        if declarer_le_seuil_du_client(socle, montants_client):
+            _log.warning("Socle : le seuil de rentabilité est celui du client — déclaré.")
 
     if dernier_recours:
         orphelines = reparer_les_filiations(socle)

@@ -273,8 +273,11 @@ def _seuil_declare(
     Seule une donnée `declaree` prime. Un seuil que le socle a lui-même dérivé
     reste recalculé exercice par exercice, comme avant (ÉCLORE `28a257bf`).
     """
+    # `seuil_rentabilite_anN` est réservé au client par le référentiel
+    # (`du_client`) : le socle ne le porte que si le brief en donne le montant,
+    # quelle que soit la fiabilité que le modèle lui a écrite.
     par_exercice = series.get("seuil_rentabilite", {}).get(rang)
-    if par_exercice is not None and par_exercice.origine == "declaree":
+    if par_exercice is not None and par_exercice.origine != "calculee":
         return par_exercice
     du_socle = faits.get("seuil_rentabilite")
     premier = min(series.get("ca_previsionnel", {rang: ca}))

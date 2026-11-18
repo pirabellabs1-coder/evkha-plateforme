@@ -207,6 +207,48 @@ def _radical(mot: str) -> str:
     return re.sub(r"(ements?|ers?|ees?|es|er|ez|ent|ait|era|e|s)$", "", plat) or plat
 
 
+_CORRELATIF = frozenset({"ni", "soit", "tantot", "plus", "moins", "autant"})
+_FIN_DE_PHRASE = re.compile(r"[.!?:;»]$")
+
+
+def _reprise_voulue(mots: list[str], premier: int, second: int, taille: int) -> bool:
+    """La suite revient-elle parce que la phrase est CONSTRUITE ainsi ?
+
+    Business plan de test `9e38eb81` (18/11/2026) : neuf « redites », dont sept
+    n'en sont pas. Quatre formes, chacune lue dans ce document :
+
+    - le NOM d'un indicateur — « le chiffre d'affaires », « le résultat net » :
+      un terme de métier ne se remplace pas par un synonyme sans devenir vague ;
+    - un NOM PROPRE — « Tmall Global et » : un acteur se nomme chaque fois ;
+    - une CORRÉLATION — « ni le régime fiscal, ni le régime de TVA » ;
+    - une ÉNUMÉRATION de valeurs — « 3,20 euros par commande […] 2,30 euros par
+      commande », « un vin de vigneron autour de 22,60 €, un champagne de
+      vigneron autour de 39 € » : la même tournure porte deux chiffres.
+
+    Reste signalé ce qui est une redite : la même expression deux fois, sans
+    que rien dans la phrase ne l'appelle.
+    """
+    from .valeurs import series_nommees  # noqa: PLC0415
+
+    fragment = " ".join(mots[second : second + taille])
+    if series_nommees(fragment):
+        return True
+    for debut in (premier, second):
+        fenetre = mots[debut : debut + taille]
+        for rang, mot in enumerate(fenetre, start=debut):
+            if _sans_accent(mot) in _CORRELATIF:
+                return True
+            au_debut = rang == 0 or bool(_FIN_DE_PHRASE.search(mots[rang - 1]))
+            if mot[:1].isupper() and not au_debut:
+                return True
+    # Un chiffre à deux mots au plus de CHAQUE occurrence.
+    def chiffre_voisin(debut: int) -> bool:
+        voisins = mots[max(0, debut - 2) : debut] + mots[debut + taille : debut + taille + 2]
+        return any(_UN_CHIFFRE.search(m) for m in voisins)
+
+    return chiffre_voisin(premier) and chiffre_voisin(second)
+
+
 def _repetitions(document: Document) -> list[Constat]:
     constats: list[Constat] = []
     for section in document.sections:
@@ -235,6 +277,9 @@ def _repetitions(document: Document) -> list[Constat]:
                 if sum(1 for m in mots[i : i + taille] if _est_plein(m)) < 2:
                     continue
                 if fenetre in vus and i - vus[fenetre] >= taille:
+                    if _reprise_voulue(mots, vus[fenetre], i, taille):
+                        vus[fenetre] = i
+                        continue
                     fragment = " ".join(mots[i : i + taille])
                     constats.append(Constat(
                         "repetition", section.numero, texte[:200],
