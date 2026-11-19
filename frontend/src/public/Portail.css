@@ -302,9 +302,9 @@
 /* Le cadre où Google rend SON bouton : centré, et jamais plus large que la
    carte (un bouton qui dépasse élargit la page sur un petit téléphone). */
 .prt-google-cadre {
+  display: flex;
   justify-content: center;
   max-width: 100%;
-  overflow: hidden;
 }
 
 .prt-ou {

@@ -123,9 +123,23 @@ export async function brancherBouton(
 /** Largeur demandée à Google : celle de la colonne du formulaire, entre les
  *  bornes que Google accepte (200 à 400 px). */
 export function largeurDuBouton(conteneur: HTMLElement): number {
-  const disponible = conteneur.clientWidth || conteneur.parentElement?.clientWidth || 0;
+  const disponible = conteneur.clientWidth || largeurUtile(conteneur.parentElement);
   if (disponible <= 0) return 320;
   return Math.max(200, Math.min(400, Math.floor(disponible)));
+}
+
+/** Largeur où l'on peut réellement poser quelque chose : `clientWidth` moins
+ *  les marges intérieures.
+ *
+ *  `clientWidth` les COMPTE. Sur la carte de connexion (30 px de chaque côté)
+ *  le bouton était donc demandé 60 px trop large, et le cadre centré en
+ *  rognait la moitié de chaque côté : « Continuer en tant que… » perdait ses
+ *  premières lettres et la photo du compte (capture du client, 19/11/2026). */
+function largeurUtile(element: HTMLElement | null | undefined): number {
+  if (!element) return 0;
+  const style = window.getComputedStyle(element);
+  const marges = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  return element.clientWidth - marges;
 }
 
 /** Échange le jeton Google contre une session EVKHA.

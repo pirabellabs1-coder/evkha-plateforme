@@ -695,75 +695,89 @@ export type AvisClient = {
 export const AVIS = {
   surtitre: "Ils se sont lancés",
   titre: { avant: "Ce qu'ils en disent,", fin: "mot pour mot." },
+  // Les dix derniers avis du profil ComeUp d'Evangeline
+  // (comeup.com/fr/@evkha-business), relevés le 19/11/2026 à la demande du
+  // client, pour remplacer ceux de 2024. Recopiés mot pour mot, fautes
+  // comprises ; seuls les retours à la ligne sont devenus des espaces. Le
+  // nombre d'avis positifs est celui que le profil affichait ce jour-là : il
+  // n'est PAS relu en direct, et vieillira avec cette phrase.
   corps:
-    "Avis laissés en 2024 par des clients d'Evangeline, pour des études réalisées sur commande. Recopiés tels qu'ils ont été écrits.",
+    "Les dix derniers avis laissés à Evangeline sur ComeUp, où son profil compte 221 avis positifs. Recopiés tels qu'ils ont été écrits.",
   bouton: { libelle: "Commander une étude", lien: LIENS.etudes },
   groupe: "Avis de clients",
   liste: [
     {
       colonne: 1,
       texte:
-        "« EVA CONSULTING a parfaitement réalisé mon étude de marché. Son professionnalisme et sa communication efficace ont rendu le processus fluide et informatif. Je recommande vivement. »",
-      auteur: "Dimitri16430",
-      contexte: "Commande personnalisée · 27 juil. 2024",
+        "« Prestation pro concernant des questions précises sur la création d'une entreprise.Merci pour la reactivité. »",
+      auteur: "charly_a",
+      contexte: "Avis ComeUp · 19 nov. 2026",
     },
     {
       colonne: 1,
       dore: true,
       texte:
-        "« Le travail d'Evangéline a surpassé mes attentes ; je suis bluffé par le niveau de détail de son étude. C'est une excellente base pour mon projet, je serais ravi de retravailler avec elle. »",
-      auteur: "landry001",
-      contexte: "Commande personnalisée · 25 août 2024",
+        "« Très satisfait du travail d'Evangéline, comme à chaque fois :) »",
+      auteur: "DamienBert",
+      contexte: "Avis ComeUp · 13 nov. 2026",
     },
     {
       colonne: 1,
       texte:
-        "« Super travail merci je vous recommande eva, elle a su me faire un super dossier pour que je puisse le présenter aux intéressés. »",
-      auteur: "charlesgalindo",
-      contexte: "Commande personnalisée · 9 sept. 2024",
+        "« Merci pour ce excellent travail. Ta disponibilité et ton expertise Hors paire. Je la recommande »",
+      auteur: "IreneINOUA",
+      contexte: "Avis ComeUp · 1 nov. 2026",
     },
     {
       colonne: 1,
       texte:
-        "« Eva est très professionnel, pertinente dans ses analyses, les échanges sont toujours fluides ! »",
-      auteur: "Tawimi",
-      contexte: "Commande personnalisée · 3 avr. 2024",
+        "« Toujours très professionnelle, et réactive, je suis plus que satisfait »",
+      auteur: "LionelVargas",
+      contexte: "Avis ComeUp · 13 oct. 2026",
     },
     {
       colonne: 1,
-      dore: true,
       texte:
-        "« J'adore le travaille d'Eva ! Elle a compris ce que je voulais et m'a fourni un travaille complet et détaillé. »",
-      auteur: "imFREDERICKS",
-      contexte: "Commande personnalisée · 22 mars 2024",
-    },
-    {
-      colonne: 2,
-      texte:
-        "« Merci encore pour votre professionnalisme, dans les temps, à l'écoute, je n'hésiterais pas à refaire une demande au besoin merci »",
-      auteur: "Verdier",
-      contexte: "Commande personnalisée · 31 juil. 2024",
-    },
-    {
-      colonne: 2,
-      texte:
-        "« Merci beaucoup à Eva qui a fait un travail remarquable, très pro et très sérieux. Eva est de bon conseils, elle répond à toutes nos interrogations. Étant débutante, elle a su être claire et m'apporter de vraies réponses. Je la recommande vivement ! »",
-      auteur: "Ludii",
-      contexte: "Commande personnalisée · 8 sept. 2024",
+        "« Toujours satisfait de son travail, très pro, je recommande ! »",
+      auteur: "LionelVargas",
+      contexte: "Avis ComeUp · 10 oct. 2026",
     },
     {
       colonne: 2,
       dore: true,
       texte:
-        "« Présentation professionnelle. Très réactive et donne de très bonnes explications à son travail. Je suis ravie de ma commande. Je vais enfin pouvoir avancer dans mon projet. Je n'hésiterais pas à revenir vers Evangeline si besoin et je la recommande sans hésitation ! »",
-      auteur: "CharlotteBal",
-      contexte: "Commande personnalisée · 28 avr. 2024",
+        "« Une prise en charge ultra-personnalisée et une véritable expertise à l’œil de lynx ! Évangeline possède cette capacité rare à comprendre rapidement une entreprise dans son ensemble, à identifier les chiffres et les enjeux clés, même en étant extérieure à la structure. Son accompagnement nous a permis de booster et d’accélérer considérablement la création de dossiers stratégiques, notamment dans le cadre de nos démarches de levée de fonds. Bien plus qu’une simple prestation : un véritable accompagnement all inclusive, de la réflexion à la structuration et à la présentation finale. Évangeline nous a clairement permis de franchir un cap dans la qualité et la crédibilité de nos dossiers. »",
+      auteur: "David_Simone",
+      contexte: "Avis ComeUp · 6 oct. 2026",
+    },
+    {
+      colonne: 1,
+      texte:
+        "« Evangéline a vraiment une belle capacité d'analyse, avec des conseils judicieux, je recommande »",
+      auteur: "LionelVargas",
+      contexte: "Avis ComeUp · 3 oct. 2026",
     },
     {
       colonne: 2,
-      texte: "« Super réactif, à l'écoute merci à vous »",
-      auteur: "FAYSAL60700",
-      contexte: "Commande personnalisée · 29 mars 2024",
+      texte:
+        "« Merci pour votre travail de qualité, et pour votre réactivité ! »",
+      auteur: "Vil",
+      contexte: "Avis ComeUp · 28 sept. 2026",
+    },
+    {
+      colonne: 2,
+      dore: true,
+      texte:
+        "« Evangéline est très professionnelle et consciencieuse. Ça a été un vrai plaisir de lui confier la réalisation de notre business plan. Je la recommande vivement ! »",
+      auteur: "LionelVargas",
+      contexte: "Avis ComeUp · 21 sept. 2026",
+    },
+    {
+      colonne: 2,
+      texte:
+        "« Je suis très satisfait des services d'Evangéline ! Comme d'habitude, son cabinet allie professionnalisme, réactivité et précision quant à ses analyses. Je serais ravi de travailler de nouveau avec elle pour de futurs projets ! »",
+      auteur: "DamienBert",
+      contexte: "Avis ComeUp · 9 sept. 2026",
     },
   ] as AvisClient[],
 };

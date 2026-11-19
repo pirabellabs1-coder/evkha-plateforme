@@ -431,10 +431,10 @@ describe("l'accueil lit ses prix au serveur", () => {
       .filter((titre) => questions.includes(titre ?? ""));
     expect(marches).toEqual(questions);
 
-    // Les neuf avis, chacun lu une seule fois : son doublon est masqué.
-    expect(screen.getByRole("group", { name: "Avis de clients" }).querySelectorAll("figure:not([aria-hidden])")).toHaveLength(9);
-    expect(texte()).toContain("J'adore le travaille d'Eva !");
-    expect(texte()).toContain("Avis laissés en 2024 par des clients d'Evangeline");
+    // Les dix avis du profil ComeUp, chacun lu une seule fois : son doublon est masqué.
+    expect(screen.getByRole("group", { name: "Avis de clients" }).querySelectorAll("figure:not([aria-hidden])")).toHaveLength(10);
+    expect(texte()).toContain("Très satisfait du travail d'Evangéline, comme à chaque fois :)");
+    expect(texte()).toContain("Les dix derniers avis laissés à Evangeline sur ComeUp");
     expect(texte()).not.toContain("après leur commande");
 
     // Le second public, dès l'ouverture, et le contact à la place de la lettre.

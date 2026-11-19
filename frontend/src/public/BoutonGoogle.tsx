@@ -87,7 +87,11 @@ export function BoutonGoogle({
       <div
         ref={conteneur}
         className="prt-google-cadre"
-        style={{ display: actif ? "flex" : "none" }}
+        // Masqué sans `display: none` tant que Google n'a pas répondu : un
+        // élément retiré de la mise en page a une largeur nulle, et c'est sur
+        // CETTE largeur que le bouton se dimensionne. Ici le cadre garde la
+        // largeur de la colonne, hauteur nulle, hors de la vue et du clavier.
+        style={actif ? undefined : { height: 0, overflow: "hidden", visibility: "hidden" }}
       />
       {actif && enCours && (
         <p className="prt-sous-titre" role="status">

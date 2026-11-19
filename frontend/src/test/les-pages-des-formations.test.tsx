@@ -684,7 +684,7 @@ describe("les pages des formations", () => {
     // Le relevé, lui, garde le titre de la cliente.
     expect(PAGE_CATALOGUE.avis.titre).toBe("Nos avis clients");
     // Et la phrase qui dit d'où viennent les avis est toujours là.
-    expect(texteDe(section("avis"))).toContain("pour des études réalisées sur commande");
+    expect(texteDe(section("avis"))).toContain("avis laissés à Evangeline sur ComeUp");
   });
 
   it("contre-épreuve : même preuve sur le catalogue, carte par carte", () => {
