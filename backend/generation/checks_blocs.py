@@ -488,8 +488,43 @@ _ADDENDUM_CHECK_INITIAL = (
     "defaut ici. Seul le FOND compte, parce qu'il se propagera a vingt "
     "chapitres : une information fausse, une donnee que les reponses du client "
     "dementent, un chiffre attribue au client qu'il n'a pas donne, un element "
-    "indispensable absent."
+    "indispensable absent. "
+    # Génération `29d59ae9` (19/11/2026) : voir `_donnees_verifiees`.
+    "Un chiffre de la fiche qui figure dans les DONNEES VERIFIEES DU DOSSIER "
+    "n'est PAS invente : il a ete recherche et valide avant la redaction, et "
+    "les chapitres s'appuieront sur lui. Ne demande ni de le retirer, ni de le "
+    "sourcer, ni de le remplacer par un chiffre du client. Seul un chiffre qui "
+    "n'est NI dans les reponses du client NI dans ces donnees verifiees est un "
+    "chiffre sans origine."
 )
+
+
+def _donnees_verifiees(job: GenerationJob) -> str:
+    """Les données VÉRIFIÉES du dossier, pour que le CHECK INITIAL ait sa référence.
+
+    Génération de test `29d59ae9` (19/11/2026), retenue sur ce seul motif :
+    « retirer ou sourcer le chiffre 395 000 000 d'acheteurs en ligne — il ne
+    figure dans aucune donnée transmise par le client ». C'était vrai, et
+    c'était un faux reproche : la fiche projet est écrite avec le SOCLE du
+    dossier — les données cherchées et vérifiées avant toute rédaction —, et
+    le relecteur ne recevait que les réponses du client. Tout chiffre du
+    socle lui paraissait donc inventé. Un contrôle qui compare à une
+    référence incomplète produit un motif faux (règle 2).
+
+    Le bloc est celui que reçoivent les chapitres (`chapitres.runner`), pas
+    une seconde écriture du socle (règle 5). Sans socle validé : rien, et le
+    relecteur juge comme avant sur les seules réponses du client.
+    """
+    from .chapitres.runner import _bloc_socle  # noqa: PLC0415 — évite un cycle
+    from .socle.services import socle_verrouille  # noqa: PLC0415
+
+    socle = socle_verrouille(job)
+    if socle is None:
+        return ""
+    return (
+        "## DONNÉES VÉRIFIÉES DU DOSSIER — recherchées et validées avant la rédaction\n"
+        f"{_bloc_socle(socle)}\n\n"
+    )
 
 
 #: Ce qui n'est pas une réponse du client sur son projet : la charte du
@@ -609,6 +644,7 @@ def _construire_prompt_check(
         if est_initial
         else "## CHAPITRES DU BLOC"
     )
+    verifiees = _donnees_verifiees(job) if est_initial else ""
 
     return (
         f"## CONTEXTE\n"
@@ -618,6 +654,7 @@ def _construire_prompt_check(
         f"{titre_client}\n"
         f"{fiche_client}\n\n"
         f"{demande}"
+        f"{verifiees}"
         f"## FICHE PROJET — reperes enrichis (chapitres precedents)\n"
         f"{fiche_generee}\n\n"
         f"{titre_corps}\n{corps_chapitres}\n\n"

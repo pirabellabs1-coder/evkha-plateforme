@@ -151,3 +151,71 @@ def test_les_autres_blocs_ne_recoivent_pas_le_questionnaire() -> None:
     prompt = _construire_prompt_check(BLOCS_PAR_IDENTIFIANT["A"], job, [fiche])
 
     assert "RÉPONSES DU CLIENT AU QUESTIONNAIRE" not in prompt
+
+
+# ── Le CHECK INITIAL reçoit les données vérifiées du dossier ────────────────
+
+
+def _avec_un_socle_valide(job: Any) -> str:
+    """Pose un socle validé sur le dossier ; rend le libellé d'une de ses données."""
+    from generation.models import SocleDonnees, SocleStatut
+    from tests.test_lot3_livrable import _socle
+
+    socle = _socle()
+    SocleDonnees.objects.create(
+        job=job, statut=SocleStatut.VALIDE, contenu=socle.model_dump(mode="json"),
+    )
+    return str(socle.donnees[0].libelle)
+
+
+@pytest.mark.django_db
+def test_le_check_initial_recoit_les_donnees_verifiees_du_dossier() -> None:
+    """Génération de test `29d59ae9` (19/11/2026), retenue sur ce seul motif :
+    « retirer le chiffre 395 000 000 — il ne figure dans aucune donnée
+    transmise par le client ». La fiche projet est écrite avec le socle ; le
+    relecteur ne recevait que les réponses du client, et tout chiffre du socle
+    lui paraissait inventé. Sur le code d'avant : ni le bloc, ni la consigne."""
+    job, fiche = _make_job_avec_fiche()
+    libelle = _avec_un_socle_valide(job)
+
+    prompt = _construire_prompt_check(BLOCS_PAR_IDENTIFIANT["INITIAL"], job, [fiche])
+
+    assert "DONNÉES VÉRIFIÉES DU DOSSIER" in prompt
+    assert libelle in prompt
+    assert "n'est PAS invente" in prompt
+    # La référence précède le document à juger.
+    assert prompt.index("DONNÉES VÉRIFIÉES DU DOSSIER") < prompt.index("FICHE PROJET RÉDIGÉE")
+
+
+@pytest.mark.django_db
+def test_un_chiffre_sans_origine_reste_un_defaut_dans_la_consigne() -> None:
+    """Contre-épreuve : la consigne n'absout pas tout chiffre — seulement ceux
+    qui ont une origine."""
+    job, fiche = _make_job_avec_fiche()
+    _avec_un_socle_valide(job)
+
+    prompt = _construire_prompt_check(BLOCS_PAR_IDENTIFIANT["INITIAL"], job, [fiche])
+
+    assert "NI dans les reponses du client NI dans ces donnees verifiees" in prompt
+
+
+@pytest.mark.django_db
+def test_sans_socle_valide_le_check_initial_juge_comme_avant() -> None:
+    """Contre-épreuve : pas de bloc vide ni de titre sans contenu."""
+    job, fiche = _make_job_avec_fiche()
+
+    prompt = _construire_prompt_check(BLOCS_PAR_IDENTIFIANT["INITIAL"], job, [fiche])
+
+    assert "## DONNÉES VÉRIFIÉES DU DOSSIER" not in prompt
+
+
+@pytest.mark.django_db
+def test_les_autres_blocs_ne_recoivent_pas_ce_bloc() -> None:
+    """Contre-épreuve : les CHECK de bloc jugent des chapitres, qui portent déjà
+    leurs chiffres ; le socle n'y est pas réinjecté une fois de plus."""
+    job, fiche = _make_job_avec_fiche()
+    _avec_un_socle_valide(job)
+
+    prompt = _construire_prompt_check(BLOCS_PAR_IDENTIFIANT["A"], job, [fiche])
+
+    assert "## DONNÉES VÉRIFIÉES DU DOSSIER" not in prompt
