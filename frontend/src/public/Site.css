@@ -861,11 +861,14 @@ html:has(.acc) {
   pointer-events: auto;
 }
 
-/* Retiré de la vue à la demande du client (19/11/2026) : cette pilule posée
-   sous la barre encombrait le haut de chaque page. Le bouton reste dans la
-   page pour qui navigue au clavier ou au lecteur d'écran — c'est lui qui
-   permet d'arrêter le ruban sans descendre jusqu'au second bouton — et il
-   n'apparaît qu'au moment où il reçoit le focus, comme le lien d'évitement. */
+/* Retirés de la vue à la demande du client (19/11/2026) : « je ne veux plus
+   voir ces boutons », ni la pilule sous la barre, ni le lien souligné près des
+   bandes. TOUS les boutons de pause du site sont donc masqués — la règle vise
+   la classe commune, pas chaque emplacement. Ils restent dans la page pour qui
+   navigue au clavier ou au lecteur d'écran (c'est ce qui permet d'arrêter une
+   bande qui défile, WCAG 2.2.2) et n'apparaissent qu'en recevant le focus,
+   comme le lien d'évitement. */
+.acc-pause:not(:focus-visible),
 .acc-pause-haut:not(:focus-visible) {
   position: absolute;
   width: 1px;

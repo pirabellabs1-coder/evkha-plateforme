@@ -111,8 +111,21 @@ export async function brancherBouton(
     text: "continue_with",
     shape: "rectangular",
     locale: "fr",
-    width: conteneur.clientWidth || 340,
+    // La largeur du FORMULAIRE, et non celle du conteneur : au moment du
+    // rendu il est encore masqué (`display: none`), sa largeur vaut zéro, et
+    // le repli à 340 px donnait un bouton plus étroit que les champs sur
+    // ordinateur et plus large que la carte sur un petit téléphone (signalé
+    // par le client le 19/11/2026). Google borne ce réglage à 400 px.
+    width: largeurDuBouton(conteneur),
   });
+}
+
+/** Largeur demandée à Google : celle de la colonne du formulaire, entre les
+ *  bornes que Google accepte (200 à 400 px). */
+export function largeurDuBouton(conteneur: HTMLElement): number {
+  const disponible = conteneur.clientWidth || conteneur.parentElement?.clientWidth || 0;
+  if (disponible <= 0) return 320;
+  return Math.max(200, Math.min(400, Math.floor(disponible)));
 }
 
 /** Échange le jeton Google contre une session EVKHA.

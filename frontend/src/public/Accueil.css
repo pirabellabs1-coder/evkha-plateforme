@@ -1147,11 +1147,18 @@ a.acc-prete:hover {
 }
 
 .acc-confiance > .acc-w {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 22px 40px;
+}
+
+/* La fenêtre de la bande : elle rogne ce qui défile et l'estompe aux deux
+   bords, pour que les logos entrent et sortent sans coupure nette. */
+.acc-confiance-bande {
+  overflow: hidden;
+  padding: 4px 0;
+  mask-image: linear-gradient(to right, transparent, var(--acc-encre) 9%, var(--acc-encre) 91%, transparent);
 }
 
 .acc-confiance-titre {
@@ -1163,19 +1170,37 @@ a.acc-prete:hover {
   text-transform: uppercase;
 }
 
+/* Trois copies de la liste, bout à bout : un tiers de la largeur plus un
+   tiers des écarts ramène la bande exactement à son point de départ. */
 .acc-confiance-logos {
+  --acc-confiance-ecart: 14px;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 14px;
+  gap: var(--acc-confiance-ecart);
+  width: max-content;
   margin: 0;
   padding: 0;
   list-style: none;
+  animation: acc-confiance-defile var(--duree-acc-ruban) linear infinite;
+}
+
+.acc-confiance-bande:hover .acc-confiance-logos,
+.acc-confiance-bande:focus-within .acc-confiance-logos,
+.acc-fige .acc-confiance-logos {
+  animation-play-state: paused;
+}
+
+@keyframes acc-confiance-defile {
+  to {
+    transform: translateX(calc(-100% / 3 - var(--acc-confiance-ecart) / 3));
+  }
 }
 
 /* Chaque logo sur sa pastille BLANCHE : ce sont des captures d'écran à fond
    blanc, qui feraient un rectangle sale posées à même le papier crème. */
 .acc-confiance-logos li {
+  flex: none;
   display: grid;
   place-items: center;
   padding: 12px 20px;
@@ -2158,6 +2183,13 @@ a.acc-prete:hover {
     animation-duration: max(var(--duree-acc-orbite), var(--calme-bande));
   }
 
+  /* Les logos partenaires défilent aussi sous mouvement réduit, au pas lent de
+     la bande du bas : le client a ce réglage sur sa machine et a demandé que
+     « ça défile ». */
+  .acc-confiance-logos {
+    animation-duration: max(var(--duree-acc-ruban), var(--calme-bande));
+  }
+
   .acc-colonne {
     animation-duration: max(var(--duree-acc-mur), var(--calme-mur));
   }
@@ -2169,5 +2201,13 @@ a.acc-prete:hover {
   .acc-roule-entre,
   .acc-roule-sort {
     transition-duration: max(var(--duree-acc-glisse), var(--calme-mot));
+  }
+}
+
+/* Téléphone : le titre « Ils me font confiance » passe au-dessus de la bande
+   des logos, qui prend alors toute la largeur. */
+@media (max-width: 700px) {
+  .acc-confiance > .acc-w {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

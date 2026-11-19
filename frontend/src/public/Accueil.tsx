@@ -881,21 +881,30 @@ export function Accueil() {
             <h2 className="acc-confiance-titre" id="acc-confiance-titre">
               {CONFIANCE.titre}
             </h2>
-            <ul className="acc-confiance-logos">
-              {CONFIANCE.logos.map((logo) => (
-                <li key={logo.nom}>
-                  <img
-                    className="acc-confiance-logo"
-                    src={logo.image}
-                    alt={logo.nom}
-                    width={logo.largeur}
-                    height={logo.hauteur}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </li>
-              ))}
-            </ul>
+            {/* Les logos DÉFILENT (demande du client, 19/11/2026). La liste est
+                rendue trois fois bout à bout pour que la bande reste pleine sur
+                un grand écran ; seule la première est lue (les copies sont
+                `aria-hidden`, leurs images sans texte). Elle s'arrête au survol,
+                au focus et avec le bouton de pause, comme le ruban. */}
+            <div className="acc-confiance-bande">
+              <ul className="acc-confiance-logos">
+                {[0, 1, 2].flatMap((copie) =>
+                  CONFIANCE.logos.map((logo) => (
+                    <li key={`${copie}-${logo.nom}`} aria-hidden={copie > 0 ? true : undefined}>
+                      <img
+                        className="acc-confiance-logo"
+                        src={logo.image}
+                        alt={copie > 0 ? "" : logo.nom}
+                        width={logo.largeur}
+                        height={logo.hauteur}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </li>
+                  )),
+                )}
+              </ul>
+            </div>
           </div>
         </section>
 

@@ -82,7 +82,13 @@ export function BoutonGoogle({
 
   return (
     <>
-      <div ref={conteneur} style={{ display: actif ? "block" : "none" }} />
+      {/* Centré dans la colonne : Google dessine son bouton à 400 px au plus,
+          les champs du formulaire peuvent être plus larges. */}
+      <div
+        ref={conteneur}
+        className="prt-google-cadre"
+        style={{ display: actif ? "flex" : "none" }}
+      />
       {actif && enCours && (
         <p className="prt-sous-titre" role="status">
           Connexion en cours…
