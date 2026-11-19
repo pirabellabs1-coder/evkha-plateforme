@@ -183,37 +183,17 @@ services:
       - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.tls.certresolver=letsencrypt"
       - "traefik.http.routers.${STACK_NAME:-evkha}-dashboard-https.middlewares=gzip"
       - "traefik.http.services.${STACK_NAME:-evkha}-dashboard-svc.loadbalancer.server.port=80"
-      # ── Le site public sur son vrai domaine (bascule du 19/11/2026) ──────────
-      # `evkha.fr` et `www.evkha.fr` quittent systeme.io pour ce conteneur, qui sert déjà le
-      # site sur FRONT_DOMAIN. Des routeurs SÉPARÉS, et non un `||` ajouté à la
-      # règle du dessus : Traefik demande UN certificat par routeur, pour tous
-      # les noms de sa règle. Tant que le DNS d'un nouveau nom ne pointe pas
-      # ici, cette demande échoue — et dans une règle commune elle aurait
-      # emporté le certificat de FRONT_DOMAIN avec elle. Ici, l'échec reste
-      # celui du nouveau nom.
-      #
-      # SITE_DOMAIN (`evkha.fr`, décision du client) sert le site ;
-      # SITE_DOMAIN_SECONDAIRE (`www.evkha.fr`) y renvoie,
-      # en 301, chemin et paramètres conservés. Les deux sont REQUIS : un nom
-      # vide ferait une règle `Host()` que Traefik refuse.
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-http.rule=Host(`${SITE_DOMAIN:?SITE_DOMAIN requis}`) || Host(`${SITE_DOMAIN_SECONDAIRE:?SITE_DOMAIN_SECONDAIRE requis}`)"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-http.entrypoints=http"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-http.middlewares=redirect-to-https"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-https.rule=Host(`${SITE_DOMAIN}`)"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-https.entrypoints=https"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-https.tls=true"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-https.middlewares=gzip"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-site-https.service=${STACK_NAME:-evkha}-dashboard-svc"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-sitebis-https.rule=Host(`${SITE_DOMAIN_SECONDAIRE}`)"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-sitebis-https.entrypoints=https"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-sitebis-https.tls=true"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-sitebis-https.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-sitebis-https.middlewares=${STACK_NAME:-evkha}-vers-le-site"
-      - "traefik.http.routers.${STACK_NAME:-evkha}-sitebis-https.service=${STACK_NAME:-evkha}-dashboard-svc"
-      - "traefik.http.middlewares.${STACK_NAME:-evkha}-vers-le-site.redirectregex.regex=^https?://${SITE_DOMAIN_SECONDAIRE}/(.*)"
-      - "traefik.http.middlewares.${STACK_NAME:-evkha}-vers-le-site.redirectregex.replacement=https://${SITE_DOMAIN}/$${1}"
-      - "traefik.http.middlewares.${STACK_NAME:-evkha}-vers-le-site.redirectregex.permanent=true"
+      # ── Les domaines du site ne se règlent PAS ici ───────────────────────────
+      # Mesuré le 19/11/2026 en ajoutant `evkha.fr` : Coolify échappe chaque `$`
+      # de ces étiquettes (`$${STACK_NAME…}`), qui arrivent donc à Traefik comme
+      # du texte, jamais comme des domaines. Le routage réel vient des étiquettes
+      # que Coolify GÉNÈRE à partir du réglage « domaines » de l'application
+      # (`docker_compose_domains`, un routeur et un certificat par domaine).
+      # Des routeurs écrits ici pour `evkha.fr` ont été déployés et n'ont rien
+      # routé — et Coolify avait accroché leur redirection aux routeurs de
+      # `app2.evkha.fr`. Pour ajouter un domaine : le réglage de Coolify, puis
+      # DJANGO_ALLOWED_HOSTS et CSRF_TRUSTED_ORIGINS. Le renvoi de `www` vers
+      # le domaine nu est dans `frontend/nginx.conf`.
     depends_on:
       - api
     restart: unless-stopped
