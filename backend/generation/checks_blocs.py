@@ -473,7 +473,22 @@ _ADDENDUM_CHECK_INITIAL = (
     "que quelques chiffres. "
     "Ne reponds 'non' ou 'partiel' que si la fiche est reellement "
     "incomplete, contradictoire ou infidele a la demande — auquel cas la "
-    "generation sera stoppee et un humain devra intervenir."
+    "generation sera stoppee et un humain devra intervenir. "
+    # Corpus de production re-mesuré le 19/11/2026 : le CHECK INITIAL bloque 8
+    # des 11 derniers dossiers, avec des notes comme « remplacer "B2C" par une
+    # formulation simple » ou « réécrire la ligne Zone pour reprendre la
+    # formulation du client ». La fiche projet n'est PAS dans le document livré
+    # (`chapitres.runner._bloc_resumes`) : le lecteur ne la lit jamais, et un
+    # motif de blocage qu'il ne peut pas trouver dans son document ne se corrige
+    # pas (règle 2). Le langage simple se juge sur les chapitres publiés.
+    "LA FICHE PROJET N'EST PAS PUBLIEE : c'est le cadrage interne dont partent "
+    "les chapitres, le client ne la lit pas. Sa FORME ne te concerne donc pas — "
+    "un sigle, un terme de metier (« B2C », « B2B »), une tournure, l'ordre des "
+    "lignes, une reformulation de ce que le client a ecrit ne sont jamais un "
+    "defaut ici. Seul le FOND compte, parce qu'il se propagera a vingt "
+    "chapitres : une information fausse, une donnee que les reponses du client "
+    "dementent, un chiffre attribue au client qu'il n'a pas donne, un element "
+    "indispensable absent."
 )
 
 
@@ -516,6 +531,22 @@ def reponses_du_client(job: GenerationJob) -> str:
     return "\n".join(lignes)
 
 
+#: Le relecteur lisait « Livrable : etude de marche » quel que soit le dossier —
+#: le CHECK INITIAL d'un business plan compris (les quatre livrables y passent
+#: depuis le 05/08/2026). Il jugeait la fiche d'un plan d'affaires avec les
+#: attentes d'une étude de marché.
+_NOMS_DES_LIVRABLES = {
+    "market_study": "etude de marche",
+    "competitor_study": "etude de la concurrence",
+    "business_plan": "business plan",
+    "business_strategy": "strategie d'entreprise",
+}
+
+
+def _nom_du_livrable(job: GenerationJob) -> str:
+    return _NOMS_DES_LIVRABLES.get(str(job.deliverable_type), "livrable")
+
+
 def _construire_prompt_check(
     bloc: BlocDefinition,
     job: GenerationJob,
@@ -537,7 +568,20 @@ def _construire_prompt_check(
             f"{note_precedente}\n"
             "Vérifié d'abord, point par point, que chaque defaut qu'elle nomme a "
             "quitte le texte ci-dessus. Un seul defaut encore present : verdict "
-            "« fix », et ta nouvelle note le cite."
+            "« fix », et ta nouvelle note le cite.\n"
+            # Corpus de production re-mesuré le 19/11/2026 : `check_bloc_non_resolu`
+            # bloque 23 dossiers sur 43. Après une réécriture, le relecteur
+            # rejugeait le texte à neuf et rendait une AUTRE note — « remplacer
+            # B2C », puis « réécrire la ligne Zone », puis « justifier 136 800 € » :
+            # une cible mouvante, qu'aucune réécriture ne peut atteindre. Une
+            # réécriture se juge sur ce qu'on lui a demandé ; un point nouveau
+            # ne rouvre le bloc que s'il est une erreur, pas une préférence.
+            "Un point NOUVEAU, que ta note precedente ne nommait pas, ne justifie "
+            "« fix » que s'il s'agit d'une ERREUR DE FOND verifiable : un chiffre "
+            "faux ou contredit ailleurs, une information que la demande du client "
+            "dement, un fait invente. Une preference de formulation, un terme a "
+            "simplifier, une precision qui serait bienvenue ne rouvrent pas le "
+            "bloc : tu avais ce texte sous les yeux et tu ne l'avais pas releve."
         )
     est_initial = bloc.identifiant == "INITIAL"
     if bloc.check_numero == "FINAL":
@@ -568,7 +612,7 @@ def _construire_prompt_check(
 
     return (
         f"## CONTEXTE\n"
-        f"Livrable : etude de marche EVKHA (manuel Evangeline, juillet 2026).\n"
+        f"Livrable : {_nom_du_livrable(job)} EVKHA (manuel Evangeline, juillet 2026).\n"
         f"Bloc en cours : {bloc.identifiant} — {bloc.intitule}\n"
         f"Objectif du CHECK {bloc.check_numero} : {bloc.focus}\n\n"
         f"{titre_client}\n"

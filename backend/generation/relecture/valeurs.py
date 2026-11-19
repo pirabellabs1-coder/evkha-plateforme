@@ -143,6 +143,14 @@ SERIES: tuple[tuple[re.Pattern[str], str, str], ...] = (
         ),
         "resultat_net", "€",
     ),
+    # Le volume de ventes est une série à part entière (place de marché : ce que
+    # paient les clients, pas ce que garde la société). Business plan de test
+    # `68b6ab61` (19/11/2026), 9.2 : « le volume de ventes (280 000 € en 2027)
+    # et le chiffre d'affaires (136 800 € en 2027) » — faute de le connaître,
+    # la phrase ne nommait qu'UNE série, et 280 000 € était accusé de
+    # contredire le chiffre d'affaires. Deux séries nommées : aucune valeur
+    # n'est attribuée au hasard.
+    (re.compile(r"(?i)volume (?:de ventes|d.affaires)"), "volume_de_ventes", "€"),
     (re.compile(r"(?i)chiffre d.affaires"), "ca_previsionnel", "€"),
     (re.compile(r"(?i)charges fixes"), "charges_fixes", "€"),
     (re.compile(r"(?i)panier moyen"), "panier_moyen", "€"),
@@ -193,14 +201,36 @@ def serie_nommee(libelle: str, unite: str | None = None) -> str | None:
     return None
 
 
+_MARGE_SUR_LE_SEUIL = re.compile(
+    r"(?i)marge de s[ée]curit[ée][^.;:]{0,25}?\b(?:sur|au-dessus d[ue]|par rapport [àa]u?)\s+"
+    r"(?:le |ce |notre |son )?seuil"
+)
+
+#: Entre une valeur et l'année qui la suit, ce qui dit que cette année est celle
+#: d'une COMPARAISON, pas celle de la valeur : « le résultat net de 21 625 € est
+#: en léger retrait sur 2028 (23 335 €) » (`68b6ab61`, 18.3) — phrase ouverte
+#: par « En 2029 », lue « résultat net 2028 = 21 625 € », constat GRAVE.
+_COMPARAISON = re.compile(
+    r"(?i)retrait|recul|repli|baisse|hausse|progress|croissance|rapport|contre|"
+    r"inf[ée]rieur|sup[ée]rieur|qu.en|depuis|apr[èe]s|avant"
+)
+
+
 def series_nommees(texte: str) -> list[tuple[str, str]]:
     """Toutes les séries qu'un texte nomme, (série, unité), sans doublon."""
     vues: list[tuple[str, str]] = []
     for motif, serie, unite in SERIES:
         if motif.search(texte) and (serie, unite) not in vues:
             if serie == "seuil_rentabilite" and any(s == "marge_securite" for s, _ in vues):
-                # « marge de sécurité sur le seuil » : la marge, pas le seuil.
-                if len(re.findall(r"(?i)seuil de rentabilit", texte)) <= 1:
+                # « marge de sécurité sur le seuil » : la marge, pas le seuil —
+                # mais seulement quand le seuil n'est nommé QUE là. « Le seuil
+                # de rentabilité de 130 535 € en 2027 laisse une marge de
+                # sécurité de 4,6 % du chiffre d'affaires » (`68b6ab61`, 17.5)
+                # donne sa valeur au seuil : l'écarter laissait 130 535 € au
+                # chiffre d'affaires, seule série restante.
+                if len(re.findall(r"(?i)seuil de rentabilit", texte)) <= 1 and (
+                    _MARGE_SUR_LE_SEUIL.search(texte)
+                ):
                     continue
             vues.append((serie, unite))
     return vues
@@ -324,6 +354,8 @@ def _valeurs_d_une_phrase(
             continue
         entre = phrase[nombre.fin: suivant.debut]
         if not _ENTRE_NOMBRE_ET_ANNEE.fullmatch(entre) or _MENSUEL.search(entre):
+            continue
+        if _COMPARAISON.search(entre):
             continue
         yield ValeurDatee(candidates[0], int(suivant.valeur), nombre, section.numero, phrase)
 

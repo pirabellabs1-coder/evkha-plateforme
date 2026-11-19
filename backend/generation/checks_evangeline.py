@@ -738,6 +738,32 @@ _MOTS_DE_RUPTURE = re.compile(
     re.IGNORECASE,
 )
 
+#: Deux façons, pour un montant qui suit un libellé, de ne PAS être sa valeur.
+#:
+#: Corpus de production re-mesuré le 19/11/2026 : 4 dossiers sur 35 bloqués par
+#: `coherence_chiffree`, et deux de ces blocages accusaient l'EXPLICATION que le
+#: business plan doit donner — celle de la capacité d'autofinancement et celle
+#: du passage de l'EBE au résultat net :
+#:
+#:     resultat_net (2027) : 1 954,17 € ; 10 740 € — « capacité
+#:     d'autofinancement, 12 694,17 € en 2027, ajoute au résultat net les
+#:     dotations aux amortissements de 10 740 € » (`71a755fd`)
+#:     resultat_net (2027) : 50 € ; 782 € — « donne le résultat net : 782 €
+#:     moins 612 € égale 50 € en 2027 » (`28a257bf`)
+#:
+#: Dans la première, le libellé est introduit par « au » et un autre groupe
+#: nominal le suit aussitôt : le montant est celui des dotations. Dans la
+#: seconde, le montant est suivi d'un opérateur et d'un autre nombre : c'est un
+#: terme du calcul, et la valeur du libellé est son résultat.
+_OPERANDE_D_UN_CALCUL = re.compile(
+    r"\s*(?:moins|plus|fois|multipli[ée]e?s?\s+par|divis[ée]e?s?\s+par|[-−–+×*/÷])\s*\d",
+    re.IGNORECASE,
+)
+_COMPLEMENT_INDIRECT = re.compile(r"\b(?:au|aux)\s+$", re.IGNORECASE)
+_NOUVEAU_GROUPE_NOMINAL = re.compile(
+    r"\s*(?:les|la|le|l['’]|des|un|une|ses|son|sa|leurs?)\s*[^\W\d_]{3,}", re.IGNORECASE
+)
+
 #: Une phrase qui présente une variante, pas la valeur retenue : condition,
 #: scénario nommé, sensibilité, ou verbe au conditionnel.
 _PHRASE_DE_SCENARIO = re.compile(
@@ -1178,6 +1204,15 @@ def collecter_mentions(chapitre_numero: int, texte: str) -> list[Mention]:
             ):
                 continue
             if _COORDINATION.search(entre):
+                continue
+            # Le montant est l'OPÉRANDE d'un calcul posé, pas la valeur du
+            # libellé : « donne le résultat net : 782 € moins 612 € égale 50 € ».
+            if _OPERANDE_D_UN_CALCUL.match(fenetre[montant.end():]):
+                continue
+            # Le libellé est le complément INDIRECT de la phrase, et le montant
+            # appartient au complément direct qui le suit : « ajoute au résultat
+            # net les dotations aux amortissements de 10 740 € ».
+            if _COMPLEMENT_INDIRECT.search(avant_libelle) and _NOUVEAU_GROUPE_NOMINAL.match(entre):
                 continue
             # Un AUTRE libelle surveille entre les deux : le montant est le
             # sien. « ...un point de marge brute en moins ramenerait

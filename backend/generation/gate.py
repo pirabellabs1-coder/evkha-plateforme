@@ -2145,8 +2145,36 @@ def _check_chapitres_avortes(
     return failures
 
 
+def _valeurs_de_scenario(job: GenerationJob | None) -> list[float]:
+    """Les valeurs du scénario de sensibilité que la mémoire a calculées, en euros.
+
+    Ne lève jamais : sans mémoire, le contrôle juge comme avant.
+    """
+    if job is None:
+        return []
+    try:
+        from .memoire.services import memoire_de_relecture  # noqa: PLC0415
+        from .relecture.valeurs import en_euros  # noqa: PLC0415
+
+        memoire = memoire_de_relecture(job)
+        if memoire is None:
+            return []
+        return [
+            euros for fait in memoire.faits.values()
+            if "_moins_" in fait.id and (euros := en_euros(fait)) is not None
+        ]
+    except Exception:  # noqa: BLE001 — un filtre ne doit pas arrêter le gate
+        import logging  # noqa: PLC0415
+
+        logging.getLogger(__name__).exception(
+            "Scénarios de sensibilité illisibles pour le job %s", job.id
+        )
+        return []
+
+
 def _check_chiffre_contre_chiffre(
     sections: tuple[RenderedSection, ...],
+    scenarios: Collection[float] = (),
 ) -> list[GateFailure]:
     """Un meme libelle chiffre = une seule valeur dans tout le document.
 
@@ -2160,6 +2188,19 @@ def _check_chiffre_contre_chiffre(
     mentions = []
     for section in sections:
         mentions.extend(collecter_mentions(section.number, section.body))
+    # Business plan de test `68b6ab61` (19/11/2026), SEUL motif bloquant du
+    # document : « resultat_net (annee 2028) : 13 002 € (ch. 16) — "En 2028, le
+    # même choc de 10 % laisse un résultat net de 13 002 €" ; 23 335 € (ch. 18) ».
+    # 13 002 € est le résultat net du scénario à −10 %, que la mémoire calcule et
+    # que le chapitre 16 doit écrire. `_PHRASE_DE_SCENARIO` reconnaît « baisse »,
+    # « recul », « repli » — pas « choc », ni le mot suivant qu'un rédacteur
+    # trouvera (règle 4). La VALEUR, elle, ne trompe pas : ce que la mémoire a
+    # calculé pour le scénario n'est pas une seconde valeur du prévisionnel.
+    # La relecture applique déjà ce critère (`relecture.tableaux._series_datees`).
+    mentions = [
+        m for m in mentions
+        if not any(abs(m.montant_base - s) <= max(1.0, 0.005 * abs(s)) for s in scenarios)
+    ]
 
     failures: list[GateFailure] = []
     for div in detecter_divergences(mentions):
@@ -2513,7 +2554,7 @@ def run_delivery_gate(job: GenerationJob) -> GateReport:
     # quatre types (etude de marche, etude de concurrence, business plan,
     # strategie).
     failures.extend(_check_fourchettes(job, livrees))
-    failures.extend(_check_chiffre_contre_chiffre(livrees))
+    failures.extend(_check_chiffre_contre_chiffre(livrees, _valeurs_de_scenario(job)))
     failures.extend(_check_chapitres_avortes(job, livrees))
     failures.extend(_check_strategie_livrable(job, livrees))
     failures.extend(_check_post_rendu(livrees, deliverable_type=str(job.deliverable_type)))

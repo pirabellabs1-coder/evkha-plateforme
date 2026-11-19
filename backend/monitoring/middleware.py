@@ -16,10 +16,25 @@ import traceback
 from collections.abc import Callable
 from datetime import timedelta
 
-from django.http import HttpRequest, HttpResponse
+from django.core.exceptions import PermissionDenied, SuspiciousOperation
+from django.http import Http404, HttpRequest, HttpResponse
 from django.utils import timezone
 
 _log = logging.getLogger(__name__)
+
+
+#: Les exceptions dont Django fait une réponse 404, 403 ou 400 — pas une 500.
+#:
+#: Mesuré en production le 19/11/2026 : 433 incidents ouverts, dont « Erreur
+#: 500 : GET /static/admin/js/nav_sidebar.js.map — Http404 », de gravité haute.
+#: Un fichier absent n'est pas une panne ; un navigateur qui demande une carte
+#: de source en crée un par heure et par fichier. `process_exception` reçoit
+#: TOUTE exception levée par une vue, y compris celles qui sont la façon
+#: normale de répondre « introuvable » ou « interdit ». Les compter noyait les
+#: vraies erreurs 500, celles pour lesquelles ce middleware existe.
+_REPONSES_ATTENDUES: tuple[type[BaseException], ...] = (
+    Http404, PermissionDenied, SuspiciousOperation,
+)
 
 
 class IncidentSurErreur500:
@@ -30,6 +45,8 @@ class IncidentSurErreur500:
         return self.get_response(request)
 
     def process_exception(self, request: HttpRequest, exception: Exception) -> None:
+        if isinstance(exception, _REPONSES_ATTENDUES):
+            return
         try:
             _noter(request, exception)
         except Exception:  # noqa: BLE001 — noter une panne ne doit pas en créer une

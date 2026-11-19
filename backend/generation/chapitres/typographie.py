@@ -213,6 +213,7 @@ def reparer_texte(texte: str, *, prose: bool = True, anglais: bool = True) -> st
     corrige = _DEJA_ESPACEE.sub(rf"{FINE_INSECABLE}\1", corrige)
     corrige = _AVANT_DOUBLE.sub(rf"\1{FINE_INSECABLE}\2", corrige)
     corrige = reparer_langue(corrige, anglais=anglais) if prose else corrige
+    corrige = reparer_les_nombres_sans_echelle(corrige) if prose else corrige
     corrige = _PARENTHESE_QUI_SE_REPETE.sub(r"\1", corrige) if prose else corrige
     # En dernier : la langue traduit « 12 MEUR » en « 12 M€ », avec une espace
     # ordinaire — la poser avant elle ne serait pas idempotent.
@@ -643,6 +644,44 @@ def _appelle_l_elision(particule: str, mot: str) -> bool:
     if mot[0] in _VOYELLE_MINUSCULE:
         return True
     return mot[0] == "h" and mot.startswith(_H_MUETS)
+
+
+def reparer_les_nombres_sans_echelle(texte: str) -> str:
+    """« 395 000 000 de personnes » → « 395 millions de personnes ». Idempotente.
+
+    Business plan de test `68b6ab61` (19/11/2026) : la relecture a classé GRAVE
+    « 395 000 000 de personnes » — le défaut que la cliente avait relevé le
+    26/10/2026 (« 275 000 000 de ») — et renvoyé le chapitre en réécriture
+    payante. La faute se répare sans modèle, et sans rien changer au chiffre :
+
+    - un nombre rond en millions ou en milliards prend son mot d'échelle, que
+      le « de » appelait déjà ;
+    - tout autre nombre perd le « de », qui n'a pas de place après des chiffres
+      (« 275 400 de dollars » → « 275 400 dollars »).
+
+    Le motif est celui du contrôle (`relecture.redaction._CHIFFRES_PUIS_DE`,
+    règle 5) : ce qui est réparé ici est exactement ce qu'il signalerait.
+    """
+    if not texte or not any(c.isdigit() for c in texte):
+        return texte
+    from ..relecture.redaction import _CHIFFRES_PUIS_DE  # noqa: PLC0415
+
+    apostrophe = _apostrophe(texte)
+
+    def _remplacer(trouve: re.Match[str]) -> str:
+        nombre, objet = trouve.group("nombre"), trouve.group("objet")
+        valeur = int("".join(c for c in nombre if c.isdigit()))
+        for seuil, mot in ((1_000_000_000, "milliard"), (1_000_000, "million")):
+            if valeur >= seuil and valeur % (seuil // 10) == 0:
+                quantite = valeur / seuil
+                ecrit = f"{quantite:.1f}".rstrip("0").rstrip(".").replace(".", ",")
+                pluriel = "s" if quantite >= 2 else ""
+                # « 2 milliards d'euros », « 395 millions d'habitants ».
+                lien = f"d{apostrophe}" if objet[:1].lower() in "aeiouyéèêh" else "de "
+                return f"{ecrit}{FINE_INSECABLE}{mot}{pluriel} {lien}{objet}"
+        return f"{nombre} {objet}"
+
+    return _CHIFFRES_PUIS_DE.sub(_remplacer, texte)
 
 
 def reparer_les_elisions(texte: str) -> str:

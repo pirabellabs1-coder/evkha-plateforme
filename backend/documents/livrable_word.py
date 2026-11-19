@@ -148,24 +148,40 @@ def _consigner_les_visuels_abandonnes(
 
     demandes = rapport.graphiques_demandes
     rendus = rapport.graphiques_rendus
-    OperationalIncident.objects.update_or_create(
-        job=job,
-        title=f"Figures abandonnées à l'assemblage ({rendus}/{demandes}) — job {job.id}"[:200],
-        defaults={
-            "severity": IncidentSeverity.MEDIUM,
-            "order": job.order,
-            "details": {
-                "type": INCIDENT_TYPE_VISUELS_ABANDONNES,
-                "demandes": demandes,
-                "rendus": rendus,
-                # Le motif AVEC la figure : « ch.4 · Répartition… : unités
-                # hétérogènes ». Sans le motif, l'entrée dirait qu'il manque
-                # quelque chose sans dire quoi corriger (règle 2).
-                "abandonnes": rapport.graphiques_abandonnes[:60],
-                "convertis": rapport.graphiques_convertis[:30],
-            },
-        },
-    )
+    abandonnes = len(rapport.graphiques_abandonnes)
+    # Le titre compte ce qui MANQUE, et l'incident se retrouve par son dossier
+    # et son type. Mesuré en production le 19/11/2026 sur `68b6ab61` : le titre
+    # disait « Figures abandonnées à l'assemblage (15/17) » pour 15 figures
+    # RENDUES sur 17 — on y lisait un document presque sans figures — et comme
+    # le compte faisait partie de la clé, chaque nouvel assemblage ouvrait un
+    # second incident (« 14/16 », puis « 15/17 ») au lieu de mettre à jour le
+    # premier.
+    titre = (
+        f"{abandonnes} figure(s) abandonnée(s) sur {demandes} à l'assemblage "
+        f"— job {job.id}"
+    )[:200]
+    existant = OperationalIncident.objects.filter(
+        job=job, details__type=INCIDENT_TYPE_VISUELS_ABANDONNES,
+    ).order_by("-created_at").first()
+    details = {
+        "type": INCIDENT_TYPE_VISUELS_ABANDONNES,
+        "demandes": demandes,
+        "rendus": rendus,
+        # Le motif AVEC la figure : « ch.4 · Répartition… : unités
+        # hétérogènes ». Sans le motif, l'entrée dirait qu'il manque
+        # quelque chose sans dire quoi corriger (règle 2).
+        "abandonnes": rapport.graphiques_abandonnes[:60],
+        "convertis": rapport.graphiques_convertis[:30],
+    }
+    if existant is None:
+        OperationalIncident.objects.create(
+            job=job, order=job.order, title=titre,
+            severity=IncidentSeverity.MEDIUM, details=details,
+        )
+        return
+    existant.title = titre
+    existant.details = details
+    existant.save(update_fields=["title", "details", "updated_at"])
 
 
 def _corriger_les_proprietes(

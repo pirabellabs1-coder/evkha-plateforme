@@ -193,6 +193,27 @@ def _concorde(
     )
 
 
+#: Une ligne qui n'est NI un produit NI une charge de la société : ce que les
+#: clients paient à une place de marché, un compte de commandes, un seuil, un
+#: taux. Elle figure dans un tableau d'INDICATEURS, pas dans un compte de
+#: résultat.
+#:
+#: Business plan de test `68b6ab61` (19/11/2026), section 1.4 : « Indicateur |
+#: 2027 | 2028 | 2029 — Chiffre d'affaires HT · Volume de ventes réglé par les
+#: clients · Excédent brut d'exploitation · Résultat net · Seuil de
+#: rentabilité ». Cinq indicateurs de synthèse, lus comme un compte de
+#: résultat : « ne boucle pas en 2027 », constat GRAVE, donc un chapitre renvoyé
+#: en réécriture payante. Le volume de ventes d'une place de marché n'entre pas
+#: dans son compte de résultat — seule sa commission y entre.
+_HORS_DU_COMPTE = re.compile(
+    # En TÊTE du libellé, parenthèse retirée (`_tete`) : « Cotisations sociales
+    # (taux de 47 %) » et « Salaires et charges (effectif : 1 ETP) » sont des
+    # charges, et le restent.
+    r"(?i)^(?:volume (?:de ventes|d.affaires)|panier moyen|nombre d[e’']|commandes?\b|"
+    r"seuil de rentabilit|marge de s[ée]curit|taux\b|effectif)"
+)
+
+
 def _boucle(tableau: Tableau, section: Section) -> Constat | None:
     """CA + produits − charges = EBE, colonne par colonne.
 
@@ -243,6 +264,8 @@ def _boucle(tableau: Tableau, section: Section) -> Constat | None:
     en_tete = True
     for i in sorted(lignes):
         if not lignes_ca[0] < i < ebe or i in lignes_ca:
+            continue
+        if _HORS_DU_COMPTE.match(_tete(lignes[i][0])):
             continue
         nature, ambigue = _nature(lignes[i][0])
         if en_tete and _DOUBLE_LECTURE.search(_tete(lignes[i][0])):

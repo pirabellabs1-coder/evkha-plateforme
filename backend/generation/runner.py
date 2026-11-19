@@ -1412,7 +1412,13 @@ def _executer_check_avec_retry(
                     client=client,
                 )
                 fiche.refresh_from_db()
-                result = check_bloc(job, bloc, [fiche], client=client)
+                # Le rejeu juge la fiche CORRIGÉE sur ce qu'on lui a demandé de
+                # corriger (`note_precedente`) : rejugée à neuf, elle recevait
+                # une autre note, et aucune reprise ne pouvait converger.
+                result = check_bloc(
+                    job, bloc, [fiche], client=client,
+                    note_precedente=result.note_corrective,
+                )
                 if result.est_ok:
                     return
         # LA FICHE REFUSEE NE TUE PLUS L'ETUDE.
@@ -1510,7 +1516,9 @@ def _executer_check_avec_retry(
             # un controle qui n'a rien a comparer est un echec, pas un succes
             # (regle 1). On sort par l'incident, sans rejouer a vide.
             break
-        result = check_bloc(job, bloc, chapitres, client=client)
+        result = check_bloc(
+            job, bloc, chapitres, client=client, note_precedente=result.note_corrective,
+        )
 
     if not result.est_ok:
         _log_incident_check(

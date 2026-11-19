@@ -49,7 +49,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from .referentiel import identifiants_pour
+from .referentiel import Perimetre, definition, identifiants_pour
 from .schema import DonneeSocle, Fiabilite, Socle, valeur_en_unites_de_base
 
 #: Écart relatif toléré avant de parler de contradiction.
@@ -79,6 +79,9 @@ class Identite:
     #: Les livrables concernés. Vide = tous ceux dont le référentiel a les
     #: identifiants.
     livrables: tuple[str, ...] = field(default_factory=tuple)
+    #: D'autres lectures légitimes de la même identité, admises pour VÉRIFIER
+    #: un chiffre déjà présent — jamais pour en produire un.
+    autres_lectures: tuple[Callable[[dict[str, float]], float | None], ...] = ()
 
 
 def _seuil_de_rentabilite(v: dict[str, float]) -> float | None:
@@ -102,7 +105,31 @@ def _ressources_complementaires(v: dict[str, float]) -> float | None:
     complémentaire, c'est une erreur de saisie ou un excédent à expliquer. On
     ne le maquille pas en zéro.
     """
+    if abs(v["apport"] + v["emprunt"] - v["investissement_total"]) <= 1.0:
+        # Le plan boucle déjà, à l'euro, sur l'investissement total : la
+        # trésorerie de départ y est comprise, il n'y a rien à compléter.
+        return None
     reste = v["investissement_total"] + v["bfr"] - v["apport"] - v["emprunt"]
+    return reste if reste >= 0 else None
+
+
+def _ressources_complementaires_bfr_compris(v: dict[str, float]) -> float | None:
+    """La même identité quand le budget de démarrage COMPREND déjà le BFR.
+
+    Business plan de test `68b6ab61` (19/11/2026). Le client donnait un budget
+    total de 77 700 €, « emplois durables + trésorerie de départ », financé par
+    10 000 € d'apport, 47 700 € de prêt et 20 000 € de prêts d'honneur — soit
+    77 700 €, à l'euro. Le socle rangeait 77 700 € en `investissement_total` et
+    les 18 000 € de trésorerie en `bfr` ; l'identité les additionnait et
+    accusait les 20 000 € : « donne 38 000 EUR (écart de 18 000) », incident de
+    gravité haute sur un plan juste. `memoire.faits` portait le même double
+    compte, corrigé le 18/11 : deux modules, la même vérité (règle 5).
+
+    Un socle ne dit pas si son budget comprend le BFR. Les deux lectures sont
+    donc admises à la VÉRIFICATION : le chiffre du client n'est contredit que
+    s'il ne correspond à aucune.
+    """
+    reste = v["investissement_total"] - v["apport"] - v["emprunt"]
     return reste if reste >= 0 else None
 
 
@@ -133,6 +160,7 @@ IDENTITES: tuple[Identite, ...] = (
             "s'équilibre"
         ),
         livrables=("business_plan",),
+        autres_lectures=(_ressources_complementaires_bfr_compris,),
     ),
     Identite(
         produit="transactions_annuelles_cible",
@@ -225,20 +253,29 @@ def appliquer(
         if valeurs is None:
             continue
         calculee = identite.calcul(valeurs)
-        if calculee is None:
-            continue
-
         unite = _unite_du_resultat(socle, identite)
         existante = par_id.get(identite.produit)
+        lectures = [
+            lue for lecture in (identite.calcul, *identite.autres_lectures)
+            if (lue := lecture(valeurs)) is not None
+        ]
+        if calculee is None and (existante is None or not lectures):
+            continue
 
         if existante is None:
+            assert calculee is not None
+            attendue = definition(deliverable_type, identite.produit)
             ajoutees.append(DonneeSocle(
                 id=identite.produit,
                 libelle=f"Calculé : {identite.formule}.",
                 valeur=round(calculee, 2),
                 unite=unite,
                 annee=socle.date_socle.year,
-                perimetre=socle.donnees[0].perimetre if socle.donnees else "national",
+                # Le périmètre du RÉFÉRENTIEL, pas celui de la première donnée
+                # du socle : un seuil de rentabilité rangé « national » parce
+                # que le socle s'ouvre sur un marché national était refusé à
+                # toute revalidation.
+                perimetre=attendue.perimetre if attendue else Perimetre.ENTREPRISE,
                 # ESTIMEE, jamais OBSERVEE : le chiffre est exact au regard de
                 # ses termes, mais il vaut ce que valent ces termes. Le
                 # présenter comme observé lui prêterait une autorité qu'il n'a
@@ -250,12 +287,13 @@ def appliquer(
 
         base = valeur_en_unites_de_base(existante.valeur, existante.unite)
         valeur_socle = existante.valeur if base is None else base[0]
-        reference = max(abs(calculee), 1.0)
-        if abs(valeur_socle - calculee) / reference > TOLERANCE:
+        if not any(
+            abs(valeur_socle - lue) / max(abs(lue), 1.0) <= TOLERANCE for lue in lectures
+        ):
             contradictions.append(Contradiction(
                 identifiant=identite.produit,
                 valeur_du_socle=valeur_socle,
-                valeur_calculee=calculee,
+                valeur_calculee=lectures[0],
                 unite=unite,
                 formule=identite.formule,
             ))
