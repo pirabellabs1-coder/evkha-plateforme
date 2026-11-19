@@ -39,7 +39,7 @@ from itertools import zip_longest
 
 from core.numbers import amounts_in
 
-from ..checks_post_rendu import REFERENCE_JURIDIQUE, _sans_accents
+from ..checks_post_rendu import _DOMAINE_RE, REFERENCE_JURIDIQUE, _sans_accents
 from ..socle.referentiel import identifiants_obligatoires
 from ..socle.schema import DONNEE_MANQUANTE, Socle, valeur_en_unites_de_base
 from .lecture import DocumentLu, Mesure, mesures_dans
@@ -454,7 +454,13 @@ _SOURCE_DANS_LA_PHRASE = re.compile(
     # La même expression que la traçabilité du chapitre Sources (règle 5).
     rf"|{REFERENCE_JURIDIQUE}"
     r"|\((?![^()]*\b(?i:sc[ée]nario|ann[ée]e|hypoth))"
-    r"[^()]*\b[A-ZÉ][\w&'’.\-]{2,}[^()]*\b(?:19|20)\d{2}\b[^()]*\)",
+    r"[^()]*\b[A-ZÉ][\w&'’.\-]{2,}[^()]*\b(?:19|20)\d{2}\b[^()]*\)"
+    # L'organisme nommé par son ADRESSE : « (monatelier.app, 2026) ». La
+    # parenthèse ci-dessus exige une majuscule, qu'un nom de domaine ne porte
+    # pas — la source la plus précise qui soit n'était pas reconnue (business
+    # plan `cb59cede`, corpus du 19/11/2026). Le domaine se lit comme partout
+    # ailleurs (règle 5).
+    rf"|\([^()]*{_DOMAINE_RE.pattern}[^()]*\b(?:19|20)\d{{2}}\b[^()]*\)",
 )
 
 #: Écart relatif toléré entre le calcul refait et la grandeur écrite, en plus

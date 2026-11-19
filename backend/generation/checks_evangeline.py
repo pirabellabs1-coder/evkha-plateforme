@@ -323,6 +323,77 @@ def _n_est_pas_une_plage(texte: str, match: re.Match[str]) -> bool:
     )
 
 
+_ADRESSE_COMPLETE = re.compile(r"https?://\S", re.IGNORECASE)
+_CASE_ANNEE = re.compile(r"(?:19|20)\d{2}")
+
+
+def _ligne_de_tableau(texte: str, match: re.Match[str]) -> str | None:
+    """La ligne de tableau qui porte la plage, ou `None` hors tableau."""
+    debut = texte.rfind("\n", 0, match.start()) + 1
+    fin = texte.find("\n", match.end())
+    ligne = texte[debut : fin if fin != -1 else len(texte)]
+    return ligne if ligne.count("|") >= 2 else None
+
+
+def _bande_entre_deux_seuils(texte: str, match: re.Match[str]) -> bool:
+    """La plage est la ZONE entre deux seuils que la même ligne écrit seuls.
+
+    « Plus de 70 % des livraisons | Entre 40 % et 70 % | Moins de 40 % » — le
+    tableau de décision d'une stratégie : au-dessus on généralise, en dessous
+    on arrête, entre les deux on prolonge l'essai. « Entre 40 % et 70 % » n'y
+    est pas une estimation qu'on n'a pas tranchée ; ce sont deux valeurs
+    DÉCIDÉES, chacune écrite seule dans sa case, et l'intervalle qui les
+    sépare. Aucun chiffre unique ne peut dire cette zone.
+
+    Stratégie `d319a9e5` et business plan `6c9dc734` (corpus du 19/11/2026) :
+    retenus sur ce seul motif.
+
+    Le critère est la STRUCTURE de la ligne, pas une liste de tournures
+    (« plus de », « au-dessus de », « ≥ »… — elle serait incomplète, règle 4) :
+    chacune des deux bornes figure, hors de toute plage, dans une AUTRE case.
+    """
+    ligne = _ligne_de_tableau(texte, match)
+    if ligne is None:
+        return False
+    basse = parse_number(match.group(1) or match.group(3))
+    haute = parse_number(match.group(2) or match.group(4))
+    if basse is None or haute is None:
+        return False
+    # Deux resserrements, exigés par la porte finale du 19/11/2026 : la
+    # première écriture comparait des nombres NUS, où qu'ils soient. « Panier
+    # moyen | 25 à 35 € | 25 couverts | 35 couverts » et « Prix | 40 € | 70 € |
+    # entre 40 € et 70 € selon la saison » devenaient muets.
+    #
+    # - la borne écrite seule porte l'UNITÉ de la plage : « 25 couverts » n'est
+    #   pas « 25 € » ;
+    # - la zone est ENTRE ses seuils : l'un dans une case avant elle, l'autre
+    #   après. Deux valeurs suivies de la plage qui les résume, c'est une
+    #   plage — celle qu'on demande justement d'écrire en deux valeurs.
+    unite = re.escape(match.group(5))
+    avec_unite = re.compile(rf"({_NOMBRE}){SPACE_CLASS}*{unite}", re.IGNORECASE)
+    debut_ligne = texte.rfind("\n", 0, match.start()) + 1
+    position = match.start() - debut_ligne
+    avant: set[float] = set()
+    apres: set[float] = set()
+    cote = avant
+    curseur = 0
+    for case in ligne.split("|"):
+        porte_la_plage = curseur <= position < curseur + len(case) + 1
+        curseur += len(case) + 1
+        if porte_la_plage:
+            cote = apres
+            continue
+        sans_plages = case
+        for motif in (_FOURCHETTE_MONETAIRE, _FOURCHETTE_POURCENTAGE):
+            sans_plages = motif.sub(" ", sans_plages)
+        for trouve in avec_unite.finditer(sans_plages):
+            valeur = parse_number(trouve.group(1))
+            if valeur is not None:
+                cote.add(float(valeur))
+    b, h = float(basse), float(haute)
+    return (h in avant and b in apres) or (b in avant and h in apres)
+
+
 def _nouvelle_ligne_ferme(texte: str, rang: int) -> bool:
     """Un saut de ligne ferme-t-il la case ou la phrase ?
 
@@ -350,6 +421,26 @@ def _prix_de_marche_source(texte: str, match: re.Match[str]) -> bool:
     reconnaissance est celle du contrôle des chiffres hors socle (règle 5).
     """
     from .verification.controles import _SOURCE_DANS_LA_PHRASE  # noqa: PLC0415
+
+    # La LIGNE qui porte une adresse est la fiche d'une source : « Superprof.ch
+    # | Fourchette de prix des cours en ligne (25 à 40 CHF/heure) | 2025 |
+    # https://… ». La plage y est ce que la source publie, et l'adresse est
+    # dans la case d'à côté par construction — c'est la forme même du chapitre
+    # Sources. Quatre motifs faux sur deux business plans du corpus du
+    # 19/11/2026 (`6c794b18`, `eab58554`). Une source simplement NOMMÉE dans
+    # une autre case ne vaut toujours pas : il faut l'adresse.
+    #
+    # Une adresse ne suffit pas (porte finale du 19/11/2026) : « Abonnement |
+    # de 29 à 49 € par mois | Site du projet : https://… » porte une adresse
+    # et un prix du PROJET. La fiche d'une source se reconnaît à sa forme :
+    # l'adresse, ET une case qui n'est qu'une année.
+    ligne = _ligne_de_tableau(texte, match)
+    if (
+        ligne is not None
+        and _ADRESSE_COMPLETE.search(ligne)
+        and any(_CASE_ANNEE.fullmatch(case.strip()) for case in ligne.split("|"))
+    ):
+        return True
 
     debut = max(texte.rfind(c, 0, match.start()) for c in "|\n.;") + 1
     # La fin : case, ligne, point-virgule ou point final — mais jamais DANS une
@@ -484,6 +575,8 @@ def detecter_fourchettes(
             borne_basse = match.group(1) or match.group(3)
             borne_haute = match.group(2) or match.group(4)
             if _n_est_pas_une_plage(texte, match):
+                continue
+            if _bande_entre_deux_seuils(texte, match):
                 continue
             if deliverable_type in _LIVRABLES_PRIX_OBSERVE_SOURCE and (
                 " ".join(match.group(0).split()) in sourcees
