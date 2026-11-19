@@ -135,6 +135,9 @@ def _session(*, quantite: int = 2, reference: str = "cs_test_1") -> dict[str, An
     return {
         "id": reference,
         "status": "complete",
+        # Ce que Stripe écrit sur une session réglée par carte. Sans ce champ,
+        # la doublure décrivait un paiement que Stripe n'envoie jamais.
+        "payment_status": "paid",
         "mode": "payment",
         "client_reference_id": "",
         "metadata": {

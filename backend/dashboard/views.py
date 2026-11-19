@@ -965,7 +965,11 @@ def job_redeliver(request: HttpRequest, job_id: str) -> JsonResponse:
 
     if job.status == JobStatus.DONE:
         from delivery.tasks import deliver_job_task  # noqa: PLC0415
-        deliver_job_task.delay(str(job.id))
+
+        # C'est une DÉCISION, prise à l'écran après accord : le courriel repart
+        # même si le dossier a déjà été livré. Les chemins automatiques, eux,
+        # ne renvoient rien (`deliver_job`).
+        deliver_job_task.delay(str(job.id), renvoi_voulu=True)
         return _json({"job_id": str(job.id), "status": "delivery_queued"}, status=202)
 
     if job.status == JobStatus.FAILED:
@@ -1648,12 +1652,17 @@ def system_status(request: HttpRequest) -> JsonResponse:
     """Etat de la configuration : stubs actifs, intégrations."""
     from django.conf import settings  # noqa: PLC0415
 
+    from monitoring.sauvegardes import etat_des_sauvegardes  # noqa: PLC0415
+
     return _json(
         {
             "api": "ok",
             "email_stub": bool(getattr(settings, "EVKHA_USE_STUB_EMAIL", True)),
             "ai_stub": bool(getattr(settings, "EVKHA_USE_STUB_AI", True)),
             **_etat_de_la_file(),
+            # L'âge de la dernière copie de la base, lu sur le disque à
+            # l'instant : la preuve qu'une sauvegarde existe, pas la promesse.
+            "sauvegarde": etat_des_sauvegardes(),
         }
     )
 

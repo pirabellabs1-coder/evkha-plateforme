@@ -914,7 +914,7 @@ def journal_credits(
                 "type": m.type,
                 "quantite": m.quantite,
                 "motif": m.motif,
-                "reference": m.reference,
+                "reference": _reference_lisible(m),
                 "auteur": m.auteur,
             }
             for m in mouvements
@@ -922,14 +922,88 @@ def journal_credits(
     })
 
 
+#: Les mouvements dont la référence désigne un DOSSIER de l'abonnée.
+_MOUVEMENTS_D_UN_DOSSIER = (TypeMouvement.DEBIT, TypeMouvement.REMBOURSEMENT)
+
+
+def _reference_lisible(mouvement: MouvementCredit) -> str:
+    """La référence d'un mouvement, telle qu'un membre a le droit de la lire.
+
+    Pour une entrée d'argent — achat, dotation — la référence est l'identifiant
+    que le prestataire de paiement donne à l'opération. Elle servait de clé au
+    retour de paiement : avant l'audit du 19/11/2026, la rejouer rendait une
+    session sur le compte de l'acheteuse, et ce journal la remettait à tout
+    membre autorisé à consulter. Le retour de paiement ne s'ouvre plus ainsi,
+    mais un identifiant qui a valu clé n'a rien à faire dans une réponse que
+    personne ne lit : l'écran ne l'affiche pas.
+
+    Un débit et son remboursement gardent la leur : c'est le dossier concerné.
+    """
+    return mouvement.reference if mouvement.type in _MOUVEMENTS_D_UN_DOSSIER else ""
+
+
 # ── Clients finaux ───────────────────────────────────────────────────────────
 
 
-def _apercu_du_logo(logo_url: str) -> str:
+#: Les deux catégories de fichier qu'une adresse de logo a le droit de désigner.
+CATEGORIES_DE_LOGO = (CategorieFichier.LOGO, CategorieFichier.LOGO_CLIENT)
+
+
+def _logo_depose_ici(organisation_id: Any, reference: str) -> bool:
+    """Vrai si la référence désigne un logo que CETTE organisation a déposé."""
+    return PieceJointe.objects.filter(
+        organisation_id=organisation_id,
+        categorie__in=CATEGORIES_DE_LOGO,
+        fichier=_nom_du_fichier(reference),
+    ).exists()
+
+
+def _refus_de_logo(
+    organisation: Organisation, valeur: str, actuelle: str, libelle: str
+) -> JsonResponse | None:
+    """Une adresse de logo ÉCRITE par l'abonnée : externe, ou un logo déposé ici.
+
+    Audit du 19/11/2026. `logo_url` figure dans les champs qu'une charge JSON
+    peut écrire — sur « Ma marque » comme sur la fiche d'un client — et rien ne
+    regardait sa valeur. Or l'aperçu de la fiche SIGNE le chemin qu'elle porte :
+    écrire `/media/livrables/<identifiant d'un dossier>.docx` dans ce champ,
+    puis relire la fiche, rendait un lien signé vers ce livrable — quel qu'en
+    soit le propriétaire. Le chemin d'un fichier n'est pas un secret (il figure
+    dans chaque lien envoyé par courriel) ; c'est la signature qui garde
+    l'accès, et l'API la donnait à qui la demandait.
+
+    Le champ ne s'écrit normalement pas à la main : les deux écrans déposent un
+    fichier, et c'est le dépôt qui pose l'adresse. Une valeur inchangée passe —
+    renvoyer la fiche telle qu'on l'a lue n'est pas une écriture.
+    """
+    if not valeur or valeur == actuelle:
+        return None
+    if valeur.startswith(("http://", "https://")):
+        return None
+    if _logo_depose_ici(organisation.id, valeur):
+        return None
+    return _refus(
+        f"{libelle} : déposez le fichier du logo, ou donnez une adresse complète "
+        "commençant par https://.",
+        "logo_invalide",
+        400,
+    )
+
+
+def _apercu_du_logo(client: ClientFinal) -> str:
+    """Le lien d'aperçu du logo d'une fiche — signé seulement s'il est à elle.
+
+    La garde est ICI aussi, pas seulement à l'écriture : une signature se
+    décide au moment où on la donne, sur ce que la base contient ce jour-là —
+    y compris une valeur écrite avant que l'écriture soit gardée.
+    """
+    logo_url = client.logo_url
     if not logo_url:
         return ""
     if logo_url.startswith(("http://", "https://")):
         return logo_url
+    if not _logo_depose_ici(client.organisation_id, logo_url):
+        return ""
     from evkha import signatures  # noqa: PLC0415 — évite un cycle à l'import
 
     return signatures.lien_absolu(_nom_du_fichier(logo_url))
@@ -947,7 +1021,7 @@ def _client_final_en_dict(client: ClientFinal) -> dict[str, Any]:
         "logo_url": client.logo_url,
         # Lien signé et ABSOLU pour l'aperçu : un `/media/…` relatif rend la
         # page d'accueil du front, jamais l'image.
-        "logo_apercu": _apercu_du_logo(client.logo_url),
+        "logo_apercu": _apercu_du_logo(client),
         "couleur_principale": client.couleur_principale,
         "couleur_secondaire": client.couleur_secondaire,
         "couleur_fond": client.couleur_fond,
@@ -1055,6 +1129,9 @@ def clients_finaux(
         if refus is not None:
             return refus
         valeurs[champ] = valeur
+    refus = _refus_de_logo(organisation, valeurs["logo_url"], "", LIBELLES_CLIENT["logo_url"])
+    if refus is not None:
+        return refus
     if not valeurs["raison_sociale"]:
         return _refus("Le nom du client est obligatoire.", "champ_manquant", 400)
     raison_sociale = valeurs["raison_sociale"]
@@ -1429,6 +1506,10 @@ def marque(
             continue
         valeur = _texte_propre(charge[champ])
         refus = _refus_de_marque(champ, valeur)
+        if refus is None and champ == "logo_url":
+            refus = _refus_de_logo(
+                organisation, valeur, organisation.logo_url, LIBELLES_MARQUE[champ]
+            )
         if refus is not None:
             return refus
         # « 3d568a » ou « 3D568A » : la forme que le rendu lit, `#3D568A`.
@@ -2821,10 +2902,27 @@ def inviter(
             "invitation_envoyee": envoye,
             # Rendu a l'ecran QUAND l'envoi a echoue : une panne de messagerie
             # ne doit pas laisser l'invitant sans recours. Il recopie le lien.
-            "lien_activation": "" if envoye else lien,
+            "lien_activation": "" if envoye else _lien_a_recopier(compte, lien),
         },
         status=201,
     )
+
+
+def _lien_a_recopier(compte: Any, lien: str) -> str:
+    """Le lien d'activation remis à l'INVITANT — seulement pour un compte vierge.
+
+    Ce lien pose un mot de passe. Pour un compte que l'invitation vient d'ouvrir,
+    le remettre à l'invitant ne lui donne rien qu'il n'ait déjà : c'est son
+    équipe. Mais `compte_sans_mot_de_passe` rend aussi un compte qui EXISTAIT —
+    un ancien collaborateur révoqué, par exemple, réinvité ici ou ailleurs — et
+    le même lien y remplacerait le mot de passe de quelqu'un qui en a un.
+
+    Audit du 19/11/2026 : même règle que pour le retour de paiement. Une panne
+    de messagerie ne transforme pas l'invitant en titulaire du compte d'un
+    autre ; la personne passera par « mot de passe oublié », dans sa boîte.
+    """
+    vierge = not compte.user.has_usable_password() and compte.derniere_connexion is None
+    return lien if vierge else ""
 
 
 @csrf_exempt

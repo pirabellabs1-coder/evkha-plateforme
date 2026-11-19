@@ -417,8 +417,17 @@ def lancer(job: GenerationJob) -> None:
     transaction non encore validée peut être consommée avant que le job existe
     en base, et le worker ne trouve alors rien.
     """
+    from generation.models import JobStatus  # noqa: PLC0415
+    from generation.services import relaunch_generation_job  # noqa: PLC0415
     from generation.tasks import run_generation_job_task  # noqa: PLC0415
 
+    # Une étude EN ÉCHEC que la personne recommande repart. `creer_commande`
+    # lui rend ce dossier (`ETATS_ENCORE_UTILISABLES`), mais la tâche ne prend
+    # qu'un dossier en attente (`prendre_le_dossier`) : sans cette remise en
+    # attente, la vue répondait « acceptée » et rien ne repartait (porte
+    # finale du 19/11/2026).
+    if job.status == JobStatus.FAILED:
+        relaunch_generation_job(job)
     run_generation_job_task.delay(str(job.id))
 
 

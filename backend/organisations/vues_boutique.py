@@ -366,6 +366,9 @@ def acheter(request: HttpRequest) -> HttpResponse:
 
     remise.noter_la_tentative(session=session, produit=produit, email=email)
 
+    # Même défaut que `vues_publiques.acheter` : le plafond était lu, jamais
+    # compté (audit du 19/11/2026).
+    limitation.enregistrer(ACHATS_PAR_HEURE, adresse_ip)
     return JsonResponse({"adresse": session.adresse})
 
 
@@ -419,12 +422,16 @@ def retour(request: HttpRequest) -> HttpResponse:
     if resultat.nouveau:
         remise.prevenir_l_acheteur(resultat)
 
-    # C'est le prestataire qui a prouvé l'identité : il a encaissé une carte et
-    # collecté l'adresse. La personne n'a pas de mot de passe et n'en a pas
-    # besoin pour entrer ; elle en choisira un depuis le courriel.
-    jeton_clair = authentification.ouvrir_session_sans_mot_de_passe(resultat.compte)
+    # Le prestataire prouve qu'une carte a été encaissée — pas que le payeur
+    # possède l'adresse qu'il a saisie. La session n'est ouverte ici que sur le
+    # compte que CE paiement vient de créer, une seule fois
+    # (`authentification.ouvrir_la_session_d_un_achat`). Les liens de
+    # téléchargement, eux, sont ceux du fichier ACHETÉ : ils suivent le
+    # paiement, pas le compte.
+    jeton_clair = authentification.ouvrir_la_session_d_un_achat(resultat.compte, identifiant)
     return JsonResponse({
         "jeton": jeton_clair,
+        "connexion_requise": jeton_clair is None,
         "titre": resultat.produit.titre,
         "slug": resultat.produit.slug,
         "telechargement": remise.lien_de_telechargement(resultat.achat),

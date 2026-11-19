@@ -509,3 +509,91 @@ def test_libreoffice_absent_ne_prive_pas_du_word_et_se_signale(
     assert OperationalIncident.objects.filter(
         job=job_livrable, title__startswith="PDF non produit"
     ).exists()
+
+
+# ── Audit du 19/11/2026 : ce que la livraison laissait derrière elle ─────────
+
+
+def test_un_document_retenu_n_est_plus_dit_pret(
+    monkeypatch: pytest.MonkeyPatch, job_livrable: Any
+) -> None:
+    """Le courriel ne partait pas — mais le dossier restait `done`, ses fichiers
+    `READY`, et l'espace client disait « Votre étude est prête. Vous pouvez la
+    télécharger » en proposant le document amputé. La bascule en « intervention
+    requise » vivait dans une branche qu'aucun chemin n'atteignait.
+    """
+    from generation.models import JobStatus
+    from integrations.gamma import StubGammaClient
+    from organisations import suivi
+
+    docx, pdf = _artefacts_reels(job_livrable)
+    monkeypatch.setattr(
+        "documents.livrable_word.assembler_livrable_word",
+        lambda job: _LivrableAssemble(
+            docx=docx,
+            pdf=pdf,
+            controle=_Controle([_Anomalie("tableau du compte de résultat vide")]),
+        ),
+        raising=False,
+    )
+
+    with pytest.raises(livraison.DeliveryError):
+        livraison.deliver_job(
+            job_livrable, email_client=_EmailEnregistreur(), gamma_client=StubGammaClient()
+        )
+
+    job_livrable.refresh_from_db()
+    assert job_livrable.status == JobStatus.INTERVENTION_REQUISE
+    assert suivi.fichiers_du_client(job_livrable) == []
+
+
+def test_un_dossier_deja_livre_ne_renvoie_pas_son_courriel(
+    monkeypatch: pytest.MonkeyPatch, job_livrable: Any
+) -> None:
+    """Le bouton « Générer le PDF », le gardien, une tâche rejouée par la file :
+    tous repassent par `deliver_job`, et chacun renvoyait le courriel au client."""
+    from integrations.gamma import StubGammaClient
+
+    docx, pdf = _artefacts_reels(job_livrable)
+    monkeypatch.setattr(
+        "documents.livrable_word.assembler_livrable_word",
+        lambda job: _LivrableAssemble(docx=docx, pdf=pdf, controle=_Controle([])),
+        raising=False,
+    )
+    courriel = _EmailEnregistreur()
+
+    premier = livraison.deliver_job(
+        job_livrable, email_client=courriel, gamma_client=StubGammaClient()
+    )
+    second = livraison.deliver_job(
+        job_livrable, email_client=courriel, gamma_client=StubGammaClient()
+    )
+
+    assert len(courriel.envois) == 1, "un seul courriel pour un dossier"
+    assert second.pk == premier.pk
+
+
+def test_un_renvoi_demande_a_la_console_repart_bien(
+    monkeypatch: pytest.MonkeyPatch, job_livrable: Any
+) -> None:
+    """Contre-épreuve de la garde ci-dessus, et le défaut de sa première
+    écriture : elle arrêtait aussi le renvoi DEMANDÉ. Le bouton « Relancer la
+    livraison (courriel au client) » annonçait un courriel qui ne partait plus.
+    Ce qui ne repart pas tout seul repart quand quelqu'un le décide."""
+    from integrations.gamma import StubGammaClient
+
+    docx, pdf = _artefacts_reels(job_livrable)
+    monkeypatch.setattr(
+        "documents.livrable_word.assembler_livrable_word",
+        lambda job: _LivrableAssemble(docx=docx, pdf=pdf, controle=_Controle([])),
+        raising=False,
+    )
+    courriel = _EmailEnregistreur()
+    livraison.deliver_job(job_livrable, email_client=courriel, gamma_client=StubGammaClient())
+
+    livraison.deliver_job(
+        job_livrable, email_client=courriel, gamma_client=StubGammaClient(),
+        renvoi_voulu=True,
+    )
+
+    assert len(courriel.envois) == 2

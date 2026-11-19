@@ -92,6 +92,9 @@ MIDDLEWARE = [
     # lui qui doit pouvoir repondre a une requete preflight sans que le reste
     # de la pile ne s'en mele.
     "corsheaders.middleware.CorsMiddleware",
+    # Après CORS, pour que le refus porte ses en-têtes et se lise comme un 413
+    # dans le navigateur ; avant tout le reste, pour que rien ne lise le corps.
+    "evkha.corps.CorpsBorne",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -170,6 +173,12 @@ from organisations.fichiers import TAILLE_MAX_DOCUMENT  # noqa: E402
 _MARGE_MULTIPART = 1 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = TAILLE_MAX_DOCUMENT + _MARGE_MULTIPART
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
+# La requête ENTIÈRE, fichiers compris — ce que les deux réglages ci-dessus ne
+# bornent pas. Même valeur que `client_max_body_size` dans `frontend/nginx.conf`
+# (12 Mo) : le chemin direct par `api2` n'accepte pas plus que le chemin par le
+# front. Voir `evkha/corps.py` ; `test_une_requete_trop_lourde_n_est_pas_lue`
+# tient les deux d'accord.
+EVKHA_TAILLE_MAX_REQUETE = TAILLE_MAX_DOCUMENT + 2 * _MARGE_MULTIPART
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
@@ -262,6 +271,21 @@ CELERY_BEAT_SCHEDULE = {
         "task": "generation.reset_stuck_generation_jobs",
         "schedule": 3600.0,
     },
+    # Un dossier « en attente » dont la tâche s'est perdue n'était repris par
+    # personne : `b57a4284` a attendu seize jours après la panne de file du
+    # 03/11/2026. Toutes les dix minutes, ce gardien remet en file ce qui
+    # attend sans raison — sans risque de doublon, la prise d'un dossier étant
+    # atomique.
+    "reprendre-les-dossiers-en-attente": {
+        "task": "generation.reprendre_les_dossiers_en_attente",
+        "schedule": 600.0,
+    },
+    # Le témoin de la sauvegarde quotidienne : un incident quand la copie du
+    # jour manque, clos quand elle revient. Voir `monitoring/sauvegardes.py`.
+    "verifier-la-sauvegarde": {
+        "task": "monitoring.verifier_la_sauvegarde",
+        "schedule": 3600.0,
+    },
     # Prospection automatique quotidienne. Verification horaire ; la tache decide
     # s'il y a lieu d'agir (active ? bon jour ? pas deja fait aujourd'hui ?).
     # Desactivee par defaut : aucune depense tant que la cliente ne l'active pas,
@@ -272,11 +296,66 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
+#: L'ENTRETIEN ne fait pas la queue derrière les générations non plus.
+#:
+#: Audit du 19/11/2026. Seule la livraison avait sa file ; les gardiens, les
+#: échéances d'abonnement et les purges partaient dans celle des générations.
+#: Quand les deux créneaux de l'ouvrier rédigent — quarante minutes chacun —,
+#: le gardien « toutes les dix minutes » qui livre un document oublié attend
+#: qu'une rédaction se termine, et une dotation de crédits due à 02:00 arrive
+#: quand elle peut. C'est le défaut du 17/08/2026, un cran à côté.
+#:
+#: La règle est dérivée du CALENDRIER, pas d'une liste tenue à la main : une
+#: tâche périodique ajoutée demain part d'office dans la file courte
+#: (règle 4). L'exception est nommée, et elle a une raison : la prospection
+#: appelle des modèles pendant de longues minutes — c'est une rédaction, pas
+#: de l'entretien.
+_PERIODIQUES_QUI_REDIGENT = frozenset({"prospection.prospection_quotidienne"})
+CELERY_TASK_ROUTES.update(
+    {
+        str(entree["task"]): {"queue": "livraison"}
+        for entree in CELERY_BEAT_SCHEDULE.values()
+        if entree["task"] not in _PERIODIQUES_QUI_REDIGENT
+    }
+)
+
+#: Un ouvrier ne RÉSERVE pas plus de tâches qu'il n'a de créneaux.
+#:
+#: Par défaut, il en réserve quatre par créneau. Une tâche réservée n'est
+#: visible d'aucun autre ouvrier, et la file Redis la remet en circulation si
+#: elle n'est pas acquittée dans le délai de visibilité — une heure par défaut.
+#: Derrière deux rédactions de quarante minutes, la cinquième tâche réservée
+#: attend plus d'une heure : elle est remise en file ALORS QU'ELLE EST ENCORE
+#: réservée, et s'exécute deux fois. `prendre_le_dossier` protège la
+#: génération ; le contrôle final et la livraison n'avaient que ce réglage.
+CELERY_WORKER_PREFETCH_MULTIPLIER = env.int("CELERY_WORKER_PREFETCH_MULTIPLIER", default=1)
+
+#: Quatre heures : au-dessus de la plus longue tâche (le gardien des dossiers
+#: bloqués tranche à deux heures). Une tâche réellement perdue par un ouvrier
+#: tué n'attend pas ce délai pour autant — `reprendre_les_dossiers_en_attente`
+#: la remet en file en un quart d'heure.
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "visibility_timeout": env.int("CELERY_VISIBILITY_TIMEOUT_S", default=4 * 3600),
+}
+
 #: Delai avant la demande d'avis, en heures. Reglable pour les essais — la
 #: tache elle-meme ne connait pas de valeur en dur.
 EVKHA_DELAI_DEMANDE_AVIS_H = env.int("EVKHA_DELAI_DEMANDE_AVIS_H", default=48)
 
 EVKHA_DEFAULT_RETENTION_DAYS = env("EVKHA_DEFAULT_RETENTION_DAYS")
+
+# Où le service `sauvegarde` de `docker-compose.prod.yml` écrit la copie
+# quotidienne de la base, et où `monitoring.verifier_la_sauvegarde` la cherche.
+#
+# Le défaut suit le mode : en production (hors DEBUG) une sauvegarde est
+# ATTENDUE à cet endroit, et son absence ouvre un incident — il ne faut pas
+# qu'un réglage oublié fasse lire « rien à surveiller » là où la base n'est
+# plus copiée (règle 1). Sur un poste de développement, aucune n'est attendue.
+# `test_la_sauvegarde_existe_ou_se_signale` tient ce chemin et le montage du
+# fichier Compose d'accord.
+EVKHA_DOSSIER_SAUVEGARDES = env(
+    "EVKHA_DOSSIER_SAUVEGARDES", default="" if DEBUG else "/sauvegardes"
+)
 
 # Fichiers DÉPOSÉS par le client (bilans, comptes de résultat). Douze mois : le
 # cycle d'un bilan. Distinct de la rétention des livrables — voir

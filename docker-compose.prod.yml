@@ -94,6 +94,8 @@ services:
       - media:/app/media
       - staticfiles:/app/staticfiles
       - factstore:/app/fact_store
+      # En lecture seule : la console dit l'âge de la dernière copie.
+      - sauvegardes:/sauvegardes:ro
     restart: unless-stopped
 
   worker:
@@ -146,6 +148,9 @@ services:
     volumes:
       - media:/app/media
       - factstore:/app/fact_store
+      # En lecture seule : c'est cet ouvrier qui joue le témoin de sauvegarde
+      # (`monitoring.verifier_la_sauvegarde`, file courte).
+      - sauvegardes:/sauvegardes:ro
     restart: unless-stopped
 
   beat:
@@ -192,6 +197,57 @@ services:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
+  # ── Une copie de la base chaque jour, trente et une gardées ──────────
+  #
+  # Audit du 19/11/2026 : la base vivait dans le volume `pgdata` et rien ne la
+  # copiait — ni ce dépôt, ni l'hébergeur (API de Coolify : zéro base gérée).
+  # Une migration fautive ou une suppression malheureuse était sans retour.
+  #
+  # Ce service écrit `evkha-jour-JJ.dump` (format `pg_restore`) dans le volume
+  # `sauvegardes`, à son démarrage — donc à chaque déploiement — puis toutes
+  # les vingt-quatre heures. Un emplacement par jour du mois : la copie du 19
+  # remplace celle du 19 du mois précédent. Rien n'est jamais effacé par une
+  # commande ; le volume porte au plus trente et une copies.
+  #
+  # La copie s'écrit d'abord sous un nom provisoire et ne prend son nom qu'une
+  # fois complète : une copie interrompue ne remplace pas une copie saine.
+  # Un échec est retenté dix minutes plus tard.
+  #
+  # IL N'EST PAS SEUL À VEILLER : `monitoring.verifier_la_sauvegarde` lit ce
+  # volume depuis l'ouvrier de livraison et ouvre un incident quand la copie
+  # du jour manque. Une sauvegarde que personne ne regarde échoue en silence.
+  #
+  # CE QUE CE SERVICE NE FAIT PAS : la copie reste sur ce serveur. Elle
+  # protège d'une erreur, pas de la perte de la machine. La copie hors site
+  # demande une destination et des clés qui ne sont pas dans ce dépôt.
+  #
+  # Le `$$` est un `$` pour le shell du conteneur : un seul serait lu par
+  # Compose. Il n'y en a qu'un, à dessein, et aucun guillemet double.
+  sauvegarde:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-evkha}
+      PGUSER: ${POSTGRES_USER:-evkha}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis en production}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        while true; do
+          if pg_dump --format=custom --file=/sauvegardes/en-cours.partiel && mv /sauvegardes/en-cours.partiel /sauvegardes/evkha-jour-$$(date +%d).dump; then
+            echo sauvegarde ecrite
+            sleep 86400
+          else
+            echo SAUVEGARDE EN ECHEC >&2
+            sleep 600
+          fi
+        done
+    volumes:
+      - sauvegardes:/sauvegardes
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
   # Volume `redisbroker` depuis le 03/11/2026. La panne de ce jour-là venait
   # d'un `kombu` 5.7 incompatible avec redis-py 5 (voir `pyproject.toml`),
   # pas des données de Redis : ce volume neuf n'y était pour rien, mais il est
@@ -210,3 +266,4 @@ volumes:
   media:
   staticfiles:
   factstore:
+  sauvegardes:

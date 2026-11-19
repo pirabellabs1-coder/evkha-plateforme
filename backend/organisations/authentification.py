@@ -34,6 +34,7 @@ from datetime import datetime, timedelta
 
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.utils import timezone
 
 from customers.models import Customer
@@ -184,6 +185,60 @@ def ouvrir_session_sans_mot_de_passe(compte: CompteClient) -> str:
     compte.derniere_connexion = timezone.now()
     compte.save(update_fields=["derniere_connexion", "updated_at"])
     return jeton_clair
+
+
+#: Durée pendant laquelle un compte né d'un achat peut encore recevoir sa
+#: première session par la page de retour. Le navigateur revient de Stripe en
+#: quelques secondes ; au-delà d'une heure, la personne passe par le courriel
+#: reçu, qui porte le lien pour choisir son mot de passe.
+FENETRE_APRES_ACHAT = timedelta(hours=1)
+
+
+def ouvrir_la_session_d_un_achat(compte: CompteClient, reference: str) -> str | None:
+    """Le jeton de la PREMIÈRE session d'un compte né de ce paiement, ou None.
+
+    ## Le défaut, trouvé à l'audit du 19/11/2026
+
+    Les deux pages de retour de paiement (`vues_publiques.retour_de_paiement`,
+    `vues_boutique.retour`) appelaient `ouvrir_session_sans_mot_de_passe` sur le
+    compte portant l'adresse de la session Stripe, au motif que « c'est Stripe
+    qui a prouvé l'identité ». Stripe prouve qu'une carte a été encaissée — pas
+    que le payeur possède l'adresse qu'il a tapée. Il suffisait de payer l'étude
+    la moins chère avec l'adresse d'une abonnée pour recevoir un jeton sur son
+    espace : ses clients, ses documents, ses crédits, le droit d'inviter. Et
+    l'identifiant de session, rejouable, rendait un jeton à chaque appel.
+
+    ## La règle
+
+    Un retour de paiement n'ouvre une session que si TOUT est vrai :
+
+    - le compte a été créé par CE paiement (`ne_de_l_achat == reference`) — un
+      compte qui existait, même invité et jamais connecté, n'est pas à lui ;
+    - il n'a pas de mot de passe ;
+    - il n'a jamais eu de session : la première est la seule (un identifiant de
+      paiement retrouvé dans un historique ou un journal ne rouvre rien) ;
+    - il vient de naître (`FENETRE_APRES_ACHAT`).
+
+    Sinon : None. L'achat est livré quand même — le crédit ou l'étude sont sur
+    le compte —, et la personne y entre par sa connexion habituelle ou par le
+    lien du courriel. Le verrou de ligne sert à ce que deux retours simultanés
+    ne se partagent pas « la première ».
+    """
+    if not reference:
+        return None
+    with transaction.atomic():
+        verrouille = (
+            CompteClient.objects.select_for_update().filter(pk=compte.pk, actif=True).first()
+        )
+        if verrouille is None or verrouille.ne_de_l_achat != reference:
+            return None
+        if verrouille.user.has_usable_password():
+            return None
+        if verrouille.derniere_connexion is not None or verrouille.jetons.exists():
+            return None
+        if timezone.now() - verrouille.created_at > FENETRE_APRES_ACHAT:
+            return None
+        return ouvrir_session_sans_mot_de_passe(verrouille)
 
 
 def ouvrir_une_assistance(compte: CompteClient, *, par: str) -> str:

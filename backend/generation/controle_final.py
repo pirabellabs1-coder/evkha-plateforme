@@ -311,6 +311,7 @@ def _refaire_les_chapitres_manquants(
         if budget_restant(job) < MARGE_DE_BUDGET:
             rapport.chapitres_perdus.append(numero)
             continue
+        battement(job)
         try:
             # UN seul essai : c'est donc le dernier, et la validation doit le
             # savoir (résumé un peu court gardé, identifiant hors socle
@@ -342,6 +343,22 @@ def relire_et_corriger(
     avec le document tel qu'il est.
     """
     from documents.livrable_word import assembler_livrable_word, chaine_word_active  # noqa: PLC0415
+
+    # Le client du modèle se résout ICI, une fois, pour tout ce qui suit.
+    #
+    # Audit du 19/11/2026. La chaîne de production appelle `relire_avant_envoi(job)`
+    # sans client (`tasks.controler_puis_livrer_task`). Les RÉÉCRITURES s'en
+    # sortaient — `regenerate_chapter` fait `client or get_claude_client()` —,
+    # mais le RATTRAPAGE d'un chapitre manquant passait `None` jusqu'à
+    # `client.complete_structured(...)` : `AttributeError`, avalée par son
+    # `except Exception`, et le chapitre était noté « perdu » sans avoir été
+    # tenté. Business plan de test `9e38eb81` (18/11) : `chapitres_perdus: [14]`,
+    # `chapitres_rattrapes: []`, document livré amputé. Le rattrapage n'avait
+    # jamais pu marcher en production ; ses tests passaient tous un client.
+    if client is None:
+        from integrations.claude import get_claude_client  # noqa: PLC0415
+
+        client = get_claude_client()
 
     from .cost import budget_restant  # noqa: PLC0415
     from .meta_discours import consigne_de_correction  # noqa: PLC0415
@@ -377,6 +394,7 @@ def relire_et_corriger(
     #: La consigne donnée à chaque chapitre réécrit, pour ne pas la redonner.
     consignes_donnees: dict[int, list[str]] = {}
     for passe in range(1, max_passes + 1):
+        battement(job)
         try:
             # AUCUN incident de réserves ici. La livraison assemble le même
             # document juste après et ouvre le sien, sur le fichier qui part
@@ -475,6 +493,7 @@ def relire_et_corriger(
             chapitre = job.chapters.filter(chapter_number=numero).first()
             if chapitre is None:
                 continue
+            battement(job)
             try:
                 regenerate_chapter(
                     job,
@@ -573,6 +592,32 @@ def relire_avant_envoi(job: GenerationJob, *, client: Any = None) -> RapportRele
         )
     _log.info("Job %s — %s", job.id, rapport.resume())
     return rapport
+
+
+def battement(job: GenerationJob) -> None:
+    """Dit au gardien que cette relecture est VIVANTE. Ne lève jamais.
+
+    Audit du 19/11/2026. `tasks.livrer_les_dossiers_oublies` tient une relecture
+    pour morte quand le dossier n'a pas bougé depuis vingt minutes — mais il
+    lisait `updated_at`, que plus rien n'écrit après le passage en `done` : les
+    écritures de la relecture passent par `QuerySet.update()`, qui ne le touche
+    pas. L'horloge démarrait donc à `done` et ne se remettait jamais à zéro. Or
+    une relecture réécrit jusqu'à huit chapitres par passe : au-delà de vingt
+    minutes, encore au travail, elle était déclarée morte, un incident de
+    gravité haute s'ouvrait, et le document partait chez le client AVANT la fin
+    de sa correction — puis une seconde fois à la fin.
+
+    Un battement avant chaque étape longue : le gardien mesure alors ce qu'il
+    prétend mesurer, l'inactivité.
+    """
+    from django.utils import timezone  # noqa: PLC0415
+
+    from .models import GenerationJob as Dossier  # noqa: PLC0415
+
+    try:
+        Dossier.objects.filter(pk=job.pk).update(updated_at=timezone.now())
+    except Exception:  # noqa: BLE001 — un battement manqué ne retient pas un livrable
+        _log.exception("Battement de la relecture non écrit (job %s)", job.id)
 
 
 def _inscrire(job: GenerationJob, details: dict[str, Any]) -> None:

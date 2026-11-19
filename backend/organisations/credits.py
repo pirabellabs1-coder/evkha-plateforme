@@ -231,6 +231,55 @@ def crediter(
 
 
 @transaction.atomic
+def verser_un_achat(
+    organisation: Organisation,
+    quantite: int,
+    *,
+    reference: str,
+    motif: str,
+    auteur: str = "",
+    livrable: str = "",
+) -> MouvementCredit | None:
+    """Verse les crédits d'UN paiement, une seule fois. `None` s'ils le sont déjà.
+
+    ## Le défaut, trouvé à l'audit du 19/11/2026
+
+    Stripe poste son événement et renvoie le navigateur au même instant, et les
+    deux arrivées appellent le même code — c'est voulu, l'une rattrape l'autre.
+    Leur garde commune était « ce paiement a-t-il déjà un mouvement ? », lue
+    puis suivie d'une écriture : deux requêtes, entre lesquelles l'autre
+    arrivée lit la même réponse. Les deux versaient. La contrainte d'unicité du
+    journal ne couvre que les débits et les remboursements.
+
+    Pour une première acheteuse, la création de sa fiche (adresse unique)
+    mettait les deux arrivées l'une derrière l'autre par accident. Pour
+    quelqu'un qui a DÉJÀ un espace — le cas qui rapporte — rien ne les
+    séparait : un paiement, deux crédits.
+
+    ## La règle
+
+    Le portefeuille est verrouillé AVANT la question. La seconde arrivée attend
+    la fin de la première, puis lit sa ligne. Une seule écriture de cette
+    garde, pour l'achat à l'unité comme pour l'achat de crédits (règle 5).
+    """
+    if not reference.strip():
+        msg = "Un achat sans référence de paiement ne peut pas être versé une seule fois."
+        raise ValueError(msg)
+    portefeuille = portefeuille_de(organisation)
+    PortefeuilleCredits.objects.select_for_update().get(pk=portefeuille.pk)
+    if MouvementCredit.objects.filter(reference=reference).exists():
+        return None
+    return crediter(
+        organisation,
+        quantite,
+        motif=motif,
+        type_mouvement=TypeMouvement.ACHAT,
+        reference=reference,
+        auteur=auteur,
+        livrable=livrable,
+    )
+
+
 def reference_de_dotation(periode: str, abonnement_id: object = None) -> str:
     """Clé d'idempotence d'une dotation.
 
@@ -258,6 +307,7 @@ def reference_de_dotation(periode: str, abonnement_id: object = None) -> str:
     return f"{abonnement_id}:{periode}" if abonnement_id is not None else periode
 
 
+@transaction.atomic
 def doter(
     organisation: Organisation,
     quantite: int,
@@ -271,9 +321,20 @@ def doter(
     Une tâche périodique relancée deux fois dans le même mois ne dote qu'une
     fois — mais un changement de formule en cours de mois ouvre bien un
     nouveau droit. Voir `reference_de_dotation`.
+
+    ## La transaction et le verrou, rendus le 19/11/2026
+
+    Cette fonction portait `@transaction.atomic`. Le commit `8cf949a` a inséré
+    `reference_de_dotation` entre le décorateur et elle : le décorateur est
+    resté sur la fonction du dessus — qui ne touche pas la base — et celle-ci
+    l'a perdu sans qu'une ligne de son corps ne change. Sa garde « déjà
+    dotée ? » est une lecture suivie d'une écriture ; la tâche horaire et
+    l'événement `invoice.paid` qui arrivent ensemble lisaient la même réponse
+    et dotaient deux fois. Même verrou que `verser_un_achat`.
     """
     reference = reference_de_dotation(periode, abonnement_id)
     portefeuille = portefeuille_de(organisation)
+    PortefeuilleCredits.objects.select_for_update().get(pk=portefeuille.pk)
     deja = portefeuille.mouvements.filter(
         type=TypeMouvement.DOTATION, reference=reference
     ).first()
@@ -396,6 +457,13 @@ def rembourser(
         quantite=-debit.quantite,
         motif=motif,
         reference=reference,
+        # Le crédit revient TEL QU'IL EST PARTI. Audit du 19/11/2026 : rendu
+        # sans son `livrable`, un crédit payé pour l'étude la moins chère
+        # devenait un crédit « pour n'importe quelle étude » — renoncer à une
+        # étude de la concurrence à 89 € ouvrait une stratégie à 195 €. La
+        # docstring de `droits_par_livrable` affirmait déjà que le
+        # remboursement « restitue le même livrable » : il ne le faisait pas.
+        livrable=debit.livrable,
     )
 
 

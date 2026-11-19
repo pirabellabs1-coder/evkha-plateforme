@@ -286,8 +286,17 @@ def suspendre(organisation: Organisation, *, motif: str = "") -> Organisation:
     return organisation
 
 
+class ResiliationImpossibleError(RuntimeError):
+    """Le prestataire de paiement n'a pas enregistré l'arrêt : rien n'est résilié."""
+
+
 @transaction.atomic
-def resilier(organisation: Organisation, *, motif: str = "") -> int:
+def resilier(
+    organisation: Organisation,
+    *,
+    motif: str = "",
+    prononcee_par_le_prestataire: bool = False,
+) -> int:
     """Met fin à l'abonnement actif. Retourne le nombre d'abonnements résiliés.
 
     Cette fonction n'existait pas, et son absence n'était pas visible : la
@@ -314,6 +323,45 @@ def resilier(organisation: Organisation, *, motif: str = "") -> int:
     résiliés dont la période payée est écoulée. Le client garde ce qu'il a
     payé, et pas au-delà.
     """
+    # LE PRÉLÈVEMENT S'ARRÊTE D'ABORD, chez celui qui prélève.
+    #
+    # Audit du 19/11/2026. Cette fonction ne faisait qu'écrire un statut. Pour
+    # un abonnement payé par carte, Stripe n'en savait rien : à l'anniversaire
+    # il prélevait, postait `invoice.paid`, et `paiement.abonnements` — ne
+    # trouvant plus d'abonnement ACTIF pour cette référence — en rouvrait un
+    # neuf, doté. Une cliente à qui l'on avait écrit « votre abonnement est
+    # résilié » était donc prélevée et réabonnée chaque mois, et l'écran
+    # d'administration annonçait pendant ce temps « le revenu récurrent
+    # baissera ». Le seul appelant de `arreter_le_renouvellement` était une
+    # fonction que plus rien n'appelait.
+    #
+    # Si Stripe refuse, RIEN n'est modifié et l'appelant le dit : un statut
+    # « résilié » posé sur un prélèvement qui continue est exactement ce qu'on
+    # répare (règle 1).
+    #
+    # Sauf quand c'est LUI qui prononce la fin (`customer.subscription.deleted`) :
+    # il n'y a plus rien à arrêter, et lui redemander d'arrêter un abonnement
+    # qu'il vient de clore est refusé — la résiliation locale échouait alors,
+    # et l'abonnement restait ACTIF chez nous sans plus jamais être payé.
+    a_arreter = (
+        AbonnementOrganisation.objects.none()
+        if prononcee_par_le_prestataire
+        else AbonnementOrganisation.objects.filter(
+            organisation=organisation, statut=StatutAbonnement.ACTIF,
+        ).exclude(reference_paiement="")
+    )
+    for reference in a_arreter.values_list("reference_paiement", flat=True):
+        from paiement import stripe_api  # noqa: PLC0415 — `paiement` importe ce module
+
+        try:
+            stripe_api.arreter_le_renouvellement(str(reference))
+        except stripe_api.PaiementIndisponible as refus:
+            raise ResiliationImpossibleError(
+                "La résiliation n'a pas pu être enregistrée chez le prestataire de "
+                "paiement : le prélèvement continuerait. Rien n'a été modifié. "
+                f"Réessayez dans quelques minutes. ({refus})"
+            ) from refus
+
     resilies = AbonnementOrganisation.objects.filter(
         organisation=organisation, statut=StatutAbonnement.ACTIF
     ).update(

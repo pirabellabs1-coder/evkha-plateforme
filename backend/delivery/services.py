@@ -726,8 +726,13 @@ def deliver_job(
     pdf_client: PdfClient | None = None,
     gamma_client: GammaClient | None = None,
     email_client: TransactionalEmailClient | None = None,
+    renvoi_voulu: bool = False,
 ) -> DeliveryBatch:
     """Orchestre la livraison complete d'un job termine.
+
+    `renvoi_voulu` : quelqu'un a DEMANDÉ que le courriel reparte (le bouton de
+    la console, après accord). Sans lui, un dossier déjà livré est réassemblé
+    mais ne renvoie rien — voir plus bas.
 
     Architecture d'atomicite :
     1. Appels externes (PDF WeasyPrint, Gamma, email) AVANT la transaction principale.
@@ -798,6 +803,31 @@ def deliver_job(
             *assemblage.artefacts,
             *gamma_artifacts,
         )
+
+        # UN DOSSIER DÉJÀ LIVRÉ NE REPART PAS TOUT SEUL.
+        #
+        # Audit du 19/11/2026. Rien ne regardait si le courriel de livraison
+        # était déjà parti : le bouton « Générer le PDF » de la console
+        # (`job_redeliver`), le gardien des dossiers oubliés, une tâche rejouée
+        # par la file ou une relance acceptée pendant la relecture finale
+        # passent tous par ici, et chacun renvoyait le courriel au client. Les
+        # fichiers viennent d'être réassemblés ci-dessus — c'est ce que ces
+        # appelants demandent ; le second courriel, personne ne le demande.
+        #
+        # Personne, sauf celle qui clique « Relancer la livraison (courriel au
+        # client) » et confirme : `renvoi_voulu`. La garde vise ce qui repart
+        # TOUT SEUL, pas une décision — la première écriture de ce correctif
+        # l'oubliait, et le bouton annonçait un courriel qui ne partait plus.
+        deja_parti = DeliveryBatch.objects.filter(
+            order=job.order, status=DeliveryStatus.SENT
+        ).first()
+        if deja_parti is not None and not renvoi_voulu:
+            _log.info(
+                "Job %s : déjà livré le %s — fichiers réassemblés, aucun second courriel.",
+                job.id, deja_parti.sent_at,
+            )
+            deja_parti.artifacts.set(all_artifacts)
+            return deja_parti
 
         attachments = tuple(
             EmailAttachment(
@@ -878,8 +908,26 @@ def deliver_job(
                     job=job,
                     details={"error": str(exc)},
                 )
+                # UN DOCUMENT RETENU N'EST PLUS « PRÊT ».
+                #
+                # Audit du 19/11/2026. `LivrableRetenuError` n'est levée QUE
+                # par cette fonction, et la bascule en « intervention requise »
+                # vivait dans le `except` de `send_email_for_job`, qui
+                # n'assemble rien : elle était inatteignable. Le dossier restait
+                # donc `done`, ses fichiers `READY`, et l'espace client disait
+                # « Votre étude est prête. Vous pouvez la télécharger » en
+                # proposant le document amputé que la vérification venait de
+                # refuser d'envoyer. « Renvoyer » l'envoyait même sans
+                # recontrôle. La règle 3 : le contrôle protégeait le courriel,
+                # pas ce que le lecteur ouvre. Même bascule que
+                # `assembler_sans_envoyer`.
+                if isinstance(exc, LivrableRetenuError) and not deja_envoye:
+                    GenerationJob.objects.filter(pk=job.pk, status=JobStatus.DONE).update(
+                        status=JobStatus.INTERVENTION_REQUISE,
+                        error_message=str(exc)[:2000],
+                    )
         except Exception:  # noqa: BLE001 - on ne peut pas faire grand chose ici
-            pass  # l'exception originale est relancee ci-dessous
+            _log.exception("Trace d'échec de livraison non écrite (job %s)", job.id)
 
         raise DeliveryError(str(exc)) from exc
 

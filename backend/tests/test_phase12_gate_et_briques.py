@@ -34,6 +34,7 @@ voir `test_charter_interdit_les_sources_inventees`.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -378,9 +379,19 @@ def test_task_livre_et_trace_si_le_gate_ne_passe_pas(
     job = bootstrap_generation_job(bp_submission)
     run_generation_job(job, client=StubClaudeClient())
 
-    monkeypatch.setattr(
-        generation_tasks, "run_generation_job", lambda j, **kw: j
-    )
+    # Le contenu est produit ci-dessus ; la TÂCHE, elle, ne prend qu'un dossier
+    # en attente (`prendre_le_dossier`, audit du 19/11/2026). Le dossier lui
+    # est donc rendu en attente, et le moteur doublé le termine sans rien
+    # réécrire — c'est la suite du pipeline que ce test regarde.
+    job.status = JobStatus.PENDING
+    job.save(update_fields=["status"])
+
+    def _deja_produit(j: Any, **kw: Any) -> Any:
+        j.status = JobStatus.DONE
+        j.save(update_fields=["status"])
+        return j
+
+    monkeypatch.setattr(generation_tasks, "run_generation_job", _deja_produit)
 
     def _failing_gate(_job: object) -> GateReport:
         return GateReport(
@@ -440,9 +451,12 @@ def test_task_livre_si_gate_passe() -> None:
         },
     )
     job = bootstrap_generation_job(submission)
-    run_generation_job(job, client=StubClaudeClient())
+    # La tâche produit elle-même le dossier, sur la doublure : le lancer à la
+    # main avant elle le laisserait « terminé », et elle sortirait sans rien
+    # juger — `!= BLOCKED` serait alors vrai sans que le gate ait tourné.
     run_generation_job_task(str(job.id))
     job.refresh_from_db()
+    assert job.status == JobStatus.DONE, "la tâche n'a rien produit : test à vide"
     assert job.qa_status != QAStatus.BLOCKED
 
 

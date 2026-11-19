@@ -54,6 +54,128 @@ def reset_stuck_generation_jobs() -> int:
     return len(stuck_jobs)
 
 
+#: Passé ce délai, un dossier « en attente » qui n'a rien produit n'attend plus
+#: son tour : soit sa tâche est perdue, soit la file est longue — et la remettre
+#: en file ne coûte rien dans le second cas (voir `prendre_le_dossier`).
+_ATTENTE_SANS_TACHE_MINUTES = 15
+
+#: Au-delà, le gardien ne relance plus de lui-même : la personne a pu renoncer,
+#: recommander, être remboursée. Produire seize jours plus tard une étude que
+#: plus personne n'attend dépenserait de l'argent pour un document sans lecteur.
+_ATTENTE_RELANCABLE_HEURES = 24
+
+#: Une remise en file par heure et par dossier, pas une toutes les dix minutes.
+_PAUSE_ENTRE_DEUX_REPRISES_S = 3600
+
+
+def _cle_de_reprise(job_id: object) -> str:
+    return f"evkha:reprise-attente:{job_id}"
+
+
+@shared_task(name="generation.reprendre_les_dossiers_en_attente")  # type: ignore[untyped-decorator]
+def reprendre_les_dossiers_en_attente() -> int:
+    """Remet en file les dossiers dont la tâche s'est perdue. Rend leur nombre.
+
+    ## Le défaut, mesuré le 19/11/2026
+
+    Le dossier `b57a4284` est « en attente » depuis le 03/11 — le jour où la
+    file de tâches est tombée (`kombu`). Sa tâche est partie avec Redis ; sa
+    ligne, elle, est restée. Seize jours plus tard elle attendait encore : les
+    deux gardiens ne regardent que `running`, et un dossier en attente qui n'a
+    rien produit n'est « interrompu » aux yeux de personne.
+
+    Trois chemins y mènent : une file injoignable au moment de la commande
+    (`commandes.signaler_la_file_injoignable` ouvre un incident, puis plus
+    rien), une file vidée par un redémarrage, une tâche tuée avant sa première
+    ligne.
+
+    ## Pourquoi remettre en file est sans danger
+
+    `prendre_le_dossier` : une tâche ne produit que le dossier qu'elle a PRIS,
+    par une mise à jour conditionnelle. Si la tâche d'origine attend encore dans
+    une file simplement longue, la première des deux qui passe prend le
+    dossier, l'autre sort sans rien écrire ni débiter.
+
+    ## Ce que le gardien ne fait pas
+
+    Il ne relance pas un dossier qui attend depuis plus d'un jour : il ouvre un
+    incident, une fois, et laisse la décision à quelqu'un. Et il ne touche pas
+    un dossier « en attente » qui a déjà produit — celui-là travaille sous une
+    étiquette fausse, et `generation_interrompue` s'en occupe.
+    """
+    from .services import production_engagee  # noqa: PLC0415
+
+    maintenant = timezone.now()
+    seuil = maintenant - timedelta(minutes=_ATTENTE_SANS_TACHE_MINUTES)
+    limite = maintenant - timedelta(hours=_ATTENTE_RELANCABLE_HEURES)
+    repris = 0
+    en_attente = GenerationJob.objects.filter(
+        status=JobStatus.PENDING, updated_at__lt=seuil
+    ).select_related("order")
+    for job in en_attente:
+        if production_engagee(job):
+            continue
+        if job.updated_at < limite:
+            _signaler_une_attente_ancienne(job)
+            continue
+        if not cache.add(_cle_de_reprise(job.id), 1, timeout=_PAUSE_ENTRE_DEUX_REPRISES_S):
+            continue
+        try:
+            run_generation_job_task.delay(str(job.id))
+        except Exception:  # noqa: BLE001 — la file peut être encore injoignable
+            _log.exception(
+                "Job %s : remise en file impossible, nouvel essai au prochain passage.",
+                job.id,
+            )
+            cache.delete(_cle_de_reprise(job.id))
+            continue
+        attente = int((maintenant - job.updated_at).total_seconds() // 60)
+        _log.warning("Job %s : en attente depuis %s min, remis en file.", job.id, attente)
+        OperationalIncident.objects.create(
+            title=f"Dossier resté en attente, remis en file par le gardien (job {job.id})",
+            severity=IncidentSeverity.MEDIUM,
+            job=job,
+            order=job.order,
+            details={
+                "type": "attente_sans_tache",
+                "minutes_d_attente": attente,
+                "consigne": (
+                    "Rien à faire si le dossier démarre. S'il revient ici d'heure "
+                    "en heure, l'ouvrier ne consomme plus la file : lire "
+                    "« Système » dans la console."
+                ),
+            },
+        )
+        repris += 1
+    return repris
+
+
+def _signaler_une_attente_ancienne(job: GenerationJob) -> None:
+    """Un incident, un seul par dossier : il attend depuis trop longtemps pour
+    être relancé sans qu'on le décide."""
+    deja = OperationalIncident.objects.filter(
+        job=job, details__type="attente_ancienne"
+    ).exists()
+    if deja:
+        return
+    jours = (timezone.now() - job.updated_at).days
+    OperationalIncident.objects.create(
+        title=f"Dossier en attente depuis {jours} jour(s), jamais produit (job {job.id})",
+        severity=IncidentSeverity.HIGH,
+        job=job,
+        order=job.order,
+        details={
+            "type": "attente_ancienne",
+            "jours_d_attente": jours,
+            "consigne": (
+                "Sa tâche s'est perdue et il est trop ancien pour être relancé "
+                "d'office. Le relancer depuis la console si la personne l'attend "
+                "encore, sinon l'annuler pour lui rendre son crédit."
+            ),
+        },
+    )
+
+
 #: Au-dela, un controle final « en cours » ne l'est plus : il est mort.
 #: L'assemblage le plus lourd mesure quelques minutes ; vingt, c'est un
 #: processus tue.
@@ -103,6 +225,16 @@ def livrer_les_dossiers_oublies() -> int:
         # Le verdict du gate n'est plus rendu par la génération : sans cette
         # ligne, un dossier dont le contrôle a été tué partirait sans verdict
         # du tout, `qa_status` resté à sa valeur initiale.
+        # La trace se CLÔT : restée « en cours », elle faisait reprendre le même
+        # dossier toutes les dix minutes — une reprise « sans envoi » n'ouvre
+        # aucun lot de livraison, donc rien d'autre ne l'arrêtait — et gardait
+        # ses fichiers cachés à l'espace client (`suivi.relecture_en_cours`).
+        GenerationJob.objects.filter(pk=job.pk).update(
+            controle_final={
+                **(job.controle_final or {}),
+                "motif_d_arret": "interrompu — document repris par le gardien",
+            }
+        )
         _livrer(job)
         _verdict_sans_risque(job)
     return len(oublies)
@@ -300,6 +432,48 @@ def _assembler_ce_qui_est_ecrit(job: GenerationJob) -> None:
         )
 
 
+def prendre_le_dossier(job_id: str) -> bool:
+    """Une seule tâche produit un dossier : celle qui le PREND. Les autres sortent.
+
+    ## Le défaut, trouvé à l'audit du 19/11/2026 par quatre portes
+
+    `run_generation_job` écrivait `RUNNING` sans lire l'état d'avant, et rien
+    ne verrouillait le dossier. Toute tâche arrivée sur lui le produisait :
+
+    - la cliente dont la réponse du serveur s'est perdue reclique « Lancer la
+      génération » : `creer_commande` rend le même dossier, `lancer` l'enfile
+      une seconde fois, et les deux créneaux de l'ouvrier écrivent les mêmes
+      chapitres — coût doublé, plafond atteint à mi-course ;
+    - l'administratrice annule un dossier encore en file : quand un créneau se
+      libère, la tâche débite le crédit, écrit `RUNNING` par-dessus `CANCELLED`,
+      génère et livre ;
+    - la file Redis remet en circulation une tâche réservée depuis plus d'une
+      heure (`visibility_timeout`) : l'original ET la copie s'exécutent ;
+    - un second clic sur « Relancer », ou un questionnaire soumis deux fois.
+
+    ## La règle
+
+    Tous les lancements légitimes passent par `PENDING` : création
+    (`bootstrap_generation_job`) et relance (`relaunch_generation_job`). La
+    prise est donc une mise à jour CONDITIONNELLE — une seule requête, que la
+    base arbitre : celle qui change la ligne a le dossier. Zéro ligne changée :
+    il est déjà pris, terminé ou annulé, et la tâche sort en le disant, sans
+    rien débiter ni écrire.
+    """
+    pris = GenerationJob.objects.filter(pk=job_id, status=JobStatus.PENDING).update(
+        status=JobStatus.RUNNING
+    )
+    if pris:
+        return True
+    etat = GenerationJob.objects.filter(pk=job_id).values_list("status", flat=True).first()
+    _log.warning(
+        "Job %s : tâche de génération ignorée — le dossier n'est pas en attente "
+        "(statut : %s). Une autre tâche l'a pris, ou il a été terminé ou annulé.",
+        job_id, etat or "introuvable",
+    )
+    return False
+
+
 @shared_task(name="generation.run_generation_job")  # type: ignore[untyped-decorator]
 def run_generation_job_task(job_id: str) -> str:
     """Lance la generation complete d'un job (chapitres + QA + gate + livraison).
@@ -320,6 +494,8 @@ def run_generation_job_task(job_id: str) -> str:
     Exception : un dossier HORS chaîne Word n'a pas de contrôleur final ; la
     boucle de correction du gate reste son seul correcteur.
     """
+    if not prendre_le_dossier(job_id):
+        return job_id
     job = GenerationJob.objects.get(id=job_id)
     try:
         run_generation_job(job)

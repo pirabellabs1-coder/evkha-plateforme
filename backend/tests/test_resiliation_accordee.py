@@ -178,3 +178,62 @@ def test_resilier_n_empeche_pas_de_se_reabonner(abonne: Any) -> None:
     services.souscrire(abonne, Formule.objects.get(code="solo"))
 
     assert abonne.abonnements.filter(statut=StatutAbonnement.ACTIF).count() == 1
+
+
+# ── Un abonnement par carte ne change pas de formule depuis la console ──────
+
+
+def _demande_de_changement(organisation: Any) -> Any:
+    from organisations.models import DemandeCommerciale, Formule, StatutDemande
+
+    return DemandeCommerciale.objects.create(
+        organisation=organisation,
+        type="changement_formule",
+        statut=StatutDemande.OUVERTE,
+        formule_visee=Formule.objects.exclude(code="pro").filter(active=True).first(),
+        message="Nous voulons la formule du dessus.",
+    )
+
+
+def test_accorder_un_changement_sur_un_abonnement_par_carte_est_refuse(
+    client_admin: Any, abonne: Any
+) -> None:
+    """Audit de sécurité du 19/11/2026. Accorder ici résiliait l'ancien
+    abonnement chez nous et en ouvrait un neuf sans référence : Stripe
+    continuait de prélever l'ancien tarif, et le nouveau était doté chaque mois
+    sans jamais être payé."""
+    from organisations.models import AbonnementOrganisation, StatutAbonnement, StatutDemande
+
+    AbonnementOrganisation.objects.filter(organisation=abonne).update(
+        reference_paiement="sub_par_carte"
+    )
+    demande = _demande_de_changement(abonne)
+
+    reponse = _accorder(client_admin, demande)
+
+    assert reponse.status_code == 409
+    assert reponse.json()["code"] == "abonnement_par_carte"
+    demande.refresh_from_db()
+    assert demande.statut == StatutDemande.OUVERTE
+    actif = AbonnementOrganisation.objects.get(
+        organisation=abonne, statut=StatutAbonnement.ACTIF
+    )
+    assert actif.reference_paiement == "sub_par_carte" and actif.formule.code == "pro"
+
+
+def test_accorder_un_changement_sans_carte_reste_possible(
+    client_admin: Any, abonne: Any
+) -> None:
+    """Contre-épreuve : un abonnement posé à la main n'a aucun prélèvement à
+    tenir d'accord, la console reste le bon endroit."""
+    from organisations.models import AbonnementOrganisation, StatutAbonnement
+
+    demande = _demande_de_changement(abonne)
+
+    reponse = _accorder(client_admin, demande)
+
+    assert reponse.status_code == 200, reponse.content
+    actif = AbonnementOrganisation.objects.get(
+        organisation=abonne, statut=StatutAbonnement.ACTIF
+    )
+    assert actif.formule == demande.formule_visee

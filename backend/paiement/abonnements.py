@@ -59,8 +59,28 @@ class EvenementInexploitable(ValueError):
 
 
 def _metadonnees(objet: dict[str, Any]) -> dict[str, str]:
+    """Les métadonnées posées par nous, où que Stripe les range sur cet objet.
+
+    Une FACTURE ne porte pas les métadonnées de l'abonnement dans son propre
+    `metadata` — qui est vide — mais dans `subscription_details.metadata`, et
+    depuis 2025 dans `parent.subscription_details.metadata`. `_identite` disait
+    « les métadonnées suivent les factures des mois suivants » et ne lisait que
+    le premier endroit : sur une facture, elle ne trouvait donc jamais rien, et
+    ne s'en sortait que si l'abonnement était déjà connu d'EVKHA. La première
+    facture, qui peut précéder la session terminée, était rejetée comme
+    « sans organisation identifiable » (audit du 19/11/2026).
+
+    Les métadonnées propres de l'objet priment : ce sont les plus proches.
+    """
+    lues: dict[str, str] = {}
+    parent = objet.get("parent") if isinstance(objet.get("parent"), dict) else {}
+    for porteur in (parent, objet):
+        details = porteur.get("subscription_details") if isinstance(porteur, dict) else None
+        if isinstance(details, dict) and isinstance(details.get("metadata"), dict):
+            lues.update({str(c): str(v) for c, v in details["metadata"].items()})
     brut = objet.get("metadata") or {}
-    return {str(cle): str(valeur) for cle, valeur in brut.items()}
+    lues.update({str(cle): str(valeur) for cle, valeur in brut.items()})
+    return lues
 
 
 def _organisation(identifiant: str) -> Organisation:
@@ -128,6 +148,29 @@ def assurer_abonnement(
     ).select_related("formule").first()
     if existant is not None:
         return existant, False
+
+    # UN ABONNEMENT RÉSILIÉ NE SE ROUVRE PAS SUR UN PRÉLÈVEMENT.
+    #
+    # Audit du 19/11/2026 : faute d'abonnement ACTIF pour cette référence, le
+    # code d'avant en souscrivait un neuf — y compris quand la référence était
+    # celle d'un abonnement que l'administratrice avait RÉSILIÉ. Stripe
+    # prélevait encore (voir `services.resilier`), et chaque facture
+    # réabonnait et redotait la cliente partie. La résiliation arrête
+    # désormais le prélèvement ; si une facture arrive quand même, elle ne
+    # rouvre rien : elle devient un incident, parce que c'est de l'argent pris
+    # à quelqu'un qui est parti, et que quelqu'un doit le rendre.
+    resilie = AbonnementOrganisation.objects.filter(
+        organisation=organisation,
+        reference_paiement=reference,
+        statut=StatutAbonnement.RESILIE,
+    ).first()
+    if resilie is not None:
+        raise EvenementInexploitable(
+            f"Prélèvement reçu pour un abonnement RÉSILIÉ (organisation "
+            f"{organisation.id}, abonnement Stripe {reference}). Aucun abonnement "
+            "n'a été rouvert. À faire dans Stripe : annuler cet abonnement et "
+            "rembourser ce prélèvement."
+        )
 
     formule = _formule(formule_code)
     abonnement = services.souscrire(organisation, formule)
@@ -200,6 +243,26 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
     """
     if str(session.get("status") or "") != "complete":
         return "session non terminee, ignoree"
+
+    # UN ACHAT N'EST VERSÉ QU'ENCAISSÉ.
+    #
+    # Audit du 19/11/2026. « Terminée » dit que le formulaire est allé au
+    # bout ; pour un paiement unique, seul `payment_status: paid` dit que
+    # l'argent est là. Un prélèvement SEPA ou un virement termine la session
+    # « unpaid », et se confirme — ou échoue — des jours plus tard. L'achat de
+    # crédits versait dès la session terminée : des crédits pérennes pour un
+    # prélèvement qui pouvait être rejeté. Les deux autres achats refusaient,
+    # eux, mais en ouvrant un incident « inexploitable » sur un paiement
+    # simplement en cours, et personne n'écoutait la confirmation.
+    #
+    # La garde est ici, avant l'aiguillage, pour les trois achats à la fois
+    # (règle 4) ; la confirmation différée repasse par cette même fonction
+    # (`checkout.session.async_payment_succeeded`, voir `_TRAITEMENTS`). Une
+    # souscription n'est pas concernée : elle peut légitimement s'ouvrir sans
+    # encaissement immédiat, et c'est `invoice.paid` qui la dote.
+    achat = str((session.get("metadata") or {}).get("achat") or "")
+    if achat and str(session.get("payment_status") or "") != "paid":
+        return "paiement en attente de confirmation, rien n'est verse"
 
     _marquer_la_tentative_payee(str(session.get("id") or ""))
 
@@ -336,7 +399,6 @@ def _crediter_l_achat(session: dict[str, Any]) -> str:
     les deux verrous ne jugent pas sur la meme evidence (regle 9).
     """
     from organisations import credits as credits_service  # noqa: PLC0415
-    from organisations.models import MouvementCredit, TypeMouvement  # noqa: PLC0415
 
     metadonnees = session.get("metadata") or {}
     reference = str(session.get("id") or "").strip()
@@ -362,8 +424,15 @@ def _crediter_l_achat(session: dict[str, Any]) -> str:
         )
         return "achat de credits inexploitable"
 
-    if reference and MouvementCredit.objects.filter(reference=reference).exists():
-        return "achat deja credite"
+    if not reference:
+        _incident(
+            "Achat de credits inexploitable",
+            IncidentSeverity.HIGH,
+            session=reference,
+            motif="Paiement de credits sans identifiant de session : impossible "
+            "de garantir qu'il ne sera verse qu'une fois.",
+        )
+        return "achat de credits inexploitable"
 
     organisation = Organisation.objects.filter(id=organisation_id).first()
     if organisation is None:
@@ -375,14 +444,15 @@ def _crediter_l_achat(session: dict[str, Any]) -> str:
         )
         return "organisation inconnue"
 
-    credits_service.crediter(
+    verse = credits_service.verser_un_achat(
         organisation,
         quantite,
         motif=f"Achat de {quantite} credit(s) supplementaire(s)",
-        type_mouvement=TypeMouvement.ACHAT,
         reference=reference,
         auteur="stripe",
     )
+    if verse is None:
+        return "achat deja credite"
     return f"{quantite} credits achetes"
 
 
@@ -489,7 +559,11 @@ def sur_abonnement_supprime(abonnement_stripe: dict[str, Any]) -> str:
     if concerne is None:
         return "aucun abonnement actif pour cette reference, ignore"
 
-    services.resilier(concerne.organisation, motif="Resiliation prononcee par Stripe.")
+    services.resilier(
+        concerne.organisation,
+        motif="Resiliation prononcee par Stripe.",
+        prononcee_par_le_prestataire=True,
+    )
     _log.info("Abonnement resilie par Stripe : %s", reference)
     return "abonnement resilie"
 
@@ -582,6 +656,10 @@ def _fin_de_periode(abonnement_stripe: dict[str, Any]) -> datetime | None:
 #: a chaque changement de carte bancaire.
 _TRAITEMENTS = {
     "checkout.session.completed": sur_session_terminee,
+    # Un moyen de paiement différé (prélèvement, virement) confirme PLUS TARD :
+    # c'est cet événement qui porte alors `payment_status: paid`. Même
+    # traitement, il est rejouable sans effet.
+    "checkout.session.async_payment_succeeded": sur_session_terminee,
     "invoice.paid": sur_facture_payee,
     "invoice.payment_failed": sur_prelevement_refuse,
     "customer.subscription.updated": sur_abonnement_modifie,

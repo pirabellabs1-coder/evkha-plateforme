@@ -166,12 +166,41 @@ def test_la_progression_est_comptee_et_non_simulee(abonne: Abonne) -> None:
     assert suivi.progression(job) < 100
 
 
+def _fichier_pret(job: GenerationJob) -> None:
+    """Le document que le client télécharge : un PDF prêt, non échu."""
+    from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
+
+    DocumentArtifact.objects.create(
+        job=job, kind=ArtifactKind.PDF, status=ArtifactStatus.READY,
+        storage_key=f"livrables/{job.id}.pdf",
+        download_url=f"http://exemple/media/livrables/{job.id}.pdf",
+    )
+
+
 def test_une_etude_terminee_est_a_cent_pour_cent(abonne: Abonne) -> None:
+    """Terminée POUR LE CLIENT : rédigée, et son document téléchargeable."""
     job = _job(abonne.organisation, "termine")
     GenerationJob.objects.filter(pk=job.pk).update(status=JobStatus.DONE)
     job.refresh_from_db()
+    _fichier_pret(job)
     assert suivi.progression(job) == 100
     assert all(etape.etat == "fait" for etape in suivi.etapes(job))
+
+
+def test_une_etude_redigee_sans_son_document_n_est_pas_a_cent_pour_cent(
+    abonne: Abonne,
+) -> None:
+    """Audit du 19/11/2026. Le dossier passe « terminé » AVANT la relecture
+    finale et l'assemblage, qui durent de vingt à soixante minutes : la page
+    annonçait 100 % et « tout est fait » à quelqu'un qui n'avait encore rien
+    à télécharger. Le test du dessus posait ce cas-là et l'appelait terminé."""
+    job = _job(abonne.organisation, "sans-fichier")
+    GenerationJob.objects.filter(pk=job.pk).update(status=JobStatus.DONE)
+    job.refresh_from_db()
+
+    assert suivi.progression(job) == 95
+    etats = {etape.cle: etape.etat for etape in suivi.etapes(job)}
+    assert etats["rendu"] != "fait"
 
 
 def test_un_echec_fige_l_etape_en_cours(abonne: Abonne) -> None:

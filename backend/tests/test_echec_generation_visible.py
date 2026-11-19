@@ -140,6 +140,9 @@ def test_la_tache_celery_requalifie_le_job_quand_le_runner_leve(
     from monitoring.models import OperationalIncident
 
     job = _job_en_cours()
+    # La tâche PREND un dossier en attente (`prendre_le_dossier`) : c'est elle
+    # qui le passe « en cours », pas la mise en place du test.
+    type(job).objects.filter(pk=job.pk).update(status=JobStatus.PENDING)
 
     def leve(_job: Any) -> None:
         msg = ("Error code: 400 - You have reached your specified API usage "

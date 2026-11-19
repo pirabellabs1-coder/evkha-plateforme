@@ -44,6 +44,7 @@ from organisations.models import (
     DemandeCommerciale,
     Formule,
     Organisation,
+    StatutAbonnement,
     StatutDemande,
     TypeDemande,
     TypeMouvement,
@@ -299,9 +300,12 @@ def resilier_abonnement(request: HttpRequest, organisation_id: str) -> HttpRespo
     if not motif:
         return _refus("Indiquez le motif de la résiliation.", "motif_manquant", 400)
 
-    resilies = services.resilier(
-        organisation, motif=f"{_auteur(request, charge)} — {motif}"
-    )
+    try:
+        resilies = services.resilier(
+            organisation, motif=f"{_auteur(request, charge)} — {motif}"
+        )
+    except services.ResiliationImpossibleError as refus:
+        return _refus(str(refus), "prestataire_indisponible", 502)
     if not resilies:
         # Ne PAS se taire : sans abonnement actif, le clic n'a rien fait, et
         # rendre 200 laisserait croire le contraire (règle 1).
@@ -358,6 +362,29 @@ def traiter_demande(request: HttpRequest, demande_id: str) -> HttpResponse:
                 return _refus(
                     "La formule visée n'existe plus.", "formule_absente", 409
                 )
+            # UN ABONNEMENT PAYÉ PAR CARTE NE CHANGE PAS DE FORMULE ICI.
+            #
+            # Audit de sécurité du 19/11/2026. `souscrire` résilie l'ancien
+            # abonnement et en ouvre un neuf, SANS référence de paiement : chez
+            # Stripe, rien ne change. L'ancien tarif continue d'être prélevé,
+            # sa facture est rejetée chez nous (« annuler et rembourser »), et
+            # le nouvel abonnement est doté chaque mois sans jamais être payé.
+            # Le changement d'un abonnement par carte passe par la route qui
+            # parle à Stripe — l'écran « Abonnement » de la cliente.
+            par_carte = (
+                demande.organisation.abonnements.filter(statut=StatutAbonnement.ACTIF)
+                .exclude(reference_paiement="")
+                .exists()
+            )
+            if par_carte:
+                return _refus(
+                    "Cet abonnement est prélevé par carte : accorder le changement "
+                    "ici ne modifierait pas le prélèvement. La cliente le fait "
+                    "elle-même depuis « Abonnement → Changer de formule », qui "
+                    "met à jour le paiement en même temps.",
+                    "abonnement_par_carte",
+                    409,
+                )
             # `doter_immediatement=True` : sans cela, l'abonne attendait le
             # prochain passage de la tache horaire pour voir ses credits, en
             # ayant deja perdu les precedents. Il regardait un solde a zero sur
@@ -378,10 +405,13 @@ def traiter_demande(request: HttpRequest, demande_id: str) -> HttpResponse:
             # `else`. Accorder une resiliation la marquait donc « Traitee »
             # pendant que l'abonnement restait ACTIF : dote chaque mois, et
             # compte dans le revenu recurrent.
-            services.resilier(
-                demande.organisation,
-                motif=f"Résiliation accordée par {auteur}",
-            )
+            try:
+                services.resilier(
+                    demande.organisation,
+                    motif=f"Résiliation accordée par {auteur}",
+                )
+            except services.ResiliationImpossibleError as refus:
+                return _refus(str(refus), "prestataire_indisponible", 502)
         else:
             # Tout type non gere REFUSE, au lieu d'etre marque « Traite » par
             # le simple fait de traverser la suite de `elif`. Le prochain type

@@ -63,6 +63,13 @@ PARCOURS = (
 )
 
 #: Statut du job → message destiné au CLIENT. Aucun terme technique.
+#: Ce que lit la cliente entre la fin de la rédaction et l'arrivée des fichiers.
+MESSAGE_RELECTURE = (
+    "Votre étude est rédigée. Nous la relisons et préparons vos fichiers Word "
+    "et PDF : ils apparaîtront ici d'ici quelques minutes, et vous les "
+    "recevrez par courriel."
+)
+
 MESSAGES: dict[str, str] = {
     JobStatus.PENDING: (
         "Votre étude est dans la file de production. Elle démarre dans quelques "
@@ -151,7 +158,13 @@ def etapes(job: GenerationJob) -> list[Etape]:
 
     etat_socle, detail_socle = _etat_socle(job)
 
-    if job.status == JobStatus.DONE:
+    if job.status == JobStatus.DONE and etat_des_fichiers(job)["etat"] == "mise_en_forme":
+        # La relecture et la mise en forme ne sont pas « faites » tant que les
+        # fichiers n'existent pas pour le client.
+        etats = {
+            "socle": "fait", "chapitres": "fait", "verification": "en_cours", "rendu": "attente",
+        }
+    elif job.status == JobStatus.DONE:
         etats = {"socle": "fait", "chapitres": "fait", "verification": "fait", "rendu": "fait"}
     elif faits_production == 0:
         etats = {
@@ -218,7 +231,8 @@ def progression(job: GenerationJob) -> int:
     moment où elle atteint 99 % et s'arrête.
     """
     if job.status == JobStatus.DONE:
-        return 100
+        # 100 % quand il y a quelque chose à télécharger — pas avant.
+        return 95 if etat_des_fichiers(job)["etat"] == "mise_en_forme" else 100
     if job.status == JobStatus.CANCELLED:
         return 0
 
@@ -249,6 +263,11 @@ def message_client(job: GenerationJob) -> str:
     statut = str(job.status)
     if statut == JobStatus.PENDING and production_engagee(job):
         statut = JobStatus.RUNNING
+    if statut == JobStatus.DONE and etat_des_fichiers(job)["etat"] == "mise_en_forme":
+        # Rédigée, mais ni relue ni mise en forme : « prête, vous pouvez la
+        # télécharger » au-dessus d'un écran sans aucun fichier était le
+        # message le plus visible de la page, et il était faux (règle 5).
+        return MESSAGE_RELECTURE
     return MESSAGES.get(statut, "Votre étude est en cours de traitement.")
 
 
@@ -375,6 +394,32 @@ def fin_estimee(job: GenerationJob) -> dict[str, Any] | None:
 ETATS_LIVRABLES = ("done",)
 
 
+def relecture_en_cours(job: GenerationJob) -> bool:
+    """La relecture finale réécrit-elle encore ce document, avant tout envoi ?
+
+    Audit du 19/11/2026. Un dossier passe `done` AVANT sa relecture finale. La
+    première passe de la relecture assemble le Word et l'écrit `READY` ; elle
+    peut ensuite réécrire jusqu'à seize chapitres, pendant vingt à soixante
+    minutes, en réécrivant le fichier en place. Pendant tout ce temps l'espace
+    client disait « Votre étude est prête. Vous pouvez la télécharger » et
+    proposait la version d'AVANT correction — celle que le système est en
+    train de corriger.
+
+    Le document n'est montré qu'une fois la relecture close. La trace
+    `controle_final.motif_d_arret` vaut « en cours » du début à la fin de la
+    relecture (`generation.controle_final`). Un document DÉJÀ envoyé reste
+    visible : on ne retire pas ce que le client a reçu par courriel, même si
+    une correction manuelle le retravaille ensuite.
+    """
+    if (job.controle_final or {}).get("motif_d_arret") != "en cours":
+        return False
+    from delivery.models import DeliveryBatch, DeliveryStatus  # noqa: PLC0415
+
+    return not DeliveryBatch.objects.filter(
+        order_id=job.order_id, status=DeliveryStatus.SENT
+    ).exists()
+
+
 def fichiers_du_client(job: GenerationJob) -> list[dict[str, str]]:
     """Documents que le client peut réellement télécharger.
 
@@ -396,6 +441,8 @@ def fichiers_du_client(job: GenerationJob) -> list[dict[str, str]]:
     from documents.models import ArtifactKind, ArtifactStatus, DocumentArtifact
 
     if job.status not in ETATS_LIVRABLES:
+        return []
+    if relecture_en_cours(job):
         return []
 
     # Un fichier ÉCHU n'est plus proposé, même si la purge horaire ne l'a pas

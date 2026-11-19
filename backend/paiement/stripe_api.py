@@ -496,6 +496,18 @@ def arreter_le_renouvellement(reference_stripe: str) -> str:
         abonnement: Any = stripe.Subscription.modify(
             reference_stripe, api_key=cle_secrete(), cancel_at_period_end=True
         )
+    except stripe.InvalidRequestError as exc:
+        if getattr(exc, "code", "") == "resource_missing":
+            # L'abonnement n'existe plus chez Stripe (déjà annulé depuis son
+            # tableau de bord) : il n'y a plus rien à arrêter, et refuser ici
+            # rendrait la résiliation locale impossible pour toujours.
+            _log.info("Abonnement Stripe %s déjà absent : rien à arrêter.", reference_stripe)
+            return ""
+        _log.error("Stripe refuse l'arret du renouvellement %s : %s", reference_stripe, exc)
+        raise PaiementIndisponible(
+            "L'arrêt de l'abonnement n'a pas pu être enregistré. Réessayez dans "
+            "quelques minutes ; rien n'a été modifié."
+        ) from exc
     except stripe.StripeError as exc:
         _log.error("Stripe refuse l'arret du renouvellement %s : %s", reference_stripe, exc)
         raise PaiementIndisponible(

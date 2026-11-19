@@ -95,13 +95,18 @@ MESSAGE_LIEN = (
 )
 
 
-def compte_sans_mot_de_passe(customer: Customer) -> CompteClient:
+def compte_sans_mot_de_passe(customer: Customer, *, ne_de_l_achat: str = "") -> CompteClient:
     """Ouvre un compte de connexion INUTILISABLE tant qu'aucun mot de passe n'est choisi.
 
     `set_unusable_password` inscrit une valeur qu'aucune saisie ne peut
     reproduire : `check_password` renvoie toujours faux. Le compte existe donc
     — ce qui débloque l'invitation et la réinitialisation — sans ouvrir le
     moindre accès.
+
+    `ne_de_l_achat` : la référence du paiement qui demande ce compte. Elle
+    n'est inscrite que si le compte est CRÉÉ par cet appel — jamais sur un
+    compte qui existait, dont elle ferait passer le titulaire pour l'acheteur
+    (voir `CompteClient.ne_de_l_achat`).
     """
     user, cree = User.objects.get_or_create(
         username=customer.email, defaults={"email": customer.email}
@@ -109,7 +114,10 @@ def compte_sans_mot_de_passe(customer: Customer) -> CompteClient:
     if cree:
         user.set_unusable_password()
         user.save(update_fields=["password"])
-    compte, _ = CompteClient.objects.get_or_create(user=user, customer=customer)
+    compte, compte_cree = CompteClient.objects.get_or_create(user=user, customer=customer)
+    if cree and compte_cree and ne_de_l_achat:
+        compte.ne_de_l_achat = ne_de_l_achat[:255]
+        compte.save(update_fields=["ne_de_l_achat", "updated_at"])
     return compte
 
 

@@ -113,8 +113,17 @@ def webhook(request: HttpRequest) -> JsonResponse:
         provider=IntegrationProvider.STRIPE,
         event_id=identifiant,
         payload=dict(evenement),
+        retraiter_les_echecs=True,
     )
-    if enregistre.is_duplicate:
+    if enregistre.is_duplicate and not enregistre.a_retraiter:
+        if enregistre.event.status == WebhookStatus.ACCEPTED:
+            # ENCORE « accepté » : un autre processus le traite — ou est mort
+            # en le traitant. Répondre 200 dirait à Stripe « c'est fait » et il
+            # ne le renverrait plus : si le premier traitement a été tué (un
+            # déploiement, un dépassement de délai), rien ne serait jamais
+            # versé (audit de sécurité du 19/11/2026). 409 : Stripe renverra,
+            # et passé `DELAI_D_UN_TRAITEMENT_PERDU` le renvoi sera retraité.
+            return _refus("traitement_en_cours", 409)
         return JsonResponse({"recu": True, "doublon": True}, status=200)
 
     try:

@@ -22,12 +22,11 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from catalog.models import AchatProduit, ProduitBoutique
-from customers.models import Customer
-from organisations import courriels, identifiants, services
-from organisations.models import CompteClient, Encaissement, Organisation, TypeDeCompte
+from organisations import courriels, identifiants
+from organisations.models import CompteClient, Encaissement, Organisation
 
 from .achats import AchatInexploitable as AchatInexploitable
-from .achats import _organisation_existante, _raison_sociale, _texte
+from .achats import _texte, espace_de_l_acheteur
 
 _log = logging.getLogger(__name__)
 
@@ -107,23 +106,7 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
         msg = f"Session {reference} : aucune adresse collectée par Stripe."
         raise AchatInexploitable(msg)
 
-    contact, _ = Customer.objects.get_or_create(
-        email=email,
-        defaults={
-            "first_name": _texte(session, "customer_details.name")[:150],
-            "company_name": "",
-        },
-    )
-
-    organisation = _organisation_existante(contact, session)
-    if organisation is None:
-        organisation = services.creer_organisation(
-            raison_sociale=_raison_sociale(email, session), contact=contact
-        )
-        organisation.type_de_compte = TypeDeCompte.A_L_UNITE
-        organisation.save(update_fields=["type_de_compte", "updated_at"])
-
-    compte = identifiants.compte_sans_mot_de_passe(contact)
+    organisation, compte = espace_de_l_acheteur(session, email=email, reference=reference)
 
     existant = AchatProduit.objects.filter(reference_paiement=reference).first()
     if existant is not None:
@@ -134,14 +117,19 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
         return AchatDeProduit(organisation, compte, produit, existant, nouveau=False)
 
     try:
-        achat = AchatProduit.objects.create(
-            organisation=organisation,
-            produit=produit,
-            reference_paiement=reference,
-            montant_cents=int(session.get("amount_total") or produit.prix_cents or 0),
-            devise=str(session.get("currency") or produit.devise or "EUR").upper()[:3],
-            email=email,
-        )
+        # Point de sauvegarde : sous PostgreSQL, une erreur d'intégrité rend la
+        # transaction englobante inutilisable, et la relecture du `except`
+        # échouait à son tour — le perdant d'une arrivée simultanée recevait
+        # une erreur 500 au lieu de son achat (audit du 19/11/2026).
+        with transaction.atomic():
+            achat = AchatProduit.objects.create(
+                organisation=organisation,
+                produit=produit,
+                reference_paiement=reference,
+                montant_cents=int(session.get("amount_total") or produit.prix_cents or 0),
+                devise=str(session.get("currency") or produit.devise or "EUR").upper()[:3],
+                email=email,
+            )
     except IntegrityError:
         # Deux appels exactement simultanes : la base a tranche. On relit la
         # ligne gagnante plutot que de faire echouer un paiement encaisse.

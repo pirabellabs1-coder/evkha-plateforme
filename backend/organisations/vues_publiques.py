@@ -191,6 +191,10 @@ def acheter(request: HttpRequest) -> HttpResponse:
         _log.error("Achat de %s impossible : %s", slug, refus)
         return _refus(str(refus), "paiement_indisponible", 503)
 
+    # Le plafond ne valait rien : `depasse` était interrogé, `enregistrer`
+    # jamais appelé — le compteur restait à zéro, et un script pouvait ouvrir
+    # des sessions de paiement sans limite (audit du 19/11/2026).
+    limitation.enregistrer(PAIEMENTS_PAR_HEURE, adresse_ip)
     return JsonResponse({"adresse": session.adresse})
 
 
@@ -246,12 +250,15 @@ def retour_de_paiement(request: HttpRequest) -> HttpResponse:
     if achat.nouveau:
         achats.prevenir_l_acheteur(achat)
 
-    # C'est Stripe qui a prouvé l'identité — il a encaissé une carte et
-    # collecté l'adresse. La personne n'a pas de mot de passe et n'en a pas
-    # besoin pour entrer ; elle en choisira un depuis le courriel.
-    jeton_clair = authentification.ouvrir_session_sans_mot_de_passe(achat.compte)
+    # Stripe prouve qu'une carte a été encaissée — pas que le payeur possède
+    # l'adresse qu'il a saisie. La session n'est donc ouverte ici que sur le
+    # compte que CE paiement vient de créer, une seule fois ; pour un compte
+    # qui existait, l'achat est livré et la personne se connecte comme
+    # d'habitude (`authentification.ouvrir_la_session_d_un_achat`).
+    jeton_clair = authentification.ouvrir_la_session_d_un_achat(achat.compte, identifiant)
     return JsonResponse({
         "jeton": jeton_clair,
+        "connexion_requise": jeton_clair is None,
         "livrable": achat.offre.deliverable_type,
         "libelle": achat.offre.name,
     })

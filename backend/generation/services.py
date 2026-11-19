@@ -164,7 +164,33 @@ def bootstrap_generation_job(submission: IntakeSubmission) -> GenerationJob:
             },
         )
 
+    _sortir_la_commande_de_l_attente(submission)
     return job
+
+
+def _sortir_la_commande_de_l_attente(submission: IntakeSubmission) -> None:
+    """Une commande dont le dossier existe n'attend plus son formulaire.
+
+    Audit du 19/11/2026 : 51 commandes affichées « en attente de formulaire »
+    en production, et aucune n'attendait quoi que ce soit — toutes des reprises
+    ou des saisies manuelles de la console, créées avec cet état puis mises en
+    génération dans la même requête. Seule la LIVRAISON faisait avancer l'état,
+    et une reprise « sans envoi » ne livre jamais : elles y restaient pour
+    toujours, et le compteur du tableau de bord disait à la cliente que
+    cinquante et une personnes n'avaient pas rempli leur questionnaire.
+
+    La règle est posée ICI, à la création du dossier, et non dans les trois
+    vues qui créent une commande : un dossier ne naît que d'un formulaire
+    normalisé, donc toute commande qui en a un a quitté l'attente — quel que
+    soit le chemin qui l'a créée (règle 4). Mise à jour conditionnelle : une
+    commande livrée, échouée ou annulée garde son état.
+    """
+    from orders.models import Order, OrderStatus  # noqa: PLC0415 — évite un cycle
+
+    Order.objects.filter(
+        pk=submission.order_id,
+        status__in=(OrderStatus.RECEIVED, OrderStatus.WAITING_INTAKE),
+    ).update(status=OrderStatus.PROCESSING)
 
 
 #: Au-delà de ce silence, un dossier « en cours » ne l'est plus vraiment.

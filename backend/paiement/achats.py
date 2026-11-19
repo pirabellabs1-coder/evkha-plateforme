@@ -35,10 +35,8 @@ from organisations.models import (
     CompteClient,
     Encaissement,
     MembreOrganisation,
-    MouvementCredit,
     Organisation,
     TypeDeCompte,
-    TypeMouvement,
 )
 
 _log = logging.getLogger(__name__)
@@ -136,13 +134,114 @@ def _organisation_existante(
             "on retombe sur l'adresse.", identifiant,
         )
 
-    appartenance = (
+    appartenances = list(
         MembreOrganisation.objects.select_related("organisation")
         .filter(customer=contact, revoque_le__isnull=True)
         .order_by("created_at")
-        .first()
     )
-    return appartenance.organisation if appartenance else None
+    for appartenance in appartenances:
+        if _rattachement_accepte(contact, appartenance):
+            return appartenance.organisation
+
+    # Restent les invitations que la personne n'a JAMAIS acceptées. Son achat
+    # ne va pas à qui l'a invitée : elle ouvre son propre espace, et
+    # l'invitation tombe — un seul rattachement actif par personne, c'est ce
+    # que suppose tout le cloisonnement de l'espace.
+    for appartenance in appartenances:
+        try:
+            services.revoquer_membre(appartenance)
+        except services.AccesRefuseError:
+            # Seule propriétaire d'une organisation qu'on ne peut pas laisser
+            # sans personne : c'est la sienne, faute de mieux.
+            return appartenance.organisation
+        _log.warning(
+            "Invitation jamais acceptée de %s dans %s : révoquée, son achat "
+            "ouvre son propre espace.", contact.email, appartenance.organisation,
+        )
+    return None
+
+
+def _rattachement_accepte(contact: Customer, appartenance: MembreOrganisation) -> bool:
+    """Cette personne est-elle VRAIMENT de cette organisation ?
+
+    ## Le défaut, trouvé à l'audit de sécurité du 19/11/2026
+
+    Inviter rattache tout de suite, sans que l'invitée ait rien accepté, et la
+    reconnaissance d'un achat public se faisait sur ce seul rattachement. Il
+    suffisait donc d'ouvrir un compte gratuit et d'inviter l'adresse de
+    quelqu'un : le jour où cette personne achetait une étude sur la page
+    publique, son crédit et son encaissement allaient à l'organisation de
+    l'inviteur, qui pouvait le dépenser et lire ses dossiers.
+
+    ## La règle
+
+    Un rattachement compte quand la personne l'a fait sien :
+
+    - elle est le contact de l'organisation — c'est elle qui l'a ouverte, par
+      son inscription ou par un premier achat ;
+    - ou elle s'y est CONNECTÉE depuis qu'elle y est rattachée : elle a suivi
+      le lien de l'invitation, posé son mot de passe, vu où elle arrivait.
+
+    Une adresse inscrite par quelqu'un d'autre et jamais venue n'engage pas
+    son titulaire.
+    """
+    if appartenance.organisation.contact_id == contact.id:
+        return True
+    compte = CompteClient.objects.filter(customer=contact, actif=True).first()
+    return (
+        compte is not None
+        and compte.derniere_connexion is not None
+        and compte.derniere_connexion >= appartenance.created_at
+    )
+
+
+def espace_de_l_acheteur(
+    session: dict[str, Any], *, email: str, reference: str
+) -> tuple[Organisation, CompteClient]:
+    """L'espace et le compte que CE paiement crédite — créés s'il n'y en a pas.
+
+    Une seule écriture pour l'achat d'une étude et l'achat de boutique : les
+    deux portaient la même suite de lignes, et chaque garde ajoutée à l'une
+    manquait à l'autre (règle 5).
+
+    Deux gardes y vivent, toutes deux de l'audit du 19/11/2026.
+
+    **Une arrivée à la fois par personne.** Le webhook et la page de retour
+    arrivent ensemble. Chacune lisait « aucun espace » et en créait un : deux
+    organisations pour un achat, et — pour quelqu'un qui avait déjà un compte —
+    deux crédits, chaque portefeuille étant verrouillé séparément. La fiche de
+    la personne est verrouillée dès qu'elle est connue ; la seconde arrivée
+    attend, puis trouve l'espace que la première a ouvert.
+
+    **Le compte n'est dit « né de l'achat » que si l'ESPACE l'est.** La marque
+    ouvre une session sans mot de passe au retour du paiement. Posée dès que
+    l'identifiant de connexion était neuf, elle l'était aussi pour une
+    personne rattachée de longue date à une organisation et qui n'avait
+    simplement jamais eu de compte : payer avec son adresse ouvrait cet
+    espace-là.
+    """
+    contact, _ = Customer.objects.get_or_create(
+        email=email,
+        defaults={
+            "first_name": _texte(session, "customer_details.name")[:150],
+            "company_name": "",
+        },
+    )
+    Customer.objects.select_for_update().get(pk=contact.pk)
+
+    organisation = _organisation_existante(contact, session)
+    ouvert_par_ce_paiement = organisation is None
+    if organisation is None:
+        organisation = services.creer_organisation(
+            raison_sociale=_raison_sociale(email, session), contact=contact
+        )
+        organisation.type_de_compte = TypeDeCompte.A_L_UNITE
+        organisation.save(update_fields=["type_de_compte", "updated_at"])
+
+    compte = identifiants.compte_sans_mot_de_passe(
+        contact, ne_de_l_achat=reference if ouvert_par_ce_paiement else ""
+    )
+    return organisation, compte
 
 
 def _enregistrer_l_encaissement(
@@ -204,39 +303,16 @@ def livrer_l_achat(session: dict[str, Any]) -> Achat:
         msg = f"Session {reference} : aucune adresse collectée par Stripe."
         raise AchatInexploitable(msg)
 
-    contact, _ = Customer.objects.get_or_create(
-        email=email,
-        defaults={
-            "first_name": _texte(session, "customer_details.name")[:150],
-            "company_name": "",
-        },
-    )
+    organisation, compte = espace_de_l_acheteur(session, email=email, reference=reference)
 
-    organisation = _organisation_existante(contact, session)
-    if organisation is None:
-        organisation = services.creer_organisation(
-            raison_sociale=_raison_sociale(email, session), contact=contact
-        )
-        organisation.type_de_compte = TypeDeCompte.A_L_UNITE
-        organisation.save(update_fields=["type_de_compte", "updated_at"])
-
-    compte = identifiants.compte_sans_mot_de_passe(contact)
-
-    if MouvementCredit.objects.filter(reference=reference).exists():
-        # Le webhook et la page de retour se sont croisés. Ce n'est pas une
-        # anomalie : c'est le fonctionnement normal, et le dire en journal
-        # évite qu'on le prenne un jour pour un bug.
-        _log.info("Achat %s déjà livré, second appel sans effet.", reference)
-        return Achat(organisation, compte, offre, nouveau=False)
-
-    credits_service.crediter(
+    # `verser_un_achat` verse en ACHAT et non en DOTATION :
+    # `credits.ENTREES_PERENNES` distingue les deux, et une dotation EXPIRE en
+    # fin de période. Quelqu'un qui achète une étude le 30 verrait son crédit
+    # disparaître le 31.
+    verse = credits_service.verser_un_achat(
         organisation,
         CREDITS_PAR_ACHAT,
         motif=f"Achat à l'unité — {offre.name}",
-        # ACHAT et non DOTATION : `credits.ENTREES_PERENNES` distingue les deux,
-        # et une dotation EXPIRE en fin de période. Quelqu'un qui achète une
-        # étude le 30 verrait son crédit disparaître le 31.
-        type_mouvement=TypeMouvement.ACHAT,
         reference=reference,
         auteur="stripe",
         # Le credit est paye POUR CETTE ETUDE. Sans ce marquage, 89 EUR verses
@@ -245,6 +321,12 @@ def livrer_l_achat(session: dict[str, Any]) -> Achat:
         # que ce soit.
         livrable=offre.deliverable_type,
     )
+    if verse is None:
+        # Le webhook et la page de retour se sont croisés. Ce n'est pas une
+        # anomalie : c'est le fonctionnement normal, et le dire en journal
+        # évite qu'on le prenne un jour pour un bug.
+        _log.info("Achat %s déjà livré, second appel sans effet.", reference)
+        return Achat(organisation, compte, offre, nouveau=False)
     _enregistrer_l_encaissement(organisation, offre, session, reference)
 
     _log.info(

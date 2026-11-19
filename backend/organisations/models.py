@@ -560,6 +560,16 @@ class CompteClient(UUIDModel):
     )
     actif = models.BooleanField(default=True)
     derniere_connexion = models.DateTimeField(null=True, blank=True)
+    #: La référence du paiement qui a FAIT NAÎTRE ce compte, ou vide.
+    #:
+    #: Audit du 19/11/2026. La page de retour de paiement ouvrait une session
+    #: sur le compte portant l'adresse de la session Stripe — adresse que le
+    #: payeur saisit librement. Payer l'étude la moins chère avec l'adresse
+    #: d'une abonnée rendait donc un jeton sur SON espace. Un retour de
+    #: paiement n'ouvre plus de session que sur le compte que CE paiement a
+    #: créé : cette référence est la seule preuve qui le dise sans se tromper
+    #: (`authentification.ouvrir_la_session_d_un_achat`).
+    ne_de_l_achat = models.CharField(max_length=255, blank=True, default="")
 
     class Meta:
         verbose_name = "compte client"

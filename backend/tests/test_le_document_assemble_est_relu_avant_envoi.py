@@ -30,6 +30,21 @@ from generation.verification.rapport import Anomalie, Gravite, RapportControle
 pytestmark = pytest.mark.django_db
 
 
+def _moteur_qui_termine(job: Any, **_: Any) -> Any:
+    """Doublure du moteur : le dossier est produit.
+
+    La tâche ne prend qu'un dossier EN ATTENTE (`tasks.prendre_le_dossier`,
+    audit du 19/11/2026). Poser le dossier « terminé » d'avance, comme ces
+    tests le faisaient, la ferait sortir sans rien jouer — et ceux qui
+    vérifient qu'une chose n'arrive PAS passeraient à vide (règle 6).
+    """
+    from generation.models import JobStatus
+
+    job.status = JobStatus.DONE
+    job.save(update_fields=["status"])
+    return job
+
+
 @pytest.fixture
 def job() -> Any:
     from catalog.models import DeliverableType, Offer
@@ -235,13 +250,11 @@ def test_la_relecture_precede_l_envoi_dans_le_pipeline(
     """LE branchement : relu AVANT d'être envoyé, jamais après."""
     from generation import runner as moteur
     from generation import tasks
-    from generation.models import JobStatus
 
     ordre: list[str] = []
-    job.status = JobStatus.DONE
-    job.save(update_fields=["status"])
 
-    monkeypatch.setattr(moteur, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(moteur, "run_generation_job", _moteur_qui_termine)
+    monkeypatch.setattr(tasks, "run_generation_job", _moteur_qui_termine)
     monkeypatch.setattr(tasks, "run_qa_pass", lambda j: None, raising=False)
     monkeypatch.setattr(tasks, "_controler_les_demandes_du_client", lambda j: None)
     monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
@@ -421,18 +434,16 @@ def test_une_relecture_qui_meurt_n_empeche_pas_la_livraison(
     from generation import controle_final as relecture
     from generation import runner as moteur
     from generation import tasks
-    from generation.models import JobStatus
     from monitoring.models import OperationalIncident
 
     ordre: list[str] = []
-    job.status = JobStatus.DONE
-    job.save(update_fields=["status"])
 
     def _mourir(j: Any, **kw: Any) -> None:
         msg = "worker tué"
         raise RuntimeError(msg)
 
-    monkeypatch.setattr(moteur, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(moteur, "run_generation_job", _moteur_qui_termine)
+    monkeypatch.setattr(tasks, "run_generation_job", _moteur_qui_termine)
     monkeypatch.setattr(tasks, "run_qa_pass", lambda j: None, raising=False)
     monkeypatch.setattr(tasks, "_controler_les_demandes_du_client", lambda j: None)
     monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
@@ -598,13 +609,10 @@ def test_la_generation_ne_lance_plus_de_boucle_de_correction(
     from documents import livrable_word
     from generation import correction, tasks
     from generation import runner as moteur
-    from generation.models import JobStatus
 
     appels: list[str] = []
-    job.status = JobStatus.DONE
-    job.save(update_fields=["status"])
-    monkeypatch.setattr(moteur, "run_generation_job", lambda j: j)
-    monkeypatch.setattr(tasks, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(moteur, "run_generation_job", _moteur_qui_termine)
+    monkeypatch.setattr(tasks, "run_generation_job", _moteur_qui_termine)
     monkeypatch.setattr(tasks, "_controler_les_demandes_du_client", lambda j: None)
     monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
     monkeypatch.setattr("generation.qa.run_qa_pass", lambda j: None)
@@ -738,13 +746,10 @@ def test_hors_chaine_word_la_boucle_du_gate_reste_le_seul_correcteur(
     from documents import livrable_word
     from generation import correction, tasks
     from generation import runner as moteur
-    from generation.models import JobStatus
 
     appels: list[str] = []
-    job.status = JobStatus.DONE
-    job.save(update_fields=["status"])
-    monkeypatch.setattr(moteur, "run_generation_job", lambda j: j)
-    monkeypatch.setattr(tasks, "run_generation_job", lambda j: j)
+    monkeypatch.setattr(moteur, "run_generation_job", _moteur_qui_termine)
+    monkeypatch.setattr(tasks, "run_generation_job", _moteur_qui_termine)
     monkeypatch.setattr(tasks, "_controler_les_demandes_du_client", lambda j: None)
     monkeypatch.setattr(tasks, "_effacer_les_textes_orphelins", lambda: None)
     monkeypatch.setattr("generation.qa.run_qa_pass", lambda j: None)
