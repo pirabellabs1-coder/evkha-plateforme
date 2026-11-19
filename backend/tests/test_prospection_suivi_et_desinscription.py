@@ -190,10 +190,20 @@ def test_les_secrets_de_webhook_email_sont_declares_dans_les_reglages() -> None:
 
 
 def test_le_lien_public_desinscrit_en_un_clic() -> None:
+    """Le clic qui désinscrit est celui du BOUTON de la page (POST).
+
+    Ce test faisait un GET et attendait la désinscription : il verrouillait le
+    défaut (audit du 19/11/2026). Les passerelles de messagerie d'entreprise
+    visitent les liens d'un e-mail à sa réception ; un GET qui désinscrit
+    retirait donc des prospects qui n'avaient rien demandé. Le GET affiche
+    désormais la page de confirmation (`test_visiter_le_lien_ne_desinscrit_pas`),
+    et c'est le POST — un clic, toujours — qui exécute.
+    """
     m = _message(statut=StatutMessage.VALIDE)
     jeton = m.prospect.jeton_desinscription
-    r = Client().get(f"/p/desinscription/{jeton}/")
+    r = Client().post(f"/p/desinscription/{jeton}/")
     assert r.status_code == 200
+    assert "Vous êtes désinscrit" in r.content.decode()
     m.prospect.refresh_from_db()
     assert m.prospect.consentement_retire is True
     m.refresh_from_db()
@@ -210,8 +220,13 @@ def test_la_desinscription_est_idempotente() -> None:
     m = _message()
     jeton = m.prospect.jeton_desinscription
     c = Client()
+    # Le POST est l'acte : c'est lui qui doit se rejouer sans se plaindre. (Ce
+    # test rejouait le GET, du temps où le GET désinscrivait.)
+    assert c.post(f"/p/desinscription/{jeton}/").status_code == 200
+    assert c.post(f"/p/desinscription/{jeton}/").status_code == 200
     assert c.get(f"/p/desinscription/{jeton}/").status_code == 200
-    assert c.get(f"/p/desinscription/{jeton}/").status_code == 200
+    m.prospect.refresh_from_db()
+    assert m.prospect.consentement_retire is True
 
 
 # ── Conformité : tout envoi porte le lien de désinscription ──────────────────
@@ -249,3 +264,42 @@ def test_tout_envoi_porte_le_lien_de_desinscription() -> None:
     # Le brouillon validé n'a PAS été modifié : la mise en page est ajoutée à l'envoi.
     message.refresh_from_db()
     assert message.corps == "<p>Bonjour</p>" and "DOCTYPE" not in message.corps
+
+
+# ── Un GET ne désinscrit personne (audit du 19/11/2026) ──────────────────────
+
+
+def test_visiter_le_lien_ne_desinscrit_pas() -> None:
+    """Les passerelles de messagerie d'entreprise VISITENT les liens d'un e-mail
+    à sa réception. Sur le code d'avant, cette seule visite désinscrivait le
+    prospect et annulait sa file — avant même qu'il ait lu le message."""
+    m = _message(statut=StatutMessage.VALIDE)
+    jeton = m.prospect.jeton_desinscription
+
+    for _ in range(3):  # une passerelle, un antivirus, un aperçu de lien
+        r = Client().get(f"/p/desinscription/{jeton}/")
+        assert r.status_code == 200
+
+    m.prospect.refresh_from_db()
+    m.refresh_from_db()
+    assert m.prospect.consentement_retire is False
+    assert m.prospect.statut != StatutProspect.DESINSCRIT
+    assert m.statut == StatutMessage.VALIDE
+    # La page DEMANDE : un formulaire qui poste, et un bouton.
+    page = r.content.decode()
+    assert "<form method='post'>" in page and "Confirmer ma désinscription" in page
+
+
+def test_la_page_de_confirmation_dit_quand_c_est_deja_fait() -> None:
+    m = _message()
+    jeton = m.prospect.jeton_desinscription
+    Client().post(f"/p/desinscription/{jeton}/")
+
+    page = Client().get(f"/p/desinscription/{jeton}/").content.decode()
+
+    assert "déjà désinscrit" in page and "<form" not in page
+
+
+def test_un_jeton_inconnu_poste_rend_aussi_la_page_polie() -> None:
+    r = Client().post("/p/desinscription/00000000-0000-0000-0000-000000000000/")
+    assert r.status_code == 404

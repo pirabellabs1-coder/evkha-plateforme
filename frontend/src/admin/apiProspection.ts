@@ -18,6 +18,26 @@ function entetes(json = true): HeadersInit {
   };
 }
 
+/** Un refus du serveur, AVEC sa charge.
+ *
+ * Une `Error` nue ne gardait que le message. Or l'assistant, quand le modèle
+ * tombe, rend dans son 502 l'identifiant de la discussion et le tour déjà
+ * enregistré : sans la charge, l'écran perdait la discussion et le texte saisi
+ * (audit du 19/11/2026). Reste une `Error` : tout `c instanceof Error` existant
+ * continue de lire `message`.
+ */
+export class ErreurApi extends Error {
+  readonly statut: number;
+  readonly charge: Record<string, unknown>;
+
+  constructor(message: string, statut: number, charge: Record<string, unknown>) {
+    super(message);
+    this.name = "ErreurApi";
+    this.statut = statut;
+    this.charge = charge;
+  }
+}
+
 async function lire<T>(reponse: Response): Promise<T> {
   if (reponse.status === 401) {
     clearToken();
@@ -25,8 +45,12 @@ async function lire<T>(reponse: Response): Promise<T> {
     throw new Error("Non autorisé");
   }
   if (!reponse.ok) {
-    const charge = (await reponse.json().catch(() => ({}))) as { erreur?: string };
-    throw new Error(charge.erreur ?? `Erreur ${reponse.status}`);
+    const brut: unknown = await reponse.json().catch(() => ({}));
+    const charge: Record<string, unknown> =
+      typeof brut === "object" && brut !== null ? (brut as Record<string, unknown>) : {};
+    const message =
+      typeof charge.erreur === "string" ? charge.erreur : `Erreur ${reponse.status}`;
+    throw new ErreurApi(message, reponse.status, charge);
   }
   return (await reponse.json()) as T;
 }
@@ -90,7 +114,12 @@ export interface Prospect {
   statut: StatutProspect;
   score_adequation: number | null;
   raison_score: string;
+  /** Peut-on lui écrire ? Jugé par le serveur (`services.motif_de_non_contact`). */
   contactable: boolean;
+  /** Pourquoi on ne peut pas lui écrire, en clair — `null` s'il est contactable. */
+  motif_non_contact: string | null;
+  /** L'ADRESSE est interdite, toutes fiches confondues : opposition ou rebond. */
+  adresse_interdite: "desinscription" | "plainte" | "rebond_definitif" | null;
   desinscrit_le: string | null;
   notes: string;
   cree_le: string;
@@ -120,7 +149,10 @@ export interface Message {
   programme_pour: string | null;
   envoye_le: string | null;
   provider_message_id: string;
+  /** Le motif du refus du fournisseur, pour un message `echoue`. */
   error_message: string;
+  /** L'adresse où le message est réellement parti ("" tant qu'il n'est pas envoyé). */
+  destinataire: string;
   envoyable: boolean;
   cree_le: string;
 }
@@ -133,6 +165,8 @@ export interface Apercu {
   /** Relances rédigées d'avance qui attendent l'envoi de l'étape d'avant. */
   relances_en_attente: number;
   valides_en_attente: number;
+  /** Envois refusés par le fournisseur, qui attendent une décision. */
+  en_echec: number;
   envoyes: number;
 }
 
@@ -145,7 +179,10 @@ export interface Metriques {
   taux_clic: number;
   reponses: number;
   taux_reponse: number;
+  /** Rebonds DÉFINITIFS et non-remis ; les simples retards sont comptés à part. */
   rebonds: number;
+  retards: number;
+  plaintes: number;
   desinscriptions: number;
   prospects_contactes: number;
   conversions: number;
@@ -187,12 +224,64 @@ export interface ConversationDetail extends ResumeConversation {
   messages: MessageAssistant[];
 }
 
+/** Ce qu'une recherche a rendu : le zéro se DIT, et il a trois causes. */
+export interface ResultatRecherche {
+  crees: number;
+  /** Organisations proposées par le modèle, avant dédoublonnage. */
+  proposees: number;
+  /** Écartées : déjà dans la campagne (nom, site ou adresse). */
+  deja_connues: number;
+  /** Créées sans adresse : à compléter avant toute rédaction. */
+  sans_adresse: number;
+  prospects: Prospect[];
+}
+
+/** Les champs d'une fiche qu'un humain corrige. */
+export interface CorrectionProspect {
+  raison_sociale?: string;
+  secteur?: string;
+  zone?: string;
+  email?: string;
+  nom_contact?: string;
+  fonction?: string;
+  site_web?: string;
+  notes?: string;
+}
+
+export type EtatAutomatisation =
+  | "" | "en_cours" | "reussie" | "partielle" | "echouee" | "interrompue";
+
+export interface BilanAutomatisation {
+  proposees?: number;
+  crees?: number;
+  deja_connues?: number;
+  qualifies?: number;
+  rediges?: number;
+  non_contactables?: number;
+  echecs?: number;
+}
+
 export interface Automatisation {
   active: boolean;
   prospects_par_jour: number;
+  /** Le plafond réellement appliqué par le serveur — l'écran n'en recopie aucun. */
+  prospects_par_jour_max: number;
   campagne_id: string | null;
   jours: number[];
   derniere_execution: string | null;
+  /** La dernière TENTATIVE (réussie ou non), son état, son bilan, son erreur. */
+  derniere_tentative: string | null;
+  dernier_etat: EtatAutomatisation;
+  dernier_bilan: BilanAutomatisation;
+  derniere_erreur: string;
+}
+
+/** Ce que l'écran ENVOIE pour régler l'automatisation. */
+export interface ReglageAutomatisation {
+  active?: boolean;
+  prospects_par_jour?: number;
+  campagne_id?: string | null;
+  jours?: number[];
 }
 
 // ── Méthodes ──────────────────────────────────────────────────────────────────
@@ -213,6 +302,10 @@ export const apiProspection = {
   creerProspect: (p: Partial<Prospect> & { campagne_id?: string }) =>
     envoyer<Prospect>("POST", "/prospects/", p),
   prospect: (id: string) => get<Prospect>(`/prospects/${id}/`),
+  // Corrige une fiche : seuls les champs envoyés sont touchés ; l'adresse est
+  // validée par le serveur (400 si elle n'a pas la forme d'une adresse).
+  modifierProspect: (id: string, champs: CorrectionProspect) =>
+    envoyer<Prospect>("PUT", `/prospects/${id}/`, champs),
   desinscrire: (id: string) => envoyer<Prospect>("POST", `/prospects/${id}/desinscrire/`, {}),
   changerStatut: (id: string, statut: StatutProspect) =>
     envoyer<Prospect>("POST", `/prospects/${id}/statut/`, { statut }),
@@ -239,11 +332,15 @@ export const apiProspection = {
     envoyer<Message>("POST", `/messages/${id}/valider/`, { par }),
   envoyerMessage: (id: string) => envoyer<Message>("POST", `/messages/${id}/envoyer/`, {}),
   annuler: (id: string) => envoyer<Message>("POST", `/messages/${id}/annuler/`, {}),
+  // Sortie de l'impasse d'un envoi en échec : le message redevient un
+  // brouillon (validation retirée) pour être retouché puis revalidé.
+  remettreEnBrouillon: (id: string) =>
+    envoyer<Message>("POST", `/messages/${id}/brouillon/`, {}),
 
   // Les agents : chaque passage interroge le modèle (facturé). `confirmer` est
   // exigé par le serveur — jamais d'appel payant par accident.
   rechercher: (campagneId: string, limite = 10, criteres = "") =>
-    envoyer<{ crees: number; prospects: Prospect[] }>(
+    envoyer<ResultatRecherche>(
       "POST", `/campagnes/${campagneId}/rechercher/`, { confirmer: true, limite, criteres },
     ),
   // L'assistant conversationnel : la discussion est GARDÉE EN MÉMOIRE côté
@@ -259,7 +356,7 @@ export const apiProspection = {
   conversation: (id: string) => get<ConversationDetail>(`/conversations/${id}/`),
 
   automatisation: () => get<Automatisation>("/automatisation/"),
-  reglerAutomatisation: (r: Partial<Automatisation>) =>
+  reglerAutomatisation: (r: ReglageAutomatisation) =>
     envoyer<Automatisation>("PUT", "/automatisation/", r),
   qualifier: (prospectId: string) =>
     envoyer<Prospect>("POST", `/prospects/${prospectId}/qualifier/`, { confirmer: true }),

@@ -132,6 +132,95 @@ def test_l_endpoint_assistant_refuse_sans_message(client_admin: Any) -> None:
     assert r.status_code == 400
 
 
+# ── Une panne du modèle ne rend pas un 500 nu, et ne perd rien ───────────────
+#
+# Audit du 19/11/2026 : l'assistant appelait le modèle HORS de
+# `_executer_agent` (500 nu, là où les autres agents rendent un 502 lisible),
+# et créait la discussion AVANT l'appel sans y écrire le tour de l'humain —
+# une discussion vide de plus à chaque essai, et le texte saisi perdu.
+
+
+class _ClientEnPanne:
+    def complete_structured(self, **_: Any) -> StructuredResult:
+        msg = (
+            "Error code: 400 - Your credit balance is too low to access the "
+            "Anthropic API. Please go to Plans & Billing."
+        )
+        raise RuntimeError(msg)
+
+
+def _ecrire(client_admin: Any, corps: dict[str, Any]) -> Any:
+    return client_admin.post(
+        f"{BASE}/assistant/", data=json.dumps(corps), content_type="application/json"
+    )
+
+
+def test_une_panne_du_modele_rend_un_502_lisible_et_garde_le_texte(
+    client_admin: Any, monkeypatch: Any,
+) -> None:
+    """Sur le code d'avant : l'exception remontait (500), la discussion restait vide."""
+    from prospection.models import Conversation
+
+    monkeypatch.setattr("integrations.claude.get_claude_client", _ClientEnPanne)
+
+    r = _ecrire(client_admin, {"message": "Des BGE à Lille"})
+
+    assert r.status_code == 502, (r.status_code, r.content)
+    d = json.loads(r.content)
+    assert "Crédits IA épuisés" in d["erreur"]
+    # Le texte saisi est GARDÉ, dans une discussion que l'écran peut rouvrir.
+    assert d["conversation_id"]
+    assert [(m["role"], m["content"]) for m in d["messages"]] == [("user", "Des BGE à Lille")]
+    assert Conversation.objects.count() == 1
+
+
+def test_reessayer_ne_double_ni_la_discussion_ni_le_texte(
+    client_admin: Any, monkeypatch: Any,
+) -> None:
+    """Sur le code d'avant : chaque essai en panne créait une discussion vide de plus."""
+    from prospection.models import Conversation
+
+    monkeypatch.setattr("integrations.claude.get_claude_client", _ClientEnPanne)
+    premier = json.loads(_ecrire(client_admin, {"message": "Des BGE à Lille"}).content)
+    cid = premier["conversation_id"]
+    second = _ecrire(client_admin, {"message": "Des BGE à Lille", "conversation_id": cid})
+    assert second.status_code == 502
+
+    # Le modèle revient : le même texte, renvoyé, obtient sa réponse.
+    monkeypatch.setattr(
+        "integrations.claude.get_claude_client",
+        lambda: _ClientFaux({"reponse": "Quelle taille de structure ?"}),
+    )
+    troisieme = _ecrire(client_admin, {"message": "Des BGE à Lille", "conversation_id": cid})
+
+    assert troisieme.status_code == 200
+    d = json.loads(troisieme.content)
+    assert d["conversation_id"] == cid
+    assert [(m["role"], m["content"]) for m in d["messages"]] == [
+        ("user", "Des BGE à Lille"),
+        ("assistant", "Quelle taille de structure ?"),
+    ]
+    assert Conversation.objects.count() == 1
+
+
+def test_le_meme_texte_redit_apres_une_reponse_est_bien_un_nouveau_tour(
+    client_admin: Any, monkeypatch: Any,
+) -> None:
+    """Contre-épreuve : on ne dédoublonne que le tour resté SANS réponse.
+
+    « Oui » deux fois de suite, chacun après une réponse de l'assistant, ce sont
+    deux tours — le correctif ne doit pas en avaler un.
+    """
+    monkeypatch.setattr(
+        "integrations.claude.get_claude_client", lambda: _ClientFaux({"reponse": "D'accord."})
+    )
+    cid = json.loads(_ecrire(client_admin, {"message": "Oui"}).content)["conversation_id"]
+
+    d = json.loads(_ecrire(client_admin, {"message": "Oui", "conversation_id": cid}).content)
+
+    assert [m["role"] for m in d["messages"]] == ["user", "assistant", "user", "assistant"]
+
+
 def test_les_conversations_exigent_le_jeton() -> None:
     from django.test import Client
     assert Client().get(f"{BASE}/conversations/").status_code in (401, 403)

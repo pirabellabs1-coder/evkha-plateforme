@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from . import brief
-from .agents import _client_structure, _texte
+from .agents import _MAX_PROSPECTS_PAR_RECHERCHE, _client_structure, _texte
 from .models import Campagne
 
 if TYPE_CHECKING:
@@ -32,7 +32,12 @@ _SCHEMA: dict[str, object] = {
             "type": "object",
             "properties": {
                 "criteres": {"type": "string"},
-                "limite": {"type": "integer", "minimum": 1, "maximum": 25},
+                # Le plafond de la recherche, lu sur sa seule source : il
+                # était recopié ici en dur (audit du 19/11/2026, règle 5).
+                "limite": {
+                    "type": "integer", "minimum": 1,
+                    "maximum": _MAX_PROSPECTS_PAR_RECHERCHE,
+                },
             },
         },
     },
@@ -107,7 +112,13 @@ def repondre(
             limite = brut.get("limite")
             proposition = {
                 "criteres": criteres,
-                "limite": limite if isinstance(limite, int) and 1 <= limite <= 25 else 10,
+                "limite": (
+                    limite
+                    if isinstance(limite, int)
+                    and not isinstance(limite, bool)
+                    and 1 <= limite <= _MAX_PROSPECTS_PAR_RECHERCHE
+                    else 10
+                ),
             }
     defaut = "Je n'ai pas de réponse pour l'instant — pouvez-vous préciser votre cible ?"
     return {

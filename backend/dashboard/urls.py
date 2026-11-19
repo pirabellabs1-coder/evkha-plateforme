@@ -242,6 +242,10 @@ urlpatterns = [
         prospection.message_annuler, name="prospection-message-annuler",
     ),
     path(
+        "prospection/messages/<str:message_id>/brouillon/",
+        prospection.message_brouillon, name="prospection-message-brouillon",
+    ),
+    path(
         "prospection/messages/<str:message_id>/evenements/",
         prospection.message_evenements, name="prospection-message-evenements",
     ),

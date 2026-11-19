@@ -7,7 +7,7 @@
   flex-wrap: nowrap;
   gap: 0 1.5rem;
   margin-bottom: var(--e-4);
-  border-bottom: 1px solid var(--e-bord, rgba(0, 0, 0, 0.1));
+  border-bottom: 1px solid var(--evkha-bordure);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -32,7 +32,7 @@
   font: inherit;
   opacity: 0.6;
   cursor: pointer;
-  transition: opacity 150ms ease, border-color 150ms ease;
+  transition: opacity var(--duree-micro) var(--ease-doux), border-color var(--duree-micro) var(--ease-doux);
 }
 
 .prospection-onglet:hover {
@@ -42,7 +42,7 @@
 .prospection-onglet.actif {
   opacity: 1;
   font-weight: 600;
-  border-bottom-color: var(--e-accent, #c8a24a);
+  border-bottom-color: var(--evkha-or);
 }
 
 /* Compteur sobre, partagé par les onglets et les filtres d'étape. */
@@ -50,7 +50,7 @@
   min-width: 1.25rem;
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: var(--e-bord, rgba(0, 0, 0, 0.1));
+  background: var(--evkha-bordure);
   font-size: 0.7rem;
   font-weight: 600;
   line-height: 1.25rem;
@@ -59,8 +59,8 @@
 
 .prospection-onglet.actif .prospection-compteur,
 .prospection-etape.actif .prospection-compteur {
-  background: var(--e-accent, #c8a24a);
-  color: #1a1a1a;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
 }
 
 .prospection-formulaire {
@@ -94,7 +94,7 @@
   flex-direction: column;
   gap: var(--e-2);
   padding: var(--e-3) 0;
-  border-top: 1px solid var(--e-bord, rgba(0, 0, 0, 0.08));
+  border-top: 1px solid var(--evkha-bordure);
 }
 
 .prospection-brouillon:first-of-type {
@@ -115,32 +115,52 @@
 
 /* Aperçu lisible du brouillon : le rendu, pas le code. */
 .prospection-apercu-mail {
-  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.1));
+  border: 1px solid var(--evkha-bordure);
   border-radius: 10px;
   overflow: hidden;
-  background: #ffffff;
-  color: #2a2a2a;
+  background: var(--fond-carte);
+  color: var(--texte);
 }
 
 .prospection-apercu-objet {
   padding: 12px 18px;
   font-weight: 600;
-  border-bottom: 2px solid var(--e-accent, #c8a24a);
-  background: #faf9f6;
+  border-bottom: 2px solid var(--evkha-or);
+  background: var(--fond-page);
 }
 
-.prospection-apercu-corps {
-  padding: 16px 18px;
-  font-size: 0.95rem;
-  line-height: 1.6;
+/* Le corps du brouillon vit dans un cadre isolé (`sandbox`) : son contenu est
+   écrit par un modèle à partir de pages web, il ne touche pas la page admin.
+   Ses styles sont DANS le document du cadre (voir `documentApercu`) ; ici, on
+   ne règle que la boîte. Un cadre isolé ne peut pas dire sa hauteur à la page :
+   elle est fixe, et se tire à la main. */
+.prospection-apercu-cadre {
+  display: block;
+  width: 100%;
+  height: 20rem;
+  min-height: 8rem;
+  border: 0;
+  background: var(--fond-carte);
+  resize: vertical;
 }
 
-.prospection-apercu-corps p {
-  margin: 0 0 0.75em;
+/* Le motif d'un refus (fournisseur, automatisation) : du texte brut, parfois
+   long et sans espace — il se coupe au lieu de pousser le tableau. */
+.prospection-motif-echec {
+  max-width: 28rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }
 
-.prospection-apercu-corps p:last-child {
-  margin-bottom: 0;
+/* Corriger une fiche, ajouter un prospect à la main. */
+.prospection-correction,
+.prospection-ajout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  margin-top: var(--e-3);
+  padding-top: var(--e-3);
+  border-top: 1px solid var(--evkha-bordure);
 }
 
 .prospection-chiffres {
@@ -165,7 +185,7 @@
 
 .prospection-jour {
   padding: 0.3rem 0.7rem;
-  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.12));
+  border: 1px solid var(--evkha-bordure);
   border-radius: 8px;
   background: transparent;
   color: inherit;
@@ -175,8 +195,8 @@
 }
 
 .prospection-jour.actif {
-  background: rgba(200, 162, 74, 0.14);
-  border-color: var(--e-accent, #c8a24a);
+  background: var(--evkha-or-voile);
+  border-color: var(--evkha-or);
   font-weight: 600;
 }
 
@@ -201,14 +221,14 @@
 
 .prospection-bulle.vous {
   align-self: flex-end;
-  background: var(--e-accent, #c8a24a);
-  color: #1a1a1a;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
   border-bottom-right-radius: 0.25rem;
 }
 
 .prospection-bulle.assistant {
   align-self: flex-start;
-  background: var(--e-surface-2, rgba(0, 0, 0, 0.05));
+  background: var(--fond-enfonce);
   border-bottom-left-radius: 0.25rem;
 }
 
@@ -233,30 +253,30 @@
   gap: 0.4rem;
   padding: 0.3rem 0.8rem;
   white-space: nowrap;
-  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.12));
+  border: 1px solid var(--evkha-bordure);
   border-radius: 999px;
   background: transparent;
   color: inherit;
   font: inherit;
   font-size: 0.82rem;
   cursor: pointer;
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: background var(--duree-micro) var(--ease-doux), border-color var(--duree-micro) var(--ease-doux);
 }
 
 .prospection-etape:hover {
-  border-color: var(--e-accent, #c8a24a);
+  border-color: var(--evkha-or);
 }
 
 .prospection-etape.actif {
-  background: rgba(200, 162, 74, 0.14);
-  border-color: var(--e-accent, #c8a24a);
+  background: var(--evkha-or-voile);
+  border-color: var(--evkha-or);
   font-weight: 600;
 }
 
 /* La fiche d'un prospect, dépliée sous sa ligne. */
 .prospection-fiche {
   padding: var(--e-3);
-  background: var(--e-surface-2, rgba(0, 0, 0, 0.03));
+  background: var(--fond-enfonce);
   border-radius: 10px;
 }
 
@@ -289,7 +309,7 @@
   align-items: center;
   gap: var(--e-2);
   padding: var(--e-2) 0;
-  border-top: 1px solid var(--e-bord, rgba(0, 0, 0, 0.08));
+  border-top: 1px solid var(--evkha-bordure);
 }
 
 .prospection-ligne-mail-objet {
@@ -311,22 +331,22 @@
   gap: 2px;
   text-align: left;
   padding: var(--e-2) var(--e-3);
-  border: 1px solid var(--e-bord, rgba(0, 0, 0, 0.1));
+  border: 1px solid var(--evkha-bordure);
   border-radius: 8px;
   background: transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: border-color 150ms ease, background 150ms ease;
+  transition: border-color var(--duree-micro) var(--ease-doux), background var(--duree-micro) var(--ease-doux);
 }
 
 .prospection-discussion:hover {
-  border-color: var(--e-accent, #c8a24a);
+  border-color: var(--evkha-or);
 }
 
 .prospection-discussion.actif {
-  border-color: var(--e-accent, #c8a24a);
-  background: rgba(200, 162, 74, 0.08);
+  border-color: var(--evkha-or);
+  background: var(--evkha-or-brume);
 }
 
 .prospection-discussion-titre {

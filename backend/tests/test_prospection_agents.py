@@ -114,9 +114,20 @@ def test_la_recherche_dedoublonne_dans_la_campagne() -> None:
 
 
 def test_la_recherche_sans_fiche_ne_cree_rien() -> None:
+    """Le modèle a cherché et n'a RIEN TROUVÉ : zéro fiche, sans erreur.
+
+    Ce test passait une charge vide (`_ClientFaux({})`) et attendait `[]`. Il
+    verrouillait le défaut (audit du 19/11/2026) : `{}` est ce que rend un
+    modèle qui répond en texte ou dont la sortie est coupée — pas « rien
+    trouvé ». Le zéro légitime s'écrit `{"prospects": []}`, et c'est lui que
+    ce test garde ; la charge vide lève désormais une erreur nommée
+    (`test_prospection_reponse_sans_outil.py`).
+    """
     campagne = _campagne()
     crees = agents.rechercher_des_prospects(
-        campagne, recherche=_RechercheFausse(_resultats_web()), client=_ClientFaux({}),
+        campagne,
+        recherche=_RechercheFausse(_resultats_web()),
+        client=_ClientFaux({"extraire_prospects": {"prospects": []}}),
     )
     assert crees == []
     assert Prospect.objects.count() == 0

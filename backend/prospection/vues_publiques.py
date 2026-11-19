@@ -136,16 +136,39 @@ def _page(corps_html: str, status: int = 200) -> HttpResponse:
     return HttpResponse(_PAGE.format(corps=corps_html), status=status, content_type="text/html")
 
 
+_BOUTON = (
+    "display:inline-block;padding:.7rem 1.4rem;border:0;border-radius:8px;"
+    "background:#1a1a1a;color:#fff;font:inherit;font-weight:600;cursor:pointer"
+)
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def desinscription(request: HttpRequest, jeton: str) -> HttpResponse:
-    """Lien public de désinscription : un clic suffit, et ne bloque jamais.
+    """Lien public de désinscription : la page DEMANDE, le bouton EXÉCUTE.
+
+    Audit du 19/11/2026 : la désinscription partait dès la visite du lien (GET).
+    Or les passerelles de messagerie d'entreprise — et les antivirus, les
+    aperçus de lien — VISITENT les liens d'un e-mail à sa réception, pour les
+    analyser. Un prospect était donc désinscrit sans avoir rien fait, parfois
+    avant d'avoir lu le message. Un GET est une lecture : il n'écrit rien.
+
+    - GET : une page qui nomme le destinataire et porte un bouton de
+      confirmation ;
+    - POST : la désinscription elle-même — le bouton de la page. (C'est aussi
+      la forme qu'attend le « one-click » des messageries, RFC 8058 ; mais
+      l'envoi ne pose AUJOURD'HUI aucun en-tête `List-Unsubscribe` : rien
+      d'autre que ce bouton ne poste ici.)
 
     Le routeur contraint `jeton` à un UUID (`<uuid:…>`), donc un lien mal formé
     rend un 404 propre avant d'entrer ici. Jeton inconnu : page polie. Déjà
-    désinscrit : on reconfirme sans se plaindre (idempotent). La confidentialité
+    désinscrit : on le dit sans se plaindre (idempotent). La confidentialité
     tient : le jeton ne porte aucune donnée personnelle, et la page n'en montre
     aucune au-delà de la raison sociale du destinataire lui-même.
+
+    Pas de jeton CSRF : la page est publique, sans session ni cookie — il n'y a
+    aucune autorité ambiante qu'un site tiers pourrait détourner, et le jeton
+    opaque du lien est déjà le secret qui autorise l'acte.
     """
     prospect = Prospect.objects.filter(jeton_desinscription=jeton).first()
     if prospect is None:
@@ -154,9 +177,24 @@ def desinscription(request: HttpRequest, jeton: str) -> HttpResponse:
             "Si vous recevez encore nos messages, répondez simplement « STOP ».</p>",
             status=404,
         )
-    services.desinscrire(prospect)
     nom = escape(prospect.raison_sociale)
+    if request.method == "POST":
+        services.desinscrire(prospect)
+        return _page(
+            f"<h1>Vous êtes désinscrit·e</h1><p>{nom} ne recevra plus de message de notre "
+            "part. Aucune autre démarche n'est nécessaire. Merci.</p>"
+        )
+    if prospect.consentement_retire:
+        return _page(
+            f"<h1>Vous êtes déjà désinscrit·e</h1><p>{nom} ne reçoit plus de message de "
+            "notre part. Aucune autre démarche n'est nécessaire.</p>"
+        )
     return _page(
-        f"<h1>Vous êtes désinscrit·e</h1><p>{nom} ne recevra plus de message de notre "
-        "part. Aucune autre démarche n'est nécessaire. Merci.</p>"
+        "<h1>Confirmez votre désinscription</h1>"
+        f"<p>{nom} ne recevra plus aucun message de prospection de notre part.</p>"
+        "<form method='post'>"
+        f"<button type='submit' style='{_BOUTON}'>Confirmer ma désinscription</button>"
+        "</form>"
+        "<p style='color:#666;font-size:.9rem'>Tant que vous n'avez pas confirmé, rien "
+        "n'est modifié.</p>"
     )

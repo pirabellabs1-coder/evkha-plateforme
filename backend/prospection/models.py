@@ -14,8 +14,10 @@ et un test échoue si un brouillon pouvait partir.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta
 
 from django.db import models
+from django.utils import timezone
 
 from core.models import UUIDModel
 
@@ -58,8 +60,39 @@ class TypeEvenement(models.TextChoices):
     CLIQUE = "clique", "Cliqué"
     REPONDU = "repondu", "A répondu"
     REBOND = "rebond", "Rebond"
+    #: Remise simplement RETARDÉE (boîte pleine, serveur lent) : le fournisseur
+    #: réessaie. Type à part depuis l'audit du 19/11/2026 — rangé en REBOND, un
+    #: retard gonflait le compteur des rebonds et se lisait comme une adresse
+    #: morte. Un retard ne compte pas et ne bloque rien.
+    RETARD = "retard", "Remise retardée"
     DESINSCRIT = "desinscrit", "Désinscrit"
     PLAINTE = "plainte", "Plainte"
+
+
+class MotifInterdiction(models.TextChoices):
+    """Pourquoi on n'écrit plus à une ADRESSE (voir `AdresseInterdite`)."""
+
+    DESINSCRIPTION = "desinscription", "Désinscription"
+    PLAINTE = "plainte", "Plainte (signalé comme indésirable)"
+    REBOND_DEFINITIF = "rebond_definitif", "Adresse rejetée (rebond définitif)"
+
+
+#: Les motifs qui valent OPPOSITION de la personne : définitive, et attachée à
+#: elle. Un rebond définitif n'en est pas une — c'est l'adresse qui est morte,
+#: et corriger l'adresse de la fiche lève l'interdiction.
+MOTIFS_D_OPPOSITION = frozenset(
+    {MotifInterdiction.DESINSCRIPTION, MotifInterdiction.PLAINTE}
+)
+
+
+def normaliser_adresse(adresse: object) -> str:
+    """La forme sous laquelle une adresse se COMPARE : minuscules, sans espace.
+
+    Une seule définition (règle 5) : l'opposition, le refus d'envoi et le
+    dédoublonnage lisent tous cette clé. Deux fiches « Contact@Cabinet.fr » et
+    « contact@cabinet.fr » sont la même boîte aux lettres.
+    """
+    return "".join(str(adresse or "").split()).lower()
 
 
 class Campagne(UUIDModel):
@@ -126,12 +159,17 @@ class Prospect(UUIDModel):
 
     @property
     def contactable(self) -> bool:
-        """Peut-on lui écrire ? Un e-mail, pas de désinscription, pas exclu."""
-        return bool(
-            self.email
-            and not self.consentement_retire
-            and self.statut not in (StatutProspect.DESINSCRIT, StatutProspect.EXCLU)
-        )
+        """Peut-on lui écrire ? Lu sur LA définition : `services.motif_de_non_contact`.
+
+        Jusqu'à l'audit du 19/11/2026 cette propriété jugeait sur la seule
+        fiche (un e-mail, pas de désinscription, pas exclu) pendant que l'envoi
+        jugeait autrement : deux avis sur la même question (règle 5). Elle
+        interroge la table des adresses interdites — une requête par appel ;
+        pour un lot, passer par `services.interdictions`.
+        """
+        from .services import motif_de_non_contact  # noqa: PLC0415 — `services` importe les modèles
+
+        return motif_de_non_contact(self) is None
 
 
 class Sequence(UUIDModel):
@@ -201,6 +239,11 @@ class Message(UUIDModel):
     envoye_le = models.DateTimeField(null=True, blank=True)
     provider_message_id = models.CharField(max_length=200, blank=True)
     error_message = models.TextField(blank=True)
+    #: L'adresse (normalisée) à laquelle le message est RÉELLEMENT parti, écrite
+    #: à l'envoi. Une fiche se corrige (audit du 19/11/2026) : sans cette trace,
+    #: un rebond ou une plainte arrivés après la correction auraient frappé la
+    #: NOUVELLE adresse de la fiche, pas celle qui a rebondi.
+    destinataire = models.CharField(max_length=254, blank=True, default="")
 
     class Meta:
         ordering = ["-created_at"]
@@ -216,6 +259,60 @@ class Message(UUIDModel):
     def envoyable(self) -> bool:
         """L'état autorise-t-il l'envoi ? (le prospect est jugé par le service.)"""
         return self.statut in ETATS_ENVOYABLES
+
+
+class AdresseInterdite(UUIDModel):
+    """La table d'opposition PAR ADRESSE : à qui on n'écrit plus, et pourquoi.
+
+    Le défaut (audit du 19/11/2026) : l'opposition vivait sur la FICHE
+    (`Prospect.consentement_retire`). Un cabinet désinscrit dans la campagne A
+    était recréé par la campagne B avec `consentement_retire=False`, et ses
+    messages partaient. L'opposition suit donc l'adresse, pas la fiche.
+
+    Aucune clé étrangère vers `Prospect`, à dessein : la ligne SURVIT à la
+    suppression de la fiche (et de sa campagne). Une opposition qui disparaît
+    avec la fiche qui la portait n'en est pas une.
+
+    `adresse` est la clé normalisée (`normaliser_adresse`), unique. Une seule
+    ligne par adresse ; une opposition (désinscription, plainte) prime sur un
+    simple rebond — voir `services.interdire_adresse`.
+    """
+
+    adresse = models.CharField(max_length=254, unique=True)
+    motif = models.CharField(
+        max_length=20,
+        choices=MotifInterdiction.choices,
+        default=MotifInterdiction.DESINSCRIPTION,
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.adresse} ({self.motif})"
+
+    @property
+    def est_une_opposition(self) -> bool:
+        return self.motif in MOTIFS_D_OPPOSITION
+
+
+class EtatAutomatisation(models.TextChoices):
+    """Où en est la dernière tentative de la prospection quotidienne."""
+
+    EN_COURS = "en_cours", "En cours"
+    REUSSIE = "reussie", "Réussie"
+    #: La recherche a abouti, mais des prospects n'ont pas pu être qualifiés
+    #: ou rédigés : `derniere_erreur` dit pourquoi.
+    PARTIELLE = "partielle", "Terminée avec des échecs"
+    ECHOUEE = "echouee", "Échec"
+    #: Restée « en cours » bien au-delà de sa durée : le processus a été tué
+    #: (déploiement, mémoire). Jamais écrit en base — c'est une LECTURE, voir
+    #: `ReglageAutomatisation.etat_affiche`.
+    INTERROMPUE = "interrompue", "Interrompue"
+
+
+#: Au-delà, une tentative encore « en cours » ne l'est plus : elle est morte.
+DUREE_MAX_D_UNE_TENTATIVE = timedelta(hours=2)
 
 
 class ReglageAutomatisation(UUIDModel):
@@ -238,11 +335,40 @@ class ReglageAutomatisation(UUIDModel):
     #: Jours de la semaine autorisés : CSV d'entiers 0=lundi … 6=dimanche.
     #: Vide = tous les jours.
     jours = models.CharField(max_length=20, blank=True, default="0,1,2,3,4")
+    #: La dernière exécution ALLÉE AU BOUT (réussie ou partielle).
     derniere_execution = models.DateTimeField(null=True, blank=True)
     cree_par = models.CharField(max_length=200, blank=True)
+    #: La dernière TENTATIVE, inscrite AVANT de lancer quoi que ce soit (audit
+    #: du 19/11/2026). `derniere_execution` n'était écrite qu'à la fin : une
+    #: panne — ou un déploiement en cours de route — ne laissait aucune trace,
+    #: la tâche horaire rejouait donc la recherche toutes les heures en
+    #: repayant ce qui précédait, et l'écran affichait « Activée ✓ » sans rien
+    #: dire. C'est la tentative, pas le succès, qui vaut « déjà fait ce jour ».
+    derniere_tentative = models.DateTimeField(null=True, blank=True)
+    dernier_etat = models.CharField(
+        max_length=16, choices=EtatAutomatisation.choices, blank=True, default=""
+    )
+    #: Ce que la tentative a produit : proposées, créées, qualifiées, rédigées…
+    dernier_bilan = models.JSONField(default=dict, blank=True)
+    derniere_erreur = models.TextField(blank=True, default="")
 
     def __str__(self) -> str:
         return f"Automatisation ({'active' if self.active else 'inactive'})"
+
+    def etat_affiche(self, maintenant: datetime | None = None) -> str:
+        """L'état à MONTRER : « en cours » depuis trop longtemps se lit « interrompue ».
+
+        Un processus tué ne peut pas écrire qu'il est mort. Sans cette lecture,
+        l'écran dirait « en cours » pour toujours.
+        """
+        if (
+            self.dernier_etat == EtatAutomatisation.EN_COURS
+            and self.derniere_tentative is not None
+            and (maintenant or timezone.now()) - self.derniere_tentative
+            > DUREE_MAX_D_UNE_TENTATIVE
+        ):
+            return EtatAutomatisation.INTERROMPUE
+        return self.dernier_etat
 
     @classmethod
     def charger(cls) -> ReglageAutomatisation:
