@@ -1,0 +1,324 @@
+/* Les quatre pages légales (`PagesLegales.tsx`) : des pages de LECTURE.
+ *
+ * Le socle (`Site.css`) tient la barre, le menu, le pied, les titres et le
+ * focus. Cette feuille ne tient que ce qui est propre au gabarit, sous le
+ * préfixe `leg-` : l'en-tête de page, la barre qui relie les quatre textes, le
+ * sommaire et la colonne de texte.
+ *
+ * Les règles du socle tiennent ici aussi :
+ *
+ * 1. aucune couleur n'est écrite : tout lit un jeton de `theme/tokens.css` ou
+ *    un alias `--acc-*` ; les translucides sont composés sur un jeton ;
+ * 2. toute durée lit un jeton ; aucun plancher de mouvement réduit n'est lu
+ *    ici — sous mouvement réduit, les trois survols de cette feuille sont
+ *    simplement instantanés ;
+ * 3. rien ne bouge tout seul et rien n'attend le défilement pour apparaître.
+ *
+ * Écrite du téléphone vers le grand écran : une colonne, le sommaire replié
+ * au-dessus du texte ; à partir de 1001 px — la largeur où le socle montre les
+ * liens de sa barre, et celle que lit `PagesLegales.tsx` — deux colonnes, le
+ * sommaire collant à gauche.
+ */
+
+/* ── En-tête de page ─────────────────────────────────────────────────────── */
+
+/* La marge du haut laisse passer la barre fixe du site. */
+.leg-tete {
+  padding: 132px 0 clamp(28px, 4vw, 44px);
+}
+
+.leg-tete h1 {
+  max-width: 24ch;
+  font-family: var(--police-titre);
+  overflow-wrap: break-word;
+}
+
+.leg-date {
+  margin-top: 14px;
+  color: var(--acc-gris);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+/* ── La barre qui relie les quatre textes ────────────────────────────────── */
+
+.leg-textes {
+  margin-top: 26px;
+}
+
+.leg-textes ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 44 px de haut : une cible que le doigt atteint. */
+.leg-textes a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--acc-blanc);
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: background-color var(--duree-micro) var(--ease-doux);
+}
+
+.leg-textes a:hover {
+  background: var(--acc-or-clair);
+}
+
+/* Le texte affiché : la pilule est pleine, et sa graisse change. Le repère ne
+   tient pas à une teinte seule. */
+.leg-textes a[aria-current="page"] {
+  background: var(--acc-encre);
+  box-shadow: none;
+  color: var(--acc-blanc);
+  font-weight: 800;
+}
+
+/* ── Le corps : sommaire et texte ────────────────────────────────────────── */
+
+.leg-corps {
+  display: grid;
+  gap: 28px;
+  padding-bottom: clamp(72px, 9vw, 120px);
+}
+
+/* ── Sommaire ────────────────────────────────────────────────────────────── */
+
+.leg-sommaire {
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin),
+    0 10px 34px color-mix(in srgb, var(--evkha-miel) 8%, transparent);
+}
+
+/* Le même habillage pour le titre de la colonne et pour la poignée du
+   `<details>` : c'est le même mot. */
+.leg-sommaire summary,
+.leg-sommaire-titre {
+  color: var(--acc-encre);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.leg-sommaire summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  min-height: 56px;
+  padding: 0 12px 0 20px;
+  border-radius: var(--acc-r);
+  list-style: none;
+  cursor: pointer;
+}
+
+.leg-sommaire summary::-webkit-details-marker {
+  display: none;
+}
+
+.leg-sommaire summary::after {
+  content: "+";
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--acc-or-clair);
+  font-size: 1.3rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  transition: transform var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.leg-sommaire details[open] summary::after {
+  background: var(--acc-or);
+  transform: rotate(45deg);
+}
+
+.leg-sommaire-titre {
+  padding: 20px 20px 8px;
+}
+
+.leg-sommaire ol {
+  margin: 0;
+  padding: 0 8px 10px;
+  list-style: none;
+}
+
+/* Les titres d'article sont longs : ils passent à la ligne, ils ne sont pas
+   coupés. 44 px au moins sous le doigt. */
+.leg-sommaire ol a {
+  display: block;
+  padding: 12px;
+  border-radius: 12px;
+  color: var(--acc-gris);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: break-word;
+  transition: background-color var(--duree-micro) var(--ease-doux);
+}
+
+.leg-sommaire ol a:hover {
+  background: var(--acc-or-clair);
+  color: var(--acc-encre);
+}
+
+/* ── La colonne de lecture ───────────────────────────────────────────────── */
+
+/* Environ 72 caractères par ligne. L'unité `ch` mesure le « 0 », plus large
+   en Montserrat que la lettre moyenne : 63ch donne des lignes d'environ 72
+   caractères de texte courant. */
+.leg-colonne {
+  min-width: 0;
+  max-width: 63ch;
+}
+
+.leg-texte {
+  line-height: 1.78;
+  overflow-wrap: break-word;
+}
+
+.leg-texte :is(h2, h3) {
+  color: var(--acc-encre);
+  font-family: var(--police-titre);
+}
+
+.leg-texte h2 {
+  font-size: clamp(1.28rem, 2vw, 1.6rem);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.leg-texte h3 {
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+.leg-texte :is(p, li) {
+  color: var(--acc-gris);
+}
+
+.leg-texte ul {
+  margin: 0;
+  padding-left: 1.3em;
+}
+
+.leg-texte li::marker {
+  color: var(--acc-or-fonce);
+}
+
+.leg-texte li + li {
+  margin-top: 0.45em;
+}
+
+/* Le rythme vertical : entre deux blocs, après un titre, entre deux sections.
+   Un article (niveau 2) est séparé du précédent par un filet ; une sous-partie
+   (niveau 3) par un simple blanc. */
+.leg-texte :is(p, ul) + :is(p, ul) {
+  margin-top: 1.05em;
+}
+
+.leg-texte :is(h2, h3) + :is(p, ul) {
+  margin-top: 0.85em;
+}
+
+.leg-section-2 {
+  margin-top: 2.6em;
+  padding-top: 2.2em;
+  border-top: 1.5px solid var(--acc-trait);
+}
+
+.leg-section-3 {
+  margin-top: 2em;
+}
+
+/* Un article qui n'a que son titre coiffe les sous-parties qui le suivent :
+   la première se rapproche de lui. */
+.leg-section-2:has(> h2:only-child) + .leg-section-3 {
+  margin-top: 1.2em;
+}
+
+/* La toute première section d'une page sans introduction ouvre le texte :
+   ni filet ni blanc au-dessus d'elle. */
+.leg-texte > .leg-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Les adresses rendues cliquables : soulignées, pour ne pas tenir à la
+   couleur seule ; une adresse longue peut se couper sur un petit écran. */
+.leg-texte a {
+  color: var(--acc-encre);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--acc-or-fonce);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.leg-texte a:hover {
+  text-decoration-color: var(--acc-encre);
+}
+
+.leg-retour {
+  margin-top: 48px;
+}
+
+.leg-retour a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--acc-encre);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Le pied doré du socle suit d'ordinaire une fin dorée. Ici il suit le
+   papier : ses coins du haut s'arrondissent, comme ceux de cette fin. */
+.leg .acc-pied {
+  border-radius: var(--acc-r2) var(--acc-r2) 0 0;
+}
+
+/* ── Grand écran : le sommaire en colonne collante ───────────────────────── */
+
+@media (min-width: 1001px) {
+  .leg-tete {
+    padding-top: 150px;
+  }
+
+  .leg-corps {
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+    gap: clamp(40px, 6vw, 88px);
+    align-items: start;
+  }
+
+  /* Sous la barre fixe, et jamais plus haut que la fenêtre : un long sommaire
+     défile dans sa colonne. Ses liens prennent le focus, donc le clavier le
+     parcourt. */
+  .leg-sommaire {
+    position: sticky;
+    top: 104px;
+    max-height: calc(100vh - 128px);
+    overflow-y: auto;
+  }
+
+  .leg-sommaire ol a {
+    padding: 8px 12px;
+  }
+}

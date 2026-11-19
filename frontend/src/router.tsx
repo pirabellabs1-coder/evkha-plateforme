@@ -28,6 +28,21 @@ import { routesEspace } from "./espace/routes";
 import { Accueil } from "./public/Accueil";
 import { Partenaires } from "./public/Partenaires";
 import { NosEtudes } from "./public/NosEtudes";
+import { PackEssentiel, PackPremium, Packs } from "./public/Packs";
+import {
+  FormationMicro,
+  FormationPop,
+  Formations,
+  FormationSocietes,
+} from "./public/Formations";
+import { BoiteAOutils, Contact, Swapn } from "./public/Ressources";
+import { ArticleDeBlog, Blog } from "./public/Blog";
+import {
+  Cgv,
+  MentionsLegales,
+  PolitiqueDeConfidentialite,
+  Rgpd,
+} from "./public/PagesLegales";
 import { Boutique } from "./public/Boutique";
 import { FicheProduit } from "./public/FicheProduit";
 import { RetourBoutique } from "./public/RetourBoutique";
@@ -296,6 +311,133 @@ const adminClientDetail = createRoute({
   component: ClientDetail,
 });
 
+// --- Le site public repris de evkha.fr (19/11/2026) ---------------------------
+//
+// Regle de la refonte : aucune page de l'ancien site (systeme.io) ne manque.
+// Chaque ligne de `docs/refonte/catalogue-et-plan-du-site.md` a ici sa page :
+// packs, formations, boite a outils, blog, contact, Swapn, et les quatre textes
+// legaux, gardes a leur adresse d'origine pour ne pas perdre leur referencement.
+// Aucune garde : ce sont des pages de visiteur.
+const packsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/packs",
+  component: Packs,
+});
+const packEssentielRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/packs/essentiel",
+  component: PackEssentiel,
+});
+const packPremiumRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/packs/premium",
+  component: PackPremium,
+});
+const formationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/formations",
+  component: Formations,
+});
+const formationSocietesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/formations/creer-son-entreprise",
+  component: FormationSocietes,
+});
+const formationMicroRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/formations/creer-sa-micro-entreprise",
+  component: FormationMicro,
+});
+const formationPopRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/formations/methode-pop",
+  component: FormationPop,
+});
+const boiteAOutilsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/boite-a-outils",
+  component: BoiteAOutils,
+});
+const blogRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/blog",
+  component: Blog,
+});
+const articleDeBlogRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/blog/$slug",
+  component: ArticleDeBlog,
+});
+const contactRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/contact",
+  component: Contact,
+});
+const swapnRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/swapn",
+  component: Swapn,
+});
+const mentionsLegalesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/mentions-legales",
+  component: MentionsLegales,
+});
+const rgpdRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/rgpd",
+  component: Rgpd,
+});
+const cgvRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/cgv",
+  component: Cgv,
+});
+const confidentialiteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/politique-de-confidentialite",
+  component: PolitiqueDeConfidentialite,
+});
+
+// Les anciennes adresses du site, encore dans les moteurs, les courriels et les
+// favoris. Elles renvoient a la page qui les remplace. C'est une redirection
+// faite par le navigateur : la vraie 301, lue par les robots, se pose au
+// serveur (nginx) le jour ou le domaine bascule.
+//
+// L'ancien article garde son adresse complete, plus bas : `/boite-a-outils/...`.
+// Les pages de paiement (`/paiement-*`) ne sont PAS ici : tant que la
+// plateforme n'encaisse ni les packs ni les formations, ce sont elles qui
+// vendent, et les rediriger couperait la vente.
+function ancienneAdresse(de: string, vers: Parameters<typeof redirect>[0]["to"]) {
+  return createRoute({
+    getParentRoute: () => rootRoute,
+    path: de,
+    beforeLoad: () => {
+      throw redirect({ to: vers });
+    },
+  });
+}
+const anciennesAdresses = [
+  ancienneAdresse("/formation", "/formations"),
+  ancienneAdresse("/achat-formationsociete", "/formations/creer-son-entreprise"),
+  ancienneAdresse("/achat-formationmicro", "/formations/creer-sa-micro-entreprise"),
+  ancienneAdresse("/achat-formationpop", "/formations/methode-pop"),
+  ancienneAdresse("/etude", "/etudes"),
+  ancienneAdresse("/etudedemarche", "/etudes"),
+  ancienneAdresse("/etude-achat-immediat", "/boutique"),
+  ancienneAdresse("/partenairespro", "/partenaires"),
+  ancienneAdresse("/boite-a-outil", "/boite-a-outils"),
+  ancienneAdresse("/contacts", "/contact"),
+  ancienneAdresse("/contacte", "/contact"),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/boite-a-outils/idee-business-viable",
+    beforeLoad: () => {
+      throw redirect({ to: "/blog/$slug", params: { slug: "idee-business-viable" } });
+    },
+  }),
+];
+
 // --- Page d'accueil ----------------------------------------------------------
 //
 // La racine est la page d'accueil publique (`public/Accueil.tsx`) : la
@@ -330,6 +472,23 @@ const routeTree = rootRoute.addChildren([
   acheterRoute,
   loginRoute,
   racine,
+  packsRoute,
+  packEssentielRoute,
+  packPremiumRoute,
+  formationsRoute,
+  formationSocietesRoute,
+  formationMicroRoute,
+  formationPopRoute,
+  boiteAOutilsRoute,
+  blogRoute,
+  articleDeBlogRoute,
+  contactRoute,
+  swapnRoute,
+  mentionsLegalesRoute,
+  rgpdRoute,
+  cgvRoute,
+  confidentialiteRoute,
+  ...anciennesAdresses,
   adminRoute.addChildren([
     adminIndex,
     adminOrganisations,

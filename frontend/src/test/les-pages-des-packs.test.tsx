@@ -1,0 +1,734 @@
+/** Les trois pages des packs d'accompagnement : `/packs`, `/packs/essentiel`,
+ * `/packs/premium` (`public/Packs.tsx`).
+ *
+ * Elles reprennent trois pages du site de la cliente. Ce que ce test
+ * verrouille :
+ *
+ * 1. chaque page se rend, a UN h1, des titres sans saut, un lien d'évitement,
+ *    rien de focalisable sous `aria-hidden`, un titre d'onglet à elle ;
+ * 2. les prix affichés sont ceux de `contenuPacks.TARIFS_PACKS`, et aucun
+ *    montant n'est écrit dans `Packs.tsx` — ni sous la forme « 495 € », ni
+ *    par ses seuls chiffres (la classe du défaut, règle 4) ;
+ * 3. chaque bouton d'achat mène à la page de paiement de SON pack
+ *    (`LIENS_PACKS`), « Voir le détail » à la page du pack ;
+ * 4. aucun `<form>`, aucun champ : le formulaire de commande de Systeme.io
+ *    (`formulaireDeCommande`) n'est pas rendu ;
+ * 5. RIEN de ce que les pages d'origine disaient n'a disparu : chaque phrase
+ *    du contenu est dans le DOM — sauf celles qu'un ACCORD a retouchées, dont
+ *    le nombre est exact et la forme attendue écrite ici en toutes lettres ;
+ * 6. les accords : jamais « 15 ans » ni « 16 ans » sans « plus de », le
+ *    nombre d'étapes annoncé est celui des étapes affichées, le Premium
+ *    n'annonce aucun nombre de livrables ;
+ * 7. le comparatif est un vrai tableau : légende, en-têtes de colonne et de
+ *    ligne, boîte nommée et focalisable ;
+ * 8. les cartes du Premium sans chiffre s'affichent sans chiffre ;
+ * 9. la stratégie : « réalisé par Evangeline » dès l'ouverture, une passerelle
+ *    vers `/etudes` sans un prix ;
+ * 10. aucune adresse du CDN de l'ancien site dans `Packs.tsx` ni `Packs.css`,
+ *     ni dans le DOM.
+ *
+ * Contre-épreuves (règle 6) : les détecteurs voient bien un montant, une
+ * ancienneté nue, une adresse du CDN — et laissent passer ce qui est juste.
+ *
+ * PAS ENCORE JOUÉ au moment de son écriture (machine à court de mémoire,
+ * consigne du lot) : ni contre la page, ni par mutation. À rejouer, puis à
+ * éprouver par mutations — un montant en dur dans une carte, un bouton d'achat
+ * croisé, le formulaire rendu, un `dire` retiré de l'experte.
+ *
+ * `React` est importé nommément : `src/test` est hors du `tsconfig`, le JSX y
+ * est compilé en `React.createElement` classique.
+ */
+import React from "react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+  ARTICULATION_PACK_ESSENTIEL,
+  ARTICULATION_PACK_PREMIUM,
+  COMMUN_PACKS,
+  COMPARATIF_PACKS,
+  LIENS_PACKS,
+  PAGE_PACKS,
+  PAGE_PACK_ESSENTIEL,
+  PAGE_PACK_PREMIUM,
+  TARIFS_PACKS,
+  ancienneteSure,
+  compteRendu,
+  pointDeListe,
+  sansCompte,
+  sansFleche,
+} from "../public/contenuPacks";
+import { LIENS } from "../public/contenuSite";
+import { PackEssentiel, PackPremium, Packs } from "../public/Packs";
+
+// ── Outils ──────────────────────────────────────────────────────────────────
+
+/** Les deux espaces insécables. Construites par leur code, jamais tapées :
+ *  écrites en clair, elles sont invisibles à la relecture. */
+const INSECABLE = String.fromCharCode(0xa0);
+const FINE_INSECABLE = String.fromCharCode(0x202f);
+const INSECABLES = new RegExp(`[${INSECABLE}${FINE_INSECABLE}]`, "g");
+
+function espaces(brut: string): string {
+  return brut.replace(INSECABLES, " ");
+}
+
+function brut(): string {
+  return document.body.textContent ?? "";
+}
+
+function texte(): string {
+  return espaces(brut());
+}
+
+function texteDe(element: Element | null): string {
+  return espaces(element?.textContent ?? "");
+}
+
+/** Le prix tel qu'il doit s'afficher, calculé ICI sur la constante de tarifs —
+ *  et non lu dans une chaîne déjà formée par le fichier de contenu. */
+function prix(tarif: { centimes: number }): string {
+  return `${tarif.centimes / 100} €`;
+}
+
+const PRIX_ESSENTIEL = prix(TARIFS_PACKS.essentiel);
+const PRIX_PREMIUM = prix(TARIFS_PACKS.premium);
+
+/** Un montant en euros, où qu'il soit. */
+const MONTANT_ECRIT = /\d[\d\s.,]*(?:€|euros?\b)/i;
+
+/** Les chiffres d'un tarif, seuls : « 495 » sans son symbole. Un prix recopié
+ *  dans un nom de variable ou une chaîne sans « € » serait encore un prix. */
+function chiffresDesTarifs(): RegExp {
+  const montants = Object.values(TARIFS_PACKS).map((t) => String(t.centimes / 100));
+  return new RegExp(`(?<!\\d)(?:${montants.join("|")})(?!\\d)`, "g");
+}
+
+/** Une ancienneté écrite sans « plus de ». */
+const ANCIENNETE_NUE = /(?<!plus de )\b1[56] ans\b/;
+
+/** Une adresse du CDN qui sert les images de l'ancien site. */
+const ANCIEN_CDN = /cloudfront\.net|d1yei2z3i6k35z/i;
+
+function sansCommentaires(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
+function source(fichier: string): string {
+  return readFileSync(join(process.cwd(), "src", "public", fichier), "utf-8");
+}
+
+/** Toutes les phrases d'un objet de contenu, à plat, sauf sous les clés
+ *  `exclues`. */
+function phrases(valeur: unknown, exclues: string[] = []): string[] {
+  if (typeof valeur === "string") return [valeur];
+  if (Array.isArray(valeur)) return valeur.flatMap((v) => phrases(v, exclues));
+  if (valeur && typeof valeur === "object") {
+    return Object.entries(valeur)
+      .filter(([cle]) => !exclues.includes(cle))
+      .flatMap(([, v]) => phrases(v, exclues));
+  }
+  return [];
+}
+
+/** Ce qui n'est pas une phrase à retrouver : le titre d'onglet et la
+ *  description (vérifiés à part), les adresses, le formulaire non rendu. */
+const HORS_PHRASES = ["titreDeLOnglet", "metaDescription", "lien", "formulaireDeCommande"];
+
+/** Une phrase telle que la page l'affiche, HORS accords : l'étoile de tête
+ *  devient la puce de la ligne, la flèche finale celle du bouton. */
+function affichee(phrase: string): string {
+  return espaces(sansFleche(pointDeListe(phrase).texte));
+}
+
+/** Une case du comparatif qui commence par un signe (« ✓ Standard », « — ») :
+ *  rendue en deux morceaux, vérifiée dans le tableau. */
+function estUnSigne(phrase: string): boolean {
+  return COMPARATIF_PACKS.signes.some(
+    (s) => phrase.startsWith(s.signe) && !pointDeListe(phrase).vedette,
+  );
+}
+
+/** Les phrases du contenu que la page n'affiche pas mot pour mot. */
+function absentes(contenu: unknown): string[] {
+  const page = texte();
+  return phrases(contenu, HORS_PHRASES)
+    .filter((phrase) => !estUnSigne(phrase))
+    .filter((phrase) => !page.includes(affichee(phrase)));
+}
+
+const PAGES = {
+  ensemble: { chemin: "/packs", page: <Packs /> },
+  essentiel: { chemin: "/packs/essentiel", page: <PackEssentiel /> },
+  premium: { chemin: "/packs/premium", page: <PackPremium /> },
+};
+
+type NomDePage = keyof typeof PAGES;
+const NOMS = Object.keys(PAGES) as NomDePage[];
+
+function rendre(nom: NomDePage) {
+  window.history.pushState({}, "", PAGES[nom].chemin);
+  return render(PAGES[nom].page);
+}
+
+function liens(conteneur: ParentNode = document): HTMLAnchorElement[] {
+  return Array.from(conteneur.querySelectorAll<HTMLAnchorElement>("a[href]"));
+}
+
+/** Les liens qui mènent à une page de paiement du site. */
+function liensDePaiement(): HTMLAnchorElement[] {
+  return liens().filter((a) => /\/paiement-/.test(a.getAttribute("href") ?? ""));
+}
+
+describe("les pages des packs", () => {
+  afterEach(() => {
+    cleanup();
+    window.history.pushState({}, "", "/");
+  });
+
+  // ── Chaque page se rend et se laisse conduire ─────────────────────────────
+
+  for (const nom of NOMS) {
+    it(`${nom} : un seul h1, des titres sans saut, un lien d'évitement, rien de focalisable sous aria-hidden`, () => {
+      rendre(nom);
+
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      const niveaux = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6")).map((t) => Number(t.tagName[1]));
+      expect(niveaux[0]).toBe(1);
+      expect(niveaux.length).toBeGreaterThan(8);
+      niveaux.forEach((niveau, k) => {
+        if (k > 0) expect(niveau - niveaux[k - 1], `saut de titre au rang ${k}`).toBeLessThanOrEqual(1);
+      });
+
+      const principal = screen.getByRole("main");
+      expect(principal.id).not.toBe("");
+      expect(screen.getByRole("link", { name: "Aller au contenu" })).toHaveAttribute("href", `#${principal.id}`);
+      // Un seul pied de page, une barre : les cartes n'en fabriquent pas d'autres.
+      expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
+      expect(screen.getByRole("navigation", { name: "Principale" })).toBeInTheDocument();
+
+      const caches = Array.from(document.querySelectorAll("[aria-hidden='true']"));
+      expect(caches.length).toBeGreaterThan(10);
+      for (const cache of caches) {
+        expect(cache.querySelector("a, button, input, select, textarea, summary, [tabindex]"), cache.className).toBeNull();
+      }
+
+      // Les images : un texte, des dimensions réservées, et le chargement
+      // différé — aucune n'est en haut de page.
+      const images = Array.from(document.querySelectorAll("img"));
+      expect(images.length).toBeGreaterThan(0);
+      for (const image of images) {
+        expect(image.getAttribute("alt") ?? "", image.src).not.toBe("");
+        expect(Number(image.getAttribute("width"))).toBeGreaterThan(0);
+        expect(Number(image.getAttribute("height"))).toBeGreaterThan(0);
+        expect(image).toHaveAttribute("loading", "lazy");
+        expect(image.getAttribute("src")).toMatch(/^\/(accueil|partenaires)\//);
+      }
+    });
+
+    it(`${nom} : aucun formulaire, aucun champ, aucune adresse de l'ancien CDN dans le DOM`, () => {
+      rendre(nom);
+
+      expect(document.querySelector("form")).toBeNull();
+      expect(document.querySelector("input, select, textarea")).toBeNull();
+      // Le formulaire de commande de Systeme.io n'est pas rendu.
+      for (const page of [PAGE_PACK_ESSENTIEL, PAGE_PACK_PREMIUM]) {
+        const formulaire = phrases(page.formulaireDeCommande);
+        expect(formulaire.length).toBeGreaterThanOrEqual(6);
+        for (const phrase of formulaire) {
+          expect(texte(), `le formulaire est rendu : « ${phrase} »`).not.toContain(phrase);
+        }
+      }
+      for (const element of Array.from(document.querySelectorAll("[src], [href]"))) {
+        const adresse = element.getAttribute("src") ?? element.getAttribute("href") ?? "";
+        expect(adresse, adresse).not.toMatch(ANCIEN_CDN);
+      }
+    });
+
+    it(`${nom} : la typographie française tient dans le texte affiché`, () => {
+      rendre(nom);
+
+      // Texte BRUT : c'est l'espace ordinaire qu'on cherche.
+      expect(brut()).toMatch(/€/);
+      expect(brut()).not.toMatch(/ €/);
+      expect(brut()).not.toMatch(/ [→←↗↓]|[→←↗↓] /);
+      expect(texte()).not.toMatch(/\b(?:null|undefined|NaN)\b/);
+    });
+
+    it(`${nom} : « réalisé par Evangeline » dès l'ouverture, et une passerelle vers les études sans un prix`, () => {
+      rendre(nom);
+
+      const ouverture = document.querySelector(".pak-ouverture");
+      expect(texteDe(ouverture)).toContain(COMMUN_PACKS.realisePar);
+      expect(texteDe(ouverture)).toContain(COMMUN_PACKS.realiseCorps);
+      expect(texteDe(ouverture)).toMatch(/Evangeline/);
+
+      const passerelle = document.getElementById("autrement") as HTMLElement;
+      expect(passerelle).not.toBeNull();
+      expect(within(passerelle).getByRole("link", { name: /Voir les études/ })).toHaveAttribute("href", "/etudes");
+      const porte = within(passerelle).getByRole("link", { name: /Voir les études/ }).closest("article");
+      expect(texteDe(porte)).toContain("seul document ?");
+      expect(texteDe(porte)).not.toMatch(MONTANT_ECRIT);
+      // Elle précède l'appel final.
+      const fin = document.getElementById("commander") as HTMLElement;
+      expect(passerelle.compareDocumentPosition(fin) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // L'appel gratuit est proposé sur chaque page.
+      const appels = screen.getAllByRole("link", { name: new RegExp(COMMUN_PACKS.appelGratuit) });
+      expect(appels.length).toBeGreaterThanOrEqual(1);
+      for (const appel of appels) expect(appel).toHaveAttribute("href", LIENS.appel);
+      expect(within(fin).getByRole("link", { name: new RegExp(COMMUN_PACKS.appelGratuit) })).toBeInTheDocument();
+    });
+
+    it(`${nom} : l'ancienneté ne s'écrit jamais sans « plus de »`, () => {
+      rendre(nom);
+      expect(texte()).toContain("plus de 15 ans");
+      expect(texte()).not.toMatch(ANCIENNETE_NUE);
+    });
+
+    it(`${nom} : deux boutons de pause, un seul état, et un ruban décoratif`, () => {
+      const { container } = rendre(nom);
+
+      const boutons = screen.getAllByRole("button", { name: "Mettre les animations en pause" });
+      expect(boutons).toHaveLength(2);
+      fireEvent.click(boutons[1]);
+      expect(container.querySelector(".acc")).toHaveClass("acc-fige");
+      expect(container.querySelector(".acc")).toHaveClass("pak");
+      for (const bouton of screen.getAllByRole("button", { name: "Relancer les animations" })) {
+        expect(bouton).toHaveAttribute("aria-pressed", "true");
+      }
+      expect(document.querySelector(".acc-ruban")).toHaveAttribute("aria-hidden", "true");
+    });
+  }
+
+  it("chaque page a son titre d'onglet et sa description, et aucun n'est le nom de travail du site", () => {
+    const titres: string[] = [];
+    for (const nom of NOMS) {
+      rendre(nom);
+      titres.push(document.title);
+      expect(document.title, nom).not.toMatch(/PAGE DE PAIEMENT/i);
+      expect(document.title, nom).toMatch(/EVKHA$/);
+      cleanup();
+    }
+    expect(new Set(titres).size).toBe(NOMS.length);
+    expect(titres[0]).toBe(PAGE_PACKS.titreDeLOnglet);
+    expect(titres[1]).toBe(ARTICULATION_PACK_ESSENTIEL.titreDeLOnglet);
+    expect(titres[2]).toBe(ARTICULATION_PACK_PREMIUM.titreDeLOnglet);
+  });
+
+  // ── Les prix ──────────────────────────────────────────────────────────────
+
+  it("/packs affiche les deux prix de la constante de tarifs, chacun dans SA carte", () => {
+    rendre("ensemble");
+
+    const cartes = Array.from(document.querySelectorAll<HTMLElement>("article.pak-carte"));
+    expect(cartes).toHaveLength(2);
+    expect(within(cartes[0]).getByRole("heading", { level: 2 })).toHaveTextContent(PAGE_PACKS.packEssentiel.nom);
+    expect(within(cartes[1]).getByRole("heading", { level: 2 })).toHaveTextContent(PAGE_PACKS.packPremium.nom);
+    expect(texteDe(cartes[0].querySelector(".pak-prix"))).toBe(`Tarif : ${PRIX_ESSENTIEL}`);
+    expect(texteDe(cartes[1].querySelector(".pak-prix"))).toBe(`Tarif : ${PRIX_PREMIUM}`);
+    expect(texteDe(cartes[0].querySelector(".pak-prix"))).not.toContain(PRIX_PREMIUM);
+    // Nom, prix, accroche, contenu, « sert à », durée : tout est dans la carte.
+    for (const [carte, contenu] of [
+      [cartes[0], PAGE_PACKS.packEssentiel],
+      [cartes[1], PAGE_PACKS.packPremium],
+    ] as const) {
+      const attendues = phrases(contenu, HORS_PHRASES);
+      expect(attendues.length).toBeGreaterThan(12);
+      for (const phrase of attendues) {
+        expect(texteDe(carte), `la carte ne dit plus : « ${phrase} »`).toContain(affichee(phrase));
+      }
+    }
+  });
+
+  for (const [nom, attendu, autre] of [
+    ["essentiel", PRIX_ESSENTIEL, PRIX_PREMIUM],
+    ["premium", PRIX_PREMIUM, PRIX_ESSENTIEL],
+  ] as [NomDePage, string, string][]) {
+    it(`${nom} : l'ouverture porte le prix de SON pack, lu dans la constante, et son délai`, () => {
+      rendre(nom);
+
+      const encart = document.querySelector(".pak-encart");
+      expect(texteDe(encart?.querySelector(".pak-prix") ?? null)).toContain(attendu);
+      expect(texteDe(encart)).not.toContain(autre);
+      const duree = nom === "essentiel" ? PAGE_PACKS.packEssentiel.duree : PAGE_PACKS.packPremium.duree;
+      expect(texteDe(encart)).toContain(duree);
+    });
+  }
+
+  for (const fichier of ["Packs.tsx"]) {
+    it(`${fichier} n'écrit aucun montant, ni les chiffres d'un tarif`, () => {
+      const code = sansCommentaires(source(fichier));
+      // Règle 1 : un fichier vide ou introuvable ne « passe » pas.
+      expect(code.length).toBeGreaterThan(5000);
+      expect(code.match(new RegExp(MONTANT_ECRIT.source, "gi")) ?? []).toEqual([]);
+      expect(code.match(chiffresDesTarifs()) ?? []).toEqual([]);
+    });
+  }
+
+  it("contenuPacks.ts n'écrit les chiffres d'un tarif qu'UNE fois : dans TARIFS_PACKS", () => {
+    const code = sansCommentaires(source("contenuPacks.ts"));
+    expect(code.length).toBeGreaterThan(5000);
+    // « 49500 » n'est pas « 495 » : les montants en centimes de la constante
+    // ne sont pas vus, et c'est voulu — c'est LA source.
+    expect(code.match(chiffresDesTarifs()) ?? []).toEqual([]);
+    for (const tarif of Object.values(TARIFS_PACKS)) {
+      expect(code.split(String(tarif.centimes)).length - 1, String(tarif.centimes)).toBe(1);
+    }
+  });
+
+  it("contre-épreuve : les détecteurs voient un montant, des chiffres de tarif, une ancienneté nue, le CDN", () => {
+    for (const faute of ["Tarif : 495 €", "995€", "1 490 € TTC", "valeur 850 euros"]) {
+      expect(faute, faute).toMatch(MONTANT_ECRIT);
+    }
+    for (const juste of ["6 semaines de support", "30 pages", "2 × 45 min", "le signe €"]) {
+      expect(juste, juste).not.toMatch(MONTANT_ECRIT);
+    }
+    expect("const PRIX = 495;".match(chiffresDesTarifs())).toEqual(["495"]);
+    expect("centimes: 49500".match(chiffresDesTarifs())).toBeNull();
+    expect("largeur: 798".match(chiffresDesTarifs())).toBeNull();
+
+    for (const faute of ["une expertise de 15 ans", "depuis 16 ans,"]) {
+      expect(faute, faute).toMatch(ANCIENNETE_NUE);
+    }
+    for (const juste of ["plus de 15 ans de terrain", "prévisionnel sur 3 ans", "sous 15 jours"]) {
+      expect(juste, juste).not.toMatch(ANCIENNETE_NUE);
+    }
+
+    expect("https://d1yei2z3i6k35z.cloudfront.net/9890127/logo.png").toMatch(ANCIEN_CDN);
+    expect("/partenaires/evangeline.jpg").not.toMatch(ANCIEN_CDN);
+    expect(LIENS_PACKS.commandeEssentiel).not.toMatch(ANCIEN_CDN);
+
+    // Le collecteur de phrases descend dans les listes et saute les clés exclues.
+    expect(phrases({ a: "un", lien: "#", b: ["deux", { c: "trois", d: 4, e: null }] }, ["lien"])).toEqual(["un", "deux", "trois"]);
+  });
+
+  // ── Les boutons ───────────────────────────────────────────────────────────
+
+  it("/packs : chaque bouton d'achat mène à la page de paiement de SON pack, « Voir le détail » à sa page", () => {
+    rendre("ensemble");
+
+    const [essentiel, premium] = Array.from(document.querySelectorAll<HTMLElement>("article.pak-carte"));
+    const attendus: [HTMLElement, { libelle: string; lien: string }, string, string][] = [
+      [essentiel, PAGE_PACKS.packEssentiel.bouton, LIENS_PACKS.commandeEssentiel, "/packs/essentiel"],
+      [premium, PAGE_PACKS.packPremium.bouton, LIENS_PACKS.commandePremium, "/packs/premium"],
+    ];
+    for (const [carte, bouton, paiement, detail] of attendus) {
+      expect(bouton.lien).toBe(paiement);
+      const dansLaCarte = liens(carte);
+      expect(dansLaCarte).toHaveLength(2);
+      expect(within(carte).getByRole("link", { name: new RegExp(bouton.libelle) })).toHaveAttribute("href", paiement);
+      // Deux « Voir le détail » sur la page : chacun dit de quel pack.
+      const versLeDetail = within(carte).getByRole("link", { name: /Voir le détail/ });
+      expect(versLeDetail).toHaveAttribute("href", detail);
+      expect(texteDe(versLeDetail)).toContain(texteDe(within(carte).getByRole("heading", { level: 2 })));
+    }
+    // Sur toute la page, un lien de paiement porte le libellé de son pack.
+    const paiements = liensDePaiement();
+    expect(paiements.length).toBeGreaterThanOrEqual(4);
+    for (const lien of paiements) {
+      const href = lien.getAttribute("href");
+      const libelle = href === LIENS_PACKS.commandeEssentiel ? /ESSENTIEL/ : /PREMIUM/;
+      expect([LIENS_PACKS.commandeEssentiel, LIENS_PACKS.commandePremium]).toContain(href);
+      expect(texteDe(lien), href ?? "").toMatch(libelle);
+    }
+    // L'appel final : l'appel gratuit et les deux achats.
+    const fin = document.getElementById("commander") as HTMLElement;
+    expect(liens(fin).map((a) => a.getAttribute("href"))).toEqual([
+      LIENS.appel,
+      LIENS_PACKS.commandeEssentiel,
+      LIENS_PACKS.commandePremium,
+    ]);
+  });
+
+  for (const [nom, paiement, autrePaiement, autrePage] of [
+    ["essentiel", LIENS_PACKS.commandeEssentiel, LIENS_PACKS.commandePremium, "/packs/premium"],
+    ["premium", LIENS_PACKS.commandePremium, LIENS_PACKS.commandeEssentiel, "/packs/essentiel"],
+  ] as [NomDePage, string, string, string][]) {
+    it(`${nom} : tous les boutons d'achat mènent à SA page de paiement, et un lien à l'autre pack`, () => {
+      rendre(nom);
+
+      const paiements = liensDePaiement();
+      // L'ouverture et l'appel final.
+      expect(paiements).toHaveLength(2);
+      for (const lien of paiements) expect(lien).toHaveAttribute("href", paiement);
+      expect(liens().map((a) => a.getAttribute("href"))).not.toContain(autrePaiement);
+      expect(document.querySelector(".pak-ouverture a.acc-btn-noir")).toHaveAttribute("href", paiement);
+      expect(document.querySelector("#commander a.acc-btn-noir")).toHaveAttribute("href", paiement);
+      // Le renvoi vers l'autre pack mène à sa page, pas à « # ».
+      expect(liens(screen.getByRole("main")).some((a) => a.getAttribute("href") === autrePage)).toBe(true);
+      expect(liens().map((a) => a.getAttribute("href"))).not.toContain("#");
+      // Et un retour vers la page d'ensemble.
+      expect(screen.getByRole("link", { name: COMMUN_PACKS.voirLesDeuxPacks })).toHaveAttribute("href", "/packs");
+    });
+  }
+
+  // ── Rien de ce que les pages disaient n'a disparu ─────────────────────────
+
+  it("/packs : chaque phrase de PAGE_PACKS est dans la page, sauf l'ancienneté accordée", () => {
+    rendre("ensemble");
+
+    expect(phrases(PAGE_PACKS, HORS_PHRASES).length).toBeGreaterThan(30);
+    expect(absentes(PAGE_PACKS)).toEqual([PAGE_PACKS.ouverture.corps[1]]);
+    expect(texte()).toContain("une expertise de plus de 15 ans à vos côtés !");
+    // Le rappel de l'experte, pris à la page de l'Essentiel.
+    expect(texte()).toContain(PAGE_PACK_ESSENTIEL.experte.titre);
+    expect(texte()).toContain("plus de 500 créateurs d'entreprise depuis plus de 15 ans");
+  });
+
+  it("/packs/essentiel : chaque phrase du contenu est dans la page, sauf quatre anciennetés accordées", () => {
+    rendre("essentiel");
+
+    const p = PAGE_PACK_ESSENTIEL;
+    // Règle 1 : une collecte vide ferait passer la comparaison sans rien vérifier.
+    expect(phrases(p, HORS_PHRASES).length).toBeGreaterThan(120);
+    expect(absentes(p)).toEqual([
+      p.seulOuAccompagne.avecLePack.points[5],
+      p.aQuoiSertLePack.benefices[2].corps,
+      p.experte.corps,
+      p.appelFinal.corps,
+    ]);
+    const page = texte();
+    expect(page).toContain("L'accompagnement d'une experte avec plus de 15 ans de terrain");
+    expect(page).toContain("Bénéficier de plus de 15 ans d'expérience");
+    expect(page).toContain("depuis plus de 15 ans, qui connaît les questions que va poser le banquier");
+    expect(page).toContain("et l'expertise de plus de 15 ans à votre service. Tout est inclus.");
+    // Le compte de livrables de l'Essentiel tient : il reste affiché.
+    expect(page).toContain("3 livrables stratégiques + accompagnement personnalisé");
+    expect(page).toContain("3 livrables professionnels, 2 appels personnalisés");
+  });
+
+  it("/packs/premium : chaque phrase du contenu est dans la page, sauf cinq phrases accordées", () => {
+    rendre("premium");
+
+    const p = PAGE_PACK_PREMIUM;
+    expect(phrases(p, HORS_PHRASES).length).toBeGreaterThan(150);
+    expect(absentes(p)).toEqual([
+      p.contenuDuPack.titre,
+      p.processus.titre,
+      p.processus.etapes[4].corps,
+      p.experte.corps,
+      p.appelFinal.corps,
+    ]);
+    const page = texte();
+    expect(page).toContain("Livrables stratégiques + accompagnement renforcé");
+    expect(page).toContain(`Un parcours en ${p.processus.etapes.length} étapes sur 3 semaines`);
+    expect(page).toContain("Remise des livrables : étude premium, prévisionnel");
+    expect(page).toContain("Avec plus de 15 ans d'accompagnement de créateurs d'entreprise");
+    expect(page).toContain("Livrables stratégiques, 3 appels d'1h, 6 semaines de support");
+  });
+
+  for (const [nom, sections] of [
+    [
+      "essentiel",
+      ["pour-qui", "seul-ou-accompagne", "contenu", "processus", "support", "a-quoi-sert-le-pack", "apercu", "experte", "questions", "autrement", "commander"],
+    ],
+    [
+      "premium",
+      ["pour-qui", "en-plus", "contenu", "formation-offerte", "processus", "comparatif", "experte", "questions", "autrement", "commander"],
+    ],
+  ] as [NomDePage, string[]][]) {
+    it(`${nom} : les blocs sont dans l'ordre de la page d'origine`, () => {
+      rendre(nom);
+      const dansLaPage = Array.from(document.querySelectorAll("main section[id]")).map((s) => s.id);
+      expect(dansLaPage).toEqual(sections);
+    });
+  }
+
+  // ── Les accords ───────────────────────────────────────────────────────────
+
+  for (const [nom, contenu] of [
+    ["essentiel", PAGE_PACK_ESSENTIEL],
+    ["premium", PAGE_PACK_PREMIUM],
+  ] as const) {
+    it(`${nom} : le nombre d'étapes annoncé est celui des étapes affichées`, () => {
+      rendre(nom);
+
+      const etapes = Array.from(document.querySelectorAll("ol.pak-etapes > li"));
+      expect(etapes).toHaveLength(contenu.processus.etapes.length);
+      expect(etapes.map((e) => e.querySelector("h3")?.textContent)).toEqual(contenu.processus.etapes.map((e) => e.titre));
+      // Numérotées sans trou.
+      expect(etapes.map((e) => e.querySelector(".pak-etape-numero")?.textContent)).toEqual(
+        etapes.map((_, k) => String(k + 1).padStart(2, "0")),
+      );
+      const annonces = [...texteDe(document.getElementById("processus")).matchAll(/(\d+) étapes/g)].map((m) => Number(m[1]));
+      // Règle 1 : les deux pages annoncent un nombre d'étapes.
+      expect(annonces.length).toBeGreaterThanOrEqual(1);
+      for (const annonce of annonces) expect(annonce).toBe(etapes.length);
+    });
+  }
+
+  it("premium : aucun nombre de livrables n'est annoncé, et l'Essentiel garde le sien", () => {
+    rendre("premium");
+    // Le comparatif et la formation parlent de « livrables » sans les compter.
+    expect(texte()).toMatch(/livrables/i);
+    expect(texte()).not.toMatch(/\d+ livrables/);
+    cleanup();
+
+    rendre("essentiel");
+    expect(texte()).toMatch(/3 livrables/);
+  });
+
+  it("contre-épreuve : les accords ne retouchent que ce qu'ils visent", () => {
+    expect(ancienneteSure("une expertise de 15 ans à vos côtés")).toBe("une expertise de plus de 15 ans à vos côtés");
+    expect(ancienneteSure("créateurs depuis 16 ans, qui")).toBe("créateurs depuis plus de 15 ans, qui");
+    expect(ancienneteSure(`avec 16${INSECABLE}ans de terrain`)).toBe(`avec plus de 15${INSECABLE}ans de terrain`);
+    for (const intact of ["plus de 15 ans de terrain", "Prévisionnel financier sur 3 ans", "1 à 2 semaines", "216 ans", "15 answers"]) {
+      expect(ancienneteSure(intact), intact).toBe(intact);
+    }
+
+    expect(compteRendu("Un parcours en 5 étapes sur 3 semaines", "étapes", 6)).toBe("Un parcours en 6 étapes sur 3 semaines");
+    expect(compteRendu("De votre commande à votre dossier finalisé", "étapes", 5)).toBe("De votre commande à votre dossier finalisé");
+    expect(compteRendu("3 appels d'1h", "étapes", 6)).toBe("3 appels d'1h");
+
+    expect(sansCompte("9 livrables stratégiques + accompagnement renforcé", "livrables")).toBe("Livrables stratégiques + accompagnement renforcé");
+    expect(sansCompte("Remise des 9 livrables : étude premium", "livrables")).toBe("Remise des livrables : étude premium");
+    expect(sansCompte("validation des livrables intermédiaires", "livrables")).toBe("validation des livrables intermédiaires");
+    expect(sansCompte("livrables et 3 appels", "livrables")).toBe("livrables et 3 appels");
+
+    expect(pointDeListe("★ BONUS : Formation P.O.P incluse")).toEqual({ texte: "BONUS : Formation P.O.P incluse", vedette: true });
+    expect(pointDeListe("BONUS EXCEPTIONNEL : ACCÈS")).toEqual({ texte: "BONUS EXCEPTIONNEL : ACCÈS", vedette: true });
+    expect(pointDeListe("2 appels de 45 minutes")).toEqual({ texte: "2 appels de 45 minutes", vedette: false });
+    expect(sansFleche(`Découvrir le Premium${INSECABLE}→`)).toBe("Découvrir le Premium");
+    expect(sansFleche("Voir les études")).toBe("Voir les études");
+  });
+
+  // ── Le comparatif ─────────────────────────────────────────────────────────
+
+  for (const nom of ["ensemble", "premium"] as NomDePage[]) {
+    it(`${nom} : le comparatif est un vrai tableau, nommé, à en-têtes de colonne et de ligne`, () => {
+      rendre(nom);
+
+      const lignes = PAGE_PACK_PREMIUM.comparatif.lignes;
+      expect(lignes.length).toBeGreaterThanOrEqual(12);
+      const tableau = screen.getByRole("table");
+      expect(tableau.querySelector("caption")).toHaveTextContent(COMPARATIF_PACKS.legende);
+
+      // La boîte qui peut défiler : nommée par la légende, et focalisable.
+      const boite = tableau.closest("[role='region']") as HTMLElement;
+      expect(boite).not.toBeNull();
+      expect(boite).toHaveAttribute("tabindex", "0");
+      expect(document.getElementById(boite.getAttribute("aria-labelledby") ?? "")).toBe(tableau.querySelector("caption"));
+
+      const colonnes = Array.from(tableau.querySelectorAll("thead th"));
+      expect(colonnes.map((c) => c.textContent)).toEqual([COMPARATIF_PACKS.colonneDesCriteres, "Essentiel", "Premium"]);
+      for (const colonne of colonnes) expect(colonne).toHaveAttribute("scope", "col");
+
+      const rangs = Array.from(tableau.querySelectorAll("tbody tr"));
+      expect(rangs).toHaveLength(lignes.length);
+      rangs.forEach((rang, k) => {
+        const entete = rang.querySelector("th");
+        expect(entete).toHaveAttribute("scope", "row");
+        expect(entete).toHaveTextContent(lignes[k].critere);
+        const cases = Array.from(rang.querySelectorAll("td"));
+        expect(cases).toHaveLength(2);
+        [lignes[k].essentiel, lignes[k].premium].forEach((valeur, c) => {
+          const signe = COMPARATIF_PACKS.signes.find((s) => valeur.startsWith(s.signe));
+          if (!signe) {
+            expect(texteDe(cases[c]), lignes[k].critere).toBe(espaces(valeur));
+            return;
+          }
+          // Le signe est affiché mais masqué aux lecteurs d'écran, qui
+          // entendent sa lecture ; le reste de la case suit.
+          expect(cases[c].querySelector("[aria-hidden='true']")).toHaveTextContent(signe.signe);
+          expect(cases[c].querySelector(".pak-lu")).toHaveTextContent(signe.lecture);
+          expect(texteDe(cases[c])).toContain(espaces(valeur.slice(signe.signe.length).trim()));
+        });
+      });
+      // La ligne des prix lit la constante.
+      const prixDuTableau = Array.from(rangs[rangs.length - 1].querySelectorAll("td")).map((c) => texteDe(c));
+      expect(prixDuTableau).toEqual([PRIX_ESSENTIEL, PRIX_PREMIUM]);
+    });
+  }
+
+  it("essentiel : pas de tableau — la page d'origine n'en a pas", () => {
+    rendre("essentiel");
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(document.getElementById("comparatif")).toBeNull();
+  });
+
+  // ── Les cartes sans chiffre, les questions, les aperçus ───────────────────
+
+  it("premium : une carte dont le chiffre est null s'affiche sans chiffre", () => {
+    rendre("premium");
+
+    const attendues = PAGE_PACK_PREMIUM.cePlusDuPremium.cartes;
+    expect(attendues.length).toBe(3);
+    const cartes = Array.from(document.querySelectorAll("#en-plus .pak-plus > li"));
+    expect(cartes).toHaveLength(attendues.length);
+    cartes.forEach((carte, k) => {
+      expect(carte.querySelector("h3")).toHaveTextContent(attendues[k].titre);
+      expect(texteDe(carte)).toContain(attendues[k].corps);
+      if (attendues[k].chiffre === null) {
+        expect(carte.querySelector(".pak-plus-chiffre"), attendues[k].titre).toBeNull();
+        // Rien d'inventé à la place : pas un chiffre avant le titre.
+        expect(texteDe(carte).split(attendues[k].titre)[0]).not.toMatch(/\d|\+/);
+      } else {
+        expect(carte.querySelector(".pak-plus-chiffre")).toHaveTextContent(attendues[k].chiffre as string);
+      }
+    });
+  });
+
+  for (const [nom, contenu] of [
+    ["essentiel", PAGE_PACK_ESSENTIEL],
+    ["premium", PAGE_PACK_PREMIUM],
+  ] as const) {
+    it(`${nom} : ses vraies questions, en <details>, dans l'ordre, la première ouverte`, () => {
+      rendre(nom);
+
+      const questions = Array.from(document.querySelectorAll("#questions details"));
+      expect(questions).toHaveLength(contenu.faq.questions.length);
+      expect(questions.length).toBeGreaterThanOrEqual(8);
+      expect(questions.map((q) => q.querySelector("summary")?.textContent)).toEqual(contenu.faq.questions.map((q) => q.question));
+      expect(questions[0]).toHaveAttribute("open");
+      expect(questions[1]).not.toHaveAttribute("open");
+    });
+  }
+
+  it("essentiel : trois aperçus de documents, chacun avec sa vignette, son étiquette et son titre", () => {
+    rendre("essentiel");
+
+    const attendus = PAGE_PACK_ESSENTIEL.apercuDesDocuments.documents;
+    const apercus = Array.from(document.querySelectorAll("#apercu .pak-documents > li"));
+    expect(apercus).toHaveLength(attendus.length);
+    expect(apercus.length).toBe(3);
+    apercus.forEach((apercu, k) => {
+      expect(texteDe(apercu.querySelector(".pak-vignette"))).toContain(attendus[k].vignette.titre);
+      expect(texteDe(apercu.querySelector(".pak-vignette-volume"))).toBe(attendus[k].vignette.volume);
+      expect(texteDe(apercu)).toContain(attendus[k].etiquette);
+      expect(apercu.querySelector("h3")).toHaveTextContent(attendus[k].titre);
+    });
+  });
+
+  // ── Les sources du lot ────────────────────────────────────────────────────
+
+  for (const fichier of ["Packs.tsx", "Packs.css"]) {
+    it(`${fichier} ne pointe vers aucune adresse de l'ancien CDN`, () => {
+      // Commentaires COMPRIS : une adresse citée en commentaire reviendrait au
+      // prochain copier-coller.
+      const brute = source(fichier);
+      expect(brute.length).toBeGreaterThan(5000);
+      expect(brute.match(new RegExp(ANCIEN_CDN.source, "gi")) ?? []).toEqual([]);
+    });
+  }
+
+  it("Packs.tsx ne recopie pas le texte : il l'importe de contenuPacks.ts", () => {
+    const code = sansCommentaires(source("Packs.tsx"));
+    // Quelques phrases du contenu, prises dans chaque page : aucune n'est
+    // écrite dans le composant.
+    for (const phrase of [
+      PAGE_PACKS.ouverture.titre,
+      PAGE_PACK_ESSENTIEL.ouverture.titre,
+      PAGE_PACK_PREMIUM.experte.titre,
+      COMMUN_PACKS.realisePar,
+      COMMUN_PACKS.appelGratuit,
+    ]) {
+      expect(code, phrase).not.toContain(phrase);
+    }
+    expect(code).toContain('from "./contenuPacks"');
+    // Les deux pages de pack sont jumelles : UN composant, deux contenus.
+    expect(code.match(/<PageDePack\b/g)).toHaveLength(2);
+    expect(code.match(/function PageDePack\b/g)).toHaveLength(1);
+  });
+});

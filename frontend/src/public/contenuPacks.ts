@@ -1014,3 +1014,310 @@ export const PAGE_PACK_PREMIUM = {
     bouton: "Profiter de l'offre",
   } satisfies FormulaireDeCommande,
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// CE QUE LA PLATEFORME AJOUTE AU TEXTE RELEVÉ (`Packs.tsx`)
+//
+// Tout ce qui précède est le texte de la cliente. Ce qui suit est écrit pour
+// les trois pages de la plateforme : leurs adresses, quel mot d'un titre passe
+// en italique, les surtitres, les intitulés de boutons, les phrases de
+// liaison — et les trois accords qui empêchent une page d'afficher un nombre
+// qu'elle contredit elle-même. À VALIDER par la cliente.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Adresses et prix affichés ───────────────────────────────────────────────
+
+/** Les trois pages, sur la plateforme. Les boutons d'ACHAT, eux, mènent encore
+ *  aux pages de paiement du site (`LIENS_PACKS`) : la plateforme n'encaisse
+ *  pas ces offres. */
+export const ROUTES_PACKS = {
+  ensemble: "/packs",
+  essentiel: "/packs/essentiel",
+  premium: "/packs/premium",
+} as const;
+
+/** Les deux prix de vente, tels qu'ils s'affichent. Lus dans `TARIFS_PACKS` :
+ *  aucun montant n'est écrit ici. */
+export const PRIX_DES_PACKS = {
+  essentiel: PRIX_ESSENTIEL,
+  premium: PRIX_PREMIUM,
+} as const;
+
+/** Le portrait de la fondatrice, déjà servi par la plateforme. Les dimensions
+ *  sont celles du fichier : elles donnent le ratio, la feuille la taille. */
+export const PORTRAIT_DES_PACKS = {
+  adresse: "/partenaires/evangeline.jpg",
+  alt: "Evangeline Khaili, fondatrice d'EVKHA, dans son bureau",
+  largeur: 798,
+  hauteur: 1200,
+};
+
+// ── Les accords : une page n'affiche pas un nombre qu'elle contredit ────────
+
+/** Les deux mots devant lesquels une page écrit un nombre à accorder. */
+export const UNITES_A_ACCORDER = { etapes: "étapes", livrables: "livrables" } as const;
+
+/** L'ancienneté. Les pages écrivent « 15 ans » ici et « 16 ans » là, et la
+ *  cliente n'a pas tranché (voir l'en-tête). À l'affichage, les deux
+ *  deviennent « plus de 15 ans », vrai dans les deux cas — la même formule que
+ *  l'accueil. Le texte relevé, plus haut, n'est pas touché. */
+export function ancienneteSure(texte: string): string {
+  return texte.replace(/(?<!plus de )\b1[56](?=\sans\b)/g, "plus de 15");
+}
+
+/** Remplace le nombre écrit devant `unite` par celui qu'on a compté.
+ *  « en 5 étapes » devient « en 6 étapes » quand la page en affiche six. Un
+ *  texte qui n'annonce aucun nombre est rendu tel quel. */
+export function compteRendu(texte: string, unite: string, nombre: number): string {
+  return texte.replace(new RegExp(`\\d+(?=\\s${unite}(?![\\wà-ÿ]))`, "g"), String(nombre));
+}
+
+/** Retire le nombre écrit devant `unite`, quand la page ne permet pas de le
+ *  recompter. « Remise des 9 livrables : » devient « Remise des livrables : » ;
+ *  en tête de phrase, la majuscule est rétablie. */
+export function sansCompte(texte: string, unite: string): string {
+  const sans = texte.replace(
+    new RegExp(`\\d+\\s(?=${unite}(?![\\wà-ÿ]))`, "g"),
+    "",
+  );
+  return sans !== texte && sans.startsWith(unite)
+    ? sans.charAt(0).toUpperCase() + sans.slice(1)
+    : sans;
+}
+
+/** Un point de liste, et s'il s'agit du bonus mis en avant. L'étoile que le
+ *  site écrit en tête de ligne devient la puce de la ligne. */
+export function pointDeListe(point: string): { texte: string; vedette: boolean } {
+  return {
+    texte: point.replace(/^★\s*/, ""),
+    vedette: /^(?:★\s*)?BONUS(?![\wà-ÿ])/.test(point),
+  };
+}
+
+/** Un libellé de bouton sans sa flèche finale : le bouton de la plateforme
+ *  dessine déjà la sienne. */
+export function sansFleche(libelle: string): string {
+  return libelle.replace(/\s*→\s*$/, "");
+}
+
+// ── Les titres, en deux temps ───────────────────────────────────────────────
+
+export type DeuxTemps = { avant: string; fin: string };
+
+/** Un titre relevé, coupé en deux pour que sa fin passe en italique, comme
+ *  sur l'accueil et la page des études. Le titre n'est pas réécrit. S'il ne se
+ *  termine plus par l'accent attendu, le module LÈVE une erreur : un titre
+ *  amputé passerait inaperçu. */
+function enDeuxTemps(titre: string, accent: string): DeuxTemps {
+  if (accent === "" || !titre.endsWith(accent) || titre.length === accent.length) {
+    throw new Error(
+      `contenuPacks : le titre « ${titre} » ne se termine pas par « ${accent} »`,
+    );
+  }
+  return { avant: titre.slice(0, -accent.length).trimEnd(), fin: accent };
+}
+
+export const TITRES_PACKS = {
+  ouverture: enDeuxTemps(PAGE_PACKS.ouverture.titre, "nos packs sur-mesure"),
+  comparatif: enDeuxTemps(
+    PAGE_PACK_PREMIUM.comparatif.titre,
+    "ce qui change vraiment",
+  ),
+  experte: enDeuxTemps(
+    PAGE_PACK_ESSENTIEL.experte.titre,
+    "pas un junior dans une agence",
+  ),
+};
+
+export const TITRES_PACK_ESSENTIEL = {
+  ouverture: enDeuxTemps(PAGE_PACK_ESSENTIEL.ouverture.titre, "Essentiel"),
+  pourQui: enDeuxTemps(PAGE_PACK_ESSENTIEL.pourQui.titre, "démarrer vite et bien"),
+  seulOuAccompagne: enDeuxTemps(
+    PAGE_PACK_ESSENTIEL.seulOuAccompagne.titre,
+    "c'est long et risqué",
+  ),
+  contenuDuPack: enDeuxTemps(
+    PAGE_PACK_ESSENTIEL.contenuDuPack.titre,
+    "accompagnement personnalisé",
+  ),
+  processus: enDeuxTemps(
+    PAGE_PACK_ESSENTIEL.processus.titre,
+    "à votre dossier finalisé",
+  ),
+  support: enDeuxTemps(PAGE_PACK_ESSENTIEL.support.titre, "après la livraison"),
+  aQuoiSertLePack: enDeuxTemps(PAGE_PACK_ESSENTIEL.aQuoiSertLePack.titre, "ce pack"),
+  apercuDesDocuments: enDeuxTemps(
+    PAGE_PACK_ESSENTIEL.apercuDesDocuments.titre,
+    "prêts à l'emploi",
+  ),
+  experte: TITRES_PACKS.experte,
+  faq: enDeuxTemps(PAGE_PACK_ESSENTIEL.faq.titre, "avant de commander"),
+  versLePremium: enDeuxTemps(PAGE_PACK_ESSENTIEL.versLePremium.titre, "va plus loin"),
+  appelFinal: enDeuxTemps(
+    PAGE_PACK_ESSENTIEL.appelFinal.titre,
+    "avec des bases solides",
+  ),
+};
+
+export const TITRES_PACK_PREMIUM = {
+  ouverture: enDeuxTemps(PAGE_PACK_PREMIUM.ouverture.titre, "Premium"),
+  pourQui: enDeuxTemps(PAGE_PACK_PREMIUM.pourQui.titre, "toutes les cartes en main"),
+  cePlusDuPremium: enDeuxTemps(
+    PAGE_PACK_PREMIUM.cePlusDuPremium.titre,
+    "au bout des choses",
+  ),
+  contenuDuPack: enDeuxTemps(
+    PAGE_PACK_PREMIUM.contenuDuPack.titre,
+    "accompagnement renforcé",
+  ),
+  formationOfferte: enDeuxTemps(
+    PAGE_PACK_PREMIUM.formationOfferte.titre,
+    "offerte avec votre pack",
+  ),
+  processus: enDeuxTemps(PAGE_PACK_PREMIUM.processus.titre, "sur 3 semaines"),
+  comparatif: TITRES_PACKS.comparatif,
+  experte: enDeuxTemps(
+    PAGE_PACK_PREMIUM.experte.titre,
+    "pas un prestataire interchangeable",
+  ),
+  faq: enDeuxTemps(PAGE_PACK_PREMIUM.faq.titre, "avant de commander"),
+  appelFinal: enDeuxTemps(PAGE_PACK_PREMIUM.appelFinal.titre, "toutes ses chances"),
+};
+
+// ── Ce que les trois pages ont en commun ────────────────────────────────────
+
+/** La différence entre un pack et une étude de la plateforme, dite en haut de
+ *  chaque page (stratégie commerciale) : un pack est réalisé par Evangeline
+ *  elle-même. La seconde phrase reprend ce que les pages affirment déjà —
+ *  « c'est moi qui m'en occupe, de A à Z. Pas de sous-traitance ». */
+export const COMMUN_PACKS = {
+  realisePar: "Réalisé par Evangeline Khaili elle-même",
+  realiseCorps:
+    "Un pack n'est pas produit par la plateforme : Evangeline réalise elle-même votre dossier, de A à Z, sans sous-traitance.",
+  appelGratuit: "Réserver un appel gratuit",
+  voirLesDeuxPacks: "Voir les deux packs",
+  /** Sous le prix, dans l'encart de l'ouverture d'un pack. */
+  libelleDuPrix: "Tarif",
+  /** Le nom accessible de la liste de l'encart. */
+  nomDesPoints: "Ce que le pack comprend",
+  surtitreExperte: "Votre interlocutrice",
+  surtitreFaq: "Questions fréquentes",
+};
+
+/** Le comparatif, rendu en tableau. Les signes du site (« ✓ », « — », « ★ »)
+ *  restent affichés ; un lecteur d'écran, lui, entend leur lecture. */
+export const COMPARATIF_PACKS = {
+  surtitre: "Comparatif",
+  legende: "Ce que comprend chaque pack, critère par critère",
+  colonneDesCriteres: "Critère",
+  signes: [
+    { signe: "✓", lecture: "Inclus", ton: "oui" },
+    { signe: "—", lecture: "Non inclus", ton: "non" },
+    { signe: "★", lecture: "Bonus", ton: "bonus" },
+  ],
+  /** Sur la page du Premium, sous le tableau : le renvoi vers l'autre pack. */
+  versLEssentiel: "Voir le Pack Essentiel",
+  versLePremium: "Voir le Pack Premium",
+};
+
+/** Avant l'appel final : la passerelle vers les études à l'unité. SANS PRIX —
+ *  la page des études lit les siens au serveur. */
+export const PASSERELLE_PACKS = {
+  surtitre: "Autrement",
+  titre: { avant: "Besoin d'un", fin: "seul document ?" } satisfies DeuxTemps,
+  corps:
+    "Étude de marché, étude de la concurrence, business plan ou stratégie : chaque étude se commande aussi séparément, sur la plateforme.",
+  bouton: "Voir les études",
+};
+
+// ── Page d'ensemble ─────────────────────────────────────────────────────────
+
+export const ENSEMBLE_PACKS = {
+  surtitre: "Packs d'accompagnement",
+  comparer: "Comparer les deux packs",
+  idDuComparatif: "comparatif",
+  idDesPacks: "les-packs",
+  /** Le nom accessible de la section des deux cartes. */
+  nomDesPacks: "Les deux packs",
+  detail: "Voir le détail",
+  /** Bandeau défilant, décoratif : il ne répète que ce que la page dit. */
+  ruban: [
+    "Étude de marché",
+    "Étude de la concurrence",
+    "Business plan",
+    "Appels en visio",
+    "6 semaines de support",
+    "Format éditable et PDF",
+    "Réalisé par Evangeline",
+  ],
+  fin: {
+    titre: { avant: "Un doute sur le pack", fin: "qu'il vous faut ?" } satisfies DeuxTemps,
+    corps:
+      "Un appel gratuit permet d'en parler de vive voix avant de commander.",
+  },
+};
+
+// ── Les deux pages de pack ──────────────────────────────────────────────────
+
+/** Ce qu'une page de pack ajoute à son texte relevé. Les deux pages sont
+ *  jumelles : même forme, un contenu chacune.
+ *
+ *  `titreDeLOnglet` : celui du site (« PAGE DE PAIEMENT pack créa ») est un
+ *  nom de travail, identique sur les deux pages. Réécrit, court. La
+ *  description de la page, elle, est le chapeau de son ouverture — la phrase
+ *  de la cliente.
+ *
+ *  `compteDeLivrablesFiable` : la page de l'Essentiel annonce « 3 livrables »
+ *  et en montre trois, partout. Celle du Premium annonce « 9 livrables », en
+ *  énumère six à l'étape de livraison, et compte ailleurs les appels et la
+ *  formation À PART de ces neuf : le nombre n'y est donc pas affiché. */
+export type ArticulationDePack = {
+  titreDeLOnglet: string;
+  surtitre: string;
+  prix: string;
+  duree: string;
+  commande: BoutonDePack;
+  compteDeLivrablesFiable: boolean;
+  surtitres: Record<string, string>;
+};
+
+const SURTITRES_COMMUNS = {
+  pourQui: "Pour qui",
+  contenuDuPack: "Contenu du pack",
+  processus: "Le déroulé",
+};
+
+export const ARTICULATION_PACK_ESSENTIEL = {
+  titreDeLOnglet:
+    "Pack Création Essentiel : étude de marché, prévisionnel et business plan – EVKHA",
+  surtitre: "Pack d'accompagnement",
+  prix: PRIX_ESSENTIEL,
+  duree: PAGE_PACKS.packEssentiel.duree,
+  commande: PAGE_PACKS.packEssentiel.bouton,
+  compteDeLivrablesFiable: true,
+  surtitres: {
+    ...SURTITRES_COMMUNS,
+    seulOuAccompagne: "Seul ou accompagné",
+    eviter: "Sans le pack",
+    obtenir: "Avec le pack",
+    support: "Après la livraison",
+    aQuoiSertLePack: "À quoi il sert",
+    apercuDesDocuments: "Aperçu des documents",
+    autrePack: "L'autre pack",
+  },
+} satisfies ArticulationDePack;
+
+export const ARTICULATION_PACK_PREMIUM = {
+  titreDeLOnglet:
+    "Pack Création Premium : business plan, pitch animé et formation P.O.P – EVKHA",
+  surtitre: "Pack d'accompagnement",
+  prix: PRIX_PREMIUM,
+  duree: PAGE_PACKS.packPremium.duree,
+  commande: PAGE_PACKS.packPremium.bouton,
+  compteDeLivrablesFiable: false,
+  surtitres: {
+    ...SURTITRES_COMMUNS,
+    cePlusDuPremium: "Ce que le Premium ajoute",
+    formationOfferte: "Bonus",
+  },
+} satisfies ArticulationDePack;

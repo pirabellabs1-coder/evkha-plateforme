@@ -447,12 +447,12 @@ describe("l'accueil lit ses prix au serveur", () => {
     for (const nom of ["LegalPlace", "Réseau Initiative France", "Swapn", "Yyyours"]) {
       expect(screen.getByRole("img", { name: nom })).toBeInTheDocument();
     }
-    expect(screen.getByRole("link", { name: /Voir les formations/ })).toHaveAttribute("href", "https://www.evkha.fr/formation");
-    expect(screen.getByRole("link", { name: /Voir les packs/ })).toHaveAttribute("href", "https://www.evkha.fr/packs");
+    expect(screen.getByRole("link", { name: /Voir les formations/ })).toHaveAttribute("href", "/formations");
+    expect(screen.getByRole("link", { name: /Voir les packs/ })).toHaveAttribute("href", "/packs");
     expect(texte()).toContain("Ces offres se réservent sur evkha.fr.");
-    expect(screen.getByRole("link", { name: /Lire l'article/ })).toHaveAttribute("href", "https://www.evkha.fr/boite-a-outils/idee-business-viable");
+    expect(screen.getByRole("link", { name: /Lire l'article/ })).toHaveAttribute("href", "/blog/idee-business-viable");
     expect(screen.getByRole("link", { name: "LinkedIn" })).toHaveAttribute("rel", "noopener");
-    expect(screen.getByRole("link", { name: /Méthode P\.O\.P et accompagnement/ })).toHaveAttribute("href", "https://www.evkha.fr/formation");
+    expect(screen.getByRole("link", { name: /Méthode P\.O\.P et accompagnement/ })).toHaveAttribute("href", "/formations");
   });
 
   it("ce qui est écrit ailleurs n'est pas réécrit : chapitres, relecture, engagement", async () => {

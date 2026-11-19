@@ -323,8 +323,8 @@ export function Partenaires() {
           </div>
           <p className="pp-lisere">
             Vous êtes un particulier, un porteur de projet ? Découvrez nos{" "}
-            <a href="https://www.evkha.fr/etudes">ÉTUDES</a> et autres livrables{" "}
-            <a href="https://www.evkha.fr/etudes">À L'UNITÉ</a>.
+            <a href="/etudes">ÉTUDES</a> et autres livrables{" "}
+            <a href="/etudes">À L'UNITÉ</a>.
           </p>
         </div>
       </section>
@@ -390,13 +390,13 @@ export function Partenaires() {
 
       <footer className="pp-pied">
         <div>
-          <a href="https://www.evkha.fr/confidentialite">
+          <a href="/politique-de-confidentialite">
             Politique de confidentialité
           </a>
-          <a href="https://www.evkha.fr/mentions-legales">
+          <a href="/mentions-legales">
             Mentions légales RGPD Evkha
           </a>
-          <a href="https://www.evkha.fr/cgv">CGV / CGU Evkha</a>
+          <a href="/cgv">CGV / CGU Evkha</a>
         </div>
         <div className="pp-pied-copyright">
           © 2026 EVKHA. Tous droits réservés.

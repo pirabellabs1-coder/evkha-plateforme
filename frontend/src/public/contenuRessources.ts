@@ -938,3 +938,209 @@ export const SWAPN = {
   /** Bloc 3 — le formulaire de mise en relation (`FORMULAIRES.swapn`). */
   formulaire: "swapn",
 } as const;
+
+// ── 5. Ce que la refonte AJOUTE (`Ressources.tsx`) ──────────────────────────
+//
+// Tout ce qui précède est RELEVÉ sur le site de la cliente. Tout ce qui suit
+// est ÉCRIT pour la nouvelle forme des pages : surtitres, intitulés de
+// boutons, objets des courriels, phrases de liaison, passerelles. Aucun fait,
+// aucun chiffre, aucun prix. À valider par la cliente, comme les champs
+// `propose`.
+
+/** Le texte d'un bloc au vouvoiement : `texteAuVous` quand le relevé tutoie,
+ *  le texte d'origine sinon. La plateforme vouvoie partout. */
+export function auVous(bloc: Texte): string {
+  return bloc.texteAuVous ?? bloc.texte;
+}
+
+/** Un titre RELEVÉ, coupé en deux pour que sa fin passe en italique, comme
+ *  les titres de l'accueil et de la page des études. Le titre n'est pas
+ *  réécrit : on désigne seulement où il se coupe. S'il ne se termine plus par
+ *  l'accent attendu, le module LÈVE une erreur au chargement — un titre
+ *  amputé passerait inaperçu (règle 1). Même garde que `contenuEtudes`, dont
+ *  la fonction n'est pas exportée. */
+function enDeuxTemps(titre: string, accent: string): { avant: string; fin: string } {
+  if (accent === "" || !titre.endsWith(accent) || titre.length === accent.length) {
+    throw new Error(
+      `contenuRessources : le titre « ${titre} » ne se termine pas par « ${accent} »`,
+    );
+  }
+  return { avant: titre.slice(0, -accent.length).trimEnd(), fin: accent };
+}
+
+/** Les routes de la NOUVELLE plateforme que ces pages citent, et que
+ *  `contenuSite.LIENS` ne porte pas encore (il pointe vers l'ancien site pour
+ *  les packs, les formations et la boîte à outils). Les routes du blog sont
+ *  dans `contenuBlog.ts`. */
+export const ROUTES_RESSOURCES = {
+  boiteAOutils: "/boite-a-outils",
+  contact: "/contact",
+  swapn: "/swapn",
+  etudes: "/etudes",
+  packs: "/packs",
+  formations: "/formations",
+  partenaires: "/partenaires",
+} as const;
+
+/** Un lien `mailto:` vers l'adresse de contact, objet prérempli. C'est le
+ *  moyen qui remplace chaque formulaire du site : la plateforme n'a pas de
+ *  service pour recevoir un message ni envoyer un document. */
+export function courrielAvecObjet(objet: string): string {
+  return `mailto:${COORDONNEES.courriel}?subject=${encodeURIComponent(objet)}`;
+}
+
+/** Une passerelle de fin de page : UNE porte vers l'étape payante la plus
+ *  proche, sans prix. */
+export type Passerelle = {
+  titre: { avant: string; fin: string };
+  corps: string;
+  bouton: { libelle: string; lien: string };
+};
+
+export const PAGE_BOITE_A_OUTILS = {
+  surtitre: "Boîte à outils",
+  titre: enDeuxTemps(BOITE_A_OUTILS.ouverture.titre, "100 % gratuit"),
+  surtitreDesRessources: "En libre accès",
+  titreDesRessources: enDeuxTemps(BOITE_A_OUTILS.titreDesRessources, "& Vos Outils"),
+  /** L'étiquette de chaque carte, selon `Ressource.nature`. */
+  natures: { document: "Document PDF", article: "Article du blog" },
+  /** Le bouton des deux documents : un courriel à EVKHA, qui répond avec le
+   *  fichier. */
+  recevoir: "Recevoir par e-mail",
+  /** L'objet prérempli du courriel, qui nomme la ressource demandée. */
+  objets: {
+    checklist:
+      "Je souhaite recevoir la checklist « Créer sa micro-entreprise en 10 étapes »",
+    lexique: "Je souhaite recevoir le lexique EVKHA des termes entrepreneuriaux",
+  },
+  passerelle: {
+    titre: { avant: "Des outils pour démarrer,", fin: "une formation pour avancer." },
+    corps:
+      "Les formations EVKHA vous accompagnent dans la création de votre entreprise ou de votre micro-entreprise.",
+    bouton: { libelle: "Découvrir les formations", lien: ROUTES_RESSOURCES.formations },
+  } as Passerelle,
+};
+
+/** La méta-description relevée dit « Écrivez-moi via ce formulaire » : la page
+ *  n'a plus de formulaire. Les mêmes mots, sans ces trois-là — et une erreur
+ *  au chargement si la phrase relevée a changé (règle 1). */
+function sansLaMentionDuFormulaire(description: string): string {
+  const mention = " via ce formulaire";
+  if (!description.includes(mention)) {
+    throw new Error(
+      `contenuRessources : la description du contact ne dit plus «${mention} »`,
+    );
+  }
+  return description.replace(mention, "");
+}
+
+export const PAGE_CONTACT = {
+  titreOnglet: "Contact – Parlons de votre projet d’entreprise | EVKHA",
+  description: sansLaMentionDuFormulaire(CONTACT.entete.description?.texte ?? ""),
+  surtitre: "Contact",
+  titre: enDeuxTemps(CONTACT.accroche.titre, "vos questions !"),
+  surtitreDesMoyens: "Nous joindre",
+  moyens: {
+    ecrire: {
+      surtitre: "Par e-mail",
+      titre: "Écrivez-nous",
+      bouton: "Écrire à EVKHA",
+      objet: "Question pour EVKHA",
+    },
+    rendezVous: {
+      surtitre: "De vive voix",
+      titre: "Prenez rendez-vous",
+      corps: "Réservez un créneau dans l'agenda en ligne d'EVKHA.",
+      bouton: "Choisir un créneau",
+    },
+    reseaux: {
+      surtitre: "Sur les réseaux",
+      titre: "Suivez EVKHA",
+      corps: "Les actualités d'EVKHA, là où vous êtes déjà.",
+    },
+  },
+  aide: {
+    surtitre: "Avant d'écrire",
+    titre: { avant: "Pour quoi", fin: "nous écrire ?" },
+    corps: "La réponse à votre question est peut-être déjà sur l'une de ces pages.",
+    orientations: [
+      {
+        titre: "Une étude pour votre projet",
+        corps:
+          "Étude de marché, étude de la concurrence, business plan, stratégie : la page des études les présente une à une.",
+        lien: ROUTES_RESSOURCES.etudes,
+      },
+      {
+        titre: "Un pack d'accompagnement",
+        corps: "Ce que contient chaque pack est détaillé sur la page des packs.",
+        lien: ROUTES_RESSOURCES.packs,
+      },
+      {
+        titre: "Une formation",
+        corps: "Le programme de chaque formation est sur la page des formations.",
+        lien: ROUTES_RESSOURCES.formations,
+      },
+      {
+        titre: "Vous accompagnez des porteurs de projet",
+        corps:
+          "Les formules pour les professionnels sont sur la page des partenaires.",
+        lien: ROUTES_RESSOURCES.partenaires,
+      },
+    ],
+  },
+  passerelle: {
+    titre: { avant: "Votre question porte sur", fin: "votre marché ?" },
+    corps: "C'est le sujet des études EVKHA, rédigées sur votre projet.",
+    bouton: { libelle: "Voir les études", lien: ROUTES_RESSOURCES.etudes },
+  } as Passerelle,
+};
+
+/** Le titre de la page SWAPN est relevé EN CAPITALES. Il est affiché en
+ *  écriture courante, mêmes mots : la garde ci-dessous compare les deux, et
+ *  lève une erreur au chargement s'ils divergent (règle 5 : le relevé reste
+ *  la source). */
+function enEcritureCourante(
+  releve: readonly string[],
+  courant: { avant: string; fin: string },
+): { avant: string; fin: string } {
+  const attendu = releve.join(" ").toLocaleUpperCase("fr");
+  const ecrit = `${courant.avant} ${courant.fin}`.toLocaleUpperCase("fr");
+  if (attendu !== ecrit) {
+    throw new Error(
+      `contenuRessources : le titre « ${ecrit} » n'est plus celui du relevé « ${attendu} »`,
+    );
+  }
+  return courant;
+}
+
+export const PAGE_SWAPN = {
+  surtitre: "Partenaire",
+  titre: enEcritureCourante(SWAPN.titre, {
+    avant: "Mise en relation gratuite",
+    fin: "avec mon partenaire Swapn !",
+  }),
+  /** Le logo rapatrié (`public/accueil/logo-swapn.webp`), à ses dimensions. */
+  logo: { src: "/accueil/logo-swapn.webp", alt: "Swapn", largeur: 404, hauteur: 402 },
+  /** L'offre est celle DU PARTENAIRE : chaque bloc qui la cite le dit. */
+  offre: {
+    surtitre: "Selon Swapn",
+    titre: { avant: "Ce que propose", fin: "Swapn." },
+    attribution: "Selon Swapn :",
+    source:
+      "Offre présentée par Swapn. Ses conditions, ses tarifs et ses délais sont ceux de Swapn, et non un engagement d'EVKHA.",
+  },
+  relation: {
+    surtitre: "Mise en relation",
+    titre: { avant: "Un message,", fin: "et Swapn vous contacte." },
+    corps:
+      "Écrivez-nous en indiquant votre nom. En envoyant ce message, vous demandez à EVKHA de transmettre votre nom et votre adresse e-mail à Swapn, qui vous recontactera.",
+    bouton: "Demander la mise en relation",
+    objet: "Mise en relation avec Swapn",
+  },
+  passerelle: {
+    titre: { avant: "Avant les statuts,", fin: "votre marché." },
+    corps:
+      "Avant de créer votre entreprise, vérifiez que votre projet a un marché : c'est l'objet des études EVKHA.",
+    bouton: { libelle: "Voir les études", lien: ROUTES_RESSOURCES.etudes },
+  } as Passerelle,
+};

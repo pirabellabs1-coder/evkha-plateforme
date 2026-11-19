@@ -1,0 +1,1122 @@
+/* Les trois pages des packs d'accompagnement (`Packs.tsx`), dans le langage
+ * visuel de l'accueil et de la page des études : papier crème, or, encre,
+ * Fraunces italique pour les mots d'accent, cartes à double bord,
+ * boutons-pilules, étiquettes à pastille.
+ *
+ * Cette feuille ne porte que ce qui est PROPRE à ces pages : l'ouverture et
+ * son encart de prix, les deux cartes de pack côte à côte, le comparatif en
+ * tableau, les profils, les livrables, la formation offerte, les étapes, le
+ * support, les aperçus de documents, l'experte, les portes de sortie. Le
+ * socle — barre, menu, pied, boutons, étiquettes, titres, révélation, grain,
+ * ruban, pause, questions en `<details>`, fin dorée — vient de `Site.css`,
+ * que la page importe AVANT celle-ci.
+ *
+ * Les règles du socle tiennent ici, et les mêmes tests les verrouillent :
+ * aucune couleur écrite (tout lit `theme/tokens.css`, les translucides par
+ * `color-mix()` sur un jeton), aucune durée écrite dans un mouvement (jetons
+ * `--duree-*`), tout sous `.acc`, avec des classes préfixées `pak-`.
+ *
+ * Aucun plancher de mouvement réduit n'est lu ici : les survols propres à
+ * ces pages suivent la transition de `[data-reveal]`, que le socle ramène
+ * déjà à son plancher ; les soulèvements, eux, sont coupés en fin de feuille.
+ */
+
+/* ── Lu, pas vu ──────────────────────────────────────────────────────────── */
+
+/* Un texte pour les lecteurs d'écran seulement : la lecture d'un signe du
+   comparatif, le nom du pack derrière « Voir le détail ». */
+.pak-lu {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Ouverture ───────────────────────────────────────────────────────────── */
+
+/* Relative : le bouton de pause du socle (`.acc-pause-rang`) s'y accroche,
+   sous la barre fixe. */
+.pak-ouverture {
+  position: relative;
+  padding: 150px 0 clamp(56px, 7vw, 96px);
+}
+
+.pak-ouverture-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  gap: clamp(32px, 4.5vw, 60px) clamp(28px, 5vw, 72px);
+  align-items: center;
+}
+
+/* La page d'ensemble : le titre à gauche, la mention et les boutons à droite,
+   alignés sur le bas du titre. */
+.pak-ouverture-ensemble .pak-ouverture-grille {
+  align-items: end;
+}
+
+.pak-ouverture h1 {
+  margin: 20px 0;
+}
+
+.pak-promesse {
+  max-width: 34em;
+  font-size: 1.08rem;
+}
+
+.pak-promesse + .pak-promesse {
+  margin-top: 10px;
+  color: var(--acc-encre);
+  font-weight: 600;
+}
+
+/* « Réalisé par Evangeline elle-même » : ce qui distingue un pack d'une étude
+   de la plateforme, dit dès l'ouverture. Un filet d'or, pas une carte de
+   plus. */
+.pak-realise {
+  display: grid;
+  gap: 4px;
+  max-width: 34em;
+  margin-top: 24px;
+  padding: 4px 0 4px 18px;
+  border-left: 4px solid var(--acc-or);
+  font-size: 0.96rem;
+}
+
+.pak-realise strong {
+  color: var(--acc-encre);
+  font-weight: 800;
+}
+
+.pak-appels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.pak-appels-centre {
+  justify-content: center;
+}
+
+/* Un libellé long (« Je commande le pack ESSENTIEL ») passe à la ligne plutôt
+   que de sortir de l'écran à 375 px. Deux classes : la règle corrige le
+   socle, sa spécificité ne doit pas dépendre de l'ordre des feuilles. */
+.acc-btn.pak-btn {
+  padding-block: 8px;
+  text-align: left;
+  white-space: normal;
+}
+
+.pak-retour {
+  margin-top: 18px;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.pak-retour a {
+  color: var(--acc-encre);
+  text-decoration: underline;
+  text-decoration-color: var(--acc-pointille);
+  text-underline-offset: 4px;
+}
+
+.pak-retour a:hover {
+  text-decoration-color: var(--acc-encre);
+}
+
+/* ── Le prix et la durée ─────────────────────────────────────────────────── */
+
+.pak-prix {
+  display: grid;
+  gap: 6px;
+  color: var(--acc-encre);
+}
+
+.pak-prix-libelle {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pak-prix b {
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: clamp(2.3rem, 3.8vw, 3.1rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.pak-duree {
+  color: var(--acc-encre);
+  font-size: 0.93rem;
+  font-weight: 700;
+}
+
+/* ── L'encart de l'ouverture d'un pack : prix, durée, ce qu'il comprend ──── */
+
+.pak-encart {
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+/* La tête sombre : le prix en or, la durée au lin de la charte (11,6:1). */
+.pak-encart-tete {
+  display: grid;
+  gap: 12px;
+  padding: clamp(22px, 3vw, 34px);
+  background: var(--acc-encre);
+}
+
+.pak-encart-tete .pak-prix {
+  color: var(--acc-blanc);
+}
+
+.pak-encart-tete .pak-prix b {
+  color: var(--acc-or);
+}
+
+.pak-encart-tete .pak-duree {
+  color: var(--evkha-lin);
+}
+
+.pak-encart-points {
+  padding: clamp(22px, 3vw, 34px);
+}
+
+/* ── Listes à pastilles ──────────────────────────────────────────────────── */
+
+.pak-points {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  color: var(--acc-encre);
+  font-size: 0.96rem;
+  font-weight: 500;
+  list-style: none;
+}
+
+.pak-points li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+/* La pastille : décorative, masquée aux lecteurs d'écran. */
+.pak-puce {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pak-puce-oui {
+  background: var(--acc-or);
+  color: var(--acc-encre);
+}
+
+.pak-puce-non {
+  background: var(--evkha-nuage);
+  color: var(--acc-gris);
+}
+
+.pak-puce-bonus {
+  background: var(--acc-encre);
+  color: var(--acc-or);
+}
+
+/* La ligne du bonus se détache par la graisse, pas par la couleur seule. */
+.pak-point-vedette {
+  font-weight: 800;
+}
+
+/* Liste à étoiles : les points d'un livrable, les usages d'un pack. */
+.pak-etoiles {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  color: var(--acc-gris);
+  font-size: 0.96rem;
+  font-weight: 500;
+  list-style: none;
+}
+
+.pak-etoiles li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.pak-etoiles li::before {
+  content: "✦";
+  color: var(--acc-or-fonce);
+}
+
+.pak-ornement {
+  color: var(--acc-or-fonce);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+/* ── Ruban ───────────────────────────────────────────────────────────────── */
+
+/* Le ruban du socle remonte de 18 px sur l'ouverture de l'accueil ; ici il
+   sépare deux blocs, à plat sur sa marge. */
+.acc-ruban.pak-ruban {
+  margin-top: 0;
+}
+
+.pak-pause-rang {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 12px;
+}
+
+.acc-section.pak-section-apres-ruban {
+  padding-top: clamp(56px, 7vw, 96px);
+}
+
+/* ── Bande blanche : une section qui tranche sur le papier ───────────────── */
+
+.pak-bande {
+  border-block: 1px solid var(--acc-trait);
+  background: var(--acc-blanc);
+}
+
+/* ── /packs : les deux packs côte à côte ─────────────────────────────────── */
+
+.pak-duo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 26px;
+  align-items: stretch;
+}
+
+.pak-carte {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.pak-carte:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.pak-carte-tete {
+  display: grid;
+  gap: 14px;
+  padding: clamp(26px, 3.4vw, 40px);
+  border-bottom: 1.5px dashed var(--acc-pointille);
+  background: var(--acc-or-brume);
+}
+
+.pak-carte h2 {
+  font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+}
+
+.pak-carte-accroche {
+  font-size: 0.98rem;
+}
+
+/* Le Premium : la tête sombre, le prix en or, le texte au lin (11,6:1). */
+.pak-carte-vedette .pak-carte-tete {
+  border-bottom: 0;
+  background: var(--acc-encre);
+  color: var(--acc-blanc);
+}
+
+.pak-carte-vedette .pak-prix {
+  color: var(--acc-blanc);
+}
+
+.pak-carte-vedette .pak-prix b {
+  color: var(--acc-or);
+}
+
+.pak-carte-vedette .pak-carte-accroche {
+  color: var(--evkha-lin);
+}
+
+.pak-carte-corps {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  padding: clamp(26px, 3.4vw, 40px);
+}
+
+.pak-carte-corps h3 {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pak-carte-corps .pak-points + h3 {
+  margin-top: 10px;
+  padding-top: 22px;
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.pak-carte-pied {
+  padding: 0 clamp(26px, 3.4vw, 40px) clamp(26px, 3.4vw, 40px);
+}
+
+.pak-carte-pied .pak-duree {
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--acc-or-clair);
+}
+
+.pak-carte-pied .pak-appels {
+  margin-top: 18px;
+}
+
+/* ── Le comparatif : un vrai tableau ─────────────────────────────────────── */
+
+/* La boîte défile à l'horizontale quand l'écran est plus étroit que le
+   tableau ; elle est nommée et focalisable (voir `SectionComparatif`). Sur le
+   papier, puisque la section est une bande blanche. */
+.pak-tableau {
+  overflow-x: auto;
+  border-radius: var(--acc-r);
+  background: var(--acc-papier);
+  box-shadow: var(--acc-ecrin);
+}
+
+.pak-tableau table {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: collapse;
+  font-size: 0.96rem;
+}
+
+.pak-tableau caption {
+  padding: 18px 22px;
+  color: var(--acc-encre);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.pak-tableau :is(th, td) {
+  padding: 15px 22px;
+  vertical-align: middle;
+}
+
+.pak-tableau thead th {
+  background: var(--acc-encre);
+  color: var(--acc-blanc);
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pak-tableau thead th:first-child,
+.pak-tableau tbody th {
+  text-align: left;
+}
+
+/* La colonne du Premium se distingue par son fond, et par son en-tête. */
+.pak-tableau thead th:last-child {
+  background: var(--acc-or);
+  color: var(--acc-encre);
+}
+
+.pak-tableau tbody tr {
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.pak-tableau tbody th {
+  color: var(--acc-encre);
+  font-weight: 600;
+}
+
+.pak-tableau td {
+  color: var(--acc-encre);
+  font-weight: 700;
+  text-align: center;
+}
+
+.pak-tableau td:last-child {
+  background: var(--acc-or-clair);
+}
+
+/* La dernière ligne est celle du prix : en Fraunces, comme partout. */
+.pak-tableau tbody tr:last-child td {
+  font-family: var(--acc-serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+/* Les signes du site. La coche est à l'encre sur un disque d'or : l'or seul,
+   sur fond clair, ne se lirait pas. */
+.pak-signe {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
+  border-radius: 50%;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.pak-signe-oui {
+  background: var(--acc-or);
+  color: var(--acc-encre);
+}
+
+.pak-signe-non {
+  margin-right: 0;
+  color: var(--acc-gris);
+}
+
+.pak-signe-bonus {
+  background: var(--acc-encre);
+  color: var(--acc-or);
+}
+
+.pak-apres-tableau {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+/* ── Pour qui : quatre profils ───────────────────────────────────────────── */
+
+.pak-profils,
+.pak-plus,
+.pak-benefices,
+.pak-documents,
+.pak-livrables {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pak-profils {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.pak-profils > li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(22px, 2.6vw, 30px);
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.pak-profils > li:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.pak-profils p {
+  font-size: 0.95rem;
+}
+
+/* ── Seul, ou avec le pack ───────────────────────────────────────────────── */
+
+.pak-versus {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.pak-versus-colonne {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(26px, 3.4vw, 44px);
+  border-radius: var(--acc-r2);
+}
+
+.pak-versus-colonne small {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pak-versus-colonne h3 {
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+}
+
+.pak-versus-colonne .pak-points {
+  margin-top: 10px;
+  padding-top: 20px;
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+/* Ce à quoi l'on s'expose : en retrait, sur le papier, cerné d'un trait. */
+.pak-versus-evite {
+  background: var(--acc-papier);
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+}
+
+.pak-versus-evite small {
+  color: var(--acc-doux);
+}
+
+.pak-versus-evite .pak-points {
+  color: var(--acc-gris);
+}
+
+/* Ce que l'on obtient : la carte sombre. Texte au lin de la charte. */
+.pak-versus-recu {
+  background: var(--acc-encre);
+  box-shadow: var(--acc-ombre);
+  color: var(--acc-blanc);
+}
+
+.pak-versus-recu small {
+  color: var(--acc-or);
+}
+
+.pak-versus-recu .pak-points {
+  border-color: color-mix(in srgb, var(--evkha-blanc) 30%, transparent);
+  color: var(--evkha-lin);
+}
+
+/* ── Ce que le Premium ajoute : trois cartes ─────────────────────────────── */
+
+.pak-plus {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.pak-plus > li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-brume);
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+}
+
+.pak-plus h3 {
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+/* Le chiffre d'une carte, quand il est connu. */
+.pak-plus-chiffre {
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 2.6rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* ── Contenu du pack : une carte par livrable ────────────────────────────── */
+
+.pak-livrables {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.pak-livrables > li {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(26px, 3.4vw, 40px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+/* Un nombre impair de cartes : la dernière prend toute la largeur. */
+.pak-livrables > li:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.pak-livrables > li:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.pak-livrables h3 {
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+.pak-livrables .pak-etoiles {
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+/* ── La formation offerte : la carte sombre ──────────────────────────────── */
+
+.pak-formation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: center;
+  padding: clamp(28px, 4.4vw, 60px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-encre);
+  box-shadow: var(--acc-ombre);
+  color: var(--acc-blanc);
+}
+
+.pak-formation p {
+  color: var(--evkha-lin);
+}
+
+.pak-formation h2 .acc-s {
+  color: var(--acc-or);
+}
+
+.pak-formation-carte {
+  display: grid;
+  gap: 12px;
+  padding: clamp(22px, 3vw, 34px);
+  border-radius: var(--acc-r);
+  background: color-mix(in srgb, var(--evkha-blanc) 7%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--evkha-blanc) 22%, transparent);
+}
+
+.pak-formation-carte h3 {
+  color: var(--acc-or);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.5rem;
+}
+
+.pak-formation-carte .pak-points {
+  margin-top: 8px;
+  color: var(--evkha-lin);
+}
+
+/* ── Le processus : les étapes, de haut en bas ───────────────────────────── */
+
+.pak-etapes {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+  list-style: none;
+}
+
+.pak-etapes > li {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: clamp(14px, 2.4vw, 30px);
+  align-items: start;
+  padding: clamp(22px, 2.8vw, 32px) clamp(20px, 3.4vw, 44px);
+}
+
+.pak-etapes > li + li {
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+/* Le numéro, à l'encre, surligné d'or comme le mot d'accent de l'accueil. */
+.pak-etape-numero,
+.pak-benefice-numero {
+  justify-self: start;
+  align-self: flex-start;
+  padding: 0 4px;
+  background: linear-gradient(
+    transparent 58%,
+    var(--acc-or) 58%,
+    var(--acc-or) 92%,
+    transparent 92%
+  );
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.pak-etapes h3 {
+  margin-bottom: 6px;
+  font-size: 1.16rem;
+  letter-spacing: -0.02em;
+}
+
+.pak-etapes p {
+  max-width: 46em;
+  font-size: 0.97rem;
+}
+
+/* ── Le support après la livraison ───────────────────────────────────────── */
+
+.pak-support {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 40px;
+  align-items: center;
+}
+
+.pak-support-points {
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-clair);
+  box-shadow: var(--acc-ecrin);
+}
+
+.pak-support-points .pak-points {
+  gap: 0;
+  font-weight: 600;
+}
+
+.pak-support-points .pak-points li {
+  padding: 14px 0;
+}
+
+.pak-support-points .pak-points li + li {
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+/* ── À quoi sert le pack : trois bénéfices ───────────────────────────────── */
+
+.pak-benefices {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.pak-benefices > li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.pak-benefices .pak-benefice-numero {
+  margin-bottom: 8px;
+}
+
+.pak-benefices h3 {
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+/* ── L'aperçu des documents : trois pages de garde dessinées ─────────────── */
+
+.pak-documents {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px;
+}
+
+.pak-documents > li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* La scène : un aplat d'or clair, la page posée dessus. */
+.pak-vignette {
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+  padding: 30px 20px;
+  border-radius: var(--acc-r);
+  background: var(--acc-or-clair);
+}
+
+/* La page de garde : un liseré d'or en tête, le titre, le volume en bas. */
+.pak-vignette-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  width: min(210px, 100%);
+  aspect-ratio: 3 / 4;
+  padding: 22px 18px 18px;
+  border-top: 8px solid var(--acc-or);
+  border-radius: 6px;
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ombre);
+  rotate: -2deg;
+}
+
+.pak-vignette-page strong {
+  color: var(--acc-encre);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+}
+
+.pak-vignette-volume {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--acc-encre);
+  color: var(--acc-blanc);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.pak-documents small {
+  color: var(--acc-doux);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pak-documents h3 {
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+/* ── L'experte ───────────────────────────────────────────────────────────── */
+
+.pak-experte {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: clamp(32px, 6vw, 84px);
+  align-items: center;
+}
+
+/* Le cadre à double bord : une plaque dorée, légèrement tournée, derrière une
+   bordure blanche qui porte la photo. */
+.pak-cadre {
+  position: relative;
+  max-width: 400px;
+}
+
+.pak-cadre::before {
+  content: "";
+  position: absolute;
+  inset: 10% -5% -6% 12%;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or);
+  rotate: 4deg;
+}
+
+.pak-cadre-bord {
+  position: relative;
+  padding: 10px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+/* `height: auto` DÉCLARÉE : sans elle, l'attribut `height` de la balise
+   deviendrait une hauteur en pixels et la photo perdrait son ratio
+   (`une-image-garde-son-ratio`). Le cadrage garde le visage. */
+.pak-portrait {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  border-radius: calc(var(--acc-r2) - 10px);
+  background: var(--acc-or-clair);
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+
+.pak-experte-corps {
+  color: var(--acc-encre);
+  font-size: 1.08rem;
+}
+
+/* ── Les portes : l'autre pack, les études à l'unité ─────────────────────── */
+
+.pak-portes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 22px;
+}
+
+.pak-porte {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: clamp(26px, 3.4vw, 44px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+/* Deux portes : la première — l'autre pack — est celle qu'on met en avant. */
+.pak-porte:first-child:not(:only-child) {
+  background: var(--acc-or-clair);
+}
+
+.pak-porte:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.pak-porte h2 {
+  font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+}
+
+.pak-porte p {
+  max-width: 40em;
+  margin-bottom: 10px;
+}
+
+.pak-porte .pak-btn {
+  margin-top: auto;
+}
+
+/* ── Appel final ─────────────────────────────────────────────────────────── */
+
+/* La fin dorée du socle se termine, sur l'accueil, par une grande bande ; ici
+   elle se ferme sur ses boutons, avec sa propre marge basse. */
+.acc-fin.pak-fin {
+  padding-bottom: clamp(60px, 9vw, 120px);
+}
+
+.pak-fin h2 {
+  max-width: 16em;
+  margin-inline: auto;
+  text-wrap: balance;
+}
+
+.pak-fin .acc-fin-corps {
+  max-width: 36em;
+}
+
+.pak-fin .pak-appels {
+  margin-top: 0;
+}
+
+.pak-fin-mention {
+  margin-top: 24px;
+  color: var(--acc-encre);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+/* ── Largeurs ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .pak-profils {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  /* Une colonne : le texte et ses boutons d'abord, l'encart ensuite. */
+  .pak-ouverture-grille,
+  .pak-duo,
+  .pak-versus,
+  .pak-formation,
+  .pak-support,
+  .pak-experte {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pak-cadre {
+    margin-right: 5%;
+  }
+}
+
+@media (max-width: 820px) {
+  .pak-plus,
+  .pak-benefices,
+  .pak-documents,
+  .pak-livrables {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .pak-ouverture {
+    padding-top: 136px;
+  }
+
+  .pak-profils {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Le numéro passe au-dessus du texte : la ligne garde toute sa largeur. */
+  .pak-etapes > li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Trois colonnes dans 335 px : le texte se resserre, rien ne déborde. */
+  .pak-tableau table {
+    font-size: 0.86rem;
+  }
+
+  .pak-tableau :is(th, td) {
+    padding: 12px 10px;
+  }
+
+  .pak-tableau caption {
+    padding: 14px 10px;
+  }
+
+  .pak-tableau tbody tr:last-child td {
+    font-size: 1.1rem;
+  }
+
+  .pak-signe {
+    width: 20px;
+    height: 20px;
+    margin-right: 4px;
+  }
+
+  /* Sur un téléphone, chaque bouton prend la largeur de sa colonne. */
+  .pak-carte-pied .pak-appels {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pak-carte-pied .pak-btn {
+    justify-content: space-between;
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────────
+ *
+ * Même politique que les pages de référence : le mouvement réduit RÉDUIT, il
+ * ne supprime pas. Le socle tient déjà la révélation en fondu seul, les
+ * survols des boutons et le ruban ralenti. Ici, une seule chose à couper :
+ * les cartes qui se soulèvent. Leur ombre, elle, change encore — sur la
+ * transition de `[data-reveal]`, que le socle a ramenée à son plancher.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pak-carte:hover,
+  .pak-profils > li:hover,
+  .pak-livrables > li:hover,
+  .pak-porte:hover {
+    transform: none;
+  }
+}

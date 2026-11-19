@@ -18,7 +18,11 @@ import {
   type RefObject,
 } from "react";
 
-import { ACCUEIL, type EntreeDeNavigation } from "./contenuSite";
+import {
+  ACCUEIL,
+  type EntreeDeNavigation,
+  type Rubrique,
+} from "./contenuSite";
 
 // ── Chargement d'un catalogue ───────────────────────────────────────────────
 
@@ -145,11 +149,39 @@ export function adresseDe(entree: EntreeDeNavigation, ici: string): string {
 /** L'entrée est-elle la page affichée ? Seul un lien interne peut l'être : une
  *  ancre désigne une section, une adresse externe un autre site. */
 export function estCourante(entree: EntreeDeNavigation, ici: string): boolean {
-  return (
-    entree.lien !== undefined &&
-    entree.lien.startsWith("/") &&
-    (entree.lien.replace(/\/+$/, "") || ACCUEIL) === ici
-  );
+  return entree.lien !== undefined && estLaPage(entree.lien, ici);
+}
+
+/** Cette adresse est-elle EXACTEMENT la page affichée ? Une adresse qui porte
+ *  une ancre (`/etudes#comment-ca-marche`) désigne une section : elle n'est
+ *  pas « la page », sinon les six liens d'un même panneau se diraient tous
+ *  courants à la fois. */
+export function estLaPage(lien: string, ici: string): boolean {
+  return lien.startsWith("/") && (lien.replace(/\/+$/, "") || ACCUEIL) === ici;
+}
+
+/** Le chemin d'une adresse INTERNE, sans ancre ni barre oblique finale ;
+ *  `null` pour une adresse externe (Calendly, un réseau). */
+export function cheminDe(lien: string): string | null {
+  if (!lien.startsWith("/")) return null;
+  return lien.split("#")[0].replace(/\/+$/, "") || ACCUEIL;
+}
+
+/** La page affichée est-elle dans cette rubrique du menu ? Vrai quand l'un de
+ *  ses liens — carte de mise en avant comprise — mène à cette page, à l'une de
+ *  ses sections, ou à une page au-dessus d'elle (`/boutique` pour
+ *  `/boutique/une-etude`). Déduit du chemin, jamais écrit dans les données.
+ *
+ *  La comparaison se fait segment par segment : `/etudes-de-cas` n'est pas
+ *  sous `/etudes`. L'accueil n'est « au-dessus » de rien, sinon toute page
+ *  serait dans la rubrique qui y mène. */
+export function contientLaPage(rubrique: Rubrique, ici: string): boolean {
+  return [...rubrique.liens, rubrique.enAvant].some(({ lien }) => {
+    const chemin = cheminDe(lien);
+    if (chemin === null) return false;
+    if (chemin === ici) return true;
+    return chemin !== ACCUEIL && ici.startsWith(`${chemin}/`);
+  });
 }
 
 // ── Le titre de l'onglet et la description ──────────────────────────────────
@@ -195,7 +227,7 @@ export type Menu = {
 };
 
 /** Menu plein écran : la page derrière ne défile plus, et repasser en grand
- *  écran le referme — la barre montre alors les mêmes liens. Échap referme
+ *  écran le referme — la barre montre alors les mêmes rubriques. Échap referme
  *  aussi : c'est `EnTeteSite` qui l'écoute, pour rendre le focus à son
  *  bouton. */
 export function useMenu(): Menu {

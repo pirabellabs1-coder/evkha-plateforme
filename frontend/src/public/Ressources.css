@@ -1,0 +1,1212 @@
+/* Les cinq pages « ressources » (`Ressources.tsx`, `Blog.tsx`) : la boîte à
+ * outils, le contact, le partenaire Swapn, la liste du blog et la page d'un
+ * article. Même famille que l'accueil et la page des études — papier crème,
+ * or, encre, Fraunces italique pour les mots d'accent, cartes à double bord —
+ * avec des compositions propres à chaque contenu : des cartes-ressources en
+ * deux volets, une carte d'article « à la une », une colonne de lecture.
+ *
+ * Cette feuille ne porte que ce qui est PROPRE à ces pages. Le socle — barre,
+ * menu, pied, boutons, étiquettes, titres, révélation, grain, fin dorée —
+ * vient de `Site.css`, que chaque page importe AVANT celle-ci (règle 5).
+ *
+ * Les règles du socle tiennent ici, et les mêmes tests les verrouillent :
+ * aucune couleur écrite (tout lit `theme/tokens.css` ou les variables du
+ * socle, les translucides par `color-mix()` sur un jeton) ; aucune durée
+ * écrite dans un mouvement (jetons `--duree-*`) ; tout sous `.acc`, avec des
+ * classes préfixées `res-`.
+ *
+ * Mouvement réduit : cette feuille ne lit aucun plancher du socle. Ses
+ * transitions lisent des `--duree-*`, que `tokens.css` remet à zéro : ses
+ * survols sont alors instantanés, et les soulèvements sont coupés en fin de
+ * feuille. Rien ne boucle sur ces pages.
+ */
+
+/* ── Ce que les cinq pages partagent ─────────────────────────────────────── */
+
+/* L'ouverture : sous la barre fixe du site. */
+.res-ouverture {
+  position: relative;
+  padding: 150px 0 clamp(64px, 8vw, 110px);
+}
+
+.res-ouverture-courte {
+  padding-bottom: clamp(40px, 5vw, 64px);
+}
+
+.res-ouverture h1 {
+  max-width: 17em;
+  margin: 20px 0;
+}
+
+.res-chapeau {
+  max-width: 34em;
+  font-size: 1.08rem;
+}
+
+/* L'ouverture centrée : le contact, l'article introuvable. */
+.res-ouverture-centree {
+  text-align: center;
+}
+
+.res-ouverture-centree h1,
+.res-ouverture-centree .res-chapeau {
+  margin-inline: auto;
+}
+
+.res-appels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.res-ouverture-centree .res-appels {
+  justify-content: center;
+}
+
+/* Un bouton dont le libellé est long : il passe à la ligne plutôt que de
+   sortir de sa carte à 375 px. Deux classes, pour surpasser le socle quel que
+   soit l'ordre d'arrivée des feuilles. */
+.acc-btn.res-bouton-souple {
+  padding-block: 8px;
+  white-space: normal;
+}
+
+/* La petite étiquette en capitales, au-dessus d'un titre de carte. */
+.res-etiquette {
+  color: var(--acc-doux);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Le numéro d'une carte : un disque d'or, chiffres en Fraunces. */
+.res-numero {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--acc-or);
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+/* Lu par un lecteur d'écran, invisible à l'écran : le complément d'un
+   libellé de bouton. */
+.res-invisible {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* La fin dorée du socle se termine, sur l'accueil, par une grande bande ; ici
+   elle se ferme sur son bouton, avec sa propre marge basse. */
+.acc-fin.res-fin {
+  padding-bottom: clamp(60px, 9vw, 120px);
+}
+
+.res-fin h2 {
+  max-width: 16em;
+  margin-inline: auto;
+  text-wrap: balance;
+}
+
+/* ── Boîte à outils : l'ouverture et « ce que vous allez découvrir » ─────── */
+
+.res-ouverture-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+}
+
+/* La carte sombre : ce que la page contient. Texte courant au lin de la
+   charte (11,6:1 sur l'encre). */
+.res-decouvrir {
+  padding: clamp(26px, 3.4vw, 44px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-encre);
+  box-shadow: var(--acc-ombre);
+  color: var(--acc-blanc);
+}
+
+.res-decouvrir h2 {
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+}
+
+.res-decouvrir ul {
+  display: grid;
+  margin: 22px 0;
+  padding: 0;
+  color: var(--evkha-lin);
+  list-style: none;
+}
+
+.res-decouvrir li {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 14px 0;
+  border-top: 1.5px dashed color-mix(in srgb, var(--evkha-blanc) 30%, transparent);
+}
+
+.res-decouvrir strong {
+  color: var(--acc-blanc);
+  font-weight: 700;
+}
+
+.res-decouvrir-numero {
+  color: var(--acc-or);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.res-decouvrir p {
+  color: var(--evkha-lin);
+  font-size: 0.95rem;
+}
+
+/* ── Boîte à outils : les ressources, une par ligne ──────────────────────── */
+
+.res-ressources {
+  display: grid;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* À gauche ce que la ressource est, à droite ce qu'elle apporte, et sous le
+   texte le moyen de l'obtenir. */
+.res-ressource {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.res-ressource-tete {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: clamp(26px, 3.4vw, 44px);
+  border-right: 1.5px dashed var(--acc-pointille);
+  background: var(--acc-or-brume);
+}
+
+.res-ressource h3 {
+  font-size: clamp(1.35rem, 2.1vw, 1.75rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.res-ressource-surtitre {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+/* L'article se distingue des deux documents : son volet de gauche est doré. */
+.res-ressource-article .res-ressource-tete {
+  background: var(--acc-or);
+}
+
+.res-ressource-article .res-numero {
+  background: var(--acc-encre);
+  color: var(--acc-or);
+}
+
+.res-ressource-article .res-etiquette {
+  color: var(--acc-encre);
+}
+
+.res-ressource-corps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(26px, 3.4vw, 44px);
+}
+
+/* Poussée en bas de la carte : le texte relevé annonce le document
+   « ci-dessous ». */
+.res-ressource-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.res-ressource-document {
+  flex: 1 1 14em;
+  color: var(--acc-encre);
+  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.res-ressource-document span {
+  display: block;
+}
+
+/* ── Contact ─────────────────────────────────────────────────────────────── */
+
+/* Le délai de réponse relevé, en pilule sous l'accroche. */
+.res-delai {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--acc-or);
+  color: var(--acc-encre);
+  font-weight: 700;
+}
+
+.res-moyens {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 22px;
+}
+
+.res-moyen {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: clamp(26px, 3.2vw, 40px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.res-moyen:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.res-moyen h3 {
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+}
+
+.res-moyen .res-moyen-bouton {
+  margin-top: auto;
+}
+
+/* L'espace entre le texte et le bouton poussé en bas. */
+.res-moyen > p:last-of-type {
+  margin-bottom: 14px;
+}
+
+/* Écrire : le moyen principal, sur l'encre. */
+.res-moyen-fort {
+  background: var(--acc-encre);
+  box-shadow: var(--acc-ombre);
+  color: var(--acc-blanc);
+}
+
+.res-moyen-fort .res-etiquette {
+  color: var(--acc-or);
+}
+
+.res-moyen-fort p {
+  color: var(--evkha-lin);
+}
+
+/* L'adresse en toutes lettres ; elle se coupe plutôt que de déborder. */
+.res-moyen-fort .res-adresse {
+  color: var(--acc-blanc);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-size: 1.3rem;
+  overflow-wrap: anywhere;
+}
+
+.res-reseaux {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: auto 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 44 px de haut : une cible que le doigt atteint. */
+.res-reseaux a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+  font-weight: 700;
+  font-size: 0.92rem;
+  transition: background-color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.res-reseaux a:hover {
+  background: var(--acc-or-clair);
+}
+
+/* Pour quoi nous écrire : le titre d'un côté, les quatre portes de l'autre. */
+.res-aide {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 40px;
+  align-items: start;
+}
+
+.res-orientations {
+  display: grid;
+  margin: 0;
+  padding: 8px clamp(20px, 3vw, 36px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-clair);
+  box-shadow: var(--acc-ecrin);
+  list-style: none;
+}
+
+.res-orientations li + li {
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.res-orientations a {
+  display: grid;
+  grid-template-columns: 1fr 36px;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 0;
+}
+
+.res-orientation-texte {
+  display: grid;
+  gap: 4px;
+}
+
+.res-orientation-texte strong {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.res-orientation-texte span {
+  color: var(--acc-gris);
+  font-size: 0.95rem;
+}
+
+.res-fleche {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--acc-blanc);
+  transition: transform var(--duree-acc-survol) var(--ease-sortie),
+    background-color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.res-orientations a:hover .res-fleche {
+  background: var(--acc-or);
+  transform: rotate(-45deg);
+}
+
+.res-orientations a:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ── Swapn ───────────────────────────────────────────────────────────────── */
+
+.res-swapn-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+}
+
+/* La plaque du logo : une plaque dorée, légèrement tournée, derrière une
+   carte blanche qui porte le logo. */
+.res-logo-plaque {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  justify-self: center;
+}
+
+.res-logo-plaque::before {
+  content: "";
+  position: absolute;
+  inset: 8% -6% -6% 10%;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or);
+  rotate: 4deg;
+}
+
+/* Relative : la carte se peint au-dessus de la plaque dorée. */
+.res-logo-carte {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: clamp(24px, 4vw, 44px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+/* `height: auto` DÉCLARÉE : sans elle, l'attribut `height` de la balise
+   deviendrait une hauteur en pixels et le logo perdrait son ratio
+   (`une-image-garde-son-ratio`). */
+.res-logo {
+  width: min(100%, 220px);
+  height: auto;
+}
+
+/* L'offre du partenaire : une figure, sa légende. */
+.res-offre {
+  overflow: hidden;
+  margin: 0;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.res-offre-corps {
+  display: grid;
+  gap: 14px;
+  padding: clamp(28px, 4vw, 56px);
+}
+
+/* « Selon Swapn : » — l'attribution ouvre la carte. */
+.res-offre-selon {
+  color: var(--acc-doux);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.res-offre-accroche {
+  max-width: 20em;
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.5rem, 3vw, 2.3rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.res-offre-mention {
+  color: var(--acc-encre);
+  font-weight: 600;
+}
+
+.res-offre-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.res-offre-ligne li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--acc-or-clair);
+  color: var(--acc-encre);
+  font-weight: 700;
+}
+
+.res-arguments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-top: 1.5px dashed var(--acc-pointille);
+  list-style: none;
+}
+
+.res-arguments li {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: clamp(22px, 2.8vw, 34px) clamp(20px, 2.6vw, 34px);
+}
+
+.res-arguments li + li {
+  border-left: 1.5px dashed var(--acc-pointille);
+}
+
+.res-arguments h3 {
+  font-size: 1.16rem;
+  letter-spacing: -0.02em;
+}
+
+.res-arguments p {
+  font-size: 0.96rem;
+}
+
+/* Le relevé écrit ces phrases sans majuscule : elles suivaient leur titre. */
+.res-arguments p::first-letter {
+  text-transform: uppercase;
+}
+
+.res-offre figcaption {
+  padding: 18px clamp(20px, 4vw, 56px);
+  border-top: 1.5px dashed var(--acc-pointille);
+  background: var(--acc-or-brume);
+  color: var(--acc-gris);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* La mise en relation : la carte sombre, comme la dernière marche du
+   parcours de l'accueil. */
+.res-relation {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: center;
+  padding: clamp(28px, 4vw, 56px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-encre);
+  box-shadow: var(--acc-ombre);
+  color: var(--acc-blanc);
+}
+
+.res-relation p {
+  color: var(--evkha-lin);
+}
+
+.res-relation-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+/* Les deux phrases que le site écrivait en capitales dans son formulaire. */
+.res-relation .res-capitales {
+  color: var(--acc-or);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: 0.12em;
+}
+
+.res-relation .res-capitales-douces {
+  color: var(--evkha-lin);
+}
+
+/* Sur l'encre, le contour de focus du socle (à l'encre) ne se verrait pas :
+   il passe à l'or. */
+.res-moyen-fort :focus-visible,
+.res-relation :focus-visible {
+  outline-color: var(--acc-or);
+}
+
+/* ── Blog : les filtres et les cartes ────────────────────────────────────── */
+
+.res-articles-tete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 28px;
+}
+
+.res-articles-tete h2 {
+  font-size: clamp(1.3rem, 2vw, 1.6rem);
+}
+
+.res-filtres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 44 px de haut : une cible que le doigt atteint. */
+.res-filtre {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--acc-blanc);
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+  font-weight: 700;
+  font-size: 0.92rem;
+  transition: background-color var(--duree-acc-survol) var(--ease-sortie),
+    color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.res-filtre:hover:not(:disabled) {
+  background: var(--acc-or-clair);
+}
+
+/* Le filtre actif : inversé, et marqué d'une pastille — l'état ne tient pas à
+   la couleur seule. */
+.res-filtre[aria-pressed="true"],
+.res-filtre[aria-pressed="true"]:hover {
+  background: var(--acc-encre);
+  box-shadow: none;
+  color: var(--acc-blanc);
+}
+
+.res-filtre[aria-pressed="true"]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--acc-or);
+}
+
+/* Un thème sans article : là, mais en retrait et hors d'atteinte. */
+.res-filtre:disabled {
+  background: none;
+  box-shadow: none;
+  outline: 1.5px dashed var(--acc-pointille);
+  outline-offset: -1.5px;
+  color: var(--acc-doux);
+  cursor: not-allowed;
+}
+
+.res-compte {
+  margin: 18px 0 22px;
+  color: var(--acc-doux);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.res-vide {
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: var(--acc-or-clair);
+  color: var(--acc-encre);
+  font-weight: 600;
+}
+
+/* La première carte prend toute la largeur ; les suivantes se partagent la
+   ligne, et une carte seule l'occupe entière — jamais de case vide. */
+.res-articles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.res-article-rang {
+  display: grid;
+}
+
+.res-article-rang-une {
+  grid-column: 1 / -1;
+}
+
+/* Relative : le lien du titre s'étend à toute la carte. */
+.res-article {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.res-article:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.res-article-tete {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: clamp(26px, 3.4vw, 44px);
+  background: var(--acc-or-brume);
+}
+
+.res-article h3 {
+  font-size: clamp(1.3rem, 2vw, 1.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.res-article h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.res-article-sous-titre {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+.res-article-corps {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: clamp(26px, 3.4vw, 44px);
+}
+
+.res-article-meta {
+  color: var(--acc-doux);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.res-article .res-article-lire {
+  margin-top: auto;
+}
+
+.res-article:hover .res-article-lire .acc-btn-fleche {
+  transform: rotate(-45deg);
+}
+
+/* À la une : deux volets, le titre en grand sur l'or. */
+.res-article-rang-une .res-article {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.res-article-rang-une .res-article-tete {
+  justify-content: center;
+  min-height: 320px;
+  padding: clamp(30px, 5vw, 64px);
+  background: var(--acc-or);
+}
+
+.res-article-rang-une h3 {
+  font-size: clamp(1.7rem, 3.4vw, 2.7rem);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+}
+
+.res-article-rang-une .res-article-sous-titre {
+  font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+}
+
+.res-article-rang-une .res-article-corps {
+  justify-content: center;
+  gap: 16px;
+  font-size: 1.08rem;
+}
+
+.res-article-rang-une .res-article-lire {
+  margin-top: 10px;
+}
+
+/* ── Article : l'en-tête, le sommaire, la colonne de lecture ─────────────── */
+
+/* Plus étroite que la page : un sommaire et une colonne de texte. */
+.acc-w.res-lecture-largeur {
+  width: min(1040px, 100% - 40px);
+}
+
+.res-fil ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0 0 26px;
+  padding: 0;
+  color: var(--acc-gris);
+  font-size: 0.86rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.res-fil li + li::before {
+  content: "›";
+  margin-right: 10px;
+  color: var(--acc-doux);
+}
+
+.res-fil a {
+  color: var(--acc-encre);
+  text-decoration: underline;
+  text-decoration-color: var(--acc-pointille);
+  text-underline-offset: 4px;
+}
+
+.res-fil a:hover {
+  text-decoration-color: var(--acc-encre);
+}
+
+.res-lecture .res-ouverture h1 {
+  max-width: 16em;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+
+.res-sous-titre {
+  max-width: 26em;
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.2rem, 2.2vw, 1.65rem);
+  line-height: 1.3;
+}
+
+.res-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 26px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.res-meta li {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--acc-blanc);
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.res-lecture-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 250px) minmax(0, 1fr);
+  gap: clamp(32px, 6vw, 80px);
+  align-items: start;
+  padding-bottom: clamp(72px, 9vw, 130px);
+}
+
+/* Le sommaire suit la lecture, sous la barre fixe du site. */
+.res-sommaire {
+  position: sticky;
+  top: 104px;
+  padding: 24px;
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.res-sommaire h2 {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.res-sommaire ol {
+  display: grid;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.res-sommaire li + li {
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.res-sommaire a {
+  display: block;
+  padding: 12px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.res-sommaire a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* La colonne de lecture : environ 68 caractères par ligne, un corps un peu
+   plus grand et un interligne plus ouvert que le reste du site. */
+.res-prose {
+  max-width: 68ch;
+  font-size: 1.09rem;
+  line-height: 1.75;
+}
+
+.res-prose p,
+.res-prose .res-liste,
+.res-prose .res-encadre {
+  margin: 0 0 1.15em;
+}
+
+.res-prose h2 {
+  margin: 2.3em 0 0.7em;
+  font-size: clamp(1.45rem, 2.3vw, 1.85rem);
+  line-height: 1.18;
+  text-wrap: balance;
+}
+
+.res-prose h3 {
+  margin: 2em 0 0.7em;
+  font-size: 1.24rem;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+
+/* Le chapô ouvre la colonne : son intertitre en Fraunces, son premier
+   paragraphe à l'encre et en plus grand. */
+.res-prose .res-chapo h2 {
+  margin-top: 0;
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.res-prose .res-chapo-premier {
+  color: var(--acc-encre);
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+/* La phrase qui introduit une liste lui reste attachée. */
+.res-prose .res-liste-amorce {
+  margin-bottom: 0.5em;
+  color: var(--acc-encre);
+  font-weight: 700;
+}
+
+.res-liste {
+  display: grid;
+  gap: 0.5em;
+  padding: 0;
+  color: var(--acc-gris);
+  list-style: none;
+}
+
+.res-liste li {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 6px;
+}
+
+.res-liste li::before {
+  content: "✦";
+  color: var(--acc-or-fonce);
+}
+
+/* Les deux encadrés. Leur amorce relevée (« Demandez-vous : », « Exemple : »)
+   les nomme ; l'habillage ne fait que le souligner. */
+.res-encadre {
+  padding: 20px 24px;
+  border-radius: var(--acc-r);
+}
+
+.res-prose .res-encadre p {
+  margin: 0;
+}
+
+.res-prose .res-encadre .res-encadre-amorce {
+  margin-bottom: 6px;
+  color: var(--acc-encre);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* « Demandez-vous » : sur l'or pâle, la question en Fraunces. */
+.res-encadre-question {
+  background: var(--acc-or-clair);
+  box-shadow: var(--acc-ecrin);
+}
+
+.res-encadre-question p:last-child {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.22rem;
+  line-height: 1.45;
+}
+
+/* « Exemple » : en retrait, un filet d'or à gauche. */
+.res-encadre-exemple {
+  border-left: 4px solid var(--acc-or);
+  border-radius: 0 var(--acc-r) var(--acc-r) 0;
+  background: var(--acc-blanc);
+}
+
+.res-prose .res-salut {
+  margin: 1.6em 0 0;
+  color: var(--acc-encre);
+  font-weight: 700;
+}
+
+.res-prose .res-signature {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.9rem;
+  line-height: 1.3;
+}
+
+/* L'appel de fin d'article : une carte cernée d'un pointillé. */
+.res-bonus {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 3em;
+  padding: clamp(24px, 3.4vw, 40px);
+  border: 1.5px dashed var(--acc-pointille);
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-brume);
+}
+
+.res-prose .res-bonus h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.res-prose .res-bonus p {
+  margin: 0;
+}
+
+.res-prose .res-bonus-document {
+  color: var(--acc-encre);
+  font-weight: 700;
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.res-bonus .acc-btn {
+  margin-top: 14px;
+}
+
+/* ── Largeurs ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .res-ouverture-grille,
+  .res-swapn-grille,
+  .res-aide,
+  .res-relation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* La ressource s'empile : ce qu'elle est, ce qu'elle apporte, son bouton. */
+  .res-ressource {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .res-ressource-tete {
+    border-right: 0;
+    border-bottom: 1.5px dashed var(--acc-pointille);
+  }
+
+  .res-logo-plaque {
+    max-width: 260px;
+    justify-self: start;
+    margin-right: 6%;
+  }
+
+  .res-article-rang-une .res-article {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .res-article-rang-une .res-article-tete {
+    min-height: 0;
+  }
+
+  /* Le sommaire passe au-dessus du texte, et ne colle plus. */
+  .res-lecture-grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .res-sommaire {
+    position: static;
+  }
+}
+
+@media (max-width: 600px) {
+  .res-ouverture {
+    padding-top: 136px;
+  }
+
+  .res-arguments {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .res-arguments li + li {
+    border-top: 1.5px dashed var(--acc-pointille);
+    border-left: 0;
+  }
+
+  /* La pilule du délai devient un pavé : sa phrase peut prendre deux lignes. */
+  .res-delai {
+    border-radius: var(--acc-r);
+  }
+
+  .res-prose {
+    font-size: 1.04rem;
+  }
+
+  .res-encadre {
+    padding: 18px 20px;
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────────
+ *
+ * Même politique que le socle : le mouvement réduit RÉDUIT. L'apparition des
+ * blocs (en fondu seul) et les survols des boutons sont tenus par `Site.css`.
+ * Ici, seuls les soulèvements et la rotation des flèches sont COUPÉS ; les
+ * changements de fond et d'ombre restent, instantanés.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .res-moyen:hover,
+  .res-article:hover,
+  .res-orientations a:hover .res-fleche,
+  .res-article:hover .res-article-lire .acc-btn-fleche {
+    transform: none;
+  }
+}

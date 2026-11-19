@@ -1034,6 +1034,37 @@ export const PAGE_SOCIETES = {
     ...POURQUOI_CETTE_FORMATION,
     situations: ARGUMENTAIRE_SOCIETES.constat.points,
     argumentaire: ARGUMENTAIRE_SOCIETES,
+    /** Les quatre profils : capture du TUNNEL DE PAIEMENT
+     *  (`/paiement-formationsociete`), lue le 19/11/2026 — elle ne figure pas
+     *  sur la page d'achat. Même gabarit que `PAGE_MICRO.pourQui.aQui`. */
+    aQui: {
+      surtitre: "À QUI S'ADRESSE CETTE FORMATION",
+      titre: "Pour les porteurs de projet qui veulent voir grand",
+      corps:
+        "Si vous visez une vraie société, une protection patrimoniale solide ou des associés, cette formation est pensée pour vous.",
+      cartes: [
+        {
+          titre: "Porteurs de projet ambitieux",
+          corps:
+            "Vous visez un statut sociétal d'emblée pour un projet structurant.",
+        },
+        {
+          titre: "Créateurs d'entreprise",
+          corps:
+            "Vous voulez créer une SASU, EURL, SARL ou SAS, seul ou à plusieurs.",
+        },
+        {
+          titre: "Salariés en reconversion",
+          corps:
+            "Vous quittez le salariat pour un projet qui nécessite un cadre solide.",
+        },
+        {
+          titre: "Micro-entrepreneurs en évolution",
+          corps:
+            "Vous voulez passer de la micro à une structure plus solide et fiscalement optimisée.",
+        },
+      ],
+    } satisfies BlocDeCartes,
   },
 
   /** Le tunnel annonce le nombre de modules et ce que chacun combine. Leurs
@@ -1666,5 +1697,393 @@ export const PAGE_POP = {
       "Plus qu'une étape avant de structurer votre activité avec la Méthode P.O.P !",
     ...COMMANDE_D_UNE_FORMATION,
     bouton: "Je choisis la formation P.O.P",
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// ARTICULATION — ce que les pages de la plateforme (`Formations.tsx`) AJOUTENT
+// au texte relevé, et ce qu'elles en AFFICHENT autrement.
+//
+// Tout ce qui précède est le relevé du site, mot pour mot. Ce qui suit, écrit
+// le 19/11/2026 pour la refonte, est de deux sortes :
+//
+//  1. des textes COURTS d'articulation (surtitres, intitulés de boutons,
+//     objets de courriel, la passerelle vers les packs et les études, les
+//     titres d'onglet des pages qui n'en avaient pas de juste) — à faire
+//     valider par la cliente ;
+//  2. des VUES du relevé : où un titre se coupe pour que sa fin passe en
+//     italique, et les quatre retouches d'affichage décidées pour la refonte
+//     (attestation, outillage interne, ancienneté, assistant IA). Chaque vue
+//     PART du texte relevé et LÈVE une erreur au chargement si ce texte a
+//     changé : une retouche qui ne trouve plus sa cible ne doit pas passer
+//     pour appliquée (règle 1).
+//
+// Aucun prix ici : ils se lisent dans `TARIFS_FORMATIONS`.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Routes de la plateforme ─────────────────────────────────────────────────
+
+/** Les pages de la nouvelle plateforme. Les boutons « Je découvre… » du
+ *  catalogue y mènent ; les boutons d'ACHAT, eux, mènent encore aux tunnels
+ *  de paiement du site actuel (`LIENS_FORMATIONS.paiement*`). */
+export const ROUTES_FORMATIONS = {
+  catalogue: "/formations",
+  societes: "/formations/creer-son-entreprise",
+  micro: "/formations/creer-sa-micro-entreprise",
+  pop: "/formations/methode-pop",
+  packs: "/packs",
+  etudes: "/etudes",
+} as const;
+
+/** Le tunnel de paiement de chaque formation. */
+export const PAIEMENT_DES_FORMATIONS: Record<CleDeFormation, string> = {
+  societes: LIENS_FORMATIONS.paiementSocietes,
+  micro: LIENS_FORMATIONS.paiementMicro,
+  pop: LIENS_FORMATIONS.paiementPop,
+};
+
+// ── Outils des vues ─────────────────────────────────────────────────────────
+
+/** Remplace `avant` par `apres` dans un texte relevé. Si `avant` n'y est
+ *  plus, le module lève une erreur : la retouche n'a pas eu lieu, et le texte
+ *  d'origine ne doit pas s'afficher à sa place sans que personne le sache. */
+function retouche(texte: string, avant: string, apres: string): string {
+  if (avant === "" || !texte.includes(avant)) {
+    throw new Error(
+      `contenuFormations : « ${avant} » est introuvable dans « ${texte} »`,
+    );
+  }
+  return texte.replace(avant, apres);
+}
+
+export type TitreEnDeuxTemps = { avant: string; fin: string };
+
+/** Un titre relevé, coupé en deux pour que sa fin passe en italique
+ *  (Fraunces), comme sur l'accueil et la page des études. Le titre n'est PAS
+ *  réécrit : on désigne seulement où il se coupe. Un titre qui ne se termine
+ *  plus par l'accent attendu lève une erreur au chargement. */
+function enDeuxTemps(titre: string, accent: string): TitreEnDeuxTemps {
+  if (accent === "" || !titre.endsWith(accent) || titre.length === accent.length) {
+    throw new Error(
+      `contenuFormations : le titre « ${titre} » ne se termine pas par « ${accent} »`,
+    );
+  }
+  return { avant: titre.slice(0, -accent.length).trimEnd(), fin: accent };
+}
+
+/** Le libellé d'un bouton relevé, sans sa flèche finale : le bouton de la
+ *  plateforme dessine la sienne. */
+export function sansFleche(libelle: string): string {
+  return libelle.replace(/\s*→\s*$/, "");
+}
+
+/** « 2 h », « 18 h » : une durée en grand chiffre. */
+export function dureeEnHeures(heures: number): string {
+  return `${heures}\u00a0h`;
+}
+
+// ── Les titres, en deux temps ───────────────────────────────────────────────
+
+export const TITRES_COMMUNS = {
+  pourquoi: enDeuxTemps(POURQUOI_CETTE_FORMATION.titre, "vous êtes au bon endroit"),
+  presentiel: enDeuxTemps(PRESENTIEL.titre, "en présentiel"),
+  financement: enDeuxTemps(
+    ORGANISME_DE_FORMATION.financement.question,
+    "à un financement ?",
+  ),
+  questions: enDeuxTemps(QUESTIONS_DES_FORMATIONS.titre, "à vos questions"),
+};
+
+export const TITRES_DU_CATALOGUE = {
+  ouverture: enDeuxTemps(PAGE_CATALOGUE.ouverture.titre, "au succès !"),
+  pourquoi: enDeuxTemps(PAGE_CATALOGUE.pourquoi.titre, "nos formations ?"),
+  formations: enDeuxTemps(PAGE_CATALOGUE.formations.titre, "dès Maintenant"),
+  pourQui: enDeuxTemps(PAGE_CATALOGUE.pourQui.titre, "ça s'adresse ?"),
+  avis: enDeuxTemps(PAGE_CATALOGUE.avis.titre, "avis clients"),
+};
+
+export const TITRES_SOCIETES = {
+  ouverture: enDeuxTemps(PAGE_SOCIETES.ouvertureEnImage.titre, "de A à Z"),
+  aQui: enDeuxTemps(PAGE_SOCIETES.pourQui.aQui.titre, "qui veulent voir grand"),
+  objectifs: enDeuxTemps(PAGE_SOCIETES.objectifs.titre, "à la fin de la formation"),
+  programme: enDeuxTemps(PAGE_SOCIETES.programme.titre, "du parcours"),
+  statuts: enDeuxTemps(PAGE_SOCIETES.statuts.titre, "expliquées et comparées"),
+  inclus: enDeuxTemps(PAGE_SOCIETES.inclus.titre, "créer et piloter votre société"),
+  coaching: enDeuxTemps(PAGE_SOCIETES.modalites.coaching.titre, "premium inclus"),
+};
+
+export const TITRES_MICRO = {
+  ouverture: enDeuxTemps(PAGE_MICRO.ouvertureEnImage.titre, "de A à Z"),
+  aQui: enDeuxTemps(PAGE_MICRO.pourQui.aQui.titre, "qui veulent démarrer en micro"),
+  objectifs: enDeuxTemps(PAGE_MICRO.objectifs.titre, "à la fin de la formation"),
+  programme: enDeuxTemps(PAGE_MICRO.programme.titre, "du parcours"),
+  inclus: enDeuxTemps(PAGE_MICRO.inclus.titre, "jusqu'au lancement"),
+  coaching: enDeuxTemps(PAGE_MICRO.modalites.coaching.titre, "premium inclus"),
+};
+
+export const TITRES_POP = {
+  ouverture: enDeuxTemps(PAGE_POP.ouverture.titre, "avec la méthode P.O.P"),
+  objectifs: enDeuxTemps(PAGE_POP.objectifs.titre, "à la fin de la formation"),
+  methode: enDeuxTemps(PAGE_POP.methode.titre, "un système complet"),
+  inclus: enDeuxTemps(PAGE_POP.inclus.titre, "passer à l'action"),
+};
+
+// ── Les onglets ─────────────────────────────────────────────────────────────
+
+/** Le titre d'onglet et la méta-description de chaque page de la plateforme.
+ *
+ *  - Catalogue : ceux du relevé, justes.
+ *  - Sociétés et micro-entreprise : le relevé est celui de la Méthode P.O.P,
+ *    copié sur le site (`aReecrire: true`). Titre ÉCRIT ici ; la description
+ *    est la présentation relevée de la formation.
+ *  - Méthode P.O.P : le relevé est juste mais TUTOIE (« Organise ton
+ *    business ») quand toute la page vouvoie. Titre écrit ici ; la description
+ *    est la phrase relevée sous le titre de la page. */
+export const ONGLETS_DES_PAGES = {
+  catalogue: {
+    titre: PAGE_CATALOGUE.onglet.titre,
+    description: PAGE_CATALOGUE.onglet.description,
+  },
+  societes: {
+    titre: `Formation « ${CARTE_SOCIETES.titre} » – EVKHA`,
+    description: CARTE_SOCIETES.corps.join(" "),
+  },
+  micro: {
+    titre: `Formation « ${CARTE_MICRO.titre} » – EVKHA`,
+    description: CARTE_MICRO.corps.join(" "),
+  },
+  pop: {
+    titre: "Formation Méthode P.O.P : planifiez, organisez, produisez – EVKHA",
+    description: PAGE_POP.ouverture.sousTitre,
+  },
+};
+
+// ── Ce qui est inclus : trois retouches d'affichage ─────────────────────────
+
+/** Ce que la plateforme écrit à la place d'« Attestation Qualiopi », tant que
+ *  la cliente n'a pas confirmé la certification : la formulation du tunnel de
+ *  la Méthode P.O.P, relevée (`PAGE_POP.modalites.contenu`). */
+export const ATTESTATION_AFFICHEE = "Attestation de fin de formation";
+
+if (!PAGE_POP.modalites.contenu.includes(ATTESTATION_AFFICHEE)) {
+  throw new Error(
+    `contenuFormations : « ${ATTESTATION_AFFICHEE} » n'est plus dans le relevé du tunnel P.O.P`,
+  );
+}
+
+/** Les mentions d'outillage interne de l'ANCIEN site, retirées de l'affichage
+ *  (le sens reste : « Vidéos courtes », « traçabilité complète »). Chacune
+ *  doit être trouvée au moins une fois dans les cartes relevées. */
+const OUTILLAGE_INTERNE = [" (Canva)", " Systeme.io"];
+
+/** Ce qu'aucune carte affichée ne doit plus porter, quelle que soit la
+ *  formation — la classe du défaut, pas les deux cartes d'aujourd'hui. */
+const INTERDIT_A_L_AFFICHAGE = /qualiopi|canva|systeme\.io/i;
+
+function inclusAffiche(cartes: CarteTitreCorps[]): CarteTitreCorps[] {
+  const affichees = cartes.map((carte) => ({
+    titre: carte.titre === ATTESTATION_QUALIOPI ? ATTESTATION_AFFICHEE : carte.titre,
+    corps: OUTILLAGE_INTERNE.reduce(
+      (corps, mention) => corps.replace(mention, ""),
+      carte.corps,
+    ),
+  }));
+  for (const carte of affichees) {
+    if (INTERDIT_A_L_AFFICHAGE.test(`${carte.titre} ${carte.corps}`)) {
+      throw new Error(
+        `contenuFormations : la carte « ${carte.titre} » porte encore une mention à ne pas afficher`,
+      );
+    }
+  }
+  return affichees;
+}
+
+for (const mention of OUTILLAGE_INTERNE) {
+  if (!PAGE_MICRO.inclus.cartes.some((carte) => carte.corps.includes(mention))) {
+    throw new Error(
+      `contenuFormations : la mention « ${mention} » n'est plus dans les cartes relevées`,
+    );
+  }
+}
+
+/** Les cartes « ce qui est inclus » TELLES QUE LES PAGES LES AFFICHENT.
+ *
+ *  1. « Attestation Qualiopi » (les trois formations) devient
+ *     `ATTESTATION_AFFICHEE` : la certification est réglementée et reste à
+ *     confirmer par la cliente. Le corps de la carte n'est pas touché.
+ *  2. Micro-entreprise : « (Canva) » et « Systeme.io », qui nomment l'outillage
+ *     de l'ancien site, sont retirés. Rien d'autre ne change.
+ *
+ *  Le relevé (`PAGE_*.inclus.cartes`) reste intact pour le jour où la cliente
+ *  confirme : il suffira de lire le relevé à la place de cette vue. */
+export const INCLUS_AFFICHE: Record<CleDeFormation, CarteTitreCorps[]> = {
+  societes: inclusAffiche(PAGE_SOCIETES.inclus.cartes),
+  micro: inclusAffiche(PAGE_MICRO.inclus.cartes),
+  pop: inclusAffiche(PAGE_POP.inclus.cartes),
+};
+
+// ── Ancienneté ──────────────────────────────────────────────────────────────
+
+/** La promesse de la Méthode P.O.P, avec l'ancienneté RETENUE pour la refonte :
+ *  « plus de 15 ans », comme le catalogue (le tunnel écrit « 15 ans
+ *  d'expérience », l'accueil de l'ancien site « 16 ans »). */
+export const PROMESSE_POP_AFFICHEE = retouche(
+  PAGE_POP.pourQui.promesse,
+  "(15 ans d'expérience)",
+  "(plus de 15 ans d'expérience)",
+);
+
+// ── Questions fréquentes, page par page ─────────────────────────────────────
+
+/** Les formations dont le CONTENU RELEVÉ annonce un assistant ou un agent IA :
+ *  la micro-entreprise (pastille « Agent IA inclus ») et la Méthode P.O.P
+ *  (« Agent IA dédié »). La formation « sociétés » parle de « modules IA » et
+ *  d'usage de l'IA, jamais d'un assistant : on ne lui en attribue pas. */
+const FORMATIONS_AVEC_ASSISTANT: CleDeFormation[] = ["micro", "pop"];
+
+const QUESTION_DE_L_ASSISTANT = "Comment fonctionne l'assistant IA ?";
+
+export type PageDeFormations = "catalogue" | CleDeFormation;
+
+/** Les questions qu'une page affiche dans sa liste.
+ *
+ *  - La question du financement n'y est pas : chaque page la pose en titre de
+ *    sa section « financement », avec la même réponse, juste au-dessus.
+ *  - La question de l'assistant IA n'est affichée que sur les pages des
+ *    formations qui en annoncent un, et sa réponse y commence par « Cette
+ *    formation inclut » au lieu de « Chaque formation inclut », qui
+ *    l'attribuait aux trois. Le catalogue et la page « sociétés » ne la
+ *    posent pas. */
+export function questionsAffichees(page: PageDeFormations): Question[] {
+  const liste = QUESTIONS_DES_FORMATIONS.liste;
+  if (!liste.some((question) => question.q === QUESTION_DE_L_ASSISTANT)) {
+    throw new Error(
+      `contenuFormations : la question « ${QUESTION_DE_L_ASSISTANT} » n'est plus dans le relevé`,
+    );
+  }
+  const avecAssistant =
+    page !== "catalogue" && FORMATIONS_AVEC_ASSISTANT.includes(page);
+  return liste
+    .filter((question) => question.q !== ORGANISME_DE_FORMATION.financement.question)
+    .filter((question) => question.q !== QUESTION_DE_L_ASSISTANT || avecAssistant)
+    .map((question) =>
+      question.q === QUESTION_DE_L_ASSISTANT
+        ? {
+            q: question.q,
+            r: retouche(question.r, "Chaque formation inclut", "Cette formation inclut"),
+          }
+        : question,
+    );
+}
+
+// ── Les cartes du catalogue ─────────────────────────────────────────────────
+
+/** Les repères (durée, format) de chaque carte du catalogue. Pour la
+ *  micro-entreprise, dont la carte relevée n'en porte aucun, ce sont les
+ *  pastilles de l'ouverture de sa page d'achat. */
+export const REPERES_DES_CARTES: Record<CleDeFormation, string[]> = {
+  societes: CARTE_SOCIETES.modalites,
+  micro: PAGE_MICRO.ouvertureEnImage.pastilles,
+  pop: CARTE_POP.modalites,
+};
+
+// ── Les textes courts écrits pour la plateforme ─────────────────────────────
+
+export const ARTICULATION = {
+  /** Le visuel de l'ouverture du catalogue (`public/accueil/formations.webp`,
+   *  1080 × 1080) : ses dimensions donnent le RATIO, la feuille la taille. */
+  image: {
+    src: "/accueil/formations.webp",
+    largeur: 1080,
+    hauteur: 1080,
+    alt: "Un ordinateur portable affiche la couverture de la formation « Créer sa micro-entreprise », animée par Evangeline Khaili.",
+  },
+
+  ouverture: {
+    /** Bouton de l'ouverture du catalogue : mène aux trois cartes. */
+    boutonDuCatalogue: "Voir les trois formations",
+    /** Au-dessus du prix, dans la section « En pratique ». */
+    etiquetteDuPrix: "Tarif de la formation",
+  },
+
+  cartes: {
+    /** Nom accessible de la liste des trois cartes. */
+    nomDeLaListe: "Les trois formations en ligne",
+  },
+
+  pourQui: { surtitre: "Pour qui" },
+
+  programme: {
+    /** Sous le grand chiffre lu dans `NOMBRE_DE_MODULES`. */
+    unite: "modules",
+  },
+
+  coaching: {
+    /** Sous le grand chiffre lu dans `DUREES_*`. */
+    unite: "de coaching individuel, en visio",
+  },
+
+  /** La section qui rassemble format, tarif et bouton d'achat. */
+  modalites: {
+    surtitre: "En pratique",
+    titre: { avant: "La formation,", fin: "en pratique." } as TitreEnDeuxTemps,
+  },
+
+  /** La section des atouts communs, sur les trois pages de formation. */
+  outils: {
+    titre: {
+      avant: "Ce que toutes nos formations",
+      fin: "ont en commun.",
+    } as TitreEnDeuxTemps,
+  },
+
+  financement: {
+    surtitre: "Financement",
+    /** Devant le numéro lu dans `ORGANISME_DE_FORMATION.nda`. */
+    etiquetteDuNumero: "Numéro de déclaration d'activité (NDA) de l'organisme de formation",
+    bouton: "Écrire pour étudier mon financement",
+    objetDuCourriel: "Financement d'une formation EVKHA",
+  },
+
+  presentiel: {
+    objetDuCourriel: "Prochaines sessions de formation en présentiel",
+  },
+
+  /** Avant l'appel final : les deux autres façons d'avancer. SANS PRIX. */
+  passerelle: {
+    surtitre: "Autrement",
+    titre: { avant: "Se former n'est pas", fin: "la seule voie." } as TitreEnDeuxTemps,
+    corps:
+      "Vous préférez être accompagné, ou vous voulez seulement votre dossier ? Deux autres portes.",
+    portes: [
+      {
+        surtitre: "Être accompagné",
+        titre: "Les packs d'accompagnement",
+        corps:
+          "Vos documents de création rédigés pour vous, et des appels d'accompagnement pour avancer pas à pas.",
+        bouton: "Voir les packs",
+        lien: ROUTES_FORMATIONS.packs,
+      },
+      {
+        surtitre: "Seulement le dossier",
+        titre: "Les études à l'unité",
+        corps:
+          "Étude de marché, étude de concurrence, business plan ou stratégie : commandez uniquement le document dont vous avez besoin.",
+        bouton: "Voir les études",
+        lien: ROUTES_FORMATIONS.etudes,
+      },
+    ],
+  },
+
+  /** L'appel final du catalogue : aucune phrase du relevé ne le porte. Il
+   *  reprend l'invitation de la première question fréquente (« n'hésitez pas
+   *  à nous contacter pour que je vous oriente »). */
+  finDuCatalogue: {
+    titre: { avant: "Vous hésitez", fin: "entre deux formations ?" } as TitreEnDeuxTemps,
+    corps:
+      "Écrivez-nous ou réservez un appel : nous vous orientons vers la formation la plus adaptée à votre projet.",
+    boutonAppel: "Réserver un appel",
+    boutonCourriel: "Écrire à EVKHA",
+    objetDuCourriel: "Quelle formation choisir ?",
   },
 };
