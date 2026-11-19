@@ -31,8 +31,14 @@ export async function chargerFormules(): Promise<FormulePublique[]> {
   if (!reponse.ok) {
     throw new Error(`Catalogue indisponible (${reponse.status})`);
   }
-  const charge = (await reponse.json()) as { formules: FormulePublique[] };
-  return charge.formules ?? [];
+  const charge = (await reponse.json()) as { formules?: unknown } | null;
+  // Une réponse 200 sans la liste attendue (`{}`, la page d'un relais) n'est
+  // PAS un catalogue vide : rendre `[]` ferait lire une panne comme « aucune
+  // formule à vendre » (règle 1).
+  if (!Array.isArray(charge?.formules)) {
+    throw new Error("Catalogue illisible : liste des formules absente");
+  }
+  return charge.formules as FormulePublique[];
 }
 
 /** Montant en euros, sans centimes quand il n'y en a pas.
@@ -237,8 +243,25 @@ export async function chargerLivrables(): Promise<LivrablePublic[]> {
   if (!reponse.ok) {
     throw new Error(`Catalogue indisponible (${reponse.status})`);
   }
-  const charge = (await reponse.json()) as { livrables: LivrablePublic[] };
-  return charge.livrables ?? [];
+  const charge = (await reponse.json()) as { livrables?: unknown } | null;
+  // Même garde que `chargerFormules` : une réponse 200 sans la liste attendue
+  // lève une erreur, elle ne se lit pas comme un catalogue vide.
+  if (!Array.isArray(charge?.livrables)) {
+    throw new Error("Catalogue illisible : liste des livrables absente");
+  }
+  return charge.livrables as LivrablePublic[];
+}
+
+/** Destination d'un bouton « Commander » : la création de compte, avec
+ *  l'étude choisie dans l'adresse.
+ *
+ *  La page d'inscription lit le slug, rappelle ce qu'on achète avec son prix,
+ *  puis ouvre le paiement une fois le compte créé. Ici et non dans
+ *  `NosEtudes.tsx` : l'accueil pose les mêmes liens, et deux écritures de la
+ *  même adresse finiraient par diverger (règle 5).
+ */
+export function lienCommande(slug: string): string {
+  return `/inscription?livrable=${encodeURIComponent(slug)}`;
 }
 
 /** Ouvre le paiement et rend l'adresse Stripe où envoyer la personne.

@@ -165,6 +165,49 @@ describe("la révélation n'oublie aucun bloc", () => {
     expect(FauxObservateur.tous).toHaveLength(0);
   });
 
+  // L'accueil réduit le mouvement sans le supprimer (décision du client du
+  // 19/11/2026) : sa feuille ramène la révélation à un fondu d'opacité, et
+  // il demande donc au crochet d'observer quand même. Sans l'option, rien ne
+  // change — c'est le test du dessus.
+  it("avec memeEnMouvementReduit, les blocs sont observés même sous prefers-reduced-motion", () => {
+    vi.stubGlobal("matchMedia", mediaQuery(true));
+    function PageCalme() {
+      const racine = useRef<HTMLDivElement>(null);
+      useReveler(racine, undefined, { memeEnMouvementReduit: true });
+      return (
+        <div ref={racine}>
+          <p data-reveal="">un</p>
+          <p data-reveal="">deux</p>
+        </div>
+      );
+    }
+    const { container } = render(<PageCalme />);
+    const blocs = Array.from(container.querySelectorAll("[data-reveal]"));
+    // Aucun n'est révélé d'emblée, aucun n'est oublié.
+    expect(blocs.some((b) => b.classList.contains("est-revele"))).toBe(false);
+    expect(oublies(container)).toHaveLength(0);
+    const observateur = FauxObservateur.tous.find((o) => o.cibles.has(blocs[0]));
+    act(() => observateur?.croise(blocs[0]));
+    expect(blocs[0].classList.contains("est-revele")).toBe(true);
+    expect(blocs[1].classList.contains("est-revele")).toBe(false);
+  });
+
+  it("l'option ne change rien sans IntersectionObserver : tout reste visible", () => {
+    vi.stubGlobal("IntersectionObserver", undefined);
+    vi.stubGlobal("matchMedia", mediaQuery(true));
+    function PageCalme() {
+      const racine = useRef<HTMLDivElement>(null);
+      useReveler(racine, undefined, { memeEnMouvementReduit: true });
+      return (
+        <div ref={racine}>
+          <p data-reveal="">un</p>
+        </div>
+      );
+    }
+    const { container } = render(<PageCalme />);
+    expect(container.querySelector("[data-reveal]")?.classList.contains("est-revele")).toBe(true);
+  });
+
   // Un fichier qui pose `data-reveal` sans appeler le crochet laisserait tous
   // ses blocs effacés : rien ne leur poserait jamais `est-revele`.
   it("chaque page publique qui pose data-reveal appelle useReveler", () => {

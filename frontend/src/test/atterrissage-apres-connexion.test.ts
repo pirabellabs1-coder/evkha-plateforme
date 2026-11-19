@@ -37,11 +37,33 @@ describe("atterrissage après connexion administrateur", () => {
   });
 
   it("ne vise pas la racine, qui est publique", () => {
-    // La racine rend `Partenaires`, sans garde d'accès : c'est le site vitrine.
-    // Y envoyer un administrateur authentifié est précisément le défaut corrigé.
+    // La racine rend une page PUBLIQUE, sans garde d'accès : c'est le site
+    // vitrine. Y envoyer un administrateur authentifié est précisément le
+    // défaut corrigé. Cette page était `Partenaires` ; c'est `Accueil` depuis
+    // le 19/11/2026 — publique elle aussi, donc le verrou tient pour la même
+    // raison, et il n'attend plus un composant que la racine ne rend plus.
     const routeur = lire("router.tsx");
-    expect(routeur).toMatch(/path:\s*"\/",\s*\n\s*component:\s*Partenaires/);
+    //
+    // On lit le BLOC ENTIER de `racine`, et non la ligne qui suit `path` :
+    // une garde posée avant `path` ou après `component` échappait à
+    // l'assertion d'avant, qui ne verrouillait donc rien.
+    const bloc = routeur.match(/const racine = createRoute\(\{([\s\S]*?)\}\);/)?.[1];
+    expect(bloc, "bloc `const racine = createRoute({…})` introuvable").toBeDefined();
+    expect(bloc).toMatch(/path:\s*"\/"/);
+    expect(bloc).toMatch(/component:\s*Accueil\b/);
+    expect(bloc).not.toMatch(/beforeLoad/);
     expect(APRES_CONNEXION).not.toBe("/");
+  });
+
+  it("contre-épreuve : une garde posée n'importe où dans le bloc de la racine est vue", () => {
+    const garde = `const racine = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: Accueil,
+});`;
+    const bloc = garde.match(/const racine = createRoute\(\{([\s\S]*?)\}\);/)?.[1];
+    expect(bloc).toMatch(/beforeLoad/);
   });
 
   it("la page de connexion n'écrit plus de destination en dur", () => {

@@ -96,6 +96,23 @@
   /* Bandeau « mode assistance » (`bb4ffbc`) : un rouge sombre délibérément
    * étranger à la charte, pour signaler qu'on n'est pas chez soi. */
   --assistance-fond: #7f1d1d;
+  /* Page d'accueil publique (`public/Accueil.css`) : les teintes de la
+   * maquette validée par la cliente qui n'ont pas d'équivalent dans la charte
+   * mesurée, à leur valeur exacte. Tout le reste de la page lit les jetons
+   * existants (or, encre, voile, brume, bordure). Les translucides ne sont
+   * PAS déclarés ici : la feuille les compose par `color-mix()` sur ces
+   * jetons. */
+  --evkha-corail: #e8734a; /* pastille des surtitres ; teinte de l'atelier */
+  --evkha-papier: #faf7f0; /* fond crème de la page */
+  --evkha-lin: #d9d5cb; /* texte courant sur la marche sombre (11,6:1) */
+  --evkha-miel: #463400; /* brun des ombres dorées, toujours dilué */
+  --evkha-soleil-clair: #ffe27a; /* cœur du disque de l'ouverture */
+  --evkha-soleil-profond: #f3b900; /* bord du disque de l'ouverture */
+  /* Les trois autres couleurs que le visiteur essaie sur le document de
+   * l'atelier. Ce sont des exemples de marque CLIENTE, pas la charte EVKHA. */
+  --evkha-atelier-vert: #1f7a5a;
+  --evkha-atelier-bleu: #2456c9;
+  --evkha-atelier-prune: #7b2d8e;
 
   /* ── Texte ──────────────────────────────────────────────────────────── */
   --texte-fort: var(--evkha-noir);
@@ -254,6 +271,45 @@
   --duree-increment: 520ms; /* un nombre remonté qui arrive */
   --duree-annonce: 220ms; /* fenêtre d'annonce qui s'ouvre */
   --duree-bascule: 150ms; /* pilule de filtre qui change d'état (boutique admin) */
+  /* Pages publiques refondues — l'accueil (`public/Accueil.css`), la page des
+   * études (`public/NosEtudes.css`) et leur socle commun (`public/Site.css`) :
+   * durées de la maquette de l'accueil. */
+  --duree-acc-survol: 350ms; /* carte ou bouton qui réagit sous la souris */
+  --duree-acc-glisse: 700ms; /* mot qui tourne, menu, volet qui s'ouvre */
+  --duree-acc-entree: 1s; /* lignes du titre, blocs révélés */
+  --duree-acc-trait: 2.2s; /* fil de la méthode qui se dessine */
+  --duree-acc-flotte: 6s; /* bulle de prix de l'atelier */
+  --duree-acc-ruban: 30s; /* bandeau défilant sous l'ouverture */
+  --duree-acc-orbite: 38s; /* pastilles en orbite, bande finale */
+  --duree-acc-mur: 34s; /* colonnes du mur d'avis */
+
+  /* ── Planchers « calmes » de l'accueil et de la page des études ───────────
+   * L'EXCEPTION, nommée et bornée, à la règle ci-dessus. Sur la page
+   * d'accueil, le mouvement réduit RÉDUIT, il ne supprime pas — décision du
+   * client du 19/11/2026, dont le navigateur demande moins de mouvement et
+   * qui voyait une page figée. Étendue le même jour à la page des études,
+   * refaite dans le même langage. Un bouton de pause arrête tout ce qui
+   * boucle (WCAG 2.2.2).
+   *
+   * Ces jetons ne tombent PAS à zéro, et c'est voulu. Ils ne se lisent que
+   * dans trois feuilles — `public/Site.css` (le socle des deux pages),
+   * `public/Accueil.css` et `public/NosEtudes.css` —, uniquement sous la
+   * forme `max(var(--duree-…), var(--calme-…))`, uniquement à l'intérieur
+   * d'un bloc `prefers-reduced-motion: reduce` : hors mouvement réduit ils ne
+   * servent à rien, sous mouvement réduit ils sont le plancher d'une durée
+   * tombée à zéro. `les-mouvements-lisent-leurs-durees` tient le registre
+   * exact de cette liste ET de ce que chaque feuille en lit, et verrouille
+   * les trois conditions : en ajouter un ici, ou en lire un ailleurs, sans
+   * l'y inscrire fait échouer le test. */
+  --calme-survol: 200ms; /* couleur, ombre, fond sous la souris */
+  --calme-fondu: 600ms; /* bloc qui apparaît, en opacité seule */
+  --calme-mot: 700ms; /* mot qui tourne dans le titre */
+  --calme-trait: 1.8s; /* fil de la méthode qui se dessine */
+  --calme-ruban: 60s; /* bandeau défilant, deux fois plus lent */
+  --calme-bande: 70s; /* bande finale */
+  --calme-mur: 70s; /* mur d'avis, première colonne */
+  --calme-mur-lent: 90s; /* mur d'avis, seconde colonne */
+  --calme-orbite: 90s; /* pastilles en orbite */
 
   /* ── Gabarit ──────────────────────────────────────────────────────────── */
   --largeur-barre: 264px;
@@ -280,5 +336,13 @@
     --duree-increment: 0ms;
     --duree-annonce: 0ms;
     --duree-bascule: 0ms;
+    --duree-acc-survol: 0ms;
+    --duree-acc-glisse: 0ms;
+    --duree-acc-entree: 0ms;
+    --duree-acc-trait: 0ms;
+    --duree-acc-flotte: 0ms;
+    --duree-acc-ruban: 0ms;
+    --duree-acc-orbite: 0ms;
+    --duree-acc-mur: 0ms;
   }
 }

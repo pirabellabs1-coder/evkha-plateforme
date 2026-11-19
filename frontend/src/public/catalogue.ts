@@ -84,8 +84,27 @@ export type AvisALaUne = Avis & {
   slug: string;
 };
 
+/** Le catalogue de la boutique.
+ *
+ *  `lire` rend `{}` quand le corps d'une réponse 200 n'est pas du JSON (la
+ *  page d'un relais, un `index.html` servi à la place de l'API) : sans la
+ *  garde ci-dessous, ce `{}` passait pour un catalogue sans produit. Une
+ *  réponse qui ne porte pas la liste des produits est une PANNE, et elle est
+ *  levée comme telle (règle 1).
+ */
 export const chargerCatalogue = () =>
-  lire<{ produits: ProduitResume[]; themes: string[]; avis: AvisALaUne[] }>("");
+  lire<{ produits: ProduitResume[]; themes: string[]; avis: AvisALaUne[] }>(
+    "",
+  ).then((catalogue) => {
+    if (!Array.isArray(catalogue?.produits)) {
+      throw new RefusBoutique(
+        "La boutique est momentanément indisponible.",
+        "illisible",
+        200,
+      );
+    }
+    return catalogue;
+  });
 
 export const chargerFiche = (slug: string) =>
   lire<{ produit: ProduitFiche; proches: ProduitResume[] }>(

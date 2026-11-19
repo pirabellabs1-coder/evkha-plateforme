@@ -274,7 +274,7 @@ export const ETUDES: Record<string, ArgumentaireEtude> = {
       "S'il est en croissance, stable ou en déclin (avec les chiffres)",
       "Vos clients types : qui ils sont, ce qu'ils veulent, combien ils dépensent",
       "Les risques de votre projet et comment les anticiper",
-      "Une étude prête à présenter à la banque, la BGE, Pôle Emploi",
+      "Une étude prête à présenter à la banque, la BGE, France Travail",
     ],
     pied: "Vous répondrez enfin aux questions : est-ce un marché saturé ? Viable ? Rentable ? Prometteur ?",
     bouton: "Commander mon étude",
@@ -331,7 +331,7 @@ export const ETUDES_PAGE = {
   hero: {
     titre: "Votre marché est-il rentable et viable ?",
     accroche: "Vous avez une idée d'entreprise.",
-    corps: "Avant de vous lancer, de présenter votre dossier à la BGE, à Pôle Emploi ou à votre banque, obtenez une étude claire qui répond aux questions que vous vous posez vraiment :",
+    corps: "Avant de vous lancer, de présenter votre dossier à la BGE, à France Travail ou à votre banque, obtenez une étude claire qui répond aux questions que vous vous posez vraiment :",
     questions: [
       "Marché saturé ou en croissance ?",
       "Y a-t-il assez de clients ?",
@@ -385,7 +385,7 @@ export const ETUDES_PAGE = {
   choix: {
     surtitre: "QUATRE ÉTUDES AU CHOIX",
     titre: "Choisissez l'étude qui correspond à votre besoin",
-    corps: "Chaque étude est rédigée pour vous. Avec des chiffres réels de votre marché, dans un français clair, accepté par les banques, la BGE, Pôle Emploi et tout organisme qui vous demande un dossier.",
+    corps: "Chaque étude est rédigée pour vous. Avec des chiffres réels de votre marché, dans un français clair, accepté par les banques, la BGE, France Travail et tout organisme qui vous demande un dossier.",
   },
 
   cartes: { titre: "NOS ÉTUDES" },
@@ -433,7 +433,7 @@ export const ETUDES_PAGE = {
         "De vrais chiffres sur votre marché, dans votre zone",
         "Un français clair, sans jargon : vous comprenez tout",
         "Risques, clients, concurrents, opportunités — tout y est",
-        "Acceptée par les banques, la BGE, Pôle Emploi",
+        "Acceptée par les banques, la BGE, France Travail",
         "Vous repartez avec des réponses, pas des questions",
       ],
     },
@@ -453,8 +453,8 @@ export const ETUDES_PAGE = {
         r: "Sous 24 heures ouvrées après l'envoi de votre questionnaire de cadrage. Pas de mauvaise surprise, pas de délai qui s'étire.",
       },
       {
-        q: "Mon étude sera-t-elle acceptée par la BGE, Pôle Emploi ou ma banque ?",
-        r: "Oui. Plus de 500 porteurs sont passés par nous et ont monté leur dossier avec nos études — auprès de la BGE, des CCI, des banques, de Pôle Emploi pour l'ARCE, de chambres des métiers. Tout y est : taille du marché, chiffres vérifiés, risques, clients, concurrents, prévisions. C'est exactement ce qu'on vous demande.",
+        q: "Mon étude sera-t-elle acceptée par la BGE, France Travail ou ma banque ?",
+        r: "Oui. Plus de 500 porteurs sont passés par nous et ont monté leur dossier avec nos études — auprès de la BGE, des CCI, des banques, de France Travail pour l'ARCE, de chambres des métiers. Tout y est : taille du marché, chiffres vérifiés, risques, clients, concurrents, prévisions. C'est exactement ce qu'on vous demande.",
       },
       {
         q: "Et si mon idée est très spécifique, ou que je suis dans un petit village ?",

@@ -11,7 +11,8 @@
  * - sans `IntersectionObserver` (vieux navigateur, jsdom), tout est visible
  *   tout de suite — un bloc qui resterait effacé serait une page cassée ;
  * - sous `prefers-reduced-motion`, la feuille de style rend déjà tout
- *   visible ; la classe est posée quand même pour n'avoir qu'un seul état ;
+ *   visible ; la classe est posée quand même pour n'avoir qu'un seul état —
+ *   sauf si la page passe `memeEnMouvementReduit` (voir les options) ;
  * - un bloc déjà dans la fenêtre au montage est révélé au premier passage de
  *   l'observateur, qui signale toujours l'état initial.
  *
@@ -23,10 +24,22 @@ import { useEffect, type RefObject } from "react";
 
 const REVELE = "est-revele";
 
+export type OptionsDeRevelation = {
+  /** Observer les blocs MÊME sous `prefers-reduced-motion`, au lieu de tout
+   *  révéler d'emblée. À ne passer que par une page dont la feuille réduit
+   *  alors la révélation à un fondu d'opacité, sans translation : sinon les
+   *  blocs glisseraient chez quelqu'un qui a demandé moins de mouvement.
+   *  L'accueil et la page des études le font, par leur socle commun
+   *  `Site.css` (décision du client du 19/11/2026). */
+  memeEnMouvementReduit?: boolean;
+};
+
 export function useReveler(
   racine: RefObject<HTMLElement | null>,
   cle?: unknown,
+  options?: OptionsDeRevelation,
 ): void {
+  const memeEnMouvementReduit = options?.memeEnMouvementReduit === true;
   useEffect(() => {
     const conteneur = racine.current;
     if (!conteneur) return undefined;
@@ -36,6 +49,7 @@ export function useReveler(
     if (blocs.length === 0) return undefined;
 
     const sansMouvement =
+      !memeEnMouvementReduit &&
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (typeof IntersectionObserver === "undefined" || sansMouvement) {
@@ -60,5 +74,5 @@ export function useReveler(
     );
     for (const bloc of blocs) observateur.observe(bloc);
     return () => observateur.disconnect();
-  }, [racine, cle]);
+  }, [racine, cle, memeEnMouvementReduit]);
 }

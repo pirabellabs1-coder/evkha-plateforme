@@ -1,0 +1,2173 @@
+/* Page d'accueil publique — la maquette validée par la cliente
+ * (`maquette-evkha/accueil.html`), dans la charte de la plateforme.
+ *
+ * Cette feuille ne porte que ce qui est PROPRE à l'accueil : l'ouverture et
+ * ses orbites, le parcours, l'atelier, les volets, les offres, le mur d'avis…
+ * Le socle — barre, menu, pied, boutons, étiquettes, titres, révélation,
+ * grain, ruban, pause, alerte, questions, fin dorée — vit dans `Site.css`,
+ * que la page importe AVANT celle-ci et que la page des études partage
+ * (règle 5). Les jetons locaux `--acc-*` y sont déclarés.
+ *
+ * Les trois règles du socle tiennent ici, et les mêmes tests les
+ * verrouillent : aucune couleur écrite (tout lit `theme/tokens.css`), aucune
+ * durée écrite dans un mouvement (jetons `--duree-*`, et l'exception isolée
+ * en fin de feuille : voir « Mouvement réduit »), tout sous `.acc` avec des
+ * classes préfixées `acc-`.
+ */
+
+.acc {
+  /* La couleur que le visiteur change dans l'atelier (posée en ligne). */
+  --acc-marque: var(--evkha-or);
+
+  /* Le disque de l'ouverture, partagé par ses deux versions. */
+  --acc-soleil: radial-gradient(
+    circle at 40% 40%,
+    var(--evkha-soleil-clair),
+    var(--evkha-or) 55%,
+    var(--evkha-soleil-profond)
+  );
+}
+
+/* ── Ouverture : un soleil, un portrait, des offres en orbite ────────────── */
+
+.acc-hero {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-height: 100svh;
+  padding: 170px 0 80px;
+  overflow: hidden;
+}
+
+.acc-halo {
+  position: absolute;
+  right: -14vmax;
+  top: 50%;
+  width: 60vmax;
+  height: 60vmax;
+  translate: 0 -50%;
+  border-radius: 50%;
+  background: var(--acc-soleil);
+  will-change: transform;
+}
+
+/* Le même disque, mais accroché au portrait : c'est lui qu'on voit sous
+   900 px, où l'autre partait à droite de l'écran. */
+.acc-halo-proche {
+  display: none;
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: var(--acc-soleil);
+}
+
+.acc-halo::after,
+.acc-halo-proche::after {
+  content: "";
+  position: absolute;
+  inset: -7%;
+  border: 1.5px dashed var(--acc-pointille);
+  border-radius: 50%;
+  animation: acc-tour calc(var(--duree-acc-ruban) * 2) linear infinite;
+}
+
+.acc-hero-grille {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 30px;
+  align-items: center;
+}
+
+.acc-hero h1 {
+  margin: 20px 0;
+}
+
+/* Le mot qui tourne : les trois mots occupent la même case, un seul est en
+   place. La case prend la largeur du plus long. */
+.acc-roule {
+  display: inline-grid;
+  height: 1.12em;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.acc-roule b {
+  grid-area: 1 / 1;
+  font: inherit;
+  color: var(--acc-encre);
+  background: linear-gradient(
+    transparent 62%,
+    var(--acc-or) 62%,
+    var(--acc-or) 92%,
+    transparent 92%
+  );
+}
+
+/* En attente, en bas, SANS transition : le mot y retourne d'un coup après
+   être sorti par le haut. */
+.acc-roule-attend {
+  transform: translateY(110%);
+  transition: none;
+}
+
+.acc-roule-entre {
+  transform: none;
+  transition: transform var(--duree-acc-glisse) var(--ease-sortie);
+}
+
+.acc-roule-sort {
+  transform: translateY(-110%);
+  transition: transform var(--duree-acc-glisse) var(--ease-sortie);
+}
+
+.acc-promesse {
+  max-width: 30em;
+  font-size: 1.08rem;
+}
+
+.acc-appels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+/* Le second public : visible, mais un ton en dessous des deux boutons. */
+.acc-pros {
+  margin-top: 18px;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.acc-pros a {
+  color: var(--acc-encre);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.acc-gens {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 30px;
+  color: var(--acc-gris);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.acc-gens strong {
+  color: var(--acc-encre);
+  font-size: 1.15rem;
+}
+
+.acc-visages {
+  display: flex;
+  flex: none;
+}
+
+/* Quatre médaillons découpés dans un même bandeau : la position horizontale
+   de chacun est posée en ligne. */
+.acc-visages span {
+  width: 50px;
+  height: 50px;
+  margin-left: -14px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--acc-papier);
+  background-color: var(--acc-or-clair);
+  background-repeat: no-repeat;
+  background-position-y: -2px;
+  background-size: 194px auto;
+}
+
+.acc-visages span:first-child {
+  margin-left: 0;
+}
+
+.acc-astre {
+  position: relative;
+  justify-self: center;
+  width: min(100%, 500px);
+  aspect-ratio: 1;
+  animation: acc-eclot var(--duree-acc-entree) var(--ease-sortie)
+    var(--duree-micro) both;
+}
+
+.acc-photo {
+  position: absolute;
+  inset: 11%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--acc-or-clair);
+  box-shadow: 0 0 0 10px color-mix(in srgb, var(--evkha-blanc) 55%, transparent),
+    var(--acc-ombre);
+}
+
+/* La boîte fixe la taille : l'image n'annonce pas ses dimensions, elle
+   remplit un disque dont la place est déjà réservée. */
+.acc-photo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 10%;
+  scale: 1.25;
+  transform-origin: 50% 20%;
+}
+
+/* Deux orbites, deux angles de départ : −20° et 160°. Les pastilles sont
+   ainsi à l'opposé l'une de l'autre même à l'arrêt (mouvement réduit, pause),
+   au lieu de se superposer en haut du disque. L'angle est une propriété :
+   l'orbite tourne À PARTIR de lui, et le texte tourne d'autant en sens
+   inverse pour rester droit. */
+.acc-orbite {
+  --acc-depart: -20deg;
+  position: absolute;
+  inset: 0;
+  rotate: var(--acc-depart);
+  animation: acc-orbite var(--duree-acc-orbite) linear infinite;
+}
+
+.acc-orbite-inverse {
+  --acc-depart: 160deg;
+  inset: -9%;
+  animation-duration: calc(var(--duree-acc-orbite) * 1.42);
+  animation-direction: reverse;
+}
+
+.acc-astre:hover .acc-orbite,
+.acc-astre:hover .acc-pastille-texte {
+  animation-play-state: paused;
+}
+
+.acc-pastille {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  translate: -50% -50%;
+}
+
+.acc-pastille-texte {
+  display: block;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ombre);
+  font-weight: 700;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  rotate: calc(var(--acc-depart) * -1);
+  animation: acc-orbite-contre var(--duree-acc-orbite) linear infinite;
+}
+
+.acc-orbite-inverse .acc-pastille-texte {
+  background: var(--acc-encre);
+  color: var(--acc-or);
+  animation-duration: calc(var(--duree-acc-orbite) * 1.42);
+  animation-direction: reverse;
+}
+
+/* ── Le parcours : quatre marches qui montent ────────────────────────────── */
+
+.acc-marches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+  align-items: end;
+}
+
+.acc-marche {
+  --acc-h: calc(350px + var(--n, 0) * 46px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: var(--acc-h);
+  overflow: hidden;
+  padding: 26px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+/* L'or monte du bas de la carte au survol. */
+.acc-marche::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--acc-or);
+  transform: translateY(101%);
+  transition: transform var(--duree-acc-glisse) var(--ease-sortie);
+}
+
+.acc-marche:hover::before,
+.acc-marche:focus-visible::before {
+  transform: none;
+}
+
+.acc-marche > * {
+  position: relative;
+}
+
+/* Le texte change de couleur À LA MÊME DURÉE que l'or qui monte derrière
+   lui. Instantané, il passait à l'encre sur un fond encore sombre (dernière
+   marche) : illisible pendant toute la montée. */
+.acc-marche :is(p, small, .acc-marche-sans-prix) {
+  transition: color var(--duree-acc-glisse) var(--ease-sortie);
+}
+
+/* Le livrable n'est pas au catalogue : la marche n'est plus un lien, elle ne
+   réagit donc plus comme un lien. */
+.acc-marche-hors {
+  pointer-events: none;
+}
+
+.acc-marche:hover {
+  transform: translateY(-8px);
+}
+
+.acc-marche-haut {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.acc-marche-numero {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--acc-or-clair);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.5rem;
+  transition: background-color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-marche-fleche {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid var(--acc-encre);
+  border-radius: 50%;
+  transition: transform var(--duree-acc-survol) var(--ease-sortie),
+    background-color var(--duree-acc-survol) var(--ease-sortie),
+    color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-marche-corps {
+  margin-top: auto;
+  padding-top: 30px;
+}
+
+.acc-marche small {
+  display: block;
+  color: var(--acc-doux);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.acc-marche h3 {
+  margin: 8px 0 10px;
+  font-size: 1.28rem;
+  letter-spacing: -0.02em;
+}
+
+.acc-marche p {
+  font-size: 0.93rem;
+}
+
+.acc-marche-reponse {
+  display: grid;
+  gap: 4px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.acc-marche-reponse strong {
+  font-weight: 700;
+}
+
+.acc-marche-reponse b {
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.acc-marche-sans-prix {
+  color: var(--acc-doux);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+/* La dernière marche, sombre. */
+.acc-marche-sommet {
+  background: var(--acc-encre);
+  color: var(--acc-blanc);
+}
+
+.acc-marche-sommet p,
+.acc-marche-sommet .acc-marche-sans-prix {
+  color: var(--evkha-lin);
+}
+
+.acc-marche-sommet small {
+  color: var(--acc-or);
+}
+
+.acc-marche-sommet .acc-marche-numero {
+  background: var(--acc-or);
+  color: var(--acc-encre);
+}
+
+.acc-marche-sommet .acc-marche-fleche {
+  border-color: var(--acc-blanc);
+}
+
+.acc-marche-sommet .acc-marche-reponse {
+  border-color: color-mix(in srgb, var(--evkha-blanc) 30%, transparent);
+}
+
+/* Sur l'or du survol (ou du focus), tout le texte passe à l'encre : le gris
+   et le crème n'y tiennent pas 4,5:1. */
+.acc-marche:hover,
+.acc-marche:focus-visible {
+  color: var(--acc-encre);
+}
+
+.acc-marche:is(:hover, :focus-visible) :is(p, small, .acc-marche-sans-prix) {
+  color: var(--acc-encre);
+}
+
+.acc-marche:is(:hover, :focus-visible) .acc-marche-numero {
+  background: var(--acc-blanc);
+  color: var(--acc-encre);
+}
+
+.acc-marche:is(:hover, :focus-visible) .acc-marche-fleche {
+  border-color: var(--acc-encre);
+  background: var(--acc-encre);
+  color: var(--acc-or);
+  transform: rotate(-45deg);
+}
+
+/* ── L'atelier : le document change de couleur sous les doigts ───────────── */
+
+.acc-atelier {
+  display: grid;
+  grid-template-columns: 0.92fr 1.08fr;
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.acc-atelier-choix {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: clamp(26px, 4vw, 52px);
+}
+
+.acc-atelier-bouton {
+  align-self: flex-start;
+}
+
+.acc-onglets {
+  display: grid;
+  gap: 8px;
+}
+
+.acc-onglet {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1px solid var(--acc-trait);
+  border-radius: 16px;
+  background: var(--acc-blanc);
+  font-weight: 700;
+  text-align: left;
+  transition: background-color var(--duree-acc-survol) var(--ease-sortie),
+    color var(--duree-acc-survol) var(--ease-sortie),
+    border-color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-onglet-numero {
+  color: var(--acc-doux);
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+
+.acc-onglet-fleche {
+  opacity: 0;
+  transition: opacity var(--duree-acc-survol) var(--ease-sortie),
+    transform var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-onglet:hover {
+  border-color: var(--acc-encre);
+}
+
+.acc-onglet[aria-pressed="true"] {
+  border-color: var(--acc-encre);
+  background: var(--acc-encre);
+  color: var(--acc-blanc);
+}
+
+.acc-onglet[aria-pressed="true"] .acc-onglet-numero {
+  color: var(--acc-or);
+}
+
+.acc-onglet[aria-pressed="true"] .acc-onglet-fleche {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+.acc-teintes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+/* 34 px de pastille dans 44 px de cible : la marge transparente agrandit la
+   zone qu'un doigt peut toucher sans grossir le disque. */
+.acc-teinte {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 3px solid var(--acc-blanc);
+  border-radius: 50%;
+  background: var(--acc-c);
+  box-shadow: 0 0 0 1.5px var(--acc-trait);
+  transition: transform var(--duree-micro) var(--ease-sortie),
+    box-shadow var(--duree-micro) var(--ease-sortie);
+}
+
+.acc-teinte::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.acc-teinte:hover {
+  transform: scale(1.14);
+}
+
+.acc-teinte[aria-pressed="true"] {
+  box-shadow: 0 0 0 2.5px var(--acc-encre);
+}
+
+.acc-atelier-scene {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 520px;
+  padding: clamp(24px, 4vw, 56px);
+  background: var(--acc-or-brume);
+}
+
+.acc-feuille {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 360px);
+  aspect-ratio: 3 / 4.05;
+  padding: 9% 8%;
+  border-radius: 14px;
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ombre);
+  rotate: 2.5deg;
+  transition: rotate var(--duree-acc-glisse) var(--ease-sortie),
+    transform var(--duree-acc-glisse) var(--ease-sortie);
+}
+
+.acc-atelier-scene:hover .acc-feuille {
+  rotate: 0deg;
+  transform: translateY(-6px);
+}
+
+.acc-feuille-tete {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.acc-sceau {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--acc-marque);
+  transition: background-color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-feuille small {
+  color: var(--acc-doux);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.acc-feuille-titre {
+  margin: 12% 0 6px;
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: clamp(1.3rem, 2.4vw, 1.75rem);
+  line-height: 1.05;
+}
+
+.acc-filet {
+  width: 44px;
+  height: 4px;
+  margin: 10px 0 16px;
+  border-radius: 4px;
+  background: var(--acc-marque);
+  transition: background-color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-ligne {
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 4px;
+  background: var(--acc-trait);
+}
+
+.acc-ligne-2 {
+  width: 82%;
+}
+
+.acc-ligne-3 {
+  width: 64%;
+}
+
+/* Les barres changent de hauteur avec le document choisi : cinq barres dans
+   une feuille de 360 px, la mise en page recalculée reste minuscule. */
+.acc-graphe {
+  display: flex;
+  align-items: flex-end;
+  gap: 6%;
+  height: 28%;
+  margin-top: auto;
+}
+
+.acc-graphe span {
+  flex: 1;
+  border-radius: 5px 5px 0 0;
+  background: var(--acc-marque);
+  opacity: 0.35;
+  transition: height var(--duree-acc-glisse) var(--ease-sortie),
+    background-color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-graphe span:last-child {
+  opacity: 1;
+}
+
+.acc-feuille-pied {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  color: var(--acc-doux);
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+
+.acc-bulle {
+  position: absolute;
+  right: 5%;
+  bottom: 8%;
+  z-index: 2;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--acc-encre);
+  color: var(--acc-blanc);
+  font-weight: 700;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  animation: acc-flotte var(--duree-acc-flotte) var(--ease-doux) infinite;
+}
+
+.acc-bulle b {
+  display: block;
+  color: var(--acc-or);
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+.acc-bulle-absent {
+  display: block;
+  color: var(--acc-or);
+}
+
+.acc-bulle-formats {
+  display: block;
+  font-weight: 500;
+}
+
+/* ── Chiffres ────────────────────────────────────────────────────────────── */
+
+.acc-nombres {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+
+.acc-nombre {
+  padding: 26px;
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.acc-nombre:hover {
+  transform: translateY(-5px);
+  background: var(--acc-or);
+}
+
+.acc-nombre b {
+  display: block;
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: clamp(2.3rem, 4.4vw, 3.6rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+/* « sous », devant le 24 : petit, pour que la ligne tienne dans la carte. */
+.acc-nombre-avant {
+  font-family: var(--police-corps);
+  font-size: 0.36em;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.acc-nombre > span {
+  color: var(--acc-gris);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.acc-nombre:hover > span {
+  color: var(--acc-encre);
+}
+
+/* ── À qui ça s'adresse : cinq volets, un seul ouvert ────────────────────── */
+
+/* Conteneur de requêtes : le contenu d'un volet se cale sur la largeur
+   RÉELLE du volet ouvert, calculée depuis celle de la rangée. */
+.acc-volets {
+  --acc-volets-ecart: 14px;
+  display: flex;
+  gap: var(--acc-volets-ecart);
+  height: 440px;
+  container-type: inline-size;
+}
+
+/* `flex-grow` anime une mise en page : c'est le geste de la maquette, borné à
+   cinq boîtes et déclenché par la main du visiteur, jamais en boucle. */
+.acc-volet {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: inset 0 0 0 1px var(--acc-trait);
+  cursor: pointer;
+  transition: flex-grow var(--duree-acc-glisse) var(--ease-doux),
+    background-color var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-volet-ouvert {
+  flex-grow: 4.4;
+  background: var(--acc-or);
+  box-shadow: none;
+  cursor: default;
+}
+
+.acc-volet-numero {
+  position: absolute;
+  left: 24px;
+  top: 22px;
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-size: 1.25rem;
+}
+
+.acc-volet-tranche {
+  position: absolute;
+  left: 22px;
+  bottom: 26px;
+  writing-mode: vertical-rl;
+  rotate: 180deg;
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition: opacity var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-volet-ouvert .acc-volet-tranche {
+  opacity: 0;
+}
+
+.acc-volet-contenu {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 20px;
+  align-items: end;
+  /* La largeur du volet OUVERT, et non une largeur fixe : cinq volets se
+     partagent la rangée moins quatre écarts, l'ouvert en prend 4,4 parts sur
+     8,4. À 700 px fixes, le contenu dépassait du volet entre 901 et 1300 px
+     et l'illustration était rognée. Le contenu garde cette largeur pendant
+     que le volet s'ouvre : le texte ne se recompose pas à chaque image. */
+  width: calc((100cqw - 4 * var(--acc-volets-ecart)) * 4.4 / 8.4);
+  padding: 70px 30px 30px;
+  opacity: 0;
+  translate: 0 18px;
+  pointer-events: none;
+  transition: opacity var(--duree-acc-survol) var(--ease-sortie),
+    translate var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-volet-ouvert .acc-volet-contenu {
+  opacity: 1;
+  translate: none;
+  pointer-events: auto;
+  transition-delay: var(--duree-acc-survol);
+}
+
+.acc-volet h3 {
+  margin-bottom: 10px;
+  font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+  letter-spacing: -0.025em;
+}
+
+.acc-volet-contenu p {
+  margin-bottom: 20px;
+  color: var(--acc-encre);
+}
+
+/* Hauteur DÉCLARÉE : l'illustration n'annonce pas ses dimensions, sa boîte
+   les fixe, et `contain` la loge dedans sans la déformer. */
+.acc-volet-image {
+  align-self: center;
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+/* ── Les offres ──────────────────────────────────────────────────────────── */
+
+.acc-formules {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  align-items: stretch;
+}
+
+.acc-formule {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px 24px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.acc-formule:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.acc-formule-phare {
+  background: var(--acc-or);
+}
+
+.acc-formule-phare :is(p, li, small) {
+  color: var(--acc-encre);
+}
+
+.acc-formule-etiquette {
+  position: absolute;
+  top: -13px;
+  left: 24px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--acc-encre);
+  color: var(--acc-or);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.acc-formule small {
+  color: var(--acc-doux);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* « de … à … » est plus long que le prix seul de la maquette : la taille
+   baisse d'un cran et la ligne peut se couper, plutôt que de déborder. */
+.acc-formule .acc-prix {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: clamp(1.7rem, 2.2vw, 2.1rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.acc-prix-mention {
+  font-family: var(--police-corps);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.acc-formule .acc-prix-absent {
+  color: var(--acc-doux);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.acc-formule-phare .acc-prix-absent {
+  color: var(--acc-encre);
+}
+
+.acc-formule ul {
+  display: grid;
+  gap: 9px;
+  margin: 4px 0 10px;
+  padding: 14px 0 0;
+  border-top: 1.5px dashed var(--acc-pointille);
+  color: var(--acc-gris);
+  font-size: 0.92rem;
+  font-weight: 500;
+  list-style: none;
+}
+
+.acc-formule li {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+}
+
+.acc-formule li::before {
+  content: "✦";
+  color: var(--acc-or-fonce);
+}
+
+.acc-formule-phare li::before {
+  color: var(--acc-encre);
+}
+
+.acc-formule .acc-formule-bouton {
+  justify-content: space-between;
+  margin-top: auto;
+  white-space: normal;
+}
+
+/* ── Études prêtes : les produits de la boutique ─────────────────────────── */
+
+.acc-pretes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acc-pretes > li {
+  display: flex;
+}
+
+.acc-prete {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 190px;
+  padding: 26px;
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+  transition: transform var(--duree-acc-survol) var(--ease-sortie),
+    box-shadow var(--duree-acc-survol) var(--ease-sortie);
+}
+
+a.acc-prete:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.acc-prete small {
+  color: var(--acc-doux);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.acc-prete h3 {
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+}
+
+.acc-prete-pied {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 14px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.acc-prete-pied b {
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.acc-prete-suite {
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* En attente : la forme d'une carte, sans un seul chiffre. Immobile — un
+   reflet qui passe serait une boucle de plus à arrêter. */
+.acc-prete-gabarit span {
+  display: block;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--acc-or-clair);
+}
+
+.acc-prete-gabarit span:nth-child(1) {
+  width: 34%;
+}
+
+.acc-prete-gabarit span:nth-child(2) {
+  width: 86%;
+  height: 22px;
+}
+
+.acc-prete-gabarit span:nth-child(3) {
+  width: 46%;
+  margin-top: auto;
+}
+
+/* Le bouton qui suit une grille : « voir toute la boutique », « choisir mon
+   document ». */
+.acc .acc-suite {
+  margin-top: 34px;
+}
+
+/* ── Comment ça marche : trois étapes numérotées ─────────────────────────── */
+
+.acc-comment {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acc-comment > li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 26px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.acc-comment-numero {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: var(--acc-or);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.acc-comment > li:last-child .acc-comment-numero {
+  background: var(--acc-encre);
+  color: var(--acc-or);
+}
+
+.acc-comment h3 {
+  font-size: 1.22rem;
+  letter-spacing: -0.02em;
+}
+
+.acc-comment p {
+  font-size: 0.95rem;
+}
+
+/* ── Ils me font confiance : une bande sobre sous le ruban ───────────────── */
+
+.acc-confiance {
+  padding: clamp(48px, 6vw, 80px) 0 0;
+}
+
+.acc-confiance > .acc-w {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 22px 40px;
+}
+
+.acc-confiance-titre {
+  color: var(--acc-gris);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.acc-confiance-logos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Chaque logo sur sa pastille BLANCHE : ce sont des captures d'écran à fond
+   blanc, qui feraient un rectangle sale posées à même le papier crème. */
+.acc-confiance-logos li {
+  display: grid;
+  place-items: center;
+  padding: 12px 20px;
+  border-radius: 16px;
+  background: var(--acc-blanc);
+  box-shadow: inset 0 0 0 1px var(--acc-trait);
+}
+
+/* Hauteur ÉGALE et déclarée, largeur libre : les attributs `width`/`height`
+   donnent le ratio, la feuille donne la taille. En COULEUR dès le repos : en
+   niveaux de gris, le vert et le rose du Réseau Initiative devenaient un gris
+   pâle sur fond blanc et le logo disparaissait (vu à l'écran le 19/11/2026).
+   Le survol ne fait que raviver. */
+.acc-confiance-logo {
+  width: auto;
+  height: 56px;
+  max-width: 180px;
+  object-fit: contain;
+  filter: none;
+  opacity: 0.86;
+  transition: filter var(--duree-acc-survol) var(--ease-sortie),
+    opacity var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-confiance-logos li:hover .acc-confiance-logo {
+  filter: none;
+  opacity: 1;
+}
+
+/* ── Formations et accompagnement : deux cartes, sans prix ───────────────── */
+
+.acc-ailleurs {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 22px;
+}
+
+.acc-ailleurs-carte {
+  display: grid;
+  gap: 24px;
+  align-items: center;
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+/* Avec un visuel : le texte, puis l'image dans une colonne qu'elle remplit. */
+.acc-ailleurs-carte:has(.acc-ailleurs-image) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 200px);
+}
+
+.acc-ailleurs-carte h3 {
+  margin-bottom: 8px;
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+}
+
+.acc-ailleurs-carte ul {
+  display: grid;
+  gap: 9px;
+  margin: 16px 0 22px;
+  padding: 14px 0 0;
+  border-top: 1.5px dashed var(--acc-pointille);
+  color: var(--acc-gris);
+  font-size: 0.92rem;
+  font-weight: 500;
+  list-style: none;
+}
+
+.acc-ailleurs-carte li {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+}
+
+.acc-ailleurs-carte li::before {
+  content: "✦";
+  color: var(--acc-or-fonce);
+}
+
+/* Carrée, comme le fichier (1080 × 1080) : `height: auto` suit le ratio des
+   attributs, la largeur vient de la colonne. */
+.acc-ailleurs-image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--acc-r);
+  object-fit: cover;
+}
+
+.acc-ailleurs-mention {
+  margin-top: 26px;
+  color: var(--acc-encre);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+/* ── Boîte à outils : trois ressources gratuites ─────────────────────────── */
+
+.acc-outils {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acc-outils > li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 26px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-clair);
+  box-shadow: var(--acc-ecrin);
+}
+
+.acc-outil-etiquette {
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--acc-encre);
+  color: var(--acc-or);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.acc-outils h3 {
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+.acc-outils p {
+  font-size: 0.95rem;
+}
+
+.acc-outils .acc-outil-bouton {
+  margin-top: auto;
+}
+
+/* ── La méthode : un fil qui se dessine ──────────────────────────────────── */
+
+.acc-methode {
+  border-block: 1px solid var(--acc-trait);
+  background: var(--acc-blanc);
+}
+
+.acc-temps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.acc-fil {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 100%;
+  height: 90px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Le trait se dessine quand `useReveler` révèle le bloc : même déclencheur
+   que le fondu, pas de second observateur. */
+.acc-fil path {
+  fill: none;
+  stroke: var(--acc-or-fonce);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset var(--duree-acc-trait) var(--ease-sortie)
+    var(--duree-micro);
+}
+
+.acc-temps.est-revele .acc-fil path {
+  stroke-dashoffset: 0;
+}
+
+.acc-etape {
+  position: relative;
+  padding-top: 104px;
+}
+
+.acc-etape-point {
+  position: absolute;
+  top: 22px;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--acc-or);
+  box-shadow: 0 0 0 8px var(--acc-blanc);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.4rem;
+}
+
+/* Le fil est le premier enfant : les étapes sont les 2ᵉ, 3ᵉ et 4ᵉ. */
+.acc-etape:nth-child(3) .acc-etape-point {
+  top: 44px;
+}
+
+.acc-etape:nth-child(4) .acc-etape-point {
+  top: 10px;
+  background: var(--acc-encre);
+  color: var(--acc-or);
+}
+
+.acc-etape h3 {
+  margin-bottom: 8px;
+  font-size: 1.3rem;
+}
+
+.acc-etape .acc-etape-livrables {
+  margin-top: 14px;
+  color: var(--acc-encre);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+/* ── La fondatrice ───────────────────────────────────────────────────────── */
+
+.acc-elle {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: clamp(28px, 6vw, 84px);
+  align-items: center;
+}
+
+.acc-elle-cadre {
+  position: relative;
+}
+
+.acc-elle-cadre::before {
+  content: "";
+  position: absolute;
+  inset: 9% -7% -6% 12%;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or);
+  rotate: 4deg;
+}
+
+.acc-elle-cadre figure {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 4.9;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-clair);
+}
+
+.acc-elle-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 15%;
+  transition: scale var(--duree-acc-entree) var(--ease-sortie);
+}
+
+.acc-elle-cadre:hover .acc-elle-image {
+  scale: 1.04;
+}
+
+.acc-citation {
+  margin: 16px 0 20px;
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+  line-height: 1.3;
+}
+
+.acc-citation mark {
+  background: linear-gradient(transparent 60%, var(--acc-or) 60%);
+  color: inherit;
+}
+
+.acc-elle-nom {
+  font-size: 1.12rem;
+  letter-spacing: 0;
+}
+
+.acc-elle-corps {
+  margin-top: 10px;
+}
+
+.acc-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0 28px;
+  padding: 0;
+  list-style: none;
+}
+
+.acc-references li {
+  padding: 6px 15px;
+  border: 1.5px solid var(--acc-encre);
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+
+/* ── Pourquoi : mosaïque ─────────────────────────────────────────────────── */
+
+.acc-mosaique {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 28px;
+}
+
+.acc-case {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 8px;
+  grid-column: span 2;
+  min-height: 210px;
+  overflow: hidden;
+  padding: 28px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.acc-case:hover {
+  transform: translateY(-5px);
+}
+
+.acc-case h3 {
+  max-width: 16em;
+  padding-right: 2.6em;
+}
+
+.acc-case-large {
+  grid-column: span 4;
+  background: var(--acc-or);
+}
+
+.acc-case-large p {
+  max-width: 26em;
+  color: var(--acc-encre);
+}
+
+.acc-case-voile {
+  background: var(--acc-or-clair);
+}
+
+.acc-case-signe {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  color: var(--acc-or);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-size: 3.4rem;
+  line-height: 1;
+  transition: transform var(--duree-acc-glisse) var(--ease-sortie);
+}
+
+.acc-case:hover .acc-case-signe {
+  transform: rotate(12deg) scale(1.15);
+}
+
+.acc-case-large .acc-case-signe {
+  color: var(--acc-blanc);
+  font-size: 6rem;
+}
+
+/* Sur le voile crème, l'or du signe se perdrait : il prend l'or profond. */
+.acc-case-voile .acc-case-signe {
+  color: var(--acc-or-fonce);
+}
+
+/* ── Avis : deux colonnes qui montent ────────────────────────────────────── */
+
+.acc-avis {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.acc-avis-bouton {
+  margin-top: 26px;
+}
+
+.acc-mur {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  height: 520px;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    transparent,
+    var(--evkha-noir-pur) 14%,
+    var(--evkha-noir-pur) 86%,
+    transparent
+  );
+}
+
+.acc-colonne {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  animation: acc-monte var(--duree-acc-mur) linear infinite;
+}
+
+.acc-colonne:nth-child(2) {
+  animation-duration: calc(var(--duree-acc-mur) * 1.3);
+  animation-direction: reverse;
+}
+
+.acc-mur:hover .acc-colonne {
+  animation-play-state: paused;
+}
+
+.acc-mot {
+  padding: 22px;
+  border: 1px solid var(--acc-trait);
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+}
+
+.acc-mot p {
+  color: var(--acc-encre);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.acc-mot-dore {
+  border-color: var(--acc-or);
+  background: var(--acc-or);
+}
+
+.acc-mot figcaption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.acc-mot-initiale {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--acc-encre);
+  color: var(--acc-or);
+}
+
+.acc-mot-contexte {
+  display: block;
+  color: var(--acc-gris);
+  font-weight: 500;
+}
+
+.acc-mot-dore .acc-mot-contexte {
+  color: var(--acc-encre);
+}
+
+/* L'alerte du socle (`Site.css`), une fois remplie, raccourcit l'ouverture
+   qui la suit. */
+.acc-alerte:not(:empty) + .acc-hero {
+  min-height: 0;
+  padding-top: 90px;
+}
+
+.acc-alerte:not(:empty) + .acc-hero .acc-pause-rang {
+  top: 26px;
+}
+
+/* Le bouton de pause arrête TOUT ce qui tourne en boucle (WCAG 2.2.2). Le
+   ruban est arrêté par le socle (`Site.css`) ; le mot du titre, lui, par son
+   crochet. */
+.acc-fige
+  :is(
+    .acc-colonne,
+    .acc-grand-piste,
+    .acc-orbite,
+    .acc-pastille-texte,
+    .acc-bulle
+  ),
+.acc-fige .acc-halo::after,
+.acc-fige .acc-halo-proche::after {
+  animation-play-state: paused;
+}
+
+/* À la place de la lettre d'information : une carte, une adresse. */
+.acc-question {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 26px;
+  align-items: center;
+  margin-top: 60px;
+  padding: clamp(24px, 4vw, 44px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ombre);
+  text-align: left;
+}
+
+.acc-question p {
+  margin-top: 8px;
+}
+
+.acc-question .acc-question-bouton {
+  max-width: 100%;
+}
+
+.acc-grand {
+  overflow: hidden;
+  margin-top: 50px;
+  translate: 0 12%;
+  color: color-mix(in srgb, var(--evkha-blanc) 50%, transparent);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(5rem, 19vw, 17rem);
+  line-height: 0.8;
+  white-space: nowrap;
+}
+
+.acc-grand-piste {
+  display: flex;
+  width: max-content;
+  animation: acc-defile var(--duree-acc-orbite) linear infinite;
+}
+
+.acc-grand span {
+  padding-right: 0.35em;
+}
+
+.acc-grand span::after {
+  content: "✦";
+  margin-left: 0.35em;
+  font-style: normal;
+  font-size: 0.45em;
+  vertical-align: middle;
+}
+
+/* Le renvoi d'un temps de la méthode, quand il mène quelque part. */
+.acc-etape-livrables a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ── Images clés ─────────────────────────────────────────────────────────── */
+
+@keyframes acc-eclot {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes acc-tour {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* Un tour complet À PARTIR de l'angle de départ de l'orbite… */
+@keyframes acc-orbite {
+  from {
+    rotate: var(--acc-depart, 0deg);
+  }
+  to {
+    rotate: calc(var(--acc-depart, 0deg) + 360deg);
+  }
+}
+
+/* … et le même tour à l'envers pour le texte, qui reste droit. */
+@keyframes acc-orbite-contre {
+  from {
+    rotate: calc(var(--acc-depart, 0deg) * -1);
+  }
+  to {
+    rotate: calc(var(--acc-depart, 0deg) * -1 - 360deg);
+  }
+}
+
+@keyframes acc-flotte {
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes acc-monte {
+  to {
+    transform: translateY(calc(-50% - 8px));
+  }
+}
+
+@keyframes acc-defile {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ── Largeurs ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1240px) {
+  .acc-formules {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .acc-marches {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .acc-marche {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .acc-hero-grille {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-astre {
+    width: min(78%, 360px);
+    margin-top: 72px;
+  }
+
+  /* Le grand disque partait à droite de l'écran : il cède la place à celui
+     qui est accroché au portrait, donc centré derrière lui quelle que soit
+     la largeur. */
+  .acc-halo {
+    display: none;
+  }
+
+  .acc-halo-proche {
+    display: block;
+  }
+
+  /* Même sens, même durée : parties à 180° l'une de l'autre, les deux
+     pastilles le restent pendant tout le tour et ne se croisent jamais. En
+     sens opposés, comme sur grand écran, elles se rencontreraient deux fois
+     par tour — sans place pour s'éviter sur un disque de 300 px. */
+  .acc-orbite-inverse,
+  .acc-orbite-inverse .acc-pastille-texte {
+    animation-duration: var(--duree-acc-orbite);
+    animation-direction: normal;
+  }
+
+  .acc-pastille-texte {
+    padding: 8px 14px;
+    font-size: 0.78rem;
+  }
+
+  .acc-atelier {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-atelier-scene {
+    min-height: 440px;
+  }
+
+  .acc-elle {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-elle-cadre {
+    max-width: 380px;
+  }
+
+  /* Les volets s'empilent, tous ouverts : plus rien à survoler. */
+  .acc-volets {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .acc-volet,
+  .acc-volet-ouvert {
+    flex: none;
+    background: var(--acc-blanc);
+    box-shadow: inset 0 0 0 1px var(--acc-trait);
+    cursor: default;
+  }
+
+  .acc-volet:nth-child(odd) {
+    background: var(--acc-or);
+    box-shadow: none;
+  }
+
+  .acc-volet-tranche {
+    display: none;
+  }
+
+  .acc-volet-contenu {
+    position: static;
+    /* `minmax(0, 1fr)` : une colonne `1fr` ne descend pas sous la largeur de
+       son contenu, et un bouton insécable l'élargissait jusqu'à rogner
+       l'image. Le bouton, lui, passe à la ligne. */
+    grid-template-columns: minmax(0, 1fr) 110px;
+    width: auto;
+    padding: 64px 24px 24px;
+    opacity: 1;
+    translate: none;
+    pointer-events: auto;
+  }
+
+  .acc-volet-image {
+    height: 110px;
+  }
+
+  .acc-volet-contenu .acc-btn {
+    min-height: 48px;
+    padding-block: 8px;
+    white-space: normal;
+  }
+
+  /* Téléphone : à 375 px, la colonne de 110 px ne laissait que ~140 px au
+     texte, et le bouton se cassait sur trois lignes (vu à l'écran le
+     19/11/2026). Le texte prend toute la largeur ; l'illustration monte dans
+     le coin, à côté du numéro. */
+  @media (max-width: 600px) {
+    .acc-volet-contenu {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .acc-volet-image {
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      width: 84px;
+      height: 64px;
+    }
+  }
+
+  .acc-case,
+  .acc-case-large {
+    grid-column: span 6;
+  }
+
+  .acc-avis {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-mur {
+    height: 420px;
+  }
+}
+
+@media (max-width: 820px) {
+  .acc-nombres {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .acc-temps {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-fil {
+    display: none;
+  }
+
+  .acc-etape {
+    min-height: 64px;
+    padding: 0 0 0 78px;
+  }
+
+  .acc-etape .acc-etape-point,
+  .acc-etape:nth-child(3) .acc-etape-point,
+  .acc-etape:nth-child(4) .acc-etape-point {
+    top: 0;
+  }
+
+  .acc-question {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-comment,
+  .acc-outils,
+  .acc-ailleurs {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-pretes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .acc-marches,
+  .acc-formules {
+    grid-template-columns: 1fr;
+  }
+
+  /* Le mur devient une file que le doigt fait défiler : plus de boucle, donc
+     plus de doublons. Le bouton de pause, lui, RESTE : le ruban et la bande
+     finale défilent encore. */
+  .acc-mur {
+    display: flex;
+    gap: 14px;
+    height: auto;
+    margin-inline: -20px;
+    padding: 4px 20px 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    mask-image: none;
+  }
+
+  .acc-colonne {
+    display: contents;
+  }
+
+  .acc-mot {
+    flex: 0 0 82%;
+    scroll-snap-align: center;
+  }
+
+  .acc-mot[aria-hidden] {
+    display: none;
+  }
+
+  .acc-pretes {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-ailleurs-carte:has(.acc-ailleurs-image) {
+    grid-template-columns: 1fr;
+  }
+
+  .acc-ailleurs-image {
+    max-width: 220px;
+  }
+
+  .acc-confiance-logo {
+    height: 44px;
+    max-width: 130px;
+  }
+}
+
+@media (max-width: 480px) {
+  .acc-nombre {
+    padding: 20px 16px;
+  }
+
+  .acc-nombre b {
+    font-size: 2rem;
+  }
+
+  /* Une adresse de courriel ne se coupe pas : le bouton rétrécit son texte
+     plutôt que de sortir de la carte. */
+  .acc-question .acc-question-bouton {
+    padding-left: 16px;
+    font-size: 0.86rem;
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────────
+ *
+ * SUR CETTE PAGE, LE MOUVEMENT RÉDUIT RÉDUIT : IL NE SUPPRIME PAS. Décision du
+ * client du 19/11/2026. Son navigateur demande moins de mouvement, et il
+ * voyait une page figée — orbites à l'arrêt, blocs déjà tous affichés,
+ * survols sans transition — qu'il a signalée comme « des animations qui ne
+ * fonctionnent pas ».
+ *
+ * Le socle (`Site.css`) tient déjà, dans son propre bloc : les survols des
+ * boutons, de la barre et du menu, l'apparition des blocs en fondu seul, le
+ * fondu d'entrée du titre, le ruban ralenti. Ce bloc-ci tient le reste.
+ *
+ * Ce qui RESTE, en version douce :
+ *   - les survols des cartes : couleur, ombre, fond, sur un plancher court ;
+ *   - le fondu d'entrée du portrait ;
+ *   - le fil de la méthode qui se dessine ;
+ *   - les orbites, la bande finale et le mur d'avis, ralentis ;
+ *   - le mot qui tourne, et les compteurs (dans leurs crochets).
+ *
+ * Ce qui est COUPÉ : la parallaxe du disque (dans son crochet), le
+ * flottement de la bulle, l'anneau qui tourne, tout soulèvement de carte.
+ *
+ * Deux boutons de pause arrêtent tout ce qui boucle (WCAG 2.2.2).
+ *
+ * COMMENT. Sous mouvement réduit, `tokens.css` remet chaque `--duree-*` à
+ * 0 ms. Les jetons `--calme-*` sont des PLANCHERS : `max(durée, plancher)`
+ * vaut ici le plancher, puisque la durée est tombée à zéro. Ils ne se lisent
+ * que sous cette forme et que dans ce bloc — `les-mouvements-lisent-leurs-
+ * durees` tient le registre de ce que chaque feuille en lit et verrouille les
+ * deux conditions. C'est la seule exception de l'application à « toute durée
+ * tombe à zéro ».
+ */
+@media (prefers-reduced-motion: reduce) {
+  /* ── Coupé ──────────────────────────────────────────────────────────── */
+
+  .acc-halo::after,
+  .acc-halo-proche::after,
+  .acc-bulle {
+    animation: none;
+  }
+
+  /* Aucune carte ne se soulève, aucune feuille ne se redresse. Ce qui change
+     encore sous la souris, c'est la couleur, l'ombre et le fond. */
+  .acc-marche:hover,
+  .acc-formule:hover,
+  .acc-case:hover,
+  .acc-nombre:hover,
+  .acc-teinte:hover,
+  a.acc-prete:hover,
+  .acc-case:hover .acc-case-signe {
+    transform: none;
+  }
+
+  .acc-atelier-scene:hover .acc-feuille {
+    rotate: 2.5deg;
+    transform: none;
+  }
+
+  .acc-elle-cadre:hover .acc-elle-image {
+    scale: none;
+  }
+
+  /* ── Gardé : l'entrée du portrait, en opacité seule ─────────────────── */
+
+  .acc-astre {
+    animation-name: acc-apparait;
+    animation-duration: max(var(--duree-acc-entree), var(--calme-fondu));
+  }
+
+  /* ── Gardé : les survols ────────────────────────────────────────────── */
+
+  .acc-marche::before,
+  .acc-marche :is(p, small, .acc-marche-sans-prix),
+  .acc-marche-numero,
+  .acc-marche-fleche,
+  .acc-onglet,
+  .acc-onglet-fleche,
+  .acc-teinte,
+  .acc-sceau,
+  .acc-filet,
+  .acc-graphe span,
+  .acc-feuille,
+  .acc-volet,
+  .acc-volet-tranche,
+  .acc-volet-contenu,
+  .acc-prete,
+  .acc-confiance-logo,
+  .acc-case-signe,
+  .acc-elle-image {
+    transition-duration: max(var(--duree-acc-survol), var(--calme-survol));
+  }
+
+  /* ── Gardé : le fil de la méthode ───────────────────────────────────── */
+
+  .acc-fil path {
+    transition-duration: max(var(--duree-acc-trait), var(--calme-trait));
+  }
+
+  /* ── Gardé, ralenti : ce qui tourne en boucle ───────────────────────── */
+
+  /* Les quatre sélecteurs sont nommés : l'orbite inverse et son texte ont
+     leur propre durée plus haut, à spécificité égale ou supérieure. */
+  .acc-orbite,
+  .acc-orbite-inverse,
+  .acc-pastille-texte,
+  .acc-orbite-inverse .acc-pastille-texte {
+    animation-duration: max(var(--duree-acc-orbite), var(--calme-orbite));
+  }
+
+  .acc-grand-piste {
+    animation-duration: max(var(--duree-acc-orbite), var(--calme-bande));
+  }
+
+  .acc-colonne {
+    animation-duration: max(var(--duree-acc-mur), var(--calme-mur));
+  }
+
+  .acc-colonne:nth-child(2) {
+    animation-duration: max(var(--duree-acc-mur), var(--calme-mur-lent));
+  }
+
+  .acc-roule-entre,
+  .acc-roule-sort {
+    transition-duration: max(var(--duree-acc-glisse), var(--calme-mot));
+  }
+}

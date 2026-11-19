@@ -30,9 +30,27 @@
  *    orthographié invalide la déclaration entière, et l'animation disparaît
  *    sans un mot.
  *
+ * 4. (19/11/2026) aucune feuille ne se fabrique une durée à elle : une
+ *    propriété personnalisée valant un temps, déclarée hors de `tokens.css`,
+ *    échappait aux trois verrous ci-dessus — elle n'est ni une déclaration
+ *    de mouvement, ni un jeton de `tokens.css`. C'est par là que la page
+ *    d'accueil avait posé des planchers `--acc-calme-*: 60s` que ce test ne
+ *    voyait pas. Et l'exception qui les remplace est NOMMÉE : les jetons
+ *    `--calme-*` de `tokens.css`, leurs feuilles, leur raison (`CALMES`), et
+ *    la seule forme sous laquelle ils se lisent.
+ *
+ *    Le même jour, le socle de l'accueil a été mis en commun avec la page des
+ *    études (`public/Site.css`) : les planchers se lisent désormais dans TROIS
+ *    feuilles, et le registre dit, feuille par feuille, lesquels. Une feuille
+ *    hors registre n'en lit aucun ; une feuille inscrite lit exactement les
+ *    siens ; chaque plancher déclaré est lu quelque part. Rejoué par deux
+ *    mutations : un plancher de plus lu par `NosEtudes.css`, puis un plancher
+ *    lu par une feuille hors registre (`Boutique.css`) — rouge les deux fois.
+ *
  * Contre-épreuve (règle 6) : les détecteurs laissent passer un jeton, une
  * courbe `cubic-bezier()` ou un nom d'images clés chiffré, et attrapent bien un
- * temps en dur ou un jeton oublié.
+ * temps en dur ou un jeton oublié ; une feuille qui déclare `--x: 2s` ou qui
+ * lit un `--calme-*` hors de son bloc est nommée.
  *
  * Rejoué sur les feuilles de `bdbd6e5` (sauvegarde, `git show`, restauration) :
  * rouge ; puis, élargi, sur celles de `4c88e22` : rouge sur `Portail.css` et
@@ -50,6 +68,50 @@ import { feuillesSous, lireFeuille, sansCommentaires, SOURCE } from "./charte";
  *  Vide depuis la sortie de Radix (26/09/2026) : `index.css`, seule
  *  exemptée, a perdu son `.sidebar-link` et son `0.12s` avec la console. */
 const EN_ATTENTE = new Map<string, string>();
+
+/** Le registre des planchers « calmes » : les SEULES durées de `tokens.css`
+ *  qui ne tombent pas à zéro sous mouvement réduit. La liste est exacte —
+ *  un jeton `--calme-*` déclaré sans y figurer, ou inscrit sans être lu, fait
+ *  échouer le test. À ne jamais allonger sans une décision écrite ici.
+ *
+ *  `feuilles` : QUI les lit, et lesquels — liste exacte elle aussi. Trois
+ *  feuilles depuis que le socle de l'accueil est partagé avec la page des
+ *  études (19/11/2026) : le socle (`Site.css` — boutons, barre, menu,
+ *  révélation, ruban), l'accueil (ce qui lui est propre : orbites, mur
+ *  d'avis, bande finale, mot du titre, fil de la méthode) et la page des
+ *  études (le survol de sa barre d'ancres). Une quatrième feuille qui lirait
+ *  un plancher, ou l'une de ces trois qui en lirait un de plus, fait échouer
+ *  le test : y inscrire une feuille demande une décision, écrite dans
+ *  `raison`. */
+const CALMES = {
+  raison:
+    "accueil et page des études, qui partagent le socle `Site.css` — décision du client du 19/11/2026, étendue à `/etudes` le même jour : le mouvement réduit réduit, il ne supprime pas ; un bouton pause arrête ce qui boucle",
+  jetons: [
+    "--calme-bande",
+    "--calme-fondu",
+    "--calme-mot",
+    "--calme-mur",
+    "--calme-mur-lent",
+    "--calme-orbite",
+    "--calme-ruban",
+    "--calme-survol",
+    "--calme-trait",
+  ],
+  feuilles: {
+    "public/Accueil.css": [
+      "--calme-bande",
+      "--calme-fondu",
+      "--calme-mot",
+      "--calme-mur",
+      "--calme-mur-lent",
+      "--calme-orbite",
+      "--calme-survol",
+      "--calme-trait",
+    ],
+    "public/NosEtudes.css": ["--calme-survol"],
+    "public/Site.css": ["--calme-fondu", "--calme-ruban", "--calme-survol"],
+  } as Record<string, string[]>,
+};
 
 const TOUTES = feuillesSous().filter((f) => f !== SOURCE);
 const VERROUILLEES = TOUTES.filter((f) => !EN_ATTENTE.has(f));
@@ -128,11 +190,14 @@ function reduction(css: string): Map<string, string> {
 }
 
 /** Les jetons de durée qui ne tombent PAS à zéro sous mouvement réduit : tout
- *  `--duree-*`, et tout jeton dont la valeur est un temps. */
-function jetonsNonRemisAZero(css: string): string[] {
+ *  `--duree-*`, et tout jeton dont la valeur est un temps. `exceptes` : les
+ *  planchers du registre `CALMES`, qui existent précisément pour ne pas y
+ *  tomber — vide par défaut, donc sans effet sur les contre-épreuves. */
+function jetonsNonRemisAZero(css: string, exceptes: string[] = []): string[] {
   const reduits = reduction(css);
   const fautifs: string[] = [];
   for (const [nom, valeur] of racine(css)) {
+    if (exceptes.includes(nom)) continue;
     const estUneDuree = nom.startsWith("--duree-") || tempsLitteraux(valeur).length > 0;
     if (!estUneDuree) continue;
     const remis = reduits.get(nom);
@@ -141,6 +206,71 @@ function jetonsNonRemisAZero(css: string): string[] {
     }
   }
   return fautifs;
+}
+
+/** Les propriétés personnalisées d'une feuille dont la valeur est un temps,
+ *  et toute redéclaration d'un `--calme-*`. Hors de `tokens.css`, ni l'une ni
+ *  l'autre n'a le droit d'exister : une durée privée n'est remise à zéro par
+ *  personne, et un plancher redéclaré localement sortirait du registre. */
+function dureesPrivees(css: string): string[] {
+  const fautives: string[] = [];
+  for (const m of sansCommentaires(css).matchAll(/(?<![\w-])(--[\w-]+)\s*:\s*([^;{}]+)/g)) {
+    const valeur = m[2].replace(/\s+/g, " ").trim();
+    if (tempsLitteraux(valeur).length > 0 || m[1].startsWith("--calme-")) {
+      fautives.push(`${m[1]}: ${valeur}`);
+    }
+  }
+  return fautives;
+}
+
+/** Une feuille coupée en deux : ce qui est À L'INTÉRIEUR d'un bloc
+ *  `@media (prefers-reduced-motion: reduce)`, et tout le reste. Les accolades
+ *  sont comptées : un bloc contient des règles, donc des accolades. */
+function selonLeMouvement(css: string): { reduit: string; ordinaire: string } {
+  const texte = sansCommentaires(css);
+  let reduit = "";
+  let ordinaire = "";
+  let curseur = 0;
+  for (const m of texte.matchAll(/@media[^{]*prefers-reduced-motion:\s*reduce[^{]*\{/g)) {
+    const debut = m.index;
+    if (debut < curseur) continue;
+    let fin = debut + m[0].length;
+    let profondeur = 1;
+    while (fin < texte.length && profondeur > 0) {
+      if (texte[fin] === "{") profondeur += 1;
+      else if (texte[fin] === "}") profondeur -= 1;
+      fin += 1;
+    }
+    ordinaire += texte.slice(curseur, debut);
+    reduit += `${texte.slice(debut + m[0].length, fin - 1)}\n`;
+    curseur = fin;
+  }
+  ordinaire += texte.slice(curseur);
+  return { reduit, ordinaire };
+}
+
+const LECTURE_CALME = /var\(\s*(--calme-[\w-]+)/g;
+/** La seule forme admise : le plancher d'une durée tombée à zéro. */
+const PLANCHER = /max\(\s*var\(\s*--duree-[\w-]+\s*\)\s*,\s*var\(\s*--calme-[\w-]+\s*\)\s*\)/g;
+
+/** Les `--calme-*` qu'une feuille lit. */
+function calmesLus(css: string): string[] {
+  return [...new Set([...sansCommentaires(css).matchAll(LECTURE_CALME)].map((m) => m[1]))].sort();
+}
+
+/** Les lectures d'un `--calme-*` qui sortent de la règle : hors d'un bloc de
+ *  mouvement réduit, ou dedans mais ailleurs que dans
+ *  `max(var(--duree-…), var(--calme-…))`. */
+function calmesMalLus(css: string): string[] {
+  const { reduit, ordinaire } = selonLeMouvement(css);
+  const fautes: string[] = [];
+  for (const m of ordinaire.matchAll(LECTURE_CALME)) {
+    fautes.push(`${m[1]} lu hors d'un bloc prefers-reduced-motion`);
+  }
+  for (const m of reduit.replace(PLANCHER, "").matchAll(LECTURE_CALME)) {
+    fautes.push(`${m[1]} lu hors d'un max(var(--duree-…), var(--calme-…))`);
+  }
+  return fautes;
 }
 
 describe("les mouvements de src lisent leurs durées", () => {
@@ -190,7 +320,61 @@ describe("les mouvements de src lisent leurs durées", () => {
   });
 
   it("chaque jeton de durée de tokens.css tombe à 0 sous mouvement réduit", () => {
-    expect(jetonsNonRemisAZero(tokens)).toEqual([]);
+    expect(jetonsNonRemisAZero(tokens, CALMES.jetons)).toEqual([]);
+    // Sans le registre, ce sont EXACTEMENT ses jetons qui sont nommés : il
+    // n'excuse rien d'autre, et il n'excuse rien qui n'existe pas.
+    expect(jetonsNonRemisAZero(tokens).map((f) => f.split(":")[0]).sort()).toEqual(CALMES.jetons);
+  });
+
+  it("aucune feuille ne se fabrique une durée hors de tokens.css", () => {
+    const privees = TOUTES.flatMap((f) => dureesPrivees(lireFeuille(f)).map((d) => `${f} — ${d}`));
+    expect(privees).toEqual([]);
+  });
+
+  it("le registre des planchers calmes est exact, motivé, et borné à ses feuilles", () => {
+    expect(CALMES.raison.length).toBeGreaterThan(40);
+    const inscrites = Object.keys(CALMES.feuilles).sort();
+    // Règle 1 : un registre sans feuille n'excuserait rien et ne vérifierait
+    // rien. Chaque feuille inscrite existe, et lit au moins un plancher.
+    expect(inscrites.length).toBeGreaterThan(0);
+    for (const feuille of inscrites) {
+      expect(TOUTES, `${feuille} inscrite mais absente`).toContain(feuille);
+      expect(CALMES.feuilles[feuille], `${feuille} inscrite sans rien lire`).not.toEqual([]);
+    }
+    // Les jetons déclarés sont ceux du registre, ni plus ni moins, et aucun
+    // n'est remis à zéro — il ne servirait alors plus à rien.
+    const declares = [...racine(tokens).keys()].filter((n) => n.startsWith("--calme-")).sort();
+    expect(declares).toEqual(CALMES.jetons);
+    for (const nom of CALMES.jetons) {
+      expect(tempsLitteraux(racine(tokens).get(nom) ?? ""), `${nom} n'est pas un temps`).toHaveLength(1);
+      expect(reduction(tokens).has(nom), `${nom} est remis à zéro`).toBe(false);
+    }
+    // Seules les feuilles inscrites les lisent, et chacune lit EXACTEMENT les
+    // siens : ni un de plus (l'exception s'étendrait sans décision), ni un de
+    // moins (le registre mentirait sur ce que la feuille fait).
+    for (const feuille of TOUTES) {
+      expect(calmesLus(lireFeuille(feuille)), feuille).toEqual(CALMES.feuilles[feuille] ?? []);
+    }
+    // Et chaque plancher déclaré est lu quelque part : un plancher que
+    // personne ne lit est une exception morte, à retirer.
+    const lusQuelquePart = [...new Set(inscrites.flatMap((f) => CALMES.feuilles[f]))].sort();
+    expect(lusQuelquePart).toEqual(CALMES.jetons);
+  });
+
+  it("un plancher calme ne se lit que dans max(var(--duree-…), var(--calme-…)), sous mouvement réduit", () => {
+    for (const [feuille, attendus] of Object.entries(CALMES.feuilles)) {
+      const css = lireFeuille(feuille);
+      // Règle 1 : la feuille a bien un bloc de mouvement réduit, et il lit —
+      // au moins une fois chacun des planchers qu'elle déclare lire.
+      expect(
+        [...selonLeMouvement(css).reduit.matchAll(PLANCHER)].length,
+        `${feuille} : aucun plancher lu sous mouvement réduit`,
+      ).toBeGreaterThanOrEqual(attendus.length);
+    }
+    // La forme est exigée de TOUTES les feuilles, inscrites ou non : une
+    // lecture hors de sa règle est une faute où qu'elle soit.
+    const malLus = TOUTES.flatMap((f) => calmesMalLus(lireFeuille(f)).map((d) => `${f} — ${d}`));
+    expect(malLus).toEqual([]);
   });
 
   it("chaque var(--duree-…) lu par une feuille est déclaré dans tokens.css", () => {
@@ -260,5 +444,55 @@ describe("les mouvements de src lisent leurs durées", () => {
       :root { --duree-a: 1s; }
       @media (prefers-reduced-motion: reduce) { :root { --duree-a: ms; } }`;
     expect(jetonsNonRemisAZero(pasUnZero)).toEqual(["--duree-a: 1s → ms"]);
+  });
+
+  it("contre-épreuve : une durée privée ou un plancher lu hors de sa règle est nommé", () => {
+    // Une feuille qui se fabrique une durée, sous quelque nom que ce soit.
+    expect(dureesPrivees(".a { --x: 2s; --acc-calme-ruban: 60s; --pas: 4px; --n: 3; }")).toEqual([
+      "--x: 2s",
+      "--acc-calme-ruban: 60s",
+    ]);
+    expect(dureesPrivees(".a { --calme-ruban: var(--duree-micro); }")).toEqual([
+      "--calme-ruban: var(--duree-micro)",
+    ]);
+    // Ce qui n'en est pas une : un jeton lu, un repli dans `var()`, une taille.
+    expect(dureesPrivees(".a { --delai: calc(var(--i, 0) * var(--decalage-reveal)); --r: 22px; }")).toEqual([]);
+
+    // La forme admise, et elle seule.
+    const juste = `
+      .a { animation: tourne var(--duree-ruban) linear infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .a { animation-duration: max(var(--duree-ruban), var(--calme-ruban)); }
+        .b { transition-duration: max( var(--duree-micro) , var(--calme-survol) ); }
+      }`;
+    expect(calmesMalLus(juste)).toEqual([]);
+    expect(calmesLus(juste)).toEqual(["--calme-ruban", "--calme-survol"]);
+
+    // Hors du bloc : le plancher s'appliquerait à tout le monde.
+    const dehors = `
+      .a { animation-duration: max(var(--duree-ruban), var(--calme-ruban)); }
+      @media (prefers-reduced-motion: reduce) { .a { animation: none; } }
+      .c { transition-duration: var(--calme-survol); }`;
+    expect(calmesMalLus(dehors)).toEqual([
+      "--calme-ruban lu hors d'un bloc prefers-reduced-motion",
+      "--calme-survol lu hors d'un bloc prefers-reduced-motion",
+    ]);
+
+    // Dans le bloc, mais seul, ou sans la durée qu'il borne : ce n'est plus
+    // un plancher, c'est une durée qui ne tombe jamais à zéro.
+    const seul = `
+      @media (prefers-reduced-motion: reduce) {
+        .a { animation-duration: var(--calme-ruban); }
+        .b { transition-duration: max(var(--calme-survol), var(--calme-fondu)); }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .c { animation-duration: max(var(--duree-ruban), var(--calme-ruban)); }
+      }`;
+    expect(calmesMalLus(seul)).toEqual([
+      "--calme-ruban lu hors d'un bloc prefers-reduced-motion",
+      "--calme-ruban lu hors d'un max(var(--duree-…), var(--calme-…))",
+      "--calme-survol lu hors d'un max(var(--duree-…), var(--calme-…))",
+      "--calme-fondu lu hors d'un max(var(--duree-…), var(--calme-…))",
+    ]);
   });
 });

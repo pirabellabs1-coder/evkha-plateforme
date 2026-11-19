@@ -25,6 +25,7 @@ import { Orders } from "./pages/Orders";
 import { Login } from "./pages/Login";
 import { isAuthenticated } from "./auth";
 import { routesEspace } from "./espace/routes";
+import { Accueil } from "./public/Accueil";
 import { Partenaires } from "./public/Partenaires";
 import { NosEtudes } from "./public/NosEtudes";
 import { Boutique } from "./public/Boutique";
@@ -64,8 +65,10 @@ const partenairesRoute = createRoute({
   component: Partenaires,
 });
 
-// Les etudes vendues a l'unite. Jumelle de `/partenaires` : meme menu, meme
-// charte, meme role dans le tunnel de vente. Elle remplace
+// Les etudes vendues a l'unite : la page de vente principale, ou mene le
+// bouton « Commander une etude » de l'accueil. Refaite le 19/11/2026 dans le
+// langage de l'accueil, dont elle partage la barre, le pied et la feuille de
+// base (`public/EnTeteSite`, `PiedSite`, `Site.css`). Elle remplace
 // `evkha.fr/etudedemarche`, dont le menu du site pointe desormais ici.
 const etudesRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -295,22 +298,22 @@ const adminClientDetail = createRoute({
 
 // --- Page d'accueil ----------------------------------------------------------
 //
-// La racine EST la page partenaires. Elle renvoyait vers `/admin` : la premiere
-// chose qu'un visiteur du tunnel de vente rencontrait etait donc l'ecran de
-// connexion de l'administration — au mieux un cul-de-sac, au pire une invitation
-// a chercher la porte de service.
+// La racine est la page d'accueil publique (`public/Accueil.tsx`) : la
+// maquette validee par la cliente, qui s'adresse d'abord au porteur de projet
+// et renvoie le professionnel vers `/partenaires` des son ouverture.
 //
-// Le meme composant sert les deux adresses plutot qu'une redirection : `/`
-// pour le menu du site, et `/partenaires` qui reste valide pour tout lien deja
-// diffuse. Une redirection aurait fait clignoter l'URL sous les yeux du
-// visiteur, et casse le partage d'un lien profond.
+// Elle a ete, dans l'ordre : une redirection vers `/admin` (le visiteur du
+// tunnel de vente tombait sur l'ecran de connexion de l'administration), puis
+// la page partenaires elle-meme, servie aux deux adresses. Ce n'est plus le
+// cas : `/` et `/partenaires` rendent desormais deux pages DIFFERENTES.
+// `/partenaires` n'a pas change et reste valide pour tout lien deja diffuse.
 //
 // L'administration reste a `/admin`, hors de tout chemin public : aucune page
 // visible par un visiteur n'y renvoie.
 const racine = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: Partenaires,
+  component: Accueil,
 });
 
 const routeTree = rootRoute.addChildren([
