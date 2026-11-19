@@ -8,6 +8,7 @@ import {
   Bandeau,
   Carte,
   Champ,
+  ErreurDeChargement,
   Pastille,
   Squelette,
 } from "../composants/Interface";
@@ -32,7 +33,8 @@ const LIBELLE_DROIT: Record<string, string> = {
 };
 
 export function Equipe() {
-  const { data: moi } = useMoi();
+  const lectureMoi = useMoi();
+  const { data: moi } = lectureMoi;
   const cache = useQueryClient();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("membre");
@@ -49,7 +51,7 @@ export function Equipe() {
 
   const peutGerer = peut(moi, "gerer_membres");
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["espace", "equipe"],
     queryFn: espaceApi.equipe,
   });
@@ -88,6 +90,11 @@ export function Equipe() {
 
   return (
     <>
+      {/* Sans ce bandeau, un échec se lisait « 0 collaborateur » au-dessus
+          d'un tableau vide — et un menu de rôles sans une seule entrée. */}
+      {isError && (
+        <ErreurDeChargement quoi="votre équipe" erreur={error} perimees={isRefetchError} />
+      )}
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
       {/* Une phrase, un fait. La version précédente expliquait en outre que le
           mot de passe resterait secret et qu'EVKHA n'interviendrait pas :
@@ -112,7 +119,10 @@ export function Equipe() {
         </Bandeau>
       )}
 
-      {peutGerer && (
+      {/* L'invitation attend la liste des rôles : sans elle, le menu est vide
+          et c'est « membre », la valeur de départ, qui partirait sans avoir
+          été choisie. */}
+      {peutGerer && data && (
         <Carte
           titre="Inviter un collaborateur"
           note="Il partagera votre portefeuille de crédits."
@@ -164,8 +174,13 @@ export function Equipe() {
         </Carte>
       )}
 
+      {(isPending || data) && (
       <Carte
-        titre={`${membres.length} collaborateur${membres.length > 1 ? "s" : ""}`}
+        titre={
+          data
+            ? `${membres.length} collaborateur${membres.length > 1 ? "s" : ""}`
+            : "Collaborateurs"
+        }
         note="Tous partagent le même portefeuille de crédits."
       >
         {isPending ? (
@@ -225,10 +240,22 @@ export function Equipe() {
           </div>
         )}
       </Carte>
+      )}
 
+      {/* Les droits se lisent sur le compte REÇU. Sans lui, chaque ligne
+          s'affichait « non autorisé » : un échec de lecture se lisait comme
+          un rôle qui ne permet rien. */}
+      {lectureMoi.isError && (
+        <ErreurDeChargement
+          quoi="votre compte"
+          erreur={lectureMoi.error}
+          perimees={lectureMoi.isRefetchError}
+        />
+      )}
+      {moi && (
       <Carte
         titre="Vos droits"
-        note={`Rôle : ${f.role(moi?.utilisateur.role ?? "")}`}
+        note={`Rôle : ${f.role(moi.utilisateur.role)}`}
       >
         <ul
           style={{
@@ -241,7 +268,7 @@ export function Equipe() {
           }}
         >
           {Object.entries(LIBELLE_DROIT).map(([code, libelle]) => {
-            const accorde = moi?.utilisateur.droits.includes(code) ?? false;
+            const accorde = moi.utilisateur.droits.includes(code);
             return (
               <li
                 key={code}
@@ -284,6 +311,7 @@ export function Equipe() {
           réservé à EVKHA, quel que soit votre rôle.
         </p>
       </Carte>
+      )}
     </>
   );
 }

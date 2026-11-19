@@ -22,12 +22,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "@tanstack/react-router";
 
 import {
-  chargerLivrables,
-  euros,
-  ouvrirLePaiement,
-  RefusInscription,
-  type LivrablePublic,
-} from "./donnees";
+  achatRattacheALEspace,
+  messageDuRefusDePaiement,
+  payerUneEtude,
+} from "./achat";
+import { chargerLivrables, euros, type LivrablePublic } from "./donnees";
 import { MenuSite } from "./MenuSite";
 import "./Partenaires.css";
 import "./Acheter.css";
@@ -60,12 +59,35 @@ export function Acheter() {
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState("");
   const [abandon] = useState(paiementAbandonne);
+  // Une PANNE n'est pas une étude introuvable. L'échec du catalogue le
+  // remplaçait par une liste vide : un 500, ou dix secondes de coupure,
+  // s'affichait « Cette étude n'est pas disponible — le lien que vous avez
+  // suivi ne correspond à aucune de nos études », à quelqu'un dont le lien
+  // était bon et qui venait payer (audit du 19/11/2026). « Pas disponible »
+  // ne se dit plus que sur un catalogue REÇU où l'étude ne figure pas.
+  const [panne, setPanne] = useState(false);
+  // Incrémenté par « Réessayer » : il relance le chargement sans recharger
+  // la page.
+  const [tentative, setTentative] = useState(0);
+  // Lu une fois, à l'arrivée : un espace est-il ouvert dans ce navigateur ?
+  // L'achat part alors par l'espace et suit le compte (`achat.ts`).
+  const [rattache] = useState(achatRattacheALEspace);
 
   useEffect(() => {
+    let vivant = true;
     chargerLivrables()
-      .then(setCatalogue)
-      .catch(() => setCatalogue([]));
-  }, []);
+      .then((liste) => {
+        if (!vivant) return;
+        setPanne(false);
+        setCatalogue(liste);
+      })
+      .catch(() => {
+        if (vivant) setPanne(true);
+      });
+    return () => {
+      vivant = false;
+    };
+  }, [tentative]);
 
   const offre = catalogue?.find((o) => o.slug === livrable) ?? null;
 
@@ -80,16 +102,19 @@ export function Acheter() {
     setEnvoi(true);
     setErreur("");
     try {
-      const adresse = await ouvrirLePaiement(offre.slug, email.trim());
+      // Par l'espace si une session y est ouverte — l'achat suit alors le
+      // compte —, sinon en visiteur. La règle vit dans `achat.ts`.
+      const adresse = await payerUneEtude(offre.slug, email.trim());
       // Remplacement et non ouverture d'onglet : le paiement EST la suite du
       // parcours. Un nouvel onglet laisse derrière soi une page morte à
       // laquelle la personne revient, et où elle recliquera.
       window.location.href = adresse;
     } catch (cause) {
       setErreur(
-        cause instanceof RefusInscription
-          ? cause.message
-          : "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.",
+        messageDuRefusDePaiement(
+          cause,
+          "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.",
+        ),
       );
       setEnvoi(false);
     }
@@ -100,11 +125,35 @@ export function Acheter() {
       <MenuSite />
 
       <main className="ach-corps">
-        {catalogue === null && (
+        {catalogue === null && !panne && (
           <p className="ach-attente">Chargement…</p>
         )}
 
-        {catalogue !== null && offre === null && (
+        {panne && (
+          <section className="ach-carte">
+            <h1>Un instant</h1>
+            <p className="ach-erreur" role="alert">
+              Nos études n'ont pas pu être chargées. Votre lien est bon : c'est
+              une panne passagère de notre côté.
+            </p>
+            <button
+              type="button"
+              className="bouton bouton-principal ach-bouton"
+              onClick={() => {
+                setPanne(false);
+                setTentative((n) => n + 1);
+              }}
+            >
+              Réessayer
+            </button>
+            <p className="ach-rassurance">
+              Si cela persiste, écrivez-nous à{" "}
+              <a href="mailto:contact@evkha.fr">contact@evkha.fr</a>.
+            </p>
+          </section>
+        )}
+
+        {!panne && catalogue !== null && offre === null && (
           <section className="ach-carte">
             <h1>Cette étude n'est pas disponible</h1>
             <p>
@@ -115,7 +164,7 @@ export function Acheter() {
           </section>
         )}
 
-        {offre !== null && (
+        {!panne && offre !== null && (
           <section className="ach-carte">
             {abandon && (
               <p className="ach-avis" role="status">
@@ -132,32 +181,48 @@ export function Acheter() {
               {euros(offre.prix_cents)} <span>TTC · paiement unique</span>
             </p>
 
+            {/* La deuxième étape promettait « votre espace s'ouvre aussitôt »
+                à tout le monde. C'est vrai d'un compte né du paiement ; pour
+                une adresse qui a déjà un compte, le serveur n'ouvre plus de
+                session depuis le retour de paiement, et la personne se
+                connecte (`RetourPaiement`). On dit les deux. */}
             <ol className="ach-etapes">
               <li>Vous payez votre étude.</li>
-              <li>Votre espace s'ouvre aussitôt, sans inscription à remplir.</li>
+              <li>
+                {rattache
+                  ? "Elle arrive dans votre espace, déjà ouvert dans ce navigateur."
+                  : "Votre espace s'ouvre aussitôt, sans inscription à remplir — ou vous vous y connectez, si vous en avez déjà un."}
+              </li>
               <li>Vous décrivez votre projet et lancez la production.</li>
               <li>Vous suivez l'avancement et téléchargez votre document.</li>
             </ol>
 
-            <label className="ach-champ" htmlFor="ach-email">
-              Votre adresse e-mail
-              <span className="ach-facultatif">facultatif</span>
-            </label>
-            {/* `.champ-saisie` (espace.css) : verre en creux, anneau or au
-                focus autour d'un bord noir. */}
-            <input
-              id="ach-email"
-              className="champ-saisie"
-              type="email"
-              autoComplete="email"
-              placeholder="vous@exemple.fr"
-              value={email}
-              onChange={(evenement) => setEmail(evenement.target.value)}
-              aria-describedby={erreur ? "ach-aide ach-erreur" : "ach-aide"}
-            />
-            <p className="ach-aide" id="ach-aide">
-              Pour pré-remplir la page de paiement. Vous pourrez la corriger.
-            </p>
+            {/* Avec un espace ouvert, l'achat suit le COMPTE : le serveur
+                n'utilise pas d'adresse saisie ici. La demander quand même
+                ferait croire qu'on peut l'envoyer ailleurs. */}
+            {!rattache && (
+              <>
+                <label className="ach-champ" htmlFor="ach-email">
+                  Votre adresse e-mail
+                  <span className="ach-facultatif">facultatif</span>
+                </label>
+                {/* `.champ-saisie` (espace.css) : verre en creux, anneau or au
+                    focus autour d'un bord noir. */}
+                <input
+                  id="ach-email"
+                  className="champ-saisie"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="vous@exemple.fr"
+                  value={email}
+                  onChange={(evenement) => setEmail(evenement.target.value)}
+                  aria-describedby={erreur ? "ach-aide ach-erreur" : "ach-aide"}
+                />
+                <p className="ach-aide" id="ach-aide">
+                  Pour pré-remplir la page de paiement. Vous pourrez la corriger.
+                </p>
+              </>
+            )}
 
             {erreur && (
               <p className="ach-erreur" id="ach-erreur" role="alert">

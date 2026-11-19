@@ -13,6 +13,7 @@ import {
   Bandeau,
   Carte,
   Chiffre,
+  ErreurDeChargement,
   Squelette,
   Vide,
 } from "../../espace/composants/Interface";
@@ -35,18 +36,21 @@ export function TableauDeBordAdmin() {
   // deviner à quoi chaque nombre se rapporte.
   const [periode, setPeriode] = useState<Periode>(PERIODES[2]);
 
-  const { data: synthese, isPending } = useQuery({
+  const lectureSynthese = useQuery({
     queryKey: ["admin", "synthese", periode.jours],
     queryFn: () => adminApi.synthese(periode.jours),
   });
-  const { data: evolution } = useQuery({
+  const { data: synthese, isPending } = lectureSynthese;
+  const lectureEvolution = useQuery({
     queryKey: ["admin", "evolution", periode.mois],
     queryFn: () => adminApi.evolution(periode.mois),
   });
-  const { data: organisations } = useQuery({
+  const { data: evolution } = lectureEvolution;
+  const lectureOrganisations = useQuery({
     queryKey: ["admin", "organisations"],
     queryFn: adminApi.organisations,
   });
+  const { data: organisations } = lectureOrganisations;
 
   if (isPending) return <Squelette lignes={5} />;
 
@@ -102,47 +106,76 @@ export function TableauDeBordAdmin() {
         ))}
       </div>
 
-      <div className="grille-chiffres">
-        <Chiffre
-          libelle="Revenu récurrent"
-          valeur={f.montant(
-            synthese?.revenu.recurrent_mensuel_cents ?? 0,
-            synthese?.revenu.devise ?? "EUR",
-          )}
-          detail="Par mois, sur abonnements actifs"
-          accent
+      {/* Trois lectures, trois bandeaux — le même que sur les écrans de
+          `src/pages/`. Sans eux, un échec de la synthèse affichait « 0 € » de
+          revenu, « 0 » document et « 0 % » d'échec : un tableau de bord qui
+          annonce une plateforme à l'arrêt quand c'est sa propre lecture qui
+          a échoué (audit du 19/11/2026, règle 1). */}
+      {lectureSynthese.isError && (
+        <ErreurDeChargement
+          quoi="la synthèse"
+          erreur={lectureSynthese.error}
+          perimees={lectureSynthese.isRefetchError}
         />
-        <Chiffre
-          libelle="Revenu encaissé"
-          valeur={f.montant(
-            synthese?.revenu.encaisse_periode_cents ?? 0,
-            synthese?.revenu.devise ?? "EUR",
-          )}
-          detail={`${f.montant(
-            synthese?.revenu.encaisse_total_cents ?? 0,
-            synthese?.revenu.devise ?? "EUR",
-          )} depuis l'ouverture`}
+      )}
+      {lectureEvolution.isError && (
+        <ErreurDeChargement
+          quoi="l'évolution mensuelle"
+          erreur={lectureEvolution.error}
+          perimees={lectureEvolution.isRefetchError}
         />
-        <Chiffre
-          libelle="Documents produits"
-          valeur={f.nombre(synthese?.documents.produits ?? 0)}
-          detail={`${f.nombre(synthese?.documents.total ?? 0)} au total, toutes périodes`}
+      )}
+      {lectureOrganisations.isError && (
+        <ErreurDeChargement
+          quoi="les organisations"
+          erreur={lectureOrganisations.error}
+          perimees={lectureOrganisations.isRefetchError}
         />
-        <Chiffre
-          libelle="Crédits consommés"
-          valeur={f.nombre(synthese?.credits.consommes ?? 0)}
-          detail={`${f.nombre(
-            synthese?.credits.solde_total_en_circulation ?? 0,
-          )} en circulation`}
-        />
-        <Chiffre
-          libelle="Coût par document"
-          valeur={f.montant(synthese?.cout_production.moyen_par_document_cents ?? 0)}
-          detail={`${f.montant(
-            synthese?.cout_production.total_cents ?? 0,
-          )} au total`}
-        />
-      </div>
+      )}
+
+      {/* Les chiffres n'existent que si la synthèse a été REÇUE : un zéro est
+          une réponse, et celui-là décide de ce qu'on croit de l'activité. */}
+      {synthese && (
+        <div className="grille-chiffres">
+          <Chiffre
+            libelle="Revenu récurrent"
+            valeur={f.montant(
+              synthese.revenu.recurrent_mensuel_cents,
+              synthese.revenu.devise,
+            )}
+            detail="Par mois, sur abonnements actifs"
+            accent
+          />
+          <Chiffre
+            libelle="Revenu encaissé"
+            valeur={f.montant(
+              synthese.revenu.encaisse_periode_cents,
+              synthese.revenu.devise,
+            )}
+            detail={`${f.montant(
+              synthese.revenu.encaisse_total_cents,
+              synthese.revenu.devise,
+            )} depuis l'ouverture`}
+          />
+          <Chiffre
+            libelle="Documents produits"
+            valeur={f.nombre(synthese.documents.produits)}
+            detail={`${f.nombre(synthese.documents.total)} au total, toutes périodes`}
+          />
+          <Chiffre
+            libelle="Crédits consommés"
+            valeur={f.nombre(synthese.credits.consommes)}
+            detail={`${f.nombre(
+              synthese.credits.solde_total_en_circulation,
+            )} en circulation`}
+          />
+          <Chiffre
+            libelle="Coût par document"
+            valeur={f.montant(synthese.cout_production.moyen_par_document_cents)}
+            detail={`${f.montant(synthese.cout_production.total_cents)} au total`}
+          />
+        </div>
+      )}
 
       {/* Un chiffre dont on ignore la nature est un chiffre faux. Le tableau de
           bord dit ce que le revenu EST. */}
@@ -160,6 +193,11 @@ export function TableauDeBordAdmin() {
         </Bandeau>
       )}
 
+      {/* Les trois graphiques lisent la même série. Si elle a échoué, ils
+          n'attendent plus rien : un squelette qui pulse indéfiniment sous un
+          bandeau d'erreur se lirait « ça charge encore ». */}
+      {(evolution || !lectureEvolution.isError) && (
+      <>
       <Carte
         titre={`Production sur ${periode.mois} mois`}
         note="Documents terminés et échecs, par mois."
@@ -202,7 +240,11 @@ export function TableauDeBordAdmin() {
           <Squelette lignes={3} />
         )}
       </Carte>
+      </>
+      )}
 
+      {/* « Aucune consommation » ne se dit que sur une liste REÇUE et à jour. */}
+      {(lignes.length > 0 || (organisations && !lectureOrganisations.isError)) && (
       <Carte
         titre="Consommation par organisation"
         note="Les huit plus gros consommateurs de crédits."
@@ -222,31 +264,34 @@ export function TableauDeBordAdmin() {
           <BarresClassement lignes={lignes} libelleValeur="Crédits consommés" />
         )}
       </Carte>
+      )}
 
-      <div className="grille-chiffres">
-        <Chiffre
-          libelle="Organisations"
-          valeur={f.nombre(synthese?.organisations.total ?? 0)}
-          detail={`${f.nombre(synthese?.organisations.actives ?? 0)} actives, ${f.nombre(
-            synthese?.organisations.suspendues ?? 0,
-          )} suspendues`}
-        />
-        <Chiffre
-          libelle="Taux d'échec"
-          valeur={`${Math.round((synthese?.documents.taux_echec ?? 0) * 100)} %`}
-          detail={`${f.nombre(synthese?.documents.en_echec ?? 0)} échec(s) sur la période`}
-        />
-        <Chiffre
-          libelle="Incidents ouverts"
-          valeur={f.nombre(synthese?.incidents.ouverts ?? 0)}
-          detail={`dont ${f.nombre(synthese?.incidents.graves ?? 0)} grave(s)`}
-        />
-        <Chiffre
-          libelle="Contacts"
-          valeur={f.nombre(synthese?.clients.total ?? 0)}
-          detail="Toutes organisations confondues"
-        />
-      </div>
+      {synthese && (
+        <div className="grille-chiffres">
+          <Chiffre
+            libelle="Organisations"
+            valeur={f.nombre(synthese.organisations.total)}
+            detail={`${f.nombre(synthese.organisations.actives)} actives, ${f.nombre(
+              synthese.organisations.suspendues,
+            )} suspendues`}
+          />
+          <Chiffre
+            libelle="Taux d'échec"
+            valeur={`${Math.round(synthese.documents.taux_echec * 100)} %`}
+            detail={`${f.nombre(synthese.documents.en_echec)} échec(s) sur la période`}
+          />
+          <Chiffre
+            libelle="Incidents ouverts"
+            valeur={f.nombre(synthese.incidents.ouverts)}
+            detail={`dont ${f.nombre(synthese.incidents.graves)} grave(s)`}
+          />
+          <Chiffre
+            libelle="Contacts"
+            valeur={f.nombre(synthese.clients.total)}
+            detail="Toutes organisations confondues"
+          />
+        </div>
+      )}
     </>
   );
 }

@@ -26,6 +26,7 @@ import * as f from "../format";
 import {
   Bandeau,
   Carte,
+  ErreurDeChargement,
   Pastille,
   Squelette,
   Vide,
@@ -39,7 +40,7 @@ export function Signalements() {
   const [erreur, setErreur] = useState("");
   const [depose, setDepose] = useState(false);
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["espace", "signalements"],
     queryFn: espaceApi.signalements,
   });
@@ -47,10 +48,11 @@ export function Signalements() {
   // Les livrables servent à rattacher le signalement à un dossier précis. La
   // liste est celle de l'espace : proposer une saisie libre d'identifiant
   // reviendrait à demander au client de recopier un UUID.
-  const { data: livrables } = useQuery({
+  const lectureLivrables = useQuery({
     queryKey: ["espace", "livrables"],
     queryFn: espaceApi.livrables,
   });
+  const { data: livrables } = lectureLivrables;
 
   const sujets = data?.sujets ?? [];
   const liste = data?.signalements ?? [];
@@ -86,6 +88,23 @@ export function Signalements() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--e-5)" }}>
+      {/* Deux lectures, deux bandeaux. Sans le premier, l'écran disait « Aucun
+          signalement — tout va bien de notre côté comme du vôtre » à quelqu'un
+          dont la liste n'avait simplement pas pu être lue. */}
+      {isError && (
+        <ErreurDeChargement
+          quoi="vos signalements"
+          erreur={error}
+          perimees={isRefetchError}
+        />
+      )}
+      {lectureLivrables.isError && (
+        <ErreurDeChargement
+          quoi="la liste de vos documents"
+          erreur={lectureLivrables.error}
+          perimees={lectureLivrables.isRefetchError}
+        />
+      )}
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
       {depose && !erreur && (
         <Bandeau ton="succes" titre="Signalement enregistré">
@@ -170,7 +189,8 @@ export function Signalements() {
 
       <Carte titre="Vos signalements">
         {isPending && <Squelette lignes={3} />}
-        {!isPending && liste.length === 0 && (
+        {/* « Aucun signalement » ne se dit que sur une liste REÇUE et à jour. */}
+        {data && !isError && liste.length === 0 && (
           <Vide
             titre="Aucun signalement"
             texte="Tout va bien de notre côté comme du vôtre. Le formulaire ci-dessus est là si ça change."

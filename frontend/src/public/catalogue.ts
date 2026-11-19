@@ -4,7 +4,7 @@
  * montant dans le React en ferait une seconde source, qui contredirait le
  * paiement au premier changement de tarif.
  */
-import { BASE } from "./donnees";
+import { BASE, sessionDUnRetour } from "./donnees";
 
 export type ProduitResume = {
   slug: string;
@@ -49,9 +49,15 @@ export type ProduitFiche = ProduitResume & {
 
 export class RefusBoutique extends Error {
   readonly code: string;
-  constructor(message: string, code: string) {
+  /** Le code HTTP du refus. C'est lui qui distingue « cette étude n'existe
+   *  pas » (404) d'une panne (500, 502, 503) : la fiche disait « Cette étude
+   *  n'est pas disponible » dans les deux cas, et renvoyait à la boutique
+   *  quelqu'un dont le lien était parfaitement bon. */
+  readonly statut: number;
+  constructor(message: string, code: string, statut = 0) {
     super(message);
     this.code = code;
+    this.statut = statut;
   }
 }
 
@@ -65,6 +71,7 @@ async function lire<T>(chemin: string, init?: RequestInit): Promise<T> {
     throw new RefusBoutique(
       charge.erreur ?? "La boutique est momentanément indisponible.",
       charge.code ?? "indisponible",
+      reponse.status,
     );
   }
   return charge as T;
@@ -97,15 +104,35 @@ export const ouvrirLePaiement = (produit: string, email = "") =>
     body: JSON.stringify({ produit, email }),
   }).then((r) => r.adresse);
 
-/** Constitue l'achat au retour du paiement, et ouvre la session. */
-export const confirmerLAchat = (session: string) =>
-  lire<{
-    jeton: string;
-    titre: string;
-    slug: string;
-    telechargement: string;
-    editable: string;
-  }>("retour/", { method: "POST", body: JSON.stringify({ session }) });
+export type AchatDeBoutiqueConfirme = {
+  /** `null` quand l'adresse du paiement appartient à un compte qui existait
+   *  déjà : l'étude est livrée sur ce compte, aucune session n'est ouverte. */
+  jeton: string | null;
+  /** Vrai quand la personne doit se connecter pour retrouver son achat. */
+  connexion_requise: boolean;
+  titre: string;
+  slug: string;
+  /** Les liens suivent le PAIEMENT, pas le compte : ils sont rendus même
+   *  quand aucune session ne l'est. */
+  telechargement: string;
+  editable: string;
+};
+
+/** Constitue l'achat au retour du paiement. N'écrit AUCUN jeton : ce que
+ *  l'écran en fait se décide dans `accueillirUnRetourDePaiement`. */
+export const confirmerLAchat = (session: string): Promise<AchatDeBoutiqueConfirme> =>
+  lire<Omit<AchatDeBoutiqueConfirme, "jeton" | "connexion_requise"> & {
+    jeton?: unknown;
+    connexion_requise?: unknown;
+  }>("retour/", { method: "POST", body: JSON.stringify({ session }) }).then(
+    (charge) => ({
+      titre: charge.titre ?? "",
+      slug: charge.slug ?? "",
+      telechargement: charge.telechargement ?? "",
+      editable: charge.editable ?? "",
+      ...sessionDUnRetour(charge),
+    }),
+  );
 
 /** « 89 € », sans décimales quand il n'y en a pas — comme sur le site. */
 export function prix(cents: number, devise = "EUR"): string {

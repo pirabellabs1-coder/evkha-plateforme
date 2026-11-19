@@ -3,7 +3,7 @@ import { useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
-  api, estRelancable,
+  api, estRelancable, controleFinalEnCours, controleFinalRendu,
   type Chapter, type JobDetail as JobDetailType,
 } from "../api";
 import {
@@ -18,6 +18,7 @@ import * as f from "../espace/format";
 
 const STATUS_ICON: Record<string, string> = {
   done: "✓", running: "⚡", failed: "✗", pending: "○", skipped: "—", cancelled: "⊘",
+  intervention_requise: "⚠",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -25,6 +26,10 @@ const STATUS_LABELS: Record<string, string> = {
   // Sans elle, juste après « Annuler le job », l'en-tête affichait
   // « cancelled cancelled » (revue du 26/09/2026).
   cancelled: "Annulé",
+  // Même défaut, deux mois plus tard : « intervention_requise
+  // intervention_requise » en tête de la fiche des dossiers qui attendent
+  // justement un geste (audit du 19/11/2026).
+  intervention_requise: "Intervention requise",
 };
 
 const DELIVERABLE_LABELS: Record<string, string> = {
@@ -48,10 +53,17 @@ const ETAT_ETAPE: Record<"done" | "running" | "failed" | "pending", string> = {
 };
 
 function Pipeline({ job }: { job: JobDetailType }) {
+  // « Intervention requise » n'est pas « en attente ». Le statut tombait dans
+  // le repli, et la chaîne annonçait une génération qui n'avait pas commencé
+  // sur un dossier de vingt et un chapitres écrits. Il couvre deux faits : un
+  // chapitre a épuisé ses tentatives (la génération s'est arrêtée), ou tout
+  // est écrit et le document a été retenu à l'assemblage (elle est finie).
   const genStatus =
     job.status === "done" ? "done"
     : job.status === "failed" ? "failed"
     : job.status === "running" ? "running"
+    : job.status === "intervention_requise"
+      ? (job.chapters_done < job.chapters_total ? "failed" : "done")
     : "pending";
 
   const deliverySent   = job.delivery?.status === "sent";
@@ -80,14 +92,25 @@ function Pipeline({ job }: { job: JobDetailType }) {
     : "pending";
   const pdfIcon = pdfPret ? "✓" : deliveryFailed ? "✗" : genDone ? "⚡" : "○";
 
-  // Relecture du document assemblé : elle a tourné dès qu'elle a laissé sa
+  // Relecture du document assemblé : elle a tourné dès qu'elle a RENDU sa
   // trace. « Aucun chapitre réécrit » est un résultat, pas une absence.
+  //
+  // Mais la trace s'OUVRE avant la première passe — `passes: 0, motif_d_arret:
+  // "en cours"` — pour qu'un processus tué laisse la preuve qu'il avait
+  // commencé. Lue telle quelle, `passes ? … : "failed"` peignait donc en rouge,
+  // « en échec », une relecture en train de travailler, pendant ses vingt à
+  // soixante minutes : exactement le moment où l'on regarde cette fiche (audit
+  // du 19/11/2026). Une trace ouverte se lit « en cours », et rien d'autre.
   const controle = job.controle_final ?? null;
-  const controleStatus = controle ? (controle.passes ? "done" : "failed")
-    : pdfPret ? "running"
-    : "pending";
-  const controleIcon = controle ? (controle.passes ? "✓" : "✗")
-    : pdfPret ? "⚡" : "○";
+  const controleEnCours = controleFinalEnCours(job);
+  const controleStatus = !controle ? (pdfPret ? "running" : "pending")
+    : controleEnCours ? "running"
+    : controle.passes ? "done"
+    : "failed";
+  const controleIcon = controleStatus === "done" ? "✓"
+    : controleStatus === "running" ? "⚡"
+    : controleStatus === "failed" ? "✗"
+    : "○";
 
   // Email envoyé : uniquement quand le batch est confirmé SENT
   const emailStatus = deliverySent ? "done" : deliveryFailed ? "failed" : "pending";
@@ -115,12 +138,19 @@ function Pipeline({ job }: { job: JobDetailType }) {
       // déjà entre l'assemblage et l'envoi, sans rien montrer : un document
       // relu et corrigé se présentait comme un document jamais relu.
       key: "controle", label: "Contrôle du document",
+      // Une trace sans aucune passe porte des compteurs à zéro : « document
+      // propre » y serait un verdict rendu sans avoir lu — que la relecture
+      // tourne encore, ou qu'elle n'ait pas pu s'exécuter.
       sub: controle
-        ? (controle.chapitres_reecrits.length
-            ? `${controle.chapitres_reecrits.length} chapitre(s) corrigé(s)`
-            : controle.anomalies_restantes
-              ? `${controle.anomalies_restantes} point(s) signalé(s)`
-              : "document propre")
+        ? (controleEnCours
+            ? "contrôle final en cours"
+            : !controle.passes
+              ? "contrôle final non exécuté"
+            : controle.chapitres_reecrits.length
+              ? `${controle.chapitres_reecrits.length} chapitre(s) corrigé(s)`
+              : controle.anomalies_restantes
+                ? `${controle.anomalies_restantes} point(s) signalé(s)`
+                : "document propre")
         : null,
       status: controleStatus as "done" | "running" | "failed" | "pending",
       icon: controleIcon,
@@ -252,21 +282,61 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
   // lorsque l'envoi a ÉCHOUÉ — là, il ne demande pas une décision, il répare.
   const envoiEnEchec = job.delivery?.status === "failed";
 
+  // CE QUE FAIT LE BOUTON, ET QUAND IL A LE DROIT D'EXISTER.
+  //
+  // `jobRedeliver` ne fait pas la même chose selon le dossier
+  // (`job_redeliver`, `backend/dashboard/views.py`) :
+  //
+  // - dossier en ÉCHEC (`pdfOnly`) : un PDF pour l'administrateur, sans
+  //   courriel. « Générer le PDF » dit vrai ;
+  // - dossier TERMINÉ : une LIVRAISON COMPLÈTE — assemblage, puis courriel au
+  //   client. Le bouton s'appelait pourtant « Générer le PDF », et il
+  //   s'affichait dès qu'aucun PDF n'était prêt : c'est-à-dire pendant toute
+  //   la relecture finale, qui dure vingt à soixante minutes et précède
+  //   l'assemblage. Un clic « pour voir le PDF » envoyait donc au client,
+  //   sous un autre nom, le document que la relecture était en train de
+  //   corriger (audit du 19/11/2026).
+  //
+  // Il porte désormais le nom de son geste, demande un accord, et n'existe
+  // qu'une fois la relecture RENDUE. Tant qu'elle tourne — ou n'a pas encore
+  // laissé de trace —, la livraison part d'elle-même à sa fin : il n'y a rien
+  // à relancer.
+  const livraisonComplete = !pdfOnly;
+  const peutRelivrer = !hasPdf && (pdfOnly || controleFinalRendu(job));
+
+  const relivrer = () => {
+    if (
+      livraisonComplete &&
+      !window.confirm(
+        "Relancer la livraison ? Le document sera réassemblé, puis le courriel "
+        + "de livraison partira chez le client, avec ses fichiers.",
+      )
+    ) return;
+    redeliverMutation.mutate();
+  };
+
   return (
     <div className="console-pile console-pile-fin">
       {pdfOnly && (
         <p className="console-message console-message-alerte">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</p>
       )}
+      {livraisonComplete && !hasPdf && controleFinalEnCours(job) && (
+        <p className="console-message" role="status">
+          Contrôle final en cours : le document sera assemblé et envoyé à sa fin, sans geste de votre part.
+        </p>
+      )}
 
       <div className="console-gestes-fiche">
-        {!hasPdf && (
+        {peutRelivrer && (
           <button
             type="button"
             className={classeBouton("bouton-principal", redeliverMutation.isPending || redeliverQueued)}
             disabled={redeliverMutation.isPending || redeliverQueued}
-            onClick={() => redeliverMutation.mutate()}
+            onClick={relivrer}
           >
-            {redeliverQueued ? "Génération en cours…" : "Générer le PDF"}
+            {livraisonComplete
+              ? (redeliverQueued ? "Livraison en cours…" : "Relancer la livraison (courriel au client)")
+              : (redeliverQueued ? "Génération en cours…" : "Générer le PDF")}
           </button>
         )}
         {hasPdf ? (
@@ -422,7 +492,20 @@ export function JobDetail() {
   const { data, isLoading, error, isRefetchError } = useQuery<JobDetailType>({
     queryKey: ["job", jobId],
     queryFn: () => api.job(jobId),
-    refetchInterval: (q) => (q.state.data === undefined || q.state.data.status === "running") ? 5_000 : false,
+    // La fiche se rafraîchit tant que le dossier BOUGE. Elle ne sondait que
+    // sur `running` : un dossier tout juste relancé (`pending`) restait figé
+    // « en attente » jusqu'au rechargement de la page, et la relecture finale
+    // — qui tourne sur un dossier déjà `done` — s'affichait une fois pour
+    // toutes dans l'état où on l'avait trouvée (audit du 19/11/2026).
+    refetchInterval: (q) => {
+      const dossier = q.state.data;
+      if (dossier === undefined) return 5_000;
+      const enMouvement =
+        dossier.status === "pending" ||
+        dossier.status === "running" ||
+        controleFinalEnCours(dossier);
+      return enMouvement ? 5_000 : false;
+    },
   });
 
   if (isLoading) return <Squelette lignes={6} />;

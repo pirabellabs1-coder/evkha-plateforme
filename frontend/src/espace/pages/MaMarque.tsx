@@ -9,7 +9,13 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ErreurApi, espaceApi, type Marque } from "../api";
 import { peut, useMoi } from "../useMoi";
-import { Bandeau, Carte, Champ, Squelette } from "../composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  Champ,
+  ErreurDeChargement,
+  Squelette,
+} from "../composants/Interface";
 import { ZoneDepot } from "../composants/Televersement";
 import { poids } from "../composants/poids";
 
@@ -70,7 +76,7 @@ export function MaMarque() {
 
   const peutModifier = peut(moi, "gerer_clients_finaux");
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["espace", "marque"],
     queryFn: espaceApi.marque,
   });
@@ -90,10 +96,11 @@ export function MaMarque() {
       ),
   });
 
-  const { data: pieces } = useQuery({
+  const lectureLogo = useQuery({
     queryKey: ["espace", "fichiers", "logo"],
     queryFn: () => espaceApi.fichiers("logo"),
   });
+  const { data: pieces } = lectureLogo;
   const logo = pieces?.pieces[0];
 
   const suppressionLogo = useMutation({
@@ -132,9 +139,17 @@ export function MaMarque() {
   }
 
   if (isPending) return <Squelette lignes={6} />;
+  // Rien reçu : PAS de formulaire. L'écran en affichait un vide, prêt à être
+  // enregistré — une session expirée se lisait comme une marque sans nom ni
+  // couleurs, et « Enregistrer » aurait écrit ce vide par-dessus la vraie
+  // charte, celle qui part sur chaque document (audit du 19/11/2026).
+  if (!data) return <ErreurDeChargement quoi="votre marque" erreur={error} />;
 
   return (
     <>
+      {isError && (
+        <ErreurDeChargement quoi="votre marque" erreur={error} perimees={isRefetchError} />
+      )}
       <Carte
         titre="Votre entreprise"
         note="Ces informations identifient vos documents et orientent le choix des visuels."
@@ -240,7 +255,19 @@ export function MaMarque() {
               <div
                 style={{ display: "flex", flexDirection: "column", gap: "var(--e-4)" }}
               >
-                {logo ? (
+                {/* Le logo se lit à part. S'il n'a pas pu l'être, on ne
+                    propose pas d'en déposer un : la zone de dépôt se lirait
+                    « vous n'avez pas de logo ». */}
+                {!pieces ? (
+                  lectureLogo.isError ? (
+                    <ErreurDeChargement
+                      quoi="votre logo"
+                      erreur={lectureLogo.error}
+                    />
+                  ) : (
+                    <Squelette lignes={2} />
+                  )
+                ) : logo ? (
                   <div className="champ">
                     <span className="champ-libelle">Votre logo</span>
                     <img src={logo.url} alt="" className="apercu-logo" />
@@ -274,7 +301,10 @@ export function MaMarque() {
             </div>
           </div>
 
-          {peutModifier ? (
+          {/* Trois cas, et le troisième est le silence : tant que le compte
+              n'est pas lu, on ne sait pas ce que le rôle permet — et écrire
+              « votre rôle ne permet pas » serait répondre à sa place. */}
+          {!moi ? null : peutModifier ? (
             <div
               style={{ display: "flex", gap: "var(--e-4)", alignItems: "center" }}
             >

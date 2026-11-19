@@ -10,7 +10,13 @@ import { useQuery } from "@tanstack/react-query";
 
 import { adminApi } from "../api";
 import * as f from "../../espace/format";
-import { Carte, Chiffre, Squelette, Vide } from "../../espace/composants/Interface";
+import {
+  Carte,
+  Chiffre,
+  ErreurDeChargement,
+  Squelette,
+  Vide,
+} from "../../espace/composants/Interface";
 
 const TYPES: Record<string, string> = {
   market_study: "Étude de marché",
@@ -20,15 +26,23 @@ const TYPES: Record<string, string> = {
 };
 
 export function QualiteAdmin() {
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["admin", "qualite"],
     queryFn: adminApi.qualite,
   });
 
   if (isPending) return <Squelette lignes={6} />;
-  const dossiers = data?.dossiers ?? [];
+  // Rien reçu : on le dit, et on s'arrête là. L'écran affichait « Aucune étude
+  // contrôlée pour l'instant » — un rapport de qualité qui, faute d'avoir pu
+  // se lire, annonçait qu'il n'y avait rien à lire (audit du 19/11/2026).
+  if (!data) return <ErreurDeChargement quoi="le rapport de qualité" erreur={error} />;
+
+  const dossiers = data.dossiers ?? [];
   if (dossiers.length === 0) {
-    return (
+    // Sous une mise à jour ratée, « aucune » ne se redit pas.
+    return isError ? (
+      <ErreurDeChargement quoi="le rapport de qualité" erreur={error} perimees={isRefetchError} />
+    ) : (
       <Vide
         icone="◇"
         titre="Aucune étude contrôlée pour l'instant"
@@ -43,6 +57,9 @@ export function QualiteAdmin() {
 
   return (
     <>
+      {isError && (
+        <ErreurDeChargement quoi="le rapport de qualité" erreur={error} perimees={isRefetchError} />
+      )}
       <div className="grille-chiffres">
         <Chiffre libelle="Études contrôlées" valeur={f.nombre(dossiers.length)} accent />
         <Chiffre libelle="Reprises demandées" valeur={f.nombre(motifs)} detail="Motifs de la mémoire" />

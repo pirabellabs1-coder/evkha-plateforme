@@ -16,7 +16,13 @@ import { useQuery } from "@tanstack/react-query";
 
 import { adminApi } from "../api";
 import * as f from "../../espace/format";
-import { Bandeau, Carte, Chiffre, Squelette } from "../../espace/composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  Chiffre,
+  ErreurDeChargement,
+  Squelette,
+} from "../../espace/composants/Interface";
 
 /** Les volets d'un livrable. Le plan d'abord : c'est ce qu'on vient voir. */
 const VOLETS = [
@@ -29,18 +35,32 @@ export function LivrablesAdmin() {
   const [choisi, setChoisi] = useState<string>("");
   const [volet, setVolet] = useState<string>("chapitres");
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["admin", "livrables"],
     queryFn: adminApi.livrables,
   });
 
   if (isPending) return <Squelette lignes={5} />;
+  // Rien reçu : on le dit, et on s'arrête là. L'écran affichait « 0 livrable
+  // au catalogue » et « 0 donnée du socle » — la configuration de production,
+  // lue comme vide parce qu'elle n'avait pas pu être lue (audit du
+  // 19/11/2026).
+  if (!data) {
+    return <ErreurDeChargement quoi="la configuration des livrables" erreur={error} />;
+  }
 
-  const livrables = data?.livrables ?? [];
+  const livrables = data.livrables ?? [];
   const actif = livrables.find((l) => l.type === choisi) ?? livrables[0];
 
   return (
     <>
+      {isError && (
+        <ErreurDeChargement
+          quoi="la configuration des livrables"
+          erreur={error}
+          perimees={isRefetchError}
+        />
+      )}
       <div className="grille-chiffres">
         <Chiffre
           libelle="Livrables au catalogue"

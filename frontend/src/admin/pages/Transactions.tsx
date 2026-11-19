@@ -19,6 +19,7 @@ import {
   Bandeau,
   Carte,
   Chiffre,
+  ErreurDeChargement,
   Squelette,
   Vide,
 } from "../../espace/composants/Interface";
@@ -52,7 +53,7 @@ export function TransactionsAdmin() {
   const [erreur, setErreur] = useState("");
   const cache = useQueryClient();
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["admin", "transactions", filtre],
     queryFn: () => adminApi.transactions(filtre),
   });
@@ -76,24 +77,34 @@ export function TransactionsAdmin() {
 
   return (
     <>
-      <div className="grille-chiffres">
-        <Chiffre
-          libelle="Paniers abandonnés"
-          valeur={f.nombre(resume?.abandonnees ?? 0)}
-          detail={`${f.montant(resume?.manque_a_gagner_cents ?? 0)} de manque à gagner`}
-          accent
-        />
-        <Chiffre
-          libelle="Paiements en cours"
-          valeur={f.nombre(resume?.en_cours ?? 0)}
-          detail="Ouverts depuis moins de 24 h"
-        />
-        <Chiffre
-          libelle="Paiements aboutis"
-          valeur={f.nombre(resume?.payees ?? 0)}
-          detail={`${f.montant(resume?.encaisse_cents ?? 0)} encaissés`}
-        />
-      </div>
+      {/* Sans ce bandeau, un échec se lisait « 0 panier abandonné », « 0 €
+          encaissé » et « Aucune transaction » : l'information commerciale la
+          plus utile de la plateforme, remplacée par un zéro (audit du
+          19/11/2026, règle 1). */}
+      {isError && (
+        <ErreurDeChargement quoi="les transactions" erreur={error} perimees={isRefetchError} />
+      )}
+
+      {resume && (
+        <div className="grille-chiffres">
+          <Chiffre
+            libelle="Paniers abandonnés"
+            valeur={f.nombre(resume.abandonnees)}
+            detail={`${f.montant(resume.manque_a_gagner_cents)} de manque à gagner`}
+            accent
+          />
+          <Chiffre
+            libelle="Paiements en cours"
+            valeur={f.nombre(resume.en_cours)}
+            detail="Ouverts depuis moins de 24 h"
+          />
+          <Chiffre
+            libelle="Paiements aboutis"
+            valeur={f.nombre(resume.payees)}
+            detail={`${f.montant(resume.encaisse_cents)} encaissés`}
+          />
+        </div>
+      )}
 
       {erreur && (
         <Bandeau ton="echec" titre="Relance impossible">
@@ -124,11 +135,15 @@ export function TransactionsAdmin() {
         note="Un paiement ouvert reste « en cours » 24 h, puis devient un panier abandonné : c'est la durée de vie d'une session Stripe."
       >
         {lignes.length === 0 ? (
-          <Vide
-            icone="◍"
-            titre="Aucune transaction"
-            texte="Les paiements apparaîtront ici dès qu'un abonné ouvrira une souscription ou un achat de crédits."
-          />
+          // « Aucune transaction » ne se dit que sur une liste REÇUE et à jour.
+          data &&
+          !isError && (
+            <Vide
+              icone="◍"
+              titre="Aucune transaction"
+              texte="Les paiements apparaîtront ici dès qu'un abonné ouvrira une souscription ou un achat de crédits."
+            />
+          )
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">

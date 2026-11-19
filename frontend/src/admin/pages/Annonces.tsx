@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { adminApi, type Annonce } from "../api";
+import { ErreurDeChargement } from "../../espace/composants/Interface";
 import "./Annonces.css";
 
 function quand(iso: string): string {
@@ -193,7 +194,7 @@ function Redaction({
 
 export function Annonces() {
   const cache = useQueryClient();
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["admin", "annonces"],
     queryFn: adminApi.annonces,
   });
@@ -235,14 +236,22 @@ export function Annonces() {
   });
 
   if (isPending) return <p>Chargement…</p>;
+  // Rien reçu : on le dit, et on s'arrête là. L'écran affichait « 0 annonce »,
+  // « 0 destinataire », et ouvrait quand même la rédaction — dont la
+  // confirmation d'envoi aurait annoncé « à 0 personne » un message qui part
+  // chez tous les clients (audit du 19/11/2026).
+  if (!data) return <ErreurDeChargement quoi="les annonces" erreur={error} />;
 
-  const annonces = data?.annonces ?? [];
-  const destinations = data?.destinations ?? [];
-  const destinataires = data?.destinataires ?? 0;
+  const annonces = data.annonces ?? [];
+  const destinations = data.destinations ?? [];
+  const destinataires = data.destinataires ?? 0;
   const brouillons = annonces.filter((a) => !a.envoyee).length;
 
   return (
     <section className="ann">
+      {isError && (
+        <ErreurDeChargement quoi="les annonces" erreur={error} perimees={isRefetchError} />
+      )}
       <header className="ann-entete">
         <dl className="ann-chiffres">
           <div>
@@ -332,7 +341,8 @@ export function Annonces() {
         </div>
       )}
 
-      {annonces.length === 0 && !ouvre && (
+      {/* Sous une mise à jour ratée, « aucune » ne se redit pas. */}
+      {annonces.length === 0 && !ouvre && !isError && (
         <p className="carte-note">
           Aucune annonce. Rédigez-en une pour prévenir vos clients d'un nouveau
           livrable, d'une disponibilité ou d'une date.

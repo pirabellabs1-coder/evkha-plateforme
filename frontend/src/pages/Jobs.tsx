@@ -19,12 +19,18 @@ const DELIVERABLE_LABELS: Record<string, string> = {
   business_strategy: "Stratégie Business",
 };
 
+// Chaque statut de `generation.models.JobStatus` a son entrée : c'est cette
+// table qui remplit le filtre. « Intervention requise » n'y figurait pas —
+// le statut s'affichait sous sa clé brute, ne se filtrait pas, et les dossiers
+// qu'il désigne sont précisément ceux qui attendent un geste (audit du
+// 19/11/2026).
 const STATUS_LABELS: Record<string, string> = {
   pending: "En attente",
   running: "En cours ⚡",
   done: "Terminé ✓",
   failed: "Échec ✗",
   cancelled: "Annulé",
+  intervention_requise: "Intervention requise",
 };
 
 // Le ton de chaque statut vient de la table unique de `Pastille`
@@ -226,9 +232,11 @@ export function Jobs() {
                     <td>{DELIVERABLE_LABELS[job.deliverable_type] ?? job.deliverable_type}</td>
                     <td>
                       <div className="console-pile">
+                        {/* Un statut absent de la table retombe sur le libellé
+                            de `Pastille`, jamais sur sa clé brute. */}
                         <Pastille
                           statut={job.status}
-                          texte={STATUS_LABELS[job.status] ?? job.status}
+                          texte={STATUS_LABELS[job.status]}
                         />
                         {/* Un dossier « en cours » qui ne l'est plus doit se VOIR.
                             C'est ce qui manquait le 09/08/2026 : rien ne distinguait

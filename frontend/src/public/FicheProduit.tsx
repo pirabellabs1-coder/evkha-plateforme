@@ -14,6 +14,12 @@
  * par l'encaissement, et l'acheteur arrive directement sur son téléchargement :
  * pour un fichier remis immédiatement, un formulaire d'inscription avant le
  * paiement est une friction sans contrepartie.
+ *
+ * Mais quand un espace est DÉJÀ ouvert dans ce navigateur — on arrive ici par
+ * « Ouvrir la boutique », depuis Mes achats —, l'achat part par la route de
+ * l'espace et suit le compte, pas l'adresse saisie chez le prestataire
+ * (`achat.ts`). On ne demande alors pas d'adresse : le serveur ne s'en
+ * servirait pas.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
@@ -21,12 +27,17 @@ import { Link, useParams } from "@tanstack/react-router";
 import { MenuSite } from "./MenuSite";
 import { CarteProduit } from "./Boutique";
 import {
+  achatRattacheALEspace,
+  messageDuRefusDePaiement,
+  payerUnProduit,
+} from "./achat";
+import {
   chargerFiche,
   etoiles,
   initiale,
   moisEtAnnee,
-  ouvrirLePaiement,
   prix,
+  RefusBoutique,
   type Avis,
   type ProduitFiche,
   type ProduitResume,
@@ -75,6 +86,16 @@ export function FicheProduit() {
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState("");
   const [introuvable, setIntrouvable] = useState(false);
+  // Une PANNE n'est pas une étude introuvable. La fiche disait « Cette étude
+  // n'est pas disponible » pour toute erreur — un 500, une coupure de dix
+  // secondes — et renvoyait à la boutique quelqu'un dont le lien était bon,
+  // au moment où il venait acheter (audit du 19/11/2026).
+  const [panne, setPanne] = useState(false);
+  // Incrémenté par « Réessayer » : il relance le chargement sans recharger
+  // la page.
+  const [tentative, setTentative] = useState(0);
+  // Lu une fois, à l'arrivée : un espace est-il ouvert dans ce navigateur ?
+  const [rattache] = useState(achatRattacheALEspace);
   const page = useRef<HTMLDivElement>(null);
 
   // La fiche arrive après le premier rendu, et change avec le slug : chaque
@@ -90,38 +111,74 @@ export function FicheProduit() {
       .then((donnees) => {
         if (!vivant) return;
         setIntrouvable(false);
+        setPanne(false);
         setProduit(donnees.produit);
         setProches(donnees.proches);
         document.title = `${donnees.produit.titre} — EVKHA`;
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
         if (!vivant) return;
         setProduit(null);
-        setIntrouvable(true);
+        // « Pas disponible » ne se dit que lorsque le SERVEUR le dit (404).
+        const absente = cause instanceof RefusBoutique && cause.statut === 404;
+        setIntrouvable(absente);
+        setPanne(!absente);
       });
     return () => {
       vivant = false;
     };
-  }, [slug]);
+  }, [slug, tentative]);
 
   async function acheter() {
     if (!produit) return;
     setEnvoi(true);
     setErreur("");
     try {
-      const adresse = await ouvrirLePaiement(produit.slug, email.trim());
+      // Par l'espace si une session y est ouverte — l'achat suit alors le
+      // compte —, sinon en visiteur. La règle vit dans `achat.ts`.
+      const adresse = await payerUnProduit(produit.slug, email.trim());
       // Remplacement et non nouvel onglet : le paiement EST la suite du
       // parcours. Un onglet de plus laisse derrière soi une page morte à
       // laquelle la personne revient, et où elle recliquera.
       window.location.href = adresse;
     } catch (cause) {
       setErreur(
-        cause instanceof Error
-          ? cause.message
-          : "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.",
+        messageDuRefusDePaiement(
+          cause,
+          "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.",
+        ),
       );
       setEnvoi(false);
     }
+  }
+
+  if (panne) {
+    return (
+      <div className="pp bq">
+        <MenuSite />
+        <main className="pp-large">
+          <p className="bq-erreur" role="alert">
+            Cette page n'a pas pu être chargée. Votre lien est bon : c'est une
+            panne passagère de notre côté.
+          </p>
+          <div className="bq-liens">
+            <button
+              type="button"
+              className="bouton bouton-noir bq-bouton"
+              onClick={() => {
+                setPanne(false);
+                setTentative((n) => n + 1);
+              }}
+            >
+              Réessayer
+            </button>
+            <Link className="bq-extrait" to="/boutique">
+              Revenir à la boutique
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   if (introuvable) {
@@ -293,17 +350,29 @@ export function FicheProduit() {
             </div>
             <p className="bq-achat-mention">TTC · paiement unique</p>
 
-            <label htmlFor="bq-email">Votre adresse e-mail</label>
-            <input
-              id="bq-email"
-              className="champ-saisie"
-              type="email"
-              autoComplete="email"
-              placeholder="vous@exemple.fr"
-              value={email}
-              onChange={(evenement) => setEmail(evenement.target.value)}
-              aria-describedby={erreur ? "bq-achat-erreur" : undefined}
-            />
+            {/* Avec un espace ouvert, l'achat suit le COMPTE : le serveur
+                n'utilise pas d'adresse saisie ici. La demander quand même
+                ferait croire qu'on peut l'envoyer ailleurs. */}
+            {rattache ? (
+              <p className="bq-achat-mention">
+                Cette étude sera rangée dans votre espace, déjà ouvert dans ce
+                navigateur.
+              </p>
+            ) : (
+              <>
+                <label htmlFor="bq-email">Votre adresse e-mail</label>
+                <input
+                  id="bq-email"
+                  className="champ-saisie"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="vous@exemple.fr"
+                  value={email}
+                  onChange={(evenement) => setEmail(evenement.target.value)}
+                  aria-describedby={erreur ? "bq-achat-erreur" : undefined}
+                />
+              </>
+            )}
 
             {erreur && (
               <p className="bq-erreur bq-erreur-achat" id="bq-achat-erreur" role="alert">

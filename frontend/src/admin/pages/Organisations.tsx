@@ -14,6 +14,7 @@ import {
   Carte,
   Champ,
   Chiffre,
+  ErreurDeChargement,
   Pastille,
   Squelette,
   Vide,
@@ -190,7 +191,7 @@ export function OrganisationsAdmin() {
   const [tri, setTri] = useState<Tri>("consommation");
   const [erreur, setErreur] = useState("");
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["admin", "organisations"],
     queryFn: adminApi.organisations,
   });
@@ -226,36 +227,49 @@ export function OrganisationsAdmin() {
 
   return (
     <>
+      {isError && (
+        <ErreurDeChargement quoi="les organisations" erreur={error} perimees={isRefetchError} />
+      )}
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
 
-      <div className="grille-chiffres">
-        <Chiffre
-          libelle="Organisations"
-          valeur={f.nombre(toutes.length)}
-          detail={`${f.nombre(
-            toutes.filter((o) => o.statut === "active").length,
-          )} actives`}
-        />
-        <Chiffre
-          libelle="Revenu récurrent"
-          valeur={f.montant(totalRecurrent)}
-          detail="Somme des formules actives"
-          accent
-        />
-        <Chiffre
-          libelle="Crédits en circulation"
-          valeur={f.nombre(totalSolde)}
-          detail="Tous portefeuilles confondus"
-        />
-        <Chiffre
-          libelle="Documents produits"
-          valeur={f.nombre(totalDocuments)}
-          detail="Depuis l'origine"
-        />
-      </div>
+      {/* Les totaux se calculent sur la liste REÇUE. Sans elle, l'écran
+          affichait « 0 organisation », « 0 € » de revenu récurrent et « 0 »
+          crédit en circulation : quatre zéros qui se lisent comme une réponse
+          (audit du 19/11/2026). */}
+      {data && (
+        <div className="grille-chiffres">
+          <Chiffre
+            libelle="Organisations"
+            valeur={f.nombre(toutes.length)}
+            detail={`${f.nombre(
+              toutes.filter((o) => o.statut === "active").length,
+            )} actives`}
+          />
+          <Chiffre
+            libelle="Revenu récurrent"
+            valeur={f.montant(totalRecurrent)}
+            detail="Somme des formules actives"
+            accent
+          />
+          <Chiffre
+            libelle="Crédits en circulation"
+            valeur={f.nombre(totalSolde)}
+            detail="Tous portefeuilles confondus"
+          />
+          <Chiffre
+            libelle="Documents produits"
+            valeur={f.nombre(totalDocuments)}
+            detail="Depuis l'origine"
+          />
+        </div>
+      )}
 
       <Carte
-        titre={`${affichees.length} organisation${affichees.length > 1 ? "s" : ""}`}
+        titre={
+          data
+            ? `${affichees.length} organisation${affichees.length > 1 ? "s" : ""}`
+            : "Organisations"
+        }
         note="Créditer un compte ou le suspendre se fait directement ici."
         action={
           <div style={{ display: "flex", gap: "var(--e-3)", flexWrap: "wrap" }}>
@@ -288,15 +302,19 @@ export function OrganisationsAdmin() {
         {isPending ? (
           <Squelette lignes={5} />
         ) : affichees.length === 0 ? (
-          <Vide
-            icone="◍"
-            titre={recherche ? "Aucun résultat" : "Aucune organisation"}
-            texte={
-              recherche
-                ? "Essayez un autre terme."
-                : "Les organisations apparaîtront ici dès la première création."
-            }
-          />
+          // « Aucune » ne se dit que sur une liste REÇUE et à jour.
+          data &&
+          !isError && (
+            <Vide
+              icone="◍"
+              titre={recherche ? "Aucun résultat" : "Aucune organisation"}
+              texte={
+                recherche
+                  ? "Essayez un autre terme."
+                  : "Les organisations apparaîtront ici dès la première création."
+              }
+            />
+          )
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">

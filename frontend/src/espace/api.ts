@@ -10,12 +10,72 @@
 const BASE = import.meta.env.VITE_API_URL ?? "";
 const CLE_JETON = "evkha_espace_jeton";
 
+/** La porte de l'espace : c'est là qu'on renvoie une session refusée. */
+const CONNEXION = "/espace/connexion";
+
 export const jeton = {
   lire: (): string => localStorage.getItem(CLE_JETON) ?? "",
-  ecrire: (valeur: string): void => localStorage.setItem(CLE_JETON, valeur),
+  /** N'écrit qu'un VRAI jeton.
+   *
+   *  Une valeur vide ou nulle n'est pas une session, et l'écrire en détruit
+   *  une. Audit du 19/11/2026 : les retours de paiement rendent désormais
+   *  `"jeton": null` quand le compte existait déjà. L'un des deux écrans
+   *  écrivait alors la chaîne vide — la personne déjà connectée ne l'était
+   *  plus —, l'autre écrivait `null`, que le stockage garde sous la forme
+   *  « null » : `present()` répondait vrai sur une session qui n'existait pas.
+   *
+   *  Le refus vit ICI et non chez chaque appelant : un appelant qui l'oublie
+   *  ne doit pas pouvoir fermer la session de quelqu'un (règle 4). */
+  ecrire: (valeur: string): void => {
+    if (typeof valeur !== "string" || valeur.length === 0) return;
+    localStorage.setItem(CLE_JETON, valeur);
+  },
   effacer: (): void => localStorage.removeItem(CLE_JETON),
   present: (): boolean => (localStorage.getItem(CLE_JETON) ?? "").length > 0,
 };
+
+/** Ce qu'un retour de paiement a le droit de faire de la session.
+ *
+ *  Une seule décision pour les deux écrans de retour (étude à produire, étude
+ *  de boutique) : chacun la sienne, et l'un des deux finit par ouvrir ce que
+ *  l'autre refuse (règle 5).
+ *
+ *  - `gardee` : une session est DÉJÀ ouverte dans ce navigateur. Elle n'est
+ *    jamais remplacée, même par un jeton reçu : un lien de retour transmis à
+ *    quelqu'un de connecté le ferait sinon basculer, sans un mot, dans le
+ *    compte de celui qui a payé ;
+ *  - `ouverte` : le serveur a délivré un jeton — le compte vient de naître de
+ *    ce paiement — et il n'y avait pas de session ;
+ *  - `connexion_requise` : l'achat est livré sur un compte qui existait, et
+ *    personne n'est connecté ici. Rien n'est écrit ; l'écran propose la
+ *    connexion. */
+export type SuiteDUnRetourDePaiement = "gardee" | "ouverte" | "connexion_requise";
+
+export function accueillirUnRetourDePaiement(retour: {
+  jeton: string | null;
+  connexion_requise: boolean;
+}): SuiteDUnRetourDePaiement {
+  if (jeton.present()) return "gardee";
+  if (retour.jeton && !retour.connexion_requise) {
+    jeton.ecrire(retour.jeton);
+    return "ouverte";
+  }
+  return "connexion_requise";
+}
+
+/** Renvoie à la connexion quelqu'un dont la session vient d'être refusée.
+ *
+ *  Seulement depuis l'espace. Une page publique qui tente un appel authentifié
+ *  (la boutique, pour rattacher l'achat au compte ouvert) apprend par un 401
+ *  qu'il n'y a pas de session, et continue en visiteur : l'arracher à sa page
+ *  de vente pour un écran de connexion serait lui faire payer l'état d'un
+ *  jeton oublié dans son navigateur. Et jamais depuis la connexion elle-même,
+ *  qui tournerait en rond. */
+function renvoyerALaConnexion(): void {
+  const ici = window.location.pathname;
+  if (!ici.startsWith("/espace") || ici.startsWith(CONNEXION)) return;
+  window.location.href = CONNEXION;
+}
 
 export class ErreurApi extends Error {
   // Affectations explicites : `erasableSyntaxOnly` interdit les proprietes de
@@ -67,8 +127,15 @@ async function appel<T>(chemin: string, options: RequestInit = {}): Promise<T> {
     // il suffit de changer de fenêtre pendant l'envoi. Comparer avant d'effacer
     // coûte une ligne et supprime la classe entière du problème — tout appel
     // dont la réponse arrive après un renouvellement de jeton (règle 4).
+    //
+    // Effacer ne suffisait pas. La personne restait sur sa page, sans jeton,
+    // et chaque écran lisait l'échec comme une réponse vide : « 0 crédit »,
+    // « Aucun abonnement actif », « Aucun document » — un compte vide, montré
+    // à quelqu'un qui a payé (audit du 19/11/2026). La session refusée
+    // retourne donc à la porte, comme le fait déjà la console (`src/api.ts`).
     if (!surConnexion && jeton.lire() === valeur) {
       jeton.effacer();
+      renvoyerALaConnexion();
     }
     const charge = (await reponse.json().catch(() => ({}))) as {
       error?: string;

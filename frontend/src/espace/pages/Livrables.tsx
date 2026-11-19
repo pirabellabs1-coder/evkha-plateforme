@@ -4,13 +4,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { espaceApi } from "../api";
 import * as f from "../format";
-import { Carte, Pastille, Squelette, Vide } from "../composants/Interface";
+import {
+  Carte,
+  ErreurDeChargement,
+  Pastille,
+  Squelette,
+  Vide,
+} from "../composants/Interface";
 import { BarresClassement } from "../../viz/Graphiques";
 import { CelluleFichiers } from "../composants/EtatDesFichiers";
 
 export function Livrables() {
   const [filtre, setFiltre] = useState("");
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["espace", "livrables"],
     queryFn: espaceApi.livrables,
   });
@@ -42,6 +48,10 @@ export function Livrables() {
 
   return (
     <>
+      {isError && (
+        <ErreurDeChargement quoi="vos documents" erreur={error} perimees={isRefetchError} />
+      )}
+
       {/* Le tableau répond à « où est mon étude ». Il ne répond pas à « que
           produisons-nous le plus », qui est la question qu'on se pose en fin de
           trimestre — et qui oblige sinon à compter les lignes à la main.
@@ -61,8 +71,15 @@ export function Livrables() {
       )}
 
     
+    {/* Le compte se lit sur la liste REÇUE. Sans elle, « 0 document » et
+        « Aucun document » répondraient à la place du serveur : une session
+        expirée se lisait comme une bibliothèque vide (audit du 19/11/2026). */}
     <Carte
-      titre={`${livrables.length} document${livrables.length > 1 ? "s" : ""}`}
+      titre={
+        data
+          ? `${livrables.length} document${livrables.length > 1 ? "s" : ""}`
+          : "Documents"
+      }
       note={
         data?.conservation_jours
           ? `Téléchargeables sans limite de nombre, en Word et en PDF, pendant ${f.dureeDeConservation(data.conservation_jours)} après leur production.`
@@ -91,15 +108,18 @@ export function Livrables() {
       {isPending ? (
         <Squelette lignes={5} />
       ) : affiches.length === 0 ? (
-        <Vide
-          icone="▤"
-          titre={filtre ? "Aucun document de ce type" : "Aucun document"}
-          texte={
-            filtre
-              ? "Essayez un autre filtre."
-              : "Vos études apparaîtront ici dès la première commande lancée."
-          }
-        />
+        data &&
+        !isError && (
+          <Vide
+            icone="▤"
+            titre={filtre ? "Aucun document de ce type" : "Aucun document"}
+            texte={
+              filtre
+                ? "Essayez un autre filtre."
+                : "Vos études apparaîtront ici dès la première commande lancée."
+            }
+          />
+        )
       ) : (
         <div className="tableau-cadre tableau-defile">
           <table className="tableau">

@@ -270,18 +270,50 @@ export async function ouvrirLePaiement(
   return charge.adresse ?? "";
 }
 
+/** Ce qu'un retour de paiement dit de la session, lu avec méfiance.
+ *
+ *  Le serveur rend `"jeton": string | null` et `"connexion_requise": boolean`
+ *  (`authentification.ouvrir_la_session_d_un_achat`). Les deux se recoupent ;
+ *  en cas de désaccord, c'est le refus qui gagne : un jeton absent, vide ou
+ *  d'un autre type vaut `null`, et `connexion_requise` est vrai dès que l'un
+ *  des deux le dit. Une seule lecture pour les deux retours — étude à
+ *  produire et étude de boutique (règle 5).
+ */
+export function sessionDUnRetour(charge: {
+  jeton?: unknown;
+  connexion_requise?: unknown;
+}): { jeton: string | null; connexion_requise: boolean } {
+  const recu =
+    typeof charge.jeton === "string" && charge.jeton.length > 0
+      ? charge.jeton
+      : null;
+  return {
+    jeton: recu,
+    connexion_requise: recu === null || charge.connexion_requise === true,
+  };
+}
+
 export type AchatConfirme = {
-  jeton: string;
+  /** `null` quand l'adresse du paiement appartient à un compte qui existait
+   *  déjà : l'achat est livré sur ce compte, mais aucune session n'est
+   *  ouverte. Stripe prouve qu'une carte a été encaissée, pas que le payeur
+   *  possède l'adresse qu'il a saisie. */
+  jeton: string | null;
+  /** Vrai quand la personne doit se connecter pour retrouver son achat. */
+  connexion_requise: boolean;
   /** Type de livrable, pour pré-sélectionner le bon formulaire de commande. */
   livrable: string;
   libelle: string;
 };
 
-/** Confirme le paiement au retour de Stripe et ouvre la session.
+/** Confirme le paiement au retour de Stripe. N'écrit AUCUN jeton.
  *
  *  On n'attend PAS le webhook : Stripe redirige le navigateur et poste son
  *  événement en parallèle, sans ordre garanti. Le serveur traite les deux de
  *  façon idempotente — celui qui arrive d'abord livre, l'autre ne fait rien.
+ *
+ *  Ce que l'écran fait du jeton — l'écrire, le laisser, proposer la connexion
+ *  — se décide dans `accueillirUnRetourDePaiement` (`espace/api.ts`).
  */
 export async function confirmerLePaiement(
   session: string,
@@ -292,7 +324,8 @@ export async function confirmerLePaiement(
     body: JSON.stringify({ session }),
   });
   const charge = (await reponse.json().catch(() => ({}))) as {
-    jeton?: string;
+    jeton?: string | null;
+    connexion_requise?: boolean;
     livrable?: string;
     libelle?: string;
     erreur?: string;
@@ -305,7 +338,7 @@ export async function confirmerLePaiement(
     );
   }
   return {
-    jeton: charge.jeton ?? "",
+    ...sessionDUnRetour(charge),
     livrable: charge.livrable ?? "",
     libelle: charge.libelle ?? "",
   };

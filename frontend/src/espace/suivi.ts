@@ -26,7 +26,59 @@
  * L'écran d'avant écrivait « durée inconnue » dans ce troisième cas, une ligne
  * qui occupait la place sans rien apprendre à personne.
  */
-import type { EtapeSuivi, Suivi } from "./api";
+import type { EtapeSuivi, EtatDesFichiers, Suivi } from "./api";
+
+// ── Le sondage ──────────────────────────────────────────────────────────────
+
+/** Ce que le sondage a besoin de lire, et rien d'autre. `fichiers_etat` reste
+ *  facultatif comme dans `Suivi` : un serveur d'avant le 29/09/2026 ne le
+ *  rend pas, et se sonde alors sur `en_production` seul, comme toujours. */
+type SourceDuSondage = Pick<Suivi, "en_production" | "fichiers_etat">;
+
+/** Les états de fichiers qui annoncent une SUITE.
+ *
+ *  Lus dans `organisations.suivi.etat_des_fichiers` : `en_preparation`
+ *  (l'étude est en production) et `mise_en_forme` (rédigée, Word et PDF pas
+ *  encore assemblés). Les trois autres — `disponibles`, `supprimes`, `aucun` —
+ *  sont des fins : plus rien ne changera sans un geste.
+ *
+ *  On énumère ce qui ATTEND, jamais ce qui a fini : un état ajouté demain côté
+ *  serveur ne doit pas faire tourner l'écran indéfiniment par défaut. */
+const FICHIERS_ATTENDUS: ReadonlySet<EtatDesFichiers["etat"]> = new Set([
+  "en_preparation",
+  "mise_en_forme",
+]);
+
+/** L'écran doit-il encore interroger le serveur ?
+ *
+ *  Il ne regardait que `en_production`. Or un dossier passe `done` AVANT sa
+ *  relecture finale et son assemblage : `en_production` devient faux, les
+ *  fichiers restent « en mise en forme » vingt à soixante minutes, et l'écran
+ *  cessait de se rafraîchir au moment exact où il annonçait « les fichiers
+ *  apparaîtront ici d'ici quelques minutes » (audit du 19/11/2026). Ils
+ *  n'apparaissaient qu'en rechargeant la page. */
+export function attendUneSuite(suivi: SourceDuSondage): boolean {
+  if (suivi.en_production) return true;
+  const etat = suivi.fichiers_etat?.etat;
+  return etat !== undefined && FICHIERS_ATTENDUS.has(etat);
+}
+
+/** Pendant la production : chaque chapitre passe par trois étapes, et dix
+ *  secondes en laissaient filer (29/09/2026). */
+const SONDAGE_EN_PRODUCTION_MS = 4_000;
+
+/** Pendant la mise en forme : un seul fait est attendu — les fichiers —, sur
+ *  une attente qui peut durer une heure. Quatre secondes y feraient neuf cents
+ *  requêtes par onglet ouvert pour une nouvelle qui n'arrive qu'une fois. */
+const SONDAGE_DES_FICHIERS_MS = 15_000;
+
+/** L'intervalle de sondage, ou `false` quand plus rien n'est attendu. */
+export function rythmeDuSondage(suivi: SourceDuSondage | undefined): number | false {
+  if (!suivi || !attendUneSuite(suivi)) return false;
+  return suivi.en_production ? SONDAGE_EN_PRODUCTION_MS : SONDAGE_DES_FICHIERS_MS;
+}
+
+// ── Le délai ────────────────────────────────────────────────────────────────
 
 /** Un délai prêt à afficher : une phrase, et la réserve qui la nuance. */
 export interface DelaiAnnonce {

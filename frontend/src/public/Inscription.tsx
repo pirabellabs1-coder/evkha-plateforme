@@ -17,6 +17,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { jeton } from "../espace/api";
+import { messageDuRefusDePaiement, payerUneEtude } from "./achat";
 import { BoutonGoogle } from "./BoutonGoogle";
 import { Portail } from "./Portail";
 import {
@@ -24,7 +25,6 @@ import {
   chargerLivrables,
   euros,
   inscrire,
-  ouvrirLePaiement,
   RefusInscription,
   type FormulePublique,
   type LivrablePublic,
@@ -53,6 +53,12 @@ function formuleDemandee(): string {
 function livrableDemande(): string {
   return new URLSearchParams(window.location.search).get("livrable") ?? "";
 }
+
+/** Code d'erreur LOCAL : le compte est créé, c'est son paiement qui n'a pas pu
+ *  s'ouvrir. Il range ce cas à côté des codes du serveur (`deja_membre`…),
+ *  pour que le message porte la bonne sortie — l'espace, où le paiement se
+ *  reprend — et non une invitation à recommencer l'inscription. */
+const PAIEMENT_A_REPRENDRE = "paiement_a_reprendre";
 
 export function Inscription() {
   const naviguer = useNavigate();
@@ -107,6 +113,34 @@ export function Inscription() {
     void naviguer({ to: "/espace" });
   }
 
+  /** Le compte existe, sa session est écrite : on part payer l'étude.
+   *
+   *  UN chemin pour les deux portes — le formulaire et le bouton Google. Ce
+   *  dernier ouvrait son paiement de son côté, sans rien rattraper : un refus
+   *  du prestataire ne s'affichait nulle part, et la personne restait devant
+   *  un formulaire muet, avec un compte créé qu'elle ne savait pas avoir.
+   *
+   *  `courriel` ne sert que si la session vient à manquer (`payerUneEtude`
+   *  retombe alors sur la route publique). Le bouton Google n'en passe pas :
+   *  l'adresse tapée dans le formulaire n'est pas forcément celle du compte
+   *  Google, et c'est elle qui ouvrait un second espace. */
+  async function partirPayer(slug: string, courriel = "") {
+    try {
+      window.location.href = await payerUneEtude(slug, courriel);
+    } catch (cause) {
+      // Le COMPTE est créé : ce n'est pas l'inscription qui a échoué, et le
+      // dire ferait recommencer un formulaire que le serveur refuserait
+      // (« déjà membre »). On dit ce qui a échoué, et où reprendre.
+      setErreur(
+        `Votre compte est créé, mais le paiement n'a pas pu être ouvert. ${messageDuRefusDePaiement(
+          cause,
+          "Réessayez dans un instant.",
+        )}`,
+      );
+      setChampFautif(PAIEMENT_A_REPRENDRE);
+    }
+  }
+
   async function soumettre(evenement: React.FormEvent) {
     evenement.preventDefault();
     setErreur("");
@@ -127,14 +161,23 @@ export function Inscription() {
       // passer par l'espace. L'y déposer d'abord donnerait un écran de plus,
       // et un espace vide au moment précis où la personne veut payer.
       //
-      // Le jeton est écrit AVANT de partir chez Stripe : au retour, la page de
-      // confirmation en délivrera un neuf, mais si la personne renonce et
-      // revient par un lien, elle retrouve sa session au lieu d'un écran de
-      // connexion pour un compte qu'elle vient de créer.
+      // Le jeton est écrit AVANT de partir chez Stripe, pour deux raisons.
+      //
+      // La session, d'abord : au retour, le serveur n'en ouvre AUCUNE pour un
+      // compte qui a déjà son mot de passe — c'est celle-ci que la page de
+      // retour retrouve, et garde. Et si la personne renonce puis revient par
+      // un lien, elle retrouve son espace au lieu d'un écran de connexion
+      // pour un compte qu'elle vient de créer.
+      //
+      // Le paiement, ensuite : c'est parce que la session existe qu'il part
+      // par la route de l'ESPACE (`payerUneEtude`), qui porte l'organisation
+      // jusqu'à Stripe. Il partait par la route publique, qui rattache l'achat
+      // à l'adresse saisie CHEZ Stripe : corrigée là-bas, elle ouvrait un
+      // second espace, et le crédit y attendait quelqu'un qui n'y viendrait
+      // jamais (audit du 19/11/2026).
       if (ouvert.livrable_demande) {
         jeton.ecrire(ouvert.jeton);
-        const adresse = await ouvrirLePaiement(ouvert.livrable_demande, email);
-        window.location.href = adresse;
+        await partirPayer(ouvert.livrable_demande, email);
         return;
       }
 
@@ -217,14 +260,10 @@ export function Inscription() {
             onSession={(session) => {
               // Même enchaînement que le formulaire : un compte ouvert pour
               // acheter une étude part payer, il n'atterrit pas dans un espace
-              // vide. Deux portes, un seul parcours.
+              // vide. Deux portes, un seul parcours — `partirPayer`.
               if (session.livrable_demande) {
                 jeton.ecrire(session.jeton);
-                void ouvrirLePaiement(session.livrable_demande, email).then(
-                  (adresse) => {
-                    window.location.href = adresse;
-                  },
-                );
+                void partirPayer(session.livrable_demande);
                 return;
               }
               entrer(session.jeton);
@@ -304,6 +343,12 @@ export function Inscription() {
                   <>
                     {" "}
                     <a href="/espace/connexion">Se connecter</a>
+                  </>
+                )}
+                {champFautif === PAIEMENT_A_REPRENDRE && (
+                  <>
+                    {" "}
+                    <a href="/espace">Reprendre depuis mon espace</a>
                   </>
                 )}
               </p>

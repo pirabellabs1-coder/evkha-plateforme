@@ -59,5 +59,18 @@ describe("le rapport de qualité se lit", () => {
     );
     rendre();
     expect(await screen.findByText("Aucune étude contrôlée pour l'instant")).toBeInTheDocument();
+    // Contre-épreuve du cas suivant : un vide REÇU se dit vide, sans bandeau.
+    expect(screen.queryByText(/Impossible de charger/)).toBeNull();
+  });
+
+  // Audit du 19/11/2026 : faute d'avoir pu se lire, le rapport annonçait qu'il
+  // n'y avait rien à lire. Un chargement raté n'est pas « aucune étude
+  // contrôlée » (règle 1) — voir `l-administration-ne-lit-pas-zero-sur-un-echec`.
+  it("un chargement raté ne se lit pas « aucune étude contrôlée »", async () => {
+    server.use(http.get(`${DASH}/qualite/`, () => new HttpResponse("panne", { status: 500 })));
+    rendre();
+    expect(await screen.findByText(/Impossible de charger le rapport de qualité/)).toBeInTheDocument();
+    expect(screen.getByText(/500/)).toBeInTheDocument();
+    expect(screen.queryByText(/Aucune étude contrôlée/)).toBeNull();
   });
 });

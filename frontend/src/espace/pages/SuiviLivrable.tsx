@@ -9,8 +9,10 @@
  * - la progression est **comptée** sur les chapitres terminés, jamais simulée.
  *   Une barre qui avance toute seule se trahit au moment où elle atteint 99 %
  *   et s'arrête ;
- * - le rafraîchissement ne tourne **que pendant la production**. Interroger le
- *   serveur toutes les dix secondes sur une étude terminée est du bruit ;
+ * - le rafraîchissement ne tourne **que tant qu'une suite est attendue** : la
+ *   production, puis la mise en forme des fichiers (`suivi.attendUneSuite`).
+ *   Interroger le serveur sur une étude dont les fichiers sont là, supprimés
+ *   ou sans objet est du bruit ;
  * - **le mouvement non plus**. Une frise qui pulse sur une étude livrée, en
  *   échec ou annulée raconte une production qui n'a plus lieu ; l'animation est
  *   donc conditionnée à `en_production`, et jamais au fait qu'un jalon porte
@@ -33,10 +35,15 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { espaceApi, type EtapeSuivi, type Suivi } from "../api";
+import { ErreurApi, espaceApi, type EtapeSuivi, type Suivi } from "../api";
 import * as f from "../format";
-import { LIBELLE_ETAT, delaiAnnonce, liaison } from "../suivi";
-import { Bandeau, Carte, Squelette } from "../composants/Interface";
+import { LIBELLE_ETAT, delaiAnnonce, liaison, rythmeDuSondage } from "../suivi";
+import {
+  Bandeau,
+  Carte,
+  ErreurDeChargement,
+  Squelette,
+} from "../composants/Interface";
 import { ChapitresEnDirect } from "../composants/ChapitresEnDirect";
 
 /** Le médaillon d'un jalon.
@@ -191,14 +198,13 @@ export function SuiviLivrable() {
   const { jobId } = useParams({ from: "/espace/livrables/$jobId" });
   const client = useQueryClient();
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, error, isRefetchError } = useQuery({
     queryKey: ["espace", "suivi", jobId],
     queryFn: () => espaceApi.suivi(jobId),
-    // Rafraîchissement uniquement tant que l'étude est en production — toutes
-    // les quatre secondes : chaque chapitre passe par trois étapes, et dix
-    // secondes en laissaient filer (29/09/2026).
-    refetchInterval: (requete) =>
-      requete.state.data?.en_production ? 4_000 : false,
+    // Tant qu'une suite est attendue : la production, PUIS la mise en forme.
+    // Le sondage s'arrêtait à la fin de la rédaction, avant que Word et PDF
+    // existent — la règle et ses cadences vivent dans `suivi.rythmeDuSondage`.
+    refetchInterval: (requete) => rythmeDuSondage(requete.state.data),
   });
 
   const abandon = useMutation({
@@ -211,12 +217,27 @@ export function SuiviLivrable() {
   });
 
   if (isPending) return <Squelette lignes={5} />;
-  if (!data) return <Bandeau ton="echec">Étude introuvable.</Bandeau>;
+  // « Introuvable » ne se dit que lorsque le SERVEUR le dit (404). L'écran le
+  // disait pour toute erreur : une panne de dix secondes pendant un
+  // déploiement annonçait à quelqu'un que l'étude qu'il a payée n'existe pas.
+  if (!data) {
+    return error instanceof ErreurApi && error.statut === 404 ? (
+      <Bandeau ton="echec">Étude introuvable.</Bandeau>
+    ) : (
+      <ErreurDeChargement quoi="le suivi de cette étude" erreur={error} />
+    );
+  }
 
   const echec = data.statut === "failed" || data.statut === "intervention_requise";
 
   return (
     <>
+      {/* Le sondage a échoué, la dernière lecture reste à l'écran : on dit
+          qu'elle peut être dépassée, on ne la remplace pas par une erreur. Le
+          sondage, lui, continue — il se rattrape seul au retour du serveur. */}
+      {isRefetchError && (
+        <ErreurDeChargement quoi="le suivi de cette étude" erreur={error} perimees />
+      )}
       {/* Hors de la carte d'échec, et c'est délibéré : dès la restitution
           obtenue, le serveur renvoie le statut « annulée » et le bandeau
           d'échec disparaît. Placée à l'intérieur, la confirmation partait avec
@@ -266,9 +287,18 @@ export function SuiviLivrable() {
                 ? "Restitution en cours…"
                 : "Renoncer et récupérer mon crédit"}
             </button>
+            {/* Le MESSAGE de l'erreur, pas sa conversion en chaîne, qui
+                écrivait « Error: Session expirée. » sous les yeux du client. */}
             {abandon.isError && (
-              <p className="carte-note" style={{ marginTop: "var(--e-2)" }}>
-                La restitution n'a pas abouti : {String(abandon.error)}
+              <p
+                className="carte-note"
+                role="alert"
+                style={{ marginTop: "var(--e-2)" }}
+              >
+                La restitution n'a pas abouti
+                {abandon.error instanceof ErreurApi
+                  ? ` : ${abandon.error.message}`
+                  : ". Réessayez dans un instant."}
               </p>
             )}
           </Bandeau>

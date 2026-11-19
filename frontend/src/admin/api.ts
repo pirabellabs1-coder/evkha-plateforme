@@ -8,6 +8,30 @@ import { clearToken, getToken } from "../auth";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
+/** Ce que le serveur a DIT en refusant, ou `repli` s'il n'a rien dit.
+ *
+ *  Les vues de `/api/dashboard/` ne nomment pas toutes leur message de la
+ *  même façon : la supervision, les signalements et les générations rendent
+ *  `{"error": …}` ; les annonces et la boutique, `{"erreur": …}`
+ *  (`dashboard/annonces.py`, `dashboard/boutique.py`). `post` ne lisait que la
+ *  première clé, `get` n'en lisait aucune : envoyer deux fois une annonce
+ *  affichait « Erreur 409 » nu, à la place de la phrase que le serveur avait
+ *  écrite pour l'expliquer (audit du 19/11/2026). Un motif d'échec doit
+ *  rester trouvable par qui le lit (règle 2).
+ *
+ *  UNE lecture, pour tous les appels de ce module : cinq copies de cette
+ *  lecture avaient déjà divergé — trois ne lisaient que `erreur`, une que
+ *  `error`, une seule les deux (règle 5). Une réponse illisible (la page HTML
+ *  d'un 502) rend le repli. */
+async function messageDuRefus(reponse: Response, repli: string): Promise<string> {
+  const charge = (await reponse.json().catch(() => ({}))) as {
+    erreur?: unknown;
+    error?: unknown;
+  };
+  const dit = charge?.erreur ?? charge?.error;
+  return typeof dit === "string" && dit.length > 0 ? dit : repli;
+}
+
 async function get<T>(chemin: string, params?: Record<string, string>): Promise<T> {
   const url = new URL(`${BASE}/api/dashboard${chemin}`, window.location.origin);
   if (params) Object.entries(params).forEach(([c, v]) => url.searchParams.set(c, v));
@@ -22,7 +46,13 @@ async function get<T>(chemin: string, params?: Record<string, string>): Promise<
     window.location.href = "/login";
     throw new Error("Non autorisé");
   }
-  if (!reponse.ok) throw new Error(`API ${chemin} → ${reponse.status}`);
+  if (!reponse.ok) {
+    // Le chemin et le code d'abord : c'est ce détail qu'un bandeau d'erreur
+    // demande de transmettre. Puis ce que le serveur a dit, s'il a dit
+    // quelque chose.
+    const dit = await messageDuRefus(reponse, "");
+    throw new Error(`API ${chemin} → ${reponse.status}${dit ? ` : ${dit}` : ""}`);
+  }
   return (await reponse.json()) as T;
 }
 
@@ -181,8 +211,7 @@ async function post<T>(chemin: string, corps: unknown): Promise<T> {
     throw new Error("Non autorisé");
   }
   if (!reponse.ok) {
-    const charge = (await reponse.json().catch(() => ({}))) as { error?: string };
-    throw new Error(charge.error ?? `Erreur ${reponse.status}`);
+    throw new Error(await messageDuRefus(reponse, `Erreur ${reponse.status}`));
   }
   return (await reponse.json()) as T;
 }
@@ -259,11 +288,7 @@ async function envoyer<T>(chemin: string, donnees: FormData): Promise<T> {
     body: donnees,
   });
   if (!reponse.ok) {
-    const charge = (await reponse.json().catch(() => ({}))) as {
-      erreur?: string;
-      error?: string;
-    };
-    throw new Error(charge.erreur ?? charge.error ?? `Erreur ${reponse.status}`);
+    throw new Error(await messageDuRefus(reponse, `Erreur ${reponse.status}`));
   }
   return (await reponse.json()) as T;
 }
@@ -325,8 +350,7 @@ export const adminApi = {
       },
     });
     if (!reponse.ok) {
-      const charge = (await reponse.json().catch(() => ({}))) as { erreur?: string };
-      throw new Error(charge.erreur ?? `Erreur ${reponse.status}`);
+      throw new Error(await messageDuRefus(reponse, `Erreur ${reponse.status}`));
     }
     return (await reponse.json()) as { supprime: string };
   },
@@ -365,8 +389,7 @@ export const adminApi = {
       },
     });
     if (!reponse.ok) {
-      const charge = (await reponse.json().catch(() => ({}))) as { erreur?: string };
-      throw new Error(charge.erreur ?? `Erreur ${reponse.status}`);
+      throw new Error(await messageDuRefus(reponse, `Erreur ${reponse.status}`));
     }
     return (await reponse.json()) as { supprimee: string };
   },
@@ -386,8 +409,7 @@ export const adminApi = {
       },
     });
     if (!reponse.ok) {
-      const charge = (await reponse.json().catch(() => ({}))) as { erreur?: string };
-      throw new Error(charge.erreur ?? `Erreur ${reponse.status}`);
+      throw new Error(await messageDuRefus(reponse, `Erreur ${reponse.status}`));
     }
     return (await reponse.json()) as { produit: ProduitBoutique };
   },

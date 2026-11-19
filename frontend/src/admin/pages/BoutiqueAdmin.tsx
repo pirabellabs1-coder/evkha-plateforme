@@ -37,6 +37,7 @@ import { adminApi, type AvisBoutique, type ProduitBoutique } from "../api";
 // « des » dans sa liste d'articles, et « Le marché des X » n'y donnait pas la
 // même lettre que sur la fiche (règle 5).
 import { etoiles, initiale } from "../../public/catalogue";
+import { ErreurDeChargement } from "../../espace/composants/Interface";
 import "./BoutiqueAdmin.css";
 
 function montant(cents: number): string {
@@ -792,7 +793,7 @@ function Carte({
 
 export function BoutiqueAdmin() {
   const cache = useQueryClient();
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["admin", "boutique"],
     queryFn: adminApi.produitsBoutique,
   });
@@ -835,9 +836,21 @@ export function BoutiqueAdmin() {
   const vendues = produits.filter((p) => p.ventes > 0).length;
 
   if (isPending) return <p>Chargement…</p>;
+  // Rien reçu : on le dit, et on s'arrête là. L'écran affichait « 0 au
+  // catalogue », « 0 vente », « 0 € » de recette et « Aucune étude. Ajoutez-en
+  // une pour ouvrir la boutique » — sur une boutique en ligne, avec ses
+  // ventes (audit du 19/11/2026).
+  if (!data) return <ErreurDeChargement quoi="le catalogue de la boutique" erreur={error} />;
 
   return (
     <section className="bqa">
+      {isError && (
+        <ErreurDeChargement
+          quoi="le catalogue de la boutique"
+          erreur={error}
+          perimees={isRefetchError}
+        />
+      )}
       <header className="bqa-entete">
         <dl className="bqa-chiffres">
           <div>
@@ -922,7 +935,8 @@ export function BoutiqueAdmin() {
         </div>
       )}
 
-      {produits.length === 0 && !ajoute && (
+      {/* Sous une mise à jour ratée, « aucune » ne se redit pas. */}
+      {produits.length === 0 && !ajoute && !isError && (
         <p className="carte-note">Aucune étude. Ajoutez-en une pour ouvrir la boutique.</p>
       )}
 

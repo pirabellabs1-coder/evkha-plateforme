@@ -30,7 +30,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { espaceApi, type AchatDeBoutique } from "../api";
 import * as f from "../format";
-import { Bandeau, Carte, Squelette, Vide } from "../composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  ErreurDeChargement,
+  Squelette,
+  Vide,
+} from "../composants/Interface";
 
 /** L'initiale du titre, pour les études sans couverture. L'article est retiré,
  *  sans quoi toutes les études du catalogue donneraient « L ». */
@@ -183,18 +189,25 @@ function DonnerSonAvis({ achat }: { achat: AchatDeBoutique }) {
 }
 
 export function MesAchats() {
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["espace", "achats"],
     queryFn: espaceApi.mesAchats,
   });
   if (isPending) return <Squelette lignes={3} />;
+  // Rien reçu : on le dit, et on s'arrête là. L'écran affichait « Aucune
+  // étude achetée » à quelqu'un qui en a payé trois, parce que sa session
+  // avait expiré (audit du 19/11/2026).
+  if (!data) return <ErreurDeChargement quoi="vos achats" erreur={error} />;
 
-  const achats = data?.achats ?? [];
-  const catalogue = data?.catalogue ?? [];
+  const achats = data.achats ?? [];
+  const catalogue = data.catalogue ?? [];
   const attendus = achats.filter((a) => !a.avis).length;
 
   return (
     <>
+      {isError && (
+        <ErreurDeChargement quoi="vos achats" erreur={error} perimees={isRefetchError} />
+      )}
       {attendus > 0 && (
         <Bandeau ton="alerte" titre="Votre avis compte">
           {attendus === 1
@@ -212,10 +225,13 @@ export function MesAchats() {
         }
       >
         {achats.length === 0 ? (
-          <Vide
-            titre="Aucune étude achetée"
-            texte="Les études que vous achetez dans la boutique apparaissent ici, et y restent."
-          />
+          // Sous une mise à jour ratée, « aucune » ne se redit pas.
+          !isError && (
+            <Vide
+              titre="Aucune étude achetée"
+              texte="Les études que vous achetez dans la boutique apparaissent ici, et y restent."
+            />
+          )
         ) : (
           <ul className="achats-grille">
             {achats.map((a) => (

@@ -94,7 +94,7 @@ export function FicheClient() {
     <>
       <p className="carte-note">
         <Link to="/espace/clients" className="bandeau-lien">
-          ← Tous les clients
+          <span aria-hidden="true">←</span>{"\u00a0"}Tous les clients
         </Link>
       </p>
 

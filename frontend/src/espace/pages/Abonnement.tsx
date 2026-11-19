@@ -21,11 +21,13 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ErreurApi, espaceApi, type FormuleOffre } from "../api";
+import { ARRET_EN_UNE_LIGNE, CONTACT, ENGAGEMENT_MINIMUM } from "../engagement";
 import * as f from "../format";
 import { CLE_MOI, peut, useMoi } from "../useMoi";
 import {
   Bandeau,
   Carte,
+  ErreurDeChargement,
   Pastille,
   Squelette,
   Vide,
@@ -90,10 +92,13 @@ function CarteFormule({
           {formule.regenerations_offertes > 1 ? "s" : ""} offerte
           {formule.regenerations_offertes > 1 ? "s" : ""}
         </li>
-        {/* Dit AVANT le choix, pas après. Quelqu'un qui hésite à s'engager a
-            besoin de savoir qu'il pourra s'arrêter — le lui apprendre une fois
-            abonné, c'est le rassurer trop tard. */}
-        <li>Arrêt possible à tout moment</li>
+        {/* Dit AVANT le choix, pas après — et dit VRAI. Cette ligne promettait
+            « Arrêt possible à tout moment » sur la même page qui, vingt lignes
+            plus bas, explique que l'arrêt se fait sur demande après un
+            engagement minimum : le serveur refuse toujours l'arrêt en
+            libre-service (`arreter_l_abonnement`). Les mots viennent de
+            `engagement.ts`, lus aussi par la page de paiement. */}
+        <li>{ARRET_EN_UNE_LIGNE}</li>
       </ul>
       {formule.actuelle ? (
         <span className="carte-note">Formule active</span>
@@ -116,25 +121,25 @@ function CarteFormule({
   );
 }
 
-/** L'adresse à laquelle un abonné demande l'arrêt de son abonnement. */
-const CONTACT = "contact@evkha.fr";
-
 export function Abonnement() {
-  const { data: moi } = useMoi();
+  const lectureMoi = useMoi();
+  const { data: moi } = lectureMoi;
   const cache = useQueryClient();
   const naviguer = useNavigate();
   const [erreur, setErreur] = useState("");
 
   const peutEngager = peut(moi, "gerer_abonnement");
 
-  const { data: catalogue, isPending } = useQuery({
+  const lectureFormules = useQuery({
     queryKey: ["espace", "formules"],
     queryFn: espaceApi.formules,
   });
-  const { data: suivi } = useQuery({
+  const { data: catalogue, isPending } = lectureFormules;
+  const lectureDemandes = useQuery({
     queryKey: ["espace", "demandes"],
     queryFn: espaceApi.demandes,
   });
+  const { data: suivi } = lectureDemandes;
 
   const envoyer = useMutation({
     mutationFn: espaceApi.creerDemande,
@@ -193,6 +198,29 @@ export function Abonnement() {
   return (
     <>
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+      {/* Trois lectures, trois bandeaux : sans eux, un échec se lisait « aucun
+          abonnement », une grille de formules vide et « Aucune demande ». */}
+      {lectureMoi.isError && (
+        <ErreurDeChargement
+          quoi="votre compte"
+          erreur={lectureMoi.error}
+          perimees={lectureMoi.isRefetchError}
+        />
+      )}
+      {lectureFormules.isError && (
+        <ErreurDeChargement
+          quoi="les formules"
+          erreur={lectureFormules.error}
+          perimees={lectureFormules.isRefetchError}
+        />
+      )}
+      {lectureDemandes.isError && (
+        <ErreurDeChargement
+          quoi="vos demandes"
+          erreur={lectureDemandes.error}
+          perimees={lectureDemandes.isRefetchError}
+        />
+      )}
 
       {/* L'état de l'abonnement AVANT les formules : c'est la première chose
           qu'on vient vérifier ici, et c'est là que se prend la décision
@@ -237,7 +265,8 @@ export function Abonnement() {
               Pour arrêter votre abonnement, écrivez-nous à{" "}
               <a href={`mailto:${CONTACT}`}>{CONTACT}</a> : nous nous en
               occupons et vous confirmons l'arrêt par retour. L'engagement
-              minimum est de trois mois à compter de votre souscription.
+              minimum est de {ENGAGEMENT_MINIMUM} à compter de votre
+              souscription.
             </p>
           )}
           {parCarte && peutEngager && !abonnement.renouvellement_actif && (
@@ -305,30 +334,43 @@ export function Abonnement() {
           règlement » — parce que rien n'encaissait un paiement ponctuel. Ce
           n'est plus vrai : l'achat passe par Stripe, à l'unité, au tarif de la
           formule. Faire patienter quelqu'un qui veut payer tout de suite lui
-          fait perdre l'envie, et fait perdre la vente. */}
-      <Carte
-        titre="Crédits additionnels"
-        note={`${f.montant(tarifCredit)} le crédit, au tarif de votre formule. Ces crédits-là n'expirent pas.`}
-        action={
-          <Link to="/espace/credits" className="bouton bouton-contour bouton-sm">
-            Acheter des crédits
-          </Link>
-        }
-      >
-        <p className="carte-note">
-          Le paiement est immédiat et n'affecte pas votre abonnement. Les
-          crédits achetés à l'unité restent acquis&nbsp;: contrairement à la
-          dotation mensuelle, ils n'expirent pas à la fin du mois.
-        </p>
-      </Carte>
+          fait perdre l'envie, et fait perdre la vente.
 
+          La carte n'existe que s'il y a un TARIF. Sans formule active, elle
+          annonçait « 0 € le crédit, au tarif de votre formule » et menait à
+          une page Crédits qui, elle, ne propose l'achat qu'à un abonné : un
+          prix nul affiché à quelqu'un qui n'a pas de formule, et un bouton
+          vers une porte fermée. La condition est celle de la page Crédits. */}
+      {tarifCredit > 0 && (
+        <Carte
+          titre="Crédits additionnels"
+          note={`${f.montant(tarifCredit)} le crédit, au tarif de votre formule. Ces crédits-là n'expirent pas.`}
+          action={
+            <Link to="/espace/credits" className="bouton bouton-contour bouton-sm">
+              Acheter des crédits
+            </Link>
+          }
+        >
+          <p className="carte-note">
+            Le paiement est immédiat et n'affecte pas votre abonnement. Les
+            crédits achetés à l'unité restent acquis&nbsp;: contrairement à la
+            dotation mensuelle, ils n'expirent pas à la fin du mois.
+          </p>
+        </Carte>
+      )}
+
+      {/* L'historique n'existe que s'il a été REÇU : sans lui, le bandeau du
+          haut parle, et « Aucune demande » serait une réponse inventée. */}
+      {suivi && (
       <Carte titre="Vos demandes" note="Historique et statut de traitement.">
         {demandes.length === 0 ? (
-          <Vide
-            icone="◇"
-            titre="Aucune demande"
-            texte="Vos demandes de changement de formule et d'achat de crédits apparaîtront ici."
-          />
+          !lectureDemandes.isError && (
+            <Vide
+              icone="◇"
+              titre="Aucune demande"
+              texte="Vos demandes de changement de formule et d'achat de crédits apparaîtront ici."
+            />
+          )
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">
@@ -381,6 +423,7 @@ export function Abonnement() {
           </div>
         )}
       </Carte>
+      )}
     </>
   );
 }

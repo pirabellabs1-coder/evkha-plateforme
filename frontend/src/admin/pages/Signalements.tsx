@@ -40,6 +40,7 @@ import { jeton as jetonEspace } from "../../espace/api";
 import {
   Bandeau,
   Carte,
+  ErreurDeChargement,
   Pastille,
   Squelette,
   Vide,
@@ -68,15 +69,16 @@ export function SignalementsAdmin() {
   const [filtre, setFiltre] = useState<StatutSignalement | "">("");
   const [reponses, setReponses] = useState<Record<string, string>>({});
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["admin", "signalements"],
     queryFn: adminApi.signalements,
   });
 
-  const { data: ouvertes } = useQuery({
+  const lectureAssistances = useQuery({
     queryKey: ["admin", "assistances"],
     queryFn: adminApi.assistances,
   });
+  const { data: ouvertes } = lectureAssistances;
 
   const traiter = useMutation({
     mutationFn: ({
@@ -161,6 +163,22 @@ export function SignalementsAdmin() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--e-5)" }}>
+      {/* Deux lectures, deux bandeaux. Sans le premier, un échec se lisait
+          « Aucun signalement — rien n'est remonté des espaces clients » : le
+          problème d'un client restait sans réponse derrière un écran vide.
+          Sans le second, des sessions d'assistance OUVERTES sur des espaces
+          clients disparaissaient de l'écran qui sert à les fermer (audit du
+          19/11/2026). */}
+      {isError && (
+        <ErreurDeChargement quoi="les signalements" erreur={error} perimees={isRefetchError} />
+      )}
+      {lectureAssistances.isError && (
+        <ErreurDeChargement
+          quoi="les sessions d'assistance ouvertes"
+          erreur={lectureAssistances.error}
+          perimees={lectureAssistances.isRefetchError}
+        />
+      )}
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
 
       {(ouvertes?.assistances.length ?? 0) > 0 && (
@@ -222,7 +240,8 @@ export function SignalementsAdmin() {
         }
       >
         {isPending && <Squelette lignes={4} />}
-        {!isPending && liste.length === 0 && (
+        {/* « Aucun signalement » ne se dit que sur une liste REÇUE et à jour. */}
+        {data && !isError && liste.length === 0 && (
           <Vide
             titre="Aucun signalement"
             texte="Rien n'est remonté des espaces clients pour ce filtre."

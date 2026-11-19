@@ -4,7 +4,14 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { espaceApi, type Mouvement } from "../api";
 import * as f from "../format";
 import { useMoi } from "../useMoi";
-import { Bandeau, Carte, Chiffre, Squelette, Vide } from "../composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  Chiffre,
+  ErreurDeChargement,
+  Squelette,
+  Vide,
+} from "../composants/Interface";
 import { Autonomie } from "../composants/Autonomie";
 import { AutresEtudes } from "../composants/AutresEtudes";
 import { telechargerJournal } from "../journal";
@@ -22,16 +29,23 @@ function Quantite({ mouvement }: { mouvement: Mouvement }) {
   );
 }
 
+/** Ce qui s'écrit à la place d'un nombre qu'on n'a pas reçu. Jamais « 0 » :
+ *  un zéro est une réponse, et celle-ci parle de l'argent du client. */
+const INCONNU = "—";
+
 export function Credits() {
-  const { data: moi } = useMoi();
-  const { data, isPending } = useQuery({
+  const lectureMoi = useMoi();
+  const { data: moi } = lectureMoi;
+  const lectureJournal = useQuery({
     queryKey: ["espace", "credits"],
     queryFn: espaceApi.credits,
   });
-  const { data: conso } = useQuery({
+  const { data, isPending } = lectureJournal;
+  const lectureConso = useQuery({
     queryKey: ["espace", "consommation"],
     queryFn: espaceApi.consommation,
   });
+  const { data: conso } = lectureConso;
 
   // Achat de credits a l'unite. Le tarif est celui de la formule, cote
   // serveur : on n'envoie que le NOMBRE. Envoyer un prix depuis ici
@@ -63,35 +77,64 @@ export function Credits() {
     .filter((m) => m.type === "remboursement")
     .reduce((total, m) => total + m.quantite, 0);
 
+  // Le solde vient du journal, à défaut du compte. Si AUCUN des deux n'est
+  // arrivé, on ne sait pas — et « 0 » serait une réponse (audit du 19/11/2026 :
+  // une session expirée affichait un solde nul à quelqu'un qui a payé).
+  const solde = data?.solde ?? moi?.credits.solde;
+
   return (
     <>
+      {lectureMoi.isError && (
+        <ErreurDeChargement
+          quoi="votre compte"
+          erreur={lectureMoi.error}
+          perimees={lectureMoi.isRefetchError}
+        />
+      )}
+      {lectureJournal.isError && (
+        <ErreurDeChargement
+          quoi="le journal de vos crédits"
+          erreur={lectureJournal.error}
+          perimees={lectureJournal.isRefetchError}
+        />
+      )}
+      {lectureConso.isError && (
+        <ErreurDeChargement
+          quoi="votre consommation"
+          erreur={lectureConso.error}
+          perimees={lectureConso.isRefetchError}
+        />
+      )}
+
       <div className="grille-chiffres">
         <Chiffre
           libelle="Solde"
-          valeur={f.nombre(data?.solde ?? moi?.credits.solde ?? 0)}
+          valeur={solde === undefined ? INCONNU : f.nombre(solde)}
           detail="Aucun découvert possible"
           accent
         />
         <Chiffre
           libelle="Consommés"
-          valeur={f.nombre(consommes)}
+          valeur={data ? f.nombre(consommes) : INCONNU}
           detail="Sur les mouvements affichés"
         />
         <Chiffre
           libelle="Restitués"
-          valeur={f.nombre(rembourses)}
+          valeur={data ? f.nombre(rembourses) : INCONNU}
           detail="Études abandonnées définitivement"
         />
         <Chiffre
           libelle="Dotation mensuelle"
-          valeur={f.nombre(moi?.abonnement?.credits_par_echeance ?? 0)}
+          valeur={moi ? f.nombre(moi.abonnement?.credits_par_echeance ?? 0) : INCONNU}
           detail={
-            moi?.abonnement
-              ? `${f.montant(
-                  moi.abonnement.prix_mensuel_cents,
-                  moi.abonnement.devise,
-                )} par mois`
-              : "Aucun abonnement actif"
+            !moi
+              ? undefined
+              : moi.abonnement
+                ? `${f.montant(
+                    moi.abonnement.prix_mensuel_cents,
+                    moi.abonnement.devise,
+                  )} par mois`
+                : "Aucun abonnement actif"
           }
         />
       </div>
@@ -149,8 +192,10 @@ export function Credits() {
 
       {/* Le pendant du bloc ci-dessus pour qui n'a pas de formule. La page
           Crédits est celle où l'on va quand on se demande « et maintenant ? »,
-          et un acheteur à l'unité n'y trouvait aucune réponse. */}
-      {!abonne && <AutresEtudes />}
+          et un acheteur à l'unité n'y trouvait aucune réponse.
+          « Pas de formule » se lit sur le compte REÇU : sur un échec, ce bloc
+          proposait à une abonnée d'acheter ses études une par une. */}
+      {moi && !abonne && <AutresEtudes />}
 
       {conso && (conso.total_recu > 0 || conso.total_consomme > 0) && (
         <Carte
@@ -246,12 +291,16 @@ export function Credits() {
         {isPending ? (
           <Squelette lignes={5} />
         ) : mouvements.length === 0 ? (
-          <Vide
-            icone="◐"
-            titre="Aucun mouvement"
-            texte="Votre journal se remplira à la première dotation puis à chaque
-                   génération lancée."
-          />
+          // « Aucun mouvement » ne se dit que sur un journal REÇU et à jour.
+          data &&
+          !lectureJournal.isError && (
+            <Vide
+              icone="◐"
+              titre="Aucun mouvement"
+              texte="Votre journal se remplira à la première dotation puis à chaque
+                     génération lancée."
+            />
+          )
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">

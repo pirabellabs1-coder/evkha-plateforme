@@ -17,6 +17,7 @@ import * as f from "../../espace/format";
 import {
   Bandeau,
   Carte,
+  ErreurDeChargement,
   Pastille,
   Squelette,
   Vide,
@@ -27,7 +28,7 @@ export function DemandesAdmin() {
   const [erreur, setErreur] = useState("");
   const [motifRefus, setMotifRefus] = useState<Record<string, string>>({});
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
     queryKey: ["admin", "demandes"],
     queryFn: adminApi.demandes,
   });
@@ -58,6 +59,12 @@ export function DemandesAdmin() {
 
   return (
     <>
+      {/* Sans ce bandeau, un échec se lisait « Rien en attente ✓ » : des
+          demandes de clients restaient sans réponse derrière un écran qui
+          se déclarait à jour (audit du 19/11/2026, règle 1). */}
+      {isError && (
+        <ErreurDeChargement quoi="les demandes" erreur={error} perimees={isRefetchError} />
+      )}
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
       {ouvertes.length > 0 && (
         <Bandeau titre={`${ouvertes.length} demande(s) en attente`}>
@@ -74,11 +81,15 @@ export function DemandesAdmin() {
         {isPending ? (
           <Squelette lignes={3} />
         ) : ouvertes.length === 0 ? (
-          <Vide
-            icone="✓"
-            titre="Rien en attente"
-            texte="Les demandes de changement de formule et d'achat de crédits apparaîtront ici."
-          />
+          // « Rien en attente » ne se dit que sur une liste REÇUE et à jour.
+          data &&
+          !isError && (
+            <Vide
+              icone="✓"
+              titre="Rien en attente"
+              texte="Les demandes de changement de formule et d'achat de crédits apparaîtront ici."
+            />
+          )
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">

@@ -151,18 +151,83 @@ export function livraisonBloquee(
  *
  * La relance ne réécrit que les chapitres en échec : la dépense se limite au
  * trou.
+ *
+ * ## « Intervention requise » avec un chapitre en échec : le même trou
+ *
+ * Le serveur l'accepte depuis le business plan `db3aa88d` (16/11/2026) :
+ * chapitre 5 mort sur une erreur de format, vingt et un chapitres écrits, et
+ * un dossier passé de `done` à `intervention_requise` à l'assemblage
+ * (`job_relaunch`, `backend/dashboard/views.py`). L'écran, lui, n'avait rien
+ * appris : ni libellé, ni filtre, ni bouton. Le correctif était en ligne et le
+ * seul moyen de s'en servir restait une requête écrite à la main — une fois
+ * de plus, sur ce même bouton, la règle du front était plus stricte que celle
+ * du serveur (audit du 19/11/2026).
+ *
+ * Les deux statuts ne se lisent pas tout à fait de la même façon, parce que
+ * le serveur ne les traite pas de la même façon :
+ *
+ * - `done` : il FERME d'abord les chapitres restés en attente ou en cours
+ *   (`fermer_les_chapitres_inacheves`), puis cherche un échec. « Incomplet »
+ *   suffit donc ;
+ * - `intervention_requise` : il ne ferme rien et exige un chapitre en ÉCHEC.
+ *   La fiche connaît ses chapitres et répond exactement. La liste n'a que le
+ *   compte : « incomplet » y est le meilleur signe disponible, et le serveur
+ *   tranche — son refus s'affiche sous le bouton, en toutes lettres.
+ *
+ * Un dossier `intervention_requise` COMPLET n'est pas relançable : il a été
+ * retenu au contrôle, aucun chapitre n'est à refaire.
  */
 export function estRelancable(
-  job: Pick<JobSummary, "status" | "interrompue" | "chapters_done" | "chapters_total">,
+  job: Pick<JobSummary, "status" | "interrompue" | "chapters_done" | "chapters_total"> & {
+    /** Présents sur la fiche (`JobDetail`), absents de la liste. */
+    chapters?: Pick<Chapter, "status">[];
+  },
 ): boolean {
+  const incomplet = job.chapters_done < job.chapters_total;
+  const unChapitreEnEchec = job.chapters
+    ? job.chapters.some((chapitre) => chapitre.status === "failed")
+    : incomplet;
   const trouAcombler =
-    job.status === "done" && job.chapters_done < job.chapters_total;
+    (job.status === "done" && incomplet) ||
+    (job.status === "intervention_requise" && unChapitreEnEchec);
   return (
     job.status === "failed" ||
     job.status === "cancelled" ||
     job.interrompue ||
     trouAcombler
   );
+}
+
+/** La relecture finale tourne-t-elle encore sur ce dossier ?
+ *
+ * Elle ouvre sa trace AVANT sa première passe — `passes: 0, motif_d_arret:
+ * "en cours"` (`generation.controle_final.relire_et_corriger`) — et ne la
+ * referme qu'à la fin, vingt à soixante minutes plus tard. Deux écrans
+ * lisaient cette trace ouverte comme un résultat : la chaîne de production
+ * l'affichait « en échec » (`passes` vaut zéro), et le bouton de livraison
+ * restait offert pendant toute la relecture. Une seule lecture pour les deux
+ * (règle 5).
+ *
+ * Un document DÉJÀ envoyé n'est plus en relecture, même si sa trace est
+ * restée ouverte : c'est le cas d'une relecture tuée en route, que le gardien
+ * `livrer_les_dossiers_oublies` a fini par livrer telle quelle. La condition
+ * est celle du serveur (`organisations.suivi.relecture_en_cours`) — sans elle,
+ * un tel dossier s'afficherait « en cours » pour toujours.
+ */
+export function controleFinalEnCours(
+  job: Pick<JobDetail, "controle_final" | "delivery">,
+): boolean {
+  return (
+    job.controle_final?.motif_d_arret === "en cours" &&
+    job.delivery?.status !== "sent"
+  );
+}
+
+/** La relecture finale a-t-elle RENDU sa trace ? Ni absente, ni ouverte. */
+export function controleFinalRendu(
+  job: Pick<JobDetail, "controle_final" | "delivery">,
+): boolean {
+  return Boolean(job.controle_final) && !controleFinalEnCours(job);
 }
 
 export interface Chapter {

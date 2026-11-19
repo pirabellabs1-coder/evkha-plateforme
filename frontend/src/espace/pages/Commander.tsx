@@ -25,7 +25,13 @@ import {
   lireBrouillon,
   oublierBrouillon,
 } from "../brouillon";
-import { Bandeau, Carte, Squelette, Vide } from "../composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  ErreurDeChargement,
+  Squelette,
+  Vide,
+} from "../composants/Interface";
 import {
   ListeFichiers,
   ZoneDepot,
@@ -101,7 +107,8 @@ export function CommanderSelonAdresse() {
 }
 
 export function Commander() {
-  const { data: moi } = useMoi();
+  const lectureMoi = useMoi();
+  const { data: moi } = lectureMoi;
   const cache = useQueryClient();
   const naviguer = useNavigate();
 
@@ -150,23 +157,31 @@ export function Commander() {
   // de les distinguer l'un de l'autre.
   const aLUnite = moi?.organisation.type_de_compte === "a_l_unite";
 
-  const { data: catalogue, isPending } = useQuery({
+  const lectureCatalogue = useQuery({
     queryKey: ["espace", "catalogue"],
     queryFn: espaceApi.catalogue,
   });
+  const { data: catalogue, isPending } = lectureCatalogue;
 
-  const { data: questionnaire } = useQuery({
+  const lectureQuestionnaire = useQuery({
     queryKey: ["espace", "formulaire", choisi],
     queryFn: () => espaceApi.formulaire(choisi!),
     enabled: Boolean(choisi),
   });
+  const { data: questionnaire } = lectureQuestionnaire;
 
   // Ce que l'on a déjà répondu pour ce projet, tous livrables confondus.
-  const { data: dejaDit, isError: projetIntrouvable } = useQuery({
+  const lectureProjet = useQuery({
     queryKey: ["espace", "projet", projet, "reponses", choisi],
     queryFn: () => espaceApi.reponsesDuProjet(projet!, choisi!),
     enabled: Boolean(projet && choisi),
   });
+  const { data: dejaDit } = lectureProjet;
+  // « Introuvable » ne se dit que lorsque le SERVEUR le dit (404). Toute
+  // erreur le disait : une panne passagère annonçait à l'abonnée que le
+  // projet de son client n'existait pas.
+  const projetIntrouvable =
+    lectureProjet.error instanceof ErreurApi && lectureProjet.error.statut === 404;
 
   // Le pré-remplissage se pose UNE fois par livrable, sous le brouillon : une
   // saisie en cours l'emporte sur ce que la fiche savait, et une frappe ne
@@ -231,10 +246,11 @@ export function Commander() {
   // Pièces jointes de l'organisation : elles accompagnent la commande. Les
   // questionnaires demandent des tableaux financiers et des études existantes,
   // que le client déposait jusqu'ici en les résumant à la main.
-  const { data: pieces } = useQuery({
+  const lecturePieces = useQuery({
     queryKey: ["espace", "fichiers", "document"],
     queryFn: () => espaceApi.fichiers("document"),
   });
+  const { data: pieces } = lecturePieces;
 
   const depot = useMutation({
     mutationFn: (fichier: File) => espaceApi.deposerFichier(fichier, "document"),
@@ -270,11 +286,19 @@ export function Commander() {
         void naviguer({ to: "/espace/livrables" });
       }
     },
-    onError: (cause) =>
-      setErreur(
-        cause instanceof ErreurApi ? cause.message : "Lancement impossible.",
-      ),
   });
+  // Le refus du serveur — abonnement inactif (402), solde insuffisant ou
+  // questionnaire incomplet (400), démarrage impossible (503) — se lit sur la
+  // mutation elle-même, et s'affiche à DEUX endroits : en tête, et contre le
+  // bouton. Il n'était rendu qu'en tête d'un questionnaire de vingt-quatre
+  // questions : on cliquait « Lancer la génération » tout en bas, le message
+  // apparaissait hors écran, et il ne se passait visiblement RIEN (audit du
+  // 19/11/2026) — le même défaut que le dépôt de document, plus bas.
+  const refusDuLancement = envoi.isError
+    ? envoi.error instanceof ErreurApi
+      ? envoi.error.message
+      : "Le lancement n'a pas abouti. Vérifiez votre connexion et réessayez."
+    : "";
 
   const tousLesChamps = useMemo(
     () => questionnaire?.sections.flatMap((s) => s.champs) ?? [],
@@ -291,6 +315,8 @@ export function Commander() {
     if (restants.length > 0) {
       // On ne laisse pas le serveur être le premier à le dire : l'aller-retour
       // ferait perdre la position dans un formulaire de vingt-quatre questions.
+      // Le refus d'un envoi précédent ne vaut plus : celui-ci ne part pas.
+      envoi.reset();
       setManquants(restants.map((champ) => champ.identifiant));
       document
         .getElementById(`champ-${restants[0].identifiant}`)
@@ -305,14 +331,42 @@ export function Commander() {
 
   if (!choisi) {
     if (isPending) return <Squelette lignes={4} />;
-    const solde = catalogue?.solde ?? 0;
+    // Rien reçu : on le dit, et on s'arrête là. L'écran lisait `solde ?? 0`
+    // et `documents ?? []` : une session expirée affichait « Aucun crédit
+    // disponible » — ou « Abonnement à activer » — au-dessus d'une grille
+    // vide, à quelqu'un qui a payé (audit du 19/11/2026).
+    if (!catalogue) {
+      return (
+        <ErreurDeChargement
+          quoi="le catalogue des documents"
+          erreur={lectureCatalogue.error}
+        />
+      );
+    }
+    const solde = catalogue.solde;
 
     return (
       // Une enveloppe par étape, avec sa propre `key` : changer d'étape la
       // remonte, et c'est le remontage qui joue le fondu-glissé.
       <div className={`etape-commande etape-commande-${sens}`} key="choix">
+        {lectureCatalogue.isError && (
+          <ErreurDeChargement
+            quoi="le catalogue des documents"
+            erreur={lectureCatalogue.error}
+            perimees
+          />
+        )}
+        {lectureMoi.isError && (
+          <ErreurDeChargement
+            quoi="votre compte"
+            erreur={lectureMoi.error}
+            perimees={lectureMoi.isRefetchError}
+          />
+        )}
         {projet && <PourQui projet={projet} />}
-        {!peutCommander && (
+        {/* Ce que le rôle permet se lit sur le compte REÇU : sans lui, on ne
+            sait pas, et « votre rôle ne permet pas » répondrait à sa place. */}
+        {moi && !peutCommander && (
           <Bandeau titre="Votre rôle ne permet pas de commander">
             Demandez à un propriétaire ou à un membre de votre équipe de lancer
             la commande.
@@ -330,8 +384,14 @@ export function Commander() {
             Elles sont désormais une PARTITION sur le type de compte : chaque
             client tombe dans un cas et un seul. Ce qui empêche le défaut de
             revenir n'est pas d'avoir corrigé une condition, c'est que les trois
-            branches se lisent ensemble et se répondent (règle 4). */}
-        {solde === 0 &&
+            branches se lisent ensemble et se répondent (règle 4).
+
+            La partition porte sur le COMPTE : sans lui, aucune des trois
+            phrases n'est sûre, et la troisième — « Abonnement à activer » —
+            s'affichait par défaut à une abonnée dont le compte n'avait
+            simplement pas pu être lu. */}
+        {moi &&
+          solde === 0 &&
           (aLUnite ? (
             <Bandeau ton="echec" titre="Aucune étude en attente">
               Choisissez l'étude que vous voulez produire depuis{" "}
@@ -340,7 +400,7 @@ export function Commander() {
               </Link>
               . Elle sera disponible ici aussitôt réglée.
             </Bandeau>
-          ) : moi?.abonnement ? (
+          ) : moi.abonnement ? (
             <Bandeau ton="echec" titre="Aucun crédit disponible">
               Aucun découvert n'est possible. Vos prochains crédits arrivent à
               la prochaine échéance, ou{" "}
@@ -363,7 +423,7 @@ export function Commander() {
           note={`Un crédit par document. Solde : ${f.credits(solde)}.`}
         >
           <div className="grille-documents">
-            {(catalogue?.documents ?? []).map((doc: DocumentCatalogue) => {
+            {catalogue.documents.map((doc: DocumentCatalogue) => {
               const indisponible = !doc.couvert || !peutCommander;
               return (
                 <button
@@ -416,7 +476,33 @@ export function Commander() {
 
   // ── Questionnaire ────────────────────────────────────────────────────────
 
-  if (!questionnaire) return <Squelette lignes={6} />;
+  // Le questionnaire n'est pas arrivé. S'il a ÉCHOUÉ, on le dit et on rend la
+  // main : l'écran restait sous un squelette, indéfiniment, sans un mot et
+  // sans issue — y compris pour un type de document inconnu dans l'adresse.
+  if (!questionnaire) {
+    return lectureQuestionnaire.isError ? (
+      <>
+        <ErreurDeChargement
+          quoi="le questionnaire"
+          erreur={lectureQuestionnaire.error}
+        />
+        <div>
+          <button
+            type="button"
+            className="bouton bouton-contour bouton-sm"
+            onClick={() => {
+              setSens("arriere");
+              setChoisi(null);
+            }}
+          >
+            Choisir un autre document
+          </button>
+        </div>
+      </>
+    ) : (
+      <Squelette lignes={6} />
+    );
+  }
 
   return (
     <form
@@ -473,6 +559,13 @@ export function Commander() {
         )}
       </Carte>
 
+      {lectureMoi.isError && (
+        <ErreurDeChargement
+          quoi="votre compte"
+          erreur={lectureMoi.error}
+          perimees={lectureMoi.isRefetchError}
+        />
+      )}
       {projetIntrouvable && (
         <Bandeau ton="echec" titre="Projet introuvable">
           Ce lien ne correspond à aucun projet de vos clients. Repassez par{" "}
@@ -481,6 +574,13 @@ export function Commander() {
           </Link>
           .
         </Bandeau>
+      )}
+      {lectureProjet.isError && !projetIntrouvable && (
+        <ErreurDeChargement
+          quoi="la fiche de ce projet"
+          erreur={lectureProjet.error}
+          perimees={lectureProjet.isRefetchError}
+        />
       )}
       {dejaDit && (
         <Bandeau
@@ -502,6 +602,7 @@ export function Commander() {
         </Bandeau>
       )}
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+      {refusDuLancement && <Bandeau ton="echec">{refusDuLancement}</Bandeau>}
       {manquants.length > 0 && (
         <Bandeau titre={`${manquants.length} réponse(s) manquante(s)`}>
           Les questions concernées sont signalées ci-dessous.
@@ -566,10 +667,23 @@ export function Commander() {
               : "Dépôt impossible — réessayez, ou vérifiez le format et la taille."}
           </p>
         )}
-        <ListeFichiers
-          fichiers={pieces?.pieces ?? []}
-          onSupprimer={(id) => suppression.mutate(id)}
-        />
+        {/* La liste se lit sur une réponse REÇUE. Vide par défaut, elle
+            écrivait « Aucun fichier déposé. » sur un échec de lecture — juste
+            au-dessus de la phrase qui dit que TOUS les documents de la
+            bibliothèque seront lus au lancement. */}
+        {lecturePieces.isError && (
+          <ErreurDeChargement
+            quoi="vos documents déposés"
+            erreur={lecturePieces.error}
+            perimees={lecturePieces.isRefetchError}
+          />
+        )}
+        {pieces && (
+          <ListeFichiers
+            fichiers={pieces.pieces}
+            onSupprimer={(id) => suppression.mutate(id)}
+          />
+        )}
         {/* Cette note disait « c'est ce résumé que le moteur exploite » — vrai
             jusqu'au 11/09/2026, date à laquelle les documents ont commencé à
             être lus. Elle dit maintenant ce qui est lu, ce qui ne l'est pas, et
@@ -601,8 +715,10 @@ export function Commander() {
           </div>
           <div>
             <div className="chiffre-libelle">Solde après</div>
+            {/* Jamais « 0 crédit » faute de l'avoir lu : un zéro est une
+                réponse. */}
             <div style={{ fontWeight: 600, marginTop: "var(--e-1)" }}>
-              {f.credits(Math.max((moi?.credits.solde ?? 0) - 1, 0))}
+              {moi ? f.credits(Math.max(moi.credits.solde - 1, 0)) : "—"}
             </div>
           </div>
           <div>
@@ -613,11 +729,33 @@ export function Commander() {
           </div>
         </div>
 
+        {/* QUELLE charte habillera ce document : le serveur en décide, l'écran
+            le répète. Cette note écrivait toujours « repris de Ma marque ».
+            Or une commande rattachée au projet d'une fiche client porte la
+            charte de CETTE fiche — son nom, son logo, ses couleurs —, sans
+            repli sur « Ma marque » : une fiche sans charte donne un document
+            neutre (`commandes.charte_du_projet`, décidé après la stratégie
+            `d319a9e5` partie aux couleurs d'un autre client). Seule la mention
+            de confidentialité reste celle de l'abonnée. */}
         <p className="carte-note" style={{ marginTop: "var(--e-5)" }}>
-          Votre logo et vos couleurs sont repris de « Ma marque » — inutile de
-          les ressaisir. Le crédit est débité au démarrage de la génération, et
-          restitué si l'étude échoue définitivement.
+          {projet
+            ? `Le nom, le logo et les couleurs de ce document sont ceux de la fiche client${
+                dejaDit ? ` « ${dejaDit.client.nom} »` : ""
+              }, pas ceux de « Ma marque » : si la fiche n'a ni logo ni couleurs, le document reste neutre. La mention de confidentialité, elle, vient de « Ma marque ».`
+            : "Votre logo et vos couleurs sont repris de « Ma marque » — inutile de les ressaisir."}{" "}
+          Le crédit est débité au démarrage de la génération, et restitué si
+          l'étude échoue définitivement.
         </p>
+
+        {/* Le refus du serveur, CONTRE le bouton qui vient de le provoquer.
+            `role="alert"` : il arrive après un geste, et doit être annoncé. */}
+        {refusDuLancement && (
+          <div role="alert" style={{ marginTop: "var(--e-5)" }}>
+            <Bandeau ton="echec" titre="La génération n'a pas été lancée">
+              {refusDuLancement}
+            </Bandeau>
+          </div>
+        )}
 
         <div
           style={{

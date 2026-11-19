@@ -1,8 +1,8 @@
-/** Le retour de Stripe : on confirme, on entre.
+/** Le retour de Stripe : on confirme, puis on entre — ou on se connecte.
  *
  * Stripe redirige ici avec l'identifiant de session dans l'adresse. Cette page
  * le présente au serveur, qui vérifie chez Stripe que le paiement est bien
- * passé, ouvre l'espace, verse le crédit et rend un jeton de session.
+ * passé, verse le crédit, et dit s'il ouvre une session.
  *
  * ## Pourquoi on n'attend pas le webhook
  *
@@ -13,17 +13,25 @@
  * deux appels de façon idempotente : celui qui arrive d'abord livre, l'autre
  * ne fait rien.
  *
- * ## Pourquoi la personne entre sans mot de passe
+ * ## Qui entre sans mot de passe, et qui se connecte
  *
- * C'est Stripe qui a prouvé son identité — il a encaissé une carte et collecté
- * son adresse. Lui demander de choisir un mot de passe MAINTENANT ajouterait
- * un écran entre son paiement et son étude. Elle en choisira un depuis le
- * courriel qu'elle vient de recevoir, quand elle voudra revenir.
+ * Cette page disait « c'est Stripe qui a prouvé son identité », et entrait
+ * dans tous les cas. Stripe prouve qu'une carte a été encaissée — pas que le
+ * payeur possède l'adresse qu'il a saisie (audit du 19/11/2026). Le serveur
+ * ne délivre donc un jeton que pour le compte que CE paiement vient de créer,
+ * une seule fois. Pour un compte qui existait, il rend `"jeton": null` et
+ * `"connexion_requise": true` : l'achat est livré, et la personne entre par
+ * sa connexion habituelle.
+ *
+ * Trois issues, décidées par `accueillirUnRetourDePaiement` et nulle part
+ * ailleurs : la session est ouverte, la session déjà présente est gardée, ou
+ * la connexion est proposée. Un jeton nul n'est jamais écrit, et une session
+ * existante n'est jamais remplacée.
  */
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 
-import { jeton } from "../espace/api";
+import { accueillirUnRetourDePaiement } from "../espace/api";
 import { confirmerLePaiement, RefusInscription } from "./donnees";
 import "./Partenaires.css";
 import "./Acheter.css";
@@ -47,9 +55,14 @@ export function RetourPaiement() {
   const naviguer = useNavigate();
   const [session] = useState(sessionDansLAdresse);
   const [erreur, setErreur] = useState(() => (session ? "" : SANS_SESSION));
+  // L'achat est livré sur un compte qui existait déjà, et personne n'est
+  // connecté dans ce navigateur. On garde le nom de l'étude pour le redire :
+  // « votre achat » sans dire lequel laisse douter que ce soit le bon.
+  const [aRetrouver, setARetrouver] = useState<{ libelle: string } | null>(null);
   // React 18 monte deux fois en développement. Sans ce garde-fou, la
   // confirmation partirait en double — inoffensif côté serveur, qui est
-  // idempotent, mais deux jetons seraient émis pour une seule arrivée.
+  // idempotent, mais la seconde réponse ne porterait plus de jeton : le
+  // serveur n'en délivre qu'un par compte né d'un paiement.
   const lance = useRef(false);
 
   useEffect(() => {
@@ -58,10 +71,14 @@ export function RetourPaiement() {
 
     confirmerLePaiement(session)
       .then((achat) => {
-        jeton.ecrire(achat.jeton);
-        // Directement sur le formulaire de commande, avec le bon livrable
-        // pré-sélectionné : la personne vient d'acheter UNE étude précise, lui
-        // faire rechoisir son type serait lui redemander ce qu'elle a déjà dit.
+        if (accueillirUnRetourDePaiement(achat) === "connexion_requise") {
+          setARetrouver({ libelle: achat.libelle });
+          return;
+        }
+        // Session ouverte à l'instant, ou déjà là : dans les deux cas, droit
+        // sur le formulaire de commande, avec le bon livrable pré-sélectionné.
+        // La personne vient d'acheter UNE étude précise, lui faire rechoisir
+        // son type serait lui redemander ce qu'elle a déjà dit.
         naviguer({
           to: "/espace/commander",
           search: { livrable: achat.livrable },
@@ -90,6 +107,36 @@ export function RetourPaiement() {
               <p>
                 Votre paiement, lui, est bien enregistré chez notre prestataire.
                 Rien n'est perdu.
+              </p>
+            </>
+          ) : aRetrouver ? (
+            <>
+              <h1>Paiement reçu</h1>
+              <p role="status">
+                Votre paiement est bien enregistré
+                {aRetrouver.libelle ? (
+                  <>
+                    {" "}
+                    pour <b>{aRetrouver.libelle}</b>
+                  </>
+                ) : null}
+                . Votre achat est rattaché au compte de l'adresse e-mail
+                utilisée pour payer.
+              </p>
+              <p>
+                Ce compte existait déjà : par sécurité, sa session ne s'ouvre
+                pas depuis une page de paiement. Connectez-vous pour lancer
+                votre étude.
+              </p>
+              <Link
+                to="/espace/connexion"
+                className="bouton bouton-principal ach-bouton"
+              >
+                Se connecter
+              </Link>
+              <p className="ach-rassurance">
+                Pas encore de mot de passe, ou oublié&nbsp;?{" "}
+                <Link to="/mot-de-passe-oublie">Recevoir un lien par e-mail</Link>
               </p>
             </>
           ) : (

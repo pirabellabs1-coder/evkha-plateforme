@@ -27,9 +27,16 @@
  */
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { espaceApi, ErreurApi } from "../api";
+import { ARRET_EN_UNE_PHRASE, CONTACT, ENGAGEMENT_MINIMUM } from "../engagement";
 import { CLE_MOI, useMoi } from "../useMoi";
-import { Bandeau, Carte, Squelette } from "../composants/Interface";
+import {
+  Bandeau,
+  Carte,
+  ErreurDeChargement,
+  Squelette,
+} from "../composants/Interface";
 import * as f from "../format";
 
 function retourDeStripe(): "ok" | "abandon" | "" {
@@ -56,7 +63,8 @@ function formulePreChoisie(): string {
 const TENTATIVES_MAX = 20;
 
 export function Souscription() {
-  const { data: moi } = useMoi();
+  const lectureMoi = useMoi();
+  const { data: moi } = lectureMoi;
   const cache = useQueryClient();
   const retour = retourDeStripe();
 
@@ -65,10 +73,11 @@ export function Souscription() {
   const [envoi, setEnvoi] = useState(false);
   const [choisie, setChoisie] = useState(formulePreChoisie);
 
-  const { data: catalogue } = useQuery({
+  const lectureFormules = useQuery({
     queryKey: ["espace", "formules"],
     queryFn: espaceApi.formules,
   });
+  const { data: catalogue } = lectureFormules;
 
   // L'attente est DÉDUITE, pas mémorisée.
   //
@@ -91,7 +100,16 @@ export function Souscription() {
     return () => window.clearTimeout(minuteur);
   }, [attente, tentatives, cache]);
 
-  if (!moi) return <Squelette lignes={4} />;
+  // Sans le compte, cette page ne sait ni s'il y a un abonnement, ni lequel
+  // proposer. Elle attendait indéfiniment sous un squelette quand la lecture
+  // avait échoué : un échec se DIT (règle 1).
+  if (!moi) {
+    return lectureMoi.isError ? (
+      <ErreurDeChargement quoi="votre compte" erreur={lectureMoi.error} />
+    ) : (
+      <Squelette lignes={4} />
+    );
+  }
 
   const formules = catalogue?.formules ?? [];
   const attendue = moi.souscription_en_attente;
@@ -129,8 +147,13 @@ export function Souscription() {
           {f.montant(moi.abonnement.prix_mensuel_cents)} par mois,{" "}
           {moi.abonnement.credits_par_echeance} crédit
           {moi.abonnement.credits_par_echeance > 1 ? "s" : ""} déposés chaque
-          mois. Il se reconduit tout seul&nbsp;; vous pouvez l'arrêter quand
-          vous voulez depuis la page Abonnement.
+          mois. Il se reconduit tout seul, avec un engagement minimum de{" "}
+          {ENGAGEMENT_MINIMUM}. L'arrêt se fait sur demande, par e-mail à{" "}
+          <a href={`mailto:${CONTACT}`}>{CONTACT}</a>&nbsp;: la page{" "}
+          <Link to="/espace/abonnement" className="bandeau-lien">
+            Abonnement
+          </Link>{" "}
+          dit où en est le vôtre.
         </p>
       </Carte>
     );
@@ -151,6 +174,39 @@ export function Souscription() {
     );
   }
 
+  // Vingt tentatives sans confirmation. On ne dit pas « échec » : le paiement
+  // est passé chez Stripe, c'est sa confirmation chez nous qui tarde. Annoncer
+  // un échec ferait payer une seconde fois.
+  //
+  // Et c'est pour la même raison que le FORMULAIRE DE PAIEMENT NE REVIENT PAS
+  // ICI. Il se réaffichait, actif, juste sous la phrase « rien ne sera prélevé
+  // deux fois » : un bouton « Régler 129 € par mois » sous la promesse de ne
+  // pas payer deux fois, c'est le seul endroit de la plateforme où l'écran
+  // offrait lui-même le double prélèvement qu'il jurait d'éviter (audit du
+  // 19/11/2026). Ce qui reste : revérifier, ou écrire.
+  if (abandonne) {
+    return (
+      <Bandeau titre="Confirmation en retard">
+        Votre paiement est bien enregistré chez Stripe, mais sa confirmation
+        chez nous tarde. Rien n'est perdu, et rien ne sera prélevé deux
+        fois&nbsp;: ne réglez pas une seconde fois.
+        <p style={{ marginTop: "var(--e-3)" }}>
+          <button
+            type="button"
+            className="bouton bouton-contour bouton-sm"
+            onClick={() => setTentatives(0)}
+          >
+            Vérifier à nouveau
+          </button>
+        </p>
+        <p style={{ marginTop: "var(--e-2)" }}>
+          Si l'abonnement reste inactif dans quelques minutes, écrivez-nous à{" "}
+          <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
+        </p>
+      </Bandeau>
+    );
+  }
+
   return (
     <>
       {retour === "abandon" && (
@@ -158,19 +214,18 @@ export function Souscription() {
           Rien n'a été débité. Vous pouvez reprendre quand vous voulez.
         </Bandeau>
       )}
-      {/* Vingt tentatives sans confirmation. On ne dit pas « échec » : le
-          paiement est passé chez Stripe, c'est sa confirmation chez nous qui
-          tarde. Annoncer un échec ferait payer une seconde fois. */}
-      {abandonne && (
-        <Bandeau titre="Confirmation en retard">
-          Votre paiement est bien enregistré chez Stripe, mais sa confirmation
-          chez nous tarde. Rechargez la page dans une minute — si l'abonnement
-          reste inactif, écrivez-nous&nbsp;: rien n'est perdu, et rien ne sera
-          prélevé deux fois.
-        </Bandeau>
-      )}
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
+      {lectureFormules.isError && (
+        <ErreurDeChargement
+          quoi="les formules"
+          erreur={lectureFormules.error}
+          perimees={lectureFormules.isRefetchError}
+        />
+      )}
 
+      {/* Sans le catalogue, pas de carte de paiement : une grille vide sous
+          « Choisissez une formule » se lirait « aucune formule n'existe ». */}
+      {catalogue && (
       <Carte
         titre="Activer votre abonnement"
         note="Vos crédits sont déposés dès le paiement accepté, sans attendre personne."
@@ -241,14 +296,18 @@ export function Souscription() {
           )}
         </button>
 
+        {/* Les conditions d'arrêt, dites AVANT la carte bancaire, et dans les
+            mots du serveur (`engagement.ts`). Ce pied promettait un arrêt
+            « en un clic, sans préavis ni justification » que
+            `arreter_l_abonnement` refuse toujours. */}
         <p className="souscription-pied">
           Paiement par carte, traité par Stripe. Nous ne voyons jamais votre
-          numéro de carte. L'abonnement se reconduit chaque mois et s'arrête
-          depuis votre espace en un clic, sans préavis ni justification. Un mois
-          entamé n'est pas remboursé&nbsp;: vous en gardez l'accès et les crédits
-          jusqu'à son terme.
+          numéro de carte. {ARRET_EN_UNE_PHRASE} Un mois entamé n'est pas
+          remboursé&nbsp;: vous en gardez l'accès et les crédits jusqu'à son
+          terme.
         </p>
       </Carte>
+      )}
     </>
   );
 }
