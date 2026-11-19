@@ -154,7 +154,7 @@ export const EVITEMENT = "Aller au contenu";
 /** Une entrée simple de la barre. Deux formes, jamais les deux à la fois :
  *
  *  - `lien` : une page. Elle est « courante » quand son chemin est celui de la
- *    page affichée — `EnTeteSite` le DÉDUIT de l'adresse, comme `MenuSite` :
+ *    page affichée — `EnTeteSite` le DÉDUIT de l'adresse :
  *    un drapeau écrit ici annoncerait « vous êtes ici » sur la mauvaise page.
  *  - `ancre` : une SECTION DE L'ACCUEIL, par son identifiant. Sur l'accueil,
  *    l'entrée reste une ancre (`#methode`) et la page défile ; ailleurs, elle

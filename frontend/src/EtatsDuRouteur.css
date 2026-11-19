@@ -1,0 +1,61 @@
+/* L'attente et l'échec du routeur (`EtatsDuRouteur.tsx`).
+ *
+ * Aucune couleur n'est écrite ici : le papier du site pour l'attente
+ * (`tokens.css`), et pour l'échec les alias et les pièces du socle
+ * (`public/Site.css` — carte à double bord, bouton-pilule, étiquette à
+ * pastille). Aucun mouvement : ces deux écrans ne bougent pas.
+ */
+
+/* Une page vide, à la couleur du site : passer de l'accueil à une page qui
+   charge ne fait pas clignoter l'écran en blanc. */
+.etat-attente {
+  min-height: 100vh;
+  background: var(--evkha-papier);
+}
+
+.etat-echec-corps {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 48px 0;
+}
+
+.etat-echec-carte {
+  width: 100%;
+  max-width: 640px;
+  padding: clamp(26px, 5vw, 52px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.etat-echec-carte h1 {
+  margin: 16px 0 14px;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  text-wrap: balance;
+}
+
+.etat-echec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 24px;
+  margin-top: 28px;
+}
+
+/* Un lien dans le texte : souligné, pour ne pas tenir à la couleur seule. Le
+   rembourrage porte la cible au-delà de 24 px de haut. */
+.etat-echec-lien {
+  display: inline-block;
+  padding: 4px 0;
+  color: var(--acc-encre);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--acc-or-fonce);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.etat-echec-lien:hover {
+  text-decoration-color: var(--acc-encre);
+}

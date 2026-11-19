@@ -17,12 +17,12 @@
  * phrases que l'ancienne page écrivait dans son TSX sont dans
  * `contenuPartenaires.ts`. La barre, le menu, le pied (liens légaux compris),
  * les boutons et la feuille de base sont ceux du socle commun (`EnTeteSite`,
- * `PiedSite`, `PiecesSite`, `site.ts`, `Site.css`) : l'ancien menu
- * (`MenuSite`) et le pied propre à la page ont disparu (règle 5).
+ * `PiedSite`, `PiecesSite`, `site.ts`, `Site.css`) : l'ancien menu et le
+ * pied propre à la page ont disparu (règle 5).
  *
- * `Partenaires.css` n'est plus importée ici — elle reste la feuille de base de
- * six autres pages. Celle de cette page est `PartenairesPro.css`, classes
- * `pro-`.
+ * L'ancienne feuille de la page (classes `pp-`) n'existe plus : le portail et
+ * le tunnel d'achat, qui s'en servaient encore, sont passés au socle. Celle
+ * de cette page est `PartenairesPro.css`, classes `pro-`.
  *
  * ## Deux principes de construction, inchangés
  *

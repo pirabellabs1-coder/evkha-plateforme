@@ -62,6 +62,7 @@ export function ConfirmerAdresse() {
   return (
     <Portail
       titre="Votre nouvelle adresse"
+      accent="nouvelle adresse"
       onglet="connexion"
       sousTitre={
         <p className="prt-sous-titre">
@@ -71,12 +72,12 @@ export function ConfirmerAdresse() {
       panneau={PANNEAU}
       enfants={
         jetonDuLien === "" ? (
-          <p className="insc-erreur" role="alert">
+          <p className="prt-erreur" role="alert">
             Ce lien est incomplet. Ouvrez-le depuis le courriel reçu.
           </p>
         ) : erreur ? (
           <>
-            <p className="insc-erreur" role="alert">
+            <p className="prt-erreur" role="alert">
               {erreur}
             </p>
             {/* Le motif le plus fréquent est un lien déjà utilisé ou périmé :
@@ -90,7 +91,7 @@ export function ConfirmerAdresse() {
           </>
         ) : adresse ? (
           <>
-            <p role="status">
+            <p className="prt-message" role="status">
               C'est fait&nbsp;: vous vous connectez désormais avec {adresse}.
               Votre mot de passe, lui, n'a pas changé.
             </p>
@@ -99,7 +100,9 @@ export function ConfirmerAdresse() {
             </p>
           </>
         ) : (
-          <p role="status">Confirmation en cours…</p>
+          <p className="prt-message" role="status">
+            Confirmation en cours…
+          </p>
         )
       }
     />

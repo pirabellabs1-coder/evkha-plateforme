@@ -13,14 +13,16 @@
  *
  *   .espace           police, encre, interligne, taille, fond (espace client
  *                     et administration) — `theme/espace.css`
- *   .pp               police, encre, interligne, fond ; PAS de taille
- *                     (pages publiques) — `public/Partenaires.css`
+ *   .acc              police, encre, interligne, taille, fond (pages
+ *                     publiques, portail compris) — `public/Site.css`
  *   .connexion-admin  police, encre, interligne, taille, fond (`/login`) —
  *                     `pages/Login.css`
  *
- * `body` fournit donc la taille de base qui manquait à `.pp`, et le reste
- * pour tout ce qui s'afficherait hors de ces racines (page introuvable ou
- * erreur du routeur). Uniquement des jetons.
+ * `body` fournit donc le même socle à tout ce qui s'afficherait hors de ces
+ * racines : l'écran d'attente et l'écran d'échec du routeur
+ * (`EtatsDuRouteur.tsx`). Uniquement des jetons. L'ancienne racine des pages
+ * publiques (`.pp`, `public/Partenaires.css`), qui n'avait pas de taille de
+ * base, a disparu le 19/11/2026 avec sa dernière page.
  */
 
 *, *::before, *::after { box-sizing: border-box; }

@@ -4,19 +4,19 @@
  * site de la cliente. Le visiteur arrive avec son livrable dans l'adresse
  * (`/acheter/etude-marche`), lit ce qu'il achète et à quel prix, et part payer.
  *
- * ## L'en-tête et le pied sont ceux du socle (19/11/2026)
+ * ## Une page du socle (19/11/2026)
  *
- * L'ancien menu (`MenuSite`) renvoyait vers l'ancien site, logo compris : au
- * milieu d'un paiement, un clic sortait de la plateforme. La page monte
- * désormais `EnTeteSite` et `PiedSite`, comme toutes les pages refondues. Sa
- * mise en page, elle, n'a pas bougé : la carte reste dans l'ancienne charte
- * (`pp-`, `ach-`).
+ * L'ancien menu renvoyait vers l'ancien site, logo compris : au milieu d'un
+ * paiement, un clic sortait de la plateforme. La page a d'abord reçu
+ * `EnTeteSite` et `PiedSite`, montés à part autour d'une carte restée dans
+ * l'ancienne charte des pages publiques. Elle est maintenant tout entière
+ * sous UNE racine `.acc`, comme la boutique : carte à double bord,
+ * bouton-pilule, étiquette à pastille, prix en Fraunces. Ce que le socle
+ * remet à zéro pour toute la page (marges des paragraphes, soulignement des
+ * liens), `Acheter.css` le rend à la carte, classe par classe.
  *
- * Les deux pièces du socle sont montées CHACUNE dans leur propre boîte `.acc`
- * (`.ach-socle`, `Acheter.css`), et non sous une racine `.acc` commune : les
- * réglages d'éléments de `Site.css` (`:where(.acc) a`, `p`, `h1`, `button`…)
- * s'appliqueraient sinon à la carte, dont les liens perdraient leur
- * soulignement et les paragraphes leurs marges.
+ * Seule la forme a changé : mêmes états, mêmes phrases, même champ, même
+ * appel de paiement.
  *
  * ## Trois décisions, et leurs raisons
  *
@@ -45,9 +45,8 @@ import { chargerLivrables, euros, type LivrablePublic } from "./donnees";
 import { EnTeteSite } from "./EnTeteSite";
 import { PiedSite } from "./PiedSite";
 import { useMenu } from "./site";
-// Le socle (en-tête et pied) d'abord, les feuilles de la page ensuite.
+// Le socle d'abord, la feuille de la page ensuite.
 import "./Site.css";
-import "./Partenaires.css";
 import "./Acheter.css";
 
 /** Ce que chaque étude apporte, en une phrase.
@@ -142,10 +141,8 @@ export function Acheter() {
   }
 
   return (
-    <div className="pp ach">
-      <div className="acc ach-socle">
-        <EnTeteSite menu={menu} />
-      </div>
+    <div className="acc ach">
+      <EnTeteSite menu={menu} />
 
       {/* `tabIndex={-1}` : la cible du lien d'évitement doit pouvoir recevoir
           le focus. */}
@@ -160,21 +157,28 @@ export function Acheter() {
         )}
 
         {panne && (
-          <section className="ach-carte">
-            <h1>Un instant</h1>
+          <section className="ach-carte acc-entre">
+            {/* Le mot d'accent est dans le titre, pas à côté : le nom du
+                titre reste « Un instant ». */}
+            <h1>
+              Un <span className="acc-s">instant</span>
+            </h1>
             <p className="ach-erreur" role="alert">
               Nos études n'ont pas pu être chargées. Votre lien est bon : c'est
               une panne passagère de notre côté.
             </p>
             <button
               type="button"
-              className="bouton bouton-principal ach-bouton"
+              className="acc-btn acc-btn-noir ach-bouton"
               onClick={() => {
                 setPanne(false);
                 setTentative((n) => n + 1);
               }}
             >
               Réessayer
+              <span className="acc-btn-fleche" aria-hidden="true">
+                →
+              </span>
             </button>
             <p className="ach-rassurance">
               Si cela persiste, écrivez-nous à{" "}
@@ -184,9 +188,9 @@ export function Acheter() {
         )}
 
         {!panne && catalogue !== null && offre === null && (
-          <section className="ach-carte">
+          <section className="ach-carte acc-entre">
             <h1>Cette étude n'est pas disponible</h1>
-            <p>
+            <p className="ach-texte">
               Le lien que vous avez suivi ne correspond à aucune de nos études.
               Écrivez-nous à <a href="mailto:contact@evkha.fr">contact@evkha.fr</a>{" "}
               et nous vous orientons.
@@ -195,7 +199,7 @@ export function Acheter() {
         )}
 
         {!panne && offre !== null && (
-          <section className="ach-carte">
+          <section className="ach-carte acc-entre">
             {abandon && (
               <p className="ach-avis" role="status">
                 Paiement interrompu — rien n'a été prélevé. Vous pouvez
@@ -203,7 +207,7 @@ export function Acheter() {
               </p>
             )}
 
-            <p className="ach-surtitre">Commande d'une étude</p>
+            <span className="acc-tag">Commande d'une étude</span>
             <h1>{offre.libelle}</h1>
             <p className="ach-accroche">{ACCROCHES[offre.type] ?? ""}</p>
 
@@ -236,8 +240,9 @@ export function Acheter() {
                   Votre adresse e-mail
                   <span className="ach-facultatif">facultatif</span>
                 </label>
-                {/* `.champ-saisie` (espace.css) : verre en creux, anneau or au
-                    focus autour d'un bord noir. */}
+                {/* `.champ-saisie` (espace.css) : le champ de la charte, 16 px
+                    au moins, anneau or au focus autour d'un bord noir —
+                    `Acheter.css` le porte à 52 px de haut. */}
                 <input
                   id="ach-email"
                   className="champ-saisie"
@@ -261,19 +266,22 @@ export function Acheter() {
             )}
 
             {/* Pendant l'ouverture du paiement, une lame de lumière traverse le
-                bouton (`.bouton-chargement`) : le texte dit « Ouverture… »,
-                le balayage dit seulement que ça travaille. */}
+                bouton (`.bouton-chargement`, espace.css) : le texte dit
+                « Ouverture… », le balayage dit seulement que ça travaille. */}
             <button
               type="button"
               className={
                 envoi
-                  ? "bouton bouton-principal bouton-chargement ach-bouton"
-                  : "bouton bouton-principal ach-bouton"
+                  ? "acc-btn acc-btn-noir ach-bouton bouton-chargement"
+                  : "acc-btn acc-btn-noir ach-bouton"
               }
               onClick={payer}
               disabled={envoi}
             >
               {envoi ? "Ouverture du paiement…" : `Payer ${euros(offre.prix_cents)}`}
+              <span className="acc-btn-fleche" aria-hidden="true">
+                →
+              </span>
             </button>
 
             <p className="ach-rassurance">
@@ -284,9 +292,7 @@ export function Acheter() {
         )}
       </main>
 
-      <div className="acc ach-socle">
-        <PiedSite inerte={menu.ouvert} />
-      </div>
+      <PiedSite inerte={menu.ouvert} />
     </div>
   );
 }

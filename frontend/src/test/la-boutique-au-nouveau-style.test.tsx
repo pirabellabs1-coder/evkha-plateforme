@@ -4,8 +4,10 @@
  * Refonte du 19/11/2026. Le catalogue (`Boutique`), la fiche (`FicheProduit`)
  * et le retour de paiement (`RetourBoutique`) sont passés au socle des pages
  * refondues ; la page d'achat (`Acheter`) et son retour (`RetourPaiement`)
- * n'ont changé que d'en-tête et de pied. L'ancien menu (`MenuSite`) renvoyait
- * vers l'ancien site, logo compris.
+ * n'avaient d'abord changé que d'en-tête et de pied, puis sont passées à leur
+ * tour sous la racine `.acc` du socle (`le-portail-est-au-langage-du-site`
+ * le verrouille). L'ancien menu (`MenuSite`, supprimé depuis) renvoyait vers
+ * l'ancien site, logo compris.
  *
  * Ce que ce fichier verrouille :
  *

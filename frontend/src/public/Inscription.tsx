@@ -19,7 +19,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { jeton } from "../espace/api";
 import { messageDuRefusDePaiement, payerUneEtude } from "./achat";
 import { BoutonGoogle } from "./BoutonGoogle";
-import { Portail } from "./Portail";
+import { FlecheDEnvoi, Portail } from "./Portail";
 import {
   chargerFormules,
   chargerLivrables,
@@ -199,6 +199,7 @@ export function Inscription() {
   return (
     <Portail
       titre={slugEtude ? "Créer votre espace" : "Créer votre espace partenaire"}
+      accent={slugEtude ? "votre espace" : "espace partenaire"}
       onglet="inscription"
       sousTitre={
         etude ? (
@@ -282,11 +283,16 @@ export function Inscription() {
                 onChange={(e) => setRaisonSociale(e.target.value)}
                 autoComplete="organization"
                 aria-invalid={champFautif === "raison_sociale_manquante"}
+                aria-describedby={
+                  champFautif === "raison_sociale_manquante"
+                    ? "prt-erreur"
+                    : undefined
+                }
                 required
               />
             </label>
 
-            <div className="insc-duo">
+            <div className="prt-duo">
               <label>
                 Prénom
                 <input
@@ -316,6 +322,12 @@ export function Inscription() {
                   champFautif === "email_invalide" ||
                   champFautif === "deja_membre"
                 }
+                aria-describedby={
+                  champFautif === "email_invalide" ||
+                  champFautif === "deja_membre"
+                    ? "prt-erreur"
+                    : undefined
+                }
                 required
               />
             </label>
@@ -331,13 +343,22 @@ export function Inscription() {
                   champFautif === "mot_de_passe_faible" ||
                   champFautif === "mot_de_passe_manquant"
                 }
+                aria-describedby={
+                  champFautif === "mot_de_passe_faible" ||
+                  champFautif === "mot_de_passe_manquant"
+                    ? "prt-erreur"
+                    : undefined
+                }
                 required
               />
               <small>Au moins douze signes, et pas seulement des chiffres.</small>
             </label>
 
+            {/* Le champ que le serveur désigne (`aria-invalid`) est relié à
+                ce message par `aria-describedby` : un lecteur d'écran le lit
+                en arrivant sur le champ fautif. */}
             {erreur && (
-              <p className="insc-erreur" role="alert">
+              <p className="prt-erreur" id="prt-erreur" role="alert">
                 {erreur}
                 {champFautif === "deja_membre" && (
                   <>
@@ -359,7 +380,11 @@ export function Inscription() {
                 — et une personne surprise par une page de carte bancaire
                 abandonne. Le montant y figure, comme sur la carte qu'elle
                 vient de cliquer. */}
-            <button type="submit" disabled={envoi}>
+            <button
+              type="submit"
+              className="acc-btn acc-btn-or prt-envoi"
+              disabled={envoi}
+            >
               {envoi
                 ? etude
                   ? "Ouverture du paiement…"
@@ -367,6 +392,7 @@ export function Inscription() {
                 : etude
                   ? `Créer mon compte et payer ${euros(etude.prix_cents)}`
                   : "Créer mon compte"}
+              <FlecheDEnvoi />
             </button>
           </form>
         </>

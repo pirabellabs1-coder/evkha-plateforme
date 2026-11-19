@@ -1,271 +1,253 @@
-/* Coquille commune connexion / inscription — charte de la page partenaires.
+/* Coquille commune connexion / inscription / mot de passe — une page du
+ * socle (`Site.css`), dans le langage de l'accueil.
  *
- * Les variables de couleur viennent de `.pp` : c'est la même marque, et un
- * second jeu de couleurs finirait par diverger du premier (règle 5). Le
- * verre, lui, vient de `theme/tokens.css` (`--verre-*`, `--halo-*`,
- * `--ease-*`) : c'est le même langage que l'espace client, et la personne qui
- * franchit cette porte doit retrouver de l'autre côté ce qu'elle a vu ici.
+ * Elle portait la charte des anciennes pages publiques (`.pp`,
+ * `Partenaires.css`) et le verre de l'espace client. Depuis le 19/11/2026
+ * elle se tient sous `.acc` : les couleurs viennent des alias `--acc-*` du
+ * socle, les boutons sont ses boutons-pilules (`.acc-btn`), l'étiquette sa
+ * pastille (`.acc-tag`), le mot d'accent du titre son Fraunces (`.acc-s`).
+ * Cette feuille ne garde que ce qui est propre à un écran de travail : la
+ * grille à deux colonnes, la carte du formulaire, les champs, les messages.
  *
  * Aucune couleur n'est écrite ici, pas même celles qui ne sont pas de la
- * charte : le bouton Google, les rouges du message d'erreur, les filets
- * crème ont leur jeton nommé dans `tokens.css` (`--google-*`, `--portail-*`),
- * à leur valeur exacte. Verrouillé par `les-pages-publiques-lisent-la-charte`.
+ * charte : le bouton Google et les rouges du message d'erreur ont leur jeton
+ * nommé dans `tokens.css` (`--google-*`, `--portail-*`), à leur valeur
+ * exacte. Verrouillé par `les-pages-publiques-lisent-la-charte`.
+ *
+ * Sobriété : c'est un écran où l'on tape, pas une page de vente. Ni ruban, ni
+ * orbite, ni révélation au défilement — la carte et le visuel entrent en
+ * fondu (`.acc-entre`, que le socle ramène à l'opacité seule sous mouvement
+ * réduit), et c'est tout.
  */
 
+/* `.acc` donne déjà la hauteur d'une fenêtre : la colonne laisse le contenu
+   occuper ce qui reste sous la barre. */
 .prt {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Le visuel à GAUCHE, le formulaire à droite. Demande de la cliente.
+/* ── L'en-tête du tunnel ─────────────────────────────────────────────────── */
+
+/* La barre du socle est FIXE : elle suit le visiteur le long d'une page de
+   vente. Ici elle reste en haut de la page et défile avec elle — sur un
+   téléphone, clavier ouvert, une barre fixe prendrait le quart de ce qui
+   reste d'écran au-dessus du champ que l'on remplit. Deux classes : la règle
+   l'emporte sur `.acc-entete` quel que soit l'ordre des feuilles. */
+.prt .prt-entete {
+  position: absolute;
+}
+
+/* « Retour au site » : la seule sortie de la barre, à droite du logo (qui
+   porte déjà `margin-right: auto`). Cerclée comme la porte de l'espace client
+   dans la barre du site. 44 px de haut : une cible confortable au doigt. */
+.prt-retour {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  transition: background-color var(--duree-micro) var(--ease-doux);
+}
+
+.prt-retour:hover {
+  background: var(--acc-or-clair);
+}
+
+/* ── La grille ───────────────────────────────────────────────────────────── */
+
+/* Téléphone d'abord : une colonne, le formulaire puis l'argumentaire — il
+ * argumente, il ne doit pas retarder l'accès à ce que la personne est venue
+ * faire. 112 px en haut : la barre (74 px, marge comprise) et de l'air.
  *
- * Les deux colonnes ne sont plus nommées par leur côté : `prt-gauche` et
- * `prt-droite` sont devenues fausses le jour où l'on a voulu les échanger, et
- * un nom faux se recopie. Elles disent maintenant ce qu'elles SONT — un
- * formulaire, un visuel — donc les inverser à nouveau ne coûtera qu'un
- * `order`, sans laisser derrière soi un nom qui ment (règle 4).
- *
- * Les planchers disent ce que chaque colonne exige, plutôt qu'une largeur
- * d'écran devinée : 240 px pour que la photo reste une photo et non un
- * liseré ; 520 px pour le formulaire, soit les 472 px de la carte de verre
- * `.prt-contenu` plus ses 2 × 1,5 rem de marge. Le premier plancher va à la
- * colonne de gauche, donc au visuel — l'ordre des pistes suit l'ordre
- * d'affichage, pas l'ordre du HTML.
- */
+ * Le HTML garde le formulaire en PREMIER, et c'est délibéré : au clavier
+ * comme au lecteur d'écran, la première chose atteinte après la barre doit
+ * être ce que la personne est venue faire. Le visuel, lui, est `aria-hidden`
+ * — il argumente, il n'informe pas. */
 .prt-grille {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(520px, 1fr);
-  min-height: 100vh;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 28px;
+  padding: 112px 0 clamp(40px, 6vw, 72px);
 }
 
-/* Le HTML garde le formulaire en PREMIER, et c'est délibéré : au clavier comme
- * au lecteur d'écran, la première chose atteinte doit être ce que la personne
- * est venue faire. Le visuel, lui, est `aria-hidden` — il argumente, il
- * n'informe pas. Seul l'affichage est inversé.
- */
-.prt-visuel {
-  order: 1;
-}
+/* ── La carte du formulaire ──────────────────────────────────────────────── */
 
+/* La carte à double bord du site (`--acc-ecrin`) : blanche sur le papier,
+   deux filets d'encre très dilués, une ombre dorée. 520 px au plus : une
+   ligne de formulaire plus longue se lit moins bien qu'elle ne se remplit. */
 .prt-formulaire {
-  order: 2;
-}
-
-/* ── Colonne du formulaire ───────────────────────────────────────────────── */
-
-/* La colonne porte le MAILLAGE — le même fond que l'espace client : la
- * coquille de la charte et deux halos, or en haut, crème en bas. Peint sur la
- * colonne et non sur un calque fixe : cette page tient dans un écran, rien
- * n'y défile sous un verre. */
-.prt-formulaire {
-  background:
-    radial-gradient(38rem 30rem at 18% 0%, var(--halo-or) 0%, transparent 68%),
-    radial-gradient(
-      34rem 28rem at 100% 100%,
-      var(--halo-creme) 0%,
-      transparent 66%
-    ),
-    var(--evkha-coquille);
-  display: grid;
-  place-items: center;
-  padding: 2.5rem 1.5rem 3rem;
-}
-
-/* Le formulaire est une CARTE DE VERRE centrée sur le maillage : coque
- * translucide, cœur blanc en retrait de `--verre-marge`, rayons
- * concentriques — la même double bordure que les cartes de l'espace client.
- * Le cœur est un pseudo-élément, sous le contenu (`z-index: -1` dans le
- * contexte isolé de la carte). */
-.prt-contenu {
-  position: relative;
-  isolation: isolate;
-  width: min(472px, 100%);
-  padding: calc(2rem + var(--verre-marge));
-  border: 1px solid var(--verre-bordure);
-  border-radius: var(--rayon-verre);
-  background: var(--verre-fond);
-  box-shadow: var(--ombre-ambiante-lg);
-  animation: prt-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
-}
-
-.prt-contenu::before {
-  content: "";
-  position: absolute;
-  inset: var(--verre-marge);
-  z-index: -1;
-  pointer-events: none;
-  border: 1px solid var(--verre-reflet);
-  border-radius: var(--rayon-verre-interne);
-  background: var(--verre-fond-fort);
-  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
-}
-
-/* Ce que la carte contient arrive après elle, en fondu seul et l'un après
- * l'autre : la carte monte, son contenu s'allume. Deux montées empilées
- * bougeraient deux fois pour le même effet. */
-.prt-contenu > * {
-  animation: prt-fondu var(--duree-reveal) var(--ease-sortie) backwards;
-  animation-delay: calc((var(--i, 0) + 2) * var(--decalage-reveal));
-}
-
-.prt-contenu > :nth-child(2) {
-  --i: 1;
-}
-.prt-contenu > :nth-child(3) {
-  --i: 2;
-}
-.prt-contenu > :nth-child(4) {
-  --i: 3;
-}
-.prt-contenu > :nth-child(n + 5) {
-  --i: 4;
-}
-
-@keyframes prt-arrivee {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-}
-
-@keyframes prt-fondu {
-  from {
-    opacity: 0;
-  }
-}
-
-.prt-logo {
-  display: inline-block;
-  background: var(--or);
-  color: var(--noir);
-  font-weight: 800;
-  font-size: 1.2rem;
-  letter-spacing: 0.02em;
-  padding: 0.3rem 1.2rem;
-  border-radius: 999px;
-  text-decoration: none;
-  line-height: 1.2;
-  margin-bottom: 2rem;
-}
-
-.prt-logo small {
-  display: block;
-  font-size: 0.38rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-align: center;
+  justify-self: center;
+  width: 100%;
+  max-width: 520px;
+  padding: clamp(22px, 4.4vw, 40px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
 }
 
 /* ── Onglets ─────────────────────────────────────────────────────────────── */
 
+/* Deux portes du même endroit, dans une gouttière dorée. L'onglet actif ne
+   tient pas à la couleur seule : il est sur une pastille blanche, en gras, et
+   porte `aria-current="page"`. Le libellé peut passer à la ligne sur un
+   téléphone étroit plutôt que de sortir de la carte. */
 .prt-onglets {
-  display: flex;
-  gap: 1.6rem;
-  border-bottom: 1px solid var(--portail-filet);
-  margin-bottom: 1.8rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 18px 0 26px;
+  padding: 4px;
+  border-radius: 26px;
+  background: var(--acc-or-clair);
 }
 
 .prt-onglets a {
-  font-size: 0.8rem;
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 4px 10px;
+  border-radius: 22px;
+  color: var(--acc-gris);
   font-weight: 600;
-  color: var(--gris);
-  text-decoration: none;
-  padding: 0 0 0.7rem;
-  /* Le trait de l'onglet actif est reserve dans tous les cas : sans lui, la
-     ligne saute de deux pixels au changement d'onglet. */
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  text-align: center;
+  transition: background-color var(--duree-micro) var(--ease-doux),
+    color var(--duree-micro) var(--ease-doux);
 }
 
 .prt-onglets a:hover {
-  color: var(--noir);
+  color: var(--acc-encre);
 }
 
 .prt-onglets .prt-actif {
-  color: var(--noir);
-  border-bottom-color: var(--or);
+  background: var(--acc-blanc);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--evkha-miel) 18%, transparent);
+  color: var(--acc-encre);
+  font-weight: 800;
 }
 
 /* ── Titres ──────────────────────────────────────────────────────────────── */
 
+/* Plus petit que le titre d'une page de vente : la carte est étroite, et le
+   titre n'est pas ce qu'on est venu lire. */
 .prt h1 {
-  font-size: 1.45rem;
-  font-weight: 800;
-  margin: 0 0 0.5rem;
-  line-height: 1.25;
+  font-size: clamp(1.7rem, 2.6vw, 2.15rem);
+  line-height: 1.1;
+  text-wrap: balance;
 }
 
 .prt-sous-titre {
-  font-size: 0.78rem;
-  color: var(--gris);
-  margin: 0 0 1.6rem;
+  margin: 10px 0 24px;
+  font-size: 0.96rem;
+  line-height: 1.5;
 }
 
-/* ── Colonne visuelle ────────────────────────────────────────────────────── */
+.prt-sous-titre b {
+  color: var(--acc-encre);
+}
 
+/* Un lien dans le texte : souligné, pour ne pas tenir à la couleur seule. */
+.prt-sous-titre a {
+  color: var(--acc-encre);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--acc-or-fonce);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.prt-sous-titre a:hover {
+  text-decoration-color: var(--acc-encre);
+}
+
+/* Un message qui n'est ni une erreur ni un formulaire : « Confirmation en
+   cours… », « C'est fait ». À l'encre, pas au gris des paragraphes. */
+.prt-message {
+  color: var(--acc-encre);
+  font-weight: 500;
+}
+
+/* ── Le visuel et son argumentaire ───────────────────────────────────────── */
+
+/* Sur un téléphone : une carte d'encre, sans photo. Le texte clair y tient
+   son contraste quoi qu'il arrive (14:1 pour la liste), et la photo —
+   décorative, `loading="lazy"` — est masquée. */
 .prt-visuel {
   position: relative;
-  background: var(--noir);
-  overflow: hidden;
   display: grid;
-  place-items: end start;
+  align-items: end;
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-encre);
 }
 
-.prt-visuel img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Voile sombre : sans lui, le texte blanc devient illisible dès que la photo
-   comporte une zone claire — et la photo, elle, changera. */
+.prt-photo,
 .prt-voile {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    color-mix(in srgb, var(--evkha-noir-pur) 88%, transparent) 0%,
-    color-mix(in srgb, var(--evkha-noir-pur) 55%, transparent) 45%,
-    color-mix(in srgb, var(--evkha-noir-pur) 25%, transparent) 100%
-  );
+  display: none;
 }
 
 .prt-panneau {
   position: relative;
-  color: var(--evkha-blanc);
-  padding: 2.5rem 2.8rem 3rem;
+  padding: clamp(24px, 3.4vw, 40px);
+  color: var(--acc-blanc);
 }
 
 .prt-panneau h2 {
-  font-family: var(--serif);
-  font-size: 1.6rem;
-  font-weight: 700;
-  line-height: 1.3;
-  margin: 0 0 1.4rem;
-  max-width: 22ch;
+  max-width: 18em;
+  margin-bottom: 18px;
+  color: var(--acc-blanc);
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  line-height: 1.18;
 }
 
 .prt-panneau ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
   display: grid;
-  gap: 0.75rem;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .prt-panneau li {
   display: grid;
-  grid-template-columns: 1rem 1fr;
-  gap: 0.6rem;
+  grid-template-columns: 24px 1fr;
+  gap: 12px;
   align-items: start;
-  font-size: 0.82rem;
-  line-height: 1.5;
   color: var(--portail-panneau-texte);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+/* Pastille à coche dorée, celle des listes du site. Décorative. */
+.prt-coche {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--acc-or);
+  color: var(--acc-encre);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 /* ── Bouton Google ───────────────────────────────────────────────────────── */
 
+/* Google impose de rendre SON bouton, dans un cadre qu'il dessine lui-même
+   (`google.ts`) : cette classe n'habille qu'un bouton maison, et aucun écran
+   n'en pose aujourd'hui. Elle est gardée telle quelle — les gris sont ceux de
+   Google Identity Services (`--google-*`), pas ceux de la charte, et ils ne
+   se retouchent pas. */
 .prt-google {
   width: 100%;
   display: flex;
@@ -321,84 +303,72 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 0.8rem;
-  margin: 1.3rem 0;
-  color: var(--gris);
-  font-size: 0.7rem;
+  gap: 14px;
+  margin: 20px 0;
+  color: var(--acc-doux);
+  font-size: 0.84rem;
+  font-weight: 600;
 }
 
 .prt-ou::before,
 .prt-ou::after {
   content: "";
-  height: 1px;
+  height: 1.5px;
   background: var(--portail-filet);
 }
 
-/* ── Adaptations ─────────────────────────────────────────────────────────── */
+/* ── Champs, boutons et messages (communs à tous les écrans) ─────────────── */
 
-/* 760 px = la somme des deux planchers. En dessous, une des deux colonnes
-   mentirait sur sa largeur et la page déborderait horizontalement. */
-@media (max-width: 760px) {
-  .prt-grille {
-    grid-template-columns: 1fr;
-  }
-  /* Sur mobile, le visuel passe SOUS le formulaire : il argumente, il ne doit
-     pas retarder l'accès à ce que la personne est venue faire. */
-  .prt-visuel {
-    min-height: 320px;
-    order: 2;
-  }
-  .prt-formulaire {
-    order: 1;
-  }
-}
-
-/* ── Champs, boutons et messages (communs aux deux pages) ────────────────── */
-
+/* Le libellé est toujours visible, au-dessus de son champ : un texte
+   d'exemple dans le champ disparaît à la première lettre. */
 .prt label {
   display: block;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
+  margin-bottom: 18px;
+  color: var(--acc-encre);
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
-/* Un champ est un verre en creux, comme `.champ-saisie` dans l'espace client :
-   fond translucide, ombre intérieure d'un pixel, bord visible. */
+/* 52 px de haut : une cible confortable au doigt, bien au-dessus des 48 px
+ * demandés. Le bord est le gris de la charte, à 3,9:1 sur le blanc de la
+ * carte — un champ dont on ne voit pas le contour ne se reconnaît pas comme
+ * un champ (WCAG 1.4.11 : 3:1 au moins). L'ancien bord crème plafonnait à
+ * 1,5:1. */
 .prt input {
   display: block;
   width: 100%;
-  margin-top: 0.35rem;
-  padding: 0.7rem 0.9rem;
+  min-height: 52px;
+  margin-top: 8px;
+  padding: 0 16px;
+  border: 1.5px solid var(--evkha-gris-doux);
+  border-radius: 14px;
+  background: var(--acc-blanc);
+  color: var(--acc-encre);
   font-family: inherit;
   /* 16 px au moins : en dessous, Safari iOS zoome la page au focus et ne la
    * dézoome pas. Les champs étaient à 0,85 rem (13,6 px) sur la connexion,
    * l'inscription et le mot de passe — vu le 26/09/2026. */
   font-size: 1rem;
-  color: var(--noir);
-  background: var(--verre-fond-fort);
-  border: 1px solid var(--portail-champ-bordure);
-  border-radius: var(--rayon-md);
-  box-shadow: inset 0 1px 2px var(--verre-bordure);
+  font-weight: 500;
   transition: border-color var(--duree-micro) var(--ease-doux),
-    box-shadow var(--duree-micro) var(--ease-doux),
-    background var(--duree-micro) var(--ease-doux);
+    background-color var(--duree-micro) var(--ease-doux);
 }
 
-.prt input:hover:not(:focus) {
-  background: var(--evkha-blanc);
+.prt input:hover {
+  border-color: var(--acc-encre);
 }
 
-/* Anneau or au focus, autour d'un bord NOIR : l'or seul plafonne à 1,7:1 sur
-   blanc, et l'anneau de focus doit se voir de qui en a besoin. */
+/* Le focus : le bord passe à l'encre, et le contour du socle (3 px d'encre,
+   décollé de 3 px — `:where(.acc) :focus-visible`) l'entoure. Un champ de
+   texte prend toujours `:focus-visible` quand il a le focus : la règle vaut
+   au clavier comme à la souris. */
 .prt input:focus {
-  outline: none;
-  border-color: var(--noir);
-  background: var(--evkha-blanc);
-  box-shadow: 0 0 0 1px var(--noir), 0 0 0 5px var(--halo-or-fort);
+  border-color: var(--acc-encre);
 }
 
 /* Le champ fautif se voit AUSSI par la couleur, jamais seulement par elle :
-   le message d'erreur nomme toujours ce qui ne va pas. */
+   le message d'erreur nomme toujours ce qui ne va pas, et le champ y est
+   relié par `aria-describedby`. */
 .prt input[aria-invalid="true"] {
   border-color: var(--evkha-echec);
   background: var(--portail-champ-invalide);
@@ -406,65 +376,44 @@
 
 .prt label small {
   display: block;
-  font-weight: 400;
-  font-size: 0.68rem;
-  color: var(--gris);
-  margin-top: 0.3rem;
+  margin-top: 6px;
+  color: var(--acc-doux);
+  font-size: 0.84rem;
+  font-weight: 500;
 }
 
-.prt .insc-duo {
+.prt-duo {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.9rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
-/* Le bouton est un îlot : une pilule qui se soulève au survol et s'enfonce à
-   l'appui. `position` et `overflow` servent au balayage de chargement. */
-.prt button[type="submit"] {
+/* Le bouton d'envoi : le bouton-pilule doré du site, sur toute la largeur de
+   la carte. Son libellé peut passer à la ligne (il porte un montant sur le
+   parcours d'achat) plutôt que de sortir de l'écran. */
+.acc .prt-envoi {
   position: relative;
-  overflow: hidden;
+  justify-content: space-between;
   width: 100%;
-  background: var(--or);
-  color: var(--noir);
-  border: none;
-  border-radius: 999px;
-  padding: 0.85rem;
-  font-family: inherit;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  cursor: pointer;
-  margin-top: 0.4rem;
-  box-shadow: inset 0 1px 0 var(--verre-reflet);
-  transition: background var(--duree-micro) var(--ease-doux),
-    transform var(--duree-micro) var(--ease-doux),
-    box-shadow var(--duree-micro) var(--ease-doux);
+  margin-top: 6px;
+  padding-block: 8px;
+  white-space: normal;
+  text-align: left;
 }
 
-.prt button[type="submit"]:hover:not(:disabled) {
-  background: var(--portail-or-survol);
-  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
-  transform: translateY(-1px);
-}
-
-.prt button[type="submit"]:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.prt button[type="submit"]:focus-visible {
-  outline: none;
-  box-shadow: var(--anneau-focus);
-}
-
-/* Fermé = en cours d'envoi, sur ces deux pages (`disabled={envoi}`). Le
-   texte dit déjà « Connexion en cours… » ; une lame de lumière traverse la
-   pilule pour dire que ça travaille, sans tourniquet. */
-.prt button[type="submit"]:disabled {
-  opacity: 0.85;
+/* Fermé = en cours d'envoi, sur ces écrans (`disabled={envoi}`). Le texte dit
+   déjà « Connexion en cours… » ; une lame de lumière traverse la pilule pour
+   dire que ça travaille, sans tourniquet. Plus de soulèvement, et le curseur
+   dit qu'on attend. Le rognage ne sert qu'à la lame : il n'est posé que là
+   (`un-bouton-ne-rogne-pas-son-libelle`). */
+.acc .prt-envoi:disabled {
+  overflow: hidden;
+  box-shadow: none;
   cursor: progress;
+  transform: none;
 }
 
-.prt button[type="submit"]:disabled::after {
+.prt-envoi:disabled::after {
   content: "";
   position: absolute;
   top: 0;
@@ -475,7 +424,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--verre-reflet) 50%,
+    color-mix(in srgb, var(--evkha-blanc) 60%, transparent) 50%,
     transparent 100%
   );
   transform: translateX(-100%);
@@ -488,44 +437,42 @@
   }
 }
 
-.prt .insc-erreur {
+/* Un refus : un filet à gauche et le rouge du portail sur son voile (8:1) —
+   jamais la couleur seule, le texte dit ce qui se passe. */
+.prt-erreur {
+  margin: 0 0 18px;
+  padding: 14px 18px;
+  border-left: 4px solid var(--evkha-echec);
+  border-radius: 12px;
   background: var(--portail-erreur-voile);
-  border: 1px solid var(--portail-erreur-bordure);
+  box-shadow: inset 0 0 0 1px var(--portail-erreur-bordure);
   color: var(--portail-erreur-texte);
-  border-radius: var(--rayon-md);
-  padding: 0.75rem 0.95rem;
-  font-size: 0.75rem;
-  margin: 0 0 1rem;
-  box-shadow: inset 0 1px 0 var(--verre-reflet);
-}
-
-.prt .insc-erreur a {
-  color: var(--portail-erreur-texte);
-  font-weight: 700;
-}
-
-.prt-sous-titre a {
-  color: var(--or-fonce);
+  font-size: 0.93rem;
   font-weight: 600;
+  line-height: 1.5;
 }
 
-@media (max-width: 480px) {
-  .prt .insc-duo {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
+.prt-erreur a {
+  color: var(--portail-erreur-texte);
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Lien d'appoint sous un formulaire : « mot de passe oublié ». Discret sans
-   être invisible — c'est la sortie de secours de quelqu'un qui est bloqué. */
+   être invisible — c'est la sortie de secours de quelqu'un qui est bloqué.
+   Le rembourrage porte la cible au-delà de 24 px de haut. */
 .prt-appoint {
-  margin: 18px 0 0;
+  margin-top: 18px;
+  font-size: 0.92rem;
   text-align: center;
-  font-size: 14px;
 }
 
 .prt-appoint a {
+  display: inline-block;
+  padding: 6px 0;
   color: var(--portail-appoint);
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -534,14 +481,80 @@
   color: var(--portail-appoint-survol);
 }
 
+/* ── Largeurs ────────────────────────────────────────────────────────────── */
+
+/* Sur un téléphone étroit, prénom et nom passent l'un sous l'autre. */
+@media (max-width: 480px) {
+  .prt-duo {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .prt-retour {
+    padding: 0 14px;
+  }
+}
+
+/* Deux colonnes dès que l'écran les porte : le visuel à GAUCHE, le formulaire
+ * à droite — demande de la cliente. Seul l'affichage est inversé (`order`) :
+ * l'ordre du HTML ne bouge pas.
+ *
+ * Les colonnes disent ce qu'elles SONT — un formulaire, un visuel —, pas leur
+ * côté : `prt-gauche` et `prt-droite` sont devenues fausses le jour où l'on a
+ * voulu les échanger, et un nom faux se recopie (règle 4). */
+@media (min-width: 901px) {
+  .prt-grille {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-content: stretch;
+    align-items: stretch;
+    gap: clamp(28px, 4vw, 56px);
+  }
+
+  .prt-visuel {
+    order: 1;
+    min-height: 520px;
+  }
+
+  .prt-formulaire {
+    order: 2;
+    align-self: center;
+  }
+
+  /* La photo couvre la colonne. `height` est déclarée ici : la balise porte
+     ses dimensions en attributs, et sans cette règle l'attribut deviendrait
+     une hauteur fixe (`une-image-garde-son-ratio`). */
+  .prt-photo {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Voile d'encre : sans lui, le texte clair devient illisible dès que la
+     photo comporte une zone claire — et la photo, elle, changera. Dense là
+     où le texte se tient (le bas), léger au-dessus. */
+  .prt-voile {
+    position: absolute;
+    inset: 0;
+    display: block;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--evkha-encre) 94%, transparent) 0%,
+      color-mix(in srgb, var(--evkha-encre) 82%, transparent) 55%,
+      color-mix(in srgb, var(--evkha-encre) 22%, transparent) 100%
+    );
+  }
+}
+
 /* ── Mouvement réduit ────────────────────────────────────────────────────── */
 
-/* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet : états
-   finaux, tout de suite, et pas de lame de lumière sur le bouton fermé. */
+/* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet : pas de
+   lame de lumière sur le bouton fermé. L'entrée de la carte, elle, est celle
+   du socle (`.acc-entre`), qu'il ramène lui-même à un fondu. */
 @media (prefers-reduced-motion: reduce) {
-  .prt-contenu,
-  .prt-contenu > *,
-  .prt button[type="submit"]:disabled::after {
+  .prt-envoi:disabled::after {
     animation: none;
   }
 }

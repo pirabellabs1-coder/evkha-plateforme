@@ -165,66 +165,6 @@ export const APPEL_FINAL = {
 
 export const CONTACT_EMAIL = "contact@evkha.fr";
 
-/** Le menu du site vitrine, reproduit sur nos pages publiques.
- *
- * Cette page a remplacé `evkha.fr/partenairespro` dans le tunnel de vente. Le
- * visiteur qui cliquait arrivait chez nous — et le menu disparaissait, puisque
- * c'est un autre site. Constaté par la cliente le 07/08/2026 : « on ne voit
- * plus le menu du tunnel de vente ».
- *
- * **C'est une duplication, et elle est assumée.** Elle contredit la règle 5 —
- * une seule source par vérité — mais l'alternative était de laisser le visiteur
- * sans issue au milieu d'un parcours d'achat. On paie donc un entretien : si
- * une entrée change sur Systeme.io, elle doit changer ICI, et nulle part
- * ailleurs. C'est le seul endroit du dépôt où ce menu est écrit.
- *
- * Relevé sur `https://www.evkha.fr/` le 07/08/2026, structure et ordre compris.
- *
- * Une différence assumée avec l'original : le site écrit « Boite à outils »
- * sans accent circonflexe. On écrit « Boîte » — recopier une faute pour
- * ressembler à la source la ferait exister à deux endroits au lieu d'un.
- */
-export type EntreeMenu = {
-  libelle: string;
-  lien: string;
-  /** Plus de drapeau `courant` écrit à la main : deux pages publiques
-   *  partagent ce menu, et un drapeau figé annoncerait « vous êtes ici » sur
-   *  la mauvaise. `MenuSite` le DÉDUIT de l'adresse courante. */
-  /** Bouton d'appel, à droite et détaché du reste. */
-  appel?: boolean;
-  /** Sous-entrées d'un menu déroulant. */
-  enfants?: { libelle: string; lien: string }[];
-};
-
-export const MENU_SITE: EntreeMenu[] = [
-  { libelle: "Accueil", lien: "https://www.evkha.fr/" },
-  {
-    libelle: "Etude de marché & Livrables",
-    lien: "/etudes",
-    enfants: [
-      // Cette page-ci a remplacé `evkha.fr/etudedemarche` dans le tunnel : le
-      // lien est donc interne, comme celui des partenaires. Les études prêtes
-      // à télécharger restent sur le site vitrine, elles ne passent pas par
-      // la plateforme.
-      { libelle: "Générer votre étude ou livrable", lien: "/etudes" },
-      // La boutique a remplace `evkha.fr/etude-achat-immediat` : le lien est
-      // donc interne, comme celui des etudes sur mesure.
-      { libelle: "Études en téléchargement immédiat", lien: "/boutique" },
-    ],
-  },
-  { libelle: "Nos packs accompagnement", lien: "https://www.evkha.fr/packs" },
-  { libelle: "Partenariats PRO et abonnements", lien: "/partenaires" },
-  { libelle: "Nos Formations", lien: "https://www.evkha.fr/formation" },
-  { libelle: "Boîte à outils", lien: "https://www.evkha.fr/boite-a-outil" },
-  {
-    libelle: "Me contacter",
-    lien: "https://www.evkha.fr/contacts",
-    appel: true,
-  },
-];
-
-export const LOGO_SITE = "/partenaires/logo-evkha.png";
-
 // ── Nos études : la page des livrables à l'unité ────────────────────────────
 
 /** Argumentaire de chaque étude vendue seule, repris de `evkha.fr/etudedemarche`.

@@ -32,8 +32,8 @@
  * papier crème, or, encre, Fraunces pour les prix et les mots d'accent, cartes
  * à double bord, boutons-pilules. La barre, le menu et le pied sont ceux du
  * socle (`EnTeteSite`, `PiedSite`, `Site.css`), montés par `CadreDeBoutique`
- * que la fiche et le retour de paiement réutilisent ; l'ancien menu
- * (`MenuSite`) renvoyait vers l'ancien site. Tous les blocs d'avant sont là,
+ * que la fiche et le retour de paiement réutilisent ; l'ancien menu, retiré
+ * depuis, renvoyait vers l'ancien site. Tous les blocs d'avant sont là,
  * avec leur texte ; le chargement, la panne (dite, jamais lue comme un
  * catalogue vide), le catalogue vide et le filtre par thème n'ont pas changé
  * de logique.

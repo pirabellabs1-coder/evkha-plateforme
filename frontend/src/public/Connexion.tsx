@@ -9,7 +9,7 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ErreurApi, espaceApi, jeton } from "../espace/api";
 import { BoutonGoogle } from "./BoutonGoogle";
-import { Portail } from "./Portail";
+import { FlecheDEnvoi, Portail } from "./Portail";
 
 export function Connexion() {
   const naviguer = useNavigate();
@@ -46,6 +46,7 @@ export function Connexion() {
   return (
     <Portail
       titre="Accéder à votre espace"
+      accent="votre espace"
       onglet="connexion"
       sousTitre={
         <p className="prt-sous-titre">
@@ -80,6 +81,7 @@ export function Connexion() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
+                aria-describedby={erreur ? "prt-erreur" : undefined}
                 required
               />
             </label>
@@ -91,12 +93,16 @@ export function Connexion() {
                 value={motDePasse}
                 onChange={(e) => setMotDePasse(e.target.value)}
                 autoComplete="current-password"
+                aria-describedby={erreur ? "prt-erreur" : undefined}
                 required
               />
             </label>
 
+            {/* Le serveur ne dit pas lequel des deux champs est faux : le
+                message est relié aux deux (`aria-describedby`), et aucun
+                n'est marqué fautif. */}
             {erreur && (
-              <p className="insc-erreur" role="alert">
+              <p className="prt-erreur" id="prt-erreur" role="alert">
                 {erreur}
                 {/* Une adresse Google inconnue arrive ici : on nomme la sortie
                     au lieu de laisser la personne chercher. */}
@@ -109,8 +115,13 @@ export function Connexion() {
               </p>
             )}
 
-            <button type="submit" disabled={envoi}>
+            <button
+              type="submit"
+              className="acc-btn acc-btn-or prt-envoi"
+              disabled={envoi}
+            >
               {envoi ? "Connexion en cours…" : "Se connecter"}
+              <FlecheDEnvoi />
             </button>
 
             {/* Il n'existait aucun moyen de retrouver son mot de passe :

@@ -6,58 +6,102 @@ import {
   type RouterHistory,
 } from "@tanstack/react-router";
 import { GabaritRacine } from "./GabaritRacine";
-import { CoquilleAdmin } from "./admin/Coquille";
-import { TableauDeBordAdmin } from "./admin/pages/TableauDeBord";
-import { OrganisationsAdmin } from "./admin/pages/Organisations";
-import { LivrablesAdmin } from "./admin/pages/Livrables";
-import { QualiteAdmin } from "./admin/pages/Qualite";
-import { BoutiqueAdmin } from "./admin/pages/BoutiqueAdmin";
-import { Annonces } from "./admin/pages/Annonces";
-import { ProspectionAdmin } from "./admin/pages/Prospection";
-import { TransactionsAdmin } from "./admin/pages/Transactions";
-import { DemandesAdmin } from "./admin/pages/Demandes";
-import { SignalementsAdmin } from "./admin/pages/Signalements";
-import { Jobs } from "./pages/Jobs";
-import { JobDetail } from "./pages/JobDetail";
-import { Incidents } from "./pages/Incidents";
-import { Clients } from "./pages/Clients";
-import { ClientDetail } from "./pages/ClientDetail";
-import { Orders } from "./pages/Orders";
-import { Login } from "./pages/Login";
+import { PageEnAttente, PageEnEchec } from "./EtatsDuRouteur";
 import { isAuthenticated } from "./auth";
+import { ecranDiffere } from "./chargement";
 import { routesEspace } from "./espace/routes";
 import { Accueil } from "./public/Accueil";
-import { Partenaires } from "./public/Partenaires";
-import { NosEtudes } from "./public/NosEtudes";
-import { PackEssentiel, PackPremium, Packs } from "./public/Packs";
-import {
-  FormationMicro,
-  FormationPop,
-  Formations,
-  FormationSocietes,
-} from "./public/Formations";
-import { BoiteAOutils, Contact, Swapn } from "./public/Ressources";
-import { ArticleDeBlog, Blog } from "./public/Blog";
-import {
-  Cgv,
-  MentionsLegales,
-  PolitiqueDeConfidentialite,
-  Rgpd,
-} from "./public/PagesLegales";
 import {
   adresseDeLArticle,
   CHEMINS,
   SLUG_IDEE_BUSINESS_VIABLE,
 } from "./public/contenuSite";
-import { Introuvable } from "./public/Introuvable";
-import { Boutique } from "./public/Boutique";
-import { FicheProduit } from "./public/FicheProduit";
-import { RetourBoutique } from "./public/RetourBoutique";
-import { Inscription } from "./public/Inscription";
-import { DefinirMotDePasse, MotDePasseOublie } from "./public/MotDePasse";
-import { ConfirmerAdresse } from "./public/ConfirmerAdresse";
-import { Acheter } from "./public/Acheter";
-import { RetourPaiement } from "./public/RetourPaiement";
+
+// --- Les ecrans, charges a la demande ------------------------------------------
+//
+// Seule la page d'accueil est importee ici : c'est elle que le visiteur
+// demande d'abord, et elle ne doit attendre aucun second fichier. Tout le
+// reste est importe quand sa route est ouverte (`ecranDiffere`,
+// `chargement.ts`) — jusqu'au 19/11/2026, ce fichier importait tout, et le
+// visiteur de l'accueil telechargeait l'administration et l'espace client.
+//
+// Chaque ecran garde ici le NOM de son composant : les routes plus bas n'ont
+// pas change de forme (`component: Packs`), et se lisent comme avant.
+//
+// Les morceaux :
+//   - l'administration, d'un bloc (`admin/ecrans.ts`) — et sa page de
+//     connexion a part, qu'on voit AVANT d'avoir le droit d'entrer ;
+//   - l'espace client, d'un bloc (`espace/ecrans.ts`, voir `espace/routes.tsx`) ;
+//   - les pages publiques, un morceau par fichier : les pages d'un meme
+//     fichier (les trois packs, les quatre textes legaux) viennent ensemble.
+//     Ce qu'elles partagent (la barre, le pied, les textes communs) est deja
+//     la, charge avec l'accueil.
+//
+// Les gardes d'acces (`beforeLoad`) s'executent AVANT tout chargement de
+// composant : personne ne telecharge un espace ou il n'entrera pas.
+
+const admin = () => import("./admin/ecrans");
+const CoquilleAdmin = ecranDiffere(admin, "CoquilleAdmin");
+const TableauDeBordAdmin = ecranDiffere(admin, "TableauDeBordAdmin");
+const OrganisationsAdmin = ecranDiffere(admin, "OrganisationsAdmin");
+const LivrablesAdmin = ecranDiffere(admin, "LivrablesAdmin");
+const QualiteAdmin = ecranDiffere(admin, "QualiteAdmin");
+const BoutiqueAdmin = ecranDiffere(admin, "BoutiqueAdmin");
+const Annonces = ecranDiffere(admin, "Annonces");
+const ProspectionAdmin = ecranDiffere(admin, "ProspectionAdmin");
+const TransactionsAdmin = ecranDiffere(admin, "TransactionsAdmin");
+const DemandesAdmin = ecranDiffere(admin, "DemandesAdmin");
+const SignalementsAdmin = ecranDiffere(admin, "SignalementsAdmin");
+const Jobs = ecranDiffere(admin, "Jobs");
+const JobDetail = ecranDiffere(admin, "JobDetail");
+const Incidents = ecranDiffere(admin, "Incidents");
+const Clients = ecranDiffere(admin, "Clients");
+const ClientDetail = ecranDiffere(admin, "ClientDetail");
+const Orders = ecranDiffere(admin, "Orders");
+const Login = ecranDiffere(() => import("./pages/Login"), "Login");
+
+const Partenaires = ecranDiffere(() => import("./public/Partenaires"), "Partenaires");
+const NosEtudes = ecranDiffere(() => import("./public/NosEtudes"), "NosEtudes");
+
+const packs = () => import("./public/Packs");
+const Packs = ecranDiffere(packs, "Packs");
+const PackEssentiel = ecranDiffere(packs, "PackEssentiel");
+const PackPremium = ecranDiffere(packs, "PackPremium");
+
+const formations = () => import("./public/Formations");
+const Formations = ecranDiffere(formations, "Formations");
+const FormationSocietes = ecranDiffere(formations, "FormationSocietes");
+const FormationMicro = ecranDiffere(formations, "FormationMicro");
+const FormationPop = ecranDiffere(formations, "FormationPop");
+
+const ressources = () => import("./public/Ressources");
+const BoiteAOutils = ecranDiffere(ressources, "BoiteAOutils");
+const Contact = ecranDiffere(ressources, "Contact");
+const Swapn = ecranDiffere(ressources, "Swapn");
+
+const blog = () => import("./public/Blog");
+const Blog = ecranDiffere(blog, "Blog");
+const ArticleDeBlog = ecranDiffere(blog, "ArticleDeBlog");
+
+const textesLegaux = () => import("./public/PagesLegales");
+const MentionsLegales = ecranDiffere(textesLegaux, "MentionsLegales");
+const Rgpd = ecranDiffere(textesLegaux, "Rgpd");
+const Cgv = ecranDiffere(textesLegaux, "Cgv");
+const PolitiqueDeConfidentialite = ecranDiffere(textesLegaux, "PolitiqueDeConfidentialite");
+
+const Introuvable = ecranDiffere(() => import("./public/Introuvable"), "Introuvable");
+const Boutique = ecranDiffere(() => import("./public/Boutique"), "Boutique");
+const FicheProduit = ecranDiffere(() => import("./public/FicheProduit"), "FicheProduit");
+const RetourBoutique = ecranDiffere(() => import("./public/RetourBoutique"), "RetourBoutique");
+const Inscription = ecranDiffere(() => import("./public/Inscription"), "Inscription");
+
+const motDePasse = () => import("./public/MotDePasse");
+const DefinirMotDePasse = ecranDiffere(motDePasse, "DefinirMotDePasse");
+const MotDePasseOublie = ecranDiffere(motDePasse, "MotDePasseOublie");
+
+const ConfirmerAdresse = ecranDiffere(() => import("./public/ConfirmerAdresse"), "ConfirmerAdresse");
+const Acheter = ecranDiffere(() => import("./public/Acheter"), "Acheter");
+const RetourPaiement = ecranDiffere(() => import("./public/RetourPaiement"), "RetourPaiement");
 
 // --- Racine ------------------------------------------------------------------
 // Le gabarit vit dans `GabaritRacine.tsx` : il appelle un crochet React, ce
@@ -556,11 +600,21 @@ export const routeTree = rootRoute.addChildren([
 // Une fabrique, pour que l'application et les tests montent le MEME routeur :
 // meme arbre, meme page introuvable. Seul l'historique change (celui du
 // navigateur par defaut, un historique en memoire dans les tests).
+//
+// Deux ecrans pour ce qui se passe ENTRE deux pages, maintenant que les ecrans
+// se chargent a la demande (`EtatsDuRouteur.tsx`) : une page vide dans la
+// charte tant qu'un morceau n'est pas arrive — le routeur ne la montre qu'au
+// bout d'une seconde, un chargement ordinaire ne clignote donc pas — et un
+// message en francais, avec « Recharger la page », s'il n'arrive pas. Sans
+// eux, le routeur n'affichait rien dans le premier cas et son texte anglais
+// dans le second.
 export function creerRouteur(history?: RouterHistory) {
   return createRouter({
     routeTree,
     history,
     defaultNotFoundComponent: Introuvable,
+    defaultPendingComponent: PageEnAttente,
+    defaultErrorComponent: PageEnEchec,
   });
 }
 

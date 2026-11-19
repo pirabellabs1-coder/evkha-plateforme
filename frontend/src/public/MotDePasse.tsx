@@ -13,7 +13,7 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { jeton as sessionJeton } from "../espace/api";
 import { definirLeMotDePasse, demanderUnLien, RefusInscription } from "./donnees";
-import { Portail } from "./Portail";
+import { FlecheDEnvoi, Portail } from "./Portail";
 
 const PANNEAU = {
   image: "/partenaires/reunion.jpg",
@@ -90,6 +90,7 @@ export function DefinirMotDePasse() {
   return (
     <Portail
       titre="Choisir votre mot de passe"
+      accent="mot de passe"
       onglet="connexion"
       sousTitre={
         <p className="prt-sous-titre">
@@ -99,7 +100,7 @@ export function DefinirMotDePasse() {
       panneau={PANNEAU}
       enfants={
         lienIncomplet ? (
-          <p className="insc-erreur" role="alert">
+          <p className="prt-erreur" role="alert">
             Ce lien est incomplet. Ouvrez-le depuis le courriel reçu, ou{" "}
             <a href="/mot-de-passe-oublie">demandez-en un nouveau</a>.
           </p>
@@ -112,6 +113,7 @@ export function DefinirMotDePasse() {
                 value={motDePasse}
                 onChange={(e) => setMotDePasse(e.target.value)}
                 autoComplete="new-password"
+                aria-describedby={erreur ? "prt-erreur" : undefined}
                 required
               />
             </label>
@@ -123,12 +125,13 @@ export function DefinirMotDePasse() {
                 value={confirmation}
                 onChange={(e) => setConfirmation(e.target.value)}
                 autoComplete="new-password"
+                aria-describedby={erreur ? "prt-erreur" : undefined}
                 required
               />
             </label>
 
             {erreur && (
-              <p className="insc-erreur" role="alert">
+              <p className="prt-erreur" id="prt-erreur" role="alert">
                 {erreur}
                 {/* Un lien périmé est le cas le plus fréquent : on nomme la
                     sortie au lieu de laisser la personne chercher.
@@ -146,8 +149,13 @@ export function DefinirMotDePasse() {
               </p>
             )}
 
-            <button type="submit" disabled={envoi}>
+            <button
+              type="submit"
+              className="acc-btn acc-btn-or prt-envoi"
+              disabled={envoi}
+            >
               {envoi ? "Enregistrement…" : "Définir mon mot de passe et entrer"}
+              <FlecheDEnvoi />
             </button>
           </form>
         )
@@ -183,6 +191,7 @@ export function MotDePasseOublie() {
   return (
     <Portail
       titre="Mot de passe oublié"
+      accent="oublié"
       onglet="connexion"
       sousTitre={
         <p className="prt-sous-titre">
@@ -194,7 +203,9 @@ export function MotDePasseOublie() {
         message ? (
           // Le serveur répond la MÊME chose que l'adresse existe ou non :
           // l'interface ne doit rien laisser deviner de plus.
-          <p role="status">{message}</p>
+          <p className="prt-message" role="status">
+            {message}
+          </p>
         ) : (
           <form onSubmit={soumettre} noValidate>
             <label>
@@ -204,18 +215,24 @@ export function MotDePasseOublie() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
+                aria-describedby={erreur ? "prt-erreur" : undefined}
                 required
               />
             </label>
 
             {erreur && (
-              <p className="insc-erreur" role="alert">
+              <p className="prt-erreur" id="prt-erreur" role="alert">
                 {erreur}
               </p>
             )}
 
-            <button type="submit" disabled={envoi}>
+            <button
+              type="submit"
+              className="acc-btn acc-btn-or prt-envoi"
+              disabled={envoi}
+            >
               {envoi ? "Envoi en cours…" : "Recevoir un lien"}
+              <FlecheDEnvoi />
             </button>
           </form>
         )

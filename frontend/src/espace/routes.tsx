@@ -5,25 +5,38 @@
  * mêmes utilisateurs, ni les mêmes droits, ni la même charte.
  */
 import { createRoute, redirect, type AnyRoute } from "@tanstack/react-router";
-import { jeton } from "./api";
-import { Coquille } from "./Coquille";
-import { Abonnement } from "./pages/Abonnement";
-import { Clients } from "./pages/Clients";
-import { CommanderSelonAdresse } from "./pages/Commander";
-import { MaMarque } from "./pages/MaMarque";
+import { ecranDiffere } from "../chargement";
+import { jeton } from "./jeton";
+
+// ── Les écrans, chargés à la demande ─────────────────────────────────────────
+//
+// Aucun écran n'est importé ici : le visiteur du site ne télécharge pas
+// l'espace client. Tous viennent d'UN morceau (`ecrans.ts`), demandé quand une
+// route de l'espace est ouverte — donc APRÈS la garde d'accès, qui s'exécute
+// avant tout chargement de composant. Les routes plus bas gardent leur forme :
+// `component: TableauDeBord`.
+const ecrans = () => import("./ecrans");
+
+const Coquille = ecranDiffere(ecrans, "Coquille");
+const Abonnement = ecranDiffere(ecrans, "Abonnement");
+const Clients = ecranDiffere(ecrans, "Clients");
+const CommanderSelonAdresse = ecranDiffere(ecrans, "CommanderSelonAdresse");
+const Credits = ecranDiffere(ecrans, "Credits");
+const Equipe = ecranDiffere(ecrans, "Equipe");
+const FicheClient = ecranDiffere(ecrans, "FicheClient");
+const Livrables = ecranDiffere(ecrans, "Livrables");
+const MaMarque = ecranDiffere(ecrans, "MaMarque");
+const MesAchats = ecranDiffere(ecrans, "MesAchats");
+const MonCompte = ecranDiffere(ecrans, "MonCompte");
+const Signalements = ecranDiffere(ecrans, "Signalements");
+const Souscription = ecranDiffere(ecrans, "Souscription");
+const SuiviLivrable = ecranDiffere(ecrans, "SuiviLivrable");
+const TableauDeBord = ecranDiffere(ecrans, "TableauDeBord");
+
 // La connexion partage la coquille de l'inscription : deux portes du meme
-// endroit doivent se ressembler. Elle vit donc avec les pages publiques.
-import { Connexion } from "../public/Connexion";
-import { Credits } from "./pages/Credits";
-import { Equipe } from "./pages/Equipe";
-import { FicheClient } from "./pages/FicheClient";
-import { Livrables } from "./pages/Livrables";
-import { MesAchats } from "./pages/MesAchats";
-import { MonCompte } from "./pages/MonCompte";
-import { Signalements } from "./pages/Signalements";
-import { Souscription } from "./pages/Souscription";
-import { SuiviLivrable } from "./pages/SuiviLivrable";
-import { TableauDeBord } from "./pages/TableauDeBord";
+// endroit doivent se ressembler. Elle vit donc avec les pages publiques, dans
+// son propre morceau : se connecter ne demande pas de telecharger l'espace.
+const Connexion = ecranDiffere(() => import("../public/Connexion"), "Connexion");
 
 /** Garde d'accès. Un jeton absent renvoie vers la connexion.
  *

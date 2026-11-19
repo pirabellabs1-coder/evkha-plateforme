@@ -1,6 +1,6 @@
 /** Révélation à l'entrée dans la fenêtre, pour les pages publiques.
  *
- * Les blocs marqués `data-reveal` naissent effacés (voir `Partenaires.css`)
+ * Les blocs marqués `data-reveal` naissent effacés (voir `Site.css`)
  * et s'allument quand ils entrent dans la fenêtre — une fois, jamais au
  * retour. Un `IntersectionObserver`, et non un écouteur de défilement : le
  * second s'exécute à chaque image pendant tout le défilement et fait tomber

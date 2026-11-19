@@ -21,8 +21,9 @@
  *    chaque `transition` lit un jeton `--duree-*`, remis à zéro sous mouvement
  *    réduit (`les-mouvements-lisent-leurs-durees`). Une exception, voulue et
  *    isolée en fin de feuille : voir « Mouvement réduit ».
- * 3. Tout est sous `.acc`, classes préfixées `acc-` : rien ne heurte `pp-`
- *    (anciennes pages publiques), `prt-` (portail) ni l'espace client. Le
+ * 3. Tout est sous `.acc`, classes préfixées `acc-` : rien ne heurte les
+ *    classes d'une page (`prt-` pour le portail, par exemple) ni l'espace
+ *    client. L'ancienne charte des pages publiques (`pp-`) a disparu. Le
  *    préfixe date de l'accueil, première page de cette charte ; il désigne
  *    désormais le socle. Ce qui est propre à une page porte SON préfixe
  *    (`etu-` pour les études) et vit dans SA feuille. Les réglages d'éléments
@@ -786,7 +787,7 @@ html:has(.acc) {
 /* ── Révélation à l'entrée dans la fenêtre ───────────────────────────────────
  *
  * `useReveler` pose `est-revele` ; la feuille ne fait que décrire les deux
- * états, comme `Partenaires.css`. `translate` et `opacity` seuls, pour ne pas
+ * états. `translate` et `opacity` seuls, pour ne pas
  * écraser le `transform` du survol des cartes. Les voisins d'une grille se
  * suivent via `--i`. */
 .acc [data-reveal] {

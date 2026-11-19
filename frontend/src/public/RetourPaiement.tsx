@@ -28,12 +28,14 @@
  * la connexion est proposée. Un jeton nul n'est jamais écrit, et une session
  * existante n'est jamais remplacée.
  *
- * ## L'en-tête et le pied du socle (19/11/2026)
+ * ## Une page du socle (19/11/2026)
  *
  * Cette page n'avait aucune navigation : quelqu'un dont le paiement n'était
  * pas retrouvé restait devant une carte sans issue. Elle monte `EnTeteSite`
- * et `PiedSite`, chacun dans sa boîte `.acc` (`.ach-socle`) — voir
- * `Acheter.tsx` pour la raison. La carte n'a pas changé.
+ * et `PiedSite`, et se tient désormais tout entière sous une racine `.acc`,
+ * comme la page d'achat (`Acheter.tsx`, `Acheter.css`) : carte à double bord,
+ * bouton-pilule, mot d'accent dans le titre. Les trois états et leurs phrases
+ * n'ont pas changé.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -44,9 +46,8 @@ import { confirmerLePaiement, RefusInscription } from "./donnees";
 import { EnTeteSite } from "./EnTeteSite";
 import { PiedSite } from "./PiedSite";
 import { useMenu } from "./site";
-// Le socle (en-tête et pied) d'abord, les feuilles de la page ensuite.
+// Le socle d'abord, la feuille de la page ensuite.
 import "./Site.css";
-import "./Partenaires.css";
 import "./Acheter.css";
 
 function sessionDansLAdresse(): string {
@@ -110,10 +111,8 @@ export function RetourPaiement() {
   }, [naviguer, session]);
 
   return (
-    <div className="pp ach">
-      <div className="acc ach-socle">
-        <EnTeteSite menu={menu} />
-      </div>
+    <div className="acc ach">
+      <EnTeteSite menu={menu} />
 
       <main
         id={ID_DU_CONTENU}
@@ -121,22 +120,26 @@ export function RetourPaiement() {
         tabIndex={-1}
         inert={menu.ouvert}
       >
-        <section className="ach-carte ach-retour">
+        <section className="ach-carte ach-retour acc-entre">
           {erreur ? (
             <>
-              <h1>Un instant</h1>
+              <h1>
+                Un <span className="acc-s">instant</span>
+              </h1>
               <p className="ach-erreur" role="alert">
                 {erreur}
               </p>
-              <p>
+              <p className="ach-texte">
                 Votre paiement, lui, est bien enregistré chez notre prestataire.
                 Rien n'est perdu.
               </p>
             </>
           ) : aRetrouver ? (
             <>
-              <h1>Paiement reçu</h1>
-              <p role="status">
+              <h1>
+                Paiement <span className="acc-s">reçu</span>
+              </h1>
+              <p className="ach-texte" role="status">
                 Votre paiement est bien enregistré
                 {aRetrouver.libelle ? (
                   <>
@@ -147,16 +150,16 @@ export function RetourPaiement() {
                 . Votre achat est rattaché au compte de l'adresse e-mail
                 utilisée pour payer.
               </p>
-              <p>
+              <p className="ach-texte">
                 Ce compte existait déjà : par sécurité, sa session ne s'ouvre
                 pas depuis une page de paiement. Connectez-vous pour lancer
                 votre étude.
               </p>
-              <Link
-                to="/espace/connexion"
-                className="bouton bouton-principal ach-bouton"
-              >
+              <Link to="/espace/connexion" className="acc-btn acc-btn-noir ach-bouton">
                 Se connecter
+                <span className="acc-btn-fleche" aria-hidden="true">
+                  →
+                </span>
               </Link>
               <p className="ach-rassurance">
                 Pas encore de mot de passe, ou oublié&nbsp;?{" "}
@@ -165,8 +168,10 @@ export function RetourPaiement() {
             </>
           ) : (
             <>
-              <h1>Paiement reçu</h1>
-              <p role="status">
+              <h1>
+                Paiement <span className="acc-s">reçu</span>
+              </h1>
+              <p className="ach-texte" role="status">
                 Nous ouvrons votre espace, ce sera très court…
               </p>
             </>
@@ -174,9 +179,7 @@ export function RetourPaiement() {
         </section>
       </main>
 
-      <div className="acc ach-socle">
-        <PiedSite inerte={menu.ouvert} />
-      </div>
+      <PiedSite inerte={menu.ouvert} />
     </div>
   );
 }

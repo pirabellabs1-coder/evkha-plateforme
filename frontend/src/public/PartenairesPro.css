@@ -12,8 +12,8 @@
  * titres, révélation, grain, ruban, pause, alerte, questions en `<details>`,
  * fin dorée — vient de `Site.css`, que la page importe AVANT celle-ci.
  *
- * `Partenaires.css` (classes `pp-`) n'est PAS la feuille de cette page : elle
- * reste la base de six autres pages publiques, et rien d'ici n'en dépend.
+ * L'ancienne feuille des pages publiques (classes `pp-`) n'existe plus :
+ * rien d'ici n'en dépendait.
  *
  * Les règles du socle tiennent ici, et les mêmes tests les verrouillent :
  * aucune couleur écrite (tout lit `theme/tokens.css` ou les alias `--acc-*`,
