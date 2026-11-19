@@ -26,21 +26,27 @@
  */
 import {
   ARTICLE_IDEE_BUSINESS_VIABLE,
+  courrielAvecObjet,
+  PAGE_BOITE_A_OUTILS,
   ROUTES_RESSOURCES,
+  sansTelechargement,
   type ElementDArticle,
   type Passerelle,
   type SectionDArticle,
 } from "./contenuRessources";
+import { CHEMINS, SLUG_IDEE_BUSINESS_VIABLE } from "./contenuSite";
 
 // ── Adresses ────────────────────────────────────────────────────────────────
 
-export const ROUTE_DU_BLOG = "/blog";
+/** L'adresse de la liste. Un ALIAS de `contenuSite.CHEMINS.blog`, la seule
+ *  source des adresses du site (règle 5) ; le nom est gardé pour les fichiers
+ *  qui l'importent. */
+export const ROUTE_DU_BLOG = CHEMINS.blog;
 
-/** L'adresse d'un article. Le slug est encodé : il vient d'une liste écrite
- *  ici aujourd'hui, d'une saisie en administration demain. */
-export function adresseDeLArticle(slug: string): string {
-  return `${ROUTE_DU_BLOG}/${encodeURIComponent(slug)}`;
-}
+// L'adresse d'un article et le slug de l'article relevé vivent dans
+// `contenuSite` — le menu, l'accueil et le routeur les lisent aussi. Ils sont
+// ré-exportés d'ici sous leurs noms, pour les pages du blog.
+export { adresseDeLArticle, SLUG_IDEE_BUSINESS_VIABLE } from "./contenuSite";
 
 /** Le paramètre d'adresse qui présélectionne un thème sur la liste
  *  (`/blog?theme=financement`) : le fil d'Ariane d'un article y mène. */
@@ -100,6 +106,10 @@ export type SourceDArticle = {
     salut: string;
     signature: string;
   };
+  /** Le nom de l'auteur DÉCLARÉ aux moteurs (données structurées). Absent :
+   *  `AUTEUR_DU_BLOG`. Ce n'est pas la signature affichée, qui peut n'être
+   *  qu'un prénom. */
+  auteur?: string;
   /** L'appel de fin d'article : ce qu'il propose de gratuit, et où. */
   appel: {
     titre: string;
@@ -208,9 +218,17 @@ export function composer(source: SourceDArticle): Article {
 
 const VIABLE = ARTICLE_IDEE_BUSINESS_VIABLE;
 
-/** Le slug de l'article relevé sur le site. Nommé : la boîte à outils y mène
- *  (« Lire la suite de l'article ») et ne doit pas l'écrire une seconde fois. */
-export const SLUG_IDEE_BUSINESS_VIABLE = "idee-business-viable";
+/** L'auteur déclaré aux moteurs dans les données structurées d'un article.
+ *  Le nom complet, dans l'écriture du reste du site (« Evangeline », sans
+ *  accent : les packs, les formations, les portraits). L'article relevé est
+ *  SIGNÉ « Evangéline » : la signature affichée reste celle de la cliente,
+ *  mais un prénom seul, écrit autrement qu'ailleurs, ne désigne personne pour
+ *  un moteur. */
+export const AUTEUR_DU_BLOG = "Evangeline Khaili";
+
+/** L'objet du courriel par lequel le visiteur demande la checklist promise en
+ *  fin d'article. Il la NOMME par le titre de l'article, qui est le sien. */
+const OBJET_DE_LA_CHECKLIST = `Je souhaite recevoir la checklist « ${VIABLE.titre} »`;
 
 /** LA LISTE. Le plus récent en premier : le premier de la liste est mis en
  *  avant, en grand, sur `/blog`. */
@@ -234,15 +252,20 @@ export const ARTICLES: Article[] = [
     chapo: VIABLE.chapo,
     sections: VIABLE.sections,
     conclusion: VIABLE.conclusion,
-    // Le texte de l'appel est celui de l'article ; son bouton menait à la
-    // boîte à outils de l'ancien site, il mène à celle de la plateforme.
+    // Le texte de l'appel est celui de l'article. Il promet une checklist
+    // « Ai-je une idée de business viable ? » et renvoyait vers la boîte à
+    // outils — qui ne la propose pas (elle n'a que la checklist de la
+    // micro-entreprise et le lexique). Le bouton ouvre donc un courriel qui
+    // la DEMANDE, comme les deux documents de la boîte à outils, et le titre
+    // ne promet plus un téléchargement (retouche d'affichage : le relevé
+    // garde sa formulation).
     appel: {
-      titre: VIABLE.appel.titre,
+      titre: sansTelechargement(VIABLE.appel.titre),
       document: VIABLE.appel.document,
       corps: VIABLE.appel.corps,
       bouton: {
-        libelle: "Ouvrir la boîte à outils",
-        lien: ROUTES_RESSOURCES.boiteAOutils,
+        libelle: PAGE_BOITE_A_OUTILS.recevoir,
+        lien: courrielAvecObjet(OBJET_DE_LA_CHECKLIST),
       },
     },
     passerelle: {
@@ -265,7 +288,8 @@ export function articleDuSlug(slug: string): Article | null {
 /** Écrit pour la plateforme : le site actuel n'a pas de page de blog. À
  *  valider par la cliente. */
 export const BLOG = {
-  titreOnglet: "Le blog EVKHA – Conseils pour créer et développer votre entreprise",
+  /** Sans la marque : `site.titreDOnglet` la pose à la fin, comme partout. */
+  titreOnglet: "Le blog : conseils pour créer et développer votre entreprise",
   description:
     "Création, statuts, étude de marché, financement, productivité : les articles pratiques d'EVKHA pour avancer dans votre projet d'entreprise.",
   surtitre: "Le blog",
@@ -278,8 +302,13 @@ export const BLOG = {
     nom: "Filtrer les articles par thème",
     tous: "Tous",
   },
-  /** Annoncé à chaque changement de filtre. */
-  compte: (nombre: number) => (nombre === 1 ? "1 article" : `${nombre} articles`),
+  /** Annoncé à chaque changement de filtre : le nombre, et le thème choisi
+   *  quand il y en a un (« 1 article — Étude de marché »). Sans le thème, un
+   *  lecteur d'écran entendait « 1 article » sans savoir de quoi. */
+  compte: (nombre: number, theme: string | null = null) => {
+    const articles = nombre === 1 ? "1 article" : `${nombre} articles`;
+    return theme === null ? articles : `${articles} — ${theme}`;
+  },
   /** Défensif : un thème sans article est désactivé, ce cas ne s'atteint pas
    *  par les boutons. */
   aucun: "Aucun article dans ce thème.",
@@ -306,7 +335,8 @@ export const PAGE_ARTICLE = {
   /** Le nom de la maison d'édition, pour les données structurées. */
   editeur: "EVKHA Business & Formations",
   introuvable: {
-    titreOnglet: "Article introuvable – Le blog EVKHA",
+    /** Sans la marque : `site.titreDOnglet` la pose à la fin. */
+    titreOnglet: "Article introuvable sur le blog",
     description: "Cet article n'existe pas ou n'est plus en ligne.",
     surtitre: "Le blog",
     titre: { avant: "Article", fin: "introuvable." },

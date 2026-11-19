@@ -1,0 +1,1034 @@
+/* Page des partenaires professionnels (`Partenaires.tsx`, `/partenaires`),
+ * dans le langage visuel de l'accueil et de la page des études : papier
+ * crème, or, encre, Fraunces italique pour les mots d'accent, cartes à double
+ * bord, boutons-pilules, étiquettes à pastille.
+ *
+ * Cette feuille ne porte que ce qui est PROPRE à la page d'abonnement : son
+ * ouverture et sa bande de preuves, les quatre étapes et le bandeau du crédit,
+ * la grille des formules — alignées étage par étage pour se comparer d'un
+ * coup d'œil, la formule mise en avant en carte sombre —, les cibles, la
+ * démonstration du calcul, le portrait de la fondatrice, la passerelle vers
+ * les études à l'unité. Le socle — barre, menu, pied, boutons, étiquettes,
+ * titres, révélation, grain, ruban, pause, alerte, questions en `<details>`,
+ * fin dorée — vient de `Site.css`, que la page importe AVANT celle-ci.
+ *
+ * `Partenaires.css` (classes `pp-`) n'est PAS la feuille de cette page : elle
+ * reste la base de six autres pages publiques, et rien d'ici n'en dépend.
+ *
+ * Les règles du socle tiennent ici, et les mêmes tests les verrouillent :
+ * aucune couleur écrite (tout lit `theme/tokens.css` ou les alias `--acc-*`,
+ * les translucides par `color-mix()` sur un jeton), aucune durée écrite dans
+ * un mouvement, aucun plancher « calme » lu ici — les mouvements de cette
+ * page sont ceux du socle, qui les réduit déjà —, tout sous `.acc`, avec des
+ * classes préfixées `pro-`.
+ */
+
+/* ── Ouverture : le texte, l'image dans son cadre, la bande de preuves ───── */
+
+/* Relative : le bouton de pause du socle (`.acc-pause-rang`) s'y accroche,
+   sous la barre fixe. */
+.pro-ouverture {
+  position: relative;
+  padding: 150px 0 clamp(64px, 8vw, 110px);
+}
+
+.pro-ouverture-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-areas:
+    "texte image"
+    "preuves preuves";
+  gap: clamp(36px, 4.5vw, 60px) clamp(28px, 5vw, 72px);
+  align-items: center;
+}
+
+.pro-ouverture-texte {
+  grid-area: texte;
+}
+
+.pro-ouverture h1 {
+  margin: 20px 0 18px;
+}
+
+/* La troisième ligne du titre entre après les deux premières (le socle ne
+   décale que la deuxième). */
+.pro-ouverture .acc-ligne-titre:nth-child(3) > span {
+  animation-delay: calc(var(--decalage-reveal) * 4);
+}
+
+/* « EVKHA LES PRODUIT POUR VOUS. » : la réponse au titre, à l'encre,
+   surlignée d'or comme le mot d'accent de l'accueil. */
+.pro-accroche {
+  display: inline;
+  padding: 0 4px;
+  background: linear-gradient(
+    transparent 58%,
+    var(--acc-or) 58%,
+    var(--acc-or) 94%,
+    transparent 94%
+  );
+  color: var(--acc-encre);
+  font-weight: 800;
+  font-size: 1.08rem;
+  letter-spacing: 0.04em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.pro-corps {
+  max-width: 34em;
+  margin-top: 20px;
+  font-size: 1.05rem;
+}
+
+/* La promesse faite au professionnel, dans la voix des citations de
+   l'accueil : un filet d'or, Fraunces italique. */
+.pro-promesse {
+  max-width: 28em;
+  margin-top: 22px;
+  padding-left: 18px;
+  border-left: 3px solid var(--acc-or);
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.15rem, 1.7vw, 1.38rem);
+  line-height: 1.35;
+}
+
+.pro-appels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.pro-appels-centre {
+  justify-content: center;
+}
+
+/* Un libellé long passe à la ligne plutôt que de sortir de l'écran. */
+.acc-btn.pro-btn {
+  padding-block: 8px;
+  white-space: normal;
+}
+
+/* Le cadre à double bord : une plaque dorée, légèrement tournée, derrière une
+   bordure blanche qui porte la photo. */
+.pro-cadre {
+  position: relative;
+  grid-area: image;
+}
+
+.pro-cadre::before {
+  content: "";
+  position: absolute;
+  inset: 10% -5% -7% 12%;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or);
+  rotate: 4deg;
+}
+
+.pro-cadre-bord {
+  position: relative;
+  padding: 10px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+/* `height: auto` DÉCLARÉE : sans elle, l'attribut `height` de la balise
+   deviendrait une hauteur en pixels et l'image perdrait son ratio
+   (`une-image-garde-son-ratio`). Les attributs donnent le ratio, la colonne
+   donne la largeur. */
+.pro-image {
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--acc-r2) - 10px);
+  background: var(--acc-or-clair);
+  object-fit: cover;
+}
+
+/* La signature de la cliente, posée sur le coin du cadre. */
+.pro-signature {
+  position: absolute;
+  left: -6%;
+  bottom: 9%;
+  max-width: 78%;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+/* Les preuves : trois cases dans un même écrin. La dernière — le droit
+   d'entrée — est la case dorée. */
+.pro-preuves {
+  display: grid;
+  grid-area: preuves;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+  list-style: none;
+}
+
+.pro-preuves li {
+  display: grid;
+  gap: 6px;
+  align-content: center;
+  padding: 24px clamp(20px, 2.6vw, 34px);
+}
+
+.pro-preuves li + li {
+  border-left: 1.5px dashed var(--acc-pointille);
+}
+
+.pro-preuves b {
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: clamp(1.9rem, 3.2vw, 2.7rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.pro-preuve-libelle {
+  color: var(--acc-gris);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.pro-preuves li:last-child {
+  border-left: 0;
+  background: var(--acc-or);
+}
+
+.pro-preuves li:last-child .pro-preuve-libelle {
+  color: var(--acc-encre);
+}
+
+/* L'alerte du socle (`Site.css`), une fois remplie, raccourcit l'ouverture
+   qui la suit. */
+.acc-alerte:not(:empty) + .pro-ouverture {
+  padding-top: 76px;
+}
+
+.acc-alerte:not(:empty) + .pro-ouverture .acc-pause-rang {
+  top: 20px;
+}
+
+/* ── Le principe : quatre étapes dans un même écrin, puis le bandeau ─────── */
+
+/* L'introduction du principe n'a pas de texte en face : son titre prend
+   toute la largeur. */
+.pro .acc-intro:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pro-etapes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+  list-style: none;
+}
+
+.pro-etapes > li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: clamp(24px, 2.8vw, 34px) clamp(20px, 2.4vw, 30px);
+}
+
+.pro-etapes > li + li {
+  border-left: 1.5px dashed var(--acc-pointille);
+}
+
+/* Le numéro, à l'encre, surligné d'or. */
+.pro-etape-numero {
+  align-self: flex-start;
+  margin-bottom: 12px;
+  padding: 0 4px;
+  background: linear-gradient(
+    transparent 58%,
+    var(--acc-or) 58%,
+    var(--acc-or) 92%,
+    transparent 92%
+  );
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.pro-etapes h3 {
+  font-size: 1.16rem;
+  letter-spacing: -0.02em;
+}
+
+.pro-etapes p {
+  font-size: 0.95rem;
+}
+
+/* « 1 crédit = 1 livrable au choix » : la règle de l'abonnement, sur l'or. */
+.pro-bandeau {
+  margin-top: 26px;
+  padding: clamp(20px, 2.6vw, 30px) clamp(22px, 3.2vw, 40px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-or);
+  box-shadow: var(--acc-ecrin);
+  color: var(--acc-encre);
+  font-weight: 500;
+}
+
+.pro-bandeau strong {
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(1.3rem, 2.2vw, 1.75rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* ── Les formules : une grille qui se compare d'un coup d'œil ────────────── */
+
+/* Chaque carte a quatre étages : nom, prix, contenu, bouton. La grille en
+   aligne les lignes d'une carte à l'autre (`subgrid`) : les prix sont sur une
+   même ligne, les crédits aussi, les boutons aussi. Le nombre de colonnes
+   suit la place — et le nombre de formules que le serveur rend. */
+.pro-formules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 26px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* La seconde déclaration des lignes ne vaut que là où `subgrid` existe ;
+   ailleurs la première tient : le contenu s'étire, le bouton reste en bas. */
+.pro-formule {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  padding: 26px 22px 22px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.pro-formule:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.pro-formule-tete {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-bottom: 14px;
+}
+
+/* La marque de la formule mise en avant : écrite, pas seulement colorée. */
+.pro-formule-marque {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--acc-or);
+  color: var(--acc-encre);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pro-formule-cible {
+  color: var(--acc-doux);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pro-formule h3 {
+  font-size: 1.6rem;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+.pro-formule-prix {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 20px;
+  border-bottom: 1.5px dashed var(--acc-pointille);
+}
+
+.pro-prix {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: clamp(2.2rem, 3vw, 2.8rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.pro-prix-mention {
+  color: var(--acc-gris);
+  font-family: var(--police-corps);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* La formule est au catalogue sans prix : elle le dit, à la place du prix. */
+.pro-prix-absent {
+  color: var(--acc-doux);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* Le coût d'un livrable, calculé par le serveur : la ligne que l'on compare
+   d'une formule à l'autre. */
+.pro-cout {
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: var(--acc-or-clair);
+  color: var(--acc-encre);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.pro-cout b {
+  font-weight: 800;
+}
+
+.pro-formule-corps {
+  padding: 20px 0 24px;
+}
+
+.pro-quoi {
+  color: var(--acc-encre);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pro-points {
+  display: grid;
+  gap: 11px;
+  margin: 14px 0 0;
+  padding: 0;
+  color: var(--acc-gris);
+  font-size: 0.94rem;
+  font-weight: 500;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.pro-points li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.pro-points b {
+  color: var(--acc-encre);
+  font-weight: 800;
+}
+
+/* La pastille à coche : l'or de la charte, la coche à l'encre (décorative,
+   masquée aux lecteurs d'écran). */
+.pro-coche {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--acc-or);
+  color: var(--acc-encre);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Le bouton de souscription, en bas de la carte et sur toute sa largeur ; son
+   libellé peut prendre deux lignes plutôt que de sortir de la carte. */
+.acc-btn.pro-formule-bouton {
+  align-self: end;
+  justify-content: space-between;
+  padding-block: 8px;
+  white-space: normal;
+}
+
+/* La formule que le serveur met en avant : la carte sombre, comme la dernière
+   marche du parcours de l'accueil. Texte courant au lin de la charte
+   (11,6:1). */
+.pro-formule-avant {
+  background: var(--acc-encre);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+  color: var(--acc-blanc);
+}
+
+.pro-formule-avant .pro-formule-cible,
+.pro-formule-avant .pro-quoi {
+  color: var(--acc-or);
+}
+
+.pro-formule-avant .pro-prix,
+.pro-formule-avant .pro-points b {
+  color: var(--acc-blanc);
+}
+
+.pro-formule-avant .pro-prix-mention,
+.pro-formule-avant .pro-prix-absent,
+.pro-formule-avant .pro-points {
+  color: var(--evkha-lin);
+}
+
+.pro-formule-avant .pro-formule-prix {
+  border-color: color-mix(in srgb, var(--evkha-blanc) 30%, transparent);
+}
+
+.pro-formule-avant .pro-cout {
+  background: color-mix(in srgb, var(--evkha-blanc) 12%, transparent);
+  color: var(--evkha-lin);
+}
+
+.pro-formule-avant .pro-cout b {
+  color: var(--acc-or);
+}
+
+/* Sur l'encre, le contour de focus du socle (à l'encre) ne se verrait pas. */
+.pro-formule-avant :focus-visible {
+  outline-color: var(--acc-blanc);
+}
+
+/* En attente : la phrase, puis la forme des cartes sans un seul chiffre.
+   Immobile — un reflet qui passe serait une boucle de plus à arrêter. */
+.pro-attente {
+  margin-bottom: 18px;
+  font-weight: 600;
+}
+
+.pro-gabarit {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.pro-gabarit span {
+  display: block;
+  min-height: 300px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+/* Le catalogue a répondu, et il est vide : une note, pas une alerte. */
+.pro-vide {
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: var(--acc-or-clair);
+  color: var(--acc-encre);
+  font-weight: 600;
+}
+
+.pro-vide a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Ruban ───────────────────────────────────────────────────────────────── */
+
+/* Le ruban du socle remonte de 18 px sur l'ouverture de l'accueil ; ici il
+   sépare deux sections, à plat sur sa marge. Deux classes, ici et partout où
+   cette feuille corrige une règle du socle : la spécificité ne doit pas
+   dépendre de l'ordre des imports. */
+.acc-ruban.pro-ruban {
+  margin-top: 0;
+}
+
+.pro-pause-rang {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.acc-section.pro-section-apres-ruban {
+  padding-top: clamp(56px, 7vw, 96px);
+}
+
+/* ── Pour qui : trois cibles ─────────────────────────────────────────────── */
+
+.pro-titre-seul {
+  margin-bottom: 44px;
+}
+
+.pro-cibles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pro-cibles > li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(24px, 2.8vw, 34px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.pro-cibles > li:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.pro-ornement {
+  color: var(--acc-or-fonce);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.pro-cibles h3 {
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.pro-cibles p {
+  font-size: 0.97rem;
+}
+
+/* « Avec Evkha : … » : ce que l'abonnement change pour cette cible, au pied
+   de sa carte. */
+.pro-cibles .pro-cible-avec {
+  margin-top: auto;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--acc-or-clair);
+  color: var(--acc-encre);
+  font-weight: 600;
+  font-size: 0.93rem;
+}
+
+/* ── Le calcul : une démonstration ───────────────────────────────────────── */
+
+.pro-bande {
+  border-block: 1px solid var(--acc-trait);
+  background: var(--acc-blanc);
+}
+
+/* Deux montants face à face — ce qu'un livrable coûte à l'abonné, ce qu'un
+   cabinet le facture —, puis la phrase de la cliente qui les relie. */
+.pro-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas:
+    "cout signe cabinet"
+    "corps corps corps";
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+/* La phrase de la cliente ne dit plus ce que facture un cabinet : le coût de
+   l'abonné occupe toute la largeur. */
+.pro-demo-seul {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "cout"
+    "corps";
+}
+
+.pro-demo-cout,
+.pro-demo-cabinet {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: clamp(28px, 4vw, 52px);
+}
+
+.pro-demo-cout {
+  grid-area: cout;
+  background: var(--acc-or);
+}
+
+.pro-demo-cabinet {
+  grid-area: cabinet;
+  background: var(--acc-papier);
+}
+
+.pro-demo h3,
+.pro-demo-etiquette {
+  color: var(--acc-encre);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pro-demo-valeur {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: clamp(1.8rem, 3.5vw, 2.9rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.pro-demo-avant {
+  font-family: var(--police-corps);
+  font-size: 0.42em;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.pro-demo-mention {
+  color: var(--acc-encre);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.pro-demo-cabinet .pro-demo-valeur,
+.pro-demo-cabinet .pro-demo-mention {
+  color: var(--acc-gris);
+}
+
+/* La phrase qui remplace le coût : attente, panne, ou aucune formule. */
+.pro-demo-absent {
+  color: var(--acc-encre);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* La flèche entre les deux montants, à cheval sur la couture. Décorative. */
+.pro-demo-signe {
+  display: grid;
+  grid-area: signe;
+  place-items: center;
+  align-self: center;
+  z-index: 1;
+  width: 54px;
+  height: 54px;
+  margin-inline: -27px;
+  border-radius: 50%;
+  background: var(--acc-encre);
+  box-shadow: 0 0 0 6px var(--acc-blanc);
+  color: var(--acc-or);
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pro-demo-corps {
+  grid-area: corps;
+  padding: clamp(22px, 3vw, 34px) clamp(28px, 4vw, 52px);
+  border-top: 1.5px dashed var(--acc-pointille);
+  color: var(--acc-encre);
+  font-weight: 500;
+  font-size: 1.05rem;
+}
+
+/* Les deux autres gains : le temps, le catalogue. */
+.pro-gains {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pro-gains > li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: clamp(24px, 3vw, 38px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-papier);
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+}
+
+.pro-gain-valeur {
+  margin-bottom: 8px;
+  padding: 0 4px;
+  background: linear-gradient(
+    transparent 58%,
+    var(--acc-or) 58%,
+    var(--acc-or) 92%,
+    transparent 92%
+  );
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.9rem, 3vw, 2.5rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.pro-gains h3 {
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+}
+
+/* ── La fondatrice ───────────────────────────────────────────────────────── */
+
+.pro-fondatrice {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  gap: clamp(36px, 6vw, 90px);
+  align-items: center;
+}
+
+.pro-cadre-portrait {
+  max-width: 380px;
+}
+
+/* Même garde que `.pro-image` : la hauteur est déclarée. */
+.pro-portrait {
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--acc-r2) - 10px);
+  background: var(--acc-or-clair);
+  object-fit: cover;
+}
+
+.pro-fondatrice-corps {
+  max-width: 38em;
+  font-size: 1.08rem;
+}
+
+/* ── Passerelle : les études à l'unité ───────────────────────────────────── */
+
+.pro-porte {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 24px clamp(28px, 5vw, 64px);
+  align-items: center;
+  padding: clamp(28px, 4vw, 52px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-clair);
+  box-shadow: var(--acc-ecrin);
+}
+
+.pro-porte h2 {
+  margin-top: 14px;
+  font-size: clamp(1.45rem, 2.3vw, 2rem);
+}
+
+.pro-porte-suite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.pro-porte-suite p {
+  color: var(--acc-encre);
+  font-weight: 500;
+}
+
+/* ── Appel final ─────────────────────────────────────────────────────────── */
+
+/* La fin dorée du socle se termine, sur l'accueil, par une grande bande ; ici
+   elle se ferme sur ses boutons, avec sa propre marge basse. */
+.acc-fin.pro-fin {
+  padding-bottom: clamp(60px, 9vw, 120px);
+}
+
+.pro-fin h2 {
+  max-width: 17em;
+  margin: 18px auto 0;
+  font-size: clamp(1.8rem, 3.8vw, 3rem);
+  text-wrap: balance;
+}
+
+.pro-fin .acc-fin-corps {
+  max-width: 36em;
+  margin: 16px auto 0;
+}
+
+.pro-fin .pro-appels {
+  margin-top: 32px;
+}
+
+/* ── Largeurs ────────────────────────────────────────────────────────────── */
+
+/* Quatre colonnes ne tiennent plus : deux formules par ligne. */
+@media (max-width: 1100px) {
+  .pro-formules,
+  .pro-gabarit {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pro-gabarit span {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Une colonne : le texte, puis les preuves, puis l'image. */
+  .pro-ouverture-grille {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "texte"
+      "preuves"
+      "image";
+  }
+
+  .pro-cadre {
+    max-width: 520px;
+    margin-right: 5%;
+  }
+
+  .pro-signature {
+    left: 14px;
+  }
+
+  /* Deux étapes par ligne : les filets suivent la grille. */
+  .pro-etapes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pro-etapes > li + li {
+    border-left: 0;
+  }
+
+  .pro-etapes > li:nth-child(even) {
+    border-left: 1.5px dashed var(--acc-pointille);
+  }
+
+  .pro-etapes > li:nth-child(n + 3) {
+    border-top: 1.5px dashed var(--acc-pointille);
+  }
+
+  .pro-cibles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pro-fondatrice,
+  .pro-porte {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 820px) {
+  /* La démonstration s'empile : le coût, la flèche tournée vers le bas, le
+     cabinet, la phrase. */
+  .pro-demo {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "cout"
+      "signe"
+      "cabinet"
+      "corps";
+  }
+
+  .pro-demo-seul {
+    grid-template-areas:
+      "cout"
+      "corps";
+  }
+
+  .pro-demo-signe {
+    justify-self: center;
+    margin: -27px 0;
+    rotate: 90deg;
+  }
+
+  .pro-gains {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .pro-ouverture {
+    padding-top: 136px;
+  }
+
+  .pro-preuves {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pro-preuves li + li {
+    border-top: 1.5px dashed var(--acc-pointille);
+    border-left: 0;
+  }
+
+  .pro-preuves li:last-child {
+    border-top: 0;
+  }
+
+  .pro-etapes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pro-etapes > li:nth-child(even) {
+    border-left: 0;
+  }
+
+  .pro-etapes > li + li {
+    border-top: 1.5px dashed var(--acc-pointille);
+  }
+
+  .pro-formules,
+  .pro-gabarit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pro-gabarit span {
+    min-height: 120px;
+  }
+
+  /* Les boutons de l'ouverture et de la fin prennent la largeur : le libellé
+     à gauche, la flèche à droite. */
+  .pro-appels .acc-btn {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────────
+ *
+ * Même politique que le socle : le mouvement réduit RÉDUIT, il ne supprime
+ * pas. `Site.css` tient déjà l'apparition des blocs en fondu seul, l'entrée
+ * de l'ouverture, les survols des boutons et le ruban ralenti. Ce bloc ne
+ * fait que COUPER ce qui est propre à la page : les cartes qui se soulèvent.
+ * Leur ombre, elle, suit la transition de `[data-reveal]`, que le socle a
+ * déjà ramenée à son plancher. Aucun plancher « calme » n'est lu ici.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pro-formule:hover,
+  .pro-cibles > li:hover {
+    transform: none;
+  }
+}

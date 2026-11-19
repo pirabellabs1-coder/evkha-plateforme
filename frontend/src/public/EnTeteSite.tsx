@@ -15,7 +15,9 @@
  * - Le panneau s'ouvre AU CLIC — donc à Entrée et à Espace. Avec une souris,
  *   il s'ouvre aussi au survol, après un court délai d'intention ; un clic
  *   l'épingle alors au lieu de le refermer sous le doigt.
- * - Un seul panneau à la fois. Échap le ferme et rend le focus à son bouton ;
+ * - Un seul panneau à la fois. Échap le ferme, et rend le focus à son bouton
+ *   si le focus était dans la barre (sinon il ne bouge pas : le visiteur qui
+ *   a ouvert au survol et tape Échap ailleurs ne perd pas sa place) ;
  *   un clic hors de la barre le ferme ; suivre un lien le ferme ; le focus qui
  *   passe à une autre rubrique le ferme.
  * - Tab parcourt les liens du panneau puis passe à la rubrique suivante : le
@@ -77,6 +79,12 @@ import {
 const ATTENTE_AVANT_D_OUVRIR = 120;
 const ATTENTE_AVANT_DE_FERMER = 280;
 
+/** La rubrique du menu qui contient la page `ici`, ou `null`. L'accordéon du
+ *  téléphone s'ouvre sur elle : le visiteur retrouve d'abord où il est. */
+function rubriqueDeLaPage(ici: string): string | null {
+  return NAVIGATION.find((rubrique) => contientLaPage(rubrique, ici))?.id ?? null;
+}
+
 /** Le panneau ouvert dans la barre. `epingle` : ouvert ou confirmé par un clic
  *  (ou au clavier) — la souris qui s'éloigne ne le referme pas. */
 type Ouverture = { id: string; epingle: boolean } | null;
@@ -131,8 +139,11 @@ export function EnTeteSite({ menu }: { menu: Menu }) {
     return () => window.removeEventListener("keydown", auClavier);
   }, [ouvert, fermer]);
 
-  // Tant qu'un panneau de la barre est ouvert : Échap le ferme et rend le
-  // focus à son bouton ; un appui hors de la barre le ferme ; passer sous
+  // Tant qu'un panneau de la barre est ouvert : Échap le ferme — et rend le
+  // focus à son bouton SEULEMENT si le focus était dans la barre : ouvert au
+  // survol pendant que le visiteur remplit un champ plus bas, le panneau ne
+  // doit pas lui voler le focus en se fermant. Un appui hors de la barre le
+  // ferme ; passer sous
   // 1001 px le ferme aussi — la barre laisse alors la place au menu plein
   // écran, et le panneau ne doit pas se rouvrir tout seul au retour.
   useEffect(() => {
@@ -144,7 +155,11 @@ export function EnTeteSite({ menu }: { menu: Menu }) {
     }
     function auClavier(evenement: KeyboardEvent) {
       if (evenement.key !== "Escape") return;
+      // Lu AVANT de refermer : un panneau masqué perd le focus qu'il portait.
+      const focusDansLaBarre =
+        barre.current?.contains(document.activeElement) ?? false;
       refermer();
+      if (!focusDansLaBarre) return;
       barre.current
         ?.querySelector<HTMLButtonElement>(`button[data-rubrique="${rubrique}"]`)
         ?.focus();
@@ -235,13 +250,17 @@ export function EnTeteSite({ menu }: { menu: Menu }) {
     setOuverture(null);
   }
 
-  /** Le menu plein écran s'ouvre toujours replié. */
+  const ici = cheminCourant();
+
+  /** Le menu plein écran s'ouvre sur la rubrique de la page affichée, et
+   *  replié quand la page n'est dans aucune (l'accueil, une page légale). Remis
+   *  à chaque bascule : une rubrique dépliée à la main ne survit pas à la
+   *  fermeture. */
   function basculerLeMenu() {
-    setDeplie(null);
+    setDeplie(rubriqueDeLaPage(ici));
     basculer();
   }
 
-  const ici = cheminCourant();
   const rubriques = NAVIGATION.map((rubrique) => ({
     rubrique,
     courante: contientLaPage(rubrique, ici) ? ("true" as const) : undefined,
@@ -326,21 +345,14 @@ export function EnTeteSite({ menu }: { menu: Menu }) {
                           <p className="acc-panneau-avant-corps">
                             {rubrique.enAvant.corps}
                           </p>
-                          {/* Le bouton-pilule de `PiecesSite`, écrit à la
-                              main : `Bouton` ne sait pas porter
-                              `aria-current`, et ce fichier n'est pas à
-                              modifier ici. */}
-                          <a
-                            className="acc-btn acc-btn-noir"
-                            href={rubrique.enAvant.lien}
-                            rel={sort(rubrique.enAvant.lien) ? "noopener" : undefined}
-                            aria-current={pageSi(rubrique.enAvant.lien)}
+                          <Bouton
+                            lien={rubrique.enAvant.lien}
+                            aspect="noir"
+                            externe={sort(rubrique.enAvant.lien)}
+                            courant={estLaPage(rubrique.enAvant.lien, ici)}
                           >
                             {rubrique.enAvant.bouton}
-                            <span className="acc-btn-fleche" aria-hidden="true">
-                              →
-                            </span>
-                          </a>
+                          </Bouton>
                         </div>
                       </div>
                     </div>
@@ -373,6 +385,7 @@ export function EnTeteSite({ menu }: { menu: Menu }) {
           <Bouton
             lien={adresseDe(APPEL_DE_LA_BARRE, ici)}
             aspect="noir"
+            courant={estCourante(APPEL_DE_LA_BARRE, ici)}
             className="acc-barre-appel"
           >
             {APPEL_DE_LA_BARRE.libelle}

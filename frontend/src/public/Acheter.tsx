@@ -1,8 +1,22 @@
 /** Acheter UNE étude, sans compte préalable.
  *
- * C'est la destination des quatre boutons de `evkha.fr/etudedemarche`. Le
- * visiteur arrive avec son livrable dans l'adresse (`/acheter/etude-marche`),
- * lit ce qu'il achète et à quel prix, et part payer.
+ * C'est la destination des quatre boutons de l'ancienne page des études du
+ * site de la cliente. Le visiteur arrive avec son livrable dans l'adresse
+ * (`/acheter/etude-marche`), lit ce qu'il achète et à quel prix, et part payer.
+ *
+ * ## L'en-tête et le pied sont ceux du socle (19/11/2026)
+ *
+ * L'ancien menu (`MenuSite`) renvoyait vers l'ancien site, logo compris : au
+ * milieu d'un paiement, un clic sortait de la plateforme. La page monte
+ * désormais `EnTeteSite` et `PiedSite`, comme toutes les pages refondues. Sa
+ * mise en page, elle, n'a pas bougé : la carte reste dans l'ancienne charte
+ * (`pp-`, `ach-`).
+ *
+ * Les deux pièces du socle sont montées CHACUNE dans leur propre boîte `.acc`
+ * (`.ach-socle`, `Acheter.css`), et non sous une racine `.acc` commune : les
+ * réglages d'éléments de `Site.css` (`:where(.acc) a`, `p`, `h1`, `button`…)
+ * s'appliqueraient sinon à la carte, dont les liens perdraient leur
+ * soulignement et les paragraphes leurs marges.
  *
  * ## Trois décisions, et leurs raisons
  *
@@ -26,8 +40,13 @@ import {
   messageDuRefusDePaiement,
   payerUneEtude,
 } from "./achat";
+import { ID_DU_CONTENU } from "./contenuSite";
 import { chargerLivrables, euros, type LivrablePublic } from "./donnees";
-import { MenuSite } from "./MenuSite";
+import { EnTeteSite } from "./EnTeteSite";
+import { PiedSite } from "./PiedSite";
+import { useMenu } from "./site";
+// Le socle (en-tête et pied) d'abord, les feuilles de la page ensuite.
+import "./Site.css";
 import "./Partenaires.css";
 import "./Acheter.css";
 
@@ -72,6 +91,8 @@ export function Acheter() {
   // Lu une fois, à l'arrivée : un espace est-il ouvert dans ce navigateur ?
   // L'achat part alors par l'espace et suit le compte (`achat.ts`).
   const [rattache] = useState(achatRattacheALEspace);
+  // L'état du menu plein écran : la page rend inerte ce qui est derrière.
+  const menu = useMenu();
 
   useEffect(() => {
     let vivant = true;
@@ -122,9 +143,18 @@ export function Acheter() {
 
   return (
     <div className="pp ach">
-      <MenuSite />
+      <div className="acc ach-socle">
+        <EnTeteSite menu={menu} />
+      </div>
 
-      <main className="ach-corps">
+      {/* `tabIndex={-1}` : la cible du lien d'évitement doit pouvoir recevoir
+          le focus. */}
+      <main
+        id={ID_DU_CONTENU}
+        className="ach-corps"
+        tabIndex={-1}
+        inert={menu.ouvert}
+      >
         {catalogue === null && !panne && (
           <p className="ach-attente">Chargement…</p>
         )}
@@ -253,6 +283,10 @@ export function Acheter() {
           </section>
         )}
       </main>
+
+      <div className="acc ach-socle">
+        <PiedSite inerte={menu.ouvert} />
+      </div>
     </div>
   );
 }

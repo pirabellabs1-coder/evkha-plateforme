@@ -116,12 +116,20 @@ function source(fichier: string): string {
   return readFileSync(join(process.cwd(), "src", "public", fichier), "utf-8");
 }
 
+/** Un nombre entier écrit à la française, par groupes de trois : « 1 490 ».
+ *  Écrit ICI à la main : le test ne demande pas son résultat à la fonction du
+ *  site (`donnees.euros`) qu'il éprouve. */
+function parMilliers(entier: number): string {
+  return String(entier).replace(/\B(?=(\d{3})+$)/g, " ");
+}
+
 /** Le prix d'une formation, RECALCULÉ ici sur la constante de tarifs — et non
  *  demandé à `prixAffiche`, que la page appelle : le test ne doit pas juger la
- *  page avec la fonction de la page. */
+ *  page avec la fonction de la page. Au format du reste du site : « 1 490 €
+ *  TTC », séparateur de milliers compris. */
 function prixAttendu(cle: CleDeFormation): string {
   const tarif = TARIFS_FORMATIONS[cle];
-  return `${tarif.centimes / 100} €${tarif.ttc ? " TTC" : ""}`;
+  return `${parMilliers(tarif.centimes / 100)} €${tarif.ttc ? " TTC" : ""}`;
 }
 
 /** Un montant en euros écrit dans une source. */
@@ -249,7 +257,9 @@ const ATTENDU: Record<string, string[]> = {
     // lui donne ceux de l'ouverture de sa page d'achat.
     PAGE_MICRO.ouvertureEnImage.pastilles,
     PAGE_CATALOGUE.pourQui,
-    PAGE_CATALOGUE.avis,
+    // Le TITRE de la section d'avis est retouché à l'affichage (voir le test
+    // qui lui est propre) : seul le surtitre relevé s'affiche tel quel.
+    PAGE_CATALOGUE.avis.surtitre,
     questionsAffichees("catalogue"),
     COMMUN,
   ]),
@@ -508,7 +518,9 @@ describe("les pages des formations", () => {
     const descriptions = new Set<string>();
     for (const page of PAGES) {
       const { unmount } = afficher(page);
-      expect(document.title, page.nom).toMatch(/EVKHA/);
+      // UN format sur tout le site : « Titre de la page — EVKHA ».
+      expect(document.title, page.nom).toMatch(/\S — EVKHA$/);
+      expect(document.title, page.nom).not.toMatch(/[–|]\s*EVKHA/);
       expect(meta.content, page.nom).not.toBe("gabarit");
       // Aucune page ne tutoie dans son onglet.
       expect(`${document.title} ${meta.content}`, page.nom).not.toMatch(/(?<!\p{L})(ton|ta|tes|toi)(?!\p{L})/iu);
@@ -623,16 +635,56 @@ describe("les pages des formations", () => {
     // le type : l'objet se laisse modifier, le temps du test.
     const tarif = TARIFS_FORMATIONS.societes as { centimes: number };
     const dAvant = tarif.centimes;
+    const prixDAvant = prixAttendu("societes");
     tarif.centimes = 123700;
     try {
       afficher(SOCIETES);
       const prix = Array.from(document.querySelectorAll(".for-prix, .for-fin-prix")).map(texteDe);
-      expect(prix).toEqual(["1237 € TTC", "1237 € TTC", "1237 € TTC"]);
+      // Au format du site : le séparateur de milliers y est.
+      expect(prix).toEqual(["1 237 € TTC", "1 237 € TTC", "1 237 € TTC"]);
+      expect(texte()).not.toContain(prixDAvant);
       expect(texte()).not.toContain(`${dAvant / 100} €`);
     } finally {
       tarif.centimes = dAvant;
     }
-    expect(prixAttendu("societes")).toBe(`${dAvant / 100} € TTC`);
+    expect(prixAttendu("societes")).toBe(prixDAvant);
+    expect(prixDAvant).toBe(`${parMilliers(dAvant / 100)} € TTC`);
+  });
+
+  it("les prix s'affichent comme sur le reste du site : milliers séparés, insécables aux bons endroits", () => {
+    afficher(CATALOGUE);
+    const bruts = Array.from(document.querySelectorAll("article.for-carte .for-prix")).map((e) => e.textContent ?? "");
+    expect(bruts).toHaveLength(3);
+    for (const brut of bruts) {
+      // Une insécable avant « € », jamais une espace ordinaire ; et un
+      // montant de quatre chiffres ne s'écrit pas d'un bloc.
+      expect(brut).toMatch(new RegExp(`${INSECABLE}€`));
+      expect(brut).not.toMatch(/\d{4}/);
+      expect(brut).not.toMatch(/\d \d/);
+    }
+    // Le séparateur de milliers est une espace insécable — fine ou non, selon
+    // la version des données de langue.
+    const avecMilliers = bruts.filter((brut) => /\d[\u00a0\u202f]\d{3}/.test(brut));
+    expect(avecMilliers.length).toBeGreaterThanOrEqual(2);
+    // Contre-épreuves du calcul d'ici.
+    expect(parMilliers(850)).toBe("850");
+    expect(parMilliers(1490)).toBe("1 490");
+    expect(parMilliers(12345)).toBe("12 345");
+    expect(parMilliers(1234567)).toBe("1 234 567");
+  });
+
+  it("la section d'avis du catalogue dit de quoi parlent les avis : des études et de l'accompagnement", () => {
+    afficher(CATALOGUE);
+    const titre = section("avis").querySelector("h2");
+    expect(texteDe(titre).replace(/\s+/g, " ").trim()).toBe("Avis sur les études et l'accompagnement d'Evangeline");
+    // Sous un titre « Nos avis clients », au milieu des formations, ils se
+    // lisaient comme des avis sur les formations.
+    expect(texteDe(section("avis"))).not.toContain("Nos avis clients");
+    expect(texteDe(titre)).not.toMatch(/formation/i);
+    // Le relevé, lui, garde le titre de la cliente.
+    expect(PAGE_CATALOGUE.avis.titre).toBe("Nos avis clients");
+    // Et la phrase qui dit d'où viennent les avis est toujours là.
+    expect(texteDe(section("avis"))).toContain("pour des études réalisées sur commande");
   });
 
   it("contre-épreuve : même preuve sur le catalogue, carte par carte", () => {
@@ -790,6 +842,25 @@ describe("les pages des formations", () => {
       expect(texteDe(document.querySelector(".for-ouverture")), page.nom).toMatch(/Agent IA/);
       unmount();
     }
+  });
+
+  it("« (organisation et productivité) » décrit la Méthode P.O.P : la micro-entreprise ne le dit pas de son assistant", () => {
+    const PARENTHESE = "(organisation et productivité)";
+    // Le relevé le dit de « chaque formation ».
+    expect(
+      QUESTIONS_DES_FORMATIONS.liste.find((q) => q.q === "Comment fonctionne l'assistant IA ?")?.r,
+    ).toContain(PARENTHESE);
+
+    const micro = afficher(MICRO);
+    expect(texteDe(section("questions"))).toContain(
+      "un assistant IA spécialisé, formé sur la méthode EVKHA. Laissez-le vous guider",
+    );
+    expect(texte()).not.toContain(PARENTHESE);
+    micro.unmount();
+
+    // Sur la page de la P.O.P, c'est juste : elle la garde.
+    afficher(POP);
+    expect(texteDe(section("questions"))).toContain(`formé sur la méthode EVKHA ${PARENTHESE}.`);
   });
 
   it("les mentions d'outillage de la micro sont retirées, le sens reste", () => {

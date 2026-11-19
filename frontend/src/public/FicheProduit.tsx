@@ -20,20 +20,49 @@
  * l'espace et suit le compte, pas l'adresse saisie chez le prestataire
  * (`achat.ts`). On ne demande alors pas d'adresse : le serveur ne s'en
  * servirait pas.
+ *
+ * ## Refonte du 19/11/2026 : une vraie page de contenu
+ *
+ * La boutique est la porte d'entrée la moins chère de la maison, et chaque
+ * fiche est une page que les moteurs indexent. Elle se lit donc comme une page
+ * de contenu, dans le langage visuel de l'accueil et de la page des études
+ * (socle `Site.css`, cadre `CadreDeBoutique`) : un titre fort, ce qu'on achète,
+ * à qui l'étude s'adresse, le sommaire, l'aperçu, le déroulé, les avis — et
+ * elle se termine par une passerelle vers l'étude SUR MESURE, sans prix.
+ *
+ * Le prix et le bouton d'achat restent à portée : la colonne d'achat est
+ * collante sur grand écran ; sur téléphone, où elle vient juste sous le titre,
+ * une barre fixe en bas d'écran rappelle le prix et ramène à elle dès qu'elle
+ * sort de la fenêtre. Cette barre porte un LIEN, pas un second bouton de
+ * paiement : l'adresse e-mail se saisit dans le panneau, et un seul bouton
+ * ouvre le paiement.
+ *
+ * La logique n'a pas bougé : chargement, panne (dite, avec « Réessayer »),
+ * étude introuvable (seulement quand le serveur répond 404), achat par
+ * l'espace ou en visiteur, refus affiché contre le bouton.
+ *
+ * ## Données structurées
+ *
+ * Un bloc JSON-LD `Product` + `Offer`, construit sur ce que l'API a rendu et
+ * sur rien d'autre (`donneesStructurees`) : un champ absent de la réponse est
+ * absent du bloc. Une note inventée, déclarée aux moteurs, serait un faux.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 
-import { MenuSite } from "./MenuSite";
-import { CarteProduit } from "./Boutique";
 import {
   achatRattacheALEspace,
   messageDuRefusDePaiement,
   payerUnProduit,
 } from "./achat";
 import {
+  CadreDeBoutique,
+  CarteProduit,
+  Etoiles,
+  QuestionsDUneEtude,
+} from "./Boutique";
+import {
   chargerFiche,
-  etoiles,
   initiale,
   moisEtAnnee,
   prix,
@@ -42,9 +71,128 @@ import {
   type ProduitFiche,
   type ProduitResume,
 } from "./catalogue";
+import { LIENS } from "./contenuSite";
+import { Bouton } from "./PiecesSite";
 import { useReveler } from "./reveler";
-import "./Partenaires.css";
+import { lisible, useTitreDePage } from "./site";
+// Le socle d'abord, la feuille du lot ensuite.
+import "./Site.css";
 import "./Boutique.css";
+
+// ── Le texte de la page ─────────────────────────────────────────────────────
+
+const ONGLET = {
+  titre: (etude: string) => `${etude} — EVKHA`,
+  attente: "Étude en téléchargement — EVKHA",
+  description:
+    "Une étude de marché déjà rédigée, à télécharger tout de suite : son " +
+    "sommaire, un aperçu de ses premières pages et son prix.",
+};
+
+const RETOUR = "Toutes les études";
+
+const ETATS = {
+  attente: "Chargement…",
+  panneTitre: "Un instant",
+  panne:
+    "Cette page n'a pas pu être chargée. Votre lien est bon : c'est une " +
+    "panne passagère de notre côté.",
+  reessayer: "Réessayer",
+  introuvable: "Cette étude n'est pas disponible",
+  boutique: "Revenir à la boutique",
+};
+
+const TETE = {
+  miseAJour: (mois: string) => `Mise à jour ${mois}`,
+  pdfEtWord: "PDF et Word",
+  pdf: "PDF",
+  note: (note: number) => `${note.toFixed(1).replace(".", ",")} sur 5`,
+  avis: (nombre: number) => `${nombre} avis`,
+  couverture: (etude: string) => `Couverture — ${etude}`,
+};
+
+const BLOCS = {
+  achat: "Ce que vous achetez",
+  pourQui: {
+    titre: "À qui s'adresse cette étude",
+    corps:
+      "Aux personnes qui préparent un projet dans ce secteur et veulent des " +
+      "repères chiffrés avant de s'engager. Elle décrit un marché, avec des " +
+      "chiffres récents : elle n'est pas personnalisée.",
+    amorce: "Les questions auxquelles elle aide à répondre :",
+  },
+  sommaire: "Le sommaire",
+  apercu: {
+    titre: "Feuilleter avant d'acheter",
+    corps: (pages: number) =>
+      `Les ${pages} premières pages de l'étude sont ouvertes, telles ` +
+      "qu'elles figurent dans le document. Aucune inscription n'est demandée.",
+    bouton: (pages: number) => `Ouvrir l'aperçu (${pages} pages)`,
+  },
+  deroule: {
+    titre: "Comment ça se passe",
+    etapes: [
+      {
+        titre: "Vous réglez",
+        corps: "paiement unique par carte, en ligne sécurisée.",
+      },
+      {
+        titre: "Vous téléchargez",
+        corps:
+          "le document est disponible dans la seconde qui suit, sur la page de retour.",
+      },
+      {
+        titre: "Vous le retrouvez",
+        corps:
+          "un espace s'ouvre à votre nom : l'étude y reste, téléchargeable autant de fois que voulu.",
+      },
+    ],
+  },
+  avis: {
+    titre: "Ce qu'en disent les lectrices",
+    lecture: (note: number) => `Note : ${note} sur 5`,
+  },
+  proches: "Ces études peuvent aussi vous intéresser",
+};
+
+const ACHAT = {
+  nom: "Acheter cette étude",
+  mention: "TTC · paiement unique",
+  rattache:
+    "Cette étude sera rangée dans votre espace, déjà ouvert dans ce navigateur.",
+  email: "Votre adresse e-mail",
+  exemple: "vous@exemple.fr",
+  acheter: (montant: string) => `Acheter — ${montant}`,
+  ouverture: "Ouverture du paiement…",
+  refus: "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.",
+  feuilleter: (pages: number) => `Feuilleter les ${pages} premières pages`,
+  rassurance: (editable: boolean) => [
+    "Téléchargement immédiat après paiement",
+    editable ? "PDF et version Word" : "PDF",
+    "Retrouvable à tout moment dans votre espace",
+    "Aucun abonnement, aucun engagement",
+  ],
+  /** La barre du téléphone : un rappel du prix et un lien vers le panneau. */
+  barre: "Acheter cette étude",
+  ttc: "TTC",
+};
+
+/** La passerelle vers l'étude sur mesure. Aucun prix : ceux des études sur
+ *  mesure se lisent sur leur page, qui les tient du serveur. */
+const PASSERELLE = {
+  surtitre: "Étude sur mesure",
+  titre: {
+    avant: "Ce secteur vous intéresse",
+    fin: "pour votre propre projet et votre propre zone ?",
+  },
+  corps:
+    "Cette étude décrit un marché. Pour une étude bâtie sur votre projet, " +
+    "avec votre propre zone de chalandise et vos propres chiffres, " +
+    "consultez nos études sur mesure.",
+  bouton: "Voir les études sur mesure",
+};
+
+// ── Outils ──────────────────────────────────────────────────────────────────
 
 /** « 12 mars 2026 ». Sur un avis, le jour compte : il dit si le témoignage
  *  est récent. C'est l'inverse d'une date de mise à jour, où il n'apporte
@@ -60,23 +208,84 @@ function jourEntier(iso: string): string {
   }).format(date);
 }
 
+/** Les paragraphes d'une description saisie en texte libre : ceux de la
+ *  cliente, séparés par une ligne vide. On ne les recompose pas. */
+function paragraphes(description: string): string[] {
+  return description.split(/\n\s*\n/).filter((p) => p.trim());
+}
+
+/** La description de la page, pour les moteurs : le début du premier
+ *  paragraphe de l'étude, coupé entre deux mots. */
+function resume(description: string): string {
+  const premier = (paragraphes(description)[0] ?? "").replace(/\s+/g, " ").trim();
+  if (premier.length <= 160) return premier;
+  return `${premier.slice(0, 157).replace(/\s+\S*$/, "")}…`;
+}
+
+/** Les données structurées de la fiche (schema.org `Product` et `Offer`).
+ *
+ *  Tout vient de la réponse de l'API, et un champ qu'elle ne porte pas n'est
+ *  pas déclaré : pas de description vide, pas d'offre sans prix lisible ni
+ *  devise, pas de note sans avis publié. L'adresse est celle de la page,
+ *  bâtie sur le slug que l'API a rendu. Rien d'autre — ni disponibilité, ni
+ *  marque, ni note par défaut : ce serait déclarer aux moteurs un fait que
+ *  personne n'a établi. */
+function donneesStructurees(produit: ProduitFiche): Record<string, unknown> {
+  const adresse = `${window.location.origin}/boutique/${encodeURIComponent(produit.slug)}`;
+  const avis = Array.isArray(produit.avis) ? produit.avis.length : 0;
+  const aUnPrix =
+    lisible(produit.prix_cents) &&
+    typeof produit.devise === "string" &&
+    produit.devise !== "";
+  const aUneNote = avis > 0 && typeof produit.note === "number" && produit.note > 0;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: produit.titre,
+    url: adresse,
+    ...(produit.description ? { description: produit.description } : {}),
+    ...(produit.theme ? { category: produit.theme } : {}),
+    ...(produit.image ? { image: produit.image } : {}),
+    ...(aUnPrix
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: (produit.prix_cents / 100).toFixed(2),
+            priceCurrency: produit.devise,
+            url: adresse,
+          },
+        }
+      : {}),
+    ...(aUneNote
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: produit.note,
+            reviewCount: avis,
+          },
+        }
+      : {}),
+  };
+}
+
 function CarteAvis({ avis }: { avis: Avis }) {
   return (
-    <li className="bq-avis" data-reveal="">
-      <p className="bq-avis-tete">
-        <span className="bq-etoiles" aria-label={`${avis.note} sur 5`}>
-          {etoiles(avis.note)}
-        </span>
-        <span className="bq-avis-date">{jourEntier(avis.date)}</span>
+    <li className="bou-avis" data-reveal="">
+      <p className="bou-avis-tete">
+        <Etoiles note={avis.note} lecture={BLOCS.avis.lecture(avis.note)} />
+        <span className="bou-avis-date">{jourEntier(avis.date)}</span>
       </p>
-      {avis.texte && <blockquote className="bq-avis-texte">{avis.texte}</blockquote>}
-      <p className="bq-avis-signature">
+      {avis.texte && <blockquote>{avis.texte}</blockquote>}
+      <p className="bou-avis-signature">
         <b>{avis.auteur}</b>
         {avis.qualite && <span>{avis.qualite}</span>}
       </p>
     </li>
   );
 }
+
+// ── La page ─────────────────────────────────────────────────────────────────
 
 export function FicheProduit() {
   const { slug } = useParams({ from: "/boutique/$slug" });
@@ -96,11 +305,24 @@ export function FicheProduit() {
   const [tentative, setTentative] = useState(0);
   // Lu une fois, à l'arrivée : un espace est-il ouvert dans ce navigateur ?
   const [rattache] = useState(achatRattacheALEspace);
+  // Le panneau d'achat est-il dans la fenêtre ? La barre du téléphone s'efface
+  // alors : elle ne sert qu'à y ramener. Tant que l'observateur n'a rien dit,
+  // on le suppose visible — sur téléphone il est juste sous le titre, et la
+  // barre ne clignote pas à l'arrivée. Sans observateur, la barre reste.
+  const [panneauVisible, setPanneauVisible] = useState(
+    () => typeof IntersectionObserver !== "undefined",
+  );
   const page = useRef<HTMLDivElement>(null);
+  const panneau = useRef<HTMLElement>(null);
 
   // La fiche arrive après le premier rendu, et change avec le slug : chaque
-  // nouvelle fiche rejoue l'observation de ses blocs.
-  useReveler(page, produit);
+  // nouvelle fiche rejoue l'observation de ses blocs. L'option : sous
+  // mouvement réduit, la révélation reste, en fondu seul (`Site.css`).
+  useReveler(page, produit, { memeEnMouvementReduit: true });
+  useTitreDePage(
+    produit ? ONGLET.titre(produit.titre) : ONGLET.attente,
+    (produit?.description && resume(produit.description)) || ONGLET.description,
+  );
 
   useEffect(() => {
     let vivant = true;
@@ -114,7 +336,6 @@ export function FicheProduit() {
         setPanne(false);
         setProduit(donnees.produit);
         setProches(donnees.proches);
-        document.title = `${donnees.produit.titre} — EVKHA`;
       })
       .catch((cause: unknown) => {
         if (!vivant) return;
@@ -129,6 +350,20 @@ export function FicheProduit() {
     };
   }, [slug, tentative]);
 
+  // Un observateur, pas un écouteur de défilement : il ne parle que lorsque le
+  // panneau franchit le bord de la fenêtre. Sans lui (vieux navigateur), la
+  // barre reste affichée — elle mène toujours au panneau.
+  useEffect(() => {
+    const cible = panneau.current;
+    if (!cible || typeof IntersectionObserver === "undefined") return undefined;
+    const observateur = new IntersectionObserver((entrees) => {
+      const derniere = entrees[entrees.length - 1];
+      if (derniere) setPanneauVisible(derniere.isIntersecting);
+    });
+    observateur.observe(cible);
+    return () => observateur.disconnect();
+  }, [produit]);
+
   async function acheter() {
     if (!produit) return;
     setEnvoi(true);
@@ -142,67 +377,69 @@ export function FicheProduit() {
       // laquelle la personne revient, et où elle recliquera.
       window.location.href = adresse;
     } catch (cause) {
-      setErreur(
-        messageDuRefusDePaiement(
-          cause,
-          "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.",
-        ),
-      );
+      setErreur(messageDuRefusDePaiement(cause, ACHAT.refus));
       setEnvoi(false);
     }
   }
 
   if (panne) {
     return (
-      <div className="pp bq">
-        <MenuSite />
-        <main className="pp-large">
-          <p className="bq-erreur" role="alert">
-            Cette page n'a pas pu être chargée. Votre lien est bon : c'est une
-            panne passagère de notre côté.
+      <CadreDeBoutique racine={page} classe="bou-fiche-page">
+        <div className="acc-w bou-etat">
+          <h1>{ETATS.panneTitre}</h1>
+          <p className="bou-erreur" role="alert">
+            {ETATS.panne}
           </p>
-          <div className="bq-liens">
+          <div className="bou-liens">
             <button
               type="button"
-              className="bouton bouton-noir bq-bouton"
+              className="acc-btn acc-btn-noir"
               onClick={() => {
                 setPanne(false);
                 setTentative((n) => n + 1);
               }}
             >
-              Réessayer
+              {ETATS.reessayer}
+              <span className="acc-btn-fleche" aria-hidden="true">
+                ↻
+              </span>
             </button>
-            <Link className="bq-extrait" to="/boutique">
-              Revenir à la boutique
+            <Link className="bou-lien" to="/boutique">
+              {ETATS.boutique}
             </Link>
           </div>
-        </main>
-      </div>
+        </div>
+      </CadreDeBoutique>
     );
   }
 
   if (introuvable) {
     return (
-      <div className="pp bq">
-        <MenuSite />
-        <main className="pp-large">
-          <p className="bq-erreur" role="alert">
-            Cette étude n'est pas disponible.{" "}
-            <Link to="/boutique">Revenir à la boutique</Link>.
-          </p>
-        </main>
-      </div>
+      <CadreDeBoutique racine={page} classe="bou-fiche-page">
+        <div className="acc-w bou-etat">
+          <h1>{ETATS.introuvable}</h1>
+          <div className="bou-liens">
+            <Link className="acc-btn acc-btn-noir" to="/boutique">
+              {ETATS.boutique}
+              <span className="acc-btn-fleche" aria-hidden="true">
+                →
+              </span>
+            </Link>
+          </div>
+        </div>
+      </CadreDeBoutique>
     );
   }
 
   if (!produit) {
     return (
-      <div className="pp bq">
-        <MenuSite />
-        <main className="pp-large">
-          <p className="bq-attente">Chargement…</p>
-        </main>
-      </div>
+      <CadreDeBoutique racine={page} classe="bou-fiche-page">
+        <div className="acc-w bou-etat">
+          <p className="bou-attente" role="status">
+            {ETATS.attente}
+          </p>
+        </div>
+      </CadreDeBoutique>
     );
   }
 
@@ -210,225 +447,266 @@ export function FicheProduit() {
   // Sans le nombre de pages : voir `Boutique.tsx`. Le sommaire et l'aperçu
   // disent ce que le document contient, ce qu'un nombre ne dit pas.
   const details = [
-    maj ? `Mise à jour ${maj}` : "",
-    produit.editable ? "PDF et Word" : "PDF",
+    maj ? TETE.miseAJour(maj) : "",
+    produit.editable ? TETE.pdfEtWord : TETE.pdf,
   ].filter(Boolean);
+  const montant = prix(produit.prix_cents, produit.devise);
 
   return (
-    <div className="pp bq" ref={page}>
-      <MenuSite />
-
-      <main className="pp-large">
-        <Link className="bq-retour" to="/boutique">
-          {"←\u00a0Toutes les études"}
-        </Link>
-
-        <div className="bq-fiche">
-          <div className="bq-fiche-corps">
-            {/* La couverture EN PREMIER, en grand : c'est ce qu'on regarde
-                avant de lire, et c'est la seule chose qui donne une idée du
-                document tant qu'on n'a pas ouvert l'aperçu. */}
-            <div className="bq-visuel">
-              {produit.image ? (
-                <img
-                  className="bq-visuel-image"
-                  src={produit.image}
-                  alt={`Couverture — ${produit.titre}`}
-                  width="1200"
-                  height="800"
-                />
-              ) : (
-                <span className="bq-visuel-vide" aria-hidden="true">
-                  {initiale(produit.titre)}
-                </span>
-              )}
-            </div>
-
-            <div className="bq-titraille">
-              {produit.theme && <p className="bq-theme">{produit.theme}</p>}
-              <h1>{produit.titre}</h1>
-              <p className="bq-meta">{details.join(" · ")}</p>
-              {produit.avis.length > 0 && (
-                <p className="bq-note">
-                  <span className="bq-etoiles" aria-hidden="true">
-                    {etoiles(produit.note)}
-                  </span>
-                  <span>
-                    {produit.note.toFixed(1).replace(".", ",")} sur 5 ·{" "}
-                    <a href="#avis">
-                      {produit.avis.length} avis
-                    </a>
-                  </span>
-                </p>
-              )}
-            </div>
-
-            {produit.description && (
-              <section className="bq-bloc" data-reveal="">
-                <h2>Ce que vous achetez</h2>
-                {/* La description est saisie en texte libre : les paragraphes
-                    sont ceux de la cliente, on ne les recompose pas. */}
-                {produit.description
-                  .split(/\n\s*\n/)
-                  .filter((p) => p.trim())
-                  .map((paragraphe) => (
-                    <p key={paragraphe.slice(0, 40)} className="bq-description">
-                      {paragraphe}
-                    </p>
-                  ))}
-              </section>
-            )}
-
-            {produit.sommaire.length > 0 && (
-              <section className="bq-bloc" data-reveal="">
-                <h2>Le sommaire</h2>
-                <ol className="bq-sommaire">
-                  {produit.sommaire.map((ligne) => (
-                    <li key={ligne}>{ligne}</li>
-                  ))}
-                </ol>
-              </section>
-            )}
-
-            {produit.apercu && (
-              <section className="bq-bloc bq-apercu" data-reveal="">
-                <h2>Feuilleter avant d'acheter</h2>
-                <p className="bq-description">
-                  Les {produit.apercu.pages} premières pages de l'étude sont
-                  ouvertes, telles qu'elles figurent dans le document. Aucune
-                  inscription n'est demandée.
-                </p>
-                {/* La flèche « ↗ » dit l'onglet qui s'ouvre ; nichée dans son
-                    disque, jamais posée nue à côté du texte. */}
-                <a
-                  className="bouton bouton-noir"
-                  href={produit.apercu.adresse}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Ouvrir l'aperçu ({produit.apercu.pages} pages)
-                  <span className="bouton__icone" aria-hidden="true">
-                    ↗
-                  </span>
+    <CadreDeBoutique racine={page} classe="bou-fiche-page">
+      <article className="acc-w bou-fiche" aria-labelledby="bou-fiche-titre">
+        {/* ── Le titre ─────────────────────────────────────────────────────
+            Un `<div>`, pas un `<header>` : la seule bannière de la page est
+            la barre du site. */}
+        <div className="bou-fiche-tete">
+          <Link className="bou-retour" to="/boutique">
+            <span aria-hidden="true">←</span>
+            {RETOUR}
+          </Link>
+          {produit.theme && <p className="acc-tag">{produit.theme}</p>}
+          <h1 id="bou-fiche-titre">{produit.titre}</h1>
+          <p className="bou-fiche-meta">{details.join(" · ")}</p>
+          {produit.avis.length > 0 && (
+            <p className="bou-note">
+              <Etoiles note={produit.note} />
+              <span>
+                {TETE.note(produit.note)} ·{" "}
+                <a className="bou-lien" href="#avis">
+                  {TETE.avis(produit.avis.length)}
                 </a>
-              </section>
-            )}
+              </span>
+            </p>
+          )}
+        </div>
 
-            <section className="bq-bloc" data-reveal="">
-              <h2>Comment ça se passe</h2>
-              <ol className="bq-etapes">
-                <li>
-                  <b>Vous réglez</b> — paiement unique par carte, en ligne
-                  sécurisée.
-                </li>
-                <li>
-                  <b>Vous téléchargez</b> — le document est disponible dans la
-                  seconde qui suit, sur la page de retour.
-                </li>
-                <li>
-                  <b>Vous le retrouvez</b> — un espace s'ouvre à votre nom :
-                  l'étude y reste, téléchargeable autant de fois que voulu.
-                </li>
-              </ol>
-            </section>
+        {/* ── Le panneau d'achat ───────────────────────────────────────────
+            Juste après le titre dans le document : sur téléphone il vient
+            donc avant la lecture ; sur grand écran c'est la colonne de
+            droite, collante. */}
+        <aside
+          className="bou-achat"
+          id="bou-achat"
+          ref={panneau}
+          aria-label={ACHAT.nom}
+        >
+          <p className="bou-achat-prix">{montant}</p>
+          <p className="bou-achat-mention">{ACHAT.mention}</p>
 
-            {produit.avis.length > 0 && (
-              <section className="bq-bloc" id="avis">
-                <h2>Ce qu'en disent les lectrices</h2>
-                <ul className="bq-avis-liste">
-                  {produit.avis.map((a) => (
-                    <CarteAvis key={`${a.auteur}-${a.date}`} avis={a} />
-                  ))}
-                </ul>
-              </section>
+          {/* Avec un espace ouvert, l'achat suit le COMPTE : le serveur
+              n'utilise pas d'adresse saisie ici. La demander quand même
+              ferait croire qu'on peut l'envoyer ailleurs. */}
+          {rattache ? (
+            <p className="bou-achat-mention">{ACHAT.rattache}</p>
+          ) : (
+            <>
+              <label htmlFor="bou-email">{ACHAT.email}</label>
+              {/* `.champ-saisie` (espace.css) : le champ de la charte, 16 px
+                  au moins. */}
+              <input
+                id="bou-email"
+                className="champ-saisie"
+                type="email"
+                autoComplete="email"
+                placeholder={ACHAT.exemple}
+                value={email}
+                onChange={(evenement) => setEmail(evenement.target.value)}
+                aria-describedby={erreur ? "bou-achat-erreur" : undefined}
+              />
+            </>
+          )}
+
+          {/* Le refus s'affiche CONTRE le bouton, avec la phrase que le
+              serveur a écrite pour la personne. */}
+          {erreur && (
+            <p className="bou-erreur" id="bou-achat-erreur" role="alert">
+              {erreur}
+            </p>
+          )}
+
+          {/* Pendant l'ouverture du paiement, une lame de lumière traverse le
+              bouton (`.bouton-chargement`, espace.css) : le texte dit
+              « Ouverture… », le balayage dit seulement que ça travaille. */}
+          <button
+            type="button"
+            className={
+              envoi
+                ? "acc-btn acc-btn-noir bou-acheter bouton-chargement"
+                : "acc-btn acc-btn-noir bou-acheter"
+            }
+            onClick={() => void acheter()}
+            disabled={envoi}
+            aria-describedby={erreur ? "bou-achat-erreur" : undefined}
+          >
+            {envoi ? ACHAT.ouverture : ACHAT.acheter(montant)}
+            <span className="acc-btn-fleche" aria-hidden="true">
+              →
+            </span>
+          </button>
+
+          {produit.apercu && (
+            <a
+              className="bou-lien bou-achat-apercu"
+              href={produit.apercu.adresse}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {ACHAT.feuilleter(produit.apercu.pages)}
+            </a>
+          )}
+
+          <ul className="bou-rassurance">
+            {ACHAT.rassurance(produit.editable).map((ligne) => (
+              <li key={ligne}>{ligne}</li>
+            ))}
+          </ul>
+        </aside>
+
+        {/* ── La lecture ───────────────────────────────────────────────── */}
+        <div className="bou-fiche-corps">
+          {/* La couverture EN PREMIER, en grand : c'est ce qu'on regarde
+              avant de lire, et c'est la seule chose qui donne une idée du
+              document tant qu'on n'a pas ouvert l'aperçu. */}
+          <div className="bou-visuel">
+            {produit.image ? (
+              <img
+                className="bou-visuel-image"
+                src={produit.image}
+                alt={TETE.couverture(produit.titre)}
+                width="1200"
+                height="800"
+              />
+            ) : (
+              <span className="bou-visuel-vide" aria-hidden="true">
+                {initiale(produit.titre)}
+              </span>
             )}
           </div>
 
-          <aside className="bq-achat">
-            <div className="bq-achat-prix">
-              {prix(produit.prix_cents, produit.devise)}
-            </div>
-            <p className="bq-achat-mention">TTC · paiement unique</p>
+          {produit.description && (
+            <section className="bou-bloc" data-reveal="">
+              <h2>{BLOCS.achat}</h2>
+              {paragraphes(produit.description).map((paragraphe) => (
+                <p key={paragraphe.slice(0, 40)}>{paragraphe}</p>
+              ))}
+            </section>
+          )}
 
-            {/* Avec un espace ouvert, l'achat suit le COMPTE : le serveur
-                n'utilise pas d'adresse saisie ici. La demander quand même
-                ferait croire qu'on peut l'envoyer ailleurs. */}
-            {rattache ? (
-              <p className="bq-achat-mention">
-                Cette étude sera rangée dans votre espace, déjà ouvert dans ce
-                navigateur.
-              </p>
-            ) : (
-              <>
-                <label htmlFor="bq-email">Votre adresse e-mail</label>
-                <input
-                  id="bq-email"
-                  className="champ-saisie"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="vous@exemple.fr"
-                  value={email}
-                  onChange={(evenement) => setEmail(evenement.target.value)}
-                  aria-describedby={erreur ? "bq-achat-erreur" : undefined}
-                />
-              </>
-            )}
+          <section className="bou-bloc" data-reveal="">
+            <h2>{BLOCS.pourQui.titre}</h2>
+            <p>{BLOCS.pourQui.corps}</p>
+            <p className="bou-amorce">{BLOCS.pourQui.amorce}</p>
+            <QuestionsDUneEtude />
+          </section>
 
-            {erreur && (
-              <p className="bq-erreur bq-erreur-achat" id="bq-achat-erreur" role="alert">
-                {erreur}
-              </p>
-            )}
+          {produit.sommaire.length > 0 && (
+            <section className="bou-bloc" data-reveal="">
+              <h2>{BLOCS.sommaire}</h2>
+              <ol className="bou-sommaire">
+                {produit.sommaire.map((ligne) => (
+                  <li key={ligne}>{ligne}</li>
+                ))}
+              </ol>
+            </section>
+          )}
 
-            {/* Pendant l'ouverture du paiement, une lame de lumière traverse le
-                bouton (`.bouton-chargement`) : le texte dit « Ouverture… »,
-                le balayage dit seulement que ça travaille. */}
-            <button
-              type="button"
-              className={
-                envoi
-                  ? "bouton bouton-noir bouton-chargement bq-bouton"
-                  : "bouton bouton-noir bq-bouton"
-              }
-              onClick={() => void acheter()}
-              disabled={envoi}
-            >
-              {envoi
-                ? "Ouverture du paiement…"
-                : `Acheter — ${prix(produit.prix_cents, produit.devise)}`}
-            </button>
-
-            {produit.apercu && (
+          {produit.apercu && (
+            <section className="bou-bloc bou-apercu" data-reveal="">
+              <h2>{BLOCS.apercu.titre}</h2>
+              <p>{BLOCS.apercu.corps(produit.apercu.pages)}</p>
+              {/* La flèche « ↗ » dit l'onglet qui s'ouvre ; nichée dans son
+                  disque, jamais posée nue à côté du texte. */}
               <a
-                className="bq-extrait"
+                className="acc-btn acc-btn-noir bou-bouton-souple"
                 href={produit.apercu.adresse}
                 target="_blank"
                 rel="noreferrer"
               >
-                Feuilleter les {produit.apercu.pages} premières pages
+                {BLOCS.apercu.bouton(produit.apercu.pages)}
+                <span className="acc-btn-fleche" aria-hidden="true">
+                  ↗
+                </span>
               </a>
-            )}
+            </section>
+          )}
 
-            <ul className="bq-rassurance">
-              <li>Téléchargement immédiat après paiement</li>
-              <li>PDF{produit.editable ? " et version Word" : ""}</li>
-              <li>Retrouvable à tout moment dans votre espace</li>
-              <li>Aucun abonnement, aucun engagement</li>
-            </ul>
-          </aside>
+          <section className="bou-bloc" data-reveal="">
+            <h2>{BLOCS.deroule.titre}</h2>
+            {/* Une liste ORDONNÉE : régler, télécharger, retrouver — l'ordre
+                porte l'information. */}
+            <ol className="bou-etapes">
+              {BLOCS.deroule.etapes.map((etape) => (
+                <li key={etape.titre}>
+                  <span>
+                    <b>{etape.titre}</b> — {etape.corps}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          {produit.avis.length > 0 && (
+            <section className="bou-bloc" id="avis">
+              <h2>{BLOCS.avis.titre}</h2>
+              <ul className="bou-avis-liste">
+                {produit.avis.map((a) => (
+                  <CarteAvis key={`${a.auteur}-${a.date}`} avis={a} />
+                ))}
+              </ul>
+            </section>
+          )}
         </div>
+      </article>
 
-        {proches.length > 0 && (
-          <section className="bq-proches">
-            <h2>Ces études peuvent aussi vous intéresser</h2>
-            <div className="bq-grille">
+      {/* ── Les études voisines ──────────────────────────────────────────── */}
+      {proches.length > 0 && (
+        <section className="acc-section bou-proches">
+          <div className="acc-w">
+            <h2 data-reveal="">{BLOCS.proches}</h2>
+            <ul className="bou-grille">
               {proches.map((p) => (
                 <CarteProduit key={p.slug} produit={p} />
               ))}
-            </div>
-          </section>
-        )}
-      </main>
-    </div>
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {/* ── La passerelle vers l'étude sur mesure ────────────────────────── */}
+      <section className="acc-fin bou-fin" aria-labelledby="bou-passerelle-titre">
+        <div className="acc-w">
+          <span className="acc-tag">{PASSERELLE.surtitre}</span>
+          <h2 id="bou-passerelle-titre">
+            {PASSERELLE.titre.avant}{" "}
+            <span className="acc-s">{PASSERELLE.titre.fin}</span>
+          </h2>
+          <p className="acc-fin-corps">{PASSERELLE.corps}</p>
+          <Bouton lien={LIENS.etudes} aspect="noir" className="bou-bouton-souple">
+            {PASSERELLE.bouton}
+          </Bouton>
+        </div>
+      </section>
+
+      {/* ── La barre d'achat du téléphone ────────────────────────────────────
+          Fixe, en bas d'écran, sous 901 px seulement (la feuille). Un LIEN
+          vers le panneau d'achat, pas un second bouton de paiement. Effacée
+          (`hidden`) tant que le panneau est dans la fenêtre. */}
+      <div className="bou-barre" hidden={panneauVisible}>
+        <p className="bou-barre-prix">
+          {montant} <span>{ACHAT.ttc}</span>
+        </p>
+        <a className="acc-btn acc-btn-noir bou-barre-lien" href="#bou-achat">
+          {ACHAT.barre}
+          <span className="acc-btn-fleche" aria-hidden="true">
+            ↑
+          </span>
+        </a>
+      </div>
+
+      {/* Les données structurées, sérialisées par `JSON.stringify` et posées
+          en TEXTE : React n'y interprète aucun balisage. */}
+      <script type="application/ld+json">
+        {JSON.stringify(donneesStructurees(produit))}
+      </script>
+    </CadreDeBoutique>
   );
 }

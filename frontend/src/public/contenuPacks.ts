@@ -37,7 +37,17 @@
  * place) : les chiffres des trois cartes « De contenu / D'accompagnement / De
  * bonus offerts » du Premium. Rien n'a été inventé pour combler : le champ
  * est `null`.
+ *
+ * UNE SOURCE PAR FAIT (règle 5). Le prix et la durée de la Méthode P.O.P,
+ * offerte avec le Premium, ne sont PAS écrits ici : ils se lisent dans
+ * `contenuFormations` (`TARIFS_FORMATIONS.pop`, `DUREES_POP`), où la formation
+ * est vendue. Les adresses des trois pages se lisent dans
+ * `contenuSite.CHEMINS`, et les montants s'affichent par `donnees.euros`,
+ * comme partout sur le site.
  */
+import { DUREES_POP, TARIFS_FORMATIONS } from "./contenuFormations";
+import { CHEMINS } from "./contenuSite";
+import { euros } from "./donnees";
 
 // ── Tarifs ──────────────────────────────────────────────────────────────────
 
@@ -61,11 +71,15 @@ export type TarifReleve = {
  *
  *  `formationPop` : la valeur de la formation P.O.P offerte avec le Premium,
  *  telle que les pages des packs la citent. Ce n'est pas un prix de vente de
- *  ce lot. */
+ *  ce lot : le montant est LU dans `contenuFormations.TARIFS_FORMATIONS.pop`,
+ *  le prix auquel la formation est vendue. Écrit ici une seconde fois, il
+ *  aurait suffi d'un changement de tarif de la formation pour que le Premium
+ *  annonce une « valeur » que plus rien ne vend. Les pages des packs ne
+ *  l'accompagnent d'aucune mention de taxe : `mentionTaxe` reste `null`. */
 export const TARIFS_PACKS = {
   essentiel: { centimes: 49500, mentionTaxe: null },
   premium: { centimes: 99500, mentionTaxe: null },
-  formationPop: { centimes: 85000, mentionTaxe: null },
+  formationPop: { centimes: TARIFS_FORMATIONS.pop.centimes, mentionTaxe: null },
 } as const satisfies Record<string, TarifReleve>;
 
 /** Le montant en euros entiers, sans symbole (« 495 »). Un montant qui ne
@@ -81,10 +95,18 @@ function eurosEntiers(tarif: TarifReleve): string {
   return String(euros);
 }
 
-/** Le montant tel que le site l'écrit : « 495 € ». */
+/** Le montant tel que le SITE l'affiche : « 495 € », par la fonction commune
+ *  `donnees.euros` — la même que l'accueil, les études et la boutique, avec
+ *  ses espaces insécables. `eurosEntiers` passe d'abord : un montant nul ou
+ *  qui ne tombe pas sur un euro rond lève une erreur au lieu de s'afficher. */
 function enEuros(tarif: TarifReleve): string {
-  return `${eurosEntiers(tarif)}\u00a0€`;
+  eurosEntiers(tarif);
+  return euros(tarif.centimes);
 }
+
+/** La durée de la Méthode P.O.P, telle que les pages des packs l'écrivent :
+ *  « 7h ». Le nombre d'heures est lu là où la formation est décrite. */
+const HEURES_POP = `${DUREES_POP.heuresEnLigne}h`;
 
 const PRIX_ESSENTIEL = enEuros(TARIFS_PACKS.essentiel);
 const PRIX_PREMIUM = enEuros(TARIFS_PACKS.premium);
@@ -807,9 +829,9 @@ export const PAGE_PACK_PREMIUM = {
       {
         titre: `Formation P.O.P incluse (valeur ${VALEUR_POP})`,
         corps:
-          "L'accès complet à la formation Méthode P.O.P d'EVKHA : 7h de formation pour structurer votre activité, organiser votre temps et gagner en rentabilité dès votre première année.",
+          `L'accès complet à la formation Méthode P.O.P d'EVKHA : ${HEURES_POP} de formation pour structurer votre activité, organiser votre temps et gagner en rentabilité dès votre première année.`,
         points: [
-          "7h de formation digitale",
+          `${HEURES_POP} de formation digitale`,
           "Méthode P.O.P : Planifiez, Organisez, Produisez",
           "Accès à un agent IA dédié",
           "Templates et tableaux de bord",
@@ -827,7 +849,7 @@ export const PAGE_PACK_PREMIUM = {
       corps:
         "Le système EVKHA pour structurer votre activité, reprendre le contrôle de votre temps et gagner en rentabilité dès votre première année d'activité.",
       points: [
-        "7h de formation digitale à votre rythme",
+        `${HEURES_POP} de formation digitale à votre rythme`,
         "La méthode P.O.P appliquée à votre activité",
         "Outils, templates et tableaux de bord",
         "Accès à un agent IA dédié à vos objectifs",
@@ -1027,13 +1049,15 @@ export const PAGE_PACK_PREMIUM = {
 
 // ── Adresses et prix affichés ───────────────────────────────────────────────
 
-/** Les trois pages, sur la plateforme. Les boutons d'ACHAT, eux, mènent encore
- *  aux pages de paiement du site (`LIENS_PACKS`) : la plateforme n'encaisse
- *  pas ces offres. */
+/** Les trois pages, sur la plateforme. Un ALIAS : chaque chemin est lu dans
+ *  `contenuSite.CHEMINS`, la seule source des adresses du site (règle 5) ; le
+ *  nom est gardé pour les fichiers qui l'importent. Les boutons d'ACHAT, eux,
+ *  mènent encore aux pages de paiement du site (`LIENS_PACKS`) : la plateforme
+ *  n'encaisse pas ces offres. */
 export const ROUTES_PACKS = {
-  ensemble: "/packs",
-  essentiel: "/packs/essentiel",
-  premium: "/packs/premium",
+  ensemble: CHEMINS.packs,
+  essentiel: CHEMINS.packEssentiel,
+  premium: CHEMINS.packPremium,
 } as const;
 
 /** Les deux prix de vente, tels qu'ils s'affichent. Lus dans `TARIFS_PACKS` :
@@ -1057,13 +1081,9 @@ export const PORTRAIT_DES_PACKS = {
 /** Les deux mots devant lesquels une page écrit un nombre à accorder. */
 export const UNITES_A_ACCORDER = { etapes: "étapes", livrables: "livrables" } as const;
 
-/** L'ancienneté. Les pages écrivent « 15 ans » ici et « 16 ans » là, et la
- *  cliente n'a pas tranché (voir l'en-tête). À l'affichage, les deux
- *  deviennent « plus de 15 ans », vrai dans les deux cas — la même formule que
- *  l'accueil. Le texte relevé, plus haut, n'est pas touché. */
-export function ancienneteSure(texte: string): string {
-  return texte.replace(/(?<!plus de )\b1[56](?=\sans\b)/g, "plus de 15");
-}
+// L'ancienneté (« 15 ans » ici, « 16 ans » là, non tranché — voir l'en-tête)
+// s'affiche « plus de 15 ans » par `site.ancienneteSure`, la fonction que les
+// formations utilisent aussi : elle n'est plus écrite dans ce fichier.
 
 /** Remplace le nombre écrit devant `unite` par celui qu'on a compté.
  *  « en 5 étapes » devient « en 6 étapes » quand la page en affiche six. Un

@@ -12,6 +12,10 @@
  * - Les filtres sont des boutons à bascule (`aria-pressed`), « Tous » par
  *   défaut. Un thème SANS article reste affiché, désactivé : la liste fermée
  *   des thèmes dit de quoi parle le blog, sans promettre d'article.
+ * - Le filtre choisi s'écrit dans l'adresse (`?theme=…`), sans recharger la
+ *   page ni empiler une entrée d'historique : l'adresse copiée rouvre la liste
+ *   sur le même thème, et « Précédent » quitte le blog au lieu de défaire les
+ *   filtres un à un. La région d'état annonce le nombre ET le thème.
  * - Le premier article de la liste filtrée est mis en avant, en grand. Avec
  *   un seul article, la page n'a donc ni grille clairsemée ni case vide.
  * - Une carte = UN lien, porté par son titre et étendu à toute la carte : le
@@ -30,7 +34,8 @@
  * qu'on vient lire s'affiche. Seul l'encadré de fin est révélé.
  *
  * Un slug inconnu rend une page « article introuvable », avec retour au blog
- * — jamais une page vide (règle 1).
+ * — jamais une page vide (règle 1). Elle demande aux moteurs de ne pas
+ * l'indexer, le temps de son affichage.
  *
  * ## Les passerelles
  *
@@ -46,6 +51,7 @@ import {
   adresseDuTheme,
   ARTICLES,
   articleDuSlug,
+  AUTEUR_DU_BLOG,
   BLOG,
   estUnTheme,
   libelleDuTheme,
@@ -57,10 +63,17 @@ import {
   type SlugDeTheme,
 } from "./contenuBlog";
 import type { ElementDArticle } from "./contenuRessources";
+import { CHEMINS } from "./contenuSite";
 import { Bouton } from "./PiecesSite";
 import { CadreDePage, Passage, TitreDOuverture } from "./Ressources";
 import { useReveler } from "./reveler";
-import { useAimants, useTitreDePage, variables } from "./site";
+import {
+  titreDOnglet,
+  useAimants,
+  useSansIndexation,
+  useTitreDePage,
+  variables,
+} from "./site";
 // Le socle d'abord, la feuille du lot ensuite.
 import "./Site.css";
 import "./Ressources.css";
@@ -77,6 +90,22 @@ function aDesArticles(theme: SlugDeTheme): boolean {
 function themeDeLAdresse(): SlugDeTheme | null {
   const demande = new URLSearchParams(window.location.search).get(PARAMETRE_DU_THEME);
   return estUnTheme(demande) && aDesArticles(demande) ? demande : null;
+}
+
+/** Écrit le thème choisi dans l'adresse, SANS recharger la page et sans
+ *  empiler d'entrée d'historique (`replaceState`). « Tous » retire le
+ *  paramètre : l'adresse nue reste celle de la liste entière. Le reste de
+ *  l'adresse — autres paramètres, ancre — et l'état de l'historique, dont le
+ *  routeur se sert, sont gardés tels quels. */
+function ecrireLeThemeDansLAdresse(theme: SlugDeTheme | null): void {
+  const adresse = new URL(window.location.href);
+  if (theme === null) adresse.searchParams.delete(PARAMETRE_DU_THEME);
+  else adresse.searchParams.set(PARAMETRE_DU_THEME, theme);
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${adresse.pathname}${adresse.search}${adresse.hash}`,
+  );
 }
 
 /** Une carte d'article. `aLaUne` : la première de la liste, en grand. */
@@ -115,7 +144,13 @@ export function Blog() {
   // tour.
   useReveler(page, theme, { memeEnMouvementReduit: true });
   useAimants(page);
-  useTitreDePage(BLOG.titreOnglet, BLOG.description);
+  useTitreDePage(titreDOnglet(BLOG.titreOnglet), BLOG.description);
+
+  /** Un filtre choisi : l'état de la page, et l'adresse qui le dit. */
+  function choisir(prochain: SlugDeTheme | null) {
+    setTheme(prochain);
+    ecrireLeThemeDansLAdresse(prochain);
+  }
 
   const visibles =
     theme === null ? ARTICLES : ARTICLES.filter((article) => article.theme === theme);
@@ -143,7 +178,7 @@ export function Blog() {
                 className="res-filtre"
                 type="button"
                 aria-pressed={theme === null}
-                onClick={() => setTheme(null)}
+                onClick={() => choisir(null)}
               >
                 {BLOG.filtres.tous}
               </button>
@@ -156,9 +191,7 @@ export function Blog() {
                   // Un thème sans article : montré, mais hors d'atteinte.
                   disabled={!aDesArticles(entree.slug)}
                   // Une bascule : un second clic revient à « Tous ».
-                  onClick={() =>
-                    setTheme((courant) => (courant === entree.slug ? null : entree.slug))
-                  }
+                  onClick={() => choisir(theme === entree.slug ? null : entree.slug)}
                 >
                   {entree.libelle}
                 </button>
@@ -166,9 +199,10 @@ export function Blog() {
             </div>
           </div>
 
-          {/* Annoncé à chaque changement de filtre. */}
+          {/* Annoncé à chaque changement de filtre : le nombre, et le thème
+              quand un filtre est posé. */}
           <p className="res-compte" role="status">
-            {BLOG.compte(visibles.length)}
+            {BLOG.compte(visibles.length, theme === null ? null : libelleDuTheme(theme))}
           </p>
 
           {visibles.length === 0 ? (
@@ -249,7 +283,9 @@ function Elements({ elements }: { elements: ElementDArticle[] }) {
 }
 
 /** Les données structurées de l'article (schema.org `Article`). Tout vient de
- *  l'article ; `datePublished` n'est déclarée que si la date est connue. */
+ *  l'article ; `datePublished` n'est déclarée que si la date est connue.
+ *  L'auteur est un NOM COMPLET, dans l'écriture du reste du site — pas la
+ *  signature affichée, qui n'est qu'un prénom (`contenuBlog.AUTEUR_DU_BLOG`). */
 function donneesStructurees(article: Article): Record<string, unknown> {
   const adresse = `${window.location.origin}${adresseDeLArticle(article.slug)}`;
   return {
@@ -262,7 +298,7 @@ function donneesStructurees(article: Article): Record<string, unknown> {
     inLanguage: "fr",
     wordCount: article.nombreDeMots,
     timeRequired: `PT${article.tempsDeLecture}M`,
-    author: { "@type": "Person", name: article.conclusion.signature },
+    author: { "@type": "Person", name: article.auteur ?? AUTEUR_DU_BLOG },
     publisher: { "@type": "Organization", name: PAGE_ARTICLE.editeur },
     mainEntityOfPage: adresse,
     url: adresse,
@@ -277,7 +313,7 @@ function PageDArticle({ article }: { article: Article }) {
 
   useReveler(page, article.slug, { memeEnMouvementReduit: true });
   useAimants(page);
-  useTitreDePage(article.entete.titreOnglet, article.entete.description);
+  useTitreDePage(titreDOnglet(article.entete.titreOnglet), article.entete.description);
 
   const theme = libelleDuTheme(article.theme);
   // Les parties du sommaire : chaque section, puis la conclusion. Les ancres
@@ -295,7 +331,10 @@ function PageDArticle({ article }: { article: Article }) {
     <CadreDePage racine={page} classe="res-lecture">
       <article aria-labelledby="res-article-titre">
         {/* ── En-tête de l'article ──────────────────────────────────────── */}
-        <header className="res-ouverture res-ouverture-courte">
+        {/* Un `<div>`, pas un `<header>` : la page n'a qu'UN en-tête de page,
+            celui du site. Un second `<header>` se lit comme un second repère
+            « bannière » dans les outils qui ne regardent pas son parent. */}
+        <div className="res-ouverture res-ouverture-courte">
           <div className="acc-w res-lecture-largeur">
             <nav className="res-fil acc-entre" aria-label={PAGE_ARTICLE.filDAriane}>
               <ol>
@@ -325,7 +364,7 @@ function PageDArticle({ article }: { article: Article }) {
               )}
             </ul>
           </div>
-        </header>
+        </div>
 
         <div className="acc-w res-lecture-largeur res-lecture-grille">
           {/* ── Sommaire ─────────────────────────────────────────────────── */}
@@ -371,7 +410,7 @@ function PageDArticle({ article }: { article: Article }) {
               <p className="res-signature">{article.conclusion.signature}</p>
             </section>
 
-            {/* ── L'appel de fin d'article : la boîte à outils ───────────── */}
+            {/* ── L'appel de fin d'article : un document à demander ──────── */}
             <aside className="res-bonus" aria-labelledby="res-bonus-titre" data-reveal="">
               <h2 id="res-bonus-titre">{article.appel.titre}</h2>
               <p className="res-bonus-document">{article.appel.document}</p>
@@ -402,7 +441,10 @@ function ArticleIntrouvable() {
   const i = PAGE_ARTICLE.introuvable;
 
   useAimants(page);
-  useTitreDePage(i.titreOnglet, i.description);
+  useTitreDePage(titreDOnglet(i.titreOnglet), i.description);
+  // L'application répond 200 à toute adresse : sans cette balise, un moteur
+  // indexerait « article introuvable » à l'adresse fautive.
+  useSansIndexation();
 
   return (
     <CadreDePage racine={page} classe="res-introuvable">
@@ -430,7 +472,7 @@ function ArticleIntrouvable() {
  *  de la boutique lit le sien. La clé remonte la page quand on passe d'un
  *  article à un autre : son sommaire et ses blocs révélés repartent de zéro. */
 export function ArticleDeBlog() {
-  const { slug } = useParams({ from: "/blog/$slug" });
+  const { slug } = useParams({ from: CHEMINS.article });
   const article = articleDuSlug(slug);
   return article ? <PageDArticle key={article.slug} article={article} /> : <ArticleIntrouvable />;
 }

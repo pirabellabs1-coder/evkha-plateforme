@@ -1,1288 +1,1160 @@
-/* La boutique publique.
+/* La boutique publique — le catalogue (`Boutique.tsx`), la fiche d'une étude
+ * (`FicheProduit.tsx`) et le retour de paiement (`RetourBoutique.tsx`) — dans
+ * le langage visuel de l'accueil et de la page des études : papier crème, or,
+ * encre, Fraunces pour les prix et les mots d'accent, cartes à double bord,
+ * boutons-pilules, étiquettes à pastille.
  *
- * Charte du site EVKHA : blanc dominant, or en accent, noir pour le texte,
- * pastilles à fort rayon. Le menu, les polices, `.pp-large`, le maillage de
- * fond et la révélation `data-reveal` viennent de `Partenaires.css` : les
- * pages publiques partagent une charte, et une seconde palette finirait par
- * diverger de la première.
+ * Cette feuille ne porte que ce qui est PROPRE à la boutique. Le socle —
+ * barre, menu, pied, boutons, étiquettes, titres, révélation, grain,
+ * questions en `<details>`, fin dorée — vient de `Site.css`, que chaque page
+ * importe AVANT celle-ci (règle 5). Les jetons locaux `--acc-*` y sont
+ * déclarés.
  *
- * Cette feuille ne déclare AUCUNE couleur : le bloc `--bq-*` qui redisait
- * l'or (#F8C51C), le noir (#000000) et trois crèmes a disparu, chaque règle
- * lit `theme/tokens.css` ou les alias de `.pp`. Le test
- * `les-pages-publiques-lisent-la-charte` le verrouille.
+ * Les règles du socle tiennent ici, et les mêmes tests les verrouillent :
  *
- * Les boutons sont des `.bouton` (espace.css) ; `.bq-bouton` ne porte que ce
- * qui tient à la page — la largeur, la taille. Les cartes sont des coques de
- * verre à double bordure, l'image nichée dans le cœur.
+ * 1. AUCUNE couleur écrite : tout lit `theme/tokens.css`, les translucides par
+ *    `color-mix()` sur un jeton (`les-pages-publiques-lisent-la-charte`).
+ * 2. AUCUNE durée écrite dans un mouvement : chaque transition lit un jeton
+ *    `--duree-*`, à 0 ms sous mouvement réduit. Cette feuille ne lit aucun
+ *    plancher `--calme-*` (un registre de test les réserve) : sous mouvement
+ *    réduit, ses survols propres sont simplement instantanés, et la
+ *    révélation des blocs — celle du socle — reste en fondu.
+ * 3. Tout est sous `.acc`, avec des classes préfixées `bou-` qui ne heurtent
+ *    ni `acc-` (socle), ni `etu-`, `pak-`, `res-` (autres pages), ni `pp-`.
+ *
+ * Aucun fond sombre en aplat : le noir ne sert qu'aux boutons.
  */
 
-/* ── La coque de verre ───────────────────────────────────────────────────────
- *
- * Même recette que `.carte` (espace.css) et que les cartes de la page
- * partenaires : coque translucide et cernée, cœur blanc en retrait de
- * `--verre-marge`, rayons concentriques. `.bq-carte` et `.bq-achat` la
- * portent aussi ; leurs règles propres sont plus bas. */
-.bq-carte,
-.bq-achat,
-.bq-avis,
-.bq-temoignage,
-.bq-repere,
-.bq-appel,
-.bq-apercu {
-  position: relative;
-  isolation: isolate;
-  border: 1px solid var(--verre-bordure);
-  border-radius: var(--rayon-verre);
-  background: var(--verre-fond);
-  box-shadow: var(--ombre-ambiante);
-}
+/* ── Ce que les trois pages partagent ────────────────────────────────────── */
 
-.bq-carte::before,
-.bq-achat::before,
-.bq-avis::before,
-.bq-temoignage::before,
-.bq-repere::before,
-.bq-appel::before,
-.bq-apercu::before {
-  content: "";
+/* Dit à un lecteur d'écran, invisible à l'écran : la lecture d'une note en
+   étoiles. */
+.bou-lu {
   position: absolute;
-  inset: var(--verre-marge);
-  z-index: -1;
-  pointer-events: none;
-  border: 1px solid var(--verre-reflet);
-  border-radius: var(--rayon-verre-interne);
-  background: var(--verre-fond-fort);
-  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
-}
-
-/* Les voisins d'une grille se suivent de `--decalage-reveal`. */
-.bq-grille > :nth-child(2),
-.bq-temoignages-grille > :nth-child(2),
-.bq-avis-liste > :nth-child(2),
-.bq-reperes-liste > :nth-child(2),
-.bq-promesses-grille > :nth-child(2) {
-  --i: 1;
-}
-.bq-grille > :nth-child(3),
-.bq-temoignages-grille > :nth-child(3),
-.bq-avis-liste > :nth-child(3),
-.bq-reperes-liste > :nth-child(3),
-.bq-promesses-grille > :nth-child(3) {
-  --i: 2;
-}
-.bq-grille > :nth-child(4),
-.bq-temoignages-grille > :nth-child(4),
-.bq-avis-liste > :nth-child(4),
-.bq-reperes-liste > :nth-child(4),
-.bq-promesses-grille > :nth-child(4) {
-  --i: 3;
-}
-/* Au-delà, tout arrive ensemble : un cinquième bloc est sous la ligne de
-   flottaison, il sera révélé par son propre passage dans la fenêtre. */
-.bq-grille > :nth-child(n + 5),
-.bq-reperes-liste > :nth-child(n + 5) {
-  --i: 0;
-}
-
-/* ── En-tête ─────────────────────────────────────────────────────────────── */
-/*
- * Un voile crème translucide derrière le titre, et non plus un aplat : le
- * maillage passe dessous. Le blanc dominant reste la charte, mais un en-tête
- * sur le même fond que la grille ne se distingue pas d'elle. Il arrive au
- * montage, comme le héros de la page partenaires — il est déjà dans la
- * fenêtre, il n'attend pas d'y entrer.
- */
-.bq-entete {
-  background: linear-gradient(180deg, var(--halo-creme), transparent);
-  padding: clamp(3.5rem, 7vw, 5.5rem) 0 clamp(2.5rem, 5vw, 4rem);
-  margin-bottom: 0;
-  animation: pp-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
-}
-
-.bq-entete-grille {
-  display: grid;
-  gap: 2.5rem;
-  align-items: center;
-}
-
-@media (min-width: 62rem) {
-  .bq-entete-grille {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    gap: 3.5rem;
-  }
-}
-
-.bq-entete-actions {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-  margin-top: 1.75rem;
-}
-
-.bq-entete-prix {
-  font-size: var(--t-base);
-  color: var(--texte-doux);
-}
-
-.bq-entete-prix b {
-  font-family: var(--police-chiffre);
-  font-variant-numeric: tabular-nums;
-  color: var(--texte-fort);
-  font-size: var(--t-md);
-}
-
-/* Trois couvertures, posées en escalier. Décoratif, et assumé comme tel : une
-   vitrine montre ce qu'elle vend avant de l'expliquer. `aria-hidden` côté
-   React — la grille juste dessous porte la même information, en cliquable.
-
-   Décoratif ne veut pas dire illisible, et la version précédente l'était.
-
-   1. Elle posait les couvertures dans un cadre 3/4, en PORTRAIT, alors
-      qu'elles sont produites en 1200 × 800 — du 3/2, en paysage. Avec
-      `object-fit: cover`, la moitié de leur largeur partait au rognage et le
-      titre sortait par les deux bords : « rché des foodtru ».
-   2. Les trois cartes se chevauchaient horizontalement, chacune mangeant le
-      titre de sa voisine.
-
-   Le cadre reprend donc le format exact des couvertures — plus rien n'est
-   rogné — et les cartes descendent : chacune ne recouvre que le BAS de la
-   précédente, jamais son titre, qui occupe le tiers haut de l'image. */
-.bq-eventail {
-  /* Le titre d'une couverture se termine vers 44 % de sa hauteur. Le décalage
-     vertical passe DESSOUS : c'est lui qui garantit que les trois titres
-     restent entiers, et il ne se réduit pas sans les recouper. */
-  --bq-couv-l: 19.5rem;
-  --bq-couv-h: 13rem;
-  --bq-couv-dy: 6.9rem;
-  --bq-couv-dx: 1.6rem;
-  position: relative;
-  height: calc(var(--bq-couv-h) + 2 * var(--bq-couv-dy));
-  display: none;
-}
-
-@media (min-width: 62rem) {
-  .bq-eventail {
-    display: block;
-  }
-}
-
-/* Chaque couverture est une plaque de verre : liseré, rayon de coque, ombre
-   ambiante large — la même que la photo du héros partenaires. */
-.bq-eventail-carte {
-  position: absolute;
-  width: var(--bq-couv-l);
-  height: var(--bq-couv-h);
-  max-width: 100%;
-  border: 1px solid var(--verre-bordure);
-  border-radius: var(--rayon-verre-interne);
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  background: var(--evkha-noir);
-  box-shadow: var(--ombre-ambiante-lg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--evkha-or);
-  font-size: 2.5rem;
-  font-weight: var(--graisse-affiche);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.bq-eventail-carte img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* La rotation reste sous deux degrés. Au-delà, un coin remonte assez haut pour
-   entamer le titre de la couverture du dessous — ce qu'on vient de corriger. */
-.bq-eventail-0 {
-  left: 0;
-  top: 0;
-  transform: rotate(-1.5deg);
-  z-index: 1;
-}
-
-.bq-eventail-1 {
-  left: var(--bq-couv-dx);
-  top: var(--bq-couv-dy);
-  z-index: 2;
-}
-
-.bq-eventail-2 {
-  left: calc(2 * var(--bq-couv-dx));
-  top: calc(2 * var(--bq-couv-dy));
-  transform: rotate(1.5deg);
-  z-index: 3;
-}
-
-.bq-eyebrow {
-  font-size: var(--t-xs);
-  font-weight: var(--graisse-titre);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--or-fonce);
-  margin: 0 0 0.7rem;
-}
-
-.bq-entete-grille h1 {
-  font-family: var(--police-titre);
-  font-size: clamp(1.9rem, 4.5vw, 2.8rem);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.02em;
-  line-height: 1.12;
-  color: var(--texte-fort);
-  margin: 0 0 0.9rem;
-  max-width: 24ch;
-  text-wrap: balance;
-}
-
-.bq-chapeau {
-  color: var(--texte-doux);
-  max-width: 62ch;
-  margin: 0;
-  font-size: var(--t-md);
-}
-
-/* Ce que contient l'étude, listé sous le chapeau. Deux colonnes dès qu'il y a
-   la place ; une seule sur téléphone, où deux colonnes serreraient le texte. */
-.bq-hero-liste {
-  list-style: none;
-  padding: 0;
-  margin: 1.5rem 0 0;
-  display: grid;
-  gap: 0.55rem 1.5rem;
-}
-
-@media (min-width: 34rem) {
-  .bq-hero-liste {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.bq-hero-liste li {
+/* Les étoiles à l'encre : l'or de la charte plafonne à 1,7:1 sur blanc, et
+   une note doit se lire. */
+.bou-etoiles {
   position: relative;
-  padding-left: 1.7rem;
-  font-size: var(--t-base);
-  font-weight: var(--graisse-forte);
-  line-height: 1.4;
+  color: var(--acc-encre);
+  letter-spacing: 0.12em;
 }
 
-/* La coche reprend l'or assombri de `.pp` : lisible sur le crème du hero,
-   contrastée là où l'or vif ne le serait pas. */
-.bq-hero-liste li::before,
-.bq-questions-liste li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  top: 0;
-  font-weight: var(--graisse-affiche);
-  color: var(--or-fonce);
-}
-
-/* ── Une étude qui répond à vos questions ────────────────────────────────── */
-/*
- * Un voile crème, entre le hero et le bandeau noir des promesses : il porte
- * les six questions qu'une étude tranche, dites comme le porteur se les pose.
- */
-.bq-questions {
-  background: var(--halo-creme);
-  padding: var(--pp-section) 0;
-}
-
-.bq-questions h2 {
-  font-family: var(--police-titre);
-  font-size: clamp(1.4rem, 3vw, 1.9rem);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.015em;
-  color: var(--texte-fort);
-  margin: 0 0 1.75rem;
-  text-align: center;
-  text-wrap: balance;
-}
-
-.bq-questions-liste {
-  list-style: none;
-  padding: 0;
-  margin: 0 auto;
-  max-width: 54rem;
-  display: grid;
-  gap: 0.85rem 2.5rem;
-}
-
-@media (min-width: 46rem) {
-  .bq-questions-liste {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.bq-questions-liste li {
-  position: relative;
-  padding-left: 1.8rem;
-  font-size: var(--t-md);
-  font-weight: var(--graisse-forte);
-  line-height: 1.45;
-}
-
-/* ── Les quatre promesses ────────────────────────────────────────────────── */
-
-/* Le noir de la charte, en aplat : c'est le seul temps sombre de la page. */
-.bq-promesses {
-  background: var(--evkha-noir);
-  color: var(--texte-sur-noir);
-  padding: 2.25rem 0;
-}
-
-.bq-promesses-grille {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-  gap: 1.5rem 2rem;
-}
-
-.bq-promesse {
-  display: flex;
-  gap: 0.85rem;
-  align-items: flex-start;
-}
-
-.bq-promesse-signe {
-  flex-shrink: 0;
-  width: 2.1rem;
-  height: 2.1rem;
-  border-radius: 50%;
-  background: var(--evkha-or);
-  color: var(--texte-sur-or);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--t-base);
-  font-weight: var(--graisse-affiche);
-  box-shadow: inset 0 1px 0 var(--verre-reflet);
-}
-
-.bq-promesse-titre {
-  margin: 0 0 0.15rem;
-  font-size: var(--t-base);
-  font-weight: var(--graisse-titre);
-}
-
-.bq-promesse-texte {
-  margin: 0;
-  font-size: var(--t-sm);
-  line-height: 1.45;
-  color: var(--evkha-nuage);
-}
-
-/* ── Têtes de section ────────────────────────────────────────────────────── */
-
-.bq-section-tete {
-  margin: var(--pp-section) 0 1.75rem;
-}
-
-.bq-section-tete h2 {
-  font-family: var(--police-titre);
-  font-size: clamp(1.4rem, 3vw, 1.9rem);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.015em;
-  color: var(--texte-fort);
-  margin: 0;
-  text-wrap: balance;
-}
-
-.bq-section-note {
-  margin: 0.4rem 0 0;
-  font-size: var(--t-base);
-  color: var(--texte-doux);
-}
-
-/* ── Filtres par thème ───────────────────────────────────────────────────── */
-
-.bq-filtres {
+.bou-note {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin: 0 0 1.75rem;
-}
-
-/* Une pilule de verre par thème ; celle qui est enfoncée passe à l'or. L'état
-   ne repose pas sur la couleur seule : `aria-pressed` le dit, et la graisse
-   change. */
-.bq-filtre {
-  font: inherit;
-  font-size: var(--t-sm);
-  font-weight: var(--graisse-forte);
-  border: 1px solid var(--evkha-bordure-forte);
-  background: var(--verre-fond-fort);
-  color: var(--texte-fort);
-  border-radius: var(--rayon-pilule);
-  padding: 0.45rem 1.1rem;
-  cursor: pointer;
-  box-shadow: inset 0 1px 0 var(--verre-reflet);
-  transition: background var(--duree-micro) var(--ease-doux),
-    border-color var(--duree-micro) var(--ease-doux),
-    transform var(--duree-micro) var(--ease-doux),
-    box-shadow var(--duree-micro) var(--ease-doux);
-}
-
-.bq-filtre:hover {
-  border-color: var(--evkha-noir);
-  background: var(--evkha-blanc);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante);
-}
-
-.bq-filtre:active {
-  transform: scale(0.98);
-}
-
-.bq-filtre[aria-pressed="true"] {
-  background: var(--evkha-or);
-  border-color: var(--evkha-or);
-  color: var(--texte-sur-or);
-  font-weight: var(--graisse-titre);
-}
-
-.bq-filtre:focus-visible {
-  outline: none;
-  box-shadow: var(--anneau-focus);
-}
-
-/* ── La grille ───────────────────────────────────────────────────────────── */
-
-.bq-grille {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 4rem;
-}
-
-/* Sous 768 px, une seule colonne : deux cartes de 15 rem côte à côte sur un
-   téléphone en paysage laissaient chaque titre sur quatre lignes. */
-@media (max-width: 768px) {
-  .bq-grille,
-  .bq-temoignages-grille,
-  .bq-avis-liste,
-  .bq-promesses-grille {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* La carte est la coque ; la couverture est nichée dans son cœur, au rayon
-   interne, donc concentrique avec le bord. Elle se soulève au survol, et la
-   coque prend un liseré d'or : `transform` et `box-shadow` seuls. */
-.bq-carte {
-  display: flex;
-  flex-direction: column;
-  padding: var(--verre-marge);
-  text-decoration: none;
-  color: inherit;
-  transition: transform var(--duree-micro) var(--ease-doux),
-    box-shadow var(--duree-micro) var(--ease-doux),
-    border-color var(--duree-micro) var(--ease-doux);
-}
-
-.bq-carte:hover {
-  border-color: color-mix(in srgb, var(--evkha-or) 55%, transparent);
-  transform: translateY(-3px);
-  box-shadow: var(--ombre-ambiante-lg);
-}
-
-.bq-carte:focus-visible {
-  outline: none;
-  box-shadow: var(--anneau-focus);
-}
-
-/* Une couverture absente ne doit pas faire sauter la grille : le bloc garde
-   sa hauteur et affiche un aplat de la charte.
-
-   Le cadre est au format des couvertures — 1200 x 800, soit du 3/2 — et non
-   au 4/3 d'avant. `object-fit: cover` rognait sinon un vingtième de la largeur
-   de chaque côté : les titres actuels passaient de justesse, un titre plus
-   long serait entré dans le bord. Même correction que l'éventail de l'en-tête,
-   même cause. */
-.bq-couverture {
-  position: relative;
-  aspect-ratio: 3 / 2;
-  border-radius: var(--rayon-verre-interne);
-  background: var(--evkha-or-voile);
-  display: flex;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  gap: 4px 10px;
+  color: var(--acc-gris);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
-.bq-couverture img,
-.bq-couverture-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.bq-couverture-vide {
-  font-size: 3rem;
-  font-weight: var(--graisse-affiche);
-  color: var(--or-fonce);
-  letter-spacing: -0.02em;
-}
-
-/* Le thème est POSÉ SUR l'image et non sous le titre : dans une grille, il
-   sert à balayer — « lequel me concerne ? » — avant de lire les titres. */
-/* Posé SUR la couverture : opaque, jamais du verre. Sans flou (interdit sur
- * ce qui défile), un blanc à 78 % laisse transparaître le texte de l'image et
- * brouille le thème — vu sur « Tech » le 26/09/2026. */
-.bq-fanion {
-  position: absolute;
-  top: 0.7rem;
-  left: 0.7rem;
-  padding: 0.2rem 0.65rem;
-  border-radius: var(--rayon-pilule);
-  background: var(--evkha-blanc);
-  border: 1px solid var(--verre-bordure);
-  box-shadow: inset 0 1px 0 var(--verre-reflet);
-  font-size: var(--t-xs);
-  font-weight: var(--graisse-titre);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--texte-fort);
-}
-
-.bq-corps {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  padding: 1.1rem 1.05rem 1.05rem;
-}
-
-.bq-theme {
-  font-size: var(--t-xs);
-  font-weight: var(--graisse-titre);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--or-fonce);
-  margin: 0 0 0.45rem;
-}
-
-.bq-carte h3 {
-  font-family: var(--police-titre);
-  font-size: var(--t-md);
-  font-weight: var(--graisse-titre);
-  color: var(--texte-fort);
-  line-height: 1.3;
-  margin: 0 0 0.5rem;
-}
-
-.bq-meta {
-  font-size: var(--t-sm);
-  color: var(--texte-doux);
-  margin: 0 0 0.7rem;
-}
-
-.bq-note {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-  margin: 0 0 0.9rem;
-  font-size: var(--t-sm);
-  color: var(--texte-doux);
-}
-
-.bq-etoiles {
-  color: var(--or-fonce);
-  letter-spacing: 0.06em;
-  font-size: var(--t-base);
-}
-
-.bq-note a {
-  color: inherit;
-}
-
-/* Colle le prix au bas de la carte : des titres de longueurs différentes
-   alignent quand même leurs prix, et l'œil les compare d'un seul mouvement. */
-.bq-pied {
-  margin-top: auto;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-/* Chiffres à largeur fixe partout où un prix s'affiche : deux montants se
-   comparent colonne par colonne, et un tarif qui change ne déplace rien. */
-.bq-prix,
-.bq-prix-pastille,
-.bq-achat-prix {
-  font-family: var(--police-chiffre);
-  font-variant-numeric: tabular-nums;
-}
-
-.bq-prix {
-  font-size: var(--t-md);
-  font-weight: var(--graisse-affiche);
-}
-
-.bq-voir {
-  font-size: var(--t-sm);
-  font-weight: var(--graisse-titre);
-  color: var(--or-fonce);
-}
-
-.bq-carte .bq-voir {
-  margin-top: auto;
-  padding-top: 0.6rem;
-}
-
-/* ── La pastille de prix, sur la couverture ──────────────────────────────── */
-/*
- * Le prix était en bas de carte, sous le titre et la note. Sur une grille, il
- * se cherchait. Posé sur l'image, il se lit en même temps que la couverture —
- * et c'est la première chose qu'on veut savoir dans une boutique.
- */
-.bq-prix-pastille {
-  position: absolute;
-  right: 0.7rem;
-  bottom: 0.7rem;
-  padding: 0.3rem 0.8rem;
-  border-radius: var(--rayon-pilule);
-  background: var(--evkha-or);
-  color: var(--texte-sur-or);
-  font-size: var(--t-base);
-  font-weight: var(--graisse-affiche);
-  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
-}
-
-/* ── Fiche produit ───────────────────────────────────────────────────────── */
-
-.bq-retour {
-  display: inline-block;
-  margin: 1.75rem 0 1.25rem;
-  font-size: var(--t-sm);
-  font-weight: var(--graisse-forte);
-  color: var(--texte-doux);
-  text-decoration: none;
-  transition: color var(--duree-micro) var(--ease-doux);
-}
-
-.bq-retour:hover {
-  color: var(--texte-fort);
-}
-
-.bq-retour:focus-visible {
-  outline: none;
-  border-radius: var(--rayon-xs);
-  box-shadow: var(--anneau-focus);
-}
-
-.bq-fiche {
+/* La pastille à coche : l'or de la charte, la coche à l'encre. Décorative. */
+.bou-coche {
   display: grid;
-  gap: 2.5rem;
-  margin-bottom: var(--pp-section);
-}
-
-@media (min-width: 56rem) {
-  .bq-fiche {
-    grid-template-columns: 1fr 20rem;
-    align-items: start;
-  }
-}
-
-.bq-fiche h1 {
-  font-family: var(--police-titre);
-  font-size: clamp(1.7rem, 4vw, 2.4rem);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.02em;
-  line-height: 1.14;
-  color: var(--texte-fort);
-  margin: 0 0 1rem;
-  text-wrap: balance;
-}
-
-.bq-description {
-  font-size: var(--t-md);
-  color: var(--texte-doux);
-  white-space: pre-line;
-  margin: 0 0 2rem;
-  max-width: 60ch;
-}
-
-.bq-fiche-corps {
-  display: flex;
-  flex-direction: column;
-  gap: 2.25rem;
-  min-width: 0;
-}
-
-/* La couverture en grand. C'est la première chose regardée, et la seule qui
-   donne une idée du document tant que l'extrait n'est pas ouvert.
-
-   Au format des couvertures — 1200 x 800 — et non en 16/9. Mesuré avant
-   correction sur la fiche des foodtrucks : boîte 1,778 contre 1,500 pour
-   l'image, soit 15,6 % de la HAUTEUR coupée. Le format est porté par l'image
-   elle-même, pas par la coque : la coque a une marge, et un rapport posé sur
-   elle aurait rogné l'image de la largeur de cette marge.
-
-   Une coque de verre, l'image nichée au rayon interne. */
-.bq-visuel {
-  position: relative;
-  isolation: isolate;
-  padding: var(--verre-marge);
-  border: 1px solid var(--verre-bordure);
-  border-radius: var(--rayon-verre);
-  background: var(--verre-fond);
-  box-shadow: var(--ombre-ambiante-lg);
-  display: grid;
-}
-
-.bq-visuel img,
-.bq-visuel-image {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-  display: block;
-  border-radius: var(--rayon-verre-interne);
-}
-
-.bq-visuel-vide {
-  aspect-ratio: 3 / 2;
-  display: grid;
-  place-items: center;
-  border-radius: var(--rayon-verre-interne);
-  background: var(--evkha-or-voile);
-  font-size: clamp(3rem, 12vw, 6rem);
-  font-weight: var(--graisse-affiche);
-  color: var(--or-fonce);
-}
-
-.bq-titraille {
-  display: flex;
-  flex-direction: column;
-}
-
-.bq-titraille .bq-meta {
-  margin-bottom: 0.5rem;
-}
-
-.bq-bloc h2 {
-  font-family: var(--police-titre);
-  font-size: var(--t-lg);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.015em;
-  color: var(--texte-fort);
-  margin: 0 0 0.9rem;
-}
-
-.bq-bloc {
-  padding-top: 2rem;
-  border-top: 1px solid var(--evkha-bordure);
-}
-
-.bq-bloc .bq-description:last-child {
-  margin-bottom: 0;
-}
-
-/* Les trois temps de l'achat, numérotés. La numérotation encode ici une
-   séquence réelle : on règle, on télécharge, on retrouve. */
-.bq-etapes {
-  list-style: none;
-  counter-reset: temps;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 1rem;
-  max-width: 60ch;
-}
-
-.bq-etapes li {
-  counter-increment: temps;
-  position: relative;
-  padding-left: 2.6rem;
-  font-size: var(--t-base);
-  color: var(--texte-doux);
-  line-height: 1.55;
-}
-
-.bq-etapes li b {
-  color: var(--texte-fort);
-}
-
-.bq-etapes li::before {
-  content: counter(temps);
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  background: var(--evkha-or);
-  color: var(--texte-sur-or);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--police-chiffre);
-  font-size: var(--t-sm);
-  font-weight: var(--graisse-affiche);
-  box-shadow: inset 0 1px 0 var(--verre-reflet);
-}
-
-/* ── Les avis ────────────────────────────────────────────────────────────── */
-
-.bq-avis-liste {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-  gap: 1rem;
-}
-
-.bq-avis {
-  padding: calc(1.1rem + var(--verre-marge)) calc(1.2rem + var(--verre-marge));
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.bq-avis-tete {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0;
-}
-
-.bq-avis-date {
-  font-size: var(--t-xs);
-  color: var(--texte-tenu);
-}
-
-.bq-avis-texte {
-  margin: 0;
-  font-size: var(--t-base);
-  line-height: 1.55;
-  color: var(--texte);
-}
-
-.bq-avis-signature {
-  margin: auto 0 0;
-  font-size: var(--t-sm);
-  color: var(--texte-doux);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.bq-avis-signature b {
-  color: var(--texte-fort);
-}
-
-.bq-avis-signature span::before {
-  content: "· ";
-}
-
-.bq-sommaire {
-  list-style: none;
-  counter-reset: chapitre;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.55rem;
-  max-width: 56ch;
-}
-
-.bq-sommaire li {
-  counter-increment: chapitre;
-  position: relative;
-  padding-left: 2.2rem;
-  padding-bottom: 0.55rem;
-  font-size: var(--t-base);
-  border-bottom: 1px solid var(--evkha-bordure);
-}
-
-.bq-sommaire li:last-child {
-  border-bottom: none;
-}
-
-.bq-sommaire li::before {
-  content: counter(chapitre, decimal-leading-zero);
-  position: absolute;
-  left: 0;
-  top: 0;
-  font-family: var(--police-chiffre);
-  font-size: var(--t-sm);
-  font-weight: var(--graisse-affiche);
-  color: var(--or-fonce);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Le bloc d'achat ─────────────────────────────────────────────────────── */
-
-/* Collant sous le menu — lui aussi collant, 6,5 rem de haut avec ses marges.
-   À `top: 1.5rem`, le bloc passait sous la barre et son prix disparaissait. */
-.bq-achat {
-  padding: calc(1.5rem + var(--verre-marge)) calc(1.4rem + var(--verre-marge));
-  position: sticky;
-  top: 6.5rem;
-}
-
-.bq-achat-prix {
-  font-size: var(--t-2xl);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-  color: var(--texte-fort);
-}
-
-.bq-achat-mention {
-  font-size: var(--t-sm);
-  color: var(--texte-doux);
-  margin: 0.2rem 0 1.2rem;
-}
-
-.bq-achat label {
-  display: block;
-  font-size: var(--t-sm);
-  font-weight: var(--graisse-forte);
-  color: var(--texte-fort);
-  margin-bottom: 0.35rem;
-}
-
-/* Le champ est un `.champ-saisie` (espace.css) : verre en creux, anneau or
-   au focus autour d'un bord noir. Seule la marge est à lui. */
-.bq-achat .champ-saisie {
-  margin-bottom: 1rem;
-}
-
-/* `.bouton` (espace.css) ; ici, la pleine largeur du bloc. */
-.bq .bq-bouton {
-  width: 100%;
-}
-
-.bq .bq-bouton-large {
-  width: auto;
-  padding: var(--e-4) var(--e-8);
-  font-size: var(--t-md);
-}
-
-.bq-extrait {
-  display: block;
-  text-align: center;
-  margin-top: 0.9rem;
-  font-size: var(--t-sm);
-  font-weight: var(--graisse-forte);
-  color: var(--or-fonce);
-}
-
-.bq-extrait:focus-visible {
-  outline: none;
-  border-radius: var(--rayon-xs);
-  box-shadow: var(--anneau-focus);
-}
-
-.bq-rassurance {
-  list-style: none;
-  padding: 1.1rem 0 0;
-  margin: 1.1rem 0 0;
-  border-top: 1px solid var(--evkha-bordure);
-  display: grid;
-  gap: 0.5rem;
-  font-size: var(--t-sm);
-  color: var(--texte-doux);
-}
-
-/* ── États et sections annexes ───────────────────────────────────────────── */
-
-.bq-attente,
-.bq-erreur,
-.bq-vide {
-  text-align: center;
-  color: var(--texte-doux);
-  padding: 3rem 0;
-}
-
-.bq-erreur {
-  color: var(--evkha-echec);
-}
-
-.bq-erreur a {
-  color: inherit;
-  font-weight: var(--graisse-titre);
-}
-
-.bq-erreur-achat {
-  padding: 0 0 1rem;
-  text-align: left;
-  font-size: var(--t-sm);
-}
-
-.bq-proches {
-  border-top: 1px solid var(--evkha-bordure);
-  padding-top: 2.5rem;
-  margin-bottom: 4rem;
-}
-
-.bq-proches h2 {
-  font-family: var(--police-titre);
-  font-size: var(--t-lg);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.015em;
-  color: var(--texte-fort);
-  margin: 0 0 1.25rem;
-}
-
-/* ── Retour de paiement ──────────────────────────────────────────────────── */
-
-.bq-retour-paiement {
-  max-width: 34rem;
-  margin: 4rem auto 6rem;
-  text-align: center;
-  animation: pp-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
-}
-
-.bq-pastille {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  background: var(--evkha-or);
-  color: var(--texte-sur-or);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.6rem;
-  margin: 0 auto 1.25rem;
-  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
-}
-
-.bq-retour-paiement h1 {
-  font-family: var(--police-titre);
-  font-size: var(--t-xl);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.02em;
-  color: var(--texte-fort);
-  margin: 0 0 0.75rem;
-}
-
-.bq-retour-paiement p {
-  color: var(--texte-doux);
-  margin: 0 0 1.75rem;
-}
-
-.bq-liens {
-  display: grid;
-  gap: 0.7rem;
-  max-width: 22rem;
-  margin: 0 auto;
-}
-
-/* ── Les témoignages de la boutique ──────────────────────────────────────── */
-
-.bq-temoignages-grille {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-  gap: 1.25rem;
-}
-
-.bq-temoignage {
-  margin: 0;
-  padding: calc(1.5rem + var(--verre-marge)) calc(1.4rem + var(--verre-marge))
-    calc(1.3rem + var(--verre-marge));
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-}
-
-.bq-temoignage blockquote {
-  margin: 0;
-  font-size: var(--t-md);
-  line-height: 1.6;
-  color: var(--texte);
-}
-
-/* Les guillemets français, posés par le style : les écrire dans la donnée
-   obligerait chaque avis saisi à les porter, et le premier oubli se verrait. */
-.bq-temoignage blockquote::before {
-  content: "« ";
-}
-
-.bq-temoignage blockquote::after {
-  content: " »";
-}
-
-.bq-temoignage figcaption {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  font-size: var(--t-sm);
-  color: var(--texte-doux);
-  margin-top: auto;
-}
-
-.bq-temoignage figcaption b {
-  color: var(--texte-fort);
-  font-size: var(--t-base);
-}
-
-.bq-temoignage figcaption a {
-  color: var(--or-fonce);
-  font-weight: var(--graisse-forte);
-  text-decoration: none;
-  margin-top: 0.3rem;
-}
-
-.bq-temoignage figcaption a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-/* ── Bon à savoir ────────────────────────────────────────────────────────── */
-/*
- * Des `<details>` natifs, et non un accordéon en JavaScript : le navigateur
- * sait déjà ouvrir, fermer, donner le focus et laisser Ctrl+F trouver le texte
- * replié. Un accordéon maison perd ce dernier point sans rien apporter.
- */
-.bq-reperes-liste {
-  display: grid;
-  gap: 0.7rem;
-  max-width: 52rem;
-}
-
-.bq-repere summary {
-  cursor: pointer;
-  padding: calc(1rem + var(--verre-marge)) calc(1.2rem + var(--verre-marge));
-  font-family: var(--police-titre);
-  font-size: var(--t-base);
-  font-weight: var(--graisse-titre);
-  color: var(--texte-fort);
-  list-style: none;
-  border-radius: var(--rayon-verre-interne);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  transition: background var(--duree-micro) var(--ease-doux);
-}
-
-.bq-repere summary::-webkit-details-marker {
-  display: none;
-}
-
-/* Le signe est niché dans son disque, comme l'icône d'un bouton-îlot. */
-.bq-repere summary::after {
-  content: "+";
-  flex-shrink: 0;
-  display: inline-grid;
   place-items: center;
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--evkha-noir) 8%, transparent);
-  font-size: 1.1rem;
-  font-weight: var(--graisse-normale);
-  color: var(--texte-fort);
+  background: var(--acc-or);
+  color: var(--acc-encre);
+  font-size: 0.78rem;
+  font-weight: 800;
   line-height: 1;
 }
 
-.bq-repere[open] summary::after {
-  content: "−";
+/* Un lien dans le texte : souligné, pour ne pas tenir à la couleur seule. */
+.bou-lien {
+  color: var(--acc-encre);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--acc-or-fonce);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
 }
 
-.bq-repere summary:hover {
-  background: var(--evkha-or-brume);
+.bou-lien:hover {
+  text-decoration-color: var(--acc-encre);
 }
 
-.bq-repere summary:focus-visible {
-  outline: none;
-  box-shadow: var(--anneau-focus);
+/* Un bouton dont le libellé peut passer à la ligne plutôt que de sortir de
+   l'écran (une adresse e-mail, « Ouvrir l'aperçu (12 pages) »). */
+.acc .bou-bouton-souple {
+  padding-block: 8px;
+  white-space: normal;
+  text-align: left;
 }
 
-.bq-repere p {
-  margin: 0;
-  padding: 0 calc(1.2rem + var(--verre-marge)) calc(1.2rem + var(--verre-marge));
-  font-size: var(--t-base);
-  line-height: 1.6;
-  color: var(--texte-doux);
-  max-width: 62ch;
+/* Une panne, un refus : le rouge de la charte sur son voile (4,5:1), un filet
+   à gauche — jamais la couleur seule, le texte dit ce qui se passe. */
+.bou-erreur,
+.bou-alerte p {
+  padding: 14px 18px;
+  border-left: 4px solid var(--evkha-echec);
+  border-radius: 12px;
+  background: var(--evkha-echec-voile);
+  color: var(--evkha-echec);
+  font-weight: 600;
 }
 
-.bq-repere p a {
-  color: var(--or-fonce);
-  font-weight: var(--graisse-forte);
+.bou-alerte a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-/* ── L'appel final ───────────────────────────────────────────────────────── */
+/* La région d'alerte est toujours dans le document ; vide, elle ne prend
+   aucune place. */
+.bou-alerte:not(:empty) {
+  margin-bottom: 28px;
+}
 
-/* Une coque de verre teintée d'or : le voile descend du haut et s'efface. */
-.bq-appel {
-  margin: var(--pp-section) 0 5rem;
-  padding: calc(2.5rem + var(--verre-marge)) calc(2rem + var(--verre-marge));
-  background: linear-gradient(180deg, var(--verre-or), transparent 45%),
-    var(--verre-fond);
+.bou-attente,
+.bou-vide {
+  padding: 28px;
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+  color: var(--acc-gris);
+  font-weight: 600;
   text-align: center;
 }
 
-.bq-appel h2 {
-  font-family: var(--police-titre);
-  font-size: clamp(1.3rem, 3vw, 1.7rem);
-  font-weight: var(--graisse-affiche);
-  letter-spacing: -0.015em;
-  color: var(--texte-fort);
-  margin: 0 0 0.6rem;
+.bou-liens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 22px;
+  margin-top: 28px;
 }
 
-.bq-appel p {
-  margin: 0 auto 1.5rem;
-  max-width: 46ch;
-  color: var(--texte-doux);
+/* Un état de page (attente, panne, étude introuvable, retour de paiement) :
+   sous la barre fixe, avec de l'air avant le pied. */
+.bou-etat {
+  min-height: 62vh;
+  padding: 150px 0 clamp(72px, 9vw, 120px);
 }
 
-/* Le catalogue commence sous le bandeau noir : sans cette marge, la première
-   tête de section se collait au bandeau. Et l'ancre du bouton du héros
-   atterrit sous le menu collant sans la marge de défilement. */
-.bq-catalogue .bq-section-tete {
-  margin-top: clamp(3rem, 6vw, 4.5rem);
+.bou-etat > h1 {
+  max-width: 20em;
+  margin-bottom: 20px;
 }
 
-#catalogue,
-#avis {
-  scroll-margin-top: 6.5rem;
+.bou-etat > .bou-erreur {
+  max-width: 44em;
 }
 
-/* ── Le bloc d'aperçu ────────────────────────────────────────────────────── */
-/*
- * Il est mis en avant plutôt que relégué dans un lien : c'est l'élément qui
- * décide de la vente. Un fichier ne se feuillette pas, et sans pages visibles
- * le visiteur engage son argent sur la foi d'un titre.
- */
-.bq-apercu {
-  padding: calc(1.75rem + var(--verre-marge));
-  border-top: 1px solid var(--verre-bordure);
-  background: linear-gradient(180deg, var(--verre-or), transparent 45%),
-    var(--verre-fond);
+/* La fin dorée : le pied du socle la prolonge. Son titre peut être long (la
+   passerelle de la fiche) : il se tient au centre, sur une mesure lisible. */
+.acc-fin.bou-fin {
+  padding-bottom: clamp(60px, 9vw, 120px);
 }
 
-.bq-apercu h2 {
-  margin-bottom: 0.6rem;
+.bou-fin .acc-fin-corps {
+  max-width: 36em;
 }
 
-.bq-apercu .bq-description {
-  margin-bottom: 1.25rem;
-  max-width: 54ch;
+.bou-fin h2 {
+  max-width: 18em;
+  margin-inline: auto;
+  text-wrap: balance;
 }
 
-/* ── Mouvement réduit ────────────────────────────────────────────────────── */
+.bou-fin .acc-tag {
+  margin-bottom: 18px;
+}
 
-/* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet : états
-   finaux tout de suite, pas de montée, pas de soulèvement. */
-@media (prefers-reduced-motion: reduce) {
-  .bq-entete,
-  .bq-retour-paiement {
-    animation: none;
+/* ── Catalogue : l'ouverture ─────────────────────────────────────────────── */
+
+.bou-ouverture {
+  padding: 150px 0 clamp(64px, 8vw, 110px);
+}
+
+.bou-ouverture-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: center;
+}
+
+.bou-ouverture h1 {
+  margin: 20px 0;
+}
+
+.bou-chapeau {
+  max-width: 32em;
+  font-size: 1.08rem;
+}
+
+/* Ce que contient chaque étude, en liste cochée. */
+.bou-inclus,
+.bou-questions {
+  display: grid;
+  gap: 12px 22px;
+  margin: 0;
+  padding: 0;
+  font-weight: 600;
+  font-size: 0.98rem;
+  list-style: none;
+}
+
+.bou-inclus {
+  margin-top: 26px;
+}
+
+.bou-inclus li,
+.bou-questions li {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.bou-appels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 22px;
+  margin-top: 30px;
+}
+
+/* Le plancher de prix, lu au serveur : le montant en Fraunces. */
+.bou-plancher {
+  color: var(--acc-gris);
+  font-weight: 600;
+}
+
+.bou-plancher b {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.9rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* Trois couvertures en éventail sur une plaque dorée. La place est réservée
+   (`aspect-ratio`) : rien ne saute quand le catalogue arrive. */
+.bou-eventail {
+  position: relative;
+  aspect-ratio: 1 / 0.86;
+  width: 100%;
+  max-width: 500px;
+  margin-inline: auto;
+}
+
+.bou-eventail::before {
+  content: "";
+  position: absolute;
+  inset: 14% 6% 10% 12%;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or);
+  rotate: 4deg;
+}
+
+.bou-eventail-carte {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  width: 60%;
+  aspect-ratio: 3 / 2;
+  border: 8px solid var(--acc-blanc);
+  border-radius: var(--acc-r);
+  background: var(--acc-or-clair);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(2.6rem, 6vw, 4.4rem);
+}
+
+.bou-eventail-0 {
+  top: 2%;
+  left: 0;
+  rotate: -7deg;
+}
+
+.bou-eventail-1 {
+  top: 28%;
+  right: 0;
+  rotate: 5deg;
+}
+
+.bou-eventail-2 {
+  bottom: 0;
+  left: 12%;
+  rotate: -2deg;
+}
+
+/* `height` DÉCLARÉE : sans elle, l'attribut `height` de la balise deviendrait
+   une hauteur en pixels (`une-image-garde-son-ratio`). */
+.bou-eventail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Catalogue : les questions, les promesses ────────────────────────────── */
+
+.bou-reponses {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 30px clamp(28px, 5vw, 72px);
+  align-items: start;
+}
+
+.bou-reponses .bou-questions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+/* Quatre promesses dans un même écrin, séparées d'un pointillé. */
+.bou-promesses {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+  list-style: none;
+}
+
+.bou-promesses > li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: clamp(24px, 2.8vw, 34px) clamp(20px, 2.4vw, 30px);
+}
+
+.bou-promesses > li + li {
+  border-left: 1.5px dashed var(--acc-pointille);
+}
+
+.bou-promesse-signe {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--acc-or);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.bou-promesses .bou-promesse-titre {
+  color: var(--acc-encre);
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.02em;
+}
+
+.bou-promesses p {
+  font-size: 0.95rem;
+}
+
+/* ── Catalogue : l'en-tête d'une section, les filtres, la grille ─────────── */
+
+.bou-section-tete {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: end;
+  gap: 14px 30px;
+  margin-bottom: 30px;
+}
+
+.bou-section-tete h2 {
+  margin-top: 14px;
+}
+
+.bou-section-note {
+  font-weight: 600;
+}
+
+.bou-filtres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+/* Une bascule : 44 px de haut, une cible que le doigt atteint. L'état ne
+   tient pas à la couleur seule — `aria-pressed` le dit, et la pilule active
+   est pleine quand les autres sont cerclées. */
+.bou-filtre {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--acc-blanc);
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+  font-weight: 700;
+  font-size: 0.92rem;
+  transition: background-color var(--duree-acc-survol) var(--ease-sortie),
+    color var(--duree-acc-survol) var(--ease-sortie),
+    box-shadow var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.bou-filtre:hover {
+  background: var(--acc-or-clair);
+}
+
+.bou-filtre[aria-pressed="true"] {
+  background: var(--acc-encre);
+  box-shadow: none;
+  color: var(--acc-blanc);
+}
+
+.bou-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  gap: 26px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Les éléments de liste portent la hauteur : toutes les cartes d'une rangée
+   ont la même. */
+.bou-grille > li {
+  display: flex;
+}
+
+/* ── Une carte d'étude ───────────────────────────────────────────────────── */
+
+/* Relative : le lien du titre s'étend à toute la carte (`.bou-carte-lien`). */
+.bou-carte {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.bou-carte:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+/* La couverture : sa place est fixée par le ratio, avant que l'image arrive. */
+.bou-couverture {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  background: var(--acc-or-clair);
+}
+
+.bou-couverture-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Sans couverture : l'initiale de l'étude, en Fraunces. */
+.bou-couverture-vide,
+.bou-visuel-vide {
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(3.4rem, 8vw, 5rem);
+  line-height: 1;
+}
+
+.bou-carte-corps {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 22px 22px 20px;
+}
+
+.bou-carte h3 {
+  font-size: 1.22rem;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+}
+
+/* Le lien de la carte : le titre, étendu à toute la carte. Le contour de
+   focus se dessine donc autour de la carte, pas autour de deux mots. */
+.bou-carte-lien::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--acc-r);
+}
+
+.bou-carte-lien:focus-visible {
+  outline: none;
+}
+
+.bou-carte-lien:focus-visible::after {
+  outline: 3px solid var(--acc-encre);
+  outline-offset: -3px;
+}
+
+.bou-carte-meta {
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.bou-carte-pied {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 14px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.bou-carte .bou-carte-prix {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.9rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* Décoratif : le lien est le titre. */
+.acc .bou-carte-voir {
+  min-height: 44px;
+  padding-left: 18px;
+  font-size: 0.9rem;
+}
+
+.bou-carte-voir .acc-btn-fleche {
+  width: 30px;
+  height: 30px;
+}
+
+.bou-carte:hover .acc-btn-fleche {
+  transform: rotate(-45deg);
+}
+
+/* ── Catalogue : les avis mis en avant ───────────────────────────────────── */
+
+.bou-temoignages {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bou-temoignages > li {
+  display: flex;
+}
+
+.bou-temoignage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px;
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.bou-temoignage blockquote,
+.bou-avis blockquote {
+  margin: 0;
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.12rem;
+  line-height: 1.5;
+}
+
+.bou-temoignage figcaption {
+  display: grid;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1.5px dashed var(--acc-pointille);
+  color: var(--acc-gris);
+  font-size: 0.9rem;
+}
+
+.bou-temoignage figcaption b {
+  color: var(--acc-encre);
+}
+
+.bou-temoignage figcaption a {
+  justify-self: start;
+  margin-top: 6px;
+  padding: 4px 0;
+  color: var(--acc-encre);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--acc-or-fonce);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+/* ── Fiche : le titre, la colonne de lecture, la colonne d'achat ─────────── */
+
+.bou-fiche {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-areas:
+    "tete achat"
+    "corps achat";
+  column-gap: clamp(28px, 4.5vw, 64px);
+  align-items: start;
+  padding: 130px 0 clamp(64px, 8vw, 110px);
+}
+
+.bou-fiche-tete {
+  display: flex;
+  grid-area: tete;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 30px;
+}
+
+.bou-fiche-tete h1 {
+  text-wrap: balance;
+}
+
+/* 44 px de haut : une cible que le doigt atteint. */
+.bou-retour {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 4px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: underline;
+  text-decoration-color: var(--acc-pointille);
+  text-underline-offset: 4px;
+}
+
+.bou-retour:hover {
+  text-decoration-color: var(--acc-encre);
+}
+
+.bou-fiche-meta {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.bou-fiche-corps {
+  display: grid;
+  grid-area: corps;
+  gap: clamp(36px, 5vw, 56px);
+  min-width: 0;
+}
+
+/* La couverture, en grand. Le cadre porte le double bord. */
+.bou-visuel {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  min-height: 220px;
+  padding: 10px;
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+/* `height: auto` DÉCLARÉE : les attributs de la balise donnent le ratio, la
+   colonne donne la largeur. */
+.bou-visuel-image {
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--acc-r2) - 10px);
+  background: var(--acc-or-clair);
+}
+
+/* Un bloc de lecture : son titre, puis son texte sur une mesure lisible. */
+.bou-bloc {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+
+.bou-bloc h2 {
+  margin-bottom: 4px;
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+}
+
+.bou-bloc > p {
+  max-width: 44em;
+  white-space: pre-line;
+}
+
+.bou-bloc .bou-amorce {
+  color: var(--acc-encre);
+  font-weight: 700;
+}
+
+.bou-bloc .bou-questions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+/* Le sommaire : une liste numérotée, le numéro en Fraunces. */
+.bou-sommaire {
+  display: grid;
+  width: 100%;
+  margin: 0;
+  padding: 6px clamp(18px, 2.6vw, 30px);
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+  list-style: none;
+  counter-reset: bou-sommaire;
+}
+
+.bou-sommaire li {
+  display: grid;
+  grid-template-columns: 2.6em 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 13px 0;
+  font-weight: 600;
+  counter-increment: bou-sommaire;
+}
+
+.bou-sommaire li + li {
+  border-top: 1.5px dashed var(--acc-pointille);
+}
+
+.bou-sommaire li::before {
+  content: counter(bou-sommaire, decimal-leading-zero);
+  color: var(--acc-doux);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.15rem;
+}
+
+/* L'aperçu : le bloc qui décide de la vente, détaché sur le voile doré. */
+.bou-apercu {
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-clair);
+}
+
+.bou-apercu > p {
+  color: var(--acc-encre);
+}
+
+/* Le déroulé : trois étapes numérotées. */
+.bou-etapes {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: bou-etape;
+}
+
+.bou-etapes li {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 14px;
+  align-items: center;
+  color: var(--acc-gris);
+  counter-increment: bou-etape;
+}
+
+.bou-etapes li::before {
+  content: counter(bou-etape);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--acc-or);
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+
+.bou-etapes b {
+  color: var(--acc-encre);
+}
+
+/* Les avis d'une étude. */
+.bou-avis-liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 18px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bou-avis {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin);
+}
+
+.bou-avis-tete {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.bou-avis-date {
+  color: var(--acc-doux);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.bou-avis-signature {
+  display: grid;
+  gap: 2px;
+  margin-top: auto;
+  font-size: 0.9rem;
+}
+
+.bou-avis-signature b {
+  color: var(--acc-encre);
+}
+
+/* La cible de « 3 avis » s'arrête sous la barre fixe (`scroll-padding-top`,
+   socle) ; rien à ajouter ici. */
+
+/* ── Fiche : le panneau d'achat ──────────────────────────────────────────── */
+
+/* Collant sur grand écran : le prix et le bouton restent sous les yeux
+   pendant qu'on lit. Opaque et sans flou — il défile avant de se coller. Si la
+   fenêtre est trop basse pour lui, c'est lui qui défile. */
+.bou-achat {
+  position: sticky;
+  top: 100px;
+  display: flex;
+  grid-area: achat;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 124px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 8px;
+  padding: clamp(22px, 2.6vw, 30px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.bou-achat .bou-achat-prix {
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: clamp(2.6rem, 4vw, 3.3rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.bou-achat-mention {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.bou-achat label {
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.bou-achat .bou-erreur {
+  font-size: 0.93rem;
+}
+
+/* Le bouton d'achat : pleine largeur, le libellé peut passer à la ligne.
+   Relatif : la lame de lumière du chargement le traverse de l'intérieur. */
+.acc .bou-acheter {
+  position: relative;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 6px;
+  padding-block: 8px;
+  white-space: normal;
+  text-align: left;
+}
+
+/* Pendant l'ouverture du paiement : plus de soulèvement, et le curseur dit
+   qu'on attend. */
+.acc .bou-acheter:disabled {
+  box-shadow: none;
+  cursor: progress;
+  transform: none;
+}
+
+.bou-achat-apercu {
+  align-self: flex-start;
+  padding: 6px 0;
+  font-size: 0.93rem;
+}
+
+.bou-rassurance {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 16px 0 0;
+  border-top: 1.5px dashed var(--acc-pointille);
+  color: var(--acc-gris);
+  font-size: 0.92rem;
+  font-weight: 500;
+  list-style: none;
+}
+
+.bou-rassurance li {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 8px;
+}
+
+.bou-rassurance li::before {
+  content: "✦";
+  color: var(--acc-encre);
+}
+
+/* ── Fiche : les études voisines ─────────────────────────────────────────── */
+
+.bou-proches {
+  padding-top: 0;
+}
+
+.bou-proches h2 {
+  margin-bottom: 30px;
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+}
+
+/* ── Fiche : la barre d'achat du téléphone ───────────────────────────────── */
+
+/* Hors téléphone, la colonne d'achat est collante : la barre n'existe pas. */
+.bou-barre {
+  display: none;
+}
+
+/* ── Retour de paiement ──────────────────────────────────────────────────── */
+
+.bou-retour-carte {
+  max-width: 720px;
+  margin-inline: auto;
+  padding: clamp(28px, 5vw, 56px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-blanc);
+  box-shadow: var(--acc-ecrin), var(--acc-ombre);
+}
+
+.bou-retour-carte h1 {
+  margin-bottom: 18px;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  text-wrap: balance;
+}
+
+.bou-retour-carte b {
+  color: var(--acc-encre);
+}
+
+/* La coche de l'achat confirmé : succès de la charte sur son voile, et le
+   titre dit la même chose en toutes lettres. */
+.bou-pastille {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 20px;
+  border-radius: 50%;
+  background: var(--evkha-succes-voile);
+  color: var(--evkha-succes);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ── Largeurs ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1000px) {
+  .bou-promesses {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .bq-carte,
-  .bq-filtre,
-  .bq-retour,
-  .bq-repere summary {
-    transition: none;
+  .bou-promesses > li:nth-child(3) {
+    border-left: 0;
+  }
+
+  .bou-promesses > li:nth-child(n + 3) {
+    border-top: 1.5px dashed var(--acc-pointille);
+  }
+}
+
+@media (max-width: 900px) {
+  .bou-ouverture-grille,
+  .bou-reponses {
+    grid-template-columns: 1fr;
+  }
+
+  .bou-eventail {
+    max-width: 380px;
+  }
+
+  /* Une colonne : le titre, le panneau d'achat, puis la lecture. Le panneau
+     n'est plus collant — la barre du bas prend le relais. */
+  .bou-fiche {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "tete"
+      "achat"
+      "corps";
+    padding-top: 116px;
+  }
+
+  .bou-achat {
+    position: static;
+    max-height: none;
+    margin: 0 0 36px;
+    overflow-y: visible;
+  }
+
+  /* Fixe, donc sans effet sur la mise en page ; opaque. La marge basse suit
+     l'encoche des téléphones. `hidden` l'efface tant que le panneau d'achat
+     est dans la fenêtre. */
+  .bou-barre {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 30;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1.5px solid var(--acc-trait);
+    background: var(--acc-blanc);
+    box-shadow: 0 -10px 30px color-mix(in srgb, var(--evkha-miel) 10%, transparent);
+  }
+
+  .bou-barre[hidden] {
+    display: none;
+  }
+
+  .bou-barre .bou-barre-prix {
+    color: var(--acc-encre);
+    font-family: var(--acc-serif);
+    font-weight: 600;
+    font-size: 1.7rem;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+  }
+
+  .bou-barre-prix span {
+    color: var(--acc-gris);
+    font-family: var(--police-corps);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .acc .bou-barre-lien {
+    min-height: 48px;
+    padding-block: 6px;
+    font-size: 0.92rem;
+    white-space: normal;
+  }
+
+  /* La barre ne recouvre ni la fin du pied, ni un élément qui prend le focus
+     (WCAG 2.4.11) : le pied s'allonge de sa hauteur, et le défilement vers un
+     élément s'arrête au-dessus d'elle. */
+  .bou-fiche-page .acc-pied {
+    padding-bottom: calc(28px + 76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  html:has(.bou-barre:not([hidden])) {
+    scroll-padding-bottom: 96px;
+  }
+}
+
+@media (max-width: 600px) {
+  .bou-ouverture,
+  .bou-etat {
+    padding-top: 124px;
+  }
+
+  /* Décoratif : sur un téléphone, l'éventail repousserait le catalogue d'un
+     écran entier. */
+  .bou-eventail {
+    display: none;
+  }
+
+  .bou-reponses .bou-questions,
+  .bou-bloc .bou-questions {
+    grid-template-columns: 1fr;
+  }
+
+  .bou-promesses {
+    grid-template-columns: 1fr;
+  }
+
+  .bou-promesses > li + li {
+    border-top: 1.5px dashed var(--acc-pointille);
+    border-left: 0;
+  }
+
+  .bou-section-tete {
+    align-items: start;
+  }
+
+  .bou-liens {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ── Mouvement réduit ────────────────────────────────────────────────────────
+ *
+ * Les durées lues ici valent déjà 0 ms (`tokens.css`) : les survols propres à
+ * la boutique sont instantanés. Reste à couper ce qui DÉPLACE : la carte ne
+ * se soulève plus, sa flèche ne tourne plus. La couleur, l'ombre et le fond
+ * changent encore sous la souris. La révélation des blocs, elle, est celle du
+ * socle : elle reste, en fondu seul.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .bou-carte:hover {
+    transform: none;
+  }
+
+  .bou-carte:hover .acc-btn-fleche {
+    transform: none;
   }
 }

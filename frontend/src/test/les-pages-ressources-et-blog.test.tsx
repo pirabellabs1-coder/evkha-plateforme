@@ -26,7 +26,17 @@
  * 8. chaque page se termine par UNE passerelle vers l'étape payante la plus
  *    proche, sans prix ;
  * 9. aucun montant et aucune adresse du CDN de l'ancien site ne sont écrits
- *    dans les sources du lot — la classe du défaut (règle 4).
+ *    dans les sources du lot — la classe du défaut (règle 4) ;
+ * 10. AUCUN téléchargement promis : la plateforme envoie ses documents par
+ *    courriel. Ce que le relevé écrit « Téléchargez… » ou « à télécharger »
+ *    s'affiche « Recevez par e-mail… » et « à recevoir par e-mail » — sur la
+ *    boîte à outils et dans l'encart de fin d'article, dont le bouton ouvre un
+ *    courriel qui demande la checklist promise ;
+ * 11. le filtre du blog s'écrit dans l'adresse, sans recharger ni empiler
+ *    d'historique, et la région d'état annonce le thème avec le nombre.
+ *
+ * Les points 10 et 11, et le format des titres d'onglet (« Titre — EVKHA »),
+ * ont été ajoutés le 19/11/2026 avec les corrections de la revue.
  *
  * Contre-épreuves (règle 6) : les détecteurs voient bien un montant et une
  * adresse du CDN ; le temps de lecture bouge quand le texte s'allonge ; un
@@ -54,6 +64,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ArticleDeBlog, Blog } from "../public/Blog";
 import {
   ARTICLES,
+  AUTEUR_DU_BLOG,
   BLOG,
   compterLesMots,
   composer,
@@ -73,8 +84,10 @@ import {
   PAGE_BOITE_A_OUTILS,
   PAGE_CONTACT,
   PAGE_SWAPN,
+  sansTelechargement,
   SWAPN,
 } from "../public/contenuRessources";
+import { LIENS, PIED } from "../public/contenuSite";
 import { BoiteAOutils, Contact, Swapn } from "../public/Ressources";
 
 // ── Outils ──────────────────────────────────────────────────────────────────
@@ -105,6 +118,21 @@ function texteDe(element: Element | null): string {
 
 /** Un montant en euros, où qu'il soit. */
 const MONTANT_ECRIT = /\d[\d\s.,]*(?:€|euros?\b)/i;
+
+/** Une promesse de téléchargement, sous toutes ses formes : « Téléchargez »,
+ *  « à télécharger », « téléchargement », « téléchargeable ». */
+const TELECHARGEMENT = /t[ée]l[ée]charg/i;
+
+/** Ce que la page affiche d'un texte relevé qui promet un téléchargement.
+ *  Écrit ICI, à la main, et non demandé à `sansTelechargement` : le test ne
+ *  juge pas la page avec la fonction de la page. */
+function sansPromesse(releve: string): string {
+  return releve
+    .split("à télécharger")
+    .join("à recevoir par e-mail")
+    .split("Téléchargez")
+    .join("Recevez par e-mail");
+}
 
 /** Le CDN et le domaine de l'ancien site. L'adresse de contact
  *  (`contact@evkha.fr`) n'est pas une adresse du site. */
@@ -348,7 +376,9 @@ describe("la boîte à outils", () => {
     const tutoyes = blocs.filter((bloc) => bloc.texteAuVous !== undefined);
     expect(tutoyes.length).toBeGreaterThan(8);
     for (const bloc of blocs) {
-      const attendu = bloc.texteAuVous ?? bloc.texte;
+      // Au vous, et sans promesse de téléchargement : c'est par courriel que
+      // la page envoie ses documents.
+      const attendu = sansPromesse(bloc.texteAuVous ?? bloc.texte);
       expect(page, `la page ne dit plus : « ${attendu} »`).toContain(espaces(attendu));
     }
     // Le tutoiement du relevé n'est plus affiché.
@@ -358,7 +388,7 @@ describe("la boîte à outils", () => {
 
     for (const phrase of [
       b.ouverture.titre,
-      b.ouverture.corps,
+      sansPromesse(b.ouverture.corps),
       b.decouvrir.titre,
       ...b.decouvrir.points,
       b.decouvrir.suite,
@@ -367,7 +397,65 @@ describe("la boîte à outils", () => {
       expect(page, `la page ne dit plus : « ${phrase} »`).toContain(espaces(phrase));
     }
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(b.ouverture.titre);
-    expect(document.title).toBe(b.entete.titreOnglet?.texte);
+    // Le titre relevé, au format du site : la marque à la fin, après un tiret
+    // long. Écrit à la main.
+    expect(b.entete.titreOnglet?.texte).toBe(
+      "Boîte à outils pour entrepreneurs : modèles, ressources, templates – EVKHA",
+    );
+    expect(document.title).toBe("Boîte à outils pour entrepreneurs : modèles, ressources, templates — EVKHA");
+  });
+
+  it("ne promet aucun téléchargement : les documents se reçoivent par e-mail", () => {
+    const b = BOITE_A_OUTILS;
+    // Règle 1 : le relevé promet bien des téléchargements — sinon ce test ne
+    // verrouillerait rien.
+    const releves = [
+      b.ouverture.corps,
+      ...b.ressources.flatMap((r) => [r.titre, ...r.paragraphes].map((bloc) => bloc.texteAuVous ?? bloc.texte)),
+      ...FORMULAIRES.lexique.titre.map((bloc) => bloc.texteAuVous ?? bloc.texte),
+    ];
+    const prometteurs = releves.filter((phrase) => TELECHARGEMENT.test(phrase));
+    expect(prometteurs.length).toBeGreaterThanOrEqual(5);
+
+    rendre(<BoiteAOutils />, "/boite-a-outils");
+    // La CLASSE (règle 4) : plus aucune forme du mot dans le contenu.
+    expect(texte()).not.toMatch(TELECHARGEMENT);
+    // Chaque phrase qui le promettait est toujours là, retouchée — pas retirée.
+    for (const phrase of prometteurs) {
+      const affichee = sansPromesse(phrase);
+      expect(affichee, phrase).not.toMatch(TELECHARGEMENT);
+      expect(affichee, phrase).toMatch(/par e-mail/);
+      expect(texte(), `la page ne dit plus : « ${affichee} »`).toContain(espaces(affichee));
+    }
+    expect(texte()).toContain("des documents à recevoir par e-mail");
+    expect(texte()).toContain("Recevez par e-mail votre checklist gratuitement en PDF ci-dessous.");
+    expect(texte()).toContain("Recevez par e-mail votre lexique des termes entrepreneuriaux");
+
+    // L'étiquette des deux documents dit comment on les obtient.
+    const etiquettes = Array.from(document.querySelectorAll("article.res-ressource-document .res-etiquette")).map(
+      texteDe,
+    );
+    expect(etiquettes).toEqual(["Document à recevoir par e-mail", "Document à recevoir par e-mail"]);
+    // Et le bouton fait ce que la page dit : il ouvre un courriel.
+    for (const bouton of Array.from(document.querySelectorAll("article.res-ressource-document a"))) {
+      expect(bouton.getAttribute("href")).toMatch(/^mailto:/);
+    }
+
+    // Le relevé, lui, n'est pas touché : la retouche est d'affichage.
+    expect(b.ouverture.corps).toContain("des documents à télécharger");
+    expect(FORMULAIRES.lexique.titre[0].texteAuVous).toBe("Téléchargez votre lexique des termes entrepreneuriaux");
+
+    // Contre-épreuves : le détecteur voit toutes les formes, et la fonction du
+    // site rend ce que ce test attend, sans toucher à ce qui est juste.
+    for (const faute of ["Téléchargez la checklist", "à télécharger", "en téléchargement", "téléchargeable", "Telecharge"]) {
+      expect(faute, faute).toMatch(TELECHARGEMENT);
+    }
+    for (const juste of ["à recevoir par e-mail", "Recevez par e-mail votre lexique", "une charge de travail"]) {
+      expect(juste, juste).not.toMatch(TELECHARGEMENT);
+    }
+    for (const phrase of [...prometteurs, "Bonus EVKHA à télécharger", "Rien à changer ici."]) {
+      expect(sansTelechargement(phrase), phrase).toBe(sansPromesse(phrase));
+    }
   });
 
   it("trois ressources : deux documents demandés par courriel, un article lu sur le blog", () => {
@@ -521,6 +609,95 @@ describe("la liste du blog", () => {
   });
 });
 
+describe("le filtre du blog s'écrit dans l'adresse et s'annonce", () => {
+  function filtre(nom: string): HTMLButtonElement {
+    return within(screen.getByRole("group", { name: BLOG.filtres.nom })).getByRole("button", {
+      name: nom,
+    }) as HTMLButtonElement;
+  }
+
+  it("le thème choisi passe dans l'adresse, sans recharger ni empiler d'historique", async () => {
+    await avecUnSecondArticle(() => {
+      rendre(<Blog />, "/blog");
+      const entrees = window.history.length;
+      expect(window.location.search).toBe("");
+
+      fireEvent.click(filtre("Financement"));
+      expect(window.location.pathname).toBe("/blog");
+      expect(window.location.search).toBe("?theme=financement");
+      // `replaceState` : « Précédent » quitte le blog, il ne défait pas un filtre.
+      expect(window.history.length).toBe(entrees);
+
+      fireEvent.click(filtre("Étude de marché"));
+      expect(window.location.search).toBe("?theme=etude-de-marche");
+      expect(window.history.length).toBe(entrees);
+
+      // Une bascule : le second clic revient à « Tous », et l'adresse redevient nue.
+      fireEvent.click(filtre("Étude de marché"));
+      expect(window.location.search).toBe("");
+      fireEvent.click(filtre("Financement"));
+      fireEvent.click(filtre("Tous"));
+      expect(window.location.search).toBe("");
+      expect(window.location.pathname).toBe("/blog");
+      expect(window.history.length).toBe(entrees);
+    });
+  });
+
+  it("l'adresse écrite est celle que la page sait relire : recharger garde le filtre", async () => {
+    await avecUnSecondArticle(() => {
+      rendre(<Blog />, "/blog");
+      fireEvent.click(filtre("Financement"));
+      const adresse = `${window.location.pathname}${window.location.search}`;
+      cleanup();
+
+      // La même adresse, ouverte à neuf.
+      rendre(<Blog />, adresse);
+      expect(filtre("Financement")).toHaveAttribute("aria-pressed", "true");
+      expect(document.querySelectorAll("article.res-article")).toHaveLength(1);
+      // Et c'est celle du fil d'Ariane d'un article de ce thème.
+      expect(adresse).toBe("/blog?theme=financement");
+    });
+  });
+
+  it("les autres paramètres et l'ancre de l'adresse sont gardés", () => {
+    rendre(<Blog />, "/blog?utm_source=lettre#res-articles-titre");
+    fireEvent.click(filtre("Étude de marché"));
+    const parametres = new URLSearchParams(window.location.search);
+    expect(parametres.get("utm_source")).toBe("lettre");
+    expect(parametres.get("theme")).toBe("etude-de-marche");
+    expect(window.location.hash).toBe("#res-articles-titre");
+
+    fireEvent.click(filtre("Tous"));
+    expect(window.location.search).toBe("?utm_source=lettre");
+    expect(window.location.hash).toBe("#res-articles-titre");
+  });
+
+  it("la région d'état annonce le nombre ET le thème", async () => {
+    await avecUnSecondArticle(() => {
+      rendre(<Blog />, "/blog");
+      const etat = screen.getByRole("status");
+      // « Tous » : le nombre seul.
+      expect(texteDe(etat)).toBe("2 articles");
+
+      fireEvent.click(filtre("Financement"));
+      expect(texteDe(etat)).toBe("1 article — Financement");
+      fireEvent.click(filtre("Étude de marché"));
+      expect(texteDe(etat)).toBe("1 article — Étude de marché");
+      fireEvent.click(filtre("Tous"));
+      expect(texteDe(etat)).toBe("2 articles");
+    });
+    cleanup();
+
+    // Un thème présélectionné par l'adresse s'annonce aussi.
+    rendre(<Blog />, `/blog?theme=${VIABLE.theme}`);
+    expect(texteDe(screen.getByRole("status"))).toBe("1 article — Étude de marché");
+    // Contre-épreuve : la phrase ne nomme un thème que si on lui en donne un.
+    expect(BLOG.compte(1)).toBe("1 article");
+    expect(BLOG.compte(3, null)).toBe("3 articles");
+    expect(BLOG.compte(3, "Statuts")).toBe("3 articles — Statuts");
+  });
+});
+
 describe("le temps de lecture est calculé, pas écrit", () => {
   it("il se déduit du nombre de mots de l'article", () => {
     const mots = compterLesMots(texteDeLArticle(VIABLE));
@@ -593,7 +770,11 @@ describe("la page d'un article", () => {
       expect(page, `l'article ne dit plus : « ${phrase} »`).toContain(espaces(phrase));
     }
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(VIABLE.titre);
-    expect(document.title).toBe(VIABLE.entete.titreOnglet);
+    // Le titre suggéré dans le contenu, au format du site. Écrit à la main.
+    expect(VIABLE.entete.titreOnglet).toBe(
+      "Ai-je une idée de business viable ? Les 4 questions à se poser – EVKHA",
+    );
+    expect(document.title).toBe("Ai-je une idée de business viable ? Les 4 questions à se poser — EVKHA");
 
     // Le fil d'Ariane : Blog › thème › titre, la page courante sans lien.
     const fil = screen.getByRole("navigation", { name: PAGE_ARTICLE.filDAriane });
@@ -650,14 +831,32 @@ describe("la page d'un article", () => {
     expect(document.querySelector(".res-signature")).toHaveTextContent(VIABLE.conclusion.signature);
   });
 
-  it("finit par la boîte à outils, puis par la passerelle vers l'étude de marché", async () => {
+  it("finit par le bonus — à DEMANDER par courriel —, puis par la passerelle vers l'étude de marché", async () => {
     await rendreLArticle(VIABLE.slug);
 
+    const releve = ARTICLE_IDEE_BUSINESS_VIABLE.appel;
     const bonus = document.querySelector(".res-bonus") as HTMLElement;
-    expect(texteDe(bonus)).toContain(ARTICLE_IDEE_BUSINESS_VIABLE.appel.titre);
-    expect(texteDe(bonus)).toContain(ARTICLE_IDEE_BUSINESS_VIABLE.appel.document);
-    expect(texteDe(bonus)).toContain(ARTICLE_IDEE_BUSINESS_VIABLE.appel.corps);
-    expect(within(bonus).getByRole("link")).toHaveAttribute("href", "/boite-a-outils");
+    // Le titre relevé promet un téléchargement ; la page dit ce qu'elle fait.
+    expect(releve.titre).toBe("Bonus EVKHA à télécharger");
+    expect(within(bonus).getByRole("heading", { level: 2 })).toHaveTextContent("Bonus EVKHA à recevoir par e-mail");
+    expect(texteDe(bonus)).not.toMatch(TELECHARGEMENT);
+    expect(texteDe(bonus)).toContain(releve.document);
+    expect(texteDe(bonus)).toContain(releve.corps);
+
+    // La checklist promise n'est PAS dans la boîte à outils (qui n'a que celle
+    // de la micro-entreprise et le lexique) : le bouton n'y renvoie plus, il
+    // ouvre un courriel qui la demande par son nom.
+    const bouton = within(bonus).getByRole("link");
+    expect(bouton).toHaveTextContent("Recevoir par e-mail");
+    expect(bouton).not.toHaveAttribute("href", "/boite-a-outils");
+    expect(objetDuCourriel(bouton)).toBe(
+      "Je souhaite recevoir la checklist « Ai-je une idée de business viable ? »",
+    );
+    expect(objetDuCourriel(bouton)).toContain(VIABLE.titre);
+    // Contre-épreuve : la boîte à outils ne propose effectivement pas ce document.
+    expect(
+      BOITE_A_OUTILS.ressources.filter((r) => r.nature === "document").map((r) => r.titre.texte).join(" | "),
+    ).not.toMatch(/business viable/i);
 
     const passerelle = document.querySelector(".acc-fin") as HTMLElement;
     expect(within(passerelle).getByRole("link")).toHaveAttribute("href", "/etudes");
@@ -676,7 +875,14 @@ describe("la page d'un article", () => {
     expect(donnees.wordCount).toBe(VIABLE.nombreDeMots);
     expect(donnees.timeRequired).toBe(`PT${VIABLE.tempsDeLecture}M`);
     expect(donnees.url).toBe(`${window.location.origin}/blog/idee-business-viable`);
-    expect(donnees.author).toEqual({ "@type": "Person", name: VIABLE.conclusion.signature });
+    // L'auteur : le nom complet, dans l'écriture du reste du site — pas la
+    // signature de l'article, un prénom seul écrit avec un accent.
+    expect(donnees.author).toEqual({ "@type": "Person", name: "Evangeline Khaili" });
+    expect(AUTEUR_DU_BLOG).toBe("Evangeline Khaili");
+    expect(VIABLE.conclusion.signature).toBe("Evangéline");
+    // La signature AFFICHÉE, elle, reste celle de la cliente.
+    expect(document.querySelector(".res-signature")).toHaveTextContent("Evangéline");
+    expect(JSON.stringify(donnees)).not.toContain("Evangéline");
     // Aucune date, sous aucun nom : ni publication, ni modification.
     expect(Object.keys(donnees).filter((cle) => /date/i.test(cle))).toEqual([]);
     expect(JSON.stringify(donnees)).not.toMatch(/\d{4}-\d{2}-\d{2}/);
@@ -706,7 +912,15 @@ describe("la page d'un article", () => {
     await rendreLArticle("nulle-part");
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Article introuvable.");
-    expect(document.title).toBe(PAGE_ARTICLE.introuvable.titreOnglet);
+    expect(document.title).toBe("Article introuvable sur le blog — EVKHA");
+    expect(document.title.startsWith(PAGE_ARTICLE.introuvable.titreOnglet)).toBe(true);
+    // Une page d'erreur ne s'indexe pas — et la balise part avec elle.
+    const robots = () =>
+      Array.from(document.querySelectorAll<HTMLMetaElement>('meta[name="robots"]')).map((balise) => balise.content);
+    expect(robots()).toEqual(["noindex"]);
+    cleanup();
+    expect(robots()).toEqual([]);
+    await rendreLArticle("nulle-part");
     expect(screen.getByRole("link", { name: /Retour au blog/ })).toHaveAttribute("href", "/blog");
     // Ni article, ni données structurées d'un article qui n'existe pas.
     expect(document.querySelector('script[type="application/ld+json"]')).toBeNull();
@@ -754,6 +968,12 @@ describe("la page de contact", () => {
     expect(COORDONNEES.reseaux.length).toBeGreaterThanOrEqual(3);
     for (const reseau of COORDONNEES.reseaux) {
       expect(within(principal()).getByRole("link", { name: reseau.libelle })).toHaveAttribute("href", reseau.lien);
+    }
+    // UNE source pour l'agenda et pour les réseaux : ceux du menu et du pied.
+    expect(COORDONNEES.rendezVous).toBe(LIENS.appel);
+    expect(COORDONNEES.reseaux).toBe(PIED.reseaux);
+    for (const fichier of ["contenuRessources.ts", "Ressources.tsx"]) {
+      expect(source(fichier), fichier).not.toMatch(/calendly\.com|linkedin\.com|instagram\.com|facebook\.com/i);
     }
     // Ni téléphone, ni horaires, ni adresse postale : le relevé n'en donne pas.
     expect(COORDONNEES.telephone).toBeNull();

@@ -3,6 +3,7 @@ import {
   createRoute,
   createRouter,
   redirect,
+  type RouterHistory,
 } from "@tanstack/react-router";
 import { GabaritRacine } from "./GabaritRacine";
 import { CoquilleAdmin } from "./admin/Coquille";
@@ -43,6 +44,12 @@ import {
   PolitiqueDeConfidentialite,
   Rgpd,
 } from "./public/PagesLegales";
+import {
+  adresseDeLArticle,
+  CHEMINS,
+  SLUG_IDEE_BUSINESS_VIABLE,
+} from "./public/contenuSite";
+import { Introuvable } from "./public/Introuvable";
 import { Boutique } from "./public/Boutique";
 import { FicheProduit } from "./public/FicheProduit";
 import { RetourBoutique } from "./public/RetourBoutique";
@@ -76,7 +83,7 @@ function requireAuth() {
 
 const partenairesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/partenaires",
+  path: CHEMINS.partenaires,
   component: Partenaires,
 });
 
@@ -87,7 +94,7 @@ const partenairesRoute = createRoute({
 // `evkha.fr/etudedemarche`, dont le menu du site pointe desormais ici.
 const etudesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/etudes",
+  path: CHEMINS.etudes,
   component: NosEtudes,
 });
 
@@ -99,7 +106,7 @@ const etudesRoute = createRoute({
 // besoin pour acheter. Le sien est ouvert par l'encaissement.
 const boutiqueRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/boutique",
+  path: CHEMINS.boutique,
   component: Boutique,
 });
 
@@ -318,84 +325,88 @@ const adminClientDetail = createRoute({
 // packs, formations, boite a outils, blog, contact, Swapn, et les quatre textes
 // legaux, gardes a leur adresse d'origine pour ne pas perdre leur referencement.
 // Aucune garde : ce sont des pages de visiteur.
+//
+// Les chemins se LISENT dans `contenuSite.CHEMINS`, la seule source des
+// adresses du site public (regle 5) : le menu, le pied et les pages y lisent
+// les memes. `CHEMINS` est `as const` : le routeur recoit des litteraux.
 const packsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/packs",
+  path: CHEMINS.packs,
   component: Packs,
 });
 const packEssentielRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/packs/essentiel",
+  path: CHEMINS.packEssentiel,
   component: PackEssentiel,
 });
 const packPremiumRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/packs/premium",
+  path: CHEMINS.packPremium,
   component: PackPremium,
 });
 const formationsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/formations",
+  path: CHEMINS.formations,
   component: Formations,
 });
 const formationSocietesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/formations/creer-son-entreprise",
+  path: CHEMINS.formationSocietes,
   component: FormationSocietes,
 });
 const formationMicroRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/formations/creer-sa-micro-entreprise",
+  path: CHEMINS.formationMicro,
   component: FormationMicro,
 });
 const formationPopRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/formations/methode-pop",
+  path: CHEMINS.formationPop,
   component: FormationPop,
 });
 const boiteAOutilsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/boite-a-outils",
+  path: CHEMINS.boiteAOutils,
   component: BoiteAOutils,
 });
 const blogRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/blog",
+  path: CHEMINS.blog,
   component: Blog,
 });
 const articleDeBlogRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/blog/$slug",
+  path: CHEMINS.article,
   component: ArticleDeBlog,
 });
 const contactRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/contact",
+  path: CHEMINS.contact,
   component: Contact,
 });
 const swapnRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/swapn",
+  path: CHEMINS.swapn,
   component: Swapn,
 });
 const mentionsLegalesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/mentions-legales",
+  path: CHEMINS.mentionsLegales,
   component: MentionsLegales,
 });
 const rgpdRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/rgpd",
+  path: CHEMINS.rgpd,
   component: Rgpd,
 });
 const cgvRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/cgv",
+  path: CHEMINS.cgv,
   component: Cgv,
 });
 const confidentialiteRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/politique-de-confidentialite",
+  path: CHEMINS.confidentialite,
   component: PolitiqueDeConfidentialite,
 });
 
@@ -408,32 +419,58 @@ const confidentialiteRoute = createRoute({
 // Les pages de paiement (`/paiement-*`) ne sont PAS ici : tant que la
 // plateforme n'encaisse ni les packs ni les formations, ce sont elles qui
 // vendent, et les rediriger couperait la vente.
+//
+// `search: true` et `hash: true` : la redirection GARDE les parametres et
+// l'ancre de l'adresse suivie. Sans eux, `/formation?utm_source=lettre`
+// arrivait sur `/formations` tout court, et la campagne qui avait amene le
+// visiteur n'etait plus mesuree.
+//
+// Chaque ancienne adresse s'inscrit dans `ANCIENNES_ADRESSES` au moment ou sa
+// route est creee : le test `chaque-lien-du-site-a-sa-route` les rejoue toutes
+// depuis cette liste, sans en recopier une seule.
+export const ANCIENNES_ADRESSES: { de: string; vers: string }[] = [];
+
 function ancienneAdresse(de: string, vers: Parameters<typeof redirect>[0]["to"]) {
+  ANCIENNES_ADRESSES.push({ de, vers: String(vers) });
   return createRoute({
     getParentRoute: () => rootRoute,
     path: de,
     beforeLoad: () => {
-      throw redirect({ to: vers });
+      throw redirect({ to: vers, search: true, hash: true });
     },
   });
 }
+
+// L'ancienne adresse de l'article, sous la boite a outils. Son slug est lu la
+// ou le blog le lit : il n'est pas ecrit une seconde fois ici.
+const ANCIENNE_ADRESSE_DE_L_ARTICLE = "/boite-a-outils/idee-business-viable";
+ANCIENNES_ADRESSES.push({
+  de: ANCIENNE_ADRESSE_DE_L_ARTICLE,
+  vers: adresseDeLArticle(SLUG_IDEE_BUSINESS_VIABLE),
+});
+
 const anciennesAdresses = [
-  ancienneAdresse("/formation", "/formations"),
-  ancienneAdresse("/achat-formationsociete", "/formations/creer-son-entreprise"),
-  ancienneAdresse("/achat-formationmicro", "/formations/creer-sa-micro-entreprise"),
-  ancienneAdresse("/achat-formationpop", "/formations/methode-pop"),
-  ancienneAdresse("/etude", "/etudes"),
-  ancienneAdresse("/etudedemarche", "/etudes"),
-  ancienneAdresse("/etude-achat-immediat", "/boutique"),
-  ancienneAdresse("/partenairespro", "/partenaires"),
-  ancienneAdresse("/boite-a-outil", "/boite-a-outils"),
-  ancienneAdresse("/contacts", "/contact"),
-  ancienneAdresse("/contacte", "/contact"),
+  ancienneAdresse("/formation", CHEMINS.formations),
+  ancienneAdresse("/achat-formationsociete", CHEMINS.formationSocietes),
+  ancienneAdresse("/achat-formationmicro", CHEMINS.formationMicro),
+  ancienneAdresse("/achat-formationpop", CHEMINS.formationPop),
+  ancienneAdresse("/etude", CHEMINS.etudes),
+  ancienneAdresse("/etudedemarche", CHEMINS.etudes),
+  ancienneAdresse("/etude-achat-immediat", CHEMINS.boutique),
+  ancienneAdresse("/partenairespro", CHEMINS.partenaires),
+  ancienneAdresse("/boite-a-outil", CHEMINS.boiteAOutils),
+  ancienneAdresse("/contacts", CHEMINS.contact),
+  ancienneAdresse("/contacte", CHEMINS.contact),
   createRoute({
     getParentRoute: () => rootRoute,
-    path: "/boite-a-outils/idee-business-viable",
+    path: ANCIENNE_ADRESSE_DE_L_ARTICLE,
     beforeLoad: () => {
-      throw redirect({ to: "/blog/$slug", params: { slug: "idee-business-viable" } });
+      throw redirect({
+        to: CHEMINS.article,
+        params: { slug: SLUG_IDEE_BUSINESS_VIABLE },
+        search: true,
+        hash: true,
+      });
     },
   }),
 ];
@@ -454,11 +491,13 @@ const anciennesAdresses = [
 // visible par un visiteur n'y renvoie.
 const racine = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/",
+  path: CHEMINS.accueil,
   component: Accueil,
 });
 
-const routeTree = rootRoute.addChildren([
+// Exporte : le test `chaque-lien-du-site-a-sa-route` monte l'arbre REEL sur
+// un historique en memoire.
+export const routeTree = rootRoute.addChildren([
   partenairesRoute,
   etudesRoute,
   boutiqueRoute,
@@ -510,7 +549,22 @@ const routeTree = rootRoute.addChildren([
   ...routesEspace(rootRoute),
 ]);
 
-export const router = createRouter({ routeTree });
+// Une adresse inconnue rend la page « Page introuvable » du site
+// (`public/Introuvable.tsx`), avec sa barre, son pied et ses portes de sortie
+// — et non le « Not Found » nu de TanStack Router.
+//
+// Une fabrique, pour que l'application et les tests montent le MEME routeur :
+// meme arbre, meme page introuvable. Seul l'historique change (celui du
+// navigateur par defaut, un historique en memoire dans les tests).
+export function creerRouteur(history?: RouterHistory) {
+  return createRouter({
+    routeTree,
+    history,
+    defaultNotFoundComponent: Introuvable,
+  });
+}
+
+export const router = creerRouteur();
 
 declare module "@tanstack/react-router" {
   interface Register {

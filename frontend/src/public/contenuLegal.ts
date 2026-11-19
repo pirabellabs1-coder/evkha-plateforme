@@ -19,14 +19,17 @@
  * Les autres fautes (accords, accents, « par la présence ») sont laissées :
  * les corriger revient à la personne qui validera le texte.
  *
- * Les chemins sont ceux de l'ancien site, pour garder le référencement.
+ * Les chemins sont ceux de l'ancien site, pour garder le référencement. Ils
+ * ne sont pas écrits ici : chaque page lit le sien dans `contenuSite.CHEMINS`,
+ * la seule source des adresses du site (règle 5).
  */
+import { CHEMINS } from "./contenuSite";
 
-export type CheminLegal =
-  | "/mentions-legales"
-  | "/rgpd"
-  | "/cgv"
-  | "/politique-de-confidentialite";
+export type CheminLegal = (typeof CHEMINS)[
+  | "mentionsLegales"
+  | "rgpd"
+  | "cgv"
+  | "confidentialite"];
 
 export type BlocLegal =
   | { type: "paragraphe"; texte: string }
@@ -73,7 +76,7 @@ function liste(elements: string[]): BlocLegal {
 // ── /mentions-legales ───────────────────────────────────────────────────────
 
 const MENTIONS_LEGALES: PageLegale = {
-  chemin: "/mentions-legales",
+  chemin: CHEMINS.mentionsLegales,
   titreOnglet: "Mentions légales – EVKHA Business & Formations",
   metaDescription:
     "Toutes les informations légales concernant EVKHA : identité de l’éditeur, statut juridique, hébergeur, propriété intellectuelle, RGPD et cookies.",
@@ -192,7 +195,7 @@ const MENTIONS_LEGALES: PageLegale = {
 // ── /rgpd ───────────────────────────────────────────────────────────────────
 
 const RGPD: PageLegale = {
-  chemin: "/rgpd",
+  chemin: CHEMINS.rgpd,
   titreOnglet: "RGPD – EVKHA",
   metaDescription:
     "Découvre comment EVKHA collecte, utilise et protège tes données personnelles. Conformité RGPD, cookies, newsletter, formulaires : tout est transparent.",
@@ -590,7 +593,7 @@ const RGPD: PageLegale = {
 // ── /cgv ────────────────────────────────────────────────────────────────────
 
 const CGV: PageLegale = {
-  chemin: "/cgv",
+  chemin: CHEMINS.cgv,
   titreOnglet: "Conditions Générales d’Utilisation et de Vente – EVKHA",
   metaDescription:
     "Consulte les conditions d’utilisation du site EVKHA.fr et les conditions générales de vente applicables à nos formations et prestations sur mesure.",
@@ -1239,7 +1242,7 @@ const CGV: PageLegale = {
 // ── /politique-de-confidentialite ───────────────────────────────────────────
 
 const POLITIQUE_DE_CONFIDENTIALITE: PageLegale = {
-  chemin: "/politique-de-confidentialite",
+  chemin: CHEMINS.confidentialite,
   titreOnglet: "Politique de confidentialité – EVKHA",
   metaDescription:
     "EVKHA protège tes données : politique RGPD, cookies, newsletter et formulaires. Lis notre engagement en toute transparence.",
@@ -1456,7 +1459,7 @@ export const PAGES_LEGALES: PageLegale[] = [
 export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
   // Hébergeur, éditeur, adresse du site
   {
-    page: "/mentions-legales",
+    page: CHEMINS.mentionsLegales,
     passage:
       "Le Site est hébergé par IONOS SARL, dont le siège social est situé 7, place de la Gare - BP 70109, 57201 Sarreguemines, France.",
     pourquoi:
@@ -1469,39 +1472,39 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
       "Les quatre textes définissent « le Site » comme www.evkha.fr. La nouvelle plateforme répond aussi sous d'autres adresses (app2.evkha.fr, api2.evkha.fr) : faire préciser le périmètre couvert.",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage: "Systeme.io (gestion marketing et tunnel de vente) ;",
     pourquoi:
       "Sous-traitant de l'ancien site. À retirer ou à maintenir selon ce qui reste réellement chez Systeme.io après le basculement (formations, newsletter).",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage: "Ionos (hébergement) ;",
     pourquoi:
       "À rapprocher de l'hébergeur réel de la nouvelle plateforme et de la mention des mentions légales.",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage: "Stripe (paiement sécurisé) ;",
     pourquoi:
       "La nouvelle plateforme encaisse par Stripe : mention à confirmer, ainsi que l'absence de tout autre prestataire de paiement.",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "fournisseurs d'intelligence artificielle tels qu'OpenAI, Anthropic ou équivalents ;",
     pourquoi:
       "Liste à aligner sur les fournisseurs réellement appelés par la plateforme (et sur les éventuels services de recherche en ligne qu'elle utilise).",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "solutions d'e-mailing et d'automatisation utilisées dans le cadre de l'activité.",
     pourquoi:
       "Prestataire d'envoi d'e-mails non nommé. La nouvelle plateforme envoie ses propres courriels (livraison, compte, abonnement) : faire nommer le prestataire.",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "Certains prestataires techniques utilisés par EVKHA BUSINESS & FORMATIONS peuvent être amenés à traiter ou héberger certaines données en dehors de l'Union Européenne.",
     pourquoi:
@@ -1510,54 +1513,54 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
 
   // Vente en ligne, acompte, livraison
   {
-    page: "/mentions-legales",
+    page: CHEMINS.mentionsLegales,
     passage:
       "Certaines prestations proposées par EVKHA BUSINESS & FORMATIONS ne sont pas directement achetables en ligne (par exemple : études de marché personnalisées, packs de création d’entreprise, accompagnements spécifiques). Ces services font l’objet de devis personnalisés.",
     pourquoi:
       "Faux aujourd'hui : les études et les packs s'achètent en ligne (point 7 du plan de refonte). Contredit aussi les CGV : « Toute commande d'études se fait directement en ligne sur le site evkha.fr. »",
   },
   {
-    page: "/mentions-legales",
+    page: CHEMINS.mentionsLegales,
     passage:
       "Toute commande de ce type n’est considérée comme ferme qu’à réception d’un acompte de 50 %, le solde étant dû à la livraison.",
     pourquoi:
       "Contradiction avec les CGV, article 5 bis : « un acompte de 70 % du montant total TTC est exigé avant le démarrage de la mission » et « Le solde de 30 % ».",
   },
   {
-    page: "/politique-de-confidentialite",
+    page: CHEMINS.confidentialite,
     passage: "3 bis. Données collectées dans le cadre des prestations sur devis",
     pourquoi:
       "Le titre parle de prestations « sur devis » alors que les études et business plans cités dans le paragraphe se commandent en ligne.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage: "Le livrable sera ensuite généré et envoyé par mail sous 24H maximum.",
     pourquoi:
       "Délai contractuel. Les autres pages du site écrivent tantôt « moins de 24 h », tantôt « 24 h ouvrées » (point 5 du plan de refonte) : faire trancher la formule qui engage.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Le Rapport sera réputé livré dès lors que le Client aura reçu son Login et son mot de passe pour accéder à son Espace client ou un courriel avec un lien internet vers le Rapport commandé.",
     pourquoi:
       "À rapprocher du mode de livraison réel de la nouvelle plateforme (espace client, lien, pièce jointe). Le terme « Rapport » n'est pas défini dans les définitions.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Lors de l'achat et de la commande, le client précise l'étude qu'il souhaite ( voir la liste des etudes immédiates disponibles indiquée sur le site evkha.fr) Le livrable sera ensuite envoyé par mail sous 24H maximum.",
     pourquoi:
       "Les études prêtes sont annoncées ailleurs en « téléchargement immédiat » ; ici, envoi sous 24 h. Parcours à aligner sur la boutique de la nouvelle plateforme.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Le paiement peut être effectué par carte bancaire ou virement, en une seule fois ou en plusieurs échéances selon les options disponibles.",
     pourquoi:
       "À confirmer pour la nouvelle plateforme : le virement et le paiement en plusieurs fois y sont-ils proposés ?",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Tout retard de paiement entraîne des pénalités calculées au taux légal majoré de 10 points de pourcentage, ainsi qu'une indemnité forfaitaire pour frais de recouvrement de 40\u00a0€ HT.",
     pourquoi:
@@ -1566,35 +1569,35 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
 
   // Rétractation, réclamations, médiation
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Les formations en présentiel sont remboursables si l’annulation intervient au moins 7 jours avant la session.",
     pourquoi:
       "Contradiction dans le même article : le paragraphe suivant prévoit « un remboursement de 50 % du montant de la formation » pour une annulation au moins 7 jours avant la session.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "En prenant connaissance des Conditions Générales de Vente, le client renonce expressément à son droit de retractation sur ce produit.",
     pourquoi:
       "Renonciation au droit de rétractation et références aux articles L221-28 et L.221-18 du Code de la consommation : à faire valider par une juriste, ainsi que la façon dont la nouvelle plateforme recueille cette renonciation au moment du paiement.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Le Client dispose d’un délai de 3 jours francs à compter de la date de réception du Rapport pour effectuer toutes réclamations relatives à un défaut de conformité entre le contenu du rapport et les stipulations du bon de commande.",
     pourquoi:
       "Délai de réclamation à faire relire ; ce passage figure sous l'article intitulé « Droit de rétractation », dont il ne relève pas.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "En cas de litige, le Client peut recourir au médiateur désigné : Société Médiation Professionnelle - Alteritae",
     pourquoi:
       "Nom et adresse du médiateur (« 5, rue Salvaing 12000 Rodez ») à vérifier, de même que la validité actuelle de l'adhésion. L'article ne dit rien du tribunal compétent.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Il est strictement interdit au Client, pendant deux ans à compter de la date de fin du programme, de réaliser une activité concurrente à la Société, et de créer une offre similaire à ce(s) programme(s), après sa participation, sans son autorisation préalable écrite.",
     pourquoi: "Clause de non-concurrence imposée aux clients : à faire relire par une juriste.",
@@ -1602,14 +1605,14 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
 
   // Abonnements
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Toute demande de résiliation doit être effectuée depuis l'espace client ou par courrier électronique au moins sept (7) jours avant la prochaine échéance de renouvellement.",
     pourquoi:
       "La nouvelle plateforme annonce un arrêt « sur simple demande », par e-mail, et non depuis l'espace client (`espace/engagement.ts`). Le préavis de sept jours n'y est pas repris. À aligner dans un sens ou dans l'autre.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Les crédits non utilisés ne sont ni remboursables, ni reportables, ni transférables vers une période ultérieure.",
     pourquoi:
@@ -1618,7 +1621,7 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
 
   // Durées de conservation : quatre réponses différentes
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "sauvegardes techniques : durée limitée de 12 mois .sauf demande contraire du Client ou obligation légale.",
     pourquoi:
@@ -1639,7 +1642,7 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
       "Contradiction entre la politique de confidentialité et les CGV, article 8 : « une étude commandée sur un thème pourra être réutilisée pour la vendre en tant qu'etude clé en main ». La charte RGPD dit aussi : « Aucune exploitation commerciale, revente, diffusion ou communication à des tiers non autorisés n'est réalisée. »",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage:
       "Les Clients ont accès aux programmes et aux supports (écrits, vidéos, audio) pour une durée minimale de 24 mois.",
     pourquoi:
@@ -1648,54 +1651,54 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
 
   // Données collectées, cookies
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage: "votre adresse IP et l’adresse MAC de votre ordinateur",
     pourquoi:
       "À faire vérifier : la nouvelle plateforme ne relève pas l'adresse MAC des visiteurs.",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "Il peut également vous être demandé de fournir le nom de votre opérateur télécom, le modèle de votre téléphone portable et un numéro de portable valide afin de pouvoir fournir les instructions d’achat directement à travers votre téléphone mobile.",
     pourquoi:
       "Collecte qui ne correspond à aucun parcours d'achat de la nouvelle plateforme (paiement par Stripe). De même pour le paragraphe qui précède sur le numéro de carte : à faire préciser qui le reçoit.",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "La poursuite de la navigation sur une autre page du site ou la sélection d’un élément du Site (notamment : image, texte, lien, etc.) matérialise votre acceptation au dépôt des cookies visés sur votre ordinateur.",
     pourquoi:
       "Mode de recueil du consentement à faire relire par une juriste, et à rapprocher du bandeau réellement affiché par la nouvelle plateforme. La politique de confidentialité décrit autrement le même bandeau (« obtenir votre consentement »).",
   },
   {
-    page: "/politique-de-confidentialite",
+    page: CHEMINS.confidentialite,
     passage: "Cookies de publicité : utilisés pour diffuser des publicités personnalisées.",
     pourquoi:
       "À confirmer : la nouvelle plateforme dépose-t-elle des cookies publicitaires ou analytiques ? Même question pour la charte RGPD : « des cookies des réseaux sociaux peuvent être générés notamment par l’intermédiaire des boutons de partage ».",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "Dans Internet Explorer, cliquez sur le bouton Outils, puis sur Options Internet.",
     pourquoi:
       "Consignes de navigateur périmées (Internet Explorer n'est plus distribué ; les menus décrits pour Firefox, Safari et Chrome ont changé).",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "Dans ce cadre, nous pouvons avoir recours à l'utilisation de Cookies tel que précisé au paragraphe 6 ci-dessous.",
     pourquoi:
       "Renvois internes décalés : les cookies sont au paragraphe 5, la conservation au paragraphe 4 (le texte renvoie au « paragraphe 5 de la présente Charte »), et le désabonnement est renvoyé au « paragraphe 6 ».",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage:
       "Tous les termes en majuscules non-définis dans la présente Charte sont définis dans les Conditions Générales consultables SUR LE SITE www.evkha.fr.",
     pourquoi:
       "« Compte », « Services », « Service Client » ne sont définis ni ici ni dans les CGV. À rapprocher du compte de l'espace client de la nouvelle plateforme.",
   },
   {
-    page: "/rgpd",
+    page: CHEMINS.rgpd,
     passage: "ne sont accessibles qu’aux membres autorisés de l’équipe EVKHA",
     pourquoi:
       "À faire confirmer : EVKHA est une entreprise individuelle, et la nouvelle plateforme a ses propres accès d'administration et prestataires techniques.",
@@ -1709,19 +1712,19 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
 
   // Dates, numéros, adresses
   {
-    page: "/politique-de-confidentialite",
+    page: CHEMINS.confidentialite,
     passage: "28 octobre 2026",
     pourquoi:
       "Date de mise à jour postérieure au relevé du site (25/10/2026), et différente de celle des mentions légales et de la charte RGPD (28 avril 2026). À vérifier, puis à remplacer par la date réelle de mise en ligne des textes validés.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage: "CGV / CGU EVKHA",
     pourquoi:
       "Les CGV / CGU ne portent aucune date de mise à jour ni numéro de version, alors qu'elles disent s'appliquer telles qu'acceptées à la commande.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage: "Le siège social est situé au 41 rue Jacquemars giélée.",
     pourquoi:
       "Adresse incomplète (ni code postal ni ville) et identification par le seul SIREN ; les mentions légales donnent l'adresse complète, le SIRET et le numéro de TVA. La charte RGPD écrit « 41 rue jacquemars giélée 59800 Lille ».",
@@ -1733,7 +1736,7 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
       "Numéro de déclaration d'activité répété sur les quatre pages : numéro et formulation réglementaire à faire vérifier.",
   },
   {
-    page: "/mentions-legales",
+    page: CHEMINS.mentionsLegales,
     passage: "SIRET (siège) : 751 737 610 00020",
     pourquoi:
       "Numéros d'identification à faire confirmer par la cliente : SIRET, RCS « 751 737 610 R.C.S. Lille Métropole », TVA « FR90751737610 ».",
@@ -1748,7 +1751,7 @@ export const POINTS_A_FAIRE_VALIDER: PointAFaireValider[] = [
       "Trois des quatre descriptions de page tutoient le lecteur (« Découvre », « Consulte », « Lis ») alors que les textes le vouvoient. Elles apparaissent dans les résultats de recherche.",
   },
   {
-    page: "/cgv",
+    page: CHEMINS.cgv,
     passage: "Le Client atteste, par la présence, disposer d’un équipement électronique adéquat",
     pourquoi:
       "Fautes laissées telles quelles parce qu'elles touchent des mots : « par la présence » (sans doute « par la présente »), « Il est vous est donc recommandé », « Vous pouvez contactez », « une certain laps de temps », « est commencé », « etudes », « retractation », « Numero ». À corriger par la personne qui validera le texte.",

@@ -21,12 +21,17 @@ export type Aspect = "noir" | "or" | "clair";
  *
  *  `inactif` : l'offre n'est pas au catalogue. Le bouton reste à sa place
  *  (la carte ne change pas de forme) mais ce n'est plus un lien : il ne
- *  prend ni le clic ni le focus, et il se dit indisponible. */
+ *  prend ni le clic ni le focus, et il se dit indisponible.
+ *
+ *  `courant` : le bouton mène à la page AFFICHÉE. Il porte alors
+ *  `aria-current="page"`, comme un lien de menu. C'est l'appelant qui le
+ *  déduit de l'adresse (`site.estLaPage`) : un bouton ne sait pas où il est. */
 export function Bouton({
   lien,
   aspect,
   inactif = false,
   externe = false,
+  courant = false,
   className = "",
   children,
 }: {
@@ -35,6 +40,8 @@ export function Bouton({
   inactif?: boolean;
   /** Un lien qui sort de la plateforme vers un site tiers. */
   externe?: boolean;
+  /** Le lien est celui de la page affichée. */
+  courant?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -50,7 +57,12 @@ export function Bouton({
     );
   }
   return (
-    <a className={classes} href={lien} rel={externe ? "noopener" : undefined}>
+    <a
+      className={classes}
+      href={lien}
+      rel={externe ? "noopener" : undefined}
+      aria-current={courant ? "page" : undefined}
+    >
       {children}
       <span className="acc-btn-fleche" aria-hidden="true">
         →

@@ -27,12 +27,25 @@
  * ailleurs : la session est ouverte, la session déjà présente est gardée, ou
  * la connexion est proposée. Un jeton nul n'est jamais écrit, et une session
  * existante n'est jamais remplacée.
+ *
+ * ## L'en-tête et le pied du socle (19/11/2026)
+ *
+ * Cette page n'avait aucune navigation : quelqu'un dont le paiement n'était
+ * pas retrouvé restait devant une carte sans issue. Elle monte `EnTeteSite`
+ * et `PiedSite`, chacun dans sa boîte `.acc` (`.ach-socle`) — voir
+ * `Acheter.tsx` pour la raison. La carte n'a pas changé.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { accueillirUnRetourDePaiement } from "../espace/api";
+import { ID_DU_CONTENU } from "./contenuSite";
 import { confirmerLePaiement, RefusInscription } from "./donnees";
+import { EnTeteSite } from "./EnTeteSite";
+import { PiedSite } from "./PiedSite";
+import { useMenu } from "./site";
+// Le socle (en-tête et pied) d'abord, les feuilles de la page ensuite.
+import "./Site.css";
 import "./Partenaires.css";
 import "./Acheter.css";
 
@@ -64,6 +77,8 @@ export function RetourPaiement() {
   // idempotent, mais la seconde réponse ne porterait plus de jeton : le
   // serveur n'en délivre qu'un par compte né d'un paiement.
   const lance = useRef(false);
+  // L'état du menu plein écran : la page rend inerte ce qui est derrière.
+  const menu = useMenu();
 
   useEffect(() => {
     if (lance.current || !session) return;
@@ -96,7 +111,16 @@ export function RetourPaiement() {
 
   return (
     <div className="pp ach">
-      <main className="ach-corps">
+      <div className="acc ach-socle">
+        <EnTeteSite menu={menu} />
+      </div>
+
+      <main
+        id={ID_DU_CONTENU}
+        className="ach-corps"
+        tabIndex={-1}
+        inert={menu.ouvert}
+      >
         <section className="ach-carte ach-retour">
           {erreur ? (
             <>
@@ -149,6 +173,10 @@ export function RetourPaiement() {
           )}
         </section>
       </main>
+
+      <div className="acc ach-socle">
+        <PiedSite inerte={menu.ouvert} />
+      </div>
     </div>
   );
 }

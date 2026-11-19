@@ -64,8 +64,12 @@
  *
  *  Une seule écriture par fait : les prix dans `TARIFS_FORMATIONS`, les durées
  *  dans `DUREES_*`, le nombre de modules dans `NOMBRE_DE_MODULES`, les adresses
- *  dans `LIENS_FORMATIONS`. Le reste du fichier les lit.
+ *  dans `LIENS_FORMATIONS`. Le reste du fichier les lit. `contenuPacks` lit
+ *  ici le prix et la durée de la Méthode P.O.P, offerte avec le Pack Premium.
  */
+import { CHEMINS } from "./contenuSite";
+import { euros } from "./donnees";
+import { ancienneteSure } from "./site";
 
 // ── Prix ────────────────────────────────────────────────────────────────────
 
@@ -86,10 +90,14 @@ export const TARIFS_FORMATIONS = {
 
 export type CleDeFormation = keyof typeof TARIFS_FORMATIONS;
 
-/** Le prix tel que le site l'écrit : « 1490 € TTC », « 850 € TTC ». */
+/** Le prix tel que le SITE l'affiche : « 1 490 € TTC », « 850 € TTC ». Le
+ *  montant passe par `donnees.euros`, la fonction de l'accueil, des études et
+ *  de la boutique : mêmes espaces insécables, même séparateur de milliers. Le
+ *  relevé écrivait « 1490 € », sans séparateur — sur une même page, deux
+ *  écritures d'un prix se lisent comme deux prix. */
 export function prixAffiche(cle: CleDeFormation): string {
   const tarif = TARIFS_FORMATIONS[cle];
-  return `${tarif.centimes / 100}\u00a0€${tarif.ttc ? " TTC" : ""}`;
+  return `${euros(tarif.centimes)}${tarif.ttc ? " TTC" : ""}`;
 }
 
 // ── Durées ──────────────────────────────────────────────────────────────────
@@ -1712,8 +1720,9 @@ export const PAGE_POP = {
 //     titres d'onglet des pages qui n'en avaient pas de juste) — à faire
 //     valider par la cliente ;
 //  2. des VUES du relevé : où un titre se coupe pour que sa fin passe en
-//     italique, et les quatre retouches d'affichage décidées pour la refonte
-//     (attestation, outillage interne, ancienneté, assistant IA). Chaque vue
+//     italique, et les retouches d'affichage décidées pour la refonte
+//     (attestation, outillage interne, ancienneté, assistant IA et sa
+//     parenthèse, titre de la section d'avis). Chaque vue
 //     PART du texte relevé et LÈVE une erreur au chargement si ce texte a
 //     changé : une retouche qui ne trouve plus sa cible ne doit pas passer
 //     pour appliquée (règle 1).
@@ -1723,16 +1732,18 @@ export const PAGE_POP = {
 
 // ── Routes de la plateforme ─────────────────────────────────────────────────
 
-/** Les pages de la nouvelle plateforme. Les boutons « Je découvre… » du
- *  catalogue y mènent ; les boutons d'ACHAT, eux, mènent encore aux tunnels
- *  de paiement du site actuel (`LIENS_FORMATIONS.paiement*`). */
+/** Les pages de la nouvelle plateforme. Un ALIAS : chaque chemin est lu dans
+ *  `contenuSite.CHEMINS`, la seule source des adresses du site (règle 5) ; le
+ *  nom est gardé pour les fichiers qui l'importent. Les boutons « Je
+ *  découvre… » du catalogue y mènent ; les boutons d'ACHAT, eux, mènent encore
+ *  aux tunnels de paiement du site actuel (`LIENS_FORMATIONS.paiement*`). */
 export const ROUTES_FORMATIONS = {
-  catalogue: "/formations",
-  societes: "/formations/creer-son-entreprise",
-  micro: "/formations/creer-sa-micro-entreprise",
-  pop: "/formations/methode-pop",
-  packs: "/packs",
-  etudes: "/etudes",
+  catalogue: CHEMINS.formations,
+  societes: CHEMINS.formationSocietes,
+  micro: CHEMINS.formationMicro,
+  pop: CHEMINS.formationPop,
+  packs: CHEMINS.packs,
+  etudes: CHEMINS.etudes,
 } as const;
 
 /** Le tunnel de paiement de chaque formation. */
@@ -1794,12 +1805,27 @@ export const TITRES_COMMUNS = {
   questions: enDeuxTemps(QUESTIONS_DES_FORMATIONS.titre, "à vos questions"),
 };
 
+/** RETOUCHE D'AFFICHAGE : le titre de la section d'avis du catalogue.
+ *
+ *  Le relevé titre « Nos avis clients », sur la page des formations. Or les
+ *  avis affichés ont été laissés pour des ÉTUDES réalisées sur commande et
+ *  pour l'accompagnement d'Evangeline (`contenuAccueil.AVIS`, dont la phrase
+ *  d'introduction le dit) : sous ce titre, au milieu des formations, ils se
+ *  lisaient comme des avis sur les formations. Le titre dit donc de quoi ils
+ *  parlent. Le relevé (`PAGE_CATALOGUE.avis.titre`) n'est pas touché. */
+const FIN_DU_TITRE_DES_AVIS = "d'Evangeline";
+const TITRE_DES_AVIS_AFFICHE = `${retouche(
+  PAGE_CATALOGUE.avis.titre,
+  "Nos avis clients",
+  "Avis sur les études et l'accompagnement",
+)} ${FIN_DU_TITRE_DES_AVIS}`;
+
 export const TITRES_DU_CATALOGUE = {
   ouverture: enDeuxTemps(PAGE_CATALOGUE.ouverture.titre, "au succès !"),
   pourquoi: enDeuxTemps(PAGE_CATALOGUE.pourquoi.titre, "nos formations ?"),
   formations: enDeuxTemps(PAGE_CATALOGUE.formations.titre, "dès Maintenant"),
   pourQui: enDeuxTemps(PAGE_CATALOGUE.pourQui.titre, "ça s'adresse ?"),
-  avis: enDeuxTemps(PAGE_CATALOGUE.avis.titre, "avis clients"),
+  avis: enDeuxTemps(TITRE_DES_AVIS_AFFICHE, FIN_DU_TITRE_DES_AVIS),
 };
 
 export const TITRES_SOCIETES = {
@@ -1926,12 +1952,20 @@ export const INCLUS_AFFICHE: Record<CleDeFormation, CarteTitreCorps[]> = {
 
 /** La promesse de la Méthode P.O.P, avec l'ancienneté RETENUE pour la refonte :
  *  « plus de 15 ans », comme le catalogue (le tunnel écrit « 15 ans
- *  d'expérience », l'accueil de l'ancien site « 16 ans »). */
-export const PROMESSE_POP_AFFICHEE = retouche(
-  PAGE_POP.pourQui.promesse,
-  "(15 ans d'expérience)",
-  "(plus de 15 ans d'expérience)",
-);
+ *  d'expérience », l'accueil de l'ancien site « 16 ans »).
+ *
+ *  Par `site.ancienneteSure`, LA fonction que les packs utilisent aussi
+ *  (règle 5) : une seule règle décide de ce qui s'affiche à la place d'une
+ *  ancienneté non tranchée. Si elle ne trouve plus rien à retoucher dans la
+ *  promesse, le module lève une erreur — la retouche n'a pas eu lieu
+ *  (règle 1). */
+export const PROMESSE_POP_AFFICHEE = ancienneteSure(PAGE_POP.pourQui.promesse);
+
+if (PROMESSE_POP_AFFICHEE === PAGE_POP.pourQui.promesse) {
+  throw new Error(
+    "contenuFormations : la promesse de la Méthode P.O.P ne cite plus d'ancienneté à retoucher",
+  );
+}
 
 // ── Questions fréquentes, page par page ─────────────────────────────────────
 
@@ -1943,6 +1977,11 @@ const FORMATIONS_AVEC_ASSISTANT: CleDeFormation[] = ["micro", "pop"];
 
 const QUESTION_DE_L_ASSISTANT = "Comment fonctionne l'assistant IA ?";
 
+/** Dans la réponse relevée, ce qui décrit la MÉTHODE P.O.P : « formé sur la
+ *  méthode EVKHA (organisation et productivité) ». Organisation et
+ *  productivité sont le sujet de la P.O.P, pas celui des autres formations. */
+const DOMAINE_DE_LA_POP = " (organisation et productivité)";
+
 export type PageDeFormations = "catalogue" | CleDeFormation;
 
 /** Les questions qu'une page affiche dans sa liste.
@@ -1953,7 +1992,22 @@ export type PageDeFormations = "catalogue" | CleDeFormation;
  *    formations qui en annoncent un, et sa réponse y commence par « Cette
  *    formation inclut » au lieu de « Chaque formation inclut », qui
  *    l'attribuait aux trois. Le catalogue et la page « sociétés » ne la
- *    posent pas. */
+ *    posent pas.
+ *  - Hors de la page de la Méthode P.O.P, la réponse perd sa parenthèse
+ *    « (organisation et productivité) » : elle décrit la P.O.P, et sur la page
+ *    de la micro-entreprise elle présentait l'assistant d'une AUTRE formation.
+ *    Retouche d'affichage : le relevé garde la phrase entière. */
+function reponseSurLAssistant(releve: string, page: PageDeFormations): string {
+  const pourCettePage = retouche(
+    releve,
+    "Chaque formation inclut",
+    "Cette formation inclut",
+  );
+  return page === "pop"
+    ? pourCettePage
+    : retouche(pourCettePage, DOMAINE_DE_LA_POP, "");
+}
+
 export function questionsAffichees(page: PageDeFormations): Question[] {
   const liste = QUESTIONS_DES_FORMATIONS.liste;
   if (!liste.some((question) => question.q === QUESTION_DE_L_ASSISTANT)) {
@@ -1968,10 +2022,7 @@ export function questionsAffichees(page: PageDeFormations): Question[] {
     .filter((question) => question.q !== QUESTION_DE_L_ASSISTANT || avecAssistant)
     .map((question) =>
       question.q === QUESTION_DE_L_ASSISTANT
-        ? {
-            q: question.q,
-            r: retouche(question.r, "Chaque formation inclut", "Cette formation inclut"),
-          }
+        ? { q: question.q, r: reponseSurLAssistant(question.r, page) }
         : question,
     );
 }

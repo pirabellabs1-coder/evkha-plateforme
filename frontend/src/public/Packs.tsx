@@ -62,7 +62,6 @@ import {
   TITRES_PACK_ESSENTIEL,
   TITRES_PACK_PREMIUM,
   UNITES_A_ACCORDER,
-  ancienneteSure,
   compteRendu,
   pointDeListe,
   sansCompte,
@@ -83,6 +82,8 @@ import { Bouton, BoutonPause } from "./PiecesSite";
 import { PiedSite } from "./PiedSite";
 import { useReveler } from "./reveler";
 import {
+  ancienneteSure,
+  titreDOnglet,
   useAimants,
   useMenu,
   usePause,
@@ -462,7 +463,7 @@ function Coquille({
   // mouvement réduit garde la révélation, en fondu seul (voir `Site.css`).
   useReveler(page, undefined, { memeEnMouvementReduit: true });
   useAimants(page);
-  useTitreDePage(titre, description);
+  useTitreDePage(titreDOnglet(titre), description);
 
   return (
     <div className={pause.fige ? "acc pak acc-fige" : "acc pak"} ref={page}>

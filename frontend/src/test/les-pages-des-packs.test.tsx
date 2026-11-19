@@ -54,14 +54,17 @@ import {
   PAGE_PACK_ESSENTIEL,
   PAGE_PACK_PREMIUM,
   TARIFS_PACKS,
-  ancienneteSure,
   compteRendu,
   pointDeListe,
   sansCompte,
   sansFleche,
 } from "../public/contenuPacks";
+import { DUREES_POP, TARIFS_FORMATIONS } from "../public/contenuFormations";
 import { LIENS } from "../public/contenuSite";
 import { PackEssentiel, PackPremium, Packs } from "../public/Packs";
+// L'ancienneté n'est plus une fonction des packs : packs et formations
+// partagent celle du socle.
+import { ancienneteSure, titreDOnglet } from "../public/site";
 
 // ── Outils ──────────────────────────────────────────────────────────────────
 
@@ -308,13 +311,18 @@ describe("les pages des packs", () => {
       rendre(nom);
       titres.push(document.title);
       expect(document.title, nom).not.toMatch(/PAGE DE PAIEMENT/i);
-      expect(document.title, nom).toMatch(/EVKHA$/);
+      // UN format sur tout le site : « Titre de la page — EVKHA ».
+      expect(document.title, nom).toMatch(/\S — EVKHA$/);
+      expect(document.title, nom).not.toMatch(/[–|]\s*EVKHA/);
       cleanup();
     }
     expect(new Set(titres).size).toBe(NOMS.length);
-    expect(titres[0]).toBe(PAGE_PACKS.titreDeLOnglet);
-    expect(titres[1]).toBe(ARTICULATION_PACK_ESSENTIEL.titreDeLOnglet);
-    expect(titres[2]).toBe(ARTICULATION_PACK_PREMIUM.titreDeLOnglet);
+    // Le titre est celui du contenu, mis au format du site par `titreDOnglet`.
+    expect(titres[0]).toBe(titreDOnglet(PAGE_PACKS.titreDeLOnglet));
+    expect(titres[1]).toBe(titreDOnglet(ARTICULATION_PACK_ESSENTIEL.titreDeLOnglet));
+    expect(titres[2]).toBe(titreDOnglet(ARTICULATION_PACK_PREMIUM.titreDeLOnglet));
+    // Écrit à la main, pour ne pas juger la fonction avec elle-même.
+    expect(titres[1]).toBe("Pack Création Essentiel : étude de marché, prévisionnel et business plan — EVKHA");
   });
 
   // ── Les prix ──────────────────────────────────────────────────────────────
@@ -373,9 +381,33 @@ describe("les pages des packs", () => {
     // « 49500 » n'est pas « 495 » : les montants en centimes de la constante
     // ne sont pas vus, et c'est voulu — c'est LA source.
     expect(code.match(chiffresDesTarifs()) ?? []).toEqual([]);
-    for (const tarif of Object.values(TARIFS_PACKS)) {
+    // Les deux prix de vente des packs : écrits ICI, une fois.
+    for (const tarif of [TARIFS_PACKS.essentiel, TARIFS_PACKS.premium]) {
       expect(code.split(String(tarif.centimes)).length - 1, String(tarif.centimes)).toBe(1);
     }
+    // La valeur de la formation P.O.P : écrite ZÉRO fois ici. Elle est lue là
+    // où la formation est vendue, et les deux pages ne peuvent plus se
+    // contredire.
+    expect(TARIFS_PACKS.formationPop.centimes).toBe(TARIFS_FORMATIONS.pop.centimes);
+    expect(code.split(String(TARIFS_FORMATIONS.pop.centimes)).length - 1).toBe(0);
+    expect(code).toContain("TARIFS_FORMATIONS.pop.centimes");
+  });
+
+  it("la durée de la Méthode P.O.P se lit dans les formations : aucun « 7h » écrit dans les packs", () => {
+    const code = sansCommentaires(source("contenuPacks.ts"));
+    expect(code.length).toBeGreaterThan(5000);
+    const DUREE_EN_DUR = /\b\d+\s?h de formation/g;
+    expect(code.match(DUREE_EN_DUR) ?? []).toEqual([]);
+    expect(code).toContain("DUREES_POP.heuresEnLigne");
+
+    // Et la page du Premium affiche bien la durée de la formation, trois fois.
+    rendre("premium");
+    const annonce = `${DUREES_POP.heuresEnLigne}h de formation`;
+    expect(texte().split(annonce).length - 1).toBeGreaterThanOrEqual(3);
+    // Contre-épreuve : le détecteur voit une durée écrite en dur.
+    expect("7h de formation digitale".match(DUREE_EN_DUR)).toEqual(["7h de formation"]);
+    expect("18 h de formation".match(DUREE_EN_DUR)).toEqual(["18 h de formation"]);
+    expect("`${HEURES_POP} de formation digitale`".match(DUREE_EN_DUR)).toBeNull();
   });
 
   it("contre-épreuve : les détecteurs voient un montant, des chiffres de tarif, une ancienneté nue, le CDN", () => {

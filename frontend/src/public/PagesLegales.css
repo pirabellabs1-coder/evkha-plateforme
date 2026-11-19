@@ -322,3 +322,65 @@
     padding: 8px 12px;
   }
 }
+
+/* ── Impression ─────────────────────────────────────────────────────────────
+ * Des conditions de vente se gardent sur papier ou en PDF. Imprimée telle
+ * quelle, la page portait la barre fixe en travers du texte, le sommaire en
+ * colonne et le pied doré sur une page entière.
+ *
+ * À l'impression : le texte seul, encre sur blanc, en pleine largeur. Les
+ * couleurs lisent les mêmes jetons qu'à l'écran — aucune n'est écrite ici.
+ * Deux classes par sélecteur : l'ordre d'arrivée des feuilles ne doit pas
+ * décider de ce qui s'imprime. */
+@media print {
+  .leg .acc-saut,
+  .leg .acc-entete,
+  .leg .acc-menu,
+  .leg .acc-pied,
+  .leg .leg-sommaire,
+  .leg .leg-textes,
+  .leg .leg-retour {
+    display: none;
+  }
+
+  .acc.leg {
+    min-height: 0;
+    background: var(--acc-blanc);
+    color: var(--acc-encre);
+  }
+
+  .leg .acc-w {
+    max-width: none;
+    padding-inline: 0;
+  }
+
+  /* Plus de barre fixe à laisser passer. */
+  .leg .leg-tete {
+    padding-top: 0;
+  }
+
+  .leg .leg-corps {
+    display: block;
+  }
+
+  .leg .leg-colonne {
+    max-width: none;
+  }
+
+  .leg .leg-texte a {
+    color: var(--acc-encre);
+    text-decoration-color: var(--acc-encre);
+    text-decoration-thickness: 1px;
+  }
+
+  /* Un titre ne reste pas seul en bas de page, un paragraphe ne laisse pas
+     une ligne orpheline. */
+  .leg .leg-texte :is(h2, h3) {
+    break-after: avoid;
+  }
+
+  .leg .leg-texte :is(p, li) {
+    orphans: 3;
+    widows: 3;
+  }
+}

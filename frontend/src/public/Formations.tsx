@@ -45,11 +45,15 @@
  *
  * ## Ce qui n'est pas affiché tel que relevé
  *
- * Quatre retouches, toutes faites dans `contenuFormations.ts` (voir sa section
+ * Six retouches, toutes faites dans `contenuFormations.ts` (voir sa section
  * « ARTICULATION ») et non ici : « Attestation Qualiopi » rendue
  * « Attestation de fin de formation » ; les mentions d'outillage interne des
  * cartes de la micro-entreprise retirées ; « plus de 15 ans » d'expérience ;
- * la question de l'assistant IA réservée aux formations qui en annoncent un.
+ * la question de l'assistant IA réservée aux formations qui en annoncent un,
+ * et sa parenthèse « (organisation et productivité) » à la seule Méthode
+ * P.O.P ; le titre de la section d'avis du catalogue, qui dit que ces avis
+ * portent sur les études et l'accompagnement. Les prix passent par
+ * `donnees.euros`, comme sur le reste du site (« 1 490 € TTC »).
  * La pastille « 9 modules » de la formation « sociétés », contredite par le
  * tunnel, n'est pas rendue.
  */
@@ -100,7 +104,14 @@ import { EnTeteSite } from "./EnTeteSite";
 import { Bouton, BoutonPause, type Aspect } from "./PiecesSite";
 import { PiedSite } from "./PiedSite";
 import { useReveler } from "./reveler";
-import { useAimants, useMenu, usePause, useTitreDePage, variables } from "./site";
+import {
+  titreDOnglet,
+  useAimants,
+  useMenu,
+  usePause,
+  useTitreDePage,
+  variables,
+} from "./site";
 // Le socle d'abord, la feuille du lot ensuite : à spécificité égale, c'est
 // elle qui a le dernier mot.
 import "./Site.css";
@@ -270,7 +281,7 @@ function Gabarit({
   // mouvement réduit garde la révélation, en fondu seul (voir `Site.css`).
   useReveler(page, undefined, { memeEnMouvementReduit: true });
   useAimants(page);
-  useTitreDePage(onglet.titre, onglet.description);
+  useTitreDePage(titreDOnglet(onglet.titre), onglet.description);
 
   return (
     <div className={fige ? "acc for acc-fige" : "acc for"} ref={page}>

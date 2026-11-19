@@ -60,6 +60,7 @@ import {
   PolitiqueDeConfidentialite,
   Rgpd,
 } from "../public/PagesLegales";
+import { titreDOnglet } from "../public/site";
 
 /** Le composant de chaque chemin. Indexé par le type des chemins : une page
  *  sans composant ne compilerait pas. */
@@ -254,7 +255,14 @@ describe("les pages légales", () => {
         const titres = screen.getAllByRole("heading", { level: 1 });
         expect(titres).toHaveLength(1);
         expect(titres[0].textContent).toBe(page.titre);
-        expect(document.title).toBe(page.titreOnglet);
+        // Le titre relevé, au format du site : « Titre de la page — EVKHA ».
+        expect(document.title).toBe(titreDOnglet(page.titreOnglet));
+        expect(document.title).toMatch(/\S — EVKHA$/);
+        expect(document.title).not.toMatch(/[–|]\s*EVKHA/);
+        // Le titre lui-même n'est pas touché : seule la marque de fin change.
+        expect(document.title.replace(/ — EVKHA$/, "")).toBe(
+          page.titreOnglet.replace(/\s+–\s+EVKHA(?: Business & Formations)?$/, ""),
+        );
         expect(description.content).toBe(page.metaDescription);
       });
 
@@ -416,10 +424,14 @@ describe("les pages légales", () => {
 
         const liens = Array.from(leTexte().querySelectorAll("a"));
         const versCourriel = liens.filter((a) => a.getAttribute("href")?.startsWith("mailto:"));
-        const versSite = liens.filter((a) => a.getAttribute("href")?.startsWith("https://"));
+        // Le site écrit dans le texte, c'est la plateforme : un lien INTERNE,
+        // vers l'accueil — plus une adresse absolue qui ferait quitter le
+        // domaine servi.
+        const versSite = liens.filter((a) => a.getAttribute("href") === "/");
         expect(versCourriel).toHaveLength(courriels);
         expect(versSite).toHaveLength(sites);
         expect(liens).toHaveLength(courriels + sites);
+        expect(liens.filter((a) => /^https?:/.test(a.getAttribute("href") ?? ""))).toEqual([]);
 
         for (const lien of versCourriel) {
           expect(lien.textContent).toBe("contact@evkha.fr");
@@ -427,7 +439,10 @@ describe("les pages légales", () => {
         }
         for (const lien of versSite) {
           expect(lien.textContent?.toLowerCase()).toMatch(/^(?:www\.)?evkha\.fr$/);
-          expect(lien).toHaveAttribute("href", "https://www.evkha.fr");
+          // Interne : il reste dans l'onglet, sans `rel` ni annonce.
+          expect(lien).not.toHaveAttribute("target");
+          expect(lien).not.toHaveAttribute("rel");
+          expect(lien).not.toHaveAttribute("aria-describedby");
         }
         // Un nom de prestataire n'est pas un lien, même terminé en « .io ».
         expect(liens.filter((a) => /systeme/i.test(a.textContent ?? ""))).toEqual([]);
@@ -518,10 +533,10 @@ describe("les pages légales", () => {
         a.getAttribute("href"),
       ]);
       expect(liens).toEqual([
-        ["www.evkha.fr", "https://www.evkha.fr"],
+        ["www.evkha.fr", "/"],
         ["contact@evkha.fr", "mailto:contact@evkha.fr"],
-        ["evkha.fr", "https://www.evkha.fr"],
-        ["WWW.EVKHA.FR", "https://www.evkha.fr"],
+        ["evkha.fr", "/"],
+        ["WWW.EVKHA.FR", "/"],
       ]);
       // Dans une liste aussi, et un élément sans adresse reste du texte nu.
       const elements = Array.from(leTexte().querySelectorAll("li"));
@@ -530,6 +545,96 @@ describe("les pages légales", () => {
       expect(elements[1].querySelector("a")).toBeNull();
       // Un titre n'est jamais découpé.
       expect(leTexte().querySelectorAll("h2 a, h3 a")).toHaveLength(0);
+    });
+
+    it("un lien vers un autre site s'ouvre ailleurs ; l'adresse d'une page de la plateforme reste dedans", () => {
+      const PARAGRAPHE =
+        "Voir https://www.cnil.fr/fr/plaintes, www.economie.gouv.fr (DGCCRF), " +
+        "nos conditions sur www.evkha.fr/cgv, https://www.evkha.fr/contact?objet=x#haut, " +
+        "l'ancienne page www.evkha.fr/une-page-de-l-ancien-site et (https://evkha.fr).";
+      render(
+        <PageLegale
+          page={{
+            ...FACTICE,
+            sections: [{ titre: "Liens", niveau: 2, blocs: [{ type: "paragraphe", texte: PARAGRAPHE }] }],
+          }}
+        />,
+      );
+
+      const paragraphe = leTexte().querySelector("p") as HTMLElement;
+      // Le texte n'a pas bougé d'un caractère : la parenthèse, les virgules et
+      // le point final sont hors des liens.
+      expect(paragraphe.textContent).toBe(PARAGRAPHE);
+      const liens = Array.from(paragraphe.querySelectorAll("a")).map((a) => ({
+        ecrit: a.textContent,
+        href: a.getAttribute("href"),
+        target: a.getAttribute("target"),
+        rel: a.getAttribute("rel"),
+      }));
+      const SORTANT = { target: "_blank", rel: "noopener noreferrer" };
+      const INTERNE = { target: null, rel: null };
+      expect(liens).toEqual([
+        // Deux autres sites : nouvel onglet, sans main ni adresse d'origine.
+        { ecrit: "https://www.cnil.fr/fr/plaintes", href: "https://www.cnil.fr/fr/plaintes", ...SORTANT },
+        { ecrit: "www.economie.gouv.fr", href: "https://www.economie.gouv.fr", ...SORTANT },
+        // Deux pages de la plateforme : liens internes, relatifs — paramètres
+        // et ancre gardés.
+        { ecrit: "www.evkha.fr/cgv", href: "/cgv", ...INTERNE },
+        { ecrit: "https://www.evkha.fr/contact?objet=x#haut", href: "/contact?objet=x#haut", ...INTERNE },
+        // Le site lui-même, à une adresse que la plateforme n'a pas : son
+        // adresse canonique, dans l'onglet courant.
+        {
+          ecrit: "www.evkha.fr/une-page-de-l-ancien-site",
+          href: "https://www.evkha.fr/une-page-de-l-ancien-site",
+          ...INTERNE,
+        },
+        // Le domaine nu : l'accueil.
+        { ecrit: "https://evkha.fr", href: "/", ...INTERNE },
+      ]);
+
+      // Un lien sortant le DIT à un lecteur d'écran, sans changer son texte :
+      // il désigne une phrase masquée, hors de l'élément du texte.
+      const sortants = Array.from(paragraphe.querySelectorAll('a[target="_blank"]'));
+      expect(sortants).toHaveLength(2);
+      for (const lien of sortants) {
+        const annonce = document.getElementById(lien.getAttribute("aria-describedby") ?? "");
+        expect(annonce, lien.textContent ?? "").not.toBeNull();
+        expect(annonce?.textContent).toBe("S'ouvre dans un nouvel onglet");
+        expect(annonce).toHaveAttribute("hidden");
+        expect(leTexte().contains(annonce)).toBe(false);
+      }
+      for (const lien of Array.from(paragraphe.querySelectorAll("a:not([target])"))) {
+        expect(lien).not.toHaveAttribute("aria-describedby");
+      }
+    });
+
+    it("une adresse de site ne commence pas au milieu d'un mot ni d'une adresse e-mail", () => {
+      // Ce que l'ancien motif vérifiait par un regard arrière, que Safari
+      // avant 16.4 refuse : le caractère d'avant est maintenant capturé, et
+      // remis à sa place hors du lien.
+      const PARAGRAPHE =
+        "www.evkha.fr en tête, puis (www.evkha.fr), «www.evkha.fr», mais pas " +
+        "xwww.evkha.fr, ni sous-domaine.evkha.fr, ni a_evkha.fr, ni jean@evkha.fr.com, " +
+        "ni evkha.fr.eu, ni evkha.france ; et evkha.fr.";
+      render(
+        <PageLegale
+          page={{
+            ...FACTICE,
+            sections: [{ titre: "Bords", niveau: 2, blocs: [{ type: "paragraphe", texte: PARAGRAPHE }] }],
+          }}
+        />,
+      );
+
+      const paragraphe = leTexte().querySelector("p") as HTMLElement;
+      expect(paragraphe.textContent).toBe(PARAGRAPHE);
+      const liens = Array.from(paragraphe.querySelectorAll("a")).map((a) => [a.textContent, a.getAttribute("href")]);
+      expect(liens).toEqual([
+        ["www.evkha.fr", "/"],
+        ["www.evkha.fr", "/"],
+        ["www.evkha.fr", "/"],
+        ["jean@evkha.fr.com", "mailto:jean@evkha.fr.com"],
+        ["evkha.fr", "/"],
+      ]);
     });
 
     it("ramène « LE 1ER MARS 2027 » à une casse normale", () => {
@@ -599,6 +704,29 @@ describe("les pages légales", () => {
       }
     });
   }
+
+  it("PagesLegales.css porte un bloc d'impression : le texte seul, encre sur blanc, par jetons", () => {
+    const css = source("PagesLegales.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    const debut = css.indexOf("@media print");
+    // Règle 1 : sans bloc d'impression, il n'y aurait rien à vérifier.
+    expect(debut).toBeGreaterThan(-1);
+    const impression = css.slice(debut);
+    expect(impression.length).toBeGreaterThan(400);
+    // Ce qui ne s'imprime pas : la barre fixe, le menu, le pied doré, le
+    // sommaire, la barre des quatre textes, « Retour en haut ».
+    const masques = impression.slice(0, impression.indexOf("display: none"));
+    for (const selecteur of [".acc-entete", ".acc-menu", ".acc-pied", ".leg-sommaire", ".leg-textes", ".leg-retour"]) {
+      expect(masques, selecteur).toContain(selecteur);
+    }
+    // Encre sur blanc, pleine largeur — par jetons.
+    expect(impression).toMatch(/background:\s*var\(--acc-blanc\)/);
+    expect(impression).toMatch(/color:\s*var\(--acc-encre\)/);
+    expect(impression).toMatch(/\.leg-colonne\s*\{[^}]*max-width:\s*none/);
+    // Aucune couleur écrite : ni code, ni fonction, ni nom.
+    expect(impression.match(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|:\s*(?:black|white)\b/gi) ?? []).toEqual([]);
+    // Et rien d'autre ne suit le bloc : il ferme la feuille.
+    expect(css.indexOf("@media", debut + 1)).toBe(-1);
+  });
 
   it("PagesLegales.tsx n'écrit aucun montant et n'importe pas la liste interne", () => {
     const code = sansCommentaires(source("PagesLegales.tsx"));

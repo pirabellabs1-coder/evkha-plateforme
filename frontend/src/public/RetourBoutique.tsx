@@ -19,14 +19,23 @@
  * cet espace, et la personne y entre par sa connexion habituelle. Écrire ce
  * `null` le faisait garder sous la forme « null » — une session qui se
  * croyait ouverte, et un lien « Voir mes achats » qui menait à des refus.
+ *
+ * ## Refonte du 19/11/2026 : la forme seule
+ *
+ * La page passe au langage visuel de la boutique refondue (`CadreDeBoutique`,
+ * `Boutique.css`) : une carte à double bord, des boutons-pilules, l'en-tête
+ * et le pied du socle. Les trois états — refus, attente, achat confirmé — et
+ * leurs phrases n'ont pas changé.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 
-import { MenuSite } from "./MenuSite";
-import { confirmerLAchat } from "./catalogue";
 import { accueillirUnRetourDePaiement } from "../espace/api";
-import "./Partenaires.css";
+import { CadreDeBoutique } from "./Boutique";
+import { confirmerLAchat } from "./catalogue";
+import { useTitreDePage } from "./site";
+// Le socle d'abord, la feuille du lot ensuite.
+import "./Site.css";
 import "./Boutique.css";
 
 type Achat = {
@@ -38,13 +47,40 @@ type Achat = {
   connexionRequise: boolean;
 };
 
+// ── Le texte de la page ─────────────────────────────────────────────────────
+
+const ONGLET = {
+  titre: "Votre achat — EVKHA",
+  description:
+    "La confirmation de votre achat sur la boutique EVKHA, et le " +
+    "téléchargement de votre étude.",
+};
+
+const TEXTES = {
+  sansSession: "Paiement introuvable.",
+  refus:
+    "Votre paiement a bien été reçu, mais votre accès n'a pas pu être ouvert. Écrivez-nous à contact@evkha.fr.",
+  refusTitre: "Un instant",
+  boutique: "Revenir à la boutique",
+  attenteTitre: "Nous confirmons votre paiement…",
+  attente: "Quelques secondes, ne fermez pas cette page.",
+  merci: { avant: "Merci, votre étude", fin: "est à vous" },
+  pdf: "Télécharger le PDF",
+  word: "Télécharger la version Word",
+  connexion: "Se connecter à mon espace",
+  achats: "Voir mes achats",
+};
+
 export function RetourBoutique() {
   const [achat, setAchat] = useState<Achat | null>(null);
   const [erreur, setErreur] = useState("");
+  const page = useRef<HTMLDivElement>(null);
   // La confirmation ne part qu'UNE fois. En mode strict, React monte deux fois
   // chaque composant : sans ce garde-fou, la page ouvrirait deux confirmations
   // concurrentes du même paiement.
   const lance = useRef(false);
+
+  useTitreDePage(ONGLET.titre, ONGLET.description);
 
   useEffect(() => {
     if (lance.current) return;
@@ -52,10 +88,10 @@ export function RetourBoutique() {
 
     const session = new URLSearchParams(window.location.search).get("session");
     if (!session) {
-      // Le refus passe par une promesse deja resolue plutot que par un appel
-      // synchrone : poser l'etat dans le corps de l'effet declenche un rendu
+      // Le refus passe par une promesse déjà résolue plutôt que par un appel
+      // synchrone : poser l'état dans le corps de l'effet déclenche un rendu
       // en cascade.
-      queueMicrotask(() => setErreur("Paiement introuvable."));
+      queueMicrotask(() => setErreur(TEXTES.sansSession));
       return;
     }
 
@@ -74,41 +110,43 @@ export function RetourBoutique() {
         });
       })
       .catch((cause: unknown) => {
-        setErreur(
-          cause instanceof Error
-            ? cause.message
-            : "Votre paiement a bien été reçu, mais votre accès n'a pas pu être ouvert. Écrivez-nous à contact@evkha.fr.",
-        );
+        setErreur(cause instanceof Error ? cause.message : TEXTES.refus);
       });
   }, []);
 
   return (
-    <div className="pp bq">
-      <MenuSite />
-
-      <main className="pp-large">
-        <div className="bq-retour-paiement">
+    <CadreDeBoutique racine={page} classe="bou-retour-page">
+      <div className="acc-w bou-etat">
+        <div className="bou-retour-carte">
           {erreur ? (
             <>
-              <h1>Un instant</h1>
-              <p role="alert">{erreur}</p>
-              <div className="bq-liens">
-                <Link className="bouton bouton-noir bq-bouton" to="/boutique">
-                  Revenir à la boutique
+              <h1>{TEXTES.refusTitre}</h1>
+              <p className="bou-erreur" role="alert">
+                {erreur}
+              </p>
+              <div className="bou-liens">
+                <Link className="acc-btn acc-btn-noir" to="/boutique">
+                  {TEXTES.boutique}
+                  <span className="acc-btn-fleche" aria-hidden="true">
+                    →
+                  </span>
                 </Link>
               </div>
             </>
           ) : !achat ? (
             <>
-              <h1>Nous confirmons votre paiement…</h1>
-              <p>Quelques secondes, ne fermez pas cette page.</p>
+              <h1>{TEXTES.attenteTitre}</h1>
+              <p role="status">{TEXTES.attente}</p>
             </>
           ) : (
             <>
-              <div className="bq-pastille" aria-hidden="true">
+              <div className="bou-pastille" aria-hidden="true">
                 ✓
               </div>
-              <h1>Merci, votre étude est à vous</h1>
+              <h1>
+                {TEXTES.merci.avant}{" "}
+                <span className="acc-s">{TEXTES.merci.fin}</span>
+              </h1>
               {achat.connexionRequise ? (
                 <p role="status">
                   Votre paiement est bien reçu. <b>{achat.titre}</b> est
@@ -123,31 +161,43 @@ export function RetourBoutique() {
                   votre espace, et un e-mail vient de vous être envoyé.
                 </p>
               )}
-              <div className="bq-liens">
+              <div className="bou-liens">
                 {achat.telechargement && (
-                  <a className="bouton bouton-noir bq-bouton" href={achat.telechargement}>
-                    Télécharger le PDF
+                  <a
+                    className="acc-btn acc-btn-noir bou-bouton-souple"
+                    href={achat.telechargement}
+                  >
+                    {TEXTES.pdf}
+                    <span className="acc-btn-fleche" aria-hidden="true">
+                      ↓
+                    </span>
                   </a>
                 )}
                 {achat.editable && (
-                  <a className="bouton bouton-noir bq-bouton" href={achat.editable}>
-                    Télécharger la version Word
+                  <a
+                    className="acc-btn acc-btn-clair bou-bouton-souple"
+                    href={achat.editable}
+                  >
+                    {TEXTES.word}
+                    <span className="acc-btn-fleche" aria-hidden="true">
+                      ↓
+                    </span>
                   </a>
                 )}
                 {achat.connexionRequise ? (
-                  <Link className="bq-extrait" to="/espace/connexion">
-                    Se connecter à mon espace
+                  <Link className="bou-lien" to="/espace/connexion">
+                    {TEXTES.connexion}
                   </Link>
                 ) : (
-                  <Link className="bq-extrait" to="/espace/achats">
-                    Voir mes achats
+                  <Link className="bou-lien" to="/espace/achats">
+                    {TEXTES.achats}
                   </Link>
                 )}
               </div>
             </>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </CadreDeBoutique>
   );
 }

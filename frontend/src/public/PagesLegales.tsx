@@ -20,7 +20,14 @@
  * - Des liens. Une adresse écrite dans le texte devient cliquable SANS que le
  *   texte change : le paragraphe est découpé au rendu (`avecLiens`), et le
  *   lien porte exactement les caractères écrits. Voir `ADRESSE` pour ce qui
- *   compte comme une adresse.
+ *   compte comme une adresse, et `destination` pour où elle mène : l'adresse
+ *   d'une page de la plateforme devient un lien interne ; un autre site
+ *   s'ouvre dans un nouvel onglet, sans lui laisser la main.
+ *
+ * ## Une page que l'on imprime
+ *
+ * Des CGV se gardent sur papier : la feuille porte un bloc d'impression (ni
+ * barre, ni pied, ni sommaire ; le texte seul, en pleine largeur).
  *
  * ## Une page de lecture
  *
@@ -44,10 +51,10 @@ import {
   type PageLegale as TexteLegal,
   type SectionLegale,
 } from "./contenuLegal";
-import { ID_DU_CONTENU } from "./contenuSite";
+import { CHEMINS, ID_DU_CONTENU } from "./contenuSite";
 import { EnTeteSite } from "./EnTeteSite";
 import { PiedSite } from "./PiedSite";
-import { useAimants, useMedia, useMenu, useTitreDePage } from "./site";
+import { titreDOnglet, useAimants, useMedia, useMenu, useTitreDePage } from "./site";
 // Le socle d'abord, la feuille de la page ensuite : à spécificité égale, c'est
 // la page qui a le dernier mot.
 import "./Site.css";
@@ -61,15 +68,23 @@ const ARTICULATION = {
   retour: "Retour en haut",
   /** Le nom accessible de la barre qui relie les quatre textes. */
   nomDeLaBarre: "Textes légaux",
+  /** Ce qu'un lecteur d'écran entend sur un lien qui sort du site. Le texte
+   *  du lien, lui, reste l'adresse écrite, au caractère près. */
+  nouvelOnglet: "S'ouvre dans un nouvel onglet",
 };
+
+/** L'identifiant de la phrase ci-dessus, que chaque lien sortant désigne par
+ *  `aria-describedby`. Dans la réserve des ancres : aucun titre de section ne
+ *  peut le prendre. */
+const ID_DU_NOUVEL_ONGLET = "leg-nouvel-onglet";
 
 /** Le nom court de chaque texte, dans la barre de liens. Indexé par le type
  *  des chemins : un cinquième texte sans nom ne compilerait pas. */
 const NOMS_DES_TEXTES: Record<CheminLegal, string> = {
-  "/mentions-legales": "Mentions légales",
-  "/rgpd": "RGPD",
-  "/cgv": "CGV / CGU",
-  "/politique-de-confidentialite": "Politique de confidentialité",
+  [CHEMINS.mentionsLegales]: "Mentions légales",
+  [CHEMINS.rgpd]: "RGPD",
+  [CHEMINS.cgv]: "CGV / CGU",
+  [CHEMINS.confidentialite]: "Politique de confidentialité",
 };
 
 /** La largeur à partir de laquelle le sommaire passe en colonne. La même que
@@ -93,7 +108,7 @@ function dateLisible(brute: string): string {
 
 /** Les identifiants que le socle pose déjà sur la page : une ancre de section
  *  ne doit pas pouvoir prendre l'un d'eux. */
-const RESERVES = [ID_DU_CONTENU, "acc-menu"];
+const RESERVES = [ID_DU_CONTENU, "acc-menu", ID_DU_NOUVEL_ONGLET];
 
 /** Le titre, réduit à des lettres sans accent, des chiffres et des tirets.
  *  Un titre qui n'en contient aucun reçoit « section ». */
@@ -137,48 +152,109 @@ const CHEMIN = "(?:/[^\\s]*[a-z0-9/])?";
  *  1. une adresse e-mail (premier groupe) ;
  *  2. une adresse de site ÉCRITE COMME TELLE — elle commence par `http://`,
  *     `https://` ou `www.` — ou le domaine du site écrit nu (« sur le site
- *     evkha.fr »).
+ *     evkha.fr »). Troisième groupe.
  *
  *  Un nom de marque qui se termine comme un domaine (« Systeme.io », cité
  *  parmi les prestataires) n'est PAS une adresse : le texte nomme une société,
  *  il n'invite pas à s'y rendre. La ponctuation qui suit une adresse (point
- *  final, parenthèse, virgule) reste hors du lien. */
+ *  final, parenthèse, virgule) reste hors du lien.
+ *
+ *  Une adresse de site ne commence pas au milieu d'un mot ni d'une adresse
+ *  e-mail : elle est en début de texte, ou précédée d'un caractère qui n'est
+ *  ni une lettre, ni un chiffre, ni `@ . _ -`. Ce caractère est CAPTURÉ
+ *  (deuxième groupe) et remis à sa place par `avecLiens`, hors du lien.
+ *  L'écriture d'origine le vérifiait par un regard arrière (« lookbehind »),
+ *  que Safari avant 16.4 refuse au chargement du fichier : une erreur de
+ *  syntaxe dans ce seul motif faisait tomber toute l'application. */
 const ADRESSE = new RegExp(
   `([a-z0-9._%+-]+@${HOTE})` +
-    `|(?<![a-z0-9@._-])(?:(?:https?://${HOTE}|www\\.${HOTE})${CHEMIN}` +
+    `|(^|[^a-z0-9@._-])((?:https?://${HOTE}|www\\.${HOTE})${CHEMIN}` +
     `|${DOMAINE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?!\\.?[a-z0-9-]))`,
   "gi",
 );
 
-/** Où mène une adresse de site telle qu'elle est écrite. Le domaine du site,
- *  nu ou non, mène à son adresse canonique. */
-function adresseDuSite(ecrite: string): string {
-  if (/^https?:\/\//i.test(ecrite)) return ecrite;
-  if (ecrite.toLowerCase() === DOMAINE) return `https://www.${DOMAINE}`;
-  const coupe = ecrite.indexOf("/");
-  const hote = coupe === -1 ? ecrite : ecrite.slice(0, coupe);
-  const chemin = coupe === -1 ? "" : ecrite.slice(coupe);
-  return `https://${hote.toLowerCase()}${chemin}`;
+/** Les pages de la plateforme : tout chemin de `CHEMINS` qui est une vraie
+ *  page — ni gabarit de route (`$slug`), ni section (`#…`). */
+const PAGES_DE_LA_PLATEFORME = new Set<string>(
+  Object.values(CHEMINS).filter(
+    (chemin) => !chemin.includes("$") && !chemin.includes("#"),
+  ),
+);
+
+/** L'hôte et le reste d'une adresse de site telle qu'elle est écrite, avec ou
+ *  sans protocole. */
+function hoteEtReste(ecrite: string): { hote: string; reste: string } {
+  const sansProtocole = ecrite.replace(/^https?:\/\//i, "");
+  const coupe = sansProtocole.indexOf("/");
+  return coupe === -1
+    ? { hote: sansProtocole.toLowerCase(), reste: "" }
+    : {
+        hote: sansProtocole.slice(0, coupe).toLowerCase(),
+        reste: sansProtocole.slice(coupe),
+      };
+}
+
+/** Où mène une adresse de site telle qu'elle est écrite.
+ *
+ *  - L'adresse d'une PAGE DE LA PLATEFORME — le site lui-même, à un chemin
+ *    que le routeur connaît — devient un lien interne, relatif : le visiteur
+ *    reste où il est, quel que soit le domaine qui sert la plateforme.
+ *  - Une autre adresse du site lui-même garde son adresse canonique, dans
+ *    l'onglet courant : ce n'est pas un autre site.
+ *  - Tout le reste SORT du site : nouvel onglet (`sortant`), et le lien ne
+ *    laisse ni la main ni l'adresse d'origine à la page ouverte. */
+function destination(ecrite: string): { href: string; sortant: boolean } {
+  const { hote, reste } = hoteEtReste(ecrite);
+  const duSite = hote === DOMAINE || hote === `www.${DOMAINE}`;
+  if (!duSite) {
+    return {
+      href: /^https?:\/\//i.test(ecrite) ? ecrite : `https://${hote}${reste}`,
+      sortant: true,
+    };
+  }
+  const chemin = reste.split(/[?#]/)[0].replace(/\/+$/, "") || CHEMINS.accueil;
+  if (PAGES_DE_LA_PLATEFORME.has(chemin)) {
+    return { href: reste === "" ? CHEMINS.accueil : reste, sortant: false };
+  }
+  return {
+    href: /^https?:\/\//i.test(ecrite) ? ecrite : `https://www.${DOMAINE}${reste}`,
+    sortant: false,
+  };
 }
 
 /** Le texte, découpé autour de ses adresses. Mis bout à bout, les morceaux
  *  redonnent le texte caractère pour caractère : un lien porte ce qui est
- *  écrit, rien de plus. */
+ *  écrit, rien de plus. Le caractère qui précède une adresse de site, capturé
+ *  par `ADRESSE`, reste dans le texte courant. */
 function avecLiens(texte: string): ReactNode[] {
   const morceaux: ReactNode[] = [];
   let fin = 0;
   for (const trouvee of texte.matchAll(ADRESSE)) {
-    const ecrite = trouvee[0];
-    const debut = trouvee.index ?? 0;
+    const courriel: string | undefined = trouvee[1];
+    const avant: string = trouvee[2] ?? "";
+    const ecrite = courriel ?? trouvee[3];
+    const debut = (trouvee.index ?? 0) + (courriel === undefined ? avant.length : 0);
     if (debut > fin) morceaux.push(texte.slice(fin, debut));
-    morceaux.push(
-      <a
-        key={debut}
-        href={trouvee[1] ? `mailto:${ecrite}` : adresseDuSite(ecrite)}
-      >
-        {ecrite}
-      </a>,
-    );
+    if (courriel !== undefined) {
+      morceaux.push(
+        <a key={debut} href={`mailto:${ecrite}`}>
+          {ecrite}
+        </a>,
+      );
+    } else {
+      const { href, sortant } = destination(ecrite);
+      morceaux.push(
+        <a
+          key={debut}
+          href={href}
+          target={sortant ? "_blank" : undefined}
+          rel={sortant ? "noopener noreferrer" : undefined}
+          aria-describedby={sortant ? ID_DU_NOUVEL_ONGLET : undefined}
+        >
+          {ecrite}
+        </a>,
+      );
+    }
     fin = debut + ecrite.length;
   }
   if (fin < texte.length) morceaux.push(texte.slice(fin));
@@ -247,7 +323,7 @@ export function PageLegale({ page }: { page: TexteLegal }) {
 
   // Le bouton de la barre du site se comporte ici comme sur les autres pages.
   useAimants(racine);
-  useTitreDePage(page.titreOnglet, page.metaDescription);
+  useTitreDePage(titreDOnglet(page.titreOnglet), page.metaDescription);
 
   const identifiants = ancres(page.sections);
   const sommaire: EntreeDeSommaire[] = page.sections.flatMap((section, k) =>
@@ -264,7 +340,9 @@ export function PageLegale({ page }: { page: TexteLegal }) {
           haut » — doit pouvoir recevoir le focus. */}
       <main id={ID_DU_CONTENU} tabIndex={-1} inert={menu.ouvert}>
         <div className="acc-w">
-          <header className="leg-tete">
+          {/* Un `<div>`, pas un `<header>` : la page n'a qu'UN en-tête de
+              page, celui du site. */}
+          <div className="leg-tete">
             <h1>{page.titre}</h1>
             {page.dateDeMiseAJour !== null && (
               <p className="leg-date">
@@ -287,7 +365,7 @@ export function PageLegale({ page }: { page: TexteLegal }) {
                 ))}
               </ul>
             </nav>
-          </header>
+          </div>
 
           <div className="leg-corps">
             {sommaire.length > 0 && <Sommaire entrees={sommaire} />}
@@ -322,6 +400,12 @@ export function PageLegale({ page }: { page: TexteLegal }) {
               <p className="leg-retour">
                 <a href={`#${ID_DU_CONTENU}`}>{ARTICULATION.retour}</a>
               </p>
+              {/* Jamais affichée : la phrase que les liens sortants du texte
+                  désignent par `aria-describedby`. Hors de l'élément du texte,
+                  qui ne porte que le texte. */}
+              <p id={ID_DU_NOUVEL_ONGLET} hidden>
+                {ARTICULATION.nouvelOnglet}
+              </p>
             </div>
           </div>
         </div>
@@ -344,20 +428,20 @@ function texteDe(chemin: CheminLegal): TexteLegal {
 
 /** `/mentions-legales` */
 export function MentionsLegales() {
-  return <PageLegale page={texteDe("/mentions-legales")} />;
+  return <PageLegale page={texteDe(CHEMINS.mentionsLegales)} />;
 }
 
 /** `/rgpd` */
 export function Rgpd() {
-  return <PageLegale page={texteDe("/rgpd")} />;
+  return <PageLegale page={texteDe(CHEMINS.rgpd)} />;
 }
 
 /** `/cgv` */
 export function Cgv() {
-  return <PageLegale page={texteDe("/cgv")} />;
+  return <PageLegale page={texteDe(CHEMINS.cgv)} />;
 }
 
 /** `/politique-de-confidentialite` */
 export function PolitiqueDeConfidentialite() {
-  return <PageLegale page={texteDe("/politique-de-confidentialite")} />;
+  return <PageLegale page={texteDe(CHEMINS.confidentialite)} />;
 }

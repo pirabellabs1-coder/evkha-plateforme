@@ -18,30 +18,34 @@ import { CONTACT_EMAIL } from "./contenu";
 
 // ── Adresses ────────────────────────────────────────────────────────────────
 
-/** Le chemin de la page d'accueil. */
-export const ACCUEIL = "/";
+/** Le slug de l'article relevé sur le site de la cliente. Écrit ICI, une
+ *  fois : le blog (`contenuBlog`), la boîte à outils, l'accueil et la
+ *  redirection de son ancienne adresse (`router.tsx`) le lisent. */
+export const SLUG_IDEE_BUSINESS_VIABLE = "idee-business-viable";
 
-export const LIENS = {
-  etudes: "/etudes",
+const ETUDES = "/etudes";
+
+/** LES CHEMINS DU SITE PUBLIC — LA SEULE SOURCE (règle 5).
+ *
+ *  Tout ce qui écrit l'adresse d'une page publique la lit ici : le routeur
+ *  (`router.tsx`, `path: CHEMINS.x`), le menu et le pied (`NAVIGATION`,
+ *  `PIED`), `LIENS`, et les alias que les fichiers de contenu gardent sous
+ *  leurs anciens noms (`ROUTES_PACKS`, `ROUTES_FORMATIONS`,
+ *  `ROUTES_RESSOURCES`, `ROUTE_DU_BLOG`, les chemins de `contenuLegal`). Une
+ *  page qui change d'adresse change ici, et nulle part ailleurs.
+ *
+ *  Le test `chaque-lien-du-site-a-sa-route` verrouille que chaque chemin
+ *  d'ici a sa route dans le routeur.
+ *
+ *  `as const` : le routeur a besoin de chemins littéraux pour typer ses
+ *  routes. Tous INTERNES. */
+export const CHEMINS = {
+  accueil: "/",
+  etudes: ETUDES,
   boutique: "/boutique",
   partenaires: "/partenaires",
-  espace: "/espace/connexion",
-  appel: "https://calendly.com/contact-evkha",
-  courriel: `mailto:${CONTACT_EMAIL}`,
-  packs: "/packs",
-  formations: "/formations",
-  outils: "/boite-a-outils",
-  article: "/blog/idee-business-viable",
-};
-
-/** Les chemins des pages que le menu et le pied desservent, en plus de ceux de
- *  `LIENS`. Tous INTERNES : le menu ne renvoie plus vers l'ancien site.
- *
- *  `LIENS.packs`, `LIENS.formations`, `LIENS.outils` et `LIENS.article`
- *  visent encore l'ancien site : `contenuAccueil.ts` les lit pour les cartes
- *  de l'accueil. Ils ne sont pas renommés ici (les pages les importent) ; le
- *  jour où l'accueil bascule, c'est vers ces chemins-ci. */
-export const CHEMINS = {
+  /** La porte des clients déjà inscrits (`espace/routes.tsx`). */
+  espaceClient: "/espace/connexion",
   contact: "/contact",
   packs: "/packs",
   packEssentiel: "/packs/essentiel",
@@ -53,14 +57,76 @@ export const CHEMINS = {
   swapn: "/swapn",
   boiteAOutils: "/boite-a-outils",
   blog: "/blog",
+  /** Le GABARIT de la route d'un article, tel que le routeur l'écrit. Pour
+   *  l'adresse d'un article donné : `adresseDeLArticle(slug)`. */
+  article: "/blog/$slug",
   mentionsLegales: "/mentions-legales",
   rgpd: "/rgpd",
   cgv: "/cgv",
   confidentialite: "/politique-de-confidentialite",
   /** La section « Comment ça marche » de la page des études
    *  (`NosEtudes.tsx`, `id="comment-ca-marche"`). */
-  commentCaMarche: `${LIENS.etudes}#comment-ca-marche`,
+  commentCaMarche: `${ETUDES}#comment-ca-marche`,
 } as const;
+
+/** Le chemin de la page d'accueil. */
+export const ACCUEIL = CHEMINS.accueil;
+
+/** L'adresse d'un article du blog. Le slug est encodé : il vient d'une liste
+ *  écrite dans le dépôt aujourd'hui, d'une saisie en administration demain. */
+export function adresseDeLArticle(slug: string): string {
+  return `${CHEMINS.blog}/${encodeURIComponent(slug)}`;
+}
+
+/** Les adresses que les pages citent par leur usage. Les chemins internes
+ *  sont LUS dans `CHEMINS` ; seuls la prise de rendez-vous et le courriel, qui
+ *  sortent de la plateforme, sont écrits ici — une fois (`contenuRessources`
+ *  lit `LIENS.appel` pour sa page de contact).
+ *
+ *  Typé large (`string`) : ce sont des adresses à poser dans un `href`, pas
+ *  des chemins de route. */
+export const LIENS: Record<
+  | "etudes"
+  | "boutique"
+  | "partenaires"
+  | "espace"
+  | "appel"
+  | "courriel"
+  | "packs"
+  | "formations"
+  | "outils"
+  | "article",
+  string
+> = {
+  etudes: CHEMINS.etudes,
+  boutique: CHEMINS.boutique,
+  partenaires: CHEMINS.partenaires,
+  espace: CHEMINS.espaceClient,
+  appel: "https://calendly.com/contact-evkha",
+  courriel: `mailto:${CONTACT_EMAIL}`,
+  packs: CHEMINS.packs,
+  formations: CHEMINS.formations,
+  outils: CHEMINS.boiteAOutils,
+  article: adresseDeLArticle(SLUG_IDEE_BUSINESS_VIABLE),
+};
+
+/** Les réseaux de la cliente, relevés sur l'accueil de son site. Écrits ICI,
+ *  une fois : le pied (`PIED.reseaux`) et la page de contact
+ *  (`contenuRessources.COORDONNEES.reseaux`) lisent cette liste. */
+export const RESEAUX_SOCIAUX = [
+  {
+    libelle: "LinkedIn",
+    lien: "https://www.linkedin.com/in/evangeline-strobbe-khaili-54a2511b2/",
+  },
+  {
+    libelle: "Instagram",
+    lien: "https://www.instagram.com/evkha_business_formations/",
+  },
+  {
+    libelle: "Facebook",
+    lien: "https://www.facebook.com/profile.php?id=61577284710257",
+  },
+] as const;
 
 /** L'adresse de la carte d'une étude, sur la page des études.
  *
@@ -277,7 +343,7 @@ export const NAVIGATION: Rubrique[] = [
     liens: [
       {
         libelle: "Boîte à outils",
-        description: "Une checklist et un lexique à télécharger.",
+        description: "Une checklist et un lexique à recevoir par e-mail.",
         lien: CHEMINS.boiteAOutils,
       },
       {
@@ -375,20 +441,36 @@ export const PIED = {
     { libelle: "CGV", lien: CHEMINS.cgv },
     { libelle: "Confidentialité", lien: CHEMINS.confidentialite },
   ],
-  /** Les réseaux de la cliente, relevés sur l'accueil de son site. */
+  /** Les réseaux de la cliente : `RESEAUX_SOCIAUX`, plus haut. */
   reseauxTitre: "Réseaux sociaux",
-  reseaux: [
-    {
-      libelle: "LinkedIn",
-      lien: "https://www.linkedin.com/in/evangeline-strobbe-khaili-54a2511b2/",
-    },
-    {
-      libelle: "Instagram",
-      lien: "https://www.instagram.com/evkha_business_formations/",
-    },
-    {
-      libelle: "Facebook",
-      lien: "https://www.facebook.com/profile.php?id=61577284710257",
-    },
+  reseaux: RESEAUX_SOCIAUX,
+};
+
+// ── Le titre de l'onglet ────────────────────────────────────────────────────
+
+/** La marque, telle qu'elle FERME le titre de l'onglet de chaque page :
+ *  « Titre de la page — EVKHA ». La mise en forme est dans
+ *  `site.titreDOnglet` ; les pages n'écrivent que leur titre. */
+export const MARQUE = "EVKHA";
+
+// ── La page introuvable ─────────────────────────────────────────────────────
+
+/** Ce que le site affiche à une adresse qu'il ne connaît pas
+ *  (`Introuvable.tsx`, branchée en `defaultNotFoundComponent` du routeur).
+ *  Écrit pour la plateforme. Aucun prix : des portes, pas des offres. */
+export const PAGE_INTROUVABLE = {
+  titreOnglet: "Page introuvable",
+  description: "Cette page n'existe pas ou n'est plus en ligne.",
+  surtitre: "Erreur 404",
+  titre: { avant: "Page", fin: "introuvable." },
+  corps:
+    "L'adresse que vous avez suivie ne correspond à aucune page du site. Elle a peut-être changé d'adresse.",
+  accueil: { libelle: "Retour à l'accueil", lien: CHEMINS.accueil },
+  /** Le nom accessible de la liste des trois portes. */
+  nomDesPortes: "Pages les plus demandées",
+  portes: [
+    { libelle: "Voir les études", lien: CHEMINS.etudes },
+    { libelle: "Parcourir la boutique", lien: CHEMINS.boutique },
+    { libelle: "Nous contacter", lien: CHEMINS.contact },
   ],
 };

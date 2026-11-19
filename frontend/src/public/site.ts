@@ -20,6 +20,7 @@ import {
 
 import {
   ACCUEIL,
+  MARQUE,
   type EntreeDeNavigation,
   type Rubrique,
 } from "./contenuSite";
@@ -190,6 +191,27 @@ export function contientLaPage(rubrique: Rubrique, ici: string): boolean {
  *  de l'espace connecté : justes pour lui, faux pour une page publique que
  *  l'on partage par lien et que les moteurs indexent. Les deux sont rendus en
  *  partant. */
+/** La marque telle qu'un titre RELEVÉ la porte à sa fin : « – EVKHA »,
+ *  « | EVKHA », « – EVKHA Business & Formations ». Construite sur `MARQUE`. */
+const MARQUE_EN_BOUT = new RegExp(
+  `\\s+[–—|-]\\s+${MARQUE}(?:\\s+Business\\s*(?:&|et)\\s*Formations)?\\s*$`,
+  "i",
+);
+
+/** LE format du titre d'onglet, pour toutes les pages du socle :
+ *  « Titre de la page — EVKHA » (tiret long, marque à la fin).
+ *
+ *  Les titres relevés sur le site de la cliente ferment tantôt par
+ *  « – EVKHA », tantôt par « | EVKHA », tantôt par le nom complet : la marque
+ *  qu'un titre porte déjà à sa fin est retirée avant d'être reposée, pour
+ *  qu'elle ne soit jamais écrite deux fois ni de deux façons. Le titre
+ *  lui-même n'est pas touché. Appliquée deux fois, la fonction rend la même
+ *  chose. */
+export function titreDOnglet(titre: string): string {
+  const nu = titre.trim().replace(MARQUE_EN_BOUT, "").trim();
+  return nu === "" ? MARQUE : `${nu} — ${MARQUE}`;
+}
+
 export function useTitreDePage(titre: string, description: string): void {
   useEffect(() => {
     const titreDAvant = document.title;
@@ -206,6 +228,41 @@ export function useTitreDePage(titre: string, description: string): void {
       }
     };
   }, [titre, description]);
+}
+
+/** Une page qui n'a rien à faire dans un moteur de recherche — « page
+ *  introuvable », « article introuvable » : l'application répond 200 à toute
+ *  adresse, et sans cette balise un moteur indexerait la page d'erreur à
+ *  l'adresse fautive. Posée à l'affichage, retirée au démontage : la page
+ *  suivante, elle, s'indexe. */
+export function useSansIndexation(): void {
+  useEffect(() => {
+    const balise = document.createElement("meta");
+    balise.name = "robots";
+    balise.content = "noindex";
+    document.head.append(balise);
+    return () => balise.remove();
+  }, []);
+}
+
+// ── L'ancienneté ────────────────────────────────────────────────────────────
+
+/** L'ancienneté d'Evangeline. Les pages relevées écrivent « 15 ans » ici et
+ *  « 16 ans » là, et la cliente n'a pas tranché. À l'affichage, les deux
+ *  deviennent « plus de 15 ans », vrai dans les deux cas — la même formule que
+ *  l'accueil. UNE fonction, pour les packs comme pour les formations
+ *  (règle 5) ; le texte relevé n'est pas touché.
+ *
+ *  Un nombre déjà précédé de « plus de » est laissé tel quel. Écrit SANS
+ *  regard arrière (« lookbehind ») : Safari avant 16.4 refuse cette syntaxe au
+ *  chargement du fichier, et toute l'application tombe avec lui. Le préfixe
+ *  est donc capturé, puis remis en place. */
+export function ancienneteSure(texte: string): string {
+  return texte.replace(
+    /(plus de )?\b1[56](?=\sans\b)/g,
+    (trouve: string, dejaDit: string | undefined) =>
+      dejaDit === undefined ? "plus de 15" : trouve,
+  );
 }
 
 // ── Le menu plein écran ─────────────────────────────────────────────────────

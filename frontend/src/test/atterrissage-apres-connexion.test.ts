@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { APRES_CONNEXION } from "../pages/Login";
+import { CHEMINS } from "../public/contenuSite";
 
 const lire = (chemin: string) =>
   readFileSync(join(__dirname, "..", chemin), "utf8");
@@ -49,7 +50,11 @@ describe("atterrissage après connexion administrateur", () => {
     // l'assertion d'avant, qui ne verrouillait donc rien.
     const bloc = routeur.match(/const racine = createRoute\(\{([\s\S]*?)\}\);/)?.[1];
     expect(bloc, "bloc `const racine = createRoute({…})` introuvable").toBeDefined();
-    expect(bloc).toMatch(/path:\s*"\/"/);
+    // Le chemin de la racine : le littéral, ou — depuis que le routeur lit ses
+    // chemins dans `contenuSite.CHEMINS` — `CHEMINS.accueil`, dont on vérifie
+    // ici qu'il vaut bien « / ». Rien d'autre n'est accepté.
+    expect(bloc).toMatch(/path:\s*(?:"\/"|CHEMINS\.accueil\b)/);
+    expect(CHEMINS.accueil).toBe("/");
     expect(bloc).toMatch(/component:\s*Accueil\b/);
     expect(bloc).not.toMatch(/beforeLoad/);
     expect(APRES_CONNEXION).not.toBe("/");

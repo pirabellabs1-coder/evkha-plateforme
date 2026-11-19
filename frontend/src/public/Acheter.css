@@ -11,10 +11,39 @@
  * éloigne du bouton.
  */
 
+/* ── L'en-tête et le pied du socle, dans une page de l'ancienne charte ──────
+ *
+ * `EnTeteSite` et `PiedSite` lisent les variables `--acc-*` et les réglages
+ * de `Site.css`, tous déclarés sous `.acc`. Chacun est donc monté dans SA
+ * boîte `.acc`, pas sous une racine commune : la carte de paiement reste hors
+ * de portée des réglages d'éléments du socle (liens sans soulignement,
+ * paragraphes sans marge, titres resserrés).
+ *
+ * Ce que `.acc` pose pour une PAGE entière est retiré de ces deux boîtes : la
+ * hauteur d'une fenêtre, le fond crème (le maillage de `.pp` reste le fond de
+ * la page), et le grain — deux boîtes en poseraient deux couches. Deux
+ * classes : la règle l'emporte sur `.acc` quel que soit l'ordre des feuilles. */
+.acc.ach-socle {
+  min-height: 0;
+  background: none;
+}
+
+.acc.ach-socle::after {
+  content: none;
+}
+
+/* La barre du socle est FIXE (74 px de haut, marge comprise) : le contenu
+   commence dessous. L'ancien menu, lui, était dans le flux. */
 .ach-corps {
   width: min(560px, 92vw);
   margin-inline: auto;
-  padding: clamp(2.5rem, 6vw, 4rem) 0 5rem;
+  padding: calc(96px + clamp(1.5rem, 4vw, 3rem)) 0 5rem;
+}
+
+/* La cible du lien d'évitement prend le focus sans se dessiner un contour
+   autour de toute la page (comme `.acc main:focus` sur les pages du socle). */
+.ach-corps:focus {
+  outline: none;
 }
 
 .ach-attente {
@@ -169,7 +198,7 @@
 
 @media (max-width: 600px) {
   .ach-corps {
-    padding-top: 1.5rem;
+    padding-top: calc(88px + 1rem);
   }
 
   .ach-carte {

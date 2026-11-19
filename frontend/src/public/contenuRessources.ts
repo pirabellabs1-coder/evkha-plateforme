@@ -36,6 +36,7 @@
  *  des champs nommés `propose`, jamais mêlées au texte relevé.
  */
 import { CONTACT_EMAIL } from "./contenu";
+import { CHEMINS, LIENS, RESEAUX_SOCIAUX } from "./contenuSite";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -203,24 +204,14 @@ export const COORDONNEES = {
   /** Non relevée sur ces pages (elle figure dans les mentions légales, hors
    *  de ce lot). */
   adressePostale: null,
-  /** Prise de rendez-vous, relevée sur l'accueil. */
-  rendezVous: "https://calendly.com/contact-evkha",
+  /** Prise de rendez-vous, relevée sur l'accueil. L'adresse est LUE dans
+   *  `contenuSite.LIENS.appel` : le menu, le pied et cette page mènent au même
+   *  agenda, écrit une fois (règle 5). */
+  rendezVous: LIENS.appel,
   /** Relevés sur l'accueil, pas sur ces pages. Le plan de refonte cite aussi
-   *  TikTok, sans adresse relevée : il n'est pas listé. */
-  reseaux: [
-    {
-      libelle: "LinkedIn",
-      lien: "https://www.linkedin.com/in/evangeline-strobbe-khaili-54a2511b2/",
-    },
-    {
-      libelle: "Instagram",
-      lien: "https://www.instagram.com/evkha_business_formations/",
-    },
-    {
-      libelle: "Facebook",
-      lien: "https://www.facebook.com/profile.php?id=61577284710257",
-    },
-  ],
+   *  TikTok, sans adresse relevée : il n'est pas listé. La liste est LUE dans
+   *  `contenuSite.RESEAUX_SOCIAUX`, que le pied affiche aussi. */
+  reseaux: RESEAUX_SOCIAUX,
 } as const;
 
 // ── Formulaires ─────────────────────────────────────────────────────────────
@@ -968,19 +959,40 @@ function enDeuxTemps(titre: string, accent: string): { avant: string; fin: strin
   return { avant: titre.slice(0, -accent.length).trimEnd(), fin: accent };
 }
 
-/** Les routes de la NOUVELLE plateforme que ces pages citent, et que
- *  `contenuSite.LIENS` ne porte pas encore (il pointe vers l'ancien site pour
- *  les packs, les formations et la boîte à outils). Les routes du blog sont
- *  dans `contenuBlog.ts`. */
+/** Les routes de la plateforme que ces pages citent. Un ALIAS : chaque chemin
+ *  est lu dans `contenuSite.CHEMINS`, la seule source des adresses du site
+ *  (règle 5). Le nom est gardé pour les fichiers qui l'importent. */
 export const ROUTES_RESSOURCES = {
-  boiteAOutils: "/boite-a-outils",
-  contact: "/contact",
-  swapn: "/swapn",
-  etudes: "/etudes",
-  packs: "/packs",
-  formations: "/formations",
-  partenaires: "/partenaires",
+  boiteAOutils: CHEMINS.boiteAOutils,
+  contact: CHEMINS.contact,
+  swapn: CHEMINS.swapn,
+  etudes: CHEMINS.etudes,
+  packs: CHEMINS.packs,
+  formations: CHEMINS.formations,
+  partenaires: CHEMINS.partenaires,
 } as const;
+
+/** RETOUCHE D'AFFICHAGE : un document ne se télécharge pas sur la plateforme.
+ *
+ *  Le site de la cliente délivrait la checklist et le lexique par un
+ *  formulaire ; la plateforme n'a ni formulaire ni fichier à servir, et le
+ *  visiteur les DEMANDE par courriel (`courrielAvecObjet`). Une page qui
+ *  écrit « Téléchargez… » au-dessus d'un bouton qui ouvre un courriel promet
+ *  ce qu'elle ne fait pas.
+ *
+ *  À l'affichage, donc : « à télécharger » devient « à recevoir par e-mail »
+ *  et « Téléchargez » « Recevez par e-mail ». Le texte RELEVÉ, plus haut,
+ *  n'est pas touché — le jour où les fichiers sont servis, il suffit de ne
+ *  plus passer par cette fonction. Elle vise la CLASSE (règle 4) : tout texte
+ *  qui passe par elle, pas trois phrases désignées ; le test du lot verrouille
+ *  qu'aucun « télécharg… » ne reste affiché sur la boîte à outils ni dans
+ *  l'encart de fin d'article. */
+export function sansTelechargement(texte: string): string {
+  return texte
+    .replace(/à télécharger/g, "à recevoir par e-mail")
+    .replace(/Téléchargez\b/g, "Recevez par e-mail")
+    .replace(/téléchargez\b/g, "recevez par e-mail");
+}
 
 /** Un lien `mailto:` vers l'adresse de contact, objet prérempli. C'est le
  *  moyen qui remplace chaque formulaire du site : la plateforme n'a pas de
@@ -1003,7 +1015,7 @@ export const PAGE_BOITE_A_OUTILS = {
   surtitreDesRessources: "En libre accès",
   titreDesRessources: enDeuxTemps(BOITE_A_OUTILS.titreDesRessources, "& Vos Outils"),
   /** L'étiquette de chaque carte, selon `Ressource.nature`. */
-  natures: { document: "Document PDF", article: "Article du blog" },
+  natures: { document: "Document à recevoir par e-mail", article: "Article du blog" },
   /** Le bouton des deux documents : un courriel à EVKHA, qui répond avec le
    *  fichier. */
   recevoir: "Recevoir par e-mail",

@@ -20,6 +20,13 @@
  * l'adresse de contact, objet prérempli (`courrielAvecObjet`), et le lien de
  * rendez-vous.
  *
+ * Et aucun téléchargement : les deux documents de la boîte à outils se
+ * DEMANDENT par courriel. Le texte relevé dit « Téléchargez… » et « à
+ * télécharger » ; la boîte à outils l'affiche donc par `dire`, qui passe au
+ * vous ET remplace la promesse de téléchargement par ce que la page fait —
+ * « à recevoir par e-mail » (`contenuRessources.sansTelechargement`, retouche
+ * d'affichage : le relevé n'est pas touché).
+ *
  * ## Ces pages sont des portes d'entrée gratuites
  *
  * Chacune se termine par UNE passerelle vers l'étape payante la plus proche
@@ -48,16 +55,18 @@ import {
   PAGE_BOITE_A_OUTILS,
   PAGE_CONTACT,
   PAGE_SWAPN,
+  sansTelechargement,
   SWAPN,
   type Passerelle,
   type Ressource,
+  type Texte,
 } from "./contenuRessources";
-import { ID_DU_CONTENU, LIENS } from "./contenuSite";
+import { ID_DU_CONTENU } from "./contenuSite";
 import { EnTeteSite } from "./EnTeteSite";
 import { Bouton } from "./PiecesSite";
 import { PiedSite } from "./PiedSite";
 import { useReveler } from "./reveler";
-import { useAimants, useMenu, useTitreDePage, variables } from "./site";
+import { titreDOnglet, useAimants, useMenu, useTitreDePage, variables } from "./site";
 // Le socle d'abord, la feuille du lot ensuite : à spécificité égale, c'est la
 // page qui a le dernier mot.
 import "./Site.css";
@@ -142,6 +151,12 @@ function enDeux(point: string): { avant: string; suite: string } {
 
 // ── La boîte à outils ───────────────────────────────────────────────────────
 
+/** Ce que la boîte à outils AFFICHE d'un bloc relevé : au vous, et sans
+ *  promesse de téléchargement — la page envoie par courriel. */
+function dire(bloc: Texte): string {
+  return sansTelechargement(auVous(bloc));
+}
+
 /** Une ressource : à gauche ce qu'elle est, à droite ce qu'elle apporte, et
  *  SOUS le texte le moyen de l'obtenir — le texte relevé dit « ci-dessous ».
  *
@@ -150,7 +165,7 @@ function enDeux(point: string): { avant: string; suite: string } {
 function CarteDeRessource({ ressource, rang }: { ressource: Ressource; rang: number }) {
   const a = PAGE_BOITE_A_OUTILS;
   const titre = `res-ressource-${rang + 1}`;
-  const nom = auVous(ressource.titre);
+  const nom = dire(ressource.titre);
 
   return (
     <li>
@@ -165,14 +180,14 @@ function CarteDeRessource({ ressource, rang }: { ressource: Ressource; rang: num
           </span>
           <small className="res-etiquette">{a.natures[ressource.nature]}</small>
           {ressource.surtitre && (
-            <p className="res-ressource-surtitre">{auVous(ressource.surtitre)}</p>
+            <p className="res-ressource-surtitre">{dire(ressource.surtitre)}</p>
           )}
           <h3 id={titre}>{nom}</h3>
         </div>
 
         <div className="res-ressource-corps">
           {ressource.paragraphes.map((paragraphe) => (
-            <p key={paragraphe.texte}>{auVous(paragraphe)}</p>
+            <p key={paragraphe.texte}>{dire(paragraphe)}</p>
           ))}
 
           <div className="res-ressource-action">
@@ -180,7 +195,7 @@ function CarteDeRessource({ ressource, rang }: { ressource: Ressource; rang: num
               <>
                 <p className="res-ressource-document">
                   {FORMULAIRES[ressource.formulaire].titre.map((ligne) => (
-                    <span key={ligne.texte}>{auVous(ligne)} </span>
+                    <span key={ligne.texte}>{dire(ligne)} </span>
                   ))}
                 </p>
                 <Bouton
@@ -220,9 +235,13 @@ export function BoiteAOutils() {
 
   useReveler(page, undefined, { memeEnMouvementReduit: true });
   useAimants(page);
+  // L'ouverture relevée annonce « des documents à télécharger » : affichée,
+  // elle dit ce que la page fait.
+  const chapeau = sansTelechargement(b.ouverture.corps);
+
   useTitreDePage(
-    b.entete.titreOnglet ? auVous(b.entete.titreOnglet) : b.ouverture.titre,
-    b.entete.description ? auVous(b.entete.description) : b.ouverture.corps,
+    titreDOnglet(b.entete.titreOnglet ? dire(b.entete.titreOnglet) : b.ouverture.titre),
+    b.entete.description ? dire(b.entete.description) : chapeau,
   );
 
   return (
@@ -234,7 +253,7 @@ export function BoiteAOutils() {
             <span className="acc-tag acc-entre">{a.surtitre}</span>
             <TitreDOuverture titre={a.titre} />
             <p className="res-chapeau acc-entre" style={variables({ "--i": 1 })}>
-              {b.ouverture.corps}
+              {chapeau}
             </p>
           </div>
 
@@ -309,7 +328,7 @@ export function Contact() {
 
   useReveler(page, undefined, { memeEnMouvementReduit: true });
   useAimants(page);
-  useTitreDePage(a.titreOnglet, a.description);
+  useTitreDePage(titreDOnglet(a.titreOnglet), a.description);
 
   return (
     <CadreDePage racine={page} classe="res-contact">
@@ -363,7 +382,7 @@ export function Contact() {
               <h3>{a.moyens.rendezVous.titre}</h3>
               <p>{a.moyens.rendezVous.corps}</p>
               <Bouton
-                lien={LIENS.appel}
+                lien={COORDONNEES.rendezVous}
                 aspect="noir"
                 externe
                 className="res-moyen-bouton res-bouton-souple"
@@ -449,7 +468,9 @@ export function Swapn() {
   useReveler(page, undefined, { memeEnMouvementReduit: true });
   useAimants(page);
   useTitreDePage(
-    SWAPN.entete.propose?.titreOnglet ?? SWAPN.entete.titreOnglet?.texte ?? a.surtitre,
+    titreDOnglet(
+      SWAPN.entete.propose?.titreOnglet ?? SWAPN.entete.titreOnglet?.texte ?? a.surtitre,
+    ),
     SWAPN.entete.propose?.description ?? SWAPN.entete.description?.texte ?? "",
   );
 
