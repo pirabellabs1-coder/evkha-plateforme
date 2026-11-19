@@ -183,9 +183,12 @@ export const LIENS_FORMATIONS = {
   decouvrirSocietes: "https://www.evkha.fr/achat-formationsociete",
   decouvrirMicro: "https://www.evkha.fr/achat-formationmicro",
   decouvrirPop: "https://www.evkha.fr/achat-formationpop",
-  paiementSocietes: "https://www.evkha.fr/paiement-formationsociete",
-  paiementMicro: "https://www.evkha.fr/paiement-formationmicro",
-  paiementPop: "https://www.evkha.fr/paiement-formationpopok",
+  // Bascule du domaine (19/11/2026) : même raison que pour les packs — la
+  // demande d'inscription part par courriel tant que la plateforme n'encaisse
+  // pas les formations.
+  paiementSocietes: "mailto:contact@evkha.fr?subject=Je%20souhaite%20m%27inscrire%20%C3%A0%20la%20formation%20%C2%AB%20Cr%C3%A9er%20son%20entreprise%20de%20A%20%C3%A0%20Z%20%C2%BB",
+  paiementMicro: "mailto:contact@evkha.fr?subject=Je%20souhaite%20m%27inscrire%20%C3%A0%20la%20formation%20%C2%AB%20Cr%C3%A9er%20sa%20micro-entreprise%20de%20A%20%C3%A0%20Z%20%C2%BB",
+  paiementPop: "mailto:contact@evkha.fr?subject=Je%20souhaite%20m%27inscrire%20%C3%A0%20la%20formation%20M%C3%A9thode%20P.O.P",
   sessionsEnPresentiel: null,
   contact: "https://www.evkha.fr/contacts",
 } as const;

@@ -180,9 +180,15 @@ function liens(conteneur: ParentNode = document): HTMLAnchorElement[] {
   return Array.from(conteneur.querySelectorAll<HTMLAnchorElement>("a[href]"));
 }
 
-/** Les liens qui mènent à une page de paiement du site. */
+/** Les liens par lesquels on commande un pack.
+ *
+ *  Repérés par leur DESTINATION, lue dans `LIENS_PACKS`, et non par la forme
+ *  de l'adresse : depuis la bascule du domaine (19/11/2026) la commande part
+ *  par courriel, et le motif `/paiement-` ne voyait plus aucun bouton — le
+ *  test comptait zéro lien là où la page en porte quatre. */
 function liensDePaiement(): HTMLAnchorElement[] {
-  return liens().filter((a) => /\/paiement-/.test(a.getAttribute("href") ?? ""));
+  const commandes: string[] = [LIENS_PACKS.commandeEssentiel, LIENS_PACKS.commandePremium];
+  return liens().filter((a) => commandes.includes(a.getAttribute("href") ?? ""));
 }
 
 describe("les pages des packs", () => {

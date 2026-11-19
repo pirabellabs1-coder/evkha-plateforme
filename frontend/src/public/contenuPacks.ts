@@ -127,8 +127,11 @@ const VALEUR_POP = enEuros(TARIFS_PACKS.formationPop);
  *  d'adresse : ils valident le formulaire de commande de Systeme.io. */
 export const LIENS_PACKS = {
   pagePacks: "https://www.evkha.fr/packs",
-  commandeEssentiel: "https://www.evkha.fr/paiement-packcrea",
-  commandePremium: "https://www.evkha.fr/paiement-packcreapremium",
+  // Bascule du domaine (19/11/2026) : `www.evkha.fr` est servi par la plateforme,
+  // les pages de paiement de l'ancien site n'y existent plus. Tant que la
+  // plateforme n'encaisse pas les packs, la commande part par courriel.
+  commandeEssentiel: "mailto:contact@evkha.fr?subject=Je%20souhaite%20commander%20le%20Pack%20Cr%C3%A9ation%20Essentiel",
+  commandePremium: "mailto:contact@evkha.fr?subject=Je%20souhaite%20commander%20le%20Pack%20Cr%C3%A9ation%20Premium",
   decouvrirPremium: "#",
 } as const;
 
