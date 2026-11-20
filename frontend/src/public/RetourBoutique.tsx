@@ -80,7 +80,9 @@ export function RetourBoutique() {
   // concurrentes du même paiement.
   const lance = useRef(false);
 
-  useTitreDePage(ONGLET.titre, ONGLET.description);
+  // Le retour d'un paiement n'est pas une page à déclarer aux moteurs : ni
+  // adresse canonique, ni fil d'Ariane (comme `RetourFormation`).
+  useTitreDePage(ONGLET.titre, ONGLET.description, false);
 
   useEffect(() => {
     if (lance.current) return;

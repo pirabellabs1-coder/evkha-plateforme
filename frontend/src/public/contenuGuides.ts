@@ -52,6 +52,19 @@ const SALUT = "Bonne préparation !";
 /** La signature de l'article existant, gardée telle que la cliente signe. */
 const SIGNATURE = "Evangéline";
 
+/** LES GUIDES SONT-ILS PUBLIÉS ? Non, tant que la cliente ne les a pas relus.
+ *
+ *  Ils portent sa signature et la déclarent comme auteur aux moteurs : les
+ *  mettre en ligne avant son accord serait trancher à sa place. À `false`,
+ *  ils ne sont ni dans la liste du blog, ni dans le plan du site, ni dans
+ *  `sitemap.xml`, ni dans `llms.txt` — leur adresse rend « article
+ *  introuvable ».
+ *
+ *  LE JOUR OÙ ELLE LES VALIDE : passer cette ligne à `true`, donner à chaque
+ *  guide sa date de publication (`publieLe`), et rien d'autre. Tout le reste
+ *  suit de `contenuBlog.ARTICLES`. */
+export const GUIDES_PUBLIES: boolean = false;
+
 export const GUIDES: SourceDArticle[] = [
   // ── 1. Comment faire une étude de marché ──────────────────────────────────
   {

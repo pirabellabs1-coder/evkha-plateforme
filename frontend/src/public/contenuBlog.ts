@@ -35,7 +35,7 @@ import {
   type Passerelle,
   type SectionDArticle,
 } from "./contenuRessources";
-import { GUIDES } from "./contenuGuides";
+import { GUIDES, GUIDES_PUBLIES } from "./contenuGuides";
 import { CHEMINS, SLUG_IDEE_BUSINESS_VIABLE } from "./contenuSite";
 
 // ── Adresses ────────────────────────────────────────────────────────────────
@@ -278,9 +278,9 @@ export const ARTICLES: Article[] = [
     },
   }),
   // Les guides écrits pour la plateforme (`contenuGuides.ts`), APRÈS l'article
-  // de la cliente : le sien reste à la une tant qu'elle n'a pas relu les
-  // autres.
-  ...GUIDES.map(composer),
+  // de la cliente, et seulement une fois qu'elle les a validés
+  // (`GUIDES_PUBLIES`).
+  ...(GUIDES_PUBLIES ? GUIDES.map(composer) : []),
 ];
 
 /** L'article d'un slug, ou `null` : la page dit alors « article introuvable »

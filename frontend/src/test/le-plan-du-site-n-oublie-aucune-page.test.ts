@@ -57,7 +57,7 @@ describe("le plan du site", () => {
   });
 
   it("(a) chaque article du blog est dans le plan", () => {
-    expect(ARTICLES.length).toBeGreaterThan(1);
+    expect(ARTICLES.length).toBeGreaterThan(0);
     for (const article of ARTICLES) {
       expect(chemins, article.slug).toContain(adresseDeLArticle(article.slug));
     }
@@ -157,7 +157,7 @@ describe("(d) la chaîne qui sert les pages pré-rendues est entière", () => {
     expect(script).toContain(`const MARQUE_AJOUTEE = "${MARQUE_AJOUTEE}";`);
     expect(script).toContain(`const MARQUE_CHANGEE = "${MARQUE_CHANGEE}";`);
     expect(lire("src/main.tsx")).toMatch(
-      /rendreLEnTeteAuGabarit\(document\);\s*createRoot\(racine\)\.render\(application\);/,
+      /rendreLEnTeteAuGabarit\(document\);[\s\S]{0,80}createRoot\(racine\)\.render\(application\);/,
     );
 
     // Ce que le pré-rendu écrit pour une page, tel que le navigateur le reçoit.

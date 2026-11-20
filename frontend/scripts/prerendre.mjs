@@ -61,10 +61,11 @@ const manifeste = JSON.parse(readFileSync(MANIFESTE, "utf-8"));
 // `window` doit exister à ce moment-là. L'adresse de départ est sans
 // importance, chaque page pose la sienne.
 
-const dom = new JSDOM(coquille, {
-  url: "https://prerendu.invalid/",
-  pretendToBeVisual: true,
-});
+// SANS `pretendToBeVisual` : jsdom n'offre alors pas `requestAnimationFrame`,
+// et les compteurs de l'accueil (`Accueil.useCompteurs`) gardent leur valeur
+// finale au lieu de compter. Avec lui, la page écrite photographiait une
+// animation en cours : un chiffre pouvait partir en ligne à mi-course.
+const dom = new JSDOM(coquille, { url: "https://prerendu.invalid/" });
 const fenetre = dom.window;
 
 // Tout ce que jsdom définit que Node n'a pas déjà : `window`, `document`,
@@ -135,6 +136,15 @@ const TITRE_DE_LA_COQUILLE = fenetre.document.title;
 /** Le nom du fichier d'une page : `/` → `accueil.html`, `/blog/x` →
  *  `blog/x.html`. `nginx.conf` fait le chemin inverse. */
 function fichierDe(chemin) {
+  // Un chemin du plan est fait de segments simples. Tout autre — `..`, un
+  // segment vide, `/index` qui écraserait la coquille de l'application — est
+  // une erreur d'écriture, dite ici plutôt qu'écrite sur le disque.
+  if (chemin !== "/" && !/^(?:\/[a-z0-9][a-z0-9-]*)+$/.test(chemin)) {
+    echec(`« ${chemin} » n'est pas un chemin de page valable`);
+  }
+  if (chemin === "/index" || chemin === "/accueil") {
+    echec(`« ${chemin} » écraserait un fichier réservé`);
+  }
   return chemin === "/" ? "accueil.html" : `${chemin.slice(1)}.html`;
 }
 

@@ -27,8 +27,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ARTICLES, texteDeLArticle, THEMES } from "../public/contenuBlog";
-import { GUIDES } from "../public/contenuGuides";
+import { ARTICLES, composer, texteDeLArticle, THEMES } from "../public/contenuBlog";
+import { GUIDES, GUIDES_PUBLIES } from "../public/contenuGuides";
 import { adresseDeLArticle, CHEMINS, SLUG_IDEE_BUSINESS_VIABLE } from "../public/contenuSite";
 import { creerRouteur } from "../router";
 import { server } from "./server";
@@ -70,8 +70,26 @@ async function ouvrir(adresse: string) {
 
 afterEach(() => cleanup());
 
+/** Ce que la liste du blog porte À L'IMPORT, avant que ce fichier n'y touche :
+ *  c'est ce qui partirait en ligne. */
+const PUBLIES_A_L_IMPORT = ARTICLES.map((article) => article.slug);
+
+// Les guides sont retenus tant que la cliente ne les a pas validés
+// (`GUIDES_PUBLIES`). Pour juger leurs PAGES, ce fichier les inscrit lui-même
+// dans la liste, comme elle le fera : c'est le seul geste de la publication.
+if (!GUIDES_PUBLIES) ARTICLES.push(...GUIDES.map(composer));
+
 describe("les guides du blog", () => {
-  it("(a) ils sont publiés par la liste, après l'article de la cliente", () => {
+  it("tant que la cliente ne les a pas validés, aucun guide n'est publié", () => {
+    // Le drapeau et la liste disent la même chose : un guide ne peut pas
+    // partir en ligne par un autre chemin.
+    const guides = GUIDES.map((guide) => guide.slug);
+    const publies = PUBLIES_A_L_IMPORT.filter((slug) => guides.includes(slug));
+    expect(publies).toEqual(GUIDES_PUBLIES ? guides : []);
+    expect(PUBLIES_A_L_IMPORT[0]).toBe(SLUG_IDEE_BUSINESS_VIABLE);
+  });
+
+  it("(a) une fois inscrits, ils suivent l'article de la cliente, qui reste à la une", () => {
     expect(GUIDES.length).toBeGreaterThanOrEqual(3);
     expect(ARTICLES[0].slug).toBe(SLUG_IDEE_BUSINESS_VIABLE);
     expect(ARTICLES.slice(1).map((article) => article.slug)).toEqual(GUIDES.map((guide) => guide.slug));

@@ -46,11 +46,22 @@ const application = (
 // Juste avant de monter, l'en-tête écrit par le pré-rendu est rendu à l'état
 // du gabarit (`enTetePrerendu.ts`) : la page y repose aussitôt les siens, et
 // rien n'y figure deux fois.
+//
+// Un délai borne l'attente : si le morceau ne répond jamais, la page écrite
+// resterait à l'écran sans menu ni prix, indéfiniment. Passé ce délai on
+// monte, et le routeur prend la suite comme sur une page ordinaire.
 if (racine.hasAttribute("data-prerendu")) {
-  void router.load().finally(() => {
+  const ATTENTE_MAX_MS = 5000;
+  let monte = false;
+  const monter = () => {
+    if (monte) return;
+    monte = true;
     rendreLEnTeteAuGabarit(document);
+    racine.removeAttribute("data-prerendu");
     createRoot(racine).render(application);
-  });
+  };
+  window.setTimeout(monter, ATTENTE_MAX_MS);
+  void router.load().finally(monter);
 } else {
   createRoot(racine).render(application);
 }
