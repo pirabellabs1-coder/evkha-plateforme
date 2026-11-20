@@ -156,13 +156,16 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
     # Sur un paiement unique, `payment_status` fait foi. `status: complete` dit
     # seulement que le formulaire est alle au bout.
     if str(session.get("payment_status") or "") != "paid":
-        msg = f"Session {reference} non payée ({session.get('payment_status')!r})."
+        msg = (
+            f"Session {reference_abregee(reference)} non payée "
+            f"({session.get('payment_status')!r})."
+        )
         raise AchatInexploitable(msg)
 
     slug = str((session.get("metadata") or {}).get("produit_slug") or "").strip()
     produit = ProduitBoutique.objects.filter(slug=slug).first()
     if produit is None:
-        msg = f"Session {reference} : produit « {slug} » inconnu."
+        msg = f"Session {reference_abregee(reference)} : produit {slug[:80]!r} inconnu."
         raise AchatInexploitable(msg)
 
     exiger_ce_qui_a_ete_ouvert(
@@ -174,7 +177,10 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
 
     email = _texte(session, "customer_details.email", "customer_email").lower()
     if not email:
-        msg = f"Session {reference} : aucune adresse collectée par Stripe."
+        msg = (
+            f"Session {reference_abregee(reference)} : aucune adresse "
+            "collectée par Stripe."
+        )
         raise AchatInexploitable(msg)
 
     organisation, compte = espace_de_l_acheteur(session, email=email, reference=reference)
@@ -250,7 +256,9 @@ def solder_la_tentative(reference: str, organisation: Any = None) -> None:
             champs["organisation"] = organisation
         TentativePaiement.objects.filter(reference_session=reference).update(**champs)
     except Exception:  # noqa: BLE001
-        _log.exception("Tentative de boutique non soldee (%s)", reference)
+        _log.exception(
+            "Tentative de boutique non soldee (%s)", reference_abregee(reference)
+        )
 
 
 def noter_la_tentative(
@@ -290,7 +298,10 @@ def noter_la_tentative(
             },
         )
     except Exception:  # noqa: BLE001
-        _log.exception("Tentative de boutique non enregistree (%s)", reference)
+        _log.exception(
+            "Tentative de boutique non enregistree (%s)",
+            reference_abregee(reference),
+        )
 
 
 def lien_de_telechargement(achat: AchatProduit, *, editable: bool = False) -> str:

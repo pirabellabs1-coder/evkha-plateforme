@@ -1845,11 +1845,16 @@ def ouvrir_le_paiement(
             409,
         )
 
+    trop = _trop_d_ouvertures(organisation)
+    if trop is not None:
+        return trop
+
     code = str(_corps(request).get("formule") or "").strip()
     formule = Formule.objects.filter(code=code, active=True).first()
     if formule is None:
         return _refus("Cette formule n'existe pas.", "formule_inconnue", 400)
 
+    _compter_l_ouverture(organisation)
     try:
         session = paiement_stripe.creer_session_de_paiement(
             organisation, formule, email=membre.customer.email
@@ -2090,20 +2095,27 @@ def _noter_la_tentative(
             },
         )
     except Exception:  # noqa: BLE001
-        _log.exception("Tentative de paiement non enregistree (%s)", reference)
+        from paiement.achats import reference_abregee  # noqa: PLC0415
+
+        _log.exception(
+            "Tentative de paiement non enregistree (%s)",
+            reference_abregee(reference),
+        )
 
 
-#: Paiements ouverts depuis l'espace, par ORGANISATION et par heure, les trois
-#: achats réunis — l'étude à l'unité, l'étude de boutique, la formation.
+#: Paiements ouverts depuis l'espace, par ORGANISATION et par heure, TOUTES
+#: les ouvertures réunies — l'étude à l'unité, l'étude de boutique, la
+#: formation, la souscription et l'achat de crédits (ces deux derniers
+#: ajoutés au second passage : le premier les avait laissés sans plafond).
 #:
-#: Les pages publiques ont un plafond par adresse IP ; ces trois routes n'en
+#: Les pages publiques ont un plafond par adresse IP ; ces routes n'en
 #: avaient aucun (audit de sécurité du 20/11/2026). Or un compte s'ouvre
 #: gratuitement : il suffisait d'en créer un pour faire ouvrir des sessions de
 #: paiement sans limite, au nom d'EVKHA. La clé est l'organisation et non
 #: l'adresse — même motif que `DEPOTS_PAR_ORGANISATION` : derrière une session,
 #: c'est le compte que l'on connaît, et changer d'adresse ne remet rien à zéro.
 #:
-#: Un seul plafond pour les trois : un plafond par route se contournerait en
+#: Un seul plafond pour toutes : un plafond par route se contournerait en
 #: changeant de route. Vingt, comme les plafonds publics — très au-dessus de
 #: ce qu'un client ouvre en une heure, même en hésitant.
 OUVERTURES_PAR_ORGANISATION = limitation.Plafond(
@@ -2194,6 +2206,11 @@ def acheter_des_credits(
             "quantite_invalide",
             400,
         )
+
+    trop = _trop_d_ouvertures(organisation)
+    if trop is not None:
+        return trop
+    _compter_l_ouverture(organisation)
 
     try:
         session = paiement_stripe.creer_paiement_de_credits(

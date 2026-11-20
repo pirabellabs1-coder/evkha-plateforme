@@ -986,7 +986,10 @@ def test_un_retour_sans_session_ou_non_paye_ne_livre_rien(monkeypatch: Any) -> N
     non_payee = _revenir(monkeypatch, session_stripe(formation, payment_status="unpaid"))
 
     assert (sans.status_code, sans.json()["code"]) == (400, "session_absente")
-    assert (non_payee.status_code, non_payee.json()["code"]) == (409, "achat_inexploitable")
+    # Terminée mais non encaissée : la banque doit encore confirmer. Ce n'est
+    # plus annoncé comme un paiement « qu'on n'a pas pu rattacher »
+    # (`retours.refus_si_non_encaisse`).
+    assert (non_payee.status_code, non_payee.json()["code"]) == (409, "paiement_en_attente")
     assert AchatFormation.objects.count() == 0
 
 

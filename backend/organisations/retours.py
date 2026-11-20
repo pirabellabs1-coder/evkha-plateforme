@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Any
 
 from django.http import HttpRequest
 
@@ -65,6 +66,52 @@ class Refus(Exception):
         self.message = message
         self.code = code
         self.statut = statut
+
+
+def refus_si_non_encaisse(session: dict[str, Any]) -> Refus | None:
+    """Ce qu'on dit à quelqu'un dont la session n'est PAS encaissée, ou rien.
+
+    ## Le défaut, laissé ouvert par l'audit du 20/11/2026
+
+    Les trois pages passaient toute session à leur livraison, qui refuse ce
+    qui n'est pas payé — et elles traduisaient ce refus par « votre paiement
+    a bien été reçu, mais votre accès n'a pas pu être ouvert ». Deux
+    situations ordinaires recevaient donc une phrase fausse :
+
+    - un prélèvement ou un virement, que la banque confirme des jours plus
+      tard : la session est terminée, rien n'est encore encaissé, et rien
+      n'est cassé — le webhook livrera à la confirmation
+      (`checkout.session.async_payment_succeeded`) ;
+    - une session jamais terminée, ou expirée : rien n'a été payé du tout.
+
+    ## La règle
+
+    La page de retour ne dit « reçu » que de ce que le prestataire dit payé.
+    Tout autre état inattendu continue vers la livraison, qui le refuse et
+    le journalise : on ne devine pas (règle 1).
+
+    Le statut reste 409, celui que ces pages rendaient déjà : seuls le
+    message et le code changent.
+    """
+    if str(session.get("payment_status") or "") != "unpaid":
+        return None
+    if str(session.get("status") or "") == "complete":
+        return Refus(
+            "Votre paiement est enregistré, et votre banque doit encore le "
+            "confirmer : pour un prélèvement, cela prend quelques jours. Vous "
+            "n'avez rien à refaire. Votre accès vous sera envoyé par courriel "
+            "dès la confirmation ; sans nouvelles sous une semaine, "
+            "écrivez-nous à contact@evkha.fr.",
+            "paiement_en_attente",
+            409,
+        )
+    return Refus(
+        "Ce paiement n'est pas allé au bout : rien ne vous a été livré. Vous "
+        "pouvez reprendre votre achat ; si vous pensez avoir été débité, "
+        "écrivez-nous à contact@evkha.fr.",
+        "paiement_non_abouti",
+        409,
+    )
 
 
 def a_la_forme_d_une_session(identifiant: object) -> bool:

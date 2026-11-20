@@ -57,6 +57,7 @@ def _session(offre: Offer, email: str, identifiant: str = "") -> dict[str, Any]:
     return {
         "id": identifiant or f"cs_test_{uuid.uuid4().hex[:16]}",
         "status": "complete",
+        "mode": "payment",
         "payment_status": "paid",
         "amount_total": offre.prix_unitaire_cents,
         "currency": "eur",
@@ -184,6 +185,7 @@ def test_passe_une_heure_le_retour_n_ouvre_plus_rien() -> None:
     """La personne passe alors par le lien du courriel, qui prouve sa boîte."""
     session = _session(_offre(), NOUVELLE)
     achat = achats.livrer_l_achat(session)
+    assert achat.compte is not None
     CompteClient.objects.filter(pk=achat.compte.pk).update(
         created_at=timezone.now() - FENETRE_APRES_ACHAT - timedelta(minutes=1),
     )

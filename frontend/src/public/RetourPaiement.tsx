@@ -65,10 +65,20 @@ const SANS_SESSION =
   "Nous n'avons pas retrouvé votre paiement. Si vous avez été débité, " +
   "écrivez-nous à contact@evkha.fr : nous ouvrons votre espace immédiatement.";
 
+/** Les SEULS refus du serveur qui disent qu'un paiement existe bel et bien :
+ *  il est encaissé mais n'a pas pu être livré, ou il attend la banque. Une
+ *  liste de ce qu'on SAIT, et non de ce qu'on exclut : une session inconnue,
+ *  un plafond atteint ou une panne ne prouvent aucun paiement. */
+const CODES_PAIEMENT_ENREGISTRE = ["achat_inexploitable", "paiement_en_attente"];
+
 export function RetourPaiement() {
   const naviguer = useNavigate();
   const [session] = useState(sessionDansLAdresse);
   const [erreur, setErreur] = useState(() => (session ? "" : SANS_SESSION));
+  // « Votre paiement est bien enregistré » ne se dit que si le serveur l'a
+  // constaté. La phrase suivait TOUTE erreur : elle rassurait aussi quelqu'un
+  // qui n'avait rien payé, ou dont on ne savait rien.
+  const [paiementEnregistre, setPaiementEnregistre] = useState(false);
   // L'achat est livré sur un compte qui existait déjà, et personne n'est
   // connecté dans ce navigateur. On garde le nom de l'étude pour le redire :
   // « votre achat » sans dire lequel laisse douter que ce soit le bon.
@@ -101,6 +111,10 @@ export function RetourPaiement() {
         });
       })
       .catch((cause) => {
+        setPaiementEnregistre(
+          cause instanceof RefusInscription &&
+            CODES_PAIEMENT_ENREGISTRE.includes(cause.code),
+        );
         setErreur(
           cause instanceof RefusInscription
             ? cause.message
@@ -129,10 +143,12 @@ export function RetourPaiement() {
               <p className="ach-erreur" role="alert">
                 {erreur}
               </p>
-              <p className="ach-texte">
-                Votre paiement, lui, est bien enregistré chez notre prestataire.
-                Rien n'est perdu.
-              </p>
+              {paiementEnregistre ? (
+                <p className="ach-texte">
+                  Votre paiement, lui, est bien enregistré chez notre
+                  prestataire. Rien n'est perdu.
+                </p>
+              ) : null}
             </>
           ) : aRetrouver ? (
             <>

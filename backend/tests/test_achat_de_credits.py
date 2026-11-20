@@ -131,9 +131,32 @@ def test_sans_abonnement_il_n_y_a_aucun_tarif_a_appliquer() -> None:
 # ── Le versement, au retour du paiement ─────────────────────────────────────
 
 
+#: Le tarif du crédit au moment où le paiement a été ouvert.
+PRIX_DU_CREDIT = 5_900
+
+
 def _session(*, quantite: int = 2, reference: str = "cs_test_1") -> dict[str, Any]:
+    """Une session réglée, ET le panier noté à son ouverture.
+
+    Le versement compare le montant encaissé à celui du panier (audit du
+    20/11/2026) : une session sans panier ni tarif n'a aucun montant de
+    référence, et n'est plus versée.
+    """
+    from organisations.models import ObjetTentative, TentativePaiement
+
+    TentativePaiement.objects.get_or_create(
+        reference_session=reference,
+        defaults={
+            "objet": ObjetTentative.CREDITS,
+            "quantite": quantite,
+            "montant_cents": PRIX_DU_CREDIT * quantite,
+            "devise": "EUR",
+        },
+    )
     return {
         "id": reference,
+        "amount_total": PRIX_DU_CREDIT * quantite,
+        "currency": "eur",
         "status": "complete",
         # Ce que Stripe écrit sur une session réglée par carte. Sans ce champ,
         # la doublure décrivait un paiement que Stripe n'envoie jamais.

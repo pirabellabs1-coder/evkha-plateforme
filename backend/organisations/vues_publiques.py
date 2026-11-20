@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import secrets
+from typing import Any
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -193,15 +194,54 @@ def acheter(request: HttpRequest) -> HttpResponse:
     # parties ensemble, qui lisaient toutes zéro.
     limitation.enregistrer(PAIEMENTS_PAR_HEURE, adresse_ip)
 
+    # Une saisie qui n'est pas une adresse est écartée, pas transmise : elle
+    # faisait refuser l'ouverture par le prestataire, dont le message — qui
+    # cite la valeur, saut de ligne compris — partait au journal.
+    from .vues_formations import _adresse_saisie  # noqa: PLC0415
+
+    email = _adresse_saisie(charge.get("email"))
     try:
-        session = stripe_api.creer_paiement_de_livrable(
-            offre=offre, email=str(charge.get("email") or "").strip()
-        )
+        session = stripe_api.creer_paiement_de_livrable(offre=offre, email=email)
     except stripe_api.PaiementIndisponible as refus:
         _log.error("Achat de %s impossible : %s", offre.slug, refus)
         return _refus(str(refus), "paiement_indisponible", 503)
 
+    _noter_le_panier(str(getattr(session, "identifiant", "") or ""), offre, email)
     return JsonResponse({"adresse": session.adresse})
+
+
+def _noter_le_panier(reference: str, offre: Any, email: str) -> None:
+    """Garde le prix OUVERT, pour que la livraison le compare au prix payé.
+
+    La livraison refuse un montant qui n'est pas celui du panier — ou, sans
+    panier, celui du tarif courant (`achats.exiger_ce_qui_a_ete_ouvert`). Cette
+    page était la seule ouverture à ne rien noter : un tarif modifié pendant
+    que quelqu'un payait l'aurait fait refuser, après encaissement, pour avoir
+    payé le prix qu'on lui affichait.
+
+    Le panier d'une étude abandonnée devient du même coup visible dans les
+    transactions, comme ceux de la boutique et des formations.
+
+    **Ne lève jamais** : un défaut de suivi n'empêche pas de payer.
+    """
+    from .models import ObjetTentative, TentativePaiement  # noqa: PLC0415
+
+    if not reference:
+        return
+    try:
+        TentativePaiement.objects.get_or_create(
+            reference_session=reference,
+            defaults={
+                "email": email[:254],
+                "objet": ObjetTentative.LIVRABLE,
+                "montant_cents": int(offre.prix_unitaire_cents or 0),
+                "devise": "EUR",
+            },
+        )
+    except Exception:  # noqa: BLE001
+        from paiement.achats import reference_abregee  # noqa: PLC0415
+
+        _log.exception("Panier d'étude non enregistré (%s)", reference_abregee(reference))
 
 
 @csrf_exempt
@@ -237,6 +277,12 @@ def retour_de_paiement(request: HttpRequest) -> HttpResponse:
     if not achats.est_un_achat_de_livrable(session):
         return _refus("Ce paiement ne concerne pas un livrable.", "achat_autre", 409)
 
+    # Un paiement en attente de la banque, ou jamais terminé, n'est pas un
+    # paiement « reçu mais inexploitable » (`retours.refus_si_non_encaisse`).
+    attente = retours.refus_si_non_encaisse(session)
+    if attente is not None:
+        return _refus(attente.message, attente.code, attente.statut)
+
     try:
         achat = achats.livrer_l_achat(session)
     except achats.AchatInexploitable as refus:
@@ -260,7 +306,14 @@ def retour_de_paiement(request: HttpRequest) -> HttpResponse:
     # compte que CE paiement vient de créer, une seule fois ; pour un compte
     # qui existait, l'achat est livré et la personne se connecte comme
     # d'habitude (`authentification.ouvrir_la_session_d_un_achat`).
-    jeton_clair = authentification.ouvrir_la_session_d_un_achat(achat.compte, identifiant)
+    #
+    # Sans compte né de ce paiement — le rejeu d'une session déjà livrée à
+    # quelqu'un qui avait un compte —, il n'y a rien à ouvrir.
+    jeton_clair = (
+        authentification.ouvrir_la_session_d_un_achat(achat.compte, identifiant)
+        if achat.compte is not None
+        else None
+    )
     return JsonResponse({
         "jeton": jeton_clair,
         "connexion_requise": jeton_clair is None,

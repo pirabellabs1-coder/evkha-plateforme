@@ -355,8 +355,11 @@ def creer_paiement_de_livrable(
             **facultatifs,
         )
     except stripe.StripeError as exc:
+        # Le TYPE de l'erreur, pas son message, qui cite volontiers l'adresse
+        # saisie par un visiteur anonyme (meme regle que les formations).
         _log.error(
-            "Stripe a refuse l'achat du livrable %s : %s", offre.slug, exc
+            "Stripe a refuse l'achat du livrable %s : %s",
+            offre.slug, type(exc).__name__,
         )
         raise PaiementIndisponible(
             "Le paiement est momentanément indisponible. Réessayez dans "
@@ -436,8 +439,10 @@ def creer_paiement_de_produit(
             **facultatifs,
         )
     except stripe.StripeError as exc:
+        # Le TYPE de l'erreur, pas son message (meme regle que les formations).
         _log.error(
-            "Stripe a refuse l'achat du produit %s : %s", produit.slug, exc
+            "Stripe a refuse l'achat du produit %s : %s",
+            produit.slug, type(exc).__name__,
         )
         raise PaiementIndisponible(
             "Le paiement est momentanément indisponible. Réessayez dans "

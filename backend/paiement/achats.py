@@ -35,9 +35,11 @@ from organisations.models import (
     CompteClient,
     Encaissement,
     MembreOrganisation,
+    MouvementCredit,
     Organisation,
     TentativePaiement,
     TypeDeCompte,
+    TypeMouvement,
 )
 
 _log = logging.getLogger(__name__)
@@ -62,7 +64,9 @@ class Achat:
     """Ce qu'un paiement a produit, tel que l'appelant en a besoin."""
 
     organisation: Organisation
-    compte: CompteClient
+    #: `None` au REJEU d'une session déjà livrée à quelqu'un qui avait un
+    #: compte : il n'y a alors ni session à ouvrir, ni courriel à envoyer.
+    compte: CompteClient | None
     offre: Offer
     #: Faux quand la session avait déjà été traitée — le webhook et la page de
     #: retour se croisant, c'est le cas NORMAL une fois sur deux.
@@ -162,8 +166,11 @@ def _organisation_existante(
         # On ne se rabat PAS silencieusement sur l'adresse : le dire fort vaut
         # mieux que créditer un espace que personne n'a désigné (règle 1).
         _log.warning(
-            "Achat rattaché à l'organisation %s, introuvable ; "
-            "on retombe sur l'adresse.", identifiant,
+            "Achat rattaché à une organisation introuvable (%s) ; "
+            "on retombe sur l'adresse.",
+            # Venu des métadonnées : borné, et sans saut de ligne. Pas abrégé :
+            # ce n'est pas un secret, et il sert à retrouver l'organisation.
+            repr(identifiant[:64]),
         )
 
     appartenances = list(
@@ -186,9 +193,12 @@ def _organisation_existante(
             # Seule propriétaire d'une organisation qu'on ne peut pas laisser
             # sans personne : c'est la sienne, faute de mieux.
             return appartenance.organisation
+        # Sans l'adresse : la fiche et l'organisation suffisent à retrouver
+        # qui, et un journal n'a pas à porter des adresses de clients.
         _log.warning(
-            "Invitation jamais acceptée de %s dans %s : révoquée, son achat "
-            "ouvre son propre espace.", contact.email, appartenance.organisation,
+            "Invitation jamais acceptée (fiche %s, organisation %s) : révoquée, "
+            "son achat ouvre son propre espace.",
+            contact.pk, appartenance.organisation_id,
         )
     return None
 
@@ -401,28 +411,83 @@ def livrer_l_achat(session: dict[str, Any]) -> Achat:
 
     Rejouable sans effet : appelée deux fois sur la même session, la seconde
     rend l'achat déjà constitué avec `nouveau=False`.
+
+    ## Les deux défauts, laissés ouverts par l'audit du 20/11/2026
+
+    La boutique et les formations avaient reçu ces deux gardes ; l'étude à
+    l'unité, le plus ancien des trois achats, non.
+
+    **L'idempotence d'abord.** Le crédit déjà versé n'était reconnu qu'APRÈS
+    `espace_de_l_acheteur`, qui révoque des invitations jamais acceptées et
+    ouvre une organisation. Or une session se rejoue — le prestataire renvoie
+    ses événements pendant trois jours, l'identifiant se représente à volonté
+    sur la page de retour — et un rejeu ne doit plus rien écrire. Même règle
+    que `boutique.livrer_le_produit`.
+
+    **Ce qui est livré est ce qui a été ouvert.** Seuls `payment_status` et le
+    slug étaient lus : toute session payée portant le slug d'une étude versait
+    son crédit, quel que soit le montant encaissé
+    (`exiger_ce_qui_a_ete_ouvert`).
     """
     reference = str(session.get("id") or "").strip()
     if not reference:
         msg = "Session de paiement sans identifiant."
         raise AchatInexploitable(msg)
+    abrege = reference_abregee(reference)
+
+    slug = str((session.get("metadata") or {}).get("offre_slug") or "").strip()
+
+    deja = (
+        MouvementCredit.objects.select_related("portefeuille__organisation")
+        # Le VERSEMENT de cet achat, et lui seul : la référence sert aussi aux
+        # gestes manuels, et un geste saisi avec l'identifiant d'une session
+        # ne doit pas la faire passer pour livrée.
+        .filter(reference=reference, type=TypeMouvement.ACHAT)
+        .order_by("created_at")
+        .first()
+    )
+    if deja is not None:
+        # L'offre a pu être désactivée, renommée ou retirée depuis : pour un
+        # rejeu, elle sert seulement à dire ce qui a été acheté. Un achat
+        # DÉJÀ livré ne devient pas « inexploitable » — incident à l'appui —
+        # parce que le catalogue a bougé : à défaut, une offre non enregistrée
+        # porte le type de livrable que le crédit a gardé.
+        vendue = Offer.objects.filter(slug=slug).first() or Offer(
+            slug=slug[:80], name="Votre étude", deliverable_type=deja.livrable
+        )
+        _log.info("Achat %s déjà livré, rejeu sans effet.", abrege)
+        return Achat(
+            deja.portefeuille.organisation,
+            compte_ne_de_l_achat(reference),
+            vendue,
+            nouveau=False,
+        )
 
     # Stripe ne dit pas « payé » de la même façon selon le mode. Sur un
     # paiement unique, `payment_status` fait foi ; `status: complete` signifie
     # seulement que le formulaire est allé au bout.
     if str(session.get("payment_status") or "") != "paid":
-        msg = f"Session {reference} non payée ({session.get('payment_status')!r})."
+        msg = f"Session {abrege} non payée ({session.get('payment_status')!r})."
         raise AchatInexploitable(msg)
 
-    slug = str((session.get("metadata") or {}).get("offre_slug") or "").strip()
     offre = Offer.objects.filter(slug=slug, is_active=True).first()
     if offre is None:
-        msg = f"Session {reference} : offre « {slug} » inconnue ou inactive."
+        # Le slug vient des métadonnées : borné, et sans saut de ligne.
+        msg = f"Session {abrege} : offre {slug[:80]!r} inconnue ou inactive."
         raise AchatInexploitable(msg)
+
+    exiger_ce_qui_a_ete_ouvert(
+        session,
+        reference=reference,
+        prix_cents=int(offre.prix_unitaire_cents or 0),
+        # `stripe_api.creer_paiement_de_livrable` ouvre en euros, sans autre
+        # choix : une offre n'a pas de devise à elle.
+        devise="EUR",
+    )
 
     email = _texte(session, "customer_details.email", "customer_email").lower()
     if not email:
-        msg = f"Session {reference} : aucune adresse collectée par Stripe."
+        msg = f"Session {abrege} : aucune adresse collectée par Stripe."
         raise AchatInexploitable(msg)
 
     organisation, compte = espace_de_l_acheteur(session, email=email, reference=reference)
@@ -447,13 +512,13 @@ def livrer_l_achat(session: dict[str, Any]) -> Achat:
         # Le webhook et la page de retour se sont croisés. Ce n'est pas une
         # anomalie : c'est le fonctionnement normal, et le dire en journal
         # évite qu'on le prenne un jour pour un bug.
-        _log.info("Achat %s déjà livré, second appel sans effet.", reference)
+        _log.info("Achat %s déjà livré, second appel sans effet.", abrege)
         return Achat(organisation, compte, offre, nouveau=False)
     _enregistrer_l_encaissement(organisation, offre, session, reference)
 
+    # Sans l'adresse de l'acheteur : l'organisation suffit à le retrouver.
     _log.info(
-        "Achat à l'unité livré : %s pour %s (organisation %s).",
-        offre.slug, email, organisation.id,
+        "Achat à l'unité livré : %s (organisation %s).", offre.slug, organisation.id,
     )
     return Achat(organisation, compte, offre, nouveau=True)
 
@@ -466,7 +531,11 @@ def prevenir_l_acheteur(achat: Achat) -> bool:
     n'existe pas. Ici l'inverse est vrai — l'espace existe, et un envoi raté
     n'annule rien : la personne est déjà connectée par la page de retour, et
     peut redemander un lien par la procédure d'oubli.
+
+    Rien ne part pour un rejeu, qui peut ne plus avoir de compte à désigner.
     """
+    if achat.compte is None:
+        return False
     return courriels.souhaiter_la_bienvenue(
         destinataire=achat.compte.customer.email,
         livrable=achat.offre.name.lower(),

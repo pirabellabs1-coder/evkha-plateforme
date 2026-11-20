@@ -237,6 +237,12 @@ def retour(request: HttpRequest) -> HttpResponse:
             "Ce paiement ne concerne pas une formation.", "achat_autre", 409
         )
 
+    # Un paiement en attente de la banque, ou jamais terminé, n'est pas un
+    # paiement qu'on « n'a pas pu rattacher » (`retours.refus_si_non_encaisse`).
+    attente = retours.refus_si_non_encaisse(session)
+    if attente is not None:
+        return _refus(attente.message, attente.code, attente.statut)
+
     try:
         resultat = remise.livrer_la_formation(session)
     except remise.AchatInexploitable as refus:

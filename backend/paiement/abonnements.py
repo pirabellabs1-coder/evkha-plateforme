@@ -328,7 +328,12 @@ def _marquer_la_tentative_payee(reference: str) -> None:
             etat=EtatTentative.PAYEE, payee_le=timezone.now()
         )
     except Exception:  # noqa: BLE001
-        _log.exception("Tentative de paiement non marquee payee (%s)", reference)
+        from .achats import reference_abregee  # noqa: PLC0415
+
+        _log.exception(
+            "Tentative de paiement non marquee payee (%s)",
+            reference_abregee(reference),
+        )
 
 
 def _livrer_un_achat_a_l_unite(session: dict[str, Any]) -> str:
@@ -341,7 +346,7 @@ def _livrer_un_achat_a_l_unite(session: dict[str, Any]) -> str:
     fort : l'argent a ete pris. La page de retour rattrapera peut-etre — elle
     appelle le meme code — mais on ne parie pas la-dessus pour dormir.
     """
-    from . import achats  # noqa: PLC0415 — evite un cycle a l'import
+    from . import achats, formations  # noqa: PLC0415 — evite un cycle a l'import
 
     try:
         achat = achats.livrer_l_achat(session)
@@ -349,7 +354,11 @@ def _livrer_un_achat_a_l_unite(session: dict[str, Any]) -> str:
         _incident(
             "Achat a l'unite inexploitable",
             IncidentSeverity.HIGH,
-            session=str(session.get("id") or ""),
+            # Abregee : entiere, elle ouvre la premiere session du compte
+            # ne du paiement (`achats.reference_abregee`). L'intention
+            # de paiement, elle, retrouve le paiement chez Stripe.
+            session=achats.reference_abregee(session.get("id")),
+            paiement=formations.intention_de_paiement(session),
             motif=str(exc),
         )
         return "achat a l'unite inexploitable"
@@ -370,7 +379,7 @@ def _livrer_un_produit_de_boutique(session: dict[str, Any]) -> str:
     page de retour appelle le meme code et rattrapera peut-etre, mais on ne
     parie pas la-dessus.
     """
-    from . import boutique  # noqa: PLC0415 — evite un cycle a l'import
+    from . import achats, boutique, formations  # noqa: PLC0415 — evite un cycle
 
     try:
         resultat = boutique.livrer_le_produit(session)
@@ -378,7 +387,11 @@ def _livrer_un_produit_de_boutique(session: dict[str, Any]) -> str:
         _incident(
             "Achat de boutique inexploitable",
             IncidentSeverity.HIGH,
-            session=str(session.get("id") or ""),
+            # Abregee : entiere, elle ouvre la premiere session du compte
+            # ne du paiement (`achats.reference_abregee`). L'intention
+            # de paiement, elle, retrouve le paiement chez Stripe.
+            session=achats.reference_abregee(session.get("id")),
+            paiement=formations.intention_de_paiement(session),
             motif=str(exc),
         )
         return "achat de boutique inexploitable"
@@ -445,6 +458,8 @@ def _crediter_l_achat(session: dict[str, Any]) -> str:
     """
     from organisations import credits as credits_service  # noqa: PLC0415
 
+    from . import achats, formations  # noqa: PLC0415 — evite un cycle a l'import
+
     metadonnees = session.get("metadata") or {}
     reference = str(session.get("id") or "").strip()
     organisation_id = str(
@@ -460,7 +475,8 @@ def _crediter_l_achat(session: dict[str, Any]) -> str:
         _incident(
             "Achat de credits inexploitable",
             IncidentSeverity.HIGH,
-            session=reference,
+            session=achats.reference_abregee(reference),
+            paiement=formations.intention_de_paiement(session),
             motif=(
                 "Paiement de credits sans organisation ou sans quantite "
                 f"lisible : organisation={organisation_id!r}, "
@@ -473,7 +489,8 @@ def _crediter_l_achat(session: dict[str, Any]) -> str:
         _incident(
             "Achat de credits inexploitable",
             IncidentSeverity.HIGH,
-            session=reference,
+            session=achats.reference_abregee(reference),
+            paiement=formations.intention_de_paiement(session),
             motif="Paiement de credits sans identifiant de session : impossible "
             "de garantir qu'il ne sera verse qu'une fois.",
         )
@@ -484,10 +501,55 @@ def _crediter_l_achat(session: dict[str, Any]) -> str:
         _incident(
             "Achat de credits sans organisation connue",
             IncidentSeverity.HIGH,
-            session=reference,
+            session=achats.reference_abregee(reference),
+            paiement=formations.intention_de_paiement(session),
             motif=f"Organisation {organisation_id} introuvable.",
         )
         return "organisation inconnue"
+
+    # L'IDEMPOTENCE D'ABORD, PUIS CE QUI A ETE OUVERT (audit du 20/11/2026).
+    #
+    # C'etait le seul des quatre achats a verser sans regarder ni le mode, ni
+    # le montant, ni la devise : la quantite des metadonnees suffisait. Les
+    # metadonnees sont posees par nous, mais une session creee a la main chez
+    # le prestataire, ou un code de reduction ajoute un jour, aurait verse la
+    # quantite annoncee quel que soit le montant (regle 4 : la classe).
+    #
+    # Le rejeu d'un achat deja verse sort AVANT la comparaison : le tarif du
+    # credit a pu changer depuis, et un evenement rejoue ne doit pas ouvrir
+    # un incident sur un paiement en regle.
+    from organisations.models import MouvementCredit, TypeMouvement  # noqa: PLC0415
+    from organisations.vues_espace import abonnement_actif  # noqa: PLC0415
+
+    if MouvementCredit.objects.filter(
+        reference=reference, type=TypeMouvement.ACHAT
+    ).exists():
+        return "achat deja credite"
+
+    abonnement = abonnement_actif(organisation)
+    tarif = abonnement.formule if abonnement is not None else None
+    try:
+        achats.exiger_ce_qui_a_ete_ouvert(
+            session,
+            reference=reference,
+            # Le repli quand le panier manque : sans abonnement actif il n'y a
+            # aucun tarif, donc aucun montant de reference — et on refuse.
+            prix_cents=(
+                int(tarif.prix_credit_supplementaire_cents or 0) * quantite
+                if tarif is not None
+                else 0
+            ),
+            devise=str(tarif.devise) if tarif is not None else "",
+        )
+    except achats.AchatInexploitable as exc:
+        _incident(
+            "Achat de credits inexploitable",
+            IncidentSeverity.HIGH,
+            session=achats.reference_abregee(reference),
+            paiement=formations.intention_de_paiement(session),
+            motif=str(exc),
+        )
+        return "achat de credits inexploitable"
 
     verse = credits_service.verser_un_achat(
         organisation,

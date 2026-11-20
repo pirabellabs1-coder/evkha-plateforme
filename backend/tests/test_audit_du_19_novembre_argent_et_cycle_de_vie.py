@@ -488,8 +488,24 @@ def test_une_relecture_terminee_ne_cache_rien() -> None:
 
 
 def _session_de_credits(organisation: Any, *, payee: bool = True) -> dict[str, Any]:
+    """Une session de crédits, ET le panier noté à son ouverture : le versement
+    compare le montant encaissé à celui du panier (audit du 20/11/2026)."""
+    from organisations.models import ObjetTentative, TentativePaiement
+
+    reference = f"cs_{uuid.uuid4().hex[:16]}"
+    TentativePaiement.objects.create(
+        organisation=organisation,
+        objet=ObjetTentative.CREDITS,
+        quantite=3,
+        montant_cents=17_700,
+        devise="EUR",
+        reference_session=reference,
+    )
     return {
-        "id": f"cs_{uuid.uuid4().hex[:16]}",
+        "id": reference,
+        "mode": "payment",
+        "amount_total": 17_700,
+        "currency": "eur",
         "status": "complete",
         "payment_status": "paid" if payee else "unpaid",
         "metadata": {

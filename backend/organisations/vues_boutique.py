@@ -353,7 +353,11 @@ def acheter(request: HttpRequest) -> HttpResponse:
     if produit is None:
         return _refus("Cette étude n'est pas disponible.", "produit_inconnu", 404)
 
-    email = str(charge.get("email") or "").strip()
+    # Écartée si ce n'est pas une adresse : même garde que les formations et
+    # l'étude à l'unité (`vues_formations._adresse_saisie`).
+    from .vues_formations import _adresse_saisie  # noqa: PLC0415
+
+    email = _adresse_saisie(charge.get("email"))
 
     # Même défaut que `vues_publiques.acheter` : le plafond était lu, jamais
     # compté (audit du 19/11/2026). Et il est compté AVANT l'appel au
@@ -406,6 +410,12 @@ def retour(request: HttpRequest) -> HttpResponse:
 
     if not remise.est_un_achat_de_produit(session):
         return _refus("Ce paiement ne concerne pas la boutique.", "achat_autre", 409)
+
+    # Un paiement en attente de la banque, ou jamais terminé, n'est pas un
+    # paiement « reçu mais inexploitable » (`retours.refus_si_non_encaisse`).
+    attente = retours.refus_si_non_encaisse(session)
+    if attente is not None:
+        return _refus(attente.message, attente.code, attente.statut)
 
     try:
         resultat = remise.livrer_le_produit(session)

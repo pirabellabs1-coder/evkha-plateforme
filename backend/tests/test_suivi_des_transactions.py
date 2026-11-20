@@ -92,6 +92,9 @@ def test_le_webhook_referme_la_tentative() -> None:
 
     abonnements.sur_session_terminee({
         "id": "cs_suivi_1",
+        "mode": "payment",
+        "amount_total": 5_500,
+        "currency": "eur",
         "status": "complete",
         # Ce que Stripe écrit sur une session réglée par carte : un achat
         # n'est versé — et sa tentative refermée — qu'encaissé.

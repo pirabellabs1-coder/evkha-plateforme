@@ -82,6 +82,7 @@ def session_stripe(
     return {
         "id": identifiant or f"cs_test_{uuid.uuid4().hex[:16]}",
         "status": "complete",
+        "mode": "payment",
         "payment_status": "paid" if payee else "unpaid",
         "amount_total": offre.prix_unitaire_cents,
         "currency": "eur",
