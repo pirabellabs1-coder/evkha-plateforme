@@ -543,13 +543,16 @@ html:has(.acc) {
   transform: translateY(-4px) rotate(-45deg);
 }
 
-/* Fixe, donc flou permis. `visibility: hidden` une fois fermé : ni ses boutons
-   ni ses liens ne prennent le focus ou la voix d'un lecteur d'écran.
+/* Le menu plein écran : un fond de papier OPAQUE, et les rubriques en cartes.
 
-   Une colonne : l'accordéon des rubriques, puis le pied du menu. La zone
-   défile si une rubrique dépliée dépasse la fenêtre ; le pied, lui, reste
-   collé en bas (`position: sticky`) — l'espace client ne sort jamais de
-   l'écran. */
+   Opaque, et non plus translucide sur la page floutée : les formes de la page
+   se devinaient derrière les rubriques et brouillaient la lecture. `visibility:
+   hidden` une fois fermé : ni ses boutons ni ses liens ne prennent le focus ou
+   la voix d'un lecteur d'écran.
+
+   Une colonne : les cartes des rubriques, puis le pied du menu. La zone défile
+   si une rubrique dépliée dépasse la fenêtre ; le pied, lui, reste collé en
+   bas (`position: sticky`) — l'espace client ne sort jamais de l'écran. */
 .acc-menu {
   position: fixed;
   inset: 0;
@@ -558,10 +561,8 @@ html:has(.acc) {
   flex-direction: column;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 104px 28px 0;
-  background: color-mix(in srgb, var(--evkha-papier) 94%, transparent);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
+  padding: 100px 16px 0;
+  background: var(--acc-papier);
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--duree-acc-survol) var(--ease-doux),
@@ -574,14 +575,35 @@ html:has(.acc) {
 }
 
 .acc-menu-rubriques {
+  display: grid;
+  gap: 10px;
   flex: none;
   margin: 0;
   padding: 0 0 24px;
   list-style: none;
 }
 
+/* Une rubrique, une carte. Elle monte à l'ouverture du menu, l'une après
+   l'autre (`--i`) ; dépliée, elle gagne son ombre et un liseré d'or. */
 .acc-menu-rubriques > li {
-  border-bottom: 1px solid var(--acc-trait);
+  border-radius: var(--acc-r);
+  background: var(--acc-blanc);
+  box-shadow: inset 0 0 0 1px var(--acc-trait);
+  opacity: 0;
+  translate: 0 14px;
+  transition: opacity var(--duree-acc-glisse) var(--ease-doux),
+    translate var(--duree-acc-glisse) var(--ease-doux),
+    box-shadow var(--duree-acc-survol) var(--ease-doux);
+  transition-delay: calc(var(--i, 0) * var(--decalage-reveal));
+}
+
+.acc-menu-ouvert .acc-menu-rubriques > li {
+  opacity: 1;
+  translate: none;
+}
+
+.acc-menu-rubriques > li:has(> .acc-menu-rubrique[aria-expanded="true"]) {
+  box-shadow: inset 0 0 0 1.5px var(--acc-or), var(--acc-ombre);
 }
 
 .acc-menu-rubrique {
@@ -590,15 +612,16 @@ html:has(.acc) {
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  min-height: 60px;
-  padding: 10px 0;
+  min-height: 68px;
+  padding: 14px 14px 14px 20px;
   border: 0;
+  border-radius: var(--acc-r);
   background: none;
   text-align: left;
   font-weight: 800;
-  font-size: clamp(1.3rem, 5.4vw, 2rem);
+  font-size: clamp(1.15rem, 4.9vw, 1.5rem);
   line-height: 1.15;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
 }
 
 /* Le libellé monte derrière un masque, rubrique après rubrique (`--i`). */
@@ -626,8 +649,8 @@ html:has(.acc) {
   display: grid;
   place-items: center;
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--acc-or-clair);
   font-size: 1.3rem;
@@ -648,58 +671,127 @@ html:has(.acc) {
 
 .acc-menu-liens {
   margin: 0;
-  padding: 0 0 16px;
+  padding: 0 8px 8px;
   list-style: none;
   animation: acc-apparait var(--duree-acc-survol) var(--ease-sortie) both;
 }
 
+/* Un lien, une ligne pleine largeur : le titre et sa phrase à gauche, une
+   flèche à droite. Toute la ligne se touche (56 px au moins). */
 .acc-menu-lien {
   display: grid;
-  gap: 2px;
-  padding: 10px 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 2px;
+  align-items: center;
+  min-height: 56px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  transition: background-color var(--duree-acc-survol) var(--ease-doux);
+}
+
+.acc-menu-lien::after {
+  content: "→";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: var(--acc-gris);
+  font-weight: 700;
+}
+
+.acc-menu-lien:active,
+.acc-menu-lien[aria-current="page"] {
+  background: var(--acc-or-clair);
+}
+
+/* Le filet est porté par l'élément de liste, pas par le lien : sur le lien,
+   il suivrait ses coins arrondis et se courberait aux deux bouts. */
+.acc-menu-liens > li + li:not(:last-child) {
+  border-top: 1px solid var(--acc-trait);
 }
 
 .acc-menu-lien-titre {
+  grid-column: 1;
   font-weight: 700;
   font-size: 1rem;
   line-height: 1.3;
 }
 
 .acc-menu-lien-description {
+  grid-column: 1;
   color: var(--acc-gris);
   font-size: 0.86rem;
   font-weight: 500;
   line-height: 1.4;
 }
 
+/* La mise en avant de la rubrique : un vrai bouton, noir, en bas de sa carte.
+   Sa flèche est dans son titre : celle de la ligne est retirée. */
+.acc-menu-lien-avant {
+  margin-top: 8px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: var(--acc-encre);
+  color: var(--acc-blanc);
+}
+
+.acc-menu-lien-avant::after {
+  content: none;
+}
+
+.acc-menu-lien-avant:active,
+.acc-menu-lien-avant[aria-current="page"] {
+  background: var(--acc-encre);
+}
+
 .acc-menu-lien-avant .acc-menu-lien-titre {
   font-weight: 800;
 }
 
-/* Le pied du menu : collé en bas de la fenêtre, opaque pour que les liens qui
+.acc-menu-lien-avant .acc-menu-lien-titre > span {
+  color: var(--acc-or);
+}
+
+.acc-menu-lien-avant .acc-menu-lien-description {
+  color: color-mix(in srgb, var(--acc-blanc) 72%, transparent);
+}
+
+/* Le pied du menu : collé en bas de la fenêtre, opaque pour que les cartes qui
    défilent dessous ne s'y lisent pas. `margin-top: auto` le pousse en bas
-   quand l'accordéon est court. */
+   quand l'accordéon est court. Son accès tient toute la largeur. */
 .acc-menu-pied {
   position: sticky;
   bottom: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: auto -28px 0;
-  padding: 16px 28px calc(20px + env(safe-area-inset-bottom, 0px));
+  margin: auto -16px 0;
+  padding: 14px 16px calc(18px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--acc-trait);
   background: var(--acc-papier);
 }
 
 .acc-menu-acces {
-  display: inline-flex;
+  display: flex;
+  flex: 1 1 100%;
   align-items: center;
-  min-height: 48px;
+  justify-content: space-between;
+  min-height: 56px;
   padding: 0 22px;
   border-radius: 999px;
   background: var(--acc-blanc);
   box-shadow: inset 0 0 0 1.5px var(--acc-trait);
   font-weight: 700;
+}
+
+.acc-menu-acces::after {
+  content: "→";
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: -10px;
+  border-radius: 50%;
+  background: var(--acc-or);
 }
 
 /* Entrée du titre : chaque ligne monte derrière un masque. */
@@ -1297,6 +1389,12 @@ html:has(.acc) {
      plancher. */
   .acc-panneau-bloc {
     animation-name: acc-apparait;
+  }
+
+  /* Les cartes du menu plein écran : plus de montée, le fondu seul. */
+  .acc-menu-rubriques > li {
+    translate: none;
+    transition-duration: max(var(--duree-acc-survol), var(--calme-survol));
   }
 
   .acc-panneau-bloc,
