@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 from core.models import UUIDModel
 
@@ -388,6 +391,18 @@ class Formation(UUIDModel):
     duree_heures = models.PositiveSmallIntegerField(default=0)
     #: Zero si la formation n'inclut aucun coaching.
     heures_de_coaching = models.PositiveSmallIntegerField(default=0)
+    #: Combien de mois un achat donne accès au programme. ZÉRO = sans limite,
+    #: et c'est la valeur par défaut : tant que la gérante n'a rien saisi,
+    #: rien ne change pour personne. La durée est lue À LA LIVRAISON d'un
+    #: achat pour figer `AchatFormation.acces_jusqu_au` ; la modifier ensuite
+    #: ne déplace la fin d'aucun accès déjà vendu — ce qui a été vendu l'a été
+    #: aux conditions du jour.
+    #:
+    #: `db_default` en plus de `default` : la valeur vit AUSSI dans la base.
+    #: Un code d'avant ce champ, redéployé sur le nouveau schéma (un retour
+    #: arrière), crée une formation sans nommer la colonne — sans valeur par
+    #: défaut en base, l'insertion lèverait.
+    duree_d_acces_mois = models.PositiveSmallIntegerField(default=0, db_default=0)
     #: N'EST PLUS SUIVI depuis le 20/11/2026 : une formation se paie par
     #: Stripe sur la plateforme, plus par une page de paiement exterieure (les
     #: anciennes n'existent plus). Le champ reste — la reponse publique en rend
@@ -564,6 +579,15 @@ class AchatFormation(UUIDModel):
     #: Pourquoi — « Remboursee le 20/11 », « Paiement conteste ». Saisi par
     #: la gerante, lu par elle seule.
     motif_de_revocation = models.CharField(max_length=200, blank=True)
+    #: Dernier JOUR d'accès, compris. Nul = sans limite. Figé à la livraison
+    #: à partir de `Formation.duree_d_acces_mois` (voir
+    #: `paiement.formations.livrer_la_formation`), puis modifiable par la
+    #: gérante depuis l'administration — c'est elle qui prolonge.
+    #:
+    #: Un JOUR et non un instant : c'est ce qu'elle saisit et ce que l'élève
+    #: lit (« accès terminé le 20/11 »). Le jour se compte dans le fuseau du
+    #: projet, pas en UTC.
+    acces_jusqu_au = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -589,5 +613,218 @@ class AchatFormation(UUIDModel):
         return f"{self.formation} — {self.organisation}"
 
     @property
+    def etat_de_l_acces(self) -> str:
+        """`ouvert`, `echu` ou `retire` — L'ENDROIT où l'accès se décide.
+
+        L'espace de l'élève (lire le programme, noter une leçon) et
+        l'administration (le tableau des élèves) lisent tous cette propriété :
+        deux réponses à « cet achat donne-t-il accès ? » finiraient par
+        diverger, et l'écart se lirait comme un programme encore ouvert à qui
+        l'on a annoncé sa fermeture (règle 5).
+
+        Le retrait l'emporte sur l'échéance : un accès retiré puis arrivé à
+        son terme reste « retiré », c'est la décision de la gérante qui compte.
+
+        `acces_jusqu_au` est le dernier jour COMPRIS : l'accès est échu le
+        lendemain, au jour du fuseau du projet.
+
+        Ce que cette propriété ne décide PAS : si l'organisation peut
+        racheter. Les filtres `revoque_le IS NULL` de la vente (contrainte
+        d'unicité, « déjà achetée ») regardent si l'achat a été RETIRÉ, pas
+        s'il est échu.
+        """
+        if self.revoque_le is not None:
+            return EtatDeLAcces.RETIRE
+        if (
+            self.acces_jusqu_au is not None
+            and self.acces_jusqu_au < timezone.localdate()
+        ):
+            return EtatDeLAcces.ECHU
+        return EtatDeLAcces.OUVERT
+
+    @property
     def donne_acces(self) -> bool:
-        return self.revoque_le is None
+        return self.etat_de_l_acces == EtatDeLAcces.OUVERT
+
+
+class EtatDeLAcces(models.TextChoices):
+    """Ce qu'un achat de formation permet aujourd'hui. Calculé, jamais stocké :
+    un état écrit en base serait faux dès le lendemain de l'échéance."""
+
+    OUVERT = "ouvert", "Ouvert"
+    ECHU = "echu", "Échu"
+    RETIRE = "retire", "Retiré"
+
+
+# ── Le suivi des élèves (Qualiopi) ───────────────────────────────────────────
+#
+# La gérante est certifiée Qualiopi : elle doit pouvoir PROUVER le suivi de
+# chaque élève. Un élève est une PERSONNE (`customers.Customer`), membre de
+# l'organisation qui a acheté — pas l'organisation : deux collaborateurs d'un
+# même cabinet n'avancent pas du même pas, et ne signent pas l'un pour l'autre.
+#
+# Toutes les clés ci-dessous sont en `PROTECT`, comme le reste des formations :
+# une trace de suivi ou une signature ne part pas en cascade avec autre chose.
+# Les règles — progression, signature, tableau des élèves — vivent dans
+# `catalog/suivi.py`, une seule fois.
+
+
+class SuiviDeLecon(UUIDModel):
+    """Ce qu'UN élève a fait d'UNE leçon, au titre d'UN achat.
+
+    Rattaché à l'achat et pas seulement à la formation : une organisation
+    remboursée qui rachète repart d'un suivi neuf, sur sa nouvelle ligne, et
+    l'ancien reste lisible avec l'achat qui le portait.
+
+    `created_at` n'est pas la première ouverture par accident : les deux dates
+    sont écrites explicitement, pour qu'une reprise de données ne les
+    confonde pas.
+    """
+
+    achat = models.ForeignKey(
+        AchatFormation, on_delete=models.PROTECT, related_name="suivis"
+    )
+    eleve = models.ForeignKey(
+        "customers.Customer",
+        on_delete=models.PROTECT,
+        related_name="suivis_de_lecon",
+    )
+    lecon = models.ForeignKey(
+        LeconDeFormation, on_delete=models.PROTECT, related_name="suivis"
+    )
+    premiere_ouverture_le = models.DateTimeField()
+    derniere_ouverture_le = models.DateTimeField()
+    #: Nulle tant que l'élève n'a pas dit avoir terminé la leçon.
+    terminee_le = models.DateTimeField(null=True, blank=True)
+    #: La PREMIÈRE fois que la leçon a été terminée. Jamais effacée, pas même
+    #: quand l'élève décoche la leçon : c'est ce qui empêche de RAJEUNIR la
+    #: preuve — décocher puis recocher la veille d'un audit rend la date
+    #: d'origine, pas celle du jour (`catalog.suivi.noter_une_lecon`).
+    premiere_fin_le = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-derniere_ouverture_le"]
+        verbose_name = "suivi de leçon"
+        verbose_name_plural = "suivis de leçon"
+        constraints = [
+            # Le verrou contre deux écritures simultanées (double clic, deux
+            # onglets) : la base n'admet qu'une ligne, la seconde la relit.
+            models.UniqueConstraint(
+                fields=["eleve", "achat", "lecon"],
+                name="suivi_de_lecon_unique_par_eleve_et_achat",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Suivi {self.pk}"
+
+
+class SeanceEnPresentiel(UUIDModel):
+    """Une séance en salle, dont la feuille d'émargement fait preuve.
+
+    Elle s'ANNULE (`annulee_le`), elle ne se supprime pas. Et dès qu'une
+    signature y figure — celle d'un élève ou celle de la formatrice —, ce
+    qu'elle décrit ne se modifie plus : on ne change pas l'heure d'une séance
+    sous la signature de quelqu'un (`catalog.suivi.verifier_seance`).
+    """
+
+    formation = models.ForeignKey(
+        Formation, on_delete=models.PROTECT, related_name="seances"
+    )
+    intitule = models.CharField(max_length=200)
+    debut = models.DateTimeField()
+    duree_minutes = models.PositiveSmallIntegerField()
+    lieu = models.CharField(max_length=200, blank=True)
+    nom_de_la_formatrice = models.CharField(max_length=120, blank=True)
+    annulee_le = models.DateTimeField(null=True, blank=True)
+    signee_par_la_formatrice_le = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["debut", "created_at"]
+        verbose_name = "séance en présentiel"
+        verbose_name_plural = "séances en présentiel"
+        constraints = [
+            # Dernier rempart de `catalog.suivi.verifier_seance` : une séance
+            # de zéro minute ne prouverait aucune heure de présence.
+            models.CheckConstraint(
+                condition=models.Q(duree_minutes__gt=0),
+                name="seance_a_une_duree",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.intitule
+
+
+class ModeDEmargement(models.TextChoices):
+    EN_LIGNE = "en_ligne", "En ligne"
+    PAPIER = "papier", "Papier"
+
+
+class Emargement(UUIDModel):
+    """La signature d'UN élève sur UNE séance.
+
+    **Une signature ne se modifie ni ne se supprime.** Ce qui le garantit,
+    exactement : aucune route ne le permet, et `save` comme `delete` d'une
+    INSTANCE lèvent sur une ligne existante. Ce qui ne le garantit PAS : la
+    base elle-même. Un `QuerySet.update()` ou `.delete()`, une commande SQL
+    ou la console d'administration de Django passent à côté de ces deux
+    méthodes — `reinitialiser_la_plateforme` s'en sert d'ailleurs pour vider
+    la table. La preuve tient donc à ce qu'aucun code de l'application
+    n'écrive ainsi, pas à un verrou de la base.
+
+    Deux modes : `en_ligne`, l'élève a tapé son nom dans son espace (on
+    garde l'adresse d'où il l'a fait) ; `papier`, la gérante reporte une
+    signature recueillie sur la feuille imprimée (pas d'adresse : ce serait
+    la sienne).
+    """
+
+    seance = models.ForeignKey(
+        SeanceEnPresentiel, on_delete=models.PROTECT, related_name="emargements"
+    )
+    achat = models.ForeignKey(
+        AchatFormation, on_delete=models.PROTECT, related_name="emargements"
+    )
+    eleve = models.ForeignKey(
+        "customers.Customer", on_delete=models.PROTECT, related_name="emargements"
+    )
+    signe_le = models.DateTimeField()
+    #: Le nom tel qu'il a été tapé (en ligne) ou relevé (papier).
+    nom_signe = models.CharField(max_length=120)
+    mode = models.CharField(max_length=16, choices=ModeDEmargement.choices)
+    adresse_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["signe_le"]
+        verbose_name = "émargement"
+        verbose_name_plural = "émargements"
+        constraints = [
+            # Une personne signe une séance une fois. C'est AUSSI le verrou
+            # contre le double clic : la seconde écriture est refusée par la
+            # base, pas par un contrôle que deux requêtes passeraient ensemble.
+            models.UniqueConstraint(
+                fields=["seance", "eleve"],
+                name="emargement_unique_par_seance_et_eleve",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(mode__in=["en_ligne", "papier"]),
+                name="emargement_mode_connu",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Émargement {self.pk}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self._state.adding:
+            msg = "Une signature ne se modifie pas."
+            raise SignatureDefinitiveError(msg)
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        msg = "Une signature ne se supprime pas."
+        raise SignatureDefinitiveError(msg)
+
+
+class SignatureDefinitiveError(RuntimeError):
+    """On a tenté de réécrire ou d'effacer une signature d'émargement."""

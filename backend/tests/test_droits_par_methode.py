@@ -228,6 +228,20 @@ def test_aucune_vue_de_l_espace_n_accepte_une_ecriture_sans_droit() -> None:
         # texte, plafonnées à 4 000 caractères, dans une liste qu'EVKHA relit.
         # Ce que l'on risque en le fermant, c'est de ne pas être prévenu.
         "signalements",
+        # Le suivi d'une formation, ajouté le 20/11/2026 (Qualiopi). Même
+        # famille que `fermer_une_annonce` : ce que ces deux vues écrivent
+        # n'est pas une donnée de l'organisation, c'est la trace d'UNE
+        # personne — « elle a terminé cette leçon », « elle était présente à
+        # cette séance ». L'élève est toujours la personne de la session ;
+        # aucun paramètre ne désigne quelqu'un d'autre.
+        #
+        # Les soumettre à un rôle empêcherait un compte « Lecture seule » —
+        # un collaborateur inscrit à la formation — de prouver qu'il l'a
+        # suivie. Ce que l'on risque en les ouvrant est borné : une ligne par
+        # leçon et une signature par séance, tenues par deux contraintes
+        # d'unicité, et seulement dans une organisation qui a ACHETÉ la
+        # formation (`test_suivi_qualiopi_des_formations.py`).
+        "suivre_une_lecon", "signer_sa_presence",
     }
 
     manquants: list[str] = []

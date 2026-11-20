@@ -41,10 +41,11 @@
  * 14. un module ajouté dont un champ est écarté se MODIFIE au second envoi ;
  * 15. le nombre d'inscrits que le serveur rend se dit — et rien quand il n'en
  *     dit rien ;
- * 16. la carte « Inscrits » : repliée, lue à l'ouverture ; chargement, liste
- *     vide et panne se distinguent ; un accès se retire après une
- *     confirmation qui demande un motif, et se rétablit ; l'état affiché est
- *     celui que le serveur rend.
+ * 16. la carte « Élèves » (l'ancienne « Inscrits ») : repliée, lue à
+ *     l'ouverture ; chargement, liste vide et panne se distinguent ; un accès
+ *     se retire après une confirmation qui demande un motif, et se rétablit ;
+ *     l'état affiché est celui que le serveur rend. Le suivi lui-même est
+ *     dans `le-suivi-des-eleves.test.tsx`.
  *
  * Chaque détecteur a sa contre-épreuve (règle 6).
  *
@@ -1607,7 +1608,7 @@ describe("les inscrits d'une formation", () => {
     await ouvrir(SOCIETE.titre);
 
     // Dans la BANDE : depuis le 20/11/2026 la formation ouverte porte aussi
-    // une carte « Inscrits », dont le titre ne dit aucun nombre.
+    // une carte « Élèves », dont le titre ne dit aucun nombre.
     const bande = screen.getByRole("heading", { level: 2, name: SOCIETE.titre }).closest("section") as HTMLElement;
     expect(within(bande).getByText(/Vos visiteurs la voient/)).toBeInTheDocument();
     expect(within(bande).queryByText(INSCRITS)).toBeNull();
@@ -1628,18 +1629,24 @@ describe("les inscrits d'une formation", () => {
   });
 });
 
-// ── 16. Les inscrits : qui a acheté, et retirer un accès ────────────────────
+// ── 16. Les élèves : qui est inscrit, et retirer un accès ───────────────────
 //
-// Le contrat est RECOPIÉ de `dashboard/formations.py` (`achats`, `achat`,
-// `_vue_achat`), relu le 20/11/2026 :
-// `GET formations/<id>/achats/` rend `{"achats": [...]}`, et
+// La carte « Inscrits » est devenue « Élèves » le 20/11/2026 : une ligne par
+// PERSONNE et par achat (`GET formations/<id>/eleves/`), avec son suivi. Les
+// gestes d'accès n'ont pas changé de contrat — RECOPIÉ de
+// `dashboard/formations.py` (`achat`, `_vue_achat`) :
 // `POST formations/achats/<id>/` (`{"revoque": true|false, "motif"?}`) rend
 // `{"achat": <la ligne à jour>}` — ou `{"erreur", "code"}`, 409
 // `formation_rachetee` quand rétablir est impossible.
+// La date et le motif d'un retrait viennent toujours de
+// `GET formations/<id>/achats/`, lue à côté.
 // Un accès se RETIRE et se rétablit : l'achat et son paiement restent.
+// Le suivi lui-même (progression, date de fin, export, séances) est verrouillé
+// dans `le-suivi-des-eleves.test.tsx`.
 
-describe("la carte « Inscrits » d'une formation ouverte", () => {
-  const OUVERT = {
+describe("la carte « Élèves » d'une formation ouverte : les accès", () => {
+  /** Les achats, tels que `_vue_achat` les rend. */
+  const ACHAT_OUVERT = {
     id: "a-1",
     organisation: "Cabinet Eva",
     organisation_id: "org-1",
@@ -1649,10 +1656,12 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     achete_le: "2026-11-03T12:00:00+00:00",
     revoque_le: null,
     motif_de_revocation: "",
+    acces_jusqu_au: null,
+    acces: "ouvert",
     reference_paiement: "pi_test_1",
   };
-  const RETIRE = {
-    ...OUVERT,
+  const ACHAT_RETIRE = {
+    ...ACHAT_OUVERT,
     id: "a-2",
     organisation: "Atelier Nord",
     organisation_id: "org-2",
@@ -1661,51 +1670,91 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     achete_le: "2026-10-12T12:00:00+00:00",
     revoque_le: "2026-11-18T12:00:00+00:00",
     motif_de_revocation: "Remboursement",
+    acces: "retire",
     reference_paiement: "pi_test_2",
+  };
+
+  /** Les lignes du tableau, telles que `suivi.tableau_des_eleves` les rend. */
+  const OUVERT = {
+    achat_id: "a-1",
+    eleve_id: "e-1",
+    nom: "Eva Martin",
+    email: "eva@exemple.fr",
+    organisation: "Cabinet Eva",
+    achete_le: "2026-11-03T12:00:00+00:00",
+    acces_jusqu_au: null,
+    acces: "ouvert",
+    derniere_connexion: null,
+    derniere_activite: null,
+    lecons_terminees: 0,
+    lecons_total: 2,
+    pourcent: 0,
+    minutes_en_presentiel_signees: 0,
+  };
+  const RETIRE = {
+    ...OUVERT,
+    achat_id: "a-2",
+    eleve_id: "e-2",
+    nom: "Nora Petit",
+    email: "nord@exemple.fr",
+    organisation: "Atelier Nord",
+    achete_le: "2026-10-12T12:00:00+00:00",
+    acces: "retire",
   };
 
   type Reponse = () => Response | Promise<Response>;
 
-  /** Sert les inscrits de la formation `f-1`, et compte les lectures. */
-  function servirLesInscrits(reponse: Reponse): { lectures: number } {
+  /** Sert les élèves de la formation `f-1` — et, à côté, ses achats — et
+   *  compte les lectures des élèves. */
+  function servirLesEleves(
+    reponse: Reponse,
+    achats: object[] = [ACHAT_OUVERT, ACHAT_RETIRE],
+  ): { lectures: number } {
     const compte = { lectures: 0 };
     server.use(
-      http.get(`${DASH}/formations/f-1/achats/`, () => {
+      http.get(`${DASH}/formations/f-1/eleves/`, () => {
         compte.lectures += 1;
         return reponse();
       }),
+      http.get(`${DASH}/formations/f-1/achats/`, () => HttpResponse.json({ achats })),
     );
     return compte;
   }
 
-  const inscrits = (...achats: object[]): Reponse => () => HttpResponse.json({ achats });
+  const eleves = (...lignes: object[]): Reponse => () =>
+    HttpResponse.json({ eleves: lignes, lecons_total: 2 });
 
   function carte(): HTMLElement {
-    return screen.getByRole("heading", { level: 2, name: "Inscrits" }).closest("section") as HTMLElement;
+    return screen.getByRole("heading", { level: 2, name: "Élèves" }).closest("section") as HTMLElement;
   }
 
   function deplier() {
-    fireEvent.click(within(carte()).getByRole("button", { name: "Afficher les inscrits" }));
+    fireEvent.click(within(carte()).getByRole("button", { name: "Afficher les élèves" }));
   }
 
-  /** Une ligne du tableau, et son texte — toute espace ramenée à l'ordinaire. */
-  function ligne(organisation: string): { element: HTMLElement; texte: string } {
+  /** Une ligne du tableau, son texte — toute espace ramenée à l'ordinaire —
+   *  et l'état de son accès, lu sur la pastille. */
+  function ligne(organisation: string): { element: HTMLElement; texte: string; etat: string } {
     const element = within(carte()).getByText(organisation).closest("tr") as HTMLElement;
-    return { element, texte: (element.textContent ?? "").replace(/\s/g, " ") };
+    return {
+      element,
+      texte: (element.textContent ?? "").replace(/\s/g, " "),
+      etat: element.querySelector(".pastille")?.textContent ?? "",
+    };
   }
 
-  async function ouvrirLaCarte(reponse: Reponse) {
+  async function ouvrirLaCarte(reponse: Reponse, achats?: object[]) {
     servirLaListe([SOCIETE]);
-    const compte = servirLesInscrits(reponse);
+    const compte = servirLesEleves(reponse, achats);
     rendre();
     await ouvrir(SOCIETE.titre);
     return compte;
   }
 
-  it("repliée par défaut : rien n'est lu avant l'ouverture, puis le tableau montre chaque inscrit", async () => {
-    const compte = await ouvrirLaCarte(inscrits(OUVERT, RETIRE));
+  it("repliée par défaut : rien n'est lu avant l'ouverture, puis le tableau montre chaque élève", async () => {
+    const compte = await ouvrirLaCarte(eleves(OUVERT, RETIRE));
 
-    const bascule = within(carte()).getByRole("button", { name: "Afficher les inscrits" });
+    const bascule = within(carte()).getByRole("button", { name: "Afficher les élèves" });
     expect(bascule).toHaveAttribute("aria-expanded", "false");
     expect(document.getElementById(bascule.getAttribute("aria-controls") ?? "")).toHaveAttribute("hidden");
     await pause();
@@ -1716,7 +1765,7 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
 
     const tableau = await within(carte()).findByRole("table");
     expect(compte.lectures).toBe(1);
-    expect(within(carte()).getByRole("button", { name: "Masquer les inscrits" })).toHaveAttribute(
+    expect(within(carte()).getByRole("button", { name: "Masquer les élèves" })).toHaveAttribute(
       "aria-expanded",
       "true",
     );
@@ -1725,29 +1774,35 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     expect(tableau.parentElement).toHaveClass("tableau-cadre", "tableau-defile");
     const entetes = within(tableau).getAllByRole("columnheader");
     expect(entetes.map((entete) => entete.textContent)).toEqual([
+      "Élève",
       "Organisation",
-      "Adresse",
-      "Montant",
-      "Date",
-      "État",
+      "Acheté le",
+      "Accès",
+      "Dernière connexion",
+      "Dernière activité",
+      "Progression",
+      "Présentiel signé",
       "Actions",
     ]);
     for (const entete of entetes) expect(entete).toHaveAttribute("scope", "col");
 
     const ouvert = ligne("Cabinet Eva");
+    expect(ouvert.texte).toContain("Eva Martin");
     expect(ouvert.texte).toContain("eva@exemple.fr");
-    expect(ouvert.texte).toContain("1 490 €");
     expect(ouvert.texte).toContain("3 novembre 2026");
-    expect(ouvert.texte).toContain("Accès ouvert");
-    expect(within(ouvert.element).getByRole("button", { name: "Retirer l'accès de “Cabinet Eva”" })).toHaveClass(
+    expect(ouvert.etat).toBe("Ouvert");
+    expect(within(ouvert.element).getByRole("button", { name: "Retirer l'accès de “Eva Martin”" })).toHaveClass(
       "bouton-discret",
     );
 
     const retire = ligne("Atelier Nord");
-    expect(retire.texte).toContain("1 319,50 €");
-    expect(retire.texte).toContain("Accès retiré le 18 novembre 2026 — Remboursement");
+    expect(retire.etat).toBe("Retiré");
+    // La date et le motif du retrait, lus sur l'achat.
+    await waitFor(() =>
+      expect(ligne("Atelier Nord").texte).toContain("Accès retiré le 18 novembre 2026 — Remboursement"),
+    );
     expect(
-      within(retire.element).getByRole("button", { name: "Rétablir l'accès de “Atelier Nord”" }),
+      within(retire.element).getByRole("button", { name: "Rétablir l'accès de “Nora Petit”" }),
     ).toBeInTheDocument();
     expect(within(retire.element).queryByRole("button", { name: /Retirer/ })).toBeNull();
 
@@ -1756,11 +1811,11 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     expect(carte().querySelector(".bouton-echec")).toBeNull();
   });
 
-  it("liste reçue et vide : « Aucun inscrit pour l'instant », sans tableau ni panne", async () => {
-    await ouvrirLaCarte(inscrits());
+  it("liste reçue et vide : « Aucun élève pour l'instant », sans tableau ni panne", async () => {
+    await ouvrirLaCarte(eleves(), []);
     deplier();
 
-    expect(await within(carte()).findByText("Aucun inscrit pour l'instant")).toBeInTheDocument();
+    expect(await within(carte()).findByText("Aucun élève pour l'instant")).toBeInTheDocument();
     expect(within(carte()).queryByRole("table")).toBeNull();
     expect(within(carte()).queryByText(/Impossible de charger/)).toBeNull();
   });
@@ -1768,31 +1823,31 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
   for (const [nom, reponse] of [
     ["500", () => new HttpResponse("panne", { status: 500 })],
     ["200 sans la liste", () => HttpResponse.json({})],
-    ["200 avec une liste qui n'en est pas une", () => HttpResponse.json({ achats: "aucun" })],
+    ["200 avec une liste qui n'en est pas une", () => HttpResponse.json({ eleves: "aucun" })],
   ] as [string, Reponse][]) {
-    it(`panne (${nom}) : dite comme une panne, jamais « Aucun inscrit »`, async () => {
+    it(`panne (${nom}) : dite comme une panne, jamais « Aucun élève »`, async () => {
       await ouvrirLaCarte(reponse);
       deplier();
 
-      expect(await within(carte()).findByText(/Impossible de charger les inscrits/)).toBeInTheDocument();
-      expect(within(carte()).queryByText(/Aucun inscrit/)).toBeNull();
+      expect(await within(carte()).findByText(/Impossible de charger les élèves/)).toBeInTheDocument();
+      expect(within(carte()).queryByText(/Aucun élève/)).toBeNull();
       expect(within(carte()).queryByRole("table")).toBeNull();
     });
   }
 
-  it("pendant la lecture : un chargement annoncé, ni tableau ni « Aucun inscrit »", async () => {
+  it("pendant la lecture : un chargement annoncé, ni tableau ni « Aucun élève »", async () => {
     let liberer: () => void = () => undefined;
     const attente = new Promise<void>((resoudre) => {
       liberer = resoudre;
     });
     await ouvrirLaCarte(async () => {
       await attente;
-      return HttpResponse.json({ achats: [OUVERT] });
+      return HttpResponse.json({ eleves: [OUVERT], lecons_total: 2 });
     });
     deplier();
 
     await waitFor(() => expect(carte().querySelector(".squelette-groupe")).not.toBeNull());
-    expect(within(carte()).queryByText(/Aucun inscrit/)).toBeNull();
+    expect(within(carte()).queryByText(/Aucun élève/)).toBeNull();
     expect(within(carte()).queryByRole("table")).toBeNull();
 
     liberer();
@@ -1801,23 +1856,24 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
   });
 
   it("retirer un accès : une confirmation qui demande un motif, puis l'envoi, puis la ligne rendue", async () => {
-    await ouvrirLaCarte(inscrits(OUVERT, RETIRE));
+    await ouvrirLaCarte(eleves(OUVERT, RETIRE));
     const envois = ecouter("achats/a-1/", (corps) =>
       HttpResponse.json({
         achat: {
-          ...OUVERT,
+          ...ACHAT_OUVERT,
           revoque_le: "2026-11-20T12:00:00+00:00",
           motif_de_revocation: (corps as { motif: string }).motif,
+          acces: "retire",
         },
       }),
     );
     deplier();
     await within(carte()).findByRole("table");
 
-    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Cabinet Eva”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Eva Martin”" }));
 
     // Rien n'est parti : on demande d'abord.
-    const question = screen.getByRole("alertdialog", { name: /Retirer l'accès de « Cabinet Eva »/ });
+    const question = screen.getByRole("alertdialog", { name: /Retirer l'accès de « Eva Martin »/ });
     expect(question).toHaveAccessibleDescription(/Rien\s+n'est effacé/);
     expect(question).toHaveAccessibleDescription(/rétablir l'accès à tout moment/);
     const motif = within(question).getByLabelText("Motif du retrait");
@@ -1839,23 +1895,38 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     expect(envois).toEqual([{ revoque: true, motif: "Remboursement demandé" }]);
     // La ligne est celle que le serveur a rendue.
     const apres = ligne("Cabinet Eva");
+    expect(apres.etat).toBe("Retiré");
     expect(apres.texte).toContain("Accès retiré le 20 novembre 2026 — Remboursement demandé");
-    const retablir = within(apres.element).getByRole("button", { name: "Rétablir l'accès de “Cabinet Eva”" });
+    const retablir = within(apres.element).getByRole("button", { name: "Rétablir l'accès de “Eva Martin”" });
     expect(retablir).toHaveFocus();
-    expect(within(carte()).getByRole("status")).toHaveTextContent(/L'accès de « Cabinet Eva » est retiré/);
+    expect(within(carte()).getByRole("status")).toHaveTextContent(/L'accès de « Eva Martin » est retiré/);
     expect(within(carte()).queryByRole("alert")).toBeNull();
     // L'autre ligne n'a pas bougé.
     expect(ligne("Atelier Nord").texte).toContain("Accès retiré le 18 novembre 2026 — Remboursement");
   });
 
-  it("contre-épreuve : « Annuler » et Échap n'envoient rien, et rendent le focus au bouton", async () => {
-    await ouvrirLaCarte(inscrits(OUVERT));
-    const envois = ecouter("achats/a-1/", () => HttpResponse.json({ achat: OUVERT }));
+  it("un achat partagé : la confirmation dit que le retrait vaut pour toutes les personnes", async () => {
+    const COLLEGUE = { ...OUVERT, eleve_id: "e-3", nom: "Léa Roux", email: "lea@exemple.fr" };
+    await ouvrirLaCarte(eleves(OUVERT, COLLEGUE));
     deplier();
     await within(carte()).findByRole("table");
-    const retirer = screen.getByRole("button", { name: "Retirer l'accès de “Cabinet Eva”" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Léa Roux”" }));
+    expect(screen.getByRole("alertdialog")).toHaveAccessibleDescription(
+      /partagé par 2 personnes de « Cabinet Eva » : le changement vaut pour toutes/,
+    );
+  });
+
+  it("contre-épreuve : « Annuler » et Échap n'envoient rien, et rendent le focus au bouton", async () => {
+    await ouvrirLaCarte(eleves(OUVERT));
+    const envois = ecouter("achats/a-1/", () => HttpResponse.json({ achat: ACHAT_OUVERT }));
+    deplier();
+    await within(carte()).findByRole("table");
+    const retirer = screen.getByRole("button", { name: "Retirer l'accès de “Eva Martin”" });
 
     fireEvent.click(retirer);
+    // Seule sur son achat : la confirmation ne parle pas de partage.
+    expect(screen.getByRole("alertdialog")).not.toHaveAccessibleDescription(/partagé/);
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Annuler" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(retirer).toHaveFocus();
@@ -1868,34 +1939,37 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
 
     await pause();
     expect(envois).toEqual([]);
-    expect(ligne("Cabinet Eva").texte).toContain("Accès ouvert");
+    expect(ligne("Cabinet Eva").etat).toBe("Ouvert");
     // Un motif abandonné ne revient pas à la confirmation suivante.
     fireEvent.click(retirer);
     expect(screen.getByLabelText("Motif du retrait")).toHaveValue("");
   });
 
   it("rétablir un accès : un seul geste, `revoque: false`, et la ligne rendue", async () => {
-    await ouvrirLaCarte(inscrits(OUVERT, RETIRE));
+    await ouvrirLaCarte(eleves(OUVERT, RETIRE));
     // « Rétablir efface le motif » (`formations.achat`).
     const envois = ecouter("achats/a-2/", () =>
-      HttpResponse.json({ achat: { ...RETIRE, revoque_le: null, motif_de_revocation: "" } }),
+      HttpResponse.json({
+        achat: { ...ACHAT_RETIRE, revoque_le: null, motif_de_revocation: "", acces: "ouvert" },
+      }),
     );
     deplier();
     await within(carte()).findByRole("table");
 
-    fireEvent.click(screen.getByRole("button", { name: "Rétablir l'accès de “Atelier Nord”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rétablir l'accès de “Nora Petit”" }));
 
-    await waitFor(() => expect(ligne("Atelier Nord").texte).toContain("Accès ouvert"));
+    await waitFor(() => expect(ligne("Atelier Nord").etat).toBe("Ouvert"));
     expect(envois).toEqual([{ revoque: false }]);
     expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(within(carte()).getByRole("status")).toHaveTextContent(/L'accès de « Atelier Nord » est rétabli/);
+    expect(ligne("Atelier Nord").texte).not.toContain("Accès retiré");
+    expect(within(carte()).getByRole("status")).toHaveTextContent(/L'accès de « Nora Petit » est rétabli/);
     expect(
-      within(ligne("Atelier Nord").element).getByRole("button", { name: "Retirer l'accès de “Atelier Nord”" }),
+      within(ligne("Atelier Nord").element).getByRole("button", { name: "Retirer l'accès de “Nora Petit”" }),
     ).toBeInTheDocument();
   });
 
   it("rétablir refusé (409) : la phrase du serveur en alerte, et la ligne ne change pas", async () => {
-    await ouvrirLaCarte(inscrits(RETIRE));
+    await ouvrirLaCarte(eleves(RETIRE));
     // La phrase et le code que `formations.achat` écrit.
     const REFUS =
       "Cette organisation a racheté la formation depuis : elle y a déjà accès par son nouvel achat. Il n'y a rien à rétablir.";
@@ -1903,42 +1977,43 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     deplier();
     await within(carte()).findByRole("table");
 
-    fireEvent.click(screen.getByRole("button", { name: "Rétablir l'accès de “Atelier Nord”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rétablir l'accès de “Nora Petit”" }));
 
     expect(await within(carte()).findByRole("alert")).toHaveTextContent(REFUS);
     expect(envois).toHaveLength(1);
+    expect(ligne("Atelier Nord").etat).toBe("Retiré");
     expect(ligne("Atelier Nord").texte).toContain("Accès retiré le 18 novembre 2026 — Remboursement");
     expect(within(carte()).getByRole("status")).toBeEmptyDOMElement();
     // On peut réessayer : le bouton n'est pas resté occupé.
-    const bouton = screen.getByRole("button", { name: "Rétablir l'accès de “Atelier Nord”" });
+    const bouton = screen.getByRole("button", { name: "Rétablir l'accès de “Nora Petit”" });
     await waitFor(() => expect(bouton).not.toHaveAttribute("aria-disabled"));
   });
 
   it("une réponse qui ne montre pas le retrait n'est pas annoncée comme un retrait", async () => {
-    await ouvrirLaCarte(inscrits(OUVERT));
+    await ouvrirLaCarte(eleves(OUVERT));
     // Le serveur répond 200, mais la ligne rendue a toujours son accès.
-    ecouter("achats/a-1/", () => HttpResponse.json({ achat: OUVERT }));
+    ecouter("achats/a-1/", () => HttpResponse.json({ achat: ACHAT_OUVERT }));
     deplier();
     await within(carte()).findByRole("table");
 
-    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Cabinet Eva”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Eva Martin”" }));
     saisir(screen.getByLabelText("Motif du retrait"), "Remboursement");
     fireEvent.click(screen.getByRole("button", { name: "Oui, retirer l'accès" }));
 
     expect(await within(carte()).findByRole("alert")).toHaveTextContent(/n'apparaît pas dans la réponse du serveur/);
     expect(within(carte()).getByRole("status")).toBeEmptyDOMElement();
-    expect(ligne("Cabinet Eva").texte).toContain("Accès ouvert");
+    expect(ligne("Cabinet Eva").etat).toBe("Ouvert");
   });
 
   it("motif refusé par le serveur (400 `motif_trop_long`) : sa phrase CONTRE le champ, la saisie reste", async () => {
-    await ouvrirLaCarte(inscrits(OUVERT));
+    await ouvrirLaCarte(eleves(OUVERT));
     // La phrase, le code et le champ que `formations._motif` écrit.
     const TROP_LONG = "Le motif dépasse 200 caractères. Résumez-le.";
     const envois = ecouter("achats/a-1/", () => refus(TROP_LONG, "motif_trop_long", "motif"));
     deplier();
     await within(carte()).findByRole("table");
 
-    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Cabinet Eva”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Eva Martin”" }));
     const motif = screen.getByLabelText("Motif du retrait");
     // Le champ est borné à la limite du serveur.
     expect(motif).toHaveAttribute("maxlength", "200");
@@ -1953,16 +2028,16 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(motif).toHaveValue("Un motif que le serveur refuse");
     expect(within(carte()).queryByRole("alert")).toBeNull();
-    expect(ligne("Cabinet Eva").texte).toContain("Accès ouvert");
+    expect(ligne("Cabinet Eva").etat).toBe("Ouvert");
   });
 
   it("contre-épreuve : un refus qui ne désigne pas le motif (404 `achat_inconnu`) se dit en alerte", async () => {
-    await ouvrirLaCarte(inscrits(OUVERT));
+    await ouvrirLaCarte(eleves(OUVERT));
     ecouter("achats/a-1/", () => refus("Cet achat n'existe pas.", "achat_inconnu", undefined, 404));
     deplier();
     await within(carte()).findByRole("table");
 
-    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Cabinet Eva”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Eva Martin”" }));
     const motif = screen.getByLabelText("Motif du retrait");
     saisir(motif, "Remboursement");
     fireEvent.click(screen.getByRole("button", { name: "Oui, retirer l'accès" }));
@@ -1973,24 +2048,36 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
 
   it("une réponse 200 sans la ligne : l'écran ne déduit rien, il RELIT la liste", async () => {
     servirLaListe([SOCIETE]);
-    // La liste, avant puis après le retrait — tel que le serveur le tient.
-    const apres = { ...OUVERT, revoque_le: "2026-11-20T12:00:00+00:00", motif_de_revocation: "Remboursement" };
-    const compte = { lectures: 0 };
+    // Les listes, avant puis après le retrait — telles que le serveur les tient.
+    const achatApres = {
+      ...ACHAT_OUVERT,
+      revoque_le: "2026-11-20T12:00:00+00:00",
+      motif_de_revocation: "Remboursement",
+      acces: "retire",
+    };
+    const compte = { lectures: 0, achats: 0 };
     server.use(
-      http.get(`${DASH}/formations/f-1/achats/`, () => {
+      http.get(`${DASH}/formations/f-1/eleves/`, () => {
         compte.lectures += 1;
-        return HttpResponse.json({ achats: [compte.lectures === 1 ? OUVERT : apres] });
+        return HttpResponse.json({
+          eleves: [compte.lectures === 1 ? OUVERT : { ...OUVERT, acces: "retire" }],
+          lecons_total: 2,
+        });
+      }),
+      http.get(`${DASH}/formations/f-1/achats/`, () => {
+        compte.achats += 1;
+        return HttpResponse.json({ achats: [compte.achats === 1 ? ACHAT_OUVERT : achatApres] });
       }),
     );
     // Ni `{"achat": …}` ni rien de lisible : la ligne nue d'un autre contrat.
-    ecouter("achats/a-1/", () => HttpResponse.json(apres));
+    ecouter("achats/a-1/", () => HttpResponse.json(achatApres));
     rendre();
     await ouvrir(SOCIETE.titre);
     deplier();
     await within(carte()).findByRole("table");
     expect(compte.lectures).toBe(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Cabinet Eva”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Eva Martin”" }));
     saisir(screen.getByLabelText("Motif du retrait"), "Remboursement");
     fireEvent.click(screen.getByRole("button", { name: "Oui, retirer l'accès" }));
 
@@ -1998,9 +2085,27 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     await waitFor(() =>
       expect(ligne("Cabinet Eva").texte).toContain("Accès retiré le 20 novembre 2026 — Remboursement"),
     );
+    expect(ligne("Cabinet Eva").etat).toBe("Retiré");
     expect(compte.lectures).toBe(2);
     expect(within(carte()).getByRole("status")).toHaveTextContent(/la liste est relue/);
     expect(within(carte()).getByRole("status")).not.toHaveTextContent(/est retiré/);
+  });
+
+  it("le détail des retraits en panne : les lignes restent, « Retiré » se lit, et la panne se dit", async () => {
+    servirLaListe([SOCIETE]);
+    server.use(
+      http.get(`${DASH}/formations/f-1/eleves/`, () => HttpResponse.json({ eleves: [RETIRE], lecons_total: 2 })),
+      http.get(`${DASH}/formations/f-1/achats/`, () => new HttpResponse("panne", { status: 500 })),
+    );
+    rendre();
+    await ouvrir(SOCIETE.titre);
+    deplier();
+
+    await within(carte()).findByRole("table");
+    expect(ligne("Atelier Nord").etat).toBe("Retiré");
+    expect(await within(carte()).findByText(/Impossible de charger le détail des accès retirés/)).toBeInTheDocument();
+    // Aucune date ni aucun motif inventés.
+    expect(ligne("Atelier Nord").texte).not.toContain("Accès retiré le");
   });
 
   it("après un changement d'accès, la fiche est relue : le nombre d'inscrits de la bande suit le serveur", async () => {
@@ -2010,10 +2115,15 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
       [uneFormation({ nombre_d_achats: 2 })],
       [uneFormation({ nombre_d_achats: 1 })],
     );
-    servirLesInscrits(inscrits(OUVERT));
+    servirLesEleves(eleves(OUVERT));
     ecouter("achats/a-1/", () =>
       HttpResponse.json({
-        achat: { ...OUVERT, revoque_le: "2026-11-20T12:00:00+00:00", motif_de_revocation: "Remboursement" },
+        achat: {
+          ...ACHAT_OUVERT,
+          revoque_le: "2026-11-20T12:00:00+00:00",
+          motif_de_revocation: "Remboursement",
+          acces: "retire",
+        },
       }),
     );
     rendre();
@@ -2024,7 +2134,7 @@ describe("la carte « Inscrits » d'une formation ouverte", () => {
     await within(carte()).findByRole("table");
     expect(liste.lectures).toBe(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Cabinet Eva”" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retirer l'accès de “Eva Martin”" }));
     saisir(screen.getByLabelText("Motif du retrait"), "Remboursement");
     fireEvent.click(screen.getByRole("button", { name: "Oui, retirer l'accès" }));
 

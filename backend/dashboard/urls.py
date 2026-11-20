@@ -10,6 +10,7 @@ from . import (
     prospection,
     qualite,
     signalements,
+    suivi_des_formations,
     supervision,
     views,
 )
@@ -167,10 +168,40 @@ urlpatterns = [
         formations.achat,
         name="formations-achat",
     ),
+    # Les seances en presentiel et leur feuille d'emargement. AVANT le motif
+    # a parametre, comme `modules/`, `lecons/` et `achats/`. Une seance
+    # s'annule, une signature ne se retire pas : toujours aucun DELETE.
+    path(
+        "formations/seances/<str:seance_id>/",
+        suivi_des_formations.seance,
+        name="formations-seance",
+    ),
+    path(
+        "formations/seances/<str:seance_id>/feuille/",
+        suivi_des_formations.feuille,
+        name="formations-seance-feuille",
+    ),
     path(
         "formations/<str:formation_id>/",
         formations.formation,
         name="formations-formation",
+    ),
+    # Le suivi des eleves (Qualiopi) : le tableau, son export pour
+    # l'auditeur, et les seances de la formation.
+    path(
+        "formations/<str:formation_id>/eleves/",
+        suivi_des_formations.eleves,
+        name="formations-eleves",
+    ),
+    path(
+        "formations/<str:formation_id>/eleves.csv",
+        suivi_des_formations.eleves_csv,
+        name="formations-eleves-csv",
+    ),
+    path(
+        "formations/<str:formation_id>/seances/",
+        suivi_des_formations.seances,
+        name="formations-seances",
     ),
     # Les achats d'une formation, retires compris.
     path(

@@ -117,6 +117,18 @@ urlpatterns = [
         vues.acheter_une_formation,
         name="formations-acheter",
     ),
+    # Le suivi de l'eleve : ce qu'il a ouvert et termine, et sa signature sur
+    # une seance en presentiel. Les deux n'ecrivent que SA trace.
+    path(
+        "formations/lecons/<str:lecon_id>/",
+        vues.suivre_une_lecon,
+        name="formations-lecon",
+    ),
+    path(
+        "formations/seances/<str:seance_id>/emargement/",
+        vues.signer_sa_presence,
+        name="formations-emargement",
+    ),
     path("etudes/acheter/", vues.acheter_une_etude, name="etudes-acheter"),
     # Ouvre le paiement de la formule choisie. POST : elle a un effet chez
     # Stripe, et une adresse de paiement ne doit pas se retrouver dans un

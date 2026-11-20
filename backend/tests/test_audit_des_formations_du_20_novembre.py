@@ -710,6 +710,10 @@ def test_l_administration_liste_les_achats_d_une_formation(client_admin: Any) ->
                 "achete_le": achat.created_at.isoformat(),
                 "revoque_le": None,
                 "motif_de_revocation": "",
+                # Ajoutés avec la durée d'accès : le dernier jour (sans limite
+                # par défaut) et le verdict, que l'écran ne recalcule pas.
+                "acces_jusqu_au": None,
+                "acces": "ouvert",
                 "reference_paiement": f"{reference[:12]}…{reference[-4:]}",
             }
         ]

@@ -49,11 +49,18 @@
  * reconnaît pas, un élément qu'il ne trouve plus — fait relire la liste
  * (`useRelecture`) : sans cela, chaque geste suivant échouerait pareil.
  *
- * ## Les inscrits
+ * ## Le suivi des élèves
  *
- * Sous la fiche et le programme, une carte repliée : qui a acheté la
- * formation, et l'accès de chacun. Un accès se retire, avec un motif, et se
- * rétablit ; l'achat reste (`Inscrits`).
+ * La gérante est certifiée Qualiopi : elle doit montrer qui a suivi quoi.
+ * Sous la fiche et le programme, deux cartes repliées :
+ *
+ * - « Élèves » (`Eleves`) : une ligne par personne et par achat — son accès,
+ *   sa dernière connexion, sa progression, son temps de présentiel signé — et
+ *   le même tableau en fichier pour l'auditeur. Un accès se retire, avec un
+ *   motif, et se rétablit ; son dernier jour se change. L'achat reste ;
+ * - « Séances en présentiel » (`Seances`) : les rendez-vous en salle, leurs
+ *   signatures, et la feuille d'émargement à imprimer. Une séance s'annule et
+ *   se rétablit ; une signature, elle, ne se retire pas.
  *
  * ## Ce que cet écran ne porte pas
  *
@@ -70,19 +77,24 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   adminApi,
   type AchatDeFormationAdmin,
   type ChampRefuse,
+  type ChangementDAcces,
   type CorpsDeFormation,
   type EcritureDeFormation,
+  type EleveDeFormation,
+  type EtatDeLAcces,
   type FormationAdmin,
   type LeconAdmin,
   type ModuleAdmin,
   type NatureDeLecon,
   RefusDuServeur,
+  type SeanceAdmin,
 } from "../api";
 import { ActionsDePage } from "../ActionsDePage";
 import { Icone } from "../icones";
@@ -112,6 +124,14 @@ const NATURES: { valeur: NatureDeLecon; libelle: string }[] = [
 const AIDE_VIDEO =
   "Collez l'adresse https:// de la vidéo hébergée chez votre service de vidéo. " +
   "Aucune vidéo n'est stockée sur la plateforme.";
+
+/** Ce que la durée d'accès veut dire, et ce qu'elle ne ferme pas. */
+const AIDE_DE_DUREE_D_ACCES =
+  "Un nombre entier de mois. 0, ou vide : sans limite de durée. Cette durée vaut pour les " +
+  "achats à venir ; pour une personne déjà inscrite, changez sa date de fin dans la carte " +
+  "« Élèves ». Au terme de l'accès, le programme, les textes et les documents ne s'ouvrent " +
+  "plus dans l'espace de l'élève. Une vidéo hébergée ailleurs reste lisible par qui en a " +
+  "gardé l'adresse : réglez sa confidentialité chez votre hébergeur vidéo.";
 
 /** Les formats d'image que le serveur accepte pour une formation
  *  (`catalog/formations.py`). UNE liste : l'aide du champ et son attribut
@@ -398,10 +418,13 @@ function Fenetre({
   titre,
   onFermer,
   verrouillee = false,
+  classe,
   children,
 }: {
   titre: string;
   onFermer: () => void;
+  /** Une classe de plus sur la fenêtre (la feuille imprimable). */
+  classe?: string;
   /** Un envoi est en cours : la fenêtre attend sa réponse. */
   verrouillee?: boolean;
   children: ReactNode;
@@ -440,7 +463,7 @@ function Fenetre({
   return (
     <dialog
       ref={fenetre}
-      className="console-fenetre frm-fenetre"
+      className={classe ? `console-fenetre frm-fenetre ${classe}` : "console-fenetre frm-fenetre"}
       aria-labelledby={idTitre}
       onCancel={(evenement) => {
         // Échap : c'est l'état de React qui ferme, pas le navigateur.
@@ -591,6 +614,7 @@ const CHAMPS_DE_FICHE = [
   "prix_euros",
   "duree_heures",
   "heures_de_coaching",
+  "duree_d_acces_mois",
 ] as const;
 
 type ChampDeFiche = (typeof CHAMPS_DE_FICHE)[number];
@@ -601,6 +625,7 @@ const NOMBRES_DE_FICHE: readonly ChampDeFiche[] = [
   "prix_euros",
   "duree_heures",
   "heures_de_coaching",
+  "duree_d_acces_mois",
 ];
 
 const AFFICHES_DE_FICHE: readonly string[] = [...CHAMPS_DE_FICHE, "image"];
@@ -614,6 +639,7 @@ function saisieDeFiche(formation: FormationAdmin): SaisieDeFiche {
     prix_euros: prixEnSaisie(formation.prix_cents),
     duree_heures: nombreEnSaisie(formation.duree_heures),
     heures_de_coaching: nombreEnSaisie(formation.heures_de_coaching),
+    duree_d_acces_mois: nombreEnSaisie(formation.duree_d_acces_mois ?? 0),
   };
 }
 
@@ -831,6 +857,23 @@ function Fiche({
             )}
           </ChampRelie>
         </div>
+
+        <ChampRelie
+          id={idDe("duree_d_acces_mois")}
+          libelle="Durée d'accès, en mois"
+          aide={AIDE_DE_DUREE_D_ACCES}
+          erreur={erreurs.duree_d_acces_mois}
+        >
+          {(relie) => (
+            <input
+              {...relie}
+              className="champ-saisie frm-court"
+              inputMode="numeric"
+              autoComplete="off"
+              {...champ("duree_d_acces_mois")}
+            />
+          )}
+        </ChampRelie>
 
         <div className="frm-couverture">
           <div className="frm-couverture-cadre">
@@ -2161,13 +2204,87 @@ function Programme({
   );
 }
 
-// ── Les inscrits ────────────────────────────────────────────────────────────
+// ── Le suivi : ce qui est commun aux élèves et aux séances ──────────────────
 
-/** La clé des inscrits d'une formation. HORS de `CLE`, à dessein : `ranger`
- *  abandonne toute lecture en vol sous `CLE`, et emporterait celle-ci. */
+/** Les clés du suivi d'une formation. HORS de `CLE`, à dessein : `ranger`
+ *  abandonne toute lecture en vol sous `CLE`, et emporterait celles-ci. */
 function cleDesInscrits(formationId: string) {
   return ["admin", "inscrits-d-une-formation", formationId] as const;
 }
+
+function cleDesEleves(formationId: string) {
+  return ["admin", "eleves-d-une-formation", formationId] as const;
+}
+
+function cleDesSeances(formationId: string) {
+  return ["admin", "seances-d-une-formation", formationId] as const;
+}
+
+type LectureDesEleves = Awaited<ReturnType<typeof adminApi.elevesDeLaFormation>>;
+
+/** Comment nommer un élève : son nom, à défaut son adresse. */
+function nomDeLEleve(ligne: { nom: string; email?: string }): string {
+  return (ligne.nom ?? "").trim() || (ligne.email ?? "").trim() || "cet élève";
+}
+
+/** Une ligne du tableau : UNE personne pour UN achat. */
+function cleDeLigne(ligne: { achat_id: string; eleve_id: string | null }): string {
+  return `${ligne.achat_id}:${ligne.eleve_id ?? "sans-compte"}`;
+}
+
+/** L'état d'un accès : le mot de la gérante, et sa pastille. Le mot est
+ *  écrit : l'état ne se lit jamais à la seule teinte. */
+const ACCES: Record<EtatDeLAcces, { libelle: string; pastille: string }> = {
+  ouvert: { libelle: "Ouvert", pastille: "pastille pastille-succes" },
+  echu: { libelle: "Échu", pastille: "pastille pastille-alerte" },
+  retire: { libelle: "Retiré", pastille: "pastille pastille-neutre" },
+};
+
+function etatConnu(valeur: unknown): valeur is EtatDeLAcces {
+  return typeof valeur === "string" && Object.prototype.hasOwnProperty.call(ACCES, valeur);
+}
+
+/** « jusqu'au 20 mai 2027 », ou « sans limite ». */
+function finDeLAcces(dernierJour: string | null | undefined): string {
+  return dernierJour ? `jusqu'au ${f.jour(dernierJour)}` : "sans limite";
+}
+
+/** L'achat est-il retiré ? Le serveur le dit par la date du retrait. */
+function accesRetire(achat: AchatDeFormationAdmin): boolean {
+  return typeof achat.revoque_le === "string" && achat.revoque_le !== "";
+}
+
+/** « 45 min », « 2 h », « 1 h 30 » — et « 0 min » pour un vrai zéro. */
+function heuresEtMinutes(minutes: number): string {
+  const entieres = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0;
+  const heures = Math.floor(entieres / 60);
+  const reste = entieres % 60;
+  if (heures === 0) return `${reste}${INSECABLE}min`;
+  if (reste === 0) return `${heures}${INSECABLE}h`;
+  return `${heures}${INSECABLE}h${INSECABLE}${String(reste).padStart(2, "0")}`;
+}
+
+/** La phrase d'un envoi qui a échoué, ou un repli. */
+function ditDuRefus(cause: unknown, repli: string): string {
+  return cause instanceof Error && cause.message ? cause.message : repli;
+}
+
+/** Remet un fichier reçu au navigateur, qui l'enregistre dans les
+ *  téléchargements. L'adresse retient le fichier en mémoire : elle est
+ *  relâchée une fois l'enregistrement parti. */
+function enregistrerLeFichier(blob: Blob, nom: string): void {
+  const adresse = URL.createObjectURL(blob);
+  const lien = document.createElement("a");
+  lien.href = adresse;
+  lien.download = nom;
+  lien.hidden = true;
+  document.body.append(lien);
+  lien.click();
+  lien.remove();
+  window.setTimeout(() => URL.revokeObjectURL(adresse), 10_000);
+}
+
+// ── Les élèves ──────────────────────────────────────────────────────────────
 
 /** Un motif COURT : de quoi s'en souvenir, pas un compte rendu. La limite qui
  *  fait foi est celle du serveur (`AchatFormation.motif_de_revocation`, 200
@@ -2177,177 +2294,333 @@ const LONGUEUR_DU_MOTIF = 200;
 
 const MOTIF_MANQUANT = "Indiquez le motif, en quelques mots.";
 
-/** Comment nommer un inscrit : son organisation, à défaut son adresse. */
-function nomDeLInscrit(achat: AchatDeFormationAdmin): string {
-  return achat.organisation || achat.email || "cet inscrit";
+const DATE_MANQUANTE = "Choisissez une date, ou cliquez sur « Sans limite ».";
+
+/** La progression d'un élève : une barre, et la même chose en toutes
+ *  lettres. Sans leçon au programme, le pourcentage ne se calcule pas : on le
+ *  dit, on n'affiche pas un zéro (règle 1). */
+function Progression({ ligne }: { ligne: EleveDeFormation }) {
+  if (typeof ligne.pourcent !== "number" || !Number.isFinite(ligne.pourcent)) {
+    return (
+      <span className="frm-progression-vide">non calculable : aucune leçon au programme</span>
+    );
+  }
+  const pourcent = Math.min(100, Math.max(0, Math.round(ligne.pourcent)));
+  const lu =
+    `${ligne.lecons_terminees}${INSECABLE}/${INSECABLE}${ligne.lecons_total}${INSECABLE}` +
+    `leçon${ligne.lecons_total > 1 ? "s" : ""} — ${pourcent}${INSECABLE}%`;
+  return (
+    <div className="frm-progression">
+      <div
+        className="jauge"
+        role="progressbar"
+        aria-valuenow={pourcent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuetext={lu}
+        aria-label={`Progression de ${nomDeLEleve(ligne)}`}
+      >
+        {/* Toute la largeur, décalée de ce qui manque : un `transform` se
+            compose sans refaire la mise en page (voir `.jauge`). */}
+        <span
+          className="jauge-remplissage"
+          style={{ transform: `translateX(-${100 - pourcent}%)` }}
+        />
+      </div>
+      <span className="frm-progression-texte">{lu}</span>
+    </div>
+  );
 }
 
-/** L'accès est-il retiré ? Le serveur le dit par la date du retrait. */
-function accesRetire(achat: AchatDeFormationAdmin): boolean {
-  return typeof achat.revoque_le === "string" && achat.revoque_le !== "";
-}
+/** Ce que la gérante est en train de décider pour une ligne. */
+type PanneauDAcces = { genre: "retrait" | "date"; ligne: EleveDeFormation } | null;
 
-/** « Accès ouvert », ou « Accès retiré le 20 novembre 2026 — remboursement ». */
-function etatDeLAcces(achat: AchatDeFormationAdmin): string {
-  if (!accesRetire(achat)) return "Accès ouvert";
-  const motif = (achat.motif_de_revocation ?? "").trim();
-  return `Accès retiré le ${f.date(achat.revoque_le)}${motif ? ` — ${motif}` : ""}`;
-}
-
-/** Un changement d'accès demandé : retirer (avec son motif) ou rétablir. */
+/** Un changement d'accès demandé : retirer, rétablir, ou fixer le dernier
+ *  jour. `bouton` : celui qui reprend le focus une fois la réponse rangée. */
 interface ChangementVoulu {
-  achat: AchatDeFormationAdmin;
-  revoque: boolean;
-  motif?: string;
+  ligne: EleveDeFormation;
+  corps: ChangementDAcces;
+  bouton: "acces" | "date";
 }
 
-/** Les inscrits d'une formation, et l'accès de chacun.
+/** Les élèves d'une formation : ce que la gérante montre à un auditeur.
  *
- *  Repliée par défaut : la liste n'est lue qu'à l'ouverture, et relue à
+ *  Une ligne par personne et par achat — l'accès, la dernière connexion, la
+ *  dernière activité sur la formation, la progression, le temps de présentiel
+ *  signé. Le serveur calcule tout (`catalog/suivi.py`) : l'écran n'additionne
+ *  ni ne déduit rien.
+ *
+ *  Repliée par défaut : rien n'est lu avant l'ouverture, et tout est relu à
  *  chaque ouverture. Trois états se disent — le chargement, la panne (jamais
- *  « aucun inscrit » sur une lecture ratée, règle 1) et la liste REÇUE vide.
+ *  « aucun élève » sur une lecture ratée, règle 1) et la liste REÇUE vide.
  *
- *  Un accès se RETIRE, avec un motif, et se rétablit : l'achat et son
- *  paiement restent. Le geste est donc discret, et demande confirmation
- *  parce que la personne perd l'accès sur-le-champ. La ligne affichée après
- *  coup est celle que le serveur rend — l'écran n'annonce pas un retrait que
- *  la ligne rendue ne montre pas. */
-function Inscrits({ formation }: { formation: FormationAdmin }) {
+ *  Un accès se RETIRE, avec un motif, et se rétablit ; son dernier jour se
+ *  change, ou se lève (« Sans limite »). L'achat et son paiement restent.
+ *  L'accès est celui de l'ACHAT : quand plusieurs personnes le partagent, le
+ *  geste vaut pour toutes, et la confirmation le dit. L'état affiché après
+ *  coup est celui que le serveur rend — l'écran n'annonce pas un changement
+ *  que la réponse ne montre pas.
+ *
+ *  Le motif et la date d'un retrait viennent de la liste des achats, lue à
+ *  côté : si elle manque, la ligne dit « Retiré » sans son détail, et la panne
+ *  se dit. */
+function Eleves({ formation }: { formation: FormationAdmin }) {
   const base = useId();
   const cache = useQueryClient();
   const conteneur = useRef<HTMLDivElement>(null);
   const [ouvert, setOuvert] = useState(false);
-  /** L'achat dont on confirme le retrait d'accès. */
-  const [aRetirer, setARetirer] = useState<AchatDeFormationAdmin | null>(null);
+  const [panneau, setPanneau] = useState<PanneauDAcces>(null);
   const [motif, setMotif] = useState("");
-  const [erreurDuMotif, setErreurDuMotif] = useState("");
+  const [dernierJour, setDernierJour] = useState("");
+  const [erreurDuChamp, setErreurDuChamp] = useState("");
   const [annonce, setAnnonce] = useState("");
   const [erreur, setErreur] = useState("");
-  const cle = cleDesInscrits(formation.id);
+  const cle = cleDesEleves(formation.id);
+  const cleDesAchats = cleDesInscrits(formation.id);
+  const idDuMotif = `${base}-motif`;
+  const idDuJour = `${base}-jour`;
 
   const lecture = useQuery({
     queryKey: cle,
+    queryFn: () => adminApi.elevesDeLaFormation(formation.id),
+    enabled: ouvert,
+  });
+  const detail = useQuery({
+    queryKey: cleDesAchats,
     queryFn: () => adminApi.inscritsDeLaFormation(formation.id),
     enabled: ouvert,
   });
 
-  function boutonDe(achatId: string): HTMLElement | null {
+  function boutonDe(voulu: { ligne: EleveDeFormation; bouton: "acces" | "date" }) {
     return (
-      conteneur.current?.querySelector<HTMLElement>(`[data-frm="acces-${achatId}"]`) ?? null
+      conteneur.current?.querySelector<HTMLElement>(
+        `[data-frm="${voulu.bouton}-${cleDeLigne(voulu.ligne)}"]`,
+      ) ?? null
     );
+  }
+
+  function fermerLePanneau() {
+    setPanneau(null);
+    setMotif("");
+    setDernierJour("");
+    setErreurDuChamp("");
   }
 
   const changement = useMutation({
     ...enFile(formation.id),
     mutationFn: (voulu: ChangementVoulu) =>
-      adminApi.changerLAccesALaFormation(
-        voulu.achat.id,
-        voulu.revoque ? { revoque: true, motif: voulu.motif } : { revoque: false },
-      ),
+      adminApi.changerLAccesALaFormation(voulu.ligne.achat_id, voulu.corps),
     onSuccess: (rendue: AchatDeFormationAdmin | null, voulu) => {
-      const nom = nomDeLInscrit(voulu.achat);
-      setARetirer(null);
-      setMotif("");
-      setErreurDuMotif("");
+      const nom = nomDeLEleve(voulu.ligne);
+      fermerLePanneau();
       // Le nombre d'inscrits de la bande d'état vient de la fiche : on la
       // relit, plutôt que de deviner si un accès retiré compte encore.
       void cache.invalidateQueries({ queryKey: CLE });
-      if (rendue !== null && rendue.id === voulu.achat.id) {
-        // La ligne que le serveur vient de rendre prend la place de l'ancienne.
-        cache.setQueryData<{ achats: AchatDeFormationAdmin[] }>(cle, (avant) =>
-          avant
-            ? { achats: avant.achats.map((achat) => (achat.id === rendue.id ? rendue : achat)) }
-            : avant,
-        );
-        if (accesRetire(rendue) === voulu.revoque) {
-          setErreur("");
-          setAnnonce(
-            voulu.revoque
-              ? `L'accès de « ${nom} » est retiré. Rien n'est effacé : vous pouvez le rétablir d'ici.`
-              : `L'accès de « ${nom} » est rétabli.`,
-          );
-        } else {
-          setAnnonce("");
-          setErreur(
-            `Le changement demandé pour « ${nom} » n'apparaît pas dans la réponse du serveur : vérifiez l'état affiché, puis réessayez.`,
-          );
-        }
-      } else {
-        // Réponse illisible : on ne déduit rien, on relit la liste.
+      if (rendue === null || rendue.id !== voulu.ligne.achat_id) {
+        // Réponse illisible : on ne déduit rien, on relit les listes.
         void cache.invalidateQueries({ queryKey: cle });
+        void cache.invalidateQueries({ queryKey: cleDesAchats });
         setErreur("");
         setAnnonce("Le changement est envoyé : la liste est relue, vérifiez l'état affiché.");
+        boutonDe(voulu)?.focus();
+        return;
       }
-      boutonDe(voulu.achat.id)?.focus();
+      // L'achat que le serveur vient de rendre prend la place de l'ancien…
+      cache.setQueryData<{ achats: AchatDeFormationAdmin[] }>(cleDesAchats, (avant) =>
+        avant
+          ? { achats: avant.achats.map((achat) => (achat.id === rendue.id ? rendue : achat)) }
+          : avant,
+      );
+      // … et son état se reporte sur chaque personne qui le partage.
+      const etat = rendue.acces;
+      if (etatConnu(etat)) {
+        cache.setQueryData<LectureDesEleves>(cle, (avant) =>
+          avant
+            ? {
+                ...avant,
+                eleves: avant.eleves.map((ligne) =>
+                  ligne.achat_id === rendue.id
+                    ? { ...ligne, acces: etat, acces_jusqu_au: rendue.acces_jusqu_au ?? null }
+                    : ligne,
+                ),
+              }
+            : avant,
+        );
+      } else {
+        // Un serveur qui ne dit pas l'état : la liste est relue.
+        void cache.invalidateQueries({ queryKey: cle });
+      }
+
+      const { revoque } = voulu.corps;
+      const conforme =
+        revoque === undefined
+          ? (rendue.acces_jusqu_au ?? null) === (voulu.corps.acces_jusqu_au ?? null)
+          : accesRetire(rendue) === revoque;
+      if (!conforme) {
+        setAnnonce("");
+        setErreur(
+          `Le changement demandé pour « ${nom} » n'apparaît pas dans la réponse du serveur : vérifiez l'état affiché, puis réessayez.`,
+        );
+      } else if (revoque === true) {
+        setErreur("");
+        setAnnonce(
+          `L'accès de « ${nom} » est retiré. Rien n'est effacé : vous pouvez le rétablir d'ici.`,
+        );
+      } else if (revoque === false) {
+        setErreur("");
+        setAnnonce(
+          avecSuite(
+            `L'accès de « ${nom} » est rétabli.`,
+            etat === "echu"
+              ? "Son dernier jour est passé : l'accès reste échu tant que vous ne changez pas sa date de fin."
+              : "",
+          ),
+        );
+      } else {
+        setErreur("");
+        setAnnonce(
+          avecSuite(
+            rendue.acces_jusqu_au
+              ? `L'accès de « ${nom} » court maintenant jusqu'au ${f.jour(rendue.acces_jusqu_au)} inclus.`
+              : `L'accès de « ${nom} » est maintenant sans limite de durée.`,
+            etat === "echu" ? "Cette date est passée : l'accès est échu." : "",
+          ),
+        );
+      }
+      boutonDe(voulu)?.focus();
     },
     onError: (cause: unknown, voulu) => {
       setAnnonce("");
-      // Un refus qui désigne le motif (`motif_trop_long`, `motif_illisible`)
-      // se pose CONTRE le champ, tant que la confirmation le montre.
-      if (voulu.revoque && cause instanceof RefusDuServeur && cause.champ === "motif") {
+      // Un refus qui désigne le champ ouvert (`motif_trop_long`,
+      // `date_illisible`) se pose CONTRE lui, tant que le panneau le montre.
+      const champ = cause instanceof RefusDuServeur ? cause.champ : "";
+      if (voulu.corps.revoque === true && champ === "motif") {
         setErreur("");
-        setErreurDuMotif(cause.message);
-        document.getElementById(`${base}-motif`)?.focus();
+        setErreurDuChamp(ditDuRefus(cause, MOTIF_MANQUANT));
+        document.getElementById(idDuMotif)?.focus();
+        return;
+      }
+      if (voulu.bouton === "date" && champ === "acces_jusqu_au") {
+        setErreur("");
+        setErreurDuChamp(ditDuRefus(cause, DATE_MANQUANTE));
+        document.getElementById(idDuJour)?.focus();
         return;
       }
       // Un achat que le serveur ne trouve plus : la liste a changé ailleurs.
       const perime = ecranPerime(cause);
-      if (perime) void cache.invalidateQueries({ queryKey: cle });
+      if (perime) {
+        void cache.invalidateQueries({ queryKey: cle });
+        void cache.invalidateQueries({ queryKey: cleDesAchats });
+      }
       setErreur(
         avecSuite(
-          cause instanceof Error && cause.message
-            ? cause.message
-            : "Le changement n'a pas pu être fait. Réessayez.",
+          ditDuRefus(cause, "Le changement n'a pas pu être fait. Réessayez."),
           perime ? DIT_RELU : "",
         ),
       );
     },
   });
 
+  // Une LECTURE : hors de la file des écritures, et sans pause hors connexion.
+  const exportation = useMutation({
+    networkMode: "always",
+    mutationFn: () => adminApi.exporterLesEleves(formation.id, formation.slug),
+    onSuccess: (fichier) => {
+      enregistrerLeFichier(fichier.blob, fichier.nom);
+      setErreur("");
+      setAnnonce(
+        `Le fichier « ${fichier.nom} » est prêt : votre navigateur l'enregistre dans vos téléchargements.`,
+      );
+    },
+    onError: (cause: unknown) => {
+      setAnnonce("");
+      setErreur(ditDuRefus(cause, "Le fichier n'a pas pu être préparé. Réessayez."));
+    },
+  });
+
   const occupe = changement.isPending;
-  const enCours = occupe ? changement.variables?.achat.id : undefined;
-  const achats = lecture.data?.achats ?? [];
+  const enCours = occupe && changement.variables ? cleDeLigne(changement.variables.ligne) : "";
+  const lignes = lecture.data?.eleves ?? [];
+  const achatsParId = new Map((detail.data?.achats ?? []).map((achat) => [achat.id, achat]));
+
+  /** Combien de personnes partagent l'achat de cette ligne. */
+  function partage(ligne: EleveDeFormation): number {
+    return lignes.filter((autre) => autre.achat_id === ligne.achat_id).length;
+  }
 
   function renoncer() {
-    const achat = aRetirer;
-    setARetirer(null);
-    setMotif("");
-    setErreurDuMotif("");
-    if (achat) boutonDe(achat.id)?.focus();
+    const ouvertSur = panneau;
+    fermerLePanneau();
+    if (ouvertSur) {
+      boutonDe({
+        ligne: ouvertSur.ligne,
+        bouton: ouvertSur.genre === "date" ? "date" : "acces",
+      })?.focus();
+    }
   }
 
-  function demanderLeRetrait(achat: AchatDeFormationAdmin) {
+  function ouvrirLePanneau(genre: "retrait" | "date", ligne: EleveDeFormation) {
     setErreur("");
     setAnnonce("");
     setMotif("");
-    setErreurDuMotif("");
-    setARetirer(achat);
+    setErreurDuChamp("");
+    setDernierJour(genre === "date" ? (ligne.acces_jusqu_au ?? "").slice(0, 10) : "");
+    setPanneau({ genre, ligne });
   }
 
-  function retablir(achat: AchatDeFormationAdmin) {
+  function retablir(ligne: EleveDeFormation) {
     setErreur("");
     setAnnonce("");
-    setARetirer(null);
-    changement.mutate({ achat, revoque: false });
+    fermerLePanneau();
+    changement.mutate({ ligne, corps: { revoque: false }, bouton: "acces" });
   }
 
   function confirmerLeRetrait() {
-    if (occupe || !aRetirer) return;
+    if (occupe || panneau?.genre !== "retrait") return;
     const dit = motif.trim();
     if (dit === "") {
-      setErreurDuMotif(MOTIF_MANQUANT);
-      document.getElementById(`${base}-motif`)?.focus();
+      setErreurDuChamp(MOTIF_MANQUANT);
+      document.getElementById(idDuMotif)?.focus();
       return;
     }
-    setErreurDuMotif("");
+    setErreurDuChamp("");
     setErreur("");
-    changement.mutate({ achat: aRetirer, revoque: true, motif: dit });
+    changement.mutate({
+      ligne: panneau.ligne,
+      corps: { revoque: true, motif: dit },
+      bouton: "acces",
+    });
   }
+
+  /** `jour` : un jour `AAAA-MM-JJ`, ou `null` pour « sans limite ». */
+  function fixerLeDernierJour(jour: string | null) {
+    if (occupe || panneau?.genre !== "date") return;
+    if (jour === "") {
+      setErreurDuChamp(DATE_MANQUANTE);
+      document.getElementById(idDuJour)?.focus();
+      return;
+    }
+    setErreurDuChamp("");
+    setErreur("");
+    changement.mutate({
+      ligne: panneau.ligne,
+      corps: { acces_jusqu_au: jour },
+      bouton: "date",
+    });
+  }
+
+  const partageDuPanneau = panneau ? partage(panneau.ligne) : 0;
+  const ditLePartage =
+    panneau && partageDuPanneau > 1
+      ? `Cet achat est partagé par ${partageDuPanneau} personnes${
+          panneau.ligne.organisation ? ` de « ${panneau.ligne.organisation} »` : ""
+        } : le changement vaut pour toutes.`
+      : "";
 
   return (
     <Carte
-      titre="Inscrits"
-      note="Les personnes qui ont acheté cette formation, et l'accès de chacune."
+      titre="Élèves"
+      note="Les personnes inscrites à cette formation : leur accès, leur avancée et leur présence."
       action={
         <button
           type="button"
@@ -2356,7 +2629,7 @@ function Inscrits({ formation }: { formation: FormationAdmin }) {
           aria-controls={`${base}-corps`}
           onClick={() => setOuvert((avant) => !avant)}
         >
-          {ouvert ? "Masquer les inscrits" : "Afficher les inscrits"}
+          {ouvert ? "Masquer les élèves" : "Afficher les élèves"}
         </button>
       }
     >
@@ -2376,88 +2649,190 @@ function Inscrits({ formation }: { formation: FormationAdmin }) {
 
             {lecture.isError && (
               <ErreurDeChargement
-                quoi="les inscrits"
+                quoi="les élèves"
                 erreur={lecture.error}
                 perimees={lecture.isRefetchError}
+              />
+            )}
+            {/* Le détail des retraits manque : les lignes restent, et on le
+                dit — un accès retiré s'affiche alors sans sa date ni son
+                motif. */}
+            {detail.isError && !lecture.isError && lignes.length > 0 && (
+              <ErreurDeChargement
+                quoi="le détail des accès retirés"
+                erreur={detail.error}
+                perimees={detail.isRefetchError}
               />
             )}
 
             {lecture.isPending && <Squelette lignes={3} />}
 
             {/* Sous une mise à jour ratée, « aucun » ne se redit pas. */}
-            {lecture.data && achats.length === 0 && !lecture.isError && (
+            {lecture.data && lignes.length === 0 && !lecture.isError && (
               <Vide
                 icone={<Icone nom="formations" />}
-                titre="Aucun inscrit pour l'instant"
-                texte="Les personnes qui achètent cette formation apparaissent ici, avec leur accès."
+                titre="Aucun élève pour l'instant"
+                texte="Les personnes qui achètent cette formation apparaissent ici, avec leur accès et leur avancée."
               />
             )}
 
-            {achats.length > 0 && (
-              <div className="tableau-cadre tableau-defile">
-                <table className="tableau">
-                  <thead>
-                    <tr>
-                      <th scope="col">Organisation</th>
-                      <th scope="col">Adresse</th>
-                      <th scope="col" className="nombre">
-                        Montant
-                      </th>
-                      <th scope="col">Date</th>
-                      <th scope="col">État</th>
-                      <th scope="col">
-                        <span className="visuellement-cache">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {achats.map((achat) => {
-                      const retire = accesRetire(achat);
-                      const nom = nomDeLInscrit(achat);
-                      return (
-                        <tr key={achat.id}>
-                          <td>
-                            <strong>{achat.organisation || "—"}</strong>
-                          </td>
-                          <td>{achat.email || "—"}</td>
-                          <td className="nombre">
-                            {typeof achat.montant_cents === "number"
-                              ? montant(achat.montant_cents, achat.devise)
-                              : "—"}
-                          </td>
-                          <td>{f.date(achat.achete_le)}</td>
-                          <td>{etatDeLAcces(achat)}</td>
-                          <td>
-                            {/* `aria-disabled` plutôt que `disabled` : le
-                                bouton garde le focus pendant l'envoi. Le
-                                clic, lui, est alors sans effet. */}
-                            <button
-                              type="button"
-                              className={
-                                retire ? "bouton bouton-contour" : "bouton bouton-discret"
-                              }
-                              data-frm={`acces-${achat.id}`}
-                              aria-label={`${retire ? "Rétablir" : "Retirer"} l'accès de “${nom}”`}
-                              aria-disabled={occupe || undefined}
-                              aria-busy={enCours === achat.id || undefined}
-                              onClick={() => {
-                                if (occupe) return;
-                                if (retire) retablir(achat);
-                                else demanderLeRetrait(achat);
-                              }}
-                            >
-                              {retire ? "Rétablir l'accès" : "Retirer l'accès"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            {lignes.length > 0 && (
+              <>
+                <div className="frm-eleves-outils">
+                  <p className="carte-note">
+                    {pluriel(lignes.length, "ligne")} — une par personne et par achat.
+                  </p>
+                  <button
+                    type="button"
+                    className={
+                      exportation.isPending
+                        ? "bouton bouton-contour bouton-chargement"
+                        : "bouton bouton-contour"
+                    }
+                    aria-disabled={exportation.isPending || undefined}
+                    aria-busy={exportation.isPending || undefined}
+                    onClick={() => {
+                      if (!exportation.isPending) exportation.mutate();
+                    }}
+                  >
+                    <Icone nom="telecharger" taille={16} />
+                    {exportation.isPending ? "Préparation…" : "Exporter (CSV)"}
+                  </button>
+                </div>
+
+                {/* Les rôles sont écrits : sur téléphone les lignes deviennent
+                    des cartes (`display: block`), et un navigateur qui voit
+                    un tableau sans sa mise en forme cesse de l'annoncer comme
+                    tel. */}
+                <div className="tableau-cadre tableau-defile frm-eleves-cadre">
+                  <table className="tableau frm-eleves" role="table">
+                    <thead role="rowgroup">
+                      <tr role="row">
+                        <th scope="col" role="columnheader">
+                          Élève
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Organisation
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Acheté le
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Accès
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Dernière connexion
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Dernière activité
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Progression
+                        </th>
+                        <th scope="col" role="columnheader">
+                          Présentiel signé
+                        </th>
+                        <th scope="col" role="columnheader">
+                          <span className="visuellement-cache">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody role="rowgroup">
+                      {lignes.map((ligne) => {
+                        const cleLigne = cleDeLigne(ligne);
+                        const retire = ligne.acces === "retire";
+                        const nom = nomDeLEleve(ligne);
+                        const achat = achatsParId.get(ligne.achat_id);
+                        const motifDuRetrait = (achat?.motif_de_revocation ?? "").trim();
+                        const etat = etatConnu(ligne.acces) ? ACCES[ligne.acces] : null;
+                        return (
+                          <tr key={cleLigne} role="row">
+                            <th scope="row" role="rowheader" className="frm-eleve-nom">
+                              <strong>{nom}</strong>
+                              {ligne.nom.trim() !== "" && ligne.email && (
+                                <span className="frm-eleve-adresse">{ligne.email}</span>
+                              )}
+                            </th>
+                            <td role="cell" data-libelle="Organisation">
+                              {ligne.organisation || "—"}
+                            </td>
+                            <td role="cell" data-libelle="Acheté le">
+                              {f.date(ligne.achete_le)}
+                            </td>
+                            <td role="cell" data-libelle="Accès">
+                              <span className="frm-acces">
+                                {etat && <span className={etat.pastille}>{etat.libelle}</span>}
+                                <span>{finDeLAcces(ligne.acces_jusqu_au)}</span>
+                                {retire && achat && accesRetire(achat) && (
+                                  <span className="frm-acces-detail">
+                                    Accès retiré le {f.date(achat.revoque_le)}
+                                    {motifDuRetrait ? ` — ${motifDuRetrait}` : ""}
+                                  </span>
+                                )}
+                              </span>
+                            </td>
+                            <td role="cell" data-libelle="Dernière connexion">
+                              {ligne.derniere_connexion
+                                ? f.dateHeure(ligne.derniere_connexion)
+                                : "jamais"}
+                            </td>
+                            <td role="cell" data-libelle="Dernière activité">
+                              {ligne.derniere_activite
+                                ? f.dateHeure(ligne.derniere_activite)
+                                : "aucune"}
+                            </td>
+                            <td role="cell" data-libelle="Progression">
+                              <Progression ligne={ligne} />
+                            </td>
+                            <td role="cell" data-libelle="Présentiel signé">
+                              {heuresEtMinutes(ligne.minutes_en_presentiel_signees)}
+                            </td>
+                            <td role="cell" className="frm-eleve-gestes">
+                              {/* `aria-disabled` plutôt que `disabled` : le
+                                  bouton garde le focus pendant l'envoi. Le
+                                  clic, lui, est alors sans effet. */}
+                              <div className="console-gestes">
+                                <button
+                                  type="button"
+                                  className="bouton bouton-contour"
+                                  data-frm={`date-${cleLigne}`}
+                                  aria-label={`Changer la date de fin d'accès de “${nom}”`}
+                                  aria-disabled={occupe || undefined}
+                                  onClick={() => {
+                                    if (!occupe) ouvrirLePanneau("date", ligne);
+                                  }}
+                                >
+                                  Changer la date de fin
+                                </button>
+                                <button
+                                  type="button"
+                                  className={
+                                    retire ? "bouton bouton-contour" : "bouton bouton-discret"
+                                  }
+                                  data-frm={`acces-${cleLigne}`}
+                                  aria-label={`${retire ? "Rétablir" : "Retirer"} l'accès de “${nom}”`}
+                                  aria-disabled={occupe || undefined}
+                                  aria-busy={enCours === cleLigne || undefined}
+                                  onClick={() => {
+                                    if (occupe) return;
+                                    if (retire) retablir(ligne);
+                                    else ouvrirLePanneau("retrait", ligne);
+                                  }}
+                                >
+                                  {retire ? "Rétablir l'accès" : "Retirer l'accès"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
 
-            {aRetirer && (
+            {panneau?.genre === "retrait" && (
               <div
                 className="console-confirmation"
                 role="alertdialog"
@@ -2468,12 +2843,12 @@ function Inscrits({ formation }: { formation: FormationAdmin }) {
                 }}
               >
                 <p id={`${base}-question`}>
-                  <b>Retirer l'accès de « {nomDeLInscrit(aRetirer)} » à cette formation ?</b>
+                  <b>Retirer l'accès de « {nomDeLEleve(panneau.ligne)} » à cette formation ?</b>
                 </p>
                 <p className="carte-note" id={`${base}-consequence`}>
                   Cette personne ne pourra plus ouvrir la formation depuis son espace. Rien
-                  n'est effacé : son achat et son paiement restent enregistrés, et vous pouvez
-                  rétablir l'accès à tout moment.
+                  n'est effacé : son achat, son paiement et son suivi restent enregistrés, et
+                  vous pouvez rétablir l'accès à tout moment.{ditLePartage && ` ${ditLePartage}`}
                 </p>
                 <form
                   className="frm-retrait"
@@ -2484,10 +2859,10 @@ function Inscrits({ formation }: { formation: FormationAdmin }) {
                   }}
                 >
                   <ChampRelie
-                    id={`${base}-motif`}
+                    id={idDuMotif}
                     libelle="Motif du retrait"
                     aide="Quelques mots : un remboursement, un achat fait par erreur…"
-                    erreur={erreurDuMotif || undefined}
+                    erreur={erreurDuChamp || undefined}
                   >
                     {(relie) => (
                       <input
@@ -2500,7 +2875,7 @@ function Inscrits({ formation }: { formation: FormationAdmin }) {
                         autoFocus
                         onChange={(e) => {
                           setMotif(e.currentTarget.value);
-                          if (erreurDuMotif) setErreurDuMotif("");
+                          if (erreurDuChamp) setErreurDuChamp("");
                         }}
                       />
                     )}
@@ -2526,9 +2901,1129 @@ function Inscrits({ formation }: { formation: FormationAdmin }) {
                 </form>
               </div>
             )}
+
+            {panneau?.genre === "date" && (
+              <form
+                className="console-confirmation"
+                role="group"
+                aria-labelledby={`${base}-date-titre`}
+                aria-describedby={`${base}-date-note`}
+                noValidate
+                onKeyDown={(evenement) => {
+                  if (evenement.key === "Escape" && !occupe) renoncer();
+                }}
+                onSubmit={(evenement) => {
+                  evenement.preventDefault();
+                  fixerLeDernierJour(dernierJour);
+                }}
+              >
+                <p id={`${base}-date-titre`}>
+                  <b>Date de fin d'accès de « {nomDeLEleve(panneau.ligne)} »</b>
+                </p>
+                <p className="carte-note" id={`${base}-date-note`}>
+                  Aujourd'hui : {finDeLAcces(panneau.ligne.acces_jusqu_au)}. Le jour choisi est
+                  le dernier où la formation reste ouverte ; une date déjà passée ferme l'accès
+                  tout de suite.{ditLePartage && ` ${ditLePartage}`}
+                </p>
+                <ChampRelie
+                  id={idDuJour}
+                  libelle="Dernier jour d'accès"
+                  erreur={erreurDuChamp || undefined}
+                >
+                  {(relie) => (
+                    <input
+                      {...relie}
+                      className="champ-saisie frm-jour"
+                      type="date"
+                      value={dernierJour}
+                      autoFocus
+                      onChange={(e) => {
+                        setDernierJour(e.currentTarget.value);
+                        if (erreurDuChamp) setErreurDuChamp("");
+                      }}
+                    />
+                  )}
+                </ChampRelie>
+                <div className="console-gestes">
+                  <button
+                    type="button"
+                    className="bouton bouton-discret"
+                    disabled={occupe}
+                    onClick={renoncer}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    className="bouton bouton-contour"
+                    disabled={occupe}
+                    onClick={() => fixerLeDernierJour(null)}
+                  >
+                    Sans limite
+                  </button>
+                  <button
+                    type="submit"
+                    className="bouton bouton-principal"
+                    disabled={occupe}
+                    aria-busy={occupe || undefined}
+                  >
+                    {occupe ? "Enregistrement…" : "Enregistrer la date"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         )}
       </div>
+    </Carte>
+  );
+}
+
+// ── Les séances en présentiel ───────────────────────────────────────────────
+
+type EtatDeSeance = "a_venir" | "a_signer" | "signee" | "annulee";
+
+const ETATS_DE_SEANCE: Record<EtatDeSeance, { libelle: string; pastille: string }> = {
+  a_venir: { libelle: "À venir", pastille: "pastille pastille-info" },
+  a_signer: { libelle: "À signer", pastille: "pastille pastille-alerte" },
+  signee: { libelle: "Signée par la formatrice", pastille: "pastille pastille-succes" },
+  annulee: { libelle: "Annulée", pastille: "pastille pastille-neutre" },
+};
+
+/** Où en est une séance. `maintenant` vient de l'appelant : une horloge lue
+ *  pendant le dessin donnerait deux réponses à deux dessins du même état. */
+function etatDeLaSeance(seance: SeanceAdmin, maintenant: number): EtatDeSeance {
+  if (seance.annulee_le) return "annulee";
+  if (seance.signee_par_la_formatrice_le) return "signee";
+  const debut = new Date(seance.debut).getTime();
+  return Number.isFinite(debut) && debut > maintenant ? "a_venir" : "a_signer";
+}
+
+/** Une séance qui porte une signature — celle de la formatrice ou d'un
+ *  élève — ne se décrit plus autrement : le serveur le refuse. */
+function porteUneSignature(seance: SeanceAdmin): boolean {
+  return Boolean(seance.signee_par_la_formatrice_le) || seance.emargements.length > 0;
+}
+
+const DIT_FIGEE =
+  "Une séance qui porte une signature — la vôtre ou celle d'un élève — ne se modifie plus : " +
+  "ni son intitulé, ni sa date, ni sa durée, ni son lieu, ni le nom de la formatrice. " +
+  "Vous pouvez encore l'annuler, et en créer une autre.";
+
+function modeDeSignature(mode: string): string {
+  return mode === "papier" ? "sur papier" : "en ligne";
+}
+
+const CHAMPS_DE_SEANCE = [
+  "intitule",
+  "debut",
+  "duree_minutes",
+  "lieu",
+  "nom_de_la_formatrice",
+] as const;
+
+type ChampDeSeance = (typeof CHAMPS_DE_SEANCE)[number];
+type SaisieDeSeance = Record<ChampDeSeance, string>;
+
+/** Le début d'une séance tel que le champ le montre : `AAAA-MM-JJTHH:MM`, À
+ *  L'HEURE DE PARIS — celle que le serveur attend en retour. */
+function debutEnSaisie(iso: string): string {
+  const instant = new Date(iso);
+  if (Number.isNaN(instant.getTime())) return "";
+  const morceaux = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const lu = (genre: string) => morceaux.find((morceau) => morceau.type === genre)?.value ?? "";
+  return `${lu("year")}-${lu("month")}-${lu("day")}T${lu("hour")}:${lu("minute")}`;
+}
+
+function saisieDeSeance(seance: SeanceAdmin | null): SaisieDeSeance {
+  return {
+    intitule: seance?.intitule ?? "",
+    debut: seance ? debutEnSaisie(seance.debut) : "",
+    duree_minutes: nombreEnSaisie(seance?.duree_minutes ?? 0),
+    lieu: seance?.lieu ?? "",
+    nom_de_la_formatrice: seance?.nom_de_la_formatrice ?? "",
+  };
+}
+
+/** Créer une séance, ou corriger celle qui n'est pas encore signée. */
+function FenetreDeSeance({
+  formation,
+  seance,
+  onEcrit,
+  onFermer,
+}: {
+  formation: FormationAdmin;
+  /** Absente : on ajoute une séance. */
+  seance: SeanceAdmin | null;
+  onEcrit: (rendue: SeanceAdmin, annonce: string) => void;
+  onFermer: () => void;
+}) {
+  const base = useId();
+  const idDe = (champ: string) => idDuChamp(base, champ);
+  /** La séance telle que le serveur la tient : créée avec un champ écarté,
+   *  elle EXISTE déjà, et le second envoi doit la modifier. */
+  const [enPlace, setEnPlace] = useState<SeanceAdmin | null>(seance);
+  const [saisie, setSaisie] = useState<SaisieDeSeance>(() => saisieDeSeance(seance));
+  const [erreurs, setErreurs] = useState<ErreursParChamp>({});
+  const [general, setGeneral] = useState("");
+  const [etat, setEtat] = useState("");
+  useFocusSurLErreur(erreurs, CHAMPS_DE_SEANCE, base);
+
+  const envoi = useMutation({
+    ...enFile(formation.id),
+    mutationFn: (champs: Record<string, unknown>) =>
+      enPlace
+        ? adminApi.modifierLaSeance(enPlace.id, champs)
+        : adminApi.creerUneSeance(formation.id, champs),
+    onSuccess: (reponse) => {
+      const annonce = enPlace
+        ? `La séance « ${reponse.seance.intitule} » est enregistrée.`
+        : `La séance « ${reponse.seance.intitule} » est ajoutée.`;
+      onEcrit(reponse.seance, annonce);
+      if (reponse.refuses.length === 0) {
+        onFermer();
+        return;
+      }
+      setEnPlace(reponse.seance);
+      const { parChamp, ailleurs } = repartir(reponse.refuses, CHAMPS_DE_SEANCE);
+      setErreurs(parChamp);
+      setGeneral(ailleurs);
+      setEtat(
+        "La séance est enregistrée, sauf ce qui est signalé : corrigez, puis enregistrez de nouveau.",
+      );
+    },
+    onError: (cause: unknown) => {
+      const lu = lireLEchec(cause, CHAMPS_DE_SEANCE);
+      setErreurs(lu.parChamp);
+      setGeneral(lu.general);
+      setEtat("");
+    },
+  });
+
+  const champ = (nom: ChampDeSeance) => ({
+    value: saisie[nom],
+    onChange: (e: { currentTarget: { value: string } }) => {
+      const valeur = e.currentTarget.value;
+      setSaisie((courante) => ({ ...courante, [nom]: valeur }));
+    },
+  });
+
+  return (
+    <Fenetre
+      titre={enPlace ? "Modifier la séance" : "Ajouter une séance en présentiel"}
+      onFermer={onFermer}
+      verrouillee={envoi.isPending}
+    >
+      <form
+        className="console-formulaire"
+        noValidate
+        onSubmit={(evenement) => {
+          evenement.preventDefault();
+          if (envoi.isPending) return;
+          const avant = saisieDeSeance(enPlace);
+          const champs: Record<string, unknown> = {};
+          for (const nom of CHAMPS_DE_SEANCE) {
+            if (!enPlace || saisie[nom] !== avant[nom]) champs[nom] = saisie[nom].trim();
+          }
+          if (Object.keys(champs).length === 0) {
+            onFermer();
+            return;
+          }
+          setErreurs({});
+          setGeneral("");
+          setEtat("");
+          envoi.mutate(champs);
+        }}
+      >
+        {general && (
+          <p className="bandeau bandeau-echec" role="alert">
+            {general}
+          </p>
+        )}
+        <ChampRelie
+          id={idDe("intitule")}
+          libelle="Intitulé de la séance"
+          aide="Par exemple : « Journée 1 — poser son offre »."
+          erreur={erreurs.intitule}
+        >
+          {(relie) => (
+            <input
+              {...relie}
+              className="champ-saisie"
+              maxLength={200}
+              aria-required="true"
+              autoComplete="off"
+              {...champ("intitule")}
+            />
+          )}
+        </ChampRelie>
+        <div className="console-champs">
+          <ChampRelie
+            id={idDe("debut")}
+            libelle="Date et heure de début"
+            aide="À l'heure de Paris."
+            erreur={erreurs.debut}
+          >
+            {(relie) => (
+              <input
+                {...relie}
+                className="champ-saisie"
+                type="datetime-local"
+                aria-required="true"
+                {...champ("debut")}
+              />
+            )}
+          </ChampRelie>
+          <ChampRelie
+            id={idDe("duree_minutes")}
+            libelle="Durée, en minutes"
+            aide="Un nombre entier : 210 pour 3 h 30."
+            erreur={erreurs.duree_minutes}
+          >
+            {(relie) => (
+              <input
+                {...relie}
+                className="champ-saisie"
+                inputMode="numeric"
+                aria-required="true"
+                autoComplete="off"
+                {...champ("duree_minutes")}
+              />
+            )}
+          </ChampRelie>
+        </div>
+        <ChampRelie
+          id={idDe("lieu")}
+          libelle="Lieu"
+          aide="L'adresse ou le nom de la salle."
+          erreur={erreurs.lieu}
+        >
+          {(relie) => (
+            <input
+              {...relie}
+              className="champ-saisie"
+              maxLength={200}
+              autoComplete="off"
+              {...champ("lieu")}
+            />
+          )}
+        </ChampRelie>
+        <ChampRelie
+          id={idDe("nom_de_la_formatrice")}
+          libelle="Nom de la formatrice"
+          aide="Il figure sur la feuille d'émargement, et il est demandé pour signer la séance."
+          erreur={erreurs.nom_de_la_formatrice}
+        >
+          {(relie) => (
+            <input
+              {...relie}
+              className="champ-saisie"
+              maxLength={120}
+              autoComplete="off"
+              {...champ("nom_de_la_formatrice")}
+            />
+          )}
+        </ChampRelie>
+        <p className="carte-note">{DIT_FIGEE}</p>
+        <footer className="console-formulaire-pied">
+          <p className="carte-note" role="status">
+            {etat}
+          </p>
+          <button
+            type="button"
+            className="bouton bouton-discret"
+            disabled={envoi.isPending}
+            onClick={onFermer}
+          >
+            {etat ? "Fermer" : "Annuler"}
+          </button>
+          <button
+            type="submit"
+            className="bouton bouton-principal"
+            disabled={envoi.isPending}
+            aria-busy={envoi.isPending || undefined}
+          >
+            {envoi.isPending
+              ? "Enregistrement…"
+              : enPlace
+                ? "Enregistrer la séance"
+                : "Ajouter la séance"}
+          </button>
+        </footer>
+      </form>
+    </Fenetre>
+  );
+}
+
+/** Noter une signature recueillie sur la feuille imprimée : on choisit
+ *  l'élève dans la liste de la formation, et on recopie le nom signé.
+ *
+ *  Ne sont proposées que les personnes qui ont un compte d'élève et n'ont pas
+ *  encore signé cette séance. La liste est celle de la carte « Élèves » : la
+ *  même lecture, sous la même clé. */
+function SignaturePapier({
+  formation,
+  seance,
+  occupe,
+  onNoter,
+  onFermer,
+}: {
+  formation: FormationAdmin;
+  seance: SeanceAdmin;
+  occupe: boolean;
+  onNoter: (ligne: EleveDeFormation, nom: string) => void;
+  onFermer: () => void;
+}) {
+  const base = useId();
+  const [choisie, setChoisie] = useState("");
+  const [nom, setNom] = useState("");
+  const [erreurDuChoix, setErreurDuChoix] = useState("");
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
+    queryKey: cleDesEleves(formation.id),
+    queryFn: () => adminApi.elevesDeLaFormation(formation.id),
+  });
+
+  const dejaSignes = new Set(seance.emargements.map((emargement) => emargement.eleve_id));
+  const candidats = (data?.eleves ?? []).filter(
+    (ligne) => ligne.eleve_id !== null && !dejaSignes.has(ligne.eleve_id),
+  );
+
+  return (
+    <form
+      className="console-confirmation"
+      role="group"
+      aria-labelledby={`${base}-titre`}
+      noValidate
+      onKeyDown={(evenement) => {
+        if (evenement.key === "Escape" && !occupe) onFermer();
+      }}
+      onSubmit={(evenement) => {
+        evenement.preventDefault();
+        if (occupe) return;
+        const ligne = candidats.find((candidat) => cleDeLigne(candidat) === choisie);
+        if (!ligne) {
+          setErreurDuChoix("Choisissez l'élève qui a signé la feuille.");
+          document.getElementById(`${base}-eleve`)?.focus();
+          return;
+        }
+        onNoter(ligne, nom.trim());
+      }}
+    >
+      <p id={`${base}-titre`}>
+        <b>Noter une signature papier — « {seance.intitule} »</b>
+      </p>
+      <p className="carte-note">
+        Pour une personne qui a signé la feuille imprimée. Une signature notée ne se retire
+        pas : vérifiez le nom avant d'enregistrer.
+      </p>
+      {isError && (
+        <ErreurDeChargement quoi="les élèves" erreur={error} perimees={isRefetchError} />
+      )}
+      {isPending && <Squelette lignes={2} />}
+      {data && candidats.length === 0 && !isError && (
+        <p className="frm-programme-vide">
+          Aucun élève à noter : tous ont déjà signé cette séance, ou personne n'a encore de
+          compte d'élève sur cette formation.
+        </p>
+      )}
+      {candidats.length > 0 && (
+        <>
+          <ChampRelie
+            id={`${base}-eleve`}
+            libelle="Élève"
+            erreur={erreurDuChoix || undefined}
+          >
+            {(relie) => (
+              <select
+                {...relie}
+                className="champ-saisie"
+                value={choisie}
+                aria-required="true"
+                autoFocus
+                onChange={(e) => {
+                  const valeur = e.currentTarget.value;
+                  setChoisie(valeur);
+                  setErreurDuChoix("");
+                  // Le nom de la fiche est proposé : il reste à corriger si la
+                  // feuille porte une autre écriture.
+                  const ligne = candidats.find((candidat) => cleDeLigne(candidat) === valeur);
+                  if (ligne) setNom(ligne.nom.trim());
+                }}
+              >
+                <option value="">Choisir un élève…</option>
+                {candidats.map((ligne) => (
+                  <option key={cleDeLigne(ligne)} value={cleDeLigne(ligne)}>
+                    {nomDeLEleve(ligne)}
+                    {ligne.organisation ? ` — ${ligne.organisation}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </ChampRelie>
+          <ChampRelie
+            id={`${base}-nom`}
+            libelle="Nom signé sur la feuille"
+            aide="Le nom et le prénom, tels qu'ils sont écrits sur la feuille."
+          >
+            {(relie) => (
+              <input
+                {...relie}
+                className="champ-saisie"
+                value={nom}
+                maxLength={120}
+                aria-required="true"
+                autoComplete="off"
+                onChange={(e) => setNom(e.currentTarget.value)}
+              />
+            )}
+          </ChampRelie>
+        </>
+      )}
+      <div className="console-gestes">
+        <button type="button" className="bouton bouton-discret" disabled={occupe} onClick={onFermer}>
+          Annuler
+        </button>
+        {candidats.length > 0 && (
+          <button
+            type="submit"
+            className="bouton bouton-principal"
+            disabled={occupe}
+            aria-busy={occupe || undefined}
+          >
+            {occupe ? "Enregistrement…" : "Enregistrer la signature"}
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+/** La feuille d'émargement d'une séance, prête à imprimer.
+ *
+ *  Elle est posée DIRECTEMENT sous `body` (un portail), et `body` porte une
+ *  classe tant qu'elle est ouverte : la feuille de style d'impression peut
+ *  ainsi écarter tout le reste de la page sans rien connaître de sa
+ *  structure (`Formations.css`, « Impression »).
+ *
+ *  Une ligne par élève : sa signature, avec sa date et son mode, ou une case
+ *  vide à signer à la main. */
+function FeuilleImprimable({ seance, onFermer }: { seance: SeanceAdmin; onFermer: () => void }) {
+  const base = useId();
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
+    queryKey: ["admin", "feuille-d-emargement", seance.id] as const,
+    queryFn: () => adminApi.feuilleDEmargement(seance.id),
+  });
+
+  useEffect(() => {
+    document.body.classList.add("frm-impression");
+    return () => document.body.classList.remove("frm-impression");
+  }, []);
+
+  return createPortal(
+    <Fenetre titre="Feuille d'émargement" onFermer={onFermer} classe="frm-feuille-fenetre">
+      {isError && (
+        <ErreurDeChargement quoi="la feuille" erreur={error} perimees={isRefetchError} />
+      )}
+      {isPending && <Squelette lignes={4} />}
+      {data && (
+        <div className="frm-feuille">
+          <p className="frm-feuille-formation">{data.formation.titre}</p>
+          <h3 className="frm-feuille-titre">{data.seance.intitule}</h3>
+          {data.seance.annulee_le && (
+            <p className="frm-feuille-annulee">
+              <strong>Séance annulée le {f.dateHeureDeParis(data.seance.annulee_le)}.</strong>
+            </p>
+          )}
+          <dl className="frm-seance-faits">
+            <div>
+              <dt>Date et heure</dt>
+              <dd>{f.dateHeureDeParis(data.seance.debut)}</dd>
+            </div>
+            <div>
+              <dt>Durée</dt>
+              <dd>{heuresEtMinutes(data.seance.duree_minutes)}</dd>
+            </div>
+            <div>
+              <dt>Lieu</dt>
+              <dd>{data.seance.lieu || "—"}</dd>
+            </div>
+            <div>
+              <dt>Formatrice</dt>
+              <dd>{data.formatrice?.nom || "—"}</dd>
+            </div>
+          </dl>
+
+          {data.lignes.length === 0 ? (
+            <p className="frm-programme-vide">Aucun élève n'est inscrit à cette formation.</p>
+          ) : (
+            <table className="frm-feuille-table">
+              <caption className="visuellement-cache">Signatures des élèves</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Nom</th>
+                  <th scope="col">Organisation</th>
+                  <th scope="col">Signature</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.lignes.map((ligne) => (
+                  <tr key={cleDeLigne(ligne)}>
+                    <th scope="row">{ligne.nom || "—"}</th>
+                    <td>{ligne.organisation || "—"}</td>
+                    <td>
+                      {ligne.signature ? (
+                        <>
+                          <span className="frm-feuille-signe">{ligne.signature.nom_signe}</span>
+                          <span className="frm-feuille-preuve">
+                            Signé le {f.dateHeureDeParis(ligne.signature.signe_le)},{" "}
+                            {modeDeSignature(ligne.signature.mode)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="frm-feuille-case">
+                          <span className="visuellement-cache">Case à signer à la main</span>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <div className="frm-feuille-formatrice">
+            <p id={`${base}-formatrice`} className="frm-feuille-intertitre">
+              Signature de la formatrice
+            </p>
+            {data.formatrice?.signee_le ? (
+              <p aria-labelledby={`${base}-formatrice`}>
+                <span className="frm-feuille-signe">{data.formatrice.nom}</span>
+                <span className="frm-feuille-preuve">
+                  Signée le {f.dateHeureDeParis(data.formatrice.signee_le)}
+                </span>
+              </p>
+            ) : (
+              <span className="frm-feuille-case frm-feuille-case-large">
+                <span className="visuellement-cache">Case à signer à la main</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="console-gestes frm-feuille-gestes">
+        <button type="button" className="bouton bouton-discret" onClick={onFermer}>
+          Fermer
+        </button>
+        <button
+          type="button"
+          className="bouton bouton-principal"
+          disabled={!data}
+          onClick={() => window.print()}
+        >
+          Imprimer
+        </button>
+      </div>
+    </Fenetre>,
+    document.body,
+  );
+}
+
+/** Un geste sur une séance, fait d'un seul envoi : annuler, rétablir, signer,
+ *  noter une signature papier. */
+interface GesteDeSeance {
+  seance: SeanceAdmin;
+  /** Le bouton cliqué : lui seul se montre occupé. */
+  cle: string;
+  corps: Record<string, unknown>;
+  /** La séance RENDUE montre-t-elle ce qui a été demandé ? */
+  conforme: (rendue: SeanceAdmin) => boolean;
+  annonce: string;
+  /** La liste des élèves change aussi (leur temps de présentiel signé). */
+  touchLesEleves?: boolean;
+}
+
+type PanneauDeSeance = { genre: "signer" | "papier"; seanceId: string } | null;
+
+type FenetreDeSuivi =
+  | { quoi: "seance"; seance: SeanceAdmin | null }
+  | { quoi: "feuille"; seance: SeanceAdmin }
+  | null;
+
+/** Les séances en présentiel d'une formation, et leurs signatures.
+ *
+ *  Repliée par défaut, comme les élèves. Une séance s'ANNULE et se rétablit :
+ *  elle ne disparaît pas, et les signatures déjà posées restent. Une signature,
+ *  elle, ne se retire pas — signer demande donc une confirmation.
+ *
+ *  Tant que la séance n'a pas commencé, les gestes de signature ne sont pas
+ *  proposés : le serveur les refuserait (`seance_pas_commencee`), et une phrase
+ *  vaut mieux qu'un bouton qui refuse. Le serveur reste juge : son refus, s'il
+ *  vient, s'affiche contre la séance. */
+function Seances({ formation }: { formation: FormationAdmin }) {
+  const base = useId();
+  const cache = useQueryClient();
+  const conteneur = useRef<HTMLDivElement>(null);
+  /** Le focus à poser quand la séance rendue sera à l'écran. */
+  const focusVoulu = useRef<string | null>(null);
+  const [ouvert, setOuvert] = useState(false);
+  /** L'heure du poste, relevée à l'ouverture de la carte. */
+  const [maintenant, setMaintenant] = useState(() => Date.now());
+  const [fenetre, setFenetre] = useState<FenetreDeSuivi>(null);
+  const [panneau, setPanneau] = useState<PanneauDeSeance>(null);
+  const [annonce, setAnnonce] = useState("");
+  const [erreur, setErreur] = useState<{ seanceId: string; message: string } | null>(null);
+  const cle = cleDesSeances(formation.id);
+
+  const { data, isPending, isError, isRefetchError, error } = useQuery({
+    queryKey: cle,
+    queryFn: () => adminApi.seancesDeLaFormation(formation.id),
+    enabled: ouvert,
+  });
+
+  /** Range la séance que le serveur vient de rendre : à la place de
+   *  l'ancienne, ou à son rang parmi les autres, dans l'ordre des débuts. */
+  const ranger = useCallback(
+    (rendue: SeanceAdmin) => {
+      cache.setQueryData<{ seances: SeanceAdmin[] }>(cleDesSeances(formation.id), (avant) => {
+        if (!avant) return avant;
+        const connue = avant.seances.some((seance) => seance.id === rendue.id);
+        const liste = connue
+          ? avant.seances.map((seance) => (seance.id === rendue.id ? rendue : seance))
+          : [...avant.seances, rendue];
+        return {
+          seances: [...liste].sort(
+            (a, b) => new Date(a.debut).getTime() - new Date(b.debut).getTime(),
+          ),
+        };
+      });
+    },
+    [cache, formation.id],
+  );
+
+  const geste = useMutation({
+    ...enFile(formation.id),
+    mutationFn: (voulu: GesteDeSeance) => adminApi.modifierLaSeance(voulu.seance.id, voulu.corps),
+    onSuccess: (reponse, voulu) => {
+      ranger(reponse.seance);
+      setPanneau(null);
+      if (voulu.touchLesEleves) {
+        void cache.invalidateQueries({ queryKey: cleDesEleves(formation.id) });
+      }
+      const ecartes = repartir(reponse.refuses, []).ailleurs;
+      if (!voulu.conforme(reponse.seance)) {
+        setAnnonce("");
+        setErreur({
+          seanceId: voulu.seance.id,
+          message: avecSuite(
+            "Le changement demandé n'apparaît pas dans la réponse du serveur : vérifiez l'état affiché, puis réessayez.",
+            ecartes,
+          ),
+        });
+      } else {
+        setErreur(ecartes ? { seanceId: voulu.seance.id, message: ecartes } : null);
+        setAnnonce(voulu.annonce);
+      }
+      focusVoulu.current = `[data-frm="seance-${voulu.seance.id}"]`;
+    },
+    onError: (cause: unknown, voulu) => {
+      setAnnonce("");
+      // Une séance ou un élève que le serveur ne trouve plus : l'écran a
+      // changé ailleurs, on le relit.
+      const perime = ecranPerime(cause);
+      if (perime) {
+        void cache.invalidateQueries({ queryKey: cle });
+        void cache.invalidateQueries({ queryKey: cleDesEleves(formation.id) });
+      }
+      setErreur({
+        seanceId: voulu.seance.id,
+        message: avecSuite(
+          ditDuRefus(cause, "Le changement n'a pas pu être fait. Réessayez."),
+          perime ? DIT_RELU : "",
+        ),
+      });
+    },
+  });
+
+  const occupe = geste.isPending;
+  const cleEnCours = occupe ? geste.variables?.cle : undefined;
+  const seances = data?.seances ?? [];
+
+  // Un geste change les boutons de la séance (« Annuler » devient
+  // « Rétablir ») : celui qu'on vient de cliquer n'est plus là. Le focus va
+  // donc au titre de la séance, une fois la réponse dessinée.
+  useEffect(() => {
+    if (occupe) return;
+    const selecteur = focusVoulu.current;
+    if (!selecteur) return;
+    focusVoulu.current = null;
+    conteneur.current?.querySelector<HTMLElement>(selecteur)?.focus();
+  }, [data, occupe]);
+
+  function faire(voulu: GesteDeSeance) {
+    if (occupe) return;
+    setErreur(null);
+    setAnnonce("");
+    geste.mutate(voulu);
+  }
+
+  function ouvrirLePanneau(genre: "signer" | "papier", seance: SeanceAdmin) {
+    if (occupe) return;
+    setErreur(null);
+    setAnnonce("");
+    setPanneau({ genre, seanceId: seance.id });
+  }
+
+  function fermerLePanneau(seance: SeanceAdmin) {
+    setPanneau(null);
+    conteneur.current?.querySelector<HTMLElement>(`[data-frm="seance-${seance.id}"]`)?.focus();
+  }
+
+  return (
+    <Carte
+      titre="Séances en présentiel"
+      note="Les rendez-vous en salle de cette formation, et les signatures de présence."
+      action={
+        <button
+          type="button"
+          className="bouton bouton-contour"
+          aria-expanded={ouvert}
+          aria-controls={`${base}-corps`}
+          onClick={() => {
+            setMaintenant(Date.now());
+            setOuvert((avant) => !avant);
+          }}
+        >
+          {ouvert ? "Masquer les séances" : "Afficher les séances"}
+        </button>
+      }
+    >
+      <div id={`${base}-corps`} hidden={!ouvert} ref={conteneur}>
+        {ouvert && (
+          <div className="frm-inscrits-corps">
+            <p className="carte-note">{DIT_FIGEE}</p>
+            {/* Toujours présent, même vide : une zone d'annonce posée en même
+                temps que son texte n'est pas lue. */}
+            <p className="frm-annonce" role="status">
+              {annonce}
+            </p>
+
+            {isError && (
+              <ErreurDeChargement quoi="les séances" erreur={error} perimees={isRefetchError} />
+            )}
+            {isPending && <Squelette lignes={3} />}
+
+            {data && (
+              <button
+                type="button"
+                className="bouton bouton-contour frm-ajout"
+                disabled={occupe}
+                onClick={() => setFenetre({ quoi: "seance", seance: null })}
+              >
+                <Icone nom="plus" taille={16} />
+                Ajouter une séance
+              </button>
+            )}
+
+            {/* Sous une mise à jour ratée, « aucune » ne se redit pas. */}
+            {data && seances.length === 0 && !isError && (
+              <Vide
+                icone={<Icone nom="formations" />}
+                titre="Aucune séance en présentiel"
+                texte="Ajoutez la première : vos élèves la verront dans leur espace, et pourront y signer leur présence."
+              />
+            )}
+
+            {seances.length > 0 && (
+              <ul className="frm-seances">
+                {seances.map((seance) => {
+                  const etat = etatDeLaSeance(seance, maintenant);
+                  const signable = etat === "a_signer" || etat === "signee";
+                  const nombre = seance.emargements.length;
+                  const nomDeSeance = `la séance “${seance.intitule}”`;
+                  return (
+                    <li key={seance.id} className="frm-seance">
+                      <div className="frm-seance-tete">
+                        <h3
+                          className="frm-seance-titre"
+                          tabIndex={-1}
+                          data-frm={`seance-${seance.id}`}
+                        >
+                          {seance.intitule}
+                        </h3>
+                        <span className={ETATS_DE_SEANCE[etat].pastille}>
+                          {ETATS_DE_SEANCE[etat].libelle}
+                        </span>
+                      </div>
+                      <dl className="frm-seance-faits">
+                        <div>
+                          <dt>Date et heure</dt>
+                          <dd>{f.dateHeureDeParis(seance.debut)}</dd>
+                        </div>
+                        <div>
+                          <dt>Durée</dt>
+                          <dd>{heuresEtMinutes(seance.duree_minutes)}</dd>
+                        </div>
+                        <div>
+                          <dt>Lieu</dt>
+                          <dd>{seance.lieu || "—"}</dd>
+                        </div>
+                        <div>
+                          <dt>Formatrice</dt>
+                          <dd>{seance.nom_de_la_formatrice || "à indiquer"}</dd>
+                        </div>
+                        <div>
+                          <dt>Signatures</dt>
+                          <dd>
+                            {nombre === 0
+                              ? "Aucune signature d'élève"
+                              : `${pluriel(nombre, "signature")} d'élève${nombre > 1 ? "s" : ""}`}
+                          </dd>
+                        </div>
+                      </dl>
+                      {seance.annulee_le && (
+                        <p className="carte-note">
+                          Annulée le {f.dateHeureDeParis(seance.annulee_le)}. Les signatures déjà
+                          posées restent.
+                        </p>
+                      )}
+                      {seance.signee_par_la_formatrice_le && (
+                        <p className="carte-note">
+                          Signée par la formatrice le{" "}
+                          {f.dateHeureDeParis(seance.signee_par_la_formatrice_le)}.
+                        </p>
+                      )}
+                      {etat === "a_venir" && (
+                        <p className="carte-note">
+                          Les signatures s'ouvriront au début de la séance.
+                        </p>
+                      )}
+
+                      {nombre > 0 && (
+                        <details className="frm-retires">
+                          <summary>Signatures des élèves ({nombre})</summary>
+                          <ul className="frm-retires-liste">
+                            {seance.emargements.map((emargement) => (
+                              <li key={emargement.id} className="frm-retire">
+                                <span className="frm-retire-nom">
+                                  {emargement.nom || emargement.nom_signe}
+                                  <span className="carte-note">
+                                    {" · "}signé le {f.dateHeureDeParis(emargement.signe_le)},{" "}
+                                    {modeDeSignature(emargement.mode)}
+                                    {emargement.nom_signe &&
+                                    emargement.nom_signe !== emargement.nom
+                                      ? `, sous le nom « ${emargement.nom_signe} »`
+                                      : ""}
+                                  </span>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+
+                      {erreur?.seanceId === seance.id && (
+                        <p className="bandeau bandeau-echec" role="alert">
+                          {erreur.message}
+                        </p>
+                      )}
+
+                      <div className="console-gestes">
+                        <button
+                          type="button"
+                          className="bouton bouton-contour"
+                          aria-label={`Feuille d'émargement de ${nomDeSeance}`}
+                          onClick={() => setFenetre({ quoi: "feuille", seance })}
+                        >
+                          Feuille d'émargement
+                        </button>
+                        {signable && !seance.signee_par_la_formatrice_le && (
+                          <button
+                            type="button"
+                            className="bouton bouton-contour"
+                            aria-label={`Signer ${nomDeSeance} en tant que formatrice`}
+                            disabled={occupe}
+                            onClick={() => ouvrirLePanneau("signer", seance)}
+                          >
+                            Signer en tant que formatrice
+                          </button>
+                        )}
+                        {signable && (
+                          <button
+                            type="button"
+                            className="bouton bouton-contour"
+                            aria-label={`Noter une signature papier pour ${nomDeSeance}`}
+                            disabled={occupe}
+                            onClick={() => ouvrirLePanneau("papier", seance)}
+                          >
+                            Noter une signature papier
+                          </button>
+                        )}
+                        {!porteUneSignature(seance) && (
+                          <button
+                            type="button"
+                            className="bouton bouton-contour"
+                            aria-label={`Modifier ${nomDeSeance}`}
+                            disabled={occupe}
+                            onClick={() => setFenetre({ quoi: "seance", seance })}
+                          >
+                            Modifier
+                          </button>
+                        )}
+                        {seance.annulee_le ? (
+                          <button
+                            type="button"
+                            className="bouton bouton-contour"
+                            aria-label={`Rétablir ${nomDeSeance}`}
+                            disabled={occupe}
+                            aria-busy={cleEnCours === `retablir-${seance.id}` || undefined}
+                            onClick={() =>
+                              faire({
+                                seance,
+                                cle: `retablir-${seance.id}`,
+                                corps: { annulee: false },
+                                conforme: (rendue) => !rendue.annulee_le,
+                                annonce: `La séance « ${seance.intitule} » est rétablie.`,
+                              })
+                            }
+                          >
+                            Rétablir
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="bouton bouton-discret"
+                            aria-label={`Annuler ${nomDeSeance}`}
+                            disabled={occupe}
+                            aria-busy={cleEnCours === `annuler-${seance.id}` || undefined}
+                            onClick={() =>
+                              faire({
+                                seance,
+                                cle: `annuler-${seance.id}`,
+                                corps: { annulee: true },
+                                conforme: (rendue) => Boolean(rendue.annulee_le),
+                                annonce: `La séance « ${seance.intitule} » est annulée. Rien n'est effacé : vous pouvez la rétablir d'ici.`,
+                              })
+                            }
+                          >
+                            Annuler la séance
+                          </button>
+                        )}
+                      </div>
+
+                      {panneau?.seanceId === seance.id && panneau.genre === "signer" && (
+                        <div
+                          className="console-confirmation"
+                          role="alertdialog"
+                          aria-labelledby={`${base}-signer-question`}
+                          aria-describedby={`${base}-signer-consequence`}
+                          onKeyDown={(evenement) => {
+                            if (evenement.key === "Escape" && !occupe) fermerLePanneau(seance);
+                          }}
+                        >
+                          <p id={`${base}-signer-question`}>
+                            <b>
+                              Signer « {seance.intitule} »
+                              {seance.nom_de_la_formatrice
+                                ? ` au nom de ${seance.nom_de_la_formatrice}`
+                                : " en tant que formatrice"}{" "}
+                              ?
+                            </b>
+                          </p>
+                          <p className="carte-note" id={`${base}-signer-consequence`}>
+                            Vous attestez que la séance a bien eu lieu. Une signature ne se retire
+                            pas, et la séance ne pourra plus être modifiée.
+                          </p>
+                          <div className="console-gestes">
+                            <button
+                              type="button"
+                              className="bouton bouton-discret"
+                              autoFocus
+                              disabled={occupe}
+                              onClick={() => fermerLePanneau(seance)}
+                            >
+                              Ne pas signer
+                            </button>
+                            <button
+                              type="button"
+                              className="bouton bouton-principal"
+                              disabled={occupe}
+                              aria-busy={cleEnCours === `signer-${seance.id}` || undefined}
+                              onClick={() =>
+                                faire({
+                                  seance,
+                                  cle: `signer-${seance.id}`,
+                                  corps: { signer: true },
+                                  conforme: (rendue) =>
+                                    Boolean(rendue.signee_par_la_formatrice_le),
+                                  annonce: `La séance « ${seance.intitule} » est signée par la formatrice.`,
+                                })
+                              }
+                            >
+                              {cleEnCours === `signer-${seance.id}` ? "Signature…" : "Oui, signer"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {panneau?.seanceId === seance.id && panneau.genre === "papier" && (
+                        <SignaturePapier
+                          formation={formation}
+                          seance={seance}
+                          occupe={occupe}
+                          onFermer={() => fermerLePanneau(seance)}
+                          onNoter={(ligne, nom) =>
+                            faire({
+                              seance,
+                              cle: `papier-${seance.id}`,
+                              corps: {
+                                emargement_papier: {
+                                  achat_id: ligne.achat_id,
+                                  eleve_id: ligne.eleve_id,
+                                  nom,
+                                },
+                              },
+                              conforme: (rendue) =>
+                                rendue.emargements.some(
+                                  (emargement) => emargement.eleve_id === ligne.eleve_id,
+                                ),
+                              annonce: `La signature papier de « ${nomDeLEleve(ligne)} » est notée pour « ${seance.intitule} ».`,
+                              touchLesEleves: true,
+                            })
+                          }
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+      {fenetre?.quoi === "seance" && (
+        <FenetreDeSeance
+          formation={formation}
+          seance={fenetre.seance}
+          onEcrit={(rendue, dit) => {
+            ranger(rendue);
+            setErreur(null);
+            setAnnonce(dit);
+          }}
+          onFermer={() => setFenetre(null)}
+        />
+      )}
+      {fenetre?.quoi === "feuille" && (
+        <FeuilleImprimable seance={fenetre.seance} onFermer={() => setFenetre(null)} />
+      )}
     </Carte>
   );
 }
@@ -2689,7 +4184,8 @@ export function FormationsAdmin() {
             <Fiche formation={ouverte} onEcrit={ranger} />
             <Programme formation={ouverte} onEcrit={ranger} />
           </div>
-          <Inscrits formation={ouverte} />
+          <Eleves formation={ouverte} />
+          <Seances formation={ouverte} />
         </div>
       ) : (
         <>

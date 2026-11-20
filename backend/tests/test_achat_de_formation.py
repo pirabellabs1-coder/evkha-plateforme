@@ -1178,6 +1178,12 @@ def test_l_espace_rend_le_contenu_a_l_organisation_qui_l_a_paye(settings: Any) -
         "duree_heures": 7,
         "heures_de_coaching": 2,
         "achetee_le": achat.created_at.isoformat(),
+        # Le suivi de l'élève (Qualiopi) : son accès, et où il en est. Trois
+        # leçons PRÉSENTES — ni la leçon retirée, ni celle du module retiré.
+        "acces": "ouvert",
+        "acces_jusqu_au": None,
+        "progression": {"terminees": 0, "total": 3, "pourcent": 0},
+        "seances": [],
         "modules": [
             {
                 "rang": 1,
@@ -1194,6 +1200,7 @@ def test_l_espace_rend_le_contenu_a_l_organisation_qui_l_a_paye(settings: Any) -
                         "texte": TEXTE,
                         "fichier": "",
                         "fichier_nom": "",
+                        "terminee": False,
                     },
                     {
                         "id": str(document.id),
@@ -1205,6 +1212,7 @@ def test_l_espace_rend_le_contenu_a_l_organisation_qui_l_a_paye(settings: Any) -
                         "texte": "",
                         "fichier": lien,
                         "fichier_nom": "support-reserve.pdf",
+                        "terminee": False,
                     },
                 ],
             },
@@ -1223,6 +1231,7 @@ def test_l_espace_rend_le_contenu_a_l_organisation_qui_l_a_paye(settings: Any) -
                         "texte": "Bonjour.",
                         "fichier": "",
                         "fichier_nom": "",
+                        "terminee": False,
                     }
                 ],
             },

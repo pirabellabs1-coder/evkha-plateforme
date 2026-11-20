@@ -324,6 +324,172 @@
   }
 }
 
+/* ── Le suivi : progression, accès, traces ──────────────────────────────── */
+
+/* La barre, puis la même chose en toutes lettres : la progression ne se lit
+   jamais à la seule longueur d'un trait. */
+.frs-avancee {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  min-width: 0;
+}
+
+.frs-avancee .jauge {
+  height: 8px;
+}
+
+.frs-avancee-texte {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-fort);
+}
+
+/* En tête d'une formation ouverte : la barre et la fin d'accès. */
+.frs-reperes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  max-width: 34rem;
+  margin: 0 0 var(--e-5);
+}
+
+.frs-reperes .carte-note {
+  margin: 0;
+}
+
+/* Un accès échu : la phrase, puis les deux portes de sortie. */
+.frs-echu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.frs-echu .bandeau {
+  display: block;
+  margin: 0;
+}
+
+.frs-echu-liens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2) var(--e-3);
+}
+
+.frs-echu-liens .bouton {
+  min-height: 44px;
+  white-space: normal;
+  text-align: center;
+}
+
+/* La coche d'une leçon terminée : le signe ET le mot. */
+.frs-lecon-coche {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--evkha-succes);
+}
+
+.frs-suivi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-2);
+}
+
+.frs-suivi .bouton {
+  min-height: 44px;
+}
+
+.frs-suivi .bandeau {
+  display: block;
+  margin: 0;
+}
+
+/* La zone d'annonce reste dans la page même vide : elle ne prend de place que
+   lorsqu'elle parle. */
+.frs-suivi-annonce {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+.frs-suivi-annonce:empty {
+  display: none;
+}
+
+/* ── Les séances en présentiel ──────────────────────────────────────────── */
+
+.frs-seances-bloc {
+  margin-top: var(--e-6);
+  padding-top: var(--e-5);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+.frs-seances {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--e-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.frs-seance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  min-width: 0;
+  padding: var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  background: var(--fond-carte);
+}
+
+.frs-seance-titre {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-titre);
+  line-height: 1.3;
+  color: var(--texte-fort);
+  overflow-wrap: anywhere;
+}
+
+.frs-seance-reperes,
+.frs-seance-etat {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  overflow-wrap: anywhere;
+}
+
+.frs-seance-signee {
+  font-weight: var(--graisse-forte);
+  color: var(--evkha-succes);
+}
+
+/* La confirmation reçoit le focus après la signature : elle le montre. */
+.frs-seance-signee:focus-visible {
+  outline: 2px solid var(--texte-fort);
+  outline-offset: 4px;
+  border-radius: var(--rayon-xs);
+}
+
+.frs-signature {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-3);
+}
+
+.frs-signature .champ {
+  width: 100%;
+}
+
+.frs-signature .bouton {
+  min-height: 44px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .frs-lecon {
     transition: none;

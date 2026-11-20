@@ -362,6 +362,9 @@ export interface FormationAdmin {
   devise: string;
   duree_heures: number;
   heures_de_coaching: number;
+  /** Combien de mois dure l'accès donné par un achat. 0 : sans limite de
+   *  durée. FACULTATIF : un serveur qui ne le rend pas n'a rien dit. */
+  duree_d_acces_mois?: number;
   /** Encore rendu par le serveur. L'écran ne l'affiche ni ne l'envoie plus :
    *  une formation se vend par le paiement de la plateforme. */
   lien_d_achat: string;
@@ -440,14 +443,160 @@ export interface AchatDeFormationAdmin {
   /** La date du retrait de l'accès. `null` : l'achat donne accès. */
   revoque_le: string | null;
   motif_de_revocation: string;
+  /** Le DERNIER jour de l'accès (`AAAA-MM-JJ`). `null` : sans limite. */
+  acces_jusqu_au?: string | null;
+  /** L'état de l'accès, tel que le serveur le calcule. */
+  acces?: EtatDeLAcces;
   /** ABRÉGÉE par le serveur : de quoi reconnaître la ligne, pas le paiement. */
   reference_paiement: string;
 }
 
-/** Ce qu'envoie un changement d'accès. `motif` n'accompagne qu'un retrait. */
+/** Ce qu'envoie un changement d'accès : retirer (`revoque: true`, avec son
+ *  `motif`), rétablir (`revoque: false`), ou fixer le dernier jour
+ *  (`acces_jusqu_au` : un jour `AAAA-MM-JJ`, ou `null` pour « sans limite »). */
 export interface ChangementDAcces {
-  revoque: boolean;
+  revoque?: boolean;
   motif?: string;
+  acces_jusqu_au?: string | null;
+}
+
+// ── Le suivi des élèves (`dashboard/suivi_des_formations.py`) ───────────────
+
+/** L'état d'un accès : ouvert, échu (son dernier jour est passé) ou retiré. */
+export type EtatDeLAcces = "ouvert" | "echu" | "retire";
+
+/** Une ligne du tableau des élèves : UNE personne, pour UN achat
+ *  (`GET formations/<id>/eleves/`). Un achat fait par une organisation de
+ *  trois personnes donne trois lignes, qui portent le même `achat_id`. */
+export interface EleveDeFormation {
+  achat_id: string;
+  /** `null` : l'achat n'a encore aucun élève connu — seule l'adresse
+   *  collectée au paiement est là. */
+  eleve_id: string | null;
+  nom: string;
+  email: string;
+  organisation: string;
+  achete_le: string;
+  acces_jusqu_au: string | null;
+  acces: EtatDeLAcces;
+  derniere_connexion: string | null;
+  derniere_activite: string | null;
+  lecons_terminees: number;
+  lecons_total: number;
+  /** `null` : aucune leçon au programme, le pourcentage ne se calcule pas. */
+  pourcent: number | null;
+  minutes_en_presentiel_signees: number;
+}
+
+/** Une signature de présence, vue de l'administration. */
+export interface EmargementAdmin {
+  id: string;
+  achat_id: string;
+  eleve_id: string;
+  /** Le nom de la fiche de l'élève… */
+  nom: string;
+  signe_le: string;
+  mode: "en_ligne" | "papier";
+  /** … et celui qui a été SIGNÉ : ils peuvent différer. */
+  nom_signe: string;
+  adresse_ip: string | null;
+}
+
+/** Une séance en présentiel, avec ses signatures. */
+export interface SeanceAdmin {
+  id: string;
+  formation_id: string;
+  intitule: string;
+  debut: string;
+  duree_minutes: number;
+  lieu: string;
+  nom_de_la_formatrice: string;
+  annulee_le: string | null;
+  signee_par_la_formatrice_le: string | null;
+  emargements: EmargementAdmin[];
+}
+
+/** Ce que rend toute écriture réussie sur une séance : la séance RELUE en
+ *  base, et les champs écartés. */
+export interface EcritureDeSeance {
+  seance: SeanceAdmin;
+  refuses: ChampRefuse[];
+}
+
+/** Tout ce qu'il faut pour imprimer une feuille d'émargement
+ *  (`GET formations/seances/<id>/feuille/`). */
+export interface FeuilleDEmargement {
+  formation: { id: string; titre: string };
+  seance: {
+    id: string;
+    intitule: string;
+    debut: string;
+    duree_minutes: number;
+    lieu: string;
+    annulee_le: string | null;
+  };
+  formatrice: { nom: string; signee_le: string | null };
+  lignes: {
+    achat_id: string;
+    eleve_id: string | null;
+    nom: string;
+    organisation: string;
+    acces: EtatDeLAcces;
+    signature: null | { signe_le: string; mode: "en_ligne" | "papier"; nom_signe: string };
+  }[];
+}
+
+/** Un fichier reçu du serveur, prêt à être enregistré par le navigateur. */
+export interface FichierRecu {
+  blob: Blob;
+  nom: string;
+}
+
+/** Le nom de fichier d'un en-tête `Content-Disposition`, ou une chaîne vide.
+ *  Entre deux origines, cet en-tête n'est lisible que si le serveur l'expose :
+ *  l'appelant garde donc un nom de repli. */
+function nomDuFichier(enTete: string | null): string {
+  const trouve = /filename="?([^";]+)"?/i.exec(enTete ?? "");
+  return trouve ? trouve[1].trim() : "";
+}
+
+/** Télécharge un fichier PAR `fetch`, sous le jeton. Un simple lien
+ *  n'enverrait pas l'autorisation : le serveur répondrait 401 à la gérante. */
+async function telecharger(chemin: string, nomDeRepli: string): Promise<FichierRecu> {
+  let reponse: Response;
+  try {
+    reponse = await fetch(`${BASE}/api/dashboard${chemin}`, {
+      headers: {
+        Accept: "text/csv",
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
+    });
+  } catch {
+    throw new RefusDuServeur(
+      "Le serveur n'a pas répondu : le fichier n'a pas été préparé. Vérifiez votre " +
+        "connexion, puis réessayez.",
+      0,
+    );
+  }
+  if (reponse.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new RefusDuServeur("Non autorisé", 401);
+  }
+  if (!reponse.ok) {
+    const refus = await lireLeRefus(reponse);
+    throw new RefusDuServeur(
+      refus.message ||
+        `Le serveur a refusé de préparer le fichier (erreur ${reponse.status}).`,
+      reponse.status,
+      refus.code,
+      refus.champ,
+    );
+  }
+  return {
+    blob: await reponse.blob(),
+    nom: nomDuFichier(reponse.headers.get("Content-Disposition")) || nomDeRepli,
+  };
 }
 
 /** Une écriture sur les formations. Toutes sont des `POST` : rien ne se
@@ -583,6 +732,49 @@ export const adminApi = {
     return ligne !== null && typeof ligne === "object" && typeof ligne.id === "string"
       ? ligne
       : null;
+  },
+
+  // ── Le suivi des élèves ─────────────────────────────────────────────────
+  /** Le tableau des élèves d'une formation. Une réponse sans la liste
+   *  attendue est une panne, pas « aucun élève » (règle 1). */
+  elevesDeLaFormation: async (formationId: string) => {
+    const chemin = `/formations/${formationId}/eleves/`;
+    const reponse = await get<{ eleves?: unknown; lecons_total?: unknown } | null>(chemin);
+    if (!Array.isArray(reponse?.eleves)) {
+      throw new Error(`API ${chemin} : réponse sans la liste des élèves`);
+    }
+    return {
+      eleves: reponse.eleves as EleveDeFormation[],
+      lecons_total: typeof reponse.lecons_total === "number" ? reponse.lecons_total : null,
+    };
+  },
+  /** Le même tableau, en fichier pour l'auditeur. `slug` ne sert qu'au nom
+   *  de repli, quand l'en-tête du serveur n'est pas lisible. */
+  exporterLesEleves: (formationId: string, slug: string) =>
+    telecharger(`/formations/${formationId}/eleves.csv`, `eleves-${slug}.csv`),
+  /** Les séances en présentiel d'une formation, annulées comprises. */
+  seancesDeLaFormation: async (formationId: string) => {
+    const chemin = `/formations/${formationId}/seances/`;
+    const reponse = await get<{ seances?: unknown } | null>(chemin);
+    if (!Array.isArray(reponse?.seances)) {
+      throw new Error(`API ${chemin} : réponse sans la liste des séances`);
+    }
+    return { seances: reponse.seances as SeanceAdmin[] };
+  },
+  creerUneSeance: (formationId: string, corps: Record<string, unknown>) =>
+    ecrireUneFormation<EcritureDeSeance>(`${formationId}/seances/`, corps),
+  /** Modifie une séance, l'annule (`annulee`), la signe (`signer`) ou y note
+   *  une signature recueillie sur papier (`emargement_papier`). */
+  modifierLaSeance: (seanceId: string, corps: Record<string, unknown>) =>
+    ecrireUneFormation<EcritureDeSeance>(`seances/${seanceId}/`, corps),
+  feuilleDEmargement: async (seanceId: string) => {
+    const chemin = `/formations/seances/${seanceId}/feuille/`;
+    const reponse = await get<{ feuille?: FeuilleDEmargement | null } | null>(chemin);
+    const feuille = reponse?.feuille;
+    if (!feuille || !Array.isArray(feuille.lignes) || !feuille.seance || !feuille.formation) {
+      throw new Error(`API ${chemin} : réponse sans la feuille`);
+    }
+    return feuille;
   },
 
   produitsBoutique: () =>
