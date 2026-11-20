@@ -441,7 +441,7 @@ function ArticleIntrouvable() {
   const i = PAGE_ARTICLE.introuvable;
 
   useAimants(page);
-  useTitreDePage(titreDOnglet(i.titreOnglet), i.description);
+  useTitreDePage(titreDOnglet(i.titreOnglet), i.description, false);
   // L'application répond 200 à toute adresse : sans cette balise, un moteur
   // indexerait « article introuvable » à l'adresse fautive.
   useSansIndexation();

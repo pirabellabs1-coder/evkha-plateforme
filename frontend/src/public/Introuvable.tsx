@@ -40,7 +40,7 @@ export function Introuvable() {
   const i = PAGE_INTROUVABLE;
 
   useAimants(page);
-  useTitreDePage(titreDOnglet(i.titreOnglet), i.description);
+  useTitreDePage(titreDOnglet(i.titreOnglet), i.description, false);
   useSansIndexation();
 
   return (

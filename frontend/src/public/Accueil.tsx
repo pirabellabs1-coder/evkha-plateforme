@@ -102,11 +102,14 @@ import {
   useMedia,
   useMenu,
   usePause,
+  useDonneesStructurees,
+  useQuestionsStructurees,
   useTitreDePage,
   variables,
   type Chargement,
   type Tarif,
 } from "./site";
+import { organisationEtSite } from "./referencement";
 // Le socle d'abord, la feuille de la page ensuite : à spécificité égale, c'est
 // la page qui a le dernier mot.
 import "./Site.css";
@@ -698,6 +701,9 @@ function ColonneAvis({ colonne }: { colonne: 1 | 2 }) {
 
 // ── La page ─────────────────────────────────────────────────────────────────
 
+/** Calculé une fois : rien n'y dépend d'un rendu. */
+const ORGANISATION_ET_SITE = organisationEtSite(DESCRIPTION_DE_LA_PAGE);
+
 export function Accueil() {
   const catalogues: Catalogues = {
     livrables: useChargement(chargerLivrables),
@@ -730,6 +736,10 @@ export function Accueil() {
   // Le titre de l'onglet et la description de la page, rendus en partant
   // (`site.useTitreDePage`).
   useTitreDePage(TITRE_DE_LA_PAGE, DESCRIPTION_DE_LA_PAGE);
+  // L'entreprise et le site, déclarés une fois : sur la page d'accueil.
+  useDonneesStructurees(ORGANISATION_ET_SITE);
+  // Les questions de la page, déclarées telles qu'elle les affiche.
+  useQuestionsStructurees(page);
 
   const livrablesEnPanne = catalogues.livrables.etat === "panne";
   const tarifsEnPanne =

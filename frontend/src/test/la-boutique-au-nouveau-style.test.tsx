@@ -236,7 +236,10 @@ async function rendreLaFiche(charge: object = FICHE) {
 
 /** Le bloc JSON-LD de la page, ou `null` s'il n'y en a pas. */
 function donneesStructurees(): Record<string, unknown> | null {
-  const blocs = document.querySelectorAll('script[type="application/ld+json"]');
+  // `:not([data-bloc])` : le bloc que la PAGE pose pour ce qu'elle vend. Le fil
+  // d'Ariane et les questions fréquentes, posés par le socle sur toute page
+  // (`site.BLOCS_DU_SOCLE`), sont jugés dans `le-referencement-dit-vrai`.
+  const blocs = document.querySelectorAll('script[type="application/ld+json"]:not([data-bloc])');
   expect(blocs.length).toBeLessThanOrEqual(1);
   const brut = blocs[0]?.textContent;
   return brut ? (JSON.parse(brut) as Record<string, unknown>) : null;

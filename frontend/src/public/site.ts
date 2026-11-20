@@ -11,6 +11,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
@@ -20,10 +21,12 @@ import {
 
 import {
   ACCUEIL,
+  adresseAbsolue,
   MARQUE,
   type EntreeDeNavigation,
   type Rubrique,
 } from "./contenuSite";
+import { filDAriane, questionsFrequentes } from "./referencement";
 
 // ── Chargement d'un catalogue ───────────────────────────────────────────────
 
@@ -212,22 +215,183 @@ export function titreDOnglet(titre: string): string {
   return nu === "" ? MARQUE : `${nu} — ${MARQUE}`;
 }
 
-export function useTitreDePage(titre: string, description: string): void {
+/** Pose une valeur sur une balise de l'en-tête du document, en la créant si le
+ *  gabarit ne la porte pas, et rend de quoi tout remettre comme avant. */
+function poserDansLEnTete(
+  selecteur: string,
+  creer: () => HTMLElement,
+  attribut: string,
+  valeur: string,
+): () => void {
+  const existante = document.head.querySelector<HTMLElement>(selecteur);
+  if (existante) {
+    const avant = existante.getAttribute(attribut);
+    existante.setAttribute(attribut, valeur);
+    return () => {
+      if (avant === null) existante.removeAttribute(attribut);
+      else existante.setAttribute(attribut, avant);
+    };
+  }
+  const balise = creer();
+  balise.setAttribute(attribut, valeur);
+  document.head.append(balise);
+  return () => balise.remove();
+}
+
+function meta(cle: "name" | "property", nom: string): () => HTMLElement {
+  return () => {
+    const balise = document.createElement("meta");
+    balise.setAttribute(cle, nom);
+    return balise;
+  };
+}
+
+/** Le titre de l'onglet, la description, et tout ce qui les RÉPÈTE à un
+ *  moteur ou à un réseau : l'adresse canonique de la page, et les balises de
+ *  partage (Open Graph, Twitter).
+ *
+ *  Jusqu'au 20/11/2026, seuls le titre et la description suivaient la page.
+ *  L'aperçu de partage d'une formation annonçait donc « EVKHA — Business et
+ *  formations », le titre figé du gabarit, et aucune page ne disait son
+ *  adresse canonique : `/etudes?utm_source=lettre` et `/etudes` étaient deux
+ *  pages pour un moteur. Tout part maintenant du MÊME couple titre /
+ *  description (règle 5) — une page ne peut pas en annoncer deux.
+ *
+ *  L'adresse canonique est le chemin de la page, sans paramètre ni ancre, sur
+ *  `ORIGINE_DU_SITE`. Tout est rendu en partant, comme avant.
+ *
+ *  `aSonAdresse` : faux pour une page qui n'est PAS celle de son adresse —
+ *  « page introuvable », « article introuvable », le retour d'un paiement.
+ *  Elle garde son titre et sa description, mais ne se dit ni canonique ni
+ *  rangée dans un fil d'Ariane : ce serait déclarer aux moteurs, comme une
+ *  vraie page, l'adresse fautive qu'on leur demande par ailleurs de ne pas
+ *  indexer (`useSansIndexation`). */
+export function useTitreDePage(
+  titre: string,
+  description: string,
+  aSonAdresse: boolean = true,
+): void {
   useEffect(() => {
     const titreDAvant = document.title;
-    const balise = document.querySelector<HTMLMetaElement>(
-      'meta[name="description"]',
-    );
-    const descriptionDAvant = balise?.content;
     document.title = titre;
-    if (balise) balise.content = description;
+    const defaire = [
+      poserDansLEnTete('meta[name="description"]', meta("name", "description"), "content", description),
+      poserDansLEnTete('meta[property="og:title"]', meta("property", "og:title"), "content", titre),
+      poserDansLEnTete(
+        'meta[property="og:description"]',
+        meta("property", "og:description"),
+        "content",
+        description,
+      ),
+      poserDansLEnTete('meta[name="twitter:title"]', meta("name", "twitter:title"), "content", titre),
+      poserDansLEnTete(
+        'meta[name="twitter:description"]',
+        meta("name", "twitter:description"),
+        "content",
+        description,
+      ),
+    ];
+    if (aSonAdresse) {
+      const adresse = adresseAbsolue(cheminCourant());
+      defaire.push(
+        poserDansLEnTete(
+          'link[rel="canonical"]',
+          () => {
+            const lien = document.createElement("link");
+            lien.rel = "canonical";
+            return lien;
+          },
+          "href",
+          adresse,
+        ),
+        poserDansLEnTete('meta[property="og:url"]', meta("property", "og:url"), "content", adresse),
+      );
+      // Le fil d'Ariane des pages rangées sous une rubrique, déduit du
+      // chemin : aucune page n'a à y penser (règle 4).
+      const fil = filDAriane(cheminCourant(), titre.replace(MARQUE_EN_BOUT, "").trim());
+      if (fil !== null) defaire.push(poserUnBlocStructure(fil, BLOCS_DU_SOCLE.fil));
+    }
     return () => {
       document.title = titreDAvant;
-      if (balise && descriptionDAvant !== undefined) {
-        balise.content = descriptionDAvant;
-      }
+      // Dans l'ordre inverse : une balise créée ici est retirée, une balise
+      // du gabarit retrouve sa valeur.
+      defaire.reverse().forEach((remettre) => remettre());
     };
-  }, [titre, description]);
+  }, [titre, description, aSonAdresse]);
+}
+
+/** Les blocs de données structurées que le SOCLE pose de lui-même sur toute
+ *  page, marqués par `data-bloc`. Le bloc qu'une page pose pour ce qu'elle
+ *  vend (`Course`, `Product`, `Article`) n'en porte pas : on les distingue
+ *  sans lire leur contenu. */
+export const BLOCS_DU_SOCLE = { fil: "fil-d-ariane", questions: "questions" } as const;
+
+/** Pose un bloc de données structurées (JSON-LD) dans l'en-tête du document,
+ *  et le retire au démontage ou quand il change — comme `useTitreDePage` rend
+ *  le titre en partant. `null` : rien à poser.
+ *
+ *  Le contenu est écrit par `textContent`, jamais par du HTML : une chaîne qui
+ *  contiendrait une balise ne peut pas en sortir. Les blocs se construisent
+ *  dans `referencement.ts`. */
+export function useDonneesStructurees(json: string | null): void {
+  useEffect(() => {
+    if (json === null) return undefined;
+    return poserUnBlocStructure(json);
+  }, [json]);
+}
+
+function poserUnBlocStructure(json: string, bloc?: string): () => void {
+  const balise = document.createElement("script");
+  balise.type = "application/ld+json";
+  if (bloc !== undefined) balise.dataset.bloc = bloc;
+  balise.textContent = json;
+  document.head.append(balise);
+  return () => balise.remove();
+}
+
+/** Les questions fréquentes d'une page, déclarées aux moteurs TELLES QUE LA
+ *  PAGE LES AFFICHE.
+ *
+ *  Elles sont LUES DANS LE DOCUMENT (les `<details>` du bloc `.acc-faq`,
+ *  commun à toutes les pages), pas dans les fichiers de contenu : plusieurs
+ *  pages retouchent leurs réponses à l'affichage (`ancienneteSure`, les
+ *  chiffres que le serveur rend pour une formation, une question masquée).
+ *  Déclarer le texte source annoncerait à un moteur une réponse que le
+ *  visiteur ne lit pas (règle 3 : juger ce que le lecteur va lire).
+ *
+ *  Sans tableau de dépendances : l'effet relit le bloc à chaque rendu de la
+ *  page, et ne touche à l'en-tête que si le texte a changé. */
+export function useQuestionsStructurees(page: RefObject<HTMLElement | null>): void {
+  const pose = useRef<{ json: string; retirer: () => void } | null>(null);
+  useEffect(() => {
+    const blocs = page.current?.querySelectorAll(".acc-faq details") ?? [];
+    const questions = Array.from(blocs, (bloc) => {
+      const question = bloc.querySelector("summary")?.textContent ?? "";
+      const reponse = Array.from(bloc.children)
+        .filter((enfant) => enfant.tagName !== "SUMMARY")
+        .map((enfant) => enfant.textContent ?? "")
+        .join(" ");
+      return { question: enLigne(question), reponse: enLigne(reponse) };
+    });
+    const json = questionsFrequentes(questions);
+    if (json === (pose.current?.json ?? null)) return;
+    pose.current?.retirer();
+    pose.current = json === null ? null : { json, retirer: poserUnBlocStructure(json, BLOCS_DU_SOCLE.questions) };
+  });
+  // Au démontage seulement : le bloc part avec la page.
+  useEffect(
+    () => () => {
+      pose.current?.retirer();
+      pose.current = null;
+    },
+    [],
+  );
+}
+
+/** Un texte relu dans le document, sur une ligne : les retours et les espaces
+ *  de mise en page ne sont pas du texte. */
+function enLigne(texte: string): string {
+  return texte.replace(/\s+/g, " ").trim();
 }
 
 /** Une page qui n'a rien à faire dans un moteur de recherche — « page

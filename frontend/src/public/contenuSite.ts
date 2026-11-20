@@ -446,6 +446,45 @@ export const PIED = {
   reseaux: RESEAUX_SOCIAUX,
 };
 
+// ── L'identité déclarée aux moteurs ─────────────────────────────────────────
+
+/** L'ADRESSE PUBLIQUE DU SITE, écrite une fois (règle 5). Les adresses
+ *  canoniques, le plan du site, `robots.txt`, `llms.txt` et les données
+ *  structurées la lisent ici.
+ *
+ *  Écrite en dur, et pas lue dans `window.location.origin` : une copie du
+ *  site servie à une autre adresse (un déploiement d'essai) doit désigner
+ *  CELLE-CI comme l'originale, sinon les moteurs voient deux sites. Le
+ *  domaine nu, sans `www` — celui vers lequel `nginx.conf` renvoie. */
+export const ORIGINE_DU_SITE = "https://evkha.fr";
+
+/** L'adresse complète d'une page du site, pour un moteur. L'accueil garde sa
+ *  barre oblique ; les autres pages n'en portent pas à la fin. */
+export function adresseAbsolue(chemin: string): string {
+  return `${ORIGINE_DU_SITE}${chemin}`;
+}
+
+/** Ce que les données structurées disent de l'entreprise. RIEN n'est inventé :
+ *  chaque valeur est celle que les mentions légales du site publient déjà
+ *  (`contenuLegal`), et le test `le-referencement-dit-vrai` verrouille que le
+ *  siège écrit ici est bien celui qu'elles donnent. Pas de téléphone : le site
+ *  n'en publie aucun. */
+export const IDENTITE = {
+  nom: "EVKHA Business & Formations",
+  /** La fondatrice, dans l'écriture du reste du site (`AUTEUR_DU_BLOG`). */
+  fondatrice: "Evangeline Khaili",
+  siege: {
+    rue: "41 rue Jacquemars Giélée",
+    codePostal: "59800",
+    ville: "Lille",
+    pays: "FR",
+  },
+  /** Le logo carré servi par le site (`frontend/public/icon-512.png`). */
+  logo: "/icon-512.png",
+  /** L'image de partage par défaut (`frontend/public/og-evkha.png`). */
+  imageDePartage: "/og-evkha.png",
+} as const;
+
 // ── Le titre de l'onglet ────────────────────────────────────────────────────
 
 /** La marque, telle qu'elle FERME le titre de l'onglet de chaque page :

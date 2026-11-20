@@ -77,7 +77,13 @@ import { EnTeteSite } from "./EnTeteSite";
 import { Bouton } from "./PiecesSite";
 import { PiedSite } from "./PiedSite";
 import { useReveler } from "./reveler";
-import { useAimants, useMenu, useTitreDePage, variables } from "./site";
+import {
+  useAimants,
+  useMenu,
+  useQuestionsStructurees,
+  useTitreDePage,
+  variables,
+} from "./site";
 // Le socle d'abord, la feuille du lot ensuite : à spécificité égale, c'est la
 // page qui a le dernier mot.
 import "./Site.css";
@@ -150,7 +156,11 @@ function Coche() {
 
 // ── Le texte de la page ─────────────────────────────────────────────────────
 
-const TITRE_DE_LA_PAGE = "Études en téléchargement immédiat — EVKHA";
+/** Le titre de l'onglet, récrit le 20/11/2026 pour dire ce que la page VEND
+ *  dans les mots qu'un porteur de projet tape dans un moteur — le titre
+ *  d'avant (« Études en téléchargement immédiat ») ne nommait aucun des documents. À faire valider par la
+ *  cliente (`docs/referencement/etat-et-plan.md`). */
+const TITRE_DE_LA_PAGE = "Études de marché par secteur, à télécharger — EVKHA";
 
 const DESCRIPTION_DE_LA_PAGE =
   "Des études de marché déjà rédigées, secteur par secteur, à télécharger " +
@@ -456,6 +466,8 @@ export function Boutique() {
     memeEnMouvementReduit: true,
   });
   useTitreDePage(TITRE_DE_LA_PAGE, DESCRIPTION_DE_LA_PAGE);
+  // Les questions de la page, déclarées telles qu'elle les affiche.
+  useQuestionsStructurees(page);
 
   useEffect(() => {
     let vivant = true;

@@ -5,6 +5,12 @@ import path from "path";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // Le manifeste dit quel fichier porte chaque morceau : le pre-rendu
+    // (`scripts/prerendre.mjs`) y lit la feuille de style a lier dans chaque
+    // page ecrite, puis le retire de `dist/`.
+    manifest: true,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

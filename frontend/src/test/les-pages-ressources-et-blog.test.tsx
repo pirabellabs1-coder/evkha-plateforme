@@ -188,6 +188,14 @@ async function rendreLArticle(slug: string) {
 
 const VIABLE = ARTICLES[0];
 
+/** Ce fichier juge la MÉCANIQUE du blog — la liste, les filtres, la page d'un
+ *  article — sur une liste d'UN article, celui de la cliente, à laquelle il
+ *  ajoute le sien (`ESSAI`). Les guides inscrits le 20/11/2026
+ *  (`contenuGuides.ts`) en sont donc retirés ICI, pour ce fichier seulement :
+ *  ils sont jugés un par un dans `les-guides-du-blog.test.tsx`, qui lit la
+ *  liste entière. */
+ARTICLES.splice(1);
+
 /** Un second article, pour prouver que le blog se construit sur la liste. Il
  *  est DATÉ, dans un thème aujourd'hui vide, et assez long pour ne pas se lire
  *  en une minute. */
@@ -741,7 +749,12 @@ describe("le temps de lecture est calculé, pas écrit", () => {
 
 describe("la page d'un article", () => {
   function donneesStructurees(): Record<string, unknown> {
-    const balises = document.querySelectorAll('script[type="application/ld+json"]');
+    // `:not([data-bloc])` : le bloc que la PAGE pose pour ce qu'elle vend. Le fil
+    // d'Ariane et les questions fréquentes, posés par le socle sur toute page
+    // (`site.BLOCS_DU_SOCLE`), sont jugés dans `le-referencement-dit-vrai`.
+    const balises = document.querySelectorAll(
+      'script[type="application/ld+json"]:not([data-bloc])',
+    );
     expect(balises).toHaveLength(1);
     return JSON.parse(balises[0].textContent ?? "") as Record<string, unknown>;
   }

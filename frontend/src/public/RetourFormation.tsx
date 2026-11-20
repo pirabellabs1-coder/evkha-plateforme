@@ -95,7 +95,7 @@ export function RetourFormation() {
   // concurrentes du même paiement.
   const lance = useRef(false);
 
-  useTitreDePage(ONGLET.titre, ONGLET.description);
+  useTitreDePage(ONGLET.titre, ONGLET.description, false);
   useSansIndexation();
 
   useEffect(() => {

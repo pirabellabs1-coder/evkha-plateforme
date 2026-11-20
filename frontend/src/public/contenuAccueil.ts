@@ -874,6 +874,11 @@ export const FIN = {
   bande: "de l'idée à l'action",
 };
 
-export const TITRE_DE_LA_PAGE = "EVKHA — De l'idée à l'entreprise";
+/** Le titre de l'onglet, récrit le 20/11/2026 pour dire ce que la page VEND
+ *  dans les mots qu'un porteur de projet tape dans un moteur — le titre
+ *  d'avant (« EVKHA — De l'idée à l'entreprise ») ne nommait aucun des documents. À faire valider par la
+ *  cliente (`docs/referencement/etat-et-plan.md`). */
+export const TITRE_DE_LA_PAGE =
+  "Étude de marché, business plan, étude de concurrence — EVKHA";
 export const DESCRIPTION_DE_LA_PAGE =
   "Étude de marché, étude de la concurrence, business plan et stratégie business : le dossier de votre projet, écrit pour votre zone, relu avant envoi, reçu sous 24 heures ouvrées.";

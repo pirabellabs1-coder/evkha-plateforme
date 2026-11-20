@@ -97,10 +97,13 @@ import {
   useChargement,
   useMenu,
   usePause,
+  useDonneesStructurees,
+  useQuestionsStructurees,
   useTitreDePage,
   variables,
   type Tarif,
 } from "./site";
+import { servicesDesEtudes } from "./referencement";
 // Le socle d'abord, la feuille de la page ensuite : à spécificité égale, c'est
 // la page qui a le dernier mot.
 import "./Site.css";
@@ -308,6 +311,9 @@ function Fourchette({ tarif, libelle }: { tarif: Tarif; libelle: string }) {
   );
 }
 
+/** Calculé une fois : rien n'y dépend d'un rendu. */
+const SERVICES_DES_ETUDES = servicesDesEtudes(DESCRIPTION_DE_LA_PAGE);
+
 export function NosEtudes() {
   const livrables = useChargement(chargerLivrables);
   const menu = useMenu();
@@ -321,6 +327,9 @@ export function NosEtudes() {
   useReveler(page, livrables.etat, { memeEnMouvementReduit: true });
   useAimants(page);
   useTitreDePage(TITRE_DE_LA_PAGE, DESCRIPTION_DE_LA_PAGE);
+  useDonneesStructurees(SERVICES_DES_ETUDES);
+  // Les questions de la page, déclarées telles qu'elle les affiche.
+  useQuestionsStructurees(page);
 
   const p = ETUDES_PAGE;
   const etudes = livrables.etat === "recu" ? ordonnees(livrables.donnees) : [];

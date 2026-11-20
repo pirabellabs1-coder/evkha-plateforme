@@ -51,7 +51,12 @@ export const TITRES = {
 
 // ── L'onglet ────────────────────────────────────────────────────────────────
 
-export const TITRE_DE_LA_PAGE = "Nos études et livrables — EVKHA";
+/** Le titre de l'onglet, récrit le 20/11/2026 pour dire ce que la page VEND
+ *  dans les mots qu'un porteur de projet tape dans un moteur — le titre
+ *  d'avant (« Nos études et livrables ») ne nommait aucun des documents. À faire valider par la
+ *  cliente (`docs/referencement/etat-et-plan.md`). */
+export const TITRE_DE_LA_PAGE =
+  "Faire faire son étude de marché ou son business plan — EVKHA";
 /** La description de la page, pour les moteurs : la phrase de la cliente qui
  *  dit ce que sont les quatre études, pas une phrase de plus. */
 export const DESCRIPTION_DE_LA_PAGE = ETUDES_PAGE.choix.corps;

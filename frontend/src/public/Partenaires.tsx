@@ -102,6 +102,7 @@ import {
   useChargement,
   useMenu,
   usePause,
+  useQuestionsStructurees,
   useTitreDePage,
   variables,
   type Tarif,
@@ -335,6 +336,8 @@ export function Partenaires() {
   useReveler(page, chargement.etat, { memeEnMouvementReduit: true });
   useAimants(page);
   useTitreDePage(TITRE_DE_LA_PAGE_PRO, DESCRIPTION_DE_LA_PAGE_PRO);
+  // Les questions de la page, déclarées telles qu'elle les affiche.
+  useQuestionsStructurees(page);
 
   const formules =
     chargement.etat === "recu" ? presentables(chargement.donnees) : [];

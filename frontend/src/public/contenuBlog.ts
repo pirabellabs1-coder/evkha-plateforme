@@ -16,10 +16,11 @@
  *      date supposée.
  * Le temps de lecture ne s'écrit PAS : `composer` le calcule sur le texte.
  *
- * Aujourd'hui, un seul article : « Ai-je une idée de business viable ? »,
- * relevé sur le site de la cliente. Son texte vit dans
+ * Le premier article, « Ai-je une idée de business viable ? », est relevé sur
+ * le site de la cliente. Son texte vit dans
  * `contenuRessources.ARTICLE_IDEE_BUSINESS_VIABLE` ; il est RÉUTILISÉ ici, pas
- * recopié (règle 5).
+ * recopié (règle 5). Les suivants sont les guides de `contenuGuides.ts`,
+ * écrits pour la plateforme et à faire valider par elle.
  *
  * Éditorial uniquement : aucun prix, aucun montant. Les passerelles de fin de
  * page mènent à l'étape payante la plus proche sans en écrire le tarif.
@@ -34,6 +35,7 @@ import {
   type Passerelle,
   type SectionDArticle,
 } from "./contenuRessources";
+import { GUIDES } from "./contenuGuides";
 import { CHEMINS, SLUG_IDEE_BUSINESS_VIABLE } from "./contenuSite";
 
 // ── Adresses ────────────────────────────────────────────────────────────────
@@ -275,6 +277,10 @@ export const ARTICLES: Article[] = [
       bouton: { libelle: "Découvrir l'étude de marché", lien: ROUTES_RESSOURCES.etudes },
     },
   }),
+  // Les guides écrits pour la plateforme (`contenuGuides.ts`), APRÈS l'article
+  // de la cliente : le sien reste à la une tant qu'elle n'a pas relu les
+  // autres.
+  ...GUIDES.map(composer),
 ];
 
 /** L'article d'un slug, ou `null` : la page dit alors « article introuvable »

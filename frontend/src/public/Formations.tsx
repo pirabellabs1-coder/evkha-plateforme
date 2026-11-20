@@ -183,6 +183,8 @@ import {
   useChargement,
   useMenu,
   usePause,
+  useDonneesStructurees,
+  useQuestionsStructurees,
   useTitreDePage,
   variables,
   type Chargement,
@@ -265,23 +267,6 @@ function donneesStructurees(
       url: `${origine}${ROUTES_FORMATIONS[fiche.cle]}`,
     },
   });
-}
-
-/** Pose le bloc de données structurées dans l'en-tête du document, et le
- *  retire au démontage ou quand il change — comme `useTitreDePage` rend le
- *  titre en partant. `null` : rien à poser.
- *
- *  Le contenu est écrit par `textContent`, jamais par du HTML : un titre de
- *  formation qui contiendrait une balise ne peut pas en sortir. */
-function useDonneesStructurees(json: string | null): void {
-  useEffect(() => {
-    if (json === null) return undefined;
-    const balise = document.createElement("script");
-    balise.type = "application/ld+json";
-    balise.textContent = json;
-    document.head.append(balise);
-    return () => balise.remove();
-  }, [json]);
 }
 
 // ── Petites pièces ──────────────────────────────────────────────────────────
@@ -642,6 +627,8 @@ function Gabarit({
   useReveler(page, appel, { memeEnMouvementReduit: true });
   useAimants(page);
   useTitreDePage(titreDOnglet(onglet.titre), onglet.description);
+  // Les questions de la page, déclarées telles qu'elle les affiche.
+  useQuestionsStructurees(page);
 
   return (
     <div className={fige ? "acc for acc-fige" : "acc for"} ref={page}>

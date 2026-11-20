@@ -434,7 +434,12 @@ function alerte(): HTMLElement {
 }
 
 function donneesStructurees(): HTMLScriptElement[] {
-  return Array.from(document.head.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]'));
+  // `:not([data-bloc])` : le bloc que la PAGE pose pour ce qu'elle vend. Le fil
+  // d'Ariane et les questions fréquentes, posés par le socle sur toute page
+  // (`site.BLOCS_DU_SOCLE`), sont jugés dans `le-referencement-dit-vrai`.
+  return Array.from(
+    document.head.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]:not([data-bloc])'),
+  );
 }
 
 /** Le texte du contenu principal, sans la phrase de l'argumentaire

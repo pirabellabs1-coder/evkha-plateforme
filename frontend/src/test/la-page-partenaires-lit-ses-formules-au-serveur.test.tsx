@@ -658,7 +658,7 @@ describe("la page des partenaires lit ses formules au serveur", () => {
     await waitFor(() => expect(alerte()).not.toBeEmptyDOMElement());
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(HERO.titre[0]);
-    expect(document.title).toBe("Partenaires PRO et abonnements — EVKHA");
+    expect(document.title).toBe("Études et business plans sous votre marque, pour les pros — EVKHA");
     const page = texte();
     for (const phrase of phrases(TEXTE_DE_LA_CLIENTE)) {
       expect(page, `sans tarif, la page ne dit plus : « ${phrase} »`).toContain(espaces(phrase));

@@ -61,8 +61,12 @@ export const TITRES_PRO = {
 
 // ── L'onglet ────────────────────────────────────────────────────────────────
 
-/** Le titre que l'ancienne page posait déjà. */
-export const TITRE_DE_LA_PAGE_PRO = "Partenaires PRO et abonnements — EVKHA";
+/** Le titre de l'onglet, récrit le 20/11/2026 pour dire ce que la page VEND
+ *  dans les mots qu'un porteur de projet tape dans un moteur — le titre
+ *  d'avant (« Partenaires PRO et abonnements ») ne nommait aucun des documents. À faire valider par la
+ *  cliente (`docs/referencement/etat-et-plan.md`). */
+export const TITRE_DE_LA_PAGE_PRO =
+  "Études et business plans sous votre marque, pour les pros — EVKHA";
 /** La description, pour les moteurs : la phrase de la cliente qui dit ce que
  *  l'abonnement produit, pas une phrase de plus. */
 export const DESCRIPTION_DE_LA_PAGE_PRO = HERO.corps[0];

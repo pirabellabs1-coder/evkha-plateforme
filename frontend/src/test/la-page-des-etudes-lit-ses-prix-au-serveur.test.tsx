@@ -420,7 +420,7 @@ describe("la page des études lit ses prix au serveur", () => {
     await waitFor(() => expect(alerte()).not.toBeEmptyDOMElement());
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Votre marché est-il rentable et viable ?");
-    expect(document.title).toBe("Nos études et livrables — EVKHA");
+    expect(document.title).toBe("Faire faire son étude de marché ou son business plan — EVKHA");
     // Les quatre étapes, dans l'ordre, dans une liste ordonnée.
     const etapes = Array.from(document.querySelectorAll("ol.etu-etapes > li h3")).map((t) => t.textContent);
     expect(etapes).toEqual(ETUDES_PAGE.etapes.map((e) => e.titre));

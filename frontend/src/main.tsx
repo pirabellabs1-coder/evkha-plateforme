@@ -17,7 +17,9 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(document.getElementById("root")!).render(
+const racine = document.getElementById("root")!;
+
+const application = (
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       {/* Plus d'enveloppe `<Theme>` Radix : chaque écran porte la charte
@@ -28,3 +30,19 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </StrictMode>
 );
+
+// Une page PRÉ-RENDUE (`scripts/prerendre.mjs`) arrive avec son contenu déjà
+// écrit dans la racine, signalé par `data-prerendu`. React le remplace au
+// premier rendu : s'il montait tout de suite, il l'effacerait le temps que le
+// morceau de la page soit téléchargé, et le visiteur verrait la page
+// apparaître, disparaître, puis revenir. On laisse donc le routeur charger la
+// route — son morceau compris — AVANT de monter. Si ce chargement échoue, on
+// monte quand même : l'écran d'échec du routeur l'explique.
+//
+// Partout ailleurs (espace client, administration, fiches de la boutique), la
+// racine est vide et rien ne change.
+if (racine.hasAttribute("data-prerendu")) {
+  void router.load().finally(() => createRoot(racine).render(application));
+} else {
+  createRoot(racine).render(application);
+}

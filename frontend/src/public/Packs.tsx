@@ -102,6 +102,7 @@ import {
   useChargement,
   useMenu,
   usePause,
+  useQuestionsStructurees,
   useTitreDePage,
   variables,
   type Chargement,
@@ -509,6 +510,8 @@ function Coquille({
   useReveler(page, appel, { memeEnMouvementReduit: true });
   useAimants(page);
   useTitreDePage(titreDOnglet(titre), description);
+  // Les questions de la page, déclarées telles qu'elle les affiche.
+  useQuestionsStructurees(page);
 
   return (
     // `data-formations` : où en est l'appel. Sur ces pages, une formation hors

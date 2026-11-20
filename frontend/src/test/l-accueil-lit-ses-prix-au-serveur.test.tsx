@@ -421,7 +421,7 @@ describe("l'accueil lit ses prix au serveur", () => {
     // Le titre, lu une fois, avec le premier des mots qui tournent.
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/Transformez votre idée.*en entreprise qui tient debout/);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(document.title).toBe("EVKHA — De l'idée à l'entreprise");
+    expect(document.title).toBe("Étude de marché, business plan, étude de concurrence — EVKHA");
 
     // Le parcours, dans l'ordre du projet.
     const questions = ["Mon idée tient-elle ?", "Face à qui ?", "Convaincre la banque", "Passer à l'action"];
