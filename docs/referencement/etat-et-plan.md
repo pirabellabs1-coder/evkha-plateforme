@@ -19,8 +19,9 @@ Rien de ce document n'est en ligne : la mise en production se décide ailleurs.
    par des banques, l'État et de grands éditeurs.** EVKHA n'y passera pas de
    front. Les créneaux accessibles : « faire faire » son étude ou son business
    plan, les études par secteur, Lille, et l'offre pour les professionnels.
-4. **Trois guides ont été ajoutés au blog.** Ils sont à relire par la gérante
-   avant toute mise en ligne (section 8).
+4. **Trois guides sont écrits pour le blog, mais retenus.** Ils ne partent pas
+   en ligne tant que la gérante ne les a pas relus : un réglage, à `false`,
+   les tient hors du site (section 8).
 5. **Une partie du travail ne peut être faite que par la gérante** : fiche
    Google, Search Console, annuaires, avis (section 7).
 
@@ -75,9 +76,9 @@ par page publique** : `frontend/scripts/prerendre.mjs`, avec
 `frontend/src/prerendu.ts`. Il monte le vrai routeur et les vraies pages : ce
 que le robot reçoit est ce que le visiteur voit.
 
-- 23 pages : accueil, études, boutique, 3 pages de packs, 4 de formations,
-  partenaires, Swapn, blog et ses 4 articles, boîte à outils, contact, 4 pages
-  légales.
+- 20 pages : accueil, études, boutique, 3 pages de packs, 4 de formations,
+  partenaires, Swapn, blog et son article, boîte à outils, contact, 4 pages
+  légales. Elles seront 23 quand les trois guides seront publiés.
 - Chaque page écrite porte son titre, sa description, son adresse canonique,
   ses balises de partage, ses données structurées et tout son texte.
 - **Aucun prix n'est figé** : le serveur n'est pas interrogé pendant la
@@ -97,7 +98,7 @@ Les trois sont écrits par le même script, à partir d'une seule liste :
 
 - `robots.txt` : tout est ouvert, **y compris aux robots d'IA**, sauf les
   espaces connectés et les pages de paiement.
-- `sitemap.xml` : les 23 pages.
+- `sitemap.xml` : les 20 pages (23 avec les guides).
 - `llms.txt` : le plan du site pour les moteurs de réponse, avec le vrai titre
   et la vraie description de chaque page.
 
@@ -158,13 +159,14 @@ Les anciens titres ne nommaient aucun document vendu.
 
 Trois fichiers, dans `frontend/src/test/` :
 
-- `le-referencement-dit-vrai` : pour chacune des 23 pages, titre et
+- `le-referencement-dit-vrai` : pour chacune des pages du plan, titre et
   description uniques, adresse canonique, balises de partage, questions
   déclarées identiques à celles affichées, fil d'Ariane.
 - `le-plan-du-site-n-oublie-aucune-page` : aucune page publique hors du plan,
   et la chaîne construction → Docker → nginx est entière.
-- `les-guides-du-blog` : chaque guide a sa page, sans prix ni promesse non
-  confirmée.
+- `les-guides-du-blog` : aucun guide n'est publié tant que le réglage est à
+  `false` ; une fois inscrit, chaque guide a sa page, sans prix ni promesse
+  non confirmée.
 
 Ils ont été rejoués contre cinq défauts introduits exprès (adresse canonique
 retirée, questions non déclarées, nginx sans pré-rendu, page retirée du plan,
@@ -188,7 +190,7 @@ seule l'API manquait.
 | `/packs/essentiel` | 200 | text/html | 48 106 o | Pack Création Essentiel : étude de marché, prévisionnel… |
 | `/blog/comment-faire-une-etude-de-marche` | 200 | text/html | 33 658 o | Comment faire une étude de marché : les 6 étapes — EVKHA |
 | `/robots.txt` | 200 | **text/plain** | 434 o | — |
-| `/sitemap.xml` | 200 | **text/xml** | 23 adresses | — |
+| `/sitemap.xml` | 200 | **text/xml** | 23 adresses (20 depuis que les guides sont retenus) | — |
 | `/llms.txt` | 200 | **text/plain** | 6 507 o | — |
 | `/espace/connexion` | 200 | text/html | 3 724 o | EVKHA — Espace client (page vide de l'application, voulu) |
 | `/boutique/une-etude` | 200 | text/html | 3 724 o | EVKHA — Espace client (**reste à faire**, section 7.1) |
@@ -204,16 +206,20 @@ seule l'API manquait.
 - dans un navigateur, la page s'affiche comme avant une fois le JavaScript
   chargé.
 
+Cette mesure a été prise AVANT que les guides ne soient retenus : l'adresse
+d'un guide y répond. Depuis, elle rend « article introuvable », comme voulu.
+
 **Un défaut trouvé par cette vérification, et corrigé.** Dans le navigateur,
 la page des études portait ses données structurées **en double** : celles
 écrites dans le HTML, plus celles que l'application repose. Aucun test ne
 l'avait vu. L'application remet maintenant l'en-tête à neuf avant de prendre
 le relais (`frontend/src/enTetePrerendu.ts`).
 
-Les tests lancés, tous verts : les 3 nouveaux fichiers (55 tests), les
-9 fichiers de test des pages touchées (443 tests), et les 4 fichiers du
-serveur qui lisent `nginx.conf` et le `Dockerfile` (17 tests). Contrôles du
-front : `npx tsc -b --force` et `npx eslint src --quiet`, sans erreur.
+Les tests lancés, tous verts : **la suite complète du front, une fois, en fin
+de travail — 52 fichiers, 1 207 tests** ; et les 4 fichiers du serveur qui
+lisent `nginx.conf` et le `Dockerfile` (17 tests). Contrôles du front :
+`npx tsc -b --force` et `npx eslint src --quiet`, sans erreur. Une
+construction complète avec pré-rendu a réussi (20 pages).
 
 ## 5. Les concurrents
 
@@ -267,7 +273,7 @@ Relevé sur huit pages lues :
 |---|---|
 | Contenu lisible sans JavaScript | **Corrigé** (pré-rendu) |
 | Plan du site, `robots.txt`, adresse canonique | **Corrigé** |
-| Guides qui répondent aux questions | **Commencé** : 3 guides, à valider |
+| Guides qui répondent aux questions | **Écrits, retenus** : 3 guides, publiés dès validation |
 | Auteur nommé, date de mise à jour | Auteur déclaré ; **pas de date** tant que la gérante n'a pas publié |
 | Page « combien ça coûte » avec des chiffres | **Non fait** : les prix ne s'écrivent pas en dur (section 6) |
 | Une page par secteur | **Partiel** : les fiches de la boutique existent, mais ne sont pas pré-rendues (section 6) |
@@ -318,7 +324,16 @@ puis les secteurs. Pas les requêtes de tête.
    les prix du marché, avec leurs sources.
 5. **Les images** : plusieurs ont un texte alternatif vide. La plupart sont
    décoratives ; l'image d'ouverture de la page des études est à vérifier.
-6. **Le menu** n'a pas été touché (consigne). Entrée souhaitée, si la gérante
+6. **Deux remarques de la revue de code laissées de côté**, sans gravité :
+   - à l'arrivée du JavaScript, les blocs déjà visibles refont leur fondu
+     d'apparition (la page écrite les montre tous, l'application les révèle
+     au défilement) ;
+   - `/accueil`, `/etudes.html` et `/etudes/` répondent sans renvoi vers
+     l'adresse propre. L'adresse canonique de chaque page corrige cela pour
+     les moteurs ; un renvoi 301 dans nginx serait plus net.
+   Et `Article` (blog) comme `Course` (formations) lisent encore l'adresse du
+   navigateur, pas `ORIGINE_DU_SITE` : sans effet sur `evkha.fr`.
+7. **Le menu** n'a pas été touché (consigne). Entrée souhaitée, si la gérante
    valide les guides : rien de plus, le blog y est déjà.
 
 ### 7.2 Ce que la gérante doit faire elle-même
@@ -351,9 +366,12 @@ Rien de ce qui suit n'a été tranché à sa place.
 
 1. **Les trois guides du blog** (`frontend/src/public/contenuGuides.ts`). Ils
    ne viennent pas de son site : ils sont proposés. **Ils portent sa
-   signature « Evangéline » et la déclarent comme auteur.** Elle doit les
-   relire, les corriger, et dire s'ils peuvent paraître sous son nom. S'ils
-   ne conviennent pas, les retirer de la liste suffit.
+   signature « Evangéline » et la déclarent comme auteur.** Ils sont donc
+   **retenus** : `GUIDES_PUBLIES` vaut `false` dans ce fichier, et tant que
+   c'est le cas ils ne sont ni sur le blog, ni dans le plan du site. Elle doit
+   les relire, les corriger, et dire s'ils peuvent paraître sous son nom.
+   Pour les publier : passer `GUIDES_PUBLIES` à `true` et donner sa date à
+   chaque guide. Rien d'autre.
    - « Comment faire une étude de marché ? »
    - « Business plan pour la banque : que doit-il contenir ? »
    - « Étude de marché, étude de concurrence, business plan : par quoi
@@ -390,12 +408,12 @@ Les guides n'emploient aucun de ces points : un test le verrouille.
 - **La validité des données structurées dans l'outil de Google** (« Test des
   résultats enrichis ») : il lui faut une adresse publique. À passer sur
   l'accueil, une formation, un pack et un article après mise en ligne.
-- **La suite complète des tests** (front et serveur) n'a pas été lancée : la
-  machine était partagée. Seuls les fichiers de test des pages touchées l'ont
-  été — voir la section 4. `ruff`, `mypy`, `pytest` et
-  `makemigrations --check` n'ont pas été lancés : aucun fichier Python n'a
-  été modifié, mais trois tests du serveur lisent `frontend/nginx.conf`
-  (voir la section 4).
+- **Les contrôles du serveur** (`ruff`, `mypy`, `pytest` complet,
+  `makemigrations --check`) n'ont pas été lancés : aucun fichier Python n'a
+  été modifié, et la machine était partagée. Seuls les 4 fichiers de test qui
+  lisent la configuration du front l'ont été.
+- **La dernière image Docker** n'a pas été reconstruite après les correctifs
+  de la revue de code : la construction locale, elle, a réussi.
 - **Les guides** n'ont été relus par personne d'autre que leur rédacteur.
 
 ## 10. Pour la mise en ligne
@@ -411,7 +429,7 @@ curl -s https://evkha.fr/sitemap.xml | grep -c "<loc>"
 ```
 
   Attendu : un vrai `robots.txt`, le titre « Faire faire son étude de
-  marché… », et 23 adresses.
+  marché… », et 20 adresses (23 une fois les guides publiés).
 - Les anciennes adresses (`/etudedemarche`, `/formation`…) sont toujours
   redirigées par le navigateur, pas par le serveur : un robot sans JavaScript
   y reçoit la page vide. Des redirections 301 dans `nginx.conf` seraient
