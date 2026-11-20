@@ -158,12 +158,7 @@ def acheter(request: HttpRequest) -> HttpResponse:
 
     adresse_ip = limitation.adresse_client(request)
     if limitation.depasse(ACHATS_PAR_HEURE, adresse_ip):
-        return _refus(
-            "Trop de paiements ouverts depuis cette connexion. Réessayez dans "
-            "une heure, ou écrivez-nous à contact@evkha.fr.",
-            "trop_de_tentatives",
-            429,
-        )
+        return _trop_de_paiements()
 
     brut = charge.get("formation")
     slug = brut.strip() if isinstance(brut, str) else ""
@@ -180,7 +175,10 @@ def acheter(request: HttpRequest) -> HttpResponse:
     # refuse, ni les requêtes parties ensemble, qui lisaient toutes zéro
     # (audit du 20/11/2026). Une demande refusée plus haut — slug inconnu,
     # formation sans programme — n'a rien coûté : elle n'est pas comptée.
-    limitation.enregistrer(ACHATS_PAR_HEURE, adresse_ip)
+    # Compté et jugé d'un seul geste (`limitation.compter`) : lu puis compté,
+    # le plafond laissait passer une salve de requêtes parties ensemble.
+    if not limitation.compter(ACHATS_PAR_HEURE, adresse_ip):
+        return _trop_de_paiements()
 
     try:
         session = stripe_api.creer_paiement_de_formation(
@@ -282,3 +280,13 @@ def retour(request: HttpRequest) -> HttpResponse:
         "titre": resultat.formation.titre,
         "slug": resultat.formation.slug,
     })
+
+
+def _trop_de_paiements() -> HttpResponse:
+    """Le refus d'une ouverture de paiement au-delà du plafond de l'adresse."""
+    return _refus(
+        "Trop de paiements ouverts depuis cette connexion. Réessayez dans "
+        "une heure, ou écrivez-nous à contact@evkha.fr.",
+        "trop_de_tentatives",
+        429,
+    )

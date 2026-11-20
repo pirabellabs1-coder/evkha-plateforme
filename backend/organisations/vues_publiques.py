@@ -169,12 +169,7 @@ def acheter(request: HttpRequest) -> HttpResponse:
 
     adresse_ip = limitation.adresse_client(request)
     if limitation.depasse(PAIEMENTS_PAR_HEURE, adresse_ip):
-        return _refus(
-            "Trop de paiements ouverts depuis cette connexion. Réessayez dans "
-            "une heure, ou écrivez-nous à contact@evkha.fr.",
-            "trop_de_tentatives",
-            429,
-        )
+        return _trop_de_paiements()
 
     slug = str(charge.get("livrable") or "").strip()
     offre = Offer.objects.filter(
@@ -192,7 +187,10 @@ def acheter(request: HttpRequest) -> HttpResponse:
     # Et il est compté AVANT l'appel à Stripe (audit du 20/11/2026) : compté
     # après, il ne voyait ni les ouvertures que Stripe refuse, ni les requêtes
     # parties ensemble, qui lisaient toutes zéro.
-    limitation.enregistrer(PAIEMENTS_PAR_HEURE, adresse_ip)
+    # Compté et jugé d'un seul geste (`limitation.compter`) : lu puis compté,
+    # le plafond laissait passer une salve de requêtes parties ensemble.
+    if not limitation.compter(PAIEMENTS_PAR_HEURE, adresse_ip):
+        return _trop_de_paiements()
 
     # Une saisie qui n'est pas une adresse est écartée, pas transmise : elle
     # faisait refuser l'ouverture par le prestataire, dont le message — qui
@@ -707,3 +705,13 @@ def confirmer_la_nouvelle_adresse(request: HttpRequest) -> HttpResponse:
         return _refus(str(refus), "adresse_refusee", 409)
 
     return JsonResponse({"email": compte.customer.email})
+
+
+def _trop_de_paiements() -> HttpResponse:
+    """Le refus d'une ouverture de paiement au-delà du plafond de l'adresse."""
+    return _refus(
+        "Trop de paiements ouverts depuis cette connexion. Réessayez dans "
+        "une heure, ou écrivez-nous à contact@evkha.fr.",
+        "trop_de_tentatives",
+        429,
+    )

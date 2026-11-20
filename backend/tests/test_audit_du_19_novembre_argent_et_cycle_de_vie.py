@@ -359,9 +359,14 @@ def test_les_ouvertures_de_paiement_publiques_sont_comptees(
 
     monkeypatch.setattr(stripe_api, "creer_paiement_de_livrable", lambda **k: _Session())
     comptes: list[Any] = []
-    monkeypatch.setattr(
-        limitation, "enregistrer", lambda plafond, cle: comptes.append(plafond),
-    )
+
+    # Depuis le 20/11/2026 l'ouverture est comptée ET jugée d'un seul geste
+    # (`limitation.compter`). L'espion rend « sous le plafond ».
+    def espion(plafond: Any, cle: str) -> bool:
+        comptes.append(plafond)
+        return True
+
+    monkeypatch.setattr(limitation, "compter", espion)
 
     reponse = Client().post(
         "/api/public/acheter/", data={"livrable": offre.slug},

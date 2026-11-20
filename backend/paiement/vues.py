@@ -33,6 +33,7 @@ Le travail est court (quelques ecritures) : rien ne justifie de differer.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from typing import Any, cast
 
@@ -45,6 +46,7 @@ from integrations.webhooks import record_webhook_event
 from monitoring.models import IncidentSeverity, OperationalIncident
 
 from .abonnements import EvenementInexploitable, traiter
+from .achats import reference_abregee
 from .stripe_api import PaiementIndisponible, secret_de_signature
 
 _log = logging.getLogger(__name__)
@@ -60,6 +62,104 @@ _log = logging.getLogger(__name__)
 _verifier_signature = cast(
     Callable[[bytes, str, str], dict[str, Any]], stripe.Webhook.construct_event
 )
+
+
+#: Ce qu'on garde de l'événement lui-même.
+_CLES_DE_L_EVENEMENT = ("id", "object", "type", "created", "livemode", "api_version")
+
+#: Ce qu'on garde de l'objet qu'il porte : de quoi comprendre ce qui s'est
+#: passé et retrouver le paiement chez le prestataire, et rien qui désigne ou
+#: permette de joindre une personne. Une liste de ce qui est ANODIN, et non de
+#: ce qui est sensible : un champ que le prestataire ajoutera demain n'est pas
+#: gardé tant que personne ne l'a inscrit ici.
+_CLES_DE_L_OBJET = (
+    "object", "mode", "status", "payment_status", "created",
+    "amount", "amount_total", "amount_subtotal", "amount_paid", "amount_due",
+    "amount_refunded", "currency", "refunded", "reason", "billing_reason",
+    "payment_intent", "subscription", "customer", "invoice", "charge",
+    "client_reference_id", "cancel_at_period_end", "current_period_end",
+)
+
+#: Les métadonnées que NOUS posons à l'ouverture d'un paiement
+#: (`stripe_api`). Liste fermée, comme le reste : une clé ajoutée un jour —
+#: un nom, un téléphone — n'est pas gardée tant qu'elle n'est pas inscrite ici.
+_CLES_DES_METADONNEES = (
+    "achat", "offre_slug", "produit_slug", "formation_slug",
+    "organisation_id", "formule_code", "quantite",
+)
+
+_SESSION_DANS_UN_TEXTE = re.compile(r"cs_(?:test|live)_[A-Za-z0-9]+")
+_ADRESSE_DANS_UN_TEXTE = re.compile(r"[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+")
+
+
+def _est_simple(valeur: object) -> bool:
+    return valeur is None or isinstance(valeur, (str, int, float, bool))
+
+
+def charge_a_conserver(evenement: dict[str, Any]) -> dict[str, Any]:
+    """Ce qu'on ÉCRIT EN BASE d'un événement de paiement — pas l'événement.
+
+    ## Le défaut, relevé à l'audit de sécurité du 20/11/2026
+
+    L'événement entier était enregistré (`WebhookEvent.raw_payload`), et la
+    table se lit dans l'administration. Il porte l'identifiant de session
+    COMPLET — qui, présenté à une page de retour, rend les liens d'une étude
+    achetée ou ouvre la première session d'un compte né du paiement — ainsi
+    que le nom, l'adresse de courriel et l'adresse postale de l'acheteur.
+    C'est exactement ce que `achats.reference_abregee` retire des journaux et
+    des incidents.
+
+    ## La règle
+
+    Rien ne RELIT cette charge pour traiter un paiement : en cas d'échec,
+    c'est le prestataire qui renvoie l'événement. Elle ne sert qu'à
+    comprendre après coup. On en garde donc le squelette (voir
+    `_CLES_DE_L_OBJET`), les métadonnées — que nous posons nous-mêmes — et
+    l'identifiant de l'objet, abrégé quand c'est une session.
+
+    Le dédoublonnage n'en dépend pas : il se fait sur l'identifiant de
+    l'événement.
+    """
+    gardee: dict[str, Any] = {
+        cle: evenement[cle]
+        for cle in _CLES_DE_L_EVENEMENT
+        if cle in evenement and _est_simple(evenement[cle])
+    }
+    objet = (evenement.get("data") or {}).get("object")
+    if not isinstance(objet, dict):
+        return gardee
+
+    retenu: dict[str, Any] = {
+        cle: objet[cle]
+        for cle in _CLES_DE_L_OBJET
+        if cle in objet and _est_simple(objet[cle])
+    }
+    identifiant = str(objet.get("id") or "")
+    retenu["id"] = (
+        reference_abregee(identifiant) if identifiant.startswith("cs_") else identifiant
+    )
+    metadonnees = objet.get("metadata")
+    if isinstance(metadonnees, dict):
+        retenu["metadata"] = {
+            cle: sans_secrets(metadonnees[cle])[:200]
+            for cle in _CLES_DES_METADONNEES
+            if metadonnees.get(cle) is not None and _est_simple(metadonnees[cle])
+        }
+    gardee["data"] = {"object": retenu}
+    return gardee
+
+
+def sans_secrets(texte: object) -> str:
+    """Un message d'erreur tel qu'on l'écrit en base ou dans un journal.
+
+    Une erreur d'intégrité de la base cite la valeur qui a heurté la
+    contrainte : une référence de session, une adresse. Les deux sont
+    remplacées avant que le message ne soit enregistré.
+    """
+    propre = _SESSION_DANS_UN_TEXTE.sub(
+        lambda trouve: reference_abregee(trouve.group(0)), str(texte)
+    )
+    return _ADRESSE_DANS_UN_TEXTE.sub("<adresse>", propre)
 
 
 def _refus(motif: str, statut: int) -> JsonResponse:
@@ -112,7 +212,7 @@ def webhook(request: HttpRequest) -> JsonResponse:
     enregistre = record_webhook_event(
         provider=IntegrationProvider.STRIPE,
         event_id=identifiant,
-        payload=dict(evenement),
+        payload=charge_a_conserver(dict(evenement)),
         retraiter_les_echecs=True,
     )
     if enregistre.is_duplicate and not enregistre.a_retraiter:
@@ -133,7 +233,7 @@ def webhook(request: HttpRequest) -> JsonResponse:
         # repond 200 pour que Stripe cesse, et on ouvre un incident pour que
         # quelqu'un le voie — se taire ici, c'est perdre un paiement en silence.
         WebhookEvent.objects.filter(pk=enregistre.event.pk).update(
-            status=WebhookStatus.REJECTED, error_message=str(exc)[:500]
+            status=WebhookStatus.REJECTED, error_message=sans_secrets(exc)[:500]
         )
         OperationalIncident.objects.create(
             title="Evenement Stripe inexploitable",
@@ -141,16 +241,24 @@ def webhook(request: HttpRequest) -> JsonResponse:
             details={
                 "evenement": identifiant,
                 "type": str(evenement.get("type") or ""),
-                "motif": str(exc),
+                "motif": sans_secrets(exc),
             },
         )
-        _log.error("Evenement Stripe %s inexploitable : %s", identifiant, exc)
+        _log.error(
+            "Evenement Stripe %s inexploitable : %s", identifiant, sans_secrets(exc)
+        )
         return JsonResponse({"recu": True, "traite": False}, status=200)
     except Exception as exc:  # noqa: BLE001 - on veut que Stripe retente
         WebhookEvent.objects.filter(pk=enregistre.event.pk).update(
-            status=WebhookStatus.FAILED, error_message=str(exc)[:500]
+            status=WebhookStatus.FAILED, error_message=sans_secrets(exc)[:500]
         )
-        _log.exception("Echec de traitement de l'evenement Stripe %s.", identifiant)
+        # Sans la trace brute : une erreur d'integrite cite la valeur qui a
+        # heurte la contrainte — une reference de session, une adresse. Le
+        # type et le message expurge suffisent a retrouver la cause.
+        _log.error(
+            "Echec de traitement de l'evenement Stripe %s : %s (%s)",
+            identifiant, type(exc).__name__, sans_secrets(exc),
+        )
         return _refus("traitement_en_echec", 500)
 
     WebhookEvent.objects.filter(pk=enregistre.event.pk).update(

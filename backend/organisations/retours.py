@@ -96,6 +96,15 @@ def refus_si_non_encaisse(session: dict[str, Any]) -> Refus | None:
     if str(session.get("payment_status") or "") != "unpaid":
         return None
     if str(session.get("status") or "") == "complete":
+        if _refuse_par_la_banque(str(session.get("id") or "")):
+            return Refus(
+                "Votre banque a refusé ce paiement : il n'a pas abouti, et rien "
+                "ne vous a été livré. Vous pouvez reprendre votre achat avec un "
+                "autre moyen de paiement ; pour toute question, écrivez-nous à "
+                "contact@evkha.fr.",
+                "paiement_refuse",
+                409,
+            )
         return Refus(
             "Votre paiement est enregistré, et votre banque doit encore le "
             "confirmer : pour un prélèvement, cela prend quelques jours. Vous "
@@ -114,6 +123,28 @@ def refus_si_non_encaisse(session: dict[str, Any]) -> Refus | None:
     )
 
 
+def _refuse_par_la_banque(reference: str) -> bool:
+    """Le prestataire a-t-il annoncé l'échec de ce paiement différé ?
+
+    Une session dont le prélèvement est rejeté reste « terminée, non payée »
+    pour toujours : sans cette lecture, l'acheteur lirait indéfiniment « votre
+    banque doit encore le confirmer ». L'échec est noté sur le panier par le
+    webhook (`abonnements.sur_paiement_differe_refuse`).
+
+    Ne lève jamais : dans le doute, on dit « en attente », qui invite à écrire.
+    """
+    from .models import EtatTentative, TentativePaiement  # noqa: PLC0415
+
+    if not reference:
+        return False
+    try:
+        return TentativePaiement.objects.filter(
+            reference_session=reference, etat=EtatTentative.ABANDONNEE
+        ).exists()
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def a_la_forme_d_une_session(identifiant: object) -> bool:
     return isinstance(identifiant, str) and bool(
         FORME_D_UNE_SESSION.fullmatch(identifiant)
@@ -129,7 +160,10 @@ def session_presentee(request: HttpRequest) -> str:
     `session_absente` — plus `trop_de_tentatives` (429).
     """
     adresse_ip = limitation.adresse_client(request)
-    if limitation.depasse(RETOURS_PAR_HEURE, adresse_ip):
+    # Compté ICI, avant de savoir si l'appel aboutira : c'est tout l'objet. Et
+    # compté et jugé d'un seul geste (`limitation.compter`) : lu puis compté,
+    # le plafond laissait passer une salve de requêtes parties ensemble.
+    if not limitation.compter(RETOURS_PAR_HEURE, adresse_ip):
         raise Refus(
             "Trop de vérifications de paiement depuis cette connexion. Si vous "
             "venez de payer, votre achat n'est pas perdu : votre accès vous est "
@@ -138,8 +172,6 @@ def session_presentee(request: HttpRequest) -> str:
             "trop_de_tentatives",
             429,
         )
-    # Compté ICI, avant de savoir si l'appel aboutira : c'est tout l'objet.
-    limitation.enregistrer(RETOURS_PAR_HEURE, adresse_ip)
 
     try:
         charge = json.loads(request.body or b"{}")

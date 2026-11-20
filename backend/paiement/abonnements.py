@@ -872,6 +872,60 @@ def sur_remboursement(prelevement: dict[str, Any]) -> str:
     )
 
 
+def sur_paiement_differe_refuse(session: dict[str, Any]) -> str:
+    """`checkout.session.async_payment_failed` — la banque a refusé.
+
+    ## Le défaut, relevé aux relectures du 20/11/2026
+
+    Un prélèvement ou un virement termine la session « non payée » et se
+    confirme, ou ÉCHOUE, des jours plus tard. On écoutait la confirmation, pas
+    l'échec : la gérante n'en savait rien, et l'acheteur revenu sur sa page de
+    retour lisait indéfiniment « votre banque doit encore le confirmer ».
+
+    ## Ce que fait le traitement
+
+    - il note l'échec sur le panier (`ABANDONNEE`), que la page de retour lit
+      (`retours._refuse_par_la_banque`) — jamais sur un panier déjà PAYÉ : un
+      événement tardif ou rejoué ne défait pas un encaissement ;
+    - il ouvre un incident, pour que quelqu'un puisse reprendre contact.
+
+    Si le panier n'a pas été noté à l'ouverture (son enregistrement ne lève
+    jamais, il peut donc manquer), seul l'incident le dit : la page de retour
+    reste alors sur « en attente », qui invite à écrire.
+
+    Rien n'est à reprendre : rien n'a été livré ni versé pour une session non
+    encaissée (`sur_session_terminee`). Le journal des webhooks écarte déjà le
+    rejeu du même événement.
+    """
+    from organisations.models import EtatTentative, TentativePaiement  # noqa: PLC0415
+
+    from . import achats, formations  # noqa: PLC0415 — evite un cycle a l'import
+
+    achat = str((session.get("metadata") or {}).get("achat") or "")
+    if not achat:
+        # Une souscription a sa propre annonce d'échec (`invoice.payment_failed`).
+        return "paiement differe refuse hors achat, ignore"
+
+    reference = str(session.get("id") or "").strip()
+    if reference:
+        TentativePaiement.objects.filter(reference_session=reference).exclude(
+            etat=EtatTentative.PAYEE
+        ).update(etat=EtatTentative.ABANDONNEE)
+
+    _incident(
+        "Paiement differe refuse par la banque",
+        IncidentSeverity.MEDIUM,
+        session=achats.reference_abregee(reference),
+        paiement=formations.intention_de_paiement(session),
+        achat=achat[:40],
+        suite=(
+            "Rien n'a ete livre ni verse. L'acheteur peut reprendre son achat "
+            "avec un autre moyen de paiement."
+        ),
+    )
+    return f"paiement differe refuse ({achat[:40]})"
+
+
 def sur_contestation(litige: dict[str, Any]) -> str:
     """`charge.dispute.created` — le payeur a fait opposition auprès de sa banque.
 
@@ -904,6 +958,8 @@ _TRAITEMENTS = {
     # c'est cet événement qui porte alors `payment_status: paid`. Même
     # traitement, il est rejouable sans effet.
     "checkout.session.async_payment_succeeded": sur_session_terminee,
+    # ... ou échoue : sans cet événement, personne ne l'apprenait.
+    "checkout.session.async_payment_failed": sur_paiement_differe_refuse,
     "invoice.paid": sur_facture_payee,
     "invoice.payment_failed": sur_prelevement_refuse,
     "customer.subscription.updated": sur_abonnement_modifie,

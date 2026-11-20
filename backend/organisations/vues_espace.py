@@ -1854,7 +1854,9 @@ def ouvrir_le_paiement(
     if formule is None:
         return _refus("Cette formule n'existe pas.", "formule_inconnue", 400)
 
-    _compter_l_ouverture(organisation)
+    trop = _compter_l_ouverture(organisation)
+    if trop is not None:
+        return trop
     try:
         session = paiement_stripe.creer_session_de_paiement(
             organisation, formule, email=membre.customer.email
@@ -1950,7 +1952,9 @@ def acheter_une_etude(
     if offre is None:
         return _refus("Cette étude n'est pas disponible.", "etude_inconnue", 404)
 
-    _compter_l_ouverture(organisation)
+    trop = _compter_l_ouverture(organisation)
+    if trop is not None:
+        return trop
     try:
         session = paiement_stripe.creer_paiement_de_livrable(
             offre=offre,
@@ -2135,15 +2139,26 @@ def _trop_d_ouvertures(organisation: Organisation) -> JsonResponse | None:
     )
 
 
-def _compter_l_ouverture(organisation: Organisation) -> None:
-    """Compte une ouverture de paiement — à appeler AVANT l'appel au prestataire.
+def _compter_l_ouverture(organisation: Organisation) -> JsonResponse | None:
+    """Compte une ouverture de paiement, et rend le refus si elle est de trop.
 
-    Avant, et non après : un plafond compté après l'appel ne voit ni les
-    ouvertures que le prestataire refuse, ni les requêtes parties ensemble.
-    Une demande refusée plus tôt — slug inconnu, formation déjà achetée — n'a
-    rien coûté et n'est pas comptée.
+    À appeler AVANT l'appel au prestataire : compté après, le plafond ne voit
+    pas les ouvertures que le prestataire refuse. Une demande refusée plus
+    tôt — slug inconnu, formation déjà achetée — n'a rien coûté et n'est pas
+    comptée.
+
+    Compté et jugé d'un seul geste (`limitation.compter`). `_trop_d_ouvertures`
+    lit seulement : des requêtes parties ensemble le passaient toutes, puis
+    comptaient toutes — la salve entière partait chez le prestataire.
     """
-    limitation.enregistrer(OUVERTURES_PAR_ORGANISATION, str(organisation.pk))
+    if limitation.compter(OUVERTURES_PAR_ORGANISATION, str(organisation.pk)):
+        return None
+    return _refus(
+        "Vous avez ouvert beaucoup de paiements coup sur coup. Réessayez dans "
+        "une heure, ou écrivez-nous à contact@evkha.fr.",
+        "trop_de_tentatives",
+        429,
+    )
 
 
 #: Nombre de crédits qu'un achat unique peut porter.
@@ -2210,7 +2225,9 @@ def acheter_des_credits(
     trop = _trop_d_ouvertures(organisation)
     if trop is not None:
         return trop
-    _compter_l_ouverture(organisation)
+    trop = _compter_l_ouverture(organisation)
+    if trop is not None:
+        return trop
 
     try:
         session = paiement_stripe.creer_paiement_de_credits(
@@ -3333,7 +3350,9 @@ def acheter_un_produit(
     if produit is None:
         return _refus("Cette étude n'est pas disponible.", "produit_inconnu", 404)
 
-    _compter_l_ouverture(organisation)
+    trop = _compter_l_ouverture(organisation)
+    if trop is not None:
+        return trop
     try:
         session = stripe_api.creer_paiement_de_produit(
             produit=produit,
@@ -3525,7 +3544,9 @@ def acheter_une_formation(
             409,
         )
 
-    _compter_l_ouverture(organisation)
+    trop = _compter_l_ouverture(organisation)
+    if trop is not None:
+        return trop
     try:
         session = stripe_api.creer_paiement_de_formation(
             formation=formation,

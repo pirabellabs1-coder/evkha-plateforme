@@ -154,6 +154,53 @@ def enregistrer(plafond: Plafond, identifiant: str) -> None:
         return
 
 
+def compter(plafond: Plafond, identifiant: str) -> bool:
+    """Compte un évènement, et dit s'il TIENT sous le plafond.
+
+    ## Le défaut, relevé à l'audit de sécurité du 20/11/2026
+
+    `depasse` puis `enregistrer` sont une lecture suivie d'une écriture. Des
+    requêtes parties ensemble lisaient toutes « sous le plafond » avant
+    qu'aucune n'ait compté : une salve passait entière, quel que soit le
+    maximum. Les commentaires des appelants promettaient le contraire.
+
+    ## La règle
+
+    On incrémente D'ABORD, et on juge sur la valeur que l'incrément rend :
+    le cache fait les deux d'un seul geste, et la vingt-et-unième requête
+    reçoit 21 même si elle est partie avec la première.
+
+    Pour ce qui se compte À CHAQUE appel (une ouverture de paiement, un retour
+    de paiement). La connexion, qui ne compte que ses échecs, garde
+    `depasse` / `enregistrer`.
+
+    Un cache injoignable répond « oui » — même arbitrage que `depasse`.
+    """
+    cle = plafond.cle(identifiant)
+    try:
+        if cache.add(cle, 1, plafond.fenetre_s):
+            return plafond.maximum >= 1
+        try:
+            compte = int(cache.incr(cle))
+        except ValueError:
+            # La clé a expiré entre `add` et `incr` : la fenêtre repart.
+            cache.set(cle, 1, plafond.fenetre_s)
+            return plafond.maximum >= 1
+        if compte == 1:
+            # `add` a trouvé la clé, `incr` rend 1 : elle a expiré entre les
+            # deux et le serveur de cache vient de la recréer SANS durée de
+            # vie. Laissée ainsi, elle ne s'effacerait jamais : passé le
+            # maximum, l'adresse ou l'organisation serait refusée pour
+            # toujours — une cliente qui ne peut plus payer.
+            cache.touch(cle, plafond.fenetre_s)
+    except Exception:  # noqa: BLE001 — cache injoignable : voir `depasse`
+        _log.warning(
+            "Cache injoignable : le plafond %r n'est pas applique.", plafond.nom
+        )
+        return True
+    return compte <= plafond.maximum
+
+
 def oublier(plafond: Plafond, identifiant: str) -> None:
     """Efface le compteur — à appeler après un succès.
 
