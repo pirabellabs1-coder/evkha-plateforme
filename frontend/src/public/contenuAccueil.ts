@@ -94,6 +94,8 @@ export const IMAGES_ACCUEIL = {
   logoInitiativeFrance: `${DOSSIER}/logo-initiative-france.webp`,
   logoSwapn: `${DOSSIER}/logo-swapn.webp`,
   logoYyyours: `${DOSSIER}/logo-yyyours.webp`,
+  logoOrichi: `${DOSSIER}/logo-orichi.webp`,
+  logoAltheaProvence: `${DOSSIER}/logo-althea-provence.webp`,
   formations: `${DOSSIER}/formations.webp`,
 };
 
@@ -184,8 +186,19 @@ export const CONFIANCE: { titre: string; logos: Reference[] } = {
       nom: "Yyyours",
       image: { src: IMAGES_ACCUEIL.logoYyyours, largeur: 208, hauteur: 226 },
     },
-    { nom: "Orichi formation", site: "https://www.orichiconseil.fr/" },
-    { nom: "Althea Provence", site: "https://www.altheaprovence.com/" },
+    // Les deux logos ont été fournis par le client le 20/11/2026, après la
+    // mise en ligne des noms seuls. Une référence SANS `image` reste permise :
+    // elle s'affiche par son nom (voir `Accueil.tsx`).
+    {
+      nom: "Orichi formation",
+      site: "https://www.orichiconseil.fr/",
+      image: { src: IMAGES_ACCUEIL.logoOrichi, largeur: 386, hauteur: 306 },
+    },
+    {
+      nom: "Althea Provence",
+      site: "https://www.altheaprovence.com/",
+      image: { src: IMAGES_ACCUEIL.logoAltheaProvence, largeur: 160, hauteur: 136 },
+    },
   ],
 };
 

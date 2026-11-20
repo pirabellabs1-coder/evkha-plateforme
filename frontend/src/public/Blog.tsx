@@ -405,7 +405,18 @@ function PageDArticle({ article }: { article: Article }) {
             celui du site. Un second `<header>` se lit comme un second repère
             « bannière » dans les outils qui ne regardent pas son parent. */}
         <div className="res-ouverture res-ouverture-courte">
-          <div className="acc-w res-lecture-largeur">
+          {/* Avec une photo, l'en-tête se met sur deux colonnes : le titre à
+              gauche, la photo à droite. Posée SOUS le titre, une photo
+              verticale laissait vide toute la moitié droite de l'écran
+              (retour du client, 20/11/2026). */}
+          <div
+            className={
+              article.image
+                ? "acc-w res-lecture-largeur res-ouverture-illustree"
+                : "acc-w res-lecture-largeur"
+            }
+          >
+            <div className="res-ouverture-texte">
             <nav className="res-fil acc-entre" aria-label={PAGE_ARTICLE.filDAriane}>
               <ol>
                 <li>
@@ -433,6 +444,7 @@ function PageDArticle({ article }: { article: Article }) {
                 </li>
               )}
             </ul>
+            </div>
             {/* La photo de l'article. Haut de page : pas de chargement
                 différé. Une photo verticale garde un cadre vertical, plus
                 étroit, plutôt que d'être rognée en bandeau. */}

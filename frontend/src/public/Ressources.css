@@ -980,6 +980,30 @@
   aspect-ratio: 4 / 5;
 }
 
+/* Sur grand écran, l'en-tête d'un article illustré tient sur deux colonnes :
+   le titre à gauche, la photo à droite, centrés l'un sur l'autre. La photo
+   occupait seule une ligne entière, calée à gauche : une photo verticale
+   laissait les deux tiers de l'écran vides. En dessous de 900 px, tout
+   s'empile comme avant. */
+@media (min-width: 900px) {
+  .res-ouverture-illustree {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+    column-gap: clamp(32px, 5vw, 72px);
+    align-items: center;
+  }
+
+  .res-ouverture-illustree:has(.res-photo-verticale) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
+  }
+
+  .res-ouverture-illustree .res-photo {
+    width: 100%;
+    max-width: none;
+    margin-top: 0;
+  }
+}
+
 .res-lecture-grille {
   display: grid;
   grid-template-columns: minmax(0, 250px) minmax(0, 1fr);

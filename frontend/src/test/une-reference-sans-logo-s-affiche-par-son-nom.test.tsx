@@ -35,8 +35,19 @@ import { server } from "./server";
 
 const PUBLIC = join(process.cwd(), "public");
 
-const SANS_LOGO = ["Orichi formation", "Althea Provence"];
-const AVEC_LOGO = ["LegalPlace", "Réseau Initiative France", "Swapn", "Yyyours"];
+/** Une référence d'essai, SANS logo. Les six références du site ont le leur
+ *  depuis que le client a fourni ceux d'Orichi et d'Althea (20/11/2026) : la
+ *  règle « sans image, le nom » n'aurait plus rien à juger sans elle. Elle
+ *  est ajoutée à la liste le temps de chaque test, puis retirée. */
+const SANS_LOGO = ["Référence d'essai sans logo"];
+const AVEC_LOGO = [
+  "LegalPlace",
+  "Réseau Initiative France",
+  "Swapn",
+  "Yyyours",
+  "Orichi formation",
+  "Althea Provence",
+];
 
 /** Les catalogues ne répondent pas : ce test ne juge pas les prix. */
 beforeEach(() => {
@@ -48,7 +59,14 @@ beforeEach(() => {
   );
 });
 
-afterEach(() => cleanup());
+beforeEach(() => {
+  CONFIANCE.logos.push({ nom: SANS_LOGO[0] });
+});
+
+afterEach(() => {
+  cleanup();
+  CONFIANCE.logos.pop();
+});
 
 function bande(): HTMLElement {
   return screen.getByRole("region", { name: CONFIANCE.titre });
@@ -59,22 +77,22 @@ function cases(): HTMLLIElement[] {
 }
 
 describe("ils me font confiance", () => {
-  it("(a) six références : quatre logos, puis deux noms sans image", () => {
+  it("(a) six références du site, toutes avec leur logo, et leur fichier", () => {
     expect(CONFIANCE.logos.map((logo) => logo.nom)).toEqual([...AVEC_LOGO, ...SANS_LOGO]);
     for (const logo of CONFIANCE.logos) {
       expect(logo.image === undefined, logo.nom).toBe(SANS_LOGO.includes(logo.nom));
     }
-    // Aucun logo n'a été fabriqué ni rapatrié pour elles.
     const fichiers = readdirSync(join(PUBLIC, "accueil")).join(" ").toLowerCase();
-    expect(fichiers).toContain("logo-legalplace");
-    expect(fichiers).not.toMatch(/orichi|althea/);
+    for (const fichier of ["logo-legalplace", "logo-orichi", "logo-althea-provence"]) {
+      expect(fichiers).toContain(fichier);
+    }
   });
 
   it("(b) une référence sans logo s'affiche par son nom, en texte, sans image", () => {
     render(<Accueil />);
 
     const premiere = cases().slice(0, CONFIANCE.logos.length);
-    expect(premiere).toHaveLength(6);
+    expect(premiere).toHaveLength(7);
     for (const nom of SANS_LOGO) {
       const laCase = premiere.find((li) => li.textContent === nom);
       expect(laCase, nom).toBeDefined();
@@ -100,7 +118,7 @@ describe("ils me font confiance", () => {
     expect(lues).toHaveLength(CONFIANCE.logos.length);
     expect(copies).toHaveLength(2 * CONFIANCE.logos.length);
 
-    // Ce qu'un lecteur d'écran entend : les six noms, dans l'ordre, une fois.
+    // Ce qu'un lecteur d'écran entend : chaque nom, dans l'ordre, une fois.
     const entendus = lues.map((li) => li.querySelector("img")?.getAttribute("alt") ?? li.textContent);
     expect(entendus).toEqual([...AVEC_LOGO, ...SANS_LOGO]);
     // Les logos lus sont exposés comme des images nommées.
@@ -129,7 +147,7 @@ describe("ils me font confiance", () => {
       expect(image).toHaveAttribute("height", String(logo.image.hauteur));
       expect(existsSync(join(PUBLIC, ...logo.image.src.split("/").filter(Boolean))), logo.image.src).toBe(true);
     }
-    // Règle 1 : la boucle a bien eu quatre logos à juger.
-    expect(CONFIANCE.logos.filter((logo) => logo.image)).toHaveLength(4);
+    // Règle 1 : la boucle a bien eu six logos à juger.
+    expect(CONFIANCE.logos.filter((logo) => logo.image)).toHaveLength(6);
   });
 });
