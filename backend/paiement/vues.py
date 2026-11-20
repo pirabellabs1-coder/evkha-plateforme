@@ -125,6 +125,10 @@ def charge_a_conserver(evenement: dict[str, Any]) -> dict[str, Any]:
         for cle in _CLES_DE_L_EVENEMENT
         if cle in evenement and _est_simple(evenement[cle])
     }
+    # La marque de ce qui est passé par ici : `dashboard/system/` compte les
+    # lignes qui ne la portent pas, c'est-à-dire celles qui gardent encore un
+    # événement entier.
+    gardee["expurge"] = True
     objet = (evenement.get("data") or {}).get("object")
     if not isinstance(objet, dict):
         return gardee
