@@ -37,6 +37,7 @@ import {
   PAGES_DU_PLAN,
   RUBRIQUES,
 } from "../public/planDuSite";
+import { MARQUE_AJOUTEE, MARQUE_CHANGEE, rendreLEnTeteAuGabarit } from "../enTetePrerendu";
 import { creerRouteur } from "../router";
 
 const FRONT = join(__dirname, "..", "..");
@@ -148,6 +149,41 @@ describe("(d) la chaîne qui sert les pages pré-rendues est entière", () => {
     for (const fichier of ["sitemap.xml", "robots.txt", "llms.txt"]) {
       expect(script).toContain(`"${fichier}"`);
     }
+  });
+
+  it("l'en-tête écrit par le pré-rendu est marqué, et l'application le défait avant de monter", () => {
+    const script = lire("scripts/prerendre.mjs");
+    // Les mêmes noms des deux côtés : le script n'est pas du TypeScript.
+    expect(script).toContain(`const MARQUE_AJOUTEE = "${MARQUE_AJOUTEE}";`);
+    expect(script).toContain(`const MARQUE_CHANGEE = "${MARQUE_CHANGEE}";`);
+    expect(lire("src/main.tsx")).toMatch(
+      /rendreLEnTeteAuGabarit\(document\);\s*createRoot\(racine\)\.render\(application\);/,
+    );
+
+    // Ce que le pré-rendu écrit pour une page, tel que le navigateur le reçoit.
+    document.head.innerHTML = [
+      `<title ${MARQUE_CHANGEE}="EVKHA — Espace client">Une page — EVKHA</title>`,
+      `<meta name="description" content="La page." ${MARQUE_CHANGEE}="L'espace client.">`,
+      '<meta name="theme-color" content="#0b0b0b">',
+      `<link rel="canonical" href="https://evkha.fr/une-page" ${MARQUE_AJOUTEE}="">`,
+      `<script type="application/ld+json" ${MARQUE_AJOUTEE}="">{"@type":"FAQPage"}</script>`,
+      '<link rel="stylesheet" href="/assets/page.css">',
+    ].join("");
+
+    rendreLEnTeteAuGabarit(document);
+
+    expect(document.title).toBe("EVKHA — Espace client");
+    expect(document.head.querySelector('meta[name="description"]')?.getAttribute("content")).toBe(
+      "L'espace client.",
+    );
+    expect(document.head.querySelector('link[rel="canonical"]')).toBeNull();
+    expect(document.head.querySelector('script[type="application/ld+json"]')).toBeNull();
+    // Contre-épreuve : ce qui n'est pas marqué reste — la feuille de style
+    // de la page, et les balises du gabarit que la page n'a pas touchées.
+    expect(document.head.querySelector('link[rel="stylesheet"]')).not.toBeNull();
+    expect(document.head.querySelector('meta[name="theme-color"]')).not.toBeNull();
+    expect(document.head.querySelector(`[${MARQUE_AJOUTEE}], [${MARQUE_CHANGEE}]`)).toBeNull();
+    document.head.innerHTML = "";
   });
 
   it("le gabarit porte toujours la preuve de propriété de la Search Console", () => {

@@ -123,6 +123,11 @@ function fichiersDuModule(source) {
 
 // ── Rendre une page ─────────────────────────────────────────────────────────
 
+/** Les marques posées sur l'en-tête écrit. Les MÊMES noms que dans
+ *  `src/enTetePrerendu.ts` — un test les tient d'accord. */
+const MARQUE_AJOUTEE = "data-prerendu";
+const MARQUE_CHANGEE = "data-origine";
+
 const pause = (ms) => new Promise((resoudre) => setTimeout(resoudre, ms));
 
 const TITRE_DE_LA_COQUILLE = fenetre.document.title;
@@ -137,6 +142,13 @@ async function rendre(page) {
   const { document } = fenetre;
   const adresse = `${ORIGINE_DU_SITE}${page.chemin}`;
   dom.reconfigure({ url: adresse });
+
+  // L'en-tête du gabarit, avant que la page n'y écrive : de quoi marquer
+  // ensuite ce qu'elle a ajouté et ce qu'elle a changé (voir
+  // `src/enTetePrerendu.ts`, qui défait ces marques dans le navigateur).
+  const valeurDe = (balise) =>
+    balise.tagName === "TITLE" ? balise.textContent : balise.getAttribute("content");
+  const gabarit = new Map(Array.from(document.head.children, (balise) => [balise, valeurDe(balise)]));
 
   const conteneur = document.getElementById("root");
   const demonter = monter(conteneur);
@@ -174,8 +186,20 @@ async function rendre(page) {
     }
   }
 
+  // Ce que la page a ajouté à l'en-tête, et ce qu'elle y a changé.
+  const changees = [];
+  for (const balise of document.head.children) {
+    if (!gabarit.has(balise)) {
+      balise.setAttribute(MARQUE_AJOUTEE, "");
+    } else if (gabarit.get(balise) !== valeurDe(balise)) {
+      balise.setAttribute(MARQUE_CHANGEE, gabarit.get(balise) ?? "");
+      changees.push(balise);
+    }
+  }
+
   // La feuille de style et le script du morceau de la page, liés dans le
-  // HTML écrit — puis retirés, pour ne pas suivre la page suivante.
+  // HTML écrit — puis retirés, pour ne pas suivre la page suivante. Posés
+  // APRÈS le marquage : ils ne sont pas marqués, le navigateur les garde.
   const ajouts = [];
   if (page.module !== null) {
     const { script, css } = fichiersDuModule(page.module);
@@ -204,6 +228,7 @@ async function rendre(page) {
 
   conteneur.removeAttribute("data-prerendu");
   for (const ajout of ajouts) ajout.remove();
+  for (const balise of changees) balise.removeAttribute(MARQUE_CHANGEE);
   demonter();
   // Le démontage est asynchrone dans React : la page suivante ne doit pas
   // hériter des balises que celle-ci retire en partant.

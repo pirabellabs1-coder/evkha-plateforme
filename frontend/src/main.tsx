@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
+import { rendreLEnTeteAuGabarit } from "./enTetePrerendu";
 import { router } from "./router";
 import "./theme/tokens.css";
 import "./theme/espace.css";
@@ -41,8 +42,15 @@ const application = (
 //
 // Partout ailleurs (espace client, administration, fiches de la boutique), la
 // racine est vide et rien ne change.
+//
+// Juste avant de monter, l'en-tête écrit par le pré-rendu est rendu à l'état
+// du gabarit (`enTetePrerendu.ts`) : la page y repose aussitôt les siens, et
+// rien n'y figure deux fois.
 if (racine.hasAttribute("data-prerendu")) {
-  void router.load().finally(() => createRoot(racine).render(application));
+  void router.load().finally(() => {
+    rendreLEnTeteAuGabarit(document);
+    createRoot(racine).render(application);
+  });
 } else {
   createRoot(racine).render(application);
 }
