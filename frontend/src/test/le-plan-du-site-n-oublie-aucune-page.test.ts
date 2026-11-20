@@ -139,7 +139,8 @@ describe("(d) la chaîne qui sert les pages pré-rendues est entière", () => {
 
     // `/etudes` → `etudes.html` : écrit par le script, servi par `$uri.html`.
     expect(script).toContain("`${chemin.slice(1)}.html`");
-    expect(nginx).toMatch(/location \/ \{\s*try_files \$uri \$uri\.html \/index\.html;/);
+    // Dernier recours : 404 — voir `le-serveur-connait-chaque-route`.
+    expect(nginx).toMatch(/location \/ \{[^}]*try_files \$uri \$uri\.html =404;/);
     // L'accueil a son fichier : `index.html` reste la coquille de l'application.
     expect(script).toContain('"accueil.html"');
     expect(nginx).toMatch(/location = \/ \{\s*try_files \/accueil\.html \/index\.html;/);

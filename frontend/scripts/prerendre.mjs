@@ -305,6 +305,9 @@ writeFileSync(
     ...INTERDIT_AUX_ROBOTS.map((prefixe) => `Disallow: ${prefixe}`),
     "",
     `Sitemap: ${ORIGINE_DU_SITE}/sitemap.xml`,
+    // Les fiches de la boutique : leur plan est écrit par le serveur, à la
+    // demande (`nginx.conf`, `organisations.pages_boutique.plan`).
+    `Sitemap: ${ORIGINE_DU_SITE}/sitemap-boutique.xml`,
     "",
   ].join("\n"),
   "utf-8",

@@ -657,6 +657,13 @@ EVKHA_BASE_URL = env("EVKHA_BASE_URL", default="http://localhost:8000")
 # marche (regle 1).
 EVKHA_APP_URL = env("EVKHA_APP_URL", default="")
 
+# L'adresse INTERNE du conteneur du front, sur le reseau Docker : c'est la que
+# `organisations.pages_boutique` lit la coquille de l'application pour ecrire
+# la fiche d'une etude a l'intention des robots. `dashboard` est le nom du
+# service dans `docker-compose.prod.yml` — un test les tient d'accord. Vide :
+# la fiche n'est pas ecrite, nginx sert la coquille seule, comme avant.
+EVKHA_FRONT_INTERNE = env("EVKHA_FRONT_INTERNE", default="http://dashboard")
+
 # Dashboard auth (Phase 6).
 # EVKHA_DASHBOARD_AUTH_DISABLED=true en dev/CI (defaut).
 # En production : EVKHA_DASHBOARD_AUTH_DISABLED=false

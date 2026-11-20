@@ -196,18 +196,10 @@ def catalogue(request: HttpRequest) -> HttpResponse:
     })
 
 
-@require_GET
-def fiche(request: HttpRequest, slug: str) -> HttpResponse:
-    """Une fiche produit, et les etudes proches.
-
-    Les etudes proches se calculent par THEME. Demander a la cliente de relier
-    les produits a la main serait un travail a refaire a chaque ajout au
-    catalogue — et le premier oublie ferait une fiche sans suggestion.
-    """
-    produit = _en_ligne().filter(slug=slug).first()
-    if produit is None:
-        return _refus("Cette étude n'est pas disponible.", "produit_inconnu", 404)
-
+def etudes_proches(produit: ProduitBoutique) -> list[ProduitBoutique]:
+    """Les etudes proposees en bas d'une fiche — lues par la fiche de l'API
+    ET par la page ecrite pour les robots (`pages_boutique`), qui ne doivent
+    pas en proposer de differentes (regle 5)."""
     proches = _en_ligne().exclude(pk=produit.pk)
     if produit.theme:
         memes = list(proches.filter(theme=produit.theme)[:PRODUITS_PROCHES])
@@ -222,10 +214,24 @@ def fiche(request: HttpRequest, slug: str) -> HttpResponse:
                 memes.append(autre)
             if len(memes) >= PRODUITS_PROCHES:
                 break
+    return memes[:PRODUITS_PROCHES]
+
+
+@require_GET
+def fiche(request: HttpRequest, slug: str) -> HttpResponse:
+    """Une fiche produit, et les etudes proches.
+
+    Les etudes proches se calculent par THEME. Demander a la cliente de relier
+    les produits a la main serait un travail a refaire a chaque ajout au
+    catalogue — et le premier oublie ferait une fiche sans suggestion.
+    """
+    produit = _en_ligne().filter(slug=slug).first()
+    if produit is None:
+        return _refus("Cette étude n'est pas disponible.", "produit_inconnu", 404)
 
     return JsonResponse({
         "produit": _fiche(produit),
-        "proches": [_resume(p) for p in memes[:PRODUITS_PROCHES]],
+        "proches": [_resume(p) for p in etudes_proches(produit)],
     })
 
 

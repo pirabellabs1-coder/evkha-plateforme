@@ -899,6 +899,15 @@ html:has(.acc) {
   translate: none;
 }
 
+/* Une page ÉCRITE par le pré-rendu est déjà à l'écran quand l'application
+   monte (`main.tsx` pose `page-ecrite` sur `<html>`). Ses blocs ne repassent
+   pas par l'état effacé : ils disparaîtraient puis reviendraient en fondu
+   devant le visiteur. La classe tombe à la page suivante. */
+.page-ecrite .acc [data-reveal] {
+  opacity: 1;
+  translate: none;
+}
+
 /* ── Tarifs : un prix, ou la phrase qui dit pourquoi il manque ───────────── */
 
 .acc-panne {

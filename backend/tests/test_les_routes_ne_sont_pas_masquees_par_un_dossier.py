@@ -42,19 +42,41 @@ NGINX = RACINE / "frontend" / "nginx.conf"
 PUBLIC = RACINE / "frontend" / "public"
 
 
+def _directives() -> list[str]:
+    """Toutes les directives `try_files`, commentaires ecartes.
+
+    Il y en a plusieurs depuis le 20/11/2026 (le bloc general, l'accueil, les
+    ecrans de l'application, les fichiers de Vite) : aucune ne doit essayer
+    un repertoire. N'en lire qu'une laissait les autres sans controle.
+    """
+    contenu = "\n".join(
+        ligne.split("#", 1)[0] for ligne in NGINX.read_text(encoding="utf-8").splitlines()
+    )
+    trouvees = [" ".join(m.split()) for m in re.findall(r"try_files([^;]*);", contenu)]
+    assert trouvees, "aucune directive try_files dans nginx.conf"
+    return trouvees
+
+
 def _try_files() -> str:
-    contenu = NGINX.read_text(encoding="utf-8")
-    trouve = re.search(r"try_files([^;]*);", contenu)
-    assert trouve is not None, "aucune directive try_files dans nginx.conf"
+    """Celle du bloc general, `location /` : la premiere du fichier."""
+    contenu = "\n".join(
+        ligne.split("#", 1)[0] for ligne in NGINX.read_text(encoding="utf-8").splitlines()
+    )
+    trouve = re.search(r"location / \{[^}]*?try_files([^;]*);", contenu)
+    assert trouve is not None, "le bloc general n'a pas de directive try_files"
     return " ".join(trouve.group(1).split())
 
 
 def test_le_repli_spa_n_essaie_pas_les_repertoires() -> None:
     """`$uri/` fait repondre 403 des qu'un dossier porte le nom d'une route."""
-    directive = _try_files()
+    for directive in _directives():
+        assert not re.search(r"\$uri/(\s|$)", directive), directive
 
-    assert "$uri/" not in directive, directive
-    assert "$uri" in directive and "/index.html" in directive, directive
+    # Le bloc general essaie le fichier, puis la page pre-rendue, puis rend
+    # 404 — que `error_page` sert avec la coquille de l'application.
+    assert _try_files().split() == ["$uri", "$uri.html", "=404"]
+    contenu = NGINX.read_text(encoding="utf-8")
+    assert re.search(r"^\s*error_page 404 /index\.html;", contenu, re.M)
 
 
 def test_les_fichiers_statiques_restent_servis() -> None:
@@ -79,4 +101,4 @@ def test_un_dossier_statique_porte_le_nom_d_une_route_et_c_est_permis(
     echoue — celui-ci documente pourquoi.
     """
     assert (PUBLIC / dossier).is_dir()
-    assert "$uri/" not in _try_files()
+    assert all("$uri/ " not in f"{d} " for d in _directives())

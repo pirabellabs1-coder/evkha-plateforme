@@ -438,7 +438,11 @@ def _adresse_de_la_console() -> str:
     from django.conf import settings  # noqa: PLC0415
 
     base = str(getattr(settings, "EVKHA_APP_URL", "") or "").rstrip("/")
-    return f"{base}/signalements" if base else "https://app2.evkha.fr/signalements"
+    # `/admin/signalements` : la seule route qui existe. `/signalements` tout
+    # court n'en a jamais ete une — le lien menait a la page « introuvable »,
+    # et repond 404 depuis que nginx connait les routes (20/11/2026).
+    chemin = "/admin/signalements"
+    return f"{base}{chemin}" if base else f"https://app2.evkha.fr{chemin}"
 
 
 def _gabarit_simple(

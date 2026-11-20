@@ -20,6 +20,10 @@ const queryClient = new QueryClient({
 
 const racine = document.getElementById("root")!;
 
+/** Posée sur `<html>` tant que la page affichée est celle que le pré-rendu a
+ *  écrite. `Site.css` y lit de ne pas rejouer la révélation des blocs. */
+const CLASSE_PAGE_ECRITE = "page-ecrite";
+
 const application = (
   <StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -58,10 +62,30 @@ if (racine.hasAttribute("data-prerendu")) {
     monte = true;
     rendreLEnTeteAuGabarit(document);
     racine.removeAttribute("data-prerendu");
+    // Les blocs de la page écrite sont déjà à l'écran. L'application les
+    // recrée « à révéler » : sans cette classe, chacun s'effacerait puis
+    // reviendrait en fondu sous les yeux du visiteur (`Site.css`). Elle tombe
+    // à la première page suivante, qui se révèle comme d'habitude.
+    document.documentElement.classList.add(CLASSE_PAGE_ECRITE);
+    // L'adresse d'arrivée est comparée ici, et non lue dans `pathChanged` :
+    // le premier chargement du routeur s'annonce lui aussi comme un
+    // changement d'adresse, et la classe tombait avant d'avoir servi (vu dans
+    // le navigateur, sur l'image construite).
+    const arrivee = window.location.pathname;
+    const finDEcoute = router.subscribe("onBeforeNavigate", (evenement) => {
+      if (evenement.toLocation.pathname === arrivee) return;
+      document.documentElement.classList.remove(CLASSE_PAGE_ECRITE);
+      finDEcoute();
+    });
     createRoot(racine).render(application);
   };
   window.setTimeout(monter, ATTENTE_MAX_MS);
   void router.load().finally(monter);
 } else {
+  // Une fiche de la boutique arrive avec un en-tête écrit par le SERVEUR
+  // (`organisations.pages_boutique`), marqué comme celui du pré-rendu, et une
+  // racine vide : on le rend au gabarit, puis on monte tout de suite. Sur une
+  // page sans marque, cet appel ne change rien.
+  rendreLEnTeteAuGabarit(document);
   createRoot(racine).render(application);
 }

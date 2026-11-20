@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from . import vues_boutique, vues_formations
+from . import pages_boutique, vues_boutique, vues_formations
 from . import vues_publiques as vues
 
 app_name = "public"
@@ -20,7 +20,14 @@ urlpatterns = [
     path("boutique/", vues_boutique.catalogue, name="boutique"),
     path("boutique/acheter/", vues_boutique.acheter, name="boutique-acheter"),
     path("boutique/retour/", vues_boutique.retour, name="boutique-retour"),
+    # Le plan du site des fiches en vente, servi par nginx a
+    # `/sitemap-boutique.xml`. Le point du nom le tient hors de portee de la
+    # route d'une fiche : un slug n'en porte pas.
+    path("boutique/plan.xml", pages_boutique.plan, name="boutique-plan"),
     path("boutique/<slug:slug>/", vues_boutique.fiche, name="boutique-fiche"),
+    # La fiche en HTML complet, pour qui n'execute pas de JavaScript : nginx
+    # lui confie `/boutique/<slug>` (voir `pages_boutique`).
+    path("boutique/<slug:slug>/page/", pages_boutique.page, name="boutique-page"),
     # L'apercu : les premieres pages du document vendu, decoupees a la demande.
     # Public et sans signature — c'est un support de vente, comme la couverture.
     path(

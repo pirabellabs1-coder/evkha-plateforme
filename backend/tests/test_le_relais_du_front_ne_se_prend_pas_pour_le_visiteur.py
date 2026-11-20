@@ -44,7 +44,11 @@ def _directive() -> str:
         for ligne in lignes
         if (m := re.match(r"proxy_set_header\s+X-Forwarded-For\s+(.+?);$", ligne))
     ]
-    assert len(trouvees) == 1, f"une directive X-Forwarded-For attendue, {len(trouvees)} lues"
+    # Plusieurs blocs relaient vers Django depuis le 20/11/2026 (`/api/`, les
+    # fiches de la boutique) : chacun doit ecrire la MEME valeur. Deux valeurs
+    # differentes, et un des chemins se prendrait pour le visiteur.
+    assert trouvees, "aucune directive X-Forwarded-For dans nginx.conf"
+    assert len(set(trouvees)) == 1, f"des directives X-Forwarded-For divergentes : {trouvees}"
     return trouvees[0]
 
 

@@ -434,3 +434,54 @@ curl -s https://evkha.fr/sitemap.xml | grep -c "<loc>"
   redirigées par le navigateur, pas par le serveur : un robot sans JavaScript
   y reçoit la page vide. Des redirections 301 dans `nginx.conf` seraient
   mieux ; non fait ici.
+
+## 11. Second lot (20/11/2026) : fiches de la boutique, vraies 404, renvois permanents
+
+Ce lot traite les points 1 et 3 de la section 7.1 et la dernière remarque de
+la section 10. Les sections plus haut décrivent l'état d'avant.
+
+### 11.1 Les fiches de la boutique
+
+- nginx confie `/boutique/<étude>` à Django
+  (`backend/organisations/pages_boutique.py`). La page rendue est la coquille
+  de l'application, avec dans l'en-tête le titre de l'étude, sa description,
+  son adresse canonique et son bloc `Product`, et dans un `<noscript>` le
+  texte de la fiche : prix, description, sommaire, avis, études proches.
+- Une étude qui n'est pas en vente répond **404**.
+- Le visiteur ne voit aucun changement : l'application affiche la fiche comme
+  avant.
+- Si Django ne répond pas, nginx sert la coquille seule, en 200.
+- `/sitemap-boutique.xml` liste les fiches en vente, à la demande.
+  `robots.txt` le déclare à côté de `sitemap.xml`.
+
+**Limite.** Google exécute les scripts et lit la fiche montée par
+l'application ; il ne s'appuie pas sur `<noscript>`. Ce bloc sert les robots
+qui n'exécutent rien (moteurs de réponse, aperçus de partage). L'en-tête sert
+tout le monde.
+
+### 11.2 Les adresses inconnues
+
+- Le dernier recours de nginx est un **404**, servi avec la coquille : le
+  visiteur voit toujours la page « introuvable » du site.
+- Ce qui répond 200 est dit dans `nginx.conf`. Le test
+  `le-serveur-connait-chaque-route` rejoue chaque route du routeur contre ce
+  fichier.
+- `/etudes.html` et `/accueil.html` répondent 404 ; `/accueil` renvoie à `/` ;
+  une barre finale (`/etudes/`) renvoie à l'adresse sans barre.
+
+### 11.3 Les anciennes adresses
+
+Douze renvois permanents (301) dans `nginx.conf`, paramètres conservés. La
+liste est celle de `router.ANCIENNES_ADRESSES` ; un test tient les deux
+d'accord.
+
+### 11.4 À l'arrivée du JavaScript
+
+Les blocs d'une page pré-rendue ne refont plus leur fondu d'apparition
+(`main.tsx`, classe `page-ecrite`).
+
+### 11.5 Reste à faire
+
+- Les quatre cartes de la page des études (« Chargement du catalogue… »).
+- Une page « combien coûte… », qui attend une décision de la gérante.
+- Les textes alternatifs des images.
